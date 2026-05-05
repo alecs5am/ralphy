@@ -1,0 +1,914 @@
+import type { Caption } from "@remotion/captions";
+
+export const captions: Caption[] = [
+  {
+    "text": "The",
+    "startMs": 379,
+    "endMs": 539,
+    "timestampMs": 379,
+    "confidence": 1
+  },
+  {
+    "text": "economics",
+    "startMs": 740,
+    "endMs": 1159,
+    "timestampMs": 740,
+    "confidence": 1
+  },
+  {
+    "text": "of",
+    "startMs": 1220,
+    "endMs": 1319,
+    "timestampMs": 1220,
+    "confidence": 1
+  },
+  {
+    "text": "a",
+    "startMs": 1360,
+    "endMs": 1439,
+    "timestampMs": 1360,
+    "confidence": 1
+  },
+  {
+    "text": "venture",
+    "startMs": 1480,
+    "endMs": 1740,
+    "timestampMs": 1480,
+    "confidence": 1
+  },
+  {
+    "text": "fund",
+    "startMs": 1839,
+    "endMs": 2079,
+    "timestampMs": 1839,
+    "confidence": 1
+  },
+  {
+    "text": "are",
+    "startMs": 2240,
+    "endMs": 2559,
+    "timestampMs": 2240,
+    "confidence": 1
+  },
+  {
+    "text": "structured",
+    "startMs": 2639,
+    "endMs": 3179,
+    "timestampMs": 2639,
+    "confidence": 1
+  },
+  {
+    "text": "so",
+    "startMs": 3319,
+    "endMs": 3480,
+    "timestampMs": 3319,
+    "confidence": 1
+  },
+  {
+    "text": "that",
+    "startMs": 3539,
+    "endMs": 3720,
+    "timestampMs": 3539,
+    "confidence": 1
+  },
+  {
+    "text": "if",
+    "startMs": 3839,
+    "endMs": 3959,
+    "timestampMs": 3839,
+    "confidence": 1
+  },
+  {
+    "text": "you",
+    "startMs": 4019,
+    "endMs": 4099,
+    "timestampMs": 4019,
+    "confidence": 1
+  },
+  {
+    "text": "invest",
+    "startMs": 4139,
+    "endMs": 4480,
+    "timestampMs": 4139,
+    "confidence": 1
+  },
+  {
+    "text": "at",
+    "startMs": 4519,
+    "endMs": 4599,
+    "timestampMs": 4519,
+    "confidence": 1
+  },
+  {
+    "text": "an",
+    "startMs": 4639,
+    "endMs": 4719,
+    "timestampMs": 4639,
+    "confidence": 1
+  },
+  {
+    "text": "early",
+    "startMs": 4759,
+    "endMs": 4940,
+    "timestampMs": 4759,
+    "confidence": 1
+  },
+  {
+    "text": "stage",
+    "startMs": 5039,
+    "endMs": 5239,
+    "timestampMs": 5039,
+    "confidence": 1
+  },
+  {
+    "text": "and,",
+    "startMs": 5299,
+    "endMs": 5480,
+    "timestampMs": 5299,
+    "confidence": 1
+  },
+  {
+    "text": "uh,",
+    "startMs": 5719,
+    "endMs": 5719,
+    "timestampMs": 5719,
+    "confidence": 1
+  },
+  {
+    "text": "since",
+    "startMs": 5719,
+    "endMs": 5900,
+    "timestampMs": 5719,
+    "confidence": 1
+  },
+  {
+    "text": "someone",
+    "startMs": 5920,
+    "endMs": 6159,
+    "timestampMs": 5920,
+    "confidence": 1
+  },
+  {
+    "text": "only",
+    "startMs": 6219,
+    "endMs": 6379,
+    "timestampMs": 6219,
+    "confidence": 1
+  },
+  {
+    "text": "has",
+    "startMs": 6420,
+    "endMs": 6539,
+    "timestampMs": 6420,
+    "confidence": 1
+  },
+  {
+    "text": "an",
+    "startMs": 6579,
+    "endMs": 6639,
+    "timestampMs": 6579,
+    "confidence": 1
+  },
+  {
+    "text": "idea",
+    "startMs": 6699,
+    "endMs": 7000,
+    "timestampMs": 6699,
+    "confidence": 1
+  },
+  {
+    "text": "or",
+    "startMs": 7079,
+    "endMs": 7159,
+    "timestampMs": 7079,
+    "confidence": 1
+  },
+  {
+    "text": "an",
+    "startMs": 7219,
+    "endMs": 7299,
+    "timestampMs": 7219,
+    "confidence": 1
+  },
+  {
+    "text": "MVP,",
+    "startMs": 7399,
+    "endMs": 7799,
+    "timestampMs": 7399,
+    "confidence": 1
+  },
+  {
+    "text": "each",
+    "startMs": 7960,
+    "endMs": 8119,
+    "timestampMs": 7960,
+    "confidence": 1
+  },
+  {
+    "text": "project",
+    "startMs": 8179,
+    "endMs": 8439,
+    "timestampMs": 8179,
+    "confidence": 1
+  },
+  {
+    "text": "must",
+    "startMs": 8539,
+    "endMs": 8720,
+    "timestampMs": 8539,
+    "confidence": 1
+  },
+  {
+    "text": "have",
+    "startMs": 8779,
+    "endMs": 8940,
+    "timestampMs": 8779,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 8960,
+    "endMs": 9059,
+    "timestampMs": 8960,
+    "confidence": 1
+  },
+  {
+    "text": "potential",
+    "startMs": 9099,
+    "endMs": 9539,
+    "timestampMs": 9099,
+    "confidence": 1
+  },
+  {
+    "text": "to",
+    "startMs": 9579,
+    "endMs": 9639,
+    "timestampMs": 9579,
+    "confidence": 1
+  },
+  {
+    "text": "return",
+    "startMs": 9699,
+    "endMs": 10019,
+    "timestampMs": 9699,
+    "confidence": 1
+  },
+  {
+    "text": "a",
+    "startMs": 10099,
+    "endMs": 10119,
+    "timestampMs": 10099,
+    "confidence": 1
+  },
+  {
+    "text": "hundred",
+    "startMs": 10159,
+    "endMs": 10380,
+    "timestampMs": 10159,
+    "confidence": 1
+  },
+  {
+    "text": "to",
+    "startMs": 10500,
+    "endMs": 10579,
+    "timestampMs": 10500,
+    "confidence": 1
+  },
+  {
+    "text": "a",
+    "startMs": 10599,
+    "endMs": 10659,
+    "timestampMs": 10599,
+    "confidence": 1
+  },
+  {
+    "text": "thousand",
+    "startMs": 10699,
+    "endMs": 10960,
+    "timestampMs": 10699,
+    "confidence": 1
+  },
+  {
+    "text": "times",
+    "startMs": 11000,
+    "endMs": 11159,
+    "timestampMs": 11000,
+    "confidence": 1
+  },
+  {
+    "text": "its",
+    "startMs": 11219,
+    "endMs": 11359,
+    "timestampMs": 11219,
+    "confidence": 1
+  },
+  {
+    "text": "value.",
+    "startMs": 11420,
+    "endMs": 11679,
+    "timestampMs": 11420,
+    "confidence": 1
+  },
+  {
+    "text": "That",
+    "startMs": 11960,
+    "endMs": 12059,
+    "timestampMs": 11960,
+    "confidence": 1
+  },
+  {
+    "text": "is",
+    "startMs": 12119,
+    "endMs": 12179,
+    "timestampMs": 12119,
+    "confidence": 1
+  },
+  {
+    "text": "to",
+    "startMs": 12239,
+    "endMs": 12300,
+    "timestampMs": 12239,
+    "confidence": 1
+  },
+  {
+    "text": "say,",
+    "startMs": 12380,
+    "endMs": 12500,
+    "timestampMs": 12380,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 12619,
+    "endMs": 12699,
+    "timestampMs": 12619,
+    "confidence": 1
+  },
+  {
+    "text": "later",
+    "startMs": 12759,
+    "endMs": 13000,
+    "timestampMs": 12759,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 13039,
+    "endMs": 13139,
+    "timestampMs": 13039,
+    "confidence": 1
+  },
+  {
+    "text": "stage,",
+    "startMs": 13199,
+    "endMs": 13439,
+    "timestampMs": 13199,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 13599,
+    "endMs": 13719,
+    "timestampMs": 13599,
+    "confidence": 1
+  },
+  {
+    "text": "fewer",
+    "startMs": 13779,
+    "endMs": 14039,
+    "timestampMs": 13779,
+    "confidence": 1
+  },
+  {
+    "text": "multiples",
+    "startMs": 14099,
+    "endMs": 14559,
+    "timestampMs": 14099,
+    "confidence": 1
+  },
+  {
+    "text": "an",
+    "startMs": 14619,
+    "endMs": 14699,
+    "timestampMs": 14619,
+    "confidence": 1
+  },
+  {
+    "text": "investor",
+    "startMs": 14759,
+    "endMs": 15199,
+    "timestampMs": 14759,
+    "confidence": 1
+  },
+  {
+    "text": "expects",
+    "startMs": 15279,
+    "endMs": 15679,
+    "timestampMs": 15279,
+    "confidence": 1
+  },
+  {
+    "text": "as",
+    "startMs": 15739,
+    "endMs": 15840,
+    "timestampMs": 15739,
+    "confidence": 1
+  },
+  {
+    "text": "a",
+    "startMs": 15880,
+    "endMs": 15899,
+    "timestampMs": 15880,
+    "confidence": 1
+  },
+  {
+    "text": "return.",
+    "startMs": 15960,
+    "endMs": 16299,
+    "timestampMs": 15960,
+    "confidence": 1
+  },
+  {
+    "text": "Huh.",
+    "startMs": 16600,
+    "endMs": 16699,
+    "timestampMs": 16600,
+    "confidence": 1
+  },
+  {
+    "text": "So,",
+    "startMs": 17239,
+    "endMs": 17479,
+    "timestampMs": 17239,
+    "confidence": 1
+  },
+  {
+    "text": "uh,",
+    "startMs": 17940,
+    "endMs": 18000,
+    "timestampMs": 17940,
+    "confidence": 1
+  },
+  {
+    "text": "let's",
+    "startMs": 18079,
+    "endMs": 18239,
+    "timestampMs": 18079,
+    "confidence": 1
+  },
+  {
+    "text": "say,",
+    "startMs": 18279,
+    "endMs": 18599,
+    "timestampMs": 18279,
+    "confidence": 1
+  },
+  {
+    "text": "uh,",
+    "startMs": 18779,
+    "endMs": 18799,
+    "timestampMs": 18779,
+    "confidence": 1
+  },
+  {
+    "text": "right",
+    "startMs": 19260,
+    "endMs": 19420,
+    "timestampMs": 19260,
+    "confidence": 1
+  },
+  {
+    "text": "now,",
+    "startMs": 19479,
+    "endMs": 19559,
+    "timestampMs": 19479,
+    "confidence": 1
+  },
+  {
+    "text": "for",
+    "startMs": 19639,
+    "endMs": 19699,
+    "timestampMs": 19639,
+    "confidence": 1
+  },
+  {
+    "text": "instance,",
+    "startMs": 19760,
+    "endMs": 20119,
+    "timestampMs": 19760,
+    "confidence": 1
+  },
+  {
+    "text": "uh,",
+    "startMs": 20340,
+    "endMs": 21020,
+    "timestampMs": 20340,
+    "confidence": 1
+  },
+  {
+    "text": "a",
+    "startMs": 21079,
+    "endMs": 21119,
+    "timestampMs": 21079,
+    "confidence": 1
+  },
+  {
+    "text": "company",
+    "startMs": 21180,
+    "endMs": 21540,
+    "timestampMs": 21180,
+    "confidence": 1
+  },
+  {
+    "text": "perhaps",
+    "startMs": 21639,
+    "endMs": 21840,
+    "timestampMs": 21639,
+    "confidence": 1
+  },
+  {
+    "text": "like",
+    "startMs": 21879,
+    "endMs": 21959,
+    "timestampMs": 21879,
+    "confidence": 1
+  },
+  {
+    "text": "SpaceX,",
+    "startMs": 22020,
+    "endMs": 22579,
+    "timestampMs": 22020,
+    "confidence": 1
+  },
+  {
+    "text": "uh,",
+    "startMs": 22819,
+    "endMs": 23219,
+    "timestampMs": 22819,
+    "confidence": 1
+  },
+  {
+    "text": "has",
+    "startMs": 23279,
+    "endMs": 23440,
+    "timestampMs": 23279,
+    "confidence": 1
+  },
+  {
+    "text": "shares",
+    "startMs": 23659,
+    "endMs": 23920,
+    "timestampMs": 23659,
+    "confidence": 1
+  },
+  {
+    "text": "being",
+    "startMs": 23979,
+    "endMs": 24120,
+    "timestampMs": 23979,
+    "confidence": 1
+  },
+  {
+    "text": "traded",
+    "startMs": 24199,
+    "endMs": 24520,
+    "timestampMs": 24199,
+    "confidence": 1
+  },
+  {
+    "text": "on",
+    "startMs": 24520,
+    "endMs": 24639,
+    "timestampMs": 24520,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 24659,
+    "endMs": 24719,
+    "timestampMs": 24659,
+    "confidence": 1
+  },
+  {
+    "text": "private",
+    "startMs": 24779,
+    "endMs": 25059,
+    "timestampMs": 24779,
+    "confidence": 1
+  },
+  {
+    "text": "market,",
+    "startMs": 25119,
+    "endMs": 25420,
+    "timestampMs": 25119,
+    "confidence": 1
+  },
+  {
+    "text": "meaning,",
+    "startMs": 25519,
+    "endMs": 25959,
+    "timestampMs": 25519,
+    "confidence": 1
+  },
+  {
+    "text": "uh,",
+    "startMs": 26059,
+    "endMs": 26519,
+    "timestampMs": 26059,
+    "confidence": 1
+  },
+  {
+    "text": "investors",
+    "startMs": 26599,
+    "endMs": 27100,
+    "timestampMs": 26599,
+    "confidence": 1
+  },
+  {
+    "text": "are",
+    "startMs": 27139,
+    "endMs": 27239,
+    "timestampMs": 27139,
+    "confidence": 1
+  },
+  {
+    "text": "looking",
+    "startMs": 27260,
+    "endMs": 27520,
+    "timestampMs": 27260,
+    "confidence": 1
+  },
+  {
+    "text": "to",
+    "startMs": 27520,
+    "endMs": 27619,
+    "timestampMs": 27520,
+    "confidence": 1
+  },
+  {
+    "text": "buy",
+    "startMs": 27659,
+    "endMs": 27779,
+    "timestampMs": 27659,
+    "confidence": 1
+  },
+  {
+    "text": "and",
+    "startMs": 27819,
+    "endMs": 27959,
+    "timestampMs": 27819,
+    "confidence": 1
+  },
+  {
+    "text": "sell",
+    "startMs": 28019,
+    "endMs": 28239,
+    "timestampMs": 28019,
+    "confidence": 1
+  },
+  {
+    "text": "these",
+    "startMs": 28299,
+    "endMs": 28479,
+    "timestampMs": 28299,
+    "confidence": 1
+  },
+  {
+    "text": "shares,",
+    "startMs": 28519,
+    "endMs": 28840,
+    "timestampMs": 28519,
+    "confidence": 1
+  },
+  {
+    "text": "and",
+    "startMs": 29319,
+    "endMs": 29539,
+    "timestampMs": 29319,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 29559,
+    "endMs": 29619,
+    "timestampMs": 29559,
+    "confidence": 1
+  },
+  {
+    "text": "return",
+    "startMs": 29659,
+    "endMs": 29920,
+    "timestampMs": 29659,
+    "confidence": 1
+  },
+  {
+    "text": "requirements",
+    "startMs": 29959,
+    "endMs": 30479,
+    "timestampMs": 29959,
+    "confidence": 1
+  },
+  {
+    "text": "may",
+    "startMs": 30579,
+    "endMs": 30679,
+    "timestampMs": 30579,
+    "confidence": 1
+  },
+  {
+    "text": "be",
+    "startMs": 30699,
+    "endMs": 30819,
+    "timestampMs": 30699,
+    "confidence": 1
+  },
+  {
+    "text": "two,",
+    "startMs": 30840,
+    "endMs": 31019,
+    "timestampMs": 30840,
+    "confidence": 1
+  },
+  {
+    "text": "three,",
+    "startMs": 31059,
+    "endMs": 31239,
+    "timestampMs": 31059,
+    "confidence": 1
+  },
+  {
+    "text": "or",
+    "startMs": 31340,
+    "endMs": 31459,
+    "timestampMs": 31340,
+    "confidence": 1
+  },
+  {
+    "text": "4X,",
+    "startMs": 31679,
+    "endMs": 32020,
+    "timestampMs": 31679,
+    "confidence": 1
+  },
+  {
+    "text": "just",
+    "startMs": 32419,
+    "endMs": 32560,
+    "timestampMs": 32419,
+    "confidence": 1
+  },
+  {
+    "text": "as",
+    "startMs": 32599,
+    "endMs": 32700,
+    "timestampMs": 32599,
+    "confidence": 1
+  },
+  {
+    "text": "an",
+    "startMs": 32719,
+    "endMs": 32779,
+    "timestampMs": 32719,
+    "confidence": 1
+  },
+  {
+    "text": "example.",
+    "startMs": 32860,
+    "endMs": 33779,
+    "timestampMs": 32860,
+    "confidence": 1
+  },
+  {
+    "text": "Uh,",
+    "startMs": 33880,
+    "endMs": 33900,
+    "timestampMs": 33880,
+    "confidence": 1
+  },
+  {
+    "text": "but",
+    "startMs": 34239,
+    "endMs": 34299,
+    "timestampMs": 34239,
+    "confidence": 1
+  },
+  {
+    "text": "20",
+    "startMs": 34500,
+    "endMs": 34619,
+    "timestampMs": 34500,
+    "confidence": 1
+  },
+  {
+    "text": "years",
+    "startMs": 34639,
+    "endMs": 34819,
+    "timestampMs": 34639,
+    "confidence": 1
+  },
+  {
+    "text": "ago",
+    "startMs": 34919,
+    "endMs": 35159,
+    "timestampMs": 34919,
+    "confidence": 1
+  },
+  {
+    "text": "when",
+    "startMs": 35279,
+    "endMs": 35360,
+    "timestampMs": 35279,
+    "confidence": 1
+  },
+  {
+    "text": "SpaceX",
+    "startMs": 35419,
+    "endMs": 35919,
+    "timestampMs": 35419,
+    "confidence": 1
+  },
+  {
+    "text": "was",
+    "startMs": 35979,
+    "endMs": 36159,
+    "timestampMs": 35979,
+    "confidence": 1
+  },
+  {
+    "text": "just",
+    "startMs": 36239,
+    "endMs": 36380,
+    "timestampMs": 36239,
+    "confidence": 1
+  },
+  {
+    "text": "starting",
+    "startMs": 36439,
+    "endMs": 36759,
+    "timestampMs": 36439,
+    "confidence": 1
+  },
+  {
+    "text": "out,",
+    "startMs": 36819,
+    "endMs": 37360,
+    "timestampMs": 36819,
+    "confidence": 1
+  },
+  {
+    "text": "the",
+    "startMs": 37419,
+    "endMs": 37459,
+    "timestampMs": 37419,
+    "confidence": 1
+  },
+  {
+    "text": "investor's",
+    "startMs": 37500,
+    "endMs": 37919,
+    "timestampMs": 37500,
+    "confidence": 1
+  },
+  {
+    "text": "requirement",
+    "startMs": 37979,
+    "endMs": 38459,
+    "timestampMs": 37979,
+    "confidence": 1
+  },
+  {
+    "text": "was",
+    "startMs": 38500,
+    "endMs": 38659,
+    "timestampMs": 38500,
+    "confidence": 1
+  },
+  {
+    "text": "no",
+    "startMs": 38680,
+    "endMs": 38799,
+    "timestampMs": 38680,
+    "confidence": 1
+  },
+  {
+    "text": "less",
+    "startMs": 38840,
+    "endMs": 39040,
+    "timestampMs": 38840,
+    "confidence": 1
+  },
+  {
+    "text": "than",
+    "startMs": 39079,
+    "endMs": 39200,
+    "timestampMs": 39079,
+    "confidence": 1
+  },
+  {
+    "text": "100X.",
+    "startMs": 39299,
+    "endMs": 40279,
+    "timestampMs": 39299,
+    "confidence": 1
+  }
+];
