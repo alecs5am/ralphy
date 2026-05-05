@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Cross-compile ralphy binaries
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binaries
+        run: bun run build:bin
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          {
+            echo "## Install"
+            echo ""
+            echo '```bash'
+            echo 'curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/install.sh | sh'
+            echo '```'
+            echo ""
+            echo "## Verify"
+            echo ""
+            echo '```bash'
+            echo 'shasum -a 256 -c SHA256SUMS'
+            echo '```'
+          } > release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/binaries/ralphy-*
+            dist/binaries/SHA256SUMS
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true

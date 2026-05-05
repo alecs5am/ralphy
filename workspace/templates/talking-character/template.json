@@ -1,0 +1,46 @@
+{
+  "name": "Talking Character UGC",
+  "slug": "talking-character",
+  "kind": "vibe-reference",
+  "description": "Talking-head UGC short. Single character (persona) говорит на камеру в одной локации, captions поверх video, music под VO duck'нута. Сильный hook в первые 3s, payoff в первые 7s. Default стек использует fal-ai/wan-25 (image+audio→video с встроенным lipsync) — один API-вызов вместо kling-i2v + отдельный wav2lip. Под формат testimonial / problem-solution / demo. Не для нарратив-видео с несколькими сценами.",
+  "tags": ["talking-head", "ugc", "tiktok", "reels", "shorts", "lipsync", "testimonial", "problem-solution", "demo"],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [10, 15],
+  "typicalClipCount": [1, 3],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "extractedFrom": null,
+  "createdAt": "2026-04-30T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "promptFragments": "fragments.md",
+    "modelStack": "model-stack.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "characterImage": "fal-ai/nano-banana-pro (text-to-image, single shot)",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 + user voice clone (native RU)",
+    "talkingVideo": "fal-ai/wan-25 (image + audio + prompt → talking-head video с встроенным lip-sync, 5s или 10s)",
+    "captions": "Local whisper.cpp via cli/lib/transcribe.ts → Caption[] → один из 12 styles в src/lib/components/captions/ (default: TikTokCaptions)",
+    "music": "fal-ai/lyria2 (low instrumental bed, vol 0.1-0.15 ducked under VO)",
+    "composition": "Remotion 4.0.441, single full-bleed talking-head Sequence + caption overlay + music track"
+  },
+  "constants": {
+    "narratorLanguage": "ru-RU",
+    "captionStyle": "TikTokCaptions or HormoziCaptions (word-by-word pop)",
+    "musicVolume": 0.12,
+    "musicFadeInSec": 0.5,
+    "musicFadeOutSec": 1.0,
+    "lipsyncModel": "fal-ai/wan-25"
+  },
+  "constraints": {
+    "audioMinDurationSec": 3,
+    "wan25DurationOptions": [5, 10],
+    "wan25ResolutionOptions": ["480p", "720p", "1080p"]
+  },
+  "personaArchetypeFit": ["it-remote", "wfh-worker", "startup-founder", "marketer-perf", "mom-blogger", "courier-driver"],
+  "doNotCopyLiterally": "Scenario, hook text, caption style choice, persona, brand-specific elements. Template только vibe + pipeline shape."
+}
