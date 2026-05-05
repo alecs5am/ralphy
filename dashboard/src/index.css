@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  /* era palette — mono on white, hairlines */
+  --color-bg: #ffffff;
+  --color-panel: #fafafa;
+  --color-ink: #0a0a0a;
+  --color-ink-2: #1a1a1a;
+  --color-sub: #6b6b6b;
+  --color-mute: #9a9a9a;
+  --color-rule: #e5e5e5;
+  --color-rule-soft: #eeeeee;
+  --color-hover: #f6f6f6;
+  --color-active: #f0f0f0;
+
+  /* sparing accents */
+  --color-accent: #0a0a0a;
+  --color-ok: #1f7a4d;
+  --color-warn: #b5680a;
+  --color-busy: #5366e8;
+  --color-err: #a2231d;
+
+  --font-sans: "Helvetica Neue", Helvetica, "Inter", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco,
+    Consolas, monospace;
+  --font-display: "Helvetica Neue", Helvetica, "Inter", Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #ffffff;
+  color: #0a0a0a;
+  -webkit-font-smoothing: antialiased;
+  font-family: "Helvetica Neue", Helvetica, "Inter", Arial, sans-serif;
+  letter-spacing: -0.005em;
+}
+
+/* hairline scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* terminal forced dark inside era tab */
+.era-terminal {
+  background: #0a0a0a;
+  color: #f6f6f6;
+}
+
+@keyframes era-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.era-cursor {
+  animation: era-blink 1s steps(2) infinite;
+}

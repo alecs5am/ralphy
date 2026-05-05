@@ -1,0 +1,278 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-viral-3.mp4",
+  "videoName": "reel-viral-3",
+  "analyzedAt": "2026-03-30T00:53:26.132Z",
+  "meta": {
+    "duration": 27.2,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "transcript": null,
+  "analysis": {
+    "summary": "This video is a cultural mashup that leverages the viral 'Sora ni Utaeba' (My Hero Academia Season 2 opening) trend, combining it with a Russian-speaking creator's unique interpretation. The creator uses a common TikTok format of lip-syncing and exaggerated facial expressions to convey the emotional intensity of the song, while also incorporating Russian text overlays that translate parts of the lyrics and add a layer of personal commentary. The video resonates by tapping into anime fandom, the universality of emotional expression through music, and the humor derived from the creator's dramatic performance.",
+    "category": "cultural-mashup",
+    "language": "ru",
+    "contentAnalysis": {
+      "topic": "Anime song lip-sync and emotional performance, language learning/translation",
+      "creatorRole": "Anime enthusiast, content creator, potentially a language learner/teacher (Russian to Japanese)",
+      "narrativeArc": "The video starts with a playful, almost instructional tone, asking 'how do you say...' in Japanese, then transitions into an increasingly dramatic lip-sync performance of an anime opening song, culminating in an exaggerated emotional climax. The narrative is driven by the song's emotional arc and the creator's performance.",
+      "culturalReferences": [
+        "Sora ni Utaeba (空に歌えば)",
+        "My Hero Academia (Boku no Hero Academia) Season 2 Opening 2",
+        "Anime fandom",
+        "Lip-sync trends on TikTok/Reels",
+        "Gaara from Naruto (brief visual reference)"
+      ],
+      "musicIdentification": "The song is 'Sora ni Utaeba' (空に歌えば) by amazarashi, which was the second opening theme for My Hero Academia Season 2.",
+      "spokenContent": "The video primarily features lip-syncing to the Japanese song. The creator's own voice is not heard, but the text overlays provide a narrative in Russian, translating key Japanese words and adding contextual phrases related to the song's meaning.",
+      "textOnScreen": [
+        "а как по-японски (and how in Japanese)",
+        "sora (sky)",
+        "空 (sky - Japanese kanji)",
+        "небо (sky - Russian)",
+        "itta (said)",
+        "言った (said - Japanese kanji)",
+        "сказал (said - Russian)",
+        "расправив крылья (spreading wings)",
+        "ведь я стремился (because I strived)",
+        "голубому небу (to the blue sky)"
+      ],
+      "keyMoment": "The intense, wide-eyed, almost manic expression and dramatic gestures during the song's climax, particularly around 0:10-0:12 and 0:22-0:24, where the creator fully embodies the song's emotion.",
+      "emotionalJourney": "Curiosity (about Japanese words) → Recognition (of the song) → Engagement (with the performance) → Amusement/Excitement (at the creator's dramatic portrayal) → Shared Fandom (for anime/MHA)."
+    },
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 27.2,
+      "hasSubtitles": true,
+      "subtitleStyle": "Large, white, sans-serif font with a black outline/shadow, appearing dynamically with the lyrics/phrases.",
+      "hasFaceCam": true,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "а как по-японски (and how in Japanese)",
+      "whyItWorks": "This hook immediately piques the interest of viewers who are either learning Japanese, interested in anime, or curious about the connection between Russian and Japanese. It sets up an expectation of a language lesson or cultural insight before transitioning into the performance."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:02",
+        "type": "hook",
+        "description": "Creator in a white t-shirt, sitting, looking thoughtful, pointing a long manicured finger. Text overlay asks a question.",
+        "textOnScreen": "а как по-японски (and how in Japanese)",
+        "spokenWords": "Lip-syncing to the beginning of the song, but the focus is on the text.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Curiosity, intrigue."
+      },
+      {
+        "timestamp": "0:02-0:04",
+        "type": "content",
+        "description": "Creator in a dark hoodie, looking up and slightly forward, making a 'kissing' or 'pouting' face. Text overlays show the Japanese word 'sora' with its kanji and Russian translation.",
+        "textOnScreen": "sora\n空\nнебо (sky)",
+        "spokenWords": "Lip-syncing to the song.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Educational, mild amusement."
+      },
+      {
+        "timestamp": "0:04-0:05",
+        "type": "content",
+        "description": "Creator back in white t-shirt, thoughtful pose, finger to chin. Similar to the first frame.",
+        "textOnScreen": "",
+        "spokenWords": "Lip-syncing to the song.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Contemplative."
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "Creator in dark hoodie, looking slightly down, hand to chin. Text overlays show 'itta' with kanji and Russian translation.",
+        "textOnScreen": "itta\n言った\nсказал (said)",
+        "spokenWords": "Lip-syncing to the song.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Educational, slightly playful."
+      },
+      {
+        "timestamp": "0:07-0:09",
+        "type": "content",
+        "description": "Creator in white t-shirt, close-up, wide-eyed, looking directly at the camera with an intense expression. Text overlay appears.",
+        "textOnScreen": "расправив крылья (spreading wings)",
+        "spokenWords": "Lip-syncing to the song, building intensity.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Anticipation, intensity."
+      },
+      {
+        "timestamp": "0:09-0:11",
+        "type": "content",
+        "description": "Creator in white t-shirt, same intense wide-eyed expression, slightly different angle. New text overlay.",
+        "textOnScreen": "ведь я стремился (because I strived)",
+        "spokenWords": "Lip-syncing to the song, increasing emotional output.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Emotional connection, drama."
+      },
+      {
+        "timestamp": "0:11-0:13",
+        "type": "content",
+        "description": "Creator in white t-shirt, extreme close-up, eyes even wider, mouth slightly open in a dramatic expression. New text overlay.",
+        "textOnScreen": "голубому небу (to the blue sky)",
+        "spokenWords": "Lip-syncing to the song's climax, full emotional commitment.",
+        "transition": "cut",
+        "cameraAngle": "extreme close-up",
+        "emotionalBeat": "Peak emotional intensity, awe, slight humor from exaggeration."
+      },
+      {
+        "timestamp": "0:13-0:15",
+        "type": "performance",
+        "description": "Creator in dark hoodie, standing against a wall, holding a phone like a microphone, singing passionately with closed eyes and raised arms.",
+        "textOnScreen": "",
+        "spokenWords": "Lip-syncing to the song's powerful vocals.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Enthusiasm, shared fandom."
+      },
+      {
+        "timestamp": "0:15-0:17",
+        "type": "performance",
+        "description": "Creator in dark hoodie, still against the wall, turning to look at the camera with a more composed, but still expressive, look.",
+        "textOnScreen": "",
+        "spokenWords": "Lip-syncing to the song.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Coolness, confidence."
+      },
+      {
+        "timestamp": "0:17-0:19",
+        "type": "performance",
+        "description": "Creator in dark hoodie, eyes closed, head tilted back, still singing passionately.",
+        "textOnScreen": "",
+        "spokenWords": "Lip-syncing to the song.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Deep emotion, immersion."
+      },
+      {
+        "timestamp": "0:19-0:21",
+        "type": "b-roll",
+        "description": "A quick, blurry, low-quality clip of the anime character Gaara from Naruto.",
+        "textOnScreen": "",
+        "spokenWords": "Song continues.",
+        "transition": "cut",
+        "cameraAngle": "close-up (of anime clip)",
+        "emotionalBeat": "Recognition, nostalgia for anime fans, slight confusion for non-fans."
+      },
+      {
+        "timestamp": "0:21-0:24",
+        "type": "payoff",
+        "description": "Creator in dark hoodie, back against the wall, looking intensely at the camera, holding a hand up in a dramatic gesture, mouth open in a powerful 'singing' expression.",
+        "textOnScreen": "",
+        "spokenWords": "Lip-syncing to the song's final powerful notes.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Climax, satisfaction, shared energy."
+      },
+      {
+        "timestamp": "0:24-0:27",
+        "type": "payoff",
+        "description": "Creator in dark hoodie, still against the wall, looking slightly more relaxed but still expressive, as the song fades.",
+        "textOnScreen": "",
+        "spokenWords": "Lip-syncing to the song's fade-out.",
+        "transition": "none",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Resolution, lingering emotion."
+      }
+    ],
+    "editing": {
+      "pace": "medium",
+      "averageCutLength": "2-3 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "quick zoom-in (on Gaara clip)",
+        "text overlays appearing/disappearing"
+      ],
+      "textOverlays": {
+        "style": "Clean, modern, high contrast for readability.",
+        "font": "Sans-serif, bold",
+        "colors": [
+          "white",
+          "black (outline/shadow)"
+        ],
+        "animation": "Appears abruptly, disappears abruptly.",
+        "position": "Bottom center of the screen."
+      },
+      "colorGrading": "neutral"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasSpeech": false,
+      "hasSinging": true,
+      "hasMusic": true,
+      "musicDetails": "'Sora ni Utaeba' (空に歌えば) by amazarashi, J-Rock/Anime Opening, energetic and emotional.",
+      "voiceTone": "N/A (lip-sync)",
+      "audioStructure": "The music plays continuously throughout the video, with the creator lip-syncing to the vocals.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "primaryViralMechanic": "Emotional resonance through anime nostalgia and exaggerated performance.",
+      "whyItWorks": "This video works because it taps into the strong emotional connection many viewers have with 'My Hero Academia' and its iconic opening themes. The creator's dramatic and committed lip-sync performance, combined with the Russian translations, makes the content accessible and relatable to a broader audience, including those who might not understand Japanese but appreciate the song's energy. The quick cuts and varied expressions keep the viewer engaged, and the brief, almost subliminal, Gaara reference adds an extra layer of anime fan service. The initial 'language lesson' hook also broadens its appeal beyond just MHA fans.",
+      "targetAudience": "Anime fans (especially My Hero Academia and Naruto), J-Rock enthusiasts, Russian speakers interested in Japanese culture/language, and general short-form video consumers who enjoy dramatic lip-sync performances and cultural mashups.",
+      "emotionalTrigger": "Nostalgia, humor (from exaggeration), recognition, belonging (to anime fandom), inspiration (from the song's message).",
+      "shareability": "high - People would share this with fellow anime fans, friends who appreciate dramatic performances, or anyone learning Japanese/Russian who might find the translations interesting.",
+      "commentBait": "Comments about the song ('MHA OP is a banger!'), the creator's performance ('So dramatic, I love it!'), the language translations ('Thanks for the translation!'), the Gaara reference ('Wait, was that Gaara?'), and general anime discussions.",
+      "retentionTechniques": [
+        "Fast-paced editing with frequent cuts",
+        "Dynamic facial expressions and body language",
+        "Text overlays providing ongoing information/context",
+        "Emotional build-up in the performance",
+        "Unexpected visual (Gaara clip)"
+      ],
+      "platformOptimization": "Vertical 9:16 aspect ratio, short duration (under 30s), strong visual hook, trending audio (anime openings are consistently popular on these platforms), and clear text overlays for accessibility without sound."
+    },
+    "reproductionGuide": {
+      "difficulty": "medium",
+      "conceptCore": "Perform a dramatic lip-sync to a culturally significant song (anime opening, popular meme song, etc.) while adding relevant text overlays in a different language for educational or humorous context.",
+      "requiredAssets": [
+        "A popular, emotionally charged song (preferably an anime opening or meme song)",
+        "A camera (smartphone is sufficient)",
+        "Basic video editing software (CapCut, InShot, etc.)",
+        "Knowledge of the song's lyrics and their meaning",
+        "Translation skills for the chosen languages",
+        "Optional: A relevant, quick visual Easter egg (like the Gaara clip)"
+      ],
+      "steps": [
+        "Choose a trending or nostalgic song with strong emotional beats (e.g., an anime opening).",
+        "Identify key lyrics or phrases that can be translated or commented on.",
+        "Film yourself lip-syncing to the song, focusing on exaggerated facial expressions and body language that match the song's emotion.",
+        "Vary camera angles and outfits/settings to keep visuals dynamic (e.g., thoughtful pose, intense close-up, full-body performance).",
+        "Add text overlays with the original word/phrase, its translation, and any additional commentary.",
+        "Ensure text is large, legible, and appears/disappears in sync with the song/performance.",
+        "Optionally, insert a very brief, relevant visual clip (e.g., a character from the anime) for a quick 'Easter egg'.",
+        "Edit with quick cuts to maintain a fast pace.",
+        "Optimize for vertical format and short duration."
+      ],
+      "variationIdeas": [
+        "Lip-syncing to a K-Pop song with Korean lyrics and English/Spanish translations.",
+        "Performing a dramatic scene from a movie/TV show with original dialogue and translations.",
+        "Using a popular meme sound and adding a 'behind the scenes' or 'literal meaning' text overlay.",
+        "A 'learn X language with Y anime' series, using different anime openings.",
+        "A creator lip-syncing to a song from their own culture, translating it for a global audience."
+      ],
+      "whatToAvoid": [
+        "Choosing an obscure song that few people recognize.",
+        "Lackluster or uncommitted performance – the drama is key.",
+        "Text overlays that are too small, hard to read, or stay on screen too long/short.",
+        "Poor audio quality if the original song isn't clear.",
+        "Overly long video that loses viewer attention before the payoff."
+      ]
+    }
+  }
+}

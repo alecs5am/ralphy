@@ -1,0 +1,29 @@
+{
+  "id": "alex",
+  "name": "Alex",
+  "fullName": "Alex Thompson",
+  "avatar": null,
+  "voice": {
+    "provider": "elevenlabs",
+    "model": "eleven_monolingual_v1",
+    "voiceId": "rachel",
+    "stability": 0.65,
+    "similarityBoost": 0.78,
+    "style": 0.35
+  },
+  "tone": "friendly, casual",
+  "language": "en",
+  "demographics": {
+    "ageRange": "22-28",
+    "gender": "female",
+    "archetype": "Relatable Best Friend"
+  },
+  "speakingStyle": {
+    "pacing": "upbeat, natural pauses",
+    "filler": ["like", "honestly", "okay so"],
+    "emphasis": "enthusiastic on key product features",
+    "cta": "soft sell, conversational"
+  },
+  "createdAt": "2026-03-20T11:00:00Z",
+  "updatedAt": "2026-03-20T11:00:00Z"
+}

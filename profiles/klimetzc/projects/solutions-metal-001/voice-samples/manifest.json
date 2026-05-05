@@ -1,0 +1,47 @@
+{
+  "text": "Тысяча девятьсот семьдесят четвёртый. Нам сказали: сделайте ткань, которая держит форму. Хлопок у нас был. Алюминий был. Проблема была одна: они не хотели жить вместе.",
+  "model": "eleven_multilingual_v2",
+  "candidates": [
+    {
+      "id": "2EiwWnXFnvU5JabPnv8n",
+      "label": "clyde-warvet",
+      "stability": 0.55,
+      "similarity": 0.75,
+      "style": 0.25
+    },
+    {
+      "id": "CYw3kZ02Hs0563khs1Fj",
+      "label": "dave-british-mature",
+      "stability": 0.6,
+      "similarity": 0.75,
+      "style": 0.15
+    },
+    {
+      "id": "onwK4e9ZLuTAKqWW03F9",
+      "label": "daniel-deep",
+      "stability": 0.6,
+      "similarity": 0.75,
+      "style": 0.15
+    }
+  ],
+  "results": [
+    {
+      "ok": true,
+      "label": "clyde-warvet",
+      "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voice-samples/clyde-warvet.mp3",
+      "bytes": 194395
+    },
+    {
+      "ok": true,
+      "label": "dave-british-mature",
+      "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voice-samples/dave-british-mature.mp3",
+      "bytes": 178512
+    },
+    {
+      "ok": true,
+      "label": "daniel-deep",
+      "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voice-samples/daniel-deep.mp3",
+      "bytes": 206097
+    }
+  ]
+}

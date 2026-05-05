@@ -1,0 +1,341 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-viral-1.mp4",
+  "videoName": "reel-viral-1",
+  "analyzedAt": "2026-03-30T00:36:41.204Z",
+  "meta": {
+    "duration": 61.1,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "analysis": {
+    "summary": "This video tells a dramatic and humorous story using animated fruit and vegetable characters. It depicts a cucumber character who is seemingly in a relationship with a banana character, but has an affair with an eggplant character, resulting in a 'baby' eggplant. The narrative unfolds through a series of short, impactful scenes with text overlays providing key dialogue or plot points, leading to a surprising and comedic twist.",
+    "category": "storytelling",
+    "language": "en",
+    "format": {
+      "type": "animation",
+      "aspectRatio": "9:16",
+      "duration": 61.1,
+      "hasSubtitles": true,
+      "subtitleStyle": "White text with a black outline, centered at the bottom of the screen, appearing and disappearing with each scene.",
+      "hasFaceCam": false,
+      "hasScreenRecording": false,
+      "isAIGenerated": true
+    },
+    "hook": {
+      "type": "visual",
+      "text": "REPORTS",
+      "whyItWorks": "The initial scene of anthropomorphic vegetables in a corporate setting, combined with the unexpected kiss, immediately creates a sense of absurdity and curiosity, making viewers wonder about the story that will unfold."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:03",
+        "type": "hook",
+        "description": "A purple eggplant character in a suit sits at a desk, looking at a green cucumber character in a suit who looks stressed. They are in an office with a city view. The eggplant character then kisses the cucumber character.",
+        "textOnScreen": "REPORTS",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:03-0:05",
+        "type": "content",
+        "description": "The purple eggplant character smiles at the blushing green cucumber character, who has a hand on his shoulder. The text 'NEVER' appears.",
+        "textOnScreen": "NEVER",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "The green cucumber character is now in a wheelchair, looking sad, with a female banana character in a floral dress standing behind him, comforting him. They are in a cozy living room setting. The text 'LOVE' appears.",
+        "textOnScreen": "LOVE",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:07-0:09",
+        "type": "content",
+        "description": "The green cucumber character looks up at the banana character, who smiles down at him. The text 'NOTHING' appears.",
+        "textOnScreen": "NOTHING",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:09-0:11",
+        "type": "content",
+        "description": "The green cucumber character is shown from the waist up, looking shocked, holding his visibly pregnant belly in a bathroom mirror reflection. The text 'BANANITA' appears.",
+        "textOnScreen": "BANANITA",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:11-0:13",
+        "type": "content",
+        "description": "The pregnant green cucumber character stands in a living room, looking at the banana character, who looks angry. The text 'TELL' appears.",
+        "textOnScreen": "TELL",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:13-0:15",
+        "type": "content",
+        "description": "The banana character is now crying, looking distressed, while the cucumber character looks on. The text 'WAS' appears.",
+        "textOnScreen": "WAS",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:15-0:17",
+        "type": "content",
+        "description": "The green cucumber character is in a hospital gown, in a wheelchair, screaming in a hospital hallway. The text 'DOCTOR' appears.",
+        "textOnScreen": "DOCTOR",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:17-0:19",
+        "type": "content",
+        "description": "The green cucumber character is in a hospital bed, holding a baby eggplant. The banana character looks angry, and a sausage character dressed as a doctor looks shocked. The text 'CUCUMBERINO' appears.",
+        "textOnScreen": "CUCUMBERINO",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:19-0:21",
+        "type": "content",
+        "description": "The cucumber character smiles at the baby eggplant. The banana character and sausage doctor still look angry/shocked. The text 'LOVE' appears.",
+        "textOnScreen": "LOVE",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:21-0:23",
+        "type": "content",
+        "description": "Close-up on the crying banana character, with the shocked sausage doctor and the baby eggplant visible. The text 'ON' appears.",
+        "textOnScreen": "ON",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:23-0:25",
+        "type": "content",
+        "description": "The banana character looks directly at the camera, still crying. The text 'THE' appears.",
+        "textOnScreen": "THE",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:25-0:27",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'WAY' appearing.",
+        "textOnScreen": "WAY",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:27-0:29",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'TO' appearing.",
+        "textOnScreen": "TO",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:29-0:31",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'THE' appearing.",
+        "textOnScreen": "THE",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:31-0:33",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'COURT' appearing.",
+        "textOnScreen": "COURT",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:33-0:35",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'FOR' appearing.",
+        "textOnScreen": "FOR",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:35-0:37",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'DIVORCE' appearing.",
+        "textOnScreen": "DIVORCE",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:37-0:39",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'AND' appearing.",
+        "textOnScreen": "AND",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:39-0:41",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'CHILD' appearing.",
+        "textOnScreen": "CHILD",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:41-0:43",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'SUPPORT' appearing.",
+        "textOnScreen": "SUPPORT",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:43-0:45",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'FOR' appearing.",
+        "textOnScreen": "FOR",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:45-0:47",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'THE' appearing.",
+        "textOnScreen": "THE",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:47-0:49",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'NEXT' appearing.",
+        "textOnScreen": "NEXT",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:49-0:51",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text '18' appearing.",
+        "textOnScreen": "18",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:51-0:53",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'YEARS' appearing.",
+        "textOnScreen": "YEARS",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:53-0:55",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'OF' appearing.",
+        "textOnScreen": "OF",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:55-0:57",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'MY' appearing.",
+        "textOnScreen": "MY",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:57-0:59",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'LIFE' appearing.",
+        "textOnScreen": "LIFE",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:59-1:01",
+        "type": "content",
+        "description": "The banana character is shown crying, with the text 'HAHA' appearing.",
+        "textOnScreen": "HAHA",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      }
+    ],
+    "editing": {
+      "pace": "very-fast",
+      "averageCutLength": "2",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "text-overlays"
+      ],
+      "textOverlays": {
+        "style": "Bold, white text with a thick black outline, creating a strong contrast against the background.",
+        "font": "Impact-like sans-serif font",
+        "colors": [
+          "white",
+          "black"
+        ],
+        "animation": "Text appears instantly and disappears instantly with each cut.",
+        "position": "Centered at the bottom of the screen."
+      },
+      "colorGrading": "vibrant"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasMusic": true,
+      "musicMood": "dramatic",
+      "voiceTone": "none",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "whyItWorks": "The video's unexpected plot twists, combined with the use of familiar yet absurd anthropomorphic characters, create a highly engaging and shareable narrative. The rapid cuts and dramatic music build suspense and humor, making it memorable and likely to be rewatched. The 'AI-generated' aesthetic also adds a layer of novelty.",
+      "targetAudience": "Young adults and teenagers who enjoy humorous, surreal, and dramatic content, especially those familiar with internet memes and AI-generated media.",
+      "emotionalTrigger": "curiosity|humor|shock",
+      "shareability": "high - due to its unexpected plot, comedic elements, and the relatable theme of relationship drama presented in an absurd way.",
+      "retentionTechniques": [
+        "Fast-paced editing with frequent cuts",
+        "Dramatic and evolving storyline",
+        "Humorous and unexpected character interactions",
+        "Text overlays that drive the narrative quickly"
+      ]
+    },
+    "reproductionGuide": {
+      "difficulty": "medium",
+      "requiredAssets": [
+        "3D animation software (e.g., Blender, Maya)",
+        "Character models for various fruits/vegetables (cucumber, eggplant, banana, sausage)",
+        "Props and environment models (office, living room, hospital, wheelchair, baby blanket)",
+        "Dramatic background music",
+        "Video editing software"
+      ],
+      "steps": [
+        "Design or acquire 3D models for anthropomorphic cucumber, eggplant, banana, and sausage characters, ensuring they can express a range of emotions.",
+        "Create distinct 3D environments: a modern office with a city view, a cozy living room, and a sterile hospital room.",
+        "Animate the characters to perform the actions described in each scene (kissing, comforting, looking shocked, crying, holding a baby).",
+        "Render each short scene as a separate video clip.",
+        "Import clips into video editing software.",
+        "Add bold, white text with a black outline for each scene's dialogue/narration, ensuring it appears and disappears quickly with each cut.",
+        "Select and add dramatic background music that enhances the comedic and dramatic tone.",
+        "Export the final video in 9:16 aspect ratio."
+      ],
+      "variationIdeas": [
+        "Tell a similar dramatic story using different anthropomorphic food items (e.g., a love triangle between an avocado, a tomato, and a potato).",
+        "Create a 'day in the life' style video for one of the characters, showing their mundane activities with unexpected twists.",
+        "Produce a series of short 'soap opera' style episodes featuring these characters and their ongoing drama.",
+        "Use the same animation style but for a different genre, like a mystery or a superhero story."
+      ]
+    }
+  }
+}

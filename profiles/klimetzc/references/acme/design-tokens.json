@@ -1,0 +1,15 @@
+{
+  "url": "https://acme.com",
+  "extractedAt": "2026-03-20T10:30:00Z",
+  "colors": {
+    "primary": ["#FF6B35", "#FF8C61"],
+    "neutrals": ["#1A1A2E", "#16213E", "#E8E8E8", "#FFFFFF"],
+    "accents": ["#00D4AA", "#FFD700"]
+  },
+  "typography": [
+    { "family": "Inter", "weights": ["400", "600", "700"], "usage": "heading" },
+    { "family": "Inter", "weights": ["400"], "usage": "body" }
+  ],
+  "spacing": { "base": 4, "scale": [4, 8, 12, 16, 24, 32, 48, 64] },
+  "borderRadius": ["4px", "8px", "12px", "9999px"]
+}

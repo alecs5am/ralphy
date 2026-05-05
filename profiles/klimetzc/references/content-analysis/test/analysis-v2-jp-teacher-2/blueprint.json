@@ -1,0 +1,194 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-jp-teacher-2.mp4",
+  "videoName": "reel-jp-teacher-2",
+  "analyzedAt": "2026-03-30T00:53:22.093Z",
+  "meta": {
+    "duration": 28.3,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "transcript": null,
+  "analysis": {
+    "summary": "This video is a comedic sketch that plays on the common experience of trying to learn a new language, specifically Japanese, and the frustration of not being able to express complex emotions or abstract concepts. The creator uses a split-screen format to represent two versions of herself: one asking for a translation of a deep, philosophical Russian phrase, and the other, a 'Japanese' version, struggling to provide a simple, direct equivalent. The humor arises from the stark contrast between the poetic depth of the Russian phrase and the perceived inability to translate it directly into Japanese, implying a cultural or linguistic barrier to expressing such nuanced feelings. It resonates with anyone who has attempted language learning, especially those who appreciate the nuances of different cultures and the challenges of cross-cultural communication.",
+    "category": "comedy",
+    "language": "ru",
+    "contentAnalysis": {
+      "topic": "language learning difficulties, cultural differences in expression, Russian to Japanese translation",
+      "creatorRole": "comedy creator, language learner/teacher (implied)",
+      "narrativeArc": "The video starts with the creator (in Russian persona) asking for a translation of a profound phrase. It then cuts to the creator (in Japanese persona) struggling to understand and translate, showing increasing frustration. The climax is the 'Japanese' persona's exasperated attempt to simplify the concept, highlighting the linguistic/cultural gap, and ending with a comedic shrug.",
+      "culturalReferences": [
+        "Russian language and its perceived poetic/philosophical depth",
+        "Japanese language and its perceived directness/simplicity (in this comedic context)",
+        "General experience of language learning and translation challenges"
+      ],
+      "musicIdentification": "No recognizable music is present in the provided frames. The analysis assumes no background music based on the prompt.",
+      "spokenContent": "The 'Russian' persona asks for the translation of a phrase that roughly translates to 'explain how it works inside me'. The 'Japanese' persona struggles to find an equivalent, eventually simplifying it to something like 'teach me' or 'tell me' and 'inside me', implying a difficulty in conveying the deeper meaning.",
+      "textOnScreen": [
+        "слушай (listen)",
+        "oshiete (教えて) (teach me / tell me)",
+        "а как будет (and how would it be)",
+        "а Как сказать (and how to say)",
+        "boku no naka ni (僕の中に) (inside me)",
+        "объясни (explain)",
+        "как это раб (how it works)",
+        "Внутри мен (inside me)"
+      ],
+      "keyMoment": "The 'Japanese' persona's exasperated expression and simplified translation attempt at ~20s, followed by the shrug, which perfectly encapsulates the comedic struggle.",
+      "emotionalJourney": "Curiosity (what's the phrase?) → Recognition (oh, language learning is hard) → Amusement/Empathy (I've been there!) → Laughter (at the comedic struggle and simplified answer)."
+    },
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 28.3,
+      "hasSubtitles": true,
+      "subtitleStyle": "Large, white sans-serif font with a black outline/shadow, centrally placed.",
+      "hasFaceCam": true,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "The initial question posed by the 'Russian' persona: 'слушай' (listen) and 'а как будет' (and how would it be) immediately sets up a linguistic challenge.",
+      "whyItWorks": "It piques the interest of anyone who has learned a language, or is interested in cultural differences, by presenting a common, relatable problem: how to translate a nuanced concept."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:03",
+        "type": "hook",
+        "description": "Creator, dressed in white top, looking slightly off-camera as if addressing someone, with a curious expression. Text 'слушай' (listen) appears.",
+        "textOnScreen": "слушай (listen)",
+        "spokenWords": "слушай (listen)",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Curiosity, engagement"
+      },
+      {
+        "timestamp": "0:03-0:05",
+        "type": "content",
+        "description": "Creator, now in a dark hoodie, looking down thoughtfully, then up with a slightly confused expression. Text 'oshiete (教えて)' (teach me / tell me) appears.",
+        "textOnScreen": "oshiete (教えて) (teach me / tell me)",
+        "spokenWords": "oshiete (teach me / tell me)",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Anticipation, slight confusion"
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "Creator in white top, continuing to ask the question, looking expectant. Text 'а как будет' (and how would it be) and 'а Как сказать' (and how to say) appear.",
+        "textOnScreen": "а как будет (and how would it be), а Как сказать (and how to say)",
+        "spokenWords": "а как будет, а Как сказать (and how would it be, and how to say)",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Expectation, posing a challenge"
+      },
+      {
+        "timestamp": "0:07-0:09",
+        "type": "content",
+        "description": "Creator in dark hoodie, looking thoughtful, then slightly exasperated, gesturing with hands. Text 'boku no naka ni (僕の中に)' (inside me) appears.",
+        "textOnScreen": "boku no naka ni (僕の中に) (inside me)",
+        "spokenWords": "boku no naka ni (inside me)",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Struggle, contemplation"
+      },
+      {
+        "timestamp": "0:09-0:15",
+        "type": "content",
+        "description": "Creator in white top, delivering the full, complex Russian phrase, with a serious, slightly dramatic expression. Text 'объясни' (explain), 'как это раб' (how it works), 'Внутри мен' (inside me) appears progressively.",
+        "textOnScreen": "объясни (explain), как это раб (how it works), Внутри мен (inside me)",
+        "spokenWords": "объясни как это работает внутри меня (explain how it works inside me)",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Seriousness, depth, challenge presented"
+      },
+      {
+        "timestamp": "0:15-0:28.3",
+        "type": "payoff",
+        "description": "Creator in dark hoodie, looking increasingly confused, frustrated, and then finally giving up with a comedic shrug and a 'pouty' expression. She gestures as if trying to simplify the concept. This is the comedic climax.",
+        "textOnScreen": "No new text appears in this segment, but the previous 'oshiete' and 'boku no naka ni' are implied as the only simple translations she can offer.",
+        "spokenWords": "Implied struggle to translate, possibly repeating simplified Japanese words.",
+        "transition": "none",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Frustration, humor, resignation, comedic relief"
+      }
+    ],
+    "editing": {
+      "pace": "medium",
+      "averageCutLength": "2-3 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [],
+      "textOverlays": {
+        "style": "subtitles/captions",
+        "font": "sans-serif (e.g., Arial, Helvetica)",
+        "colors": [
+          "white",
+          "black (outline/shadow)"
+        ],
+        "animation": "appears instantly",
+        "position": "bottom center"
+      },
+      "colorGrading": "neutral"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasSpeech": true,
+      "hasSinging": false,
+      "hasMusic": false,
+      "musicDetails": "N/A",
+      "voiceTone": "The 'Russian' persona has a clear, slightly dramatic, and inquisitive tone. The 'Japanese' persona's tone is initially thoughtful, then becomes increasingly exasperated and comedic.",
+      "audioStructure": "Alternating speech between the two personas, with pauses for comedic effect.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "primaryViralMechanic": "Relatable comedic exaggeration of a common experience (language learning difficulties and cultural translation gaps).",
+      "whyItWorks": "The video works because it taps into the universal frustration of language learners who encounter concepts that don't have direct equivalents in other languages. The exaggerated expressions and the stark contrast between the 'deep' Russian phrase and the 'simple' Japanese struggle create a highly shareable comedic moment. It also appeals to those interested in linguistics or cultural differences, providing a lighthearted take on a complex topic.",
+      "targetAudience": "Language learners (especially Japanese learners), people interested in linguistics, those who appreciate cultural humor, and general social media users looking for relatable comedic content.",
+      "emotionalTrigger": "Humor, recognition, empathy, mild frustration (relatable).",
+      "shareability": "high - because it's highly relatable to a broad audience, funny, and easily understandable even without deep linguistic knowledge. People will share it with friends who are learning languages or who appreciate this type of cultural humor.",
+      "commentBait": "People will comment with their own experiences of difficult translations, suggest alternative Japanese phrases, or simply express their amusement and agreement with the struggle.",
+      "retentionTechniques": [
+        "Fast-paced cuts between personas",
+        "Clear visual distinction between personas",
+        "Building comedic tension towards the payoff",
+        "Relatable premise"
+      ],
+      "platformOptimization": "Short duration (under 30s) for quick consumption, vertical format (9:16) for mobile viewing, clear text overlays for accessibility and understanding without sound, and a strong, relatable hook."
+    },
+    "reproductionGuide": {
+      "difficulty": "easy",
+      "conceptCore": "Comedically illustrate the difficulty of translating a nuanced concept between two languages/cultures by having one persona ask a complex question and another persona struggle to simplify it.",
+      "requiredAssets": [
+        "One person (the creator)",
+        "Two distinct outfits/looks to differentiate personas (e.g., casual vs. slightly more formal, or just different colors)",
+        "A script with a complex phrase in one language and a simplified, struggling attempt at translation in another.",
+        "Basic video editing software for cuts and text overlays."
+      ],
+      "steps": [
+        "Choose two languages/cultures. One should have a reputation for poetic/philosophical expression, the other for directness (or vice-versa, for comedic effect).",
+        "Select a nuanced phrase in the 'complex' language that is difficult to translate directly.",
+        "Film yourself as 'Persona A' asking the complex question, looking serious/thoughtful.",
+        "Change outfit/look to become 'Persona B'. Film yourself struggling to translate, showing confusion, frustration, and eventually simplifying the concept with exaggerated expressions.",
+        "Add text overlays for both the original phrase and the attempted translation.",
+        "Edit with quick cuts between the two personas to maintain pace and highlight the contrast.",
+        "Ensure the final 'struggle' moment is the comedic climax."
+      ],
+      "variationIdeas": [
+        "Translating a modern slang term into a very formal language.",
+        "Translating a specific cultural idiom (e.g., 'raining cats and dogs') literally into another language.",
+        "A 'tech' persona trying to explain a complex technical concept to a 'non-tech' persona using only simple words.",
+        "A 'parent' persona trying to explain a complex life lesson to a 'child' persona who only understands simple terms."
+      ],
+      "whatToAvoid": [
+        "Making the translation too easy or direct, which would kill the humor.",
+        "Using obscure languages or phrases that the target audience won't understand or relate to.",
+        "Overly long explanations or slow pacing, which can lead to viewer drop-off.",
+        "Offensive stereotypes about either language/culture; the humor should come from the linguistic challenge, not cultural mockery."
+      ]
+    }
+  }
+}

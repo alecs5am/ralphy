@@ -1,0 +1,78 @@
+[submit] 6 jobs...
+  ✓ clip-02-walk-to-factory → 019dbad0-c1c7-77a2-a106-7c16fa382ebe
+  ✓ clip-03-shop-floor → 019dbad0-c1cb-7900-b15a-636ff3f1bee2
+  ✓ clip-01-morning-kitchen → 019dbad0-c1d9-7493-81b9-6afecf8a9d6a
+  ✓ clip-06-family-dinner → 019dbad0-c1da-7731-9b8f-961240c08a0e
+  ✓ clip-04-canteen-tray → 019dbad0-c1db-7573-aaf6-0404a316eb61
+  ✓ clip-05-walk-home-evening → 019dbad0-c1db-7292-806f-4d092b765d61
+
+[poll] waiting for completions...
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-05-walk-home-evening] IN_PROGRESS
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-05-walk-home-evening] COMPLETED
+  [clip-06-family-dinner] IN_PROGRESS
+  [clip-02-walk-to-factory] IN_PROGRESS
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-03-shop-floor] IN_PROGRESS
+  [clip-01-morning-kitchen] IN_PROGRESS
+  ✓ clip-05-walk-home-evening → /Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-05-walk-home-evening.mp4 (12684644 bytes)
+  [clip-03-shop-floor] COMPLETED
+  [clip-04-canteen-tray] IN_PROGRESS
+  [clip-06-family-dinner] COMPLETED
+  [clip-01-morning-kitchen] IN_PROGRESS
+  [clip-02-walk-to-factory] COMPLETED
+  ✓ clip-02-walk-to-factory → /Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-02-walk-to-factory.mp4 (11906451 bytes)
+  ✓ clip-06-family-dinner → /Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-06-family-dinner.mp4 (9119058 bytes)
+  [clip-01-morning-kitchen] COMPLETED
+  [clip-04-canteen-tray] COMPLETED
+  ✓ clip-03-shop-floor → /Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-03-shop-floor.mp4 (13629419 bytes)
+  ✓ clip-01-morning-kitchen → /Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-01-morning-kitchen.mp4 (8139039 bytes)
+  ✓ clip-04-canteen-tray → /Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-04-canteen-tray.mp4 (8254285 bytes)
+
+Summary: 6/6 ok

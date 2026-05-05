@@ -1,0 +1,44 @@
+[
+  {
+    "slug": "clip-01-morning-kitchen",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-01-morning-kitchen.mp4",
+    "url": "https://v3b.fal.media/files/b/0a976b66/BdOkFctpMRn-gtFAgPXLL_output.mp4",
+    "bytes": 8139039
+  },
+  {
+    "slug": "clip-02-walk-to-factory",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-02-walk-to-factory.mp4",
+    "url": "https://v3b.fal.media/files/b/0a976b64/VzwPsgCqBRLLnCB-B4dIq_output.mp4",
+    "bytes": 11906451
+  },
+  {
+    "slug": "clip-03-shop-floor",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-03-shop-floor.mp4",
+    "url": "https://v3b.fal.media/files/b/0a976b64/1ooy1uC7kxu9zWeB4jpaG_output.mp4",
+    "bytes": 13629419
+  },
+  {
+    "slug": "clip-04-canteen-tray",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-04-canteen-tray.mp4",
+    "url": "https://v3b.fal.media/files/b/0a976b66/yjHQkrP-GnxzJiatNKjeQ_output.mp4",
+    "bytes": 8254285
+  },
+  {
+    "slug": "clip-05-walk-home-evening",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-05-walk-home-evening.mp4",
+    "url": "https://v3b.fal.media/files/b/0a976b63/iuj2j2lzKIMmjJKaBsLR3_output.mp4",
+    "bytes": 12684644
+  },
+  {
+    "slug": "clip-06-family-dinner",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/clips/clip-06-family-dinner.mp4",
+    "url": "https://v3b.fal.media/files/b/0a976b65/CMj7YfEetKtK41vOPyRI0_output.mp4",
+    "bytes": 9119058
+  }
+]

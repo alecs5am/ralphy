@@ -1,0 +1,326 @@
+{
+  "brands": {
+    "acme": {
+      "id": "acme",
+      "name": "Acme Corp",
+      "slug": "acme",
+      "url": "https://acme.com",
+      "createdAt": "2026-03-20T10:00:00Z"
+    },
+    "zenflow": {
+      "id": "zenflow",
+      "name": "ZenFlow App",
+      "slug": "zenflow",
+      "url": "https://zenflow.io",
+      "createdAt": "2026-03-22T14:00:00Z"
+    },
+    "fluently-max": {
+      "id": "fluently-max",
+      "name": "Fluently Max",
+      "slug": "fluently-max",
+      "createdAt": "2026-03-30T05:46:07.249Z",
+      "url": "https://fluently.ai",
+      "colors": {
+        "primary": "#4F46E5",
+        "secondary": "#10B981",
+        "accent": "#F59E0B"
+      },
+      "font": "Inter"
+    },
+    "solutions": {
+      "id": "solutions",
+      "name": "solutions",
+      "slug": "solutions",
+      "createdAt": "2026-04-22T08:11:08.899Z",
+      "url": "https://nobody.solutions",
+      "colors": {
+        "primary": "#000000",
+        "secondary": "#FFFFFF",
+        "accent": "#9A9A9A"
+      },
+      "font": "Helvetica Neue"
+    }
+  },
+  "personas": {
+    "alex": {
+      "id": "alex",
+      "name": "Alex",
+      "voice": "eleven_monolingual_v1:rachel",
+      "tone": "friendly, casual",
+      "language": "en",
+      "createdAt": "2026-03-20T11:00:00Z"
+    },
+    "maxim": {
+      "id": "maxim",
+      "name": "Максим",
+      "voice": "eleven_multilingual_v2:boris",
+      "tone": "professional, authoritative",
+      "language": "ru",
+      "createdAt": "2026-03-21T09:00:00Z"
+    },
+    "max": {
+      "id": "max",
+      "name": "Max",
+      "language": "en",
+      "createdAt": "2026-03-30T05:46:16.768Z",
+      "tone": "friendly, confident, slightly provocative, educational but casual",
+      "voice": {
+        "provider": "elevenlabs",
+        "model": "eleven_multilingual_v2",
+        "voiceId": "charlie",
+        "stability": 0.6,
+        "similarityBoost": 0.8
+      },
+      "demographics": {
+        "ageRange": "25-30",
+        "gender": "male"
+      }
+    },
+    "paapa-essiedu": {
+      "id": "paapa-essiedu",
+      "name": "Paapa Essiedu",
+      "language": "en",
+      "createdAt": "2026-03-30T06:25:24.911Z",
+      "tone": "warm, charismatic, British accent, educational but fun, like a cool teacher",
+      "voice": {
+        "provider": "elevenlabs",
+        "model": "eleven_multilingual_v2",
+        "voiceId": "daniel",
+        "stability": 0.65,
+        "similarityBoost": 0.75
+      },
+      "demographics": {
+        "ageRange": "30-35",
+        "gender": "male"
+      }
+    },
+    "soviet-engineer": {
+      "id": "soviet-engineer",
+      "name": "soviet-engineer",
+      "language": "ru",
+      "createdAt": "2026-04-22T08:11:20.493Z",
+      "tone": "Russian male voice, early-to-mid thirties, calm measured deadpan delivery, unhurried, thoughtful pauses, no theatricality, no broadcaster tone, slight natural Moscow intonation, warm middle register slightly dry, self-assured craftsman explaining his work (not selling). Voice is embedded in video generation (Veo 3.1 TTS)",
+      "voice": "veo3.1:integrated",
+      "demographics": {
+        "ageRange": "45-55",
+        "gender": "male"
+      },
+      "updatedAt": "2026-04-22T10:25:46.010Z"
+    }
+  },
+  "refs": {
+    "acme-site": {
+      "id": "acme-site",
+      "url": "https://acme.com",
+      "type": "design",
+      "brand": "acme",
+      "status": "extracted",
+      "createdAt": "2026-03-20T10:30:00Z"
+    },
+    "viral-reels": {
+      "id": "viral-reels",
+      "url": "https://instagram.com/viral_ugc",
+      "type": "social",
+      "status": "analyzed",
+      "createdAt": "2026-03-21T15:00:00Z"
+    },
+    "nobody-solutions": {
+      "id": "nobody-solutions",
+      "url": "https://www.nobody.solutions/product/metal-bucket-hat",
+      "type": "design",
+      "status": "pending",
+      "createdAt": "2026-04-22T08:11:24.774Z",
+      "brand": "solutions"
+    },
+    "instagram-com": {
+      "id": "instagram-com",
+      "url": "https://www.instagram.com/reel/DW1iADUiC4h/",
+      "type": "social",
+      "status": "pending",
+      "createdAt": "2026-04-22T08:11:27.216Z"
+    },
+    "instagram-com-gcgg": {
+      "id": "instagram-com-gcgg",
+      "url": "https://www.instagram.com/reel/DU2LwlvCWIW/",
+      "type": "social",
+      "status": "pending",
+      "createdAt": "2026-04-22T08:11:27.580Z"
+    },
+    "instagram-com-qywh": {
+      "id": "instagram-com-qywh",
+      "url": "https://www.instagram.com/reel/DUOWGT_EW8l/",
+      "type": "social",
+      "status": "pending",
+      "createdAt": "2026-04-22T08:11:27.950Z"
+    }
+  },
+  "projects": {
+    "spring-001": {
+      "id": "spring-001",
+      "name": "Spring Launch - Acme Widget",
+      "brand": "acme",
+      "persona": "alex",
+      "status": "rendering",
+      "createdAt": "2026-03-23T08:00:00Z"
+    },
+    "spring-002": {
+      "id": "spring-002",
+      "name": "ZenFlow Onboarding Reel",
+      "brand": "zenflow",
+      "persona": "maxim",
+      "status": "scenario",
+      "createdAt": "2026-03-25T16:00:00Z"
+    },
+    "cluely": {
+      "id": "cluely",
+      "name": "Cluely",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-29T23:53:54.985Z",
+      "brief": "UGC analysis for Cluely brand"
+    },
+    "fluently-max-001": {
+      "id": "fluently-max-001",
+      "name": "Fluently Max - Reel 1",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-30T05:46:25.839Z",
+      "brand": "fluently-max",
+      "persona": "max",
+      "duration": 40
+    },
+    "fluently-max-002": {
+      "id": "fluently-max-002",
+      "name": "Fluently Max - Reel 2",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-30T05:46:26.218Z",
+      "brand": "fluently-max",
+      "persona": "max",
+      "duration": 40
+    },
+    "fluently-max-003": {
+      "id": "fluently-max-003",
+      "name": "Fluently Max - Reel 3",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-30T05:46:26.594Z",
+      "brand": "fluently-max",
+      "persona": "max",
+      "duration": 40
+    },
+    "fluently-max-004": {
+      "id": "fluently-max-004",
+      "name": "Fluently Max - Reel 4",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-30T05:46:27.004Z",
+      "brand": "fluently-max",
+      "persona": "max",
+      "duration": 40
+    },
+    "fluently-max-005": {
+      "id": "fluently-max-005",
+      "name": "Fluently Max - Reel 5",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-30T05:46:27.418Z",
+      "brand": "fluently-max",
+      "persona": "max",
+      "duration": 40
+    },
+    "paapa-homographs": {
+      "id": "paapa-homographs",
+      "name": "Homographs - Paapa Edition",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-03-30T06:25:39.303Z",
+      "brand": "fluently-max",
+      "persona": "paapa-essiedu",
+      "brief": "1:1 copy of fluently.jess Homographs reel (DWNGoldjBmO) with Paapa Essiedu as persona",
+      "duration": 50
+    },
+    "lyadov-podcast-001": {
+      "id": "lyadov-podcast-001",
+      "name": "Lyadov Podcast EP1 EN",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-04-07T08:05:16.185Z",
+      "brief": "Russian podcast dubbed to English with karaoke subtitles",
+      "duration": 40
+    },
+    "solutions-metal-001": {
+      "id": "solutions-metal-001",
+      "name": "solutions METAL cap — Soviet engineer",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "status": "draft",
+      "createdAt": "2026-04-22T08:11:43.419Z",
+      "brand": "solutions",
+      "persona": "soviet-engineer",
+      "brief": "Реклама кепок METAL бренда .solutions (nobody.solutions). Формат TikTok/Reels 9:16, 30-40 сек. Стилистика: советский ретрофутуризм 1970-80х, плёночная эстетика Svema, тёплые янтарные тона, зернистость. Сюжет: советский инженер-материаловед в НИИ разрабатывает уникальную ткань COTTON METAL (хлопок + алюминиевая прослойка, держит форму) — архивные кадры лаборатории, опытные образцы ткани, примерка. В финале реальные фото кепок (bucket + cap) с DOD LOGO шильдиком. Tone of voice: спокойный, размеренный, чуть ироничный рассказ от первого лица. Финальный CTA: www.solutions.solutions — релиз завтра 17:00.",
+      "duration": 35
+    },
+    "soviet-engineer-001": {
+      "id": "soviet-engineer-001",
+      "name": "Советский инженер — один день",
+      "platform": "tiktok",
+      "aspectRatio": "9:16",
+      "template": "soviet-nostalgic",
+      "status": "draft",
+      "createdAt": "2026-04-23T14:38:14.440Z",
+      "brief": "Советский инженер ~55 лет от первого лица ностальгически рассказывает один свой день: встал рано, пошёл в цех, обед в столовке (первое, второе, компот), возвращение домой к любящей семье. Вайб: тёплая ностальгия, что раньше было хорошо и просто. Однопластовый формат (без модерн-эры, без DJ-drop)."
+    }
+  },
+  "templates": {
+    "product-testimonial": {
+      "id": "product-testimonial",
+      "name": "Product Testimonial",
+      "scenes": 3,
+      "duration": 30,
+      "createdAt": "2026-03-19T12:00:00Z"
+    },
+    "soviet-nostalgic": {
+      "id": "soviet-nostalgic",
+      "name": "Soviet Nostalgic TikTok Ad",
+      "createdAt": "2026-04-23T00:00:00.000Z",
+      "kind": "dir",
+      "description": "Vertical 9:16 TikTok-format ad in Soviet retrofuturistic aesthetic. An off-screen young narrator tells a two-era story: a Soviet inventor created something in the 1970s that was shelved, a modern successor revived it. Ends with a DJ-drop from nostalgic Soviet bed to contemporary hip-hop as the era flips. Proven format for product launches that benefit from a heritage narrative.",
+      "tags": [
+        "tiktok",
+        "soviet",
+        "nostalgic",
+        "two-era",
+        "heritage",
+        "product-story"
+      ]
+    },
+    "podcast-dub": {
+      "id": "podcast-dub",
+      "name": "Podcast Dub — RU → EN karaoke shorts",
+      "createdAt": "2026-04-23T00:00:00.000Z",
+      "kind": "dir",
+      "description": "Reference template for dubbing Russian podcast-style shorts into English while preserving the existing Russian edit (motion, captions placement, title-banner style). User supplies two inputs per short: (1) a raw Russian source video of the speaker, (2) the already-edited Russian short that defines the edit style to mirror. The chat runs ElevenLabs Dubbing + STT, converts the English word-timestamp transcript into @remotion/captions format, and composes the final English short in Remotion with a matching title banner + karaoke word-highlight captions synced to the dubbed audio.",
+      "tags": [
+        "podcast",
+        "dubbing",
+        "shorts",
+        "tiktok",
+        "youtube-shorts",
+        "elevenlabs",
+        "ru-to-en",
+        "karaoke-captions",
+        "translation"
+      ]
+    }
+  },
+  "batches": {}
+}

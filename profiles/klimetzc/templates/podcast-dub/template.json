@@ -1,0 +1,54 @@
+{
+  "name": "Podcast Dub — RU → EN karaoke shorts",
+  "slug": "podcast-dub",
+  "kind": "workflow-reference",
+  "description": "Reference template for dubbing Russian podcast-style shorts into English while preserving the existing Russian edit (motion, captions placement, title-banner style). User supplies two inputs per short: (1) a raw Russian source video of the speaker, (2) the already-edited Russian short that defines the edit style to mirror. The chat runs ElevenLabs Dubbing + STT, converts the English word-timestamp transcript into @remotion/captions format, and composes the final English short in Remotion with a matching title banner + karaoke word-highlight captions synced to the dubbed audio.",
+  "tags": ["podcast", "dubbing", "shorts", "tiktok", "youtube-shorts", "elevenlabs", "ru-to-en", "karaoke-captions", "translation"],
+  "platform": "tiktok-youtube-shorts",
+  "aspectRatio": "9:16",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "extractedFrom": "lyadov-podcast-001",
+  "createdAt": "2026-04-23T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "dubbingFlow": "dubbing-flow.md",
+    "promptFragments": "fragments.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "dubbing": "ElevenLabs /v1/dubbing (source_lang: ru, target_lang: en, preserve speaker voice via voice cloning). Returns dubbed audio (mp4/mp3).",
+    "transcript": "ElevenLabs STT /v1/speech-to-text on the dubbed English audio → word-level timestamps. Alternative: use the transcript returned by the dubbing job if available.",
+    "captionsFormat": "@remotion/captions Caption[] — { text, startMs, endMs, timestampMs, confidence }",
+    "composition": "Remotion 4.0.441 — OffthreadVideo (muted) + Audio (dubbed) + Title Banner (first ~3.5s) + Karaoke Line (3 words, active word highlighted)",
+    "fonts": "@remotion/google-fonts Inter, weights 700/800/900, Latin subset"
+  },
+  "constants": {
+    "sourceLanguage": "ru-RU",
+    "targetLanguage": "en-US",
+    "wordsPerLine": 3,
+    "titleDurationFrames": 105,
+    "captionBottomPaddingPx": 288,
+    "titleBottomPaddingPx": 534,
+    "fillerWordsToStrip": ["uh", "um", "huh", "hmm", "ah"],
+    "titleAccentColor": "#FE2B02",
+    "karaokeActiveColor": "#FE0100",
+    "textColor": "#FFFFFF"
+  },
+  "inputs": {
+    "perShort": {
+      "rawRussianVideo": "mp4 of the speaker talking Russian, no edit — used as the visual track (muted in composition)",
+      "editedRussianReference": "mp4 of the already-edited Russian short — used by the chat to derive the title banner text, the title positioning, caption style, and any motion cues to mirror. Not rendered.",
+      "titleOverride": "optional English title text (2 short lines) — if omitted, the chat writes one from the reference short's Russian title"
+    }
+  },
+  "outputs": {
+    "dubbedAudioPath": "assets/voiceover/en_dubbed.m4a (or .mp3)",
+    "transcriptPath": "assets/voiceover/en_transcript.json",
+    "captionsPath": "src/videos/{project-id}/captions-{NN}.ts",
+    "finalRender": "workspace/projects/{project-id}/render/ep{NN}.mp4 (or final.mp4 if single)"
+  },
+  "doNotCopyLiterally": "Exact title text, exact caption positioning (if the reference edit uses different placement), color palette. All should be read off the editedRussianReference per project."
+}

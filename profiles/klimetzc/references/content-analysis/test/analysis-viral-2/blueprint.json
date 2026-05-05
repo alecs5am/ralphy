@@ -1,0 +1,201 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-viral-2.mp4",
+  "videoName": "reel-viral-2",
+  "analyzedAt": "2026-03-30T00:36:32.854Z",
+  "meta": {
+    "duration": 66.3,
+    "resolution": "720x720",
+    "width": 720,
+    "height": 720,
+    "aspectRatio": "1:1",
+    "fps": "30/1"
+  },
+  "analysis": {
+    "summary": "This video is a compilation of short clips from a podcast, featuring a man and a woman discussing a topic related to relationships or personal experiences. The video uses a black and white filter with selective color highlighting on the subtitles, fast cuts between speakers, and dynamic text animations to keep the viewer engaged. The content appears to be an excerpt from a longer conversation, designed to pique curiosity and share relatable insights.",
+    "category": "podcast-clip",
+    "language": "en",
+    "format": {
+      "type": "mixed",
+      "aspectRatio": "1:1",
+      "duration": 66.3,
+      "hasSubtitles": true,
+      "subtitleStyle": "Yellow and red text, bold, sans-serif font, positioned at the bottom center of the screen, with a slight animation where words appear and disappear.",
+      "hasFaceCam": true,
+      "hasScreenRecording": false,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "IN JUST A... NOW OVER THE...",
+      "whyItWorks": "The video starts mid-sentence, immediately creating a sense of curiosity about what the speaker is talking about and what the full context is. The quick cuts and dynamic subtitles also grab attention."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:03",
+        "type": "hook",
+        "description": "A bald man with a beard and headphones is speaking into a microphone, looking slightly downwards. The video has a black and white filter with yellow subtitles.",
+        "textOnScreen": "IN JUST A",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:03-0:05",
+        "type": "content",
+        "description": "The same man continues speaking, with a slight glitch effect on the screen. Subtitles are yellow.",
+        "textOnScreen": "NOW OVER THE",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "The man is still speaking, looking slightly to the side. Subtitles are yellow.",
+        "textOnScreen": "THE STORE AND",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:07-0:08",
+        "type": "content",
+        "description": "The man smiles slightly while speaking. Subtitles are yellow.",
+        "textOnScreen": "UH WE CAN",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:08-0:09",
+        "type": "content",
+        "description": "A woman wearing a baseball cap and headphones is shown, resting her head on her hand, looking down. Subtitles are red.",
+        "textOnScreen": "OK GREAT",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:09-0:11",
+        "type": "content",
+        "description": "The woman is now wearing a beanie and glasses, looking slightly to the side and smiling. Subtitles are yellow.",
+        "textOnScreen": "THE FIRST AND",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:11-0:13",
+        "type": "content",
+        "description": "The woman continues speaking, looking to the side. Subtitles are yellow.",
+        "textOnScreen": "PUT ON A",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:13-0:15",
+        "type": "content",
+        "description": "The woman in the baseball cap is shown again, looking down and speaking. Subtitles are yellow.",
+        "textOnScreen": "UH YOU KNOW",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:15-0:17",
+        "type": "content",
+        "description": "The woman in the baseball cap is still speaking, looking down. Subtitles are yellow.",
+        "textOnScreen": "MY WIFE STACY",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:17-0:19",
+        "type": "content",
+        "description": "The woman in the baseball cap is speaking, looking slightly to the right. Subtitles are yellow.",
+        "textOnScreen": "HOW TO CATCH",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:19-0:21",
+        "type": "content",
+        "description": "The woman in the beanie and glasses is shown again, with a large black 'L' graphic partially obscuring her face. Subtitles are red.",
+        "textOnScreen": "WHAT WHAT",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:21-0:23",
+        "type": "content",
+        "description": "The woman in the baseball cap is shown again, resting her head on her hands, looking down. A glitch effect is present. Subtitles are red.",
+        "textOnScreen": "OKAY",
+        "transition": "cut",
+        "cameraAngle": "medium"
+      }
+    ],
+    "editing": {
+      "pace": "very-fast",
+      "averageCutLength": "1-2 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "glitch-effect",
+        "text-overlays",
+        "color-grading (black and white filter)",
+        "selective color on text"
+      ],
+      "textOverlays": {
+        "style": "Bold, sans-serif, capitalized text with a slight shadow, appearing and disappearing dynamically.",
+        "font": "Sans-serif (e.g., Montserrat, Arial Black)",
+        "colors": [
+          "yellow",
+          "red"
+        ],
+        "animation": "Words appear and disappear quickly, sometimes with a slight pop or fade effect.",
+        "position": "Bottom center"
+      },
+      "colorGrading": "desaturated"
+    },
+    "audio": {
+      "hasVoiceover": true,
+      "hasMusic": false,
+      "musicMood": "none",
+      "voiceTone": "Conversational, engaging, varying between speakers. The man's tone seems more assertive, while the woman's is more reactive and questioning.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "whyItWorks": "The fast-paced editing, dynamic subtitles, and quick cuts between speakers keep the viewer's attention. The content, being a snippet of a conversation, creates a curiosity gap, making viewers want to know the full context or the outcome of the discussion. The use of selective color on subtitles also makes key phrases stand out.",
+      "targetAudience": "Individuals interested in podcast content, relationship advice, personal development, or relatable life experiences. People who enjoy short, engaging clips.",
+      "emotionalTrigger": "curiosity, education (through shared experiences/insights), relatability.",
+      "shareability": "high - the short, engaging format and potentially relatable content make it easy to share and discuss.",
+      "retentionTechniques": [
+        "fast cuts",
+        "dynamic text overlays",
+        "curiosity-gap storytelling",
+        "selective color highlighting",
+        "glitch effects"
+      ]
+    },
+    "reproductionGuide": {
+      "difficulty": "medium",
+      "requiredAssets": [
+        "Podcast audio/video footage (at least two speakers)",
+        "Video editing software (e.g., CapCut, Adobe Premiere Pro)",
+        "Sans-serif font for subtitles",
+        "Background music (optional, but none used in this example)"
+      ],
+      "steps": [
+        "1. Select engaging snippets from a longer podcast or interview (1-3 seconds per clip).",
+        "2. Apply a black and white filter or desaturate the video footage.",
+        "3. Add dynamic, bold, sans-serif subtitles to each clip, ensuring they appear and disappear quickly.",
+        "4. Use two distinct colors for subtitles (e.g., yellow for main points, red for reactions/emphasis).",
+        "5. Implement fast cuts between different speakers or different reactions.",
+        "6. Add subtle visual effects like glitch transitions or text animations to enhance engagement.",
+        "7. Ensure the audio is clear and the voice tones are engaging.",
+        "8. Export in a 1:1 aspect ratio."
+      ],
+      "variationIdeas": [
+        "Use different color combinations for subtitles to match brand aesthetics.",
+        "Experiment with different visual effects (e.g., zoom-ins, subtle camera shakes) to emphasize points.",
+        "Focus on a specific theme or topic across all clips to create a cohesive narrative.",
+        "Include a call to action at the end, directing viewers to the full podcast episode.",
+        "Use different types of content, such as educational talks or motivational speeches, applying the same editing style."
+      ]
+    }
+  }
+}

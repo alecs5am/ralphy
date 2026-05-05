@@ -1,0 +1,18 @@
+{
+  "endpoint": "https://fal.run/openai/gpt-image-2",
+  "shots": [
+    {
+      "slug": "07-product-stilllife",
+      "prompt": "Vertical 2:3 editorial still life, overhead flat-lay top-down composition. Four pieces of matte black contemporary headwear arranged in a loose rectangle on a raw grey concrete slab with visible hairline cracks and mineral speckles: two identical bucket hats (wide soft brim, crown pinched and wrinkled) in the top row, and two identical structured 6-panel caps with stiff curved visors in the bottom row. Each item has a small polished rectangular metal shield badge stitched onto the front. All four items are made of heavily crumpled and densely wrinkled matte-black fabric with a faint metallic sheen. The surface shows permanent sharp creases and folds going in every direction, as if thick aluminum foil was compressed into a ball and then laminated with black cotton. Even flat areas keep a tactile wrinkled texture. Light catches the high points of the creases with a subtle grey-silver gleam. The fabric looks engineered and contemporary, not vintage worn cloth — it holds its shape independently. Diffused cold overhead studio light, minimal shadow, high-end product photography, clean negative space between items. No props, no typography, no human hands. Contemporary editorial photography, cold neutral studio light, minimal composition, grey concrete and matte black surfaces, muted desaturated palette, clean and quiet — no film grain, no vintage filters, sharp focus. Photorealistic, natural human anatomy with exactly five fingers per hand. Realistic hands are critical. No extra fingers. No deformed limbs. No warped text. If any Russian Cyrillic text appears, it must be clearly legible and correctly spelled."
+    }
+  ],
+  "results": [
+    {
+      "ok": true,
+      "slug": "07-product-stilllife",
+      "url": "https://v3b.fal.media/files/b/0a9743fd/i1hc1LQGovwvcxXTaYkdA_IkR03tsY.png",
+      "out": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/image-samples-v3/07-product-stilllife.png",
+      "bytes": 1385831
+    }
+  ]
+}

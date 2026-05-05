@@ -1,0 +1,83 @@
+{
+  "id": "soviet-engineer-001",
+  "name": "Советский инженер — один день",
+  "format": "soviet-nostalgic-single-era",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "platform": "tiktok",
+  "narrator": {
+    "language": "ru-RU",
+    "gender": "male",
+    "age": 55,
+    "tone": "deadpan, warm, nostalgic, unhurried, first-person",
+    "elevenlabs_voice_id": "m0OQuJtWCw1V23P0pQmG",
+    "model_id": "eleven_multilingual_v2",
+    "settings": {"stability": 0.6, "similarity_boost": 0.82, "style": 0.22, "use_speaker_boost": true}
+  },
+  "character": {
+    "name": "Пётр Ильич",
+    "role": "Soviet factory engineer, mid-fifties",
+    "description": "Soviet factory engineer in his mid-fifties, weathered kind face, deep-set tired intelligent eyes, greying hair combed back, trimmed greying moustache, square jaw, wears a white lab-coat over a grey shirt and thin dark tie at work, or a wool coat and ushanka outside"
+  },
+  "scenes": [
+    {
+      "id": "scene-01",
+      "slug": "clip-01-morning-kitchen",
+      "durationSec": 8,
+      "voRu": "Раньше я вставал затемно. Чайник свистит, жена режет хлеб. Тихо — чтоб детей не разбудить.",
+      "keyframe_prompt_brief": "Early morning small Soviet kitchen, 1978. Engineer sits at a small Formica table in an undershirt and grey trousers, steam rising from a glass tea cup in a подстаканник. Whistling kettle on the gas stove. Wife in a patterned housecoat slicing dark bread at the counter. Tungsten lamp, floral wallpaper, window still dark.",
+      "motion_prompt": "Very subtle locked-off camera. Steam from the tea cup rises slowly. Wife's hand gently slices one slice of bread. Engineer lifts the cup with measured calm. No camera movement."
+    },
+    {
+      "id": "scene-02",
+      "slug": "clip-02-walk-to-factory",
+      "durationSec": 7,
+      "voRu": "Иду в цех. Снег скрипит под сапогами, фонари жёлтые. Все идут в одну сторону.",
+      "keyframe_prompt_brief": "Early Soviet winter morning street. Engineer in a dark wool coat, ushanka, felt boots, walking along a snowy sidewalk at dawn. Behind him, other workers in quilted jackets walking the same direction. Yellow sodium streetlamps, factory smokestacks silhouetted in the distance, soft falling snow. Pre-dawn blue light.",
+      "motion_prompt": "Slow forward dolly follow-shot from behind. Engineer walks steadily, snow crunches. Falling snow drifts. Other figures move in the same direction. Yellow streetlamp slightly flickers."
+    },
+    {
+      "id": "scene-03",
+      "slug": "clip-03-shop-floor",
+      "durationSec": 8,
+      "voRu": "Свой станок знаешь как свою руку. Гудит. Масло, металл. Работаешь — и не замечаешь времени.",
+      "keyframe_prompt_brief": "Inside a Soviet industrial шоп (factory shop floor), 1978. Engineer now in a white lab-coat over grey shirt, stands at a large green-painted metal lathe машине, hand on a heavy brass control wheel, watching a steel workpiece spin. Bright overhead industrial fluorescent tubes, oily metal shavings on the floor, dusty wire-glass windows behind.",
+      "motion_prompt": "Medium locked-off shot. The lathe spindle rotates continuously, faint steam rises. Engineer adjusts the brass wheel with one slow precise turn, watches the workpiece intently. Ambient shop atmosphere."
+    },
+    {
+      "id": "scene-04",
+      "slug": "clip-04-canteen-tray",
+      "durationSec": 8,
+      "voRu": "Обед в столовой. Щи. Котлета с пюре. Компот из сухофруктов. Двадцать копеек.",
+      "keyframe_prompt_brief": "Top-down overhead view of a metal canteen tray on a Formica столовая table, 1978 Soviet factory canteen. On the tray: a deep ceramic bowl of thick щи (cabbage soup) with sour cream floating, a plate with one котлета and mashed potatoes with a sprig of dill, a faceted гранёный glass of dried-fruit компот with a piece of prune visible, a slice of dark rye bread, a bent aluminum spoon and fork, a crumpled paper napkin. Warm canteen light, faint reflections of other trays and people blurred around edges.",
+      "motion_prompt": "Very slow locked-off top-down. Steam from the soup rises gently. The surface of the компот slightly trembles. No camera movement. Hands do not enter the frame."
+    },
+    {
+      "id": "scene-05",
+      "slug": "clip-05-walk-home-evening",
+      "durationSec": 7,
+      "voRu": "Вечером домой. Тот же снег, те же фонари. Только в окне уже свет — ждут.",
+      "keyframe_prompt_brief": "Evening Soviet residential courtyard, 1978. Engineer in the dark wool coat and ushanka walking home through fresh snow toward a five-story brick хрущёвка apartment block. One window on the second floor is warmly lit amber behind a curtain. Yellow streetlamps, blue-grey winter twilight sky, a single cat silhouette on the path.",
+      "motion_prompt": "Slow forward dolly. Engineer walks toward the building, snow crunches faintly. Amber window light glows steadily. Falling snow."
+    },
+    {
+      "id": "scene-06",
+      "slug": "clip-06-family-dinner",
+      "durationSec": 9,
+      "voRu": "Жена, дети, горячий ужин. Телевизор тихо бормочет. Тогда не знали, что это было счастье. Просто жили.",
+      "keyframe_prompt_brief": "Warm Soviet family kitchen at dinner, 1978. Engineer (still in grey shirt, tie loose) sits at the head of a small round table with a white embroidered tablecloth. Wife in a patterned housecoat serves a steaming dish of картошка с мясом. Two children, about 8 and 11, sit quietly eating. In the background: a small black-and-white телевизор on a shelf, tuned to evening news, a glass cabinet with crystal glasses, a ковёр (patterned rug) hanging on the wall. Tungsten lamp overhead, soft warm amber light.",
+      "motion_prompt": "Medium locked-off. Steam rises from the dish. Wife serves one ladle, sits down. Children quietly eat. Engineer picks up fork. The TV's faint flicker on the wall. No camera movement."
+    }
+  ],
+  "music": {
+    "track": "assets/music/trend-soviet-bed.mp3",
+    "volume": 0.14,
+    "fade_in_frames": 30,
+    "fade_out_sec": 1.5,
+    "note": "Canonical TikTok trend Soviet bed. Single era — no DJ-drop."
+  },
+  "totalDurationSec": 47,
+  "outroSec": 2,
+  "outro": {"text": "Раньше было проще.", "fontSize": 48}
+}

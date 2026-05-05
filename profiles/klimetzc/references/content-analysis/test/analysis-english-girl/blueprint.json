@@ -1,0 +1,254 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-english-girl.mp4",
+  "videoName": "reel-english-girl",
+  "analyzedAt": "2026-03-30T00:36:10.845Z",
+  "meta": {
+    "duration": 40,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "analysis": {
+    "summary": "This video is an educational piece about learning English. It starts with a quick lesson on telling time in English, then transitions to debunking a common myth about English learning: that you need more vocabulary. The creator, a young woman, directly addresses the camera, using text overlays to emphasize key points and a visual effect (black and white with a pink text overlay) to highlight a crucial statement.",
+    "category": "educational",
+    "language": "en",
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 40,
+      "hasSubtitles": true,
+      "subtitleStyle": "White text with black outline, centered at the bottom of the screen, standard font.",
+      "hasFaceCam": true,
+      "hasScreenRecording": false,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "The video starts with a visual of different times and their English expressions, immediately engaging viewers interested in language learning.",
+      "whyItWorks": "It presents a mini-lesson upfront, offering immediate value and piquing the interest of those looking to improve their English skills. The visual presentation of times and their corresponding phrases is clear and easy to follow."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:03",
+        "type": "hook",
+        "description": "A young woman with blonde hair and a white cardigan is looking directly at the camera, speaking. On the left side of the screen, a column of times (07:00, 07:05, etc.) is displayed in blue boxes. On the right, '7 o'clock' appears next to '07:00'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:03-0:05",
+        "type": "content",
+        "description": "The woman continues speaking. '5 past 7' appears next to '07:05'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "The woman continues speaking. 'quarter past 7' appears next to '07:15'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7, quarter past 7",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:07-0:09",
+        "type": "content",
+        "description": "The woman continues speaking. 'half past 7' appears next to '07:30'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7, quarter past 7, half past 7",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:09-0:11",
+        "type": "content",
+        "description": "The woman continues speaking. '20 to 8' appears next to '07:40'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7, quarter past 7, half past 7, 20 to 8",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:11-0:13",
+        "type": "content",
+        "description": "The woman continues speaking. 'quarter to 8' appears next to '07:45'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7, quarter past 7, half past 7, 20 to 8, quarter to 8",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:13-0:15",
+        "type": "content",
+        "description": "The woman continues speaking. '8 o'clock' appears next to '08:00'.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7, quarter past 7, half past 7, 20 to 8, quarter to 8, 8 o'clock",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:15-0:17",
+        "type": "content",
+        "description": "The woman finishes the time lesson and smiles.",
+        "textOnScreen": "07:00, 07:05, 07:15, 07:30, 07:40, 07:45, 08:00, 7 o'clock, 5 past 7, quarter past 7, half past 7, 20 to 8, quarter to 8, 8 o'clock",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:17-0:19",
+        "type": "content",
+        "description": "The woman is still speaking to the camera. A large text overlay appears in the center of the screen: 'The BIGGEST LIE about learning English' with a shocked emoji and an American flag emoji.",
+        "textOnScreen": "The BIGGEST LIE about learning English 🤯🇺🇸",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:19-0:21",
+        "type": "content",
+        "description": "The woman continues speaking. The text overlay changes to 'that you need more vocabulary' with a book emoji.",
+        "textOnScreen": "that you need more vocabulary 📚",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:21-0:23",
+        "type": "content",
+        "description": "The video transitions to black and white. The woman is still speaking, with a bold pink text overlay 'You don't!' in the center.",
+        "textOnScreen": "You don't!",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:23-0:25",
+        "type": "content",
+        "description": "The video returns to color. The woman continues speaking, with a text overlay 'You need to learn how to use the vocabulary you already know'.",
+        "textOnScreen": "You need to learn how to use the vocabulary you already know",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:25-0:27",
+        "type": "content",
+        "description": "The woman continues speaking. The text overlay changes to 'You need to learn how to connect words'.",
+        "textOnScreen": "You need to learn how to connect words",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:27-0:29",
+        "type": "content",
+        "description": "The woman continues speaking. The text overlay changes to 'You need to learn how to speak naturally'.",
+        "textOnScreen": "You need to learn how to speak naturally",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:29-0:31",
+        "type": "content",
+        "description": "The woman continues speaking. The text overlay changes to 'And you need to learn how to speak confidently'.",
+        "textOnScreen": "And you need to learn how to speak confidently",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:31-0:33",
+        "type": "content",
+        "description": "The woman continues speaking. The text overlay changes to 'And this is what I teach you in my program'.",
+        "textOnScreen": "And this is what I teach you in my program",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:33-0:35",
+        "type": "cta",
+        "description": "The woman continues speaking. The text overlay changes to 'So if you want to learn how to speak English naturally and confidently'.",
+        "textOnScreen": "So if you want to learn how to speak English naturally and confidently",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:35-0:37",
+        "type": "cta",
+        "description": "The woman continues speaking. The text overlay changes to 'Then click the link in my bio'.",
+        "textOnScreen": "Then click the link in my bio",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:37-0:40",
+        "type": "cta",
+        "description": "The woman smiles and gestures. The text overlay changes to 'And I'll see you there'.",
+        "textOnScreen": "And I'll see you there",
+        "transition": "none",
+        "cameraAngle": "close-up"
+      }
+    ],
+    "editing": {
+      "pace": "medium",
+      "averageCutLength": "2-3 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "text-overlays",
+        "color-grading (black and white filter)"
+      ],
+      "textOverlays": {
+        "style": "Initial time overlays are blue boxes with white text. Subsequent content overlays are white text with a black outline, sometimes bolded. The 'You don't!' overlay is bold pink text on a black and white background.",
+        "font": "Sans-serif, clean, readable",
+        "colors": [
+          "white",
+          "blue",
+          "black",
+          "pink"
+        ],
+        "animation": "Text appears instantly, then changes to new text instantly.",
+        "position": "Left side for times, center for content and CTA."
+      },
+      "colorGrading": "vibrant (for most of the video), desaturated (briefly for 'You don't!' scene)"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasMusic": false,
+      "musicMood": "none",
+      "voiceTone": "Friendly, clear, confident, and encouraging.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "whyItWorks": "The video offers immediate educational value with the time-telling lesson, then transitions to a 'myth-busting' approach which is highly engaging. The direct address to the camera and clear, concise messaging make it easy to follow. The 'You don't!' moment with the visual change is a strong pattern interrupt that emphasizes a key takeaway.",
+      "targetAudience": "Individuals learning English, especially those who feel stuck or overwhelmed by vocabulary, and those looking for practical tips to improve their speaking skills.",
+      "emotionalTrigger": "education, curiosity, motivation",
+      "shareability": "high - because it provides useful information and challenges a common misconception, making it relatable and shareable for English learners.",
+      "retentionTechniques": [
+        "Direct address to camera",
+        "Clear, concise information delivery",
+        "Text overlays for emphasis and visual aid",
+        "Pattern interrupt (black and white filter with bold text)",
+        "Problem/solution framing (lie about learning English / what you actually need)"
+      ]
+    },
+    "reproductionGuide": {
+      "difficulty": "easy",
+      "requiredAssets": [
+        "A person to speak on camera",
+        "A smartphone or camera for recording",
+        "A quiet space with good lighting",
+        "Video editing software capable of adding text overlays and basic color grading"
+      ],
+      "steps": [
+        "Record yourself speaking directly to the camera, explaining a simple English concept (e.g., telling time, common phrases).",
+        "Add text overlays to illustrate the points being made, similar to the time examples.",
+        "Transition to a 'myth-busting' segment, introducing a common misconception related to the topic.",
+        "Use a visual effect (like black and white filter) and a bold, contrasting text overlay to emphasize the debunking of the myth.",
+        "Explain the correct approach or solution.",
+        "Include a call to action, directing viewers to a link in your bio for more information or a program."
+      ],
+      "variationIdeas": [
+        "Debunking myths about grammar rules (e.g., 'You don't need to memorize every single rule!').",
+        "Teaching common idioms or slang and explaining their true meaning.",
+        "Addressing pronunciation challenges and offering simple tips.",
+        "Focusing on a different language or subject (e.g., 'The biggest lie about learning to code')."
+      ]
+    }
+  }
+}

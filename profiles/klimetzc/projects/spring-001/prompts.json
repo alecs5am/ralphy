@@ -1,0 +1,106 @@
+{
+  "projectId": "spring-001",
+  "generatedAt": "2026-03-23T08:15:00Z",
+  "model": "claude-sonnet-4-20250514",
+  "prompts": [
+    {
+      "id": "prompt-scene01-vo",
+      "scene": "scene-01",
+      "assetType": "voiceover",
+      "provider": "elevenlabs",
+      "status": "completed",
+      "input": {
+        "text": "Okay so I was literally juggling like five different apps just to manage my team's tasks... until I found this.",
+        "voiceId": "rachel",
+        "model": "eleven_monolingual_v1",
+        "stability": 0.65,
+        "similarityBoost": 0.78
+      },
+      "output": {
+        "file": "assets/voiceover/scene-01-voice.mp3",
+        "durationSec": 4.8,
+        "sampleRate": 44100
+      }
+    },
+    {
+      "id": "prompt-scene01-bg",
+      "scene": "scene-01",
+      "assetType": "image",
+      "provider": "flux",
+      "status": "completed",
+      "input": {
+        "prompt": "Young woman in her mid-20s sitting at a messy desk with multiple laptop screens showing different apps, looking overwhelmed but relatable, warm indoor lighting, casual outfit, iPhone filming perspective, UGC style, 9:16 vertical",
+        "negativePrompt": "professional studio, corporate, stock photo, perfect lighting",
+        "width": 1080,
+        "height": 1920,
+        "steps": 30,
+        "seed": 428901
+      },
+      "output": {
+        "file": "assets/images/scene-01-bg.png",
+        "width": 1080,
+        "height": 1920
+      }
+    },
+    {
+      "id": "prompt-scene02-product",
+      "scene": "scene-02",
+      "assetType": "image",
+      "provider": "existing",
+      "status": "completed",
+      "input": {
+        "source": "brand-asset",
+        "description": "Acme Widget product dashboard screenshot"
+      },
+      "output": {
+        "file": "assets/images/scene-02-product.jpg",
+        "width": 3072,
+        "height": 1882
+      }
+    },
+    {
+      "id": "prompt-scene02-vo",
+      "scene": "scene-02",
+      "assetType": "voiceover",
+      "provider": "elevenlabs",
+      "status": "pending",
+      "input": {
+        "text": "Acme Widget literally combines your project board, docs, and team chat into one place. I set it up in like ten minutes and honestly my team's productivity went through the roof. The best part? It syncs with everything - Slack, Google Drive, even Figma. No more switching between a million tabs.",
+        "voiceId": "rachel",
+        "model": "eleven_monolingual_v1",
+        "stability": 0.65,
+        "similarityBoost": 0.78
+      },
+      "output": null
+    },
+    {
+      "id": "prompt-scene03-vo",
+      "scene": "scene-03",
+      "assetType": "voiceover",
+      "provider": "elevenlabs",
+      "status": "pending",
+      "input": {
+        "text": "If you're still using five different apps to do what Acme does in one... honestly what are you doing? Link in bio, go try it free. You'll thank me later.",
+        "voiceId": "rachel",
+        "model": "eleven_monolingual_v1",
+        "stability": 0.65,
+        "similarityBoost": 0.78
+      },
+      "output": null
+    },
+    {
+      "id": "prompt-music-bg",
+      "scene": "*",
+      "assetType": "music",
+      "provider": "local",
+      "status": "completed",
+      "input": {
+        "source": "system-sound",
+        "description": "Placeholder background track (Hero.aiff)"
+      },
+      "output": {
+        "file": "assets/music/background.aiff"
+      }
+    }
+  ]
+}

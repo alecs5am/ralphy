@@ -1,0 +1,40 @@
+{
+  "id": "zenflow",
+  "name": "ZenFlow App",
+  "slug": "zenflow",
+  "url": "https://zenflow.io",
+  "description": "Meditation and focus app for busy professionals. AI-guided sessions that adapt to your schedule and mood.",
+  "industry": "Health & Wellness",
+  "createdAt": "2026-03-22T14:00:00Z",
+  "updatedAt": "2026-03-22T14:00:00Z",
+  "colors": {
+    "primary": "#6C5CE7",
+    "primaryLight": "#A29BFE",
+    "secondary": "#00CEC9",
+    "accent": "#FD79A8",
+    "background": "#0D0D1A",
+    "surface": "#1A1A33",
+    "text": "#FFFFFF",
+    "textSecondary": "#B8B8D4",
+    "neutral": "#2D2D4A"
+  },
+  "typography": {
+    "headingFamily": "Satoshi",
+    "bodyFamily": "Inter",
+    "headingWeights": ["500", "700"],
+    "bodyWeights": ["400"]
+  },
+  "voice": {
+    "tone": "calm, encouraging, mindful",
+    "vocabulary": ["center yourself", "breathe", "clarity", "flow state", "mindful"],
+    "avoid": ["stress", "anxiety", "hustle", "grind"]
+  },
+  "assets": {
+    "logo": null,
+    "designTokens": null
+  },
+  "socialLinks": {
+    "tiktok": "https://tiktok.com/@zenflow",
+    "instagram": "https://instagram.com/zenflow.app"
+  }
+}

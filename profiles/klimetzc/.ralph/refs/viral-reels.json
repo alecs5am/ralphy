@@ -1,0 +1,33 @@
+{
+  "id": "viral-reels",
+  "url": "https://instagram.com/viral_ugc",
+  "type": "social",
+  "status": "analyzed",
+  "createdAt": "2026-03-21T15:00:00Z",
+  "updatedAt": "2026-03-21T15:30:00Z",
+  "analysis": {
+    "platform": "instagram",
+    "contentType": "reels",
+    "postsAnalyzed": 12,
+    "avgEngagement": "4.7%",
+    "avgViews": 285000,
+    "topPerformingFormats": ["hook-story-cta", "before-after", "POV-testimonial"],
+    "avgDuration": "28s"
+  },
+  "patterns": {
+    "hooks": [
+      "POV: you just discovered...",
+      "I was today years old when...",
+      "Stop scrolling if you..."
+    ],
+    "transitions": ["whip-pan", "snap-cut", "zoom-in"],
+    "musicStyle": "trending lo-fi beats, upbeat pop instrumentals",
+    "captionStyle": "bold white text, center-screen, 2-3 words max per line",
+    "ctaPatterns": ["link in bio", "comment '[keyword]' for link", "save this for later"]
+  },
+  "recommendations": [
+    "Lead with a relatable pain point in the first 1.5 seconds",
+    "Use snap-cuts every 3-4 seconds to maintain retention",
+    "End with a question to drive comments"
+  ]
+}

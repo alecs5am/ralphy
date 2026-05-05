@@ -1,0 +1,24 @@
+node_modules
+dist
+dist/binaries
+.DS_Store
+.env
+
+# Ignore the output video from Git but not videos you import into src/.
+out
+
+# Generated content (assets, renders, references)
+workspace/
+
+# Dashboard build
+dashboard/dist
+dashboard/node_modules
+
+# Test artifacts
+dashboard/test-dashboard.ts
+
+# Claude Code scheduler state
+.claude/scheduled_tasks.lock
+
+# Skill-creator eval results — local only, too big to commit
+.skill-creator-workspace/

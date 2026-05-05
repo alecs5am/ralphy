@@ -1,0 +1,15 @@
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"screenshot","source":"screenshot-cap-front.png","purpose":"product-ref","note":"nobody.solutions METAL bucket hat"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"screenshot","source":"screenshot-cap-angle.png","purpose":"product-ref","note":"METAL bucket hat alternate angle"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"screenshot","source":"screenshot-fabric-samples.png","purpose":"product-ref","note":"3 fabric samples on concrete"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"screenshot","source":"screenshot-fabric-production.png","purpose":"product-ref","note":"Production material close-up"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"ref-url","source":"https://www.nobody.solutions/product/metal-bucket-hat","purpose":"product-page","note":"Product page"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"ref-url","source":"https://www.instagram.com/reel/DW1iADUiC4h/","purpose":"video-ref","note":"Soviet TikTok format reference 1"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"ref-url","source":"https://www.instagram.com/reel/DU2LwlvCWIW/","purpose":"video-ref","note":"Soviet TikTok format reference 2"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"ref-url","source":"https://www.instagram.com/reel/DUOWGT_EW8l/","purpose":"video-ref","note":"Soviet TikTok format reference 3"}
+{"timestamp":"2026-04-22T08:09:02.846Z","kind":"ref-url","source":"https://vc.ru/ai/2863335-sozdanie-sovetskogo-video-cherez-nevrosyetu","purpose":"guide-doc","note":"Soviet AI video production guide"}
+{"timestamp":"2026-04-22T10:55:02.431Z","kind":"photo","source":"gleb-01-fullbody-shirt-tie.png","dest":"workspace/projects/solutions-metal-001/references/characters/gleb-kostin/gleb-01-fullbody-shirt-tie.png","purpose":"character-ref","note":"Gleb Kostin — designer, full body with shirt and tie"}
+{"timestamp":"2026-04-22T10:55:02.431Z","kind":"photo","source":"gleb-02-mugshot-duo.png","dest":"workspace/projects/solutions-metal-001/references/characters/gleb-kostin/gleb-02-mugshot-duo.png","purpose":"character-ref","note":"Gleb Kostin — mugshot style duo"}
+{"timestamp":"2026-04-22T10:55:02.431Z","kind":"photo","source":"gleb-03-adidas-hair-over-face.png","dest":"workspace/projects/solutions-metal-001/references/characters/gleb-kostin/gleb-03-adidas-hair-over-face.png","purpose":"character-ref","note":"Gleb Kostin — Adidas, hair over face"}
+{"timestamp":"2026-04-22T13:22:21.218Z","kind":"audio","source":"/Users/maximovchinnikov/Downloads/6881437264795142914.mp3","dest":"workspace/projects/solutions-metal-001/music/tiktok-source.mp3","purpose":"music-ref","note":"TikTok background music track (replaces Lyria2 v1)"}
+{"timestamp":"2026-04-22T13:59:34.116Z","kind":"screenshot","source":"screenshot-clip3-preview.png","purpose":"feedback-ref","note":"User marked clip-03 as boring"}
+{"timestamp":"2026-04-22T13:59:34.116Z","kind":"screenshot","source":"screenshot-clip8-preview.png","purpose":"feedback-ref","note":"User marked clip-08 as boring"}

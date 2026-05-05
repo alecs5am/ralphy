@@ -1,0 +1,328 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/fluently-jess/reels/DWaEL1cDKiW.mp4",
+  "videoName": "DWaEL1cDKiW",
+  "analyzedAt": "2026-03-30T05:31:00.534Z",
+  "meta": {
+    "duration": 42.9,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "transcript": {
+    "text": "cutting board, cutlery, whisk, ladle, spatula, frying pan, rolling pin, peeler, colander, grater, teapot. The biggest lie about learning English, that you need more vocabulary, you don't. You need to start speaking. Stacy, what advice would you give to a beginner who wants to improve their English quickly? Just talk to me every day. Daily practice with AI tutors works wonders. That's why fluently works. It's like a speaking partner in your pocket. Stop learning English, start speaking with fluently app.",
+    "segments": [
+      {
+        "start": 0,
+        "end": 1,
+        "text": "cutting board,"
+      },
+      {
+        "start": 1.8,
+        "end": 2.5,
+        "text": "cutlery,"
+      },
+      {
+        "start": 3.3,
+        "end": 3.7,
+        "text": "whisk,"
+      },
+      {
+        "start": 4.5,
+        "end": 4.9,
+        "text": "ladle,"
+      },
+      {
+        "start": 5.8,
+        "end": 6.5,
+        "text": "spatula,"
+      },
+      {
+        "start": 7.4,
+        "end": 8.2,
+        "text": "frying pan,"
+      },
+      {
+        "start": 9.1,
+        "end": 9.8,
+        "text": "rolling pin,"
+      },
+      {
+        "start": 10.7,
+        "end": 11.1,
+        "text": "peeler,"
+      },
+      {
+        "start": 12,
+        "end": 12.6,
+        "text": "colander,"
+      },
+      {
+        "start": 13.5,
+        "end": 14,
+        "text": "grater,"
+      },
+      {
+        "start": 14.9,
+        "end": 15.4,
+        "text": "teapot."
+      },
+      {
+        "start": 15.4,
+        "end": 18.2,
+        "text": "The biggest lie about learning English,"
+      },
+      {
+        "start": 18.2,
+        "end": 20,
+        "text": "that you need more vocabulary,"
+      },
+      {
+        "start": 20,
+        "end": 20.4,
+        "text": "you don't."
+      },
+      {
+        "start": 20.9,
+        "end": 22.1,
+        "text": "You need to start speaking."
+      },
+      {
+        "start": 22.1,
+        "end": 26.6,
+        "text": "Stacy, what advice would you give to a beginner who wants to improve their English quickly?"
+      },
+      {
+        "start": 26.6,
+        "end": 28,
+        "text": "Just talk to me every day."
+      },
+      {
+        "start": 28,
+        "end": 30.7,
+        "text": "Daily practice with AI tutors works wonders."
+      },
+      {
+        "start": 30.7,
+        "end": 32,
+        "text": "That's why fluently works."
+      },
+      {
+        "start": 32,
+        "end": 34.2,
+        "text": "It's like a speaking partner in your pocket."
+      },
+      {
+        "start": 34.2,
+        "end": 37.7,
+        "text": "Stop learning English, start speaking with fluently app."
+      }
+    ]
+  },
+  "analysis": {
+    "summary": "This video cleverly transitions from a basic English vocabulary lesson to a persuasive advertisement for an AI-powered language learning app. It leverages a common pain point for English learners – the perceived need for endless vocabulary – and reframes it as a 'lie,' positioning speaking practice as the true solution. The creator uses a friendly, approachable persona and a direct, conversational style to build trust and then seamlessly integrates the product pitch. The initial segment acts as a 'pattern interrupt' and a relatable scenario, drawing in viewers interested in English learning, before pivoting to the app's benefits.",
+    "category": "educational",
+    "language": "en",
+    "contentAnalysis": {
+      "topic": "English language learning, specifically speaking practice and vocabulary acquisition",
+      "creatorRole": "English language influencer/educator, product endorser",
+      "narrativeArc": "The video starts with a rapid-fire vocabulary quiz, establishing a common learning scenario. It then shifts to debunking a 'myth' about English learning (more vocabulary isn't the key) and introduces the actual solution (speaking practice). This leads directly into a product recommendation (Fluently app) as the ideal tool for that solution, ending with a clear call to action.",
+      "culturalReferences": [],
+      "musicIdentification": "unidentified",
+      "spokenContent": "The video first lists kitchen items to demonstrate vocabulary. Then, it transitions to a direct address about the 'biggest lie' in English learning: the need for more vocabulary. The creator argues that speaking practice is more crucial. She then poses a rhetorical question to an AI persona named 'Stacy' about quick English improvement, which leads to the recommendation of daily practice with AI tutors and specifically the 'Fluently' app.",
+      "textOnScreen": [
+        "cutting board",
+        "cutlery",
+        "whisk",
+        "ladle",
+        "spatula",
+        "frying pan",
+        "rolling pin",
+        "peeler",
+        "colander",
+        "grater",
+        "teapot",
+        "The BIGGEST LIE about learning English 🤯🇺🇸",
+        "that you need more vocabulary 📚",
+        "you don't.",
+        "You need to start speaking.",
+        "Stacy, what advice would you give to a beginner who wants to improve their English quickly?",
+        "Just talk to me every day.",
+        "Daily practice with AI tutors works wonders.",
+        "That's why fluently works.",
+        "It's like a speaking partner in your pocket.",
+        "Stop learning English, start speaking with fluently app."
+      ],
+      "keyMoment": "The shift from debunking the vocabulary myth to introducing the 'start speaking' solution and the Fluently app. This happens around 20.9s when she says \"You need to start speaking.\"",
+      "emotionalJourney": "Initial curiosity/engagement (vocabulary quiz) → mild frustration/recognition (the 'lie' about vocabulary) → relief/hope (the 'real' solution) → interest/persuasion (product pitch) → call to action."
+    },
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 42.9,
+      "hasSubtitles": true,
+      "subtitleStyle": "white text with black outline/shadow, appearing word by word or phrase by phrase, often with emojis",
+      "hasFaceCam": true,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "cutting board, cutlery, whisk...",
+      "whyItWorks": "The initial rapid-fire vocabulary quiz is a common and engaging format for language learners. It immediately establishes the video's topic and creates an interactive element, making viewers curious about what comes next or if they know all the words."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-15:4s",
+        "type": "content",
+        "description": "A young woman stands in a kitchen, pointing to animated icons of kitchen utensils that appear on the left side of the screen. As each icon appears, she says its name. The text of the word also appears next to the icon.",
+        "textOnScreen": "cutting board, cutlery, whisk, ladle, spatula, frying pan, rolling pin, peeler, colander, grater, teapot",
+        "spokenWords": "cutting board, cutlery, whisk, ladle, spatula, frying pan, rolling pin, peeler, colander, grater, teapot.",
+        "transition": "none",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Engaged, interactive, educational"
+      },
+      {
+        "timestamp": "15.4s-20.9s",
+        "type": "content",
+        "description": "The scene changes abruptly. The woman is now outdoors, in a close-up shot, looking directly at the camera. Text overlays appear, revealing the 'biggest lie' about learning English.",
+        "textOnScreen": "The biggest lie about learning English, that you need more vocabulary, you don't.",
+        "spokenWords": "The biggest lie about learning English, that you need more vocabulary, you don't.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Surprise, recognition, slight frustration (if viewer relates to the 'lie')"
+      },
+      {
+        "timestamp": "20.9s-22.1s",
+        "type": "content",
+        "description": "The woman continues speaking, emphasizing the true solution. Text overlay reinforces her statement.",
+        "textOnScreen": "You need to start speaking.",
+        "spokenWords": "You need to start speaking.",
+        "transition": "none",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Hope, clarity, motivation"
+      },
+      {
+        "timestamp": "22.1s-26.6s",
+        "type": "content",
+        "description": "The woman asks a rhetorical question to an AI persona named 'Stacy,' simulating an interview or conversation.",
+        "textOnScreen": "Stacy, what advice would you give to a beginner who wants to improve their English quickly?",
+        "spokenWords": "Stacy, what advice would you give to a beginner who wants to improve their English quickly?",
+        "transition": "none",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Curiosity, anticipation"
+      },
+      {
+        "timestamp": "26.6s-28.0s",
+        "type": "content",
+        "description": "A female AI voice (presumably 'Stacy') responds, offering advice. Text overlay shows the response.",
+        "textOnScreen": "Just talk to me every day.",
+        "spokenWords": "Just talk to me every day.",
+        "transition": "none",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Reassurance, simplicity"
+      },
+      {
+        "timestamp": "28.0s-34.2s",
+        "type": "content",
+        "description": "The woman explains the benefits of AI tutors and introduces the 'Fluently' app as the solution. Text overlays highlight key phrases.",
+        "textOnScreen": "Daily practice with AI tutors works wonders. That's why fluently works. It's like a speaking partner in your pocket.",
+        "spokenWords": "Daily practice with AI tutors works wonders. That's why fluently works. It's like a speaking partner in your pocket.",
+        "transition": "none",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Enlightenment, solution-oriented"
+      },
+      {
+        "timestamp": "34.2s-37.7s",
+        "type": "cta",
+        "description": "A clear call to action to download and use the Fluently app. Text overlay reinforces the message.",
+        "textOnScreen": "Stop learning English, start speaking with fluently app.",
+        "spokenWords": "Stop learning English, start speaking with fluently app.",
+        "transition": "none",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Call to action, empowerment"
+      }
+    ],
+    "editing": {
+      "pace": "medium",
+      "averageCutLength": "5-10 seconds (with one very quick cut at the beginning)",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "text overlays with emojis",
+        "animated icons"
+      ],
+      "textOverlays": {
+        "style": "clean, modern sans-serif font, often with a slight shadow or outline for readability",
+        "font": "sans-serif",
+        "colors": [
+          "white",
+          "black (for outline/shadow)"
+        ],
+        "animation": "appears word by word or phrase by phrase, sometimes with a subtle pop-in effect",
+        "position": "center-bottom or center-middle for main points, left side for vocabulary"
+      },
+      "colorGrading": "neutral"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasSpeech": true,
+      "hasSinging": false,
+      "hasMusic": false,
+      "musicDetails": "unidentified",
+      "voiceTone": "Friendly, clear, confident, persuasive. The AI voice is calm and helpful.",
+      "audioStructure": "Direct speech from the creator, interspersed with an AI voice response.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "primaryViralMechanic": "Problem-solution with a relatable 'myth-busting' hook.",
+      "whyItWorks": "It taps into a common struggle for language learners (feeling stuck despite learning vocabulary). By framing 'more vocabulary' as a 'lie,' it creates an immediate sense of intrigue and validation for those who've experienced this. The solution offered (speaking practice) is intuitive and desirable, leading directly to the product as the enabler. The creator's approachable demeanor and clear communication make the message trustworthy and easy to digest. The AI voice adds a modern, innovative touch, appealing to tech-savvy learners.",
+      "targetAudience": "English language learners (beginners to intermediate), especially those feeling frustrated with traditional learning methods, interested in quick improvement, and open to AI-powered tools. Likely younger demographics (Gen Z, Millennials) active on short-form video platforms.",
+      "emotionalTrigger": "Recognition (of the struggle), hope (for a better method), inspiration (to try a new approach).",
+      "shareability": "high - Viewers would share this with friends also learning English, or with groups/communities focused on language learning, because it offers a fresh perspective and a practical solution to a common problem.",
+      "commentBait": "Questions about the app, agreement/disagreement with the 'vocabulary lie,' personal experiences with language learning, requests for more tips.",
+      "retentionTechniques": [
+        "Rapid-fire initial segment (vocabulary quiz)",
+        "Direct address to the camera",
+        "Myth-busting statement (the 'lie')",
+        "Clear, concise problem-solution structure",
+        "Use of text overlays to reinforce key messages",
+        "Introduction of an AI persona ('Stacy')",
+        "Strong call to action"
+      ],
+      "platformOptimization": "Short duration, vertical format, clear and engaging hook, direct address, use of text overlays for silent viewing, quick cuts, and a clear call to action are all optimized for TikTok/Reels/Shorts algorithms and user behavior."
+    },
+    "reproductionGuide": {
+      "difficulty": "easy",
+      "conceptCore": "Debunk a common misconception about a skill/topic, then present a more effective solution, and finally, introduce a tool/product that facilitates that solution.",
+      "requiredAssets": [
+        "Creator with good on-camera presence",
+        "A script outlining the 'myth,' the 'truth,' and the product pitch",
+        "Text overlay capabilities",
+        "Optional: animated icons or visual aids for the initial hook",
+        "Optional: AI voice generator for simulated conversation"
+      ],
+      "steps": [
+        "1. Start with a quick, engaging hook related to the topic (e.g., a mini-quiz, a common scenario).",
+        "2. Transition to a direct address, stating a common 'lie' or misconception about the topic.",
+        "3. Immediately follow with the 'truth' or the more effective solution.",
+        "4. Introduce a product or tool that embodies this solution, explaining its benefits.",
+        "5. Include a simulated interaction (e.g., asking an AI, a friend, or a rhetorical question) to demonstrate the product's value.",
+        "6. End with a clear and concise call to action for the product/tool."
+      ],
+      "variationIdeas": [
+        "**Fitness:** 'The biggest lie about losing weight: endless cardio. You don't. You need strength training. My AI coach helps with daily routines.'",
+        "**Productivity:** 'The biggest lie about being productive: multi-tasking. You don't. You need focused work. This app blocks distractions.'",
+        "**Cooking:** 'The biggest lie about cooking: fancy ingredients. You don't. You need basic techniques. My online course teaches you the fundamentals.'",
+        "**Finance:** 'The biggest lie about saving money: cutting out coffee. You don't. You need a budget. This app tracks your spending automatically.'"
+      ],
+      "whatToAvoid": [
+        "Making the 'lie' too obscure or unrelatable.",
+        "Having a weak or unclear transition between the problem and the solution/product.",
+        "Overly salesy or inauthentic tone; maintain a helpful, educational persona.",
+        "Forgetting a clear call to action at the end."
+      ]
+    }
+  }
+}

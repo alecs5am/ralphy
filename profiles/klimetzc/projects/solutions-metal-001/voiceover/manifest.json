@@ -1,0 +1,65 @@
+{
+  "voice_id": "m0OQuJtWCw1V23P0pQmG",
+  "model": "eleven_multilingual_v2",
+  "settings": {
+    "stability": 0.55,
+    "similarity_boost": 0.8,
+    "style": 0.25,
+    "use_speaker_boost": true
+  },
+  "scenes": [
+    {
+      "slug": "clip-01",
+      "text": "Мой дед был инженером-материаловедом. В семьдесят четвёртом году, в закрытом НИИ под Москвой, он придумал ткань, которая запоминает форму.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-01.mp3",
+      "bytes": 140060
+    },
+    {
+      "slug": "clip-02",
+      "text": "Хлопок снаружи, тончайшая алюминиевая фольга посередине. Ткань ведёт себя как металл, но остаётся мягкой. Принимает любую форму — и держит её.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-02.mp3",
+      "bytes": 171407
+    },
+    {
+      "slug": "clip-03",
+      "text": "На третьей попытке удалось стабилизировать слои. Первые два ушли в брак. Третий — получилось.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-03.mp3",
+      "bytes": 108713
+    },
+    {
+      "slug": "clip-04",
+      "text": "В том же году разработку показали комиссии. Сказали — непрофильно. Алюминий уходил на оборону, хлопок — на полотенца. Закрыли.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-04.mp3",
+      "bytes": 145075
+    },
+    {
+      "slug": "clip-05",
+      "text": "Тетрадь с записями деда пролежала в ящике стола больше полувека.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-05.mp3",
+      "bytes": 71097
+    },
+    {
+      "slug": "clip-06",
+      "text": "Мы достали её прошлой зимой. Разобрали формулы заново и собрали небольшое производство с нуля.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-06.mp3",
+      "bytes": 104951
+    },
+    {
+      "slug": "clip-07",
+      "text": "Тот же композит. Хлопок снаружи, металл внутри. Ткань, которая не повторяет форму. Она её создаёт.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-07.mp3",
+      "bytes": 127939
+    },
+    {
+      "slug": "clip-08",
+      "text": "Одна идея. Две эпохи. Между ними — полвека, один ящик и одно имя. COTTON METAL.",
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/clip-08.mp3",
+      "bytes": 119998
+    }
+  ],
+  "full_master": {
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/voiceover/full-master.mp3",
+    "text": "Мой дед был инженером-материаловедом. В семьдесят четвёртом году, в закрытом НИИ под Москвой, он придумал ткань, которая запоминает форму.\n\nХлопок снаружи, тончайшая алюминиевая фольга посередине. Ткань ведёт себя как металл, но остаётся мягкой. Принимает любую форму — и держит её.\n\nНа третьей попытке удалось стабилизировать слои. Первые два ушли в брак. Третий — получилось.\n\nВ том же году разработку показали комиссии. Сказали — непрофильно. Алюминий уходил на оборону, хлопок — на полотенца. Закрыли.\n\nТетрадь с записями деда пролежала в ящике стола больше полувека.\n\nМы достали её прошлой зимой. Разобрали формулы заново и собрали небольшое производство с нуля.\n\nТот же композит. Хлопок снаружи, металл внутри. Ткань, которая не повторяет форму. Она её создаёт.\n\nОдна идея. Две эпохи. Между ними — полвека, один ящик и одно имя. COTTON METAL.",
+    "bytes": 998130
+  }
+}

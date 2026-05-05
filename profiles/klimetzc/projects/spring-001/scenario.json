@@ -1,0 +1,137 @@
+{
+  "id": "spring-001",
+  "name": "Spring Launch - Acme Widget",
+  "brand": "acme",
+  "persona": "alex",
+  "template": "product-testimonial",
+  "status": "rendering",
+  "platform": "tiktok",
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "durationSec": 30,
+    "aspectRatio": "9:16"
+  },
+  "createdAt": "2026-03-23T08:00:00Z",
+  "updatedAt": "2026-03-26T19:45:00Z",
+  "scenes": [
+    {
+      "id": "scene-01",
+      "type": "hook",
+      "label": "Hook - Pain Point",
+      "durationSec": 5,
+      "startSec": 0,
+      "endSec": 5,
+      "voiceover": {
+        "text": "Okay so I was literally juggling like five different apps just to manage my team's tasks... until I found this.",
+        "persona": "alex",
+        "file": "assets/voiceover/scene-01-voice.mp3"
+      },
+      "visuals": {
+        "background": "assets/images/scene-01-bg.png",
+        "layout": "talking-head-overlay",
+        "textOverlay": {
+          "text": "POV: you find the\napp that replaces\nall your tools",
+          "position": "center",
+          "style": "bold-white-shadow",
+          "fontFamily": "Inter",
+          "fontSize": 48,
+          "fontWeight": "700",
+          "color": "#FFFFFF",
+          "animation": "fade-in-up"
+        },
+        "transition": {
+          "type": "snap-cut",
+          "durationMs": 200
+        }
+      },
+      "music": {
+        "file": "assets/music/background.aiff",
+        "volume": 0.15,
+        "startSec": 0
+      }
+    },
+    {
+      "id": "scene-02",
+      "type": "content",
+      "label": "Product Demo",
+      "durationSec": 17,
+      "startSec": 5,
+      "endSec": 22,
+      "voiceover": {
+        "text": "Acme Widget literally combines your project board, docs, and team chat into one place. I set it up in like ten minutes and honestly my team's productivity went through the roof. The best part? It syncs with everything - Slack, Google Drive, even Figma. No more switching between a million tabs.",
+        "persona": "alex",
+        "file": null
+      },
+      "visuals": {
+        "background": "#1A1A2E",
+        "productShot": "assets/images/scene-02-product.jpg",
+        "layout": "product-showcase",
+        "textOverlay": {
+          "text": "ALL-IN-ONE\nworkspace",
+          "position": "top-center",
+          "style": "bold-accent",
+          "fontFamily": "Inter",
+          "fontSize": 42,
+          "fontWeight": "700",
+          "color": "#FF6B35",
+          "animation": "scale-in"
+        },
+        "bulletPoints": [
+          { "text": "Project boards", "icon": "check", "delaySec": 1.5 },
+          { "text": "Team docs", "icon": "check", "delaySec": 3.0 },
+          { "text": "Built-in chat", "icon": "check", "delaySec": 4.5 }
+        ],
+        "transition": {
+          "type": "whip-pan",
+          "durationMs": 300
+        }
+      },
+      "music": {
+        "file": "assets/music/background.aiff",
+        "volume": 0.12,
+        "startSec": 5
+      }
+    },
+    {
+      "id": "scene-03",
+      "type": "cta",
+      "label": "CTA - Close",
+      "durationSec": 8,
+      "startSec": 22,
+      "endSec": 30,
+      "voiceover": {
+        "text": "If you're still using five different apps to do what Acme does in one... honestly what are you doing? Link in bio, go try it free. You'll thank me later.",
+        "persona": "alex",
+        "file": null
+      },
+      "visuals": {
+        "background": "gradient:#FF6B35,#FF8C61",
+        "layout": "cta-fullscreen",
+        "textOverlay": {
+          "text": "Try it FREE\nLink in bio",
+          "position": "center",
+          "style": "bold-white-glow",
+          "fontFamily": "Inter",
+          "fontSize": 56,
+          "fontWeight": "700",
+          "color": "#FFFFFF",
+          "animation": "bounce-in"
+        },
+        "brandLogo": true,
+        "transition": {
+          "type": "zoom-in",
+          "durationMs": 400
+        }
+      },
+      "music": {
+        "file": "assets/music/background.aiff",
+        "volume": 0.20,
+        "startSec": 22,
+        "fadeOut": true,
+        "fadeOutDurationSec": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "fluently-max",
+  "name": "Fluently Max",
+  "slug": "fluently-max",
+  "createdAt": "2026-03-30T05:46:07.249Z",
+  "url": "https://fluently.ai",
+  "colors": {
+    "primary": "#4F46E5",
+    "secondary": "#10B981",
+    "accent": "#F59E0B"
+  },
+  "font": "Inter"
+}

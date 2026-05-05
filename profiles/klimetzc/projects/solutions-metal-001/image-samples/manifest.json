@@ -1,0 +1,44 @@
+{
+  "endpoint": "https://fal.run/fal-ai/flux-pro/v1.1",
+  "negativePromptShared": "modern objects, plastic, digital artifacts, logos, watermarks, text, blurry, deformed hands, extra fingers",
+  "shots": [
+    {
+      "slug": "01-folder",
+      "aspect_ratio": "9:16",
+      "prompt": "Extreme close-up of two hands in white cotton laboratory gloves opening a beige cardboard file folder on a dark wooden desk. The folder has a bright red rubber stamp that reads in Cyrillic 'СЕКРЕТНО НИИ-27 ТКАНЬ-12'. Dim desk lamp from above-left casting warm golden light. Ashtray and fountain pen in soft focus. Soviet Svema film stock aesthetic, 1974, warm amber tones, heavy 35mm film grain, slightly faded color, soft dust and scratches, shallow depth of field, natural light, documentary photography, muted palette of olive-brown, cream, and warm red"
+    },
+    {
+      "slug": "06-commission",
+      "aspect_ratio": "9:16",
+      "prompt": "A Soviet textile engineer in his early fifties, grey hair, wire-frame round glasses, white laboratory coat, wearing a crumpled black bucket hat made of crinkled metallic-cotton fabric on his head. He stands in a wood-panelled conference room in front of three stern committee members in dark suits sitting behind a long table with green cloth, glasses of water and folders in front of them. No one is smiling. Awkward formal atmosphere. Medium shot, eye level. Soviet Svema film stock aesthetic, 1974, warm amber tones, heavy 35mm film grain, slightly faded color, soft dust and scratches, shallow depth of field, natural light, documentary photography, muted palette of olive-brown, cream, and warm red"
+    },
+    {
+      "slug": "10-still-life",
+      "aspect_ratio": "9:16",
+      "prompt": "Flat-lay still life: four black fabric headwear items arranged on a raw concrete slab: two bucket hats and two structured caps, all made of crumpled crinkled black metallic-cotton fabric with a small polished metal DOD LOGO shield badge. Cold diffuse overhead studio light, no shadows, stark minimal, editorial look. Slight film grain but otherwise clean and modern. The hats sit in a loose rectangle with negative space between them. Concrete texture visible."
+    }
+  ],
+  "results": [
+    {
+      "ok": true,
+      "slug": "01-folder",
+      "url": "https://v3b.fal.media/files/b/0a9740ac/_h7Q9_7wRDH4txB-kbnvo_75d45a183b674472adcff7bf195da5ad.jpg",
+      "out": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/image-samples/01-folder.jpg",
+      "bytes": 113861
+    },
+    {
+      "ok": true,
+      "slug": "06-commission",
+      "url": "https://v3b.fal.media/files/b/0a9740ac/UQyyITzLqVBcBJO9E0EjV_877e7fb205cc461c9b62b94d8804c6d1.jpg",
+      "out": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/image-samples/06-commission.jpg",
+      "bytes": 132388
+    },
+    {
+      "ok": true,
+      "slug": "10-still-life",
+      "url": "https://v3b.fal.media/files/b/0a9740ac/f3a4SqU14U2iy41Cjst0P_d065766a125d4b42989ab25598a08645.jpg",
+      "out": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/image-samples/10-still-life.jpg",
+      "bytes": 181729
+    }
+  ]
+}

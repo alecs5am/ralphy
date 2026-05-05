@@ -1,0 +1,247 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-viral-3.mp4",
+  "videoName": "reel-viral-3",
+  "analyzedAt": "2026-03-30T00:54:31.346Z",
+  "meta": {
+    "duration": 27.2,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "transcript": {
+    "text": "```json\n{\"text\": \"Слушай, а как по-японски будет небо? Мм, Сора. А голубой? Аой. Мм, а как сказать, сказал? Мм, Ита. А как тогда сказать, расправив крылья, я сказал, что не вернусь, ведь я стремился к этому голубому, голубому небу. \",,,,,,,\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",\",",
+    "segments": []
+  },
+  "analysis": {
+    "summary": "This video is a clever and humorous cultural mashup that plays on the recognizable opening lines of the iconic Naruto Shippuden opening theme song, 'Blue Bird' by Ikimono-Gakari. The creator starts by seemingly teaching Japanese vocabulary, building up to the key words 'sky' (sora), 'blue' (aoi), and 'said' (itta). The 'aha moment' comes when she dramatically recites the Russian translation of the song's opening lyrics, using the Japanese words she just 'taught,' and then transitions into a full-blown, passionate lip-sync performance of the song, complete with a quick cut to Gaara from Naruto. It resonates because it taps into deep nostalgia for anime fans, particularly those who grew up with Naruto, and delivers a satisfying, unexpected punchline.",
+    "category": "cultural-mashup",
+    "language": "ru",
+    "contentAnalysis": {
+      "topic": "Japanese language learning / Anime song reference",
+      "creatorRole": "Comedy creator / Anime fan / Language enthusiast",
+      "narrativeArc": "The video starts as an educational segment, teaching basic Japanese words. This builds a false sense of expectation. The narrative then shifts dramatically into a comedic reveal, where the 'learned' words are used to set up a passionate lip-sync of a famous anime song, culminating in a visual reference to the anime itself.",
+      "culturalReferences": [
+        "Naruto Shippuden (anime series)",
+        "Blue Bird (song by Ikimono-Gakari)",
+        "Gaara (character from Naruto)"
+      ],
+      "musicIdentification": "The song is 'Blue Bird' (ブルーバード) by Ikimono-Gakari, the third opening theme song for Naruto Shippuden.",
+      "spokenContent": "The creator first asks how to say 'sky' (небо), 'blue' (голубой), and 'said' (сказал) in Japanese. She then uses the Japanese answers ('Sora', 'Aoi', 'Itta') to construct the Russian translation of the opening lines of 'Blue Bird': 'Расправив крылья, я сказал, что не вернусь, ведь я стремился к этому голубому, голубому небу.' (Spreading my wings, I said I wouldn't return, because I yearned for that blue, blue sky.) This is the setup for the lip-sync.",
+      "textOnScreen": [
+        "а как по-японски (and how in Japanese)",
+        "sora 空 небо (sky)",
+        "aoi 青い голубой (blue)",
+        "itta 言った сказал (said)",
+        "расправив крылья (spreading my wings)",
+        "ведь я стремился (because I yearned)",
+        "голубому небу (blue sky)"
+      ],
+      "keyMoment": "The transition from the 'educational' segment to the dramatic lip-sync of 'Blue Bird' at 0:13, and the subsequent cut to Gaara at 0:20.",
+      "emotionalJourney": "Curiosity (what Japanese words will she teach?) → Recognition (as the Russian lyrics are spoken, anime fans realize the setup) → Nostalgia/Excitement (the song kicks in) → Joy/Amusement (the passionate performance and Gaara cameo)."
+    },
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 27.2,
+      "hasSubtitles": true,
+      "subtitleStyle": "Large, white, sans-serif font with a black outline, positioned at the bottom of the screen.",
+      "hasFaceCam": true,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "question",
+      "text": "Слушай, а как по-японски будет небо? (Hey, how do you say 'sky' in Japanese?)",
+      "whyItWorks": "It immediately engages the viewer with a question, creating a mini-lesson format. For those interested in Japanese or anime, it's an immediate draw. The casual, conversational tone makes it approachable."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:02",
+        "type": "hook",
+        "description": "Creator, in a white t-shirt, asks a question to the camera, looking thoughtful. Her long, sharp nails are visible. Text overlays appear as she speaks.",
+        "textOnScreen": "а как по-японски (and how in Japanese)",
+        "spokenWords": "Слушай, а как по-японски будет небо?",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Curiosity, engagement"
+      },
+      {
+        "timestamp": "0:02-0:03",
+        "type": "content",
+        "description": "Creator, now in a dark hoodie, answers the question, looking directly at the camera with a slightly exaggerated expression. Japanese word and its meaning appear.",
+        "textOnScreen": "sora 空 небо (sky)",
+        "spokenWords": "Мм, Сора.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Informative, slightly playful"
+      },
+      {
+        "timestamp": "0:03-0:04",
+        "type": "content",
+        "description": "Back to the white t-shirt, creator asks the next question, still thoughtful.",
+        "textOnScreen": "А голубой? (And blue?)",
+        "spokenWords": "А голубой?",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Continued curiosity"
+      },
+      {
+        "timestamp": "0:04-0:05",
+        "type": "content",
+        "description": "Back in the dark hoodie, creator answers, looking at the camera.",
+        "textOnScreen": "aoi 青い голубой (blue)",
+        "spokenWords": "Аой.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Informative, playful"
+      },
+      {
+        "timestamp": "0:05-0:06",
+        "type": "content",
+        "description": "Back in the white t-shirt, creator asks the final setup question.",
+        "textOnScreen": "Мм, а как сказать, сказал? (Hmm, and how do you say, 'said'?)",
+        "spokenWords": "Мм, а как сказать, сказал?",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Building anticipation"
+      },
+      {
+        "timestamp": "0:06-0:07",
+        "type": "content",
+        "description": "Back in the dark hoodie, creator answers, looking at the camera.",
+        "textOnScreen": "itta 言った сказал (said)",
+        "spokenWords": "Мм, Ита.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Informative, setting the stage"
+      },
+      {
+        "timestamp": "0:07-0:13",
+        "type": "payoff",
+        "description": "Creator, in white t-shirt, dramatically recites the Russian lyrics, using the Japanese words. Her eyes widen, and her expression becomes intense. The camera zooms in slightly.",
+        "textOnScreen": [
+          "А как тогда сказать, расправив крылья, я сказал, что не вернусь, ведь я стремился к этому голубому, голубому небу.",
+          "расправив крылья (spreading my wings)",
+          "ведь я стремился (because I yearned)",
+          "голубому небу (blue sky)"
+        ],
+        "spokenWords": "А как тогда сказать, расправив крылья, я сказал, что не вернусь, ведь я стремился к этому голубому, голубому небу.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Recognition, anticipation, dramatic reveal"
+      },
+      {
+        "timestamp": "0:13-0:19",
+        "type": "payoff",
+        "description": "The 'Blue Bird' song kicks in. Creator, now in a dark hoodie, passionately lip-syncs and performs the song, leaning against a wall, with dramatic hand gestures and facial expressions.",
+        "textOnScreen": null,
+        "spokenWords": null,
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Nostalgia, excitement, joy, amusement"
+      },
+      {
+        "timestamp": "0:19-0:21",
+        "type": "payoff",
+        "description": "Quick cut to a blurry, low-quality image of Gaara from Naruto, a character strongly associated with the 'Blue Bird' opening sequence.",
+        "textOnScreen": null,
+        "spokenWords": null,
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Recognition, humor, deeper nostalgia"
+      },
+      {
+        "timestamp": "0:21-0:27",
+        "type": "payoff",
+        "description": "Creator returns, continuing the passionate lip-sync, looking directly at the camera with intense energy, embodying the song's emotion.",
+        "textOnScreen": null,
+        "spokenWords": null,
+        "transition": "none",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Excitement, catharsis, shared experience"
+      }
+    ],
+    "editing": {
+      "pace": "fast",
+      "averageCutLength": "1-2 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "quick zoom-ins during dramatic moments",
+        "low-quality filter for Gaara image"
+      ],
+      "textOverlays": {
+        "style": "clean, modern",
+        "font": "sans-serif (likely Arial or similar)",
+        "colors": [
+          "white",
+          "black outline"
+        ],
+        "animation": "appears instantly",
+        "position": "bottom center"
+      },
+      "colorGrading": "neutral"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasSpeech": true,
+      "hasSinging": false,
+      "hasMusic": true,
+      "musicDetails": "'Blue Bird' by Ikimono-Gakari, J-Pop, energetic, nostalgic",
+      "voiceTone": "Conversational and inquisitive at first, then dramatic and intense during the song setup, and finally passionate during the lip-sync.",
+      "audioStructure": "Speech with no background music, then a sudden, full-volume kick-in of the 'Blue Bird' song.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "primaryViralMechanic": "Nostalgia-driven cultural mashup with an unexpected, satisfying payoff.",
+      "whyItWorks": "The video expertly leverages the deep nostalgia many millennials and Gen Z feel for Naruto Shippuden and its iconic opening theme, 'Blue Bird.' The initial 'language lesson' creates a relatable, educational facade, only to subvert expectations with a dramatic, meme-worthy reveal. The passionate lip-sync and the quick cut to Gaara are highly shareable moments that resonate with the target audience's shared cultural experience and inside jokes. The build-up and payoff create a strong emotional release.",
+      "targetAudience": "Anime fans (especially Naruto fans), individuals interested in Japanese culture/language, Gen Z and Millennials who grew up watching anime, people who appreciate clever comedic timing and cultural references.",
+      "emotionalTrigger": "Nostalgia, recognition, humor, excitement, belonging (to the anime fan community).",
+      "shareability": "high - because of the strong nostalgia, the unexpected twist, and the relatable passion for anime. People will share it with friends who also love Naruto.",
+      "commentBait": "Identifying the song/anime, expressing shared nostalgia, praising the creator's performance, commenting on the Gaara cameo, discussing favorite Naruto moments.",
+      "retentionTechniques": [
+        "Curiosity gap (what's the next Japanese word?)",
+        "Rapid cuts to maintain pace",
+        "Dramatic shift in tone and energy",
+        "Nostalgia trigger (the song)",
+        "Visual payoff (Gaara cameo)"
+      ],
+      "platformOptimization": "Short duration, vertical format, clear and engaging hook, strong visual and auditory payoff, use of trending audio (even if it's a classic, it's trending in this context), and meme-like structure (build-up to a punchline/reveal) are all optimized for short-form video platforms."
+    },
+    "reproductionGuide": {
+      "difficulty": "easy",
+      "conceptCore": "Build up a seemingly innocent, educational premise that subtly introduces elements of a well-known cultural reference, then dramatically reveal the full reference for a comedic or nostalgic payoff.",
+      "requiredAssets": [
+        "Creator with expressive face and acting ability",
+        "Knowledge of a popular song/show/meme and its key phrases/lyrics",
+        "Basic video editing software for cuts and text overlays",
+        "The audio track of the chosen song/soundbite",
+        "A relevant image/clip for the visual punchline (e.g., Gaara)"
+      ],
+      "steps": [
+        "Choose a highly recognizable song/show/meme with a distinct opening line or concept.",
+        "Break down the opening line into 2-3 key words or concepts.",
+        "Create a 'fake' educational segment where you 'teach' these key words/concepts, perhaps in a foreign language or a niche topic.",
+        "Deliver the full opening line/concept, dramatically incorporating the 'taught' words.",
+        "Immediately transition to a passionate lip-sync or performance of the song/soundbite.",
+        "Add a quick visual reference (image/clip) from the source material for an extra layer of recognition and humor.",
+        "Ensure text overlays are clear and timed with the spoken words."
+      ],
+      "variationIdeas": [
+        "Teaching 'Hakuna Matata' words in Swahili, then breaking into The Lion King song.",
+        "Teaching words related to 'Shrek' in a fake language, then lip-syncing 'All Star' by Smash Mouth.",
+        "Teaching words related to 'Gojo' in Japanese, then lip-syncing a JJK opening theme.",
+        "Using a different anime opening (e.g., Attack on Titan, Demon Slayer) with a similar linguistic setup."
+      ],
+      "whatToAvoid": [
+        "Choosing a reference that is too obscure for the target audience.",
+        "Making the 'educational' part too long or boring, losing the viewer before the payoff.",
+        "Lackluster performance during the lip-sync – the passion is key.",
+        "Poor audio quality for the spoken parts or the music.",
+        "Giving away the twist too early."
+      ]
+    }
+  }
+}

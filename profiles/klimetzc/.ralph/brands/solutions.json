@@ -1,0 +1,13 @@
+{
+  "id": "solutions",
+  "name": "solutions",
+  "slug": "solutions",
+  "createdAt": "2026-04-22T08:11:08.899Z",
+  "url": "https://nobody.solutions",
+  "colors": {
+    "primary": "#000000",
+    "secondary": "#FFFFFF",
+    "accent": "#9A9A9A"
+  },
+  "font": "Helvetica Neue"
+}

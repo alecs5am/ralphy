@@ -1,0 +1,220 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-viral-3.mp4",
+  "videoName": "reel-viral-3",
+  "analyzedAt": "2026-03-30T00:36:35.646Z",
+  "meta": {
+    "duration": 27.2,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "analysis": {
+    "summary": "This video features a young woman demonstrating how to sing a Russian song with Japanese words interspersed, creating a unique linguistic and musical blend. She starts by asking how to say certain words in Japanese, then transitions into a performance where she sings the Russian lyrics while displaying the Japanese equivalents and their Russian translations on screen. The video uses quick cuts and expressive facial movements to engage the viewer.",
+    "category": "entertainment",
+    "language": "ru",
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 27.2,
+      "hasSubtitles": true,
+      "subtitleStyle": "White text with black outline, centered, appearing and disappearing with cuts.",
+      "hasFaceCam": true,
+      "hasScreenRecording": false,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "question",
+      "text": "а как по-японски (and how in Japanese)",
+      "whyItWorks": "It immediately poses a question, creating curiosity and setting up the premise of the video – learning Japanese words within a Russian context."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:02",
+        "type": "hook",
+        "description": "A young woman with blonde and brown hair, wearing a white t-shirt, looks to the side and then towards the camera, gesturing with her long nails. She appears to be thinking or asking a question.",
+        "textOnScreen": "а как по-японски",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:02-0:04",
+        "type": "content",
+        "description": "The woman is now closer to the camera, looking down and then up, making a 'pouty' face. She is wearing a dark grey hoodie over a white top, sitting on a pink blanket. Text appears on screen, showing a Japanese word and its Russian translation.",
+        "textOnScreen": "sora\n空\nнебо",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:04-0:05",
+        "type": "content",
+        "description": "The woman is back in the white t-shirt, looking to the side and gesturing with her finger to her chin, as if in thought. This is a repeat of the first visual setup.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "The woman is again in the dark grey hoodie, making a similar 'pouty' face, looking at the camera. New Japanese and Russian words are displayed.",
+        "textOnScreen": "itta\n言った\nсказал",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:07-0:09",
+        "type": "content",
+        "description": "The woman is in the white t-shirt, looking directly at the camera with wide eyes and a slightly open mouth, appearing surprised or expressive. The text is in Russian.",
+        "textOnScreen": "расправив крылья",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:09-0:11",
+        "type": "content",
+        "description": "Similar to the previous scene, the woman maintains wide eyes and an expressive face, looking directly at the camera. New Russian text appears.",
+        "textOnScreen": "ведь я стремился",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:11-0:13",
+        "type": "content",
+        "description": "The woman's face is even closer to the camera, with very wide eyes and a 'fish-face' expression. More Russian text is displayed.",
+        "textOnScreen": "голубому небу",
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:13-0:15",
+        "type": "content",
+        "description": "The woman is now standing, wearing the dark grey hoodie and heart-patterned sweatpants. She is leaning against a wall, holding a phone like a microphone and singing expressively, with her eyes closed.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:15-0:17",
+        "type": "content",
+        "description": "The woman is still standing against the wall, singing, but now she turns her head and body slightly, looking over her shoulder towards the camera with a more direct gaze.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:17-0:19",
+        "type": "content",
+        "description": "The woman continues to sing, with her eyes closed again, leaning into the wall, showing emotion.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:19-0:21",
+        "type": "b-roll",
+        "description": "A blurry, low-resolution animated clip of an anime character (appears to be Gaara from Naruto) is shown.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "close-up"
+      },
+      {
+        "timestamp": "0:21-0:23",
+        "type": "content",
+        "description": "The woman is back, standing against the wall, looking intensely at the camera and singing, making a 'claw' gesture with her hand.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:23-0:25",
+        "type": "content",
+        "description": "The woman continues to sing, moving her head and body expressively, still looking at the camera.",
+        "textOnScreen": null,
+        "transition": "cut",
+        "cameraAngle": "medium"
+      },
+      {
+        "timestamp": "0:25-0:27",
+        "type": "content",
+        "description": "The woman is still singing, with a slightly more relaxed expression, looking towards the camera.",
+        "textOnScreen": null,
+        "transition": "none",
+        "cameraAngle": "medium"
+      }
+    ],
+    "editing": {
+      "pace": "fast",
+      "averageCutLength": "2-3",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "text-overlays",
+        "quick-cuts"
+      ],
+      "textOverlays": {
+        "style": "Bold white text with a black outline/shadow for readability",
+        "font": "Sans-serif, blocky",
+        "colors": [
+          "white",
+          "black"
+        ],
+        "animation": "Text appears and disappears instantly with cuts.",
+        "position": "Centered horizontally, varying vertically depending on the number of lines."
+      },
+      "colorGrading": "neutral"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasMusic": true,
+      "musicMood": "upbeat",
+      "voiceTone": "Energetic, expressive, singing voice.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "whyItWorks": "The video is engaging due to its unique concept of blending Russian and Japanese languages within a song, combined with the creator's expressive performance and quick, dynamic editing. The use of on-screen text for translation makes it accessible and educational for those interested in languages or the specific song. The anime clip adds a touch of pop culture relevance.",
+      "targetAudience": "People interested in Japanese culture, anime, language learning, Russian music, and short-form expressive content.",
+      "emotionalTrigger": "curiosity, education, entertainment",
+      "shareability": "high - due to its unique linguistic blend and energetic performance, it's easily shareable among language learners or fans of the specific song/anime.",
+      "retentionTechniques": [
+        "quick cuts",
+        "on-screen text for engagement",
+        "expressive facial reactions",
+        "music-driven content",
+        "unexpected anime clip"
+      ]
+    },
+    "reproductionGuide": {
+      "difficulty": "medium",
+      "requiredAssets": [
+        "Camera (smartphone is sufficient)",
+        "Good lighting",
+        "Microphone (optional, but good audio is key for singing)",
+        "Video editing software",
+        "Knowledge of a song (Russian in this case)",
+        "Translations of key words/phrases into another language (Japanese)",
+        "Optional: short anime/pop culture clip"
+      ],
+      "steps": [
+        "Choose a popular song in your native language.",
+        "Identify key words or phrases in the song that you want to translate into another language.",
+        "Film yourself in two different settings/outfits: one for the 'asking/thinking' part and one for the 'singing/performing' part.",
+        "For the 'asking' part, record yourself asking how to say a word in the target language.",
+        "For the 'singing' part, record yourself performing the song expressively, lip-syncing or singing live.",
+        "In editing, intersperse the 'asking' clips with 'answer' clips where you display the translated words (original, target language, and translation).",
+        "Add the song as background music.",
+        "Overlay the translated text prominently on screen, ensuring it's easy to read.",
+        "Use quick cuts between different camera angles and expressions to maintain a fast pace.",
+        "Optionally, include a short, relevant pop culture clip (e.g., anime) for a brief visual break."
+      ],
+      "variationIdeas": [
+        "Translate a popular English song into Spanish, French, or German.",
+        "Use a different genre of music (e.g., K-pop, classical) with translations into another language.",
+        "Instead of just words, translate short phrases or idioms.",
+        "Incorporate more visual elements related to the translated language/culture.",
+        "Do a 'duet' style video where you interact with a 'virtual' language teacher."
+      ]
+    }
+  }
+}

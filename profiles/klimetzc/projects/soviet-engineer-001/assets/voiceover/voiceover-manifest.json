@@ -1,0 +1,38 @@
+[
+  {
+    "slug": "clip-01-morning-kitchen",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/voiceover/clip-01-morning-kitchen.mp3",
+    "bytes": 109549
+  },
+  {
+    "slug": "clip-02-walk-to-factory",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/voiceover/clip-02-walk-to-factory.mp3",
+    "bytes": 99100
+  },
+  {
+    "slug": "clip-03-shop-floor",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/voiceover/clip-03-shop-floor.mp3",
+    "bytes": 115400
+  },
+  {
+    "slug": "clip-04-canteen-tray",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/voiceover/clip-04-canteen-tray.mp3",
+    "bytes": 110385
+  },
+  {
+    "slug": "clip-05-walk-home-evening",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/voiceover/clip-05-walk-home-evening.mp3",
+    "bytes": 87397
+  },
+  {
+    "slug": "clip-06-family-dinner",
+    "ok": true,
+    "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/voiceover/clip-06-family-dinner.mp3",
+    "bytes": 120834
+  }
+]

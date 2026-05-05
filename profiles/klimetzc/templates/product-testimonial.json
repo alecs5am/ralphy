@@ -1,0 +1,85 @@
+{
+  "id": "product-testimonial",
+  "name": "Product Testimonial",
+  "description": "Classic 3-scene UGC testimonial: relatable hook, product showcase with benefits, strong CTA. Optimized for TikTok/Reels retention.",
+  "platform": "tiktok",
+  "durationSec": 30,
+  "createdAt": "2026-03-19T12:00:00Z",
+  "updatedAt": "2026-03-19T12:00:00Z",
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "aspectRatio": "9:16"
+  },
+  "scenes": [
+    {
+      "id": "scene-01",
+      "type": "hook",
+      "label": "Hook - Relatable Pain Point",
+      "durationSec": 5,
+      "guidelines": {
+        "goal": "Stop the scroll. Establish relatability within 1.5 seconds.",
+        "voiceover": "Start with 'POV:', 'Stop scrolling if...', or a relatable frustration. Keep it under 15 words.",
+        "visuals": "Talking-head overlay or POV camera angle. Bold center-screen text (2-3 words per line). Snap-cut or whip-pan transition.",
+        "music": "Start at low volume (0.10-0.15), trending lo-fi or upbeat instrumental."
+      },
+      "defaults": {
+        "layout": "talking-head-overlay",
+        "textPosition": "center",
+        "textStyle": "bold-white-shadow",
+        "fontSize": 48,
+        "transition": "snap-cut"
+      }
+    },
+    {
+      "id": "scene-02",
+      "type": "content",
+      "label": "Product Demo & Benefits",
+      "durationSec": 17,
+      "guidelines": {
+        "goal": "Showcase the product naturally. Hit 2-3 key benefits. Maintain conversational tone.",
+        "voiceover": "Describe personal experience with the product. Use specific details (e.g., 'set it up in 10 minutes'). Avoid corporate jargon.",
+        "visuals": "Product screenshots or screen recording. Animated bullet points for key features. Brand colors for accents.",
+        "music": "Maintain low volume (0.10-0.12). Consider a subtle beat drop at the main benefit reveal."
+      },
+      "defaults": {
+        "layout": "product-showcase",
+        "textPosition": "top-center",
+        "textStyle": "bold-accent",
+        "fontSize": 42,
+        "transition": "whip-pan",
+        "bulletPointDelay": 1.5
+      }
+    },
+    {
+      "id": "scene-03",
+      "type": "cta",
+      "label": "Call to Action",
+      "durationSec": 8,
+      "guidelines": {
+        "goal": "Drive action. Create urgency without being pushy. End with a question to boost comments.",
+        "voiceover": "Restate the core value prop in one sentence. Direct CTA ('link in bio', 'try it free'). Optional: end with a question.",
+        "visuals": "Brand gradient background. Large CTA text. Brand logo visible. Music fades out in last 2 seconds.",
+        "music": "Slight volume increase (0.18-0.22). Fade out over final 2 seconds."
+      },
+      "defaults": {
+        "layout": "cta-fullscreen",
+        "textPosition": "center",
+        "textStyle": "bold-white-glow",
+        "fontSize": 56,
+        "transition": "zoom-in",
+        "showBrandLogo": true,
+        "musicFadeOut": true,
+        "musicFadeOutDuration": 2
+      }
+    }
+  ],
+  "tips": [
+    "Hook must grab attention in the first 1.5 seconds - front-load the relatable moment",
+    "Use snap-cuts every 3-4 seconds to maintain retention through the content scene",
+    "Bullet points should appear one-by-one, synced with the voiceover mentions",
+    "CTA should feel like a friend's recommendation, not an ad",
+    "Background music should never compete with the voiceover - keep it subtle"
+  ]
+}

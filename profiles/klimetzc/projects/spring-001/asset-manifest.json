@@ -1,0 +1,86 @@
+{
+  "projectId": "spring-001",
+  "generatedAt": "2026-03-23T08:30:00Z",
+  "updatedAt": "2026-03-26T19:45:00Z",
+  "totalAssets": 6,
+  "completedAssets": 4,
+  "pendingAssets": 2,
+  "assets": [
+    {
+      "id": "asset-scene01-bg",
+      "scene": "scene-01",
+      "type": "image",
+      "role": "background",
+      "file": "assets/images/scene-01-bg.png",
+      "status": "ready",
+      "mimeType": "image/png",
+      "generatedBy": "flux",
+      "createdAt": "2026-03-23T08:20:00Z"
+    },
+    {
+      "id": "asset-scene02-product",
+      "scene": "scene-02",
+      "type": "image",
+      "role": "product-shot",
+      "file": "assets/images/scene-02-product.jpg",
+      "status": "ready",
+      "mimeType": "image/jpeg",
+      "generatedBy": "existing",
+      "createdAt": "2026-03-23T08:22:00Z"
+    },
+    {
+      "id": "asset-scene01-voice",
+      "scene": "scene-01",
+      "type": "voiceover",
+      "role": "narration",
+      "file": "assets/voiceover/scene-01-voice.mp3",
+      "status": "ready",
+      "mimeType": "audio/mpeg",
+      "durationSec": 4.8,
+      "generatedBy": "elevenlabs",
+      "createdAt": "2026-03-23T08:25:00Z"
+    },
+    {
+      "id": "asset-scene02-voice",
+      "scene": "scene-02",
+      "type": "voiceover",
+      "role": "narration",
+      "file": null,
+      "status": "pending",
+      "generatedBy": "elevenlabs",
+      "createdAt": null
+    },
+    {
+      "id": "asset-scene03-voice",
+      "scene": "scene-03",
+      "type": "voiceover",
+      "role": "narration",
+      "file": null,
+      "status": "pending",
+      "generatedBy": "elevenlabs",
+      "createdAt": null
+    },
+    {
+      "id": "asset-music-bg",
+      "scene": "*",
+      "type": "music",
+      "role": "background-track",
+      "file": "assets/music/background.aiff",
+      "status": "ready",
+      "mimeType": "audio/aiff",
+      "generatedBy": "local",
+      "createdAt": "2026-03-23T08:18:00Z"
+    }
+  ],
+  "render": {
+    "status": "completed",
+    "file": "render/final.mp4",
+    "startedAt": "2026-03-26T19:30:00Z",
+    "completedAt": "2026-03-26T19:45:00Z",
+    "durationSec": 30,
+    "resolution": "1080x1920",
+    "fps": 30,
+    "codec": "h264",
+    "fileSizeMB": null
+  }
+}

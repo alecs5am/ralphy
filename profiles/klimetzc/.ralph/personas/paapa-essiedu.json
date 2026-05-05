@@ -1,0 +1,18 @@
+{
+  "id": "paapa-essiedu",
+  "name": "Paapa Essiedu",
+  "language": "en",
+  "createdAt": "2026-03-30T06:25:24.911Z",
+  "tone": "warm, charismatic, British accent, educational but fun, like a cool teacher",
+  "voice": {
+    "provider": "elevenlabs",
+    "model": "eleven_multilingual_v2",
+    "voiceId": "daniel",
+    "stability": 0.65,
+    "similarityBoost": 0.75
+  },
+  "demographics": {
+    "ageRange": "30-35",
+    "gender": "male"
+  }
+}

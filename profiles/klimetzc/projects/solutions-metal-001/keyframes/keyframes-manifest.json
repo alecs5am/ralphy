@@ -1,0 +1,55 @@
+{
+  "references": {
+    "grandfather": "https://v3b.fal.media/files/b/0a974434/N8AjVvrDjZ8tFi9kDMmYh_grandfather-portrait-01.png",
+    "gleb1": "https://v3b.fal.media/files/b/0a97442f/ReT1cKSNOCuqbyI0hCnmy_gleb-01-fullbody-shirt-tie.png",
+    "gleb2": "https://v3b.fal.media/files/b/0a97442f/kLdcYw57PRxOYDD0zXz9-_gleb-02-mugshot-duo.png",
+    "gleb3": "https://v3b.fal.media/files/b/0a974430/axa3xf120VWL9RTS2fWex_gleb-03-adidas-hair-over-face.png",
+    "clip01notebook": "https://v3b.fal.media/files/b/0a974465/Z8LIYod5Bu6iQWwkfCTjV_qo92RaVD.png",
+    "fabric": "https://v3b.fal.media/files/b/0a974485/o1HmnkEnL9NuMX3z18km8_three-samples.png",
+    "bucket_front": "https://v3b.fal.media/files/b/0a974485/4D8zyTYPYNemVI1KsNgNM_bucket-front.png"
+  },
+  "shots": [
+    {
+      "slug": "clip-02-lab-microscope",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/keyframes/clip-02-lab-microscope.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a974485/fdowGHnNRuzZwuyuA-FOA_caMM0LlM.png",
+      "bytes": 6965578
+    },
+    {
+      "slug": "clip-03-three-samples",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/keyframes/clip-03-three-samples.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a97448b/rxeBlW_0h8PxvgEtIsBM-_qrJdBGBm.png",
+      "bytes": 7224853
+    },
+    {
+      "slug": "clip-04-commission",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/keyframes/clip-04-commission.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a97448e/isb62U8utNCR842Q9ravM_A2tPyXeS.png",
+      "bytes": 7077982
+    },
+    {
+      "slug": "clip-05-notebook-in-drawer",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/keyframes/clip-05-notebook-in-drawer.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a974493/ChEY4K39TtTFz50A9rayU_BT4foo06.png",
+      "bytes": 7185270
+    },
+    {
+      "slug": "clip-07-gleb-wears-cap",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/keyframes/clip-07-gleb-wears-cap.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a974497/1_vPdMyW4dsS1osC_TZUK_CHjbcNiv.png",
+      "bytes": 6223043
+    },
+    {
+      "slug": "clip-08-still-life-notebook-cap",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/solutions-metal-001/keyframes/clip-08-still-life-notebook-cap.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a97449f/mzvQvXYwKn3ENwlnd95iV_69hETXiP.png",
+      "bytes": 8153659
+    }
+  ]
+}

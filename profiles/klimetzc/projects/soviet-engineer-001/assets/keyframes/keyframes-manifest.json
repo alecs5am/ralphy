@@ -1,0 +1,45 @@
+{
+  "portrait": "https://v3b.fal.media/files/b/0a976b21/uqKZeq3ft1GMXjMEANIG8_XiAq1xpD.png",
+  "shots": [
+    {
+      "slug": "clip-01-morning-kitchen",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/keyframes/clip-01-morning-kitchen.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a976b2d/2lv4R13cNj2ijj1748_vm_hAL8A5D0.png",
+      "bytes": 6529338
+    },
+    {
+      "slug": "clip-02-walk-to-factory",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/keyframes/clip-02-walk-to-factory.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a976b32/P_VGgYwAXEim1uGOCcjbD_cE4JOVkD.png",
+      "bytes": 6450111
+    },
+    {
+      "slug": "clip-03-shop-floor",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/keyframes/clip-03-shop-floor.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a976b36/iexV_LpJJxH_jdtrzajcm_EIKujebw.png",
+      "bytes": 6593184
+    },
+    {
+      "slug": "clip-04-canteen-tray",
+      "ok": false,
+      "error": "edit 422 {\"detail\":[{\"loc\":[\"body\",\"image_urls\"],\"msg\":\"At least one image URL is required.\",\"type\":\"value_error\",\"url\":\"https://docs.fal.ai/errors#value_error\",\"input\":[]}]}"
+    },
+    {
+      "slug": "clip-05-walk-home-evening",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/keyframes/clip-05-walk-home-evening.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a976b3d/XY3S1TNT5UlZCkLxMa3oI_tqjlTHsT.png",
+      "bytes": 6871114
+    },
+    {
+      "slug": "clip-06-family-dinner",
+      "ok": true,
+      "local": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/soviet-engineer-001/assets/keyframes/clip-06-family-dinner.png",
+      "fal_url": "https://v3b.fal.media/files/b/0a976b41/TYLV7bM0SdKEQrXG_qghS_DC6w2sPK.png",
+      "bytes": 6405853
+    }
+  ]
+}

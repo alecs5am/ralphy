@@ -1,0 +1,18 @@
+{
+  "id": "max",
+  "name": "Max",
+  "language": "en",
+  "createdAt": "2026-03-30T05:46:16.768Z",
+  "tone": "friendly, confident, slightly provocative, educational but casual",
+  "voice": {
+    "provider": "elevenlabs",
+    "model": "eleven_multilingual_v2",
+    "voiceId": "charlie",
+    "stability": 0.6,
+    "similarityBoost": 0.8
+  },
+  "demographics": {
+    "ageRange": "25-30",
+    "gender": "male"
+  }
+}

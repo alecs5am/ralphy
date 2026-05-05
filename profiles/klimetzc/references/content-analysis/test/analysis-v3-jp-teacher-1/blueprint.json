@@ -1,0 +1,279 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-jp-teacher-1.mp4",
+  "videoName": "reel-jp-teacher-1",
+  "analyzedAt": "2026-03-30T00:59:10.113Z",
+  "meta": {
+    "duration": 28.3,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "transcript": {
+    "text": "Слушай, а как сказать тьма по-японски? Ями. А как будет революция? Какумей. А как будет клятва? Чигири. Мм, а как сказать? В разрастающейся тьме мы заключили клятву революции. И из нашей любви пророс цветок зла. Мы не позволим разрушить то, что нас ждёт впереди. Хирогаю ями но нака, чигири, какумей. Эй, ицука но хи, мебаэру, аку но хана. ",
+    "segments": [
+      {
+        "start": 0,
+        "end": 2.5,
+        "text": "Слушай, а как сказать тьма по-японски?"
+      },
+      {
+        "start": 2.5,
+        "end": 2.89,
+        "text": "Ями."
+      },
+      {
+        "start": 3.09,
+        "end": 4.75,
+        "text": "А как будет революция?"
+      },
+      {
+        "start": 4.75,
+        "end": 5.25,
+        "text": "Какумей."
+      },
+      {
+        "start": 5.46,
+        "end": 6.86,
+        "text": "А как будет клятва?"
+      },
+      {
+        "start": 6.86,
+        "end": 7.36,
+        "text": "Чигири."
+      },
+      {
+        "start": 7.36,
+        "end": 7.66,
+        "text": "Мм,"
+      },
+      {
+        "start": 7.66,
+        "end": 11.96,
+        "text": "а как сказать? В разрастающейся тьме мы заключили клятву революции."
+      },
+      {
+        "start": 12.36,
+        "end": 14.86,
+        "text": "И из нашей любви пророс цветок зла."
+      },
+      {
+        "start": 14.86,
+        "end": 17.86,
+        "text": "Мы не позволим разрушить то, что нас ждёт впереди."
+      },
+      {
+        "start": 19.36,
+        "end": 26.86,
+        "text": "Хирогаю ями но нака, чигири, какумей. Эй, ицука но хи, мебаэру, аку но хана. "
+      }
+    ]
+  },
+  "analysis": {
+    "summary": "This video is a clever cultural mashup that leverages the aesthetics and dramatic flair of anime, specifically a popular subgenre known as 'dark fantasy' or 'shonen' anime, to create a relatable and humorous piece of content. The creator first sets up a seemingly innocent scenario of learning Japanese words, then dramatically shifts to a highly stylized, almost theatrical recitation of a dramatic, anime-esque monologue in Japanese. The payoff is the sudden, jarring cut to the creator in a different outfit, acting out the monologue with exaggerated, meme-like movements, culminating in a playful interaction with a plush toy. It resonates by tapping into the shared experience of anime fans who understand the dramatic tropes and often find humor in their over-the-top nature, while also appealing to those who appreciate a good comedic twist.",
+    "category": "cultural-mashup",
+    "language": "ru",
+    "contentAnalysis": {
+      "topic": "Japanese language learning / Anime tropes / Dramatic monologue",
+      "creatorRole": "comedy creator / anime enthusiast / language learner (performative)",
+      "narrativeArc": "The video starts with a casual, educational-sounding inquiry about Japanese words. This builds a false sense of a language lesson. It then transitions into a dramatic, almost poetic Russian sentence, which is immediately translated into a highly stylized, emotionally charged Japanese monologue. The climax is the visual performance of this monologue, complete with an outfit change and exaggerated actions, ending with a comedic, almost absurd interaction with a plush toy, subverting the initial drama.",
+      "culturalReferences": [
+        "Anime tropes (dramatic monologues, themes of darkness, revolution, fate, flowers of evil)",
+        "Shonen anime aesthetics (the white shirt and red tie outfit is reminiscent of many anime characters, especially those with a rebellious or intellectual edge)",
+        "Dark fantasy anime themes (e.g., 'flower of evil', 'darkness', 'revolution', 'oath')",
+        "Meme culture (exaggerated movements, sudden shifts in tone, unexpected comedic elements)"
+      ],
+      "musicIdentification": "No recognizable background music, the audio is primarily spoken word.",
+      "spokenContent": "The video starts with a dialogue in Russian asking how to say 'darkness', 'revolution', and 'oath' in Japanese, learning 'Yami', 'Kakumei', and 'Chigiri'. Then, the speaker constructs a dramatic sentence in Russian: 'In the growing darkness, we made an oath of revolution. And from our love, a flower of evil sprouted. We will not allow what awaits us ahead to be destroyed.' This sentence is then recited dramatically in Japanese: 'Hirogari yami no naka, chigiri, kakumei. Ei, itsuka no hi, mebaeru, aku no hana.' The significance is the deliberate construction of a highly dramatic, anime-esque phrase, first in Russian to establish the meaning for a Russian-speaking audience, and then in Japanese for aesthetic and cultural impact.",
+      "textOnScreen": [
+        "а как сказать",
+        "а как будет",
+        "kakumei",
+        "革命",
+        "в разрастающейся тьме",
+        "мы заключили клятву",
+        "мы не позволим",
+        "разрушить то",
+        "что нас ждёт",
+        "впереди"
+      ],
+      "keyMoment": "The transition at 17.0s from the serious, almost melancholic recitation to the energetic, costumed performance with the plush toy. This is the 'aha moment' where the comedic intent becomes fully clear.",
+      "emotionalJourney": "Curiosity (what Japanese words are they learning?) → Recognition (oh, these are dramatic words) → Anticipation (what are they building up to?) → Surprise/Amusement (the dramatic monologue) → Laughter/Delight (the sudden, exaggerated performance and the plush toy interaction)."
+    },
+    "format": {
+      "type": "mixed",
+      "aspectRatio": "9:16",
+      "duration": 28.3,
+      "hasSubtitles": true,
+      "subtitleStyle": "White text with black outline, appearing dynamically as spoken, sometimes with Japanese Kanji for key words.",
+      "hasFaceCam": true,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "Слушай, а как сказать тьма по-японски? Ями.",
+      "whyItWorks": "It starts with a common, relatable scenario of asking for a translation, immediately engaging viewers interested in language or Japanese culture. The simple question creates a curiosity gap about what words will be learned and why."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-0:03",
+        "type": "hook",
+        "description": "Creator, a young woman with blonde hair and a nose ring, is sitting in a gaming chair, looking slightly off-camera as if talking to someone. She asks how to say 'darkness' in Japanese.",
+        "textOnScreen": "а как сказать",
+        "spokenWords": "Слушай, а как сказать тьма по-японски?",
+        "transition": "none",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Curiosity, casual engagement"
+      },
+      {
+        "timestamp": "0:03-0:05",
+        "type": "content",
+        "description": "Still in the same setting, she receives the answer 'Yami' and then asks for 'revolution'.",
+        "textOnScreen": "а как будет",
+        "spokenWords": "Ями. А как будет революция?",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Informative, building anticipation"
+      },
+      {
+        "timestamp": "0:05-0:07",
+        "type": "content",
+        "description": "A quick cut to the creator in a white button-up shirt and red tie, looking more serious. Text overlays show 'kakumei' and its Kanji.",
+        "textOnScreen": "kakumei\n革命",
+        "spokenWords": "Какумей.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Intrigue, slight shift in tone"
+      },
+      {
+        "timestamp": "0:07-0:09",
+        "type": "content",
+        "description": "Back to the original setting, she asks for 'oath'.",
+        "textOnScreen": null,
+        "spokenWords": "А как будет клятва?",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Return to casual, continued learning"
+      },
+      {
+        "timestamp": "0:09-0:12",
+        "type": "content",
+        "description": "She receives the answer 'Chigiri'. The lighting changes, becoming more dramatic and reddish. She begins to construct the dramatic Russian sentence.",
+        "textOnScreen": "в разрастающейся тьме\nмы заключили клятву",
+        "spokenWords": "Чигири. Мм, а как сказать? В разрастающейся тьме мы заключили клятву революции.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Growing tension, dramatic shift"
+      },
+      {
+        "timestamp": "0:12-0:15",
+        "type": "content",
+        "description": "The dramatic lighting continues. She finishes the Russian sentence, looking directly at the camera with a serious expression.",
+        "textOnScreen": "И из нашей любви пророс цветок зла.",
+        "spokenWords": "И из нашей любви пророс цветок зла.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Intense, theatrical"
+      },
+      {
+        "timestamp": "0:15-0:17",
+        "type": "content",
+        "description": "Still with dramatic lighting, she concludes the Russian monologue.",
+        "textOnScreen": "Мы не позволим\nразрушить то\nчто нас ждёт\nвпереди.",
+        "spokenWords": "Мы не позволим разрушить то, что нас ждёт впереди.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Determination, climax of the Russian monologue"
+      },
+      {
+        "timestamp": "0:17-0:27",
+        "type": "payoff",
+        "description": "Sudden cut to the creator in the white shirt and red tie, dramatically reciting the Japanese version of the monologue with exaggerated movements, holding a book and then interacting playfully with a green plush toy. The camera angle is low, looking up, enhancing the dramatic effect.",
+        "textOnScreen": null,
+        "spokenWords": "Хирогаю ями но нака, чигири, какумей. Эй, ицука но хи, мебаэру, аку но хана.",
+        "transition": "cut",
+        "cameraAngle": "low-angle",
+        "emotionalBeat": "Amusement, surprise, comedic relief, joy"
+      }
+    ],
+    "editing": {
+      "pace": "medium",
+      "averageCutLength": "2-3 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [
+        "color grading shift (from neutral to reddish/dramatic)"
+      ],
+      "textOverlays": {
+        "style": "clean, modern sans-serif for Russian, traditional Kanji for Japanese",
+        "font": "Arial-like for Russian, standard Japanese font for Kanji",
+        "colors": [
+          "white with black outline"
+        ],
+        "animation": "appears as spoken, sometimes fading in/out",
+        "position": "bottom center, sometimes stacked"
+      },
+      "colorGrading": "neutral at first, then shifts to warm/reddish high-contrast during the dramatic monologue, then back to a slightly warmer neutral for the performance."
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasSpeech": true,
+      "hasSinging": false,
+      "hasMusic": false,
+      "musicDetails": "N/A",
+      "voiceTone": "Starts casual and inquisitive, shifts to serious and dramatic, then becomes energetic and theatrical during the Japanese recitation.",
+      "audioStructure": "Speech throughout, with a clear shift in vocal delivery to match the dramatic tone of the monologue.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "primaryViralMechanic": "Subversion of expectation and cultural niche humor.",
+      "whyItWorks": "The video expertly sets up a mundane scenario (language learning) and then dramatically subverts it with an over-the-top, anime-inspired monologue and performance. This appeals to anime fans who recognize and appreciate the dramatic tropes being parodied. The sudden shift in tone and visual style, combined with the unexpected comedic payoff (the plush toy), creates a highly shareable and memorable moment. It's a niche joke executed broadly enough to be understood by a wider audience who appreciate internet humor.",
+      "targetAudience": "Anime fans, Japanese language learners (or those interested in it), meme enthusiasts, people who enjoy comedic skits and dramatic irony, Gen Z and younger millennials.",
+      "emotionalTrigger": "Humor, recognition, nostalgia (for anime tropes), surprise, delight.",
+      "shareability": "high - people would share this with friends who watch anime, learn Japanese, or appreciate this specific brand of internet humor.",
+      "commentBait": "Comments would likely include: 'What anime is this from?', 'This is so accurate!', 'I need to learn this!', 'The plushie at the end!', 'Me trying to sound cool in Japanese'.",
+      "retentionTechniques": [
+        "Curiosity-driven hook (language learning)",
+        "Build-up of dramatic tension",
+        "Sudden visual and tonal shift",
+        "Comedic payoff",
+        "Relatable cultural reference (anime tropes)"
+      ],
+      "platformOptimization": "Short duration, vertical format, clear hook, strong visual and auditory shifts to grab attention, use of text overlays for accessibility and emphasis, and a clear 'payoff' moment suitable for quick consumption and sharing."
+    },
+    "reproductionGuide": {
+      "difficulty": "medium",
+      "conceptCore": "Start with a mundane or educational premise, build up dramatic tension with a culturally specific, over-the-top monologue, then deliver a comedic, visually exaggerated performance of that monologue.",
+      "requiredAssets": [
+        "Camera (smartphone is sufficient)",
+        "Basic editing software (CapCut, InShot, etc.)",
+        "Two distinct outfits (one casual, one more 'dramatic' or 'character-like')",
+        "A prop for the comedic payoff (e.g., a plush toy, an everyday object)",
+        "A script for the dramatic monologue (can be original or adapted from a specific cultural reference)",
+        "Knowledge of a foreign language (or ability to convincingly fake it)"
+      ],
+      "steps": [
+        "1. Film the 'setup' phase: Casual outfit, asking simple questions or presenting mundane information. Keep the tone light and inquisitive.",
+        "2. Film the 'build-up' phase: Transition to a slightly more serious tone, perhaps with a subtle lighting change. Introduce the elements that will form the dramatic monologue (e.g., specific words in a foreign language).",
+        "3. Film the 'monologue' phase (part 1): Recite the dramatic monologue in your native language, with serious facial expressions and body language. Use text overlays to emphasize key phrases.",
+        "4. Film the 'monologue' phase (part 2 - payoff): Change into the 'dramatic' outfit. Set up a low-angle shot. Recite the monologue in the foreign language with exaggerated, theatrical movements. Incorporate a comedic prop or action at the end to subvert the drama.",
+        "5. Edit: Cut quickly between scenes. Use a color grading shift for the dramatic monologue. Ensure text overlays are clear and timed with speech. Sync the foreign language recitation with the dramatic performance.",
+        "6. Add captions for accessibility and engagement."
+      ],
+      "variationIdeas": [
+        "Instead of anime, use tropes from a different genre (e.g., K-drama, Western fantasy, historical dramas).",
+        "Learn 'dramatic' words in a different language (e.g., Latin, Old English, Klingon).",
+        "The comedic payoff could be a different action, like tripping, spilling something, or a pet interrupting.",
+        "Instead of a monologue, it could be a dramatic interpretation of a mundane task (e.g., 'the epic quest to make coffee')."
+      ],
+      "whatToAvoid": [
+        "Making the monologue too long or genuinely confusing – the humor comes from the contrast, not from being incomprehensible.",
+        "Poor audio quality, as the spoken words are crucial.",
+        "Lack of clear distinction between the 'setup' and 'payoff' phases.",
+        "Not committing to the exaggeration in the comedic performance – half-hearted attempts will fall flat."
+      ]
+    }
+  }
+}

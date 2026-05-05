@@ -1,0 +1,28 @@
+{
+  "id": "acme-site",
+  "url": "https://acme.com",
+  "type": "design",
+  "brand": "acme",
+  "status": "extracted",
+  "createdAt": "2026-03-20T10:30:00Z",
+  "updatedAt": "2026-03-20T10:45:00Z",
+  "extraction": {
+    "method": "puppeteer-screenshot + vision",
+    "pagesScraped": 3,
+    "tokensExtracted": "references/acme/design-tokens.json",
+    "screenshots": [
+      "references/acme/screenshots/desktop.png"
+    ],
+    "duration": "14.2s"
+  },
+  "insights": {
+    "layoutStyle": "hero-centric, bold CTAs, product-forward",
+    "colorStrategy": "warm primary (orange) with cool accent (teal) for trust",
+    "targetAudience": "small teams, freelancers, startup founders",
+    "keyMessages": [
+      "Ship faster with fewer tools",
+      "All-in-one productivity suite",
+      "Trusted by 10,000+ teams"
+    ]
+  }
+}

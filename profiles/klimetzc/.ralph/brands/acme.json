@@ -1,0 +1,40 @@
+{
+  "id": "acme",
+  "name": "Acme Corp",
+  "slug": "acme",
+  "url": "https://acme.com",
+  "description": "Premium productivity tools for modern teams. Hardware and software solutions that simplify your workflow.",
+  "industry": "SaaS / Productivity",
+  "createdAt": "2026-03-20T10:00:00Z",
+  "updatedAt": "2026-03-23T08:15:00Z",
+  "colors": {
+    "primary": "#FF6B35",
+    "primaryLight": "#FF8C61",
+    "secondary": "#00D4AA",
+    "accent": "#FFD700",
+    "background": "#FFFFFF",
+    "surface": "#F5F5F7",
+    "text": "#1A1A2E",
+    "textSecondary": "#16213E",
+    "neutral": "#E8E8E8"
+  },
+  "typography": {
+    "headingFamily": "Inter",
+    "bodyFamily": "Inter",
+    "headingWeights": ["600", "700"],
+    "bodyWeights": ["400"]
+  },
+  "voice": {
+    "tone": "confident, approachable, modern",
+    "vocabulary": ["streamline", "effortless", "game-changer", "next-level"],
+    "avoid": ["cheap", "basic", "simple"]
+  },
+  "assets": {
+    "logo": null,
+    "designTokens": "references/acme/design-tokens.json"
+  },
+  "socialLinks": {
+    "tiktok": "https://tiktok.com/@acme",
+    "instagram": "https://instagram.com/acme"
+  }
+}

@@ -1,0 +1,310 @@
+{
+  "videoFile": "/Users/maximovchinnikov/github/ugc-cli/workspace/references/content-analysis/test/reel-jp-teacher-2.mp4",
+  "videoName": "reel-jp-teacher-2",
+  "analyzedAt": "2026-03-30T00:59:13.138Z",
+  "meta": {
+    "duration": 28.3,
+    "resolution": "720x1280",
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": "9:16",
+    "fps": "30/1"
+  },
+  "transcript": {
+    "text": "Слушай, а как будет объясни по-японски? А как будет устройство? А как тогда сказать внутри меня? А как тогда сказать объясни же, объясни, как это работает. Внутри меня кто-то есть. , , .",
+    "segments": [
+      {
+        "start": 0,
+        "end": 2.5,
+        "text": "Слушай, а как будет объясни по-японски?"
+      },
+      {
+        "start": 2.5,
+        "end": 3.4,
+        "text": "Мм,"
+      },
+      {
+        "start": 3.4,
+        "end": 4,
+        "text": "Оте."
+      },
+      {
+        "start": 4,
+        "end": 5.7,
+        "text": "А, а как будет устройство?"
+      },
+      {
+        "start": 5.7,
+        "end": 6.3,
+        "text": "Мм,"
+      },
+      {
+        "start": 6.3,
+        "end": 6.9,
+        "text": "Скими."
+      },
+      {
+        "start": 6.9,
+        "end": 8.4,
+        "text": "А как тогда сказать внутри меня?"
+      },
+      {
+        "start": 8.4,
+        "end": 9.6,
+        "text": "Боку на нани."
+      },
+      {
+        "start": 9.6,
+        "end": 11,
+        "text": "А как тогда сказать объясни же,"
+      },
+      {
+        "start": 11,
+        "end": 13.5,
+        "text": "объясни, как это работает."
+      },
+      {
+        "start": 14.1,
+        "end": 16.5,
+        "text": "Внутри меня кто-то есть."
+      },
+      {
+        "start": 16.5,
+        "end": 24.9,
+        "text": " , , ."
+      },
+      {
+        "start": 24.9,
+        "end": 27.9,
+        "text": "Боку на нани."
+      }
+    ]
+  },
+  "analysis": {
+    "summary": "This video is a clever cultural mashup that leverages the popular 'Explain it to me like I'm 5' meme format, but with a specific anime/Japanese cultural twist. It starts with a seemingly innocent request to translate Japanese phrases, building up to a direct quote from the iconic anime 'Neon Genesis Evangelion' (specifically, the song 'Zankoku na Tenshi no Thesis' or 'A Cruel Angel's Thesis'). The humor and virality come from the sudden, unexpected shift from a language lesson to a deep, recognizable anime reference, triggering nostalgia and a sense of 'if you know, you know' among anime fans. The creator uses a split-screen effect to represent two different personas – one asking the questions (the 'innocent' learner) and one answering (the 'knowledgeable' anime fan/teacher), culminating in the 'teacher' persona embodying the Evangelion reference.",
+    "category": "cultural-mashup",
+    "language": "ru",
+    "contentAnalysis": {
+      "topic": "Japanese language translation, anime references, Neon Genesis Evangelion",
+      "creatorRole": "comedy creator, anime enthusiast, language content creator (with a twist)",
+      "narrativeArc": "The video starts as a simple language lesson where one persona asks for Japanese translations. This builds curiosity. The questions become progressively more specific, leading to a direct quote from a famous anime song. The 'teacher' persona then embodies this quote, creating a humorous and nostalgic payoff.",
+      "culturalReferences": [
+        "Neon Genesis Evangelion (anime)",
+        "Zankoku na Tenshi no Thesis (A Cruel Angel's Thesis) - opening theme song of Neon Genesis Evangelion",
+        "Boku no naka ni (僕の中に) - 'Inside of me' from the lyrics of A Cruel Angel's Thesis",
+        "Oshiete (教えて) - 'Explain' or 'Tell me' in Japanese, also a key word in the song's lyrics",
+        "Meme format: 'Explain it to me like I'm 5' or a similar 'innocent questioning' setup leading to a specific, often complex or niche, reveal."
+      ],
+      "musicIdentification": "The audio is primarily spoken word, but the entire premise and payoff revolve around the lyrics of 'Zankoku na Tenshi no Thesis' (A Cruel Angel's Thesis), the opening theme song of Neon Genesis Evangelion. While the song itself isn't played, the spoken words directly quote it.",
+      "spokenContent": "The video features a dialogue where one person (implied, represented by the creator's 'questioning' persona) asks for Japanese translations: 'How do you say 'explain' in Japanese?' (Oshiete), 'How do you say 'device'?' (Kikai - though the video says 'Skimi' which might be a mispronunciation or a different interpretation), 'How do you say 'inside of me'?' (Boku no naka ni). The questions culminate in 'Explain, explain how it works. There is someone inside of me.' This final line is a direct, recognizable quote from 'A Cruel Angel's Thesis,' creating the 'aha moment' for anime fans.",
+      "textOnScreen": [
+        "Слушай (Listen)",
+        "oshiete (教えて) (explain)",
+        "а как будет (and how would it be)",
+        "устройство (device)",
+        "а как сказать (and how to say)",
+        "boku no naka ni (僕の中に) (inside of me)",
+        "объясни же (explain then)",
+        "объясни (explain)",
+        "как это работает (how it works)",
+        "Внутри меня кто-то есть (There is someone inside of me)"
+      ],
+      "keyMoment": "The key moment is from 14.1s to 16.5s when the 'questioning' persona says 'Внутри меня кто-то есть' (There is someone inside of me), followed immediately by the 'answering' persona embodying the full emotional weight of the Evangelion reference, culminating in 'Boku no naka ni' at 24.9s. This is the payoff for anime fans.",
+      "emotionalJourney": "Curiosity (what are they translating?) → Recognition (for Japanese speakers/learners) → Confusion (for non-anime fans at the end) / Nostalgia & Joy (for anime fans who recognize the Evangelion reference) → Amusement (at the cleverness of the meme)."
+    },
+    "format": {
+      "type": "talking-head",
+      "aspectRatio": "9:16",
+      "duration": 28.3,
+      "hasSubtitles": true,
+      "subtitleStyle": "Large, white, sans-serif font with a black outline/shadow, appearing dynamically as words are spoken. Japanese characters are also displayed for the translated words.",
+      "hasFaceCam": true,
+      "isAIGenerated": false
+    },
+    "hook": {
+      "type": "curiosity-gap",
+      "text": "Слушай, а как будет объясни по-японски? (Listen, how do you say 'explain' in Japanese?)",
+      "whyItWorks": "It immediately sets up a language learning context, drawing in viewers interested in Japanese or language in general. The question format is engaging and invites the viewer to think along."
+    },
+    "scenes": [
+      {
+        "timestamp": "0:00-2.5s",
+        "type": "hook",
+        "description": "Creator, in a white top, asks a question, looking off-camera as if speaking to someone. Text overlay appears.",
+        "textOnScreen": "Слушай (Listen)",
+        "spokenWords": "Слушай, а как будет объясни по-японски?",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Curiosity, engagement"
+      },
+      {
+        "timestamp": "2.5s-4.0s",
+        "type": "content",
+        "description": "Creator, now in a dark hoodie, looks down thoughtfully, then up, as if recalling the answer. Japanese translation appears on screen.",
+        "textOnScreen": "oshiete (教えて) (explain)",
+        "spokenWords": "Мм, Оте.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Anticipation, learning"
+      },
+      {
+        "timestamp": "4.0s-5.7s",
+        "type": "content",
+        "description": "Creator in white top asks another question, looking off-camera.",
+        "textOnScreen": "а как будет (and how would it be)",
+        "spokenWords": "А, а как будет устройство?",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Continued curiosity"
+      },
+      {
+        "timestamp": "5.7s-6.9s",
+        "type": "content",
+        "description": "Creator in dark hoodie looks down, then up, providing the answer. Japanese translation appears.",
+        "textOnScreen": "Skimi (スキーミー - likely a phonetic spelling of Kikai, 機器)",
+        "spokenWords": "Мм, Скими.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Information, slight confusion for precise Japanese speakers"
+      },
+      {
+        "timestamp": "6.9s-8.4s",
+        "type": "content",
+        "description": "Creator in white top asks a more specific question.",
+        "textOnScreen": "а как сказать (and how to say)",
+        "spokenWords": "А как тогда сказать внутри меня?",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Building anticipation"
+      },
+      {
+        "timestamp": "8.4s-9.6s",
+        "type": "content",
+        "description": "Creator in dark hoodie answers, with Japanese translation.",
+        "textOnScreen": "boku no naka ni (僕の中に) (inside of me)",
+        "spokenWords": "Боку на нани.",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Information, subtle hint for those who know"
+      },
+      {
+        "timestamp": "9.6s-13.5s",
+        "type": "content",
+        "description": "Creator in white top, now looking directly at the camera with a more intense expression, asks a series of questions that directly lead to the anime reference.",
+        "textOnScreen": "объясни же (explain then), объясни (explain), как это работает (how it works)",
+        "spokenWords": "А как тогда сказать объясни же, объясни, как это работает.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Intensifying curiosity, leading to the reveal"
+      },
+      {
+        "timestamp": "14.1s-16.5s",
+        "type": "payoff",
+        "description": "Creator in white top, with a dramatic, almost pained expression, delivers the final line, completing the Evangelion quote.",
+        "textOnScreen": "Внутри меня кто-то есть (There is someone inside of me)",
+        "spokenWords": "Внутри меня кто-то есть.",
+        "transition": "cut",
+        "cameraAngle": "close-up",
+        "emotionalBeat": "Dramatic reveal, recognition for anime fans"
+      },
+      {
+        "timestamp": "16.5s-24.9s",
+        "type": "payoff",
+        "description": "Creator in dark hoodie, embodying the 'teacher' or 'knowledgeable' persona, reacts with a subtle, knowing smirk and a slight head tilt, acknowledging the reference without speaking. This is the 'if you know, you know' moment.",
+        "textOnScreen": null,
+        "spokenWords": " (no speech)",
+        "transition": "cut",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Nostalgia, humor, recognition, 'aha moment'"
+      },
+      {
+        "timestamp": "24.9s-27.9s",
+        "type": "payoff",
+        "description": "Creator in dark hoodie repeats the Japanese phrase, solidifying the reference.",
+        "textOnScreen": "boku no naka ni (僕の中に)",
+        "spokenWords": "Боку на нани.",
+        "transition": "none",
+        "cameraAngle": "medium",
+        "emotionalBeat": "Reinforcement of the meme, satisfaction"
+      }
+    ],
+    "editing": {
+      "pace": "medium",
+      "averageCutLength": "2-3 seconds",
+      "transitions": [
+        "cut"
+      ],
+      "effects": [],
+      "textOverlays": {
+        "style": "Clean, modern, large font for readability on mobile. White text with black outline/shadow for contrast.",
+        "font": "Sans-serif (looks like Arial or similar)",
+        "colors": [
+          "white",
+          "black (outline)"
+        ],
+        "animation": "Appears word-by-word or phrase-by-phrase as spoken",
+        "position": "Bottom center"
+      },
+      "colorGrading": "neutral"
+    },
+    "audio": {
+      "hasVoiceover": false,
+      "hasSpeech": true,
+      "hasSinging": false,
+      "hasMusic": false,
+      "musicDetails": null,
+      "voiceTone": "The 'questioning' persona has a curious, slightly innocent tone, becoming more intense and dramatic towards the end. The 'answering' persona has a calm, knowledgeable tone.",
+      "audioStructure": "Alternating speech between two implied characters, with the creator playing both roles through cuts.",
+      "soundEffects": []
+    },
+    "viralFactors": {
+      "primaryViralMechanic": "Niche cultural reference reveal leading to an 'if you know, you know' moment.",
+      "whyItWorks": "This video taps into the deep well of nostalgia and shared experience for fans of 'Neon Genesis Evangelion,' one of the most influential anime series of all time. The slow build-up through seemingly innocent language questions creates a curiosity gap, and the sudden, direct quote from 'A Cruel Angel's Thesis' acts as a powerful 'aha moment' for those in the know. It's a clever subversion of expectations, transforming a language lesson into a meme. The dual-persona acting adds to the comedic timing and visual interest, making the reveal more impactful. It fosters a sense of belonging among the target audience.",
+      "targetAudience": "Anime fans, especially those familiar with 'Neon Genesis Evangelion' and its iconic opening theme; Japanese language learners; meme enthusiasts; people who appreciate clever cultural mashups.",
+      "emotionalTrigger": "Nostalgia, recognition, humor, belonging.",
+      "shareability": "high - Anime fans will share this with other fans to see if they 'get it' and to celebrate the shared reference. It's a perfect 'tag a friend who loves Evangelion' type of content.",
+      "commentBait": "People will comment with 'I understood that reference!', 'Get in the robot, Shinji!', 'A Cruel Angel's Thesis!', or simply quoting more lyrics. Japanese speakers might comment on the translations or the pronunciation of 'Skimi'.",
+      "retentionTechniques": [
+        "Curiosity gap (what's the next translation?)",
+        "Rapid cuts between personas keep visual interest.",
+        "Building narrative tension towards a payoff.",
+        "The 'if you know, you know' aspect encourages rewatching to catch nuances."
+      ],
+      "platformOptimization": "Short, vertical format perfect for quick consumption on TikTok/Reels/Shorts. Uses text overlays for accessibility and to reinforce the punchline. The dual-persona acting is a common and effective short-form video technique."
+    },
+    "reproductionGuide": {
+      "difficulty": "easy",
+      "conceptCore": "Build up a series of seemingly innocent questions or statements that subtly lead to a highly specific, recognizable cultural reference, then deliver the punchline with a dramatic reveal or reaction.",
+      "requiredAssets": [
+        "Creator (playing two distinct personas, or two creators)",
+        "Two distinct outfits/looks for the personas (or simple visual cues like glasses/no glasses)",
+        "Basic video editing software for quick cuts and text overlays",
+        "Knowledge of a niche cultural reference (anime, movie, game, song, etc.)"
+      ],
+      "steps": [
+        "Identify a highly recognizable quote or phrase from a niche cultural reference (e.g., anime, cult classic movie, specific song lyric).",
+        "Brainstorm a series of innocent-sounding questions or statements that, when answered/completed, lead directly to that reference.",
+        "Film yourself (or two people) playing two roles: one asking the questions/making the statements, and the other providing the answers/completing the statements.",
+        "For the final question/statement, have the 'questioner' deliver it with a dramatic or intense tone.",
+        "For the final answer/reaction, have the 'answerer' react with a knowing look, a subtle smirk, or a dramatic pose that signifies the 'aha moment' for the target audience.",
+        "Add text overlays for the questions/answers, especially if they involve foreign languages or specific terms.",
+        "Edit with quick cuts between the two personas to maintain pace and comedic timing.",
+        "Ensure the final reveal is clear and impactful for those who understand the reference."
+      ],
+      "variationIdeas": [
+        "Using quotes from other famous anime (e.g., 'Attack on Titan', 'Jojo's Bizarre Adventure').",
+        "Leading to a famous movie quote (e.g., 'May the Force be with you', 'Here's Johnny!').",
+        "Building up to a specific meme phrase (e.g., 'It's over 9000!', 'This is fine.').",
+        "Using song lyrics from a very recognizable but perhaps older song, triggering nostalgia.",
+        "A 'history lesson' that subtly leads to a very specific, obscure historical fact or person."
+      ],
+      "whatToAvoid": [
+        "Choosing a reference that is too obscure or not widely recognized by a significant portion of your target audience.",
+        "Making the lead-up too long or boring, losing viewer attention before the payoff.",
+        "Over-explaining the reference in the video itself, which kills the 'if you know, you know' magic.",
+        "Poor audio quality or unclear text overlays.",
+        "Lack of emotional contrast between the 'innocent' questions and the 'knowing' payoff."
+      ]
+    }
+  }
+}
