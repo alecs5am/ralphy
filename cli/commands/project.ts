@@ -6,7 +6,7 @@ import { slugify, generateId } from "../lib/ids.js";
 import { projectsDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { readLog, logUserPrompt, logUserAsset, logGeneration, type GenerationEntry, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
-import { transcribe, DEFAULT_MODEL, WHISPER_VERSION, type TranscribeLanguage } from "../lib/transcribe.js";
+import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 
 async function safeJson(fp: string) {
@@ -304,10 +304,10 @@ export function projectCmd() {
 
   cmd
     .command("transcribe <id>")
-    .description("Transcribe an audio file via local whisper.cpp; writes captions.json (Caption[])")
-    .requiredOption("--audio <path>", "Path to audio file (mp3/m4a/wav)")
+    .description("Transcribe an audio file via OpenRouter whisper-1; writes captions.json (Caption[])")
+    .requiredOption("--audio <path>", "Path to audio file (mp3/m4a/wav, ≤25MB)")
     .option("--language <lang>", "ru | en | auto", "ru")
-    .option("--model <model>", "whisper.cpp model name", DEFAULT_MODEL)
+    .option("--model <model>", "(unused; kept for compat — whisper-1 only)", DEFAULT_MODEL)
     .option("--out <path>", "Output JSON path (default: <project>/captions.json)")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
@@ -332,15 +332,15 @@ export function projectCmd() {
         await fs.writeFile(outPath, JSON.stringify(result.captions, null, 2) + "\n");
 
         await logGeneration(id, {
-          provider: "whisper-cpp",
-          endpoint: `whisper-cpp/${result.model}`,
+          provider: "openrouter",
+          endpoint: result.model,
           kind: "text",
-          input: { audio: audioPath, language, model: result.model, version: WHISPER_VERSION },
+          input: { audio: audioPath, language },
           output: { local: outPath },
           status: "ok",
           latency_ms: result.durationMs,
-          cost_usd: 0,
-          note: `transcribed ${result.captions.length} captions, lang=${result.language}`,
+          cost_usd: result.costUsd,
+          note: `transcribed ${result.captions.length} captions, lang=${result.language}, audio=${result.audioDurationSec.toFixed(1)}s`,
         });
 
         ok(`Transcribed ${result.captions.length} captions → ${outPath}`);
@@ -350,12 +350,14 @@ export function projectCmd() {
           language: result.language,
           model: result.model,
           durationMs: result.durationMs,
+          audioDurationSec: result.audioDurationSec,
+          costUsd: result.costUsd,
           out: outPath,
         });
       } catch (e: any) {
         await logGeneration(id, {
-          provider: "whisper-cpp",
-          endpoint: `whisper-cpp/${opts.model || DEFAULT_MODEL}`,
+          provider: "openrouter",
+          endpoint: WHISPER_MODEL,
           kind: "text",
           input: { audio: audioPath, language },
           status: "error",

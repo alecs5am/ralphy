@@ -14,7 +14,7 @@ A studio in one repo. Scripted CLI (`ralphy`) + Remotion composition library + d
 # Bun (runtime + package manager)
 curl -fsSL https://bun.sh/install | bash
 
-# ffmpeg (for video/audio processing — Remotion and whisper.cpp call it)
+# ffmpeg (for video/audio processing — Remotion calls it)
 brew install ffmpeg          # macOS
 # or: sudo apt install ffmpeg  # Linux
 ```
