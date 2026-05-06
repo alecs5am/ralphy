@@ -2,9 +2,9 @@
 
 ## When this fires
 
-Source — long video (podcast, stream, webinar, talk). Цель — найти 3-15 viral clips длиной 15-60 секунд каждый.
+Source — long video (podcast, stream, webinar, talk). Goal — find 3-15 viral clips, each 15-60 seconds long.
 
-Real-world кейс: `workspace/projects/lyadov-podcast-001/` — 16:9 podcast → 9:16 short-form clips.
+Real-world case: `workspace/projects/lyadov-podcast-001/` — 16:9 podcast → 9:16 short-form clips.
 
 ## Method
 
@@ -17,13 +17,13 @@ bunx tsx scripts/find-viral-moments.ts \
 
 ### Pipeline
 
-1. **Transcribe** через `cli/lib/transcribe.ts` → OpenRouter whisper-1 (word-level timestamps).
-2. **Sample frames** каждые 5s (через `ffmpeg -vf fps=0.2`).
-3. **Gemini-2.5-flash через `callLLM()`** — vision на frames + полный transcript. Промпт фокусирует на:
-   - 3-15 clips, 15-60s каждый
+1. **Transcribe** via `cli/lib/transcribe.ts` → OpenRouter whisper-1 (word-level timestamps).
+2. **Sample frames** every 5s (via `ffmpeg -vf fps=0.2`).
+3. **Gemini-2.5-flash via `callLLM()`** — vision over frames + full transcript. The prompt focuses on:
+   - 3-15 clips, 15-60s each
    - cut on silence, never mid-word
-   - 0.2-0.4s lead-in перед hook
-   - `viral_hook_text` ≤10 слов на языке transcript'а
+   - 0.2-0.4s lead-in before the hook
+   - `viral_hook_text` ≤10 words in the transcript's language
    - `angle` ∈ {gatekeep, skeptic, fail, visual-shock}
 
 ### Output schema
@@ -45,23 +45,23 @@ bunx tsx scripts/find-viral-moments.ts \
 
 ## Downstream consumption
 
-`moments.json` идёт в `cli/lib/ffmpeg-recipes.ts → extractSegment`:
+`moments.json` feeds into `cli/lib/ffmpeg-recipes.ts → extractSegment`:
 
 ```bash
 ralphy generate clip-cut --project <id> --moments workspace/references/<handle>/moments.json
 ```
 
-Каждый clip извлекается lossless с padding 30-200ms по бокам (см. `ralph-editor/rules/hard-rules.md` пункт 7).
+Each clip is extracted lossless with 30-200ms padding on each side (see `ralph-editor/rules/hard-rules.md` item 7).
 
 ## Quality knobs
 
-- Минимум 15s — короче не складывается в self-contained moment.
-- Максимум 60s — длиннее не работает на short-form (TikTok cap 60s, Reels — 90s).
-- 3-15 clips total — больше = шум, меньше = wasted budget.
-- `--language ru` обязателен для русского (auto-detect фейлит на коротких).
+- Minimum 15s — anything shorter doesn't add up to a self-contained moment.
+- Maximum 60s — anything longer doesn't work for short-form (TikTok cap 60s, Reels — 90s).
+- 3-15 clips total — more = noise, fewer = wasted budget.
+- `--language ru` is required for Russian (auto-detect fails on short clips).
 
 ## Cost
 
-- whisper-1: ~$0.006/min audio (полный source).
-- Gemini-2.5-flash: ~$0.001/frame × N frames (для 60-min source ≈ 720 frames @ 5s sample = $0.72).
-- Total: ~$1-2 для часового подкаста.
+- whisper-1: ~$0.006/min audio (full source).
+- Gemini-2.5-flash: ~$0.001/frame × N frames (for a 60-min source ≈ 720 frames @ 5s sample = $0.72).
+- Total: ~$1-2 for an hour-long podcast.
