@@ -41,8 +41,10 @@
     "ralph": "bun cli/index.ts",
     "ralphy": "bun cli/index.ts",
     "setup": "bun cli/index.ts setup",
-    "dashboard": "cd dashboard && bunx tsx server/index.ts",
-    "dashboard:dev": "cd dashboard && bunx vite --port 5173"
+    "doctor": "bun cli/index.ts doctor",
+    "render": "bun cli/index.ts render",
+    "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
+    "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173"
   },
   "sideEffects": [
     "*.css"
