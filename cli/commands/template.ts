@@ -316,5 +316,77 @@ export function templateCmd() {
       out({ deleted: id });
     });
 
+  cmd
+    .command("suggest <utterance...>")
+    .description("Rank templates by keyword match against tags + metadata. Returns top-3 with score 0..1.")
+    .option("--limit <n>", "Max results", (v) => parseInt(v, 10), 3)
+    .action(async (utteranceArgs: string[], opts: { limit: number }) => {
+      const utterance = utteranceArgs.join(" ").toLowerCase();
+      const tokens = utterance
+        .split(/[\s,.;:!?]+/)
+        .map((t) => t.replace(/[^a-zа-я0-9-]/giu, "").toLowerCase())
+        .filter((t) => t.length >= 2);
+
+      const templates = await listEntities("templates");
+      const scored = await Promise.all(
+        templates.map(async (t) => {
+          const ref = await resolveTemplate(t.id);
+          if (!ref) return null;
+          const meta = await readTemplateMeta(ref);
+          let docText = "";
+          if (ref.kind === "dir") {
+            docText = await fs.readFile(ref.docPath, "utf-8").catch(() => "");
+          }
+          const tags: string[] = Array.isArray(meta?.tags) ? meta.tags : [];
+          const description: string = typeof meta?.description === "string" ? meta.description : "";
+          const name: string = typeof meta?.name === "string" ? meta.name : t.id;
+          const haystack = [
+            t.id,
+            name,
+            description,
+            tags.join(" "),
+            docText.slice(0, 500),
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          let hits = 0;
+          let tagHits = 0;
+          for (const token of tokens) {
+            if (!token) continue;
+            if (tags.some((tag) => tag.toLowerCase().includes(token))) {
+              tagHits += 1;
+              hits += 1;
+            } else if (haystack.includes(token)) {
+              hits += 1;
+            }
+          }
+          const denom = Math.max(1, tokens.length);
+          // Tag matches are weighted 2× — they're the most intentional signal.
+          const score = Math.min(1, (hits + tagHits) / (denom * 2));
+
+          return {
+            id: t.id,
+            name,
+            description,
+            tags,
+            score: Number(score.toFixed(3)),
+            tier:
+              score >= 0.7 ? "strong" : score >= 0.5 ? "weak" : "below-threshold",
+          };
+        }),
+      );
+
+      const top = (scored.filter((x): x is NonNullable<typeof x> => x !== null))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, opts.limit);
+
+      out({
+        utterance,
+        tokens,
+        results: top,
+      });
+    });
+
   return cmd;
 }
