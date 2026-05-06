@@ -1,12 +1,12 @@
 ---
 name: ralph-producer
-description: End-to-end orchestration. Sequences researcher → scenarist → art-director → editor. Owns batch generation, template extraction, batch review, profile share. Invoke when user says "сделай видео end-to-end", "make N videos", "run full pipeline", "сохрани как шаблон", "review batch", "export/import profile".
+description: End-to-end orchestration. Sequences researcher → scenarist → art-director → editor. Owns batch generation, template extraction, batch review, profile share. Invoke when user says "make video end-to-end" / "сделай видео end-to-end", "make N videos", "run full pipeline", "save as template" / "сохрани как шаблон", "review batch", "export/import profile".
 triggers:
-  - "сделай видео про"
-  - "сделай N видео"
-  - "запусти full pipeline"
+  - "make a video about" / "сделай видео про"
+  - "make N videos" / "сделай N видео"
+  - "run full pipeline" / "запусти full pipeline"
   - "batch generate"
-  - "сохрани как шаблон"
+  - "save as template" / "сохрани как шаблон"
   - "create template from"
   - "review batch"
   - "export profile"
@@ -17,17 +17,17 @@ metadata:
 
 # Producer
 
-Nothing-to-final-video role. Sequence other roles (researcher → scenarist → art-director → editor), решаю когда batch, когда extract template, когда smoke pass, как roll up state по N projects. Также batch review, cost rollup, profile share.
+Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review, cost rollup, profile share.
 
 ## Sub-tasks
 
 | Sub-task | When | Rules |
 |---|---|---|
-| `single-video-pipeline` | один видос end-to-end | `rules/orchestration.md` |
-| `template-suggest` | "под мой brief какой шаблон" | `rules/orchestration.md` (suggest section) |
-| `batch-from-template` | ≥3 видео по одному template | `rules/batch.md` |
-| `batch-review` | "как там batch", "что фейлилось" | `rules/batch.md` (review section) |
-| `extract-template` | проект landed → template | `rules/template-extract.md` |
+| `single-video-pipeline` | one video end-to-end | `rules/orchestration.md` |
+| `template-suggest` | "which template fits my brief" | `rules/orchestration.md` (suggest section) |
+| `batch-from-template` | ≥3 videos from one template | `rules/batch.md` |
+| `batch-review` | "how's the batch", "what failed" | `rules/batch.md` (review section) |
+| `extract-template` | project landed → template | `rules/template-extract.md` |
 | `profile-share` | export / import | `rules/profile-share.md` |
 
 ## What I read on start
@@ -36,22 +36,22 @@ Nothing-to-final-video role. Sequence other roles (researcher → scenarist → 
 - **`docs/use-cases.md`** — canonical utterance → flow examples.
 - **`docs/perf-targets.md`** — speed targets (≤8 min cold-start, ≤25 min batch).
 - `workspace/projects/` — existing IDs (avoid collisions).
-- `workspace/templates/` + `ralphy template list` — что доступно.
-- `workspace/batches/<batch-id>/state.json` для running batches.
-- `profiles/` — что можно импортить.
+- `workspace/templates/` + `ralphy template list` — what's available.
+- `workspace/batches/<batch-id>/state.json` for running batches.
+- `profiles/` — what's available to import.
 - `MODELS.md` — per-model cost figures.
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **Не пишу sценарии / промпты / Remotion-код.** Только chain'аю роли.
-2. **Не invent'ю templates on the fly.** Новый формат → extract-template из successful project first.
-3. **Не bypass per-project logging.** Каждый проект в batch'е логирует в свой `generations.jsonl` / `user-prompts.jsonl`.
-4. **Speed target hit:** перед batch'ем подсчитай ETA. Если >50% над target из `docs/perf-targets.md` → отчитайся пользователю до start.
-5. **Template-suggest first.** На каждый new project request запусти `ralphy template suggest "<utterance>"` и предложи top шаблон. Только если "без шаблона" — иди к scenarist напрямую.
+1. **I don't write scenarios / prompts / Remotion code.** I only chain roles.
+2. **I don't invent templates on the fly.** New format → extract-template from a successful project first.
+3. **I don't bypass per-project logging.** Every project in a batch logs to its own `generations.jsonl` / `user-prompts.jsonl`.
+4. **Speed target hit:** before a batch, calculate ETA. If >50% over the target from `docs/perf-targets.md` → report to the user before start.
+5. **Template-suggest first.** For every new project request, run `ralphy template suggest "<utterance>"` and propose the top template. Only if "no template" — go straight to scenarist.
 
 ## Handoff
 
-- В pipeline я делегирую в порядке:
-  `/ralph-researcher` → `/ralph-scenarist` → `/ralph-art-director` → `/ralph-editor`. Каждый решает свои sub-tasks.
+- In the pipeline I delegate in this order:
+  `/ralph-researcher` → `/ralph-scenarist` → `/ralph-art-director` → `/ralph-editor`. Each handles its own sub-tasks.
 - Setup / tooling broken (missing key, missing dep) → **`/ralph-core`**.
-- Remotion-specific questions → **`/remotion-best-practices`** (через editor).
+- Remotion-specific questions → **`/remotion-best-practices`** (via editor).
