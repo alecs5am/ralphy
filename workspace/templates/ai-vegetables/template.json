@@ -1,0 +1,42 @@
+{
+  "name": "AI Vegetables POV",
+  "slug": "ai-vegetables",
+  "kind": "vibe-reference",
+  "description": "Surrealistic POV-видос с AI-овощами в неожиданных ситуациях. 15s формат, виральный TikTok жанр 2025-2026 — антропоморфные овощи делают человеческие действия (бегут к маршрутке, делают йогу, сидят в офисе). Hook в первые 2s через визуальный шок (gemini-3-pro-image-preview keyframe). Captions крупные TikTok-style. Музыка опционально trend, либо ElevenLabs Music quirky upbeat.",
+  "tags": ["ai-vegetables", "surreal", "tiktok", "viral-trend", "pov", "ai", "vegetables", "absurd", "visual-shock"],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [12, 18],
+  "typicalClipCount": [3, 5],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-06T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "promptFragments": "fragments.md",
+    "modelStack": "model-stack.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview через OpenRouter (multi-ref если у овоща должен быть consistency между сценами)",
+    "i2v": "kwaivgi/kling-v3.0-pro через OpenRouter (5-10s clips, generate_audio: false)",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 (RU) — короткая POV-фраза (4-7 слов на сцену)",
+    "music": "ElevenLabs Music — quirky upbeat instrumental, force_instrumental: true",
+    "composition": "Remotion 4.0.441 — TransitionSeries fade 6 frames между сценами, captions HormoziCaptions или TikTokCaptions, audio duck'нуто"
+  },
+  "constants": {
+    "vibeAnchor": "absurd-but-believable",
+    "characterStyle": "anthropomorphic vegetable, photorealistic, slight cartoon proportions",
+    "captionStyle": "HormoziCaptions or TikTokCaptions (large pop)",
+    "hookWindow": "first 2 seconds — visual shock"
+  },
+  "variationAxes": [
+    "vegetable type (cucumber, tomato, carrot, potato, etc.)",
+    "setting (subway, office, gym, kitchen, street)",
+    "human action being performed (running, working, exercising, dating)",
+    "emotional tone (deadpan, frustrated, ecstatic, melancholic)"
+  ],
+  "doNotCopyLiterally": "Scenario, VO lines, exact prompts, per-clip durations. Это vibe-reference; scenarist пишет свежий каждый раз."
+}
