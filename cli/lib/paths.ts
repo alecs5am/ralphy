@@ -50,6 +50,13 @@ export function templatesDir() {
   return path.join(workspace(), "templates");
 }
 
+// Repo-level public templates committed to the repo (templates/ at root).
+// Visible on GitHub, shipped to every clone. Workspace templates override
+// repo ones with the same id.
+export function repoTemplatesDir() {
+  return path.join(_root, "templates");
+}
+
 export function referencesDir() {
   return path.join(workspace(), "references");
 }
