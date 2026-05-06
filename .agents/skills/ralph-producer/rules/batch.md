@@ -2,7 +2,7 @@
 
 ## When
 
-≥3 видео off одного template. Меньше → просто `single-video-pipeline` несколько раз.
+≥3 videos off the same template. Fewer → just run `single-video-pipeline` multiple times.
 
 ## Phase 1 — Brainstorm ideas
 
@@ -11,20 +11,20 @@
    - `workspace/templates/<id>/reference-example.md`
    - `workspace/templates/<id>/template.json` (metadata, required assets, cost ballpark)
 
-2. Generate N идей varying along documented axes. Each idea:
+2. Generate N ideas varying along documented axes. Each idea:
    - `id` (kebab-slug)
    - `title`
    - `concept` (1-2 sentences)
-   - `brief` (3-6 sentences для scenarist'а)
+   - `brief` (3-6 sentences for the scenarist)
 
-3. Present как table / numbered list **в чате**. Не пиши на диск пока.
+3. Present as a table / numbered list **in chat**. Don't write to disk yet.
 
-4. Ask user: approve / edit / drop. Один message, не rapid-fire.
+4. Ask user: approve / edit / drop. One message, not rapid-fire.
 
 ## Phase 2 — Lock approved set
 
 ```bash
-# Записывается через:
+# Written via:
 ralphy batch create --template <id> --ideas <approved-list>
 ```
 
@@ -42,9 +42,9 @@ ralphy batch create --template <id> --ideas <approved-list>
 }
 ```
 
-`batch-id` = kebab-case theme + month. Concurrency default 2, **никогда не >3** (ElevenLabs starter cap).
+`batch-id` = kebab-case theme + month. Concurrency default 2, **never >3** (ElevenLabs starter cap).
 
-**Cost preview:** `N × per-video из template card = $total`. User explicit confirm перед Phase 3.
+**Cost preview:** `N × per-video from template card = $total`. User must explicitly confirm before Phase 3.
 
 ## Phase 3 — Scaffold projects
 
@@ -52,24 +52,24 @@ ralphy batch create --template <id> --ideas <approved-list>
 ralphy batch scaffold <batch-id>
 ```
 
-Под капотом — для каждой idea: `ralph template use` → копия required assets → `BRIEF.md` → log-prompt. Output:
+Under the hood — for each idea: `ralph template use` → copy required assets → `BRIEF.md` → log-prompt. Output:
 
-`workspace/batches/<batch-id>/state.json` с per-project `pending` status.
+`workspace/batches/<batch-id>/state.json` with per-project `pending` status.
 
 ## Phase 4 — Run pipeline parallel
 
-Два варианта:
+Two options:
 
 ### Option A — fully autonomous (recommended for proven templates)
 
-Spawn N параллельных sub-agents (Agent tool, `general-purpose` type), один на проект. Limit concurrent agents = batch.concurrency. Каждый agent:
+Spawn N parallel sub-agents (Agent tool, `general-purpose` type), one per project. Limit concurrent agents = batch.concurrency. Each agent:
 - single-video-pipeline end-to-end
-- логирует все API calls автоматом (через `ralphy generate`)
-- returns render path или failure
+- logs all API calls automatically (via `ralphy generate`)
+- returns render path or failure
 
 ### Option B — staged with checkpoints (recommended for first 1-2 batches)
 
-Sequentially per project, но skip approval prompts для artifact types которые пользователь approve'нул в project 1.
+Sequentially per project, but skip approval prompts for artifact types the user approved in project 1.
 
 ### State updates
 
@@ -84,7 +84,7 @@ ralphy batch status <batch-id> --update <project-id> \
 ralphy batch status <batch-id>
 ```
 
-Summary table из `state.json`:
+Summary table from `state.json`:
 
 | project-id | status | step | cost | render |
 |---|---|---|---|---|
@@ -99,23 +99,23 @@ Per failed: which step, last log line, suggested action (retry / manual fix / dr
 Per completed: render path + duration + per-project cost.
 
 Follow-ups:
-> "Retry failed (eye-cream-002)? Review renders в dashboard? Export как profile?"
+> "Retry failed (eye-cream-002)? Review renders in dashboard? Export as profile?"
 
 ## Concurrency rules
 
 - **OpenRouter media:** 2-3 parallel safe; 5+ throttle.
-- **ElevenLabs starter cap:** 3 concurrent → 429. Always sequential PER PROJECT; parallelism только across projects.
+- **ElevenLabs starter cap:** 3 concurrent → 429. Always sequential PER PROJECT; parallelism only across projects.
 - **Local Remotion render:** CPU-bound, one at a time on local machine.
 - **Music:** 1 per project, negligible.
 
 ## Failure recovery
 
-Failed project в `state.json` → `failed` + last-completed step. "Retry failed" → re-run pipeline только на этих проектах. `ralphy generate ...` respect'ит `--skip-existing` дефолтно.
+Failed project in `state.json` → `failed` + last-completed step. "Retry failed" → re-run pipeline only on those projects. `ralphy generate ...` respects `--skip-existing` by default.
 
 ## Speed target (from `docs/perf-targets.md`)
 
-10× 15s видео ≤25 min wall (parallel где можно). Custom brief — ≤60 min.
+10× 15s videos ≤25 min wall (parallel where possible). Custom brief — ≤60 min.
 
-Если оценка >50% над — flag user перед стартом:
+If estimate is >50% over — flag user before start:
 
-> "Batch на 10 видео, ETA ~38 min (target 25). Это из-за <reason>. Продолжаем?"
+> "Batch of 10 videos, ETA ~38 min (target 25). This is due to <reason>. Continue?"

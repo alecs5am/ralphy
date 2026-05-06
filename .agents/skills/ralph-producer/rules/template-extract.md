@@ -2,13 +2,13 @@
 
 ## When this fires
 
-Project landed well, user хочет reuse formate. Optional arg: source project ID.
+Project landed well, user wants to reuse the format. Optional arg: source project ID.
 
 ## Guardrails
 
-- **Template = vibe reference, not Mad Libs.** Read `workspace/templates/soviet-nostalgic/TEMPLATE.md` как canonical example before writing new one.
-- Avoid `{VAR}` placeholder skeletons. Avoid locking VO lines / exact clip tables / timings в template. Те идут в `reference-example.md` как ОДИН concrete instance, не как required shape.
-- **Don't extract** from projects which only have один result или not rendered successfully.
+- **Template = vibe reference, not Mad Libs.** Read `workspace/templates/soviet-nostalgic/TEMPLATE.md` as the canonical example before writing a new one.
+- Avoid `{VAR}` placeholder skeletons. Avoid locking VO lines / exact clip tables / timings into the template. Those go into `reference-example.md` as ONE concrete instance, not as a required shape.
+- **Don't extract** from projects that only have one result or didn't render successfully.
 
 ## Workflow
 
@@ -22,8 +22,8 @@ workspace/projects/<id>/
   prompts.json
   asset-manifest.json
   composition-props.json
-  logs/generations.jsonl    ← gold для cost + model-stack
-  logs/user-prompts.jsonl   ← what user iterated on
+  logs/generations.jsonl    ← gold for cost + model-stack
+  logs/user-prompts.jsonl   ← what the user iterated on
   assets/
   render/final.mp4
 ```
@@ -32,13 +32,13 @@ workspace/projects/<id>/
 ralphy project timeline <id>   # merged chronology
 ```
 
-### 2. Agree scope в чате (5-7 bullets перед файлами)
+### 2. Agree scope in chat (5-7 bullets before files)
 
-- Что есть **format** vs **specific content** этого проекта.
-- Какие axes **vary** между видео этого формата.
-- Какие constants critical для recognition (voice style, visual contrast, required music track, runtime band).
-- Что должно **copy per project** (trend music, brand font).
-- Когда template **не должен** использоваться.
+- What is the **format** vs the **specific content** of this project.
+- Which axes **vary** between videos in this format.
+- Which constants are critical for recognition (voice style, visual contrast, required music track, runtime band).
+- What should **copy per project** (trend music, brand font).
+- When the template **should not** be used.
 
 ### 3. Scaffold template directory
 
@@ -46,24 +46,24 @@ ralphy project timeline <id>   # merged chronology
 ralphy template extract --slug <kebab> --name "<Human>" --from-project <project-id>
 ```
 
-→ `workspace/templates/<slug>/` с `template.json`, stub `TEMPLATE.md`, `fragments.md`, `model-stack.md`, `composition.md`, `reference-example.md`.
+→ `workspace/templates/<slug>/` with `template.json`, stub `TEMPLATE.md`, `fragments.md`, `model-stack.md`, `composition.md`, `reference-example.md`.
 
-### 4. Fill docs в order (each builds on previous)
+### 4. Fill docs in order (each builds on previous)
 
 #### 4.1 `reference-example.md`
 - Full VO
-- Per-clip motion sketch с real timings
+- Per-clip motion sketch with real timings
 - Key prompts per scene
-- Annotations что замечать
+- Annotations on what to notice
 
 #### 4.2 `fragments.md`
-- Reusable building blocks (style fragments, character/product description patterns с adaptation rules, quality guards, music prompts, VO settings).
+- Reusable building blocks (style fragments, character/product description patterns with adaptation rules, quality guards, music prompts, VO settings).
 - **No Mad Libs.**
 
 #### 4.3 `model-stack.md`
-- Order of operations + models + real costs из `generations.jsonl`.
-- Alternatives которые не сработали (из logs + user-prompts.jsonl).
-- Pinned versions где critical.
+- Order of operations + models + real costs from `generations.jsonl`.
+- Alternatives that didn't work (from logs + user-prompts.jsonl).
+- Pinned versions where critical.
 
 #### 4.4 `composition.md`
 - Remotion skeleton.
@@ -71,26 +71,26 @@ ralphy template extract --slug <kebab> --name "<Human>" --from-project <project-
 - Quirks.
 
 #### 4.5 `TEMPLATE.md` (highest-level)
-- Why формат works.
+- Why the format works.
 - Vibe anchors.
 - Variation axes.
-- Required inputs от user'а.
-- Narrative arc как shape (не prescription).
+- Required inputs from the user.
+- Narrative arc as shape (not prescription).
 - Music.
 - Workflow.
 - Cost ballpark.
 - When **not** to use.
 
 #### 4.6 `template.json`
-- `description`, `tags` (для template suggest matching)
+- `description`, `tags` (for template suggest matching)
 - `kind: "vibe-reference"`
-- `assets` (each required block с `required: true`)
+- `assets` (each required block with `required: true`)
 - `doNotCopyLiterally`
 - `constants`
 
 ### 5. Copy required assets
 
-Trend music, brand fonts, recurring reference images из source project в `workspace/templates/<slug>/assets/`. Declare в `template.json.assets`.
+Trend music, brand fonts, recurring reference images from source project to `workspace/templates/<slug>/assets/`. Declare in `template.json.assets`.
 
 ### 6. Register
 
@@ -105,7 +105,7 @@ ralphy template list
 ralphy template use <slug> --project test-<slug>-001 --name "Test" --brief "smoke test"
 ```
 
-Confirm `TEMPLATE_ORIGIN.md` указывает на новые docs, required assets landed в right sub-dirs.
+Confirm `TEMPLATE_ORIGIN.md` points to the new docs, required assets land in the right sub-dirs.
 
 ```bash
 ralphy project delete test-<slug>-001
@@ -114,10 +114,10 @@ rm -rf workspace/projects/test-<slug>-001
 
 ### 8. Report
 
-Scope, required user inputs, per-video cost, как invoke для new video или batch.
+Scope, required user inputs, per-video cost, how to invoke for a new video or batch.
 
 ## When to say "not yet"
 
-- Только 1 video в формате и vaguely worked → wait.
-- Genuinely one-off idea → не bother.
+- Only 1 video in the format and it vaguely worked → wait.
+- Genuinely one-off idea → don't bother.
 - Project not rendered yet / logs partial → wait.
