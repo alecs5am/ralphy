@@ -1,6 +1,6 @@
 # Transcript
 
-Researcher сам транскрайбит когда нужно для analysis (find-viral-moments, deep social-analysis). Editor имеет свой generate-captions для production VO. Тот же tool, разные contexts.
+Researcher transcribes when needed for analysis (find-viral-moments, deep social-analysis). Editor has its own generate-captions for production VO. Same tool, different contexts.
 
 ## Tool
 
@@ -8,7 +8,7 @@ Researcher сам транскрайбит когда нужно для analysis
 ralphy project transcribe <id> --audio <path> --language ru
 ```
 
-или для research-context (без project ID):
+or for research-context (no project ID):
 
 ```bash
 bunx tsx -e '
@@ -23,35 +23,35 @@ bunx tsx -e '
 
 ## Hard limits
 
-- ≤25MB per file (whisper-1 hard limit OpenRouter).
-- Длиннее → re-encode в mono 64kbps mp3:
+- ≤25MB per file (whisper-1 hard limit on OpenRouter).
+- Longer → re-encode to mono 64kbps mp3:
   ```bash
   ffmpeg -i source.mp4 -vn -ac 1 -b:a 64k workspace/references/<handle>/source.mp3
   ```
-- Ещё длиннее (>30min audio @ 64kbps ≈ 14MB безопасно, >60min — split на chunks).
+- Even longer (>30min audio @ 64kbps ≈ 14MB safe, >60min — split into chunks).
 
 ## Word-level timestamps
 
-`timestamp_granularities[]=word` — дефолт в `transcribe.ts`. Возвращает `Caption[]`:
+`timestamp_granularities[]=word` — default in `transcribe.ts`. Returns `Caption[]`:
 ```ts
 { text: string; startMs: number; endMs: number; timestampMs: number; confidence: number }
 ```
 
-Используется для:
+Used for:
 - find-viral-moments (cut on word boundary)
-- editor caption components (12 styles из `src/lib/components/captions/`)
-- deep social-analysis (timing анализ hook'а)
+- editor caption components (12 styles from `src/lib/components/captions/`)
+- deep social-analysis (hook timing analysis)
 
 ## Caching
 
-Если `<handle>/source.transcript.json` существует и `mtime > mtime audio` — **не запускай заново**. ~$0.006/min × сколько раз = wasted.
+If `<handle>/source.transcript.json` exists and `mtime > mtime audio` — **don't re-run**. ~$0.006/min × however many times = wasted.
 
 ## Language
 
-- `--language ru` для русских sources.
-- `--language en` для английских.
-- `--language auto` — фейлит на коротких clips (≤10s) и иногда на code-switching. Не дефолт.
+- `--language ru` for Russian sources.
+- `--language en` for English.
+- `--language auto` — fails on short clips (≤10s) and sometimes on code-switching. Not the default.
 
 ## Cost
 
-$0.006 per audio-minute. Часовой podcast = $0.36. Считается через `loggedFetch()` автоматом в `generations.jsonl`.
+$0.006 per audio-minute. Hour-long podcast = $0.36. Counted automatically via `loggedFetch()` into `generations.jsonl`.
