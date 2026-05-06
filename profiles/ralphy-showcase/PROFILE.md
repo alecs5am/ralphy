@@ -1,4 +1,4 @@
-# Profile: klimetzc
+# Profile: ralphy-showcase
 
 **Exported:** 2026-04-23T17:15:41.390Z
 **Source:** `workspace/` on this machine
@@ -14,7 +14,7 @@
 ## How to import
 
 ```bash
-npm run ralph -- profile import klimetzc
+ralphy profile import ralphy-showcase
 ```
 
 Imports are additive — existing files in your local `workspace/` are kept (use `--overwrite` to replace). Registry and JSONL logs are merged.
