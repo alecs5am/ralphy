@@ -57,8 +57,8 @@ Interactive multi-step:
 
 1. **Project** — links `ralphy` to this folder (saved to `~/.config/ralphy/config.json`).
 2. **API keys** — multi-select providers → password-prompt for each → API ping for verification:
-   - **OPENROUTER_API_KEY** *(required)* — image / video / LLM / vision / transcribe (one key для всего медиа стека: gemini-3-pro-image-preview, kling-v3.0-pro, veo-3.1, seedance-2.0, claude/gpt LLM, whisper-1)
-   - **ELEVENLABS_API_KEY** *(required)* — voiceover (eleven_multilingual_v2 RU) + music (ElevenLabs Music)
+   - **OPENROUTER_API_KEY** *(required)* — image / video / LLM / vision / transcribe (one key for the entire media stack: gemini-3-pro-image-preview, kling-v3.0-pro, veo-3.1, seedance-2.0, claude/gpt LLM, whisper-1)
+   - **ELEVENLABS_API_KEY** *(required)* — voiceover (eleven_multilingual_v2) + music (ElevenLabs Music)
 3. **Profiles** — multi-select bundles from `profiles/` (templates + references + example projects from other users).
 
 **The wizard is idempotent**: re-runs don't touch already-set keys, imported profiles are marked `(imported — re-import is safe)`. **Does not auto-launch Studio or dashboard** — those are separate manual commands when you actually want them.
@@ -232,7 +232,7 @@ Make sure the terminal has a TTY. In CI/non-interactive environments use `ralphy
 You can run only the cheap stages (research, scenario, prompts) — they cost pennies. Defer the asset render.
 
 **Which providers are mandatory?**
-Just two — `OPENROUTER_API_KEY` (image / video / LLM / vision / transcribe — single key для всего медиа стека) and `ELEVENLABS_API_KEY` (voice + music). FAL / Vercel / OpenAI / Replicate **не нужны** в v2 — стек консолидирован на OpenRouter.
+Just two — `OPENROUTER_API_KEY` (image / video / LLM / vision / transcribe — single key for the whole media stack) and `ELEVENLABS_API_KEY` (voice + music). FAL / Vercel / OpenAI / Replicate are **not needed** in v2 — the stack is consolidated on OpenRouter.
 
 **Is it safe to put keys in `.env`?**
 Yes — `.env` is in `.gitignore`, never goes to the repo. `ralphy setup` validates each key with an API ping before saving.
@@ -241,7 +241,7 @@ Yes — `.env` is in `.gitignore`, never goes to the repo. `ralphy setup` valida
 Technically yes — every script underneath is TS. But the point of the project is to delegate to the chat. Manual mode lives in [`docs/agent-guide.md`](docs/agent-guide.md).
 
 **Where do I look at what came out?**
-В чате — `ralphy project show <id>` + `ralphy project log <id>` + final mp4 path. Web dashboard retired в v2; код остался для legacy use, но не поддерживается.
+In chat — `ralphy project show <id>` + `ralphy project log <id>` + the final mp4 path. The web dashboard was retired in v2; the code stays for legacy use but isn't supported.
 
 **Installed but want to remove.**
 ```bash

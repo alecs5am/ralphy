@@ -1,6 +1,6 @@
 # Performance targets
 
-Hard targets для chat'а — отчитывайся пользователю если оценка >50% над таргетом ДО старта работы. Source for `/ralph-producer` orchestration rule.
+Hard targets for the chat — report back to the user if the estimate runs >50% over the target BEFORE starting the work. Source of truth for the `/ralph-producer` orchestration rule.
 
 ## Single video
 
@@ -23,11 +23,11 @@ Hard targets для chat'а — отчитывайся пользователю 
 | 10 videos | ≤ 25 min |
 | 20 videos | ≤ 45 min |
 
-Concurrency cap **3** (ElevenLabs starter limit). Above 20 видео — split на batches.
+Concurrency cap **3** (ElevenLabs starter limit). Above 20 videos — split into batches.
 
 ## Latency budgets per call
 
-Реалистичные ожидания на отдельные API:
+Realistic expectations for individual API calls:
 
 | Operation | Median | P95 |
 |---|---|---|
@@ -42,31 +42,31 @@ Concurrency cap **3** (ElevenLabs starter limit). Above 20 видео — split 
 
 ## Overrun behavior
 
-Если ETA > target × 1.5 ДО старта:
+If ETA > target × 1.5 BEFORE starting:
 
-> "Этот brief тяжелее template default'а — оценка ~14 min (target 8). Причина: <reason>. Продолжаем или сократим scope?"
+> "This brief is heavier than the template default — estimate ~14 min (target 8). Reason: <reason>. Continue, or trim scope?"
 
-Если ETA > target × 2 ВО ВРЕМЯ работы:
+If ETA > target × 2 DURING the run:
 
-> "Уже 16 мин, target 8 — что-то идёт не так. Текущий step: <step>. Прерываем чтобы дебажить или дожимаем?"
+> "Already 16 min, target was 8 — something's off. Current step: <step>. Pause to debug or push through?"
 
-## Не overpromise
+## Don't overpromise
 
-Эти таргеты — **median** в нормальных условиях. Causes для отклонений:
-- Provider degradation (OpenRouter / ElevenLabs slow). Не в нашем контроле — сообщи user'у.
-- Quality gate fails → retry'и. Каждый retry = +50% к стейджу.
-- User feedback iteration → не считается в target (human-in-the-loop).
-- Custom prompts с длинными negative blocks → +20% latency на image/video.
-- 16:9 source > 9:16 reframing (smart-crop не в v2) → не в этих таргетах.
+These targets are **medians** under normal conditions. Causes of overruns:
+- Provider degradation (OpenRouter / ElevenLabs slow). Not under our control — surface it to the user.
+- Quality-gate failures → retries. Each retry adds ~50% to its stage.
+- User feedback iteration → doesn't count toward the target (human-in-the-loop).
+- Custom prompts with long negative blocks → +20% latency on image/video.
+- 16:9 source repurposed to 9:16 (smart-crop not in v2) → not covered by these targets.
 
-Если pattern постоянно overrun — обнови этот файл.
+If a pattern is consistently overrun, update this file.
 
 ## Validation
 
 Sprint 1.4 baseline (single ai-vegetables video):
-- TBD — заполнить после первого end-to-end запуска.
+- TBD — fill after the first end-to-end run.
 
 Sprint 4.x baseline (10-batch soviet-nostalgic):
-- TBD — заполнить после первого batch'а.
+- TBD — fill after the first batch.
 
-Update этот файл из `generations.jsonl` actuals когда накопится статистика.
+Update this file from `generations.jsonl` actuals once the statistics accumulate.
