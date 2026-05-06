@@ -1,0 +1,44 @@
+{
+  "name": "Before / After Product",
+  "slug": "before-after-product",
+  "kind": "vibe-reference",
+  "description": "Классическая UGC-форма ad: 5s проблемы (frustration / pain point) → 10s решения с продуктом / результатом. 15s total. Hook через визуальное представление проблемы (relatable + specific). Reveal product / result в первой трети второй половины. Используется gemini-3-pro-image-preview для product shots (требует пользовательский референс лого/упаковки), kling-v3.0-pro для motion. Reference-required gate: brand mention без рефа = refuse.",
+  "tags": ["before-after", "product", "ugc", "ad", "tiktok", "problem-solution", "demo", "reveal", "transformation"],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 18],
+  "typicalClipCount": [3, 5],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-06T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "promptFragments": "fragments.md",
+    "modelStack": "model-stack.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview через OpenRouter, multi-ref WITH user-supplied product photo / logo (required)",
+    "i2v": "kwaivgi/kling-v3.0-pro через OpenRouter, 5s clips (3-5 total), generate_audio: false",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 (RU) — 'до' и 'после' разными tone'ами (frustrated → satisfied)",
+    "captions": "OpenRouter whisper-1; HormoziCaptions для 'до' (large impact), KaraokeCaptions или Minimal для 'после' (calm)",
+    "music": "ElevenLabs Music — два beats: tense/anxious в 'до', uplifting в 'после'. Two music_v1 calls + cross-fade в композиции."
+  },
+  "constants": {
+    "vibeAnchor": "before-pain-after-relief",
+    "structure": "5s problem → 10s solution with product reveal",
+    "musicSplit": "at-reveal-frame",
+    "captionStyleSplit": "hormozi-before / minimal-after"
+  },
+  "variationAxes": [
+    "product category (cosmetics, food, software, service, fitness)",
+    "pain point specificity (vague universal vs niche specific)",
+    "reveal moment (gradual vs dramatic)",
+    "voice emotion arc (frustrated→relieved, skeptical→amazed, exhausted→energized)"
+  ],
+  "doNotCopyLiterally": "Scenario, VO text, product placement, exact prompts. Vibe-reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Product / brand reference (logo, packaging, product photo) ОБЯЗАТЕЛЕН. Reference-required gate (см. AGENTS.md hard rule #3) refuse'нет если нет ref'а в assets/uploaded/."
+}
