@@ -60,3 +60,9 @@ export function repoTemplatesDir() {
 export function referencesDir() {
   return path.join(workspace(), "references");
 }
+
+// Per-workspace cache for assets pulled from ralphy-assets (gitignored).
+// Layout: <cache>/manifest.json + <cache>/required/<template>/<file>
+export function assetCacheDir() {
+  return path.join(ralphDir(), "asset-cache");
+}
