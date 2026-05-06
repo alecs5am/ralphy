@@ -109,12 +109,12 @@ Families go stale silently — `kling-video/v1.6` is still available, but `v3/pr
 | Vision analysis of images/video (extract-social, extract-design, find-viral-moments, face-bbox) | `google/gemini-2.5-flash` | Cheap vision (~$0.001/frame), accurate enough for smart-crop and moment detection. Use `pro` if a long context is needed. |
 | Deep vision (extract-design on complex landings) | `google/gemini-2.5-pro` | Best quality on long prompts + complex screens. ~3× more expensive than flash. |
 | Scenarist / VO rewrite / feedback parsing | `anthropic/claude-sonnet-4.6` or `anthropic/claude-opus-4.6` | RU/EN at the same level, excellent nuance for editing. |
-| Audio transcription (default) | Local **whisper.cpp** via `@remotion/install-whisper-cpp` (`cli/lib/transcribe.ts`) | Free, no API key. Model `large-v3-turbo` for RU. Returns `Caption[]` directly into our caption components. Use `ralphy project transcribe <id> --audio <path>`. |
+| Audio transcription (default) | OpenRouter **`openai/whisper-1`** via `cli/lib/transcribe.ts` | Uses the existing `OPENROUTER_API_KEY` — no extra setup, no local model download. Word-level timestamps via `timestamp_granularities=word` map directly to our caption components. ~$0.006 per audio-minute. ≤25MB per file (re-encode longer audio to 64kbps mono mp3). Use `ralphy project transcribe <id> --audio <path>`. |
 | This chat | Claude Opus 4.7 | The one you're reading right now. |
 
 **Avoid:**
 - Direct `fetch("https://openrouter.ai/...")` in new scripts. We go through `callLLM()` so users can swap providers via `ralphy setup`.
-- `OPENAI_API_KEY` for transcription — we moved to local whisper.cpp; OpenAI Whisper is no longer called.
+- `OPENAI_API_KEY` for transcription — we route whisper-1 through OpenRouter so a single LLM key covers vision, scoring, and transcription.
 
 ## Fal.ai MCP — the working toolset
 

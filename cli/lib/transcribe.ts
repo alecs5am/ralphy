@@ -1,13 +1,15 @@
-// Local whisper.cpp transcription via @remotion/install-whisper-cpp.
+// Cloud transcription via OpenRouter (openai/whisper-1).
 //
-// Why local whisper:
-// - No paid API key required (project only has FAL/ElevenLabs/OpenRouter).
-// - Returns word-level timestamps via --dtw + tokenLevelTimestamps:true.
-// - Output Caption[] is the native input format for our 12 caption components
-//   in src/lib/components/captions/ (HormoziCaptions, TikTokCaptions, etc.).
+// Why OpenRouter:
+// - Uses the existing OPENROUTER_API_KEY — no extra setup, no 1.5GB local model
+//   download, no per-machine binary builds.
+// - whisper-1 with timestamp_granularities=word returns word-level timestamps,
+//   the format our caption components in src/lib/components/captions/
+//   (HormoziCaptions, TikTokCaptions, KaraokeCaptions, …) expect.
+// - Endpoint is OpenAI-compatible: POST multipart to /api/v1/audio/transcriptions.
 //
-// Models live under workspace/.ralph/whisper/ (gitignored, per-machine).
-// First call downloads whisper.cpp binary + model (~1.5GB for large-v3-turbo).
+// Limits: OpenAI whisper-1 caps file size at 25MB. For longer files, compress
+// to mp3 (~64kbps mono) before passing in, or split into chunks.
 //
 // Usage:
 //   import { transcribe } from "./lib/transcribe.js";
@@ -15,119 +17,150 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import {
-  installWhisperCpp,
-  downloadWhisperModel,
-  transcribe as whisperTranscribe,
-  toCaptions,
-  type WhisperModel,
-} from "@remotion/install-whisper-cpp";
+import { existsSync, statSync } from "node:fs";
 import type { Caption } from "@remotion/captions";
-import { ralphDir } from "./paths.js";
 
-export const WHISPER_VERSION = "1.5.5";
-export const DEFAULT_MODEL: WhisperModel = "large-v3-turbo";
+export const WHISPER_MODEL = "openai/whisper-1";
+export const DEFAULT_MODEL = WHISPER_MODEL;
+// Kept for backwards-compat with consumers that imported it; no longer meaningful.
+export const WHISPER_VERSION = "openrouter";
+
+// Per OpenAI whisper-1 spec.
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+// $0.006 per minute of audio (OpenAI list price; OpenRouter passes through).
+const COST_PER_MINUTE_USD = 0.006;
 
 export type TranscribeLanguage = "ru" | "en" | "auto";
 
 export type TranscribeOptions = {
   audioPath: string;
   language?: TranscribeLanguage;
-  model?: WhisperModel;
+  /** Ignored — whisper-1 is the only model exposed via OpenRouter today. Kept
+   *  for CLI flag compatibility. */
+  model?: string;
   signal?: AbortSignal;
-  onProgress?: (pct: number) => void;
 };
 
 export type TranscribeResult = {
   captions: Caption[];
   language: string;
-  model: WhisperModel;
+  model: string;
   durationMs: number;
+  audioDurationSec: number;
+  costUsd: number;
 };
 
-function whisperRoot(): string {
-  return path.join(ralphDir(), "whisper");
-}
+type WhisperWord = { word: string; start: number; end: number };
+type WhisperResponse = {
+  language?: string;
+  duration?: number;
+  text?: string;
+  words?: WhisperWord[];
+  segments?: Array<{ start: number; end: number; text: string }>;
+};
 
-async function ensureWhisperInstalled(model: WhisperModel): Promise<string> {
-  const to = whisperRoot();
-  await fs.mkdir(to, { recursive: true });
-  await installWhisperCpp({ to, version: WHISPER_VERSION, printOutput: false });
-  await downloadWhisperModel({ model, folder: to, printOutput: false });
-  return to;
-}
-
-function ensureFfmpeg(): void {
-  const r = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" });
-  if (r.status !== 0) {
-    throw new Error(
-      "ffmpeg not found in PATH. Install via `brew install ffmpeg`."
-    );
-  }
-}
-
-// whisper.cpp expects 16kHz mono PCM WAV. Convert anything else.
-async function convertTo16kWav(input: string): Promise<string> {
-  ensureFfmpeg();
-  const dir = path.dirname(input);
-  const base = path.basename(input, path.extname(input));
-  const out = path.join(dir, `.${base}.16k.wav`);
-  const r = spawnSync(
-    "ffmpeg",
-    ["-y", "-i", input, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", out],
-    { stdio: "ignore" }
-  );
-  if (r.status !== 0) {
-    throw new Error(`ffmpeg failed converting ${input} → 16kHz wav`);
-  }
-  return out;
+function wordsToCaptions(words: WhisperWord[]): Caption[] {
+  return words.map((w) => {
+    const startMs = Math.round(w.start * 1000);
+    const endMs = Math.round(w.end * 1000);
+    return {
+      text: w.word,
+      startMs,
+      endMs,
+      timestampMs: Math.round((startMs + endMs) / 2),
+      confidence: null,
+    };
+  });
 }
 
 export async function transcribe({
   audioPath,
   language = "ru",
-  model = DEFAULT_MODEL,
   signal,
-  onProgress,
 }: TranscribeOptions): Promise<TranscribeResult> {
   const t0 = Date.now();
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENROUTER_API_KEY not set. Run `ralphy setup` to configure it."
+    );
+  }
+
   const abs = path.resolve(audioPath);
   if (!existsSync(abs)) throw new Error(`Audio not found: ${abs}`);
 
-  const whisperPath = await ensureWhisperInstalled(model);
-
-  const ext = path.extname(abs).toLowerCase();
-  const inputPath = ext === ".wav" ? abs : await convertTo16kWav(abs);
-  const cleanup = ext === ".wav" ? null : inputPath;
-
-  try {
-    const json = await whisperTranscribe({
-      inputPath,
-      whisperPath,
-      whisperCppVersion: WHISPER_VERSION,
-      model,
-      tokenLevelTimestamps: true,
-      splitOnWord: true,
-      language: language === "auto" ? null : language,
-      printOutput: false,
-      signal,
-      onProgress,
-    });
-
-    const { captions } = toCaptions({ whisperCppOutput: json });
-    return {
-      captions,
-      language: json.result?.language ?? language,
-      model,
-      durationMs: Date.now() - t0,
-    };
-  } finally {
-    if (cleanup) {
-      await fs.unlink(cleanup).catch(() => {});
-    }
+  const size = statSync(abs).size;
+  if (size > MAX_FILE_BYTES) {
+    throw new Error(
+      `Audio file is ${(size / 1024 / 1024).toFixed(1)}MB — whisper-1 caps at 25MB. ` +
+        `Re-encode at lower bitrate (e.g. \`ffmpeg -i ${path.basename(abs)} -ac 1 -b:a 64k out.mp3\`) ` +
+        `or split into chunks.`
+    );
   }
+
+  const bytes = await fs.readFile(abs);
+  const form = new FormData();
+  form.append("file", new Blob([bytes]), path.basename(abs));
+  form.append("model", WHISPER_MODEL);
+  if (language !== "auto") form.append("language", language);
+  form.append("response_format", "verbose_json");
+  form.append("timestamp_granularities[]", "word");
+
+  const resp = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+    signal,
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`OpenRouter whisper-1 ${resp.status}: ${body.slice(0, 500)}`);
+  }
+
+  const json = (await resp.json()) as WhisperResponse;
+
+  let captions: Caption[];
+  if (json.words && json.words.length > 0) {
+    captions = wordsToCaptions(json.words);
+  } else if (json.segments && json.segments.length > 0) {
+    // Fallback: provider didn't honor word-level — emit one Caption per segment.
+    captions = json.segments.map((s) => {
+      const startMs = Math.round(s.start * 1000);
+      const endMs = Math.round(s.end * 1000);
+      return {
+        text: s.text.trim(),
+        startMs,
+        endMs,
+        timestampMs: Math.round((startMs + endMs) / 2),
+        confidence: null,
+      };
+    });
+  } else if (json.text) {
+    captions = [
+      {
+        text: json.text.trim(),
+        startMs: 0,
+        endMs: Math.round((json.duration ?? 0) * 1000),
+        timestampMs: 0,
+        confidence: null,
+      },
+    ];
+  } else {
+    throw new Error("OpenRouter returned no text/segments/words");
+  }
+
+  const audioDurationSec = json.duration ?? 0;
+  const costUsd = (audioDurationSec / 60) * COST_PER_MINUTE_USD;
+
+  return {
+    captions,
+    language: json.language ?? language,
+    model: WHISPER_MODEL,
+    durationMs: Date.now() - t0,
+    audioDurationSec,
+    costUsd,
+  };
 }
 
 // Convenience: collapse Caption[] to Whisper-style { text, segments: [{ start, end, text }] }

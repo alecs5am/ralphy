@@ -100,13 +100,13 @@ async function transcribeAudio(
   audioPath: string,
   language: "ru" | "en" | "auto"
 ): Promise<{ text: string; segments: any[] }> {
-  // Local whisper.cpp via cli/lib/transcribe.ts — no API key required.
+  // OpenRouter whisper-1 via cli/lib/transcribe.ts — uses OPENROUTER_API_KEY.
   // Returns Caption[] and we collapse to Whisper-style {text, segments} for Gemini prompts.
   try {
     const result = await transcribe({ audioPath, language });
     return captionsToSegments(result.captions);
   } catch (e: any) {
-    console.log(`  Local whisper.cpp failed: ${e?.message || e}`);
+    console.log(`  Transcription failed: ${e?.message || e}`);
     return { text: "", segments: [] };
   }
 }
@@ -353,8 +353,8 @@ async function run() {
   const audioSize = (await fs.stat(audioPath)).size;
   console.log(`  Audio: ${Math.round(audioSize / 1024)}KB`);
 
-  // 4. Transcribe audio (local whisper.cpp)
-  console.log("[4/5] Transcribing audio (local whisper.cpp)...");
+  // 4. Transcribe audio (OpenRouter whisper-1)
+  console.log("[4/5] Transcribing audio (OpenRouter whisper-1)...");
   const transcript = await transcribeAudio(audioPath, langArg ?? "auto");
   if (transcript.text) {
     console.log(`  Transcript: ${transcript.text.substring(0, 100)}...`);

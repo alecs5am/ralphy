@@ -13,7 +13,6 @@
     "@remotion/captions": "4.0.441",
     "@remotion/cli": "4.0.441",
     "@remotion/google-fonts": "4.0.441",
-    "@remotion/install-whisper-cpp": "4.0.441",
     "@remotion/tailwind-v4": "4.0.441",
     "@remotion/transitions": "4.0.441",
     "commander": "^14.0.3",
