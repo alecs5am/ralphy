@@ -4,27 +4,27 @@
 
 ```bash
 ralphy profile export <nickname>
-# опционально: --include-renders для heavy mp4s
+# optional: --include-renders for heavy mp4s
 ```
 
-→ `profiles/<nickname>/` с auto-generated `PROFILE.md`.
+→ `profiles/<nickname>/` with auto-generated `PROFILE.md`.
 
 ## Import
 
 ```bash
-ralphy profile list                 # что доступно
+ralphy profile list                 # what's available
 ralphy profile show <nickname>      # PROFILE.md
 ralphy profile import <nickname>    # additive (default)
 ralphy profile import <nickname> --overwrite
 ```
 
-## Что travels
+## What travels
 
-- `templates/` — все custom templates
+- `templates/` — all custom templates
 - `references/` — site/social references
-- `projects/` — источники templates (без `render/`, `renders/`, `assets/videos/`, `*.mp4|.mov|.webm`, `node_modules/`, `batches/`)
+- `projects/` — template sources (without `render/`, `renders/`, `assets/videos/`, `*.mp4|.mov|.webm`, `node_modules/`, `batches/`)
 - `.ralph/registry.json`
-- Plus auto-`PROFILE.md` regenerated на each export
+- Plus auto-`PROFILE.md` regenerated on each export
 
 ## Import = additive
 
@@ -35,38 +35,38 @@ ralphy profile import <nickname> --overwrite
 
 ## When to export
 
-- После new template созданного и smoke-tested.
-- После reusable reference project landing well.
+- After a new template is created and smoke-tested.
+- After a reusable reference project lands well.
 - Design extract worth sharing.
 
-**Don't commit** profile на каждом small tweak — это history bloat в git.
+**Don't commit** profile on every small tweak — that's history bloat in git.
 
 ## When to import
 
-- Onboarding нового человека на shared work.
-- Pulling collaborator's templates на свою machine.
+- Onboarding a new person to shared work.
+- Pulling a collaborator's templates onto your own machine.
 - Resume from someone else's profile dump.
 
 ## Sample PROFILE.md generation
 
-`profile export` пишет следующее:
+`profile export` writes the following:
 - Author nickname
 - Timestamp
 - Templates inventory (slug + brief description)
 - References inventory
-- Projects inventory (с opt-out renders)
+- Projects inventory (with opt-out renders)
 - Total disk size
 - ralph CLI version
 
 ## Conflict resolution
 
-Если local и remote profile имеют один template-id с разным content:
+If local and remote profile share a template-id with different content:
 - Default: skip (preserve local).
-- `--overwrite`: replace local с remote.
+- `--overwrite`: replace local with remote.
 - Manual diff: `diff -r workspace/templates/<id>/ profiles/<nickname>/templates/<id>/`.
 
 ## Privacy
 
-- `.env` НЕ travels. Никогда.
-- API keys НЕ в profile.
-- `assets/uploaded/` (пользовательские референсы) **в profile travels** — be careful если sensitive content. Опционально `--exclude-uploaded` (TODO if needed).
+- `.env` does NOT travel. Ever.
+- API keys are NOT in the profile.
+- `assets/uploaded/` (user references) **does travel in the profile** — be careful with sensitive content. Optionally `--exclude-uploaded` (TODO if needed).
