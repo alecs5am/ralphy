@@ -22,7 +22,8 @@ Autonomous UGC-video generation: Claude Code skills + Remotion + OpenRouter medi
 - `cli/` — ralphy CLI (TypeScript, tsx). Commands `cli/commands/`, libs `cli/lib/`.
 - `src/lib/` — durable Remotion components (captions, overlays, layouts). Committed.
 - `src/videos/{name}/` — per-video compositions.
-- `workspace/` — generated files (gitignored). Safe to wipe.
+- `templates/` — repo-public template pack, committed to git, shipped on every clone. Read by `ralphy template list` / `suggest` / `use`.
+- `workspace/` — generated files (gitignored). Safe to wipe. `workspace/templates/` is the local override slot — same id as a repo template shadows it.
 - `.agents/skills/` — skill source of truth. `.claude/skills/` symlinks.
 - `dashboard/` — retired in v2. Code stays for now, undocumented.
 - `profiles/<nick>/` — committed dumps of users' workspaces (additive imports).

@@ -294,25 +294,30 @@ Logs: `workspace/projects/{id}/logs/{generations,user-prompts,user-assets}.jsonl
 
 ### `ralph template`
 
-Templates — reusable blueprints for videos. Two storage formats:
-- **Flat:** `workspace/templates/<id>.json` — scenario only, created from a project.
-- **Dir (preferred):** `workspace/templates/<id>/` with `template.json` + `TEMPLATE.md` (LLM-doc) + optional `reference-example.md` (concrete example from the source project) + `fragments.md` + `model-stack.md` + `composition.md`. The template is a vibe-reference, the scenario is written fresh through `/ralph-ugc:create-scenario` rather than copied mechanically.
+Templates — reusable blueprints for videos. They live in two roots:
+- **Repo-public:** `templates/<id>/` at the repo root — committed to git, shipped on every clone (the canonical pack: `ai-vegetables`, `before-after-product`, `soviet-nostalgic`, `talking-character`, `talking-head-rant`). Read-only via the CLI; edit by changing files in the repo.
+- **User-local:** `workspace/templates/<id>/` — gitignored, per-machine. Use this for templates you don't want to commit, or to shadow a repo template with a local override (same id wins from workspace).
+
+Both roots support two layouts:
+- **Flat:** `<root>/<id>.json` — scenario-only, usually created from an existing project.
+- **Dir (preferred):** `<root>/<id>/` with `template.json` + `TEMPLATE.md` (LLM-doc) + optional `reference-example.md` (concrete example from the source project) + `fragments.md` + `model-stack.md` + `composition.md`. The template is a vibe-reference; the scenario is written fresh through `/ralph-scenarist` rather than copied mechanically.
 
 ```bash
-# Create flat template (just scenario, from existing project)
+# Create flat template into workspace (warns if it shadows a repo template)
 ralph template create --name "Product Testimonial" --from-project <id>
 ralph template create --name "Before/After" --from-file ./my-template.json
 
-# Register existing dir template (after manual creation of workspace/templates/<id>/)
+# Register existing dir template (workspace or repo) in the local registry
 ralph template register <id>
 
-# Read
-ralph template list                      # all templates (flat + dir), including unregistered dirs
+# Read (lists both repo and workspace; each row tagged with `source`)
+ralph template list                      # all templates from both roots
+ralph template suggest "<utterance>"      # ranked match by tags + metadata
 ralph template show <id>                 # prints TEMPLATE.md for dir, JSON for flat
-ralph template show <id> --path          # path only
+ralph template show <id> --path          # path only (repo or workspace, whichever wins)
 ralph template show <id> --json          # template.json metadata (dir only)
 
-# Scaffold new project from template
+# Scaffold new project from template (works with either source)
 ralph template use <id> \
   --project <new-project-id> \
   --name "My Video" \
@@ -321,18 +326,16 @@ ralph template use <id> \
 #   - standard subdirectories (assets/, logs/, scripts/, render/)
 #   - TEMPLATE_ORIGIN.md (pointer to the template with a reading list)
 #   - BRIEF.md (if --brief was passed)
-# Intentionally does NOT create scenario.json — the scenario is written fresh through /ralph-ugc:create-scenario
+# Intentionally does NOT create scenario.json — the scenario is written fresh through /ralph-scenarist
 # using TEMPLATE.md as a vibe-reference.
 
-# Delete
-ralph template delete <id>               # removes both the flat file and the entire dir
+# Delete (workspace-only; refuses on repo templates)
+ralph template delete <id>
 ```
 
-**Canonical dir-template:** `soviet-nostalgic` (in `workspace/templates/soviet-nostalgic/`). An example of how to structure a dir-template with a full LLM-doc + prompt fragments + model stack + composition pattern.
+**Canonical dir-template:** `soviet-nostalgic` (in `templates/soviet-nostalgic/`). An example of how to structure a dir-template with a full LLM-doc + prompt fragments + model stack + composition pattern.
 
-Storage:
-- Flat: `workspace/templates/<id>.json`
-- Dir: `workspace/templates/<id>/` with at minimum `template.json` + `TEMPLATE.md`
+Resolution order: workspace beats repo. Listing/suggest scans both and tags each row with `source: "workspace" | "repo"` so chat can tell users where the match came from.
 
 ---
 
