@@ -98,11 +98,11 @@ ralphy doctor
 
 ### Step 6 — Optional starter profile
 ```bash
-ralphy profile import klimetzc
+ralphy profile import ralphy-showcase
 ```
-Additive — pulls templates (soviet-nostalgic, ai-vegetables, talking-head-rant, before-after-product), references, example projects.
+Additive — pulls references and example projects from a real workspace. The repo's `templates/` already ships the canonical pack (soviet-nostalgic, ai-vegetables, talking-head-rant, before-after-product, talking-character) — no profile import needed for those.
 
-> "Pulled starter pack: 4 templates, N references, M example projects.
+> "Pulled starter pack: N references, M example projects.
 > Try 'сделай мне видос про овощи' для cold-start template flow."
 
 ### Step 7 — Done
