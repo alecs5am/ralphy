@@ -2,7 +2,7 @@
 
 A vibe reference for a specific format of TikTok-native product ad: **an off-screen young narrator tells a two-era heritage story in deadpan Russian. Someone invented something in the Soviet era. It was shelved. A modern successor revived it.** The era flips halfway through, and so does the music — from a nostalgic Soviet bed to a contemporary hip-hop beat, on the exact frame the heir appears.
 
-This template is a **reference, not a script generator.** The scenario for any new project should be written fresh by `/ralph-ugc:create-scenario` (or by hand) using this document as a tone/vibe/visual-language guide. Don't mechanically fill in blanks — absorb what makes the format work and make decisions appropriate to the new product.
+This template is a **reference, not a script generator.** The scenario for any new project should be written fresh by `/ralph-scenarist` (or by hand) using this document as a tone/vibe/visual-language guide. Don't mechanically fill in blanks — absorb what makes the format work and make decisions appropriate to the new product.
 
 Concrete reference implementation: [`workspace/projects/solutions-metal-001/`](../../projects/solutions-metal-001/) — the COTTON METAL cap video. Read [reference-example.md](reference-example.md) for the full VO, the per-clip motion sketch, and annotations on what to notice.
 
@@ -43,10 +43,10 @@ Decide per project:
 
 Before kicking off generation, make sure you have (and log via `ralph project log-asset`):
 1. **Product reference photos** — real product shots, any angle. At least 1, ideally 3–4.
-2. **Modern heir character photos** — 3+ reference photos of the real person (the brand founder/designer). Different angles and expressions. These go into `nano-banana-pro/edit` as identity anchors.
+2. **Modern heir character photos** — 3+ reference photos of the real person (the brand founder/designer). Different angles and expressions. These go into `gemini-3-pro-image-preview` (`--ref` URLs) as identity anchors.
 3. **Brand brief** — 1–3 sentences on the product and why it exists. The brand's own words, not marketing copy.
 4. **ElevenLabs voice_id** — a Russian-speaking male voice clone. Either user-owned or a default library voice that matches (deadpan young adult — theatrical/mature voices break the vibe).
-5. **Hip-hop bed for the second half:** either Lyria2-generated (prompt in `fragments.md`) or user-provided. The Soviet bed itself is fixed — use the canonical trend track at `assets/trend-soviet-bed.mp3`.
+5. **Hip-hop bed for the second half:** either generated through ElevenLabs Music (`ralphy generate music`, prompt in `fragments.md`) or user-provided. The Soviet bed itself is fixed — use the canonical trend track at `assets/trend-soviet-bed.mp3`.
 
 Scribble the brief and each ref into logs immediately:
 ```bash
@@ -57,7 +57,7 @@ ralph project log-asset <id> --kind photo --source <path> --purpose product-ref
 
 ## Narrative arc (as a shape, not a prescription)
 
-Write the scenario to cover this shape — in however many clips feels right, with whatever line structure the story needs. Let the `/ralph-ugc:create-scenario` skill handle specifics once you've decided what era-1 invention, era-2 revival, and modern product you're telling.
+Write the scenario to cover this shape — in however many clips feels right, with whatever line structure the story needs. Let the `/ralph-scenarist` skill handle specifics once you've decided what era-1 invention, era-2 revival, and modern product you're telling.
 
 1. **Era 1 opens on the inventor at work.** Identifies the character, the year, the setting. ~15s of Soviet documentary footage.
 2. **Mechanism beat.** How the invention works, in the inventor's terms. This is the most technical moment.
@@ -76,17 +76,16 @@ The reference video does this in 8 clips (9+11+7+10+5+7+8+8 sec). Other shapes w
 
 The Soviet-era half of every video in this format uses **the same canonical trend track** shipped with this template:
 
-- Path: `workspace/templates/soviet-nostalgic/assets/trend-soviet-bed.mp3`
+- Path: `templates/soviet-nostalgic/assets/trend-soviet-bed.mp3`
 - Duration: 60.0 seconds
 - Source: a TikTok trend audio used widely in this video format; audience recognition is half of why the format works
 
 **Don't substitute this with a Lyria2 generation.** The specific track is part of the trend — viewers recognize it within 1–2 seconds and that recognition is load-bearing. A "similar vibe" generated track loses that.
 
-At project scaffold time, copy the track into the project:
+At project scaffold time, the `ralphy template use` command auto-copies the track because `template.json` declares it as a required asset. Manual equivalent:
 
 ```bash
-# After `ralph template use soviet-nostalgic --project <new-id> ...`
-cp workspace/templates/soviet-nostalgic/assets/trend-soviet-bed.mp3 \
+cp templates/soviet-nostalgic/assets/trend-soviet-bed.mp3 \
    workspace/projects/<new-id>/assets/music/soviet-bed.mp3
 ```
 
@@ -101,8 +100,8 @@ ffmpeg -y -i soviet-bed.mp3 -i soviet-bed.mp3 \
 ### Hip-hop bed — generate or provide
 
 The modern-era half kicks in at the DJ-drop. Use either:
-- **Lyria2 generation** with the `HIPHOP_BED_PROMPT` in [fragments.md](fragments.md) (~$0.10, ~30s output), or
-- **A user-provided track** if they have something specific in mind
+- **ElevenLabs Music generation** via `ralphy generate music` with the `HIPHOP_BED_PROMPT` from [fragments.md](fragments.md) (subscription cost), or
+- **A user-provided track** if they have something specific in mind.
 
 Either works. The hip-hop track is less trend-bound than the Soviet bed — any confident 80 BPM dark trap instrumental lands.
 
@@ -110,27 +109,27 @@ Either works. The hip-hop track is less trend-bound than the Soviet bed — any 
 
 1. **Scaffold:**
    ```bash
-   ralph template use soviet-nostalgic --project <new-id> --name "..." --brief "..."
+   ralphy template use soviet-nostalgic --project <new-id> --name "..." --brief "..."
    ```
-   Creates empty project dirs + `TEMPLATE_ORIGIN.md` + `BRIEF.md`. **Does not write scenario.json** — that's the skill's job.
+   Creates empty project dirs + `TEMPLATE_ORIGIN.md` + `BRIEF.md` and auto-copies `trend-soviet-bed.mp3` into the project. **Does not write scenario.json** — that's the scenarist skill's job.
 
-2. **Log user inputs:** brief and every reference photo/url the user provides (`ralph project log-prompt`, `log-asset`).
+2. **Log user inputs:** brief and every reference photo / URL the user provides (`ralphy project log-prompt`, `ralphy project log-asset`).
 
-3. **Research & write scenario:** use `/ralph-ugc:create-scenario` with the template (read `TEMPLATE.md` + `reference-example.md`) and the user's product info. Output: `scenario.json` that the user locks.
+3. **Research & write scenario:** use `/ralph-scenarist` with the template (read `TEMPLATE.md` + `reference-example.md`) and the user's product info. Output: `scenario.json` that the user locks.
 
-4. **Generate character refs** — if the inventor is fictional, generate a portrait via `nano-banana-pro` text2img as identity anchor. Upload user-provided heir photos to fal CDN.
+4. **Generate character refs** — if the inventor is fictional, generate a portrait via `gemini-3-pro-image-preview` text2img as the identity anchor. User-provided heir photos go into the project's `assets/uploaded/` and are referenced as `--ref` URLs on subsequent calls.
 
-5. **Generate keyframes** — 1 per clip, `nano-banana-pro/edit` with character + product refs. Use fragment library in [fragments.md](fragments.md). Log every call via `loggedFetch` or `logGeneration`.
+5. **Generate keyframes** — 1 per clip via `ralphy generate image --model google/gemini-3-pro-image-preview` with character + product refs. Use the fragment library in [fragments.md](fragments.md). Every call is automatically logged via `logGeneration`.
 
-6. **Generate videos** — Kling v3 Pro i2v, `generate_audio: false`, 1 per clip, motion prompt per clip. See [model-stack.md](model-stack.md) for why.
+6. **Generate videos** — `ralphy generate video --model kwaivgi/kling-v3.0-pro` (i2v, `generate_audio: false`), one per clip with a motion prompt. See [model-stack.md](model-stack.md) for the rationale.
 
-7. **Generate voiceover** — ElevenLabs per-scene mp3s. Settings in [fragments.md](fragments.md).
+7. **Generate voiceover** — `ralphy generate voiceover` produces per-scene ElevenLabs mp3s. Settings in [fragments.md](fragments.md).
 
-8. **Prepare music** — copy the canonical Soviet bed from `workspace/templates/soviet-nostalgic/assets/trend-soviet-bed.mp3` into the project's `assets/music/`. Generate or provide the hip-hop bed.
+8. **Prepare music** — the Soviet bed was already copied at scaffold time. Generate or provide the hip-hop bed via `ralphy generate music`.
 
-9. **Compose** — Remotion composition following the pattern in [composition.md](composition.md). Register in `src/Root.tsx`, render.
+9. **Compose** — Remotion composition following the pattern in [composition.md](composition.md). Register in `src/Root.tsx`, then `ralphy render <id>`.
 
-10. **After success, update template** if you discovered something reusable — add a fragment, document a failure mode, adjust guidance.
+10. **After success, update the template** if you discovered something reusable — add a fragment, document a failure mode, adjust guidance.
 
 ## Cost ballpark (per video)
 
