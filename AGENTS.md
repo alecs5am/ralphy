@@ -31,6 +31,7 @@
 7. **Always use `bun` and `bunx`** (not npm/npx/yarn).
 8. **Always use `ralphy <command>`** for CRUD, not direct workspace edits.
 9. **Speed targets** (`docs/perf-targets.md`): cold-start template ≤8 min single video, ≤25 min for 10-batch. Exceeding 50% — report before starting.
+10. **Templates live in two places.** `templates/` (repo-public, shipped with the CLI — `ai-vegetables`, `before-after-product`, `soviet-nostalgic`, `talking-character`, `talking-head-rant`) and `workspace/templates/` (user-local, gitignored). Both are read by `ralphy template list` / `suggest` / `use`. When the user says "use template X" or "сделай как X", run `ralphy template suggest <utterance>` first if you don't already know X — it ranks across both sources and tags each result with `source`. Workspace overrides repo on id collision.
 
 ## Routing failure mode
 
