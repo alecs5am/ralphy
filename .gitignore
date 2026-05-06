@@ -22,3 +22,4 @@ dashboard/test-dashboard.ts
 
 # Skill-creator eval results — local only, too big to commit
 .skill-creator-workspace/
+docs/runtime-context.md
