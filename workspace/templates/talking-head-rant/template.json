@@ -1,0 +1,43 @@
+{
+  "name": "Talking Head Rant",
+  "slug": "talking-head-rant",
+  "kind": "vibe-reference",
+  "description": "Character monolog 15-20s — герой говорит на камеру / в камеру про X, deadpan ranting tone. Hook screenshot overlay в первые 3-4s (Reddit post / news headline / chat message), потом fade-out и goes-to character. Default character — IT-shnik / courier / mamochka-blogger / student архетип. Используется veo-3.1 для talking-head (better lip-sync чем kling), либо wan-25 fallback. Captions HormoziCaptions or KaraokeCaptions.",
+  "tags": ["talking-head", "rant", "monologue", "tiktok", "ugc", "character-driven", "reddit-screenshot", "news-headline", "deadpan"],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 22],
+  "typicalClipCount": [1, 2],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-06T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "promptFragments": "fragments.md",
+    "modelStack": "model-stack.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "characterImage": "google/gemini-3-pro-image-preview через OpenRouter (single character + setting, photorealistic)",
+    "talkingHead": "google/veo-3.1 через OpenRouter (i2v, 10-15s, lip-sync via prompt). Audio off, VO добавляем отдельно.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 (RU) — длинный монолог, разбитый по beats",
+    "captions": "OpenRouter whisper-1, Caption[] format",
+    "music": "ElevenLabs Music — minimal background bed (low energy), force_instrumental: true",
+    "hookOverlay": "src/lib/components/overlays/HookScreenshot.tsx (если applicable) или HookCard.tsx"
+  },
+  "constants": {
+    "vibeAnchor": "deadpan-young-russian",
+    "characterArchetype": "from workspace/personas/ARCHETYPES.md (it-remote / courier / student / mamochka-blogger / z-zoomer)",
+    "captionStyle": "HormoziCaptions (default) or KaraokeCaptions",
+    "hookWindow": "first 3-4s — hook screenshot overlay fade-out @ frame 90-120"
+  },
+  "variationAxes": [
+    "character archetype (8 options from ARCHETYPES.md)",
+    "rant subject (work, dating, prices, IT life, transport, food)",
+    "hook screenshot type (Reddit post / news headline / chat / tweet)",
+    "tone (deadpan / frustrated / sarcastic / resigned)"
+  ],
+  "doNotCopyLiterally": "Monologue text, character name, exact prompts, hook screenshot text. Vibe-reference only."
+}
