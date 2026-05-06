@@ -2,8 +2,26 @@
   "name": "Before / After Product",
   "slug": "before-after-product",
   "kind": "vibe-reference",
-  "description": "Классическая UGC-форма ad: 5s проблемы (frustration / pain point) → 10s решения с продуктом / результатом. 15s total. Hook через визуальное представление проблемы (relatable + specific). Reveal product / result в первой трети второй половины. Используется gemini-3-pro-image-preview для product shots (требует пользовательский референс лого/упаковки), kling-v3.0-pro для motion. Reference-required gate: brand mention без рефа = refuse.",
-  "tags": ["before-after", "product", "ugc", "ad", "tiktok", "problem-solution", "demo", "reveal", "transformation", "до-после", "продукт", "реклама", "решение", "проблема-решение", "видос"],
+  "description": "Classic UGC product ad: 5s of relatable pain → 1s product reveal → 9s of demo / transformation. 15-18s total, 9:16. Reference-required: a real product photo / packaging / logo must be supplied as a reference, otherwise generation refuses (no AI-improvised branding, ever). Tonal arc in VO and music carries the emotional payoff (frustrated → satisfied). The most reliably converting UGC pattern in our pack.",
+  "tags": [
+    "before-after",
+    "product",
+    "ugc",
+    "ad",
+    "advertising",
+    "tiktok",
+    "reels",
+    "shorts",
+    "problem-solution",
+    "demo",
+    "reveal",
+    "transformation",
+    "pain-point",
+    "conversion",
+    "до-после",
+    "продукт",
+    "реклама"
+  ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
   "typicalDurationSec": [15, 18],
@@ -20,25 +38,26 @@
     "composition": "composition.md"
   },
   "stackSummary": {
-    "keyframes": "google/gemini-3-pro-image-preview через OpenRouter, multi-ref WITH user-supplied product photo / logo (required)",
-    "i2v": "kwaivgi/kling-v3.0-pro через OpenRouter, 5s clips (3-5 total), generate_audio: false",
-    "voiceover": "ElevenLabs eleven_multilingual_v2 (RU) — 'до' и 'после' разными tone'ами (frustrated → satisfied)",
-    "captions": "OpenRouter whisper-1; HormoziCaptions для 'до' (large impact), KaraokeCaptions или Minimal для 'после' (calm)",
-    "music": "ElevenLabs Music — два beats: tense/anxious в 'до', uplifting в 'после'. Two music_v1 calls + cross-fade в композиции."
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied product photo / logo (required for any frame where the product is visible)",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips (3-5 total), generate_audio: false",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — two TTS calls with different settings ('before' frustrated, 'after' satisfied). Language follows the user's brief.",
+    "captions": "OpenRouter whisper-1; HormoziCaptions for the 'before' section (large impact), MinimalCaptions or KaraokeCaptions for the 'after' section (calm)",
+    "music": "ElevenLabs Music — two beats: tense/anxious for 'before', uplifting for 'after'. Two music_v1 calls cross-faded at the reveal frame in composition."
   },
   "constants": {
     "vibeAnchor": "before-pain-after-relief",
-    "structure": "5s problem → 10s solution with product reveal",
-    "musicSplit": "at-reveal-frame",
+    "structure": "5s problem → 1s reveal → 9s solution + outro",
+    "musicSplit": "at-reveal-frame (frame 150 @ 30fps)",
     "captionStyleSplit": "hormozi-before / minimal-after"
   },
   "variationAxes": [
-    "product category (cosmetics, food, software, service, fitness)",
-    "pain point specificity (vague universal vs niche specific)",
-    "reveal moment (gradual vs dramatic)",
-    "voice emotion arc (frustrated→relieved, skeptical→amazed, exhausted→energized)"
+    "product category (cosmetics, food, software, service, fitness, household, fashion)",
+    "pain point specificity (vague-universal vs niche-specific)",
+    "reveal style (gradual product entrance vs dramatic smash-cut)",
+    "voice emotion arc (frustrated→relieved, skeptical→amazed, exhausted→energized)",
+    "VO language (any — English, Russian, Spanish; the emotional arc reads visually)"
   ],
-  "doNotCopyLiterally": "Scenario, VO text, product placement, exact prompts. Vibe-reference only.",
+  "doNotCopyLiterally": "Scenario, VO text, product placement, exact prompts. Vibe reference only.",
   "requiresUserReference": true,
-  "referenceNotes": "Product / brand reference (logo, packaging, product photo) ОБЯЗАТЕЛЕН. Reference-required gate (см. AGENTS.md hard rule #3) refuse'нет если нет ref'а в assets/uploaded/."
+  "referenceNotes": "Product / brand reference (logo, packaging, product photo) is REQUIRED. The reference-required gate (AGENTS.md hard rule #3) refuses if no reference exists at workspace/projects/<id>/assets/uploaded/. AI-improvised packaging on a branded product is never acceptable — it always reads as fake."
 }
