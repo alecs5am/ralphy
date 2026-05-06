@@ -3,7 +3,7 @@
   "slug": "talking-head-rant",
   "kind": "vibe-reference",
   "description": "Character monolog 15-20s — герой говорит на камеру / в камеру про X, deadpan ranting tone. Hook screenshot overlay в первые 3-4s (Reddit post / news headline / chat message), потом fade-out и goes-to character. Default character — IT-shnik / courier / mamochka-blogger / student архетип. Используется veo-3.1 для talking-head (better lip-sync чем kling), либо wan-25 fallback. Captions HormoziCaptions or KaraokeCaptions.",
-  "tags": ["talking-head", "rant", "monologue", "tiktok", "ugc", "character-driven", "reddit-screenshot", "news-headline", "deadpan"],
+  "tags": ["talking-head", "rant", "monologue", "tiktok", "ugc", "character-driven", "reddit-screenshot", "news-headline", "deadpan", "монолог", "ранд", "ворчание", "жалоба", "разговор-в-камеру", "видос"],
   "platform": "tiktok",
   "aspectRatio": "9:16",
   "typicalDurationSec": [15, 22],

@@ -3,7 +3,7 @@
   "slug": "ai-vegetables",
   "kind": "vibe-reference",
   "description": "Surrealistic POV-видос с AI-овощами в неожиданных ситуациях. 15s формат, виральный TikTok жанр 2025-2026 — антропоморфные овощи делают человеческие действия (бегут к маршрутке, делают йогу, сидят в офисе). Hook в первые 2s через визуальный шок (gemini-3-pro-image-preview keyframe). Captions крупные TikTok-style. Музыка опционально trend, либо ElevenLabs Music quirky upbeat.",
-  "tags": ["ai-vegetables", "surreal", "tiktok", "viral-trend", "pov", "ai", "vegetables", "absurd", "visual-shock"],
+  "tags": ["ai-vegetables", "surreal", "tiktok", "viral-trend", "pov", "ai", "vegetables", "овощи", "огурец", "помидор", "картошка", "морковка", "absurd", "absurd-pov", "visual-shock", "видос"],
   "platform": "tiktok",
   "aspectRatio": "9:16",
   "typicalDurationSec": [12, 18],

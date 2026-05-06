@@ -3,7 +3,7 @@
   "slug": "before-after-product",
   "kind": "vibe-reference",
   "description": "Классическая UGC-форма ad: 5s проблемы (frustration / pain point) → 10s решения с продуктом / результатом. 15s total. Hook через визуальное представление проблемы (relatable + specific). Reveal product / result в первой трети второй половины. Используется gemini-3-pro-image-preview для product shots (требует пользовательский референс лого/упаковки), kling-v3.0-pro для motion. Reference-required gate: brand mention без рефа = refuse.",
-  "tags": ["before-after", "product", "ugc", "ad", "tiktok", "problem-solution", "demo", "reveal", "transformation"],
+  "tags": ["before-after", "product", "ugc", "ad", "tiktok", "problem-solution", "demo", "reveal", "transformation", "до-после", "продукт", "реклама", "решение", "проблема-решение", "видос"],
   "platform": "tiktok",
   "aspectRatio": "9:16",
   "typicalDurationSec": [15, 18],
