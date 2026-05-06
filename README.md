@@ -150,9 +150,9 @@ The `profiles/<nick>/` folder is a committed dump of someone's local `workspace/
 
 ```bash
 ralphy profile list
-ralphy profile show klimetzc
-ralphy profile import klimetzc       # additive
-ralphy profile import klimetzc --overwrite   # replace conflicting files
+ralphy profile show ralphy-showcase
+ralphy profile import ralphy-showcase       # additive
+ralphy profile import ralphy-showcase --overwrite   # replace conflicting files
 ralphy profile export <your-nick>    # dump your work
 ```
 
