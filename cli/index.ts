@@ -20,6 +20,7 @@ import { setupCmd } from "./commands/setup.js";
 import { statusCmd } from "./commands/status.js";
 import { generateCmd } from "./commands/generate.js";
 import { doctorCmd } from "./commands/doctor.js";
+import { renderCmd } from "./commands/render.js";
 
 const program = new Command();
 
@@ -51,6 +52,7 @@ program.addCommand(setupCmd());
 program.addCommand(statusCmd());
 program.addCommand(doctorCmd());
 program.addCommand(generateCmd());
+program.addCommand(renderCmd());
 program.addCommand(initCmd());
 program.addCommand(configCmd());
 program.addCommand(brandCmd());
