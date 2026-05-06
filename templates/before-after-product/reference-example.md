@@ -1,26 +1,28 @@
 # Reference example — before-after-product
 
-**Status: PLACEHOLDER** — заполнится после первого реального run'а.
+**Status: PLACEHOLDER** — fills in after the first real run.
 
-## Что должно быть здесь
+## What should live here after the first run
 
 - Source project ID + product category.
 - Pain point + reveal text + outro CTA — full VO transcripts (before + after).
-- Reference image used (path + screenshot).
+- Reference image used (path + a cropped screenshot to show what the gemini multi-ref actually saw).
 - Reveal frame final result + score.
 - Cost actuals.
 - Notes:
-  - Сколько regen'ов потребовала reveal frame чтобы logo не galluc'нулся.
-  - Music cross-fade — звучит ли smooth.
-  - Caption split (Hormozi → Minimal) — feels organic или harsh?
-  - Tonal arc в VO — удалось ли ElevenLabs выдать distinct tones.
+  - How many regens the reveal frame needed before the logo stayed accurate.
+  - Whether the music cross-fade sounded smooth.
+  - Whether the caption-style switch (Hormozi → Minimal) felt organic or harsh.
+  - Whether ElevenLabs delivered distinctly different tones for the two VO halves.
 
-## How to fill
+## How to fill it
 
 ```bash
 ralphy template extract --slug before-after-product --from-project <id>
 ```
 
-## Why empty
+Or fill it by hand from `scenario.json`, `prompts.json`, `asset-manifest.json`, and the project's `logs/`.
 
-Sprint 7 scaffolds shape. ~$3.70 + 8 min wall time для real run. Deferred per plan §7.3.
+## Why this is empty for now
+
+The structure ships ready-to-use; the reference fills in once a real product gets shipped through the template (~$3.70 + 8 minutes wall time).

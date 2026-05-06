@@ -1,36 +1,44 @@
 # Composition — before-after-product
 
-Remotion 4.0.441, 9:16, 30fps, 1080×1920. Длина = 15-18s.
+Remotion 4.0.441, 9:16, 30fps, 1080×1920. Total length: 15-18s.
 
 ## Skeleton
 
 ```tsx
 // src/videos/before-after-<slug>/index.tsx
-import { AbsoluteFill, Audio, Sequence, Video, staticFile, useVideoConfig } from "remotion";
+import React from "react";
+import { AbsoluteFill, Audio, Sequence, Video, staticFile } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { HormoziCaptions } from "../../lib/components/captions/HormoziCaptions";
 import { MinimalCaptions } from "../../lib/components/captions/MinimalCaptions";
+import type { Caption } from "@remotion/captions";
 
 const FPS = 30;
 const FADE_FRAMES = 6;
 const SPLIT_FRAME = 150; // 5s mark — pain → solution split
-const MUSIC_CROSSFADE_FRAMES = 30;
+const MUSIC_CROSSFADE_FRAMES = 30; // 1s
 
-export const BeforeAfterProduct = ({
-  beforeScenes,    // 2-3 clips, total ~5s
-  revealClip,      // 1-1.5s
-  afterScenes,     // 2-3 clips, total ~9s
-  voBeforeSrc,
-  voAfterSrc,
-  captionsBefore,  // Caption[]
-  captionsAfter,   // Caption[]
-  musicBeforeSrc,
-  musicAfterSrc,
-  totalDurationSec,
-}: Props) => {
-  const totalFrames = totalDurationSec * FPS;
+type Scene = { id: string; durationSec: number; videoSrc: string };
+type Props = {
+  beforeScenes: Scene[];   // 2-3 clips, total ~5s
+  revealClip: Scene;       // 1-1.5s
+  afterScenes: Scene[];    // 2-3 clips, total ~9s
+  voBeforeSrc: string;
+  voAfterSrc: string;
+  captionsBefore: Caption[];
+  captionsAfter: Caption[];
+  musicBeforeSrc: string;
+  musicAfterSrc: string;
+  totalDurationSec: number;
+};
 
+export const BeforeAfterProduct: React.FC<Props> = ({
+  beforeScenes, revealClip, afterScenes,
+  voBeforeSrc, voAfterSrc,
+  captionsBefore, captionsAfter,
+  musicBeforeSrc, musicAfterSrc,
+}) => {
   return (
     <AbsoluteFill>
       <TransitionSeries>
@@ -88,7 +96,7 @@ export const BeforeAfterProduct = ({
         <Audio src={staticFile(voAfterSrc)} />
       </Sequence>
 
-      {/* Music cross-fade на SPLIT_FRAME */}
+      {/* Music cross-fade at SPLIT_FRAME */}
       <Audio
         src={staticFile(musicBeforeSrc)}
         volume={(f) => {
@@ -119,9 +127,9 @@ export const BeforeAfterProduct = ({
 
 ## Component choices
 
-- **Captions split:** `HormoziCaptions` (before) → `MinimalCaptions` (after). Stylistic mirror of emotional arc.
-- **Transitions:** `fade` 6 frames между всеми сценами. Reveal frame fades in from black за 6 frames для subtle drama.
-- **NO hook screenshot** в этом template — pain hook сам по себе acts as visual hook.
+- **Captions split:** `HormoziCaptions` (before) → `MinimalCaptions` (after). Visual mirror of the emotional arc.
+- **Transitions:** `fade` 6 frames between every scene. The reveal frame fades in from black over 6 frames for subtle drama.
+- **No hook screenshot** in this template — the pain visual is itself the hook.
 
 ## Audio mix
 
@@ -129,12 +137,12 @@ export const BeforeAfterProduct = ({
 |---|---|---|
 | VO before | 1.0 | — |
 | VO after | 1.0 | — |
-| Music before | 0.6 baseline, fade out @ split | yes (duck к 0.15 при VO) |
-| Music after | 0.6 baseline, fade in @ split | yes (duck к 0.15 при VO) |
+| Music before | 0.6 baseline, fade out at split | yes (duck to 0.15 while VO is active) |
+| Music after | 0.6 baseline, fade in at split | yes (duck to 0.15 while VO is active) |
 
-For full ducking — wrap each music's `volume` lambda inside another `interpolate` checking VO active windows. См. `ralph-editor/rules/audio-mixing.md` для ducking pattern.
+For full ducking, wrap each music's `volume` lambda in another `interpolate` checking the VO active windows. See `ralph-editor/rules/audio-mixing.md` for the ducking pattern.
 
-Loudnorm post через `ralphy render <id> --loudnorm`.
+Loudnorm post-render via `ralphy render <id> --loudnorm`.
 
 ## Composition props shape
 
@@ -154,8 +162,8 @@ Loudnorm post через `ralphy render <id> --loudnorm`.
   ],
   "voBeforeSrc": "voiceover/vo-before.mp3",
   "voAfterSrc": "voiceover/vo-after.mp3",
-  "captionsBefore": [...],
-  "captionsAfter": [...],
+  "captionsBefore": [],
+  "captionsAfter": [],
   "musicBeforeSrc": "music/music-before.mp3",
   "musicAfterSrc": "music/music-after.mp3"
 }
@@ -163,7 +171,7 @@ Loudnorm post через `ralphy render <id> --loudnorm`.
 
 ## Quirks / gotchas
 
-- **Reveal timing critical.** `SPLIT_FRAME = 150` (5s @ 30fps). Если reveal не lands ровно в этой точке — emotional arc ломается. Editor должен confirm reveal video clip's "moment of reveal" совпадает с split.
-- **Music cross-fade** длиной 30 frames (1s) — short. Не делай длиннее, иначе reveal "размывается" между двумя tracks.
-- **Captions caption-style switch может быть jarring** — если scenarist хочет smoother — оставь HormoziCaptions всю длину но scale-down к "after" (custom scale prop).
-- **Logo accuracy в reveal** — pre-render `scoreImage` ≥8 на reveal frame. Если AI gallluc'нул лого — re-render reveal frame перед video gen.
+- **Reveal timing is critical.** `SPLIT_FRAME = 150` (5s @ 30fps). If the reveal doesn't land exactly on this frame, the emotional arc breaks. The editor must confirm the reveal clip's "moment of reveal" aligns with the split.
+- **Music cross-fade is 30 frames (1s) — short.** Don't lengthen it; a longer fade smears the reveal between two tracks and kills the emotional payoff.
+- **Caption-style switch can feel jarring.** If the scenarist wants something smoother, keep `HormoziCaptions` for the full duration and scale it down in the "after" section (custom `scale` prop).
+- **Logo accuracy in the reveal.** Pre-render `scoreImage` ≥ 8 on the reveal frame. If the model hallucinated the logo, regen the reveal frame before generating video — fixing it later is a per-frame headache.
