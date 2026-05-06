@@ -1,34 +1,25 @@
 # Reference example — talking-head-rant
 
-**Status: PLACEHOLDER** — заполнится после первого реального end-to-end запуска.
+**Status: PLACEHOLDER** — fills in after the first real end-to-end run.
 
-## Что должно быть здесь
+## What should live here after the first run
 
-- **Source project:** ID первого проекта что shipped через этот template.
+- **Source project:** ID of the first project that shipped through this template.
 - **Concrete monologue:** full VO text + word count + duration.
-- **Character setup:** archetype + setting + actual prompts that worked.
-- **Hook screenshot:** что использовалось (Reddit / news / chat / tweet) + actual content + path в `assets/uploaded/`.
-- **Models used:** veo-3.1 vs kling fallback — какой выбран и почему.
-- **Cost actual:** breakdown по stages.
-- **Lip-sync notes:** если veo-3.1 — насколько чисто, если kling — насколько captions hide desync.
+- **Character setup:** archetype + setting + the prompts that actually worked.
+- **Hook screenshot:** what was used (Reddit / news / chat / tweet), the actual content, and the path under `assets/uploaded/`.
+- **Models used:** veo-3.1 vs kling fallback — which was chosen and why.
+- **Cost actuals:** breakdown by stage.
+- **Lip-sync notes:** if veo-3.1 — how clean it was; if kling — how well captions hid the desync.
 
-## How to fill
-
-После first ship:
+## How to fill it
 
 ```bash
 ralphy template extract --slug talking-head-rant --from-project <id>
 ```
 
-Не overwrite'нет существующие docs (TEMPLATE.md / fragments.md / model-stack.md / composition.md). Только этот файл.
+This won't overwrite the other docs (`TEMPLATE.md`, `fragments.md`, `model-stack.md`, `composition.md`) — only this file. Or fill it by hand from the project's `BRIEF.md`, `scenario.json`, `prompts.json`, `asset-manifest.json`, and `logs/`.
 
-Альтернативно вручную из `workspace/projects/<id>/`:
-- `BRIEF.md`
-- `scenario.json`
-- `prompts.json`
-- `asset-manifest.json`
-- `logs/generations.jsonl`
+## Why this is empty for now
 
-## Why empty
-
-Sprint 7 scaffolds shape. Filling reference-example.md = $7.65 (veo path) или $2.25 (kling path) + 10 min wall time. Deferred per plan §7.3.
+The structure ships ready-to-use; filling this reference takes ~$7.65 (veo path) or ~$2.25 (kling path) plus ~10 minutes of wall time on a real run.

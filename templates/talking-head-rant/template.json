@@ -2,8 +2,25 @@
   "name": "Talking Head Rant",
   "slug": "talking-head-rant",
   "kind": "vibe-reference",
-  "description": "Character monolog 15-20s — герой говорит на камеру / в камеру про X, deadpan ranting tone. Hook screenshot overlay в первые 3-4s (Reddit post / news headline / chat message), потом fade-out и goes-to character. Default character — IT-shnik / courier / mamochka-blogger / student архетип. Используется veo-3.1 для talking-head (better lip-sync чем kling), либо wan-25 fallback. Captions HormoziCaptions or KaraokeCaptions.",
-  "tags": ["talking-head", "rant", "monologue", "tiktok", "ugc", "character-driven", "reddit-screenshot", "news-headline", "deadpan", "монолог", "ранд", "ворчание", "жалоба", "разговор-в-камеру", "видос"],
+  "description": "Single-character monolog 15-22s — a relatable archetype talks straight to camera with a deadpan ranting tone. Optional hook screenshot overlay (Reddit post / news headline / chat message / tweet) holds the first 3-4s, then fades out and the character carries the rest. Default video model: veo-3.1 for premium lip-sync ($7.65/clip); kling-v3.0-pro is the cheap fallback (~$2.25/clip) when bulk batching. One of the most reliable retention formats on TikTok / Reels.",
+  "tags": [
+    "talking-head",
+    "rant",
+    "monologue",
+    "tiktok",
+    "reels",
+    "shorts",
+    "ugc",
+    "character-driven",
+    "reddit-screenshot",
+    "news-headline",
+    "deadpan",
+    "hot-take",
+    "first-person",
+    "монолог",
+    "разговор-в-камеру",
+    "жалоба"
+  ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
   "typicalDurationSec": [15, 22],
@@ -20,24 +37,27 @@
     "composition": "composition.md"
   },
   "stackSummary": {
-    "characterImage": "google/gemini-3-pro-image-preview через OpenRouter (single character + setting, photorealistic)",
-    "talkingHead": "google/veo-3.1 через OpenRouter (i2v, 10-15s, lip-sync via prompt). Audio off, VO добавляем отдельно.",
-    "voiceover": "ElevenLabs eleven_multilingual_v2 (RU) — длинный монолог, разбитый по beats",
-    "captions": "OpenRouter whisper-1, Caption[] format",
-    "music": "ElevenLabs Music — minimal background bed (low energy), force_instrumental: true",
-    "hookOverlay": "src/lib/components/overlays/HookScreenshot.tsx (если applicable) или HookCard.tsx"
+    "characterImage": "google/gemini-3-pro-image-preview via OpenRouter (single character + setting, photorealistic)",
+    "talkingHead": "google/veo-3.1 via OpenRouter (i2v, 10-15s, lip-sync via prompt + audio reference). Audio off, VO is added separately.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — long monologue, broken into beats. Language follows the user's brief.",
+    "captions": "OpenRouter whisper-1, Caption[] format consumed by HormoziCaptions or KaraokeCaptions",
+    "music": "ElevenLabs Music — minimal background bed (low energy), force_instrumental: true, volume 0.10",
+    "hookOverlay": "src/lib/components/overlays/HookScreenshot.tsx (TODO component) or an inline <Img> with manual fade — see composition.md"
   },
   "constants": {
-    "vibeAnchor": "deadpan-young-russian",
-    "characterArchetype": "from workspace/personas/ARCHETYPES.md (it-remote / courier / student / mamochka-blogger / z-zoomer)",
+    "vibeAnchor": "deadpan-monolog",
+    "characterArchetype": "one of 8 universal archetypes (remote IT worker, courier/driver, student, stay-at-home creator, office worker, Gen-Z urban, startup founder, performance marketer)",
     "captionStyle": "HormoziCaptions (default) or KaraokeCaptions",
-    "hookWindow": "first 3-4s — hook screenshot overlay fade-out @ frame 90-120"
+    "hookWindow": "first 3-4s — hook screenshot overlay fade-out at frame 90-120"
   },
   "variationAxes": [
-    "character archetype (8 options from ARCHETYPES.md)",
-    "rant subject (work, dating, prices, IT life, transport, food)",
-    "hook screenshot type (Reddit post / news headline / chat / tweet)",
-    "tone (deadpan / frustrated / sarcastic / resigned)"
+    "character archetype (8 universal options — see fragments.md)",
+    "rant subject (work, dating, prices, IT life, transport, food, parenting, the news)",
+    "hook screenshot type (Reddit post / news headline / chat / tweet / TikTok comment)",
+    "tone (deadpan / frustrated / sarcastic / resigned)",
+    "VO language (any — English, Russian, Spanish; the format is character-driven, not language-specific)"
   ],
-  "doNotCopyLiterally": "Monologue text, character name, exact prompts, hook screenshot text. Vibe-reference only."
+  "doNotCopyLiterally": "Monologue text, character name, exact prompts, hook screenshot text. Vibe reference only.",
+  "requiresUserReference": false,
+  "referenceNotes": "No reference required by default — the character is generated. If the user wants a specific real person to appear, escalate to the reference-required gate (AGENTS.md hard rule #3) and require an uploaded photo."
 }
