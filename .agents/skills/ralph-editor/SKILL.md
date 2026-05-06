@@ -55,9 +55,10 @@ time, transition, caption, mix, and sanity-check.
   `captions.json` yet. Always run this **after** the art director hands off
   voiceover and **before** `author-composition` — the composition reads
   captions, not raw audio.
-- **Tool:** local `whisper.cpp` via `cli/lib/transcribe.ts` — no API key.
-  First call downloads `large-v3-turbo` (~1.5GB) into
-  `workspace/.ralph/whisper/` (gitignored, per-machine).
+- **Tool:** OpenRouter `openai/whisper-1` via `cli/lib/transcribe.ts` —
+  uses the existing `OPENROUTER_API_KEY`, no local install or model download.
+  Audio file must be ≤25MB (whisper-1 hard limit). For longer files re-encode
+  to mono 64kbps mp3 first or split into chunks.
 - **Command:**
   ```bash
   bun run ralph -- project transcribe <id> \
@@ -66,7 +67,8 @@ time, transition, caption, mix, and sanity-check.
   ```
   Output: `workspace/projects/<id>/captions.json` — `Caption[]` in the
   `@remotion/captions` shape (`{ text, startMs, endMs, timestampMs, confidence }`).
-  Logged via `logGeneration()` (`provider: "whisper-cpp"`, `cost_usd: 0`).
+  Logged via `logGeneration()` (`provider: "openrouter"`, endpoint
+  `openai/whisper-1`, cost ≈ $0.006 per audio-minute).
 - **Per-clip variant:** if scenes have separate VO files, transcribe each
   individually (`captions-01.json`, `captions-02.json`, …) and concat in
   the composition. See `src/videos/lyadov-podcast/` for the working pattern.
@@ -187,16 +189,16 @@ pre-processing of user uploads.
    several clips — recompute SRT timestamps against the resulting timeline,
    not the source.
 6. **Word-boundary cuts only.** When cutting VO for viral moments — cut on
-   word boundaries (whisper.cpp with `splitOnWord: true` gives honest
-   borders). Never cut mid-word.
+   word boundaries (whisper-1 word-level timestamps give honest borders).
+   Never cut mid-word.
 7. **30–200ms padding around speech.** `extractSegment` for VO clips —
    add 200–400ms padding before and after, otherwise consonants are lost.
-8. **Word-level ASR only.** Captions come ONLY from transcribe.ts with
-   `tokenLevelTimestamps: true` (default). Segment-level produces a
+8. **Word-level ASR only.** Captions come ONLY from transcribe.ts which
+   requests `timestamp_granularities=word`. Segment-level produces a
    ragged word-pop effect.
 9. **Transcript caching.** Don't re-run `project transcribe` if
-   `captions.json` is already fresh — it's a slow operation (~30–60s on
-   10s of audio on the first-run model download).
+   `captions.json` is already fresh — every call costs ~$0.006 per
+   audio-minute and adds latency.
 10. **MarginV=90 safe-zone.** With `burnSubtitles` the default `marginV: 90`
     is the TikTok bottom-UI safe zone. Don't drop below 60.
 11. **Strategy confirm before render.** If the pipeline is non-trivial

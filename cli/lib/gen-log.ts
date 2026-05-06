@@ -26,7 +26,6 @@ export type Provider =
   | "openai"
   | "openrouter"
   | "vercel"
-  | "whisper-cpp"
   | "ffmpeg"
   | "replicate"
   | "other";

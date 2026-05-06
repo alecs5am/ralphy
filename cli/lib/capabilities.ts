@@ -20,17 +20,16 @@ export type CapabilityId =
   | "llm-vercel"
   | "llm-openrouter"
   | "llm-openai"
-  | "transcribe-local"
   | "tiktok-scraper-playwright"
   | "lipsync-replicate";
 
-export type CapabilityCategory = "media" | "voice" | "music" | "llm" | "transcribe" | "scraper";
+export type CapabilityCategory = "media" | "voice" | "music" | "llm" | "scraper";
 
 export type Capability = {
   id: CapabilityId;
   label: string;
   description: string;
-  /** Env var that unlocks it. `null` = no key needed (e.g. local whisper, playwright). */
+  /** Env var that unlocks it. `null` = no key needed (e.g. local playwright). */
   envVar: string | null;
   category: CapabilityCategory;
   /** Where to obtain the key — shown in setup wizard. */
@@ -110,14 +109,6 @@ export const CAPABILITIES: Capability[] = [
     envVar: "REPLICATE_API_KEY",
     category: "media",
     signupUrl: "https://replicate.com/account/api-tokens",
-    required: false,
-  },
-  {
-    id: "transcribe-local",
-    label: "Whisper.cpp (local)",
-    description: "On-device transcription — no key needed",
-    envVar: null,
-    category: "transcribe",
     required: false,
   },
   {

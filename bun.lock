@@ -8,7 +8,6 @@
         "@remotion/captions": "4.0.441",
         "@remotion/cli": "4.0.441",
         "@remotion/google-fonts": "4.0.441",
-        "@remotion/install-whisper-cpp": "4.0.441",
         "@remotion/tailwind-v4": "4.0.441",
         "@remotion/transitions": "4.0.441",
         "commander": "^14.0.3",
@@ -181,8 +180,6 @@
     "@remotion/eslint-config-flat": ["@remotion/eslint-config-flat@4.0.441", "", { "dependencies": { "typescript-eslint": "8.21.0" }, "peerDependencies": { "eslint": ">=9" } }, "sha512-Lm3FauS2jbVVw/MOWrQTphWIn0JcPIny3rFFehl5rIcJYYDfVckbd9vpof+BhaipYUI2OihRcXzY8cDDdNlf0g=="],
 
     "@remotion/google-fonts": ["@remotion/google-fonts@4.0.441", "", { "dependencies": { "remotion": "4.0.441" } }, "sha512-io8HCdm+38g7QrbCs9Jww608HRBJpwv9Fy5T+9Itzt1QNSiKVHHZs/PrRoP/6Ljqn5XGLTI2QrDblUXTbDLytQ=="],
-
-    "@remotion/install-whisper-cpp": ["@remotion/install-whisper-cpp@4.0.441", "", { "dependencies": { "@remotion/captions": "4.0.441" } }, "sha512-AVUjursclDkD0YXUXKR4ahzGBLOj5+oB4YDIMUeYEBRzd0jKc2UX1zgpY2R8Yx9pb4PdoDltbifl7i1qKyS0CA=="],
 
     "@remotion/licensing": ["@remotion/licensing@4.0.441", "", {}, "sha512-wXeqlXVy9Cstv7m2DR5OPsVCj14nKTNx5/JO/pFoPRi4P5KVE2U9pb2P5Jk4WVKvKWbQTk2fbL+lkOM8vyXXNQ=="],
 
