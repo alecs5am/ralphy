@@ -1,0 +1,46 @@
+{
+  "name": "Soviet Nostalgic TikTok Ad",
+  "slug": "soviet-nostalgic",
+  "kind": "vibe-reference",
+  "description": "Reference template (not a script generator) for a specific TikTok-ad format: off-screen deadpan young Russian narrator tells a two-era heritage story — Soviet-era inventor created something, it was shelved, modern heir revived it. Era flip mid-video is also a music drop (Soviet bed → hip-hop). Scenario must be written fresh per project by /ralph-ugc:create-scenario; this template encodes the vibe, visual language, prompt fragments, model stack, and Remotion composition pattern.",
+  "tags": ["tiktok", "soviet", "nostalgic", "two-era", "heritage", "product-story", "russian-vo"],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [50, 75],
+  "typicalClipCount": [6, 10],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "extractedFrom": "solutions-metal-001",
+  "createdAt": "2026-04-23T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "promptFragments": "fragments.md",
+    "modelStack": "model-stack.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview через OpenRouter @ 1080×1920 PNG (multi-ref для character consistency)",
+    "i2v": "kwaivgi/kling-v3.0-pro через OpenRouter (generate_audio: false)",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 + user-chosen voice_id (native Russian, never model-native TTS)",
+    "music": "Soviet bed = REQUIRED canonical trend track at assets/trend-soviet-bed.mp3 (do not generate). Hip-hop bed = ElevenLabs Music через ralphy generate music (force_instrumental: true) или user-provided.",
+    "composition": "Remotion 4.0.441 with TransitionSeries fade crossfades + dual-music split at era flip"
+  },
+  "assets": {
+    "trendSovietBed": {
+      "path": "assets/trend-soviet-bed.mp3",
+      "durationSec": 60.0,
+      "required": true,
+      "note": "TikTok trend audio — part of format recognition. Copy into project assets/music/ at scaffold time. Do not substitute with Lyria2 generation."
+    }
+  },
+  "constants": {
+    "narratorLanguage": "ru-RU",
+    "narratorAge": 25,
+    "narratorGender": "male",
+    "musicSplit": "at-era-flip",
+    "visualContrast": "warm-amber-archival → cold-neutral-editorial"
+  },
+  "doNotCopyLiterally": "Scenario, per-clip durations, VO line count and structure, exact tagline. All should be written fresh per project."
+}
