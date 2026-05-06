@@ -1,8 +1,8 @@
 // Interactive setup wizard — `ralphy setup`.
 //
-// Multi-step TUI built on @clack/prompts. Detects existing keys, prompts for
-// the missing ones (with API ping verification), offers public profiles to
-// import, and optionally launches Studio + dashboard. Re-runnable safely.
+// v2: prompts for two keys only — OPENROUTER_API_KEY + ELEVENLABS_API_KEY —
+// pings each via API verify, optionally imports a public profile. Does NOT
+// auto-launch Studio or dashboard (AGENTS.md hard rule #5). Re-runnable safely.
 //
 // Sub-commands:
 //   ralphy setup              — full interactive wizard
@@ -13,8 +13,6 @@ import { Command } from "commander";
 import * as p from "@clack/prompts";
 import path from "node:path";
 import fs from "node:fs/promises";
-import net from "node:net";
-import { spawn } from "node:child_process";
 import {
   CAPABILITIES,
   getCapabilityStatus,
@@ -111,7 +109,7 @@ async function runWizard(): Promise<void> {
   const existing = await readDotenv(envPath);
 
   // 2. Show capability status
-  const keyed = CAPABILITIES.filter((c): c is Capability & { envVar: string } => c.envVar !== null);
+  const keyed: Capability[] = CAPABILITIES;
   const statusLines = keyed.map((c) => {
     const set = Boolean(existing[c.envVar]);
     const tag = set ? "[ ✓ set    ]" : c.required ? "[ • needed ]" : "[ optional ]";
@@ -178,31 +176,8 @@ async function runWizard(): Promise<void> {
     pickedProfiles = sel as string[];
   }
 
-  // 6. Dev services? Only ask if at least one port is free; otherwise skip
-  //    silently (idempotent re-runs shouldn't spam EADDRINUSE).
-  const studioBusy = await isPortBusy(3000);
-  const dashboardBusy = await isPortBusy(4321);
-  let startSvcs = false;
-  if (studioBusy && dashboardBusy) {
-    p.note(
-      "Studio (port 3000) and dashboard (port 4321) already running — skipping.",
-      "Services",
-    );
-  } else {
-    const ans = await p.confirm({
-      message:
-        studioBusy
-          ? "Start dashboard? (Studio already running on :3000)"
-          : dashboardBusy
-            ? "Start Remotion Studio? (dashboard already running on :4321)"
-            : "Start Remotion Studio + dashboard now?",
-      initialValue: false,
-    });
-    if (p.isCancel(ans)) return cancelled();
-    startSvcs = ans;
-  }
-
-  // 7. Apply changes — only what's actually new.
+  // 6. Apply changes — only what's actually new.
+  //    No auto-launch of Studio / dashboard (AGENTS.md invariant #5).
   if (Object.keys(updates).length > 0) {
     const sp = p.spinner();
     sp.start("Saving .env…");
@@ -246,28 +221,7 @@ async function runWizard(): Promise<void> {
     });
   }
 
-  if (startSvcs) {
-    const lines: string[] = [];
-    if (!studioBusy) {
-      spawn("bun", ["run", "dev"], {
-        cwd: projectRoot,
-        detached: true,
-        stdio: "ignore",
-      }).unref();
-      lines.push("Studio  → http://localhost:3000");
-    }
-    if (!dashboardBusy) {
-      spawn("bun", ["run", "dashboard"], {
-        cwd: projectRoot,
-        detached: true,
-        stdio: "ignore",
-      }).unref();
-      lines.push("Dashboard → http://localhost:4321");
-    }
-    if (lines.length > 0) p.note(lines.join("\n"), "Started in background");
-  }
-
-  p.outro("Done. Try: ralphy status");
+  p.outro("Done. Try: ralphy doctor");
 }
 
 function cancelled(): void {
@@ -329,16 +283,6 @@ async function verifyKey(envVar: string, value: string): Promise<boolean> {
   const ctrl = AbortSignal.timeout(8000);
   try {
     switch (envVar) {
-      case "FAL_KEY": {
-        // No public whoami. Hit a request that requires auth — anything other
-        // than 401/403 means the key is plausibly valid.
-        const r = await fetch("https://queue.fal.run/fal-ai/recraft-v3", {
-          method: "GET",
-          headers: { Authorization: `Key ${value}` },
-          signal: ctrl,
-        });
-        return r.status !== 401 && r.status !== 403;
-      }
       case "ELEVENLABS_API_KEY": {
         const r = await fetch("https://api.elevenlabs.io/v1/user", {
           headers: { "xi-api-key": value },
@@ -353,52 +297,12 @@ async function verifyKey(envVar: string, value: string): Promise<boolean> {
         });
         return r.ok;
       }
-      case "VERCEL_AI_GATEWAY_KEY": {
-        const r = await fetch("https://ai-gateway.vercel.sh/v1/models", {
-          headers: { Authorization: `Bearer ${value}` },
-          signal: ctrl,
-        });
-        return r.ok;
-      }
-      case "OPENAI_API_KEY": {
-        const r = await fetch("https://api.openai.com/v1/models", {
-          headers: { Authorization: `Bearer ${value}` },
-          signal: ctrl,
-        });
-        return r.ok;
-      }
-      case "REPLICATE_API_KEY": {
-        const r = await fetch("https://api.replicate.com/v1/account", {
-          headers: { Authorization: `Token ${value}` },
-          signal: ctrl,
-        });
-        return r.ok;
-      }
       default:
         return true;
     }
   } catch {
     return false;
   }
-}
-
-/**
- * Returns true if something is already listening on the given port. Used to
- * make `ralphy setup` idempotent — we don't try to spawn a second Studio /
- * dashboard on top of a running one.
- */
-function isPortBusy(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const sock = net.connect({ port, host: "127.0.0.1" });
-    const settle = (busy: boolean) => {
-      sock.removeAllListeners();
-      sock.destroy();
-      resolve(busy);
-    };
-    sock.once("connect", () => settle(true));
-    sock.once("error", () => settle(false));
-    sock.setTimeout(500, () => settle(false));
-  });
 }
 
 async function listAvailableProfiles(
