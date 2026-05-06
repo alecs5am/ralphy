@@ -1,9 +1,10 @@
-// Unified LLM provider — picks Vercel AI Gateway → OpenRouter → OpenAI
-// based on which env keys are set. All three speak OpenAI Chat Completions.
+// Unified LLM provider — OpenRouter only in v2.
 //
-// Why this exists: scripts (find-viral-moments, face-bbox, scenarist helpers)
-// used to hardcode OpenRouter. Now they call callLLM() and degrade gracefully
-// across providers — one less reason to require all keys at once.
+// History: this module used to fan out across Vercel AI Gateway / OpenRouter /
+// OpenAI. Sprint 2 consolidated to a single provider so users only need one key
+// (OPENROUTER_API_KEY). All previous fallbacks were removed; the function shape
+// is preserved so consumers (find-viral-moments, scenarist helpers, etc.) keep
+// working without edits.
 //
 // Usage:
 //   import { callLLM } from "../lib/providers/llm.js";
@@ -14,10 +15,10 @@
 //     projectId: "my-proj-001",          // optional, for cost logging
 //   });
 
-import { logGeneration, type Provider } from "../gen-log.js";
+import { logGeneration } from "../gen-log.js";
 import { hasCapability } from "../capabilities.js";
 
-export type LLMProvider = "vercel" | "openrouter" | "openai";
+export type LLMProvider = "openrouter";
 
 export type ProviderConfig = {
   provider: LLMProvider;
@@ -27,37 +28,18 @@ export type ProviderConfig = {
 };
 
 export function resolveLLMProvider(): ProviderConfig {
-  if (hasCapability("llm-vercel")) {
-    return {
-      provider: "vercel",
-      baseURL: "https://ai-gateway.vercel.sh/v1",
-      apiKey: process.env.VERCEL_AI_GATEWAY_KEY!,
-      defaultModel: "google/gemini-2.5-flash",
-    };
+  if (!hasCapability("llm-openrouter")) {
+    throw new Error(
+      `OPENROUTER_API_KEY is not set.\n` +
+        `Get a key at https://openrouter.ai/keys and run "ralphy setup".`,
+    );
   }
-  if (hasCapability("llm-openrouter")) {
-    return {
-      provider: "openrouter",
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey: process.env.OPENROUTER_API_KEY!,
-      defaultModel: "google/gemini-2.5-flash",
-    };
-  }
-  if (hasCapability("llm-openai")) {
-    return {
-      provider: "openai",
-      baseURL: "https://api.openai.com/v1",
-      apiKey: process.env.OPENAI_API_KEY!,
-      defaultModel: "gpt-4o-mini",
-    };
-  }
-  throw new Error(
-    `No LLM provider configured. Set one of:\n` +
-      `  VERCEL_AI_GATEWAY_KEY  (recommended — unified gateway)\n` +
-      `  OPENROUTER_API_KEY\n` +
-      `  OPENAI_API_KEY\n` +
-      `Run "ralphy setup" to configure interactively.`,
-  );
+  return {
+    provider: "openrouter",
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+    defaultModel: "google/gemini-2.5-flash",
+  };
 }
 
 export type LLMContent =
@@ -125,8 +107,8 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
 
   if (opts.projectId) {
     await logGeneration(opts.projectId, {
-      provider: cfg.provider as Provider,
-      endpoint: opts.endpoint ?? `${cfg.provider}/chat-completions`,
+      provider: "openrouter",
+      endpoint: opts.endpoint ?? "openrouter/chat-completions",
       kind: "text",
       input: { model, messages: opts.messages.length },
       output: { bytes: text.length },
@@ -135,5 +117,5 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
     });
   }
 
-  return { text, raw: json, provider: cfg.provider, model, latencyMs };
+  return { text, raw: json, provider: "openrouter", model, latencyMs };
 }
