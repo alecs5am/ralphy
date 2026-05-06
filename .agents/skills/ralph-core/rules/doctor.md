@@ -19,34 +19,34 @@ Returns JSON:
 ```
 
 Use cases:
-- Session start (proactive — но только в ответ на работу, не unsolicited).
-- `setup` wizard как source of truth.
+- Session start (proactive — but only in response to work, not unsolicited).
+- `setup` wizard as source of truth.
 - CI / automation.
-- Whenever user says "что-то не работает" — first thing.
+- Whenever user says "something's not working" / "что-то не работает" — first thing.
 
 ## NO auto-launch
 
-`/ralph-core` v2 **НЕ запускает** Remotion Studio, dashboard, или любые background processes. AGENTS invariant.
+`/ralph-core` v2 **does NOT launch** Remotion Studio, the dashboard, or any background processes. AGENTS invariant.
 
-Поведение `session-bootstrap`:
+`session-bootstrap` behavior:
 1. Run `ralphy doctor`.
-2. Если blockers — walk пользователя через fix каждого (set keys, install ffmpeg, link project).
-3. Когда clean — say "ready" и стоп.
+2. If blockers — walk the user through fixing each (set keys, install ffmpeg, link project).
+3. When clean — say "ready" and stop.
 
-Если user явно просит preview / Studio:
+If the user explicitly asks for preview / Studio:
 > "Запусти `bun run dev` foreground в отдельном окне. Studio откроется на http://localhost:3000."
 
-Я не запускаю это сам.
+I don't run it myself.
 
 ## Fresh-machine setup
 
-User starting from zero, ошибки missing deps / missing keys. **Tone:** user может не быть developer'ом. Один step per message. Wait for confirm.
+User starting from zero, errors about missing deps / missing keys. **Tone:** the user may not be a developer. One step per message. Wait for confirm.
 
 ### Step 0 — Where are we
 ```bash
 pwd && ls package.json CLAUDE.md MODELS.md AGENTS.md 2>/dev/null
 ```
-Expect все 4 файла. Иначе ask user `cd` в repo root.
+Expect all 4 files. Otherwise ask the user to `cd` into the repo root.
 
 ### Step 1 — Node + bun
 ```bash
@@ -68,33 +68,33 @@ ffmpeg -version 2>&1 | head -1
 ```
 - Missing → `brew install ffmpeg`
 
-### Step 4 — Two keys в .env
+### Step 4 — Two keys in .env
 ```bash
 ls .env 2>/dev/null && echo "exists" || echo "missing"
 ```
 
-Если missing — create:
+If missing — create:
 ```bash
 ralphy setup
 ```
 
-Setup wizard prompt'ит **только** для `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY` (см. AGENTS invariant). Каждый ping'ается через API verify.
+The setup wizard prompts **only** for `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY` (see AGENTS invariant). Each is pinged via API to verify.
 
 #### 4a. OPENROUTER_API_KEY
 1. https://openrouter.ai/keys → Create.
-2. Wizard сохранит + ping'нёт `https://openrouter.ai/api/v1/auth/key`.
+2. Wizard saves it + pings `https://openrouter.ai/api/v1/auth/key`.
 
 #### 4b. ELEVENLABS_API_KEY
 1. https://elevenlabs.io/app/settings/api-keys → Create.
-2. Wizard ping'нёт `/v1/user`.
+2. Wizard pings `/v1/user`.
 
-Если у user'а уже есть `FAL_KEY` / `VERCEL_AI_GATEWAY_KEY` / `OPENAI_API_KEY` в `.env` — leave them. Setup wizard не trogs them. Они unused в v2 но не ломают ничего.
+If the user already has `FAL_KEY` / `VERCEL_AI_GATEWAY_KEY` / `OPENAI_API_KEY` in `.env` — leave them. The setup wizard doesn't touch them. They're unused in v2 but don't break anything.
 
 ### Step 5 — Smoke
 ```bash
 ralphy doctor
 ```
-Должен вернуть `blockers: []`.
+Should return `blockers: []`.
 
 ### Step 6 — Optional starter profile
 ```bash
@@ -103,9 +103,10 @@ ralphy profile import ralphy-showcase
 Additive — pulls references and example projects from a real workspace. The repo's `templates/` already ships the canonical pack (soviet-nostalgic, ai-vegetables, talking-head-rant, before-after-product, talking-character) — no profile import needed for those.
 
 > "Pulled starter pack: N references, M example projects.
-> Try 'сделай мне видос про овощи' для cold-start template flow."
+> Try 'сделай мне видос про овощи' for the cold-start template flow."
 
 ### Step 7 — Done
+
 2-3 concrete first actions:
 - "Сделай ии-овощи про <topic>" (template flow)
 - "Сделай talking-head про <X>" (template flow)
@@ -116,15 +117,15 @@ Additive — pulls references and example projects from a real workspace. The re
 | Symptom | Cause | Fix |
 |---|---|---|
 | `ralphy: command not found` | binary not in PATH | `export PATH="$HOME/.local/bin:$PATH"` |
-| `Cannot find module` | bun install не run | `bun install` |
-| `ffmpeg: command not found` | step 3 skip | `brew install ffmpeg` |
-| `OPENROUTER_API_KEY is undefined` | .env not loaded | confirm `.env` в repo root |
-| ping 401 на ElevenLabs | key copied с whitespace | regenerate key |
-| ping 401 на OpenRouter | wrong scope или expired | regenerate key |
+| `Cannot find module` | `bun install` not run | `bun install` |
+| `ffmpeg: command not found` | step 3 skipped | `brew install ffmpeg` |
+| `OPENROUTER_API_KEY is undefined` | .env not loaded | confirm `.env` is in repo root |
+| ping 401 on ElevenLabs | key copied with whitespace | regenerate key |
+| ping 401 on OpenRouter | wrong scope or expired | regenerate key |
 
-## Что НЕ делаем
+## What we DON'T do
 
-- ❌ `bun run dev` или `bun run dashboard` в background.
-- ❌ `claude mcp add fal-ai` — устаревшая инструкция, MCP teardown в Sprint 2.
-- ❌ Set FAL_KEY / VERCEL_AI_GATEWAY_KEY — не нужны v2.
-- ❌ Re-run setup wizard если он "silently hangs" — debug TTY (см. troubleshooting).
+- ❌ `bun run dev` or `bun run dashboard` in the background.
+- ❌ `claude mcp add fal-ai` — stale instruction, MCP teardown in Sprint 2.
+- ❌ Set FAL_KEY / VERCEL_AI_GATEWAY_KEY — not needed in v2.
+- ❌ Re-run the setup wizard if it "silently hangs" — debug TTY (see troubleshooting).

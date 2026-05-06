@@ -1,15 +1,15 @@
 # CLI cookbook
 
 **Authoritative sources:**
-- `docs/agent-guide.md` — canonical command list с examples.
+- `docs/agent-guide.md` — canonical command list with examples.
 - `docs/cli-spec.md` — full flag-level spec.
 
-When in doubt — **читай specs, не improvise'й flag**.
+When in doubt — **read the specs, don't improvise flags**.
 
 ## Invocation
 
 - Globally installed: `ralphy <command>` (works from anywhere; finds project via `~/.config/ralphy/config.json`).
-- In-tree dev (no binary): `bun run ralph -- <command>` или `bun run ralphy -- <command>`.
+- In-tree dev (no binary): `bun run ralph -- <command>` or `bun run ralphy -- <command>`.
 
 ## Resources & operations
 
@@ -20,8 +20,8 @@ When in doubt — **читай specs, не improvise'й flag**.
 ## Output
 
 - JSON default (parse-friendly).
-- `-p` / `--pretty` для tables.
-- `--format json|table|csv` где supported.
+- `-p` / `--pretty` for tables.
+- `--format json|table|csv` where supported.
 
 ## Common entries
 
@@ -95,7 +95,7 @@ ralphy profile export <nickname> --include-renders
 ```bash
 ralphy setup
 ralphy setup --status                             # JSON (no TUI)
-ralphy setup --link <path>                        # link binary к project
+ralphy setup --link <path>                        # link binary to project
 ralphy setup --unlink
 ralphy status -p
 ralphy doctor
@@ -120,8 +120,8 @@ ralphy batch status <batch-id> --update <project-id> --status completed --render
 - "What projects exist" → `ralphy project list`
 - "Show timeline for X" → `ralphy project timeline <id>`
 - "How much have we spent" → `ralphy project log <id> --type generations` + sum `cost_usd`
-- "Что в batch" → `ralphy batch status <batch-id>`
-- "Доступные шаблоны" → `ralphy template list -p`
+- "What's in batch" / "Что в batch" → `ralphy batch status <batch-id>`
+- "Available templates" / "Доступные шаблоны" → `ralphy template list -p`
 
 ## Workspace hygiene
 
@@ -129,9 +129,9 @@ ralphy batch status <batch-id> --update <project-id> --status completed --render
 ralphy workspace stats         # entity counts + disk
 ```
 
-## Не делать
+## Don't do
 
-- ❌ Edit `workspace/projects/<id>/scenario.json` напрямую — use `ralphy project update <id>` или handoff в scenarist.
-- ❌ Edit `workspace/templates/<slug>/template.json` напрямую — use `ralphy template update`.
-- ❌ Delete `workspace/projects/<id>/` через `rm -rf` — use `ralphy project delete <id>` (cleans up registry).
-- ❌ Run `bunx remotion render` напрямую — use `ralphy render <id>`.
+- ❌ Edit `workspace/projects/<id>/scenario.json` directly — use `ralphy project update <id>` or hand off to scenarist.
+- ❌ Edit `workspace/templates/<slug>/template.json` directly — use `ralphy template update`.
+- ❌ Delete `workspace/projects/<id>/` via `rm -rf` — use `ralphy project delete <id>` (cleans up the registry).
+- ❌ Run `bunx remotion render` directly — use `ralphy render <id>`.
