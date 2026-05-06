@@ -1,12 +1,12 @@
 # Model stack — ai-vegetables
 
-Order of operations + конкретные модели через OpenRouter / ElevenLabs. v2 стек (no FAL_KEY).
+Order of operations and the specific models we call (via OpenRouter or ElevenLabs). Two-key stack: `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`. No FAL.
 
 ## Stage 1 — Keyframes
 
-**Model:** `google/gemini-3-pro-image-preview` через OpenRouter
-**Cost:** ~$0.15/img
-**Why:** лучший multi-reference для consistency между сценами одного овоща (если нужно). Photorealistic vegetable приходит чисто.
+**Model:** `google/gemini-3-pro-image-preview` via OpenRouter
+**Cost:** ~$0.15/image
+**Why:** best multi-reference for keeping the same vegetable consistent across scenes, and it lands photorealistic vegetable rendering cleanly without prompt acrobatics.
 
 ```bash
 ralphy generate image \
@@ -16,14 +16,14 @@ ralphy generate image \
   --size 1080x1920
 ```
 
-Если нужен consistency между сценами — генери "character ref" первым (просто овощ на нейтральном фоне), потом передавай URL в `--ref` для всех остальных keyframes.
+If you need consistency across scenes, generate a "character ref" first (just the vegetable on a neutral background), then pass its URL into `--ref` for every scene keyframe afterward.
 
 ## Stage 2 — i2v (video)
 
-**Model:** `kwaivgi/kling-v3.0-pro` через OpenRouter
+**Model:** `kwaivgi/kling-v3.0-pro` via OpenRouter
 **Cost:** ~$0.14/sec
-**Duration:** 5 секунд per clip (default; 10s если сцена требует развития)
-**Audio:** `generate_audio: false` (всегда — VO добавим отдельно)
+**Duration:** 5 seconds per clip (default; 10s if a scene needs to develop).
+**Audio:** `generate_audio: false` (always — VO is added separately).
 
 ```bash
 ralphy generate video \
@@ -34,42 +34,46 @@ ralphy generate video \
   --model kwaivgi/kling-v3.0-pro
 ```
 
-**Avoid:** seedance (audio leak), veo (overkill для absurd content и 3× дороже).
+**Avoid:**
+- `bytedance/seedance-2.0` with `generate_audio: true` — leaks audio with a Ukrainian-tinted voice on Russian text and ignores LANGUAGE LOCK in the prompt.
+- `google/veo-3.1` — overkill for absurd content and ~3× the cost. Use only if you genuinely need its motion fidelity.
 
 ## Stage 3 — Voiceover
 
 **Model:** ElevenLabs `eleven_multilingual_v2`
-**Voice:** user-chosen clone (deadpan young Russian); если нет — fallback на library voice but flag user that это даст lower quality.
-**Settings:** stability 0.55, similarity 0.8, style 0.25, use_speaker_boost: true.
+**Voice:** user-chosen clone (deadpan delivery in any language). If the user has no clone, fall back to a library voice but flag that the result will sound less native.
+**Settings:** stability 0.55, similarity_boost 0.8, style 0.25, use_speaker_boost: true.
+**Output:** mp3_44100_128.
 
 ```bash
 ralphy generate voiceover \
   --project <id> --slot scene-01-vo \
   --voice <voiceId> \
-  --text "POV: ты огурец и опоздал на маршрутку"
+  --text "POV: you're a cucumber and you're late."
 ```
 
-VO короткие — 1 фраза на сцену, ≤ 7 слов. Не растягивай.
+VO is short — one line per scene, ≤ 7 words. Don't stretch.
 
 ## Stage 4 — Captions
 
-**Model:** OpenRouter `openai/whisper-1`
-**Cost:** ~$0.006/audio-min ≈ $0.001 для 15s видео.
+**Model:** `openai/whisper-1` via OpenRouter
+**Cost:** ~$0.006/audio-min (~$0.001 for a 15s video).
 
 ```bash
 ralphy generate captions \
   --project <id> \
   --audio workspace/projects/<id>/assets/voiceover/master.mp3 \
-  --language ru
+  --language en   # or ru, depending on the VO
 ```
 
-Output: `captions.json` (Caption[] format).
+Output: `captions.json` in `Caption[]` format (the shape `@remotion/captions` expects). Word-level timestamps are on by default — needed by `HormoziCaptions` and `KaraokeCaptions`.
 
 ## Stage 5 — Music
 
 **Model:** ElevenLabs Music `music_v1`
 **Cost:** subscription
-**Duration:** total video duration + 2s tail для fade-out.
+**Duration:** total video duration + 2s tail for the fade-out.
+**Settings:** `force_instrumental: true` (load-bearing — vocals fight with VO).
 
 ```bash
 ralphy generate music \
@@ -80,11 +84,11 @@ ralphy generate music \
 
 ## Stage 6 — Compose + render
 
-**Composition:** `src/videos/<project-slug>/index.tsx` (per-project) или base `UGCVideo`.
-**Render:** `ralphy render <id>` (≤30s wall time для 15s видео).
+**Composition:** `src/videos/<project-slug>/index.tsx` (per-project) or the base `UGCVideo` component if the structure matches.
+**Render:** `ralphy render <id>` (≤ 30s wall time for a 15s video on local hardware).
 
 ```bash
-ralphy render <id> --loudnorm   # EBU R128 for TikTok
+ralphy render <id> --loudnorm   # EBU R128 -16 LUFS for TikTok
 ```
 
 ## Cost rollup (15s video, 4 scenes)
@@ -99,15 +103,10 @@ ralphy render <id> --loudnorm   # EBU R128 for TikTok
 | Render | local | $0 |
 | **Total** | | **~$3.40** |
 
-Дешевле чем soviet-nostalgic ($10-12) — нет dual-music, нет era-flip, короче clips.
+Cheaper than `soviet-nostalgic` (~$10-14) — no dual-music, no era flip, shorter clips.
 
-## Fallback / overrides
+## Quality gates
 
-- Если consistency между сценами не нужна (single-scene видео) → можно `openai/gpt-5.4-image-2` ($0.20/img) для photorealistic качества. Но обычно gemini-3-pro-image хватает.
-- Если нужно сложное движение (acrobatics, multi-character) → veo-3.1 ($0.50/sec). Но для этого формата overkill.
-
-## Quality gate thresholds
-
-- `scoreImage` avg ≥7 — иначе regen (max 2 attempts).
-- `scoreVideo` motion ≥5 — иначе scene не проходит (warping limbs).
-- Если 2 fails подряд — стоп, пользователю concrete options.
+- `scoreImage` average ≥ 7 per keyframe — otherwise regen (max 2 attempts per slot).
+- `scoreVideo` motion ≥ 5 per clip — failures usually mean kling morphed limbs; reduce push-in or shorten the clip and retry.
+- Two failures in a row on the same slot → stop and report concrete options to the user (different vegetable, different action, different model).

@@ -2,8 +2,27 @@
   "name": "AI Vegetables POV",
   "slug": "ai-vegetables",
   "kind": "vibe-reference",
-  "description": "Surrealistic POV-видос с AI-овощами в неожиданных ситуациях. 15s формат, виральный TikTok жанр 2025-2026 — антропоморфные овощи делают человеческие действия (бегут к маршрутке, делают йогу, сидят в офисе). Hook в первые 2s через визуальный шок (gemini-3-pro-image-preview keyframe). Captions крупные TikTok-style. Музыка опционально trend, либо ElevenLabs Music quirky upbeat.",
-  "tags": ["ai-vegetables", "surreal", "tiktok", "viral-trend", "pov", "ai", "vegetables", "овощи", "огурец", "помидор", "картошка", "морковка", "absurd", "absurd-pov", "visual-shock", "видос"],
+  "description": "Surrealist POV short: an anthropomorphic vegetable performs a mundane human action (running for the bus, sitting in a meeting, waiting in line). 12-18s TikTok format, 9:16. Hook lands in the first 2s through visual shock. Photorealistic vegetable rendering (not cartoon) is the load-bearing aesthetic choice. Cheap, fast, evergreen viral pattern that works in any language because the gag is visual.",
+  "tags": [
+    "ai-vegetables",
+    "surreal",
+    "viral-trend",
+    "tiktok",
+    "reels",
+    "shorts",
+    "pov",
+    "absurd",
+    "absurd-pov",
+    "anthropomorphic",
+    "visual-shock",
+    "vegetables",
+    "cucumber",
+    "tomato",
+    "carrot",
+    "potato",
+    "comedy",
+    "deadpan"
+  ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
   "typicalDurationSec": [12, 18],
@@ -20,23 +39,27 @@
     "composition": "composition.md"
   },
   "stackSummary": {
-    "keyframes": "google/gemini-3-pro-image-preview через OpenRouter (multi-ref если у овоща должен быть consistency между сценами)",
-    "i2v": "kwaivgi/kling-v3.0-pro через OpenRouter (5-10s clips, generate_audio: false)",
-    "voiceover": "ElevenLabs eleven_multilingual_v2 (RU) — короткая POV-фраза (4-7 слов на сцену)",
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter (multi-ref when the same vegetable must stay consistent across scenes)",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips, generate_audio: false",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — short POV line per scene (4-7 words). Language follows the user's brief; works in any language.",
     "music": "ElevenLabs Music — quirky upbeat instrumental, force_instrumental: true",
-    "composition": "Remotion 4.0.441 — TransitionSeries fade 6 frames между сценами, captions HormoziCaptions или TikTokCaptions, audio duck'нуто"
+    "captions": "OpenRouter whisper-1 + HormoziCaptions or TikTokCaptions (large pop)",
+    "composition": "Remotion 4.0.441 — TransitionSeries fade 6 frames between scenes, music ducked under VO"
   },
   "constants": {
     "vibeAnchor": "absurd-but-believable",
-    "characterStyle": "anthropomorphic vegetable, photorealistic, slight cartoon proportions",
+    "characterStyle": "anthropomorphic vegetable, photorealistic, slight humanoid proportions (limbs sprout organically — not cartoon attachments)",
     "captionStyle": "HormoziCaptions or TikTokCaptions (large pop)",
-    "hookWindow": "first 2 seconds — visual shock"
+    "hookWindow": "first 2 seconds — visual shock cold open"
   },
   "variationAxes": [
-    "vegetable type (cucumber, tomato, carrot, potato, etc.)",
-    "setting (subway, office, gym, kitchen, street)",
-    "human action being performed (running, working, exercising, dating)",
-    "emotional tone (deadpan, frustrated, ecstatic, melancholic)"
+    "vegetable type (cucumber, tomato, carrot, potato, eggplant, pepper, onion, broccoli)",
+    "setting (subway, kitchen, office, gym, dating, traffic, queue, hospital)",
+    "human action being performed (running, working, exercising, dating, waiting)",
+    "emotional tone (deadpan, frustrated, ecstatic, melancholic, panicked)",
+    "VO language (English by default; Russian deadpan also works strongly for this format)"
   ],
-  "doNotCopyLiterally": "Scenario, VO lines, exact prompts, per-clip durations. Это vibe-reference; scenarist пишет свежий каждый раз."
+  "doNotCopyLiterally": "Scenario, VO lines, exact prompts, per-clip durations. This is a vibe reference; the scenarist writes a fresh scenario every project.",
+  "requiresUserReference": false,
+  "referenceNotes": "No user reference required. Vegetable + setting are generated from prompts. If the user wants a specific brand or person to appear, escalate to the reference-required gate (see AGENTS.md hard rule #3)."
 }
