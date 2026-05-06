@@ -1,27 +1,32 @@
 # Composition — talking-head-rant
 
-Remotion 4.0.441, 9:16, 30fps, 1080×1920. Длина = video clip + 0.5s outro fade.
+Remotion 4.0.441, 9:16, 30fps, 1080×1920. Length = video clip + 0.5s outro fade.
 
 ## Skeleton
 
 ```tsx
 // src/videos/talking-head-rant-<slug>/index.tsx
-import { AbsoluteFill, Audio, Sequence, Video, staticFile } from "remotion";
+import React from "react";
+import { AbsoluteFill, Audio, Sequence, Video, Img, staticFile, interpolate, useCurrentFrame } from "remotion";
 import { HormoziCaptions } from "../../lib/components/captions/HormoziCaptions";
-// HookScreenshot — TODO component, see "Hook screenshot overlay" below
+// HookScreenshot is the dedicated component (TODO — see "Hook screenshot overlay" below).
 
 const FPS = 30;
 
-export const TalkingHeadRant = ({
-  videoSrc,
-  voSrc,
-  musicSrc,
-  captions,
-  hookScreenshotSrc,    // optional
-  hookDurationSec,       // 3-4
-  totalDurationSec,
-}: Props) => {
-  const totalFrames = totalDurationSec * FPS;
+type Props = {
+  videoSrc: string;
+  voSrc: string;
+  musicSrc: string;
+  captions: Caption[];
+  hookScreenshotSrc?: string;
+  hookDurationSec?: number; // 3-4
+  totalDurationSec: number;
+};
+
+export const TalkingHeadRant: React.FC<Props> = ({
+  videoSrc, voSrc, musicSrc, captions,
+  hookScreenshotSrc, hookDurationSec, totalDurationSec,
+}) => {
   const hookFrames = (hookDurationSec ?? 0) * FPS;
 
   return (
@@ -32,16 +37,11 @@ export const TalkingHeadRant = ({
       {/* Hook screenshot overlay — first 3-4 seconds, fade-out last 30 frames */}
       {hookScreenshotSrc && (
         <Sequence from={0} durationInFrames={hookFrames}>
-          <HookScreenshot
-            src={staticFile(hookScreenshotSrc)}
-            durationFrames={hookFrames}
-            fadeFrames={30}
-            position="center"
-          />
+          <HookOverlay src={staticFile(hookScreenshotSrc)} hookFrames={hookFrames} />
         </Sequence>
       )}
 
-      {/* Captions — start after hook fade-out */}
+      {/* Captions — start after the hook fades */}
       <Sequence from={hookFrames}>
         <HormoziCaptions captions={captions} />
       </Sequence>
@@ -54,30 +54,9 @@ export const TalkingHeadRant = ({
     </AbsoluteFill>
   );
 };
-```
 
-## Hook screenshot overlay
-
-**Component:** `src/lib/components/overlays/HookScreenshot.tsx` (TODO — to create in followup).
-
-Contract:
-```ts
-type Props = {
-  src: string;            // staticFile path
-  durationFrames?: number;  // default 120 (4s @ 30fps)
-  fadeFrames?: number;      // default 30 (1s)
-  position?: "center" | "top";
-};
-```
-
-Displays full-screen overlay scaled 60-70% of canvas, semi-transparent dark backdrop, fades out in last `fadeFrames` of duration. Uses `interpolate(frame, [duration-fadeFrames, duration], [1, 0])`.
-
-Fallback while component не создан — use static `<Img>` с manual fade:
-
-```tsx
-import { Img, interpolate, useCurrentFrame } from "remotion";
-
-const HookFallback = ({ src, hookFrames }) => {
+// Inline fallback while the dedicated HookScreenshot component is still TODO.
+const HookOverlay: React.FC<{ src: string; hookFrames: number }> = ({ src, hookFrames }) => {
   const frame = useCurrentFrame();
   const opacity = interpolate(frame, [hookFrames - 30, hookFrames], [1, 0], {
     extrapolateRight: "clamp",
@@ -90,21 +69,39 @@ const HookFallback = ({ src, hookFrames }) => {
 };
 ```
 
+## Hook screenshot overlay
+
+**Component:** `src/lib/components/overlays/HookScreenshot.tsx` (TODO — to create as a follow-on).
+
+Contract:
+```ts
+type Props = {
+  src: string;             // staticFile path
+  durationFrames?: number; // default 120 (4s @ 30fps)
+  fadeFrames?: number;     // default 30 (1s)
+  position?: "center" | "top";
+};
+```
+
+Displays a full-screen overlay scaled to 60-70% of the canvas with a semi-transparent dark backdrop, fading out in the last `fadeFrames` of its duration via `interpolate(frame, [duration-fadeFrames, duration], [1, 0])`.
+
+Until the dedicated component is created, the inline `HookOverlay` above does the same job.
+
 ## Component choices
 
-- **Captions:** `HormoziCaptions` (default) — best для rant impact. `KaraokeCaptions` если more intimate.
-- **Caption timing:** start at `hookFrames` (после hook fade-out). Word-level timestamps в `captions.json` уже adjusted к VO timing.
-- **Caption position:** Y 1100-1300 range — supporting/CTA zone из green-zone.
-- **NO transitions** — single clip, no cuts. talking-head must look continuous.
+- **Captions:** `HormoziCaptions` (default) — best for rant impact. Switch to `KaraokeCaptions` for a more intimate feel.
+- **Caption start frame:** `hookFrames` (after the hook fades). Word-level timestamps in `captions.json` already sit on the VO timeline, so they'll line up automatically.
+- **Caption position:** Y 1100-1300 — the supporting / CTA zone of the green safe area.
+- **No transitions** — single continuous clip, no cuts. The talking-head must look continuous.
 
 ## Audio mix
 
 | Track | Volume | Notes |
 |---|---|---|
 | VO master | 1.0 | mono, mp3 128kbps |
-| Music bed | 0.10 (constant) | very low — NOT ducked, всегда minimum |
+| Music bed | 0.10 (constant) | very low — NOT ducked, always at the floor |
 
-Loudnorm post через `ralphy render <id> --loudnorm`.
+Loudnorm post-render via `ralphy render <id> --loudnorm`.
 
 ## Composition props shape
 
@@ -121,7 +118,7 @@ Loudnorm post через `ralphy render <id> --loudnorm`.
 }
 ```
 
-`captions` — Caption[] загружается из `captionsSrc`.
+`captions` — load `Caption[]` from `captionsSrc` at the editor stage and pass it as a prop.
 
 ## Register
 
@@ -133,13 +130,13 @@ Loudnorm post через `ralphy render <id> --loudnorm`.
   fps={30}
   width={1080}
   height={1920}
-  defaultProps={...}
+  defaultProps={{ /* ... */ }}
 />
 ```
 
 ## Quirks / gotchas
 
-- **veo-3.1 lip-sync requires audio in request** — see `model-stack.md` Stage 2 ВАЖНО note.
-- **kling fallback не lip-sync** — captions помогают спрятать desync; не показывай сильный close-up на mouth.
-- **Hook screenshot timing** — если scenarist выбрал longer hook (5-6s), увеличь `hookDurationSec` accordingly. Captions автоматически start позже.
-- **Single take** — НЕ используй TransitionSeries с cuts. talking-head must be continuous.
+- **veo-3.1 lip-sync requires an audio reference in the request.** See `model-stack.md` Stage 2 — current `generateVideo` doesn't pass audio yet (tracked follow-on).
+- **kling fallback is not lip-synced.** Captions help hide desync; don't compose a tight close-up on the mouth in this mode.
+- **Hook timing.** If the scenarist picks a longer hook (5-6s), bump `hookDurationSec` accordingly. Captions automatically start later because they're sequenced from `hookFrames`.
+- **Single take.** Do NOT use `TransitionSeries` with cuts. The talking-head must read as a continuous take or the intimacy breaks.
