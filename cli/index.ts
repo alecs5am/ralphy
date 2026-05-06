@@ -19,6 +19,7 @@ import { profileCmd } from "./commands/profile.js";
 import { setupCmd } from "./commands/setup.js";
 import { statusCmd } from "./commands/status.js";
 import { generateCmd } from "./commands/generate.js";
+import { doctorCmd } from "./commands/doctor.js";
 
 const program = new Command();
 
@@ -48,6 +49,7 @@ program
 
 program.addCommand(setupCmd());
 program.addCommand(statusCmd());
+program.addCommand(doctorCmd());
 program.addCommand(generateCmd());
 program.addCommand(initCmd());
 program.addCommand(configCmd());
