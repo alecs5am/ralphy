@@ -2,46 +2,46 @@
 
 ## Single-slot regen
 
-**Когда:** "перегенерь scene-01 фон", "VO для clip-04 не то", "попробуй другую модель для hero shot".
+**When:** "regenerate scene-01 background", "VO for clip-04 isn't right", "try a different model for the hero shot".
 
-**Шаги:**
+**Steps:**
 
-1. Прочитай существующий `prompts.json[<slot>]`.
-2. Прочитай `generations.jsonl` — фильтр по slot — чтобы НЕ повторить промпт+модель который уже фейлил.
-3. Уточни у пользователя:
-   - Обновлённый промпт (или "тот же промпт, новый seed/model").
-   - Estimated cost (одна строка из MODELS.md).
-   - Сохранять старый файл как `.vN.ext` или overwrite.
-4. Запусти **`ralphy generate <kind>`** только для этого слота:
+1. Read the existing `prompts.json[<slot>]`.
+2. Read `generations.jsonl` — filter by slot — so as NOT to repeat a prompt+model combo that has already failed.
+3. Confirm with the user:
+   - Updated prompt (or "same prompt, new seed/model").
+   - Estimated cost (one line from MODELS.md).
+   - Save the old file as `.vN.ext` or overwrite.
+4. Run **`ralphy generate <kind>`** for this slot only:
    ```
    ralphy generate image --project <id> --slot <slot> --model <m> --prompt <p> [--ref <url>]
    ```
-5. `asset-manifest.json` обновится автоматически (новая запись или новая версия).
-6. Чат: что поменялось, cost, путь.
+5. `asset-manifest.json` updates automatically (new entry or new version).
+6. Chat: what changed, cost, path.
 
-**Hard rule:** не пиши runtime TS скрипт под `workspace/projects/<id>/scripts/regen-XX.ts`. Если `ralphy generate` не покрывает кейс — стопаемся, расширяем `cli/commands/generate.ts`, не копируем код в проект.
+**Hard rule:** don't write a runtime TS script under `workspace/projects/<id>/scripts/regen-XX.ts`. If `ralphy generate` doesn't cover the case — stop, extend `cli/commands/generate.ts`, don't copy code into the project.
 
 ## A/B variants (compare-variants sub-task)
 
-**Когда:** пользователь хочет 2-3 варианта одного слота для выбора.
+**When:** the user wants 2-3 variants of one slot to choose from.
 
-**Шаги:**
+**Steps:**
 
-1. Сгенерируй N ассетов с **отчётливо разными** входами (не одинаковые seed). Ось вариативности — одна за раз: prompt wording / seed / model / voice_id.
-2. `ralphy generate <kind>` с флагом `--variant <N>` — пишется как `assets/<kind>/<slot>.v<N>.<ext>`.
-3. Каждый вызов логируется с `note: "variant <N> - <axis>: <value>"` (автоматом через ralphy).
-4. **Не обновляй `asset-manifest.json` сразу.** Сначала покажи варианты пользователю, дождись выбора, потом promote выбранный → канонический путь манифеста.
+1. Generate N assets with **distinctly different** inputs (not identical seed). The variation axis — one at a time: prompt wording / seed / model / voice_id.
+2. `ralphy generate <kind>` with the `--variant <N>` flag — written as `assets/<kind>/<slot>.v<N>.<ext>`.
+3. Each call is logged with `note: "variant <N> - <axis>: <value>"` (automatically via ralphy).
+4. **Don't update `asset-manifest.json` immediately.** First show the variants to the user, wait for the choice, then promote the chosen one → canonical path in the manifest.
 
 ## Post-regeneration quality gate
 
-После каждого регенерата — `scoreImage` / `scoreVideo` (см. `quality-gate.md`). Два провала подряд → стоп, отчёт пользователю с тремя опциями (better ref / different model / different shot).
+After every regeneration — `scoreImage` / `scoreVideo` (see `quality-gate.md`). Two failures in a row → stop, report to the user with three options (better ref / different model / different shot).
 
 ## VO regeneration triggers caption regen
 
-Если перегенерил voiceover любого slot'а — captions нужно перегенерить тоже (whisper привязан к точному audio). После voiceover слота:
+If you regenerated a voiceover for any slot — captions need to be regenerated too (whisper is tied to the exact audio). After a voiceover slot:
 
 ```
 ralphy generate captions --project <id> --slot <slot>
 ```
 
-Это часть `generate-assets`, не отдельный sub-task.
+This is part of `generate-assets`, not a separate sub-task.
