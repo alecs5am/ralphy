@@ -24,9 +24,11 @@ Autonomous UGC-video generation: Claude Code skills + Remotion + OpenRouter medi
 - `src/videos/{name}/` — per-video compositions.
 - `templates/` — repo-public template pack, committed to git, shipped on every clone. Read by `ralphy template list` / `suggest` / `use`.
 - `workspace/` — generated files (gitignored). Safe to wipe. `workspace/templates/` is the local override slot — same id as a repo template shadows it.
+- `workspace/.ralph/asset-cache/` — local cache of files pulled from the `ralphy-assets` companion repo (gitignored).
 - `.agents/skills/` — skill source of truth. `.claude/skills/` symlinks.
 - `dashboard/` — retired in v2. Code stays for now, undocumented.
 - `profiles/<nick>/` — committed dumps of users' workspaces (additive imports).
+- **Companion repo** [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) — heavy required template assets (trend music) and complete example projects. Fetched via `ralphy assets pull` / `ralphy example pull`. Keeps the main repo clone small.
 
 ## ralphy CLI
 
@@ -36,7 +38,7 @@ Autonomous UGC-video generation: Claude Code skills + Remotion + OpenRouter medi
 
 Resources: `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`, `profile`. Each: `create | list | show <id> | update <id> | delete <id>`.
 
-Top-level: `setup`, `status`, `doctor`, `generate {image|video|voiceover|music}`, `render <project>`.
+Top-level: `setup`, `status`, `doctor`, `generate {image|video|voiceover|music}`, `render <project>`, `assets {list|pull|install|clean|cache-info}`, `example {list|pull}`.
 
 Defaults to JSON. `-p` for pretty tables. Full reference: `docs/agent-guide.md`. Spec: `docs/cli-spec.md`.
 

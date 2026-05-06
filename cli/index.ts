@@ -21,6 +21,8 @@ import { statusCmd } from "./commands/status.js";
 import { generateCmd } from "./commands/generate.js";
 import { doctorCmd } from "./commands/doctor.js";
 import { renderCmd } from "./commands/render.js";
+import { assetsCmd } from "./commands/assets.js";
+import { exampleCmd } from "./commands/example.js";
 
 const program = new Command();
 
@@ -65,5 +67,7 @@ program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
 program.addCommand(dashboardCmd());
 program.addCommand(profileCmd());
+program.addCommand(assetsCmd());
+program.addCommand(exampleCmd());
 
 program.parseAsync();
