@@ -171,32 +171,39 @@ workspace/projects/<id>/
 
 A reusable blueprint for a video. Two formats: **flat** (`<id>.json`, scenario only) and **dir** (`<id>/` with full LLM-doc, preferred for video formats).
 
+Templates live in two roots and the CLI reads both:
+- **Repo-public** `templates/<id>/` — committed to git, ships with every clone. The canonical pack: `ai-vegetables`, `before-after-product`, `soviet-nostalgic`, `talking-character`, `talking-head-rant`.
+- **User-local** `workspace/templates/<id>/` — gitignored. Same id as a repo template wins (override semantics).
+
+`template list` and `template suggest` tag each row with `source: "workspace" | "repo"` so you can tell which one was matched.
+
 **When to grab a dir-template:** at the start of a new project that resembles a successful one in format. Example: every soviet-nostalgic TikTok clip → `soviet-nostalgic` template with ready prompt fragments, scene-skeleton, and model-stack.
 
 ```bash
 # Quick start a new project from a template
-ralph template list                                   # see what's available
+ralph template list                                   # all templates, repo + workspace
+ralph template suggest "видос про овощи"             # ranked match (cross-source)
 ralph template show soviet-nostalgic                  # read TEMPLATE.md
 ralph template use soviet-nostalgic \
   --project my-spring-ad-001 \
   --name "My Spring Ad" \
   --brief "One-line brief"
-# → workspace/projects/my-spring-ad-001/ with TEMPLATE_ORIGIN.md, scenario.json from skeleton, standard subdirectories
+# → workspace/projects/my-spring-ad-001/ with TEMPLATE_ORIGIN.md, standard subdirectories.
+# scenario.json is intentionally NOT created — author it through /ralph-scenarist.
 
-# Create a flat template from an existing project
+# Create a flat template from an existing project (lands in workspace)
 ralph template create --name "Product Testimonial" --from-project spring-001
 
-# Register a manually built dir-template
-# (first manually create workspace/templates/<id>/ with template.json + TEMPLATE.md)
+# Register a manually built dir-template (workspace or repo)
 ralph template register <id>
 
-# Delete
+# Delete (workspace-only — repo templates are read-only via CLI)
 ralph template delete <id>
 ```
 
 **Dir-template structure:**
 ```
-workspace/templates/<id>/
+templates/<id>/  (repo)   ─OR─   workspace/templates/<id>/  (local)
   template.json           — metadata (name, description, tags, stackSummary)
   TEMPLATE.md             — main LLM-doc: vibe, when to use, what varies, workflow
   reference-example.md    — concrete example from the source project with annotations (optional but recommended)
@@ -205,11 +212,11 @@ workspace/templates/<id>/
   composition.md          — Remotion pattern (TransitionSeries, music split, VO sync)
 ```
 
-**Principle:** a template is a vibe-reference. The scenario is written fresh through `/ralph-ugc:create-scenario` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
+**Principle:** a template is a vibe-reference. The scenario is written fresh through `/ralph-scenarist` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
 
-**Canonical example:** `workspace/templates/soviet-nostalgic/`.
+**Canonical example:** `templates/soviet-nostalgic/` (repo).
 
-**Storage:** flat — `workspace/templates/<id>.json`; dir — `workspace/templates/<id>/`.
+**Storage:** flat — `<root>/<id>.json`; dir — `<root>/<id>/`. `<root>` is `templates/` (repo, read-only via CLI) or `workspace/templates/` (local, mutable).
 
 ---
 
