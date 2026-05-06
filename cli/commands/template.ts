@@ -3,29 +3,38 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { addEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { templatesDir, projectsDir } from "../lib/paths.js";
+import { templatesDir, repoTemplatesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
 
-// Template storage supports two layouts (both read transparently):
-//   Flat:   workspace/templates/<id>.json
-//   Dir:    workspace/templates/<id>/template.json + TEMPLATE.md + *.md
+// Templates live in two places (both readable transparently):
+//   - templates/                  → repo-public, committed to git, shipped on clone
+//   - workspace/templates/        → user-local, gitignored (lives under workspace/)
+// Workspace overrides repo if both define the same id (so a user can locally
+// edit a published template without touching the repo copy).
+//
+// Each location supports two layouts:
+//   Flat:   <root>/<id>.json
+//   Dir:    <root>/<id>/template.json + TEMPLATE.md + *.md
 //
 // Dir-based templates are preferred for reusable video blueprints because the
 // LLM-consumable doc (TEMPLATE.md) lives next to metadata, and the template
 // can include supplementary fragments (prompt library, scene skeleton,
 // composition pattern, model stack rationale).
 
-async function resolveTemplate(id: string): Promise<
-  | { kind: "dir"; dir: string; metaPath: string; docPath: string }
-  | { kind: "flat"; file: string }
-  | null
-> {
-  const dir = path.join(templatesDir(), id);
+type TemplateSource = "workspace" | "repo";
+
+type ResolvedTemplate =
+  | { kind: "dir"; source: TemplateSource; dir: string; metaPath: string; docPath: string }
+  | { kind: "flat"; source: TemplateSource; file: string };
+
+async function resolveInDir(id: string, baseDir: string, source: TemplateSource): Promise<ResolvedTemplate | null> {
+  const dir = path.join(baseDir, id);
   try {
     const st = await fs.stat(dir);
     if (st.isDirectory()) {
       return {
         kind: "dir",
+        source,
         dir,
         metaPath: path.join(dir, "template.json"),
         docPath: path.join(dir, "TEMPLATE.md"),
@@ -33,16 +42,56 @@ async function resolveTemplate(id: string): Promise<
     }
   } catch { /* fall through to flat */ }
 
-  const flat = path.join(templatesDir(), `${id}.json`);
+  const flat = path.join(baseDir, `${id}.json`);
   try {
     await fs.access(flat);
-    return { kind: "flat", file: flat };
+    return { kind: "flat", source, file: flat };
   } catch {
     return null;
   }
 }
 
-async function readTemplateMeta(ref: NonNullable<Awaited<ReturnType<typeof resolveTemplate>>>) {
+async function resolveTemplate(id: string): Promise<ResolvedTemplate | null> {
+  return (
+    (await resolveInDir(id, templatesDir(), "workspace")) ??
+    (await resolveInDir(id, repoTemplatesDir(), "repo"))
+  );
+}
+
+// Discover all templates across both roots. Workspace overrides repo on id collision.
+async function discoverAllTemplates(): Promise<ResolvedTemplate[]> {
+  const seen = new Map<string, ResolvedTemplate>();
+  for (const [base, source] of [
+    [templatesDir(), "workspace" as const],
+    [repoTemplatesDir(), "repo" as const],
+  ] as const) {
+    let entries: { name: string; isDir: boolean }[] = [];
+    try {
+      const dirents = await fs.readdir(base, { withFileTypes: true });
+      entries = dirents.map((e) => ({ name: e.name, isDir: e.isDirectory() }));
+    } catch { continue; }
+
+    for (const e of entries) {
+      const id = e.isDir ? e.name : e.name.replace(/\.json$/, "");
+      if (!e.isDir && !e.name.endsWith(".json")) continue;
+      if (seen.has(id)) continue;
+      if (e.isDir) {
+        seen.set(id, {
+          kind: "dir",
+          source,
+          dir: path.join(base, id),
+          metaPath: path.join(base, id, "template.json"),
+          docPath: path.join(base, id, "TEMPLATE.md"),
+        });
+      } else {
+        seen.set(id, { kind: "flat", source, file: path.join(base, e.name) });
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
+async function readTemplateMeta(ref: ResolvedTemplate) {
   if (ref.kind === "dir") {
     try {
       return JSON.parse(await fs.readFile(ref.metaPath, "utf-8"));
@@ -87,16 +136,19 @@ export function templateCmd() {
 
       data.createdAt = new Date().toISOString();
 
+      // Warn if a repo template with the same id will be shadowed.
+      const repoCollision = await resolveInDir(id, repoTemplatesDir(), "repo");
+
       await fs.mkdir(templatesDir(), { recursive: true });
       await fs.writeFile(path.join(templatesDir(), `${id}.json`), JSON.stringify(data, null, 2) + "\n");
-      await addEntity("templates", id, { name: opts.name, createdAt: data.createdAt, kind: "flat" });
-      ok(`Template created: ${id}`);
-      out({ id, name: opts.name, path: path.join(templatesDir(), `${id}.json`) });
+      await addEntity("templates", id, { name: opts.name, createdAt: data.createdAt, kind: "flat", source: "workspace" });
+      ok(`Template created: ${id}${repoCollision ? " (overrides repo template with same id)" : ""}`);
+      out({ id, name: opts.name, path: path.join(templatesDir(), `${id}.json`), shadows_repo: !!repoCollision });
     });
 
   cmd
     .command("register <id>")
-    .description("Register an existing dir template (workspace/templates/<id>/) in the registry")
+    .description("Register an existing dir template in the local registry (workspace or repo)")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
       if (!ref) err(`Template dir not found: ${id}`);
@@ -107,47 +159,86 @@ export function templateCmd() {
         name: meta.name || id,
         createdAt: meta.createdAt || new Date().toISOString(),
         kind: "dir",
+        source: ref.source,
         description: meta.description,
         tags: meta.tags,
       });
-      ok(`Registered: ${id}`);
-      out({ id, name: meta.name, dir: ref.dir });
+      ok(`Registered: ${id} (${ref.source})`);
+      out({ id, name: meta.name, dir: ref.dir, source: ref.source });
     });
 
   cmd
     .command("list")
-    .description("List all templates")
+    .description("List all templates (both repo-public templates/ and local workspace/templates/)")
     .action(async () => {
-      const templates = await listEntities("templates");
-      // Also scan dir templates not in registry (e.g. freshly added by hand).
-      const tdir = templatesDir();
-      try {
-        const entries = await fs.readdir(tdir, { withFileTypes: true });
+      type Row = {
+        id: string;
+        name: string;
+        kind: "dir" | "flat";
+        source: TemplateSource;
+        description?: string;
+        tags?: string[];
+        unregistered?: boolean;
+      };
+      const rows = new Map<string, Row>();
+
+      // Workspace first so it overrides repo on id collision (matches resolveTemplate).
+      for (const [base, source] of [
+        [templatesDir(), "workspace" as const],
+        [repoTemplatesDir(), "repo" as const],
+      ] as const) {
+        let entries: { name: string; isDir: boolean }[] = [];
+        try {
+          const dirents = await fs.readdir(base, { withFileTypes: true });
+          entries = dirents.map((e) => ({ name: e.name, isDir: e.isDirectory() }));
+        } catch { continue; }
+
         for (const e of entries) {
-          if (e.isDirectory()) {
-            const already = templates.find((t: any) => t.id === e.name);
-            if (!already) {
-              const meta = await readTemplateMeta({
-                kind: "dir",
-                dir: path.join(tdir, e.name),
-                metaPath: path.join(tdir, e.name, "template.json"),
-                docPath: path.join(tdir, e.name, "TEMPLATE.md"),
+          if (e.isDir) {
+            if (rows.has(e.name)) continue;
+            const ref: ResolvedTemplate = {
+              kind: "dir",
+              source,
+              dir: path.join(base, e.name),
+              metaPath: path.join(base, e.name, "template.json"),
+              docPath: path.join(base, e.name, "TEMPLATE.md"),
+            };
+            const meta = await readTemplateMeta(ref);
+            if (!meta) continue;
+            rows.set(e.name, {
+              id: e.name,
+              name: meta.name || e.name,
+              kind: "dir",
+              source,
+              description: meta.description,
+              tags: meta.tags,
+            });
+          } else if (e.name.endsWith(".json")) {
+            const id = e.name.replace(/\.json$/, "");
+            if (rows.has(id)) continue;
+            try {
+              const meta = JSON.parse(await fs.readFile(path.join(base, e.name), "utf-8"));
+              rows.set(id, {
+                id,
+                name: meta.name || id,
+                kind: "flat",
+                source,
+                description: meta.description,
+                tags: meta.tags,
               });
-              if (meta) {
-                templates.push({ id: e.name, name: meta.name || e.name, kind: "dir", unregistered: true });
-              }
-            }
+            } catch { /* skip unparseable flat */ }
           }
         }
-      } catch { /* no templates dir yet */ }
-      out(
-        templates.map((t: any) => ({
-          id: t.id,
-          name: t.name || t.id,
-          kind: t.kind || "flat",
-          ...(t.unregistered ? { unregistered: true } : {}),
-        }))
-      );
+      }
+
+      // Mark unregistered (only meaningful for workspace — repo templates are always
+      // discoverable by scan, registry tracking is opt-in via `template register`).
+      const registered = new Set((await listEntities("templates")).map((t: any) => t.id));
+      for (const row of rows.values()) {
+        if (row.source === "workspace" && !registered.has(row.id)) row.unregistered = true;
+      }
+
+      out(Array.from(rows.values()));
     });
 
   cmd
@@ -302,10 +393,13 @@ export function templateCmd() {
 
   cmd
     .command("delete <id>")
-    .description("Delete a template (flat file or whole dir)")
+    .description("Delete a workspace template (flat file or whole dir). Repo templates are read-only — edit templates/ in the repo directly.")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
       if (!ref) err(`Template not found: ${id}`);
+      if (ref.source === "repo") {
+        err(`Refusing to delete repo template '${id}' — edit templates/${id} in the repo directly (or shadow it by creating a workspace/templates/${id}/).`);
+      }
       if (ref.kind === "dir") {
         await fs.rm(ref.dir, { recursive: true, force: true });
       } else {
@@ -327,11 +421,10 @@ export function templateCmd() {
         .map((t) => t.replace(/[^a-zа-я0-9-]/giu, "").toLowerCase())
         .filter((t) => t.length >= 2);
 
-      const templates = await listEntities("templates");
+      const refs = await discoverAllTemplates();
       const scored = await Promise.all(
-        templates.map(async (t) => {
-          const ref = await resolveTemplate(t.id);
-          if (!ref) return null;
+        refs.map(async (ref) => {
+          const id = ref.kind === "dir" ? path.basename(ref.dir) : path.basename(ref.file).replace(/\.json$/, "");
           const meta = await readTemplateMeta(ref);
           let docText = "";
           if (ref.kind === "dir") {
@@ -339,9 +432,9 @@ export function templateCmd() {
           }
           const tags: string[] = Array.isArray(meta?.tags) ? meta.tags : [];
           const description: string = typeof meta?.description === "string" ? meta.description : "";
-          const name: string = typeof meta?.name === "string" ? meta.name : t.id;
+          const name: string = typeof meta?.name === "string" ? meta.name : id;
           const haystack = [
-            t.id,
+            id,
             name,
             description,
             tags.join(" "),
@@ -366,10 +459,11 @@ export function templateCmd() {
           const score = Math.min(1, (hits + tagHits) / (denom * 2));
 
           return {
-            id: t.id,
+            id,
             name,
             description,
             tags,
+            source: ref.source,
             score: Number(score.toFixed(3)),
             tier:
               score >= 0.7 ? "strong" : score >= 0.5 ? "weak" : "below-threshold",
