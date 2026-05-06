@@ -414,29 +414,15 @@ Every project keeps an append-only history under `workspace/projects/{id}/logs/`
 1. **The user's brief** — as soon as the user writes it: `ralph project log-prompt <id> --text "..." --stage brief`
 2. **Any feedback** — `--stage feedback` (e.g. "clip-03 is boring")
 3. **Every user-uploaded asset** — screenshots, character photos, product refs, brand documents: `ralph project log-asset <id> --kind photo --source <path> --purpose character-ref`
-4. **Every model call** from a script — through `cli/lib/gen-log.ts`:
+4. **Every model call** is auto-logged by `ralphy generate <kind>`. CLI commands wrap `cli/lib/providers/media.ts` which calls `logGeneration()` internally with provider/endpoint/cost. **Do not write runtime TS scripts under `workspace/projects/<id>/scripts/` to call APIs** — see AGENTS.md hard rule #2. If an operation isn't covered by `ralphy generate`: add a helper to ralphy first.
 
-```ts
-import { logGeneration, loggedFetch } from "../../../../cli/lib/gen-log.js";
-
-// Explicit log
-await logGeneration("my-project-001", {
-  provider: "fal",
-  endpoint: "fal-ai/nano-banana-pro/edit",
-  kind: "image",
-  input: { prompt, image_urls },
-  output: { url, local: savedPath },
-  status: "ok",
-  cost_usd: 0.15,
-  note: "clip-03 v2 — hand crumples sample",
-});
-
-// Or a fetch wrapper — logs automatically
-const resp = await loggedFetch(
-  { projectId: "my-project-001", provider: "fal", endpoint: "...", kind: "video", input: body, note: "..." },
-  url,
-  { method: "POST", headers, body: JSON.stringify(body) }
-);
+```bash
+# Each of these auto-logs to generations.jsonl:
+ralphy generate image    --project <id> --slot scene-01-bg --prompt "..." [--ref <url>]
+ralphy generate video    --project <id> --slot scene-01-vid --image <ref> --prompt "..." --duration 5
+ralphy generate voiceover --project <id> --persona <name> --text "..."
+ralphy generate music    --project <id> --prompt "..." --duration 30
+ralphy generate captions --project <id> --slot scene-01 --audio <path>
 ```
 
 **Reading logs:**

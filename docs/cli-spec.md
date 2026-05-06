@@ -58,7 +58,7 @@ Initialize the workspace and config.
 ```bash
 ralph init                           # Interactive setup
 ralph init --defaults                # Everything default
-ralph init --fal-key <key> --elevenlabs-key <key> --openrouter-key <key>
+ralph init --openrouter-key <key> --elevenlabs-key <key>
 ```
 
 Creates:
@@ -81,9 +81,8 @@ ralph config set default.aspect-ratio 9:16
 ralph config set default.fps 30
 ralph config set default.platform tiktok
 ralph config set default.voice <voice-id>
-ralph config set api.fal-key <key>
-ralph config set api.elevenlabs-key <key>
 ralph config set api.openrouter-key <key>
+ralph config set api.elevenlabs-key <key>
 ralph config set render.concurrency 3
 ralph config set render.quality production
 ```

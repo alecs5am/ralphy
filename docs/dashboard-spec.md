@@ -273,7 +273,7 @@ Clicking it copies the **absolute path** of the file to the clipboard — to pas
 |---------|--------|---------|
 | Copy path | Absolute path | `/Users/.../scene-01-bg.png` |
 | Copy relative | Relative path | `workspace/projects/spring-001/assets/images/scene-01-bg.png` |
-| Copy with context | Path + description | `scene-01-bg.png (scene-01 background, 1080x1920, fal flux-pro)` |
+| Copy with context | Path + description | `scene-01-bg.png (scene-01 background, 1080x1920, openrouter google/gemini-3-pro-image-preview)` |
 
 ### Where the button appears
 
