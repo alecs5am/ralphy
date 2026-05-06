@@ -1,43 +1,43 @@
 # Prompt style
 
-Промпт состоит из четырёх слоёв в строгом порядке:
+A prompt consists of four layers in strict order:
 
-1. **Subject** — кто/что в кадре. Конкретно, без "красивого парня" — "молодой парень 25 лет, тёмные волосы, серая толстовка, неуверенная улыбка".
-2. **Setting** — окружение. Бери из `workspace/scenes/SETTINGS.md` (9 архетипов: кухня, ванная, спортзал, машина, офис, метро, спальня, улица, хакатон).
-3. **Style/lens** — фотографические токены. "shot on iPhone 15 Pro, vertical 9:16, natural light, slight handheld shake".
-4. **Negative** — что не должно быть. "no professional studio lighting, no model-look, no plastic skin".
+1. **Subject** — who/what is in frame. Concrete, no "good-looking guy" — "young guy 25 years old, dark hair, grey hoodie, uncertain smile".
+2. **Setting** — environment. Pull from `workspace/scenes/SETTINGS.md` (9 archetypes: kitchen, bathroom, gym, car, office, metro, bedroom, street, hackathon).
+3. **Style/lens** — photographic tokens. "shot on iPhone 15 Pro, vertical 9:16, natural light, slight handheld shake".
+4. **Negative** — what should not be there. "no professional studio lighting, no model-look, no plastic skin".
 
-## По типу слота
+## By slot type
 
 ### Image
 
-- Размер всегда `1080x1920` (9:16). Никаких square_hd / landscape — наш pipeline вертикальный.
-- Если есть persona/brand reference в `assets/uploaded/` — пихай URL в `image_urls` (multi-ref для gemini-3-pro-image-preview).
-- Negative ВСЕГДА содержит "no text overlays, no watermarks" — captions делаем в Remotion отдельно.
+- Size always `1080x1920` (9:16). No square_hd / landscape — our pipeline is vertical.
+- If there's a persona/brand reference in `assets/uploaded/` — push the URL into `image_urls` (multi-ref for gemini-3-pro-image-preview).
+- Negative ALWAYS contains "no text overlays, no watermarks" — captions are done in Remotion separately.
 
 ### Video (i2v)
 
-- Motion description: 1-2 фразы. "subtle handheld camera shake, character slightly nods, eyes blink naturally". Не описывай весь кадр — он уже в keyframe.
-- Camera movement: "static" / "slow push-in 5%" / "subtle handheld" — выбери одно.
-- Duration: 5s или 10s. 15s только для veo-3.1.
-- **`generate_audio: false`** всегда (см. MODELS.md — no native TTS).
+- Motion description: 1-2 phrases. "subtle handheld camera shake, character slightly nods, eyes blink naturally". Don't describe the whole frame — it's already in the keyframe.
+- Camera movement: "static" / "slow push-in 5%" / "subtle handheld" — pick one.
+- Duration: 5s or 10s. 15s only for veo-3.1.
+- **`generate_audio: false`** always (see MODELS.md — no native TTS).
 
 ### Voiceover (ElevenLabs)
 
-- Voice settings deadpan-молодой-русский — см. MODELS.md "Voice settings".
+- Voice settings deadpan-young-Russian — see MODELS.md "Voice settings".
 - `output_format: mp3_44100_128`.
-- Текст — exactly как scenarist написал, без своих правок. Если нужна правка — handback в `/ralph-scenarist`.
+- Text — exactly as the scenarist wrote it, no edits of your own. If an edit is needed — handback to `/ralph-scenarist`.
 
 ### Music (ElevenLabs Music)
 
-- `force_instrumental: true` всегда (если шаблон явно не требует вокал).
-- `music_length_ms` подбирается под длину видео + 2с tail для fade-out.
-- Промпт: жанр + темп + настроение. "melancholic lo-fi hip-hop, 80 BPM, vinyl crackle, no vocals, instrumental beats".
+- `force_instrumental: true` always (unless the template explicitly requires vocals).
+- `music_length_ms` is sized to video length + 2s tail for fade-out.
+- Prompt: genre + tempo + mood. "melancholic lo-fi hip-hop, 80 BPM, vinyl crackle, no vocals, instrumental beats".
 
 ## Style fragments
 
-Если проект инкарнирован из шаблона — **сначала читай `workspace/templates/<slug>/fragments.md`** и переиспользуй блоки оттуда. Не пиши с нуля стилистические токены, которые шаблон уже стандартизовал.
+If the project was incarnated from a template — **read `workspace/templates/<slug>/fragments.md` first** and reuse blocks from there. Don't write stylistic tokens from scratch when the template has already standardized them.
 
 ## Russian-first
 
-Все наши шаблоны русскоязычные. Не пиши промпты "in the style of Wes Anderson" — это работает хуже чем конкретные референсы и токены. Для русской эстетики предпочитай: "Soviet 80s Polaroid", "kommunalka kitchen", "хрущёвка interior" — не "Russian style" общим словом.
+All our templates are Russian-language. Don't write prompts "in the style of Wes Anderson" — that works worse than concrete references and tokens. For Russian aesthetics prefer: "Soviet 80s Polaroid", "kommunalka kitchen", "хрущёвка interior" — not "Russian style" as a generic word.

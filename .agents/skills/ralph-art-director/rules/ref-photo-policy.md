@@ -1,48 +1,48 @@
 # Reference-photo policy
 
-**Hard rule (inherited from `AGENTS.md`):** именованная персона / бренд / специфическая визуальная идентичность реальной сущности → референс обязателен. Иначе refuse.
+**Hard rule (inherited from `AGENTS.md`):** named persona / brand / specific visual identity of a real entity → reference is required. Otherwise refuse.
 
-## Когда срабатывает gate
+## When the gate fires
 
-Слот scenario.json содержит:
+A scenario.json slot contains:
 
-- `persona.name = "Илон Маск"` (реальное имя, не архетип `it-remote`)
-- `product = "Сбербанк"` / `brand = "Apple"` (брендированный объект, лого, упаковка)
-- `style = "в стиле канала <X>"` где X — реальная узнаваемая сущность
+- `persona.name = "Илон Маск"` (real name, not the `it-remote` archetype)
+- `product = "Сбербанк"` / `brand = "Apple"` (branded object, logo, packaging)
+- `style = "в стиле канала <X>"` where X is a real recognizable entity
 
-## Что делаем
+## What we do
 
-1. Проверь `workspace/projects/<id>/assets/uploaded/` на матчащий ref:
-   - persona-ref → фото лица, желательно 2-3 ракурса
-   - brand-ref → лого, скриншот сайта, упаковка
-   - style-ref → 3-5 скринов целевой эстетики
+1. Check `workspace/projects/<id>/assets/uploaded/` for a matching ref:
+   - persona-ref → face photo, ideally 2-3 angles
+   - brand-ref → logo, website screenshot, packaging
+   - style-ref → 3-5 screenshots of the target aesthetic
 
-2. **Если нет референса — refuse:**
+2. **If there's no reference — refuse:**
 
    > "Чтобы сделать `<имя/бренд>` хорошо, мне нужна референс-картинка. Скинь сюда фото / лого / скриншот, либо смени персонажа на безличного архетипа (`it-remote`, `courier`, `student`) — без референса генерить не буду, выйдет хуже чем дешёвый AI-слоп."
 
-3. **Если пользователь даёт consent — продолжаем:**
+3. **If the user gives consent — we continue:**
 
    > "генерь без референса, я понимаю что качество будет хуже"
 
-   Логируем в `user-prompts.jsonl`:
+   Log to `user-prompts.jsonl`:
    ```ts
    logUserPrompt(id, { stage: "no-ref-consent", text: "<utterance>" })
    ```
 
-## Использование reference в промпте
+## Using a reference in the prompt
 
-Когда reference есть:
+When a reference exists:
 
-- Скопируй файл в `assets/uploaded/<purpose>-<NN>.<ext>` (если ещё не там).
-- Залогируй через `logUserAsset(id, { kind: "photo", source, purpose: "persona-ref" })`.
-- В `prompts.json` для каждого слота, который должен использовать ref, укажи `image_urls: [...]`.
-- При генерации (gemini-3-pro-image-preview) — multi-ref передаётся в `image_urls`.
+- Copy the file to `assets/uploaded/<purpose>-<NN>.<ext>` (if it isn't there already).
+- Log it via `logUserAsset(id, { kind: "photo", source, purpose: "persona-ref" })`.
+- In `prompts.json` for each slot that should use the ref, set `image_urls: [...]`.
+- During generation (gemini-3-pro-image-preview) — multi-ref is passed in `image_urls`.
 
 ## Brand consistency
 
-Для бренда поверх референс-лого добавь в negative: "no logo distortion, no fake branding, no unauthorized brand modification". Лого — только из референса, не генерируем.
+For a brand on top of a reference logo, add to negative: "no logo distortion, no fake branding, no unauthorized brand modification". The logo only comes from the reference — we don't generate it.
 
-## Известные нам люди
+## Known people
 
-**Нет allowlist.** Нет списка "общеизвестных" фигур. Каждое имя проходит через тот же gate. Это прямо избегает галлюцинированных подобий.
+**No allowlist.** No list of "well-known" figures. Every name goes through the same gate. This directly avoids hallucinated likenesses.
