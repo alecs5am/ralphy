@@ -73,11 +73,20 @@
 
 | Назначение | Модель | Цена | Почему |
 |---|---|---|---|
-| **Default** — instrumental beds | ElevenLabs Music | ~$0.05–0.10/track | Тот же ключ что для VO, instrumental-friendly. Принимает duration_ms + prompt. **Validation status: 🟡 to verify in Sprint 1.4.** |
+| **Default** — instrumental beds | ElevenLabs Music (`music_v1`) | subscription (binary audio response) | Тот же ключ что для VO. **Validated 2026-05-06**: API endpoint `POST https://api.elevenlabs.io/v1/music` принимает `prompt`, `music_length_ms` (3000–600000), `force_instrumental: true`, `output_format` (e.g. `mp3_44100_128`). Auth header `xi-api-key`. Возвращает бинарный mp3. |
+
+**Endpoint contract (для `cli/lib/providers/media.ts → generateMusic()`):**
+```
+POST https://api.elevenlabs.io/v1/music
+Headers: xi-api-key: $ELEVENLABS_API_KEY, Content-Type: application/json
+Body: { "prompt": "...", "music_length_ms": 30000, "force_instrumental": true, "output_format": "mp3_44100_128", "model_id": "music_v1" }
+Response: 200 → binary mp3 (application/octet-stream)
+         422 → JSON validation error
+```
 
 **Trend-music rule:** если шаблон отсылает к конкретному trend-треку (`assets/trend-*.mp3`) — копируй файл, **не генерируй замену**. Узнаваемость трека — половина того что делает trend-видео trend'ом.
 
-**Fallback (если ElevenLabs Music не подойдёт):** временно вернуть `fal-ai/lyria2` через FAL_KEY как exception. Документировать в этом файле и в `cli/lib/capabilities.ts`. На 2026-05-06 — fallback не активирован.
+**Fallback (если ElevenLabs Music даст плохое качество в проде):** временно вернуть `fal-ai/lyria2` через FAL_KEY как exception. Документировать здесь и в `cli/lib/capabilities.ts`. На 2026-05-06 — fallback не активирован, ElevenLabs Music — единственный путь.
 
 **Avoid:**
 - Suno (нет в OpenRouter).
