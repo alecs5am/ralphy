@@ -1,44 +1,44 @@
 # Green zone
 
-Geometry для text overlays и captions в 1080×1920 9:16 видео.
+Geometry for text overlays and captions in 1080×1920 9:16 video.
 
 ## Universal Green Zone
 
-- **X:** 60 → 960 (slider 60px от каждого края на 1080px ширине)
-- **Y:** 210 → 1480 (top-bar UI ~210px, bottom-UI ~440px на TikTok)
+- **X:** 60 → 960 (60px slider from each edge of the 1080px width)
+- **Y:** 210 → 1480 (top-bar UI ~210px, bottom UI ~440px on TikTok)
 
-Любой текст или CTA-element должен лежать целиком внутри `[60..960, 210..1480]`.
+Any text or CTA element must lie entirely inside `[60..960, 210..1480]`.
 
 ## Per-platform variants
 
 | Platform | Top safe | Bottom safe | Notes |
 |---|---|---|---|
 | TikTok | 210 | 440 | Most aggressive bottom UI |
-| Reels (Instagram) | 200 | 360 | Чуть более лояльны |
-| Shorts (YouTube) | 180 | 320 | Самые либеральные |
+| Reels (Instagram) | 200 | 360 | Slightly more lenient |
+| Shorts (YouTube) | 180 | 320 | Most liberal |
 
-**Default — TikTok** (если не указано иное). На TikTok пройдёт везде.
+**Default — TikTok** (unless specified otherwise). What passes on TikTok will pass everywhere.
 
 ## Text position presets
 
 | Role | Y-range | Font-size baseline (vh%) |
 |---|---|---|
-| Hook | 280–340 | 7-9% (большие, attention-grab) |
+| Hook | 280–340 | 7-9% (large, attention-grab) |
 | Upper-mid | 360–440 | 5-6% (supporting context) |
 | Supporting | 1100 | 4-5% (mid-flow text) |
 | CTA | 1380 | 5-6% (call to action) |
 
 ## Hard fails
 
-- `y < 210` → закроется top bar (avatar, follow button, ник).
-- `y > 1480` → закроется bottom controls (caption text, like/comment, music attribution).
+- `y < 210` → covered by top bar (avatar, follow button, handle).
+- `y > 1480` → covered by bottom controls (caption text, like/comment, music attribution).
 - `x > 960` → may clip on right edge.
 
 ## Burned-in captions
 
-При `burnSubtitles` дефолт `marginV: 90` = Y 1830. **Это внутри universal zone** (1480 + 90 = 1570... wait, marginV считается от bottom, поэтому Y_actual = 1920 - 90 = 1830). 1830 > 1480 → outside hard zone.
+With `burnSubtitles` the default `marginV: 90` = Y 1830. **This is inside the universal zone** (1480 + 90 = 1570... wait, marginV is measured from the bottom, so Y_actual = 1920 - 90 = 1830). 1830 > 1480 → outside the hard zone.
 
-Решение: для captions дефолт `marginV: 440` (Y_actual = 1480) или меньше — внутри universal zone. Если шаблон требует TikTok-стиль captions ниже — `marginV: 90` но ТОЛЬКО под условием что user-test прошёл OK.
+Fix: for captions, default `marginV: 440` (Y_actual = 1480) or less — inside the universal zone. If the template requires TikTok-style captions lower down — `marginV: 90` BUT only if a user-test passed OK.
 
 ## Validation
 
@@ -50,4 +50,4 @@ isInGreenZone({ x: 540, y: 300, w: 400, h: 60 }); // true
 getTextPreset("hook"); // { y: 310, fontSize: 8 }
 ```
 
-`scoreScenario()` (см. `quality-gate.md`) использует `isInGreenZone()` для проверки всех `text_overlay` сцен в scenario.json.
+`scoreScenario()` (see `quality-gate.md`) uses `isInGreenZone()` to validate every `text_overlay` scene in scenario.json.

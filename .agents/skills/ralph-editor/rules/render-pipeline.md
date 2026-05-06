@@ -2,16 +2,16 @@
 
 ## Author-composition
 
-**When:** asset-manifest полный, composition отсутствует или нужны правки.
+**When:** asset-manifest is complete, composition is missing or needs edits.
 
 ### Decide composition target
 
-- **Base `UGCVideo`** — для сценариев match generic data-driven layout. Просто пиши/обнови `composition-props.json`.
-- **Per-project composition** — `src/videos/<project-slug>/index.tsx`. Создай через композицию primitives из `src/lib/components/` (captions, text, overlays, layouts). Зарегистрируй в `src/Root.tsx` под `Videos` folder с `<Folder>` wrapper.
+- **Base `UGCVideo`** — for scenarios that match the generic data-driven layout. Just write/update `composition-props.json`.
+- **Per-project composition** — `src/videos/<project-slug>/index.tsx`. Build by composing primitives from `src/lib/components/` (captions, text, overlays, layouts). Register in `src/Root.tsx` under the `Videos` folder with a `<Folder>` wrapper.
 
 ### Build composition-props.json
 
-Резолвь каждый slot из манифеста в `staticFile()` key. Asset symlink:
+Resolve every slot from the manifest into a `staticFile()` key. Asset symlink:
 
 ```bash
 ln -sfn ../../workspace/projects/<id>/assets public/project-<id>
@@ -19,54 +19,54 @@ ln -sfn ../../workspace/projects/<id>/assets public/project-<id>
 
 ### Implement transitions / captions
 
-- `TransitionSeries` с `<Sequence>` per scene.
-- Captions из `captions.json` через один из 12 готовых компонентов в `src/lib/components/captions/`.
-- Dual audio (VO + music) с `volume` ducking через `interpolate`. См. `rules/audio-mixing.md`.
+- `TransitionSeries` with `<Sequence>` per scene.
+- Captions from `captions.json` via one of the 12 ready-made components in `src/lib/components/captions/`.
+- Dual audio (VO + music) with `volume` ducking via `interpolate`. See `rules/audio-mixing.md`.
 
 ### Remotion version
 
-**Все пакеты `4.0.441` идентично.** Drift → render fails cryptically.
+**All packages on `4.0.441`, identically.** Drift → render fails cryptically.
 
 ## Preview
 
-**Не запускаем Studio автоматически.** Если пользователь хочет preview:
+**We don't auto-launch Studio.** If the user wants a preview:
 
-> "Запусти `bun run dev` foreground в отдельном терминале — Studio откроется на http://localhost:3000. Композиция: `Videos/<project-slug>` или `UGCVideo` с props из `composition-props.json`."
+> "Run `bun run dev` foreground in a separate terminal — Studio opens at http://localhost:3000. Composition: `Videos/<project-slug>` or `UGCVideo` with props from `composition-props.json`."
 
-Проверь что symlink `public/project-<id>` → `assets` активен.
+Check that the `public/project-<id>` → `assets` symlink is active.
 
 ## Final-render
 
 **Always:**
-1. Прогон `preflight` (см. ниже). Не пропускай.
-2. Symlink активен.
-3. Rendering — **через `ralphy render <id>`**, не прямой вызов:
+1. Run `preflight` (see below). Don't skip.
+2. Symlink active.
+3. Rendering — **via `ralphy render <id>`**, not direct invocation:
    ```bash
    ralphy render <id>
-   # или в dev:
+   # or in dev:
    bun run ralph -- render <id>
    ```
-4. Cleanup symlink после рендера:
+4. Cleanup the symlink after the render:
    ```bash
    rm public/project-<id>
    ```
-5. Чат: render path + duration + file size.
+5. Chat: render path + duration + file size.
 
-`ralphy render` инкапсулирует `bunx remotion render` + symlink lifecycle + log generation event с `provider: "local"`, `kind: "render"`, `cost_usd: 0`.
+`ralphy render` encapsulates `bunx remotion render` + symlink lifecycle + log generation event with `provider: "local"`, `kind: "render"`, `cost_usd: 0`.
 
 ## Preflight checklist
 
-Прежде чем рендерить:
+Before rendering:
 
-1. Каждый asset slot в `scenario.json` имеет матч в `asset-manifest.json` + файл существует.
-2. VO durations match (или ±0.2s) сцен `durationHintSec`. Drift → handback в scenarist.
-3. `captions.json` (Caption[]) существует для каждого VO track.
-4. Music bed duration ≥ total composition duration или есть loop rule.
-5. `composition-props.json` резолвит каждый `staticFile()` key.
-6. **Quality gate:** каждый slot имеет `score >= 7` в манифесте (или explicit bypass-consent).
+1. Every asset slot in `scenario.json` has a match in `asset-manifest.json` and the file exists.
+2. VO durations match (or ±0.2s) the scenes' `durationHintSec`. Drift → handback to scenarist.
+3. `captions.json` (Caption[]) exists for every VO track.
+4. Music bed duration ≥ total composition duration, or there's a loop rule.
+5. `composition-props.json` resolves every `staticFile()` key.
+6. **Quality gate:** every slot has `score >= 7` in the manifest (or explicit bypass-consent).
 
-Output: компактный чат-checklist (`OK` / `MISSING <reason>` per scene).
+Output: a compact chat checklist (`OK` / `MISSING <reason>` per scene).
 
 ## Per-clip captions variant
 
-Если сцены имеют отдельные VO files — транскрайбь каждую отдельно (`captions-01.json`, `captions-02.json`, ...) и concat в композиции. См. `src/videos/lyadov-podcast/` для рабочего паттерна.
+If scenes have separate VO files — transcribe each one separately (`captions-01.json`, `captions-02.json`, ...) and concat them in the composition. See `src/videos/lyadov-podcast/` for a working pattern.
