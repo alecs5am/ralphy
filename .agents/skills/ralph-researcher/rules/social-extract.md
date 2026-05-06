@@ -6,33 +6,33 @@ Working dir: `workspace/references/<handle>/`.
 
 ### Method
 
-1. **Download** через `yt-dlp`:
+1. **Download** via `yt-dlp`:
    ```bash
    yt-dlp -f "best[ext=mp4]/best" --no-playlist \
      -o "workspace/references/<handle>/reels/<name>.mp4" "<VIDEO_URL>"
    ```
 
-2. **Analyze.** Стандартный reproduction blueprint:
+2. **Analyze.** Standard reproduction blueprint:
    ```bash
    bunx tsx scripts/analyze-video.ts \
      --video workspace/references/<handle>/reels/<name>.mp4 \
      --output workspace/references/<handle>/blueprints/<name>
    ```
-   
-   Для bespoke вопроса ("выдели только caption style", "сравни hook timing с другим reel'ом") — вызывай Gemini напрямую через `callLLM()` + tailored prompt. Не давай canned blueprint shape ограничивать вопрос.
+
+   For a bespoke question ("extract caption style only", "compare hook timing with another reel") — call Gemini directly via `callLLM()` + a tailored prompt. Don't let the canned blueprint shape constrain the question.
 
 3. **Register:**
    ```bash
    ralphy ref create --url <VIDEO_URL> --type social
    ```
 
-4. **Cross-analyze** multiple videos одного creator'а:
+4. **Cross-analyze** multiple videos from the same creator:
    ```bash
    bunx tsx scripts/cross-analyze.ts --handle <handle>
    ```
    Output: `<handle>-pattern.json` — recurring hooks, editing signatures, format rules.
 
-### Blueprint shape (стандарт)
+### Blueprint shape (standard)
 
 duration / resolution / aspect, category, language, format type, subtitle style, hook text + why it works, per-scene timestamps + description + on-screen text + transition + camera angle, editing pace, color grading, audio (VO / music / mood / tone), viral factors, reproduction guide (difficulty, assets, steps, variation ideas).
 
@@ -67,7 +67,7 @@ ralphy ref scrape-trends \
   --limit 15
 ```
 
-Скрипт visits `tiktok.com/tag/<hashtag>` без логина, парсит `__UNIVERSAL_DATA_FOR_REHYDRATION__`, дампит Apify-shape JSON, прогоняет каждый video через `scoreTikTok()` и возвращает ranked top-N.
+The script visits `tiktok.com/tag/<hashtag>` without login, parses `__UNIVERSAL_DATA_FOR_REHYDRATION__`, dumps Apify-shape JSON, runs each video through `scoreTikTok()` and returns the ranked top-N.
 
 ### Scoring (engagement ratios)
 
@@ -82,13 +82,13 @@ ralphy ref scrape-trends \
 
 ### Caveats
 
-- TikTok rotates anti-bot tokens. Captcha → wait day, change IP.
-- Без логина TikTok может скрыть numbers — fallback на URL+text only (бесполезно для scoring).
-- Если selectors сломались — re-check hydration script вручную.
+- TikTok rotates anti-bot tokens. Captcha → wait a day, change IP.
+- Without login, TikTok may hide numbers — fallback to URL+text only (useless for scoring).
+- If selectors break — re-check the hydration script manually.
 
 ### After scraping
 
-Top videos (`tier: viral` / `great`) → дёргай по каждой `social-analysis` → `analyze-video.ts` для blueprint.
+Top videos (`tier: viral` / `great`) → run `social-analysis` on each → `analyze-video.ts` for the blueprint.
 
 ## Outputs
 
@@ -100,4 +100,4 @@ workspace/references/trends-<date>/
 
 ## Apify compatibility
 
-Output schema идентичен Apify `clockworks/tiktok-scraper`. Если в будущем появится Apify-ключ, можно переключить consumer'ы без правок (только switch source).
+Output schema is identical to Apify's `clockworks/tiktok-scraper`. If an Apify key shows up later, consumers can switch source without changes.
