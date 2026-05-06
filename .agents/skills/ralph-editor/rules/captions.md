@@ -2,7 +2,7 @@
 
 ## Generation
 
-Tool: `ralphy generate captions` (под капотом `cli/lib/transcribe.ts` → OpenRouter `openai/whisper-1`).
+Tool: `ralphy generate captions` (under the hood `cli/lib/transcribe.ts` → OpenRouter `openai/whisper-1`).
 
 ```bash
 ralphy generate captions --project <id> \
@@ -10,26 +10,26 @@ ralphy generate captions --project <id> \
   --language ru
 ```
 
-Output: `workspace/projects/<id>/captions.json` — `Caption[]` в `@remotion/captions` shape:
+Output: `workspace/projects/<id>/captions.json` — `Caption[]` in the `@remotion/captions` shape:
 ```ts
 { text: string; startMs: number; endMs: number; timestampMs: number; confidence: number }
 ```
 
-Logged автоматом: `provider: "openrouter"`, endpoint `openai/whisper-1`, cost ≈ $0.006 / audio-minute.
+Logged automatically: `provider: "openrouter"`, endpoint `openai/whisper-1`, cost ≈ $0.006 / audio-minute.
 
 ## Hard limits
 
-- **≤25MB per file** (whisper-1 hard limit). Длиннее → re-encode mono 64kbps mp3 заранее или split на chunks.
-- **Word-level timestamps только.** `timestamp_granularities[]=word` уже дефолт в `transcribe.ts`. Segment-level даёт ragged word-pop эффект — не используем.
-- **Language explicit** — `--language ru` для русского. Auto-detect фейлит на коротких clips.
+- **≤25MB per file** (whisper-1 hard limit). Longer → re-encode mono 64kbps mp3 ahead of time or split into chunks.
+- **Word-level timestamps only.** `timestamp_granularities[]=word` is already the default in `transcribe.ts`. Segment-level produces a ragged word-pop effect — we don't use it.
+- **Language explicit** — `--language ru` for Russian. Auto-detect fails on short clips.
 
 ## Caching
 
-**Не запускай повторно** если `captions.json` свежее VO file (`mtime captions > mtime audio`). Проверь перед вызовом — каждый рангон $0.006/мин + latency.
+**Don't re-run** if `captions.json` is fresher than the VO file (`mtime captions > mtime audio`). Check before invoking — every run costs $0.006/min + latency.
 
 ## Per-clip variant
 
-Сцены с отдельными VO → транскрайбь каждую:
+Scenes with separate VOs → transcribe each one:
 
 ```bash
 for n in 01 02 03; do
@@ -39,22 +39,22 @@ for n in 01 02 03; do
 done
 ```
 
-Композиция импортирует все, склеивает по сценам с offset.
+The composition imports them all and stitches per scene with offset.
 
 ## Consume in composition
 
-12 готовых компонентов в `src/lib/components/captions/` принимают `Caption[]` напрямую — никакой конвертации:
+The 12 ready-made components in `src/lib/components/captions/` accept `Caption[]` directly — no conversion needed:
 
-- `HormoziCaptions` — крупный pop-effect, лучший для viral hooks
-- `TikTokCaptions` — стандарт TikTok-стиля
-- `KaraokeCaptions` — слова подсвечиваются sync с речью
-- `Typewriter*` — печатная машинка
-- `Glow*` / `Gradient*` / `Boxed*` / `Bounce*` — стилистические варианты
-- `YellowPop*` — ярко-жёлтые
-- `LuxuryMinimal*` / `Minimal*` — тонкие/минималистичные
+- `HormoziCaptions` — large pop-effect, best for viral hooks
+- `TikTokCaptions` — standard TikTok-style
+- `KaraokeCaptions` — words highlight in sync with speech
+- `Typewriter*` — typewriter
+- `Glow*` / `Gradient*` / `Boxed*` / `Bounce*` — stylistic variants
+- `YellowPop*` — bright yellow
+- `LuxuryMinimal*` / `Minimal*` — thin/minimalist
 
-Выбор стиля — функция шаблона / vibe сценария. Дефолт для UGC — `HormoziCaptions` или `TikTokCaptions`.
+Style choice is a function of the template / scenario vibe. Default for UGC — `HormoziCaptions` or `TikTokCaptions`.
 
 ## Word-boundary cuts (related)
 
-Когда editor режет сегменты VO для viral moments / repurposing — **только по word boundaries**. whisper-1 word-level timestamps дают честные границы. Mid-word cut → consonant clip. Padding 30–200ms по бокам обязателен.
+When the editor cuts VO segments for viral moments / repurposing — **only on word boundaries**. whisper-1 word-level timestamps give honest boundaries. Mid-word cut → consonant clip. 30–200ms padding on each side is mandatory.
