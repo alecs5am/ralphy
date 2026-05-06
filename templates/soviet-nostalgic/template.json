@@ -29,10 +29,12 @@
   },
   "assets": {
     "trendSovietBed": {
-      "path": "assets/trend-soviet-bed.mp3",
+      "remote": true,
+      "manifestKey": "soviet-nostalgic/trend-soviet-bed.mp3",
+      "destSubdir": "assets/music",
       "durationSec": 60.0,
       "required": true,
-      "note": "TikTok trend audio — part of format recognition. Copy into project assets/music/ at scaffold time. Do not substitute with Lyria2 generation."
+      "note": "TikTok trend audio — part of format recognition. Auto-pulled from the ralphy-assets companion repo at scaffold time and copied into the project's assets/music/. Do not substitute with a generated track."
     }
   },
   "constants": {

@@ -339,21 +339,22 @@ export function templateCmd() {
       await fs.writeFile(path.join(projDir, "TEMPLATE_ORIGIN.md"), originLines.join("\n") + "\n");
 
       // Copy required assets from the template (e.g. trend music tracks, brand
-      // sound signatures) into the project's assets/ tree. template.json can
-      // declare these under `assets: { <key>: { path, required, destSubdir? } }`.
-      const copiedAssets: Array<{ key: string; src: string; dest: string; note?: string }> = [];
+      // sound signatures) into the project's assets/ tree. template.json
+      // declares these under `assets: { <key>: { path?, remote?, required, destSubdir?, manifestKey? } }`:
+      //   - `path` (relative to template dir) → file already in the repo, copy directly.
+      //   - `remote` truthy + `manifestKey` → file lives in ralphy-assets, fetch via ensureRequired and copy from cache.
+      const copiedAssets: Array<{ key: string; src: string; dest: string; note?: string; from?: "repo" | "remote" }> = [];
       if (ref.kind === "dir" && meta?.assets && typeof meta.assets === "object") {
+        const { loadManifest, ensureRequired } = await import("../lib/assets-repo.js");
+        let manifestPromise: Promise<Awaited<ReturnType<typeof loadManifest>>> | null = null;
+        const manifest = () => (manifestPromise ??= loadManifest());
+
         for (const [key, raw] of Object.entries(meta.assets as Record<string, any>)) {
           if (!raw || typeof raw !== "object") continue;
           if (!raw.required) continue;
-          const src = path.join(ref.dir, raw.path);
-          try {
-            await fs.access(src);
-          } catch {
-            continue;
-          }
-          // default dest: assets/music/ for .mp3/.wav, assets/images/ for images, else assets/
-          const ext = path.extname(raw.path).toLowerCase();
+
+          const baseName = path.basename(raw.path ?? raw.manifestKey ?? key);
+          const ext = path.extname(baseName).toLowerCase();
           const defaultSub =
             [".mp3", ".wav", ".m4a", ".ogg"].includes(ext) ? "assets/music" :
             [".png", ".jpg", ".jpeg", ".webp"].includes(ext) ? "assets/images" :
@@ -362,9 +363,32 @@ export function templateCmd() {
           const sub = raw.destSubdir || defaultSub;
           const destDir = path.join(projDir, sub);
           await fs.mkdir(destDir, { recursive: true });
-          const dest = path.join(destDir, path.basename(raw.path));
-          await fs.copyFile(src, dest);
-          copiedAssets.push({ key, src, dest: path.relative(projDir, dest), note: raw.note });
+
+          // Local file in the template dir takes precedence (works offline).
+          if (raw.path) {
+            const src = path.join(ref.dir, raw.path);
+            try {
+              await fs.access(src);
+              const dest = path.join(destDir, baseName);
+              await fs.copyFile(src, dest);
+              copiedAssets.push({ key, src, dest: path.relative(projDir, dest), note: raw.note, from: "repo" });
+              continue;
+            } catch { /* fall through to remote */ }
+          }
+
+          // Remote pull from ralphy-assets companion repo.
+          if (raw.remote && raw.manifestKey) {
+            try {
+              const m = await manifest();
+              const { cachedPath } = await ensureRequired(m, raw.manifestKey);
+              const dest = path.join(destDir, baseName);
+              await fs.copyFile(cachedPath, dest);
+              copiedAssets.push({ key, src: cachedPath, dest: path.relative(projDir, dest), note: raw.note, from: "remote" });
+            } catch (e) {
+              // Don't fail scaffold over a missing companion-repo asset — surface and continue.
+              ok(`Warning: failed to pull remote asset '${raw.manifestKey}' (${(e as Error).message}). Run \`ralphy assets install ${projectId} ${id}\` later.`);
+            }
+          }
         }
       }
 
