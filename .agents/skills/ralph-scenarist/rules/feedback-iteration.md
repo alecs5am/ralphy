@@ -2,63 +2,63 @@
 
 ## When this fires
 
-User дал feedback на existing scenario:
+User gave feedback on an existing scenario:
 - "scene 2 weak" / "rework hook" / "tighten VO clip 4"
-- "сделай покороче" / "удлинни"
-- "поменяй persona" / "поменяй setting"
-- "VO слишком быстрый/медленный"
+- "make it shorter" / "make it longer" / "сделай покороче" / "удлинни"
+- "change persona" / "change setting" / "поменяй persona" / "поменяй setting"
+- "VO too fast / too slow" / "VO слишком быстрый/медленный"
 
-## Шаги (surgical)
+## Steps (surgical)
 
-1. **Лог feedback verbatim — самое важное:**
+1. **Log feedback verbatim — most important step:**
    ```bash
    ralphy project log-prompt <id> --text "<feedback>" --stage scenario-feedback
    ```
-   Это cheapest durable record. Без него история контекста теряется.
+   This is the cheapest durable record. Without it, context history is lost.
 
-2. **Read current `scenario.json`** + конкретные секции которые feedback targets.
+2. **Read current `scenario.json`** + the specific sections the feedback targets.
 
-3. **Apply surgically** — не переписывай untouched scenes:
-   - Сохраняй scene IDs где возможно (`scene-01`, `scene-02`, ...) — downstream `prompts.json` / `asset-manifest.json` keys на них.
-   - Если scene split / removed — note это **explicitly** в diff чтобы art-director знал какие slots stale.
-   - Не меняй voice / persona / setting если feedback не про них.
+3. **Apply surgically** — do not rewrite untouched scenes:
+   - Preserve scene IDs where possible (`scene-01`, `scene-02`, ...) — downstream `prompts.json` / `asset-manifest.json` keys depend on them.
+   - If a scene is split / removed — note this **explicitly** in the diff so the art director knows which slots are stale.
+   - Don't change voice / persona / setting unless the feedback is about them.
 
-4. **Recompute timing если изменился duration:**
+4. **Recompute timing if duration changed:**
    - Update top-level `durationSec` / `durationFrames`.
-   - Проверь sum(scenes) ≤ duration.
+   - Verify sum(scenes) ≤ duration.
 
 5. **Re-run quality gate:**
    ```bash
    ralphy project score <id>
    ```
-   Если fail — fix → re-run.
+   If fail — fix → re-run.
 
-6. **Diff summary в чат** — sanity-check before art direction spends $:
-   > "scene-02 VO с 5 строк → 3; hook переписан; duration 32s → 28s; scene-04 unchanged."
+6. **Diff summary in chat** — sanity-check before art direction spends $:
+   > "scene-02 VO from 5 lines → 3; hook rewritten; duration 32s → 28s; scene-04 unchanged."
 
 ## Cost-aware handoff
 
-После feedback'а определи **что именно регенерировать**:
+After feedback, decide **what exactly to regenerate**:
 
-| Изменилось | Что регенерим в art-director |
+| What changed | What we regen in art-director |
 |---|---|
-| Только VO text | Только voiceover slots (cheap, ~$0.30/scene) |
-| Hook scene полностью | scene-01 image + video + VO + caption |
-| Visual без VO | Image + video, не VO |
-| Setting / persona | Все image + video slots, не VO |
-| Pacing / timing | Только composition (editor), ничего не регенерим |
-| Captions style | Только composition (editor) |
+| VO text only | Voiceover slots only (cheap, ~$0.30/scene) |
+| Entire hook scene | scene-01 image + video + VO + caption |
+| Visual without VO | Image + video, no VO |
+| Setting / persona | All image + video slots, no VO |
+| Pacing / timing | Composition only (editor), no regen |
+| Captions style | Composition only (editor) |
 
-Hand off с **explicit нотой**: "только voiceover slots: scene-02, scene-03". Это экономит пользователю $$.
+Hand off with an **explicit note**: "voiceover slots only: scene-02, scene-03". This saves the user $$.
 
 ## Iteration limit
 
-Если на одной scene было ≥3 feedback'ов и она всё ещё не landing — стоп, пользователю:
-> "Scene-XX переделана 3 раза, не сходимся. Опции: a) скинь reference-кадр того что хочется, b) сменим эту scene на другой beat, c) скажи в одном предложении что должно работать в этой scene. Без этого продолжать = просто жечь время."
+If a single scene has gotten ≥3 feedback rounds and still isn't landing — stop, tell the user:
+> "Scene-XX has been redone 3 times and we're not converging. Options: a) drop a reference frame of what you want, b) swap this scene for a different beat, c) tell me in one sentence what should work in this scene. Without that, continuing = just burning time."
 
 ## Hand off rules
 
-- Visual + VO changes → `/ralph-art-director` full regen для affected scenes.
-- VO-only changes → `/ralph-art-director` с note "VO only" (saves money).
-- Composition / pacing only → `/ralph-editor` (assets уже годятся).
-- Если feedback требует фундаментально нового brief → handback в `/ralph-producer` для clarify с пользователем.
+- Visual + VO changes → `/ralph-art-director` full regen for affected scenes.
+- VO-only changes → `/ralph-art-director` with note "VO only" (saves money).
+- Composition / pacing only → `/ralph-editor` (assets are still good).
+- If feedback requires a fundamentally new brief → hand back to `/ralph-producer` to clarify with the user.

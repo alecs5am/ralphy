@@ -1,78 +1,78 @@
 # Hook formulas
 
-Hook = первые 1-3 секунды. Если зритель не остановится — остальное не имеет значения. Source of truth: `workspace/hooks/HOOK_LIBRARY.md` (создаётся в Sprint 2.2).
+Hook = the first 1-3 seconds. If the viewer doesn't stop, nothing else matters. Source of truth: `workspace/hooks/HOOK_LIBRARY.md` (created in Sprint 2.2).
 
-## 5 форматов (angle)
+## 5 formats (angle)
 
-Top-level scenario `angle` — один из:
+Top-level scenario `angle` — one of:
 
-1. **testimonial** — UGC-форма "я попробовал и вот что вышло". POV первого лица.
-2. **unboxing** — распаковка / first-look. Build-up к reveal.
-3. **problem-solution** — 5s боли + 10s решения. Классика рекламы.
-4. **comparison** — A vs B (старое/новое, конкурент/мы, dumb/smart).
-5. **demo** — продуктовое демо в действии без отвлечений.
+1. **testimonial** — UGC form "I tried it and here's what happened". First-person POV.
+2. **unboxing** — unboxing / first-look. Build-up to the reveal.
+3. **problem-solution** — 5s of pain + 10s of solution. Classic ad shape.
+4. **comparison** — A vs B (old/new, competitor/us, dumb/smart).
+5. **demo** — product demo in action, no distractions.
 
-## 4 hook angles (как именно цеплять)
+## 4 hook angles (how exactly to hook)
 
-1. **Gatekeep** — "никто вам этого не расскажет, но...". Insider знание.
-2. **Skeptic** — "я не верил пока сам не попробовал". Conversion arc.
-3. **Fail** — "так вот как делать НЕ надо". Anti-pattern attention.
-4. **Visual shock** — открытие с импакта (взрыв, неожиданный угол, кадр-сюрприз).
+1. **Gatekeep** — "no one will tell you this, but...". Insider knowledge.
+2. **Skeptic** — "I didn't believe it until I tried it myself". Conversion arc.
+3. **Fail** — "here's how NOT to do it". Anti-pattern attention.
+4. **Visual shock** — open with impact (explosion, unexpected angle, surprise frame).
 
-## Russian hook formulas (≤10 words)
+## Hook formulas (≤10 words)
 
-Эти формы проверены на RU-аудитории — не переводи английские дословно.
+These have been tested on RU audiences — don't translate the English ones literally. For RU-targeted videos, use the Russian forms; the English equivalents are paired examples for EN-targeted scenarios.
 
 ### Gatekeep
-- "Никто не говорит про <X>, но..."
-- "Эту фишку я раскопал случайно..."
-- "Хочешь знать как <X> на самом деле?"
+- "Nobody talks about <X>, but..." / "Никто не говорит про <X>, но..."
+- "I stumbled on this trick by accident..." / "Эту фишку я раскопал случайно..."
+- "Want to know how <X> really works?" / "Хочешь знать как <X> на самом деле?"
 
 ### Skeptic
-- "Я не верил, пока сам не попробовал"
-- "Думал что развод, оказалось..."
-- "Сначала ржал, потом охренел"
+- "I didn't believe it until I tried it" / "Я не верил, пока сам не попробовал"
+- "Thought it was a scam, turned out..." / "Думал что развод, оказалось..."
+- "First I laughed, then I lost it" / "Сначала ржал, потом охренел"
 
 ### Fail
-- "Не делайте так, я уже сделал"
-- "Вот как НЕ надо"
-- "Я ошибся, чтобы вы не ошибались"
+- "Don't do it like this — I already did" / "Не делайте так, я уже сделал"
+- "Here's how NOT to do it" / "Вот как НЕ надо"
+- "I made the mistake so you don't have to" / "Я ошибся, чтобы вы не ошибались"
 
 ### Visual shock
-- открытие с экстремального ракурса / smash-cut
-- "Смотри что произошло когда я..."
-- "Это что вообще?!"
+- open on an extreme angle / smash-cut
+- "Watch what happened when I..." / "Смотри что произошло когда я..."
+- "What even is this?!" / "Это что вообще?!"
 
 ### POV
-- "POV: ты <ситуация>"
-- "POV: мне <возраст>, я <состояние>"
-- "POV: <бренд> запускается в России"
+- "POV: you're <situation>" / "POV: ты <ситуация>"
+- "POV: I'm <age>, I'm <state>" / "POV: мне <возраст>, я <состояние>"
+- "POV: <brand> launches in Russia" / "POV: <бренд> запускается в России"
 
 ## Word budget
 
-**2.5 слова в секунду** — RU TTS темп для deadpan young-русского. Это значит:
+**2.5 words per second** — RU TTS pacing for deadpan young-Russian. That means:
 
-- Hook (3s) ≤ 7-8 слов
-- Сцена (5s) ≤ 12-13 слов VO
-- Вся 15s видео ≤ 35-37 слов VO total
+- Hook (3s) ≤ 7-8 words
+- Scene (5s) ≤ 12-13 VO words
+- Whole 15s video ≤ 35-37 VO words total
 
-Если сценарий не влезает в word budget — обрезай. Длинная VO compress'ится TTS'ом и звучит зажато.
+If the scenario doesn't fit the word budget — cut. Long VO gets compressed by TTS and sounds rushed.
 
 ## Banlist (ad-speak)
 
-Эти слова автоматически снижают conversion на UGC-форме (звучат как реклама):
+These words automatically tank conversion in UGC form (they sound like ads):
 
-- "уникальный", "революционный", "инновационный"
-- "не упустите шанс", "ограниченное предложение"
-- "лидер рынка", "номер один"
-- "обращайтесь сегодня", "звоните"
-- "качественный", "профессиональный" (без конкретики)
+- "уникальный", "революционный", "инновационный" ("unique", "revolutionary", "innovative")
+- "не упустите шанс", "ограниченное предложение" ("don't miss your chance", "limited offer")
+- "лидер рынка", "номер один" ("market leader", "number one")
+- "обращайтесь сегодня", "звоните" ("contact us today", "call now")
+- "качественный", "профессиональный" without specifics ("high-quality", "professional")
 
-Заменяй на конкретику: "уникальный" → "единственный кто...", "качественный" → "выдержал X тестов" / "прошёл Y лет".
+Replace with specifics: "уникальный" → "единственный кто..." ("the only one who..."); "качественный" → "выдержал X тестов" / "прошёл Y лет" ("survived X tests" / "lasted Y years").
 
 ## A/B variants
 
-В scenario.json:
+In scenario.json:
 
 ```json
 {
@@ -83,13 +83,13 @@ Top-level scenario `angle` — один из:
 }
 ```
 
-Variant B рендерится как отдельная сцена-01 — final mp4 имеет два cuts если пользователь хочет A/B test.
+Variant B renders as a separate scene-01 — the final mp4 has two cuts if the user wants to A/B test.
 
 ## Quality
 
-Перед handoff проверяется (`scoreScenario`):
-- `hook.primary` есть, ≤10 слов
+Checked before handoff (`scoreScenario`):
+- `hook.primary` exists, ≤10 words
 - `angle` ∈ {testimonial, unboxing, problem-solution, comparison, demo}
-- Первая сцена ≤ 3s
+- First scene ≤ 3s
 
-Если fail — итерируй. См. `rules/quality-gate.md`.
+If fail — iterate. See `rules/quality-gate.md`.
