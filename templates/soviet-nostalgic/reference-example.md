@@ -1,6 +1,6 @@
 # Reference example — `solutions-metal-001`
 
-This is the concrete project that this template was extracted from. Read it to understand what a finished video in this vibe looks like. **Don't copy it literally** — the point is to absorb the tone, pacing, visual language, and structural choices, then write your own scenario through `/ralph-ugc:create-scenario` based on the new product's story.
+This is the concrete project that this template was extracted from. Read it to understand what a finished video in this vibe looks like. **Don't copy it literally** — the point is to absorb the tone, pacing, visual language, and structural choices, then write your own scenario through `/ralph-scenarist` based on the new product's story.
 
 ## The video
 

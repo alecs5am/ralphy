@@ -1,6 +1,6 @@
 # Prompt fragment library
 
-Reusable building blocks to compose prompts for `nano-banana-pro/edit` (keyframes), `kling-video/v3/pro/image-to-video` (motion), `lyria2` (music), and ElevenLabs (VO settings).
+Reusable building blocks to compose prompts for `gemini-3-pro-image-preview` (keyframes), `kwaivgi/kling-v3.0-pro` (motion), ElevenLabs Music (background beds), and ElevenLabs `eleven_multilingual_v2` (VO settings).
 
 **How to use:** these aren't templates with blanks to fill. They're proven phrases that reliably hit the vibe. Copy the style/quality fragments verbatim. Adapt the character/product fragments by substituting the concrete descriptor from your new project (the reference photo + any specific details — don't invent adjectives).
 
@@ -9,7 +9,7 @@ Compose like:
 <scene-specific action prompt> + <character descriptor from the reference photo> + <product descriptor> + ANATOMY + SOVIET_STYLE (or MODERN_STYLE) + NO_FRAME
 ```
 
-**Always append `NO_FRAME` to image prompts.** Without an explicit instruction, nano-banana-pro tends to add a beige archival matte with "СВЕМА 35 / ФОТОГРАФИЯ" text along the edges (it treats any Soviet vibe cue as license to draw the artifact surround). We want the Svema *grain and palette* but the full 9:16 frame for the photograph itself.
+**Always append `NO_FRAME` to image prompts.** Without an explicit instruction, the image model tends to add a beige archival matte with "СВЕМА 35 / ФОТОГРАФИЯ" text along the edges (it treats any Soviet vibe cue as license to draw the artifact surround). We want the Svema *grain and palette* but the full 9:16 frame for the photograph itself.
 
 ## Style
 
@@ -24,11 +24,11 @@ Compose like:
 
 ## Characters
 
-The pattern is: **short concrete description of the character from the reference photo + "Preserve identity exactly."** Don't invent features that aren't visible in the ref photo — nano-banana-pro/edit treats the ref as gospel but will drift if you add contradicting adjectives.
+The pattern is: **short concrete description of the character from the reference photo + "Preserve identity exactly."** Don't invent features that aren't visible in the ref photo — `gemini-3-pro-image-preview` treats the ref as gospel but will drift if you add contradicting adjectives.
 
 ### Example from solutions-metal-001 — inventor (grandfather)
 
-Used in keyframes for scenes 1, 2, 4 where the Soviet-era character appears. The `nano-banana-pro/edit` call took the generated grandfather portrait as `image_urls[0]`.
+Used in keyframes for scenes 1, 2, 4 where the Soviet-era character appears. The image call took the generated grandfather portrait as the first `--ref` URL.
 
 > the Soviet textile engineer in his mid to late fifties from the reference photo — same face, same greying hair combed back, same deep-set tired intelligent eyes, round wire-frame glasses, trimmed greying moustache, weathered face, white laboratory coat over grey shirt and thin dark tie. Preserve his identity exactly.
 
@@ -87,17 +87,17 @@ What makes it work: concrete materials (aluminum foil + cotton), observable prop
 
 ### Soviet bed — use the canonical track, don't generate
 
-**Required:** `workspace/templates/soviet-nostalgic/assets/trend-soviet-bed.mp3` (60s). This is a TikTok trend audio that viewers recognize — part of why the format stops scrolls. Copy it into each new project's `assets/music/` at scaffold time. See the Music section in [TEMPLATE.md](TEMPLATE.md) for details.
+**Required:** `templates/soviet-nostalgic/assets/trend-soviet-bed.mp3` (60s). This is a TikTok trend audio that viewers recognize — part of why the format stops scrolls. The track is auto-copied into the project's `assets/music/` at scaffold time (`ralphy template use` reads `template.json → assets`). See the Music section in [TEMPLATE.md](TEMPLATE.md) for details.
 
-**Do not replace** with a Lyria2 generation. A "similar vibe" track loses the recognition signal.
+**Do not replace it with a generated bed.** A "similar vibe" track loses the recognition signal that's load-bearing for the format.
 
-For reference only — the Lyria2 prompt used on the very first version before we switched to the canonical track. Keep this as a fallback only if the canonical track becomes unavailable, but expect a noticeable loss in trend recognition:
+For reference only — the generation prompt used on the very first version before we switched to the canonical track. Keep this as a fallback only if the canonical track becomes unavailable, with the expectation of a noticeable loss in trend recognition:
 
 > (fallback) Instrumental background score, nostalgic Soviet-era atmosphere, 1970s Soviet documentary film style. Slow tempo around 60 BPM, minor key, warm analog synthesizer pads with subtle tape hiss, soft sustained strings, occasional distant accordion touches, very gentle melancholy but reflective and dignified — not sad. Quiet and unhurried, suitable as a background score behind a calm male voice-over narration. No vocals, no lyrics, no drums, no percussion hits, no strong melodic hooks. Must stay subtle and atmospheric so a voice-over sits clearly above it. Long sustained chords, slow evolving texture, analog warmth, low register emphasis.
 
 > (fallback negative) low quality, loud drums, strong percussion, aggressive beats, vocals, singing, lyrics, rap, electric guitar solo, dubstep, modern EDM, fast tempo, distortion, loud brass, jazzy swing, heavy bass drops
 
-### Hip-hop bed — generate via Lyria2 (or user-provided)
+### Hip-hop bed — generate via ElevenLabs Music (or user-provided)
 
 The modern-era half (after the DJ-drop) is less trend-bound. Any confident dark trap instrumental works.
 
