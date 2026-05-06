@@ -1,83 +1,87 @@
 # Before / After Product — vibe reference
 
-**Жанр:** классический UGC ad — 5s pain point → 10s product solution / transformation.
-**Длительность:** 15-18s.
-**Формат:** TikTok 9:16, 30fps.
+**Genre:** classic UGC ad — 5s pain point → 1s product reveal → ~9s demo / transformation.
+**Length:** 15-18s.
+**Format:** TikTok / Reels / Shorts, 9:16, 30fps, 1080×1920.
 
-> **Reference-required gate.** Если scenario упоминает named brand / product — должен быть референс (фото / лого / упаковка) в `workspace/projects/<id>/assets/uploaded/`. Без рефа `/ralph-art-director` refuse'нет (см. AGENTS.md hard rule #3).
+> **Reference-required gate.** If the brief mentions a named brand or product, a reference (photo / logo / packaging) MUST exist at `workspace/projects/<id>/assets/uploaded/`. Without it, `/ralph-art-director` refuses (AGENTS.md hard rule #3). AI-improvised packaging on a real brand always reads as fake.
 
 ## Why this works
 
-Самый старый и самый proven UGC ad pattern:
+The oldest and most reliably converting UGC ad pattern:
 
-1. **5 секунд боли** — relatable / specific / эмоциональный — viewer узнаёт себя.
-2. **Product/решение появляется на 5-секундной отметке** — момент relief.
-3. **10 секунд показа решения** — достаточно чтобы убедить, не overstays.
-4. **Tonal arc** в VO + музыке — frustrated → satisfied. Aural reward для зрителя.
+1. **5 seconds of relatable, specific pain.** The viewer recognizes themselves and stops scrolling.
+2. **Product / solution lands at the 5s mark.** The reveal is the moment of relief — the emotional payoff.
+3. **9 seconds of demo.** Just enough to convince, not so long it overstays.
+4. **Tonal arc** in VO and music: frustrated → satisfied. Aural reward for sticking around.
 
 ## Vibe anchors
 
-- **Pain point — конкретный, не abstract.** "Туалетная бумага рвётся когда тянешь" > "проблемы с гигиеной".
-- **Reveal — момент, не длительный шот.** 0.5-1s product appears clearly, потом demo.
-- **Не over-promise.** "Стало лучше" > "Революция в индустрии".
-- **Real environment** — не studio. Кухня / ванная / спальня / офис в зависимости от продукта.
-- **Reference-anchored visuals** — product look exactly как в user's reference, не AI-improvised.
+- **Pain point: specific, not abstract.** "The toilet paper rips when you pull it" beats "hygiene problems." Specificity is what makes the viewer recognize themselves.
+- **Reveal: a moment, not a long shot.** 0.5-1s of the product appearing clearly, then the demo begins.
+- **Don't over-promise.** "It got better" beats "Industry revolution." Hyperbole signals an ad and kills trust.
+- **Real environment.** Kitchen, bathroom, bedroom, office — fits the product. Not studio lighting.
+- **Reference-anchored visuals.** Product looks exactly like the user's reference. AI must not improvise branding.
 
 ## Variation axes
 
-| Ось | Варианты |
+| Axis | Options |
 |---|---|
 | Product category | cosmetics, food, software, service, fitness, household, fashion |
-| Pain point specificity | vague-universal ("вечно устаю") vs niche-specific ("у пасты пятна на зубах") |
-| Reveal style | gradual (продукт появляется в кадре) vs dramatic (smash-cut) |
+| Pain point specificity | vague-universal ("I'm always tired") vs niche-specific ("toothpaste leaves spots") |
+| Reveal style | gradual (product enters frame) vs dramatic (smash-cut) |
 | Voice emotion arc | frustrated→relieved / skeptical→amazed / exhausted→energized |
+| VO language | any — English, Russian, Spanish, etc. The visual arc carries regardless. |
 
 ## Narrative arc
 
 ```
-0-2s   → Pain hook: visual of problem in action. VO: relatable line.
-2-5s   → Pain reinforcement: 1-2 micro-failures or frustrations.
-5-6s   → Reveal: product appears (product shot ИЛИ user holding it).
-6-12s  → Demo: 2-3 micro-proofs that it works (transformation, before/after split, satisfied user reaction).
-12-15s → CTA / outro: product name shown, tagline, или happy user shot.
+0-2s    → Pain hook. Visual of the problem in action. VO: relatable line.
+2-5s    → Pain reinforcement. 1-2 micro-failures or frustrations stack on top.
+5-6s    → Reveal. Product appears (product shot or user holding it).
+6-12s   → Demo. 2-3 micro-proofs that it works (transformation, before/after split, satisfied reaction).
+12-15s  → CTA / outro. Product name, tagline, or happy-user beat.
 ```
 
 ## Required user inputs
 
-1. **Product** — название + category.
-2. **Pain point** — что он решает.
-3. **Reference** — фото продукта / упаковки / лого. **REQUIRED.** Без него refuse.
+1. **Product** — name + category.
+2. **Pain point** — what it solves.
+3. **Reference** — photo of product / packaging / logo. **REQUIRED.** Without it: refuse.
 4. **(Optional) Tone** — frustrated→relieved (default) / skeptical→amazed / exhausted→energized.
+5. **(Optional) VO language** — defaults to English; works in any language.
 
-## Reference-required gate (хард)
+## Reference-required gate (hard refuse)
 
-Если brief упоминает specific brand / product без `assets/uploaded/<product-ref>.<ext>`:
+If the brief mentions a specific brand or product without a file at `workspace/projects/<id>/assets/uploaded/<product-ref>.<ext>`:
 
-> "Brief упоминает '<product>' — нужен референс (фото / лого / упаковка). Скинь сюда либо смени на безличный case ('эта губка', 'какое-то средство'). Без референса делать не буду — выйдет AI-slop с неправильным лого / упаковкой."
+> "The brief mentions '<product>'. I need a reference (photo / logo / packaging) — drop one in this chat, or rephrase the brief in generic terms ('this sponge', 'some product'). I can't ship this without a reference — it would come out as AI-slop with hallucinated branding."
 
 ## When NOT to use
 
-- Service product без visual ("консультация юриста") — нечего показывать в reveal.
-- Pure-software (e.g. SaaS) без UI screenshots — reveal слабый.
-- Brand awareness (не conversion) — этот формат заточен под конверсию.
-- Длительность > 25s.
-- Multiple SKU — один product per video.
+- Service product without a visual ("legal consultation") — there's nothing to show in the reveal.
+- Pure-software (SaaS) without UI screenshots — the reveal lands weakly.
+- Brand awareness (not conversion) — this format is built for conversion.
+- Length > 25s — the formula loses tension.
+- Multiple SKUs in one video — one product per video, always.
 
 ## Cost ballpark
 
-- 3-4 keyframes × $0.15 = $0.45-0.60
-- 3-4 video clips × kling × 5s = $2.10-2.80
-- VO (subscription) = $0
-- 2× music (2 ElevenLabs Music calls, subscription) = $0
-- Captions (whisper-1) = $0.001
-- Render = $0
-- **Total: ~$2.50-3.50 per video**
+| Stage | Detail | Cost |
+|---|---|---|
+| Keyframes | 5-6 × `gemini-3-pro-image-preview` @ $0.15 | ~$0.90 |
+| Video clips | 3-4 × `kling-v3.0-pro` × 5s @ $0.14/s | $2.10 - $2.80 |
+| VO | 2 ElevenLabs calls (subscription) | $0 |
+| Music | 2 ElevenLabs Music calls (subscription) | $0 |
+| Captions | 2 × whisper-1 | ~$0.002 |
+| Render | local | $0 |
+| **Total** | | **~$3.00 - $3.70** |
 
-(Cheap formate — короткие clips + subscription audio.)
+Cheap format — short clips + subscription audio.
 
 ## Read also
 
-- `fragments.md` — pain-point fragments + product placement recipes + tone-shift patterns.
-- `model-stack.md` — concrete commands.
+- `fragments.md` — pain-point fragments + product-placement recipes + tonal-arc patterns.
+- `model-stack.md` — concrete commands and the reveal-frame quality gate.
 - `composition.md` — dual-music split + caption-style split.
-- `reference-example.md` — placeholder.
+- `reference-example.md` — placeholder; fills in after the first real run.
