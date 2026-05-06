@@ -1,79 +1,57 @@
 # Models registry
 
-Current list of models we use in this project. Claude's training has a cutoff — this file is the single source of truth. **Read it before every generation.**
+Текущий узкий список моделей. **Только две API-ключи:** `OPENROUTER_API_KEY` для медиа/LLM/транскрайба, `ELEVENLABS_API_KEY` для голоса и музыки. Всё остальное — out.
 
-> **Last reviewed: 2026-04-23.** If the file is more than 30 days old — re-check via `mcp__fal-ai__search_models` and refresh.
+> **Last reviewed: 2026-05-06.** Если файл старше 30 дней — перепроверь модели через OpenRouter.
 
-## 🚨 Mandatory rule before calling any model
+## 🚨 Перед каждым вызовом
 
-**Never hardcode an old model version from memory.** Before a call:
+1. Открой эту таблицу — там текущий top-pick и причина выбора.
+2. **Не хардкодь устаревшие версии моделей из памяти.** Версии моделей дрейфуют молча.
+3. Если задача новая (нет в таблице) — НЕ выдумывай провайдера. Скажи юзеру что задача out-of-scope или требует расширения списка моделей.
 
-1. Open this table — it has the current top pick and the reason for the choice.
-2. If the model is in this file, or you want a sibling — call `mcp__fal-ai__search_models` with the family base name (`kling`, `seedance`, `veo`, `flux`, `nano-banana`, `lyria`, `gpt-image`) and check whether a fresher version exists. If yes — use it and update this file.
-3. If the task is new (not in the table) — use `mcp__fal-ai__recommend_model` with a description of the task.
-4. Pricing — `mcp__fal-ai__get_pricing` before kicking off expensive batches.
+---
 
-Families go stale silently — `kling-video/v1.6` is still available, but `v3/pro` is usually better for the same money. Don't inherit a pick from old code — re-check on every new project.
+## Image generation
 
-## Image generation (text-to-image and edit)
-
-| Purpose | Model | Price | Why |
+| Назначение | Модель | Цена ориентир | Почему |
 |---|---|---|---|
-| Keyframes with character consistency (multi-ref) | `fal-ai/nano-banana-pro/edit` | ~$0.15/img | Best multi-reference consistency for face/clothing across 8 different scenes. PNG 2K 9:16. |
-| Pure text-to-image (no reference) | `fal-ai/nano-banana-pro` | ~$0.15/img | Same stack, but without `image_urls`. Use to generate one character-reference before a series of keyframes. |
-| High-quality editorial photo | `fal-ai/flux-pro/v1.1-ultra` | ~$0.06/img | When you need a photorealistic studio shot without a strong character lock. Cheaper than nano-banana. |
-| Structural edit with mask / inpainting | `fal-ai/flux-pro/v1.1-ultra/redux` or `fal-ai/flux/dev/inpainting` | ~$0.04–0.08 | Replace part of an image while preserving the rest. |
+| **Default** — keyframes с консистентностью персонажа (multi-ref) | `google/gemini-3-pro-image-preview` (= nano-banana lineage) | ~$0.15/img | Лучший multi-reference: лицо/одежда держатся между сценами. PNG 2K 9:16. |
+| **Premium** — высокое качество студийного фото | `openai/gpt-5.4-image-2` | ~$0.20/img | Лучшее качество фотореализма когда нет требования к multi-ref consistency. |
+
+Все вызовы — через `cli/lib/providers/media.ts → generateImage()`, который ходит в OpenRouter. **Не использовать прямые fetch к fal.ai / openai.com.**
 
 **Avoid:**
-- `openai/gpt-image-2` with `output_format: "jpeg"` — visible JPEG artifacts on grainy/retro film texture. Always PNG.
-- `openai/gpt-image-2` with `image_size: "1024x1536"` — 422 error, accepts only enums (`portrait_16_9`, `square_hd`, etc.).
-- Any model older than a year (`stable-diffusion-xl`, `flux/schnell`, `dall-e-3`) — quality below current top picks for the same money.
+- Любые модели старше года (`stable-diffusion-xl`, `flux/schnell`, `dall-e-3`) — качество ниже текущих топов за те же деньги.
+- `gpt-image-1` / `gpt-image-2` legacy — gpt-5.4-image-2 старше и стабильнее.
+- Hardcoded fal.ai endpoints — вышли из стека в Sprint 2.
+
+---
 
 ## Image-to-video (i2v)
 
-| Purpose | Model | Price | Why |
+| Назначение | Модель | Цена ориентир | Почему |
 |---|---|---|---|
-| **Default i2v** for narrative clips | `fal-ai/kling-video/v3/pro/image-to-video` | ~$0.14/sec | Best motion among tested options, holds keyframe composition, supports duration up to 15s. **`generate_audio: false` — required for Russian VO.** |
-| When you need strong physics and fast motion | `fal-ai/seedance-2.0/image-to-video` | ~$0.10/sec | Beats Kling on scenes with sharp motion (running, falling, sport). But native TTS — Ukrainian accent on Russian, turn audio off. |
-| Cheap black-box | `fal-ai/luma-dream-machine/image-to-video` | ~$0.08/sec | For drafts. Worse quality than Kling. |
-
-**Avoid (with documented issues):**
-- `bytedance/seedance-2.0/image-to-video` with `generate_audio: true` on Russian → Ukrainian-tinted voice, even with an explicit LANGUAGE LOCK block. Use video-only.
-- `fal-ai/veo3.1/image-to-video` with `generate_audio: true` → older voice instead of young, text gets cut at ~4s out of 8s. Not viable for narrative.
-- `fal-ai/kling-video/v3/pro/image-to-video` with `generate_audio: true` on Russian → docs confirm TTS is Chinese+English only, the rest is auto-translated. Empirically confirmed.
-- `kling-video/v1.6` or `v2.x` — outdated, v3/pro is better at the same price.
-
-## Lipsync (talking-head with synced lips)
-
-| Purpose | Model | Price | Why |
-|---|---|---|---|
-| **Default talking-head from scratch** (image + audio → video) | `fal-ai/wan-25` | ~$0.10/sec | One call: takes image (face) + audio (mp3/wav, ≥3s) + prompt → returns talking-head video with built-in lip-sync. Duration 5/10s, resolution 480p/720p/1080p. Replaces `kling i2v` + separate wav2lip. |
-| **Re-lipsync an existing video** (video + new audio) | `fal-ai/sync-lipsync` | ~$0.05/sec | Takes an already-rendered video and overlays new speech, redrawing only the lips. Use when you need to swap VO quickly without regenerating the whole scene. |
-| Alternative for re-lipsync | `fal-ai/veed/lipsync` | ~$0.05/sec | VEED's competitor to `sync-lipsync`. Similar quality, try if the first one struggles with a specific face/lighting. |
-
-**Default rule:** for the talking-character template we use `wan-25` (one API call instead of two). If a talking-head was already generated via regular `kling/v3/pro/i2v` (e.g. for silent scenes) and voice is needed later — `sync-lipsync`.
+| **Default** narrative i2v | `kwaivgi/kling-v3.0-pro` | ~$0.14/sec | Лучшее движение в нашем pool, держит композицию keyframe, длительность до 15s. **`generate_audio: false` — обязательно для русской VO.** |
+| **Premium** narrative t2v/i2v | `google/veo-3.1` | ~$0.50/sec | Лучшая narrative-генерация. Использовать когда keyframe-pipeline не подходит (style/abstraction) или для talking-head в `talking-head-rant` шаблоне. |
+| **Fast/cheap** — резкое движение | `bytedance/seedance-2.0` | ~$0.10/sec | Быстрая физика (бег, падение, спорт). **Audio off** — у seedance-2.0 на русском украинский акцент. |
 
 **Avoid:**
-- Replicate `wav2lip` — needs `REPLICATE_API_TOKEN` (not in our env), visual quality below wan-25.
-- `wan-25` with audio < 3 seconds — endpoint requires at least 3s of audio, otherwise it fails.
-- `wan-25` with the face out of frame or strongly turned — lip-sync falls apart on a profile.
+- `seedance-2.0` с `generate_audio: true` на русском → украинский акцент даже с LANGUAGE LOCK.
+- `veo-3.1` с `generate_audio: true` → старый голос вместо молодого, текст рубится на ~4с из 8.
+- `kling-v3.0-pro` с `generate_audio: true` на русском → docs подтверждают TTS только Chinese+English, остальное auto-translate.
+- `kling-video/v1.6` или `v2.x` — устарели.
+- `luma-dream-machine` — хуже kling за те же деньги.
+- Любые fal.ai эндпоинты — стек ушёл на OpenRouter в Sprint 2.
 
-## Text-to-video (t2v)
-
-| Purpose | Model | Price | Why |
-|---|---|---|---|
-| Default t2v | `fal-ai/veo3.1/text-to-video` | ~$0.50/sec | Best narrative generation without a reference frame. Use when there's no keyframe pipeline. |
-| Cheap alternative | `fal-ai/kling-video/v3/pro/text-to-video` | ~$0.14/sec | Worse motion fidelity without an image, but 3x cheaper. |
-
-**Default approach in this project:** we use i2v via keyframes (`nano-banana-pro/edit` → `kling/v3/pro/i2v`), not t2v. T2V only when explicitly needed (styles, abstractions).
+---
 
 ## Voiceover (TTS)
 
-| Purpose | Model | Price | Why |
+| Назначение | Модель | Цена | Почему |
 |---|---|---|---|
-| **Default for Russian** | ElevenLabs `eleven_multilingual_v2` | subscription | The only path to clean deadpan Russian without regional slip. User-owned voice clones work best. |
-| English premium | ElevenLabs `eleven_v3` | subscription | Most emotional for English. Unstable on Russian, don't use for production. |
-| Cheap alternative | OpenAI `tts-1-hd` | $0.030/1k char | English OK, Russian — dead/American accent. |
+| **Default — русский** | ElevenLabs `eleven_multilingual_v2` | subscription | Единственный путь к чистому deadpan-русскому без региональной утечки. User-owned voice clones лучше всего. |
+| **English premium** | ElevenLabs `eleven_v3` | subscription | Самый эмоциональный для английского. Нестабилен на русском — не используем в проде. |
 
 **Voice settings (deadpan young Russian):**
 ```json
@@ -81,56 +59,83 @@ Families go stale silently — `kling-video/v1.6` is still available, but `v3/pr
 ```
 
 **Failure modes:**
-- Default UA on Node 20+ → Cloudflare 403. Send `User-Agent: Mozilla/5.0 (...)`.
-- Free/starter cap = 3 concurrent → 429. Run sequentially, not in parallel.
-- Default library voices (`clyde-warvet`, `dave-british-mature`, `daniel-deep`) — all too theatrical for a deadpan 25-year-old. Use a custom clone.
+- Default UA на Node 20+ → Cloudflare 403. Шли `User-Agent: Mozilla/5.0 (...)`.
+- Free/starter cap = 3 concurrent → 429. Sequentially, не parallel.
+- Дефолтные библиотечные voices (`clyde-warvet`, `daniel-deep`, etc.) — слишком театральные. Custom clone обязателен.
+
+**Avoid:**
+- OpenAI `tts-1-hd` на русском — мёртвый американский акцент.
+- ElevenLabs `eleven_v3` на русском в проде — нестабильно.
+
+---
 
 ## Music generation
 
-| Purpose | Model | Price | Why |
+| Назначение | Модель | Цена | Почему |
 |---|---|---|---|
-| Default instrumental beds | `fal-ai/lyria2` | ~$0.10 / ~30s track | Accepts structured text prompts, instrumental-friendly. Use with a strong negative block (`no vocals, no lyrics, no human voice`). |
-| Full tracks with vocals | Suno v4 (via their API, not fal) | $0.05–0.10/track | When you need lyrics. Not on fal yet. |
+| **Default** — instrumental beds | ElevenLabs Music | ~$0.05–0.10/track | Тот же ключ что для VO, instrumental-friendly. Принимает duration_ms + prompt. **Validation status: 🟡 to verify in Sprint 1.4.** |
 
-**Trend-music rule:** if a template references a specific trend track (`assets/trend-*.mp3`) — copy it, **don't generate a replacement via Lyria2**. Recognizability of the track is part of what drives a trend video.
+**Trend-music rule:** если шаблон отсылает к конкретному trend-треку (`assets/trend-*.mp3`) — копируй файл, **не генерируй замену**. Узнаваемость трека — половина того что делает trend-видео trend'ом.
 
-## LLM (for skills and analytics)
-
-**Provider routing.** All LLM/vision calls go through `cli/lib/providers/llm.ts` → `callLLM()`. The resolver picks the first provider by priority:
-
-1. **Vercel AI Gateway** (`VERCEL_AI_GATEWAY_KEY`) — **recommended**. One key → hundreds of models (Gemini, Claude, GPT, Llama, embeddings). OpenAI-compatible endpoint `https://ai-gateway.vercel.sh/v1`. No token markup. Get one at: https://vercel.com/ai-gateway
-2. **OpenRouter** (`OPENROUTER_API_KEY`) — fallback with the same interface, the proven path.
-3. **OpenAI** (`OPENAI_API_KEY`) — last fallback, no Gemini (used only for GPT models).
-
-**Use `callLLM()`, don't hardcode URLs.** Model IDs are the same on Vercel and OpenRouter (`google/gemini-2.5-flash`, `anthropic/claude-opus-4.6`, etc.).
-
-| Purpose | Model | Why |
-|---|---|---|
-| Vision analysis of images/video (extract-social, extract-design, find-viral-moments, face-bbox) | `google/gemini-2.5-flash` | Cheap vision (~$0.001/frame), accurate enough for smart-crop and moment detection. Use `pro` if a long context is needed. |
-| Deep vision (extract-design on complex landings) | `google/gemini-2.5-pro` | Best quality on long prompts + complex screens. ~3× more expensive than flash. |
-| Scenarist / VO rewrite / feedback parsing | `anthropic/claude-sonnet-4.6` or `anthropic/claude-opus-4.6` | RU/EN at the same level, excellent nuance for editing. |
-| Audio transcription (default) | OpenRouter **`openai/whisper-1`** via `cli/lib/transcribe.ts` | Uses the existing `OPENROUTER_API_KEY` — no extra setup, no local model download. Word-level timestamps via `timestamp_granularities=word` map directly to our caption components. ~$0.006 per audio-minute. ≤25MB per file (re-encode longer audio to 64kbps mono mp3). Use `ralphy project transcribe <id> --audio <path>`. |
-| This chat | Claude Opus 4.7 | The one you're reading right now. |
+**Fallback (если ElevenLabs Music не подойдёт):** временно вернуть `fal-ai/lyria2` через FAL_KEY как exception. Документировать в этом файле и в `cli/lib/capabilities.ts`. На 2026-05-06 — fallback не активирован.
 
 **Avoid:**
-- Direct `fetch("https://openrouter.ai/...")` in new scripts. We go through `callLLM()` so users can swap providers via `ralphy setup`.
-- `OPENAI_API_KEY` for transcription — we route whisper-1 through OpenRouter so a single LLM key covers vision, scoring, and transcription.
+- Suno (нет в OpenRouter).
+- `lyria2` напрямую через FAL_KEY если ElevenLabs Music работает — не плодим опциональные ключи.
 
-## Fal.ai MCP — the working toolset
+---
 
-These MCP tools are available in this environment (deferred — call `ToolSearch` to load schemas before using):
+## Audio transcription
 
-- `mcp__fal-ai__search_models` — find a model by family. **Do this before every call to a family you already know.**
-- `mcp__fal-ai__recommend_model` — for a new task without an explicit model.
-- `mcp__fal-ai__get_model_schema` — check input/output params before the call.
-- `mcp__fal-ai__get_pricing` — estimate batch cost.
-- `mcp__fal-ai__submit_job` / `mcp__fal-ai__check_job` / `mcp__fal-ai__run_model` — actually invoke the model.
-- `mcp__fal-ai__upload_file` — upload a local file to the fal CDN to pass as `image_urls` into edit models.
-- `mcp__fal-ai__search_docs` — for nuances of a specific model.
+| Назначение | Модель | Цена | Почему |
+|---|---|---|---|
+| Default | OpenRouter `openai/whisper-1` через `cli/lib/transcribe.ts` | ~$0.006 per audio-minute | Один ключ покрывает всё. Word-level timestamps через `timestamp_granularities[]=word` мапятся на наши caption-компоненты. ≤25MB per file (re-encode длинное аудио в 64kbps mono mp3). Используй `ralphy project transcribe <id> --audio <path>`. |
 
-## When to update this file
+**Avoid:**
+- Локальный whisper.cpp — большой бинарь, никакой выгоды поверх облачного при наших объёмах.
+- OpenAI direct API — мы маршрутизируем через OpenRouter чтобы один ключ покрывал vision + scoring + transcription.
 
-- On the first session in a new chat — check the `Last reviewed` date, run `search_models` against 2–3 key families, refresh if anything moved.
-- After every failure mode on a new model — add to the "Avoid" section with the reason.
-- When you change a default in skills/scripts — keep this in sync.
-- At least once a month — even if nothing visibly broke.
+---
+
+## LLM (для скиллов и аналитики)
+
+**Provider routing.** Все LLM/vision вызовы идут через `cli/lib/providers/llm.ts → callLLM()`. **Единственный провайдер — OpenRouter.**
+
+| Назначение | Модель | Почему |
+|---|---|---|
+| Vision-анализ изображений/видео (extract-design, find-viral-moments, face-bbox, scoreImage, scoreVideo) | `google/gemini-2.5-flash` | Дешёвый vision (~$0.001/frame), точно достаточно для smart-crop и moment detection. Используй `pro` если нужен длинный контекст. |
+| Глубокий vision (extract-design на сложных лендингах) | `google/gemini-2.5-pro` | Лучшее качество на длинных промптах + сложных скринах. ~3× дороже flash. |
+| Scenarist / VO rewrite / feedback parsing | `anthropic/claude-sonnet-4.6` или `anthropic/claude-opus-4.6` | RU/EN на одном уровне, отлично нюансирует при правках. |
+| Этот чат | Claude Opus 4.7 | Тот что ты сейчас читаешь. |
+
+**Avoid:**
+- Прямые `fetch("https://openrouter.ai/...")` в новых скриптах. Идём через `callLLM()` чтобы юзеры могли переключать провайдеров через `ralphy setup`.
+- Хардкод `anthropic.com` или `openai.com` URL — всё через OpenRouter.
+
+---
+
+## Out-of-scope / dropped
+
+Эти модели/семейства убраны в рамках OpenRouter consolidation (Sprint 1.3 / 2). Не возвращай их без явного апгрейда плана:
+
+- `fal-ai/nano-banana-pro/edit` — заменено на `google/gemini-3-pro-image-preview` через OR.
+- `fal-ai/flux-pro/v1.1-ultra`, `fal-ai/flux/dev/inpainting`, `fal-ai/flux-pro/v1.1-ultra/redux` — out.
+- `fal-ai/luma-dream-machine/image-to-video` — out (хуже kling).
+- `fal-ai/wan-25` — lipsync stage целиком dropped в v2 (no FAL_KEY pipeline).
+- `fal-ai/sync-lipsync`, `fal-ai/veed/lipsync` — out.
+- `fal-ai/lyria2` — out (fallback зарезервирован в Music секции).
+- `fal-ai/seedream` — out.
+- Replicate `wav2lip` — out (нет токена, нет stage).
+- `openai/gpt-image-1`, `dall-e-3`, `stable-diffusion-xl`, `flux/schnell` — устаревшие.
+- Apify — заменено на Playwright scraper в `/ralph-researcher` (отложено до v2).
+- Higgsfield Soul, Fireworks Whisper — требуют отдельных ключей, нет в стеке.
+- Vercel AI Gateway, прямой OpenAI API — single-provider OpenRouter в v2.
+
+---
+
+## Когда обновлять этот файл
+
+- На первой сессии в новом чате — проверь `Last reviewed`, освежи если устарело.
+- После каждого failure mode на новой модели — добавь в "Avoid" с причиной.
+- Когда меняешь default в скиллах/скриптах — синхронизируй здесь.
+- Минимум раз в месяц — даже если ничего не сломалось.
