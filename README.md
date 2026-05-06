@@ -57,24 +57,19 @@ Interactive multi-step:
 
 1. **Project** — links `ralphy` to this folder (saved to `~/.config/ralphy/config.json`).
 2. **API keys** — multi-select providers → password-prompt for each → API ping for verification:
-   - **FAL_KEY** *(required)* — image/video/lipsync via fal.ai
-   - **ELEVENLABS_API_KEY** *(required)* — Russian voiceover
-   - **VERCEL_AI_GATEWAY_KEY** *(recommended)* — single key for Gemini/Claude/GPT/embeddings
-   - **OPENROUTER_API_KEY** — alternative to Vercel
-   - **OPENAI_API_KEY** — last-resort fallback (no Gemini)
-   - **REPLICATE_API_KEY** — optional for some video models
+   - **OPENROUTER_API_KEY** *(required)* — image / video / LLM / vision / transcribe (one key для всего медиа стека: gemini-3-pro-image-preview, kling-v3.0-pro, veo-3.1, seedance-2.0, claude/gpt LLM, whisper-1)
+   - **ELEVENLABS_API_KEY** *(required)* — voiceover (eleven_multilingual_v2 RU) + music (ElevenLabs Music)
 3. **Profiles** — multi-select bundles from `profiles/` (templates + references + example projects from other users).
-4. **Services** — asks whether to start Remotion Studio (:3000) + dashboard (:4321) in the background.
 
-**The wizard is idempotent**: run it ten times if you want — already-set keys aren't touched, imported profiles get marked `(imported — re-import is safe)`, busy ports are detected and not restarted.
+**The wizard is idempotent**: re-runs don't touch already-set keys, imported profiles are marked `(imported — re-import is safe)`. **Does not auto-launch Studio or dashboard** — those are separate manual commands when you actually want them.
 
 ### 5. Verify everything is OK
 
 ```bash
-ralphy status -p
+ralphy doctor
 ```
 
-Should print a table with green ✓ for FAL, ElevenLabs, and one of the LLM providers.
+Should print `blockers: []` plus the two keys present and dependencies (bun, ffmpeg) installed.
 
 ### 6. Make your first video
 
@@ -87,15 +82,15 @@ In chat:
 > **"Set up the dev env and make me a video in soviet style about \<your product\>"**
 
 The chat will:
-1. invoke `/ralph-core` to bring up Studio + dashboard,
+1. run `ralphy doctor` to confirm env is clean,
 2. read the `soviet-nostalgic` template,
 3. write a scenario for your product,
-4. generate assets via fal.ai,
+4. generate assets via OpenRouter (image + video models),
 5. record the voiceover via ElevenLabs,
 6. compose it through Remotion,
 7. hand back a link to the finished mp4.
 
-~15–20 minutes per video, ~$10–15 in API costs.
+~8 minutes per video, ~$8–12 in API costs.
 
 ---
 
@@ -110,7 +105,6 @@ The chat will:
 | Make a new template | "Save project **\<id\>** as template **\<slug\>**" | TEMPLATE.md + fragments + model-stack + reference-example |
 | Share your own work | "Export my profile **\<your-nick\>**" | Dump `workspace/` into `profiles/<nick>/` ready to commit |
 | Pull in someone else's work | "Import profile **\<nick\>**" | Adds their templates/references on top of yours |
-| Open the dashboard | "Show me the dashboard" | React SPA at http://localhost:4321 |
 
 **The main rule: talk to it like a producer.** Don't tell the chat *how* to do it — tell it what you want delivered.
 
@@ -131,7 +125,7 @@ ralphy template use <id> --project <new-id> --name "..." --brief "..."
 ralphy profile list           # available public profiles
 ralphy profile import <nick>  # pull into your workspace
 ralphy profile export <nick>  # dump your workspace into the repo
-ralphy dashboard              # open the dashboard (default :4321)
+ralphy doctor                 # JSON env check (keys, deps, blockers)
 ralphy setup                  # re-run the wizard
 ralphy setup --status         # JSON status for scripts
 ralphy setup --link <path>    # link to another project
@@ -238,7 +232,7 @@ Make sure the terminal has a TTY. In CI/non-interactive environments use `ralphy
 You can run only the cheap stages (research, scenario, prompts) — they cost pennies. Defer the asset render.
 
 **Which providers are mandatory?**
-`FAL_KEY` (images/video) and `ELEVENLABS_API_KEY` (Russian voiceover) — the pipeline doesn't work without them. One of `VERCEL_AI_GATEWAY_KEY` / `OPENROUTER_API_KEY` / `OPENAI_API_KEY` is needed for the site-analysis and vision skills (`callLLM` picks one). Everything else is optional.
+Just two — `OPENROUTER_API_KEY` (image / video / LLM / vision / transcribe — single key для всего медиа стека) and `ELEVENLABS_API_KEY` (voice + music). FAL / Vercel / OpenAI / Replicate **не нужны** в v2 — стек консолидирован на OpenRouter.
 
 **Is it safe to put keys in `.env`?**
 Yes — `.env` is in `.gitignore`, never goes to the repo. `ralphy setup` validates each key with an API ping before saving.
@@ -247,7 +241,7 @@ Yes — `.env` is in `.gitignore`, never goes to the repo. `ralphy setup` valida
 Technically yes — every script underneath is TS. But the point of the project is to delegate to the chat. Manual mode lives in [`docs/agent-guide.md`](docs/agent-guide.md).
 
 **Where do I look at what came out?**
-`ralphy dashboard` → http://localhost:4321 — project cards, media, generation logs.
+В чате — `ralphy project show <id>` + `ralphy project log <id>` + final mp4 path. Web dashboard retired в v2; код остался для legacy use, но не поддерживается.
 
 **Installed but want to remove.**
 ```bash
