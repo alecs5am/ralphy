@@ -4,9 +4,9 @@
 
 `workspace/projects/<id>/logs/`:
 
-- **`generations.jsonl`** — каждый model call (input, output URL + local path, status, `cost_usd`, `note`).
-- **`user-prompts.jsonl`** — chronological user prompts с `stage` label (`brief`, `scenario-feedback`, `regeneration-request`, `no-ref-consent`, `gate-bypass-consent`, ...).
-- **`user-assets.jsonl`** — user-uploaded refs с `purpose`.
+- **`generations.jsonl`** — every model call (input, output URL + local path, status, `cost_usd`, `note`).
+- **`user-prompts.jsonl`** — chronological user prompts with a `stage` label (`brief`, `scenario-feedback`, `regeneration-request`, `no-ref-consent`, `gate-bypass-consent`, ...).
+- **`user-assets.jsonl`** — user-uploaded refs with a `purpose`.
 
 ## CLI access
 
@@ -21,70 +21,70 @@ ralphy project log-asset <id> --kind <kind> --source <path> --purpose <purpose>
 
 ## Append-only enforcement
 
-`cli/lib/gen-log.ts` enforce'ит формат. После Sprint 3:
+`cli/lib/gen-log.ts` enforces the format. After Sprint 3:
 
-- Все `ralphy generate <kind>` команды call'ят `logGeneration()` или `loggedFetch()` автоматом. **Никаких raw fetch'ей.**
-- User brief = `BRIEF.md` + auto `logUserPrompt(id, { text, stage: "brief" })` при project creation.
-- User reference photos copy'ятся в `assets/uploaded/` + auto `logUserAsset(id, ...)`.
-- Regeneration carries explicit `note` ("clip-03 v2 hand crumples sample").
+- All `ralphy generate <kind>` commands call `logGeneration()` or `loggedFetch()` automatically. **No raw fetches.**
+- User brief = `BRIEF.md` + auto `logUserPrompt(id, { text, stage: "brief" })` at project creation.
+- User reference photos are copied into `assets/uploaded/` + auto `logUserAsset(id, ...)`.
+- Regeneration carries an explicit `note` ("clip-03 v2 hand crumples sample").
 
-## Debug flow для failed generation
+## Debug flow for a failed generation
 
-1. **Read `generations.jsonl`** для failing slot — last entry показывает exact input + error.
-2. **Compare inputs** across past successful + failed runs — найди delta.
-3. **Если inputs OK** — check provider status (OpenRouter availability, ElevenLabs 429, etc.). Adjust concurrency или wait.
-4. **Если prompt — проблема** — handback в `/ralph-art-director` (`regenerate-slot`) с clear note.
+1. **Read `generations.jsonl`** for the failing slot — last entry shows exact input + error.
+2. **Compare inputs** across past successful + failed runs — find the delta.
+3. **If inputs are OK** — check provider status (OpenRouter availability, ElevenLabs 429, etc.). Adjust concurrency or wait.
+4. **If the prompt is the problem** — hand back to `/ralph-art-director` (`regenerate-slot`) with a clear note.
 
 ## Common failure modes
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Generation 401 | Key revoked or wrong | Re-paste key через `ralphy setup` |
-| Generation 429 | ElevenLabs concurrent cap | Retry sequentially, не parallel per project |
-| Generation 5xx | Provider transient | Retry с exponential backoff (ralphy generate имеет built-in retry) |
-| Captions empty | whisper-1 не понял language | Pass `--language ru` explicit |
-| Captions clip mid-word | Не word-level timestamps | Confirm `transcribe.ts` шлёт `timestamp_granularities[]=word` |
-| Render fails "Cannot find composition" | `src/Root.tsx` не registered | Hand back в editor |
-| Render fails "version mismatch" | Remotion packages drift | `bun install` — все на 4.0.441 |
-| Asset 404 в render | symlink broken | `ls public/project-<id>` — re-create symlink |
-| `ralphy setup` silently hangs | terminal без TTY | Use `--link <path>` non-TUI mode |
+| Generation 401 | Key revoked or wrong | Re-paste key via `ralphy setup` |
+| Generation 429 | ElevenLabs concurrent cap | Retry sequentially, not in parallel per project |
+| Generation 5xx | Provider transient | Retry with exponential backoff (`ralphy generate` has built-in retry) |
+| Captions empty | whisper-1 didn't detect language | Pass `--language ru` explicitly |
+| Captions clip mid-word | No word-level timestamps | Confirm `transcribe.ts` sends `timestamp_granularities[]=word` |
+| Render fails "Cannot find composition" | `src/Root.tsx` not registered | Hand back to editor |
+| Render fails "version mismatch" | Remotion packages drift | `bun install` — all on 4.0.441 |
+| Asset 404 in render | symlink broken | `ls public/project-<id>` — re-create symlink |
+| `ralphy setup` silently hangs | terminal without TTY | Use `--link <path>` non-TUI mode |
 
 ## Cost-tracking issues
 
-Если `generations.jsonl.cost_usd` всегда 0 для openrouter calls:
-- Проверь `cli/lib/providers/llm.ts` — должен извлекать price из response headers (`x-openrouter-cost`) или calc'ать по `usage` × known prices.
-- `MODELS.md` имеет ориентиры для fallback estimate.
+If `generations.jsonl.cost_usd` is always 0 for openrouter calls:
+- Check `cli/lib/providers/llm.ts` — it should extract price from response headers (`x-openrouter-cost`) or compute it from `usage` × known prices.
+- `MODELS.md` has reference values for a fallback estimate.
 
 ## Workspace hygiene
 
-`tree -L 2 -I 'node_modules|.git|dist' workspace` для quick view. Или:
+`tree -L 2 -I 'node_modules|.git|dist' workspace` for a quick view. Or:
 
 ```bash
 ralphy workspace stats
 ```
 
-Возвращает counts: projects, templates, references, batches, total disk size.
+Returns counts: projects, templates, references, batches, total disk size.
 
-## Если ralphy CLI сам сломан
+## If the ralphy CLI itself is broken
 
 ```bash
 bun install
 bun run lint   # eslint + tsc
 ```
 
-Если `tsc` фейлится в `cli/` — есть TypeScript ошибка в коде ralphy. Это блокер, не workaround'им — fix в исходниках.
+If `tsc` fails in `cli/` — there's a TypeScript error in the ralphy code. That's a blocker, don't work around it — fix in the source.
 
 ```bash
 # In-tree dev (no binary):
 bun run ralph -- <command>
 ```
 
-— this works даже если global `ralphy` binary outdated. Use this как fallback.
+— this works even if the global `ralphy` binary is outdated. Use this as a fallback.
 
-## Когда handback needed
+## When handback is needed
 
-- Failed generation с unclear prompt → `/ralph-art-director`.
-- Sценарий не landing'ит → `/ralph-scenarist`.
-- Render error в Remotion → `/ralph-editor` + `/remotion-best-practices`.
-- Provider down → wait, не handback.
-- User wants new feature → не моя зона, скажу так.
+- Failed generation with an unclear prompt → `/ralph-art-director`.
+- Scenario doesn't land → `/ralph-scenarist`.
+- Render error in Remotion → `/ralph-editor` + `/remotion-best-practices`.
+- Provider down → wait, no handback.
+- User wants a new feature → not my zone, I'll say so.
