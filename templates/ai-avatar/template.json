@@ -1,0 +1,70 @@
+{
+  "name": "AI Avatar Talking-Head",
+  "slug": "ai-avatar",
+  "kind": "vibe-style",
+  "description": "Fully AI-generated 'person' delivering a 45-90s script straight to camera. In 2026, lip-sync (Kling Avatar v2, HeyGen, Synthesia) reached the point where the average TikTok viewer doesn't immediately spot AI; one TikTok Shop affiliate earned ~$13K commission on a single AI-avatar video. Solves the biggest UGC bottleneck — production cost — and unlocks one-script-to-N-markets via ElevenLabs eleven_multilingual_v2 (30+ languages, voice preserved). Close-up persona delivers hook → value → CTA, with optional B-roll cutaways. AI = accelerator, not replacement: the viewer must NOT feel they're watching slop, and a C2PA disclosure is mandatory in 2026.",
+  "tags": [
+    "ai-avatar",
+    "virtual-presenter",
+    "synthetic-talking-head",
+    "lip-sync",
+    "heygen",
+    "kling-avatar",
+    "wan-25",
+    "sync-lipsync",
+    "multilingual",
+    "dubbing",
+    "product-review",
+    "ecommerce-ad",
+    "tiktok-shop",
+    "education",
+    "news-brief",
+    "scalable",
+    "faceless-alternative",
+    "ai-friendly",
+    "c2pa",
+    "tiktok",
+    "reels",
+    "shorts"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [45, 90],
+  "typicalClipCount": [1, 3],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "personaKeyframe": "google/gemini-3-pro-image-preview via OpenRouter — one canonical avatar character keyframe per project, reused across episodes for stability. Use multi-ref WITH a persona reference image when consistency across episodes matters (strongly recommended for any series / brand presenter).",
+    "talkingHeadVideo": "fal-ai/wan-25 (preferred) — single call takes audio + image + prompt and returns a lip-synced talking video. Cheaper than veo-3.1 for this format and good enough for TikTok-grade lip-sync in 2026. Use one wan-25 call per scene where the avatar speaks.",
+    "lipsyncOverdub": "fal-ai/sync-lipsync — only when relipsynching an existing kling-v3.0-pro B-roll cutaway that already has the avatar in motion. Don't use as the primary path; wan-25 already does audio-conditioned generation in one shot.",
+    "premiumTier": "google/veo-3.1 — reserve for hero spots where lip-sync fidelity is the entire point and budget allows. Default is wan-25.",
+    "bRoll": "kwaivgi/kling-v3.0-pro — optional 3-5s cutaways (product close-ups, screen recordings, illustrative shots). generate_audio: false; the persona audio carries throughout.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — single TTS call per language. For multilingual exports, regen VO N times (one per language) and recompose with wan-25 per language using the same persona keyframe. Voice settings: stability 0.40, similarity_boost 0.75, style 0.15 (warm, authoritative).",
+    "captions": "OpenRouter whisper-1 → MinimalCaptions or KaraokeCaptions overlay. HormoziCaptions only when the script demands punch (e.g. e-commerce hard sell).",
+    "music": "Optional. ElevenLabs Music low-volume bed (-18 dB under VO) when the script is review/ad. Educational and news briefs usually go music-free."
+  },
+  "constants": {
+    "vibeAnchor": "consistent-ai-presenter-close-up",
+    "structure": "0-3s hook → 3-60s value → 60-90s CTA",
+    "personaStability": "single canonical keyframe reused per project — never regen mid-series",
+    "disclosurePolicy": "C2PA flag mandatory in 2026; visible 'AI-generated' overlay recommended for ads"
+  },
+  "variationAxes": [
+    "avatar archetype (8 archetypes — see workspace/personas/ARCHETYPES.md): friendly-creator, expert-educator, news-anchor, gen-z-streetwear, corporate-presenter, indie-founder, lifestyle-coach, gamer-reviewer",
+    "language (English / Russian / Spanish / Portuguese / Hindi / Arabic / Mandarin / Japanese / French / German — anywhere ElevenLabs eleven_multilingual_v2 supports)",
+    "tone (informative / friendly-relatable / authoritative / hype-energetic)",
+    "use case (product review / educational explainer / news brief / e-commerce ad / pitch / personal essay)",
+    "background (solid color / minimal room / softly blurred environment / on-brand backdrop)",
+    "B-roll discipline (talking-head only / 1-2 cutaways / cutaway-heavy hybrid)"
+  ],
+  "doNotCopyLiterally": "Avatar likeness, voice, exact script, brand identity. Vibe + structure only. Never reproduce a real public figure's likeness or voice.",
+  "requiresUserReference": false,
+  "referenceNotes": "Reference is OPTIONAL but STRONGLY RECOMMENDED. The reference-required gate (AGENTS.md hard rule #3) does NOT trigger for fictional AI personas — but persona stability across episodes does require a canonical keyframe. Recommended workflow: (1) on episode 1, generate the avatar from an archetype prompt OR a user-supplied persona reference; save the resulting keyframe to workspace/projects/<id>/assets/persona/avatar.png and treat it as the project's reference for every subsequent episode and language render. (2) For brand presenters, the user MUST supply a persona reference (a real human face the brand has rights to, or a previously-generated avatar). (3) NEVER use a real named person's likeness without explicit signed consent — that's the reference-required gate firing for the wrong reason and refusing is correct. See AGENTS.md and (when present) workspace/personas/ARCHETYPES.md for the 8 archetype options."
+}
