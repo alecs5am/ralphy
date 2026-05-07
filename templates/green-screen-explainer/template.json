@@ -1,0 +1,65 @@
+{
+  "name": "Green Screen Explainer",
+  "slug": "green-screen-explainer",
+  "kind": "vibe-style",
+  "description": "TikTok-native green-screen format: creator stands in front of a screenshot / news article / Reddit post / chart / meme and reacts. 0-2s 'look at this' + pointing at backdrop, 2-25s explanation with optional zoom-in and circle annotations, 25-45s reaction / outro. 15-45s total, 9:16. Shows source + personality at once — a double-weave of information that beats either pure-react or pure-screenshot videos. The backdrop content (real screenshot, real article, real post) MUST be supplied by the user — the reference-required gate refuses any AI-improvised real news, real Reddit posts, or real-person tweets. Niches: news commentary, tech reviews, sports takes, finance takes, cultural meme breakdowns.",
+  "tags": [
+    "green-screen",
+    "explainer",
+    "backdrop",
+    "react",
+    "commentary",
+    "news-commentary",
+    "tech-review",
+    "sports-takes",
+    "finance-takes",
+    "screenshot-react",
+    "meme-react",
+    "tiktok-native-effect",
+    "talking-head",
+    "double-weave",
+    "ugc",
+    "tiktok",
+    "reels",
+    "shorts"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 45],
+  "typicalClipCount": [1, 3],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "characterKeyframe": "google/gemini-3-pro-image-preview via OpenRouter — creator pose with pointing / circle gesture, neutral background that crops cleanly. Multi-ref WITH user-supplied creator photo if a recurring persona is in play.",
+    "backdropOverlay": "Remotion-composited. The 'green-screen' is NOT a chroma-key trick — it's a Remotion composition: the user-supplied backdrop image fills the frame, the creator video is matte-cropped (or chroma-keyed if shot against green) and positioned at bottom-right ~1/3 of frame. Circle / arrow annotations are spring-in <Sequence> overlays.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for the talking-head clip (5-15s, 1-3 clips, generate_audio: false). veo-3.1 acceptable when synced lip-sync on a real person reference is required.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — single TTS pass, voice settings tuned to reaction tone (calm-explain / outraged / curious / sarcastic). Language follows brief.",
+    "captions": "OpenRouter whisper-1 word-level. Burn-in via MinimalCaptions or KaraokeCaptions positioned ABOVE the creator (so they don't block the backdrop or the creator).",
+    "music": "ElevenLabs Music optional, low-volume bed (-20dB / volume ~0.15). For news-commentary / outraged tone, often skipped entirely — the VO carries."
+  },
+  "constants": {
+    "vibeAnchor": "backdrop-plus-creator-double-weave",
+    "structure": "0-2s look-at-this → 2-25s explain-with-zoom → 25-45s reaction/outro",
+    "creatorFramePosition": "bottom-right one-third",
+    "annotationStyle": "spring-in circle/arrow on backdrop",
+    "musicBedDb": -20
+  },
+  "variationAxes": [
+    "backdrop type (screenshot / news article / Reddit post / chart / meme image)",
+    "pointing-style (hand gesture / animated circle on backdrop / arrow overlay)",
+    "reaction tone (calm-explain / outraged / curious / sarcastic)",
+    "zoom-in cadence (none / once-mid / twice — pull-zoom on backdrop with creator scaled accordingly)",
+    "creator presence (full talking-head clip vs static keyframe with subtle ken-burns)",
+    "VO language (any — English default; emotional arc reads regardless)"
+  ],
+  "doNotCopyLiterally": "Reaction script, exact backdrop content, creator pose, exact prompts. Vibe reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Backdrop content (screenshot, news article, Reddit post, meme image, chart) is REQUIRED. AGENTS.md hard rule #3 refuses any AI-improvised real news, real Reddit thread, real tweet, or real chart — these always read as fabricated and are also a defamation / disinformation risk. The user must supply the backdrop image at workspace/projects/<id>/assets/uploaded/. If the brief mentions a named person being reacted to, a reference of that person is also required for the backdrop (e.g. a real screenshot OF them, not an AI-generated one). Copyright-sensitive backdrops (paywalled news article screenshots, copyrighted meme art) need legal review before publish — flag and stop."
+}
