@@ -1,0 +1,67 @@
+{
+  "name": "Try-On",
+  "slug": "try-on",
+  "kind": "vibe-style",
+  "description": "Virtual try-on for fashion / glasses / makeup / shoes / jewelry / hairstyles. The model stands in front of a mirror or directly faces the camera, then 'tries on' multiple variants in rapid sequence — walk-into-camera + outfit change, snap-fingers swap, mirror-flash cut, or makeup-application timelapse → reveal. 8-25s, 9:16 vertical, 3-8 looks at 2-3s each. The conversion-driving format for fashion / beauty / eyewear / accessory ecommerce — viewer projects 'how would this look on me' without commitment. Reference-required: real garment / real product photos must be supplied, otherwise generation refuses (no AI-improvised branded apparel, ever).",
+  "tags": [
+    "try-on",
+    "virtual-try-on",
+    "vto",
+    "fashion-tryon",
+    "makeup-tryon",
+    "glasses-tryon",
+    "sunglasses",
+    "jewelry-try-on",
+    "hair-color",
+    "shoes-tryon",
+    "mirror-flash",
+    "multi-variant",
+    "ecommerce",
+    "conversion",
+    "sephora-style",
+    "asos-tryon",
+    "outfit-change",
+    "snap-cut",
+    "tiktok",
+    "reels",
+    "shorts",
+    "примерка"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [8, 25],
+  "typicalClipCount": [3, 8],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — character keyframe with consistent face / body / lighting / camera angle across ALL variants. Use ONE seed model image as ref, then generate N variant frames swapping ONLY the product (garment / glasses / lip color / earring). Drift in face or pose between variants is the #1 failure mode of this format.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 2-3s clips per variant (3-8 total). Motion vocabulary: slow turn, mirror flash, outfit-change spin, walk-into-camera. generate_audio: false.",
+    "voiceover": "Usually NONE. Text-overlay product names + price carry the spot. If VO is requested: ElevenLabs eleven_multilingual_v2, single short tag-line at the final 'winner' beat.",
+    "captions": "No spoken-line captions. Remotion text-overlay only — large bold sans-serif product name + SKU + price, anchored bottom-third, fades on each variant beat.",
+    "music": "ElevenLabs Music — single trend-bed (upbeat pop / hip-hop / electronic) with a clean BPM. Transitions land on the beat; the format dies if cuts are off-beat. Optional: licensed trend audio for TikTok-native uploads."
+  },
+  "constants": {
+    "vibeAnchor": "consistent-model-variant-cycle",
+    "structure": "0-2s base + first variant → 2-20s variant cycle on beat → 20-25s winner hold",
+    "transitionStyle": "mirror-flash | spin | snap-cut | walk-into-camera",
+    "overlayStyle": "bottom-third large bold sans-serif, product + price"
+  },
+  "variationAxes": [
+    "try-on category (fashion / glasses / makeup / jewelry / hair / shoes)",
+    "transition style (mirror-flash / spin / snap-cut / walk-into-camera)",
+    "variant count (3 / 5 / 7)",
+    "with-price-overlay (yes — ecommerce conversion / no — pure vibe)",
+    "framing (mirror selfie / front-cam direct / full-body wide)",
+    "model archetype (real ref photo / persona archetype / generic AI model)"
+  ],
+  "doNotCopyLiterally": "Scenario, on-screen text, exact prompts, model identity. Vibe reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Real garment / product photos REQUIRED. The reference-required gate (AGENTS.md hard rule #3) refuses if no reference exists at workspace/projects/<id>/assets/uploaded/. AI-improvised branded apparel, hallucinated frame shapes, or made-up lipstick shades always read as fake and never match the actual SKU the user is selling. Generic / fictional collections may proceed without a reference — log as stage: 'no-ref-consent' and warn the user."
+}
