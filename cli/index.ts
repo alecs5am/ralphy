@@ -25,6 +25,8 @@ import { assetsCmd } from "./commands/assets.js";
 import { exampleCmd } from "./commands/example.js";
 import { audioCmd } from "./commands/audio.js";
 import { videoCmd } from "./commands/video.js";
+import { bannerCmd } from "./commands/banner.js";
+import { bannerString } from "./lib/banner.js";
 
 const program = new Command();
 
@@ -73,5 +75,8 @@ program.addCommand(assetsCmd());
 program.addCommand(exampleCmd());
 program.addCommand(audioCmd());
 program.addCommand(videoCmd());
+program.addCommand(bannerCmd());
+
+program.addHelpText("beforeAll", bannerString());
 
 program.parseAsync();
