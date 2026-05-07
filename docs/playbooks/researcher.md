@@ -4,6 +4,45 @@
 
 One role, four sub-tasks, single output shape: structured knowledge that downstream roles can consume.
 
+> **STOP rule.** Reaching for `bunx tsx` / `curl` / ad-hoc `ffmpeg` → stop. Either there's a `ralphy` verb (see cookbook below), or propose adding one. Don't paste raw API code into research scripts. AGENTS invariant #2.
+
+## CLI cookbook
+
+**Default to these. Don't write `bunx tsx` / `curl` ad-hoc — every operation below is a `ralphy` verb.** If something you need isn't here, stop and propose adding it (see [hard rules](#hard-rules-inherited-from-agentsmd)).
+
+```bash
+# Pull a TikTok / IG / YT / Reels URL → mp4 + meta + mp3 (mono 64k for transcribe)
+ralphy ref pull <url> [--slug <name>] [--audio-only] [--meta-only]
+
+# Sample frames from a pulled video → frames/frame-NN.jpg
+ralphy ref frames <slug> [--max 12] [--fps 0.16] [--width 540]
+
+# Transcribe the ref's audio → transcript.json (Caption[]). Default backend ElevenLabs Scribe v1.
+ralphy ref transcribe <slug> [--language ru|en|auto] [--backend elevenlabs|openrouter|gemini]
+
+# Vision LLM over the ref's frames → analysis.json (default prompt = UGC blueprint extractor)
+ralphy ref analyze <slug> [--prompt "..." | --prompt-file <md>] [--model <id>]
+
+# Gemini-audio LLM over the ref's mp3 → audio-analysis.json (tone, music, VO style)
+ralphy ref audio-describe <slug>
+
+# Synthesize {meta + analysis + audio-analysis + transcript} → blueprint.md
+ralphy ref blueprint <slug>
+
+# Register the finding so it shows up in the project
+ralphy ref create <url> --type social --name <slug>
+ralphy ref attach <refId> --to <projectId>
+
+# Trends (no API key — Playwright scrapes public hashtag pages, ranks via scoreTikTok)
+ralphy ref scrape-trends --hashtags ai,fitness --limit 15
+
+# Inspect / debug
+ralphy ref show <id>
+ralphy ref paths <slug>      # print every file path for the ref's research dir
+```
+
+The standard chain is `pull → frames → transcribe → analyze → audio-describe → blueprint`. Each step is idempotent and writes to `workspace/references/<slug>/state.json` so re-runs skip what's already done.
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |
@@ -44,12 +83,12 @@ One role, four sub-tasks, single output shape: structured knowledge that downstr
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **Process > scripts.** Helpers in `.agents/skills/ralph-researcher/scripts/` (`extract-design.ts`, `analyze-video.ts`, `cross-analyze.ts`, `find-viral-moments.ts`, `scrape-tiktok-trends.ts`) — for plain-vanilla cases. For a bespoke target — drive Playwright/yt-dlp/curl/Gemini directly turn-by-turn.
+1. **`ralphy ref` first.** The 6-step chain (pull → frames → transcribe → analyze → audio-describe → blueprint) covers ~95% of social/website refs. Helpers in `.agents/skills/ralph-researcher/scripts/` (`extract-design.ts`, `cross-analyze.ts`, etc.) exist for bespoke shapes the CLI doesn't model yet — but if you're tempted to grep them just to call yt-dlp / Gemini / whisper, check the cookbook first.
 2. **Don't over-collect.** Capture only what answers the question. A 200-image dump of the CDN is almost never more useful than 8 well-chosen screenshots.
-3. **Log as you go.** Append queries, sources, decisions live to `queries.md` / `sources.jsonl`. Next session resumes from files.
+3. **Log as you go.** `ralphy ref pull` + `state.json` already track what you have. For free-form notes inside a project, `ralphy project log-prompt`. Don't append to JSONL by hand.
 4. **Stop when answered.** Shallow scans stop at synthesis. Don't drift into a deep dive unless the user asked.
-5. **Vision via callLLM().** Don't hardcode OpenRouter URLs in scripts.
-6. **Never give up on a video URL because WebFetch returned a JS shell.** That's the expected response. Use yt-dlp to get the file, then ffmpeg/Gemini for analysis. Asking the user to "send me the file" is a failure mode unless yt-dlp also fails.
+5. **Vision / audio LLM via `ralphy ref analyze` / `ralphy ref audio-describe`** — those wrap `callLLM()` and log automatically. Custom prompt? `--prompt-file <md>`. Don't hardcode OpenRouter URLs.
+6. **Never give up on a video URL because WebFetch returned a JS shell.** That's the expected response. Use `ralphy ref pull` (yt-dlp under the hood) to get the file. Asking the user to "send me the file" is a failure mode unless `ref pull` also fails.
 
 ## Sub-task routing
 

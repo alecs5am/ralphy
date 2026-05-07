@@ -34,7 +34,7 @@ If a playbook references a tool you've never used (yt-dlp, Playwright, ffmpeg, r
 ## Hard invariants (apply across all playbooks)
 
 1. **No FAL_KEY, no Vercel, no OpenAI direct.** Only `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`. All media → `cli/lib/providers/media.ts`. All LLM/vision → `cli/lib/providers/llm.ts → callLLM()`.
-2. **No runtime TS scripts under `workspace/projects/<id>/scripts/`.** Every model call is a pre-tested `ralphy generate ...` invocation. If an operation isn't covered by ralphy: stop and propose adding a helper to `cli/commands/generate.ts`.
+2. **`ralphy` is the only entry-point for model calls, ffmpeg recipes, yt-dlp pulls, and project mutations.** Reaching for `bunx tsx` against a TS file, `curl` against any provider API, or `ffmpeg` ad-hoc → **STOP**. Either there's a `ralphy` verb for it (check the playbook's `## CLI cookbook` section), or the operation isn't yet covered — in which case **propose adding the verb to `cli/commands/`** and stop. Never paste raw API code into a project. The gen-log, asset-manifest, cost rollup, and quality gates all depend on this.
 3. **Reference-required gate.** Named person, brand, or specific real entity → require user-supplied reference before any generation. Refuse with a concrete ask. User can override with explicit "generate without reference, I understand the quality will be worse"; log as `stage: "no-ref-consent"`.
 4. **Quality gates refuse, not warn.** If `scoreScenario`/`scoreImage`/`scoreVideo` fail twice in a row, stop and report concrete options. Do not render mp4 over a failed gate.
 5. **No auto-launched processes.** No background Studio, no dashboard. Chat is the interface. Use `ralphy doctor` to surface missing keys/deps; `ralphy render <id>` to produce mp4.
