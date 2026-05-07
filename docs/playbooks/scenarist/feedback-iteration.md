@@ -4,9 +4,9 @@
 
 User gave feedback on an existing scenario:
 - "scene 2 weak" / "rework hook" / "tighten VO clip 4"
-- "make it shorter" / "make it longer" / "сделай покороче" / "удлинни"
-- "change persona" / "change setting" / "поменяй persona" / "поменяй setting"
-- "VO too fast / too slow" / "VO слишком быстрый/медленный"
+- "make it shorter" / "make it longer"
+- "change persona" / "change setting"
+- "VO too fast / too slow"
 
 ## Steps (surgical)
 

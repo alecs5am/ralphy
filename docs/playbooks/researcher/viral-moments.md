@@ -34,7 +34,7 @@ bunx tsx scripts/find-viral-moments.ts \
     {
       "start": 124.5,
       "end": 167.2,
-      "viral_hook_text": "Никто не говорит про X, но...",
+      "viral_hook_text": "Nobody talks about X, but...",
       "angle": "gatekeep",
       "reason": "drops a counter-intuitive insider claim with strong visual",
       "transcript_excerpt": "..."
@@ -65,7 +65,7 @@ Each clip is extracted lossless with 30-200ms padding on each side (see [`../edi
 - Minimum 15s — anything shorter doesn't add up to a self-contained moment.
 - Maximum 60s — anything longer doesn't work for short-form (TikTok cap 60s, Reels — 90s).
 - 3-15 clips total — more = noise, fewer = wasted budget.
-- `--language ru` is required for Russian (auto-detect fails on short clips).
+- `--language <code>` is required for non-English (auto-detect fails on short clips).
 
 ## Cost
 

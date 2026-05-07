@@ -24,7 +24,7 @@ A prompt consists of four layers in strict order:
 
 ### Voiceover (ElevenLabs)
 
-- Voice settings deadpan-young-Russian — see MODELS.md "Voice settings".
+- Voice settings deadpan-young — see MODELS.md "Voice settings".
 - `output_format: mp3_44100_128`.
 - Text — exactly as the scenarist wrote it, no edits of your own. If an edit is needed — handback to `/ralph-scenarist`.
 
@@ -38,6 +38,6 @@ A prompt consists of four layers in strict order:
 
 If the project was incarnated from a template — **read `workspace/templates/<slug>/fragments.md` first** and reuse blocks from there. Don't write stylistic tokens from scratch when the template has already standardized them.
 
-## Russian-first
+## Concrete over generic
 
-All our templates are Russian-language. Don't write prompts "in the style of Wes Anderson" — that works worse than concrete references and tokens. For Russian aesthetics prefer: "Soviet 80s Polaroid", "kommunalka kitchen", "хрущёвка interior" — not "Russian style" as a generic word.
+Don't write prompts "in the style of Wes Anderson" — that works worse than concrete references and tokens. For Soviet/post-Soviet aesthetics prefer: "Soviet 80s Polaroid", "kommunalka kitchen", "khrushchyovka interior" — not "Russian style" as a generic word.

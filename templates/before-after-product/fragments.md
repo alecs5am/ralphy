@@ -63,11 +63,7 @@ VO can be in any language. English defaults below; Russian variants follow as an
 - "Every single morning, same thing."
 - "Why is this still happening."
 
-**Russian:**
-- "Опять ничего не работает."
-- "Сколько можно вот это терпеть."
-- "Каждый раз одно и то же."
-- "Я сдалась с этими <X>."
+**Russian:** translate the same pain-hook beats — short frustrated one-liners (≤7 words) like "Nothing works again.", "How long can I put up with this.", "Same thing every time.", "I've given up on these <X>." (translate to Russian when generating).
 
 ### Reveal (≤ 5 words, neutral tone)
 
@@ -77,11 +73,7 @@ VO can be in any language. English defaults below; Russian variants follow as an
 - "Decided to try."
 - "This thing."
 
-**Russian:**
-- "Подруга посоветовала <X>."
-- "Случайно увидела <X>."
-- "Решила попробовать."
-- "Вот это."
+**Russian:** translate the same neutral reveal beats — "A friend recommended <X>.", "Stumbled on <X>.", "Decided to try it.", "This thing." (translate to Russian when generating).
 
 ### Demo / proof (one line per beat, growing satisfaction)
 
@@ -91,11 +83,7 @@ VO can be in any language. English defaults below; Russian variants follow as an
 - "After a month — forgot it was ever a problem."
 - "Can't believe I lived without this."
 
-**Russian:**
-- "Первый день — нормально."
-- "Через неделю — заметно."
-- "Через месяц — забыла что это была проблема."
-- "Не верится что я раньше без него."
+**Russian:** translate the same demo/proof beats with growing satisfaction — "First day — fine.", "After a week — noticeable.", "After a month — I forgot it was a problem.", "Can't believe I used to live without it." (translate to Russian when generating).
 
 ### Outro / CTA
 
@@ -104,10 +92,7 @@ VO can be in any language. English defaults below; Russian variants follow as an
 - "If you've got the same problem — try it."
 - "<Product name>." (silent reveal)
 
-**Russian:**
-- "Линк в био."
-- "Если у тебя такое же — попробуй."
-- "<Product name>." (silent reveal)
+**Russian:** translate the same outro/CTA beats — "Link in bio.", "If you have the same problem — try it.", "<Product name>." (silent reveal). (Translate to Russian when generating.)
 
 ## Tonal arc
 

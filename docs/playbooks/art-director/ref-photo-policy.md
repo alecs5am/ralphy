@@ -6,9 +6,9 @@
 
 A scenario.json slot contains:
 
-- `persona.name = "Илон Маск"` (real name, not the `it-remote` archetype)
-- `product = "Сбербанк"` / `brand = "Apple"` (branded object, logo, packaging)
-- `style = "в стиле канала <X>"` where X is a real recognizable entity
+- `persona.name = "Elon Musk"` (real name, not the `it-remote` archetype)
+- `product = "Stripe"` / `brand = "Apple"` (branded object, logo, packaging)
+- `style = "in the style of channel <X>"` where X is a real recognizable entity
 
 ## What we do
 
@@ -19,11 +19,11 @@ A scenario.json slot contains:
 
 2. **If there's no reference — refuse:**
 
-   > "Чтобы сделать `<имя/бренд>` хорошо, мне нужна референс-картинка. Скинь сюда фото / лого / скриншот, либо смени персонажа на безличного архетипа (`it-remote`, `courier`, `student`) — без референса генерить не буду, выйдет хуже чем дешёвый AI-слоп."
+   > "To do `<name/brand>` well, I need a reference image. Drop a photo / logo / screenshot, or switch the character to a generic archetype (`it-remote`, `courier`, `student`) — I won't generate without a reference, it'll come out worse than cheap AI slop."
 
 3. **If the user gives consent — we continue:**
 
-   > "генерь без референса, я понимаю что качество будет хуже"
+   > "generate without a reference, I know quality will be worse"
 
    Log to `user-prompts.jsonl`:
    ```ts

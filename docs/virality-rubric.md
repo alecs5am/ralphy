@@ -81,15 +81,15 @@ Default UGC-shorts duration: **10–15 seconds**.
 
 Each hook line should be ≤ 10 words and follow one of these structures:
 
-| Structure | Example (RU) | When to use |
+| Structure | Example | When to use |
 |---|---|---|
-| `Когда [триггер]…` (When [trigger]…) | "Когда заказчик пишет 'небольшая правка'" (When the client writes 'a tiny tweak') | Relatable pain |
-| `POV: [ситуация]` (POV: [situation]) | "POV: ты ML-инженер в 2026" (POV: you're an ML engineer in 2026) | Identity |
-| `Никто не говорит [тебе]…` (Nobody tells [you]…) | "Никто тебе не скажет, что..." (Nobody will tell you that…) | Gatekeep / inside |
-| `Жаль я не знал об этом раньше` (Wish I'd known earlier) | "Жаль я не узнал это в 22" (Wish I'd learned this at 22) | Regret/lesson |
-| `Все думают X но на самом деле Y` (Everyone thinks X but actually Y) | "Все думают доллар крепкий..." (Everyone thinks the dollar is strong…) | Skeptic frame |
-| `[Шок-цифра]` ([Shock number]) | "Я заработал 12М за 9 месяцев" (I made 12M in 9 months) | Visual shock |
-| `Вот почему [неожиданный факт]` (Here's why [unexpected fact]) | "Вот почему ты не успеваешь..." (Here's why you can't keep up…) | Curiosity gap |
+| `When [trigger]…` | "When the client writes 'a tiny tweak'" | Relatable pain |
+| `POV: [situation]` | "POV: you're an ML engineer in 2026" | Identity |
+| `Nobody tells [you]…` | "Nobody will tell you that…" | Gatekeep / inside |
+| `Wish I'd known earlier` | "Wish I'd learned this at 22" | Regret/lesson |
+| `Everyone thinks X but actually Y` | "Everyone thinks the dollar is strong…" | Skeptic frame |
+| `[Shock number]` | "I made 12M in 9 months" | Visual shock |
+| `Here's why [unexpected fact]` | "Here's why you can't keep up…" | Curiosity gap |
 
 Detailed hook library with examples — `workspace/hooks/HOOK_LIBRARY.md` (see Sprint 2.2).
 

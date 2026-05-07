@@ -62,11 +62,7 @@ The format is language-agnostic visually, so VO can be in any language. Below: E
 - "POV: you're a potato at the gym."
 - "When you're a carrot at work."
 
-**Russian (alt):**
-- "POV: ты огурец и опоздал на маршрутку."
-- "Когда ты помидор и не выспался."
-- "POV: ты картошка и пошёл в зал."
-- "Когда ты морковка на работе."
+**Russian (alt):** translate the same hook formulas — short deadpan one-liners (≤7 words) like "POV: you're a cucumber and you missed the bus.", "When you're a tomato and didn't sleep.", "POV: you're a potato at the gym.", "When you're a carrot at work." (translate to Russian when generating).
 
 ### Body lines (one short line per scene)
 
@@ -76,11 +72,7 @@ The format is language-agnostic visually, so VO can be in any language. Below: E
 - "Of course."
 - "Thought this would be easier."
 
-**Russian:**
-- "Опять пробка..."
-- "Зачем я сюда пришёл."
-- "Ну вот опять."
-- "Думал будет легче."
+**Russian:** translate the same body-line beats — short deadpan single-line reactions like "Traffic again...", "Why did I even come here.", "Here we go again.", "Thought it would be easier." (translate to Russian when generating).
 
 ### Outro (optional)
 

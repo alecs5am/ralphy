@@ -2,7 +2,7 @@
 
 ## When this fires
 
-One video, end-to-end. User: "make a video about X" / "сделай видео про X", "run the full pipeline" / "запусти полный pipeline".
+One video, end-to-end. User: "make a video about X", "run the full pipeline".
 
 ## Steps
 
