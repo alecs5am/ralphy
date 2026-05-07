@@ -1,0 +1,68 @@
+{
+  "name": "CGI Architecture",
+  "slug": "cgi-architecture",
+  "kind": "vibe-style",
+  "description": "Architectural visualization (archviz) — rendered houses, apartments, interiors, public spaces, and conceptual builds. The not-yet-built or aspirational-rendered side of architecture social. 15-30s vertical or horizontal cuts built from 4-8 slow-flythrough keyframes that sell emotion of a place that doesn't exist yet (or hasn't been photographed yet). Distinct from 15-real-estate (photoreal tour of an EXISTING property). This is the conceptual / pre-construction / interior-design-pitch / architecture-firm-reel cousin. Visual language: golden-hour exteriors, ambient-occlusion-rich interiors, slow flythroughs, threshold-pass cinematic moves. No VO required for most cuts; one outro line for project name when needed. User-supplied reference (floor plan, moodboard, sketch) is optional but materially improves output quality.",
+  "tags": [
+    "cgi",
+    "architecture",
+    "archviz",
+    "rendered",
+    "interior-design",
+    "exterior-render",
+    "conceptual-build",
+    "pre-construction",
+    "dwell-style",
+    "archdaily",
+    "twinmotion",
+    "lumion",
+    "unreal-architecture",
+    "dropbox-renders",
+    "real-estate-render",
+    "architecture-firm",
+    "design-pitch",
+    "moodboard",
+    "tadao-ando",
+    "big-architecture",
+    "studio-mckee",
+    "cinematic-render"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 30],
+  "typicalClipCount": [4, 8],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter. 4-8 keyframes spanning the arc: exterior establishing → threshold pass → interior key-rooms → exterior recap or signature view. Multi-ref WITH user-supplied floor plan / moodboard / sketch where available — improves geometric coherence and material fidelity. Where no reference exists, lean on style references (Tadao Ando, BIG, Studio McGee) inside the prompt to anchor the look.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips. Slow-flythrough and cinematic camera moves only — drone-flythrough at 0.5 m/s, dolly-pull-back at 0.3 m/s, threshold-walk-through at 0.7 m/s, slow-orbit at ~5°/sec. generate_audio: false; ambient mix layered in composition.",
+    "voiceover": "Optional and minimal. Most cuts are silent + music. When VO is used: a single outro line at 25-30s mark naming the project (\"Pavilion 04. By Studio Lumen.\") — ElevenLabs eleven_multilingual_v2, calm low-pressure male or female voice, one continuous read, no stitching.",
+    "captions": "Sparse. Project name + studio credit + year, MinimalCaptions or LowerThirdCaptions only. Never Hormozi style — wrong register for archviz.",
+    "music": "ElevenLabs Music — single ambient cinematic track with sense-of-arrival arc (Olafur Arnalds / Hans Zimmer minimalist style). Slow build toward the final exterior recap or signature money-shot. No drops, no percussion-forward beats."
+  },
+  "constants": {
+    "vibeAnchor": "aspirational-place-that-doesnt-exist-yet",
+    "structure": "0-3s exterior establish → 3-12s threshold pass → 12-25s interior key-room flythrough (1-3 rooms) → 25-30s exterior recap or signature view",
+    "lightingRule": "golden-hour, dusk-with-interior-glow, or carefully-lit-night — never flat midday",
+    "pacingRule": "every camera move slow — drone push-in 0.5 m/s, dolly 0.3 m/s, orbit 5°/sec",
+    "moneyShotRule": "exactly one signature shot per cut — pool reflection, threshold framing, or facade-against-sky"
+  },
+  "variationAxes": [
+    "building type (single-family-house / apartment-loft / public-space / conceptual-pavilion / hotel / restaurant / office / boutique-retail / cultural-museum)",
+    "time of day (golden-hour-exterior / midday-clean-modernist / dusk-interior-glow / night-with-practicals / day-to-dusk-transition)",
+    "interior style (modernist / brutalist / scandi-minimal / mid-century / tropical-luxe / industrial-loft / japandi / maximalist-luxe)",
+    "camera language (drone-fly-through / threshold-walk / slow-orbit / dolly-pull-back-reveal / rack-focus-on-materiality)",
+    "aspect (9:16 social cut for IG/TikTok / 16:9 master for Vimeo, ArchDaily, studio website)",
+    "VO presence (silent-music-only / one-outro-line-credits / spec-overlay-text-only)"
+  ],
+  "doNotCopyLiterally": "Floor plan, exact materiality, signature views invented for one project. The pattern (exterior establish → threshold → interior flythrough → exterior recap), the slow-camera discipline, and the lighting recipes are reusable. The building itself is per-project.",
+  "requiresUserReference": false,
+  "referenceNotes": "Reference is OPTIONAL for archviz — the genre is aspirational by definition; the building often does not exist yet. However, when the user supplies a floor plan PDF, an architect's sketch, a massing diagram, or a moodboard image, multi-ref keyframes come back materially better: geometry stays coherent across rooms, materials read intentional, and the cut feels like one project rather than four random renders. Encourage the user to drop any reference they have at workspace/projects/<id>/assets/uploaded/ — but do not block on it. If the brief names a real existing building (a famous house, a built museum, a specific architect's known work), then the reference-required gate (AGENTS.md hard rule #3) DOES apply — request photos before generating."
+}
