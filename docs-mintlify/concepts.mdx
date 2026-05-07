@@ -1,0 +1,79 @@
+---
+title: "Concepts"
+description: "Workspaces, templates, profiles, skills — and the loop that ties them together."
+---
+
+Ralphy is a small repo with a few sharp ideas. Once you know the pieces, the chat stops being
+magic and starts being a producer.
+
+## The five agents
+
+| agent | what it owns | trigger |
+| --- | --- | --- |
+| **planner** | turns one chat line into a brief + shot plan | every new project |
+| **researcher** | scrapes references (URLs, profiles, competitors) | `/ralph-researcher` |
+| **scenarist** | writes the scenario, picks the template | `/ralph-scenarist` |
+| **renderer** | drives OpenRouter + ElevenLabs + Remotion | `/ralph-renderer` |
+| **critic** | scores the render, suggests a refinement | every render |
+
+All five share the same workspace, model registry, and skill graph. There is no orchestrator
+process — Claude Code is the orchestrator.
+
+## Workspace
+
+`workspace/` is your local, gitignored sandbox. One folder per project:
+
+```
+workspace/projects/p_03/
+  brief.md          ← what you asked for
+  scenario.md       ← the 5-shot script
+  assets/           ← raw image/video/voice generations
+  render/           ← Remotion outputs (mp4, srt, posters)
+  log.json          ← model calls, tokens, costs
+```
+
+## Templates
+
+A template is a small folder under `templates/<id>/` with a `TEMPLATE.md`, fragment prompts, a
+model-stack file, and a reference example. Want a new style? Save a successful project as a
+template:
+
+```text
+> save project p_03 as template moody-launch
+```
+
+## Profiles
+
+A profile is a committed dump of a *workspace* — templates, references, example projects — that
+others can import.
+
+```bash
+ralphy profile list
+ralphy profile import ralphy-showcase     # additive, never overwrites
+ralphy profile export <your-nick>         # share your work
+```
+
+## Skills
+
+Skills are markdown files under `.agents/skills/`. They teach Claude how to do real work —
+running shell commands, calling APIs, composing Remotion scenes. The chat can write its own.
+
+<Note>
+  `.claude/skills/` is just a symlink to `.agents/skills/` so Claude Code picks them up. You only
+  edit one source of truth.
+</Note>
+
+## The refinement loop
+
+The critic agent doesn't just score — it loops. After every render, it produces a delta:
+
+```text
+iter #11 → #12
+  + lighting (cooler key, +stop fill)
+  + composition (rule of thirds, subject left)
+  - over-saturation in shot 03
+  ai_score: 7.4 → 8.6 (+12%)
+```
+
+If the score is still climbing, the renderer goes again. Most projects converge around iteration
+**#12**.

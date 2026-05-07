@@ -1,0 +1,48 @@
+---
+title: "ralphy template"
+description: "Browse and instantiate visual styles."
+---
+
+```bash
+ralphy template list
+ralphy template show <id>
+ralphy template use <id> --project <new-id> --name "..." --brief "..."
+```
+
+## list
+
+Show every template available in `templates/` plus any imported via profiles.
+
+```bash
+ralphy template list
+```
+
+## show
+
+Print the `TEMPLATE.md`, fragment prompts, and model-stack rules.
+
+```bash
+ralphy template show soviet-nostalgic
+```
+
+## use
+
+Instantiate a new project from a template.
+
+```bash
+ralphy template use soviet-nostalgic \
+  --project p_04 \
+  --name "Q4 launch" \
+  --brief "30s promo for our serverless DB, target devs"
+```
+
+## Authoring a new template from a project
+
+In the chat:
+
+```text
+> save project p_03 as template moody-launch
+```
+
+That writes `templates/moody-launch/TEMPLATE.md`, the fragments, the model-stack file, and a
+reference example.

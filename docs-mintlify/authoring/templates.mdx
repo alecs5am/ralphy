@@ -1,0 +1,58 @@
+---
+title: "Authoring templates"
+description: "Capture a successful render as a reusable visual style."
+---
+
+A **template** is a small folder under `templates/<id>/` describing a visual style and the
+model stack that produces it.
+
+## Layout
+
+```
+templates/soviet-nostalgic/
+  TEMPLATE.md           ← prose: tone, palette, motion, do/don't
+  fragments/
+    shot-prompt.md      ← variables Claude fills per shot
+    voice-prompt.md
+    music-prompt.md
+  model-stack.json      ← which OpenRouter / ElevenLabs models to use
+  reference/
+    example-01.png
+    example-02.mp4
+```
+
+## TEMPLATE.md
+
+The first 200 words define the *style*. Be specific. Mention real references.
+
+```md
+# Soviet-nostalgic launch
+
+Sun-bleached 35mm. Heavy grain. Cyrillic lower-third. The framing is wide, the
+camera is patient. Color: amber + faded teal, never saturated. Music: minor key
+piano with a slow string swell at the climax.
+
+Inspired by the title sequences of *Burnt by the Sun* (1994) and the
+ad work of Andrey Shevtsov.
+```
+
+## model-stack.json
+
+```json
+{
+  "image": "google/gemini-3-pro-image-preview",
+  "video": "klingai/kling-v3.0-pro",
+  "voice": "elevenlabs/eleven-multilingual-v2",
+  "music": "elevenlabs/music",
+  "llm":   "anthropic/claude-3.5-sonnet"
+}
+```
+
+## Capture from a successful project
+
+```text
+> save project p_03 as template moody-launch
+```
+
+That copies the scenario, the prompts, the model-stack, and one reference frame into
+`templates/moody-launch/`.
