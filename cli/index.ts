@@ -23,6 +23,8 @@ import { doctorCmd } from "./commands/doctor.js";
 import { renderCmd } from "./commands/render.js";
 import { assetsCmd } from "./commands/assets.js";
 import { exampleCmd } from "./commands/example.js";
+import { audioCmd } from "./commands/audio.js";
+import { videoCmd } from "./commands/video.js";
 
 const program = new Command();
 
@@ -69,5 +71,7 @@ program.addCommand(dashboardCmd());
 program.addCommand(profileCmd());
 program.addCommand(assetsCmd());
 program.addCommand(exampleCmd());
+program.addCommand(audioCmd());
+program.addCommand(videoCmd());
 
 program.parseAsync();
