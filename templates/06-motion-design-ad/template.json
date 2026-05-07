@@ -1,0 +1,63 @@
+{
+  "name": "Motion Design Ad",
+  "slug": "06-motion-design-ad",
+  "kind": "vibe-style",
+  "description": "Kinetic-typography / motion-graphics ad for software, SaaS, apps and tech products. UI shots, geometric splits, particle bursts, light-beam scans, code-to-product morphs. 9:16 by default (15-30s); also 16:9 for YouTube pre-roll and 1:1 for LinkedIn. Reference-required: a real brand logo / product screenshot / UI capture must be supplied — AI-improvised UI on a branded product reads as fake. Stack: gemini-3-pro keyframes (with brand reference), kling-v3.0-pro 5s i2v, ElevenLabs music for the beat-driven backbone (typically electronic, 120-140 BPM).",
+  "tags": [
+    "motion-design",
+    "kinetic-typography",
+    "saas",
+    "software",
+    "app-promo",
+    "tech",
+    "ui-showcase",
+    "ad",
+    "advertising",
+    "tiktok",
+    "reels",
+    "shorts",
+    "youtube-preroll",
+    "linkedin",
+    "product-launch",
+    "feature-showcase",
+    "моушн-дизайн",
+    "кинетическая-типографика",
+    "реклама"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 30],
+  "typicalClipCount": [3, 6],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied brand logo / UI screenshot / product mockup (required for any frame where brand or product UI is visible)",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips (3-6 total), generate_audio: false. Best for kinetic UI motion, particle systems, light beams, and morph transitions when prompted with explicit motion verbs and easing curves.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — optional; many motion-design ads run music-only with text-on-screen. When VO is used, single confident take, mid-tempo, sync to beat hits.",
+    "captions": "OpenRouter whisper-1 → KineticCaptions or HormoziCaptions; type-on / scale-in entrance synced to beat. Caption is a first-class visual element here, not an accessibility afterthought.",
+    "music": "ElevenLabs Music — single track, electronic / synth / cinematic-electronic, 120-140 BPM. Beat hits drive every cut and CTA reveal. One music_v1 call, full-duration."
+  },
+  "constants": {
+    "vibeAnchor": "kinetic-ui-motion + brand-color-system",
+    "structure": "2s hook → 6-12s product/feature showcase → 3-4s benefit → 2-3s CTA",
+    "pacing": "1-1.5s beats; cuts on music hits",
+    "captionStyle": "kinetic / hormozi-impact, beat-synced"
+  },
+  "variationAxes": [
+    "hook type (data-explosion, UI-morph, glitch-to-clean, light-beam-scan, particle-burst-from-logo, isometric-zoom, hand-interaction)",
+    "visual style (Dark Premium, Clean Minimal, Abstract Data, Isometric Tech, Gradient Brand, Neon Cyber, Glassmorphism, Bold Geometric, Tech Noir, Futuristic Minimalist)",
+    "product category (SaaS dashboard, mobile app, AI/data product, dev tool, B2B platform, consumer app, fintech)",
+    "duration & aspect (6-15s 9:16 for Reels/TikTok, 15-30s 16:9 for YouTube pre-roll, 20-30s 1:1 for LinkedIn)",
+    "energy (fast/edgy 0.8s beats vs. premium/deliberate 1.5-2s beats)"
+  ],
+  "doNotCopyLiterally": "Specific UI layouts, brand colors, exact prompts, specific metrics. Vibe and motion grammar only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Brand logo, UI screenshot, product mockup, or app screen capture is REQUIRED. The reference-required gate (AGENTS.md hard rule #3) refuses if no reference exists at workspace/projects/<id>/assets/uploaded/. AI-improvised UI on a branded product is never acceptable — fake screens read instantly. If the user has no real UI yet (pre-launch), they must supply at minimum the logo + a wireframe / Figma export; log as `stage: \"wireframe-ref\"`."
+}
