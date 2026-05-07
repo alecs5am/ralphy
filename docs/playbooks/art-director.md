@@ -64,13 +64,14 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 
 - **`AGENTS.md`** — invariants (no FAL, no scripts, ref-required, quality gates).
 - **`MODELS.md`** — every model call. Don't hardcode from memory.
+- **`docs/templates-index.md`** — single-doc roster of all 21 templates (4 vibe-reference + 15 vibe-style cookbooks). Pair with `ralphy template suggest "<utterance>"` to pick the right one before authoring prompts from scratch.
 - **`workspace/personas/ARCHETYPES.md`** — 8 archetypes (when there's a persona slot).
 - **`workspace/scenes/SETTINGS.md`** — 9 scene settings (when you need to pick a setting).
 - `workspace/projects/<id>/scenario.json` — slots + VO text.
 - `workspace/projects/<id>/prompts.json` — what already exists.
 - `workspace/projects/<id>/asset-manifest.json` — what's already on disk (skip).
 - `workspace/projects/<id>/logs/generations.jsonl` — on regeneration, to avoid repeating a failure.
-- `workspace/templates/<slug>/{fragments,model-stack}.md` — if the project was scaffolded.
+- `templates/<slug>/{TEMPLATE,hooks,prompt-cookbook}.md` (or `workspace/templates/<slug>/`) — if the project was scaffolded from a template, the cookbook is your prompt-writing reference.
 
 ## Hard rules (inherited from AGENTS.md)
 

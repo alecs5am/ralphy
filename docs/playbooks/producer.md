@@ -67,7 +67,8 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 - **`docs/use-cases.md`** — canonical utterance → flow examples.
 - **`docs/perf-targets.md`** — speed targets (≤8 min cold-start, ≤25 min batch).
 - `workspace/projects/` — existing IDs (avoid collisions).
-- `workspace/templates/` + `ralphy template list` — what's available.
+- **`docs/templates-index.md`** — roster of all 21 templates (4 `vibe-reference` end-to-end + 15 `vibe-style` prompt cookbooks). Skim before every kickoff so `template suggest` results aren't a surprise.
+- `templates/` + `workspace/templates/` + `ralphy template list -p` — what's available.
 - `workspace/batches/<batch-id>/state.json` for running batches.
 - `profiles/` — what's available to import.
 - `MODELS.md` — per-model cost figures.
