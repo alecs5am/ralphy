@@ -1,0 +1,67 @@
+{
+  "name": "Doctor Authority",
+  "slug": "doctor-authority",
+  "kind": "vibe-style",
+  "description": "Authority figure (doctor / dermatologist / nutritionist / dentist / pharmacist) in a white coat or scrubs explains why a product, ingredient, or approach works. The dominant nutra / supplement / skincare / wellness DTC ad pattern: white coat = trust shortcut, mechanism explanation = 'I understand why this works' feeling. 20-45s, 9:16. Format: 0-3s authority hook ('As a dermatologist, I tell every patient…') → 3-25s mechanism explanation (what the ingredient does, the science) → 25-40s product / ingredient name + recommendation → 40-45s soft CTA. Walks a regulatory line — synthetic-doctor AI avatars must carry an on-screen 'AI-generated' disclosure (TikTok C2PA + 2026 norm); refusing to impersonate real-named medical professionals without consent (AGENTS.md hard rule #3).",
+  "tags": [
+    "doctor",
+    "authority",
+    "medical-authority",
+    "dermatologist",
+    "nutritionist",
+    "dentist",
+    "pharmacist",
+    "cardiologist",
+    "white-coat",
+    "scrubs",
+    "clinical",
+    "nutra",
+    "supplements",
+    "skincare",
+    "wellness",
+    "mechanism-explainer",
+    "ingredient-led",
+    "ad-pattern",
+    "dtc",
+    "talking-head",
+    "trust",
+    "expert"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [20, 45],
+  "typicalClipCount": [1, 4],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter for the authority-figure keyframe (white coat or scrubs, clinical setting, professional posture, calm eye contact). One canonical hero shot drives identity for every clip.",
+    "i2v": "google/veo-3.1 via OpenRouter for the talking-head clip (premium model — trust signal depends on micro-expression realism, lip-sync, calm eye contact). Optional kwaivgi/kling-v3.0-pro for short ingredient / mechanism / product cutaway b-roll (3-5s clips). generate_audio: false for both — VO is ElevenLabs.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2, stability 0.45 (calm authoritative — NOT excited, NOT salesy), similarity 0.75, ~130 WPM. Voice cast: clinical-warm, mid-register, no upsell hype.",
+    "captions": "ElevenLabs Scribe for word-level timestamps. MinimalCaptions (bottom-third, white-on-soft-shadow) or restrained Hormozi (no screaming yellow — too tabloid for medical authority).",
+    "music": "Optional. Off by default. If used: ElevenLabs Music ambient bed at -25dB (barely-there tonal pad). No drums, no build, no drop — anything energetic breaks the authority signal."
+  },
+  "constants": {
+    "vibeAnchor": "white-coat-clinical-credibility",
+    "structure": "0-3s authority hook → 3-25s mechanism explainer → 25-40s ingredient/product mention → 40-45s soft CTA",
+    "voTone": "calm-authoritative-not-salesy",
+    "captionStyle": "minimal-or-restrained-hormozi",
+    "aiDisclosure": "on-screen 'AI-generated' top-right corner, full-duration, when synthetic doctor"
+  },
+  "variationAxes": [
+    "profession (dermatologist, nutritionist, dentist, pharmacist, cardiologist, GP)",
+    "setting (clinical office, home office with credentials wall, pharmacy counter, neutral studio)",
+    "real-vs-AI (real licensed actor with consent / AI-avatar with mandatory on-screen disclosure)",
+    "claim type (mechanism-explainer, ingredient-recommendation, lifestyle-advice, protocol-walkthrough)",
+    "VO language (any — emotional arc reads through tone and white-coat visual)"
+  ],
+  "doNotCopyLiterally": "Authority script, ingredient name, profession choice, exact prompts. Vibe / format reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Two gates apply. (1) Branded product gate: if a specific branded supplement / skincare / nutra product is recommended on-screen, a product reference (photo / packaging / logo) MUST exist at workspace/projects/<id>/assets/uploaded/ — else refuse (AGENTS.md hard rule #3). AI-improvised branding on a real product reads as fake and is a regulatory landmine. (2) Real-named professional gate: if the brief invokes a real-named medical professional (Dr. Jane Doe, Dermatologist at X clinic), refuse outright unless the user provides written consent — impersonating a real-named medical professional is a hard rule #3 violation and a defamation risk. Generic 'a dermatologist' / 'a nutritionist' is fine if AI-generated AND the synthetic figure carries an on-screen 'AI-generated' disclosure (TikTok C2PA + 2026 norm). Therapeutic / curative claims ('cures acne', 'reverses diabetes') are refused regardless — they require regulatory backing this template does not produce."
+}
