@@ -1,0 +1,69 @@
+{
+  "name": "CGI Hardware",
+  "slug": "cgi-hardware",
+  "kind": "vibe-style",
+  "description": "Premium hardware / gadget CGI render — Flipper Zero, Teenage Engineering, Nothing Phone, Apple-keynote vocabulary. 8-15s, 9:16 default (16:9 supported). Industrial-design-magazine meets product-launch-keynote: macro detail, dramatic raking light on a dark or contrast-rich background, kinetic-but-controlled camera moves, signature hero-shot moment. Reference-required: real product photos of the actual hardware are mandatory — no AI-improvised gadget designs, ever. Music + sound design carry the spot; one-line brand text at the outro. The hardware/gadget split of the generic 02-3d-cgi family — pair with cgi-architecture for the spatial split.",
+  "tags": [
+    "cgi",
+    "hardware",
+    "gadget",
+    "tech",
+    "flipper-zero",
+    "teenage-engineering",
+    "nothing-phone",
+    "apple-keynote",
+    "industrial-design",
+    "product-launch",
+    "photoreal-render",
+    "octane",
+    "blender",
+    "cinema-4d",
+    "redshift",
+    "hero-shot",
+    "premium-tech",
+    "product-cinematography",
+    "macro-detail",
+    "keynote",
+    "dieter-rams",
+    "minimal"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [8, 15],
+  "typicalClipCount": [3, 6],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied hardware product photos (REQUIRED — no AI-improvised gadget designs). Use 3-6 reference angles for industrial design accuracy: front, three-quarter, port detail, surface texture, button/dial macro. Gemini-3-pro is non-negotiable here — lesser image models hallucinate ports, mis-render anodized finishes, and invent buttons.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for camera-move motion (slow orbit, dolly-push-in, pull-back-reveal, controlled detail explore). 5s clips, 3-6 total, generate_audio: false. For premium camera fidelity (rack-focus, exploded-view fly-throughs, dolly-zoom) swap to veo-3.1 — expect ~3x cost.",
+    "voiceover": "None by default. Sound design + music carry the spot. Optional 1-line brand tag at outro (ElevenLabs eleven_multilingual_v2) — keynote-narrator timbre, never UGC peer voice.",
+    "captions": "None default. Brand-title overlay (single line, brand-mark + product name) Remotion-rendered at the hero-pose finale frame. No Whisper transcription.",
+    "music": "ElevenLabs Music — keynote-electronica or cinematic-score bed (Trent Reznor / Jeremy Zuckerman style for tension; keynote-piano-arpeggio for warmer launches). Single track, swell peaks at the hero-pose frame (typically 75-85% through the spot).",
+    "soundDesign": "Foley layer is mandatory: button-click, snap-fit, magnet-snap, vibrate-feel, fan-spin, dial-detent, key-feel. Layered under music. The 'tactile' sound is what sells 'premium' more than the visuals."
+  },
+  "constants": {
+    "vibeAnchor": "industrial-design-magazine-meets-keynote",
+    "structure": "0-2s establishing-render in moody light → 2-10s detail-exploration (3-4 macro beats) → 10-15s hero-pose with brand title",
+    "lightingDefault": "single key rake-light + 1/8 fill + rim + dark background",
+    "cameraDefault": "controlled-orbit-or-dolly-push-with-easing",
+    "outroTextPolicy": "single-line brand-mark + product name only — no taglines, no CTAs in vibe spots"
+  },
+  "variationAxes": [
+    "hardware category (phone / wearable / camera / dev-board / audio-device / appliance / power-tool / dock / peripheral)",
+    "background (deep-black studio / studio-grey / brand-color gradient / brutalist-concrete / marble-pedestal / contextual-environment)",
+    "lighting mood (high-contrast-noir / soft-studio / clinical-bright / dramatic-spotlight / brand-color-wash)",
+    "camera move (slow-orbit / dolly-push-in / pull-back-reveal / detail-explore / hand-pickup / exploded-view / rack-focus)",
+    "materiality emphasis (CNC aluminum / anodized / brushed-steel / glass / soft-touch elastomer / leather / transparent-polycarbonate)",
+    "outro style (brand-mark fade-in / product-name type-on / glow-on-boot / silhouette-into-3-quarter)"
+  ],
+  "doNotCopyLiterally": "Specific brand identities, exact industrial-design language belonging to a real company, prompts that name a competitor product as the subject. Vibe reference only — write prompts that channel the design vocabulary, never reproduce a registered design.",
+  "requiresUserReference": true,
+  "referenceNotes": "Hardware product reference photos are MANDATORY — AGENTS.md hard rule #3 applies in the strictest form here. AI-improvised gadgets always read as fake (wrong port count, hallucinated buttons, anodized colors that don't exist in the real product). Refuse generation if no reference exists at workspace/projects/<id>/assets/uploaded/. Ask the user for: (1) hero front-on photo, (2) three-quarter view, (3) port / connector detail, (4) surface-texture macro, (5) button / dial macro. Three references is the minimum; five is the sweet spot. User can override with explicit 'generate without reference, I understand the quality will be worse' — log as `stage: \"no-ref-consent\"`."
+}
