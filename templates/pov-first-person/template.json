@@ -1,0 +1,65 @@
+{
+  "name": "POV First-Person",
+  "slug": "pov-first-person",
+  "kind": "vibe-style",
+  "description": "Human-POV format. Viewer is projected into the scene from first person via a centered text overlay (\"POV: you just…\"). The creator plays the character on camera with reactive expressions; the scene develops over 8-25s and lands on a punchline, emotional peak, or cliffhanger. Highest share-rate and save-rate format because of relatability — the viewer recognizes themselves and forwards it. Works across comedy, dating, lifestyle, B2B SaaS (\"POV: you're the only marketer at a startup\"), retail. Distinct from ai-vegetables (which is POV but vegetable-anthropomorphic) — this is human, broader, character-driven.",
+  "tags": [
+    "pov",
+    "first-person",
+    "relatable",
+    "comedy",
+    "dating",
+    "lifestyle",
+    "b2b-saas",
+    "retail",
+    "share-bait",
+    "save-bait",
+    "tiktok",
+    "reels",
+    "shorts",
+    "text-overlay",
+    "reaction",
+    "ugc",
+    "talking-character",
+    "punchline",
+    "от-первого-лица",
+    "точка-зрения"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [8, 25],
+  "typicalClipCount": [1, 3],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — selfie-style or face-cam framing of the POV character. One persona keyframe locks the look; subsequent frames reuse it as a self-ref so the character is consistent across cuts.",
+    "i2v": "kwaivgi/kling-v3.0-pro (default) or google/veo-3.1 via OpenRouter for talking-character animation. 5-8s clips, 1-3 total. Eyes-to-camera, micro-reactions, in-character expression. generate_audio: false (VO is added separately).",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — single character voice, emotional weight matched to the payoff (deadpan / panicked / wistful / fed-up). Optional: skip VO entirely and rely on text overlay + trending sound.",
+    "captions": "OpenRouter whisper-1 → word-level captions. HormoziCaptions for comedy / B2B (impact); MinimalCaptions or TikTok-white-stroke for lifestyle / dating / emotional. The POV: line is rendered as a separate large centered overlay, not as captions.",
+    "music": "ElevenLabs Music (optional emotional bed) OR a trending / original sound borrowed from the platform reference. POV format leans on platform sound culture more than original score — when the brief cites a trend, the trending sound is mandatory."
+  },
+  "constants": {
+    "vibeAnchor": "pov-text-setup → in-character-reaction → payoff",
+    "structure": "0-2s POV text hook → 2-10s scene develops with reactive expressions → 10-20s payoff (punchline / emotional peak / cliffhanger)",
+    "povTextPlacement": "centered, big, top-third or middle, persists across the whole hook beat (≥ 2s on screen)",
+    "characterFraming": "selfie-style or face-cam, eyes-to-camera, head-and-shoulders"
+  },
+  "variationAxes": [
+    "niche (comedy / dating / lifestyle / B2B-SaaS / retail / parenting / fitness)",
+    "POV tense (you-are-X / you-just-X / coming-home-to-X / it's-the-year-Y / your-X-is-Y)",
+    "payoff style (punchline / emotional peak / cliffhanger / cut-to-black)",
+    "shot count (single-shot face-cam vs multi-cut — POV text + reaction + payoff cutaway)",
+    "tone (deadpan / panicked / wistful / fed-up / sincere)",
+    "VO presence (full VO / no VO + trending sound only / hybrid)"
+  ],
+  "doNotCopyLiterally": "POV scenario line, character look, payoff. The structure is the template; the content is per-project.",
+  "requiresUserReference": false,
+  "referenceNotes": "No reference required by default — POV characters are AI-generated personas. If the brief mentions a specific named creator (Brittany Broski, Drew Afualo, etc.) or a real brand, the reference-required gate (AGENTS.md hard rule #3) re-engages: a face / brand reference must exist at workspace/projects/<id>/assets/uploaded/. AI-improvised likeness of a real person is never acceptable."
+}
