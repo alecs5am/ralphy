@@ -154,6 +154,8 @@ export type GenerateVideoInput = CommonInput & {
   image?: string;
   prompt: string;
   durationSec: number;
+  /** Enable model-native audio (Veo 3.x only). Default false. */
+  generateAudio?: boolean;
 };
 
 const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
@@ -174,7 +176,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     model,
     prompt: input.prompt,
     duration_sec: input.durationSec,
-    generate_audio: false,
+    generate_audio: input.generateAudio ?? false,
   };
   if (input.image) body.image = input.image;
 

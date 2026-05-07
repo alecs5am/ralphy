@@ -160,8 +160,10 @@ export async function loudnorm(input: LoudnormInput): Promise<string> {
   } = input;
   await fs.mkdir(path.dirname(dst), { recursive: true });
   const filter = `loudnorm=I=${target}:TP=${truePeak}:LRA=${loudnessRange}`;
+  // Codec is auto-picked by ffmpeg from the output extension. Bitrate fixed
+  // at 192k — fine for both libmp3lame (.mp3) and aac (.m4a / .aac).
   await runFfmpeg(
-    ["-i", src, "-af", filter, "-c:a", "aac", "-b:a", "192k", dst],
+    ["-i", src, "-af", filter, "-b:a", "192k", dst],
     {
       endpoint: "ffmpeg/loudnorm",
       input: { src, dst, target, truePeak, loudnessRange },
@@ -212,7 +214,7 @@ export async function sidechainCompress(input: SidechainCompressInput): Promise<
       "-i", music,
       "-filter_complex", filter,
       "-map", "[mixed]",
-      "-c:a", "aac", "-b:a", "192k",
+      "-b:a", "192k",
       dst,
     ],
     {

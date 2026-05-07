@@ -6,7 +6,7 @@ import { slugify, generateId } from "../lib/ids.js";
 import { projectsDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { readLog, logUserPrompt, logUserAsset, logGeneration, type GenerationEntry, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
-import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage } from "../lib/transcribe.js";
+import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 
 async function safeJson(fp: string) {
@@ -304,10 +304,11 @@ export function projectCmd() {
 
   cmd
     .command("transcribe <id>")
-    .description("Transcribe an audio file via OpenRouter whisper-1; writes captions.json (Caption[])")
+    .description("Transcribe an audio file → captions.json (Caption[]). Default backend: ElevenLabs Scribe v1 (word-level).")
     .requiredOption("--audio <path>", "Path to audio file (mp3/m4a/wav, ≤25MB)")
     .option("--language <lang>", "ru | en | auto", "ru")
-    .option("--model <model>", "(unused; kept for compat — whisper-1 only)", DEFAULT_MODEL)
+    .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
+    .option("--model <model>", "(advanced; only honored for backend=openrouter)", DEFAULT_MODEL)
     .option("--out <path>", "Output JSON path (default: <project>/captions.json)")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
@@ -320,22 +321,24 @@ export function projectCmd() {
         : path.join(projectDir, "captions.json");
 
       const language = (opts.language || "ru") as TranscribeLanguage;
+      const backend = (opts.backend || "elevenlabs") as TranscribeBackend;
 
       const t0 = Date.now();
       try {
         const result = await transcribe({
           audioPath,
           language,
+          backend,
           model: opts.model,
         });
         await fs.mkdir(path.dirname(outPath), { recursive: true });
         await fs.writeFile(outPath, JSON.stringify(result.captions, null, 2) + "\n");
 
         await logGeneration(id, {
-          provider: "openrouter",
+          provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
           endpoint: result.model,
           kind: "text",
-          input: { audio: audioPath, language },
+          input: { audio: audioPath, language, backend: result.backend },
           output: { local: outPath },
           status: "ok",
           latency_ms: result.durationMs,
@@ -348,6 +351,7 @@ export function projectCmd() {
           project: id,
           captions: result.captions.length,
           language: result.language,
+          backend: result.backend,
           model: result.model,
           durationMs: result.durationMs,
           audioDurationSec: result.audioDurationSec,
@@ -356,10 +360,10 @@ export function projectCmd() {
         });
       } catch (e: any) {
         await logGeneration(id, {
-          provider: "openrouter",
-          endpoint: WHISPER_MODEL,
+          provider: backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+          endpoint: backend === "openrouter" ? WHISPER_MODEL : `transcribe/${backend}`,
           kind: "text",
-          input: { audio: audioPath, language },
+          input: { audio: audioPath, language, backend },
           status: "error",
           error: e?.message || String(e),
           latency_ms: Date.now() - t0,

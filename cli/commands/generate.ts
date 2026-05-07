@@ -17,7 +17,7 @@ import {
   generateVoiceover,
   generateMusic,
 } from "../lib/providers/media.js";
-import { transcribe } from "../lib/transcribe.js";
+import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { logUserPrompt } from "../lib/gen-log.js";
 
@@ -131,6 +131,7 @@ export function generateCmd() {
     .requiredOption("--duration <seconds>", "Duration in seconds (e.g. 5)", parseFloat)
     .option("--model <model>", "OpenRouter model id", "kwaivgi/kling-v3.0-pro")
     .option("--image <ref>", "Reference image URL or path (for i2v)")
+    .option("--audio", "Enable model-native audio (Veo 3 only — see MODELS.md)", false)
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
       await ensureProject(opts.project);
@@ -142,6 +143,7 @@ export function generateCmd() {
         durationSec: opts.duration,
         model: opts.model,
         image: opts.image,
+        generateAudio: opts.audio,
         note: opts.note,
       });
       const manifest = await readManifest(opts.project);
@@ -244,11 +246,12 @@ export function generateCmd() {
   // ── captions ────────────────────────────────────────────────────────────
   cmd
     .command("captions")
-    .description("Transcribe audio to Caption[] via OpenRouter whisper-1 (≤25MB)")
+    .description("Transcribe audio to Caption[] (≤25MB). Default backend: ElevenLabs Scribe v1 (word-level).")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--audio <path>", "Audio file (mp3/m4a/wav, ≤25MB)")
     .option("--slot <slot>", "Slot id (default: derived from audio filename)")
     .option("--language <lang>", "Audio language: ru | en | auto", "ru")
+    .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
     .option("--output <path>", "Custom output path (default: workspace/projects/<id>/captions.json)")
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
@@ -256,8 +259,9 @@ export function generateCmd() {
       const audioPath = path.resolve(opts.audio);
       const slot = opts.slot ?? `captions-${path.basename(audioPath, path.extname(audioPath))}`;
       validateSlot(slot);
+      const backend = opts.backend as TranscribeBackend;
       const t0 = Date.now();
-      const result = await transcribe({ audioPath, language: opts.language });
+      const result = await transcribe({ audioPath, language: opts.language, backend });
       const outPath = opts.output
         ? path.resolve(opts.output)
         : path.join(projectsDir(), opts.project, "captions.json");
@@ -265,10 +269,10 @@ export function generateCmd() {
       await fs.writeFile(outPath, JSON.stringify(result.captions, null, 2), "utf8");
 
       await logGeneration(opts.project, {
-        provider: "openrouter",
+        provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
         endpoint: result.model,
         kind: "text",
-        input: { audio: audioPath, language: opts.language },
+        input: { audio: audioPath, language: opts.language, backend: result.backend },
         output: { local: outPath, bytes: result.captions.length },
         status: "ok",
         latency_ms: Date.now() - t0,
