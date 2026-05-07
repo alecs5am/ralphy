@@ -14,7 +14,7 @@ There must be at least one file — product photo, packaging, or logo. If the di
 
 > "The brief mentions '<product>'. I won't ship without a reference — the result would be AI-slop with hallucinated branding. Drop a photo / screenshot / packaging image and I'll continue."
 
-(See AGENTS.md hard rule #3 and `ralph-art-director/rules/ref-photo-policy.md`.)
+(See AGENTS.md hard rule #3 and [`../../docs/playbooks/art-director/ref-photo-policy.md`](../../docs/playbooks/art-director/ref-photo-policy.md).)
 
 ## Stage 1 — Before keyframes (~5s of timeline → 2-3 keyframes)
 

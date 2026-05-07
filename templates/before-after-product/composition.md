@@ -140,7 +140,7 @@ export const BeforeAfterProduct: React.FC<Props> = ({
 | Music before | 0.6 baseline, fade out at split | yes (duck to 0.15 while VO is active) |
 | Music after | 0.6 baseline, fade in at split | yes (duck to 0.15 while VO is active) |
 
-For full ducking, wrap each music's `volume` lambda in another `interpolate` checking the VO active windows. See `ralph-editor/rules/audio-mixing.md` for the ducking pattern.
+For full ducking, wrap each music's `volume` lambda in another `interpolate` checking the VO active windows. See [`../../docs/playbooks/editor/audio-mixing.md`](../../docs/playbooks/editor/audio-mixing.md) for the ducking pattern.
 
 Loudnorm post-render via `ralphy render <id> --loudnorm`.
 

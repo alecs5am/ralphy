@@ -1,57 +1,17 @@
 ---
 name: ralph-core
-description: Plumbing role — ralph CLI cookbook, workspace inspection, debug logs, env doctor, fresh-machine setup. NO auto-launch of Studio/dashboard in v2. Invoke when user says "set up", "ralphy doctor", "nothing works" / "что не работает", "read logs", or asks any ralph CLI question.
-triggers:
-  - "set up"
-  - "set up keys"
-  - "ralphy doctor"
-  - "что не работает"
-  - "nothing works"
-  - "read logs"
-  - "debug failed generation"
-  - "missing key"
-  - any ralphy CLI usage question
-metadata:
-  tags: cli, setup, onboarding, debugging, logs, workspace, doctor
+description: >-
+  Environment, setup, debugging, log reading, ralphy CLI cookbook. Read docs/playbooks/core.md FIRST via the Read tool — every time, then act.
+  USE WHEN the user wants to verify env (keys, deps, project link), debug a failed generation, read logs (generations.jsonl / user-prompts.jsonl), inspect the workspace, OR ask any "how do I do X with ralphy CLI" question. Plumbing role — sits below the creative roles.
+  TRIGGER (EN): "set up", "ralphy doctor", "check the environment", "nothing works", "it's broken", "read the logs", "what was in the last prompt", "debug this failed generation", "missing key", "OPENROUTER_API_KEY missing", "what's in the workspace", "show project timeline", "ralphy <anything>".
+  TRIGGER (RU): "настрой / проверь окружение", "ralphy doctor", "что не работает", "сломалось", "прочитай logs / логи", "что было в последнем prompt", "посмотри логи последней генерации", "что в workspace", "покажи timeline проекта", "не хватает ключа".
+  ALSO FIRE if a creative role hits an env error and bounces back here.
+  DO NOT FIRE if ralphy is not yet installed on a fresh machine — that is `/ralphy-install`.
+  HARD INVARIANTS: NO auto-launched Studio / dashboard, only OPENROUTER_API_KEY + ELEVENLABS_API_KEY, logs append-only via cli/lib/gen-log.ts.
 ---
 
-# Core
+# ralph-core (shim)
 
-Plumbing role. Other roles call me when something breaks, when the environment isn't up, or when the user wants to inspect under the hood. Ops + CLI expert layer beneath the creative roles.
+The full role instructions have moved to **[`docs/playbooks/core.md`](../../../docs/playbooks/core.md)**.
 
-## Sub-tasks
-
-| Sub-task | When | Rules |
-|---|---|---|
-| `doctor` | session start, "check the environment" / "проверь окружение" | `rules/doctor.md` |
-| `fresh-machine-setup` | "set up", "first run", missing deps/keys | `rules/doctor.md` (setup section) |
-| `cli-cookbook` | any ralph CLI question | `rules/cli-cookbook.md` |
-| `workspace-inspection` | "what's in workspace" / "что в workspace", "show project timeline" | `rules/cli-cookbook.md` (inspection section) |
-| `debug-logs` | failed generation, "what was in the last prompt" / "что было в последнем prompt'е" | `rules/troubleshooting.md` |
-
-## What I read on start
-
-- **`AGENTS.md`** — invariants (no auto-Studio, no dashboard, two keys).
-- `pwd` + `package.json` + `CLAUDE.md` + `MODELS.md` to confirm repo root.
-- `docs/agent-guide.md` — canonical CLI reference. I don't memorize commands; I look them up.
-- `docs/cli-spec.md` — flag-level spec.
-
-## Hard rules (inherited from AGENTS.md)
-
-1. **NO auto-launch.** I don't run Studio / dashboard in the background. Ever. Chat is the UI. See `rules/doctor.md`.
-2. **Only two keys.** `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`. FAL / Vercel / OpenAI / Replicate are **not needed** in v2. `ralphy doctor` checks presence.
-3. **No fal-ai MCP setup.** Removed in Sprint 2. If the user is being shown `claude mcp add fal-ai` — that's a stale instruction, ignore it.
-4. **Logs append-only.** `cli/lib/gen-log.ts` enforces the format. See `rules/troubleshooting.md`.
-
-## Background processes — manners
-
-- I don't spawn long-running processes. AGENTS invariant.
-- If the user explicitly asks for preview — I'll say to run `bun run dev` foreground in a separate window.
-- If the user complains "port busy" — show `lsof -iTCP:<port>`, user decides whether to kill / leave it.
-- Dashboard retired — I don't mention it in setup. If the user explicitly asks — `bun run dashboard` foreground (but I'll note it's not maintained right now).
-
-## Handoff
-
-- After env up + CLI clear → hand back to the role that triggered me (usually `/ralph-producer`).
-- Fresh-machine after setup → **`/ralph-producer`** for the first real end-to-end task.
-- Remotion-specific → **`/remotion-best-practices`** (not me).
+**Read that file completely via the Read tool before doing setup / debugging / CLI lookups.** It lists the sub-tasks, sub-docs (doctor, cli-cookbook, troubleshooting), hard rules, and handoff. Do not improvise from this shim.
