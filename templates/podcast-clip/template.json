@@ -1,0 +1,69 @@
+{
+  "name": "Podcast Clip",
+  "slug": "podcast-clip",
+  "kind": "vibe-reference",
+  "description": "Long-form podcast / interview / panel / talk → 15-60s viral cut for TikTok / Reels / Shorts. Reference-required: a source long-form video URL or file MUST be supplied — there is no way to invent podcast content. Style discipline: title-banner with provocative hook quote at the top (12% of frame), karaoke captions sync'd to speech at the bottom (18%), dynamic 9:16 reframe (smart-crop on the active speaker), occasional B-roll cuts for variety, music typically OFF (diegetic VO carries) with optional low bed under the title-banner moment. One 60-90 minute podcast usually yields 2-4 short cuts that go viral. The tooling pipeline is end-to-end: yt-dlp pull → transcribe → Gemini-vision viral-moment picker → lossless extract → Remotion compose.",
+  "tags": [
+    "podcast",
+    "podcast-clip",
+    "interview-cut",
+    "viral-cut",
+    "joe-rogan-cut",
+    "lex-fridman-cut",
+    "modern-wisdom",
+    "diary-of-a-ceo",
+    "smart-crop",
+    "karaoke-captions",
+    "title-banner",
+    "repurpose",
+    "long-form-to-shorts",
+    "talkshow-clip",
+    "panel-cut",
+    "debate-clip",
+    "hot-take",
+    "tiktok",
+    "reels",
+    "shorts"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 60],
+  "typicalClipCount": [1, 4],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "sourcePull": "yt-dlp via `ralphy ref pull --url <yt|tiktok|ig|x|vimeo>` — downloads the long-form source into workspace/refs/<slug>/, with metadata + audio-extracted track for transcription.",
+    "transcription": "ElevenLabs Scribe v1 via `ralphy ref transcribe <slug>` — word-level timestamps (ts_start, ts_end per token). This is what makes karaoke captions sync to the millisecond and what feeds the viral-moment picker context window.",
+    "viralMomentPicker": "OpenRouter google/gemini-2.5-flash via `.agents/skills/ralph-researcher/scripts/find-viral-moments.ts` — ingests the transcript + sampled video frames, returns 4-8 candidate moments with (start, end, hook-quote, why-it-works) JSON. Cheap (≈$0.02-0.06 per 60-min source).",
+    "lossSelessCut": "`ralphy video extract-segment <ref-slug> --start <ss> --end <ee> --pad-before 0.15 --pad-after 0.10 --out <project-id>/clips/cut-NN.mp4` — copy-codec ffmpeg cut, snapped to word boundaries from the transcript so no syllable is ever clipped.",
+    "reframe": "src/lib/utils/smart-crop.ts — single-speaker face-tracker (mediapipe-style bbox per frame) drives a panning 9:16 viewport over the source 16:9. For 2-speaker debates, vertical split-screen via Remotion <Sequence>+<OffthreadVideo>.",
+    "captions": "ElevenLabs Scribe v1 word-level timestamps consumed by KaraokeCaptions (Inter Bold 50px, bottom 18%, word-by-word fill). HormoziCaptions optional for hot-takes.",
+    "titleBanner": "Remotion overlay at top 12% of frame — animated 0.4s slide-in at clip start, holds for 2.0s, then fades. Inter Bold 70px, max 2 lines. Hook quote pulled from the picker output.",
+    "music": "Typically OFF — diegetic voice carries the moment. Optional ElevenLabs Music low instrumental bed at -18dB under the first 2s (banner reveal) only, force_instrumental: true. Never under speech."
+  },
+  "constants": {
+    "vibeAnchor": "long-form-to-viral-cut",
+    "structure": "0-2s title-banner reveal → 2-50s the moment plays out → 50-60s payoff or hard cut",
+    "captionStyle": "KaraokeCaptions (default) or HormoziCaptions",
+    "bannerWindow": "0-2.4s — banner slide-in + hold + fade",
+    "cutDiscipline": "word-boundary only, 30-200ms padding (default 150ms before, 100ms after)",
+    "musicDefault": "off"
+  },
+  "variationAxes": [
+    "source language (en / ru / es / pt / de / fr / etc. — captions and banner follow source; do NOT translate, that's the `podcast-dub` workspace template)",
+    "title-banner style (Hormozi-yellow / quote-card / minimal-white)",
+    "caption style (karaoke-word-fill / Hormozi-impact / TikTok-white)",
+    "reframe style (smart-crop active speaker / split-screen 2-speakers / static center)",
+    "moment type (talkshow guest reveal / interview hot take / panel debate peak / one-liner punchline)"
+  ],
+  "doNotCopyLiterally": "Banner copy, caption text, exact moment timestamps. Vibe reference only — every podcast has its own moments.",
+  "requiresUserReference": true,
+  "referenceNotes": "Source long-form video is REQUIRED — refuse without it (AGENTS.md hard rule #3). There is no way to invent podcast content; AI-generated 'fake' podcast footage is never acceptable. User supplies a YouTube / TikTok / Instagram / X URL OR an mp4 file. Use `ralphy ref pull --url <url> --slug <name>` to fetch (yt-dlp under the hood). If the user asks for translation/dubbing, redirect to the `podcast-dub` workspace template — different pipeline."
+}
