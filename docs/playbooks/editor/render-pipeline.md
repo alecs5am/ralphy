@@ -21,7 +21,7 @@ ln -sfn ../../workspace/projects/<id>/assets public/project-<id>
 
 - `TransitionSeries` with `<Sequence>` per scene.
 - Captions from `captions.json` via one of the 12 ready-made components in `src/lib/components/captions/`.
-- Dual audio (VO + music) with `volume` ducking via `interpolate`. See `rules/audio-mixing.md`.
+- Dual audio (VO + music) with `volume` ducking via `interpolate`. See [`audio-mixing.md`](audio-mixing.md).
 
 ### Remotion version
 
