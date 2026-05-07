@@ -1,0 +1,66 @@
+{
+  "name": "Listicle / Top-N",
+  "slug": "listicle",
+  "kind": "vibe-style",
+  "description": "Numbered list video — 'Top 5 X you didn't know', '3 things to stop doing', '7 tools that replace your job'. 30-60s, 9:16, vertical. 0-2s hook + promise, then 6-10s per item with a big on-screen counter ('1/5', '2/5'), with #1 saved for the end as an open loop. Search-friendly evergreen format, AI-friendly (★★★ in research-doc table), YouTube Shorts is the primary platform.",
+  "tags": [
+    "listicle",
+    "top-5",
+    "top-10",
+    "top-n",
+    "ranking",
+    "list",
+    "countdown",
+    "evergreen",
+    "search-first",
+    "faceless",
+    "voiceover",
+    "b-roll",
+    "ai-friendly",
+    "youtube-shorts",
+    "shorts",
+    "tiktok",
+    "reels",
+    "open-loop",
+    "completion-rate",
+    "watchmojo-style"
+  ],
+  "platform": "youtube-shorts",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [30, 60],
+  "typicalClipCount": [6, 12],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — one keyframe per list item (visual that anchors that item: object, scene, screenshot mockup, environment).",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — short 4-5s b-roll loops per item, generate_audio: false. Loops should idle (subtle camera drift, ambient motion) so the on-screen counter and item text dominate attention.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — single continuous VO take across all items, ~one item per ~7s, energetic-but-clear delivery (faceless host pacing, not GRWM-soft, not rant-loud).",
+    "music": "ElevenLabs Music — one steady-tempo or building-urgency bed underneath the whole video, with a small lift at #1 reveal. No abrupt cuts.",
+    "captions": "OpenRouter whisper-1 + a Remotion-rendered numbered counter overlay (1/5, 2/5, …) plus an item-name title. Counter is the dominant visual element, not the captions."
+  },
+  "constants": {
+    "vibeAnchor": "numbered-countdown-with-1-at-end",
+    "structure": "0-2s hook + promise → N item beats (6-10s each) → #1 reveal at end → CTA",
+    "counterStyle": "big-fraction-counter (e.g. '1/5'), top-center or top-left, monospace heavy weight",
+    "revealOrder": "reverse-countdown-default (#5 → #4 → ... → #1 last)",
+    "openLoop": "promise-#1-in-hook-but-show-it-last"
+  },
+  "variationAxes": [
+    "list size (3, 5, 7, 10) — 5 is the sweet spot for 45-60s",
+    "reveal order (reverse-countdown #5→#1 — default; or forward #1→#5 with #1 teased twice)",
+    "presence (faceless VO+b-roll — default; or face-on-camera host cutting between items)",
+    "niche (tech / AI tools, finance / money, food / recipes, travel / destinations, gaming, productivity)",
+    "tone (informational, controversial / hot-take, surprising / 'you-didn't-know', tested / 'I-tried-N')",
+    "VO language (any — English, Russian, Spanish; counter and on-screen number text are universal)"
+  ],
+  "doNotCopyLiterally": "Items, hook wording, exact prompts, music bed. Vibe and structure only.",
+  "requiresUserReference": false,
+  "referenceNotes": "No user reference required by default — items are usually generic (tools, foods, places, habits). If a specific brand or named entity appears as an item (e.g. 'Notion', 'Tokyo's Shibuya Crossing'), the reference-required gate (AGENTS.md hard rule #3) re-applies for that single item only — supply a logo / photo, or rephrase the item generically ('a popular note app')."
+}
