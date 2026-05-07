@@ -1,0 +1,68 @@
+{
+  "name": "YAP Talking-Head",
+  "slug": "yap-talking-head",
+  "kind": "vibe-style",
+  "description": "Selfie-style talking-head with minimal processing: a creator delivers ONE crisp idea straight to camera while a 0-1s headline overlay frames the topic and animated word-by-word subtitles carry the muted-scroll viewer. 30-60s, single shot, NO jump cuts. The 'YAP' format Manychat's 2026 Algorithm Fatigue report flags as the antidote to AI-polished slop — Max Tornow, Alex Hormozi, Codie Sanchez territory. Education, business, finance, opinion. Distinct from talking-head-rant (that one is deadpan and screenshot-driven); YAP is energetic, single-idea, headline-and-captions-driven.",
+  "tags": [
+    "yap",
+    "talking-head",
+    "raw",
+    "single-idea",
+    "education",
+    "business",
+    "finance",
+    "opinion",
+    "hormozi",
+    "codie-sanchez",
+    "max-tornow",
+    "ai-friendly",
+    "animated-captions",
+    "headline-overlay",
+    "no-jump-cuts",
+    "selfie",
+    "tiktok",
+    "reels",
+    "shorts",
+    "monologue"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [30, 60],
+  "typicalClipCount": [1, 2],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — single character keyframe of the talking-head shot (medium close-up, soft window light, lean-into-camera energy). If the user supplies a persona reference, pass it via --ref for likeness; otherwise generate from archetype.",
+    "i2v": "Two-track choice. Premium: google/veo-3.1 — ~30-45s talking-head with native lip-sync to the provided VO (best mouth-shape accuracy, ~$15-22 per clip). Budget: kwaivgi/kling-v3.0-pro — same shot at ~$3-5 per 5-10s segment, slightly looser lip-sync that the captions hide. Both with generate_audio: false (we own the VO track).",
+    "voiceover": "ElevenLabs eleven_multilingual_v2. Settings tuned for raw human energy, NOT smooth audiobook: stability 0.35, similarity_boost 0.7, style 0.4, use_speaker_boost true. Pacing target ~2.5 words/second. Single take from a single VO script, no scene splits.",
+    "captions": "ElevenLabs Scribe v1 for word-level timestamps (preferred over whisper-1 here — Scribe gives cleaner word boundaries for the karaoke fill). Rendered with HormoziCaptions / TikTokCaptions / KaraokeCaptions from src/lib/components/captions/. Emoji injected at ~1 per 5s cadence on emphasis words.",
+    "headline": "Static headline overlay rendered in Remotion (Inter Black 96-128px, top-of-frame, holds 0-1s with a 6-frame fade-out). Pulled from hooks.md patterns; see prompt-cookbook.md headline design section.",
+    "music": "Optional — low-volume bed (-22 to -26 LUFS under VO). ElevenLabs Music with prompt 'minimal lo-fi loop, soft kick, no melody, podcast-friendly'. Many YAP videos run dry (no music) — that's a valid choice and reinforces the raw read."
+  },
+  "constants": {
+    "vibeAnchor": "raw-single-idea-direct-to-camera",
+    "structure": "0-1s headline → 1-45s monologue (1 idea) → 45-60s CTA / loop-back",
+    "shotDiscipline": "single shot, no jump cuts, no b-roll inserts",
+    "captionCadence": "word-by-word, ~2.5 wps, emoji every ~5s",
+    "headlineHold": "0-1s, then fade in 6 frames"
+  },
+  "variationAxes": [
+    "archetype (entrepreneur / educator / contrarian / coach)",
+    "niche (finance / business / fitness / productivity / mindset / marketing)",
+    "tone (energetic-Hormozi / calm-but-firm-coach / contrarian-pointed / warm-educator)",
+    "caption style (Hormozi yellow-fill / TikTok white-with-stroke / Karaoke word-fill / Minimal bottom)",
+    "headline weight (single-line punchy / two-line setup-payoff / question-mark provocation)",
+    "VO language (any — format reads visually, but headline + captions must localize together)"
+  ],
+  "doNotCopyLiterally": "Headline text, VO script, archetype look, caption color combo. The VIBE is the deliverable: raw-single-idea-direct-to-camera with a hard headline gate at 0-1s.",
+  "requiresUserReference": false,
+  "referenceNotes": "Persona reference is OPTIONAL. The format works on archetype alone. If the user supplies a face reference (their own selfie, or a known creator's likeness they have rights to), pass it to gemini-3-pro-image-preview --ref for the keyframe — it lifts perceived authenticity by ~2x. If the user names a real person without supplying a reference (e.g. 'make me a Hormozi-style video'), the AGENTS.md reference-required gate (rule #3) applies: refuse, ask for a clean photo, or accept a 'no-ref-consent' override and generate an archetype-matched generic face.",
+  "differentiationFromTalkingHeadRant": "talking-head-rant is 15-22s, deadpan, hook-screenshot-driven, complaint-shaped. yap-talking-head is 30-60s, energetic, headline-overlay-driven, single-idea-education-shaped. Different audiences (rant = vent / relate; YAP = teach / convert). Different stack accents (rant leans on a screenshot prop; YAP leans on a typographic headline)."
+}
