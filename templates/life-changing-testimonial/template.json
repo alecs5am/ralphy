@@ -1,0 +1,68 @@
+{
+  "name": "Life-Changing Testimonial",
+  "slug": "life-changing-testimonial",
+  "kind": "vibe-style",
+  "description": "Person-led peer-to-peer testimonial: a relatable speaker tells their personal story — pain history, discovery moment, specific outcomes — directly to camera. 30-60s, 9:16. The story is the load-bearing element; the product is mentioned but never the visual hero. Distinct from before-after-product (product-led, reveal-driven) and doctor-authority (medical authority). The single most converting DTC ad format in 2024-2026 because peer trust beats brand trust and specific numbers beat adjectives. Reference-required when the testimonial names a real branded product; reference-optional for generic-pain-pain-solution variants.",
+  "tags": [
+    "testimonial",
+    "life-changing",
+    "personal-story",
+    "peer-to-peer",
+    "dtc",
+    "conversion",
+    "skincare-testimonial",
+    "nutra-testimonial",
+    "fitness-testimonial",
+    "software-testimonial",
+    "before-after-personal",
+    "transformation-story",
+    "real-results",
+    "person-led",
+    "talking-head",
+    "ugc",
+    "tiktok",
+    "reels",
+    "shorts",
+    "this-changed-my-life",
+    "review",
+    "отзыв"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [30, 60],
+  "typicalClipCount": [1, 4],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter for the speaker keyframe — driven by either (a) a real-person persona reference (selfie / avatar) when one exists, or (b) an archetype-derived character (age, gender, vibe) when no real persona is supplied. One canonical keyframe is reused across all talking-head clips for character consistency.",
+    "i2v": "google/veo-3.1 via OpenRouter for trust-critical talking-head shots (premium lip-sync + micro-expression fidelity). kwaivgi/kling-v3.0-pro as the budget alternative when cost matters more than perfect lip-sync. Optional 1 × kling-v3.0-pro for a brief 3-5s pain-state b-roll cutaway when one is wanted.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — single conversational delivery across the whole video. Stability 0.4 (warmth + slight variation), similarity_boost 0.75. Tone is confiding, not performative. Language follows the user's brief.",
+    "captions": "ElevenLabs Scribe v1 word-level timestamps. Style depends on niche: minimal-bottom for skincare / nutra (calm, trustworthy), Hormozi-yellow word-level for fitness / software / education (high-energy, retention-driven).",
+    "music": "ElevenLabs Music — single warm low-volume bed under the entire VO at -18 to -22 dB. No tonal split (this format is one continuous emotional arc, not before/after). Optional uplift-cue at the discovery beat (15-25s) when a brighter musical lift fits the niche."
+  },
+  "constants": {
+    "vibeAnchor": "peer-testimony-specific-numbers",
+    "structure": "0-3s pain hook → 3-15s pain detail → 15-25s discovery → 25-50s outcome → 50-60s soft CTA",
+    "musicProfile": "warm-bed-continuous",
+    "captionsRule": "minimal-for-skincare-nutra / hormozi-for-fitness-software-education",
+    "personMode": "real-persona-or-archetype-derived"
+  },
+  "variationAxes": [
+    "niche (skincare / nutra / fitness / software / service / education)",
+    "tone (heartfelt-emotional / matter-of-fact-relieved / hyped-grateful)",
+    "pain-state visualization (talking-only / brief b-roll cutaway / split-screen before-after photos)",
+    "CTA strength (soft 'you should try it' / hard 'link in bio')",
+    "speaker mode (real-persona reference / AI-avatar archetype)",
+    "VO language (any — English, Russian, Spanish; the personal-story arc reads in any language)"
+  ],
+  "doNotCopyLiterally": "Scenario, VO text, speaker identity, exact numerical outcomes, product name. Vibe reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "When the testimonial claims results from a real branded product, a product reference (logo / packaging / photo) is REQUIRED — same gate as before-after-product (AGENTS.md hard rule #3). When the speaker is a real person rather than a generic peer, a persona reference (selfie / avatar) is also required. Reference-OPTIONAL only when the format is generic-pain-pain-solution (no specific brand, no specific person). Outcome numbers must come from the user's brief, not from the model — fabricated numbers in a testimonial are an FTC and trust failure."
+}
