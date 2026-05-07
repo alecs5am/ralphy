@@ -1,0 +1,63 @@
+{
+  "name": "Photo Dump",
+  "slug": "photo-dump",
+  "kind": "vibe-style",
+  "description": "Photo Dump / Carousel-as-Video — a series of 5-16 still photos that snap to the beat of a trending music bed, building a 'scrollable mood board'. 10-25s, 9:16. Often opens with a short on-screen text line ('This looks so cool, I have to capture it', 'October dump', 'An ode to autumn'). Photos can be user-supplied (personal dumps, brand week-recaps) or AI-generated (aesthetic / niche dumps); mixing the two also works. No video clips — pure photo + beat-sync. Especially strong on Reels in 2026: Buffer's State of Social Media Engagement 2026 reports carousels earn ~109% higher engagement rate per person reached than reels (median ER 6.90% vs 3.31%), and the 'carousel-as-video' photo dump is the format riding that gap into video feeds.",
+  "tags": [
+    "photo-dump",
+    "carousel-as-video",
+    "beat-sync",
+    "mood-board",
+    "lifestyle",
+    "travel",
+    "aesthetic",
+    "raw-aesthetic",
+    "week-recap",
+    "reels",
+    "slideshow",
+    "fashion",
+    "vibes",
+    "scrollable",
+    "tiktok",
+    "low-budget",
+    "save-rate",
+    "personal-vlog"
+  ],
+  "platform": "reels",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [10, 25],
+  "typicalClipCount": [5, 16],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "stillPhotos": "google/gemini-3-pro-image-preview via OpenRouter for AI-generated still photos when the user has no source library. For personal photo-dumps and brand week-recaps, user-supplied JPG/PNG/HEIC photos are used directly (no model call needed). Mixing AI + user photos in the same dump also works as long as the look (grain / color palette / framing) is held consistent.",
+    "i2v": "Not used. This format is photos + beat-sync, not video. Skipping i2v keeps cost and render time low — the entire production cost can be $0 if user-supplied photos and a licensed/trend track are used.",
+    "voiceover": "Optional ElevenLabs eleven_multilingual_v2 — a single short TTS call ONLY if the opening text line is narrated. Most photo-dumps are silent (no VO) and let the music carry the emotional arc.",
+    "captions": "Not used. Photo-dumps use a single text-overlay (the opening line) rendered as a Remotion <h1> over the first 1-2 photos. No whisper / no auto-captions.",
+    "music": "ElevenLabs Music (or licensed trend track) — ONE bed only, no split. Photos snap to the kick / snare on every beat. If using a trend track from the platform, supply BPM and downbeat offset; if generating with ElevenLabs Music, request a specific BPM and 'four-on-the-floor' or 'half-time hip-hop' rhythm so beat-snaps land cleanly."
+  },
+  "constants": {
+    "vibeAnchor": "photo-on-beat-snap",
+    "structure": "0-1s opening text overlay → 1-23s photos snap to beat → 23-25s last photo hold",
+    "transitionStyle": "snap-cut (default), occasional push or vinyl-flip for chorus accents",
+    "audioMix": "single bed, no cross-fade, no VO duck (unless narrated opening)"
+  },
+  "variationAxes": [
+    "photo source (user-supplied / AI-generated / mixed)",
+    "niche (travel / lifestyle / fashion / aesthetic / brand week-recap / product week-recap)",
+    "photo count (5-16 — fewer = slower / more cinematic, more = chaotic / energetic)",
+    "opening text (yes / no — and if yes, narrated or silent overlay)",
+    "audio bed (trend music / ElevenLabs lo-fi / ElevenLabs cinematic ambient / licensed track)",
+    "pacing (steady = one photo per beat; ramped = slow opening, dense chorus, hold finale)"
+  ],
+  "doNotCopyLiterally": "Opening text line, photo selection, music choice, niche framing. Vibe reference only.",
+  "requiresUserReference": false,
+  "referenceNotes": "No hard reference gate. Personal photo-dumps and brand week-recaps work best with user-supplied photos (drop a folder of 8-16 JPGs into workspace/projects/<id>/assets/uploaded/ and skip image generation entirely). AI-generated photo-dumps work for branded / aesthetic dumps where no source library exists, but the cohesion gate (see TEMPLATE.md) still applies — mismatched film grain, lighting, and color palette across photos breaks the format harder than any other failure mode."
+}
