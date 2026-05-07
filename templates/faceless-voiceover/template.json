@@ -1,0 +1,66 @@
+{
+  "name": "Faceless Voiceover + B-Roll",
+  "slug": "faceless-voiceover",
+  "kind": "vibe-style",
+  "description": "Faceless YouTube Shorts / TikTok storytelling format: AI or live narration over stock or AI-generated b-roll. 0-2s curiosity hook → 3-act story (setup → conflict → resolution) with b-roll cuts every 5-8s → punchline + CTA. 45-90s, 9:16, burned-in word-level subtitles mandatory. Anchor format for faceless channels in 2026 — niche grew 300% YoY (Bityclips, Jan 2026), YouTube Shorts is the king platform. No on-camera presence required, evergreen search traffic, low production cost. Niches: history, finance, psychology, tech, true crime, mythology.",
+  "tags": [
+    "faceless",
+    "voiceover",
+    "b-roll",
+    "narration",
+    "storytelling",
+    "history",
+    "finance",
+    "psychology",
+    "tech",
+    "true-crime",
+    "mythology",
+    "ai-friendly",
+    "ai-narration",
+    "search-first",
+    "faceless-channel",
+    "shorts",
+    "youtube-shorts",
+    "evergreen",
+    "did-you-know",
+    "explainer"
+  ],
+  "platform": "youtube-shorts",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [45, 90],
+  "typicalClipCount": [6, 14],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "voiceover": "ElevenLabs eleven_multilingual_v2 (default, calm-narrator) or eleven_v3 (storytelling drama / true-crime). Single TTS pass with stability 0.4-0.5, similarity_boost 0.75, style 0.15-0.30 depending on tone. Language follows the brief.",
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter for AI-generated b-roll keyframes (1 keyframe per b-roll cut, 6-14 total). Static stock footage is an alternate path — when used, this stage is skipped.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for short b-roll motion clips (5s default; 3s for fast cuts). generate_audio: false. One i2v call per keyframe. Mix freely with stock for hybrid b-roll.",
+    "captions": "ElevenLabs Scribe v1 transcribes the rendered VO to word-level timestamps. Burn-in via Remotion HormoziCaptions (default), KaraokeCaptions (story-pacing), or MinimalCaptions (minimal). Mandatory — 85% watch muted.",
+    "music": "ElevenLabs Music — single ambient/cinematic underscore at low volume, ducked under VO via `ralphy audio sidechain` to roughly -12dB. No vocals, no melody hooks that compete with narration."
+  },
+  "constants": {
+    "vibeAnchor": "curiosity-hook → 3-act → punchline",
+    "structure": "0-2s curiosity hook → 2-15s setup → 15-40s conflict → 40-55s resolution → 55-60s payoff + CTA (scales linearly to 90s)",
+    "brollCutCadenceSec": [5, 8],
+    "subtitleStyleDefault": "Hormozi",
+    "musicDuckTargetDb": -12
+  },
+  "variationAxes": [
+    "niche (history / finance / psychology / tech / true-crime / mythology / science-trivia)",
+    "VO tone (calm-narrator / dramatic / conversational / detective)",
+    "b-roll source (AI-generated only / stock only / hybrid)",
+    "subtitle style (Hormozi / Karaoke / Minimal)",
+    "VO model (eleven_multilingual_v2 default / eleven_v3 for storytelling drama)",
+    "VO language (any — English, Russian, Spanish, etc.)"
+  ],
+  "doNotCopyLiterally": "Specific facts, hook claims, VO text, exact b-roll prompts. Vibe reference only. Verify any claim before using as a hook — wrong facts torch retention.",
+  "requiresUserReference": false,
+  "referenceNotes": "No reference required by default — most faceless storytelling avoids named real entities. If the brief names a real person, brand, or specific real entity (e.g. 'the story of Steve Jobs', 'why Apple lost the watch market'), the reference-required gate (AGENTS.md hard rule #3) re-engages and a reference must be supplied."
+}
