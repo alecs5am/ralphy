@@ -1,0 +1,63 @@
+{
+  "name": "ASMR / Sensory",
+  "slug": "asmr-sensory",
+  "kind": "vibe-style",
+  "description": "Pure-sensory micro-content: macro close-ups + diegetic foley as the hero. 30-90s, 9:16, slow-paced, 3-8 clips. Sound is the differentiator (most feeds scroll on mute; ASMR is built to convert sound-on into save+rewatch). Music typically OFF or sub-perceptual ambient at -25dB. Niches: beauty (cream texture), food, unboxing, slime, spa rituals, crafts. Distinct from food-beverage (appetite-trigger) — this is cross-category sensory across any subject.",
+  "tags": [
+    "asmr",
+    "sensory",
+    "satisfying",
+    "slow-paced",
+    "close-up",
+    "macro",
+    "cream-texture",
+    "unboxing-sounds",
+    "slime",
+    "spa",
+    "foley",
+    "diegetic",
+    "completion-rate",
+    "tapping",
+    "whispering",
+    "rewatch",
+    "save-trigger",
+    "no-music"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [30, 90],
+  "typicalClipCount": [3, 8],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — ultra-macro, texture-heavy keyframes (extreme close-up, shallow DOF, glistening micro-detail). One key per sensory beat (3-8 total).",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — slow-motion macro motion, 5s clips per shot (3-8 total). generate_audio: false; foley is added in composition, never trusted to the i2v model.",
+    "voiceover": "OFF by default. If used: ElevenLabs eleven_multilingual_v2 in whisper mode, voice_settings stability 0.6 / style 0.05 (calm, breathy). Mixed at -3dB below the foley bed so VO never overpowers diegetic sound.",
+    "captions": "Optional silent text overlays only (e.g. 'no music · sound on') — NEVER karaoke or hormozi. If captions on, MinimalCaptions, low-opacity, no entrance animation.",
+    "music": "OFF by default. Optional sub-perceptual ambient bed via ElevenLabs Music at -25dB ('quiet ambient pad, no melody, no rhythm, sub-bass drone'). Foley/SFX (tap, sizzle, fizz, drip, squelch, rip) is the actual hero — sourced from a library or ElevenLabs Music's SFX prompts."
+  },
+  "constants": {
+    "vibeAnchor": "macro-close-up + diegetic-foley-hero",
+    "structure": "0-3s establish surface → 3-(N-3)s slow procedural sensory beats → final 3s reveal / state-change",
+    "musicPolicy": "off-by-default OR ambient-bed-at-minus-25db",
+    "voPolicy": "no-VO-by-default OR whisper-tone-at-minus-3db",
+    "pace": "slow — minimum 1.5s per shot, no fast cuts, no snap zooms"
+  },
+  "variationAxes": [
+    "category (beauty-cream / food / unboxing / slime / spa-ritual / craft)",
+    "pace (slow / very-slow)",
+    "voice (silent / whisper-VO / pure-foley)",
+    "audio source (live diegetic recording / synthesized SFX library / ElevenLabs Music SFX prompts)",
+    "music (off / sub-perceptual ambient bed at -25dB)"
+  ],
+  "doNotCopyLiterally": "Subject, sensory beats, exact prompts, foley layering. Vibe reference only.",
+  "requiresUserReference": false,
+  "referenceNotes": "User reference is NOT required for generic sensory subjects (anonymous cream, generic chocolate bar, slime). However, AGENTS.md hard rule #3 still applies: if the brief names a real brand or product (e.g. 'Charlotte Tilbury Magic Cream', 'Lindt Excellence 70%'), a reference photo of the actual packaging is required — refuse otherwise. AI-improvised branding on a real product reads as fake, even at macro scale."
+}
