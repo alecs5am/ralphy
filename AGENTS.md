@@ -42,7 +42,7 @@ If a playbook references a tool you've never used (yt-dlp, Playwright, ffmpeg, r
 7. **Always `bun` / `bunx`** (no npm/npx/yarn).
 8. **Always `ralphy <command>`** for CRUD, not direct workspace edits.
 9. **Speed targets** (`docs/perf-targets.md`): ≤8 min cold-start single video, ≤25 min 10-batch. Exceeding 50% — report before starting.
-10. **Templates live in two places.** `templates/` (repo-public) and `workspace/templates/` (user-local, gitignored). Both are read by `ralphy template list` / `suggest` / `use`. Workspace overrides repo on id collision.
+10. **Templates live in two places.** `templates/` (repo-public) and `workspace/templates/` (user-local, gitignored). Both are read by `ralphy template list` / `suggest` / `use`. Workspace overrides repo on id collision. Two `kind`s ship today: `vibe-reference` (full-stack production templates with composition.md + reference example, 4 in repo) and `vibe-style` (prompt cookbooks with hooks + camera vocab + worked example prompts, 15 ported from `higgsfield-claude-skills`). Roster lives in [`docs/templates-index.md`](docs/templates-index.md). Always `ralphy template suggest "<utterance>"` first.
 11. **Heavy assets and example projects live in a companion repo** ([`ralphy-assets`](https://github.com/alecs5am/ralphy-assets)). Required template assets auto-pull on `ralphy template use`; cache at `workspace/.ralph/asset-cache/`. SHA-256 verified, no auth needed.
 
 ## Routing failure mode
