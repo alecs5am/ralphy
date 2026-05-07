@@ -55,4 +55,4 @@ Word-level captions from whisper-1 sync themselves via timestamps. If VO drifts 
 
 ## Hard rules
 
-See `rules/hard-rules.md` items 1, 6, 7, 8 — they specifically apply to VO/audio.
+See [`hard-rules.md`](hard-rules.md) items 1, 6, 7, 8 — they specifically apply to VO/audio.

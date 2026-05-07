@@ -51,7 +51,7 @@ bunx tsx scripts/find-viral-moments.ts \
 ralphy generate clip-cut --project <id> --moments workspace/references/<handle>/moments.json
 ```
 
-Each clip is extracted lossless with 30-200ms padding on each side (see `ralph-editor/rules/hard-rules.md` item 7).
+Each clip is extracted lossless with 30-200ms padding on each side (see [`../editor/hard-rules.md`](../editor/hard-rules.md) item 7).
 
 ## Quality knobs
 
