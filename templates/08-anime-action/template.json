@@ -1,0 +1,67 @@
+{
+  "name": "Anime Action",
+  "slug": "08-anime-action",
+  "kind": "vibe-style",
+  "description": "Anime-style action video prompts: cel-shaded 2D look, limited animation with strategic impact frames, speed lines, dramatic rim lighting, dynamic eye close-ups, and explosive auras. Covers shounen action, seinen drama, mecha, magical girl, slice-of-life, cyberpunk anime, isekai, and OP/ED montage style. Reference optional — required only when reproducing a named anime character, franchise, or specific real likeness.",
+  "tags": [
+    "anime",
+    "japanese-animation",
+    "manga",
+    "shounen",
+    "seinen",
+    "shonen",
+    "mecha",
+    "magical-girl",
+    "isekai",
+    "cyberpunk-anime",
+    "slice-of-life",
+    "cel-shaded",
+    "speed-lines",
+    "impact-frame",
+    "anime-opening",
+    "anime-action",
+    "tiktok",
+    "reels",
+    "shorts",
+    "аниме",
+    "манга"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [6, 15],
+  "typicalClipCount": [2, 4],
+  "fps": 24,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — cel-shaded 2D stills of apex moments (eye close-up, mid-aura pulse, impact-frame freeze, transformation flash). Multi-ref accepted when user supplies a character sheet or arena reference. Prompt explicitly requests cel-shaded, flat-color shadows, defined edges — never photorealism.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for default anime motion (limited animation reads well at 5s, 24fps). google/veo-3.1 via OpenRouter when the shot needs 3+ choreography beats or a long parallax pan. 5s clips, generate_audio: false. Always cel-shaded — never realistic.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — optional. Used for narrator framing, internal monologue, or one-line battle cry. In-fight dialogue is rare; silence + impact sting is the dominant pattern. Language follows brief.",
+    "captions": "OpenRouter whisper-1. HormoziCaptions for shounen/OP energy (large, slammed in). MinimalCaptions for seinen/slice-of-life. Many cuts ship caption-free; on-screen onomatopoeia (BOOM, CRASH, WHOOSH) is preferred over caption text in action moments.",
+    "music": "ElevenLabs Music — single cue per video. Profile by genre: orchestral brass + strings for shounen climax; J-rock electric guitar + driving drums for OP montage; minor-key piano/strings for emotional drama; synth + arpeggios for cyberpunk; acoustic guitar for slice-of-life. Pre-impact silence is mandatory — duck music to zero for 0.5-1.0s before the impact frame."
+  },
+  "constants": {
+    "vibeAnchor": "limited-animation + impact-frame + speed-lines + dramatic-light",
+    "structure": "2s hook (eye / aura / blade / petals) → main beat (limited animation, static pose with animated FX) → impact frame (white flash + cross highlight) → recovery / outro",
+    "cameraDoctrine": "static-frame-with-character-motion as default; whip-pan, snap-zoom, Dutch-angle, rotating shot reserved for dramatic beats",
+    "soundDoctrine": "silence-then-sting — quiet 0.5s before impact, then full orchestral/J-rock hit on the cross-frame",
+    "animationDoctrine": "two-key-frames-with-speed-lines (smear) over smooth interpolation; hold poses 0.5-1.0s between motion bursts"
+  },
+  "variationAxes": [
+    "subgenre (shounen action, seinen drama, mecha, magical girl, isekai, slice-of-life, sports, horror, romance-comedy, cyberpunk)",
+    "energy register (peaceful slice-of-life ↔ explosive shounen climax)",
+    "color palette (warm golden-hour 75% sat ↔ saturated shounen 140% ↔ cyberpunk neon-on-black 150% ↔ desaturated seinen 60%)",
+    "hook type (eye close-up, speed-line burst, transformation flash, blade unsheath, aura explosion, sakura wind, title-card slam, silhouette-on-sky, impact frame, chibi pop)",
+    "camera (static, dramatic zoom, rotating, Dutch angle, parallax pan, POV slash, whip-pan, low-angle hero, overhead)",
+    "VO language (any — emotional arc reads visually; Japanese onomatopoeia overlay optional)"
+  ],
+  "doNotCopyLiterally": "Named anime characters, franchise mascots, signature moves tied to a specific IP, exact title-card typography from a known show. Vibe, technique, and visual language only.",
+  "requiresUserReference": false,
+  "referenceNotes": "Optional. Required only when the user names a real anime character (Goku, Naruto, Sailor Moon, etc.), a specific franchise look, or wants a real person rendered in anime style. In those cases AGENTS.md hard rule #3 applies — refuse without uploaded reference. Generic 'shounen power-up scene' or 'magical girl transformation' needs no reference."
+}
