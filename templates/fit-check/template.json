@@ -1,0 +1,66 @@
+{
+  "name": "Fit Check / OOTD",
+  "slug": "fit-check",
+  "kind": "vibe-style",
+  "description": "Quick visual demo of a complete outfit — typically 1-3 looks in one Reel with beat-synced transitions (snap, jump-cut, mirror-flash). 7-20s, 9:16. OOTD format. Visual-first, designed for muted scrolling. Often paired with a trending audio bed (e.g. 'Dame un Grrr', '212') and a brand-tag overlay per item. Low daily-content barrier — a new outfit a day is the whole point. Reference-required when real garments are shown (AGENTS.md hard rule #3) — same gate as 13-fashion-lookbook. Distinct from 13-fashion-lookbook: this is fast / OOTD / daily; lookbook is editorial / 15-30s / brand-piece.",
+  "tags": [
+    "fit-check",
+    "ootd",
+    "outfit",
+    "fashion",
+    "fast-fashion",
+    "second-hand",
+    "thrift",
+    "modesty",
+    "workwear",
+    "streetwear",
+    "beat-sync",
+    "mirror-flash",
+    "transition",
+    "daily-content",
+    "alix-earle",
+    "tiktok",
+    "reels",
+    "dame-un-grrr",
+    "brand-tag",
+    "muted-scroll"
+  ],
+  "platform": "reels",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [7, 20],
+  "typicalClipCount": [1, 3],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — one full-body / mirror-cam keyframe per outfit, multi-ref WITH user-supplied garment photos when real items are shown (required, see referenceNotes)",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips per outfit (1-3 total). Motion: slow spin, mirror-cam pan from waist-up, hands-on-hip pose, walk-toward-camera. generate_audio: false.",
+    "voiceover": "Typically NONE. Text overlays + brand tags carry the read. If a single-line VO is needed (rare): ElevenLabs eleven_multilingual_v2, one short call (≤ 5 words), e.g. 'Today's fit.'",
+    "captions": "Brand-tag overlays are static text per outfit (item + price + handle), not auto-captions. If a VO line is added, MinimalCaptions only — never Hormozi here, it fights the visual.",
+    "music": "ElevenLabs Music — one trend-bed track (or licensed track passed in by the user). Style: hyperpop / amapiano / 90s-house / drill / latin-trap depending on niche. BPM matches the cut count: 1 outfit ≈ any tempo; 3 outfits ≈ ≥ 100 BPM with strong on-beat hits at the transitions. Composition cuts every keyframe ON the beat — this is the format's defining mechanic.",
+    "compose": "Remotion-composed beat-synced transitions: snap (hard cut on downbeat), mirror-flash (white frame flash for 2 frames), jump-cut (camera-stutter, 3 cuts in 0.4s). Hold final pose 1-2s with an end-card / handle tag."
+  },
+  "constants": {
+    "vibeAnchor": "outfit-on-beat",
+    "structure": "0-1s mirror entrance / hook → 1-15s outfit transitions on beat → 15-20s final hold + signature pose",
+    "transitionRule": "every outfit-change lands ON a beat downbeat — no off-beat cuts",
+    "brandTagPosition": "corner-tag (small, lower-third) by default; large-overlay (centered, animated entry) for hero items"
+  },
+  "variationAxes": [
+    "outfit count (1 / 2 / 3) — 1 = single-look hero, 2 = day/night or before/after styling, 3 = thrift haul / week-of-fits",
+    "transition style (snap / mirror-flash / jump-cut) — pick one and stay consistent within a video",
+    "niche (streetwear, formal, second-hand / thrift, modesty, workwear, fast-fashion-haul, Y2K, quiet-luxury)",
+    "brand-tag style (corner-tag small lower-third vs large-overlay centered with animated entry)",
+    "music vibe (hyperpop, amapiano, latin-trap, drill, 90s-house, trending-audio-of-the-week)",
+    "subject framing (mirror-selfie waist-up, full-body cropped, slow-spin in-room, walk-toward-camera)"
+  ],
+  "doNotCopyLiterally": "Outfit choices, prompt strings, brand tags, music track. Vibe reference only — copy the cadence, not the wardrobe.",
+  "requiresUserReference": true,
+  "referenceNotes": "When the brief mentions real garments, brands, or items the user actually owns — at least one garment photo (flat-lay, hanger shot, or worn-in mirror selfie) must exist at workspace/projects/<id>/assets/uploaded/. Same gate as 13-fashion-lookbook and AGENTS.md hard rule #3 — AI-improvised branding on a real garment always reads as fake (logo distortion, weave wrong, fit wrong). For pure-fictional / AI-styling demos with no named brand, the gate may be waived with a logged 'no-ref-consent' stage."
+}
