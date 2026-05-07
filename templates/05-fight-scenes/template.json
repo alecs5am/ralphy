@@ -1,0 +1,68 @@
+{
+  "name": "Fight Scenes",
+  "slug": "05-fight-scenes",
+  "kind": "vibe-style",
+  "description": "Cinematic fight, combat, and martial-arts action prompts. Vibe-style template: structured choreography (hook → exchanges → escalation → climax → resolution), specific moves (jab/cross/roundhouse/parry, blade work, elemental magic), active-participant camera (whip-pan, dolly, orbit, snap zoom), and impact effects (dust, sparks, shockwaves, fabric ripple). 9:16 social-cut by default; 5-15s clips. Reference is optional — use only when reproducing a real fighter, real choreography, or a copyrighted franchise look.",
+  "tags": [
+    "fight",
+    "combat",
+    "action",
+    "martial-arts",
+    "choreography",
+    "duel",
+    "battle",
+    "kung-fu",
+    "karate",
+    "muay-thai",
+    "mma",
+    "sword",
+    "katana",
+    "samurai",
+    "superhero",
+    "chase",
+    "tiktok",
+    "reels",
+    "shorts",
+    "cinematic",
+    "бой",
+    "драка",
+    "экшн"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [8, 15],
+  "typicalClipCount": [2, 4],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — single-shot stills of the apex pose (mid-strike, blade clash, ground slam) used as i2v anchors. Multi-ref accepted when the user supplies fighter likeness or arena reference.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for default action; google/veo-3.1 via OpenRouter for higher-fidelity choreography (longer takes, multi-fighter spacing). 5s clips, generate_audio: false. Pick veo when prompt has 3+ exchanges in one shot.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — optional. Used only for narrator-led fight breakdowns or hero one-liners, not for in-fight dialogue (avoid mid-action speech).",
+    "captions": "OpenRouter whisper-1; HormoziCaptions for hype/breakdown overlay style; KaraokeCaptions for narrator commentary. Many fight cuts ship caption-free.",
+    "music": "ElevenLabs Music — single high-tension cue (taiko + strings, orchestral percussion, or industrial pulse). One music_v1 call, ducked under impact SFX. SFX layer is mandatory: blade rings, body thumps, shockwave booms, blade-whistle on swings."
+  },
+  "constants": {
+    "vibeAnchor": "tension-build → impact-release → recovery → escalation",
+    "structure": "2s hook → exchange-1 → exchange-2 → escalation → climax → resolution",
+    "cameraDoctrine": "camera-as-combatant (push on aggression, pull on grapple, orbit on deadlock, whip-pan on chaos)",
+    "soundDoctrine": "pre-impact silence + sharp foley + ducked music"
+  },
+  "variationAxes": [
+    "discipline (kung-fu, karate, muay-thai, capoeira, mma, taekwondo, judo)",
+    "weapon (unarmed, katana, dual-blades, spear, staff, whip, gun-fu)",
+    "register (grounded realism, wuxia/wirework, anime-superhero, fantasy-elemental)",
+    "environment (rain courtyard, bamboo grove, neon alley, rooftop, gladiator arena, frozen lake, burning interior)",
+    "scale (1v1 duel, 2v1 flanking, wave attacks, group melee)",
+    "tempo (deliberate samurai stillness vs explosive MMA scramble)"
+  ],
+  "doNotCopyLiterally": "Choreography beats, fighter names, exact arenas, and named franchises. Vibe and structure only — never reproduce a copyrighted character or real martial artist without an explicit reference and reference-required consent.",
+  "requiresUserReference": false,
+  "referenceNotes": "Optional. Required only if the user names a real fighter, a real franchise character (Goku, John Wick, etc.), or wants a specific gym/dojo look. In those cases the AGENTS.md hard rule #3 reference gate applies — refuse without uploaded reference. Generic 'samurai duel' or 'rooftop brawl' needs no reference."
+}
