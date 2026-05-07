@@ -4,37 +4,43 @@ Researcher transcribes when needed for analysis (find-viral-moments, deep social
 
 ## Tool
 
-```bash
-ralphy project transcribe <id> --audio <path> --language ru
-```
-
-or for research-context (no project ID):
+For project context (output goes into `workspace/projects/<id>/captions.json` + manifest + gen-log):
 
 ```bash
-bunx tsx -e '
-  import { transcribeAudio } from "../../../../cli/lib/transcribe.js";
-  const result = await transcribeAudio({
-    audioPath: "workspace/references/<handle>/source.mp3",
-    language: "ru"
-  });
-  console.log(JSON.stringify(result.captions, null, 2));
-'
+ralphy project transcribe <id> --audio <path> [--language ru|en|auto] [--backend elevenlabs|openrouter|gemini]
 ```
+
+For research context (no project, just dump captions next to the ref):
+
+```bash
+ralphy ref transcribe <slug> [--language ru] [--backend elevenlabs]
+# → workspace/references/<slug>/transcript.json (Caption[])
+```
+
+`ref transcribe` reads `<slug>/source.mp3`, which `ref pull` already extracts. **Don't shell out to `bunx tsx` against `cli/lib/transcribe.ts` directly** — the CLI verb logs to gen-log and updates `state.json`.
+
+## Backends
+
+| backend       | word-level | key needed              | notes                                      |
+|---|---|---|---|
+| `elevenlabs`  | yes        | `ELEVENLABS_API_KEY`    | **default** — reliable, ~$0.004 / min     |
+| `openrouter`  | yes        | `OPENROUTER_API_KEY`    | whisper-1; sometimes returns 400          |
+| `gemini`      | no         | `OPENROUTER_API_KEY`    | single-segment fallback; for short clips  |
 
 ## Hard limits
 
-- ≤25MB per file (whisper-1 hard limit on OpenRouter).
-- Longer → re-encode to mono 64kbps mp3:
+- ≤25MB per file (all backends).
+- Longer → re-encode to mono 64kbps mp3 (`ref pull` does this automatically when extracting from mp4):
   ```bash
-  ffmpeg -i source.mp4 -vn -ac 1 -b:a 64k workspace/references/<handle>/source.mp3
+  ffmpeg -i source.mp4 -vn -ac 1 -b:a 64k source.mp3
   ```
 - Even longer (>30min audio @ 64kbps ≈ 14MB safe, >60min — split into chunks).
 
 ## Word-level timestamps
 
-`timestamp_granularities[]=word` — default in `transcribe.ts`. Returns `Caption[]`:
+ElevenLabs Scribe v1 returns word-level natively. Output is `Caption[]`:
 ```ts
-{ text: string; startMs: number; endMs: number; timestampMs: number; confidence: number }
+{ text: string; startMs: number; endMs: number; timestampMs: number; confidence: number | null }
 ```
 
 Used for:
@@ -44,7 +50,7 @@ Used for:
 
 ## Caching
 
-If `<handle>/source.transcript.json` exists and `mtime > mtime audio` — **don't re-run**. ~$0.006/min × however many times = wasted.
+`ref transcribe` writes a marker into `state.json`. Re-running on the same slug overwrites — that's intentional (cheap). For projects, `ralphy project transcribe` overwrites `captions.json` each run.
 
 ## Language
 
@@ -54,4 +60,4 @@ If `<handle>/source.transcript.json` exists and `mtime > mtime audio` — **don'
 
 ## Cost
 
-$0.006 per audio-minute. Hour-long podcast = $0.36. Counted automatically via `loggedFetch()` into `generations.jsonl`.
+ElevenLabs Scribe v1 ≈ $0.004 / audio-minute. Whisper-1 ≈ $0.006 / min. Counted automatically into `generations.jsonl` (kind: `text`).

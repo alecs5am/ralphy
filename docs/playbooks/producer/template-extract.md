@@ -43,7 +43,7 @@ ralphy project timeline <id>   # merged chronology
 ### 3. Scaffold template directory
 
 ```bash
-ralphy template extract --slug <kebab> --name "<Human>" --from-project <project-id>
+ralphy template create --slug <kebab> --name "<Human>" --from-project <project-id>
 ```
 
 → `workspace/templates/<slug>/` with `template.json`, stub `TEMPLATE.md`, `fragments.md`, `model-stack.md`, `composition.md`, `reference-example.md`.

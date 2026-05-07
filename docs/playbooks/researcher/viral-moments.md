@@ -45,10 +45,17 @@ bunx tsx scripts/find-viral-moments.ts \
 
 ## Downstream consumption
 
-`moments.json` feeds into `cli/lib/ffmpeg-recipes.ts → extractSegment`:
+`moments.json` feeds straight into `ralphy video extract-segment` — one call per moment:
 
 ```bash
-ralphy generate clip-cut --project <id> --moments workspace/references/<handle>/moments.json
+jq -c '.[]' workspace/references/<slug>/moments.json | while read -r m; do
+  start=$(echo "$m" | jq -r .start)
+  end=$(echo   "$m" | jq -r .end)
+  out=$(echo   "$m" | jq -r .out)
+  ralphy video extract-segment \
+    --in workspace/references/<slug>/source.mp4 \
+    --start "$start" --end "$end" --out "$out"
+done
 ```
 
 Each clip is extracted lossless with 30-200ms padding on each side (see [`../editor/hard-rules.md`](../editor/hard-rules.md) item 7).

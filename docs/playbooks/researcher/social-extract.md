@@ -2,35 +2,37 @@
 
 ## social-analysis (single video / handle)
 
-Working dir: `workspace/references/<handle>/`.
+Working dir: `workspace/references/<slug>/` (slug derived from URL by `ref pull`, or pass `--slug <name>`).
 
-### Method
+### Method — the standard chain is six `ralphy` verbs, no scripts
 
-1. **Download** via `yt-dlp`:
-   ```bash
-   yt-dlp -f "best[ext=mp4]/best" --no-playlist \
-     -o "workspace/references/<handle>/reels/<name>.mp4" "<VIDEO_URL>"
-   ```
+```bash
+# 1. Pull mp4 + meta + audio (yt-dlp wrapper, also extracts mono 64k mp3)
+ralphy ref pull <VIDEO_URL> [--slug <name>]
 
-2. **Analyze.** Standard reproduction blueprint:
-   ```bash
-   bunx tsx scripts/analyze-video.ts \
-     --video workspace/references/<handle>/reels/<name>.mp4 \
-     --output workspace/references/<handle>/blueprints/<name>
-   ```
+# 2. Sample frames for vision analysis
+ralphy ref frames <slug> --max 12
 
-   For a bespoke question ("extract caption style only", "compare hook timing with another reel") — call Gemini directly via `callLLM()` + a tailored prompt. Don't let the canned blueprint shape constrain the question.
+# 3. Transcribe (ElevenLabs Scribe v1 by default — word-level)
+ralphy ref transcribe <slug> --language ru
 
-3. **Register:**
-   ```bash
-   ralphy ref create --url <VIDEO_URL> --type social
-   ```
+# 4. Vision LLM over frames → blueprint JSON
+ralphy ref analyze <slug>
 
-4. **Cross-analyze** multiple videos from the same creator:
-   ```bash
-   bunx tsx scripts/cross-analyze.ts --handle <handle>
-   ```
-   Output: `<handle>-pattern.json` — recurring hooks, editing signatures, format rules.
+# 5. Audio LLM (tone, music, VO style) — optional but cheap
+ralphy ref audio-describe <slug>
+
+# 6. Synthesize → workspace/references/<slug>/blueprint.md
+ralphy ref blueprint <slug>
+
+# Register the URL in the registry so it's attachable to projects
+ralphy ref create <VIDEO_URL> --type social --name <slug>
+ralphy ref attach <slug> --to <projectId>
+```
+
+Each step is idempotent and writes to `state.json` so re-runs skip what's already done.
+
+For a bespoke question ("extract caption style only", "compare hook timing across two reels") pass `--prompt-file <md>` to `ralphy ref analyze` — same verb, custom prompt. Don't reach for `callLLM()` directly.
 
 ### Blueprint shape (standard)
 
@@ -39,19 +41,23 @@ duration / resolution / aspect, category, language, format type, subtitle style,
 ### Outputs
 
 ```
-workspace/references/<handle>/
-  reels/<name>.mp4
-  blueprints/<name>/blueprint.json
-  blueprints/<name>/frames/
-  blueprints/<name>/audio.mp3
-  <handle>-pattern.json   (optional, cross-video)
+workspace/references/<slug>/
+├── source.mp4              # main file (yt-dlp)
+├── meta.info.json          # title, uploader, view/like/comment counts, hashtags
+├── source.mp3              # mono 64k for transcribe (≤25MB)
+├── frames/frame-NN.jpg     # ffmpeg sampler
+├── transcript.json         # Caption[] (word-level via ElevenLabs Scribe)
+├── analysis.json           # vision LLM blueprint
+├── audio-analysis.json     # tonal / music / VO style
+├── blueprint.md            # synthesized — feed this to scenarist
+└── state.json              # bookkeeping (pulledAt, framesAt, …)
 ```
 
 ### Project context
 
 ```bash
-ralphy project log-asset <project-id> --kind blueprint \
-  --source workspace/references/<handle>/blueprints/<name> \
+ralphy project log-asset <project-id> --kind doc \
+  --source workspace/references/<slug>/blueprint.md \
   --purpose social-ref
 ```
 

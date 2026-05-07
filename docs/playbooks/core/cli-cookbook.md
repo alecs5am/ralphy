@@ -49,7 +49,7 @@ ralphy template show <slug> --path                # path to template dir
 ralphy template use <slug> --project <id> --name "..." --brief "..."
 ralphy template register <slug>
 ralphy template suggest "<utterance>"             # top-3 ranked
-ralphy template extract --slug <slug> --from-project <id>
+ralphy template create --slug <slug> --from-project <id>
 ```
 
 ### Generate (Sprint 3 — ralphy generate {kind})
@@ -109,8 +109,7 @@ tree -L 2 -I 'node_modules|.git|dist' workspace
 
 ### Batch (Sprint 6 / producer)
 ```bash
-ralphy batch create --template <id> --ideas <list-or-file>
-ralphy batch scaffold <batch-id>
+ralphy batch create --template <id> --variations <list-or-file>
 ralphy batch status <batch-id>
 ralphy batch status <batch-id> --update <project-id> --status completed --render-path <path>
 ```
@@ -132,6 +131,6 @@ ralphy workspace stats         # entity counts + disk
 ## Don't do
 
 - ❌ Edit `workspace/projects/<id>/scenario.json` directly — use `ralphy project update <id>` or hand off to scenarist.
-- ❌ Edit `workspace/templates/<slug>/template.json` directly — use `ralphy template update`.
+- ❌ Edit `workspace/templates/<slug>/template.json` directly — `ralphy template delete <id>` then `ralphy template create --from-project <id>` to re-extract from a working project.
 - ❌ Delete `workspace/projects/<id>/` via `rm -rf` — use `ralphy project delete <id>` (cleans up the registry).
 - ❌ Run `bunx remotion render` directly — use `ralphy render <id>`.

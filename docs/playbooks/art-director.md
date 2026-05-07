@@ -4,6 +4,42 @@
 
 Between "scenario approved" and "assets on disk for the editor" — that's my zone. Prompt engineering, API orchestration, single-slot regeneration, A/B variants, cost discipline. Never invent model-id from memory — always cross-check `MODELS.md`.
 
+> **STOP rule.** Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against a media API — gen-log + asset-manifest + cost rollup all depend on the CLI. AGENTS invariant #2.
+
+## CLI cookbook
+
+**Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against media APIs — the gen-log + asset-manifest depend on it.** Cross-check `MODELS.md` for `--model` overrides.
+
+```bash
+# Image (default model: google/gemini-3-pro-image-preview)
+ralphy generate image --project <id> --slot scene-01-bg --prompt "<text>" \
+  [--ref <url> ...] [--model <id>] [--size 1080x1920] [--negative "<text>"]
+
+# Video (default model: kwaivgi/kling-v3.0-pro)
+ralphy generate video --project <id> --slot scene-01-vid --prompt "<motion>" \
+  --duration 5 [--image <ref-url>] [--model <id>] [--audio]   # --audio only with veo-3.1
+
+# Voiceover via ElevenLabs (eleven_multilingual_v2)
+ralphy generate voiceover --project <id> --slot scene-01-vo --voice <voiceId> --text "<line>"
+
+# Music bed via ElevenLabs Music
+ralphy generate music --project <id> --slot bed-01 --prompt "<genre, tempo, mood>" --duration 30
+
+# Captions via ElevenLabs Scribe v1 (word-level, ≤25MB audio)
+ralphy generate captions --project <id> --audio <vo.mp3>
+
+# Single-slot regen — always re-emit the same slot id (overwrites, manifest updates)
+ralphy generate video --project <id> --slot scene-03-vid --prompt "<new>" --duration 5
+
+# Inspect what's on disk + cost so far
+ralphy project show <id> --assets        # asset-manifest.json
+ralphy project show <id> --prompts       # prompts.json
+ralphy project log <id> --type generations --limit 50    # cost + latency + errors
+ralphy asset list --project <id>         # disk inventory by slot
+```
+
+If you reach for a backend that isn't covered (e.g. lipsync, image editing, talking-head) — STOP. Don't write a script. Either `MODELS.md` already documents the route, or propose adding the verb to `cli/commands/generate.ts`.
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |

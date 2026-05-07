@@ -4,6 +4,43 @@
 
 Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review, cost rollup, profile share.
 
+> **STOP rule.** Producer never writes scenarios / prompts / Remotion code, and never runs a batch loop by hand — every step is a `ralphy template use` / `ralphy batch create` invocation. AGENTS invariant #2.
+
+## CLI cookbook
+
+**Producer never writes scenarios / prompts / Remotion code — but the orchestration is itself a series of `ralphy` calls.** All flow control lives in named verbs.
+
+```bash
+# Pre-flight (always before a batch)
+ralphy doctor                                                # env health: keys, deps, project link
+ralphy template list -p                                      # repo + workspace templates
+ralphy template suggest "<brief utterance>"                  # rank top-3 templates by tag match
+
+# Single-video pipeline kickoff
+ralphy template use <slug> --project <id> --name "<name>" --brief "<text>"
+ralphy project show <id> --status                            # check what's done
+
+# Batch
+ralphy batch create --template <slug> --count 5 --briefs <briefs.json>
+ralphy batch status <id>                                     # in-flight progress
+ralphy batch list -p                                         # all batches
+
+# Template extraction (after a winner)
+ralphy template create --from-project <id> --slug <new-slug>
+
+# Cross-project rollup
+ralphy project list -p                                       # status across all projects
+ralphy workspace stats                                       # disk + counts + cost
+ralphy project log <id> --type all --limit 200               # one project's full history
+
+# Profile share (workspace export / import)
+ralphy profile list                                          # available shared workspaces
+ralphy profile export <nickname>                             # workspace/ → profiles/<nickname>/
+ralphy profile import <nickname>                             # profiles/<nickname>/ → workspace/
+```
+
+I do not invent templates on the fly. New format → `extract-template` from a successful project first.
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |

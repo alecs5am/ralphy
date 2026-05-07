@@ -4,6 +4,41 @@
 
 Plumbing role. Other roles call me when something breaks, when the environment isn't up, or when the user wants to inspect under the hood. Ops + CLI expert layer beneath the creative roles.
 
+> **STOP rule.** Every observability question is a `ralphy` verb. Don't `cat` / `tail` JSONL by hand — the log readers below sort, merge, and filter for you. AGENTS invariant #2.
+
+## CLI cookbook
+
+**Every observability question is a `ralphy` verb. Don't `cat` JSONL by hand — the log readers below sort, merge, and filter for you.**
+
+```bash
+# Env / setup health
+ralphy doctor                                                # full env check (keys, deps, project)
+ralphy doctor -p                                             # human-readable
+ralphy status                                                # capabilities + linked project
+ralphy setup                                                 # interactive wizard (first-time keys)
+ralphy config get / set                                      # config CRUD
+
+# Logs (per-project, append-only via cli/lib/gen-log.ts)
+ralphy project log <id> --type generations --limit 50        # latest model calls + cost + errors
+ralphy project log <id> --type user-prompts --limit 20       # what the user said, when
+ralphy project log <id> --type user-assets --limit 20        # what the user uploaded
+ralphy project log <id> --type all --limit 200               # merged, chronological JSON
+ralphy project timeline <id>                                 # pretty chronological log (table)
+
+# Workspace inspection
+ralphy workspace stats                                       # cross-project counts + disk usage
+ralphy project list -p                                       # status per project
+ralphy assets list                                           # ralphy-assets companion repo
+ralphy assets cache-info                                     # local SHA-verified cache
+ralphy assets pull <template>                                # auto-runs on `template use`
+
+# Render-specific debug
+ralphy project show <id> --assets                            # what's on disk
+ralphy project show <id> --scenario                          # current scenario.json
+```
+
+If the user asks "why did this generation fail" — `ralphy project log <id> --type generations | jq '. | select(.status=="error")'` is the fast move. Don't grep JSONL by hand.
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |
