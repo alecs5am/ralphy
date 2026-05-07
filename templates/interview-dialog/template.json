@@ -1,0 +1,67 @@
+{
+  "name": "Interview / Dialog",
+  "slug": "interview-dialog",
+  "kind": "vibe-style",
+  "description": "Two-person dialog format. Two real people (or two AI-avatars) talk to each other on camera — expert+interviewer, two-friends-discussing, split-screen-reaction, or podcast-style sit-down with b-roll cutaways. 30-90s, 9:16. Reads less like one-person-yelling-at-the-camera and more like overhearing a real conversation, which is why retention beats single-speaker monologue. Distinct from `podcast-clip` (which cuts FROM a real long-form podcast) — this is for GENERATING a synthetic interview-style video from a written script with two distinct AI voices.",
+  "tags": [
+    "interview",
+    "dialog",
+    "two-person",
+    "expert-interview",
+    "peer-discussion",
+    "split-screen",
+    "conversation",
+    "podcast-style",
+    "generated-interview",
+    "talking-heads",
+    "qa",
+    "reaction",
+    "duo",
+    "two-voices",
+    "synthetic-interview",
+    "ai-avatars",
+    "tiktok",
+    "reels",
+    "shorts",
+    "интервью",
+    "диалог"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [30, 90],
+  "typicalClipCount": [3, 8],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — TWO consistent character keyframes (one per speaker), reused as ref-image across every wan-25 turn so face/lighting/clothing stay stable across cuts",
+    "i2v": "alibaba/wan-25 via OpenRouter — one call per dialog turn, audio-synced talking head; kwaivgi/kling-v3.0-pro for occasional b-roll cutaway (chart, product, screenshot) when the topic gets visual",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — TWO different voice IDs, one per character. Pick by archetype + gender contrast for clarity (e.g. low-male interviewer + bright-female expert). Voice IDs declared up-front in the project, never swapped mid-video.",
+    "captions": "ElevenLabs Scribe v1 for word-level timing; lower-third with speaker-name color-coded (each speaker = one color). MinimalCaptions style; speaker color is the differentiator.",
+    "music": "ElevenLabs Music — ambient professional bed at -22dB, ducked further during speech peaks. Single track for the full duration; the dialog carries energy, music stays out of the way."
+  },
+  "constants": {
+    "vibeAnchor": "overheard-conversation",
+    "structure": "0-3s 2-shot establish + first question → 3-70s alternating turns (Q / A / reaction) → 70-90s closing punchline / takeaway",
+    "turnPacing": "question 3-6s, answer 5-12s, reaction 1-3s",
+    "speakerCount": 2,
+    "voiceContrast": "two distinct ElevenLabs voice IDs, gender or timbre contrast required",
+    "aiDisclosure": "small 'AI-generated' overlay top-right for full duration when both speakers are synthesized"
+  },
+  "variationAxes": [
+    "format mode (expert-interview / peer-discussion / split-screen-reaction / podcast-style)",
+    "turn count (3-12 alternations between speakers)",
+    "with-cutaway-broll (yes — 5-10s mid-dialog visual / no — pure dialog)",
+    "camera language (single-camera-cuts / split-screen-static / podcast-2-cam-setup)",
+    "VO language (any — English, Russian, Spanish; the dialog rhythm reads regardless)"
+  ],
+  "doNotCopyLiterally": "Dialog script, voice IDs, persona archetypes, exact prompts. Vibe / format reference only.",
+  "requiresUserReference": false,
+  "referenceNotes": "Reference is OPTIONAL when speakers are archetype-based ('a journalist interviewing a CEO', 'two skincare friends'). Reference is REQUIRED — refuse without it (AGENTS.md hard rule #3) — when either speaker is a real named person, real handle, or specific real entity. No impersonation, ever. AI-improvised likeness of a real person on a real-named brief is always a refuse, even if 'just for a joke'. User can override only with explicit 'generate without reference, I understand the quality will be worse', logged as `stage: \"no-ref-consent\"`."
+}
