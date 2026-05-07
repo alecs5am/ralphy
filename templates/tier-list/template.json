@@ -1,0 +1,64 @@
+{
+  "name": "Tier List / Ranking",
+  "slug": "tier-list",
+  "kind": "vibe-style",
+  "description": "S/A/B/C/D-tier visual grid with item ranking. 40-75s, 9:16. 0-2s setup ('ranking [X]'), then each item pops into its tier with a short reason (~3-5s each), ending on a deliberately controversial pick to provoke comments. Opinion-as-content + search-friendly evergreen ('ranking [niche] 2026'). Remotion-heavy — the tier grid composition is built in Remotion; gemini-3-pro generates the per-item icons/photos; kling-v3.0-pro is used only for an optional hook intro shot.",
+  "tags": [
+    "tier-list",
+    "ranking",
+    "s-tier",
+    "opinion-content",
+    "evergreen",
+    "search-first",
+    "debate-bait",
+    "ai-friendly",
+    "faceless-friendly",
+    "gaming",
+    "movies",
+    "anime",
+    "food-ranking",
+    "brand-comparison",
+    "dating-apps",
+    "tiktok",
+    "shorts",
+    "reels"
+  ],
+  "platform": "shorts",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [40, 75],
+  "typicalClipCount": [5, 12],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "tierGrid": "Built in Remotion. Static S/A/B/C/D rows with color-coded labels (S=red, A=orange, B=yellow, C=green, D=blue), item icons pop into their slot with spring animation + audio cue, the active tier row briefly highlights on each pop. The grid is the spine of the video — not a generated asset.",
+    "itemAssets": "google/gemini-3-pro-image-preview via OpenRouter for each item icon / photo / logo. Square 512×512 PNG with transparent or flat background, consistent style across all items in one list. Optional user-supplied product/brand photos override generation.",
+    "hookIntro": "kwaivgi/kling-v3.0-pro via OpenRouter — OPTIONAL. One 3-5s i2v clip for the 0-2s setup beat (e.g. dramatic zoom on a 'TIER LIST' title card). Skip if a pure-Remotion title is enough; the grid itself is the hero.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2. One narrator throughout, snarky-confident or serious-analytical depending on commentary tone. Pacing: 1 line per item (~3-5s), pause on the controversial final pick.",
+    "captions": "OpenRouter whisper-1. Per-item reason text overlays are rendered directly in Remotion (not whisper-generated) — they're authored. Whisper only used if the VO has extra commentary outside the slot lines.",
+    "music": "ElevenLabs Music — one track. Steady-BPM 'thinking' beat that subtly rises across the list, peaking on the controversial pick. Lo-fi-with-energy or analytical-electronic both work."
+  },
+  "constants": {
+    "vibeAnchor": "visible-tier-grid + items-pop-in + controversial-final",
+    "structure": "0-2s setup → per-item pops 3-5s each → controversial final pick → 2-3s outro CTA",
+    "tierColors": "S=#FF3B30 / A=#FF9500 / B=#FFCC00 / C=#34C759 / D=#007AFF",
+    "popAnimation": "spring-in from off-screen-left, scale 0.6→1.0, audio cue (whoosh or pop) on impact, tier row highlight 0.3s",
+    "mobileLegibility": "item icon ≥ 180px square on 1080×1920 canvas; tier label ≥ 96pt; reason overlay ≥ 56pt"
+  },
+  "variationAxes": [
+    "tier count (3=S/A/B for short tight lists, 4=S/A/B/C, 5=full S/A/B/C/D — default 4)",
+    "category (gaming, movies, anime, food chains, dating apps, AI tools, brands, fast food, streaming services)",
+    "reveal order (ascending D→S = build to crescendo / descending S→D = lead with bangers / random = chaotic-debate)",
+    "commentary tone (snarky / serious-analytical / chaotic-shitposty / earnest-fan)",
+    "VO language (any — emotional payoff carries visually)"
+  ],
+  "doNotCopyLiterally": "Specific items, specific tier assignments, exact VO lines, exact controversial pick. Vibe reference only — bring your own opinions.",
+  "requiresUserReference": false,
+  "referenceNotes": "References are OPTIONAL. For brand/product/IP rankings (fast-food chains, dating apps, console games, anime characters), user-supplied logos / promo art / packaging photos make the icons look real and dodge the AI-improvised-branding problem. If the brief names a real brand AND no reference is supplied, fall back to a stylized text-only chip in the slot rather than an AI-hallucinated logo. Generic categories (e.g. 'pizza toppings', 'study habits') need no references."
+}
