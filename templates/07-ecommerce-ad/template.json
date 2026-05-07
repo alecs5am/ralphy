@@ -1,0 +1,69 @@
+{
+  "name": "E-commerce Ad",
+  "slug": "07-ecommerce-ad",
+  "kind": "vibe-style",
+  "description": "Conversion-first product ad: 2s scroll-stopper hook → 6-12s multi-angle product showcase → 3-6s lifestyle/benefit beat → 2-3s CTA with price/urgency. 15-30s total, 9:16 (TikTok Shop / Reels / Shorts) or 1:1 / 16:9 (Amazon, YouTube). Reference-required: a real product photo / packaging / logo MUST be supplied — generation refuses without it (no AI-improvised branding). Distilled from a category playbook covering fashion, beauty, electronics, food, jewelry, home, fitness, toys, automotive, and pet.",
+  "tags": [
+    "ecommerce",
+    "product-ad",
+    "shopping-ad",
+    "tiktok-shop",
+    "amazon",
+    "instagram-shop",
+    "shopify",
+    "dropshipping",
+    "fashion",
+    "beauty",
+    "skincare",
+    "electronics",
+    "food",
+    "jewelry",
+    "home",
+    "fitness",
+    "pet",
+    "unboxing",
+    "product-demo",
+    "hero-shot",
+    "cta",
+    "conversion",
+    "реклама",
+    "товар",
+    "магазин"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 30],
+  "typicalClipCount": [4, 6],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied product photo / logo (required for any frame where the product is visible — packaging, hero shot, in-hand, lifestyle).",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips (4-6 total: hook, hero rotation, detail macro, lifestyle, CTA), generate_audio: false. Excellent for smooth 360 rotations and macro texture.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — optional, brief (hook line + benefit line + CTA line, total <8s). Many top-performing product ads run music + on-screen text only.",
+    "captions": "OpenRouter whisper-1 if VO present; on-screen text overlays composed in Remotion (problem callout, benefit, social proof, price, CTA).",
+    "music": "ElevenLabs Music — single track matched to category BPM: luxury 80-100, wellness/cozy 90-110, fashion/social 120-140, tech/trend 130-150."
+  },
+  "constants": {
+    "vibeAnchor": "hook-showcase-lifestyle-cta",
+    "structure": "2s hook → 6-12s multi-angle showcase → 3-6s lifestyle beat → 2-3s CTA",
+    "heroShot": "isolated product, controlled lighting, at least one rotation or macro detail pass",
+    "ctaPlacement": "final-3-seconds-with-price-and-urgency"
+  },
+  "variationAxes": [
+    "category (fashion, beauty, electronics, food, jewelry, home, fitness, toys, automotive, pet)",
+    "hook type (hero drop, ASMR texture, before/after, stop-scroll address, unboxing, variant cascade, ingredient explosion, problem-solution, in-hand tease, lifestyle flash, scarcity, creator reaction)",
+    "platform (TikTok Shop 9:16, Amazon 1:1 or 16:9, Reels 9:16, YouTube Shorts 9:16, IG Feed 1:1)",
+    "color grade (luxury warm-gold, tech cool-blue, wellness soft-natural, food golden-hour, fashion editorial)",
+    "CTA tone (urgent flash sale, premium pre-order, soft 'shop now', subscription save)"
+  ],
+  "doNotCopyLiterally": "Product, brand, copy, exact prompts, hook combinations. Vibe + structure reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Product / brand reference (logo, packaging, product photo from at least one clean angle) is REQUIRED. The reference-required gate (AGENTS.md hard rule #3) refuses if no reference exists at workspace/projects/<id>/assets/uploaded/. AI-improvised packaging on a branded product reads as fake and tanks conversion. For multi-SKU ranges, each SKU needs its own reference."
+}
