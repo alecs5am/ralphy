@@ -259,3 +259,6 @@ Specific version: `RALPHY_VERSION=v0.2.0 curl ... | sh`.
 
 **Won't run on an old Intel Mac or Linux**
 You probably need a `-baseline` build (CPU support without AVX2). Open an issue and I'll add it to the release artefacts.
+
+
+author alecs5am
