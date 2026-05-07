@@ -1,0 +1,38 @@
+---
+title: "Model registry"
+description: "What we use, why, and how to swap."
+---
+
+The full registry lives in [`MODELS.md`](https://github.com/alecs5am/ralphy/blob/main/MODELS.md)
+at the project root and is the single source of truth for every model the chat is allowed to
+call.
+
+## Defaults
+
+| capability | default model | provider |
+| --- | --- | --- |
+| **image** | `google/gemini-3-pro-image-preview` | OpenRouter |
+| **video** | `klingai/kling-v3.0-pro` | OpenRouter |
+| **video (long)** | `google/veo-3.1` | OpenRouter |
+| **video (cinematic)** | `bytedance/seedance-2.0` | OpenRouter |
+| **voice** | `elevenlabs/eleven-multilingual-v2` | ElevenLabs |
+| **music** | `elevenlabs/music` | ElevenLabs |
+| **transcribe** | `openai/whisper-1` | OpenRouter |
+| **vision** | `anthropic/claude-3.5-sonnet` | OpenRouter |
+| **LLM (planner / scenarist)** | `anthropic/claude-3.5-sonnet` | OpenRouter |
+
+## Why one OpenRouter key
+
+In v2 the entire media stack is consolidated on OpenRouter so you only manage **two** secrets
+total (OpenRouter + ElevenLabs). FAL, Vercel, OpenAI direct, Replicate — none of them are
+required.
+
+## Avoid lists
+
+`MODELS.md` also contains an **avoid** list per capability — models we tried and removed
+because of price, quality, or rate-limit issues. Read it before adding a new entry.
+
+## Swapping a default
+
+Edit a template's `model-stack.json` (see [authoring templates](/authoring/templates)) — you
+never need to fork the global registry to try a different model on one project.

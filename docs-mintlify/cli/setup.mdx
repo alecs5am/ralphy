@@ -1,0 +1,47 @@
+---
+title: "ralphy setup"
+description: "Interactive wizard for keys, profiles, and project linking."
+---
+
+```bash
+ralphy setup
+```
+
+Three idempotent steps:
+
+<Steps>
+  <Step title="Project">
+    Links `ralphy` to the current folder. Saved to `~/.config/ralphy/config.json` so all future
+    invocations resolve here regardless of `cwd`.
+  </Step>
+  <Step title="API keys">
+    Multi-select providers, password-prompt for each, ping the API to verify before saving to `.env`.
+    - **`OPENROUTER_API_KEY`** — image / video / LLM / vision / transcribe
+    - **`ELEVENLABS_API_KEY`** — voice + music
+  </Step>
+  <Step title="Profiles">
+    Multi-select community workspaces. Imports are *additive* — your local files are never
+    overwritten.
+  </Step>
+</Steps>
+
+## Flags
+
+| flag | what it does |
+| --- | --- |
+| `--status` | print JSON status, no prompts (for scripts/CI) |
+| `--link <path>` | link to another project folder |
+| `--unlink` | remove the link |
+
+## Examples
+
+```bash
+ralphy setup --link ~/code/my-other-ugc-project
+ralphy setup --status | jq '.blockers'
+ralphy setup --unlink
+```
+
+<Warning>
+  The wizard needs an interactive TTY. If you see it hanging silently, you're probably running in
+  a non-TTY shell (CI, nohup, etc.). Use `--link` + `--status` instead.
+</Warning>

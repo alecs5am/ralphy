@@ -1,0 +1,109 @@
+---
+title: "Quickstart"
+description: "From zero to first mp4 in three commands and eight minutes."
+---
+
+## 1. Install dependencies
+
+Ralphy ships as a single statically-linked binary, but it leans on **Bun** for the dev workflow
+and **ffmpeg** for video processing.
+
+<CodeGroup>
+
+```bash macOS
+curl -fsSL https://bun.sh/install | bash
+brew install ffmpeg
+```
+
+```bash Linux
+curl -fsSL https://bun.sh/install | bash
+sudo apt install ffmpeg
+```
+
+</CodeGroup>
+
+## 2. Install the `ralphy` binary
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+```
+
+The installer detects your OS/arch (`darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`,
+`windows-x64`), downloads the matching binary from the latest GitHub Release, and drops it in
+`~/.local/bin/ralphy` (~60 MB, includes the Bun runtime + bytecode-compiled TypeScript).
+
+```bash
+ralphy --version
+```
+
+<Tip>
+  If `ralphy: command not found`, add `~/.local/bin` to your `PATH`:
+  `export PATH="$HOME/.local/bin:$PATH"`.
+</Tip>
+
+## 3. Clone the project and link it
+
+```bash
+git clone https://github.com/alecs5am/ralphy.git
+cd ralphy
+bun install
+```
+
+## 4. Run the setup wizard
+
+```bash
+ralphy setup
+```
+
+The wizard is **interactive and idempotent** — re-running it never overwrites a key that's
+already set.
+
+<Steps>
+  <Step title="Project link">
+    Saves the path to this folder in `~/.config/ralphy/config.json` so `ralphy` works from any cwd.
+  </Step>
+  <Step title="API keys">
+    Multi-select providers, password-prompt each one, ping the API to verify.
+    - **`OPENROUTER_API_KEY`** *(required)* — image / video / LLM / vision / transcribe
+    - **`ELEVENLABS_API_KEY`** *(required)* — voice + music
+  </Step>
+  <Step title="Profiles">
+    Multi-select community workspaces from `profiles/` — templates, references, example projects.
+  </Step>
+</Steps>
+
+## 5. Verify the install
+
+```bash
+ralphy doctor
+```
+
+You should see `blockers: []`, both keys marked present, and `bun` + `ffmpeg` detected.
+
+## 6. Make your first video
+
+```bash
+claude
+```
+
+In the chat:
+
+```text
+> Set up the dev env and make me a video in soviet style about <your product>
+```
+
+Ralphy will:
+
+1. Run `ralphy doctor` to confirm the env is clean.
+2. Read the `soviet-nostalgic` template.
+3. Write a scenario for your product.
+4. Generate assets via OpenRouter (image + video models).
+5. Record voiceover via ElevenLabs.
+6. Compose it through Remotion.
+7. Hand back the path to the finished mp4.
+
+**~8 minutes per video, ~$8–12 in API costs.**
+
+<Card title="Next: how Ralphy thinks" icon="brain" href="/concepts">
+  Learn how workspaces, profiles, templates, and skills compose into a self-improving loop.
+</Card>

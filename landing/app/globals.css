@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   Brand tokens — mascot-cyan holographic studio
+   ───────────────────────────────────────────── */
+@theme {
+  --color-ink: #06090f;
+  --color-ink-2: #0a1220;
+  --color-ink-3: #0e1a2c;
+  --color-panel: rgb(10 18 32 / 0.55);
+  --color-panel-strong: rgb(10 18 32 / 0.8);
+
+  --color-frost: #e6f3ff;
+  --color-frost-2: #c6dbf3;
+  --color-mute: #7c92b3;
+  --color-mute-2: #4a5d7a;
+
+  --color-cyan: #3dd8ff;
+  --color-cyan-2: #74e6ff;
+  --color-blue: #4a7bff;
+  --color-coral: #ff8a65;
+
+  --color-line: rgb(120 198 255 / 0.12);
+  --color-line-2: rgb(120 198 255 / 0.22);
+
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-sans: var(--font-onest), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-pixel: var(--font-vt323), "JetBrains Mono", monospace;
+
+  --shadow-glow: 0 0 0 1px rgb(61 216 255 / 0.18), 0 12px 48px -16px rgb(61 216 255 / 0.6);
+}
+
+/* ─────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-ink);
+  color: var(--color-frost);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body {
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+::selection {
+  background: var(--color-cyan);
+  color: var(--color-ink);
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+img,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+/* ─────────────────────────────────────────────
+   Atmospheric global layer (subtle, behind everything)
+   ───────────────────────────────────────────── */
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(900px 600px at 75% -10%, rgb(74 123 255 / 0.16), transparent 70%),
+    radial-gradient(1100px 700px at 0% 30%, rgb(61 216 255 / 0.08), transparent 70%),
+    radial-gradient(800px 500px at 50% 110%, rgb(61 216 255 / 0.06), transparent 70%);
+}
+.atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(61 216 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(61 216 255 / 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  opacity: 0.7;
+}
+
+/* ─────────────────────────────────────────────
+   Section backgrounds — the asset images
+   sit BEHIND content with a heavy mask + tint
+   ───────────────────────────────────────────── */
+.bg-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bg-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.35;
+}
+.bg-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 50% 50%, transparent 30%, rgb(6 9 15 / 0.6) 90%),
+    linear-gradient(180deg, rgb(6 9 15 / 0.65) 0%, rgb(6 9 15 / 0.5) 50%, rgb(6 9 15 / 0.85) 100%);
+}
+
+/* ─────────────────────────────────────────────
+   Pulsing dot (eyebrow)
+   ───────────────────────────────────────────── */
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-cyan);
+  border-radius: 1px;
+  box-shadow: 0 0 12px var(--color-cyan);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   HUD corner brackets (decorative)
+   ───────────────────────────────────────────── */
+.hud {
+  position: relative;
+}
+.hud::before,
+.hud::after,
+.hud > .corner-tl,
+.hud > .corner-br {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--color-cyan);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 2;
+}
+.hud::before {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+.hud::after {
+  top: -1px;
+  right: -1px;
+  border-left: none;
+  border-bottom: none;
+}
+.hud > .corner-tl {
+  bottom: -1px;
+  left: -1px;
+  border-right: none;
+  border-top: none;
+}
+.hud > .corner-br {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+/* ─────────────────────────────────────────────
+   Reveal on scroll
+   ───────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 700ms ease, transform 700ms ease;
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+.reveal.d1 {
+  transition-delay: 60ms;
+}
+.reveal.d2 {
+  transition-delay: 140ms;
+}
+.reveal.d3 {
+  transition-delay: 220ms;
+}
+.reveal.d4 {
+  transition-delay: 320ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .pulse-dot {
+    animation: none;
+  }
+}
+
+/* Audio bars — used inside TikTok-style video cards */
+@keyframes wav {
+  0% {
+    transform: scaleY(0.4);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Buttons
+   ───────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  border: 1px solid var(--color-line-2);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--color-frost);
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 220ms ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-cyan);
+  box-shadow: var(--shadow-glow);
+}
+.btn-primary {
+  background: var(--color-cyan);
+  color: var(--color-ink);
+  border-color: var(--color-cyan);
+}
+.btn-primary:hover {
+  background: var(--color-cyan-2);
+  color: var(--color-ink);
+}
+.btn-ghost {
+  background: rgb(10 18 32 / 0.55);
+  backdrop-filter: blur(8px);
+}
+.btn .star-count {
+  font-family: var(--font-pixel);
+  background: rgb(0 0 0 / 0.18);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* ─────────────────────────────────────────────
+   Type helpers
+   ───────────────────────────────────────────── */
+.display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 0.96;
+}
+.display em,
+.italic-cyan {
+  font-style: italic;
+  color: var(--color-cyan-2);
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  color: var(--color-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.pixel-text {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

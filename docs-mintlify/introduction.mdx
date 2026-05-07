@@ -1,0 +1,81 @@
+---
+title: "Welcome to Ralphy"
+description: "An AI film studio you operate from a terminal."
+---
+
+<Note>
+  Ralphy is a **scripted CLI**, a **Remotion composition library**, and a **Claude Code skill
+  stack** wrapped into one tiny pixel slime. Open Claude Code, ask for a video, get a finished
+  mp4.
+</Note>
+
+## What Ralphy is
+
+Ralphy turns the question "*can you make me a 30-second promo in soviet style about my SaaS?*"
+into a finished mp4 sitting in `workspace/projects/<id>/render/final.mp4`.
+
+It does that by orchestrating five agents — **planner**, **researcher**, **scenarist**,
+**renderer**, and **critic** — across one shared workspace. They share a model registry, a
+template library, and a skill graph. You talk, they ship.
+
+## Three commands you'll actually use
+
+<CodeGroup>
+
+```bash macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+ralphy setup
+ralphy doctor
+```
+
+```bash Windows (PowerShell)
+irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 | iex
+ralphy setup
+ralphy doctor
+```
+
+</CodeGroup>
+
+Then drop into the project folder, launch Claude Code, and treat it like a producer:
+
+```bash
+claude
+```
+
+```text
+> make me a video in soviet style about my SaaS
+```
+
+## What you'll need
+
+<CardGroup cols={2}>
+  <Card title="OpenRouter key" icon="key">
+    One key for the entire media stack — image, video, LLM, vision, transcribe.
+  </Card>
+  <Card title="ElevenLabs key" icon="microphone">
+    Voiceover (`eleven_multilingual_v2`) plus ElevenLabs Music for score.
+  </Card>
+  <Card title="Bun + ffmpeg" icon="terminal">
+    Bun runs everything; ffmpeg is what Remotion shells out to.
+  </Card>
+  <Card title="~$10 per render" icon="coins">
+    Eight minutes per video, give or take a refinement loop.
+  </Card>
+</CardGroup>
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Three-minute install, first render in eight.
+  </Card>
+  <Card title="Concepts" icon="book-open" href="/concepts">
+    Workspaces, templates, profiles, skills.
+  </Card>
+  <Card title="CLI reference" icon="square-terminal" href="/cli/overview">
+    Every `ralphy` command with examples.
+  </Card>
+  <Card title="Model registry" icon="cpu" href="/reference/models">
+    Which models we use, why, and how to swap them.
+  </Card>
+</CardGroup>

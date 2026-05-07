@@ -1,0 +1,66 @@
+---
+title: "Troubleshooting"
+description: "Common failure modes and fast fixes."
+---
+
+## `ralphy: command not found`
+
+`~/.local/bin` isn't in your `PATH`. Add to your shell rc:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Then `source ~/.zshrc` (or `~/.bashrc`).
+
+## `ralphy status` says "Could not locate the ugc-cli project"
+
+Either `cd` into the project folder, or link it explicitly:
+
+```bash
+ralphy setup --link /path/to/ralphy
+```
+
+## `ralphy setup` silently hangs
+
+You're running in a non-TTY shell (CI, nohup, container without a pty). Use the script-friendly path:
+
+```bash
+ralphy setup --link "$PWD" --status
+```
+
+## "OPENROUTER_API_KEY not set"
+
+`ralphy doctor` will tell you which keys are missing. Re-run `ralphy setup`, pick the providers,
+paste the keys. The wizard verifies each via API before saving.
+
+## `.env` safety
+
+`.env` is in `.gitignore`. The wizard pings each provider before writing the key so you never
+end up with a typo silently saved.
+
+## Rendering crashes on an old Intel Mac / Linux
+
+You probably need a `-baseline` build (no AVX2). Open an issue and we'll add it to the release
+artefacts.
+
+## Update the binary
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+```
+
+Specific version:
+
+```bash
+RALPHY_VERSION=v0.2.0 curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+```
+
+## Uninstall
+
+```bash
+rm ~/.local/bin/ralphy
+rm -rf ~/.config/ralphy
+```
+
+The repo folder is removed with a normal `rm -rf`.

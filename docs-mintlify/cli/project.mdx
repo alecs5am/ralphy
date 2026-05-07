@@ -1,0 +1,38 @@
+---
+title: "ralphy project"
+description: "Inspect every render in your workspace."
+---
+
+```bash
+ralphy project list
+ralphy project show <id>
+ralphy project log <id>
+```
+
+## list
+
+Prints every project in `workspace/projects/` with status, template, and final mp4 path.
+
+```bash
+ralphy project list
+```
+
+## show
+
+Project details — brief, scenario, asset counts, render path.
+
+```bash
+ralphy project show p_03
+```
+
+## log
+
+Generation log — every model call, tokens, latency, cost.
+
+```bash
+ralphy project log p_03
+```
+
+<Tip>
+  `ralphy project log <id> --json | jq '.calls[] | {model, cost_usd, ms}'` for a tidy summary.
+</Tip>

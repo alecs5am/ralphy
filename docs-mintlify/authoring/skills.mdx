@@ -1,0 +1,70 @@
+---
+title: "Authoring skills"
+description: "Skills are markdown. Markdown is code."
+---
+
+A **skill** is a markdown file under `.agents/skills/<slug>/SKILL.md` that teaches Claude how to
+do real work. Skills are hot-reloaded — edit one, reissue the chat command, no restart.
+
+## Anatomy
+
+```md
+---
+name: ralph-renderer
+description: Drive the OpenRouter + ElevenLabs + Remotion pipeline for one project.
+license: MIT
+---
+
+# Ralph Renderer
+
+You are the renderer. Your inputs:
+- `project_id`
+- `scenario.md`
+- the model-stack file from the chosen template
+
+Your outputs:
+- generated assets in `workspace/projects/<id>/assets/`
+- a `final.mp4` in `workspace/projects/<id>/render/`
+- a populated `log.json`
+
+## Steps
+
+1. Read the model-stack. Pick the cheapest tier that satisfies the brief.
+2. For each shot in `scenario.md`, generate the asset with the chosen model.
+3. Compose with Remotion using the matching composition under `src/`.
+4. Run the critic and append the score to `log.json`.
+
+## Constraints
+
+- Never call a model not listed in the registry.
+- Never delete a previous render — always write `final.<iter>.mp4`.
+```
+
+## File layout
+
+```
+.agents/skills/
+  ralph-planner/SKILL.md
+  ralph-researcher/SKILL.md
+  ralph-scenarist/SKILL.md
+  ralph-renderer/SKILL.md
+  ralph-critic/SKILL.md
+.claude/skills/   ← symlink to .agents/skills
+```
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="One job per skill" icon="bullseye">
+    Skills compose. Don't pile responsibilities.
+  </Card>
+  <Card title="Pin the contract" icon="file-shield">
+    Inputs, outputs, side effects — first paragraph of the skill.
+  </Card>
+  <Card title="Cite the registry" icon="book">
+    When picking a model, reference `MODELS.md` so the chat doesn't hallucinate.
+  </Card>
+  <Card title="Fail loud" icon="bell">
+    Every skill should `ralphy doctor` before doing real work.
+  </Card>
+</CardGroup>

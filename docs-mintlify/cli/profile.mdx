@@ -1,0 +1,41 @@
+---
+title: "ralphy profile"
+description: "Import + export community workspaces."
+---
+
+A profile is a committed dump of someone's local `workspace/` — templates, references, example
+projects. Sharing happens by committing under `profiles/<your-nick>/`.
+
+```bash
+ralphy profile list
+ralphy profile show <nick>
+ralphy profile import <nick>
+ralphy profile import <nick> --overwrite
+ralphy profile export <your-nick>
+ralphy profile export <your-nick> --include-renders
+```
+
+## Import is additive
+
+Your local files are *never* overwritten. The registry and logs are merged, conflicting files
+are kept on both sides until you resolve.
+
+```bash
+ralphy profile import ralphy-showcase
+```
+
+Use `--overwrite` to replace conflicting files with the imported version.
+
+## Export drops heavy renders
+
+By default, `render/` and any `*.mp4` are excluded from the export to keep the repo small. Add
+`--include-renders` if you really want them in:
+
+```bash
+ralphy profile export alecs5am --include-renders
+```
+
+<Note>
+  After exporting, commit `profiles/<your-nick>/` and open a PR. The community grows one profile
+  at a time.
+</Note>
