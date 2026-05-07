@@ -1,0 +1,61 @@
+{
+  "name": "Comic to Video",
+  "slug": "04-comic-to-video",
+  "kind": "vibe-style",
+  "description": "Animate comic panels, manga pages, webtoons, and illustrated storyboards into short narrative video. Each panel becomes a beat: keyframes preserve the original art (line weight, screentone, color model), and i2v adds motion that respects reading order (LTR / RTL / vertical) and panel-to-panel pacing. Reference-required: the user must supply the source panels — generation refuses without them, because there is no way to invent comic art that matches an existing series. Sound design follows speech bubbles and SFX onomatopoeia. Best for fan animations, motion-comic ads, webtoon teasers, and storyboard-to-cinematic.",
+  "tags": [
+    "comic",
+    "manga",
+    "webtoon",
+    "storyboard",
+    "sequential-art",
+    "motion-comic",
+    "panel-animation",
+    "graphic-novel",
+    "anime",
+    "tiktok",
+    "reels",
+    "shorts",
+    "youtube",
+    "комикс",
+    "манга",
+    "вебтун"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [10, 25],
+  "typicalClipCount": [3, 6],
+  "fps": 24,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied comic panels (required). Used to render in-between frames in the source art's exact line/tone style — preserves ink weight, halftone, color model, screentone.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 3-5s clips per panel beat (3-6 total). generate_audio: false. Prompt steers reading-order camera (LTR pan / RTL pan / vertical scroll) and panel-to-motion technique (stance shift, expression morph, speed-line activation, etc.).",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — one TTS call per speech bubble or narration box, voice tuned to bubble type (standard / jagged / cloud / wavy / whisper). Language follows source dialogue.",
+    "captions": "OpenRouter whisper-1; HormoziCaptions for action SFX (POW, CRASH), MinimalCaptions for narration boxes, no captions during silent emotional beats.",
+    "music": "ElevenLabs Music — single beat matched to genre tone (shonen action / shoujo romance / noir storyboard / webtoon ambient). One music_v1 call per video unless an emotional pivot mid-sequence calls for a cross-fade."
+  },
+  "constants": {
+    "vibeAnchor": "panel-to-motion-with-style-preservation",
+    "structure": "panel-1 setup → panel-2 escalation → panel-N resolution; one i2v clip per panel beat",
+    "styleAnchor": "preserve source line weight, halftone, color model, visual grammar (speed lines, sweat drops, sparkles)",
+    "readingOrder": "explicit per project — Western LTR / Manga RTL / Webtoon Vertical / 4-Koma / European"
+  },
+  "variationAxes": [
+    "format (Western superhero, manga shonen, manga shoujo, webtoon, 4-koma, European BD, indie, storyboard)",
+    "reading order (LTR / RTL / Vertical / mixed)",
+    "tone (action, emotional, comedic, noir, surreal, contemplative)",
+    "panel-to-motion technique (stance shift, expression morph, impact follow-through, speed-line activation, environment-only, depth shift)",
+    "transition style (dissolve, crack, wipe, morph, page-turn, ink-splash)",
+    "VO language (any — English, Japanese, Korean, Russian, etc. — emotional arc reads visually)"
+  ],
+  "doNotCopyLiterally": "Specific characters, panel layouts, dialogue, or art style. Vibe reference only — the technique pack, not the source IP.",
+  "requiresUserReference": true,
+  "referenceNotes": "Source comic panels (PNG/JPG/WebP) are REQUIRED — at minimum one panel, ideally a full sequence. Drop them in workspace/projects/<id>/assets/uploaded/. The reference-required gate (AGENTS.md hard rule #3) refuses without them. AI cannot invent comic art that plausibly matches an existing series — every panel keyframe must derive from a user-supplied source frame via Gemini multi-ref. If the user wants 'a comic in the style of X' without supplying panels, route to the researcher first to capture reference, then return."
+}
