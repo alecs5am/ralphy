@@ -1,0 +1,68 @@
+{
+  "name": "Brainrot AI Meme",
+  "slug": "brainrot-ai-meme",
+  "kind": "vibe-style",
+  "description": "Chaotic fast-paced AI video, 9:16, 30-60s (optimal ~45s). Split-screen Remotion composition: top half is the AI-driven narrative (history fact, finance trivia, psychology, true crime, conspiracy, hot take) carried by AI voiceover and either a static AI image or short kling-v3.0-pro b-roll; bottom half is a hypnotic gameplay loop (Subway Surfers / Minecraft Parkour / GTA / Rocket League) supplied by the user. Big animated word-by-word captions burned across both halves carry the read. The dominant AI-generation format of 2026 — pattern-interrupts the scroll, generates 'what am I watching' comments, and scales cheaply per video. Reference-required: a gameplay-loop clip must be supplied or sanctioned by the user; AI-improvised gameplay reads as fake.",
+  "tags": [
+    "brainrot",
+    "ai-meme",
+    "split-screen",
+    "subway-surfers",
+    "minecraft-parkour",
+    "gta",
+    "rocket-league",
+    "satisfying-gameplay",
+    "ai-narration",
+    "ai-voiceover",
+    "hypnotic",
+    "attention-keeper",
+    "viral",
+    "c2pa",
+    "fast-pace",
+    "screaming-captions",
+    "edutainment",
+    "tiktok",
+    "shorts",
+    "reels",
+    "history",
+    "finance"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [30, 60],
+  "typicalClipCount": [3, 6],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "voiceover": "ElevenLabs eleven_multilingual_v2 for the canonical narrator-grade read; eleven_turbo_v2_5 for fast/cheap iteration when generating dozens of variants. Voice picks: Adam, Onyx, or any deep-male narrator preset. Stability ~0.3, similarity boost ~0.75, style 0.4, energy/speaker_boost on. One TTS call per video, ~45s of audio.",
+    "topHalf": "Either a single static AI image (google/gemini-3-pro-image-preview via OpenRouter) held for the full duration with subtle Remotion Ken Burns; OR 2-3 short kling-v3.0-pro b-roll clips (3-5s each, generate_audio: false) that loosely illustrate the narration; OR a Veo-style narration shot for niches that need a face. Top half = 50% of the 1080×1920 frame (1080×960).",
+    "bottomHalf": "User-supplied gameplay loop (Subway Surfers, Minecraft Parkour, GTA, Rocket League). Loaded as a Remotion <Video> with native audio at low gain (~0.08) so SFX is felt but doesn't fight VO. Bottom half = remaining 50% (1080×960). Source: royalty-free / CC0 gameplay packs, or the user's own captured footage.",
+    "captions": "ElevenLabs Scribe v1 for word-level timestamps on the VO track. Burned via existing src/lib/components/captions/HormoziCaptions.tsx (yellow Hormozi default) or a 'red-screaming-shake' variant for the most chaotic niches (true crime, conspiracy). Captions sit center-screen on the seam between the two halves, full-bleed across both, large weight, animated per-word.",
+    "music": "Typically OFF. The gameplay diegetic SFX plus AI VO carry. If music is requested, ElevenLabs Music tense/curious bed at -18 dB under the VO.",
+    "composition": "Single Remotion composition, 1080×1920 @ 30fps, ~45s. Layout: top half (AI visual), bottom half (gameplay loop), full-bleed caption layer, small 'AI-generated' C2PA disclosure overlay top-right (mandatory in 2026)."
+  },
+  "constants": {
+    "vibeAnchor": "split-screen-narrative-over-gameplay",
+    "structure": "0-2s SCREAMING hook → 2-40s narration over looping gameplay → 40-45s payoff/CTA",
+    "captionStyle": "hormozi-yellow OR red-screaming-shake",
+    "musicDefault": "off",
+    "disclosureOverlay": "ai-generated-top-right-corner"
+  },
+  "variationAxes": [
+    "gameplay choice (Subway Surfers / Minecraft Parkour / GTA / Rocket League / satisfying soap-cutting / kinetic-sand)",
+    "VO tone (Reddit-narrator monotone / dramatic narrator / sarcastic / conspiratorial whisper)",
+    "caption style (yellow Hormozi / red-screaming-shake / multicolor-per-word)",
+    "niche (history fact / finance trivia / psychology / true crime / conspiracy / education-disguised / hot take)",
+    "top-half visual (single static AI image / 2-3 kling b-roll / talking-head AI avatar)"
+  ],
+  "doNotCopyLiterally": "VO script, exact gameplay clip, channel name, niche framing. Vibe and structural reference only. Always swap the gameplay source to one the user owns or has rights to.",
+  "requiresUserReference": true,
+  "referenceNotes": "This format depends on a gameplay-loop background. The user must supply a clip (Subway Surfers / Minecraft Parkour / GTA / Rocket League / similar hypnotic gameplay), or explicitly sanction a generic placeholder from a royalty-free pack at workspace/projects/<id>/assets/uploaded/gameplay-loop.mp4. Without it, /ralph-art-director refuses (AGENTS.md hard rule #3) — AI-improvised gameplay reads as obviously fake and kills the format. If the brief names a specific real person, brand, or copyrighted IP for the top-half narrative, a reference for that subject is also required."
+}
