@@ -1,0 +1,41 @@
+---
+title: "Authoring profiles"
+description: "Share your workspace with the community."
+---
+
+A **profile** is your personal workspace, committed to `profiles/<your-nick>/`. Other people
+import it; their renders inspire your next idea.
+
+## Export
+
+```bash
+ralphy profile export <your-nick>
+```
+
+That dumps:
+
+- every template you authored
+- every reference you collected
+- every example project (without the heavy `render/` folder)
+
+## Commit + PR
+
+```bash
+git add profiles/<your-nick>
+git commit -m "profile(<your-nick>): initial drop"
+gh pr create --title "Add profile: <your-nick>" --body "<short note>"
+```
+
+## Importing someone else's profile
+
+```bash
+ralphy profile import alecs5am
+```
+
+Imports are **additive** — the merge never overwrites your local files. Use `--overwrite` to
+take the imported version of conflicting files.
+
+<Note>
+  Renders are heavy. By default `ralphy profile export` skips `render/` and any `*.mp4`. If you
+  really want to ship renders, add `--include-renders`.
+</Note>

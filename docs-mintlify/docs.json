@@ -1,0 +1,82 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Ralphy",
+  "description": "The AI film studio that lives in your terminal.",
+  "colors": {
+    "primary": "#3DD8FF",
+    "light": "#74E6FF",
+    "dark": "#0A1220"
+  },
+  "favicon": "/favicon.png",
+  "fonts": {
+    "heading": {
+      "family": "Instrument Serif"
+    },
+    "body": {
+      "family": "Onest"
+    }
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "background": {
+    "color": {
+      "dark": "#06090F",
+      "light": "#FBFCFE"
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Discord",
+        "href": "https://discord.gg/ralphy"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/alecs5am/ralphy"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Star on GitHub",
+      "href": "https://github.com/alecs5am/ralphy"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": ["introduction", "quickstart", "concepts"]
+          },
+          {
+            "group": "CLI",
+            "pages": ["cli/overview", "cli/setup", "cli/project", "cli/template", "cli/profile"]
+          },
+          {
+            "group": "Authoring",
+            "pages": ["authoring/skills", "authoring/templates", "authoring/profiles"]
+          },
+          {
+            "group": "Reference",
+            "pages": ["reference/models", "reference/troubleshooting"]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/alecs5am/ralphy",
+      "x": "https://twitter.com/ralphy_studio",
+      "discord": "https://discord.gg/ralphy"
+    }
+  },
+  "logo": {
+    "light": "/logo.png",
+    "dark": "/logo.png"
+  }
+}
