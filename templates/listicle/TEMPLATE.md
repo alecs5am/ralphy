@@ -5,7 +5,7 @@
 **Format:** YouTube Shorts (primary) / TikTok / Reels, 9:16, 30fps, 1080×1920.
 **Reference:** not required by default. See `template.json` → `referenceNotes` for the named-brand edge case.
 
-> **Why this is in the pack.** Format #9 in the 2026 short-form research doc, scored ★★★ on AI-fit, "Очень высокая" templatizability, and YouTube Shorts ★★★. Search-friendly and evergreen — a good listicle keeps pulling traffic for months because social platforms now serve as search engines (Sprout 2025: 37% of consumers go to social before Google for product research; 41% for Gen Z).
+> **Why this is in the pack.** Format #9 in the 2026 short-form research doc, scored ★★★ on AI-fit, "very high" templatizability, and YouTube Shorts ★★★. Search-friendly and evergreen — a good listicle keeps pulling traffic for months because social platforms now serve as search engines (Sprout 2025: 37% of consumers go to social before Google for product research; 41% for Gen Z).
 
 ## Why this works
 

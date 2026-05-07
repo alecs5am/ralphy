@@ -9,12 +9,12 @@ Compose like:
 <scene-specific action prompt> + <character descriptor from the reference photo> + <product descriptor> + ANATOMY + SOVIET_STYLE (or MODERN_STYLE) + NO_FRAME
 ```
 
-**Always append `NO_FRAME` to image prompts.** Without an explicit instruction, the image model tends to add a beige archival matte with "СВЕМА 35 / ФОТОГРАФИЯ" text along the edges (it treats any Soviet vibe cue as license to draw the artifact surround). We want the Svema *grain and palette* but the full 9:16 frame for the photograph itself.
+**Always append `NO_FRAME` to image prompts.** Without an explicit instruction, the image model tends to add a beige archival matte with Cyrillic "SVEMA 35 / PHOTOGRAPH" text along the edges (it treats any Soviet vibe cue as license to draw the artifact surround). We want the Svema *grain and palette* but the full 9:16 frame for the photograph itself.
 
 ## Style
 
 **NO_FRAME** — the image must fill the whole 9:16 canvas edge-to-edge, no archival border around it.
-> Full-bleed 9:16 photographic frame with no decorative border, no beige/cream/paper matte around the image, no Cyrillic text along the edges, no 'СВЕМА 35' text, no 'ФОТОГРАФИЯ' text, no passport-photo border, no sprocket holes. The photograph itself fills the entire canvas from edge to edge.
+> Full-bleed 9:16 photographic frame with no decorative border, no beige/cream/paper matte around the image, no Cyrillic text along the edges, no 'SVEMA 35' text in Cyrillic, no 'PHOTOGRAPH' text in Cyrillic, no passport-photo border, no sprocket holes. The photograph itself fills the entire canvas from edge to edge.
 
 **SOVIET_STYLE** — always append `NO_FRAME`
 > Warm amber Svema 35mm film grain embedded in the photograph itself, heavy soft grain, muted palette of olive, ochre, cream and warm red. Tungsten light sources. Documentary realism, photorealistic. The grain and warm palette are inside the image; the image has no printed border or matte around it.
@@ -75,7 +75,7 @@ What makes it work: concrete materials (aluminum foil + cotton), observable prop
 ## Kling negative prompts
 
 **NEGATIVE_VIDEO_BASE** — always include for silent i2v (we don't want native TTS trying to speak anyway)
-> blur, distort, low quality, camera shake, handheld, visible speaking mouth, talking face, dialog, subtitles, text overlays, warped hands, extra fingers, archival frame border, Cyrillic text along edges, beige photo matte, paper border, passport-photo frame, СВЕМА 35 text, ФОТОГРАФИЯ text
+> blur, distort, low quality, camera shake, handheld, visible speaking mouth, talking face, dialog, subtitles, text overlays, warped hands, extra fingers, archival frame border, Cyrillic text along edges, beige photo matte, paper border, passport-photo frame, Cyrillic 'SVEMA 35' text, Cyrillic 'PHOTOGRAPH' text
 
 **NEGATIVE_SOVIET** — additional for era-1 clips
 > modern objects in Soviet scenes, plastic, electric modern lighting, archival frame border around image, beige or cream matte, Cyrillic text printed along image edges
@@ -133,16 +133,16 @@ Don't treat the reference VO as a template to refill. Treat it as a vibe referen
 
 What to copy from the reference vibe:
 - **Deadpan register.** No exclamation marks, no hype vocabulary, no first-person enthusiasm.
-- **Sentence-length variation.** A 25-word setup followed by "Закрыли." lands harder than two 15-word sentences.
+- **Sentence-length variation.** A 25-word setup followed by a single-word Russian sentence (e.g. one meaning "Shut down.") lands harder than two 15-word sentences.
 - **Concreteness.** Name the year, the institute, the material, the specific reason for rejection.
-- **Possessive framing.** "Мой дед был…" / "Мы достали её…" — the narrator has a stake in the story.
+- **Possessive framing.** Use first-person possessive openings (English gloss: "My grandfather was…" / "We pulled it out…") — the narrator has a stake in the story. Render in Russian when generating VO.
 - **Ending on the brand/product name** as the final word, preceded by a short structural echo of the video's shape.
 
 What to decide fresh per project:
 - How many clips (6–10 typical) — let the story tell you
 - Line length per clip — aim for `line_words × 0.45s + 0.5s buffer ≈ clip_duration_sec`
 - Which beats matter most — expand them, compress the others
-- The exact tagline — echo the video's shape in 3–5 words, don't reuse "Одна идея. Две эпохи."
+- The exact tagline — echo the video's shape in 3–5 Russian words, don't reuse the reference video's tagline (English gloss: "One idea. Two eras.").
 
 ### Generation pattern
 

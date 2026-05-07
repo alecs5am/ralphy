@@ -182,7 +182,7 @@ Templates live in two roots and the CLI reads both:
 ```bash
 # Quick start a new project from a template
 ralph template list                                   # all templates, repo + workspace
-ralph template suggest "видос про овощи"             # ranked match (cross-source)
+ralph template suggest "vegetable video"              # ranked match (cross-source)
 ralph template show soviet-nostalgic                  # read TEMPLATE.md
 ralph template use soviet-nostalgic \
   --project my-spring-ad-001 \
