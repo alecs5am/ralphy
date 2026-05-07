@@ -1,0 +1,69 @@
+{
+  "name": "Active Lifestyle",
+  "slug": "active-lifestyle",
+  "kind": "vibe-style",
+  "description": "Aspirational-active UGC: a real-feeling person doing a real activity (cycling, padel, gym, yoga, running, hiking, surfing, skiing) with subtle product placement. The product is visible 60-80% of shots but never hero-framed until the optional outro beat. Converts via identification — 'this is the kind of person I want to be → I will buy what they use.' 12-25s, 9:16. Reference-required when the product is a real brand (athletic apparel logo, cycling-shoe brand, smart-watch face, supplement label) — same hard gate as before-after-product. AI must never improvise a brand mark on athletic gear.",
+  "tags": [
+    "active-lifestyle",
+    "sport",
+    "fitness",
+    "outdoor",
+    "cycling",
+    "padel",
+    "gym",
+    "yoga",
+    "running",
+    "hiking",
+    "surfing",
+    "skiing",
+    "athletic-apparel",
+    "supplement",
+    "smart-watch",
+    "water-bottle",
+    "sunglasses",
+    "aspiration",
+    "subtle-product-placement",
+    "lifestyle-ad",
+    "tiktok",
+    "reels",
+    "shorts"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [12, 25],
+  "typicalClipCount": [3, 6],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter for the persona + activity establishing keyframes. Multi-ref WITH the user-supplied product photo / brand asset for any frame where a branded item is visible (shoes, watch face, bottle label, jersey logo). Real-environment lighting cue is mandatory — no studio key-light.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips (3-6 total), generate_audio: false. Kling drives the activity-motion specifics: pedal cadence, padel swing follow-through, lifting cadence, running stride form, yoga flow transition. Slow-mo bias on the 18-25s satisfaction beat (smile / breath / horizon / refill).",
+    "voiceover": "Usually OFF. Diegetic sport sounds (breath, footstrike, chain, ball-pop, weight-clank) plus the music bed carry the format. If VO is used at all → ONE conversational line at the outro, ElevenLabs eleven_multilingual_v2, language follows the brief.",
+    "captions": "Usually OFF. If used: MinimalCaptions for an outro single line only — never full-video Hormozi captions, that pushes the piece into 'ad' pattern-recognition.",
+    "music": "ElevenLabs Music — single energetic-but-not-hyped bed, full-length. Three audio profiles: instrumental electronic 110-130 BPM (driven sports — cycling, running, gym), acoustic indie / driving-acoustic 90-110 BPM (serene flow — yoga, hiking, surf), hip-hop 100-110 BPM (gym, padel). Avoid 'ad-pumped' EDM stings — they tip the format from lifestyle to commercial.",
+    "overlay": "Brand title-card on the last 1.5s only (Remotion overlay, lower-third or centered). No mid-video brand overlays — they break the diegetic feel."
+  },
+  "constants": {
+    "vibeAnchor": "real-person-real-activity-product-not-hero",
+    "structure": "0-3s establishing pull-back-to-action → 3-18s activity with product naturally in frame → 18-25s satisfaction beat",
+    "productVisibilityRange": "60-80% of shots; never hero-framed until optional outro",
+    "outroBrandCard": "last 1.5s only"
+  },
+  "variationAxes": [
+    "sport (cycling / padel / gym / yoga / running / hiking / surfing / skiing)",
+    "product visibility (always-on-frame / glimpses-only / hero-at-outro)",
+    "tone (driven-energetic / serene-flow / community-friends)",
+    "time-of-day (golden-hour / midday / dusk)",
+    "environment (urban / coastal / mountain / studio-gym / park / trail)",
+    "persona archetype (solo-driven / friends-pair / community-group)"
+  ],
+  "doNotCopyLiterally": "Sport choice, exact product, environment, persona, prompts. Vibe reference only — the discipline is product-not-hero, not the specific activity.",
+  "requiresUserReference": true,
+  "referenceNotes": "Product / brand reference (logo, packaging, watch face, shoe photo, jersey print) is REQUIRED whenever a real brand is in the brief. The reference-required gate (AGENTS.md hard rule #3) refuses if no reference exists at workspace/projects/<id>/assets/uploaded/. AI-improvised branding on athletic apparel, watches, or supplements never reads right — the logo geometry is wrong, the typeface is wrong, and viewers spot it instantly. User can override with explicit 'generate without reference, I understand the quality will be worse'; logged as stage: 'no-ref-consent'."
+}
