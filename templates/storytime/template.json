@@ -1,0 +1,69 @@
+{
+  "name": "Storytime",
+  "slug": "storytime",
+  "kind": "vibe-style",
+  "description": "Selfie talking-head narrative — creator looks straight into camera and tells a personal story (dating fiasco, family drama, work incident, true crime, throwback). 60-180s — one of the few long formats that works on short-form feeds. The story format breaks scroll rules: viewers commit because they want the payoff. Strong pre-hook in the first 2s, escalating tension with pattern-interrupts every 8-15s (b-roll cutaway, screenshot insert, gesture zoom), then a payoff or cliffhanger that drives DM-share and part-2 follow. Subtitles mandatory — 85% of viewers watch muted. Distinct from talking-head-rant (contrarian opinion) and yap-talking-head (single education idea): storytime is plot-driven and rides on rising tension, not on a hot take.",
+  "tags": [
+    "storytime",
+    "narrative",
+    "talking-head",
+    "selfie",
+    "long-form",
+    "drew-afualo",
+    "dating",
+    "parenting",
+    "work-drama",
+    "true-crime",
+    "podcast-clip",
+    "school-throwback",
+    "pattern-interrupt",
+    "cliffhanger",
+    "rising-tension",
+    "tiktok",
+    "reels",
+    "shorts",
+    "ugc",
+    "personal-story"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [60, 180],
+  "typicalClipCount": [4, 10],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "characterKeyframe": "google/gemini-3-pro-image-preview via OpenRouter — one photoreal selfie keyframe of the narrator (front camera framing, natural light, conversational warmth in the eyes). The same keyframe anchors every talking-head clip so the character stays consistent across a 60-180s runtime.",
+    "screenshotInserts": "google/gemini-3-pro-image-preview via OpenRouter — pattern-interrupt assets: text-message screenshots, Reddit posts, fake news headlines, frozen-frame thought-bubbles. 2-5 inserts per video at the tension turns.",
+    "talkingHead": "kwaivgi/kling-v3.0-pro via OpenRouter, i2v from the character keyframe, 5-10s clips stitched into the narration spine. generate_audio: false — VO is added separately so we can re-cut without re-rendering. Optional veo-3.1 swap for the pre-hook clip when premium lip-sync matters.",
+    "broll": "kwaivgi/kling-v3.0-pro via OpenRouter — 3-7 short cutaway clips (5s each) for pattern-interrupts: hand gestures, environment beats, prop close-ups, reenactment moments. generate_audio: false.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — long-form narration with stability ~0.35 for natural emotional swings (anger, surprise, embarrassment, relief). Sliced into beat-aligned chunks so VO timing matches each pattern-interrupt cut.",
+    "captions": "OpenRouter whisper-1 → Caption[] consumed by HormoziCaptions (default — high impact for tension peaks) or TikTok-white-stroke caption style. Word-level timing is mandatory; 85% of viewers watch muted.",
+    "music": "ElevenLabs Music — single ambient/tense bed under the entire story, force_instrumental: true, ducked to -12dB during VO peaks and lifted +3dB at the payoff frame. Optional cliffhanger sting at the final beat."
+  },
+  "constants": {
+    "vibeAnchor": "selfie-narrative-rising-tension",
+    "structure": "0-2s pre-hook → 2-10s setup → 10-60s rising tension w/ interrupts → 60-90s payoff or cliffhanger",
+    "patternInterruptCadence": "every 8-15s (busy variant: every 5-8s)",
+    "captionStyle": "HormoziCaptions or TikTokWhiteStroke",
+    "vostability": 0.35,
+    "musicDuckDb": -12
+  },
+  "variationAxes": [
+    "story type (dating-fiasco / family-drama / work-incident / school-throwback / true-crime)",
+    "tone (deadpan / dramatic / comedic)",
+    "pattern-interrupt cadence (sparse — every 12-15s / busy — every 5-8s)",
+    "final beat (resolved payoff / cliffhanger-for-part-2)",
+    "narrator archetype (Gen-Z urban / millennial professional / stay-at-home parent / older-confidant)",
+    "VO language (any — English default; the format is narrative-driven, not language-specific)"
+  ],
+  "doNotCopyLiterally": "Story content, narrator name, exact pattern-interrupt visuals, the literal pre-hook line. Vibe and structure only.",
+  "requiresUserReference": false,
+  "referenceNotes": "No reference required by default — the narrator is generated. If the user wants a specific real person (e.g. their own face, a named creator), escalate to the reference-required gate (AGENTS.md hard rule #3) and require an uploaded photo. Without a reference, never claim the story belongs to a real named person — it must read as a generic first-person narrator."
+}
