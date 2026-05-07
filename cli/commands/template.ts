@@ -442,7 +442,7 @@ export function templateCmd() {
       const utterance = utteranceArgs.join(" ").toLowerCase();
       const tokens = utterance
         .split(/[\s,.;:!?]+/)
-        .map((t) => t.replace(/[^a-zа-я0-9-]/giu, "").toLowerCase())
+        .map((t) => t.replace(/[^a-z0-9-]/gi, "").toLowerCase())
         .filter((t) => t.length >= 2);
 
       const refs = await discoverAllTemplates();

@@ -9,7 +9,7 @@ Concrete reference implementation: [`workspace/projects/solutions-metal-001/`](.
 ## Why the format works
 
 - **Two-era structure** gives a complete narrative arc — setup, loss, revival — inside 60 seconds. Viewers stay through because they want the reveal: "what was made in the 70s, and what is it now?"
-- **Archival aesthetic (Svema 35mm grain + warm amber palette, full-bleed frame)** reads as authentic documentary without saying so. Then the cut to cold modern editorial in the second half carries the story beat — the era flip is visible before it's explained. Do **not** add a decorative "СВЕМА 35 / ФОТОГРАФИЯ" matte border around the image — the grain/palette do the work, the border looks kitschy on video.
+- **Archival aesthetic (Svema 35mm grain + warm amber palette, full-bleed frame)** reads as authentic documentary without saying so. Then the cut to cold modern editorial in the second half carries the story beat — the era flip is visible before it's explained. Do **not** add a decorative "SVEMA 35 / PHOTOGRAPH" Cyrillic matte border around the image — the grain/palette do the work, the border looks kitschy on video.
 - **Deadpan young narrator** (off-screen, never a talking head) makes it feel like someone telling a family story to a friend, not an ad. Russian-speaking audiences lock onto the intonation instantly.
 - **DJ-drop at the era flip** is the kinetic payoff. Nostalgic bed ducks, modern beat lands as the heir appears. Scroll-stopping even for viewers scrubbing past.
 - **The Soviet bed track is part of the trend.** TikTok audiences recognize it immediately — it's not a generic "Soviet-sounding" background, it's *the* audio signature of this format. Swapping it out breaks recognition. **Use the canonical track at `assets/trend-soviet-bed.mp3`** (see "Music" section below), don't generate a substitute via Lyria2.
@@ -25,7 +25,7 @@ These are what make the format the format. If you change them, you're making a d
   - Era 1 (Soviet, ~1960s–1980s): warm amber palette, Svema 35mm grain, tungsten desk lamps, institutional settings (research institute, ministry, lab). Full-bleed 9:16 — no archival matte/border around the image.
   - Era 2 (modern): cold neutral editorial studio, polished concrete, matte black, sharp focus, no grain. Full-bleed.
 - **Objects over people.** Hands on a notebook, a sample on a table, a drawer closing, a product being held. Faces exist but aren't the subject. No talking heads.
-- **Tagline on the last clip** that echoes the video's own structural shape ("Одна идея. Две эпохи. …"). The product/brand name is the last word.
+- **Tagline on the last clip** that echoes the video's own structural shape (English gloss: "One idea. Two eras. …"; in Russian: a 3–5-word phrase ending on the brand). The product/brand name is the last word.
 
 ## What varies project-to-project
 
@@ -33,8 +33,8 @@ Decide per project:
 - The **product** and its plausible Soviet-era precursor (material, mechanism, device)
 - The **inventor** character (grandfather, father, aunt, uncle — someone the modern narrator has a real relation to)
 - The **modern heir** — usually the real brand founder or designer, preserved as identity anchor via 3 reference photos
-- The **institute / setting** — НИИ, factory, design bureau, regional lab. Name it specifically when you can.
-- The **year of invention** (specific: "В семьдесят четвёртом" is stronger than "in the 70s")
+- The **institute / setting** — Soviet research institute (NII), factory, design bureau, regional lab. Name it specifically when you can.
+- The **year of invention** (specific: "In nineteen-seventy-four" — written out long-form in Russian — is stronger than a vague "in the 70s")
 - The **rejection reason** — profile mismatch, material reallocation, ministry politics, budget cut. Concrete, not abstract.
 - The **scene count and durations** — typical 6–10 clips, total ~60s. Match each clip duration to `Math.ceil(its_VO_length)`.
 - The **tagline structure** — it should mirror the video's arc in 3–5 words ending on the brand/product.
@@ -61,8 +61,8 @@ Write the scenario to cover this shape — in however many clips feels right, wi
 
 1. **Era 1 opens on the inventor at work.** Identifies the character, the year, the setting. ~15s of Soviet documentary footage.
 2. **Mechanism beat.** How the invention works, in the inventor's terms. This is the most technical moment.
-3. **Hidden struggle beat** (optional but strong). Failed attempts, the one that worked. "Первые два ушли в брак. Третий — получилось."
-4. **Rejection beat.** The invention is shelved. Ministry, commission, budget, priorities. End on finality: "Закрыли.", "Отказали.", "В архив."
+3. **Hidden struggle beat** (optional but strong). Failed attempts, the one that worked. English gloss: "The first two were rejects. The third — it worked." (delivered in Russian as two short sentences, the second one a single word).
+4. **Rejection beat.** The invention is shelved. Ministry, commission, budget, priorities. End on finality: a single-word Russian sentence meaning "Shut down.", "Rejected.", or "Into the archive."
 5. **Transition beat.** The artifact — notebook, blueprint, sample — goes into a drawer / gets stored / is forgotten. End of era 1.
 6. **[MUSIC DROP + era flip]** Modern heir rediscovers the artifact. Short beat, low-key. The heir is real, named, the brand's actual founder.
 7. **Product beat.** What they built from the old idea. Hands-on demonstration if possible.

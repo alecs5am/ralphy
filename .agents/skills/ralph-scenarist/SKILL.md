@@ -4,7 +4,6 @@ description: >-
   Scenario / script / storyboard authoring and iteration. Read docs/playbooks/scenarist.md FIRST via the Read tool — every time, then act.
   USE WHEN the user wants a scenario written from a brief OR wants to iterate on an existing scenario.json (hook, pacing, VO text, scene count/order). Narrative-design role — does NOT generate prompts or assets (that is art-director).
   TRIGGER (EN): "write a script", "write a scenario", "make a video about X", "make a storyboard", "rework scene 3", "rewrite the hook", "rewrite VO", "shorten / lengthen the scenario", "tighten the VO", "scene N is dragging".
-  TRIGGER (RU): "напиши сценарий", "сделай видео про X", "придумай storyboard", "переделай scene 3 / сцену 3", "поменяй хук", "перепиши VO / озвучку", "сделай покороче / подлиннее", "scene-N затянута".
   ALSO FIRE on scenario feedback after the agent just produced a scenario.json (any hook tweak, scene rewrite, VO edit, duration change).
   DO NOT FIRE if the user wants asset regen on a locked scenario (art-director) or render/preview (editor).
   HARD GATE — `ralphy project score <id>` must pass before handoff to art-director.

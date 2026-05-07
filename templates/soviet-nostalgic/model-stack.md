@@ -24,7 +24,7 @@ ralphy generate image \
   --project <id> --slot scene-NN-keyframe \
   --prompt "<scene fragment + setting fragment + NO_FRAME suffix>" \
   --ref <character-ref-url> <product-ref-url> \
-  --negative "no archival matte border, no Свема text, no plastic skin" \
+  --negative "no archival matte border, no Cyrillic 'Svema' text, no plastic skin" \
   --size 1080x1920
 ```
 
@@ -32,7 +32,7 @@ ralphy generate image \
 - **Config:** size `1080x1920` (9:16), output PNG (default), single image per call. Multi-ref via repeated `--ref <url>`.
 - **Cost:** $0.15/image.
 - **Failure modes:**
-  - **Unwanted archival matte border.** Any prompt with "Soviet archival photograph" / "1970s documentary" tempts the model into drawing a beige/cream matte with vertical "СВЕМА 35 / ФОТОГРАФИЯ" text along the edges. That eats usable area on 9:16 and reads kitschy in motion. Fix: always append the `NO_FRAME` fragment from `fragments.md` to Soviet-era image prompts. Confirmed on `soviet-engineer-001` — 6/6 keyframes were framed without the explicit no-frame instruction.
+  - **Unwanted archival matte border.** Any prompt with "Soviet archival photograph" / "1970s documentary" tempts the model into drawing a beige/cream matte with vertical Cyrillic "SVEMA 35 / PHOTOGRAPH" text along the edges. That eats usable area on 9:16 and reads kitschy in motion. Fix: always append the `NO_FRAME` fragment from `fragments.md` to Soviet-era image prompts. Confirmed on `soviet-engineer-001` — 6/6 keyframes were framed without the explicit no-frame instruction.
 
 ### Avoid (legacy)
 - `fal-ai/nano-banana-pro/edit` — was the default before Sprint 2. `gemini-3-pro-image-preview` via OR delivers comparable quality without `FAL_KEY`.

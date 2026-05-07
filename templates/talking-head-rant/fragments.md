@@ -71,11 +71,7 @@ iMessage / Telegram / WhatsApp aesthetic — pick one that fits the archetype.
 - "I just saw this and I'm done."
 - "Tell me this is normal."
 
-**Russian (alt):**
-- "Меня вот это вообще не понимает."
-- "Объясните мне как это работает."
-- "Я только что увидел такое."
-- "Скажите мне это нормально?"
+**Russian (alt):** the same beats translated into Russian — short deadpan one-liners (≤7 words) such as "I really don't get this anymore.", "Explain to me how this works.", "I just saw this.", "Tell me this is normal." (translate to Russian when generating).
 
 ### Body beats (one beat per ~3-4 seconds)
 
@@ -87,11 +83,7 @@ Pattern: thesis → micro-evidence → reaction → next.
 > First one: 'please send the TPS report.'
 > By the end of the day I'm tired of writing TPS reports and tired of being alive."
 
-**Russian example:**
-> "Открываю почту утром — там 47 сообщений от <X>.
-> Думаю, ладно, нормально.
-> Открываю первое — это просьба прислать TPS report.
-> К концу дня я устал писать TPS reports и устал жить."
+**Russian example:** the same body beats translated into Russian, same rhythm — open inbox / 47 messages from <X> / think "fine, normal" / open the first one, it's a TPS-report request / by end of day exhausted from TPS reports and from being alive. (Translate to Russian when generating; English shown here for documentation.)
 
 ### Outro / punchline
 
@@ -101,10 +93,7 @@ Pattern: thesis → micro-evidence → reaction → next.
 - "That's all I had."
 - (silent fade — visual punchline)
 
-**Russian:**
-- "Понимаю."
-- "Спасибо что выслушали."
-- "Это всё что я хотел сказать."
+**Russian:** equivalents — short deadpan closers meaning "I get it.", "Thanks for listening.", "That's all I wanted to say." (translate to Russian when generating).
 
 ## Word budget
 
@@ -118,9 +107,9 @@ Don't push past the budget — TTS compresses to fit and the result sounds rushe
 ## Banlist (ad-speak)
 
 Anti-deadpan phrases to avoid:
-- "unique", "revolutionary", "уникальный", "революционный" — kills deadpan tone.
-- "take note", "обратите внимание" — belongs in a memo, not a monologue.
-- "don't miss out", "не упустите шанс" — reads as an ad.
+- "unique", "revolutionary" (and their Russian equivalents) — kills deadpan tone.
+- "take note" / Russian "pay attention" framing — belongs in a memo, not a monologue.
+- "don't miss out" / Russian "don't miss your chance" — reads as an ad.
 
 ## Camera / motion
 

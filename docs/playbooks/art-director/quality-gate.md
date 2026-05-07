@@ -40,12 +40,12 @@ Same 3 axes + motion-stability (no morphing of face, hands) + audio-sync (if the
 
 Report template for the user:
 
-> "Не могу выдать качественную картинку для slot `<id>` (попыток: 2, последний avg score: <n>/10).
-> Опции:
-> a) скинь reference получше — сейчас в `assets/uploaded/` нет матчащего фото для этой сцены;
-> b) сменим модель (текущая `<m>`, можно попробовать `<premium>`);
-> c) сменим shot — например с close-up на medium, или другой angle.
-> Что делаем?"
+> "Can't produce a quality image for slot `<id>` (attempts: 2, latest avg score: <n>/10).
+> Options:
+> a) drop a better reference — there's no matching photo for this scene in `assets/uploaded/`;
+> b) switch model (current `<m>`, we can try `<premium>`);
+> c) change the shot — e.g. close-up to medium, or a different angle.
+> What do we do?"
 
 ## Pre-render check
 
@@ -56,6 +56,6 @@ If even one slot is < 7 — refuse render with the same template (but specify th
 ## Suppressing the gate
 
 The user can explicitly request a bypass:
-> "пропусти quality gate, рендерь что есть"
+> "skip quality gate, render what's there"
 
 We log it as `stage: "gate-bypass-consent"` and continue. This is a rare case — usually it's easier to regenerate.

@@ -21,10 +21,10 @@
     "composition": "composition.md"
   },
   "stackSummary": {
-    "keyframes": "google/gemini-3-pro-image-preview через OpenRouter @ 1080×1920 PNG (multi-ref для character consistency)",
-    "i2v": "kwaivgi/kling-v3.0-pro через OpenRouter (generate_audio: false)",
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter @ 1080×1920 PNG (multi-ref for character consistency)",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter (generate_audio: false)",
     "voiceover": "ElevenLabs eleven_multilingual_v2 + user-chosen voice_id (native Russian, never model-native TTS)",
-    "music": "Soviet bed = REQUIRED canonical trend track at assets/trend-soviet-bed.mp3 (do not generate). Hip-hop bed = ElevenLabs Music через ralphy generate music (force_instrumental: true) или user-provided.",
+    "music": "Soviet bed = REQUIRED canonical trend track at assets/trend-soviet-bed.mp3 (do not generate). Hip-hop bed = ElevenLabs Music via ralphy generate music (force_instrumental: true) or user-provided.",
     "composition": "Remotion 4.0.441 with TransitionSeries fade crossfades + dual-music split at era flip"
   },
   "assets": {

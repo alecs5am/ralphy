@@ -22,7 +22,7 @@ Use cases:
 - Session start (proactive — but only in response to work, not unsolicited).
 - `setup` wizard as source of truth.
 - CI / automation.
-- Whenever user says "something's not working" / "что-то не работает" — first thing.
+- Whenever user says "something's not working" — first thing.
 
 ## NO auto-launch
 
@@ -34,7 +34,7 @@ Use cases:
 3. When clean — say "ready" and stop.
 
 If the user explicitly asks for preview / Studio:
-> "Запусти `bun run dev` foreground в отдельном окне. Studio откроется на http://localhost:3000."
+> "Run `bun run dev` in the foreground in a separate window. Studio will open at http://localhost:3000."
 
 I don't run it myself.
 
@@ -103,14 +103,14 @@ ralphy profile import ralphy-showcase
 Additive — pulls references and example projects from a real workspace. The repo's `templates/` already ships the canonical pack (soviet-nostalgic, ai-vegetables, talking-head-rant, before-after-product, talking-character) — no profile import needed for those.
 
 > "Pulled starter pack: N references, M example projects.
-> Try 'сделай мне видос про овощи' for the cold-start template flow."
+> Try 'make me a vegetable video' for the cold-start template flow."
 
 ### Step 7 — Done
 
 2-3 concrete first actions:
-- "Сделай ии-овощи про <topic>" (template flow)
-- "Сделай talking-head про <X>" (template flow)
-- "Возьми стиль с <url> для <бренда>" (research → scenarist flow)
+- "Make AI vegetables about <topic>" (template flow)
+- "Make a talking-head about <X>" (template flow)
+- "Take the style from <url> for <brand>" (research → scenarist flow)
 
 ## Common setup issues
 

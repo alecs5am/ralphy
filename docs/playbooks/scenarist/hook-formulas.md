@@ -21,36 +21,34 @@ Top-level scenario `angle` — one of:
 
 ## Hook formulas (≤10 words)
 
-These have been tested on RU audiences — don't translate the English ones literally. For RU-targeted videos, use the Russian forms; the English equivalents are paired examples for EN-targeted scenarios.
-
 ### Gatekeep
-- "Nobody talks about <X>, but..." / "Никто не говорит про <X>, но..."
-- "I stumbled on this trick by accident..." / "Эту фишку я раскопал случайно..."
-- "Want to know how <X> really works?" / "Хочешь знать как <X> на самом деле?"
+- "Nobody talks about <X>, but..."
+- "I stumbled on this trick by accident..."
+- "Want to know how <X> really works?"
 
 ### Skeptic
-- "I didn't believe it until I tried it" / "Я не верил, пока сам не попробовал"
-- "Thought it was a scam, turned out..." / "Думал что развод, оказалось..."
-- "First I laughed, then I lost it" / "Сначала ржал, потом охренел"
+- "I didn't believe it until I tried it"
+- "Thought it was a scam, turned out..."
+- "First I laughed, then I lost it"
 
 ### Fail
-- "Don't do it like this — I already did" / "Не делайте так, я уже сделал"
-- "Here's how NOT to do it" / "Вот как НЕ надо"
-- "I made the mistake so you don't have to" / "Я ошибся, чтобы вы не ошибались"
+- "Don't do it like this — I already did"
+- "Here's how NOT to do it"
+- "I made the mistake so you don't have to"
 
 ### Visual shock
 - open on an extreme angle / smash-cut
-- "Watch what happened when I..." / "Смотри что произошло когда я..."
-- "What even is this?!" / "Это что вообще?!"
+- "Watch what happened when I..."
+- "What even is this?!"
 
 ### POV
-- "POV: you're <situation>" / "POV: ты <ситуация>"
-- "POV: I'm <age>, I'm <state>" / "POV: мне <возраст>, я <состояние>"
-- "POV: <brand> launches in Russia" / "POV: <бренд> запускается в России"
+- "POV: you're <situation>"
+- "POV: I'm <age>, I'm <state>"
+- "POV: <brand> launches in Russia"
 
 ## Word budget
 
-**2.5 words per second** — RU TTS pacing for deadpan young-Russian. That means:
+**2.5 words per second** — TTS pacing for deadpan delivery. That means:
 
 - Hook (3s) ≤ 7-8 words
 - Scene (5s) ≤ 12-13 VO words
@@ -62,13 +60,13 @@ If the scenario doesn't fit the word budget — cut. Long VO gets compressed by 
 
 These words automatically tank conversion in UGC form (they sound like ads):
 
-- "уникальный", "революционный", "инновационный" ("unique", "revolutionary", "innovative")
-- "не упустите шанс", "ограниченное предложение" ("don't miss your chance", "limited offer")
-- "лидер рынка", "номер один" ("market leader", "number one")
-- "обращайтесь сегодня", "звоните" ("contact us today", "call now")
-- "качественный", "профессиональный" without specifics ("high-quality", "professional")
+- "unique", "revolutionary", "innovative"
+- "don't miss your chance", "limited offer"
+- "market leader", "number one"
+- "contact us today", "call now"
+- "high-quality", "professional" without specifics
 
-Replace with specifics: "уникальный" → "единственный кто..." ("the only one who..."); "качественный" → "выдержал X тестов" / "прошёл Y лет" ("survived X tests" / "lasted Y years").
+Replace with specifics: "unique" → "the only one who..."; "high-quality" → "survived X tests" / "lasted Y years".
 
 ## A/B variants
 
@@ -77,8 +75,8 @@ In scenario.json:
 ```json
 {
   "hook": {
-    "primary": "Никто не говорит про X, но...",
-    "variant_b": "Думал что развод, оказалось..."
+    "primary": "Nobody talks about X, but...",
+    "variant_b": "Thought it was a scam, turned out..."
   }
 }
 ```

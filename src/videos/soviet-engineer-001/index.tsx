@@ -142,7 +142,7 @@ const TitleOverlay: React.FC<{ totalFrames: number }> = ({ totalFrames }) => {
           textAlign: "center",
         }}
       >
-        РАНЬШЕ БЫЛО ПРОЩЕ
+        BACK THEN IT WAS SIMPLER
       </div>
     </AbsoluteFill>
   );
@@ -171,7 +171,7 @@ const OutroCard: React.FC<{ durationFrames: number }> = ({ durationFrames }) => 
           color: "#f4e7cc",
         }}
       >
-        СССР · 1978
+        USSR · 1978
       </div>
       <div
         style={{
@@ -183,7 +183,7 @@ const OutroCard: React.FC<{ durationFrames: number }> = ({ durationFrames }) => 
           color: "#8a7f6a",
         }}
       >
-        просто жили
+        we just lived
       </div>
     </AbsoluteFill>
   );

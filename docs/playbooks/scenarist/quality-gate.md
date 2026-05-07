@@ -27,7 +27,7 @@ Under the hood — `cli/lib/quality.ts` → `scoreScenario(scenario)`. Non-LLM c
 - Scene > 3s with no internal cut → "scene-NN slow pacing"
 - Total duration > 18s — may be intentional but we flag it
 - Hook word count > 7 — warning, not fail
-- Banlist words in VO ("уникальный", "качественный" without specifics) → warning
+- Banlist words in VO ("unique", "high-quality" without specifics) → warning
 
 ## Failure handling
 
@@ -38,26 +38,26 @@ Under the hood — `cli/lib/quality.ts` → `scoreScenario(scenario)`. Non-LLM c
 
 **Report template:**
 > "Scenario NOT ready. Fails:
-> - scene-01 hook 14 слов (limit 10): «<текущий hook>» → урежь
-> - scene-03 text_overlay y=1850 (вне green zone) → подними до Y ≤ 1480
-> - scene-04 нет VO и нет silent: true → решим
+> - scene-01 hook 14 words (limit 10): «<current hook>» → trim
+> - scene-03 text_overlay y=1850 (outside green zone) → raise to Y ≤ 1480
+> - scene-04 has no VO and no silent: true → decide
 >
-> Поправлю по этому списку или скажешь иначе?"
+> Should I fix from this list, or do you want it different?"
 
 ## Two-failure rule
 
 If after 2 iterations on the same scenes the scenario is still `passed: false` — stop, give the user concrete options:
 
-> "Не могу довести scenario до passing двумя проходами. Похоже brief противоречит формату (TikTok 15s + 4 separate persona showcases). Опции:
-> a) растянуть до 25s (скажи)
-> b) сократить до 1 persona
-> c) сменить формат на comparison-angle
-> Что выбираем?"
+> "Can't get the scenario to pass after two iterations. The brief seems to contradict the format (TikTok 15s + 4 separate persona showcases). Options:
+> a) extend to 25s (say so)
+> b) cut down to 1 persona
+> c) switch format to comparison-angle
+> Which one?"
 
 ## Manual override
 
 The user can explicitly bypass:
-> "пропусти gate, scenario как есть"
+> "skip the gate, scenario as is"
 
 We log `stage: "scenario-gate-bypass-consent"` and continue. Rare case (production / spike test).
 
@@ -65,4 +65,4 @@ We log `stage: "scenario-gate-bypass-consent"` and continue. Rare case (producti
 
 - Auto after `new-scenario` — cannot declare ready without passed.
 - Auto after each `iterate-scenario` iteration.
-- Manual: when the user says "проверь сценарий" / "check the scenario".
+- Manual: when the user says "check the scenario".

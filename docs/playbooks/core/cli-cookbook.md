@@ -119,8 +119,8 @@ ralphy batch status <batch-id> --update <project-id> --status completed --render
 - "What projects exist" → `ralphy project list`
 - "Show timeline for X" → `ralphy project timeline <id>`
 - "How much have we spent" → `ralphy project log <id> --type generations` + sum `cost_usd`
-- "What's in batch" / "Что в batch" → `ralphy batch status <batch-id>`
-- "Available templates" / "Доступные шаблоны" → `ralphy template list -p`
+- "What's in batch" → `ralphy batch status <batch-id>`
+- "Available templates" → `ralphy template list -p`
 
 ## Workspace hygiene
 

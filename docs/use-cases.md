@@ -4,7 +4,7 @@ Canonical user-utterance → expected-flow → expected-output triples. The skil
 
 > **Definition of "good":** a finished mp4 at `workspace/projects/<id>/render/final.mp4`, or an explicit refusal with a concrete suggestion (not "I'll give it a shot"). Intermediate steps log to `generations.jsonl`.
 
-User utterances below are shown in both English and Russian where the system needs to recognize either; verbatim Russian phrases (consent overrides, refusal triggers) are preserved as literal matchers.
+User utterances below are shown in English.
 
 ---
 
@@ -15,10 +15,9 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### A1. AI vegetables
 
 **Utterance:**
-- EN: "make me an AI vegetables video about <topic>", "I want a vegetable video AI-style", "do AI vegetables for <X>"
-- RU: "сделай мне ии-овощи про <topic>", "хочу видос с овощами в стиле AI", "запили AI vegetables про <X>"
+- "make me an AI vegetables video about <topic>", "I want a vegetable video AI-style", "do AI vegetables for <X>"
 
-**Expected first response (matches user's language):**
+**Expected first response:**
 > The **ai-vegetables** template (viral POV, 15s, ~$8). Confirm and I'll start.
 
 **Flow:**
@@ -32,8 +31,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### A2. Talking-head rant
 
 **Utterance:**
-- EN: "make a talking head about <X>", "monologue where a guy rants about <Y>", "deadpan rant about <Z>"
-- RU: "сделай talking head про <X>", "monolog где чувак жалуется на <Y>", "разогретый rant про <Z>"
+- "make a talking head about <X>", "monologue where a guy rants about <Y>", "deadpan rant about <Z>"
 
 **Expected first response:**
 > The **talking-head-rant** template (15-20s, character + hook screenshot, ~$10). Which archetype — remote IT worker, courier/driver, stay-at-home creator? If you don't know, I'll pick.
@@ -50,8 +48,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### A3. Before/after product
 
 **Utterance:**
-- EN: "make an ad for <product>", "before-after for <tool>", "5s pain + 10s solution for <X>"
-- RU: "сделай рекламу для <product>", "before-after про <тулзу>", "5 секунд боли + 10 секунд решения для <X>"
+- "make an ad for <product>", "before-after for <tool>", "5s pain + 10s solution for <X>"
 
 **Expected first response:**
 > The **before-after-product** template (15s, classic UGC pattern, ~$8). Drop a screenshot / logo / packaging — I won't generate without a reference.
@@ -68,8 +65,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### A4. Soviet-nostalgic video
 
 **Utterance:**
-- EN: "make a Soviet-style video about <X>", "Soviet-format video about <Y>", "USSR nostalgia about <Z>"
-- RU: "сделай видос в советском стиле про <X>", "совок-формат про <Y>", "ностальгия СССР про <Z>"
+- "make a Soviet-style video about <X>", "Soviet-format video about <Y>", "USSR nostalgia about <Z>"
 
 **Expected first response:**
 > The **soviet-nostalgic** template (two-era TikTok narrative, ~60s, ~$12). Starting.
@@ -83,8 +79,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### B1. "Make it in the style of <url>"
 
 **Utterance:**
-- EN: "take the style from https://...", "make a landing-promo in the aesthetic of <site>", "shoot it like <site>"
-- RU: "возьми стиль с https://...", "сделай лендинг-промо в эстетике <site>", "сними как <site>"
+- "take the style from https://...", "make a landing-promo in the aesthetic of <site>", "shoot it like <site>"
 
 **Expected first response:**
 > Launching `/ralph-researcher` — pulling design tokens and screenshots from <site>. ~2 min.
@@ -101,8 +96,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### B2. "Analyze @handle"
 
 **Utterance:**
-- EN: "look at what @handle does on TikTok", "break down <creator>'s style", "what's going viral for them"
-- RU: "посмотри что делает @handle на TikTok", "разбери стиль <creator>", "что у них вирусится"
+- "look at what @handle does on TikTok", "break down <creator>'s style", "what's going viral for them"
 
 **Expected first response:**
 > Pulling the top 10 videos for @handle, running viral-moments analysis. ~3 min.
@@ -116,13 +110,10 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### C1. A real named person
 
 **Utterance:**
-- EN: "make a video with Elon Musk", "video where <real-celebrity> does <X>", "as <blogger>"
-- RU: "сделай видос с Илоном Маском", "видео где <реальная-знаменитость> делает <X>", "от имени <блогер>"
+- "make a video with Elon Musk", "video where <real-celebrity> does <X>", "as <blogger>"
 
 **Expected first response (refusal with proposal):**
-> "Чтобы сделать `<имя>` хорошо, мне нужна референс-картинка (фото лица, желательно 2-3 ракурса). Скинь сюда либо смени персонажа на безличного (`архетип: it-remote / courier / student`) — без референса делать не буду, выйдет хуже чем дешёвый AI-слоп."
->
-> (English equivalent: "To do `<name>` well, I need a reference image (face photo, ideally 2-3 angles). Drop one in here, or switch to a generic archetype (`it-remote / courier / student`) — I won't generate without a reference, it'll come out worse than cheap AI slop.")
+> "To do `<name>` well, I need a reference image (face photo, ideally 2-3 angles). Drop one in here, or switch to a generic archetype (`it-remote / courier / student`) — I won't generate without a reference, it'll come out worse than cheap AI slop."
 
 **After the reference arrives:**
 - `assets/uploaded/<name>-ref.jpg` is saved.
@@ -132,8 +123,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### C2. A branded product
 
 **Utterance:**
-- EN: "video about Stripe", "ad for <brand>", "<product> packaging"
-- RU: "видос про Сбербанк", "реклама <бренда>", "упаковка <product>"
+- "video about Stripe", "ad for <brand>", "<product> packaging"
 
 **Expected first response (refusal with proposal):**
 > Need a logo / packaging / brand kit. Drop a photo here or a link to the site — I'll pull it through `/ralph-researcher`.
@@ -141,17 +131,15 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### C3. The style of a specific show / channel
 
 **Utterance:**
-- EN: "in the style of show <X>", "like channel <Y>", "parody of <Z>"
-- RU: "в стиле передачи <X>", "как у канала <Y>", "пародия на <Z>"
+- "in the style of show <X>", "like channel <Y>", "parody of <Z>"
 
 **Expected first response:** same as C1/C2 — reference is required.
 
 ### C4. Override (explicit consent)
 
-**Utterance (literal phrase matchers — do not translate):**
-- `"генерь без референса, я понимаю что качество будет хуже"`
-- `"пофиг, сделай как получится"`
-- EN equivalent the chat should also accept: `"generate without a reference, I know quality will be worse"`
+**Utterance:**
+- `"generate without a reference, I know quality will be worse"`
+- `"whatever, just make it"`
 
 **Flow:** ok → `logUserPrompt(id, { stage: "no-ref-consent", text: "..." })` → continue without a reference.
 
@@ -162,8 +150,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### D1. Length we can't deliver
 
 **Utterance:**
-- EN: "make a 5-minute film", "2-minute video"
-- RU: "сделай 5-минутный фильм", "видос на 2 минуты"
+- "make a 5-minute film", "2-minute video"
 
 **Expected response:**
 > I'm built for short form (≤30s, optimal 15s). A 5-minute film is a different league and a different model — I'd more likely botch it than land it. We can split it into a series of ~20 shorts; or tell me which other tool you want to use and I'll help with prompts.
@@ -171,16 +158,14 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 ### D2. Incompatible content
 
 **Utterance:**
-- EN: "video with profanity for a kids' channel", "<contradictory brief>"
-- RU: "видос с матом для детского канала", "<противоречивый brief>"
+- "video with profanity for a kids' channel", "<contradictory brief>"
 
 **Expected response:** an explicit clarifying question + a proposal of two non-contradictory branches.
 
 ### D3. Request with no grounding
 
 **Utterance:**
-- EN: "make a video about my grandma without a photo"
-- RU: "сделай видос про мою бабушку без фото"
+- "make a video about my grandma without a photo"
 
 **Expected response:** see C — fall back to a generic archetype or ask for the reference.
 
@@ -197,8 +182,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 ### E1. "10 videos from a template"
 
 **Utterance:**
-- EN: "make 10 videos in style X on different topics", "run a series of N <template> about <area>"
-- RU: "сделай 10 видосов в стиле X на разные темы", "запили серию из N <template> про <area>"
+- "make 10 videos in style X on different topics", "run a series of N <template> about <area>"
 
 **Flow:**
 1. `/ralph-producer` → brainstorm N non-repeating topics (LLM).
@@ -211,8 +195,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 ### E2. "Review the batch"
 
 **Utterance:**
-- EN: "how's the batch", "status of batch <id>", "which ones came out OK"
-- RU: "что там по батчу", "статус batch <id>", "какие из них норм"
+- "how's the batch", "status of batch <id>", "which ones came out OK"
 
 **Flow:** `/ralph-producer` → `batch-review` → table `id | status | cost | score | render_path`.
 
@@ -223,24 +206,21 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 ### F1. "Save project <id> as a template"
 
 **Utterance:**
-- EN: "make a template from <project>", "save this format for later"
-- RU: "сделай шаблон из <project>", "сохрани этот формат на будущее"
+- "make a template from <project>", "save this format for later"
 
 **Flow:** `/ralph-producer` sub-task `template-extract` → `workspace/templates/<slug>/` with all five files + `reference-example.md` populated from the source project.
 
 ### F2. "What templates do we have"
 
 **Utterance:**
-- EN: "what's in templates", "show available templates"
-- RU: "что у нас в шаблонах", "покажи доступные шаблоны"
+- "what's in templates", "show available templates"
 
 **Flow:** `ralphy template list -p` — table.
 
 ### F3. "Suggest a template"
 
 **Utterance:**
-- EN: "which template fits <request>"
-- RU: "какой шаблон под <запрос>"
+- "which template fits <request>"
 
 **Flow:** `ralphy template suggest "<utterance>"` — top-3 ranked.
 
@@ -251,16 +231,14 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 ### G1. "Export my profile"
 
 **Utterance:**
-- EN: "export my profile <nick>", "share my templates"
-- RU: "выгрузи мой профиль <nick>", "поделись моими шаблонами"
+- "export my profile <nick>", "share my templates"
 
 **Flow:** `ralphy profile export <nick>` → `profiles/<nick>/` with `PROFILE.md` + templates + references + projects (no renders).
 
 ### G2. "Import <nick>"
 
 **Utterance:**
-- EN: "pull profile <nick>", "import <nick> additively"
-- RU: "подтяни профиль <nick>", "импортни <nick> доп"
+- "pull profile <nick>", "import <nick> additively"
 
 **Flow:** `ralphy profile import <nick>` (additive). Use `--overwrite` if there are conflicts.
 

@@ -12,32 +12,32 @@ This is the concrete project that this template was extracted from. Read it to u
 
 ## The reference VO (full, as aired)
 
-Eight deadpan Russian lines delivered off-screen by a young male voice (`m0OQuJtWCw1V23P0pQmG` on ElevenLabs). Read them as a whole — the arc is setup → mechanism → rejection → hibernation → revival → product → tagline.
+Eight deadpan Russian lines delivered off-screen by a young male voice (`m0OQuJtWCw1V23P0pQmG` on ElevenLabs). Read them as a whole — the arc is setup → mechanism → rejection → hibernation → revival → product → tagline. Below is an English gloss for documentation purposes; the VO itself is delivered in Russian (translate when generating).
 
-1. Мой дед был инженером-материаловедом. В семьдесят четвёртом году, в закрытом НИИ под Москвой, он придумал ткань, которая запоминает форму.
-2. Хлопок снаружи, тончайшая алюминиевая фольга посередине. Ткань ведёт себя как металл, но остаётся мягкой. Принимает любую форму — и держит её.
-3. На третьей попытке удалось стабилизировать слои. Первые два ушли в брак. Третий — получилось.
-4. В том же году разработку показали комиссии. Сказали — непрофильно. Алюминий уходил на оборону, хлопок — на полотенца. Закрыли.
-5. Тетрадь с записями деда пролежала в ящике стола больше полувека.
-6. Мы достали её прошлой зимой. Разобрали формулы заново и собрали небольшое производство с нуля.
-7. Тот же композит. Хлопок снаружи, металл внутри. Ткань, которая не повторяет форму. Она её создаёт.
-8. Одна идея. Две эпохи. Между ними — полвека, один ящик и одно имя. COTTON METAL.
+1. "My grandfather was a materials engineer. In nineteen-seventy-four, in a closed research institute outside Moscow, he came up with a fabric that remembers its shape."
+2. "Cotton on the outside, the thinnest aluminum foil in the middle. The fabric behaves like metal, but stays soft. It takes any shape — and holds it."
+3. "On the third attempt he managed to stabilize the layers. The first two were rejects. The third — it worked."
+4. "That same year the development was shown to a commission. They said: out of profile. Aluminum was going to defense, cotton to towels. Shut down."
+5. "Grandfather's notebook sat in a desk drawer for more than half a century."
+6. "We pulled it out last winter. Worked the formulas out again and put together a small production line from scratch."
+7. "The same composite. Cotton on the outside, metal on the inside. A fabric that doesn't follow a shape. It creates one."
+8. "One idea. Two eras. Between them — half a century, one drawer, and one name. COTTON METAL."
 
-~127 words total, ~60s at deadpan pace.
+(VO is delivered in Russian; English shown here for documentation. ~127 words total in Russian, ~60s at deadpan pace.)
 
 ## What to notice
 
-- **Line length varies 10–30 words.** Short sentences land harder — "Первые два ушли в брак. Третий — получилось." Three sentences, one beat.
-- **Pauses carry weight.** "Закрыли." as a single-word sentence ends the Soviet arc. "Получилось." ends the triumph moment.
-- **Concreteness beats abstraction.** "Алюминий уходил на оборону, хлопок — на полотенца" is worth more than "state priorities rejected consumer applications" — it gives you the visual.
-- **The tagline on clip 8 is structural, not poetic.** "Одна идея. Две эпохи. …" — the structure echoes the video's own two-era shape. The brand name lands as the final word.
+- **Line length varies 10–30 words.** Short sentences land harder — line 3's "The first two were rejects. The third — it worked." is three sentences in one beat.
+- **Pauses carry weight.** A single-word Russian sentence (English gloss: "Shut down.") ends the Soviet arc; another single-word sentence (English gloss: "It worked.") ends the triumph moment.
+- **Concreteness beats abstraction.** "Aluminum was going to defense, cotton to towels" is worth more than "state priorities rejected consumer applications" — it gives you the visual.
+- **The tagline on clip 8 is structural, not poetic.** English gloss "One idea. Two eras. …" — the structure echoes the video's own two-era shape. The brand name lands as the final word.
 - **No selling language.** No "revolutionary", "unique", "best", "first ever". The narrator tells a family story; viewers sell themselves.
-- **Dates are specific.** "В семьдесят четвёртом году" is stronger than "In the 70s". If you know the institute, name it.
+- **Dates are specific.** A fully spelled-out Russian year ("In nineteen-seventy-four") is stronger than a vague "In the 70s". If you know the institute, name it.
 - **Objects carry the story.** The notebook, the drawer, the samples, the hat. Each is visible and referenced in VO. No generic B-roll.
 
 ## Visual arc
 
-Clips 1–5: warm amber, Svema 35mm grain, tungsten desk lamps, green felt table, wood panels, wire-frame glasses, hand-drawn diagrams, Cyrillic handwriting. **Note:** the original `solutions-metal-001` render used a printed `СВЕМА 35 / ФОТОГРАФИЯ` archival matte border around each frame. That decision has since been reversed — it reads kitschy on video and shrinks the usable image area. Keep the Svema *grain and palette* but render full-bleed 9:16. See `NO_FRAME` in [fragments.md](fragments.md).
+Clips 1–5: warm amber, Svema 35mm grain, tungsten desk lamps, green felt table, wood panels, wire-frame glasses, hand-drawn diagrams, Cyrillic handwriting. **Note:** the original `solutions-metal-001` render used a printed Cyrillic "SVEMA 35 / PHOTOGRAPH" archival matte border around each frame. That decision has since been reversed — it reads kitschy on video and shrinks the usable image area. Keep the Svema *grain and palette* but render full-bleed 9:16. See `NO_FRAME` in [fragments.md](fragments.md).
 
 Clips 6–8: cold neutral editorial studio, grey polished concrete, matte black, sharp focus, no grain, full-bleed.
 
@@ -49,7 +49,7 @@ Not a rule, just the actuals for reference:
 
 | # | Sec | What happens on-screen |
 |---|---|---|
-| 1 | 9 | Overhead locked-off: grandfather's hands on open 1974 notebook, finger traces diagram to date line "11/III – 1974 г." |
+| 1 | 9 | Overhead locked-off: grandfather's hands on open 1974 notebook, finger traces diagram to a Cyrillic-handwritten date line ("11/III – 1974"). |
 | 2 | 11 | Medium static: grandfather at brass microscope, adjusts focus, glances at fabric strip, returns to eyepiece |
 | 3 | 7 | Top-down: three fabric samples on concrete; a hand enters, grasps the middle one, crumples it, withdraws — fabric holds the new crumpled shape |
 | 4 | 10 | Very slow dolly-in over engineer's shoulder toward three commissioners behind green felt; middle one writes a single line, right one adjusts glasses, formal silence |
@@ -74,7 +74,7 @@ Things that will change project-to-project:
 - Product (obviously) and therefore the invention, the material, the technical payoff
 - Inventor character (could be grandfather, father, uncle, aunt, older engineer from the family)
 - Modern heir (brand owner or designer or whoever)
-- Institute / setting (NII, factory, university lab, regional design bureau)
+- Institute / setting (Soviet research institute, factory, university lab, regional design bureau)
 - Era (1960s–1980s all work; avoid post-1989 for "Soviet" feel)
 - Rejection reason (profile mismatch, military reallocation, budget cut, ministry politics)
 - Exact clip count (6–10 clips fine) and durations
