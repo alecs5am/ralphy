@@ -4,6 +4,36 @@
 
 Narrative owner. I write the first-draft `scenario.json` from brief + references, and iterate on feedback (hook, pacing, VO, scene count, transitions as narrative beats). Model prompts and assets are **not my zone** — that's the art director. My output is a self-consistent scenario that downstream roles can fan out from.
 
+> **STOP rule.** Don't read `scenario.json` with `cat` and don't append to log files by hand. Every action below is a `ralphy` verb that keeps the gen-log honest. AGENTS invariant #2.
+
+## CLI cookbook
+
+**Use these for every project-level inspection / mutation.** Don't read scenario.json with `cat` and don't append to log files by hand — every action below is a `ralphy` verb that also keeps the gen-log honest.
+
+```bash
+# Read the current scenario / template / persona context
+ralphy project show <id> --scenario      # scenario.json
+ralphy project show <id> --status        # which pipeline steps are done
+ralphy template suggest "<utterance>"    # top-3 templates ranked by tag match
+ralphy template show <id> -p             # template vibe + fragments
+ralphy persona show <id> -p              # voice + tone + archetype
+ralphy ref show <id>                     # cited reference details
+
+# Quality gate (run before every handoff to art-director)
+ralphy project score <id>                # virality rubric, pass/fail JSON
+ralphy project score <id> --strict       # exit 1 on failure (CI-friendly)
+
+# Length / word-budget sanity (re-transcribe an existing VO if scenes drifted)
+ralphy project transcribe <id> --audio <vo.mp3>   # ElevenLabs Scribe v1 default
+
+# Log the conversation — both directions
+ralphy project log-prompt <id> --text "<feedback>" --stage feedback
+ralphy project log-asset <id> --kind doc --source <path> --purpose brief
+ralphy project timeline <id>             # who said what, when, in chronological order
+```
+
+If the scenario references a creator / TikTok / IG handle and there's no `workspace/references/<slug>/`, **handback to researcher** — don't invent the reference (`ralphy ref pull <url>` is a one-liner there).
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |

@@ -4,6 +4,38 @@
 
 Composer + renderer. I take `scenario.json` + `asset-manifest.json`, assemble the Remotion composition, and render an MP4. I do not generate media — that's the art director. I stitch, time, transition, caption, mix, sanity-check.
 
+> **STOP rule.** Render only via `ralphy render`. FFmpeg only via `ralphy audio` / `ralphy video`. No direct `bunx remotion render` outside debugging, no ad-hoc `ffmpeg` shells — every recipe is a verb that auto-logs. AGENTS invariant #2.
+
+## CLI cookbook
+
+**Render only via `ralphy render`. FFmpeg only via `ralphy audio` / `ralphy video`. Never call `bunx remotion render` directly outside debugging, and never shell out to ad-hoc ffmpeg — every recipe below is a verb that auto-logs.**
+
+```bash
+# Final render (Remotion → mp4). --loudnorm adds EBU R128 -16 LUFS post-pass.
+ralphy render <project-id> [--loudnorm]
+
+# Captions (the editor's caption pass — separate from researcher's transcript)
+ralphy generate captions --project <id> --audio <vo.mp3>     # → captions.json (Caption[])
+
+# Audio recipes — wrap cli/lib/ffmpeg-recipes.ts
+ralphy audio loudnorm  --in <vo.mp3>  --out <vo-norm.mp3>           # -16 LUFS for TikTok / Reels
+ralphy audio sidechain --voice <vo>   --music <m> --out <mix.mp3>   # duck music under VO
+ralphy audio concat    --files a.mp3,b.mp3,c.mp3 --out concat.mp3   # lossless concat
+
+# Video recipes
+ralphy video extract-segment --in <src.mp4> --start 1.2 --end 4.5 --out <seg.mp4>
+ralphy video burn-subs       --in <src.mp4> --srt <subs.srt> --out <final.mp4>   # last step
+ralphy video tonemap-hdr     --in <hdr.mp4> --out <sdr.mp4>                       # HDR → Rec.709
+ralphy video concat          --files a.mp4,b.mp4 --out concat.mp4
+
+# Inspect inputs / outputs
+ralphy project show <id> --assets        # asset-manifest before composing
+ralphy project show <id> --status        # what's done / missing
+ralphy project log <id> --type generations --limit 50    # ffmpeg + render entries
+```
+
+For Remotion API specifics (captions component, transitions, audio primitives) read [`remotion.md`](remotion.md) — that's the reference manual, not this playbook.
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |

@@ -46,13 +46,13 @@ ralphy batch create --template <id> --ideas <approved-list>
 
 **Cost preview:** `N × per-video from template card = $total`. User must explicitly confirm before Phase 3.
 
-## Phase 3 — Scaffold projects
+## Phase 3 — Run + monitor
 
 ```bash
-ralphy batch scaffold <batch-id>
+ralphy batch status <batch-id>
 ```
 
-Under the hood — for each idea: `ralph template use` → copy required assets → `BRIEF.md` → log-prompt. Output:
+`ralphy batch create` (Phase 2) already scaffolds projects: for each variation it does `template use` → copy required assets → `BRIEF.md` → log-prompt → marks status `pending`. Output:
 
 `workspace/batches/<batch-id>/state.json` with per-project `pending` status.
 
