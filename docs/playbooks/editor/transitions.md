@@ -9,7 +9,7 @@ Use `@remotion/transitions` `TransitionSeries` with `<Sequence>` per scene. UGC 
 - `wipe` for retro/vhs vibe (only if the template demands it)
 - `clockWipe` / `flip` — rarer, for acceleration
 
-See `/remotion-best-practices` rules/transitions.md for the full API.
+See [`../remotion/transitions.md`](../remotion/transitions.md) for the full API.
 
 ## Duration
 
@@ -28,4 +28,4 @@ If the first 3-4s contain a hook screenshot (Reddit post, news headline) over th
 
 ## Source
 
-All API details — `/remotion-best-practices` rules. Don't invent TransitionSeries patterns from memory.
+All API details — see [`../remotion.md`](../remotion.md) (the index) and the per-topic sub-docs. Don't invent TransitionSeries patterns from memory.

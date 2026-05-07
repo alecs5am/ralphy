@@ -20,7 +20,7 @@ If `score < 0.5` — don't propose, go straight to scenarist flow.
 
 ### 1. Research if needed
 
-If user supplied site/social URL → **`/ralph-researcher`** first → references on disk.
+If user supplied site/social URL → **researcher playbook** first → references on disk.
 
 ### 2. Scaffold project
 
@@ -41,17 +41,17 @@ ralphy project log-prompt <id> --text "<brief>" --stage brief
 
 ### 4. Reference-required gate
 
-Before the scenarist — check the brief for named persona/brand. If present and there's no ref in `assets/uploaded/` → **refuse** (see `ralph-art-director/rules/ref-photo-policy.md`):
+Before the scenarist — check the brief for named persona/brand. If present and there's no ref in `assets/uploaded/` → **refuse** (see [`../art-director/ref-photo-policy.md`](../art-director/ref-photo-policy.md)):
 
 > "The brief mentions '<name>' — I need a reference (photo/logo/screenshot). Send it here or switch to an impersonal archetype."
 
 ### 5. Scenario
 
-Hand to **`/ralph-scenarist`** → `scenario.json`. Pause + user approve before money. Quality gate (`scoreScenario`) must pass.
+Hand to **scenarist playbook** → `scenario.json`. Pause + user approve before money. Quality gate (`scoreScenario`) must pass.
 
 ### 6. Prompts + assets
 
-Hand to **`/ralph-art-director`**:
+Hand to **art-director playbook**:
 - `prepare-prompts` → `prompts.json`.
 - Cost preview: `N images × $X + M videos × $Y + K VO calls × $Z = $T. Run?`.
 - `generate-assets` → `assets/*` + `asset-manifest.json`.
@@ -59,7 +59,7 @@ Hand to **`/ralph-art-director`**:
 
 ### 7. Composition + render
 
-Hand to **`/ralph-editor`**:
+Hand to **editor playbook**:
 - `preflight`.
 - `author-composition`.
 - (optional) `preview` if user wants eyeballs.

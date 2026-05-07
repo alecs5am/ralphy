@@ -92,4 +92,4 @@ Checked before handoff (`scoreScenario`):
 - `angle` ∈ {testimonial, unboxing, problem-solution, comparison, demo}
 - First scene ≤ 3s
 
-If fail — iterate. See `rules/quality-gate.md`.
+If fail — iterate. See [`quality-gate.md`](quality-gate.md).

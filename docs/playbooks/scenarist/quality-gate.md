@@ -20,7 +20,7 @@ Under the hood — `cli/lib/quality.ts` → `scoreScenario(scenario)`. Non-LLM c
 4. **Total duration ≤ scenario.duration** or 15s default — if scene sum is greater → fail.
 5. **Every scene has VO** or explicit `silent: true`. A silent scene without the flag = bug.
 6. **All `text_overlay` inside the green zone** — X 60-960, Y 210-1480 for every overlay.
-7. **Persona/brand reference policy** — if a scene contains a named persona/brand without `image_urls` → fail with a pointer to `rules/ref-photo-policy.md` (the art-director handoff will require the ref anyway).
+7. **Persona/brand reference policy** — if a scene contains a named persona/brand without `image_urls` → fail with a pointer to [`../art-director/ref-photo-policy.md`](../art-director/ref-photo-policy.md) (the art-director handoff will require the ref anyway).
 
 ### Warnings (don't block, but shown)
 
