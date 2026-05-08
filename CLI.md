@@ -29,7 +29,7 @@ If you don't remember a flag, **run `--help` first**. Don't invent flags from tr
 
 | Command | Use when |
 |---|---|
-| `setup` | First-time wizard — API keys, profiles, dev services. |
+| `setup` | First-time wizard — API keys, profiles, dev services. **Non-interactive** flags (`-y`, `--openrouter-key`, `--elevenlabs-key`, `--keys-from-env`, `--project-dir`, `--import-profile`, `--no-verify`, `--allow-unverified`) bypass the TUI and emit a JSON summary — use these when driving from an agent / CI. |
 | `status` | Show enabled capabilities + linked project. |
 | `doctor` | Env health check (keys, deps, project link). JSON for scripts; `-p` for human view. |
 | `generate {image\|video\|voiceover\|music\|captions}` | Single asset gen. Logs cost+path automatically. |
@@ -110,6 +110,12 @@ Same `--queue / --depends-on / --queue-tag / --queue-priority` flags exist on ev
 ## Common patterns
 
 ```bash
+# Bootstrap from an agent / CI, no TUI. Reads keys from current env vars.
+ralphy setup -y --project-dir /path/to/ugc-cli --keys-from-env
+
+# Same, but pipe a key in from stdin (no shell history leak)
+cat or-key.txt | ralphy setup -y --project-dir /path/to/ugc-cli --openrouter-key - --elevenlabs-key xi-...
+
 # Dry-run a video gen to see resolved request + cost
 ralphy generate video --project p-001 --slot scene-01-vid --prompt "..." --duration 5 --model kwaivgi/kling-v3.0-pro --dry-run
 
