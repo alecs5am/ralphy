@@ -5,6 +5,7 @@ import { addEntity, getEntity, listEntities, deleteEntity } from "../lib/registr
 import { slugify } from "../lib/ids.js";
 import { batchesDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
+import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
 
 export function batchCmd() {
   const cmd = new Command("batch").description("Manage batch operations");
@@ -102,6 +103,38 @@ export function batchCmd() {
       await deleteEntity("batches", id);
       ok(`Batch deleted: ${id}`);
       out({ deleted: id });
+    });
+
+  // `batch submit --from <jobs.json>` — atomic enqueue of N jobs to the
+  // local job daemon, with symbolic depends_on resolved to real ids on
+  // insert. Use this for the "N generations + 1 render" pattern.
+  // File format:
+  //   [
+  //     { "id": "clip-01", "kind": "generate.video",
+  //       "argv": ["generate","video","--project","X","--slot","s",...] },
+  //     { "id": "render", "kind": "render", "argv": ["render","X"],
+  //       "depends_on": ["clip-01","clip-02",...] }
+  //   ]
+  cmd
+    .command("submit")
+    .description(
+      "Submit a batch of jobs to the local daemon with symbolic dependencies. Use this for the 'N generations + 1 render' pattern.",
+    )
+    .requiredOption(
+      "--from <file>",
+      "JSON file with the batch spec (array of jobs, or { jobs: [...] })",
+    )
+    .action(async (opts) => {
+      try {
+        const result = await submitBatchFromFile(opts.from);
+        out({
+          submitted: result.ids.length,
+          ids: result.ids,
+          symbolMap: result.symbolMap,
+        });
+      } catch (e) {
+        err((e as Error).message);
+      }
     });
 
   return cmd;
