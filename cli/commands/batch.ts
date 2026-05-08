@@ -6,6 +6,7 @@ import { slugify } from "../lib/ids.js";
 import { batchesDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
+import { ensureDaemonRunning } from "../lib/jobs/daemon.js";
 
 export function batchCmd() {
   const cmd = new Command("batch").description("Manage batch operations");
@@ -127,6 +128,7 @@ export function batchCmd() {
     .action(async (opts) => {
       try {
         const result = await submitBatchFromFile(opts.from);
+        ensureDaemonRunning();
         out({
           submitted: result.ids.length,
           ids: result.ids,
