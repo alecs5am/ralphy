@@ -1,0 +1,9 @@
+# Run unit + integration tests before every commit.
+#
+# Live-API tests (tests/live/) are intentionally excluded — they cost
+# ~$0.15 per pass and require API keys to be set. Run them manually
+# with `bun run test:live` before a release.
+#
+# Bypass with `git commit --no-verify` if you really need to.
+
+bun test tests/unit/ tests/integration/

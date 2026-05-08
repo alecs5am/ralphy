@@ -27,6 +27,7 @@
     "@types/react": "19.2.7",
     "@types/web": "0.0.166",
     "eslint": "9.19.0",
+    "husky": "^9.1.7",
     "prettier": "3.8.1",
     "tsx": "^4.19.0",
     "typescript": "5.9.3"
@@ -48,7 +49,8 @@
     "test:integration": "bun test tests/integration/",
     "test:live": "RUN_LIVE_TESTS=1 bun test tests/live/",
     "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
-    "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173"
+    "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173",
+    "prepare": "husky"
   },
   "sideEffects": [
     "*.css"
