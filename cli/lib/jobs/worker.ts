@@ -20,6 +20,7 @@ import {
   finalizeJob,
   appendLog,
   jobLogsDir,
+  getJob,
 } from "./db.js";
 import type { JobRow } from "./types.js";
 
@@ -28,6 +29,7 @@ type Slot = {
   pid: number;
   child: ReturnType<typeof spawn>;
   startedAt: number;
+  signaled: boolean;
 };
 
 const POLL_INTERVAL_MS = 1000;
@@ -136,6 +138,7 @@ export function runWorkerLoop(opts: {
       pid: child.pid ?? -1,
       child,
       startedAt: Date.now(),
+      signaled: false,
     };
     slots.set(job.id, slot);
     log(`job ${job.id} started pid=${child.pid}`);
@@ -188,8 +191,29 @@ export function runWorkerLoop(opts: {
     });
   };
 
+  const reapCancelled = () => {
+    // External cancel: a `queue cancel <id>` flips the DB row to 'cancelled'
+    // but does not signal our child. Each tick, check active slots for that
+    // condition and SIGTERM the child once.
+    for (const [jobId, slot] of slots) {
+      if (slot.signaled) continue;
+      const fresh = getJob(jobId);
+      if (fresh && fresh.status === "cancelled") {
+        try {
+          slot.child.kill("SIGTERM");
+          slot.signaled = true;
+          appendLog(jobId, "system", "[external-cancel] SIGTERM");
+          log(`job ${jobId} external-cancel → SIGTERM`);
+        } catch {
+          /* already gone — finalize handler will notice */
+        }
+      }
+    }
+  };
+
   const tick = () => {
     if (stopping) return;
+    reapCancelled();
     while (slots.size < opts.concurrency) {
       const job = claimNextPending();
       if (!job) break;
