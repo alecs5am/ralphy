@@ -85,8 +85,15 @@ export function generateCmd() {
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image)")
     .requiredOption("--prompt <prompt>", "Text prompt")
     .option("--model <model>", "OpenRouter model id", "google/gemini-3-pro-image-preview")
-    .option("--ref <url...>", "Reference image URL(s) for multi-ref consistency")
-    .option("--size <size>", "Image size", "1080x1920")
+    .option(
+      "--ref <ref...>",
+      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI"
+    )
+    .option(
+      "--size <size>",
+      "Size hint (passed to model as prompt-level guidance; gemini/gpt image models do not accept exact pixel dimensions and will round to their natural sizes)",
+      "1080x1920"
+    )
     .option("--negative <prompt>", "Negative prompt")
     .option("--note <note>", "Free-form note for generations.jsonl")
     .action(async (opts) => {
@@ -128,10 +135,30 @@ export function generateCmd() {
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-vid)")
     .requiredOption("--prompt <prompt>", "Motion / camera description")
-    .requiredOption("--duration <seconds>", "Duration in seconds (e.g. 5)", parseFloat)
+    .requiredOption("--duration <seconds>", "Duration in seconds. Per-model `supported_durations` may be discrete (e.g. hailuo only 6/10) — see `ralphy models show <id>`", parseFloat)
     .option("--model <model>", "OpenRouter model id", "kwaivgi/kling-v3.0-pro")
-    .option("--image <ref>", "Reference image URL or path (for i2v)")
+    .option(
+      "--first-frame <ref>",
+      "First-frame anchor for i2v (URL / local path / data: URI). Strongly recommended for portrait orientation when prompt has wide-shot bias"
+    )
+    .option(
+      "--last-frame <ref>",
+      "Last-frame anchor (URL / local path / data: URI). Only models with `supported_frame_images: ['first_frame','last_frame']` accept this — see `ralphy models show <id>`"
+    )
+    .option("--image <ref>", "Alias for --first-frame (back-compat)")
+    .option(
+      "--aspect-ratio <ratio>",
+      "Aspect ratio. Per-model whitelist: kling 9:16/16:9/1:1, veo 9:16/16:9, hailuo 16:9 only, seedance/wan up to 7 ratios. See `ralphy models show <id>`",
+      "9:16"
+    )
+    .option(
+      "--resolution <res>",
+      "Resolution. Per-model whitelist: kling 720p only, veo up to 4K, seedance 480p/720p/1080p. See `ralphy models show <id>`",
+      "720p"
+    )
     .option("--audio", "Enable model-native audio (Veo 3 only — see MODELS.md)", false)
+    .option("--poll-interval-ms <ms>", "Polling cadence (default 15000)", parseInt)
+    .option("--poll-max-attempts <n>", "Max polls before timeout (default 80 ≈ 20min)", parseInt)
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
       await ensureProject(opts.project);
@@ -142,8 +169,14 @@ export function generateCmd() {
         prompt: opts.prompt,
         durationSec: opts.duration,
         model: opts.model,
+        firstFrame: opts.firstFrame,
+        lastFrame: opts.lastFrame,
         image: opts.image,
+        aspectRatio: opts.aspectRatio,
+        resolution: opts.resolution,
         generateAudio: opts.audio,
+        pollIntervalMs: opts.pollIntervalMs,
+        pollMaxAttempts: opts.pollMaxAttempts,
         note: opts.note,
       });
       const manifest = await readManifest(opts.project);

@@ -92,8 +92,9 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     text: `Aspect/size hint: ${size} (vertical 9:16 if size is 1080x1920).`,
   });
   if (input.refs && input.refs.length > 0) {
-    for (const refUrl of input.refs) {
-      userContent.push({ type: "image_url", image_url: { url: refUrl } });
+    for (const ref of input.refs) {
+      const url = await resolveImageRef(ref);
+      userContent.push({ type: "image_url", image_url: { url } });
     }
   }
 
@@ -176,16 +177,20 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 export type GenerateVideoInput = CommonInput & {
   /** OpenRouter model id, e.g. `kwaivgi/kling-v3.0-pro` (default), `google/veo-3.1`, `bytedance/seedance-2.0`. */
   model?: string;
-  /** Reference image — URL, local path, or data: URI. Used as first frame for i2v. */
+  /** First-frame anchor — URL, local path, or data: URI. Alias for firstFrame. Kept for back-compat. */
   image?: string;
+  /** First-frame anchor (URL / local path / data: URI). */
+  firstFrame?: string;
+  /** Last-frame anchor (URL / local path / data: URI). Some models only support first_frame — see catalog. */
+  lastFrame?: string;
   prompt: string;
   durationSec: number;
   /** Enable model-native audio (Veo 3.x only). Default false. */
   generateAudio?: boolean;
-  /** Aspect ratio. Default "9:16" (TikTok). */
-  aspectRatio?: "9:16" | "16:9" | "1:1";
-  /** Resolution. Default "720p". */
-  resolution?: "720p" | "1080p";
+  /** Aspect ratio. Default "9:16" (TikTok). Per-model `supported_aspect_ratios` may be narrower — see `ralphy models show`. */
+  aspectRatio?: "9:16" | "16:9" | "1:1" | "4:3" | "3:4" | "21:9" | "9:21";
+  /** Resolution. Default "720p". Per-model `supported_resolutions` may be narrower — see `ralphy models show`. */
+  resolution?: "480p" | "720p" | "1080p" | "4K";
   /** Polling cadence in ms. Default 15000. Total budget = pollIntervalMs * pollMaxAttempts. */
   pollIntervalMs?: number;
   /** Max polling attempts. Default 80 (≈20 min at 15s cadence). */
@@ -222,16 +227,25 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     resolution,
     generate_audio: input.generateAudio ?? false,
   };
-  if (input.image) {
-    const imageUrl = await resolveImageRef(input.image);
-    body.frame_images = [
-      {
-        type: "image_url",
-        image_url: { url: imageUrl },
-        frame_type: "first_frame",
-      },
-    ];
+  const firstFrameRef = input.firstFrame ?? input.image;
+  const frameImages: Array<Record<string, unknown>> = [];
+  if (firstFrameRef) {
+    const url = await resolveImageRef(firstFrameRef);
+    frameImages.push({
+      type: "image_url",
+      image_url: { url },
+      frame_type: "first_frame",
+    });
   }
+  if (input.lastFrame) {
+    const url = await resolveImageRef(input.lastFrame);
+    frameImages.push({
+      type: "image_url",
+      image_url: { url },
+      frame_type: "last_frame",
+    });
+  }
+  if (frameImages.length > 0) body.frame_images = frameImages;
 
   let resp: Response;
   try {
