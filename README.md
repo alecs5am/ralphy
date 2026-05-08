@@ -1,13 +1,6 @@
 <div align="center">
 
-```
-██████╗  █████╗ ██╗     ██████╗ ██╗  ██╗██╗   ██╗
-██╔══██╗██╔══██╗██║     ██╔══██╗██║  ██║╚██╗ ██╔╝
-██████╔╝███████║██║     ██████╔╝███████║ ╚████╔╝
-██╔══██╗██╔══██║██║     ██╔═══╝ ██╔══██║  ╚██╔╝
-██║  ██║██║  ██║███████╗██║     ██║  ██║   ██║
-╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝  ╚═╝   ╚═╝
-```
+<img src="docs/branding/banner.png" alt="RALPHY — UGC video pipeline CLI" width="100%" />
 
 **An autonomous UGC-video studio in one repo.**
 Drive it from a chat. Get an mp4 in ~8 minutes.
