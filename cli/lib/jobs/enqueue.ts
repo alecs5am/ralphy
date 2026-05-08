@@ -166,9 +166,9 @@ export async function submitBatchFromFile(file: string): Promise<{
     }
   }
 
-  ensureDaemonRunning();
-  // The "ids" array is reconstructed via symbolMap order; fall back to all
-  // inserted ids in original order.
+  // NOTE: caller is responsible for `ensureDaemonRunning()` after a
+  // successful submit. Keeping it out of this function so tests can call
+  // submitBatchFromFile against an isolated DB without forking a daemon.
   const ids = jobs.map((j) => (j.id ? symbolMap[j.id] : -1)).filter((n) => n > 0);
   return { ids, symbolMap };
 }
