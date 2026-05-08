@@ -43,6 +43,10 @@
     "setup": "bun cli/index.ts setup",
     "doctor": "bun cli/index.ts doctor",
     "render": "bun cli/index.ts render",
+    "test": "bun test tests/",
+    "test:unit": "bun test tests/unit/",
+    "test:integration": "bun test tests/integration/",
+    "test:live": "RUN_LIVE_TESTS=1 bun test tests/live/",
     "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
     "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173"
   },
