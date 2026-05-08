@@ -157,15 +157,20 @@ function resolveRalphyBin(): string {
   if (process.env.RALPHY_BIN && fs.existsSync(process.env.RALPHY_BIN)) {
     return process.env.RALPHY_BIN;
   }
-  // 2. Common install path.
+  // 2. In-tree dev: if the current root has cli/index.ts, prefer it. The
+  //    in-tree code is always at least as new as the installed binary,
+  //    and a stale ~/.local/bin/ralphy will reject newer subcommands like
+  //    `generate music --queue` or `models list`.
+  const inTree = path.join(root(), "cli", "index.ts");
+  if (fs.existsSync(inTree)) return inTree;
+  // 3. Installed binary fallback.
   const home = process.env.HOME;
   if (home) {
     const local = path.join(home, ".local", "bin", "ralphy");
     if (fs.existsSync(local)) return local;
   }
-  // 3. In-tree dev: use `bun run cli/index.ts`. We return a marker the
-  //    worker recognizes, and the worker will spawn `bun` itself.
-  return path.join(root(), "cli", "index.ts");
+  // 4. Last resort: rely on PATH.
+  return "ralphy";
 }
 
 export function isInTreeRalphyBin(bin: string): boolean {
