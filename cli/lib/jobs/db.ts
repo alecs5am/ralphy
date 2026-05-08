@@ -35,6 +35,21 @@ export function jobLogsDir(): string {
   return path.join(root(), "workspace", ".ralph", "job-logs");
 }
 
+/**
+ * Close the cached connection (if any). Used by tests to reset state
+ * between cases when the workspace root is rebound. No-op in production.
+ */
+export function closeDb(): void {
+  if (_db) {
+    try {
+      _db.close();
+    } catch {
+      /* already closed */
+    }
+    _db = null;
+  }
+}
+
 export function openDb(): Database {
   if (_db) return _db;
   const p = dbPath();
