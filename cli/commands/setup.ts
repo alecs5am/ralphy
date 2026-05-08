@@ -1,13 +1,24 @@
-// Interactive setup wizard — `ralphy setup`.
+// Setup wizard — `ralphy setup`.
 //
 // v2: prompts for two keys only — OPENROUTER_API_KEY + ELEVENLABS_API_KEY —
 // pings each via API verify, optionally imports a public profile. Does NOT
 // auto-launch Studio or dashboard (AGENTS.md hard rule #5). Re-runnable safely.
 //
-// Sub-commands:
-//   ralphy setup              — full interactive wizard
-//   ralphy setup --status     — JSON capability status (for skill scripts)
-//   ralphy setup --link <p>   — point ralphy at a project dir (global config)
+// Modes:
+//   ralphy setup                              — interactive TUI wizard
+//   ralphy setup --status                     — JSON capability status (read-only)
+//   ralphy setup --link <p> / --unlink        — manage the global project link
+//   ralphy setup --non-interactive [flags]    — agent / CI-friendly. No TUI.
+//                                               Reads keys from flags, stdin (via
+//                                               `-`), or process.env. Emits a
+//                                               structured JSON summary on stdout.
+//
+// Non-interactive examples (Claude Code in a terminal):
+//   ralphy setup -y --keys-from-env
+//   ralphy setup -y --openrouter-key sk-or-... --elevenlabs-key xi-...
+//   cat key.txt | ralphy setup -y --openrouter-key -
+//   ralphy setup -y --project-dir /path/to/ugc-cli --no-verify
+//   ralphy setup -y --import-profile demo,starter
 
 import { Command } from "commander";
 import * as p from "@clack/prompts";
@@ -24,16 +35,67 @@ import {
   writeGlobalConfig,
   type ImportedProfile,
 } from "../lib/project-root.js";
-import { ok, out, err } from "../lib/output.js";
+import { ok, out, err, isPretty } from "../lib/output.js";
 import { profileCmd } from "./profile.js";
+
+type SetupOpts = {
+  status?: boolean;
+  link?: string;
+  unlink?: boolean;
+  // Non-interactive
+  nonInteractive?: boolean;
+  yes?: boolean;
+  openrouterKey?: string;
+  elevenlabsKey?: string;
+  keysFromEnv?: boolean;
+  projectDir?: string;
+  importProfile?: string[];
+  verify?: boolean;
+  allowUnverified?: boolean;
+};
 
 export function setupCmd() {
   return new Command("setup")
-    .description("Interactive setup wizard — API keys, profiles, dev services")
+    .description("Setup wizard — API keys, profiles, dev services")
     .option("--status", "Print capability status as JSON and exit (no TUI)")
     .option("--link <path>", "Link ralphy to a project directory (global config)")
     .option("--unlink", "Remove the global project link")
-    .action(async (opts: { status?: boolean; link?: string; unlink?: boolean }) => {
+    .option(
+      "--non-interactive",
+      "Agent / CI mode: never prompt, never open a TUI, emit a JSON summary",
+      false,
+    )
+    .option("-y, --yes", "Alias for --non-interactive", false)
+    .option(
+      "--openrouter-key <key>",
+      "Set OPENROUTER_API_KEY (use `-` to read from stdin). Implies --non-interactive",
+    )
+    .option(
+      "--elevenlabs-key <key>",
+      "Set ELEVENLABS_API_KEY (use `-` to read from stdin). Implies --non-interactive",
+    )
+    .option(
+      "--keys-from-env",
+      "Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from the current process env. Implies --non-interactive",
+      false,
+    )
+    .option(
+      "--project-dir <path>",
+      "Link ralphy to this project directory before configuring keys. Implies --non-interactive",
+    )
+    .option(
+      "--import-profile <names>",
+      "Comma-separated profile names to import (additive, safe to re-run)",
+      collectCsv,
+      [] as string[],
+    )
+    .option("--no-verify", "Skip API ping verification when saving keys")
+    .option(
+      "--allow-unverified",
+      "When --verify is on (default) and a key fails to verify, save it anyway and exit 0",
+      false,
+    )
+    .action(async (opts: SetupOpts) => {
       if (opts.status) {
         out({
           capabilities: getCapabilityStatus(),
@@ -71,15 +133,238 @@ export function setupCmd() {
         out({ project_dir: target, changed: true });
         return;
       }
+
+      // Any of these flags forces non-interactive mode — the user is clearly
+      // scripting rather than driving the TUI by hand.
+      const niTriggers =
+        opts.nonInteractive ||
+        opts.yes ||
+        opts.openrouterKey != null ||
+        opts.elevenlabsKey != null ||
+        opts.keysFromEnv ||
+        opts.projectDir != null ||
+        (opts.importProfile && opts.importProfile.length > 0);
+
+      if (niTriggers) {
+        await runNonInteractive(opts);
+        return;
+      }
+
       await runWizard();
     });
 }
 
+function collectCsv(value: string, prev: string[]): string[] {
+  const parts = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [...prev, ...parts];
+}
+
+// ---------------------------------------------------------------------------
+// Non-interactive path
+// ---------------------------------------------------------------------------
+
+type KeyResult = {
+  envVar: string;
+  saved: boolean;
+  verified: boolean | null; // null when verification was skipped
+  reason?: string; // populated on skip / failure
+};
+
+async function runNonInteractive(opts: SetupOpts): Promise<void> {
+  const summary = {
+    mode: "non-interactive" as const,
+    project_dir: null as string | null,
+    project_link_changed: false,
+    keys: [] as KeyResult[],
+    imports: [] as { name: string; ok: boolean; reason?: string }[],
+    capabilities: [] as ReturnType<typeof getCapabilityStatus>,
+    errors: [] as string[],
+  };
+
+  // 1. Resolve project root.
+  let projectRoot: string | null = null;
+  const globalCfg = await readGlobalConfig();
+  if (opts.projectDir) {
+    const target = path.resolve(opts.projectDir);
+    try {
+      await fs.access(path.join(target, "package.json"));
+    } catch {
+      summary.errors.push(`project_dir is not a valid project: ${target}`);
+      out(summary);
+      process.exit(1);
+    }
+    projectRoot = target;
+    if (globalCfg.default_project_dir !== target) {
+      await writeGlobalConfig({ ...globalCfg, default_project_dir: target });
+      summary.project_link_changed = true;
+    }
+  } else {
+    projectRoot = await findProjectRootSafe();
+  }
+
+  if (!projectRoot) {
+    summary.errors.push(
+      "no project root resolvable (cwd is not a ralphy project, no --project-dir passed, no prior `ralphy setup --link`)",
+    );
+    out(summary);
+    process.exit(1);
+  }
+  summary.project_dir = projectRoot;
+
+  // 2. Collect keys from flags / stdin / env.
+  const provided: Record<string, string> = {};
+  try {
+    const orKey = await resolveKeyFlag(opts.openrouterKey, "OPENROUTER_API_KEY");
+    if (orKey) provided.OPENROUTER_API_KEY = orKey;
+    const elKey = await resolveKeyFlag(opts.elevenlabsKey, "ELEVENLABS_API_KEY");
+    if (elKey) provided.ELEVENLABS_API_KEY = elKey;
+  } catch (e) {
+    summary.errors.push((e as Error).message);
+    out(summary);
+    process.exit(1);
+  }
+
+  if (opts.keysFromEnv) {
+    for (const cap of CAPABILITIES) {
+      if (provided[cap.envVar]) continue; // explicit flag wins
+      const v = process.env[cap.envVar];
+      if (v) provided[cap.envVar] = v;
+    }
+  }
+
+  // 3. Verify + persist keys.
+  const verify = opts.verify !== false; // commander --no-verify flips to false
+  const updates: Record<string, string> = {};
+  let verifyFailureFatal = false;
+
+  for (const cap of CAPABILITIES) {
+    const value = provided[cap.envVar];
+    if (!value) continue;
+
+    let verified: boolean | null = null;
+    let reason: string | undefined;
+    if (verify) {
+      verified = await verifyKey(cap.envVar, value);
+      if (!verified && !opts.allowUnverified) {
+        reason = "verification failed (provider rejected the key); pass --allow-unverified to save anyway";
+        summary.keys.push({ envVar: cap.envVar, saved: false, verified, reason });
+        verifyFailureFatal = true;
+        continue;
+      }
+      if (!verified && opts.allowUnverified) {
+        reason = "verification failed but --allow-unverified set; saving anyway";
+      }
+    } else {
+      reason = "verification skipped (--no-verify)";
+    }
+
+    updates[cap.envVar] = value;
+    summary.keys.push({ envVar: cap.envVar, saved: true, verified, reason });
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await applyEnvUpdates(path.join(projectRoot, ".env"), updates);
+  }
+
+  // 4. Profile imports.
+  const profilesToImport = opts.importProfile ?? [];
+  if (profilesToImport.length > 0) {
+    const importedThisRun: ImportedProfile[] = [];
+    for (const profName of profilesToImport) {
+      try {
+        const cmd = profileCmd();
+        const prevCwd = process.cwd();
+        process.chdir(projectRoot);
+        try {
+          await cmd.parseAsync(["import", profName], { from: "user" });
+        } finally {
+          process.chdir(prevCwd);
+        }
+        summary.imports.push({ name: profName, ok: true });
+        importedThisRun.push({ name: profName, imported_at: new Date().toISOString() });
+      } catch (e) {
+        summary.imports.push({ name: profName, ok: false, reason: (e as Error).message });
+      }
+    }
+
+    if (importedThisRun.length > 0) {
+      const cfgNow = await readGlobalConfig();
+      const merged = new Map<string, ImportedProfile>();
+      for (const i of cfgNow.imports ?? []) merged.set(i.name, i);
+      for (const i of importedThisRun) merged.set(i.name, i);
+      await writeGlobalConfig({
+        ...cfgNow,
+        default_project_dir: projectRoot,
+        imports: [...merged.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    }
+  }
+
+  // 5. Re-snapshot capabilities so the summary reflects the post-write state.
+  //    We have to source from the .env we just wrote, since process.env was
+  //    captured at startup and may lag what's now on disk.
+  const envOnDisk = await readDotenv(path.join(projectRoot, ".env"));
+  for (const k of Object.keys(updates)) {
+    if (envOnDisk[k]) process.env[k] = envOnDisk[k];
+  }
+  summary.capabilities = getCapabilityStatus();
+
+  if (verifyFailureFatal) {
+    out(summary);
+    process.exit(1);
+  }
+
+  if (isPretty()) ok(`Setup complete (${Object.keys(updates).length} key(s) saved)`);
+  out(summary);
+}
+
+async function resolveKeyFlag(flag: string | undefined, envVar: string): Promise<string | null> {
+  if (flag == null) return null;
+  if (flag === "-") {
+    const stdinValue = await readAllStdin();
+    if (!stdinValue) {
+      throw new Error(`empty stdin while reading ${envVar}`);
+    }
+    return stdinValue.trim();
+  }
+  const trimmed = flag.trim();
+  if (!trimmed) {
+    throw new Error(`empty value for ${envVar}`);
+  }
+  return trimmed;
+}
+
+let _stdinCache: Promise<string> | null = null;
+function readAllStdin(): Promise<string> {
+  // Cache so multiple `-` flags can in principle share, but we error before
+  // that in practice. Node treats stdin as a one-shot stream.
+  if (_stdinCache) return _stdinCache;
+  _stdinCache = new Promise<string>((resolve, reject) => {
+    if (process.stdin.isTTY) {
+      reject(new Error("stdin is a TTY — pipe data in, e.g. `cat key.txt | ralphy setup --openrouter-key -`"));
+      return;
+    }
+    let data = "";
+    process.stdin.setEncoding("utf-8");
+    process.stdin.on("data", (chunk: string) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve(data));
+    process.stdin.on("error", reject);
+  });
+  return _stdinCache;
+}
+
+// ---------------------------------------------------------------------------
+// Interactive wizard (unchanged from v2)
+// ---------------------------------------------------------------------------
+
 async function runWizard(): Promise<void> {
   p.intro("ralphy setup");
 
-  // 1. Project root — auto-detect or ask. Idempotent: don't rewrite the global
-  //    config if we resolved the same project as last time.
   const globalCfg = await readGlobalConfig();
   let projectRoot = await findProjectRootSafe();
   if (!projectRoot) {
@@ -108,7 +393,6 @@ async function runWizard(): Promise<void> {
   const envPath = path.join(projectRoot, ".env");
   const existing = await readDotenv(envPath);
 
-  // 2. Show capability status
   const keyed: Capability[] = CAPABILITIES;
   const statusLines = keyed.map((c) => {
     const set = Boolean(existing[c.envVar]);
@@ -117,7 +401,6 @@ async function runWizard(): Promise<void> {
   });
   p.note(statusLines.join("\n"), "Current keys");
 
-  // 3. Multi-select providers to (re)configure
   const preselect = keyed.filter((c) => !existing[c.envVar]).map((c) => c.id);
   const picks = await p.multiselect({
     message: "Which providers do you want to set up?",
@@ -131,7 +414,6 @@ async function runWizard(): Promise<void> {
   });
   if (p.isCancel(picks)) return cancelled();
 
-  // 4. Prompt for each selected key, verify with API ping
   const updates: Record<string, string> = {};
   for (const id of picks as string[]) {
     const cap = keyed.find((c) => c.id === id);
@@ -157,8 +439,6 @@ async function runWizard(): Promise<void> {
     updates[cap.envVar] = value;
   }
 
-  // 5. Profile picker — annotate already-imported profiles. Re-importing is
-  //    safe (additive) but we tell the user so they don't do it accidentally.
   const profilesAvail = await listAvailableProfiles(projectRoot);
   const importedSet = new Set((globalCfg.imports ?? []).map((i) => i.name));
   let pickedProfiles: string[] = [];
@@ -176,8 +456,6 @@ async function runWizard(): Promise<void> {
     pickedProfiles = sel as string[];
   }
 
-  // 6. Apply changes — only what's actually new.
-  //    No auto-launch of Studio / dashboard (AGENTS.md invariant #5).
   if (Object.keys(updates).length > 0) {
     const sp = p.spinner();
     sp.start("Saving .env…");
@@ -193,8 +471,6 @@ async function runWizard(): Promise<void> {
     sp.start(`Importing profile ${profName}…`);
     try {
       const cmd = profileCmd();
-      // Commander programmatic invocation. cwd-sensitive code uses paths.ts root,
-      // so chdir into projectRoot for the duration.
       const prevCwd = process.cwd();
       process.chdir(projectRoot);
       try {
@@ -209,7 +485,6 @@ async function runWizard(): Promise<void> {
     }
   }
 
-  // Persist imports history (dedupe on name — keep latest timestamp).
   if (importedThisRun.length > 0) {
     const merged = new Map<string, ImportedProfile>();
     for (const i of globalCfg.imports ?? []) merged.set(i.name, i);
@@ -330,4 +605,3 @@ async function listAvailableProfiles(
     return [];
   }
 }
-
