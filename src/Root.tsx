@@ -5,6 +5,7 @@ import { PaapaHomographs } from "./videos/paapa-homographs";
 import { LyadovEpisode } from "./videos/lyadov-podcast";
 import { SolutionsMetal001, TOTAL_FRAMES as SOLUTIONS_METAL_FRAMES } from "./videos/solutions-metal-001";
 import { SovietEngineer001, TOTAL_FRAMES as SOVIET_ENGINEER_FRAMES } from "./videos/soviet-engineer-001";
+import { BrainrotHistory001, TOTAL_FRAMES as BRAINROT_HISTORY_FRAMES } from "./videos/brainrot-history-001";
 
 const CAPTION_STYLES = [
   { id: "TikTokCaptions", style: "tiktok" as const, label: "TikTok — green word highlight" },
@@ -74,6 +75,14 @@ export const RemotionRoot: React.FC = () => {
           id="SovietEngineer001"
           component={SovietEngineer001}
           durationInFrames={SOVIET_ENGINEER_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="BrainrotHistory001"
+          component={BrainrotHistory001}
+          durationInFrames={BRAINROT_HISTORY_FRAMES}
           fps={30}
           width={1080}
           height={1920}
