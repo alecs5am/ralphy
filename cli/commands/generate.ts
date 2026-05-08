@@ -20,6 +20,11 @@ import {
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { logUserPrompt } from "../lib/gen-log.js";
+import {
+  findVideoModel,
+  validateVideoParams,
+  estimateVideoCostUsd,
+} from "../lib/or-catalog.js";
 
 const SLOT_REGEX = /^[a-z0-9-]+$/;
 
@@ -159,10 +164,64 @@ export function generateCmd() {
     .option("--audio", "Enable model-native audio (Veo 3 only — see MODELS.md)", false)
     .option("--poll-interval-ms <ms>", "Polling cadence (default 15000)", parseInt)
     .option("--poll-max-attempts <n>", "Max polls before timeout (default 80 ≈ 20min)", parseInt)
+    .option(
+      "--dry-run",
+      "Validate params + print resolved request + cost estimate; do not submit",
+      false
+    )
+    .option(
+      "--no-validate",
+      "Skip the per-model `supported_*` validation against OR catalog (force-submit)"
+    )
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
+
+      const firstFrameRef = opts.firstFrame ?? opts.image;
+      const lastFrameRef = opts.lastFrame;
+
+      // Per-model validation against OR catalog (skippable).
+      if (opts.validate !== false) {
+        const catalogModel = await findVideoModel(opts.model).catch(() => undefined);
+        if (catalogModel) {
+          const findings = validateVideoParams(catalogModel, {
+            duration: opts.duration,
+            aspectRatio: opts.aspectRatio,
+            resolution: opts.resolution,
+            hasFirstFrame: !!firstFrameRef,
+            hasLastFrame: !!lastFrameRef,
+          });
+          const errors = findings.filter((f) => f.level === "error");
+          if (errors.length > 0) {
+            const lines = errors.map(
+              (f) =>
+                `  - ${f.field}: ${f.reason}${f.suggestion ? `\n    -> ${f.suggestion}` : ""}`
+            );
+            err(
+              `Per-model validation failed for ${opts.model} (use --no-validate to override):\n${lines.join("\n")}`
+            );
+          }
+        }
+      }
+
+      if (opts.dryRun) {
+        out({
+          dryRun: true,
+          model: opts.model,
+          slot: opts.slot,
+          prompt: opts.prompt,
+          durationSec: opts.duration,
+          aspectRatio: opts.aspectRatio,
+          resolution: opts.resolution,
+          firstFrame: firstFrameRef ? "[ref-supplied]" : null,
+          lastFrame: lastFrameRef ? "[ref-supplied]" : null,
+          generateAudio: opts.audio,
+          estimatedCostUsd: estimateVideoCostUsd(opts.model, opts.duration),
+        });
+        return;
+      }
+
       const result = await generateVideo({
         projectId: opts.project,
         slot: opts.slot,
