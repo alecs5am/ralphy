@@ -1,0 +1,64 @@
+{
+  "name": "Food & Beverage",
+  "slug": "food-beverage",
+  "kind": "vibe-style",
+  "description": "Prompt cookbook for food & beverage commercial video — appetite-trigger cinematography (cheese pulls, sauce pours, steam reveals, ASMR sizzle, latte art, cocktail builds). 10-20s, 9:16 or 1:1. Reference-required: a real product / dish photo / packaging / logo must be supplied for any branded item, otherwise generation refuses (no AI-improvised packaging on real products). Texture-first, sound-as-flavor, money-shot driven.",
+  "tags": [
+    "food",
+    "beverage",
+    "drink",
+    "restaurant",
+    "cafe",
+    "coffee",
+    "cocktail",
+    "dessert",
+    "snack",
+    "asmr",
+    "recipe",
+    "cooking",
+    "menu",
+    "food-ad",
+    "appetite",
+    "macro",
+    "tiktok",
+    "reels",
+    "shorts"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [10, 20],
+  "typicalClipCount": [2, 4],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — macro-leaning composition, warm key + backlight for steam/gloss, multi-ref WITH user-supplied product / dish photo when a branded item is present.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips (2-4 total). Slow-motion bias for hero moments (cheese pull, pour, sizzle). generate_audio: false — ASMR layered separately so each sound is intentional.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — OPTIONAL. Many food clips run music + ASMR only. If used: warm, intimate narrator (not Hormozi-energy); single line for hook + one for payoff. Language follows the user's brief.",
+    "captions": "Optional. MinimalCaptions or KaraokeCaptions for menu / price / dish name. Hormozi-style is wrong here — it fights the warmth and reads as ad-stink.",
+    "music": "ElevenLabs Music — single track. Cozy lo-fi for café / pastry, energetic modern for fast food, moody jazz for cocktail bar, crisp acoustic for fresh / health. ASMR sound (sizzle, pour, crunch, fizz) sits ABOVE music in the mix."
+  },
+  "constants": {
+    "vibeAnchor": "appetite-trigger-not-information",
+    "heroRule": "every-clip-builds-to-one-money-shot",
+    "lightingRule": "warm-key-plus-backlight-for-steam-gloss-bubbles",
+    "soundRule": "asmr-above-music-one-dominant-sound-per-action",
+    "colorRule": "warm-natural-saturation-never-clinical-cool"
+  },
+  "variationAxes": [
+    "category (fine dining, fast food, baked goods, coffee/café, cocktail/spirits, smoothie/juice, asian/wok, italian/mediterranean, BBQ, dessert, health/salad, street food)",
+    "tone (cozy-warm, luxe-moody, playful-energetic, craft-intimate, fresh-bright)",
+    "hero action (cheese pull, sauce pour, steam reveal, sizzle, knife cut, fizz, ingredient cascade, glaze drip, bread tear, latte art, ice clink, flame kiss)",
+    "camera (overhead push-in, 45° side macro, slow orbit around plate, locked-off action, hand-eye POV)",
+    "duration (4-6s single hero clip, 10-15s café/recipe loop, 15-20s full plating arc)"
+  ],
+  "doNotCopyLiterally": "Specific dish, exact prompt, exact garnish, restaurant brand. The vibe is the framework — hook + hero + master template — not any specific recipe.",
+  "requiresUserReference": true,
+  "referenceNotes": "Reference REQUIRED for any named restaurant, packaged food brand, or branded beverage (the AGENTS.md hard rule #3 gate refuses without it). Real product photo / logo / packaging must live at workspace/projects/<id>/assets/uploaded/ before any keyframe is generated. AI-improvised packaging on a branded snack / can / bottle always reads as fake and tanks conversion. For unbranded generic dishes (homemade pasta, salad, cocktail without brand) no reference is needed — but a single user-supplied food photo still tightens styling enormously."
+}

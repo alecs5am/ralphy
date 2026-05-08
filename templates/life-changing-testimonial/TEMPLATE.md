@@ -74,7 +74,7 @@ When the brief specifies outcome numbers the user didn't provide:
 
 - **No outcome numbers exist.** If the user can't supply a specific number / duration / sensory detail, the testimonial reads vague and won't convert. Use `before-after-product` instead — the visual transformation carries the load when numbers don't exist.
 - **Product needs medical-grade authority.** Prescription, regulated category, clinical claim — use `doctor-authority`. A peer testimonial making medical claims is an FTC problem.
-- **No personal story exists.** If the brief is "make an ad for X" with no person and no story, use `07-ecommerce-ad` (product-forward) or `before-after-product` (transformation-forward). Don't fake a story.
+- **No personal story exists.** If the brief is "make an ad for X" with no person and no story, use `ecommerce-ad` (product-forward) or `before-after-product` (transformation-forward). Don't fake a story.
 - **Length > 75s.** The pacing depends on a tight 30-60s arc. Past 75s the speaker reads self-indulgent and CVR drops.
 - **Multiple speakers / interview format.** This template is single-speaker. For multi-speaker testimonials, use a separate template (not yet built — propose it).
 

@@ -66,10 +66,10 @@ Override path: user explicitly says "generate without reference, I understand th
 
 ## When NOT to use
 
-- **Story / depth.** If the brief needs a narrative beat, character motivation, or a "here's why I wore this" moment → `13-fashion-lookbook` (editorial) or `grwm` (process).
-- **Single-outfit slow-reveal.** A hero piece that wants 10 seconds of slow camera-orbit and editorial light → `13-fashion-lookbook`. Fit-check is fast — slow it down and it loses the genre.
+- **Story / depth.** If the brief needs a narrative beat, character motivation, or a "here's why I wore this" moment → `fashion-lookbook` (editorial) or `grwm` (process).
+- **Single-outfit slow-reveal.** A hero piece that wants 10 seconds of slow camera-orbit and editorial light → `fashion-lookbook`. Fit-check is fast — slow it down and it loses the genre.
 - **Heavy product-pitch / conversion.** If the goal is "buy this exact item now" with proof and demo → `before-after-product`. Fit-check tags items but doesn't sell them; the conversion is "discover the creator", not "click the SKU".
-- **Multiple SKUs from one brand all explained.** That's a haul / lookbook hybrid — use `13-fashion-lookbook` and write VO.
+- **Multiple SKUs from one brand all explained.** That's a haul / lookbook hybrid — use `fashion-lookbook` and write VO.
 - **No music available / unable to clear a track.** This format is 50% audio. Without a real beat, the cuts have nothing to land on.
 
 ## Cost ballpark

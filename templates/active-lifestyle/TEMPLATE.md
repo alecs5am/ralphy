@@ -70,8 +70,8 @@ If the user explicitly says "generate without reference, I understand the qualit
 ## When NOT to use
 
 - **Product needs explanation.** A supplement with a unique mechanism, a recovery device with a non-obvious use — the lifestyle frame doesn't carry the message. Use [`tutorial-how-to`](../tutorial-how-to/TEMPLATE.md).
-- **Format must be studio-clean.** Catalog-style product hero, white background, rotation. Use [`09-product-360`](../09-product-360/TEMPLATE.md).
-- **Pure brand-narrative.** Founder story, brand history, mission piece — no specific product moment. Use [`12-brand-story`](../12-brand-story/TEMPLATE.md).
+- **Format must be studio-clean.** Catalog-style product hero, white background, rotation. Use [`product-360`](../product-360/TEMPLATE.md).
+- **Pure brand-narrative.** Founder story, brand history, mission piece — no specific product moment. Use [`brand-story`](../brand-story/TEMPLATE.md).
 - **Pain-point conversion ad.** Frustration → reveal → demo. Use [`before-after-product`](../before-after-product/TEMPLATE.md).
 - **Length > 30s.** The aspiration-loop loses tension; viewer projection breaks. Cap at 25s.
 

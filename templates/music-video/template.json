@@ -1,0 +1,64 @@
+{
+  "name": "Music Video",
+  "slug": "music-video",
+  "kind": "vibe-style",
+  "description": "Beat-synced music video / lyric video / performance clip in 9:16 or 16:9. The song is the spine: every visual change is anchored to a kick, snare, hi-hat, vocal line, or harmonic shift. Three strategy modes — Performance (artist front and center), Narrative (story unfolds with the track), Abstract/Visualizer (no performer, pure motion). Genre dictates color, lighting, and cut rate; song structure (verse / build / chorus / drop / bridge / outro) dictates energy arc. Reference is optional — if the user supplies a track or a BPM target, the editor locks cuts to it; if not, the template generates to a synthetic beat grid. ElevenLabs Music can compose an original track when the user has lyrics or a vibe but no song.",
+  "tags": [
+    "music-video",
+    "lyric-video",
+    "beat-sync",
+    "performance",
+    "visualizer",
+    "concert",
+    "tiktok",
+    "reels",
+    "shorts",
+    "youtube",
+    "hip-hop",
+    "pop",
+    "rock",
+    "edm",
+    "rnb",
+    "lo-fi",
+    "k-pop",
+    "music"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [15, 60],
+  "typicalClipCount": [4, 12],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — one keyframe per scene; reference image (artist photo, location reference, mood board) optional but improves consistency across scenes",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips. Cuts are timed in composition to align with beat grid; generate_audio: false (audio comes from the track, not the clip).",
+    "voiceover": "None by default — the song is the audio. For lyric-video variants, captions render synced lyrics. Optional spoken intro/outro via ElevenLabs eleven_multilingual_v2.",
+    "captions": "Lyric mode: KaraokeCaptions (per-word highlight, synced to vocal track). Visualizer mode: no captions or sparse hook-line drops via MinimalCaptions.",
+    "music": "Two paths: (a) user supplies the track (mp3/wav uploaded as reference) — the editor extracts BPM and beat grid via ffmpeg/aubio and locks cuts to it; (b) user has no track — ElevenLabs Music composes one from a genre + mood + duration brief. BPM target drives cut rate."
+  },
+  "constants": {
+    "vibeAnchor": "beat-cut-sync",
+    "structure": "intro → verse → build → chorus/drop → bridge → final-chorus → outro",
+    "cutRateRule": "minimum one visual change per 2 bars on verse, one per bar on chorus, one per beat on drop",
+    "energyArc": "mirrors-song-energy"
+  },
+  "variationAxes": [
+    "strategy mode (performance / narrative / abstract-visualizer)",
+    "genre (hip-hop, pop, rock, EDM, R&B, lo-fi, jazz, classical, country, K-pop)",
+    "color palette (genre-dictated; see prompt-cookbook.md genre-mood matrix)",
+    "lighting context (concert / studio / location / abstract-digital)",
+    "performer count (solo / duo / band / dance crew / no-performer)",
+    "cut rate (slow-cinematic / mid-pop / rapid-edm)",
+    "aspect ratio (9:16 vertical for short-form / 16:9 horizontal for YouTube)"
+  ],
+  "doNotCopyLiterally": "Genre conventions, hook patterns, beat-sync vocabulary. Vibe reference only — do not lift specific scenes, performers, or compositions from any one example.",
+  "requiresUserReference": false,
+  "referenceNotes": "Optional but strongly recommended: (1) a reference track (mp3/wav) — unlocks real BPM extraction and locked cut grid; (2) artist photo if the video features a real performer (then reference-required gate applies — no AI-improvised faces of named real people); (3) genre/style reference videos (URLs to similar music videos for vibe match). Without any reference the template generates an abstract visualizer to a synthesized beat at user-specified BPM."
+}

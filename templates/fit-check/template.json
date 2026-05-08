@@ -2,7 +2,7 @@
   "name": "Fit Check / OOTD",
   "slug": "fit-check",
   "kind": "vibe-style",
-  "description": "Quick visual demo of a complete outfit — typically 1-3 looks in one Reel with beat-synced transitions (snap, jump-cut, mirror-flash). 7-20s, 9:16. OOTD format. Visual-first, designed for muted scrolling. Often paired with a trending audio bed (e.g. 'Dame un Grrr', '212') and a brand-tag overlay per item. Low daily-content barrier — a new outfit a day is the whole point. Reference-required when real garments are shown (AGENTS.md hard rule #3) — same gate as 13-fashion-lookbook. Distinct from 13-fashion-lookbook: this is fast / OOTD / daily; lookbook is editorial / 15-30s / brand-piece.",
+  "description": "Quick visual demo of a complete outfit — typically 1-3 looks in one Reel with beat-synced transitions (snap, jump-cut, mirror-flash). 7-20s, 9:16. OOTD format. Visual-first, designed for muted scrolling. Often paired with a trending audio bed (e.g. 'Dame un Grrr', '212') and a brand-tag overlay per item. Low daily-content barrier — a new outfit a day is the whole point. Reference-required when real garments are shown (AGENTS.md hard rule #3) — same gate as fashion-lookbook. Distinct from fashion-lookbook: this is fast / OOTD / daily; lookbook is editorial / 15-30s / brand-piece.",
   "tags": [
     "fit-check",
     "ootd",
@@ -62,5 +62,5 @@
   ],
   "doNotCopyLiterally": "Outfit choices, prompt strings, brand tags, music track. Vibe reference only — copy the cadence, not the wardrobe.",
   "requiresUserReference": true,
-  "referenceNotes": "When the brief mentions real garments, brands, or items the user actually owns — at least one garment photo (flat-lay, hanger shot, or worn-in mirror selfie) must exist at workspace/projects/<id>/assets/uploaded/. Same gate as 13-fashion-lookbook and AGENTS.md hard rule #3 — AI-improvised branding on a real garment always reads as fake (logo distortion, weave wrong, fit wrong). For pure-fictional / AI-styling demos with no named brand, the gate may be waived with a logged 'no-ref-consent' stage."
+  "referenceNotes": "When the brief mentions real garments, brands, or items the user actually owns — at least one garment photo (flat-lay, hanger shot, or worn-in mirror selfie) must exist at workspace/projects/<id>/assets/uploaded/. Same gate as fashion-lookbook and AGENTS.md hard rule #3 — AI-improvised branding on a real garment always reads as fake (logo distortion, weave wrong, fit wrong). For pure-fictional / AI-styling demos with no named brand, the gate may be waived with a logged 'no-ref-consent' stage."
 }

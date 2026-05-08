@@ -10,7 +10,7 @@
 
 Architecture social is its own dialect. The audience is design-curious — they save before they like, they screenshot before they comment, and they buy nothing on impulse. They are not shopping for a property. They are letting themselves dream about a place that probably does not exist yet, or has not been finished yet, or will only be finished in someone else's life. The currency is *aspiration*, not *availability*.
 
-That is the slot this template owns. Distinct from `15-real-estate`, which is the photoreal tour of an existing property a buyer could close on tomorrow. This template is for:
+That is the slot this template owns. Distinct from `real-estate`, which is the photoreal tour of an existing property a buyer could close on tomorrow. This template is for:
 
 - Pre-construction concepts an architecture firm wants to publish.
 - Interior-design pitch decks rendered as a sub-30s reel.
@@ -91,11 +91,11 @@ If the brief names a real existing building (a famous house, a published archite
 
 ---
 
-## Distinct from `15-real-estate`
+## Distinct from `real-estate`
 
 These two templates look superficially close — both are slow-camera, well-lit, building-focused. They are different jobs.
 
-| | `15-real-estate` | `cgi-architecture` (this) |
+| | `real-estate` | `cgi-architecture` (this) |
 |---|---|---|
 | Subject | Existing property | Conceptual / pre-construction / aspirational rendered build |
 | Reference | Required (real property photos) | Optional (floor plan, moodboard, sketch) |
@@ -107,17 +107,17 @@ These two templates look superficially close — both are slow-camera, well-lit,
 | Pacing | Slow but tour-paced — buyer is making a decision | Slower — viewer is dreaming |
 | End frame | Twilight exterior with address overlay | Signature view or facade-against-sky with project name |
 
-If the user has property photos of an existing building and wants to sell it, route to `15-real-estate`. If the user has a render brief, a floor plan, or wants an aspirational reel for a studio, this template is the right one.
+If the user has property photos of an existing building and wants to sell it, route to `real-estate`. If the user has a render brief, a floor plan, or wants an aspirational reel for a studio, this template is the right one.
 
 ---
 
 ## When NOT to use this template
 
-- **Existing property with photos available**: route to `15-real-estate`. That template wins on photoreal fidelity to a specific deed.
+- **Existing property with photos available**: route to `real-estate`. That template wins on photoreal fidelity to a specific deed.
 - **Hardware / gadget product**: use `cgi-hardware`. Architecture and hardware archviz share the rendered look but the framing language differs — hardware is closer, more orbital, more material-detail-driven.
 - **Food / lifestyle / restaurant content** where the building is backdrop: route to a food / restaurant template. This template is for architecture *as the subject*.
-- **Rapid-share scroll-stop content under 10s**: use `11-social-hook`. Archviz needs at least 15s to breathe.
-- **Renovation before/after of a specific real address**: route to `15-real-estate` renovation variant. Only use this template for conceptual proposals where the "after" is a render not yet built.
+- **Rapid-share scroll-stop content under 10s**: use `social-hook`. Archviz needs at least 15s to breathe.
+- **Renovation before/after of a specific real address**: route to `real-estate` renovation variant. Only use this template for conceptual proposals where the "after" is a render not yet built.
 
 ---
 
@@ -135,11 +135,11 @@ If the user has property photos of an existing building and wants to sell it, ro
 
 ## Adjacent templates
 
-- **`15-real-estate`** — for existing properties with photos. The photoreal tour.
+- **`real-estate`** — for existing properties with photos. The photoreal tour.
 - **`cgi-hardware`** — for gadgets and physical products rendered in archviz language. Shares the rendered look, different framing.
-- **`02-3d-cgi`** — for conceptual / abstract / non-architectural CGI (vegetables, products, characters). Use for renders where the subject is not a building.
-- **`12-brand-story`** — if the cut is more about the studio's narrative than any one project, with talking-head or text-driven storytelling.
-- **`06-motion-design-ad`** — for technical archviz with floor-plan overlays, callouts, animated specs.
+- **`3d-cgi`** — for conceptual / abstract / non-architectural CGI (vegetables, products, characters). Use for renders where the subject is not a building.
+- **`brand-story`** — if the cut is more about the studio's narrative than any one project, with talking-head or text-driven storytelling.
+- **`motion-design-ad`** — for technical archviz with floor-plan overlays, callouts, animated specs.
 
 ---
 

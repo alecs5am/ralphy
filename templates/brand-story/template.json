@@ -1,0 +1,62 @@
+{
+  "name": "Brand Story",
+  "slug": "brand-story",
+  "kind": "vibe-style",
+  "description": "Longer-form cinematic brand narrative (30-60s, sometimes 60-120s for hero films): founder voice or customer transformation arc carries problem → mission → solution → impact. Tonal opposite of fast-cut UGC: contemplative pacing, authentic detail, emotional restraint. Reference-required — a real brand identity (logo, founder photo / archive material, product, environment) must be supplied; AI cannot improvise a brand. Best for about-us videos, origin stories, mission films, anniversary spots, investor narrative, manifesto.",
+  "tags": [
+    "brand-story",
+    "brand-film",
+    "origin-story",
+    "founder-story",
+    "mission",
+    "manifesto",
+    "about-us",
+    "anthem",
+    "narrative",
+    "cinematic",
+    "long-form",
+    "linkedin",
+    "youtube",
+    "website-hero",
+    "investor-pitch",
+    "transformation",
+    "documentary"
+  ],
+  "platform": "youtube",
+  "aspectRatio": "16:9",
+  "typicalDurationSec": [30, 60],
+  "typicalClipCount": [6, 12],
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied brand reference (founder photo, logo, product, environment). Required for any frame that names or shows a real brand or person.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for primary cinematic clips (5s each, 6-12 total for a 30-60s film). Veo-3.1 acceptable as a premium upgrade for hero shots. generate_audio: false — VO and music are added in post.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2. Two common modes: (1) founder-voice mode — single sustained warm conversational delivery; (2) customer-testimony mode — interview-style, slightly less polished, emotional honesty. Language follows the brief; prefer the founder/customer's actual language.",
+    "captions": "OpenRouter whisper-1; MinimalCaptions throughout (calm, low-distraction). Avoid Hormozi-style impact captions — they fight the cinematic register.",
+    "music": "ElevenLabs Music — single track that builds: sparse/ambient under setup, swells under transformation, holds a quiet note on the closing reflection. Optionally add live source audio (workshop sounds, kitchen ambience) for authenticity."
+  },
+  "constants": {
+    "vibeAnchor": "cinematic-narrative-arc",
+    "structure": "hook (2s) → setup (5-8s) → inciting moment (5-8s) → emergence montage (10-15s) → transformation (8-12s) → closing reflection (4-6s) → brand signature (2-3s)",
+    "musicShape": "sparse-build-hold-resolve",
+    "captionStyle": "minimal-throughout",
+    "endingRule": "end-on-emotion-not-on-logo"
+  },
+  "variationAxes": [
+    "narrative arc (founder-led origin / customer transformation / mission manifesto / day-in-the-life / behind-the-scenes / milestone-anniversary / community-spotlight / future-vision)",
+    "emotional register (inspirational / warm-nostalgic / bold-rebellious / calm-trustworthy / playful / serious-professional)",
+    "narration mode (founder VO / customer testimony / poetic philosophical / sparse strategic / pure visual no-VO / dialogue-as-narrative)",
+    "duration tier (30s social-cut, 60s hero, 90-120s long-form film)",
+    "industry framing (tech-startup / artisan-food / sustainable-fashion / health-wellness / creative-agency / nonprofit / manufacturing / education)"
+  ],
+  "doNotCopyLiterally": "Founder identity, brand colors, dialogue lines, archive footage, exact prompts. Vibe and arc reference only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Brand reference is REQUIRED. At minimum: logo + one founder/team photo OR archive image OR product/environment shot. Without it the reference-required gate (AGENTS.md hard rule #3) refuses. AI-improvised faces or logos in a brand-story context are never acceptable — the whole genre depends on perceived authenticity, and a single off frame collapses trust."
+}

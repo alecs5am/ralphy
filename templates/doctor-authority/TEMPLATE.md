@@ -87,7 +87,7 @@ The real-named-professional refusal copy:
 - **Claim requires hard medical evidence.** Curing-disease claims, prescription-drug comparisons, anti-vaccine narratives — the format amplifies regulatory risk. Do not use.
 - **Product has no clinical mechanism story.** Fashion items, generic lifestyle products, novelty SKUs — there's nothing for the doctor to explain. Use [`life-changing-testimonial`](../life-changing-testimonial/) instead.
 - **Audience is anti-establishment.** Some demos (alt-health, "big pharma is lying") actively distrust the white coat. The format inverts and hurts. Use [`life-changing-testimonial`](../life-changing-testimonial/) or [`talking-head-rant`](../talking-head-rant/) instead.
-- **Brand awareness, not conversion.** This format is engineered for conversion via authority transfer. For top-of-funnel awareness, use [`brand-story`](../12-brand-story/) or trend-led formats.
+- **Brand awareness, not conversion.** This format is engineered for conversion via authority transfer. For top-of-funnel awareness, use [`brand-story`](../brand-story/) or trend-led formats.
 - **Length > 60s.** Authority signal fatigues fast. The pattern peaks at 30-40s.
 
 ## Cost ballpark
