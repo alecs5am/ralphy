@@ -73,20 +73,39 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const size = input.size ?? "1080x1920";
   const apiKey = process.env.OPENROUTER_API_KEY!;
 
-  // OpenRouter exposes OpenAI-compatible /images/generations.
+  // OpenRouter image-generation models (gemini-3-pro-image-preview,
+  // gpt-5.4-image-2, …) are exposed via /api/v1/chat/completions with
+  // `modalities: ["image", "text"]`. The legacy /api/v1/images/generations
+  // path returns 404. Per OR docs the response carries the bytes on
+  // `choices[0].message.images[].image_url.url` as a data: URL or http URL.
+  const userContent: Array<Record<string, unknown>> = [
+    { type: "text", text: input.prompt },
+  ];
+  if (input.negativePrompt) {
+    userContent.push({
+      type: "text",
+      text: `Negative prompt — avoid: ${input.negativePrompt}`,
+    });
+  }
+  userContent.push({
+    type: "text",
+    text: `Aspect/size hint: ${size} (vertical 9:16 if size is 1080x1920).`,
+  });
+  if (input.refs && input.refs.length > 0) {
+    for (const refUrl of input.refs) {
+      userContent.push({ type: "image_url", image_url: { url: refUrl } });
+    }
+  }
+
   const body: Record<string, unknown> = {
     model,
-    prompt: input.prompt,
-    size,
-    response_format: "url",
-    n: 1,
+    modalities: ["image", "text"],
+    messages: [{ role: "user", content: userContent }],
   };
-  if (input.refs && input.refs.length > 0) body.image_urls = input.refs;
-  if (input.negativePrompt) body.negative_prompt = input.negativePrompt;
 
   let resp: Response;
   try {
-    resp = await fetch("https://openrouter.ai/api/v1/images/generations", {
+    resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -108,16 +127,23 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   }
 
   const json = (await resp.json()) as {
-    data?: Array<{ url?: string; b64_json?: string }>;
+    choices?: Array<{
+      message?: {
+        images?: Array<{ image_url?: { url?: string }; url?: string }>;
+      };
+    }>;
   };
-  const url = json.data?.[0]?.url;
+  const imgEntry = json.choices?.[0]?.message?.images?.[0];
+  const url = imgEntry?.image_url?.url ?? imgEntry?.url;
   if (!url) {
-    const err = new Error("OpenRouter image response had no url");
+    const err = new Error(
+      "OpenRouter image response had no choices[0].message.images[0]"
+    );
     await logFailure(input, "openrouter", model, "image", body, err, t0);
     throw err;
   }
 
-  const localPath = await downloadTo(
+  const localPath = await writeImageFromUrlOrDataUri(
     url,
     assetPath(input.projectId, "images", `${input.slot}.png`)
   );
@@ -150,12 +176,20 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 export type GenerateVideoInput = CommonInput & {
   /** OpenRouter model id, e.g. `kwaivgi/kling-v3.0-pro` (default), `google/veo-3.1`, `bytedance/seedance-2.0`. */
   model?: string;
-  /** Reference image url (for i2v). Omit for t2v. */
+  /** Reference image — URL, local path, or data: URI. Used as first frame for i2v. */
   image?: string;
   prompt: string;
   durationSec: number;
   /** Enable model-native audio (Veo 3.x only). Default false. */
   generateAudio?: boolean;
+  /** Aspect ratio. Default "9:16" (TikTok). */
+  aspectRatio?: "9:16" | "16:9" | "1:1";
+  /** Resolution. Default "720p". */
+  resolution?: "720p" | "1080p";
+  /** Polling cadence in ms. Default 15000. Total budget = pollIntervalMs * pollMaxAttempts. */
+  pollIntervalMs?: number;
+  /** Max polling attempts. Default 80 (≈20 min at 15s cadence). */
+  pollMaxAttempts?: number;
 };
 
 const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
@@ -171,18 +205,37 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   const t0 = Date.now();
   const model = input.model ?? DEFAULT_VIDEO_MODEL;
   const apiKey = process.env.OPENROUTER_API_KEY!;
+  const aspectRatio = input.aspectRatio ?? "9:16";
+  const resolution = input.resolution ?? "720p";
+  const pollIntervalMs = input.pollIntervalMs ?? 15_000;
+  const pollMaxAttempts = input.pollMaxAttempts ?? 80;
 
+  // OpenRouter video generation is async: POST /api/v1/videos returns a job
+  // with `id` + `polling_url` + (eventually) `unsigned_urls`. The legacy
+  // /api/v1/videos/generations path returns 404. See
+  // https://openrouter.ai/docs/cookbook/video-generation/text-to-video
   const body: Record<string, unknown> = {
     model,
     prompt: input.prompt,
-    duration_sec: input.durationSec,
+    duration: Math.round(input.durationSec),
+    aspect_ratio: aspectRatio,
+    resolution,
     generate_audio: input.generateAudio ?? false,
   };
-  if (input.image) body.image = input.image;
+  if (input.image) {
+    const imageUrl = await resolveImageRef(input.image);
+    body.frame_images = [
+      {
+        type: "image_url",
+        image_url: { url: imageUrl },
+        frame_type: "first_frame",
+      },
+    ];
+  }
 
   let resp: Response;
   try {
-    resp = await fetch("https://openrouter.ai/api/v1/videos/generations", {
+    resp = await fetch("https://openrouter.ai/api/v1/videos", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -198,28 +251,87 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    const err = new Error(`OpenRouter videos ${resp.status}: ${text.slice(0, 500)}`);
+    const err = new Error(`OpenRouter videos submit ${resp.status}: ${text.slice(0, 500)}`);
     await logFailure(input, "openrouter", model, "video", body, err, t0);
     throw err;
   }
 
-  const json = (await resp.json()) as { data?: Array<{ url?: string }> };
-  const url = json.data?.[0]?.url;
-  if (!url) {
-    const err = new Error("OpenRouter video response had no url");
+  type VideoJob = {
+    id: string;
+    status: string;
+    polling_url?: string;
+    unsigned_urls?: string[];
+    error?: string | { message?: string };
+  };
+
+  let job = (await resp.json()) as VideoJob;
+  if (!job.id) {
+    const err = new Error("OpenRouter video submit had no job.id");
     await logFailure(input, "openrouter", model, "video", body, err, t0);
     throw err;
   }
 
-  const localPath = await downloadTo(
-    url,
-    assetPath(input.projectId, "videos", `${input.slot}.mp4`)
-  );
+  const terminalErr = new Set(["failed", "cancelled", "expired"]);
+  for (let attempt = 1; attempt <= pollMaxAttempts; attempt += 1) {
+    if (job.status === "completed") break;
+    if (terminalErr.has(job.status)) {
+      const detail =
+        typeof job.error === "string"
+          ? job.error
+          : job.error?.message ?? `video job ${job.status}`;
+      const err = new Error(`OpenRouter video ${job.status}: ${detail}`);
+      await logFailure(input, "openrouter", model, "video", body, err, t0);
+      throw err;
+    }
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+    const pollUrl = job.polling_url
+      ? new URL(job.polling_url, "https://openrouter.ai").toString()
+      : `https://openrouter.ai/api/v1/videos/${job.id}`;
+    const pollResp = await fetch(pollUrl, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: input.signal,
+    });
+    if (!pollResp.ok) {
+      const text = await pollResp.text().catch(() => "");
+      const err = new Error(`OpenRouter video poll ${pollResp.status}: ${text.slice(0, 500)}`);
+      await logFailure(input, "openrouter", model, "video", body, err, t0);
+      throw err;
+    }
+    job = (await pollResp.json()) as VideoJob;
+  }
+
+  if (job.status !== "completed") {
+    const err = new Error(
+      `OpenRouter video did not complete after ${pollMaxAttempts} polls (${pollIntervalMs}ms each); last status: ${job.status}`
+    );
+    await logFailure(input, "openrouter", model, "video", body, err, t0);
+    throw err;
+  }
+
+  const dest = assetPath(input.projectId, "videos", `${input.slot}.mp4`);
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  const downloadUrl =
+    job.unsigned_urls?.[0] ??
+    `https://openrouter.ai/api/v1/videos/${job.id}/content?index=0`;
+  const dl = await fetch(downloadUrl, {
+    headers: downloadUrl.startsWith("https://openrouter.ai/")
+      ? { Authorization: `Bearer ${apiKey}` }
+      : undefined,
+    signal: input.signal,
+  });
+  if (!dl.ok) {
+    const text = await dl.text().catch(() => "");
+    const err = new Error(`OpenRouter video download ${dl.status}: ${text.slice(0, 200)}`);
+    await logFailure(input, "openrouter", model, "video", body, err, t0);
+    throw err;
+  }
+  const buf = Buffer.from(await dl.arrayBuffer());
+  await fs.writeFile(dest, buf);
 
   const pricePerSec = VIDEO_PRICE_PER_SEC[model] ?? 0.14;
   const result: GenerateResult = {
-    url,
-    localPath,
+    url: downloadUrl,
+    localPath: dest,
     costUsd: pricePerSec * input.durationSec,
     latencyMs: Date.now() - t0,
     model,
@@ -228,14 +340,30 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     provider: "openrouter",
     endpoint: model,
     kind: "video",
-    input: { prompt: input.prompt, duration_sec: input.durationSec, image: input.image },
-    output: { url, local: localPath },
+    input: {
+      prompt: input.prompt,
+      duration_sec: input.durationSec,
+      aspect_ratio: aspectRatio,
+      resolution,
+      image: input.image ? "[ref-supplied]" : undefined,
+    },
+    output: { url: downloadUrl, local: dest, job_id: job.id },
     status: "ok",
     latency_ms: result.latencyMs,
     cost_usd: result.costUsd,
     note: input.note ?? input.slot,
   });
   return result;
+}
+
+async function resolveImageRef(ref: string): Promise<string> {
+  if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
+    return ref;
+  }
+  const buf = await fs.readFile(ref);
+  const ext = path.extname(ref).slice(1).toLowerCase();
+  const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "webp" ? "image/webp" : "image/png";
+  return `data:${mime};base64,${buf.toString("base64")}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -416,6 +544,26 @@ async function downloadTo(url: string, dest: string): Promise<string> {
   const buf = Buffer.from(await resp.arrayBuffer());
   await fs.writeFile(dest, buf);
   return dest;
+}
+
+async function writeImageFromUrlOrDataUri(
+  urlOrDataUri: string,
+  dest: string
+): Promise<string> {
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  if (urlOrDataUri.startsWith("data:")) {
+    const comma = urlOrDataUri.indexOf(",");
+    if (comma === -1) throw new Error("Malformed data: URI in image response");
+    const meta = urlOrDataUri.slice(5, comma);
+    const payload = urlOrDataUri.slice(comma + 1);
+    const isBase64 = /;base64$/i.test(meta);
+    const buf = isBase64
+      ? Buffer.from(payload, "base64")
+      : Buffer.from(decodeURIComponent(payload), "utf8");
+    await fs.writeFile(dest, buf);
+    return dest;
+  }
+  return downloadTo(urlOrDataUri, dest);
 }
 
 async function logFailure(
