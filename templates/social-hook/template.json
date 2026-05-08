@@ -1,0 +1,56 @@
+{
+  "name": "Social Hook",
+  "slug": "social-hook",
+  "kind": "vibe-style",
+  "description": "TikTok-first scroll-stoppers: 6-15s, 9:16, every frame engineered to defeat the swipe. Built around the first-3-second rule (retention gate) — pattern interrupt + curiosity gap + sound shock loaded into the opening beats. The hook is the entire product; the rest of the clip is just delivery on the promise. Optimized for completion-rate and watch-loop, not for narrative. Hook angle (gatekeep / skeptic / fail / visual-shock / transformation-tease) is the primary axis of variation; everything else (subject, niche, voice) flexes.",
+  "tags": [
+    "hook",
+    "scroll-stop",
+    "tiktok",
+    "reels",
+    "shorts",
+    "viral",
+    "short-form",
+    "first-3-seconds",
+    "pattern-interrupt",
+    "curiosity-gap",
+    "ugc",
+    "social"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [6, 15],
+  "typicalClipCount": [1, 3],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-07T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — 1-3 keyframes max. The single most important frame is frame 0 (the thumbnail / first-glance frame). Optimize that one ruthlessly; others can be looser.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips. Most hooks are 1 clip (6s) or 2 clips (10-12s). generate_audio: false — sound is layered in composition.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2. Optional — many hooks are visual+SFX-only. When present: short, punchy, lands inside the first 1.5s. Conversational, not corporate.",
+    "captions": "OpenRouter whisper-1 + HormoziCaptions or BoldImpactCaptions. Text overlay is expected on TikTok — at least one bold sans-serif word/phrase appearing with motion at 0.3-0.7s.",
+    "music": "ElevenLabs Music — single track with a hard hit/drop at the hook resolve frame (typically 1.5-2s). Or strategic silence into a single stab. Sound is 50% of the impact."
+  },
+  "constants": {
+    "vibeAnchor": "first-three-seconds-or-die",
+    "structure": "0-0.3s attention grab → 0.3-1.5s curiosity build → 1.5-3s commitment moment → rest is payoff",
+    "audioRule": "audio starts within first 0.5s, never silent-then-add",
+    "textOverlayTiming": "first text 0.3-0.7s, second text (if any) 1.2-1.5s"
+  },
+  "variationAxes": [
+    "hook angle (gatekeep / skeptic / fail / visual-shock / curiosity / transformation-tease / direct-address)",
+    "first-frame stimulus (impossible-physics / extreme-close-up / freeze-frame-break / glitch / cute-overload / reaction-face)",
+    "voice presence (silent+SFX / single-line VO / direct-address question / ASMR-whisper)",
+    "text overlay style (HORMOZI-shout / minimal-question / command-word like WAIT/LOOK/STOP)",
+    "category (comedy / educational / satisfying-ASMR / transformation / BTS / reaction / storytime / lifestyle)"
+  ],
+  "doNotCopyLiterally": "Specific hook text, exact timing milliseconds, niche subject. The pattern (interrupt → gap → commit) is the reusable part. Hook lines like 'WAIT FOR IT' are dead clichés in 2026 — borrow the timing structure, write fresh copy.",
+  "requiresUserReference": false,
+  "referenceNotes": "No reference required — hooks are pure pattern. If the user provides a brand / person / product reference, treat it as a regular reference (apply the named-entity gate from AGENTS.md rule #3). Otherwise, the AI is free to invent visuals."
+}

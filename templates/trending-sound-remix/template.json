@@ -62,5 +62,5 @@
   ],
   "doNotCopyLiterally": "The trending sound itself, exact text overlay, and the niche subject. Vibe and structure only — the structure is evergreen, the sound is throwaway.",
   "requiresUserReference": true,
-  "referenceNotes": "Trending audio is REQUIRED and ephemeral (3-7 days to peak). The user must supply EITHER (a) a TikTok/Reels URL the agent pulls audio from via `ralphy ref pull --url <url> --audio-only`, OR (b) a direct audio file dropped at `workspace/projects/<id>/assets/uploaded/`. AI cannot auto-detect the current trend (training is stale) and cannot license a song on the user's behalf. If the audio is post-peak (>48h after it started trending), refuse and recommend `10-music-video` for original-music formats."
+  "referenceNotes": "Trending audio is REQUIRED and ephemeral (3-7 days to peak). The user must supply EITHER (a) a TikTok/Reels URL the agent pulls audio from via `ralphy ref pull --url <url> --audio-only`, OR (b) a direct audio file dropped at `workspace/projects/<id>/assets/uploaded/`. AI cannot auto-detect the current trend (training is stale) and cannot license a song on the user's behalf. If the audio is post-peak (>48h after it started trending), refuse and recommend `music-video` for original-music formats."
 }

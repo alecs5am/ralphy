@@ -14,7 +14,7 @@ Try-on is the highest-converting UGC format for fashion / beauty / eyewear / acc
 2. **Decision-friction reduction.** A single product shot makes the viewer wonder "but does the next color look better?" — and they leave to check. Multi-variant in the same reel keeps the decision inside the video. They pick a favorite, not whether to keep watching.
 3. **Multi-variant in <30s = "decide", not "browse".** The classic carousel says "here are 12 colors." Try-on says "here are 5, the last one is the one." Format implies a recommendation. That cuts decision fatigue in half.
 
-This is not a lookbook (`/13-fashion-lookbook` for editorial slowness). This is conversion. Beat-snap cuts, readable price overlay, decisive winner pose at the end.
+This is not a lookbook (`/fashion-lookbook` for editorial slowness). This is conversion. Beat-snap cuts, readable price overlay, decisive winner pose at the end.
 
 ## Vibe anchors
 
@@ -92,8 +92,8 @@ If the brief is generic (no brand, no SKU), proceed and log as `stage: "no-ref-c
 
 ## When NOT to use
 
-- **Editorial slowness / single hero garment** — use `/13-fashion-lookbook`. Try-on is fast and conversion-first; lookbook is mood and brand-first.
-- **Single product variant only** — use `/09-product-360` or `/07-ecommerce-ad`. Try-on requires ≥3 variants to justify the format.
+- **Editorial slowness / single hero garment** — use `/fashion-lookbook`. Try-on is fast and conversion-first; lookbook is mood and brand-first.
+- **Single product variant only** — use `/product-360` or `/ecommerce-ad`. Try-on requires ≥3 variants to justify the format.
 - **Pure problem → solution storytelling** — use `/before-after-product`. Try-on has no pain point; it has a choice.
 - **Service / SaaS / non-physical** — there is nothing to try on.
 - **Length > 30s** — variant fatigue. Either cut variants or split into a series.
@@ -111,7 +111,7 @@ If the brief is generic (no brand, no SKU), proceed and log as `stage: "no-ref-c
 | Render | local | $0 |
 | **Total** | | **~$2.30 - $3.85** |
 
-Cheaper than `/13-fashion-lookbook` because clips are shorter (2-3s vs 5s). The cost driver is variant count — 7-variant tier-list runs hit ~$4.
+Cheaper than `/fashion-lookbook` because clips are shorter (2-3s vs 5s). The cost driver is variant count — 7-variant tier-list runs hit ~$4.
 
 ## Read also
 
