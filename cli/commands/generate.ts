@@ -25,6 +25,45 @@ import {
   validateVideoParams,
   estimateVideoCostUsd,
 } from "../lib/or-catalog.js";
+import { enqueueGenerate } from "../lib/jobs/enqueue.js";
+import type { JobKind } from "../lib/jobs/types.js";
+
+const QUEUE_FLAGS = (cmd: Command): Command =>
+  cmd
+    .option(
+      "--queue",
+      "Enqueue this generation as a daemon job and return its job id immediately (does not wait)",
+      false,
+    )
+    .option(
+      "--depends-on <ids>",
+      "Comma-separated list of job ids this enqueued job waits on (only meaningful with --queue)",
+    )
+    .option(
+      "--queue-tag <tag>",
+      "Tag attached to the enqueued job (filterable in `queue list`)",
+    )
+    .option(
+      "--queue-priority <n>",
+      "Priority bumped by the daemon when picking among same-state pending jobs",
+      (v) => parseInt(v, 10),
+    );
+
+function maybeEnqueue(opts: any, kind: JobKind, project: string | undefined): boolean {
+  const id = enqueueGenerate(
+    {
+      queue: opts.queue,
+      dependsOn: opts.dependsOn,
+      tag: opts.queueTag,
+      priority: opts.queuePriority,
+      project,
+    },
+    kind,
+  );
+  if (id == null) return false;
+  out({ queued: true, id, kind, project: project ?? null });
+  return true;
+}
 
 const SLOT_REGEX = /^[a-z0-9-]+$/;
 
@@ -83,7 +122,7 @@ export function generateCmd() {
   const cmd = new Command("generate").description("Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.");
 
   // ── image ───────────────────────────────────────────────────────────────
-  cmd
+  const imageCmd = cmd
     .command("image")
     .description("Generate one image via OpenRouter (default: gemini-3-pro-image-preview)")
     .requiredOption("--project <id>", "Project ID")
@@ -104,6 +143,7 @@ export function generateCmd() {
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
+      if (maybeEnqueue(opts, "generate.image", opts.project)) return;
       const result = await generateImage({
         projectId: opts.project,
         slot: opts.slot,
@@ -133,8 +173,10 @@ export function generateCmd() {
       });
     });
 
+  QUEUE_FLAGS(imageCmd);
+
   // ── video ───────────────────────────────────────────────────────────────
-  cmd
+  const videoCmd = cmd
     .command("video")
     .description("Generate one video via OpenRouter (default: kling-v3.0-pro)")
     .requiredOption("--project <id>", "Project ID")
@@ -177,6 +219,7 @@ export function generateCmd() {
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
+      if (maybeEnqueue(opts, "generate.video", opts.project)) return;
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
       const lastFrameRef = opts.lastFrame;
@@ -258,8 +301,10 @@ export function generateCmd() {
       });
     });
 
+  QUEUE_FLAGS(videoCmd);
+
   // ── voiceover ───────────────────────────────────────────────────────────
-  cmd
+  const voCmd = cmd
     .command("voiceover")
     .description("Generate voiceover via ElevenLabs (default: eleven_multilingual_v2)")
     .requiredOption("--project <id>", "Project ID")
@@ -271,6 +316,7 @@ export function generateCmd() {
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
+      if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
       const result = await generateVoiceover({
         projectId: opts.project,
         slot: opts.slot,
@@ -296,8 +342,10 @@ export function generateCmd() {
       });
     });
 
+  QUEUE_FLAGS(voCmd);
+
   // ── music ───────────────────────────────────────────────────────────────
-  cmd
+  const musicCmd = cmd
     .command("music")
     .description("Generate music bed via ElevenLabs Music (instrumental by default)")
     .requiredOption("--project <id>", "Project ID")
@@ -309,6 +357,7 @@ export function generateCmd() {
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
+      if (maybeEnqueue(opts, "generate.music", opts.project)) return;
       const result = await generateMusic({
         projectId: opts.project,
         slot: opts.slot,
@@ -334,6 +383,8 @@ export function generateCmd() {
         latencyMs: result.latencyMs,
       });
     });
+
+  QUEUE_FLAGS(musicCmd);
 
   // ── captions ────────────────────────────────────────────────────────────
   cmd
