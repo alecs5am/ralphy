@@ -8,8 +8,9 @@ Autonomous UGC-video generation: agent + Remotion + OpenRouter media + ElevenLab
 
 Routing and the hard "read the playbook before acting" rule live in `AGENTS.md` (auto-loaded above). **That file is the entry point for every user request.** This file is for repo orientation only.
 
-Three companion files the agent should also keep in mind:
+Four companion files the agent should also keep in mind:
 - `MODELS.md` — read before every model call. Claude's training is stale.
+- `CLI.md` — `ralphy` command surface cheatsheet. Read before running an unfamiliar verb / flag.
 - `docs/use-cases.md` — canonical utterances, useful when the routing match is ambiguous.
 - `docs/playbooks/README.md` — index of all playbooks.
 
