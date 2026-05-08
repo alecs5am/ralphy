@@ -58,15 +58,15 @@ The structure is **evergreen**. The sound is **throwaway**. Only the structure g
 
 If no audio source is supplied:
 
-> "This template needs a trending sound — drop a TikTok/Reels link or an audio file. I can't auto-pick a current trend (my training is stale) and I can't license a song on your behalf. If you want an original-music format, use `10-music-video` instead."
+> "This template needs a trending sound — drop a TikTok/Reels link or an audio file. I can't auto-pick a current trend (my training is stale) and I can't license a song on your behalf. If you want an original-music format, use `music-video` instead."
 
 ## When NOT to use
 
-- **Audio is licensed / copyrighted on YOUR account.** Original / commercial accounts get muted on TikTok. Use `10-music-video` for original-music formats.
+- **Audio is licensed / copyrighted on YOUR account.** Original / commercial accounts get muted on TikTok. Use `music-video` for original-music formats.
 - **Post window > 48h after trend peak.** The sound is dead; you'll just be a late entry. Either pick a fresher trend or use a different template.
 - **Your niche has no visual answer to this audio.** If you can't write a one-line "your angle" without straining, the remix won't land. Pick a different sound.
 - **Long-form (>30s).** This format is for tight, beat-locked clips. Past 25s the audio loop becomes obvious and tension drops.
-- **Brand-storytelling.** This is a reach format, not a brand-narrative format. Use `12-brand-story`.
+- **Brand-storytelling.** This is a reach format, not a brand-narrative format. Use `brand-story`.
 
 ## Cost ballpark
 

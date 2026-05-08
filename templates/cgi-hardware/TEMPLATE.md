@@ -24,7 +24,7 @@ Industrial-design language is the de-facto luxury-tech vocabulary in 2025-26. Th
 2. **"They really care about quality" implication.** A camera move that lingers on a port chamfer or stitching transition tells the viewer: someone designed every millimeter. That trust bleeds straight into purchase intent.
 3. **Apple / TE / Nothing aesthetic = shorthand for taste.** When a clip uses the same compositional grammar as a keynote, the viewer's brain auto-complete fills in "this brand is at that level". Borrowed credibility, instantly.
 
-This template is a **vocabulary pack and master template** for that aesthetic. Use it as scaffolding, not a script. The split from generic `02-3d-cgi`: this template is hardware-product-specific. The split from `09-product-360`: more cinematic, less rotation-heavy. The split from `cgi-architecture`: hardware in the hand, not buildings in space.
+This template is a **vocabulary pack and master template** for that aesthetic. Use it as scaffolding, not a script. The split from generic `3d-cgi`: this template is hardware-product-specific. The split from `product-360`: more cinematic, less rotation-heavy. The split from `cgi-architecture`: hardware in the hand, not buildings in space.
 
 ## Vibe anchors
 
@@ -81,9 +81,9 @@ This template is **reference-required**. Before any generation:
 
 ## When NOT to use
 
-- **Non-tech physical product** (shoes, bags, cosmetics, fashion) → use `09-product-360` or `07-ecommerce-ad`. Industrial-design language is wrong vocabulary for soft-goods.
+- **Non-tech physical product** (shoes, bags, cosmetics, fashion) → use `product-360` or `ecommerce-ad`. Industrial-design language is wrong vocabulary for soft-goods.
 - **Architecture / spatial product** (building reveals, interior fly-throughs, real-estate hero) → use `cgi-architecture`. This template is hand-held-scale.
-- **Food / beverage** → use `14-food-beverage`. Different lighting language, different motion grammar.
+- **Food / beverage** → use `food-beverage`. Different lighting language, different motion grammar.
 - **Software / SaaS / digital-only product** → use `before-after-product` or a screen-recording template. CGI hardware demands a physical object.
 - **"Show how it works" functional demo** → CGI hardware shows what it IS and how it FEELS, not what it does. Pair with or replace by a demo template.
 - **Real-person UGC** → wrong template family entirely.
