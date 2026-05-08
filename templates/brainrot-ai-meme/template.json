@@ -64,5 +64,16 @@
   ],
   "doNotCopyLiterally": "VO script, exact gameplay clip, channel name, niche framing. Vibe and structural reference only. Always swap the gameplay source to one the user owns or has rights to.",
   "requiresUserReference": true,
-  "referenceNotes": "This format depends on a gameplay-loop background. The user must supply a clip (Subway Surfers / Minecraft Parkour / GTA / Rocket League / similar hypnotic gameplay), or explicitly sanction a generic placeholder from a royalty-free pack at workspace/projects/<id>/assets/uploaded/gameplay-loop.mp4. Without it, /ralph-art-director refuses (AGENTS.md hard rule #3) — AI-improvised gameplay reads as obviously fake and kills the format. If the brief names a specific real person, brand, or copyrighted IP for the top-half narrative, a reference for that subject is also required."
+  "referenceNotes": "This format depends on a gameplay-loop background. The user can supply their own clip (Subway Surfers / Minecraft Parkour / GTA / Rocket League / similar hypnotic gameplay), OR fall back to the default CS:GO surf loop that auto-pulls from the ralphy-assets companion repo (see assets.csSurfLoop below). Without either, /ralph-art-director refuses (AGENTS.md hard rule #3) — AI-improvised gameplay reads as obviously fake and kills the format. If the brief names a specific real person, brand, or copyrighted IP for the top-half narrative, a reference for that subject is also required.",
+  "assets": {
+    "csSurfLoop": {
+      "remote": true,
+      "manifestKey": "brainrot-ai-meme/cs-surf-loop.mp4",
+      "destSubdir": "assets/uploaded",
+      "destFilename": "gameplay-loop.mp4",
+      "durationSec": 56.0,
+      "required": false,
+      "note": "Default CS:GO surf gameplay loop — 1080x960, neon-ramps, hypnotic forward motion. Auto-pulled from the ralphy-assets companion repo at scaffold time and copied to assets/uploaded/gameplay-loop.mp4. Satisfies the reference-required gate when the user does not supply their own gameplay clip. Override by dropping a different file at the same path before render."
+    }
+  }
 }
