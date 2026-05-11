@@ -90,17 +90,17 @@ If the brief mentions a real named person (CEO, celebrity, public figure):
 | Stage | Detail | Cost |
 |---|---|---|
 | Persona keyframe | 1 × `gemini-3-pro-image-preview` @ $0.15 (one-time per project) | ~$0.15 |
-| Talking-head video | veo-3.1-fast chained 8s clips, image-conditioned + audio: ~$0.25/clip × N clips (60s ≈ 8 clips → ~$2.00; 90s ≈ 12 clips → ~$3.00). RU/UA/non-EN langs need `--audio-mode silent` and ElevenLabs VO at compose time. | ~$2.00 |
+| Talking-head video | veo-3.1-fast chained 8s clips, image-conditioned: $0.14/s billed (verified 2026-05-11). 60s ≈ 8 clips → ~$9; 90s ≈ 12 clips → ~$13. For non-EN/zh langs, render silent and mix ElevenLabs VO at compose time. | ~$9 |
 | Optional B-roll | 1-2 × `kling-v3.0-pro` × 5s @ $0.14/s | $0.70 - $1.40 |
 | VO | 1 ElevenLabs call per language (subscription) | $0 |
 | Captions | 1 × whisper-1 per language | ~$0.001 |
 | Music (optional) | 1 ElevenLabs Music call (subscription) | $0 |
 | Render | local | $0 |
-| **Total (single language, no B-roll, 60s)** | | **~$2.15** |
-| **Total (single language, 2 cutaways, 60s)** | | **~$3.55** |
-| **Total (10 languages, no B-roll, 60s each)** | | **~$20.15** (one keyframe amortized + 10 × $2.00) |
+| **Total (single language, no B-roll, 60s)** | | **~$9.15** |
+| **Total (single language, 2 cutaways, 60s)** | | **~$10.55** |
+| **Total (10 languages, no B-roll, 60s each)** | | **~$90** (one keyframe amortized + 10 × $9) |
 
-Multilingual scaling is the killer-app cost story — even at veo-3.1-fast pricing, 10 markets ≈ $20 is 100-1000× cheaper than human dubbing studios. Drop to `veo-3.1-lite` ($0.15/clip) for high-volume batches where lip-sync quality can step down.
+Multilingual scaling at veo-3.1-fast pricing is **~$9 per language for the talking-head layer** — 10× the earlier FAL-era estimate. Still 10-100× cheaper than human dubbing, but no longer "trivially cheap". Drop to `veo-3.1-lite` (~$0.09/s → ~$5.40/language) for high-volume batches where lip-sync quality can step down. See `docs/render-test-2026-05-11.md` §1.1 for the empirical pricing audit that produced these numbers.
 
 ## Read also
 

@@ -198,11 +198,28 @@ export type GenerateVideoInput = CommonInput & {
 };
 
 const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
-// Per-second cost per-model (ballpark from MODELS.md). Refine if provider returns billed cost.
+// Per-second cost per-model. Empirically verified against OpenRouter billing on
+// 2026-05-11 — see docs/render-test-2026-05-11.md §1.1. OR bills per-clip with
+// a flat per-second rate per model; the per-second math here matches observed
+// billing across duration parameters. Add a row whenever a new model is used,
+// or `cli/lib/providers/media.ts:reportGenerationCost` reports null.
 const VIDEO_PRICE_PER_SEC: Record<string, number> = {
+  // kling family — both pro and std bill at the same per-second rate on OR
   "kwaivgi/kling-v3.0-pro": 0.14,
-  "google/veo-3.1": 0.5,
-  "bytedance/seedance-2.0": 0.1,
+  "kwaivgi/kling-v3.0-std": 0.14,   // verified 2026-05-11: $0.70 / 5s clip (not "½ of pro" — same rate)
+  "kwaivgi/kling-video-o1": 0.14,
+  // veo family
+  "google/veo-3.1": 0.5,             // full / 4K
+  "google/veo-3.1-fast": 0.14,       // verified 2026-05-11: $1.12 / 8s clip
+  "google/veo-3.1-lite": 0.0875,     // ballpark from MODELS.md; verify in next test-drive
+  // seedance family
+  "bytedance/seedance-2.0": 0.14,        // verified 2026-05-11 — match family rate, not earlier $0.10/s
+  "bytedance/seedance-2.0-fast": 0.14,   // verified 2026-05-11: $0.56 / 4s clip
+  // alibaba wan family — using MODELS.md ballparks, verify on first use
+  "alibaba/wan-2.6": 0.10,
+  "alibaba/wan-2.7": 0.10,
+  // minimax
+  "minimax/hailuo-2.3": 0.10,
 };
 
 export async function generateVideo(input: GenerateVideoInput): Promise<GenerateResult> {

@@ -326,17 +326,38 @@ export function templateCmd() {
         `This project was scaffolded from template \`${id}\`.`,
       ];
       if (ref.kind === "dir") {
+        // Only reference files that ACTUALLY EXIST in the template dir. Earlier
+        // versions hardcoded the vibe-reference 4-file list (reference-example /
+        // fragments / model-stack / composition .md) even for vibe-style templates
+        // that don't ship those files. Detected in render-test 2026-05-11 §3.4.
+        const relPath = path.relative(projDir, ref.dir);
+        const candidates: Array<[string, string]> = [
+          ["TEMPLATE.md", "vibe, narrative shape, required inputs"],
+          ["hooks.md", "0-2s hook patterns + anti-patterns"],
+          ["prompt-cookbook.md", "model-layer prompts + worked examples + camera vocabulary"],
+          ["characters.md", "canonical character roster (italian-brainrot only)"],
+          ["composition.md", "Remotion composition pattern (vibe-reference)"],
+          ["fragments.md", "reusable prompt fragments (vibe-reference)"],
+          ["model-stack.md", "model choices + what to avoid (vibe-reference)"],
+          ["reference-example.md", "concrete reference from the original project (vibe-reference)"],
+          ["examples.md", "worked variant examples"],
+        ];
+        const present: Array<[string, string]> = [];
+        for (const [fname, desc] of candidates) {
+          try {
+            await fs.access(path.join(ref.dir, fname));
+            present.push([fname, desc]);
+          } catch { /* file not in this template — skip */ }
+        }
+        if (present.length > 0) {
+          originLines.push(``, `**Read these before writing the scenario:**`, ``);
+          for (const [fname, desc] of present) {
+            originLines.push(`- \`${relPath}/${fname}\` — ${desc}`);
+          }
+          originLines.push(``);
+        }
         originLines.push(
-          ``,
-          `**Read these before writing the scenario:**`,
-          ``,
-          `- \`${path.relative(projDir, ref.dir)}/TEMPLATE.md\` — vibe, narrative shape, required inputs`,
-          `- \`${path.relative(projDir, ref.dir)}/reference-example.md\` — concrete reference from the original project (if present)`,
-          `- \`${path.relative(projDir, ref.dir)}/fragments.md\` — reusable prompt fragments`,
-          `- \`${path.relative(projDir, ref.dir)}/model-stack.md\` — model choices + what to avoid`,
-          `- \`${path.relative(projDir, ref.dir)}/composition.md\` — Remotion composition pattern`,
-          ``,
-          `The scenario should be written by \`/ralph-ugc:create-scenario\` using the template as vibe reference — do not mechanically copy structure. Line count, clip count, and beat structure can vary per project.`,
+          `Template kind: \`${(meta as any)?.kind ?? "dir"}\`. The scenario should be written by \`/ralph-ugc:create-scenario\` using the template as vibe reference — do not mechanically copy structure. Line count, clip count, and beat structure can vary per project.`,
         );
       }
       await fs.writeFile(path.join(projDir, "TEMPLATE_ORIGIN.md"), originLines.join("\n") + "\n");
