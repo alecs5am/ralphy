@@ -16,6 +16,18 @@ import {
   BrainrotAIMemeDefaults,
   brainrotMemeCalculateMetadata,
 } from "./lib/templates/BrainrotAIMeme";
+import { AiAvatar, AiAvatarDefaults, aiAvatarCalculateMetadata } from "./lib/templates/AiAvatar";
+import {
+  TutorialHowTo,
+  TutorialHowToDefaults,
+  tutorialHowToCalculateMetadata,
+} from "./lib/templates/TutorialHowTo";
+import { Grwm, GrwmDefaults, grwmCalculateMetadata } from "./lib/templates/Grwm";
+import {
+  PodcastClip,
+  PodcastClipDefaults,
+  podcastClipCalculateMetadata,
+} from "./lib/templates/PodcastClip";
 
 const CAPTION_STYLES = [
   { id: "TikTokCaptions", style: "tiktok" as const, label: "TikTok — green word highlight" },
@@ -80,6 +92,42 @@ export const RemotionRoot: React.FC = () => {
           height={1920}
           defaultProps={BrainrotAIMemeDefaults}
           calculateMetadata={brainrotMemeCalculateMetadata}
+        />
+        <Composition
+          id="AiAvatar"
+          component={AiAvatar}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={AiAvatarDefaults}
+          calculateMetadata={aiAvatarCalculateMetadata}
+        />
+        <Composition
+          id="TutorialHowTo"
+          component={TutorialHowTo}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={TutorialHowToDefaults}
+          calculateMetadata={tutorialHowToCalculateMetadata}
+        />
+        <Composition
+          id="Grwm"
+          component={Grwm}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={GrwmDefaults}
+          calculateMetadata={grwmCalculateMetadata}
+        />
+        <Composition
+          id="PodcastClip"
+          component={PodcastClip}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={PodcastClipDefaults}
+          calculateMetadata={podcastClipCalculateMetadata}
         />
       </Folder>
 
