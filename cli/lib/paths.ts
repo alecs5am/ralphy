@@ -61,6 +61,14 @@ export function referencesDir() {
   return path.join(workspace(), "references");
 }
 
+// Topic-level research output (cross-source synthesis).
+// `references/` holds per-URL raw artifacts; `research/<topic>/` holds the
+// final report + sources.json + per-topic state. The two live side-by-side
+// so a single reference can be cited from multiple topics without copying.
+export function researchDir() {
+  return path.join(workspace(), "research");
+}
+
 // Per-workspace cache for assets pulled from ralphy-assets (gitignored).
 // Layout: <cache>/manifest.json + <cache>/required/<template>/<file>
 export function assetCacheDir() {
