@@ -42,28 +42,30 @@ Endpoint: **async-job pattern** at `POST /api/v1/videos`. Submit returns `{ id, 
 
 Always re-check via `ralphy models list` — these arrays change.
 
-| Model | Durations (s) | Resolutions | Aspects | Frame anchors | $/sec ballpark |
+| Model | Durations (s) | Resolutions | Aspects | Frame anchors | $/sec billed |
 |---|---|---|---|---|---|
-| `kwaivgi/kling-v3.0-pro` | 3-15 | 720p | 9:16, 16:9, 1:1 | first + last | ~$0.14 |
-| `kwaivgi/kling-v3.0-std` | 3-15 | 720p | 9:16, 16:9, 1:1 | first + last | ~$0.07 |
+| `kwaivgi/kling-v3.0-pro` | 3-15 | 720p | 9:16, 16:9, 1:1 | first + last | $0.14 ✓ |
+| `kwaivgi/kling-v3.0-std` | 3-15 | 720p | 9:16, 16:9, 1:1 | first + last | $0.14 ✓ (not ½ pro — same rate) |
 | `kwaivgi/kling-video-o1` | 5, 10 | 720p | 9:16, 16:9, 1:1 | first + last | ~$0.14 |
 | `google/veo-3.1` | 4, 6, 8 | 720p, 1080p | 9:16, 16:9 | first + last | ~$0.50 |
-| `google/veo-3.1-fast` | 4, 6, 8 | 720p, 1080p, 4K | 9:16, 16:9 | first + last | ~$0.25 |
-| `google/veo-3.1-lite` | 4, 6, 8 | 720p, 1080p | 9:16, 16:9 | first + last | ~$0.15 |
+| `google/veo-3.1-fast` | 4, 6, 8 | 720p, 1080p, 4K | 9:16, 16:9 | first + last | $0.14 ✓ (was ~$0.25 — wrong) |
+| `google/veo-3.1-lite` | 4, 6, 8 | 720p, 1080p | 9:16, 16:9 | first + last | ~$0.09 |
 | `openai/sora-2-pro` | model-dep | model-dep | model-dep | model-dep | ~$0.50 |
 | `minimax/hailuo-2.3` | 6, 10 | 1080p | **16:9 only** | first only | ~$0.10 |
 | `alibaba/wan-2.6` | 5, 10 | 720p, 1080p | 9:16, 16:9 | first only | ~$0.10 |
 | `alibaba/wan-2.7` | 2-10 | 720p, 1080p | 9:16, 16:9, 1:1, 4:3, 3:4 | first + last | ~$0.10 |
-| `bytedance/seedance-2.0` | 4-15 | 480p, 720p, 1080p | **7 aspects incl 21:9 cinema** | first + last | ~$0.10 |
-| `bytedance/seedance-2.0-fast` | 4-15 | 480p, 720p | 7 aspects | first + last | ~$0.05 |
+| `bytedance/seedance-2.0` | 4-15 | 480p, 720p, 1080p | **7 aspects incl 21:9 cinema** | first + last | $0.14 ✓ |
+| `bytedance/seedance-2.0-fast` | 4-15 | 480p, 720p | 7 aspects | first + last | $0.14 ✓ (was ~$0.05 — wrong) |
 | `bytedance/seedance-1-5-pro` | 4-12 | 480p, 720p, 1080p | 7 aspects | first + last | ~$0.10 |
+
+> **Pricing reality check (2026-05-11):** OpenRouter bills video generation **per-clip flat** — the duration parameter sets the clip length, the billed cost ≈ rate × duration. A `✓` in the rate column means the rate was empirically verified against actual OR billing on 2026-05-11 (see `docs/render-test-2026-05-11.md` §1.1). Earlier docs claimed half-price std and per-second steps that didn't match observation; those have been corrected here and in `cli/lib/providers/media.ts:VIDEO_PRICE_PER_SEC`. Models without `✓` are ballparks from the OR catalog — verify on first use and add `✓` once confirmed.
 
 ### When to pick which
 
 | You need | Pick |
 |---|---|
 | **Default narrative i2v**, character consistency, hold a keyframe | `kwaivgi/kling-v3.0-pro` |
-| **Cheap batch** (≥10 clips) where keyframe drift is acceptable | `kwaivgi/kling-v3.0-std` (½ the price) |
+| **Cheap batch** (≥10 clips) where keyframe drift is acceptable | `kwaivgi/kling-v3.0-std` (NOTE: same per-second price as pro on OR — go to `veo-3.1-lite` for the real cheap-batch tier) |
 | **Talking-head / face / lip-sync style** | `google/veo-3.1` (model-native audio with `--audio` works in EN; **off for RU/UA** — only Chinese + English are clean) |
 | **4K** mastered hero piece | `google/veo-3.1-fast` (only model in catalog with 4K) |
 | **Sharp physics motion** (parkour, sports, falling) | `bytedance/seedance-2.0` (also the only path to 21:9 cinema aspect) |
