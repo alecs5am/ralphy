@@ -214,7 +214,7 @@ templates/<id>/  (repo)   ─OR─   workspace/templates/<id>/  (local)
 
 **Principle:** a template is a vibe-reference. The scenario is written fresh through `scenarist playbook` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
 
-**Canonical example:** `templates/soviet-nostalgic/` (repo).
+**Canonical example:** `templates/entertainment-viral/soviet-nostalgic/` (repo).
 
 **Storage:** flat — `<root>/<id>.json`; dir — `<root>/<id>/`. `<root>` is `templates/` (repo, read-only via CLI) or `workspace/templates/` (local, mutable).
 
@@ -402,7 +402,7 @@ ralph template create --name "Product Ad" --from-project working-example
 # Scenarios for each new project are written fresh through /ralph-ugc:create-scenario.
 ```
 
-See `workspace/templates/soviet-nostalgic/` as a model.
+See `workspace/templates/entertainment-viral/soviet-nostalgic/` as a model.
 
 ### Bulk generation
 
