@@ -1,6 +1,6 @@
 # Use cases — what good looks like
 
-Canonical user-utterance → expected-flow → expected-output triples. The skills and the chat itself should respond according to this table. If a user's request matches a row here, the flow is deterministic. If it doesn't, fall back to `/ralph-producer` with a clarifying question.
+Canonical user-utterance → expected-flow → expected-output triples. The skills and the chat itself should respond according to this table. If a user's request matches a row here, the flow is deterministic. If it doesn't, fall back to `producer playbook` with a clarifying question.
 
 > **Definition of "good":** a finished mp4 at `workspace/projects/<id>/render/final.mp4`, or an explicit refusal with a concrete suggestion (not "I'll give it a shot"). Intermediate steps log to `generations.jsonl`.
 
@@ -22,8 +22,8 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 
 **Flow:**
 1. `ralphy template use ai-vegetables --project <slug>-001 --brief "<topic>"`
-2. `/ralph-art-director` → keyframe (gemini-3-pro-image-preview) → i2v (kling-v3.0-pro)
-3. `/ralph-editor` → captions (whisper-1) → render
+2. `art-director playbook` → keyframe (gemini-3-pro-image-preview) → i2v (kling-v3.0-pro)
+3. `editor playbook` → captions (whisper-1) → render
 4. `ralphy render <id>` → mp4 path
 
 **Target:** ≤8 min wall-time, ≤$8.
@@ -39,9 +39,9 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 **Flow:**
 1. `ralphy persona suggest --archetype <inferred>` or the chat proposes a default.
 2. `ralphy template use talking-head-rant`
-3. `/ralph-scenarist` → 15-20s scenario with hook in the first 3s.
-4. `/ralph-art-director` → character image → veo-3.1 talking-head.
-5. `/ralph-editor` → captions + hook screenshot overlay → render.
+3. `scenarist playbook` → 15-20s scenario with hook in the first 3s.
+4. `art-director playbook` → character image → veo-3.1 talking-head.
+5. `editor playbook` → captions + hook screenshot overlay → render.
 
 **Target:** ≤10 min, ≤$12.
 
@@ -56,9 +56,9 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 **Flow:**
 1. **Gate:** wait for the reference (see section D). Without it — refuse.
 2. `ralphy template use before-after-product --project <id>` with the reference in `assets/uploaded/`.
-3. `/ralph-scenarist` → 5s problem + 10s demo.
-4. `/ralph-art-director` → 2 keyframes → 2 i2v clips.
-5. `/ralph-editor` → captions + transition → render.
+3. `scenarist playbook` → 5s problem + 10s demo.
+4. `art-director playbook` → 2 keyframes → 2 i2v clips.
+5. `editor playbook` → captions + transition → render.
 
 **Target:** ≤10 min, ≤$10.
 
@@ -87,9 +87,9 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 **Flow:**
 1. `/ralph-researcher` → `extract-design.ts` → `workspace/references/<site-slug>/`.
 2. The chat shows the extracted palette + typography + 3 screenshots → user confirms.
-3. `/ralph-scenarist` → scenario referencing the design.
-4. `/ralph-art-director` → prompts that pass the reference screenshots into `image_urls`.
-5. `/ralph-editor` → render.
+3. `scenarist playbook` → scenario referencing the design.
+4. `art-director playbook` → prompts that pass the reference screenshots into `image_urls`.
+5. `editor playbook` → render.
 
 **Target:** ≤15 min total.
 
@@ -118,7 +118,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 **After the reference arrives:**
 - `assets/uploaded/<name>-ref.jpg` is saved.
 - `logUserAsset(id, { kind: "photo", source: ..., purpose: "persona-ref" })`.
-- `/ralph-art-director` uses the reference in `image_urls` for every keyframe.
+- `art-director playbook` uses the reference in `image_urls` for every keyframe.
 
 ### C2. A branded product
 
@@ -185,7 +185,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 - "make 10 videos in style X on different topics", "run a series of N <template> about <area>"
 
 **Flow:**
-1. `/ralph-producer` → brainstorm N non-repeating topics (LLM).
+1. `producer playbook` → brainstorm N non-repeating topics (LLM).
 2. The chat shows the list → user confirms / edits.
 3. `ralphy batch create --template <id> --topics <list>` → parallel launch of N projects via `batch-from-template`.
 4. The chat reports back as a batch: rollup of costs + final mp4 paths.
@@ -197,7 +197,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 **Utterance:**
 - "how's the batch", "status of batch <id>", "which ones came out OK"
 
-**Flow:** `/ralph-producer` → `batch-review` → table `id | status | cost | score | render_path`.
+**Flow:** `producer playbook` → `batch-review` → table `id | status | cost | score | render_path`.
 
 ---
 
@@ -208,7 +208,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 **Utterance:**
 - "make a template from <project>", "save this format for later"
 
-**Flow:** `/ralph-producer` sub-task `template-extract` → `workspace/templates/<slug>/` with all five files + `reference-example.md` populated from the source project.
+**Flow:** `producer playbook` sub-task `template-extract` → `workspace/templates/<slug>/` with all five files + `reference-example.md` populated from the source project.
 
 ### F2. "What templates do we have"
 

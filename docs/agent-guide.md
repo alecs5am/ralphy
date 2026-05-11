@@ -189,7 +189,7 @@ ralph template use soviet-nostalgic \
   --name "My Spring Ad" \
   --brief "One-line brief"
 # → workspace/projects/my-spring-ad-001/ with TEMPLATE_ORIGIN.md, standard subdirectories.
-# scenario.json is intentionally NOT created — author it through /ralph-scenarist.
+# scenario.json is intentionally NOT created — author it through scenarist playbook.
 
 # Create a flat template from an existing project (lands in workspace)
 ralph template create --name "Product Testimonial" --from-project spring-001
@@ -212,7 +212,7 @@ templates/<id>/  (repo)   ─OR─   workspace/templates/<id>/  (local)
   composition.md          — Remotion pattern (TransitionSeries, music split, VO sync)
 ```
 
-**Principle:** a template is a vibe-reference. The scenario is written fresh through `/ralph-scenarist` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
+**Principle:** a template is a vibe-reference. The scenario is written fresh through `scenarist playbook` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
 
 **Canonical example:** `templates/soviet-nostalgic/` (repo).
 

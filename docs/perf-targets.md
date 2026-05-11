@@ -1,6 +1,6 @@
 # Performance targets
 
-Hard targets for the chat — report back to the user if the estimate runs >50% over the target BEFORE starting the work. Source of truth for the `/ralph-producer` orchestration rule.
+Hard targets for the chat — report back to the user if the estimate runs >50% over the target BEFORE starting the work. Source of truth for the `producer playbook` orchestration rule.
 
 ## Single video
 

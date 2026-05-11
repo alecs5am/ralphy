@@ -6,8 +6,8 @@ Source: `dansugc/reelclaw/references/green-zone.md` + personal QA.
 
 Used by:
 - `src/lib/utils/green-zone.ts` — for Remotion compositions (`isInGreenZone`, `getTextPreset`).
-- `cli/lib/score.ts` → `scoreScenario()` — gate before handoff out of `/ralph-scenarist`.
-- `/ralph-art-director` while generating prompts.json — checks text overlay positions.
+- `cli/lib/score.ts` → `scoreScenario()` — gate before handoff out of `scenarist playbook`.
+- `art-director playbook` while generating prompts.json — checks text overlay positions.
 
 ## Universal Green Zone (1080×1920)
 
