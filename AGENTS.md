@@ -18,7 +18,7 @@ If a playbook references a tool you've never used (yt-dlp, Playwright, ffmpeg, r
 
 | User intent | Playbook |
 |---|---|
-| Open research, URL drop in reference context, "style from <site>", "analyze @handle", "break down TikTok / Reel / Shorts", competitor audit, "what's trending in <X>" | [`docs/playbooks/researcher.md`](docs/playbooks/researcher.md) |
+| Open research, URL drop in reference context, "style from <site>", "analyze @handle", "break down TikTok / Reel / Shorts", competitor audit, "what's trending in <X>" | [`.agents/skills/ralph-researcher/SKILL.md`](.agents/skills/ralph-researcher/SKILL.md) (then [`docs/playbooks/researcher.md`](docs/playbooks/researcher.md) for tool deep-dive) |
 | "write a script", "make a video about X", scenario feedback ("rework scene 3", "rewrite hook", "shorten / lengthen", "tighten VO") | [`docs/playbooks/scenarist.md`](docs/playbooks/scenarist.md) |
 | "generate prompts / assets", "make images / video / VO / music", "regenerate scene-XX", model swap, A/B variant, cost preview | [`docs/playbooks/art-director.md`](docs/playbooks/art-director.md) |
 | "compose the video", "render", "captions", "transitions", "audio mix", "final cut", "preview", Remotion code edits | [`docs/playbooks/editor.md`](docs/playbooks/editor.md) (then [`remotion.md`](docs/playbooks/remotion.md) for API specifics) |
