@@ -27,28 +27,79 @@ type ResolvedTemplate =
   | { kind: "dir"; source: TemplateSource; dir: string; metaPath: string; docPath: string }
   | { kind: "flat"; source: TemplateSource; file: string };
 
-async function resolveInDir(id: string, baseDir: string, source: TemplateSource): Promise<ResolvedTemplate | null> {
-  const dir = path.join(baseDir, id);
-  try {
-    const st = await fs.stat(dir);
-    if (st.isDirectory()) {
-      return {
-        kind: "dir",
-        source,
-        dir,
-        metaPath: path.join(dir, "template.json"),
-        docPath: path.join(dir, "TEMPLATE.md"),
-      };
-    }
-  } catch { /* fall through to flat */ }
+function dirRef(base: string, id: string, source: TemplateSource, parent?: string): ResolvedTemplate {
+  const dir = parent ? path.join(base, parent, id) : path.join(base, id);
+  return {
+    kind: "dir",
+    source,
+    dir,
+    metaPath: path.join(dir, "template.json"),
+    docPath: path.join(dir, "TEMPLATE.md"),
+  };
+}
 
-  const flat = path.join(baseDir, `${id}.json`);
+async function pathExists(p: string): Promise<boolean> {
+  try { await fs.access(p); return true; } catch { return false; }
+}
+
+// Walk one root and yield { id, ref } for every template found, supporting
+// both layouts simultaneously:
+//   - templates/<id>/template.json                   (flat — legacy + workspace)
+//   - templates/<category>/<id>/template.json        (categorized — repo)
+// A top-level dirent is treated as a category folder when it does NOT contain
+// its own template.json. Flat *.json files at the root are still supported for
+// user-authored workspace templates created via `ralphy template create`.
+async function* walkTemplateRoot(
+  base: string,
+  source: TemplateSource,
+): AsyncGenerator<{ id: string; ref: ResolvedTemplate }> {
+  let topLevel: Array<{ name: string; isDir: boolean }> = [];
   try {
-    await fs.access(flat);
-    return { kind: "flat", source, file: flat };
-  } catch {
-    return null;
+    const dirents = await fs.readdir(base, { withFileTypes: true });
+    topLevel = dirents.map((d) => ({ name: d.name, isDir: d.isDirectory() }));
+  } catch { return; }
+
+  for (const e of topLevel) {
+    if (e.isDir) {
+      // Self-template at top level?
+      if (await pathExists(path.join(base, e.name, "template.json"))) {
+        yield { id: e.name, ref: dirRef(base, e.name, source) };
+        continue;
+      }
+      // Otherwise treat as category folder, descend one level.
+      let children: Array<{ name: string; isDir: boolean }> = [];
+      try {
+        const inner = await fs.readdir(path.join(base, e.name), { withFileTypes: true });
+        children = inner.map((d) => ({ name: d.name, isDir: d.isDirectory() }));
+      } catch { continue; }
+      for (const c of children) {
+        if (!c.isDir) continue;
+        if (await pathExists(path.join(base, e.name, c.name, "template.json"))) {
+          yield { id: c.name, ref: dirRef(base, c.name, source, e.name) };
+        }
+      }
+    } else if (e.name.endsWith(".json")) {
+      const id = e.name.replace(/\.json$/, "");
+      yield { id, ref: { kind: "flat", source, file: path.join(base, e.name) } };
+    }
   }
+}
+
+async function resolveInDir(id: string, baseDir: string, source: TemplateSource): Promise<ResolvedTemplate | null> {
+  // Fast path: flat layout (workspace) — <base>/<id>/ or <base>/<id>.json.
+  const flatDir = path.join(baseDir, id);
+  if (await pathExists(path.join(flatDir, "template.json"))) {
+    return dirRef(baseDir, id, source);
+  }
+  const flatFile = path.join(baseDir, `${id}.json`);
+  if (await pathExists(flatFile)) {
+    return { kind: "flat", source, file: flatFile };
+  }
+  // Categorized layout: scan one-deep for a matching id.
+  for await (const entry of walkTemplateRoot(baseDir, source)) {
+    if (entry.id === id) return entry.ref;
+  }
+  return null;
 }
 
 async function resolveTemplate(id: string): Promise<ResolvedTemplate | null> {
@@ -65,27 +116,8 @@ async function discoverAllTemplates(): Promise<ResolvedTemplate[]> {
     [templatesDir(), "workspace" as const],
     [repoTemplatesDir(), "repo" as const],
   ] as const) {
-    let entries: { name: string; isDir: boolean }[] = [];
-    try {
-      const dirents = await fs.readdir(base, { withFileTypes: true });
-      entries = dirents.map((e) => ({ name: e.name, isDir: e.isDirectory() }));
-    } catch { continue; }
-
-    for (const e of entries) {
-      const id = e.isDir ? e.name : e.name.replace(/\.json$/, "");
-      if (!e.isDir && !e.name.endsWith(".json")) continue;
-      if (seen.has(id)) continue;
-      if (e.isDir) {
-        seen.set(id, {
-          kind: "dir",
-          source,
-          dir: path.join(base, id),
-          metaPath: path.join(base, id, "template.json"),
-          docPath: path.join(base, id, "TEMPLATE.md"),
-        });
-      } else {
-        seen.set(id, { kind: "flat", source, file: path.join(base, e.name) });
-      }
+    for await (const { id, ref } of walkTemplateRoot(base, source)) {
+      if (!seen.has(id)) seen.set(id, ref);
     }
   }
   return Array.from(seen.values());
@@ -187,47 +219,18 @@ export function templateCmd() {
         [templatesDir(), "workspace" as const],
         [repoTemplatesDir(), "repo" as const],
       ] as const) {
-        let entries: { name: string; isDir: boolean }[] = [];
-        try {
-          const dirents = await fs.readdir(base, { withFileTypes: true });
-          entries = dirents.map((e) => ({ name: e.name, isDir: e.isDirectory() }));
-        } catch { continue; }
-
-        for (const e of entries) {
-          if (e.isDir) {
-            if (rows.has(e.name)) continue;
-            const ref: ResolvedTemplate = {
-              kind: "dir",
-              source,
-              dir: path.join(base, e.name),
-              metaPath: path.join(base, e.name, "template.json"),
-              docPath: path.join(base, e.name, "TEMPLATE.md"),
-            };
-            const meta = await readTemplateMeta(ref);
-            if (!meta) continue;
-            rows.set(e.name, {
-              id: e.name,
-              name: meta.name || e.name,
-              kind: "dir",
-              source,
-              description: meta.description,
-              tags: meta.tags,
-            });
-          } else if (e.name.endsWith(".json")) {
-            const id = e.name.replace(/\.json$/, "");
-            if (rows.has(id)) continue;
-            try {
-              const meta = JSON.parse(await fs.readFile(path.join(base, e.name), "utf-8"));
-              rows.set(id, {
-                id,
-                name: meta.name || id,
-                kind: "flat",
-                source,
-                description: meta.description,
-                tags: meta.tags,
-              });
-            } catch { /* skip unparseable flat */ }
-          }
+        for await (const { id, ref } of walkTemplateRoot(base, source)) {
+          if (rows.has(id)) continue;
+          const meta = await readTemplateMeta(ref);
+          if (!meta) continue;
+          rows.set(id, {
+            id,
+            name: meta.name || id,
+            kind: ref.kind,
+            source,
+            description: meta.description,
+            tags: meta.tags,
+          });
         }
       }
 

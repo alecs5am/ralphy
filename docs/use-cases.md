@@ -70,7 +70,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 **Expected first response:**
 > The **soviet-nostalgic** template (two-era TikTok narrative, ~60s, ~$12). Starting.
 
-**Flow:** see `templates/soviet-nostalgic/TEMPLATE.md`.
+**Flow:** see `templates/entertainment-viral/soviet-nostalgic/TEMPLATE.md`.
 
 ---
 

@@ -333,7 +333,7 @@ ralph template use <id> \
 ralph template delete <id>
 ```
 
-**Canonical dir-template:** `soviet-nostalgic` (in `templates/soviet-nostalgic/`). An example of how to structure a dir-template with a full LLM-doc + prompt fragments + model stack + composition pattern.
+**Canonical dir-template:** `soviet-nostalgic` (in `templates/entertainment-viral/soviet-nostalgic/`). An example of how to structure a dir-template with a full LLM-doc + prompt fragments + model stack + composition pattern.
 
 Resolution order: workspace beats repo. Listing/suggest scans both and tags each row with `source: "workspace" | "repo"` so chat can tell users where the match came from.
 
