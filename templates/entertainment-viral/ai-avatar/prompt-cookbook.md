@@ -63,7 +63,7 @@ Three tiers of `google/veo-3.1` via OpenRouter — pick the cheapest one that me
 
 ### `google/veo-3.1-fast` — DEFAULT for this template
 
-**When.** Every standard talking-head scene. Image-conditioned generation with model-native audio gives TikTok-grade lip-sync at ~$0.25/clip.
+**When.** Every standard talking-head scene. Image-conditioned generation with model-native audio gives TikTok-grade lip-sync at $0.14/s billed (a 6s clip is ~$0.84, an 8s clip is ~$1.12).
 
 **Why default.** Best price/quality on OpenRouter for the avatar-talks-to-camera format in 2026. Indistinguishable from full `veo-3.1` on a 6-inch phone screen.
 
@@ -72,29 +72,31 @@ Three tiers of `google/veo-3.1` via OpenRouter — pick the cheapest one that me
 ralphy generate video \
   --project <id> --slot scene-01-vid \
   --image workspace/projects/<id>/assets/persona/avatar.png \
-  --audio workspace/projects/<id>/assets/voiceover/vo-en.mp3 \
-  --prompt "Avatar speaks naturally to camera, calm authoritative tone, slight forward lean, eye contact maintained, subtle hand gestures off-frame, stable head position." \
+  --prompt "Avatar speaks naturally to camera, calm authoritative tone, slight forward lean, eye contact maintained, subtle hand gestures off-frame, stable head position. <transcribe the VO script verbatim into the prompt — the model is conditioned on the text>" \
   --duration 6 \
-  --audio-mode native \
+  --audio \
   --model google/veo-3.1-fast
 ```
 
+Note: `--audio` is a boolean flag that enables veo's model-native audio (mouth shapes synthesized from the prompt text). It does NOT take an external mp3 — that's a separate composition step.
+
 **How (Russian / Ukrainian / Spanish / Arabic / etc. — generate audio separately, compose at render).**
 For non-English/non-Chinese languages, `generate_audio: true` on veo introduces accent slips and voice drift (MODELS.md lesson 2026-05-08). Pipeline:
-1. Generate VO via ElevenLabs `eleven_multilingual_v2` separately.
-2. Render avatar with `--audio-mode silent` (mouth motion driven by audio conditioning, no embedded audio track).
-3. Mix the ElevenLabs VO with the silent avatar video at compose-time in Remotion.
+1. Generate VO via ElevenLabs `eleven_multilingual_v2` separately (`ralphy generate voiceover --project <id> --slot vo-ru --text "..."`)
+2. Render avatar **without** `--audio` (no model-native audio, silent video output). The veo clip will have generic mouth motion driven by the prompt text — accept the slight de-sync from the actual ElevenLabs VO; for talking-head close-ups at TikTok phone resolution this passes.
+3. Mix the ElevenLabs VO with the silent avatar video at compose-time in Remotion (audio track from `vo-<lang>.mp3`, video frames from the silent veo render).
 
 ```bash
 ralphy generate video \
   --project <id> --slot scene-01-vid \
   --image workspace/projects/<id>/assets/persona/avatar.png \
-  --audio workspace/projects/<id>/assets/voiceover/vo-ru.mp3 \
-  --prompt "<same scene prompt>" \
+  --prompt "<same scene prompt with the script transcribed in for mouth motion conditioning>" \
   --duration 6 \
-  --audio-mode silent \
   --model google/veo-3.1-fast
+# (no --audio flag — silent video; mix ElevenLabs VO at compose time)
 ```
+
+> **Honest limitation.** A future `ralphy generate video --lipsync-to <audio.mp3>` verb (passing audio through OR's lipsync conditioning) would deliver true frame-accurate lip-sync from external audio. As of 2026-05-11 that verb does not exist; non-EN/zh languages get the prompt-conditioned approximation above. See `docs/render-test-2026-05-11.md` P1.6 / Class 2 for the planned fix.
 
 **Constraints.** Head must stay stable in the prompt (no head-shake, no looking away). Speech tempo 140-180 WPM. veo-3.1-fast clips top out at 8s — for 45-90s talking heads, split into 6-8s scenes and chain at render time. Each scene takes the same persona keyframe as the start frame.
 
@@ -102,13 +104,13 @@ ralphy generate video \
 
 **When.** Hero spots where lip-sync fidelity or 4K mastering is the entire selling point — brand spots, paid ads with 7-figure media spend, hero episode of a series.
 
-**Why rarely.** ~$0.50/clip, 2× the default. For 95% of episodes `veo-3.1-fast` is indistinguishable on phone screens. Only model in the catalog with 4K output.
+**Why rarely.** ~$0.50/s, 3.5× the default. For 95% of episodes `veo-3.1-fast` is indistinguishable on phone screens. Only model in the catalog with 4K output.
 
 **Default position.** Don't reach for full `veo-3.1` unless the user explicitly asks for premium tier or the QA gate fails on `veo-3.1-fast` twice in a row.
 
 ### `google/veo-3.1-lite` — budget tier (multilingual batch)
 
-**When.** High-volume multilingual batch — 10+ language regen per episode where each language version needs a fresh render and per-clip cost matters more than per-clip fidelity. ~$0.15/clip.
+**When.** High-volume multilingual batch — 10+ language regen per episode where each language version needs a fresh render and per-clip cost matters more than per-clip fidelity. ~$0.09/s billed.
 
 **Trade-off.** Lip-sync quality steps down vs. fast tier but remains acceptable for educational / news-brief tonal range. Avoid for hype-energetic / e-commerce hard sell — the energy reads flat.
 
@@ -172,20 +174,20 @@ done
 
 ```bash
 for lang in en ru es pt fr de hi ar zh ja; do
-  # English / Chinese: native audio is clean
-  audio_mode=$([[ "$lang" == "en" || "$lang" == "zh" ]] && echo native || echo silent)
+  # English / Chinese: pass --audio to enable veo's model-native audio.
+  # Other languages: render silent (no --audio), then mix ElevenLabs VO at compose time.
+  audio_flag=$([[ "$lang" == "en" || "$lang" == "zh" ]] && echo "--audio" || echo "")
   ralphy generate video \
     --project <id> --slot scene-01-vid-$lang \
     --image workspace/projects/<id>/assets/persona/avatar.png \
-    --audio workspace/projects/<id>/assets/voiceover/vo-$lang.mp3 \
-    --prompt "<same scene prompt, language-agnostic>" \
+    --prompt "<same scene prompt — for non-EN/zh, transcribe the localized script into the prompt for mouth-motion conditioning>" \
     --duration 6 \
-    --audio-mode $audio_mode \
+    $audio_flag \
     --model google/veo-3.1-fast
 done
 ```
 
-The persona keyframe is the SAME bytes for every language. Only the VO and the lip-sync output differ. Languages other than EN/zh get a silent veo render with the ElevenLabs VO mixed in at Remotion compose time. This is the moat: 10 markets, ~$10-15 total marginal cost (one keyframe amortized + 10 `veo-3.1-fast` renders @ ~$0.25-1.50 each depending on duration + 10 ElevenLabs VO calls).
+The persona keyframe is the SAME bytes for every language. Only the VO and the lip-sync output differ. Languages other than EN/zh get a silent veo render (mouth motion conditioned on the localized prompt text) with the ElevenLabs VO mixed in at Remotion compose time. This is the moat: 10 markets, **~$70-80 total marginal cost** (one keyframe amortized + 10 `veo-3.1-fast` renders @ ~$6-8 each for 45-60s × $0.14/s + 10 ElevenLabs VO calls free under subscription). The earlier "$10-15 for 10 markets" claim was from the FAL-era pricing — see `docs/render-test-2026-05-11.md` §1.1 for the corrected numbers.
 
 ### Step 5 — Compose + render per language
 
@@ -258,13 +260,13 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 **Stack.**
 - 1 persona keyframe (lifestyle-coach archetype, 30s, warm bathroom backdrop) → $0.15
-- 8 × 8s veo-3.1-fast talking-head clips with audio (60s total) → ~$2.00 ($0.25 × 8)
+- 8 × 8s veo-3.1-fast talking-head clips (60s total) @ $0.14/s → ~$8.96
 - 1 kling-v3.0-pro B-roll cutaway (5s, product close-up) → $0.70 — pass the product reference (skincare bottle) as `--ref`. THIS triggers the reference-required gate for the product.
 - 1 ElevenLabs eleven_multilingual_v2 VO → $0
 - 1 whisper-1 captions → $0.001
-- **Total per language: ~$2.85**
-- Spanish + Portuguese: 2 extra VO calls (free), 2 extra 60s veo-3.1-fast renders (~$4) → +$4
-- **Total 3 languages: ~$6.85**
+- **Total per language: ~$9.81**
+- Spanish + Portuguese: 2 extra VO calls (free), 2 extra 60s veo-3.1-fast renders (~$17.92) → +$17.92
+- **Total 3 languages: ~$27.73**
 
 ### Example 2 — Educational explainer (finance hack)
 
@@ -279,10 +281,12 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 **Stack.**
 - 1 persona keyframe (expert-educator, navy sweater, blurred bookshelf) → $0.15
-- 10 × 8s veo-3.1-fast talking-head clips (75s total — pad last clip or trim at compose time) → ~$2.50
+- 10 × 8s veo-3.1-fast talking-head clips (75s total) @ $0.14/s → ~$11.20
 - 1 ElevenLabs VO → $0
 - 1 whisper-1 → $0.001
-- **Total: ~$2.65**
+- **Total: ~$11.35**
+
+> **Cost note.** 75s is at the top of this format's range and the most expensive single-language run in this cookbook. To trim: drop to 45s (6 × 8s clips = $6.72), or step down to `veo-3.1-lite` (~$0.09/s → 75s ≈ $6.75) for educational tone — lip-sync quality steps down but stays acceptable for talking-only / no-B-roll formats.
 
 No B-roll. The avatar carries the entire screen time. Disclosure: "Not financial advice" both spoken AND on-screen.
 
@@ -299,12 +303,12 @@ No B-roll. The avatar carries the entire screen time. Disclosure: "Not financial
 
 **Stack.**
 - 1 persona keyframe (news-anchor, blazer, neutral grey backdrop) → $0.15
-- 3 × 7 × 8s veo-3.1-fast renders (one chain per language, 50s ≈ 7 clips each) → ~$5.25 ($0.25 × 7 × 3); RU and HI use `--audio-mode silent` + ElevenLabs VO mixed at compose, EN can use `--audio-mode native`
+- 3 × 7 × 8s veo-3.1-fast renders (one chain per language, 50s ≈ 7 clips each) @ $0.14/s → ~$23.52. For RU/HI, veo's `generate_audio: true` accent drifts (MODELS.md lesson 2026-05-08) — render the avatar with `generate_audio: false` and mix the ElevenLabs VO at Remotion compose time. EN can pass `generate_audio: true` directly.
 - 3 ElevenLabs VOs (Russian + Hindi rely on `eleven_multilingual_v2`'s 30+ language coverage) → $0
 - 3 whisper-1 → $0.003
-- **Total 3 languages: ~$5.40**
+- **Total 3 languages: ~$23.67**
 
-Multilingual scaling at veo-3.1-fast pricing is ~$1.75 per language for the talking-head layer — still 100-1000× cheaper than human dubbing studios, but ~3× the FAL-era estimate. Use `veo-3.1-lite` ($0.15/clip → ~$3.30 for 3 langs) when the news-brief tone tolerates the quality step-down.
+> **Cost reality.** Multilingual scaling at veo-3.1-fast = ~$7.80 per language for the talking-head layer. Still 10-100× cheaper than human dubbing studios, but the "trivially cheap" framing in the FAL-era docs is gone. Drop to `veo-3.1-lite` (~$0.09/s → ~$15 for 3 langs total) when news-brief tone tolerates the lip-sync quality step-down. For 10-market rollouts the per-language number compounds: 10 × $7.80 = ~$78 for talking-head alone.
 
 C2PA disclosure mandatory — news content is the highest-trust-impact category for AI labeling.
 
@@ -321,12 +325,12 @@ C2PA disclosure mandatory — news content is the highest-trust-impact category 
 
 **Stack.**
 - 1 persona keyframe (gen-z-streetwear, casual hoodie, pastel wall) → $0.15
-- 6 × 8s veo-3.1-fast talking-head clips (45s total) → ~$1.50
+- 6 × 8s veo-3.1-fast talking-head clips (45s total) @ $0.14/s → ~$6.72
 - 2 kling-v3.0-pro B-roll cutaways (5s each) → $1.40 — product reference REQUIRED for both (the hoodie). Reference-required gate fires.
 - 1 ElevenLabs VO → $0
 - 1 ElevenLabs Music low-volume bed (subscription) → $0
 - 1 whisper-1 → $0.001
-- **Total: ~$3.05**
+- **Total: ~$8.27**
 
 Disclosure mandatory — paid e-commerce is the highest-regulatory-risk category. Visible "AI-generated" overlay + C2PA flag both on.
 

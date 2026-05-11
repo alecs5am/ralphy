@@ -68,12 +68,39 @@ export function scoreTikTok(m: TikTokMetrics): TikTokScore {
 // Duplicated to avoid cross-root imports between cli/ and src/.
 const GREEN_ZONE = { xMin: 60, xMax: 960, yMin: 210, yMax: 1480 };
 
+// Angle taxonomy. Originally calibrated for 15s e-commerce ads (the first 5
+// values). Extended 2026-05-11 to cover narrative / explainer / hook-driven
+// formats surfaced in the Top-20 templates audit — without these, half the
+// pack auto-fails the score gate for "invalid angle". See
+// docs/render-test-2026-05-11.md §1.3 for the empirical findings.
 const VALID_ANGLES = [
+  // commerce-ad angles
   "testimonial",
   "unboxing",
   "problem-solution",
   "comparison",
   "demo",
+  // narrative / explainer angles
+  "storytime",
+  "history-fact",
+  "tutorial",
+  "listicle",
+  "tier-list",
+  "expert-explainer",
+  "news-brief",
+  "talking-head-rant",
+  // creator / lifestyle angles
+  "grwm",
+  "pov-relatable",
+  "photo-dump",
+  "podcast-clip",
+  // viral / meme angles
+  "brainrot-narration",
+  "italian-brainrot",
+  "trending-sound-remix",
+  "ai-avatar",
+  // sensory
+  "asmr",
 ] as const;
 
 type ScenarioScene = {
@@ -112,7 +139,23 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   const failures: string[] = [];
   const warnings: string[] = [];
 
-  // Hook in first 3 seconds.
+  // Format tier from declared duration. Calibrates the rest of the gate so
+  // long-form templates (storytime, ai-avatar, podcast-clip) aren't refused
+  // by 15s-ad-shaped rules. See docs/render-test-2026-05-11.md §1.3.
+  //   short-ad:  ≤15s  — first scene must be ≤3s, all scenes ≤3s, +0.5s cap
+  //   mid-form:  15-45s — first scene ≤6s, scenes ≤8s, +1.0s cap
+  //   long-form: >45s   — first scene ≤10s, scenes ≤12s, +2.0s cap
+  // Hook word-count and hook presence apply universally.
+  const declaredDuration = scenario.duration ?? 15;
+  const tier: "short-ad" | "mid-form" | "long-form" =
+    declaredDuration <= 15 ? "short-ad" : declaredDuration <= 45 ? "mid-form" : "long-form";
+  const limits = tier === "short-ad"
+    ? { firstSceneMax: 3, sceneMax: 3, durationOverhead: 0.5 }
+    : tier === "mid-form"
+    ? { firstSceneMax: 6, sceneMax: 8, durationOverhead: 1.0 }
+    : { firstSceneMax: 10, sceneMax: 12, durationOverhead: 2.0 };
+
+  // Hook present and short.
   const hookPrimary =
     typeof scenario.hook === "string" ? scenario.hook : scenario.hook?.primary;
   if (!hookPrimary || !hookPrimary.trim()) {
@@ -124,40 +167,42 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
     }
   }
 
+  // First scene = hook window. Tier-calibrated.
   const firstScene = scenario.scenes?.[0];
   if (firstScene) {
     const start = firstScene.durationSec ?? 0;
-    if (start > 3) {
+    if (start > limits.firstSceneMax) {
       failures.push(
-        `First scene is ${start}s; hook must land in the first 3s window`
+        `First scene is ${start}s; hook must land in the first ${limits.firstSceneMax}s window (${tier} format, declared duration ${declaredDuration}s)`
       );
     }
   } else {
     failures.push("Scenario has no scenes[]");
   }
 
-  // Total duration.
+  // Total duration — hard cap relative to declared target, with tier overhead.
   const total = (scenario.scenes ?? []).reduce(
     (acc, s) => acc + (s.durationSec ?? 0),
     0
   );
-  const target = scenario.duration ?? 15;
-  if (total > target + 0.5) {
+  if (total > declaredDuration + limits.durationOverhead) {
     failures.push(
-      `Total duration ${total}s exceeds target ${target}s (hard cap +0.5s)`
+      `Total duration ${total}s exceeds target ${declaredDuration}s (${tier} hard cap +${limits.durationOverhead}s)`
     );
   }
-  if (total > 15) {
+  // Short-form sweet-spot warning only for templates that DECLARED short-ad
+  // intent — long-form templates are intentionally above 15s.
+  if (tier === "short-ad" && total > 15) {
     warnings.push(
       `Total duration ${total}s exceeds 15s short-form sweet spot`
     );
   }
 
-  // Per-scene cut discipline.
+  // Per-scene cut discipline — tier-calibrated.
   for (const scene of scenario.scenes ?? []) {
-    if ((scene.durationSec ?? 0) > 3) {
+    if ((scene.durationSec ?? 0) > limits.sceneMax) {
       warnings.push(
-        `Scene ${scene.id ?? "?"} is ${scene.durationSec}s — break with internal cut/transition`
+        `Scene ${scene.id ?? "?"} is ${scene.durationSec}s — break with internal cut/transition (${tier} max ${limits.sceneMax}s)`
       );
     }
   }
