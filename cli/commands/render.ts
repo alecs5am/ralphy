@@ -25,6 +25,8 @@ type CompositionProps = {
 async function readCompositionProps(projectId: string): Promise<{
   path: string;
   data: CompositionProps;
+  /** True if we materialized a transient resolved props file to inject captions/etc. */
+  isTransient: boolean;
 }> {
   const propsPath = path.join(projectsDir(), projectId, "composition-props.json");
   if (!existsSync(propsPath)) {
@@ -41,7 +43,32 @@ async function readCompositionProps(projectId: string): Promise<{
     err(`composition-props.json is not valid JSON: ${(e as Error).message}`);
     throw new Error("unreachable");
   }
-  return { path: propsPath, data };
+
+  // Generic-template compositions take `captions: Caption[]` inline. Avoid making
+  // every project hand-paste the captions JSON: if data.captions is empty/missing
+  // AND there's a captions.json next to composition-props, inline it.
+  let isTransient = false;
+  if (!Array.isArray((data as any).captions) || (data as any).captions.length === 0) {
+    const captionsJson = path.join(projectsDir(), projectId, "captions.json");
+    if (existsSync(captionsJson)) {
+      try {
+        const captions = JSON.parse(await fs.readFile(captionsJson, "utf8"));
+        if (Array.isArray(captions) && captions.length > 0) {
+          (data as any).captions = captions;
+          isTransient = true;
+        }
+      } catch { /* leave captions empty if the json is malformed */ }
+    }
+  }
+
+  // Write to a transient file so Remotion's --props reads the resolved data
+  // without us mutating the user's source file on disk.
+  if (isTransient) {
+    const resolvedPath = path.join(projectsDir(), projectId, ".composition-props.resolved.json");
+    await fs.writeFile(resolvedPath, JSON.stringify(data) + "\n");
+    return { path: resolvedPath, data, isTransient: true };
+  }
+  return { path: propsPath, data, isTransient: false };
 }
 
 async function ensureSymlink(projectId: string): Promise<{ link: string; created: boolean }> {
@@ -135,7 +162,7 @@ export function renderCmd() {
     .option("--keep-symlink", "Don't remove the public/project-<id> symlink after render")
     .action(async (projectId: string, opts) => {
       const t0 = Date.now();
-      const { path: propsPath, data: props } = await readCompositionProps(projectId);
+      const { path: propsPath, data: props, isTransient } = await readCompositionProps(projectId);
       const compositionId = opts.composition ?? props.compositionId ?? "UGCVideo";
       const renderDir = path.join(projectsDir(), projectId, "render");
       await fs.mkdir(renderDir, { recursive: true });
@@ -205,6 +232,9 @@ export function renderCmd() {
       } finally {
         if (created && !opts.keepSymlink) {
           await fs.unlink(link).catch(() => undefined);
+        }
+        if (isTransient) {
+          await fs.unlink(propsPath).catch(() => undefined);
         }
       }
     });

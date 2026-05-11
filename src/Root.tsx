@@ -6,6 +6,16 @@ import { LyadovEpisode } from "./videos/lyadov-podcast";
 import { SolutionsMetal001, TOTAL_FRAMES as SOLUTIONS_METAL_FRAMES } from "./videos/solutions-metal-001";
 import { SovietEngineer001, TOTAL_FRAMES as SOVIET_ENGINEER_FRAMES } from "./videos/soviet-engineer-001";
 import { BrainrotHistory001, TOTAL_FRAMES as BRAINROT_HISTORY_FRAMES } from "./videos/brainrot-history-001";
+import { BrainrotYT001, TOTAL_FRAMES as BRAINROT_YT_FRAMES } from "./videos/brainrot-yt-001";
+import { TestGrwmYT001, TOTAL_FRAMES as TEST_GRWM_YT_FRAMES } from "./videos/test-grwm-yt-001";
+import { TestTutorialYT001, TOTAL_FRAMES as TEST_TUTORIAL_YT_FRAMES } from "./videos/test-tutorial-yt-001";
+import { PodcastClip001, TOTAL_FRAMES as PODCAST_CLIP_FRAMES } from "./videos/test-podcast-yt-001";
+import { GingerRecreate001, TOTAL_FRAMES as GINGER_RECREATE_FRAMES } from "./videos/ginger-recreate-001";
+import {
+  BrainrotAIMeme,
+  BrainrotAIMemeDefaults,
+  brainrotMemeCalculateMetadata,
+} from "./lib/templates/BrainrotAIMeme";
 
 const CAPTION_STYLES = [
   { id: "TikTokCaptions", style: "tiktok" as const, label: "TikTok — green word highlight" },
@@ -54,6 +64,25 @@ export const RemotionRoot: React.FC = () => {
         </Folder>
       </Folder>
 
+      <Folder name="Templates">
+        {/*
+         * Generic, parameterized compositions — one per Top-20 template kind.
+         * Render any brainrot project via:
+         *   ralphy render <project>     (reads composition-props.json which sets compositionId)
+         * The composition-props.json supplies projectSlug + paths + duration; the
+         * composition serves every project of this template without per-project edits.
+         */}
+        <Composition
+          id="BrainrotAIMeme"
+          component={BrainrotAIMeme}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={BrainrotAIMemeDefaults}
+          calculateMetadata={brainrotMemeCalculateMetadata}
+        />
+      </Folder>
+
       <Folder name="Videos">
         <Composition
           id="PaapaHomographs"
@@ -83,6 +112,52 @@ export const RemotionRoot: React.FC = () => {
           id="BrainrotHistory001"
           component={BrainrotHistory001}
           durationInFrames={BRAINROT_HISTORY_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="BrainrotYT001"
+          component={BrainrotYT001}
+          durationInFrames={BRAINROT_YT_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="TestGrwmYT001"
+          component={TestGrwmYT001}
+          durationInFrames={TEST_GRWM_YT_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="TestTutorialYT001"
+          component={TestTutorialYT001}
+          durationInFrames={TEST_TUTORIAL_YT_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="PodcastClip001"
+          component={PodcastClip001}
+          durationInFrames={PODCAST_CLIP_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+          defaultProps={{
+            cutSrc: "",
+            captions: [],
+            titleLine1: "",
+            titleLine2: "",
+          }}
+        />
+        <Composition
+          id="GingerRecreate001"
+          component={GingerRecreate001}
+          durationInFrames={GINGER_RECREATE_FRAMES}
           fps={30}
           width={1080}
           height={1920}

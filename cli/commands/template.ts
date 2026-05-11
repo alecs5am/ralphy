@@ -420,6 +420,26 @@ export function templateCmd() {
         await fs.writeFile(path.join(projDir, "BRIEF.md"), `# Brief\n\n${opts.brief}\n`);
       }
 
+      // composition-props.json skeleton — wires `ralphy render <project>` to the
+      // generic per-template Remotion composition in src/lib/templates/. Templates
+      // declare `compositionTemplate.id` and an optional `compositionTemplate.defaults`
+      // map in template.json. Skipped if template.json doesn't declare it (legacy
+      // templates that hand-author per-project Remotion still work as before).
+      const compTemplate = (meta as any)?.compositionTemplate as
+        | { id: string; defaults?: Record<string, unknown> }
+        | undefined;
+      if (compTemplate?.id) {
+        const compProps: Record<string, unknown> = {
+          compositionId: compTemplate.id,
+          projectSlug: projectId,
+          ...(compTemplate.defaults ?? {}),
+        };
+        await fs.writeFile(
+          path.join(projDir, "composition-props.json"),
+          JSON.stringify(compProps, null, 2) + "\n",
+        );
+      }
+
       const createdAt = new Date().toISOString();
       const project = await addEntity("projects", projectId, {
         name: opts.name || projectId,
