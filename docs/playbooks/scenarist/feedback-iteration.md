@@ -58,7 +58,7 @@ If a single scene has gotten ≥3 feedback rounds and still isn't landing — st
 
 ## Hand off rules
 
-- Visual + VO changes → `/ralph-art-director` full regen for affected scenes.
-- VO-only changes → `/ralph-art-director` with note "VO only" (saves money).
-- Composition / pacing only → `/ralph-editor` (assets are still good).
-- If feedback requires a fundamentally new brief → hand back to `/ralph-producer` to clarify with the user.
+- Visual + VO changes → `art-director playbook` full regen for affected scenes.
+- VO-only changes → `art-director playbook` with note "VO only" (saves money).
+- Composition / pacing only → `editor playbook` (assets are still good).
+- If feedback requires a fundamentally new brief → hand back to `producer playbook` to clarify with the user.

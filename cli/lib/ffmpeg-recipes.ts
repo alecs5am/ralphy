@@ -8,7 +8,7 @@
 // - Optional projectId logs to workspace/projects/<id>/logs/generations.jsonl
 //   via gen-log.ts (provider: "ffmpeg", cost_usd: 0).
 //
-// Hard rules (from /ralph-editor SKILL.md):
+// Hard rules (from editor playbook SKILL.md):
 // - Subtitles last (after all video filtering)
 // - Per-segment extract before concat (no in-place trim of concat'd file)
 // - 30ms fades around cut boundaries to prevent click pops

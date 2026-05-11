@@ -1,5 +1,5 @@
 // Virality scoring — used by /ralph-researcher (rank scraped TikToks) and
-// /ralph-scenarist (gate scenario drafts before handoff).
+// scenarist playbook (gate scenario drafts before handoff).
 //
 // All thresholds documented in docs/virality-rubric.md. This file mirrors the
 // numbers there; if the doc changes, update this and vice versa.

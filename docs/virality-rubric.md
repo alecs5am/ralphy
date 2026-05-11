@@ -4,8 +4,8 @@ Objective criteria for (a) ranking scraped TikToks and (b) scoring our own scena
 
 Used automatically:
 - `scoreTikTok()` in `cli/lib/score.ts` — over the JSON from a TikTok scraper (4.3).
-- `scoreScenario()` in `cli/lib/score.ts` — over `scenario.json` before handoff to `/ralph-art-director`.
-- `bun run ralph -- project score <id>` — gate inside `/ralph-scenarist`.
+- `scoreScenario()` in `cli/lib/score.ts` — over `scenario.json` before handoff to `art-director playbook`.
+- `bun run ralph -- project score <id>` — gate inside `scenarist playbook`.
 
 ## Part 1. Engagement-ratio thresholds (for scraped videos)
 
