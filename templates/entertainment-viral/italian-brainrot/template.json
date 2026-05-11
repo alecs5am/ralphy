@@ -1,0 +1,102 @@
+{
+  "name": "Italian Brainrot",
+  "slug": "italian-brainrot",
+  "kind": "vibe-style",
+  "description": "Italian Brainrot single-character meme video — full-frame AI-generated character in an absurd scenario with Italian-gibberish voiceover. 8-25s, 9:16, TikTok-native. Distinct from the split-screen `brainrot-ai-meme` format: here the CHARACTER is the entire show (Tralalero Tralala, Tung Tung Tung Sahur, Ballerina Cappuccina, etc.), not a narration over gameplay. The canonical character roster lives in the `pool/italian-brainrot-characters` pool of the ralphy-assets companion repo (33 characters, mirrored from brainrot.cyou). Pull one as image-to-image reference, or generate from descriptor. AI-disclosure overlay mandatory.",
+  "tags": [
+    "italian-brainrot",
+    "ai-meme",
+    "tiktok",
+    "reels",
+    "shorts",
+    "viral-trend",
+    "surreal",
+    "absurd",
+    "ai-generated",
+    "italian",
+    "gibberish-vo",
+    "single-character",
+    "full-frame",
+    "c2pa",
+    "9-16",
+    "character-meme",
+    "veo",
+    "kling",
+    "elevenlabs",
+    "ballerina-cappuccina",
+    "blueberrinni-octopussini",
+    "bobrito-bandito",
+    "bombardiro-crocodilo",
+    "bombombini-gusini",
+    "boneca-ambalabu",
+    "brr-brr-patapim",
+    "brri-brri-bicus-dicus-bombicus",
+    "burbaloni-lulilolli",
+    "cappuccino-assassino",
+    "chef-crabracadabra",
+    "chimpanzini-bananini",
+    "cocofanto-elefanto",
+    "frigo-camelo",
+    "frulli-frulla",
+    "garam-mararam-madu-dung-dung",
+    "giraffa-celeste",
+    "glorbo-fruttodrillo",
+    "graipussi-medussi",
+    "il-cacto-hipopotamo",
+    "la-vaca-saturno-saturnita",
+    "lirili-larila",
+    "orangutini-ananasini",
+    "pot-hotspot",
+    "rhino-toasterino",
+    "tigrrullini-watermellini",
+    "tracotucotulu-delapeladustuz",
+    "tralalero-tralala",
+    "tric-trac-baraboom",
+    "trulimero-trulicina",
+    "tung-tung-tung-sahur",
+    "u-din-din-din-din-dun",
+    "zibra-zubra-zibralini"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    8,
+    25
+  ],
+  "typicalClipCount": [
+    1,
+    3
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-11T00:00:00.000Z",
+  "requiresUserReference": false,
+  "referenceNotes": "User reference NOT required — canonical character refs live in the ralphy-assets pool `italian-brainrot-characters` and are pulled on demand. Use `ralphy assets pull-pool italian-brainrot-characters/<slug> --install <project>` to drop the canonical hero image into the project for image-to-image generation. If the user names a character not in the pool, propose adding it to the pool first (Phase 0: enrich the pool), don't improvise from scratch — the canonical visual identity is half the format.",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "characters": "characters.md"
+  },
+  "pool": {
+    "italian-brainrot-characters": {
+      "description": "All 33 canonical Italian Brainrot characters. Pull as image-to-image reference for character regeneration in new contexts.",
+      "optional": true,
+      "defaultDestSubdir": "assets/references/characters"
+    }
+  },
+  "constants": {
+    "vibeAnchor": "single-character-absurd-scenario",
+    "structure": "0-2s character entrance (HOOK) → 2-15s absurd action → 15-22s catchphrase repeat (LOOP) → 22-25s payoff/cut",
+    "captionStyle": "italian-gibberish-burnin OR none (audio carries)",
+    "musicDefault": "off (gibberish VO is the audio bed)",
+    "disclosureOverlay": "ai-generated-bottom-right-small"
+  },
+  "variationAxes": [
+    "character pick (33 in the pool — see characters.md)",
+    "scenario context (mundane action / fight / dance / cooking / podcast / interview)",
+    "VO tone (declarative / sing-song / dramatic-narrator)",
+    "duration (8s short hit / 15s standard / 25s extended loop)"
+  ]
+}

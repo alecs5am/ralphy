@@ -10,7 +10,8 @@ Cross-category "what's actually moving the needle right now" playlist. Use this 
 | 2 | [`grwm`](creator-lifestyle/grwm/) | creator-lifestyle | vibe-style | Dual-layer (visual + storytime) — native product placement leader, dominant beauty / fashion driver 2026. |
 | 3 | [`storytime`](creator-lifestyle/storytime/) | creator-lifestyle | vibe-style | TikTok #1 retention pattern. Rising-tension narrative + pattern-interrupts hold 60-180s of dwell. |
 | 4 | [`yap-talking-head`](b2b-saas/yap-talking-head/) | b2b-saas | vibe-style | Hormozi / Codie raw-energy single-idea education — the viral B2B pattern. No jump cuts, single thesis. |
-| 5 | [`brainrot-ai-meme`](entertainment-viral/brainrot-ai-meme/) | entertainment-viral | vibe-style | Split-screen AI VO + Subway Surfers / Minecraft Parkour loop + screaming captions. 2025-2026 zeitgeist format. |
+| 5 | [`italian-brainrot`](entertainment-viral/italian-brainrot/) | entertainment-viral | vibe-style | Single-character AI-meme with Italian-gibberish VO. Most viral meme format of 2024-2025; 33-character canonical pool (Tralalero, Tung Sahur, Ballerina Cappuccina, etc.). |
+| 5b | [`brainrot-ai-meme`](entertainment-viral/brainrot-ai-meme/) | entertainment-viral | vibe-style | Split-screen AI VO + Subway Surfers / Minecraft Parkour loop + screaming captions. The narration-over-gameplay variant. |
 | 6 | [`photo-dump`](creator-lifestyle/photo-dump/) | creator-lifestyle | vibe-style | Carousel-as-video. Reels-dominant 2026, beat-snap photo cuts produce strong scroll-stop. |
 | 7 | [`trending-sound-remix`](entertainment-viral/trending-sound-remix/) | entertainment-viral | vibe-style | Audio-first remix of a hyped sound. 24-48h post-window — pure trend surfing. |
 | 8 | [`tier-list`](entertainment-viral/tier-list/) | entertainment-viral | vibe-style | S/A/B/C/D ranking grid. Debate-bait final pick drives comment volume. |
@@ -31,10 +32,12 @@ Cross-category "what's actually moving the needle right now" playlist. Use this 
 
 By **category** (5):
 - creator-lifestyle: 7 of 20 (1, 2, 3, 6, 16, 17, 18)
-- entertainment-viral: 5 of 20 (5, 7, 8, 14, 20)
+- entertainment-viral: 6 of 20 (5, 5b, 7, 8, 14, 20)
 - dtc-commerce: 5 of 20 (11, 12, 13, 15, 19)
 - b2b-saas: 3 of 20 (4, 9, 10)
 - cinematic-narrative: 0 of 20 *(intentional — cinematic templates are aesthetic-first, not virality-first; test them per project, not in a viral-coverage matrix)*
+
+> Slot **5** is split (5 + 5b) — the two brainrot formats are distinct enough (single-character vs. split-screen narration) that both belong in the test-drive set.
 
 By **kind** (2):
 - vibe-style: 16 of 20
