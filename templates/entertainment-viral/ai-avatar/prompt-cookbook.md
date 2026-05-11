@@ -55,64 +55,62 @@ Pass `--ref` on EVERY frame where the avatar appears. This is the gemini-3 multi
 
 ### Step 3 — Lock the avatar across languages
 
-For multilingual export, the persona keyframe is the SAME for English, Russian, Spanish, Arabic, etc. Only the VO and the wan-25 lip-sync output change. Never regen the avatar for a language version — that's drift you can't reverse.
+For multilingual export, the persona keyframe is the SAME for English, Russian, Spanish, Arabic, etc. Only the VO and the veo-3.1 lip-sync output change. Never regen the avatar for a language version — that's drift you can't reverse.
 
 ## Lip-sync model picks
 
-Three options. Pick the cheapest one that meets the quality bar.
+Three tiers of `google/veo-3.1` via OpenRouter — pick the cheapest one that meets the quality bar. **FAL endpoints (`fal-ai/wan-25`, `fal-ai/sync-lipsync`) are out of the pipeline** — the stack moved to OpenRouter in Sprint 2 and FAL_KEY is not a thing anymore (see AGENTS.md invariant #1).
 
-### `fal-ai/wan-25` — DEFAULT for this template
+### `google/veo-3.1-fast` — DEFAULT for this template
 
-**When.** Every standard talking-head scene. Single call: takes audio + image + prompt → returns a lip-synced talking video, audio embedded.
+**When.** Every standard talking-head scene. Image-conditioned generation with model-native audio gives TikTok-grade lip-sync at ~$0.25/clip.
 
-**Why default.** Cheapest of the three for talking-head. One call replaces the kling-v3.0-pro + sync-lipsync two-step. The lip-sync is good enough for TikTok-grade in 2026 (the threshold the research doc flags).
+**Why default.** Best price/quality on OpenRouter for the avatar-talks-to-camera format in 2026. Indistinguishable from full `veo-3.1` on a 6-inch phone screen.
 
-**How.**
+**How (English / Chinese — clean model-native audio).**
 ```bash
 ralphy generate video \
   --project <id> --slot scene-01-vid \
   --image workspace/projects/<id>/assets/persona/avatar.png \
   --audio workspace/projects/<id>/assets/voiceover/vo-en.mp3 \
   --prompt "Avatar speaks naturally to camera, calm authoritative tone, slight forward lean, eye contact maintained, subtle hand gestures off-frame, stable head position." \
-  --duration 60 \
-  --model fal-ai/wan-25
+  --duration 6 \
+  --audio-mode native \
+  --model google/veo-3.1-fast
 ```
 
-**Constraints.** Head must stay stable in the prompt (no head-shake, no looking away). Speech tempo 140-180 WPM. Don't pass scenes longer than ~75-90s — wan-25 quality degrades over very long single takes; split a 90s script into two scenes if needed.
+**How (Russian / Ukrainian / Spanish / Arabic / etc. — generate audio separately, compose at render).**
+For non-English/non-Chinese languages, `generate_audio: true` on veo introduces accent slips and voice drift (MODELS.md lesson 2026-05-08). Pipeline:
+1. Generate VO via ElevenLabs `eleven_multilingual_v2` separately.
+2. Render avatar with `--audio-mode silent` (mouth motion driven by audio conditioning, no embedded audio track).
+3. Mix the ElevenLabs VO with the silent avatar video at compose-time in Remotion.
 
-### `fal-ai/sync-lipsync` — only for re-lipsynching existing video
-
-**When.** You already have a kling-v3.0-pro B-roll cutaway with the avatar in motion (walking, gesturing, picking something up) and need to overdub VO onto it.
-
-**Why niche.** sync-lipsync is overdub, not generation. It re-edits an existing mouth region. Use only when wan-25 can't do the motion you need.
-
-**How.**
 ```bash
-# step 1 — kling generates the motion shot
 ralphy generate video \
-  --project <id> --slot scene-02-broll-raw \
-  --image <persona-keyframe-url> \
-  --prompt "Avatar walks toward kitchen counter, picks up product, looks back at camera." \
-  --duration 5 \
-  --model kwaivgi/kling-v3.0-pro
-
-# step 2 — sync-lipsync overdubs the VO
-ralphy generate video \
-  --project <id> --slot scene-02-broll \
-  --video workspace/projects/<id>/assets/video/scene-02-broll-raw.mp4 \
-  --audio workspace/projects/<id>/assets/voiceover/vo-en.mp3 \
-  --model fal-ai/sync-lipsync
+  --project <id> --slot scene-01-vid \
+  --image workspace/projects/<id>/assets/persona/avatar.png \
+  --audio workspace/projects/<id>/assets/voiceover/vo-ru.mp3 \
+  --prompt "<same scene prompt>" \
+  --duration 6 \
+  --audio-mode silent \
+  --model google/veo-3.1-fast
 ```
 
-**Constraints.** The mouth region in the kling output must be visible and well-lit. If the avatar is in profile or the mouth is occluded, sync-lipsync produces visible artifacts.
+**Constraints.** Head must stay stable in the prompt (no head-shake, no looking away). Speech tempo 140-180 WPM. veo-3.1-fast clips top out at 8s — for 45-90s talking heads, split into 6-8s scenes and chain at render time. Each scene takes the same persona keyframe as the start frame.
 
-### `google/veo-3.1` — premium tier only
+### `google/veo-3.1` (full) — premium tier
 
-**When.** Hero spots where lip-sync fidelity is the entire selling point and the production budget can absorb the cost. Brand spots, paid ads with a 7-figure media spend behind them, hero episode of a series.
+**When.** Hero spots where lip-sync fidelity or 4K mastering is the entire selling point — brand spots, paid ads with 7-figure media spend, hero episode of a series.
 
-**Why rarely.** veo-3.1 is significantly more expensive per second than wan-25. For 95% of episodes the wan-25 quality is indistinguishable on a 6-inch phone screen.
+**Why rarely.** ~$0.50/clip, 2× the default. For 95% of episodes `veo-3.1-fast` is indistinguishable on phone screens. Only model in the catalog with 4K output.
 
-**Default position.** Don't reach for veo-3.1 unless the user explicitly asks for premium tier or the QA gate fails on wan-25 twice in a row.
+**Default position.** Don't reach for full `veo-3.1` unless the user explicitly asks for premium tier or the QA gate fails on `veo-3.1-fast` twice in a row.
+
+### `google/veo-3.1-lite` — budget tier (multilingual batch)
+
+**When.** High-volume multilingual batch — 10+ language regen per episode where each language version needs a fresh render and per-clip cost matters more than per-clip fidelity. ~$0.15/clip.
+
+**Trade-off.** Lip-sync quality steps down vs. fast tier but remains acceptable for educational / news-brief tonal range. Avoid for hype-energetic / e-commerce hard sell — the energy reads flat.
 
 ## Voice settings (ElevenLabs)
 
@@ -170,21 +168,24 @@ done
 
 `eleven_multilingual_v2` covers 30+ languages. The same voice ID delivers all of them — voice character is preserved across languages (HeyGen calls this "voice cloning across languages"; ElevenLabs has had it since 2024).
 
-### Step 4 — One wan-25 render per language using the SAME persona keyframe
+### Step 4 — One veo-3.1-fast render per language using the SAME persona keyframe
 
 ```bash
 for lang in en ru es pt fr de hi ar zh ja; do
+  # English / Chinese: native audio is clean
+  audio_mode=$([[ "$lang" == "en" || "$lang" == "zh" ]] && echo native || echo silent)
   ralphy generate video \
     --project <id> --slot scene-01-vid-$lang \
     --image workspace/projects/<id>/assets/persona/avatar.png \
     --audio workspace/projects/<id>/assets/voiceover/vo-$lang.mp3 \
     --prompt "<same scene prompt, language-agnostic>" \
-    --duration 60 \
-    --model fal-ai/wan-25
+    --duration 6 \
+    --audio-mode $audio_mode \
+    --model google/veo-3.1-fast
 done
 ```
 
-The persona keyframe is the SAME bytes for every language. Only the VO and the lip-sync output differ. This is the moat: 10 markets, ~$5 total marginal cost (one keyframe amortized + 10 wan-25 renders + 10 free ElevenLabs calls).
+The persona keyframe is the SAME bytes for every language. Only the VO and the lip-sync output differ. Languages other than EN/zh get a silent veo render with the ElevenLabs VO mixed in at Remotion compose time. This is the moat: 10 markets, ~$10-15 total marginal cost (one keyframe amortized + 10 `veo-3.1-fast` renders @ ~$0.25-1.50 each depending on duration + 10 ElevenLabs VO calls).
 
 ### Step 5 — Compose + render per language
 
@@ -238,9 +239,9 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 6. **Background drift.** Episode 1 has a window with bokeh; episode 5 has a solid wall. Cause: prompt didn't pin the background. Fix: include the background description in the master template and reuse verbatim across episodes.
 
-7. **Hand artifacts.** Avatar's hands appear in frame but warp / merge. Cause: shoulders-up framing should mean no hands. Fix: prompt "shoulders-up framing, hands not visible, no hand gestures in frame". If you need gestures, pre-frame for kling B-roll, not wan-25.
+7. **Hand artifacts.** Avatar's hands appear in frame but warp / merge. Cause: shoulders-up framing should mean no hands. Fix: prompt "shoulders-up framing, hands not visible, no hand gestures in frame". If you need gestures, pre-frame for kling B-roll, not veo-3.1-fast.
 
-8. **Wardrobe / hair drift across languages.** Russian version has different jacket than English. Cause: the wan-25 call was given a different `--image` reference per language. Fix: SAME `--image` (the canonical persona keyframe) across all language renders.
+8. **Wardrobe / hair drift across languages.** Russian version has different jacket than English. Cause: the veo-3.1-fast call was given a different `--image` reference per language. Fix: SAME `--image` (the canonical persona keyframe) across all language renders.
 
 ## Four worked examples
 
@@ -257,13 +258,13 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 **Stack.**
 - 1 persona keyframe (lifestyle-coach archetype, 30s, warm bathroom backdrop) → $0.15
-- 1 wan-25 talking-head with audio (60s) → ~$0.50
+- 8 × 8s veo-3.1-fast talking-head clips with audio (60s total) → ~$2.00 ($0.25 × 8)
 - 1 kling-v3.0-pro B-roll cutaway (5s, product close-up) → $0.70 — pass the product reference (skincare bottle) as `--ref`. THIS triggers the reference-required gate for the product.
 - 1 ElevenLabs eleven_multilingual_v2 VO → $0
 - 1 whisper-1 captions → $0.001
-- **Total per language: ~$1.35**
-- Spanish + Portuguese: 2 extra VO calls (free), 2 extra wan-25 renders (~$1) → +$1
-- **Total 3 languages: ~$2.35**
+- **Total per language: ~$2.85**
+- Spanish + Portuguese: 2 extra VO calls (free), 2 extra 60s veo-3.1-fast renders (~$4) → +$4
+- **Total 3 languages: ~$6.85**
 
 ### Example 2 — Educational explainer (finance hack)
 
@@ -278,10 +279,10 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 **Stack.**
 - 1 persona keyframe (expert-educator, navy sweater, blurred bookshelf) → $0.15
-- 1 wan-25 talking-head with audio (75s) — split into two 40s scenes if quality degrades → ~$0.65
+- 10 × 8s veo-3.1-fast talking-head clips (75s total — pad last clip or trim at compose time) → ~$2.50
 - 1 ElevenLabs VO → $0
 - 1 whisper-1 → $0.001
-- **Total: ~$0.80**
+- **Total: ~$2.65**
 
 No B-roll. The avatar carries the entire screen time. Disclosure: "Not financial advice" both spoken AND on-screen.
 
@@ -298,10 +299,12 @@ No B-roll. The avatar carries the entire screen time. Disclosure: "Not financial
 
 **Stack.**
 - 1 persona keyframe (news-anchor, blazer, neutral grey backdrop) → $0.15
-- 3 wan-25 renders (one per language, 50s each) → ~$1.50
+- 3 × 7 × 8s veo-3.1-fast renders (one chain per language, 50s ≈ 7 clips each) → ~$5.25 ($0.25 × 7 × 3); RU and HI use `--audio-mode silent` + ElevenLabs VO mixed at compose, EN can use `--audio-mode native`
 - 3 ElevenLabs VOs (Russian + Hindi rely on `eleven_multilingual_v2`'s 30+ language coverage) → $0
 - 3 whisper-1 → $0.003
-- **Total 3 languages: ~$1.65**
+- **Total 3 languages: ~$5.40**
+
+Multilingual scaling at veo-3.1-fast pricing is ~$1.75 per language for the talking-head layer — still 100-1000× cheaper than human dubbing studios, but ~3× the FAL-era estimate. Use `veo-3.1-lite` ($0.15/clip → ~$3.30 for 3 langs) when the news-brief tone tolerates the quality step-down.
 
 C2PA disclosure mandatory — news content is the highest-trust-impact category for AI labeling.
 
@@ -318,12 +321,12 @@ C2PA disclosure mandatory — news content is the highest-trust-impact category 
 
 **Stack.**
 - 1 persona keyframe (gen-z-streetwear, casual hoodie, pastel wall) → $0.15
-- 1 wan-25 talking-head with audio (45s) → ~$0.40
+- 6 × 8s veo-3.1-fast talking-head clips (45s total) → ~$1.50
 - 2 kling-v3.0-pro B-roll cutaways (5s each) → $1.40 — product reference REQUIRED for both (the hoodie). Reference-required gate fires.
 - 1 ElevenLabs VO → $0
 - 1 ElevenLabs Music low-volume bed (subscription) → $0
 - 1 whisper-1 → $0.001
-- **Total: ~$1.95**
+- **Total: ~$3.05**
 
 Disclosure mandatory — paid e-commerce is the highest-regulatory-risk category. Visible "AI-generated" overlay + C2PA flag both on.
 

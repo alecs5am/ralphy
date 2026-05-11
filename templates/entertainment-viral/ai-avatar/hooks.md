@@ -1,6 +1,6 @@
 # Hooks — ai-avatar
 
-12 opens an AI presenter can deliver in the first 0-3 seconds. Each one is tuned for lip-sync legibility — Kling Avatar v2 and wan-25 lock cleanly on consonant-forward, mid-tempo speech with at least one stressed syllable in the first second. Hooks designed for screaming, whispering, or rapid-fire delivery break lip-sync and read as fake. Pick the hook, then write the rest of the script around the tone it sets.
+12 opens an AI presenter can deliver in the first 0-3 seconds. Each one is tuned for lip-sync legibility — Kling Avatar v2 and veo-3.1-fast lock cleanly on consonant-forward, mid-tempo speech with at least one stressed syllable in the first second. Hooks designed for screaming, whispering, or rapid-fire delivery break lip-sync and read as fake. Pick the hook, then write the rest of the script around the tone it sets.
 
 > **Reminder.** No hook works without a stable persona. Generate the keyframe once and reuse. If the avatar's eyes wander between scenes, the smartest hook in the world reads as deepfake. See `prompt-cookbook.md → "Avatar prompt design"`.
 
@@ -17,7 +17,7 @@
 
 > "I tested [N] [products / tools / hacks] so you don't have to."
 
-- **Setup.** Avatar slightly amused, tone of authority. Optional: hold up a number with fingers (only if the avatar's hands stay in frame consistently — wan-25 sometimes loses hand stability, prefer no hand if generating < 3 episodes).
+- **Setup.** Avatar slightly amused, tone of authority. Optional: hold up a number with fingers (only if the avatar's hands stay in frame consistently — veo-3.1-fast sometimes loses hand stability, prefer no hand if generating < 3 episodes).
 - **Why.** Promises a payoff (the winner) without revealing it. Open loop.
 - **Ideal niche.** Product reviews, tool roundups, e-commerce affiliate.
 - **Lip-sync emphasis.** Numbers are great for lip-sync — "twelve", "thirty", "a hundred" all have clean mouth shapes. Stress the number, then pause 200ms before "so you don't have to".
@@ -29,7 +29,7 @@
 - **Setup.** Avatar leaning slightly back, calm authority. NOT confrontational — that reads as bait.
 - **Why.** Curiosity gap + identity tension. Viewers can't help but check whether they hold the wrong assumption.
 - **Ideal niche.** Education, finance, health-adjacent (NOT direct medical), career advice.
-- **Lip-sync emphasis.** "Wrong" is a key word — round vowel + hard consonant ending. Stress it. The "actually" before it gives wan-25 enough lead-in to lock the mouth shape.
+- **Lip-sync emphasis.** "Wrong" is a key word — round vowel + hard consonant ending. Stress it. The "actually" before it gives veo-3.1-fast enough lead-in to lock the mouth shape.
 
 ## 4. The saved-me-X claim
 
@@ -65,7 +65,7 @@
 - **Setup.** Slight head-shake, self-deprecating smile. The avatar appears to be sharing, not selling.
 - **Why.** Vulnerability hook. Even synthetic, the structure earns trust because it costs the speaker something to admit.
 - **Ideal niche.** Career, indie founder, finance, fitness, personal essay.
-- **Lip-sync emphasis.** "Biggest mistake" — both stressed words have clean mouth shapes. The pause before "was" is where wan-25 likes to breathe; don't cram it.
+- **Lip-sync emphasis.** "Biggest mistake" — both stressed words have clean mouth shapes. The pause before "was" is where veo-3.1-fast likes to breathe; don't cram it.
 
 ## 8. The "what if" pivot
 
@@ -74,7 +74,7 @@
 - **Setup.** Slight smirk, eyebrow raise. NOT cheesy — the avatar is genuinely confident.
 - **Why.** Conditional framing lets the avatar deliver a bold claim without sounding like an ad.
 - **Ideal niche.** AI tools, productivity, finance, e-commerce.
-- **Lip-sync emphasis.** "What if" — the "wh" + short vowel is a clean shape. Avoid mumbling "if I told you" together; let wan-25 see each syllable. 220 BPM speech max.
+- **Lip-sync emphasis.** "What if" — the "wh" + short vowel is a clean shape. Avoid mumbling "if I told you" together; let veo-3.1-fast see each syllable. 220 BPM speech max.
 
 ## 9. The deadline / scarcity open
 
@@ -92,7 +92,7 @@
 - **Setup.** Soft, almost story-time delivery. Avatar leans back slightly, eyes warm.
 - **Why.** Visualization + compression — the "now imagine" pivot is where the offer lands.
 - **Ideal niche.** Coaching, fitness, finance, productivity, AI tools.
-- **Lip-sync emphasis.** "Imagine" has three clean syllables — wan-25 locks easily. Avoid soft / breathy delivery; ElevenLabs stability 0.40+ keeps the shape sharp.
+- **Lip-sync emphasis.** "Imagine" has three clean syllables — veo-3.1-fast locks easily. Avoid soft / breathy delivery; ElevenLabs stability 0.40+ keeps the shape sharp.
 
 ## 11. The challenge / dare open
 
@@ -101,7 +101,7 @@
 - **Setup.** Direct eye contact, slight smile. Confident, not aggressive.
 - **Why.** Implicit guarantee. The phrasing assumes success and dares the viewer to disprove it.
 - **Ideal niche.** Fitness, productivity, habits, cooking, language learning.
-- **Lip-sync emphasis.** Numbers + "days" is clean. Stress "try this" and the duration. Don't rush — wan-25 needs ~200ms per syllable to lock cleanly.
+- **Lip-sync emphasis.** Numbers + "days" is clean. Stress "try this" and the duration. Don't rush — veo-3.1-fast needs ~200ms per syllable to lock cleanly.
 
 ## 12. The breaking-news brief
 
@@ -116,11 +116,11 @@
 
 ## Cross-hook lip-sync rules
 
-- **Speech tempo.** Target 140-180 WPM. Below 120 reads as drugged. Above 200 breaks wan-25 lip-sync.
+- **Speech tempo.** Target 140-180 WPM. Below 120 reads as drugged. Above 200 breaks veo-3.1-fast lip-sync.
 - **Avoid in opens.** Whispering, screaming, laughter mid-word, exclamations like "ooh!" or "oh my god!" — all break lip-sync visibly.
 - **First-second priority.** The opening word should have a strong consonant onset (T, D, S, K, P, B). "Three", "Stop", "If", "What", "Big", "Try" — all clean. Avoid "Um", "Hey", "So" (too soft, mouth shape ambiguous, lip-sync drifts).
-- **Pause discipline.** 200-300ms pauses between hook clauses help wan-25 reset mouth shape between phrases. Don't pack the hook with no breath room.
-- **Stable head.** No nodding, no head-shaking, no looking off-camera in the first 3 seconds. wan-25 lip-syncs cleanly only when the head is stable.
+- **Pause discipline.** 200-300ms pauses between hook clauses help veo-3.1-fast reset mouth shape between phrases. Don't pack the hook with no breath room.
+- **Stable head.** No nodding, no head-shaking, no looking off-camera in the first 3 seconds. veo-3.1-fast lip-syncs cleanly only when the head is stable.
 
 ## Hook + archetype quick map
 

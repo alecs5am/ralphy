@@ -11,7 +11,7 @@
 In 2026, AI avatars crossed the uncanny-valley threshold for short-form. Three reasons this format prints:
 
 1. **Production cost collapses to near zero.** No talent fee, no studio, no shoot day. One scenarist + one art-director session ships an episode.
-2. **Multilingual scaling is one prompt away.** ElevenLabs `eleven_multilingual_v2` covers 30+ languages with voice preserved. One script → one persona keyframe → N language VOs → N wan-25 renders. A 10-market export costs ~$8-15 instead of $20K of dubbing.
+2. **Multilingual scaling is one prompt away.** ElevenLabs `eleven_multilingual_v2` covers 30+ languages with voice preserved. One script → one persona keyframe → N language VOs → N veo-3.1-fast renders. A 10-market export costs ~$8-15 instead of $20K of dubbing.
 3. **Brand persona is consistent across episodes.** Real human creators have bad-hair days, get sick, ask for raises, leave. An AI avatar is the same shot composition, lighting, and voice forever. For brands publishing weekly, this is a moat — not a gimmick.
 
 The proof point: one TikTok Shop affiliate earned ~$13K commission on a single AI-avatar video (AIimagetovideo.pro, 2026). The format is conversion-grade, not just novelty.
@@ -20,8 +20,8 @@ The proof point: one TikTok Shop affiliate earned ~$13K commission on a single A
 
 ## Vibe anchors
 
-- **Realistic avatar in close-up.** Shoulders-up framing, eye contact with the camera. Avoid full-body — wan-25 lip-sync is best framed tight.
-- **Natural lip-sync.** wan-25 (audio-conditioned generation) is the default. The avatar's mouth shapes follow the actual VO waveform, not a generic loop.
+- **Realistic avatar in close-up.** Shoulders-up framing, eye contact with the camera. Avoid full-body — veo-3.1-fast lip-sync is best framed tight.
+- **Natural lip-sync.** veo-3.1-fast (audio-conditioned generation) is the default. The avatar's mouth shapes follow the actual VO waveform, not a generic loop.
 - **Warm, soft lighting.** Window light, key + fill, no studio gloss. Studio gloss reads as corporate-ad and kills the parasocial vibe.
 - **Simple composition.** Solid wall, blurred bookshelf, single-color backdrop. Busy backgrounds amplify any avatar artifacts (hair edges, ear-line wobble).
 - **Same persona across episodes.** ONE canonical keyframe per project. NEVER regen the avatar mid-series — even subtle drift breaks viewer trust.
@@ -90,21 +90,21 @@ If the brief mentions a real named person (CEO, celebrity, public figure):
 | Stage | Detail | Cost |
 |---|---|---|
 | Persona keyframe | 1 × `gemini-3-pro-image-preview` @ $0.15 (one-time per project) | ~$0.15 |
-| Talking-head video | wan-25 with audio + image: ~$0.40-0.60 per 60s render (estimate; check `MODELS.md`) | ~$0.50 |
+| Talking-head video | veo-3.1-fast chained 8s clips, image-conditioned + audio: ~$0.25/clip × N clips (60s ≈ 8 clips → ~$2.00; 90s ≈ 12 clips → ~$3.00). RU/UA/non-EN langs need `--audio-mode silent` and ElevenLabs VO at compose time. | ~$2.00 |
 | Optional B-roll | 1-2 × `kling-v3.0-pro` × 5s @ $0.14/s | $0.70 - $1.40 |
 | VO | 1 ElevenLabs call per language (subscription) | $0 |
 | Captions | 1 × whisper-1 per language | ~$0.001 |
 | Music (optional) | 1 ElevenLabs Music call (subscription) | $0 |
 | Render | local | $0 |
-| **Total (single language, no B-roll)** | | **~$0.65** |
-| **Total (single language, 2 cutaways)** | | **~$2.05** |
-| **Total (10 languages, no B-roll)** | | **~$5.15** (one keyframe amortized) |
+| **Total (single language, no B-roll, 60s)** | | **~$2.15** |
+| **Total (single language, 2 cutaways, 60s)** | | **~$3.55** |
+| **Total (10 languages, no B-roll, 60s each)** | | **~$20.15** (one keyframe amortized + 10 × $2.00) |
 
-Cheapest format in the pack on a per-episode basis. Multilingual scaling is the killer-app cost story.
+Multilingual scaling is the killer-app cost story — even at veo-3.1-fast pricing, 10 markets ≈ $20 is 100-1000× cheaper than human dubbing studios. Drop to `veo-3.1-lite` ($0.15/clip) for high-volume batches where lip-sync quality can step down.
 
 ## Read also
 
 - `hooks.md` — 12 AI-avatar opens with lip-sync emphasis notes per hook.
-- `prompt-cookbook.md` — avatar prompt design, model picks (wan-25 vs sync-lipsync vs veo-3.1), voice settings, multilingual export recipe, mistakes, 4 worked examples.
+- `prompt-cookbook.md` — avatar prompt design, model picks (veo-3.1-fast default / veo-3.1 premium / veo-3.1-lite budget), voice settings, multilingual export recipe, mistakes, 4 worked examples.
 - `workspace/personas/ARCHETYPES.md` — 8 baseline archetypes (when present).
 - `MODELS.md` — current pricing and model IDs (Claude's training is stale; always check).
