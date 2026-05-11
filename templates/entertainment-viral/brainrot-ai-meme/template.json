@@ -56,6 +56,22 @@
     "topHalfDefault": "3-5 kling-v3.0-pro clips, locked visual grammar, one per script beat",
     "disclosureOverlay": "off"
   },
+  "compositionTemplate": {
+    "id": "BrainrotAIMeme",
+    "defaults": {
+      "durationSec": 45,
+      "voPath": "voiceover/vo-primary.mp3",
+      "captions": [],
+      "gameplayLoop": "uploaded/gameplay-loop.mp4",
+      "gameplayLoopSec": 56,
+      "topClips": [],
+      "topImage": null,
+      "accentColor": "#FFEB3B",
+      "captionFontSize": 84,
+      "captionCombineMs": 500,
+      "gameplayVolume": 0.08
+    }
+  },
   "variationAxes": [
     "gameplay choice (Subway Surfers / Minecraft Parkour / GTA / Rocket League / satisfying soap-cutting / kinetic-sand)",
     "VO tone (Reddit-narrator monotone / dramatic narrator / sarcastic / conspiratorial whisper)",
