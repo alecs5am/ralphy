@@ -2,7 +2,7 @@
   "name": "GRWM (Get Ready With Me)",
   "slug": "grwm",
   "kind": "vibe-style",
-  "description": "Modern GRWM as codified by Alix Earle — creator gets ready for an event (makeup / outfit / work) while running a parallel storytime or commentary track. 30-90s, 9:16. 0-3s strong hook + first makeup beat. 3-60s dual-layer: visually getting ready in jump-cuts every 4-7s while the voice tells a story. Ends on a final-look reveal + cliffhanger or CTA. The two retention hooks (visual dynamic + narrative) make this one of the highest-completion formats on TikTok / Reels. Reference-required when a real brand is named (Sephora, Rare Beauty, etc.) — AGENTS.md hard rule #3.",
+  "description": "Modern GRWM as codified by Alix Earle \u2014 creator gets ready for an event (makeup / outfit / work) while running a parallel storytime or commentary track. 30-90s, 9:16. 0-3s strong hook + first makeup beat. 3-60s dual-layer: visually getting ready in jump-cuts every 4-7s while the voice tells a story. Ends on a final-look reveal + cliffhanger or CTA. The two retention hooks (visual dynamic + narrative) make this one of the highest-completion formats on TikTok / Reels. Reference-required when a real brand is named (Sephora, Rare Beauty, etc.) \u2014 AGENTS.md hard rule #3.",
   "tags": [
     "grwm",
     "get-ready-with-me",
@@ -25,8 +25,14 @@
   ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
-  "typicalDurationSec": [30, 90],
-  "typicalClipCount": [5, 12],
+  "typicalDurationSec": [
+    30,
+    90
+  ],
+  "typicalClipCount": [
+    5,
+    12
+  ],
   "fps": 30,
   "width": 1080,
   "height": 1920,
@@ -37,15 +43,15 @@
     "promptCookbook": "prompt-cookbook.md"
   },
   "stackSummary": {
-    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — character keyframes (mirror / vanity / window-front), product close-ups (hero shots), final-look reveal. Multi-ref WITH user-supplied product photo for any frame where a real brand is visible.",
-    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — 4-5s clips of hand-actions (foundation buffing, lip application, hair tousle), step-to-step transitions, jump-cut beats. 5-12 clips. generate_audio: false.",
-    "voiceover": "ElevenLabs eleven_multilingual_v2 — single conversational track (storytime / commentary). voice_settings: stability 0.4, similarity 0.75 — warm and unscripted. Language follows the user's brief.",
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter \u2014 character keyframes (mirror / vanity / window-front), product close-ups (hero shots), final-look reveal. Multi-ref WITH user-supplied product photo for any frame where a real brand is visible.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter \u2014 4-5s clips of hand-actions (foundation buffing, lip application, hair tousle), step-to-step transitions, jump-cut beats. 5-12 clips. generate_audio: false.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 \u2014 single conversational track (storytime / commentary). voice_settings: stability 0.4, similarity 0.75 \u2014 warm and unscripted. Language follows the user's brief.",
     "captions": "OpenRouter whisper-1; Hormozi-yellow for high-energy storytime, MinimalCaptions bottom for calmer vlog tone.",
-    "music": "ElevenLabs Music — optional. Low-volume ambient / lifestyle bed (lo-fi, soft pop instrumental, indie acoustic). Dipped under VO at -18 to -22 dB."
+    "music": "ElevenLabs Music \u2014 optional. Low-volume ambient / lifestyle bed (lo-fi, soft pop instrumental, indie acoustic). Dipped under VO at -18 to -22 dB."
   },
   "constants": {
     "vibeAnchor": "dual-layer-makeup-and-storytime",
-    "structure": "0-3s hook + first product → 3-60s parallel-track (makeup beats + VO story) → 60-90s final-look reveal + cliffhanger / CTA",
+    "structure": "0-3s hook + first product \u2192 3-60s parallel-track (makeup beats + VO story) \u2192 60-90s final-look reveal + cliffhanger / CTA",
     "jumpCutCadence": "every 4-7s between makeup steps",
     "voSettings": "stability 0.4, similarity 0.75",
     "musicMix": "ambient bed dipped to -20dB under VO"
@@ -59,5 +65,17 @@
   ],
   "doNotCopyLiterally": "Scenario, VO storytime text, exact product brand placements, exact prompts. Vibe reference only.",
   "requiresUserReference": true,
-  "referenceNotes": "If the brief names a real brand (Sephora, Rare Beauty, Charlotte Tilbury, Glossier, etc.), a product reference (photo / packaging / logo) is REQUIRED at workspace/projects/<id>/assets/uploaded/. Without it, /ralph-art-director refuses (AGENTS.md hard rule #3). Generic GRWM (no named brand) does not require a reference — but a user character reference is strongly recommended for face consistency across jump-cuts."
+  "referenceNotes": "If the brief names a real brand (Sephora, Rare Beauty, Charlotte Tilbury, Glossier, etc.), a product reference (photo / packaging / logo) is REQUIRED at workspace/projects/<id>/assets/uploaded/. Without it, /ralph-art-director refuses (AGENTS.md hard rule #3). Generic GRWM (no named brand) does not require a reference \u2014 but a user character reference is strongly recommended for face consistency across jump-cuts.",
+  "compositionTemplate": {
+    "id": "Grwm",
+    "defaults": {
+      "durationSec": 45,
+      "beats": [],
+      "voPath": "voiceover/vo-primary.mp3",
+      "captions": [],
+      "captionStyle": "yellow-pop",
+      "clipVolume": 0,
+      "musicVolume": 0.1
+    }
+  }
 }

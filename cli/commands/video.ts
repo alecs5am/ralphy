@@ -4,6 +4,7 @@
 // video post-processing primitives without making the agent write code.
 
 import { Command } from "commander";
+import fs from "node:fs/promises";
 import path from "node:path";
 import {
   extractSegment,
@@ -11,6 +12,7 @@ import {
   tonemapHDR,
   concatLossless,
 } from "../lib/ffmpeg-recipes.js";
+import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok, err } from "../lib/output.js";
 
 export function videoCmd() {
@@ -100,6 +102,38 @@ export function videoCmd() {
         out({ src: opts.in, dst, algorithm: opts.algorithm });
       } catch (e: any) {
         err(`tonemap-hdr failed: ${e?.message || e}`);
+      }
+    });
+
+  // ── smart-crop ─────────────────────────────────────────────────────────
+  cmd
+    .command("smart-crop")
+    .description(
+      "Detect speaker face bboxes in a source video and write face-bboxes.json. Output is consumed by the <SmartReframe> Remotion component (used by podcast-clip template) to follow the active speaker with a virtual 9:16 camera, eliminating letterbox bars on horizontal sources.",
+    )
+    .requiredOption("--in <path>", "Source video (typically 16:9 podcast cut)")
+    .requiredOption("--out <path>", "Output face-bboxes.json")
+    .option("--fps <n>", "Sample FPS (default 1 — one bbox set per second)", (v) => Number(v), 1)
+    .option("--project <id>", "Project ID — logs to generations.jsonl when present")
+    .action(async (opts: any) => {
+      try {
+        const result = await detectFaces({
+          videoPath: path.resolve(opts.in),
+          fps: opts.fps,
+          cachePath: path.resolve(opts.out),
+          projectId: opts.project,
+        });
+        const totalFaces = result.frames.reduce((acc, f) => acc + f.bboxes.length, 0);
+        ok(`Detected ${totalFaces} face(s) across ${result.frames.length} sampled frame(s) → ${opts.out}`);
+        out({
+          src: opts.in,
+          dst: opts.out,
+          source: result.source,
+          frames: result.frames.length,
+          totalFaces,
+        });
+      } catch (e: any) {
+        err(`smart-crop failed: ${e?.message || e}`);
       }
     });
 
