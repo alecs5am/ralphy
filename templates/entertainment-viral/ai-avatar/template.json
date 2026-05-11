@@ -2,7 +2,7 @@
   "name": "AI Avatar Talking-Head",
   "slug": "ai-avatar",
   "kind": "vibe-style",
-  "description": "Fully AI-generated 'person' delivering a 45-90s script straight to camera. In 2026, lip-sync (Kling Avatar v2, HeyGen, Synthesia) reached the point where the average TikTok viewer doesn't immediately spot AI; one TikTok Shop affiliate earned ~$13K commission on a single AI-avatar video. Solves the biggest UGC bottleneck — production cost — and unlocks one-script-to-N-markets via ElevenLabs eleven_multilingual_v2 (30+ languages, voice preserved). Close-up persona delivers hook → value → CTA, with optional B-roll cutaways. AI = accelerator, not replacement: the viewer must NOT feel they're watching slop, and a C2PA disclosure is mandatory in 2026.",
+  "description": "Fully AI-generated 'person' delivering a 45-90s script straight to camera. In 2026, lip-sync (Kling Avatar v2, HeyGen, Synthesia) reached the point where the average TikTok viewer doesn't immediately spot AI; one TikTok Shop affiliate earned ~$13K commission on a single AI-avatar video. Solves the biggest UGC bottleneck — production cost — and unlocks one-script-to-N-markets via ElevenLabs eleven_multilingual_v2 (30+ languages, voice preserved). Close-up persona delivers hook → value → CTA, with optional B-roll cutaways. AI = accelerator, not replacement: the viewer must NOT feel they're watching slop. Platform-side C2PA provenance metadata is emitted automatically by render with genai:true; no visible on-screen disclosure overlay (retention drops with visible AI labels).",
   "tags": [
     "ai-avatar",
     "virtual-presenter",
@@ -54,7 +54,7 @@
     "vibeAnchor": "consistent-ai-presenter-close-up",
     "structure": "0-3s hook → 3-60s value → 60-90s CTA",
     "personaStability": "single canonical keyframe reused per project — never regen mid-series",
-    "disclosurePolicy": "C2PA flag mandatory in 2026; visible 'AI-generated' overlay recommended for ads"
+    "disclosurePolicy": "C2PA provenance metadata only (emitted by render with genai:true); no on-screen overlay"
   },
   "variationAxes": [
     "avatar archetype (8 archetypes — see workspace/personas/ARCHETYPES.md): friendly-creator, expert-educator, news-anchor, gen-z-streetwear, corporate-presenter, indie-founder, lifestyle-coach, gamer-reviewer",

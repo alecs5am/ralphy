@@ -18,12 +18,12 @@ The dominant AI-generation format of 2026, and the one the platform must ship a 
 
 ## Vibe anchors
 
-- **Top-half narrative carries the value.** Either a single AI image held with subtle Ken Burns, or 2-3 short kling-v3.0-pro b-roll clips that loosely illustrate. The visual does not need to be precise — it needs to be *evocative*.
+- **Top-half narrative carries the value via 3-5 SHORT CLIPS, not a static image.** Default stack: 3-5 short `kling-v3.0-pro` clips (3-5s each), one per beat of the script, that loosely illustrate what the VO is saying *right now*. Each clip is generated from the same visual style (same prompt grammar, same lighting / aesthetic / palette) so the cut between clips feels like one stylistic universe, not "AI slop". Static-image fallback exists for the cheapest possible smoke test, but it's almost always wrong — the static + Ken-Burns combo reads as a low-effort placeholder and undermines the "production-grade brainrot" feel. Match the number of clips to the narrative beats in the script.
+- **Top-half style consistency is load-bearing.** Lock a "shared visual grammar" line and reuse it verbatim across every clip prompt — e.g. *"editorial 1990s newsprint paper texture, cinematic 35mm grain, dramatic side-lit, single subject framed center, muted desaturated palette except one accent color"*. Don't drift between photoreal / cartoon / archival per clip — that's what makes the format read fake.
 - **Bottom-half gameplay carries the dopamine.** Continuous, hypnotic, no cuts. Subway Surfers / Minecraft Parkour are canonical for a reason — pure forward motion, no failure states visible.
 - **SCREAMING word-by-word captions** sync to VO and sit on the seam between the two halves, full-bleed. Yellow Hormozi default; red-shake for the chaos niches (true crime, conspiracy).
 - **AI VO, not human.** The robotic-but-confident narrator is part of the genre signature — fighting it loses the format. Adam / Onyx / similar deep-male presets at stability ~0.3.
 - **No music by default.** Gameplay diegetic SFX + VO carry. Adding music dilutes both.
-- **Mandatory `AI-generated` disclosure overlay** top-right corner. C2PA + on-screen text. Not optional in 2026.
 
 ## Variation axes
 
@@ -33,7 +33,7 @@ The dominant AI-generation format of 2026, and the one the platform must ship a 
 | VO tone | Reddit-narrator monotone / dramatic narrator / sarcastic / conspiratorial whisper |
 | Caption style | yellow Hormozi / red-screaming-shake / multicolor-per-word |
 | Niche | history fact / finance trivia / psychology / true crime / conspiracy / education-disguised / hot take |
-| Top-half visual | single static AI image / 2-3 kling b-roll clips / AI avatar talking head |
+| Top-half visual | **3-5 kling b-roll clips (DEFAULT)** / AI avatar talking head / single static AI image (fallback only — looks low-effort) |
 
 ## Narrative arc
 
@@ -54,7 +54,7 @@ Total ~45s is the sweet spot. <30s feels rushed, >60s loses retention.
 2. **Gameplay-loop clip** — `gameplay-loop.mp4` at `workspace/projects/<id>/assets/uploaded/`. **REQUIRED**, or explicit sanction of a royalty-free placeholder.
 3. **(Optional) VO style** — defaults to dramatic narrator (Adam preset).
 4. **(Optional) Caption style** — defaults to yellow Hormozi.
-5. **(Optional) Top-half mode** — defaults to single static AI image with Ken Burns.
+5. **(Optional) Top-half mode** — defaults to **3-5 kling-v3.0-pro b-roll clips with locked visual grammar** (one clip per script beat). Static-image-with-Ken-Burns fallback is only acceptable for cheap-smoke iteration; production renders use the multi-clip default.
 
 ## Reference-required gate (hard refuse)
 
@@ -77,16 +77,17 @@ If the brief names a specific real person, brand, or copyrighted IP for the top-
 
 | Stage | Detail | Cost |
 |---|---|---|
-| Top-half visual | 1 × `gemini-3-pro-image-preview` @ $0.15 (static mode) OR 2-3 × `kling-v3.0-pro` × 5s @ $0.14/s | $0.15 - $2.10 |
+| Top-half visual (DEFAULT) | 3-5 × `kling-v3.0-pro` × 4-5s @ $0.14/s, locked-grammar prompts | $2.80 - $3.50 |
+| Top-half visual (fallback) | 1 × `gemini-3-pro-image-preview` @ $0.15 with Ken Burns — only for smoke-test, NOT for shipped video | $0.15 |
 | VO | 1 × ElevenLabs `eleven_multilingual_v2` (~45s, subscription) | $0 |
 | Captions | 1 × ElevenLabs Scribe v1 word-level (subscription) | $0 |
 | Gameplay loop | user-supplied or CC0 | $0 |
 | Music | off by default | $0 |
 | Render | local | $0 |
-| **Total (static top)** | | **~$0.15** |
-| **Total (kling top)** | | **~$2.10** |
+| **Total (DEFAULT — multi-clip, ship-ready)** | | **~$3.00** |
+| **Total (fallback — static, smoke only)** | | **~$0.15** |
 
-The cheapest format in the pack when run in static-image mode. Designed to be batched at volume.
+The default multi-clip path is the production-grade output. Static mode exists for iteration only — shipped video should always be multi-clip with locked visual grammar. See `docs/render-test-2026-05-11.md` for the production-quality reasoning.
 
 ## Read also
 

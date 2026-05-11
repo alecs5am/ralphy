@@ -2,7 +2,7 @@
   "name": "Italian Brainrot",
   "slug": "italian-brainrot",
   "kind": "vibe-style",
-  "description": "Italian Brainrot single-character meme video — full-frame AI-generated character in an absurd scenario with Italian-gibberish voiceover. 8-25s, 9:16, TikTok-native. Distinct from the split-screen `brainrot-ai-meme` format: here the CHARACTER is the entire show (Tralalero Tralala, Tung Tung Tung Sahur, Ballerina Cappuccina, etc.), not a narration over gameplay. The canonical character roster lives in the `pool/italian-brainrot-characters` pool of the ralphy-assets companion repo (33 characters, mirrored from brainrot.cyou). Pull one as image-to-image reference, or generate from descriptor. AI-disclosure overlay mandatory.",
+  "description": "Italian Brainrot single-character meme video — full-frame AI-generated character in an absurd scenario with Italian-gibberish voiceover. 8-25s, 9:16, TikTok-native. Distinct from the split-screen `brainrot-ai-meme` format: here the CHARACTER is the entire show (Tralalero Tralala, Tung Tung Tung Sahur, Ballerina Cappuccina, etc.), not a narration over gameplay. The canonical character roster lives in the `pool/italian-brainrot-characters` pool of the ralphy-assets companion repo (33 characters, mirrored from brainrot.cyou). Pull one as image-to-image reference, or generate from descriptor.",
   "tags": [
     "italian-brainrot",
     "ai-meme",
@@ -91,7 +91,7 @@
     "structure": "0-2s character entrance (HOOK) → 2-15s absurd action → 15-22s catchphrase repeat (LOOP) → 22-25s payoff/cut",
     "captionStyle": "italian-gibberish-burnin OR none (audio carries)",
     "musicDefault": "off (gibberish VO is the audio bed)",
-    "disclosureOverlay": "ai-generated-bottom-right-small"
+    "disclosureOverlay": "off"
   },
   "variationAxes": [
     "character pick (33 in the pool — see characters.md)",

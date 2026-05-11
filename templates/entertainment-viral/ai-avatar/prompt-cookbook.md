@@ -218,16 +218,11 @@ Use these phrases in the avatar prompt. Mix and match per archetype.
 - "DSLR look" (too sharp; the avatar's edges show)
 - "photorealistic" (often produces dead-eye stare)
 
-## C2PA disclosure (mandatory in 2026)
+## C2PA disclosure (metadata only)
 
-The research doc flags C2PA as a 2026 requirement: TikTok has flagged 1.3B+ AI videos via C2PA already. Two layers:
+No on-screen AI-disclosure overlay — viewers consistently react negatively to visible AI labels and retention drops. C2PA provenance metadata is still emitted automatically by `ralphy render` with `genai: true` so the platform-side flag is honored without the visible-text penalty.
 
-1. **Platform-level C2PA flag.** Set at upload time. TikTok, Reels, and Shorts all have an "AI-generated content" toggle in the upload flow. Always-on for this template.
-2. **In-frame disclosure overlay.** For e-commerce / paid ads, the Remotion composition includes `<DisclosureBadge />` — bottom-right, 8-10pt, "AI-generated", low opacity. Mandatory in EU/UK; recommended everywhere.
-
-Don't suppress the disclosure to "make it look more real". That's the slop trap. The format works because the avatar is good enough that disclosure doesn't kill conversion — viewers respect the transparency.
-
-## Eight common mistakes
+## Seven common mistakes
 
 1. **Avatar drift between scenes.** Different face, different hairline, different ear shape across episodes. Cause: regenerating the keyframe instead of reusing the canonical one. Fix: ONE keyframe per project, reused as `--ref` on every call.
 
@@ -237,13 +232,11 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 4. **Robotic VO.** Monotone, mechanical cadence. Cause: ElevenLabs `stability` set too high (0.60+), or `style` set to 0. Fix: stability 0.35-0.50, style 0.10-0.30. Trust the archetype tweaks above.
 
-5. **Missing C2PA disclosure.** Uploading without the AI-generated flag. Cause: forgot, or thought it would hurt conversion. Fix: always-on. The platforms enforce it; the format works without "stealth".
+5. **Background drift.** Episode 1 has a window with bokeh; episode 5 has a solid wall. Cause: prompt didn't pin the background. Fix: include the background description in the master template and reuse verbatim across episodes.
 
-6. **Background drift.** Episode 1 has a window with bokeh; episode 5 has a solid wall. Cause: prompt didn't pin the background. Fix: include the background description in the master template and reuse verbatim across episodes.
+6. **Hand artifacts.** Avatar's hands appear in frame but warp / merge. Cause: shoulders-up framing should mean no hands. Fix: prompt "shoulders-up framing, hands not visible, no hand gestures in frame". If you need gestures, pre-frame for kling B-roll, not veo-3.1-fast.
 
-7. **Hand artifacts.** Avatar's hands appear in frame but warp / merge. Cause: shoulders-up framing should mean no hands. Fix: prompt "shoulders-up framing, hands not visible, no hand gestures in frame". If you need gestures, pre-frame for kling B-roll, not veo-3.1-fast.
-
-8. **Wardrobe / hair drift across languages.** Russian version has different jacket than English. Cause: the veo-3.1-fast call was given a different `--image` reference per language. Fix: SAME `--image` (the canonical persona keyframe) across all language renders.
+7. **Wardrobe / hair drift across languages.** Russian version has different jacket than English. Cause: the veo-3.1-fast call was given a different `--image` reference per language. Fix: SAME `--image` (the canonical persona keyframe) across all language renders.
 
 ## Four worked examples
 
@@ -288,7 +281,7 @@ Don't suppress the disclosure to "make it look more real". That's the slop trap.
 
 > **Cost note.** 75s is at the top of this format's range and the most expensive single-language run in this cookbook. To trim: drop to 45s (6 × 8s clips = $6.72), or step down to `veo-3.1-lite` (~$0.09/s → 75s ≈ $6.75) for educational tone — lip-sync quality steps down but stays acceptable for talking-only / no-B-roll formats.
 
-No B-roll. The avatar carries the entire screen time. Disclosure: "Not financial advice" both spoken AND on-screen.
+No B-roll. The avatar carries the entire screen time. "Not financial advice" both spoken AND on-screen.
 
 ### Example 3 — News brief (tech)
 
@@ -310,7 +303,7 @@ No B-roll. The avatar carries the entire screen time. Disclosure: "Not financial
 
 > **Cost reality.** Multilingual scaling at veo-3.1-fast = ~$7.80 per language for the talking-head layer. Still 10-100× cheaper than human dubbing studios, but the "trivially cheap" framing in the FAL-era docs is gone. Drop to `veo-3.1-lite` (~$0.09/s → ~$15 for 3 langs total) when news-brief tone tolerates the lip-sync quality step-down. For 10-market rollouts the per-language number compounds: 10 × $7.80 = ~$78 for talking-head alone.
 
-C2PA disclosure mandatory — news content is the highest-trust-impact category for AI labeling.
+C2PA provenance metadata emitted by render (genai:true); no visible overlay.
 
 ### Example 4 — E-commerce ad (TikTok Shop affiliate)
 
@@ -332,7 +325,7 @@ C2PA disclosure mandatory — news content is the highest-trust-impact category 
 - 1 whisper-1 → $0.001
 - **Total: ~$8.27**
 
-Disclosure mandatory — paid e-commerce is the highest-regulatory-risk category. Visible "AI-generated" overlay + C2PA flag both on.
+C2PA provenance metadata emitted by render (genai:true); no visible overlay.
 
 The proof point this template chases: the AIimagetovideo.pro affiliate that earned ~$13K commission on a single AI-avatar video was an example of this exact stack — gen-z presenter, TikTok Shop CTA, ~45s.
 
@@ -343,4 +336,3 @@ The proof point this template chases: the AIimagetovideo.pro affiliate that earn
 - Hardcoding a model ID without checking `MODELS.md` first. Pricing and IDs drift; Claude's training is stale.
 - `bunx tsx` against a TS file or `curl` against fal.ai/ElevenLabs directly. Always go through `ralphy generate` (AGENTS.md hard rule #2). If the verb you need doesn't exist, propose adding it to `cli/commands/` and stop.
 - Speech tempo > 200 WPM in the VO. Lip-sync breaks visibly.
-- Suppressing the C2PA disclosure to "make it look real". Slop trap; platforms throttle.

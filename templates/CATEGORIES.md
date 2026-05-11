@@ -67,11 +67,11 @@ Audience: passive scroll-feed entertainment / meme / brainrot / loopable. Goal: 
 
 | Slug | Kind | One-liner |
 |---|---|---|
-| [`brainrot-ai-meme`](entertainment-viral/brainrot-ai-meme/) | vibe-style | Split-screen AI VO + Subway Surfers / Minecraft Parkour gameplay loop + screaming captions. C2PA disclosure mandatory. |
+| [`brainrot-ai-meme`](entertainment-viral/brainrot-ai-meme/) | vibe-style | Split-screen AI VO over 3-5 top-half clips (locked visual grammar) + Subway Surfers / Minecraft Parkour gameplay loop + screaming captions. |
 | [`italian-brainrot`](entertainment-viral/italian-brainrot/) | vibe-style | Single-character AI-meme (Tralalero Tralala, Tung Tung Sahur, Ballerina Cappuccina, etc.) with Italian-gibberish VO. 8-25s full-frame; 33-character canonical pool in ralphy-assets. |
 | [`ai-vegetables`](entertainment-viral/ai-vegetables/) | vibe-reference | Surrealist POV — anthropomorphic vegetable does a mundane human action. 12-18s. |
 | [`soviet-nostalgic`](entertainment-viral/soviet-nostalgic/) | vibe-reference | Off-screen Russian narrator, two-era heritage story with mid-video music drop. |
-| [`ai-avatar`](entertainment-viral/ai-avatar/) | vibe-style | Full synthetic talking-head (wan-25 / sync-lipsync). Multilingual scaling, 175+ languages. AI-disclosure overlay. |
+| [`ai-avatar`](entertainment-viral/ai-avatar/) | vibe-style | Full synthetic talking-head (veo-3.1-fast image-to-video). Multilingual scaling, 175+ languages. |
 | [`trending-sound-remix`](entertainment-viral/trending-sound-remix/) | vibe-style | Audio-first remix of a hyped sound. User supplies trending audio. 7-25s, 24-48h post-window. |
 | [`tier-list`](entertainment-viral/tier-list/) | vibe-style | S/A/B/C/D ranking grid. Debate-bait with controversial final pick. 40-75s. |
 | [`asmr-sensory`](entertainment-viral/asmr-sensory/) | vibe-style | Sound-forward content. Tapping / whispering / cooking / unboxing-sounds. Music OFF default. 30-90s. |

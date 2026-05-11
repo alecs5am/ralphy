@@ -2,7 +2,7 @@
   "name": "Doctor Authority",
   "slug": "doctor-authority",
   "kind": "vibe-style",
-  "description": "Authority figure (doctor / dermatologist / nutritionist / dentist / pharmacist) in a white coat or scrubs explains why a product, ingredient, or approach works. The dominant nutra / supplement / skincare / wellness DTC ad pattern: white coat = trust shortcut, mechanism explanation = 'I understand why this works' feeling. 20-45s, 9:16. Format: 0-3s authority hook ('As a dermatologist, I tell every patient…') → 3-25s mechanism explanation (what the ingredient does, the science) → 25-40s product / ingredient name + recommendation → 40-45s soft CTA. Walks a regulatory line — synthetic-doctor AI avatars must carry an on-screen 'AI-generated' disclosure (TikTok C2PA + 2026 norm); refusing to impersonate real-named medical professionals without consent (AGENTS.md hard rule #3).",
+  "description": "Authority figure (doctor / dermatologist / nutritionist / dentist / pharmacist) in a white coat or scrubs explains why a product, ingredient, or approach works. The dominant nutra / supplement / skincare / wellness DTC ad pattern: white coat = trust shortcut, mechanism explanation = 'I understand why this works' feeling. 20-45s, 9:16. Format: 0-3s authority hook ('As a dermatologist, I tell every patient…') → 3-25s mechanism explanation (what the ingredient does, the science) → 25-40s product / ingredient name + recommendation → 40-45s soft CTA. Walks a regulatory line — refusing to impersonate real-named medical professionals without consent (AGENTS.md hard rule #3); platform-side C2PA provenance metadata is emitted by render (genai:true) without a visible on-screen overlay.",
   "tags": [
     "doctor",
     "authority",
@@ -52,16 +52,16 @@
     "structure": "0-3s authority hook → 3-25s mechanism explainer → 25-40s ingredient/product mention → 40-45s soft CTA",
     "voTone": "calm-authoritative-not-salesy",
     "captionStyle": "minimal-or-restrained-hormozi",
-    "aiDisclosure": "on-screen 'AI-generated' top-right corner, full-duration, when synthetic doctor"
+    "aiDisclosure": "off"
   },
   "variationAxes": [
     "profession (dermatologist, nutritionist, dentist, pharmacist, cardiologist, GP)",
     "setting (clinical office, home office with credentials wall, pharmacy counter, neutral studio)",
-    "real-vs-AI (real licensed actor with consent / AI-avatar with mandatory on-screen disclosure)",
+    "real-vs-AI (real licensed actor with consent / AI-avatar)",
     "claim type (mechanism-explainer, ingredient-recommendation, lifestyle-advice, protocol-walkthrough)",
     "VO language (any — emotional arc reads through tone and white-coat visual)"
   ],
   "doNotCopyLiterally": "Authority script, ingredient name, profession choice, exact prompts. Vibe / format reference only.",
   "requiresUserReference": true,
-  "referenceNotes": "Two gates apply. (1) Branded product gate: if a specific branded supplement / skincare / nutra product is recommended on-screen, a product reference (photo / packaging / logo) MUST exist at workspace/projects/<id>/assets/uploaded/ — else refuse (AGENTS.md hard rule #3). AI-improvised branding on a real product reads as fake and is a regulatory landmine. (2) Real-named professional gate: if the brief invokes a real-named medical professional (Dr. Jane Doe, Dermatologist at X clinic), refuse outright unless the user provides written consent — impersonating a real-named medical professional is a hard rule #3 violation and a defamation risk. Generic 'a dermatologist' / 'a nutritionist' is fine if AI-generated AND the synthetic figure carries an on-screen 'AI-generated' disclosure (TikTok C2PA + 2026 norm). Therapeutic / curative claims ('cures acne', 'reverses diabetes') are refused regardless — they require regulatory backing this template does not produce."
+  "referenceNotes": "Two gates apply. (1) Branded product gate: if a specific branded supplement / skincare / nutra product is recommended on-screen, a product reference (photo / packaging / logo) MUST exist at workspace/projects/<id>/assets/uploaded/ — else refuse (AGENTS.md hard rule #3). AI-improvised branding on a real product reads as fake and is a regulatory landmine. (2) Real-named professional gate: if the brief invokes a real-named medical professional (Dr. Jane Doe, Dermatologist at X clinic), refuse outright unless the user provides written consent — impersonating a real-named medical professional is a hard rule #3 violation and a defamation risk. Generic 'a dermatologist' / 'a nutritionist' is fine with an AI-generated synthetic figure; platform-side C2PA provenance metadata is emitted by render (genai:true) — no visible on-screen overlay (retention drops with visible AI labels). Therapeutic / curative claims ('cures acne', 'reverses diabetes') are refused regardless — they require regulatory backing this template does not produce."
 }

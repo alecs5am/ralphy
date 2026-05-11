@@ -44,7 +44,6 @@ Target duration: **8-25s** (sweet spot ~15s). 9:16, 1080×1920, 30fps.
 | Voiceover | ElevenLabs `eleven_multilingual_v2` | Italian gibberish at stability ~0.4, style ~0.5. Voice picks: Adam, Antoni, Bill, or any high-energy male preset. |
 | Music | OFF by default | Gibberish VO + ambient SFX carry. If music: ElevenLabs Music "chaotic / circus / militant march" bed at -22 dB. |
 | Captions | Optional | Burn the gibberish phonetically with HormoziCaptions if you want the loop hook visible; otherwise leave audio-only. |
-| Disclosure | "AI-generated" mark | Mandatory, bottom-right corner, 8% opacity, small. C2PA 2026 compliance. |
 
 ## Reference-required gate
 
@@ -78,6 +77,6 @@ ralphy assets list --template italian-brainrot
 2. Pull canonical reference → art-director generates image-to-video shots.
 3. ElevenLabs gibberish VO (one call, ~15s).
 4. Optional: phonetic captions burned in.
-5. Render via Remotion (single composition, hero shot + optional caption layer + AI-disclosure overlay).
+5. Render via Remotion (single composition, hero shot + optional caption layer).
 
 Cost target: **<$0.50 per video** at default stack (1× hero image already pulled, 2× 5s kling clips, 1× ElevenLabs VO).

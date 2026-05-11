@@ -1,6 +1,6 @@
 # Brainrot AI Meme — prompt cookbook
 
-The recipe book the art-director consults when running this template. Concrete generation commands, voice picks, caption choices, gameplay sourcing, the C2PA disclosure rule, common mistakes, and four worked end-to-end examples across the canonical niches.
+The recipe book the art-director consults when running this template. Concrete generation commands, voice picks, caption choices, gameplay sourcing, disclosure policy, common mistakes, and four worked end-to-end examples across the canonical niches.
 
 ---
 
@@ -12,11 +12,22 @@ Single composition, 1080×1920 @ 30fps, ~45 seconds. Three layers stacked top-to
 <Composition id="brainrot-ai-meme" width={1080} height={1920} fps={30} durationInFrames={1350}>
 
   Layer 1 — top half (1080×960 anchored at y=0):
-    Either:
-      (a) <Img src={staticFile('top-image.png')} /> with a slow Ken Burns transform
-          (scale 1.0 → 1.06 over the full duration, translateX ±20px)
-      (b) <Series>{kling-clip-1}{kling-clip-2}{kling-clip-3}</Series> — 3 × 5s clips
-      (c) <Video src={staticFile('avatar.mp4')} /> — for AI-avatar mode
+    DEFAULT — multi-clip Series with locked visual grammar:
+      <Series>
+        {kling-clip-1 (≈10s — opening beat)}
+        {kling-clip-2 (≈10s — setup beat)}
+        {kling-clip-3 (≈10s — escalation beat)}
+        {kling-clip-4 (≈10s — payoff beat)}
+        {kling-clip-5 (≈5s — closer, optional)}
+      </Series>
+      Each clip generated from the same prompt-prefix grammar (period setting,
+      lighting, palette, framing) so cuts feel like one stylistic universe.
+    Fallback (smoke iteration only — do NOT ship):
+      <Img src={staticFile('top-image.png')} /> with slow Ken Burns
+      (scale 1.0 → 1.06 over full duration). Reads as low-effort placeholder.
+    Premium (face-driven niches):
+      <Video src={staticFile('avatar.mp4')} /> — single veo-3.1-fast clip
+      with lipsync to VO, OR chained 8s veo clips with locked persona keyframe.
     No audio from this layer.
 
   Layer 2 — bottom half (1080×960 anchored at y=960):
@@ -35,13 +46,7 @@ Single composition, 1080×1920 @ 30fps, ~45 seconds. Three layers stacked top-to
   Layer 4 — VO audio:
     <Audio src={staticFile('vo.mp3')} />
 
-  Layer 5 — C2PA disclosure overlay (anchored top-right, x=900, y=40):
-    <AbsoluteFill>
-      <div style={{ position: 'absolute', top: 40, right: 40,
-                    fontSize: 24, opacity: 0.7, fontWeight: 700 }}>
-        AI-generated
-      </div>
-    </AbsoluteFill>
+  (No visible AI-disclosure overlay — see §7 below for the rationale.)
 
 </Composition>
 ```
@@ -88,41 +93,78 @@ Low stability on purpose — variability is part of the brainrot signature. For 
 
 ## 3. Top-half visual — generation
 
-Three modes; the template defaults to (a).
+Three modes; **the template defaults to (a) multi-clip with locked grammar**. The static-image fallback (b) and avatar mode (c) exist for special cases.
 
-### (a) Static AI image with Ken Burns — cheapest, ~$0.15
+### (a) Multi-clip kling-v3.0-pro with locked visual grammar — DEFAULT, ~$3.00
+
+The shipped-quality path. Generate 3-5 short clips, one per narrative beat of the script. **All clips share a locked prompt prefix** so the cuts read as one stylistic universe, not "AI slop". This is the load-bearing detail of the format in 2026.
+
+**Step 1 — write the locked grammar (one line, reused verbatim across every clip):**
+
+```
+LOCKED_GRAMMAR = "editorial 1990s newsprint aesthetic, cinematic 35mm grain, dramatic single-source side-lit, single subject framed center, muted desaturated palette except one accent color, no text on screen, no logos, no readable writing"
+```
+
+Pick the grammar to fit the niche:
+- **History fact:** `"oil-painted historical reconstruction, dim atmospheric lighting, candlelit single figure, muted earth-tone palette except one blood-red accent, no text, no logos, no anachronisms"`
+- **True crime:** `"grainy 1970s police-photo aesthetic, harsh single-source overhead, washed sepia palette, single object centered, no faces, no text, no logos"`
+- **Finance / business:** `"editorial financial-news illustration, sharp side-lit conference table, cool blue-gray palette except one gold accent, single object framed center, no text overlays, no logos"`
+- **Psychology:** `"surreal editorial photography, soft diffused single-source lighting, monochrome palette except one warm accent, single subject mid-action, no text, no faces"`
+
+**Step 2 — split the 45s script into 4-5 beats and write a per-beat *content* prompt:**
+
+```
+BEAT_1 = "a wax-sealed Roman scroll on a stone table"       # opening — sets the scene
+BEAT_2 = "a hooded figure walking down a torch-lit corridor"  # setup
+BEAT_3 = "an empty leather sack on dark earth, just-discarded"  # escalation
+BEAT_4 = "a river surface at dusk, ripples spreading"         # payoff
+```
+
+**Step 3 — render each clip with `<LOCKED_GRAMMAR>, <BEAT_N>`:**
+
+```bash
+for i in 1 2 3 4; do
+  ralphy generate video \
+    --project <id> \
+    --slot scene-0$i-top-half \
+    --model kwaivgi/kling-v3.0-pro \
+    --duration 5 \
+    --aspect 9:16 \
+    --prompt "$LOCKED_GRAMMAR, $BEAT_$i, slow push-in, no audio"
+done
+```
+
+Sequence them in Remotion with hard cuts (no transitions — pace is part of the format). Cost: 4 × 5s × $0.14/s = **~$2.80**; add one 5s if you want a 5th beat = $3.50.
+
+### (b) Static AI image with Ken Burns — fallback only, ~$0.15
+
+Use **only for smoke-testing the pipeline before committing to multi-clip generation**. Static reads as a low-effort placeholder and undermines the production-grade feel; shipped video should always use (a).
 
 ```
 ralphy generate image \
   --project <id> \
   --slot scene-01-image-top-half \
   --model google/gemini-3-pro-image-preview \
-  --aspect 9:16-cropped-to-top-half \
-  --prompt "evocative editorial illustration of {topic}, dark academia palette, soft focus background, slight film grain, no text, no logos, vertical composition with subject in upper-third"
+  --aspect 9:16 \
+  --prompt "<LOCKED_GRAMMAR>, <single image describing the overall topic>, no text, no logos, vertical composition with subject in upper-third"
 ```
 
-Held for the full ~45s with Ken Burns (scale 1.0 → 1.06, slow drift). The visual does not need to depict anything specific — it needs to feel related to the narration.
+Held for the full ~45s with Ken Burns (scale 1.0 → 1.06, slow drift). Acceptable for the first 1-2 iterations of a new topic; not for final ship.
 
-### (b) 2-3 short kling-v3.0-pro b-roll — ~$2.10
+### (c) AI avatar talking head — for niches that benefit from a face
 
-Best for narratives where the visual progression actually matters (true crime reconstructions, history scenes).
+`google/veo-3.1-fast` (image-to-video with persona keyframe) for narrator-led shots — the avatar fronts the camera and delivers the VO directly. Cost: ~$1.12 per 8s clip; chain 5-6 clips for a 45s read.
 
 ```
 ralphy generate video \
   --project <id> \
-  --slot scene-01-video-top-half \
-  --model kwaivgi/kling-v3.0-pro \
-  --duration 5 \
-  --aspect 9:16-top-half \
-  --generate-audio false \
-  --prompt "..."
+  --slot scene-01-avatar \
+  --model google/veo-3.1-fast \
+  --image workspace/projects/<id>/assets/persona/avatar.png \
+  --duration 8 \
+  --audio \
+  --prompt "<LOCKED_GRAMMAR>, narrator speaks to camera, shoulders-up framing, calm dramatic delivery, eye contact, slight forward lean"
 ```
-
-Run 2-3 times for variety. Sequence them with hard cuts (no transitions — pace is part of the format).
-
-### (c) AI avatar talking head — for niches that benefit from a face
-
-Pull from HeyGen / Synthesia output, or a Veo-style narration shot. Treated as a single video clip in layer 1.
 
 ---
 
@@ -184,26 +226,23 @@ Layer at -18 dB under the VO. Never above -12 dB or it kills the read.
 
 ---
 
-## 7. C2PA + on-screen disclosure (mandatory in 2026)
+## 7. Disclosure policy
 
-Per the research brief, TikTok has flagged 1.3B+ AI videos via C2PA, and the platform-level expectation in 2026 is that AI-driven content carries a marker. Two layers:
+**No on-screen `AI-generated` overlay.** TikTok / Reels / Shorts viewers consistently react negatively to visible AI labels — they push retention down and farm "AI slop" comments before the content has a chance to land. The template ships without the corner-text overlay.
 
-1. **C2PA metadata.** The CLI's `ralphy render` pipeline embeds C2PA provenance automatically when the project's `genai: true` flag is set. Confirm in the project manifest before render.
-2. **On-screen disclosure.** A small `AI-generated` text overlay top-right, opacity 0.7, font-size 24, weight 700. Already specified in the master composition (Layer 5). **Do not remove.** Removing the overlay does not remove the C2PA marker, but it signals bad-faith intent and TikTok's classifier ranks marked-but-undisclosed AI lower than marked-and-disclosed.
-
-The combination — provenance metadata + visible overlay — is what keeps the format mainstream-acceptable and out of the AI-slop crackdown bucket.
+**C2PA provenance metadata** is platform-level and emitted automatically by `ralphy render` when `genai: true` is set in the project manifest — this is invisible to the viewer, lives in the file's container metadata, and satisfies any platform-side AI-content flag the publisher cares to honor. If a downstream user needs a visible label (some advertising contexts mandate it), add the overlay manually in the project's composition file — but the template default is off.
 
 ---
 
 ## 8. Eight common mistakes
 
-1. **Top half too slow.** A static image with no motion makes the top feel dead next to the gameplay. Always Ken Burns (or use mode b/c).
+1. **Top half is one static image.** Reads as a low-effort placeholder. Default to multi-clip (§3a) with locked visual grammar; static-with-Ken-Burns is for smoke iteration only.
 2. **Captions out of sync.** Whisper-grade timestamps drift on fast VO. Use ElevenLabs Scribe v1 word-level for this format specifically — sentence-level is not enough.
 3. **No SCREAMING hook in the first 2 seconds.** The format depends on it. Soft openers ("So today we'll talk about…") fail every time.
 4. **Gameplay too distracting from the VO.** Crashes, deaths, score-screens, menu pop-ups all draw the eye off the captions. Cut them out of the loop. Pure forward-motion footage only.
 5. **Music on top of everything.** Doubles the audio load and the viewer drops. Off by default.
 6. **No payoff at the end.** The "wait until the end" framing in many hooks creates a debt the video must pay. End on the actual punchline / shock / CTA — not a fade.
-7. **Forgetting the AI-generated overlay.** Skipping it pushes the video into TikTok's undisclosed-AI bucket and tanks reach.
+7. **Visual grammar drift between top-half clips.** Cuts feel like "AI slop" if clip 2 is photoreal and clip 3 is cartoon. Lock the `LOCKED_GRAMMAR` prefix in §3a and reuse verbatim across every clip prompt — only the per-beat content changes.
 8. **Top-half visual that depicts the topic literally with hallucinated text/logos/faces.** Gemini will happily render fake newspaper clippings and fake logos. Strip them in the prompt with explicit `no text, no logos, no signs, no readable writing` negatives.
 
 ---
@@ -218,7 +257,7 @@ The combination — provenance metadata + visible overlay — is what keeps the 
 
 **VO script (~45s).** "Did you know about the medieval punishment called *poena cullei* — and why historians think it was even worse than execution. Around 100 BC, the Romans had a special punishment for parricide — killing your own father. They sewed you, alive, into a leather sack — with a dog, a rooster, a snake, and a monkey. Then they threw the sack into the river. The reasoning was theological — you had broken the natural order, so you couldn't be allowed to touch earth, water, or sky. The animals weren't symbolic. They were chosen because they would attack you in the sack on the way down. This punishment stayed on the books for over 1,400 years. The last recorded use was in 1734."
 
-**Top half.** Static gemini-3-pro image: "evocative editorial painting of a Roman river at dusk, dark water, atmospheric, no text, no logos, no human figures." Ken Burns.
+**Top half.** 4 × kling-v3.0-pro clips with locked grammar `"oil-painted historical reconstruction, dim atmospheric lighting, candlelit single figure, muted earth-tone palette except one blood-red accent, no text, no logos, no anachronisms"`. Beats: (1) wax-sealed Roman scroll on stone table, (2) hooded figure walking down torch-lit corridor, (3) empty leather sack on dark earth just-discarded, (4) river surface at dusk with ripples spreading. Each 5s, hard cuts.
 
 **Bottom half.** Subway Surfers loop.
 
@@ -254,7 +293,7 @@ The combination — provenance metadata + visible overlay — is what keeps the 
 
 **VO script (~45s).** "POV: you just learned that the average person has at least one trait of the *dark triad* — and most don't realize it. Psychologists call it the dark triad — narcissism, Machiavellianism, and psychopathy. But here's what's wild — it's a spectrum, not a label. About 1 in 4 people score high on Machiavellianism alone — that's the trait of strategic manipulation in social situations. If you've ever planned what to say in an argument an hour before having it — that's a Mach trait. If you've ever felt nothing when someone you barely knew got bad news — that's not psychopathy, that's *primary callousness* — and it correlates with leadership in high-stress jobs. The triad isn't evil. It's a survival kit."
 
-**Top half.** Static gemini image: "shattered mirror reflecting different facial expressions, low-key lighting, surreal editorial, no text". Ken Burns.
+**Top half.** 4 × kling-v3.0-pro clips with locked grammar `"surreal editorial photography, soft diffused single-source lighting, monochrome palette except one warm accent, single subject mid-action, no text, no faces"`. Beats: (1) shattered mirror reflecting different shapes on the floor, (2) hand reaching toward a chess piece on a dim board, (3) silhouette of a single figure at a window with rain texture, (4) crumpled note unfolding in slow motion. Each 5s, hard cuts.
 
 **Bottom half.** Rocket League aerial-shots loop.
 
@@ -289,8 +328,8 @@ Before `ralphy render <project>`:
 - [ ] `gameplay-loop.mp4` exists at `workspace/projects/<id>/assets/uploaded/`
 - [ ] `vo.mp3` rendered, ~30-60s
 - [ ] `captions.json` at word-level granularity
-- [ ] Top-half asset present (image OR clips OR avatar)
-- [ ] AI-generated disclosure overlay in the composition
-- [ ] Project manifest has `genai: true` for C2PA metadata
+- [ ] Top-half asset present — **default: 3-5 kling clips with locked visual grammar**; fallback static image only for smoke iteration
+- [ ] All top-half clips share the same `LOCKED_GRAMMAR` prompt prefix
+- [ ] Project manifest has `genai: true` for C2PA platform-side metadata (no visible overlay needed)
 - [ ] Music is OFF (unless explicitly opted in)
 - [ ] Quality gate `scoreVideo` passed (per AGENTS.md hard rule #4 — refuses, doesn't warn)

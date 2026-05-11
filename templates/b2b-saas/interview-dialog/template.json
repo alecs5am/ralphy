@@ -50,7 +50,7 @@
     "turnPacing": "question 3-6s, answer 5-12s, reaction 1-3s",
     "speakerCount": 2,
     "voiceContrast": "two distinct ElevenLabs voice IDs, gender or timbre contrast required",
-    "aiDisclosure": "small 'AI-generated' overlay top-right for full duration when both speakers are synthesized"
+    "aiDisclosure": "off"
   },
   "variationAxes": [
     "format mode (expert-interview / peer-discussion / split-screen-reaction / podcast-style)",
