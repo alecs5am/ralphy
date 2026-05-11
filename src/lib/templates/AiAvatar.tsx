@@ -15,6 +15,7 @@ import {
   AbsoluteFill,
   Audio,
   OffthreadVideo,
+  Sequence,
   Series,
   staticFile,
   useVideoConfig,
@@ -87,32 +88,23 @@ export const AiAvatar: React.FC<AiAvatarProps> = (props) => {
         ) : null}
       </AbsoluteFill>
 
-      {/* B-roll cutaways layered on top — when active, cover the avatar */}
+      {/* B-roll cutaways layered on top — each <Sequence> covers the avatar
+          during its active window via Remotion's native from/durationInFrames. */}
       {(props.cutaways ?? []).map((cut, i) => {
-        const startFrame = Math.round(cut.atSec * fps);
-        const cutDurFrames = Math.round(cut.durationSec * fps);
+        const startFrame = Math.max(0, Math.round(cut.atSec * fps));
+        const cutDurFrames = Math.max(1, Math.round(cut.durationSec * fps));
         return (
-          <AbsoluteFill
+          <Sequence
             key={`cutaway-${i}`}
-            style={{
-              display: "none",
-              animationName: `cut-${i}`,
-              animationDuration: `${durationInFrames / fps}s`,
-            }}
+            from={startFrame}
+            durationInFrames={cutDurFrames}
           >
-            <Series>
-              <Series.Sequence durationInFrames={startFrame} layout="none">
-                <></>
-              </Series.Sequence>
-              <Series.Sequence durationInFrames={cutDurFrames}>
-                <OffthreadVideo
-                  src={staticFile(`${prefix}/${cut.path}`)}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  muted
-                />
-              </Series.Sequence>
-            </Series>
-          </AbsoluteFill>
+            <OffthreadVideo
+              src={staticFile(`${prefix}/${cut.path}`)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              muted
+            />
+          </Sequence>
         );
       })}
 
