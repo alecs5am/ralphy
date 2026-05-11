@@ -24,7 +24,6 @@ The single-speaker talking head is exhausting after 15 seconds. A two-person dia
 - **2-shot anchor at the start.** First 2-3 seconds shows both speakers in the same frame (or both halves of a split). After that, you can cut between them — the viewer remembers the pairing.
 - **B-roll mid-dialog when topic gets visual.** When the expert says "look at this chart" or "here's the product" — cut to a 5-10s `kling-v3.0-pro` cutaway. Visual variety, not just two faces.
 - **Real-feeling exchanges.** Reactions ("hmm", "really?", brief laughs) between the major turns sell the conversation. Don't write a flat Q-then-A-then-Q.
-- **AI-disclosure when synthesized.** Small "AI-generated" overlay top-right for the full duration when both speakers are AI avatars. Not optional — it's the difference between a stylish format and a deepfake.
 
 ## Variation axes
 
@@ -66,7 +65,7 @@ For archetype briefs ("a journalist interviewing a CEO"), no reference is needed
 
 ## AI-disclosure note
 
-When both speakers are AI-synthesized (no real people), composition adds a small "AI-generated" overlay top-right, full duration. This is not optional. The format is convincing enough that without disclosure it edges into deepfake territory, and the platform-trust hit is bigger than the aesthetic cost. The overlay is small, low-opacity, and reads as a watermark — does not interfere with the content.
+No on-screen AI-disclosure overlay — viewers consistently react negatively to visible AI labels and retention drops. C2PA provenance metadata is still emitted automatically by `ralphy render` with `genai: true` so the platform-side flag is honored without the visible-text penalty.
 
 ## When NOT to use
 
@@ -94,4 +93,4 @@ Mid-cost format — driven by per-turn `wan-25` calls. More turns = more cost.
 ## Read also
 
 - `hooks.md` — 12 interview-dialog opens with format-mode fit + audio cue + niche.
-- `prompt-cookbook.md` — master template, two-character consistency recipe, turn-pacing, camera language, voice pairing, captions, b-roll cutaway, music, AI disclosure, mistakes, 4 worked examples.
+- `prompt-cookbook.md` — master template, two-character consistency recipe, turn-pacing, camera language, voice pairing, captions, b-roll cutaway, music, mistakes, 4 worked examples.

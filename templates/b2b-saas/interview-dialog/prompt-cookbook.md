@@ -157,18 +157,9 @@ Example trigger: A asks "how much did this actually cost?" → B starts answerin
 
 ---
 
-## AI disclosure overlay
+## AI disclosure
 
-When both speakers are AI-synthesized:
-
-- Position: top-right, full duration.
-- Text: "AI-generated" — small, ~2.5% of frame width, low opacity (50-60%).
-- Style: matches the overall caption style (sans-serif, neutral color), not flashy.
-- Render at composition time, not baked into wan-25 frames (so it's editable).
-
-This is non-negotiable. The format is convincing enough that without disclosure it edges into deepfake territory, and the platform-trust hit dwarfs any aesthetic cost. If the user pushes back ("looks unprofessional"), explain the trade-off — they can make it smaller, but it stays.
-
-If one speaker is real (with reference and consent) and one is AI, the overlay reads "AI co-host" or similar specific framing.
+No on-screen AI-disclosure overlay — viewers consistently react negatively to visible AI labels and retention drops. C2PA provenance metadata is still emitted automatically by `ralphy render` with `genai: true` so the platform-side flag is honored without the visible-text penalty.
 
 ---
 
@@ -181,7 +172,6 @@ If one speaker is real (with reference and consent) and one is AI, the overlay r
 5. **AI lipsync drift between turns.** Speaker A in turn 1 has slightly different mouth shape / hairline than turn 3. Fix: lock the keyframe ref-image and the prompt vocabulary across all turns.
 6. **Eyelines wrong in single-camera-cuts mode.** Both speakers look the same direction → reads as "they're filming separately, not talking." Fix: A looks frame-right, B looks frame-left (or vice versa) — opposite eyelines.
 7. **Music with melody / drops.** Pulls focus from dialog. Fix: regenerate with "ambient bed, no melody, no drops" prompt.
-8. **No AI disclosure on synthesized speakers.** Even if "it's obviously stylized." Fix: add the overlay; this is a refuse-at-gate, not a warn.
 
 ---
 
@@ -204,7 +194,6 @@ If one speaker is real (with reference and consent) and one is AI, the overlay r
   - 56-60s: 2-shot close, A: "There you have it."
 - **Captions:** lower-third with role tags, color-coded.
 - **Music:** ambient documentary bed, -22dB.
-- **AI disclosure:** top-right, full duration.
 
 ### Example 2 — Two friends discussing skincare routine, 45s
 
@@ -222,7 +211,6 @@ If one speaker is real (with reference and consent) and one is AI, the overlay r
   - 40-45s: Both halves, shared laugh — close.
 - **Captions:** lower-third color-coded; A = soft cyan, B = warm amber.
 - **Music:** ambient lofi bed.
-- **AI disclosure:** top-right, full duration.
 
 ### Example 3 — Podcast-style finance discussion, 90s, with b-roll
 
@@ -242,7 +230,6 @@ If one speaker is real (with reference and consent) and one is AI, the overlay r
   - 87-90s: 2-shot close.
 - **Captions:** lower-third, role-tagged, color-coded.
 - **Music:** ambient documentary bed, ducked hard during dialog.
-- **AI disclosure:** top-right, full duration.
 
 ### Example 4 — Split-screen "his vs her" reaction to a third source, 45s
 
@@ -260,4 +247,3 @@ If one speaker is real (with reference and consent) and one is AI, the overlay r
   - 35-45s: B — closes with the takeaway. Both halves, brief shared smile / nod.
 - **Captions:** lower-third, color-coded; third source has no captions (it's the bait).
 - **Music:** ambient bed at -25dB (lower than usual because the third source has its own audio for the first 8s).
-- **AI disclosure:** top-right, full duration. If the third source is a real clip (user-supplied), disclosure reads "AI co-hosts" to be specific.

@@ -2,7 +2,7 @@
   "name": "Brainrot AI Meme",
   "slug": "brainrot-ai-meme",
   "kind": "vibe-style",
-  "description": "Chaotic fast-paced AI video, 9:16, 30-60s (optimal ~45s). Split-screen Remotion composition: top half is the AI-driven narrative (history fact, finance trivia, psychology, true crime, conspiracy, hot take) carried by AI voiceover and either a static AI image or short kling-v3.0-pro b-roll; bottom half is a hypnotic gameplay loop (Subway Surfers / Minecraft Parkour / GTA / Rocket League) supplied by the user. Big animated word-by-word captions burned across both halves carry the read. The dominant AI-generation format of 2026 — pattern-interrupts the scroll, generates 'what am I watching' comments, and scales cheaply per video. Reference-required: a gameplay-loop clip must be supplied or sanctioned by the user; AI-improvised gameplay reads as fake.",
+  "description": "Chaotic fast-paced AI video, 9:16, 30-60s (optimal ~45s). Split-screen Remotion composition: top half is a sequence of 3-5 short kling-v3.0-pro clips (4-5s each) with locked visual grammar — one clip per narrative beat of the script, all sharing a unified style prefix so cuts feel like one stylistic universe rather than AI-slop. Bottom half is a hypnotic gameplay loop (Subway Surfers / Minecraft Parkour / GTA / Rocket League) supplied by the user. Big animated word-by-word captions burned across both halves carry the read. The dominant AI-generation format of 2026 — pattern-interrupts the scroll, generates 'what am I watching' comments. Reference-required: a gameplay-loop clip must be supplied or sanctioned by the user; AI-improvised gameplay reads as fake. Static-image fallback exists for smoke iteration only.",
   "tags": [
     "brainrot",
     "ai-meme",
@@ -42,25 +42,26 @@
   },
   "stackSummary": {
     "voiceover": "ElevenLabs eleven_multilingual_v2 for the canonical narrator-grade read; eleven_turbo_v2_5 for fast/cheap iteration when generating dozens of variants. Voice picks: Adam, Onyx, or any deep-male narrator preset. Stability ~0.3, similarity boost ~0.75, style 0.4, energy/speaker_boost on. One TTS call per video, ~45s of audio.",
-    "topHalf": "Either a single static AI image (google/gemini-3-pro-image-preview via OpenRouter) held for the full duration with subtle Remotion Ken Burns; OR 2-3 short kling-v3.0-pro b-roll clips (3-5s each, generate_audio: false) that loosely illustrate the narration; OR a Veo-style narration shot for niches that need a face. Top half = 50% of the 1080×1920 frame (1080×960).",
+    "topHalf": "DEFAULT — 3-5 short kwaivgi/kling-v3.0-pro b-roll clips (4-5s each, generate_audio: false), one per narrative beat of the script, all generated with the SAME locked visual-grammar prompt prefix (period setting, lighting, palette, framing) so they read as one stylistic universe — not 'AI slop'. Each clip illustrates whatever the VO is saying in that window. Fallback — 1 static AI image held for the full duration with subtle Ken Burns; use ONLY for smoke iteration, shipped video is always multi-clip. Premium — Veo-3.1 narration shot for niches that need a face. Top half = 50% of the 1080×1920 frame (1080×960).",
     "bottomHalf": "User-supplied gameplay loop (Subway Surfers, Minecraft Parkour, GTA, Rocket League). Loaded as a Remotion <Video> with native audio at low gain (~0.08) so SFX is felt but doesn't fight VO. Bottom half = remaining 50% (1080×960). Source: royalty-free / CC0 gameplay packs, or the user's own captured footage.",
     "captions": "ElevenLabs Scribe v1 for word-level timestamps on the VO track. Burned via existing src/lib/components/captions/HormoziCaptions.tsx (yellow Hormozi default) or a 'red-screaming-shake' variant for the most chaotic niches (true crime, conspiracy). Captions sit center-screen on the seam between the two halves, full-bleed across both, large weight, animated per-word.",
     "music": "Typically OFF. The gameplay diegetic SFX plus AI VO carry. If music is requested, ElevenLabs Music tense/curious bed at -18 dB under the VO.",
-    "composition": "Single Remotion composition, 1080×1920 @ 30fps, ~45s. Layout: top half (AI visual), bottom half (gameplay loop), full-bleed caption layer, small 'AI-generated' C2PA disclosure overlay top-right (mandatory in 2026)."
+    "composition": "Single Remotion composition, 1080×1920 @ 30fps, ~45s. Layout: top half = sequence of 3-5 short clips with matched visual grammar, bottom half = gameplay loop, full-bleed caption layer on the seam. No on-screen AI-disclosure overlay (platform-side C2PA metadata only — viewers consistently react negatively to visible AI-labels, see template-design notes)."
   },
   "constants": {
     "vibeAnchor": "split-screen-narrative-over-gameplay",
     "structure": "0-2s SCREAMING hook → 2-40s narration over looping gameplay → 40-45s payoff/CTA",
     "captionStyle": "hormozi-yellow OR red-screaming-shake",
     "musicDefault": "off",
-    "disclosureOverlay": "ai-generated-top-right-corner"
+    "topHalfDefault": "3-5 kling-v3.0-pro clips, locked visual grammar, one per script beat",
+    "disclosureOverlay": "off"
   },
   "variationAxes": [
     "gameplay choice (Subway Surfers / Minecraft Parkour / GTA / Rocket League / satisfying soap-cutting / kinetic-sand)",
     "VO tone (Reddit-narrator monotone / dramatic narrator / sarcastic / conspiratorial whisper)",
     "caption style (yellow Hormozi / red-screaming-shake / multicolor-per-word)",
     "niche (history fact / finance trivia / psychology / true crime / conspiracy / education-disguised / hot take)",
-    "top-half visual (single static AI image / 2-3 kling b-roll / talking-head AI avatar)"
+    "top-half visual (DEFAULT 3-5 kling b-roll with locked grammar / fallback static image / talking-head AI avatar)"
   ],
   "doNotCopyLiterally": "VO script, exact gameplay clip, channel name, niche framing. Vibe and structural reference only. Always swap the gameplay source to one the user owns or has rights to.",
   "requiresUserReference": true,

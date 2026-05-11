@@ -87,7 +87,7 @@
 
 - **Profession fit:** nutritionist, GP, pharmacist. Weakest with dentist (no breakfast supplement story).
 - **Niche:** stack-disclosure variant. Strong for supplement DTC where the figure walks through their personal routine.
-- **Claim discipline:** if the figure is AI-generated, this hook crosses a soft line — implies a real personal regimen. Use only with a strong on-screen "AI-generated" disclosure and avoid first-person narrative claims that imply a specific real person.
+- **Claim discipline:** if the figure is AI-generated, this hook crosses a soft line — implies a real personal regimen. Avoid first-person narrative claims that imply a specific real person; keep the regimen generic.
 - **Why it works:** social-proof + authority. "If the expert takes it, it's vetted."
 
 ---

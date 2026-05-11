@@ -7,8 +7,6 @@
 
 > **Reference-required gate.** Two flavors apply. (a) If the brief invokes a specific branded product, a product reference (photo / packaging / logo) MUST exist at `workspace/projects/<id>/assets/uploaded/`. (b) If the brief invokes a real-named medical professional, refuse outright unless written consent is supplied. Both are AGENTS.md hard rule #3 enforcement points. AI-improvised branding on a real product reads as fake; impersonating a real-named professional is a defamation and compliance risk.
 
-> **AI-disclosure gate.** If the authority figure is AI-generated (synthetic avatar), the rendered video MUST carry an on-screen "AI-generated" badge in the top-right corner for the full duration. This is the 2026 TikTok C2PA + on-screen-text norm. The composition layer enforces it; do not strip it.
-
 ## Why this works
 
 The white coat is the visual signal. The mechanism explanation is the trust deepener.
@@ -35,7 +33,7 @@ The #1 conversion driver in nutra / supplement / skincare DTC ads in 2024-2026. 
 |---|---|
 | Profession | dermatologist, nutritionist, dentist, pharmacist, cardiologist, GP, sleep specialist |
 | Setting | clinical office, home office with credentials wall, pharmacy counter, neutral studio with anatomy poster |
-| Real-vs-AI | real licensed actor with usage consent / AI-avatar (synthetic doctor) WITH on-screen "AI-generated" disclosure |
+| Real-vs-AI | real licensed actor with usage consent / AI-avatar (synthetic doctor) |
 | Claim type | mechanism-explainer, ingredient-recommendation, lifestyle-advice, protocol-walkthrough |
 | VO language | any — English, Russian, Spanish, Portuguese. The white-coat visual carries the trust signal regardless. |
 
@@ -59,20 +57,20 @@ The #1 conversion driver in nutra / supplement / skincare DTC ads in 2024-2026. 
 1. **Profession** — dermatologist / nutritionist / dentist / pharmacist / cardiologist / GP / etc.
 2. **Claim or mechanism** — what they're explaining (e.g. "niacinamide regulates sebum"). Specific. Not "wellness."
 3. **Ingredient or product name** — the soft-recommendation payload.
-4. **Real-vs-AI choice** — real licensed actor (with consent) OR AI-avatar (with mandatory on-screen disclosure).
+4. **Real-vs-AI choice** — real licensed actor (with consent) OR AI-avatar (synthetic doctor).
 5. **(Optional) Setting** — clinical office (default) / home office / pharmacy / studio.
 6. **(Optional) VO language** — defaults to English; works in any.
 7. **Product reference** — REQUIRED if a branded product is being recommended on-screen.
 
-## Compliance + AI-disclosure (read before generating)
+## Compliance (read before generating)
 
-This format walks a regulatory line. Three hard rules:
+This format walks a regulatory line. Two hard rules:
 
-1. **Synthetic doctor → on-screen disclosure.** If the authority figure is AI-generated, the rendered video MUST carry an "AI-generated" badge in the top-right corner, small but readable, for the full duration. The 2026 TikTok C2PA + on-screen-text norm (and several US state laws) require it. The Remotion composition enforces this; do not strip it.
+1. **No real-named medical professional impersonation.** "As Dr. Jane Doe, dermatologist at X clinic, I tell patients…" → REFUSE unless the user supplies written consent from the named professional. This is an AGENTS.md hard rule #3 enforcement and a defamation / right-of-publicity issue. Generic "a dermatologist" with an AI face is fine.
 
-2. **No real-named medical professional impersonation.** "As Dr. Jane Doe, dermatologist at X clinic, I tell patients…" → REFUSE unless the user supplies written consent from the named professional. This is an AGENTS.md hard rule #3 enforcement and a defamation / right-of-publicity issue. Generic "a dermatologist" with an AI face + on-screen disclosure is fine.
+2. **No therapeutic / curative claims.** "Cures acne", "reverses diabetes", "treats depression", "prevents Alzheimer's" → REFUSE. Therapeutic claims require regulatory backing this template does not produce. Reframe as mechanism / support language: "may support healthy skin barrier function," "associated with calmer cortisol response in studies." If the user insists on a curative claim, refuse and offer the mechanism reframe.
 
-3. **No therapeutic / curative claims.** "Cures acne", "reverses diabetes", "treats depression", "prevents Alzheimer's" → REFUSE. Therapeutic claims require regulatory backing this template does not produce. Reframe as mechanism / support language: "may support healthy skin barrier function," "associated with calmer cortisol response in studies." If the user insists on a curative claim, refuse and offer the mechanism reframe.
+Platform-side C2PA provenance metadata is emitted automatically by `ralphy render` with `genai: true`. No visible on-screen AI-disclosure overlay — viewers consistently react negatively to visible AI labels and retention drops.
 
 The reference-required gate copy:
 
@@ -80,7 +78,7 @@ The reference-required gate copy:
 
 The real-named-professional refusal copy:
 
-> "The brief invokes '<Dr. Real Name>'. Impersonating a real-named medical professional in an AI-generated video is a hard refuse — both AGENTS.md rule #3 and a defamation / right-of-publicity issue. Either supply written consent from the named professional, or rephrase as a generic figure ('a dermatologist', 'a board-certified nutritionist') with an AI-generated face and the standard on-screen 'AI-generated' disclosure."
+> "The brief invokes '<Dr. Real Name>'. Impersonating a real-named medical professional in an AI-generated video is a hard refuse — both AGENTS.md rule #3 and a defamation / right-of-publicity issue. Either supply written consent from the named professional, or rephrase as a generic figure ('a dermatologist', 'a board-certified nutritionist') with an AI-generated face."
 
 ## When NOT to use
 
@@ -108,4 +106,4 @@ Premium-tier i2v (`veo-3.1`) is the cost driver — trust depends on micro-expre
 ## Read also
 
 - `hooks.md` — 12 doctor-authority hooks per profession + niche + claim-discipline notes.
-- `prompt-cookbook.md` — keyframe prompts, VO direction, caption style, music, mechanism-explainer pattern, AI-disclosure overlay, common mistakes, 4 worked examples.
+- `prompt-cookbook.md` — keyframe prompts, VO direction, caption style, music, mechanism-explainer pattern, common mistakes, 4 worked examples.

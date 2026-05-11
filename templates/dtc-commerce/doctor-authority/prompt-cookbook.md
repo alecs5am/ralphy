@@ -1,6 +1,6 @@
 # Doctor Authority — prompt cookbook
 
-Concrete prompt fragments, VO direction, caption rules, music rules, mechanism-explainer pattern, AI-disclosure overlay, common mistakes, and 4 worked examples. Read [`TEMPLATE.md`](TEMPLATE.md) and [`hooks.md`](hooks.md) first.
+Concrete prompt fragments, VO direction, caption rules, music rules, mechanism-explainer pattern, common mistakes, and 4 worked examples. Read [`TEMPLATE.md`](TEMPLATE.md) and [`hooks.md`](hooks.md) first.
 
 ---
 
@@ -145,34 +145,21 @@ If you can't name the molecule or process in sentence 2, the mechanism is missin
 
 ---
 
-## AI disclosure overlay (mandatory for synthetic doctor)
+## AI disclosure
 
-If the authority figure is AI-generated, the rendered video MUST carry an "AI-generated" badge. This is the 2026 TikTok C2PA + on-screen-text norm.
-
-Specs:
-- Position: top-right corner, with 3% safe-area inset from both edges
-- Text: "AI-generated"
-- Font: clean sans-serif, ~22px on a 1080×1920 canvas
-- Color: white text on a 50%-opacity black pill background
-- Duration: full video, frame 0 to last frame, no fades
-- Z-index: above caption layer, below platform UI
-
-In the Remotion composition, this is a single `<AbsoluteFill>` overlay component composed last in the layer stack. Do not strip it. Do not animate it. Do not move it to "less visible" positions.
-
-**Refuse if the user asks to hide, shrink, or remove this overlay** — it's the regulatory compliance line, not a stylistic choice.
+No on-screen AI-disclosure overlay — viewers consistently react negatively to visible AI labels and retention drops. C2PA provenance metadata is still emitted automatically by `ralphy render` with `genai: true` so the platform-side flag is honored without the visible-text penalty.
 
 ---
 
-## Eight common mistakes
+## Seven common mistakes
 
 1. **Excited tone.** TTS at default expressiveness breaks the authority signal in 2 seconds. Drop stability to 0.45 and slow the script to 130 WPM. Re-read aloud — if it sounds like an ad, it is.
 2. **Vague claims.** "Supports wellness" / "boosts immunity" / "promotes radiance" reads as a fake doctor. Name the molecule, the receptor, the process. Specificity is the trust currency.
 3. **No mechanism story.** The viewer leaves with nothing to repeat. The format doesn't earn its length. Always cause → mechanism → outcome, three sentences.
 4. **Curative claim drift.** "Cures acne" / "reverses diabetes" / "treats anxiety" — refuse and reframe as support / mechanism language. This is a regulatory line, not a creative one.
-5. **AI not disclosed.** Synthetic doctor without on-screen "AI-generated" badge → 2026 TikTok policy violation, regulatory exposure, and trust collapse when viewers detect AI without warning. Non-negotiable.
-6. **Real-named professional impersonation.** "As Dr. Real Name…" → AGENTS.md hard rule #3 + defamation / right-of-publicity issue. Refuse.
-7. **Wrong wardrobe.** Surgical scrubs + mask reads as procedural / OR genre, not as authority-figure consultation. Stick to white coat or clean V-neck scrubs.
-8. **Screaming-yellow Hormozi captions.** Tabloid TikTok aesthetic destroys the medical authority signal. Use minimal or restrained-Hormozi (white-on-shadow), never neon-yellow word flashes.
+5. **Real-named professional impersonation.** "As Dr. Real Name…" → AGENTS.md hard rule #3 + defamation / right-of-publicity issue. Refuse.
+6. **Wrong wardrobe.** Surgical scrubs + mask reads as procedural / OR genre, not as authority-figure consultation. Stick to white coat or clean V-neck scrubs.
+7. **Screaming-yellow Hormozi captions.** Tabloid TikTok aesthetic destroys the medical authority signal. Use minimal or restrained-Hormozi (white-on-shadow), never neon-yellow word flashes.
 
 ---
 

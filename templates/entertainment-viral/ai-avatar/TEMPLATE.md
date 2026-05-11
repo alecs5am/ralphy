@@ -71,11 +71,9 @@ If the brief mentions a real named person (CEO, celebrity, public figure):
 
 > "The brief names <person>. I won't generate a likeness without a signed-consent reference. Either supply documented consent + a reference image, or rephrase as a fictional persona ('our brand presenter', 'an industry analyst')."
 
-## C2PA disclosure (mandatory in 2026)
+## C2PA disclosure (metadata only)
 
-- Set the C2PA AI-generated flag at upload time on TikTok, Reels, and Shorts. All three platforms surface this automatically when set.
-- For e-commerce / paid ads, add a visible "AI-generated" overlay in the bottom-right (8-10pt, low opacity). This is a regulatory requirement in EU/UK and a trust signal everywhere else.
-- The Remotion composition includes a `<DisclosureBadge />` slot — leave it on by default; the user can opt out for non-ad content with `--no-disclosure`.
+No on-screen AI-disclosure overlay — viewers consistently react negatively to visible AI labels and retention drops. C2PA provenance metadata is still emitted automatically by `ralphy render` with `genai: true` so the platform-side flag is honored without the visible-text penalty.
 
 ## When NOT to use
 
