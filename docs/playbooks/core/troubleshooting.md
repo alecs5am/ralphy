@@ -33,7 +33,7 @@ ralphy project log-asset <id> --kind <kind> --source <path> --purpose <purpose>
 1. **Read `generations.jsonl`** for the failing slot — last entry shows exact input + error.
 2. **Compare inputs** across past successful + failed runs — find the delta.
 3. **If inputs are OK** — check provider status (OpenRouter availability, ElevenLabs 429, etc.). Adjust concurrency or wait.
-4. **If the prompt is the problem** — hand back to `/ralph-art-director` (`regenerate-slot`) with a clear note.
+4. **If the prompt is the problem** — hand back to `art-director playbook` (`regenerate-slot`) with a clear note.
 
 ## Common failure modes
 
@@ -83,8 +83,8 @@ bun run ralph -- <command>
 
 ## When handback is needed
 
-- Failed generation with an unclear prompt → `/ralph-art-director`.
-- Scenario doesn't land → `/ralph-scenarist`.
-- Render error in Remotion → `/ralph-editor` + `/remotion-best-practices`.
+- Failed generation with an unclear prompt → `art-director playbook`.
+- Scenario doesn't land → `scenarist playbook`.
+- Render error in Remotion → `editor playbook` + `/remotion-best-practices`.
 - Provider down → wait, no handback.
 - User wants a new feature → not my zone, I'll say so.

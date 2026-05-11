@@ -21,6 +21,12 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 - Each playbook starts with **"Read this when:"** so the agent can confirm the match before diving in.
 - Each playbook lists its **Sub-docs** (e.g. `researcher/yt-dlp.md`) and the agent reads sub-docs on demand for the specific sub-task.
 
-## Migration note
+## Playbooks vs skills
 
-Until further notice, slash-commands (`/ralph-researcher`, `/ralph-scenarist`, etc.) still exist as thin shims under `.agents/skills/<name>/SKILL.md` — they redirect the user to read the playbook here. The plan is to repurpose those skills as workflow / flow templates separately from the per-role instruction docs.
+- **Playbooks (here, `docs/playbooks/`)** — role / domain instruction docs. The agent reads them on demand. Loaded via `Read` after `AGENTS.md` routing matches an intent. No frontmatter, no slash-command. They cover roles like *scenarist* / *art-director* / *editor* / *producer* / *core* (env / debug / CLI).
+- **Skills (`.agents/skills/<name>/SKILL.md`)** — narrow workflows with a deterministic input → output contract and a single CLI command. They are slash-invocable (`/<name>`). Currently three exist:
+  - `ralph-researcher` — URLs / handles / topic → `report.md` + `sources.json` (workspace/research/<slug>/)
+  - `ralph-evaluator` — rendered mp4 → `eval-report.md` + `eval.json`
+  - `remotion-best-practices` — reference rules for Remotion code
+
+Old role-shim skills (`ralph-art-director`, `ralph-core`, `ralph-editor`, `ralph-producer`, `ralph-scenarist`) were removed in favor of direct routing via `AGENTS.md` → playbooks. If you need to invoke those roles in chat, just say the role-utterance (e.g. "compose the video") and the routing will pick the right playbook.

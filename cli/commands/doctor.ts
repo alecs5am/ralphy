@@ -1,7 +1,7 @@
 // `ralphy doctor` — env health check. JSON output for skills + automation.
 //
 // Per AGENTS.md hard rule #5 (no auto-launched processes), this replaces the
-// old `/ralph-core` session bootstrap that used to spawn Studio + dashboard.
+// old `core playbook` session bootstrap that used to spawn Studio + dashboard.
 // The skill now invokes `ralphy doctor`, walks the user through fixing
 // blockers, and stops without starting any background services.
 

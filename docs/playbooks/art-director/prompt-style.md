@@ -26,7 +26,7 @@ A prompt consists of four layers in strict order:
 
 - Voice settings deadpan-young — see MODELS.md "Voice settings".
 - `output_format: mp3_44100_128`.
-- Text — exactly as the scenarist wrote it, no edits of your own. If an edit is needed — handback to `/ralph-scenarist`.
+- Text — exactly as the scenarist wrote it, no edits of your own. If an edit is needed — handback to `scenarist playbook`.
 
 ### Music (ElevenLabs Music)
 

@@ -26,7 +26,7 @@ Use cases:
 
 ## NO auto-launch
 
-`/ralph-core` v2 **does NOT launch** Remotion Studio, the dashboard, or any background processes. AGENTS invariant.
+`core playbook` v2 **does NOT launch** Remotion Studio, the dashboard, or any background processes. AGENTS invariant.
 
 `session-bootstrap` behavior:
 1. Run `ralphy doctor`.

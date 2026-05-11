@@ -1,6 +1,6 @@
 # Quality gate (scenario)
 
-**Hard rule (inherited from `AGENTS.md`):** quality gates refuse, do not warn. Before handoff to `/ralph-art-director` — the gate is mandatory.
+**Hard rule (inherited from `AGENTS.md`):** quality gates refuse, do not warn. Before handoff to `art-director playbook` — the gate is mandatory.
 
 ## Tool
 

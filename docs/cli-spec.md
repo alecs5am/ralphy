@@ -300,7 +300,7 @@ Templates — reusable blueprints for videos. They live in two roots:
 
 Both roots support two layouts:
 - **Flat:** `<root>/<id>.json` — scenario-only, usually created from an existing project.
-- **Dir (preferred):** `<root>/<id>/` with `template.json` + `TEMPLATE.md` (LLM-doc) + optional `reference-example.md` (concrete example from the source project) + `fragments.md` + `model-stack.md` + `composition.md`. The template is a vibe-reference; the scenario is written fresh through `/ralph-scenarist` rather than copied mechanically.
+- **Dir (preferred):** `<root>/<id>/` with `template.json` + `TEMPLATE.md` (LLM-doc) + optional `reference-example.md` (concrete example from the source project) + `fragments.md` + `model-stack.md` + `composition.md`. The template is a vibe-reference; the scenario is written fresh through `scenarist playbook` rather than copied mechanically.
 
 ```bash
 # Create flat template into workspace (warns if it shadows a repo template)
@@ -326,7 +326,7 @@ ralph template use <id> \
 #   - standard subdirectories (assets/, logs/, scripts/, render/)
 #   - TEMPLATE_ORIGIN.md (pointer to the template with a reading list)
 #   - BRIEF.md (if --brief was passed)
-# Intentionally does NOT create scenario.json — the scenario is written fresh through /ralph-scenarist
+# Intentionally does NOT create scenario.json — the scenario is written fresh through scenarist playbook
 # using TEMPLATE.md as a vibe-reference.
 
 # Delete (workspace-only; refuses on repo templates)

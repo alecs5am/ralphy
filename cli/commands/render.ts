@@ -30,7 +30,7 @@ async function readCompositionProps(projectId: string): Promise<{
   if (!existsSync(propsPath)) {
     err(
       `composition-props.json not found at ${propsPath} — author the composition first ` +
-        `(handoff to /ralph-editor or run "ralph project show ${projectId}").`,
+        `(handoff to editor playbook or run "ralph project show ${projectId}").`,
     );
   }
   const raw = await fs.readFile(propsPath, "utf8");
@@ -52,7 +52,7 @@ async function ensureSymlink(projectId: string): Promise<{ link: string; created
     return { link, created: false };
   }
   if (!existsSync(projectAssets)) {
-    err(`No assets dir at ${projectAssets} — generate assets first via /ralph-art-director.`);
+    err(`No assets dir at ${projectAssets} — generate assets first via art-director playbook.`);
   }
   await fs.symlink(projectAssets, link, "dir");
   return { link, created: true };
