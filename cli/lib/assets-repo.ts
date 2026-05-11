@@ -42,14 +42,50 @@ export type ExampleEntry = {
   description?: string;
 };
 
+// Pool: generic reusable assets grouped by KIND (not template). Kinds are open-ended
+// slugs (e.g. "gameplay-loops", "italian-brainrot-characters", "trend-music",
+// "stock-broll", and future additions like "sfx", "transitions", "fonts", "overlays").
+// Adding a new kind requires only a new key in the manifest's `pool` map — no schema
+// or CLI change. Each item under a kind is keyed by its own slug.
+//
+// `worksWith` is an open list of template slugs that benefit from this item. Empty
+// or absent → usable across any template. The agent reads this to surface relevant
+// pool items when building prompts.
+export type PoolItem = {
+  path: string;                  // path in the ralphy-assets repo (e.g. "pool/<kind>/<slug>.png")
+  sizeBytes: number;
+  sha256: string;
+  description?: string;
+  license?: string;              // overrides category-level license
+  attribution?: string;
+  sourceUrl?: string;
+  worksWith?: string[];          // template slugs this item is built for
+  tags?: string[];
+  destSubdir?: string;           // override category default subdir when installing into a project
+  destFilename?: string;         // override basename(path) when installing
+  via: "raw" | "release";
+  releaseTag?: string;
+};
+
+export type PoolCategory = {
+  description: string;
+  license?: string;              // default license for all items in this kind
+  attributionRequired?: boolean;
+  defaultDestSubdir?: string;    // default subdir under project/ when installing
+  items: Record<string, PoolItem>;
+};
+
 export type Manifest = {
-  version: number;
+  version: number;               // 1 (legacy) or 2 (with `pool`)
   updated: string;
   baseUrl: string;
   releaseBaseUrl: string;
   required: Record<string, RequiredEntry>;
+  pool: Record<string, PoolCategory>;   // empty object on v1 manifests
   examples: Record<string, ExampleEntry>;
 };
+
+const SUPPORTED_MANIFEST_VERSIONS = [1, 2];
 
 export function manifestUrl(): string {
   return process.env.RALPHY_ASSETS_MANIFEST_URL || DEFAULT_MANIFEST_URL;
@@ -84,11 +120,13 @@ export async function loadManifest(opts: { force?: boolean } = {}): Promise<Mani
     }
   }
   const text = await res.text();
-  // Validate before caching.
   const parsed = JSON.parse(text) as Manifest;
-  if (parsed.version !== 1) {
-    throw new Error(`Unsupported manifest version ${parsed.version} (expected 1)`);
+  if (!SUPPORTED_MANIFEST_VERSIONS.includes(parsed.version)) {
+    throw new Error(`Unsupported manifest version ${parsed.version} (expected one of ${SUPPORTED_MANIFEST_VERSIONS.join(", ")})`);
   }
+  // v1 manifests have no `pool` field — synthesize empty so consumers don't need version-guards.
+  if (!parsed.pool) parsed.pool = {};
+  if (!parsed.examples) parsed.examples = {};
   await fs.writeFile(cachePath, text);
   return parsed;
 }
@@ -171,4 +209,67 @@ export async function wipeCache(): Promise<{ removed: string }> {
   const dir = assetCacheDir();
   await fs.rm(dir, { recursive: true, force: true });
   return { removed: dir };
+}
+
+// ---------- Pool helpers ----------
+//
+// The pool layer is the "generic asset library" — items grouped by kind, not
+// by template. Each item is referenced as `<kind>/<slug>`. Items live in the
+// assets repo at `pool/<kind>/<file>` and are cached locally under
+// `<asset-cache>/pool/<kind>/<file>`.
+
+// List all pool kinds present in the manifest (e.g. ["gameplay-loops",
+// "italian-brainrot-characters", ...]). Open-ended — adding a kind in the
+// manifest immediately makes it discoverable here, no code change required.
+export function poolKinds(manifest: Manifest): string[] {
+  return Object.keys(manifest.pool ?? {});
+}
+
+// Get a specific category, or null if the kind isn't present.
+export function poolCategory(manifest: Manifest, kind: string): PoolCategory | null {
+  return manifest.pool?.[kind] ?? null;
+}
+
+// List items in a kind. Returns [] if the kind doesn't exist.
+export function poolItems(manifest: Manifest, kind: string): Array<[string, PoolItem]> {
+  const cat = poolCategory(manifest, kind);
+  if (!cat) return [];
+  return Object.entries(cat.items ?? {});
+}
+
+// List pool items relevant to a template — items whose `worksWith` contains
+// the template slug, OR items with no worksWith (universal).
+export function poolForTemplate(manifest: Manifest, templateSlug: string): Array<{ kind: string; slug: string; item: PoolItem }> {
+  const out: Array<{ kind: string; slug: string; item: PoolItem }> = [];
+  for (const [kind, cat] of Object.entries(manifest.pool ?? {})) {
+    for (const [slug, item] of Object.entries(cat.items ?? {})) {
+      const matches = !item.worksWith || item.worksWith.length === 0 || item.worksWith.includes(templateSlug);
+      if (matches) out.push({ kind, slug, item });
+    }
+  }
+  return out;
+}
+
+// Download a single pool item if not cached / corrupt. Returns the cached
+// local path and the resolved item entry.
+export async function ensurePool(manifest: Manifest, kind: string, slug: string): Promise<{ cachedPath: string; item: PoolItem; category: PoolCategory }> {
+  const category = poolCategory(manifest, kind);
+  if (!category) throw new Error(`Pool kind not in manifest: ${kind}`);
+  const item = category.items?.[slug];
+  if (!item) throw new Error(`Pool item not in manifest: ${kind}/${slug}`);
+
+  const cacheRel = path.join("pool", kind, path.basename(item.path));
+  const cachedPath = path.join(assetCacheDir(), cacheRel);
+
+  try {
+    await fs.access(cachedPath);
+    const actual = await sha256OfFile(cachedPath);
+    if (actual === item.sha256) return { cachedPath, item, category };
+  } catch { /* not cached or stale */ }
+
+  const url = item.via === "release"
+    ? resolveDownloadUrl(manifest, { ...item, template: kind } as unknown as RequiredEntry, item.path)
+    : `${manifest.baseUrl}/${item.path}`;
+  await downloadVerified(url, cachedPath, item.sha256);
+  return { cachedPath, item, category };
 }
