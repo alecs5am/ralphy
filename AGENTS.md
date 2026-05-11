@@ -23,6 +23,7 @@ If a playbook references a tool you've never used (yt-dlp, Playwright, ffmpeg, r
 | "generate prompts / assets", "make images / video / VO / music", "regenerate scene-XX", model swap, A/B variant, cost preview | [`docs/playbooks/art-director.md`](docs/playbooks/art-director.md) |
 | "compose the video", "render", "captions", "transitions", "audio mix", "final cut", "preview", Remotion code edits | [`docs/playbooks/editor.md`](docs/playbooks/editor.md) (then [`remotion.md`](docs/playbooks/remotion.md) for API specifics) |
 | "make video end-to-end", batch (N≥3), "save as template", "review batch", cost rollup, profile export / import | [`docs/playbooks/producer.md`](docs/playbooks/producer.md) |
+| "evaluate / score / grade / QA / review" a rendered mp4, "is this ready to ship", "find issues in this video", scene-by-scene breakdown of a render, retention / scroll-stop check, post-render quality gate | [`.agents/skills/ralph-evaluator/SKILL.md`](.agents/skills/ralph-evaluator/SKILL.md) |
 | "set this up", "ralphy doctor", "nothing works", "read logs", "missing key", any ralphy CLI usage question | [`docs/playbooks/core.md`](docs/playbooks/core.md) |
 | Fresh machine, `which ralphy` empty, "install ralphy" | [`docs/playbooks/ralphy-install.md`](docs/playbooks/ralphy-install.md) |
 | Remotion API details (captions, transitions, audio, ffmpeg, library primitives, animation) | [`docs/playbooks/remotion.md`](docs/playbooks/remotion.md) |
