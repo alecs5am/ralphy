@@ -8,7 +8,7 @@ Single-doc directory of every template shipped in `templates/` (repo) and `works
 
 > The authoritative discovery mechanism is `ralphy template list -p` — this index is a static snapshot for fast grep / agent context loading. If you suspect drift, run the CLI.
 
-**Total: 42 repo templates** (5 vibe-reference + 37 vibe-style), physically organized into 5 segment-persona folders under `templates/`. The CLI resolves by slug regardless of category folder — `ralphy template use <slug>` still works as before, no slug change. Templates added 2026-05-07 cover the 20 trending short-form formats from the deep-research catalog plus 8 vertical / conversion-focused formats from direct user feedback (try-on, doctor-authority, life-changing-testimonial, active-lifestyle, podcast-clip, interview-dialog, cgi-hardware, cgi-architecture). Folder reshape: 2026-05-11.
+**Total: 43 repo templates** (5 vibe-reference + 38 vibe-style), physically organized into 5 segment-persona folders under `templates/`. The CLI resolves by slug regardless of category folder — `ralphy template use <slug>` still works as before, no slug change. Templates added 2026-05-07 cover the 20 trending short-form formats from the deep-research catalog plus 8 vertical / conversion-focused formats from direct user feedback (try-on, doctor-authority, life-changing-testimonial, active-lifestyle, podcast-clip, interview-dialog, cgi-hardware, cgi-architecture). Folder reshape: 2026-05-11. Added 2026-05-11: `italian-brainrot` (single-character AI-meme format with a 33-character canonical reference pool in [ralphy-assets](https://github.com/alecs5am/ralphy-assets/tree/main/pool/italian-brainrot-characters)).
 
 ## `kind` field — what each one means
 

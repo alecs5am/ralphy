@@ -61,13 +61,14 @@ Audience: scroll-feed lifestyle / personality-driven. Goal: build creator-audien
 
 ---
 
-## `entertainment-viral/` (9) — Scroll-stop entertainment
+## `entertainment-viral/` (10) — Scroll-stop entertainment
 
 Audience: passive scroll-feed entertainment / meme / brainrot / loopable. Goal: pure attention capture, dwell-time, share. Tone: punchy, surreal, often AI-native.
 
 | Slug | Kind | One-liner |
 |---|---|---|
 | [`brainrot-ai-meme`](entertainment-viral/brainrot-ai-meme/) | vibe-style | Split-screen AI VO + Subway Surfers / Minecraft Parkour gameplay loop + screaming captions. C2PA disclosure mandatory. |
+| [`italian-brainrot`](entertainment-viral/italian-brainrot/) | vibe-style | Single-character AI-meme (Tralalero Tralala, Tung Tung Sahur, Ballerina Cappuccina, etc.) with Italian-gibberish VO. 8-25s full-frame; 33-character canonical pool in ralphy-assets. |
 | [`ai-vegetables`](entertainment-viral/ai-vegetables/) | vibe-reference | Surrealist POV — anthropomorphic vegetable does a mundane human action. 12-18s. |
 | [`soviet-nostalgic`](entertainment-viral/soviet-nostalgic/) | vibe-reference | Off-screen Russian narrator, two-era heritage story with mid-video music drop. |
 | [`ai-avatar`](entertainment-viral/ai-avatar/) | vibe-style | Full synthetic talking-head (wan-25 / sync-lipsync). Multilingual scaling, 175+ languages. AI-disclosure overlay. |
