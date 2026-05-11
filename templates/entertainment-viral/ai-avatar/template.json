@@ -2,7 +2,7 @@
   "name": "AI Avatar Talking-Head",
   "slug": "ai-avatar",
   "kind": "vibe-style",
-  "description": "Fully AI-generated 'person' delivering a 45-90s script straight to camera. In 2026, lip-sync (Kling Avatar v2, HeyGen, Synthesia) reached the point where the average TikTok viewer doesn't immediately spot AI; one TikTok Shop affiliate earned ~$13K commission on a single AI-avatar video. Solves the biggest UGC bottleneck — production cost — and unlocks one-script-to-N-markets via ElevenLabs eleven_multilingual_v2 (30+ languages, voice preserved). Close-up persona delivers hook → value → CTA, with optional B-roll cutaways. AI = accelerator, not replacement: the viewer must NOT feel they're watching slop. Platform-side C2PA provenance metadata is emitted automatically by render with genai:true; no visible on-screen disclosure overlay (retention drops with visible AI labels).",
+  "description": "Fully AI-generated 'person' delivering a 45-90s script straight to camera. In 2026, lip-sync (Kling Avatar v2, HeyGen, Synthesia) reached the point where the average TikTok viewer doesn't immediately spot AI; one TikTok Shop affiliate earned ~$13K commission on a single AI-avatar video. Solves the biggest UGC bottleneck \u2014 production cost \u2014 and unlocks one-script-to-N-markets via ElevenLabs eleven_multilingual_v2 (30+ languages, voice preserved). Close-up persona delivers hook \u2192 value \u2192 CTA, with optional B-roll cutaways. AI = accelerator, not replacement: the viewer must NOT feel they're watching slop. Platform-side C2PA provenance metadata is emitted automatically by render with genai:true; no visible on-screen disclosure overlay (retention drops with visible AI labels).",
   "tags": [
     "ai-avatar",
     "virtual-presenter",
@@ -29,8 +29,14 @@
   ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
-  "typicalDurationSec": [45, 90],
-  "typicalClipCount": [1, 3],
+  "typicalDurationSec": [
+    45,
+    90
+  ],
+  "typicalClipCount": [
+    1,
+    3
+  ],
   "fps": 30,
   "width": 1080,
   "height": 1920,
@@ -41,24 +47,24 @@
     "promptCookbook": "prompt-cookbook.md"
   },
   "stackSummary": {
-    "personaKeyframe": "google/gemini-3-pro-image-preview via OpenRouter — one canonical avatar character keyframe per project, reused across episodes for stability. Use multi-ref WITH a persona reference image when consistency across episodes matters (strongly recommended for any series / brand presenter).",
-    "talkingHeadVideo": "google/veo-3.1-fast (DEFAULT) via OpenRouter — model-native audio with `--audio` and image-conditioned generation in one call gives TikTok-grade lip-sync in 2026. 4-6-8s clips, ~$0.25/clip. Image-to-video with the persona keyframe as the start frame keeps the avatar consistent across scenes. CRITICAL: `generate_audio: true` is only clean for English and Chinese — for Russian / Ukrainian / other languages, generate audio separately via ElevenLabs and render the avatar with `generate_audio: false` (it produces silent video with mouth motion driven by the audio passed via OpenRouter's lipsync conditioning).",
-    "premiumTier": "google/veo-3.1 (full) — reserve for hero spots where 4K mastering or top-tier lip-sync fidelity is the entire point. ~$0.50/clip. veo-3.1-fast is sufficient for almost every TikTok-grade use case.",
-    "budgetTier": "google/veo-3.1-lite — ~$0.15/clip for high-volume multilingual batch (10+ language regen per episode). Lip-sync quality steps down but stays acceptable for educational / news brief tone.",
-    "bRoll": "kwaivgi/kling-v3.0-pro — optional 3-5s cutaways (product close-ups, screen recordings, illustrative shots). generate_audio: false; the persona audio carries throughout.",
-    "voiceover": "ElevenLabs eleven_multilingual_v2 — single TTS call per language. For multilingual exports, regen VO N times (one per language) and recompose with veo-3.1-fast per language using the same persona keyframe. Voice settings: stability 0.40, similarity_boost 0.75, style 0.15 (warm, authoritative).",
-    "captions": "OpenRouter whisper-1 → MinimalCaptions or KaraokeCaptions overlay. HormoziCaptions only when the script demands punch (e.g. e-commerce hard sell).",
+    "personaKeyframe": "google/gemini-3-pro-image-preview via OpenRouter \u2014 one canonical avatar character keyframe per project, reused across episodes for stability. Use multi-ref WITH a persona reference image when consistency across episodes matters (strongly recommended for any series / brand presenter).",
+    "talkingHeadVideo": "google/veo-3.1-fast (DEFAULT) via OpenRouter \u2014 model-native audio with `--audio` and image-conditioned generation in one call gives TikTok-grade lip-sync in 2026. 4-6-8s clips, ~$0.25/clip. Image-to-video with the persona keyframe as the start frame keeps the avatar consistent across scenes. CRITICAL: `generate_audio: true` is only clean for English and Chinese \u2014 for Russian / Ukrainian / other languages, generate audio separately via ElevenLabs and render the avatar with `generate_audio: false` (it produces silent video with mouth motion driven by the audio passed via OpenRouter's lipsync conditioning).",
+    "premiumTier": "google/veo-3.1 (full) \u2014 reserve for hero spots where 4K mastering or top-tier lip-sync fidelity is the entire point. ~$0.50/clip. veo-3.1-fast is sufficient for almost every TikTok-grade use case.",
+    "budgetTier": "google/veo-3.1-lite \u2014 ~$0.15/clip for high-volume multilingual batch (10+ language regen per episode). Lip-sync quality steps down but stays acceptable for educational / news brief tone.",
+    "bRoll": "kwaivgi/kling-v3.0-pro \u2014 optional 3-5s cutaways (product close-ups, screen recordings, illustrative shots). generate_audio: false; the persona audio carries throughout.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 \u2014 single TTS call per language. For multilingual exports, regen VO N times (one per language) and recompose with veo-3.1-fast per language using the same persona keyframe. Voice settings: stability 0.40, similarity_boost 0.75, style 0.15 (warm, authoritative).",
+    "captions": "OpenRouter whisper-1 \u2192 MinimalCaptions or KaraokeCaptions overlay. HormoziCaptions only when the script demands punch (e.g. e-commerce hard sell).",
     "music": "Optional. ElevenLabs Music low-volume bed (-18 dB under VO) when the script is review/ad. Educational and news briefs usually go music-free."
   },
   "constants": {
     "vibeAnchor": "consistent-ai-presenter-close-up",
-    "structure": "0-3s hook → 3-60s value → 60-90s CTA",
-    "personaStability": "single canonical keyframe reused per project — never regen mid-series",
+    "structure": "0-3s hook \u2192 3-60s value \u2192 60-90s CTA",
+    "personaStability": "single canonical keyframe reused per project \u2014 never regen mid-series",
     "disclosurePolicy": "C2PA provenance metadata only (emitted by render with genai:true); no on-screen overlay"
   },
   "variationAxes": [
-    "avatar archetype (8 archetypes — see workspace/personas/ARCHETYPES.md): friendly-creator, expert-educator, news-anchor, gen-z-streetwear, corporate-presenter, indie-founder, lifestyle-coach, gamer-reviewer",
-    "language (English / Russian / Spanish / Portuguese / Hindi / Arabic / Mandarin / Japanese / French / German — anywhere ElevenLabs eleven_multilingual_v2 supports)",
+    "avatar archetype (8 archetypes \u2014 see workspace/personas/ARCHETYPES.md): friendly-creator, expert-educator, news-anchor, gen-z-streetwear, corporate-presenter, indie-founder, lifestyle-coach, gamer-reviewer",
+    "language (English / Russian / Spanish / Portuguese / Hindi / Arabic / Mandarin / Japanese / French / German \u2014 anywhere ElevenLabs eleven_multilingual_v2 supports)",
     "tone (informative / friendly-relatable / authoritative / hype-energetic)",
     "use case (product review / educational explainer / news brief / e-commerce ad / pitch / personal essay)",
     "background (solid color / minimal room / softly blurred environment / on-brand backdrop)",
@@ -66,5 +72,18 @@
   ],
   "doNotCopyLiterally": "Avatar likeness, voice, exact script, brand identity. Vibe + structure only. Never reproduce a real public figure's likeness or voice.",
   "requiresUserReference": false,
-  "referenceNotes": "Reference is OPTIONAL but STRONGLY RECOMMENDED. The reference-required gate (AGENTS.md hard rule #3) does NOT trigger for fictional AI personas — but persona stability across episodes does require a canonical keyframe. Recommended workflow: (1) on episode 1, generate the avatar from an archetype prompt OR a user-supplied persona reference; save the resulting keyframe to workspace/projects/<id>/assets/persona/avatar.png and treat it as the project's reference for every subsequent episode and language render. (2) For brand presenters, the user MUST supply a persona reference (a real human face the brand has rights to, or a previously-generated avatar). (3) NEVER use a real named person's likeness without explicit signed consent — that's the reference-required gate firing for the wrong reason and refusing is correct. See AGENTS.md and (when present) workspace/personas/ARCHETYPES.md for the 8 archetype options."
+  "referenceNotes": "Reference is OPTIONAL but STRONGLY RECOMMENDED. The reference-required gate (AGENTS.md hard rule #3) does NOT trigger for fictional AI personas \u2014 but persona stability across episodes does require a canonical keyframe. Recommended workflow: (1) on episode 1, generate the avatar from an archetype prompt OR a user-supplied persona reference; save the resulting keyframe to workspace/projects/<id>/assets/persona/avatar.png and treat it as the project's reference for every subsequent episode and language render. (2) For brand presenters, the user MUST supply a persona reference (a real human face the brand has rights to, or a previously-generated avatar). (3) NEVER use a real named person's likeness without explicit signed consent \u2014 that's the reference-required gate firing for the wrong reason and refusing is correct. See AGENTS.md and (when present) workspace/personas/ARCHETYPES.md for the 8 archetype options.",
+  "compositionTemplate": {
+    "id": "AiAvatar",
+    "defaults": {
+      "durationSec": 60,
+      "avatarClips": [],
+      "voPath": "voiceover/vo-primary.mp3",
+      "captions": [],
+      "cutaways": [],
+      "captionStyle": "minimal",
+      "accentColor": "#FFEB3B",
+      "avatarVolume": 0
+    }
+  }
 }
