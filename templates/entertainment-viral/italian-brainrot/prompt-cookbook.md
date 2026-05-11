@@ -119,7 +119,6 @@ Cost: ~$0.03 for 15s of audio (eleven_multilingual_v2).
 - [ ] 1080×1920, 30fps, single composition
 - [ ] Hero video shot(s) full-bleed
 - [ ] Optional phonetic captions (HormoziCaptions yellow) center-frame
-- [ ] AI-disclosure mark bottom-right, 8% opacity, "AI-generated"
 - [ ] No music UNLESS the brief specifies (default: VO-only)
 - [ ] Total cost guardrail: $0.50 / video at default stack
 

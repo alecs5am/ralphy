@@ -18,11 +18,12 @@ The tutorial format is the only short-form pattern that earns search traffic for
 
 ## Vibe anchors
 
+- **Video, not static.** Every primary beat is a short kling-v3.0-pro clip with motion (5-6 clips total across the 60s). Static images are NOT acceptable as primary visuals — they read as low-effort placeholders and kill retention. Static is acceptable only as a brief overlay layer on top of an underlying video (a step-counter card, a callout box, a side-by-side comparison panel held for ≤1s while the video continues underneath). If you find yourself filling 60s with 5 static images, the format is failing — go back and generate clips.
 - **Power-word hook in the first 1.5 seconds.** Free / Banned / Secret / $1 / Stolen / Illegal-feeling / Nobody / Wrong. The word is the first thing said and the first thing on screen. See `hooks.md` for the 12 patterns.
 - **Foreshadow at 2-5s, never spoil the steps.** Show the final state ("here's what you'll get") without telling how. This sets the open loop. Example: "I made a $90 dinner for $4 — here's how."
-- **Three steps, three named transitions.** Not "step 1, step 2, step 3" — that's robotic. Use Hoyos-style transitions: "Let's get cooking" / "Now the magic" / "Here's the trick" / "And finally" / "Last move". Each transition is a 0.5s wipe with a step counter (1/3, 2/3, 3/3).
+- **Three steps, three named transitions.** Not "step 1, step 2, step 3" — that's robotic. Use Hoyos-style transitions: "Let's get cooking" / "Now the magic" / "Here's the trick" / "And finally" / "Last move". Each transition is a **hard `<Sequence>` swap** with a step counter (1/3, 2/3, 3/3), not a `@remotion/transitions` gradient blend — gradient blends read as one long scene to retention algorithms. Use snap-cuts.
 - **Emotional payoff at the end.** Not just "and that's it" — a visible reaction, a first bite, a number on screen, a before-after side-by-side. The payoff is what you promised in the foreshadow.
-- **Tight cadence.** No dead air, no "um," no setup that isn't the foreshadow. Hoyos cuts ~every 1-2 seconds inside steps.
+- **Tight cadence — at least one hard cut every 2 seconds.** No dead air, no "um," no setup that isn't the foreshadow. Hoyos cuts ~every 1-2 seconds inside steps. Achieve this via two real sub-cuts per step (`OffthreadVideo startFrom/endAt` to slice each clip into halves) — not via fade transitions that the cut-detector merges into one scene.
 - **Big step counters on screen.** 1/3, 2/3, 3/3 in a corner the entire step, not just at the transition. Visible progress is what makes 60s feel like 30s.
 - **Burned-in captions.** 85% of mobile views are muted. Captions are the script.
 
@@ -90,15 +91,16 @@ The tutorial format is the only short-form pattern that earns search traffic for
 
 | Stage | Detail | Cost |
 |---|---|---|
-| Keyframes | 5-7 × `gemini-3-pro-image-preview` @ $0.15 | ~$0.90 - $1.05 |
-| Video clips | 5-7 × `kling-v3.0-pro` × ~5s @ $0.14/s | $3.50 - $4.90 |
+| Keyframes | 5-7 × `gemini-3-pro-image-preview` @ $0.15 (start frame for each kling clip) | ~$0.90 - $1.05 |
+| Video clips (REQUIRED) | 5-7 × `kling-v3.0-pro` × ~5s @ $0.14/s | $3.50 - $4.90 |
+| Step-card overlays | static text overlays composited in Remotion at render time | $0 |
 | VO | 1-2 ElevenLabs calls (subscription) | $0 |
 | Music | 1 ElevenLabs Music call (subscription) | $0 |
 | Captions | 1 × whisper-1 | ~$0.001 |
 | Render | local | $0 |
 | **Total** | | **~$4.40 - $6.00** |
 
-Mid-cost format — the 60s length means more clips than `before-after-product`, but VO and music remain on subscription.
+Mid-cost format — the 60s length means more clips than `before-after-product`, but VO and music remain on subscription. **Do not cut clips to save cost.** A budget under $4 means picking a different template — five 60s static images do not pass as a tutorial.
 
 ## Read also
 
