@@ -1,0 +1,62 @@
+{
+  "name": "AI Fruit / Object Drama",
+  "slug": "ai-drama",
+  "kind": "vibe-reference",
+  "description": "Pixar-3D-cartoon mini-soap-opera between anthropomorphic fruits / objects / animals with on-camera dialogue in 8s beats. 7×8s = 56s default. The format popularized by @fruittalesco — a melodramatic plot (affair, breakup, found-family) carried by direct character dialogue, not narrator. Veo 3.1 with native audio generates lip-synced speech directly; ElevenLabs adds NO additional music bed (Veo already injects ambient under each clip — two layers = mud). Single-word pop-up captions in TheBoldFont sit on top via Remotion.",
+  "tags": [
+    "ai-drama",
+    "fruit-drama",
+    "object-drama",
+    "ai-3d",
+    "pixar-3d",
+    "viral-trend",
+    "tiktok",
+    "reels",
+    "shorts",
+    "on-camera-dialogue",
+    "veo-native-audio",
+    "soap-opera",
+    "melodrama",
+    "fruittalesco",
+    "popwords"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [48, 64],
+  "typicalClipCount": [6, 8],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-11T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "referenceExample": "reference-example.md",
+    "promptFragments": "fragments.md",
+    "modelStack": "model-stack.md",
+    "composition": "composition.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — one keyframe per scene; first scene generates a character lineup, subsequent keyframes reuse the same cast description for consistency",
+    "i2v": "google/veo-3.1 via OpenRouter — 8s clips, --audio ENABLED (Veo speaks the dialogue on-camera), --first-frame = scene keyframe. EN audio is clean; RU works but is warned in MODELS.md.",
+    "voiceover": "NONE separately — Veo native audio IS the voiceover. Do not call ElevenLabs voiceover. Do not stack TTS on top.",
+    "music": "NONE separately — Veo native audio already includes scene-appropriate ambient/score. Do not call ElevenLabs Music; layering it on top creates double-music mud. The 'no background music' anti-instruction in every Veo prompt is load-bearing.",
+    "captions": "ElevenLabs scribe_v1 word-level → PopWordCaptions (TheBoldFont 700, one word at a time, spring pop-in)",
+    "composition": "Remotion 4.0.441 — single OffthreadVideo of concat.mp4 (Veo audio preserved) + PopWordCaptions overlay"
+  },
+  "constants": {
+    "vibeAnchor": "fruittalesco — Pixar-3D anthropomorphic cast, melodramatic on-camera dialogue, soap-opera plot arc",
+    "characterStyle": "Pixar-3D cartoon, smooth glossy textures, big expressive eyes, simple humanoid clothing on a fruit/object/animal head, no photoreal humans",
+    "captionStyle": "PopWordCaptions — TheBoldFont 700, one word at a time, white with heavy black stroke + drop shadow, spring scale-in",
+    "musicPolicy": "Veo native audio only. NO ElevenLabs music. Every Veo prompt must include the no-music anti-instruction (see fragments.md → 'No-music clause')."
+  },
+  "variationAxes": [
+    "cast type (fruits, vegetables, objects, animals, food items)",
+    "plot trope (affair / breakup / found-family / love-triangle / parent-child / mistaken-identity / glow-up)",
+    "tone (melodrama played straight, deadpan-comedy, soap-opera serious)",
+    "VO language (English by default — Veo native EN audio is the validated-clean path; Russian works but warned per MODELS.md; Chinese also clean)",
+    "duration (typically 7×8s = 56s; can scale 6×8s = 48s to 8×8s = 64s)"
+  ],
+  "doNotCopyLiterally": "Scenario, dialogue lines, exact prompts, character cast. This is a vibe reference; the scenarist writes a fresh scenario every project. Per project you DO inherit the Veo-only-audio rule and the PopWordCaptions style.",
+  "requiresUserReference": false,
+  "referenceNotes": "No user reference required. Cast is generated from prompt lock-strings. If the user names a real person or branded character, escalate to AGENTS.md hard rule #3 (reference-required gate)."
+}
