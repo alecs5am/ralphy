@@ -11,7 +11,13 @@ import { TestGrwmYT001, TOTAL_FRAMES as TEST_GRWM_YT_FRAMES } from "./videos/tes
 import { TestTutorialYT001, TOTAL_FRAMES as TEST_TUTORIAL_YT_FRAMES } from "./videos/test-tutorial-yt-001";
 import { PodcastClip001, TOTAL_FRAMES as PODCAST_CLIP_FRAMES } from "./videos/test-podcast-yt-001";
 import { GingerRecreate001, TOTAL_FRAMES as GINGER_RECREATE_FRAMES } from "./videos/ginger-recreate-001";
+import { GlitterCream001, TOTAL_FRAMES as GLITTER_CREAM_FRAMES } from "./videos/glitter-cream-001";
 import { FruitDrama001, TOTAL_FRAMES as FRUIT_DRAMA_FRAMES } from "./videos/fruit-drama-001";
+import { NothingHP1001, TOTAL_FRAMES as NOTHING_HP1_FRAMES } from "./videos/nothing-hp1-001";
+import {
+  FlipperHyperMotion001,
+  TOTAL_FRAMES as FLIPPER_HYPER_MOTION_FRAMES,
+} from "./videos/flipper-hypermotion-001";
 import {
   BrainrotAIMeme,
   BrainrotAIMemeDefaults,
@@ -212,9 +218,33 @@ export const RemotionRoot: React.FC = () => {
           height={1920}
         />
         <Composition
+          id="GlitterCream001"
+          component={GlitterCream001}
+          durationInFrames={GLITTER_CREAM_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
           id="FruitDrama001"
           component={FruitDrama001}
           durationInFrames={FRUIT_DRAMA_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="NothingHP1001"
+          component={NothingHP1001}
+          durationInFrames={NOTHING_HP1_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="FlipperHyperMotion001"
+          component={FlipperHyperMotion001}
+          durationInFrames={FLIPPER_HYPER_MOTION_FRAMES}
           fps={30}
           width={1080}
           height={1920}
