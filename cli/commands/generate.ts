@@ -124,11 +124,11 @@ export function generateCmd() {
   // ── image ───────────────────────────────────────────────────────────────
   const imageCmd = cmd
     .command("image")
-    .description("Generate one image via OpenRouter (default: gemini-3-pro-image-preview)")
+    .description("Generate one image via OpenRouter (default: openai/gpt-5.4-image-2 — premium typography & label accuracy). Use --model google/gemini-3-pro-image-preview when you need multi-ref character consistency.")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image)")
-    .requiredOption("--prompt <prompt>", "Text prompt")
-    .option("--model <model>", "OpenRouter model id", "google/gemini-3-pro-image-preview")
+    .requiredOption("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
+    .option("--model <model>", "OpenRouter model id (default openai/gpt-5.4-image-2; switch to google/gemini-3-pro-image-preview for multi-ref/character consistency)", "openai/gpt-5.4-image-2")
     .option(
       "--ref <ref...>",
       "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI"
