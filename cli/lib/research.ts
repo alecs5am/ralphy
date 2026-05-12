@@ -146,6 +146,8 @@ export type PullOptions = {
   audioOnly?: boolean;
   /** Skip auto-extraction of mono 64kbps mp3 from the mp4 (default: extract). */
   noAudioExtract?: boolean;
+  /** Use a local file on disk instead of yt-dlp. When set, `url` is treated as the original identifier/label and the file at `localPath` is copied to source.mp4. */
+  localPath?: string;
 };
 
 export type PullResult = {
@@ -158,6 +160,11 @@ export type PullResult = {
 };
 
 export async function pullReference(opts: PullOptions): Promise<PullResult> {
+  // Local-file path: skip yt-dlp, copy from disk, probe metadata via ffprobe.
+  if (opts.localPath) {
+    return pullReferenceLocal(opts);
+  }
+
   ensureBin("yt-dlp", "brew install yt-dlp");
   const slug = opts.slug ?? slugFromUrl(opts.url);
   const paths = refPaths(slug);
@@ -237,6 +244,84 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
 
   await writeState(slug, {
     url: opts.url,
+    pulledAt: new Date().toISOString(),
+  });
+
+  return {
+    slug,
+    dir: paths.dir,
+    videoPath,
+    audioPath,
+    metaPath: paths.meta,
+    meta,
+  };
+}
+
+async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
+  if (!opts.localPath) throw new Error("pullReferenceLocal called without localPath");
+  const src = path.resolve(opts.localPath);
+  if (!existsSync(src)) throw new Error(`Local file not found: ${src}`);
+
+  const baseName = path.basename(src).replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = opts.slug ?? baseName ?? `local-${Date.now().toString(36)}`;
+  const paths = refPaths(slug);
+  await fs.mkdir(paths.dir, { recursive: true });
+
+  // Probe metadata via ffprobe — analog of yt-dlp's --dump-single-json for local files.
+  ensureBin("ffprobe", "brew install ffmpeg");
+  const probe = await run("ffprobe", [
+    "-v", "error",
+    "-show_entries", "format=duration,size,format_name:stream=codec_type,codec_name,width,height",
+    "-of", "json",
+    src,
+  ]);
+  let probeMeta: Record<string, unknown> = {};
+  if (probe.code === 0) {
+    try { probeMeta = JSON.parse(probe.stdout) as Record<string, unknown>; } catch { /* keep empty */ }
+  }
+  const format = (probeMeta.format as Record<string, unknown> | undefined) ?? {};
+  const streams = (probeMeta.streams as Array<Record<string, unknown>> | undefined) ?? [];
+  const vstream = streams.find((s) => s.codec_type === "video");
+  const duration = format.duration != null ? Number(format.duration) : undefined;
+
+  const meta: Record<string, unknown> = {
+    title: path.basename(src),
+    uploader: "local",
+    duration,
+    width: vstream?.width,
+    height: vstream?.height,
+    filesize: format.size != null ? Number(format.size) : undefined,
+    source: "local",
+    originalPath: src,
+    label: opts.url,  // caller-provided label/identifier
+    pulledAt: new Date().toISOString(),
+  };
+  await fs.writeFile(paths.meta, JSON.stringify(meta, null, 2) + "\n");
+
+  // Copy the file (don't symlink — workspace artifacts should be self-contained).
+  await fs.copyFile(src, paths.sourceMp4);
+  const videoPath = paths.sourceMp4;
+
+  let audioPath: string | undefined;
+  if (!opts.noAudioExtract) {
+    ensureBin("ffmpeg", "brew install ffmpeg");
+    const fa = await run("ffmpeg", [
+      "-y",
+      "-loglevel", "error",
+      "-i", paths.sourceMp4,
+      "-vn",
+      "-ac", "1",
+      "-b:a", "64k",
+      paths.audio,
+    ]);
+    if (fa.code !== 0) {
+      throw new Error(`ffmpeg audio-extract failed: ${fa.stderr.slice(0, 500)}`);
+    }
+    audioPath = paths.audio;
+  }
+
+  await writeState(slug, {
+    url: opts.url || src,
     pulledAt: new Date().toISOString(),
   });
 

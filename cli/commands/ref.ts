@@ -106,10 +106,11 @@ export function refCmd() {
   // ── pull (yt-dlp wrapper) ──────────────────────────────────────────────
   cmd
     .command("pull <url>")
-    .description("Download a video URL via yt-dlp → workspace/references/<slug>/{source.mp4, meta.info.json, source.mp3}")
-    .option("--slug <name>", "Custom slug (default: derived from URL)")
-    .option("--audio-only", "Skip the video stream — only fetch mp3")
-    .option("--meta-only", "Skip download — only write meta.info.json")
+    .description("Pull a video into workspace/references/<slug>/. Default: yt-dlp from URL. With --local: copy from local mp4 path (url arg becomes a label).")
+    .option("--slug <name>", "Custom slug (default: derived from URL or filename)")
+    .option("--local <path>", "Use a local mp4 file instead of yt-dlp. <url> becomes a label.")
+    .option("--audio-only", "Skip the video stream — only fetch mp3 (URL mode only)")
+    .option("--meta-only", "Skip download — only write meta.info.json (URL mode only)")
     .option("--no-audio-extract", "Skip auto-extraction of mono 64k mp3 from mp4")
     .option("--register", "Also call `ref add --type social <url>`", false)
     .action(async (url: string, opts: any) => {
@@ -117,6 +118,7 @@ export function refCmd() {
         const result = await pullReference({
           url,
           slug: opts.slug,
+          localPath: opts.local,
           audioOnly: opts.audioOnly,
           metaOnly: opts.metaOnly,
           noAudioExtract: !opts.audioExtract && opts.noAudioExtract === true,
