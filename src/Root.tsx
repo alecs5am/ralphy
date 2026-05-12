@@ -11,6 +11,7 @@ import { TestGrwmYT001, TOTAL_FRAMES as TEST_GRWM_YT_FRAMES } from "./videos/tes
 import { TestTutorialYT001, TOTAL_FRAMES as TEST_TUTORIAL_YT_FRAMES } from "./videos/test-tutorial-yt-001";
 import { PodcastClip001, TOTAL_FRAMES as PODCAST_CLIP_FRAMES } from "./videos/test-podcast-yt-001";
 import { GingerRecreate001, TOTAL_FRAMES as GINGER_RECREATE_FRAMES } from "./videos/ginger-recreate-001";
+import { FruitDrama001, TOTAL_FRAMES as FRUIT_DRAMA_FRAMES } from "./videos/fruit-drama-001";
 import {
   BrainrotAIMeme,
   BrainrotAIMemeDefaults,
@@ -206,6 +207,14 @@ export const RemotionRoot: React.FC = () => {
           id="GingerRecreate001"
           component={GingerRecreate001}
           durationInFrames={GINGER_RECREATE_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="FruitDrama001"
+          component={FruitDrama001}
+          durationInFrames={FRUIT_DRAMA_FRAMES}
           fps={30}
           width={1080}
           height={1920}
