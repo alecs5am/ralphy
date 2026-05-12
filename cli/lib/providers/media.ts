@@ -53,18 +53,33 @@ type CommonInput = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type GenerateImageInput = CommonInput & {
-  /** OpenRouter model id, e.g. `google/gemini-3-pro-image-preview` (default) or `openai/gpt-5.4-image-2`. */
+  /** OpenRouter model id, e.g. `openai/gpt-5.4-image-2` (default) or `google/gemini-3-pro-image-preview` for multi-ref consistency. */
   model?: string;
   prompt: string;
-  /** Optional multi-ref URLs (gemini-3-pro-image-preview supports `image_urls`). */
+  /** Optional multi-ref URLs. Both gpt-5.4-image-2 and gemini-3-pro-image-preview accept image inputs; gemini is stronger at multi-ref character consistency. */
   refs?: string[];
   size?: Size9x16;
   /** Negative prompt where supported. */
   negativePrompt?: string;
 };
 
-const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview";
-const IMAGE_PRICE_USD = 0.15; // ballpark per MODELS.md; refine when OR returns billed cost.
+// Default switched from gemini-3-pro to gpt-5.4-image-2 on 2026-05-12 — premium typography,
+// label accuracy, and fewer hallucinations on small details (see docs/prompts/README.md).
+// Pass --model google/gemini-3-pro-image-preview when multi-ref character consistency matters.
+const DEFAULT_IMAGE_MODEL = "openai/gpt-5.4-image-2";
+
+// Per-image cost lookup. OR bills per generation (one image per call); these are
+// ballparks from MODELS.md until OR returns billed cost in the response payload.
+// Add a row when a new model is used in production.
+const IMAGE_PRICE_PER_GEN: Record<string, number> = {
+  "openai/gpt-5.4-image-2": 0.20,             // premium tier
+  "openai/gpt-5-image": 0.25,                 // most expensive OpenAI tier
+  "openai/gpt-5-image-mini": 0.08,            // budget OpenAI
+  "google/gemini-3-pro-image-preview": 0.15,  // nano-banana lineage, multi-ref champ
+  "google/gemini-3.1-flash-image-preview": 0.04,
+  "google/gemini-2.5-flash-image": 0.02,      // cheapest
+};
+const IMAGE_PRICE_FALLBACK = 0.15;
 
 export async function generateImage(input: GenerateImageInput): Promise<GenerateResult> {
   requireCapability("llm-openrouter");
@@ -152,7 +167,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const result: GenerateResult = {
     url,
     localPath,
-    costUsd: IMAGE_PRICE_USD,
+    costUsd: IMAGE_PRICE_PER_GEN[model] ?? IMAGE_PRICE_FALLBACK,
     latencyMs: Date.now() - t0,
     model,
   };

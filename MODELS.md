@@ -20,16 +20,20 @@ Endpoint: `POST /api/v1/chat/completions` with `modalities: ["image","text"]`. O
 
 | Use case | Model | Price | Why |
 |---|---|---|---|
-| **Default** — keyframes with character consistency (multi-ref) | `google/gemini-3-pro-image-preview` (= nano-banana lineage) | ~$0.15 / image | Best multi-reference: face / wardrobe stay consistent across scenes. Multiple `--ref` images chain into the prompt. |
-| **Premium** — high-quality studio photo | `openai/gpt-5.4-image-2` | ~$0.20 / image | Best photorealism when multi-ref consistency isn't required. |
+| **Default — premium production** | `openai/gpt-5.4-image-2` | ~$0.20 / image | Best typography on labels, fewer hallucinations on small details, cleanest photorealism for product / lifestyle / hero shots. Made default 2026-05-12 — see `docs/prompts/README.md`. |
+| **Multi-ref / character consistency** | `google/gemini-3-pro-image-preview` (= nano-banana lineage) | ~$0.15 / image | Best at holding face / wardrobe / product identity across multiple references. Pass 2-3 `--ref` images for "same model + same product across 5 scenes" workflows. |
+| **Budget OpenAI** | `openai/gpt-5-image-mini` | ~$0.08 / image | Cheap iteration during prompt exploration. |
+| **Cheapest viable** | `google/gemini-2.5-flash-image` | ~$0.02 / image | Smoke-test only — quality dip is visible. |
 
-**Reference images:** `--ref` accepts URL, local path, or `data:` URI. Local paths are auto-converted to `data:` URI in-process — no upload step.
+**Reference images:** `--ref` accepts URL, local path, or `data:` URI. Local paths are auto-converted to `data:` URI in-process — no upload step. Both `gpt-5.4-image-2` and `gemini-3-pro-image-preview` accept image inputs; gemini is materially stronger at *multi-ref* consistency (2+ refs).
 
-**Size:** `--size 1080x1920` is forwarded to the model as a prompt-level hint; gemini-3-pro-image-preview will return either 1024² (close to 1:1 prompts), 768×1376 (close to 9:16), or 1280×720 (close to 16:9) — these are the model's natural output buckets. You will not get pixel-exact 1080×1920 from this model; downstream Remotion / ffmpeg compositions handle the scale-to-cover.
+**Size:** `--size 1080x1920` is forwarded to the model as a prompt-level hint. Image models round to their internal natural buckets: 1024² for 1:1, ~768×1376 for 9:16, ~1280×720 for 16:9. You will not get pixel-exact 1080×1920 — downstream Remotion / ffmpeg compositions handle the scale-to-cover.
+
+**Prompt cookbook:** mode-by-mode masters in `docs/prompts/image/` (product-shot, lifestyle-scene, closeup-with-person, macro-detail, flat-lay, virtual-model-tryout, hero-banner, conceptual-product, iteration-edit). The agent fills slots from user request, then calls `ralphy generate image --prompt "<filled>"` — no new CLI flag, just a curated library.
 
 **Avoid:**
 - Any model more than a year old (`stable-diffusion-xl`, `flux/schnell`, `dall-e-3`) — quality is below the current top picks at the same price.
-- `gpt-image-1` / legacy `gpt-image-2` — gpt-5.4-image-2 is the newer, stable line.
+- `gpt-image-1` — legacy line; `gpt-5.4-image-2` is the current stable OpenAI image model (NOT to be confused with "gpt-image-2" naming convention some external docs use).
 - Hard-coded fal.ai endpoints — left the stack in Sprint 2.
 
 ---
