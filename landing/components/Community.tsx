@@ -15,23 +15,23 @@ import { site } from "@/lib/site";
 const ways: { icon: ReactNode; head: string; copy: string }[] = [
   {
     icon: <SparkMark />,
-    head: "Ship a profile",
-    copy: "Bundle your style, refs, prompts — name it, push it. Anyone running ralphy can install your aesthetic in one command.",
+    head: "Ship a template",
+    copy: "Found a format that prints engagement? Bundle the style, refs, prompts — push it. Anyone running ralphy installs your playbook in one command.",
   },
   {
     icon: <BoltMark />,
     head: "Write a skill",
-    copy: "A skill is a markdown file. Add a new model, a new transition, a new caption style. We hot-reload on save.",
+    copy: "A skill is a markdown file. Add a new model, a new transition, a new analytics hook, a new caption style. We hot-reload on save.",
   },
   {
     icon: <HeartMark />,
-    head: "Bring an idea",
-    copy: "Drop it in #ideas. The team and the community pick up what feels obvious in hindsight, and ship it next week.",
+    head: "Bring a use case",
+    copy: "Drop your funnel, your numbers, your bottleneck in #ideas. The team and the community pick up what feels obvious in hindsight, and ship it next week.",
   },
   {
     icon: <CheckMark />,
     head: "Just use it",
-    copy: "Star the repo, post your render, tell us what broke. That's how we know which corner to polish first.",
+    copy: "Star the repo, post the render that landed, tell us which step felt slow. That's how we know which corner to polish first.",
   },
 ];
 
@@ -46,28 +46,28 @@ const channels: {
     href: site.discord,
     glyph: <DiscordIcon />,
     title: "Discord",
-    desc: "Where creators trade prompts, profiles, and that one weird ffmpeg flag. The dev team hangs in #beta.",
+    desc: "Where founders, marketers, and indie operators trade prompts, templates, and that one weird ffmpeg flag. The dev team hangs in #beta.",
     arr: "join the slime →",
   },
   {
     href: site.repo,
     glyph: <GitHubIcon />,
     title: "GitHub",
-    desc: "Source, issues, releases — and the profile gallery. Open a PR, get your style into the next install.",
+    desc: "Source, issues, releases — and the template library. Open a PR, get your style family into the next install.",
     arr: "fork & ship →",
   },
   {
     href: site.x,
     glyph: <XIcon />,
     title: "X / Twitter",
-    desc: "Daily render drops, model news, what just landed in main. Tag @ralphy_studio to get reposted.",
+    desc: "Daily render drops, model news, what just landed in main. Tag @ralphy_studio with your numbers to get reposted.",
     arr: "follow →",
   },
   {
     href: site.docs,
     glyph: <BookIcon />,
     title: "Docs · Mintlify",
-    desc: "CLI reference, skill authoring, model registry, profile sharing — searchable, with examples.",
+    desc: "CLI reference, skill authoring, model registry, template authoring — searchable, with worked examples for each style family.",
     arr: "read the docs →",
   },
 ];
@@ -78,14 +78,15 @@ export function Community() {
       <div className="mx-auto max-w-[1180px] px-7">
         <Block
           n="08"
-          title={<>Built with creators. Not at them.</>}
+          title={<>Built with operators. Not at them.</>}
           lede={
             <>
               Ralphy is open source on purpose. The best{" "}
-              <Inline>skills</Inline>, the best <Inline>profiles</Inline>, the
-              best <Inline>prompts</Inline> come from the people running it
-              every day. Drop in, ship a profile, and the next person installing
-              Ralphy gets your aesthetic for free.
+              <Inline>skills</Inline>, the best <Inline>templates</Inline>, the
+              best <Inline>prompts</Inline> come from the founders, marketers,
+              and operators running it every day. Push your style family, and
+              the next person installing Ralphy ships with your playbook on
+              day one.
             </>
           }
         >

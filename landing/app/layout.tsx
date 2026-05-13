@@ -32,14 +32,14 @@ const vt323 = VT323({
 });
 
 export const metadata: Metadata = {
-  title: "Ralphy — the AI film studio that lives in your terminal",
+  title: "Ralphy — open-source content factory for marketers, founders, operators",
   description:
-    "Open Claude Code, say \"make me a video in style X about Y\", get a finished mp4. A scripted CLI, a Remotion composition library, and a Claude skill stack — wrapped into one tiny pixel slime.",
+    "Turn Claude, Cursor, or Codex into a one-prompt video marketer. Watch trends, clone any style, render through Remotion, iterate from the analytics. Open-source CLI, MIT, your keys, your files.",
   metadataBase: new URL("https://ralphy.dev"),
   openGraph: {
-    title: "Ralphy — the AI film studio that lives in your terminal",
+    title: "Ralphy — open-source content factory for builders",
     description:
-      "Talk to it like a producer. Get a finished mp4 in eight minutes.",
+      "Your coding agent is now a marketing team. Trend-watch, style-clone, render, iterate — until your numbers move.",
     images: ["/bg/hero.png"],
   },
   icons: {

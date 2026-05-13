@@ -27,9 +27,10 @@ export function StarCta() {
           title={<>Free, open, MIT. Star it if you ship with it.</>}
           lede={
             <>
-              Stars are how creators find Ralphy, how skills get adopted, how
-              your weird beautiful profile ends up on someone else&apos;s feed.{" "}
-              <Inline>No paywall.</Inline> <Inline>No upsell.</Inline>{" "}
+              Stars are how operators find Ralphy, how templates get adopted,
+              how your weird beautiful style family ends up landing customers
+              for someone else. <Inline>No paywall.</Inline>{" "}
+              <Inline>No upsell.</Inline>{" "}
               <Inline cyan>Just one click.</Inline>
             </>
           }

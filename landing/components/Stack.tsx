@@ -17,9 +17,10 @@ import {
 } from "./icons";
 
 /* ──────────────────────────────────────────────
-   /07 — Not a SaaS. A sandbox.
-   The "stack" answers four questions, each as a
-   ChipRow, plus a 4-up brag at the end.
+   /07 — Not a SaaS. A toolkit operators can rip
+   apart. Three ChipRows answer "lives inside ↳",
+   "powered by ↳", "ship as ↳" — same parts the
+   audience already trusts.
    ────────────────────────────────────────────── */
 
 export function Stack() {
@@ -28,13 +29,14 @@ export function Stack() {
       <div className="mx-auto max-w-[1180px] px-7">
         <Block
           n="07"
-          title={<>Not a SaaS. A sandbox. Made of parts you already trust.</>}
+          title={<>Not a SaaS. A toolkit you can rip apart.</>}
           lede={
             <>
               Ralphy is the glue between your <AgentDropdown defaultAgent="claude" />,
               the <Inline>best models on the market</Inline>, and a{" "}
-              <Inline>composition layer</Inline> you can rip apart. Skills live
-              as markdown. The model registry is one file. Everything is MIT.
+              <Inline>composition layer</Inline> you can fork. Skills live as
+              markdown. The model registry is one file. The template library
+              is open. Everything is MIT — your keys, your repo, your files.
             </>
           }
         >
@@ -59,13 +61,14 @@ export function Stack() {
             </ChipRow>
 
             <ChipRow label="ship as ↳">
+              <Chip icon={<VideoMark />} label="commercials" />
+              <Chip icon={<VideoMark />} label="hyper-motion spots" />
+              <Chip icon={<VideoMark />} label="horror shorts" />
+              <Chip icon={<VideoMark />} label="fruit dramas" />
+              <Chip icon={<VideoMark />} label="talking head" />
               <Chip icon={<TikTokMark />} label="TikToks" />
               <Chip icon={<ReelsMark />} label="Reels" />
               <Chip icon={<YouTubeMark />} label="Shorts" />
-              <Chip icon={<VideoMark />} label="UGC ads" />
-              <Chip icon={<VideoMark />} label="Launch promos" />
-              <Chip icon={<VideoMark />} label="AI dubs" />
-              <Chip icon={<VideoMark />} label="Explainers" />
               <Chip label="…or your own format" muted />
             </ChipRow>
           </div>
