@@ -2,7 +2,7 @@
 
 > Auto-generated from the `ralphy-assets` companion-repo manifest. **Manifest is the source of truth — regenerate this file with `ralphy assets catalog --write` after any manifest change.**
 
-Manifest version: `2` · Updated: `2026-05-11T13:23:50.468Z`
+Manifest version: `2` · Updated: `2026-05-13T13:18:01.564Z`
 
 ## How the layers fit together
 
@@ -70,6 +70,42 @@ Canonical Italian Brainrot meme character reference images. Used by the italian-
 | `tung-tung-tung-sahur` | 78.4 KB | `italian-brainrot` | fair-use-meme-reference | Originally created by TikTok user @noxaasht Based on a Ramadan tradition in Indonesia where drummers wake neighborhoods for Sahur (pre-dawn meal before fasting) |
 | `u-din-din-din-din-dun` | 52.6 KB | `italian-brainrot` | fair-use-meme-reference | Unknown, but popularized through multiple TikTok creators in early 2025 Part of the broader 'Italian brainrot' trend, combining AI-generated Italian speech with surreal, bizarre imagery and transformation narratives |
 | `zibra-zubra-zibralini` | 94.3 KB | `italian-brainrot` | fair-use-meme-reference | A surreal AI-generated Italian brainrot character featuring a zebra with a watermelon body and human legs, known for its haunting stare and absurd fruit-animal hybrid design Part of Italian brainrot trend, popularized by various TikTok creators including @alexey_pigeon |
+
+### `trend-music` (27)
+
+Recognizable horror / dread music beds heavily used on horror-TikTok in 2024-2026. Sourced from the canonical 'Horror TikTok' YouTube playlist (PLan_O7sHy-ObDv02Jn67zodPb1MrdoIvo). Each item ships the full mp3 plus a pre-rendered 20-second hook clip (the loudest middle-of-track region with fade-in/out) under `hooks/`. The agent should pick a track whose `mood` and `tags` match the scenario, then either drop the hook clip directly (TikTok-style) or use the full mp3 and trim in the composition.
+
+**License (category default):** `fair-use-meme-reference`
+
+| Slug | Size | Works with | License | Description |
+|---|---|---|---|---|
+| `baldis-basics-school-theme-slowed` | 5.59 MB | _any_ | fair-use-meme-reference | Slowed-down version of Baldi's Basics school theme. Used for cursed-school / liminal-classroom TikToks. |
+| `broken-piano-nocopyright` | 3.50 MB | _any_ | fair-use-meme-reference | Detuned-piano horror bed, no-copyright. Drop-in for haunted-piano / abandoned-house TikToks. |
+| `caretaker-childishly-fresh-eyes` | 4.16 MB | _any_ | fair-use-meme-reference | Track from Leyland Kirby's 'Everywhere at the End of Time' project. Used in dementia / memory-decay horror TikToks and analog-horror montages. |
+| `caretaker-its-just-a-burning-memory` | 4.89 MB | _any_ | fair-use-meme-reference | Opening track of EATEOT Stage 1. Crackly 1930s ballroom loop — TikTok backdrop for nostalgia-horror and liminal-corridor edits. |
+| `caretaker-libets-delay` | 4.76 MB | _any_ | fair-use-meme-reference | Track from Stage 4 of EATEOT, named after the neuroscientific delay between will and awareness. Used for dissociation / depersonalization horror TikToks. |
+| `crystal-castles-kerosene-slowed` | 4.92 MB | _any_ | fair-use-meme-reference | Slowed-and-reverb edit of Crystal Castles 'Kerosene'. One of the canonical horror-TikTok beds for liminal / surreal footage. Heavy distortion drop ~mid-track. |
+| `crystal-castles-transgender-slowed` | 4.68 MB | _any_ | fair-use-meme-reference | Slowed+reverb of Crystal Castles 'Transgender'. Dreamy-dread atmosphere for liminal / dissociation footage. |
+| `crystal-castles-untrust-us` | 3.35 MB | _any_ | fair-use-meme-reference | Original (not slowed) version of Crystal Castles 'Untrust Us'. The 'haunted lullaby' loop sampled across horror TikToks for the last decade. |
+| `daisy-bell-creepy` | 3.78 MB | _any_ | fair-use-meme-reference | The 1961 IBM 704 synthesized 'Daisy Bell' — the first computer-sung song, now a horror staple (HAL 9000 reference). TikTok dying-AI POVs. |
+| `dead-silence-soundtrack` | 4.12 MB | _any_ | fair-use-meme-reference | Music-box motif from the 2007 horror film 'Dead Silence'. Recurrent on TikTok 'creepy doll / cursed object' POVs. |
+| `fnaf-4-music-box` | 2.98 MB | _any_ | fair-use-meme-reference | Music-box motif from FNaF 4. Standard cursed-childhood / haunted-toy TikTok cue. |
+| `hide-and-seek-lizz-robinett` | 3.29 MB | _any_ | fair-use-meme-reference | Lizz Robinett's a-cappella cover of Imogen Heap's 'Hide and Seek'. THE archetypal sad-creepy a-cappella drop for horror TikToks, especially 'left alone / abandoned' POVs. |
+| `hide-the-soul-possibly-in-michigan` | 3.10 MB | _any_ | fair-use-meme-reference | Cult horror-musical excerpt from the 1983 short 'Possibly in Michigan'. TikTok 'cannibal-girls' / surreal-horror trend. |
+| `jumpstyle1-creepy` | 1.75 MB | _any_ | fair-use-meme-reference | Short creepy jumpstyle edit. High-tempo dread / jump-scare loop. |
+| `kero-kero-bonito-id-rather-sleep-slowed` | 2.88 MB | _any_ | fair-use-meme-reference | Slowed+reverb of KKB's 'I'd Rather Sleep'. Used for 'i wish this was a dream' POVs and depressed-creature edits. |
+| `lovely-bastards-horror` | 2.68 MB | _any_ | fair-use-meme-reference | Aggressive horror remix used for jump-cut chase / monster-POV TikToks. |
+| `maglo-never-tiktok` | 4.31 MB | _any_ | fair-use-meme-reference | Mag.lo's 'Never' — a TikTok-native sad-horror track. Used for unrequited-love / ghost-of-the-past edits. |
+| `mandela-catalogue-amazing-grace` | 3.11 MB | _any_ | fair-use-meme-reference | Distorted hymn-style backing track from the Mandela Catalogue analog-horror series. Used in TikTok edits for slow-burn dread reveals and 'when something's wrong' face-cam reactions. |
+| `old-doll-bluerra-sai` | 4.57 MB | _any_ | fair-use-meme-reference | Original creepy-doll-music-box composition by Bluerra_sai, popular on horror-dollhouse TikToks. |
+| `phantomimes-song-extended` | 3.01 MB | _any_ | fair-use-meme-reference | Extended version of the Phantomimes horror theme. Bouncy-circus-meets-dread aesthetic. |
+| `porter-robinson-goodbye-to-a-world-slowed` | 3.31 MB | _any_ | fair-use-meme-reference | Slowed/pitched-down edit of Porter Robinson's 'Goodbye To A World'. 'End of the world' melancholic-horror bed. |
+| `privet-privet-2009-slowed` | 2.83 MB | _any_ | fair-use-meme-reference | Russian-internet horror edit, slowed phonk-adjacent. Widely used in slavic-TikTok нагнетающий dread loops. |
+| `sound-production-gin-tiktok-synth` | 2.03 MB | _any_ | fair-use-meme-reference | Royalty-style synth-tension bed by Sound Production Gin. THE generic TikTok horror sting heard under thousands of recent dread videos. |
+| `suspense-horror-piano-music-box` | 4.37 MB | _any_ | fair-use-meme-reference | Generic suspense piano + music-box bed, royalty-free style. Drop-in for childhood-horror / haunted-nursery POVs without copyright concerns. |
+| `the-sound-of-the-fear` | 3.95 MB | _any_ | fair-use-meme-reference | Generic horror drone bed often used as a low-cost, copyright-safe substitute for branded horror cues. |
+| `tili-tili-bom` | 4.25 MB | _any_ | fair-use-meme-reference | Russian lullaby 'Tili Tili Bom' — folk-horror bed about a nighttime creature stalking children. Trending across slavic horror TikToks 2024-2026. |
+| `zelda-majoras-mask-song-of-unhealing` | 3.83 MB | _any_ | fair-use-meme-reference | Reverse / unhealing variation of the Song of Healing from Majora's Mask. Classic 'lost media / haunted cartridge' TikTok cue. |
 
 ## Examples (rendered mp4s per template)
 
