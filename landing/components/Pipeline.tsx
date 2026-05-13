@@ -52,14 +52,16 @@ export function Pipeline() {
       <div className="mx-auto max-w-[1180px] px-7">
         <Block
           n="05"
-          title={<>Five orchestrated agents. One mp4.</>}
+          title={<>Five orchestrated sub-agents. One mp4.</>}
           lede={
             <>
-              Behind the chat sits a quiet orchestrator routing skills:{" "}
-              <Inline>planner</Inline> · <Inline>researcher</Inline> ·{" "}
-              <Inline>scenarist</Inline> · <Inline>renderer</Inline> ·{" "}
-              <Inline>critic</Inline>. Each writes to the same workspace, each
-              remembers the last render, none of them charge per seat.
+              Under the hood of every prompt sit five quiet workers your agent
+              dispatches in sequence — <Inline>planner</Inline> ·{" "}
+              <Inline>researcher</Inline> · <Inline>scenarist</Inline> ·{" "}
+              <Inline>renderer</Inline> · <Inline>critic</Inline>. Each writes
+              to the same project workspace, each remembers the last render,
+              none of them charge per seat. This is what executes the
+              operator-facing loop above.
             </>
           }
         >

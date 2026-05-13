@@ -1,6 +1,7 @@
 export const site = {
   name: "Ralphy",
-  tagline: "An open-source AI film studio for creators.",
+  tagline:
+    "Open-source content factory CLI. Turn your coding agent into a video marketer.",
   repo: "https://github.com/alecs5am/ralphy",
   docs: "https://docs.ralphy.dev",
   discord: "https://discord.gg/ralphy",
@@ -11,12 +12,64 @@ export const site = {
 } as const;
 
 export const nav = [
-  { label: "What it does", href: "#what" },
+  { label: "How it works", href: "#what" },
   { label: "Install", href: "#install" },
-  { label: "How it works", href: "#flow" },
-  { label: "Gallery", href: "#gallery" },
+  { label: "Pipeline", href: "#flow" },
+  { label: "Templates", href: "#gallery" },
   { label: "Stack", href: "#stack" },
   { label: "Community", href: "#community" },
+];
+
+/** Style families that ship in the template library. The agent forks
+ *  one of these, restyles it against the operator's product, ships. */
+export type VideoStyle = {
+  id: string;
+  /** Pixel-font header line above the title */
+  kicker: string;
+  /** Italic display title */
+  title: string;
+  /** Short paragraph describing the format */
+  copy: string;
+  /** Status pill: "live" templates have a worked example, "soon" are queued */
+  status: "live" | "soon";
+};
+
+export const videoStyles: VideoStyle[] = [
+  {
+    id: "commercials",
+    kicker: "01 · commercials",
+    title: "Brand spots",
+    copy: "Premium product spots à la Nothing Phone — clean studio light, beauty pans, cinematic copy. Drop your product, keep the polish.",
+    status: "live",
+  },
+  {
+    id: "hyper-motion",
+    kicker: "02 · hyper-motion",
+    title: "Hyper-motion",
+    copy: "Macro speed-ramps and impossible camera work — the Flipper-style hardware reveal that stops a scroll dead. Built for launches.",
+    status: "live",
+  },
+  {
+    id: "horror",
+    kicker: "03 · horror",
+    title: "Horror shorts",
+    copy: "60-second creep-outs with cold lighting and a twist hook. Wildly over-indexes for retention; use sparingly, plug your CTA at the end.",
+    status: "soon",
+  },
+  {
+    id: "fruit-drama",
+    kicker: "04 · fruit drama",
+    title: "Fruit dramas",
+    copy: "Absurdist, character-driven micro-stories with maximum charm-per-second. The format that printed views all of 2025; rebrand-friendly.",
+    status: "soon",
+  },
+  {
+    id: "talking-head",
+    kicker: "05 · talking head",
+    title: "Talking head",
+    copy: "Founder/operator monologue with B-roll and captions. Cheapest format we ship; perfect for daily build-in-public posts and LinkedIn.",
+    status: "live",
+  },
 ];
 
 export type VideoClip = {
