@@ -20,7 +20,8 @@ import { site } from "@/lib/site";
 
    No phone, no stats strip — just the promise, two CTAs, a
    row of "lives inside" agent chips, and a thin "powered by"
-   rail. The product gets to be the bold sentence.
+   rail. Audience is operators, not creators: marketers,
+   founders, indie hackers who already live in a coding agent.
    ──────────────────────────────────────────────────────────── */
 
 export function Hero() {
@@ -44,22 +45,23 @@ export function Hero() {
         <Reveal>
           <span className="eyebrow">
             <span className="pulse-dot" />
-            open-source · v2 · for creators
+            open-source · v2 · for marketers, founders & operators
           </span>
         </Reveal>
 
         <Reveal delay={1}>
-          <h1 className="display mx-auto max-w-[20ch] text-balance text-[clamp(44px,6.6vw,84px)]">
-            Give your coding agent <em>video superpowers.</em>
+          <h1 className="display mx-auto max-w-[22ch] text-balance text-[clamp(44px,6.6vw,84px)]">
+            Your coding agent is now your <em>content factory.</em>
           </h1>
         </Reveal>
 
         <Reveal delay={2}>
-          <p className="mx-auto max-w-[640px] text-balance text-[clamp(16px,1.35vw,18.5px)] leading-[1.55] text-[var(--color-frost-2)]">
-            Ralphy turns Claude, Cursor, or Codex into a one-prompt video
-            studio. Ship UGC ads, TikToks, and product clips from the same
-            terminal you already code in — no editor, no plug-ins, no third
-            subscription.
+          <p className="mx-auto max-w-[680px] text-balance text-[clamp(16px,1.35vw,18.5px)] leading-[1.55] text-[var(--color-frost-2)]">
+            Ralphy is the open-source CLI that turns Claude, Cursor, or Codex
+            into a one-prompt video marketer. Watch what&apos;s trending, clone
+            any style from the template library, ship the render, and iterate
+            from how it performs — until your numbers move. No agency. No
+            editor. No third subscription.
           </p>
         </Reveal>
 

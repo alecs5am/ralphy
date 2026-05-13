@@ -23,12 +23,12 @@ export function InstallCommand() {
       <div className="mx-auto max-w-[1180px] px-7">
         <Block
           n="04"
-          title={<>Install. Drop in 2 keys. That&apos;s the setup.</>}
+          title={<>Install. Drop in 2 keys. Ship your first ad in this session.</>}
           lede={
             <>
               One curl, one wizard, two API keys — <Mono>openrouter</Mono> and{" "}
               <Mono>elevenlabs</Mono>. The first render starts in the same
-              terminal session. Works on{" "}
+              terminal you opened five minutes ago. Works on{" "}
               <Inline>macOS</Inline> · <Inline>Linux</Inline> ·{" "}
               <Inline>Windows</Inline>.
             </>
@@ -101,10 +101,10 @@ export function InstallCommand() {
               <span style={{ color: "var(--color-mute)" }}>{`└  ready · run \`claude\` in this folder\n\n`}</span>
               <span style={{ color: "var(--color-mute-2)" }}>{`# 3 · ship\n`}</span>
               <span style={{ color: "var(--color-cyan)" }}>claude&gt; </span>
-              make me a video in soviet style about Ralphy
+              make me 3 hyper-motion TikTok ads for my SaaS launch
               {`\n`}
-              <span style={{ color: "var(--color-mute)" }}>{`  ralph-researcher → ralph-scenarist → ralph-renderer\n  ⠼ rendering scene 03/05 · iter #12 · ai-score +12%\n  `}</span>
-              <span style={{ color: "var(--color-cyan-2)" }}>✓ workspace/projects/p_03/render/final.mp4</span>
+              <span style={{ color: "var(--color-mute)" }}>{`  ralph-researcher → ralph-scenarist → ralph-renderer → ralph-critic\n  ⠼ rendering variant 02/03 · iter #12 · ai-score +12%\n  `}</span>
+              <span style={{ color: "var(--color-cyan-2)" }}>✓ workspace/projects/launch-001/render/v01.mp4</span>
             </pre>
           </div>
         </Block>
