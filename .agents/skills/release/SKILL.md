@@ -1,9 +1,9 @@
 ---
 name: release
-description: Cut a new GitHub Release for `ralphy`. Inspects commit history since the last tag, proposes a semver bump (major / minor / patch), drafts changelog notes grouped by type (feat / fix / docs / chore), bumps `package.json` version, builds platform binaries via `bun run build:bin`, creates the git tag, runs `gh release create` with the changelog + uploads the binaries + SHA256SUMS, and reports the live release URL. USE WHEN the user types `/release`, says "cut a release", "publish a release", "сделай релиз", "залей релиз", "напиши release notes", "tag a new version", or after a meaningful chunk of work landed on `main` that should be tagged. ALSO FIRE proactively after the user merges a non-trivial PR / lands a feature they explicitly call "ready to ship" / says "это финал" / "это последнее на сегодня". DO NOT FIRE for documentation-only commits unless explicitly asked (those don't need a tagged release). HARD INVARIANTS — never push the tag or upload assets without showing the diff + the draft changelog and getting confirmation first; never amend a published release (cut a new one); never skip the `bun run build:bin` step (`install.sh` 404s without uploaded binaries).
+description: Cut a new release of the `ralphy` CLI across all distribution channels in one shot — GitHub Release (binaries + checksums), Homebrew tap (`alecs5am/homebrew-tap`), and npm (`@alecs5am/ralphy`). Inspects commit history since the last tag, proposes a semver bump (major / minor / patch) by Conventional-Commits-ish rules, drafts a grouped changelog, bumps `package.json` / `cli/lib/version.ts` / `npm/package.json` in lockstep, lets CI build + publish the GitHub Release, then bumps the brew formula with the CI-built sha256s and runs `npm publish --access public`. USE WHEN the user types `/release`, says "cut a release", "publish a release", "сделай релиз", "залей релиз", "напиши release notes", "tag a new version", or after a meaningful chunk of CLI work landed on `main`. ALSO FIRE proactively after the user merges a non-trivial PR / lands a feature they explicitly call "ready to ship" / says "это финал" / "это последнее на сегодня". DO NOT FIRE for documentation-only or landing-only commits unless explicitly asked (those don't need a tagged release). HARD INVARIANTS — never push the tag or publish without showing the diff + draft changelog and getting confirmation first; never amend a published release / npm version / brew formula (cut a new one); never skip the `bun run build:bin` smoke-check or the brew + npm steps (a "release" that only updates GitHub leaves users on stale `brew upgrade` / `npm update`). The skill is **CLI-only**: it never touches the landing, `.agents/skills/`, docs, or any other auxiliary tree.
 ---
 
-# Release skill — ralphy GitHub Releases
+# Release skill — ralphy CLI across all channels
 
 ## When to fire
 
@@ -12,34 +12,41 @@ Hard triggers (always do it):
 - "cut a release" / "publish a release" / "tag a new version"
 - "сделай релиз" / "залей релиз" / "новый релиз"
 - "release notes for the last week"
+- "publish to brew/npm" — even if the binaries are already up
 
 Proactive triggers (offer it, don't auto-execute):
-- A meaningful feature just landed on `main` and there are ≥5 commits since the last tag
-- User says "это финал" / "ready to ship" / "ну всё, по этому хватит" after a feature session
-- A new install instruction was just published and the install.sh would 404 today
-  (the script needs an actual release with uploaded binaries)
+- A meaningful CLI feature just landed on `main` and there are ≥5 commits since the last tag.
+- User says "это финал" / "ready to ship" after a feature session.
+- A new install instruction was just published and `brew upgrade` / `npm update` would resolve to the previous version.
 
 ## What I produce
 
-A live GitHub Release on `alecs5am/ralphy`:
+Three live releases, all reachable from the same `vX.Y.Z` tag:
 
-1. New git tag (e.g. `v1.1.0`) pushed to `origin`
-2. `package.json` `version` bumped to match
-3. A commit `chore(release): vX.Y.Z` on `main` (or current default branch)
-4. Five platform binaries uploaded as release assets:
-   - `ralphy-darwin-arm64`
-   - `ralphy-darwin-x64`
-   - `ralphy-linux-x64`
-   - `ralphy-linux-arm64`
-   - `ralphy-windows-x64.exe`
-5. `SHA256SUMS` file uploaded alongside
-6. Release notes grouped by **Highlights / Features / Fixes / Chores / Internal**
+1. **GitHub Release** at `alecs5am/ralphy/releases/tag/vX.Y.Z` with 5 binaries
+   (darwin-arm64/x64, linux-arm64/x64, windows-x64.exe) + `SHA256SUMS`,
+   built and published by the `Release` GitHub Actions workflow on tag push.
+2. **Homebrew tap** at `alecs5am/homebrew-tap` — `Formula/ralphy.rb` bumped
+   to point at the new release with sha256-pinned URLs for each platform.
+3. **npm registry** — `@alecs5am/ralphy@X.Y.Z` published with public access.
+   The thin npm wrapper's `postinstall` hook downloads the matching binary
+   from the GitHub Release the first time it runs.
 
-The release fixes the `install.sh` → 404 problem (the installer reads `releases/latest` to resolve the version).
+All three reference the same `vX.Y.Z` tag and the same set of binaries — there is no version drift between channels.
+
+## Hard scope: CLI only
+
+This skill **never** touches:
+- `landing/` — the Next.js landing is shipped independently (Vercel / Netlify).
+- `docs/`, `README.md` — only `package.json` / `cli/lib/version.ts` / `npm/package.json` get edited for version-bump purposes.
+- `.agents/skills/` — other skills are versioned with the repo, not with the binary.
+- `src/videos/` — Remotion compositions ride along but aren't user-facing.
+
+If the user asks to "release the landing" or "publish a docs update" — handback. Not this skill.
 
 ## End-to-end flow
 
-The whole sequence below is one skill execution. Run the steps in order; after step 4 **stop and confirm with the user** before pushing anything.
+Run the steps in order. After **step 4** you must stop and confirm before doing anything destructive. After step 6 the GitHub Release happens automatically via CI; steps 8 and 9 are local-only and require an authenticated `gh` (alecs5am) plus `npm login` session.
 
 ### 1 — Snapshot current state
 
@@ -48,34 +55,33 @@ gh repo view alecs5am/ralphy --json defaultBranchRef,latestRelease | jq
 git fetch origin --tags
 git log --no-merges --pretty=format:"%h %s" $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~50")..HEAD
 git diff --stat $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~50")..HEAD
+git status --short
 ```
 
-You're looking for: the previous tag (`v1.0.0` if absent → "first release"), the working tree status, and a rough sense of churn.
+What you need: the previous tag, the working tree state, a rough sense of churn.
 
-If working tree isn't clean: **stop**. Tell the user, suggest committing or stashing first.
+**If working tree isn't clean: stop.** Tell the user, suggest committing or stashing.
 
 ### 2 — Decide the version bump
 
-Inspect commit messages since the last tag and apply Conventional-Commits-ish logic:
+Inspect commit subjects since the last tag and apply Conventional-Commits-ish logic:
 
 | Pattern in commits | Bump |
 |---|---|
 | `BREAKING CHANGE:` body line OR `!:` in subject (e.g. `feat!:`) | **major** |
-| At least one `feat:` or `feat(scope):` | **minor** |
-| Only `fix:` / `chore:` / `docs:` / `refactor:` / `test:` | **patch** |
-| First release ever (no tags) | **v1.0.0** as the explicit baseline |
+| At least one `feat:` / `feat(scope):` | **minor** |
+| Only `fix:` / `chore:` / `docs:` / `refactor:` / `test:` / `style:` | **patch** |
+| Pre-1.0.0 and there's a breaking change | **patch** (we're still in baseline shaping) |
 
-If the project's current version (`package.json`) is `1.0.0` and there are no tags yet, treat the first release as `v1.0.0` exactly (no bump) — the published baseline.
-
-Show the user the proposed bump with a one-line justification: *"5 feats + 8 fixes → minor → v1.1.0"*.
+Show the user the proposed bump in one line: *"5 feats + 8 fixes → minor → v0.1.0"*.
 
 ### 3 — Draft the changelog
 
-Group commits into buckets, dropping noise (merge commits, version bumps, `.DS_Store`-only changes):
+Group commits into buckets, dropping noise (merge commits, version bumps, pure formatting):
 
-```
+```markdown
 ## Highlights
-- 1-3 sentences of what a user would actually feel different about
+- 1-3 sentences of what users will actually feel different about.
 
 ## Features
 - feat(scope): description (#PR)
@@ -83,128 +89,171 @@ Group commits into buckets, dropping noise (merge commits, version bumps, `.DS_S
 ## Fixes
 - fix(scope): description (#PR)
 
-## Docs
-- docs: description
-
-## Chores / Internal
+## Internal / Chores
 - chore: description
 - refactor: description
 ```
 
-Use `gh pr list --search "merged:>=YYYY-MM-DD" --json number,title,author` to pull PR titles since the previous release date when available — they're usually richer than raw commit subjects.
-
-Use `gh api repos/alecs5am/ralphy/compare/<prev-tag>...main --jq '.commits[].commit.message'` if pre-tag commits aren't visible locally.
+Useful raw sources:
+- `gh pr list --search "merged:>=YYYY-MM-DD" --json number,title,author` — PR titles are usually richer than raw commit subjects.
+- `gh api repos/alecs5am/ralphy/compare/<prev-tag>...main --jq '.commits[].commit.message'` — pre-tag commits if the local clone doesn't have them.
 
 ### 4 — Show diff + draft, confirm
 
 Print to the user:
-- Proposed new version
-- The full draft changelog (markdown)
-- The list of files that will change (`package.json` only, in this commit)
+- Proposed new version (e.g. `0.0.1 → 0.1.0`).
+- The full draft changelog (markdown).
+- The exact list of files that will change in the bump commit: `package.json`, `cli/lib/version.ts`, `npm/package.json`.
 
 **Wait for explicit user confirmation** ("yes" / "go" / "погнали") before doing anything destructive.
 
 ### 5 — Bump version files + commit
 
-Two files hold the version — keep them in sync so `ralphy --version` matches
-the release tag:
+Three files hold the version — keep them in sync so `ralphy --version`, the GitHub Release tag, the brew formula version, and the npm package version all agree.
 
 ```bash
-NEW_VERSION="1.1.0"  # without the v prefix in package.json
+NEW_VERSION="0.1.0"  # without the v prefix
 jq --arg v "$NEW_VERSION" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
-
-# cli/lib/version.ts exports a hardcoded constant — bump it too.
 sd 'export const VERSION = "[^"]+"' "export const VERSION = \"${NEW_VERSION}\"" cli/lib/version.ts
+jq --arg v "$NEW_VERSION" '.version = $v' npm/package.json > npm/package.json.tmp && mv npm/package.json.tmp npm/package.json
 
-git add package.json cli/lib/version.ts
+git add package.json cli/lib/version.ts npm/package.json
 git commit -m "chore(release): v${NEW_VERSION}
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```
 
-### 6 — Build binaries
+### 6 — Local build smoke-test (current platform only)
+
+Don't ship a tag the local box can't build:
 
 ```bash
-bun run build:bin
-ls -la dist/binaries/
-cat dist/binaries/SHA256SUMS
+bun run build:bin:current
+dist/binaries/ralphy-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/') --version
 ```
 
-This produces five binaries + `SHA256SUMS`. Each ~80-120 MB. If the build fails on any target, **stop** and report — better to fix the build than to ship a partial release.
+The full cross-compile happens on CI; this is just a sanity check. If it fails, **stop** and fix before tagging.
 
-### 7 — Tag, push, create release
+### 7 — Tag + push (CI builds + publishes the GitHub Release)
 
 ```bash
 NEW_TAG="v${NEW_VERSION}"
 git tag -a "$NEW_TAG" -m "Release ${NEW_TAG}"
 git push origin main
 git push origin "$NEW_TAG"
+```
 
-# Save the changelog to a temp file (avoids HEREDOC quoting issues with gh)
+The `Release` GitHub Actions workflow fires on tag push: cross-compiles all 5 binaries, generates `SHA256SUMS`, creates the GitHub Release with assets, and writes basic release notes. Watch it finish:
+
+```bash
+gh run watch -R alecs5am/ralphy --exit-status
+```
+
+If you want to replace the auto-generated notes with the changelog from step 3:
+
+```bash
 CHANGELOG_FILE=$(mktemp)
 cat > "$CHANGELOG_FILE" <<'EOF'
-<paste the drafted changelog from step 3 here verbatim>
+<paste the full drafted changelog from step 3>
 EOF
-
-gh release create "$NEW_TAG" \
-  --title "${NEW_TAG}" \
-  --notes-file "$CHANGELOG_FILE" \
-  dist/binaries/ralphy-darwin-arm64 \
-  dist/binaries/ralphy-darwin-x64 \
-  dist/binaries/ralphy-linux-x64 \
-  dist/binaries/ralphy-linux-arm64 \
-  dist/binaries/ralphy-windows-x64.exe \
-  dist/binaries/SHA256SUMS
-
+gh release edit "$NEW_TAG" --notes-file "$CHANGELOG_FILE"
 rm -f "$CHANGELOG_FILE"
 ```
 
-### 8 — Verify install path works
+### 8 — Update the Homebrew tap
 
-The whole point of cutting the release is making `install.sh` work for end users. Smoke-test it:
+Wait until `gh run watch` exits cleanly — the brew step **depends** on the release's `SHA256SUMS` asset being present.
 
 ```bash
-curl -fsSL "https://api.github.com/repos/alecs5am/ralphy/releases/latest" | jq '.tag_name, (.assets | length)'
-# Expected: "vX.Y.Z" and at least 6 (5 binaries + SHA256SUMS)
-
-# Download the binary for the current platform (no install — just verify the URL resolves)
-ASSET="ralphy-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')"
-curl -fsSL -o /tmp/ralphy-test "https://github.com/alecs5am/ralphy/releases/latest/download/${ASSET}"
-chmod +x /tmp/ralphy-test
-/tmp/ralphy-test --version
+./scripts/release/update-brew-tap.sh "$NEW_VERSION"
 ```
 
-If `--version` outputs the new version, you're done.
+That script (`scripts/release/update-brew-tap.sh`):
+- Pulls `SHA256SUMS` from `https://github.com/alecs5am/ralphy/releases/download/${NEW_TAG}/SHA256SUMS`.
+- Extracts per-platform hashes (darwin-arm64, darwin-x64, linux-arm64, linux-x64).
+- Clones `alecs5am/homebrew-tap`, regenerates `Formula/ralphy.rb` with the new version + URLs + SHAs.
+- Commits as `ralphy: bump to vX.Y.Z` and pushes to `main` of the tap.
 
-### 9 — Report
+Smoke-test the formula after:
 
-Print to the user:
-- Live URL: `gh release view "$NEW_TAG" --json url --jq .url`
-- Asset count + total size
-- One-liner: *"v1.1.0 published, 5 binaries + checksums, install.sh now resolves."*
+```bash
+brew update
+brew upgrade ralphy   # or: brew install alecs5am/tap/ralphy
+ralphy --version      # should match $NEW_VERSION
+```
+
+### 9 — Publish to npm
+
+```bash
+./scripts/release/publish-npm.sh "$NEW_VERSION"
+```
+
+That script (`scripts/release/publish-npm.sh`):
+- Verifies `npm whoami` returns the `alecs5am` account.
+- Bumps `npm/package.json` to the new version (redundant safety — already done in step 5).
+- Runs `npm publish --access public` from `npm/` — **prompts you for your 2FA OTP**. If running non-interactively, set `npm publish --otp=<code>` instead.
+- Verifies the registry now reports the new version.
+
+Smoke-test:
+
+```bash
+npm view @alecs5am/ralphy version   # should match $NEW_VERSION
+```
+
+### 10 — Verify all three install paths
+
+Don't trust, verify:
+
+```bash
+# Direct from GH Release (what install.sh resolves to)
+curl -fsSL "https://api.github.com/repos/alecs5am/ralphy/releases/latest" | jq -r '.tag_name'
+
+# brew
+brew info alecs5am/tap/ralphy | head -3
+
+# npm
+npm view @alecs5am/ralphy version
+```
+
+All three should print the new `vX.Y.Z` / `X.Y.Z`.
+
+### 11 — Report
+
+Print to the user a single-message summary with all three live URLs:
+
+```
+v0.1.0 published across all channels:
+  • GitHub  → https://github.com/alecs5am/ralphy/releases/tag/v0.1.0
+  • brew    → brew install alecs5am/tap/ralphy            (formula sha256-pinned)
+  • npm     → npm install -g @alecs5am/ralphy@0.1.0       (binaries auto-fetched)
+```
 
 ## Pitfalls to avoid
 
-- **Don't `gh release create` before pushing the tag.** `gh` will silently create the tag from `HEAD` and you'll end up with the tag pointing somewhere unexpected if you weren't on the right commit.
-- **Don't reuse a published version.** If you bumped to `v1.1.0` and the build fails, **don't** delete + re-create — bump to `v1.1.1` instead. Published versions are forever (people have already curl'd the SHA).
-- **Don't skip SHA256SUMS.** `install.sh` doesn't verify yet, but it should soon; future-proof.
-- **Don't push tags without notes.** A tag without a release page is invisible to most users.
-- **Don't bundle release notes that say "fixed bugs".** If the bucket is empty say "no fixes this cycle" — vagueness is worse than honesty.
-- **Don't bump major before v1.x.x.** Pre-1.0, the convention is patch-level breaking changes are fine, breaking → minor. We're already at 1.0.0 so this doesn't apply, but worth knowing if we ever 0.x.
+- **Don't `gh release create` manually.** CI does it on tag push. Manually creating the release would race with the workflow and produce duplicate assets.
+- **Don't run `update-brew-tap.sh` before CI is done.** It pulls SHAs from the release's `SHA256SUMS` asset; if CI hasn't uploaded it yet, the script aborts with a friendly error. Run `gh run watch` between step 7 and step 8.
+- **Don't bypass 2FA on npm.** `npm publish --otp=<code>` is fine if you can get the OTP into the script's stdin (e.g. via `read`), but `--ignore-scripts` style bypasses are not — they leave the package unpublishable without a manual `npm unpublish`.
+- **Don't reuse a published version.** If `update-brew-tap.sh` fails halfway, **don't** delete + retag — bump to the next patch instead. Published versions on npm and brew are one-shot.
+- **Don't commit `npm/vendor/`.** It's the postinstall download cache and is gitignored. Re-running `npm install` always re-fetches it.
+- **Don't `bun run build:bin` (the full cross-compile) locally as part of the release.** CI does it; the local build is just the current-platform sanity check.
+- **Don't bump major before 1.0.0.** Pre-1.0, breaking changes ride in `feat:` and get minor bumps. After 1.0.0, `feat!:` / `BREAKING CHANGE:` triggers major.
 
 ## When NOT to fire
 
 - The user is mid-development on a feature branch (you'd be tagging unfinished work).
-- The `dist/binaries/` build has failed in the last 30 min and hasn't been re-verified.
+- The local current-platform build fails — fix the build first.
 - There are no commits since the last tag (no-op release).
-- The user said "do not release" or "сначала проверим" in the same conversation.
+- The change is **only** in `landing/`, `docs/`, `.agents/skills/`, or a non-CLI directory — that's not what this skill ships.
+- The user said "do not release" / "сначала проверим" earlier in the same conversation.
+- `npm whoami` / `gh auth status` is not the right account.
 
 ## State sources
 
-- Current version: `package.json` → `.version`
-- Previous tag: `git describe --tags --abbrev=0`
-- Default branch: `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`
-- Build output: `dist/binaries/`
-- Build command: `bun run build:bin` (defined in `package.json`)
-- Build script source: `scripts/build-binaries.ts`
-- Installer: `install.sh` at the repo root — its `RALPHY_REPO` default is `alecs5am/ralphy`
+- Current version: `package.json` → `.version` (single source of truth, mirrored to `cli/lib/version.ts` and `npm/package.json`).
+- Previous tag: `git describe --tags --abbrev=0`.
+- Default branch: `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`.
+- Build script: `scripts/build-binaries.ts`.
+- Brew tap repo: `alecs5am/homebrew-tap` (overrideable via `RALPHY_BREW_TAP`).
+- npm package: `@alecs5am/ralphy`, lives in `npm/` of this repo.
+- Helper scripts: `scripts/release/update-brew-tap.sh` and `scripts/release/publish-npm.sh`.
+- Release workflow: `.github/workflows/release.yml` (fires on `push: tags: ['v*']`).
