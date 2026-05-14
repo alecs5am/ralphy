@@ -1,153 +1,307 @@
-import type { ReactNode } from "react";
-import { Reveal } from "./Reveal";
-import {
-  ArrowDownIcon,
-  StarIcon,
-  ClaudeMark,
-  CursorMark,
-  CodexMark,
-  OpenRouterMark,
-  VercelMark,
-  ElevenMark,
-  RemotionMark,
-  TerminalMark,
-  SparkMark,
-} from "./icons";
-import { site } from "@/lib/site";
+"use client";
 
-/* ────────────────────────────────────────────────────────────
-   Hero — single, centered, text-first.
+import { useEffect, useState, type ReactNode } from "react";
+import { site } from "@/lib/data";
+import { I } from "./Icons";
+import { BrandLockup } from "./BrandLockup";
 
-   No phone, no stats strip — just the promise, two CTAs, a
-   row of "lives inside" agent chips, and a thin "powered by"
-   rail. Audience is operators, not creators: marketers,
-   founders, indie hackers who already live in a coding agent.
-   ──────────────────────────────────────────────────────────── */
+const AGENTS = [
+  { id: "claude", name: "Claude", short: "Claude Code", color: "#D97757", icon: () => <I.claude /> },
+  { id: "cursor", name: "Cursor", short: "Cursor", color: "#F5F5F4", icon: () => <I.cursor /> },
+  { id: "codex", name: "Codex", short: "Codex", color: "#FFFFFF", icon: () => <I.codex /> },
+];
 
-export function Hero() {
+const CYCLE_BRANDS = [
+  { id: "claude", color: "#D97757" },
+  { id: "cursor", color: "#F5F5F4" },
+  { id: "codex", color: "#FFFFFF" },
+  { id: "gemini", color: "#3186FF" },
+  { id: "openclaw", color: "#FF4D4D" },
+];
+
+const METHODS = [
+  { id: "cli", name: "CLI", icon: () => <I.cli /> },
+  { id: "mcp", name: "MCP", icon: () => <I.mcp /> },
+  { id: "skill", name: "Skill", icon: () => <I.skill /> },
+];
+
+function CyclingAgent() {
+  const [current, setCurrent] = useState(0);
+  const [previous, setPrevious] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    let leaveTimer: ReturnType<typeof setTimeout> | undefined;
+    const id = setInterval(() => {
+      if (!alive) return;
+      setCurrent((c) => {
+        setPrevious(c);
+        return (c + 1) % CYCLE_BRANDS.length;
+      });
+      if (leaveTimer) clearTimeout(leaveTimer);
+      leaveTimer = setTimeout(() => {
+        if (alive) setPrevious(null);
+      }, 1100);
+    }, 4400);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      if (leaveTimer) clearTimeout(leaveTimer);
+    };
+  }, []);
+
+  const cur = CYCLE_BRANDS[current];
+  const prev = previous == null ? null : CYCLE_BRANDS[previous];
   return (
-    <section
-      id="top"
-      className="relative isolate overflow-hidden pb-16 pt-12 sm:pt-20 lg:pb-24 lg:pt-28"
-    >
-      {/* Soft cyan wash so the section reads as one cohesive surface */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(900px 520px at 80% 20%, rgb(74 123 255 / 0.12), transparent 70%), radial-gradient(700px 480px at 0% 60%, rgb(61 216 255 / 0.08), transparent 70%)",
-        }}
-      />
-
-      {/* ─────────────── CENTERED HEADLINE COLUMN ─────────────── */}
-      <div className="mx-auto flex max-w-[1080px] flex-col items-center gap-7 px-7 text-center">
-        <Reveal>
-          <span className="eyebrow">
-            <span className="pulse-dot" />
-            open-source · v2 · for marketers, founders & operators
-          </span>
-        </Reveal>
-
-        <Reveal delay={1}>
-          <h1 className="display mx-auto max-w-[22ch] text-balance text-[clamp(44px,6.6vw,84px)]">
-            Your coding agent is now your <em>content factory.</em>
-          </h1>
-        </Reveal>
-
-        <Reveal delay={2}>
-          <p className="mx-auto max-w-[680px] text-balance text-[clamp(16px,1.35vw,18.5px)] leading-[1.55] text-[var(--color-frost-2)]">
-            Ralphy is the open-source CLI that turns Claude, Cursor, or Codex
-            into a one-prompt video marketer. Watch what&apos;s trending, clone
-            any style from the template library, ship the render, and iterate
-            from how it performs — until your numbers move. No agency. No
-            editor. No third subscription.
-          </p>
-        </Reveal>
-
-        <Reveal delay={3}>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <a className="btn btn-primary" href={site.repo} target="_blank" rel="noopener">
-              <StarIcon />
-              Star on GitHub
-              <span className="star-count">{site.stars}</span>
-            </a>
-            <a className="btn btn-ghost" href="#install">
-              <span className="text-[12.5px]" style={{ fontFamily: "var(--font-mono)" }}>
-                $ install
-              </span>
-              <ArrowDownIcon />
-            </a>
-          </div>
-        </Reveal>
-
-        <Reveal delay={4}>
-          <div className="flex flex-col items-center gap-2.5">
-            <span
-              className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-mute)]"
-              style={{ fontFamily: "var(--font-pixel)" }}
-            >
-              lives inside ↳
-            </span>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Chip icon={<ClaudeMark />} label="Claude Code" />
-              <Chip icon={<CursorMark />} label="Cursor" />
-              <Chip icon={<CodexMark />} label="Codex" />
-              <Chip icon={<TerminalMark />} label="any agent CLI" muted />
-            </div>
-          </div>
-        </Reveal>
-      </div>
-
-      {/* ─────────────── BOTTOM CHIP RAIL — powered by ─────────────── */}
-      <Reveal delay={4}>
-        <div className="relative z-10 mx-auto mt-16 max-w-[1240px] border-t border-[var(--color-line)] px-7 pt-8 lg:mt-20">
-          <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <span
-              className="text-[11px] uppercase tracking-[0.14em] text-[var(--color-mute)]"
-              style={{ fontFamily: "var(--font-pixel)" }}
-            >
-              powered by ↳
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <Chip icon={<OpenRouterMark />} label="OpenRouter" />
-              <Chip icon={<VercelMark />} label="Vercel AI Gateway" />
-              <Chip icon={<ElevenMark />} label="ElevenLabs" />
-              <Chip icon={<RemotionMark />} label="Remotion" />
-              <Chip icon={<SparkMark />} label="gemini-3-pro" muted />
-              <Chip icon={<SparkMark />} label="kling-v3" muted />
-              <Chip icon={<SparkMark />} label="seedance-2.0" muted />
-              <Chip icon={<SparkMark />} label="gpt-image-2" muted />
-            </div>
-          </div>
-        </div>
-      </Reveal>
-    </section>
+    <span className="cycle" aria-live="polite">
+      {prev && (
+        <span key={`prev-${previous}`} className="cycle-row leaving" style={{ color: prev.color }}>
+          <BrandLockup id={prev.id} />
+        </span>
+      )}
+      <span key={`cur-${current}`} className="cycle-row entering" style={{ color: cur.color }}>
+        <BrandLockup id={cur.id} />
+      </span>
+    </span>
   );
 }
 
-/* ───────── tiny chip primitive used only inside Hero ───────── */
-
-function Chip({
-  icon,
-  label,
-  muted = false,
-}: {
-  icon: ReactNode;
-  label: string;
-  muted?: boolean;
-}) {
+export function CopyableCmd({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
   return (
-    <span
-      className={[
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px]",
-        muted
-          ? "border-[var(--color-line)] bg-[rgb(10_18_32/0.4)] text-[var(--color-mute)]"
-          : "border-[var(--color-line-2)] bg-[rgb(10_18_32/0.6)] text-[var(--color-frost-2)]",
-      ].join(" ")}
-    >
-      <span className={muted ? "text-[var(--color-mute)]" : "text-[var(--color-cyan)]"}>{icon}</span>
-      <span style={{ fontFamily: "var(--font-mono)" }}>{label}</span>
-    </span>
+    <button className={`cmd ${copied ? "copied" : ""}`} onClick={copy} aria-label="Copy command">
+      <span className="pr">$</span>
+      <span className="cmd-text">{text}</span>
+      <span className="copy">{copied ? <I.check /> : <I.copy />}</span>
+    </button>
+  );
+}
+
+type Step = {
+  title: string;
+  desc: ReactNode;
+  cmd?: string | null;
+  link?: { label: string; href: string };
+};
+
+function buildSteps(method: string, agentId: string): Step[] {
+  const ag = AGENTS.find((a) => a.id === agentId) || AGENTS[0];
+
+  if (method === "cli") {
+    return [
+      {
+        title: "Install the CLI",
+        desc: (
+          <>
+            One curl — fetches the prebuilt binary for your platform. Works on{" "}
+            <span className="inl">macOS</span> · <span className="inl">Linux</span> ·{" "}
+            <span className="inl">Windows</span>.
+          </>
+        ),
+        cmd: site.install,
+      },
+      {
+        title: "Drop in your keys",
+        desc: (
+          <>
+            Interactive wizard, takes ~30s. Paste your <span className="inl">openrouter</span> +{" "}
+            <span className="inl">elevenlabs</span> keys when prompted.
+          </>
+        ),
+        cmd: "ralphy setup",
+      },
+      {
+        title: `Run from ${ag.short}`,
+        desc: (
+          <>
+            Open a project, ask <span className="inl">{ag.short}</span> to make a video. The agent picks up{" "}
+            <span className="inl">ralphy</span> from your <span className="inl">$PATH</span> — no plugin needed.
+          </>
+        ),
+        cmd: "ralphy doctor",
+      },
+    ];
+  }
+
+  if (method === "mcp") {
+    // Per-agent MCP register command. Uses each agent's *real* native
+    // registration tool: Claude Code's `claude mcp add`, the Cursor MCP
+    // config file, and the OpenAI Codex CLI `codex mcp add`. The binary
+    // exposed is `ralphy mcp` (a future subcommand documented in the CLI
+    // UX vision doc — server doesn't ship yet).
+    const mcpRegister: Record<string, string> = {
+      claude: "claude mcp add ralphy -- ralphy mcp",
+      cursor: "code ~/.cursor/mcp.json   # add { mcpServers: { ralphy: { command: 'ralphy', args: ['mcp'] } } }",
+      codex: "codex mcp add ralphy -- ralphy mcp",
+    };
+    return [
+      {
+        title: "Install the CLI",
+        desc: (
+          <>
+            One curl — installs the <span className="inl">ralphy</span> binary that doubles as an MCP server.
+          </>
+        ),
+        cmd: site.install,
+      },
+      {
+        title: `Register with ${ag.short}`,
+        desc: (
+          <>
+            Wire Ralphy in via <span className="inl">{ag.short}</span>&apos;s native MCP registry — no custom URL,
+            no auth, the server runs locally.
+          </>
+        ),
+        cmd: mcpRegister[ag.id] || mcpRegister.claude,
+      },
+      {
+        title: `Restart ${ag.short} and chat`,
+        desc: (
+          <>
+            New tools show up under <span className="inl">@ralphy</span> in the tool list. Then just say:{" "}
+            <span className="inl">&ldquo;Make 5 TikToks for my launch.&rdquo;</span>
+          </>
+        ),
+        cmd: null,
+      },
+    ];
+  }
+
+  // Skill flow — drop the repo's markdown skill bundle into the agent's
+  // skills directory. Uses git clone, which works for every agent that
+  // reads `~/.<agent>/skills/<name>/`.
+  const skillsTarget: Record<string, string> = {
+    claude: "~/.claude/skills/ralphy",
+    cursor: "~/.cursor/rules/ralphy",
+    codex: "~/.codex/skills/ralphy",
+  };
+  return [
+    {
+      title: "Install the CLI",
+      desc: (
+        <>
+          One curl — Ralphy ships its skill bundle alongside the binary.
+        </>
+      ),
+      cmd: site.install,
+    },
+    {
+      title: `Link skills into ${ag.short}`,
+      desc: (
+        <>
+          Symlinks the markdown skill files into <span className="inl">{skillsTarget[ag.id] || skillsTarget.claude}</span>.
+          Each skill is one file — hot-reloads on save.
+        </>
+      ),
+      cmd: `ralphy skill install --agent ${ag.id}`,
+    },
+    {
+      title: "Open a project and ask",
+      desc: (
+        <>
+          From any chat:{" "}
+          <span className="inl">&ldquo;Generate a TikTok with Ralphy.&rdquo;</span> The skill orchestrates the full
+          pipeline — research, prompts, render, eval.
+        </>
+      ),
+      cmd: null,
+    },
+  ];
+}
+
+function InstallStep({ idx, step }: { idx: number; step: Step }) {
+  return (
+    <div className="install-step">
+      <div className="head">
+        <span className="num">{idx + 1}</span>
+        <span className="ttl">{step.title}</span>
+      </div>
+      <p className="desc">{step.desc}</p>
+      {step.cmd && <CopyableCmd text={step.cmd} />}
+      {step.link && (
+        <a className="cmd" href={step.link.href} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>
+          <span>{step.link.label}</span>
+          <span className="copy">
+            <I.arrowR />
+          </span>
+        </a>
+      )}
+    </div>
+  );
+}
+
+export function Hero() {
+  const [method, setMethod] = useState("cli");
+  const [agent, setAgent] = useState("claude");
+  const steps = buildSteps(method, agent);
+
+  return (
+    <section id="top" className="hero">
+      <div className="container-narrow">
+        <h1>
+          Turn
+          <br />
+          <CyclingAgent />
+          <br />
+          into a content factory
+        </h1>
+
+        <p className="hero-sub">
+          The open-source CLI that plugs into any coding agent and turns it into a one-prompt video marketer.
+          Trend-watch, clone any style, render in minutes, iterate from the numbers.
+        </p>
+
+        <div className="switcher-row">
+          <div className="tab-row" role="tablist" aria-label="Method">
+            {METHODS.map((m) => (
+              <button
+                key={m.id}
+                className={`tab ${method === m.id ? "active" : ""}`}
+                onClick={() => setMethod(m.id)}
+                role="tab"
+                aria-selected={method === m.id}
+              >
+                <span className="ic">{m.icon()}</span>
+                {m.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="tab-row" role="tablist" aria-label="Agent">
+              {AGENTS.map((a) => (
+                <button
+                  key={a.id}
+                  className={`tab ${agent === a.id ? "active" : ""}`}
+                  onClick={() => setAgent(a.id)}
+                  role="tab"
+                  aria-selected={agent === a.id}
+                >
+                  <span className="ic">{a.icon()}</span>
+                  {a.name}
+                </button>
+              ))}
+            </div>
+            <a className="hero-github" href={site.repo} target="_blank" rel="noopener">
+              <I.github /> Github <I.arrowR />
+            </a>
+          </div>
+        </div>
+
+        <div className="install-row">
+          {steps.map((s, i) => (
+            <InstallStep key={i} idx={i} step={s} />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

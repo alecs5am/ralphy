@@ -1,276 +1,288 @@
 import type { SVGProps } from "react";
 
-export function StarIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  );
-}
+type IconFn = (p?: SVGProps<SVGSVGElement>) => React.JSX.Element;
 
-export function ArrowDownIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-      {...props}
+const monogram = (letter: string): IconFn => (p = {}) => (
+  <svg viewBox="0 0 24 24" width="14" height="14" {...p}>
+    <rect x="2" y="2" width="20" height="20" rx="5" fill="currentColor" opacity="0.18" />
+    <text
+      x="12"
+      y="16"
+      textAnchor="middle"
+      fontFamily="JetBrains Mono, monospace"
+      fontWeight="700"
+      fontSize="11"
+      fill="currentColor"
     >
+      {letter}
+    </text>
+  </svg>
+);
+
+export const I: Record<string, IconFn> = {
+  mcp: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <circle cx="12" cy="6" r="2.4" />
+      <circle cx="6" cy="18" r="2.4" />
+      <circle cx="18" cy="18" r="2.4" />
+      <path d="M12 8.4L7.5 15.6M12 8.4L16.5 15.6M8 18h8" />
+    </svg>
+  ),
+  cli: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M5 9l3 3-3 3" />
+      <path d="M13 15h6" />
+    </svg>
+  ),
+  skill: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  ),
+  star: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" {...p}>
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01z" />
+    </svg>
+  ),
+  arrowR: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M5 12h14M13 5l7 7-7 7" />
+    </svg>
+  ),
+  arrowD: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
       <path d="M12 5v14M5 12l7 7 7-7" />
     </svg>
-  );
-}
-
-export function PlayIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M8 5v14l11-7z" />
+  ),
+  term: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9l3 3-3 3M13 15h5" />
     </svg>
-  );
-}
-
-export function GitHubIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.42c.58.1.79-.25.79-.55v-2.06c-3.2.69-3.88-1.37-3.88-1.37-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.74 2.67 1.24 3.32.95.1-.74.4-1.24.73-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.94 10.94 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.07.78 2.16v3.2c0 .31.21.66.8.55A11.5 11.5 0 0 0 12 .5Z" />
+  ),
+  spark: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" {...p}>
+      <path d="M12 2l1.7 5.3L19 9l-5.3 1.7L12 16l-1.7-5.3L5 9l5.3-1.7z" />
     </svg>
-  );
-}
-
-export function DiscordIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M19.27 5.33A17.6 17.6 0 0 0 14.91 4l-.2.39c1.61.32 2.97.84 4.2 1.51-1.46-.78-3.06-1.31-4.78-1.6a14.3 14.3 0 0 0-3.94 0c-1.71.29-3.31.82-4.78 1.6 1.23-.67 2.59-1.19 4.2-1.51L9.41 4a17.6 17.6 0 0 0-4.36 1.33C2.46 9.07 1.91 12.7 2.07 16.31a17.7 17.7 0 0 0 5.41 2.67c.43-.6.81-1.23 1.13-1.9-.65-.24-1.27-.54-1.86-.89.16-.11.31-.23.45-.34a12.4 12.4 0 0 0 10.6 0c.15.11.3.23.45.34-.59.35-1.21.65-1.86.89.32.67.7 1.3 1.13 1.9a17.6 17.6 0 0 0 5.41-2.67c.18-4.16-.7-7.76-2.66-10.98ZM8.74 14.61c-.95 0-1.73-.85-1.73-1.9 0-1.05.76-1.91 1.73-1.91s1.74.86 1.73 1.91c0 1.05-.76 1.9-1.73 1.9Zm6.52 0c-.95 0-1.73-.85-1.73-1.9 0-1.05.76-1.91 1.73-1.91s1.73.86 1.73 1.91-.76 1.9-1.73 1.9Z" />
+  ),
+  bolt: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" {...p}>
+      <path d="M13 2L4 14h6l-1 8 9-12h-6z" />
     </svg>
-  );
-}
-
-export function XIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M18.244 2H21l-6.51 7.44L22 22h-6.71l-4.6-6.02L5.4 22H2.65l6.96-7.96L2 2h6.84l4.16 5.5L18.244 2Zm-2.36 18.4h1.83L7.2 3.5H5.27l10.62 16.9Z" />
+  ),
+  check: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M20 6L9 17l-5-5" />
     </svg>
-  );
-}
-
-export function BookIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+  ),
+  vid: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="2" y="6" width="14" height="12" rx="2" />
+      <path d="M22 8l-6 4 6 4z" />
     </svg>
-  );
-}
-
-/* ──────────────────────────────────────────────
-   Brand-mark glyphs used as inline chips.
-   Geometric simplifications, monochrome (currentColor).
-   ────────────────────────────────────────────── */
-
-/* Brand glyphs below use the MIT-licensed simple-icons paths so we
-   render the actual product marks (asterisk-burst for Claude, the
-   curved cursor for Cursor, the OpenAI flower for Codex). */
-
-export function ClaudeMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z" />
+  ),
+  loop: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M17 2l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 014-4h14" />
+      <path d="M7 22l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 01-4 4H3" />
     </svg>
-  );
-}
-
-export function CursorMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23" />
+  ),
+  up: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M3 17l6-6 4 4 8-8" />
+      <path d="M14 7h7v7" />
     </svg>
-  );
-}
-
-export function CodexMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" />
+  ),
+  trend: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M22 7l-9.5 9.5-5-5L2 17" />
+      <path d="M16 7h6v6" />
     </svg>
-  );
-}
-
-export function OpenRouterMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <circle cx="6" cy="12" r="2.4" />
-      <circle cx="18" cy="6" r="2.4" />
-      <circle cx="18" cy="18" r="2.4" />
-      <path d="M8.4 12h3M12 12 16 6.6M12 12l4 5.4" />
+  ),
+  copy: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
     </svg>
-  );
-}
-
-export function VercelMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M12 4 22 20H2L12 4Z" />
+  ),
+  clone: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="3" y="3" width="13" height="13" rx="2" />
+      <rect x="8" y="8" width="13" height="13" rx="2" />
     </svg>
-  );
-}
-
-export function ElevenMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <rect x="6" y="4" width="4" height="16" rx="0.6" />
-      <rect x="14" y="4" width="4" height="16" rx="0.6" />
+  ),
+  heart: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" {...p}>
+      <path d="M12 21s-7-4.35-9.5-9.04C.96 8.78 2.43 5 6 5c2.07 0 3.5 1.18 4.5 2.5C11.5 6.18 12.93 5 15 5c3.57 0 5.04 3.78 3.5 6.96C19 16.65 12 21 12 21z" />
     </svg>
-  );
-}
-
-export function RemotionMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+  ),
+  cmt: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+  ),
+  share: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+      <path d="M16 6l-4-4-4 4M12 2v15" />
+    </svg>
+  ),
+  play: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" {...p}>
+      <path d="M5 3l16 9-16 9z" />
+    </svg>
+  ),
+  close: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  ),
+  chevL: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  ),
+  chevR: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  ),
+  github: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" {...p}>
+      <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.5 2.87 8.32 6.84 9.67.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.36-3.37-1.36-.45-1.18-1.11-1.5-1.11-1.5-.91-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05A9.4 9.4 0 0112 6.84c.85 0 1.71.12 2.51.35 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49C19.14 20.58 22 16.76 22 12.26 22 6.58 17.52 2 12 2z" />
+    </svg>
+  ),
+  discord: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" {...p}>
+      <path d="M20.32 4.37A17 17 0 0016.06 3l-.2.41a13 13 0 014 2 14 14 0 00-7.86-1.79A14 14 0 004.14 5.4a13 13 0 014-2L7.94 3a17 17 0 00-4.26 1.37C.97 8.74.27 13 .62 17.21a17 17 0 005.21 2.65l1.2-1.66a11 11 0 01-1.87-.9c.16-.11.32-.23.47-.36a12 12 0 0010.86 0c.15.13.31.25.47.36-.6.36-1.22.66-1.87.9l1.2 1.66a17 17 0 005.21-2.65c.45-4.9-.72-9.13-2.78-12.84zM8.52 14.73c-1.03 0-1.88-.94-1.88-2.1 0-1.16.83-2.1 1.88-2.1 1.05 0 1.9.94 1.88 2.1 0 1.16-.83 2.1-1.88 2.1zm6.96 0c-1.03 0-1.88-.94-1.88-2.1 0-1.16.83-2.1 1.88-2.1 1.05 0 1.9.94 1.88 2.1 0 1.16-.83 2.1-1.88 2.1z" />
+    </svg>
+  ),
+  x: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" {...p}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  ),
+  book: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+    </svg>
+  ),
+  claude: (props = {}) => (
+    <svg viewBox="0 0 24 24" width="16" height="16" {...props}>
+      <rect width="24" height="24" rx="6" fill="#F4ECE4" />
+      <g transform="translate(2.4 2.4) scale(0.0742)">
+        <path
+          fill="#D97757"
+          d="m50.228 170.321 50.357-28.257.843-2.463-.843-1.361h-2.462l-8.426-.518-28.775-.778-24.952-1.037-24.175-1.296-6.092-1.297L0 125.796l.583-3.759 5.12-3.434 7.324.648 16.202 1.101 24.304 1.685 17.629 1.037 26.118 2.722h4.148l.583-1.685-1.426-1.037-1.101-1.037-25.147-17.045-27.22-18.017-14.258-10.37-7.713-5.25-3.888-4.925-1.685-10.758 7-7.713 9.397.649 2.398.648 9.527 7.323 20.35 15.75L94.817 91.9l3.889 3.24 1.555-1.102.195-.777-1.75-2.917-14.453-26.118-15.425-26.572-6.87-11.018-1.814-6.61c-.648-2.723-1.102-4.991-1.102-7.778l7.972-10.823L71.42 0 82.05 1.426l4.472 3.888 6.61 15.101 10.694 23.786 16.591 32.34 4.861 9.592 2.592 8.879.973 2.722h1.685v-1.556l1.36-18.211 2.528-22.36 2.463-28.776.843-8.1 4.018-9.722 7.971-5.25 6.222 2.981 5.12 7.324-.713 4.73-3.046 19.768-5.962 30.98-3.889 20.739h2.268l2.593-2.593 10.499-13.934 17.628-22.036 7.778-8.749 9.073-9.657 5.833-4.601h11.018l8.1 12.055-3.628 12.443-11.342 14.388-9.398 12.184-13.48 18.147-8.426 14.518.778 1.166 2.01-.194 30.46-6.481 16.462-2.982 19.637-3.37 8.88 4.148.971 4.213-3.5 8.62-20.998 5.184-24.628 4.926-36.682 8.685-.454.324.519.648 16.526 1.555 7.065.389h17.304l32.21 2.398 8.426 5.574 5.055 6.805-.843 5.184-12.962 6.611-17.498-4.148-40.83-9.721-14-3.5h-1.944v1.167l11.666 11.406 21.387 19.314 26.767 24.887 1.36 6.157-3.434 4.86-3.63-.518-23.526-17.693-9.073-7.972-20.545-17.304h-1.36v1.814l4.73 6.935 25.017 37.59 1.296 11.536-1.814 3.76-6.481 2.268-7.13-1.297-14.647-20.544-15.1-23.138-12.185-20.739-1.49.843-7.194 77.448-3.37 3.953-7.778 2.981-6.48-4.925-3.436-7.972 3.435-15.749 4.148-20.544 3.37-16.333 3.046-20.285 1.815-6.74-.13-.454-1.49.194-15.295 20.999-23.267 31.433-18.406 19.702-4.407 1.75-7.648-3.954.713-7.064 4.277-6.286 25.47-32.405 15.36-20.092 9.917-11.6-.065-1.686h-.583L44.07 198.125l-12.055 1.555-5.185-4.86.648-7.972 2.463-2.593 20.35-13.999-.064.065Z"
+        />
+      </g>
+    </svg>
+  ),
+  cursor: (props = {}) => (
+    <svg viewBox="0 0 24 24" width="16" height="16" {...props}>
+      <rect width="24" height="24" rx="6" fill="#F4ECE4" />
+      <g transform="translate(4 4) scale(0.0343)">
+        <path
+          fill="#0A0A0B"
+          d="M457.43,125.94L244.42,2.96c-6.84-3.95-15.28-3.95-22.12,0L9.3,125.94c-5.75,3.32-9.3,9.46-9.3,16.11v247.99c0,6.65,3.55,12.79,9.3,16.11l213.01,122.98c6.84,3.95,15.28,3.95,22.12,0l213.01-122.98c5.75-3.32,9.3-9.46,9.3-16.11v-247.99c0-6.65-3.55-12.79-9.3-16.11h-.01ZM444.05,151.99l-205.63,356.16c-1.39,2.4-5.06,1.42-5.06-1.36v-233.21c0-4.66-2.49-8.97-6.53-11.31L24.87,145.67c-2.4-1.39-1.42-5.06,1.36-5.06h411.26c5.84,0,9.49,6.33,6.57,11.39h-.01Z"
+        />
+      </g>
+    </svg>
+  ),
+  codex: (props = {}) => (
+    <svg viewBox="0 0 24 24" width="16" height="16" {...props}>
+      <rect width="24" height="24" rx="6" fill="#0A0A0B" />
+      <path
+        fill="#FFFFFF"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M8.086.457a6.105 6.105 0 013.046-.415c1.333.153 2.521.72 3.564 1.7a.117.117 0 00.107.029c1.408-.346 2.762-.224 4.061.366l.063.03.154.076c1.357.703 2.33 1.77 2.918 3.198.278.679.418 1.388.421 2.126a5.655 5.655 0 01-.18 1.631.167.167 0 00.04.155 5.982 5.982 0 011.578 2.891c.385 1.901-.01 3.615-1.183 5.14l-.182.22a6.063 6.063 0 01-2.934 1.851.162.162 0 00-.108.102c-.255.736-.511 1.364-.987 1.992-1.199 1.582-2.962 2.462-4.948 2.451-1.583-.008-2.986-.587-4.21-1.736a.145.145 0 00-.14-.032c-.518.167-1.04.191-1.604.185a5.924 5.924 0 01-2.595-.622 6.058 6.058 0 01-2.146-1.781c-.203-.269-.404-.522-.551-.821a7.74 7.74 0 01-.495-1.283 6.11 6.11 0 01-.017-3.064.166.166 0 00.008-.074.115.115 0 00-.037-.064 5.958 5.958 0 01-1.38-2.202 5.196 5.196 0 01-.333-1.589 6.915 6.915 0 01.188-2.132c.45-1.484 1.309-2.648 2.577-3.493.282-.188.55-.334.802-.438.286-.12.573-.22.861-.304a.129.129 0 00.087-.087A6.016 6.016 0 015.635 2.31C6.315 1.464 7.132.846 8.086.457zm-.804 7.85a.848.848 0 00-1.473.842l1.694 2.965-1.688 2.848a.849.849 0 001.46.864l1.94-3.272a.849.849 0 00.007-.854l-1.94-3.393zm5.446 6.24a.849.849 0 000 1.695h4.848a.849.849 0 000-1.696h-4.848z"
+      />
+    </svg>
+  ),
+  or: (p = {}) => (
+    <svg viewBox="0 0 512 512" width="14" height="14" {...p}>
+      <g fill="currentColor" stroke="currentColor">
+        <path d="M3 248.945C18 248.945 76 236 106 219C136 202 136 202 198 158C276.497 102.293 332 120.945 423 120.945" stroke="currentColor" strokeWidth="90" fill="none" />
+        <path d="M511 121.5L357.25 210.268L357.25 32.7324L511 121.5Z" stroke="none" />
+        <path d="M0 249C15 249 73 261.945 103 278.945C133 295.945 133 295.945 195 339.945C273.497 395.652 329 377 420 377" stroke="currentColor" strokeWidth="90" fill="none" />
+        <path d="M508 376.445L354.25 287.678L354.25 465.213L508 376.445Z" stroke="none" />
+      </g>
+    </svg>
+  ),
+  vc: (p = {}) => (
+    <svg viewBox="0 0 256 222" width="14" height="14" {...p}>
+      <path fill="currentColor" d="m128 0 128 221.705H0z" />
+    </svg>
+  ),
+  el: monogram("11"),
+  rm: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
       <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M3 9h3M3 15h3M18 9h3M18 15h3M10 9l5 3-5 3V9Z" fill="currentColor" />
+      <path d="M7 9h3M7 12h3M7 15h3" />
+      <path d="M14 9h4M14 12h4M14 15h4" />
     </svg>
-  );
-}
-
-export function TikTokMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M14 3v9.6a2.6 2.6 0 1 1-2.6-2.6V8a4.8 4.8 0 1 0 4.8 4.8V8.4a6.4 6.4 0 0 0 3.4 1V7a4.4 4.4 0 0 1-3.4-1.6c-.6-.7-.9-1.6-.9-2.4H14Z" />
+  ),
+  gemini: (p = {}) => (
+    <svg viewBox="0 0 296 298" width="14" height="14" {...p}>
+      <path fill="currentColor" d="M141.201 4.886c2.282-6.17 11.042-6.071 13.184.148l5.985 17.37a184.004 184.004 0 0 0 111.257 113.049l19.304 6.997c6.143 2.227 6.156 10.91.02 13.155l-19.35 7.082a184.001 184.001 0 0 0-109.495 109.385l-7.573 20.629c-2.241 6.105-10.869 6.121-13.133.025l-7.908-21.296a184 184 0 0 0-109.02-108.658l-19.698-7.239c-6.102-2.243-6.118-10.867-.025-13.132l20.083-7.467A183.998 183.998 0 0 0 133.291 26.28l7.91-21.394Z" />
     </svg>
-  );
-}
-
-export function ReelsMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <path d="M9 8h6M3 8l4-4M11 8l4-4M19 8l-4-4M9 13.5 14.5 11 9 8.5v5Z" fill="currentColor" />
+  ),
+  kling: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" {...p}>
+      <path fill="currentColor" d="M5.412 13.775A23.193 23.193 0 017.41 9.32c3.17-5.492 7.795-8.757 10.33-7.294C12.038-1.266 4.598.944 1.122 6.964A13.378 13.378 0 00.085 9.22c-.259.739.092 1.534.77 1.926l4.557 2.63z" />
+      <path fill="currentColor" d="M18.588 10.164a23.188 23.188 0 01-1.999 4.455c-3.17 5.492-7.795 8.758-10.33 7.294 5.703 3.293 13.143 1.082 16.619-4.938a13.392 13.392 0 001.037-2.255c.259-.738-.092-1.534-.77-1.925l-4.557-2.63z" />
+      <path fill="currentColor" d="M16.59 14.62c3.17-5.492 3.686-11.13 1.15-12.594C15.207.563 10.582 3.83 7.41 9.32c2.074-3.59 5.809-5.315 8.344-3.852 2.534 1.464 2.908 5.56.835 9.151z" />
+      <path fill="currentColor" d="M7.41 9.32c-3.17 5.492-3.686 11.13-1.15 12.593 2.534 1.464 7.159-1.802 10.33-7.294-2.074 3.591-5.809 5.316-8.344 3.852-2.534-1.463-2.908-5.56-.835-9.15z" />
     </svg>
-  );
-}
-
-export function YouTubeMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M22 8.2c-.2-1.4-.8-2.1-2.2-2.3C17.7 5.6 12 5.6 12 5.6s-5.7 0-7.8.3C2.8 6.1 2.2 6.8 2 8.2 1.8 9.6 1.8 12 1.8 12s0 2.4.2 3.8c.2 1.4.8 2.1 2.2 2.3 2.1.3 7.8.3 7.8.3s5.7 0 7.8-.3c1.4-.2 2-.9 2.2-2.3.2-1.4.2-3.8.2-3.8s0-2.4-.2-3.8ZM10 15.3V8.7l5.5 3.3L10 15.3Z" />
+  ),
+  seedance: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" {...p}>
+      <path fill="currentColor" d="M14.944 18.587l-1.704-.445V10.01l1.824-.462c1-.254 1.84-.461 1.88-.453.032 0 .056 2.235.056 4.972v4.973l-.176-.008c-.104 0-.952-.207-1.88-.446z" />
+      <path fill="currentColor" d="M7 16.542c0-2.736.024-4.98.064-4.98.032-.008.872.2 1.88.454l1.816.461-.016 4.05-.024 4.049-1.632.422c-.896.23-1.736.445-1.856.469L7 21.523v-4.98z" />
+      <path fill="currentColor" d="M19.24 12.477c0-9.03.008-9.515.144-9.475.072.024.784.207 1.576.406.792.207 1.576.405 1.744.445l.296.08-.016 8.56-.024 8.568-1.624.414c-.888.23-1.728.437-1.856.47l-.24.055v-9.523z" />
+      <path fill="currentColor" d="M1 12.509c0-4.678.024-8.505.064-8.505.032 0 .872.207 1.872.454l1.824.461v7.582c0 4.16-.016 7.574-.032 7.574-.024 0-.872.215-1.88.47L1 21.013v-8.505z" />
     </svg>
-  );
-}
-
-export function SparkMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M12 2 13.7 8.3 20 10 13.7 11.7 12 18 10.3 11.7 4 10 10.3 8.3 12 2ZM19 16l.9 2.6L22.5 19l-2.6.9L19 22l-.9-2.6L15.5 19l2.6-.9L19 16Z" />
+  ),
+  tt: (p = {}) => (
+    <svg viewBox="0 0 352.28 398.67" width="14" height="14" {...p}>
+      <path fill="currentColor" d="M137.17 156.98v-15.56c-5.34-.73-10.76-1.18-16.29-1.18C54.23 140.24 0 194.47 0 261.13c0 40.9 20.43 77.09 51.61 98.97-20.12-21.6-32.46-50.53-32.46-82.31 0-65.7 52.69-119.28 118.03-120.81Z" />
+      <path fill="currentColor" d="M140.02 333c29.74 0 54-23.66 55.1-53.13l.11-263.2h48.08c-1-5.41-1.55-10.97-1.55-16.67h-65.67l-.11 263.2c-1.1 29.47-25.36 53.13-55.1 53.13-9.24 0-17.95-2.31-25.61-6.34C105.3 323.9 121.6 333 140.02 333ZM333.13 106V91.37c-18.34 0-35.43-5.45-49.76-14.8 12.76 14.65 30.09 25.22 49.76 29.43Z" />
+      <path fill="currentColor" d="M283.38 76.57c-13.98-16.05-22.47-37-22.47-59.91h-17.59c4.63 25.02 19.48 46.49 40.06 59.91ZM120.88 205.92c-30.44 0-55.21 24.77-55.21 55.21 0 21.2 12.03 39.62 29.6 48.86-6.55-9.08-10.45-20.18-10.45-32.2 0-30.44 24.77-55.21 55.21-55.21 5.68 0 11.13.94 16.29 2.55v-67.05c-5.34-.73-10.76-1.18-16.29-1.18-.96 0-1.9.05-2.85.07v51.49c-5.16-1.61-10.61-2.55-16.29-2.55Z" />
+      <path fill="currentColor" d="M333.13 106v51.04c-34.05 0-65.61-10.89-91.37-29.38v133.47c0 66.66-54.23 120.88-120.88 120.88-25.76 0-49.64-8.12-69.28-21.91 22.08 23.71 53.54 38.57 88.42 38.57 66.66 0 120.88-54.23 120.88-120.88V144.33c25.76 18.49 57.32 29.38 91.37 29.38v-65.68c-6.57 0-12.97-.71-19.14-2.03Z" />
     </svg>
-  );
-}
-
-export function BoltMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />
+  ),
+  rl: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
     </svg>
-  );
-}
-
-export function HeartMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M12 21s-7.5-4.5-9.5-9.2C1 7.5 4.5 4 8 5.5c1.5.7 2.8 2 4 3.5 1.2-1.5 2.5-2.8 4-3.5 3.5-1.5 7 2 5.5 6.3C19.5 16.5 12 21 12 21Z" />
+  ),
+  yt: (p = {}) => (
+    <svg viewBox="0 0 256 180" width="16" height="14" {...p}>
+      <path fill="currentColor" d="M250.346 28.075A32.18 32.18 0 0 0 227.69 5.418C207.824 0 127.87 0 127.87 0S47.912.164 28.046 5.582A32.18 32.18 0 0 0 5.39 28.24c-6.009 35.298-8.34 89.084.165 122.97a32.18 32.18 0 0 0 22.656 22.657c19.866 5.418 99.822 5.418 99.822 5.418s79.955 0 99.82-5.418a32.18 32.18 0 0 0 22.657-22.657c6.338-35.348 8.291-89.1-.164-123.134Z" />
+      <path fill="var(--bg)" d="m102.421 128.06 66.328-38.418-66.328-38.418z" />
     </svg>
-  );
-}
-
-export function CommentMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M21 12a8 8 0 1 1-3.5-6.6L21 4l-1 4.5A7.9 7.9 0 0 1 21 12Z" />
+  ),
+  x_brand: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" {...p}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
-  );
-}
-
-export function ShareMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <path d="M3 12l18-9-7 18-2-7-9-2Z" />
+  ),
+  meta: (p = {}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24" width="14" height="14" {...p}>
+      <path d="M6.897 4c1.915 0 3.516.932 5.43 3.376l.282-.373c.19-.246.383-.484.58-.71l.313-.35C14.588 4.788 15.792 4 17.225 4c1.273 0 2.469.557 3.491 1.516l.218.213c1.73 1.765 2.917 4.71 3.053 8.026l.011.392.002.25c0 1.501-.28 2.759-.818 3.7l-.14.23-.108.153c-.301.42-.664.758-1.086 1.009l-.265.142-.087.04a3.493 3.493 0 01-.302.118 4.117 4.117 0 01-1.33.208c-.524 0-.996-.067-1.438-.215-.614-.204-1.163-.56-1.726-1.116l-.227-.235c-.753-.812-1.534-1.976-2.493-3.586l-1.43-2.41-.544-.895-1.766 3.13-.343.592C7.597 19.156 6.227 20 4.356 20c-1.21 0-2.205-.42-2.936-1.182l-.168-.184c-.484-.573-.837-1.311-1.043-2.189l-.067-.32a8.69 8.69 0 01-.136-1.288L0 14.468c.002-.745.06-1.49.174-2.23l.1-.573c.298-1.53.828-2.958 1.536-4.157l.209-.34c1.177-1.83 2.789-3.053 4.615-3.16L6.897 4zm-.033 2.615l-.201.01c-.83.083-1.606.673-2.252 1.577l-.138.199-.01.018c-.67 1.017-1.185 2.378-1.456 3.845l-.004.022a12.591 12.591 0 00-.207 2.254l.002.188c.004.18.017.36.04.54l.043.291c.092.503.257.908.486 1.208l.117.137c.303.323.698.492 1.17.492 1.1 0 1.796-.676 3.696-3.641l2.175-3.4.454-.701-.139-.198C9.11 7.3 8.084 6.616 6.864 6.616zm10.196-.552l-.176.007c-.635.048-1.223.359-1.82.933l-.196.198c-.439.462-.887 1.064-1.367 1.807l.266.398c.18.274.362.56.55.858l.293.475 1.396 2.335.695 1.114c.583.926 1.03 1.6 1.408 2.082l.213.262c.282.326.529.54.777.673l.102.05c.227.1.457.138.718.138.176.002.35-.023.518-.073.338-.104.61-.32.813-.637l.095-.163.077-.162c.194-.459.29-1.06.29-1.785l-.006-.449c-.08-2.871-.938-5.372-2.2-6.798l-.176-.189c-.67-.683-1.444-1.074-2.27-1.074z" />
     </svg>
-  );
-}
-
-export function CheckMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <path d="m4 12 5 5L20 6" />
+  ),
+  amazon: (p = {}) => (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" {...p}>
+      <path d="M14.048 14.693a6.1 6.1 0 0 1-2.051 1.338a5.5 5.5 0 0 1-2.194.186a3 3 0 0 1-2.194-1.162a3.98 3.98 0 0 1 .066-4.531c1.448-1.821 3.85-1.722 5.836-2.04v-1.02a1.448 1.448 0 0 0-1.854-1.34c-.933.154-1.24.626-1.525 1.47c-.088.21-.263.231-.472.187c-.603 0-1.206-.098-1.81-.175c-.285 0-.647-.165-.526-.527c.124-.542.364-1.05.702-1.492a4.56 4.56 0 0 1 3.379-1.722a5.62 5.62 0 0 1 4.3.943a3.83 3.83 0 0 1 1.02 3.204v4.059a2.62 2.62 0 0 0 .592 1.667c.156.16.276.35.352.56a.38.38 0 0 1-.11.384c-.549.46-1.097.932-1.646 1.382a.504.504 0 0 1-.757 0a4.9 4.9 0 0 1-1.108-1.371m-.493-4.388c-1.35.076-3.182.263-3.291 1.974c-.06.475.056.956.329 1.35a1.48 1.48 0 0 0 2.194-.11c.888-.878.779-2.15.724-3.27zm-1.536 9.928A15.04 15.04 0 0 1 2.146 16.6c-.154-.098-.253-.493.055-.384a20.14 20.14 0 0 0 14.92 1.91c.997-.187 1.919-.703 2.895-.878c.867.395-1.24 1.228-1.525 1.448a15.9 15.9 0 0 1-6.472 1.536" />
+      <path d="M19.994 16.58c-.592 0-1.042.054-1.59.12c0 0-.121 0-.121-.055c.208-.811 2.808-.998 3.488-.636c.384.208.176.746.143 1.097a4 4 0 0 1-1.207 2.194c-.197.22-.406 0-.263-.208a6.3 6.3 0 0 0 .592-2.063c.044-.493-.735-.395-1.728-.45" />
     </svg>
-  );
-}
-
-export function TerminalMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <path d="m4 8 4 4-4 4M11 18h9" />
-    </svg>
-  );
-}
-
-export function VideoMark(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <rect x="3" y="6" width="14" height="12" rx="2" />
-      <path d="m17 10 4-2v8l-4-2v-4Z" fill="currentColor" />
-    </svg>
-  );
-}
+  ),
+};
