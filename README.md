@@ -50,14 +50,31 @@ Total cost on the default stack: **~$8–12 per 30s video.** Speed: **~8 min col
 
 ### One-liner (binary, recommended)
 
+**macOS / Linux** (and Git Bash / WSL / Cygwin on Windows):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
 ```
 
-Detects your OS/arch (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64), downloads the matching binary from the latest GitHub Release, drops it at `~/.local/bin/ralphy`. The binary is a single statically linked file (~60 MB) — bun runtime + bytecode-compiled TS, no `node_modules` to manage.
+**Windows PowerShell:**
+
+```powershell
+irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 | iex
+```
+
+Detects your OS/arch (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64), downloads the matching binary from the latest GitHub Release, drops it at `~/.local/bin/ralphy` (POSIX) or `%LOCALAPPDATA%\Programs\ralphy\ralphy.exe` (Windows). The binary is a single statically linked file (~60 MB) — bun runtime + bytecode-compiled TS, no `node_modules` to manage.
+
+The installer:
+- strips macOS Gatekeeper quarantine + Windows MOTW so the binary runs without prompts
+- appends the install dir to your shell's PATH (`~/.zshrc` / `~/.bashrc` / fish config / user PATH on Windows) — idempotent, re-runs don't duplicate
+- prints an "upgraded `1.0.0` → `0.0.1`" delta when overwriting an older install
+
+After installing, reload your shell (or open a new terminal) and:
 
 ```bash
-ralphy --version          # sanity check
+ralphy --version          # sanity check (also: ralphy -v, ralphy version)
+ralphy help               # top-level command index
+ralphy help generate      # man-style detail for any subcommand
 ```
 
 ### Or from source
