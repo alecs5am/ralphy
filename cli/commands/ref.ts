@@ -12,6 +12,7 @@ import {
   sampleFrames,
   transcribeRef,
   analyzeFrames,
+  analyzeVideo,
   audioDescribeRef,
   synthesizeBlueprint,
   slugFromUrl,
@@ -217,6 +218,62 @@ export function refCmd() {
         });
       } catch (e: any) {
         err(`analyze failed: ${e?.message || e}`);
+      }
+    });
+
+  // ── analyze-video (full mp4 → Gemini, NOT sampled frames) ──────────────
+  cmd
+    .command("analyze-video <slug-or-path-or-url>")
+    .description(
+      "Send the full mp4 to Gemini for precise shot-cut detection (better than `analyze` for fast-cut commercials). Arg can be a ref slug, a local file path, or an http(s) URL.",
+    )
+    .option("--shots <n>", "Expected exact shot count (e.g. 27). Omit to let the model decide.", (v) => parseInt(v, 10))
+    .option("--prompt <text>", "Custom prompt (overrides default shot-cut detector)")
+    .option("--prompt-file <path>", "Read custom prompt from a file")
+    .option("--model <id>", "Model id (default google/gemini-3.1-pro-preview — natively understands video)")
+    .option("--out <path>", "Output path. Defaults to <slug>/video-analysis.json for slug input, stdout for path/URL input.")
+    .option("--max-tokens <n>", "Max output tokens (default 16384)", (v) => parseInt(v, 10))
+    .action(async (arg: string, opts: any) => {
+      try {
+        let prompt = opts.prompt as string | undefined;
+        if (!prompt && opts.promptFile) {
+          prompt = await fs.readFile(path.resolve(opts.promptFile), "utf8");
+        }
+        // Detect input mode: slug if no path separator and not a URL and exists as a ref
+        const isUrl = /^https?:\/\//i.test(arg);
+        const hasSep = arg.includes("/") || arg.includes("\\") || arg.startsWith(".");
+        const looksLikeSlug = !isUrl && !hasSep;
+        const result = looksLikeSlug
+          ? await analyzeVideo({
+              slug: arg,
+              prompt,
+              expectedShots: opts.shots,
+              model: opts.model,
+              outPath: opts.out,
+              maxTokens: opts.maxTokens,
+            })
+          : await analyzeVideo({
+              videoPath: arg,
+              prompt,
+              expectedShots: opts.shots,
+              model: opts.model,
+              outPath: opts.out,
+              maxTokens: opts.maxTokens,
+            });
+        if (result.path) ok(`Analyzed → ${result.path}`);
+        else ok(`Analyzed (no out path; preview below)`);
+        const shotsCount = Array.isArray(result.json) ? (result.json as unknown[]).length : null;
+        out({
+          path: result.path,
+          model: result.model,
+          latencyMs: result.latencyMs,
+          inputBytes: result.inputBytes,
+          parsed: result.json !== undefined,
+          shotsDetected: shotsCount,
+          preview: result.text.slice(0, 320),
+        });
+      } catch (e: any) {
+        err(`analyze-video failed: ${e?.message || e}`);
       }
     });
 

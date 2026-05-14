@@ -18,6 +18,15 @@ import {
   FlipperHyperMotion001,
   TOTAL_FRAMES as FLIPPER_HYPER_MOTION_FRAMES,
 } from "./videos/flipper-hypermotion-001";
+import { OccultMockumentary001, TOTAL_FRAMES as OCCULT_MOCK_FRAMES } from "./videos/occult-mockumentary-001";
+import {
+  AnalogHorrorFridge001,
+  AnalogHorrorFridge001Noisy,
+  AnalogHorrorFridge001Mobius,
+  AnalogHorrorFridge001GlitchX,
+  AnalogHorrorFridge001GlitchXFull,
+  TOTAL_FRAMES as ANALOG_HORROR_FRIDGE_FRAMES,
+} from "./videos/analog-horror-fridge-001";
 import {
   BrainrotAIMeme,
   BrainrotAIMemeDefaults,
@@ -245,6 +254,54 @@ export const RemotionRoot: React.FC = () => {
           id="FlipperHyperMotion001"
           component={FlipperHyperMotion001}
           durationInFrames={FLIPPER_HYPER_MOTION_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="OccultMockumentary001"
+          component={OccultMockumentary001}
+          durationInFrames={OCCULT_MOCK_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="AnalogHorrorFridge001"
+          component={AnalogHorrorFridge001}
+          durationInFrames={ANALOG_HORROR_FRIDGE_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="AnalogHorrorFridge001Noisy"
+          component={AnalogHorrorFridge001Noisy}
+          durationInFrames={ANALOG_HORROR_FRIDGE_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="AnalogHorrorFridge001Mobius"
+          component={AnalogHorrorFridge001Mobius}
+          durationInFrames={ANALOG_HORROR_FRIDGE_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="AnalogHorrorFridge001GlitchX"
+          component={AnalogHorrorFridge001GlitchX}
+          durationInFrames={ANALOG_HORROR_FRIDGE_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="AnalogHorrorFridge001GlitchXFull"
+          component={AnalogHorrorFridge001GlitchXFull}
+          durationInFrames={ANALOG_HORROR_FRIDGE_FRAMES}
           fps={30}
           width={1080}
           height={1920}
