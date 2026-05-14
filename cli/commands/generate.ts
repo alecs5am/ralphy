@@ -16,6 +16,7 @@ import {
   generateVideo,
   generateVoiceover,
   generateMusic,
+  generateSfx,
 } from "../lib/providers/media.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
 import { logGeneration } from "../lib/gen-log.js";
@@ -385,6 +386,48 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(musicCmd);
+
+  // ── sfx ─────────────────────────────────────────────────────────────────
+  const sfxCmd = cmd
+    .command("sfx")
+    .description("Generate a sound effect via ElevenLabs Sound Generation (≤22s)")
+    .requiredOption("--project <id>", "Project ID")
+    .requiredOption("--slot <slot>", "Asset slot id (e.g. static-pop-01)")
+    .requiredOption("--prompt <prompt>", "SFX description (e.g. 'short analog TV static pop')")
+    .option("--duration <seconds>", "Duration in seconds (0.5-22)", parseFloat, 4)
+    .option("--prompt-influence <n>", "Prompt adherence 0-1 (default 0.4 — let model interpret)", parseFloat, 0.4)
+    .option("--note <note>", "Free-form note")
+    .action(async (opts) => {
+      await ensureProject(opts.project);
+      validateSlot(opts.slot);
+      if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
+      const result = await generateSfx({
+        projectId: opts.project,
+        slot: opts.slot,
+        prompt: opts.prompt,
+        durationSec: opts.duration,
+        promptInfluence: opts.promptInfluence,
+        note: opts.note,
+      });
+      const manifest = await readManifest(opts.project);
+      manifest.slots[opts.slot] = {
+        kind: "sfx",
+        path: result.localPath,
+        model: result.model,
+        costUsd: result.costUsd,
+        generatedAt: new Date().toISOString(),
+      };
+      await writeManifest(opts.project, manifest);
+      out({
+        slot: opts.slot,
+        path: result.localPath,
+        model: result.model,
+        durationSec: opts.duration,
+        latencyMs: result.latencyMs,
+      });
+    });
+
+  QUEUE_FLAGS(sfxCmd);
 
   // ── captions ────────────────────────────────────────────────────────────
   cmd

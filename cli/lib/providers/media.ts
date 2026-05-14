@@ -576,6 +576,81 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sound effects (ElevenLabs Sound Generation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type GenerateSfxInput = CommonInput & {
+  prompt: string;
+  /** Length in seconds. ElevenLabs accepts 0.5–22s. Default 4. */
+  durationSec?: number;
+  /** Higher = stricter to prompt, lower = more creative variation. 0–1. */
+  promptInfluence?: number;
+};
+
+export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResult> {
+  requireCapability("voiceover-elevenlabs");
+  const t0 = Date.now();
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const modelId = "sound_generation_v2";
+  const duration = Math.max(0.5, Math.min(22, input.durationSec ?? 4));
+
+  const body: Record<string, unknown> = {
+    text: input.prompt,
+    duration_seconds: duration,
+    prompt_influence: input.promptInfluence ?? 0.4,
+    output_format: "mp3_44100_128",
+  };
+
+  let resp: Response;
+  try {
+    resp = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; ralphy/1.0)",
+      },
+      body: JSON.stringify(body),
+      signal: input.signal,
+    });
+  } catch (err) {
+    await logFailure(input, "elevenlabs", modelId, "sfx", body, err, t0);
+    throw err;
+  }
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    const err = new Error(`ElevenLabs Sound-Gen ${resp.status}: ${text.slice(0, 500)}`);
+    await logFailure(input, "elevenlabs", modelId, "sfx", body, err, t0);
+    throw err;
+  }
+
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const localPath = assetPath(input.projectId, "sfx", `${input.slot}.mp3`);
+  await fs.mkdir(path.dirname(localPath), { recursive: true });
+  await fs.writeFile(localPath, buf);
+
+  const result: GenerateResult = {
+    localPath,
+    costUsd: 0,
+    latencyMs: Date.now() - t0,
+    model: modelId,
+  };
+  await logGeneration(input.projectId, {
+    provider: "elevenlabs",
+    endpoint: "sound-generation",
+    kind: "sfx",
+    input: { prompt: input.prompt, duration_seconds: duration, prompt_influence: body.prompt_influence },
+    output: { local: localPath, bytes: buf.length },
+    status: "ok",
+    latency_ms: result.latencyMs,
+    cost_usd: 0,
+    note: input.note ?? input.slot,
+  });
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 

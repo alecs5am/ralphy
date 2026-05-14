@@ -44,7 +44,8 @@ export function resolveLLMProvider(): ProviderConfig {
 
 export type LLMContent =
   | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "file"; file: { filename: string; file_data: string } };
 
 export type LLMMessage = {
   role: "system" | "user" | "assistant";

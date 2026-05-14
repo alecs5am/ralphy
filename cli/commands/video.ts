@@ -11,6 +11,7 @@ import {
   burnSubtitles,
   tonemapHDR,
   concatLossless,
+  optimizeReencode,
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok, err } from "../lib/output.js";
@@ -46,6 +47,50 @@ export function videoCmd() {
         out({ src: opts.in, dst, startSec: opts.start, endSec: opts.end });
       } catch (e: any) {
         err(`extract-segment failed: ${e?.message || e}`);
+      }
+    });
+
+  // ── optimize ───────────────────────────────────────────────────────────
+  cmd
+    .command("optimize")
+    .description(
+      "Re-encode with x264 CRF + tune for noise/grain content. Preserves visual content; shrinks 4-8x for noisy footage."
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--out <path>", "Output video")
+    .option("--crf <n>", "Quality 18=visually-lossless, 23=web, 28=small", (v) => parseInt(v, 10), 23)
+    .option("--preset <name>", "x264 preset (faster=bigger, slower=smaller)", "slow")
+    .option("--tune <name>", "x264 tune: grain | film | animation | stillimage", "grain")
+    .option("--audio-bitrate <rate>", "AAC bitrate", "128k")
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await optimizeReencode({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          crf: opts.crf,
+          preset: opts.preset,
+          tune: opts.tune,
+          audioBitrate: opts.audioBitrate,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        const before = (await fs.stat(path.resolve(opts.in))).size;
+        const after = (await fs.stat(dst)).size;
+        ok(`Optimized → ${dst}`);
+        out({
+          src: opts.in,
+          dst,
+          crf: opts.crf,
+          preset: opts.preset,
+          tune: opts.tune,
+          bytesBefore: before,
+          bytesAfter: after,
+          ratio: Number((before / after).toFixed(2)),
+        });
+      } catch (e: any) {
+        err(`optimize failed: ${e?.message || e}`);
       }
     });
 

@@ -44,6 +44,7 @@ export function refPaths(slug: string) {
     framesDir: path.join(dir, "frames"),
     transcript: path.join(dir, "transcript.json"),
     analysis: path.join(dir, "analysis.json"),
+    videoAnalysis: path.join(dir, "video-analysis.json"),
     audioAnalysis: path.join(dir, "audio-analysis.json"),
     blueprint: path.join(dir, "blueprint.md"),
     state: path.join(dir, "state.json"),
@@ -79,6 +80,7 @@ export type RefState = {
   framesCount?: number;
   transcribedAt?: string;
   analyzedAt?: string;
+  videoAnalyzedAt?: string;
   audioDescribedAt?: string;
   blueprintAt?: string;
 };
@@ -568,6 +570,194 @@ export async function analyzeFrames(opts: AnalyzeFramesOptions): Promise<Analyze
     json: parsed,
     model: r.model,
     latencyMs: r.latencyMs,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// analyzeVideo — Gemini reads the full mp4 (NOT sampled frames)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Why this exists: `analyzeFrames` (above) packs 1-fps JPEGs into the chat
+// payload — that loses every sub-second cut and undercounts shots on fast-cut
+// commercials. Gemini natively supports video input with proper timestamps;
+// this function feeds the entire mp4 inline (base64 in a `file` content block)
+// so the model sees real frame timing + audio cues. See
+// `workspace/projects/nothing-hp1-001/WORKFLOW.md` Lesson 1.
+
+export type AnalyzeVideoOptions = {
+  /** Either a slug (workspace/references/<slug>/source.mp4) or an explicit path/URL. */
+  slug?: string;
+  videoPath?: string;
+  /** Override prompt. Defaults to the shot-cut-detector below. */
+  prompt?: string;
+  /**
+   * If set, embeds an "EXACTLY N shots" constraint into the default prompt.
+   * Leave undefined to let the model decide the count.
+   */
+  expectedShots?: number;
+  /** OpenRouter model id. Default `google/gemini-pro-latest`. */
+  model?: string;
+  /** Where to save the parsed JSON. Defaults to `<slug>/video-analysis.json` when slug-mode. */
+  outPath?: string;
+  /** Max output tokens. Default 16384 — enough for ~30 detailed shot entries. */
+  maxTokens?: number;
+  /** Pass-through for the OpenRouter `temperature` knob. */
+  temperature?: number;
+};
+
+export type AnalyzeVideoResult = {
+  path: string | null;
+  text: string;
+  json?: unknown;
+  model: string;
+  latencyMs: number;
+  inputBytes: number;
+};
+
+const buildShotDetectorPrompt = (expectedShots?: number): string => {
+  const countClause = expectedShots
+    ? `The video is known to contain EXACTLY ${expectedShots} distinct shots (camera cuts).`
+    : `Detect every shot independently — do not pre-commit to a count. Output as many shots as you actually observe.`;
+  const exactClause = expectedShots
+    ? `Exactly ${expectedShots} shots — no more, no less.`
+    : `Output every distinct shot you observe — accuracy matters more than count.`;
+
+  return `You are a precise shot-cut detector for the attached video.
+
+YOUR TASK
+Detect every shot boundary by watching the video end-to-end. A new shot = a hard camera cut (subject, framing, location, OR camera angle changes). Use the actual playback time to mark precise start/end seconds for each shot — to the nearest 0.1s. ${countClause}
+
+For EACH shot output one JSON object with these fields:
+- "id": 1..N (sequential, contiguous)
+- "start_sec": decimal, e.g. 7.0
+- "end_sec": decimal, e.g. 8.5  (end of shot N = start of shot N+1; total covers 0.0 to the full video duration)
+- "duration_sec": end - start
+- "subject": one of ["girl", "guy", "girl+guy", "crew-only", "girl+crew", "guy+crew", "girl+guy+crew", "product-only", "feet", "hands", "set-empty", "title-card", "other"]
+- "framing": one of ["extreme-close-up", "close-up", "medium-close-up", "medium", "medium-wide", "wide", "extreme-wide"]
+- "angle": one of ["eye-level", "low-angle", "high-angle", "top-down", "side-profile", "three-quarter", "over-shoulder"]
+- "camera_motion": one of ["static", "slow-push-in", "slow-pull-out", "pan-left", "pan-right", "tilt-up", "tilt-down", "tracking", "handheld"]
+- "location": short tag (e.g. "forest-backdrop", "moon-backdrop", "city-backdrop", "dampened-room", "studio-bts-wide", "treadmill-foot-level", "black-screen", "neutral-studio", "other")
+- "action": one short verb-phrase ("walks on treadmill", "puts on headphones", "floats horizontally", "hands grip earcup", "title text appears", "dances freely", "adjusts earcup with hand", etc.)
+- "wardrobe": short wardrobe note for the main subject, or null if not visible
+- "key_props": array of visible props (["treadmill", "fan", "monitor-screen", "clipboard", "foam-panels", "lab-coat-crew", "wooden-crate", "headphones-on-stand", …]) or []
+- "on_screen_text": verbatim string of any visible text/typography, or null
+- "description": 1-2 detailed cinematographic sentences (composition, lighting, color grade, mood, what makes the shot distinct)
+
+CRITICAL RULES
+1. ${exactClause}
+2. start_sec of shot 1 = 0.0; end_sec of last shot = total video duration. Shots are contiguous, no gaps, no overlaps.
+3. The video may be a fast-cut commercial — many shots can last 1-2 seconds. Trust your eye on the cut boundaries.
+4. Output ONLY a single JSON array of shot objects. No prose, no preface, no markdown code fences, no comments before or after.
+5. Use clean ASCII double-quotes throughout the JSON.`;
+};
+
+const MIME_BY_EXT: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".mkv": "video/x-matroska",
+  ".webm": "video/webm",
+  ".avi": "video/x-msvideo",
+};
+
+export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVideoResult> {
+  // Resolve the video path
+  let videoPath: string | undefined;
+  let defaultOut: string | undefined;
+  if (opts.videoPath) {
+    videoPath = opts.videoPath;
+  } else if (opts.slug) {
+    const paths = refPaths(opts.slug);
+    if (!existsSync(paths.sourceMp4)) {
+      throw new Error(
+        `No source.mp4 at ${paths.sourceMp4} — run \`ralphy ref pull <url>\` first.`,
+      );
+    }
+    videoPath = paths.sourceMp4;
+    defaultOut = paths.videoAnalysis;
+  } else {
+    throw new Error("analyzeVideo requires either { slug } or { videoPath }.");
+  }
+
+  // Build the content payload
+  const prompt = opts.prompt ?? buildShotDetectorPrompt(opts.expectedShots);
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "file"; file: { filename: string; file_data: string } }
+  > = [{ type: "text", text: prompt }];
+
+  // Inline-embed: base64-encode the local mp4 as a data: URL on a `file` content block.
+  const isUrl = /^https?:\/\//i.test(videoPath);
+  let inputBytes = 0;
+  if (isUrl) {
+    // Remote URL — pass through. OpenRouter / Gemini may fetch directly.
+    content.push({
+      type: "file",
+      file: {
+        filename: path.basename(new URL(videoPath).pathname) || "video.mp4",
+        file_data: videoPath,
+      },
+    });
+  } else {
+    if (!existsSync(videoPath)) {
+      throw new Error(`Video not found: ${videoPath}`);
+    }
+    const buf = await fs.readFile(videoPath);
+    inputBytes = buf.byteLength;
+    const ext = path.extname(videoPath).toLowerCase();
+    const mime = MIME_BY_EXT[ext] ?? "video/mp4";
+    const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+    content.push({
+      type: "file",
+      file: {
+        filename: path.basename(videoPath),
+        file_data: dataUrl,
+      },
+    });
+  }
+
+  const model = opts.model ?? "google/gemini-3.1-pro-preview";
+  const r = await callLLM({
+    messages: [{ role: "user", content }],
+    model,
+    jsonMode: false, // custom prompt is JSON-array, not JSON-object — leave off
+    maxTokens: opts.maxTokens ?? 16384,
+    temperature: opts.temperature ?? 0.2,
+    projectId: opts.slug ? "_research" : undefined,
+    endpoint: `video-vision/${model.split("/").pop() ?? model}`,
+  });
+
+  // Parse the JSON output (strip code fences if the model added them)
+  let text = r.text.trim();
+  const fenced = text.match(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/);
+  if (fenced) text = fenced[1].trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = undefined;
+  }
+
+  // Save to disk if outPath or defaultOut is set
+  const outPath = opts.outPath ?? defaultOut ?? null;
+  if (outPath) {
+    await fs.mkdir(path.dirname(outPath), { recursive: true });
+    await fs.writeFile(
+      outPath,
+      parsed !== undefined ? JSON.stringify(parsed, null, 2) + "\n" : text + "\n",
+    );
+  }
+
+  if (opts.slug) {
+    await writeState(opts.slug, { videoAnalyzedAt: new Date().toISOString() });
+  }
+
+  return {
+    path: outPath,
+    text,
+    json: parsed,
+    model: r.model,
+    latencyMs: r.latencyMs,
+    inputBytes,
   };
 }
 
