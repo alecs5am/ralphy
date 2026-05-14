@@ -1,6 +1,6 @@
 {
   "name": "@alecs5am/ralphy",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Open-source UGC video factory CLI — one prompt to finished mp4. Wraps the alecs5am/ralphy binary release for npm install on macOS / Linux / Windows.",
   "homepage": "https://github.com/alecs5am/ralphy",
   "repository": {
@@ -9,19 +9,39 @@
     "directory": "npm"
   },
   "license": "MIT",
-  "keywords": ["ralphy", "ugc", "video", "tiktok", "reels", "remotion", "cli", "ai"],
+  "keywords": [
+    "ralphy",
+    "ugc",
+    "video",
+    "tiktok",
+    "reels",
+    "remotion",
+    "cli",
+    "ai"
+  ],
   "bin": {
     "ralphy": "bin/ralphy.js"
   },
   "scripts": {
     "postinstall": "node scripts/install.js"
   },
-  "files": ["bin/", "scripts/", "README.md"],
+  "files": [
+    "bin/",
+    "scripts/",
+    "README.md"
+  ],
   "engines": {
     "node": ">=14"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "publishConfig": {
     "access": "public"
   }
