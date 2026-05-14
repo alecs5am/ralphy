@@ -48,9 +48,14 @@ If the user asks to "release the landing" or "publish a docs update" — handbac
 
 Run the steps in order. After **step 4** you must stop and confirm before doing anything destructive. After step 6 the GitHub Release happens automatically via CI; steps 8 and 9 are local-only and require an authenticated `gh` (alecs5am) plus `npm login` session.
 
-### 1 — Snapshot current state
+### 1 — Snapshot current state + credential preflight
 
 ```bash
+# Credential preflight — both must succeed BEFORE any destructive step.
+gh auth status --hostname github.com 2>&1 | head -5    # expect: account alecs5am, active
+npm whoami                                              # expect: alecs5am
+
+# Repo state
 gh repo view alecs5am/ralphy --json defaultBranchRef,latestRelease | jq
 git fetch origin --tags
 git log --no-merges --pretty=format:"%h %s" $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~50")..HEAD
@@ -58,9 +63,11 @@ git diff --stat $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~50").
 git status --short
 ```
 
-What you need: the previous tag, the working tree state, a rough sense of churn.
+What you need: the previous tag, the working tree state, a rough sense of churn, plus confirmation that both `gh` and `npm` resolve to the `alecs5am` account.
 
 **If working tree isn't clean: stop.** Tell the user, suggest committing or stashing.
+
+**If `npm whoami` errors:** the bypass token in `~/.npmrc` is missing or revoked. Stop and ask the user to regenerate per the "Credentials" section at the bottom of this skill.
 
 ### 2 — Decide the version bump
 
@@ -190,9 +197,17 @@ ralphy --version      # should match $NEW_VERSION
 
 That script (`scripts/release/publish-npm.sh`):
 - Verifies `npm whoami` returns the `alecs5am` account.
+- Probes auth + tarball with `npm pack --dry-run` (catches a bad token before bumping the version).
 - Bumps `npm/package.json` to the new version (redundant safety — already done in step 5).
-- Runs `npm publish --access public` from `npm/` — **prompts you for your 2FA OTP**. If running non-interactively, set `npm publish --otp=<code>` instead.
+- Runs `npm publish --access public` from `npm/` — **non-interactive**. Auth comes from `~/.npmrc`, which holds a Granular Access Token with the "bypass 2FA" capability (rotated 2026-05-14). No OTP prompt.
 - Verifies the registry now reports the new version.
+
+If `npm publish` fails with `granular access token with bypass 2fa enabled is required`, the token in `~/.npmrc` has been revoked or regenerated without the bypass flag. Regenerate at https://www.npmjs.com/settings/alecs5am/tokens and tick **"Allow this token to bypass 2FA"** (the box is under Permissions, easy to miss). Then:
+
+```bash
+echo "//registry.npmjs.org/:_authToken=npm_NEW_TOKEN" > ~/.npmrc
+chmod 600 ~/.npmrc
+```
 
 Smoke-test:
 
@@ -257,3 +272,16 @@ v0.1.0 published across all channels:
 - npm package: `@alecs5am/ralphy`, lives in `npm/` of this repo.
 - Helper scripts: `scripts/release/update-brew-tap.sh` and `scripts/release/publish-npm.sh`.
 - Release workflow: `.github/workflows/release.yml` (fires on `push: tags: ['v*']`).
+
+## Credentials (where they live)
+
+The skill assumes these are persisted locally — it never asks for them mid-run:
+
+- **GitHub** (gh CLI keyring) — `gh auth status` should show `alecs5am` as active.
+  Used for: `git push`, `gh release edit`, `gh repo clone alecs5am/homebrew-tap`.
+  Rotate via `gh auth login` if revoked.
+- **npm** — `~/.npmrc` line `//registry.npmjs.org/:_authToken=npm_XXX`, chmod 600.
+  Must be a Granular Access Token with "Allow this token to bypass 2FA" enabled, scoped to `@alecs5am/*` with read+write permission.
+  Rotate at https://www.npmjs.com/settings/alecs5am/tokens.
+
+`npm whoami` and `gh auth status --hostname github.com` are the two pre-flight checks. If either fails, **stop** and ask the user to refresh the relevant credential before proceeding.
