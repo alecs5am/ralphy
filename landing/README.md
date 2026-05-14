@@ -1,7 +1,6 @@
-# Ralphy landing — Next.js 15 + Tailwind v4
+# Ralphy landing — Next.js 15 + TypeScript
 
-A single-page landing for Ralphy, built with the **App Router**, **Tailwind v4**, and
-**TypeScript**, served via Bun + Turbopack.
+A single-page landing for Ralphy, built with the **App Router**, **TypeScript**, and plain CSS, served via Bun + Turbopack.
 
 ## Local dev
 
@@ -23,47 +22,44 @@ bun run start
 ```
 landing/
   app/
-    layout.tsx       — fonts, metadata, atmospheric overlay
+    layout.tsx       — metadata, brand-icon preloads, root accent var
     page.tsx         — section composition
-    globals.css      — Tailwind v4 @theme + brand tokens
+    globals.css      — @font-face + design tokens + all styles
   components/
-    Nav.tsx
-    Hero.tsx
-    Capabilities.tsx
-    InstallCommand.tsx
-    Pipeline.tsx
-    Gallery.tsx
-    VideoCard.tsx
-    Stack.tsx
-    Community.tsx
-    StarCta.tsx
+    Nav.tsx          — top navigation
     Footer.tsx
-    Reveal.tsx       — IntersectionObserver fade-up
-    icons.tsx
+    StickyBar.tsx    — scroll-anchored install CTA
+    Hero.tsx         — cycling-brand headline + (CLI/MCP/Skill × agent) installer
+    VideoTile.tsx    — mosaic cell with hover-preview video
+    Lightbox.tsx     — fullscreen video viewer
+    BrandLockup.tsx  — inline icon + wordmark pair
+    Mascot.tsx       — pixel-art glyph (blinks)
+    MascotSVG.tsx    — full vector mascot used in CTA + logo glyph
+    Icons.tsx        — flat 1.5px-stroke icon set + brand monograms
+    Highlighter.tsx  — rough-notation underline/highlight wrapper
+    SectionPrimitives.tsx — SectionHead · TerminalBlock · Duo
+    sections/
+      HowItWorks.tsx
+      Showcase.tsx
+      Templates.tsx
+      Pipeline.tsx
+      Stack.tsx
+      Community.tsx
+      StarCta.tsx
   lib/
-    site.ts          — links, install command, video clip metadata
+    data.tsx         — copy, nav items, gallery clips, stack chips, channels
   public/
-    bg/              — section background art (mascot + HUD scenes)
-    posters/         — extracted poster frames for video cards
-    videos -> ../../public/lyadov-podcast-001  (symlink to real generated mp4s)
-```
-
-## Where the videos come from
-
-The gallery streams real generated videos from
-`public/lyadov-podcast-001/` at the repo root. They're an AI-dubbed Russian
-podcast, end-to-end produced by Ralphy. The `landing/public/videos`
-**symlink** points there so we don't duplicate ~80 MB into the Next.js public folder.
-
-If you ever rename or move that folder, update the symlink:
-
-```bash
-cd landing/public
-rm videos && ln -s ../../public/<your-folder> videos
+    assets/
+      brands/        — brand icon+wordmark SVGs
+      fonts/         — AWS Diatype + Fragment Mono woff2
+      posters/       — gallery video poster frames
+      videos/        — gallery mp4s (metal-XX, soviet-XX)
+      ralphy-mascot.svg
 ```
 
 ## Where to swap content
 
-- Site links, install command, repo URL — `lib/site.ts`
-- Gallery clips (label, title, span, ratio) — `lib/site.ts` (`clips` array)
-- Brand tokens (cyan, ink, fonts) — `app/globals.css` (`@theme` block)
+- Site links, install command, repo URL — `lib/data.tsx` (`site`)
+- Gallery clips (label, title, span, ratio) — `lib/data.tsx` (`clips`)
+- Accent color (used by `--vio` CSS var) — `app/layout.tsx` (`style={{ "--vio": ... }}`)
+- Brand tokens, font faces — `app/globals.css`

@@ -1,6 +1,6 @@
 {
   "name": "ralphy-landing",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 4173",
@@ -11,14 +11,13 @@
   "dependencies": {
     "next": "^15.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "rough-notation": "^0.5.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
-    "tailwindcss": "^4.0.0",
     "typescript": "^5.7.3"
   }
 }
