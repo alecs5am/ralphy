@@ -48,28 +48,23 @@ Total cost on the default stack: **~$8–12 per 30s video.** Speed: **~8 min col
 
 ## Install
 
-### One-liner (binary, recommended)
+### Pick your channel
 
-**macOS / Linux** (and Git Bash / WSL / Cygwin on Windows):
+| Platform | Command |
+|---|---|
+| macOS (Homebrew) | `brew install alecs5am/tap/ralphy` |
+| Linux | `curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh \| sh` |
+| Windows (PowerShell) | `irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 \| iex` |
+| Cross-platform (npm) | `npm install -g @alecs5am/ralphy` |
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
-```
+All four ship the same statically linked binary (~60–120 MB) — bun runtime + bytecode-compiled TS, no `node_modules` to manage. They differ only in install plumbing:
 
-**Windows PowerShell:**
+- **brew** — sha256-pinned tap [`alecs5am/homebrew-tap`](https://github.com/alecs5am/homebrew-tap), tracks the latest release; auto-upgrade via `brew upgrade`.
+- **curl / install.sh** — strips macOS Gatekeeper quarantine, appends `~/.local/bin` to your shell rc (`~/.zshrc` / `~/.bashrc` / fish config) idempotently, prints an "upgraded `X.Y.Z` → `A.B.C`" delta when overwriting an older install.
+- **PowerShell / install.ps1** — drops `ralphy.exe` to `%LOCALAPPDATA%\Programs\ralphy`, strips Windows MOTW (mark-of-the-web) so SmartScreen doesn't prompt, appends the dir to your user PATH (`HKCU:\Environment`).
+- **npm** — thin scoped wrapper [`@alecs5am/ralphy`](https://www.npmjs.com/package/@alecs5am/ralphy); the postinstall hook downloads the matching binary from the GitHub Release.
 
-```powershell
-irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 | iex
-```
-
-Detects your OS/arch (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64), downloads the matching binary from the latest GitHub Release, drops it at `~/.local/bin/ralphy` (POSIX) or `%LOCALAPPDATA%\Programs\ralphy\ralphy.exe` (Windows). The binary is a single statically linked file (~60 MB) — bun runtime + bytecode-compiled TS, no `node_modules` to manage.
-
-The installer:
-- strips macOS Gatekeeper quarantine + Windows MOTW so the binary runs without prompts
-- appends the install dir to your shell's PATH (`~/.zshrc` / `~/.bashrc` / fish config / user PATH on Windows) — idempotent, re-runs don't duplicate
-- prints an "upgraded `1.0.0` → `0.0.1`" delta when overwriting an older install
-
-After installing, reload your shell (or open a new terminal) and:
+After installing, open a new shell and:
 
 ```bash
 ralphy --version          # sanity check (also: ralphy -v, ralphy version)
