@@ -31,14 +31,18 @@ import { videoCmd } from "./commands/video.js";
 import { bannerCmd } from "./commands/banner.js";
 import { evalCmd } from "./commands/eval.js";
 import { researchCmd } from "./commands/research.js";
+import { versionCmd } from "./commands/version.js";
 import { bannerString } from "./lib/banner.js";
+import { VERSION } from "./lib/version.js";
 
 const program = new Command();
 
 program
   .name("ralphy")
   .description("UGC video generation pipeline CLI")
-  .version("1.0.0")
+  // Commander accepts only one short flag; we use the lowercase -v
+  // (npm / docker / kubectl convention) instead of Commander's default -V.
+  .version(VERSION, "-v, --version", "Print the ralphy version")
   .option("-p, --pretty", "Human-readable output instead of JSON")
   .option("--cwd <path>", "Working directory (overrides project auto-detection)")
   .hook("preAction", async (thisCommand) => {
@@ -59,6 +63,7 @@ program
     }
   });
 
+program.addCommand(versionCmd());
 program.addCommand(setupCmd());
 program.addCommand(statusCmd());
 program.addCommand(doctorCmd());
@@ -88,5 +93,8 @@ program.addCommand(evalCmd());
 program.addCommand(researchCmd());
 
 program.addHelpText("beforeAll", bannerString());
+
+// Enable `ralphy help [command]` — runs that subcommand's --help, like `man <cmd>`.
+program.helpCommand("help [command]", "Show help for a command (use `ralphy help <command>` for details, like man)");
 
 program.parseAsync();
