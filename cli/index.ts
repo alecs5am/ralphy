@@ -94,7 +94,33 @@ program.addCommand(researchCmd());
 
 program.addHelpText("beforeAll", bannerString());
 
-// Enable `ralphy help [command]` — runs that subcommand's --help, like `man <cmd>`.
-program.helpCommand("help [command]", "Show help for a command (use `ralphy help <command>` for details, like man)");
+// Custom `help [command...]` command — walks the full subcommand tree so
+// `ralphy help generate image` drills into the leaf, not just the first
+// level. Commander's built-in helpCommand only supports a single positional
+// arg and stops at depth 1, so we replace it.
+program.helpCommand(false);
+program.addCommand(
+  new Command("help")
+    .description("Show help for a command (e.g. `ralphy help generate image`)")
+    .argument("[command...]", "command chain — drills as deep as it resolves")
+    .action((tokens: string[] = []) => {
+      let target: Command = program;
+      let depth = 0;
+      for (const token of tokens) {
+        depth += 1;
+        const next = target.commands.find(
+          (c) => c.name() === token || (c.aliases && c.aliases().includes(token)),
+        );
+        if (!next) {
+          const trail = tokens.slice(0, depth).join(" ");
+          console.error(`Unknown command: ralphy ${trail}`);
+          console.error(`Run \`ralphy help${tokens.slice(0, depth - 1).map((t) => " " + t).join("")}\` to see what's available.`);
+          process.exit(1);
+        }
+        target = next;
+      }
+      target.outputHelp();
+    }),
+);
 
 program.parseAsync();
