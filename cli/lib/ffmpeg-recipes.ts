@@ -277,6 +277,61 @@ export type BurnSubtitlesInput = {
   outlineColor?: string;
 } & FFmpegOptions;
 
+// --- Recipe 7: optimize / re-encode -----------------------------------------
+//
+// Lossy re-encode tuned for noise/grain-heavy content (analog-horror, VHS
+// effects, snow). x264 `-tune grain` preserves random noise texture at lower
+// bitrates instead of smearing it — perceptually identical to source on noisy
+// content but 4–8× smaller files. For clean motion content prefer `--tune
+// film` or omit `--tune`.
+
+export type OptimizeInput = {
+  src: string;
+  dst: string;
+  crf?: number; // 18 = visually lossless, 23 = high web quality, 28 = small
+  preset?:
+    | "ultrafast"
+    | "superfast"
+    | "veryfast"
+    | "faster"
+    | "fast"
+    | "medium"
+    | "slow"
+    | "slower"
+    | "veryslow";
+  tune?: "grain" | "film" | "animation" | "stillimage" | "fastdecode";
+  audioBitrate?: string; // e.g. "128k"
+} & FFmpegOptions;
+
+export async function optimizeReencode(input: OptimizeInput): Promise<string> {
+  const {
+    src,
+    dst,
+    crf = 23,
+    preset = "slow",
+    tune = "grain",
+    audioBitrate = "128k",
+    ...opts
+  } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-c:v", "libx264", "-preset", preset, "-crf", String(crf), "-tune", tune,
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", audioBitrate,
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/optimize",
+      input: { src, dst, crf, preset, tune, audioBitrate },
+      opts,
+    }
+  );
+  return dst;
+}
+
 export async function burnSubtitles(input: BurnSubtitlesInput): Promise<string> {
   const {
     src,
