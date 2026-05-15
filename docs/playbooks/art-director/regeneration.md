@@ -11,8 +11,7 @@
 3. Confirm with the user:
    - Updated prompt (or "same prompt, new seed/model").
    - Estimated cost (one line from MODELS.md).
-   - Save the old file as `.vN.ext` or overwrite.
-4. Run **`ralphy generate <kind>`** for this slot only:
+4. Run **`ralphy generate <kind>`** for this slot only. **Append-only**: the new file lands at `assets/<kind>/<slot>.v<N+1>.<ext>` (auto-incremented), the previous version is left on disk and stays referenced in `generations.jsonl`. Never pass `--overwrite` or hand-delete the old file — even if the user says "регенерируй", that is not consent to delete the previous artifact. Cleanup is a separate, explicit request (`ralphy project clean <id> --slot <slot>` once that verb exists, or user-typed `rm`).
    ```
    ralphy generate image --project <id> --slot <slot> --model <m> --prompt <p> [--ref <url>]
    ```

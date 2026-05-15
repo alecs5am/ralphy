@@ -28,7 +28,8 @@ ralphy generate music --project <id> --slot bed-01 --prompt "<genre, tempo, mood
 # Captions via ElevenLabs Scribe v1 (word-level, ≤25MB audio)
 ralphy generate captions --project <id> --audio <vo.mp3>
 
-# Single-slot regen — always re-emit the same slot id (overwrites, manifest updates)
+# Single-slot regen — APPEND-ONLY: new file lands at <slot>.v<N>.<ext>, never overwrites.
+# Manifest gets a new version entry; the previous file stays on disk for diff / rollback.
 ralphy generate video --project <id> --slot scene-03-vid --prompt "<new>" --duration 5
 
 # Inspect what's on disk + cost so far
