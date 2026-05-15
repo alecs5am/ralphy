@@ -471,8 +471,7 @@ section { position: relative; padding-top: 80px; }
 /* Tab switcher — Higgsfield-style: compact, refined, white-pill active */
 .tab-row {
   display: inline-flex; align-items: center; gap: 2px;
-  background: rgb(255 255 255 / 0.035);
-  border: 1px solid var(--line);
+  background: var(--bg-2);
   border-radius: 12px;
   padding: 3px;
 }
@@ -524,10 +523,7 @@ section { position: relative; padding-top: 80px; }
 /* Numbered install steps */
 .install-row {
   margin-top: 28px;
-  display: grid; gap: 1px;
-  background: var(--line);
-  border-radius: 14px; overflow: hidden;
-  border: 1px solid var(--line);
+  display: grid; gap: 10px;
   grid-template-columns: minmax(0, 1fr);
   text-align: left;
 }
@@ -536,19 +532,20 @@ section { position: relative; padding-top: 80px; }
 }
 .install-step {
   background: var(--bg-1);
+  border-radius: 16px;
   padding: 22px 22px 18px;
   display: flex; flex-direction: column; gap: 12px;
 }
 .install-step .head { display: flex; align-items: center; gap: 10px; }
 .install-step .num {
-  width: 22px; height: 22px;
+  width: 24px; height: 24px;
   display: grid; place-items: center;
   border-radius: 999px;
   background: var(--bg-3);
-  color: var(--ink-2);
+  color: var(--ink);
   font-family: var(--font-mono);
   font-size: 11.5px;
-  border: 1px solid var(--line-2);
+  font-weight: 700;
 }
 .install-step .ttl { font-weight: 600; font-size: 15px; color: var(--ink); }
 .install-step .desc {
@@ -556,18 +553,17 @@ section { position: relative; padding-top: 80px; }
 }
 .install-step .desc .inl {
   font-family: var(--font-mono);
-  background: color-mix(in srgb, var(--vio) 8%, transparent);
-  border: 1px solid var(--line);
-  padding: 0 5px; border-radius: 4px;
+  background: color-mix(in srgb, var(--vio) 12%, transparent);
+  padding: 1px 6px; border-radius: 5px;
   color: var(--vio-2); font-size: 12px;
 }
 .install-step .cmd {
   margin-top: auto;
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: #050506;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 10px;
   font-family: var(--font-mono);
   font-size: 12.5px;
   color: var(--ink);
@@ -576,6 +572,7 @@ section { position: relative; padding-top: 80px; }
   overflow-wrap: anywhere;
   word-break: break-word;
   text-align: left;
+  transition: background 180ms ease;
 }
 .install-step .cmd .cmd-text {
   min-width: 0;
@@ -584,7 +581,7 @@ section { position: relative; padding-top: 80px; }
   word-break: break-word;
   line-height: 1.45;
 }
-.install-step .cmd:hover { border-color: var(--line-2); }
+.install-step .cmd:hover { background: #0A0A0B; }
 .install-step .cmd .pr { color: var(--vio); }
 .install-step .cmd .copy {
   margin-left: auto; color: var(--mute);
@@ -634,15 +631,15 @@ section { position: relative; padding-top: 80px; }
 }
 .duo .copy-side .kicker {
   display: inline-flex; align-items: center; gap: 7px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--vio);
-  letter-spacing: 0.04em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 12px;
+  color: #0A0A0B;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--vio) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--vio) 20%, transparent);
-  padding: 3px 8px;
-  border-radius: 4px;
+  background: var(--vio);
+  padding: 6px 14px;
+  border-radius: 999px;
   margin-bottom: 14px;
 }
 .duo h3 {
@@ -680,14 +677,12 @@ section { position: relative; padding-top: 80px; }
    ───────────────────────────────────────────────────────────── */
 .term {
   background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
 }
 .term-bar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
   background: var(--bg-1);
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -734,12 +729,11 @@ section { position: relative; padding-top: 80px; }
   position: relative; flex: 0 0 auto;
   width: clamp(220px, 26vw, 320px);
   aspect-ratio: 3 / 4;
-  border-radius: 18px; overflow: hidden;
+  border-radius: 20px; overflow: hidden;
   background: #0E0E10;
   cursor: pointer;
   isolation: isolate;
   transition: transform 220ms ease;
-  border: 1px solid var(--line);
 }
 .show-card:hover { transform: translateY(-3px); }
 .show-card video, .show-card img {
@@ -792,11 +786,10 @@ section { position: relative; padding-top: 80px; }
 }
 .mosaic .tile-v {
   position: relative; overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #000;
   cursor: pointer;
   isolation: isolate;
-  border: 1px solid var(--line);
   transition: border-color 240ms ease;
 }
 .mosaic .tile-v:hover { border-color: var(--line-3); }
@@ -931,17 +924,15 @@ section { position: relative; padding-top: 80px; }
    ───────────────────────────────────────────────────────────── */
 .chip {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 11px;
-  border: 1px solid var(--line-2);
+  padding: 6px 12px;
   border-radius: 999px;
-  background: var(--bg-1);
+  background: var(--bg-2);
   color: var(--ink-2);
   font-family: var(--font-mono);
   font-size: 12px;
 }
 .chip .ic { color: var(--vio); display: inline-flex; }
 .chip.muted {
-  border-color: var(--line);
   background: transparent;
   color: var(--mute);
 }
@@ -949,10 +940,9 @@ section { position: relative; padding-top: 80px; }
 
 .chip-row {
   display: grid; grid-template-columns: 180px 1fr; gap: 18px;
-  align-items: start; padding: 18px 0;
-  border-top: 1px solid var(--line);
+  align-items: start; padding: 16px 0;
 }
-.chip-row:first-child { border-top: 0; }
+.chip-row + .chip-row { margin-top: 4px; }
 .chip-row .lbl {
   font-family: var(--font-mono);
   color: var(--mute);
@@ -966,28 +956,27 @@ section { position: relative; padding-top: 80px; }
 /* Container for chip-rows */
 .stack-card {
   background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 4px 22px;
+  border-radius: 20px;
+  padding: 10px 26px;
 }
 
 /* ─────────────────────────────────────────────────────────────
    Style grid (templates)
    ───────────────────────────────────────────────────────────── */
 .style-grid {
-  display: grid; gap: 1px;
-  background: var(--line);
-  border-radius: 14px; overflow: hidden;
-  border: 1px solid var(--line);
+  display: grid; gap: 10px;
   grid-template-columns: 1fr;
 }
 @media (min-width: 700px)  { .style-grid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1100px) { .style-grid { grid-template-columns: repeat(5, 1fr); } }
 .style-tile {
   background: var(--bg-1);
+  border-radius: 14px;
   padding: 22px;
   display: flex; flex-direction: column; gap: 12px;
+  transition: background 180ms ease;
 }
+.style-tile:hover { background: var(--bg-2); }
 .style-tile .head { display: flex; align-items: center; justify-content: space-between; }
 .style-tile .kicker {
   font-family: var(--font-mono);
@@ -1008,7 +997,167 @@ section { position: relative; padding-top: 80px; }
   letter-spacing: 0.04em; text-transform: uppercase;
 }
 .pill-live { background: var(--vio); color: var(--bg); }
-.pill-soon { border: 1px solid var(--line-2); color: var(--mute); }
+.pill-soon { background: var(--bg-3); color: var(--mute); }
+
+/* ─────────────────────────────────────────────────────────────
+   Roadmap — accordion of category cards. Each card opens to a
+   grid of mini-cards (3 cols), one per item. Items already shipped
+   carry a checkmark before the title; "in progress" items get a
+   small kicker; "planned" items are visually identical (no markers).
+   ───────────────────────────────────────────────────────────── */
+.roadmap-list {
+  display: grid; grid-template-columns: 1fr; gap: 12px;
+}
+.roadmap-card {
+  background: var(--bg-1);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: background 180ms ease;
+}
+.roadmap-card:hover { background: var(--bg-2); }
+.roadmap-card.is-open { background: var(--bg-1); }
+.roadmap-card.is-open:hover { background: var(--bg-1); }
+
+.roadmap-card-head {
+  /* button reset */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 28px 30px;
+  transition: background 180ms ease;
+}
+.roadmap-card-head:hover { background: var(--bg-2); }
+.roadmap-card-head:focus-visible {
+  outline: 2px solid var(--vio);
+  outline-offset: -2px;
+}
+.roadmap-card-head-text {
+  display: flex; flex-direction: column; gap: 10px;
+  min-width: 0;
+}
+.roadmap-card-title {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 28px; letter-spacing: -0.01em;
+  color: var(--ink); text-transform: uppercase;
+  margin: 0;
+  line-height: 1.05;
+}
+.roadmap-card-why {
+  font-size: 14.5px; color: var(--ink-3); line-height: 1.55;
+  margin: 0; max-width: 80ch;
+}
+
+/* Big rounded "chapter" number badge in the corner — matches the
+   educational-module look that inspired this design */
+.roadmap-card-num {
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  background: var(--bg-3);
+  color: var(--ink);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background 180ms ease, color 180ms ease;
+}
+.roadmap-card.is-open .roadmap-card-num {
+  background: var(--vio);
+  color: var(--bg);
+}
+
+/* accordion body — grid-template-rows 0fr→1fr is the modern
+   animatable height idiom (Chrome 117+, Safari 17+, FF 124+) */
+.roadmap-card-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms ease;
+}
+.roadmap-card.is-open .roadmap-card-body {
+  grid-template-rows: 1fr;
+}
+.roadmap-card-body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Mini-card grid — items sit inside the parent card with simple
+   spacing, no per-cell borders or hairline dividers. Status reads
+   from the ✓ checkmark and `in progress` tag, not from chrome. */
+.roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 8px 24px 28px;
+}
+@media (max-width: 1100px) { .roadmap-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px)  { .roadmap-grid { grid-template-columns: 1fr; padding: 4px 18px 22px; } }
+
+.roadmap-mini {
+  background: var(--bg-2);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex; flex-direction: column;
+  gap: 8px;
+  min-height: 150px;
+}
+.roadmap-mini.is-planned .roadmap-mini-title,
+.roadmap-mini.is-planned .roadmap-mini-copy {
+  /* Slight recession for items that are direction-only — keeps
+     the eye drawn to ✓ done and in-progress cells first. */
+  opacity: 0.7;
+}
+.roadmap-mini-tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vio-2);
+  padding: 3px 9px;
+  border-radius: 999px;
+  align-self: flex-start;
+  background: rgba(232, 123, 161, 0.12);
+}
+.roadmap-mini-title-row {
+  display: flex; align-items: flex-start;
+  gap: 8px;
+}
+.roadmap-mini-check {
+  flex-shrink: 0;
+  color: var(--vio);
+  margin-top: 1px;
+}
+.roadmap-mini-title {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 13.5px; letter-spacing: 0.005em;
+  color: var(--ink); text-transform: uppercase;
+  margin: 0;
+  line-height: 1.3;
+}
+.roadmap-mini-copy {
+  font-size: 13px; color: var(--ink-3); line-height: 1.55;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .roadmap-card-head {
+    padding: 22px;
+    gap: 16px;
+  }
+  .roadmap-card-title { font-size: 22px; }
+  .roadmap-card-why { font-size: 13.5px; }
+  .roadmap-mini { padding: 18px 20px; min-height: 0; }
+}
 
 /* ─────────────────────────────────────────────────────────────
    Community cards
@@ -1020,14 +1169,13 @@ section { position: relative; padding-top: 80px; }
 @media (min-width: 1100px) { .channel-grid { grid-template-columns: repeat(4, 1fr); } }
 .channel-card {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 22px;
-  border: 1px solid var(--line);
+  padding: 24px;
   background: var(--bg-1);
-  border-radius: 14px;
+  border-radius: 18px;
   min-height: 190px;
-  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition: background 180ms ease, transform 180ms ease;
 }
-.channel-card:hover { background: var(--bg-2); border-color: var(--line-2); }
+.channel-card:hover { background: var(--bg-2); }
 .channel-card:not(.hl-card):hover { transform: translateY(-2px); }
 .channel-card .glyph { color: var(--vio); display: grid; place-items: center; }
 .channel-head {
