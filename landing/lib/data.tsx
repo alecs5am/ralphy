@@ -54,6 +54,7 @@ export const navItems = [
   { label: "Showcase", href: "#showcase" },
   { label: "Templates", href: "#templates" },
   { label: "Pipeline", href: "#pipeline" },
+  { label: "Roadmap", href: "#roadmap" },
   { label: "Stack", href: "#stack" },
   { label: "Community", href: "#community" },
 ];
@@ -191,6 +192,296 @@ export const clips: Clip[] = [
   { id: "metal-08", src: "/assets/videos/metal-08.mp4", poster: "/assets/posters/metal-08.jpg", label: "Brand Spot", title: "Still life · cap", span: "v1" },
   { id: "soviet-04", src: "/assets/videos/soviet-04.mp4", poster: "/assets/posters/soviet-04.jpg", label: "Documentary", title: "Canteen tray", span: "v1" },
   { id: "metal-02", src: "/assets/videos/metal-02.mp4", poster: "/assets/posters/metal-02.jpg", label: "Hyper Motion", title: "Lab microscope", span: "v1" },
+];
+
+/* ─────────────────────────────────────────────────────────────
+   Roadmap — public-facing trajectory, no dates.
+   Two axes drive every category: more quality, less attention.
+   Status: `done` (works on main), `in-progress` (partial / behind a flag),
+   `planned` (committed direction, not yet started).
+   ───────────────────────────────────────────────────────────── */
+
+export type RoadmapStatus = "done" | "in-progress" | "planned";
+export type RoadmapItem = { title: string; status: RoadmapStatus; copy: string };
+export type RoadmapCategory = {
+  n: string;
+  slug: string;
+  title: string;
+  why: string;
+  items: RoadmapItem[];
+};
+
+export const roadmap: RoadmapCategory[] = [
+  {
+    n: "01",
+    slug: "autonomous-quality",
+    title: "Autonomous quality",
+    why: "Fewer eyes on the screen. The agent decides what to regenerate, what to keep, what to throw out — not you.",
+    items: [
+      {
+        title: "Auto-rescore + auto-regen loop",
+        status: "done",
+        copy: "Quality gates retry a failing scene up to 3× before surfacing it. No human gate between scoring and regen.",
+      },
+      {
+        title: "Multi-pass evaluator (scene / audio / captions)",
+        status: "done",
+        copy: "`ralphy eval` runs scene segmentation, loudness + dead-air, caption density, and per-scene vision pass — produces a structured report a fixer agent can act on.",
+      },
+      {
+        title: "Identity lock via master shots",
+        status: "done",
+        copy: "Product and model master shots get pinned and passed via `--ref` to every generation — prevents identity drift between scenes.",
+      },
+      {
+        title: "Model-aware fallback",
+        status: "done",
+        copy: "Kling for default UGC selfies, Seedance for horror / POV / non-default physics — routing rules in MODELS.md, not coded into prompts.",
+      },
+      {
+        title: "Vision defect detector",
+        status: "in-progress",
+        copy: "Pre-VO pass that catches hands, eyes, text artifacts, and continuity breaks — kills the worst drift before it reaches render.",
+      },
+      {
+        title: "Multi-variant + best-pick",
+        status: "in-progress",
+        copy: "Three takes per scene, vision-scored, the loser variants get garbage-collected. The agent never asks which to keep.",
+      },
+      {
+        title: "Cross-scene continuity check",
+        status: "planned",
+        copy: "Wardrobe, lighting, and prop continuity verified across the full storyboard — not just within a single shot.",
+      },
+      {
+        title: "Self-tuning quality thresholds per niche",
+        status: "planned",
+        copy: "Horror, talking-head, and product-spot have different floors. Thresholds learn from accepted vs rejected outputs over time.",
+      },
+      {
+        title: "Auto-budget cap per scene",
+        status: "planned",
+        copy: "When auto-regen loops, the agent caps total spend per scene before escalating to the user — no runaway $50 retries.",
+      },
+    ],
+  },
+  {
+    n: "02",
+    slug: "reference-fidelity",
+    title: "Reference fidelity",
+    why: "The clone should be indistinguishable from the reference, not just in the right neighbourhood. Today this is where ralphy is strongest — and where most quality still lives.",
+    items: [
+      {
+        title: "Multi-pass video analyzer (Gemini)",
+        status: "done",
+        copy: "References get decomposed into shot list, camera grammar, sound design, and cultural subtext — not just transcribed VO.",
+      },
+      {
+        title: "Frame + timecode shot extraction",
+        status: "done",
+        copy: "`ralphy ref pull` runs yt-dlp, extracts keyframes, transcribes audio, runs vision per shot — feeds the analyzer with structured data, not raw mp4.",
+      },
+      {
+        title: "VO re-voicing through ElevenLabs",
+        status: "done",
+        copy: "Reference VO transcript becomes the script; ElevenLabs re-voices it in any persona — same words, your brand voice.",
+      },
+      {
+        title: "Camera grammar capture",
+        status: "in-progress",
+        copy: "Focal length, dolly, push-in, whip-pan — extracted as a vocabulary, injected into shot prompts so motion matches the reference, not just composition.",
+      },
+      {
+        title: "Pacing & cut-rhythm replication",
+        status: "in-progress",
+        copy: "Edit timecodes lifted straight from the reference. Hooks land on the same beat as the source — viewers can't tell why it feels right.",
+      },
+      {
+        title: "Audio fidelity match",
+        status: "in-progress",
+        copy: "Tone, energy, and ambient texture transferred — not just the spoken script. Music brief inferred from the reference's stem.",
+      },
+      {
+        title: "Per-character voice cloning",
+        status: "planned",
+        copy: "ElevenLabs voice library indexed per project; the same character keeps the same voice across every render in the campaign.",
+      },
+      {
+        title: "Music style match (stems-aware)",
+        status: "planned",
+        copy: "Detect tempo, key, instrument palette from the reference stem and brief the music model accordingly — not generic genre tags.",
+      },
+      {
+        title: "Cultural subtext annotation",
+        status: "planned",
+        copy: "Slang, meme references, regional cues flagged in the analyzer's report so the scenarist either keeps them deliberately or substitutes for the target audience.",
+      },
+    ],
+  },
+  {
+    n: "03",
+    slug: "knowledge-pool",
+    title: "Knowledge pool",
+    why: "Fresh trends and curated assets on tap, so the agent never improvises a brand-new character or trending track from text alone.",
+    items: [
+      {
+        title: "Companion asset repo (ralphy-assets)",
+        status: "done",
+        copy: "Brainrot characters, gameplay loops, and trend music live in alecs5am/ralphy-assets — sha-pinned, version-controlled, agent-installable.",
+      },
+      {
+        title: "Asset catalog with pool-by-kind",
+        status: "done",
+        copy: "`ralphy assets list --kind <kind>` shows the curated pool before the agent writes a prompt naming a specific character or track.",
+      },
+      {
+        title: "Vibe-reference + vibe-style templates",
+        status: "done",
+        copy: "5 full-stack production templates (composition.md + reference) and 38 prompt cookbooks shipped in-repo, indexed by 5 segment-persona categories.",
+      },
+      {
+        title: "Top-20 viral-2026 playlist",
+        status: "done",
+        copy: "Curated cross-category roster for agent test-drives — the fastest path from blank workspace to a known-good render.",
+      },
+      {
+        title: "Daily trend feed",
+        status: "in-progress",
+        copy: "What's spiking on TikTok / Reels / Shorts by niche, refreshed daily and queryable via `ralphy trend` — before formats peak.",
+      },
+      {
+        title: "Per-niche playbooks",
+        status: "in-progress",
+        copy: "DTC commerce, B2B SaaS, creator-lifestyle, entertainment-viral, cinematic narrative — each with its own hook bank, model picks, and quality floor.",
+      },
+      {
+        title: "Auto-template extraction from references",
+        status: "planned",
+        copy: "Drop 3 high-performing references in a niche → ralphy distils a vibe-reference template you can fork into new campaigns.",
+      },
+      {
+        title: "Style cookbook → 200+",
+        status: "planned",
+        copy: "Current 38 vibe-style packs grow to 200+ via community contributions and auto-extraction from public references.",
+      },
+      {
+        title: "Community template marketplace",
+        status: "planned",
+        copy: "Operators publish vibe-reference + vibe-style packs, the agent installs them on demand. Star-ranked, niche-indexed, MIT-licensed by default.",
+      },
+      {
+        title: "Trend prediction model",
+        status: "planned",
+        copy: "Not just what's spiking — what's about to. Velocity + niche-saturation signals to flag formats while they're still cheap.",
+      },
+    ],
+  },
+  {
+    n: "04",
+    slug: "agent-native-surface",
+    title: "Agent-native surface",
+    why: "Ralphy is first a CLI + skills for coding agents — Claude Code, Codex, Cursor. The human Studio is a nice-to-have, not the product.",
+    items: [
+      {
+        title: "AGENTS.md routing contract",
+        status: "done",
+        copy: "Every user request matched to a playbook before any generation. The hard discipline that prevents the agent from improvising on covered topics.",
+      },
+      {
+        title: "Skill packs for Claude Code",
+        status: "done",
+        copy: "researcher / scenarist / art-director / editor / producer / evaluator / release / postmortem — drop into .claude/skills, auto-routed by AGENTS.md.",
+      },
+      {
+        title: "JSON-first CLI output",
+        status: "done",
+        copy: "Every command defaults to machine-greppable JSON. `-p` for pretty tables when a human is reading. Agents never have to parse ANSI.",
+      },
+      {
+        title: "Project memory logs (auto-written)",
+        status: "done",
+        copy: "Every gen, user prompt, and uploaded asset gets appended to JSONL logs under `workspace/projects/<id>/logs/`. The agent re-reads them across sessions.",
+      },
+      {
+        title: "Front-stage CLI verbs",
+        status: "in-progress",
+        copy: "`trend` / `clone` / `make` / `iterate` collapse the current 40-command surface into four agent-friendly actions on top of the resource CRUD.",
+      },
+      {
+        title: "MCP server",
+        status: "in-progress",
+        copy: "Ralphy callable from any MCP-aware runtime — Claude desktop, Cursor, ChatGPT — without installing the CLI. The agent owns the loop end-to-end.",
+      },
+      {
+        title: "Codex + Cursor skill ports",
+        status: "in-progress",
+        copy: "Same playbooks, mirrored into Codex's AGENTS.md format and Cursor's rules layer. Skill discipline travels with the agent, not the IDE.",
+      },
+      {
+        title: "Skill marketplace install",
+        status: "planned",
+        copy: "`ralphy skill install <pack>` for community-authored playbooks. Versioned, scoped, sandboxed — installing a skill never executes code on read.",
+      },
+      {
+        title: "Web Studio (human fallback)",
+        status: "planned",
+        copy: "Drag-drop reference, preview, render — for the rare humans who'd rather click than chat. Secondary surface, never the canonical one.",
+      },
+    ],
+  },
+  {
+    n: "05",
+    slug: "pipeline-distribution",
+    title: "Pipeline & distribution",
+    why: "Between “mp4 ready” and “like landed” there should be zero of your minutes. Today render happens; everything between render and audience is still manual.",
+    items: [
+      {
+        title: "Batch-from-template (N≥10)",
+        status: "done",
+        copy: "`ralphy batch-from-template` ships variant grids without a hand-held loop. Per-render cost + quality logged for rollup.",
+      },
+      {
+        title: "Cost tracking per render",
+        status: "done",
+        copy: "Every model call (image / video / VO / music) writes input, output, and cost to generations.jsonl — total spend per project is a single jq away.",
+      },
+      {
+        title: "ralphy doctor + status",
+        status: "done",
+        copy: "One-command health check: keys, deps, render env, model availability — surfaces what's broken before the first render fails.",
+      },
+      {
+        title: "Cross-platform install (brew / curl / npm / ps1)",
+        status: "done",
+        copy: "macOS, Linux, Windows — same binary, four install paths, all referencing the same GitHub Release. install.sh handles quarantine + PATH automatically.",
+      },
+      {
+        title: "Cloud rendering",
+        status: "in-progress",
+        copy: "Remotion Lambda / serverless GPU — the laptop fan stops, render time decouples from your hardware, batches finish overnight.",
+      },
+      {
+        title: "Analytics fetch from platforms",
+        status: "in-progress",
+        copy: "Pull views, watch-time, CTR from TikTok / Reels / Shorts back into `ralphy iterate` — feeds the next render decision automatically.",
+      },
+      {
+        title: "Auto-publish (scheduled)",
+        status: "planned",
+        copy: "Scheduled posting via TikTok / Reels / Shorts APIs. Metrics flow back into the project log; the loop closes itself.",
+      },
+      {
+        title: "A/B in-flight",
+        status: "planned",
+        copy: "Two hooks per batch, performance-weighted, winning variants automatically promoted to a template for future runs.",
+      },
+      {
+        title: "Cost guardrails + auto-fallback",
+        status: "planned",
+        copy: "Per-project budget cap; when threshold trips, the agent auto-fallbacks to a cheaper model + reports before continuing the batch.",
+      },
+    ],
+  },
 ];
 
 export type StackChip = { icon: string | null; label: string; muted?: boolean };

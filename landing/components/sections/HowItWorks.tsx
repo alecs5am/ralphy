@@ -17,7 +17,7 @@ export function HowItWorks() {
         />
 
         <Duo
-          kicker="01 · trend-watch"
+          kicker="trend-watch"
           title={
             <>
               See what&apos;s <span className="acc">spiking</span> first.
@@ -64,7 +64,7 @@ export function HowItWorks() {
 
         <Duo
           reverse
-          kicker="02 · style-clone"
+          kicker="style-clone"
           title={
             <>
               Clone <span className="acc">any look</span> from a URL.
@@ -108,7 +108,7 @@ export function HowItWorks() {
         />
 
         <Duo
-          kicker="03 · render"
+          kicker="render"
           title={
             <>
               From idea to <span className="acc">finished mp4</span> in ~8 minutes.
@@ -155,7 +155,7 @@ export function HowItWorks() {
 
         <Duo
           reverse
-          kicker="04 · iterate"
+          kicker="iterate"
           title={
             <>
               Learn from the numbers. <span className="acc">Compound.</span>
