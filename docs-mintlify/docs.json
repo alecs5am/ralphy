@@ -4,39 +4,40 @@
   "name": "Ralphy",
   "description": "The AI film studio that lives in your terminal.",
   "colors": {
-    "primary": "#3DD8FF",
-    "light": "#74E6FF",
-    "dark": "#0A1220"
+    "primary": "#FF7A1A",
+    "light": "#FF9248",
+    "dark": "#E0641A"
   },
-  "favicon": "/favicon.png",
+  "favicon": "/favicon.svg",
   "fonts": {
     "heading": {
-      "family": "Instrument Serif"
+      "family": "AWS Diatype Mono",
+      "source": "https://raw.githubusercontent.com/alecs5am/ralphy/main/docs-mintlify/fonts/AWSDiatypeRoundedSemi-Mono-Bold.woff2",
+      "format": "woff2",
+      "weight": 700
     },
     "body": {
-      "family": "Onest"
+      "family": "AWS Diatype",
+      "source": "https://raw.githubusercontent.com/alecs5am/ralphy/main/docs-mintlify/fonts/AWSDiatype-Regular.woff2",
+      "format": "woff2",
+      "weight": 400
     }
   },
   "appearance": {
-    "default": "dark"
+    "default": "dark",
+    "strict": true
   },
   "background": {
     "color": {
-      "dark": "#06090F",
-      "light": "#FBFCFE"
+      "dark": "#0A0A0B",
+      "light": "#0A0A0B"
     }
   },
+  "styling": {
+    "eyebrows": "section",
+    "codeblocks": "dark"
+  },
   "navbar": {
-    "links": [
-      {
-        "label": "Discord",
-        "href": "https://discord.gg/ralphy"
-      },
-      {
-        "label": "GitHub",
-        "href": "https://github.com/alecs5am/ralphy"
-      }
-    ],
     "primary": {
       "type": "button",
       "label": "Star on GitHub",
@@ -76,7 +77,7 @@
     }
   },
   "logo": {
-    "light": "/logo.png",
-    "dark": "/logo.png"
+    "light": "/logo.svg",
+    "dark": "/logo.svg"
   }
 }
