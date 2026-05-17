@@ -1,0 +1,573 @@
+/* ─────────────────────────────────────────────────────────────
+   Ralphy docs — landing language.
+   Rule: no visible borders. Surfaces separate by bg shift,
+   not by hairlines. Mirrors landing/app/globals.css.
+   ───────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: "AWS Diatype";
+  src: url("/fonts/AWSDiatype-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "AWS Diatype Mono";
+  src: url("/fonts/AWSDiatypeRoundedSemi-Mono-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "AWS Diatype Mono";
+  src: url("/fonts/AWSDiatypeRoundedSemi-Mono-Bold.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Fragment Mono";
+  src: url("/fonts/FragmentMono-Regular.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+
+/* ── Tokens ─────────────────────────────────────────────────── */
+:root {
+  --bg:        #0A0A0B;
+  --bg-1:      #111113;
+  --bg-2:      #161618;
+  --bg-3:      #1C1C1F;
+  --bg-4:      #232327;
+
+  --ink:       #F5F5F4;
+  --ink-2:     #D2D2CF;
+  --ink-3:     #9C9C99;
+  --mute:      #6E6E6C;
+  --mute-2:    #46464A;
+
+  --acc:       #FF7A1A;
+  --acc-2:     #FF9248;
+  --acc-3:     #E0641A;
+
+  --line:      rgb(245 245 244 / 0.08);
+  --line-2:    rgb(245 245 244 / 0.16);
+
+  --font-display: "AWS Diatype Mono", -apple-system, system-ui, sans-serif;
+  --font-sans:    "AWS Diatype", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    "Fragment Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Force Mintlify primary → orange */
+:root, html, body, [data-theme] {
+  --primary:        #FF7A1A !important;
+  --primary-light:  #FF9248 !important;
+  --primary-dark:   #E0641A !important;
+}
+
+/* ── Body / typography ──────────────────────────────────────── */
+html, body, #__next, main {
+  background: var(--bg) !important;
+  color: var(--ink);
+  font-family: var(--font-sans) !important;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--acc); color: var(--bg); }
+
+/* Dot-grid */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(245 245 244 / 0.07) 1.1px, transparent 1.4px);
+  background-size: 18px 18px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 0%, black 40%, transparent 80%);
+          mask-image: radial-gradient(ellipse at 50% 30%, black 0%, black 40%, transparent 80%);
+}
+
+/* Headings — uppercase display */
+h1, h2, h3, h4 {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: uppercase;
+  color: var(--ink) !important;
+  text-wrap: balance;
+}
+h1 { line-height: 1.04; }
+h2 { line-height: 1.0; }
+h3 { line-height: 1.1; letter-spacing: -0.015em !important; }
+h4 { line-height: 1.15; font-size: 1rem; }
+
+p, li { color: var(--ink-3); line-height: 1.6; }
+strong, b { color: var(--ink); }
+a { color: var(--acc-2); text-decoration: none; transition: color 160ms ease; }
+a:hover { color: var(--acc); }
+
+/* ── Kill every hairline border across the doc surface ──────── */
+main, main *,
+article, article * {
+  border-color: transparent !important;
+}
+
+/* ── Page header band — no painted block, no underline ──────── */
+[class*="page-header"], [class*="PageHeader"],
+[class*="article-header"], [class*="ArticleHeader"],
+main > header, article > header {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding-bottom: 0 !important;
+}
+main h1 + hr,
+main h1 + div[role="separator"],
+main > div > hr,
+article > hr,
+[class*="header"] + hr,
+[class*="Header"] + hr {
+  display: none !important;
+}
+
+/* ── Inline code — neutral chip, no border ──────────────────── */
+:not(pre) > code {
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+  padding: 1px 6px !important;
+  border-radius: 5px !important;
+  border: 0 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.88em !important;
+}
+
+/* ── Code blocks ── flat, single surface, NO chrome wrapper ── */
+code, kbd, pre, samp { font-family: var(--font-mono) !important; }
+
+/* The outer Mintlify wrapper(s) → invisible. Background + radius
+   live on the <pre> only, so we never see a frame-around-frame. */
+[class*="code-block"], [class*="CodeBlock"],
+[class*="codeblock"], [class*="Codeblock"],
+figure[class*="code"],
+div:has(> pre),
+div:has(> div > pre) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+[class*="code-block"] [class*="header"],
+[class*="CodeBlock"] [class*="header"],
+[class*="codeblock"] [class*="header"] {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 6px 10px 0 14px !important;
+}
+
+pre {
+  background: #050506 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  color: var(--ink) !important;
+  padding: 16px 18px !important;
+  margin: 12px 0 !important;
+  overflow-x: auto;
+}
+pre code {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: var(--ink) !important;
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+}
+
+/* Copy button — calm */
+button[aria-label*="Copy" i],
+button[aria-label*="copy" i] {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--mute) !important;
+}
+button[aria-label*="Copy" i]:hover { color: var(--acc) !important; }
+
+/* ── Sidebar / TOC ── borderless ─────────────────────────────── */
+nav, aside, [class*="sidebar"], [class*="Sidebar"], [class*="toc"], [class*="TOC"] {
+  background: transparent !important;
+  border: 0 !important;
+}
+nav a, aside a, [class*="sidebar"] a {
+  color: var(--ink-3) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  border-radius: 8px !important;
+  transition: background 160ms ease, color 160ms ease;
+}
+nav a:hover, aside a:hover, [class*="sidebar"] a:hover {
+  background: rgb(255 255 255 / 0.04) !important;
+  color: var(--ink) !important;
+}
+nav a[aria-current="page"],
+aside a[aria-current="page"],
+[class*="sidebar"] a[aria-current="page"],
+nav .active, aside .active {
+  background: color-mix(in srgb, var(--acc) 14%, transparent) !important;
+  color: var(--acc-2) !important;
+}
+nav h5, aside h5, [class*="sidebar"] h5, [class*="GroupTitle"] {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--mute) !important;
+  font-weight: 400 !important;
+}
+
+/* ── Top navbar — verbatim copy of landing .nav / .nav-inner.
+       Mintlify ships:
+         #navbar              → sticky container, full viewport width
+         #navbar-transition   → absolute bg layer that I turn into the
+                                pill, centered with max-width 1180px
+         .max-w-8xl mx-auto   → inner row, also constrained to 1180px
+       The full-width `#navbar` keeps `padding: 0 16px` so the pill
+       has air on the sides — same as landing .nav. ───────────── */
+#navbar {
+  position: sticky !important;
+  top: 12px !important;
+  z-index: 50 !important;
+  width: 100% !important;
+  margin: 12px 0 0 !important;
+  padding: 0 16px !important;
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: none;
+}
+#navbar > * { pointer-events: auto; }
+
+/* No pill — invisible bg layer. The three nav elements (logo, search,
+   CTA) carry their own surfaces, so they read as floating islands. */
+#navbar-transition {
+  position: absolute !important;
+  inset: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+/* Even when scrolled (mint flips data-is-opaque="true"), keep clear */
+#navbar-transition[data-is-opaque="true"] {
+  background: transparent !important;
+}
+
+/* Inner row — also constrained to the pill width */
+#navbar .max-w-8xl,
+#navbar [class*="max-w-"] {
+  max-width: 1180px !important;
+}
+/* Strip the hairline divider the inner content row carries */
+#navbar .border-b,
+#navbar [class*="border-b"] {
+  border-bottom: 0 !important;
+}
+#navbar [class*="h-16"] {
+  height: 56px !important;
+}
+/* Trim horizontal padding inside the row so contents hug the pill */
+#navbar [class*="lg:px-12"] {
+  padding-left: 18px !important;
+  padding-right: 8px !important;
+}
+
+/* The "Star on GitHub" CTA — match landing's white pill */
+#topbar-cta-button a {
+  background: var(--ink) !important;
+  color: var(--bg) !important;
+  border-radius: 999px !important;
+  padding: 8px 16px !important;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+#topbar-cta-button a:hover {
+  background: var(--acc) !important;
+  color: var(--bg) !important;
+  transform: translateY(-1px);
+}
+#topbar-cta-button a span[class*="bg-primary"] {
+  display: none !important;
+}
+#topbar-cta-button a span.text-white {
+  color: inherit !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.01em !important;
+}
+#topbar-cta-button a svg { color: inherit !important; }
+
+/* Search bar inside navbar — match the pill aesthetic */
+#search-bar-entry {
+  background: var(--bg-2) !important;
+  border-radius: 999px !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  border: 0 !important;
+  color: var(--ink-3) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12.5px !important;
+  height: 36px !important;
+  max-width: 460px;
+}
+#search-bar-entry:hover { background: var(--bg-3) !important; }
+#search-bar-entry svg { color: var(--ink-3) !important; }
+
+/* Hide the single-tab "Documentation" sub-row. Mintlify class:
+   .nav-tabs (container) + .nav-tabs-item (children). One tab → noise. */
+.nav-tabs, .nav-tabs-item { display: none !important; }
+/* The parent wrapper that reserves height for the row */
+div:has(> .nav-tabs):not(:has(.nav-tabs-item ~ .nav-tabs-item)) {
+  display: none !important;
+}
+
+/* Hide theme toggle — dark-only */
+button[aria-label*="theme" i],
+button[aria-label*="dark" i],
+button[aria-label*="light" i],
+[class*="ThemeToggle"], [class*="theme-toggle"],
+[class*="ThemeSwitch"], [id*="theme-toggle"], [id*="darkModeToggle"] {
+  display: none !important;
+}
+
+/* ── Primary nav CTA "Star on GitHub" ──
+   landing uses a white pill on dark / dark-with-orange-hover. We
+   mirror the kiro-style pill: white text on subtle dark, orange
+   bg only on hover. No solid-orange repo chip. */
+header a[href*="github.com"],
+[class*="navbar"] a[href*="github.com"],
+[class*="primary"][class*="button"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 14px !important;
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.01em !important;
+  transition: background 180ms ease, color 180ms ease;
+}
+header a[href*="github.com"]:hover,
+[class*="navbar"] a[href*="github.com"]:hover,
+[class*="primary"][class*="button"]:hover {
+  background: var(--acc) !important;
+  color: var(--bg) !important;
+}
+/* Star-count chip inside the github button — mute it */
+header a[href*="github.com"] [class*="count"],
+header a[href*="github.com"] [class*="star"],
+[class*="navbar"] a[href*="github.com"] [class*="count"] {
+  background: rgb(255 255 255 / 0.06) !important;
+  color: var(--ink-3) !important;
+  padding: 1px 7px !important;
+  border-radius: 999px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+}
+
+/* ── CardGroup outer grid wrapper — invisible ──────────────── */
+.card-group {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ── Card — Mintlify wraps content in an inner `.px-6.py-5` div, so
+       the outer `.card` keeps padding: 0 to avoid stacked padding.   */
+.card {
+  background: var(--bg-1) !important;
+  background-color: var(--bg-1) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  outline: none !important;
+  border-radius: 16px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  transition: background 180ms ease, transform 180ms ease;
+}
+.card:hover {
+  background: var(--bg-2) !important;
+  background-color: var(--bg-2) !important;
+  border: 0 !important;
+  transform: translateY(-2px);
+}
+/* Inner content container — tighten the default px-6 py-5 */
+.card > [data-component-part="card-content-container"],
+.card > div:first-child {
+  padding: 20px 22px !important;
+}
+.card h2, .card h3, .card h4 {
+  font-size: 14px !important;
+  letter-spacing: 0.01em !important;
+  margin: 0 0 6px !important;
+}
+/* Mintlify gives card titles `mt-4` to leave room for the icon. When
+   there's no icon we want zero top gap. */
+.card [data-component-part="card-title"] { margin-top: 0 !important; }
+.card [data-component-part="card-icon"] + .w-full [data-component-part="card-title"],
+.card [data-component-part="card-icon"]:not(:empty) + .w-full > h2 {
+  margin-top: 10px !important;
+}
+.card p, .card [data-component-part="card-content"] {
+  margin: 0 !important;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-3) !important;
+}
+.card svg {
+  color: var(--acc) !important;
+}
+/* Mintlify renders icons as masked spans with bg-primary — recolor */
+.card [data-component-part="card-icon"] svg,
+.card [data-component-part="card-icon"] [style*="mask-image"] {
+  background-color: var(--acc) !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+/* ── Callouts — clean dark surface, no left bar, soft icon ──── */
+[class*="callout"], [class*="Callout"], blockquote {
+  background: var(--bg-1) !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  padding: 18px 22px !important;
+  color: var(--ink) !important;
+}
+[class*="callout"] *, [class*="Callout"] * {
+  color: var(--ink) !important;
+}
+[class*="callout"] p, [class*="Callout"] p,
+[class*="callout"] li, [class*="Callout"] li {
+  color: var(--ink-2) !important;
+  margin: 0;
+}
+/* Icon ahead of the text — neutral mute, not Mintlify's tinted blue */
+[class*="callout"] svg, [class*="Callout"] svg {
+  color: var(--mute) !important;
+}
+/* Specific tints — only on the icon, never on the surface or text */
+[class*="callout"][class*="info" i] svg,
+[class*="Callout"][class*="info" i] svg { color: var(--acc-2) !important; }
+[class*="callout"][class*="warn" i] svg,
+[class*="Callout"][class*="warn" i] svg { color: #E0A04A !important; }
+[class*="callout"][class*="danger" i] svg,
+[class*="callout"][class*="error" i] svg,
+[class*="Callout"][class*="danger" i] svg,
+[class*="Callout"][class*="error" i] svg { color: #E07A7A !important; }
+[class*="callout"][class*="check" i] svg,
+[class*="callout"][class*="tip" i] svg,
+[class*="Callout"][class*="check" i] svg,
+[class*="Callout"][class*="tip" i] svg { color: #B0E3B5 !important; }
+
+/* ── Tables — padded, borderless rows, rounded all corners ──── */
+table {
+  width: 100%;
+  border: 0 !important;
+  border-collapse: separate !important;
+  border-spacing: 0;
+  background: var(--bg-1) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+/* Some renderers wrap <table> in a scroll container that breaks
+   overflow-hidden clipping. Round the corner cells directly so
+   the top edge stays clipped regardless of wrapper. */
+thead tr:first-child th:first-child { border-top-left-radius: 14px !important; }
+thead tr:first-child th:last-child  { border-top-right-radius: 14px !important; }
+tbody tr:last-child td:first-child  { border-bottom-left-radius: 14px !important; }
+tbody tr:last-child td:last-child   { border-bottom-right-radius: 14px !important; }
+/* If the table has no thead, the first body row should still clip */
+table > tr:first-child > *:first-child,
+tbody:first-child tr:first-child td:first-child { border-top-left-radius: 14px !important; }
+table > tr:first-child > *:last-child,
+tbody:first-child tr:first-child td:last-child  { border-top-right-radius: 14px !important; }
+
+th, td {
+  border: 0 !important;
+  padding: 14px 20px !important;
+  text-align: left;
+}
+th:first-child, td:first-child { padding-left: 22px !important; }
+th:last-child,  td:last-child  { padding-right: 22px !important; }
+th {
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 400 !important;
+}
+td { color: var(--ink-3) !important; }
+tr + tr td { box-shadow: inset 0 1px 0 var(--line); }
+tr:hover td { background: rgb(255 255 255 / 0.02) !important; }
+
+/* ── Tabs / CodeGroup tabbar ── no chrome, active = white pill ── */
+[role="tablist"] {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  gap: 4px !important;
+  width: auto !important;
+  margin: 0 0 8px !important;
+}
+[role="tab"] {
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  padding: 6px 14px !important;
+  background: transparent !important;
+  transition: background 160ms ease, color 160ms ease;
+}
+[role="tab"]:hover:not([aria-selected="true"]) {
+  color: var(--ink) !important;
+  background: transparent !important;
+}
+[role="tab"][aria-selected="true"] {
+  background: rgb(255 255 255 / 0.96) !important;
+  color: #0A0A0B !important;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+}
+
+/* ── Search ─────────────────────────────────────────────────── */
+[class*="search"], [class*="Search"] input {
+  background: var(--bg-1) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  color: var(--ink-2) !important;
+  font-family: var(--font-mono) !important;
+}
+[class*="search"] input::placeholder { color: var(--mute) !important; }
+
+/* ── Footer ─────────────────────────────────────────────────── */
+footer {
+  border: 0 !important;
+  border-top: 1px solid var(--line) !important;
+  color: var(--mute) !important;
+}
+
+/* ── Section eyebrow — flat label, no chip ──────────────────── */
+.eyebrow, [class*="eyebrow"] {
+  font-family: var(--font-mono) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase;
+  color: var(--mute) !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
