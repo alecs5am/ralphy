@@ -28,6 +28,7 @@ import {
 } from "../lib/or-catalog.js";
 import { enqueueGenerate } from "../lib/jobs/enqueue.js";
 import type { JobKind } from "../lib/jobs/types.js";
+import { resolveModelAlias } from "../lib/model-aliases.js";
 
 const QUEUE_FLAGS = (cmd: Command): Command =>
   cmd
@@ -181,7 +182,7 @@ export function generateCmd() {
         projectId: opts.project,
         slot: opts.slot,
         prompt: opts.prompt,
-        model: opts.model,
+        model: resolveModelAlias(opts.model),
         refs: opts.ref,
         size: opts.size,
         negativePrompt: opts.negative,
@@ -286,7 +287,7 @@ export function generateCmd() {
       if (opts.dryRun) {
         out({
           dryRun: true,
-          model: opts.model,
+          model: resolveModelAlias(opts.model),
           slot: opts.slot,
           prompt: opts.prompt,
           durationSec: opts.duration,
@@ -305,7 +306,7 @@ export function generateCmd() {
         slot: opts.slot,
         prompt: opts.prompt,
         durationSec: opts.duration,
-        model: opts.model,
+        model: resolveModelAlias(opts.model),
         firstFrame: opts.firstFrame,
         lastFrame: opts.lastFrame,
         image: opts.image,
