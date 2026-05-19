@@ -26,6 +26,12 @@ Applies when using `cli/lib/ffmpeg-recipes.ts` (see `docs/ffmpeg-recipes.md`) �
 
 12. **Output dir isolation.** Every ffmpeg-recipe writes to its own `dst` under `workspace/projects/<id>/render/` or `assets/`. **Never overwrite source files.**
 
+13. **50ms afade in/out on every clip before concat.** `-c copy` AAC concat produces audible clicks at each clip boundary because DTS is non-monotonic across joins. Re-encode each clip with `afade=t=in:st=0:d=0.05,afade=t=out:st=<dur-0.05>:d=0.05 -c:a aac` before concat. Costs 5-10s of CPU per clip; saves the "звуковой баг неприятный" the user catches mid-render (noski rule #8).
+
+14. **ffprobe every clip's real duration before any trim script.** Encoder overshoots `--duration N` by ~0.05s on Kling, ~1.0s on Seedance long-form, ~0.04s on Veo. Hardcoded 3000ms assumptions cut scene-15 + scene-24 speech mid-word on noski-people-001 (cost: 1 re-render cycle + user-flagged "девушка не успевает договорить"). Use `ralphy editor preflight <project>` to see real durations + delta-vs-music; built explicitly for this in Batch B (commit 00d52af).
+
+15. **Trim is a first-class pipeline phase, not a render-time fix.** Tokyo-y2k-001's storyboard was 75s but raw concat hit 90.7s because every Kling / Seedance clip overshoots ~1s. Run `ralphy editor trim-analyze <project>` between art-director and editor — produces per-clip dead_head / dead_tail / best_subwindow JSON the editor consumes. Don't paper over overshoot with `-t` cuts at render time.
+
 ## Green-zone (text overlays)
 
 - Universal Green Zone 1080×1920: X 60→960, Y 210→1480.
