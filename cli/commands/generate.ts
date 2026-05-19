@@ -173,11 +173,59 @@ export function generateCmd() {
     )
     .option("--negative <prompt>", "Negative prompt")
     .option("--note <note>", "Free-form note for generations.jsonl")
+    .option("--variants <n>", "Generate N parallel variants (writes <slot>-v1.png .. <slot>-vN.png). Useful for A/B exploration without re-typing the prompt. appstore postmortem ate ~20 min hand-suffixing this.", (v) => Math.max(1, Math.min(8, parseInt(v, 10) || 1)))
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
+
+      const variants = opts.variants ?? 1;
+      if (variants > 1) {
+        // Parallel fire — N independent gens, each into its own slot. Honors the
+        // OR per-key concurrent cap (gpt-5.4-image-2 = 1) by serializing if the
+        // model is known-capped; gemini-3-pro-image-preview tolerates ≥4 parallel.
+        const resolvedModel = resolveModelAlias(opts.model);
+        const isCapped = resolvedModel === "openai/gpt-5.4-image-2";
+        const runOne = async (i: number) => {
+          const variantSlot = `${opts.slot}-v${i + 1}`;
+          const r = await generateImage({
+            projectId: opts.project,
+            slot: variantSlot,
+            prompt: opts.prompt,
+            model: resolvedModel,
+            refs: opts.ref,
+            size: opts.size,
+            negativePrompt: opts.negative,
+            note: `${opts.note ?? ""} (variant ${i + 1}/${variants})`.trim(),
+            overwrite: opts.forceOverwrite,
+          });
+          return { slot: variantSlot, ...r };
+        };
+        const results: Array<{ slot: string; localPath: string; model: string; costUsd: number; latencyMs: number; url?: string }> = [];
+        if (isCapped) {
+          // Serialize to respect the cap-of-1.
+          for (let i = 0; i < variants; i++) results.push(await runOne(i));
+        } else {
+          const fired = await Promise.all(Array.from({ length: variants }, (_, i) => runOne(i)));
+          results.push(...fired);
+        }
+        const manifest = await readManifest(opts.project);
+        for (const r of results) {
+          manifest.slots[r.slot] = {
+            kind: "image",
+            path: r.localPath,
+            model: r.model,
+            costUsd: r.costUsd,
+            url: r.url,
+            generatedAt: new Date().toISOString(),
+          };
+        }
+        await writeManifest(opts.project, manifest);
+        out({ variants: results.length, totalCostUsd: results.reduce((s, r) => s + r.costUsd, 0), slots: results.map((r) => ({ slot: r.slot, path: r.localPath, model: r.model, costUsd: r.costUsd })) });
+        return;
+      }
+
       const result = await generateImage({
         projectId: opts.project,
         slot: opts.slot,
@@ -349,18 +397,28 @@ export function generateCmd() {
     .requiredOption("--voice <voiceId>", "ElevenLabs voice id (clone or library)")
     .requiredOption("--text <text>", "VO text (RU or EN)")
     .option("--model <model>", "ElevenLabs TTS model id", "eleven_multilingual_v2")
+    .option("--stability <n>", "Voice stability 0-1 (lower = more variation, useful for emotional / cinematic deliveries; higher = monotone, useful for analog-horror PSA / robo-narrator). Default 0.55.", (v) => parseFloat(v))
+    .option("--similarity-boost <n>", "Similarity-to-source 0-1 (higher = closer to the cloned voice; lower = more interpretation). Default 0.8.", (v) => parseFloat(v))
+    .option("--style <n>", "Style amplification 0-1 (0 = monotone broadcast register, 1 = full dramatic). Default 0.25. Analog-horror postmortem: style 0 with stability ~0.5 produced the cold-robo-female PSA register.", (v) => parseFloat(v))
+    .option("--no-speaker-boost", "Disable use_speaker_boost (default on; turn off for monotone broadcast / robo registers)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
+      const voiceSettings: Record<string, unknown> = {};
+      if (opts.stability !== undefined) voiceSettings.stability = opts.stability;
+      if (opts.similarityBoost !== undefined) voiceSettings.similarity_boost = opts.similarityBoost;
+      if (opts.style !== undefined) voiceSettings.style = opts.style;
+      if (opts.speakerBoost === false) voiceSettings.use_speaker_boost = false;
       const result = await generateVoiceover({
         projectId: opts.project,
         slot: opts.slot,
         voiceId: opts.voice,
         text: opts.text,
         modelId: opts.model,
+        voiceSettings: Object.keys(voiceSettings).length > 0 ? (voiceSettings as any) : undefined,
         note: opts.note,
         overwrite: opts.forceOverwrite,
       });
