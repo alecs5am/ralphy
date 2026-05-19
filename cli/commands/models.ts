@@ -16,6 +16,7 @@ import {
   findVideoModel,
   estimateVideoCostUsd,
 } from "../lib/or-catalog.js";
+import { lookupAlias, aliasesFor, canonicalSlugs } from "../lib/model-aliases.js";
 
 export function modelsCmd() {
   const cmd = new Command("models").description(
@@ -72,6 +73,28 @@ export function modelsCmd() {
         priceUsdPerSec: estimateVideoCostUsd(m.id, 1),
         priceUsd5s: estimateVideoCostUsd(m.id, 5),
         priceUsd10s: estimateVideoCostUsd(m.id, 10),
+      });
+    });
+
+  cmd
+    .command("alias [shorthand]")
+    .description(
+      "Resolve a model shorthand (`kling`, `nano banana pro`, `gpt image 2`, ...) to its canonical OpenRouter slug. With no argument, prints the full alias map.",
+    )
+    .action((shorthand?: string) => {
+      if (!shorthand) {
+        // No argument — dump the full map grouped by canonical slug.
+        const map: Record<string, string[]> = {};
+        for (const c of canonicalSlugs()) map[c] = aliasesFor(c);
+        out(map);
+        return;
+      }
+      const { canonical, matched } = lookupAlias(shorthand);
+      out({
+        shorthand,
+        canonical,
+        matched,
+        siblings: canonical && matched ? aliasesFor(canonical) : [],
       });
     });
 
