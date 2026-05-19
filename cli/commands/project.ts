@@ -258,24 +258,70 @@ export function projectCmd() {
 
   cmd
     .command("log-asset <id>")
-    .description("Append a user-asset entry to project logs")
+    .description(
+      "Append a user-asset entry to project logs. With --copy-from <src>, copies the file into <project>/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames.",
+    )
     .requiredOption("--kind <kind>", "screenshot | photo | video | audio | doc | ref-url | other")
     .requiredOption("--source <source>", "Original path or URL")
-    .option("--dest <dest>", "Stored path inside project")
+    .option("--dest <dest>", "Stored path inside project (used as-is if no --copy-from)")
+    .option(
+      "--copy-from <src>",
+      "Local file to copy into <project>/refs/ before logging. NSIRD / NSTemporaryDirectory paths get rescued before macOS auto-deletes them (skater + appstore postmortems).",
+    )
     .option("--purpose <purpose>", "character-ref | product-ref | brand-screenshot | ...")
     .option("--note <note>", "Free-form note")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) err(`Project not found: ${id}`);
+
+      let dest = opts.dest;
+      if (opts.copyFrom) {
+        const src = path.resolve(opts.copyFrom);
+        // Sanitize the basename: replace U+202F NARROW NO-BREAK SPACE / U+00A0 NBSP /
+        // U+200B ZERO-WIDTH SPACE with a regular hyphen. macOS NSIRD paths contain
+        // these (appstore postmortem hit ENOENT on `ls` showed the file but `cp`
+        // failed because of invisible U+202F between words).
+        const rawBase = path.basename(src);
+        const sanitized = rawBase
+          .replace(/[   ​]/g, "-")
+          .replace(/\s+/g, "-");
+        const refsDir = path.join(projectsDir(), id, "refs");
+        await fs.mkdir(refsDir, { recursive: true });
+        dest = path.join(refsDir, sanitized);
+        // Detect disposable paths and surface a breadcrumb so the user knows we rescued.
+        const isDisposable =
+          src.includes("/var/folders/") ||
+          src.includes("NSIRD_") ||
+          src.startsWith("/tmp/") ||
+          src.includes("/TemporaryItems/");
+        try {
+          await fs.copyFile(src, dest);
+          if (isDisposable) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `ralphy: rescued disposable path → ${dest} (source was under ${src.split("/").slice(0, 5).join("/")}/...)`,
+            );
+          }
+          if (sanitized !== rawBase) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `ralphy: filename sanitized: "${rawBase}" → "${sanitized}"`,
+            );
+          }
+        } catch (e) {
+          err(`Failed to copy ${src} → ${dest}: ${(e as Error).message}`);
+        }
+      }
+
       await logUserAsset(id, {
         kind: opts.kind,
         source: opts.source,
-        dest: opts.dest,
+        dest,
         purpose: opts.purpose,
         note: opts.note,
       });
-      ok(`Asset logged for ${id}`);
-      out({ project: id, logged: "user-asset", kind: opts.kind });
+      ok(`Asset logged for ${id}${dest ? ` (saved at ${dest})` : ""}`);
+      out({ project: id, logged: "user-asset", kind: opts.kind, dest });
     });
 
   cmd

@@ -24,6 +24,44 @@ import { hasCapability, requireCapability } from "../capabilities.js";
 import { projectsDir } from "../paths.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Error classification — friendlier messages for common upstream failure modes
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Rewrite confusing upstream errors into actionable messages. The OpenRouter
+ * 403 "Key limit exceeded (total limit)" is the worst offender — appstore
+ * postmortem spent ~30 min debugging credits when the real cause was a
+ * per-endpoint concurrent-call cap (gpt-5.4-image-2 = 1). Several others got
+ * similar treatment so future agents don't repeat the debug cycle.
+ */
+function rewriteUpstreamError(model: string, status: number, rawText: string): string {
+  const lower = rawText.toLowerCase();
+  if (status === 403 && lower.includes("key limit exceeded")) {
+    return (
+      `OpenRouter 403 "Key limit exceeded" — this is misleading. The literal cause is a per-endpoint ` +
+      `CONCURRENT-CALL cap on your API key, not a credits issue. ` +
+      `For ${model}: run image batches at --concurrency 1 OR swap to google/gemini-3-pro-image-preview ` +
+      `(tolerates ≥4 parallel). Raw upstream: ${rawText.slice(0, 200)}`
+    );
+  }
+  if (status === 429 && lower.includes("concurrent_limit_exceeded")) {
+    return (
+      `Concurrent-limit exceeded (HTTP 429). ElevenLabs Music caps at 2-in-flight per subscription; ` +
+      `serialize the gen or reduce --concurrency. Raw upstream: ${rawText.slice(0, 200)}`
+    );
+  }
+  if (status === 400 && lower.includes("not in a valid base64 format")) {
+    return (
+      `Provider rejected the base64 payload with "not in a valid base64 format". ` +
+      `Common cause is C2PA / EXIF metadata in the ref image — the C2PA strip in resolveImageRef() ` +
+      `should have caught this. If it didn't, the source file may have a non-standard chunk format. ` +
+      `Try seedance-2.0 as the multi-frame fallback. Raw upstream: ${rawText.slice(0, 200)}`
+    );
+  }
+  return `${status}: ${rawText.slice(0, 500)}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Common types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -155,7 +193,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    const err = new Error(`OpenRouter images ${resp.status}: ${text.slice(0, 500)}`);
+    const err = new Error(`OpenRouter images ${rewriteUpstreamError(model, resp.status, text)}`);
     await logFailure(input, "openrouter", model, "image", body, err, t0);
     throw err;
   }
@@ -332,7 +370,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    const err = new Error(`OpenRouter videos submit ${resp.status}: ${text.slice(0, 500)}`);
+    const err = new Error(`OpenRouter videos submit ${rewriteUpstreamError(model, resp.status, text)}`);
     await logFailure(input, "openrouter", model, "video", body, err, t0);
     throw err;
   }
