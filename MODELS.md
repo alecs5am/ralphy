@@ -83,6 +83,19 @@ Always re-check via `ralphy models list` — these arrays change.
 3. **OR's per-clip billing** is fixed (e.g., a 5s kling-pro clip is ~$0.70 regardless of "duration in body" precision). The per-second figures above are therefore ballparks; pre-flight `--dry-run` to see the estimate before submitting.
 4. **`generate_audio: true` is unsafe outside English.** Confirmed for `kwaivgi/kling-v3.0-pro`, `bytedance/seedance-2.0`, and `google/veo-3.1` on Russian — accent slips, voice age drifts, text gets cut. Default is `false`; only enable for EN with `--audio`.
 
+5. **`kwaivgi/kling-v3.0-pro --last-frame` historically returned `400 "File is not in a valid base64 format"` even with a clean PNG anchor.** Root cause was C2PA / EXIF metadata that the provider parsed too eagerly. As of 2026-05-19, `cli/lib/providers/media.ts → resolveImageRef()` auto-strips metadata before base64 encoding, so the multi-frame path should now work on clean modern PNGs. If you still see the 400, the fallback is `bytedance/seedance-2.0` which honors `--last-frame` natively across all aspects. Postmortems flagging this: playdate / flipper / venom / glitter-cream.
+
+6. **`bytedance/seedance-2.0` privacy filter rejects photoreal-human anchors** with `InputImageSensitiveContentDetected.PrivacyInformation`, even when the human was itself AI-generated. Reserve seedance for cartoons / non-human anchors / landscapes / hands / abstract motion. For photoreal humans, default to `kwaivgi/kling-v3.0-pro` (single-frame or multi-frame after #5 lands). Postmortems: tokyo / noski / venom.
+
+7. **`kwaivgi/kling-v3.0-pro` 2500-char prompt cap.** OR returns 400 after a round-trip if you exceed it. Client-side validation is on the roadmap; for now, trim atmosphere/setting paragraphs first — voice-tag, no-music, on-camera-EN clauses are load-bearing and should never be cut. Postmortem: glitter-cream.
+
+8. **ElevenLabs Music 2-concurrent cap per subscription.** Three+ parallel calls return 429 `concurrent_limit_exceeded` and pollute `generations.jsonl` with error rows. Serialize music gen or stay ≤2 in-flight. Postmortem: tokyo.
+
+9. **OpenRouter per-key concurrent-call caps** are NOT visible from the catalog. Confirmed in production:
+   - `openai/gpt-5.4-image-2` — cap of 1 (returns misleading `403 "Key limit exceeded (total limit)"`). Run image batches at `--concurrency 1` or swap to `google/gemini-3-pro-image-preview` which tolerates ≥4 parallel.
+   - Most other endpoints — at least 4 concurrent is safe.
+   Postmortems: appstore / analog-horror.
+
 **Avoid:**
 - `kling-video/v1.6` or `v2.x` — outdated.
 - `luma-dream-machine` — worse than kling at the same price; out of OR catalog now.
