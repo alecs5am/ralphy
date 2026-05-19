@@ -141,6 +141,7 @@ export function generateCmd() {
     )
     .option("--negative <prompt>", "Negative prompt")
     .option("--note <note>", "Free-form note for generations.jsonl")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
@@ -154,6 +155,7 @@ export function generateCmd() {
         size: opts.size,
         negativePrompt: opts.negative,
         note: opts.note,
+        overwrite: opts.forceOverwrite,
       });
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
@@ -217,6 +219,7 @@ export function generateCmd() {
       "Skip the per-model `supported_*` validation against OR catalog (force-submit)"
     )
     .option("--note <note>", "Free-form note")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp4.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
@@ -281,6 +284,7 @@ export function generateCmd() {
         pollIntervalMs: opts.pollIntervalMs,
         pollMaxAttempts: opts.pollMaxAttempts,
         note: opts.note,
+        overwrite: opts.forceOverwrite,
       });
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
@@ -314,6 +318,7 @@ export function generateCmd() {
     .requiredOption("--text <text>", "VO text (RU or EN)")
     .option("--model <model>", "ElevenLabs TTS model id", "eleven_multilingual_v2")
     .option("--note <note>", "Free-form note")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
@@ -325,6 +330,7 @@ export function generateCmd() {
         text: opts.text,
         modelId: opts.model,
         note: opts.note,
+        overwrite: opts.forceOverwrite,
       });
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
@@ -355,6 +361,7 @@ export function generateCmd() {
     .requiredOption("--duration <seconds>", "Duration in seconds (3-600)", parseFloat)
     .option("--with-vocals", "Allow vocals (default: instrumental only)")
     .option("--note <note>", "Free-form note")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
@@ -366,6 +373,7 @@ export function generateCmd() {
         durationSec: opts.duration,
         forceInstrumental: !opts.withVocals,
         note: opts.note,
+        overwrite: opts.forceOverwrite,
       });
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
@@ -397,6 +405,7 @@ export function generateCmd() {
     .option("--duration <seconds>", "Duration in seconds (0.5-22)", parseFloat, 4)
     .option("--prompt-influence <n>", "Prompt adherence 0-1 (default 0.4 — let model interpret)", parseFloat, 0.4)
     .option("--note <note>", "Free-form note")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       validateSlot(opts.slot);
@@ -408,6 +417,7 @@ export function generateCmd() {
         durationSec: opts.duration,
         promptInfluence: opts.promptInfluence,
         note: opts.note,
+        overwrite: opts.forceOverwrite,
       });
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
