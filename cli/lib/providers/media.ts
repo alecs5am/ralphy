@@ -15,6 +15,9 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
+import os from "node:os";
+import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { logGeneration } from "../gen-log.js";
 import { hasCapability, requireCapability } from "../capabilities.js";
@@ -429,12 +432,64 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   return result;
 }
 
+/**
+ * Strip C2PA / EXIF / XMP / IPTC metadata from an image buffer before it goes into
+ * an i2v base64 payload. OpenRouter video providers (Kling especially on --last-frame,
+ * also seedance occasionally) reject payloads with `caBX` C2PA chunks as "File is
+ * not in a valid base64 format" — playdate + flipper + venom + glitter-cream all hit
+ * this. Cached by sha256 so repeated `--ref` uses of the same image don't re-strip.
+ *
+ * Best-effort: if ffmpeg is missing or fails, returns the original buf so the
+ * pipeline doesn't break — the agent will then see the upstream 400 with a clearer
+ * hint elsewhere.
+ */
+async function stripImageMetadata(srcBuf: Buffer, ext: string): Promise<Buffer> {
+  const normalized = ext === "jpeg" ? "jpg" : ext;
+  if (!["png", "jpg", "webp"].includes(normalized)) return srcBuf;
+
+  const sha = crypto.createHash("sha256").update(srcBuf).digest("hex").slice(0, 16);
+  const cacheDir = path.join(os.tmpdir(), "ralphy-stripped-refs");
+  const cachedOut = path.join(cacheDir, `${sha}.${normalized}`);
+
+  try {
+    return await fs.readFile(cachedOut);
+  } catch {
+    /* cache miss — fall through */
+  }
+
+  await fs.mkdir(cacheDir, { recursive: true });
+  const cachedIn = path.join(cacheDir, `${sha}.in.${normalized}`);
+  await fs.writeFile(cachedIn, srcBuf);
+
+  // JPEG: copy stream (preserves quality); PNG/WEBP: re-encode (lossless / near-lossless,
+  // but necessary because C2PA lives in non-image chunks that -c copy preserves).
+  const args =
+    normalized === "jpg"
+      ? ["-y", "-hide_banner", "-loglevel", "error", "-i", cachedIn, "-map_metadata", "-1", "-c", "copy", cachedOut]
+      : normalized === "png"
+        ? ["-y", "-hide_banner", "-loglevel", "error", "-i", cachedIn, "-map_metadata", "-1", "-compression_level", "100", cachedOut]
+        : ["-y", "-hide_banner", "-loglevel", "error", "-i", cachedIn, "-map_metadata", "-1", "-quality", "95", cachedOut];
+
+  const result = spawnSync("ffmpeg", args);
+  await fs.unlink(cachedIn).catch(() => {});
+
+  if (result.status !== 0) {
+    // ffmpeg failed — return original buf, downstream will still try
+    return srcBuf;
+  }
+
+  return await fs.readFile(cachedOut);
+}
+
 async function resolveImageRef(ref: string): Promise<string> {
   if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
     return ref;
   }
-  const buf = await fs.readFile(ref);
+  const rawBuf = await fs.readFile(ref);
   const ext = path.extname(ref).slice(1).toLowerCase();
+  // Strip C2PA / EXIF before base64 — OpenRouter video providers reject payloads
+  // with `caBX` C2PA chunks. See stripImageMetadata() for the rationale.
+  const buf = await stripImageMetadata(rawBuf, ext);
   const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "webp" ? "image/webp" : "image/png";
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
