@@ -23,3 +23,11 @@ dashboard/test-dashboard.ts
 # Skill-creator eval results — local only, too big to commit
 .skill-creator-workspace/
 docs/runtime-context.md
+
+# Remotion public/ — per-project asset trees are local-only symlinks
+# into workspace/ (which is already gitignored). Only public/fonts/ and
+# public/assets/ are intentionally tracked; per-project dirs are not.
+public/*-001
+public/*-001/
+public/project-*-001
+public/project-*-001/
