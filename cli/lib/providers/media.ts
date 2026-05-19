@@ -78,6 +78,8 @@ const IMAGE_PRICE_PER_GEN: Record<string, number> = {
   "google/gemini-3-pro-image-preview": 0.15,  // nano-banana lineage, multi-ref champ
   "google/gemini-3.1-flash-image-preview": 0.04,
   "google/gemini-2.5-flash-image": 0.02,      // cheapest
+  "recraft/recraft-v4.1-pro": 0.25,           // raster ~2K; image-only modality; max 1 ref
+  "recraft/recraft-v4.1-pro-vector": 0.30,    // SVG vector output; image-only modality; max 1 ref
 };
 const IMAGE_PRICE_FALLBACK = 0.15;
 
@@ -106,16 +108,23 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     type: "text",
     text: `Aspect/size hint: ${size} (vertical 9:16 if size is 1080x1920).`,
   });
+  // Recraft constraint: only one input image is supported.
+  const isRecraft = model.startsWith("recraft/");
   if (input.refs && input.refs.length > 0) {
-    for (const ref of input.refs) {
+    const refs = isRecraft ? input.refs.slice(0, 1) : input.refs;
+    for (const ref of refs) {
       const url = await resolveImageRef(ref);
       userContent.push({ type: "image_url", image_url: { url } });
     }
   }
 
+  // Recraft v4.1 vector is image-only — chat-completions rejects ["image","text"]
+  // for it with 404 "No endpoints found that support the requested output modalities".
+  const modalities = isRecraft ? ["image"] : ["image", "text"];
+
   const body: Record<string, unknown> = {
     model,
-    modalities: ["image", "text"],
+    modalities,
     messages: [{ role: "user", content: userContent }],
   };
 
@@ -145,15 +154,20 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const json = (await resp.json()) as {
     choices?: Array<{
       message?: {
+        content?: string;
         images?: Array<{ image_url?: { url?: string }; url?: string }>;
       };
+      finish_reason?: string;
     }>;
   };
   const imgEntry = json.choices?.[0]?.message?.images?.[0];
   const url = imgEntry?.image_url?.url ?? imgEntry?.url;
   if (!url) {
+    const finish = json.choices?.[0]?.finish_reason ?? "unknown";
+    const text = json.choices?.[0]?.message?.content ?? "";
+    const rawDump = JSON.stringify(json).slice(0, 1500);
     const err = new Error(
-      "OpenRouter image response had no choices[0].message.images[0]"
+      `OpenRouter image response had no images[0] (model=${model}, finish_reason=${finish}). Message text: ${text.slice(0, 600) || "<empty>"}. Raw response: ${rawDump}`
     );
     await logFailure(input, "openrouter", model, "image", body, err, t0);
     throw err;
@@ -310,9 +324,16 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     error?: string | { message?: string };
   };
 
-  let job = (await resp.json()) as VideoJob;
+  let job = (await resp.json()) as VideoJob & Record<string, unknown>;
   if (!job.id) {
-    const err = new Error("OpenRouter video submit had no job.id");
+    const jobErr =
+      typeof job.error === "string"
+        ? job.error
+        : (job.error as { message?: string } | undefined)?.message ?? "";
+    const rawDump = JSON.stringify(job).slice(0, 1500);
+    const err = new Error(
+      `OpenRouter video submit had no job.id (model=${model}). Error field: ${jobErr || "<empty>"}. Raw response: ${rawDump}`
+    );
     await logFailure(input, "openrouter", model, "video", body, err, t0);
     throw err;
   }

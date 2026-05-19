@@ -12,6 +12,7 @@ import {
   tonemapHDR,
   concatLossless,
   optimizeReencode,
+  addMusicBed,
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok, err } from "../lib/output.js";
@@ -179,6 +180,47 @@ export function videoCmd() {
         });
       } catch (e: any) {
         err(`smart-crop failed: ${e?.message || e}`);
+      }
+    });
+
+  // ── add-music ──────────────────────────────────────────────────────────
+  cmd
+    .command("add-music")
+    .description(
+      "Mix a music bed over the video's existing audio (SFX gets attenuated). Music auto-trims to video length with a fade-out tail."
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--music <path>", "Music audio file (mp3/m4a/wav)")
+    .requiredOption("--out <path>", "Output video")
+    .option("--music-vol <n>", "Music gain (default 1.0 = full)", (v) => Number(v), 1.0)
+    .option("--sfx-vol <n>", "Existing-audio gain (default 0.4 = background SFX)", (v) => Number(v), 0.4)
+    .option("--fade-out <sec>", "Music fade-out anchored to video end (default 1.5)", (v) => Number(v), 1.5)
+    .option("--fade-in <sec>", "Music fade-in (default 0)", (v) => Number(v), 0)
+    .option("--duck", "Sidechain duck music under SFX (music breathes when SFX hits)", false)
+    .option("--duck-threshold <n>", "Sidechain threshold (default 0.05)", (v) => Number(v), 0.05)
+    .option("--duck-ratio <n>", "Sidechain ratio (default 8 = heavy duck)", (v) => Number(v), 8)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await addMusicBed({
+          src: path.resolve(opts.in),
+          music: path.resolve(opts.music),
+          dst: path.resolve(opts.out),
+          musicVol: opts.musicVol,
+          sfxVol: opts.sfxVol,
+          fadeOutSec: opts.fadeOut,
+          fadeInSec: opts.fadeIn,
+          duck: opts.duck,
+          duckThreshold: opts.duckThreshold,
+          duckRatio: opts.duckRatio,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Music mixed → ${dst}`);
+        out({ src: opts.in, music: opts.music, dst, musicVol: opts.musicVol, sfxVol: opts.sfxVol, duck: opts.duck });
+      } catch (e: any) {
+        err(`add-music failed: ${e?.message || e}`);
       }
     });
 
