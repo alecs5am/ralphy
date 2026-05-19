@@ -91,32 +91,38 @@ export function doctorCmd() {
       }
 
       if (isPretty()) {
-        console.log(`\n  ralphy ${report.ralphy.version}`);
-        console.log(`  cwd:     ${report.ralphy.cwd}`);
-        console.log(`  project: ${report.ralphy.linkedProject ?? "(not linked)"}\n`);
-
-        console.log(`  deps`);
-        console.log(`    ${report.deps.bun ? "✓" : "✗"} bun`);
-        console.log(`    ${report.deps.ffmpeg ? "✓" : "✗"} ffmpeg\n`);
-
-        console.log(`  keys`);
-        for (const cap of CAPABILITIES) {
-          console.log(`    ${report.keys[cap.envVar] ? "✓" : "✗"} ${cap.envVar.padEnd(24)} ${cap.label}`);
-        }
+        const ui = await import("../lib/ui.js");
+        const { c, icons, section, kv } = ui;
         console.log();
+        console.log(`${icons.spark} ${c.bold("ralphy")} ${c.value("v" + report.ralphy.version)}`);
+        kv(
+          {
+            cwd: report.ralphy.cwd,
+            project: report.ralphy.linkedProject ?? c.muted("(not linked)"),
+          },
+          { maxKeyWidth: 8 },
+        );
+
+        section("Dependencies");
+        console.log(`  ${report.deps.bun ? icons.ok : icons.fail} bun`);
+        console.log(`  ${report.deps.ffmpeg ? icons.ok : icons.fail} ffmpeg`);
+
+        section("API keys");
+        for (const cap of CAPABILITIES) {
+          const ok = report.keys[cap.envVar];
+          console.log(`  ${ok ? icons.ok : icons.fail} ${c.label(cap.envVar.padEnd(24))} ${c.value(cap.label)}`);
+        }
 
         if (report.blockers.length > 0) {
-          console.log(`  blockers (${report.blockers.length}):`);
-          for (const b of report.blockers) console.log(`    ! ${b}`);
-          console.log();
+          section(`Blockers ${c.err(`(${report.blockers.length})`)}`);
+          for (const b of report.blockers) console.log(`  ${icons.fail} ${c.err(b)}`);
         }
         if (report.warnings.length > 0) {
-          console.log(`  warnings (${report.warnings.length}):`);
-          for (const w of report.warnings) console.log(`    ~ ${w}`);
-          console.log();
+          section(`Warnings ${c.warn(`(${report.warnings.length})`)}`);
+          for (const w of report.warnings) console.log(`  ${icons.warn} ${c.warn(w)}`);
         }
         if (report.blockers.length === 0 && report.warnings.length === 0) {
-          console.log(`  ready ✓\n`);
+          console.log(`\n  ${icons.ok} ${c.ok("ready")}\n`);
         }
         return;
       }

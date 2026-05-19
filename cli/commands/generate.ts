@@ -226,17 +226,27 @@ export function generateCmd() {
         return;
       }
 
-      const result = await generateImage({
-        projectId: opts.project,
-        slot: opts.slot,
-        prompt: opts.prompt,
-        model: resolveModelAlias(opts.model),
-        refs: opts.ref,
-        size: opts.size,
-        negativePrompt: opts.negative,
-        note: opts.note,
-        overwrite: opts.forceOverwrite,
-      });
+      const ui = await import("../lib/ui.js");
+      const resolvedModel = resolveModelAlias(opts.model);
+      const result = await ui.withSpinner(
+        `image (${resolvedModel}) → ${opts.slot}`,
+        () =>
+          generateImage({
+            projectId: opts.project,
+            slot: opts.slot,
+            prompt: opts.prompt,
+            model: resolvedModel,
+            refs: opts.ref,
+            size: opts.size,
+            negativePrompt: opts.negative,
+            note: opts.note,
+            overwrite: opts.forceOverwrite,
+          }),
+        {
+          successText: (r) => `image ${ui.c.cmd(opts.slot)} → ${ui.c.path(r.localPath)} ${ui.c.muted(`($${r.costUsd.toFixed(3)}, ${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+          failText: (e) => `image ${ui.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+        },
+      );
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
         kind: "image",
@@ -349,23 +359,33 @@ export function generateCmd() {
         return;
       }
 
-      const result = await generateVideo({
-        projectId: opts.project,
-        slot: opts.slot,
-        prompt: opts.prompt,
-        durationSec: opts.duration,
-        model: resolveModelAlias(opts.model),
-        firstFrame: opts.firstFrame,
-        lastFrame: opts.lastFrame,
-        image: opts.image,
-        aspectRatio: opts.aspectRatio,
-        resolution: opts.resolution,
-        generateAudio: opts.audio,
-        pollIntervalMs: opts.pollIntervalMs,
-        pollMaxAttempts: opts.pollMaxAttempts,
-        note: opts.note,
-        overwrite: opts.forceOverwrite,
-      });
+      const uiv = await import("../lib/ui.js");
+      const resolvedVideoModel = resolveModelAlias(opts.model);
+      const result = await uiv.withSpinner(
+        `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
+        () =>
+          generateVideo({
+            projectId: opts.project,
+            slot: opts.slot,
+            prompt: opts.prompt,
+            durationSec: opts.duration,
+            model: resolvedVideoModel,
+            firstFrame: opts.firstFrame,
+            lastFrame: opts.lastFrame,
+            image: opts.image,
+            aspectRatio: opts.aspectRatio,
+            resolution: opts.resolution,
+            generateAudio: opts.audio,
+            pollIntervalMs: opts.pollIntervalMs,
+            pollMaxAttempts: opts.pollMaxAttempts,
+            note: opts.note,
+            overwrite: opts.forceOverwrite,
+          }),
+        {
+          successText: (r) => `video ${uiv.c.cmd(opts.slot)} → ${uiv.c.path(r.localPath)} ${uiv.c.muted(`($${r.costUsd.toFixed(2)}, ${(r.latencyMs / 1000).toFixed(0)}s)`)}`,
+          failText: (e) => `video ${uiv.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+        },
+      );
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
         kind: "video",
@@ -412,16 +432,25 @@ export function generateCmd() {
       if (opts.similarityBoost !== undefined) voiceSettings.similarity_boost = opts.similarityBoost;
       if (opts.style !== undefined) voiceSettings.style = opts.style;
       if (opts.speakerBoost === false) voiceSettings.use_speaker_boost = false;
-      const result = await generateVoiceover({
-        projectId: opts.project,
-        slot: opts.slot,
-        voiceId: opts.voice,
-        text: opts.text,
-        modelId: opts.model,
-        voiceSettings: Object.keys(voiceSettings).length > 0 ? (voiceSettings as any) : undefined,
-        note: opts.note,
-        overwrite: opts.forceOverwrite,
-      });
+      const uivo = await import("../lib/ui.js");
+      const result = await uivo.withSpinner(
+        `voiceover (${opts.model}, voice ${opts.voice}) → ${opts.slot}`,
+        () =>
+          generateVoiceover({
+            projectId: opts.project,
+            slot: opts.slot,
+            voiceId: opts.voice,
+            text: opts.text,
+            modelId: opts.model,
+            voiceSettings: Object.keys(voiceSettings).length > 0 ? (voiceSettings as any) : undefined,
+            note: opts.note,
+            overwrite: opts.forceOverwrite,
+          }),
+        {
+          successText: (r) => `voiceover ${uivo.c.cmd(opts.slot)} → ${uivo.c.path(r.localPath)} ${uivo.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+          failText: (e) => `voiceover ${uivo.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+        },
+      );
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
         kind: "voiceover",
@@ -456,15 +485,24 @@ export function generateCmd() {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
-      const result = await generateMusic({
-        projectId: opts.project,
-        slot: opts.slot,
-        prompt: opts.prompt,
-        durationSec: opts.duration,
-        forceInstrumental: !opts.withVocals,
-        note: opts.note,
-        overwrite: opts.forceOverwrite,
-      });
+      const uim = await import("../lib/ui.js");
+      const result = await uim.withSpinner(
+        `music (${opts.duration}s${opts.withVocals ? "" : ", instrumental"}) → ${opts.slot}`,
+        () =>
+          generateMusic({
+            projectId: opts.project,
+            slot: opts.slot,
+            prompt: opts.prompt,
+            durationSec: opts.duration,
+            forceInstrumental: !opts.withVocals,
+            note: opts.note,
+            overwrite: opts.forceOverwrite,
+          }),
+        {
+          successText: (r) => `music ${uim.c.cmd(opts.slot)} → ${uim.c.path(r.localPath)} ${uim.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+          failText: (e) => `music ${uim.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+        },
+      );
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
         kind: "music",
@@ -500,15 +538,24 @@ export function generateCmd() {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
-      const result = await generateSfx({
-        projectId: opts.project,
-        slot: opts.slot,
-        prompt: opts.prompt,
-        durationSec: opts.duration,
-        promptInfluence: opts.promptInfluence,
-        note: opts.note,
-        overwrite: opts.forceOverwrite,
-      });
+      const uisfx = await import("../lib/ui.js");
+      const result = await uisfx.withSpinner(
+        `sfx (${opts.duration}s) → ${opts.slot}`,
+        () =>
+          generateSfx({
+            projectId: opts.project,
+            slot: opts.slot,
+            prompt: opts.prompt,
+            durationSec: opts.duration,
+            promptInfluence: opts.promptInfluence,
+            note: opts.note,
+            overwrite: opts.forceOverwrite,
+          }),
+        {
+          successText: (r) => `sfx ${uisfx.c.cmd(opts.slot)} → ${uisfx.c.path(r.localPath)} ${uisfx.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+          failText: (e) => `sfx ${uisfx.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+        },
+      );
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
         kind: "sfx",

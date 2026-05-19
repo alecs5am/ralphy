@@ -200,15 +200,23 @@ export function renderCmd() {
 
       const { link, created } = await ensureSymlink(projectId);
 
+      const ui = await import("../lib/ui.js");
       try {
-        ok(`Rendering ${compositionId} → ${renderFinal}`);
         const renderOut = opts.loudnorm ? renderRaw : renderFinal;
-        const rr = await runRemotionRender({
-          compositionId,
-          propsPath,
-          outputPath: renderOut,
-          cwd: root(),
-        });
+        const rr = await ui.withSpinner(
+          `Rendering ${compositionId} → ${path.basename(renderOut)}`,
+          () =>
+            runRemotionRender({
+              compositionId,
+              propsPath,
+              outputPath: renderOut,
+              cwd: root(),
+            }),
+          {
+            successText: () => `Rendered ${ui.c.cmd(compositionId)} → ${ui.c.path(renderOut)}`,
+            failText: () => `Render of ${ui.c.cmd(compositionId)} failed`,
+          },
+        );
         if (rr.exitCode !== 0) {
           await logGeneration(projectId, {
             provider: "other",
@@ -226,8 +234,11 @@ export function renderCmd() {
 
         let outputPath = renderOut;
         if (opts.loudnorm) {
-          ok(`Loudnorm → ${renderFinal}`);
-          const lr = await runLoudnorm(renderRaw, renderFinal);
+          const lr = await ui.withSpinner(
+            `Loudnorm → ${path.basename(renderFinal)}`,
+            () => runLoudnorm(renderRaw, renderFinal),
+            { successText: () => `Loudnorm applied (-16 LUFS) → ${ui.c.path(renderFinal)}` },
+          );
           if (lr.exitCode !== 0) {
             err(`ffmpeg loudnorm failed: ${lr.stderr.slice(-300)}`);
           }
