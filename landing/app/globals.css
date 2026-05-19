@@ -776,15 +776,68 @@ section { position: relative; padding-top: 80px; }
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Mosaic — kept for sample renders subsection
+   Mosaic — Pinterest-style masonry. Flex row of N columns;
+   greedy-packed by aspect weight in JS so all columns end up
+   close in height. The row aligns to center vertically so any
+   leftover height-delta is split top/bottom (not bottom-only).
    ───────────────────────────────────────────────────────────── */
 .mosaic {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-  grid-auto-flow: dense;
+  display: flex;
+  gap: 12px;
+  max-width: 880px;
+  margin: 0 auto;
+  align-items: stretch;
+  justify-content: center;
+}
+.mosaic-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* Infinite-scroll marquee container. Each .mosaic-col--marquee is a
+   vertical viewport; .mosaic-col-track holds the clips duplicated twice
+   and animates -50% so the loop is seamless. */
+.mosaic-marquee {
+  height: clamp(560px, 78vh, 820px);
+  overflow: hidden;
+  align-items: stretch;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+.mosaic-col--marquee {
+  overflow: hidden;
+  position: relative;
+}
+.mosaic-col-track {
+  display: flex;
+  flex-direction: column;
+  animation-name: marquee-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+/* Use margin-bottom (not gap) so the duplicated content has the same
+   rhythm at the loop join — translate(-50%) lands seamlessly. */
+.mosaic-col-track > * { margin-bottom: 12px; }
+.dir-up .mosaic-col-track { animation-name: marquee-up; }
+.dir-down .mosaic-col-track { animation-name: marquee-down; }
+.mosaic-col--marquee:hover .mosaic-col-track { animation-play-state: paused; }
+@keyframes marquee-up {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -50%, 0); }
+}
+@keyframes marquee-down {
+  from { transform: translate3d(0, -50%, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-col-track { animation: none !important; }
 }
 .mosaic .tile-v {
+  display: block;
+  width: 100%;
   position: relative; overflow: hidden;
   border-radius: 14px;
   background: #000;
@@ -852,21 +905,12 @@ section { position: relative; padding-top: 80px; }
   background: var(--vio);
   color: var(--bg);
 }
-.t-v1 { grid-column: span 1; aspect-ratio: 9 / 16; }
-.t-v2 { grid-column: span 2; aspect-ratio: 9 / 16; grid-row: span 2; }
-.t-h2 { grid-column: span 2; aspect-ratio: 16 / 11; }
-.t-h3 { grid-column: span 3; aspect-ratio: 16 / 9; }
-.t-sq { grid-column: span 1; aspect-ratio: 1; }
-@media (max-width: 1000px) {
-  .mosaic { grid-template-columns: repeat(4, 1fr); }
-  .t-h3 { grid-column: span 4; }
-  .t-v2 { grid-column: span 2; }
-}
-@media (max-width: 640px) {
-  .mosaic { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .t-v1, .t-sq, .t-h2, .t-v2, .t-h3 { grid-column: span 1; grid-row: span 1; aspect-ratio: 9 / 16; }
-  .mosaic .tile-v:nth-child(7n) { grid-column: span 2; aspect-ratio: 16 / 11; }
-}
+/* Aspect classes — drive tile height in the column flow. */
+.t-v1, .t-v2 { aspect-ratio: 9 / 16; }
+.t-sq { aspect-ratio: 1 / 1; }
+.t-h2, .t-h3 { aspect-ratio: 16 / 9; }
+@media (max-width: 720px) { .mosaic { max-width: 560px; gap: 8px; } .mosaic-col { gap: 8px; } }
+@media (max-width: 480px) { .mosaic { max-width: 360px; } }
 
 /* ─────────────────────────────────────────────────────────────
    Lightbox
@@ -882,13 +926,21 @@ section { position: relative; padding-top: 80px; }
 @keyframes fadeOnly { from { opacity: 0; } to { opacity: 1; } }
 .lightbox .stage {
   position: relative;
-  width: min(420px, 100%);
-  aspect-ratio: 9 / 16;
+  display: inline-block;
+  max-width: min(95vw, 1280px);
+  max-height: 90vh;
   border-radius: 20px; overflow: hidden;
   background: black;
   border: 1px solid var(--line-3);
+  line-height: 0;
 }
-.lightbox video { width: 100%; height: 100%; object-fit: cover; }
+.lightbox video {
+  display: block;
+  max-width: min(95vw, 1280px);
+  max-height: 90vh;
+  width: auto; height: auto;
+  object-fit: contain;
+}
 .lightbox .lb-close,
 .lightbox .nav-btn {
   position: absolute;
@@ -902,13 +954,43 @@ section { position: relative; padding-top: 80px; }
 .lightbox .nav-prev { left: 24px; }
 .lightbox .nav-next { right: 24px; }
 .lightbox .lb-meta {
-  position: absolute; left: 24px; bottom: 24px; right: 24px;
-  display: flex; align-items: end; justify-content: space-between;
-  gap: 14px;
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 64px 24px 20px;
+  pointer-events: none;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.78) 0%, rgb(0 0 0 / 0.45) 55%, transparent 100%);
   color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 12.5px;
 }
+.lightbox .lb-meta-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vio-2);
+  margin-bottom: 8px;
+}
+.lightbox .lb-meta-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 18px;
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+  color: #fff;
+}
+.lightbox .lb-mute {
+  position: absolute; top: 16px; left: 16px; z-index: 4;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 180ms ease, transform 180ms ease;
+}
+.lightbox .lb-mute:hover { background: rgb(0 0 0 / 0.75); transform: scale(1.05); }
 
 /* ─────────────────────────────────────────────────────────────
    Pixel mascot (small, used as logo glyph + as standalone)

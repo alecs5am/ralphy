@@ -173,25 +173,23 @@ export type Clip = {
   span: "v1" | "v2" | "h2" | "h3" | "sq";
 };
 
-// 12-tile mosaic — 2 v2 (4 cells each) + 10 v1 (1 each) = 18 cells = 3 rows
-// on a 6-col grid. Adding more clips here without matching the cell math
-// will leave dense-flow gaps; trim or re-balance v2 spans accordingly.
+// Masonry mosaic — Pinterest-style CSS multi-column flow. Each tile renders
+// at its native aspect-ratio (span → aspect class in globals.css). Order here
+// dictates column-fill order, not a strict grid layout.
 export const clips: Clip[] = [
-  // Real Ralphy renders from ralphy-assets/examples/showcase — hero tiles.
+  // Order matters: drives top-of-column placement in the LPT packer.
+  // First 3 portrait items land at the top of cols 0/1/2.
+  { id: "noski-people-001", src: "/assets/showcase/noski-people-001.mp4", poster: "/assets/showcase/posters/noski-people-001.jpg", label: "Photoreal", title: "Noski people", span: "v1" },
   { id: "nothing-hp1-001", src: "/assets/showcase/nothing-hp1-001.mp4", poster: "/assets/showcase/posters/nothing-hp1-001.jpg", label: "Product Ad", title: "Nothing HP1 launch", span: "v2" },
-  { id: "flipper-hypermotion-001", src: "/assets/showcase/flipper-hypermotion-001.mp4", poster: "/assets/showcase/posters/flipper-hypermotion-001.jpg", label: "Hyper Motion", title: "Flipper Zero ad", span: "v1" },
-  { id: "occult-mockumentary-001", src: "/assets/showcase/occult-mockumentary-001.mp4", poster: "/assets/showcase/posters/occult-mockumentary-001.jpg", label: "Horror Short", title: "Occult mockumentary", span: "v1" },
-  { id: "glitter-cream-001", src: "/assets/showcase/glitter-cream-001.mp4", poster: "/assets/showcase/posters/glitter-cream-001.jpg", label: "UGC Selfie", title: "Glitter-cream review", span: "v2" },
   { id: "analog-horror-fridge-001", src: "/assets/showcase/analog-horror-fridge-001.mp4", poster: "/assets/showcase/posters/analog-horror-fridge-001.jpg", label: "Analog Horror", title: "Compliance Bulletin 9-D", span: "v1" },
-
-  // Legacy reference fillers — kept to round out the mosaic to 12 tiles.
-  { id: "metal-04", src: "/assets/videos/metal-04.mp4", poster: "/assets/posters/metal-04.jpg", label: "Hyper Motion", title: "The commission", span: "v1" },
-  { id: "soviet-03", src: "/assets/videos/soviet-03.mp4", poster: "/assets/posters/soviet-03.jpg", label: "Horror Short", title: "Shop floor", span: "v1" },
-  { id: "metal-07", src: "/assets/videos/metal-07.mp4", poster: "/assets/posters/metal-07.jpg", label: "Brand Spot", title: "The cap, worn", span: "v1" },
-  { id: "soviet-02", src: "/assets/videos/soviet-02.mp4", poster: "/assets/posters/soviet-02.jpg", label: "Lifestyle", title: "Walk to factory", span: "v1" },
-  { id: "metal-08", src: "/assets/videos/metal-08.mp4", poster: "/assets/posters/metal-08.jpg", label: "Brand Spot", title: "Still life · cap", span: "v1" },
-  { id: "soviet-04", src: "/assets/videos/soviet-04.mp4", poster: "/assets/posters/soviet-04.jpg", label: "Documentary", title: "Canteen tray", span: "v1" },
-  { id: "metal-02", src: "/assets/videos/metal-02.mp4", poster: "/assets/posters/metal-02.jpg", label: "Hyper Motion", title: "Lab microscope", span: "v1" },
+  { id: "flipper-hypermotion-001", src: "/assets/showcase/flipper-hypermotion-001.mp4", poster: "/assets/showcase/posters/flipper-hypermotion-001.jpg", label: "Hyper Motion", title: "Flipper Zero ad", span: "v1" },
+  { id: "glitter-cream-001", src: "/assets/showcase/glitter-cream-001.mp4", poster: "/assets/showcase/posters/glitter-cream-001.jpg", label: "UGC Selfie", title: "Glitter-cream review", span: "v2" },
+  { id: "occult-mockumentary-001", src: "/assets/showcase/occult-mockumentary-001.mp4", poster: "/assets/showcase/posters/occult-mockumentary-001.jpg", label: "Horror Short", title: "Occult mockumentary", span: "v1" },
+  { id: "fruit-drama-001", src: "/assets/showcase/fruit-drama-001.mp4", poster: "/assets/showcase/posters/fruit-drama-001.jpg", label: "Anthropomorphic", title: "Fruit drama", span: "v1" },
+  { id: "playdate-pixel-001", src: "/assets/showcase/playdate-pixel-001.mp4", poster: "/assets/showcase/posters/playdate-pixel-001.jpg", label: "Pixel Art", title: "Playdate reveal", span: "v1" },
+  { id: "kbo-broadcast-001", src: "/assets/showcase/kbo-broadcast-001.mp4", poster: "/assets/showcase/posters/kbo-broadcast-001.jpg", label: "Broadcast", title: "KBO caught-on-TV", span: "sq" },
+  { id: "tokyo-y2k-001", src: "/assets/showcase/tokyo-y2k-001.mp4", poster: "/assets/showcase/posters/tokyo-y2k-001.jpg", label: "Cinematic", title: "Tokyo Y2K", span: "h2" },
+  { id: "skater-spiderverse-001", src: "/assets/showcase/skater-spiderverse-001.mp4", poster: "/assets/showcase/posters/skater-spiderverse-001.jpg", label: "Comic", title: "Skater duel", span: "h2" },
 ];
 
 /* ─────────────────────────────────────────────────────────────
