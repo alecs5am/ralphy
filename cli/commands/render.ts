@@ -22,18 +22,42 @@ type CompositionProps = {
   [k: string]: unknown;
 };
 
-async function readCompositionProps(projectId: string): Promise<{
+async function readCompositionProps(
+  projectId: string,
+  fallbackCompositionId?: string,
+): Promise<{
   path: string;
   data: CompositionProps;
   /** True if we materialized a transient resolved props file to inject captions/etc. */
   isTransient: boolean;
+  /** True if we had to auto-stub the file because it didn't exist. */
+  autoStubbed: boolean;
 }> {
   const propsPath = path.join(projectsDir(), projectId, "composition-props.json");
+  let autoStubbed = false;
   if (!existsSync(propsPath)) {
-    err(
-      `composition-props.json not found at ${propsPath} — author the composition first ` +
-        `(handoff to editor playbook or run "ralph project show ${projectId}").`,
-    );
+    // Three postmortems (tokyo, glitter-cream, analog-horror) flagged this as a
+    // hard-required-but-undocumented file that every new editor session burned
+    // one render attempt on. If the caller passed --composition <id> we have
+    // enough to author a minimal stub here and proceed; the user can edit it
+    // later to add per-composition inputProps.
+    if (fallbackCompositionId) {
+      await fs.mkdir(path.dirname(propsPath), { recursive: true });
+      await fs.writeFile(
+        propsPath,
+        JSON.stringify({ compositionId: fallbackCompositionId }, null, 2) + "\n",
+      );
+      autoStubbed = true;
+      // eslint-disable-next-line no-console
+      console.error(
+        `ralphy: composition-props.json auto-stubbed → ${propsPath} (compositionId="${fallbackCompositionId}"). Edit to add inputProps if needed.`,
+      );
+    } else {
+      err(
+        `composition-props.json not found at ${propsPath} — pass --composition <id> to auto-stub, ` +
+          `or author the composition first (handoff to editor playbook or run "ralph project show ${projectId}").`,
+      );
+    }
   }
   const raw = await fs.readFile(propsPath, "utf8");
   let data: CompositionProps;
@@ -66,9 +90,9 @@ async function readCompositionProps(projectId: string): Promise<{
   if (isTransient) {
     const resolvedPath = path.join(projectsDir(), projectId, ".composition-props.resolved.json");
     await fs.writeFile(resolvedPath, JSON.stringify(data) + "\n");
-    return { path: resolvedPath, data, isTransient: true };
+    return { path: resolvedPath, data, isTransient: true, autoStubbed };
   }
-  return { path: propsPath, data, isTransient: false };
+  return { path: propsPath, data, isTransient: false, autoStubbed };
 }
 
 async function ensureSymlink(projectId: string): Promise<{ link: string; created: boolean }> {
@@ -162,7 +186,10 @@ export function renderCmd() {
     .option("--keep-symlink", "Don't remove the public/project-<id> symlink after render")
     .action(async (projectId: string, opts) => {
       const t0 = Date.now();
-      const { path: propsPath, data: props, isTransient } = await readCompositionProps(projectId);
+      const { path: propsPath, data: props, isTransient } = await readCompositionProps(
+        projectId,
+        opts.composition,
+      );
       const compositionId = opts.composition ?? props.compositionId ?? "UGCVideo";
       const renderDir = path.join(projectsDir(), projectId, "render");
       await fs.mkdir(renderDir, { recursive: true });
