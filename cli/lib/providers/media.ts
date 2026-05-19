@@ -45,6 +45,12 @@ type CommonInput = {
   slot: string;
   /** Free-form note for `generations.jsonl`. */
   note?: string;
+  /**
+   * If true, overwrite an existing slot file in place (legacy behavior, data-destructive).
+   * Default false → auto-archive the existing file to `<slot>.v{N}.<ext>` before writing the new
+   * version. Closes AGENTS.md invariant #13 enforcement: 10/10 postmortems hit silent overwrite.
+   */
+  overwrite?: boolean;
   signal?: AbortSignal;
 };
 
@@ -173,10 +179,9 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     throw err;
   }
 
-  const localPath = await writeImageFromUrlOrDataUri(
-    url,
-    assetPath(input.projectId, "images", `${input.slot}.png`)
-  );
+  const imgDest = assetPath(input.projectId, "images", `${input.slot}.png`);
+  await protectExistingAsset(imgDest, input.overwrite);
+  const localPath = await writeImageFromUrlOrDataUri(url, imgDest);
 
   const result: GenerateResult = {
     url,
@@ -393,6 +398,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     throw err;
   }
   const buf = Buffer.from(await dl.arrayBuffer());
+  await protectExistingAsset(dest, input.overwrite);
   await fs.writeFile(dest, buf);
 
   const pricePerSec = VIDEO_PRICE_PER_SEC[model] ?? 0.14;
@@ -498,6 +504,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
   const buf = Buffer.from(await resp.arrayBuffer());
   const localPath = assetPath(input.projectId, "voiceover", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
+  await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
 
   // ElevenLabs subscription billing — log "subscription" not a per-call price.
@@ -574,6 +581,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
   const buf = Buffer.from(await resp.arrayBuffer());
   const localPath = assetPath(input.projectId, "music", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
+  await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
 
   const result: GenerateResult = {
@@ -649,6 +657,7 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
   const buf = Buffer.from(await resp.arrayBuffer());
   const localPath = assetPath(input.projectId, "sfx", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
+  await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
 
   const result: GenerateResult = {
@@ -677,6 +686,52 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
 
 function assetPath(projectId: string, kind: string, filename: string): string {
   return path.join(projectsDir(), projectId, "assets", kind, filename);
+}
+
+/**
+ * Append-only protection for asset slots. Before any generator overwrites
+ * `destPath`, archive the existing file to `<base>.v{N}<ext>` where N is the
+ * next free version number. Caller passes `overwrite=true` to bypass.
+ *
+ * Returns the archived path (or null if nothing existed or overwrite was opted-in).
+ * Emits a stderr line so the agent / user can see what happened.
+ *
+ * Cross-cutting fix: 6 of 10 postmortems traced lost artifacts to silent overwrite.
+ */
+async function protectExistingAsset(
+  destPath: string,
+  overwrite: boolean | undefined,
+): Promise<string | null> {
+  if (overwrite) return null;
+  try {
+    await fs.access(destPath);
+  } catch {
+    return null;
+  }
+  const dir = path.dirname(destPath);
+  const ext = path.extname(destPath);
+  const base = path.basename(destPath, ext);
+  // Find the highest existing <base>.v{N}<ext> so we don't clobber a previous archive.
+  let maxV = 0;
+  try {
+    const siblings = await fs.readdir(dir);
+    const escapedBase = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedExt = ext.replace(/\./g, "\\.");
+    const rx = new RegExp(`^${escapedBase}\\.v(\\d+)${escapedExt}$`);
+    for (const s of siblings) {
+      const m = rx.exec(s);
+      if (m) maxV = Math.max(maxV, Number(m[1]));
+    }
+  } catch {
+    // dir doesn't exist? unreachable since destPath exists; defensive only.
+  }
+  const archivedPath = path.join(dir, `${base}.v${maxV + 1}${ext}`);
+  await fs.rename(destPath, archivedPath);
+  // eslint-disable-next-line no-console
+  console.error(
+    `ralphy: existing asset auto-archived → ${archivedPath} (pass --force-overwrite to disable)`,
+  );
+  return archivedPath;
 }
 
 async function downloadTo(url: string, dest: string): Promise<string> {
