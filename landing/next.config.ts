@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
     // components, which is wrong (this is a Next.js app, not a Remotion video).
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/ralphy",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
