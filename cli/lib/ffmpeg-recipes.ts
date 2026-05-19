@@ -332,6 +332,105 @@ export async function optimizeReencode(input: OptimizeInput): Promise<string> {
   return dst;
 }
 
+function probeDurationSec(src: string): number {
+  const r = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", src],
+    { encoding: "utf8" }
+  );
+  const v = parseFloat((r.stdout || "").trim());
+  return Number.isFinite(v) ? v : 0;
+}
+
+// --- Recipe 8: add music bed over existing video audio -----------------
+
+export type AddMusicBedInput = {
+  /** Input video (with optional existing audio track) */
+  src: string;
+  /** Music audio file (mp3/m4a/wav) */
+  music: string;
+  /** Output video */
+  dst: string;
+  /** Music gain. Default 1.0 (full) */
+  musicVol?: number;
+  /** Existing-audio gain. Default 0.4 (background SFX) */
+  sfxVol?: number;
+  /** Music fade-out in seconds, anchored to video end. Default 1.5 */
+  fadeOutSec?: number;
+  /** Music fade-in in seconds. Default 0.0 */
+  fadeInSec?: number;
+  /** Sidechain duck music under SFX (music breathes when SFX hits). Default false (flat amix). */
+  duck?: boolean;
+  /** Sidechain compressor threshold, default 0.05 */
+  duckThreshold?: number;
+  /** Sidechain compressor ratio, default 8 */
+  duckRatio?: number;
+} & FFmpegOptions;
+
+export async function addMusicBed(input: AddMusicBedInput): Promise<string> {
+  const {
+    src,
+    music,
+    dst,
+    musicVol = 1.0,
+    sfxVol = 0.4,
+    fadeOutSec = 1.5,
+    fadeInSec = 0,
+    duck = false,
+    duckThreshold = 0.05,
+    duckRatio = 8,
+    ...opts
+  } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+
+  const videoDurSec = probeDurationSec(src);
+  if (videoDurSec <= 0) throw new Error(`Could not probe duration of ${src}`);
+  const fadeOutStart = Math.max(0, videoDurSec - fadeOutSec);
+
+  const musicChain =
+    `volume=${musicVol}` +
+    (fadeInSec > 0 ? `,afade=t=in:st=0:d=${fadeInSec}` : "") +
+    (fadeOutSec > 0 ? `,afade=t=out:st=${fadeOutStart}:d=${fadeOutSec}` : "");
+
+  // amix with duration=first → output length = video audio length.
+  // normalize=0 keeps explicit volumes (default amix normalize would halve them).
+  // duck=true: route music through sidechaincompress keyed by SFX, then mix.
+  const filter = duck
+    ? [
+        `[0:a]volume=${sfxVol}[sfx]`,
+        `[1:a]${musicChain}[m]`,
+        `[m][sfx]sidechaincompress=threshold=${duckThreshold}:ratio=${duckRatio}:attack=10:release=250[mducked]`,
+        `[sfx][mducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
+      ].join(";")
+    : [
+        `[0:a]volume=${sfxVol}[sfx]`,
+        `[1:a]${musicChain}[m]`,
+        `[sfx][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
+      ].join(";");
+
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-i", music,
+      "-filter_complex", filter,
+      "-map", "0:v",
+      "-map", "[mix]",
+      "-c:v", "copy",
+      "-c:a", "aac",
+      "-b:a", "192k",
+      "-shortest",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/add-music-bed",
+      input: { src, music, dst, musicVol, sfxVol, fadeOutSec, fadeInSec, duck, duckThreshold, duckRatio, videoDurSec },
+      opts,
+    }
+  );
+  return dst;
+}
+
 export async function burnSubtitles(input: BurnSubtitlesInput): Promise<string> {
   const {
     src,
