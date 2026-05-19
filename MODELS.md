@@ -93,8 +93,25 @@ Always re-check via `ralphy models list` — these arrays change.
 
 9. **OpenRouter per-key concurrent-call caps** are NOT visible from the catalog. Confirmed in production:
    - `openai/gpt-5.4-image-2` — cap of 1 (returns misleading `403 "Key limit exceeded (total limit)"`). Run image batches at `--concurrency 1` or swap to `google/gemini-3-pro-image-preview` which tolerates ≥4 parallel.
+   - `elevenlabs/music_v1` — cap of 2 (returns `429 concurrent_limit_exceeded`).
    - Most other endpoints — at least 4 concurrent is safe.
-   Postmortems: appstore / analog-horror.
+   `cli/lib/providers/media.ts → rewriteUpstreamError()` rewrites both error messages into actionable hints.
+   Postmortems: appstore / analog-horror / tokyo.
+
+## Tried-and-dropped (postmortem cross-reference)
+
+| Model | Context where it failed | Why | Postmortem |
+|---|---|---|---|
+| `bytedance/seedance-2.0` | photoreal-human i2v anchors | privacy filter `InputImageSensitiveContentDetected.PrivacyInformation` | tokyo, noski, venom |
+| `kwaivgi/kling-v3.0-pro` multi-frame | first+last-frame i2v | `400 not in a valid base64 format` — mitigated 2026-05-19 by auto-C2PA-strip in `resolveImageRef()` | flipper, playdate, venom, glitter-cream |
+| `kwaivgi/kling-v3.0-pro --audio` | non-English VO | accent slip + voice-age drift | noski, venom |
+| `google/veo-3.1` | 15s+ clips | 8s cap; needed Kling 15s with `--audio` instead | kbo |
+| `openai/gpt-5.4-image-2` | concurrent batches >1 | 403 "Key limit exceeded" — cap of 1 per OR key | appstore |
+| `eleven_multilingual_v2` (Ava, Marcus) | analog-horror PSA monotone | too much human inflection — switched to "Alerter" community voice with stability~0.5 / style 0 | analog-horror |
+| `kwaivgi/kling-v3.0-pro` for hyper-motion | 8-cut Japanese product ad | too narrative / slow for explosions; needed seedance physics | flipper |
+| `google/gemini-3-pro-image-preview` | product-fidelity with embedded text (kanji buttons, LED digits) | smudges typography; gpt-5.4-image-2 holds it | flipper |
+| Generic "1-bit / pixel-art" prompt vocabulary | duotone halftone aesthetic | ambiguous 3-way (1-bit vs 8-bit vs hand-illustrated); needed named-corpus refs | playdate |
+| `bytedance/seedance-2.0` t2v + i2v anchor poster | spider-verse skater | image-anchor with baked-in-text confuses; pure t2v with strong subject-block worked | skater |
 
 **Avoid:**
 - `kling-video/v1.6` or `v2.x` — outdated.
