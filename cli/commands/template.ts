@@ -5,6 +5,7 @@ import { addEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
 import { templatesDir, repoTemplatesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
+import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
 
 // Templates live in two places (both readable transparently):
 //   - templates/                  → repo-public, committed to git, shipped on clone
@@ -480,17 +481,21 @@ export function templateCmd() {
 
   cmd
     .command("suggest <utterance...>")
-    .description("Rank templates by keyword match against tags + metadata. Returns top-3 with score 0..1.")
+    .description(
+      "Rank templates for a user utterance. Hybrid: substring scorer first (fast, free); if top-1 score is below threshold (default 0.7), fall through to an LLM-rerank pass that handles Russian / paraphrase / concept-level / typo queries. Returns top-N with reasoning when LLM fires.",
+    )
     .option("--limit <n>", "Max results", (v) => parseInt(v, 10), 3)
-    .action(async (utteranceArgs: string[], opts: { limit: number }) => {
-      const utterance = utteranceArgs.join(" ").toLowerCase();
-      const tokens = utterance
-        .split(/[\s,.;:!?]+/)
-        .map((t) => t.replace(/[^a-z0-9-]/gi, "").toLowerCase())
-        .filter((t) => t.length >= 2);
+    .option("--threshold <n>", "Min keyword score before falling through to LLM (default 0.7)", (v) => parseFloat(v), 0.7)
+    .option("--no-llm", "Force keyword-only — skip the LLM fallback even if the keyword scorer comes back below threshold")
+    .option("--llm-model <id>", "LLM model id for the rerank pass (default google/gemini-2.5-flash)")
+    .action(async (utteranceArgs: string[], opts: { limit: number; threshold: number; llm: boolean; llmModel?: string }) => {
+      const utterance = utteranceArgs.join(" ");
 
+      // Build the Candidate[] from the on-disk template catalog. This is the
+      // same disk walk the legacy implementation did; it's lifted up into a
+      // pure-data shape that the new suggest.ts can score without touching fs.
       const refs = await discoverAllTemplates();
-      const scored = await Promise.all(
+      const candidates: Candidate[] = await Promise.all(
         refs.map(async (ref) => {
           const id = ref.kind === "dir" ? path.basename(ref.dir) : path.basename(ref.file).replace(/\.json$/, "");
           const meta = await readTemplateMeta(ref);
@@ -498,55 +503,38 @@ export function templateCmd() {
           if (ref.kind === "dir") {
             docText = await fs.readFile(ref.docPath, "utf-8").catch(() => "");
           }
-          const tags: string[] = Array.isArray(meta?.tags) ? meta.tags : [];
-          const description: string = typeof meta?.description === "string" ? meta.description : "";
-          const name: string = typeof meta?.name === "string" ? meta.name : id;
-          const haystack = [
-            id,
-            name,
-            description,
-            tags.join(" "),
-            docText.slice(0, 500),
-          ]
-            .join(" ")
-            .toLowerCase();
-
-          let hits = 0;
-          let tagHits = 0;
-          for (const token of tokens) {
-            if (!token) continue;
-            if (tags.some((tag) => tag.toLowerCase().includes(token))) {
-              tagHits += 1;
-              hits += 1;
-            } else if (haystack.includes(token)) {
-              hits += 1;
-            }
-          }
-          const denom = Math.max(1, tokens.length);
-          // Tag matches are weighted 2× — they're the most intentional signal.
-          const score = Math.min(1, (hits + tagHits) / (denom * 2));
-
           return {
-            id,
-            name,
-            description,
-            tags,
-            source: ref.source,
-            score: Number(score.toFixed(3)),
-            tier:
-              score >= 0.7 ? "strong" : score >= 0.5 ? "weak" : "below-threshold",
+            slug: id,
+            name: typeof meta?.name === "string" ? meta.name : id,
+            description: typeof meta?.description === "string" ? meta.description : "",
+            tags: Array.isArray(meta?.tags) ? meta.tags : [],
+            doc: docText,
+            meta: { source: ref.source, kind: meta?.kind },
           };
         }),
       );
 
-      const top = (scored.filter((x): x is NonNullable<typeof x> => x !== null))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, opts.limit);
+      const result = await suggestTemplates(utterance, candidates, {
+        limit: opts.limit,
+        threshold: opts.threshold,
+        disableLlm: opts.llm === false,
+        llmModel: opts.llmModel,
+      });
 
       out({
-        utterance,
-        tokens,
-        results: top,
+        utterance: result.utterance,
+        source: result.source, // "keyword" | "llm" | "keyword-fallback"
+        llmNote: result.llmNote,
+        results: result.results.map((r) => ({
+          id: r.slug,
+          name: r.name,
+          description: r.description,
+          tags: r.tags,
+          source: (r.meta?.source as string | undefined) ?? "repo",
+          score: r.score,
+          tier: r.tier,
+          ...(r.reasoning ? { reasoning: r.reasoning } : {}),
+        })),
       });
     });
 
