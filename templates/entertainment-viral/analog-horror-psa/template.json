@@ -1,0 +1,364 @@
+{
+  "name": "Analog Horror PSA",
+  "slug": "analog-horror-psa",
+  "kind": "vibe-style",
+  "description": "Fake government-issued emergency behavioral PSA in analog-horror style. Cold robo-female ElevenLabs VO narrates an IF / DO-NOT / BUT / AND beat scaffold over flat yellow pixelated 1970s-civil-defense pictogram icons on pure-black bg. 30s, 9:16, ~10 scenes x ~3s. No music by default — pure SFX bed (VHS hiss, CRT pop, EBS alert, signal-lost 1kHz). VT323 word-pop captions with red glitch shadow. Heavy 5-layer chromatic aberration on icons AND captions synchronized to a single jitter beat. Climax cuts to full-screen SMPTE-style blurred color bars + signal-lost tone. Format owes its DNA to Father-Eats-in-the-Basement-class EBS PSA found-footage videos.",
+  "tags": [
+    "analog-horror",
+    "psa",
+    "ebs",
+    "government-bulletin",
+    "found-footage",
+    "robo-female-vo",
+    "monotone",
+    "pictogram-icons",
+    "yellow-on-black",
+    "1970s-civil-defense",
+    "vhs",
+    "crt",
+    "scanlines",
+    "chromatic-aberration",
+    "rgb-split",
+    "vt323",
+    "word-pop-captions",
+    "if-do-not-but-and",
+    "no-music",
+    "smpte-color-bars",
+    "signal-lost",
+    "elevenlabs-alerter",
+    "compliance-bulletin",
+    "youtube-shorts",
+    "tiktok"
+  ],
+  "platform": "youtube-shorts",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    25,
+    35
+  ],
+  "typicalClipCount": [
+    8,
+    12
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "sourceProject": "workspace/projects/analog-horror-fridge-001",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview (nano-banana-pro) via OpenRouter — flat yellow #ffd400 pictograms on pure black #000000. ONE prototype shot first (gpt-5.4-image-2 OR nano-banana), then style-lock and batch the remaining ~9 sibling icons sequentially with that prototype as --ref. NEVER use --queue (hits an undocumented OpenRouter burst-cap 403 on parallel image gen). Pure black bg is mandatory — chroma-keyed to alpha via ffmpeg colorkey before composition.",
+    "i2v": "OFF. This format is icon-driven, not photoreal-video-driven. All motion is Remotion-side (eye-dot blinks, slash flickers, jitter, glitch beats). Adding kling/seedance i2v breaks the PSA-graphic register.",
+    "voiceover": "ElevenLabs eleven_multilingual_v2 — cold robo-female PSA monotone. Voice {{vo_voice_id}} (project used 'Alerter' community voice + 'weA4Q36twV5kwSaTEL0Q' Ava as fallback). Input text in ALL CAPS to coerce flatter cadence. stability ~0.5, similarity ~0.75, style 0.10-0.15. ~250ms pause between sentences. Verify voice exists via /v1/voices/<id> before bulk gen (community voice IDs can 404 between sessions). Run sequentially, ElevenLabs 429s on >3 concurrent.",
+    "sfx": "ElevenLabs sound_generation_v2 via `ralphy generate sfx`. ~13-17 clips: VHS-hiss bed, static-pop (per scene start), EBS alert tone, low sub-bass drone, dog-breath, mirror-shimmer, buried child-whisper, low-growl-rise, signal-lost 1kHz sine, RGB-static burst, wind-through-trees, collar-jingle-stops, distant-bark-slowed. For climax monster reveals: generate 4 growl VARIANTS and LAYER at staggered offsets — single growl reads as 'chihuahua yipping'.",
+    "music": "OFF BY DEFAULT — matches reference. Optional faint sub-bass synth-tension drone at -34 LUFS (yt-dlp pull from a user-supplied YT track is the 2-min path; don't bother with ElevenLabs Music for this format). If used, volume 0.35-0.40 to sit above the VHS-hiss bed.",
+    "captions": "VT323 word-pop, yellow #ffd400 fill + 6px black stroke, 112px, bottom-center y=1500, per-word fire, 350ms hold, 60ms fade, red #ff0033 glitch offset 4px. SAME 5-layer chromatic split + jitter beat as icons. Captions baked from the VO text uppercase.",
+    "render": "Remotion 4.0.441. CRF 30 + `-tune grain` is the right preset for noise-heavy renders (default CRF 18 produces 190MB / 30s files; CRF 30 + grain produces 28MB with zero perceptual loss because human eyes don't track snow pixels)."
+  },
+  "constants": {
+    "vibeAnchor": "EBS-PSA + 1970s-civil-defense-pictogram + analog-tape-decay",
+    "beatScaffold": "HOOK / SETUP / IF x3 / DO-NOT x3 / BUT-reversal / AND-climax-sting",
+    "iconStyleLock": "flat-yellow-#ffd400 on pure-black-#000000, stencil-wobble edges, NO outline, NO internal texture, NO anti-aliasing-feel-but-not-pixel-art, 55-60pct frame, centered, single-subject pictogram",
+    "voPolicy": "monotone-robo-female-PSA, ALL-CAPS-text-input, 250ms-pauses, ALL-LANGUAGE-explicit",
+    "musicPolicy": "off-by-default OR sub-bass-drone-at-minus-34-lufs",
+    "chromaSplit": "5-layer RGB ghosts synchronized on ONE jitter beat across icons + captions",
+    "climaxVisual": "blurred-SMPTE-color-bars (NEVER random confetti dots) + signal-lost-1kHz hold last 1.5s"
+  },
+  "beatStructure": [
+    {
+      "id": "hook",
+      "type": "hook",
+      "durSec": 3,
+      "purpose": "EBS-style title card — red {{subject_warning_id}} characters + horizontal red bars. Instant tension.",
+      "vo": "Compliance bulletin {{bulletin_id}}."
+    },
+    {
+      "id": "setup",
+      "type": "setup",
+      "durSec": 2,
+      "purpose": "Frame the PSA in domestic-{{subject_warning}} context. Yellow pictogram of the un-trusted entity in its calm/ordinary pose.",
+      "vo": "This is a residential behavioral alert."
+    },
+    {
+      "id": "if-1",
+      "type": "if-condition",
+      "durSec": 3,
+      "purpose": "IF tell #1 — first oddly-precise behavior the entity exhibits.",
+      "vo": "If {{subject_warning}} {{tell_1}}."
+    },
+    {
+      "id": "if-2",
+      "type": "if-condition",
+      "durSec": 3,
+      "purpose": "IF tell #2 — escalates from #1; ideally something that breaks physics or reality slightly (reflection-doesn't-blink class).",
+      "vo": "If {{subject_warning}} {{tell_2}}."
+    },
+    {
+      "id": "if-3",
+      "type": "if-condition",
+      "durSec": 3,
+      "purpose": "IF tell #3 — strongest reality-break of the three (whispers-your-name class).",
+      "vo": "If {{subject_warning}} {{tell_3}}."
+    },
+    {
+      "id": "do-not-1",
+      "type": "do-not",
+      "durSec": 3,
+      "purpose": "DO-NOT #1 — first behavioral instruction. Add a red prohibition slash to the pictogram.",
+      "vo": "Do not {{do_not_1}}."
+    },
+    {
+      "id": "do-not-2",
+      "type": "do-not",
+      "durSec": 3,
+      "purpose": "DO-NOT #2 — second instruction. Ideally callbacks the IF tells.",
+      "vo": "Do not {{do_not_2}}."
+    },
+    {
+      "id": "do-not-3",
+      "type": "do-not",
+      "durSec": 3,
+      "purpose": "DO-NOT #3 — third instruction. Should callback IF-1 (the setup ordinary behavior is now forbidden).",
+      "vo": "Do not {{do_not_3}}."
+    },
+    {
+      "id": "but-reversal",
+      "type": "but-reversal",
+      "durSec": 4,
+      "purpose": "BUT — the dread payoff. Reveal that the {{subject_warning}} the viewer trusts is NOT what it appears. Icon: empty-collar / headstone / something-that-marks-an-absence.",
+      "vo": "But {{but_reveal}}."
+    },
+    {
+      "id": "and-climax",
+      "type": "climax-sting",
+      "durSec": 3,
+      "purpose": "AND — final sting. Icon distorts (mouth-too-wide, eyes-go-void), HARD CUT to blurred SMPTE color bars + signal-lost 1kHz hold for last 1.5s.",
+      "vo": "And {{and_sting}}."
+    }
+  ],
+  "globalOverlays": [
+    {
+      "id": "crt-scanlines",
+      "type": "scanlines",
+      "intensity": 0.35,
+      "allScenes": true
+    },
+    {
+      "id": "vhs-noise",
+      "type": "noise",
+      "intensity": 0.18,
+      "allScenes": true
+    },
+    {
+      "id": "chromatic-aberration",
+      "type": "rgb-split",
+      "shiftPx": 2,
+      "allScenes": true
+    },
+    {
+      "id": "mobius-wobble",
+      "type": "translate-jitter",
+      "amplitudePx": 1,
+      "rateFrames": 2,
+      "allScenes": true
+    }
+  ],
+  "captionsStyle": {
+    "fontFamily": "VT323",
+    "fontWeight": "400",
+    "case": "uppercase",
+    "fill": "#FFD400",
+    "stroke": "#000000",
+    "strokePx": 6,
+    "sizePx": 112,
+    "anchor": "bottom-center",
+    "yCanvas": 1500,
+    "fireOn": "per word",
+    "holdMs": 350,
+    "fadeMs": 60,
+    "glitchOffsetPx": 4,
+    "glitchColor": "#ff0033"
+  },
+  "slots": [
+    {
+      "key": "brand_name",
+      "category": "brand",
+      "required": false,
+      "description": "Org issuing the PSA. Default literal: an in-universe agency name like 'Emergency Broadcast System' / 'Residential Compliance Authority' / 'Office of Domestic Vigilance'. Keep the in-universe register — a real consumer brand placed here ruins the PSA illusion.",
+      "defaultExample": "Compliance Bureau"
+    },
+    {
+      "key": "subject_warning",
+      "category": "entity",
+      "required": true,
+      "description": "What entity the viewer is being told NOT to trust. Source project used 'your dog'. Other valid examples: 'your child', 'your reflection', 'your neighbor', 'the man in the bedroom', 'the second moon'. The entity should be something the viewer takes for granted in their domestic life.",
+      "defaultExample": "your dog"
+    },
+    {
+      "key": "subject_warning_id",
+      "category": "id-code",
+      "required": true,
+      "description": "Short alphanumeric bulletin/section code shown in the red EBS-style hook card and named in the VO. 1-3 characters max so it reads at hook size. Source: '9-D'.",
+      "defaultExample": "9-D"
+    },
+    {
+      "key": "bulletin_id",
+      "category": "id-code-spoken",
+      "required": true,
+      "description": "Spoken form of {{subject_warning_id}} for VO. Source: 'nine D' for '9-D'.",
+      "defaultExample": "nine D"
+    },
+    {
+      "key": "tell_1",
+      "category": "if-clause",
+      "required": true,
+      "description": "First oddly-precise behavior the entity exhibits. Domestic + slightly off. Source: 'watches you sleep'. Keep the verb concrete, the time/place explicit.",
+      "defaultExample": "watches you sleep"
+    },
+    {
+      "key": "tell_2",
+      "category": "if-clause",
+      "required": true,
+      "description": "Second tell — should break physics or reality slightly. Source: 'reflection does not blink'. Mirror-class beats work especially well.",
+      "defaultExample": "its reflection does not blink"
+    },
+    {
+      "key": "tell_3",
+      "category": "if-clause",
+      "required": true,
+      "description": "Third tell — strongest reality-break, ideally tied to the viewer personally. Source: 'whispers your name when you are alone'.",
+      "defaultExample": "whispers your name when you are alone"
+    },
+    {
+      "key": "do_not_1",
+      "category": "do-not-clause",
+      "required": true,
+      "description": "First behavioral instruction. Tied to a specific time / context. Source: 'look in its eyes after sunset'.",
+      "defaultExample": "look in its eyes after sunset"
+    },
+    {
+      "key": "do_not_2",
+      "category": "do-not-clause",
+      "required": true,
+      "description": "Second instruction. Source: 'say its old name'. Tying the instruction to a name / identity object adds dread.",
+      "defaultExample": "say its old name"
+    },
+    {
+      "key": "do_not_3",
+      "category": "do-not-clause",
+      "required": true,
+      "description": "Third instruction — should callback {{tell_1}} or {{setup}} (the ordinary behavior is now forbidden). Source: 'let it on your bed' callbacks the IF-1 'watches you sleep'.",
+      "defaultExample": "let it on your bed"
+    },
+    {
+      "key": "but_reveal",
+      "category": "reversal",
+      "required": true,
+      "description": "The dread payoff — reveals the {{subject_warning}} the viewer trusts is not what it appears. Source: 'your dog died three years ago'. Should be flat, declarative, past-tense.",
+      "defaultExample": "your dog died three years ago"
+    },
+    {
+      "key": "and_sting",
+      "category": "sting",
+      "required": true,
+      "description": "Final sting line. Should be ominous-present-tense + future-implication. Source: 'tonight it stops pretending'. The mp4 cuts to color-bar static immediately after this line.",
+      "defaultExample": "tonight it stops pretending"
+    },
+    {
+      "key": "vo_voice_id",
+      "category": "voice",
+      "required": true,
+      "description": "ElevenLabs voice ID for the cold robo-female PSA. Project winner was 'Alerter' community voice generated manually in 11Labs UI. Fallback API-callable voice: 'weA4Q36twV5kwSaTEL0Q' (Ava). For non-English (Russian / etc.) consider 'eleven_v3' model + manual UI tuning since multilingual_v2 inflects too human.",
+      "defaultExample": "weA4Q36twV5kwSaTEL0Q"
+    },
+    {
+      "key": "target_language",
+      "category": "language",
+      "required": true,
+      "description": "Spoken language of the VO. Source: 'en'. For non-English, EXPLICITLY pick a voice that handles that language flat — ElevenLabs default English voices added accent slip on Russian in past projects.",
+      "defaultExample": "en"
+    },
+    {
+      "key": "target_audience",
+      "category": "audience",
+      "required": false,
+      "description": "Distribution intent — TikTok-en-US is the default. Some PSAs work cross-language (visuals + minimal VO) but the cold-robo-female cadence is heavily English-coded.",
+      "defaultExample": "youtube-shorts-en-us"
+    }
+  ],
+  "assets": {
+    "scene-01-icon-ebs": {
+      "path": "assets/scene-01-icon-ebs.png",
+      "type": "image-locked-ref",
+      "purpose": "Style anchor — red EBS-style title-card pictogram. Use as --ref for any new hook-card icon you generate (different {{subject_warning_id}}).",
+      "required": false
+    },
+    "scene-02-icon-dog-silhouette": {
+      "path": "assets/scene-02-icon-dog-silhouette.png",
+      "type": "image-locked-ref",
+      "purpose": "Master style prototype — the v10 winner. THIS is the --ref to lock the yellow-pictogram style on the other 9 sibling icons. Use it even if the subject is no longer a dog: the style is what carries (flat yellow, pure black, stencil-wobble edges, no outline).",
+      "required": true
+    },
+    "scene-03-icon-dog-bed-watcher": {
+      "path": "assets/scene-03-icon-dog-bed-watcher.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{tell_1}} class (entity-watches-sleeper). Compositional cue: split-frame with both subject and victim in the pictogram.",
+      "required": false
+    },
+    "scene-04-icon-dog-mirror": {
+      "path": "assets/scene-04-icon-dog-mirror.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{tell_2}} class (reflection-doesn't-match). Compositional cue: subject + mirror frame, mirror version has wrong-eye-marks.",
+      "required": false
+    },
+    "scene-05-icon-dog-whisper": {
+      "path": "assets/scene-05-icon-dog-whisper.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{tell_3}} class (entity-whispers / scrambled-speech). Compositional cue: speech bubble with non-letter glyphs (╳ ▒ ╳).",
+      "required": false
+    },
+    "scene-06-icon-no-eye-contact": {
+      "path": "assets/scene-06-icon-no-eye-contact.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{do_not_1}} class. Compositional cue: subject front-view + red diagonal prohibition slash. The red slash is the DO-NOT marker.",
+      "required": false
+    },
+    "scene-07-icon-no-old-name": {
+      "path": "assets/scene-07-icon-no-old-name.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{do_not_2}} class (identity-object + slash). Compositional cue: small object that names the entity (name-tag, photo, doorplate) + prohibition slash.",
+      "required": false
+    },
+    "scene-08-icon-no-bed": {
+      "path": "assets/scene-08-icon-no-bed.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{do_not_3}} class. Compositional cue: callback to setup's location (bed in source) + entity mid-action + red slash.",
+      "required": false
+    },
+    "scene-09-icon-empty-collar": {
+      "path": "assets/scene-09-icon-empty-collar.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{but_reveal}} class — marks an absence. Compositional cue: object that belonged to entity + date / headstone / empty location.",
+      "required": false
+    },
+    "scene-10-icon-dog-grin": {
+      "path": "assets/scene-10-icon-dog-grin.png",
+      "type": "image-example-ref",
+      "purpose": "Example icon for {{and_sting}} climax. Compositional cue: entity's face goes wrong (mouth-too-wide, eyes-pure-void). Only visible for first 0.8s before HARD CUT to color-bar static.",
+      "required": false
+    }
+  },
+  "doNotCopyLiterally": "{{subject_warning}}, {{tell_*}}, {{do_not_*}}, {{but_reveal}}, {{and_sting}}, {{vo_voice_id}}, exact prompts. Vibe reference only. The beat scaffold (HOOK / SETUP / IF x3 / DO-NOT x3 / BUT / AND), the visual register (yellow pictogram on black + VT323 captions + 5-layer chromatic split + scanline/noise overlay + signal-lost color-bar climax), and the audio policy (cold robo-female + no music + per-scene static pop) ARE the template — keep them literal.",
+  "requiresUserReference": false,
+  "referenceNotes": "User reference not required when {{subject_warning}} is a generic domestic noun ('your dog', 'your child', 'your reflection'). However, AGENTS.md hard rule #3 applies: if the brief names a real person, brand, or specific real entity as the un-trusted thing, require a reference. The format CAN be subverted into branded content (e.g. 'your <product> is not your <product>') but only with the user's explicit override — the PSA illusion depends on the un-trusted thing reading as generic-domestic.",
+  "compositionTemplate": null,
+  "compositionTemplateNote": "Source project's Remotion lives at src/videos/analog-horror-fridge-001/ (NOT src/lib/templates/) — per kind-decision.md flowchart, kind=vibe-style. Consumer needs to hand-author the Remotion composition, OR copy and rename src/videos/analog-horror-fridge-001/index.tsx as a starting point. The five reusable overlay primitives (MobiusWobble / SnowCanvas / VcrTrackingCanvas / MobiusScanlines / GlitchCaption / GlitchXIcon / SignalLostColorBars) are slated to move to src/lib/components/overlays/AnalogTV.tsx per POSTMORTEM.md open issue #7.",
+  "variationAxes": []
+}

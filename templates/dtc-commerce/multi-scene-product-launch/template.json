@@ -1,0 +1,216 @@
+{
+  "name": "Multi-Scene Product Launch",
+  "slug": "multi-scene-product-launch",
+  "kind": "vibe-style",
+  "description": "27-scene branded product launch / commercial recreation in 9:16 — two identity-locked AI models (e.g. pink-haired girl + dreadlocked guy) interacting with a hero hardware product across BTS-commercial-set vignettes (treadmill, printed-fabric backdrop, lab-coat crew, foam-panel sound room). Built for full-spec product reveals where the product is the headline and identity drift across many short clips is the dominant risk. Master-shot pipeline: dedicated character + wardrobe + product hero refs are generated once and then passed as --ref on every keyframe and every i2v call to lock identity, wardrobe, hair, and product 1:1 across 20+ shots. Per-scene framing inherits the source shot via a locked storyboard ref. Audio stays source-1:1 (no VO regen) — for branded recreations the brand audio IS the point.",
+  "tags": [
+    "product-launch",
+    "commercial-recreation",
+    "multi-scene",
+    "27-scene",
+    "identity-lock",
+    "wardrobe-lock",
+    "master-shot",
+    "hero-product",
+    "bts-commercial",
+    "headphones",
+    "consumer-electronics",
+    "dtc",
+    "tiktok",
+    "reels",
+    "shorts",
+    "9-16",
+    "cool-desaturated-grade",
+    "lab-coat-crew",
+    "treadmill-set",
+    "printed-fabric-backdrop"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    50,
+    60
+  ],
+  "typicalClipCount": [
+    22,
+    28
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — the ONLY model that respects 9:16 (returns 768x1376 native, lanczos-upscale to 1080x1920). 4 variants per scene in parallel, $0.15/img. Each call passes 3-4 refs: locked storyboard frame from source + character base + wardrobe-reference + product hero. AVOID openai/gpt-5.4-image-2 for 9:16 — it ignores aspect-ratio and returns 1024x1024 squares. Use gpt-5.4-image-2 only for square product hero shots.",
+    "productMasters": "openai/gpt-5.4-image-2 OR google/gemini-3-pro-image-preview — generate 5-8 product hero angles (three-quarter, side, front, flat-lay, macro, back tech-detail, floating tilt, low-angle stand) ONCE at project start. These become the product --ref pool for every scene gen.",
+    "characterMasters": "google/gemini-3-pro-image-preview — generate one identity-locked editorial portrait per character (pass the user-supplied base photo as ref, ask for tech-commercial restyle). Pick the cleanest variant for {{model_a}}-wardrobe-reference.png after pilot scene.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — 3-6s clips at $0.14/s, 720p (Remotion upscales). AVOID bytedance/seedance-2.0 — content-moderation filter blocks ~80% of photoreal AI faces with InputImageSensitiveContentDetected. Every clip needs STATIC LOCKED-OFF CAMERA + CONTINUOUS MID-MOTION blocks to fight Kling's deep-breath idle tic and ramp-up start tic.",
+    "voiceover": "None — source audio is preserved 1:1 from the original mp4. For recreations the brand audio is the point. ElevenLabs only if user explicitly wants a translated VO replacement.",
+    "captions": "None by default. Title cards rendered as Remotion <TitleCard /> components (brand wordmark, slogan, URL). For multi-state endcards use a <TitleCardCycle /> that swaps strings every (duration / N states).",
+    "music": "None — source audio carries it. For non-recreation variants of this template, ElevenLabs Music with category-matched cue (cinematic for tech, electronic for sport, ambient for luxury)."
+  },
+  "constants": {
+    "vibeAnchor": "bts-commercial-set-with-identity-locked-cast",
+    "structure": "title card (1s) -> 20-25 BTS commercial vignettes (1.5-5s each) -> 2-3 closing title cards (slogan, brand wordmark, URL)",
+    "colorGrade": "cool desaturated blue-tinted, broadcast-commercial reference",
+    "lighting": "soft top key + cool fill, occasional rim — clean studio, no chiaroscuro",
+    "cameraMotion": "STATIC by default — only allow zoom / push-in if confirmed by source review",
+    "aspectLock": "9:16 vertical, 1080x1920 final, 30fps",
+    "minClipDuration": "3s (Kling minimum) — trim in Remotion via <Sequence durationInFrames>"
+  },
+  "variationAxes": [
+    "product category (headphones, smartwatch, smart speaker, fitness tracker, camera, phone, gaming controller, drone)",
+    "cast count (1 model, 2 models, ensemble)",
+    "set vignettes (treadmill BTS, printed backdrop, foam-panel sound room, neutral studio, city backdrop, moon backdrop, lab counter, dance floor)",
+    "product motion (static reveal, hands rotating dial, hands adjusting earcup, hands tracing edge, plug-in, on-off light cycle)",
+    "wardrobe direction (athletic / lab-coat / tech-couture / streetwear / minimal)",
+    "audio strategy (source 1:1 for recreation, ElevenLabs Music for original, source + brand jingle)"
+  ],
+  "doNotCopyLiterally": "Specific brand (Nothing), product (HP1), character identities (pink-hair girl / dreadlocks guy), olive-green / white-coat wardrobe choices. These are the {{slots}} — the durable template is the SHAPE (identity-lock pipeline + CAMERA/COMPOSITION/MID-MOTION blocks + multi-ref --ref chain + BTS commercial vignette grammar).",
+  "requiresUserReference": true,
+  "referenceNotes": "User MUST supply: (1) a product reference photo (or pack of multi-angle product shots, ideally 4+), (2) one base photo per cast member (identity ref). Without these the template degrades to text-only descriptions which drift catastrophically across 27 scenes — that is the failure mode this template's master-shot pipeline exists to prevent. If recreating an existing commercial, also supply the source mp4 URL — run `ralphy ref pull` + `ralphy ref analyze-video --shots <N>` to extract the shot timeline (`scenes-<N>.json`) as the single source of truth.",
+  "slots": [
+    {
+      "key": "brand_name",
+      "category": "brand",
+      "defaultExample": "Nothing (R)",
+      "required": true
+    },
+    {
+      "key": "product_name",
+      "category": "product",
+      "defaultExample": "Headphone (1)",
+      "required": true
+    },
+    {
+      "key": "product_descriptor",
+      "category": "product",
+      "defaultExample": "silver/white over-ear, transparent acrylic outer plate, two grey driver-vents, tiny red square accent, white padded headband",
+      "required": true
+    },
+    {
+      "key": "model_a",
+      "category": "cast",
+      "defaultExample": "young woman, pale soft features, short shaggy pink hair",
+      "required": true
+    },
+    {
+      "key": "model_a_wardrobe",
+      "category": "wardrobe",
+      "defaultExample": "olive green vest over white long-sleeve crewneck, dark trousers",
+      "required": true
+    },
+    {
+      "key": "model_b",
+      "category": "cast",
+      "defaultExample": "young man, deep skin tone, defined cheekbones, short twisted dreadlocks",
+      "required": false
+    },
+    {
+      "key": "model_b_wardrobe",
+      "category": "wardrobe",
+      "defaultExample": "white zip-up jacket, white pants",
+      "required": false
+    },
+    {
+      "key": "set_backdrop_a",
+      "category": "location",
+      "defaultExample": "printed pine-forest fabric banner (visible fabric texture, NOT a real forest)",
+      "required": true
+    },
+    {
+      "key": "set_backdrop_b",
+      "category": "location",
+      "defaultExample": "printed moon-surface backdrop, foam-panel sound room, city-skyline banner",
+      "required": false
+    },
+    {
+      "key": "brand_slogan",
+      "category": "copy",
+      "defaultExample": "control your sound",
+      "required": true
+    },
+    {
+      "key": "brand_url",
+      "category": "copy",
+      "defaultExample": "nothing.tech",
+      "required": false
+    },
+    {
+      "key": "target_language",
+      "category": "locale",
+      "defaultExample": "English (source-audio recreation)",
+      "required": false
+    },
+    {
+      "key": "scene_count",
+      "category": "structure",
+      "defaultExample": "27",
+      "required": true
+    }
+  ],
+  "assets": {
+    "character-master-a": {
+      "path": "assets/refs/characters/model-a-base.png",
+      "role": "character-master",
+      "required": false,
+      "note": "Sample identity-locked base portrait from the source project ({{model_a}}). Replace with the user's own {{model_a}} base photo before generating."
+    },
+    "character-wardrobe-a": {
+      "path": "assets/refs/characters/model-a-wardrobe-reference.png",
+      "role": "wardrobe-master",
+      "required": false,
+      "note": "Sample wardrobe-locked frame for {{model_a}} — picked from the cleanest pilot. Establish your own equivalent after the first scene pilot."
+    },
+    "character-master-b": {
+      "path": "assets/refs/characters/model-b-base.png",
+      "role": "character-master",
+      "required": false,
+      "note": "Sample identity-locked base portrait from the source project ({{model_b}}). Replace with the user's own {{model_b}} base photo before generating."
+    },
+    "character-wardrobe-b": {
+      "path": "assets/refs/characters/model-b-wardrobe-reference.png",
+      "role": "wardrobe-master",
+      "required": false,
+      "note": "Sample wardrobe-locked frame for {{model_b}} — picked from the cleanest pilot."
+    },
+    "product-ref-01": {
+      "path": "assets/refs/product/product-ref-01.webp",
+      "role": "product-reference",
+      "required": false,
+      "note": "Example product reference angle (three-quarter). The user MUST replace with their own product reference set."
+    },
+    "product-ref-02": {
+      "path": "assets/refs/product/product-ref-02.webp",
+      "role": "product-reference",
+      "required": false
+    },
+    "product-ref-03": {
+      "path": "assets/refs/product/product-ref-03.webp",
+      "role": "product-reference",
+      "required": false
+    },
+    "product-ref-04": {
+      "path": "assets/refs/product/product-ref-04.webp",
+      "role": "product-reference",
+      "required": false
+    }
+  },
+  "costBallpark": {
+    "singlePass": 20,
+    "withIteration": 50,
+    "currency": "USD",
+    "notes": "Source project (nothing-hp1-001, 27 scenes) spent ~$51 total with 6 prompt-iteration passes ($28 gemini-3-pro images, $14 Kling i2v, $8 gpt-5.4 product shots). A disciplined single-pass run using this template's locked prompt blocks should land at ~$20-25."
+  },
+  "postmortemStatus": "absent-structured-but-rich-prose",
+  "postmortemNote": "The source project has no structured 6-file postmortem/ directory, but WORKFLOW.md + BEST-PRACTICES.md in the project root contain dense lessons-learned content (22 pitfalls, model-selection cheat-sheet, prompt-engineering meta, locked prompt templates) that has been extracted into TEMPLATE.md / model-stack.md / prompt-cookbook.md. Future projects using this template should run /postmortem to produce the canonical 6-file split and feed it back.",
+  "sourceProject": "workspace/projects/nothing-hp1-001",
+  "compositionTemplate": null
+}

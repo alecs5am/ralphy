@@ -1,0 +1,112 @@
+{
+  "name": "Found-Footage Mockumentary",
+  "slug": "found-footage-mockumentary",
+  "kind": "vibe-style",
+  "description": "First-person handheld occult / cryptid mockumentary in the voidstomper / analog-horror lineage. POV operator stumbles on something they shouldn't have filmed — cult-circle discovery, photo-flash beat, the impossible 'they're now facing me' turn, retreat, and a final monster reveal. Pure diegetic English captions (3 max, lower-third), no VO, persistent REC dot + timecode + low-battery HUD overlay (Act 1) and a diegetic style-break to clean cinema register for the Act-2 reveal. Built around a 6-clip i2v pipeline with locked first-frame anchors and an absolute ban on cultist body-rotation animation (the horror is stillness — animate-the-turn and the spell breaks). Validated on a 40s 9:16 occult render at ~$27 of model spend.",
+  "tags": [
+    "found-footage",
+    "mockumentary",
+    "analog-horror",
+    "voidstomper",
+    "occult",
+    "cryptid",
+    "first-person-pov",
+    "handheld",
+    "rec-dot-hud",
+    "timecode-overlay",
+    "vhs",
+    "hi8",
+    "diegetic-captions",
+    "no-vo",
+    "monster-reveal",
+    "cult-circle",
+    "photo-flash-turn",
+    "signal-lost-endcard",
+    "uncanny-valley",
+    "9-16",
+    "tiktok",
+    "reels",
+    "shorts",
+    "ai-friendly"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    30,
+    45
+  ],
+  "typicalClipCount": [
+    5,
+    7
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md"
+  },
+  "slots": [
+    {
+      "key": "target_language",
+      "category": "language",
+      "defaultExample": "English (diegetic captions only, no VO)",
+      "required": true
+    },
+    {
+      "key": "subject_creature",
+      "category": "subject",
+      "defaultExample": "body-horror humanoid hybrid (splayed-ribcage torso + brassy-tentacle-ring eyeball head + cyst-cluster shoulders)",
+      "required": true
+    },
+    {
+      "key": "cult_location_descriptor",
+      "category": "location",
+      "defaultExample": "dense black pine forest at night, ritual clearing with bonfire",
+      "required": true
+    },
+    {
+      "key": "handheld_persona",
+      "category": "persona",
+      "defaultExample": "anonymous amateur hiker with a Canon Sure Shot point-and-shoot and a phone-torch — face never shown, only gloved hand visible at frame bottom",
+      "required": true
+    }
+  ],
+  "stackSummary": {
+    "masterFramesAndFirstFrames": "google/gemini-3-pro-image-preview via OpenRouter — generate one master shot per repeated element (creature / cult circle / single grinning face / operator-hand-with-camera) using user-supplied creature reference PNGs as --ref. Then generate per-clip first-frame anchors using the relevant master shot(s) as --ref. ~$0.15 per image, plan on 8-12 images for a 5-6 clip cut. Locked-ref discipline is the single biggest determinant of cross-clip continuity.",
+    "i2vDefault": "bytedance/seedance-2.0 via OpenRouter for the canonical Act-1 + reveal clips. Per cross-project memory (feedback_vg_model_picks.md) seedance-2.0 is the right pick for any non-default physics motion — POV walking, photo-flash hard-cut, slow whip-pan, jump-scare lunge, frozen-statue cultists while operator retreats. ~$0.14/s, 5s clips. Kling animates the body-rotation turn even when explicitly told not to; seedance honors the 'instant teleport-state, zero rotation' instruction. KNOWN: seedance privacy filter rejects photoreal-human anchors in some configs (see noski memory) — for this template that hasn't fired because faces are hooded or skull-mask uncanny rather than photoreal.",
+    "i2vFallback": "kwaivgi/kling-v3.0-pro via OpenRouter — use for clips where the motion IS default-physics (slow forward POV creep through forest, simple handheld retreat). Kling's grain and chromatic aberration are slightly more believable for the Hi8 register out-of-the-box. Avoid for any clip whose action note contains the words 'instant', 'frozen', 'static', 'jump-scare' — kling will animate it anyway.",
+    "captionsAndOverlays": "Remotion-side. 3 diegetic captions max in 40s (one establish, one peak, one end-card). Persistent HUD layer: 'REC ● MMM DD YYYY HH:MM:XX · BAT NN%' top-corners (animate the XX seconds per beat). Subtle scanline flicker + SVG chromatic-aberration filter at low opacity. Heavy VHS-glitch transition at the diegetic camera-drop. Endcard 'SIGNAL LOST' in degraded VHS font.",
+    "audio": "ElevenLabs Music endpoint, used exclusively for SFX / ambient — NO music bed in the traditional sense. Generate: (1) sustained sub-bass horror ambient drone for entire runtime, (2) collective wet inhale for the turn beat, (3) wet-crunch-plus-multi-foot-step for the sound beat, (4) camera-drop thud + VHS signal-loss static for the act-break, (5) distant Latin-ish chant whisper layer for the cult-circle build. Every SFX prompt MUST include explicit 'NO music, NO melody, NO rhythm, NO percussion, NO singing'. ElevenLabs reliably returns pure SFX when banned this hard.",
+    "render": "remotion-render. Render with loudnorm on (the SFX layering produces uneven peaks otherwise). VHS overlay shader runs Act-1 only (clips before the camera-drop); Act-2 reveal stays clean cinema register."
+  },
+  "constants": {
+    "vibeAnchor": "voidstomper-found-footage-occult-mockumentary",
+    "structure": "approach (0-12%) → discovery (12-30%) → photo + the turn (30-50%) → backing away (50-65%) → sound behind (65-80%) → monster reveal (80-100%)",
+    "diegeticRule": "every overlay justifies itself in-world — REC dot is because the operator is recording; timecode is because the camera burned it in; captions are because the platform added them; signal-lost is because the camera died. NEVER add a stylized title card or kinetic-typography slam — wrong vibe.",
+    "stillnessRule": "horror = stillness, NOT motion. Cultists are frozen statues at every distance. Animating the turn breaks the spell. The monster is static-then-explode, not constantly creeping."
+  },
+  "variationAxes": [
+    "subject_creature: body-horror hybrid / cryptid (skinwalker, wendigo) / extraterrestrial humanoid / occult demon / unknown-but-wrong",
+    "cult_location_descriptor: pine forest at night / abandoned suburb / desert ridge at dusk / coastal cliff fog / subterranean tunnel network",
+    "handheld_persona: hiker with point-and-shoot / urbex with phone / paranormal investigator with camcorder / lost dog-walker / drone operator (POV from grounded drone)",
+    "register break point: full Hi8 throughout (cheaper, slop-friendly) / Hi8 → cinema diegetic break at camera-drop (recommended) / cinema throughout (lose the VHS layer entirely)",
+    "monster reveal style: static-then-lunge / static-then-walk-stalking / never-fully-revealed (silhouette only — cheapest, often scariest)",
+    "endcard: SIGNAL LOST / TAPE EJECTED / NO SIGNAL / FOUND ON CARD #NN / blank black"
+  ],
+  "doNotCopyLiterally": "Specific creature anatomy details, the exact body-horror hybrid composition, the seven-cultist count, the Latin chant words, the Canon Sure Shot model. Vibe + beat structure + prompt scaffolding only.",
+  "requiresUserReference": true,
+  "referenceNotes": "Reference-required gate (AGENTS.md rule #3) FIRES for the subject_creature in this template. The creature is the headline beat; generating from text alone produces an AI-slop blob. User MUST supply 2-3 reference PNGs that together describe the creature's anatomy (this template ships sample references for a body-horror hybrid — replace with your own creature refs before using). The cult / location / operator-hand can all be model-generated master shots; only the creature requires user references. See assets/monster-*.png for the reference style.",
+  "compositionTemplate": null,
+  "knownLimits": {
+    "klingAnimatesTheTurn": "kling-v3.0-pro will animate body rotation even when the prompt explicitly says 'instant teleport-state, zero rotation'. Use seedance-2.0 for the turn clip. Kling produced 'weird foot-in-camera walk' on POV approach in occult-mockumentary-001; seedance fixed it on regen.",
+    "audioInKlingForRussianBadIdea": "Per memory feedback_kling_no_ru_audio.md, kling --audio is canonical for English VO only. This template ships no-VO by default — diegetic captions only — so the question doesn't arise. If you target a non-English audience, render captions in {{target_language}} and keep VO off entirely.",
+    "elevenlabsMusicVsSfx": "Generating ambient drone + SFX via ElevenLabs Music with a NO-music ban returns clean sound-design tracks. Do NOT prompt for 'horror score' or 'cinematic music' — that triggers the music classifier and you get a melody you didn't want. Always include the 'NO music, NO melody, NO rhythm, NO percussion, NO singing' block."
+  },
+  "sourceProject": "workspace/projects/occult-mockumentary-001",
+  "assets": {}
+}
