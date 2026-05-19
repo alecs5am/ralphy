@@ -34,7 +34,14 @@ export type GenerationEntry = {
   timestamp: string;
   provider: Provider;
   endpoint: string;              // e.g. "fal-ai/kling-video/v3/pro/image-to-video"
-  kind: "image" | "video" | "audio" | "music" | "voiceover" | "text" | "embed" | "other";
+  kind: "image" | "video" | "audio" | "music" | "voiceover" | "sfx" | "text" | "embed" | "other";
+  /**
+   * Asset slot this generation targets (e.g. "scene-01-bg-image"). Persisted so
+   * per-slot cost rollups work without inferring from `note`. Multiple postmortems
+   * (noski, venom) had to grep `.locked-vN` filenames to reconstruct slot-level
+   * spend because this wasn't here.
+   */
+  slot?: string;
   input: Record<string, unknown>;
   output?: {
     url?: string;
