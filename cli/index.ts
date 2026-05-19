@@ -33,6 +33,7 @@ import { evalCmd } from "./commands/eval.js";
 import { researchCmd } from "./commands/research.js";
 import { editorCmd } from "./commands/editor.js";
 import { voiceCmd } from "./commands/voice.js";
+import { whoamiCmd } from "./commands/whoami.js";
 import { versionCmd } from "./commands/version.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
@@ -76,6 +77,7 @@ program.addCommand(queueCmd());
 program.addCommand(renderCmd());
 program.addCommand(editorCmd());
 program.addCommand(voiceCmd());
+program.addCommand(whoamiCmd());
 program.addCommand(initCmd());
 program.addCommand(configCmd());
 program.addCommand(brandCmd());
@@ -126,5 +128,53 @@ program.addCommand(
       target.outputHelp();
     }),
 );
+
+// Bare `ralphy` (no subcommand) — print status dashboard: version + capabilities
+// + user profile + recommendation. This is what the agent calls on session start
+// to load user context. Equivalent to `ralphy whoami` plus the version banner.
+program.action(async () => {
+  const { loadUserProfile, computeSkillScore, bandForScore, backfillFromWorkspace } =
+    await import("./lib/user-profile.js");
+  const { root } = await import("./lib/paths.js");
+  const { out } = await import("./lib/output.js");
+  const path = await import("node:path");
+
+  let profile = await loadUserProfile();
+  // If signals are empty, do a one-shot backfill from workspace so day-1 users
+  // with existing finished projects don't start as "novice".
+  if (profile.signals.projects_done === 0 && profile.signals.renders_shipped === 0) {
+    try {
+      const workspaceRoot = path.join(root(), "workspace");
+      const fromDisk = await backfillFromWorkspace({ workspaceRoot });
+      profile.signals = { ...profile.signals, ...fromDisk };
+      if (profile.skill.user_override === null) {
+        profile.skill.score = computeSkillScore(profile.signals);
+        profile.skill.band = bandForScore(profile.skill.score);
+      }
+      const { saveUserProfile } = await import("./lib/user-profile.js");
+      await saveUserProfile(profile);
+    } catch {
+      /* backfill is best-effort */
+    }
+  }
+
+  out({
+    version: VERSION,
+    user: {
+      firstSeen: profile.firstSeen,
+      lastSeen: profile.lastSeen,
+      is_developer: profile.is_developer,
+      skill: profile.skill,
+      signals: profile.signals,
+    },
+    capabilities: {
+      openrouter: Boolean(process.env.OPENROUTER_API_KEY),
+      elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
+    },
+    project_root: root(),
+    hint:
+      "Run `ralphy whoami` for detailed profile + recommendation, `ralphy --help` for the verb surface, `ralphy template suggest \"<brief>\"` to find a template.",
+  });
+});
 
 program.parseAsync();

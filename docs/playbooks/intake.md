@@ -1,5 +1,27 @@
 # Intake protocol — clarifying questions + step-by-step gates
 
+> **Adaptive verbosity.** The intake's depth scales with the user's skill score (0-10) and developer badge from `ralphy whoami` (read on session start per AGENTS.md step 0). The same protocol runs at every level, but novice gets explanations after each step, expert gets one-line confirmations. See the band table below.
+
+## Per-band branching (read this BEFORE step 1)
+
+| Band | Score | Behavior |
+|---|---|---|
+| **novice** | 0-1.9 | Full intake with mini-lectures after each step. Explain "WHY we ask about target language", "WHY location-master-plate first", "WHAT auto-versioning means". Show one tutorial concept per generation step. Slow but builds intuition. |
+| **learning** | 2.0-3.9 | Full intake (5 questions). Inline "why" only on the first occurrence of a concept this session. No tutorial concepts; let user ask. |
+| **intermediate** | 4.0-5.9 | Full intake (5 questions). No "why" unless user flags confusion. Step-by-step with one-beat-at-a-time gates. |
+| **comfortable** | 6.0-7.9 | Full intake but tighter (3-5 questions, skip obvious ones if `preferences.default_*` is set). Batch 4-6 gens after 2 solo approvals. |
+| **experienced** | 8.0-9.9 | Compact intake: only critical params (brand / aspect / target_language). Batch by default; user opts into single-step with "по одной". |
+| **expert** | 10 | One-line confirmation before paid gens. Assume user knows every rule. Surface CLI output JSON-style without prose explanations. |
+| **developer badge** | any | Trumps the band. Minimal intake + raw CLI suggestions + ship-fast default. User can swear at you; you don't sandbag bug reports. |
+
+The user's band comes from `ralphy whoami` (or bare `ralphy`) which returns `user.skill.band` and `user.is_developer`. Branch immediately on `is_developer === true` (skip all bands and use developer behavior); else use the band.
+
+If `whoami` shows `signals.projects_done === 0` AND `tutorial_state.intro_seen === false`, prepend a one-paragraph intro:
+
+> "First project on ralphy! I'm going to walk you through this end-to-end — we'll do 5 quick questions, draft a plan, then make one scene at a time so you can correct course early. After we ship, /postmortem captures lessons so the NEXT project starts at a higher skill level. Cool?"
+
+Then proceed to step 1.
+
 When a user asks for a **new project** (not a casual question, not "tweak this thing"), the agent does NOT jump to generation. It captures intent first, agrees on a plan, then advances one beat at a time with user checkpoints. The cost of asking is one chat turn; the cost of guessing wrong on a 20-scene render is $40 + an hour of regen.
 
 This file is referenced from the AGENTS.md routing table and is the **first** thing every project-creation request hits.
