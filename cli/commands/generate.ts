@@ -66,7 +66,12 @@ function maybeEnqueue(opts: any, kind: JobKind, project: string | undefined): bo
   return true;
 }
 
-const SLOT_REGEX = /^[a-z0-9-]+$/;
+// Strict canonical form is lowercase-kebab. Relaxed input regex accepts uppercase
+// and underscore — these get auto-normalized in normalizeSlot() with a stderr warn
+// rather than hard-failing. Six of ten project postmortems flagged the previous
+// hard-reject as their highest-frequency CLI friction (5+ retries per session).
+const SLOT_REGEX_RELAXED = /^[a-zA-Z0-9_-]+$/;
+const SLOT_REGEX_CANONICAL = /^[a-z0-9-]+$/;
 
 type Manifest = {
   slots: Record<
@@ -113,10 +118,36 @@ async function ensureProject(projectId: string): Promise<void> {
   }
 }
 
-function validateSlot(slot: string): void {
-  if (!SLOT_REGEX.test(slot)) {
-    err(`Invalid slot id "${slot}" — expected lowercase kebab-case (e.g. scene-01-bg-image)`);
+/**
+ * Validate and normalize a slot id. Strict canonical form is `[a-z0-9-]+` —
+ * lowercase kebab-case. Relaxed input accepts `[a-zA-Z0-9_-]+` and auto-normalizes:
+ *   uppercase → lowercase, `_` → `-`, then revalidate against canonical.
+ * Emits a stderr warning when normalization happened so the caller learns the
+ * canonical form for next time.
+ *
+ * Returns the canonical slug. Throws via `err()` if input contains characters
+ * outside the relaxed set (spaces, dots, slashes, unicode, etc.) — those are
+ * structural mistakes that auto-normalize can't safely recover from.
+ */
+function normalizeSlot(slot: string): string {
+  if (!SLOT_REGEX_RELAXED.test(slot)) {
+    err(
+      `Invalid slot id "${slot}" — expected kebab-case ([a-zA-Z0-9_-]+). Got characters outside that set (spaces, dots, slashes, unicode).`,
+    );
   }
+  const canonical = slot.toLowerCase().replace(/_/g, "-");
+  if (canonical !== slot) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `ralphy: slot normalized: "${slot}" → "${canonical}" (canonical form is lowercase kebab-case)`,
+    );
+  }
+  if (!SLOT_REGEX_CANONICAL.test(canonical)) {
+    err(
+      `Invalid slot id "${slot}" — could not normalize to canonical form "${canonical}".`,
+    );
+  }
+  return canonical;
 }
 
 export function generateCmd() {
@@ -144,7 +175,7 @@ export function generateCmd() {
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
     .action(async (opts) => {
       await ensureProject(opts.project);
-      validateSlot(opts.slot);
+      opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
       const result = await generateImage({
         projectId: opts.project,
@@ -206,7 +237,7 @@ export function generateCmd() {
       "Resolution. Per-model whitelist: kling 720p only, veo up to 4K, seedance 480p/720p/1080p. See `ralphy models show <id>`",
       "720p"
     )
-    .option("--audio", "Enable model-native audio (Veo 3 only — see MODELS.md)", false)
+    .option("--audio", "Enable model-native audio. Supported by veo-3.1, kling-v3.0-pro (EN only — accent slip / age drift on RU per noski + venom postmortems), seedance-2.0, and most other modern i2v endpoints. See MODELS.md per-model audio column.", false)
     .option("--poll-interval-ms <ms>", "Polling cadence (default 15000)", parseInt)
     .option("--poll-max-attempts <n>", "Max polls before timeout (default 80 ≈ 20min)", parseInt)
     .option(
@@ -222,7 +253,7 @@ export function generateCmd() {
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp4.")
     .action(async (opts) => {
       await ensureProject(opts.project);
-      validateSlot(opts.slot);
+      opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.video", opts.project)) return;
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
@@ -321,7 +352,7 @@ export function generateCmd() {
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
-      validateSlot(opts.slot);
+      opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
       const result = await generateVoiceover({
         projectId: opts.project,
@@ -364,7 +395,7 @@ export function generateCmd() {
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
-      validateSlot(opts.slot);
+      opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
       const result = await generateMusic({
         projectId: opts.project,
@@ -408,7 +439,7 @@ export function generateCmd() {
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .action(async (opts) => {
       await ensureProject(opts.project);
-      validateSlot(opts.slot);
+      opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
       const result = await generateSfx({
         projectId: opts.project,
@@ -453,8 +484,7 @@ export function generateCmd() {
     .action(async (opts) => {
       await ensureProject(opts.project);
       const audioPath = path.resolve(opts.audio);
-      const slot = opts.slot ?? `captions-${path.basename(audioPath, path.extname(audioPath))}`;
-      validateSlot(slot);
+      const slot = normalizeSlot(opts.slot ?? `captions-${path.basename(audioPath, path.extname(audioPath))}`);
       const backend = opts.backend as TranscribeBackend;
       const t0 = Date.now();
       const result = await transcribe({ audioPath, language: opts.language, backend });
