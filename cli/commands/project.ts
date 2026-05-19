@@ -89,16 +89,41 @@ export function projectCmd() {
       if (opts.status) projects = projects.filter((p: any) => p.status === opts.status);
       if (opts.brand) projects = projects.filter((p: any) => p.brand === opts.brand);
 
-      out(
-        projects.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          status: p.status,
-          brand: p.brand || "—",
-          persona: p.persona || "—",
-          platform: p.platform || "—",
-        }))
-      );
+      const rows = projects.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        brand: p.brand || "—",
+        persona: p.persona || "—",
+        platform: p.platform || "—",
+      }));
+
+      const ui = await import("../lib/ui.js");
+      if (!ui.isPrettyMode()) {
+        out(rows);
+        return;
+      }
+      const { c, icons, section, table } = ui;
+      const statusColor = (s: string): string => {
+        if (s === "done") return c.ok(s);
+        if (s === "render" || s === "assets") return c.warn(s);
+        if (s === "prompts" || s === "scenario") return c.info(s);
+        return c.muted(s);
+      };
+      section(`Projects  ${c.muted(`(${rows.length} total)`)}`);
+      table(rows, [
+        { key: "id", header: "id", format: (v) => c.cmd(String(v)) },
+        { key: "name", header: "name", format: (v) => c.bold(String(v ?? "")) },
+        { key: "status", header: "status", format: (v) => statusColor(String(v ?? "draft")) },
+        { key: "platform", header: "platform" },
+        { key: "brand", header: "brand", format: (v) => (v === "—" ? c.muted("—") : c.value(String(v))) },
+        { key: "persona", header: "persona", format: (v) => (v === "—" ? c.muted("—") : c.value(String(v))) },
+      ]);
+      console.log();
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy project show <id>")}              full details`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy project show <id> --tree")}       directory tree`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy project verify <id>")}            ffprobe + manifest sanity`);
+      console.log();
     });
 
   cmd

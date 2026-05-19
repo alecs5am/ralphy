@@ -242,7 +242,49 @@ export function templateCmd() {
         if (row.source === "workspace" && !registered.has(row.id)) row.unregistered = true;
       }
 
-      out(Array.from(rows.values()));
+      const data = Array.from(rows.values()).sort((a, b) => a.id.localeCompare(b.id));
+      const ui = await import("../lib/ui.js");
+      if (!ui.isPrettyMode()) {
+        out(data);
+        return;
+      }
+      const { c, icons, section, table } = ui;
+      section(`Templates  ${c.muted(`(${data.length} total)`)}`);
+      table(data, [
+        {
+          key: "id",
+          header: "slug",
+          format: (v) => c.cmd(String(v)),
+        },
+        {
+          key: "kind",
+          header: "kind",
+          format: (v) => (v === "dir" ? c.brand(String(v)) : c.muted(String(v))),
+        },
+        {
+          key: "source",
+          header: "src",
+          format: (v) => (v === "repo" ? c.muted("repo") : c.accent("ws")),
+        },
+        {
+          key: "name",
+          header: "name",
+          format: (v) => c.bold(String(v ?? "")),
+        },
+        {
+          key: "description",
+          header: "description",
+          format: (v) => {
+            const s = String(v ?? "");
+            return s.length > 70 ? s.slice(0, 67) + "…" : s;
+          },
+        },
+      ]);
+      console.log();
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy template show <slug>")}     read TEMPLATE.md`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy template suggest \"<brief>\"")}  rank for a brief`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy template use <slug>")}      scaffold a project`);
+      console.log();
     });
 
   cmd
@@ -514,16 +556,32 @@ export function templateCmd() {
         }),
       );
 
-      const result = await suggestTemplates(utterance, candidates, {
-        limit: opts.limit,
-        threshold: opts.threshold,
-        disableLlm: opts.llm === false,
-        llmModel: opts.llmModel,
-      });
+      const ui = await import("../lib/ui.js");
+      const result = ui.isPrettyMode()
+        ? await ui.withSpinner(
+            `Matching against ${candidates.length} templates…`,
+            () =>
+              suggestTemplates(utterance, candidates, {
+                limit: opts.limit,
+                threshold: opts.threshold,
+                disableLlm: opts.llm === false,
+                llmModel: opts.llmModel,
+              }),
+            {
+              successText: (r) =>
+                `Matched via ${r.source === "keyword" ? "keyword scorer" : r.source === "llm" ? "LLM rerank (multilingual)" : "fallback (LLM failed)"}`,
+            },
+          )
+        : await suggestTemplates(utterance, candidates, {
+            limit: opts.limit,
+            threshold: opts.threshold,
+            disableLlm: opts.llm === false,
+            llmModel: opts.llmModel,
+          });
 
-      out({
+      const payload = {
         utterance: result.utterance,
-        source: result.source, // "keyword" | "llm" | "keyword-fallback"
+        source: result.source,
         llmNote: result.llmNote,
         results: result.results.map((r) => ({
           id: r.slug,
@@ -535,7 +593,49 @@ export function templateCmd() {
           tier: r.tier,
           ...(r.reasoning ? { reasoning: r.reasoning } : {}),
         })),
-      });
+      };
+
+      if (!ui.isPrettyMode()) {
+        out(payload);
+        return;
+      }
+
+      const { c, icons, section, bar } = ui;
+      console.log();
+      console.log(`${icons.spark} ${c.bold("Query:")} ${c.value('"' + utterance + '"')}`);
+      const sourceColors: Record<string, string> = {
+        keyword: c.muted("substring keyword"),
+        llm: c.brand("LLM rerank (semantic / multilingual)"),
+        "keyword-fallback": c.warn("keyword fallback — LLM failed"),
+      };
+      console.log(`  ${c.label("matched via")}  ${sourceColors[result.source]}`);
+      console.log();
+
+      if (payload.results.length === 0) {
+        console.log(`  ${icons.fail} ${c.warn("No matches.")} Try rephrasing or check ${c.cmd("ralphy template list")}.`);
+        return;
+      }
+
+      for (let i = 0; i < payload.results.length; i++) {
+        const r = payload.results[i];
+        const tierIcon = r.tier === "strong" ? icons.ok : r.tier === "weak" ? icons.warn : icons.empty;
+        const tierColor =
+          r.tier === "strong" ? c.ok : r.tier === "weak" ? c.warn : c.muted;
+        console.log(
+          `  ${c.bold(`${i + 1}.`)} ${tierIcon} ${c.cmd(r.id)}  ${bar(r.score, 1, { width: 16 })}  ${tierColor(r.score.toFixed(2))}  ${c.brand(r.tier)}`,
+        );
+        if (r.name && r.name !== r.id) console.log(`     ${c.label(r.name)}`);
+        if (r.description) {
+          const s = r.description.length > 100 ? r.description.slice(0, 97) + "…" : r.description;
+          console.log(`     ${c.muted(s)}`);
+        }
+        if (r.reasoning) {
+          console.log(`     ${icons.info} ${c.info(r.reasoning)}`);
+        }
+        console.log();
+      }
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy template use " + payload.results[0].id + " --project <id>")}  scaffold a project from the top pick`);
+      console.log();
     });
 
   return cmd;
