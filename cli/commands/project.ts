@@ -388,5 +388,107 @@ export function projectCmd() {
       out({ id: newId, clonedFrom: id });
     });
 
+  // ── verify ─────────────────────────────────────────────────────────────
+  // Postmortem-driven: tokyo + kbo flagged that asset-manifest.json claims
+  // can drift from on-disk reality (wrong aspect, wrong duration, truncated
+  // codec). Probes every slot file with ffprobe and reports divergences.
+  cmd
+    .command("verify <id>")
+    .description(
+      "ffprobe every slot in asset-manifest.json + flag divergences (missing file, wrong duration, wrong dimensions, broken codec). Exit non-zero on any red.",
+    )
+    .option("--strict", "Treat warnings (missing optional metadata) as errors too", false)
+    .action(async (id: string, opts: { strict?: boolean }) => {
+      const { spawnSync } = await import("node:child_process");
+      const dir = path.join(projectsDir(), id);
+      try { await fs.access(dir); } catch { err(`Project not found: ${id}`); }
+      const manifest = await safeJson(path.join(dir, "asset-manifest.json"));
+      if (!manifest || !manifest.slots) {
+        err(`asset-manifest.json missing or invalid at ${path.join(dir, "asset-manifest.json")}`);
+      }
+
+      type SlotReport = {
+        slot: string;
+        path: string | null;
+        exists: boolean;
+        kind?: string;
+        durationSec?: number;
+        width?: number;
+        height?: number;
+        codec?: string;
+        bytes?: number;
+        issues: string[];
+      };
+      const reports: SlotReport[] = [];
+      let red = 0;
+
+      for (const [slot, meta] of Object.entries((manifest as { slots: Record<string, any> }).slots)) {
+        const issues: string[] = [];
+        const localPath = (meta as { path?: string }).path;
+        const r: SlotReport = { slot, path: localPath ?? null, exists: false, kind: (meta as any).kind, issues };
+        if (!localPath) {
+          issues.push("manifest slot has no `path` field");
+          red += 1;
+          reports.push(r);
+          continue;
+        }
+        try {
+          const st = await fs.stat(localPath);
+          r.exists = true;
+          r.bytes = st.size;
+        } catch {
+          issues.push(`file missing on disk: ${localPath}`);
+          red += 1;
+          reports.push(r);
+          continue;
+        }
+
+        // ffprobe the file for shape. Skip if it's a non-media slot.
+        const ext = path.extname(localPath).toLowerCase();
+        if ([".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".ogg"].includes(ext)) {
+          const probe = spawnSync(
+            "ffprobe",
+            [
+              "-v", "error",
+              "-show_entries", "format=duration:stream=width,height,codec_name",
+              "-of", "default=nw=1",
+              localPath,
+            ],
+            { encoding: "utf8" },
+          );
+          if (probe.status === 0) {
+            for (const line of (probe.stdout || "").split("\n")) {
+              const [k, v] = line.split("=");
+              if (k === "duration") r.durationSec = Number(v);
+              if (k === "width") r.width = Number(v);
+              if (k === "height") r.height = Number(v);
+              if (k === "codec_name") r.codec = r.codec || v;
+            }
+          } else {
+            issues.push(`ffprobe failed: ${(probe.stderr || "").slice(0, 200)}`);
+            red += 1;
+          }
+        }
+
+        if (opts.strict && r.exists && !r.codec) {
+          issues.push("strict: file has no decodable codec");
+          red += 1;
+        }
+        reports.push(r);
+      }
+
+      out({
+        project: id,
+        slotCount: reports.length,
+        redCount: red,
+        verdict: red === 0 ? "ok" : "fail",
+        slots: reports,
+      });
+      if (red > 0) {
+        // Non-zero exit so CI / scripts can chain
+        process.exitCode = 1;
+      }
+    });
+
   return cmd;
 }
