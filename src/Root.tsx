@@ -18,7 +18,23 @@ import {
   FlipperHyperMotion001,
   TOTAL_FRAMES as FLIPPER_HYPER_MOTION_FRAMES,
 } from "./videos/flipper-hypermotion-001";
+import {
+  PlaydatePixel001,
+  TOTAL_FRAMES as PLAYDATE_PIXEL_FRAMES,
+} from "./videos/playdate-pixel-001";
+import {
+  AppstoreTakeaminute001,
+  TOTAL_FRAMES as APPSTORE_TAKEAMINUTE_FRAMES,
+} from "./videos/appstore-takeaminute-001";
 import { OccultMockumentary001, TOTAL_FRAMES as OCCULT_MOCK_FRAMES } from "./videos/occult-mockumentary-001";
+import { VenomDeodorant001, TOTAL_FRAMES as VENOM_DEODORANT_FRAMES } from "./videos/venom-deodorant-001";
+import { VenomBodywash001, TOTAL_FRAMES as VENOM_BODYWASH_FRAMES } from "./videos/venom-bodywash-001";
+import {
+  TokyoY2k001,
+  TokyoY2k001Wide,
+  TOTAL_FRAMES as TOKYO_Y2K_FRAMES,
+  FPS as TOKYO_Y2K_FPS,
+} from "./videos/tokyo-y2k-001";
 import {
   AnalogHorrorFridge001,
   AnalogHorrorFridge001Noisy,
@@ -259,12 +275,60 @@ export const RemotionRoot: React.FC = () => {
           height={1920}
         />
         <Composition
+          id="PlaydatePixel001"
+          component={PlaydatePixel001}
+          durationInFrames={PLAYDATE_PIXEL_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="AppstoreTakeaminute001"
+          component={AppstoreTakeaminute001}
+          durationInFrames={APPSTORE_TAKEAMINUTE_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
           id="OccultMockumentary001"
           component={OccultMockumentary001}
           durationInFrames={OCCULT_MOCK_FRAMES}
           fps={30}
           width={1080}
           height={1920}
+        />
+        <Composition
+          id="VenomDeodorant001"
+          component={VenomDeodorant001}
+          durationInFrames={VENOM_DEODORANT_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="VenomBodywash001"
+          component={VenomBodywash001}
+          durationInFrames={VENOM_BODYWASH_FRAMES}
+          fps={30}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="TokyoY2k001"
+          component={TokyoY2k001}
+          durationInFrames={TOKYO_Y2K_FRAMES}
+          fps={TOKYO_Y2K_FPS}
+          width={1080}
+          height={1920}
+        />
+        <Composition
+          id="TokyoY2k001Wide"
+          component={TokyoY2k001Wide}
+          durationInFrames={TOKYO_Y2K_FRAMES}
+          fps={TOKYO_Y2K_FPS}
+          width={1920}
+          height={1080}
         />
         <Composition
           id="AnalogHorrorFridge001"
