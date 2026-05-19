@@ -141,7 +141,7 @@ export function whoamiCmd(): Command {
 
       if (changed) await saveUserProfile(profile);
 
-      out({
+      const payload = {
         firstSeen: profile.firstSeen,
         lastSeen: profile.lastSeen,
         is_developer: profile.is_developer,
@@ -150,7 +150,68 @@ export function whoamiCmd(): Command {
         preferences: profile.preferences,
         recommendation: recommendationFor(profile),
         next_milestone: nextMilestone(profile),
-      });
+      };
+
+      const ui = await import("../lib/ui.js");
+      if (!ui.isPrettyMode()) {
+        out(payload);
+        return;
+      }
+
+      // Pretty whoami — section-by-section
+      const { c, icons, section, kv, bar, skillPath } = ui;
+      const badge = profile.is_developer ? `  ${icons.star} ${c.brand("developer")}` : "";
+      console.log();
+      console.log(`${icons.spark} ${c.bold("ralphy whoami")}${badge}`);
+      console.log();
+      console.log(`  ${c.label("First seen")}   ${c.value(profile.firstSeen.slice(0, 10))}`);
+      console.log(`  ${c.label("Last seen ")}   ${c.value(profile.lastSeen.slice(0, 10))}`);
+
+      section("Skill");
+      console.log(`  ${bar(profile.skill.score, 10)}  ${c.bold(profile.skill.score.toFixed(1) + " / 10")}  ${c.brand(profile.skill.band)}`);
+      console.log(`  ${skillPath(profile.skill.band)}`);
+      if (profile.skill.user_override !== null) {
+        console.log(`  ${icons.warn} ${c.warn(`pinned by user at ${profile.skill.user_override}`)} (auto-assessment disabled)`);
+      }
+
+      section("Signals");
+      kv(
+        {
+          "Projects done": profile.signals.projects_done,
+          "With postmortem": profile.signals.projects_with_postmortem,
+          "Renders shipped": profile.signals.renders_shipped,
+          "Templates used": profile.signals.templates_used_count,
+          "CLI verb breadth": profile.signals.cli_verb_breadth,
+          "Sessions": profile.signals.sessions_count,
+          "Avg postmortem rating": profile.signals.avg_postmortem_rating ?? c.muted("—"),
+        },
+        { maxKeyWidth: 22 },
+      );
+
+      section("Preferences");
+      kv(
+        {
+          "Default language": profile.preferences.default_language ?? c.muted("—  (not yet captured)"),
+          "Default aspect": profile.preferences.default_aspect ?? c.muted("—  (not yet captured)"),
+          "Preferred models": Object.keys(profile.preferences.preferred_models).length === 0 ? c.muted("—  (auto-learned over sessions)") : JSON.stringify(profile.preferences.preferred_models),
+          "Skip intake for": profile.preferences.skip_intake_for.length === 0 ? c.muted("none") : profile.preferences.skip_intake_for.join(", "),
+        },
+        { maxKeyWidth: 22 },
+      );
+
+      section("Adaptive intake behavior");
+      console.log(`  ${recommendationFor(profile)}`);
+
+      const milestone = nextMilestone(profile);
+      if (milestone) {
+        section("Next milestone");
+        console.log(`  ${icons.pending} ${c.value(milestone)}`);
+      } else {
+        section("Next milestone");
+        console.log(`  ${icons.star} ${c.brand("expert band — congrats")}`);
+      }
+
+      console.log();
     });
 
   return cmd;
