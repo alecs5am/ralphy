@@ -2,6 +2,16 @@
 
 **Read this when:** "generate prompts", "generate assets", "make images / video / VO / music", "regenerate scene-XX <slot>", "try a different model", "A/B variant", "how much will it cost".
 
+> **Anchor order discipline (every multi-scene project):**
+> 1. **Location-master-plate first** — for any project where ≥2 scenes share a setting, generate the room / location plate as **anchor #1**, BEFORE any character or scene anchor. Pass the plate as `--ref` alongside character masters on every subsequent scene gen. Skipping this cost noski-people-001 ~$4.50 + 45 min ("на всех картинках они сидят на разных диванах а я просил на одном"). This is the single highest-leverage rule in this playbook.
+> 2. **Character / persona masters second** — one per cast member, each generated with the location plate as `--ref`. Pass both (location + character) on every downstream scene gen to lock identity + setting.
+> 3. **Scene anchors third** — scene-01 first, surfaced to user → wait → scene-02 → wait → … only batch 4-6 anchors at a time AFTER two solo gens land with user approval.
+> 4. **i2v / video generation last** — never i2v an unapproved scene anchor.
+>
+> **Photoreal-human projects:** read [`art-director/photoreal-humans.md`](art-director/photoreal-humans.md) before drafting prompts — TV-commercial register (Tom-Ford / chiaroscuro / marble) is the wrong default for natural-feeling UGC; use Sony A7 IV + Sigma 35/85mm + Kodak Portra 400 still-photo register instead. Venom-bodywash-001 burned ~$3 on this miscalibration.
+>
+> **Model drift handling:** read [`art-director/regeneration.md`](art-director/regeneration.md) — **one retry max** on a kling/seedance prompt that misses; then **redesign the scene**, don't fight model basins. Glitter-cream-001 lost 2× $0.42 fighting "jar near cheek → powder compact" drift across 3 retries.
+
 Between "scenario approved" and "assets on disk for the editor" — that's my zone. Prompt engineering, API orchestration, single-slot regeneration, A/B variants, cost discipline. Never invent model-id from memory — always cross-check `MODELS.md`.
 
 > **STOP rule.** Every model call goes through `ralphy generate`. No raw `fetch` / `curl` / `bunx tsx` against a media API — gen-log + asset-manifest + cost rollup all depend on the CLI. AGENTS invariant #2.

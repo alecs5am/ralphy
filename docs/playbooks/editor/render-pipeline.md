@@ -69,4 +69,13 @@ Output: a compact chat checklist (`OK` / `MISSING <reason>` per scene).
 
 ## Per-clip captions variant
 
-If scenes have separate VO files — transcribe each one separately (`captions-01.json`, `captions-02.json`, ...) and concat them in the composition. See `src/videos/lyadov-podcast/` for a working pattern.
+If scenes have separate VO files — transcribe each one separately. As of 2026-05-19 (commit 915dcd6), `ralphy generate captions` writes to `<project>/assets/captions/<slot>.json` by default — no manual `cp` needed. The composition reads them via `staticFile()`. See `src/videos/lyadov-podcast/` for a working pattern.
+
+## Post-render evaluator handback (always)
+
+After `ralphy render <project>` finishes:
+
+1. Run `ralphy editor preflight <project>` once more (verify post-render artifacts).
+2. Run `ralphy project verify <project>` for manifest/disk sanity.
+3. **Hand off to `/ralph-evaluator` before declaring done.** The evaluator runs scene segmentation, audio loudness + dead-air check, caption density, and per-scene visual analysis — produces `eval.json` + `eval-report.md` sized for a downstream fixer agent. Skipping this gate is the highest-frequency "shipped a render that turned out to have issues" failure pattern across the 10 postmortems. The evaluator triggers on RU phrases too: "оцени что вышло", "проверь рендер", "оценка качества" — see `.agents/skills/ralph-evaluator/SKILL.md`.
+4. Only after the eval lands, ask the user "ready to ship?" — user's "yes" is the only thing that authorizes commit / push / share. Never auto-commit a rendered project (CLAUDE.md "Executing actions with care").
