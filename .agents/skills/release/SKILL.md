@@ -38,9 +38,11 @@ All three reference the same `vX.Y.Z` tag and the same set of binaries — there
 
 This skill **never** touches:
 - `landing/` — the Next.js landing is shipped independently (Vercel / Netlify).
-- `docs/`, `README.md` — only `package.json` / `cli/lib/version.ts` / `npm/package.json` get edited for version-bump purposes.
+- `docs/`, `README.md` — only `package.json` / `cli/lib/version.ts` / `npm/package.json` / `AGENTS.md` (the single version line) get edited for version-bump purposes.
 - `.agents/skills/` — other skills are versioned with the repo, not with the binary.
 - `src/videos/` — Remotion compositions ride along but aren't user-facing.
+
+**One targeted exception:** `AGENTS.md` carries a single line (`> **Current ralphy CLI: \`vX.Y.Z\`** ...`) that lives in the system prompt of every ralphy session. The `/release` skill bumps that line in lockstep with the four real version files so the agent always knows which binary the user *should* be on. Find/replace only — never restructure AGENTS.md otherwise.
 
 If the user asks to "release the landing" or "publish a docs update" — handback. Not this skill.
 
@@ -110,24 +112,34 @@ Useful raw sources:
 Print to the user:
 - Proposed new version (e.g. `0.0.1 → 0.1.0`).
 - The full draft changelog (markdown).
-- The exact list of files that will change in the bump commit: `package.json`, `cli/lib/version.ts`, `npm/package.json`.
+- The exact list of files that will change in the bump commit: `package.json`, `cli/lib/version.ts`, `npm/package.json`, **`AGENTS.md`** (single line).
 
 **Wait for explicit user confirmation** ("yes" / "go" / "погнали") before doing anything destructive.
 
 ### 5 — Bump version files + commit
 
-Three files hold the version — keep them in sync so `ralphy --version`, the GitHub Release tag, the brew formula version, and the npm package version all agree.
+Four files hold the version — keep them in sync so `ralphy --version`, the GitHub Release tag, the brew formula version, the npm package version, AND the AGENTS.md system-prompt line all agree.
 
 ```bash
 NEW_VERSION="0.1.0"  # without the v prefix
+TODAY="$(date -u +%Y-%m-%d)"
 jq --arg v "$NEW_VERSION" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
 sd 'export const VERSION = "[^"]+"' "export const VERSION = \"${NEW_VERSION}\"" cli/lib/version.ts
 jq --arg v "$NEW_VERSION" '.version = $v' npm/package.json > npm/package.json.tmp && mv npm/package.json.tmp npm/package.json
+# AGENTS.md system-prompt line — the agent reads this on every session start
+sd '> \*\*Current ralphy CLI: `v[^`]+`\*\* \(released [^)]+\)' \
+   "> **Current ralphy CLI: \`v${NEW_VERSION}\`** (released ${TODAY})" AGENTS.md
 
-git add package.json cli/lib/version.ts npm/package.json
+git add package.json cli/lib/version.ts npm/package.json AGENTS.md
 git commit -m "chore(release): v${NEW_VERSION}
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+```
+
+**Verification before tagging:** confirm all four files now show the same string.
+
+```bash
+grep -E "0\.0\.|0\.1\.|1\.0\." package.json cli/lib/version.ts npm/package.json AGENTS.md | head -10
 ```
 
 ### 6 — Local build smoke-test (current platform only)
