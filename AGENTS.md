@@ -4,7 +4,9 @@
 
 ## The discipline (read this first, every time)
 
-**Before responding to any user request, do these three steps in order:**
+**Before responding to any user request, do these four steps in order:**
+
+0. **Load user context.** On the FIRST tool call of a new session, run `bun run cli/index.ts` (or `ralphy` if global binary is on PATH) with no subcommand. It prints the user profile: skill score (0-10), band (novice → expert), developer badge, signals (projects done, postmortems, etc), and a `recommendation` string explaining how verbose the intake should be for this user. Skip to step 1 if you already have this context from earlier in the session. The output is JSON; you only need `user.is_developer`, `user.skill.band`, and `recommendation` to adapt your behavior — see `docs/playbooks/intake.md` for the per-band branches.
 
 1. **Match the request to a row in the routing table below.** Single match → that's the playbook. Multiple matches → chain them in role order. No match → ask exactly one clarifying question that maps the ask to a row.
 2. **Read the matched playbook fully via the `Read` tool** (path is in the table). Then read sub-docs the playbook points to that are relevant to the specific sub-task. Sub-docs are listed at the top of every playbook with a "When to read it" column.
