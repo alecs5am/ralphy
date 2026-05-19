@@ -1,6 +1,6 @@
 # Templates — category map
 
-42 repo-public templates organized by **segment × persona** — who's *watching* the content and why. Pick the category that matches the audience archetype, then drill into the slug.
+54 repo-public templates organized by **segment × persona** — who's *watching* the content and why. Pick the category that matches the audience archetype, then drill into the slug.
 
 > Slug → category is **physical** on disk (`templates/<category>/<slug>/`). The `ralphy template list / show / use / suggest` verbs resolve by slug regardless of category, so you can keep calling `ralphy template use before-after-product --project <id>` as before. Category folders are navigation aid only.
 
@@ -24,7 +24,7 @@ Audience: decision-makers, ops, marketers, founders. Goal: educate, build author
 
 ---
 
-## `dtc-commerce/` (10) — DTC eCommerce shopper
+## `dtc-commerce/` (12) — DTC eCommerce shopper
 
 Audience: consumers shopping online — apparel, beauty, nutra, gadgets, food, home. Goal: conversion. Tone: aspirational, peer-evidence, demo-led.
 
@@ -40,10 +40,12 @@ Audience: consumers shopping online — apparel, beauty, nutra, gadgets, food, h
 | [`food-beverage`](dtc-commerce/food-beverage/) | vibe-style | Appetite-trigger cinematography. ASMR sizzle, latte art, cocktail builds. |
 | [`life-changing-testimonial`](dtc-commerce/life-changing-testimonial/) | vibe-style | Person-led peer testimony. "This changed my life" with specific outcome numbers. |
 | [`cgi-hardware`](dtc-commerce/cgi-hardware/) | vibe-style | Premium gadget renders — Flipper / Teenage Engineering / Nothing Phone / Apple-keynote vibe. |
+| [`multi-scene-product-launch`](dtc-commerce/multi-scene-product-launch/) | vibe-style | 27-shot identity-locked branded-hardware product launch. AI cast + hero product cycling through cool-blue BTS-commercial-set vignettes. Derived from `nothing-hp1-001`. |
+| [`ugc-selfie-product-review`](dtc-commerce/ugc-selfie-product-review/) | vibe-style | Handheld 9:16 UGC selfie product review. Identity-lock via locked product + persona master shots passed as `--ref` on every gen. Derived from `glitter-cream-001`. |
 
 ---
 
-## `creator-lifestyle/` (9) — Solo creator / relatable audience
+## `creator-lifestyle/` (10) — Solo creator / relatable audience
 
 Audience: scroll-feed lifestyle / personality-driven. Goal: build creator-audience parasocial connection, native product placement. Tone: relatable, first-person, unpolished-by-design.
 
@@ -58,10 +60,11 @@ Audience: scroll-feed lifestyle / personality-driven. Goal: build creator-audien
 | [`social-hook`](creator-lifestyle/social-hook/) | vibe-style | Generic TikTok scroll-stopper. 13 hooks across 5 categories. |
 | [`podcast-clip`](creator-lifestyle/podcast-clip/) | vibe-reference | Long-form podcast → 15-60s viral cuts. Title-banner + karaoke captions + smart-crop reframe. |
 | [`active-lifestyle`](creator-lifestyle/active-lifestyle/) | vibe-style | Person doing sport (cycling / padel / gym / yoga / running) with subtle product placement. |
+| [`noski-deadpan-2hander`](creator-lifestyle/noski-deadpan-2hander/) | vibe-style | Deadpan-philosophical 2-hander in @americanbaron register. Two people side-by-side on couch, heads back, eyes up, almost-whispered half-rhetorical questions. Photoreal A7 IV / Portra 400 register. Derived from `noski-people-001`. |
 
 ---
 
-## `entertainment-viral/` (11) — Scroll-stop entertainment
+## `entertainment-viral/` (15) — Scroll-stop entertainment
 
 Audience: passive scroll-feed entertainment / meme / brainrot / loopable. Goal: pure attention capture, dwell-time, share. Tone: punchy, surreal, often AI-native.
 
@@ -78,10 +81,14 @@ Audience: passive scroll-feed entertainment / meme / brainrot / loopable. Goal: 
 | [`asmr-sensory`](entertainment-viral/asmr-sensory/) | vibe-style | Sound-forward content. Tapping / whispering / cooking / unboxing-sounds. Music OFF default. 30-90s. |
 | [`comic-to-video`](entertainment-viral/comic-to-video/) | vibe-style | Animate user-supplied comic panels / manga / webtoons. Reading-order-aware (LTR / RTL / vertical). |
 | [`music-video`](entertainment-viral/music-video/) | vibe-style | Beat-synced clips. Performance / Narrative / Visualizer modes. 10-genre matrix. |
+| [`analog-horror-psa`](entertainment-viral/analog-horror-psa/) | vibe-style | 30s EBS-style emergency-broadcast PSA. Cold ElevenLabs robo-female VO + flat yellow 1970s civil-defense pictograms on pure black. IF→DO-NOT→BUT→AND dread structure. Derived from `analog-horror-fridge-001`. |
+| [`anthropomorphic-object-drama`](entertainment-viral/anthropomorphic-object-drama/) | vibe-style | Pixar-3D telenovela parody played dead-straight by face-on-object characters. 7×8s dialogue beats, one music bed swelling at the confrontation, popping-word captions. Derived from `fruit-drama-001`. *(Differs from `ai-drama`: this one uses an editor-stage music bed; `ai-drama` is Veo-native-audio-only.)* |
+| [`broadcast-caught-on-tv-square`](entertainment-viral/broadcast-caught-on-tv-square/) | vibe-style | Square 1:1 "caught-on-live-broadcast" realism — the unintuitive aspect IS the trick (portrait kills the illusion). gpt-5.4-image-2 → Kling 15s i2v with --audio for ambient announcer. Derived from `kbo-broadcast-001`. |
+| [`found-footage-mockumentary`](entertainment-viral/found-footage-mockumentary/) | vibe-style | First-person handheld occult mockumentary. REC dot + timecode overlay, diegetic captions, no VO. seedance-2.0 for non-default physics motion (frozen-statue cult turn, instant-teleport-state reveals). Derived from `occult-mockumentary-001`. |
 
 ---
 
-## `cinematic-narrative/` (7) — Cinematic, story-driven, premium aesthetic
+## `cinematic-narrative/` (11) — Cinematic, story-driven, premium aesthetic
 
 Audience: aesthetics-first / film-quality / high production value. Goal: brand prestige, emotional resonance, look-driven. Tone: directorial, deliberate, cinematic grammar.
 
@@ -94,6 +101,10 @@ Audience: aesthetics-first / film-quality / high production value. Goal: brand p
 | [`cartoon`](cinematic-narrative/cartoon/) | vibe-style | 2D, cel-shaded, hand-drawn, watercolor, pixel, claymation. 9 animation principles cited by name. |
 | [`cgi-architecture`](cinematic-narrative/cgi-architecture/) | vibe-style | Archviz — rendered houses / interiors / conceptual builds. Distinct from `real-estate` (existing properties). |
 | [`real-estate`](cinematic-narrative/real-estate/) | vibe-style | 20-60s property showcase. Photoreal property tours of existing homes. |
+| [`japanese-hypermotion-product-ad`](cinematic-narrative/japanese-hypermotion-product-ad/) | vibe-style | 15s 9:16 Japanese hyperpop product ad — 8 hard-cuts at ~1.9s avg over a pink-and-cyan tile-grid 3D stage with chibi mascots, drum-sting on every cut, katakana brand-logo slam outro. Derived from `flipper-hypermotion-001`. |
+| [`pixel-art-product-reveal`](cinematic-narrative/pixel-art-product-reveal/) | vibe-style | Photoreal hero device as the only chroma in a hand-illustrated duotone halftone-dithered world. 8 hyper-motion cuts orbit the product's signature physical gimmick, ending on a wordmark over a chroma slab. Derived from `playdate-pixel-001`. |
+| [`comic-spiderverse-action`](cinematic-narrative/comic-spiderverse-action/) | vibe-style | 27s 16:9 painterly action duel in Spider-Verse / Arcane register. Two contrasting silhouettes trading named-trick beats over urban backdrop. Two stitched seedance-2.0 t2v clips + sidechain-ducked music bed. Derived from `skater-spiderverse-001`. |
+| [`tokyo-y2k-cinematic`](cinematic-narrative/tokyo-y2k-cinematic/) | vibe-style | Long-form 75s locked-off-tripod near-miss arc in any neon Asian metropolis × any costume-era. Frame-within-frame through glass / rain / curtains, 24fps native, dual-aspect output (9:16 letterbox + 16:9 native). Derived from `tokyo-y2k-001`. |
 
 ---
 
