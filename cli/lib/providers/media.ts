@@ -194,6 +194,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     model,
   };
   await logGeneration(input.projectId, {
+    slot: input.slot,
     provider: "openrouter",
     endpoint: model,
     kind: "image",
@@ -268,6 +269,18 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   const resolution = input.resolution ?? "720p";
   const pollIntervalMs = input.pollIntervalMs ?? 15_000;
   const pollMaxAttempts = input.pollMaxAttempts ?? 80;
+
+  // Kling 2500-char prompt cap. OR returns 400 after a round-trip if exceeded —
+  // 4× per session in glitter-cream. Catch it client-side with an actionable hint
+  // about which clauses are load-bearing (voice-tag, no-music ban, on-camera-EN)
+  // and which to trim first (atmosphere / setting prose).
+  if (model.startsWith("kwaivgi/kling-") && input.prompt.length > 2500) {
+    throw new Error(
+      `Prompt exceeds Kling 2500-char cap (got ${input.prompt.length}). ` +
+        `Trim atmosphere / setting prose first — voice-tag, no-music ban, and on-camera-EN clauses are load-bearing. ` +
+        `See MODELS.md "Kling 2500-char prompt cap" for the rationale.`,
+    );
+  }
 
   // OpenRouter video generation is async: POST /api/v1/videos returns a job
   // with `id` + `polling_url` + (eventually) `unsigned_urls`. The legacy
@@ -413,6 +426,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     model,
   };
   await logGeneration(input.projectId, {
+    slot: input.slot,
     provider: "openrouter",
     endpoint: model,
     kind: "video",
@@ -570,6 +584,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     model: modelId,
   };
   await logGeneration(input.projectId, {
+    slot: input.slot,
     provider: "elevenlabs",
     endpoint: `tts/${modelId}`,
     kind: "voiceover",
@@ -628,7 +643,29 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    const err = new Error(`ElevenLabs Music ${resp.status}: ${text.slice(0, 500)}`);
+    // ElevenLabs Music returns 422 `bad_prompt` ToS rejections with a `detail.data.prompt_suggestion`
+    // field carrying a model-cleaned rewrite. Surface it as a structured property on the thrown
+    // error so callers (skill code, CLI retry loops) can resubmit programmatically rather than
+    // hand-rewriting. Three postmortems (playdate / skater / glitter-cream) hit this and wasted
+    // 3 manual rewrites per session.
+    let promptSuggestion: string | undefined;
+    try {
+      const parsed = JSON.parse(text) as {
+        detail?: { data?: { prompt_suggestion?: string } } | string;
+      };
+      if (parsed?.detail && typeof parsed.detail === "object") {
+        promptSuggestion = parsed.detail.data?.prompt_suggestion;
+      }
+    } catch {
+      /* not JSON — leave promptSuggestion undefined */
+    }
+    const err = new Error(
+      `ElevenLabs Music ${resp.status}: ${text.slice(0, 500)}` +
+        (promptSuggestion ? `\n  prompt_suggestion: ${promptSuggestion}` : ""),
+    );
+    if (promptSuggestion) {
+      (err as Error & { promptSuggestion?: string }).promptSuggestion = promptSuggestion;
+    }
     await logFailure(input, "elevenlabs", modelId, "music", body, err, t0);
     throw err;
   }
@@ -646,6 +683,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     model: modelId,
   };
   await logGeneration(input.projectId, {
+    slot: input.slot,
     provider: "elevenlabs",
     endpoint: "music",
     kind: "music",
@@ -722,6 +760,7 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
     model: modelId,
   };
   await logGeneration(input.projectId, {
+    slot: input.slot,
     provider: "elevenlabs",
     endpoint: "sound-generation",
     kind: "sfx",
@@ -822,12 +861,13 @@ async function logFailure(
   input: CommonInput,
   provider: "openrouter" | "elevenlabs",
   model: string,
-  kind: "image" | "video" | "voiceover" | "music",
+  kind: "image" | "video" | "voiceover" | "music" | "sfx",
   body: Record<string, unknown>,
   err: unknown,
   t0: number,
 ): Promise<void> {
   await logGeneration(input.projectId, {
+    slot: input.slot,
     provider,
     endpoint: model,
     kind,
