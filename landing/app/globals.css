@@ -38,25 +38,25 @@
    ───────────────────────────────────────────────────────────── */
 :root {
   --bg:        #0A0A0B;
-  --bg-1:      #111113;
-  --bg-2:      #161618;
-  --bg-3:      #1C1C1F;
-  --bg-4:      #232327;
+  --bg-1:      #131316;
+  --bg-2:      #1A1A1D;
+  --bg-3:      #212125;
+  --bg-4:      #28282C;
 
   --ink:       #F5F5F4;
-  --ink-2:     #D2D2CF;
-  --ink-3:     #9C9C99;
-  --mute:      #6E6E6C;
-  --mute-2:    #46464A;
+  --ink-2:     #DDDDDA;
+  --ink-3:     #B5B5B2;
+  --mute:      #8E8E8B;
+  --mute-2:    #5A5A5E;
 
   --vio:       #E87BA1;     /* poised dusty rose — terminal pink, calmer */
   --vio-2:     #F2A0BD;
   --vio-3:     #C75C82;
   --vio-ink:   #6E2F4A;
 
-  --line:      rgb(245 245 244 / 0.08);
-  --line-2:    rgb(245 245 244 / 0.16);
-  --line-3:    rgb(245 245 244 / 0.28);
+  --line:      rgb(245 245 244 / 0.12);
+  --line-2:    rgb(245 245 244 / 0.20);
+  --line-3:    rgb(245 245 244 / 0.32);
 
   /* Display = AWS Diatype Rounded Semi-Mono Bold (uppercase headings).
      Sans    = AWS Diatype Regular (body).
