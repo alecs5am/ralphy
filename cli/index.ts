@@ -46,11 +46,25 @@ program
   // Commander accepts only one short flag; we use the lowercase -v
   // (npm / docker / kubectl convention) instead of Commander's default -V.
   .version(VERSION, "-v, --version", "Print the ralphy version")
-  .option("-p, --pretty", "Human-readable output instead of JSON")
+  .option("-p, --pretty", "Force pretty output (rich UI with colors, tables, icons)")
+  .option("--json", "Force JSON output (overrides TTY auto-detection — use for shell piping / scripts)")
+  .option("--no-color", "Disable color output even on TTY")
   .option("--cwd <path>", "Working directory (overrides project auto-detection)")
   .hook("preAction", async (thisCommand) => {
     const opts = thisCommand.opts();
-    if (opts.pretty) setPretty(true);
+    // ui.ts mode: auto-detect TTY unless explicit --pretty / --json
+    const { setMode } = await import("./lib/ui.js");
+    if (opts.json) {
+      setMode("json");
+      setPretty(false);
+    } else if (opts.pretty) {
+      setMode("pretty");
+      setPretty(true);
+    } else {
+      // Mirror TTY detection into legacy setPretty() so old commands light up too
+      setMode("auto");
+      setPretty(Boolean(process.stdout.isTTY));
+    }
     if (opts.cwd) {
       setRoot(opts.cwd);
       await loadProjectEnv(opts.cwd);
@@ -129,19 +143,18 @@ program.addCommand(
     }),
 );
 
-// Bare `ralphy` (no subcommand) — print status dashboard: version + capabilities
-// + user profile + recommendation. This is what the agent calls on session start
-// to load user context. Equivalent to `ralphy whoami` plus the version banner.
+// Bare `ralphy` (no subcommand) — status dashboard: version + capabilities +
+// user profile + recommendation. The agent calls this on session start to load
+// user context. Rich pretty output on TTY; --json forces machine output.
 program.action(async () => {
   const { loadUserProfile, computeSkillScore, bandForScore, backfillFromWorkspace } =
     await import("./lib/user-profile.js");
   const { root } = await import("./lib/paths.js");
-  const { out } = await import("./lib/output.js");
+  const { isPrettyMode, banner, section, kv, bar, skillPath, c, icons } = await import("./lib/ui.js");
+  const { saveUserProfile } = await import("./lib/user-profile.js");
   const path = await import("node:path");
 
   let profile = await loadUserProfile();
-  // If signals are empty, do a one-shot backfill from workspace so day-1 users
-  // with existing finished projects don't start as "novice".
   if (profile.signals.projects_done === 0 && profile.signals.renders_shipped === 0) {
     try {
       const workspaceRoot = path.join(root(), "workspace");
@@ -151,30 +164,83 @@ program.action(async () => {
         profile.skill.score = computeSkillScore(profile.signals);
         profile.skill.band = bandForScore(profile.skill.score);
       }
-      const { saveUserProfile } = await import("./lib/user-profile.js");
       await saveUserProfile(profile);
     } catch {
       /* backfill is best-effort */
     }
   }
 
-  out({
-    version: VERSION,
-    user: {
-      firstSeen: profile.firstSeen,
-      lastSeen: profile.lastSeen,
-      is_developer: profile.is_developer,
-      skill: profile.skill,
-      signals: profile.signals,
-    },
-    capabilities: {
-      openrouter: Boolean(process.env.OPENROUTER_API_KEY),
-      elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
-    },
-    project_root: root(),
-    hint:
-      "Run `ralphy whoami` for detailed profile + recommendation, `ralphy --help` for the verb surface, `ralphy template suggest \"<brief>\"` to find a template.",
-  });
+  // JSON branch — agent / pipe-friendly
+  if (!isPrettyMode()) {
+    console.log(
+      JSON.stringify(
+        {
+          version: VERSION,
+          user: {
+            firstSeen: profile.firstSeen,
+            lastSeen: profile.lastSeen,
+            is_developer: profile.is_developer,
+            skill: profile.skill,
+            signals: profile.signals,
+          },
+          capabilities: {
+            openrouter: Boolean(process.env.OPENROUTER_API_KEY),
+            elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
+          },
+          project_root: root(),
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  // Pretty dashboard
+  banner();
+
+  const homeDir = process.env.HOME || "";
+  const projectShort = root().startsWith(homeDir) ? "~" + root().slice(homeDir.length) : root();
+  const caps = [
+    { label: "OpenRouter", on: Boolean(process.env.OPENROUTER_API_KEY) },
+    { label: "ElevenLabs", on: Boolean(process.env.ELEVENLABS_API_KEY) },
+  ];
+  console.log(`${icons.arrow} ${c.bold("version")}      ${c.value("v" + VERSION)}`);
+  console.log(`${icons.arrow} ${c.bold("project")}      ${c.path(projectShort)}`);
+  console.log(
+    `${icons.arrow} ${c.bold("capabilities")} ${caps.map((cap) => (cap.on ? icons.ok + " " : icons.fail + " ") + cap.label).join("   ")}`,
+  );
+
+  // User block
+  const tenure =
+    profile.signals.sessions_count === 0
+      ? c.muted("first session")
+      : c.muted(`returning, ${profile.signals.sessions_count} session${profile.signals.sessions_count === 1 ? "" : "s"}`);
+  const badge = profile.is_developer ? `  ${icons.star} ${c.brand("developer")}` : "";
+  section(`User${badge}`, [
+    `${c.label("Skill   ")} ${bar(profile.skill.score, 10)}  ${c.bold(profile.skill.score.toFixed(1) + " / 10")}  ${c.brand(profile.skill.band)}`,
+    `${c.label("Path    ")} ${skillPath(profile.skill.band)}`,
+    `${c.label("Tenure  ")} ${tenure}`,
+  ]);
+
+  // Signals block
+  const sigEntries: Array<[string, unknown]> = [
+    ["Projects done", profile.signals.projects_done],
+    ["With postmortem", profile.signals.projects_with_postmortem],
+    ["Renders shipped", profile.signals.renders_shipped],
+    ["Templates used", profile.signals.templates_used_count === 0 ? c.muted("0  (try `ralphy template suggest \"<brief>\"`)") : profile.signals.templates_used_count],
+    ["CLI verb breadth", profile.signals.cli_verb_breadth === 0 ? c.muted("0  (auto-tracked)") : profile.signals.cli_verb_breadth],
+    ["Sessions", profile.signals.sessions_count],
+  ];
+  section("Signals (auto-backfilled from workspace)");
+  kv(sigEntries, { maxKeyWidth: 18 });
+
+  // Quick start
+  section("Quick start");
+  console.log(`  ${icons.bullet} ${c.cmd("ralphy whoami")}                             detailed profile + recommendation`);
+  console.log(`  ${icons.bullet} ${c.cmd("ralphy template suggest \"<brief>\"")}        find a template by utterance`);
+  console.log(`  ${icons.bullet} ${c.cmd("ralphy --help")}                             full verb surface`);
+  console.log();
 });
 
 program.parseAsync();

@@ -39,11 +39,26 @@ export function modelsCmd() {
         frames: (m.supported_frame_images ?? []).join(","),
         priceUsd5s: estimateVideoCostUsd(m.id, 5),
       }));
-      if (isPretty()) {
-        out({ fetchedAt: catalog.fetchedAt, models: rows });
-      } else {
+
+      const ui = await import("../lib/ui.js");
+      if (!ui.isPrettyMode()) {
         out({ fetchedAt: catalog.fetchedAt, count: rows.length, models: rows });
+        return;
       }
+      const { c, icons, section, table } = ui;
+      section(`OpenRouter video models  ${c.muted(`(${rows.length} total, cached ${new Date(catalog.fetchedAt).toLocaleString()})`)}`);
+      table(rows, [
+        { key: "id", header: "model id", format: (v) => c.cmd(String(v)) },
+        { key: "durations", header: "durations (s)" },
+        { key: "resolutions", header: "res" },
+        { key: "aspects", header: "aspects" },
+        { key: "frames", header: "frame anchors", format: (v) => (String(v).includes("last_frame") ? c.brand(String(v)) : c.muted(String(v))) },
+        { key: "priceUsd5s", header: "$/5s", format: (v) => c.value("$" + Number(v).toFixed(2)) },
+      ]);
+      console.log();
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy models show <id>")}    full schema + price tiers`);
+      console.log(`  ${icons.bullet} ${c.cmd("ralphy models alias <name>")}  resolve shorthand (kling, nano-banana, ...)`);
+      console.log();
     });
 
   cmd
