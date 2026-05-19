@@ -58,3 +58,23 @@ By **reference-required** gate:
 7. **Log issues per slug** so the template can be hardened: update `template.json.tags` for resolution, fix `hooks.md` if hook-stop is weak, fix `prompt-cookbook.md` if asset gen drifts.
 
 Goal of the walk-through: a verified, gated "production-ready" set of 20 templates that the agent can scaffold and ship end-to-end without surprises.
+
+---
+
+## Recent additions — candidates for the next Top-20 review
+
+Eleven templates derived from shipped projects (the showcase grid on the landing page). All have validated final renders + per-project gen-logs / postmortems where available, and ship under the unified schema (structured `slots`, `sourceProject` pointer, `doNotCopyLiterally` rationale). Curate into Top-20 once they each get an agent test-drive.
+
+| Slug | Category | Source project | Strong as |
+|---|---|---|---|
+| [`broadcast-caught-on-tv-square`](entertainment-viral/broadcast-caught-on-tv-square/) | entertainment-viral | `kbo-broadcast-001` | 1:1 square caught-on-TV realism — novelty aspect drives scroll-stop |
+| [`analog-horror-psa`](entertainment-viral/analog-horror-psa/) | entertainment-viral | `analog-horror-fridge-001` | EBS-PSA hijack format; tight IF→DO-NOT→BUT→AND beat scaffold |
+| [`noski-deadpan-2hander`](creator-lifestyle/noski-deadpan-2hander/) | creator-lifestyle | `noski-people-001` | @americanbaron deadpan register — strong creator-lifestyle pattern |
+| [`tokyo-y2k-cinematic`](cinematic-narrative/tokyo-y2k-cinematic/) | cinematic-narrative | `tokyo-y2k-001` | Dual-aspect output (9:16 + 16:9), neon-soaked y2k cinematic |
+| [`pixel-art-product-reveal`](cinematic-narrative/pixel-art-product-reveal/) | cinematic-narrative | `playdate-pixel-001` | Photoreal product as only-chroma in duotone world — iconic Panic-style reveal |
+| [`japanese-hypermotion-product-ad`](cinematic-narrative/japanese-hypermotion-product-ad/) | cinematic-narrative | `flipper-hypermotion-001` | 8-cut hyperpop product ad with chibi orbit — strong product-launch format |
+| [`comic-spiderverse-action`](cinematic-narrative/comic-spiderverse-action/) | cinematic-narrative | `skater-spiderverse-001` | 16:9 painterly action duel in Spider-Verse/Arcane register |
+| [`found-footage-mockumentary`](entertainment-viral/found-footage-mockumentary/) | entertainment-viral | `occult-mockumentary-001` | First-person handheld horror — seedance-2.0 for non-default physics |
+| [`anthropomorphic-object-drama`](entertainment-viral/anthropomorphic-object-drama/) | entertainment-viral | `fruit-drama-001` | Pixar-3D telenovela parody with editor-stage music bed (sibling to `ai-drama`) |
+| [`ugc-selfie-product-review`](dtc-commerce/ugc-selfie-product-review/) | dtc-commerce | `glitter-cream-001` | Handheld UGC selfie review with identity-lock via product + persona masters |
+| [`multi-scene-product-launch`](dtc-commerce/multi-scene-product-launch/) | dtc-commerce | `nothing-hp1-001` | 27-shot identity-locked branded-hardware launch (longest format in the set) |
