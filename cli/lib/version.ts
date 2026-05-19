@@ -5,4 +5,4 @@
  * places when releasing manually — keep them in sync so `ralphy --version`
  * matches the npm/release tag.
  */
-export const VERSION = "0.0.2";
+export const VERSION = "0.1.0";

@@ -3,7 +3,7 @@
 > This file is `@`-imported by `CLAUDE.md`, so it's always in the system prompt. It is the routing contract for every user request.
 
 <!-- ralphy-version-line: do not edit by hand. The `/release` skill bumps this line. -->
-> **Current ralphy CLI: `v0.0.2`** (released 2026-05-19). Verify the user's binary via `ralphy --version`. If it lags this version, suggest `brew upgrade ralphy` (macOS) or `npm update -g @alecs5am/ralphy` (cross-platform) so they pick up the fixes documented in this routing table.
+> **Current ralphy CLI: `v0.1.0`** (released 2026-05-19). Verify the user's binary via `ralphy --version`. If it lags this version, suggest `brew upgrade ralphy` (macOS) or `npm update -g @alecs5am/ralphy` (cross-platform) so they pick up the fixes documented in this routing table.
 
 ## The discipline (read this first, every time)
 
