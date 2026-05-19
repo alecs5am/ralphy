@@ -217,7 +217,12 @@ async function viaElevenLabs(
       },
     ];
   } else {
-    throw new Error("ElevenLabs Scribe returned empty transcript");
+    // Two postmortems (noski, venom) had to wrap this exception because Scribe
+    // returns empty transcripts on silent / sub-threshold audio (e.g. SFX-only
+    // clips, low-loudness music beds). Return an empty caption array so the
+    // caller can decide what to do — most "captions" projects skip silent slots
+    // by design.
+    captions = [];
   }
 
   const costUsd = (audioDurationSec / 60) * COST_PER_MIN_SCRIBE;
