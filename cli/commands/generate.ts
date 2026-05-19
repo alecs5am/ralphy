@@ -479,7 +479,8 @@ export function generateCmd() {
     .option("--slot <slot>", "Slot id (default: derived from audio filename)")
     .option("--language <lang>", "Audio language: ru | en | auto", "ru")
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
-    .option("--output <path>", "Custom output path (default: workspace/projects/<id>/captions.json)")
+    .option("--output <path>", "Custom output path. Default: workspace/projects/<id>/assets/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
+    .option("--legacy-output", "Write to the legacy shared captions.json instead of assets/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path.")
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
       await ensureProject(opts.project);
@@ -488,9 +489,14 @@ export function generateCmd() {
       const backend = opts.backend as TranscribeBackend;
       const t0 = Date.now();
       const result = await transcribe({ audioPath, language: opts.language, backend });
+      // Per-slot output (noski + venom postmortems: shared captions.json was
+      // clobbered between calls, forcing manual `cp captions.json assets/audio/<slot>.json`).
+      // Default → assets/captions/<slot>.json. --output overrides; --legacy-output forces old path.
       const outPath = opts.output
         ? path.resolve(opts.output)
-        : path.join(projectsDir(), opts.project, "captions.json");
+        : opts.legacyOutput
+          ? path.join(projectsDir(), opts.project, "captions.json")
+          : path.join(projectsDir(), opts.project, "assets", "captions", `${slot}.json`);
       await fs.mkdir(path.dirname(outPath), { recursive: true });
       await fs.writeFile(outPath, JSON.stringify(result.captions, null, 2), "utf8");
 
@@ -498,6 +504,7 @@ export function generateCmd() {
         provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
         endpoint: result.model,
         kind: "text",
+        slot,
         input: { audio: audioPath, language: opts.language, backend: result.backend },
         output: { local: outPath, bytes: result.captions.length },
         status: "ok",
