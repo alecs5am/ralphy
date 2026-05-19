@@ -56,33 +56,19 @@ export function Lightbox({ clip, onClose, onPrev, onNext }: Props) {
       </button>
       <div className="stage" onClick={(e) => e.stopPropagation()}>
         <video ref={v} key={clip.id} src={clip.src} poster={clip.poster} autoPlay loop muted={muted} playsInline />
+        <button
+          className="lb-mute"
+          onClick={() => {
+            setMuted((m) => !m);
+            if (v.current) v.current.muted = !muted;
+          }}
+          aria-label={muted ? "Unmute" : "Mute"}
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
         <div className="lb-meta">
-          <div>
-            <div style={{ color: "var(--vio-2)" }}>{clip.label}</div>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 800,
-                textTransform: "uppercase",
-                fontSize: 18,
-                color: "var(--ink)",
-                marginTop: 6,
-                letterSpacing: "-0.005em",
-              }}
-            >
-              {clip.title}
-            </div>
-          </div>
-          <button
-            className="btn"
-            style={{ padding: "6px 12px", fontSize: 12 }}
-            onClick={() => {
-              setMuted((m) => !m);
-              if (v.current) v.current.muted = !muted;
-            }}
-          >
-            {muted ? "🔇 unmute" : "🔊 mute"}
-          </button>
+          <div className="lb-meta-label">{clip.label}</div>
+          <div className="lb-meta-title">{clip.title}</div>
         </div>
       </div>
     </div>
