@@ -179,7 +179,7 @@ export type Clip = {
 export const clips: Clip[] = [
   // Order matters: drives top-of-column placement in the LPT packer.
   // First 3 portrait items land at the top of cols 0/1/2.
-  { id: "noski-people-001", src: "/assets/showcase/noski-people-001.mp4", poster: "/assets/showcase/posters/noski-people-001.jpg", label: "Photoreal", title: "Noski people", span: "v1" },
+  { id: "noski-people-001", src: "/assets/showcase/noski-people-001.mp4", poster: "/assets/showcase/posters/noski-people-001.jpg", label: "Photoreal", title: "Socks or people", span: "v1" },
   { id: "nothing-hp1-001", src: "/assets/showcase/nothing-hp1-001.mp4", poster: "/assets/showcase/posters/nothing-hp1-001.jpg", label: "Product Ad", title: "Nothing HP1 launch", span: "v2" },
   { id: "analog-horror-fridge-001", src: "/assets/showcase/analog-horror-fridge-001.mp4", poster: "/assets/showcase/posters/analog-horror-fridge-001.jpg", label: "Analog Horror", title: "Compliance Bulletin 9-D", span: "v1" },
   { id: "flipper-hypermotion-001", src: "/assets/showcase/flipper-hypermotion-001.mp4", poster: "/assets/showcase/posters/flipper-hypermotion-001.jpg", label: "Hyper Motion", title: "Flipper Zero ad", span: "v1" },
