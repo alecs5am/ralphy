@@ -1,0 +1,170 @@
+{
+  "name": "Anthropomorphic Object Drama",
+  "slug": "anthropomorphic-object-drama",
+  "kind": "vibe-style",
+  "description": "Pixar-3D telenovela parody played dead-straight by anthropomorphic objects — fruit, vegetables, household appliances, anything with a face-on-object look. 7×8s = 56s default, structured as hook → setup → rising → discovery → confrontation → departure → resolution. Direct on-camera dialogue (one or two speakers per beat, never a narrator) carried by Veo 3.1 native audio. Single continuous music bed with a two-section emotional arc: warm pastel orchestral-pop opening + dramatic strings swell at the confrontation beat (~sec 32). Popping-word captions overlay one word at a time at the emotional peak. Beat-locked-to-dialogue: every 8s scene = exactly one dialogue beat in the story arc, every keyframe seeds the i2v anchor for that beat, every caption pop fires on the strongest word of the line.",
+  "tags": [
+    "anthropomorphic-object-drama",
+    "fruit-drama",
+    "object-drama",
+    "vegetable-drama",
+    "face-on-object",
+    "pixar-3d",
+    "ai-drama",
+    "telenovela-parody",
+    "soap-opera-melodrama",
+    "on-camera-dialogue",
+    "veo-native-audio",
+    "popping-word-captions",
+    "beat-locked-to-dialogue",
+    "two-section-music-arc",
+    "tiktok",
+    "reels",
+    "shorts",
+    "9-by-16",
+    "viral-2026"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    48,
+    64
+  ],
+  "typicalClipCount": [
+    6,
+    8
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "hooks": "hooks.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — one keyframe per scene as the i2v first-frame anchor. Scene-01 keyframe doubles as the cast-lineup master (all main characters in frame) so later keyframes can match identity.",
+    "i2v": "google/veo-3.1 via OpenRouter — 8s clips, native audio ON, --first-frame = scene keyframe. English dialogue is the validated-clean path; Russian works but drifts (per MODELS.md). Every prompt restates the full lock-string of every character in frame because Veo has no character-lock primitive.",
+    "voiceover": "NONE separately — Veo native audio IS the on-camera dialogue. Do not stack ElevenLabs TTS on top; lip-sync would desync.",
+    "music": "ElevenLabs Music — ONE continuous bed, ~duration of full video, with internal emotional arc (warm opening + swell at confrontation beat). Two structural moments inside ONE stem, not two separate stems. Mixed under VO at ~-22 LUFS via ffmpeg sidechain-compress so dialogue stays intelligible.",
+    "captions": "ElevenLabs scribe_v1 word-level on the final mixed audio → popping-word overlay (one word at a time, spring scale-in on emotional peak, ~700ms hold, ~100ms fade). White fill, heavy black stroke, Inter 900 uppercase, anchored bottom-center.",
+    "composition": "Custom per-project Remotion (this template ships no generic composition). Consumer hand-authors src/videos/<id>/ — concat 7 clips, overlay music bed at -22 LUFS sidechained, burn popping-word captions on top."
+  },
+  "constants": {
+    "vibeAnchor": "Pixar-3D anthropomorphic object cast acting out a dead-serious telenovela in 7 beats of 8s each",
+    "characterStyle": "face-on-object — a single object (fruit / vegetable / appliance / produce) IS the head, mounted on a humanoid body in simple clothing. Smooth glossy 3D textures, big expressive eyes, no photoreal humans, no hybrid creatures.",
+    "captionStyle": "popping-word — Inter 900 uppercase, white fill #FFFFFF + 5px black stroke #000000, ~104px, anchored bottom-center y=1380, fires on emotional peak word, 700ms hold + 100ms fade",
+    "musicPolicy": "ONE bed with two-section emotional arc (warm intro + climax swell at the confrontation beat). NOT two separate stems — single continuous file. Veo prompts MUST ban background music inside the clip ('no music' clause) so the only music is the editor-stage overlay.",
+    "structurePolicy": "beat-locked-to-dialogue — every 8s scene = exactly one dialogue beat. Hook (sc-01) → setup (sc-02) → rising (sc-03) → discovery (sc-04) → confrontation (sc-05, music swell) → departure (sc-06) → resolution (sc-07)."
+  },
+  "variationAxes": [
+    "object class — fruit / vegetable / household appliance / kitchen gadget / packaged goods / office supplies / tools",
+    "plot trope — affair / breakup / found-family / love-triangle / mistaken-identity / parent-child / glow-up / rivalry",
+    "tone — melodrama played straight (default) / deadpan / soap-opera serious",
+    "VO language — English (validated-clean, default) / Russian (works but drifts) / Spanish / Mandarin",
+    "duration — 6×8s = 48s to 8×8s = 64s; 7×8s = 56s is the sweet spot",
+    "music arc — orchestral-pop (default) / acoustic-warm / synth-melancholic — always single bed with one swell at confrontation"
+  ],
+  "slots": [
+    {
+      "key": "subject_object_class",
+      "category": "concept",
+      "defaultExample": "fruit",
+      "required": true
+    },
+    {
+      "key": "character_a_id",
+      "category": "character",
+      "defaultExample": "banana-husband",
+      "required": true
+    },
+    {
+      "key": "character_a_lock_string",
+      "category": "character",
+      "defaultExample": "a Pixar-3D cartoon banana-headed man, smooth glossy yellow banana peel head with brown ripe spots, friendly round black eyes, small mouth, wearing a slightly rumpled white office shirt with rolled sleeves and a loose navy tie, beige trousers, mid-30s nervous family-man vibe",
+      "required": true
+    },
+    {
+      "key": "character_b_id",
+      "category": "character",
+      "defaultExample": "strawberry-wife",
+      "required": true
+    },
+    {
+      "key": "character_b_lock_string",
+      "category": "character",
+      "defaultExample": "a Pixar-3D cartoon strawberry-headed woman, glossy red strawberry head with tiny yellow seeds, two small green leaves on top like hair-bow, big trusting brown eyes with long lashes, soft pink cheeks, wearing a pastel cream apron over a sky-blue summer dress, gentle motherly posture",
+      "required": true
+    },
+    {
+      "key": "character_c_lock_string",
+      "category": "character",
+      "defaultExample": "a Pixar-3D cartoon woman with one single glossy bright red cherry as her head, long curled green stem on top, sharp confident half-lidded green eyes, deep red glossy lips, wearing a fitted black blazer with a low-cut white blouse, red pencil skirt, gold pendant, predatory warm smile",
+      "required": false
+    },
+    {
+      "key": "character_d_lock_string",
+      "category": "character",
+      "defaultExample": "a Pixar-3D cartoon orange carrot-headed man, smooth tapered bright orange carrot head with three tall green leaves on top like a fauxhawk, chiseled jawline, blue aviator sunglasses, brown leather biker jacket, white t-shirt, confident relaxed swagger, late-30s bad-boy-with-heart",
+      "required": false
+    },
+    {
+      "key": "character_a_voice",
+      "category": "voice",
+      "defaultExample": "gentle reassuring male voice mid-30s",
+      "required": true
+    },
+    {
+      "key": "character_b_voice",
+      "category": "voice",
+      "defaultExample": "warm motherly female voice mid-30s",
+      "required": true
+    },
+    {
+      "key": "target_language",
+      "category": "language",
+      "defaultExample": "English",
+      "required": true
+    },
+    {
+      "key": "plot_trope",
+      "category": "concept",
+      "defaultExample": "affair / breakup / found-family rebound",
+      "required": true
+    },
+    {
+      "key": "music_arc_descriptor",
+      "category": "music",
+      "defaultExample": "orchestral-pop dramatic-comedy — soft piano + light pizzicato strings opening, dramatic swelling strings + sharp staccato accents on the betrayal beat at ~32s, warm gentle hopeful piano resolution at ~48s",
+      "required": true
+    }
+  ],
+  "doNotCopyLiterally": "Cast (banana / strawberry / cherry / carrot), dialogue lines, exact scene settings, exact prompts. The reusable layer is the structural pattern (7 beats × 8s, beat-locked-to-dialogue, single keyframe → veo i2v, single music bed with two-section arc, popping-word captions) and the prompt scaffolding around lock-strings + on-camera-dialogue language locks. Pick a different object class + cast + plot trope every time.",
+  "requiresUserReference": false,
+  "referenceNotes": "No user reference required by default — cast is generated from prompt lock-strings of objects. If the user names a real brand, branded mascot, or specific real person (e.g. 'make Heinz ketchup the wife'), escalate to AGENTS.md hard rule #3 (reference-required gate) and refuse without a user-supplied reference image.",
+  "assets": {
+    "anchorMasterCastLineup": {
+      "remote": false,
+      "localPath": "assets/anchor-master-cast-lineup.png",
+      "destSubdir": "assets/images",
+      "destFilename": "anchor-master-cast-lineup.png",
+      "required": false,
+      "note": "Reference example of the scene-01 cast-lineup keyframe pattern from fruit-drama-001. Pixar-3D banana-husband + strawberry-wife in a warm kitchen doorway. Use as a stylistic anchor when prompting your own scene-01 keyframe — match the framing (warm pastel two-shot), glossy-3D render quality, and 'first-frame establishes both leads' rule. Not for direct copy; regenerate with your own cast."
+    },
+    "musicBedOrchestralPopDramaticComedy": {
+      "remote": false,
+      "localPath": "assets/music-bed-orchestral-pop-dramatic-comedy.mp3",
+      "destSubdir": "assets/music",
+      "destFilename": "music-bed.mp3",
+      "durationSec": 56.0,
+      "required": false,
+      "note": "Reusable orchestral-pop dramatic-comedy bed from fruit-drama-001 — 56s, single continuous arc with warm pastel opening + dramatic swell at ~32s confrontation beat + gentle resolution at ~48s. Drop-in if your scenario also lands a 56s 7-beat arc with the betrayal beat on scene-05. Re-prompt ElevenLabs Music if your duration / arc differ."
+    }
+  },
+  "sourceProject": "workspace/projects/fruit-drama-001",
+  "compositionTemplate": null
+}

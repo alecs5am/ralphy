@@ -1,0 +1,170 @@
+{
+  "name": "Pixel-Art Product Reveal",
+  "slug": "pixel-art-product-reveal",
+  "kind": "vibe-style",
+  "category": "cinematic-narrative",
+  "description": "Hyper-motion product reveal for a small handheld / cult-object gadget that has its own distinct two-tone screen aesthetic — Playdate-class, Game Boy-class, e-ink class. Photoreal hero device (the only color in the frame) sits as a HARD layer-split cutout against a smooth hand-illustrated duotone halftone-dithered world: ink-on-paper / risograph / Mac-System-1 register, NOT chunky 8-bit blocks. 8 cuts averaging ~1.9s, ends on a clean wordmark + tagline lockup over a chroma slab in the brand's signature color. The single physical-interaction gimmick (crank, dial, twist-flap, slider) is the gesture every scene revolves around.",
+  "tags": [
+    "pixel-art",
+    "duotone",
+    "halftone",
+    "dithering",
+    "risograph",
+    "ink-on-paper",
+    "indie-handheld",
+    "gadget-reveal",
+    "product-ad",
+    "hyper-motion",
+    "8-cut",
+    "9:16",
+    "photoreal-cutout",
+    "hard-layer-split",
+    "chroma-slab",
+    "wordmark-lockup",
+    "physical-gimmick",
+    "tactile-macro",
+    "panic-inc-aesthetic",
+    "playdate-style"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    13,
+    17
+  ],
+  "typicalClipCount": [
+    7,
+    9
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "hooks": "hooks.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "openai/gpt-5.4-image-2 via OpenRouter for product fidelity + typography (10/14 stills); google/gemini-3-pro-image-preview for hybrid photoreal-subject + illustrated-world scenes (4/14 stills, only when a hard layer-split between photoreal element and flat duotone world is the headline). Pass 3-4 ATOMIC style refs per call, not one composite screenshot.",
+    "i2v": "bytedance/seedance-2.0 multi-frame (first+last) is the default — works for everything from entrance slams to photoreal-hand 180-degree orbits. Single-frame for the 2 macro inserts. AVOID kwaivgi/kling-v3.0-pro multi-frame: still broken on OpenRouter (`400 File is not in a valid base64 format`) as of 2026-05-18 — confirmed across two postmortems. Kling-pro single-frame works but is reserved for tight-portrait expression-only acting; on this template no such shot exists, so seedance owns the whole pipeline.",
+    "voiceover": "None. This template is music + SFX only. Adding a human VO over a duotone-halftone world breaks the wordless print-zine register.",
+    "captions": "None in the body. The wordmark + tagline lockup at scene-08 is hand-illustrated typography baked into the keyframe, NOT a Remotion caption overlay.",
+    "music": "ElevenLabs Music — generate 5 parallel variants on different chiptune/lo-fi/indie-cinematic axes after the visual cut locks. STRIP ALL BRAND NAMES from the prompt (Game Boy / NES / SNES / Tetris / Mario Kart / Disasterpeace / Anamanaguchi all 400 with `bad_prompt`). Use the 400 response's `prompt_suggestion` field on retry."
+  },
+  "constants": {
+    "vibeAnchor": "duotone-halftone-illustrated-world-with-photoreal-hero-device",
+    "promptPhilosophy": "named-game-card-references-over-generic-pixel-art",
+    "hookWindow": "first-2-seconds-must-be-a-physical-impact-or-typographic-slam",
+    "motionRule": "all-caps-action-verbs-WHIPS-SLAMS-PUNCHES-per-flipper-rule-8",
+    "layerRule": "hard-layer-split-photoreal-device-plus-flat-duotone-world-no-painterly-blend",
+    "colorRule": "the-product-is-the-only-color-in-the-frame-everything-else-is-strict-2-tone-duotone",
+    "compositionWarning": "Remotion is project-specific at src/videos/<id>/ — clone scenes.ts/index.tsx skeleton from playdate-pixel-001, do NOT expect a generic composition in src/lib/templates/"
+  },
+  "variationAxes": [
+    "outro chroma slab style (full-bleed brand color / centered hero on slab / wordmark over halftone-burst / tagline-only over slab)",
+    "hyper-motion archetype (orbit-pan, parallax-strip, halftone-burst, pixel-tile slide-in, focus-rack push)",
+    "hook intent (mystery silhouette, gimmick-first close-up, ensemble-cast lineup, environmental wide)"
+  ],
+  "doNotCopyLiterally": "The yellow Playdate, the crank gimmick, the named Panic gamecards (Casual Birder / Pick Pack Pup / Hyper Meteor / Inventory Hero), the exact 8-scene beat order, the 'Just for fun.' tagline. Those are the source-project's identity. The TEMPLATE is the framework: photoreal hero device + duotone halftone world + hard layer-split + named-style-ref method + 8-cut hyper-motion + wordmark-on-chroma-slab outro.",
+  "requiresUserReference": true,
+  "referenceNotes": "Reference-required gate (AGENTS.md #3) ALWAYS applies — this template only makes sense for a SPECIFIC real product. Before any keyframe gen, the user must supply: (1) a canonical product photo or three-view (front + side + back), and (2) 8-15 ATOMIC style references in the brand's signature illustration register (game cards, manual cutaways, packaging art — one work per file, not a composite screenshot). If the brand has no public illustration corpus, propose pulling one via Playwright on the brand site BEFORE writing the storyboard. AI-improvised branding fails the gate — this template is allergic to it because the whole vibe rests on the brand's already-established two-tone language.",
+  "sourceProject": "workspace/projects/playdate-pixel-001",
+  "slots": [
+    {
+      "key": "product_name",
+      "category": "product",
+      "description": "Product / device name. Examples: Playdate, Polaroid I-2, Game Boy Color, Stylophone, Brother label-maker.",
+      "required": true
+    },
+    {
+      "key": "product_brand",
+      "category": "brand",
+      "description": "Manufacturer / brand name (Panic Inc., Polaroid, Nintendo, Dubreq, Brother).",
+      "required": true
+    },
+    {
+      "key": "product_brand_color_hex",
+      "category": "design",
+      "description": "The single chroma allowed in the frame. Examples: Playdate yellow #FFD400, Polaroid white, Game Boy pea-green, Kodak gold #FFB400, deep cyan, magenta, neon-orange.",
+      "required": true
+    },
+    {
+      "key": "product_brand_color_name",
+      "category": "design",
+      "description": "Plain-English color name (Playdate yellow, Kodak gold, Nothing red). Used in prompts where the hex does not read naturally.",
+      "required": true
+    },
+    {
+      "key": "product_physical_form_factor",
+      "category": "product",
+      "description": "What kind of device: handheld console, e-ink reader, retro camera, mini-synth, label-maker, lockbox, dictation recorder, vintage calculator.",
+      "required": true
+    },
+    {
+      "key": "product_gimmick",
+      "category": "product",
+      "description": "Physical interaction gag: crank, dial, twist-flap, slider, magnetic latch, pull-tab, flip-up screen, side-button-chord.",
+      "required": true
+    },
+    {
+      "key": "product_gimmick_verb",
+      "category": "product",
+      "description": "Verb form of the gimmick: cranks, twists, dials, slides, latches, pulls, flips, chords.",
+      "required": true
+    },
+    {
+      "key": "duotone_dark_hex",
+      "category": "design",
+      "description": "Dark chroma in the duotone palette (charcoal, midnight, ink, sepia). The brand color is the third chroma.",
+      "required": false
+    },
+    {
+      "key": "duotone_light_hex",
+      "category": "design",
+      "description": "Light chroma in the duotone palette (cream, bone, newsprint, vellum, pea-green).",
+      "required": false
+    },
+    {
+      "key": "duotone_palette_words",
+      "category": "design",
+      "description": "Plain-language palette descriptor. Examples: charcoal-on-cream, midnight-on-bone, ink-on-newsprint, sepia-on-vellum.",
+      "required": false
+    },
+    {
+      "key": "style_ref_corpus_names",
+      "category": "references",
+      "description": "Named style anchors. Examples: risograph zine, Mac System 1, vintage manual cutaway, newspaper-comic-strip, botanical-engraving.",
+      "required": false
+    },
+    {
+      "key": "ensemble_cast_4",
+      "category": "character",
+      "description": "Four mascot characters that orbit the product. Examples: 4 game-card mascots, 4 instrument personifications, 4 vintage-manual icons, 4 weather sprites.",
+      "required": false
+    },
+    {
+      "key": "wordmark_text",
+      "category": "branding",
+      "description": "Brand wordmark for the outro slam.",
+      "required": true
+    },
+    {
+      "key": "tagline_text",
+      "category": "branding",
+      "description": "One-line tagline for the outro slam (under or near the wordmark).",
+      "required": true
+    },
+    {
+      "key": "target_audience",
+      "category": "audience",
+      "description": "Audience descriptor. Examples: gen-z product collectors, indie-handheld enthusiasts, retro-tech archive nerds.",
+      "required": false
+    }
+  ],
+  "compositionTemplate": null,
+  "assets": {}
+}
