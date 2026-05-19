@@ -1,0 +1,161 @@
+{
+  "name": "Japanese Hyper-Motion Product Ad",
+  "slug": "japanese-hypermotion-product-ad",
+  "kind": "vibe-style",
+  "category": "cinematic-narrative",
+  "description": "15-second 9:16 hyper-energetic Japanese hyperpop product ad — 8 hard-cut beats at ~1.9s avg over a pink-and-cyan tile-grid 3D stage, orchestral-hyperpop or sakura-trap bed at 130-140 BPM with drum-fill stings on every cut, anime-style chibi mascots orbiting / running ON the product, gpt-5.4-image-2 stills for product / branding / typography fidelity + banana for any photoreal human inserts, seedance-2.0 for the violent physics (slam, explode, runway burst, magnet-pull, glint cascade) + kling-v3.0-pro single-frame for any human face, ending on a katakana brand logo + slogan slam.",
+  "tags": [
+    "japanese-hyperpop",
+    "hyper-motion",
+    "product-ad",
+    "dtc-gadget",
+    "tiktok",
+    "reels",
+    "shorts",
+    "katakana-typography",
+    "chibi",
+    "tile-grid",
+    "anime-overlay",
+    "orchestral-hyperpop",
+    "sakura-trap",
+    "drum-stings",
+    "snap-zoom",
+    "explosive-entrance",
+    "exploded-view",
+    "macro-tech",
+    "gpt-image-2",
+    "seedance-2.0",
+    "kling-v3.0-pro",
+    "9-16",
+    "15s",
+    "8-cut"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    14,
+    16
+  ],
+  "typicalClipCount": [
+    7,
+    9
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "openai/gpt-5.4-image-2 via OpenRouter for product / branding / typography / internals fidelity (holds real product topology, brand text, kana typography, exploded-view 10-layer disassemblies). google/gemini-3-pro-image-preview (banana) reserved for photoreal human inserts and hybrid photoreal-face + anime-overlay (e.g. money-eyes trope). Always pass 2-3 refs: canonical product master + tile-grid floor/wall style ref + scene-specific ref. Strip C2PA via `ffmpeg -map_metadata -1` before feeding to i2v.",
+    "i2v": "bytedance/seedance-2.0 via OpenRouter as default — handles violent physics (entrance slam, vertical explode, chibi runway burst, coin-magnet, GPIO-pin glint cascade) cleanly. kwaivgi/kling-v3.0-pro single-frame for any real human face / orbit / expression-only escalation. alibaba/wan-2.7 as moderation-fallback when seedance returns `no job.id`. NEVER use kling multi-frame (first+last) — reliably 400s on OpenRouter with base64 error.",
+    "voiceover": "None by default — this format is music + SFX only. No VO lane in the composition.",
+    "captions": "None — diegetic on-screen katakana impact text (バーン！, すごい！, カワイイ！, ！？) and the final brand logo + slogan typography ARE the captions layer. Generated as part of the still, not as a caption overlay.",
+    "music": "ElevenLabs music_v1 — generate 3 variants up front (orchestral-hyperpop, japanese-electronic-glitch sakura-trap, kawaii anime jpop) at 130-140 BPM with drum-fill stings on every downbeat. A/B/C render, swap MUSIC_FILE constant in scenes.ts. Sakura-trap / electronic-glitch holds tension better through 15s than pure orchestral (which drops energy mid-track)."
+  },
+  "constants": {
+    "vibeAnchor": "japanese-hyperpop + tile-grid-3D-stage + chibi-overlay + katakana-impact-text + drum-sting-on-every-cut",
+    "structure": "0.0-1.8s entrance slam hook → 1.8-3.6s macro tease → 3.6-5.6s human-or-hero use-case → 5.6-6.4s macro insert → 6.4-8.2s chibi runway → 8.2-10.6s exploded reveal → 10.6-11.4s tech-porn insert → 11.4-15.0s outro logo + slogan",
+    "cutDensity": "8 hard cuts over 15s, ~1.9s avg, micro-inserts (24f / 0.8s) between major beats — TransitionSeries overkill, plain Sequences with adjacent `from` gives the right hard-cut feel",
+    "palette": "cadmium-yellow base + hot-pink + cyan accents, pink-and-cyan tile-grid checkerboard floor + pink tile wall, hot-pink rim light + cyan accent + warm sunny key, scattered confetti / sparkle particles",
+    "typography": "katakana block lettering with hot-pink shadow-outline, anime-bubble text balloons, pixel-by-pixel-typewriter reveal for brand logo, comic-burst-star punctuation",
+    "soundDoctrine": "drum-fill-sting on every cut downbeat, music bed runs full 15s, SFX layered per cut via <Audio> in scenes.ts (whoosh + impact-bass + kawaii-sparkle + coin-chime + magnet-suck + chibi-cartoon + explode-whoosh + glint-ding + typewriter-beep)",
+    "motionDoctrine": "ALL-CAPS action verbs in i2v prompts (WHIPS, SLAMS, BURSTS, EXPLODES, VIOLENT, AGGRESSIVE), explicit camera-move language (snap-zoom, 180° whip-orbit, rapid pull-back, aggressive dolly-in), kling-pro for body-or-camera motion is wrong — kling is for face-only expression escalation",
+    "framingDoctrine": "single product-DNA paragraph repeated verbatim across every scene prompt (white body + orange D-pad + orange bezel + orange brand text + OLED with pixel-mascot + katakana brand kana) — this is the identity-lock and must NOT be summarized or paraphrased between scenes"
+  },
+  "variationAxes": [
+    "product (any small consumer gadget with a brand text + screen + accent color — Flipper Zero, Playdate, Game Boy, Nothing Ear, Tamagotchi-style, AnkerMake module, Raspberry Pi case)",
+    "music register (orchestral-hyperpop ↔ japanese-electronic-glitch sakura-trap ↔ kawaii j-pop opening)",
+    "hero archetype (Japanese streetwear hacker, kawaii idol-girl, salaryman-turned-otaku, anime-realistic CGI character, OR fully chibi-only with no human)",
+    "macro-insert count (0 inserts → 6-cut version, 2 inserts → 8-cut version, 4 inserts → 10-cut tighter version)",
+    "exploded-view depth (3 layers for simpler products, 10 layers for tech-density spike)",
+    "final-slogan language (katakana ハック・スベテヲ-style; hiragana / kanji / Korean hangul / Cantonese all work with same typography rules)"
+  ],
+  "slots": [
+    {
+      "key": "brand_name",
+      "category": "brand",
+      "defaultExample": "Flipper Devices",
+      "required": true
+    },
+    {
+      "key": "product_name",
+      "category": "product",
+      "defaultExample": "Flipper Zero",
+      "required": true
+    },
+    {
+      "key": "product_dna_paragraph",
+      "category": "product",
+      "defaultExample": "WHITE plastic body with orange 5-way D-pad cluster right half, orange rectangular OLED bezel left half, bold orange embossed FLIPPER text on lower front, OLED showing pixel-dolphin + katakana フリッパー",
+      "required": true
+    },
+    {
+      "key": "brand_kana_logo",
+      "category": "brand",
+      "defaultExample": "フリッパー・ゼロ",
+      "required": true
+    },
+    {
+      "key": "japanese_slogan",
+      "category": "copy",
+      "defaultExample": "ハック・スベテヲ (hack everything)",
+      "required": true
+    },
+    {
+      "key": "hero_archetype",
+      "category": "character",
+      "defaultExample": "Japanese streetwear guy, 22yo, pink-dyed messy hair, twin lip piercings, oversized black hoodie with pink graphic print, smug confident grin",
+      "required": false
+    },
+    {
+      "key": "use_case_location",
+      "category": "location",
+      "defaultExample": "Japanese game arcade with pink+cyan neon cabinets and a coin-slot interaction",
+      "required": false
+    },
+    {
+      "key": "music_style_keywords",
+      "category": "music",
+      "defaultExample": "japanese hyperpop, sakura-trap, 140 BPM, drum-fill stings on every downbeat",
+      "required": true
+    },
+    {
+      "key": "target_audience",
+      "category": "audience",
+      "defaultExample": "JP / EN gen-z TikTok, gadget+anime crossover crowd",
+      "required": false
+    }
+  ],
+  "doNotCopyLiterally": "The chibi cast (orange-pigtailed girl + cat-eared chibi + goggles-boy + dolphin-mascot) is the Flipper-instance reading of the trope — for a new product, design a new 4-mascot cast that reads as 'this product's family'. The katakana slogan must be authored fresh; do not reuse ハック・スベテヲ for non-Flipper products. The product-DNA paragraph is per-product and must be derived from canonical brand imagery, not invented.",
+  "requiresUserReference": true,
+  "referenceNotes": "REQUIRED — pull canonical product PNGs (front, 3/4, top-down, internals if exposed) from the brand's official site BEFORE any image gen. Save into `refs/`. Invented product details = 100% guaranteed regen. Tile-grid floor + tile wall style ref is included in this template's `assets/` (style-3d-floor-walls.png + style-hyperpop-tilegrid.png + style-arcade-japanese.png).",
+  "assets": {
+    "style-3d-floor-walls": {
+      "filename": "style-3d-floor-walls.png",
+      "role": "style-reference",
+      "required": true,
+      "description": "Pink-and-cyan tile-grid checkerboard floor + tile wall reference — pass to every still as ref-2 for the 3D-stage palette / depth lock"
+    },
+    "style-hyperpop-tilegrid": {
+      "filename": "style-hyperpop-tilegrid.png",
+      "role": "style-reference",
+      "required": true,
+      "description": "Hyperpop palette saturation + katakana SFX text-balloon style reference"
+    },
+    "style-arcade-japanese": {
+      "filename": "style-arcade-japanese.png",
+      "role": "style-reference",
+      "required": false,
+      "description": "Japanese arcade interior lighting + cabinet density reference — only needed when the use-case scene is set in an arcade"
+    }
+  },
+  "sourceProject": "workspace/projects/flipper-hypermotion-001",
+  "compositionTemplate": null
+}

@@ -1,0 +1,180 @@
+{
+  "name": "Tokyo Y2K Cinematic Near-Miss",
+  "slug": "tokyo-y2k-cinematic",
+  "kind": "vibe-style",
+  "category": "cinematic-narrative",
+  "description": "Long-form 75s cinematic short — Y2K-Tokyo (or any neon city + era) near-miss love arc in the register of KYO KIMURA's honeybee. 15-17 locked-off tripod shots, 35mm Kodak Portra 400 emulation, soft natural light only, frame-within-a-frame compositions through glass / rain / curtains, zero diegetic audio, ElevenLabs piano-bed music carrying every beat. Ships as DUAL-aspect: 9:16 letterboxed 1.85:1 (TikTok / Reels / Shorts) + 16:9 native (YouTube / Vimeo) from the same scenes table. Authored at 24fps native, not 30. Trim-analysis pass is mandatory before composing — Kling and Seedance both overshoot the requested duration by ~1s per clip.",
+  "tags": [
+    "cinematic-narrative",
+    "tokyo-y2k",
+    "near-miss-arc",
+    "honeybee-dna",
+    "long-form",
+    "75s",
+    "letterbox-1.85",
+    "dual-aspect-9x16-16x9",
+    "35mm-film",
+    "kodak-portra-400",
+    "locked-off-tripod",
+    "frame-within-frame",
+    "soft-natural-light",
+    "zero-diegetic-audio",
+    "elevenlabs-piano-bed",
+    "kling-v3-pro",
+    "gemini-3-pro-image",
+    "trim-analysis-required",
+    "24fps-native",
+    "japanese-art-cinema",
+    "shunji-iwai",
+    "wong-kar-wai",
+    "neon-alley",
+    "rain-on-glass",
+    "jp-signage"
+  ],
+  "platform": "any",
+  "aspectRatio": "9:16",
+  "altAspectRatio": "16:9",
+  "typicalDurationSec": [
+    70,
+    80
+  ],
+  "typicalClipCount": [
+    15,
+    17
+  ],
+  "fps": 24,
+  "width": 1080,
+  "height": 1920,
+  "altWidth": 1920,
+  "altHeight": 1080,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview via OpenRouter as default — holds 35mm-film register, soft halation, lifted blacks, and Y2K Tokyo costume / location detail cleanly. openai/gpt-5.4-image-2 as fallback for 16:9 letterboxed cinematic frames (slightly stronger on architectural detail + signage). Always pass a character-master ref (her-master.png + him-master.png if 2-hander) inline on every per-scene anchor for identity-lock across 15-17 shots. Cost ballpark: ~$0.15-0.20 per anchor × 17 = ~$3-5 per pass.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for ALL human-anchored shots (per feedback_seedance_rejects_realistic_people memory — seedance privacy-filter rejects photoreal faces). bytedance/seedance-2.0 reserved for landscape-only / hands-only / empty-courtyard / object-only shots where it tends to render cleaner motion. --audio OFF on every clip (zero diegetic invariant). EXPECT each clip to overshoot the requested duration by ~1s (24 frames at 24fps) — budget the trim pass.",
+    "voiceover": "None. Cinematic near-miss pieces have zero dialogue, zero VO, zero captions. The silence between piano notes is the city.",
+    "captions": "None. No on-screen text, no title cards mid-film. Optional end-card on full black after the fade is the only exception.",
+    "music": "ElevenLabs music endpoint, single 75s bed. Modern-classical / cinematic-instrumental, adagio ~60 BPM, intimate close-mic'd felt-hammer piano lead, optional soft strings entering around shot 5, single solo cello phrase peaking at the emotional peak shot, strings receding by the second-to-last shot. The final phrase MUST fade unresolved — match cut to black mid-music-phrase, not at musical resolution. Generate 3-4 variants up front (piano-only, koto+piano JP-accent, ambient-pad, full-strings) and A/B against the locked timeline. Concurrency cap: 2 in-flight per ElevenLabs subscription — serialize or batch in groups of 2."
+  },
+  "constants": {
+    "vibeAnchor": "locked-off-tripod + 35mm-portra-400 + frame-within-frame + zero-diegetic + adagio-piano-bed + near-miss-arc",
+    "structure": "establishing wide (city asleep) → introduce character A through-glass → first near-miss → introduce character B detail-shot → second near-miss (literally face-to-face, both looking down) → A's gesture-of-longing → B's gesture-of-longing → walking beats (alley / crossing) → weather binds them in time (rain) → emotional peak through wet glass (~9s held) → only-yes moment (trains passing, reflections align for ~12 frames at 24fps) → ambiguous half-smile close → empty-platform fade",
+    "framingDefault": "9:16 letterboxed 1.85:1 — outer AbsoluteFill #000, inner 1080x584 div centered at top:668px, OffthreadVideo objectFit:'cover' to crop 16:9 source into 1.85:1 frame (~4% horizontal crop, invisible). Same scenes.ts drives the 16:9 wide composition via separate <Wide> wrapper.",
+    "motionDoctrine": "every clip has one distinct physical micro-beat (gesture, head turn, shutter press, train pulling away) — start frame ≠ end frame per feedback_start_end_frame_motion_delta. NO pans, NO zooms, NO handheld. The camera doesn't have opinions; the framing does.",
+    "lightDoctrine": "soft natural light only — window light, overcast sky, kissaten tube-fluorescent through condensation, top-down konbini, neon as fill. NO hard direct sunlight on faces, NO on-camera flash, NO HDR.",
+    "soundDoctrine": "zero diegetic audio (no train clatter, no rain, no traffic, no shutter). Pure music. Cuts on musical phrasing, NOT strict beats. Fade-to-black via Remotion interpolate (1.5s / 36 frames at 24fps) — no ffmpeg post-pass.",
+    "gradeDoctrine": "color shifts per location: dawn cool-slate + cream / kissaten warm-tungsten + cyan / platform desaturated-gray + green Yamanote stripe / vending alley electric-cool-white + magenta sky / Shibuya dusk pink-purple + tungsten signage / rain monochrome cool-blue / trains-passing isolated soft pinks+blues + deep blacks",
+    "skinDoctrine": "pores visible, slight asymmetry, no beauty-filter, warm skin tone, soft shadows (NEVER crushed-black on faces) — per feedback_photoreal_still_register memory",
+    "trimDoctrine": "Kling/Seedance ALWAYS return clip duration + ~1s (24 frames at 24fps). Plan trim pass into the editor stage from turn 1 — run `ralphy ref analyze-video <local-path>` with the strict-JSON schema prompt against every clip in parallel (xargs -P 6 is safe). Bias trims toward gemini's 'tail' recommendation (cleaner cuts). Reserve extra duration for the peak shot."
+  },
+  "variationAxes": [
+    "city (Tokyo / Seoul / Hong Kong / Taipei / Bangkok / Osaka — any dense Asian metropolis with rail + neon + rain culture)",
+    "era (Y2K / 1990s / late-80s shōwa / 2010s-vaporwave / near-future — the costume + grain register adjusts but the locked-off + zero-diegetic invariants stay)",
+    "arc shape (near-miss 2-hander like this template / single-protagonist drift / 3-character loose ensemble / city-as-protagonist no-people)",
+    "duration (60s tight / 75s standard / 90s extended-peak / 120s patient)",
+    "weather binding shot (spring rain / first snow / summer humidity / autumn typhoon)",
+    "emotional peak medium (reflection in wet glass / reflection in train window / reflection in convex security mirror / shadow on rice-paper screen)",
+    "final shot mood (empty platform fade like this template / single neon sign cycling / departing train tail-lights / vending machine humming)"
+  ],
+  "slots": [
+    {
+      "key": "city_name",
+      "category": "location",
+      "defaultExample": "Tokyo",
+      "required": true
+    },
+    {
+      "key": "aesthetic_era",
+      "category": "era",
+      "defaultExample": "Y2K (late 1990s / early 2000s Japanese art-cinema register — Shunji Iwai / Wong Kar-wai)",
+      "required": true
+    },
+    {
+      "key": "rail_system_signature",
+      "category": "location",
+      "defaultExample": "Yamanote line — green stripe livery, JR signage, Tokyo loop-line",
+      "required": false
+    },
+    {
+      "key": "neighborhood_anchor_a",
+      "category": "location",
+      "defaultExample": "Shimokitazawa record shop",
+      "required": false
+    },
+    {
+      "key": "neighborhood_anchor_b",
+      "category": "location",
+      "defaultExample": "Shibuya scramble crossing at dusk",
+      "required": false
+    },
+    {
+      "key": "japanese_signage_type",
+      "category": "typography",
+      "defaultExample": "unreadable kanji storefront signage, vending-machine fluorescent ads, kissaten warm-tungsten neon — NO Latin readable text, NO logos",
+      "required": false
+    },
+    {
+      "key": "character_a",
+      "category": "character",
+      "defaultExample": "~22yo Japanese woman, art-student register: oversized cream cardigan over white tee + dark pleated skirt + white socks + black loafers, shoulder-length straight black hair with full curtain bangs, holding an Olympus mju-II film camera on a thin wrist strap. Bare makeup, slight gloss. Energy: still, observing.",
+      "required": true
+    },
+    {
+      "key": "character_b",
+      "category": "character",
+      "defaultExample": "~24yo Japanese man, music-shop assistant register: faded navy Champion crewneck + light-wash baggy denim + scuffed white low-tops, black canvas messenger with 12-inch record sleeve poking out, slightly long messy hair falling into eyes, no makeup. Energy: looks down then up, presses forehead against glass.",
+      "required": true
+    },
+    {
+      "key": "target_language",
+      "category": "language",
+      "defaultExample": "non-verbal (zero dialogue, zero VO, zero captions)",
+      "required": false
+    },
+    {
+      "key": "music_brief",
+      "category": "music",
+      "defaultExample": "modern-classical / cinematic-instrumental, adagio ~60 BPM, intimate close-mic'd felt-hammer piano lead, soft swelling strings entering ~shot 5, single solo cello phrase peaking at shot 11, strings receding by shot 13, 75s, no cold tail, final phrase fades unresolved",
+      "required": true
+    }
+  ],
+  "doNotCopyLiterally": "The cast (Olympus mju-II camera + Champion crewneck + Yamanote line) is the Tokyo-Y2K reading of the near-miss-arc trope. For a different city / era, redesign the cast wardrobe + accessory + transit-system signature to match. The KYO KIMURA 'honeybee' style anchor is a register reference, not a recipe — do not copy specific shots. The 75s music bed must be authored fresh per ElevenLabs ToS (no named-artist / named-producer references — genre + tempo + instrumentation only, per feedback_elevenlabs_music_no_artist_names memory).",
+  "requiresUserReference": false,
+  "referenceNotes": "The cast in this template is fictional (no real-world entity → no reference required per AGENTS.md gate #3). If the new project names a real person, brand, or location (specific musician, specific kissaten, specific record shop) → reference REQUIRED for that named entity before any image gen. Include a character-master shot pass FIRST (her-master.png + him-master.png) before per-scene anchors — pass these as inline ref on every per-scene anchor for identity-lock across 15-17 shots, per Super-original-refs memory. Style anchor for the agent (NOT for the gen): KYO KIMURA's `honeybee` (x.com/noukin_camera). Run `ralphy ref analyze-video` on the style anchor first to extract the per-shot recreate-it checklist.",
+  "assets": {
+    "him-master-portrait": {
+      "filename": "him-master.png",
+      "role": "character-master",
+      "required": false,
+      "description": "Locked-ref portrait of character B in 16:9 — pass inline on every per-scene anchor for his identity-lock. Regenerate fresh per project; included here as the Tokyo-instance reference. NOTE: source project did not produce a dedicated her-master; character A identity-lock was carried via inline scene-anchor refs. Generate a her-master pass FIRST on new projects."
+    },
+    "neon-city-master-shot": {
+      "filename": "neon-city-master.png",
+      "role": "location-plate",
+      "required": false,
+      "description": "Locked-ref establishing wide of the city at dusk (Shibuya-pink-purple-sky + tungsten-signage + dense pedestrian flow). Sets the grade + signage density target. Tokyo-instance reference (scene-09 anchor from source); swap per project city."
+    },
+    "rain-on-glass-ref": {
+      "filename": "rain-on-glass-ref.png",
+      "role": "style-reference",
+      "required": false,
+      "description": "Locked-ref of the rain-on-glass macro / reflection-layering emotional-peak frame. Pass as inline ref when authoring the peak shot in a new project — defines focus-on-glass-surface discipline + reflection-layer separation. Tokyo-instance reference (scene-11 anchor)."
+    },
+    "jp-signage-typography-ref": {
+      "filename": "jp-signage-typography-ref.png",
+      "role": "style-reference",
+      "required": false,
+      "description": "Locked-ref of the JP signage typography slam frame (vending-machine alley with top-down fluorescent + magenta cumulonimbus slot). Pass as inline ref when authoring signage-heavy shots. Tokyo-instance reference (scene-08 anchor)."
+    }
+  },
+  "compositionTemplate": null,
+  "compositionNote": "Source project's Remotion lives at src/videos/tokyo-y2k-001/{scenes.ts, index.tsx} and is project-specific (NOT a generic composition in src/lib/templates/). vibe-style kind per kind-decision.md — consumers will hand-author Remotion using the patterns documented in TEMPLATE.md Composition tricks section. Two-aspect output pattern (9:16 letterbox 1.85:1 + 16:9 native from one scenes.ts) is the reusable structure.",
+  "sourceProject": "workspace/projects/tokyo-y2k-001"
+}

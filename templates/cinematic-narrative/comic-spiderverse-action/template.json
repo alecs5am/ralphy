@@ -1,0 +1,144 @@
+{
+  "name": "Comic Spider-Verse Action",
+  "slug": "comic-spiderverse-action",
+  "kind": "vibe-style",
+  "category": "cinematic-narrative",
+  "description": "27-second 16:9 painterly action scene in a comic-panel split + halftone dot bleed + ink-stroke caption aesthetic — two stylized characters (default: skaters mid-trick over an urban rooftop / skate bowl) carving across a Spider-Verse / Arcane painterly world, captured as 2 stitched seedance-2.0 t2v clips with explicit AUDIO POLICY banning music, followed by a post-render ElevenLabs music bed (genre + tempo only — NO artist names) mixed with sidechain duck under diegetic SFX. Image stage is a fighting-game-style VS character-select poster (gemini-3-pro-image-preview ref-anchored) — optional, only ship when the user wants a marketing card alongside the cut.",
+  "tags": [
+    "spider-verse",
+    "arcane-painterly",
+    "comic-panel-split",
+    "halftone-dot-bleed",
+    "ink-stroke-captions",
+    "chromatic-aberration",
+    "stylized-action",
+    "skater",
+    "kickflip",
+    "urban-rooftop",
+    "two-character-duel",
+    "vs-character-card",
+    "seedance-2.0",
+    "t2v",
+    "kickflip-physics",
+    "diegetic-sfx",
+    "post-mix-music",
+    "sidechain-duck",
+    "elevenlabs-music",
+    "16-9",
+    "27s",
+    "2-clip-stitch",
+    "cinematic-narrative",
+    "no-vo"
+  ],
+  "platform": "youtube-shorts-and-tiktok-landscape",
+  "aspectRatio": "16:9",
+  "typicalDurationSec": [
+    22,
+    30
+  ],
+  "typicalClipCount": [
+    2,
+    3
+  ],
+  "fps": 24,
+  "width": 1920,
+  "height": 1080,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "google/gemini-3-pro-image-preview as default for any ref-anchored layout work (VS character-select poster, fighting-game lookbook, halftone-comic key-art). Pass the user's poster ref as --ref. Confirmed 1:1 layout replication in 46s vs 196s for gpt-5.4-image-2 in source project. openai/gpt-5.4-image-2 only for first-pass no-ref style exploration. SKIP the poster step entirely if the deliverable is video-only — the seedance prompt holds the character description on its own.",
+    "i2v": "Pure t2v with bytedance/seedance-2.0 — DO NOT use i2v anchors. Stylized cartoon / painterly characters bypass seedance's photoreal-human privacy filter (the filter only blocks photoreal i2v ANCHORS, not pure t2v with cartoon prompts). 15s clip @ 1080p 16:9, --audio ON (returns AAC SFX track when AUDIO POLICY block bans music inside the prompt). $2.10 per 15s clip. Two clips concat'd via `ralphy video concat` for a 27s cut.",
+    "voiceover": "None by default — this format is diegetic SFX + post-mix music only. No VO lane. If a VO beat is required (e.g. character name shout on the kickflip), author it as a separate seedance --audio pass with explicit dialogue in the prompt, OR route through ElevenLabs voiceover post-render. Default: silent of voice.",
+    "captions": "Ink-stroke impact captions painted into the scene as part of the image / video gen, NOT as a Remotion overlay. Comic-panel SFX letters (KRRRACK, FWIP, THWIP, SLAM) appear on impact frames as part of the painterly style. For a more aggressive caption layer, post-render Remotion overlay with a Bangers / Bowlby One / Anton font in inked stroke is the upgrade path; this template ships without it.",
+    "music": "ElevenLabs music_v1 — generate music post-render, not inside seedance. ALWAYS describe by GENRE + TEMPO + INSTRUMENTATION + PRODUCTION CUES only. NEVER name modern recording artists (especially current rappers — ScHoolboy Q / Pop Smoke / Dr. Dre / Snoop / DOM Kennedy / Larry June all trigger HTTP 400 bad_prompt). Older rock acts (Goldfinger, Distillers, Beastie Boys, Run-DMC, Linkin Park) and named soundtracks (Tony-Hawk-Pro-Skater) pass. On 400, the error body contains detail.data.prompt_suggestion — pipe it back as the next --prompt verbatim. Mix with `ralphy video add-music --duck` (sidechain compression, threshold 0.04, ratio 6) so music ducks under diegetic SFX hits."
+  },
+  "constants": {
+    "vibeAnchor": "comic-panel-split + halftone-dot-bleed + ink-stroke-captions + spider-verse-arcane-painterly + seedance-t2v-for-action-physics",
+    "structure": "Optional 0s VS character-card poster (1 image, $0.15) → clip 1 (15s, action setup in urban location) → clip 2 (15s, action escalation + exit to next environment) → trim clip 1 to ~12s for hand-engineered prompt continuity match → lossless concat = 27s cut → ElevenLabs music bed (target_duration = cut + 3s tail) → ffmpeg add-music with sidechain duck",
+    "cutDensity": "2 stitched clips with 5 shots inside each (3s per shot, 15s per clip) — 10 painterly action beats over 27s, ~2.7s avg per beat",
+    "palette": "Heavy directional shadows in deep saturated tones (cobalt blue, deep magenta, ink-black) instead of grey. Warm peach / orange highlights on character side facing key. Accent reds and purples on equipment and clothing. Halftone dots concentrated in mid-shadows. Chromatic aberration RGB offset on bright edges only.",
+    "typography": "Comic-panel impact text painted into the frame in chunky variable-weight ink linework. Examples: KRRRACK, FWIP, SLAM, POP, CRACK. Ink-stroke captions follow the action — they are NOT a separate caption overlay. For brand / poster work (VS character-select layout), use bold sans-serif uppercase white with light-grey label/value stat rows (faded background letterforms at ~15% opacity).",
+    "soundDoctrine": "AUDIO POLICY block inside every seedance prompt is non-negotiable: NO MUSIC, NO SOUNDTRACK, NO SCORE, NO MELODIC INSTRUMENTS, NO BEAT. Audio track must contain ONLY diegetic on-camera SFX (6-8 specific cues per clip — urethane wheel rumble, pop-tail crack, ollie whoosh, grind scrape, sneaker friction, fabric flap, breathing, distant city ambient). Music arrives ONLY in post via `ralphy video add-music --duck`.",
+    "motionDoctrine": "seedance-2.0 for any non-default physics motion (kickflip, ollie, varial, grind, board-flip, body rotation, parkour, parkour-adjacent skater tricks, jump-scare beat). Per user memory feedback_vg_model_picks: kling is only for default UGC selfie motion. Explicit camera-move language per shot (low-angle tracking, side-profile horizontal sweep, behind-the-shoulder follow, slow backward pull-back, orbiting close-up). 28mm / 35mm / 50mm focal lengths called out per shot.",
+    "framingDoctrine": "Continuity between clip 1 and clip 2 must be hand-engineered in the prompts themselves — DO NOT rely on seedance last_frame as next first_frame. Same sky color, same time-of-day phrasing, same palm-tree silhouettes / urban silhouettes, same painterly style descriptor verbatim. Cheaper and more reliable than i2v frame anchoring for stylized work.",
+    "negativeList": "NO photorealism, NO 3D render, NO Pixar / Disney CG, NO smooth airbrush, NO commercial CG polish, NO anime cel-shade glossy. The negative list is what locks the style — without it seedance defaults to photoreal."
+  },
+  "variationAxes": [
+    "action subject (skaters ↔ surfers ↔ BMX riders ↔ parkour duo ↔ martial-arts duel ↔ basketball trick-shot duo ↔ breakdancers — any sport with a named-trick vocabulary)",
+    "action archetype (kickflip duel ↔ wave-carve duel ↔ rail-grind line ↔ flatground combo ↔ trick-for-trick game-of-SKATE ↔ chase-and-escape ↔ tag-team relay)",
+    "urban location (downtown LA skate bowl ↔ SF rooftop ↔ Tokyo back-alley ↔ NYC subway underpass ↔ Barcelona plaza ↔ Berlin warehouse loading dock ↔ Miami beachfront boardwalk)",
+    "caption style words (skater impact: KRRRACK / SLAM / POP / GRIND ↔ web-swinger: THWIP / FWIP / SNIKT ↔ fight: WHAM / KAPOW / THUD ↔ chase: ZOOM / RUSH / WHOOSH)",
+    "time of day + sky palette (golden-hour cobalt-and-peach default ↔ blue-hour magenta-and-teal ↔ overcast cool-grey ↔ neon-night with rim-light rainbow ↔ rainy-wet asphalt with reflections)",
+    "music register (skate-punk + boom-bap fusion ↔ aggressive trap/drill instrumental ↔ west-coast g-funk hybrid ↔ orchestral-cinematic action ↔ lo-fi boom-bap ↔ no music, pure SFX)",
+    "deliverable shape (video-only 27s cut ↔ VS character-card poster + 27s cut ↔ poster + cut + 9:16 vertical re-edit for shorts)"
+  ],
+  "slots": [
+    {
+      "key": "action_subject",
+      "category": "subject",
+      "defaultExample": "two skaters (one female 18yo athletic, one male 19yo lean+taller-by-half-a-head)",
+      "required": true
+    },
+    {
+      "key": "action_archetype",
+      "category": "subject",
+      "defaultExample": "kickflip duel + bowl-exit + rolling-out-to-street",
+      "required": true
+    },
+    {
+      "key": "urban_location",
+      "category": "location",
+      "defaultExample": "downtown LA skate bowl at golden hour, exit onto cracked asphalt street lined with palms + 90s-sedan parked cars + brick storefronts",
+      "required": true
+    },
+    {
+      "key": "caption_style_words",
+      "category": "copy",
+      "defaultExample": "KRRRACK / SLAM / POP / GRIND / FWIP (painted into impact frames as ink-stroke comic SFX)",
+      "required": false
+    },
+    {
+      "key": "character_a",
+      "category": "character",
+      "defaultExample": "VEXA NOVA — 18yo female skater, 170cm, warm dark-brown skin, very short white BUZZ CUT (~3mm), oversized washed-purple graphic tee, baggy charcoal cargo shorts, beat-up Vans Old Skool, dark-purple deck with chipped paint, goofy stance",
+      "required": true
+    },
+    {
+      "key": "character_b",
+      "category": "character",
+      "defaultExample": "RYU EMBER — 19yo male skater, 188cm, pale warm-ivory skin, deep crimson-red hair with Musashi Miyamoto / Vagabond manga samurai topknot bun (sides loose past shoulders + bound topknot, no fringe), black fitted tank, charcoal cargo pants, black Nike SB Dunks, black-and-red flame-graphic deck, regular stance",
+      "required": true
+    },
+    {
+      "key": "music_style_keywords",
+      "category": "music",
+      "defaultExample": "skate-punk / hip-hop fusion at 110 BPM, distorted palm-mute electric-guitar riff against hard boom-bap drums + 808 sub, occasional turntable scratch, Tony-Hawk-Pro-Skater-soundtrack energy, instrumental, NO vocals",
+      "required": true
+    },
+    {
+      "key": "target_language",
+      "category": "audience",
+      "defaultExample": "English-speaking gen-z / streetwear / animation crowd (US / EU / JP TikTok + YT Shorts crossover)",
+      "required": false
+    },
+    {
+      "key": "scene_continuity_anchor",
+      "category": "scene",
+      "defaultExample": "clip 1 ends 'rolling out of bowl exit toward the road, cobalt-and-peach sky, palm silhouettes'; clip 2 opens 'JUST rolled out of a skate park onto the open street' using the same sky + palm + lighting phrasing verbatim",
+      "required": true
+    }
+  ],
+  "doNotCopyLiterally": "VEXA NOVA / RYU EMBER + their specific outfits + the Musashi Miyamoto / Vagabond hair reference are the skater-spiderverse-001 instance reading of the template. For a new project, author a fresh 2-character cast with a distinct silhouette pair (height delta, hair-silhouette delta, color-palette delta) and a named pop-culture style reference per character (model recognizes 'Musashi from Vagabond' / 'Spike from Cowboy Bebop' / 'Ezra from Star Wars Rebels' style references and maps to canonical visuals). The action archetype, location, time-of-day, and music style are all per-instance. What stays literal: AUDIO POLICY block wording, painterly STYLE block wording, the negative list, the seedance camera-grammar vocabulary, the post-render ffmpeg sidechain duck values.",
+  "requiresUserReference": false,
+  "referenceNotes": "OPTIONAL — only required if shipping the VS character-card poster alongside the video. For that case, pull or screenshot a fighting-game character-select / lookbook reference (any sport, the layout is what's being copied — not the original sport) and save into `refs/`. Spider-Verse / Arcane painterly is a textual style anchor; DO NOT bundle copyrighted Across-the-Spider-Verse or Arcane frames into the consumer project — describe the style with the painterly STYLE block in the cookbook and let consumers source their own moodboard. For research, the `ralphy ref analyze-video <slug>` flow (gemini-3.1-pro on full mp4) is the recommended way to extract style descriptors from a reference video without committing copyrighted frames.",
+  "assets": {},
+  "sourceProject": "workspace/projects/skater-spiderverse-001",
+  "compositionTemplate": null
+}
