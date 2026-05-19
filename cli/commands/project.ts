@@ -108,11 +108,46 @@ export function projectCmd() {
     .option("--assets", "Show asset manifest")
     .option("--prompts", "Show prompts")
     .option("--status", "Show pipeline status only")
+    .option("--tree", "Print the project directory tree (file paths + sizes, max depth 4). appstore postmortem asked for this.")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) err(`Project not found: ${id}`);
 
       const dir = path.join(projectsDir(), id);
+
+      if (opts.tree) {
+        // Walk the project tree up to depth 4, emit { path, size_bytes } per file.
+        async function walk(d: string, depth: number): Promise<Array<{ path: string; bytes?: number }>> {
+          if (depth > 4) return [];
+          const entries: Array<{ path: string; bytes?: number }> = [];
+          let items: import("fs").Dirent[] = [];
+          try {
+            items = await fs.readdir(d, { withFileTypes: true });
+          } catch {
+            return [];
+          }
+          for (const it of items) {
+            const full = path.join(d, it.name);
+            const rel = path.relative(dir, full);
+            if (it.isDirectory()) {
+              entries.push({ path: rel + "/" });
+              entries.push(...(await walk(full, depth + 1)));
+            } else if (it.isFile()) {
+              try {
+                const st = await fs.stat(full);
+                entries.push({ path: rel, bytes: st.size });
+              } catch {
+                entries.push({ path: rel });
+              }
+            }
+          }
+          return entries;
+        }
+        const tree = await walk(dir, 1);
+        const totalBytes = tree.reduce((s, e) => s + (e.bytes ?? 0), 0);
+        out({ project: id, root: dir, fileCount: tree.filter((e) => !e.path.endsWith("/")).length, totalBytes, tree });
+        return;
+      }
 
       if (opts.scenario) {
         const scenario = await safeJson(path.join(dir, "scenario.json"));
