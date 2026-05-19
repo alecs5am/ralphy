@@ -1,0 +1,143 @@
+{
+  "name": "UGC Selfie Product Review",
+  "slug": "ugc-selfie-product-review",
+  "kind": "vibe-style",
+  "description": "Intimate handheld 9:16 UGC selfie review of one consumer product — a single influencer-persona in their own room reacts to a product in their hand, with relaxed unhurried GRWM pacing. The ENTIRE template hinges on identity-lock via two locked super-original master shots (product master + persona master) that get passed as --ref on every downstream image and video gen. Skip the lock and identity drifts between scenes — same brand drifts pink-script-to-sticker, same face drifts AI-plastic. Built around kling-v3.0-pro multi-shot clips with internal HARD JUMP CUTs (one kling call = 2-3 angles, no Remotion splice), explicit music-ban on the model side, and ElevenLabs music overlaid in Remotion at volume 0.18. Specificity bait via visible internals (charms inside transparent product) is the optional viral-mechanic upgrade — extract from your reference video, port to your product.",
+  "tags": [
+    "ugc",
+    "selfie",
+    "product-review",
+    "dtc",
+    "beauty",
+    "cosmetics",
+    "grwm",
+    "tiktok",
+    "reels",
+    "9-16",
+    "handheld",
+    "influencer",
+    "identity-lock",
+    "locked-refs",
+    "kling-multicut",
+    "hard-jump-cut",
+    "music-ban",
+    "specificity-bait",
+    "real-girl-aesthetic",
+    "bedroom-pov",
+    "intimate"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    12,
+    22
+  ],
+  "typicalClipCount": [
+    2,
+    3
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "productMaster": "openai/gpt-5.4-image-2 via OpenRouter — ONE locked super-original product packshot. Best for screen-printed label typography fidelity (script logotypes, butterfly icons, brand wordmarks held across re-renders). Used as --ref on EVERY downstream gen.",
+    "personaMaster": "google/gemini-3-pro-image-preview via OpenRouter — ONE locked super-original persona shot. User-supplied face selfie passed as --ref; gemini holds face / wardrobe / room across multi-ref calls. Used as --ref on EVERY downstream gen alongside productMaster.",
+    "firstFrames": "google/gemini-3-pro-image-preview via OpenRouter — one first-frame per kling clip, ALWAYS with both locked refs passed. Internals (charms / textures inside the product) must be described in the first-frame, not just the kling prompt, so kling sees them on T0.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter with --audio (generate_audio: true). Multi-shot single-call clips: 6-9s with 1-2 internal HARD JUMP CUTs at explicit timestamps. Verified ~0.2s cut precision. Renders EN VO + SFX inline. Prompt cap 2500 chars server-side — gate locally at <=2300.",
+    "voiceover": "Baked into kling --audio for English. Voice consistency between clips = paste-identical voice-tag block in every kling prompt (~80-90% match without ElevenLabs). For non-English (RU etc) Kling drifts accent — switch to ElevenLabs eleven_multilingual_v2 post-hoc per memory feedback_kling_no_ru_audio.",
+    "music": "ElevenLabs music_v1 — one bg instrumental bed, ~15-20s, force_instrumental: true. Style depends on niche (lofi / sparkle-pop / acoustic). Overlay in Remotion at volume 0.18 — Kling voice carries at conversational level, music sits under without sidechain. Music is BANNED on the kling side via explicit STRICTLY FORBIDDEN block.",
+    "compose": "Remotion 4.0.441 minimal per-project composition (~20 lines): <Sequence> per clip + one <Audio volume={0.18}> overlay. composition-props.json with {compositionId} is required even for prop-less components. ralphy render --loudnorm normalizes to -16 LUFS."
+  },
+  "constants": {
+    "vibeAnchor": "intimate-bedroom-grwm",
+    "structure": "0-3s hook (product reveal + first reaction) -> 3-9s discovery beat (internals / texture / surprise) -> 9-17s payoff (application + verdict)",
+    "lockedRefRule": "BOTH product master AND persona master MUST be passed as --ref on EVERY ralphy generate image|video for this project. No exceptions. Identity drift cost in source project: $0.70 of regenerated masters + $1.61 of regenerated scenes when the rule was forgotten mid-session.",
+    "geometryRule": "Keep product >=30cm from face. Jar-near-face / tube-near-cheek / bottle-near-mouth geometries collapse to 'powder-compact stamping' pose in kling regardless of DO-NOT blocks. Cost in source project: $2.24 across two failed clips before the scene was redesigned.",
+    "voiceTagRule": "Paste-identical voice-tag block in every kling prompt. Same person-descriptor, same pitch, same pacing words. Drift without it.",
+    "musicBanRule": "Every kling prompt includes STRICTLY FORBIDDEN: NO music, NO instrumental, NO soundtrack, NO melody, NO singing, NO percussion. Kling silently bakes ambient music otherwise.",
+    "promptLengthCap": 2300,
+    "captionsPolicy": "None baked. Optional Remotion overlay only on top of the rendered mp4 — Kling --audio already carries readable VO."
+  },
+  "variationAxes": [
+    "product type (jar / tube / bottle / compact / wand / palette) — geometry rule still applies; arms-length always",
+    "persona archetype (cozy-homewear / minimalist-clean-girl / messy-real-girl / Y2K-glam) — pick one and reflect in persona master prompt + wardrobe + room dressing",
+    "viral mechanic (specificity-bait via visible internals / before-after texture swatch / reaction-only / unboxing-reveal) — borrow ONE from a reference video, port to your product",
+    "clip count (single 12-15s kling call vs two 7-9s kling calls + Remotion splice) — single-call only viable when shot sequence fits <2300 chars",
+    "music vibe (lofi-bedroom / sparkle-pop / cozy-acoustic / hyperpop-cute / ambient-pad) — generate 3 variants, let user pick",
+    "target language (English -> kling --audio default; Russian / non-English -> kling no-audio + ElevenLabs eleven_multilingual_v2 post-hoc)"
+  ],
+  "doNotCopyLiterally": "Brand name, product name, product type, persona face/wardrobe/room, spoken VO lines, music track. Vibe + workflow + identity-lock discipline ONLY. The 'Fluttershy glitter cream' instance is one realization of a generic pattern.",
+  "requiresUserReference": true,
+  "referenceNotes": "TWO references are REQUIRED before any scene gen: (1) a product reference image (real product photo, packshot, or first-pass AI gen the user has locked) — drives the product master shot via openai/gpt-5.4-image-2; (2) a persona reference selfie (user-supplied face photo, or first-pass AI gen the user has locked) — drives the persona master via google/gemini-3-pro-image-preview. Without both, identity drifts between scenes and the whole UGC illusion collapses. AGENTS.md hard rule #3 — when the user names a real brand, refuse generation until they ship the product reference. They can override with explicit 'generate without reference' (logged as no-ref-consent).",
+  "slots": [
+    {
+      "key": "brand_name",
+      "category": "brand",
+      "defaultExample": "Fluttershy",
+      "required": true
+    },
+    {
+      "key": "product_name",
+      "category": "product",
+      "defaultExample": "holographic glow cream",
+      "required": true
+    },
+    {
+      "key": "product_type",
+      "category": "product",
+      "defaultExample": "squat transparent cosmetic jar",
+      "required": true
+    },
+    {
+      "key": "product_signature_detail",
+      "category": "product",
+      "defaultExample": "tiny floating charm-shape inclusions among holographic glitter",
+      "required": false
+    },
+    {
+      "key": "influencer_persona",
+      "category": "character",
+      "defaultExample": "young woman, pastel pink floral pajama top, black round-frame glasses, freckles, light brown hair",
+      "required": true
+    },
+    {
+      "key": "location_master_plate",
+      "category": "location",
+      "defaultExample": "her own bedroom — unmade bed in soft focus, fairy lights along a bookshelf, warm afternoon window light from the right",
+      "required": true
+    },
+    {
+      "key": "target_language",
+      "category": "language",
+      "defaultExample": "English",
+      "required": true
+    },
+    {
+      "key": "voice_tag_block",
+      "category": "voice",
+      "defaultExample": "young american female ~22yo, soft-medium pitch, light vocal fry, intimate UGC close-mic, RELAXED chill curious tone at UNHURRIED slow conversational pace, GRWM-like, no theatrical surprise, no rush, soft natural breaths between phrases, no accent.",
+      "required": true
+    }
+  ],
+  "assets": {
+    "asset": {
+      "slot": "example-firstframe-hook",
+      "kind": "image",
+      "path": "assets/example-firstframe-hook.png",
+      "required": false,
+      "role": "reference-example",
+      "note": "Scene-01 first-frame example showing both locks composited together (persona + product + visible internals). Use as a structural reference for your own first-frame prompts."
+    }
+  },
+  "sourceProject": "workspace/projects/glitter-cream-001",
+  "compositionTemplate": null
+}

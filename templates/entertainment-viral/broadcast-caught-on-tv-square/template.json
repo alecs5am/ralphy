@@ -1,0 +1,143 @@
+{
+  "name": "Broadcast Caught-On-TV (Square)",
+  "slug": "broadcast-caught-on-tv-square",
+  "kind": "vibe-style",
+  "description": "Single-character 'caught on a live TV broadcast' trend recreation — audience-cam reaction beat from a real sports / news / award-show feed, anchored on the user's own selfie. Two-stage stack: gpt-5.4-image-2 produces a 1:1 SQUARE broadcast-capture still (1024x1024) → kwaivgi/kling-v3.0-pro i2v carries identity forward for 15s with native ambient stadium / venue audio. The critical, unintuitive rule: render the anchor SQUARE, not 9:16. Real broadcast cameras shoot 16:9, so strict portrait reads as AI-generated; square 1:1 'splits the difference' and feels like a phone capture of a TV screen. Pronoun-swap the trend prompt to match the user's identity before submit. The format is one-clip, not a multi-scene cut — Kling delivers the entire 15s read with diegetic audio.",
+  "tags": [
+    "broadcast-realism",
+    "square",
+    "caught-on-tv",
+    "audience-cam",
+    "sports-broadcast",
+    "kbo",
+    "spotv",
+    "stadium-ambience",
+    "identity-anchored",
+    "trend-recreation",
+    "kling",
+    "gpt-image-2",
+    "i2v",
+    "diegetic-audio",
+    "no-music",
+    "tiktok",
+    "reels",
+    "shorts",
+    "viral",
+    "c2pa",
+    "single-clip",
+    "single-character",
+    "selfie-anchor",
+    "two-stage-anchor"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "1:1",
+  "typicalDurationSec": [
+    10,
+    20
+  ],
+  "typicalClipCount": [
+    1,
+    2
+  ],
+  "fps": 30,
+  "width": 1024,
+  "height": 1024,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "requiresUserReference": true,
+  "referenceNotes": "User selfie / character reference IS required — the entire format is 'this is me, caught on TV'. Pass it once into the image stage via `--ref <selfie>`; the resulting still does identity work for Kling, so no second ref on the i2v stage. AI-improvised faces break the format (the joke depends on the viewer recognizing the on-screen person as the poster). If the brief names a specific real broadcast (KBO, NFL, Wimbledon, Eurovision, etc.) reproduce its on-screen graphics conventions verbatim — never invent fictional broadcast brands, they read fake.",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md"
+  },
+  "constants": {
+    "vibeAnchor": "real-broadcast-capture-square",
+    "structure": "0-3s subject watches event / unaware → 3-6s notices camera → 6-12s amused reaction beat (sip / laugh / clap) → 12-15s settles back, ambient continues",
+    "aspectRatioRule": "Render the anchor still SQUARE (1024x1024). Real broadcast cams shoot 16:9 — strict 9:16 portrait feels AI-generated. Square 'splits the difference' and reads as a phone capture of a live TV screen. Crop / pad to platform-strict 9:16 only at final delivery, never at origin.",
+    "captionStyle": "none on the raw clip — ambient + on-screen broadcast graphics carry. Optional Hormozi-style caption layer added at composition time if posted with a hot-take overlay.",
+    "musicDefault": "off — Kling produces diegetic stadium / venue ambience natively. Explicitly negate music + studio voiceover in the prompt or Kling will add a soundtrack.",
+    "disclosureOverlay": "off"
+  },
+  "variationAxes": [
+    "duration (10s short / 15s standard / 20s extended reaction)",
+    "subject angle (3/4 medium, frontal close-up, profile cutaway)",
+    "crowd density (sparse, mid, packed)",
+    "graphics density (score-bug only / score+lower-third / full broadcast package with ticker)"
+  ],
+  "assets": {
+    "scene01StillSquareExample": {
+      "remote": false,
+      "path": "assets/example-broadcast-still-square.png",
+      "required": false,
+      "note": "Example 1024x1024 broadcast-capture still from the source project (kbo-broadcast-001, gpt-5.4-image-2). Reference of the look — square framing, SPOTV-style soft compression, stadium seating context."
+    },
+    "scene01VideoExample": {
+      "remote": false,
+      "path": "assets/example-broadcast-clip-square.mp4",
+      "required": false,
+      "note": "Example 15s 960x960 square Kling i2v output from kbo-broadcast-001 — the user-preferred winner. Anchored on the gpt-5.4-image-2 still above; demonstrates how Kling honors the square first-frame over the --aspect-ratio flag."
+    }
+  },
+  "sourceProject": "workspace/projects/kbo-broadcast-001",
+  "slots": [
+    {
+      "key": "league_or_sport",
+      "category": "event",
+      "description": "Sports league / live broadcast context. Examples: KBO baseball, NFL, NBA, Wimbledon, Premier League, Eurovision, awards-show audience cutaway, news B-roll.",
+      "required": true
+    },
+    {
+      "key": "moment_archetype",
+      "category": "beat",
+      "description": "What kind of caught-on-TV moment. Examples: audience-cam reaction, kiss-cam, jumbotron-cam, press-pool flash, red-carpet cutaway, news vox-pop.",
+      "required": true
+    },
+    {
+      "key": "broadcast_channel",
+      "category": "branding",
+      "description": "On-screen graphics package style. Examples: SPOTV, ESPN, Sky Sports, BBC, TV Tokyo. Drives the lower-third + score-bug aesthetic.",
+      "required": true
+    },
+    {
+      "key": "target_language_for_announcer",
+      "category": "voice",
+      "description": "Language Kling synthesizes the ambient announcer in. Examples: Korean (KBO), English (US-network), Japanese, Portuguese.",
+      "required": true
+    },
+    {
+      "key": "venue_dressing",
+      "category": "location",
+      "description": "Stadium / arena / venue identifier. Examples: SK Wyverns home, Centre Court, Madison Square Garden, Berlin awards stage.",
+      "required": false
+    },
+    {
+      "key": "subject_pose",
+      "category": "character",
+      "description": "How the user-as-spectator appears. Examples: seated spectator, standing in crowd, press row, front-row VIP.",
+      "required": false
+    },
+    {
+      "key": "event_sfx_signature",
+      "category": "audio",
+      "description": "Distinctive event-specific sound (bat-crack, crowd-roar, applause-swell, photo-shutter burst).",
+      "required": false
+    },
+    {
+      "key": "venue_audio_signature",
+      "category": "audio",
+      "description": "Ambient venue audio bed (stadium hum, arena PA distortion, press-pool murmur).",
+      "required": false
+    },
+    {
+      "key": "subject_pronoun",
+      "category": "character",
+      "description": "Pronouns for the subject. Default they/them; override per use case.",
+      "required": false
+    }
+  ],
+  "doNotCopyLiterally": "1:1 SQUARE aspect — this is the entire trick. 9:16 portrait kills the illusion.. gpt-5.4-image-2 to kwaivgi/kling-v3.0-pro stack — both load-bearing. Light broadcast compression noise + flyaway hairs + slight natural sweat sheen — keeps the still from looking studio-AI. Slight broadcast camera shake on Kling i2v — locked-tripod kills it. Ambient announcer murmur synthesized by Kling --audio, not ElevenLabs VO",
+  "stackSummary": "gpt-5.4-image-2 (1024² square anchor) then kwaivgi/kling-v3.0-pro 15s i2v with --audio for ambient announcer + crowd. Music banned in the Kling prompt. No editor stage — single clip out.",
+  "compositionTemplate": null
+}

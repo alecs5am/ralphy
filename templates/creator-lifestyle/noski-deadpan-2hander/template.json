@@ -1,0 +1,175 @@
+{
+  "name": "Noski Deadpan 2-Hander",
+  "slug": "noski-deadpan-2hander",
+  "kind": "vibe-style",
+  "description": "Deadpan-philosophical TikTok 2-hander in the @americanbaron register: two people seated side-by-side in a sunlit living room, heads tipped back on the couch, eyes up to the ceiling, exchanging quiet half-rhetorical questions in almost-whispered English. Photoreal Sony A7 IV / Sigma-prime register with Kodak Portra 400 grain. ~32 micro-scenes averaging 2.2s each, 73-75s total, lofi cafe music bed at -22 LUFS under the dialog. Reference-required when imitating a real creator's persona — the @handle drives voice profile, posture vocabulary, and the deadpan delivery cadence.",
+  "tags": [
+    "deadpan",
+    "philosophical",
+    "2-hander",
+    "dialog",
+    "americanbaron",
+    "couch",
+    "head-back",
+    "ceiling-gaze",
+    "contemplative",
+    "lofi",
+    "english-vo",
+    "kling-audio",
+    "photoreal",
+    "sony-a7iv",
+    "kodak-portra-400",
+    "location-locked",
+    "voice-profile-block",
+    "tiktok",
+    "reels",
+    "shorts",
+    "creator-lifestyle",
+    "long-form-micro-cuts"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [
+    60,
+    90
+  ],
+  "typicalClipCount": [
+    24,
+    36
+  ],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-19T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "hooks": "hooks.md",
+    "promptCookbook": "prompt-cookbook.md",
+    "modelStack": "model-stack.md",
+    "examples": "examples.md",
+    "readme": "README.md"
+  },
+  "stackSummary": {
+    "keyframes": "Master portraits via openai/gpt-5.4-image-2 (premium photoreal skin at single-portrait scale). Location-master-plate + every scene anchor via google/gemini-3-pro-image-preview with multi-ref: --ref location-master-plate.png + --ref master-character.png. Multi-ref is load-bearing: skipping the location plate produces a different physical couch per call.",
+    "i2v": "kwaivgi/kling-v3.0-pro --audio for every dialog clip. 3-5s clips, static camera quadruple-banned, voice profile block + 'Same voice as earlier scenes.' anchor for cross-clip voice consistency. Music explicitly banned in every Kling prompt (sevenfold negative). Two-speaker finale can be one merged 5s top-down clip with timed dialog segments.",
+    "voiceover": "Native to Kling --audio for English target audience. NO separate ElevenLabs VO pass. If target is non-English (RU/UA/etc) — Kling --audio is unsafe (accent slip, age drift); fall back to ElevenLabs eleven_multilingual_v2 post-mix and disable Kling --audio.",
+    "captions": "Optional. The format works without on-screen text; if used, MinimalCaptions at the hook beat only. Full-video Hormozi captions push it into 'ad' pattern-recognition.",
+    "music": "ElevenLabs Music — single lofi cafe instrumental bed at 65 BPM, -22 LUFS, full-length (~110s for a 73s video with 1.5s fade in / 2s fade out). Music sits at -18dB under VO with optional sidechain ducking. Never name artists in the prompt (ToS rejection).",
+    "render": "ffmpeg-based hard-cut concat (no Remotion needed for the deadpan register — hard cuts, no animated overlays). Per-clip pre-process: ffprobe real duration, Scribe word timestamps for speech-aware trim, 50ms audio fade in/out before concat to kill the AAC-boundary click bug."
+  },
+  "constants": {
+    "vibeAnchor": "two-people-seated-head-back-on-couch-eyes-up",
+    "structure": "0-3s establishing wide (location-master-plate as scene-01) → 3-65s alternating dialog micro-scenes (avg 2.2s) → 65-75s top-down two-speaker finale + held silent beat",
+    "averageSceneSec": 2.2,
+    "voiceProfileTagCount": 7,
+    "musicLufs": -22,
+    "musicBpm": 65,
+    "concatAudioFadeMs": 50
+  },
+  "variationAxes": [
+    "topic (existential / mundane / temporal / object-vs-person / loss / memory)",
+    "cast gender pair (M+W / W+W / M+M / non-binary)",
+    "ethnicity / age / styling (defines master portraits; rest of vibe stays)",
+    "location (living room / sunroom / wood-floor cafe / library / porch — anything with one continuous back-cushion ridge to rest the head on)",
+    "music profile (lofi cafe 65 BPM default / acoustic indie 70 BPM / quiet ambient pad 60 BPM)",
+    "scene count (24 short / 32 default / 36 dense)",
+    "language (English with Kling --audio canonical / other languages via ElevenLabs post-mix)"
+  ],
+  "doNotCopyLiterally": "Cast identity, exact dialog lines, specific location (couch/wall/rug), topic of the question. Vibe reference only — the discipline is photoreal-seated-head-back-deadpan-philosophy with location-locked multi-ref, not the specific couch.",
+  "requiresUserReference": true,
+  "referenceNotes": "Persona reference (the @handle being imitated, or user-supplied character photos) is REQUIRED. AGENTS.md hard rule #3 applies: a named real creator is a named real entity. Without a reference: refuse, or accept 'no-ref-consent' and log. The whole format is voice-profile + posture + location-discipline driven — improvising the cast from text alone loses the deadpan register within one clip.",
+  "slots": [
+    {
+      "key": "character_a",
+      "category": "character",
+      "description": "First speaker. Visual descriptor + ethnicity + age band + wardrobe + identity quirks (asymmetry, mole, freckles). Source example: 'Black man, late 20s, shoulder-length thin natural locs, thin gold wire-rim eyeglasses, chocolate-brown merino turtleneck, small silver pinky ring.'",
+      "required": true
+    },
+    {
+      "key": "character_a_voice",
+      "category": "voice-profile",
+      "description": "Speaker A 7-tag voice profile block: gender, age, voice-tone (baritone/contralto), voice-texture (gravel/breathy), delivery register (deadpan-philosophical), accent (neutral American), volume (quiet/almost-whispered). Example: 'Speaker A: Black man, late 20s, soft warm baritone voice with slight gravel, deadpan philosophical delivery, neutral American accent, quiet contemplative volume, almost-whispered register.'",
+      "required": true
+    },
+    {
+      "key": "character_b",
+      "category": "character",
+      "description": "Second speaker. Same descriptor shape as character_a. Source example: 'Freckled red-haired young woman, mid-20s, lavender-tipped copper hair, slight overbite, cream-and-mustard cable-knit cardigan over white t-shirt, no makeup, dense freckles across cheeks/nose/eyelids.'",
+      "required": true
+    },
+    {
+      "key": "character_b_voice",
+      "category": "voice-profile",
+      "description": "Speaker B 7-tag voice profile block. Example: 'Speaker B: young pale white woman, mid-20s, soft contralto voice, slight breathy quality, deadpan philosophical delivery, neutral American accent, slight overbite, quiet contemplative volume, almost-whispered register.'",
+      "required": true
+    },
+    {
+      "key": "location_master_plate",
+      "category": "location",
+      "description": "Wide front establishing shot of the room with BOTH characters seated head-back on the couch. Locks couch geometry, rug, wall color, lamp, props, lighting direction. This image is anchor #1 and is passed as --ref on every subsequent scene anchor. Source example: 'low wide cream boucle modular three-seat couch with one continuous low back-cushion ridge, dusty-pink matte wall, vintage Persian rug in faded reds and rust-blues, dark walnut mid-century sideboard with handmade matte stoneware ceramic vessels, opal-glass globe ceiling pendant, soft north-window daylight from camera-left.'",
+      "required": true
+    },
+    {
+      "key": "target_language",
+      "category": "language",
+      "description": "Target audience language. EN is canonical (Kling --audio path). Anything else → Kling --audio off, post-mix ElevenLabs eleven_multilingual_v2.",
+      "required": true
+    },
+    {
+      "key": "topic_seed",
+      "category": "topic",
+      "description": "One-line philosophical seed for the half-rhetorical Q&A. Source example: 'Socks or people — what gets lost more often?' Other variants: 'Doors or memories — which close more silently?', 'Names or birthdays — which are forgotten first?'",
+      "required": true
+    },
+    {
+      "key": "reference_style_handle",
+      "category": "reference",
+      "description": "The @handle being imitated. Example: '@americanbaron \"Do more things exist or not exist?\"'. Used as research reference; never substituted into generation prompts directly.",
+      "required": false
+    }
+  ],
+  "assets": {
+    "master_character_a_portrait": {
+      "path": "assets/master-boy-portrait.png",
+      "type": "image",
+      "refRole": "character-master",
+      "locked": true,
+      "required": false,
+      "note": "Source-project canonical example. Replace with the new project's Speaker A master portrait."
+    },
+    "master_character_b_portrait": {
+      "path": "assets/master-girl-portrait.png",
+      "type": "image",
+      "refRole": "character-master",
+      "locked": true,
+      "required": false,
+      "note": "Source-project canonical example. Replace with the new project's Speaker B master portrait."
+    },
+    "location_master_plate": {
+      "path": "assets/location-master-plate.png",
+      "type": "image",
+      "refRole": "location-plate",
+      "locked": true,
+      "required": false,
+      "note": "Source-project canonical example. Anchor #1 — locks couch + room. Replace with the new project's wide establishing image."
+    },
+    "top_down_tight": {
+      "path": "assets/top-down-tight.png",
+      "type": "image",
+      "refRole": "scene-anchor",
+      "locked": false,
+      "required": false,
+      "note": "Source-project finale anchor — top-down view of both heads on the cushion ridge. Useful reference for the merged two-speaker finale (rule 9 / pattern 6 in TEMPLATE.md)."
+    },
+    "music_bed": {
+      "path": "assets/lofi-bed-v2.mp3",
+      "type": "audio",
+      "refRole": "music-bed",
+      "locked": true,
+      "required": false,
+      "note": "Lofi cafe instrumental, 65 BPM, -22 LUFS, instrumental, ~110s. Drop-in usable for any 60-90s deadpan-philosophical piece. Mix at -18dB under VO."
+    }
+  },
+  "sourceProject": "workspace/projects/noski-people-001",
+  "compositionTemplate": null
+}
