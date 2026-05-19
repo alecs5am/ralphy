@@ -15,7 +15,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { projectsDir } from "../lib/paths.js";
-import { out, err, ok } from "../lib/output.js";
+import { out, err, ok, isPretty } from "../lib/output.js";
+import { c, icons, section, kv, withSpinner } from "../lib/ui.js";
 
 async function safeJson(fp: string): Promise<unknown> {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
@@ -176,7 +177,7 @@ export function editorCmd(): Command {
         }
       }
 
-      out({
+      const payload = {
         project: projectId,
         verdict: red === 0 ? "ok" : "fail",
         expectedAspect,
@@ -191,7 +192,44 @@ export function editorCmd(): Command {
         clips: clipReports,
         music: musicReports,
         issues,
-      });
+      };
+
+      if (!isPretty()) {
+        out(payload);
+        if (red > 0) process.exitCode = 1;
+        return;
+      }
+
+      // Pretty preflight report
+      console.log();
+      const verdictIcon = red === 0 ? icons.ok : icons.fail;
+      const verdictColor = red === 0 ? c.ok : c.err;
+      console.log(`${verdictIcon} ${c.bold(`editor preflight ${projectId}`)}  ${verdictColor(red === 0 ? "OK" : `FAIL (${red} issue${red === 1 ? "" : "s"})`)}`);
+      section("Expectations", [
+        `${c.label("Aspect:")} ${c.value(expectedAspect ?? "—")}`,
+        `${c.label("FPS:   ")} ${c.value(String(expectedFps))}`,
+      ]);
+      section("Totals");
+      kv(
+        {
+          "Clips": `${payload.totals.clips}  ${c.muted(`(${payload.totals.clipDurationSec}s total)`)}`,
+          "Music tracks": `${payload.totals.musicTracks}  ${c.muted(`(${payload.totals.musicDurationSec}s total)`)}`,
+        },
+        { maxKeyWidth: 14 },
+      );
+      if (Object.keys(aspectCounts).length > 1) {
+        section("Aspect distribution");
+        kv(aspectCounts as Record<string, number>, { maxKeyWidth: 8 });
+      }
+      if (issues.length > 0) {
+        section(`Issues  ${c.err(`(${issues.length})`)}`);
+        for (const issue of issues) {
+          const icon = issue.includes("MISSING") || issue.includes("PROBE-FAIL") ? icons.fail : icons.warn;
+          const color = issue.includes("MISSING") || issue.includes("PROBE-FAIL") ? c.err : c.warn;
+          console.log(`  ${icon} ${color(issue)}`);
+        }
+      }
+      console.log();
       if (red > 0) process.exitCode = 1;
     });
 
