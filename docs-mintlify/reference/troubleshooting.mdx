@@ -34,6 +34,55 @@ ralphy setup --link "$PWD" --status
 `ralphy doctor` will tell you which keys are missing. Re-run `ralphy setup`, pick the providers,
 paste the keys. The wizard verifies each via API before saving.
 
+## macOS Gatekeeper warning ("cannot be opened because the developer cannot be verified")
+
+<Note>
+  This applies only to users who **downloaded the binary archive directly from GitHub Releases**
+  and double-clicked it from Finder. Users who install via **`brew install alecs5am/tap/ralphy`**,
+  **`npm i -g @alecs5am/ralphy`**, or **`curl install.sh | sh`** never see this dialog — those
+  paths either bypass Gatekeeper entirely (brew / npm install the binary via a trusted tool) or
+  auto-remove the quarantine attribute (`install.sh` strips it before first run).
+</Note>
+
+If you did download the archive directly and macOS refused to run the binary, strip the quarantine
+attribute manually:
+
+```bash
+xattr -d com.apple.quarantine /usr/local/bin/ralphy
+# or wherever you placed the binary:
+xattr -d com.apple.quarantine ~/Downloads/ralphy
+```
+
+Then try `ralphy --version` again.
+
+**Why this happens.** Ralphy is not signed with an Apple Developer ID (see
+[09-D-01](https://github.com/alecs5am/ralphy/blob/main/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log)
+for the reasoning). The fix is one shell command for the rare direct-download path; brew / npm /
+curl install users are unaffected.
+
+**Why we recommend `brew install` instead.** Two reasons: (1) the brew formula is sha256-pinned so
+you get a guaranteed binary, and (2) Gatekeeper trusts brew, so re-installing for upgrade is
+zero-friction.
+
+## Verify your install (SHA256)
+
+Every GitHub Release includes a `SHA256SUMS` file. Verify the binary matches:
+
+```bash
+# macOS / Linux
+cd ~/Downloads
+shasum -a 256 -c SHA256SUMS
+```
+
+```powershell
+# Windows
+Get-FileHash ralphy-windows-x64.exe -Algorithm SHA256
+# Compare manually against the value in SHA256SUMS
+```
+
+If the hash doesn't match, **do not run the binary** — re-download from the GitHub Release page
+or use `brew` / `npm` / `install.sh` (which verify internally).
+
 ## `.env` safety
 
 `.env` is in `.gitignore`. The wizard pings each provider before writing the key so you never
