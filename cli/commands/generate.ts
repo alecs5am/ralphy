@@ -201,11 +201,11 @@ export function generateCmd() {
   // ── image ───────────────────────────────────────────────────────────────
   const imageCmd = cmd
     .command("image")
-    .description("Generate one image via OpenRouter (default: openai/gpt-5.4-image-2 — premium typography & label accuracy). Use --model google/gemini-3-pro-image-preview when you need multi-ref character consistency.")
+    .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency.")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image)")
     .requiredOption("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
-    .option("--model <model>", "OpenRouter model id (default openai/gpt-5.4-image-2; switch to google/gemini-3-pro-image-preview for multi-ref/character consistency)", "openai/gpt-5.4-image-2")
+    .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview, the nano-banana-pro lineage; switch to openai/gpt-5.4-image-2 for premium typography on labels)", "google/gemini-3-pro-image-preview")
     .option(
       "--ref <ref...>",
       "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI"
@@ -234,7 +234,7 @@ export function generateCmd() {
         // Single-step verb — `--summary` is a no-op accepted for shell-script
         // consistency (per 01-D-06).
         const resolvedModel = resolveModelAlias(opts.model);
-        const estPerCall = 0.04;  // gpt-5.4-image-2 nominal; precise estimate post-launch (01.11.x).
+        const estPerCall = 0.04;  // gemini-3-pro-image-preview nominal; precise estimate post-launch (01.11.x).
         out({
           dryRun: true,
           would_call: [

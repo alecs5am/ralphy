@@ -20,8 +20,8 @@ Endpoint: `POST /api/v1/chat/completions` with `modalities: ["image","text"]`. O
 
 | Use case | Model | Price | Why |
 |---|---|---|---|
-| **Default — premium production** | `openai/gpt-5.4-image-2` | ~$0.20 / image | Best typography on labels, fewer hallucinations on small details, cleanest photorealism for product / lifestyle / hero shots. Made default 2026-05-12 — see `docs/prompts/README.md`. |
-| **Multi-ref / character consistency** | `google/gemini-3-pro-image-preview` (= nano-banana lineage) | ~$0.15 / image | Best at holding face / wardrobe / product identity across multiple references. Pass 2-3 `--ref` images for "same model + same product across 5 scenes" workflows. |
+| **Default — multi-ref / character consistency** | `google/gemini-3-pro-image-preview` (= nano-banana-pro lineage) | ~$0.15 / image | Holds face / wardrobe / product identity across multiple references. Tolerates ≥4 concurrent calls. Pass 2-3 `--ref` images for "same model + same product across 5 scenes" workflows. Made default 2026-05-20 (re-flip from the 2026-05-12 gpt-5.4-image-2 default — multi-ref wins for almost every UGC workflow). |
+| **Premium typography / label accuracy** | `openai/gpt-5.4-image-2` | ~$0.20 / image | Best typography on labels, fewer hallucinations on small details, cleanest photorealism for hero product shots where the wordmark must read crisp. Caps at 1 concurrent — serialize batches. |
 | **Budget OpenAI** | `openai/gpt-5-image-mini` | ~$0.08 / image | Cheap iteration during prompt exploration. |
 | **Cheapest viable** | `google/gemini-2.5-flash-image` | ~$0.02 / image | Smoke-test only — quality dip is visible. |
 

@@ -80,6 +80,13 @@ program
     const opts = thisCommand.opts();
     // ui.ts mode: auto-detect TTY unless explicit --pretty / --json
     const { setMode, setQuiet } = await import("./lib/ui.js");
+    // Commander turns --no-color into opts.color === false. Force chalk off
+    // so the rest of the run produces ANSI-free output regardless of TTY.
+    if (opts.color === false) {
+      const { default: chalk } = await import("chalk");
+      chalk.level = 0;
+      process.env.NO_COLOR = "1";
+    }
     if (opts.json) {
       setMode("json");
       setPretty(false);

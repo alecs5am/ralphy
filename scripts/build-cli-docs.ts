@@ -129,6 +129,27 @@ export function pickExample(examples: string[]): string | null {
 const HEADER_SENTINEL =
   "{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}";
 
+// Escape `<` / `>` to HTML entities everywhere outside backtick code spans,
+// so flag descriptions like "Pin skill score to <n> (0-10)" or paths like
+// "workspace/projects/<id>/render/" don't get parsed as JSX tags by MDX.
+// Inside backticks the characters stay literal (MDX skips parsing in code).
+export function escapeMdxAngles(s: string): string {
+  let out = "";
+  let inCode = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]!;
+    if (ch === "`") {
+      inCode = !inCode;
+      out += ch;
+      continue;
+    }
+    if (!inCode && ch === "<") out += "&lt;";
+    else if (!inCode && ch === ">") out += "&gt;";
+    else out += ch;
+  }
+  return out;
+}
+
 export function renderVerbMdx(verb: string, parsed: ParsedHelp): string {
   const lines: string[] = [];
   // Frontmatter
@@ -160,7 +181,7 @@ export function renderVerbMdx(verb: string, parsed: ParsedHelp): string {
     lines.push("| Flag | Description |");
     lines.push("|---|---|");
     for (const f of common) {
-      const desc = f.description.replace(/\|/g, "\\|");
+      const desc = escapeMdxAngles(f.description.replace(/\|/g, "\\|"));
       lines.push(`| \`${f.name}\` | ${desc} |`);
     }
     lines.push("");
@@ -184,7 +205,7 @@ export function renderVerbMdx(verb: string, parsed: ParsedHelp): string {
     lines.push("| Flag | Description |");
     lines.push("|---|---|");
     for (const f of parsed.flags) {
-      const desc = f.description.replace(/\|/g, "\\|");
+      const desc = escapeMdxAngles(f.description.replace(/\|/g, "\\|"));
       lines.push(`| \`${f.name}\` | ${desc} |`);
     }
     lines.push("");

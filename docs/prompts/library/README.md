@@ -33,4 +33,4 @@ Three worked examples — `## Bad`, `## OK`, `## Ideal` — each a complete prom
 
 ## CLI surface
 
-`ralphy prompts library lookup --goal "<text>"` returns the top-N matching entries with a confidence score. The agent reads the matched entries before issuing the gen call. Implementation pending — placeholder verb tracked under 02.0L.03.
+`ralphy prompts library lookup --goal "<text>"` returns the top-N matching entries with a confidence score. The agent reads the matched entries before issuing the gen call. Shipped 2026-05-19 (02.0L.03). Companion verb: `ralphy prompts library modes` lists the available entry families.
