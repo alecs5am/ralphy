@@ -50,21 +50,39 @@ function detectAgents(): AgentId[] {
   return found;
 }
 
-function bundleDir(): string {
-  // Repo-checkout layout: <repo>/.agents/skills/ralphy/ if present, else
-  // the .claude/skills/ralphy/ symlink target. Falls back to the repo's
-  // .agents/ folder.
-  const candidates = [
-    path.join(process.cwd(), ".agents", "skills", "ralphy"),
-    path.join(process.cwd(), ".claude", "skills", "ralphy"),
-    path.join(process.cwd(), ".agents", "skills"),
-  ];
-  for (const c of candidates) {
-    if (existsSync(c)) return c;
+/**
+ * Resolve the on-disk source of the Ralphy skill bundle. Search order:
+ *   1. `repoOverride` (--repo flag, if passed).
+ *   2. $RALPHY_REPO_ROOT (matches `ralphy skill new` at line 156).
+ *   3. process.cwd() — covers the dev case of running from a ugc-cli checkout.
+ *
+ * For each root, the function looks at the repo-checkout layout candidates and
+ * returns the first one that exists. Raises E_SKILL_BUNDLE_NOT_FOUND with the
+ * tried paths when none match — instead of returning a non-existent path that
+ * later crashes copyDir() with ENOENT (E_INTERNAL).
+ */
+function resolveBundleDir(repoOverride?: string): string {
+  const roots = [repoOverride, process.env.RALPHY_REPO_ROOT, process.cwd()].filter(
+    (r): r is string => Boolean(r),
+  );
+
+  // NOTE: `.claude/skills/ralphy/` is intentionally NOT a source candidate.
+  // It's the *destination* of every prior install — picking it as source
+  // forms a self-referential cycle that copies an empty dir over itself
+  // (the dst is created by `fs.mkdirSync(dst, { recursive: true })` in
+  // copyDir, so it always pre-exists by the time we re-check).
+  const tried: string[] = [];
+  for (const root of roots) {
+    const candidates = [
+      path.join(root, ".agents", "skills", "ralphy"),
+      path.join(root, ".agents", "skills"),
+    ];
+    for (const c of candidates) {
+      tried.push(c);
+      if (existsSync(c)) return c;
+    }
   }
-  // Fallback: empty dir we'll create on the fly. The Claude adapter still
-  // writes the CLAUDE.md routing pointer, which is the load-bearing part.
-  return path.join(process.cwd(), ".agents", "skills", "ralphy");
+  raiseError("E_SKILL_BUNDLE_NOT_FOUND", { candidates: tried.join(", ") });
 }
 
 export function skillCmd(): Command {
@@ -77,11 +95,13 @@ export function skillCmd(): Command {
     .option("--scope <s>", "user | project (default: user for claude/cursor, project for codex)")
     .option("--symlink", "Symlink the bundle instead of copying (default copy)")
     .option("--copy", "Force copy mode (default — opposite of --symlink)")
+    .option("--repo <path>", "Path to the ugc-cli checkout containing the skill bundle (overrides $RALPHY_REPO_ROOT and cwd)")
     .option("--dev", "Also install the ralphy-dev: maintainer namespace")
     .option("--reconfigure", "Re-launch the wizard, overwriting any persisted choice")
     .action(async (opts) => {
       const explicitAgent = (opts.agent as string | undefined) ?? null;
       const mode = opts.symlink ? "symlink" : "copy";
+      const repo = (opts.repo as string | undefined) ?? undefined;
 
       // Branch 1 — explicit --agent flag: skip the wizard entirely (CI/power user).
       if (explicitAgent) {
@@ -90,10 +110,17 @@ export function skillCmd(): Command {
         }
         const defaultScope = defaultScopeFor(explicitAgent as AgentId);
         const scope = (opts.scope as Scope | undefined) ?? defaultScope;
+        // Only the claude adapter reads from the skill bundle (copies files).
+        // cursor / codex / copilot just write router files and don't need it,
+        // so we skip the resolve (and its E_SKILL_BUNDLE_NOT_FOUND raise) for
+        // those — otherwise `ralphy skill install --agent codex` would refuse
+        // to install on a machine that doesn't have a ugc-cli checkout, which
+        // is wrong: codex install is fully self-contained.
+        const needsBundle = explicitAgent === "claude";
         const r = installSkill({
           agent: explicitAgent as AgentId,
           scope,
-          bundleDir: bundleDir(),
+          bundleDir: needsBundle ? resolveBundleDir(repo) : "",
           mode,
         });
         out({ installed: [r] });
@@ -104,7 +131,7 @@ export function skillCmd(): Command {
       // non-interactively unless --reconfigure was passed.
       const prior = loadInstallChoice();
       if (prior && !opts.reconfigure) {
-        const installed = applyInstallChoice(prior, mode);
+        const installed = applyInstallChoice(prior, mode, repo);
         out({ installed, replayed_from_config: true });
         return;
       }
@@ -116,7 +143,7 @@ export function skillCmd(): Command {
       }
       const choice = await runWizard({ devOptIn: Boolean(opts.dev) });
       persistInstallChoice(choice);
-      const installed = applyInstallChoice(choice, mode);
+      const installed = applyInstallChoice(choice, mode, repo);
       out({ installed, wizard_completed: true });
     });
 
@@ -273,12 +300,20 @@ Examples:
 
 // ─── Wizard helpers (03.02.06) ─────────────────────────────────────────────
 
-function applyInstallChoice(choice: { installedAgents: AgentId[]; installScope: Scope; installDevNamespace?: boolean }, mode: "symlink" | "copy"): unknown[] {
+function applyInstallChoice(
+  choice: { installedAgents: AgentId[]; installScope: Scope; installDevNamespace?: boolean },
+  mode: "symlink" | "copy",
+  repo?: string,
+): unknown[] {
   const installed: unknown[] = [];
+  // Resolve the bundle only if any chosen agent actually reads from it
+  // (claude). Other adapters write self-contained router files.
+  const needsBundle = choice.installedAgents.includes("claude");
+  const bundle = needsBundle ? resolveBundleDir(repo) : "";
   for (const a of choice.installedAgents) {
     if (!isV1Agent(a)) continue;
     const scope: Scope = a === "codex" || a === "copilot" ? "project" : choice.installScope;
-    const r = installSkill({ agent: a, scope, bundleDir: bundleDir(), mode });
+    const r = installSkill({ agent: a, scope, bundleDir: bundle, mode });
     installed.push(r);
   }
   return installed;
