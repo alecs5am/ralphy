@@ -55,6 +55,7 @@ export const icons = {
 
 type Mode = "pretty" | "json" | "auto";
 let _mode: Mode = "auto";
+let _quiet = false;
 
 export function setMode(m: Mode) {
   _mode = m;
@@ -64,6 +65,20 @@ export function isPrettyMode(): boolean {
   if (_mode === "pretty") return true;
   if (_mode === "json") return false;
   return Boolean(process.stdout.isTTY);
+}
+
+/**
+ * Suppresses progress, spinners, and conversational output (ok/info/warn).
+ * The final result (JSON object on pipe, table on TTY) still prints, and
+ * errors on stderr still print. Threaded through the top-level `--quiet`
+ * flag in cli/index.ts (01.05.03).
+ */
+export function setQuiet(v: boolean): void {
+  _quiet = v;
+}
+
+export function isQuietMode(): boolean {
+  return _quiet;
 }
 
 // ─── Sections + key-value blocks ─────────────────────────────────────────────
@@ -224,12 +239,15 @@ export function banner(): void {
 // ─── Convenience output helpers ──────────────────────────────────────────────
 
 export function ok(message: string): void {
+  if (_quiet) return;
   console.log(`${icons.ok} ${message}`);
 }
 export function warn(message: string): void {
+  if (_quiet) return;
   console.log(`${icons.warn} ${c.warn(message)}`);
 }
 export function info(message: string): void {
+  if (_quiet) return;
   console.log(`${icons.info} ${message}`);
 }
 export function fail(message: string): never {

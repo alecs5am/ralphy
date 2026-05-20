@@ -6,6 +6,7 @@
 
 import { Command } from "commander";
 import { out, err, isPretty } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import {
   insertJob,
   listJobs,
@@ -103,7 +104,7 @@ export function queueCmd() {
     .description("Show full details of one job")
     .action((id) => {
       const job = getJob(Number(id));
-      if (!job) err(`Job not found: ${id}`);
+      if (!job) raiseError("E_NOT_FOUND", { kind: "Job", id });
       out(job);
     });
 
@@ -135,7 +136,7 @@ export function queueCmd() {
     .action(async (id, opts) => {
       const jobId = Number(id);
       const job = getJob(jobId);
-      if (!job) err(`Job not found: ${id}`);
+      if (!job) raiseError("E_NOT_FOUND", { kind: "Job", id });
 
       let cursor = opts.since ?? 0;
       const printBatch = (rows: JobLogRow[]) => {

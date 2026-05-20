@@ -5,6 +5,7 @@ import { addEntity, getEntity, listEntities, deleteEntity } from "../lib/registr
 import { slugify } from "../lib/ids.js";
 import { batchesDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
 import { ensureDaemonRunning } from "../lib/jobs/daemon.js";
 
@@ -78,7 +79,7 @@ export function batchCmd() {
         const state = JSON.parse(await fs.readFile(path.join(dir, "state.json"), "utf-8")).catch?.(() => null);
         out({ config, state });
       } catch {
-        err(`Batch not found: ${id}`);
+        raiseError("E_NOT_FOUND", { kind: "Batch", id });
       }
     });
 
@@ -91,7 +92,7 @@ export function batchCmd() {
         const state = JSON.parse(await fs.readFile(path.join(dir, "state.json"), "utf-8"));
         out(state);
       } catch {
-        err(`Batch not found: ${id}`);
+        raiseError("E_NOT_FOUND", { kind: "Batch", id });
       }
     });
 
