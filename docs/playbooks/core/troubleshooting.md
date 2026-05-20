@@ -85,6 +85,6 @@ bun run ralph -- <command>
 
 - Failed generation with an unclear prompt → `art-director playbook`.
 - Scenario doesn't land → `scenarist playbook`.
-- Render error in Remotion → `editor playbook` + `/remotion-best-practices`.
+- Render error in Remotion → `editor playbook` + `/ralphy-remotion`.
 - Provider down → wait, no handback.
 - User wants a new feature → not my zone, I'll say so.

@@ -18,12 +18,12 @@ The phrasing on the left triggers the playbook on the right.
 | You say | Ralphy reads |
 |---|---|
 | "Make a video about my new coffee syrup" | [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — five questions, draft plan, wait for "go" |
-| "Make me something like this `<tiktok-url>`" | [`ralph-researcher` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-researcher/SKILL.md) → pulls the URL, then intake |
+| "Make me something like this `<tiktok-url>`" | [`ralphy-researcher` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-researcher/SKILL.md) → pulls the URL, then intake |
 | "Rewrite scene 3 — punchier hook" | [`scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) |
 | "Regenerate the bottle shot in scene-04, try seedance" | [`art-director.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) |
 | "Render the final cut with loudnorm" | [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) |
 | "Make 10 variants from this template" | [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) → `batch create-from-template` |
-| "Is this render ready to ship?" | [`ralph-evaluator` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-evaluator/SKILL.md) — scene-by-scene scoring |
+| "Is this render ready to ship?" | [`ralphy-evaluator` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-evaluator/SKILL.md) — scene-by-scene scoring |
 | "Nothing works, my key is missing" | [`core.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/core.md) → `ralphy doctor` |
 
 The pattern: a new-project brief always hits intake first. A targeted edit ("rework scene 3") skips intake and goes straight to the role that owns that artifact. A render question goes to editor. A "something broken" question goes to core.

@@ -7,11 +7,11 @@ A Ralphy skill is one folder under `.agents/skills/<name>/` containing a single 
 
 ## Full example
 
-A valid `.agents/skills/ralph-evaluator/SKILL.md`:
+A valid `.agents/skills/ralphy-evaluator/SKILL.md`:
 
 ```markdown
 ---
-name: ralph-evaluator
+name: ralphy-evaluator
 namespace: ralphy
 description: >-
   Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness,
@@ -22,7 +22,7 @@ description: >-
   See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 
-# ralph-evaluator
+# ralphy-evaluator
 
 ## Trigger refinements
 
@@ -57,11 +57,11 @@ That file passes `bun run lint:skills` and renders correctly in every supported 
 
 ```
 .agents/skills/
-  ralph-evaluator/SKILL.md
-  ralph-researcher/SKILL.md
+  ralphy-evaluator/SKILL.md
+  ralphy-researcher/SKILL.md
   ralphy-install/SKILL.md
   release/SKILL.md
-  remotion-best-practices/SKILL.md
+  ralphy-remotion/SKILL.md
 ```
 
 One folder per skill. The folder name must match the `name:` field — the lint rejects a mismatch. The folder is yours; drop scripts, templates, or worked-example files alongside `SKILL.md` and they ship with the skill on install.
@@ -116,8 +116,8 @@ Any other value is rejected. The split:
 
 | Namespace | Audience | Examples |
 |---|---|---|
-| `ralphy` | end users | `ralph-evaluator`, `ralph-researcher`, `ralph-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `remotion-best-practices`, `skill-creator` |
+| `ralphy` | end users | `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
+| `ralphy-dev` | maintainers / contributors | `release`, `ralphy-remotion`, `skill-creator` |
 
 `ralphy skill install` installs only `ralphy` skills by default. `--dev` opts into the maintainer set. The agents-md lint (`scripts/lint-agents-md.ts`) reads `namespace:` and skips the "is this skill referenced from the routing table" check for `ralphy-dev` skills — maintainer skills are explicit-invocation-only.
 
@@ -193,7 +193,7 @@ The agentskills.io cap (1536) and the menu-budget reality (~1500 soft) are not t
 
 ## ALSO FIRE / DO NOT FIRE / HARD INVARIANTS
 
-For longer skills (the existing `ralph-evaluator` and `ralph-researcher`), the description ends with `See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.` and those clauses move into the body under `## Trigger refinements` and `## Hard invariants`. This pattern keeps the description scannable while preserving the routing-fidelity detail the agent needs once the skill fires.
+For longer skills (the existing `ralphy-evaluator` and `ralphy-researcher`), the description ends with `See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.` and those clauses move into the body under `## Trigger refinements` and `## Hard invariants`. This pattern keeps the description scannable while preserving the routing-fidelity detail the agent needs once the skill fires.
 
 The rule of thumb: if a clause is longer than half a sentence, move it from the description into the body. The description's job is "should this skill fire?"; the body's job is "now that it fired, what do I do?"
 

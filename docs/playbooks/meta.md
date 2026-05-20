@@ -43,7 +43,7 @@ The protocol:
 1. Capture intent via 3-5 clarifying questions (target language, aspect, brand, duration, hard "no"s).
 2. Draft a plan in chat. Wait for user "go".
 3. Generate one beat at a time → wait for user feedback → next beat.
-4. Final eval gate via `/ralph-evaluator` before declaring done.
+4. Final eval gate via `/ralphy-evaluator` before declaring done.
 
 User override: "просто сгенери / just go" switches to batch mode for that project. Note it in memory; don't generalize.
 
