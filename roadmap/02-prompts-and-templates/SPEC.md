@@ -416,3 +416,92 @@ Typed script schema enables cheap A/B batch variation.
 - Provider layer routes per model: Runway → `subjectReference[]` / `styleReference[]`; Midjourney v7 → `--cref` / `--sref` passthrough; Gemini image → multi-ref input ordered cref-first; Kling → prompt-formula hints.
 - `Scene.refs` shape upgrades from `string[]` to `{ cref?: string[], sref?: string[], pref?: string[] }` with a one-pass migration verb that reads the old shape as `cref`.
 - Master shots (`workspace/projects/<id>/master/{character,style,product}.png`) auto-populate the matching slot per `02.02.03`.
+
+---
+
+## 02.10 Per-model prompt research
+
+Reading-list backlog. Each task: study the listed source(s), distil into `notes/research/<slug>.md` (canonical observations + 5-10 prompt patterns + per-model gotchas), then propose concrete refresh to the matching adapter in `cli/lib/providers/prompt-adapter/` or to a new prompt library entry under `docs/prompts/library/`. Source bibliography: [`docs/research/ai-video-pipeline-bibliography.md`](../../docs/research/ai-video-pipeline-bibliography.md) §1–2.
+
+### 02.10.01 Study Nano Banana Pro (Gemini 3 Pro Image) prompt guides  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 8 sources in bibliography §1 / Nano Banana Pro (Google DeepMind, Cloud Ultimate Prompting Guide, Google Blog launch, developer announcement, prompting tips, API docs, DEV.to, Atlabs).
+- Distil into `notes/research/nano-banana-pro-prompting.md` with: per-axis prompt vocabulary (subject / style / camera / lighting / aspect / negative), 5 known-good template patterns (sprite sheet, infographic, product still, character ref, label-accurate packaging), 3 known-bad failure modes.
+- If patterns diverge from current `gemini-image` adapter, file follow-up tasks pointing at exact files to update.
+
+### 02.10.02 Study GPT Image prompt guides  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 3 sources in bibliography §1 / GPT Image (OpenAI API images guide, API reference, cookbook).
+- Distil into `notes/research/gpt-image-prompting.md`.
+- Compare to Nano Banana — note where label-typography wins matter (current `MODELS.md` defaults).
+
+### 02.10.03 Study Grok Imagine (xAI Aurora) prompt guides  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 5 sources in bibliography §1 / Grok Imagine (xAI release, Replicate model card, prompt guide, PoYo API, GenAIntel walkthrough).
+- Distil into `notes/research/grok-imagine-prompting.md` with: 4-mode matrix (T2I, I2I, T2V, I2V), Fun/Normal/Spicy mode caveats, when Grok beats Kling/Seedance for our UGC pipeline.
+
+### 02.10.04 Study Recraft V3/V4 prompt guides  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 6 sources in bibliography §1 / Recraft (official docs, prompt engineering guide, vector workflow, llms.txt, fal.ai, AI/ML API).
+- Distil into `notes/research/recraft-prompting.md`.
+- Recommend whether to add Recraft to our image-gen catalog (currently not in `MODELS.md`) — vector logos / brand marks could justify it.
+
+### 02.10.05 Study Kling 3.0 prompt guides  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 7 sources in bibliography §2 / Kling 3.0 (fal.ai blog, Morphic, VEED, Atlabs, Magic Hour, Kling3-AI, Magnific).
+- Distil into `notes/research/kling-3-0-prompting.md` with: the canonical 5-part structure (Scene → Character → Shot → Motion → Dialogue → Progression), SCALE framework, motion-intensity scale rules, multi-shot composition, ref-image handling, Omni mode use cases.
+- Surface anything that contradicts `cli/lib/providers/prompt-adapter/kling.ts`; file PR if so.
+
+### 02.10.06 Study Seedance 2.0 ecosystem  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 9 sources in bibliography §2 / Seedance 2.0 (fal-ai repo, YouMind 2000-prompts repo, MindStudio timeline prompting, Atlabs 47-prompts, WeShop, Pollo, ImagineArt 70-prompts, Seedance.tv, Higgsfield).
+- Distil into `notes/research/seedance-2-0-prompting.md`.
+- Pull select prompts from YouMind repo into `docs/prompts/library/` under existing situation slugs (need ≥5 new entries).
+
+### 02.10.07 Study Veo 3.1 (comparison only)  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 2 sources in bibliography §2 / Veo 3.1 (Google Cloud guide + snubroot repo).
+- Distil into `notes/research/veo-3-1-comparison.md` — short, just "what Veo does that Kling/Seedance don't" since we don't ship Veo today.
+
+---
+
+## 02.11 UGC content-form research
+
+Production-ready external repos to study for template + prompt-library expansion. Bibliography §3.
+
+### 02.11.01 Study rediumvex/ai-video-generator-claude  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read the repo (10 Claude skills covering viral hooks, SaaS demos, personal brand, faceless, luxury, UGC).
+- Distil into `notes/research/rediumvex-skills.md`: per-skill summary + which of our existing skills overlap + 3 new skill ideas this repo unlocks.
+
+### 02.11.02 Study YouMind 2000+ Seedance prompts  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Survey the repo's category structure (UGC, ads, podcasts, comedy, fantasy).
+- Output: `notes/research/youmind-prompt-categories.md` listing categories + sample prompts per category + which map to our existing library situations.
+
+### 02.11.03 Study wilwaldon/Claude-Code-Video-Toolkit  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read the toolkit (brand profiles, `/video`, `/record-demo`, `/brand` slash commands).
+- Output: `notes/research/wilwaldon-toolkit.md` comparing their slash-command surface to ours (`/ralphy-*`) — note what we should adopt.
+
+### 02.11.04 Study Atlabs UGC ad prompt collections  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read both Atlabs URLs (15-prompt UGC ads + 47-prompt cinematic ads).
+- Output: `notes/research/atlabs-ad-prompts.md` with ≥10 prompts copied verbatim and tagged for our prompt-library import.
+
+### 02.11.05 Reverse-engineer Arcads / HeyGen / Higgsfield product positioning  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read bibliography §3 platform links (Arcads AI Actors, HeyGen API, Higgsfield Marketing Studio).
+- Output: `notes/research/competitor-positioning.md` — what each does that we don't, what we do that they don't, pricing/credit models, target persona.

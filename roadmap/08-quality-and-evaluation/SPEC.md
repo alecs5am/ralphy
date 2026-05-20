@@ -339,3 +339,60 @@ Renames the eval flow from "one model judges everything" to "1..N independent ag
 
 **Acceptance criteria:**
 - TikTok / Meta / YT analytics pulled per project; "iterate from numbers" loop.
+
+---
+
+## 08.10 Virality + retention benchmark research
+
+Reading-list backlog for sourcing 2026 viral-content benchmarks (hook retention, hold rate, completion thresholds) — these become the rubric for our `ralphy-evaluator` skill + the scoring weights in `cli/lib/eval/`. Source bibliography: [`docs/research/ai-video-pipeline-bibliography.md`](../../docs/research/ai-video-pipeline-bibliography.md) §5. Bibliography flagged this gap: no production-grade `virality-scorer/SKILL.md` exists upstream — we have an opportunity.
+
+### 08.10.01 Study 3-second hook benchmarks (TTS Vibes)  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read TTS Vibes article on 3-second hook retention rate (70-85% optimal, 84.3% viral videos use psychological triggers).
+- Output: `notes/research/hook-3s-retention.md` with exact numbers + the 5 most-cited psychological triggers.
+- Feeds into `cli/lib/eval/scoreHook.ts` (08.02) weight tuning.
+
+### 08.10.02 Study TikTok retention benchmarks 2026 (Retensis + Socialync)  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read both articles (Retensis retention benchmarks by length, Socialync 70% completion as 2026 viral threshold).
+- Output: `notes/research/tiktok-retention-2026.md` with the per-duration retention table.
+
+### 08.10.03 Study Hook Rate vs Hold Rate as ROAS metrics (Heylect)  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read Heylect article.
+- Output: `notes/research/hook-vs-hold-rate.md` — the two metrics, how to compute from raw retention curves, ROAS correlation.
+
+### 08.10.04 Study WebFX 2026 TikTok benchmarks  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read WebFX article (engagement rate 3.85-4.90%, CTR 0.84%).
+- Output: `notes/research/webfx-engagement-benchmarks.md`.
+
+### 08.10.05 Study Keevx frame-by-frame viral ad analysis  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read Keevx article (82% follow hook/payoff/loop pattern).
+- Output: `notes/research/keevx-viral-ad-structure.md` — the hook/payoff/loop structure with timing windows.
+- This is the structural rubric for `ralphy-evaluator`'s scene-segment scoring.
+
+### 08.10.06 Study Conbersa + PostEverywhere + Darkroom + AudienceScience  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 4 articles (Conbersa cascade effect, PostEverywhere 1M views in 72h threshold, Darkroom 15 tactics + algorithm 2026, AudienceScience first-minute prediction).
+- Output: `notes/research/viral-meta-tactics.md` cross-referenced — what tactics multiple sources agree on.
+
+### 08.10.07 Study Higgsfield's Virality Predictor product  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read Higgsfield AI Video page focusing on their Virality Predictor feature.
+- Output: `notes/research/higgsfield-virality-predictor.md` — what inputs they take, what they output, observed accuracy claims.
+
+### 08.10.08 Synthesize a `ralphy-evaluator` rubric refresh  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Cross-read all outputs of 08.10.01-07.
+- Output: `notes/research/evaluator-rubric-refresh.md` — proposed scoring axes with weights, citing which benchmark backs each.
+- File follow-up tasks under 08.02 (Hook scorer) to apply the refresh.
