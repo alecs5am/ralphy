@@ -59,6 +59,8 @@
     "docs:cli:check": "bun run scripts/build-cli-docs.ts --check",
     "lint:docs-links": "bun run scripts/lint-docs-links.ts",
     "lint:docs-links:fast": "bun run scripts/lint-docs-links.ts --no-net",
+    "lint:skills": "bun run scripts/lint-skills.ts",
+    "lint:agents-md": "bun run scripts/lint-agents-md.ts",
     "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
     "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173",
     "prepare": "husky"
