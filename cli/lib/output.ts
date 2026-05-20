@@ -111,23 +111,31 @@ function formatGenericCell(value: unknown): string {
 
 function printObject(obj: Record<string, unknown>, indent = 2) {
   const pad = " ".repeat(indent);
-  // Build kv-compatible entries, recursing into nested objects with extra indent.
+  // Build kv-compatible entries, recursing into nested objects + arrays after the
+  // header kv prints. Arrays of objects (e.g. `{ installed: [{ok, agent, ...}] }`)
+  // would otherwise stringify to `[object Object]` through uiKv's `String(value)`
+  // path — render them in their own section instead.
   const flat: Array<[string, unknown]> = [];
   for (const [k, v] of Object.entries(obj)) {
     if (v && typeof v === "object" && !Array.isArray(v)) {
-      // Print parent key + indented child
       flat.push([k, c.muted("(see below)")]);
+    } else if (Array.isArray(v) && v.length > 0 && v.some((x) => x && typeof x === "object")) {
+      const n = v.length;
+      flat.push([k, c.muted(`(${n} item${n === 1 ? "" : "s"} — see below)`)]);
     } else {
       flat.push([k, v]);
     }
   }
   if (indent === 2) {
     uiKv(flat, { indent: 2 });
-    // Then recurse into nested objects with header lines
+    // Then recurse into nested objects + arrays-of-objects with header lines.
     for (const [k, v] of Object.entries(obj)) {
       if (v && typeof v === "object" && !Array.isArray(v)) {
         console.log(`\n${pad}${c.label(k + ":")}`);
         printObject(v as Record<string, unknown>, indent + 2);
+      } else if (Array.isArray(v) && v.length > 0 && v.some((x) => x && typeof x === "object")) {
+        console.log(`\n${pad}${c.label(k + ":")}`);
+        printArray(v);
       }
     }
   } else {
