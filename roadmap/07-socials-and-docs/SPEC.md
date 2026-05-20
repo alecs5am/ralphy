@@ -95,6 +95,7 @@ The CLI surface changes; the docs must too.
 
 **Acceptance criteria:**
 - Script walks `cli/commands/`, extracts each verb's help text + flag definitions, emits one `.mdx` per verb under `docs-mintlify/reference/`.
+- **Page shape per [D-03](OPEN-QUESTIONS.md#decision-log):** top section is a curated summary (verb signature + 3 flags marked `commonInRef: true` in the verb's flag definitions + 1 worked example from the verb's `examples:` array). Bottom section is a Mintlify `<Expandable>` block titled "Full reference" with every flag in a table (name, type, default, description) plus all examples. Generator picks the first 3 flags deterministically if no `commonInRef` annotations are present.
 - Re-running is idempotent.
 - Generated files have a header sentinel: "Auto-generated — edit `cli/commands/` instead."
 
@@ -150,12 +151,15 @@ The repo README is the first thing GitHub visitors see.
 - Order: hero banner → one-paragraph pitch → 60s demo video (linked or embedded) → install → 5-things-to-try → docs/landing links → contributing → license.
 - ≤ 200 lines.
 
-### 07.05.02 Demo video  [ ]
-**v1.0:** yes
+### 07.05.02 Demo surface in README  [ ]
+**v1.0:** yes — re-scoped per [D-02](OPEN-QUESTIONS.md#decision-log).
 
 **Acceptance criteria:**
-- A 60s screen recording showing: install → `ralphy make "..."` → preview → ship.
-- Uploaded to GitHub repo (under `docs/branding/demo.mp4`) and linked from README.
+- README links to the landing showcase marquee (`/#showcase` or equivalent anchor on `ralphy.dev`) as the canonical "see what it makes" surface.
+- README also embeds **one** rendered Ralphy mp4 (or its animated-gif preview, ≤ 5MB) selected from `landing/public/showcase/`, placed just under the install block.
+- No new screencast recording is required for v1.0. The 60s install-to-ship screencast moves to `07.10.04` (post-launch) and unblocks once the front-stage verb surface is frozen.
+
+**Notes:** the embedded asset must be one of the 11 outputs already shipping on the landing (commit `2e61cbb`) — no fresh render needed. Pick a 9:16 clip for the embed; GitHub renders portrait video reasonably in a `<video>` tag.
 
 ### 07.05.03 "5 things to try first"  [ ]
 **v1.0:** yes
@@ -217,8 +221,9 @@ Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the
 **v1.0:** yes
 
 **Acceptance criteria:**
-- Repo Discussions tab enabled with categories: Q&A, Templates, Show-and-tell, Ideas.
+- Repo Discussions tab enabled with categories per [D-05](OPEN-QUESTIONS.md#decision-log): `Announcements`, `Q&A`, `Show & Tell` (template / render gallery), `Tester feedback` (seeded with 3-5 starter prompts during soft launch). `Ideas` may be added but isn't required.
 - Default issue template points users at Discussions for non-bug questions.
+- A `Tester feedback` welcome post pinned at soft-launch time describes how to file a useful report (install env, command run, observed vs expected).
 
 ### 07.08.02 README + docs link prominently  [ ]
 **v1.0:** yes
@@ -274,3 +279,22 @@ Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the
 
 **Acceptance criteria:**
 - Mintlify multi-language support; quickstart available in EN + at least one more.
+
+### 07.10.04 60s install-to-ship screencast  [ ]
+**v1.0:** no — deferred per [D-02](OPEN-QUESTIONS.md#decision-log); unblocks once the front-stage verb surface is frozen.
+
+**Acceptance criteria:**
+- A 60s screen recording showing: install → first project from intake → preview → ship.
+- Uploaded under `docs/branding/screencast-v1.mp4` and embedded in both README (replacing the showcase clip from `07.05.02`) and the Mintlify quickstart.
+- Re-recordable: a stored "shot list" in `docs/branding/screencast-shotlist.md` enumerates each take so a re-record after a CLI surface change takes hours, not days.
+
+### 07.10.05 Coordinated launch package  [ ]
+**v1.0:** no — deferred per [D-06](OPEN-QUESTIONS.md#decision-log). Stage 2 of the launch; stage 1 (soft launch to ~5 testers) happens during v1.0 ship.
+
+**Acceptance criteria:**
+- A HN-friendly title line + first comment draft in `docs/branding/launch/hn.md`.
+- A 280-char X thread opener + 5 follow-up tweets with screenshots in `docs/branding/launch/x.md`.
+- 5 screenshots ready under `docs/branding/launch/screenshots/` (install, intake, render, eval, showcase).
+- Trigger condition: soft-launch feedback (D-06 stage 1) shows the obvious sharp edges are filed off and the README + landing claims hold up under real install.
+
+**Notes:** drafted privately; published on the coordinated launch date. Does NOT gate the v1.0 release tag — the tag ships when category 09 distribution is green.
