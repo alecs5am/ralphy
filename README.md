@@ -47,6 +47,14 @@ ralphy setup          # interactive wizard — paste the two API keys + install 
 ralphy doctor         # verify env is green
 ```
 
+> **Got a macOS Gatekeeper warning?** You used the direct-download path. Brew / npm / `install.sh`
+> never trigger this — they bypass Gatekeeper or auto-strip quarantine. If you downloaded the
+> archive from a Release page, run `xattr -d com.apple.quarantine /path/to/ralphy` once and you're
+> done. Full notes: [troubleshooting](https://ralphy.dev/docs/reference/troubleshooting#macos-gatekeeper-warning).
+>
+> **Verify your install:** every Release includes a `SHA256SUMS` file. `shasum -a 256 -c SHA256SUMS`
+> (macOS / Linux) or `Get-FileHash` (Windows) confirms the binary matches.
+
 ## 5 things to try first
 
 ```bash
