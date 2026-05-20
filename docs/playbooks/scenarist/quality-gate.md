@@ -42,7 +42,7 @@ Under the hood — `cli/lib/quality.ts` → `scoreScenario(scenario)`. Non-LLM c
 > - scene-03 text_overlay y=1850 (outside green zone) → raise to Y ≤ 1480
 > - scene-04 has no VO and no silent: true → decide
 >
-> Should I fix from this list, or do you want it different?"
+> Fixing the three above in-place — flag any item that should stay as-is and the rest will be patched."
 
 ## Two-failure rule
 

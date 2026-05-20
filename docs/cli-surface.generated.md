@@ -600,6 +600,7 @@ Commands:
   blueprint <slug>                               Synthesize <slug>/blueprint.md from {meta + analysis + audio-analysis + transcript}
   paths <slug>                                   Print every research path for <slug> (helpful when scripting follow-ups)
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
+  check [options] <project-id>                   Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.
   delete <id>                                    Delete a reference
   help [command]                                 display help for command
 
@@ -607,6 +608,8 @@ Examples:
   ralphy ref pull https://tiktok.com/@x/video/72939...
   ralphy ref analyze my-reference-slug
   ralphy ref blueprint my-reference-slug
+  ralphy ref check my-project-001                  # gate classifier on scenario.json
+  ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
 ```
 
 ### `ralphy project`

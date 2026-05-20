@@ -63,6 +63,8 @@
     "lint:skills": "bun run scripts/lint-skills.ts",
     "lint:agents-md": "bun run scripts/lint-agents-md.ts",
     "lint:templates": "bun run scripts/lint-templates.ts",
+    "lint:confirmation-shape": "bun run scripts/lint-confirmation-shape.ts",
+    "lint:motion-graphics": "bun run scripts/lint-motion-graphics.ts",
     "templates:migrate": "bun run scripts/migrate-templates-to-yaml.ts",
     "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
     "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173",
