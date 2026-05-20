@@ -1,5 +1,6 @@
 ---
 name: remotion-best-practices
+namespace: ralphy-dev
 description: >-
   Remotion API reference — captions, transitions, audio, ffmpeg, animation, frame extraction, fonts, etc. Read docs/playbooks/remotion.md FIRST via the Read tool, then the per-topic sub-doc.
   USE WHEN the user is writing or editing Remotion code (compositions, components, primitives) and needs domain-specific knowledge — captions / subtitles, transitions, audio, sound effects, audio visualization, ffmpeg, animation timing / springs, frame extraction, video / audio duration, GIFs, Lottie, light leaks, Tailwind, Google Fonts, Zod parameterizable videos, sequencing, transparent video, charts, 3D, maps.

@@ -104,16 +104,53 @@ describe("installSkill — claude adapter", () => {
 });
 
 describe("installSkill — cursor adapter", () => {
-  test("writes .cursor/rules/ralphy.mdc at the project scope", () => {
+  test("writes .cursor/rules/ralphy-router.mdc with alwaysApply: true", () => {
     const bundle = path.join(tmp, "bundle");
     fs.mkdirSync(bundle, { recursive: true });
     const projectRoot = path.join(tmp, "proj");
     fs.mkdirSync(projectRoot, { recursive: true });
     const result = installSkill({ agent: "cursor", scope: "project", bundleDir: bundle, projectRoot, mode: "copy" });
     expect(result.ok).toBe(true);
-    const mdc = path.join(projectRoot, ".cursor", "rules", "ralphy.mdc");
-    expect(fs.existsSync(mdc)).toBe(true);
-    expect(fs.readFileSync(mdc, "utf8")).toContain("AGENTS.md");
+    const router = path.join(projectRoot, ".cursor", "rules", "ralphy-router.mdc");
+    expect(fs.existsSync(router)).toBe(true);
+    const body = fs.readFileSync(router, "utf8");
+    expect(body).toContain("alwaysApply: true");
+    expect(body).toContain("AGENTS.md");
+  });
+
+  test("writes one .cursor/rules/ralphy-<playbook>.mdc per playbook with description", () => {
+    const bundle = path.join(tmp, "bundle");
+    fs.mkdirSync(bundle, { recursive: true });
+    const projectRoot = path.join(tmp, "proj");
+    fs.mkdirSync(projectRoot, { recursive: true });
+    installSkill({ agent: "cursor", scope: "project", bundleDir: bundle, projectRoot, mode: "copy" });
+    const rulesDir = path.join(projectRoot, ".cursor", "rules");
+    const files = fs.readdirSync(rulesDir);
+    // Should have the router plus at least the canonical playbooks.
+    expect(files).toContain("ralphy-router.mdc");
+    expect(files).toContain("ralphy-intake.mdc");
+    expect(files).toContain("ralphy-researcher.mdc");
+    expect(files).toContain("ralphy-editor.mdc");
+    // Per-playbook files use Agent-Requested mode (description set, no
+    // alwaysApply).
+    const intake = fs.readFileSync(path.join(rulesDir, "ralphy-intake.mdc"), "utf8");
+    expect(intake).toContain("description:");
+    expect(intake).not.toContain("alwaysApply: true");
+  });
+
+  test("uninstall removes all ralphy-*.mdc files", () => {
+    const bundle = path.join(tmp, "bundle");
+    fs.mkdirSync(bundle, { recursive: true });
+    const projectRoot = path.join(tmp, "proj");
+    fs.mkdirSync(projectRoot, { recursive: true });
+    installSkill({ agent: "cursor", scope: "project", bundleDir: bundle, projectRoot, mode: "copy" });
+    uninstallSkill({ agent: "cursor", scope: "project", projectRoot });
+    const rulesDir = path.join(projectRoot, ".cursor", "rules");
+    // Either no dir or no ralphy-* files
+    if (fs.existsSync(rulesDir)) {
+      const left = fs.readdirSync(rulesDir).filter((f) => f.startsWith("ralphy-"));
+      expect(left).toEqual([]);
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 ---
 name: ralph-researcher
+namespace: ralphy
 description: >-
   Deep-research workflow for UGC reference material — turns one or more URLs / handles / trend queries into a single cited research report (report.md + sources.json) that a scenarist or art-director can act on. Aggregates the per-URL `ralphy ref` chain (yt-dlp pull → frames → transcript → vision → audio-describe → blueprint) and adds a cross-source LLM synthesis pass on top.
   USE WHEN the user drops a URL on TikTok / Reel / Shorts / YouTube / X / Reddit, mentions an `@handle` to audit, asks "how do they do X", asks "what's trending in <niche>", asks for a competitor breakdown, or wants a style report across multiple references.

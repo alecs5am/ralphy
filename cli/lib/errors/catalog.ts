@@ -111,6 +111,13 @@ export const ERROR_CODES = {
     hint: "Use --agent claude|cursor|codex. Wider adapters tracked under roadmap 01.11.04.",
     relatedDocs: "roadmap/01-cli/SPEC.md#0111-post-launch-tracked-here-for-visibility",
   },
+  E_WIZARD_NEEDS_TTY: {
+    class: "user",
+    httpAnalog: 400,
+    message: "Interactive wizard needs a TTY ({verb})",
+    hint: "Re-run on a terminal, or pass explicit flags (e.g. --agent claude --scope user) to skip the wizard.",
+    relatedDocs: "roadmap/03-skills/SPEC.md#030206-interactive-wizard--config-persistence",
+  },
   E_TEMPLATE_VERSION_UNSUPPORTED: {
     class: "user",
     httpAnalog: 422,
