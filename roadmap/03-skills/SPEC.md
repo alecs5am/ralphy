@@ -270,3 +270,83 @@ When you add a playbook, the skill should follow without manual ceremony.
 - At that point, ship: lint script that walks `.agents/skills/*/SKILL.md`, parses frontmatter, flags description > 1536 chars; CI required check; one-line fix-it hint pointing at `docs/skills-format.md`.
 
 **Notes:** parked per [D-04](OPEN-QUESTIONS.md#decision-log). Today (v0.x) the description guidance lives in the author guide only.
+
+---
+
+## 03.08 Skill authoring + ecosystem research
+
+Reading-list backlog for distilling production skill-authoring patterns + cataloguing the external skill ecosystem. Source bibliography: [`docs/research/ai-video-pipeline-bibliography.md`](../../docs/research/ai-video-pipeline-bibliography.md) §7.
+
+### 03.08.01 Anthropic official skill-authoring docs — full pass  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 6 official sources in bibliography §7 / Anthropic official (best-practices, Claude Code Skills docs, engineering blog, 33-page PDF, Skilljar course, anthropics/skills repo + skill-creator).
+- Distil into `notes/research/anthropic-skill-authoring.md` with: the 6 principles, description-field discipline, `!`-block patterns, when to split a skill vs extend.
+- Audit our 7 skills against the principles; file specific fix tasks for any that fail (e.g. `ralphy-remotion` and `ralphy-install` lacked `##`-section headings per `lint:skills`).
+
+### 03.08.02 Generative Programmer + Medium guides  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 3 sources in bibliography §7 / Deep guides (Generative Programmer patterns, Medium "6 principles", Medium "33-page distilled").
+- Distil into `notes/research/skill-authoring-patterns.md` — focus on Control Tuning, Explain-the-Why, Template Scaffold patterns.
+
+### 03.08.03 obra/superpowers framework  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read `obra/superpowers` repo, specifically `skills/writing-skills/anthropic-best-practices.md`.
+- Output: `notes/research/superpowers-framework.md` — what their meta-skill layer offers that we don't, and whether to adopt parts (e.g. their writing-skills checker).
+
+### 03.08.04 Awesome-list discovery — catalogue cross-platform skills  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Survey 8 awesome-list repos in bibliography §7 (Composio 1000+, travisvn, VoltAgent 1000+, hesreallyhim, jqueryscript, BehiSecc, mingrath, awesome-skills.com directory).
+- Output: `notes/research/awesome-skills-inventory.md` listing: skills directly relevant to UGC/video (≥20), skills that could complement ralphy (e.g. brand, copywriting), skills that compete with ours.
+
+### 03.08.05 Claude Code reverse engineering for agent mechanics  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 2 sources in bibliography §7 / Claude Code RE (AnimatorPan 513k-line breakdown, ComeOnOliver architecture).
+- Output: `notes/research/claude-code-internals.md` focused on: how skill discovery actually works, plugin vs raw-skill resolution, the role of frontmatter, what triggers a skill in practice.
+
+### 03.08.06 Reverse-engineering skills as a class  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 4 RE-skill repos in bibliography §7 (Avogadro android, vgrichina retro games, meirm BDD, DEFRA legacy).
+- Output: `notes/research/re-skill-patterns.md` — what RE-skills do well (autonomous session loops, BDD orchestrators) that our `ralphy-templater` could borrow.
+
+---
+
+## 03.09 Video-RE skill research
+
+External plugins and gists for analyzing existing videos. Bibliography §6.
+
+### 03.09.01 Study claude-video / claude-video-vision / claude-vision  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 3 repos (bradautomates, jordanrendric, ellyseum).
+- Output: `notes/research/video-watch-skills.md` comparing yt-dlp + ffmpeg + Whisper toolchains to our current `ralphy ref pull` chain.
+- Identify ≥3 missing capabilities we could add to `ralphy-researcher`.
+
+### 03.09.02 Study TwelveLabs production-grade plugin  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read TwelveLabs Claude Code plugin blog (Marengo + Pegasus).
+- Output: `notes/research/twelvelabs-plugin.md` — what their semantic-video-search adds, whether to integrate.
+
+### 03.09.03 Study msadig video-input gist  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read the gist (standardized workspace structure for video skills).
+- Output: `notes/research/msadig-video-input.md` — note workspace conventions we should adopt.
+
+### 03.09.04 Study mcpmarket Video Toolkit + Video Analyzer listings  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read both listings (FFmpeg + Whisper + Shazam toolkit; analyzer).
+- Output: `notes/research/mcpmarket-video-skills.md` — features and pricing.
+
+### 03.09.05 Study yt-analysis MCP via Gemini native YouTube  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read adityabawankule.io guide.
+- Output: `notes/research/yt-analysis-mcp.md` — whether Gemini-native YouTube ingestion beats our yt-dlp chain for our use case.

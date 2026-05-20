@@ -212,3 +212,48 @@ Even if we don't ship local llama for v1.0, the architecture for "local model re
 
 **Acceptance criteria:**
 - `ralphy text trim-vo <input> --model local/llama-3.1-8b-q4` runs a tiny offline pass to tighten a VO line within syllable budget.
+
+---
+
+## 06.07 Remotion + FFmpeg research
+
+Reading-list backlog for distilling production patterns from external Remotion-with-Claude-Code work and FFmpeg skill catalogues. Source bibliography: [`docs/research/ai-video-pipeline-bibliography.md`](../../docs/research/ai-video-pipeline-bibliography.md) §4. Cross-reference: our editor playbook + `ralphy-remotion` skill.
+
+### 06.07.01 Study Remotion official AI coding-agents docs  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 5 official sources in bibliography §4 / Remotion (coding-agents guide, Claude Code page, remotion-dev/skills repo, free license, pro license).
+- Output: `notes/research/remotion-official-ai-workflow.md` — what they recommend that we don't do yet, what we do that they don't.
+- Verify 4+ employee threshold per license (cross-ref `AGENTS.md`).
+
+### 06.07.02 Study remotion-dev/skills official skill set  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read the repo (official Remotion-authored skills for agents).
+- Output: `notes/research/remotion-dev-skills.md` per-skill summary.
+- Diff against our `ralphy-remotion` — propose additions / replacements.
+
+### 06.07.03 Study panaversity + affaan-m + JJenglert1 Remotion skills  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 3 repos (panaversity claude-code-skills-lab, affaan-m everything-claude-code, JJenglert1 remotion-claude-video).
+- Output: `notes/research/community-remotion-skills.md` comparing skill structure, workflow patterns, UI/UX Pro Max + Copywriting integration.
+
+### 06.07.04 Study naveen-annam real production (12k+ lines, 26 iterations)  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read `naveen-annam/creativly.ai-brand-video-remotion` — real 57s brand video with documented iteration history.
+- Output: `notes/research/naveen-annam-production-postmortem.md` — what worked, what failed, lessons that should update our `ralphy-postmortem` template.
+
+### 06.07.05 Study Sabrina + Louise de Sadeleer tutorials  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 3 tutorials (Sabrina full walkthrough, Sabrina 5 INSANE prompts, Louise de Sadeleer Pinterest-to-motion-graphic + YouTube video).
+- Output: `notes/research/remotion-tutorials.md` — extract 5 prompt patterns + 3 workflows worth importing.
+
+### 06.07.06 Study digitalsamba ffmpeg skill + agentskills.so listing  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read `digitalsamba/claude-code-video-toolkit` + its agentskills.so listing.
+- Output: `notes/research/ffmpeg-skill-comparison.md` comparing their ffmpeg surface to ours (`cli/commands/audio.ts` + `cli/commands/video.ts`).
+- Identify gaps in our ffmpeg recipe library (06.01).
