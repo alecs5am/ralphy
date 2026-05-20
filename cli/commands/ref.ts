@@ -380,6 +380,63 @@ export function refCmd() {
       });
     });
 
+  // ── check (04.02.02 — reference-required gate classifier) ───────────────
+  cmd
+    .command("check <project-id>")
+    .description(
+      "Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.",
+    )
+    .option(
+      "--text <text>",
+      "Bypass scenario.json and classify a raw brief / utterance instead. Useful before a project exists.",
+    )
+    .action(async (projectId: string, opts: { text?: string }) => {
+      const { needsReference, checkReferenceGate } = await import("../lib/eval/refs.js");
+      // Branch 1 — raw text mode (no project required).
+      if (opts.text) {
+        const r = needsReference(opts.text);
+        out({
+          mode: "text",
+          required: r.required,
+          ...(r.kind ? { kind: r.kind } : {}),
+          ...(r.reason ? { reason: r.reason } : {}),
+          ...(r.matches ? { matches: r.matches } : {}),
+        });
+        // Doc-policy: this verb reports; it does not raise. Agent / playbook
+        // decides what to do with the gate result.
+        return;
+      }
+      // Branch 2 — read project scenario.json + attached refs.
+      const project = await getEntity("projects", projectId);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+      const projectDir = path.join(root(), "workspace", "projects", projectId);
+      let scenario: any = null;
+      try {
+        const raw = await fs.readFile(path.join(projectDir, "scenario.json"), "utf-8");
+        scenario = JSON.parse(raw);
+      } catch {
+        // No scenario yet — fall back to project.brief / name / description.
+        scenario = {
+          name: project.name,
+          description: project.brief || project.description,
+        };
+      }
+      const attachedRefs: Array<{ kind?: string; id?: string }> = Array.isArray(project.refs)
+        ? project.refs.map((id: string) => ({ id }))
+        : [];
+      const r = checkReferenceGate(scenario, attachedRefs);
+      out({
+        mode: "project",
+        project: projectId,
+        required: r.required,
+        satisfied: r.satisfied,
+        ...(r.kind ? { kind: r.kind } : {}),
+        ...(r.reason ? { reason: r.reason } : {}),
+        ...(r.matches ? { matches: r.matches } : {}),
+        attachedRefs: attachedRefs.map((r) => r.id ?? null).filter(Boolean),
+      });
+    });
+
   cmd
     .command("delete <id>")
     .description("Delete a reference")
@@ -397,6 +454,8 @@ Examples:
   ralphy ref pull https://tiktok.com/@x/video/72939...
   ralphy ref analyze my-reference-slug
   ralphy ref blueprint my-reference-slug
+  ralphy ref check my-project-001                  # gate classifier on scenario.json
+  ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
 `,
   );
 
