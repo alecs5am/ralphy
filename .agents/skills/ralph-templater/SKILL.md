@@ -1,5 +1,6 @@
 ---
 name: ralph-templater
+namespace: ralphy
 description: >-
   Turns a finished `workspace/projects/<id>/` (with optional postmortem/) into a reusable vibe-reference or vibe-style template under `templates/<category>/<slug>/`. Extracts the durable bits — composition skeleton, prompt cookbook with `{{slots}}`, model stack notes, the model+cost rollup, lessons learned — and migrates heavy locked-ref assets (master shots, music beds) to `ralphy-assets/pool/` so they stay reusable across future projects. The resulting template is immediately discoverable via the existing `ralphy template list / show / suggest / use` CLI surface.
 

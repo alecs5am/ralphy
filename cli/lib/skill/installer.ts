@@ -142,6 +142,19 @@ function installClaude(opts: InstallOptions): InstallResult {
   return { ok: true, agent: "claude", scope: opts.scope, installed };
 }
 
+// Playbooks the Cursor adapter writes per-playbook `.mdc` files for. Kept in
+// sync with AGENTS.md routing rows + Copilot adapter so the auditor (03.05.01
+// lint:agents-md) can cross-check.
+const CURSOR_PLAYBOOKS: Array<{ slug: string; description: string }> = [
+  { slug: "intake", description: "Ralphy intake — ask 3-5 clarifying questions before any paid generation" },
+  { slug: "researcher", description: "Ralphy researcher — analyze references, URLs, @handles, trend queries" },
+  { slug: "scenarist", description: "Ralphy scenarist — write scripts, scene-level scenario edits" },
+  { slug: "art-director", description: "Ralphy art-director — image / video / VO / music generation + model swaps" },
+  { slug: "editor", description: "Ralphy editor — Remotion compositions, render, captions, audio mix" },
+  { slug: "producer", description: "Ralphy producer — end-to-end batches and template extraction" },
+  { slug: "core", description: "Ralphy core — CLI setup, doctor, logs, missing keys" },
+];
+
 function installCursor(opts: InstallOptions): InstallResult {
   const projectRoot = opts.projectRoot ?? process.cwd();
   const homeDir = opts.homeDir ?? process.env.HOME ?? "";
@@ -150,16 +163,36 @@ function installCursor(opts: InstallOptions): InstallResult {
     opts.scope === "user"
       ? path.join(homeDir, ".cursor", "rules")
       : path.join(projectRoot, ".cursor", "rules");
-  const mdc = path.join(base, "ralphy.mdc");
-  const body = `---
+
+  // Router file — alwaysApply so Cursor loads the routing table on every chat.
+  const router = path.join(base, "ralphy-router.mdc");
+  const routerBody = `---
 description: Ralphy CLI routing — read <repo>/AGENTS.md before acting
 alwaysApply: true
 ---
 
 ${ROUTING_BLOCK}
 `;
-  writeFile(mdc, body);
-  installed.push(mdc);
+  writeFile(router, routerBody);
+  installed.push(router);
+
+  // Per-playbook files — Agent-Requested mode (description set, alwaysApply
+  // unset). Cursor loads these when the agent decides the description matches
+  // the user's intent.
+  for (const pb of CURSOR_PLAYBOOKS) {
+    const filePath = path.join(base, `ralphy-${pb.slug}.mdc`);
+    const body = `---
+description: ${pb.description}
+---
+
+See <repo>/docs/playbooks/${pb.slug}.md for the canonical instructions. AGENTS.md
+routes by user intent to the right playbook; this file lets Cursor surface the
+${pb.slug} playbook context when the description matches the user's request.
+`;
+    writeFile(filePath, body);
+    installed.push(filePath);
+  }
+
   return { ok: true, agent: "cursor", scope: opts.scope, installed };
 }
 
@@ -251,13 +284,29 @@ export function uninstallSkill(opts: UninstallOptions): { ok: true; removed: str
   } else if (opts.agent === "cursor") {
     const projectRoot = opts.projectRoot ?? process.cwd();
     const homeDir = opts.homeDir ?? process.env.HOME ?? "";
-    const base =
+    const rulesDir =
       opts.scope === "user"
-        ? path.join(homeDir, ".cursor", "rules", "ralphy.mdc")
-        : path.join(projectRoot, ".cursor", "rules", "ralphy.mdc");
-    if (fs.existsSync(base)) {
-      fs.unlinkSync(base);
-      removed.push(base);
+        ? path.join(homeDir, ".cursor", "rules")
+        : path.join(projectRoot, ".cursor", "rules");
+    // Legacy filename — earlier versions wrote ralphy.mdc; uninstall removes
+    // both the legacy file and the new per-playbook files for clean round-trip.
+    const legacy = path.join(rulesDir, "ralphy.mdc");
+    if (fs.existsSync(legacy)) {
+      fs.unlinkSync(legacy);
+      removed.push(legacy);
+    }
+    if (fs.existsSync(rulesDir)) {
+      for (const f of fs.readdirSync(rulesDir)) {
+        if (f.startsWith("ralphy-") && f.endsWith(".mdc")) {
+          const p = path.join(rulesDir, f);
+          fs.unlinkSync(p);
+          removed.push(p);
+        }
+      }
+      // Tidy empty dir
+      if (fs.readdirSync(rulesDir).length === 0) {
+        fs.rmdirSync(rulesDir);
+      }
     }
   } else if (opts.agent === "copilot") {
     const projectRoot = opts.projectRoot ?? process.cwd();

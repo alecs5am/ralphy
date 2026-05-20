@@ -1,5 +1,6 @@
 ---
 name: ralphy-install
+namespace: ralphy
 description: >-
   Fresh-machine bootstrap of the ralphy CLI binary. Read docs/playbooks/ralphy-install.md FIRST via the Read tool — every time, no exceptions.
   USE WHEN the ralphy binary is NOT yet on PATH and the user needs to get it onto their machine — install the standalone binary from GitHub Releases, ensure bun + ffmpeg are present, run the interactive setup wizard, link to the user's checkout of ugc-cli. Once `ralphy --version` works and the project is linked, hand off to ralph-core for in-tree dev tasks.

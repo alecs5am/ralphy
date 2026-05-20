@@ -72,4 +72,22 @@ describe("ralphy skill install", () => {
       fs.rmSync(projTmp, { recursive: true, force: true });
     }
   });
+
+  test("--json on first-run (no agent flag) → E_WIZARD_NEEDS_TTY", () => {
+    const projTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-skill-proj-"));
+    try {
+      const r = ralphy(["--json", "skill", "install"], projTmp);
+      expect(r.exitCode).not.toBe(0);
+      const last = r.stderr
+        .trim()
+        .split("\n")
+        .filter((l) => l.startsWith("{"))
+        .pop();
+      expect(last).toBeTruthy();
+      const payload = JSON.parse(last!) as { error: { code: string } };
+      expect(payload.error.code).toBe("E_WIZARD_NEEDS_TTY");
+    } finally {
+      fs.rmSync(projTmp, { recursive: true, force: true });
+    }
+  });
 });
