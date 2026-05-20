@@ -96,7 +96,12 @@ function formatGenericCell(value: unknown): string {
   if (typeof value === "boolean") return value ? icons.ok : icons.fail;
   if (Array.isArray(value)) {
     if (value.length === 0) return c.muted("[]");
-    const joined = value.map((v) => String(v)).join(", ");
+    // Objects in cells must use JSON.stringify, not String() — otherwise the
+    // cell prints `[object Object], [object Object], …` (the bug class that
+    // shipped before c94960d).
+    const joined = value
+      .map((v) => (v && typeof v === "object" ? JSON.stringify(v) : String(v)))
+      .join(", ");
     return joined.length > 60 ? c.value(joined.slice(0, 57)) + c.muted("…") : c.value(joined);
   }
   if (typeof value === "object") return c.muted(JSON.stringify(value).slice(0, 80));
@@ -139,12 +144,17 @@ function printObject(obj: Record<string, unknown>, indent = 2) {
       }
     }
   } else {
-    // Deeper levels: simpler, no nested handling
+    // Deeper levels: simpler, no nested-section recursion. Arrays containing
+    // any object element must NOT use `v.join(", ")` — that hits `String(obj)`
+    // = `[object Object]`. Stringify each non-scalar element with JSON instead.
     for (const [k, v] of Object.entries(obj)) {
       if (v === null || v === undefined) {
         console.log(`${pad}${c.label(k + ":")} ${c.muted("—")}`);
       } else if (Array.isArray(v)) {
-        console.log(`${pad}${c.label(k + ":")} ${c.value(v.join(", "))}`);
+        const joined = v
+          .map((x) => (x && typeof x === "object" ? JSON.stringify(x) : String(x)))
+          .join(", ");
+        console.log(`${pad}${c.label(k + ":")} ${c.value(joined)}`);
       } else if (typeof v === "object") {
         console.log(`${pad}${c.label(k + ":")}`);
         printObject(v as Record<string, unknown>, indent + 2);
