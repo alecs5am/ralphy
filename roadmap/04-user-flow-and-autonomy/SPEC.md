@@ -314,3 +314,40 @@ Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 ships clean SIGINT handling but
 
 ### 04.07.05 `ralphy resume <project-id>`  [ ]
 **v1.0:** no — full acceptance criteria mirror `04.06.02`. Reopen if chat-driven re-engage proves insufficient after soft launch.
+
+---
+
+## 04.08 Higgsfield-style architecture research
+
+Higgsfield Supercomputer is the closest commercial analogue to what we're building (agentic content creation). Studying their public architecture + product surface to inform post-1.0 decisions on Path 2 (CLI + decoupled skills). Source bibliography: [`docs/research/ai-video-pipeline-bibliography.md`](../../docs/research/ai-video-pipeline-bibliography.md) §8. Cross-reference: the user-vs-dev mode decision was made on 2026-05-20 in chat (stay with repo-clone Path 1 for v1.0).
+
+### 04.08.01 Study Higgsfield official pages  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read 4 official URLs in bibliography §8 / Higgsfield (Supercomputer intro, CLI page, ai-video page, overview SEO case).
+- Output: `notes/research/higgsfield-product-surface.md` — feature list, skill marketplace shape, plan-approve-generate flow, credit pricing.
+
+### 04.08.02 Study OpenAI + NVIDIA case studies  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read OpenAI's Higgsfield case study + NVIDIA's Nebius/Blackwell/NCCL case study.
+- Output: `notes/research/higgsfield-infrastructure.md` — model serving stack, latency targets, infrastructure spend signal.
+
+### 04.08.03 Study ExplainX + PopularAITools + Digen technical breakdowns  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read all 3 (ExplainX Hermes Agent + Three-Layer Memory, PopularAITools review with bug catalogue, Digen hybrid transformer-diffusion deep dive).
+- Output: `notes/research/higgsfield-architecture-deep.md` — Hermes Agent logic engine details, memory layers, what fails in production.
+
+### 04.08.04 Study browser-use/video-use alternative approach  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Read browser-use/video-use repo (agentic video editor with self-eval loop).
+- Output: `notes/research/browser-use-video.md` — their self-eval loop pattern + whether it influences our `ralphy-evaluator` design.
+
+### 04.08.05 Synthesize Path 2 readiness assessment  [ ]
+**v1.0:** no
+**Acceptance criteria:**
+- Cross-read all outputs of 04.08.01-04 plus our earlier chat decisions (2026-05-20).
+- Output: `notes/research/path-2-readiness.md` — concrete checklist of what we'd need to ship Path 2 (CLI + decoupled skills via `ralphy-assets`-style auto-pull), ordered cheapest-first.
+- This is the entry point for post-1.0 Path 2 planning.
