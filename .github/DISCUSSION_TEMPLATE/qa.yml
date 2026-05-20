@@ -1,0 +1,27 @@
+title: "[Q&A] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Q&A — ask anything about Ralphy
+        Before posting: skim `ralphy doctor`, the [quickstart](https://ralphy.dev/docs/quickstart),
+        and the [model registry](https://ralphy.dev/docs/reference/models). For reproducible bugs,
+        please [file an issue](https://github.com/alecs5am/ralphy/issues/new/choose) instead.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      placeholder: One sentence first, then context.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you've already tried
+      placeholder: Commands run, docs read, similar discussions you found.
+  - type: input
+    id: env
+    attributes:
+      label: Environment (optional)
+      placeholder: "macOS 14.5 / ralphy v0.1.0 / bun 1.2.22"

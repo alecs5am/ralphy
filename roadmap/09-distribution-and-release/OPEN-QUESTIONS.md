@@ -50,7 +50,7 @@ Milestones are **not pre-committed dates** — they are the next logical "ship s
 **Why:** Option A (pure feature-driven without milestones) makes progress invisible to testers and contributors — every cut is "v0.x, things might break". Option B (date-driven) risks shipping incomplete invariants under deadline pressure. Staged milestones (Option C) give the soft-launch tester audience (per `07-D-06`) clear "what changed" anchors without committing us to dates we'd miss.
 **Consequences:**
 - `roadmap/README.md` lifecycle section gets a "Milestone path" subsection listing the v0.X cuts above.
-- `/release` skill ([D-?](?)) reads the current milestone target from `roadmap/README.md` and surfaces it in the proposed CHANGELOG header (e.g., `## v0.2 — Tester onboarding (YYYY-MM-DD)`).
+- `/release` skill reads the current milestone target from `roadmap/README.md` and surfaces it in the proposed CHANGELOG header (e.g., `## v0.2 — Tester onboarding (YYYY-MM-DD)`).
 - Each v0.X cut still runs the full `/release` channel set (GH, brew, npm). The milestone name is purely editorial.
 - Q-03 (beta channel) remains open — the staged-milestone path itself is the "people who want to follow along closely just pin to v0.X" answer; revisit Q-03 only if testers ask for a separate `@beta` track.
 

@@ -29,3 +29,18 @@ jobs:
           # doesn't trip on undefined.
           OPENROUTER_API_KEY: "test-placeholder"
           ELEVENLABS_API_KEY: "test-placeholder"
+
+      - name: Lint error codes against catalog (01.06.01)
+        run: bun run lint:errors
+
+      - name: Lint landing examples vs --help (01.03.02)
+        run: bun run lint:help-examples
+
+      - name: Check CLI surface doc is current (01.10.01)
+        run: bun run cli:surface:check
+
+      - name: Check Mintlify CLI ref is current (07.03.02)
+        run: bun run docs:cli:check
+
+      - name: Lint docs internal links (07.09.01)
+        run: bun run lint:docs-links:fast

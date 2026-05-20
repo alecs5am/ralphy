@@ -86,7 +86,7 @@ Options:
   -h, --help            display help for command
 
 Examples:
-  ralphy clone https://www.tiktok.com/@x/video/72939...
+  ralphy clone https://tiktok.com/@x/video/72939...
   ralphy clone https://www.instagram.com/reel/Cabc123 --as-template winter-vibe-002
   ralphy clone existing-ref-slug --strict-look --prompt-only
 ```
@@ -115,6 +115,11 @@ Commands:
   uninstall [options]  Remove the Ralphy skill bundle + sentinel block from the
                        selected agent
   help [command]       display help for command
+
+Examples:
+  ralphy skill install --agent claude
+  ralphy skill install <pack>      # alias: pass --agent <pack> through to the installer
+  ralphy skill uninstall --agent claude
 ```
 
 ### `ralphy setup`
@@ -595,6 +600,11 @@ Commands:
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
   delete <id>                                    Delete a reference
   help [command]                                 display help for command
+
+Examples:
+  ralphy ref pull https://tiktok.com/@x/video/72939...
+  ralphy ref analyze my-reference-slug
+  ralphy ref blueprint my-reference-slug
 ```
 
 ### `ralphy project`
@@ -842,6 +852,12 @@ Commands:
   clean                                           Wipe the local asset cache (workspace/.ralph/asset-cache)
   cache-info                                      Show the asset cache location and what's currently in it
   help [command]                                  display help for command
+
+Examples:
+  ralphy assets list
+  ralphy assets list --kind <kind>
+  ralphy assets pull <template-slug>
+  ralphy assets install <project-id> <template-slug>
 ```
 
 ### `ralphy example`

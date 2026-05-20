@@ -1,0 +1,43 @@
+title: "[Tester] "
+labels: ["tester-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Tester feedback (soft-launch)
+        v1.0 soft-launch is currently going out to ~5 hand-picked testers. This is where
+        you file an end-to-end report. Be honest — sharp edges are exactly what we're hunting.
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "macOS 14.5 / ralphy v0.1.0 / installed via brew | curl | npm"
+    validations:
+      required: true
+  - type: textarea
+    id: ran
+    attributes:
+      label: What command(s) did you run?
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What you observed
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: severity
+    attributes:
+      label: How blocking was it?
+      placeholder: |
+        - blocker (couldn't finish)
+        - friction (had to work around)
+        - minor (would-be-nice)

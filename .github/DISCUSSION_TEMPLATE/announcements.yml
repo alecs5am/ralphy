@@ -1,0 +1,21 @@
+title: "[Announce] "
+labels: ["announcement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Announcements
+        Maintainer-curated updates: releases, breaking changes, roadmap shifts.
+        Comments are open; please use 🎉 reaction if the news is welcome and 👀 to subscribe.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What's the news?
+      placeholder: One-line summary at the top, then the detail.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Release tag (if applicable)
+      placeholder: "v0.2.0"

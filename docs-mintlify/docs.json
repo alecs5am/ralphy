@@ -59,11 +59,52 @@
           },
           {
             "group": "Authoring",
-            "pages": ["authoring/skills", "authoring/templates", "authoring/profiles"]
+            "pages": [
+              "authoring/skills",
+              "authoring/templates",
+              "authoring/templates-index",
+              "authoring/playbooks",
+              "authoring/profiles",
+              {
+                "group": "Cookbook",
+                "pages": [
+                  "authoring/cookbook/image",
+                  "authoring/cookbook/video",
+                  "authoring/cookbook/voice",
+                  "authoring/cookbook/music"
+                ]
+              }
+            ]
           },
           {
             "group": "Reference",
-            "pages": ["reference/models", "reference/troubleshooting"]
+            "pages": [
+              "reference/models",
+              "reference/troubleshooting",
+              {
+                "group": "CLI verbs (auto-generated)",
+                "pages": [
+                  "reference/cli/setup",
+                  "reference/cli/doctor",
+                  "reference/cli/status",
+                  "reference/cli/new",
+                  "reference/cli/clone",
+                  "reference/cli/render",
+                  "reference/cli/generate",
+                  "reference/cli/skill",
+                  "reference/cli/project",
+                  "reference/cli/template",
+                  "reference/cli/ref",
+                  "reference/cli/brand",
+                  "reference/cli/persona",
+                  "reference/cli/models",
+                  "reference/cli/assets",
+                  "reference/cli/queue",
+                  "reference/cli/batch",
+                  "reference/cli/eval"
+                ]
+              }
+            ]
           }
         ]
       }
