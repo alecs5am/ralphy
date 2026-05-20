@@ -11,7 +11,7 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { root } from "./paths.js";
 
 export type VideoModel = {
@@ -91,6 +91,23 @@ export async function findVideoModel(
 ): Promise<VideoModel | undefined> {
   const c = await getOrCatalog();
   return c.videoModels.find((m) => m.id === id);
+}
+
+/**
+ * Read the cached catalog synchronously from disk (no network, no async).
+ * Returns null if the cache file is missing or unparseable. Used by
+ * commander's `addHelpText("after", ...)` callback (which is sync) so
+ * `ralphy generate video --help` can include the per-model whitelist
+ * without a refresh round-trip (01.03.03).
+ */
+export function getOrCatalogSync(): Catalog | null {
+  const p = catalogPath();
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, "utf8")) as Catalog;
+  } catch {
+    return null;
+  }
 }
 
 export type ValidationFinding = {

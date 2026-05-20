@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 
 const ARCHETYPES = [
   "student-grind",
@@ -85,7 +86,7 @@ export function personaCmd() {
     .option("--props <text>", "Context: props in frame")
     .action(async (opts) => {
       if (opts.archetype && !ARCHETYPES.includes(opts.archetype)) {
-        err(`Invalid archetype "${opts.archetype}". Use one of: ${ARCHETYPES.join(", ")}`);
+        raiseError("E_INPUT_INVALID", { field: "archetype", detail: `must be one of: `, verb: "persona" });
       }
 
       const id = slugify(opts.name);
@@ -144,7 +145,7 @@ export function personaCmd() {
     .description("Show persona details")
     .action(async (id: string) => {
       const persona = await getEntity("personas", id);
-      if (!persona) err(`Persona not found: ${id}`);
+      if (!persona) raiseError("E_NOT_FOUND", { kind: "Persona", id });
       out(persona);
     });
 
@@ -168,7 +169,7 @@ export function personaCmd() {
     .option("--props <text>")
     .action(async (id: string, opts: any) => {
       if (opts.archetype && !ARCHETYPES.includes(opts.archetype)) {
-        err(`Invalid archetype "${opts.archetype}". Use one of: ${ARCHETYPES.join(", ")}`);
+        raiseError("E_INPUT_INVALID", { field: "archetype", detail: `must be one of: `, verb: "persona" });
       }
       const updates: Record<string, unknown> = {};
       if (opts.name) updates.name = opts.name;
@@ -184,7 +185,7 @@ export function personaCmd() {
       if (context) updates.context = context;
 
       const persona = await updateEntity("personas", id, updates);
-      if (!persona) err(`Persona not found: ${id}`);
+      if (!persona) raiseError("E_NOT_FOUND", { kind: "Persona", id });
       ok(`Persona updated: ${id}`);
       out(persona);
     });
@@ -194,7 +195,7 @@ export function personaCmd() {
     .description("Delete a persona")
     .action(async (id: string) => {
       const ok_ = await deleteEntity("personas", id);
-      if (!ok_) err(`Persona not found: ${id}`);
+      if (!ok_) raiseError("E_NOT_FOUND", { kind: "Persona", id });
       ok(`Persona deleted: ${id}`);
       out({ deleted: id });
     });

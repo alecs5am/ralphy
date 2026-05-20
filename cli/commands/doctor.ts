@@ -7,11 +7,14 @@
 
 import { Command } from "commander";
 import { spawn } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { CAPABILITIES, hasCapability } from "../lib/capabilities.js";
 import { findProjectRootSafe, readGlobalConfig } from "../lib/project-root.js";
 import { out, isPretty } from "../lib/output.js";
+
+type InstallMode = "binary" | "developer";
 
 type DoctorReport = {
   ralphy: {
@@ -19,6 +22,11 @@ type DoctorReport = {
     version: string;
     linkedProject: string | null;
     cwd: string;
+    mode: InstallMode;
+    home: string;
+    repoRoot: string | null;
+    templatesSource: "bundled" | "repo";
+    remotionSource: "bundled" | "repo";
   };
   deps: {
     bun: boolean;
@@ -28,6 +36,41 @@ type DoctorReport = {
   blockers: string[];
   warnings: string[];
 };
+
+/**
+ * Detect install mode (01.09.07).
+ * - "developer": running from a repo checkout — package.json + cli/ + templates/ all reachable.
+ * - "binary":    running from a standalone binary install — no repo siblings.
+ *
+ * Heuristic: walk up from this file's dir (cli/commands/) looking for the
+ * marker triple. If found, dev. Otherwise binary.
+ */
+export function detectInstallMode(startDir?: string): {
+  mode: InstallMode;
+  repoRoot: string | null;
+} {
+  // import.meta.dir points at cli/commands/ in dev; in a pkg-bundled binary
+  // it points inside the binary's virtual snapshot. The marker triple won't
+  // be reachable on disk in that case.
+  let dir = startDir ?? import.meta.dir;
+  for (let depth = 0; depth < 6; depth++) {
+    if (
+      existsSync(path.join(dir, "package.json")) &&
+      existsSync(path.join(dir, "cli", "index.ts")) &&
+      existsSync(path.join(dir, "templates"))
+    ) {
+      return { mode: "developer", repoRoot: dir };
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return { mode: "binary", repoRoot: null };
+}
+
+function ralphyHome(): string {
+  return process.env.RALPHY_HOME || path.join(os.homedir(), ".ralphy");
+}
 
 async function bin(name: string, flag = "--version"): Promise<boolean> {
   return new Promise((resolve) => {
@@ -43,12 +86,18 @@ export function doctorCmd() {
   return new Command("doctor")
     .description("Env health check — keys, dependencies, project link. JSON for scripts; -p for human view.")
     .action(async () => {
+      const installInfo = detectInstallMode();
       const report: DoctorReport = {
         ralphy: {
           installed: true,
           version: VERSION,
           linkedProject: null,
           cwd: process.cwd(),
+          mode: installInfo.mode,
+          home: ralphyHome(),
+          repoRoot: installInfo.repoRoot,
+          templatesSource: installInfo.mode === "developer" ? "repo" : "bundled",
+          remotionSource: installInfo.mode === "developer" ? "repo" : "bundled",
         },
         deps: { bun: false, ffmpeg: false },
         keys: {},

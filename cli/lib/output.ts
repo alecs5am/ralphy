@@ -42,7 +42,18 @@ export function ok(message: string) {
 }
 
 export function err(message: string): never {
-  console.error(isPretty() ? `${icons.fail} ${c.err(message)}` : JSON.stringify({ error: message }));
+  // Legacy free-form err() path. New code should call `raiseError(code, ctx)`
+  // from cli/lib/errors/index.ts (01.02.04 / 01.06.01) — the lint script
+  // scripts/lint-error-codes.ts greps for raiseError calls and verifies the
+  // code is in the catalog.
+  //
+  // Off-TTY/--json: emit { error: { code: "E_INTERNAL", message } } so the
+  // shape matches the catalog-driven path and agents can parse it.
+  if (isPretty()) {
+    console.error(`${icons.fail} ${c.err(message)}`);
+  } else {
+    process.stderr.write(JSON.stringify({ error: { code: "E_INTERNAL", message } }) + "\n");
+  }
   process.exit(1);
 }
 
