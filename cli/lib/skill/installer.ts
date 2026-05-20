@@ -20,7 +20,7 @@ import path from "node:path";
 export const SENTINEL_START = "<!-- ralphy:start v=1 -->";
 export const SENTINEL_END = "<!-- ralphy:end -->";
 
-export type AgentId = "claude" | "cursor" | "codex";
+export type AgentId = "claude" | "cursor" | "codex" | "copilot";
 export type Scope = "user" | "project";
 export type InstallMode = "copy" | "symlink";
 
@@ -171,6 +171,47 @@ function installCodex(opts: InstallOptions): InstallResult {
   return { ok: true, agent: "codex", scope: opts.scope, installed: [agentsMd] };
 }
 
+function installCopilot(opts: InstallOptions): InstallResult {
+  // Per 03.02.03: writes .github/copilot-instructions.md (router) OR adds a
+  // Ralphy section to an existing one (sentinel-merged for idempotency).
+  // Per-playbook instructions land under .github/instructions/ralphy-<name>.instructions.md.
+  const projectRoot = opts.projectRoot ?? process.cwd();
+  const installed: string[] = [];
+
+  const main = path.join(projectRoot, ".github", "copilot-instructions.md");
+  const merged = sentinelMerge(readOrEmpty(main), ROUTING_BLOCK);
+  writeFile(main, merged);
+  installed.push(main);
+
+  // Per-playbook instruction files — one stub per playbook in the routing
+  // table. `applyTo: '**'` tells Copilot to load these on every file.
+  const playbooks = [
+    "intake",
+    "researcher",
+    "scenarist",
+    "art-director",
+    "editor",
+    "producer",
+    "core",
+  ];
+  for (const pb of playbooks) {
+    const filePath = path.join(projectRoot, ".github", "instructions", `ralphy-${pb}.instructions.md`);
+    const body = `---
+applyTo: '**'
+description: "Ralphy ${pb} playbook — read docs/playbooks/${pb}.md before acting"
+---
+
+See <repo>/docs/playbooks/${pb}.md for the canonical instructions. AGENTS.md
+routes by user intent to the right playbook; this file ensures Copilot loads
+the playbook context on every file.
+`;
+    writeFile(filePath, body);
+    installed.push(filePath);
+  }
+
+  return { ok: true, agent: "copilot", scope: opts.scope, installed };
+}
+
 // ─── Public entry point ────────────────────────────────────────────────────
 
 export function installSkill(opts: InstallOptions): InstallResult {
@@ -181,6 +222,8 @@ export function installSkill(opts: InstallOptions): InstallResult {
       return installCursor(opts);
     case "codex":
       return installCodex(opts);
+    case "copilot":
+      return installCopilot(opts);
     default:
       throw new Error(`unsupported agent: ${String(opts.agent)}`);
   }
@@ -215,6 +258,33 @@ export function uninstallSkill(opts: UninstallOptions): { ok: true; removed: str
     if (fs.existsSync(base)) {
       fs.unlinkSync(base);
       removed.push(base);
+    }
+  } else if (opts.agent === "copilot") {
+    const projectRoot = opts.projectRoot ?? process.cwd();
+    const main = path.join(projectRoot, ".github", "copilot-instructions.md");
+    const cleaned = stripSentinelBlock(readOrEmpty(main));
+    if (cleaned !== readOrEmpty(main)) {
+      if (cleaned.trim().length === 0) {
+        if (fs.existsSync(main)) fs.unlinkSync(main);
+      } else {
+        writeFile(main, cleaned);
+      }
+      removed.push(main);
+    }
+    // Remove per-playbook instruction files we authored.
+    const instrDir = path.join(projectRoot, ".github", "instructions");
+    if (fs.existsSync(instrDir)) {
+      for (const f of fs.readdirSync(instrDir)) {
+        if (f.startsWith("ralphy-") && f.endsWith(".instructions.md")) {
+          const p = path.join(instrDir, f);
+          fs.unlinkSync(p);
+          removed.push(p);
+        }
+      }
+      // Tidy empty dir
+      if (fs.readdirSync(instrDir).length === 0) {
+        fs.rmdirSync(instrDir);
+      }
     }
   } else if (opts.agent === "codex") {
     const projectRoot = opts.projectRoot ?? process.cwd();
