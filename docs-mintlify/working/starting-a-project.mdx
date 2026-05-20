@@ -107,7 +107,7 @@ Before Ralphy declares "done", it runs three checks in order:
 
 1. **`ralphy editor preflight <id>`** — flags aspect, fps, or music-length divergence.
 2. **`ralphy project verify <id>`** — flags any drift between the manifest and the files on disk.
-3. **`/ralph-evaluator`** skill on the final mp4 — emits `eval.json` and `eval-report.md` with scene-by-scene scoring and retention check.
+3. **`/ralphy-evaluator`** skill on the final mp4 — emits `eval.json` and `eval-report.md` with scene-by-scene scoring and retention check.
 
 Only after the eval lands does Ralphy ask once: "Ready to ship?" Your explicit "yes" is the only thing that authorizes a commit, push, or any other shared-state mutation.
 

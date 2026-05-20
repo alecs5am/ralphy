@@ -1,17 +1,17 @@
 ---
-name: ralph-templater
+name: ralphy-templater
 namespace: ralphy
 description: >-
   Turns a finished `workspace/projects/<id>/` (with optional postmortem/) into a reusable vibe-reference or vibe-style template under `templates/<category>/<slug>/`. Extracts the durable bits — composition skeleton, prompt cookbook with `{{slots}}`, model stack notes, the model+cost rollup, lessons learned — and migrates heavy locked-ref assets (master shots, music beds) to `ralphy-assets/pool/` so they stay reusable across future projects. The resulting template is immediately discoverable via the existing `ralphy template list / show / suggest / use` CLI surface.
 
   USE WHEN the user says any of: "save this as a template", "превратить проект в шаблон", "templatify <project-id>", "extract a template from <project>", "I want others to reproduce this video", "make a reusable version of <project>", "сохрани вайб как шаблон", "это надо сохранить чтобы повторять", "сохрани как шаблон", "законсервируй проект", "сделай темплейт из X". ALSO FIRE proactively after a successful render + postmortem that the user rates 8+/10 — the experience is most reusable while still fresh, before details fade.
 
-  DO NOT FIRE for: scaffolding a new project (that is `ralphy template use <existing-slug>`), one-off renders (producer), quality evaluation (ralph-evaluator), projects without `scenario.json` and `asset-manifest.json` (refuse with the concrete ask "run /postmortem first OR finish the project pipeline").
+  DO NOT FIRE for: scaffolding a new project (that is `ralphy template use <existing-slug>`), one-off renders (producer), quality evaluation (ralphy-evaluator), projects without `scenario.json` and `asset-manifest.json` (refuse with the concrete ask "run /postmortem first OR finish the project pipeline").
 
   HARD INVARIANTS: templates physically live in `ugc-cli/templates/` (NOT in ralphy-assets — that contains `pool/` and `examples/` only). Heavy assets migrate to `ralphy-assets/pool/<kind>/<slug>/` and are referenced from `template.json:assets[].manifestKey`. The source project is NEVER modified — the template is a derived artifact. All LLM classification / slot detection / tag synthesis routes through `cli/lib/providers/llm.ts → callLLM()`. The only entrypoint is `ralphy template create-from-project <project-id> --slug <kebab-slug>`. No raw scripts, no direct OpenRouter calls, no manual writes into `templates/`.
 ---
 
-# ralph-templater
+# ralphy-templater
 
 You turn a finished project into a reusable template. The contract is: **a future agent reading `templates/<category>/<slug>/` should be able to reproduce the vibe — same flow, same models, same prompt patterns — without re-deriving any of it from the source project.**
 

@@ -3,7 +3,7 @@ title: "Eval and research"
 description: "ralphy eval video for post-render QA and ralphy research for URL or topic teardowns."
 ---
 
-Two verbs sit at the bookends of a project. `ralphy research` is the pre-production teardown — turn a URL, handle, or topic into a cited report a scenarist can act on. `ralphy eval` is the post-render QA — score a rendered mp4 across scene segmentation, audio, captions, and per-scene vision. Both are CLI-native entry points to skills (`/ralph-researcher`, `/ralph-evaluator`); the verbs are the machine contract.
+Two verbs sit at the bookends of a project. `ralphy research` is the pre-production teardown — turn a URL, handle, or topic into a cited report a scenarist can act on. `ralphy eval` is the post-render QA — score a rendered mp4 across scene segmentation, audio, captions, and per-scene vision. Both are CLI-native entry points to skills (`/ralphy-researcher`, `/ralphy-evaluator`); the verbs are the machine contract.
 
 ## ralphy eval video &lt;path&gt;
 
@@ -69,7 +69,7 @@ workspace/research/italian-brainrot/
 └── state.json         # topic state (question, sources, last synth)
 ```
 
-The `/ralph-researcher` skill is the human entry-point; this CLI is the contract underneath. Full surface: [`/reference/cli/research`](/reference/cli/research).
+The `/ralphy-researcher` skill is the human entry-point; this CLI is the contract underneath. Full surface: [`/reference/cli/research`](/reference/cli/research).
 
 ### Source pulls
 
@@ -83,7 +83,7 @@ The `/ralph-researcher` skill is the human entry-point; this CLI is the contract
 
 | Symptom | Verb |
 |---|---|
-| User drops one URL, wants a teardown | `ralphy research add-source` (or the `/ralph-researcher` skill) |
+| User drops one URL, wants a teardown | `ralphy research add-source` (or the `/ralphy-researcher` skill) |
 | User wants a topic-wide audit ("what's trending in X") | `ralphy research start` + several `add-source` |
 | User asks "is this video good?" | `ralphy eval video <path>` |
 | Post-render gate before publish | `ralphy eval video <render>` |
@@ -91,6 +91,6 @@ The `/ralph-researcher` skill is the human entry-point; this CLI is the contract
 ## Related
 
 - [Researcher playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/researcher.md) — the agent-side workflow
-- [Evaluator skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-evaluator/SKILL.md) — eval triggers + invariants
+- [Evaluator skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-evaluator/SKILL.md) — eval triggers + invariants
 - [Error catalog](/cli/error-catalog) — `E_GATE_*` codes
 - [cli/commands/eval.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/eval.ts), [cli/commands/research.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/research.ts)

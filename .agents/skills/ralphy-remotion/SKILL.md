@@ -1,5 +1,5 @@
 ---
-name: remotion-best-practices
+name: ralphy-remotion
 namespace: ralphy-dev
 description: >-
   Remotion API reference — captions, transitions, audio, ffmpeg, animation, frame extraction, fonts, etc. Read docs/playbooks/remotion.md FIRST via the Read tool, then the per-topic sub-doc.
@@ -9,7 +9,7 @@ description: >-
   DO NOT FIRE for ralphy CLI questions (ralph-core), composition orchestration (ralph-editor), or asset generation (ralph-art-director).
 ---
 
-# remotion-best-practices (shim)
+# ralphy-remotion (shim)
 
 The full Remotion reference manual has moved to **[`docs/playbooks/remotion.md`](../../../docs/playbooks/remotion.md)**.
 

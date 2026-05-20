@@ -82,10 +82,10 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 - "take the style from https://...", "make a landing-promo in the aesthetic of <site>", "shoot it like <site>"
 
 **Expected first response:**
-> Launching `/ralph-researcher` — pulling design tokens and screenshots from <site>. ~2 min.
+> Launching `/ralphy-researcher` — pulling design tokens and screenshots from <site>. ~2 min.
 
 **Flow:**
-1. `/ralph-researcher` → `extract-design.ts` → `workspace/references/<site-slug>/`.
+1. `/ralphy-researcher` → `extract-design.ts` → `workspace/references/<site-slug>/`.
 2. The chat shows the extracted palette + typography + 3 screenshots → user confirms.
 3. `scenarist playbook` → scenario referencing the design.
 4. `art-director playbook` → prompts that pass the reference screenshots into `image_urls`.
@@ -101,7 +101,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 **Expected first response:**
 > Pulling the top 10 videos for @handle, running viral-moments analysis. ~3 min.
 
-**Flow:** `/ralph-researcher` sub-task `discover-trends` → `scrape-tiktok-trends.ts` → `scoreTikTok()` → top-N + analysis.
+**Flow:** `/ralphy-researcher` sub-task `discover-trends` → `scrape-tiktok-trends.ts` → `scoreTikTok()` → top-N + analysis.
 
 ---
 
@@ -126,7 +126,7 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 - "video about Stripe", "ad for <brand>", "<product> packaging"
 
 **Expected first response (refusal with proposal):**
-> Need a logo / packaging / brand kit. Drop a photo here or a link to the site — I'll pull it through `/ralph-researcher`.
+> Need a logo / packaging / brand kit. Drop a photo here or a link to the site — I'll pull it through `/ralphy-researcher`.
 
 ### C3. The style of a specific show / channel
 

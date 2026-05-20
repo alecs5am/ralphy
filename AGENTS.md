@@ -42,12 +42,12 @@ If none fire, stay in user mode — go straight to the routing table below. **Do
 | User intent | Playbook |
 |---|---|
 | **NEW PROJECT REQUEST** — "сделай видео про X", "хочу как у вот этого + <url>", "запусти проект Y", any brief with > 1 unknown (audience? brand? aesthetic? duration?). FIRES before any other playbook. | [`docs/playbooks/intake.md`](docs/playbooks/intake.md) — ask 3-5 clarifying questions, draft a plan, wait for user "go" before any paid generation, then proceed one beat at a time with checkpoints |
-| Open research, URL drop in reference context, "style from <site>", "analyze @handle", "break down TikTok / Reel / Shorts", competitor audit, "what's trending in <X>" | [`.agents/skills/ralph-researcher/SKILL.md`](.agents/skills/ralph-researcher/SKILL.md) (then [`docs/playbooks/researcher.md`](docs/playbooks/researcher.md) for tool deep-dive) |
+| Open research, URL drop in reference context, "style from <site>", "analyze @handle", "break down TikTok / Reel / Shorts", competitor audit, "what's trending in <X>" | [`.agents/skills/ralphy-researcher/SKILL.md`](.agents/skills/ralphy-researcher/SKILL.md) (then [`docs/playbooks/researcher.md`](docs/playbooks/researcher.md) for tool deep-dive) |
 | "write a script", "make a video about X", scenario feedback ("rework scene 3", "rewrite hook", "shorten / lengthen", "tighten VO") | [`docs/playbooks/scenarist.md`](docs/playbooks/scenarist.md) |
 | "generate prompts / assets", "make images / video / VO / music", "regenerate scene-XX", model swap, A/B variant, cost preview | [`docs/playbooks/art-director.md`](docs/playbooks/art-director.md) |
 | "compose the video", "render", "captions", "transitions", "audio mix", "final cut", "preview", Remotion code edits | [`docs/playbooks/editor.md`](docs/playbooks/editor.md) (then [`remotion.md`](docs/playbooks/remotion.md) for API specifics) |
 | "make video end-to-end", batch (N≥3), "save as template", "review batch", cost rollup, profile export / import | [`docs/playbooks/producer.md`](docs/playbooks/producer.md) |
-| "evaluate / score / grade / QA / review" a rendered mp4, "is this ready to ship", "find issues in this video", scene-by-scene breakdown of a render, retention / scroll-stop check, post-render quality gate | [`.agents/skills/ralph-evaluator/SKILL.md`](.agents/skills/ralph-evaluator/SKILL.md) |
+| "evaluate / score / grade / QA / review" a rendered mp4, "is this ready to ship", "find issues in this video", scene-by-scene breakdown of a render, retention / scroll-stop check, post-render quality gate | [`.agents/skills/ralphy-evaluator/SKILL.md`](.agents/skills/ralphy-evaluator/SKILL.md) |
 | "set this up", "ralphy doctor", "nothing works", "read logs", "missing key", any ralphy CLI usage question | [`docs/playbooks/core.md`](docs/playbooks/core.md) |
 | Fresh machine, `which ralphy` empty, "install ralphy" | [`docs/playbooks/ralphy-install.md`](docs/playbooks/ralphy-install.md) |
 | Remotion API details (captions, transitions, audio, ffmpeg, library primitives, animation) | [`docs/playbooks/remotion.md`](docs/playbooks/remotion.md) |
@@ -84,4 +84,9 @@ If no row matches: **don't improvise**. Either ask one clarifying question that 
 
 ## On slash-commands
 
-Users can still type `/ralph-researcher`, `/ralph-scenarist`, etc. Those slash-commands are now thin shims that redirect to the playbook here — same outcome, just an alternate entry point. The shim's body literally says "Read `docs/playbooks/<role>.md` before acting."
+Built-in skills live under `.agents/skills/` and follow the kebab namespace convention:
+
+- **`ralphy-*`** — content / end-user skills (e.g. `/ralphy-researcher`, `/ralphy-evaluator`, `/ralphy-templater`, `/ralphy-postmortem`, `/ralphy-remotion`, `/ralphy-install`).
+- **`ralphy-dev-*`** — maintainer / dev skills (e.g. `/ralphy-dev-release`).
+
+A skill's body is the source of truth for HOW to execute a flow. The routing table above answers WHICH skill / playbook to use; this file (`AGENTS.md`) is the always-on base context for ralphy work.

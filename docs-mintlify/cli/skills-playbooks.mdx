@@ -89,11 +89,11 @@ Names must be kebab-case (`^[a-z][a-z0-9-]*$`); collisions raise `E_ALREADY_EXIS
 
 The two are deliberately distinct.
 
-- **Skills** are slash-command-invocable shims under `.agents/skills/<name>/SKILL.md`. The user can type `/ralph-researcher` and the agent loads the skill body. They're thin pointers — most of the body is "Read `docs/playbooks/<name>.md` before acting."
+- **Skills** are slash-command-invocable shims under `.agents/skills/<name>/SKILL.md`. The user can type `/ralphy-researcher` and the agent loads the skill body. They're thin pointers — most of the body is "Read `docs/playbooks/<name>.md` before acting."
 
 - **Playbooks** are the canonical instructions under `docs/playbooks/<name>.md`. The agent reads them on demand based on intent matching in [AGENTS.md](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), not on a user typing a slash command.
 
-The seven skills shipped today: `ralph-researcher`, `ralph-evaluator`, `ralphy-install`, `release`, `postmortem`, `remotion-best-practices`, `skill-creator`. The eleven playbooks: `intake`, `researcher`, `scenarist`, `art-director`, `editor`, `producer`, `core`, `ralphy-install`, `remotion`, plus the per-domain references.
+The seven skills shipped today: `ralphy-researcher`, `ralphy-evaluator`, `ralphy-install`, `release`, `postmortem`, `ralphy-remotion`, `skill-creator`. The eleven playbooks: `intake`, `researcher`, `scenarist`, `art-director`, `editor`, `producer`, `core`, `ralphy-install`, `remotion`, plus the per-domain references.
 
 Playbooks are not slash-invocable on purpose — the user shouldn't have to know which playbook to summon. AGENTS.md routes by intent.
 

@@ -341,7 +341,7 @@ export function refCmd() {
       );
       const scriptPath = path.resolve(
         root(),
-        ".agents/skills/ralph-researcher/scripts/scrape-tiktok-trends.ts"
+        ".agents/skills/ralphy-researcher/scripts/scrape-tiktok-trends.ts"
       );
 
       // Run the script as a child process so the CLI command stays thin.

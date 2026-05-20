@@ -100,7 +100,7 @@ ralphy ref transcribe rogan-2284
 # → workspace/refs/rogan-2284/transcript.json with [{ word, start, end, speaker? }]
 
 # 3. Auto-pick 4-8 viral moments (Gemini-2.5-flash on transcript + sampled frames)
-bunx tsx .agents/skills/ralph-researcher/scripts/find-viral-moments.ts \
+bunx tsx .agents/skills/ralphy-researcher/scripts/find-viral-moments.ts \
   --ref rogan-2284 \
   --max 6 \
   --min-len 20 \

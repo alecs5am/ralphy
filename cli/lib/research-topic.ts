@@ -9,9 +9,9 @@
 //     sources.json    — machine-readable source list + key findings
 //     state.json      — bookkeeping (sources added, last synthesis, etc.)
 //
-// The skill `/ralph-researcher` is the human entry-point; this module is the
+// The skill `/ralphy-researcher` is the human entry-point; this module is the
 // machine contract. Schema for sources.json is in
-// `.agents/skills/ralph-researcher/references/report-schema.md`.
+// `.agents/skills/ralphy-researcher/references/report-schema.md`.
 
 import path from "node:path";
 import fs from "node:fs/promises";

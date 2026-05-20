@@ -50,11 +50,11 @@ with one or more `--trigger` flags.
 Two namespaces ship:
 
 - **`ralphy`** (default) — user-invokable. Visible in the slash-command menu
-  after `ralphy skill install`. Examples: `postmortem`, `ralph-evaluator`,
-  `ralph-researcher`.
+  after `ralphy skill install`. Examples: `postmortem`, `ralphy-evaluator`,
+  `ralphy-researcher`.
 - **`ralphy-dev`** — maintainer-only. Hidden by default; opt-in via
   `ralphy skill install --dev`. Examples: `release`,
-  `remotion-best-practices`, `skill-creator`.
+  `ralphy-remotion`, `skill-creator`.
 
 The brand-launch checklist is a user-facing post-render check → `ralphy:`.
 Override with `--namespace ralphy-dev` at scaffold time if you're writing a
@@ -113,7 +113,7 @@ with `requires.refs >= 1`) and asks for an audit / sign-off / review.
 EN: "audit this brand launch", "check the brand launch", "is this ready for
 the brand team", "post-render check on `<project-id>`".
 
-DO NOT FIRE for non-brand-launch projects, batch reviews (use `ralph-evaluator`),
+DO NOT FIRE for non-brand-launch projects, batch reviews (use `ralphy-evaluator`),
 or pre-render scenario gates (use `ralphy project score`).
 
 ## Hard invariants
@@ -229,7 +229,7 @@ where it costs nothing until the skill actually fires.
 
 The two-namespace split (`ralphy:` vs `ralphy-dev:`) maps cleanly onto user vs
 maintainer intent. End users typing `/<TAB>` in Claude Code see
-`/ralphy:postmortem`, `/ralphy:ralph-evaluator` — they don't see
+`/ralphy:postmortem`, `/ralphy:ralphy-evaluator` — they don't see
 `/ralphy-dev:release` (which ships the binary, not the user's project).
 Maintainers opt into the dev set with `ralphy skill install --dev`. Both
 namespaces ship through the same lint and installer plumbing.

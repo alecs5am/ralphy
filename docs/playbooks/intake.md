@@ -100,7 +100,7 @@ After plan approval, generate **one beat at a time**, surfacing each to the user
 5. **Music + VO.** After the visual cuts lock — never before, otherwise re-trim cascades into music re-sync (playdate-pixel-001).
 6. **Caption pass.** `ralphy generate captions` on the locked VO files (per-slot now).
 7. **Render** with `ralphy editor preflight <id>` first, then `ralphy render <id>`.
-8. **Hand off** to `/ralph-evaluator` for the post-render quality gate.
+8. **Hand off** to `/ralphy-evaluator` for the post-render quality gate.
 
 Exception: the user explicitly says "не спрашивай каждый раз / fire the whole batch / больше так не делай по 1 штуке". Honor that and switch to batch mode for THAT project. Note the preference in memory for that project; don't generalize.
 
@@ -118,7 +118,7 @@ Before declaring done:
 
 1. Run `ralphy editor preflight <id>` — flags any aspect / fps / music-length divergence.
 2. Run `ralphy project verify <id>` — flags any manifest/disk drift.
-3. Run `/ralph-evaluator` skill on the final mp4 — produces `eval.json` + `eval-report.md`. Surface the report inline.
+3. Run `/ralphy-evaluator` skill on the final mp4 — produces `eval.json` + `eval-report.md`. Surface the report inline.
 4. **Only after the eval lands**, ask the user "ready to ship / commit / push?". User's "yes" is the only thing that authorizes git/network operations on shared state (CLAUDE.md "Executing actions with care").
 
 ## Cold-start template suggestion (04.04.01 + 04.04.03)
@@ -179,7 +179,7 @@ These add no information and break the one-beat-at-a-time loop. Replace with act
 1. **Reference-required gate re-check.** Before the final render, re-run `ralphy ref check <project-id>` to confirm any named real entity has a satisfied ref (or a logged `--no-ref-consent`). The intake-step ref check at step 1 may be stale if the scenario changed.
 2. **Quality gates.** Run `ralphy editor preflight <id>` (aspect / fps / music-length divergence). The agent quality gates (`scoreScenario`, `scoreImage`, `scoreVideo`) refuse-not-warn per AGENTS invariant #4; if any fails twice in a row, stop and report concrete options — do not render mp4 over a failed gate. There is no model upgrade between draft and ship: best models are used throughout (AGENTS invariant + `04.0A.03`).
 3. **Render.** `ralphy render <project-id>` → `workspace/projects/<id>/render/final.mp4`.
-4. **Post-render eval.** Hand off to `/ralph-evaluator` for `eval.json` + `eval-report.md`. Surface the report inline.
+4. **Post-render eval.** Hand off to `/ralphy-evaluator` for `eval.json` + `eval-report.md`. Surface the report inline.
 5. **Authorize commit/push.** Only after the eval lands, ask once "ready to commit/push?". User's "yes" is the only thing that authorizes git/network operations on shared state (CLAUDE.md "Executing actions with care").
 
 ## What's a "step" worth gating on?

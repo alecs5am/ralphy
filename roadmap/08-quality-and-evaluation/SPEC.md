@@ -301,7 +301,7 @@ Renames the eval flow from "one model judges everything" to "1..N independent ag
 
 **Acceptance criteria:**
 - `ralphy eval <project-id>` is kept as an alias for `ralphy council <project-id> --agents 1 --quick`.
-- The `ralph-evaluator` skill is renamed to `ralph-council` and invokes the verb.
+- The `ralphy-evaluator` skill is renamed to `ralph-council` and invokes the verb.
 
 ### 08.08.07 Agent diversity strategy documented  [ ]
 **v1.0:** yes

@@ -1,6 +1,6 @@
 # Render-test report — Top-5 templates × YouTube topic
 
-Date: 2026-05-11. Method: 5 parallel general-purpose subagents, each given a $2 budget cap and instructed to act as producer for one template against the same brief context ("user wants a cool video about YouTube"). Each ran the full pipeline: scaffold → scenarist → art-director → editor → render → `ralph-evaluator`.
+Date: 2026-05-11. Method: 5 parallel general-purpose subagents, each given a $2 budget cap and instructed to act as producer for one template against the same brief context ("user wants a cool video about YouTube"). Each ran the full pipeline: scaffold → scenarist → art-director → editor → render → `ralphy-evaluator`.
 
 Companion to the static audit (`docs/template-audit-2026-05-11.md`). Where the audit scored documentation surface, this report scored **production reality**.
 
@@ -57,7 +57,7 @@ Also: `TransitionSeries.Transition` overlap math drifted VO `Sequence` past visu
    - **5 CLI verb mismatches with cookbook:** `ralphy ref pull` takes URL as positional, not `--url`; `ralphy video extract-segment` has `--in --out` not positional `<ref-slug>`, no `--snap-to-words`, no `--pad-*`; `ralphy generate composition` does not exist; `ralphy render` has `--composition` not `--cut` / `--all`; `ralphy project create` is actually `ralphy template use`.
    - **Transcript schema mismatch.** Cookbook documents `{word, start, end}`. Actual Scribe output: `{text, startMs, endMs, timestampMs, confidence}`. Downstream consumers following the cookbook silently produce nulls.
    - **Cost telemetry leak.** Scribe ($0.118) and Gemini picker (~$0.04) costs never made it to `generations.jsonl`. Workspace stats under-report by ~80%.
-   - **`find-viral-moments.ts` is an orphan script** at `.agents/skills/ralph-researcher/scripts/find-viral-moments.ts`, not a `ralphy` verb — violates AGENTS.md hard invariant #2.
+   - **`find-viral-moments.ts` is an orphan script** at `.agents/skills/ralphy-researcher/scripts/find-viral-moments.ts`, not a `ralphy` verb — violates AGENTS.md hard invariant #2.
    - **No `ralphy video smart-crop` verb.** The face-bbox library exists at `cli/lib/face-bbox.ts` but has no CLI wrapper. Render fell back to letterboxed 16:9-in-9:16 with massive black bars.
 
 ### Class 3 — Cross-cutting CLI / scenarist gaps

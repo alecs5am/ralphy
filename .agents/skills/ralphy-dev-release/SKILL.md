@@ -1,9 +1,9 @@
 ---
-name: release
+name: ralphy-dev-release
 namespace: ralphy-dev
 description: >-
   Cut a new release of the `ralphy` CLI across all 3 distribution channels in one shot — GitHub Release (binaries + checksums), Homebrew tap (`alecs5am/homebrew-tap`), and npm (`@alecs5am/ralphy`). Proposes a semver bump from commit history (Conventional-Commits-ish), drafts a grouped changelog, bumps version files in lockstep, refreshes `docs-mintlify/`, then tag-pushes + verifies each channel published.
-  USE WHEN the user types `/release`, says "cut a release", "publish a release", "сделай релиз", "залей релиз", "напиши release notes", "tag a new version", or after a meaningful chunk of CLI work landed on main. ALSO FIRE proactively after the user lands a feature they call "ready to ship" / says "это финал" / "это последнее на сегодня".
+  USE WHEN the user types `/ralphy-dev-release`, says "cut a release", "publish a release", "сделай релиз", "залей релиз", "напиши release notes", "tag a new version", or after a meaningful chunk of CLI work landed on main. ALSO FIRE proactively after the user lands a feature they call "ready to ship" / says "это финал" / "это последнее на сегодня".
   DO NOT FIRE for documentation-only or landing-only commits unless explicitly asked.
   See body for full step-by-step + HARD INVARIANTS (never amend a published release, never skip the brew + npm steps).
 ---
