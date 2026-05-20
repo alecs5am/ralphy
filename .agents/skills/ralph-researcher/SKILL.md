@@ -2,12 +2,23 @@
 name: ralph-researcher
 description: >-
   Deep-research workflow for UGC reference material — turns one or more URLs / handles / trend queries into a single cited research report (report.md + sources.json) that a scenarist or art-director can act on. Aggregates the per-URL `ralphy ref` chain (yt-dlp pull → frames → transcript → vision → audio-describe → blueprint) and adds a cross-source LLM synthesis pass on top.
-  USE WHEN the user drops a URL on TikTok / Reel / Shorts / YouTube / X / Reddit, mentions an `@handle` to audit, asks "how do they do X / find how X is done", asks "what's trending in <niche>", asks for a competitor breakdown, or wants a style / pattern report across multiple references they want to learn from.
-  TRIGGER (EN): "research X", "analyze @handle", "break down this TikTok / Reel / Shorts", "how do they do this", "find how X is done", "what's trending in <niche>", "competitor audit", "extract style from <url>", "build a research report on <topic>".
-  TRIGGER (RU): "исследуй", "проанализируй", "разбери", "разбор", "посмотри как у", "стиль X", "в стиле X", "стиль откуда", "как они это сделали", "что сейчас в тренде", "конкурентный аудит", "разобрать <url>".
-  ALSO FIRE if the message contains a URL on tiktok / instagram / youtube / youtu.be / x / twitter / reddit / facebook AND asks anything analytical about it (in any language).
-  DO NOT FIRE for rendered-mp4 quality checks (that is `/ralph-evaluator`), for raw downloads-only (use `ralphy ref pull` directly), or once a scenario is already locked and the user wants prompts / assets (handback to scenarist / art-director).
-  HARD INVARIANTS: never ask the user to "send the file" if the URL is on a social platform — WebFetch returns a JS shell on those, but `ralphy ref pull` (yt-dlp) gets the mp4. All LLM / vision calls route through `cli/lib/providers/llm.ts → callLLM()` via the CLI. Don't paste raw OpenRouter / yt-dlp code into ad-hoc scripts.
+  USE WHEN the user drops a URL on TikTok / Reel / Shorts / YouTube / X / Reddit, mentions an `@handle` to audit, asks "how do they do X", asks "what's trending in <niche>", asks for a competitor breakdown, or wants a style report across multiple references.
+  TRIGGER (EN): "research X", "analyze @handle", "break down this TikTok / Reel / Shorts", "how do they do this", "find how X is done", "what's trending in <niche>", "competitor audit", "extract style from <url>".
+  TRIGGER (RU): "исследуй", "проанализируй", "разбери", "разбор", "посмотри как у", "стиль X", "в стиле X", "как они это сделали", "что сейчас в тренде", "конкурентный аудит", "разобрать <url>".
+  See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
+---
+
+## Trigger refinements
+
+**ALSO FIRE** if the message contains a URL on tiktok / instagram / youtube / youtu.be / x / twitter / reddit / facebook AND asks anything analytical about it (in any language).
+
+**DO NOT FIRE** for rendered-mp4 quality checks (that is `/ralph-evaluator`), for raw downloads-only (use `ralphy ref pull` directly), or once a scenario is already locked and the user wants prompts / assets (handback to scenarist / art-director).
+
+## Hard invariants
+
+- Never ask the user to "send the file" if the URL is on a social platform — WebFetch returns a JS shell on those, but `ralphy ref pull` (yt-dlp) gets the mp4.
+- All LLM / vision calls route through `cli/lib/providers/llm.ts → callLLM()` via the CLI. Don't paste raw OpenRouter / yt-dlp code into ad-hoc scripts.
+
 ---
 
 # ralph-researcher
