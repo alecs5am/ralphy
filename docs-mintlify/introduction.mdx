@@ -1,81 +1,76 @@
 ---
 title: "Welcome to Ralphy"
-description: "An AI film studio you operate from a terminal."
+description: "An AI film studio you operate from a terminal. Pick the path that fits your goal."
 ---
 
 <Note>
-  Ralphy is a **scripted CLI**, a **Remotion composition library**, and a **Claude Code skill
-  stack** wrapped into one tiny pixel slime. Open Claude Code, ask for a video, get a finished
-  mp4.
+  Ralphy is a CLI + Remotion composition library + AI-agent skill bundle, packaged as one binary. Two API keys, two commands, a chat with your agent — and an mp4 lands on disk.
 </Note>
 
-## What Ralphy is
+## Choose your path
 
-Ralphy turns the question "*can you make me a 30-second promo in soviet style about my SaaS?*"
-into a finished mp4 sitting in `workspace/projects/<id>/render/final.mp4`.
+The four most common ways people pick Ralphy up. Each path is 3 short reads.
 
-It does that by orchestrating five agents — **planner**, **researcher**, **scenarist**,
-**renderer**, and **critic** — across one shared workspace. They share a model registry, a
-template library, and a skill graph. You talk, they ship.
+<CardGroup cols={2}>
 
-## Three commands you'll actually use
+<Card title="🎬 I want to ship one video" icon="film" href="/quickstart">
+The default path. Install → setup → first project → first render.
 
-<CodeGroup>
+1. [Quickstart](/quickstart) — 5 steps, ~8 minutes
+2. [Concepts](/concepts) — the 8 pieces of the mental model
+3. [Cookbook: image prompts](/authoring/cookbook/image) — paste-edit-ship
+</Card>
 
-```bash macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
-ralphy setup
-ralphy doctor
-```
+<Card title="🚂 I want to ship a batch" icon="layer-group" href="/cli/overview">
+Producer mode — N variants from one template, parallel generation, rolled-up cost.
 
-```bash Windows (PowerShell)
-irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 | iex
-ralphy setup
-ralphy doctor
-```
+1. [Templates](/authoring/templates) — find a vibe template that fits
+2. [`ralphy batch`](/cli/overview) — submit N projects atomically
+3. [Producer playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) — the orchestration discipline
+</Card>
 
-</CodeGroup>
+<Card title="🤖 I want to plug in as an agent" icon="robot" href="/cli/overview">
+Drive Ralphy from Claude Code / Cursor / Codex. Install the skill bundle once; the agent reads the playbooks and routes by user intent.
 
-Then drop into the project folder, launch Claude Code, and treat it like a producer:
+1. [`ralphy skill install`](/cli/overview) — claude / cursor / codex adapters
+2. [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — playbook routing table (the source of truth)
+3. [Concepts](/concepts) — workspace, project, gen-log, manifest
+</Card>
 
-```bash
-claude
-```
+<Card title="✍️ I want to author templates" icon="pen-ruler" href="/authoring/templates">
+Build your own vibe-style or vibe-reference template, register it, ship variants.
 
-```text
-> make me a video in soviet style about my SaaS
-```
+1. [Authoring templates](/authoring/templates) — `template.yaml` schema + composition.md
+2. [Authoring skills](/authoring/skills) — slash-command extensions for agent flows
+3. [`ralphy clone <url>`](/cli/overview) — mint a template from a real reference
+</Card>
+
+</CardGroup>
 
 ## What you'll need
 
 <CardGroup cols={2}>
   <Card title="OpenRouter key" icon="key">
-    One key for the entire media stack — image, video, LLM, vision, transcribe.
+    One key for the media stack — image, video, LLM, vision, transcribe.
   </Card>
   <Card title="ElevenLabs key" icon="microphone">
     Voiceover (`eleven_multilingual_v2`) plus ElevenLabs Music for score.
   </Card>
   <Card title="Bun + ffmpeg" icon="terminal">
-    Bun runs everything; ffmpeg is what Remotion shells out to.
+    Bun runs the CLI; ffmpeg is what Remotion shells out to.
   </Card>
   <Card title="~$10 per render" icon="coins">
-    Eight minutes per video, give or take a refinement loop.
+    ~8 minutes per video, ~$8–12 in API costs on the default stack.
   </Card>
 </CardGroup>
 
-## Where to go next
+## Help + community
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Three-minute install, first render in eight.
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/alecs5am/ralphy/discussions">
+    Q&A, Show & Tell, Tester feedback. The single community channel for v1.0.
   </Card>
-  <Card title="Concepts" icon="book-open" href="/concepts">
-    Workspaces, templates, profiles, skills.
-  </Card>
-  <Card title="CLI reference" icon="square-terminal" href="/cli/overview">
-    Every `ralphy` command with examples.
-  </Card>
-  <Card title="Model registry" icon="cpu" href="/reference/models">
-    Which models we use, why, and how to swap them.
+  <Card title="File an issue" icon="bug" href="https://github.com/alecs5am/ralphy/issues/new/choose">
+    Reproducible bugs only — questions go to Discussions.
   </Card>
 </CardGroup>

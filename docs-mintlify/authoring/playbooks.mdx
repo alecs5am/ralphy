@@ -1,0 +1,41 @@
+---
+title: "Playbooks"
+description: "One page per agent role — researcher, scenarist, art-director, editor, producer, evaluator. Read the playbook before acting."
+---
+
+<Note>
+  Ralphy doesn't ship a single "do everything" agent. It ships **role-specific playbooks** the agent reads on demand based on the user's intent. The router lives at [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md). Every playbook is markdown in `docs/playbooks/`, source-of-truth in the repo.
+</Note>
+
+## Routing table
+
+| User intent | Playbook | Summary |
+|---|---|---|
+| New project request, brief intake | [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) | Adaptive intake by skill band (novice → expert). Asks 3-5 clarifying questions, drafts a plan, waits for "go". |
+| Open research, URL drop, "style from X" | [`researcher.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/researcher.md) | `ref pull` → `ref analyze-video` → blueprint. Cross-source synthesis for multiple URLs. |
+| "write a script", scenario feedback | [`scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) | Picks template, drafts scenario, emits `Scene[]` + per-scene `notes`. |
+| "generate prompts / assets", model swap | [`art-director.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) | Per-model prompt adapters (kling, veo, seedance, hailuo, gpt-image, gemini-image). |
+| "compose / render / captions / transitions / audio mix" | [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) | Remotion composition + ffmpeg recipes + loudnorm. |
+| "make video end-to-end", batch N≥3 | [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) | Orchestrates the full chain, manages cost cap + variant grids. |
+| "evaluate / score / grade" a rendered mp4 | [`ralph-evaluator/SKILL.md`](https://github.com/alecs5am/ralphy/tree/main/.agents/skills/ralph-evaluator) | Scene segmentation + loudness + caption density + per-scene vision. |
+| "set this up", `ralphy doctor`, "missing key" | [`core.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/core.md) | Env health check, key validation, project link recovery. |
+| Remotion API details (captions / transitions / audio) | [`remotion.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/remotion.md) | The lookup index for every Remotion primitive. |
+
+## Composition
+
+A request that spans roles is a chain in role order. Example: "make a video in the style of <url> for <brand>" → researcher → scenarist → art-director → editor. The producer playbook is the wrapper for end-to-end.
+
+## Hard invariants (every playbook honors these)
+
+1. **No FAL_KEY, no Vercel, no OpenAI direct.** Only `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`.
+2. **`ralphy` is the only entry point** for model calls, ffmpeg recipes, yt-dlp pulls, and project mutations.
+3. **Reference-required gate.** Named person, brand, or specific real entity → require user-supplied reference before any generation.
+4. **Quality gates refuse, not warn.** Two consecutive failures → stop and report concrete options.
+5. **Always check `MODELS.md`** before any model call — Claude's training is stale on model versions.
+6. **Append-only on generations.** Regen → new version (`.v2.<ext>`), never overwrite.
+
+Full invariant list: [`AGENTS.md` § Hard invariants](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md#hard-invariants-apply-across-all-playbooks).
+
+## Author your own playbook
+
+Add a markdown file under `docs/playbooks/<role>.md` and a row to the routing table in `AGENTS.md`. Optionally wrap it as a slash-command skill under `.agents/skills/<role>/SKILL.md` so users can invoke it directly. See the [skill authoring guide](/authoring/skills).

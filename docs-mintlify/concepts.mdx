@@ -1,79 +1,71 @@
 ---
 title: "Concepts"
-description: "Workspaces, templates, profiles, skills — and the loop that ties them together."
+description: "Eight pieces compose the Ralphy mental model. One short paragraph each."
 ---
 
-Ralphy is a small repo with a few sharp ideas. Once you know the pieces, the chat stops being
-magic and starts being a producer.
-
-## The five agents
-
-| agent | what it owns | trigger |
-| --- | --- | --- |
-| **planner** | turns one chat line into a brief + shot plan | every new project |
-| **researcher** | scrapes references (URLs, profiles, competitors) | `/ralph-researcher` |
-| **scenarist** | writes the scenario, picks the template | `/ralph-scenarist` |
-| **renderer** | drives OpenRouter + ElevenLabs + Remotion | `/ralph-renderer` |
-| **critic** | scores the render, suggests a refinement | every render |
-
-All five share the same workspace, model registry, and skill graph. There is no orchestrator
-process — Claude Code is the orchestrator.
+Ralphy is a small repo with a few sharp ideas. Once you know the eight pieces below, the chat stops being magic and starts being a producer.
 
 ## Workspace
 
-`workspace/` is your local, gitignored sandbox. One folder per project:
+`workspace/` is the gitignored local sandbox where every project lives. Layout: `workspace/projects/<id>/` per project, plus shared caches under `workspace/.ralph/` (job DB, OR catalog, asset cache). Wipe-safe — nothing in `workspace/` is canonical; the canonical sources are this repo (`templates/`, `cli/`) and the companion repo (`ralphy-assets`).
 
-```
-workspace/projects/p_03/
-  brief.md          ← what you asked for
-  scenario.md       ← the 5-shot script
-  assets/           ← raw image/video/voice generations
-  render/           ← Remotion outputs (mp4, srt, posters)
-  log.json          ← model calls, tokens, costs
-```
+➤ [CLI reference: `ralphy workspace`](/cli/overview)
 
-## Templates
+## Project
 
-A template is a small folder under `templates/<id>/` with a `TEMPLATE.md`, fragment prompts, a
-model-stack file, and a reference example. Want a new style? Save a successful project as a
-template:
+A single video. Each project lives at `workspace/projects/<id>/` (or `~/.ralphy/projects/<id>/` when created via `ralphy new`) and follows a canonical layout: `BRIEF.md`, `assets/`, `render/`, `logs/{generations,user-prompts,user-assets}.jsonl`. Project IDs are slug-like: `spring-2026-001`, `espresso-001`.
+
+➤ [CLI reference: `ralphy project`](/cli/project)
+
+## Brand
+
+A named visual + voice identity (logo file, palette, tagline, tone, target audience). Reusable across projects. Stored in `workspace/.ralph/brands/<id>.json`. Optional — fine to ship a project without a brand attached.
+
+➤ [CLI reference: `ralphy brand`](/cli/overview)
+
+## Persona
+
+A named "person on camera" identity (archetype, voice ID, demographics, wardrobe). Reusable across projects. The persona's `voice` field maps to a real ElevenLabs voice clone; the `archetype` enum (student-grind, courier-driver, mom-blogger, …) keys into the prompt cookbook.
+
+➤ [CLI reference: `ralphy persona`](/cli/overview)
+
+## Ref
+
+A registered external piece of media (TikTok URL, Reels link, local mp4). `ralphy ref pull` runs yt-dlp + frame sampling, `ref analyze` runs vision LLM over the frames, `ref blueprint` synthesizes a reusable style note. Refs feed both the researcher playbook and the `ralphy clone` verb that mints a vibe template from a reference.
+
+➤ [CLI reference: `ralphy ref`](/cli/overview)
+
+## Template
+
+A reusable production blueprint. Two kinds ship today: **`vibe-reference`** (full production templates with `composition.md` + reference example, 5 in the repo) and **`vibe-style`** (prompt cookbooks with hooks + camera vocab + worked-example prompts, 38 in the repo). Templates live in `templates/` (repo-public, committed, 5 segment-persona category folders) and `workspace/templates/` (user-local, flat). Workspace overrides repo on id collision.
+
+➤ [Authoring guide](/authoring/templates)
+
+## Gen-log
+
+Append-only record of every model call, kept at `workspace/projects/<id>/logs/generations.jsonl`. Each entry: `{ provider, endpoint, kind, input, output, cost_usd, latency_ms, status, status_detail, note }`. Writes are append-only — failed and rejected generations stay on disk until the user explicitly purges. The agent reads the gen-log across sessions to figure out what's already done; the `/postmortem` skill mines it for cost rollups.
+
+➤ [Architecture: append-only gen-log](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md#hard-invariants-apply-across-all-playbooks)
+
+## Asset manifest
+
+`asset-manifest.json` is the per-project pointer table: `{ slots: { "<slot-id>": { kind, path, model, costUsd, generatedAt, url } } }`. A "slot" is a named asset (e.g. `scene-01-bg-image`, `scene-04-vid`); the manifest always points at the *current* version. Regen → new versioned file (`.v2.png`), and the manifest pointer flips. Originals are preserved.
+
+➤ [CLI reference: `ralphy generate`](/cli/overview) · [Asset slot conventions](/cli/overview#slots)
+
+## How they fit together
+
+A project pulls a template + a brand + a persona, optionally attaches refs, and the agent fills it scene-by-scene. Every model call lands in the gen-log; every produced file lands in the asset manifest. `ralphy render` reads the manifest and stitches everything into the final mp4.
 
 ```text
-> save project p_03 as template moody-launch
+brief ──┐
+        ├──▶ project ─┬─▶ template      ┐
+        │             │                  │
+ref ────┘             ├─▶ brand         ├──▶ assets/<slot>/ ──▶ render/final.mp4
+                      │                  │
+                      └─▶ persona       ┘
+                                ↓
+                         logs/generations.jsonl  (append-only)
 ```
 
-## Profiles
-
-A profile is a committed dump of a *workspace* — templates, references, example projects — that
-others can import.
-
-```bash
-ralphy profile list
-ralphy profile import ralphy-showcase     # additive, never overwrites
-ralphy profile export <your-nick>         # share your work
-```
-
-## Skills
-
-Skills are markdown files under `.agents/skills/`. They teach Claude how to do real work —
-running shell commands, calling APIs, composing Remotion scenes. The chat can write its own.
-
-<Note>
-  `.claude/skills/` is just a symlink to `.agents/skills/` so Claude Code picks them up. You only
-  edit one source of truth.
-</Note>
-
-## The refinement loop
-
-The critic agent doesn't just score — it loops. After every render, it produces a delta:
-
-```text
-iter #11 → #12
-  + lighting (cooler key, +stop fill)
-  + composition (rule of thirds, subject left)
-  - over-saturation in shot 03
-  ai_score: 7.4 → 8.6 (+12%)
-```
-
-If the score is still climbing, the renderer goes again. Most projects converge around iteration
-**#12**.
+The chat is the orchestrator. There is no daemon, no server, no SaaS. Two API keys, one binary.

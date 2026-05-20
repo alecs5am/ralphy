@@ -134,7 +134,7 @@ export function cloneCmd(): Command {
     "after",
     `
 Examples:
-  ralphy clone https://www.tiktok.com/@x/video/72939...
+  ralphy clone https://tiktok.com/@x/video/72939...
   ralphy clone https://www.instagram.com/reel/Cabc123 --as-template winter-vibe-002
   ralphy clone existing-ref-slug --strict-look --prompt-only
 `,
