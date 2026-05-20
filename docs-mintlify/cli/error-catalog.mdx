@@ -1,0 +1,170 @@
+---
+title: "Error catalog"
+description: "Every E_ code the CLI emits, its exit class, message template, and remediation hint."
+---
+
+The CLI emits one of a fixed set of structured error codes on every failure. The catalog is the single source of truth — every `err()` and `raiseError()` callsite is lint-checked against it, and the codes are append-only post-v1.0. Wire `ralphy` into a CI pipeline by matching on the `code` field; never grep the `message` (it's templated and may carry a `{detail}` that changes between runs).
+
+## Shape
+
+Every error writes a JSON payload on stderr:
+
+```json
+{
+  "error": {
+    "code": "E_PROVIDER_RATE_LIMIT",
+    "class": "provider",
+    "message": "OpenRouter rate-limited the request (retry after 30s)",
+    "hint": "Wait and retry, or swap to a different model with --model.",
+    "relatedDocs": "MODELS.md"
+  }
+}
+```
+
+Pretty mode formats this with icons but the JSON shape is still recoverable. The exit code maps from `class` (see below).
+
+## Exit-code class mapping
+
+| Class | Exit | Meaning |
+|---|---|---|
+| `user` | 2 | Bad flag, missing arg, wrong id, malformed input |
+| `provider` | 3 | OpenRouter / ElevenLabs / yt-dlp HTTP failure, rate limit, budget |
+| `env` | 4 | Missing API key, missing dep on PATH, fs permission |
+| `gate` | 5 | Quality gate or ref-required refusal |
+| `runtime` | 1 | `E_INTERNAL`, uncaught exception |
+| `cancelled` | 130 | SIGINT |
+
+Mapping lives in `classifyExitCode()` in `cli/lib/errors/catalog.ts`. The contract is **append-only**: classes can't be renamed, only added.
+
+## The catalog
+
+Codes group by class. Every row carries a message template (with `{placeholder}` tokens interpolated at raise time) and a remediation hint that names a verb / file / doc — never paraphrasing the message.
+
+### User errors (exit 2)
+
+| Code | Message template | Hint |
+|---|---|---|
+| `E_INPUT_INVALID` | Invalid input for &lt;field&gt;: &lt;detail&gt; | Check the flag value against `ralphy <verb> --help` and retry. |
+| `E_FLAG_MISSING` | Missing required flag: --&lt;flag&gt; | Run `ralphy <verb> --help` to see required flags. |
+| `E_FLAG_UNKNOWN` | Unknown flag value for --&lt;flag&gt;: &lt;value&gt; | Allowed values: &lt;allowed&gt;. See `ralphy <verb> --help`. |
+| `E_NOT_FOUND` | &lt;kind&gt; not found: &lt;id&gt; | Run `ralphy <kind> list` to see available ids. |
+| `E_ALREADY_EXISTS` | &lt;kind&gt; already exists: &lt;id&gt; | Pick a different id with `--as <id>` or delete the existing one first. |
+| `E_FILE_UNREADABLE` | Cannot read file: &lt;path&gt; | Verify the path exists and is readable; ensure `--cwd` points at the project root. |
+| `E_FILE_MALFORMED` | Malformed &lt;format&gt; in &lt;path&gt;: &lt;detail&gt; | Fix the syntax error and re-run; use `bun run lint` for a strict check. |
+| `E_VALIDATION_FAILED` | Validation failed for &lt;target&gt;: &lt;detail&gt; | Adjust the input to match the schema; see `ralphy models show <target>` for valid values. |
+| `E_AGENT_UNSUPPORTED` | Agent not supported in v1.0: &lt;agent&gt; | Use `--agent claude\|cursor\|codex`. |
+| `E_WIZARD_NEEDS_TTY` | Interactive wizard needs a TTY (&lt;verb&gt;) | Re-run on a terminal, or pass explicit flags to skip the wizard. |
+| `E_TEMPLATE_VERSION_UNSUPPORTED` | Template version not supported: &lt;version&gt; (template &lt;id&gt;) | Upgrade ralphy or downgrade the template's `version:` field. |
+| `E_TEMPLATE_INPUT_MISSING` | Template &lt;id&gt; requires a &lt;requirement&gt; but none was supplied | Supply via the matching flag (e.g. `--brand <slug>`). |
+| `E_TEMPLATE_SLUG_INVALID` | Template slug rejected: &lt;slug&gt; (&lt;reason&gt;) | Pick an archetypal slug instead — describe what the template *does*. |
+| `E_PROJECT_NOT_LINKED` | No project linked or auto-detected from &lt;cwd&gt; | Pass `--project <id>` or `cd` into a workspace; see `ralphy project list`. |
+
+### Provider errors (exit 3)
+
+| Code | Message template | Hint |
+|---|---|---|
+| `E_PROVIDER_HTTP` | &lt;provider&gt; returned HTTP &lt;status&gt;: &lt;detail&gt; | Check the provider status page; retry or swap model. |
+| `E_PROVIDER_AUTH` | &lt;provider&gt; rejected the request as unauthorized | Re-check the API key with `ralphy doctor`. |
+| `E_PROVIDER_RATE_LIMIT` | &lt;provider&gt; rate-limited the request (retry after &lt;retryAfter&gt;s) | Wait and retry, or swap to a different model with `--model`. |
+| `E_PROVIDER_INVALID_REQUEST` | &lt;provider&gt; rejected the request as invalid: &lt;detail&gt; | Check params against `ralphy models show <id>`. |
+| `E_PROVIDER_UNAVAILABLE` | &lt;provider&gt; is unavailable: &lt;detail&gt; | Wait and retry; check the provider's status page. |
+| `E_BUDGET_EXCEEDED` | Estimated cost $&lt;estimate&gt; exceeds budget cap $&lt;cap&gt; | Raise the cap via `ralphy config set budgets.<scope> <usd>` or trim the plan. |
+
+### Environment errors (exit 4)
+
+| Code | Message template | Hint |
+|---|---|---|
+| `E_ENV_KEY_MISSING` | Required API key not set: &lt;key&gt; | Run `ralphy setup` and paste the key, or `export <key>=...`. |
+| `E_ENV_KEY_INVALID` | API key for &lt;provider&gt; failed verification | Regenerate the key and re-run `ralphy setup`. |
+| `E_DEP_MISSING` | Required dependency not found on PATH: &lt;dep&gt; | Install with `brew install <dep>`, then re-run `ralphy doctor`. |
+| `E_FS_PERMISSION` | Cannot write to &lt;path&gt;: &lt;detail&gt; | Check directory permissions; ensure the user owns the workspace dir. |
+
+### Quality-gate refusals (exit 5)
+
+| Code | Message template | Hint |
+|---|---|---|
+| `E_GATE_SCENARIO` | Scenario quality gate refused: &lt;detail&gt; | Rework the scenario (rewrite hook, tighten VO, swap model) and retry. |
+| `E_GATE_IMAGE` | Image quality gate refused for &lt;slot&gt;: &lt;detail&gt; | Regenerate with a stronger reference or swap to a different image model. |
+| `E_GATE_VIDEO` | Video quality gate refused for &lt;slot&gt;: &lt;detail&gt; | Regenerate with different start/end frames or swap to a different video model. |
+| `E_REF_REQUIRED` | Reference required for named entity: &lt;entity&gt; | Attach a reference via `ralphy ref add` or pass `--no-ref-consent` to override. |
+
+### Runtime + cancellation
+
+| Code | Class | Exit | Meaning |
+|---|---|---|---|
+| `E_INTERNAL` | `runtime` | 1 | Catch-all internal error. File an issue. |
+| `E_CANCELLED` | `cancelled` | 130 | SIGINT. Append-only state preserved. |
+
+## Class semantics
+
+**User (2)** — the user's input is wrong. Re-running with the same flags will fail the same way. Fix the flag or the resource and retry.
+
+**Provider (3)** — the model provider misbehaved. Transient or model-specific. Retry, switch model, or wait. The hint names the swap.
+
+**Env (4)** — the local machine isn't ready. Missing key, missing binary, fs permission. `ralphy doctor` catches all of these without making a model call.
+
+**Gate (5)** — quality / policy refusal, not a technical failure. Two consecutive gate refusals on the same project is the agent's stop signal — report concrete options, don't render over the gate.
+
+**Runtime (1)** — bug. The CLI surfaces this rather than silently exiting on `uncaughtException` / `unhandledRejection`. File an issue with the stderr payload.
+
+**Cancelled (130)** — SIGINT. Append-only logs and manifests are preserved; re-running resumes from where you left off.
+
+## Append-only contract (post-v1.0)
+
+The catalog is locked at v1.0 per `01-D-07`:
+
+- Renames are forbidden.
+- Removals are forbidden.
+- Deprecating a code requires `deprecated: true` plus `replacedBy: "E_..."`. Deprecated codes continue to be emitted for at least one major version.
+- Adding a new code requires a CHANGELOG entry.
+
+Tests in [`tests/unit/errors-catalog.test.ts`](https://github.com/alecs5am/ralphy/blob/main/tests/unit/errors-catalog.test.ts) enforce the contract:
+
+- Every code matches `/^E_[A-Z][A-Z0-9_]+$/`.
+- Catalog has fewer than 40 entries (v1.0 budget).
+- Every entry carries a non-empty `message`, `hint`, `relatedDocs`.
+- Hints never restate the message verbatim.
+- Hints end with full-sentence punctuation.
+- Deprecated entries name a known replacement.
+- Placeholder braces are well-formed `{name}`.
+
+## Placeholder template syntax
+
+Messages and hints carry `{name}` tokens that interpolate at raise time from the context object:
+
+```ts
+raiseError("E_NOT_FOUND", { kind: "Project", id: "demo-001" });
+// → "Project not found: demo-001"
+// → "Run `ralphy project list` to see available ids."
+```
+
+Allowed token names are part of the catalog's contract — adding a new placeholder counts as a breaking change unless you keep the old one working too.
+
+## Wiring into CI
+
+Match on the `code` field, not the message:
+
+```bash
+ralphy doctor --json > doctor.json
+if [ $? -ne 0 ]; then
+  jq -r '.error.code' doctor.json
+  exit 1
+fi
+```
+
+```bash
+# Distinguish provider hiccup (retry) from user error (fail).
+ralphy render demo-001 --json 2> render.err
+case "$(jq -r '.error.class // ""' render.err)" in
+  provider) sleep 60; ralphy render demo-001 ;;
+  ""       ) echo "ok" ;;
+  *        ) cat render.err >&2; exit 1 ;;
+esac
+```
+
+## Related
+
+- [Output modes](/cli/output-modes) — the stderr shape in context
+- [Setup and doctor](/cli/setup-doctor) — `E_ENV_KEY_MISSING`, `E_DEP_MISSING` recovery
+- [cli/lib/errors/catalog.ts](https://github.com/alecs5am/ralphy/blob/main/cli/lib/errors/catalog.ts) — source of truth
+- [tests/unit/errors-catalog.test.ts](https://github.com/alecs5am/ralphy/blob/main/tests/unit/errors-catalog.test.ts) — the contract

@@ -1,0 +1,152 @@
+---
+title: "Output modes"
+description: "Pretty, JSON, NDJSON, and quiet — what each mode emits and when to use which."
+---
+
+`ralphy` writes in one of three modes — pretty, JSON, or auto — plus a quiet variant that suppresses chatter regardless of mode. The resolution order is fixed, the JSON shape is stable, and pretty output is just-readable enough that an agent can scrape it if it has to. Default behavior is right for both terminals and pipes; you only set a flag when you want to override.
+
+## Resolution order
+
+The `preAction` hook in `cli/index.ts` runs once before every verb:
+
+1. `--json` → mode is `json`. Pretty primitives are silenced; `out()` emits canonical JSON.
+2. `--pretty` → mode is `pretty`. TTY check is bypassed; tables and spinners always render.
+3. Otherwise → mode is `auto`. Pretty when `process.stdout.isTTY` is true, JSON when piped.
+
+`--quiet` is orthogonal. It suppresses progress, spinners, and `ok`/`info`/`warn` lines — the final result still prints, errors still print on stderr.
+
+`--no-color` strips ANSI codes. Compose it with `--pretty` for layout without colors.
+
+## JSON mode
+
+Every verb's success path writes a single JSON object (or array) to stdout. Errors go to stderr as `{ "error": { "code": "E_...", "message": "...", "hint": "..." } }`.
+
+```bash
+ralphy generate image --project demo-001 --slot scene-01-bg --prompt "neon arcade alley" --dry-run | jq
+```
+
+```json
+{
+  "dryRun": true,
+  "would_call": [
+    {
+      "stage": "image",
+      "model_id": "openai/gpt-5.4-image-2",
+      "slot": "scene-01-bg",
+      "variants": 1,
+      "est_usd": 0.04
+    }
+  ],
+  "cost_estimate_usd": 0.04,
+  "would_write": [
+    "workspace/projects/demo-001/assets/scene-01-bg.png"
+  ]
+}
+```
+
+The shape is verb-specific; the contract is that the top level is always a single object or array, with no banner, no logs, no trailing whitespace beyond a single newline. Pipe to `jq` without filtering noise.
+
+## Pretty mode
+
+Pretty renders with `cli/lib/ui.ts`: a 256-color palette, Unicode icons (`✓`, `✖`, `▸`, `★`), `cli-table3` for tables, `ora` spinners, sectioned key/value blocks.
+
+<Tabs>
+  <Tab title="Pretty">
+    ```text
+    ▸ OpenRouter video models  (8 total, cached 2026-05-20 11:14:02)
+    ┌────────────────────────────┬──────────────┬──────┬──────────┬───────────────┬───────┐
+    │ model id                   │ durations(s) │ res  │ aspects  │ frame anchors │ $/5s  │
+    ├────────────────────────────┼──────────────┼──────┼──────────┼───────────────┼───────┤
+    │ kwaivgi/kling-v3.0-pro     │ 5,10         │ 720p │ 9:16,…   │ first_frame   │ $0.70 │
+    │ bytedance/seedance-2.0     │ 5,10         │ …    │ 9:16,…   │ first,last    │ $0.50 │
+    └────────────────────────────┴──────────────┴──────┴──────────┴───────────────┴───────┘
+
+      • ralphy models show <id>    full schema + price tiers
+    ```
+  </Tab>
+  <Tab title="JSON">
+    ```json
+    {
+      "fetchedAt": "2026-05-20T11:14:02.000Z",
+      "count": 8,
+      "models": [
+        { "id": "kwaivgi/kling-v3.0-pro", "durations": "5,10", "resolutions": "720p", "aspects": "9:16,16:9,1:1", "frames": "first_frame", "priceUsd5s": 0.7 }
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+Pretty mode is for humans. The agent can read it (it's just text) but you should still set `--json` when scripting — the shape is more stable across versions.
+
+## NDJSON event streams
+
+Long-running verbs (`generate video`, `generate music`, `render`, `assets install`) emit structured events while they run, in addition to the terminal summary. The stream uses one JSON object per line — Node's `CommandStream` helper (`cli/lib/stream/command.ts`) handles serialization.
+
+Example events from `ralphy render <id>`:
+
+```json
+{"event":"render-resolve-props","project":"demo-001"}
+{"event":"render-started","project":"demo-001","compositionId":"UGCVideo"}
+{"event":"render-finished","project":"demo-001","bytes":4322118}
+```
+
+Each verb's summary line is still the final stdout payload — the event stream is supplemental.
+
+## Quiet mode
+
+`-q/--quiet` suppresses everything except the final result:
+
+```bash
+ralphy generate image -q --project demo-001 --slot scene-01-bg --prompt "..."
+# no spinner, no "Generating..." line, only the final JSON object
+```
+
+`isQuietMode()` in `cli/lib/ui.ts` is what each `ok`/`info`/`warn` call checks. Errors on stderr always print regardless.
+
+## --no-color
+
+Disables `chalk` color output. Pretty mode still uses Unicode icons and tables, just without ANSI codes. The CLI also honors the `NO_COLOR` env var (informally — chalk handles it automatically).
+
+```bash
+ralphy --pretty --no-color project list
+```
+
+## Piping recipes
+
+```bash
+# Get the IDs of every project in "assets" state.
+ralphy project list --json | jq -r '.[] | select(.status == "assets") | .id'
+
+# Total spend across every generation in a project.
+ralphy project log demo-001 --json | jq '[.[] | .cost_usd // 0] | add'
+
+# Verify the doctor is happy before a CI render.
+ralphy doctor --json | jq -e '.blockers | length == 0'
+```
+
+The last one is the canonical CI guard: exit 0 means doctor is green, exit non-zero means a key or dep is missing.
+
+## Stderr is structured too
+
+Errors always write a structured payload on stderr — even in pretty mode the JSON form still appears (formatted) so an agent can parse both:
+
+```json
+{
+  "error": {
+    "code": "E_PROVIDER_RATE_LIMIT",
+    "message": "OpenRouter rate-limited the request (retry after 30s)",
+    "hint": "Wait and retry, or swap to a different model with --model.",
+    "class": "provider"
+  }
+}
+```
+
+See [Error catalog](/cli/error-catalog) for the full shape.
+
+## Related
+
+- [CLI overview](/cli/overview) — global flags + resolution order
+- [Error catalog](/cli/error-catalog) — the stderr shape
+- [cli/lib/ui.ts](https://github.com/alecs5am/ralphy/blob/main/cli/lib/ui.ts) — pretty primitives
+- [cli/lib/output.ts](https://github.com/alecs5am/ralphy/blob/main/cli/lib/output.ts) — `out()` and `err()` source

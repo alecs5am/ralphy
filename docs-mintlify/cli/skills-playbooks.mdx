@@ -1,0 +1,120 @@
+---
+title: "Skills and playbooks"
+description: "ralphy skill install across agents, the sentinel-bounded merge contract, and how playbooks differ from skills."
+---
+
+`ralphy skill install` lays down the agent-side glue — slash-command shims, routing pointers, per-playbook stubs — for whichever AI agent you use. The actual instructions live in `docs/playbooks/<name>.md` in the repo; skills are thin shims that point the agent at them. This page documents the install surface and the contract.
+
+## ralphy skill install
+
+```bash
+ralphy skill install --agent claude
+ralphy skill install --agent cursor --scope project
+ralphy skill install --agent codex                  # always project scope
+ralphy skill install --agent copilot                # always project scope
+ralphy skill install                                # interactive wizard
+ralphy skill install --reconfigure                  # re-prompt
+ralphy skill install --symlink --agent claude       # symlink instead of copy
+```
+
+The verb is idempotent — re-running replaces the sentinel-bounded block in-place. Three agents ship in v1 (`claude`, `cursor`, `codex`); `copilot` is supported via the same installer.
+
+<ParamField path="--agent <id>" type="string">
+  `claude`, `cursor`, `codex`, or `copilot`. Auto-detects from `$HOME/.claude`, `$HOME/.cursor`, `AGENTS.md` when omitted.
+</ParamField>
+
+<ParamField path="--scope <s>" type="string">
+  `user` or `project`. Defaults differ per agent: claude/cursor → user, codex → project (forced), copilot → project (forced).
+</ParamField>
+
+<ParamField path="--symlink" type="boolean">
+  Symlink the skills bundle instead of copying. Useful when iterating on `.agents/skills/` locally.
+</ParamField>
+
+<ParamField path="--reconfigure" type="boolean">
+  Re-launch the wizard, overwriting the persisted choice in `~/.ralphy/config.json`.
+</ParamField>
+
+Full surface: [`/reference/cli/skill`](/reference/cli/skill).
+
+## What gets written
+
+The install path depends on the agent. Each adapter is sentinel-bounded — `<!-- ralphy:start v=1 -->` / `<!-- ralphy:end -->` — so re-running swaps the block without duplicating it.
+
+| Agent | Skills bundle | Routing pointer |
+|---|---|---|
+| `claude` (user) | `~/.claude/skills/ralphy/` | `~/.claude/CLAUDE.md` (merged) |
+| `claude` (project) | `./.claude/skills/ralphy/` | `./CLAUDE.md` (merged) |
+| `cursor` | `~/.cursor/rules/` or `./.cursor/rules/` | `ralphy-router.mdc` (always-apply) + per-playbook `.mdc` files |
+| `codex` (project) | n/a | `./AGENTS.md` (merged) |
+| `copilot` (project) | n/a | `./.github/copilot-instructions.md` + per-playbook files under `./.github/instructions/` |
+
+For Cursor and Copilot, the installer writes one file per playbook (intake, researcher, scenarist, art-director, editor, producer, core), each with a description Cursor / Copilot use to surface it on relevant intents.
+
+## ralphy skill uninstall
+
+Reverses the install — removes the skills dir, strips the sentinel block from any routing file. If the routing file is empty after the strip, the verb deletes the file outright.
+
+```bash
+ralphy skill uninstall --agent claude
+ralphy skill uninstall              # remove from every detected agent
+```
+
+## ralphy skill new
+
+Scaffolds a new skill: writes `.agents/skills/<name>/SKILL.md` plus `docs/playbooks/<name>.md`, optionally adds a row to `AGENTS.md`'s routing table.
+
+```bash
+# Interactive — clack-prompts wizard
+ralphy skill new my-flow
+
+# Scripted
+ralphy skill new my-flow \
+  --non-interactive \
+  --intent "Does the X thing" \
+  --trigger "do X" --trigger "/x"
+
+# Maintainer namespace
+ralphy skill new dev-only \
+  --namespace ralphy-dev \
+  --non-interactive --intent "Maintainer-only" --trigger "/dev-only"
+
+# Also append a row to AGENTS.md
+ralphy skill new fancy --add-to-routing --row "When user wants fancy"
+```
+
+Names must be kebab-case (`^[a-z][a-z0-9-]*$`); collisions raise `E_ALREADY_EXISTS`. Full surface: [`/reference/cli/skill`](/reference/cli/skill).
+
+## Skills vs. playbooks
+
+The two are deliberately distinct.
+
+- **Skills** are slash-command-invocable shims under `.agents/skills/<name>/SKILL.md`. The user can type `/ralph-researcher` and the agent loads the skill body. They're thin pointers — most of the body is "Read `docs/playbooks/<name>.md` before acting."
+
+- **Playbooks** are the canonical instructions under `docs/playbooks/<name>.md`. The agent reads them on demand based on intent matching in [AGENTS.md](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), not on a user typing a slash command.
+
+The seven skills shipped today: `ralph-researcher`, `ralph-evaluator`, `ralphy-install`, `release`, `postmortem`, `remotion-best-practices`, `skill-creator`. The eleven playbooks: `intake`, `researcher`, `scenarist`, `art-director`, `editor`, `producer`, `core`, `ralphy-install`, `remotion`, plus the per-domain references.
+
+Playbooks are not slash-invocable on purpose — the user shouldn't have to know which playbook to summon. AGENTS.md routes by intent.
+
+## Namespaces
+
+Two namespaces ship in v1:
+
+- `ralphy:` — user-facing skills (the default for `skill new`).
+- `ralphy-dev:` — maintainer-only flows. Pass `--namespace ralphy-dev` on `skill new`; pass `--dev` to `skill install` to also install the dev namespace.
+
+Both end up under `.agents/skills/<name>/`; the namespace is a convention in `SKILL.md` frontmatter and the routing row text.
+
+## Wizard mode
+
+`ralphy skill install` with no `--agent` flag launches an interactive wizard on TTY: it auto-detects installed agents, asks for a scope, persists the choice to `~/.ralphy/config.json`. Subsequent runs re-install non-interactively from the persisted choice; `--reconfigure` re-prompts.
+
+Off-TTY (piped, `--json`) with no flags → `E_WIZARD_NEEDS_TTY` rather than hanging. Pass `--agent` explicitly to skip the wizard.
+
+## Related
+
+- [AGENTS.md](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the routing contract every install points to
+- [Skill format](/advanced/skill-format) — the SKILL.md schema
+- [docs/playbooks/](https://github.com/alecs5am/ralphy/tree/main/docs/playbooks) — the canonical instruction set
+- [cli/lib/skill/installer.ts](https://github.com/alecs5am/ralphy/blob/main/cli/lib/skill/installer.ts)

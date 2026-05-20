@@ -1,0 +1,137 @@
+---
+title: "Asset catalog"
+description: "The ralphy-assets companion repo holds gameplay loops, brainrot characters, and trend music as a generic pool."
+---
+
+The `ralphy-assets` companion repo at [`github.com/alecs5am/ralphy-assets`](https://github.com/alecs5am/ralphy-assets) is the source of truth for *reusable* heavy assets — gameplay loops, Italian Brainrot character references, trend music, stock b-roll, and complete example projects. The repo is organized as a **pool**: generic, by `kind`, not curated per-project. The agent's rule (AGENTS.md invariant #12) is to consult the catalog *before* writing a prompt that names a specific character, footage, or track. If the asset exists in the pool, pull it. If it does not exist for a real-world entity, propose adding it rather than generating drift from text.
+
+## Why a pool, not curated
+
+A curated "per-template assets" model would mean the agent picks assets *after* committing to a template. The pool model puts the asset selection *before* the prompt — the agent surveys what is already canonical, then writes the prompt around the pulled asset.
+
+Three reasons this matters.
+
+**Identity drift.** A "Tralalero Tralala" generated from text alone produces five different sharks across five scenes. The same Tralalero pulled from the pool — same canonical image, passed as `--ref` on every i2v call — locks identity.
+
+**Recognizability.** The Soviet Nostalgic template requires the canonical Soviet trend music bed. Generating a substitute "Soviet-sounding" track in ElevenLabs Music loses half the format's appeal — the recognizability *is* the bit. The pool ships the exact tracks that work on TikTok in 2026.
+
+**Cost.** A pre-rendered 56-second CS:GO surf loop is ~21 MB. Generating a substitute in Veo or Seedance is $1-3 and 90 seconds; pulling from the pool is free and instant.
+
+## The three layers
+
+The companion-repo manifest splits assets into three layers:
+
+**`required`** — template-bound mandatory assets. Auto-pulled when you run `ralphy template use <slug>`. Listed in the catalog for transparency; you rarely pull these directly. Today:
+
+| Template | Required asset | Size |
+|---|---|---|
+| `brainrot-ai-meme` | `cs-surf-loop.mp4` | 21.49 MB |
+| `soviet-nostalgic` | `trend-soviet-bed.mp3` | 0.94 MB |
+
+**`pool`** — generic, reusable assets grouped by **kind**: open-ended categories like `italian-brainrot-characters`, `gameplay-loops`, `trend-music`, `stock-broll`. Pulled on demand. The two pools with the most entries today:
+
+- `italian-brainrot-characters` (33 entries) — canonical Italian Brainrot meme character reference images. Used by the `italian-brainrot` template as i2i references for character regeneration.
+- `trend-music` (27 entries) — recognizable horror / dread music beds heavily used on horror-TikTok in 2024-2026, sourced from the canonical Horror TikTok YouTube playlist. Each ships the full mp3 plus a pre-rendered 20-second hook clip under `hooks/`.
+
+**`examples`** — ready-made example mp4 outputs per template, for visual reference and regression baselines. Currently empty in the manifest; future templates will ship example renders here.
+
+The catalog file at [`docs/assets-catalog.md`](https://github.com/alecs5am/ralphy/blob/main/docs/assets-catalog.md) is auto-generated from the manifest. Regenerate it after any manifest change with `ralphy assets catalog --write`.
+
+## The pull flow
+
+```bash
+# Survey what is in the pool.
+ralphy assets list                                       # everything
+ralphy assets list --kind italian-brainrot-characters    # one kind
+ralphy assets list --template italian-brainrot           # required + matching pool items
+
+# Pull one pool item to the cache.
+ralphy assets pull-pool italian-brainrot-characters/tralalero-tralala
+
+# Pull and copy into a project's assets/uploaded/ directory.
+ralphy assets pull-pool italian-brainrot-characters/tralalero-tralala \
+  --install coffee-with-tralalero-001
+
+# Pull all required for a template.
+ralphy assets pull brainrot-ai-meme
+
+# Cache management.
+ralphy assets cache-info                  # cache size, last-pulled
+ralphy assets clean                       # wipe the cache (safe — re-pull on demand)
+```
+
+`--install <project>` is the form the agent uses most. It pulls the asset to the cache (or no-ops if already cached), then copies it into `workspace/projects/<project>/assets/uploaded/`, then logs a `user-assets.jsonl` entry. The downstream generate verbs see the asset at the conventional path and use it as a ref.
+
+## The cache
+
+`workspace/.ralph/asset-cache/` is the local cache of the companion repo. Layout:
+
+```
+workspace/.ralph/asset-cache/
+├── pool/
+│   ├── italian-brainrot-characters/
+│   │   ├── tralalero-tralala/
+│   │   │   ├── tralalero-tralala.png
+│   │   │   └── ref.json
+│   │   └── ...
+│   └── trend-music/
+│       ├── caretaker-its-just-a-burning-memory/
+│       │   ├── caretaker-its-just-a-burning-memory.mp3
+│       │   └── hooks/
+│       │       └── caretaker-its-just-a-burning-memory.20s-hook.mp3
+│       └── ...
+└── required/
+    ├── brainrot-ai-meme/
+    │   └── cs-surf-loop.mp4
+    └── soviet-nostalgic/
+        └── trend-soviet-bed.mp3
+```
+
+Every asset has a SHA-256 in the manifest. `ralphy assets pull-pool` verifies the hash after download — corrupt or tampered files fail with a clear error. The companion repo is public and unauthenticated — no API key needed.
+
+`ralphy assets clean` wipes the cache. It is safe to run at any time — the next pull re-downloads.
+
+## The rule that fires the catalog check
+
+AGENTS.md invariant #12, paraphrased: **before writing a prompt that names a specific real-world entity, run `ralphy assets list --kind <kind>` or read the catalog.** If the asset exists in the pool, pull it via `ralphy assets pull-pool` instead of generating from text. If it does not exist for a real-world entity (e.g. a specific brainrot character not in the pool), propose adding it to the pool first, rather than generating a drift-prone reference from text alone.
+
+Three concrete cases.
+
+**Case 1 — user asks for a Tralalero Tralala video.** The agent runs `ralphy assets list --kind italian-brainrot-characters`. Tralalero is in the pool. The agent pulls it with `--install`, scaffolds the project from the `italian-brainrot` template, and writes prompts that pass the Tralalero PNG as `--ref` on every i2v call.
+
+**Case 2 — user asks for a horror TikTok with the `caretaker-its-just-a-burning-memory` music bed.** The agent runs `ralphy assets list --kind trend-music`. The track is in the pool. The agent pulls the 20-second hook clip from `hooks/`, scaffolds an analog-horror PSA, and drops the hook into the editor stage.
+
+**Case 3 — user names a brainrot character that is *not* in the 33-character pool.** The agent does *not* attempt to generate the character from text. The right move is to either (a) propose adding it to the pool — find the canonical reference image, register it with `ralphy assets register-pool italian-brainrot-characters/<slug>`, and submit upstream — or (b) treat it as a ref-required case and ask the user for a reference image to drive a one-off project.
+
+## License posture
+
+The pool's category default for Italian Brainrot characters and trend music is `fair-use-meme-reference` with attribution. The characters are AI-generated TikTok memes from 2024-2025; the music is from a canonical "Horror TikTok" YouTube playlist. The licensing posture is:
+
+- Each asset's `ref.json` carries its specific license tag.
+- `fair-use-meme-reference` covers reference use inside generated content where the character / track is recognizably part of the meme format being referenced.
+- For *commercial* publication — branded ads, paid placements — the agent should warn the user that the fair-use posture is meme-context-specific and may not extend to commercial use.
+
+Always read each asset's `ref.json` before publishing. The companion repo will flag breaking-license cases in the manifest.
+
+## The catalog file
+
+[`docs/assets-catalog.md`](https://github.com/alecs5am/ralphy/blob/main/docs/assets-catalog.md) is the human-readable export of the manifest. It is auto-generated by `ralphy assets catalog --write`. The agent reads this file (or runs `ralphy assets list` for live data) before drafting any prompt that names a specific real-world entity. Regenerating after a manifest change is part of the asset-add workflow.
+
+## Example projects in the companion repo
+
+The `ralphy-assets` companion repo also ships complete example projects under `examples/<project-id>/` — the full `workspace/projects/<id>/` tree as a tarball, including the rendered mp4, the prompts, and the logs. These are the source artifacts behind the eleven shipped-project-derived templates listed in [`/concepts/templates`](/concepts/templates). Pull one with:
+
+```bash
+ralphy example list                            # list available example projects
+ralphy example pull noski-people-001           # pull into workspace/projects/
+```
+
+This is the fastest way to see *exactly* what a finished project looks like — including the postmortem, the gen-log, and the asset versioning history.
+
+## Related
+
+- [`docs/assets-catalog.md`](https://github.com/alecs5am/ralphy/blob/main/docs/assets-catalog.md) — the human-readable catalog
+- [`ralphy-assets` companion repo](https://github.com/alecs5am/ralphy-assets) — the source of truth
+- [Templates](/concepts/templates) — required assets auto-pull on `ralphy template use`
+- [References](/concepts/references) — for IP characters in the pool, the pool entry is the ref
+- [Workspace](/concepts/workspace) — the cache lives under `workspace/.ralph/asset-cache/`

@@ -1,0 +1,169 @@
+---
+title: "What just happened"
+description: "A file-by-file walkthrough of everything Ralphy wrote during your first video."
+---
+
+You ran one chat brief and got `final.mp4` out the other side. Ralphy wrote a dozen files along the way — most of them under `workspace/projects/espresso-001/`. This page walks through each one, who wrote it (agent vs CLI), and why it exists. After this you'll be ready for the deeper [architecture](/concepts/architecture) read.
+
+## The project directory
+
+Every project lives at `workspace/projects/<id>/`. For the espresso example:
+
+```text
+workspace/projects/espresso-001/
+├── BRIEF.md                          # the original brief + intake answers (agent-written)
+├── prompts.json                      # per-scene prompts the agent generated (agent-written)
+├── asset-manifest.json               # canonical list of scene assets (CLI-written)
+├── assets/                           # raw model outputs (CLI-written via `ralphy generate`)
+│   ├── scene-01-bg-image.png
+│   ├── scene-01-vid.mp4
+│   ├── scene-01-vo.mp3
+│   ├── scene-02-bg-image.png
+│   ├── scene-02-vid.mp4
+│   ├── scene-02-vo.mp3
+│   ├── scene-03-bg-image.png
+│   ├── scene-03-vid.mp4
+│   ├── scene-03-vo.mp3
+│   └── music-bed.mp3
+├── logs/                             # append-only audit logs (CLI-written)
+│   ├── generations.jsonl
+│   ├── user-prompts.jsonl
+│   └── user-assets.jsonl
+└── render/
+    └── final.mp4                     # Remotion + ffmpeg output (CLI-written)
+```
+
+Everything under `workspace/` is gitignored — see [Workspace](/concepts/workspace). Safe to inspect, copy, branch, or wipe.
+
+## File by file
+
+### `BRIEF.md` — your intent
+
+Written by the agent at intake. Captures the original one-liner, your answers to the 3-5 clarifying questions, and the chosen template. This is the contract between you and the agent for the project; if the render goes sideways, the brief tells you what was promised.
+
+```markdown
+# espresso-001
+
+**Brief:** 15-second TikTok про эспрессо-бар, утренний vibe, селфи-POV
+**Language:** RU
+**Aspect:** 9:16
+**Template:** creator-lifestyle/morning-cafe-pov
+**Duration:** 15s
+**Scenes:** 3
+```
+
+### `prompts.json` — what was sent to the models
+
+Written by the agent before each generation call. One entry per scene per modality (image, video, voiceover). The agent fills this in by adapting the template's prompt vocabulary to your specific brief.
+
+```json
+{
+  "scene-01": {
+    "image": "selfie-POV, hand holding warm espresso cup, morning sun through cafe window, Sony A7 IV, 35mm, f/1.8, Kodak Portra 400, candid not staged",
+    "video": "subtle parallax, hand brings cup slightly closer to camera, steam rising naturally, 5s, no audio",
+    "vo": "Утро начинается с эспрессо."
+  }
+}
+```
+
+### `assets/` — the raw model outputs
+
+Every file in `assets/` is the output of a `ralphy generate` call. The CLI names them by slot: `<scene-id>-<type>-<descriptor>.<ext>`. Common slots:
+
+- **`scene-XX-bg-image.png`** — the still plate (image gen, e.g. gemini-3-pro-image-preview).
+- **`scene-XX-vid.mp4`** — the animated clip (video gen, e.g. kling-v3.0-pro from the plate).
+- **`scene-XX-vo.mp3`** — the voiceover line (ElevenLabs).
+- **`music-bed.mp3`** — the music track (ElevenLabs Music API).
+
+If you regenerated a scene, you'll see versioned files alongside: `.scene-02-bg-image.v1.png` is the original, `scene-02-bg-image.png` is the current pick. Per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), Ralphy never overwrites a generation — every regen lands as a new version.
+
+### `asset-manifest.json` — the canonical scene list
+
+Written and updated by the CLI as each scene completes. The renderer reads this file to know which assets to pull into the Remotion composition.
+
+```json
+{
+  "project_id": "espresso-001",
+  "template": "creator-lifestyle/morning-cafe-pov",
+  "scenes": [
+    {
+      "id": "scene-01",
+      "image": "scene-01-bg-image.png",
+      "video": "scene-01-vid.mp4",
+      "vo": "scene-01-vo.mp3",
+      "duration": 5,
+      "status": "approved"
+    }
+  ],
+  "music": "music-bed.mp3",
+  "total_duration": 15
+}
+```
+
+When the agent says "promote v1 of scene-02 back to current", that's a manifest update — the old file was always on disk, only the pointer moves.
+
+### `logs/generations.jsonl` — every paid call
+
+The cost-and-audit log. Append-only, one JSON object per line, one line per model call. The CLI writes this automatically every time `ralphy generate` runs.
+
+A sample entry:
+
+```json
+{
+  "ts": "2026-05-20T08:14:22.103Z",
+  "project_id": "espresso-001",
+  "scene_id": "scene-01",
+  "stage": "video",
+  "model": "kwaivgi/kling-v3.0-pro",
+  "provider": "openrouter",
+  "input": { "image": "scene-01-bg-image.png", "prompt": "subtle parallax..." },
+  "output": { "path": "assets/scene-01-vid.mp4", "duration": 5.0 },
+  "cost_usd": 0.28,
+  "latency_ms": 31420
+}
+```
+
+This is the file the agent reads when you ask "how much have I spent on this project?" — it's also what the [postmortem skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/postmortem/SKILL.md) consumes. Treat it as immutable. See [Generation log](/concepts/generation-log) for the full schema.
+
+### `logs/user-prompts.jsonl` — your chat turns
+
+Every brief, intake answer, and follow-up you typed in chat is appended here by the agent via `ralphy project log-prompt`. It's the conversational counterpart to `generations.jsonl` — together they let you replay the whole project end-to-end.
+
+### `logs/user-assets.jsonl` — your reference uploads
+
+If you dropped any reference images or URLs into chat (e.g. "here's a competitor's TikTok"), the agent logged each one here via `ralphy project log-asset`. The actual files land under `assets/refs/`. For the espresso example without refs, this file is empty.
+
+### `render/final.mp4` — the output
+
+The CLI writes this via `ralphy render <id>`. Remotion bundles the composition from `src/videos/`, pulls assets per `asset-manifest.json`, hands the frame stream to ffmpeg, and ffmpeg encodes the mp4. The agent reads the render result and reports duration, file size, and total project spend back to you in chat.
+
+## Who wrote what
+
+| Wrote it | Files |
+|---|---|
+| **The agent** (via chat + tool calls) | `BRIEF.md`, `prompts.json`, the contents of the chat itself |
+| **The CLI** (`ralphy generate`, `ralphy project log-*`, `ralphy render`) | `assets/*`, `asset-manifest.json`, `logs/*.jsonl`, `render/final.mp4` |
+| **You** (rarely, only if you dropped them in) | files under `assets/refs/` |
+
+The split matters because it tells you where to look when something's wrong. If a prompt was off, the agent wrote it — read `prompts.json`. If a cost looks high, the CLI logged it — grep `generations.jsonl`. If the render failed, ffmpeg or Remotion is the culprit — `ralphy doctor`.
+
+## Why the structure looks this way
+
+- **Append-only logs.** Every paid call leaves a trace. You can audit cost, branch projects from a known-good point, and let the postmortem skill mine lessons learned. See [Generation log](/concepts/generation-log).
+- **One project = one directory.** No global state, no shared cache that surprises you. `rm -rf workspace/projects/espresso-001` (or `ralphy project delete espresso-001`) wipes the project cleanly.
+- **Templates as starting points, not cages.** The template seeded `prompts.json` but every prompt is editable. Ask the agent to "change scene-02 to wide-angle" and `prompts.json` updates in place — the next `ralphy generate` reads the new prompt.
+- **Manifest as the source of truth.** The renderer doesn't scan `assets/` — it reads `asset-manifest.json`. That's why promoting a regenerated variant is a manifest edit, not a file move.
+
+## Next
+
+You know the file layout. Two good follow-ups:
+
+- [Architecture](/concepts/architecture) — the full picture: how the agent, the CLI, Remotion, and the providers fit together.
+- [Talking to ralphy](/working/talking-to-ralphy) — phrasing patterns for daily use: regen, variant, batch, postmortem.
+
+## Related
+
+- [Workspace](/concepts/workspace) — the gitignored `workspace/` directory
+- [Projects](/concepts/projects) — project ID conventions and the registry
+- [Generation log](/concepts/generation-log) — `generations.jsonl` schema and queries
+- [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the no-overwrite rule

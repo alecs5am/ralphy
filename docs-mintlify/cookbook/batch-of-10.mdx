@@ -1,0 +1,258 @@
+---
+title: "Batch of 10"
+description: "Ten videos off one template. Cost preview, parallel run, postmortem rollup."
+---
+
+Ten 15-second 9:16 videos off the `talking-head-rant` template, varied on the
+hook copy and the persona master. The recipe documents the batch flow end-to-end:
+brainstorm N ideas, lock the approved set with a cost preview, run in parallel
+under the concurrency caps, and roll up costs + failures in a postmortem. The
+performance target is ≤25 min wall for 10× 15s videos (per `docs/perf-targets.md`).
+A clean run lands inside the target; postmortem flow handles the partial-failure
+case.
+
+## Brief
+
+> "Run 10 talking-head rant videos for our consumer-fitness brand. Each one a
+> different gym pain point — 'machines are always taken', 'trainers are too
+> aggressive', 'shower is broken', etc. 15s each, English, same actor across
+> the batch."
+
+## Stack
+
+- **Template:** [`talking-head-rant`](https://github.com/alecs5am/ralphy/tree/main/templates/creator-lifestyle/talking-head-rant) (`vibe-reference`, creator-lifestyle)
+- **Per-video stack:** identical to [TikTok confession rant](/cookbook/tiktok-confession-rant) — `gpt-5.4-image-2` persona, Kling `--audio`, ElevenLabs Music
+- **Concurrency:** 2 parallel projects (ElevenLabs cap; OpenRouter image cap on gpt-5.4-image-2 is 1, so image gens stay sequential per-project)
+- **Refs needed:** the same persona master, shared across all 10 (one master, ten anchors)
+- **Runtime:** ~22 min wall for 10 videos (parallel)
+- **Cost:** ~$24 total ($2.40 per video × 10, minus shared persona-master gen)
+
+## Walkthrough
+
+<Steps>
+
+<Step title="Pre-flight">
+```bash
+ralphy doctor
+# → confirms OPENROUTER_API_KEY + ELEVENLABS_API_KEY + bun + ffmpeg
+
+ralphy template suggest "10 gym-rant videos, same actor, 15s each, English"
+# → top-3 with talking-head-rant first (tier: primary)
+```
+</Step>
+
+<Step title="Generate the shared persona master once">
+The persona master is generated once before the batch begins. All 10 projects
+reference it. Skipping this and letting each project generate its own master
+produces 10 visually-different actors and breaks brand continuity.
+
+```bash
+ralphy project new persona-master-shared --notes "shared master for gym-rant batch"
+ralphy generate image \
+  --project persona-master-shared \
+  --slot persona-master \
+  --model openai/gpt-5.4-image-2 \
+  --size 1024x1024 \
+  --prompt "<the persona master prompt from the TikTok confession rant recipe>"
+# → workspace/projects/persona-master-shared/assets/image/persona-master.png
+```
+</Step>
+
+<Step title="Brainstorm 10 ideas">
+The producer playbook (Phase 1 in `producer/batch.md`) brainstorms N ideas
+varying along the template's documented axes — for `talking-head-rant`, the
+axis is the hook copy / rant subject. Each idea is a `{ id, title, concept, brief }`
+record.
+
+The agent presents the table in chat:
+
+| # | id | title | concept | brief |
+|---|---|---|---|---|
+| 1 | gym-rant-machines-001 | Machines always taken | The squat rack is never free | "15s deadpan rant: every gym makes me wait 20 min for the squat rack…" |
+| 2 | gym-rant-trainer-002 | Aggressive trainer | The trainer corrects form before you've started | "15s rant: trainers fix my form on rep zero…" |
+| … | … | … | … | … |
+
+User confirms or edits — one message, not rapid-fire.
+</Step>
+
+<Step title="Lock the approved set with cost preview">
+```bash
+ralphy batch create \
+  --template talking-head-rant \
+  --ideas approved-ideas.json \
+  --concurrency 2 \
+  --dry-run
+# → cost preview: 10 × $2.40 = $24.00, ETA 22 min wall
+```
+
+The `--dry-run` flag returns the resolved request bodies + cost estimate
+without spending credits. If the estimate is >50% over the perf target (25 min
+for 10× 15s), the agent flags the user before proceeding.
+
+```bash
+ralphy batch create \
+  --template talking-head-rant \
+  --ideas approved-ideas.json \
+  --concurrency 2
+# → workspace/batches/gym-rant-2026-05/state.json with 10 projects in `pending`
+```
+
+The `batch create` step scaffolds 10 projects, copies the shared persona master
+into each project's `assets/uploaded/persona-ref.png`, writes per-project
+`BRIEF.md`, and marks each as `pending`.
+</Step>
+
+<Step title="Submit the batch jobs">
+`batch create` only scaffolds projects. To execute them, two paths:
+
+```bash
+# Option A — interactive / agent-driven (recommended for the first run)
+# The producer agent walks scene-01 on project 1, surfaces it to you for
+# approval, then applies the approved pattern to projects 2-10. This is
+# the path the routing in AGENTS.md (producer playbook, Phase 4) actually
+# takes — each project is rendered via `ralphy render <id>` once its
+# assets land.
+
+# Option B — daemon-orchestrated (when you trust the template)
+# Submit a job spec to the local daemon and let it chain generations.
+ralphy batch submit --from batch-jobs.json
+# → returns the submitted job IDs; the daemon resolves dependencies and
+#   walks each project through scenario → assets → render. Inspect with
+#   `ralphy queue status` (or `ralphy daemon log` for the raw stream).
+```
+
+The `batch submit` JSON spec is documented under `cli/commands/batch.ts`
+— each entry is `{ verb, args, depends_on?: [symbol] }`. v1.0 covers the
+"N generations + 1 render" symbolic-dependency pattern; the higher-level
+"one verb runs the whole batch" wrapper is roadmap (see Postmortem rollup
+below for the workaround).
+</Step>
+
+<Step title="Monitor progress">
+```bash
+ralphy batch status gym-rant-2026-05
+# → table with per-project status, current step, cost so far, render path
+```
+
+```text
+project-id              status      step              cost   render
+gym-rant-machines-001   completed   render            $2.32  ✓
+gym-rant-trainer-002    completed   render            $2.45  ✓
+gym-rant-shower-003     in-flight   art-director      $0.85  -
+gym-rant-mirror-004     failed      art-director      $1.10  ✗ scene-01 anatomy
+gym-rant-music-005      pending     -                 $0.00  -
+...
+```
+
+In-flight progress refreshes; failures surface immediately with the last log
+line.
+</Step>
+
+<Step title="Postmortem rollup">
+After the batch settles, walk each project's gen-log with `jq` to roll up
+cost and outcome (the dedicated `--rollup` flag is roadmap; this is the
+v1.0 workaround):
+
+```bash
+for p in $(ralphy batch show gym-rant-2026-05 --json | jq -r '.projects[]'); do
+  jq -s '{
+    project: "'"$p"'",
+    total_cost_usd: (map(.cost_usd // 0) | add),
+    calls: length,
+    failed: (map(select(.status != "ok")) | length)
+  }' workspace/projects/"$p"/logs/generations.jsonl
+done | jq -s '{
+  total_cost_usd: (map(.total_cost_usd) | add),
+  mean_cost_per_project: ((map(.total_cost_usd) | add) / length),
+  success_rate: ((map(select(.failed == 0)) | length) / length)
+}'
+```
+
+For each failed project, re-run the failed step manually (`ralphy generate
+image --project <id> ...`) using the inputs from the failing JSONL entry.
+The completed projects' renders stay untouched.
+
+If a meaningful chunk of the batch produced course-corrections, the
+`/postmortem` skill writes a structured postmortem set into
+`workspace/projects/<id>/postmortem/` per project — chronological chat
+history, lessons learned, CLI gaps, model-and-cost rollup, workflow fixes.
+</Step>
+
+</Steps>
+
+## Why this works
+
+The batch path is the only correct way to run N≥3 videos off one template
+(AGENTS routing rule for batches). Running 10 single-video pipelines by hand
+loses the shared-persona-master economy, drops you into per-call retries
+without a rollup view, and breaks the perf-target accounting. The batch verb
+chains template-use, asset-copy, per-project briefing, and state tracking into
+one orchestration call.
+
+Concurrency = 2 is the safe default. ElevenLabs starter caps at 3 concurrent;
+the OpenRouter `gpt-5.4-image-2` per-key cap is 1 (returns a misleading
+`403 "Key limit exceeded"` above 1). The 2-parallel default keeps image gens
+sequential per-project (so the gpt-5.4-image-2 cap doesn't bite) while running
+two projects' video / VO / music in parallel. Five-parallel batches throttle
+on OpenRouter and pollute `generations.jsonl` with retryable errors.
+
+The shared persona master is the brand-continuity economy of batching. One
+master gen, ten projects referencing it, identical actor across the batch. The
+alternative — each project generating its own master — produces ten
+different-looking actors who happen to wear similar gym clothes, and the brand
+batch reads as ten unrelated creators.
+
+The `--dry-run` cost preview is the budget gate, not a model downgrade. Per
+the producer playbook's "always best models" rule, the cost lever is batch
+count and template choice, not picking a cheaper model. If the estimate is
+over budget, cut the batch from 10 to 6 rather than dropping Kling pro to
+seedance fast.
+
+## Variations
+
+- **Cross-template batch.** 10 videos off mixed templates — `talking-head-rant`
+  × 5 and `social-hook` × 5. Use two `batch create` calls and treat them as
+  sibling batches; share the persona master across both.
+- **Per-video persona masters.** Drop the shared master if the batch is
+  intentionally character-varied (10 different actors). Cost rises ~$0.20 per
+  video on the extra image gen.
+- **Russian batch.** Drop `--audio` on every Kling clip in the batch.
+  ElevenLabs `eleven_multilingual_v2` for VO. Cost is ~$0.10 lower per video
+  (no audio surcharge); runtime is ~25% longer because VO is serial per
+  ElevenLabs concurrency cap.
+- **Higher count.** N=20 is the ceiling before OpenRouter daily caps start to
+  bite. Above N=20, split into two batches across days.
+- **Different concurrency.** `--concurrency 1` for fully-sequential (longest
+  runtime, lowest risk of any throttle). `--concurrency 3` is the absolute
+  ceiling — past 3, ElevenLabs returns 429 on parallel calls.
+
+## Pitfalls
+
+<Warning>
+Do not bypass `ralphy batch create` and run a parallel loop by hand. The state
+tracking, per-project gen-log, and concurrency caps all depend on the batch
+verb. A hand-run loop with `parallel` produces untracked credit spend and an
+unrecoverable failure mode if mid-batch something throttles.
+</Warning>
+
+<Warning>
+Do not raise concurrency above 3. ElevenLabs starter caps at 3 concurrent
+returns 429 `concurrent_limit_exceeded` and pollutes `generations.jsonl` with
+error rows. The OpenRouter `gpt-5.4-image-2` per-key cap is 1 — the agent
+internal scheduler handles that within the batch.
+</Warning>
+
+<Warning>
+Do not silently downgrade the model under budget pressure. The producer
+playbook's "always best models" rule says the budget lever is batch count
+and template choice, not model downgrade. Cut N from 10 to 6 rather than
+dropping Kling pro to seedance fast.
+</Warning>
+
+## Related
+
+- [Batches](/working/batches) — full `ralphy batch` surface, status, retry, rollup
+- [TikTok confession rant](/cookbook/tiktok-confession-rant) — the per-video recipe each batch project runs
+- [Producer playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) — orchestration, concurrency, postmortem
+- [Performance targets](https://github.com/alecs5am/ralphy/blob/main/docs/perf-targets.md) — the ≤25 min wall target for 10-batch
+- [CLI: generation verbs](/cli/generation-verbs) — every `ralphy generate` flag the batch composes

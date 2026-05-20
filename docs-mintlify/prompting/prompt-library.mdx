@@ -1,0 +1,188 @@
+---
+title: "Prompt library"
+description: "ralphy prompts library lookup is the index of seed entries you can paste and tune."
+---
+
+The prompt library is Ralphy's searchable index of battle-tested prompts, organized by goal — what you're trying to do — not by which model you happen to be calling. Every entry is a worked Bad / OK / Ideal triplet so you see the rewrite path, not just the final form. The CLI lookup is `ralphy prompts library lookup --goal "<text>"`; the entries live in `docs/prompts/library/` as folders with frontmatter + body.
+
+## Why a library
+
+Prompt-from-scratch is expensive. Every model has quirks (Kling brackets, Veo skeleton, ElevenLabs ToS), every modality has rules (anti-AI-slop, EN/RU split, no music in video prompts), and most of the patterns the agent needs have been worked out across projects. The library is the persistent memory across sessions — a Bad / OK / Ideal entry is faster to read than the original postmortem and carries the same lesson.
+
+The agent's first step before drafting any prompt is `ralphy prompts library lookup` — confirmed in the [art-director playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) step 1 of every gen.
+
+## The 5 seed entries (v1.0)
+
+| Slug | Goal | Applies to |
+|---|---|---|
+| `hook-saas-3s` | Stop the scroll in 3 seconds with a single-claim hook line over a creator selfie shot. | video, vo, caption |
+| `selfie-rant-confession` | Selfie-distance confessional rant — single character, direct address, 8-15s. | video, vo, caption |
+| `product-reveal-5s` | Product enters frame fast, big anticipation beat, 3–4s. | video |
+| `caption-pop-each-word` | Karaoke-style word-by-word caption fill in sync with VO syllables. | caption |
+| `music-tension-uptempo` | Modern dark trap instrumental tension bed, 140 BPM, ToS-safe. | music |
+
+50-entry catalog is tracked under 02.0L follow-up; the pattern is stable and new entries land without code changes. The five seeds cover one entry per family — hooks, scene bodies, selfie modes, caption styles, music modes.
+
+## CLI lookup
+
+```bash
+ralphy prompts library lookup --goal "hook for a SaaS video"
+# {
+#   "matches": [
+#     { "slug": "hook-saas-3s", "goal": "Stop the scroll in 3 seconds...",
+#       "score": 0.667, "path": "docs/prompts/library/hook-saas-3s/entry.md" },
+#     { "slug": "selfie-rant-confession", "goal": "...", "score": 0.333, ... }
+#   ]
+# }
+
+ralphy prompts library lookup --goal "music bed under deadpan vo" --limit 3
+ralphy prompts library lookup --goal "captions for storytime"
+```
+
+The scorer is a pure keyword scorer — substring overlap against entry frontmatter + body, no LLM call. Score range 0.0–1.0, returns top-N sorted descending. See `cli/commands/prompts.ts:89` for the implementation.
+
+The companion verb lists the cookbook mode files when you already know the model family:
+
+```bash
+ralphy prompts modes --kind video
+# → kling, luma, pika, runway, sora, veo
+
+ralphy prompts modes --kind voice
+# → calm-narration, deadpan-rant, hype-hook, intimate-reveal, sarcastic-aside
+
+ralphy prompts modes --kind music
+# → deadpan-bg, drop-and-cut, hyper-pop, lofi-narrative, tension-build
+```
+
+## The entry structure
+
+Every library entry is a folder with `entry.md` inside, frontmatter + body. The folder name is the slug.
+
+```
+docs/prompts/library/
+├── hook-saas-3s/
+│   └── entry.md
+├── selfie-rant-confession/
+│   └── entry.md
+├── product-reveal-5s/
+│   └── entry.md
+├── caption-pop-each-word/
+│   └── entry.md
+└── music-tension-uptempo/
+    └── entry.md
+```
+
+### Frontmatter
+
+```yaml
+---
+goal: <one-sentence statement of what this entry achieves>
+applies_to: [image | video | vo | music | caption | transition | motion-graphic]
+tags: [hook, b2b, saas, deadpan, 3s, scroll-stop]
+models_known_good: [kwaivgi/kling-v3.0-pro, google/veo-3.1]
+models_known_bad: [openai/sora-2]
+references:
+  - https://www.tiktok.com/@handle/video/123
+---
+```
+
+Five fields matter:
+
+- **`goal`** — the one-sentence statement the lookup scorer matches against.
+- **`applies_to`** — the modality buckets; filters the lookup.
+- **`tags`** — keywords for the scorer's substring overlap.
+- **`models_known_good` / `models_known_bad`** — which adapters have been validated. Sora is in `bad` for selfie-rant because it doesn't lip-sync; Seedance is in `bad` for photoreal-human anchors.
+- **`references`** — source URLs the entry was extracted from. Provenance.
+
+### Body — Bad / OK / Ideal
+
+Three worked examples, each a complete prompt followed by a one-paragraph explanation of why it lands or doesn't.
+
+```markdown
+## Bad
+
+> "Hey guys! So today I want to talk about productivity hacks…"
+
+**Why it fails:** Greeting + topic-announcement = 2-3 seconds of zero claim.
+The viewer scrolls.
+
+## OK
+
+> "Most productivity advice is wrong."
+
+**Why it's just OK:** It's a claim, but it's vague. "Wrong how?" can't be
+answered before the body — viewer abandons in the 1-3s gap.
+
+## Ideal
+
+> "Most people think discipline beats motivation. They've got it backwards."
+
+**Why it works:** Setup-claim-reversal in 8 words. The "backwards" forces a
+0.5s mental rewind — exactly the dwell signal TikTok's algorithm reads as
+engagement.
+
+## Notes for the adapter
+
+- VO mode: `deadpan-rant`.
+- Caption: `block-2-words` cadence, headline-sized.
+- Video: locked selfie 35mm, no zoom, no cuts.
+```
+
+The Bad / OK / Ideal triplet is doctrinal — the OK rung is what makes the entries useful. Most "prompt galleries" online show only the final prompt, which doesn't teach the rewrite path. The OK shows the most-common almost-right attempt, which is what new prompts actually drift toward.
+
+## How to contribute an entry
+
+1. **Pick a goal that doesn't exist yet.** Run `ralphy prompts library lookup --goal "<your goal>"` and check the top match. If the score is >0.6, you're duplicating; tune the existing entry instead.
+
+2. **Create the folder.**
+
+   ```bash
+   mkdir -p docs/prompts/library/<slug>
+   ```
+
+3. **Write `entry.md`.** Use the frontmatter + Bad / OK / Ideal shape exactly as above.
+
+4. **Verify the lookup picks it up.**
+
+   ```bash
+   ralphy prompts library lookup --goal "<phrase that should match>"
+   # → your slug should appear in matches[]
+   ```
+
+5. **Open a PR.** No code changes needed — the lookup verb reads the directory directly via `readLibraryEntries()` (`cli/commands/prompts.ts:36`).
+
+<Note>
+The `ralphy prompts library register` verb is on the roadmap (02.0L.03) for one-shot scaffold + lint. Until it lands, hand-create the folder and run the lookup to verify.
+</Note>
+
+## When to write a new entry vs tune an existing one
+
+Write a new entry when:
+
+- The **goal** is genuinely different from existing entries. "Hook for B2B SaaS in 3s" and "Hook for DTC confession in 5s" are different goals — different pacing, different register.
+- A **new model family** ships and the entry needs to call out adapter-specific quirks.
+- A **postmortem** surfaces a rule that the existing entries don't carry.
+
+Tune an existing entry when:
+
+- The **Ideal** can be tightened. Replace the example with a stronger one, keep the goal and tags the same.
+- A new **models_known_bad** is discovered. Append to the list with a one-line reason.
+
+## The library vs the cookbook
+
+The library is goal-indexed (`docs/prompts/library/`). The cookbook is model-indexed (`docs/prompts/video/kling.md`, `docs/prompts/voice/deadpan-rant.md`, etc.).
+
+| Layer | Path | When |
+|---|---|---|
+| Library | `docs/prompts/library/` | "What goal am I going for?" — pick this first |
+| Cookbook | `docs/prompts/<modality>/` | "I know the model, what's the per-mode skeleton?" |
+
+Pair them: library entry → matched cookbook mode → final prompt. The art-director playbook step 1 codifies this: read the library entry (goal layer), then the per-model adapter consumes the `NormalizedPrompt` and emits the model-specific syntax automatically (shape layer).
+
+## Related
+
+- [Image prompts](/prompting/image) — the 6-part skeleton library entries are written against
+- [Video prompts](/prompting/video) — same for video
+- [Per-model shaping](/prompting/per-model) — adapter docs that complement the library
+- [Art director playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) — agent flow that reads the library first
+- [`docs/prompts/library/`](https://github.com/alecs5am/ralphy/tree/main/docs/prompts/library) — the entries themselves

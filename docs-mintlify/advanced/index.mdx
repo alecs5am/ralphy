@@ -1,0 +1,66 @@
+---
+title: "Advanced"
+description: "Format specs for everyone authoring against Ralphy — templates, skills, playbooks, schemas."
+---
+
+Specifications for everyone authoring against Ralphy. If you ship a new template, write a skill, draft a playbook, add a model entry, or read project memory from another tool, this section is your contract. Each page documents one format: the field-by-field schema, the lint that enforces it, and a full working example you can copy.
+
+The rest of the docs cover *how to use* Ralphy. This section covers *how to extend* it.
+
+## Pages
+
+<CardGroup cols={2}>
+  <Card title="Models registry" href="/advanced/models-registry">
+    The `MODELS.md` format. Per-section conventions, the per-model matrix tables, lifecycle, and how to add a new entry.
+  </Card>
+  <Card title="Skill format" href="/advanced/skill-format">
+    `SKILL.md` frontmatter contract, body sections, the 1536-char description cap, and the `ralphy` vs `ralphy-dev` namespace split.
+  </Card>
+  <Card title="Template format" href="/advanced/template-format">
+    `template.yaml` Zod schema, the five segment-persona categories, `vibe-reference` vs `vibe-style`, slug rules, and version gating.
+  </Card>
+  <Card title="Playbook format" href="/advanced/playbook-format">
+    `docs/playbooks/<role>.md` structure, sub-doc convention, routing into `AGENTS.md`, and the agents-md lint.
+  </Card>
+  <Card title="Memory schemas" href="/advanced/memory-schemas">
+    The three JSONL logs under `workspace/projects/<id>/logs/`. Append-only contract, field-by-field schema, and read patterns.
+  </Card>
+  <Card title="Asset manifest" href="/advanced/asset-manifest">
+    `asset-manifest.json` slot pointer table, slot-id convention, and how the auto-versioning archive interacts with manifest pointers.
+  </Card>
+</CardGroup>
+
+## How the specs interact
+
+The Ralphy stack has one routing surface (`AGENTS.md`) and four format contracts that hang off it. Read them as a chain:
+
+1. **A request comes in.** `AGENTS.md` routes it to a playbook (`docs/playbooks/<role>.md`). See [Playbook format](/advanced/playbook-format).
+2. **The playbook may invoke a skill.** Skills live under `.agents/skills/<name>/SKILL.md` and are slash-invocable. See [Skill format](/advanced/skill-format).
+3. **The skill or playbook picks a template.** Templates live under `templates/<category>/<slug>/` and declare a `template.yaml`. See [Template format](/advanced/template-format).
+4. **The template names model IDs.** All available models are in `MODELS.md`. See [Models registry](/advanced/models-registry).
+5. **Every generation writes to project memory.** Append-only logs land in `workspace/projects/<id>/logs/`; per-slot pointers land in `asset-manifest.json`. See [Memory schemas](/advanced/memory-schemas) and [Asset manifest](/advanced/asset-manifest).
+
+If you change any one format, the others depend on it. The CI lints in `scripts/lint-*.ts` are the contract between layers — they're the first thing to read when adding a field.
+
+## Working on the specs themselves
+
+The source of truth for each spec lives in the repo:
+
+| Spec | Source files |
+|---|---|
+| Models registry | [`MODELS.md`](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) |
+| Skill format | [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md), [`scripts/lint-skills.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-skills.ts) |
+| Template format | [`cli/lib/schemas/template.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/schemas/template.ts), [`scripts/lint-templates.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-templates.ts) |
+| Playbook format | [`docs/playbooks/README.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/README.md), [`scripts/lint-agents-md.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-agents-md.ts) |
+| Memory schemas | [`cli/lib/gen-log.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/gen-log.ts) |
+| Asset manifest | [`cli/commands/generate.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/commands/generate.ts) (see `Manifest` type + `readManifest` / `writeManifest`) |
+
+When a doc page and the source disagree, the source wins. Open an issue or PR.
+
+## Related
+
+- [Concepts: templates](/concepts/templates) — what a template *is*, before this page tells you the wire format.
+- [Concepts: playbooks & skills](/concepts/playbooks-and-skills) — the routing model, narrated.
+- [Cookbook: new template](/cookbook/new-template) — full walkthrough for shipping one.
+- [Cookbook: new skill](/cookbook/new-skill) — same, for a skill.
+- [Cookbook: new model](/cookbook/new-model) — same, for a `MODELS.md` entry.

@@ -1,0 +1,85 @@
+---
+title: "How to talk to Ralphy"
+description: "Chat is the interface. How phrasing maps to playbooks, with worked utterances and override syntax."
+---
+
+Ralphy isn't a form. It's a chat where every phrase you type maps to a row in a routing table, and that row picks the playbook Ralphy reads before doing anything. Talk to it the way you'd talk to a producer who's about to spend your money — concrete brief, named audience, hard constraints up front. The clearer the brief, the fewer clarifying questions before generation starts.
+
+## The routing table
+
+When you send a message, the first thing Ralphy does is look at [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — a file with one row per intent. Each row names a playbook (a markdown file under `docs/playbooks/`) and the playbook is the script Ralphy follows. No match → Ralphy asks one clarifying question that pins your ask to a row. Multiple matches → Ralphy chains the playbooks in role order (researcher → scenarist → art-director → editor).
+
+You don't have to know the playbook names. You just have to be specific enough that one row beats the others.
+
+## Eight utterances and what they fire
+
+The phrasing on the left triggers the playbook on the right. Mix of English and Russian — both are first-class.
+
+| You say | Ralphy reads |
+|---|---|
+| "Сделай видео про мой новый кофейный сироп" | [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — five questions, draft plan, wait for "go" |
+| "Make me something like this `<tiktok-url>`" | [`ralph-researcher` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-researcher/SKILL.md) → pulls the URL, then intake |
+| "Rewrite scene 3 — punchier hook" | [`scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) |
+| "Regenerate the bottle shot in scene-04, try seedance" | [`art-director.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) |
+| "Render the final cut with loudnorm" | [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) |
+| "Сделай 10 вариантов под этот шаблон" | [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) → `batch create-from-template` |
+| "Is this render ready to ship?" | [`ralph-evaluator` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-evaluator/SKILL.md) — scene-by-scene scoring |
+| "Nothing works, my key is missing" | [`core.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/core.md) → `ralphy doctor` |
+
+The pattern: a new-project brief always hits intake first. A targeted edit ("rework scene 3") skips intake and goes straight to the role that owns that artifact. A render question goes to editor. A "something broken" question goes to core.
+
+## How to phrase a brief
+
+Five things make a brief productive on the first turn. Drop any of them in and Ralphy stops asking.
+
+1. **Audience language** — EN, RU, KR, other. This drives the audio pipeline: Kling's `--audio` flag for English, ElevenLabs for non-English. Chat language is not the same as video language.
+2. **Aspect / platform** — 9:16 TikTok, 16:9 YouTube, 1:1 broadcast-realism. Square is the right call for "caught-on-TV" trends; portrait kills that illusion.
+3. **Brand or named entity** — if the brief names a real person, a recognizable brand product, or a known IP, attach a reference image. Without one, the reference-required gate refuses ([AGENTS invariant #3](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)). Generic work ("my coffee shop's pastry") proceeds without.
+4. **Duration ballpark** — 5-10s test render, 15-30s standard, 60s+ long-form. Most templates document `typicalDurationSec`; the default is 15s if you don't say.
+5. **Hard "no"s** — banned words, no-music policy, brand colors, anything Ralphy should never volunteer.
+
+A good first turn looks like this:
+
+```text
+Make a 15s 9:16 TikTok in Russian for my coffee syrup
+("Cinnamon Cold Brew"). Vibe: cozy autumn UGC selfie review,
+no music, no English captions. Brief is generic — no real
+brand named, just my own product line.
+```
+
+That's all five. Ralphy will confirm the template pick once, draft the storyboard, and wait for "go" before any paid generation.
+
+A bad first turn looks like this:
+
+```text
+make me a tiktok
+```
+
+Ralphy will ask the five questions back. You haven't saved a turn — you've spent one.
+
+## When Ralphy asks clarifying questions
+
+The intake protocol caps real questions at five per turn. Each question names a specific decision and offers a default you can accept ("Decision: aspect. Default: 9:16. Override?"). If the default is fine, say "go" and Ralphy proceeds; if not, override the one decision and Ralphy moves on.
+
+You'll never see "Should I proceed?" or "Just to confirm…" — those are explicitly banned by the intake playbook because they add no information and break the one-beat-at-a-time loop. If Ralphy needs to act, it acts and tells you what it did; if it needs a decision, it asks a real question.
+
+## Explicit overrides
+
+A handful of phrases let you cut through the default cadence.
+
+- **"Skip intake, just generate."** Tells Ralphy you've done this before and don't need the five-question check. Honored for this project only; the next new project still hits intake.
+- **"Use template `<slug>`."** Pins the template choice and skips the `template suggest` step. Same as running `ralphy template use <slug>` yourself.
+- **"Fire the whole batch, don't go one by one."** Switches from the per-scene checkpoint cadence to batch mode for this project. Ralphy notes the preference for that project; it does not generalize across projects.
+- **`--no-ref-consent "<reason>"`** — the only override for the reference-required gate. Passed as a flag on the failing `ralphy generate` call, where `` `<reason>` `` is a short string. Logs `stage: "no-ref-consent"` to `user-prompts.jsonl` so the next session can see you deliberately accepted the quality hit. Detail: [Brands, personas, refs](/working/brand-persona-refs).
+
+## What "developer mode" looks like
+
+If you're running Ralphy as a developer building the CLI itself, every session opens with a bare `ralphy` call that reads your skill profile from `~/.ralphy/user-profile.json`. The `is_developer` badge flips Ralphy into minimal-intake mode: no mini-lectures, raw CLI suggestions, ship-fast defaults. Most readers of this section don't have the badge — you'll get the standard intake. If you want it: contribute a fix, ship a PR, the signal flips on its own.
+
+## Related
+
+- [Starting a project](/working/starting-a-project) — the intake protocol in full
+- [Picking a template](/working/picking-a-template) — `template suggest` and the 54-template menu
+- [Playbooks and skills](/concepts/playbooks-and-skills) — how routing actually works
+- [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the routing contract, 13 invariants
+- [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — the playbook this page paraphrases

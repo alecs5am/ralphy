@@ -1,0 +1,169 @@
+---
+title: "Reviewing and iterating"
+description: "Regen writes a versioned file next to the original. Review variants, promote a winner, never lose work."
+---
+
+The hardest thing about iterating on AI media used to be losing the take you actually liked. You'd regen, the new file would overwrite the old one, and the "we'll just go back to the v1" plan died on the spot. Ralphy fixes this by making the gen-log append-only and the regen flow versioned: every regeneration writes a new file next to the original, the manifest tracks both, and the only way to actually delete an old version is to type the word "delete" with the file path in your hand. This page is the operator's view of that contract.
+
+## The append-only contract
+
+[AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) says it plainly: Ralphy never deletes or overwrites user- or agent-produced artifacts without your explicit request. The rule covers everything under `workspace/projects/<id>/` — assets, renders, logs, prompts, manifests, postmortems, and any reference image you uploaded. Concretely:
+
+- **Regen creates a new version, never overwrites.** A second `ralphy generate` on a slot that already has a file writes `<slot>.v2.<ext>`; a third writes `<slot>.v3.<ext>`, and so on.
+- **`generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl` are append-only by definition.** No "tidy this up" pass ever rewrites them in place.
+- **Failed and rejected generations stay on disk** until you explicitly purge them. The reasoning across sessions depends on the failures still being there.
+- **The only way to clean up is `ralphy project delete <id>`** (registry-aware) or an explicit `rm -rf` you typed yourself with the named path.
+
+This isn't paranoia — it's why the system stops fighting itself. The reasoning chain that picks "use the v2 take of scene-03" depends on v1, v2, and v3 all still being on disk.
+
+For the [Generation log](/concepts/generation-log) detail (JSONL schemas, retention, parsing), see the concepts page.
+
+## What regen actually does
+
+Run `ralphy generate` on a slot that already exists, and three things happen:
+
+1. The new file lands at `<slot>.v<N>.<ext>` where `N` is the next free version number. The previous file stays exactly where it was.
+2. A new entry appends to `workspace/projects/<id>/logs/generations.jsonl` with the new path, the model, the cost, the latency, and any `--note` you passed.
+3. `asset-manifest.json` updates so the slot's `path` field points at the new file. The old version still exists on disk; it's just no longer the active pointer.
+
+The shape on disk after three regens of `scene-03-vid`:
+
+```text
+workspace/projects/syrup-001/assets/
+  scene-03-vid.mp4       ← original, generated 2026-05-19T14:32
+  scene-03-vid.v2.mp4    ← first regen, 2026-05-19T15:01
+  scene-03-vid.v3.mp4    ← second regen, 2026-05-19T15:14
+```
+
+The manifest now points at `v3`. The render pipeline will pick up `v3` on the next `ralphy render` unless you tell it otherwise.
+
+## The `--force-overwrite` flag
+
+Every `generate` sub-verb takes `--force-overwrite`. It bypasses the auto-versioning and writes in place — the old file is gone, no recovery. You almost never want this. The two cases that justify it:
+
+- **Reproducing a known issue** — you want the exact same slot name to land at the exact same path because a downstream test depends on the file name.
+- **Manual cleanup after an experiment** — you've already saved the version you wanted somewhere else and you want the slot back to a clean v1.
+
+<Warning>
+  `--force-overwrite` does not log a special marker. The gen-log still appends the new entry, but the file the old entry pointed at is gone. If you didn't mean to overwrite, the only recovery path is whatever your shell history or backup gives you. Default is the safe path; the flag exists for the cases where the safe path is in your way.
+</Warning>
+
+## Reviewing variants
+
+List the slot versions for a project:
+
+```bash
+ralphy project show syrup-001 --assets
+```
+
+```json
+{
+  "slots": {
+    "scene-03-vid": {
+      "kind": "video",
+      "path": ".../scene-03-vid.v3.mp4",
+      "model": "bytedance/seedance-2.0",
+      "costUsd": 0.42,
+      "generatedAt": "2026-05-19T15:14:02.118Z"
+    }
+  }
+}
+```
+
+The manifest only shows the active pointer. To see every version of a slot on disk, list the assets directory:
+
+```bash
+ls workspace/projects/syrup-001/assets/scene-03-vid*
+# → scene-03-vid.mp4
+# → scene-03-vid.v2.mp4
+# → scene-03-vid.v3.mp4
+```
+
+To see the full history (every gen call, every cost, every note), use the log:
+
+```bash
+ralphy project log syrup-001 --type generations --limit 20
+```
+
+Filter to one slot with `jq`:
+
+```bash
+ralphy project log syrup-001 --type generations --limit 200 \
+  | jq '. | select(.slot == "scene-03-vid")'
+```
+
+Detail in [Logs and costs](/working/logs-and-costs).
+
+## Generating parallel variants
+
+For image gens, the `--variants <N>` flag generates N parallel takes from the same prompt, writing them as `<slot>-v1.png`, `<slot>-v2.png`, …, `<slot>-vN.png` (capped at 8). Useful for A/B exploration without retyping the prompt three times.
+
+```bash
+ralphy generate image \
+  --project syrup-001 \
+  --slot scene-02-bg \
+  --prompt "Anna pours syrup into iced coffee, autumn light" \
+  --ref ./assets/persona-master.png \
+  --variants 4
+```
+
+Output:
+
+```json
+{
+  "variants": 4,
+  "totalCostUsd": 0.16,
+  "slots": [
+    { "slot": "scene-02-bg-v1", "path": ".../scene-02-bg-v1.png", "model": "google/gemini-3-pro-image-preview", "costUsd": 0.04 },
+    { "slot": "scene-02-bg-v2", "path": ".../scene-02-bg-v2.png", "model": "google/gemini-3-pro-image-preview", "costUsd": 0.04 },
+    { "slot": "scene-02-bg-v3", "path": ".../scene-02-bg-v3.png", "model": "google/gemini-3-pro-image-preview", "costUsd": 0.04 },
+    { "slot": "scene-02-bg-v4", "path": ".../scene-02-bg-v4.png", "model": "google/gemini-3-pro-image-preview", "costUsd": 0.04 }
+  ]
+}
+```
+
+Note: variants land as separate slots (`scene-02-bg-v1` etc.), not as `.vN` archives of one slot. They coexist in the manifest, and you pick a winner with a follow-up command.
+
+## Promoting a winner
+
+Variant slots stay separate until you tell Ralphy which one is canonical. The "promotion" is a deliberate, explicit step — Ralphy never picks a winner for you, and never moves files behind your back. You have two paths:
+
+- **Tell the agent.** "Use `scene-02-bg-v3` as the canonical scene-02-bg." The agent rewrites the manifest pointer for `scene-02-bg` to the v3 path and proceeds.
+- **Re-issue the generate** with the chosen variant's prompt and let it land as the canonical slot. Slower but explicit.
+
+Either way, the losing variants stay on disk. You explicitly opted them out of the render; you didn't delete them.
+
+## When to stop iterating
+
+[AGENTS invariant #4](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) is the brake: quality gates refuse, they don't warn. Ralphy runs `scoreScenario`, `scoreImage`, and `scoreVideo` on every artifact. **If a gate fails twice in a row on the same slot**, the playbook says stop. Don't burn a third call hoping the prompt finally clicks; report concrete options to the user.
+
+The same rule applies to regen-by-feel. The art-director playbook documents the pattern explicitly: one retry on the same approach, max. If the second attempt also misses, redesign the scene instead of fighting model drift. The glitter-cream postmortem documented a $0.84 + 20-minute fight between "jar near cheek" and "powder compact" that ended only when the scene was reframed. Pattern recognition matters more than persistence.
+
+Concrete signals that the answer is "redesign", not "retry":
+
+- The model keeps drifting toward a basin that isn't your prompt (a jar becomes a powder compact; a couch becomes a different couch).
+- The same artifact keeps appearing across regens (a sixth finger, a malformed brand logo, a melting eye).
+- The cost is climbing without the quality climbing.
+- The user has flagged the same miss twice.
+
+Switch the model, switch the framing, switch the camera vocabulary — or hand back to the scenarist to rework the beat itself.
+
+## Cleanup, when you actually mean it
+
+The only path to delete an old variant is to ask for it by name with explicit "delete" / "remove" / "wipe" / "удали" / "снеси" language. The CLI doesn't have a `ralphy asset clean` verb because it would be too easy to lose work by accident. If you want to remove `scene-03-vid.v2.mp4` and keep `v1` and `v3`, run an explicit `rm`:
+
+```bash
+rm workspace/projects/syrup-001/assets/scene-03-vid.v2.mp4
+```
+
+The manifest still tracks the v3 pointer; the gen-log still has the entry for the v2 call. The file is gone but the history is intact. That's by design — the cost rollup and the reasoning chain don't depend on the file existing, just on the log entry.
+
+For a clean slate on a whole project, `ralphy project delete <id>` is registry-aware: it removes the project from `workspace/projects/`, drops it from the registry, and (optionally) preserves the final render via `--keep-render`.
+
+## Related
+
+- [Generating assets](/working/generating-assets) — the `generate` sub-verbs that produce these files
+- [Rendering](/working/rendering) — what the manifest feeds into
+- [Generation log](/concepts/generation-log) — JSONL schemas
+- [Asset manifest](/advanced/asset-manifest) — the manifest schema in full
+- [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — invariants #4 (quality gates) and #13 (append-only)

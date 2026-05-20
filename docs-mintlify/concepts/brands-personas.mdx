@@ -1,0 +1,149 @@
+---
+title: "Brands and personas"
+description: "Reusable identity entities: who the video is from, and who is in it."
+---
+
+A **brand** is who the video is from. A **persona** is who is *in* the video. Both are reusable JSON entities that attach to projects — you define them once, then refer to them by ID across every project you make for the same client, the same product line, or the same recurring character. They live under `workspace/.ralph/brands/` and `workspace/.ralph/personas/`, and the same generation pipelines read them.
+
+## Brand vs. persona
+
+The distinction lands inside the first scene.
+
+- A **brand** is the *sender*. Logo, palette, tone of voice, target audience, hard "no"s. If the project is for "Old Spice," the brand carries Old Spice's name, brand-safe color cues, the irreverent-confident tone, and the audience profile (urban 18-35 male). The brand never appears as a face on-screen — it is the *register* the whole video sits in.
+- A **persona** is the *protagonist*. A specific on-screen character with a face, a voice, a wardrobe, and an attitude. "Founder Megan, the warm-but-direct CEO who narrates the testimonial." "Tralalero Tralala, the AI-generated shark with the gibberish Italian VO." "The deadpan 2-hander pair from `@americanbaron`." Personas carry photo refs (master shots) that the agent passes via `--ref` on every i2v generation to lock identity (see [`feedback_super_original_refs.md`](https://github.com/alecs5am/ralphy/blob/main/profiles/ )-style memory entries).
+
+When the user says "I want a video for my coffee shop," the *coffee shop* is the brand. When the user says "the founder should narrate it on camera," the *founder* is a persona attached to that brand.
+
+## The brand JSON
+
+`workspace/.ralph/brands/<id>.json`:
+
+```json
+{
+  "id": "my-coffee-shop",
+  "name": "Lumen Coffee",
+  "tone": "warm-but-direct, founder-narrated, lightly self-deprecating",
+  "audience": "urban 25-40 specialty-coffee curious, weekday-morning regulars",
+  "palette": {
+    "primary": "#2A1A0F",
+    "accent": "#D4A574",
+    "background": "#F5EDE0"
+  },
+  "logo": "workspace/.ralph/brands/my-coffee-shop/logo.svg",
+  "do_not": [
+    "no stock-coffee-bean macro shots",
+    "no oversaturated yellow latte art",
+    "do not call the espresso 'rich and bold'"
+  ],
+  "voice_refs": ["workspace/.ralph/refs/founder-megan-vo/megan-sample.mp3"],
+  "notes": "Founder is the narrator. Real shop in Brooklyn — locations are real."
+}
+```
+
+Three fields do most of the work:
+
+- **`tone`** and **`audience`** seed the scenarist's voice. The scenarist playbook reads these before drafting beats.
+- **`do_not`** is the highest-leverage field. Concrete refusals — "no stock-coffee-bean macro shots" — kill the most common AI drift modes in one line. Always populate this with the postmortem-learned anti-patterns from sibling projects.
+- **`palette`** is consumed at editor-stage for caption colors, lower-thirds, and any on-screen typography. The image generators receive palette hints as part of the prompt, but the editor is where it lands hard.
+
+## The persona JSON
+
+`workspace/.ralph/personas/<id>.json`:
+
+```json
+{
+  "id": "founder-megan",
+  "name": "Megan Park",
+  "role": "founder",
+  "description": "Late-30s, warm-but-direct CEO. Reading-glasses on a chain, denim shirt, no makeup.",
+  "master_shots": [
+    "workspace/.ralph/refs/persona-founder-megan/master-01.png",
+    "workspace/.ralph/refs/persona-founder-megan/master-02.png"
+  ],
+  "voice": {
+    "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",
+    "language": "en",
+    "style": "warm, conversational, slight upspeak"
+  },
+  "wardrobe_lock": "denim button-down, silver hoop earrings, reading-glasses chain",
+  "anti_drift": [
+    "do not enlarge eyes",
+    "do not smooth nasolabial folds",
+    "no beauty-filter jawline"
+  ]
+}
+```
+
+The fields that matter for identity-lock:
+
+- **`master_shots`** is the photo-reference list. The agent passes one or more of these via `--ref` on every i2v call. Without master shots, the model invents a new face every scene.
+- **`wardrobe_lock`** is the prose lock. Restated inside every keyframe prompt to keep clothing consistent across scenes.
+- **`anti_drift`** is the personal version of the brand's `do_not`. The Sony A7 IV / Portra 400 photoreal register cited in `noski-people-001`'s postmortem is held in part by these refusals (see [`feedback_photoreal_still_register`](https://github.com/alecs5am/ralphy/blob/main/profiles/ )).
+- **`voice.elevenlabs_voice_id`** locks the VO. The voiceover stage reads this directly.
+
+## Generic role vs. named persona
+
+Not every video needs a persona JSON. If the scenario calls for "a barista" or "the founder" without naming a specific person, the agent treats it as a generic archetype — the ref-required gate does not fire (see [`cli/lib/eval/refs.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/eval/refs.ts), the `GENERIC_ARCHETYPE_TOKENS` set: `barista`, `founder`, `ceo`, `engineer`, `teacher`, ...). The first generation pass picks a face, the master shots get saved off, and the project locks identity from there.
+
+If the scenario names a *specific real human* ("Elon Musk," "Beyoncé"), that is a ref-required case (gate kind `person`) — see [`/concepts/references`](/concepts/references). A persona JSON does not satisfy that gate unless it has photo refs from the actual person.
+
+## When to use which
+
+A simple table.
+
+| Situation | Brand? | Persona? |
+|---|---|---|
+| One-off "make a video about X" — no recurring identity | optional | no |
+| Client work with a recurring product line | yes | sometimes (if a founder / customer recurs) |
+| A creator account with one recurring on-camera face | yes (creator's brand) | yes (the creator's face) |
+| Italian Brainrot meme project — Tralalero | no (no consistent brand voice across memes) | yes (Tralalero, with master shots from the asset catalog) |
+| Brand testimonial with a different customer each time | yes | no (each customer is one-off, fresh face per project) |
+| A two-hander recurring duo | yes (the channel's brand) | yes — one persona per character |
+
+Brands are cheap to define and pay back across every project for that client. Personas are more expensive to define well (good master shots take a beat) but pay back in identity-lock across multi-scene videos.
+
+## Attaching to a project
+
+```bash
+ralphy project attach <project-id> --brand my-coffee-shop
+ralphy project attach <project-id> --persona founder-megan
+```
+
+Once attached, the scenarist reads the brand's `tone` and `do_not`, the art-director reads the persona's `master_shots` and feeds them into every i2v call as `--ref`, and the editor reads the brand `palette` for caption styling.
+
+You can attach **one brand and multiple personas** to a project. A "founder talks to customer" two-hander has the channel brand plus two personas. A pure object-drama project (anthropomorphic fruit) has a brand but no personas.
+
+## CRUD verbs
+
+```bash
+ralphy brand create <id>          # interactive
+ralphy brand list                 # all known brands
+ralphy brand show <id>            # full JSON
+ralphy brand update <id> --tone "..." --do-not "..."
+ralphy brand delete <id>          # confirms
+
+ralphy persona create <id>        # interactive
+ralphy persona list
+ralphy persona show <id>
+ralphy persona update <id> --voice-id "..." --master-shot path/to/file.png
+ralphy persona delete <id>
+```
+
+The CRUD verbs use the same JSON files — `ralphy brand create` writes `workspace/.ralph/brands/<id>.json` and `ralphy brand update` mutates it. Editing the JSON by hand is allowed; the CLI re-reads on every project attach.
+
+## Brand voice vs. persona voice
+
+Two registers, often conflated.
+
+- **Brand voice** is how the *narration* sounds when the brand speaks — the tone of the voiceover, the on-screen text, the captions. It lives in the brand's `tone` field. A confident-irreverent brand voice produces "We make coffee that doesn't suck" captions; a warm-direct brand voice produces "Most mornings, you just need a good cup."
+- **Persona voice** is how a *specific character* sounds when they speak on camera. It lives in the persona's `voice.elevenlabs_voice_id` and `voice.style`. The same brand can have a confident-irreverent brand voice and a warm-but-direct persona voice — the founder narrates softly inside an irreverent surrounding cut.
+
+When the agent is drafting VO, it asks: is this line *the brand speaking* (use brand voice — generic stock VO) or *a persona speaking* (use the persona's locked voice ID)?
+
+## Related
+
+- [Projects](/concepts/projects) — how brands and personas attach to a project
+- [References](/concepts/references) — when a persona JSON does not satisfy the ref-required gate
+- [Asset catalog](/concepts/asset-catalog) — for personas built from companion-repo characters (Italian Brainrot etc.)
+- [Scenarist playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) — reads brand `tone` and `do_not` before drafting beats
+- [Art-director playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) — passes persona `master_shots` via `--ref`

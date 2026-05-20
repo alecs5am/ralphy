@@ -1,0 +1,54 @@
+---
+title: "CLI overview"
+description: "Every ralphy command, grouped by what you're trying to do."
+---
+
+`ralphy` is the main CLI. Once installed, it works from any folder — it locates the project via
+`~/.config/ralphy/config.json` or by walking up from `cwd`.
+
+```bash
+ralphy --help
+```
+
+## Quick reference
+
+<CardGroup cols={2}>
+  <Card title="ralphy setup" icon="wand-magic-sparkles" href="/cli/setup">
+    Interactive wizard — keys, profiles, project link.
+  </Card>
+  <Card title="ralphy doctor" icon="stethoscope">
+    JSON env check — keys, deps, blockers.
+  </Card>
+  <Card title="ralphy project" icon="folder" href="/cli/project">
+    List, show, log every render in your workspace.
+  </Card>
+  <Card title="ralphy template" icon="palette" href="/cli/template">
+    Browse and instantiate visual styles.
+  </Card>
+  <Card title="ralphy profile" icon="users" href="/cli/profile">
+    Import + export community workspaces.
+  </Card>
+  <Card title="ralphy status -p" icon="signal">
+    Color summary of keys and providers.
+  </Card>
+</CardGroup>
+
+## Inside the project root
+
+If you cloned the repo and have Bun installed, every command is also available via `bun run`:
+
+```bash
+bun run dev                   # Remotion Studio
+bun run setup                 # = ralphy setup
+bun run doctor                # = ralphy doctor
+bun run ralphy -- <args>      # = ralphy <args>
+bun run lint                  # eslint + tsc
+```
+
+## CI / non-interactive
+
+The wizard needs a TTY. In CI, link the project explicitly and read the JSON status:
+
+```bash
+ralphy setup --link "$PWD" --status
+```

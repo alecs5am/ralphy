@@ -1,0 +1,42 @@
+---
+title: "ralphy setup"
+description: "Setup wizard — API keys, profiles, dev services"
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy setup [options]
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--status` | Print capability status as JSON and exit (no TUI) |
+| `--link <path>` | Link ralphy to a project directory (global config) |
+| `--unlink` | Remove the global project link |
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--status` | Print capability status as JSON and exit (no TUI) |
+| `--link <path>` | Link ralphy to a project directory (global config) |
+| `--unlink` | Remove the global project link |
+| `--non-interactive` | Agent / CI mode: never prompt, never open a TUI, emit a JSON summary (default: false) |
+| `-y, --yes` | Alias for --non-interactive (default: false) |
+| `--openrouter-key <key>` | Set OPENROUTER_API_KEY (use `-` to read from stdin). Implies --non-interactive |
+| `--elevenlabs-key <key>` | Set ELEVENLABS_API_KEY (use `-` to read from stdin). Implies --non-interactive |
+| `--keys-from-env` | Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from the current process env. Implies --non-interactive (default: false) |
+| `--project-dir <path>` | Link ralphy to this project directory before configuring keys. Implies --non-interactive |
+| `--import-profile <names>` | Comma-separated profile names to import (additive, safe to re-run) (default: []) |
+| `--no-verify` | Skip API ping verification when saving keys |
+| `--allow-unverified` | When --verify is on (default) and a key fails to verify, save it anyway and exit 0 (default: false) |
+| `-h, --help` | display help for command |
+
+</Expandable>

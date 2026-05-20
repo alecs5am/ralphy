@@ -1,0 +1,77 @@
+---
+title: "Examples"
+description: "ralphy example list and pull — import full example projects from ralphy-assets."
+---
+
+`ralphy example` pulls complete reference projects from the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo and lands them under `workspace/projects/<as>/`. Templates give you the shape; examples give you a working project, end-to-end, with assets and logs already populated. Use them for visual regression baselines, agent fine-tuning fodder, or as the starting point for a tweak-it-from-here variant.
+
+## ralphy example list
+
+```bash
+ralphy example list
+ralphy example list --template italian-brainrot
+ralphy example list --refresh
+```
+
+Returns `{ manifestUpdated, examples: [{ id, template, sizeMB, via, description }] }`. The size column matters — examples can be 80–400 MB depending on render length and whether refs are included.
+
+## ralphy example pull &lt;example-id&gt;
+
+Downloads the tarball, SHA-256 verifies, extracts into `workspace/projects/<as>/`, and registers the new project in `registry.json`.
+
+```bash
+ralphy example pull italian-brainrot-001 --as my-test-001
+```
+
+The `--as <project-id>` flag is required — you pick the local id. The verb refuses if the destination already exists; pick a different `--as` to retry.
+
+## What lands on disk
+
+An extracted example is a regular project, identical in shape to one you'd create from scratch:
+
+```text
+workspace/projects/my-test-001/
+├── BRIEF.md
+├── scenario.json
+├── prompts.json
+├── asset-manifest.json
+├── composition-props.json
+├── assets/
+│   ├── images/
+│   ├── videos/
+│   ├── voiceover/
+│   ├── music/
+│   └── captions/
+├── render/
+│   └── final.mp4
+├── logs/
+│   ├── generations.jsonl
+│   ├── user-prompts.jsonl
+│   └── user-assets.jsonl
+└── TEMPLATE_ORIGIN.md
+```
+
+The `from_example` field on the registry entry records the source, so future `project show` tells you where the project came from.
+
+## Examples vs. templates
+
+| | Template | Example |
+|---|---|---|
+| What you get | shape only (composition + prompt scaffolding) | a populated project |
+| Size | KB | MB to hundreds of MB |
+| Use when | building a new project in a known format | want a known-good render to compare against |
+| Mutability | typed via `template use` | edit freely after `example pull` |
+| Storage | `templates/` (repo) or `workspace/templates/` | `workspace/projects/<id>/` |
+
+If you want to start from a known-good render and iterate, pull the example. If you want to start from scratch in a known format, use the template.
+
+## Caching
+
+Tarballs cache under `workspace/.ralph/asset-cache/examples/`. A second pull of the same id (with a different `--as`) reuses the cached download. Wipe with `ralphy assets clean`.
+
+## Related
+
+- [Templates](/cli/templates) — the shape-only counterpart
+- [Assets](/cli/assets) — the broader companion-repo flow
+- [Project verbs](/cli/project-verbs) — what you do with the extracted project
+- [cli/commands/example.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/example.ts)

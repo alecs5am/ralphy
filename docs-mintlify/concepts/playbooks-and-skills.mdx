@@ -1,0 +1,138 @@
+---
+title: "Playbooks and skills"
+description: "Playbooks are role docs the agent reads on demand. Skills are slash-invocable workflows."
+---
+
+Ralphy's agent intelligence lives in two layers. **Playbooks** are role and domain instruction docs under `docs/playbooks/*.md` — the agent reads them on demand when the routing table in [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) matches a user intent. **Skills** are slash-invocable workflows under `.agents/skills/<name>/SKILL.md` — narrow, deterministic, with a single CLI command and a defined input → output contract. Both exist for the same reason: keep the agent from improvising on topics where the codebase already has a known-good answer.
+
+## Playbooks
+
+A playbook is a plain Markdown file. No frontmatter, no slash-command, no skill activation. It is read by the agent via the `Read` tool after `AGENTS.md` routing matches an intent. The eleven playbooks today:
+
+| Playbook | When it fires |
+|---|---|
+| [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) | New project request — captures the brief in 3-5 questions before any paid generation |
+| [`scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) | "write a script", "make a video about X", scenario feedback ("rework scene 3", "tighten VO") |
+| [`art-director.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) | "generate prompts / assets", "make images / video / VO / music", model swap, A/B variants |
+| [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) | "compose the video", "render", captions, transitions, audio mix, Remotion code edits |
+| [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) | End-to-end, batch (N ≥ 3), "save as template", profile export / import |
+| [`researcher.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/researcher.md) | URL drop, "style from `<site>`", "analyze @handle", competitor audit |
+| [`core.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/core.md) | `ralphy doctor`, "nothing works", "read logs", any CLI usage question |
+| [`ralphy-install.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/ralphy-install.md) | Fresh machine, `which ralphy` empty |
+| [`remotion.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/remotion.md) | Remotion API details — captions, transitions, audio, ffmpeg, animation |
+| [`meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) | Start-of-session discipline — read once per session |
+| [`README.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/README.md) | Catalogue / index of all playbooks |
+
+Each playbook starts with **"Read this when:"** so the agent confirms the match before diving in. Each lists its **Sub-docs** at the top — for example, `researcher.md` points at `researcher/yt-dlp.md` and `researcher/tiktok-extract.md` for tool-specific deep-dives. The agent reads sub-docs on demand once the sub-task is identified.
+
+The rule from [`docs/playbooks/meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) rule 6: **when the agent feels "I know how to do this, I'll skip the read" — that feeling is the bug.** Across 10 shipped postmortems, confidence-without-reading was the highest-cost failure mode. The cost of reading is ~10 seconds; the cost of being wrong is $1-50 + 30-90 minutes of user-flagged cleanup.
+
+## The routing table
+
+The routing table in [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) maps user intent to a playbook. A simplified excerpt:
+
+| User intent | Playbook |
+|---|---|
+| New project request, brief with > 1 unknown | `intake.md` — fires before any other playbook |
+| URL drop, "analyze @handle", "what's trending in X" | `researcher.md` (and the `/ralph-researcher` skill) |
+| "write a script", scenario feedback | `scenarist.md` |
+| "generate prompts / assets", model swap | `art-director.md` |
+| "compose the video", "render", "captions" | `editor.md` (then `remotion.md` for API specifics) |
+| End-to-end, batch (N ≥ 3), "save as template" | `producer.md` |
+| "evaluate / score / QA" a rendered mp4 | `/ralph-evaluator` skill |
+| `ralphy doctor`, CLI usage question | `core.md` |
+
+**Composition.** A request that spans roles is a chain in role order. "Make a video in the style of `<url>` for `<brand>`" → researcher → scenarist → art-director → editor. The producer playbook is the wrapper for end-to-end.
+
+**Batch (N ≥ 3).** Always producer → `batch from-template`. Never a hand-rolled loop.
+
+The full table lives in [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) and is auto-imported into the system prompt by `CLAUDE.md`, so it is always in context.
+
+## Skills
+
+A skill is a folder under `.agents/skills/<name>/` with a single `SKILL.md` that follows the [agentskills.io](https://agentskills.io) convention: YAML frontmatter + Markdown body. The frontmatter is the trigger contract (the `description` renders in Claude Code's slash-command menu); the body is the playbook the agent reads once the skill fires.
+
+The seven skills today, in the order they appear under `.agents/skills/`:
+
+| Skill | Namespace | Input → Output |
+|---|---|---|
+| [`ralph-evaluator`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-evaluator/SKILL.md) | `ralphy` | rendered mp4 → `eval.json` + `eval-report.md` |
+| [`ralph-researcher`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-researcher/SKILL.md) | `ralphy` | URLs / handles / topic → `report.md` + `sources.json` |
+| [`ralph-templater`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-templater/SKILL.md) | `ralphy` | shipped project → vibe-reference template under `templates/<category>/<slug>/` |
+| [`ralphy-install`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-install/SKILL.md) | `ralphy` | fresh machine → installed binary, configured keys, working `ralphy doctor` |
+| [`release`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/release/SKILL.md) | `ralphy-dev` | main-branch HEAD → new GitHub Release + brew + npm publication |
+| [`remotion-best-practices`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/remotion-best-practices/SKILL.md) | `ralphy-dev` | Remotion API question → topic-specific sub-doc |
+| [`skill-creator`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/skill-creator/SKILL.md) | `ralphy-dev` | "create a skill" → new SKILL.md scaffolded and lint-clean |
+
+The skill body follows a conventional section order — `## Trigger`, `## Hard invariants`, `## Workflow`, `## Outputs`, `## Cookbook` — see [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) for the authoring guide.
+
+## Two namespaces
+
+Skills ship in two namespaces:
+
+| Namespace | Audience | Examples |
+|---|---|---|
+| `ralphy` | end users | `ralph-evaluator`, `ralph-researcher`, `ralph-templater`, `ralphy-install` |
+| `ralphy-dev` | maintainers / contributors | `release`, `remotion-best-practices`, `skill-creator` |
+
+The install wizard (`ralphy skill install`) installs the `ralphy` set by default. `ralphy skill install --dev` opts into the maintainer set. The split exists so a tester running `/<TAB>` on a fresh install does not see `/release` (which ships the binary, not the user's project) or `/skill-creator` (a maintainer authoring tool).
+
+A skill in `ralphy-dev` ships through the same lint and installer plumbing as `ralphy` — it is the same format, just gated behind the `--dev` flag in the installer.
+
+## Playbooks vs. skills
+
+The two layers solve different problems.
+
+**Playbooks** are *role docs*. They are read by the agent when a user intent matches a row in the routing table. They cover roles (`scenarist`, `art-director`, `editor`, `producer`, `core`) and domains (`remotion`, `intake`). No frontmatter, no activation contract — they are just Markdown the agent reads.
+
+**Skills** are *workflows*. They have a deterministic input → output contract and a single CLI command. They are slash-invocable (`/ralph-evaluator <path.mp4>`) and they produce specific artifacts on disk. The agent invokes a skill when the user types the slash command, or when the routing table points the agent at a skill (e.g. "evaluate this video" → `/ralph-evaluator`).
+
+The old role-shim skills (`ralph-art-director`, `ralph-core`, `ralph-editor`, `ralph-producer`, `ralph-scenarist`) were removed in favor of direct routing via `AGENTS.md` → playbooks. If you need to invoke a role, you say the role-utterance ("compose the video") and the routing picks the right playbook. You no longer need a slash command for the everyday flow.
+
+## When to write a playbook vs. a skill
+
+The decision tree:
+
+- **Write a playbook** when the work is a *role* the agent plays (writing scripts, generating prompts, composing videos). Playbooks branch — the same playbook handles many sub-tasks. The producer playbook handles end-to-end *and* batch *and* save-as-template — three different sub-tasks, one role.
+- **Write a skill** when the work is a *workflow* with a single artifact (URL → research report, mp4 → eval report, project → template). Skills are linear — input → workflow → output. They have a slash command. They have hard invariants enforced by the skill body.
+
+A red flag for the wrong choice: a skill that branches into "now you decide what to do next" is probably a playbook. A playbook that ends "produce this specific artifact at this specific path" is probably a skill.
+
+## The agent's start-of-session discipline
+
+From [`docs/playbooks/meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md), five files to read at session start:
+
+1. `AGENTS.md` — auto-loaded by `CLAUDE.md`.
+2. `MODELS.md` — checked before every model call.
+3. `CLI.md` — verb / flag reference cheatsheet.
+4. The closest sibling postmortem under `workspace/projects/<id>/postmortem/02-lessons.md`.
+5. The matched playbook from `AGENTS.md` routing — read fully before acting.
+
+The closest-sibling postmortem rule is the highest-leverage 10 minutes of a session. Sibling = same template kind, same category, same aesthetic register. Reading the lessons file from the closest prior project saves $5-20 of regen burn that would otherwise rediscover the same lessons.
+
+## Adding a new playbook or skill
+
+For a new playbook:
+
+1. Drop a `docs/playbooks/<role>.md` file. Start with **"Read this when:"** so the agent can confirm the match.
+2. List sub-docs at the top with a "When to read it" column.
+3. Add a row to the routing table in `AGENTS.md` mapping intent to the new playbook.
+4. (Optional) Add canonical utterances to [`docs/use-cases.md`](https://github.com/alecs5am/ralphy/blob/main/docs/use-cases.md).
+
+For a new skill:
+
+1. Create `.agents/skills/<name>/SKILL.md` with valid frontmatter (`name`, `description` ≤ 1536 chars).
+2. Pick a namespace — `ralphy` for user-facing, `ralphy-dev` for maintainer-only.
+3. Follow the section order — `## Trigger`, `## Hard invariants`, `## Workflow`, `## Outputs`, `## Cookbook`.
+4. Run `bun run lint:skills` — CI runs the same lint.
+5. Add a row to the routing table in `AGENTS.md` if the skill should fire from a user-intent match.
+
+See [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) for the full skill authoring guide, including the "writing a great description" section that covers the 1536-char trigger budget.
+
+## Related
+
+- [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the routing contract that points at every playbook and skill
+- [`docs/playbooks/README.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/README.md) — the playbook catalogue
+- [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) — the skill authoring guide
+- [`docs/playbooks/meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) — start-of-session discipline
+- [`/advanced/skill-format`](/advanced/skill-format) — the frontmatter contract reference

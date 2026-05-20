@@ -1,0 +1,48 @@
+---
+title: "ralphy clone"
+description: "Lift the style of a public clip into a reusable template. Chains ref pull → frames → analyze → blueprint → template create."
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy clone [options] <url-or-ref>
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--as-template <id>` | Output template id (default: derived from source slug) |
+| `--strict-look` | Mirror palette + grading + hook in the blueprint |
+| `--prompt-only` | Skip music / voice extraction (faster; visual prompts only) |
+
+**Example**
+
+```bash
+ralphy clone https://tiktok.com/@x/video/72939...
+```
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--as-template <id>` | Output template id (default: derived from source slug) |
+| `--strict-look` | Mirror palette + grading + hook in the blueprint |
+| `--prompt-only` | Skip music / voice extraction (faster; visual prompts only) |
+| `--analyze-model <id>` | Vision model id for frame analysis (default google/gemini-2.5-flash) |
+| `-h, --help` | display help for command |
+
+**All examples**
+
+```bash
+ralphy clone https://tiktok.com/@x/video/72939...
+ralphy clone https://www.instagram.com/reel/Cabc123 --as-template winter-vibe-002
+ralphy clone existing-ref-slug --strict-look --prompt-only
+```
+
+</Expandable>

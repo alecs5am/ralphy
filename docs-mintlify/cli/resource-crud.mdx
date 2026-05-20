@@ -1,0 +1,106 @@
+---
+title: "Resource CRUD"
+description: "The unified create / list / show / update / delete shape that brand, persona, ref, template, asset, batch, and friends all share."
+---
+
+Most ralphy resources follow the same five-verb shape: `create`, `list`, `show <id>`, `update <id>`, `delete <id>`. Once you know how `brand` works you know how `persona`, `ref`, `template`, `batch`, `asset`, `workspace`, `profile`, and `config` work. This page documents the contract; the auto-gen reference covers per-resource flags.
+
+## The shape
+
+```bash
+ralphy <resource> create [--flags]
+ralphy <resource> list [--filters]
+ralphy <resource> show <id>
+ralphy <resource> update <id> [--flags]
+ralphy <resource> delete <id>
+```
+
+Every CRUD verb returns JSON by default and pretty-prints on TTY. `delete` removes both the on-disk file and the registry entry.
+
+## Worked example: brand
+
+```bash
+# Create
+ralphy brand create \
+  --name "Acme Dental" \
+  --voice-tone "deadpan-professional" \
+  --do "real product, clean countertop" \
+  --dont "claymation, neon"
+
+# List
+ralphy brand list
+
+# Inspect one
+ralphy brand show acme-dental
+
+# Update — additive: pass only the fields you want to change
+ralphy brand update acme-dental --voice-tone "deadpan-quirky"
+
+# Delete (registry-aware)
+ralphy brand delete acme-dental
+```
+
+The same pattern applies to every resource below. Use `ralphy <resource> --help` for the create-time flag set; the [auto-gen reference](/reference/cli/setup) has the full surface.
+
+## Resource map
+
+| Resource | Storage | Purpose |
+|---|---|---|
+| `brand` | `workspace/.ralph/brands/<id>.json` | Voice, do/don't, lockup, palette |
+| `persona` | `workspace/.ralph/personas/<id>.json` | Character archetype + signature delivery |
+| `ref` | `workspace/.ralph/refs/<id>.json` + `workspace/references/<slug>/` | Source clips and analysis artifacts |
+| `template` | `templates/<id>/` (repo) and `workspace/templates/<id>/` (local) | Vibe-reference or vibe-style blueprints |
+| `batch` | `workspace/batches/<id>/` | N projects from one template, see [Working: batches](/working/batches) |
+| `asset` | `workspace/.ralph/assets/<id>.json` | Tracked file references (uploaded refs, lookups) |
+| `workspace` | n/a (operates on dirs) | Workspace-level utilities |
+| `profile` | `profiles/<nick>/` | Shareable workspace dumps |
+| `config` | `workspace/.ralph/config.json` | Key/value settings — see [Env + config](/cli/env-config) |
+
+For ref and template, the resource layer is the cheap CRUD shape; the heavy lifting (URL pulls, vision analyses, template loading) lives in dedicated verbs — `ralphy ref pull/frames/analyze/blueprint`, `ralphy template use/suggest`.
+
+## Filters on list
+
+Every `list` returns the full set by default and accepts targeted filters. Common ones:
+
+```bash
+ralphy project list --status assets
+ralphy ref list --kind video
+ralphy template list --kind vibe-style
+ralphy batch list --status running
+```
+
+Pipe to `jq` for arbitrary post-filtering:
+
+```bash
+ralphy brand list --json | jq '.[] | select(.voice_tone | contains("deadpan"))'
+```
+
+## Create vs. update
+
+`create` requires a `--name` and rejects on collision (`E_ALREADY_EXISTS`). `update` requires the id and is additive — fields you don't pass stay unchanged. There's no "patch" / "replace" distinction; the verb merges into the existing JSON.
+
+```bash
+ralphy persona create --name "Founder monologue" --tone "earnest, slightly tired"
+# → { id: "founder-monologue", name, tone, ... }
+
+ralphy persona update founder-monologue --do "soft eye contact, small hand gestures"
+# additive — `tone` and `name` persist
+```
+
+## Delete is registry-aware
+
+`delete <id>` removes the on-disk JSON and the registry entry together. Per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), this is the only blessed deletion path. Don't `rm` files directly — you'll desync the registry and the next `list` will lie.
+
+## What's not in CRUD
+
+- **`generate`** — model calls. Not a resource verb; see [Generation verbs](/cli/generation-verbs).
+- **`render`** — the Remotion pipeline. See [Rendering verbs](/cli/rendering-verbs).
+- **`doctor` / `setup` / `status`** — env-level utilities. See [Setup and doctor](/cli/setup-doctor).
+- **`assets`** (plural) — pulls from the companion repo, not local CRUD. See [Assets](/cli/assets).
+
+## Related
+
+- [Project verbs](/cli/project-verbs) — `project` is the most-used CRUD resource
+- [Templates](/cli/templates) — `template` CRUD plus the loader semantics
+- [Concepts: workspace](/concepts/workspace) — where each resource physically lives
+- Per-resource reference: [/reference/cli/brand](/reference/cli/brand), [/reference/cli/persona](/reference/cli/persona), [/reference/cli/ref](/reference/cli/ref), [/reference/cli/template](/reference/cli/template), [/reference/cli/batch](/reference/cli/batch), [/reference/cli/asset](/reference/cli/asset), [/reference/cli/workspace](/reference/cli/workspace), [/reference/cli/profile](/reference/cli/profile), [/reference/cli/config](/reference/cli/config)

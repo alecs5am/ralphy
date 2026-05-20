@@ -1,0 +1,131 @@
+---
+title: "Assets"
+description: "ralphy assets list, pull, install, clean — the companion-repo pool, required template assets, and example projects."
+---
+
+Heavy template assets and example projects live in the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo, not the main checkout. `ralphy assets` is the verb group that pulls them on demand, SHA-256 verifies the download, caches under `workspace/.ralph/asset-cache/`, and optionally copies into a project's tree. Per [AGENTS.md invariant #12](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), agents should consult the catalog before improvising a reference for a real-world IP / character / track.
+
+## Three layers
+
+The companion manifest groups assets into three layers:
+
+- **`required`** — template-bound mandatory assets. Auto-pulled when you run `ralphy template use <slug>`. Listed for transparency; you rarely pull these directly.
+- **`pool`** — generic, reusable assets grouped by *kind* (open-ended: `italian-brainrot-characters`, `gameplay-loops`, `trend-music`, `stock-broll`, …). Pull individual items on demand.
+- **`examples`** — ready-made example mp4 outputs per template. Visual reference + regression baselines.
+
+## ralphy assets list
+
+```bash
+ralphy assets list                                       # everything
+ralphy assets list --kind italian-brainrot-characters    # one pool kind
+ralphy assets list --template italian-brainrot           # required + matching pool
+ralphy assets list --refresh                             # force manifest re-fetch
+```
+
+Returns `{ manifestUpdated, manifestVersion, required, pool, examples }`. Items include `kind`, `slug`, `sizeMB`, `license`, `worksWith`, `description`.
+
+## ralphy assets pull &lt;template-slug&gt;
+
+Pulls every required asset for a template into the local cache. Idempotent — already-cached files with a matching SHA-256 skip the download.
+
+```bash
+ralphy assets pull italian-brainrot
+ralphy assets pull italian-brainrot --refresh
+```
+
+Returns `{ template, pulled: [{ key, cachedPath, sizeBytes }] }`.
+
+## ralphy assets install &lt;project-id&gt; &lt;template-slug&gt;
+
+Pulls + installs into a project's asset tree. Combines `pull` with a copy step that respects each entry's `destSubdir`.
+
+```bash
+ralphy assets install demo-001 italian-brainrot
+```
+
+This is what `ralphy template use` calls under the hood — running it directly is the manual path when you want to re-install required assets without re-using the template.
+
+## ralphy assets pull-pool &lt;kind&gt;/&lt;slug&gt;
+
+Single-item pool pull. The agent's go-to verb when it needs a named character / footage / track.
+
+```bash
+ralphy assets pull-pool italian-brainrot-characters/tung-tung-tung-sahur
+ralphy assets pull-pool gameplay-loops/subway-surfers --install demo-001
+```
+
+With `--install <project-id>`, the verb also copies into the project under `item.destSubdir` (or the category's `defaultDestSubdir`). The result includes the relative dest path so the agent can wire the asset into a prompt directly.
+
+## ralphy assets catalog
+
+Regenerates `docs/assets-catalog.md` from the live manifest. The catalog is the agent-friendly view that lives in the main repo so it's always in context — no network call needed at read time.
+
+```bash
+ralphy assets catalog              # print to stdout
+ralphy assets catalog --write      # rewrite docs/assets-catalog.md
+ralphy assets catalog --refresh    # force manifest re-fetch first
+```
+
+Per [AGENTS.md invariant #12](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), regenerate after any manifest change in the companion repo so the in-repo catalog stays current.
+
+## ralphy assets clean / cache-info
+
+```bash
+ralphy assets clean       # wipe workspace/.ralph/asset-cache
+ralphy assets cache-info  # list what's currently cached
+```
+
+`cache-info` returns `{ cacheDir, files: [{ relative }], fileCount }`. The cache is gitignored and safe to wipe at any time — every entry re-pulls on demand.
+
+## Verification
+
+Every download SHA-256 verifies against the manifest. Mismatch → the file is removed and the verb raises. The manifest itself is signed at the companion-repo CI step.
+
+## Companion-repo flow
+
+```text
+ralphy-assets (companion)
+  ├── manifest.json          # required + pool + examples + checksums
+  ├── required/<template>/<file>
+  ├── pool/<kind>/<slug>/<file>
+  └── examples/<id>.tar.gz
+
+  ↓ pull (HTTPS, SHA-256 verified)
+
+workspace/.ralph/asset-cache/  # local cache, gitignored
+  ├── manifest.json
+  ├── required/...
+  └── pool/...
+
+  ↓ install (copy)
+
+workspace/projects/<id>/assets/
+```
+
+Override the manifest URL via the `RALPHY_ASSETS_MANIFEST_URL` env var; see [Env + config](/cli/env-config).
+
+## Worked example
+
+```bash
+# Discover what's available
+ralphy assets list --kind italian-brainrot-characters
+
+# Pull one item into a project
+ralphy assets pull-pool italian-brainrot-characters/tung-tung-tung-sahur \
+  --install demo-001
+# → workspace/projects/demo-001/assets/refs/tung-tung-tung-sahur.png
+
+# Reference it in a generate call
+ralphy generate image \
+  --project demo-001 --slot scene-02-bg \
+  --prompt "..." \
+  --ref workspace/projects/demo-001/assets/refs/tung-tung-tung-sahur.png
+```
+
+## Related
+
+- [Templates](/cli/templates) — `template use` auto-installs required assets
+- [References](/concepts/references) — when the ref-required gate fires
+- [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) — the companion repo
+- [docs/assets-catalog.md](https://github.com/alecs5am/ralphy/blob/main/docs/assets-catalog.md) — the in-repo derived view
+- [cli/commands/assets.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/assets.ts)

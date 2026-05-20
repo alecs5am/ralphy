@@ -1,0 +1,125 @@
+---
+title: "Project verbs"
+description: "new, clone, project create / list / show / update / delete, plus log and timeline."
+---
+
+Projects are the unit of work in `ralphy`. Every generation, render, and log line is keyed by a project ID. This page walks the verbs that create, inspect, and mutate projects, plus the append-only log surface that backs every project's memory. Per-verb flag detail lives in the [auto-generated reference](/reference/cli/setup).
+
+## Two creation paths
+
+`ralphy new` is the agent-facing entry-point: it creates a project under `~/.ralphy/projects/<id>/` (CWD-independent), seeds `BRIEF.md` from the argument, and touches the three append-only logs.
+
+```bash
+ralphy new "Spring 2026 ad for Acme dental floss"
+# → { project_id, path, brief }
+
+ralphy new --id summer-launch-001         # empty shell
+ralphy new "office walkthrough" --id office-walk-001
+```
+
+`ralphy project create` is the structured form for when you have a brand, persona, and template already picked. It writes to `workspace/projects/<id>/` inside the active project root and registers the entity in `workspace/.ralph/registry.json`.
+
+```bash
+ralphy project create \
+  --name "Summer Launch" \
+  --brand acme \
+  --persona founder-monologue \
+  --template italian-brainrot \
+  --brief "Spring drop for the floss line" \
+  --duration 15
+```
+
+Use `ralphy new` when starting from a brief; use `ralphy project create` when scripting a batch from a template.
+
+## ralphy clone &lt;url-or-ref&gt;
+
+`clone` is a meta-verb. Given a public URL (TikTok / Reels / Shorts / X) or an existing ref slug, it chains four back-stage verbs — `ref pull` → `ref frames` → `ref analyze` → `ref blueprint` — then writes a new `vibe-style` template under `workspace/templates/clone-<slug>/`.
+
+```bash
+ralphy clone https://tiktok.com/@x/video/72939...
+ralphy clone existing-ref-slug --strict-look --prompt-only
+ralphy clone https://www.instagram.com/reel/abc --as-template winter-vibe-002
+```
+
+`--strict-look` mirrors palette and grading in the blueprint; `--prompt-only` skips music and voice extraction; `--as-template` overrides the derived id. Full surface: [`/reference/cli/clone`](/reference/cli/clone).
+
+## ralphy project list
+
+Lists every registered project with derived status — `done`, `assets`, `render`, `prompts`, `scenario`, or `draft`. Status is recomputed from the filesystem on every call, so a stale registry never lies.
+
+```bash
+ralphy project list
+ralphy project list --status draft
+ralphy project list --brand acme
+```
+
+The JSON shape is an array of `{ id, name, status, brand, persona, platform }`.
+
+## ralphy project show &lt;id&gt;
+
+Inspect a single project. By default it prints the canonical metadata; flags drill into sub-resources.
+
+```bash
+ralphy project show demo-001
+ralphy project show demo-001 --scenario
+ralphy project show demo-001 --prompts
+ralphy project show demo-001 --assets
+ralphy project show demo-001 --status
+ralphy project show demo-001 --tree    # full dir tree + sizes (depth 4)
+```
+
+`--tree` returns `{ project, root, fileCount, totalBytes, tree: [{ path, bytes }] }` — useful for confirming what landed on disk before a render.
+
+## ralphy project update / delete
+
+```bash
+ralphy project update demo-001 --status review --duration 20
+ralphy project delete demo-001
+```
+
+`delete` is registry-aware: it removes the entry from `registry.json` and the on-disk dir together. Per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), this is the only blessed cleanup path. Don't `rm -rf workspace/projects/<id>` by hand — you'll desync the registry.
+
+## ralphy project log + timeline
+
+Every project keeps three append-only JSONL files under `logs/`. The verbs that read and write them:
+
+```bash
+# Read the generation log (every model call with cost + path)
+ralphy project log demo-001
+ralphy project log demo-001 --kind video
+
+# Read a single chronological timeline (generations + prompts + assets merged)
+ralphy project timeline demo-001
+
+# Append a user prompt
+ralphy project log-prompt demo-001 --stage intake --text "make it shorter"
+
+# Append a user asset (uploaded ref)
+ralphy project log-asset demo-001 --path ./ref.jpg --note "lookbook page 4"
+```
+
+The three log files are the single source of truth for project memory — see [Generation log](/concepts/generation-log). The CLI is **append-only by contract**: never rewrites, never truncates. See [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md).
+
+## ralphy project score / transcribe / verify / clone
+
+Three utility verbs that don't fit the CRUD shape:
+
+```bash
+ralphy project score demo-001         # run the scenario quality gate
+ralphy project transcribe demo-001    # transcribe every VO clip + write captions
+ralphy project verify demo-001        # ffprobe + manifest sanity check
+ralphy project clone demo-001 --as demo-002   # duplicate the project
+```
+
+`score` raises `E_GATE_SCENARIO` when the scenario fails; see [Error catalog](/cli/error-catalog). `verify` is the cheap pre-render check that catches missing slots, codec mismatches, and aspect drift.
+
+## Project ID conventions
+
+The canonical shape is `{context}-{NNN}` (e.g. `spring-2026-001`). `ralphy new` falls back to `YYMMDD-HHMMSS` when no brief is supplied. Slot IDs inside a project follow `{scene-id}-{type}-{descriptor}` (e.g. `scene-01-bg-image`) — see [Generation verbs](/cli/generation-verbs).
+
+## Related
+
+- [Concepts: projects](/concepts/projects) — the workspace layout
+- [Concepts: generation log](/concepts/generation-log) — the JSONL shapes
+- [Resource CRUD](/cli/resource-crud) — the unified verb shape that `project` follows
+- [cli/commands/project.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/project.ts), [cli/commands/new.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/new.ts), [cli/commands/clone.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/clone.ts)

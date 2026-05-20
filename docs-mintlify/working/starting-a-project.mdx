@@ -1,0 +1,126 @@
+---
+title: "Starting a project"
+description: "The intake protocol — five questions, a draft plan, a wait for go, then one beat at a time."
+---
+
+Every new-project request — "сделай видео про X", "make me something like this URL", "запусти проект Y" — hits the same protocol before a single dollar is spent. Ralphy captures intent, agrees on a plan with you, then advances one beat at a time with checkpoints. The cost of asking five questions is one chat turn. The cost of guessing wrong on a 20-scene render is forty dollars plus an hour of regen. The protocol exists because five separate postmortems traced their largest cost overruns to skipping it.
+
+This page is a friendly walkthrough of [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — read that file too if you want the full receipts.
+
+## Step 0 — Ralphy reads your profile
+
+On the first tool call of a session, Ralphy runs bare `ralphy` (no subcommand) and reads `~/.ralphy/user-profile.json`. The output is JSON; the part Ralphy cares about looks like this:
+
+```json
+{
+  "user": {
+    "is_developer": false,
+    "skill": { "score": 3.4, "band": "learning" },
+    "signals": { "projects_done": 1, "postmortems_written": 0 }
+  },
+  "recommendation": "Full intake (5 questions). Inline 'why' only on first occurrence of a concept this session."
+}
+```
+
+The `band` (one of `novice`, `learning`, `intermediate`, `comfortable`, `experienced`, `expert`) controls how chatty Ralphy is. Novices get a mini-lecture after each step ("here's *why* we ask about target language"); experts get one-line confirmations. The protocol itself is identical at every level — only the verbosity scales.
+
+If `is_developer` is `true`, the band is overridden: minimal intake, raw CLI suggestions, ship-fast. The schema is documented in [`cli/lib/user-profile.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/user-profile.ts) and [Memory schemas](/advanced/memory-schemas).
+
+If this is your first project (`signals.projects_done === 0`) and you haven't seen the intro before, Ralphy opens with a one-paragraph "here's the rhythm" preamble, then asks the first question. After that, the band controls verbosity but every band runs the same five-step skeleton below.
+
+## Step 1 — The five clarifying questions
+
+These come back as a single turn — three to five questions, each with a default you can accept. The defaults come from [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) and your `preferences.default_*` if you've set any.
+
+1. **Target audience language.** EN, RU, KR, other. Drives the audio pipeline. Kling's `--audio` flag is canonical for English; for Russian and other non-EN languages, Ralphy routes voiceover through ElevenLabs. Chat language is not the same as video language — Ralphy asks because one project trip-wired about 10 minutes on a default-Russian assumption the user had to override.
+2. **Aspect / platform.** 9:16 TikTok, 16:9 YouTube, 1:1 broadcast-realism. Square is the right call for "caught-on-TV" trends; portrait kills the illusion (validated by the kbo broadcast postmortem).
+3. **Brand or named real entity.** If your brief names a specific person, a recognizable brand product (e.g. "Coca-Cola can", "iPhone 16"), or a known IP ("Mickey Mouse"), the reference-required gate fires — Ralphy refuses generation until you attach a reference image, or until you opt out with `--no-ref-consent "<reason>"` on the specific failing `ralphy generate` call. Generic work proceeds without. See [References](/concepts/references) for the gate logic.
+4. **Existing template fit.** Ralphy runs `ralphy template suggest "<your brief>"` and surfaces the top match. If the top result is a strong fit, Ralphy announces the pick and proceeds; if it's a weak match, Ralphy lists three options and asks once; if nothing's close, Ralphy enters free-form mode. See [Picking a template](/working/picking-a-template).
+5. **Duration and hard constraints.** Default 15s for first iteration, scale up after a successful test render. Any "no music", "no English captions", banned words, brand colors — name them now so Ralphy doesn't volunteer them.
+
+A real first turn from Ralphy looks like this:
+
+```text
+Quick intent capture before we start:
+1. Target audience language? (EN / RU / KR / other)
+2. Aspect? (9:16 / 16:9 / 1:1) — default 9:16
+3. Brand or named person involved? If yes, drop a reference image / URL
+4. Duration ballpark? (5-10s test / 15-30s standard / 60s+ long-form) — default 15s
+5. Any hard "no"s? (no music, no captions, banned vocabulary)
+```
+
+Answer in one message. If your answers match the defaults, just say "go" and Ralphy proceeds.
+
+## Step 2 — Ralphy drafts a plan
+
+Once your answers land, Ralphy writes a plan back to chat — not to a file. The shape:
+
+```text
+## Plan for "Cinnamon Cold Brew UGC selfie review"
+
+Vibe: handheld 9:16 selfie monolog, cozy autumn lighting,
+no music, EN captions off, RU voiceover.
+
+Template: ugc-selfie-product-review (vibe-style)
+  via `ralphy template use ugc-selfie-product-review`
+
+Beat structure:
+  1. scene-01 hook   — 3s   — kling-v3.0-pro — selfie face open
+  2. scene-02 product reveal — 4s — gemini-3-pro-image-preview anchor → kling i2v
+  3. scene-03 sip + reaction — 4s — kling i2v
+  4. scene-04 cta callout    — 4s — kling i2v
+
+Stack:
+  - Image: google/gemini-3-pro-image-preview
+  - Video: kwaivgi/kling-v3.0-pro
+  - VO: elevenlabs/eleven_multilingual_v2 (RU)
+  - Music: instrumental, ElevenLabs Music post-mix
+
+Estimated cost: $2.10 – $3.40
+Estimated wall-clock: 7–9 min
+First checkpoint: scene-01 anchor → wait for your "go" before continuing
+```
+
+Ralphy stops here. **No paid generation happens until you say "go"** (or "поехали", or equivalent). If the plan is wrong, push back — "another approach", "не так", "drop scene 3", "switch to seedance for the reaction". Ralphy redrafts and waits again. This wait is invariant in the protocol; the appstore postmortem traced a 70-minute wasted batch directly to skipping plan-approval.
+
+## Step 3 — One beat at a time
+
+After your "go", Ralphy generates the first beat, surfaces it to chat, and waits before the next. The default cadence:
+
+1. **Location-master-plate first.** For any project where two or more scenes share a setting, Ralphy generates the room or location as anchor #1, before any character or scene anchor. Then it passes the plate as `--ref` on every downstream gen. Skipping this cost one project around $4.50 plus 45 minutes on "they keep sitting on different couches".
+2. **Character / persona masters second.** One per cast member, each generated with the location plate as `--ref`. Ralphy passes both (location + character) on every scene gen so identity and setting stay locked.
+3. **Scene anchors third.** scene-01 first → you say good → scene-02 → you say good → only after two solo approvals does Ralphy batch four-to-six anchors at a time.
+4. **i2v video clips next.** Same cadence as anchors. Never i2v an unapproved still.
+5. **Voiceover and music after the visuals lock.** Otherwise a re-trim cascades into a music re-sync — exactly the failure mode the playdate-pixel postmortem traced.
+6. **Captions on the locked VO files** via `ralphy generate captions`.
+7. **Render** via `ralphy editor preflight <id>` then `ralphy render <id>`.
+
+If you want to fire the whole batch instead, say "не спрашивай каждый раз" or "fire the whole batch". Ralphy switches to batch mode for *that project*; the preference doesn't generalize.
+
+## Step 4 — Mid-flight corrections
+
+When a scene misses, Ralphy retries the same approach **once**. If the second attempt also misses, Ralphy redesigns the scene rather than fighting model drift — the glitter-cream postmortem documented a $0.84 + 20-minute fight between "jar near cheek" and "powder compact" that ended only when the scene was reframed. The redesign comes back to you for approval before any new generation. Old versions are preserved automatically (see [Reviewing and iterating](/working/reviewing-iterating)) — Ralphy never overwrites your work without explicit "delete" or "wipe" consent ([AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)).
+
+## Step 5 — The ship gate
+
+Before Ralphy declares "done", it runs three checks in order:
+
+1. **`ralphy editor preflight <id>`** — flags aspect, fps, or music-length divergence.
+2. **`ralphy project verify <id>`** — flags any drift between the manifest and the files on disk.
+3. **`/ralph-evaluator`** skill on the final mp4 — emits `eval.json` and `eval-report.md` with scene-by-scene scoring and retention check.
+
+Only after the eval lands does Ralphy ask once: "Ready to ship?" Your explicit "yes" is the only thing that authorizes a commit, push, or any other shared-state mutation.
+
+## Adapting to your skill band
+
+The protocol is the same at every level. What changes is how much Ralphy explains. A novice sees mini-lectures after each gate ("WHY we anchor location first"); a comfortable user sees the gate and one-line context; an expert sees only the JSON output and a "go?" prompt. The recommendation string in your `whoami` output names which mode is active.
+
+You can always override per-project — "explain it like I'm new" upshifts the verbosity for one session, "skip the explanation" downshifts it.
+
+## Related
+
+- [How to talk to Ralphy](/working/talking-to-ralphy) — phrasing that maps cleanly to playbooks
+- [Picking a template](/working/picking-a-template) — what step 1.4 picks from
+- [Brands, personas, refs](/working/brand-persona-refs) — the reference-required gate in detail
+- [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — the canonical playbook this page paraphrases
+- [Memory schemas](/advanced/memory-schemas) — `user-profile.json` field by field

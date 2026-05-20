@@ -1,54 +1,121 @@
 ---
 title: "CLI overview"
-description: "Every ralphy command, grouped by what you're trying to do."
+description: "Global flags, TTY auto-detection, project auto-detection, the bare-ralphy dashboard, cancellation."
 ---
 
-`ralphy` is the main CLI. Once installed, it works from any folder — it locates the project via
-`~/.config/ralphy/config.json` or by walking up from `cwd`.
+`ralphy` is a single binary built with Commander. Every subcommand inherits five global flags, an auto-detection scheme for the project workspace, and a uniform cancellation contract. Read this page once and you'll know how to wire `ralphy` into a shell pipeline, a CI job, or an agent harness without surprises.
+
+## Global flags
+
+Every verb honors these. They're parsed before the subcommand and apply uniformly.
+
+<ParamField path="-p, --pretty" type="boolean">
+  Force rich UI output (colors, tables, icons, spinners). Overrides TTY auto-detection. Useful when piping into `tee` or a script that retains color codes.
+</ParamField>
+
+<ParamField path="--json" type="boolean">
+  Force JSON output on stdout. Overrides both `--pretty` and TTY auto-detection. Use for shell scripts and agent harnesses. Errors still print a structured payload on stderr.
+</ParamField>
+
+<ParamField path="-q, --quiet" type="boolean">
+  Suppress progress chatter, spinners, and `ok`/`info`/`warn` lines. The final result (JSON object or pretty table) still prints. Errors still print on stderr.
+</ParamField>
+
+<ParamField path="--no-color" type="boolean">
+  Disable ANSI color codes even on TTY. Pairs well with `--pretty` when you want layout but no colors (e.g. piping into `less`).
+</ParamField>
+
+<ParamField path="-v, --version" type="boolean">
+  Print the ralphy version and exit. The CLI uses the lowercase `-v` (npm / docker / kubectl convention) instead of Commander's default `-V`.
+</ParamField>
+
+<ParamField path="--cwd <path>" type="string">
+  Working directory. Overrides project auto-detection. Use when running `ralphy` from outside your checkout or when you want to point at a specific workspace.
+</ParamField>
+
+## Output mode resolution
+
+The CLI runs in one of three modes — pretty, JSON, or auto — resolved on every invocation by the `preAction` hook in `cli/index.ts`:
+
+1. `--json` wins outright. Sets mode to `json`, silences pretty primitives.
+2. `--pretty` is next. Sets mode to `pretty` regardless of TTY.
+3. Otherwise `auto`: pretty when stdout is a TTY, JSON when piped.
+
+The detail of what each mode emits lives on [Output modes](/cli/output-modes).
+
+## TTY auto-detection
+
+When neither `--json` nor `--pretty` is set, the CLI checks `process.stdout.isTTY`. Interactive shells get the pretty rendering; pipes (`ralphy ... | jq`) and redirects (`ralphy ... > out.json`) get JSON. This is the right default for both humans and agents — the agent reads stdout as a stream and never needs to set `--json` explicitly.
+
+## Project auto-detection
+
+The same `preAction` hook resolves the project root. Order:
+
+1. `--cwd <path>` if set — wins outright, `loadProjectEnv()` runs against it.
+2. Walk up from `process.cwd()` looking for `package.json` with `name: "ugc-cli"`.
+3. `RALPHY_PROJECT_DIR` env var if set.
+4. `~/.config/ralphy/config.json#default_project_dir` (set by `ralphy setup --link <path>`).
+
+The `setup` verb is exempt — it has its own first-run logic that handles the unlinked case. Every other verb sees a resolved root or reports `E_PROJECT_NOT_LINKED` when one is needed.
+
+Whenever a root resolves, `loadProjectEnv()` reads `<root>/.env` and merges keys into `process.env`. **Real shell-exported variables always win** — the `.env` only fills the gaps.
+
+## The bare dashboard
+
+Run `ralphy` with no subcommand and you get a status dashboard. The agent calls this on session start to load user context.
+
+```bash
+ralphy
+# → pretty banner + version + capabilities + skill score + signals + quick start
+
+ralphy --json
+# → { "version", "user": { ... }, "capabilities": { ... }, "project_root" }
+```
+
+The JSON payload is stable: `version`, `user.skill.{score,band}`, `user.is_developer`, `user.signals`, `capabilities.{openrouter,elevenlabs}`, `project_root`. Use it to decide intake verbosity (see [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md)).
+
+## Cancellation
+
+SIGINT (Ctrl-C) is handled cooperatively. The handler flips a global token; verbs read it between API calls and exit cleanly when they next check. The command boundary catches the resulting `CancelledError` and emits the structured `E_CANCELLED` payload with exit code 130.
+
+A second Ctrl-C exits hard with 130, no matter what the verb is doing. Append-only state (logs, manifests) is preserved either way — see [Error catalog](/cli/error-catalog).
+
+## Exit codes
+
+| Code | Class | Source |
+|---|---|---|
+| 0 | success | normal termination |
+| 1 | runtime / internal | `E_INTERNAL`, uncaught exception |
+| 2 | user error | bad flag, missing arg, not found |
+| 3 | provider | OpenRouter / ElevenLabs / yt-dlp failures |
+| 4 | env | missing key, missing dep, fs permission |
+| 5 | quality gate | scenario / image / video / ref refused |
+| 130 | cancelled | SIGINT |
+
+Classes map via `classifyExitCode()` in `cli/lib/errors/catalog.ts`. The append-only contract that protects them is documented on [Error catalog](/cli/error-catalog).
+
+## Help drill-down
+
+The built-in help walks the subcommand tree. `ralphy help generate` shows the `generate` group; `ralphy help generate image` drills into the leaf and prints every flag plus a per-model whitelist when the OR catalog is cached.
 
 ```bash
 ralphy --help
+ralphy help generate
+ralphy help generate video --model kwaivgi/kling-v3.0-pro
 ```
 
-## Quick reference
+## Versioning
 
-<CardGroup cols={2}>
-  <Card title="ralphy setup" icon="wand-magic-sparkles" href="/cli/setup">
-    Interactive wizard — keys, profiles, project link.
-  </Card>
-  <Card title="ralphy doctor" icon="stethoscope">
-    JSON env check — keys, deps, blockers.
-  </Card>
-  <Card title="ralphy project" icon="folder" href="/cli/project">
-    List, show, log every render in your workspace.
-  </Card>
-  <Card title="ralphy template" icon="palette" href="/cli/template">
-    Browse and instantiate visual styles.
-  </Card>
-  <Card title="ralphy profile" icon="users" href="/cli/profile">
-    Import + export community workspaces.
-  </Card>
-  <Card title="ralphy status -p" icon="signal">
-    Color summary of keys and providers.
-  </Card>
-</CardGroup>
-
-## Inside the project root
-
-If you cloned the repo and have Bun installed, every command is also available via `bun run`:
+`ralphy --version` reads `cli/lib/version.ts`. The `/release` skill bumps that file in lockstep with `package.json`, the Homebrew formula, and the npm package. If your binary lags the version in [AGENTS.md](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), upgrade:
 
 ```bash
-bun run dev                   # Remotion Studio
-bun run setup                 # = ralphy setup
-bun run doctor                # = ralphy doctor
-bun run ralphy -- <args>      # = ralphy <args>
-bun run lint                  # eslint + tsc
+brew upgrade ralphy            # Homebrew
+npm update -g @alecs5am/ralphy # npm
 ```
 
-## CI / non-interactive
+## Related
 
-The wizard needs a TTY. In CI, link the project explicitly and read the JSON status:
-
-```bash
-ralphy setup --link "$PWD" --status
-```
+- [Output modes](/cli/output-modes) — what each mode actually prints
+- [Error catalog](/cli/error-catalog) — every `E_` code + exit class
+- [Env + config](/cli/env-config) — required keys, `.env` precedence
+- [cli/index.ts](https://github.com/alecs5am/ralphy/blob/main/cli/index.ts) — source of truth for global flags

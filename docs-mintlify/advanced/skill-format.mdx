@@ -1,0 +1,236 @@
+---
+title: "Skill format"
+description: "SKILL.md frontmatter contract, the 1536-char description cap, and the ralphy vs ralphy-dev namespace split."
+---
+
+A Ralphy skill is one folder under `.agents/skills/<name>/` containing a single `SKILL.md`. Skills follow the [agentskills.io](https://agentskills.io) convention so they install cleanly into Claude Code, Cursor, Codex, and Copilot through `ralphy skill install`. This page is the wire-format spec: frontmatter fields, body sections, the lint that enforces both, and the description discipline that keeps the slash-command menu scannable.
+
+## Full example
+
+A valid `.agents/skills/ralph-evaluator/SKILL.md`:
+
+```markdown
+---
+name: ralph-evaluator
+namespace: ralphy
+description: >-
+  Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness,
+  caption density, and per-scene visual analysis. Produces an actionable report
+  (eval.json + eval-report.md) sized for a downstream fixer agent.
+  USE WHEN the user asks to "evaluate / score / grade / QA" a rendered video,
+  drops an mp4 path with no other instruction, or asks "is this ready to ship".
+  See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
+---
+
+# ralph-evaluator
+
+## Trigger refinements
+
+**ALSO FIRE** when the user just dropped a path ending in `.mp4` from
+`workspace/projects/<id>/render/` with no other instruction.
+
+**DO NOT FIRE** for unrendered projects (handback to editor for `ralphy render`).
+
+## Hard invariants
+
+- Every vision pass routes through `cli/lib/providers/llm.ts → callLLM()`.
+- Findings are deterministic outputs of `cli/lib/eval/*` — pass through verbatim.
+
+## Workflow
+
+1. Run `ralphy eval video <path-to-mp4>` → `eval.json` + `eval-report.md`.
+2. Surface the verdict to the user. Hand off the report path to the fixer.
+
+## Outputs
+
+- `workspace/projects/<id>/eval/eval.json`
+- `workspace/projects/<id>/eval/eval-report.md`
+
+## Cookbook
+
+EN: "evaluate this video", "is this ready to ship".
+RU: "оцени рендер", "что не так с видео".
+```
+
+That file passes `bun run lint:skills` and renders correctly in every supported agent.
+
+## Where skills live
+
+```
+.agents/skills/
+  ralph-evaluator/SKILL.md
+  ralph-researcher/SKILL.md
+  ralphy-install/SKILL.md
+  release/SKILL.md
+  remotion-best-practices/SKILL.md
+```
+
+One folder per skill. The folder name must match the `name:` field — the lint rejects a mismatch. The folder is yours; drop scripts, templates, or worked-example files alongside `SKILL.md` and they ship with the skill on install.
+
+## Frontmatter contract
+
+The frontmatter is a YAML block between `---` fences. `scripts/lint-skills.ts` enforces:
+
+| Field | Required | Validation | Notes |
+|---|---|---|---|
+| `name` | yes | `/^[a-z][a-z0-9-]*$/`, matches folder name | kebab-case |
+| `description` | yes | length ≤ 1536 chars | agentskills.io hard cap |
+| `namespace` | no | `ralphy` or `ralphy-dev` | drives install wizard visibility |
+| `when_to_use` | no | free-form string | downstream filter tag (e.g. `post-render`) |
+| `allowed-tools` | no | string array | tool allowlist |
+| `disable-model-invocation` | no | boolean | `true` makes the skill docs-only |
+| `paths` | no | string array | workspace paths the skill touches |
+| `context` | no | free-form string | label for "suggest this skill" surfaces |
+| `argument-hint` | no | free-form string | shown next to the slash command in Claude Code |
+| `arguments` | no | YAML literal | positional-arg schema (future MCP use) |
+
+The lint parser handles two YAML shapes per field: inline `key: value` and the folded `key: >-` block used for multi-line `description`.
+
+### The name rule, in source
+
+```ts
+const NAME_RE = /^[a-z][a-z0-9-]*$/;
+// scripts/lint-skills.ts enforces:
+//   - name matches NAME_RE
+//   - fm.name === folderName
+```
+
+Lower-case letters, digits, and hyphens. No underscores. No leading hyphen. No uppercase.
+
+### The description cap, in source
+
+```ts
+const DESC_MAX = 1536;
+// scripts/lint-skills.ts:
+//   if (fm.description.length > DESC_MAX) errors.push(...)
+```
+
+1536 is the agentskills.io hard cap. The lint hard-fails above it. **Soft ceiling is ~1500**: Claude Code budgets roughly 1% of context for skill discovery across every installed skill, so two bloated descriptions push siblings out of the menu without warning.
+
+### The namespace whitelist
+
+```ts
+const NAMESPACE_VALUES = new Set(["ralphy", "ralphy-dev"]);
+```
+
+Any other value is rejected. The split:
+
+| Namespace | Audience | Examples |
+|---|---|---|
+| `ralphy` | end users | `ralph-evaluator`, `ralph-researcher`, `ralph-templater`, `ralphy-install` |
+| `ralphy-dev` | maintainers / contributors | `release`, `remotion-best-practices`, `skill-creator` |
+
+`ralphy skill install` installs only `ralphy` skills by default. `--dev` opts into the maintainer set. The agents-md lint (`scripts/lint-agents-md.ts`) reads `namespace:` and skips the "is this skill referenced from the routing table" check for `ralphy-dev` skills — maintainer skills are explicit-invocation-only.
+
+## Body structure
+
+The lint warns (does not error) when section headings are missing. Every non-trivial skill should hit this order:
+
+```markdown
+# <Skill display name>
+
+## Trigger
+When this skill fires. Mirror the `USE WHEN` line from the description.
+
+## Hard invariants
+Must-do / must-not lines, one bullet each. Concrete and refusable.
+
+## Workflow
+Numbered, step-by-step. Each step names the exact `ralphy <verb>` call.
+
+## Outputs
+What the user sees on success, what gets written to disk.
+
+## Cookbook
+EN + RU phrasing of triggers, sample invocations, common failure modes.
+```
+
+The lint walks for any `##` heading starting with `Trigger`, `Hard invariants`, `Workflow`, `Outputs`, or `Cookbook` (case-insensitive prefix match). It only warns when *none* of them are present, so an intentionally minimal `skill-creator`-style body does not generate noise.
+
+## Writing a great description
+
+The description is the **user-facing summary** of the skill, not an auto-route trigger phrase list. Claude Code renders it in the `/ralphy:<skill>` slash-command menu, the "suggest this skill" surface, and the `ralphy skill list` output. A scannable paragraph beats a wall of synonyms.
+
+### Good: ~300 chars
+
+```yaml
+description: >-
+  Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness,
+  caption density, per-scene visual analysis. Produces eval.json + eval-report.md
+  sized for a downstream fixer agent. Use after `ralphy render` when you want
+  verification before publishing.
+```
+
+What works: leads with the verb, names the output, says when the user reaches for it. No synonym lists.
+
+### Bad: ~1800 chars (rejected by the cap)
+
+```yaml
+description: >-
+  Quality evaluation, scoring, grading, reviewing, auditing, checking, inspecting,
+  analyzing, verifying, validating, QA-ing, assessing of rendered UGC mp4s —
+  scene segmentation, audio loudness, dead-air detection, caption density, frame
+  analysis, per-scene visual analysis, retention check, scroll-stop check, hook
+  strength check, virality rubric scoring, quality gate analysis, post-render
+  quality gate verification, ready-to-ship readiness analysis, publish-readiness
+  check... USE WHEN the user asks to "evaluate this video", "score the render",
+  "grade the mp4", "review the final cut", "QA this video", "is this ready to
+  ship", "what's wrong with this video", ...
+```
+
+What fails: every trigger phrase, every synonym, every example utterance crammed into one field. The lint rejects this for length, but even at 1535 chars it would be a defect — the menu becomes unreadable and sibling skills get squeezed out of the discovery budget.
+
+### Structure that works
+
+One paragraph, optionally broken into "what / when" sentences:
+
+1. **First sentence.** What the skill does and what it produces.
+2. **Second sentence.** When the user reaches for it.
+3. **(Optional) Third sentence.** What it does *not* do — the closest adjacent skill the user might confuse it with.
+
+If you need to spell out trigger phrases for routing fidelity, **put them in the body's `## Trigger` section.** The body is where the agent looks once the skill fires; the description is where the user looks before invoking it.
+
+The agentskills.io cap (1536) and the menu-budget reality (~1500 soft) are not the same number on purpose. Hard cap stops the worst case; soft ceiling is the discipline.
+
+## ALSO FIRE / DO NOT FIRE / HARD INVARIANTS
+
+For longer skills (the existing `ralph-evaluator` and `ralph-researcher`), the description ends with `See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.` and those clauses move into the body under `## Trigger refinements` and `## Hard invariants`. This pattern keeps the description scannable while preserving the routing-fidelity detail the agent needs once the skill fires.
+
+The rule of thumb: if a clause is longer than half a sentence, move it from the description into the body. The description's job is "should this skill fire?"; the body's job is "now that it fired, what do I do?"
+
+## Lint
+
+```bash
+bun run lint:skills
+```
+
+The script walks `.agents/skills/*/SKILL.md` and checks:
+
+- Frontmatter parses cleanly (a `---` … `---` block with valid YAML).
+- `name` matches `/^[a-z][a-z0-9-]*$/` and equals the folder name.
+- `description` is present and ≤ 1536 chars.
+- `namespace`, if set, is `ralphy` or `ralphy-dev`.
+- (Warning) The body has at least one `##` section heading.
+
+CI runs `lint:skills` on every PR. A failing lint blocks merge.
+
+## Installing skills
+
+`ralphy skill install` is the cross-agent installer in `cli/lib/skill/installer.ts`. It supports four targets:
+
+| Target | What lands |
+|---|---|
+| `claude` | Copies (or symlinks) the bundle into `~/.claude/skills/ralphy/` (user) or `./.claude/skills/ralphy/` (project), then sentinel-merges a routing pointer into `CLAUDE.md`. |
+| `cursor` | Writes `.cursor/rules/ralphy.mdc` with the playbook routing block. |
+| `codex` | Sentinel-merges a Ralphy section into `AGENTS.md` at the project root. |
+| `copilot` | Same sentinel-merge pattern. |
+
+The sentinel block (`<!-- ralphy:start v=1 -->` … `<!-- ralphy:end -->`) makes re-runs idempotent. A second `ralphy skill install` swaps the inner content without duplicating the block.
+
+## Related
+
+- [Cookbook: new skill](/cookbook/new-skill) — full walkthrough.
+- [Concepts: playbooks & skills](/concepts/playbooks-and-skills) — when to write a skill vs a playbook.
+- [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) — the source-of-truth authoring guide.
+- [`scripts/lint-skills.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-skills.ts) — the lint source.
+- [`cli/lib/skill/installer.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/skill/installer.ts) — the cross-agent installer.

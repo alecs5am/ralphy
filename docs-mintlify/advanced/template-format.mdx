@@ -1,0 +1,265 @@
+---
+title: "Template format"
+description: "template.yaml Zod schema, vibe-reference vs vibe-style, segment categories, slug rules, and version gating."
+---
+
+A Ralphy template is one folder under `templates/<category>/<slug>/` (repo-public) or `workspace/templates/<slug>/` (user-local). Each folder declares a `template.yaml` manifest plus supporting prose (`TEMPLATE.md`, `composition.md`, `hooks.md`, `prompt-cookbook.md`). This page is the wire-format spec: the manifest Zod schema, the two `kind`s, the five category folders, the slug discipline, the version gate, and the lint.
+
+## Full example
+
+A minimal `vibe-style` template at `templates/b2b-saas/brand-story/template.yaml`:
+
+```yaml
+version: 1
+id: brand-story
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Brand Story
+description: >-
+  Longer-form cinematic brand narrative (30-60s, sometimes 60-120s for hero
+  films): founder voice or customer transformation arc carries problem → mission
+  → solution → impact. Reference-required — a real brand identity (logo, founder
+  photo, archive material, product, environment) must be supplied; AI cannot
+  improvise a brand.
+tags:
+  - brand-story
+  - brand-film
+  - founder-story
+  - cinematic
+  - long-form
+requires:
+  refs: 1
+scenes: []
+references: []
+```
+
+A `vibe-reference` template adds a `composition.md` walkthrough plus a `reference/` folder of worked artifacts alongside the manifest. Both kinds use the same schema.
+
+## File layout
+
+```
+templates/
+  b2b-saas/
+    brand-story/
+      template.yaml          # the manifest (this page)
+      TEMPLATE.md            # human-readable overview
+      composition.md         # vibe-reference only — narrated walkthrough
+      hooks.md               # hook library (prose)
+      prompt-cookbook.md     # per-modality prompt fragments
+      template.json          # legacy shape; loader prefers .yaml
+  dtc-commerce/
+  creator-lifestyle/
+  entertainment-viral/
+  cinematic-narrative/
+workspace/
+  templates/                 # user-local; flat layout (no category folder)
+    my-template/
+      template.yaml
+```
+
+The five category folders are fixed. `workspace/templates/` is flat (no category subdir). When a slug exists in both, **workspace overrides repo** — per AGENTS invariant #10.
+
+## Zod schema
+
+`cli/lib/schemas/template.ts` exports `TemplateYamlSchema`. Field-by-field:
+
+| Field | Type | Default | Validation |
+|---|---|---|---|
+| `version` | `1` (literal) | — | required; loader rejects unknown values with `E_TEMPLATE_VERSION_UNSUPPORTED` |
+| `id` | `string` | — | required; kebab-case; passes `validateSlug()` |
+| `aliases` | `string[]` | `[]` | old slugs the template shipped as; kept ≥ one major-release cycle |
+| `kind` | `"vibe-reference"` or `"vibe-style"` | — | required |
+| `category` | enum (5 values) | — | required; see table below |
+| `name` | `string` | — | required; min length 1 |
+| `description` | `string` | — | required; min length 1 |
+| `tags` | `string[]` | `[]` | free-form discovery tags |
+| `requires` | `TemplateRequires` | `{}` | declares brand / persona / ref dependencies |
+| `scenes` | `SceneTemplate[]` | `[]` | optional scene scaffolding |
+| `estimated_cost_usd` | `number` | — | optional; non-negative |
+| `estimated_duration_s` | `number` | — | optional; positive |
+| `references` | `string[]` | `[]` | asset slugs or paths the template uses |
+
+### `category` — the five segment-persona folders
+
+```ts
+export const TEMPLATE_CATEGORIES = [
+  "b2b-saas",
+  "dtc-commerce",
+  "creator-lifestyle",
+  "entertainment-viral",
+  "cinematic-narrative",
+] as const;
+```
+
+Each value is a directory under `templates/`. The lint walks only these five.
+
+### `kind` — vibe-reference vs vibe-style
+
+| Kind | What ships | Use it when |
+|---|---|---|
+| `vibe-reference` | Manifest + `composition.md` walkthrough + `reference/` worked artifacts | The template encodes a full production: scene scaffolding, named refs, ready-to-render prompts. |
+| `vibe-style` | Manifest + `hooks.md` + `prompt-cookbook.md` (prose only) | The template encodes a *cookbook* — hooks, camera vocab, worked example prompts — without a fixed scene list. |
+
+Five `vibe-reference` templates ship in repo; 38 `vibe-style`. Both kinds are loadable by `ralphy template use <slug>`.
+
+### `requires`
+
+```ts
+TemplateRequiresSchema = z.object({
+  brand: z.boolean().optional(),
+  persona: z.boolean().optional(),
+  refs: z.number().int().nonnegative().optional(),  // single int count for v1.0
+  music_style: z.string().optional(),
+  voice_style: z.string().optional(),
+}).partial().default({});
+```
+
+`diagnoseRequiredInputs()` checks the user's project inputs against this block and returns the first missing requirement. Callers map the result to `E_TEMPLATE_INPUT_MISSING`. The `refs` field is a single count for v1.0; the 3-slot `{cref, sref, pref}` shape lands post-launch (decision D-02).
+
+### `scenes` — optional scaffolding
+
+```ts
+SceneTemplateSchema = z.object({
+  id: z.string().regex(/^scene-\d{2,3}$/u),  // `scene-01`, `scene-001`
+  role: z.enum(["hook", "body", "cta"]),
+  duration_s: z.number().positive().max(120),
+  direction: z.string().optional(),
+});
+```
+
+`vibe-reference` templates fill this in. `vibe-style` templates leave it as `[]`.
+
+A worked `vibe-reference` `scenes` block:
+
+```yaml
+scenes:
+  - id: scene-01
+    role: hook
+    duration_s: 3
+    direction: "Cold open. Hand reaches for the product. Camera follows."
+  - id: scene-02
+    role: body
+    duration_s: 8
+    direction: "First use. Reaction. 35mm selfie, eye-level, hand-held."
+  - id: scene-03
+    role: body
+    duration_s: 6
+    direction: "Comparison cut. Before / after side-by-side."
+  - id: scene-04
+    role: cta
+    duration_s: 3
+    direction: "Direct address. Hand-product-reveal. Voice-over: 'try it'."
+```
+
+The scenarist consumes this scaffolding and emits a full `Scenario` conforming to `cli/lib/schemas/scene.ts → ScenarioSchema`. The full scene shape (with `vo_text`, `camera`, `lighting`, `gesture`, `broll`, `refs`, `notes`) is the scenarist's output contract, not the template's input. See [Memory schemas](/advanced/memory-schemas) and the scenarist playbook for the downstream shape.
+
+### Gesture vocabulary
+
+When the template's `direction` field hints at a body-language beat, the scenarist may attach a `gesture` to the resulting scene. The vocabulary is the finite enum in `cli/lib/schemas/gestures.ts`:
+
+```
+point-camera, nod, head-shake, laugh, shrug, lean-in,
+hand-product-reveal, eye-roll, facepalm, thumbs-up, palm-open, pause-still
+```
+
+Niche one-off body language goes in `Scene.notes` (the free-text escape hatch), never in `direction`. The enum is closed by design (decision D-06) — adapters silently omit unknown values rather than throw, so a forward-compatible PR that adds a new gesture degrades gracefully on older binaries.
+
+## Slug discipline
+
+Slugs are kebab-case. The regex:
+
+```ts
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/u;
+```
+
+No uppercase, no underscores, no leading or trailing hyphen, no single-character slugs.
+
+### Banned tokens
+
+`DENIED_SLUG_TOKENS` in `cli/lib/schemas/template.ts` blocks real-creator and brand tokens from appearing in slugs. The match is whole-token (delimited by start, end, or hyphen) so `arogant-pov` is fine but `joe-rogan-pod` is not.
+
+Currently denied:
+
+```
+hormozi, mr-beast, mrbeast, oldspice, old-spice, kardashian,
+rogan, huberman, tornow, codie-sanchez, alex-becker
+```
+
+**Creator references stay legal as prose** inside `TEMPLATE.md` / `composition.md` — never in the slug. The rule is decision D-05: archetypal slugs only.
+
+`validateSlug(slug)` returns `{ok: true}` or `{ok: false, reason, token?}`. Callers build `E_TEMPLATE_SLUG_INVALID` from the rejection payload.
+
+## Version gating
+
+```yaml
+version: 1
+```
+
+Every `template.yaml` must declare `version: 1`. The loader in `cli/lib/templater/loader.ts → parseTemplateManifest()` reads the `version` field first; if it is not in `SUPPORTED_VERSIONS = [1]`, the loader calls `raiseError("E_TEMPLATE_VERSION_UNSUPPORTED", {version, id})` and exits.
+
+```ts
+// cli/lib/templater/loader.ts
+const versionField = (value as Record<string, unknown>).version;
+if (!isSupportedVersion(versionField)) {
+  raiseError("E_TEMPLATE_VERSION_UNSUPPORTED", {
+    version: String(versionField),
+    id,
+  });
+}
+return TemplateYamlSchema.parse(value);
+```
+
+When `scenes[]` eventually gains a required field, the loader keeps a v1 reader alive for at least one major-release cycle (decision D-03). Authors bump `version: 2` only when the schema breaks compatibly.
+
+## Manifest discovery
+
+`locateTemplateManifest(dir)` prefers `template.yaml`, then falls back to `template.json` for not-yet-migrated templates (02.05.04 migration window). Both shapes parse through the same Zod schema. New templates should land as `.yaml` only.
+
+## Slug resolution
+
+`ralphy template use <slug>` resolves a slug across both layouts:
+
+1. Search `workspace/templates/<slug>/template.yaml`.
+2. If not found, search `templates/<category>/<slug>/template.yaml` for each category.
+3. If still not found, search aliases (`aliases: [old-slug]`).
+
+Workspace overrides repo on id collision. Aliases let you rename a template without breaking existing user scripts.
+
+## Lint
+
+```bash
+bun run lint:templates
+```
+
+`scripts/lint-templates.ts` walks `templates/<category>/<slug>/` and asserts:
+
+- The category is one of `TEMPLATE_CATEGORIES` (anything else is silently skipped).
+- The slug passes `validateSlug()` — kebab-case, no banned tokens.
+- `template.yaml` (or legacy `template.json`) is present.
+- The manifest parses through the v1 loader without throwing.
+
+Issues are reported as `{kind: "slug" | "manifest", slug, category, detail}`. The script exits non-zero on any issue. CI runs this on every PR.
+
+The lint does not check `workspace/templates/` — that's user content, not repo content.
+
+## Authoring checklist
+
+1. **Pick a category folder.** One of `b2b-saas`, `dtc-commerce`, `creator-lifestyle`, `entertainment-viral`, `cinematic-narrative`.
+2. **Pick a slug.** Kebab-case, no creator names. Run `bun run lint:templates` against a draft to catch banned tokens early.
+3. **Decide the kind.** `vibe-reference` if you're shipping a full production with refs; `vibe-style` if you're shipping a prompt cookbook.
+4. **Write `template.yaml`.** Start with `version: 1`, fill required fields, default the rest.
+5. **Write `TEMPLATE.md`.** Human-readable overview. Creator references go here, not in the slug.
+6. **For `vibe-reference`:** add `composition.md` (the narrated walkthrough) and `reference/` (worked artifacts).
+7. **For `vibe-style`:** add `hooks.md` (hook library) and `prompt-cookbook.md` (per-modality fragments).
+8. **Run `bun run lint:templates`.** Fix any issues.
+9. **Run `ralphy template suggest "<your test brief>"`.** Verify the new template surfaces with a sensible score.
+
+## Related
+
+- [Cookbook: new template](/cookbook/new-template) — full walkthrough with worked example.
+- [CLI: `ralphy template`](/reference/cli/template) — `list`, `suggest`, `use`, `show`.
+- [Concepts: templates](/concepts/templates) — what a template *is*, narrated.
+- [`cli/lib/schemas/template.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/schemas/template.ts) — the Zod source.
+- [`scripts/lint-templates.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-templates.ts) — the lint source.
+- [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) — current slug-by-category roster.

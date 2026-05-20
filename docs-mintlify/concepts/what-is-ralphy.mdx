@@ -1,0 +1,62 @@
+---
+title: "What is Ralphy"
+description: "Ralphy is an AI film studio that lives in your terminal. Here is the shape of the idea."
+---
+
+Ralphy is an AI film studio that runs in your terminal. You brief it like you would brief a junior producer — a sentence, a reference URL, a brand — and it returns a rendered mp4. The agent in your editor (Claude Code, Cursor, Codex, or GitHub Copilot) does the producing. The `ralphy` CLI does the work: prompts, image generation, video generation, voiceover, music, composition, render. Every step is logged. Every regenerated asset is a new version. Every brief that names a real human, brand, or IP hits a refusal gate until you attach a reference.
+
+## Who it is for
+
+Three audiences keep coming back.
+
+**Solo creators** who post short-form video on TikTok, Reels, and Shorts. The bottleneck is not ideas — it is the 2-hour gap between "I want a video like this one" and a finished cut. Ralphy compresses that loop. You drop a URL, the agent extracts the format, the CLI generates the assets, and the editor stage stitches the mp4. The 54 templates and the companion-repo asset catalog mean you rarely start from a blank prompt.
+
+**Brand and growth teams** who need on-brief UGC at volume — 10 variants of the same hook, 5 product angles, 3 voiceover languages. The batch tooling (`ralphy batch from-template`) runs these without a human loop on each shot. Brands and personas are first-class entities, so the same product / founder / customer character can ride across every project without identity drift.
+
+**Indie marketers and consultants** who run paid social for clients. The append-only logs mean every client project is auditable: every model call, every prompt, every cost, every regen — all on disk, all greppable. When the client asks "why did this look change between v3 and v4," the answer is in `workspace/projects/<id>/logs/generations.jsonl`.
+
+If you are looking for a one-off AI image generator, Ralphy is too much machine. If you are looking for a hosted SaaS that hides the prompts, Ralphy is too transparent. The sweet spot is "I want to run a film studio at small scale, and I want the artifacts on my disk."
+
+## What it replaces
+
+Most teams shipping AI video today wire it together by hand. Ralphy collapses four jobs.
+
+**Manual prompting.** Without Ralphy, you sit in front of an image model, write a prompt, regenerate until it stops drifting, paste the prompt into a video model, regenerate again, then start over for the next shot. With Ralphy, the agent reads a playbook for the role (scenarist, art-director, editor), picks the model from `MODELS.md`, runs `ralphy generate image / video / voiceover / music`, and feeds the output into the next stage.
+
+**Model-hopping.** AI media is a moving target. Kling beats Veo for selfie i2v this month and the other way around next month. Seedance beats Kling for non-default physics. ElevenLabs Music will reject named-rapper prompts and return a `prompt_suggestion`. Each of those facts lives in [`MODELS.md`](https://github.com/alecs5am/ralphy/blob/main/MODELS.md). The agent reads it before every call, so model selection is a lookup rather than guesswork.
+
+**Asset chaos.** "Where is the v2 of scene 4?" "What prompt produced this image?" "Which voiceover is the latest?" Ralphy makes these questions cheap. Every produced file is a slot in `asset-manifest.json`. Every regen is a new version (`.v2`, `.v3`, ...) — never an overwrite. Every model call lands in `generations.jsonl` with input, output, cost, latency, and status.
+
+**Provider lock-in.** Ralphy has exactly two API keys: `OPENROUTER_API_KEY` for media and LLMs, and `ELEVENLABS_API_KEY` for voiceover and music. No FAL, no Vercel, no direct OpenAI. All media goes through `cli/lib/providers/media.ts`. All LLM and vision calls go through `cli/lib/providers/llm.ts` (see AGENTS.md invariant #1). When a new model lands on OpenRouter, you point at it from `MODELS.md` and nothing else changes.
+
+## What makes it different
+
+Three opinions in the codebase that you will feel within an hour of using it.
+
+**Agent-first.** Ralphy assumes you are talking to an agent in an editor, not typing CLI flags. The agent reads [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) (the routing contract), matches your intent to a playbook in `docs/playbooks/*.md`, reads the playbook fully, then invokes `ralphy` verbs. The CLI is the side-effects layer; the playbooks are the brains. You can run `ralphy` by hand — every verb is documented — but the design point is "the agent runs the verbs and you watch."
+
+**Append-only.** Nothing under `workspace/projects/<id>/` is overwritten without explicit user consent (AGENTS.md invariant #13). Regen a scene? The old file becomes `scene-03.v1.png` and the new one is `scene-03.png`. Reject the new one? Promote v1 back by name. Want a clean slate? You ask for it with the word "delete" — and even then, you ask for a specific path. This rule is enforced at the file-system level by `ralphy generate` since commit `753d2f7` (2026-05-19), not just by policy.
+
+**Ref-gated.** When a brief names a real human ("Elon Musk"), a recognizable brand product ("Coca-Cola can"), or a recognizable IP ("Pikachu"), Ralphy refuses to generate without a reference. The classifier lives at [`cli/lib/eval/refs.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/eval/refs.ts). The override is `--no-ref-consent "<reason>"`, which logs to `user-prompts.jsonl` with `stage: "no-ref-consent"`. Generic briefs ("my coffee shop's new pastry") pass without refs. See [`/concepts/references`](/concepts/references) for the full rule.
+
+## What it does not do
+
+Ralphy will not host your videos, distribute them, or schedule them. It produces mp4s on disk. The upload to TikTok / Reels / YouTube is your problem (and a deliberate one — every paid scheduler API has different rules, and we would rather not embed those).
+
+Ralphy will not pick your model for you when you have a strong opinion. If you pass `--model kwaivgi/kling-v3.0-pro`, that is what runs. The defaults in `MODELS.md` are good starts, not laws.
+
+Ralphy will not auto-fix a failed quality gate. If `scoreScenario` or `scoreImage` or `scoreVideo` fails twice in a row, the run stops and reports concrete options (AGENTS.md invariant #4). The agent decides what to do; Ralphy refuses to render mp4 over a known-bad gate.
+
+## How to read the rest of these docs
+
+The next page, [`Architecture`](/concepts/architecture), explains how the agent, the CLI, and the workspace talk to each other. After that, [`Workspace`](/concepts/workspace) and [`Projects`](/concepts/projects) describe the on-disk reality. The remaining pages cover the entities (brands, personas, refs, templates) and the contracts (the gen-log, the playbook model).
+
+If you want to try it before reading further, [`/quickstart/install`](/quickstart/install) takes ~3 minutes and [`/quickstart/first-video`](/quickstart/first-video) takes another 10.
+
+## Related
+
+- [Architecture](/concepts/architecture) — how the three parts fit
+- [References](/concepts/references) — the refusal gate and the override
+- [Generation log](/concepts/generation-log) — the append-only contract
+- [AGENTS.md](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the routing contract and the 13 hard invariants
+- [MODELS.md](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) — providers and per-stage defaults

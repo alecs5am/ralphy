@@ -1,0 +1,218 @@
+---
+title: "Voice prompts"
+description: "ElevenLabs voice tags, Kling audio for English, ElevenLabs for everything else."
+---
+
+Voice in Ralphy splits two ways: Kling `--audio` does English VO baked into the clip with native lip-sync, ElevenLabs does everything else as a separate post-mix track. The split is not a preference — it's a quality gate. Use the wrong path for the wrong language and you ship accent slip or double-mouth artifacts. This page covers when to use which, the ElevenLabs voice-tag vocabulary, and the settings that matter.
+
+## The EN / RU split
+
+The single rule that drives every voice decision:
+
+| Audience language | Path | Why |
+|---|---|---|
+| **English** | Kling `--audio` inside `ralphy generate video` | Native lip-sync, one call for video+VO, cheaper than post-mix |
+| **Russian, Korean, Spanish, anything non-English** | ElevenLabs `eleven_multilingual_v2` separate `ralphy generate voiceover` | Kling, Seedance, and Veo all slip accent and drift voice-age on non-English |
+
+This is validated across noski, venom, and the Kling-no-RU-audio memory. `MODELS.md` Lesson 4 (the video section) confirms `generate_audio: true` is unsafe outside English for all three i2v models.
+
+**Always confirm the target audience language with the user during intake.** The chat language is not the video language — `noski-people-001` wasted 10 min on a default-Russian assumption the user had to override.
+
+## English: Kling --audio
+
+For English UGC selfie monologues, Kling's native lip-sync is the cheapest and best-syncing path. The dialogue goes in the prompt body, the adapter brackets it, the model bakes it into the clip.
+
+```bash
+ralphy generate video --project en-saas-001 --slot scene-01-vid \
+  --prompt "<...Dialogue: 'I had to rebuild it from scratch.'...>" \
+  --duration 5 --audio
+```
+
+The bracketed `[Speaker, tone]: "line"` form (see [Per-model shaping](/prompting/per-model)) lets you specify tone — `deadpan`, `hyped`, `calm`, `urgent`, `neutral`. Kling weights the tone tag against its voice-conditioning corpus.
+
+**Keep the speaker tag stable across scenes** for the same character — the first-comma-clause of the subject (e.g. `Alex` from `Alex, 32, dark brown hair...`) becomes the bracket label and acts as a voice identifier.
+
+**When to skip Kling --audio even on English:**
+
+- The character has multiple lines across multiple scenes and you need pixel-perfect consistency — voice cloning via ElevenLabs is more reliable across 5+ clips.
+- The brand has an established creator voice (e.g. a real founder doing the VO) — clone their voice, post-mix.
+- You need a non-default emotional range — ElevenLabs `eleven_v3` is more emotional for English.
+
+## Non-English: ElevenLabs post-mix
+
+For anything other than English, generate motion-only video, then layer VO in a separate call.
+
+```bash
+# Step 1 — Kling motion only, no --audio flag.
+ralphy generate video --project ru-saas-001 --slot scene-01-vid \
+  --prompt "<...no Dialogue clause in the prompt body...>" \
+  --duration 5
+
+# Step 2 — ElevenLabs VO.
+ralphy generate voiceover --project ru-saas-001 --slot scene-01-vo \
+  --voice <voice-id> \
+  --text "Я не буду подсахаривать."
+
+# Step 3 — captions auto-time to the VO via Scribe v1.
+ralphy generate captions --project ru-saas-001 --audio assets/voiceover/scene-01-vo.mp3
+```
+
+## ElevenLabs settings that matter
+
+Three settings on `eleven_multilingual_v2` shape the delivery. Tune them per mode, not per scene:
+
+| Setting | Range | Effect |
+|---|---|---|
+| `stability` | 0.0–1.0 | Lower = more emotional variation per take; higher = monotone |
+| `similarity_boost` | 0.0–1.0 | Higher = closer to the source clone; lower = more interpretation |
+| `style` | 0.0–1.0 | Higher = more dramatic delivery; 0 = broadcast-flat |
+| `use_speaker_boost` | bool | Adds presence; default true |
+
+### Mode presets (from the voice cookbook)
+
+```json
+// deadpan-rant: Hormozi / Codie Sanchez register, single-idea education
+{
+  "stability": 0.55,
+  "similarity_boost": 0.85,
+  "style": 0.10,
+  "use_speaker_boost": true
+}
+
+// hype-hook: 0-3s scroll-stop, DTC ad energy
+{
+  "stability": 0.30,
+  "similarity_boost": 0.75,
+  "style": 0.55,
+  "use_speaker_boost": true
+}
+
+// intimate-reveal: storytime confessional, 5-8s
+{
+  "stability": 0.40,
+  "similarity_boost": 0.80,
+  "style": 0.25,
+  "use_speaker_boost": true
+}
+```
+
+### Russian deadpan-young default
+
+The canonical RU production setting from `MODELS.md`:
+
+```json
+{
+  "model_id": "eleven_multilingual_v2",
+  "voice_settings": {
+    "stability": 0.55,
+    "similarity_boost": 0.8,
+    "style": 0.25,
+    "use_speaker_boost": true
+  },
+  "output_format": "mp3_44100_128"
+}
+```
+
+## English premium: eleven_v3
+
+For English content where Kling --audio is too rigid (multi-character dialogue, complex emotional range, dramatic narration), use ElevenLabs `eleven_v3`. Most emotional for English; validated 2026-05-08 on the brainrot test (Adam preset, dramatic narrator, 45–55s).
+
+**Eleven_v3 is unstable on Russian — don't use in production for RU.** Per `MODELS.md`.
+
+```json
+// English brainrot dramatic narrator
+{
+  "model_id": "eleven_v3",
+  "voice_settings": {
+    "stability": 0.30,
+    "similarity_boost": 0.75,
+    "style": 0.40,
+    "use_speaker_boost": true
+  }
+}
+```
+
+## Voice picks
+
+| Voice ID | When |
+|---|---|
+| `pNInz6obpgDQGcFmaJgB` (Adam) | Dramatic narrator, brainrot, big-feel English VO |
+| `nPczCjzI2devNBz1zQrb` (Brian) | Reddit-monotone, deadpan English commentary |
+| `onwK4e9ZLuTAKqWW03F9` (Daniel) | British-sarcastic, dry English aside |
+| Custom clone | RU production (mandatory — library voices read too theatrical for RU) |
+
+When the persona has a defined voice ID in `brand.json` or persona archetype, Ralphy passes it through. Otherwise the agent picks based on the scenario register.
+
+## Voice cloning
+
+For branded creator personas, clone the voice once and pin the ID in the persona record. The clone is the source of truth across every scene.
+
+```bash
+# Clone (once per persona).
+ralphy voice clone --name "alex-founder" \
+  --sample workspace/personas/alex-founder/voice-sample.mp3
+# → returns voice-id; persist to persona
+
+# Use the cloned voice on every scene.
+ralphy generate voiceover --project en-saas-001 --slot scene-01-vo \
+  --voice <cloned-voice-id> --text "<line>"
+```
+
+Cloning beats library voices for any branded creator persona. For RU production, a custom clone is **mandatory** — default library voices (`clyde-warvet`, `daniel-deep`, etc.) read too theatrical for Russian UGC.
+
+## VO drift on long takes
+
+Dramatic narration on `eleven_v3` consistently runs **~15–25% longer than scripted word-count would suggest**. The Strasbourg 45s scenario rendered at 54.6s. **Time-budget compositions to actual VO duration via `ralphy project transcribe`, not scenario text length.** Per `MODELS.md` voice section.
+
+```bash
+ralphy generate voiceover --project <id> --slot vo-main --text "<script>"
+ralphy project transcribe <id> --audio assets/voiceover/vo-main.mp3
+# → returns word-level timestamps + total duration
+# Now budget the composition around the real duration.
+```
+
+## Failure modes
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `403 Cloudflare` from ElevenLabs | Default Node 20+ UA blocked | Send `User-Agent: Mozilla/5.0 (...)` (auto in `ralphy generate voiceover`) |
+| `429 concurrent_limit_exceeded` | Free/starter cap is 3 concurrent | Run sequentially, not parallel |
+| Accent slip on RU with Kling --audio | --audio is EN-only | Switch to ElevenLabs post-mix |
+| Voice age drifts mid-clip | --audio outside English | Same — ElevenLabs post-mix |
+| Caption timestamps don't match VO | VO regenerated, captions not | After every VO regen, re-run `ralphy generate captions` |
+
+## Captions follow the VO
+
+Word-level captions come from ElevenLabs Scribe v1 by default — same key, returns timestamps natively in the shape Remotion's caption components expect. No second normalization pass.
+
+```bash
+ralphy generate captions --project <id> --audio assets/voiceover/scene-01-vo.mp3
+# → writes captions.json next to the project; cost ~$0.004/min
+```
+
+Whisper-1 via OpenRouter is the fallback when ElevenLabs is down (`--backend openrouter`). Slightly more expensive (~$0.006/min) and occasionally 400s on long audio — re-encode to 64kbps mono mp3 if you hit them.
+
+## CLI surface
+
+```bash
+# Voiceover — ElevenLabs path, default model eleven_multilingual_v2.
+ralphy generate voiceover --project <id> --slot scene-01-vo \
+  --voice <voice-id> \
+  --text "<line>" \
+  [--model eleven_v3]
+
+# From a file, for long scripts.
+ralphy generate voiceover --project <id> --slot main-vo \
+  --voice <voice-id> --text-file scripts/main-vo.txt
+
+# Captions to match the VO.
+ralphy generate captions --project <id> --audio assets/voiceover/main-vo.mp3
+```
+
+## Related
+
+- [Video prompts](/prompting/video) — the EN/RU split feeds video model picks too
+- [Music prompts](/prompting/music) — what goes alongside VO in the editor
+- [TikTok confession rant cookbook](/cookbook/tiktok-confession-rant) — full end-to-end with VO
+- [`MODELS.md` voice section](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) — canonical voice picks
+- [`docs/prompts/voice/`](https://github.com/alecs5am/ralphy/tree/main/docs/prompts/voice) — the 5 mode files (deadpan-rant, hype-hook, etc.)
