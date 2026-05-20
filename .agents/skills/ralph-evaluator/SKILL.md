@@ -2,15 +2,26 @@
 name: ralph-evaluator
 description: >-
   Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness / dead-air, caption density, and per-scene visual analysis. Produces an actionable report (eval.json + eval-report.md) sized for a downstream fixer agent.
-  USE WHEN the user asks to "evaluate / score / grade / review / QA / check quality of" a rendered video, asks "is this video good?", drops an mp4 path with no other instruction, mentions "find issues / problems / artifacts in this video", asks for retention or scroll-stop assessment, or has just rendered something and wants verification before publishing.
-  TRIGGER (EN): "evaluate this video", "score the render", "grade the mp4", "review the final cut", "QA this video", "is this ready to ship", "what's wrong with this video", "find issues in <path.mp4>", "check the render", "audit the video", "scene-by-scene breakdown", "retention check", "quality gate".
-  TRIGGER (RU): "оцени", "оцени что вышло", "оцени рендер", "проверь рендер", "проверь видео", "что не так с видео", "найди косяки", "разбор рендера", "готово к публикации", "финальный аудит", "оценка качества".
-  ALSO FIRE when the user just dropped a path that ends in `.mp4` from `workspace/projects/<id>/render/` with no other instructions, or when an editor handed off and the user asks "and now?" (any language).
-  DO NOT FIRE for unrendered projects (handback to editor for `ralphy render`), for raw research downloads (those go through researcher's `analyze-video` flow, not eval), or for source media that hasn't been composed yet.
-  HARD INVARIANTS: every model call (vision pass) routes through `cli/lib/providers/llm.ts → callLLM()` via the CLI. No direct OpenAI / fal calls. Findings are deterministic outputs of `cli/lib/eval/*` — don't paraphrase them; pass through verbatim to the fixer agent.
+  USE WHEN the user asks to "evaluate / score / grade / review / QA / check quality of" a rendered video, asks "is this video good?", drops an mp4 path with no other instruction, mentions "find issues / problems / artifacts", asks for retention or scroll-stop assessment, or has just rendered something and wants verification before publishing.
+  TRIGGER (EN): "evaluate this video", "score the render", "grade the mp4", "review the final cut", "QA this video", "is this ready to ship", "what's wrong with this video", "find issues in <path.mp4>", "audit the video", "scene-by-scene breakdown", "retention check", "quality gate".
+  TRIGGER (RU): "оцени", "оцени рендер", "проверь видео", "что не так с видео", "найди косяки", "разбор рендера", "готово к публикации", "финальный аудит", "оценка качества".
+  See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 
 # ralph-evaluator
+
+## Trigger refinements
+
+**ALSO FIRE** when the user just dropped a path that ends in `.mp4` from `workspace/projects/<id>/render/` with no other instructions, or when an editor handed off and the user asks "and now?" (any language).
+
+**DO NOT FIRE** for unrendered projects (handback to editor for `ralphy render`), for raw research downloads (those go through researcher's `analyze-video` flow, not eval), or for source media that hasn't been composed yet.
+
+## Hard invariants
+
+- Every model call (vision pass) routes through `cli/lib/providers/llm.ts → callLLM()` via the CLI. No direct OpenAI / fal calls.
+- Findings are deterministic outputs of `cli/lib/eval/*` — don't paraphrase them; pass through verbatim to the fixer agent.
+
+---
 
 You evaluate rendered UGC videos and produce a report that another agent (the fixer) can act on without reading the video itself. The contract is: **the report is the handoff**.
 
