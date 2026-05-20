@@ -1,0 +1,38 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: asmr-sensory
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: ASMR / Sensory
+description: "Pure-sensory micro-content: macro close-ups + diegetic foley as
+  the hero. 30-90s, 9:16, slow-paced, 3-8 clips. Sound is the differentiator
+  (most feeds scroll on mute; ASMR is built to convert sound-on into
+  save+rewatch). Music typically OFF or sub-perceptual ambient at -25dB. Niches:
+  beauty (cream texture), food, unboxing, slime, spa rituals, crafts. Distinct
+  from food-beverage (appetite-trigger) — this is cross-category sensory across
+  any subject."
+tags:
+  - asmr
+  - sensory
+  - satisfying
+  - slow-paced
+  - close-up
+  - macro
+  - cream-texture
+  - unboxing-sounds
+  - slime
+  - spa
+  - foley
+  - diegetic
+  - completion-rate
+  - tapping
+  - whispering
+  - rewatch
+  - save-trigger
+  - no-music
+requires: {}
+scenes: []
+references: []
+

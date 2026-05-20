@@ -125,6 +125,20 @@ export const ERROR_CODES = {
     hint: "Upgrade ralphy with `brew upgrade ralphy` or downgrade the template's `version:` field.",
     relatedDocs: "roadmap/02-prompts-and-templates/OPEN-QUESTIONS.md#d-03",
   },
+  E_TEMPLATE_INPUT_MISSING: {
+    class: "user",
+    httpAnalog: 422,
+    message: "Template {id} requires a {requirement} but none was supplied",
+    hint: "Supply via the matching flag (e.g. `--brand <slug>`) or create the resource first (e.g. `ralphy brand create`).",
+    relatedDocs: "roadmap/02-prompts-and-templates/SPEC.md#020502",
+  },
+  E_TEMPLATE_SLUG_INVALID: {
+    class: "user",
+    httpAnalog: 422,
+    message: "Template slug rejected: {slug} ({reason})",
+    hint: "Pick an archetypal slug instead — describe what the template *does*, not who made the format famous.",
+    relatedDocs: "roadmap/02-prompts-and-templates/OPEN-QUESTIONS.md#d-05",
+  },
   E_PROJECT_NOT_LINKED: {
     class: "user",
     httpAnalog: 404,

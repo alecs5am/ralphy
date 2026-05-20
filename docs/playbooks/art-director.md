@@ -84,6 +84,12 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 - `workspace/projects/<id>/logs/generations.jsonl` — on regeneration, to avoid repeating a failure.
 - `templates/<slug>/{TEMPLATE,hooks,prompt-cookbook}.md` (or `workspace/templates/<slug>/`) — if the project was scaffolded from a template, the cookbook is your prompt-writing reference.
 
+## Step 1 of every gen — read the library (02.0L.03)
+
+Before writing a prompt for any slot, run `ralphy prompts library lookup --goal "<one-line description of the slot>"` and read the top-matched `entry.md`. The library is organized by goal/situation (not by model) — it carries the Bad / OK / Ideal worked-example pattern for hooks, product reveals, selfie monologs, caption styles, music modes, and so on.
+
+`ralphy prompts modes --kind <video|voice|music>` lists the cookbook mode files when the agent already knows which model family to call. Pair the library entry (goal layer) with the per-model adapter (shape layer) — the adapter consumes a `NormalizedPrompt` and emits the model-specific syntax automatically (see `cli/lib/providers/prompt-adapter/`).
+
 ## Hard rules (inherited from AGENTS.md)
 
 1. **All calls go through `ralphy generate {image|video|voiceover|music}`.** No runtime TS scripts in `workspace/projects/<id>/scripts/`. If an operation isn't covered — stop and extend `cli/commands/generate.ts`, don't copy code into the project.

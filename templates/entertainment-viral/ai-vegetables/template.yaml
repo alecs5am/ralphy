@@ -1,0 +1,37 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: ai-vegetables
+aliases: []
+kind: vibe-reference
+category: entertainment-viral
+name: AI Vegetables POV
+description: "Surrealist POV short: an anthropomorphic vegetable performs a
+  mundane human action (running for the bus, sitting in a meeting, waiting in
+  line). 12-18s TikTok format, 9:16. Hook lands in the first 2s through visual
+  shock. Photorealistic vegetable rendering (not cartoon) is the load-bearing
+  aesthetic choice. Cheap, fast, evergreen viral pattern that works in any
+  language because the gag is visual."
+tags:
+  - ai-vegetables
+  - surreal
+  - viral-trend
+  - tiktok
+  - reels
+  - shorts
+  - pov
+  - absurd
+  - absurd-pov
+  - anthropomorphic
+  - visual-shock
+  - vegetables
+  - cucumber
+  - tomato
+  - carrot
+  - potato
+  - comedy
+  - deadpan
+requires: {}
+scenes: []
+references: []
+

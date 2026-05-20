@@ -1,0 +1,46 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: comic-spiderverse-action
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Comic Spider-Verse Action
+description: "27-second 16:9 painterly action scene in a comic-panel split +
+  halftone dot bleed + ink-stroke caption aesthetic — two stylized characters
+  (default: skaters mid-trick over an urban rooftop / skate bowl) carving across
+  a Spider-Verse / Arcane painterly world, captured as 2 stitched seedance-2.0
+  t2v clips with explicit AUDIO POLICY banning music, followed by a post-render
+  ElevenLabs music bed (genre + tempo only — NO artist names) mixed with
+  sidechain duck under diegetic SFX. Image stage is a fighting-game-style VS
+  character-select poster (gemini-3-pro-image-preview ref-anchored) — optional,
+  only ship when the user wants a marketing card alongside the cut."
+tags:
+  - spider-verse
+  - arcane-painterly
+  - comic-panel-split
+  - halftone-dot-bleed
+  - ink-stroke-captions
+  - chromatic-aberration
+  - stylized-action
+  - skater
+  - kickflip
+  - urban-rooftop
+  - two-character-duel
+  - vs-character-card
+  - seedance-2.0
+  - t2v
+  - kickflip-physics
+  - diegetic-sfx
+  - post-mix-music
+  - sidechain-duck
+  - elevenlabs-music
+  - 16-9
+  - 27s
+  - 2-clip-stitch
+  - cinematic-narrative
+  - no-vo
+requires: {}
+scenes: []
+references: []
+

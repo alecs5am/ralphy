@@ -1,0 +1,48 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: found-footage-mockumentary
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Found-Footage Mockumentary
+description: First-person handheld occult / cryptid mockumentary in the
+  voidstomper / analog-horror lineage. POV operator stumbles on something they
+  shouldn't have filmed — cult-circle discovery, photo-flash beat, the
+  impossible 'they're now facing me' turn, retreat, and a final monster reveal.
+  Pure diegetic English captions (3 max, lower-third), no VO, persistent REC dot
+  + timecode + low-battery HUD overlay (Act 1) and a diegetic style-break to
+  clean cinema register for the Act-2 reveal. Built around a 6-clip i2v pipeline
+  with locked first-frame anchors and an absolute ban on cultist body-rotation
+  animation (the horror is stillness — animate-the-turn and the spell breaks).
+  Validated on a 40s 9:16 occult render at ~$27 of model spend.
+tags:
+  - found-footage
+  - mockumentary
+  - analog-horror
+  - voidstomper
+  - occult
+  - cryptid
+  - first-person-pov
+  - handheld
+  - rec-dot-hud
+  - timecode-overlay
+  - vhs
+  - hi8
+  - diegetic-captions
+  - no-vo
+  - monster-reveal
+  - cult-circle
+  - photo-flash-turn
+  - signal-lost-endcard
+  - uncanny-valley
+  - 9-16
+  - tiktok
+  - reels
+  - shorts
+  - ai-friendly
+requires:
+  refs: 1
+scenes: []
+references: []
+

@@ -1,0 +1,43 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: anthropomorphic-object-drama
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Anthropomorphic Object Drama
+description: "Pixar-3D telenovela parody played dead-straight by anthropomorphic
+  objects — fruit, vegetables, household appliances, anything with a
+  face-on-object look. 7×8s = 56s default, structured as hook → setup → rising →
+  discovery → confrontation → departure → resolution. Direct on-camera dialogue
+  (one or two speakers per beat, never a narrator) carried by Veo 3.1 native
+  audio. Single continuous music bed with a two-section emotional arc: warm
+  pastel orchestral-pop opening + dramatic strings swell at the confrontation
+  beat (~sec 32). Popping-word captions overlay one word at a time at the
+  emotional peak. Beat-locked-to-dialogue: every 8s scene = exactly one dialogue
+  beat in the story arc, every keyframe seeds the i2v anchor for that beat,
+  every caption pop fires on the strongest word of the line."
+tags:
+  - anthropomorphic-object-drama
+  - fruit-drama
+  - object-drama
+  - vegetable-drama
+  - face-on-object
+  - pixar-3d
+  - ai-drama
+  - telenovela-parody
+  - soap-opera-melodrama
+  - on-camera-dialogue
+  - veo-native-audio
+  - popping-word-captions
+  - beat-locked-to-dialogue
+  - two-section-music-arc
+  - tiktok
+  - reels
+  - shorts
+  - 9-by-16
+  - viral-2026
+requires: {}
+scenes: []
+references: []
+

@@ -1,0 +1,36 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: cinematic
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Cinematic Film-Style
+description: "Blockbuster, film-look short — 8-15s of dramatic cinema language:
+  2-second hook, deliberate camera language (dolly, crane, rack focus),
+  motivated lighting (chiaroscuro / golden hour / volumetric), and synced sound
+  design. Generic prompt cookbook for any subject; pick a hook, a lighting
+  setup, a camera move, and a color grade, then run."
+tags:
+  - cinematic
+  - film-look
+  - movie-scene
+  - dramatic
+  - anamorphic
+  - letterbox
+  - noir
+  - epic
+  - steadicam
+  - dolly
+  - crane
+  - rack-focus
+  - lens-flare
+  - depth-of-field
+  - teal-orange
+  - golden-hour
+  - chiaroscuro
+  - volumetric
+requires: {}
+scenes: []
+references: []
+

@@ -59,6 +59,7 @@ import { versionCmd } from "./commands/version.js";
 import { newCmd } from "./commands/new.js";
 import { cloneCmd } from "./commands/clone.js";
 import { skillCmd } from "./commands/skill.js";
+import { promptsCmd } from "./commands/prompts.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -140,6 +141,7 @@ program.addCommand(videoCmd());
 program.addCommand(bannerCmd());
 program.addCommand(evalCmd());
 program.addCommand(researchCmd());
+program.addCommand(promptsCmd());
 
 program.addHelpText("beforeAll", bannerString());
 

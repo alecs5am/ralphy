@@ -1,0 +1,38 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: tier-list
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Tier List / Ranking
+description: S/A/B/C/D-tier visual grid with item ranking. 40-75s, 9:16. 0-2s
+  setup ('ranking [X]'), then each item pops into its tier with a short reason
+  (~3-5s each), ending on a deliberately controversial pick to provoke comments.
+  Opinion-as-content + search-friendly evergreen ('ranking [niche] 2026').
+  Remotion-heavy — the tier grid composition is built in Remotion; gemini-3-pro
+  generates the per-item icons/photos; kling-v3.0-pro is used only for an
+  optional hook intro shot.
+tags:
+  - tier-list
+  - ranking
+  - s-tier
+  - opinion-content
+  - evergreen
+  - search-first
+  - debate-bait
+  - ai-friendly
+  - faceless-friendly
+  - gaming
+  - movies
+  - anime
+  - food-ranking
+  - brand-comparison
+  - dating-apps
+  - tiktok
+  - shorts
+  - reels
+requires: {}
+scenes: []
+references: []
+

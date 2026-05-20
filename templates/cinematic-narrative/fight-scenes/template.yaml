@@ -1,0 +1,41 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: fight-scenes
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Fight Scenes
+description: "Cinematic fight, combat, and martial-arts action prompts.
+  Vibe-style template: structured choreography (hook → exchanges → escalation →
+  climax → resolution), specific moves (jab/cross/roundhouse/parry, blade work,
+  elemental magic), active-participant camera (whip-pan, dolly, orbit, snap
+  zoom), and impact effects (dust, sparks, shockwaves, fabric ripple). 9:16
+  social-cut by default; 5-15s clips. Reference is optional — use only when
+  reproducing a real fighter, real choreography, or a copyrighted franchise
+  look."
+tags:
+  - fight
+  - combat
+  - action
+  - martial-arts
+  - choreography
+  - duel
+  - battle
+  - kung-fu
+  - karate
+  - muay-thai
+  - mma
+  - sword
+  - katana
+  - samurai
+  - superhero
+  - chase
+  - tiktok
+  - reels
+  - shorts
+  - cinematic
+requires: {}
+scenes: []
+references: []
+

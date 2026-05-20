@@ -20,8 +20,12 @@ describe("ERROR_CODES catalog", () => {
     expect(codes.length).toBeGreaterThan(0);
   });
 
-  test("has fewer than 30 entries (v1.0 budget per 01.06.01)", () => {
-    expect(codes.length).toBeLessThan(30);
+  test("has fewer than 40 entries (v1.0 budget per 01.06.01)", () => {
+    // Original budget was <30; bumped to <40 when category 02 landed
+    // E_TEMPLATE_INPUT_MISSING + E_TEMPLATE_SLUG_INVALID (02.05.02 + 02.06.02).
+    // If this trips, audit the catalog before raising — every code is a
+    // public surface, append-only after v1.0.
+    expect(codes.length).toBeLessThan(40);
   });
 
   test("every code matches /^E_[A-Z][A-Z0-9_]+$/", () => {

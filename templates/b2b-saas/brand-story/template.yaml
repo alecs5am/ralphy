@@ -1,0 +1,39 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: brand-story
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Brand Story
+description: "Longer-form cinematic brand narrative (30-60s, sometimes 60-120s
+  for hero films): founder voice or customer transformation arc carries problem
+  → mission → solution → impact. Tonal opposite of fast-cut UGC: contemplative
+  pacing, authentic detail, emotional restraint. Reference-required — a real
+  brand identity (logo, founder photo / archive material, product, environment)
+  must be supplied; AI cannot improvise a brand. Best for about-us videos,
+  origin stories, mission films, anniversary spots, investor narrative,
+  manifesto."
+tags:
+  - brand-story
+  - brand-film
+  - origin-story
+  - founder-story
+  - mission
+  - manifesto
+  - about-us
+  - anthem
+  - narrative
+  - cinematic
+  - long-form
+  - linkedin
+  - youtube
+  - website-hero
+  - investor-pitch
+  - transformation
+  - documentary
+requires:
+  refs: 1
+scenes: []
+references: []
+

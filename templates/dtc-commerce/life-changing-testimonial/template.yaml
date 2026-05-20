@@ -1,0 +1,44 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: life-changing-testimonial
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Life-Changing Testimonial
+description: "Person-led peer-to-peer testimonial: a relatable speaker tells
+  their personal story — pain history, discovery moment, specific outcomes —
+  directly to camera. 30-60s, 9:16. The story is the load-bearing element; the
+  product is mentioned but never the visual hero. Distinct from
+  before-after-product (product-led, reveal-driven) and doctor-authority
+  (medical authority). The single most converting DTC ad format in 2024-2026
+  because peer trust beats brand trust and specific numbers beat adjectives.
+  Reference-required when the testimonial names a real branded product;
+  reference-optional for generic-pain-pain-solution variants."
+tags:
+  - testimonial
+  - life-changing
+  - personal-story
+  - peer-to-peer
+  - dtc
+  - conversion
+  - skincare-testimonial
+  - nutra-testimonial
+  - fitness-testimonial
+  - software-testimonial
+  - before-after-personal
+  - transformation-story
+  - real-results
+  - person-led
+  - talking-head
+  - ugc
+  - tiktok
+  - reels
+  - shorts
+  - this-changed-my-life
+  - review
+requires:
+  refs: 1
+scenes: []
+references: []
+

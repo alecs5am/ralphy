@@ -1,0 +1,35 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: ai-drama
+aliases: []
+kind: vibe-reference
+category: entertainment-viral
+name: AI Fruit / Object Drama
+description: Pixar-3D-cartoon mini-soap-opera between anthropomorphic fruits /
+  objects / animals with on-camera dialogue in 8s beats. 7×8s = 56s default. The
+  format popularized by @fruittalesco — a melodramatic plot (affair, breakup,
+  found-family) carried by direct character dialogue, not narrator. Veo 3.1 with
+  native audio generates lip-synced speech directly; ElevenLabs adds NO
+  additional music bed (Veo already injects ambient under each clip — two layers
+  = mud). Single-word pop-up captions in TheBoldFont sit on top via Remotion.
+tags:
+  - ai-drama
+  - fruit-drama
+  - object-drama
+  - ai-3d
+  - pixar-3d
+  - viral-trend
+  - tiktok
+  - reels
+  - shorts
+  - on-camera-dialogue
+  - veo-native-audio
+  - soap-opera
+  - melodrama
+  - fruittalesco
+  - popwords
+requires: {}
+scenes: []
+references: []
+

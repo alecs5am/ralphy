@@ -1,0 +1,45 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: podcast-clip
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Podcast Clip
+description: "Long-form podcast / interview / panel / talk → 15-60s viral cut
+  for TikTok / Reels / Shorts. Reference-required: a source long-form video URL
+  or file MUST be supplied — there is no way to invent podcast content. Style
+  discipline: title-banner with provocative hook quote at the top (12% of
+  frame), karaoke captions sync'd to speech at the bottom (18%), dynamic 9:16
+  reframe (smart-crop on the active speaker), occasional B-roll cuts for
+  variety, music typically OFF (diegetic VO carries) with optional low bed under
+  the title-banner moment. One 60-90 minute podcast usually yields 2-4 short
+  cuts that go viral. The tooling pipeline is end-to-end: yt-dlp pull →
+  transcribe → Gemini-vision viral-moment picker → lossless extract → Remotion
+  compose."
+tags:
+  - podcast
+  - podcast-clip
+  - interview-cut
+  - viral-cut
+  - joe-rogan-cut
+  - lex-fridman-cut
+  - modern-wisdom
+  - diary-of-a-ceo
+  - smart-crop
+  - karaoke-captions
+  - title-banner
+  - repurpose
+  - long-form-to-shorts
+  - talkshow-clip
+  - panel-cut
+  - debate-clip
+  - hot-take
+  - tiktok
+  - reels
+  - shorts
+requires:
+  refs: 1
+scenes: []
+references: []
+

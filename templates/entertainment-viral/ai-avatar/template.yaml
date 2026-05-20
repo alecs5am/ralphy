@@ -1,0 +1,46 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: ai-avatar
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: AI Avatar Talking-Head
+description: "Fully AI-generated 'person' delivering a 45-90s script straight to
+  camera. In 2026, lip-sync (Kling Avatar v2, HeyGen, Synthesia) reached the
+  point where the average TikTok viewer doesn't immediately spot AI; one TikTok
+  Shop affiliate earned ~$13K commission on a single AI-avatar video. Solves the
+  biggest UGC bottleneck — production cost — and unlocks one-script-to-N-markets
+  via ElevenLabs eleven_multilingual_v2 (30+ languages, voice preserved).
+  Close-up persona delivers hook → value → CTA, with optional B-roll cutaways.
+  AI = accelerator, not replacement: the viewer must NOT feel they're watching
+  slop. Platform-side C2PA provenance metadata is emitted automatically by
+  render with genai:true; no visible on-screen disclosure overlay (retention
+  drops with visible AI labels)."
+tags:
+  - ai-avatar
+  - virtual-presenter
+  - synthetic-talking-head
+  - lip-sync
+  - heygen
+  - kling-avatar
+  - veo-3.1
+  - veo-multilingual
+  - multilingual
+  - dubbing
+  - product-review
+  - ecommerce-ad
+  - tiktok-shop
+  - education
+  - news-brief
+  - scalable
+  - faceless-alternative
+  - ai-friendly
+  - c2pa
+  - tiktok
+  - reels
+  - shorts
+requires: {}
+scenes: []
+references: []
+

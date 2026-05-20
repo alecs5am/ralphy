@@ -1,0 +1,44 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: try-on
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Try-On
+description: "Virtual try-on for fashion / glasses / makeup / shoes / jewelry /
+  hairstyles. The model stands in front of a mirror or directly faces the
+  camera, then 'tries on' multiple variants in rapid sequence — walk-into-camera
+  + outfit change, snap-fingers swap, mirror-flash cut, or makeup-application
+  timelapse → reveal. 8-25s, 9:16 vertical, 3-8 looks at 2-3s each. The
+  conversion-driving format for fashion / beauty / eyewear / accessory ecommerce
+  — viewer projects 'how would this look on me' without commitment.
+  Reference-required: real garment / real product photos must be supplied,
+  otherwise generation refuses (no AI-improvised branded apparel, ever)."
+tags:
+  - try-on
+  - virtual-try-on
+  - vto
+  - fashion-tryon
+  - makeup-tryon
+  - glasses-tryon
+  - sunglasses
+  - jewelry-try-on
+  - hair-color
+  - shoes-tryon
+  - mirror-flash
+  - multi-variant
+  - ecommerce
+  - conversion
+  - sephora-style
+  - asos-tryon
+  - outfit-change
+  - snap-cut
+  - tiktok
+  - reels
+  - shorts
+requires:
+  refs: 1
+scenes: []
+references: []
+

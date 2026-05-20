@@ -1,0 +1,45 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: multi-scene-product-launch
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Multi-Scene Product Launch
+description: "27-scene branded product launch / commercial recreation in 9:16 —
+  two identity-locked AI models (e.g. pink-haired girl + dreadlocked guy)
+  interacting with a hero hardware product across BTS-commercial-set vignettes
+  (treadmill, printed-fabric backdrop, lab-coat crew, foam-panel sound room).
+  Built for full-spec product reveals where the product is the headline and
+  identity drift across many short clips is the dominant risk. Master-shot
+  pipeline: dedicated character + wardrobe + product hero refs are generated
+  once and then passed as --ref on every keyframe and every i2v call to lock
+  identity, wardrobe, hair, and product 1:1 across 20+ shots. Per-scene framing
+  inherits the source shot via a locked storyboard ref. Audio stays source-1:1
+  (no VO regen) — for branded recreations the brand audio IS the point."
+tags:
+  - product-launch
+  - commercial-recreation
+  - multi-scene
+  - 27-scene
+  - identity-lock
+  - wardrobe-lock
+  - master-shot
+  - hero-product
+  - bts-commercial
+  - headphones
+  - consumer-electronics
+  - dtc
+  - tiktok
+  - reels
+  - shorts
+  - 9-16
+  - cool-desaturated-grade
+  - lab-coat-crew
+  - treadmill-set
+  - printed-fabric-backdrop
+requires:
+  refs: 1
+scenes: []
+references: []
+
