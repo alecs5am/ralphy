@@ -1,0 +1,29 @@
+title: "[Show & Tell] "
+labels: ["show-and-tell"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Show & Tell
+        Drop the mp4, the template you used, and what you'd do differently next time.
+        Great place to surface new vibe templates worth pulling into the repo.
+  - type: input
+    id: video
+    attributes:
+      label: Video link (YouTube / Reels / TikTok / GitHub upload)
+      placeholder: "https://..."
+    validations:
+      required: true
+  - type: input
+    id: template
+    attributes:
+      label: Template used
+      placeholder: "before-after-product · multi-scene-product-launch · clone-tokyo-y2k-001"
+  - type: textarea
+    id: notes
+    attributes:
+      label: What worked / what didn't
+      placeholder: |
+        - Hook landed in scene 02 — kept that.
+        - Music drifted on the second pass — had to re-prompt with stricter genre tags.
+        - Total spend: ~$9.40.

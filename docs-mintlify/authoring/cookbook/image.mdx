@@ -1,0 +1,49 @@
+---
+title: "Image prompt cookbook"
+description: "9 master prompt templates for product / lifestyle / hero / macro / flat-lay / virtual-model shots. Paste, fill slots, ship."
+---
+
+The image cookbook lives at [`docs/prompts/image/`](https://github.com/alecs5am/ralphy/tree/main/docs/prompts/image) in the repo. Each mode file is a slot-fillable master template the agent reads, fills, and submits via `ralphy generate image --prompt "..."`.
+
+## Default models
+
+| Use case | Model | Cost |
+|---|---|---|
+| Premium / typography / clean labels | `openai/gpt-5.4-image-2` (default) | ~$0.20/image |
+| Multi-ref character / face consistency (2+ refs) | `google/gemini-3-pro-image-preview` | ~$0.15/image |
+
+Switch via `--model <id>`. Full list: `ralphy models list`.
+
+## Mode index
+
+| User intent | Mode file |
+|---|---|
+| "studio product photo", "packshot", "white background", "marketplace listing" | [`product-shot`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/product-shot.md) |
+| "in a real environment", "lifestyle", "on a kitchen / gym / shelf", "in an interior" | [`lifestyle-scene`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/lifestyle-scene.md) |
+| "hand holding", "in use", "model using", "swipe / apply / unbox" | [`closeup-with-person`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/closeup-with-person.md) |
+| "macro", "texture", "shimmer", "drops", "extreme close-up" | [`macro-detail`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/macro-detail.md) |
+| "top-down", "flat lay", "layout" | [`flat-lay`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/flat-lay.md) |
+| "AI model wears / uses", "virtual try-on", "model wearing X" | [`virtual-model-tryout`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/virtual-model-tryout.md) |
+| "website banner", "hero for landing", "wide-format", "email header" | [`hero-banner`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/hero-banner.md) |
+| "surreal", "CGI", "levitation", "splash", "neon", "color gels" | [`conceptual-product`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/conceptual-product.md) |
+| "change only X", "same product but Y", "regen with different background" | [`iteration-edit`](https://github.com/alecs5am/ralphy/blob/main/docs/prompts/image/iteration-edit.md) |
+
+## Runnable snippet
+
+```bash
+ralphy generate image \
+  --project espresso-001 \
+  --slot scene-01-bg \
+  --prompt "studio packshot of an espresso machine, white seamless background, 50mm, Sigma f/2.8, soft key light from camera-left, slight reflection on the bottom, photoreal not glossy" \
+  --model openai/gpt-5.4-image-2
+```
+
+## File anatomy
+
+Every mode file has 5 sections:
+
+1. **When to use** — 1-2 sentences on when the mode is appropriate
+2. **Master template** — slot-fillable prompt skeleton
+3. **Slot reference** — what each `{slot}` accepts
+4. **Worked example** — a real `ralphy generate image` invocation
+5. **Failure modes** — common drift and how to recognize it

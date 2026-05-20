@@ -1,0 +1,65 @@
+name: 🐛 Bug report
+description: Something demonstrably broken with a reproducible repro.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. For questions / general feedback, please use
+        [Discussions → Q&A](https://github.com/alecs5am/ralphy/discussions/new?category=q-a)
+        instead — Issues are reserved for reproducible bugs.
+  - type: input
+    id: version
+    attributes:
+      label: Ralphy version
+      description: Output of `ralphy --version`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: install_channel
+    attributes:
+      label: Install channel
+      placeholder: "brew | curl | npm | from source"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / arch
+      placeholder: "macOS 14.5 arm64"
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: ralphy doctor output
+      description: Paste the JSON output of `ralphy doctor --json`.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command that reproduces it
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What you observed
+      description: Paste error output verbatim. Include stderr.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Logs, screenshots, links to gist with full output.

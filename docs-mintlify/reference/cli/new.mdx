@@ -1,0 +1,43 @@
+---
+title: "ralphy new"
+description: "Create a new project under ~/.ralphy/projects/<id>/ with a canonical layout. CWD-independent. Pass a brief to seed BRIEF.md or just --id <slug> for an empty she"
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy new [options] [brief...]
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--id <slug>` | Project id slug (default: derived from brief or YYMMDD-HHMMSS) |
+
+**Example**
+
+```bash
+ralphy new "Spring 2026 ad for Acme dental floss"
+```
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--id <slug>` | Project id slug (default: derived from brief or YYMMDD-HHMMSS) |
+| `-h, --help` | display help for command |
+
+**All examples**
+
+```bash
+ralphy new "Spring 2026 ad for Acme dental floss"
+ralphy new --id summer-launch-001
+ralphy new "office-set walkthrough" --id office-walk-001
+```
+
+</Expandable>

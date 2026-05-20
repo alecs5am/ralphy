@@ -55,6 +55,10 @@
     "lint:help-examples": "bun run scripts/lint-help-examples.ts",
     "cli:surface:build": "bun run scripts/build-cli-surface.ts",
     "cli:surface:check": "bun run scripts/build-cli-surface.ts --check",
+    "docs:cli": "bun run scripts/build-cli-docs.ts",
+    "docs:cli:check": "bun run scripts/build-cli-docs.ts --check",
+    "lint:docs-links": "bun run scripts/lint-docs-links.ts",
+    "lint:docs-links:fast": "bun run scripts/lint-docs-links.ts --no-net",
     "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
     "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173",
     "prepare": "husky"

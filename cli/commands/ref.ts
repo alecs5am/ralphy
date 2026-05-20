@@ -390,5 +390,15 @@ export function refCmd() {
       out({ deleted: id });
     });
 
+  cmd.addHelpText(
+    "after",
+    `
+Examples:
+  ralphy ref pull https://tiktok.com/@x/video/72939...
+  ralphy ref analyze my-reference-slug
+  ralphy ref blueprint my-reference-slug
+`,
+  );
+
   return cmd;
 }

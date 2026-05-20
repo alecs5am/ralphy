@@ -1,109 +1,122 @@
 ---
 title: "Quickstart"
-description: "From zero to first mp4 in three commands and eight minutes."
+description: "From zero to first mp4 in 5 steps and ~8 minutes."
 ---
 
-## 1. Install dependencies
+A clean 5-step path. Each step has a one-line **verify** snippet so you know it worked before moving on.
 
-Ralphy ships as a single statically-linked binary, but it leans on **Bun** for the dev workflow
-and **ffmpeg** for video processing.
+## 1. Install the binary
 
 <CodeGroup>
 
-```bash macOS
-curl -fsSL https://bun.sh/install | bash
-brew install ffmpeg
+```bash macOS (Homebrew)
+brew install alecs5am/tap/ralphy
 ```
 
-```bash Linux
-curl -fsSL https://bun.sh/install | bash
-sudo apt install ffmpeg
+```bash Linux / macOS (curl)
+curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+```
+
+```powershell Windows (PowerShell)
+irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 | iex
+```
+
+```bash npm (cross-platform)
+npm install -g @alecs5am/ralphy
 ```
 
 </CodeGroup>
 
-## 2. Install the `ralphy` binary
+All four channels ship the same statically-linked binary — pick whichever fits your platform.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
-```
-
-The installer detects your OS/arch (`darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`,
-`windows-x64`), downloads the matching binary from the latest GitHub Release, and drops it in
-`~/.local/bin/ralphy` (~60 MB, includes the Bun runtime + bytecode-compiled TypeScript).
+**Verify:**
 
 ```bash
 ralphy --version
 ```
 
 <Tip>
-  If `ralphy: command not found`, add `~/.local/bin` to your `PATH`:
-  `export PATH="$HOME/.local/bin:$PATH"`.
+  If `ralphy: command not found` after `curl install.sh`, open a new shell — the installer appends
+  `~/.local/bin` to your shell rc.
 </Tip>
 
-## 3. Clone the project and link it
-
-```bash
-git clone https://github.com/alecs5am/ralphy.git
-cd ralphy
-bun install
-```
-
-## 4. Run the setup wizard
+## 2. Run the setup wizard
 
 ```bash
 ralphy setup
 ```
 
-The wizard is **interactive and idempotent** — re-running it never overwrites a key that's
-already set.
+The wizard is interactive and idempotent — re-running it never overwrites a key that's already set.
 
 <Steps>
-  <Step title="Project link">
-    Saves the path to this folder in `~/.config/ralphy/config.json` so `ralphy` works from any cwd.
+  <Step title="Paste API keys">
+    Two keys: `OPENROUTER_API_KEY` (image / video / LLM / vision) and `ELEVENLABS_API_KEY` (voice + music). The wizard pings each provider with a cheap probe before saving.
   </Step>
-  <Step title="API keys">
-    Multi-select providers, password-prompt each one, ping the API to verify.
-    - **`OPENROUTER_API_KEY`** *(required)* — image / video / LLM / vision / transcribe
-    - **`ELEVENLABS_API_KEY`** *(required)* — voice + music
-  </Step>
-  <Step title="Profiles">
-    Multi-select community workspaces from `profiles/` — templates, references, example projects.
+  <Step title="Install the skill bundle">
+    Pick your AI agent — Claude Code, Cursor, or Codex — and `ralphy skill install --agent <id>` drops the playbook routing into your agent's config.
   </Step>
 </Steps>
 
-## 5. Verify the install
+**Verify:**
 
 ```bash
 ralphy doctor
 ```
 
-You should see `blockers: []`, both keys marked present, and `bun` + `ffmpeg` detected.
+You should see `blockers: []`, both keys green, and `bun` + `ffmpeg` detected.
 
-## 6. Make your first video
+## 3. Create your first project
 
 ```bash
-claude
+ralphy new "Spring 2026 ad for my espresso machine" --id espresso-001
 ```
 
-In the chat:
+Creates a project under `~/.ralphy/projects/espresso-001/` with the canonical layout (`assets/`, `render/`, `logs/`). CWD-independent — works from any directory.
+
+**Verify:**
+
+```bash
+ralphy project show espresso-001
+```
+
+## 4. Hand the brief to your agent
+
+Open your AI agent (Claude Code, Cursor, etc.) inside the project. The skill bundle from step 2 means it already knows the playbooks. Type a brief like:
 
 ```text
-> Set up the dev env and make me a video in soviet style about <your product>
+Make a 30s explainer for my espresso machine in soviet-nostalgic style.
 ```
 
-Ralphy will:
+Ralphy will route through the intake playbook: ask 3-5 clarifying questions, draft a plan, then generate scenes one beat at a time. Roughly:
 
-1. Run `ralphy doctor` to confirm the env is clean.
-2. Read the `soviet-nostalgic` template.
-3. Write a scenario for your product.
-4. Generate assets via OpenRouter (image + video models).
-5. Record voiceover via ElevenLabs.
-6. Compose it through Remotion.
-7. Hand back the path to the finished mp4.
+- **6 images + 6 video clips** via OpenRouter (gpt-5.4-image-2, kling-v3.0-pro)
+- **1 voiceover + 1 music bed** via ElevenLabs
+- **Final composition** via Remotion → mp4
 
-**~8 minutes per video, ~$8–12 in API costs.**
+**Verify:**
 
-<Card title="Next: how Ralphy thinks" icon="brain" href="/concepts">
-  Learn how workspaces, profiles, templates, and skills compose into a self-improving loop.
-</Card>
+```bash
+ralphy render espresso-001
+ls ~/.ralphy/projects/espresso-001/render/
+```
+
+You should see `final.mp4`. **~8 minutes cold-start, ~$8–12 in API costs** on the default stack.
+
+## 5. Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Concepts" icon="brain" href="/concepts">
+    How workspaces, projects, brands, personas, refs, templates, gen-log, and the asset manifest compose into a self-improving loop.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/cli/overview">
+    Every verb, every flag, auto-generated from source so it never drifts from the binary.
+  </Card>
+  <Card title="Cookbook" icon="book" href="/authoring/cookbook/image">
+    Worked prompt examples for image / video / voice / music — paste and edit, ship in minutes.
+  </Card>
+  <Card title="Templates" icon="layer-group" href="/authoring/templates">
+    The 42 built-in vibe templates and how to author your own.
+  </Card>
+</CardGroup>
+
+Need help? Drop a question in [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) — soft launch in progress.

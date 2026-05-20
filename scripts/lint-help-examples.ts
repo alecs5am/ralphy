@@ -49,7 +49,16 @@ const V1_VERB_PREFIXES = [
 ];
 
 // Verbs that are NOT in v1.0 (per D-01, D-03, D-04 of roadmap 01-cli).
-const POST_LAUNCH_PREFIXES = ["ralphy trend", "ralphy iterate", "ralphy make", "ralphy mcp"];
+// Post-launch verbs + sub-flags that the landing surfaces as future teasers.
+const POST_LAUNCH_PREFIXES = [
+  "ralphy trend",
+  "ralphy iterate",
+  "ralphy make",
+  "ralphy mcp",
+  "ralphy render --product",  // render iterate-from-numbers — 01.01.04 stretch
+  "ralphy render --remix",
+  "ralphy batch-from-template", // legacy alias of `batch run`; post-launch
+];
 
 export function classifyExample(example: string): { v1: boolean; verb: string | null } {
   for (const p of POST_LAUNCH_PREFIXES) {
@@ -72,10 +81,11 @@ export function extractLandingExamples(src: string): string[] {
   const backtick = /`(ralphy\s+[^`]+?)`/g;
   for (const m of src.matchAll(backtick)) {
     const cmd = m[1]!.trim();
+    // Skip strings containing JSX/JS template interpolation (`${...}`) — they're
+    // not literal commands, they're variable-driven UI strings.
+    if (cmd.includes("${")) continue;
     if (/^ralphy\s+\w/.test(cmd)) out.add(cmd);
   }
-  // Template-literal form: {`ralphy ...\n`} — we already pulled this above,
-  // but also support multi-line template literals that span past one line.
   return Array.from(out)
     // Strip trailing `\n` literal that lands when a template literal closes mid-string.
     .map((s) => s.replace(/\\n$/, "").trim())

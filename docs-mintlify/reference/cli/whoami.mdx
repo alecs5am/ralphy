@@ -1,0 +1,36 @@
+---
+title: "ralphy whoami"
+description: "Show the per-user profile (skill score 0-10, developer badge, signals, recommendation for adaptive intake). On first call, auto-backfills from workspace/project"
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy whoami [options]
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--backfill` | Scan workspace/projects/* and recompute signals from on-disk state (renders, postmortems) (default: false) |
+| `--set-level <n>` | Pin skill score to <n> (0-10). Overrides auto-assessment. |
+| `--set-developer` | Mark this user as a developer — unlocks raw CLI suggestions + ship-fast default (default: false) |
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--backfill` | Scan workspace/projects/* and recompute signals from on-disk state (renders, postmortems) (default: false) |
+| `--set-level <n>` | Pin skill score to <n> (0-10). Overrides auto-assessment. |
+| `--set-developer` | Mark this user as a developer — unlocks raw CLI suggestions + ship-fast default (default: false) |
+| `--unset-developer` | Remove the developer badge (default: false) |
+| `--reset` | Reset profile to defaults (preserves firstSeen) (default: false) |
+| `--bump-session` | Increment sessions_count (called by ralphy index on first invocation per day) (default: false) |
+| `-h, --help` | display help for command |
+
+</Expandable>

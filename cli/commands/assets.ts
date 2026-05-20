@@ -225,6 +225,17 @@ export function assetsCmd() {
       });
     });
 
+  cmd.addHelpText(
+    "after",
+    `
+Examples:
+  ralphy assets list
+  ralphy assets list --kind <kind>
+  ralphy assets pull <template-slug>
+  ralphy assets install <project-id> <template-slug>
+`,
+  );
+
   return cmd;
 }
 

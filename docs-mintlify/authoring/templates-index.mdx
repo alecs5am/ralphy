@@ -1,0 +1,84 @@
+---
+title: "Template index"
+description: "All built-in vibe templates organized by segment-persona category. 5 vibe-reference (full productions) + 38 vibe-style (prompt cookbooks)."
+---
+
+<Note>
+  Templates ship in **two places**: `templates/` in the repo (committed, organized into 5 segment-persona categories) and `workspace/templates/` (user-local, flat). Workspace overrides repo on id collision. Both surfaces are read by `ralphy template list / suggest / show / use`.
+</Note>
+
+## Quick start
+
+```bash
+ralphy template suggest "modern saas product video"     # match a template by utterance
+ralphy template list -p                                  # browse all (pretty)
+ralphy template use ugc-selfie-product-review --project espresso-001
+```
+
+## Two kinds
+
+| Kind | Description | Count |
+|---|---|---|
+| `vibe-reference` | Full production templates with `composition.md` + reference example mp4 | 5 |
+| `vibe-style` | Prompt cookbooks with hooks + camera vocab + worked-example prompts | 38 |
+
+Full category-by-category roster: [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md).
+
+## Top-20 viral-2026 picks
+
+The agent's go-to playlist when the brief doesn't specify a vibe — cross-category selection that tends to convert. See [`templates/TOP.md`](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md) for the curated list with one-line rationales.
+
+## Categories
+
+### b2b-saas/ (7) — Enterprise / SMB B2B buyers
+
+Decision-makers, ops, marketers, founders. Confident, didactic, ROI-aware.
+
+`motion-design-ad` · `brand-story` · `yap-talking-head` · `tutorial-how-to` · `faceless-voiceover` · `listicle` · `interview-dialog`
+
+### dtc-commerce/ (12) — DTC eCommerce shopper
+
+Consumers shopping online — apparel, beauty, nutra, gadgets, food, home. Aspirational, peer-evidence, demo-led.
+
+`before-after-product` · `doctor-authority` · `ecommerce-ad` · `product-360` · `try-on` · `fashion-lookbook` · `fit-check` · `food-beverage` · `life-changing-testimonial` · `cgi-hardware` · `multi-scene-product-launch` · `ugc-selfie-product-review`
+
+### creator-lifestyle/ (10) — Solo creator / relatable audience
+
+Scroll-feed lifestyle / personality-driven. Relatable, first-person, unpolished-by-design.
+
+(See [CATEGORIES.md](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md#creator-lifestyle10--solo-creator--relatable-audience) for the full list.)
+
+### entertainment-viral/ (16) — Mass viral / scroll-stop
+
+Anyone with a phone. Hook-first, format-native, ride a trending sound.
+
+Includes `caught-on-tv`, `deadpan-monologue-pov`, `meme-header-tiktok`, `frame-break-meta-hook`, `analog-horror-psa`, and 11 more.
+
+### cinematic-narrative/ (9) — Slower / longer-form storytelling
+
+YouTube audiences, brand films, festival circuit. Patient, cinematographic, emotional arc-driven.
+
+## Author your own
+
+Author a new template by dropping a `templates/<category>/<slug>/` folder with:
+
+- `template.yaml` — id, kind, requires, suggest keywords, frontmatter (`version: 1`)
+- `composition.md` — the production blueprint (scene list, camera grammar, prompt patterns)
+- *(optional)* `reference.mp4` — a rendered Ralphy output that proves the template works
+
+Validate with:
+
+```bash
+ralphy template show <slug>
+ralphy template register <slug>
+```
+
+See the [authoring templates guide](/authoring/templates) for the full schema and worked-example pattern.
+
+## Mint a template from a public URL
+
+`ralphy clone <url>` chains `ref pull` → `ref analyze` → `ref blueprint` → writes a new vibe-style template under `workspace/templates/clone-<slug>/`. Edit the generated `composition.md`, then register it.
+
+```bash
+ralphy clone https://tiktok.com/@x/video/72939...
+```

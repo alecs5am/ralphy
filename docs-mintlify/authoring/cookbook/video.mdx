@@ -1,0 +1,54 @@
+---
+title: "Video prompt cookbook"
+description: "Per-model prompt vocabularies for the i2v stack — kling, veo, seedance, hailuo. Cookbook content lands in 02.03.x; this page indexes what ships when."
+---
+
+<Note>
+  The full video cookbook is in active work under [roadmap 02.03.01](https://github.com/alecs5am/ralphy/blob/main/roadmap/02-prompts-and-templates/SPEC.md). This page indexes the per-model patterns the agent already uses today and links to the per-model templates in `templates/`.
+</Note>
+
+## Default model
+
+`kwaivgi/kling-v3.0-pro` is the default UGC i2v engine. Switch via `--model <id>`. Full per-model whitelist (durations / resolutions / aspect ratios / frame_images) appears in `ralphy generate video --help`.
+
+## Model picks by use case
+
+| Use case | Model | Why |
+|---|---|---|
+| Default UGC selfie / talking-head | `kwaivgi/kling-v3.0-pro` | EN-audio in-model, identity-locks via first-frame, broad supported aspect ratios |
+| Horror / POV / walking / jump scares / non-default physics | `bytedance/seedance-2.0` | Better motion physics; rejects realistic-people i2v anchors though |
+| Cinematic / wide-shot / commercial spot | `google/veo-3.1` | Higher resolution ceiling, native audio, 21:9 supported |
+| Fixed-resolution news / broadcast | `minimax/hailuo-2.3` | 16:9 only, 6s or 10s duration; deterministic for "caught-on-TV" register |
+
+## Camera + motion vocabulary
+
+Kling, Veo, Seedance, and Hailuo all accept loose natural-language motion directives. The vocabulary that works across the four:
+
+- **Camera moves:** `dolly in`, `dolly out`, `pan left/right`, `tilt up/down`, `crane up`, `handheld follow`, `static`, `whip pan`, `orbit around subject`
+- **Subject motion:** `walks forward`, `turns to camera`, `gestures with hands`, `nods`, `smiles`, `picks up product`, `points to camera`
+- **Tempo:** `slow motion`, `real-time`, `time-lapse`, `cut to`, `beat-snap transition` (not honored by all)
+
+## Runnable snippet
+
+```bash
+ralphy generate video \
+  --project espresso-001 \
+  --slot scene-04-vid \
+  --prompt "handheld follow as woman walks from kitchen counter to dining table, espresso cup steaming, morning light, eyes meet camera at the end, slight smile" \
+  --duration 5 \
+  --aspect-ratio 9:16 \
+  --first-frame workspace/projects/espresso-001/assets/scene-04-bg.png \
+  --model kwaivgi/kling-v3.0-pro
+```
+
+## Reference templates
+
+The video cookbook material lives inside the 5 production templates under `templates/<category>/<slug>/composition.md`. Pick a vibe and copy patterns from there:
+
+- [`b2b-saas/motion-design-ad`](https://github.com/alecs5am/ralphy/tree/main/templates/b2b-saas/motion-design-ad) — kinetic typography over UI
+- [`dtc-commerce/before-after-product`](https://github.com/alecs5am/ralphy/tree/main/templates/dtc-commerce/before-after-product) — 5s pain → 1s reveal → 9s demo
+- [`dtc-commerce/multi-scene-product-launch`](https://github.com/alecs5am/ralphy/tree/main/templates/dtc-commerce/multi-scene-product-launch) — 27-shot identity-locked launch
+- [`entertainment-viral/caught-on-tv`](https://github.com/alecs5am/ralphy/tree/main/templates/entertainment-viral) — broadcast-realism 1:1 register
+- [`creator-lifestyle/ugc-selfie-product-review`](https://github.com/alecs5am/ralphy/tree/main/templates/dtc-commerce/ugc-selfie-product-review) — handheld UGC selfie
+
+Full template index: [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md).

@@ -1,0 +1,52 @@
+---
+title: "Music prompt cookbook"
+description: "ElevenLabs Music patterns — genre + tempo + instrumentation phrasing that survives the ToS filter."
+---
+
+<Note>
+  The full music cookbook is in active work under [roadmap 02.03.03](https://github.com/alecs5am/ralphy/blob/main/roadmap/02-prompts-and-templates/SPEC.md). This page documents the patterns the agent already uses today.
+</Note>
+
+## ToS-safe phrasing
+
+ElevenLabs Music's ToS blocks **named-artist** and **named-producer** references — especially modern hip-hop, electronic, and chart-music names. Stick to **genre + tempo + instrumentation + mood**.
+
+| Don't write | Do write |
+|---|---|
+| "Drake-style trap beat" | "Modern trap, 140 BPM, 808s, hi-hat triplets, brooding mood" |
+| "Daft Punk house" | "French house, 120 BPM, filtered disco strings, sidechained kick" |
+| "Hans Zimmer cinematic" | "Cinematic orchestral, 90 BPM, brass swells, ostinato strings, building tension" |
+| "Like that Kanye sample" | "Soul sample chop, 70 BPM, dusty Rhodes, vinyl crackle" |
+
+If the API returns a `prompt_suggestion` field, it's typically a clean rewrite you can resubmit — the original `prompt` was too name-referent.
+
+## Pattern library
+
+| Mood / use | Prompt skeleton |
+|---|---|
+| Upbeat product reel | `"Synthwave, 110 BPM, arpeggiated synth lead, punchy kick, bright pad, optimistic mood"` |
+| Lifestyle / morning routine | `"Bossa nova, 90 BPM, nylon guitar, soft brush drums, vibraphone, warm and unhurried"` |
+| Cinematic transformation | `"Cinematic orchestral, 80 BPM, low strings ostinato, brass swells, building tension"` |
+| Tech / startup hero | `"Minimal techno, 120 BPM, deep sub bass, sparse hi-hats, atmospheric pad, modern and clean"` |
+| Analog horror / PSA | `"Dark ambient, 60 BPM, drone, distant choir, vinyl crackle, dread-inducing"` |
+| Cooking / food | `"Acid jazz, 100 BPM, electric piano, walking bass, brushed snare, sophisticated"` |
+
+## Runnable snippet
+
+```bash
+ralphy generate music \
+  --project espresso-001 \
+  --slot bed-01 \
+  --prompt "Bossa nova, 90 BPM, nylon guitar, soft brush drums, vibraphone, warm and unhurried, morning-routine feel" \
+  --duration 30
+```
+
+## Duration + structure
+
+- ElevenLabs Music supports **3-600 seconds**. Most UGC videos sit at 30-90s.
+- For loop-ready beds, request `looping intro-A-bridge-A` in the prompt.
+- For story arcs that match a 3-act video, ask for `intro / build / climax / resolve` over the exact duration.
+
+## Vocals policy
+
+Default `--with-vocals` is **off** (instrumental). Vocals introduce drift on hooks (artist lyrics that didn't pass the ToS filter slip through occasionally). Turn on only when the scenario explicitly needs a vocal hook.
