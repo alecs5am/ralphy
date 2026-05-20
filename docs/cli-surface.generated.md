@@ -223,9 +223,10 @@ Options:
 
 Commands:
   image [options]      Generate one image via OpenRouter (default:
-                       openai/gpt-5.4-image-2 — premium typography & label
-                       accuracy). Use --model google/gemini-3-pro-image-preview
-                       when you need multi-ref character consistency.
+                       google/gemini-3-pro-image-preview — nano-banana-pro,
+                       multi-ref consistency, ≥4 concurrent). Pass --model
+                       openai/gpt-5.4-image-2 when label typography matters more
+                       than ref consistency.
   video [options]      Generate one video via OpenRouter (default:
                        kling-v3.0-pro)
   voiceover [options]  Generate voiceover via ElevenLabs (default:
