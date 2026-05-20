@@ -1,0 +1,47 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: doctor-authority
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Doctor Authority
+description: "Authority figure (doctor / dermatologist / nutritionist / dentist
+  / pharmacist) in a white coat or scrubs explains why a product, ingredient, or
+  approach works. The dominant nutra / supplement / skincare / wellness DTC ad
+  pattern: white coat = trust shortcut, mechanism explanation = 'I understand
+  why this works' feeling. 20-45s, 9:16. Format: 0-3s authority hook ('As a
+  dermatologist, I tell every patient…') → 3-25s mechanism explanation (what the
+  ingredient does, the science) → 25-40s product / ingredient name +
+  recommendation → 40-45s soft CTA. Walks a regulatory line — refusing to
+  impersonate real-named medical professionals without consent (AGENTS.md hard
+  rule #3); platform-side C2PA provenance metadata is emitted by render
+  (genai:true) without a visible on-screen overlay."
+tags:
+  - doctor
+  - authority
+  - medical-authority
+  - dermatologist
+  - nutritionist
+  - dentist
+  - pharmacist
+  - cardiologist
+  - white-coat
+  - scrubs
+  - clinical
+  - nutra
+  - supplements
+  - skincare
+  - wellness
+  - mechanism-explainer
+  - ingredient-led
+  - ad-pattern
+  - dtc
+  - talking-head
+  - trust
+  - expert
+requires:
+  refs: 1
+scenes: []
+references: []
+

@@ -1,0 +1,40 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: grwm
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: GRWM (Get Ready With Me)
+description: "Modern GRWM as codified by Alix Earle — creator gets ready for an
+  event (makeup / outfit / work) while running a parallel storytime or
+  commentary track. 30-90s, 9:16. 0-3s strong hook + first makeup beat. 3-60s
+  dual-layer: visually getting ready in jump-cuts every 4-7s while the voice
+  tells a story. Ends on a final-look reveal + cliffhanger or CTA. The two
+  retention hooks (visual dynamic + narrative) make this one of the
+  highest-completion formats on TikTok / Reels. Reference-required when a real
+  brand is named (Sephora, Rare Beauty, etc.) — AGENTS.md hard rule #3."
+tags:
+  - grwm
+  - get-ready-with-me
+  - alix-earle
+  - beauty
+  - makeup
+  - outfit
+  - lifestyle
+  - storytime
+  - dual-layer
+  - jump-cut
+  - native-product-placement
+  - sephora
+  - rare-beauty
+  - tiktok
+  - reels
+  - shorts
+  - vlog
+  - fashion
+requires:
+  refs: 1
+scenes: []
+references: []
+

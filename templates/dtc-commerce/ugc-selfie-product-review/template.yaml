@@ -1,0 +1,48 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: ugc-selfie-product-review
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: UGC Selfie Product Review
+description: Intimate handheld 9:16 UGC selfie review of one consumer product —
+  a single influencer-persona in their own room reacts to a product in their
+  hand, with relaxed unhurried GRWM pacing. The ENTIRE template hinges on
+  identity-lock via two locked super-original master shots (product master +
+  persona master) that get passed as --ref on every downstream image and video
+  gen. Skip the lock and identity drifts between scenes — same brand drifts
+  pink-script-to-sticker, same face drifts AI-plastic. Built around
+  kling-v3.0-pro multi-shot clips with internal HARD JUMP CUTs (one kling call =
+  2-3 angles, no Remotion splice), explicit music-ban on the model side, and
+  ElevenLabs music overlaid in Remotion at volume 0.18. Specificity bait via
+  visible internals (charms inside transparent product) is the optional
+  viral-mechanic upgrade — extract from your reference video, port to your
+  product.
+tags:
+  - ugc
+  - selfie
+  - product-review
+  - dtc
+  - beauty
+  - cosmetics
+  - grwm
+  - tiktok
+  - reels
+  - 9-16
+  - handheld
+  - influencer
+  - identity-lock
+  - locked-refs
+  - kling-multicut
+  - hard-jump-cut
+  - music-ban
+  - specificity-bait
+  - real-girl-aesthetic
+  - bedroom-pov
+  - intimate
+requires:
+  refs: 1
+scenes: []
+references: []
+

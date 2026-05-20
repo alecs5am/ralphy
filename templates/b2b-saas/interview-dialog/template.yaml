@@ -1,0 +1,40 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: interview-dialog
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Interview / Dialog
+description: Two-person dialog format. Two real people (or two AI-avatars) talk
+  to each other on camera — expert+interviewer, two-friends-discussing,
+  split-screen-reaction, or podcast-style sit-down with b-roll cutaways. 30-90s,
+  9:16. Reads less like one-person-yelling-at-the-camera and more like
+  overhearing a real conversation, which is why retention beats single-speaker
+  monologue. Distinct from `podcast-clip` (which cuts FROM a real long-form
+  podcast) — this is for GENERATING a synthetic interview-style video from a
+  written script with two distinct AI voices.
+tags:
+  - interview
+  - dialog
+  - two-person
+  - expert-interview
+  - peer-discussion
+  - split-screen
+  - conversation
+  - podcast-style
+  - generated-interview
+  - talking-heads
+  - qa
+  - reaction
+  - duo
+  - two-voices
+  - synthetic-interview
+  - ai-avatars
+  - tiktok
+  - reels
+  - shorts
+requires: {}
+scenes: []
+references: []
+

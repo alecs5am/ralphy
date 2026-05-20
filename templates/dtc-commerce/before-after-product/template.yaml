@@ -1,0 +1,34 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: before-after-product
+aliases: []
+kind: vibe-reference
+category: dtc-commerce
+name: Before / After Product
+description: "Classic UGC product ad: 5s of relatable pain → 1s product reveal →
+  9s of demo / transformation. 15-18s total, 9:16. Reference-required: a real
+  product photo / packaging / logo must be supplied as a reference, otherwise
+  generation refuses (no AI-improvised branding, ever). Tonal arc in VO and
+  music carries the emotional payoff (frustrated → satisfied). The most reliably
+  converting UGC pattern in our pack."
+tags:
+  - before-after
+  - product
+  - ugc
+  - ad
+  - advertising
+  - tiktok
+  - reels
+  - shorts
+  - problem-solution
+  - demo
+  - reveal
+  - transformation
+  - pain-point
+  - conversion
+requires:
+  refs: 1
+scenes: []
+references: []
+

@@ -1,0 +1,48 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: brainrot-ai-meme
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Brainrot AI Meme
+description: "Chaotic fast-paced AI video, 9:16, 30-60s (optimal ~45s).
+  Split-screen Remotion composition: top half is a sequence of 3-5 short
+  kling-v3.0-pro clips (4-5s each) with locked visual grammar — one clip per
+  narrative beat of the script, all sharing a unified style prefix so cuts feel
+  like one stylistic universe rather than AI-slop. Bottom half is a hypnotic
+  gameplay loop (Subway Surfers / Minecraft Parkour / GTA / Rocket League)
+  supplied by the user. Big animated word-by-word captions burned across both
+  halves carry the read. The dominant AI-generation format of 2026 —
+  pattern-interrupts the scroll, generates 'what am I watching' comments.
+  Reference-required: a gameplay-loop clip must be supplied or sanctioned by the
+  user; AI-improvised gameplay reads as fake. Static-image fallback exists for
+  smoke iteration only."
+tags:
+  - brainrot
+  - ai-meme
+  - split-screen
+  - subway-surfers
+  - minecraft-parkour
+  - gta
+  - rocket-league
+  - satisfying-gameplay
+  - ai-narration
+  - ai-voiceover
+  - hypnotic
+  - attention-keeper
+  - viral
+  - c2pa
+  - fast-pace
+  - screaming-captions
+  - edutainment
+  - tiktok
+  - shorts
+  - reels
+  - history
+  - finance
+requires:
+  refs: 1
+scenes: []
+references: []
+

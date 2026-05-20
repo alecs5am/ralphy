@@ -1,0 +1,41 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: music-video
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Music Video
+description: "Beat-synced music video / lyric video / performance clip in 9:16
+  or 16:9. The song is the spine: every visual change is anchored to a kick,
+  snare, hi-hat, vocal line, or harmonic shift. Three strategy modes —
+  Performance (artist front and center), Narrative (story unfolds with the
+  track), Abstract/Visualizer (no performer, pure motion). Genre dictates color,
+  lighting, and cut rate; song structure (verse / build / chorus / drop / bridge
+  / outro) dictates energy arc. Reference is optional — if the user supplies a
+  track or a BPM target, the editor locks cuts to it; if not, the template
+  generates to a synthetic beat grid. ElevenLabs Music can compose an original
+  track when the user has lyrics or a vibe but no song."
+tags:
+  - music-video
+  - lyric-video
+  - beat-sync
+  - performance
+  - visualizer
+  - concert
+  - tiktok
+  - reels
+  - shorts
+  - youtube
+  - hip-hop
+  - pop
+  - rock
+  - edm
+  - rnb
+  - lo-fi
+  - k-pop
+  - music
+requires: {}
+scenes: []
+references: []
+

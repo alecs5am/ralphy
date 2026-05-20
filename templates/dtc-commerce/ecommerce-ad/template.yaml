@@ -1,0 +1,43 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: ecommerce-ad
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: E-commerce Ad
+description: "Conversion-first product ad: 2s scroll-stopper hook → 6-12s
+  multi-angle product showcase → 3-6s lifestyle/benefit beat → 2-3s CTA with
+  price/urgency. 15-30s total, 9:16 (TikTok Shop / Reels / Shorts) or 1:1 / 16:9
+  (Amazon, YouTube). Reference-required: a real product photo / packaging / logo
+  MUST be supplied — generation refuses without it (no AI-improvised branding).
+  Distilled from a category playbook covering fashion, beauty, electronics,
+  food, jewelry, home, fitness, toys, automotive, and pet."
+tags:
+  - ecommerce
+  - product-ad
+  - shopping-ad
+  - tiktok-shop
+  - amazon
+  - instagram-shop
+  - shopify
+  - dropshipping
+  - fashion
+  - beauty
+  - skincare
+  - electronics
+  - food
+  - jewelry
+  - home
+  - fitness
+  - pet
+  - unboxing
+  - product-demo
+  - hero-shot
+  - cta
+  - conversion
+requires:
+  refs: 1
+scenes: []
+references: []
+

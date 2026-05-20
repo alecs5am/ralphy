@@ -1,0 +1,45 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: active-lifestyle
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Active Lifestyle
+description: "Aspirational-active UGC: a real-feeling person doing a real
+  activity (cycling, padel, gym, yoga, running, hiking, surfing, skiing) with
+  subtle product placement. The product is visible 60-80% of shots but never
+  hero-framed until the optional outro beat. Converts via identification — 'this
+  is the kind of person I want to be → I will buy what they use.' 12-25s, 9:16.
+  Reference-required when the product is a real brand (athletic apparel logo,
+  cycling-shoe brand, smart-watch face, supplement label) — same hard gate as
+  before-after-product. AI must never improvise a brand mark on athletic gear."
+tags:
+  - active-lifestyle
+  - sport
+  - fitness
+  - outdoor
+  - cycling
+  - padel
+  - gym
+  - yoga
+  - running
+  - hiking
+  - surfing
+  - skiing
+  - athletic-apparel
+  - supplement
+  - smart-watch
+  - water-bottle
+  - sunglasses
+  - aspiration
+  - subtle-product-placement
+  - lifestyle-ad
+  - tiktok
+  - reels
+  - shorts
+requires:
+  refs: 1
+scenes: []
+references: []
+

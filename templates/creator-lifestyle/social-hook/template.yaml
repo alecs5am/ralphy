@@ -1,0 +1,32 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: social-hook
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Social Hook
+description: "TikTok-first scroll-stoppers: 6-15s, 9:16, every frame engineered
+  to defeat the swipe. Built around the first-3-second rule (retention gate) —
+  pattern interrupt + curiosity gap + sound shock loaded into the opening beats.
+  The hook is the entire product; the rest of the clip is just delivery on the
+  promise. Optimized for completion-rate and watch-loop, not for narrative. Hook
+  angle (gatekeep / skeptic / fail / visual-shock / transformation-tease) is the
+  primary axis of variation; everything else (subject, niche, voice) flexes."
+tags:
+  - hook
+  - scroll-stop
+  - tiktok
+  - reels
+  - shorts
+  - viral
+  - short-form
+  - first-3-seconds
+  - pattern-interrupt
+  - curiosity-gap
+  - ugc
+  - social
+requires: {}
+scenes: []
+references: []
+

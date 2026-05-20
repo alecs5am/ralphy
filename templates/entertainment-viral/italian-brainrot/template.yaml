@@ -1,0 +1,74 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: italian-brainrot
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Italian Brainrot
+description: "Italian Brainrot single-character meme video — full-frame
+  AI-generated character in an absurd scenario with Italian-gibberish voiceover.
+  8-25s, 9:16, TikTok-native. Distinct from the split-screen `brainrot-ai-meme`
+  format: here the CHARACTER is the entire show (Tralalero Tralala, Tung Tung
+  Tung Sahur, Ballerina Cappuccina, etc.), not a narration over gameplay. The
+  canonical character roster lives in the `pool/italian-brainrot-characters`
+  pool of the ralphy-assets companion repo (33 characters, mirrored from
+  brainrot.cyou). Pull one as image-to-image reference, or generate from
+  descriptor."
+tags:
+  - italian-brainrot
+  - ai-meme
+  - tiktok
+  - reels
+  - shorts
+  - viral-trend
+  - surreal
+  - absurd
+  - ai-generated
+  - italian
+  - gibberish-vo
+  - single-character
+  - full-frame
+  - c2pa
+  - 9-16
+  - character-meme
+  - veo
+  - kling
+  - elevenlabs
+  - ballerina-cappuccina
+  - blueberrinni-octopussini
+  - bobrito-bandito
+  - bombardiro-crocodilo
+  - bombombini-gusini
+  - boneca-ambalabu
+  - brr-brr-patapim
+  - brri-brri-bicus-dicus-bombicus
+  - burbaloni-lulilolli
+  - cappuccino-assassino
+  - chef-crabracadabra
+  - chimpanzini-bananini
+  - cocofanto-elefanto
+  - frigo-camelo
+  - frulli-frulla
+  - garam-mararam-madu-dung-dung
+  - giraffa-celeste
+  - glorbo-fruttodrillo
+  - graipussi-medussi
+  - il-cacto-hipopotamo
+  - la-vaca-saturno-saturnita
+  - lirili-larila
+  - orangutini-ananasini
+  - pot-hotspot
+  - rhino-toasterino
+  - tigrrullini-watermellini
+  - tracotucotulu-delapeladustuz
+  - tralalero-tralala
+  - tric-trac-baraboom
+  - trulimero-trulicina
+  - tung-tung-tung-sahur
+  - u-din-din-din-din-dun
+  - zibra-zubra-zibralini
+requires: {}
+scenes: []
+references: []
+

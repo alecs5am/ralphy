@@ -1,0 +1,49 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: broadcast-caught-on-tv-square
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Broadcast Caught-On-TV (Square)
+description: "Single-character 'caught on a live TV broadcast' trend recreation
+  — audience-cam reaction beat from a real sports / news / award-show feed,
+  anchored on the user's own selfie. Two-stage stack: gpt-5.4-image-2 produces a
+  1:1 SQUARE broadcast-capture still (1024x1024) → kwaivgi/kling-v3.0-pro i2v
+  carries identity forward for 15s with native ambient stadium / venue audio.
+  The critical, unintuitive rule: render the anchor SQUARE, not 9:16. Real
+  broadcast cameras shoot 16:9, so strict portrait reads as AI-generated; square
+  1:1 'splits the difference' and feels like a phone capture of a TV screen.
+  Pronoun-swap the trend prompt to match the user's identity before submit. The
+  format is one-clip, not a multi-scene cut — Kling delivers the entire 15s read
+  with diegetic audio."
+tags:
+  - broadcast-realism
+  - square
+  - caught-on-tv
+  - audience-cam
+  - sports-broadcast
+  - kbo
+  - spotv
+  - stadium-ambience
+  - identity-anchored
+  - trend-recreation
+  - kling
+  - gpt-image-2
+  - i2v
+  - diegetic-audio
+  - no-music
+  - tiktok
+  - reels
+  - shorts
+  - viral
+  - c2pa
+  - single-clip
+  - single-character
+  - selfie-anchor
+  - two-stage-anchor
+requires:
+  refs: 1
+scenes: []
+references: []
+
