@@ -118,6 +118,13 @@ export const ERROR_CODES = {
     hint: "Re-run on a terminal, or pass explicit flags (e.g. --agent claude --scope user) to skip the wizard.",
     relatedDocs: "roadmap/03-skills/SPEC.md#030206-interactive-wizard--config-persistence",
   },
+  E_SKILL_BUNDLE_NOT_FOUND: {
+    class: "user",
+    httpAnalog: 404,
+    message: "Could not locate the Ralphy skill bundle (looked in {candidates})",
+    hint: "Run from a ugc-cli checkout, or set RALPHY_REPO_ROOT=<path-to-checkout>, or pass --repo <path>.",
+    relatedDocs: "roadmap/03-skills/SPEC.md#03-skills",
+  },
   E_TEMPLATE_VERSION_UNSUPPORTED: {
     class: "user",
     httpAnalog: 422,
