@@ -13,16 +13,16 @@ You don't have to know the playbook names. You just have to be specific enough t
 
 ## Eight utterances and what they fire
 
-The phrasing on the left triggers the playbook on the right. Mix of English and Russian — both are first-class.
+The phrasing on the left triggers the playbook on the right.
 
 | You say | Ralphy reads |
 |---|---|
-| "Сделай видео про мой новый кофейный сироп" | [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — five questions, draft plan, wait for "go" |
+| "Make a video about my new coffee syrup" | [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — five questions, draft plan, wait for "go" |
 | "Make me something like this `<tiktok-url>`" | [`ralph-researcher` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-researcher/SKILL.md) → pulls the URL, then intake |
 | "Rewrite scene 3 — punchier hook" | [`scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) |
 | "Regenerate the bottle shot in scene-04, try seedance" | [`art-director.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) |
 | "Render the final cut with loudnorm" | [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) |
-| "Сделай 10 вариантов под этот шаблон" | [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) → `batch create-from-template` |
+| "Make 10 variants from this template" | [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) → `batch create-from-template` |
 | "Is this render ready to ship?" | [`ralph-evaluator` skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-evaluator/SKILL.md) — scene-by-scene scoring |
 | "Nothing works, my key is missing" | [`core.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/core.md) → `ralphy doctor` |
 
