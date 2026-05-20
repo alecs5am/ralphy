@@ -107,14 +107,16 @@ Usage: ralphy skill [options] [command]
 Manage Ralphy skill installs across AI agents
 
 Options:
-  -h, --help           display help for command
+  -h, --help            display help for command
 
 Commands:
-  install [options]    Install the Ralphy skill bundle into the selected agent
-                       (claude / cursor / codex)
-  uninstall [options]  Remove the Ralphy skill bundle + sentinel block from the
-                       selected agent
-  help [command]       display help for command
+  install [options]     Install the Ralphy skill bundle into the selected agent
+                        (claude / cursor / codex)
+  uninstall [options]   Remove the Ralphy skill bundle + sentinel block from the
+                        selected agent
+  new [options] <name>  Scaffold a new skill: .agents/skills/<name>/SKILL.md +
+                        docs/playbooks/<name>.md
+  help [command]        display help for command
 
 Examples:
   ralphy skill install --agent claude
