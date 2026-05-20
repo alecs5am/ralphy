@@ -1,0 +1,266 @@
+---
+title: "Image prompts"
+description: "Sony A7 IV, Portra 400, skin pores, flyaway hair, slight asymmetry, naturalistic light."
+---
+
+Image prompts in Ralphy follow a 6-part skeleton. Every part is doing work; missing any one of them is what makes the difference between an asset you ship and a $0.20 retry. This page is the skeleton plus six worked examples — selfie rant, broadcast caught-on-TV, Old Spice VFX, photoreal portrait, brainrot character, brand product hero. Read [Philosophy](/prompting/philosophy) first if you haven't.
+
+## The 6-part skeleton
+
+```text
+1. Subject       — who/what is in frame, with identity tokens.
+2. Framing       — how close, what angle, what aspect ratio.
+3. Lens          — specific real camera + prime lens.
+4. Lighting      — single source, direction, time of day.
+5. Film / stock  — Kodak Portra 400, Cinestill 800T, digital no-grade.
+6. Defect noise  — pores, grain, asymmetry, flyaway hair.
+```
+
+Two parts are non-obvious: the **lens** has to be a real specific lens (not "DSLR"), and the **defect noise** has to be explicit because the model's default is poreless and symmetric. Skip either and the output reads as AI.
+
+A 7th implicit part — **anti-slop negatives** — appends to every photoreal-human gen. See [Philosophy](/prompting/philosophy#the-anti-ai-slop-block) for the block.
+
+## Worked examples
+
+### 1. Selfie rant (UGC creator monologue, 9:16)
+
+```text
+Alex, 32, dark brown hair short beard navy hoodie, mid-sentence with slight
+eyebrow raise.
+
+Selfie distance, eye-level, vertical 9:16, head-and-shoulders, slight handheld
+tilt.
+
+Sony FX3 + Sigma 35mm f/1.4, shallow depth of field.
+
+Soft window light from screen-left, single source ambient indoor, late morning.
+
+Kodak Portra 400 register, naturalistic NOT glossy, candid not staged.
+
+Visible skin pores, flyaway hair at the temple, slight facial asymmetry,
+imperceptible film grain.
+```
+
+- **Subject** is restated with identity tokens (age, hair, wardrobe) and a specific micro-expression. Restating identity inline beats relying on `--ref` alone — gemini drifts ~30% after 3+ unrefed gens.
+- **Framing** locks the aspect ratio and the distance. "Selfie distance" is more reliable than "close-up" for selfie POV.
+- **Lens** — `Sigma 35mm f/1.4` is the lens for selfie UGC. 50mm reads as portraiture; 85mm as fashion. 35mm is right.
+- **Film stock** is the highest-impact token. Replace `Portra 400` and the whole register shifts.
+
+### 2. Broadcast caught-on-TV (1:1 square)
+
+Per the broadcast-realism rule: caught-on-TV trends default to 1:1 square, not 9:16. Real broadcast cameras shoot 16:9, and a 9:16 portrait read of a stadium reads as AI. The 1:1 crop convincingly fits the 16:9 broadcast geometry inside a portrait feed canvas.
+
+```text
+A flushed marathon runner mid-interview, sweat at the temples, microphone barely
+in frame at the lower-left.
+
+1:1 square, ENG broadcast camera cropped from 16:9, eye-level, slight handheld
+jitter, subject filling 70% of frame.
+
+Sony FX9 + 24-105mm zoom at 50mm, deep depth of field.
+
+Stadium overhead mixed color temperature, key from camera-front, weak fill,
+slight backlight from sun.
+
+1080i broadcast TV color science, slight motion blur, NOT cinematic, NOT
+color-graded.
+
+Skin glistening from sweat, visible compression artifacts, slight banding in
+gradients, broadcast-cam noise.
+```
+
+- **Aspect ratio is the load-bearing decision.** This is the broadcast-realism = square rule applied verbatim.
+- **`Sony FX9`** + `1080i broadcast TV` — corpus-specific. "Broadcast TV" alone is too generic; `1080i` flags the interlaced source the model has seen in actual sports footage.
+- **Defect noise here is broadcast-noise**, not film grain — compression artifacts, slight banding. Match the defect to the medium.
+
+### 3. Old Spice deliberate VFX (intentionally fake creature)
+
+Per the deliberate-prop-VFX rule: for "obviously-fake-on-purpose" creatures, all 5 cues are required — matte rubber, kelly-green-not-natural, visible seams, stiff posture, Muppet googly eyes. Skip any cue and it reads as AI failure instead of intentional craft.
+
+```text
+A 4-foot-tall matte-rubber sea creature in a hotel bathrobe, kelly-green color
+(not seafoam, not lime — specifically kelly-green), Muppet-style googly eyes
+with visible black plastic, stiff puppet posture, visible latex seams along
+the back of the neck.
+
+Wide three-quarter angle, full body in frame, vertical 9:16.
+
+ARRI Alexa Mini + Zeiss Master Prime 32mm, high-key commercial light.
+
+Hard fill from camera-front, soft kicker from screen-right, bright pastel
+backdrop.
+
+Bright pastel high-key commercial register, Old Spice DNA, saturated
+NOT desaturated, NOT moody, NOT chiaroscuro.
+
+Visible foam-latex texture, rubber-skin sheen, stiff joint articulation
+visible.
+```
+
+- **`kelly-green (not seafoam, not lime)`** — naming the wrong shades is what locks the right one. Color words are ambiguous; eliminating the near-misses works.
+- **`Bright pastel high-key commercial`** — the Old Spice register. The agent default of `cinematic` would pull it toward Tom Ford; the explicit "NOT moody, NOT chiaroscuro" negations close that door.
+- This is one of the rare cases where the anti-slop philosophy *inverts*: glamour register is correct here because the brand DNA is glamour-as-comedy. See [Old Spice cookbook](/cookbook/oldspice-vfx).
+
+### 4. Photoreal portrait (persona master)
+
+This is the canonical photoreal-human anchor. The 5-cue checklist all 5 cues, anti-slop negatives default-on, identity restated inline.
+
+```text
+Black man, late 20s, soft warm features, shoulder-length thin natural locs,
+thin gold wire-rim eyeglasses, faded grey crewneck.
+
+Three-quarter portrait, eye-level, vertical 9:16, head and upper torso.
+
+Leica M11 + Summicron 50mm f/2, f/2.8, shallow depth of field.
+
+Open shade midday, soft single-source ambient, no fill.
+
+Kodak Portra 400 register, hyperreal NOT glossy, naturalistic candid not staged.
+
+Visible skin pores, slight uneven beard density, flyaway hair on one temple,
+slight facial asymmetry, faint film grain.
+
+Avoid: NO glossy beauty-filter skin, NO enlarged anime-eyes, NO smoothed
+jawline-reshape, NO airbrush, NO uniform porelessness, NO catchlight-bomb,
+NO Tom-Ford chiaroscuro, NO TV-commercial register, NO Apple-keynote rim-light.
+```
+
+- **Identity tokens are absurdly specific.** "Shoulder-length thin natural locs" beats "long hair"; "thin gold wire-rim" beats "glasses". Specificity holds across regens.
+- **The two verbatim phrases** — `hyperreal NOT glossy` and `naturalistic candid not staged` — are both present.
+- **The full anti-slop block is appended.** Per the playbook, default-on for every photoreal-human gen.
+
+Read [Photoreal humans cookbook](/cookbook/photoreal-humans) for the full anatomy-checklist follow-up and locked-ref discipline.
+
+### 5. Brainrot character (from the asset pool)
+
+For named brainrot characters (Tralalero Tralala, Bombardiro Crocodilo, etc.), pull the reference from the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) pool instead of describing from scratch. The model can't fabricate a recognizable named character without drift. See [`assets-catalog`](/concepts/asset-catalog).
+
+```bash
+# Check what the pool has before describing anything.
+ralphy assets list --kind italian-brainrot-characters
+# → tralalero-tralala, bombardiro-crocodilo, brr-brr-patapim, ...
+
+# Pull a ref into the project.
+ralphy assets pull-pool italian-brainrot-characters/tralalero-tralala \
+  --install brainrot-shoe-001
+```
+
+Then the prompt becomes a positioning / scene description with the pulled ref as `--ref`:
+
+```text
+Tralalero Tralala (the blue shark with running shoes — see ref image), mid-stride
+running through a bright tropical beach, three-quarter back view.
+
+Wide angle, low camera, vertical 9:16, full body in frame.
+
+Whimsical 3D illustration register matching the reference, saturated tropical
+palette.
+
+Hard sun, deep shadows, slight chromatic aberration.
+
+Brainrot meme aesthetic, NOT photoreal, NOT cinematic.
+```
+
+If the asset doesn't exist in the pool, propose adding it rather than improvising. Per `AGENTS.md` invariant #12.
+
+### 6. Brand product hero
+
+The product is the subject. Glamour register is correct. The 5-cue photoreal checklist does not apply here; the brand-fidelity rules do.
+
+```text
+A 250ml Old Spice body wash bottle, white plastic with red and navy label,
+embossed logo legible, droplet of water on the cap.
+
+Macro close-up, centered, vertical 9:16, locked tripod, no movement.
+
+Canon R5 + RF 100mm f/2.8L Macro, f/8, deep depth of field.
+
+Single hard rim from screen-left, soft fill from camera-front, color-graded
+teal/orange commercial.
+
+Hyper-commercial CGI register, color-graded, polished.
+
+Catchlight on the bottle curve, micro-droplets on label, subtle reflection on
+glossy backdrop.
+
+Avoid: no logo distortion, no fake branding, no unauthorized brand modification.
+```
+
+- **Brand fidelity negatives** are the key here. `no logo distortion, no fake branding` keeps gemini-3-pro from "improving" the trademarked logo. The logo only comes from the `--ref`; we don't generate it.
+- For embedded text on labels (kanji buttons, LED digits, brand glyphs), prefer `openai/gpt-5.4-image-2` — gemini-3-pro smudges small typography (postmortem: flipper).
+
+## Per-model picks
+
+| Use case | Model | Why |
+|---|---|---|
+| Default — multi-ref / character consistency | `google/gemini-3-pro-image-preview` | Best at holding face/wardrobe/product identity across 2-3 refs. Tolerates ≥4 concurrent calls. ~$0.15/image. Default since 2026-05-20 per `MODELS.md` (re-flip from the brief gpt-5.4-image-2 default). |
+| Premium typography / label accuracy | `openai/gpt-5.4-image-2` | Best typography on labels, cleanest hero product shots where the wordmark must read crisp. Caps at 1 concurrent — serialize batches. ~$0.20/image. |
+| Budget iteration | `openai/gpt-5-image-mini` | ~$0.08, fine for exploration. |
+| Cheapest smoke-test | `google/gemini-2.5-flash-image` | ~$0.02, visible quality dip. |
+
+Pick from `MODELS.md` — never from memory.
+
+<Warning>
+`openai/gpt-5.4-image-2` has an OpenRouter concurrent-call cap of 1. Image batches >1 in parallel return `403 "Key limit exceeded (total limit)"`. Either run at `--concurrency 1` or swap to `google/gemini-3-pro-image-preview` which tolerates ≥4 parallel. See `MODELS.md` Lesson 9.
+</Warning>
+
+## Aspect ratio decisions
+
+The `--size` flag is a prompt-level hint, not an enforced constraint. Image models round to internal natural buckets: 1024² for 1:1, ~768×1376 for 9:16, ~1280×720 for 16:9. You will not get pixel-exact 1080×1920 — downstream Remotion handles scale-to-cover.
+
+| Aspect | When | Notes |
+|---|---|---|
+| 9:16 | Selfie POV, TikTok native, single-character UGC | Default |
+| 1:1 | Broadcast realism, caught-on-TV, sports/news | Per the broadcast-square rule — never 9:16 for these |
+| 16:9 | YouTube, cinema reference, wide establishing | Use sparingly in feed compositions |
+
+## Reference images: when to attach
+
+The `--ref` flag accepts URL, local path, or `data:` URI. Local paths auto-convert to `data:` URI in-process — no upload step.
+
+**Always attach a ref when:**
+
+- A named real entity is in the brief (person / brand / IP). The ref-required gate fires per [References](/concepts/references).
+- The project has ≥2 scenes sharing a setting — generate the location plate first, pass it as `--ref` on every scene.
+- The project has a persona — generate the persona master once, pass it as `--ref` on every downstream gen. Gemini's identity drift after 3+ unrefed gens is ~30%.
+
+**Multi-ref pattern (gemini-3-pro):**
+
+```bash
+ralphy generate image --project <id> --slot scene-03-bg \
+  --prompt "<scene description>" \
+  --ref workspace/projects/<id>/assets/uploaded/persona-master.png \
+  --ref workspace/projects/<id>/assets/uploaded/location-plate.png \
+  --ref workspace/projects/<id>/assets/uploaded/product-ref.jpg
+```
+
+Both `gpt-5.4-image-2` and `gemini-3-pro-image-preview` accept image inputs; gemini is materially stronger at multi-ref consistency when you pass 2+ refs.
+
+## CLI surface
+
+```bash
+# Generate an image — default model is the registry default in MODELS.md.
+ralphy generate image --project <id> --slot scene-01-bg \
+  --prompt "<text>" \
+  [--ref <url-or-path> ...] \
+  [--model <id>] \
+  [--size 1080x1920] \
+  [--negative "<text>"]
+
+# Regen the same slot — auto-versions to .v2, .v3, etc. Append-only.
+ralphy generate image --project <id> --slot scene-01-bg --prompt "<revised>"
+
+# Cost preview without spending credits.
+ralphy generate image --project <id> --slot scene-01-bg --prompt "<text>" --dry-run
+```
+
+Every call is logged to `workspace/projects/<id>/logs/generations.jsonl` with prompt, model, latency, and cost. See [Generation log](/concepts/generation-log).
+
+## Related
+
+- [Philosophy](/prompting/philosophy) — the anti-AI-slop doctrine this skeleton operationalizes
+- [Per-model shaping](/prompting/per-model) — how each image model differs
+- [Photoreal humans cookbook](/cookbook/photoreal-humans) — full end-to-end recipe
+- [Broadcast square cookbook](/cookbook/broadcast-square) — the 1:1 rule applied
+- [References](/concepts/references) — the ref-required gate
+- [`MODELS.md` image section](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) — canonical model list

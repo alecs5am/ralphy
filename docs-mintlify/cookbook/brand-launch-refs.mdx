@@ -1,0 +1,240 @@
+---
+title: "Brand launch with refs"
+description: "Multi-scene product launch. Lock product and persona masters first; pass both as --ref on every gen."
+---
+
+A 30-second 9:16 multi-scene brand product launch. Six scenes, one product, one
+spokesperson — the product is a recognizable object the model cannot fabricate
+without a reference, and the spokesperson appears in every scene. The recipe is
+identity-lock by `--ref` chaining: generate the product master and the persona
+master FIRST, then pass both as `--ref` on every downstream scene gen. Skip this
+step and the product packaging drifts across scenes, the spokesperson grows a
+different jawline by scene-04, and the launch reads as six unrelated stock clips.
+
+## Brief
+
+> "Launch our new matte black cordless headphones. 30s, 9:16, six scenes. Product
+> reveal, hands picking up, woman in her 30s wearing them at a kitchen counter,
+> close-up on the ear cup, walking shot, final wordmark over hero product shot.
+> The product photo and the spokesperson photo are attached."
+
+## Stack
+
+- **Template:** [`multi-scene-product-launch`](https://github.com/alecs5am/ralphy/tree/main/templates/dtc-commerce/multi-scene-product-launch) (`vibe-style`, dtc-commerce)
+- **Image anchors:** `openai/gpt-5.4-image-2` for the product master (kept on gpt-5.4-image-2 because the headphones wordmark must read crisp — gemini drifts on small label type); `google/gemini-3-pro-image-preview` (the current default since 2026-05-20) for the persona master and all scene anchors (multi-ref consistency)
+- **Video:** `kwaivgi/kling-v3.0-pro` motion-only — no `--audio`, VO is ElevenLabs over the cut
+- **VO:** ElevenLabs `eleven_multilingual_v2` over the full cut
+- **Music:** `elevenlabs/music_v1` — 30s instrumental bed
+- **Refs needed:** product photo + spokesperson photo (gate FIRES — this is a real branded product and a real model)
+- **Runtime:** ~14 min cold-start
+- **Cost:** ~$8.20 (8 images + 6× 5s Kling clips + 1 VO + 1 music)
+
+## Walkthrough
+
+<Steps>
+
+<Step title="Reference gate — the brief names a real product and a real person">
+The brief identifies a real brand product (the cordless headphones) and a real
+person (the user's spokesperson). Both fire the gate.
+
+```bash
+ralphy ref check --text "Launch our new matte black cordless headphones, woman in her 30s spokesperson"
+# → { "needsReference": true, "reasons": ["product-named", "persona-named-or-implied"] }
+```
+
+The agent refuses to generate without refs:
+
+> "I need a product photo and a spokesperson photo before I generate. Drop both,
+> or switch the spokesperson to a generic archetype."
+</Step>
+
+<Step title="Register the refs">
+Save both photos under `assets/uploaded/` and log them. The CLI auto-logs via
+`logUserAsset` when the upload happens through `ralphy project log-asset`.
+
+```bash
+ralphy project log-asset headphones-launch-001 \
+  --kind photo --source ~/Downloads/product.png --purpose product-ref
+ralphy project log-asset headphones-launch-001 \
+  --kind photo --source ~/Downloads/spokesperson.png --purpose persona-ref
+```
+</Step>
+
+<Step title="Generate the product master (anchor #1)">
+The product master is the load-bearing identity asset. `gpt-5.4-image-2` holds
+small typography (logo, button labels, port markings) across redos better than
+gemini, so the product master is one of the few slots where we override the
+gemini default.
+
+```bash
+ralphy generate image \
+  --project headphones-launch-001 \
+  --slot product-master \
+  --model openai/gpt-5.4-image-2 \
+  --ref workspace/projects/headphones-launch-001/assets/uploaded/product-ref.png \
+  --size 1024x1024 \
+  --prompt "Studio product shot of the matte black cordless headphones (see ref — match the exact silhouette, ear cup curve, headband stitching, control buttons, and any visible wordmark). Plain off-white seamless background, soft overhead key from screen-right, naturalistic NOT glossy product-shot register, no rim-light explosion. Hyperreal, no logo distortion, no fake branding."
+# → workspace/projects/headphones-launch-001/assets/image/product-master.png
+```
+
+Self-check against the user's ref. If the wordmark is wrong, regen once with
+the wordmark explicitly described. If still wrong, ask the user for a tighter
+crop of the wordmark.
+</Step>
+
+<Step title="Generate the persona master (anchor #2)">
+One spokesperson, one master frame, eye-level neutral expression. Use the
+photoreal-humans register from `art-director/photoreal-humans.md`.
+
+```bash
+ralphy generate image \
+  --project headphones-launch-001 \
+  --slot persona-master \
+  --model google/gemini-3-pro-image-preview \
+  --ref workspace/projects/headphones-launch-001/assets/uploaded/persona-ref.png \
+  --size 1024x1024 \
+  --prompt "Woman in her early 30s (see ref — match face, hair color and length, eye color, skin tone, freckles if visible). Soft neutral expression, three-quarter front, looking past the lens. Sony A7 IV + Sigma 85mm f/1.8 ART, Kodak Portra 400, soft window light from screen-left, hyperreal NOT glossy, naturalistic candid not staged. NO glossy beauty-filter skin, NO enlarged anime-eyes, NO smoothed jawline, NO airbrush, NO Tom-Ford chiaroscuro."
+```
+
+Run the anatomy + identity check before moving on. The persona master is
+referenced on every downstream scene, so a flawed master compounds.
+</Step>
+
+<Step title="Generate the storyboard scene anchors (one at a time)">
+Six scenes. Generate scene-01 first, surface to the user, wait for approval,
+then proceed. Batching all six upfront before the first one is approved is the
+anti-pattern this recipe exists to prevent.
+
+```bash
+ralphy generate image \
+  --project headphones-launch-001 \
+  --slot scene-01-bg \
+  --model google/gemini-3-pro-image-preview \
+  --ref workspace/projects/headphones-launch-001/assets/image/product-master.png \
+  --ref workspace/projects/headphones-launch-001/assets/image/persona-master.png \
+  --size 1080x1920 \
+  --prompt "Hero reveal shot. The matte black cordless headphones (see ref-1) sit on a sun-washed light-oak kitchen counter, soft morning light from a window screen-right, low three-quarter angle. The woman from ref-2 is out of frame for this shot. Hyperreal NOT cinematic, naturalistic editorial product register."
+```
+
+Repeat for scene-02 through scene-06. Every gen passes BOTH masters as `--ref`,
+even on scenes where one of them is "out of frame" — the model uses the ref to
+hold the wardrobe / setting cues that flowed from the master.
+</Step>
+
+<Step title="Generate the six Kling motion clips">
+5s each, motion-only (no `--audio`). VO is a separate ElevenLabs pass over the
+full cut, which gives you a single continuous narrator track instead of six
+disjointed mid-clip voices.
+
+```bash
+ralphy generate video \
+  --project headphones-launch-001 \
+  --slot scene-01-vid \
+  --model kwaivgi/kling-v3.0-pro \
+  --image workspace/projects/headphones-launch-001/assets/image/scene-01-bg.png \
+  --duration 5 \
+  --prompt "Slow push-in on the headphones on the counter. Soft handheld micro-jitter. Morning light shifts subtly across the surface. NO music, NO speech."
+# repeat for scene-02 through scene-06
+```
+
+Each clip's start frame must show a distinct beat from the end frame — gesture,
+camera position, or light shift. Identical start/end frames produce a static
+clip that reads as a stale photo.
+</Step>
+
+<Step title="Generate VO + music + render">
+```bash
+ralphy generate voiceover \
+  --project headphones-launch-001 \
+  --slot full-vo \
+  --voice <voice-id> \
+  --text "<the 30s narration script>"
+
+ralphy generate music \
+  --project headphones-launch-001 \
+  --slot bed-01 \
+  --duration 32 \
+  --prompt "Warm minimalist instrumental, 90 BPM, light analog synth pad, soft kick on the downbeat, no vocals, no lead melody, premium hardware-launch register"
+
+ralphy generate captions --project headphones-launch-001 --audio workspace/projects/headphones-launch-001/assets/voiceover/full-vo.mp3
+ralphy render headphones-launch-001
+# → workspace/projects/headphones-launch-001/render/final.mp4 (30.0s, 9:16)
+```
+</Step>
+
+</Steps>
+
+## Why this works
+
+Identity drift across multi-scene projects is the dominant failure mode of
+AI-generated brand work. After three unrefed gens, gemini's identity drift is
+around 30% on faces and packaging; by scene-06 the spokesperson has a different
+jawline and the headphones have grown an extra port. The fix is locked refs on
+every gen, even when intuition says "the model remembers what we just generated".
+It doesn't — every generation is independent, and the only durable identity
+signal is the ref payload on each call.
+
+`gpt-5.4-image-2` for the product master (small typography hold — the one slot
+where we override the gemini default) and `gemini-3-pro-image-preview` for the
+persona master + every scene anchor (multi-ref consistency across 30+ gens) is
+the canonical pairing. The product master goes into every
+downstream call regardless of whether the headphones are visible in the frame —
+the ref carries the brand register (color, materiality, lighting style) that
+should propagate through the wardrobe and setting choices.
+
+The anchor order matters. Generate the product master first, the persona master
+second, then scenes one at a time. Skipping the master-first step and going
+straight to scene anchors is the highest-leverage mistake in this recipe —
+every scene anchor then carries an inconsistent "implicit master" that gemini
+inferred from the scene prompt, and continuity collapses by scene-04.
+
+Kling motion-only with ElevenLabs VO over the cut beats Kling `--audio` per-clip
+for multi-scene launches. One continuous narrator track in the editor reads as
+one ad; six per-clip `--audio` lines read as six fragmented voice takes. Use
+`--audio` only when a single clip has on-camera dialogue.
+
+## Variations
+
+- **Fewer scenes.** Three-scene launch (hero, demo, wordmark) cuts cost to ~$4
+  and runtime to ~7 min. Still requires the master-first discipline.
+- **Russian / non-English VO.** Same recipe — Kling clips stay motion-only,
+  ElevenLabs `eleven_multilingual_v2` covers any language.
+- **No spokesperson.** Drop the persona master. The product master alone carries
+  the launch if every scene is a product-led shot. The reference gate still
+  fires on the branded product.
+- **Audio on one scene only.** If the spokesperson has one on-camera line in
+  scene-03, generate that scene with Kling `--audio` and keep the rest
+  motion-only. The composition stitches the on-camera line into the narrator
+  track.
+- **Aspect.** 1:1 for IG feed, 16:9 for YouTube hero, 9:16 for TikTok / Reels.
+  The product master is square — round into the target aspect at the scene
+  anchor stage.
+
+## Pitfalls
+
+<Warning>
+The reference-required gate is not a warning — it is a refusal. Without product
+and persona photos, the agent will not generate the masters. Override only via
+`--no-ref-consent "<reason>"` on the specific failing call; expect quality
+degradation when overridden.
+</Warning>
+
+<Warning>
+Do not generate all six scene anchors before surfacing scene-01 to the user.
+Locking in six anchors against a flawed master burns ~$4 across the batch and
+roughly 45 min of regen time. One at a time, with checkpoints.
+</Warning>
+
+<Warning>
+Do not drop the product master from a scene gen "because the headphones aren't
+visible". Every scene gen carries both masters as `--ref`, every time. The
+master propagates the brand register, not just the literal object.
+</Warning>
+
+## Related
+
+- [Concepts: references](/concepts/references) — the gate, override path, and audit trail
+- [Brand and persona refs](/working/brand-persona-refs) — how `--ref` chains through the gen
+- [Photoreal humans](/cookbook/photoreal-humans) — the persona master register
+- [Generating assets](/working/generating-assets) — anchor order discipline
+- [Art-director playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) — the master-first rule that this recipe enforces

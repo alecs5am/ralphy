@@ -1,0 +1,167 @@
+---
+title: "Workspace"
+description: "Where projects, brands, refs, caches, and renders live on disk."
+---
+
+The workspace is a gitignored directory at the repo root (`workspace/`) where every project, brand, persona, ref, template override, asset-cache entry, and rendered mp4 lives. Two things to know about it up front: nothing inside `workspace/projects/<id>/` is overwritten without explicit user consent (AGENTS.md invariant #13), and the whole directory is wipe-safe — every artifact can be regenerated from a brief plus the global registry at `~/.ralphy/`.
+
+## The layout
+
+```
+workspace/
+├── projects/
+│   ├── coffee-shop-001/         # one project = one video
+│   │   ├── BRIEF.md
+│   │   ├── prompts.json
+│   │   ├── asset-manifest.json
+│   │   ├── STORYBOARD.md
+│   │   ├── POSTMORTEM.md        # legacy single-file format
+│   │   ├── postmortem/          # new 6-file split
+│   │   │   ├── 01-chat-history.md
+│   │   │   ├── 02-lessons.md
+│   │   │   ├── 03-bugs.md
+│   │   │   ├── 04-models-cost.md
+│   │   │   ├── 05-workflow-fixes.md
+│   │   │   └── 06-summary.md
+│   │   ├── assets/              # produced media (images, video, audio)
+│   │   ├── render/              # the final mp4 lives here
+│   │   └── logs/
+│   │       ├── generations.jsonl
+│   │       ├── user-prompts.jsonl
+│   │       └── user-assets.jsonl
+│   └── nothing-hp1-001/         # another project
+├── templates/                   # user-local template overrides
+│   └── my-internal-template/    # overrides repo templates by slug
+├── research/                    # /ralph-researcher outputs
+│   └── <slug>/
+│       ├── report.md
+│       └── sources.json
+└── .ralph/                      # ralphy-internal scratch + entities
+    ├── brands/                  # one JSON per brand
+    │   └── my-brand.json
+    ├── personas/                # one JSON per persona
+    │   └── founder-megan.json
+    ├── refs/                    # one folder per ref
+    │   └── tiktok-tralalero/
+    │       ├── source.mp4
+    │       ├── frames/
+    │       └── ref.json
+    ├── templates/               # template-loader scratch
+    └── asset-cache/             # ralphy-assets companion-repo cache
+        ├── pool/
+        │   ├── italian-brainrot-characters/
+        │   └── trend-music/
+        └── required/
+```
+
+The split between `workspace/projects/<id>/` (the user-visible state) and `workspace/.ralph/` (ralphy-internal entities and caches) is the key one to remember. The first is append-only and irreplaceable. The second is regenerable and managed by the CLI.
+
+## Why workspace is gitignored
+
+The workspace contains big binary files (mp4s, mp3s, PNGs), API responses with embedded request IDs, and per-machine paths. None of it should ride in a git history. The repo `.gitignore` excludes `workspace/`, `node_modules/`, and `dist/`.
+
+If you want to keep a project across machines, three options:
+
+- **Dump into a profile.** `ralphy profile dump <project-id>` snapshots the project into `profiles/<nick>/`, which *is* checked into the repo. The dump is additive — pulling a profile on another machine restores the project under `workspace/projects/<id>/` without clobbering local state.
+- **Sync the workspace yourself.** rsync / Dropbox / iCloud are fine. The append-only rule means there are no concurrent-write races as long as you do not run two `ralphy` instances against the same project at once.
+- **Commit the brief and the postmortem only.** If you want the *story* of a project in git without the heavy media, copy `BRIEF.md` and `postmortem/` into a docs folder. The full project stays in `workspace/`.
+
+## Canonical vs. scratch
+
+Two trees, two policies.
+
+**Canonical: `workspace/projects/<id>/`.** Append-only, never overwritten. Regen creates `<slot>.v2.<ext>`, never replaces `<slot>.<ext>`. The three JSONL logs are append-only by definition — read-and-rewrite-to-tidy is a defect. Failed and rejected generations stay on disk until the user explicitly purges them (see AGENTS.md invariant #13). The `BRIEF.md`, `prompts.json`, `asset-manifest.json`, and `STORYBOARD.md` files are updated in place, but the manifest only ever *points* at the latest version of each slot — the previous version stays on disk.
+
+**Scratch: everything else.** `workspace/.ralph/asset-cache/` is managed by `ralphy assets clean` and `ralphy assets pull-pool`. `workspace/.ralph/templates/` is a loader cache. `workspace/research/<slug>/` is the output of the researcher skill — you can delete the whole folder and re-run the skill if you want a fresh report.
+
+Brands, personas, and refs under `workspace/.ralph/` sit somewhere in between: they are user-created, you do not want them auto-deleted, but they are not on the same "never overwrite" track as project artifacts. Updating a brand JSON in place is fine — there is no history.
+
+## Wipe-safety
+
+A clean wipe is `rm -rf workspace/`. After it:
+
+- Project state is gone (unless you dumped to a profile).
+- Brand and persona definitions are gone (these are usually short JSON — keep a backup).
+- The asset cache is gone — next `ralphy template use <slug>` will re-pull from the companion repo (SHA-256 verified).
+- The registry at `~/.ralphy/` is untouched — your API keys, project registry, and config survive.
+
+The recovery path:
+
+```bash
+# 1. Re-install dependencies if you also wiped node_modules.
+bun install
+
+# 2. Pull any profiles you want back.
+ralphy profile install <nick>
+
+# 3. Re-create brands and personas (these are short JSON — keep a backup
+#    or re-ask the agent during intake).
+ralphy brand create my-brand
+ralphy persona create founder-megan
+```
+
+If a project was checked into a profile, the dump round-trips bit-for-bit — the same `generations.jsonl`, the same `asset-manifest.json`, the same `assets/` files.
+
+<Warning>
+  `workspace/projects/<id>/` is not safe to manually edit. The manifest, the logs, and the asset versioning all assume the CLI is the only writer. If you want to "delete a bad generation," use `ralphy project delete <id>` to wipe the project; never `rm` individual files inside a project.
+</Warning>
+
+## The registry at `~/.ralphy/`
+
+Outside the repo, Ralphy keeps a small global registry:
+
+```
+~/.ralphy/
+├── config.json        # API keys, ffmpeg path, ralphy version, defaults
+├── projects.json      # known-project registry (project-id → workspace path)
+├── profiles/          # cached profile dumps
+└── installer.lock     # release-channel pin, used by `ralphy doctor`
+```
+
+`projects.json` is how `ralphy project list` knows about projects across multiple ugc-cli checkouts. The registry stores `project-id → workspace-path` mappings. If you maintain two checkouts of the repo (e.g. one stable, one bleeding-edge), both can register projects against the same global registry, and `ralphy project show <id>` resolves to the right one.
+
+`config.json` holds the two API keys. Set them via `ralphy setup` (interactive) or by editing the file. `ralphy doctor` validates them — if a key is missing or stale, the error message names the file and the field.
+
+## Brands, personas, refs
+
+These three live under `workspace/.ralph/`. Each is a small entity that projects can attach to.
+
+- **Brands** (`workspace/.ralph/brands/<id>.json`) — logo, palette, tone, audience. Reusable across projects.
+- **Personas** (`workspace/.ralph/personas/<id>.json`) — a recurring on-screen character. Photo refs live in `workspace/.ralph/refs/persona-<id>/` and the JSON points at them.
+- **Refs** (`workspace/.ralph/refs/<id>/`) — a folder per ref. Source video / image, extracted frames, transcript, vision tags, audio describe, blueprint — written by `ralphy ref` verbs.
+
+See [`/concepts/brands-personas`](/concepts/brands-personas) and [`/concepts/references`](/concepts/references) for the data model and the attach-to-project flow.
+
+## The asset cache
+
+`workspace/.ralph/asset-cache/` is the local cache of the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo — gameplay loops, Italian Brainrot characters, trend music. The cache is SHA-256 verified, no auth required.
+
+```
+workspace/.ralph/asset-cache/
+├── pool/
+│   ├── italian-brainrot-characters/
+│   │   ├── tralalero-tralala/
+│   │   │   ├── tralalero-tralala.png
+│   │   │   └── ref.json
+│   │   └── tung-tung-tung-sahur/
+│   └── trend-music/
+│       ├── caretaker-its-just-a-burning-memory/
+│       │   ├── caretaker-its-just-a-burning-memory.mp3
+│       │   └── hooks/
+│       └── tili-tili-bom/
+└── required/
+    ├── brainrot-ai-meme/
+    │   └── cs-surf-loop.mp4
+    └── soviet-nostalgic/
+        └── trend-soviet-bed.mp3
+```
+
+`required/` is auto-pulled on `ralphy template use <slug>` for templates that need a specific asset. `pool/` is pulled on demand with `ralphy assets pull-pool <kind>/<slug>`. See [`/concepts/asset-catalog`](/concepts/asset-catalog) for the full model.
+
+## Related
+
+- [Projects](/concepts/projects) — the per-project layout and lifecycle
+- [Brands and personas](/concepts/brands-personas) — the identity entities under `.ralph/`
+- [Asset catalog](/concepts/asset-catalog) — the companion-repo pool and cache
+- [Generation log](/concepts/generation-log) — the JSONL schemas under `logs/`
+- [CLAUDE.md](https://github.com/alecs5am/ralphy/blob/main/CLAUDE.md) — repo orientation

@@ -1,0 +1,169 @@
+---
+title: "Generation verbs"
+description: "ralphy generate image, video, voiceover, music, sfx, captions — model picks, refs, append-only versioning, dry-run."
+---
+
+`ralphy generate` is the only blessed path for a model call. Every sub-verb routes through `cli/lib/providers/media.ts` (or `transcribe.ts` for captions), writes the asset to disk under a deterministic slot, updates `asset-manifest.json`, appends to `generations.jsonl`, and returns parse-friendly JSON. Per [AGENTS.md invariant #2](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), nothing else should hit a provider API directly.
+
+## The six sub-verbs
+
+```bash
+ralphy generate image     --project <id> --slot <slot> --prompt "..."
+ralphy generate video     --project <id> --slot <slot> --prompt "..." --duration 5
+ralphy generate voiceover --project <id> --slot <slot> --voice <voiceId> --text "..."
+ralphy generate music     --project <id> --slot <slot> --prompt "..." --duration 12
+ralphy generate sfx       --project <id> --slot <slot> --prompt "..." --duration 4
+ralphy generate captions  --project <id> --audio <path>
+```
+
+Every verb requires `--project` and `--slot` (captions derives the slot from the audio filename if omitted). The slot is the asset's identity inside the project; all downstream logic — manifest, render, eval — keys on it.
+
+## Slot ID format
+
+Canonical form is **lowercase kebab-case**: `^[a-z0-9-]+$`. Pattern: `{scene-id}-{type}-{descriptor}`.
+
+```text
+scene-01-bg-image
+scene-04-vo
+hook-music
+static-pop-01
+```
+
+The CLI accepts a relaxed form (`[a-zA-Z0-9_-]+`) and auto-normalizes uppercase + underscore to canonical with a stderr warning. Characters outside the relaxed set (spaces, dots, slashes, unicode) raise `E_INPUT_INVALID`.
+
+## Defaults from MODELS.md
+
+Each verb has a default model picked by [MODELS.md](https://github.com/alecs5am/ralphy/blob/main/MODELS.md). The agent reads that file before every call (invariant #6) — agents and humans should not memorize defaults from this page.
+
+| Verb | Default (today) | When to swap |
+|---|---|---|
+| `image` | `google/gemini-3-pro-image-preview` | `--model openai/gpt-5.4-image-2` for premium typography on labels / hero product wordmarks |
+| `video` | `kwaivgi/kling-v3.0-pro` | `--model bytedance/seedance-2.0` for horror / POV / non-default physics |
+| `voiceover` | `eleven_multilingual_v2` | Per ElevenLabs model catalog |
+| `music` | ElevenLabs Music | (only one provider) |
+| `sfx` | ElevenLabs Sound Generation | (only one provider) |
+| `captions` | ElevenLabs Scribe v1 | `--backend openrouter` or `--backend gemini` for fallback |
+
+Run `ralphy models list` to see the live video catalog with per-model duration / resolution / aspect / frame-anchor whitelists.
+
+## Reference flags
+
+`--ref <ref...>` (image) and `--first-frame <ref> --last-frame <ref>` (video) accept URLs, local paths, or `data:` URIs. Local paths auto-convert to a `data:` URI in the request body. `--last-frame` is only honored by models whose `supported_frame_images` includes `last_frame`; check via `ralphy models show <id>`.
+
+```bash
+ralphy generate image \
+  --project demo-001 --slot scene-02-bg \
+  --prompt "golden hour rooftop, 35mm portrait" \
+  --ref ./refs/lookbook-page-4.jpg \
+  --ref https://example.com/secondary.jpg
+# Default model is google/gemini-3-pro-image-preview; pass --model openai/gpt-5.4-image-2 if the shot has a wordmark that must read crisp.
+```
+
+## The reference-required gate
+
+Per [AGENTS.md invariant #3](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), a named real entity (specific person, recognizable brand product, recognizable IP) requires a reference. The CLI floor is `ralphy ref check <project-id>`; the agent layer adds nuance during intake.
+
+If the gate refuses, you'll see `E_REF_REQUIRED`. The override is per-call:
+
+```bash
+ralphy generate video \
+  --project demo-001 --slot scene-03-vid \
+  --prompt "... Coca-Cola can ..." \
+  --duration 5 \
+  --no-ref-consent "client cleared, generic-can fallback acceptable"
+```
+
+The reason string is mandatory when overriding, and gets appended to `user-prompts.jsonl` as `stage: "no-ref-consent"` so future sessions can see the deliberate trade-off. See [References](/concepts/references).
+
+## Append-only versioning
+
+When you regenerate a slot that already has a file, the CLI archives the existing file to `.v2.<ext>` (then `v3`, `v4`, …) and writes the new generation to the canonical path. The manifest tracks both. **Failed and rejected generations stay on disk** until the user explicitly purges them.
+
+```bash
+ralphy generate image --project demo-001 --slot scene-01-bg --prompt "..."
+# writes assets/scene-01-bg.png
+
+ralphy generate image --project demo-001 --slot scene-01-bg --prompt "warmer"
+# moves scene-01-bg.png → scene-01-bg.v2.png
+# writes new scene-01-bg.png
+```
+
+Pass `--force-overwrite` only when the user explicitly asks for legacy destructive behavior. Per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), the default is preservation.
+
+## Dry-run + cost preview
+
+Every verb supports `--dry-run`. It validates flags, prints the resolved request, and returns a cost estimate without submitting.
+
+```bash
+ralphy generate video \
+  --project demo-001 --slot scene-04-vid \
+  --prompt "..." --duration 10 \
+  --dry-run
+```
+
+```json
+{
+  "dryRun": true,
+  "model": "kwaivgi/kling-v3.0-pro",
+  "slot": "scene-04-vid",
+  "durationSec": 10,
+  "aspectRatio": "9:16",
+  "resolution": "720p",
+  "firstFrame": null,
+  "lastFrame": null,
+  "generateAudio": false,
+  "estimatedCostUsd": 1.4
+}
+```
+
+`--summary` (on verbs that support it) collapses per-stage detail to a rollup; on single-step verbs it's a no-op accepted for shell-script consistency.
+
+## Per-verb specifics
+
+### generate image
+
+`--variants <n>` (1–8) fires N parallel gens into `<slot>-v1.png` … `<slot>-vN.png`. The CLI serializes when the model has a known per-key cap (e.g. `openai/gpt-5.4-image-2`) and parallelizes otherwise. `--size`, `--negative`, `--ref` accepted. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+
+### generate video
+
+`--duration` is required and validated against the model's `supported_durations` (kling allows 5, 10; hailuo allows 6, 10 only). `--aspect-ratio` and `--resolution` are per-model whitelisted. `--audio` enables model-native audio — confirmed for English on Kling and Veo, drifts on Russian. Pre-validation runs against the OR catalog cache; pass `--no-validate` to force-submit.
+
+Polling cadence is tuned for 80 attempts × 15s = ~20 min; override with `--poll-interval-ms` and `--poll-max-attempts`. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+
+### generate voiceover
+
+Required: `--voice <voiceId>` and `--text <text>`. ElevenLabs voice settings exposed as `--stability`, `--similarity-boost`, `--style`, `--no-speaker-boost`. Defaults (0.55 / 0.8 / 0.25, speaker boost on) match the analog-horror PSA register. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+
+### generate music
+
+`--duration` 3–600 s. `--with-vocals` flips the default; the default ban on vocals matches ElevenLabs ToS recommendations and the Old Spice-style postmortems. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+
+### generate sfx
+
+`--duration` 0.5–22 s. `--prompt-influence` 0–1 (default 0.4 — let the model interpret). Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+
+### generate captions
+
+Wraps the transcription pipeline. Default backend: ElevenLabs Scribe v1 (word-level). `--language ru | en | auto`. Output lands at `workspace/projects/<id>/assets/captions/<slot>.json`; pass `--legacy-output` for the pre-2026-05 shared `captions.json` path. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+
+## Queueing (background jobs)
+
+Every generate sub-verb accepts `--queue` to enqueue the work as a daemon job and return a job id immediately. Composable with `--depends-on <ids>`, `--queue-tag <tag>`, `--queue-priority <n>`. The daemon is `ralphy daemon`; inspect with `ralphy queue list`.
+
+```bash
+ralphy generate image --queue --project demo-001 --slot scene-01-bg --prompt "..."
+# → { "queued": true, "id": "job-...", "kind": "generate.image", "project": "demo-001" }
+```
+
+## Logging
+
+Every successful call appends to `workspace/projects/<id>/logs/generations.jsonl` with provider, model, slot, input, output path, status, latency, cost, and any `--note`. The append-only contract is non-negotiable: never truncate, never rewrite, never filter in place ([AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)).
+
+## Related
+
+- [Generating assets](/working/generating-assets) — the end-to-end walkthrough
+- [References](/concepts/references) — the ref-required gate explained
+- [Models](/cli/models) — the OR catalog the CLI ships against
+- [Error catalog](/cli/error-catalog) — `E_REF_REQUIRED`, `E_VALIDATION_FAILED`, `E_BUDGET_EXCEEDED`
+- Per-verb reference: [/reference/cli/generate](/reference/cli/generate)
+- [cli/commands/generate.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/generate.ts)
