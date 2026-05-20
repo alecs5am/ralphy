@@ -1,0 +1,123 @@
+---
+title: "Architecture"
+description: "Three moving parts: the agent in your editor, the ralphy CLI, and the workspace on disk."
+---
+
+Ralphy has three moving parts and one strict rule about how they talk. The agent in your editor decides *what* to do. The `ralphy` CLI binary does *the* work. The workspace on disk is the *state*. The agent never reaches past the CLI — no raw `curl` against a provider, no ad-hoc `ffmpeg`, no `yt-dlp` outside a `ralphy` verb. That rule (AGENTS.md hard invariant #2) is what makes the gen-log, the cost rollup, the asset manifest, and cross-session memory work.
+
+## The three parts
+
+**The agent.** Whatever editor you use — Claude Code, Cursor, Codex, or GitHub Copilot — the agent has [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) auto-loaded into its system prompt. That file is the routing table from "user intent" to "playbook." When you ask "make a video about my coffee shop's pastry," the agent matches the intent to a row, reads the matched playbook in `docs/playbooks/<role>.md`, then acts. It does not improvise on topics the playbook covers — the playbook has the model picks, the prompt scaffolds, and the failure modes.
+
+**The CLI.** `ralphy` is a single binary built from TypeScript with `bun`. The verbs live under `cli/commands/`. The libraries live under `cli/lib/`. Every verb has the same shape: parse args, read state from the workspace, call a provider through `cli/lib/providers/`, write artifacts to the workspace, append to the logs. JSON output by default; `-p` for pretty tables. The CLI is also the only thing on the machine with the API keys — the agent never sees them.
+
+**The workspace.** `workspace/` is a gitignored directory in the repo root. Projects, brand definitions, persona definitions, refs, the asset cache, and the generations log all live there. The workspace is treated as canonical-but-wipeable: canonical because every file under `workspace/projects/<id>/` is append-only, and wipeable because everything can be regenerated from a brief plus the registry at `~/.ralphy/`. See [`/concepts/workspace`](/concepts/workspace) for the directory layout.
+
+## How they talk
+
+```
+┌─────────────┐                ┌─────────────┐                ┌──────────────┐
+│             │                │             │                │              │
+│   Agent     │ ──invokes────▶ │   ralphy    │ ──mutates────▶ │  workspace/  │
+│  (editor)   │                │  (binary)   │                │              │
+│             │ ◀──reads logs──│             │ ◀──reads─state─│              │
+└─────────────┘                └─────────────┘                └──────────────┘
+       │                                                              │
+       │  reads playbooks ◀───────────────────────────────────────────┤
+       └──────────────────────────────────────────────────────────────┘
+                            (docs/playbooks/, AGENTS.md)
+```
+
+The flow has one shape regardless of the task:
+
+<Steps>
+  <Step title="Agent reads the playbook">
+    The agent matches your intent against the routing table in `AGENTS.md`, opens the matched playbook in `docs/playbooks/<role>.md` via the `Read` tool, and reads any sub-docs the playbook points at (e.g. `docs/playbooks/researcher/yt-dlp.md`). The playbook tells the agent which `ralphy` verb to run with which flags.
+  </Step>
+  <Step title="Agent invokes a ralphy verb">
+    The agent runs `ralphy <verb> <args>` (or `bun run ralph -- <verb>` in development). The verb is a TypeScript file in `cli/commands/`. The CLI parses args, picks the model from `MODELS.md` defaults (or honors `--model`), and calls the provider through `cli/lib/providers/media.ts` or `cli/lib/providers/llm.ts`.
+  </Step>
+  <Step title="ralphy mutates the workspace and writes logs">
+    The verb writes the produced file under `workspace/projects/<id>/assets/`, appends an entry to `workspace/projects/<id>/logs/generations.jsonl` with `{provider, endpoint, kind, slot, input, output, status, latency_ms, cost_usd}`, and updates `workspace/projects/<id>/asset-manifest.json` to point at the new slot version. If a previous version of the slot exists, the old file becomes `scene-03.v1.png` and the new one is `scene-03.png` (auto-archived since commit `753d2f7`).
+  </Step>
+  <Step title="Agent reads the logs back">
+    The agent reads `generations.jsonl`, `asset-manifest.json`, and (for evaluation) the produced files. The next playbook step uses that state — e.g. the editor playbook reads the manifest to know which scenes are ready for composition.
+  </Step>
+</Steps>
+
+This loop runs for every action — researching a reference URL, drafting a scenario, generating an image, regenerating a scene, composing the final cut. The agent does not retain "what files exist on disk" in its head; it asks the workspace.
+
+## The one strict rule
+
+> **`ralphy` is the only entry-point for model calls, ffmpeg recipes, yt-dlp pulls, and project mutations.** Reaching for `bunx tsx` against a TS file, `curl` against any provider API, or `ffmpeg` ad-hoc — STOP. Either there is a `ralphy` verb for it (check the playbook's `## CLI cookbook` section), or the operation is not yet covered — in which case propose adding the verb to `cli/commands/` and stop. Never paste raw API code into a project. — *AGENTS.md hard invariant #2*
+
+The reason this rule exists is consequence, not aesthetic. Four downstream systems all depend on every model call flowing through `ralphy`:
+
+- **The gen-log** at `workspace/projects/<id>/logs/generations.jsonl`. If the agent runs `curl` against fal.ai directly, the call is invisible. The next session's agent will not see it, the cost rollup will under-count, and the postmortem will be wrong.
+- **The asset manifest** at `workspace/projects/<id>/asset-manifest.json`. If the agent writes a file under `assets/` without going through the verb, the manifest gets out of sync with disk. Compositions then reference a slot that does not exist, or a slot that points at the wrong file.
+- **The quality gates.** `ralphy generate image` runs `scoreImage` on the output. `ralphy generate video` runs `scoreVideo`. A direct provider call skips the gate and ships a known-bad asset into the cut.
+- **The append-only contract.** The verbs know to archive `<slot>.<ext>` → `<slot>.v1.<ext>` before writing the new file. A direct write overwrites the previous version, which is exactly the failure mode invariant #13 exists to prevent.
+
+When you find yourself thinking "there is no `ralphy` verb for this, I will just shell out" — that is the bug. The right move is to read the playbook's `## CLI cookbook` section, look for an existing verb, and if there genuinely is no verb, **propose adding one to `cli/commands/`**. Most of the verbs in the CLI started as exactly that: a postmortem flagged a missing one.
+
+## What the agent sees vs. what the CLI sees
+
+The agent has **no API keys** and **no provider knowledge**. It sees:
+
+- The repo (`AGENTS.md`, `CLAUDE.md`, `MODELS.md`, `CLI.md`, `docs/playbooks/`).
+- The workspace state (`workspace/projects/<id>/...`).
+- The output of `ralphy` verbs (JSON to stdout).
+
+The CLI has **both keys** (`OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY`) and **all provider knowledge**. It reads:
+
+- `~/.ralphy/config.json` for keys and registry.
+- The workspace for project state.
+- `MODELS.md` is a documentation source — the CLI does not parse it. Default model picks live in `cli/lib/providers/media.ts` and are kept in sync with `MODELS.md` by hand.
+
+This split is deliberate. The agent should not be able to spend money without the CLI mediating. The CLI should not be able to decide *what* to do — only *how* to do the next requested thing.
+
+## The five mandatory reads at session start
+
+[`docs/playbooks/meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) names them:
+
+1. `AGENTS.md` — auto-loaded by `CLAUDE.md`.
+2. `MODELS.md` — checked before every model call.
+3. `CLI.md` — verb / flag reference cheatsheet.
+4. The closest sibling postmortem under `workspace/projects/<id>/postmortem/02-lessons.md`. The postmortems are where the high-density "what went wrong, what to do instead" content lives.
+5. The matched playbook from `AGENTS.md` routing — read fully, then act.
+
+The discipline is: read first, act second. The single most expensive failure mode across 10 postmortems was "the agent felt confident and skipped the read." A reread costs ~10 seconds. Skipping costs $1-50 in regen burn and 30-90 minutes of user-flagged cleanup.
+
+## What the workspace looks like during a run
+
+A project mid-flight has roughly this shape:
+
+```
+workspace/projects/coffee-shop-001/
+├── BRIEF.md                     # the user's brief, captured during intake
+├── prompts.json                 # the resolved per-scene prompts
+├── asset-manifest.json          # slot → file pointer table
+├── STORYBOARD.md                # human-readable beat list
+├── assets/
+│   ├── scene-01-bg.png
+│   ├── scene-01-bg.v1.png       # previous version, archived on regen
+│   ├── scene-01-clip.mp4
+│   ├── voiceover-en.mp3
+│   └── music-bed.mp3
+├── render/
+│   └── final.mp4
+└── logs/
+    ├── generations.jsonl        # every model call (append-only)
+    ├── user-prompts.jsonl       # every user prompt (append-only)
+    └── user-assets.jsonl        # every user-uploaded ref (append-only)
+```
+
+Every file in this tree has a producer in `cli/commands/` and a schema. See [`/concepts/projects`](/concepts/projects) for the lifecycle, [`/concepts/generation-log`](/concepts/generation-log) for the JSONL schemas, and [`/concepts/workspace`](/concepts/workspace) for the full directory layout including `.ralph/` (brands, personas, refs, templates, asset cache).
+
+## Related
+
+- [Workspace](/concepts/workspace) — the directory layout in detail
+- [Projects](/concepts/projects) — the per-project layout and lifecycle
+- [Generation log](/concepts/generation-log) — the append-only contract and the JSONL schemas
+- [Playbooks and skills](/concepts/playbooks-and-skills) — how the agent decides what to do
+- [AGENTS.md](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the routing contract and the 13 hard invariants

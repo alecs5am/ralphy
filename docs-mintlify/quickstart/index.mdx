@@ -1,0 +1,47 @@
+---
+title: "Quickstart"
+description: "Install ralphy, wire it into your editor, render your first UGC video. About 10 minutes."
+---
+
+Ralphy turns a one-line brief into a rendered UGC video. You drive it from chat in your editor (Claude Code, Cursor, Copilot, Codex) and the `ralphy` CLI does the work — image, video, voiceover, music, render. This quickstart gets you from a fresh machine to `final.mp4` in roughly ten minutes.
+
+You'll do four things in order:
+
+<CardGroup cols={2}>
+  <Card title="Install" icon="download" href="/quickstart/install">
+    Drop the `ralphy` binary onto your machine, add two API keys, verify with `ralphy doctor`.
+  </Card>
+  <Card title="Your first video" icon="film" href="/quickstart/first-video">
+    Type a brief in chat. Ralphy runs intake, generates scenes, renders `final.mp4`. About 8 minutes cold-start.
+  </Card>
+  <Card title="Connect your editor" icon="plug" href="/quickstart/connect-editor">
+    `ralphy skill install` wires the playbook routing into Claude Code, Cursor, Copilot, or Codex.
+  </Card>
+  <Card title="What just happened" icon="map" href="/quickstart/what-happened">
+    Walk through every file Ralphy wrote — `BRIEF.md`, `prompts.json`, `assets/`, `generations.jsonl`, `final.mp4`.
+  </Card>
+</CardGroup>
+
+## What you'll need
+
+- A terminal on macOS or Linux. Windows works via WSL or the Windows binary.
+- An [OpenRouter](https://openrouter.ai/keys) key — covers image, video, LLM, vision, transcription.
+- An [ElevenLabs](https://elevenlabs.io/app/settings/api-keys) key — covers voiceover and music.
+- One of: Claude Code, Cursor, GitHub Copilot, or Codex. Ralphy is agent-driven; chat is the interface.
+
+You don't need Vercel, FAL, OpenAI, or any other provider. Two keys, one binary, one editor.
+
+## How Ralphy works in one paragraph
+
+You write a brief like `"15-second TikTok about my espresso bar, morning vibe, selfie POV"` in chat. The connected agent reads `AGENTS.md`, picks the right [playbook](/concepts/architecture), asks 3-5 clarifying questions, then calls `ralphy` for every model invocation and render step. Each project lives under `workspace/projects/<id>/` with an append-only [generation log](/concepts/generation-log), so you can replay, branch, and audit costs after the fact. The agent reviews scenes with you before paid generation; nothing burns budget without consent.
+
+## Pick your path
+
+If you already have `ralphy` on your `PATH`, [skip to "Your first video"](/quickstart/first-video). If `which ralphy` returns nothing, start at [Install](/quickstart/install).
+
+## Related
+
+- [What is Ralphy?](/concepts/what-is-ralphy) — the vision in one page
+- [Architecture](/concepts/architecture) — the deeper read after your first render
+- [Talking to Ralphy](/working/talking-to-ralphy) — how to phrase briefs and follow-ups
+- [Install playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/ralphy-install.md) — canonical source

@@ -1,0 +1,333 @@
+---
+title: "Add a new model"
+description: "MODELS.md entry, prompt adapter, dispatcher wiring, tests, lint, PR."
+---
+
+Add a new generative video model to Ralphy. The recipe walks the full
+contribution loop: document the model in `MODELS.md`, write a prompt adapter
+under `cli/lib/providers/prompt-adapter/`, wire the dispatcher, add adapter
+tests, run the lints, and open the PR. The model is callable from the existing
+`ralphy generate video --model <id>` surface the moment the dispatcher matches
+the id prefix.
+
+## Brief
+
+> "OpenRouter just added `acme/cinema-v2` — first-frame + last-frame i2v, up to
+> 12s, 9:16 / 16:9 / 21:9. We want it in Ralphy so the agent can pick it
+> when the brief asks for 21:9 cinema aspect."
+
+## Stack
+
+- **MODELS.md entry:** matrix row + when-to-pick line + lessons (if any postmortems exist)
+- **Adapter:** `cli/lib/providers/prompt-adapter/acme.ts` (one file, exports an `Adapter`)
+- **Dispatcher:** one prefix match in `cli/lib/providers/prompt-adapter/index.ts → adapterFor()`
+- **Tests:** `tests/unit/prompt-adapter-acme.test.ts`
+- **Lint:** `bun run lint:adapters` + the existing unit-test suite
+- **No new API key:** every model call routes through `OPENROUTER_API_KEY` via `callLLM()` / `generateVideo()`
+
+## Walkthrough
+
+<Steps>
+
+<Step title="Confirm the model is on OpenRouter, not a new provider">
+Ralphy is single-provider OpenRouter for media. If the model isn't on OpenRouter
+yet, the task is not "add a model" but "wait for OpenRouter coverage". No new
+`fetch` against `fal.ai` / `openai.com` / vendor APIs.
+
+```bash
+ralphy models list --kind video
+# → 24h-cached OpenRouter video catalog
+ralphy models show acme/cinema-v2
+# → live durations, resolutions, aspect ratios, frame anchors, billing
+```
+
+If `ralphy models show` returns 404, the model isn't on OpenRouter and the
+recipe stops here.
+</Step>
+
+<Step title="Add the MODELS.md row">
+The matrix in `MODELS.md § Video generation` is the single source of truth the
+agent reads before every model call. Add the row with the live constraints.
+
+```markdown
+| Model | Durations (s) | Resolutions | Aspects | Frame anchors | $/sec billed |
+|---|---|---|---|---|---|
+| `acme/cinema-v2` | 4-12 | 720p, 1080p | 9:16, 16:9, 21:9 | first + last | $0.18 |
+```
+
+Add a `When to pick which` line:
+
+```markdown
+| You need | Pick |
+|---|---|
+| **21:9 cinema with last-frame i2v** | `acme/cinema-v2` |
+```
+
+If you've run the model and discovered a quirk (silent up-resolution, prompt
+cap, audio behavior), add it under `Lessons from this session`. The agent reads
+this section before every call.
+</Step>
+
+<Step title="Write the prompt adapter">
+Every per-model adapter consumes a `NormalizedPrompt` (the art-director's
+intent in stable shape) and emits a provider-ready string. The shape is
+documented in `cli/lib/providers/prompt-adapter/types.ts`.
+
+```ts
+// cli/lib/providers/prompt-adapter/acme.ts
+// Acme Cinema v2 adapter. The provider expects prompts in the order:
+//   [setting] / [subject + wardrobe] / [camera + lens] / [lighting + grade] /
+//   [motion verb] / [dialogue prose] / [duration + aspect tag]
+// Music is NOT auto-baked. Ambient SFX optional via `[SFX: ...]` tag.
+
+import { gestureToProse } from "../../schemas/gestures.js";
+import type { Adapter, NormalizedPrompt, AdapterOutput } from "./types.js";
+
+export const acmeAdapter: Adapter = (input: NormalizedPrompt): AdapterOutput => {
+  const parts: string[] = [];
+
+  // Setting first — acme strongly weights the leading 80 chars.
+  parts.push(`[Setting] ${input.setting}`);
+
+  // Subject + wardrobe
+  parts.push(`[Subject] ${input.subject}`);
+
+  // Camera + lens
+  parts.push(`[Camera] ${input.camera}`);
+
+  // Lighting + grade
+  parts.push(`[Lighting] ${input.lighting}. [Style] ${input.style}`);
+
+  // Motion verb — gesture + explicit motion + action
+  const motionBits: string[] = [];
+  if (input.motion) motionBits.push(input.motion);
+  const gestureProse = gestureToProse(input.gesture);
+  if (gestureProse) motionBits.push(gestureProse);
+  motionBits.push(input.action);
+  parts.push(`[Motion] ${motionBits.join("; ")}`);
+
+  // Dialogue — acme uses prose with quote marks, no speaker bracket.
+  if (input.dialogue) {
+    const tone = (input.dialogueTone ?? "neutral").trim();
+    parts.push(`[Dialogue, ${tone}] "${input.dialogue.trim()}"`);
+  }
+
+  // Progression
+  const progBits: string[] = [];
+  if (input.durationS) progBits.push(`${input.durationS}s`);
+  if (input.aspectRatio) progBits.push(input.aspectRatio);
+  parts.push(`[Format] ${progBits.join(", ")}`);
+
+  // Director notes — appended verbatim
+  if (input.notes) parts.push(`[Notes] ${input.notes}`);
+
+  return { prompt: parts.join(" "), adapter: "acme-cinema-v2" };
+};
+```
+
+The adapter is one file, one exported function. No state, no side effects.
+The contract is `Adapter` from `types.ts`; the dispatcher imports the name.
+</Step>
+
+<Step title="Wire the dispatcher">
+The dispatcher in `cli/lib/providers/prompt-adapter/index.ts` matches by id
+prefix so future model bumps (`cinema-v3`, `cinema-v2-fast`) inherit
+automatically without changing call sites.
+
+```ts
+// cli/lib/providers/prompt-adapter/index.ts (excerpt)
+import { acmeAdapter } from "./acme.js";
+
+export { /* ...existing exports... */, acmeAdapter };
+
+export function adapterFor(modelId: string): Adapter {
+  const lc = modelId.toLowerCase();
+  // ...existing matches (kling, luma, veo, runway, pika, sora, seedance, hailuo)...
+  if (lc.includes("acme/") || lc.includes("acme-cinema") || lc.includes("cinema-v2")) {
+    return acmeAdapter;
+  }
+  // Default to the Pika shape — broadest-applicable, no model-specific syntax.
+  return pikaAdapter;
+}
+```
+
+Place the new prefix-match block at the top of the list if the model's id
+might collide with an existing prefix; otherwise alphabetical order is fine.
+</Step>
+
+<Step title="Add the adapter tests">
+The adapter test verifies the shaped output deterministically against a
+known `NormalizedPrompt`. Follow the existing convention in
+`tests/unit/prompt-adapter-kling.test.ts`.
+
+```ts
+// tests/unit/prompt-adapter-acme.test.ts
+import { describe, test, expect } from "bun:test";
+import { acmeAdapter } from "../../cli/lib/providers/prompt-adapter/acme.js";
+
+describe("acmeAdapter", () => {
+  test("shapes a complete prompt with dialogue", () => {
+    const { prompt, adapter } = acmeAdapter({
+      subject: "Late-20s man in a grey crew-neck tee",
+      action: "delivers his line straight to camera",
+      setting: "open-plan office, late afternoon",
+      camera: "eye-level 35mm handheld",
+      lighting: "soft window light from screen-left",
+      style: "Kodak Portra 400, hyperreal NOT glossy",
+      dialogue: "Every gym I join makes me feel wrong on day one.",
+      dialogueTone: "deadpan",
+      durationS: 12,
+      aspectRatio: "9:16",
+    });
+
+    expect(adapter).toBe("acme-cinema-v2");
+    expect(prompt).toContain("[Setting] open-plan office");
+    expect(prompt).toContain("[Camera] eye-level 35mm handheld");
+    expect(prompt).toContain('[Dialogue, deadpan] "Every gym I join');
+    expect(prompt).toContain("[Format] 12s, 9:16");
+  });
+
+  test("omits dialogue block when input has no dialogue", () => {
+    const { prompt } = acmeAdapter({
+      subject: "Empty office",
+      action: "static handheld",
+      setting: "the same office at night",
+      camera: "wide 24mm",
+      lighting: "single desk lamp",
+      style: "Kodak Portra 800",
+    });
+    expect(prompt).not.toContain("[Dialogue");
+  });
+});
+```
+
+Cover the dispatcher too — verify `adapterFor("acme/cinema-v2")` returns
+`acmeAdapter`.
+</Step>
+
+<Step title="Run the lints + tests">
+```bash
+bun run lint:adapters      # adapter exports + dispatcher prefix coverage
+bun test tests/unit/prompt-adapter-acme.test.ts
+bun test tests/unit/prompt-adapter-dispatcher.test.ts
+```
+
+A failing test blocks merge. Verify the dispatcher returns the new adapter
+for every reasonable id variant (`acme/cinema-v2`, `acme/cinema-v2-fast`,
+`Acme/Cinema-V2`).
+</Step>
+
+<Step title="Verify the end-to-end call">
+The video generation surface is unchanged — the dispatcher is the only
+integration point. Confirm the gen runs against the new model:
+
+```bash
+ralphy generate video \
+  --project test-acme-001 \
+  --slot scene-01-vid \
+  --model acme/cinema-v2 \
+  --image <anchor.png> \
+  --duration 8 \
+  --dry-run \
+  --prompt "Late-20s man in office delivers a line. 21:9 cinema."
+# → dry-run returns the resolved request body + cost estimate
+```
+
+If the dry-run resolves cleanly, drop `--dry-run` and run a real 4s smoke
+test before opening the PR.
+</Step>
+
+<Step title="Open the PR">
+The PR description includes:
+
+- Model id + OpenRouter catalog link.
+- The `MODELS.md` diff (matrix row + when-to-pick + any lessons).
+- The adapter file + tests.
+- One smoke-render link (final mp4 or frame extract) showing the model
+  produces clean output via the new adapter.
+- Cost figures from the smoke test (`$/sec billed` column verified empirically).
+
+CI runs `lint:adapters`, the adapter unit tests, and the dispatcher coverage
+test. A failing CI blocks merge.
+</Step>
+
+</Steps>
+
+## Why this works
+
+The per-model adapter is the one place model-specific syntax lives. Upstream
+roles — scenarist, art-director — work against the stable
+`NormalizedPrompt` shape and never know which model their work routes to.
+Adding a new model adds one file and one prefix match; no call site changes,
+no `if (model === ...)` branching scattered through `generate.ts`.
+
+The prefix match in the dispatcher is the inheritance contract for model
+bumps. `kwaivgi/kling` matches every Kling version (`v3.0`, `v3.0-std`,
+`v3.1`, future `v4`); `google/veo` matches every Veo. New model versions in
+the same family route to the existing adapter automatically; only
+fundamentally different syntax (the Acme cinema example here) needs a new
+adapter file.
+
+`MODELS.md` is the agent's source of truth for every model call. The agent
+reads the matrix before picking a model and re-reads the "Lessons" section
+when a recent postmortem flagged a quirk. A new model added to the codebase
+without a `MODELS.md` row is effectively invisible to the agent — `generate
+video --model acme/cinema-v2` works, but the agent never picks it on its own.
+Document the model in `MODELS.md` first; the adapter is the second step.
+
+The single-provider rule (`OPENROUTER_API_KEY` only for media) is a hard
+invariant. New models that aren't on OpenRouter cannot ship in Ralphy until
+OpenRouter adds them. Direct `fetch` calls against vendor APIs are the
+exact failure mode the OpenRouter consolidation was designed to prevent —
+they break the gen-log, the cost rollup, and the `--dry-run` cost preview.
+
+## Variations
+
+- **Image model.** Same recipe, different surface. Image generation goes
+  through `cli/lib/providers/media.ts → generateImage()` instead of
+  `generateVideo()`. No adapter file — image prompts are shaped in
+  `docs/prompts/image/` per mode, not per model.
+- **TTS / music.** ElevenLabs only. New TTS / music models without ElevenLabs
+  coverage are out of scope; either ElevenLabs ships them or we don't add them.
+- **Same adapter, multiple ids.** If a model family ships two ids that share
+  syntax (`acme/cinema-v2` and `acme/cinema-v2-fast`), one adapter covers both.
+  The dispatcher's prefix match handles the routing.
+- **Model-specific safety filter.** If the new model has a privacy filter
+  (like `bytedance/seedance-2.0` rejecting photoreal-human anchors), document
+  it under `MODELS.md § Tried-and-dropped` so the agent doesn't pick it for
+  human i2v briefs.
+- **Audio support.** If the model supports `--audio` natively (like Kling and
+  Veo), document the languages it handles cleanly. The current matrix says EN
+  + ZH for Kling, EN for Veo; non-English drops `--audio` and routes to
+  ElevenLabs.
+
+## Pitfalls
+
+<Warning>
+Do not write direct vendor API calls (`fetch` against `fal.ai`, `openai.com`,
+vendor REST endpoints). Every media call routes through `callLLM()` or
+`generateVideo()` against `OPENROUTER_API_KEY`. The single-provider rule is
+the hard invariant.
+</Warning>
+
+<Warning>
+Document the model in `MODELS.md` BEFORE writing the adapter. A model in
+the codebase but absent from `MODELS.md` is effectively invisible to the
+agent — `--model` works manually, but the agent never picks it. The matrix
+is the source of truth.
+</Warning>
+
+<Warning>
+The prefix match in the dispatcher must not collide with existing prefixes.
+`acme/cinema` doesn't collide with anything today, but a new `acme/voice`
+model would need its own match (or a more specific prefix). Test with
+`bun run lint:adapters` which surfaces collisions.
+</Warning>
+
+## Related
+
+- [Models registry](/advanced/models-registry) — the `MODELS.md` format and lifecycle
+- [Per-model prompting](/prompting/per-model) — adapter shape per model family
+- [Prompt-adapter source](https://github.com/alecs5am/ralphy/tree/main/cli/lib/providers/prompt-adapter) — `types.ts` + existing adapters
+- [Models registry source](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) — the matrix every adapter must reflect
+- [Author a new skill](/cookbook/new-skill) — sibling extension pattern
