@@ -16,7 +16,7 @@ ralphy render [options] <project>
 | Flag | Description |
 |---|---|
 | `--composition <id>` | Composition id (default: from props or 'UGCVideo') |
-| `--output <path>` | Output mp4 path (default: workspace/projects/<id>/render/final.mp4) |
+| `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
 | `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
 
 **Example**
@@ -32,9 +32,9 @@ ralphy render spring-001
 | Flag | Description |
 |---|---|
 | `--composition <id>` | Composition id (default: from props or 'UGCVideo') |
-| `--output <path>` | Output mp4 path (default: workspace/projects/<id>/render/final.mp4) |
+| `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
 | `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
-| `--keep-symlink` | Don't remove the public/project-<id> symlink after render |
+| `--keep-symlink` | Don't remove the public/project-&lt;id&gt; symlink after render |
 | `--dry-run` | Print the resolved render plan (composition, props path, output); no remotion run (default: false) |
 | `--summary` | Collapse the dry-run plan to a per-stage rollup (default: false) |
 | `-h, --help` | display help for command |
