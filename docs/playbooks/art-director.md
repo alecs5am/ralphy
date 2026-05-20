@@ -93,10 +93,11 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 ## Hard rules (inherited from AGENTS.md)
 
 1. **All calls go through `ralphy generate {image|video|voiceover|music}`.** No runtime TS scripts in `workspace/projects/<id>/scripts/`. If an operation isn't covered — stop and extend `cli/commands/generate.ts`, don't copy code into the project.
-2. **Reference-required gate.** See [art-director/ref-photo-policy.md](art-director/ref-photo-policy.md). No reference for a named persona/brand — refuse.
-3. **Quality gate.** See [art-director/quality-gate.md](art-director/quality-gate.md). Two failures in a row → stop, report to the user.
-4. **MODELS.md is the only source.** See [art-director/model-choice.md](art-director/model-choice.md).
-5. **Logging is automatic** via `ralphy generate` (logs are written to `generations.jsonl`).
+2. **Reference-required gate (named real entities only).** See [art-director/ref-photo-policy.md](art-director/ref-photo-policy.md). The gate fires for a named person / recognizable brand product / IP. Generic briefs do not trigger. Override path: `ralphy generate ... --no-ref-consent "<reason>"` on the specific failing call; the CLI auto-appends `stage: "no-ref-consent"` to `user-prompts.jsonl`.
+3. **Quality gate.** See [art-director/quality-gate.md](art-director/quality-gate.md). Two failures in a row → stop, report concrete options to the user. Refuse, do not warn (AGENTS invariant #4).
+4. **MODELS.md is the only source.** See [art-director/model-choice.md](art-director/model-choice.md). Always pick the best model per kind — there is no "cheaper draft" path. Budget caps (`docs/playbooks/producer.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
+5. **Iterate by single-slot regen, never overwrite.** "Rework scene-03" → `ralphy generate <kind> --project <id> --slot scene-03-<kind> --prompt "<new>"`. Append-only versioning writes `<slot>.v2.<ext>` (then `v3`, `v4`, …). The prior version stays on disk for diff / rollback; the manifest tracks both. Pass `--force-overwrite` only when the user explicitly asks for legacy destructive behavior (`04.01.03`).
+6. **Logging is automatic** via `ralphy generate` (logs are written to `generations.jsonl`).
 
 ## Handoff
 

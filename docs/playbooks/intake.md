@@ -46,7 +46,7 @@ Before quoting a single $ or running `ralphy generate`, surface the missing cont
 
 1. **Target audience language.** EN / RU / KR / other? Drives the audio pipeline (Kling `--audio` for EN, ElevenLabs for non-EN). Chat language ≠ video language — this trip-wired noski-people-001 for ~10 min and one wasted memory write.
 2. **Aspect / platform.** 9:16 TikTok? 16:9 YouTube? 1:1 broadcast realism? Square is the right call for caught-on-TV trends (kbo postmortem).
-3. **Brand / named person / specific entity.** If yes, the **reference-required gate** (AGENTS invariant #3) fires — refuse generation until the user supplies a ref or explicitly opts out with "generate without reference, I understand the quality will be worse" (logged as `stage: "no-ref-consent"`).
+3. **Brand / named person / specific entity.** If the brief names a real entity the model cannot fabricate (a specific person, a recognizable brand product, an IP / character), the **reference-required gate** (AGENTS invariant #3) fires — refuse generation until the user supplies a ref or explicitly opts out via `--no-ref-consent "<reason>"` on the failing generate call (logged as `stage: "no-ref-consent"` in `user-prompts.jsonl`). Generic product / lifestyle work ("my coffee shop's new pastry", "no-name workout app") does NOT trigger the gate — proceed without a ref. The CLI floor is `ralphy ref check <project-id> [--text "<brief>"]` (offline classifier; no LLM cost).
 4. **Existing template fit.** Before improvising, **always** run `ralphy template suggest "<the user's brief>"` and surface the top-3 hits with one-liners. If one fits, pivot to `ralphy template use <slug>` and skip improvisation entirely. (Templates encode the postmortem-validated workflow for that vibe — see `templates/CATEGORIES.md`.)
 5. **Duration / clip count budget.** Most templates document `typicalDurationSec` + `typicalClipCount`. If the user picked a template, confirm; if not, default to ≤15s for first iteration, scale up after a successful test render.
 6. **Hard constraints.** Banned words, music policy (Kling auto-soundtrack is enabled unless explicitly banned in prompt — kbo / glitter-cream), brand colors, etc.
@@ -120,6 +120,67 @@ Before declaring done:
 2. Run `ralphy project verify <id>` — flags any manifest/disk drift.
 3. Run `/ralph-evaluator` skill on the final mp4 — produces `eval.json` + `eval-report.md`. Surface the report inline.
 4. **Only after the eval lands**, ask the user "ready to ship / commit / push?". User's "yes" is the only thing that authorizes git/network operations on shared state (CLAUDE.md "Executing actions with care").
+
+## Cold-start template suggestion (04.04.01 + 04.04.03)
+
+When the user's first utterance has no explicit template (no `ralphy template use <slug>`), do this BEFORE drafting a plan:
+
+1. **Run `ralphy template suggest "<the user's brief>" --limit 3`.** The verb returns a ranked list with a `score` and a `tier` per result; `--threshold` defaults to 0.7 and triggers an LLM rerank on multilingual / paraphrase utterances.
+2. **Read the top result.**
+   - If `tier === "primary"` (top result is a strong match) → announce the pick inline and proceed: "Using the **<template>** template — `<one-line of what it does>`. Switch with `ralphy template use <other-slug>` if it's wrong." Then keep going. Do NOT ask "should I use this?" — the announce-and-proceed is the action; user interrupts if they disagree.
+   - If `tier === "secondary"` (top result is a weak match) → list top-3 with one-liners and ask once: "These three are close — `<a>`, `<b>`, `<c>`. Which fits, or should I draft from scratch?"
+   - If `tier === "fallback"` (top result is below confidence) → enter **free-form mode**. Say once: "No close template match — drafting from scratch with the vibe-style cookbook." Then jump to `docs/playbooks/scenarist.md` step "scenario-from-brief" and improvise. Do not re-run `template suggest`.
+3. **Once a template is locked**, the rest of intake (steps 1-5 above) fills the gaps the template doesn't already encode (target audience language, brand-named-entity, banned words). Most other defaults come from `template.json`.
+
+## Default-pick rules (04.03.02)
+
+When a user request is concrete but doesn't specify a parameter, **pick the default and announce it**, never confirm:
+
+| Missing | Default | Where it comes from |
+|---|---|---|
+| Template | `template suggest` top-1 if `tier === primary`, otherwise free-form | `ralphy template suggest` |
+| Persona | The matched brand's `default_persona` if set; otherwise the closest archetype from `workspace/personas/ARCHETYPES.md` | `ralphy brand show <id>` → `persona` field |
+| Duration | 15s | Intake step 5 default |
+| Aspect | 9:16 unless the template hard-codes a different one | Intake step 1.2 |
+| Music | Instrumental, ElevenLabs Music post-mix (Kling music disabled by default, per AGENTS invariant + venom-bodywash postmortem) | Intake step 6 + art-director playbook |
+| Output language | Chat language unless the user names a different audience | Intake step 1.1 — but only as a *default*; ask if the brief is ambiguous (noski-people-001 trip-wire). |
+
+Announce the pick once, then move on. **Do not** ask "shall I use 15s?" — say "Going 15s, 9:16, instrumental music — flag any of those if wrong."
+
+## Clarification triage (04.03.01 + 04.03.03)
+
+The intake protocol caps real questions at 5 per turn for legibility, BUT every question must name a specific decision and offer one or two defaults the user can accept. Three buckets:
+
+1. **Infer (most cases).** Use the default-pick table above. Announce the pick and proceed; do not stall waiting for confirmation.
+2. **Ask (rare but real).** Multiple distinct decisions are blocked by the same unknown, OR the brief contradicts a default the agent would otherwise pick (e.g. user said "60s long-form" but the template caps at 20s). Frame each question as "Decision: <X>. Default: <Y>. Override? __".
+3. **Fail loudly (missing-and-irreplaceable).** The brief names a real entity but no reference is attached AND the user hasn't opted into `--no-ref-consent`. The reference-required gate refuses; do NOT improvise the entity from text alone (AGENTS invariant #3).
+
+**Forbidden shapes** (the lint at `bun run lint:confirmation-shape` will flag these in playbooks; the agent must not emit them in chat either):
+
+<!-- confirmation-shape-allow:section -->
+```
+"Should I proceed?"
+"Shall I go ahead?"
+"Would you like me to ..."
+"Just to confirm, ..."
+"I'll go ahead and ..."
+"Мне продолжить?"
+"Хочешь, чтобы я ...?"
+"Продолжить?"
+```
+<!-- /confirmation-shape-allow:section -->
+
+These add no information and break the one-beat-at-a-time loop. Replace with action statements: "Generating scene-01 now — flag if anything looks wrong." If the answer would unblock a distinct decision, ask a real question; otherwise just act.
+
+## Ship (04.01.04)
+
+"Ship it" / "поехали в финал" / "залей" is the explicit transition from iteration to final render. Mechanics:
+
+1. **Reference-required gate re-check.** Before the final render, re-run `ralphy ref check <project-id>` to confirm any named real entity has a satisfied ref (or a logged `--no-ref-consent`). The intake-step ref check at step 1 may be stale if the scenario changed.
+2. **Quality gates.** Run `ralphy editor preflight <id>` (aspect / fps / music-length divergence). The agent quality gates (`scoreScenario`, `scoreImage`, `scoreVideo`) refuse-not-warn per AGENTS invariant #4; if any fails twice in a row, stop and report concrete options — do not render mp4 over a failed gate. There is no model upgrade between draft and ship: best models are used throughout (AGENTS invariant + `04.0A.03`).
+3. **Render.** `ralphy render <project-id>` → `workspace/projects/<id>/render/final.mp4`.
+4. **Post-render eval.** Hand off to `/ralph-evaluator` for `eval.json` + `eval-report.md`. Surface the report inline.
+5. **Authorize commit/push.** Only after the eval lands, ask once "ready to commit/push?". User's "yes" is the only thing that authorizes git/network operations on shared state (CLAUDE.md "Executing actions with care").
 
 ## What's a "step" worth gating on?
 

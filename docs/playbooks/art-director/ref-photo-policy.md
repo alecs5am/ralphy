@@ -1,6 +1,8 @@
 # Reference-photo policy
 
-**Hard rule (inherited from `AGENTS.md`):** named persona / brand / specific visual identity of a real entity → reference is required. Otherwise refuse.
+**Hard rule (inherited from `AGENTS.md` invariant #3):** the gate fires only for **named real entities the model cannot fabricate** — a specific person, a recognizable brand product / packaging / logo, or a recognizable IP / character. **Generic** product / lifestyle work ("my coffee shop's new pastry", "no-name workout app", "an athletic woman in her 30s") proceeds without refs. Don't refuse on generic briefs (`04.02.01`).
+
+The CLI floor is `ralphy ref check <project-id>` (or `--text "<brief>"` before a project exists). It's an offline classifier under `cli/lib/eval/refs.ts → needsReference()` — no LLM cost. Use it as a fast pre-flight; the agent layer can add nuance during intake.
 
 ## When the gate fires
 
@@ -23,12 +25,9 @@ A scenario.json slot contains:
 
 3. **If the user gives consent — we continue:**
 
-   > "generate without a reference, I know quality will be worse"
+   The user's utterance: "generate without a reference, I know quality will be worse".
 
-   Log to `user-prompts.jsonl`:
-   ```ts
-   logUserPrompt(id, { stage: "no-ref-consent", text: "<utterance>" })
-   ```
+   On the failing `ralphy generate ...` call, pass `--no-ref-consent "<utterance>"`. The CLI itself appends a `stage: "no-ref-consent"` entry to `workspace/projects/<id>/logs/user-prompts.jsonl` (with `note: "slot=<slot>"`) — no manual `logUserPrompt` call needed. The override is **per generate call**, not project-global, so each consciously consented gen leaves its own audit trail.
 
 ## Using a reference in the prompt
 
