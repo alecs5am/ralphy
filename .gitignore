@@ -24,10 +24,7 @@ dashboard/test-dashboard.ts
 .skill-creator-workspace/
 docs/runtime-context.md
 
-# Remotion public/ — per-project asset trees are local-only symlinks
-# into workspace/ (which is already gitignored). Only public/fonts/ and
-# public/assets/ are intentionally tracked; per-project dirs are not.
-public/*-001
-public/*-001/
-public/project-*-001
-public/project-*-001/
+# Remotion public/ — fully local. Per-project asset trees are symlinked here
+# at render time (cli/commands/render.ts). Fonts and shared assets are pulled
+# on demand from the ralphy-assets companion repo, not tracked in this repo.
+public/
