@@ -1,0 +1,50 @@
+---
+title: "ralphy render"
+description: "Render a project to MP4. Reads composition-props.json + manifest, runs bunx remotion render, writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loud"
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy render [options] <project>
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--composition <id>` | Composition id (default: from props or 'UGCVideo') |
+| `--output <path>` | Output mp4 path (default: workspace/projects/<id>/render/final.mp4) |
+| `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
+
+**Example**
+
+```bash
+ralphy render spring-001
+```
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--composition <id>` | Composition id (default: from props or 'UGCVideo') |
+| `--output <path>` | Output mp4 path (default: workspace/projects/<id>/render/final.mp4) |
+| `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
+| `--keep-symlink` | Don't remove the public/project-<id> symlink after render |
+| `--dry-run` | Print the resolved render plan (composition, props path, output); no remotion run (default: false) |
+| `--summary` | Collapse the dry-run plan to a per-stage rollup (default: false) |
+| `-h, --help` | display help for command |
+
+**All examples**
+
+```bash
+ralphy render spring-001
+ralphy render proj-001 --loudnorm
+ralphy render proj-001 --output ./out.mp4
+```
+
+</Expandable>

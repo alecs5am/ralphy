@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions / general feedback
+    url: https://github.com/alecs5am/ralphy/discussions/new?category=q-a
+    about: For "how do I…" / "is this normal…" questions. Faster than filing an issue.
+  - name: 🎉 Show what you made
+    url: https://github.com/alecs5am/ralphy/discussions/new?category=show-and-tell
+    about: Share a video you rendered, a template you authored, or a workflow that worked.
+  - name: 🧪 Tester feedback (soft-launch)
+    url: https://github.com/alecs5am/ralphy/discussions/new?category=tester-feedback
+    about: End-to-end report from a tester run. See docs/tester-onboarding.md.

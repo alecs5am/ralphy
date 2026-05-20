@@ -118,5 +118,15 @@ Examples:
 `,
   );
 
+  cmd.addHelpText(
+    "after",
+    `
+Examples:
+  ralphy skill install --agent claude
+  ralphy skill install <pack>      # alias: pass --agent <pack> through to the installer
+  ralphy skill uninstall --agent claude
+`,
+  );
+
   return cmd;
 }

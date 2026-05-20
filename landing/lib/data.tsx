@@ -4,7 +4,7 @@ export const site = {
   name: "Ralphy",
   tagline: "Open-source content factory CLI. Turn your coding agent into a video marketer.",
   repo: "https://github.com/alecs5am/ralphy",
-  docs: "https://github.com/alecs5am/ralphy#readme",
+  docs: "https://ralphy.dev/docs",
   discord: "https://discord.gg/ralphy",
   x: "https://twitter.com/ralphy_studio",
   install: "curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh",

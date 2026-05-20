@@ -29,21 +29,21 @@
 
 This is the visible promise; the CLI delivers; the docs verify.
 
-### 07.01.01 Headline claims match verb examples 1:1  [ ]
+### 07.01.01 Headline claims match verb examples 1:1  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - Every claim string in `landing/components/Hero.tsx` and `landing/components/sections/HowItWorks.tsx` appears verbatim in some `ralphy <verb> --help` `Examples:` block.
 - CI grep enforces (cross-link `01.03.02`).
 
-### 07.01.02 Roadmap section reflects this roadmap  [~]
+### 07.01.02 Roadmap section reflects this roadmap  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - `landing/components/sections/Roadmap.tsx` (added in commit `857e653`) shows the 11 categories with a high-level status (✓ done / in progress / planned).
 - Updated by hand on release; not auto-generated for v1.0.
 
-### 07.01.03 Hero CTA = install command  [~]
+### 07.01.03 Hero CTA = install command  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -56,28 +56,28 @@ This is the visible promise; the CLI delivers; the docs verify.
 
 Five pages, each ≤ 5 min reading.
 
-### 07.02.01 Quickstart page renumbered  [ ]
+### 07.02.01 Quickstart page renumbered  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - `docs-mintlify/quickstart.mdx` is a 5-step path: install → setup → first project → first render → next steps.
 - Each step has a "verify" snippet the user can run.
 
-### 07.02.02 Concepts page covers the mental model  [~]
+### 07.02.02 Concepts page covers the mental model  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - `concepts.mdx` explains: workspace, project, brand, persona, ref, template, gen-log, manifest.
 - One short paragraph each + cross-link to reference.
 
-### 07.02.03 "Choose your path" landing  [ ]
+### 07.02.03 "Choose your path" landing  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - The mintlify home (`introduction.mdx`) routes by intent: "I want to ship one video", "I want a batch", "I want to plug into my workflow as an agent", "I want to author templates".
 - Each path → 3 links.
 
-### 07.02.04 Search works  [ ]
+### 07.02.04 Search works  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -90,7 +90,7 @@ Five pages, each ≤ 5 min reading.
 
 The CLI surface changes; the docs must too.
 
-### 07.03.01 `bun run docs:cli` regenerates the reference  [ ]
+### 07.03.01 `bun run docs:cli` regenerates the reference  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -99,7 +99,7 @@ The CLI surface changes; the docs must too.
 - Re-running is idempotent.
 - Generated files have a header sentinel: "Auto-generated — edit `cli/commands/` instead."
 
-### 07.03.02 CI check that the doc is current  [ ]
+### 07.03.02 CI check that the doc is current  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -118,20 +118,20 @@ The CLI surface changes; the docs must too.
 
 Cookbook beats reference. We have the material in `docs/prompts/` and `templates/`; surface it.
 
-### 07.04.01 Image / video / voice / music cookbooks live on Mintlify  [ ]
+### 07.04.01 Image / video / voice / music cookbooks live on Mintlify  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - `docs-mintlify/authoring/cookbook/{image,video,voice,music}.mdx` mirrors `docs/prompts/` content with rendered samples.
 - Each mode has a runnable snippet.
 
-### 07.04.02 Recipes / playbooks page  [ ]
+### 07.04.02 Recipes / playbooks page  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - One page per playbook (researcher, scenarist, art-director, editor, producer, evaluator), summarizing the playbook and linking to the full doc in the repo.
 
-### 07.04.03 Templates index page on docs  [ ]
+### 07.04.03 Templates index page on docs  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -144,14 +144,14 @@ Cookbook beats reference. We have the material in `docs/prompts/` and `templates
 
 The repo README is the first thing GitHub visitors see.
 
-### 07.05.01 README structure  [ ]
+### 07.05.01 README structure  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - Order: hero banner → one-paragraph pitch → 60s demo video (linked or embedded) → install → 5-things-to-try → docs/landing links → contributing → license.
 - ≤ 200 lines.
 
-### 07.05.02 Demo surface in README  [ ]
+### 07.05.02 Demo surface in README  [x]
 **v1.0:** yes — re-scoped per [D-02](OPEN-QUESTIONS.md#decision-log).
 
 **Acceptance criteria:**
@@ -161,7 +161,7 @@ The repo README is the first thing GitHub visitors see.
 
 **Notes:** the embedded asset must be one of the 11 outputs already shipping on the landing (commit `2e61cbb`) — no fresh render needed. Pick a 9:16 clip for the embed; GitHub renders portrait video reasonably in a `<video>` tag.
 
-### 07.05.03 "5 things to try first"  [ ]
+### 07.05.03 "5 things to try first"  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -174,21 +174,21 @@ The repo README is the first thing GitHub visitors see.
 
 Logo, palette, typography across landing + docs + README.
 
-### 07.06.01 Brand tokens file  [ ]
+### 07.06.01 Brand tokens file  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - `docs/branding/tokens.json` exports the canonical palette (primary, light, dark, accent) + fonts (heading, body).
 - Landing imports it; mintlify imports it; README uses the colors in any inline SVG.
 
-### 07.06.02 Logo + favicon variants  [~]
+### 07.06.02 Logo + favicon variants  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
 - `docs/branding/logo-light.svg`, `logo-dark.svg`, `favicon.png`, `og-image.png`.
 - Used by landing meta tags, mintlify config, README hero.
 
-### 07.06.03 Audit pass  [ ]
+### 07.06.03 Audit pass  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -200,7 +200,7 @@ Logo, palette, typography across landing + docs + README.
 
 Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the page live here on the docs/landing side.
 
-### 07.07.01 Gallery page route  [ ]
+### 07.07.01 Gallery page route  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -217,7 +217,7 @@ Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the
 
 ## 07.08 OSS community channel
 
-### 07.08.01 GitHub Discussions enabled  [ ]
+### 07.08.01 GitHub Discussions enabled  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -225,7 +225,7 @@ Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the
 - Default issue template points users at Discussions for non-bug questions.
 - A `Tester feedback` welcome post pinned at soft-launch time describes how to file a useful report (install env, command run, observed vs expected).
 
-### 07.08.02 README + docs link prominently  [ ]
+### 07.08.02 README + docs link prominently  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -243,7 +243,7 @@ Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the
 
 ## 07.09 Docs-link lint
 
-### 07.09.01 `lint:docs-links` CI check  [ ]
+### 07.09.01 `lint:docs-links` CI check  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**
@@ -251,7 +251,7 @@ Cross-link [`02.07`](../02-prompts-and-templates/SPEC.md). The data feed and the
 - Runs in CI; failure blocks merge.
 - Allowlist for known-flaky external URLs.
 
-### 07.09.02 Issue template + PR template  [ ]
+### 07.09.02 Issue template + PR template  [x]
 **v1.0:** yes
 
 **Acceptance criteria:**

@@ -152,7 +152,7 @@ Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 keeps the existing single `--re
 
 **Acceptance criteria:**
 - Project-level master shots (under `workspace/projects/<id>/master/`) auto-populate the `--ref` list on every gen unless explicitly overridden.
-- Implements the [`feedback_super_original_refs`](../../.claude/projects/-Users-maximovchinnikov-github-ugc-cli/memory/feedback_super_original_refs.md) memory.
+- Implements the "Super-original refs" discipline — lock product + model master shots and pass via `--ref` on every gen to prevent identity drift between scenes.
 - When the 3-slot grammar lands post-launch (`02.09.05`), this task auto-promotes: master/character.png → `--cref`, master/style.png → `--sref`, master/product.png → `--pref`.
 
 ---

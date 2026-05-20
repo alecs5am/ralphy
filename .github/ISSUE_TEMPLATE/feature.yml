@@ -1,0 +1,35 @@
+name: ✨ Feature request
+description: A new capability or a meaningful change to an existing one.
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Quick check — is this already on the roadmap?
+        [Roadmap categories](https://github.com/alecs5am/ralphy/tree/main/roadmap) live in-repo and
+        cover the v1.0 + post-launch surface. For open-ended ideas, please use
+        [Discussions](https://github.com/alecs5am/ralphy/discussions/new/choose) first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem you're solving
+      description: What's painful today? Who else hits this?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should this work from the user's perspective? Sketch the CLI surface / config / output if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, other ways to solve it.
+  - type: textarea
+    id: roadmap_ref
+    attributes:
+      label: Related roadmap entry (if any)
+      placeholder: "roadmap/01-cli/SPEC.md § 01.07.02"
