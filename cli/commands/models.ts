@@ -10,7 +10,8 @@
 // cache if OR is unreachable).
 
 import { Command } from "commander";
-import { out, err, isPretty } from "../lib/output.js";
+import { out } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import {
   getOrCatalog,
   findVideoModel,
@@ -71,10 +72,7 @@ export function modelsCmd() {
       if (opts.refresh) await getOrCatalog({ force: true });
       const m = await findVideoModel(id);
       if (!m) {
-        err(
-          `Model not found in OR video catalog: ${id}. Run \`ralphy models list\` to see what's available.`
-        );
-        return;
+        raiseError("E_NOT_FOUND", { kind: "Model", id });
       }
       out({
         id: m.id,

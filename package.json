@@ -51,6 +51,10 @@
     "test:unit": "bun test tests/unit/",
     "test:integration": "bun test tests/integration/",
     "test:live": "RUN_LIVE_TESTS=1 bun test tests/live/",
+    "lint:errors": "bun run scripts/lint-error-codes.ts",
+    "lint:help-examples": "bun run scripts/lint-help-examples.ts",
+    "cli:surface:build": "bun run scripts/build-cli-surface.ts",
+    "cli:surface:check": "bun run scripts/build-cli-surface.ts --check",
     "_dashboard:legacy": "cd dashboard && bunx tsx server/index.ts",
     "_dashboard:dev:legacy": "cd dashboard && bunx vite --port 5173",
     "prepare": "husky"

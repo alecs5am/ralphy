@@ -5,6 +5,7 @@ import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "
 import { slugify, generateId } from "../lib/ids.js";
 import { projectsDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import { readLog, logUserPrompt, logUserAsset, logGeneration, type GenerationEntry, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
@@ -136,7 +137,7 @@ export function projectCmd() {
     .option("--tree", "Print the project directory tree (file paths + sizes, max depth 4). appstore postmortem asked for this.")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
       const dir = path.join(projectsDir(), id);
 
@@ -176,19 +177,19 @@ export function projectCmd() {
 
       if (opts.scenario) {
         const scenario = await safeJson(path.join(dir, "scenario.json"));
-        if (!scenario) err("No scenario.json found");
+        if (!scenario) raiseError("E_FILE_UNREADABLE", { path: "scenario.json" });
         out(scenario);
         return;
       }
       if (opts.prompts) {
         const prompts = await safeJson(path.join(dir, "prompts.json"));
-        if (!prompts) err("No prompts.json found");
+        if (!prompts) raiseError("E_FILE_UNREADABLE", { path: "prompts.json" });
         out(prompts);
         return;
       }
       if (opts.assets) {
         const manifest = await safeJson(path.join(dir, "asset-manifest.json"));
-        if (!manifest) err("No asset-manifest.json found");
+        if (!manifest) raiseError("E_FILE_UNREADABLE", { path: "asset-manifest.json" });
         out(manifest);
         return;
       }
@@ -220,7 +221,7 @@ export function projectCmd() {
       if (opts.persona) updates.persona = opts.persona;
       if (opts.brief) updates.brief = opts.brief;
       const project = await updateEntity("projects", id, updates);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       ok(`Project updated: ${id}`);
       out(project);
     });
@@ -255,7 +256,7 @@ export function projectCmd() {
     .option("--limit <n>", "Max entries (newest last)", (v) => parseInt(v, 10), 50)
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
       const types: Array<"generations" | "user-prompts" | "user-assets"> =
         opts.type === "all" ? ["user-prompts", "user-assets", "generations"] : [opts.type];
@@ -275,7 +276,7 @@ export function projectCmd() {
     .description("Merged project timeline (user requests + assets + generations) as pretty chronological log")
     .action(async (id: string) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       const [prompts, assets, gens] = await Promise.all([
         readLog<UserPromptEntry>(id, "user-prompts"),
         readLog<UserAssetEntry>(id, "user-assets"),
@@ -310,7 +311,7 @@ export function projectCmd() {
     .option("--note <note>", "Free-form note")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       await logUserPrompt(id, { text: opts.text, stage: opts.stage, note: opts.note });
       ok(`Prompt logged for ${id}`);
       out({ project: id, logged: "user-prompt" });
@@ -332,7 +333,7 @@ export function projectCmd() {
     .option("--note <note>", "Free-form note")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
       let dest = opts.dest;
       if (opts.copyFrom) {
@@ -390,7 +391,7 @@ export function projectCmd() {
     .option("--strict", "Exit with code 1 if any failure")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       const scenario = (await safeJson(
         path.join(projectsDir(), id, "scenario.json")
       )) as Scenario | null;
@@ -418,7 +419,7 @@ export function projectCmd() {
     .option("--out <path>", "Output JSON path (default: <project>/captions.json)")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
-      if (!project) err(`Project not found: ${id}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
       const audioPath = path.resolve(opts.audio);
       const projectDir = path.join(projectsDir(), id);
@@ -507,7 +508,7 @@ export function projectCmd() {
     .action(async (id: string, opts: { strict?: boolean }) => {
       const { spawnSync } = await import("node:child_process");
       const dir = path.join(projectsDir(), id);
-      try { await fs.access(dir); } catch { err(`Project not found: ${id}`); }
+      try { await fs.access(dir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id }); }
       const manifest = await safeJson(path.join(dir, "asset-manifest.json"));
       if (!manifest || !manifest.slots) {
         err(`asset-manifest.json missing or invalid at ${path.join(dir, "asset-manifest.json")}`);

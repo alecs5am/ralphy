@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 
 export function brandCmd() {
   const cmd = new Command("brand").description("Manage brands (design systems)");
@@ -56,7 +57,7 @@ export function brandCmd() {
     .description("Show brand details")
     .action(async (id: string) => {
       const brand = await getEntity("brands", id);
-      if (!brand) err(`Brand not found: ${id}`);
+      if (!brand) raiseError("E_NOT_FOUND", { kind: "Brand", id });
       out(brand);
     });
 
@@ -72,7 +73,7 @@ export function brandCmd() {
       if (opts.url) updates.url = opts.url;
       if (opts.primary) updates.colors = { primary: opts.primary };
       const brand = await updateEntity("brands", id, updates);
-      if (!brand) err(`Brand not found: ${id}`);
+      if (!brand) raiseError("E_NOT_FOUND", { kind: "Brand", id });
       ok(`Brand updated: ${id}`);
       out(brand);
     });
@@ -82,7 +83,7 @@ export function brandCmd() {
     .description("Delete a brand")
     .action(async (id: string) => {
       const ok_ = await deleteEntity("brands", id);
-      if (!ok_) err(`Brand not found: ${id}`);
+      if (!ok_) raiseError("E_NOT_FOUND", { kind: "Brand", id });
       ok(`Brand deleted: ${id}`);
       out({ deleted: id });
     });

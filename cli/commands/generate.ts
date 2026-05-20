@@ -11,6 +11,7 @@ import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { projectsDir } from "../lib/paths.js";
 import { out, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import {
   generateImage,
   generateVideo,
@@ -25,6 +26,7 @@ import {
   findVideoModel,
   validateVideoParams,
   estimateVideoCostUsd,
+  getOrCatalogSync,
 } from "../lib/or-catalog.js";
 import { enqueueGenerate } from "../lib/jobs/enqueue.js";
 import type { JobKind } from "../lib/jobs/types.js";
@@ -115,7 +117,7 @@ async function writeManifest(projectId: string, m: Manifest): Promise<void> {
 async function ensureProject(projectId: string): Promise<void> {
   const dir = path.join(projectsDir(), projectId);
   if (!existsSync(dir)) {
-    err(`Project not found: ${projectId} (looked at ${dir})`);
+    raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
   }
 }
 
@@ -132,9 +134,11 @@ async function ensureProject(projectId: string): Promise<void> {
  */
 function normalizeSlot(slot: string): string {
   if (!SLOT_REGEX_RELAXED.test(slot)) {
-    err(
-      `Invalid slot id "${slot}" — expected kebab-case ([a-zA-Z0-9_-]+). Got characters outside that set (spaces, dots, slashes, unicode).`,
-    );
+    raiseError("E_INPUT_INVALID", {
+      field: "slot",
+      detail: `'${slot}' contains characters outside [a-zA-Z0-9_-]`,
+      verb: "generate",
+    });
   }
   const canonical = slot.toLowerCase().replace(/_/g, "-");
   if (canonical !== slot) {
@@ -144,9 +148,11 @@ function normalizeSlot(slot: string): string {
     );
   }
   if (!SLOT_REGEX_CANONICAL.test(canonical)) {
-    err(
-      `Invalid slot id "${slot}" — could not normalize to canonical form "${canonical}".`,
-    );
+    raiseError("E_INPUT_INVALID", {
+      field: "slot",
+      detail: `'${slot}' could not normalize to canonical kebab-case`,
+      verb: "generate",
+    });
   }
   return canonical;
 }
@@ -175,12 +181,40 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note for generations.jsonl")
     .option("--variants <n>", "Generate N parallel variants (writes <slot>-v1.png .. <slot>-vN.png). Useful for A/B exploration without re-typing the prompt. appstore postmortem ate ~20 min hand-suffixing this.", (v) => Math.max(1, Math.min(8, parseInt(v, 10) || 1)))
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
+    .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
+    .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
 
       const variants = opts.variants ?? 1;
+
+      if (opts.dryRun) {
+        // Single-step verb — `--summary` is a no-op accepted for shell-script
+        // consistency (per 01-D-06).
+        const resolvedModel = resolveModelAlias(opts.model);
+        const estPerCall = 0.04;  // gpt-5.4-image-2 nominal; precise estimate post-launch (01.11.x).
+        out({
+          dryRun: true,
+          would_call: [
+            {
+              stage: "image",
+              model_id: resolvedModel,
+              slot: opts.slot,
+              variants,
+              est_usd: estPerCall * variants,
+            },
+          ],
+          cost_estimate_usd: estPerCall * variants,
+          would_write: [
+            variants > 1
+              ? `workspace/projects/${opts.project}/assets/${opts.slot}-v{1..${variants}}.png`
+              : `workspace/projects/${opts.project}/assets/${opts.slot}.png`,
+          ],
+        });
+        return;
+      }
       if (variants > 1) {
         // Parallel fire — N independent gens, each into its own slot. Honors the
         // OR per-key concurrent cap (gpt-5.4-image-2 = 1) by serializing if the
@@ -304,6 +338,7 @@ export function generateCmd() {
       "Validate params + print resolved request + cost estimate; do not submit",
       false
     )
+    .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .option(
       "--no-validate",
       "Skip the per-model `supported_*` validation against OR catalog (force-submit)"
@@ -335,9 +370,10 @@ export function generateCmd() {
               (f) =>
                 `  - ${f.field}: ${f.reason}${f.suggestion ? `\n    -> ${f.suggestion}` : ""}`
             );
-            err(
-              `Per-model validation failed for ${opts.model} (use --no-validate to override):\n${lines.join("\n")}`
-            );
+            raiseError("E_VALIDATION_FAILED", {
+              target: opts.model,
+              detail: lines.join(" | ") + " (use --no-validate to override)",
+            });
           }
         }
       }
@@ -360,7 +396,15 @@ export function generateCmd() {
       }
 
       const uiv = await import("../lib/ui.js");
+      const { CommandStream } = await import("../lib/stream/command.js");
+      const cs = new CommandStream();
       const resolvedVideoModel = resolveModelAlias(opts.model);
+      cs.event("generate-video-started", {
+        slot: opts.slot,
+        model: resolvedVideoModel,
+        durationSec: opts.duration,
+        aspectRatio: opts.aspectRatio,
+      });
       const result = await uiv.withSpinner(
         `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
         () =>
@@ -396,7 +440,12 @@ export function generateCmd() {
         generatedAt: new Date().toISOString(),
       };
       await writeManifest(opts.project, manifest);
-      out({
+      cs.event("generate-video-finished", {
+        slot: opts.slot,
+        path: result.localPath,
+        costUsd: result.costUsd,
+      });
+      cs.summary({
         slot: opts.slot,
         path: result.localPath,
         model: result.model,
@@ -407,6 +456,40 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(videoCmd);
+
+  // Per-model whitelist appended to `--help` output (01.03.03). Reads the
+  // cached OR catalog synchronously. `--model <id>` narrows to a single row.
+  videoCmd.addHelpText("after", () => {
+    const cat = getOrCatalogSync();
+    if (!cat || cat.videoModels.length === 0) {
+      return "\nPer-model whitelist: (run `ralphy models list` once to populate the cache)\n";
+    }
+    // Extract --model filter from argv since help-text callbacks don't see opts.
+    let filter: string | null = null;
+    const argv = process.argv;
+    for (let i = 0; i < argv.length; i++) {
+      if (argv[i] === "--model" && argv[i + 1]) {
+        filter = argv[i + 1]!;
+        break;
+      }
+    }
+    const rows = filter
+      ? cat.videoModels.filter((m) => m.id === filter)
+      : cat.videoModels;
+    if (rows.length === 0) {
+      return `\nPer-model whitelist: no models match --model ${filter}\n`;
+    }
+    const lines: string[] = ["", "Per-model whitelist (from cached OpenRouter catalog):"];
+    for (const m of rows) {
+      lines.push(`  ${m.id}`);
+      if (m.supported_durations?.length) lines.push(`    durations:      ${m.supported_durations.join(", ")}s`);
+      if (m.supported_resolutions?.length) lines.push(`    resolutions:    ${m.supported_resolutions.join(", ")}`);
+      if (m.supported_aspect_ratios?.length) lines.push(`    aspect_ratios:  ${m.supported_aspect_ratios.join(", ")}`);
+      if (m.supported_frame_images?.length) lines.push(`    frame_images:   ${m.supported_frame_images.join(", ")}`);
+    }
+    lines.push("");
+    return lines.join("\n");
+  });
 
   // ── voiceover ───────────────────────────────────────────────────────────
   const voCmd = cmd
@@ -423,10 +506,28 @@ export function generateCmd() {
     .option("--no-speaker-boost", "Disable use_speaker_boost (default on; turn off for monotone broadcast / robo registers)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
+    .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
+    .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
+
+      if (opts.dryRun) {
+        const chars = (opts.text || "").length;
+        // ElevenLabs multilingual_v2 charges per-character; nominal $0.30/1k chars.
+        const estUsd = (chars / 1000) * 0.3;
+        out({
+          dryRun: true,
+          would_call: [
+            { stage: "voiceover", model_id: opts.model, slot: opts.slot, voice: opts.voice, characters: chars, est_usd: estUsd },
+          ],
+          cost_estimate_usd: estUsd,
+          would_write: [`workspace/projects/${opts.project}/assets/${opts.slot}.mp3`],
+        });
+        return;
+      }
+
       const voiceSettings: Record<string, unknown> = {};
       if (opts.stability !== undefined) voiceSettings.stability = opts.stability;
       if (opts.similarityBoost !== undefined) voiceSettings.similarity_boost = opts.similarityBoost;
@@ -481,11 +582,31 @@ export function generateCmd() {
     .option("--with-vocals", "Allow vocals (default: instrumental only)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
+    .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
+    .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
+
+      if (opts.dryRun) {
+        // ElevenLabs Music charges per second of generated audio; nominal $0.005/s.
+        const estUsd = (opts.duration || 0) * 0.005;
+        out({
+          dryRun: true,
+          would_call: [
+            { stage: "music", slot: opts.slot, durationSec: opts.duration, instrumental: !opts.withVocals, est_usd: estUsd },
+          ],
+          cost_estimate_usd: estUsd,
+          would_write: [`workspace/projects/${opts.project}/assets/${opts.slot}.mp3`],
+        });
+        return;
+      }
+
       const uim = await import("../lib/ui.js");
+      const { CommandStream } = await import("../lib/stream/command.js");
+      const cs = new CommandStream();
+      cs.event("generate-music-started", { slot: opts.slot, durationSec: opts.duration });
       const result = await uim.withSpinner(
         `music (${opts.duration}s${opts.withVocals ? "" : ", instrumental"}) → ${opts.slot}`,
         () =>
@@ -512,7 +633,8 @@ export function generateCmd() {
         generatedAt: new Date().toISOString(),
       };
       await writeManifest(opts.project, manifest);
-      out({
+      cs.event("generate-music-finished", { slot: opts.slot, path: result.localPath });
+      cs.summary({
         slot: opts.slot,
         path: result.localPath,
         model: result.model,

@@ -3,6 +3,27 @@ import { Command } from "commander";
 import { setPretty } from "./lib/output.js";
 import { setRoot } from "./lib/paths.js";
 import { findProjectRootSafe, loadProjectEnv } from "./lib/project-root.js";
+import { installSigintHandler, CancelledError } from "./lib/cancel.js";
+import { raiseError } from "./lib/errors/index.js";
+
+// Install SIGINT handler before parsing so Ctrl-C during preAction is also
+// caught. The token flips on first SIGINT; verbs read it cooperatively and
+// the command boundary handler below emits E_CANCELLED (exit 130).
+installSigintHandler();
+
+// Uncaught CancelledError (thrown by token.throwIfCancelled() inside a verb)
+// becomes the structured E_CANCELLED payload + exit 130 per 01.07.02.
+// All other uncaught exceptions become E_INTERNAL — never silent.
+process.on("uncaughtException", (e: unknown) => {
+  if (e instanceof CancelledError) raiseError("E_CANCELLED");
+  const detail = e instanceof Error ? e.message : String(e);
+  raiseError("E_INTERNAL", { detail });
+});
+process.on("unhandledRejection", (reason: unknown) => {
+  if (reason instanceof CancelledError) raiseError("E_CANCELLED");
+  const detail = reason instanceof Error ? reason.message : String(reason);
+  raiseError("E_INTERNAL", { detail });
+});
 
 import { initCmd } from "./commands/init.js";
 import { configCmd } from "./commands/config.js";
@@ -35,6 +56,9 @@ import { editorCmd } from "./commands/editor.js";
 import { voiceCmd } from "./commands/voice.js";
 import { whoamiCmd } from "./commands/whoami.js";
 import { versionCmd } from "./commands/version.js";
+import { newCmd } from "./commands/new.js";
+import { cloneCmd } from "./commands/clone.js";
+import { skillCmd } from "./commands/skill.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -48,12 +72,13 @@ program
   .version(VERSION, "-v, --version", "Print the ralphy version")
   .option("-p, --pretty", "Force pretty output (rich UI with colors, tables, icons)")
   .option("--json", "Force JSON output (overrides TTY auto-detection — use for shell piping / scripts)")
+  .option("-q, --quiet", "Suppress progress, spinners, and chatter; only emit the final result")
   .option("--no-color", "Disable color output even on TTY")
   .option("--cwd <path>", "Working directory (overrides project auto-detection)")
   .hook("preAction", async (thisCommand) => {
     const opts = thisCommand.opts();
     // ui.ts mode: auto-detect TTY unless explicit --pretty / --json
-    const { setMode } = await import("./lib/ui.js");
+    const { setMode, setQuiet } = await import("./lib/ui.js");
     if (opts.json) {
       setMode("json");
       setPretty(false);
@@ -65,6 +90,7 @@ program
       setMode("auto");
       setPretty(Boolean(process.stdout.isTTY));
     }
+    setQuiet(Boolean(opts.quiet));
     if (opts.cwd) {
       setRoot(opts.cwd);
       await loadProjectEnv(opts.cwd);
@@ -81,6 +107,9 @@ program
   });
 
 program.addCommand(versionCmd());
+program.addCommand(newCmd());
+program.addCommand(cloneCmd());
+program.addCommand(skillCmd());
 program.addCommand(setupCmd());
 program.addCommand(statusCmd());
 program.addCommand(doctorCmd());

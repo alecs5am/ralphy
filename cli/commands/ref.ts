@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import { scoreTikTok } from "../lib/score.js";
 import { root } from "../lib/paths.js";
 import {
@@ -83,7 +84,7 @@ export function refCmd() {
     .description("Show reference details")
     .action(async (id: string) => {
       const ref = await getEntity("refs", id);
-      if (!ref) err(`Reference not found: ${id}`);
+      if (!ref) raiseError("E_NOT_FOUND", { kind: "Reference", id });
       out(ref);
     });
 
@@ -93,9 +94,9 @@ export function refCmd() {
     .requiredOption("--to <projectId>", "Target project ID")
     .action(async (refId: string, opts: any) => {
       const ref = await getEntity("refs", refId);
-      if (!ref) err(`Reference not found: ${refId}`);
+      if (!ref) raiseError("E_NOT_FOUND", { kind: "Reference", id: refId });
       const project = await getEntity("projects", opts.to);
-      if (!project) err(`Project not found: ${opts.to}`);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id: opts.to });
 
       const refs = project.refs || [];
       if (!refs.includes(refId)) refs.push(refId);
@@ -139,7 +140,7 @@ export function refCmd() {
           duration: (result.meta.duration as number | undefined) ?? null,
         });
       } catch (e: any) {
-        err(`pull failed: ${e?.message || e}`);
+        raiseError("E_PROVIDER_HTTP", { provider: "yt-dlp", status: 0, detail: e?.message ?? String(e) });
       }
     });
 
@@ -161,7 +162,7 @@ export function refCmd() {
         ok(`Sampled ${r.count} frames → ${r.dir}`);
         out({ slug: r.slug, dir: r.dir, count: r.count });
       } catch (e: any) {
-        err(`frames failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `frames: ` });
       }
     });
 
@@ -189,7 +190,7 @@ export function refCmd() {
           costUsd: r.costUsd,
         });
       } catch (e: any) {
-        err(`transcribe failed: ${e?.message || e}`);
+        raiseError("E_PROVIDER_HTTP", { provider: "ElevenLabs/OpenRouter", status: 0, detail: e?.message ?? String(e) });
       }
     });
 
@@ -217,7 +218,7 @@ export function refCmd() {
           preview: r.text.slice(0, 240),
         });
       } catch (e: any) {
-        err(`analyze failed: ${e?.message || e}`);
+        raiseError("E_PROVIDER_HTTP", { provider: "OpenRouter", status: 0, detail: e?.message ?? String(e) });
       }
     });
 
@@ -273,7 +274,7 @@ export function refCmd() {
           preview: result.text.slice(0, 320),
         });
       } catch (e: any) {
-        err(`analyze-video failed: ${e?.message || e}`);
+        raiseError("E_PROVIDER_HTTP", { provider: "OpenRouter (Gemini)", status: 0, detail: e?.message ?? String(e) });
       }
     });
 
@@ -300,7 +301,7 @@ export function refCmd() {
           preview: r.text.slice(0, 240),
         });
       } catch (e: any) {
-        err(`audio-describe failed: ${e?.message || e}`);
+        raiseError("E_PROVIDER_HTTP", { provider: "OpenRouter", status: 0, detail: e?.message ?? String(e) });
       }
     });
 
@@ -314,7 +315,7 @@ export function refCmd() {
         ok(`Blueprint written → ${r.path} (${r.bytes} bytes)`);
         out({ slug, path: r.path, bytes: r.bytes });
       } catch (e: any) {
-        err(`blueprint failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `blueprint: ` });
       }
     });
 
@@ -384,7 +385,7 @@ export function refCmd() {
     .description("Delete a reference")
     .action(async (id: string) => {
       const ok_ = await deleteEntity("refs", id);
-      if (!ok_) err(`Reference not found: ${id}`);
+      if (!ok_) raiseError("E_NOT_FOUND", { kind: "Reference", id });
       ok(`Reference deleted: ${id}`);
       out({ deleted: id });
     });

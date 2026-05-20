@@ -5,6 +5,7 @@ import { addEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
 import { templatesDir, repoTemplatesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
 
 // Templates live in two places (both readable transparently):
@@ -157,13 +158,13 @@ export function templateCmd() {
         try {
           data.scenario = JSON.parse(await fs.readFile(scenarioPath, "utf-8"));
         } catch {
-          err(`Cannot read scenario from project: ${opts.fromProject}`);
+          raiseError("E_FILE_UNREADABLE", { path: `workspace/projects/${opts.fromProject}/scenario.json` });
         }
       } else if (opts.fromFile) {
         try {
           data = { ...data, ...JSON.parse(await fs.readFile(opts.fromFile, "utf-8")) };
         } catch {
-          err(`Cannot read file: ${opts.fromFile}`);
+          raiseError("E_FILE_UNREADABLE", { path: opts.fromFile });
         }
       }
 
@@ -184,10 +185,10 @@ export function templateCmd() {
     .description("Register an existing dir template in the local registry (workspace or repo)")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
-      if (!ref) err(`Template dir not found: ${id}`);
-      if (ref.kind !== "dir") err(`Not a dir template: ${id} — use 'template create' for flat`);
-      const meta = await readTemplateMeta(ref);
-      if (!meta) err(`template.json missing or invalid in ${ref.dir}`);
+      if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
+      if (ref!.kind !== "dir") raiseError("E_INPUT_INVALID", { field: "template-kind", detail: `'${id}' is flat; use 'template create' for that layout`, verb: "template" });
+      const meta = await readTemplateMeta(ref!);
+      if (!meta) raiseError("E_FILE_MALFORMED", { format: "JSON", path: `${(ref as { dir: string }).dir}/template.json`, detail: "missing or invalid" });
       await addEntity("templates", id, {
         name: meta.name || id,
         createdAt: meta.createdAt || new Date().toISOString(),
@@ -294,7 +295,7 @@ export function templateCmd() {
     .option("--json", "Print template.json metadata (dir templates only)")
     .action(async (id: string, opts: any) => {
       const ref = await resolveTemplate(id);
-      if (!ref) err(`Template not found: ${id}`);
+      if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
 
       if (opts.path) {
         const p = ref.kind === "dir" ? ref.dir : ref.file;
@@ -338,13 +339,13 @@ export function templateCmd() {
     .option("--brief <text>", "Initial user brief")
     .action(async (id: string, opts: any) => {
       const ref = await resolveTemplate(id);
-      if (!ref) err(`Template not found: ${id}`);
+      if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
 
       const projectId = opts.project;
       const projDir = path.join(projectsDir(), projectId);
       try {
         await fs.access(projDir);
-        err(`Project already exists: ${projectId}`);
+        raiseError("E_ALREADY_EXISTS", { kind: "Project", id: projectId });
       } catch { /* good, doesn't exist */ }
 
       const meta = ref.kind === "dir" ? await readTemplateMeta(ref) : null;
@@ -507,7 +508,7 @@ export function templateCmd() {
     .description("Delete a workspace template (flat file or whole dir). Repo templates are read-only — edit templates/ in the repo directly.")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
-      if (!ref) err(`Template not found: ${id}`);
+      if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
       if (ref.source === "repo") {
         err(`Refusing to delete repo template '${id}' — edit templates/${id} in the repo directly (or shadow it by creating a workspace/templates/${id}/).`);
       }

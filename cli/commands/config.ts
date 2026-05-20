@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { loadConfig, saveConfig, getNestedValue, setNestedValue } from "../lib/config.js";
-import { out, err } from "../lib/output.js";
+import { out } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 
 export function configCmd() {
   const cmd = new Command("config").description("Manage configuration");
@@ -19,7 +20,7 @@ export function configCmd() {
     .action(async (key: string) => {
       const config = await loadConfig();
       const val = getNestedValue(config, key);
-      if (val === undefined) err(`Key not found: ${key}`);
+      if (val === undefined) raiseError("E_NOT_FOUND", { kind: "Key", id: key });
       out(val);
     });
 

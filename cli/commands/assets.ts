@@ -14,6 +14,7 @@ import {
 } from "../lib/assets-repo.js";
 import { assetCacheDir, projectsDir, root } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 
 export function assetsCmd() {
   const cmd = new Command("assets").description("Pull / list / clean assets from the ralphy-assets companion repo");
@@ -112,27 +113,36 @@ export function assetsCmd() {
     .description("Pull required assets for a template and copy them into a project's asset tree")
     .option("--refresh", "Force refresh the manifest cache")
     .action(async (projectId: string, templateSlug: string, opts) => {
+      const { CommandStream } = await import("../lib/stream/command.js");
+      const cs = new CommandStream();
       const manifest = await loadManifest({ force: !!opts.refresh });
       const entries = requiredForTemplate(manifest, templateSlug);
       if (entries.length === 0) {
         ok(`No required assets registered for template '${templateSlug}'`);
-        out({ project: projectId, template: templateSlug, installed: [] });
+        cs.summary({ project: projectId, template: templateSlug, installed: [] });
         return;
       }
       const projDir = path.join(projectsDir(), projectId);
-      try { await fs.access(projDir); } catch { err(`Project not found: ${projectId}`); }
+      try { await fs.access(projDir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id: projectId }); }
 
+      cs.event("assets-install-started", {
+        project: projectId,
+        template: templateSlug,
+        total: entries.length,
+      });
       const installed: Array<{ key: string; dest: string }> = [];
       for (const [key, entry] of entries) {
+        cs.event("asset-pull", { key });
         const { cachedPath } = await ensureRequired(manifest, key);
         const destDir = path.join(projDir, entry.destSubdir);
         await fs.mkdir(destDir, { recursive: true });
         const dest = path.join(destDir, path.basename(entry.path));
         await fs.copyFile(cachedPath, dest);
         installed.push({ key, dest: path.relative(projDir, dest) });
+        cs.event("asset-installed", { key, dest: path.relative(projDir, dest) });
         ok(`Installed ${key} → ${path.relative(projDir, dest)}`);
       }
-      out({ project: projectId, template: templateSlug, installed });
+      cs.summary({ project: projectId, template: templateSlug, installed });
     });
 
   cmd
@@ -142,7 +152,7 @@ export function assetsCmd() {
     .option("--install <project-id>", "After pulling, also copy into a project's asset tree (uses item.destSubdir or category.defaultDestSubdir)")
     .action(async (ref: string, opts) => {
       const [kind, slug] = ref.split("/", 2);
-      if (!kind || !slug) err(`Invalid ref '${ref}' — expected '<kind>/<slug>'`);
+      if (!kind || !slug) raiseError("E_INPUT_INVALID", { field: "ref", detail: `expected '<kind>/<slug>', got '${ref}'`, verb: "assets pull-pool" });
       const manifest = await loadManifest({ force: !!opts.refresh });
       const { cachedPath, item, category } = await ensurePool(manifest, kind, slug);
       ok(`Pulled ${kind}/${slug} → ${cachedPath}`);
@@ -150,7 +160,7 @@ export function assetsCmd() {
       let installedDest: string | undefined;
       if (opts.install) {
         const projDir = path.join(projectsDir(), opts.install);
-        try { await fs.access(projDir); } catch { err(`Project not found: ${opts.install}`); }
+        try { await fs.access(projDir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id: opts.install }); }
         const sub = item.destSubdir || category.defaultDestSubdir || "assets";
         const destDir = path.join(projDir, sub);
         await fs.mkdir(destDir, { recursive: true });
