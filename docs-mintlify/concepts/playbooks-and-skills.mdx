@@ -5,6 +5,10 @@ description: "Playbooks are role docs the agent reads on demand. Skills are slas
 
 Ralphy's agent intelligence lives in two layers. **Playbooks** are role and domain instruction docs under `docs/playbooks/*.md` — the agent reads them on demand when the routing table in [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) matches a user intent. **Skills** are slash-invocable workflows under `.agents/skills/<name>/SKILL.md` — narrow, deterministic, with a single CLI command and a defined input → output contract. Both exist for the same reason: keep the agent from improvising on topics where the codebase already has a known-good answer.
 
+<Tip>
+  Browse every built-in skill at a glance — including trigger phrases and input → output contracts — on the [**Skills gallery**](https://ralphy.dev/skills) on the landing page.
+</Tip>
+
 ## Playbooks
 
 A playbook is a plain Markdown file. No frontmatter, no slash-command, no skill activation. It is read by the agent via the `Read` tool after `AGENTS.md` routing matches an intent. The eleven playbooks today:
