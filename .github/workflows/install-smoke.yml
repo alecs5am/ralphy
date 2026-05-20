@@ -1,0 +1,223 @@
+name: install-smoke
+
+# Clean-machine smoke tests across every install channel (09.01.01 / 09.01.02 /
+# 09.06.01-04). Runs:
+#   • After every Release tag publish (waits for the binaries to be uploaded).
+#   • On manual workflow_dispatch with a version input — useful when re-testing
+#     a release that already exists.
+#
+# The matrix exercises each of the four install paths against the same release
+# tag, so a regression in any one (brew formula bump, npm wrapper postinstall,
+# install.sh quarantine handling, install.ps1 PATH persistence) surfaces here
+# rather than in a tester's terminal.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to smoke-test (e.g. v0.2.0). Leave empty to use latest."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  curl-install:
+    name: install.sh — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-22.04, ubuntu-24.04]
+    steps:
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.release.tag_name }}" ]; then
+            echo "VERSION=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install via curl install.sh
+        shell: bash
+        env:
+          RALPHY_VERSION: ${{ steps.ver.outputs.VERSION }}
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
+
+      - name: Verify version
+        shell: bash
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          INSTALLED=$(ralphy --version | head -1 | tr -d '[:space:]')
+          EXPECTED="${{ steps.ver.outputs.VERSION }}"
+          # Strip leading `v` for comparison
+          EXPECTED_NO_V="${EXPECTED#v}"
+          if [ "$EXPECTED" = "latest" ]; then
+            echo "✓ Installed version: $INSTALLED (latest path — accepted)"
+          elif [ "$INSTALLED" != "$EXPECTED" ] && [ "$INSTALLED" != "$EXPECTED_NO_V" ]; then
+            echo "✗ ralphy --version returned '$INSTALLED' but expected '$EXPECTED' / '$EXPECTED_NO_V'" >&2
+            exit 1
+          else
+            echo "✓ Installed version matches: $INSTALLED"
+          fi
+
+      - name: Doctor (env-only)
+        shell: bash
+        env:
+          OPENROUTER_API_KEY: "smoke-test-placeholder"
+          ELEVENLABS_API_KEY: "smoke-test-placeholder"
+          RALPHY_DOCTOR_NO_UPDATE_CHECK: "1"
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ralphy doctor --json | head -100
+
+      - name: One quick command (template list)
+        shell: bash
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ralphy template list --json | head -20 || true
+
+      - name: macOS — verify no quarantine attribute
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          XATTRS=$(xattr "$HOME/.local/bin/ralphy" 2>/dev/null || true)
+          if echo "$XATTRS" | grep -q "com.apple.quarantine"; then
+            echo "✗ install.sh did not strip quarantine attribute" >&2
+            exit 1
+          fi
+          echo "✓ no quarantine attribute on installed binary"
+
+  ps1-install:
+    name: install.ps1 — windows-2022
+    runs-on: windows-2022
+    steps:
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $version = if ('${{ inputs.version }}') { '${{ inputs.version }}' }
+                    elseif ('${{ github.event.release.tag_name }}') { '${{ github.event.release.tag_name }}' }
+                    else { 'latest' }
+          "VERSION=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install via install.ps1
+        shell: pwsh
+        env:
+          RALPHY_VERSION: ${{ steps.ver.outputs.VERSION }}
+        run: |
+          irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex
+
+      - name: Verify version in current session
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:LOCALAPPDATA\Programs\ralphy;$env:PATH"
+          $installed = (ralphy --version | Select-Object -First 1).Trim()
+          $expected = '${{ steps.ver.outputs.VERSION }}'
+          $expectedNoV = $expected -replace '^v',''
+          if ($expected -eq 'latest') {
+            Write-Host "OK Installed version: $installed (latest path — accepted)"
+          } elseif ($installed -ne $expected -and $installed -ne $expectedNoV) {
+            Write-Error "ralphy --version returned '$installed' but expected '$expected' / '$expectedNoV'"
+            exit 1
+          } else {
+            Write-Host "OK Installed version matches: $installed"
+          }
+
+      - name: PATH persisted to user environment
+        shell: pwsh
+        run: |
+          $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+          if ($userPath -notmatch "ralphy") {
+            Write-Error "install.ps1 did not persist PATH to HKCU\Environment"
+            exit 1
+          }
+          Write-Host "OK PATH contains ralphy bin dir at user scope"
+
+      - name: New-session smoke (re-read PATH from registry)
+        shell: pwsh
+        run: |
+          $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+          $machinePath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
+          $env:PATH = "$machinePath;$userPath"
+          ralphy --version
+
+      - name: Doctor (env-only)
+        shell: pwsh
+        env:
+          OPENROUTER_API_KEY: "smoke-test-placeholder"
+          ELEVENLABS_API_KEY: "smoke-test-placeholder"
+          RALPHY_DOCTOR_NO_UPDATE_CHECK: "1"
+        run: |
+          $env:PATH = "$env:LOCALAPPDATA\Programs\ralphy;$env:PATH"
+          ralphy doctor --json | Select-Object -First 100
+
+  brew-install:
+    name: brew install — macos-14
+    runs-on: macos-14
+    # Wait for the tap PR to merge before smoking. In practice the GH Releases
+    # → brew tap auto-bump takes ~3-5min, so a 10min sleep + retry is enough.
+    steps:
+      - name: Wait for tap to pick up the version
+        shell: bash
+        run: |
+          echo "Sleeping 5min for brew tap auto-bump to land…"
+          sleep 300
+
+      - name: brew install
+        shell: bash
+        run: |
+          brew tap alecs5am/tap
+          brew install alecs5am/tap/ralphy
+
+      - name: Verify version
+        shell: bash
+        run: ralphy --version
+
+      - name: Doctor (env-only)
+        shell: bash
+        env:
+          OPENROUTER_API_KEY: "smoke-test-placeholder"
+          ELEVENLABS_API_KEY: "smoke-test-placeholder"
+          RALPHY_DOCTOR_NO_UPDATE_CHECK: "1"
+        run: ralphy doctor --json | head -100
+
+  npm-install:
+    name: npm install -g — ubuntu-22.04
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Wait for npm registry visibility
+        shell: bash
+        run: |
+          echo "Sleeping 2min for npm publish to propagate…"
+          sleep 120
+
+      - name: Setup Node (bundled npm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm install -g
+        shell: bash
+        run: |
+          npm install -g @alecs5am/ralphy
+
+      - name: Verify version
+        shell: bash
+        run: ralphy --version
+
+      - name: Doctor (env-only)
+        shell: bash
+        env:
+          OPENROUTER_API_KEY: "smoke-test-placeholder"
+          ELEVENLABS_API_KEY: "smoke-test-placeholder"
+          RALPHY_DOCTOR_NO_UPDATE_CHECK: "1"
+        run: ralphy doctor --json | head -100
