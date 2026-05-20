@@ -1,0 +1,41 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: trending-sound-remix
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Trending Sound Remix
+description: "Audio-first short-form: take a currently trending sound
+  (TikTok/Reels) and overlay your niche interpretation on top. 7-25s, 9:16.
+  Audio starts at frame 0 (no intro silence — that's the algo cheat code),
+  visuals are cut to beat-drops, a short text overlay tells the viewer your
+  angle. The trending sound IS the music — no ElevenLabs Music.
+  Reference-required: the user must supply the trending audio (URL or file). AI
+  cannot pick or license the trend. Algorithm window is 24-48h after the sound
+  starts trending; missing the window collapses reach."
+tags:
+  - trending-sound
+  - audio-first
+  - remix
+  - beat-sync
+  - viral-audio
+  - sound-trend
+  - niche-overlay
+  - 24-48-hour-window
+  - evergreen-structure
+  - tiktok
+  - reels
+  - shorts
+  - text-overlay
+  - algo-hack
+  - pre-validated-reach
+  - sound-on
+  - beat-drop
+  - duet-style
+  - trend-jacking
+requires:
+  refs: 1
+scenes: []
+references: []
+

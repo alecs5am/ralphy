@@ -1,0 +1,50 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: tutorial-how-to
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Tutorial / How-To
+description: "Search-first 3-step tutorial / how-to. 45-60s vertical 9:16,
+  optimized for YouTube Shorts (search-first king) but exports cleanly to TikTok
+  and Reels. Power-word hook (Free / Banned / Secret / $1) at 0-2s,
+  foreshadowing of the payoff at 2-5s, three named-transition steps (Hoyos:
+  'Let's get cooking') from 5-50s, emotional payoff at 50-60s. Targets a 90%
+  retention rate via tight pacing, on-screen step counters, and a single open
+  loop carried from hook to payoff."
+tags:
+  - tutorial
+  - how-to
+  - 3-step
+  - hack
+  - life-hack
+  - hoyos-method
+  - jenny-hoyos
+  - cooking-tutorial
+  - productivity
+  - ai-tools
+  - finance
+  - beauty-hack
+  - money-hack
+  - search-first
+  - evergreen
+  - youtube-shorts
+  - tiktok
+  - reels
+  - shorts
+  - completion-rate
+  - retention-90
+  - open-loop
+  - step-card
+  - named-transition
+  - power-word-hook
+  - foreshadow
+  - payoff
+  - tutorial-shorts
+  - how-to-shorts
+  - evergreen-search
+requires: {}
+scenes: []
+references: []
+

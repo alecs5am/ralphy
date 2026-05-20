@@ -1,0 +1,36 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: comic-to-video
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Comic to Video
+description: "Animate comic panels, manga pages, webtoons, and illustrated
+  storyboards into short narrative video. Each panel becomes a beat: keyframes
+  preserve the original art (line weight, screentone, color model), and i2v adds
+  motion that respects reading order (LTR / RTL / vertical) and panel-to-panel
+  pacing. Reference-required: the user must supply the source panels —
+  generation refuses without them, because there is no way to invent comic art
+  that matches an existing series. Sound design follows speech bubbles and SFX
+  onomatopoeia. Best for fan animations, motion-comic ads, webtoon teasers, and
+  storyboard-to-cinematic."
+tags:
+  - comic
+  - manga
+  - webtoon
+  - storyboard
+  - sequential-art
+  - motion-comic
+  - panel-animation
+  - graphic-novel
+  - anime
+  - tiktok
+  - reels
+  - shorts
+  - youtube
+requires:
+  refs: 1
+scenes: []
+references: []
+

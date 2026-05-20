@@ -1,0 +1,47 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: cgi-architecture
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: CGI Architecture
+description: "Architectural visualization (archviz) — rendered houses,
+  apartments, interiors, public spaces, and conceptual builds. The not-yet-built
+  or aspirational-rendered side of architecture social. 15-30s vertical or
+  horizontal cuts built from 4-8 slow-flythrough keyframes that sell emotion of
+  a place that doesn't exist yet (or hasn't been photographed yet). Distinct
+  from real-estate (photoreal tour of an EXISTING property). This is the
+  conceptual / pre-construction / interior-design-pitch / architecture-firm-reel
+  cousin. Visual language: golden-hour exteriors, ambient-occlusion-rich
+  interiors, slow flythroughs, threshold-pass cinematic moves. No VO required
+  for most cuts; one outro line for project name when needed. User-supplied
+  reference (floor plan, moodboard, sketch) is optional but materially improves
+  output quality."
+tags:
+  - cgi
+  - architecture
+  - archviz
+  - rendered
+  - interior-design
+  - exterior-render
+  - conceptual-build
+  - pre-construction
+  - dwell-style
+  - archdaily
+  - twinmotion
+  - lumion
+  - unreal-architecture
+  - dropbox-renders
+  - real-estate-render
+  - architecture-firm
+  - design-pitch
+  - moodboard
+  - tadao-ando
+  - big-architecture
+  - studio-mckee
+  - cinematic-render
+requires: {}
+scenes: []
+references: []
+

@@ -1,0 +1,47 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: analog-horror-psa
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+name: Analog Horror PSA
+description: Fake government-issued emergency behavioral PSA in analog-horror
+  style. Cold robo-female ElevenLabs VO narrates an IF / DO-NOT / BUT / AND beat
+  scaffold over flat yellow pixelated 1970s-civil-defense pictogram icons on
+  pure-black bg. 30s, 9:16, ~10 scenes x ~3s. No music by default — pure SFX bed
+  (VHS hiss, CRT pop, EBS alert, signal-lost 1kHz). VT323 word-pop captions with
+  red glitch shadow. Heavy 5-layer chromatic aberration on icons AND captions
+  synchronized to a single jitter beat. Climax cuts to full-screen SMPTE-style
+  blurred color bars + signal-lost tone. Format owes its DNA to
+  Father-Eats-in-the-Basement-class EBS PSA found-footage videos.
+tags:
+  - analog-horror
+  - psa
+  - ebs
+  - government-bulletin
+  - found-footage
+  - robo-female-vo
+  - monotone
+  - pictogram-icons
+  - yellow-on-black
+  - 1970s-civil-defense
+  - vhs
+  - crt
+  - scanlines
+  - chromatic-aberration
+  - rgb-split
+  - vt323
+  - word-pop-captions
+  - if-do-not-but-and
+  - no-music
+  - smpte-color-bars
+  - signal-lost
+  - elevenlabs-alerter
+  - compliance-bulletin
+  - youtube-shorts
+  - tiktok
+requires: {}
+scenes: []
+references: []
+

@@ -1,0 +1,33 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: talking-head-rant
+aliases: []
+kind: vibe-reference
+category: creator-lifestyle
+name: Talking Head Rant
+description: "Single-character monolog 15-22s — a relatable archetype talks
+  straight to camera with a deadpan ranting tone. Optional hook screenshot
+  overlay (Reddit post / news headline / chat message / tweet) holds the first
+  3-4s, then fades out and the character carries the rest. Default video model:
+  veo-3.1 for premium lip-sync ($7.65/clip); kling-v3.0-pro is the cheap
+  fallback (~$2.25/clip) when bulk batching. One of the most reliable retention
+  formats on TikTok / Reels."
+tags:
+  - talking-head
+  - rant
+  - monologue
+  - tiktok
+  - reels
+  - shorts
+  - ugc
+  - character-driven
+  - reddit-screenshot
+  - news-headline
+  - deadpan
+  - hot-take
+  - first-person
+requires: {}
+scenes: []
+references: []
+

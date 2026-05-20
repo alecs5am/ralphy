@@ -1,0 +1,42 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: fit-check
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Fit Check / OOTD
+description: "Quick visual demo of a complete outfit — typically 1-3 looks in
+  one Reel with beat-synced transitions (snap, jump-cut, mirror-flash). 7-20s,
+  9:16. OOTD format. Visual-first, designed for muted scrolling. Often paired
+  with a trending audio bed (e.g. 'Dame un Grrr', '212') and a brand-tag overlay
+  per item. Low daily-content barrier — a new outfit a day is the whole point.
+  Reference-required when real garments are shown (AGENTS.md hard rule #3) —
+  same gate as fashion-lookbook. Distinct from fashion-lookbook: this is fast /
+  OOTD / daily; lookbook is editorial / 15-30s / brand-piece."
+tags:
+  - fit-check
+  - ootd
+  - outfit
+  - fashion
+  - fast-fashion
+  - second-hand
+  - thrift
+  - modesty
+  - workwear
+  - streetwear
+  - beat-sync
+  - mirror-flash
+  - transition
+  - daily-content
+  - alix-earle
+  - tiktok
+  - reels
+  - dame-un-grrr
+  - brand-tag
+  - muted-scroll
+requires:
+  refs: 1
+scenes: []
+references: []
+

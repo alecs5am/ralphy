@@ -7,6 +7,10 @@ import { templatesDir, repoTemplatesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
+import {
+  loadTemplateManifest,
+  diagnoseRequiredInputs,
+} from "../lib/templater/loader.js";
 
 // Templates live in two places (both readable transparently):
 //   - templates/                  → repo-public, committed to git, shipped on clone
@@ -189,6 +193,16 @@ export function templateCmd() {
       if (ref!.kind !== "dir") raiseError("E_INPUT_INVALID", { field: "template-kind", detail: `'${id}' is flat; use 'template create' for that layout`, verb: "template" });
       const meta = await readTemplateMeta(ref!);
       if (!meta) raiseError("E_FILE_MALFORMED", { format: "JSON", path: `${(ref as { dir: string }).dir}/template.json`, detail: "missing or invalid" });
+      // 02.05.02 — validate the typed YAML manifest before registering
+      // (if the template ships one). Unsupported versions raise.
+      try {
+        await loadTemplateManifest((ref as { dir: string }).dir, id);
+      } catch (e) {
+        if (e instanceof Error && !e.message.startsWith("E_")) {
+          raiseError("E_FILE_MALFORMED", { format: "YAML", path: `${(ref as { dir: string }).dir}/template.yaml`, detail: e.message });
+        }
+        throw e;
+      }
       await addEntity("templates", id, {
         name: meta.name || id,
         createdAt: meta.createdAt || new Date().toISOString(),
@@ -337,6 +351,9 @@ export function templateCmd() {
     .requiredOption("--project <project-id>", "New project ID")
     .option("--name <name>", "New project name (defaults to project-id)")
     .option("--brief <text>", "Initial user brief")
+    .option("--brand <slug>", "Brand slug (satisfies requires.brand)")
+    .option("--persona <slug>", "Persona slug (satisfies requires.persona)")
+    .option("--ref <path...>", "Reference file paths (count satisfies requires.refs)")
     .action(async (id: string, opts: any) => {
       const ref = await resolveTemplate(id);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
@@ -349,6 +366,40 @@ export function templateCmd() {
       } catch { /* good, doesn't exist */ }
 
       const meta = ref.kind === "dir" ? await readTemplateMeta(ref) : null;
+
+      // 02.05.02 — validate the typed YAML manifest (if present) BEFORE
+      // scaffolding the project. Falls back silently for legacy templates
+      // that haven't been migrated; the migration script is one-shot
+      // additive (template.yaml AND template.json coexist), so this is the
+      // common path for shipped templates.
+      if (ref.kind === "dir") {
+        try {
+          const yamlMeta = await loadTemplateManifest(ref.dir, id);
+          if (yamlMeta) {
+            const refCount = Array.isArray(opts.ref) ? opts.ref.length : (opts.ref ? 1 : 0);
+            const missing = diagnoseRequiredInputs(yamlMeta, {
+              brand: opts.brand,
+              persona: opts.persona,
+              refCount,
+            });
+            if (missing) {
+              raiseError("E_TEMPLATE_INPUT_MISSING", { id, requirement: missing.requirement });
+            }
+          }
+        } catch (e) {
+          // Unsupported version or malformed YAML — propagate as a structured
+          // error. raiseError() in loader.ts already exits on E_TEMPLATE_VERSION_UNSUPPORTED;
+          // anything else surfaces as a malformed-file error.
+          if (e instanceof Error && !e.message.startsWith("E_")) {
+            raiseError("E_FILE_MALFORMED", {
+              format: "YAML",
+              path: `${ref.dir}/template.yaml`,
+              detail: e.message,
+            });
+          }
+          throw e;
+        }
+      }
 
       await fs.mkdir(projDir, { recursive: true });
       await fs.mkdir(path.join(projDir, "assets", "images"), { recursive: true });

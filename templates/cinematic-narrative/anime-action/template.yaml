@@ -1,0 +1,38 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: anime-action
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Anime Action
+description: "Anime-style action video prompts: cel-shaded 2D look, limited
+  animation with strategic impact frames, speed lines, dramatic rim lighting,
+  dynamic eye close-ups, and explosive auras. Covers shounen action, seinen
+  drama, mecha, magical girl, slice-of-life, cyberpunk anime, isekai, and OP/ED
+  montage style. Reference optional — required only when reproducing a named
+  anime character, franchise, or specific real likeness."
+tags:
+  - anime
+  - japanese-animation
+  - manga
+  - shounen
+  - seinen
+  - shonen
+  - mecha
+  - magical-girl
+  - isekai
+  - cyberpunk-anime
+  - slice-of-life
+  - cel-shaded
+  - speed-lines
+  - impact-frame
+  - anime-opening
+  - anime-action
+  - tiktok
+  - reels
+  - shorts
+requires: {}
+scenes: []
+references: []
+

@@ -1,0 +1,42 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: yap-talking-head
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: YAP Talking-Head
+description: "Selfie-style talking-head with minimal processing: a creator
+  delivers ONE crisp idea straight to camera while a 0-1s headline overlay
+  frames the topic and animated word-by-word subtitles carry the muted-scroll
+  viewer. 30-60s, single shot, NO jump cuts. The 'YAP' format Manychat's 2026
+  Algorithm Fatigue report flags as the antidote to AI-polished slop — Max
+  Tornow, Alex Hormozi, Codie Sanchez territory. Education, business, finance,
+  opinion. Distinct from talking-head-rant (that one is deadpan and
+  screenshot-driven); YAP is energetic, single-idea,
+  headline-and-captions-driven."
+tags:
+  - yap
+  - talking-head
+  - raw
+  - single-idea
+  - education
+  - business
+  - finance
+  - opinion
+  - hormozi
+  - codie-sanchez
+  - max-tornow
+  - ai-friendly
+  - animated-captions
+  - headline-overlay
+  - no-jump-cuts
+  - selfie
+  - tiktok
+  - reels
+  - shorts
+  - monologue
+requires: {}
+scenes: []
+references: []
+

@@ -1,0 +1,42 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: cartoon
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Cartoon
+description: "Cartoon and animation-style short-form video: 2D, cel-shaded,
+  hand-drawn, rubber-hose, flat-vector, watercolor, pixel, neon line, manga,
+  claymation, doodle, or 3D toon-shading. 5-15s, 9:16, vibe reference only —
+  copy the style language, not the literal scene. Lean on classic 12 animation
+  principles (squash-stretch, anticipation, follow-through, arcs) and a strong
+  2-second hook. Use whenever a brief asks for cartoon, animation, illustrated,
+  animated, fun, playful, whimsical, or any non-photoreal stylized look."
+tags:
+  - cartoon
+  - animation
+  - 2d
+  - cel-shaded
+  - hand-drawn
+  - illustrated
+  - flat-vector
+  - rubber-hose
+  - watercolor
+  - pixel-art
+  - neon
+  - manga
+  - anime
+  - claymation
+  - doodle
+  - motion-graphics
+  - tiktok
+  - reels
+  - shorts
+  - stylized
+  - playful
+  - whimsical
+requires: {}
+scenes: []
+references: []
+

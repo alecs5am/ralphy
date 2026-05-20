@@ -1,0 +1,42 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: photo-dump
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Photo Dump
+description: "Photo Dump / Carousel-as-Video — a series of 5-16 still photos
+  that snap to the beat of a trending music bed, building a 'scrollable mood
+  board'. 10-25s, 9:16. Often opens with a short on-screen text line ('This
+  looks so cool, I have to capture it', 'October dump', 'An ode to autumn').
+  Photos can be user-supplied (personal dumps, brand week-recaps) or
+  AI-generated (aesthetic / niche dumps); mixing the two also works. No video
+  clips — pure photo + beat-sync. Especially strong on Reels in 2026: Buffer's
+  State of Social Media Engagement 2026 reports carousels earn ~109% higher
+  engagement rate per person reached than reels (median ER 6.90% vs 3.31%), and
+  the 'carousel-as-video' photo dump is the format riding that gap into video
+  feeds."
+tags:
+  - photo-dump
+  - carousel-as-video
+  - beat-sync
+  - mood-board
+  - lifestyle
+  - travel
+  - aesthetic
+  - raw-aesthetic
+  - week-recap
+  - reels
+  - slideshow
+  - fashion
+  - vibes
+  - scrollable
+  - tiktok
+  - low-budget
+  - save-rate
+  - personal-vlog
+requires: {}
+scenes: []
+references: []
+

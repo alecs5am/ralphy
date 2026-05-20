@@ -1,0 +1,44 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: noski-deadpan-2hander
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Noski Deadpan 2-Hander
+description: "Deadpan-philosophical TikTok 2-hander in the @americanbaron
+  register: two people seated side-by-side in a sunlit living room, heads tipped
+  back on the couch, eyes up to the ceiling, exchanging quiet half-rhetorical
+  questions in almost-whispered English. Photoreal Sony A7 IV / Sigma-prime
+  register with Kodak Portra 400 grain. ~32 micro-scenes averaging 2.2s each,
+  73-75s total, lofi cafe music bed at -22 LUFS under the dialog.
+  Reference-required when imitating a real creator's persona — the @handle
+  drives voice profile, posture vocabulary, and the deadpan delivery cadence."
+tags:
+  - deadpan
+  - philosophical
+  - 2-hander
+  - dialog
+  - americanbaron
+  - couch
+  - head-back
+  - ceiling-gaze
+  - contemplative
+  - lofi
+  - english-vo
+  - kling-audio
+  - photoreal
+  - sony-a7iv
+  - kodak-portra-400
+  - location-locked
+  - voice-profile-block
+  - tiktok
+  - reels
+  - shorts
+  - creator-lifestyle
+  - long-form-micro-cuts
+requires:
+  refs: 1
+scenes: []
+references: []
+

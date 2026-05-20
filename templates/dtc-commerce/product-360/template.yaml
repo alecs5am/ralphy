@@ -1,0 +1,38 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: product-360
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Product 360
+description: "Product 360° turntable / multi-angle reveal — 8-15s of
+  photorealistic product rotation with dramatic lighting, hero-angle lock, macro
+  detail progression, and final logo/CTA. 9:16 (TikTok / Reels / Shorts) or 1:1
+  (IG feed / Amazon). No VO by default — music + product foley + optional spec
+  overlays carry the spot. Reference-required: a real product photo / packaging
+  / logo MUST be supplied; AI-improvised packaging on a branded product never
+  reads as real. The standard e-commerce conversion clip — works for jewelry,
+  watches, electronics, cosmetics, footwear, fashion accessories, beverages."
+tags:
+  - product
+  - "360"
+  - turntable
+  - rotation
+  - reveal
+  - hero-shot
+  - beauty-shot
+  - multi-angle
+  - ecommerce
+  - amazon
+  - shopify
+  - tiktok
+  - reels
+  - shorts
+  - ad
+  - showcase
+requires:
+  refs: 1
+scenes: []
+references: []
+

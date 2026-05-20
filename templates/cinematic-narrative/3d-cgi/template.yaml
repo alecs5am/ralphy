@@ -1,0 +1,38 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: 3d-cgi
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: 3D / CGI
+description: "Prompt cookbook for 3D / CGI / rendered video — Pixar-stylized
+  through to photorealistic, plus low-poly, isometric, cel-shaded, and
+  hyperreal-with-impossible-physics. Focuses on render-engine vocabulary (PBR,
+  SSS, caustics, GI), lighting setups, camera grammar, and material science
+  needed to push i2v models past the generic 'make it look 3D' baseline.
+  Reference-optional: works from a brief alone, but a brand or product still
+  triggers the reference-required gate."
+tags:
+  - 3d
+  - cgi
+  - rendered
+  - pixar
+  - photorealistic
+  - octane
+  - unreal-engine
+  - blender
+  - pbr
+  - subsurface-scattering
+  - ray-tracing
+  - volumetric
+  - low-poly
+  - isometric
+  - cel-shaded
+  - product-viz
+  - architectural-viz
+  - creature-design
+requires: {}
+scenes: []
+references: []
+
