@@ -16,6 +16,7 @@ import {
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok, err } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
 
 export function videoCmd() {
   const cmd = new Command("video").description(
@@ -47,7 +48,7 @@ export function videoCmd() {
         ok(`Extracted → ${dst}`);
         out({ src: opts.in, dst, startSec: opts.start, endSec: opts.end });
       } catch (e: any) {
-        err(`extract-segment failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `extract-segment: ` });
       }
     });
 
@@ -91,7 +92,7 @@ export function videoCmd() {
           ratio: Number((before / after).toFixed(2)),
         });
       } catch (e: any) {
-        err(`optimize failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `optimize: ` });
       }
     });
 
@@ -122,7 +123,7 @@ export function videoCmd() {
         ok(`Subs burned → ${dst}`);
         out({ src: opts.in, srt: opts.srt, dst });
       } catch (e: any) {
-        err(`burn-subs failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `burn-subs: ` });
       }
     });
 
@@ -147,7 +148,7 @@ export function videoCmd() {
         ok(`Tonemapped → ${dst}`);
         out({ src: opts.in, dst, algorithm: opts.algorithm });
       } catch (e: any) {
-        err(`tonemap-hdr failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `tonemap-hdr: ` });
       }
     });
 
@@ -179,7 +180,7 @@ export function videoCmd() {
           totalFaces,
         });
       } catch (e: any) {
-        err(`smart-crop failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `smart-crop: ` });
       }
     });
 
@@ -220,7 +221,7 @@ export function videoCmd() {
         ok(`Music mixed → ${dst}`);
         out({ src: opts.in, music: opts.music, dst, musicVol: opts.musicVol, sfxVol: opts.sfxVol, duck: opts.duck });
       } catch (e: any) {
-        err(`add-music failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `add-music: ` });
       }
     });
 
@@ -247,7 +248,7 @@ export function videoCmd() {
         ok(`Concatenated → ${dst}`);
         out({ srcs, dst });
       } catch (e: any) {
-        err(`concat failed: ${e?.message || e}`);
+        raiseError("E_INTERNAL", { detail: `concat: ` });
       }
     });
 

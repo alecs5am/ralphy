@@ -16,6 +16,8 @@ import { existsSync } from "node:fs";
 import { projectsDir, root } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { out, err, ok } from "../lib/output.js";
+import { raiseError } from "../lib/errors/index.js";
+import { CommandStream } from "../lib/stream/command.js";
 
 type CompositionProps = {
   compositionId?: string;
@@ -53,10 +55,7 @@ async function readCompositionProps(
         `ralphy: composition-props.json auto-stubbed → ${propsPath} (compositionId="${fallbackCompositionId}"). Edit to add inputProps if needed.`,
       );
     } else {
-      err(
-        `composition-props.json not found at ${propsPath} — pass --composition <id> to auto-stub, ` +
-          `or author the composition first (handoff to editor playbook or run "ralph project show ${projectId}").`,
-      );
+      raiseError("E_FILE_UNREADABLE", { path: propsPath });
     }
   }
   const raw = await fs.readFile(propsPath, "utf8");
@@ -64,8 +63,7 @@ async function readCompositionProps(
   try {
     data = JSON.parse(raw) as CompositionProps;
   } catch (e) {
-    err(`composition-props.json is not valid JSON: ${(e as Error).message}`);
-    throw new Error("unreachable");
+    raiseError("E_FILE_MALFORMED", { format: "JSON", path: propsPath, detail: (e as Error).message });
   }
 
   // Generic-template compositions take `captions: Caption[]` inline. Avoid making
@@ -103,7 +101,7 @@ async function ensureSymlink(projectId: string): Promise<{ link: string; created
     return { link, created: false };
   }
   if (!existsSync(projectAssets)) {
-    err(`No assets dir at ${projectAssets} — generate assets first via art-director playbook.`);
+    raiseError("E_FILE_UNREADABLE", { path: projectAssets });
   }
   await fs.symlink(projectAssets, link, "dir");
   return { link, created: true };
@@ -174,23 +172,67 @@ async function fileSize(p: string): Promise<number> {
 }
 
 export function renderCmd() {
-  return new Command("render")
+  const cmd = new Command("render")
     .argument("<project>", "Project ID")
     .description(
       "Render a project to MP4. Reads composition-props.json + manifest, runs `bunx remotion render`, " +
         "writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm.",
-    )
+    );
+  cmd.addHelpText(
+    "after",
+    `
+Examples:
+  ralphy render spring-001
+  ralphy render proj-001 --loudnorm
+  ralphy render proj-001 --output ./out.mp4
+`,
+  );
+  return cmd
     .option("--composition <id>", "Composition id (default: from props or 'UGCVideo')")
     .option("--output <path>", "Output mp4 path (default: workspace/projects/<id>/render/final.mp4)")
     .option("--loudnorm", "Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg")
     .option("--keep-symlink", "Don't remove the public/project-<id> symlink after render")
+    .option("--dry-run", "Print the resolved render plan (composition, props path, output); no remotion run", false)
+    .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
     .action(async (projectId: string, opts) => {
       const t0 = Date.now();
+
+      if (opts.dryRun) {
+        const renderDir = path.join(projectsDir(), projectId, "render");
+        const renderFinal = opts.output ? path.resolve(opts.output) : path.join(renderDir, "final.mp4");
+        const compositionId = opts.composition ?? "UGCVideo";
+        const stages = [
+          { stage: "remotion-render", composition: compositionId, output: renderFinal, est_usd: 0 },
+          ...(opts.loudnorm ? [{ stage: "ffmpeg-loudnorm", target: "-16 LUFS", est_usd: 0 }] : []),
+        ];
+        if (opts.summary) {
+          out({
+            dryRun: true,
+            stages: {
+              "remotion-render": { count: 1, est_usd: 0 },
+              ...(opts.loudnorm ? { "ffmpeg-loudnorm": { count: 1, est_usd: 0 } } : {}),
+            },
+            cost_estimate_usd: 0,
+          });
+        } else {
+          out({
+            dryRun: true,
+            would_call: stages,
+            cost_estimate_usd: 0,
+            would_write: [renderFinal],
+          });
+        }
+        return;
+      }
+
+      const cs = new CommandStream();
+      cs.event("render-resolve-props", { project: projectId });
       const { path: propsPath, data: props, isTransient } = await readCompositionProps(
         projectId,
         opts.composition,
       );
       const compositionId = opts.composition ?? props.compositionId ?? "UGCVideo";
+      cs.event("render-started", { project: projectId, compositionId });
       const renderDir = path.join(projectsDir(), projectId, "render");
       await fs.mkdir(renderDir, { recursive: true });
       const renderRaw = path.join(renderDir, "final.raw.mp4");
@@ -229,7 +271,7 @@ export function renderCmd() {
             cost_usd: 0,
             note: "render failed",
           });
-          err(`remotion render failed (exit ${rr.exitCode}); see stderr above.`);
+          raiseError("E_INTERNAL", { detail: `remotion render failed (exit ${rr.exitCode}); see stderr above` });
         }
 
         let outputPath = renderOut;
@@ -240,13 +282,14 @@ export function renderCmd() {
             { successText: () => `Loudnorm applied (-16 LUFS) → ${ui.c.path(renderFinal)}` },
           );
           if (lr.exitCode !== 0) {
-            err(`ffmpeg loudnorm failed: ${lr.stderr.slice(-300)}`);
+            raiseError("E_INTERNAL", { detail: `ffmpeg loudnorm failed: ${lr.stderr.slice(-300)}` });
           }
           await fs.unlink(renderRaw).catch(() => undefined);
           outputPath = renderFinal;
         }
 
         const size = await fileSize(outputPath);
+        cs.event("render-finished", { project: projectId, bytes: size });
         await logGeneration(projectId, {
           provider: "other",
           endpoint: "remotion-render",
@@ -259,7 +302,7 @@ export function renderCmd() {
           note: opts.loudnorm ? "render + loudnorm" : "render",
         });
 
-        out({
+        cs.summary({
           project: projectId,
           composition: compositionId,
           path: outputPath,
