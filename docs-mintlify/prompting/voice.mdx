@@ -44,17 +44,17 @@ For anything other than English, generate motion-only video, then layer VO in a 
 
 ```bash
 # Step 1 — Kling motion only, no --audio flag.
-ralphy generate video --project ru-saas-001 --slot scene-01-vid \
+ralphy generate video --project es-saas-001 --slot scene-01-vid \
   --prompt "<...no Dialogue clause in the prompt body...>" \
   --duration 5
 
 # Step 2 — ElevenLabs VO.
-ralphy generate voiceover --project ru-saas-001 --slot scene-01-vo \
+ralphy generate voiceover --project es-saas-001 --slot scene-01-vo \
   --voice <voice-id> \
-  --text "Я не буду подсахаривать."
+  --text "No voy a endulzarlo."
 
 # Step 3 — captions auto-time to the VO via Scribe v1.
-ralphy generate captions --project ru-saas-001 --audio assets/voiceover/scene-01-vo.mp3
+ralphy generate captions --project es-saas-001 --audio assets/voiceover/scene-01-vo.mp3
 ```
 
 ## ElevenLabs settings that matter
