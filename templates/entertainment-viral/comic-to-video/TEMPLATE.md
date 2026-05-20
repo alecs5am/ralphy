@@ -4,7 +4,7 @@
 **Length:** 10-25s typical (3-6 panel beats × 3-5s each).
 **Format:** TikTok / Reels / Shorts default 9:16, 24fps. Switchable to 16:9 for YouTube cinematics, 1:1 for social, vertical scroll for webtoon-native.
 
-> **Reference-required gate.** Source panels MUST exist at `workspace/projects/<id>/assets/uploaded/` before generation starts. AGENTS.md hard rule #3 refuses without them — there is no way to invent comic art that matches an existing series, and a generic AI "comic style" reads as slop. If the brief says "a comic in the style of X" with no panels uploaded, route to `/ralph-researcher` first.
+> **Reference-required gate.** Source panels MUST exist at `workspace/projects/<id>/assets/uploaded/` before generation starts. AGENTS.md hard rule #3 refuses without them — there is no way to invent comic art that matches an existing series, and a generic AI "comic style" reads as slop. If the brief says "a comic in the style of X" with no panels uploaded, route to `/ralphy-researcher` first.
 
 ## Why this works
 

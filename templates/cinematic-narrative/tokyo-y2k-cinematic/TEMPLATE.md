@@ -72,7 +72,7 @@ Variations: any dense neon Asian metropolis (Tokyo / Seoul / Hong Kong / Taipei 
    └─ ralphy render <id> --composition <X>Wide   → final-16x9.mp4
 
 9. Eval                                (3 min)
-   └─ /ralph-evaluator → eval.json + eval-report.md
+   └─ /ralphy-evaluator → eval.json + eval-report.md
 ```
 
 At 1× minimum-iteration (no STATIC_ROOT mistake, no composition-props.json scramble, no parallel-3 music 429), total editor-stage time ≈ 20-25 min, cost ≈ $1-3 (gemini analyze-video × N clips). Full-project cost (image + video + music + trim + render) ≈ $20-25.

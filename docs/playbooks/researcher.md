@@ -73,7 +73,7 @@ The standard chain is `pull → frames → transcribe → analyze → audio-desc
 ## Tooling inventory
 
 - **WebSearch / WebFetch** — broad discovery + quick text-page pull. **Won't work on JS-heavy SPAs (TikTok/IG/YT) — they return shells. For those, reach for yt-dlp / Playwright.**
-- **Playwright** (ad-hoc or `.agents/skills/ralph-researcher/scripts/extract-design.ts`) — interactive / JS-rendered / multi-page targets.
+- **Playwright** (ad-hoc or `.agents/skills/ralphy-researcher/scripts/extract-design.ts`) — interactive / JS-rendered / multi-page targets.
 - **yt-dlp** — download videos (1800+ sites including TikTok, IG, YT, X, Reddit). See [researcher/yt-dlp.md](researcher/yt-dlp.md).
 - **ffmpeg / ffprobe** — keyframes, audio split, trims.
 - **Gemini 2.5 flash via OpenRouter `callLLM()`** — frame + audio analysis. Through **`cli/lib/providers/llm.ts`**, not direct fetch.
@@ -83,7 +83,7 @@ The standard chain is `pull → frames → transcribe → analyze → audio-desc
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **`ralphy ref` first.** The 6-step chain (pull → frames → transcribe → analyze → audio-describe → blueprint) covers ~95% of social/website refs. Helpers in `.agents/skills/ralph-researcher/scripts/` (`extract-design.ts`, `cross-analyze.ts`, etc.) exist for bespoke shapes the CLI doesn't model yet — but if you're tempted to grep them just to call yt-dlp / Gemini / whisper, check the cookbook first.
+1. **`ralphy ref` first.** The 6-step chain (pull → frames → transcribe → analyze → audio-describe → blueprint) covers ~95% of social/website refs. Helpers in `.agents/skills/ralphy-researcher/scripts/` (`extract-design.ts`, `cross-analyze.ts`, etc.) exist for bespoke shapes the CLI doesn't model yet — but if you're tempted to grep them just to call yt-dlp / Gemini / whisper, check the cookbook first.
 2. **Don't over-collect.** Capture only what answers the question. A 200-image dump of the CDN is almost never more useful than 8 well-chosen screenshots.
 3. **Log as you go.** `ralphy ref pull` + `state.json` already track what you have. For free-form notes inside a project, `ralphy project log-prompt`. Don't append to JSONL by hand.
 4. **Stop when answered.** Shallow scans stop at synthesis. Don't drift into a deep dive unless the user asked.

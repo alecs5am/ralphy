@@ -9,15 +9,15 @@ The current `.agents/skills/` setup is **not** Anthropic-style auto-loaded Skill
 1. The routing table competes with ~280 other lines of `CLAUDE.md` content the model has to keep in head.
 2. Skill bodies are 131–485 lines of prose; descriptions are 319–966 chars of crammed-together examples; nothing is optimized for the matching mechanism Claude Code actually uses (eyes-on routing table → `Read` the `SKILL.md` file).
 3. There is no `triggers:` field; trigger phrases live inside `description:` mixed with role exposition.
-4. Every skill except `remotion-best-practices` is monolithic — no `rules/<topic>.md` decomposition.
+4. Every skill except `ralphy-remotion` is monolithic — no `rules/<topic>.md` decomposition.
 
 **Recommendation: H3 hybrid, refined.** Keep skills as the implementation home, but:
 - Extract a thin `AGENTS.md` at repo root that holds *only* the routing table + escalation rules (≤60 lines).
 - Slim each `SKILL.md` to ≤80 lines: triggers, sub-task index, pointer to `rules/`.
-- Move how-to content to `rules/<topic>.md` per skill (mirror `remotion-best-practices`).
+- Move how-to content to `rules/<topic>.md` per skill (mirror `ralphy-remotion`).
 - Trim `CLAUDE.md` to mission + invariants + pointer to `AGENTS.md`.
 
-H1 (tighter triggers in-place) is incomplete — even with perfect descriptions, monolithic bodies still bloat context the moment a skill is read. H2 (drop skills entirely) loses the natural grouping that makes `remotion-best-practices` work.
+H1 (tighter triggers in-place) is incomplete — even with perfect descriptions, monolithic bodies still bloat context the moment a skill is read. H2 (drop skills entirely) loses the natural grouping that makes `ralphy-remotion` work.
 
 ## Current state — inventory (2026-05-06)
 
@@ -27,10 +27,10 @@ H1 (tighter triggers in-place) is incomplete — even with perfect descriptions,
 | ralph-core | 323 | 719 | no | no |
 | ralph-editor | 229 | 586 | no | no |
 | ralph-producer | 328 | 553 | no | no |
-| ralph-researcher | 405 | 966 | no | no |
+| ralphy-researcher | 405 | 966 | no | no |
 | ralph-scenarist | 177 | 627 | no | no |
 | ralphy-install | 131 | 509 | no | no |
-| remotion-best-practices | 61 | 53 | no | **yes (38 files)** |
+| ralphy-remotion | 61 | 53 | no | **yes (38 files)** |
 | skill-creator | 485 | 319 | no | partial (`agents/`, `references/`, `scripts/`) |
 
 `CLAUDE.md`: 328 lines, 17 top-level sections. Routing table is section 1 (lines 5–32) — good visibility — but everything below (Project Structure, Commands, Setup wizard, Dashboard, Env, Skills Pipeline overview, Templates, Project Memory, Profiles, Testing, Conventions, Workspace Layout) is general project context, not routing.
@@ -57,7 +57,7 @@ Empirically (per user observation), this project relies on mechanism 2, and it u
 ### H2 — Drop skills, replace with `docs/topics/`
 **Change:** delete `.agents/skills/`; move bodies to `docs/topics/<name>.md`; `CLAUDE.md` routing table points to docs by path.
 
-**Verdict — over-corrects.** Loses the one piece that already works: `remotion-best-practices` is a skill *because* the topic decomposition is natural per-role. `rules/<topic>.md` underneath a skill is the right shape; flattening it into `docs/topics/` breaks role boundaries (where does `prompt-style.md` live — `art-director` or `editor`?).
+**Verdict — over-corrects.** Loses the one piece that already works: `ralphy-remotion` is a skill *because* the topic decomposition is natural per-role. `rules/<topic>.md` underneath a skill is the right shape; flattening it into `docs/topics/` breaks role boundaries (where does `prompt-style.md` live — `art-director` or `editor`?).
 
 ### H3 — Hybrid: thin SKILL.md + per-skill rules/
 **Change:**

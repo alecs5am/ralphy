@@ -1,7 +1,7 @@
 # Release runbook
 
 Operational reference for the maintainer running `/release`. The skill at
-[`.agents/skills/release/SKILL.md`](../.agents/skills/release/SKILL.md) drives the
+[`.agents/skills/ralphy-dev-release/SKILL.md`](../.agents/skills/ralphy-dev-release/SKILL.md) drives the
 happy path; this doc covers what to do **when something goes wrong**.
 
 > **Channel order is canonical:** GitHub Release → Homebrew tap → npm. Each later

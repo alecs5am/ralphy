@@ -134,7 +134,7 @@ This is the single biggest first-impression bug.
 **v1.0:** yes
 
 **Acceptance criteria:**
-- `/release` (the skill at `.claude/skills/release/SKILL.md`) walks: status → semver propose → changelog draft → version bumps → tag push → CI watch → brew bump verify → npm publish verify → final summary.
+- `/release` (the skill at `.claude/skills/ralphy-dev-release/SKILL.md`) walks: status → semver propose → changelog draft → version bumps → tag push → CI watch → brew bump verify → npm publish verify → final summary.
 - Only manual step: approving the diff before tag push.
 - All steps documented in the skill.
 
@@ -150,7 +150,7 @@ This is the single biggest first-impression bug.
 **v1.0:** yes
 
 **Acceptance criteria:**
-- Documented invariant in `.claude/skills/release/SKILL.md`.
+- Documented invariant in `.claude/skills/ralphy-dev-release/SKILL.md`.
 - Re-running on an already-cut version errors with `E_RELEASE_IMMUTABLE`.
 
 ### 09.04.04 Credential preflight  [x]
