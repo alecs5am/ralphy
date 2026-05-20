@@ -19,6 +19,24 @@ If a playbook references a tool you've never used (yt-dlp, Playwright, ffmpeg, r
 
 **Failure to read the playbook before acting is a defect.** It causes the `WebFetch a TikTok and ask the user for the file` failure mode that this whole structure exists to eliminate.
 
+## Dev mode vs user mode
+
+Before matching the routing table, decide which mode this request is.
+
+- **User mode (default).** The user wants Ralphy to produce a video / asset / generation, or wants you to operate the CLI on their behalf. Skip this section, go straight to the routing table.
+- **Dev mode.** The user wants you to **develop Ralphy itself** — add or fix a CLI verb, refactor `cli/`, edit a playbook, write a skill / template / model entry, touch `docs/`, change a roadmap row, file an idea in `notes/`. **Read [`docs/developing-ralphy.md`](docs/developing-ralphy.md) FIRST** before anything else. It points at the non-obvious things you would otherwise miss: the `notes/` folder, the append-only error catalog, the auto-generated files, the lint suite, the docs styleguide, the skill / template / model discipline.
+
+**Triggers for dev mode (any one is enough):**
+
+- The user names a path under `cli/`, `scripts/`, `tests/`, `roadmap/`, `notes/`, `docs/`, `docs-mintlify/`, `templates/<slug>/`, `.agents/skills/`, or any top-level `*.md` (`AGENTS.md`, `MODELS.md`, `CLAUDE.md`, `MEMORY.md`).
+- The user uses dev verbs aimed at Ralphy itself: "implement", "add", "fix", "refactor", "lint", "test", "commit", "release", "publish", "debug", "ship", "сделай PR", "поправь баг", "добавь верб", "напиши тест".
+- The user references a roadmap task (`01.02.03`), a decision ID (`D-04`), an error code (`E_REF_REQUIRED`), or a SPEC marker (`[ ]` / `[~]` / `[x]`).
+- The user wants to add or change a playbook, skill, template, or model.
+- The user wants to file an idea, a found issue, or a design note (`notes/`).
+- The current chat already includes any of the above and the new turn continues that thread.
+
+If none fire, stay in user mode — go straight to the routing table below. **Do not read `docs/developing-ralphy.md` in user mode** — it is dev-context noise that dilutes the playbook routing.
+
 ## Routing
 
 | User intent | Playbook |
