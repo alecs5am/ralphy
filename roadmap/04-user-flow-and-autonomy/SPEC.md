@@ -21,51 +21,45 @@
 
 ---
 
-## 04.01 Draft-iterate-ship flow
+## 04.01 Chat-driven draft → iterate → ship loop
 
-Cold-start and ambiguous requests run through a three-phase loop: cheap draft, refine, ship.
+Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 has no formal `--draft` / `--ship` CLI modes. The "draft → iterate → ship" arc lives in the agent's conversational discipline ([`docs/playbooks/intake.md`](../../docs/playbooks/intake.md)): start with one anchor + one i2v, surface to the user, iterate on feedback in chat, render the full mp4 when the user says "ship it".
 
-### 04.01.01 Draft mode = minimum scope, same best models  [ ]
+### 04.01.01 One-beat-at-a-time discipline  [ ]
 **v1.0:** yes
 
 **Acceptance criteria:**
-- "Draft" never means "cheaper model". Ralphy always uses the best model per kind (see `MODELS.md` top picks).
-- Draft means **reduced scope**: a single representative scene (typically the hook) rendered end-to-end so the user can validate look + feel before committing to N scenes.
-- Draft mode uses placeholder refs (auto-pick from the pool layer if none supplied) — no upload required.
-- Project-level `mode: "draft"|"final"` in `project.json`. Default for `ralphy make`: `draft`.
-- Per-call `--draft` flag is a no-op for model selection; it only narrows scope.
+- After intake (`intake.md` steps 1-2 — clarifying questions + plan approval), the agent generates ONE representative beat first — usually the location-master-plate or scene-01 anchor — and surfaces it before fanning out to the rest.
+- Only after the user says "good" / "поехали" / equivalent does the agent batch the remaining scenes (in groups of 4-6 with checkpoints, never the whole set blind).
+- Always uses the best model per kind (`MODELS.md` top picks) — no "cheaper draft model" path. Discipline = scope reduction, not model swap.
+- Implementation: encoded in `intake.md` step 3 (already written); no new CLI mode is added.
 
-### 04.01.02 `ralphy make` enters draft mode by default  [ ]
+### 04.01.02 `ralphy make` enters draft mode by default  [x] (cancelled — D-02 + 01-D-01)
+**v1.0:** no
+
+**Resolution (2026-05-20):** `ralphy make` cancelled per `01-D-01`; no formal draft-mode CLI flag per `04-D-02`. Replaced by the chat-driven discipline in `04.01.01`.
+
+### 04.01.03 Iterate by regenerating specific slots  [ ]
 **v1.0:** yes
 
 **Acceptance criteria:**
-- `ralphy make "<brief>"` defaults to `--mode draft`.
-- Final mode requires either `--final` flag or the explicit `ralphy ship <project-id>` verb.
-- Documented in `--help` examples.
-
-### 04.01.03 Iterate mode regenerates only the requested scenes  [ ]
-**v1.0:** yes
-
-**Acceptance criteria:**
-- "Rework scene 3" → only scene 3 is regenerated, as a new version (`05.03.02`).
-- Re-render reuses existing scene assets via the asset manifest.
+- "Rework scene 3" → agent runs `ralphy generate <type> --slot scene-03-...` against the existing project; append-only versioning (`05.03.02`) writes `scene-03-anchor.v2.png`, etc., preserving the prior version.
+- Re-render (`ralphy render <project-id>`) reuses the rest of the scene assets via the asset manifest; only the changed slots' versions are repointed.
 - Wall time for "rework one scene + re-render": ≤ 90s for a 15s video.
 
-### 04.01.04 Ship mode upgrades to final-quality models  [ ]
+### 04.01.04 Ship = render + quality gates  [ ]
 **v1.0:** yes
 
 **Acceptance criteria:**
-- `ralphy ship <project-id>` (or `ralphy make ... --final`) re-runs every gen at the upgraded tier per `MODELS.md`.
-- Quality gates run before each gen (refuse-not-warn, [`08`](../08-quality-and-evaluation/)).
+- "Ship it" maps to: agent runs quality gates (`08`) → if green, runs `ralphy render <project-id>` → produces `render/final.mp4` → reports to the user.
+- Quality gates refuse-not-warn per [D-03](OPEN-QUESTIONS.md#decision-log) + AGENTS invariant #4.
 - Reference-required gate fires here (`04.02`).
-- Final render = the project's `render/final.mp4`.
+- No model upgrade between iteration and ship — the same best models are used throughout (per `04.0A.03`).
 
-### 04.01.05 Draft preview is low-res and watermarked  [ ]
-**v1.0:** stretch
+### 04.01.05 Draft preview is low-res and watermarked  [x] (cancelled — D-02)
+**v1.0:** no
 
-**Acceptance criteria:**
-- Draft renders are tagged with a faint "draft" watermark.
-- Removed automatically on ship.
+**Resolution (2026-05-20):** No formal draft/ship CLI split per `04-D-02`; no watermark needed.
 
 ---
 
@@ -206,24 +200,24 @@ Template suggestion is woven into the conversation, not handed off as a verb.
 
 ## 04.05 Producer mode
 
-Batch flow with minimal confirmation.
+**v1.0 cut: deferred per [D-02](OPEN-QUESTIONS.md#decision-log).** v1.0 ships single-project chat flow only; batch / producer mode lands post-launch when the soft-launch testers actually ask for it. Topic kept for traceability.
 
 ### 04.05.01 `ralphy producer "<brief>" --batch N`  [ ]
-**v1.0:** yes
+**v1.0:** no — deferred per [D-02](OPEN-QUESTIONS.md#decision-log). Moves to `04.07.04` once concrete demand surfaces.
 
-**Acceptance criteria:**
-- One-verb batch: spawn N projects from the brief, run end-to-end draft → ship pipeline on each, respect concurrency cap 3.
+**Acceptance criteria:** (post-launch)
+- One-verb batch: spawn N projects from the brief, run end-to-end pipeline on each, respect concurrency cap 3.
 - Stops only on quality-gate refusal or explicit interrupt.
 - Final summary: `{ projects: [...], renders: [...], total_cost_usd, wall_time_s, failures: [...] }`.
 
 ### 04.05.02 Producer playbook updated  [ ]
-**v1.0:** yes
+**v1.0:** no — deferred per [D-02](OPEN-QUESTIONS.md#decision-log).
 
-**Acceptance criteria:**
+**Acceptance criteria:** (post-launch)
 - `docs/playbooks/producer.md` reflects the verb + the autonomy contract (no per-scene confirmation, fail loudly on quality).
 
 ### 04.05.03 Concurrency budget respected  [~]
-**v1.0:** yes
+**v1.0:** stretch — concurrency caps are still relevant for single-project work that fans out (e.g., generating 10 image variants in parallel for one scene), but the batch-spawn use case is deferred.
 
 **Acceptance criteria:**
 - ElevenLabs concurrency cap 3; OpenRouter concurrent jobs auto-tuned.
@@ -233,7 +227,7 @@ Batch flow with minimal confirmation.
 
 ## 04.06 Interrupt + resume
 
-The agent and CLI survive Ctrl-C; state is recoverable.
+Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 ships clean SIGINT handling but not a dedicated resume verb. The agent re-engages with the user in chat and reads the append-only gen log + manifest to pick up where the previous session left off — no `ralphy resume <project-id>` is needed because the project state is already self-describing.
 
 ### 04.06.01 SIGINT propagates and commits partial state  [ ]
 **v1.0:** yes
@@ -244,11 +238,13 @@ The agent and CLI survive Ctrl-C; state is recoverable.
 - Cross-link [`01.07.02`](../01-cli/SPEC.md).
 
 ### 04.06.02 `ralphy resume <project-id>` continues a cancelled run  [ ]
-**v1.0:** yes
+**v1.0:** no — deferred per [D-02](OPEN-QUESTIONS.md#decision-log). Reopen as `04.07.05` if soft-launch testers consistently lose context after Ctrl-C.
 
-**Acceptance criteria:**
+**Acceptance criteria:** (post-launch)
 - Detects the last cancelled stage from the gen-log and resumes from the next step.
 - Idempotent — re-running doesn't duplicate completed work.
+
+**Notes:** v1.0 substitute — the user simply re-engages with the agent in chat ("ok, продолжаем с scene-04"); the agent reads gen-log + manifest to know what's already done.
 
 ### 04.06.03 Chat-side "stop" interrupt  [ ]
 **v1.0:** stretch
@@ -278,3 +274,9 @@ The agent and CLI survive Ctrl-C; state is recoverable.
 
 **Acceptance criteria:**
 - "Show me my best video this month" answered from gen-log + eval data + (eventually) external analytics.
+
+### 04.07.04 Producer / batch mode  [ ]
+**v1.0:** no — full acceptance criteria mirror `04.05.01` / `04.05.02`. Reopen when soft-launch testers ask for batch-N-from-one-brief.
+
+### 04.07.05 `ralphy resume <project-id>`  [ ]
+**v1.0:** no — full acceptance criteria mirror `04.06.02`. Reopen if chat-driven re-engage proves insufficient after soft launch.

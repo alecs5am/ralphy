@@ -47,6 +47,20 @@ The Anthropic-published spec is the industry-converging standard. Adopt verbatim
 - New doc explains the format, links to agentskills.io, shows an annotated example (probably `ralph-researcher`).
 - Referenced from `CONTRIBUTING.md` for new contributors.
 
+### 03.01.04 Two-namespace skill split: `ralphy:` (user) vs `ralphy-dev:` (maintainer)  [ ]
+**v1.0:** yes
+
+**Acceptance criteria:**
+- Repo `.agents/skills/` is reorganized into two top-level groups so slash commands surface as `/ralphy:<skill>` for end-users and `/ralphy-dev:<skill>` for maintainer-only flows. Mechanism: either nested directories (`.agents/skills/ralphy/<skill>/SKILL.md` + `.agents/skills/ralphy-dev/<skill>/SKILL.md`) or a `namespace: ralphy | ralphy-dev` frontmatter field consumed by the install wizard — implementation chooses whichever Claude Code's slash-prefix rendering supports cleanly.
+- Initial classification:
+  - **`ralphy:`** (user-invokable): `postmortem`, `ralph-evaluator` → `evaluator`, `ralph-researcher` → `researcher`, `ralph-templater` → `templater`, `ralphy-install` → `install` (the skill names lose the redundant `ralph-` / `ralphy-` prefix because the namespace prefix already says it).
+  - **`ralphy-dev:`** (maintainer-only): `release`, `remotion-best-practices`, `skill-creator`.
+- `ralphy skill install` (the wizard from `03.02.06`) installs only the `ralphy:` namespace by default. `ralphy skill install --dev` (or auto-detect when running inside the `alecs5am/ugc-cli` checkout) additionally installs the `ralphy-dev:` namespace.
+- Rename / symlink migration is captured in a small migration note (no breakage for existing maintainer-side usage of `/release` — old slash names alias to the new namespaced names for one release cycle, then drop).
+- README + Mintlify quickstart reference only `ralphy:` slash commands. The `ralphy-dev:` namespace is documented in `CONTRIBUTING.md` / `docs/dev-skills.md`, not in the public quickstart.
+
+**Notes:** rationale — keeps the user-facing slash menu uncluttered (a tester typing `/` shouldn't see `/release` and wonder if it ships their project; that's a maintainer-only operation on the ralphy binary itself). The split also lets us evolve the maintainer skill set freely without affecting the user-facing surface contract.
+
 ---
 
 ## 03.02 Cross-agent installer
@@ -89,7 +103,23 @@ The `ralphy skill install` verb (CLI side at [`01.01.06`](../01-cli/SPEC.md)) co
 
 **Acceptance criteria:**
 - `ralphy skill uninstall [--agent <id>]` removes everything the installer placed.
+- For files written under sentinels (per [D-02](OPEN-QUESTIONS.md#decision-log)), uninstall strips the block and leaves the surrounding file content untouched.
 - Re-running install after uninstall produces identical state to a first-install.
+
+### 03.02.06 Interactive wizard + config persistence  [ ]
+**v1.0:** yes — per [D-03](OPEN-QUESTIONS.md#decision-log).
+
+**Acceptance criteria:**
+- On the first `ralphy skill install` (and as a sub-step of `ralphy setup` per `01.04.02`), launch an interactive wizard:
+  1. Detect installed agents by probing for `~/.claude/`, `~/.cursor/`, `~/.codex/`, repo-root `AGENTS.md`, `.github/copilot-instructions.md`.
+  2. Multi-select prompt: "install Ralphy skill bundle for: [x] claude [x] cursor [ ] codex" (defaults to detected set, can be edited).
+  3. Per agent where ambiguity exists, ask scope: "user (works in every project, recommended) or project (this checkout only)?" Default = `user`. Codex is forced project-scope (AGENTS.md is repo-root).
+- Persist to `~/.ralphy/config.json`: `skill.installedAgents` (list of agent ids), `skill.installScope` (`user` | `project`), `skill.installDevNamespace` (`true` | `false`, default `false` — installs `ralphy-dev:*` only when explicitly opted in or auto-detected via `ugc-cli` checkout, per `03.01.04`), `skill.wizardCompletedAt` (timestamp). The wizard does NOT prompt for `--symlink` vs `--copy` — that's auto-detected per [D-01](OPEN-QUESTIONS.md#decision-log).
+- Subsequent `ralphy skill install` runs read the config and reinstall non-interactively against the persisted target set.
+- `ralphy skill install --reconfigure` re-launches the wizard. `--agent <id> --scope <s>` bypasses the wizard entirely (CI / power users).
+- The wizard inherits the CLI's pretty/JSON contract — TTY = interactive; `--json` or piped = wizard refuses and errors with `E_WIZARD_NEEDS_TTY` + hint to pass explicit flags.
+
+**Notes:** modelled on Remotion's `npx create-video@latest` "Say yes to install Skills" flow.
 
 ---
 
@@ -97,56 +127,47 @@ The `ralphy skill install` verb (CLI side at [`01.01.06`](../01-cli/SPEC.md)) co
 
 Description is the trigger contract. Bad descriptions fire on wrong utterances and miss right ones.
 
-### 03.03.01 Description length lint  [ ]
-**v1.0:** yes
+### 03.03.01 Description length lint  [x] (cancelled — D-04)
+**v1.0:** no
 
-**Acceptance criteria:**
-- Lint fails on description > 1536 chars (Claude Code budget cap).
-- Warns on description < 80 chars (probably under-specified).
+**Resolution (2026-05-20):** No automated lint per [D-04](OPEN-QUESTIONS.md#decision-log). Length guidance moves into `03.03.04` author guide; revisit as `03.07.04` if real trigger drift surfaces.
 
 ### 03.03.02 Description shape lint  [ ]
-**v1.0:** yes
+**v1.0:** no — downgraded per [D-04](OPEN-QUESTIONS.md#decision-log). Re-evaluate during v0.3 scope review only if drift surfaces from outside contributors.
 
-**Acceptance criteria:**
+**Acceptance criteria:** (post-launch)
 - First sentence must describe the *purpose* (what the skill does).
 - Second sentence (or block) must list *trigger phrases* — at least 3 EN + optional RU.
 - Lint pattern-matches; failures point at the offending skill.
 
-### 03.03.03 Trigger accuracy eval  [ ]
-**v1.0:** yes
+### 03.03.03 Trigger accuracy eval  [x] (cancelled — D-07)
+**v1.0:** no
 
-**Acceptance criteria:**
-- `bun run eval:skill-routing` runs the canonical utterances from `docs/use-cases.md` through a cheap LLM with the skill description list, asks which skill fires, asserts the expected one.
-- Pass threshold: ≥ 90% accuracy.
-- CI failure on regression.
+**Resolution (2026-05-20):** Cancelled per [D-07](OPEN-QUESTIONS.md#decision-log). Skills are user-invokable techniques (`/postmortem`, `/release`, etc.) — they fire on explicit user invocation, not on auto-routed natural language. The natural-language routing surface is AGENTS.md (`03.05.01` covers its audit). A trigger-accuracy eval optimizes for a use case we've chosen not to rely on.
 
 ### 03.03.04 Description authoring guide  [ ]
-**v1.0:** yes
+**v1.0:** yes — absorbs the length guidance per [D-04](OPEN-QUESTIONS.md#decision-log); refocused per [D-07](OPEN-QUESTIONS.md#decision-log).
 
 **Acceptance criteria:**
 - `docs/skills-format.md` includes a "writing a great description" section with do/don't examples.
-- Cites the synthetic eval as the feedback loop.
+- Frames descriptions as **user-facing summaries** — what the user is invoking this skill for, what it produces, when to reach for it — NOT as auto-route trigger phrase lists.
+- One paragraph explicitly describes the Claude Code trigger-budget reality: descriptions are concatenated for slash-command menu rendering and "suggest this skill" surfaces; ~1500 chars is a soft ceiling per skill; over-stuffing makes the menu noisy without helping the user pick. Shows one good (~300-char) and one bad (~1800-char) example.
 
 ---
 
 ## 03.04 `!`-block state preloading
 
-Claude Code SKILL.md supports `` !`<command>` `` blocks that run before the prompt is sent. Use them.
+Decided NOT to ship per [D-05](OPEN-QUESTIONS.md#decision-log). Topic kept for traceability — agent decides per-invocation what state to fetch via `ralphy <verb>` tool calls; the baseline preload (`ralphy whoami` / `ralphy status` on session start) lives in `AGENTS.md` step 0, not inside individual SKILL.md files.
 
-### 03.04.01 Entry skills preload project state  [ ]
-**v1.0:** yes
+### 03.04.01 Entry skills preload project state  [x] (cancelled — D-05)
+**v1.0:** no
 
-**Acceptance criteria:**
-- Each playbook-entry skill (scenarist, art-director, editor, producer, evaluator) starts with a `## Context` block running `!ralphy status`, `!ralphy project show $PROJECT` (if `$PROJECT` is set).
-- Output is captured and made available to the agent without an extra tool call.
-- Documented limit: only when `disable-model-invocation` is unset and the agent supports `!`-blocks.
+**Resolution (2026-05-20):** No structured `!`-block preloading per [D-05](OPEN-QUESTIONS.md#decision-log). Baseline preload covered by `AGENTS.md` step 0; finer-grained state is the agent's call per invocation.
 
-### 03.04.02 Fallback for non-Claude-Code agents  [ ]
-**v1.0:** yes
+### 03.04.02 Fallback for non-Claude-Code agents  [x] (cancelled — D-05)
+**v1.0:** no
 
-**Acceptance criteria:**
-- Cursor / Copilot adapters: convert `!`-blocks into a "first action: run this command" inline instruction.
-- Documented in the adapter behavior.
+**Resolution (2026-05-20):** Cancelled as a downstream of `03.04.01` — no fallback needed when the source mechanic is dropped.
 
 ---
 
@@ -158,17 +179,16 @@ Claude Code SKILL.md supports `` !`<command>` `` blocks that run before the prom
 **v1.0:** yes
 
 **Acceptance criteria:**
-- Every row in the routing table points at an existing playbook.
+- AGENTS.md is the **source of truth** for routing per [D-06](OPEN-QUESTIONS.md#decision-log); CLAUDE.md is a Claude-Code-specific consumer (`@`-imports AGENTS.md, may add Claude-flavored personal context but no routing rules).
+- Every row in the AGENTS.md routing table points at an existing playbook.
 - Every playbook listed has a matching SKILL.md.
 - Every hard invariant referenced (#1..#13) is current.
-- `bun run lint:agents-md` enforces.
+- `bun run lint:agents-md` enforces: AGENTS.md has no Claude-isms (no `~/.claude/` paths, no `claude mcp add` references in the routing table); CLAUDE.md contains no routing rules not also present in AGENTS.md.
 
-### 03.05.02 `AGENTS.md` includes a "for non-Claude agents" section  [ ]
-**v1.0:** yes
+### 03.05.02 `AGENTS.md` is multi-agent by default  [x] (folded into 03.05.01 — D-06)
+**v1.0:** no
 
-**Acceptance criteria:**
-- New short section explaining: the routing is a contract; if your agent doesn't have a skill system, read the table and follow it manually.
-- Acknowledges Codex / Aider / Zed natively read AGENTS.md.
+**Resolution (2026-05-20):** Per [D-06](OPEN-QUESTIONS.md#decision-log), AGENTS.md is canonical for every agent — Codex, OpenCode, Aider, and Cursor (via the adapter) all consume it natively or via pointer. No separate "for non-Claude agents" subsection needed; the file's existence + content already targets the multi-agent audience.
 
 ### 03.05.03 Versioning convention  [ ]
 **v1.0:** stretch
@@ -219,3 +239,12 @@ When you add a playbook, the skill should follow without manual ceremony.
 
 **Acceptance criteria:**
 - A read-only registry of community-published skills, listable via `ralphy skill discover`.
+
+### 03.07.04 Reintroduce description-length lint  [ ]
+**v1.0:** no — trigger condition only.
+
+**Acceptance criteria:**
+- Reopen when external contributors start adding skills and review-on-PR can't catch description drift, OR when a real "skill stopped triggering" bug is traced to an over-budget description.
+- At that point, ship: lint script that walks `.agents/skills/*/SKILL.md`, parses frontmatter, flags description > 1536 chars; CI required check; one-line fix-it hint pointing at `docs/skills-format.md`.
+
+**Notes:** parked per [D-04](OPEN-QUESTIONS.md#decision-log). Today (v0.x) the description guidance lives in the author guide only.
