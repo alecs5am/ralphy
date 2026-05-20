@@ -10,7 +10,7 @@
 //   research list
 //
 // Output lands in workspace/research/<topic>/ → report.md + sources.json.
-// The `/ralph-researcher` skill is the human entry-point; this CLI is the
+// The `/ralphy-researcher` skill is the human entry-point; this CLI is the
 // machine contract.
 
 import { Command } from "commander";

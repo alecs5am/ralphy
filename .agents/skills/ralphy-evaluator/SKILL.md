@@ -1,5 +1,5 @@
 ---
-name: ralph-evaluator
+name: ralphy-evaluator
 namespace: ralphy
 description: >-
   Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness / dead-air, caption density, and per-scene visual analysis. Produces an actionable report (eval.json + eval-report.md) sized for a downstream fixer agent.
@@ -9,7 +9,7 @@ description: >-
   See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 
-# ralph-evaluator
+# ralphy-evaluator
 
 ## Trigger refinements
 
@@ -28,7 +28,7 @@ You evaluate rendered UGC videos and produce a report that another agent (the fi
 
 ## What this skill is not
 
-- Not a researcher tool. For "analyze this TikTok/Reel from a creator I want to imitate", route to `/ralph-researcher`.
+- Not a researcher tool. For "analyze this TikTok/Reel from a creator I want to imitate", route to `/ralphy-researcher`.
 - Not a fixer. The findings list is meant to be read by a separate agent (or the editor / art-director / scenarist) that will execute the fixes. Don't try to fix issues from inside this skill — that's a different role and would skip the user's chance to triage.
 - Not a publisher / scheduler. Verdict is informational, not a publish gate.
 
@@ -88,7 +88,7 @@ When the user says "fix the issues" or similar, a downstream agent will read `ev
 - Project id (if any)
 - Optional: which finding ids to skip (template false-positives)
 
-Do not try to fix from inside ralph-evaluator. The skill ends at the report.
+Do not try to fix from inside ralphy-evaluator. The skill ends at the report.
 
 ## References
 

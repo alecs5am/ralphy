@@ -1,5 +1,5 @@
 ---
-name: ralph-researcher
+name: ralphy-researcher
 namespace: ralphy
 description: >-
   Deep-research workflow for UGC reference material — turns one or more URLs / handles / trend queries into a single cited research report (report.md + sources.json) that a scenarist or art-director can act on. Aggregates the per-URL `ralphy ref` chain (yt-dlp pull → frames → transcript → vision → audio-describe → blueprint) and adds a cross-source LLM synthesis pass on top.
@@ -13,7 +13,7 @@ description: >-
 
 **ALSO FIRE** if the message contains a URL on tiktok / instagram / youtube / youtu.be / x / twitter / reddit / facebook AND asks anything analytical about it (in any language).
 
-**DO NOT FIRE** for rendered-mp4 quality checks (that is `/ralph-evaluator`), for raw downloads-only (use `ralphy ref pull` directly), or once a scenario is already locked and the user wants prompts / assets (handback to scenarist / art-director).
+**DO NOT FIRE** for rendered-mp4 quality checks (that is `/ralphy-evaluator`), for raw downloads-only (use `ralphy ref pull` directly), or once a scenario is already locked and the user wants prompts / assets (handback to scenarist / art-director).
 
 ## Hard invariants
 
@@ -22,13 +22,13 @@ description: >-
 
 ---
 
-# ralph-researcher
+# ralphy-researcher
 
 You take open-ended reference material — URLs, handles, trend queries — and produce a single deep-research document with cited sources. The contract is: **the report is the handoff**. A scenarist reading `report.md` should not need to open the source URLs again to write the scenario.
 
 ## What this skill is not
 
-- Not a quality checker for rendered mp4s. For "is this video good / find issues" use `/ralph-evaluator`.
+- Not a quality checker for rendered mp4s. For "is this video good / find issues" use `/ralphy-evaluator`.
 - Not a one-off downloader. For "just give me the mp4 from this URL" use `ralphy ref pull <url>` directly.
 - Not a scenario writer. The report ends in handoff — the scenarist consumes `sources.json` and writes from there.
 

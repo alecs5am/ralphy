@@ -220,7 +220,7 @@ These models / families were removed during OpenRouter consolidation (Sprint 1.3
 - `fal-ai/seedream` — out.
 - Replicate `wav2lip` — out (no token, no stage).
 - `openai/gpt-image-1`, `dall-e-3`, `stable-diffusion-xl`, `flux/schnell` — outdated.
-- Apify — replaced with a Playwright scraper in `/ralph-researcher` (deferred to v2).
+- Apify — replaced with a Playwright scraper in `/ralphy-researcher` (deferred to v2).
 - Higgsfield Soul, Fireworks Whisper — require separate keys, not in the stack.
 - Vercel AI Gateway, direct OpenAI API — single-provider OpenRouter in v2.
 
