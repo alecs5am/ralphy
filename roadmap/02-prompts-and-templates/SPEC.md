@@ -124,26 +124,26 @@ Every video / image model has a published prompt skeleton. Below the goal-organi
 
 ---
 
-## 02.02 Reference grammar (cref / sref / pref)
+## 02.02 Reference grammar
 
-A three-slot ref grammar replaces flat `--ref`.
+Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 keeps the existing single `--ref` flag. The 3-slot grammar (`--cref / --sref / --pref`) ships post-launch alongside `02.01.x` prompt-adapter work, when provider integrations actually need role-separated channels.
 
 ### 02.02.01 CLI flags `--cref`, `--sref`, `--pref`  [ ]
-**v1.0:** yes
+**v1.0:** no — deferred per [D-02](OPEN-QUESTIONS.md#decision-log). Moves to `02.09.05` (post-launch).
 
-**Acceptance criteria:**
+**Acceptance criteria:** (post-launch)
 - `ralphy generate {image|video} --cref <character.png> --sref <style.png> --pref <product.png>`.
 - All three accept URL / local path / data-URI.
 - Each can be repeated (`--cref a.png --cref b.png` for multi-ref consistency).
-- Legacy `--ref` is a passthrough — it still works but logs a deprecation hint and is documented as "use cref/sref/pref".
+- Legacy `--ref` stays as a synonym for `--cref` (the most common single-ref use), continuing to work after the 3-slot grammar ships.
 
 ### 02.02.02 Provider layer routes refs to the right model slot  [ ]
-**v1.0:** yes
+**v1.0:** stretch — provider-internal optimization. The single `--ref` may already be split internally by the adapter when the model benefits (Runway Gen-4 cref/sref split is the most likely first beneficiary).
 
 **Acceptance criteria:**
-- Runway: `--cref → subjectReference[]`, `--sref → styleReference[]`, `--pref → subjectReference[]` with `kind: product`.
-- Gemini image: all merged into multi-ref input; order matters → cref first.
-- Kling: first-frame / last-frame are still anchored via `--first-frame` / `--last-frame` (separate flags); cref/sref are hints inside the prompt formula.
+- Runway: refs categorized into `subjectReference[]` / `styleReference[]` by heuristic (filename hint OR provider-internal classifier).
+- Gemini image: all refs merged into multi-ref input; first ref is the identity anchor.
+- Kling: first-frame / last-frame anchored via `--first-frame` / `--last-frame` (separate flags); refs are hints inside the prompt formula.
 - OpenAI image: refs appended to message in the multimodal call.
 - Each routing rule documented in `docs/prompts/refs.md`.
 
@@ -151,8 +151,9 @@ A three-slot ref grammar replaces flat `--ref`.
 **v1.0:** yes
 
 **Acceptance criteria:**
-- Project-level master shots (`master/character.png`, `master/style.png`, `master/product.png`) auto-populate cref/sref/pref on every gen unless explicitly overridden.
+- Project-level master shots (under `workspace/projects/<id>/master/`) auto-populate the `--ref` list on every gen unless explicitly overridden.
 - Implements the [`feedback_super_original_refs`](../../.claude/projects/-Users-maximovchinnikov-github-ugc-cli/memory/feedback_super_original_refs.md) memory.
+- When the 3-slot grammar lands post-launch (`02.09.05`), this task auto-promotes: master/character.png → `--cref`, master/style.png → `--sref`, master/product.png → `--pref`.
 
 ---
 
@@ -201,23 +202,25 @@ Scene as a struct, not prose. Borrowed from Argil's moments[].
 
 **Acceptance criteria:**
 - `scenario.json` schema: `{ project_id, brand_slug, persona_slug, target_duration_s, hook: SceneRef, body: SceneRef[], cta: SceneRef, scenes: { [id]: Scene } }`.
-- `Scene` = `{ id, role: "hook"|"body"|"cta", vo_text, target_duration_s, camera, lighting?, gesture?, broll?, refs: { cref?, sref?, pref? } }`.
+- `Scene` = `{ id, role: "hook"|"body"|"cta", vo_text, target_duration_s, camera, lighting?, gesture?, broll?, refs: string[], notes?: string }` per [D-01](OPEN-QUESTIONS.md#decision-log). `notes` is a free-text catch-all for nuance the schema can't express; the art-director appends it as a "director intent" paragraph to the model-specific prompt body.
 - Zod schema in `cli/lib/schemas/scenario.ts`; validated by `ralphy project validate`.
+- `refs` is a flat `string[]` for v1.0 per [D-02](OPEN-QUESTIONS.md#decision-log); the 3-slot `{ cref, sref, pref }` shape lands post-launch (`02.09.05`).
 
 ### 02.04.02 Scenarist playbook emits the new shape  [ ]
 **v1.0:** yes
 
 **Acceptance criteria:**
-- `docs/playbooks/scenarist.md` updated with the schema as the output contract.
+- `docs/playbooks/scenarist.md` updated with the schema as the output contract per [D-01](OPEN-QUESTIONS.md#decision-log) — scenarist LLM uses Zod `response_format` to emit structured `Scene[]`; `notes` is reserved for nuance the enum/struct can't capture, not for prose dumping.
 - Existing scenarios are migrated by `ralphy project migrate-scenario` (one-off verb, deprecates post-v1.0).
 
 ### 02.04.03 Gesture vocabulary committed  [ ]
 **v1.0:** yes
 
 **Acceptance criteria:**
-- `cli/lib/schemas/gestures.ts` exports an enum: `["point", "nod", "laugh", "shrug", "lean-in", "hand-product-reveal", "eye-roll", "facepalm", "thumbs-up", "head-shake"]`.
+- `cli/lib/schemas/gestures.ts` exports an enum of 10-12 named gestures per [D-06](OPEN-QUESTIONS.md#decision-log) — starting set: `["point-camera", "nod", "laugh", "shrug", "lean-in", "hand-product-reveal", "eye-roll", "facepalm", "thumbs-up", "head-shake", "palm-open", "pause-still"]`. Each has a one-line semantic definition in the source file.
 - Scene `gesture` field constrained to this enum.
-- Per-model adapter translates the gesture into the model's natural language ("a slow lean-in toward the camera" for Veo, "[Speaker, leaning in]:" for Kling).
+- Niche / one-off gesture intent goes into `Scene.notes` (per [D-01](OPEN-QUESTIONS.md#decision-log)) — adapters read both.
+- Per-model adapter translates the enum gesture into the model's natural language ("a slow lean-in toward the camera" for Veo, "[Speaker, leaning in]:" for Kling); unknown enum values are silently omitted, never error.
 
 ---
 
@@ -229,8 +232,10 @@ Templates declare their requirements; `template use` validates before running.
 **v1.0:** yes
 
 **Acceptance criteria:**
-- Schema: `{ id, kind: "vibe-reference"|"vibe-style", category, requires: { brand?, persona?, refs?: { character?: int, style?: int, product?: int }, music_style?, voice_style? }, scenes: SceneTemplate[], estimated_cost_usd, estimated_duration_s, references: string[] }`.
-- Zod schema in `cli/lib/schemas/template.ts`.
+- Schema: `{ version: 1, id, kind: "vibe-reference"|"vibe-style", category, requires: { brand?, persona?, refs?: int, music_style?, voice_style? }, scenes: SceneTemplate[], estimated_cost_usd, estimated_duration_s, references: string[] }`.
+- `version: 1` is mandatory per [D-03](OPEN-QUESTIONS.md#decision-log). Missing or unknown version → loader errors with `E_TEMPLATE_VERSION_UNSUPPORTED`.
+- `refs: int` is a single integer count for v1.0 (matches the flat `--ref` grammar from [D-02](OPEN-QUESTIONS.md#decision-log)); the 3-slot shape `{ character, style, product }` lands post-launch with `02.09.05`.
+- Zod schema in `cli/lib/schemas/template.ts`. Reader keeps a `v1` parser; future `v2` reader gets added alongside the schema bump, with v1 staying supported for at least one major release cycle.
 
 ### 02.05.02 `ralphy template use <slug>` validates before scaffolding  [ ]
 **v1.0:** yes
@@ -266,32 +271,30 @@ The five templates that gate v1.0 (per `templates/TOP.md`) need to be impeccable
 - A reference rendered mp4 exists at `templates/<cat>/<slug>/reference.mp4` (with cached cheap-resolution version).
 - Golden render test wired in `11.02`.
 
-### 02.06.02 Naming audit — creator-archetype where applicable  [ ]
-**v1.0:** yes
+### 02.06.02 Naming audit — archetypal slugs only, creator names in prose only  [ ]
+**v1.0:** yes — per [D-05](OPEN-QUESTIONS.md#decision-log).
 
 **Acceptance criteria:**
-- `templates/TOP.md` includes the rename map: e.g., `talking-head-rant → hormozi-talking-head` (if the archetype fits), `before-after → mr-beast-cold-open` (if it fits), etc.
-- Old slugs are preserved as aliases (a `aliases:` field in `template.yaml`).
+- Pass through every slug under `templates/<category>/<slug>/`; flag any that embed a real person's or brand's name (e.g., `hormozi-...`, `mr-beast-...`, `oldspice-...`).
+- Rename flagged slugs to archetypal equivalents (`deadpan-monologue-pov`, `cold-open-reveal`, `bright-pastel-commercial-register`). Old slug stays as an alias in `template.yaml` (`aliases: ["<old>"]`) for one major-release cycle, then drops.
+- Creator references stay allowed as **prose** inside the template's `README.md` / `composition.md` ("emulates the Old Spice 2010s commercial register") — never in the slug, file path, or CLI surface.
+- Add a lint rule (`bun run lint:templates`) blocking new templates whose slug contains a recognizable creator/brand token; maintainer-driven manual list of blocked tokens in `cli/lib/schemas/template.ts`.
 
 ---
 
-## 02.07 Landing template gallery
+## 02.07 Landing template discovery
 
-The discovery surface for new users.
+Per [D-04](OPEN-QUESTIONS.md#decision-log), v1.0 reuses the existing landing showcase marquee (commit `2e61cbb`, 11 hand-curated renders) as the canonical "browse what Ralphy makes" surface. No standalone `/templates` route ships in v1.0. The full catalog stays enumerable via `ralphy template list -p` (CLI) and `templates/CATEGORIES.md` (GitHub).
 
-### 02.07.01 Gallery page on landing  [ ]
-**v1.0:** yes
+### 02.07.01 Gallery page on landing  [x] (cancelled — D-04)
+**v1.0:** no
 
-**Acceptance criteria:**
-- `landing/app/templates/page.tsx` (new route) lists every template with: name, category, one-line description, estimated cost, "try it" snippet.
-- Data comes from `templates/*/template.yaml` at build time.
-- Pretty grid, mobile-responsive, matches landing design tokens.
+**Resolution (2026-05-20):** Subsumed by the existing landing showcase marquee. Reopen as `02.09.04` if the catalog grows past what hand-curated showcase content can represent.
 
-### 02.07.02 Per-template detail page  [ ]
-**v1.0:** stretch
+### 02.07.02 Per-template detail page  [x] (cancelled — D-04)
+**v1.0:** no
 
-**Acceptance criteria:**
-- `landing/app/templates/[slug]/page.tsx` shows: composition, reference render embed, `ralphy template use` snippet, link to GitHub source.
+**Resolution (2026-05-20):** Cancelled alongside `02.07.01`. Per-template documentation lives in `templates/<cat>/<slug>/README.md` on GitHub; CLI users get `ralphy template show <slug>` for the inspection surface.
 
 ---
 
@@ -342,3 +345,22 @@ Typed script schema enables cheap A/B batch variation.
 
 **Acceptance criteria:**
 - An agent skill that walks a user through authoring a template: collect intent, pick scenes, pick model defaults, write the yaml.
+
+### 02.09.04 Standalone `/templates` gallery on landing  [ ]
+**v1.0:** no — reopens per [D-04](OPEN-QUESTIONS.md#decision-log) when catalog growth exceeds what hand-curated showcase content can represent.
+
+**Acceptance criteria:** (post-launch — mirrors original `02.07.01` / `02.07.02`)
+- `landing/app/templates/page.tsx` lists every template with name, category, one-line description, estimated cost, "try it" snippet.
+- `landing/app/templates/[slug]/page.tsx` shows composition + reference render embed + CLI snippet + link to GitHub source.
+- Data comes from `templates/*/template.yaml` at build time (static, per [D-04](OPEN-QUESTIONS.md#decision-log)).
+- Trigger condition: ≥ 60 templates in `templates/` OR explicit tester feedback that the showcase doesn't surface what they want to try.
+
+### 02.09.05 3-slot reference grammar (`--cref / --sref / --pref`)  [ ]
+**v1.0:** no — reopens per [D-02](OPEN-QUESTIONS.md#decision-log) alongside `02.01.x` prompt-adapter work.
+
+**Acceptance criteria:** (post-launch — mirrors original `02.02.01` / `02.02.02`)
+- CLI flags `--cref` (character / identity), `--sref` (style / aesthetic), `--pref` (product / hero object). Each accepts URL / local path / data-URI; each repeatable.
+- Legacy `--ref` stays as a synonym for `--cref` (most common single-ref use) for backward compatibility.
+- Provider layer routes per model: Runway → `subjectReference[]` / `styleReference[]`; Midjourney v7 → `--cref` / `--sref` passthrough; Gemini image → multi-ref input ordered cref-first; Kling → prompt-formula hints.
+- `Scene.refs` shape upgrades from `string[]` to `{ cref?: string[], sref?: string[], pref?: string[] }` with a one-pass migration verb that reads the old shape as `cref`.
+- Master shots (`workspace/projects/<id>/master/{character,style,product}.png`) auto-populate the matching slot per `02.02.03`.
