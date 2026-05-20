@@ -1,0 +1,96 @@
+---
+title: "Eval and research"
+description: "ralphy eval video for post-render QA and ralphy research for URL or topic teardowns."
+---
+
+Two verbs sit at the bookends of a project. `ralphy research` is the pre-production teardown — turn a URL, handle, or topic into a cited report a scenarist can act on. `ralphy eval` is the post-render QA — score a rendered mp4 across scene segmentation, audio, captions, and per-scene vision. Both are CLI-native entry points to skills (`/ralph-researcher`, `/ralph-evaluator`); the verbs are the machine contract.
+
+## ralphy eval video &lt;path&gt;
+
+Runs the full eval pipeline on a single mp4. Output: `eval-report.md` (human) + `eval.json` (machine).
+
+```bash
+ralphy eval video workspace/projects/demo-001/render/final.mp4
+ralphy eval video ./some-other.mp4 --no-project    # standalone, no project context
+ralphy eval video ./clip.mp4 --no-vision           # skip the per-scene LLM pass (cheaper)
+ralphy eval video ./clip.mp4 --out-dir ./eval-out  # custom output dir
+ralphy eval video ./clip.mp4 --vision-concurrency 5
+```
+
+The CLI summary returns `{ verdict, score, findings, severities, jsonPath, mdPath }`. The full report carries scene segmentation, loudness windows, dead-air spots, caption density, per-scene visual findings — sized for a downstream fixer agent to consume.
+
+### What the pipeline does
+
+1. ffprobe the input — duration, resolution, fps, codec.
+2. Scene segmentation via ffmpeg scene-detect.
+3. Audio analysis — EBU R128 loudness windows, dead-air windows.
+4. Caption check — density per scene, gap windows.
+5. Per-scene vision pass — frames extracted, sent through `cli/lib/providers/llm.ts`.
+6. Score + verdict + findings written to `eval-report.md` and `eval.json`.
+
+Per [AGENTS.md invariant #2](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), the vision pass routes through `cli/lib/providers/llm.ts` — agents never reach for raw provider SDKs.
+
+### Quality gates
+
+When the score crosses a refuse threshold, the verb raises one of `E_GATE_SCENARIO`, `E_GATE_IMAGE`, or `E_GATE_VIDEO` (see [Error catalog](/cli/error-catalog)). Two consecutive gate refusals on the same project are the agent's stop signal — report concrete options to the user rather than render again.
+
+Full surface: [`/reference/cli/eval`](/reference/cli/eval).
+
+## ralphy research
+
+Topic-level research that aggregates multiple sources into one synthesis. Sibling to `ralphy ref <verb>` (single URL) — research composes refs into a cross-source report.
+
+```bash
+# Create a topic
+ralphy research start italian-brainrot --question "How is the format evolving in 2026?"
+
+# Add one or more sources
+ralphy research add-source https://tiktok.com/@x/video/72939... --topic italian-brainrot
+ralphy research add-source https://www.youtube.com/shorts/abc --topic italian-brainrot --frames 24
+
+# Pull metadata only (no frames / transcript / vision)
+ralphy research add-source https://twitter.com/x/status/123 --topic italian-brainrot --meta-only
+
+# Synthesize the report (LLM)
+ralphy research synthesize italian-brainrot
+ralphy research synthesize italian-brainrot --model google/gemini-2.5-flash
+
+# Inspect / list
+ralphy research show italian-brainrot
+ralphy research list
+```
+
+Output lands under `workspace/research/<topic>/`:
+
+```text
+workspace/research/italian-brainrot/
+├── report.md          # final synthesis
+├── sources.json       # every source + per-source analysis
+└── state.json         # topic state (question, sources, last synth)
+```
+
+The `/ralph-researcher` skill is the human entry-point; this CLI is the contract underneath. Full surface: [`/reference/cli/research`](/reference/cli/research).
+
+### Source pulls
+
+`add-source` chains `ralphy ref pull` → `ref frames` → `ref analyze` → `ref blueprint` for each URL, then registers the result against the topic. `--meta-only` skips the heavy passes (useful for sources you only want to cite, not analyze deeply). `--frames <n>` caps the sample count.
+
+### Synthesis
+
+`synthesize` runs a cross-source LLM pass over every source's blueprint + transcript + analysis. Default model: `google/gemini-2.5-flash`. The report includes a cited findings section and per-source pull-quotes the agent can lift verbatim into a scenario.
+
+## When to use which
+
+| Symptom | Verb |
+|---|---|
+| User drops one URL, wants a teardown | `ralphy research add-source` (or the `/ralph-researcher` skill) |
+| User wants a topic-wide audit ("what's trending in X") | `ralphy research start` + several `add-source` |
+| User asks "is this video good?" | `ralphy eval video <path>` |
+| Post-render gate before publish | `ralphy eval video <render>` |
+
+## Related
+
+- [Researcher playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/researcher.md) — the agent-side workflow
+- [Evaluator skill](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralph-evaluator/SKILL.md) — eval triggers + invariants
+- [Error catalog](/cli/error-catalog) — `E_GATE_*` codes
+- [cli/commands/eval.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/eval.ts), [cli/commands/research.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/research.ts)

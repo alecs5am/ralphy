@@ -1,0 +1,147 @@
+---
+title: "Your first video"
+description: "From a one-line brief to a rendered mp4, driven by chat in your editor. About 8 minutes."
+---
+
+You'll type one sentence in your editor's chat, answer 3-5 clarifying questions, watch Ralphy generate scenes one at a time, and end with `final.mp4` on disk. Target time: 5-8 minutes cold-start, per the [perf targets](https://github.com/alecs5am/ralphy/blob/main/docs/perf-targets.md). If you don't yet have an editor connected, do that first — [Connect your editor](/quickstart/connect-editor).
+
+<Steps>
+  <Step title="Open the project, confirm the agent is connected">
+    Open your `ugc-cli` checkout in your editor:
+
+    ```bash
+    cd ~/code/ugc-cli
+    code .   # or: cursor . / claude code
+    ```
+
+    In a new chat, ask:
+
+    > "are you reading AGENTS.md?"
+
+    The agent should confirm and list the playbooks it routes to (intake, researcher, scenarist, art-director, editor, producer). If it doesn't, run `ralphy skill install` and reopen the editor — see [Connect your editor](/quickstart/connect-editor).
+  </Step>
+
+  <Step title="Type your brief in chat">
+    Drop a one-liner into chat. Be specific about platform, vibe, and POV — the agent uses this to pick a template and route the generation pipeline.
+
+    > сделай 15-секундный TikTok про мой эспрессо-бар, утренний vibe, селфи-POV
+
+    Or in English:
+
+    > make a 15-second TikTok about my espresso bar, morning vibe, selfie POV
+
+    The agent matches the brief against the intake playbook and starts the protocol.
+  </Step>
+
+  <Step title="Answer the intake questions">
+    The agent will ask 3-5 clarifying questions in a single turn. Expect something like:
+
+    1. **Target audience language?** EN / RU / other. Drives audio pipeline choice (Kling `--audio` for EN, ElevenLabs for non-EN).
+    2. **Aspect?** 9:16 TikTok (default), 16:9 YouTube, or 1:1.
+    3. **Brand / named entity?** Anything that names a real person, brand, or IP triggers the [reference-required gate](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md). For a generic "my espresso bar", you're fine without refs.
+    4. **Duration / clip count?** 15s is the safe default for a first render; the agent confirms.
+    5. **Hard constraints?** Banned music, brand colors, must-have shots.
+
+    Answer briefly. Two or three sentences is enough.
+  </Step>
+
+  <Step title="Agent picks a template">
+    Before improvising, the agent runs:
+
+    ```bash
+    ralphy template suggest "15s TikTok about espresso bar, morning vibe, selfie POV"
+    ```
+
+    It surfaces the top-3 matches with one-line descriptions, then proposes one. For an espresso brief the agent will likely pick a creator-lifestyle vibe-reference template. Confirm with "go" or ask for a different angle.
+
+    The template encodes the postmortem-validated workflow for that vibe — scene count, model picks, prompt vocabulary. You get a head start instead of starting from blank.
+  </Step>
+
+  <Step title="Agent generates scenes one beat at a time">
+    The agent creates the project (`espresso-001`) and starts generating scene by scene. For each scene it:
+
+    1. Writes the prompt to `workspace/projects/espresso-001/prompts.json`.
+    2. Calls `ralphy generate image --scene scene-01 ...` to make the background plate.
+    3. Shows you the image, asks for OK or a variant.
+    4. Calls `ralphy generate video --scene scene-01 ...` to animate it.
+    5. Calls `ralphy generate voiceover --scene scene-01 ...` for the VO line.
+
+    Files land in `workspace/projects/espresso-001/assets/`. Every model call writes an entry to `logs/generations.jsonl` with the input, output, and cost.
+
+    <Note>
+    You can reject a scene at any time. Say "ask for a variant" or "make scene-02 brighter" and the agent regenerates. The old version is preserved on disk as `.scene-02-bg-image.v1.png` — Ralphy never overwrites a generation per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md).
+    </Note>
+  </Step>
+
+  <Step title="Agent reviews the full sequence with you">
+    After all scenes pass, the agent shows you the asset manifest and asks for a "go" before rendering. This is your last chance to swap a model, regenerate a shot, or change a VO line — once you say render, ffmpeg kicks in.
+
+    Sample manifest:
+
+    ```json
+    {
+      "project_id": "espresso-001",
+      "scenes": [
+        { "id": "scene-01", "image": "scene-01-bg-image.png", "video": "scene-01-vid.mp4", "vo": "scene-01-vo.mp3", "duration": 5 },
+        { "id": "scene-02", "image": "scene-02-bg-image.png", "video": "scene-02-vid.mp4", "vo": "scene-02-vo.mp3", "duration": 5 },
+        { "id": "scene-03", "image": "scene-03-bg-image.png", "video": "scene-03-vid.mp4", "vo": "scene-03-vo.mp3", "duration": 5 }
+      ],
+      "music": "music-bed.mp3",
+      "total_duration": 15
+    }
+    ```
+  </Step>
+
+  <Step title="Render">
+    Say "render" in chat. The agent runs:
+
+    ```bash
+    ralphy render espresso-001
+    ```
+
+    Remotion bundles the composition, ffmpeg encodes the final mp4, and `final.mp4` lands in `workspace/projects/espresso-001/render/`. The agent reports back with the file path, duration, file size, and total spend pulled from `generations.jsonl`.
+
+    Sample output:
+
+    ```text
+    ✓ Rendered espresso-001
+      → workspace/projects/espresso-001/render/final.mp4
+      duration   15.0s
+      size       4.2 MB
+      spend      $0.87
+      runtime    47s
+    ```
+  </Step>
+
+  <Step title="Watch the mp4">
+    Open the file:
+
+    ```bash
+    open workspace/projects/espresso-001/render/final.mp4
+    ```
+
+    Or drag it into QuickTime / VLC / your browser. That's your first ralphy video.
+  </Step>
+</Steps>
+
+<Note>
+**Total time, cold start.** Per the [perf targets](https://github.com/alecs5am/ralphy/blob/main/docs/perf-targets.md), a single 15-second video from brief to mp4 should land in **≤ 8 minutes**. Most of that is model latency (Kling video gen is ~30s/scene). If you blow past 12 minutes, ask the agent for a postmortem — something's off.
+</Note>
+
+## When things go sideways
+
+- **A scene looks wrong.** Tell the agent "regenerate scene-02 with X different". The old file stays on disk as `.v1`; you can always promote it back.
+- **Cost is climbing fast.** Ask "show me the spend so far". The agent reads `generations.jsonl` and gives you a per-model rollup.
+- **The render fails.** Run `ralphy doctor` — ffmpeg or bun usually went missing. The error message points at the fix.
+- **You hate the template.** Run `ralphy template list` (or ask the agent), pick another, restart with `ralphy template use <slug>`.
+
+## Next
+
+You have an mp4. Now read [What just happened](/quickstart/what-happened) to understand which files Ralphy wrote and why — that's the foundation for everything you'll do next.
+
+## Related
+
+- [What just happened](/quickstart/what-happened) — file-by-file walkthrough
+- [Talking to ralphy](/working/talking-to-ralphy) — phrasing for daily use
+- [Starting a project](/working/starting-a-project) — the intake protocol in depth
+- [Intake playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — canonical source

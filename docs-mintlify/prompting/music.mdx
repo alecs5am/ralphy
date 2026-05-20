@@ -1,0 +1,210 @@
+---
+title: "Music prompts"
+description: "Genre, tempo, instrumentation only. No artist names. ElevenLabs Music ToS-safe patterns."
+---
+
+Music in Ralphy is always a separate post-mix pass via ElevenLabs Music — never auto-baked by the video model. The reason and the rule overlap: video-model music is uncontrollable, and ElevenLabs Music's terms of service block any reference to named artists, producers, or songs. Stick to genre + tempo + instrumentation, and on a failure the API hands you back a `prompt_suggestion` field with a ToS-safe rewrite you can resubmit verbatim.
+
+## The ToS rule: no artist names
+
+ElevenLabs Music's content filter rejects prompts that name modern recording artists, producers, or specific songs. Modern hip-hop is the most frequent offender — "in the style of Drake," "Metro Boomin–style 808s," "sounds like Travis Scott" — all blocked. Genre + tempo + instrumentation only.
+
+```text
+# Blocked
+A trap beat in the style of Travis Scott, 140 BPM with heavy 808s and
+Metro Boomin–style synth pluck.
+
+# ToS-safe
+A modern dark trap instrumental, 140 BPM, heavy distorted 808 sub-bass,
+sparse pitched synth pluck on the off-beat, hi-hat triplet rolls, no melody
+lead, tension-building.
+```
+
+The blocked prompt names two real producers. The ToS-safe rewrite captures the same sonic intent with **genre tokens** (modern dark trap), **tempo** (140 BPM), and **instrumentation** (808 sub-bass, synth pluck, hi-hat triplets). Same sound, zero ToS exposure.
+
+This applies even when the user types the artist name in chat. Translate to genre + tempo + instrumentation before submitting.
+
+## The `prompt_suggestion` recovery
+
+When a prompt does get blocked, ElevenLabs returns a `prompt_suggestion` field in the 422 JSON response. It's a ready-to-resubmit ToS-safe rewrite. Use it verbatim — don't try to merge it with the original.
+
+```bash
+ralphy generate music --project <id> --slot bed-01 \
+  --prompt "Metro Boomin trap beat 140 BPM" --duration 30
+# → 422; CLI auto-surfaces prompt_suggestion
+
+ralphy generate music --project <id> --slot bed-01 \
+  --prompt "<paste prompt_suggestion content verbatim>" --duration 30
+# → 200; mp3 lands at assets/music/bed-01.mp3
+```
+
+The `ralphy generate music` wrapper extracts the `prompt_suggestion` from the upstream 422 and prints it as actionable hint text (`cli/lib/providers/media.ts → rewriteUpstreamError()`). You don't have to parse the response yourself.
+
+## The prompt skeleton
+
+```text
+<genre> <sub-genre or mood adjective> instrumental,
+<tempo BPM>,
+<bass / rhythm section: drums + bass description>,
+<melodic content or "no melody lead">,
+<texture / atmosphere>,
+<arrangement note: builds / drops / loops>
+```
+
+Five worked examples:
+
+```text
+# tension-build
+Deep sub-bass drone, rising LP filter sweep over 4 seconds, 88 BPM, sparse
+rim clicks at 16th-note intervals, climbing two-note synth lead, ends on
+a held suspended chord with no resolution.
+
+# deadpan-bg
+Lo-fi instrumental, 70 BPM, dusty mellow electric piano with tape hiss,
+soft brush kick and rim, single sustained sub-bass note, no melody lead,
+barely-there texture meant to sit at -24 LUFS under VO.
+
+# drop-and-cut
+Hyper-pop sting, 1.5 seconds, single 808 kick followed by a pitched-down
+vocal chop "oof", abrupt silence on the second beat. Used as a transition
+punctuator.
+
+# tension-uptempo
+Modern dark trap instrumental, 140 BPM, heavy distorted 808 sub-bass, sparse
+pitched synth pluck on the off-beat, hi-hat triplet rolls, no melody lead,
+tension-building arrangement, ends on a half-bar drop.
+
+# lofi-narrative
+Lo-fi hip-hop instrumental, 78 BPM, warm Rhodes electric piano on a IV-vi-I-V
+loop, dusty boom-bap kick and snare, sub-bass following the chord roots,
+vinyl crackle texture, no melody lead beyond the Rhodes.
+```
+
+## Loudness budget
+
+| Context | Music level |
+|---|---|
+| VO present | −22 to −26 LUFS under the VO |
+| No VO (B-roll, montage) | −16 to −18 LUFS |
+
+`ralphy editor mix` handles ducking automatically when both VO and music tracks are present. For manual mixing, target the levels above.
+
+## Length-aware tempo
+
+Pick BPM that locks to the video duration. A 5-second clip at 120 BPM is exactly 10 beats — clean musical phrase. At 87 BPM it's 7.25 beats — half-resolved, awkward.
+
+Rough math for clean phrasing:
+
+```text
+beats_per_second = BPM / 60
+total_beats = duration_s * beats_per_second
+# Want total_beats to land near a power of 2 (4, 8, 16) for "clean ending".
+
+# 5-second clip:
+# 120 BPM → 10 beats         (5/4 of an 8-beat phrase, mid-resolve)
+# 96 BPM  → 8 beats          (clean 2-bar phrase)
+# 144 BPM → 12 beats         (clean 3-bar phrase, half resolved)
+
+# 8-second clip:
+# 120 BPM → 16 beats         (clean 4-bar phrase) ← ideal
+# 90 BPM  → 12 beats         (clean 3-bar phrase)
+```
+
+For a 5s hook, **96 BPM** lands an 8-beat phrase exactly on the cut. For an 8s body beat, **120 BPM** lands 16 beats — two clean 4-bar phrases.
+
+## Loop vs one-shot
+
+| Type | When |
+|---|---|
+| One-shot (no loop) | Hook stinger, drop-and-cut transition, scene-specific bed |
+| Loop-ready | Body music for multi-scene UGC where one bed spans multiple scenes |
+
+For loops, end the prompt with `, loops cleanly at the bar` and request a duration that's an integer number of bars at the requested tempo. ElevenLabs respects the loop hint when it's the last clause.
+
+## Trend music: don't generate, copy
+
+If a template references a specific trend track (`assets/trend-*.mp3`), copy the file from the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo. **Don't generate a substitute.** Track recognition is half of what makes a trend video a trend.
+
+```bash
+ralphy assets list --kind trend-music
+# → tralalero-theme, brainrot-anthem-001, viral-2026-build-001, ...
+
+ralphy assets pull-pool trend-music/viral-2026-build-001 \
+  --install <project-id>
+# → trend track copied into project; manifest updated
+```
+
+ElevenLabs Music can't recreate a specific viral track and shouldn't try. See [Asset catalog](/concepts/asset-catalog).
+
+## Why the no-music ban exists upstream
+
+Kling auto-bakes ambient music (usually piano or strings) unless explicitly banned. So does Seedance and Veo on certain prompts. The Kling adapter appends `no background music, SFX only` to the Progression block automatically (`cli/lib/providers/prompt-adapter/kling.ts:53`). If you're hand-writing prompts or using a different model, ban music explicitly in the prompt body.
+
+```text
+Progression: 5s clip, 9:16, no background music, SFX only.
+```
+
+This separation — video-model bans music, ElevenLabs handles it in post — is non-negotiable. Auto-baked music is uncontrollable, can't be ducked under VO, and can't be matched across scenes. See [Video prompts: The no-music ban](/prompting/video#the-no-music-ban).
+
+## Concurrency limit
+
+ElevenLabs Music caps at **2 concurrent calls per subscription**. Three or more parallel returns `429 concurrent_limit_exceeded` and pollutes `generations.jsonl` with error rows. **Serialize music gen or stay ≤2 in-flight.** Per `MODELS.md` Lesson 8 and the tokyo postmortem.
+
+```bash
+# Bad — 5 in parallel will 429.
+for slot in bed-{01..05}; do
+  ralphy generate music --project <id> --slot "$slot" --prompt "..." &
+done
+
+# Good — sequential, ≤2 in flight.
+for slot in bed-{01..05}; do
+  ralphy generate music --project <id> --slot "$slot" --prompt "..."
+done
+```
+
+## Endpoint contract
+
+For agents that need the raw shape (the CLI wraps this — you should not call it directly):
+
+```text
+POST https://api.elevenlabs.io/v1/music
+Headers:
+  xi-api-key: $ELEVENLABS_API_KEY
+  Content-Type: application/json
+Body:
+  {
+    "prompt": "...",
+    "music_length_ms": 30000,
+    "force_instrumental": true,
+    "output_format": "mp3_44100_128",
+    "model_id": "music_v1"
+  }
+Response:
+  200 → binary mp3 (application/octet-stream)
+  422 → JSON with prompt_suggestion field
+  429 → concurrent_limit_exceeded
+```
+
+## CLI surface
+
+```bash
+# Standard music gen — default model elevenlabs music_v1.
+ralphy generate music --project <id> --slot bed-01 \
+  --prompt "<genre, tempo, instrumentation>" \
+  --duration 30
+
+# Dry-run to inspect the request body.
+ralphy generate music --project <id> --slot bed-01 \
+  --prompt "<...>" --duration 30 --dry-run
+
+# Pull a trend track from the asset pool instead of generating.
+ralphy assets pull-pool trend-music/<slug> --install <project>
+```
+
+## Related
+
+- [Video prompts](/prompting/video) — the upstream no-music ban
+- [Voice prompts](/prompting/voice) — VO loudness sits under music ducking
+- [Asset catalog](/concepts/asset-catalog) — trend-music pool to copy from
+- [`MODELS.md` music section](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) — endpoint contract + concurrency limit
+- [`docs/prompts/music/`](https://github.com/alecs5am/ralphy/tree/main/docs/prompts/music) — the 5 mode files (tension-build, deadpan-bg, etc.)

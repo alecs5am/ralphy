@@ -1,0 +1,176 @@
+---
+title: "Playbook format"
+description: "Playbook structure, sub-doc convention, AGENTS.md routing, and the agents-md lint."
+---
+
+A playbook is one Markdown file under `docs/playbooks/<role>.md`. Playbooks are role and domain instruction docs that the agent reads on demand. They have no frontmatter, no slash command, and no installation step — `AGENTS.md` routes an incoming request to the right playbook, the agent reads it with the `Read` tool, then acts. This page documents the playbook shape and the lint that keeps the routing surface honest.
+
+## Full example
+
+A working playbook header (excerpted from `https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md`):
+
+```markdown
+# Scenarist playbook
+
+**Read this when:** "write a script", "make a video about X", "rework scene 3",
+"rewrite VO", "make it shorter / longer", scenario feedback.
+
+> **Pre-flight (every new project):** before drafting scenes, confirm with the
+> user:
+> 1. Target audience language (EN / RU / KR / other).
+> 2. Aspect / platform (9:16 TikTok / 16:9 YouTube / 1:1 broadcast).
+> 3. Hard "no"s — banned words, no-music policy, brand colors.
+> 4. Template fit — run `ralphy template suggest "<the brief>"`.
+> 5. Storyboard lock — produce `STORYBOARD.md` and get explicit user "go".
+
+Narrative owner. I write the first-draft `scenario.json` from brief +
+references, and iterate on feedback. Model prompts and assets are not my zone —
+that's the art director.
+
+## Sub-docs
+
+| Sub-doc | When to read it |
+|---|---|
+| `scenarist/hooks.md` | Drafting the hook scene; choosing among the 7 hook archetypes. |
+| `scenarist/voice.md` | Voice-tag block, per-language register, prosody. |
+| `scenarist/storyboard.md` | The `STORYBOARD.md` shape and the lock protocol. |
+
+## Output contract
+
+The scenarist emits a scenario conforming to `cli/lib/schemas/scene.ts`
+(`ScenarioSchema`). Zod `response_format` is mandatory — never free-prose JSON.
+
+## Hard invariants
+
+- Storyboard lock before any paid generation.
+- Gesture vocabulary is the finite enum in `cli/lib/schemas/gestures.ts`.
+- VO drift is real on `eleven_v3` — budget to actual transcript, not script length.
+
+## CLI cookbook
+
+| Goal | Command |
+|---|---|
+| Suggest a template for the brief | `ralphy template suggest "<brief>"` |
+| Draft a scenario from a brief | `ralphy generate scenario --project <id>` |
+| Lock the storyboard | `ralphy project storyboard <id> --lock` |
+```
+
+That structure is the contract.
+
+## Required sections
+
+| Section | Purpose |
+|---|---|
+| `**Read this when:**` | One sentence per trigger phrase. Mirrors the `AGENTS.md` routing-table row. The agent uses this to confirm the match before diving in. |
+| `## Sub-docs` | Two-column table (`Sub-doc \| When to read it`). The agent reads sub-docs on demand for specific sub-tasks. Optional only when the playbook has no sub-docs. |
+| `## Output contract` or `## Output` | What this role produces. For scenarist it's the `Scenario` schema; for art-director the `Generation` log entries; for editor the rendered mp4. |
+| `## Hard invariants` | Must-do / must-not lines, one bullet each. Concrete and refusable. These mirror the AGENTS.md invariants but tailored to the role. |
+| `## CLI cookbook` | Two-column table of common goals and the exact `ralphy <verb>` to run. The agent uses this to avoid improvising raw API calls. |
+
+The agent matches an intent in the routing table, opens the playbook, reads the `Read this when:` block, then reads the rest in order. Skipping any section is a defect.
+
+## No frontmatter
+
+Unlike skills (which need YAML frontmatter for the slash-command menu), playbooks are plain Markdown. The router lives in `AGENTS.md`; the playbook itself only needs to be readable.
+
+This is intentional. Adding frontmatter would create two routing surfaces (AGENTS.md and per-playbook). Decision D-06 (`scripts/lint-agents-md.ts`) keeps the routing single-sourced.
+
+## Sub-docs convention
+
+A playbook routes to sub-docs at `docs/playbooks/<role>/<sub>.md`:
+
+```
+docs/playbooks/
+  scenarist.md
+  scenarist/
+    hooks.md
+    voice.md
+    storyboard.md
+  art-director.md
+  art-director/
+    image.md
+    video.md
+    voice.md
+    music.md
+  editor.md
+  editor/
+    captions.md
+    transitions.md
+    audio-mix.md
+```
+
+The parent playbook lists sub-docs in a table at the top with a `When to read it` column. The agent only reads sub-docs when the sub-task matches — keeps the context lean.
+
+Sub-docs themselves are plain Markdown with no fixed structure. They are leaves; they do not route further.
+
+## Routing into AGENTS.md
+
+Every playbook gets exactly one row in the `AGENTS.md` routing table:
+
+```markdown
+| User intent | Playbook |
+|---|---|
+| "write a script", "make a video about X", scenario feedback | [`https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) |
+```
+
+The `User intent` column is a comma-separated list of trigger phrases (EN; RU is in the body). The `Playbook` column is a Markdown link to the file. The agents-md lint (`scripts/lint-agents-md.ts`) walks every row and verifies the target file exists on disk.
+
+### Chaining
+
+A request that spans roles is a chain of playbooks in role order. Example: "make a video in the style of `<url>` for `<brand>`" chains researcher → scenarist → art-director → editor. The producer playbook is the end-to-end wrapper.
+
+The router does not encode chains explicitly — the agent walks the table row by row and picks every matching row, then orders by role.
+
+## Lint
+
+```bash
+bun run lint:agents-md
+```
+
+`scripts/lint-agents-md.ts` enforces four invariants:
+
+1. **Every routing-table row points at an existing file.** Targets matching `docs/playbooks/<name>.md` or `.agents/skills/<name>/SKILL.md` are checked against the filesystem. Missing target → error.
+2. **Every `ralphy`-namespace skill is referenced.** Soft check (info-level). `ralphy-dev` skills are skipped — they are maintainer-only and live outside the routing table.
+3. **AGENTS.md contains no Claude-isms.** The lint scans for `~/.claude/` paths and `claude mcp add` invocations via `scanForClaudeIsms()` — those are Claude-Code-specific and belong in `CLAUDE.md`, not the cross-agent routing file.
+4. **CLAUDE.md routing rules also appear in AGENTS.md.** If `CLAUDE.md` adds a row that AGENTS.md does not have, the lint errors with "move the rule to AGENTS.md (D-06)". The routing table is single-sourced.
+
+```ts
+// scripts/lint-agents-md.ts
+const LINK_RE = /\[[^\]]*\]\((?<target>(?:docs\/playbooks\/[A-Za-z0-9_\-./]+\.md|\.agents\/skills\/[A-Za-z0-9_\-]+\/SKILL\.md))\)/g;
+
+export function parseRoutingTable(src: string): RoutingRow[] { /* ... */ }
+export function scanForClaudeIsms(src: string): string[] { /* ... */ }
+```
+
+The link regex defines what counts as a routing target. Adding a new playbook file outside `docs/playbooks/` (e.g. into a subfolder) means updating the regex and the link convention — open a separate PR.
+
+CI runs `lint:agents-md` on every PR. Failures block merge.
+
+## Authoring checklist
+
+1. **Decide what the playbook owns.** One role, one domain. If the scope is more than a paragraph, it's probably two playbooks.
+2. **Write the `**Read this when:**` line.** This is what the agent matches against. Mirror the routing-table row you'll add to AGENTS.md.
+3. **Draft the body** in this order: pre-flight notes → output contract → workflow → hard invariants → CLI cookbook.
+4. **Add a `## Sub-docs` table** if the playbook is longer than ~400 lines or has cleanly separable sub-tasks.
+5. **Add the row to AGENTS.md.** Same trigger phrases as the `Read this when:` line.
+6. **Run `bun run lint:agents-md`.** Confirm the row resolves to an existing file.
+7. **Cross-link.** If the playbook depends on another playbook, name it inline — do not duplicate content.
+
+## Playbooks vs skills
+
+| Surface | When to use |
+|---|---|
+| Playbook (`docs/playbooks/<role>.md`) | Role or domain knowledge. Read on demand by the agent. No slash command. |
+| Skill (`.agents/skills/<name>/SKILL.md`) | Narrow workflow with a deterministic input → output contract and one CLI command. Slash-invocable. |
+
+The current split: scenarist, art-director, editor, producer, researcher, core are playbooks. `ralph-evaluator`, `ralph-researcher`, `ralph-templater`, `ralphy-install`, `release`, `remotion-best-practices`, `skill-creator` are skills.
+
+Old role-shim skills (`ralph-art-director`, `ralph-core`, `ralph-editor`, `ralph-producer`, `ralph-scenarist`) were retired in favor of direct routing via `AGENTS.md` → playbooks.
+
+## Related
+
+- [Concepts: playbooks & skills](/concepts/playbooks-and-skills) — the routing model, narrated.
+- [Skill format](/advanced/skill-format) — when to write a skill instead.
+- [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) — the routing table.
+- [`docs/playbooks/README.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/README.md) — the catalogue.
+- [`scripts/lint-agents-md.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-agents-md.ts) — the lint source.
