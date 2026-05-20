@@ -91,12 +91,14 @@ The `ralphy skill install` verb (CLI side at [`01.01.06`](../01-cli/SPEC.md)) co
 - Writes one `.cursor/rules/ralphy-<playbook>.mdc` per playbook with `description` set for Agent-Requested mode.
 - Scope `user` writes to `~/.cursor/rules/`; scope `project` writes to `<cwd>/.cursor/rules/`.
 
-### 03.02.03 Copilot adapter  [ ]
+### 03.02.03 Copilot adapter  [x]
 **v1.0:** yes
 
+**Implementation:** `cli/lib/skill/installer.ts → installCopilot()`. Writes `.github/copilot-instructions.md` (sentinel-merged) + one `.github/instructions/ralphy-<playbook>.instructions.md` per playbook with `applyTo: '**'`. Uninstall strips the block + removes per-playbook files + tidies the empty `.github/instructions/` dir when empty.
+
 **Acceptance criteria:**
-- Writes `.github/copilot-instructions.md` (the router) OR adds Ralphy section to existing one (idempotent).
-- Writes one `.github/instructions/ralphy-<playbook>.instructions.md` per playbook with `applyTo: '**'`.
+- Writes `.github/copilot-instructions.md` (the router) OR adds Ralphy section to existing one (idempotent). **[x]**
+- Writes one `.github/instructions/ralphy-<playbook>.instructions.md` per playbook with `applyTo: '**'`. **[x]**
 
 ### 03.02.04 Codex / generic AGENTS.md  [x]
 **v1.0:** yes
