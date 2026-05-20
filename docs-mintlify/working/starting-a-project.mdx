@@ -3,7 +3,7 @@ title: "Starting a project"
 description: "The intake protocol — five questions, a draft plan, a wait for go, then one beat at a time."
 ---
 
-Every new-project request — "сделай видео про X", "make me something like this URL", "запусти проект Y" — hits the same protocol before a single dollar is spent. Ralphy captures intent, agrees on a plan with you, then advances one beat at a time with checkpoints. The cost of asking five questions is one chat turn. The cost of guessing wrong on a 20-scene render is forty dollars plus an hour of regen. The protocol exists because five separate postmortems traced their largest cost overruns to skipping it.
+Every new-project request — "make a video about X", "make me something like this URL", "start project Y" — hits the same protocol before a single dollar is spent. Ralphy captures intent, agrees on a plan with you, then advances one beat at a time with checkpoints. The cost of asking five questions is one chat turn. The cost of guessing wrong on a 20-scene render is forty dollars plus an hour of regen. The protocol exists because five separate postmortems traced their largest cost overruns to skipping it.
 
 This page is a friendly walkthrough of [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) — read that file too if you want the full receipts.
 
@@ -81,7 +81,7 @@ Estimated wall-clock: 7–9 min
 First checkpoint: scene-01 anchor → wait for your "go" before continuing
 ```
 
-Ralphy stops here. **No paid generation happens until you say "go"** (or "поехали", or equivalent). If the plan is wrong, push back — "another approach", "не так", "drop scene 3", "switch to seedance for the reaction". Ralphy redrafts and waits again. This wait is invariant in the protocol; the appstore postmortem traced a 70-minute wasted batch directly to skipping plan-approval.
+Ralphy stops here. **No paid generation happens until you say "go"** (or equivalent). If the plan is wrong, push back — "another approach", "not like that", "drop scene 3", "switch to seedance for the reaction". Ralphy redrafts and waits again. This wait is invariant in the protocol; the appstore postmortem traced a 70-minute wasted batch directly to skipping plan-approval.
 
 ## Step 3 — One beat at a time
 
@@ -95,7 +95,7 @@ After your "go", Ralphy generates the first beat, surfaces it to chat, and waits
 6. **Captions on the locked VO files** via `ralphy generate captions`.
 7. **Render** via `ralphy editor preflight <id>` then `ralphy render <id>`.
 
-If you want to fire the whole batch instead, say "не спрашивай каждый раз" or "fire the whole batch". Ralphy switches to batch mode for *that project*; the preference doesn't generalize.
+If you want to fire the whole batch instead, say "don't ask every time" or "fire the whole batch". Ralphy switches to batch mode for *that project*; the preference doesn't generalize.
 
 ## Step 4 — Mid-flight corrections
 
