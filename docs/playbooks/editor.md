@@ -75,6 +75,27 @@ For Remotion API specifics (captions component, transitions, audio primitives) r
 3. **Captions via `ralphy generate captions`** (whisper-1 OpenRouter). See [editor/captions.md](editor/captions.md).
 4. **Quality gate before final-render** — every slot in the manifest must have `score >= 7` or explicit bypass-consent.
 5. **FFmpeg post-processing** — only via `cli/lib/ffmpeg-recipes.ts`. See [editor/hard-rules.md](editor/hard-rules.md) (12 items).
+6. **Motion graphics → Remotion components, never video models** (`04.0A.02`). See the decision tree below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as React components under `src/lib/` (or `~/.ralphy/render-cache/<id>/components/` for standalone installs). They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
+
+## Pixels vs code — the motion-graphics decision tree (04.0A.02)
+
+Before routing a scene to `ralphy generate video`, classify the output:
+
+| Pattern | Route | Why |
+|---|---|---|
+| Live-action scene (person, room, action, weather, gameplay capture) | `ralphy generate video` (i2v / t2v) | Model produces pixels the code can't fake |
+| Photoreal still + parallax | `ralphy generate image` + Remotion `interpolate` / `spring` | Image is the asset; motion is the composition |
+| Animated text / kinetic typography / "WORDS SLAM IN" | Remotion component (`src/lib/captions/*` or new component) | Code controls timing and exact spelling; video model will smear letters and drift fonts |
+| Lower-third / name card / chyron | Remotion component | Trivially parameterized; pixel-route would re-render fonts every gen |
+| Animated chart / data viz | Remotion component (Recharts / D3 + `interpolate`) | Code is the source of truth for the data; pixel-route would hallucinate values |
+| Animated UI mockup / app screen recording | Remotion component (build the UI in JSX + animate) or genuine screen capture | Pixel-route invents UI affordances; the result reads as AI slop |
+| Transition wipe between two clips | `<TransitionSeries>` / `<linearTiming>` in Remotion | The two clips are the assets; the transition is a code recipe |
+| Particle / FX overlay | Remotion component (CSS / SVG / Canvas) | Repeatable; pixel-route is non-deterministic |
+| Lottie animation drop-in | Remotion `<Lottie />` | Lottie file is the asset; Remotion plays it deterministically |
+
+**Tell-tale signs** (the lint at `bun run lint:templates` will flag known offenders in `prompts.json`): "animated text", "kinetic typography", "lower third animates in", "chart animates in", "logo slides in", "transition wipe" → these go to the Remotion side, not the video model. If you find yourself writing one of those phrases as a `--prompt` to `ralphy generate video`, stop and compose the component instead.
+
+Cross-link: read [`remotion.md`](remotion.md) for the API specifics (TransitionSeries, interpolate, spring, Lottie, fonts).
 
 ## Handoff
 

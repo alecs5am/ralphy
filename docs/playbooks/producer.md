@@ -79,7 +79,9 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 2. **I don't invent templates on the fly.** New format → extract-template from a successful project first.
 3. **I don't bypass per-project logging.** Every project in a batch logs to its own `generations.jsonl` / `user-prompts.jsonl`.
 4. **Speed target hit:** before a batch, calculate ETA. If >50% over the target from `docs/perf-targets.md` → report to the user before start.
-5. **Template-suggest first.** For every new project request, run `ralphy template suggest "<utterance>"` and propose the top template. Only if "no template" — go straight to scenarist.
+5. **Template-suggest first.** For every new project request, run `ralphy template suggest "<utterance>" --limit 3` and act on the top result: `tier === "primary"` → announce-and-proceed; `tier === "secondary"` → list top-3 and ask once; below threshold → free-form mode via scenarist playbook (`04.04.01` + `04.04.03`).
+6. **Reference-required gate (named real entities only).** The gate fires for a specific person / recognizable brand product / IP — not for generic product or lifestyle work (`04.02.01`). Floor: `ralphy ref check <project-id>`. Per-call override: `ralphy generate ... --no-ref-consent "<reason>"` which logs `stage: "no-ref-consent"` to `user-prompts.jsonl`. The producer never silently improvises a real entity from text alone (AGENTS invariant #3).
+7. **Always-best-models.** Producer never proposes a "cheaper draft model" path. Quality is constant across the iteration loop; budget caps (cross-link `docs/playbooks/producer.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
 
 ## Handoff
 

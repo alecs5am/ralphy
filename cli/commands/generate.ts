@@ -122,6 +122,44 @@ async function ensureProject(projectId: string): Promise<void> {
 }
 
 /**
+ * Attach the shared `--no-ref-consent` flag (04.02.03) to a generate
+ * subcommand. The flag is an *explicit user override* of the reference-required
+ * gate (AGENTS invariant #3). When passed:
+ *   • The CLI does NOT itself refuse; the agent / playbook is the gate.
+ *   • The override is recorded to `user-prompts.jsonl` as
+ *     `stage: "no-ref-consent"` so future sessions can see that the user
+ *     deliberately accepted the quality hit.
+ */
+/**
+ * `--no-ref-consent <reason>` (04.02.03) is the explicit user override of the
+ * reference-required gate (AGENTS invariant #3). The CLI itself does NOT
+ * refuse — the agent / playbook is the gate. When the user passes the flag we
+ * append `stage: "no-ref-consent"` to `user-prompts.jsonl` so subsequent
+ * sessions can see that the user deliberately accepted the quality hit.
+ *
+ * Commander note: `--no-X <val>` parses to `opts.refConsent = <val>` (string)
+ * when passed and `opts.refConsent = true` (the default-inverted boolean)
+ * when omitted. Read through `readRefConsentReason()` to normalize.
+ */
+function readRefConsentReason(opts: { refConsent?: unknown }): string | null {
+  const v = opts.refConsent;
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return s.length > 0 ? s : null;
+}
+
+async function maybeLogNoRefConsent(opts: { project?: string; refConsent?: unknown; slot?: string }): Promise<void> {
+  const reason = readRefConsentReason(opts);
+  if (!reason) return;
+  if (!opts.project) return;
+  await logUserPrompt(opts.project, {
+    stage: "no-ref-consent",
+    text: reason,
+    note: opts.slot ? `slot=${opts.slot}` : undefined,
+  });
+}
+
+/**
  * Validate and normalize a slot id. Strict canonical form is `[a-z0-9-]+` —
  * lowercase kebab-case. Relaxed input accepts `[a-zA-Z0-9_-]+` and auto-normalizes:
  *   uppercase → lowercase, `_` → `-`, then revalidate against canonical.
@@ -181,11 +219,13 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note for generations.jsonl")
     .option("--variants <n>", "Generate N parallel variants (writes <slot>-v1.png .. <slot>-vN.png). Useful for A/B exploration without re-typing the prompt. appstore postmortem ate ~20 min hand-suffixing this.", (v) => Math.max(1, Math.min(8, parseInt(v, 10) || 1)))
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
+      await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
 
       const variants = opts.variants ?? 1;
@@ -345,9 +385,11 @@ export function generateCmd() {
     )
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp4.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
+      await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.video", opts.project)) return;
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
@@ -506,11 +548,13 @@ export function generateCmd() {
     .option("--no-speaker-boost", "Disable use_speaker_boost (default on; turn off for monotone broadcast / robo registers)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
+      await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
 
       if (opts.dryRun) {
@@ -582,11 +626,13 @@ export function generateCmd() {
     .option("--with-vocals", "Allow vocals (default: instrumental only)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
+      await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
 
       if (opts.dryRun) {
@@ -656,9 +702,11 @@ export function generateCmd() {
     .option("--prompt-influence <n>", "Prompt adherence 0-1 (default 0.4 — let model interpret)", parseFloat, 0.4)
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
+      await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
       const uisfx = await import("../lib/ui.js");
       const result = await uisfx.withSpinner(
