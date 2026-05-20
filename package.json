@@ -39,8 +39,8 @@
   "scripts": {
     "dev": "remotion studio",
     "build": "remotion bundle",
-    "build:bin": "tsx scripts/build-binaries.ts",
-    "build:bin:current": "tsx scripts/build-binaries.ts --current",
+    "build:bin": "tsx scripts/build-binaries.ts --no-bytecode",
+    "build:bin:current": "tsx scripts/build-binaries.ts --current --no-bytecode",
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "ralph": "bun cli/index.ts",
