@@ -80,3 +80,18 @@ The roadmap is **not** a wishlist. Three rules keep it honest:
 1. **Anything in a `SPEC.md` should be shippable**, with concrete acceptance criteria. Vague ideas live in `OPEN-QUESTIONS.md` until they're sharp enough to promote.
 2. **Closing a task means updating the `[x]` marker in the same commit that makes it true.** No "done in PR but the doc still says `[ ]`".
 3. **If a task is no longer needed, mark it `[x] (cancelled — reason)` rather than deleting it.** History matters for context months later.
+
+## Milestone path
+
+Per [09-D-03](09-distribution-and-release/OPEN-QUESTIONS.md#decision-log), v1.0 is reached through a staged sequence of v0.X cuts. Each milestone captures a coherent slice of progress and is released through the full `/release` channel set (GH + brew + npm). Milestones are **not pre-committed dates** — they are the next logical "ship something coherent" point. A milestone may slip a number if a `v1.0: yes` task slips into it.
+
+| Tag | Theme | What lands |
+|---|---|---|
+| **v0.1** *(shipped 2026-05-19)* | **Foundation** | Pretty/JSON CLI contract, adaptive intake by user-skill band, append-only generations, template library + asset cache, baseline `/release` skill. |
+| **v0.2** | **Tester onboarding** | `ralphy skill install` for Claude / Cursor / Codex (`01.01.06`), README rewrite + landing showcase as hero demo (`07.05.x`), GitHub Discussions live (`07.08.x`), `ralphy doctor` update check (`09.05.04`). Closes the install → agent-setup → first-project tester path. |
+| **v0.3** | **CLI surface lock** | `01.01.03` (`clone`), `01.02.03`–`05` (NDJSON / error shape / dry-run), `01.06.01`–`03` (error catalog + exit codes + hints), `01.07.x` (NDJSON emitter + SIGINT), `01.09.x` (standalone operation). Error-code catalog becomes append-only at this cut (`01-D-07`). |
+| **v0.4** | **Quality gates** | Category 08 — `scoreScenario` / `scoreImage` / `scoreVideo` refuse-not-warn, council-mode skeleton, calibration baseline. |
+| **v0.5** | **Distribution dress rehearsal** | Remaining `09.01.x` smoke tests, GH Releases SHA256SUMS verification (`09.05.x`), brew + npm green on a clean-machine CI run, `/release` skill fully scripted (`09.04.01`). |
+| **v1.0** | **Public OSS launch** | Every remaining `v1.0: yes` task in every category is `[x]`, including category 02 prompt adapters, 04 producer mode, 06 utilities, 07 Mintlify polish, 10 cost + telemetry, 11 testing. Triggers the coordinated launch package (`07-D-06`, `07.10.05`). |
+
+The milestone list is editorial — it groups tasks by audience signal, not by dependency order. The acceptance criteria in the per-category `SPEC.md` files remain the authoritative gating contract.
