@@ -13,6 +13,8 @@ import { existsSync } from "node:fs";
 import { CAPABILITIES, hasCapability } from "../lib/capabilities.js";
 import { findProjectRootSafe, readGlobalConfig } from "../lib/project-root.js";
 import { out, isPretty } from "../lib/output.js";
+import { readGlobalConfig as readHomeConfig } from "../lib/global-config.js";
+import { checkForUpdate, type InstallMode as UpdateInstallMode } from "../lib/update-check.js";
 
 type InstallMode = "binary" | "developer";
 
@@ -27,6 +29,11 @@ type DoctorReport = {
     repoRoot: string | null;
     templatesSource: "bundled" | "repo";
     remotionSource: "bundled" | "repo";
+  };
+  versions?: {
+    current: string;
+    latest: string | null;
+    update_hint?: string;
   };
   deps: {
     bun: boolean;
@@ -137,6 +144,32 @@ export function doctorCmd() {
             `${cap.envVar} missing — ${cap.label} required (${cap.signupUrl}). Run \`ralphy setup\`.`,
           );
         }
+      }
+
+      // Update check (09.05.04) — opt-out via RALPHY_DOCTOR_NO_UPDATE_CHECK=1
+      // or `ralphy config set doctor.checkUpdates false`. Network call is
+      // bounded by a 5s timeout; failure is silent.
+      try {
+        const homeCfg = readHomeConfig();
+        const mode: UpdateInstallMode =
+          installInfo.mode === "developer"
+            ? "developer"
+            : (process.env.RALPHY_BIN_DIR && process.env.RALPHY_BIN_DIR.includes("homebrew"))
+              ? "brew"
+              : "binary";
+        const updateResult = await checkForUpdate(VERSION, mode, homeCfg);
+        report.versions = {
+          current: updateResult.current,
+          latest: updateResult.latest,
+        };
+        if (updateResult.update_hint) {
+          report.versions.update_hint = updateResult.update_hint;
+          report.warnings.push(
+            `Newer version available: ${updateResult.latest}. ${updateResult.update_hint}`,
+          );
+        }
+      } catch {
+        // Silent — doctor still reports everything else.
       }
 
       if (isPretty()) {
