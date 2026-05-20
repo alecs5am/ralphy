@@ -16,6 +16,11 @@ export function Nav({ stars }: { stars: string }) {
               {it.label}
             </a>
           ))}
+          <a className="nav-skills" href="/skills">
+            <span className="nav-skills-pulse" aria-hidden="true" />
+            Skills
+            <span className="nav-skills-new">NEW</span>
+          </a>
         </nav>
         <div className="nav-right">
           <a className="nav-ghost" href={site.docs} target="_blank" rel="noopener">
