@@ -1,0 +1,42 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: real-estate
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Real Estate
+description: "Cinematic property showcase: 20-60s tour built from 4-10 keyframes
+  that translate bricks into aspiration. Uses photoreal flythroughs, golden-hour
+  exteriors, threshold reveals, and view-anchored interior moves to sell the
+  lifestyle, not the floor plan. Reference-required: real property photos must
+  be supplied (no AI-improvised real estate — buyers spot fake instantly). Works
+  for residential listings, luxury, vacation rentals, commercial, new
+  construction, and renovation before/after. Vertical 9:16 cuts for IG/TikTok,
+  16:9 master for Zillow/YouTube/agent websites."
+tags:
+  - real-estate
+  - property
+  - house
+  - apartment
+  - architecture
+  - interior-design
+  - home-tour
+  - listing
+  - virtual-tour
+  - luxury
+  - vacation-rental
+  - commercial
+  - renovation
+  - drone
+  - cinematic
+  - tiktok
+  - reels
+  - shorts
+  - youtube
+  - zillow
+requires:
+  refs: 1
+scenes: []
+references: []
+

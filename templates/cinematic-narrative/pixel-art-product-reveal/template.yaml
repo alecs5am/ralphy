@@ -1,0 +1,43 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: pixel-art-product-reveal
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Pixel-Art Product Reveal
+description: "Hyper-motion product reveal for a small handheld / cult-object
+  gadget that has its own distinct two-tone screen aesthetic — Playdate-class,
+  Game Boy-class, e-ink class. Photoreal hero device (the only color in the
+  frame) sits as a HARD layer-split cutout against a smooth hand-illustrated
+  duotone halftone-dithered world: ink-on-paper / risograph / Mac-System-1
+  register, NOT chunky 8-bit blocks. 8 cuts averaging ~1.9s, ends on a clean
+  wordmark + tagline lockup over a chroma slab in the brand's signature color.
+  The single physical-interaction gimmick (crank, dial, twist-flap, slider) is
+  the gesture every scene revolves around."
+tags:
+  - pixel-art
+  - duotone
+  - halftone
+  - dithering
+  - risograph
+  - ink-on-paper
+  - indie-handheld
+  - gadget-reveal
+  - product-ad
+  - hyper-motion
+  - 8-cut
+  - 9:16
+  - photoreal-cutout
+  - hard-layer-split
+  - chroma-slab
+  - wordmark-lockup
+  - physical-gimmick
+  - tactile-macro
+  - panic-inc-aesthetic
+  - playdate-style
+requires:
+  refs: 1
+scenes: []
+references: []
+

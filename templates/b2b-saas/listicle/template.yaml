@@ -1,0 +1,39 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: listicle
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Listicle / Top-N
+description: "Numbered list video — 'Top 5 X you didn't know', '3 things to stop
+  doing', '7 tools that replace your job'. 30-60s, 9:16, vertical. 0-2s hook +
+  promise, then 6-10s per item with a big on-screen counter ('1/5', '2/5'), with
+  #1 saved for the end as an open loop. Search-friendly evergreen format,
+  AI-friendly (★★★ in research-doc table), YouTube Shorts is the primary
+  platform."
+tags:
+  - listicle
+  - top-5
+  - top-10
+  - top-n
+  - ranking
+  - list
+  - countdown
+  - evergreen
+  - search-first
+  - faceless
+  - voiceover
+  - b-roll
+  - ai-friendly
+  - youtube-shorts
+  - shorts
+  - tiktok
+  - reels
+  - open-loop
+  - completion-rate
+  - watchmojo-style
+requires: {}
+scenes: []
+references: []
+

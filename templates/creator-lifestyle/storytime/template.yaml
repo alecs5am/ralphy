@@ -1,0 +1,44 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: storytime
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Storytime
+description: "Selfie talking-head narrative — creator looks straight into camera
+  and tells a personal story (dating fiasco, family drama, work incident, true
+  crime, throwback). 60-180s — one of the few long formats that works on
+  short-form feeds. The story format breaks scroll rules: viewers commit because
+  they want the payoff. Strong pre-hook in the first 2s, escalating tension with
+  pattern-interrupts every 8-15s (b-roll cutaway, screenshot insert, gesture
+  zoom), then a payoff or cliffhanger that drives DM-share and part-2 follow.
+  Subtitles mandatory — 85% of viewers watch muted. Distinct from
+  talking-head-rant (contrarian opinion) and yap-talking-head (single education
+  idea): storytime is plot-driven and rides on rising tension, not on a hot
+  take."
+tags:
+  - storytime
+  - narrative
+  - talking-head
+  - selfie
+  - long-form
+  - drew-afualo
+  - dating
+  - parenting
+  - work-drama
+  - true-crime
+  - podcast-clip
+  - school-throwback
+  - pattern-interrupt
+  - cliffhanger
+  - rising-tension
+  - tiktok
+  - reels
+  - shorts
+  - ugc
+  - personal-story
+requires: {}
+scenes: []
+references: []
+

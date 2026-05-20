@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **34**
+Verbs registered: **35**
 
 ## Top-level verbs
 
@@ -726,6 +726,10 @@ Commands:
   submit [options]       Submit a batch of jobs to the local daemon with
                          symbolic dependencies. Use this for the 'N generations
                          + 1 render' pattern.
+  vary [options]         Create N project variants from a base project differing
+                         on one axis (hook / body / cta / persona). Use this for
+                         A/B testing the hook without re-running the rest of the
+                         pipeline.
   help [command]         display help for command
 ```
 
@@ -1032,4 +1036,28 @@ Commands:
   list                          List all research topics under
                                 workspace/research/
   help [command]                display help for command
+```
+
+### `ralphy prompts`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy prompts [options] [command]
+
+Prompt cookbook + library lookup (02.03 / 02.0L)
+
+Options:
+  -h, --help       display help for command
+
+Commands:
+  library          Library by goal/situation
+  modes [options]  List cookbook mode files for video / voice / music
+  help [command]   display help for command
 ```

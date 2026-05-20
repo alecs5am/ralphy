@@ -1,0 +1,40 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: pov-first-person
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: POV First-Person
+description: "Human-POV format. Viewer is projected into the scene from first
+  person via a centered text overlay (\"POV: you just…\"). The creator plays the
+  character on camera with reactive expressions; the scene develops over 8-25s
+  and lands on a punchline, emotional peak, or cliffhanger. Highest share-rate
+  and save-rate format because of relatability — the viewer recognizes
+  themselves and forwards it. Works across comedy, dating, lifestyle, B2B SaaS
+  (\"POV: you're the only marketer at a startup\"), retail. Distinct from
+  ai-vegetables (which is POV but vegetable-anthropomorphic) — this is human,
+  broader, character-driven."
+tags:
+  - pov
+  - first-person
+  - relatable
+  - comedy
+  - dating
+  - lifestyle
+  - b2b-saas
+  - retail
+  - share-bait
+  - save-bait
+  - tiktok
+  - reels
+  - shorts
+  - text-overlay
+  - reaction
+  - ugc
+  - talking-character
+  - punchline
+requires: {}
+scenes: []
+references: []
+

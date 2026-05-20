@@ -3,11 +3,12 @@ import fs from "fs/promises";
 import path from "path";
 import { addEntity, getEntity, listEntities, deleteEntity } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { batchesDir } from "../lib/paths.js";
+import { batchesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
 import { ensureDaemonRunning } from "../lib/jobs/daemon.js";
+import { isVaryAxis, VARY_AXES } from "../lib/schemas/hook-body-cta.js";
 
 export function batchCmd() {
   const cmd = new Command("batch").description("Manage batch operations");
@@ -139,6 +140,116 @@ export function batchCmd() {
         err((e as Error).message);
       }
     });
+
+  // ── batch vary (02.08.02) ────────────────────────────────────────────────
+  // `ralphy batch vary --base <project-id> --axis hook --variants N` creates
+  // N derived projects that differ from <base> only on the named axis. Each
+  // variant project's scenario.json keeps body + cta + everything else identical;
+  // only the chosen axis swaps. The variant projects are scaffolded under
+  // `<base>-h1`, `<base>-h2`, … and registered as projects so the standard
+  // `ralphy render <id>` path works on them.
+  //
+  // What this command DOES NOT do in v1.0:
+  //   • Generate the alternative hook copy. The agent (or the user) provides
+  //     `--variants-file <json>` with the swap values. This keeps the verb
+  //     cheap and predictable (no LLM call hidden inside `batch vary`).
+  //   • Symlink assets between projects. v1.0 copies the scenario file only;
+  //     asset reuse is a follow-up. The `--dry-run` flag previews what would
+  //     be created without writing.
+  cmd
+    .command("vary")
+    .description(
+      "Create N project variants from a base project differing on one axis (hook / body / cta / persona). Use this for A/B testing the hook without re-running the rest of the pipeline.",
+    )
+    .requiredOption("--base <project-id>", "Base project to vary")
+    .requiredOption("--axis <axis>", `Axis to vary: ${VARY_AXES.join(" | ")}`)
+    .requiredOption("--variants <n>", "Number of variants to create", (v) => parseInt(v, 10), 3)
+    .option("--variants-file <path>", "JSON file with the per-variant swap values (array of N objects)")
+    .option("--dry-run", "Preview what would be created without writing")
+    .action(async (opts) => {
+      const axis = opts.axis;
+      if (!isVaryAxis(axis)) {
+        raiseError("E_FLAG_UNKNOWN", { flag: "axis", value: axis, allowed: VARY_AXES.join(" | "), verb: "batch vary" });
+      }
+      const baseDir = path.join(projectsDir(), opts.base);
+      let baseScenario: Record<string, unknown>;
+      try {
+        baseScenario = JSON.parse(await fs.readFile(path.join(baseDir, "scenario.json"), "utf-8"));
+      } catch {
+        raiseError("E_FILE_UNREADABLE", { path: path.join(baseDir, "scenario.json") });
+      }
+
+      let swaps: Array<Record<string, unknown>> = [];
+      if (opts.variantsFile) {
+        try {
+          const raw = await fs.readFile(opts.variantsFile, "utf-8");
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+            raiseError("E_FILE_MALFORMED", { format: "JSON", path: opts.variantsFile, detail: "expected an array" });
+          }
+          swaps = parsed as Array<Record<string, unknown>>;
+        } catch (e) {
+          raiseError("E_FILE_UNREADABLE", { path: opts.variantsFile, detail: (e as Error).message });
+        }
+      }
+
+      const n = opts.variants;
+      const suffix = axis === "hook" ? "h" : axis === "cta" ? "c" : axis === "body" ? "b" : "p";
+      const planned: Array<{ id: string; dir: string; swap: Record<string, unknown> }> = [];
+      for (let i = 0; i < n; i++) {
+        const id = `${opts.base}-${suffix}${i + 1}`;
+        const dir = path.join(projectsDir(), id);
+        const swap = swaps[i] ?? {};
+        planned.push({ id, dir, swap });
+      }
+
+      if (opts.dryRun) {
+        out({
+          dryRun: true,
+          base: opts.base,
+          axis,
+          would_create: planned.map((p) => ({ id: p.id, swap: p.swap })),
+        });
+        return;
+      }
+
+      const created: string[] = [];
+      for (const p of planned) {
+        try {
+          await fs.access(p.dir);
+          raiseError("E_ALREADY_EXISTS", { kind: "Project", id: p.id });
+        } catch { /* fall through */ }
+        await fs.mkdir(p.dir, { recursive: true });
+        // Shallow clone the scenario and overlay the axis swap.
+        const variantScenario: Record<string, unknown> = JSON.parse(JSON.stringify(baseScenario));
+        // The swap object's keys are merged at the top of the scenario. The
+        // batch caller is responsible for placing the swap under the right
+        // key (e.g. { "hook": {...} } for axis=hook). This keeps the verb
+        // dumb-pipe and predictable.
+        for (const [k, v] of Object.entries(p.swap)) {
+          variantScenario[k] = v;
+        }
+        variantScenario.variant_of = opts.base;
+        variantScenario.variant_axis = axis;
+        await fs.writeFile(path.join(p.dir, "scenario.json"), JSON.stringify(variantScenario, null, 2) + "\n");
+        await addEntity("projects", p.id, {
+          name: p.id,
+          variant_of: opts.base,
+          variant_axis: axis,
+          status: "draft",
+          createdAt: new Date().toISOString(),
+        });
+        created.push(p.id);
+      }
+      ok(`Created ${created.length} variant(s) of ${opts.base} (axis=${axis})`);
+      out({ base: opts.base, axis, created });
+    })
+    .addHelpText("after", `
+Examples:
+  $ ralphy batch vary --base demo-001 --axis hook --variants 3 --dry-run
+  $ ralphy batch vary --base demo-001 --axis hook --variants 3 --variants-file hooks.json
+  $ ralphy batch vary --base demo-001 --axis cta  --variants 5 --variants-file ctas.json
+`);
 
   return cmd;
 }

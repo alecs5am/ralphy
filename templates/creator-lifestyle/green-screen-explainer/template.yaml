@@ -1,0 +1,42 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: green-screen-explainer
+aliases: []
+kind: vibe-style
+category: creator-lifestyle
+name: Green Screen Explainer
+description: "TikTok-native green-screen format: creator stands in front of a
+  screenshot / news article / Reddit post / chart / meme and reacts. 0-2s 'look
+  at this' + pointing at backdrop, 2-25s explanation with optional zoom-in and
+  circle annotations, 25-45s reaction / outro. 15-45s total, 9:16. Shows source
+  + personality at once — a double-weave of information that beats either
+  pure-react or pure-screenshot videos. The backdrop content (real screenshot,
+  real article, real post) MUST be supplied by the user — the reference-required
+  gate refuses any AI-improvised real news, real Reddit posts, or real-person
+  tweets. Niches: news commentary, tech reviews, sports takes, finance takes,
+  cultural meme breakdowns."
+tags:
+  - green-screen
+  - explainer
+  - backdrop
+  - react
+  - commentary
+  - news-commentary
+  - tech-review
+  - sports-takes
+  - finance-takes
+  - screenshot-react
+  - meme-react
+  - tiktok-native-effect
+  - talking-head
+  - double-weave
+  - ugc
+  - tiktok
+  - reels
+  - shorts
+requires:
+  refs: 1
+scenes: []
+references: []
+

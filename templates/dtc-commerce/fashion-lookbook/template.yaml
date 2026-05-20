@@ -1,0 +1,41 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: fashion-lookbook
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Fashion Lookbook
+description: "Editorial fashion lookbook video — 15-30s of model + garment
+  storytelling: hook (0-2s) → look 1 walk/pose → optional transition into look
+  2/3 → final beat. 9:16 vertical (TikTok/Reels) by default, 16:9 for campaign
+  films. Movement sells clothes — fabric drape, model walks, lighting that
+  flatters the wearer, environment as mood. Reference-required when a real
+  garment is shown: drop a product/garment photo into uploaded/, or the format
+  refuses (no AI-improvised fashion branding). Music carries the rhythm;
+  voiceover is usually omitted in favor of on-screen text and beat-cut editing."
+tags:
+  - fashion
+  - lookbook
+  - ugc
+  - model
+  - outfit
+  - ootd
+  - style
+  - tiktok
+  - reels
+  - shorts
+  - campaign
+  - runway
+  - streetwear
+  - haute-couture
+  - editorial
+  - fashion-film
+  - collection-launch
+  - garment
+  - fabric
+requires:
+  refs: 1
+scenes: []
+references: []
+

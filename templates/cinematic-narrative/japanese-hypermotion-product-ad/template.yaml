@@ -1,0 +1,47 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: japanese-hypermotion-product-ad
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Japanese Hyper-Motion Product Ad
+description: 15-second 9:16 hyper-energetic Japanese hyperpop product ad — 8
+  hard-cut beats at ~1.9s avg over a pink-and-cyan tile-grid 3D stage,
+  orchestral-hyperpop or sakura-trap bed at 130-140 BPM with drum-fill stings on
+  every cut, anime-style chibi mascots orbiting / running ON the product,
+  gpt-5.4-image-2 stills for product / branding / typography fidelity + banana
+  for any photoreal human inserts, seedance-2.0 for the violent physics (slam,
+  explode, runway burst, magnet-pull, glint cascade) + kling-v3.0-pro
+  single-frame for any human face, ending on a katakana brand logo + slogan
+  slam.
+tags:
+  - japanese-hyperpop
+  - hyper-motion
+  - product-ad
+  - dtc-gadget
+  - tiktok
+  - reels
+  - shorts
+  - katakana-typography
+  - chibi
+  - tile-grid
+  - anime-overlay
+  - orchestral-hyperpop
+  - sakura-trap
+  - drum-stings
+  - snap-zoom
+  - explosive-entrance
+  - exploded-view
+  - macro-tech
+  - gpt-image-2
+  - seedance-2.0
+  - kling-v3.0-pro
+  - 9-16
+  - 15s
+  - 8-cut
+requires:
+  refs: 1
+scenes: []
+references: []
+

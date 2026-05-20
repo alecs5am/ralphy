@@ -1,0 +1,41 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: faceless-voiceover
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Faceless Voiceover + B-Roll
+description: "Faceless YouTube Shorts / TikTok storytelling format: AI or live
+  narration over stock or AI-generated b-roll. 0-2s curiosity hook → 3-act story
+  (setup → conflict → resolution) with b-roll cuts every 5-8s → punchline + CTA.
+  45-90s, 9:16, burned-in word-level subtitles mandatory. Anchor format for
+  faceless channels in 2026 — niche grew 300% YoY (Bityclips, Jan 2026), YouTube
+  Shorts is the king platform. No on-camera presence required, evergreen search
+  traffic, low production cost. Niches: history, finance, psychology, tech, true
+  crime, mythology."
+tags:
+  - faceless
+  - voiceover
+  - b-roll
+  - narration
+  - storytelling
+  - history
+  - finance
+  - psychology
+  - tech
+  - true-crime
+  - mythology
+  - ai-friendly
+  - ai-narration
+  - search-first
+  - faceless-channel
+  - shorts
+  - youtube-shorts
+  - evergreen
+  - did-you-know
+  - explainer
+requires: {}
+scenes: []
+references: []
+

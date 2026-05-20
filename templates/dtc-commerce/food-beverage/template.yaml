@@ -1,0 +1,40 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: food-beverage
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+name: Food & Beverage
+description: "Prompt cookbook for food & beverage commercial video —
+  appetite-trigger cinematography (cheese pulls, sauce pours, steam reveals,
+  ASMR sizzle, latte art, cocktail builds). 10-20s, 9:16 or 1:1.
+  Reference-required: a real product / dish photo / packaging / logo must be
+  supplied for any branded item, otherwise generation refuses (no AI-improvised
+  packaging on real products). Texture-first, sound-as-flavor, money-shot
+  driven."
+tags:
+  - food
+  - beverage
+  - drink
+  - restaurant
+  - cafe
+  - coffee
+  - cocktail
+  - dessert
+  - snack
+  - asmr
+  - recipe
+  - cooking
+  - menu
+  - food-ad
+  - appetite
+  - macro
+  - tiktok
+  - reels
+  - shorts
+requires:
+  refs: 1
+scenes: []
+references: []
+

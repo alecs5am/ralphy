@@ -1,0 +1,47 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: tokyo-y2k-cinematic
+aliases: []
+kind: vibe-style
+category: cinematic-narrative
+name: Tokyo Y2K Cinematic Near-Miss
+description: "Long-form 75s cinematic short — Y2K-Tokyo (or any neon city + era)
+  near-miss love arc in the register of KYO KIMURA's honeybee. 15-17 locked-off
+  tripod shots, 35mm Kodak Portra 400 emulation, soft natural light only,
+  frame-within-a-frame compositions through glass / rain / curtains, zero
+  diegetic audio, ElevenLabs piano-bed music carrying every beat. Ships as
+  DUAL-aspect: 9:16 letterboxed 1.85:1 (TikTok / Reels / Shorts) + 16:9 native
+  (YouTube / Vimeo) from the same scenes table. Authored at 24fps native, not
+  30. Trim-analysis pass is mandatory before composing — Kling and Seedance both
+  overshoot the requested duration by ~1s per clip."
+tags:
+  - cinematic-narrative
+  - tokyo-y2k
+  - near-miss-arc
+  - honeybee-dna
+  - long-form
+  - 75s
+  - letterbox-1.85
+  - dual-aspect-9x16-16x9
+  - 35mm-film
+  - kodak-portra-400
+  - locked-off-tripod
+  - frame-within-frame
+  - soft-natural-light
+  - zero-diegetic-audio
+  - elevenlabs-piano-bed
+  - kling-v3-pro
+  - gemini-3-pro-image
+  - trim-analysis-required
+  - 24fps-native
+  - japanese-art-cinema
+  - shunji-iwai
+  - wong-kar-wai
+  - neon-alley
+  - rain-on-glass
+  - jp-signage
+requires: {}
+scenes: []
+references: []
+

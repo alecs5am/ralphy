@@ -1,0 +1,35 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: soviet-nostalgic
+aliases: []
+kind: vibe-reference
+category: entertainment-viral
+name: Soviet Nostalgic TikTok Ad
+description: "Reference template (not a script generator) for a specific
+  TikTok-ad format: off-screen deadpan young Russian narrator tells a two-era
+  heritage story — a Soviet-era inventor created something, it was shelved, the
+  modern heir revived it. The era flip mid-video is also a music drop (canonical
+  Soviet trend bed → hip-hop). The narration stays in Russian — it's the
+  format's signature; everything else (prompts, fragments, structural docs) is
+  in English. Scenario is written fresh per project by /ralph-scenarist using
+  this template as a vibe reference."
+tags:
+  - tiktok
+  - reels
+  - shorts
+  - soviet
+  - nostalgic
+  - two-era
+  - heritage
+  - product-story
+  - russian-vo
+  - narrative
+  - advertising
+  - ugc
+  - vintage
+  - documentary-style
+requires: {}
+scenes: []
+references: []
+

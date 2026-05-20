@@ -1,0 +1,38 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: motion-design-ad
+aliases: []
+kind: vibe-style
+category: b2b-saas
+name: Motion Design Ad
+description: "Kinetic-typography / motion-graphics ad for software, SaaS, apps
+  and tech products. UI shots, geometric splits, particle bursts, light-beam
+  scans, code-to-product morphs. 9:16 by default (15-30s); also 16:9 for YouTube
+  pre-roll and 1:1 for LinkedIn. Reference-required: a real brand logo / product
+  screenshot / UI capture must be supplied — AI-improvised UI on a branded
+  product reads as fake. Stack: gemini-3-pro keyframes (with brand reference),
+  kling-v3.0-pro 5s i2v, ElevenLabs music for the beat-driven backbone
+  (typically electronic, 120-140 BPM)."
+tags:
+  - motion-design
+  - kinetic-typography
+  - saas
+  - software
+  - app-promo
+  - tech
+  - ui-showcase
+  - ad
+  - advertising
+  - tiktok
+  - reels
+  - shorts
+  - youtube-preroll
+  - linkedin
+  - product-launch
+  - feature-showcase
+requires:
+  refs: 1
+scenes: []
+references: []
+
