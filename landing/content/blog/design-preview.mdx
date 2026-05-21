@@ -1,0 +1,387 @@
+---
+title: "Design preview — every MDX & markdown block in one page"
+description: "Living style guide for the Ralphy blog. Every component, every standard markdown block, in the order you'll typically use them. Open this page when designing a new article."
+date: "2026-05-21"
+author: "Ralphy team"
+---
+
+# Design preview — every MDX & markdown block
+
+<Lede>
+This article is the living reference for the Ralphy blog kit. It exercises
+every <Tag>MDX</Tag> component the library ships, plus every standard
+markdown block the engine renders, in roughly the order you'll use them in
+real posts. If a new component lands in <Tag kind="accent">index.tsx</Tag>,
+add it here first.
+</Lede>
+
+## 1 · Type stack
+
+Standard markdown elements render inside `.blog-body`. The hierarchy below
+shows every heading level and how it sits next to body type.
+
+### Third-level heading
+
+Body paragraphs sit at 24px / 1.5 by default. They wrap on the article's
+prose column (1020px) and inherit `--ink-2` as the foreground. **Bold text
+shifts to full `--ink`** and *italic stays the same colour but tilts*. You
+can also use `inline code` for short keys, file names, or commands. To kill
+a word use ~~strikethrough~~ — handy for "renamed-from" notes.
+
+#### Fourth-level heading
+
+Sub-headings inside long articles. Use sparingly. Display font, uppercase,
+slightly tighter tracking.
+
+## 2 · Inline links and tags
+
+Inline links default to **mono chip** styling — every `<a>` reads as a
+"follow this" command. See [the generation log spec](https://ralphy.mintlify.app/log-spec)
+and [the model routing rules](https://ralphy.mintlify.app/models) for live
+examples. External links like [the Remotion docs](https://remotion.dev)
+render the same way.
+
+Tags are uppercase chips for product names, model ids, and env vars. Three
+kinds: <Tag>neutral</Tag>, <Tag kind="accent">accent</Tag>, and
+<Tag kind="warn">warn</Tag>. They sit cleanly inside paragraphs.
+
+## 3 · Stat strip — variant A
+
+Three-up plates anchoring a numerical claim.
+
+<StatRow>
+  <Stat value="14" label="Component categories" />
+  <Stat value="56" label="Variants explored" />
+  <Stat value="0" label="Visible borders shipped" />
+</StatRow>
+
+## 4 · Callouts — variant D
+
+Big-glyph plates. Four `kind`s: `info`, `good`, `warn`, `danger`.
+
+<Callout kind="info" title="Default callout">
+Use `info` for tangents and meta-notes that aren't the article's main thread.
+This is the neutral choice when nothing else fits.
+</Callout>
+
+<Callout kind="good" title="Reach-for-this callout">
+`good` reads as confirmation or a positive heads-up. Often used for cost
+savings, free tier reminders, "we already built that".
+</Callout>
+
+<Callout kind="warn" title="Edge-case callout">
+`warn` is amber. Use for caveats users actually need to read before acting —
+"this changes default behaviour", "watch the model swap".
+</Callout>
+
+<Callout kind="danger" title="Footgun callout">
+`danger` is rose. Reserve for irreversible actions or known-broken paths.
+If you find yourself using it more than once per article, the article
+probably needs restructuring.
+</Callout>
+
+## 5 · CTA banner — variant B
+
+Full-bleed accent plate. One per article, two max. Used to break the prose
+column with the action you actually want the reader to take.
+
+<Cta
+  title="Ship 60 reels this quarter."
+  caption="Two API keys, zero account. ralphy doctor verifies the install in five seconds."
+  href="https://github.com/alecs5am/ralphy"
+  cta="Get Ralphy"
+/>
+
+## 6 · Lists
+
+Unordered list:
+
+- First item with a longer line that wraps to verify the bullet alignment
+  stays clean when text overflows to a second visual line.
+- Second item.
+- Third item with **bold** and `inline code`.
+- Fourth item with a [mono-chip link inline](https://github.com/alecs5am/ralphy).
+
+Ordered list:
+
+1. Brief in, storyboard out.
+2. Agent reviews and edits.
+3. Render and ship.
+
+Nested list (one level only — beyond that, restructure into Steps):
+
+- Top item
+  - Sub item A
+  - Sub item B with **bold**
+- Another top item
+  - Sub item C
+  - Sub item D
+
+## 7 · Blockquote
+
+Standard markdown `>` blockquote. Distinct from `<PullQuote>` — quieter,
+prose-flow-friendly.
+
+> Hosted studios optimize for "type a brief, get a video". Ralphy optimizes
+> for the next eight months — the part where you're shipping ten reels a
+> week and a CMO asks what you spent on hands-and-eyes regens in Q1.
+
+## 8 · Pull quote — variant D
+
+Editorial pull quote with author plate. Use once per article, max.
+
+<PullQuote name="Jamie Kestrel" role="VP Marketing · Hexlane Labs">
+Open source meant the engineering team could grok the whole pipeline in an
+afternoon. Six months in we've forked it once and never regretted it.
+</PullQuote>
+
+## 9 · Horizontal rule
+
+Thematic break between sections that don't warrant a new H2. Use sparingly.
+
+---
+
+## 10 · Steps — vertical timeline
+
+Numbered timeline for processes or playbooks. The `n` prop is optional —
+omit to fall back to CSS counter-style auto-numbering.
+
+<Steps>
+  <Step n="01" title="Brief in, storyboard out">
+    Drop a one-line brief into <Tag>ralphy new</Tag>. The CLI writes
+    `STORYBOARD.md`, `prompts.json`, and a per-scene reference list — all
+    checked into git.
+  </Step>
+  <Step n="02" title="Agent reviews + edits">
+    Claude reads `AGENTS.md`, walks the storyboard, swaps weak prompts.
+    Human reviews the diff like any pull request.
+  </Step>
+  <Step n="03" title="Render and ship">
+    <Tag>ralphy render</Tag> calls OpenRouter + ElevenLabs, composes through
+    Remotion, writes the mp4 plus a generation log entry.
+  </Step>
+</Steps>
+
+## 11 · Comparison — cards (default)
+
+Best when ≤ 5 features and you want each vendor read top-to-bottom.
+
+<ComparisonTable
+  brands={[
+    { name: "Ralphy", accent: true },
+    { name: "Higgsfield" },
+    { name: "Supercomputer" }
+  ]}
+  rows={[
+    { feature: "Open source",       values: [true, false, false] },
+    { feature: "BYO provider keys", values: [true, false, false] },
+    { feature: "Agent-native CLI",  values: [true, false, "partial"] },
+    { feature: "One-click setup",   values: [false, true, true] },
+    { feature: "Platform fee",      values: ["$0", "$45+/mo", "$29+/mo"] }
+  ]}
+/>
+
+## 12 · Comparison — rows
+
+For dense matrices (> 5 features). Striped, sub-text under each feature.
+
+<ComparisonTable
+  layout="rows"
+  brands={[
+    { name: "Ralphy", accent: true },
+    { name: "Higgsfield" },
+    { name: "Supercomputer" }
+  ]}
+  rows={[
+    { feature: "Per-project JSONL log",  sub: "Every prompt + output + cost, append-only", values: [true, false, false] },
+    { feature: "Versioned prompts",      sub: "prompts.json checked into git",             values: [true, false, false] },
+    { feature: "Re-runnable storyboard", sub: "STORYBOARD.md as source of truth",          values: [true, false, false] },
+    { feature: "Reference blueprints",   sub: "Persona / brand / camera in JSON",          values: [true, "partial", false] },
+    { feature: "Branchable history",     sub: "git diff your prompt revisions",            values: [true, false, false] },
+    { feature: "Export history",         sub: "Cost rollup, model breakdown",              values: [true, "enterprise", false] }
+  ]}
+  caption="Reproducibility matrix · 2026-05"
+/>
+
+## 13 · Pricing table — variant A
+
+<PricingTable
+  cols={["Monthly volume", "Ralphy (BYO keys)", "Higgsfield", "Supercomputer"]}
+  rows={[
+    { label: "10 reels", values: ["~$8",  "$45 + ~$24",   "$29 + ~$22"] },
+    { label: "25 reels", values: ["~$22", "$45 + ~$60",   "$59 + ~$55"] },
+    { label: "60 reels", values: ["~$54", "$180 + ~$144", "$129 + ~$132"] },
+    { label: "Seats",    values: ["unlimited", "3", "2"] }
+  ]}
+  caption="Estimates assume gpt-image-2 + kling-v3.0-pro + ElevenLabs v3."
+/>
+
+## 14 · Pricing — single hero
+
+Use to anchor the article's bottom-line claim ($X/reel, $0 platform fee).
+
+<PriceHero
+  eyebrow="Pricing · in one line"
+  title="Pay the model vendor, not us."
+  caption="Pass-through OpenRouter + ElevenLabs. Ralphy keeps zero."
+  value="$0.74"
+  unit="/reel"
+  note="median across 4,800 renders"
+/>
+
+## 15 · Bar comparison — variant D
+
+Horizontal bars sized to the largest amount. Pass `accent: true` on the
+"winner" row to emphasize.
+
+<BarStats items={[
+  { label: <><b>Ralphy</b> · cost per reel</>,        amount: 0.74, display: "$0.74", accent: true },
+  { label: <><b>Supercomputer</b> · cost per reel</>, amount: 2.10, display: "$2.10" },
+  { label: <><b>Higgsfield</b> · cost per reel</>,    amount: 2.40, display: "$2.40" }
+]} />
+
+## 16 · Markdown table (native)
+
+When the native markdown table is enough (no checkmarks, no row accents),
+use it directly — it's lighter than `<ComparisonTable>`.
+
+| Surface | Default font | Token |
+|---|---|---|
+| Headings | AWS Diatype Mono Bold | `--font-display` |
+| Body | AWS Diatype | `--font-sans` |
+| Code | Fragment Mono | `--font-mono` |
+
+## 17 · Code
+
+Inline `code` reads like `prompts.json` — mono on a `bg-2` plate. Use for
+short tokens. Multi-line code goes in a fenced block (no filename tab)…
+
+```bash
+$ brew install alecs5am/tap/ralphy
+$ ralphy doctor
+✓ openrouter · 200 OK
+✓ elevenlabs · 200 OK
+```
+
+…or in a `<CodeBlock>` with a filename tab when you want to surface what
+file the snippet came from:
+
+<CodeBlock filename="prompts.json" lang="json" meta="42 lines · ralphy ref">
+{`{
+  "scene": 1,
+  "model": "kling-v3.0-pro",
+  "persona": "$personas.founder_a",
+  "shot": "low-angle POV, hand-held",
+  "vo": "Day one, eight thousand orders."
+}`}
+</CodeBlock>
+
+A multi-line TypeScript snippet:
+
+```ts
+import { Cta } from "@/components/mdx";
+
+export function Banner() {
+  return (
+    <Cta title="Ship 60 reels" cta="Get Ralphy" href="https://github.com/alecs5am/ralphy" />
+  );
+}
+```
+
+## 18 · Figure — variant A + gallery
+
+Single image, caption below. The mock layer renders an "Image missing"
+placeholder when `src` is omitted (useful for design preview).
+
+<Figure
+  fig="01"
+  caption="Ralphy CLI rendering scene 03 of a 6-scene reel. Generation log appended on success."
+/>
+
+Two-up gallery — same component, pass `items` instead of `src`:
+
+<Figure
+  fig="02"
+  caption="Model swap, same prompt — re-rendered in 4.2s."
+  items={[
+    { label: "before · kling-v2" },
+    { label: "after · kling-v3.0-pro" }
+  ]}
+/>
+
+## 19 · FAQ — native single-open accordion
+
+`<details name="faq">` group — opening one closes the others. Zero-JS.
+Pass `open` on the first item to keep it expanded on page load.
+
+<FAQ>
+  <FaqItem q="Why a CLI, not a web UI?" open>
+    Because the user we built for is your code-gen agent. Claude / Cursor /
+    Codex already write the brief and the deploy script. Asking them to
+    drive a CLI is one less integration than wiring them into a SaaS
+    dashboard.
+  </FaqItem>
+  <FaqItem q="Is Ralphy actually free?">
+    The binary is MIT and we don't host anything. You pay OpenRouter for
+    model calls and ElevenLabs for voice — that's the entire bill.
+  </FaqItem>
+  <FaqItem q="What happens if OpenRouter is down?">
+    Swap providers in `MODELS.md` and restart. We don't lock you to a
+    vendor — Ralphy is the orchestrator, not the model host.
+  </FaqItem>
+</FAQ>
+
+## 20 · Recommendations by team
+
+Legacy block kept for the Higgsfield comparison article. Use `<Steps>` for
+new content — it's the more flexible primitive.
+
+<TeamRecs>
+  <TeamRec team="engineering-led product teams" pick="Ralphy">
+    Direct provider access, version-controlled prompts, and an MIT-licensed
+    binary you can fork or pin.
+  </TeamRec>
+  <TeamRec team="brand / creative teams without engineering support" pick="Higgsfield">
+    Web UI, polished templates, designer-friendly. You give up the audit
+    log; you get a dashboard with no terminal.
+  </TeamRec>
+</TeamRecs>
+
+## 21 · Related reading — link list
+
+<LinkList head="Keep reading">
+  <LinkListItem
+    href="/blog/ralphy-vs-higgsfield"
+    num="01"
+    title="Ralphy vs Higgsfield vs Supercomputer"
+    meta="12 min"
+  />
+  <LinkListItem
+    href="https://github.com/alecs5am/ralphy"
+    num="02"
+    title="github.com/alecs5am/ralphy"
+    meta="repo · MIT"
+  />
+  <LinkListItem
+    href="https://ralphy.mintlify.app"
+    num="03"
+    title="Ralphy documentation"
+    meta="docs"
+  />
+</LinkList>
+
+## 22 · Closing CTA
+
+The article's last action. Different copy from the top-of-article CTA so
+the reader sees a fresh angle.
+
+<Cta
+  title="Try Ralphy in eight minutes."
+  caption="brew install alecs5am/tap/ralphy && ralphy new 'vertical reel about <your product>'"
+  href="https://github.com/alecs5am/ralphy"
+  cta="Install"
+/>
+
+Closing paragraph. The article ends on a flat line of body type — same
+treatment as the closing summary in the Higgsfield comparison article.
+That's the whole kit.
