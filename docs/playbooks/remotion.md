@@ -1,6 +1,8 @@
-# Remotion playbook
+# Remotion playbook (fallback engine)
 
-**Read this when:** writing or modifying Remotion code (compositions, components, ffmpeg post-processing) — this is the domain-specific reference manual.
+> **HyperFrames is now Ralphy's default render engine.** For NEW projects, read [`hyperframes.md`](hyperframes.md) instead. This file covers the fallback path: legacy `src/videos/*` compositions, and workspace projects that ship `composition-props.json` instead of `index.html`. Pick this engine with `ralphy render <id> --engine remotion` when you're working on or porting from a Remotion composition.
+
+**Read this when:** writing or modifying Remotion code (compositions, components, ffmpeg post-processing) — this is the domain-specific reference manual for the fallback engine.
 
 ## Sub-docs (read on demand)
 
