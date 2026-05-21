@@ -4,9 +4,9 @@ export const site = {
   name: "Ralphy",
   tagline: "Open-source content factory CLI. Turn your coding agent into a video marketer.",
   repo: "https://github.com/alecs5am/ralphy",
-  docs: "https://ralphy.dev/docs",
-  discord: "https://discord.gg/ralphy",
-  x: "https://twitter.com/ralphy_studio",
+  docs: "https://ralphy.mintlify.app/",
+  discord: "https://discord.gg/QqSTUScY",
+  x: "https://x.com/alecs5am",
   install: "curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh",
   /**
    * Display value, "fake-it-till-you-make-it". The real GitHub star count is
