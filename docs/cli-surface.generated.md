@@ -344,29 +344,45 @@ ____        __      __
 
 Usage: ralphy render [options] <project>
 
-Render a project to MP4. Reads composition-props.json + manifest, runs `bunx
-remotion render`, writes workspace/projects/<id>/render/final.mp4. Adds EBU R128
-loudnorm with --loudnorm.
+Render a project to MP4. Default engine: HyperFrames (HTML + GSAP). Fallback:
+Remotion (React/TSX, legacy `src/videos/*`). Writes
+workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with
+--loudnorm.
 
 Arguments:
-  project             Project ID
+  project                Project ID
 
 Options:
-  --composition <id>  Composition id (default: from props or 'UGCVideo')
-  --output <path>     Output mp4 path (default:
-                      workspace/projects/<id>/render/final.mp4)
-  --loudnorm          Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg
-  --keep-symlink      Don't remove the public/project-<id> symlink after render
-  --dry-run           Print the resolved render plan (composition, props path,
-                      output); no remotion run (default: false)
-  --summary           Collapse the dry-run plan to a per-stage rollup (default:
-                      false)
-  -h, --help          display help for command
+  --engine <engine>      Render engine: hyperframes|remotion (default:
+                         auto-detect, hyperframes-first)
+  --composition <id>     Composition id (default: from props or 'UGCVideo')
+  --output <path>        Output mp4 path (default:
+                         workspace/projects/<id>/render/final.mp4)
+  --loudnorm             Apply EBU R128 loudnorm (-16 LUFS) post-render via
+                         ffmpeg
+  --keep-symlink         Don't remove the public/project-<id> symlink after
+                         render (remotion only)
+  --fps <fps>            Frame rate (hyperframes only; default 30)
+  --quality <quality>    Quality preset: draft|standard|high (hyperframes only;
+                         default standard)
+  --format <format>      Output format: mp4|webm|mov|png-sequence (hyperframes
+                         only; default mp4)
+  --resolution <preset>  Resolution preset:
+                         portrait|landscape|square|1080p|4k|... (hyperframes
+                         only)
+  --dry-run              Print the resolved render plan; no engine run (default:
+                         false)
+  --summary              Collapse the dry-run plan to a per-stage rollup
+                         (default: false)
+  -h, --help             display help for command
 
 Examples:
-  ralphy render spring-001
+  ralphy render spring-001                            # auto-detect engine
+  ralphy render spring-001 --engine hyperframes       # force HyperFrames (HTML + GSAP)
+  ralphy render spring-001 --engine remotion          # force Remotion (legacy React/TSX)
   ralphy render proj-001 --loudnorm
   ralphy render proj-001 --output ./out.mp4
+  ralphy render proj-001 --engine hyperframes --fps 60 --quality high
 ```
 
 ### `ralphy editor`
