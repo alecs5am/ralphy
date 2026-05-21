@@ -1,0 +1,27 @@
+slug: ballerina-motion-intensity-0-4
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: VEED 5-part-structure example with explicit motion intensity 0.4
+form_factor: horizontal 16:9 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: VEED 5-slot template — subject, motion, camera, environment, style/light
+    required: true
+    constraints: |
+      Pattern: [Subject details], [Motion specifications with intensity value],
+      [Camera work], [Environment], [Style/Lighting]
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.4
+source:
+  url: https://www.veed.io/learn/kling-3-0-prompts
+  author: VEED
+  retrieved: 2026-05-21
+notes: |
+  The only verbatim VEED example. Documents the 5-part-structure pattern with
+  an explicit "motion intensity 0.4" value inline in the prompt (subtle motion).
+prompt: |
+  Professional ballerina in white tutu and pointe shoes, graceful elegant posture, performing slow arabesque with controlled leg extension, motion intensity 0.4, smooth fluid movements, static medium shot from front at eye level, minimalist dance studio with wooden floor and mirrored wall, soft diffused natural lighting creating gentle shadows, artistic dance photography style with muted pastel tones

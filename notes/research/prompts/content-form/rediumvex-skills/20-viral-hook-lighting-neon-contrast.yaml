@@ -1,0 +1,22 @@
+slug: viral-hook-lighting-neon-contrast
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Lighting preset — dual-color neon split lighting
+form_factor: lighting modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[pink/cyan or orange/blue]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Neon-contrast lighting preset.
+prompt: |
+  Dual-color neon lighting: [pink/cyan or orange/blue] from opposing sides. Hard shadows where colors meet. Subject's face split between warm and cool. Background dark, no ambient fill. Rim light separates from black background. Colors at 80% saturation. Cinematic, moody, scroll-stopping.

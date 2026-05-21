@@ -1,0 +1,18 @@
+slug: macro-pizza-camcorder-zoom
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Macro food close-up with erratic VHS zoom
+form_factor: vertical 9:16 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: macro food scene with camera motion
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Companion shot to vhs-camcorder-cheeseburger-party. Macro-food + VHS aesthetic.
+prompt: |
+  Handheld camcorder footage zooming in erratically on woman's face as she devours a messy slice of pizza, melting mozzarella stretching and dripping, bright red tomato sauce smearing across her lips, VHS aesthetic with heavy grain, dim party lighting with colored gels

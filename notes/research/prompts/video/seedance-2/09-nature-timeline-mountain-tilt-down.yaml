@@ -1,0 +1,39 @@
+slug: nature-timeline-mountain-tilt-down
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: nature / documentary — wide establishing → macro reveal with timeline beats
+form_factor: horizontal 16:9 / 8s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-prompted)
+    required: true
+    constraints: |
+      Uses [0s] / [3s] / [6s] / [8s] timestamps for tilt + cut + dolly choreography.
+  - kind: flag
+    name: camera_movement
+    role: tilt down, dolly back
+    required: false
+source:
+  url: https://www.mindstudio.ai/blog/timeline-prompting-seedance-2-cinematic-ai-video
+  author: MindStudio
+  retrieved: 2026-05-21
+notes: |
+  Timeline-prompted nature doc — note the inline "Cut to:" at [6s] which
+  Seedance handles as a shot change. Text-to-video.
+prompt: |
+  [0s] Establishing wide shot: A vast mountain range at golden hour.
+  Snow-capped peaks against a gradient sky, amber to deep blue. Camera
+  is static, slightly elevated angle.
+
+  [3s] Slow tilt down: Camera tilts from peaks toward an alpine meadow
+  below. Motion smooth, deliberate.
+
+  [6s] Cut to: Extreme close-up of wildflowers in the meadow. Shallow
+  depth of field. Wind causes gentle motion in frame. Warm side-lighting.
+
+  [8s] Slow dolly back from close-up, revealing more of the meadow,
+  mountain silhouettes in the distant background.
+
+  Documentary-style 4K, no grain, high dynamic range, color grade: warm
+  highlights, teal shadows.

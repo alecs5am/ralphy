@@ -1,0 +1,19 @@
+slug: viral-hook-camera-drop-shot
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Camera-movement preset — vertical drop creating vertigo
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Drop-shot vertical-drop camera preset.
+prompt: |
+  Camera drops vertically 6 feet in 0.4s. Creates stomach-drop sensation. Subject stays centered. Frame shakes slightly on landing. Vertigo trigger.

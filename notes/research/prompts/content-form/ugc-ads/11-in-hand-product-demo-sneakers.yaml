@@ -1,0 +1,31 @@
+slug: ugc-in-hand-product-demo-sneakers
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: In-hand product hook + try-on demo (sneakers / footwear / streetwear)
+form_factor: vertical 9:16 / 10s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 10s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://videoai.me/blog/seedance-2-0-ugc-prompts
+  author: VideoAI.me
+  retrieved: 2026-05-21
+notes: |
+  Human-anchored UGC with product hand-off — Seedance privacy filter may reject photoreal male i2v;
+  route through kwaivgi/kling-v3.0-pro if drift appears. Real-product anchor (sneakers) should be
+  passed as @Image1 / --ref to prevent identity drift between hold/drop/jog beats. Anti-AI-slop
+  memory applies: add film grain + skin pores cues if face appears. Source explicitly bans music
+  ("No music, No logo, no text on screen") — keep verbatim.
+prompt: |
+  UGC creator, energetic Black man in his twenties standing in a concrete skatepark at golden hour, holding a brand new pair of white and neon green sneakers. He lifts them close to the camera lens, rotates them slowly saying: "Bro look at these. Feel that material." He drops them on the ground, slides his foot in, stomps twice, then jogs three steps and stops. He turns back to camera: "Insane comfort." Filmed with iPhone, warm sunset backlight, slight lens flare, handheld. - No music, No logo, no text on screen.

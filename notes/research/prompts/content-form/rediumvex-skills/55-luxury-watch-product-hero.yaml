@@ -1,0 +1,31 @@
+slug: luxury-watch-product-hero
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Luxury watch product hero — 5s imperceptible push-in on marble
+form_factor: luxury product film
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: full scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/06-luxury-aesthetic/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/06-luxury-aesthetic/SKILL.md
+notes: |
+  Complete luxury worked example — 5s mechanical watch on black marble. Maps to Ralphy cinematic-narrative.
+prompt: |
+  Extremely slow push-in toward a mechanical watch resting on a polished black marble surface, the watch occupying the lower center third of the frame. Vast dark space above and around it. Single hard point light source positioned at 45 degrees from above-left, casting a defined clean shadow to the lower right. The watch face catches the light; the bezel glints with a single bright specular highlight. Camera begins at 60cm apparent distance and inches toward 40cm over the full 5 seconds — movement barely perceptible.
+
+  Locked composition, no lateral drift. Background: pure deep black, no texture visible. Surface: black marble with fine veining, slight reflection of watch visible in polished surface.
+
+  Lighting: single-source drama, warm-cool split, main light at 5500K, rim light at 3200K catching the case edge.
+
+  Color grade: cream highlight roll, deep warm shadow, metallic accent preservation — gold indices fully saturated, all other tones desaturated 75%.
+
+  No motion blur. No depth of field effect — watch in full sharp focus front to back. No camera shake. No text or graphics.
+
+  Sound: silence for first 2s. At 2s: single soft mechanical tick. Tick repeats every 1s. No music.
+
+  Aspect ratio: 9:16. Duration: 5 seconds.

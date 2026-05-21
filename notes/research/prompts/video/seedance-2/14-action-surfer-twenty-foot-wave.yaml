@@ -1,0 +1,19 @@
+slug: action-surfer-twenty-foot-wave
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: action / nature — surf physics + ambient audio
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with audio cue
+    required: true
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Water physics — Seedance preferred over Kling for non-default motion.
+  Text-to-video.
+prompt: |
+  A surfer riding a massive 20-foot wave. The spray of the ocean is captured in 2K detail. Roaring ocean and the board cutting through water.

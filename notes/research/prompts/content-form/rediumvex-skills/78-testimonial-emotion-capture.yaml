@@ -1,0 +1,19 @@
+slug: testimonial-emotion-capture
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Testimonial — genuine positive emotion close-up before words
+form_factor: testimonial / case-study short
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/08-testimonial-story/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/08-testimonial-story/SKILL.md
+notes: |
+  Emotion-capture testimonial opener. Per VG memory, use Kling for human-anchored i2v (Seedance privacy filter rejects realistic-people anchors).
+prompt: |
+  Open on tight close-up of customer's face at moment of genuine positive reaction — mid-laugh, eyes lit, natural expression. Warm key light from slight left angle. Shallow depth of field, background is soft-bokeh environment related to their work or home. No speech yet — just the face. Hold 0.8s. Then pull back slightly to include context. Sound: ambient environment fills in, then music enters soft underneath. The emotion happened before the words. The words explain what we already felt.

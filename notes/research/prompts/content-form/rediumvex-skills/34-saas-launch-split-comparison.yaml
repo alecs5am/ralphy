@@ -1,0 +1,19 @@
+slug: saas-launch-split-comparison
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS comparison — competitor vs. product split-screen
+form_factor: SaaS comparison
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Split-comparison narrative. Competitor framing — verify legal before naming.
+prompt: |
+  Frame divided vertically or horizontally. Left/top: competitor product or old workflow — cluttered, confusing, many clicks. Flat lighting, slightly desaturated. Right/bottom: your product — clean, minimal, one-click solution. Premium lighting, full color. Both sides animate simultaneously. Left side shows complex multi-step process. Right side shows single elegant interaction achieving same result. Timer on each side counts the steps/seconds. At resolution: left side still processing. Right side: done. Checkmark animation. Confetti or subtle celebration effect. Sound: left side has frustrated, cluttered audio (notifications, errors). Right side has clean, satisfying clicks and completion sounds.

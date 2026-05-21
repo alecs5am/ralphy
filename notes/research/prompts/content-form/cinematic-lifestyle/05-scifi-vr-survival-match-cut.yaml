@@ -1,0 +1,49 @@
+slug: vr-survival-battle-match-cut
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Sci-fi reveal / match-cut narrative (game world to real world)
+form_factor: horizontal 16:9 / 15s
+category: sci-fi
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (SUBJECTS / ENVIRONMENT / MOOD / TIMELINE structure)
+    required: true
+    constraints: |
+      structured headers (SUBJECTS, ENVIRONMENT, MOOD, COLOR LOGIC, TIMELINE)
+      timeline 0:00-0:15 with shot-by-shot lens and SFX direction
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR — female lead "Karla" plus polar bear. Polar bear is fine; if you anchor the face, switch to Kling.
+  - kind: flag
+    name: duration
+    values: 15s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "one unbroken handheld move, MATCH CUT mid-motion, 28mm to 35mm shift, clockwise drift orbit"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Excellent template for structured "headers + timeline + SFX" prompts. The COLOR LOGIC, MOOD, SFX-in-parens pattern is reusable.
+  Match-cut between two diegetic worlds is a hard test for Seedance — preserve verbatim, do not paraphrase the camera direction.
+  Dialog is bilingual-ready ("Karla..." / "What is it") — short enough for Seedance's inline lipsync if used in English.
+prompt: |
+  SUBJECTS: A lone sword-bearing woman in weathered fur and leather fights a massive polar bear with desperate, two-handed survival movement. The same woman is later revealed at home in loose indoor clothes, where a VR headset appears only after the match cut and is pulled off in one clear motion.
+  ENVIRONMENT: Frozen wilderness under hard daylight, wind dragging snow across blue-white ice, then a modest lived-in home reached through a precise visual match. Winter glare and visible breath give way to soft clutter, indoor daylight, and a faint game-lit glow.
+  MOOD: Visceral survival tension snaps into grounded reality without breaking physical continuity.
+  COLOR LOGIC: Naturalistic Film Print Emulation
+
+  TIMELINE:
+  0:00-0:07: One unbroken handheld move, WS collapsing into MCU as the woman backpedals across the ice and the bear launches through blowing snow. The camera runs beside the leap at eye level, 28mm shifting to 35mm, slightly unstable and close enough to keep both bodies heavy and readable. The bear closes fast while she plants, recoils, and keeps the blade between them. SFX: (howling wind, boots grinding ice, low animal roar, cloth strain, blade cutting air, snow scrape). Hard winter sun side-lights the ice and throws sharp blue shadows.
+  0:07-0:11: Same unbroken move, no cut, tightening into a dead-on CU as the bear surges into the last inches, claws near her shoulders, jaws filling the frame edge. Right in the middle of the attack, a man's voice calls, Karla... then sharper, KARLA. She answers with a tired off, and on that reaction the world drops into slow motion. Snow drifts almost still, the bear hangs in its strike, and only she keeps moving at normal speed as the camera orbits into her face. Bored, not afraid, she drops the sword and brings both empty hands toward her temples in one smooth interrupt gesture. No headset, visor, or device is visible in the frozen world. Stay continuous until the match cut, keeping the same face size, hand height, head angle, lens distance, and clockwise drift. SFX: (cloth strain building to near impact, a man's voice calling Karla... KARLA, her tired off, then stretched wind fading toward silence). Hard winter sun catches the slowed snow around her face.
+  0:11-0:15: MATCH CUT. CU to MS. Seamless mid-motion transition as her rising hands cross the same screen position and the frozen close-up becomes the home interior with the same framing and clockwise drift. The motion continues uninterrupted, and now a VR headset is visibly strapped over her eyes for the first time. She grips both sides, pulls it fully off her face, and the camera opens into a medium shot as she drops it above her forehead and steps into a small living room in loose home clothes. The handheld orbit continues, revealing couch edges, scattered blankets, and cold window light as her posture falls into mild annoyance. She turns toward the voice, rolls her eyes upward, and says, What is it.

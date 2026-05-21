@@ -1,0 +1,19 @@
+slug: testimonial-result-first
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Testimonial — count-up statistic then customer face reveal
+form_factor: testimonial / case-study short
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/08-testimonial-story/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/08-testimonial-story/SKILL.md
+notes: |
+  Result-first testimonial opener. Number sample is 0-347% — swap for real metric.
+prompt: |
+  Single bold statistic center-frame. Large white typography on dark background. Number counts up rapidly — 0 to 347% — in 1.2 seconds. Each digit change accompanied by soft click sound. Camera slight push-in during count. At 1.5s: number resolves. Holds for 0.3s. Then: cut to or dissolve into customer's face — warmly lit, looking slightly off-camera, beginning to speak. Viewer is already primed: this person got that result.

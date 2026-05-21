@@ -1,0 +1,29 @@
+slug: parkour-fpv-action
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: High-motion FPV action sequence
+form_factor: vertical 9:16 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: single-shot FPV action scene
+    required: true
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.9
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  High motion intensity. Note Ralphy memory: for non-default physics motion
+  (jumps, walks, POV action) Seedance is often preferred over Kling — only
+  use Kling here if you also need lipsync.
+prompt: |
+  Dynamic FPV drone shot through narrow urban alley at night. Parkour
+  runner in black gear sprints, vaults dumpsters, slides under
+  scaffolding. Sparks from hand dragging metal railing. Camera barrel
+  rolls as he leaps between rooftops. Neon blur, rain on lens. Motion
+  blur, high contrast. Heavy breathing, concrete impacts, distant sirens.

@@ -1,0 +1,53 @@
+slug: interrogation-room-dialogue
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Tense interrogation dialogue with native audio + ambient music
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with character voice tags
+    required: true
+    constraints: |
+      max 2500 chars
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+  - kind: flag
+    name: duration
+    values: 5s | 10s
+    required: false
+    selected: 10s
+source:
+  url: https://blog.fal.ai/kling-3-0-prompting-guide/
+  author: fal.ai
+  retrieved: 2026-05-21
+notes: |
+  Uses ambient suspense music written into the prompt — for Ralphy strip the music
+  cue and post-mix via ElevenLabs Music. Otherwise a clean two-character dialogue
+  template with [Lead Detective]/[Prime Suspect] role tags.
+prompt: |
+  A sleek modern interrogation room with cold LED lighting.
+  Muted gray walls, a glass window, security cameras blinking red.
+  Low atmospheric suspense music hums with deep bass drones.
+
+  A detective in a navy suit leans forward slowly.
+  His hands rest calmly on the table.
+
+  [Character A: Lead Detective, controlled serious voice]: "Let's stop pretending."
+
+  Immediately, the suspect shifts in their chair, tense.
+  [Character B: Prime Suspect, sharp defensive voice]: "I already told you everything."
+
+  The detective slides a folder across the table.
+  Paper scraping sound.
+
+  [Lead Detective, calm but threatening tone]: "Then explain why your fingerprints are here."
+
+  The suspect's breathing quickens.
+
+  [Prime Suspect, voice trembling]: "That's impossible…"
+
+  The detective stands suddenly, chair scraping back.
+  Music tightens with a rising pulse.

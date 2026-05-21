@@ -1,0 +1,36 @@
+slug: asmr-kiwi-ice-cream-rolls
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: ASMR food prep — macro close-up
+form_factor: vertical 9:16 / 5s
+category: asmr
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (single descriptive pass, no timeline)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: hands + food only — no face anchor, safe Seedance t2v
+  - kind: flag
+    name: duration
+    values: 5s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "macro close up, slow motion"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Compact ASMR prompt — single dense line. Pair with ElevenLabs Music or pure SFX track (no music) in post.
+prompt: |
+  Ultra realistic ASMR kiwi ice cream rolls being made on a frozen pan fresh kiwi slices chopped and mixed into creamy base smooth metal spatulas scraping and rolling perfect green ice cream rolls satisfying sounds macro close up cinematic lighting vibrant colors 4K highly detailed food commercial style slow motion

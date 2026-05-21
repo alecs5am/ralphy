@@ -1,0 +1,35 @@
+slug: headphones-product-reveal
+model: veo-3.1
+provider: gemini
+use_case: 8s product reveal with internal beat timing (0-3 / 3-6 / 6-8)
+form_factor: horizontal 16:9 / 8s product
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Supply the headphone hero shot as a ref for accurate form / material.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: false
+source:
+  url: https://invideo.io/blog/google-veo-prompt-guide/
+  author: invideo.io
+  retrieved: 2026-05-21
+notes: |
+  Inline timestamp-style beat structure inside a single 8s clip. Pairs naturally with the "Extend" follow-up workflow (Veo 3.1 supports continuing from final frame) — see 14-headphones-extend.yaml.
+prompt: |
+  Create a single continuous 8-second cinematic product reveal for a premium wireless headphone. 0–3 seconds: Open on a dark, minimalist studio setup with the headphone in soft silhouette on a matte surface. Camera stays steady, building anticipation. 3–6 seconds: Introduce a slow side-light sweep as the camera gently pushes closer, revealing form, texture, and material details. 6–8 seconds: Bring the headphone fully into focus in a clean close-up. Camera settles confidently, ending with a polished, premium finish. Maintain consistent lighting tone and color throughout. Motion should feel deliberate and resolve cleanly at the end.

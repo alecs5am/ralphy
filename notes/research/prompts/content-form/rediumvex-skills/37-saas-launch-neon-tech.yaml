@@ -1,0 +1,19 @@
+slug: saas-launch-neon-tech
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS aesthetic preset — cyberpunk-adjacent neon tech
+form_factor: SaaS aesthetic preset
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Neon-tech aesthetic preset.
+prompt: |
+  Dark environment. Neon accent lighting in brand colors positioned as edge lights and rim lights. Device floating or on matte black surface. Neon reflections on device surface and screen bezels. Slight fog/haze for volumetric light effect. Cyberpunk-adjacent but professional. UI glow combines with neon ambient for unified color story.

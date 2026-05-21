@@ -1,0 +1,30 @@
+slug: streetwear-ad-with-tagline
+model: gpt-image-1.5
+provider: openai
+use_case: Fashion campaign ad with rendered tagline text and explicit text-rendering discipline
+form_factor: 1024x1536 portrait
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide
+  author: OpenAI Cookbook — GPT Image Generation Models Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 4.6 "Ads Generation". Note the explicit "Render the tagline exactly
+  once, clearly and legibly" instruction — text rendering on gpt-image-1.x
+  benefits from EXACT-verbatim quoting and an explicit "appears once" guard.
+  Also bans extra text / watermarks / unrelated logos which the model has a
+  tendency to hallucinate in ad layouts.
+prompt: |
+  Give me a cool in culture ad / fashion shot for a brand called Thread. It's a hip young street brand. The ad shows a group of friends hanging out together with the tagline "Yours to Create." Make it feel like a polished campaign image for a youth streetwear audience: stylish, contemporary, energetic, and tasteful. Use clean composition, strong color direction, natural poses, and premium fashion photography cues. Render the tagline exactly once, clearly and legibly, integrated into the ad layout. No extra text, no watermarks, no unrelated logos.

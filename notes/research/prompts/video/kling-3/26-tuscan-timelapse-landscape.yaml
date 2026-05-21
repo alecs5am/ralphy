@@ -1,0 +1,28 @@
+slug: tuscan-timelapse-landscape
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Landscape timelapse / nature B-roll
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: timelapse landscape scene
+    required: true
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.3
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Pure landscape B-roll. Slow dolly + parallax depth + transition to normal
+  speed when birds lift — explicit time-control inside one shot.
+prompt: |
+  Timelapse-style wide shot of Tuscan hills at golden hour. Cypress shadows
+  across wheat fields. Clouds drift, light shifts gold to amber. Dirt road
+  winds through landscape. Slow dolly track with parallax depth. Transition
+  to normal speed as birds lift from distant tree line. Wind through grass,
+  distant church bell, birdsong.

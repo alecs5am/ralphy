@@ -1,0 +1,29 @@
+slug: sprite-sheet-backflip-3x3
+model: nano-banana-pro
+provider: gemini
+use_case: Sprite-sheet animation grid for game/GIF export
+form_factor: 1:1 grid
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: Reference image of an existing sprite-sheet layout to anchor the 3x3 cell structure.
+  - kind: flag
+    name: aspect_ratio
+    values: 1:1
+    required: false
+source:
+  url: https://dev.to/googleai/nano-banana-pro-prompting-guide-strategies-1h9n
+  author: DEV.to — Google AI team prompting guide
+  retrieved: 2026-05-21
+notes: |
+  Author tip from source: "You can then extract each cell and make a gif".
+  The "Follow the structure of the attached reference image exactly" clause is
+  what disciplines the model into honoring grid cell positions instead of
+  freeform montaging.
+prompt: |
+  Sprite sheet of a woman doing a backflip on a drone, 3x3 grid, sequence, frame by frame animation, square aspect ratio. Follow the structure of the attached reference image exactly.

@@ -1,0 +1,40 @@
+slug: skinwalker-night-vision-footage
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Horror — found-footage night-vision creature sighting
+form_factor: horizontal 16:9 / 10s
+category: horror
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (terse "found-footage spec" format)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: no human anchor — creature is the subject, safe Seedance t2v
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "static / handheld night-vision feel, timestamps/date overlay in-frame"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Per Ralphy memory, Seedance is the right pick for horror / POV / non-default physics.
+  "Realistic compressed footage feel" is the key tag — pushes toward found-footage aesthetic without naming brands.
+prompt: |
+  Scene: Night vision footage of a skin walker walking through the forest at night.
+  Location: Black Hollow Forest, USA (fictional).
+  Duration: 10 seconds.
+  Features: Realistic compressed footage feel, timestamps, date overlay, and ambient forest sounds.

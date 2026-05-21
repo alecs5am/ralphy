@@ -1,0 +1,35 @@
+slug: product-extract-opaque-mockup
+model: gpt-image-1.5
+provider: openai
+use_case: Extract a product from a source image and place it on a clean opaque white background (e-commerce hero shot)
+form_factor: 1024x1536 portrait
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: edit_base
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: background
+    values: opaque
+    required: true
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide
+  author: OpenAI Cookbook — GPT Image Generation Models Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 5.4 "Product Mockups" — opaque variant. Used via images.edit() with the
+  source product photo. The companion transparent-PNG variant lives in
+  06-product-extract-transparent.yaml.
+prompt: |
+  Extract the product from the input image and place it on a plain white opaque background. Output: centered product, crisp silhouette, no halos/fringing. Preserve product geometry and label legibility exactly. Add only light polishing and a subtle realistic contact shadow. Do not restyle the product; only remove background and lightly polish.

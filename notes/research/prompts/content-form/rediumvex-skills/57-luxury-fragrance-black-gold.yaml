@@ -1,0 +1,29 @@
+slug: luxury-fragrance-black-gold
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Luxury fragrance launch — 5s candlelit black-gold orbit
+form_factor: luxury fragrance launch
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: full scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/06-luxury-aesthetic/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/06-luxury-aesthetic/SKILL.md
+notes: |
+  Luxury fragrance worked example. Black-gold palette only.
+prompt: |
+  A glass perfume bottle, faceted, sits on a dark lacquered surface. The bottle is backlit by a single warm candle out of frame right, which creates a warm amber rim light catching each facet edge. The front of the bottle falls into controlled shadow. Background: deep near-black, no detail. Surface: dark lacquered wood, high gloss, shows soft reflection of bottle base.
+
+  Camera begins static, then initiates an imperceptibly slow orbit to the right — moving only 8 degrees of arc over the full 5 seconds. As the camera shifts, new facets catch the candlelight and new specular highlights appear and dissolve.
+
+  Lighting: candlelight simulation, 1900K color temperature, warm amber. No fill light. No cool tones anywhere in frame.
+
+  Color grade: black and gold palette — deep warm blacks (#120e0a), amber gold highlights fully retained, all other hues stripped. Metallic accent preservation active on glass facets.
+
+  No text. No movement except camera orbit. No sharp edits implied.
+
+  Aspect ratio: 9:16. Duration: 5 seconds.

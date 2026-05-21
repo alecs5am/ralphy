@@ -1,0 +1,21 @@
+slug: course-promo-lighting-academy-clean
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Course-promo lighting preset — academy clean lighting
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/04-course-promo/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/04-course-promo/SKILL.md
+notes: |
+  Academy-clean lighting preset.
+prompt: |
+  Lighting: soft box key light at 45 degrees camera left, white fill card camera right,
+  practical lamp in background slightly overexposed for warmth, no harsh shadows,
+  color temperature 4800K, slight warm gel on key

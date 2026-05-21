@@ -1,0 +1,22 @@
+slug: before-after-transition-morph-dissolve
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation transition — 0.8s ethereal cross-dissolve
+form_factor: before/after transition modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[before state] / [after state]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Morph-dissolve transition modifier.
+prompt: |
+  soft cross-dissolve morph from [before state] to [after state] over 0.8 seconds, both states share the frame at the midpoint creating an ethereal double-exposure moment

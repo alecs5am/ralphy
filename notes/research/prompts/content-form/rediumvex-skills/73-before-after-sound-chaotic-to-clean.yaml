@@ -1,0 +1,19 @@
+slug: before-after-sound-chaotic-to-clean
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation sound — clutter to single resonant tone
+form_factor: before/after sound modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Chaotic-to-clean sound modifier.
+prompt: |
+  audio transitions from ambient noise and clutter — indistinct overlapping sounds — to single clear resonant tone at the moment of visual transformation, silence for 0.5 seconds before music enters

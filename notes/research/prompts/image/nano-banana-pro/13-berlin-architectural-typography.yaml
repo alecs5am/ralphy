@@ -1,0 +1,20 @@
+slug: berlin-architectural-typography
+model: gemini-3-pro-image
+provider: gemini
+use_case: Architectural typography — buildings shaped like letters spelling a word
+form_factor: cinematic still
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://deepmind.google/models/gemini-image/pro/
+  author: Google DeepMind — Gemini Image Pro model page
+  retrieved: 2026-05-21
+notes: |
+  Showcase prompt for ambient-text rendering. The "subtle resemblance" clause
+  prevents the model from over-stylizing into actual letterforms — it stays
+  architecturally plausible.
+prompt: |
+  View of a cozy street in Berlin on a bright sunny day, stark shadows. the old houses are oddly shaped like letters that spell out "BERLIN" Colored in Blue, Red, White and black. The houses still look like houses and the resemblance to letters is subtle.

@@ -1,0 +1,35 @@
+slug: selfie-vlog-template
+model: veo-3.1
+provider: gemini
+use_case: POV / selfie-vlog template with named placeholders
+form_factor: vertical 9:16 or horizontal 16:9 / 8s POV
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Optional character ref to lock the vlogger's face across episodes.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://github.com/snubroot/Veo-3-Prompting-Guide
+  author: snubroot (community guide)
+  retrieved: 2026-05-21
+notes: |
+  Placeholder template — fill [CHARACTER_DESCRIPTION], [LOCATION], [CLOTHING], [EMOTION], and pronouns before submitting. Pair with an identity ref image if running a multi-episode series so the face doesn't drift.
+prompt: |
+  A selfie video of a [CHARACTER_DESCRIPTION] exploring [LOCATION]. [He/She] is wearing [CLOTHING] and has [EMOTION] in [his/her] eyes.

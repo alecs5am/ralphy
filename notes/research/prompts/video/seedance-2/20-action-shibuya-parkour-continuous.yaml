@@ -1,0 +1,23 @@
+slug: action-shibuya-parkour-continuous
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: action / UGC — continuous single-shot parkour sprint through Shibuya
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: low and close to ground, continuous shot, single take
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Continuous single-shot pattern — Seedance handles long-take physics
+  better than default UGC models. Text-to-video, no specific face.
+prompt: |
+  Single continuous cinematic shot in Shibuya. A schoolgirl sprints at extreme speed, weaving along crosswalks and walls, vaulting a railing, sliding under a barrier. Camera stays low and close to the ground, tracking alongside her with motion-blurred neon storefronts streaking past. Rainy night reflections, anamorphic flare, hi-fi footstep audio. 35mm cinematic, no cuts.

@@ -1,0 +1,39 @@
+slug: bauhaus-motion-graphics-evolution
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Abstract motion design — geometric morph one-shot
+form_factor: horizontal 16:9 / 10s
+category: abstract
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description (numbered motion-path steps with [Section] tags)
+    required: true
+    constraints: |
+      placeholder "brand logo" at finale — replace with user's logo
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: pure t2v — no human/object anchor, ideal Seedance test prompt
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "continuous one-shot, no edits"
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: Canyon (@origan260224) via ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Templated final beat — "expanding into the brand logo" is a slot users will replace. Marked is_template: true.
+  Excellent for stinger / logo-reveal compositions in the editor stage.
+prompt: |
+  [Visual Core]: Pure black background with self-illuminating white lines, continuous one-shot without edits. [Motion Path]: 1. [Origin]: Central white point pulsing with dissipating ripples. 2. [Line]: Stretching horizontally to the edges. 3. [Geometry]: Lines evolve into a 9x9 grid, then curve into a perfect circle. 4. [3D Transition]: The circle stretches into a longitude and latitude sphere, filling from wireframe to solid with subtle highlights. 5. [UI Evolution]: The sphere unfolds into a rounded rectangle mobile interface with minimalist UI elements. 6. [Deconstruction]: The interface collapses into an isometric cube, then six faces bloom like petals. 7. [Particles]: Petals turn into hundreds of particles moving in mathematical vortex trajectories. 8. [Recombination]: Particles assemble into the outline of a square wristwatch. 9. [Finale]: The watch turns into fluid ribbons compressing back into a white point, pulsing violently before expanding into the brand logo.

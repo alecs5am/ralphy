@@ -1,0 +1,26 @@
+slug: scale-framework-ramen-counter
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Single-shot SCALE-framework worked example (couple at ramen counter)
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene + character action + lens/film stock + sound
+    required: true
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Worked example of the SCALE framework (Subject/Camera/Action/Lighting/Environment).
+  35mm film + bokeh + neon — photoreal still-photo register friendly.
+prompt: |
+  Slow dolly push-in through a narrow neon-lit ramen shop at night.
+  A young Japanese couple sits side by side at the counter, steam
+  rising from their bowls. The woman picks up her chopsticks, twirls
+  the noodles slowly, and takes a bite while the man watches with a
+  slight smile. Flickering magenta neon sign reflects off the foggy
+  window behind them. Shot on 35mm film with warm grain and shallow
+  focus, glowing bokeh from street lights outside. Soft clinking of
+  bowls, quiet slurping sounds, distant city hum.

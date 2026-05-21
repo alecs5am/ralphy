@@ -1,0 +1,35 @@
+slug: urban-noir-detective
+model: veo-3.1
+provider: gemini
+use_case: cinematic noir — atmospheric ambient SFX (no dialogue)
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Optional character ref to lock the detective's face / coat across multiple shots.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://www.seaart.ai/blog/veo-3-1-prompts
+  author: SeaArt (community Top-22)
+  retrieved: 2026-05-21
+notes: |
+  Strong example of layered ambient SFX without any spoken line. The "cyan-magenta color grading" tag is honored by Veo 3.1 as a literal LUT cue.
+prompt: |
+  Medium shot of a rain-soaked detective in long coat standing under flickering neon sign in dark alley. He lights a cigarette, the flame briefly illuminating his weathered face. Cold drizzle falls steadily. The camera slowly pushes in as he exhales smoke. Film noir aesthetic with cyan-magenta color grading. Audio: Rain on pavement, distant traffic, lighter click.

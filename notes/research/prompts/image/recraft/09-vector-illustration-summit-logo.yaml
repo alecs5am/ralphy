@@ -1,0 +1,41 @@
+slug: vector-illustration-summit-logo
+model: recraft-v3
+provider: fal-ai
+use_case: Geometric SaaS / startup logo (vector wordmark + icon)
+form_factor: 1024x1024 logo
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: subject description (replace {brand} + {symbol})
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: vector_illustration
+  - kind: flag
+    name: substyle
+    required: false
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    role: hex array for palette lock
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://fal.ai/models/fal-ai/recraft/v3/text-to-image
+  author: fal.ai
+  retrieved: 2026-05-21
+notes: |
+  fal.ai explicitly recommends `style: vector_illustration` for logos and
+  scalable design assets — NOT `logo_raster`, which is a separate enum aimed
+  at raster-only logo lookups. Treat as a template: swap "Summit Solutions"
+  for the target brand and the "geometric mountain peak" for the target mark.
+prompt: |
+  a minimalist vector logo featuring a geometric mountain peak in navy blue, with the company name 'Summit Solutions' in a modern sans-serif font below

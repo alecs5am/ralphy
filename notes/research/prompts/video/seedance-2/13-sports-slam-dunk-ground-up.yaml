@@ -1,0 +1,23 @@
+slug: sports-slam-dunk-ground-up
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: sports — slam dunk with ground-up tracking + audio cue
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with audio cue
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: ground-up tracking shot
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Sports physics — Seedance handles jersey ripple + jump arc well.
+  Text-to-video. No specific face → low privacy-filter risk.
+prompt: |
+  A basketball player jumping for a dunk. The jersey ripples in the wind. The camera follows the player from the ground up. Sneakers squeaking on wood and the rim rattling. 2K resolution, cinematic lighting.

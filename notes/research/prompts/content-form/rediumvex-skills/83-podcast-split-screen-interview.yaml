@@ -1,0 +1,48 @@
+slug: podcast-split-screen-interview
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Podcast clip — reconstructed split-screen interview with quote LT
+form_factor: podcast clip visualization
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "{{ASPECT_RATIO}}, {{DURATION}}, {{PANEL_RATIO}}"
+    required: true
+  - kind: slot_value
+    role: "{{ENVIRONMENT_LEFT}}, {{SUBJECT_DESCRIPTION_LEFT}}, {{LIGHTING_LEFT}}"
+    required: true
+  - kind: slot_value
+    role: "{{ENVIRONMENT_RIGHT}}, {{SUBJECT_DESCRIPTION_RIGHT}}, {{LIGHTING_RIGHT}}"
+    required: true
+  - kind: slot_value
+    role: "{{SHIFT_BEHAVIOR}}, {{CAMERA_MOVEMENT_LEFT}}, {{CAMERA_MOVEMENT_RIGHT}}"
+    required: true
+  - kind: slot_value
+    role: "{{QUOTE_TEXT}}, {{PANEL}}, {{FONT_SPEC}}, {{EXACT_QUOTE}}"
+    required: true
+  - kind: slot_value
+    role: "{{END_FRAME_DESCRIPTION}}, {{COLOR_GRADE_DIRECTION}}"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/10-podcast-visual/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/10-podcast-visual/SKILL.md
+notes: |
+  Split-screen interview reconstruction podcast template.
+prompt: |
+  Seedance 2.0 video prompt, {{ASPECT_RATIO}}, {{DURATION}} seconds:
+
+  Opening: split-screen, {{PANEL_RATIO}} division.
+
+  Left panel: {{ENVIRONMENT_LEFT}}, {{SUBJECT_DESCRIPTION_LEFT}}, {{LIGHTING_LEFT}}.
+
+  Right panel: {{ENVIRONMENT_RIGHT}}, {{SUBJECT_DESCRIPTION_RIGHT}}, {{LIGHTING_RIGHT}}.
+
+  At second {{X}}: panels {{SHIFT_BEHAVIOR}}. {{CAMERA_MOVEMENT_LEFT}}. {{CAMERA_MOVEMENT_RIGHT}}.
+
+  At second {{Y}}: {{QUOTE_TEXT}} appears as lower-third on {{PANEL}}, {{FONT_SPEC}}: "{{EXACT_QUOTE}}." Text persists {{TIME}}.
+
+  Final {{TIME}} seconds: {{END_FRAME_DESCRIPTION}}.
+
+  Color grade: {{COLOR_GRADE_DIRECTION}}.

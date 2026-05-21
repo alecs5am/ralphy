@@ -1,0 +1,35 @@
+slug: headphones-extend-clip
+model: veo-3.1
+provider: gemini
+use_case: clip-extension / chained continuation — text overlay outro
+form_factor: horizontal 16:9 / +7s extension
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: The final frame of the previous Veo 3.1 clip — Veo 3.1's "extend" workflow uses this as the start frame and animates forward.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: false
+source:
+  url: https://invideo.io/blog/google-veo-prompt-guide/
+  author: invideo.io
+  retrieved: 2026-05-21
+notes: |
+  Companion to 13-headphones-product-reveal.yaml. Shows the Veo 3.1 "Extend the clip by N seconds from the final frame" idiom plus on-screen text bake-in. Use sparingly — text rendering in Veo is still imperfect; keep copy short.
+prompt: |
+  Extend the clip by 7 seconds from the final frame. Keep camera angle, lighting, and headphone position unchanged. Continue with a very slow forward drift as soft highlights move across the surface. In the final 3 seconds, let motion settle and fade in minimal text: "Premium Sound. Built for Focus." End on a steady hold with no cuts or new elements.

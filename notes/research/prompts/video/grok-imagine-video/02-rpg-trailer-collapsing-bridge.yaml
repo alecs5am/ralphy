@@ -1,0 +1,30 @@
+slug: rpg-trailer-collapsing-bridge
+model: grok-imagine
+provider: xai
+use_case: Cinematic game-trailer T2V shot with dolly forward + tilt-up reveal
+form_factor: video 8s 16:9
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+source:
+  url: https://www.genaintel.com/guides/grok-imagine-xai-guide
+  author: GenAIntel
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Prompt – Video Game Cinematic Trailer (8s)" in the GenAIntel walkthrough.
+prompt: |
+  8-second 16:9 cinematic trailer shot: a lone adventurer sprints across a collapsing stone bridge above a medieval city, sparks and debris falling, camera follows with a smooth dolly forward tracking move then quick tilt up to reveal a massive dragon circling overhead. High-energy, crisp motion, dramatic side lighting, subtle film grain, epic trailer mood.

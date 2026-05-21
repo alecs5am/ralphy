@@ -1,0 +1,33 @@
+slug: i2v-cinnamon-roll-audio
+model: grok-imagine
+provider: xai
+use_case: I2V food close-up with explicit AUDIO directive (room tone + foley + whisper)
+form_factor: video 8s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: true
+  - kind: flag
+    name: task
+    values: I2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+source:
+  url: https://replicate.com/xai/grok-imagine-video
+  author: Replicate (xai/grok-imagine-video model card)
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Audio example" on the Replicate model card. Demonstrates inline AUDIO: directive syntax that Aurora supports.
+prompt: |
+  8-second close-up of hands pulling apart a warm cinnamon roll, steam rising, soft morning window light, slow camera push-in, cozy kitchen mood. AUDIO: soft room tone, faint kettle hiss, gentle pastry tear sound, a quiet satisfied whisper: 'Perfect.'

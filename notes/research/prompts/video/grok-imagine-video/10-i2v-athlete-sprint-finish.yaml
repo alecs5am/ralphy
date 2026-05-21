@@ -1,0 +1,33 @@
+slug: i2v-athlete-sprint-finish
+model: grok-imagine
+provider: xai
+use_case: I2V — animate an athlete still into a multi-action sprint with crowd payoff
+form_factor: video 5s 720p
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: true
+  - kind: flag
+    name: task
+    values: I2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+  - kind: flag
+    name: duration
+    values: 5s
+    required: false
+source:
+  url: https://poyo.ai/models/grok-imagine
+  author: PoYo
+  retrieved: 2026-05-21
+notes: |
+  Prompt 4 in the PoYo I2V section. Listed parameters: unfixed lens, 720p, 5s.
+prompt: |
+  An athlete in a professional tracksuit. Legs alternate rapidly, arms swing powerfully, sprinting with all his strength on the field. After crossing the finish line, the audience erupts in cheers. The screen uses a follow-shot perspective to fully showcase the details of the athlete crossing the finish line.
