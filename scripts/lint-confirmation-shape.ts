@@ -64,11 +64,6 @@ export const BANNED_PHRASES = [
   "want me to proceed",
   "i'll go ahead and",
   "just to confirm",
-  // Russian counterparts — playbooks are bilingual.
-  "мне продолжить",
-  "хочешь чтобы я",
-  "хочешь, чтобы я",
-  "продолжить?",
 ] as const;
 
 // ─── Walkers ───────────────────────────────────────────────────────────────

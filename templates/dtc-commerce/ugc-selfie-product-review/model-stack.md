@@ -23,7 +23,7 @@ Both image models accept local PNG paths via `--ref` (auto-data-URI'd in-process
 | Veo 3 escalation for "kling generated silence" | Never needed — false alarm | RMS reading -21.5 LUFS isn't silence; intimate UGC audio is naturally quiet. Listen, don't measure. |
 | Option A 15s single-call (5 shots, 4 cuts) | Worked but lost A/B vs two-clip split | A/B was informative ($2.10 sunk-cost on the losing side). Multi-cut single call IS viable but coordination overhead at 5 shots is high. Default to 2-3 shots per call. |
 | Sticker-style label on product master v1 | Rejected by user | "Looks too cartoon-y." Fix: explicit "premium minimalist cosmetics packaging in Glossier / Charlotte Tilbury style, NO sticker, screen-print directly on glass" up front. |
-| AI-airbrushed model first pass | Rejected by user ("слишком иишно идеально") | Default gemini-3-pro idealizes skin. Fix: "natural imperfect skin texture, no AI smoothing, visible freckles, real-girl morning vibe" in EVERY persona/scene gen. |
+| AI-airbrushed model first pass | Rejected by user ("too AI-perfectly-perfect") | Default gemini-3-pro idealizes skin. Fix: "natural imperfect skin texture, no AI smoothing, visible freckles, real-girl morning vibe" in EVERY persona/scene gen. |
 | Kling `--audio` on Russian | (memory) | Accent slip + voice-age drift. Russian / non-English -> kling audio off, ElevenLabs `eleven_multilingual_v2` post-hoc. |
 
 ## Cost per stage (source project breakdown)

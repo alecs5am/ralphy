@@ -1,12 +1,12 @@
 # Mode: hero-banner
 
-Wide-format баннер. Сайт hero-секция, email header, paid-social ad creative с большим negative space под copy. Соотношение 16:9 или шире (21:9 cinematic).
+Wide-format banner. Site hero-section, email header, paid-social ad creative with large negative space for copy. Aspect 16:9 or wider (21:9 cinematic).
 
 ## When to use
 
-- Юзер просит "баннер на сайт", "hero для лендинга", "email header", "Facebook ad", "wide format".
-- Цель — широкий кадр с явным negative space под текст / CTA.
-- Если нужен квадрат / portrait — иди в [`product-shot.md`](product-shot.md) или [`lifestyle-scene.md`](lifestyle-scene.md).
+- User asks "site banner", "hero for landing", "email header", "Facebook ad", "wide format".
+- Goal — wide frame with explicit negative space for text / CTA.
+- If a square / portrait is needed — go to [`product-shot.md`](product-shot.md) or [`lifestyle-scene.md`](lifestyle-scene.md).
 
 ## Master template (slot-fill)
 
@@ -36,13 +36,13 @@ added in post), no fake logos, no extra products, no watermarks.
 
 - Source: rephrase-it.com (#2)
 - Aspect: 16:9
-- Best for: full-production website hero — копируй и заполняй
+- Best for: full-production website hero — copy and fill
 
 ### Example 2 — Neon Night Tech Ad (Wide)
 > Commercial product photo of a smartphone on a wet reflective surface with neon city light reflections (blue and pink), moody night ambience, crisp screen glow, shot on Sony A1 with 35mm, f/2.8, cinematic contrast, high detail, realistic reflections and raindrops --ar 4:5
 
 - Source: media.io (#16)
-- Aspect: media.io даёт 4:5, но adapt для 16:9 хорошо работает с тем же языком
+- Aspect: media.io gives 4:5, but adapt for 16:9 works well with the same language
 - Best for: tech / mobile / cinematic moody banner
 
 ### Example 3 — Outdoor Lifestyle (Wide)
@@ -83,13 +83,13 @@ added in post), no fake logos, no extra products, no watermarks.
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Лучше типографика лейбла, точнее лейаут, надёжнее держит "negative space on the right" инструкцию.
-- Для серии баннеров с одним продуктом — `google/gemini-3-pro-image-preview` с `--ref product.png` лучше держит consistency.
+- **Default — `openai/gpt-5.4-image-2`**. Better label typography, more accurate layout, more reliable holds the "negative space on the right" instruction.
+- For a series of banners with one product — `google/gemini-3-pro-image-preview` with `--ref product.png` better holds consistency.
 
 ## Caveats
 
-- **Negative space is a soft constraint** — модели иногда заполняют его атмосферным "глоу". Если копирайтер требует чистый правый угол — добавь явно `the right two-thirds must be empty / soft gradient, no objects, no textures, no light streaks`.
-- **No text in image** — никогда не проси модель писать headline / CTA. Текст ляжет криво и не считывается. Только генерируй фон, а текст накладывай в Figma / Remotion / поверх.
-- **21:9 cinema** — gpt-5.4-image-2 уходит в native 16:9 bucket чаще, чем в 21:9. После генерации часто нужен ffmpeg crop. Альтернатива — `bytedance/seedance-2.0` для статичного 21:9 хайлайт (но это video, не image).
-- **Brand colour consistency** — если есть строгий HEX (например `#0EA5E9` голубой) — укажи буквально в "background colour ID". Иначе модель усреднит до "deep blue".
-- **Logo distortion** — для баннера с крупным lейблом обязательно `--ref product.png` если real brand; одним текстовым описанием логотип воспроизводится приблизительно.
+- **Negative space is a soft constraint** — the models sometimes fill it with atmospheric "glow". If the copywriter requires a clean right corner — explicitly add `the right two-thirds must be empty / soft gradient, no objects, no textures, no light streaks`.
+- **No text in image** — never ask the model to write a headline / CTA. Text will lie crookedly and is not readable. Only generate the background, and overlay the text in Figma / Remotion / on top.
+- **21:9 cinema** — gpt-5.4-image-2 goes into native 16:9 bucket more often than into 21:9. After generation, ffmpeg crop is often needed. Alternative — `bytedance/seedance-2.0` for static 21:9 highlight (but this is video, not image).
+- **Brand colour consistency** — if there is a strict HEX (for example `#0EA5E9` blue) — specify literally in "background colour ID". Otherwise the model will average to "deep blue".
+- **Logo distortion** — for a banner with a large label, mandatory `--ref product.png` if real brand; with just a text description the logo is reproduced approximately.

@@ -21,7 +21,7 @@
 
 ## Key rules (top 7 from POSTMORTEM.md — re-read before iterating)
 
-1. **Lock the visual style on ONE prototype icon before generating the other 9.** Pass `--ref <ref-frame-from-reference-video>` from the FIRST prototype. Iterate ONLY that prototype until the user says "это оно". Then batch the remaining 9 with the locked prototype as `--ref`. Source project spent $1.50 on a wrong-style batch + $1.00 on style-prototype iterations because the style wasn't locked first.
+1. **Lock the visual style on ONE prototype icon before generating the other 9.** Pass `--ref <ref-frame-from-reference-video>` from the FIRST prototype. Iterate ONLY that prototype until the user says "that's it". Then batch the remaining 9 with the locked prototype as `--ref`. Source project spent $1.50 on a wrong-style batch + $1.00 on style-prototype iterations because the style wasn't locked first.
 
 2. **Use sequential bash for-loops, NEVER `ralphy queue` for image batches.** `ralphy queue` triggers an undocumented OpenRouter burst-cap 403 even though `/v1/credits` shows balance. Workaround: `for slot in ...; do ralphy generate image ...; sleep 2; done`. See POSTMORTEM.md open issue #1.
 

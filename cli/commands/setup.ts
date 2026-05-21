@@ -1,8 +1,8 @@
 // Setup wizard — `ralphy setup`.
 //
 // v2: prompts for two keys only — OPENROUTER_API_KEY + ELEVENLABS_API_KEY —
-// pings each via API verify, optionally imports a public profile. Does NOT
-// auto-launch Studio or dashboard (AGENTS.md hard rule #5). Re-runnable safely.
+// pings each via API verify. Does NOT auto-launch Studio or dashboard
+// (AGENTS.md hard rule #5). Re-runnable safely.
 //
 // Modes:
 //   ralphy setup                              — interactive TUI wizard
@@ -18,7 +18,6 @@
 //   ralphy setup -y --openrouter-key sk-or-... --elevenlabs-key xi-...
 //   cat key.txt | ralphy setup -y --openrouter-key -
 //   ralphy setup -y --project-dir /path/to/ugc-cli --no-verify
-//   ralphy setup -y --import-profile demo,starter
 
 import { Command } from "commander";
 import * as p from "@clack/prompts";
@@ -33,10 +32,8 @@ import {
   findProjectRootSafe,
   readGlobalConfig,
   writeGlobalConfig,
-  type ImportedProfile,
 } from "../lib/project-root.js";
 import { ok, out, err, isPretty } from "../lib/output.js";
-import { profileCmd } from "./profile.js";
 
 type SetupOpts = {
   status?: boolean;
@@ -49,14 +46,13 @@ type SetupOpts = {
   elevenlabsKey?: string;
   keysFromEnv?: boolean;
   projectDir?: string;
-  importProfile?: string[];
   verify?: boolean;
   allowUnverified?: boolean;
 };
 
 export function setupCmd() {
   return new Command("setup")
-    .description("Setup wizard — API keys, profiles, dev services")
+    .description("Setup wizard — API keys, dev services")
     .option("--status", "Print capability status as JSON and exit (no TUI)")
     .option("--link <path>", "Link ralphy to a project directory (global config)")
     .option("--unlink", "Remove the global project link")
@@ -82,12 +78,6 @@ export function setupCmd() {
     .option(
       "--project-dir <path>",
       "Link ralphy to this project directory before configuring keys. Implies --non-interactive",
-    )
-    .option(
-      "--import-profile <names>",
-      "Comma-separated profile names to import (additive, safe to re-run)",
-      collectCsv,
-      [] as string[],
     )
     .option("--no-verify", "Skip API ping verification when saving keys")
     .option(
@@ -142,8 +132,7 @@ export function setupCmd() {
         opts.openrouterKey != null ||
         opts.elevenlabsKey != null ||
         opts.keysFromEnv ||
-        opts.projectDir != null ||
-        (opts.importProfile && opts.importProfile.length > 0);
+        opts.projectDir != null;
 
       if (niTriggers) {
         await runNonInteractive(opts);
@@ -152,14 +141,6 @@ export function setupCmd() {
 
       await runWizard();
     });
-}
-
-function collectCsv(value: string, prev: string[]): string[] {
-  const parts = value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return [...prev, ...parts];
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +160,6 @@ async function runNonInteractive(opts: SetupOpts): Promise<void> {
     project_dir: null as string | null,
     project_link_changed: false,
     keys: [] as KeyResult[],
-    imports: [] as { name: string; ok: boolean; reason?: string }[],
     capabilities: [] as ReturnType<typeof getCapabilityStatus>,
     errors: [] as string[],
   };
@@ -269,41 +249,7 @@ async function runNonInteractive(opts: SetupOpts): Promise<void> {
     await applyEnvUpdates(path.join(projectRoot, ".env"), updates);
   }
 
-  // 4. Profile imports.
-  const profilesToImport = opts.importProfile ?? [];
-  if (profilesToImport.length > 0) {
-    const importedThisRun: ImportedProfile[] = [];
-    for (const profName of profilesToImport) {
-      try {
-        const cmd = profileCmd();
-        const prevCwd = process.cwd();
-        process.chdir(projectRoot);
-        try {
-          await cmd.parseAsync(["import", profName], { from: "user" });
-        } finally {
-          process.chdir(prevCwd);
-        }
-        summary.imports.push({ name: profName, ok: true });
-        importedThisRun.push({ name: profName, imported_at: new Date().toISOString() });
-      } catch (e) {
-        summary.imports.push({ name: profName, ok: false, reason: (e as Error).message });
-      }
-    }
-
-    if (importedThisRun.length > 0) {
-      const cfgNow = await readGlobalConfig();
-      const merged = new Map<string, ImportedProfile>();
-      for (const i of cfgNow.imports ?? []) merged.set(i.name, i);
-      for (const i of importedThisRun) merged.set(i.name, i);
-      await writeGlobalConfig({
-        ...cfgNow,
-        default_project_dir: projectRoot,
-        imports: [...merged.values()].sort((a, b) => a.name.localeCompare(b.name)),
-      });
-    }
-  }
-
-  // 5. Re-snapshot capabilities so the summary reflects the post-write state.
+  // 4. Re-snapshot capabilities so the summary reflects the post-write state.
   //    We have to source from the .env we just wrote, since process.env was
   //    captured at startup and may lag what's now on disk.
   const envOnDisk = await readDotenv(path.join(projectRoot, ".env"));
@@ -439,23 +385,6 @@ async function runWizard(): Promise<void> {
     updates[cap.envVar] = value;
   }
 
-  const profilesAvail = await listAvailableProfiles(projectRoot);
-  const importedSet = new Set((globalCfg.imports ?? []).map((i) => i.name));
-  let pickedProfiles: string[] = [];
-  if (profilesAvail.length > 0) {
-    const sel = await p.multiselect({
-      message: "Import a public profile? (templates, references, example projects)",
-      options: profilesAvail.map((prof) => ({
-        value: prof.name,
-        label: prof.name + (importedSet.has(prof.name) ? "  (imported — re-import is safe)" : ""),
-        hint: prof.summary,
-      })),
-      required: false,
-    });
-    if (p.isCancel(sel)) return cancelled();
-    pickedProfiles = sel as string[];
-  }
-
   if (Object.keys(updates).length > 0) {
     const sp = p.spinner();
     sp.start("Saving .env…");
@@ -463,37 +392,6 @@ async function runWizard(): Promise<void> {
     sp.stop(
       `Saved .env (${Object.keys(updates).length} key${Object.keys(updates).length === 1 ? "" : "s"})`,
     );
-  }
-
-  const importedThisRun: ImportedProfile[] = [];
-  for (const profName of pickedProfiles) {
-    const sp = p.spinner();
-    sp.start(`Importing profile ${profName}…`);
-    try {
-      const cmd = profileCmd();
-      const prevCwd = process.cwd();
-      process.chdir(projectRoot);
-      try {
-        await cmd.parseAsync(["import", profName], { from: "user" });
-      } finally {
-        process.chdir(prevCwd);
-      }
-      sp.stop(`✓ Imported ${profName}`);
-      importedThisRun.push({ name: profName, imported_at: new Date().toISOString() });
-    } catch (e) {
-      sp.stop(`! Import ${profName} failed: ${(e as Error).message}`);
-    }
-  }
-
-  if (importedThisRun.length > 0) {
-    const merged = new Map<string, ImportedProfile>();
-    for (const i of globalCfg.imports ?? []) merged.set(i.name, i);
-    for (const i of importedThisRun) merged.set(i.name, i);
-    await writeGlobalConfig({
-      ...globalCfg,
-      default_project_dir: projectRoot,
-      imports: [...merged.values()].sort((a, b) => a.name.localeCompare(b.name)),
-    });
   }
 
   p.outro("Done. Try: ralphy doctor");
@@ -580,28 +478,3 @@ async function verifyKey(envVar: string, value: string): Promise<boolean> {
   }
 }
 
-async function listAvailableProfiles(
-  projectRoot: string,
-): Promise<Array<{ name: string; summary: string }>> {
-  const dir = path.join(projectRoot, "profiles");
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    const profiles = await Promise.all(
-      entries
-        .filter((e) => e.isDirectory())
-        .map(async (e) => {
-          const meta = await fs
-            .readFile(path.join(dir, e.name, "PROFILE.md"), "utf-8")
-            .catch(() => "");
-          const filesMatch = meta.match(/\*\*Files:\*\* ([^\n]+)/);
-          return {
-            name: e.name,
-            summary: filesMatch?.[1]?.trim() ?? "",
-          };
-        }),
-    );
-    return profiles;
-  } catch {
-    return [];
-  }
-}
