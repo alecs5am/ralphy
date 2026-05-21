@@ -313,39 +313,65 @@ When you want to surface the file name a snippet came from, wrap it in
 }`}
 </CodeBlock>
 
-### Multi-tab code group
+### Multi-filename code group
 
-For "same task, different language" snippets, use `<CodeTabs>` — animated
-tab switching via framer-motion, only the active panel is in the DOM at a
-time:
+For "same task, different file or runtime" snippets, use `<CodeTabs>` —
+every tab uses the same filename chrome as a single `<CodeBlock>`, the
+active tab connects with the panel below, and the panel cross-fades on
+switch via framer-motion.
 
 <CodeTabs>
-  <CodeTab label="bash">
+  <CodeTab filename="install.sh" lang="bash">
 ```bash
 brew install alecs5am/tap/ralphy
 ralphy new "vertical reel about my product"
 ralphy render reel-001
 ```
   </CodeTab>
-  <CodeTab label="npm">
+  <CodeTab filename="package.json" lang="npm">
 ```bash
 npm install -g @alecs5am/ralphy
 ralphy new "vertical reel about my product"
 ralphy render reel-001
 ```
   </CodeTab>
-  <CodeTab label="curl">
+  <CodeTab filename="bootstrap.sh" lang="curl">
 ```bash
 curl -fsSL https://ralphy.dev/install.sh | sh
 ralphy new "vertical reel about my product"
 ralphy render reel-001
 ```
   </CodeTab>
-  <CodeTab label="docker">
+  <CodeTab filename="Dockerfile" lang="docker">
 ```bash
 docker pull ghcr.io/alecs5am/ralphy:latest
 docker run -v $(pwd):/work ralphy new "..."
 docker run -v $(pwd):/work ralphy render reel-001
+```
+  </CodeTab>
+</CodeTabs>
+
+When tabs aren't real file names (e.g. just a runtime selector), pass
+`label=` instead of `filename=` — same chrome, no opinion on what the
+text means:
+
+<CodeTabs>
+  <CodeTab label="bun" lang="js">
+```ts
+import { ralphy } from "@alecs5am/ralphy";
+await ralphy.render("reel-001");
+```
+  </CodeTab>
+  <CodeTab label="node" lang="js">
+```ts
+const { ralphy } = require("@alecs5am/ralphy");
+await ralphy.render("reel-001");
+```
+  </CodeTab>
+  <CodeTab label="deno" lang="js">
+```ts
+import { ralphy } from "npm:@alecs5am/ralphy";
+await ralphy.render("reel-001");
 ```
   </CodeTab>
 </CodeTabs>
