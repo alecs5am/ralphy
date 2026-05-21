@@ -1,0 +1,22 @@
+slug: before-after-transition-time-lapse-compress
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation transition — extreme time-lapse decelerating to real-time
+form_factor: before/after transition modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[transformation process], [after state]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Time-lapse-compress transition modifier.
+prompt: |
+  extreme time-lapse compression of [transformation process], 10x to 100x speed, motion blur on hands/tools/materials, smooth deceleration to real-time upon reaching the completed [after state]

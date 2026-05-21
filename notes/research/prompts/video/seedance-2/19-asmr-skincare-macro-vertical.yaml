@@ -1,0 +1,27 @@
+slug: asmr-skincare-macro-vertical
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: ASMR / commercial — vertical skincare macro, no music
+form_factor: vertical 9:16 / 10–15s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (sequential macro beats)
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: macro close-up, dramatic top lighting
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Vertical ASMR — explicit "no music" instruction. Sequential macro beats
+  (tap → twist → scoop → spread). Text-to-video.
+prompt: |
+  Create a vertical ASMR video with no music, focusing on macro details. A light blue skincare gel bottle sits on glass with a pure white seamless background and dramatic top lighting. A finger taps the lid, then a hand twists open the cap, scoops a pearl of gel onto a fingertip, and spreads it slowly across the back of a hand. Crisp tap, twist click, soft scoop sound, gel squelch — natural ASMR-grade audio, no music.

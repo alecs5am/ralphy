@@ -1,0 +1,47 @@
+slug: abandoned-spacecraft-reactivation
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Sci-fi survival / claustrophobic interior action
+form_factor: horizontal 16:9 / 10s
+category: sci-fi
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (beat list, no timestamps)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: pilot is implied but not face-anchored — safe Seedance t2v
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "docking approach, corridor sprint, decompression blast"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Bullet-list-of-beats structure — easier on the model than dense paragraphs. Reuse as a template for "constant-motion claustrophobic" prompts.
+prompt: |
+  Massive abandoned spacecraft, drifting, silent, until sudden partial reactivation creates unstable, shifting internal conditions.
+  Docking approach: small ship attaches carefully, everything still.
+  Entry: interior dark, debris floating, no gravity.
+  First change: lights flicker violently, sections powering up unevenly.
+  Floor shift: gravity slams back on in one section, throwing everything down.
+  Corridor movement: bulkheads begin sliding, layout changing in real time.
+  Near-trap: path closes behind the pilot, forcing a sprint forward.
+  System surge: doors opening and slamming unpredictably.
+  Pressure breach: one wrong turn leads to a sudden decompression blast.
+  Escape run: pilot navigating a corridor that's actively reconfiguring.
+  Final moment: ship barely undocks as the entire structure begins moving under its own power.
+  Claustrophobic, mechanical instability, constant "wrong place at the wrong time."

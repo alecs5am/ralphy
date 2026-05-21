@@ -1,0 +1,39 @@
+slug: hypercar-transformation-vfx
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Action VFX — vehicle morph at speed
+form_factor: horizontal 16:9 / 5s
+category: action
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (chase + transformation)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: no human anchor; pure vehicle VFX — safe Seedance t2v
+  - kind: flag
+    name: duration
+    values: 5s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "low tracking near wheels, side tracking, crash zoom, whip pans, motion blur"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Very dense camera-vocabulary shot — useful as a Seedance test prompt to gauge how many camera moves the model honors.
+prompt: |
+  A hypercar transforming at high speed, body panels shifting, mechanical parts reconfiguring, glowing energy core activating
+  Drives through a collapsing tunnel while transforming mid-motion, avoiding falling debris and explosions
+  Underground tunnel breaking apart, sparks, fire and debris raining down
+  Low tracking shot near wheels transitioning into side tracking during transformation, crash zoom on mechanical changes, whip pans to falling debris, motion blur and reflections enhancing speed

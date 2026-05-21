@@ -1,0 +1,26 @@
+slug: viral-thumbnail-character-locked
+model: nano-banana-pro
+provider: gemini
+use_case: YouTube/TikTok viral thumbnail — person from ref + product + bold text overlay
+form_factor: 16:9 thumbnail
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: Image 1 is the person whose face must stay identical; the prompt block-quotes "Image 1" by role.
+source:
+  url: https://dev.to/googleai/nano-banana-pro-prompting-guide-strategies-1h9n
+  author: DEV.to — Google AI team prompting guide
+  retrieved: 2026-05-21
+notes: |
+  Heavily-structured thumbnail prompt with markdown bold section headers
+  (**Face Consistency:**, **Action:**, **Subject:**, **Graphics:**, **Text:**,
+  **Background:**). The bold-section pattern is how the source recommends
+  organizing complex multi-element thumbnails. Note the Chinese-character
+  overlay '3分钟搞定!' — Nano Banana Pro renders CJK accurately.
+prompt: |
+  Design a viral video thumbnail using the person from Image 1. **Face Consistency:** Keep the person's facial features exactly the same as Image 1, but change their expression to look excited and surprised. **Action:** Pose the person on the left side, pointing their finger towards the right side of the frame. **Subject:** On the right side, place a high-quality image of a delicious avocado toast. **Graphics:** Add a bold yellow arrow connecting the person's finger to the toast. **Text:** Overlay massive, pop-style text in the middle: '3分钟搞定!' (Done in 3 mins!). Use a thick white outline and drop shadow. **Background:** A blurred, bright kitchen background. High saturation and contrast.

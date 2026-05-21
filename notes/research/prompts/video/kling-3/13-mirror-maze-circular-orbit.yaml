@@ -1,0 +1,20 @@
+slug: mirror-maze-circular-orbit
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Circular orbit camera in dream / surrealist setting
+form_factor: vertical 9:16 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: surreal scene with explicit camera path
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Explicit "continuous circular orbit" camera path — useful when you actually
+  want orbit motion (note other Atlabs prompts ban it via "no circular motion
+  around object" negative).
+prompt: |
+  Handheld shoulder-cam drifting through endless mirror maze reflecting multiple versions of two women eating food infinitely, strobing pink and cyan light washing over reflections, dripping sauces morph into shimmering liquid chrome, camera performs continuous circular orbit as reflections distort in rhythm with pulsing ambient bass

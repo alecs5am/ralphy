@@ -1,0 +1,36 @@
+slug: cybernetic-scifi-duel
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Sci-fi action — human vs AI robot fight
+form_factor: horizontal 16:9 / 5-10s
+category: sci-fi
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (single descriptive pass)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR risk for the fighter face — Kling preferred if face-anchored
+  - kind: flag
+    name: duration
+    values: 5s | 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "dynamic camera angles, slow motion finishing moves"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Compact action-density prompt. Per Ralphy memory, Seedance is the right pick for non-default physics motion (shockwaves, sparks).
+prompt: |
+  A human fighter battling a powerful humanoid AI robot in a high-tech facility, metal impacts sending sparks flying, powerful punches causing shockwaves, dynamic camera angles, slow motion finishing moves, intense lighting flashes, cinematic VFX, blockbuster sci-fi fight scene, ultra realistic, 4K

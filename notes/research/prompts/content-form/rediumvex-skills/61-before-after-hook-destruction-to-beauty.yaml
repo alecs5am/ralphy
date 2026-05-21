@@ -1,0 +1,22 @@
+slug: before-after-hook-destruction-to-beauty
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation hook — chaos to order via triggering gesture
+form_factor: before/after transformation hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[chaos/mess/dysfunction], [triggering gesture], [beauty/order/completion]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Destruction-to-beauty hook structure.
+prompt: |
+  opens on maximum [chaos/mess/dysfunction] state, 0.5 second hold, then [triggering gesture] initiates instant or rapid transformation to [beauty/order/completion]

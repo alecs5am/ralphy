@@ -1,0 +1,33 @@
+slug: i2v-rpg-keyart-animate
+model: grok-imagine
+provider: xai
+use_case: I2V — animate a static fantasy key-art frame with subtle camera + atmospheric motion
+form_factor: video 8s 16:9
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: true
+  - kind: flag
+    name: task
+    values: I2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+source:
+  url: https://www.genaintel.com/guides/grok-imagine-xai-guide
+  author: GenAIntel
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Video Prompt – Animate the RPG Frame (8s)". The companion still ("Image Prompt – Fantasy RPG Key Art Frame") is the i2v_anchor: "Cinematic key art frame for a fantasy RPG: an adventurer stands at the edge of a cliff overlooking an ancient floating castle above a stormy sea, dramatic clouds, lightning far in the distance, warm torch light on the character, ultra-detailed, 16:9."
+prompt: |
+  Using the reference image, generate an 8-second 16:9 cinematic shot: slow camera push-in toward the adventurer, cape and hair gently moving in the wind, clouds drifting, subtle lightning flicker illuminating the castle, sea mist rolling below, smooth motion, epic atmosphere.

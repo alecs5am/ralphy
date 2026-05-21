@@ -1,0 +1,34 @@
+slug: billboard-mockup-verbatim-text
+model: gpt-image-1.5
+provider: openai
+use_case: Marketing creative with EXACT verbatim rendered text on a billboard (text-fidelity stress test)
+form_factor: 1024x1536 portrait
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: edit_base
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide
+  author: OpenAI Cookbook — GPT Image Generation Models Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 5.5 "Marketing Creatives with Text". The canonical pattern is:
+  (1) name the text with EXACT, verbatim, no extra characters quoting,
+  (2) specify typography (bold sans-serif, high contrast, centered),
+  (3) explicitly add "Ensure text appears once" + "No watermarks, no logos"
+  guards to suppress hallucinated copies / brand marks. Template — swap
+  "shampoo", "highway scene during sunset", and the quoted slogan.
+prompt: |
+  Create a realistic billboard mockup of the shampoo on a highway scene during sunset. Billboard text (EXACT, verbatim, no extra characters): "Fresh and clean" Typography: bold sans-serif, high contrast, centered, clean kerning. Ensure text appears once and is perfectly legible. No watermarks, no logos.

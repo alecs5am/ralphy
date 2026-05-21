@@ -1,0 +1,23 @@
+slug: comedy-otter-pilot-documentary
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: comedy — absurd nature-doc concept, animal-character driven
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: low-angle tracking shot
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Concept comedy — animal character, low privacy-filter risk.
+  Text-to-video.
+prompt: |
+  A nature documentary scene showing an otter piloting a small airplane. The otter wears aviator goggles and a tiny scarf, paws on the controls, looking focused yet playful. Low-angle tracking shot from inside the cockpit, then cut to exterior side-view as the plane banks over a sun-lit coastline. Naturalistic documentary lighting, gentle handheld feel, no on-screen text.

@@ -1,0 +1,19 @@
+slug: viral-hook-lighting-flash-strobe
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Lighting preset — 4Hz strobe with sync sound
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Flash-strobe lighting preset. Accessibility note — avoid for photosensitive audiences.
+prompt: |
+  Strobe lighting at 4Hz — rapid on-off creating freeze-frame effect. Subject in motion but captured in staccato bursts. Dark between flashes. Creates urgency, energy, nightclub intensity. Sound synced to strobe rate. Background pure black between flashes.

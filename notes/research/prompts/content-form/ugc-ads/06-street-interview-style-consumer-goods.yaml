@@ -1,0 +1,30 @@
+slug: ugc-street-interview-style-consumer-goods
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Single-person street-interview testimonial (food / consumer goods / trending products)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  Source explicitly bans music ("Authentic vibe, 9:16, no music, street ambient audio") — matches
+  Ralphy Kling discipline cleanly. Single male actor, outdoor handheld — human-anchored, so any
+  i2v variant must route through kwaivgi/kling-v3.0-pro. English dialogue lines → Kling --audio.
+  Note "Street interview" here is single-person; for multi-actor see VideoAI's street interview prompt.
+prompt: |
+  Outdoor street setting, busy sidewalk slightly blurred in background. A 22-year-old man stops mid-walk, turns to camera. Hoodie, earbuds around his neck. 0 to 3s: "Someone just told me about this and I had to try it." He pulls the product out of his jacket pocket. Handheld shaky cam, natural city sounds. 4 to 9s: He holds it up, turns it over once. "Okay it is actually exactly what they said." Close-up on his face. 10 to 15s: He looks back at camera, laughing slightly, says "Yeah I am sold" and walks off frame. Authentic vibe, 9:16, no music, street ambient audio.

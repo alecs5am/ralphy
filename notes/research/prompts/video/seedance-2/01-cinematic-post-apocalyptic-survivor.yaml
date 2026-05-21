@@ -1,0 +1,24 @@
+slug: cinematic-post-apocalyptic-survivor
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: cinematic — post-apocalyptic establishing shot, dolly push-in to close-up
+form_factor: horizontal 16:9 / 5–10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary (slow dolly push-in, medium → tight close-up)
+    required: false
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Official fal-ai sample. No timeline syntax; relies on inline camera-move
+  description ("Camera drifts from a medium shot to a tight close-up").
+  No human-anchor concern (text-to-video).
+prompt: |
+  Slow dolly push in on a lone survivor standing atop a crumbled overpass, wind whipping dust across the frame. She stares into the distance at a ruined skyline, golden hour backlighting her silhouette. Camera drifts from a medium shot to a tight close-up on her face, catching the light in her eyes. Film grain, muted earth tones, anamorphic lens flare.

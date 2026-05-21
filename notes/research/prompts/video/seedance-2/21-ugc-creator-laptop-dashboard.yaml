@@ -1,0 +1,27 @@
+slug: ugc-creator-laptop-dashboard
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: UGC ad — creator-style vertical short, push-in to laptop dashboard
+form_factor: vertical 9:16 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: quick push-in
+    required: false
+source:
+  url: https://www.seedance.tv/blog/seedance-2-0-prompt-guide
+  author: Seedance.tv
+  retrieved: 2026-05-21
+notes: |
+  Short vertical creator pattern — bright morning desk, social pacing.
+  Text-to-video.
+prompt: |
+  Vertical creator-style short, a designer opening a laptop and pointing at a clean dashboard, quick push-in camera move, bright morning desk setup, natural hand motion, upbeat social media pacing, 9:16 composition.

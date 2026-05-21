@@ -1,0 +1,21 @@
+slug: crystal-vs-lava-chess-thinking
+model: nano-banana-pro
+provider: gemini
+use_case: Surreal physically-impossible scene that benefits from Thinking-mode reasoning
+form_factor: macro photography
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/the-ultimate-nano-banana-pro-prompting-guide-mastering-gemini-3-pro-image
+  author: Atlabs — Ultimate Nano Banana Pro Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Atlabs explicitly notes: "Ensure 'Thinking' mode is enabled in the model
+  dropdown" before submitting this prompt. The trailing "Reason through the
+  lighting interactions between fire and ice before generating" line is what
+  triggers the deliberate reasoning pass.
+prompt: |
+  A crystalline chess set where the pieces are made of freezing water and the board is made of burning lava. The pieces are melting slightly where they touch the board. Macro photography, hyper-realistic. Reason through the lighting interactions between fire and ice before generating.

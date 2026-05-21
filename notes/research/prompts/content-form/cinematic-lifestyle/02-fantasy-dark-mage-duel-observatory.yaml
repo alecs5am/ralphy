@@ -1,0 +1,58 @@
+slug: dark-fantasy-mage-duel-observatory
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Dark fantasy magic duel with reality-warping VFX
+form_factor: horizontal 16:9 / 10s
+category: fantasy
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+    constraints: |
+      no inline timestamps — single continuous cinematic beat
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: PRIVACY FILTER may reject photoreal human mages — if anchoring on a specific character face, switch to Kling
+  - kind: flag
+    name: duration
+    values: 5s | 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "dynamic orbit, impossible perspectives, smooth cinematic motion"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Pure t2v fantasy — no human anchor needed, so Seedance privacy filter is not a concern.
+  Explicit ban on text/subtitles/overlays at the end — useful pattern for clean plates the editor stage can overlay later.
+  No music in the prompt — Ralphy pattern is to bake music in via ElevenLabs Music post-mix.
+prompt: |
+  Ultra-cinematic dark fantasy mage duel inside a massive ancient observatory suspended above a storm-filled void at night.
+
+  Two powerful archmages stand opposite each other across a gigantic circular chamber engraved with glowing arcane symbols. One controls cosmic blue energy and fractured gravity, the other manipulates crimson fire, distortion, and collapsing matter.
+
+  The duel begins slowly as floating debris rises around them. Candles extinguish automatically while reality starts bending subtly. Stone walls ripple unnaturally, gravity shifts sideways, and fragments of the observatory begin orbiting through the air.
+
+  The camera moves dynamically around the mages in one uninterrupted cinematic sequence while magical pressure distorts space itself. Their robes and hair whip violently from invisible energy waves.
+
+  The blue mage tears open spatial fractures, bending gravity and freezing pieces of time midair. The crimson mage counters with burning sigils, collapsing dimensions, and explosive waves of molten energy that crack the chamber floor apart.
+
+  As the battle escalates, reality completely destabilizes. Staircases fold impossibly into the sky, shattered architecture floats upside down, giant eclipsed moons appear through dimensional tears, and reflections move independently from reality.
+
+  The camera transitions through impossible perspectives as space warps around the combatants. Massive spell collisions generate shockwaves that distort the frame itself. Arcane symbols rotate across the air like celestial machinery.
+
+  One mage launches forward at impossible speed while the other suspends time for a brief instant, freezing rain, debris, and burning embers in midair before the entire battlefield detonates into shifting gravity waves.
+
+  Final cinematic reveal: both mages float above the collapsing observatory surrounded by shattered fragments of reality suspended endlessly within a cosmic void while storms spiral beneath them.
+
+  Style: ultra cinematic dark fantasy, reality-warping magic combat, impossible spatial distortion, cosmic occult atmosphere, volumetric energy effects, floating debris, dramatic storm lighting, surreal architecture deformation, smooth cinematic camera motion, AAA fantasy film quality, no text, no subtitles, no overlays.

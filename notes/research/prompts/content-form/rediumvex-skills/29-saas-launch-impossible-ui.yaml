@@ -1,0 +1,19 @@
+slug: saas-launch-impossible-ui
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS-launch hook — holographic 3D UI floating in space
+form_factor: SaaS product launch
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Impossible-UI hook. b2b-saas category.
+prompt: |
+  Product UI floating in 3D space, holographic projection style. Interface elements separate into layers hovering at different depths. Camera flies between UI layers. Neon edge-lighting on each layer. Sound: sci-fi ambient hum. Viewer sees familiar UI concepts presented in unfamiliar cinematic way.

@@ -1,0 +1,25 @@
+slug: logo-text-particle-assemble
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Text/logo animation (brand stinger)
+form_factor: horizontal 16:9 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: text animation with camera move
+    required: true
+    constraints: |
+      Swap "KLING 3.0" for {{brand_name}} when using as template
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Brand stinger pattern. Swap the literal "KLING 3.0" for the brand name when
+  reusing. Sound effects described inline ("whoosh per letter").
+prompt: |
+  Clean white background. Bold black 3D text "KLING 3.0" assembles letter
+  by letter from floating particles. Metallic sheen, soft shadows. Camera
+  slow push-in, text rotates 15 degrees. Gold underline draws beneath.
+  Text remains sharp throughout. Minimal, corporate. Soft whoosh per letter,
+  subtle impact on completion.

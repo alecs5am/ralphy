@@ -1,0 +1,20 @@
+slug: elderly-ceramicist-portrait
+model: gemini-3-pro-image
+provider: gemini
+use_case: Photoreal editorial portrait with lens + golden-hour styling
+form_factor: vertical portrait
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Canonical photography prompt from official API docs. Names lens (85mm), light
+  (golden hour), background treatment (bokeh) and orientation explicitly.
+  Vertical portrait orientation specified inline (no aspect_ratio flag needed).
+prompt: |
+  A photo of a close-up portrait of an elderly Japanese ceramicist with deep, sun-etched wrinkles and a warm, knowing smile. He is carefully inspecting a freshly glazed tea bowl. The setting is his rustic, sun-drenched workshop. The scene is illuminated by soft, golden hour light streaming through a window, highlighting the fine texture of the clay. Captured with an 85mm portrait lens, resulting in a soft, blurred background (bokeh). The overall mood is serene and masterful. Vertical portrait orientation.

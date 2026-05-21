@@ -1,0 +1,129 @@
+slug: night-flashlight-hippo-attack-pov
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: First-person POV horror jump-scare (animal attack from boat at night)
+form_factor: vertical or horizontal / 15s
+category: horror
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-supported)
+    required: true
+    constraints: |
+      supports inline timestamped beat structure (0s-2s, 2s-5s, etc)
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: text-to-video friendly; if anchoring on a human face, Seedance privacy filter may reject — switch to Kling
+  - kind: flag
+    name: duration
+    values: 15s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "violent handheld, jerks, falling sideways, beam swing"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: Rahul Nanda (@rahulnanda86) via YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Seedance is the right pick for jump-scare / POV / non-default physics motion per Ralphy memory.
+  Beat structure uses NO leading-zero timestamps (0s, 2s, 5s rather than 00:00 / 00:05). Preserve verbatim.
+  Sound cues + dialog are embedded in the prompt — Seedance 2.0 supports inline VO/SFX hints.
+prompt: |
+  0s–2s (HOOK — FACE FIRST)
+
+  POV flashlight already LOCKED on a MASSIVE HIPPO FACE right beside a small boat.
+
+  Too close.
+
+  Eyes reflecting hard.
+
+  Water dripping off its mouth.
+
+  Someone screams:
+   "BACK! BACK! BACK!"
+
+  The hippo SNAPS forward instantly — jaws filling frame.
+  Camera jerks violently.
+
+  2s–5s
+
+  Camera falls sideways into the boat.
+
+  Flashlight drops — spinning beam chaos.
+
+  Light flashes:
+
+  metal railing
+
+  water splashing in
+
+  someone slipping
+
+  Screams overlapping:
+   "MOVE! MOVE!"
+  The boat rocks violently.
+  5s–8s (SCRAMBLE — NO CONTROL)
+
+  Camera grabs the flashlight again — shaky beam.
+  Points toward water —
+
+  Nothing there.
+
+  Just ripples.
+
+  Too quiet for half a second.
+
+  Heavy breathing.
+
+  8s–11s (SECOND PROXIMITY SHOCK)
+
+  Beam swings right —
+
+  HIPPO already THERE again, closer than before.
+
+  Mouth open.
+
+  Someone screams right next to camera:
+   "IT'S RIGHT HERE!"
+
+  Water blasts up as it surges forward.
+
+  Light flickers from the splash.
+
+  11s–14s (CHAOS PEAK)
+
+  Camera gets knocked backward — half off the boat.
+
+  Flashlight beam now angled low across water.
+
+  We see:
+  thrashing water
+
+  part of the head
+
+  nothing fully clear
+
+  Sound carries it:
+  SPLASHES + SCREAMS + WOOD HITTING WATER
+
+  14s–15s (PAYOFF)
+
+  Flashlight flickers once…
+
+  Then cuts out.
+
+  Complete darkness.
+
+  One final HEAVY SPLASH right next to camera.
+  Cut.
+  Key Visual Hook
+
+  Hippo face already in flashlight beam in frame one — no search, no buildup — immediate attack.

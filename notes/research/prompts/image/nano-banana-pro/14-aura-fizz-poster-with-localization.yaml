@@ -1,0 +1,26 @@
+slug: aura-fizz-poster-with-localization
+model: gemini-3-pro-image
+provider: gemini
+use_case: Brand poster generation with follow-up localization-while-locking-product
+form_factor: 16:9 poster
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+source:
+  url: https://deepmind.google/models/gemini-image/pro/
+  author: Google DeepMind — Gemini Image Pro model page
+  retrieved: 2026-05-21
+notes: |
+  Two-step pattern from DeepMind's billboard-localization demo. The base poster
+  is generated text-to-image; localizations are then applied via follow-up edit
+  prompts (e.g. "Localize this concept to a Mexico setting, keep the can exactly
+  the same, making sure to include translation"). Save the base render as the
+  edit_base for the localization step.
+prompt: |
+  Create a poster ad for a sparkling water called 'Aura Fizz'. The setting is a London street at dusk with neon lights. The tagline should be 'Taste the Aura'. The can design should be minimalist. Make the aspect ratio 16:9.

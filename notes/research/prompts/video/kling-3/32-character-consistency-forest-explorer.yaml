@@ -1,0 +1,57 @@
+slug: character-consistency-forest-explorer
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Character-consistency template pack — 10 reusable patterns ("same female character")
+form_factor: horizontal 16:9 / 5s each
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: one-line per-pattern prompt using "same character" anchor phrase
+    required: true
+    constraints: |
+      Replace "same female character with long brown hair wearing a red jacket"
+      with your locked identity description; keep the phrase "same" so Kling
+      preserves identity across shots.
+  - kind: image
+    role: start_frame
+    required: false
+    notes: optional but recommended for hard identity lock (per Ralphy memory — pass via --ref every gen)
+source:
+  url: https://magichour.ai/blog/kling-30-reference-guide
+  author: Magic Hour
+  retrieved: 2026-05-21
+notes: |
+  Ten-pattern pack. The Magic Hour technique relies on the literal anchor phrase
+  "same female character with long brown hair wearing a red jacket" being
+  repeated verbatim across shots. Combine with --ref start frame for the
+  Ralphy "super-original refs" rule.
+prompt: |
+  Pattern 1 — Character Introduction Shot:
+  same female character with long brown hair wearing a red jacket standing in a quiet forest clearing, soft morning light, medium shot, slow camera push forward
+
+  Pattern 2 — Walking Sequence:
+  same female character with long brown hair wearing a red jacket walking along a forest trail, leaves moving in the wind, cinematic tracking shot from behind
+
+  Pattern 3 — Establishing Environment Shot:
+  wide cinematic shot of a misty mountain valley at sunrise, camera slowly panning across the landscape, small figure of the same female explorer standing on a cliff
+
+  Pattern 4 — Dialogue Close-up:
+  close-up shot of the same female character with long brown hair wearing a red jacket, calm expression, soft natural lighting, shallow depth of field
+
+  Pattern 5 — Action Scene:
+  same female explorer running across a rocky cliff during strong wind, cinematic handheld camera movement, dramatic lighting
+
+  Pattern 6 — Product Demonstration:
+  modern smartphone rotating on a reflective surface in a minimal studio, smooth slow camera orbit, cinematic lighting
+
+  Pattern 7 — Stylized Animation Shot:
+  anime style scene of the same female explorer walking through a glowing forest, soft lighting, cinematic camera pan
+
+  Pattern 8 — Slow Motion Shot:
+  slow motion shot of the same female character jumping over a stream in a forest, cinematic side tracking shot
+
+  Pattern 9 — Overhead/Drone Shot:
+  top-down aerial shot of a forest valley with a winding trail, drone camera slowly descending
+
+  Pattern 10 — Scene Transition Shot:
+  wide shot of a forest landscape transitioning from sunrise to golden afternoon light, camera slowly pulling upward

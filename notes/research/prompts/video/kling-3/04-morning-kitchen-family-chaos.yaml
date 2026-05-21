@@ -1,0 +1,45 @@
+slug: morning-kitchen-family-chaos
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Multi-character dialogue (4 speakers) with native audio
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene with 4 character voice tags
+    required: true
+    constraints: |
+      max 2500 chars; 4 distinct [Character X, tone] labels
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://blog.fal.ai/kling-3-0-prompting-guide/
+  author: fal.ai
+  retrieved: 2026-05-21
+notes: |
+  Demonstrates 4-character native audio. Stress test for voice diversity inside
+  one render. EN only — non-EN will accent-drift across characters.
+prompt: |
+  A busy kitchen in the morning.
+  Cereal pouring. Coffee machine buzzing.
+  Kids running footsteps. Backpack zippers.
+
+  A mother flips toast quickly, stressed.
+  [Character A: Mom, fast urgent voice]: "Shoes on! We're leaving in five minutes!"
+
+  Immediately, a little girl whines from the hallway.
+  [Character B: Little Daughter, crying voice]: "I can't find my sweater!"
+
+  The older brother groans dramatically.
+  [Character C: Older Brother, annoyed sarcastic tone]: "Because you never put it away."
+
+  Mom sighs heavily.
+  [Mom, shouting louder]: "Nobody is fighting before 8 AM!"
+
+  The dad walks in calmly sipping coffee.
+  [Character D: Dad, sleepy amused voice]: "Good morning, team."
+
+  Mom turns sharply.
+  [Mom, exhausted voice]: "Help."

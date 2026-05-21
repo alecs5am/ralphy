@@ -1,0 +1,38 @@
+slug: commercial-timeline-product-bottle-orbit
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: commercial — luxury product reveal with timeline-choreographed pull-back + arc
+form_factor: horizontal 16:9 / 8s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-prompted)
+    required: true
+    constraints: |
+      Uses [0s] / [2s] / [5s] / [8s] timestamps; arc + pull-back + orbit.
+  - kind: flag
+    name: camera_movement
+    role: extreme close-up → pull-back → arc orbit → static
+    required: false
+source:
+  url: https://www.mindstudio.ai/blog/timeline-prompting-seedance-2-cinematic-ai-video
+  author: MindStudio
+  retrieved: 2026-05-21
+notes: |
+  Timeline-prompted product commercial — preserve timestamps. Text-to-video,
+  no human anchor.
+prompt: |
+  [0s] Extreme close-up: A glass bottle sits on a marble surface. Backlit,
+  product in sharp focus, background completely blurred. Cool, clean lighting.
+
+  [2s] Slow pull back: Framing widens to reveal the full bottle and a
+  minimal table setting — a single green branch beside it. Camera motion
+  precise, no handheld shake.
+
+  [5s] Arc shot begins (right to left): Camera slowly orbits the product
+  at waist height. Light catches glass at different angles, showing its form.
+
+  [8s] Camera settles into medium shot. Static. Product centered.
+
+  Commercial photography aesthetic, 4K, no film grain, clinical but warm.
+  Color grade: slightly warm whites, deep clean shadows.

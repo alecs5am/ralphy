@@ -1,0 +1,35 @@
+slug: premium-bottle-product
+model: veo-3.1
+provider: gemini
+use_case: product close-up — SFX-only audio (no dialogue, no music)
+form_factor: horizontal 16:9 / 5s product
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Strongly recommended — supply the actual bottle photo as a ref so Veo 3.1 doesn't drift the label / shape.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://www.veo3ai.io/blog/veo-3-native-audio-prompt-guide-2026
+  author: veo3ai.io
+  retrieved: 2026-05-21
+notes: |
+  Demonstrates negative-audio prompting for premium product clips: "No voice, no music, no exaggerated whooshes" — keeps the mix subtle and avoids stock-y SFX. Pair with first-and-last-frame for a controlled hero shot.
+prompt: |
+  Create a five-second close-up product video of a premium bottle on a clean bathroom counter. Slow camera push-in, soft morning light, shallow depth of field. Add a subtle cap click when the cap closes and a faint water ambience in the background. No voice, no music, no exaggerated whooshes.

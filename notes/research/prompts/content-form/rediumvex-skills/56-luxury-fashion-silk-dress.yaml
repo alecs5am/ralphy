@@ -1,0 +1,29 @@
+slug: luxury-fashion-silk-dress
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Luxury fashion — 8s ivory silk slip dress drifting in still air
+form_factor: luxury fashion editorial
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: full scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/06-luxury-aesthetic/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/06-luxury-aesthetic/SKILL.md
+notes: |
+  Luxury fashion worked example. Static camera + barely perceptible drift.
+prompt: |
+  A silk slip dress in ivory hangs from an invisible mount, centered in frame, occupying 20% of total frame area. The remaining 80% is a warm pale grey — almost white, almost cream — with no texture, no furniture, no background elements.
+
+  Camera is locked off, static, perfectly still. The only motion: the dress moves in a barely perceptible, extremely slow thermal drift — fabric swaying 1-2 centimeters over 8 seconds as if in the faintest air current.
+
+  Lighting: large format softbox positioned camera-left, wrapping light across the silk, revealing the fabric's sheen and drape. No hard shadow. No rim light. Single source only.
+
+  Color grade: monochromatic warm palette — ivory, cream, warm grey. No cool tones. Slight overexposure of highlights (0.3 stops) to push fabric luminosity.
+
+  Sound direction: ASMR close-mic silk movement, no music, room silence.
+
+  Aspect ratio: 9:16. Duration: 8 seconds.

@@ -1,0 +1,19 @@
+slug: saas-launch-one-click-magic
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS-launch hook — anticipation building to a single transformative click
+form_factor: SaaS product launch
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  One-click-magic hook.
+prompt: |
+  Close-up of cursor/finger approaching a button. Slow motion. Anticipation building. Sound: rising tone. At 1.5s: click. Ripple effect expands from button across entire interface. Everything transforms — data populates, charts animate, notifications clear. Sound: satisfying deep click + whoosh of transformation.

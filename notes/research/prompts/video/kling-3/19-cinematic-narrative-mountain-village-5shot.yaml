@@ -1,0 +1,36 @@
+slug: cinematic-narrative-mountain-village-5shot
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Cinematic narrative multi-shot (5-shot character introduction)
+form_factor: horizontal 16:9 / 25s (5x5s)
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: 5-shot timeline (Shot 1..5)
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: false
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Cinematic narrative template. No dialogue — ambient sound only. Good base
+  for short docu / branded narrative work.
+prompt: |
+  Shot 1: Wide aerial drone shot descending toward a foggy mountain
+  village at dawn. Chimney smoke, river through valley. Muted earth tones.
+
+  Shot 2: Medium tracking shot following an old man with wooden cane
+  on cobblestone path. Weathered brown jacket, flat cap. Morning dew.
+
+  Shot 3: Close-up of weathered hands pushing open a heavy wooden door.
+  Peeling paint, iron hinges. Camera follows inside.
+
+  Shot 4: Interior medium shot. Amber firelight on cluttered workshop.
+  He sits, picks up a half-finished wooden carving, examines it.
+
+  Shot 5: Macro of hands carving with small knife. Wood shavings curl.
+  Firelight on detailed bird carving. Crackling fire, faint wind.

@@ -1,0 +1,35 @@
+slug: detective-office-shot-2
+model: veo-3.1
+provider: gemini
+use_case: dialogue scene — reverse shot, character-consistent multi-shot
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: Reuse the same 3 ref images as shot 1 (detective, woman, office) so the woman's face and the room stay consistent across the cut.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1
+  author: Google Cloud
+  retrieved: 2026-05-21
+notes: |
+  Reverse-shot continuation of 05. Demonstrates how to maintain dialogue continuity across cuts in Veo 3.1 by reusing the ingredients ref set.
+prompt: |
+  Using the provided images for the detective, the woman, and the office setting, create a shot focusing on the woman. A slight, mysterious smile plays on her lips as she replies, "You were highly recommended."

@@ -1,0 +1,29 @@
+slug: ugc-kitchen-tasting-reaction-condiment
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: First-tasting reaction in a kitchen (food / beverage / condiment / pantry)
+form_factor: vertical 9:16 / 10s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 10s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://videoai.me/blog/seedance-2-0-ugc-prompts
+  author: VideoAI.me
+  retrieved: 2026-05-21
+notes: |
+  Solo female actor + product label macro → Kling for any human i2v anchor. English line ("Okay this
+  is dangerous") → Kling --audio works for EN. Color palette is explicit ("warm cream, sun yellow,
+  deep red") — keep verbatim. Source explicitly bans music; aligned with Ralphy Kling discipline.
+prompt: |
+  UGC creator, a woman in her thirties standing in her sunlit kitchen wearing an oversized white t-shirt, holding a small jar of chili crisp condiment. She unscrews the lid, leans in and sniffs, eyes go wide. She grabs a spoon, scoops a small amount, tastes it, then looks at the camera: "Okay this is dangerous." She immediately scoops another spoonful and laughs. Bright morning window light from the right, soft white walls, palette of warm cream, sun yellow, deep red. Filmed with iPhone, handheld, shallow depth of field. - No music, no logo, no text on screen.

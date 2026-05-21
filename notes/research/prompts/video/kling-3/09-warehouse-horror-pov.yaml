@@ -1,0 +1,32 @@
+slug: warehouse-horror-pov
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Horror/thriller POV with whispered VO and jump-scare SFX
+form_factor: horizontal 16:9 / 15s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: 5-shot suspense timeline with dialogue + SFX
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Ralphy memory: for horror/POV/jump-scare motion, Seedance is usually preferred
+  over Kling. Keep this Kling version for the dialogue + lipsync requirement;
+  swap to Seedance if VO can be added in post.
+prompt: |
+  Dark abandoned warehouse. Single flickering overhead light. Distant dripping water echoes.
+  Shot 1 (0-3 seconds): POV shot slowly moving forward through darkness, flashlight beam searching.
+  Shot 2 (3-6 seconds): Quick cut to shadow moving across wall. Heart beating sound effect.
+  Shot 3 (6-9 seconds): Close-up on character's face, fear building, breathing heavily.
+  [Character A: Investigator, shaky whisper]: "I know what I saw."
+  Shot 4 (9-12 seconds): Camera whips around as something crashes off-screen. Metal clanging loudly.
+  Shot 5 (12-15 seconds): Extreme close-up on wide terrified eyes, pupils dilating.
+  [Investigator, voice trembling]: "They tried to silence me..."
+  SFX: Ominous low frequency drone, sudden loud crash, heavy breathing

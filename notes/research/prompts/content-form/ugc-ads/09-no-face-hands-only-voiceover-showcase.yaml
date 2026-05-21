@@ -1,0 +1,30 @@
+slug: ugc-no-face-hands-only-voiceover-showcase
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Hands-only no-face premium product showcase with VO line (D2C minimal aesthetic)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  No-face format sidesteps the Seedance human-anchor privacy filter entirely — safe to run on
+  Seedance i2v with the actual product as @Image1. Single VO line at 14s → for English use Kling
+  --audio if migrating; for non-EN bake the line in via ElevenLabs in post (matches Ralphy memory).
+  Source explicitly bans music under VO ("No music under the voiceover") — keep as written.
+prompt: |
+  No face, hands only throughout. A pair of clean hands with neutral nail polish on a white marble surface. 0 to 4s: Hands open a minimal product box. Slow and deliberate. Overhead shot, soft studio light. 4 to 9s: Hands lift the product, rotate it 360 degrees. Camera pushes in on the product details from above. 10 to 13s: Hands apply or use the product naturally. Close-up on the moment of use. 14 to 15s: Hands set the product down, step back out of frame. Product stays centered in frame. Camera holds. Calm, confident female voiceover at the 14-second mark, single line only. No music under the voiceover. 9:16 vertical, premium product feel.

@@ -1,0 +1,36 @@
+slug: lunar-catastrophe-sequence
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Apocalyptic sci-fi — moon shattering above city
+form_factor: horizontal 16:9 / 10s
+category: sci-fi
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (continuous IMAX-style pass)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: environmental + crowd — no specific face anchor. Safe Seedance t2v.
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "low aerial open, push upward, final pull back to space, IMAX framing"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Excellent stress test for Seedance environmental physics (debris, gravity disturbances, reversed rain).
+prompt: |
+  Ultra cinematic apocalyptic sci-fi sequence of a gigantic moon cracking apart above Earth during the middle of the night. The camera begins low over a silent futuristic city illuminated by blue neon reflections and distant thunderclouds. Citizens slowly stop and stare upward as glowing fractures spread across the surface of the moon like molten veins. Massive chunks of lunar crust begin separating in slow motion while brilliant white light leaks from the cracks. Gravity disturbances ripple through the city. Cars lift slightly off the ground, rain reverses upward, glass trembles, and ocean tides rise violently in the distance. The camera pushes upward toward the sky as enormous burning moon fragments descend through the atmosphere trailing fire, debris, and glowing dust. Clouds spiral unnaturally around the collapsing moon while lightning flashes between the fragments. Buildings shake from sonic shockwaves. One gigantic section of the moon breaks completely apart, revealing a blinding celestial core pulsing like a dying star. Debris fields orbit chaotically around the planet while meteors streak across the sky. Reflections of the shattered moon ripple across flooded streets and terrified faces. Final cinematic aerial shot pulls far back into space revealing Earth surrounded by thousands of glowing lunar fragments orbiting like a broken halo while storms engulf the planet beneath swirling clouds and cosmic light. Hyper realistic cinematic style, volumetric clouds, atmospheric scattering, dramatic scale, realistic debris physics, glowing celestial fractures, emotional sci-fi atmosphere, slow-motion destruction, IMAX framing, ultra detailed lighting, epic cinematic composition, dark blue and silver palette, AAA movie quality.

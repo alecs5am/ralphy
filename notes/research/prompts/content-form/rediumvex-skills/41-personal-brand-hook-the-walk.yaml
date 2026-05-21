@@ -1,0 +1,19 @@
+slug: personal-brand-hook-the-walk
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand hook — confident walk toward camera
+form_factor: creator/personal-brand short
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  The-Walk hook. Per VG model picks memory, walking shots may want seedance over kling.
+prompt: |
+  Subject walking toward camera in hallway/street/studio. Confident pace. Camera pulls back at matching speed, maintaining framing.

@@ -1,0 +1,19 @@
+slug: viral-hook-eye-contact
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Primal-attention hook — direct eye-lock with camera
+form_factor: short-form vertical hook
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Eye-contact hook. Slot-free.
+prompt: |
+  Extreme close-up of eyes in shadow. At 0.6s, eyes snap open and lock directly into camera. Pupil dilates. Subtle head tilt forward — predatory, intense. Single rim light catches iris detail. No blinking for 2s. Sound: heartbeat, low frequency.

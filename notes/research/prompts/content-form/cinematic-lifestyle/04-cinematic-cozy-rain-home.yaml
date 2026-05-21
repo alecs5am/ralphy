@@ -1,0 +1,126 @@
+slug: cinematic-cozy-rain-home
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Cozy lifestyle cinematic one-take (rain home, no product)
+form_factor: horizontal 16:9 / 15s
+category: cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-supported)
+    required: true
+    constraints: |
+      timestamps in 0:00 – 0:15 range, dialog with quoted speech lines
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR — photoreal female lead. Seedance privacy filter may reject; if i2v with face, switch to Kling.
+  - kind: flag
+    name: duration
+    values: 15s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "smooth cinematic tracking, slow floating, single continuous shot"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Lifestyle cinematic without product — borderline UGC but no testimonial / no in-app review, so lives here.
+  Inline dialog lines ("Finally..." / "This weather feels magical.") — Seedance 2.0 supports lip-sync but quality is lower than Kling-v3.0-pro. For Russian / non-English dialog, route VO via ElevenLabs and use Seedance silent.
+  Music is specified ("soft cozy piano") — strip if going Ralphy-default and layer via ElevenLabs Music.
+prompt: |
+  Ultra-realistic cinematic one-take cozy lifestyle sequence set during heavy rain in a beautiful quiet modern society surrounded by trees and soft street lights. A small beautiful pastel tiny-home sits peacefully among the rainy neighborhood. The atmosphere feels warm, feminine, calm, peaceful, and emotionally comforting.
+
+  A beautiful young woman wearing a floral dress, soft cardigan, rain boots, and holding a transparent umbrella walks quickly through heavy rain carrying a basket full of fresh vegetables and groceries. Her tiny pastel home glows warmly from inside while rain pours heavily outside.
+
+  The ENTIRE video must flow smoothly like one continuous cinematic shot with NO cuts or abrupt transitions.
+
+  🎥 CONTINUOUS CINEMATIC FLOW (NO CUTS)
+
+  ⏱️ 0:00 – 0:02 | RAINY ARRIVAL
+
+  Heavy rain pours across a peaceful beautiful society street at evening.
+
+  The girl walks quickly with umbrella toward her tiny glowing home
+
+  Basket full of vegetables in her hand
+
+  Rain droplets reflecting warm street lights
+
+  Cozy pastel house glowing softly in rainy darkness
+
+  🎥 Camera Movement: Smooth cinematic tracking shot following beside her naturally through rain.
+
+  🎵 Sound: Heavy rain + soft cozy piano ambience.
+
+  ⏱️ 0:02 – 0:05 | ENTERING HOME
+
+  She quickly opens the tiny home door and rushes inside warmly laughing softly.
+
+  She closes umbrella beside the door
+
+  Places vegetable basket onto kitchen counter
+
+  Warm fairy lights glow beautifully around room
+
+  She removes her wet cardigan and shoes comfortably
+
+  🎥 Camera Movement: Single smooth movement entering home with her naturally.
+
+  🎙️ Girl (soft relieved sigh):
+  "Finally…"
+
+  ⏱️ 0:05 – 0:08 | FRESHENING UP
+
+  Still in one continuous shot, she walks toward the tiny bathroom area.
+
+  Warm mirror lights glowing softly
+
+  She changes from wet clothes into cozy pastel homewear
+
+  Soft towel drying wet hair
+
+  Rain visible through small bathroom window
+
+  🎥 Camera Movement: Slow floating cinematic movement around the tiny cozy house.
+
+  ⏱️ 0:08 – 0:12 | COOKING DINNER
+
+  She begins cooking peacefully in her tiny pastel kitchen.
+
+  Steam rising from warm food
+
+  Soft fairy lights reflecting around kitchen shelves
+
+  Cutting vegetables from grocery basket
+
+  Cozy tea kettle steaming softly
+
+  Warm peaceful feminine energy throughout
+
+  🎥 Camera Movement: Smooth close-up transitions between food, hands, lights, and cozy details.
+
+  🎙️ Girl (soft smile):
+  "This weather feels magical."
+
+  ⏱️ 0:12 – 0:15 | WINDOW DINNER ENDING
+
+  She sits beside the large rainy window eating peacefully.
+
+  Warm food plate beside steaming tea cup
+
+  Rain sliding beautifully down glass window
+
+  Cozy blanket around shoulders
+
+  She quietly enjoys rainy weather while smiling softly
+
+  Tiny pastel home glowing warmly inside rainy evening

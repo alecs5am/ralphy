@@ -1,0 +1,41 @@
+slug: v4-logo-raster-slow-creative-studio
+model: recraft-v4
+provider: recraft
+use_case: Hand-drawn wordmark logo for slow/nature/creative brand
+form_factor: 1024x1024 logo
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: logo_raster
+  - kind: flag
+    name: substyle
+    required: false
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    role: hex array for palette lock
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/prompting-with-recraft-v4.md
+  author: Recraft (Prompting with Recraft V4)
+  retrieved: 2026-05-21
+notes: |
+  Recraft V4 prompt that leans into "chunky wordmark with imperfect spacing"
+  — pair with `logo_raster` for the hand-painted texture. If you want a
+  clean vector twin, re-run with `vector_illustration`. Negative bans at
+  the tail ("Avoid corporate aesthetics, sharp geometry...") work well in V4.
+prompt: |
+  Minimal playful logo on a deep muted green background with warm off-white or cream elements. Flat colors only — no gradients, shadows, or texture. Designed for a slow, nature-focused creative space such as a studio, independent publishing project, or mindfulness platform. Calm, grounded, human, slightly whimsical — never commercial or trendy. Bold hand-drawn chunky wordmark with soft uneven strokes, rounded edges, imperfect spacing, and slightly irregular proportions. Letters feel brush-painted or cut from paper, earthy and intuitive rather than precise. Simple plant-inspired symbols (abstract leaves, berries, seeds) are integrated into or around the lettering — flat, bold, highly simplified shapes with no outlines or fine details. Centered, compact composition forming one unified silhouette with strong legibility. Warm, natural, quietly confident identity. Avoid corporate aesthetics, sharp geometry, thin lines, decorative fonts, or tech styling.

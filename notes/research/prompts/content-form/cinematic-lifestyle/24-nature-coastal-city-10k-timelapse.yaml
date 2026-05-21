@@ -1,0 +1,44 @@
+slug: coastal-city-10k-year-timelapse
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Nature/civilization timelapse — continuous forward dolly through 10,000 years
+form_factor: horizontal 16:9 / 10s
+category: nature
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (CINEMATIC SETUP header block + TIMELINE)
+    required: true
+    constraints: |
+      uses bracket headers [CINEMATIC SETUP] [TIMELINE — CONTINUOUS FORWARD DOLLY]
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: pure environmental — no face anchor. Safe Seedance t2v.
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "constant slow forward dolly, no lateral pans, no tilts, 24mm wide-angle"
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: Changning Liu (@ChangningL29508) via ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Source page truncated the timeline body after "[TIMELINE — CONTINUOUS FORWARD DOLLY]" header — preserving as a "cinematic setup" stub. The model should fill in the timeline given the strong style spec, but the user may want to expand it manually for production. Verbatim as displayed.
+prompt: |
+  [CINEMATIC SETUP]
+  Film Style: Photorealistic 8K, 65mm IMAX. One continuous forward dolly — no cuts. The camera glides steadily forward at chest height, as if walking through time, while the coastal landscape and city evolve dramatically around it over 10,000 years.
+  Lens: 24mm wide-angle, shallow horizon line with subtle sea mist and horizon glow.
+  Color Grade: Soft dawn blues to warm earth tones to fiery sunset oranges to cool neon cyans to sterile white-silver, each era bleeding smoothly into the next.
+  Lighting: Natural daylight shifting to torchlight, gaslight, electric grids, holographic glow, and finally starlight — the illumination evolves with human progress.
+  Camera: Constant slow forward dolly movement. No lateral pans, no tilts. Seamless transitions through shared elements: shoreline becomes harbor becomes docks becomes launch platforms.
+  [TIMELINE — CONTINUOUS FORWARD DOLLY]

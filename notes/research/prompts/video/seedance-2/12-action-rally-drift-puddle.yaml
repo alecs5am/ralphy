@@ -1,0 +1,23 @@
+slug: action-rally-drift-puddle
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: action / physics — rally car drift with shaky-cam + audio cue
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with audio cue
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: shaky-cam, water spray toward camera
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Seedance is preferred for non-default physics motion (per repo memory).
+  Audio cue baked into prompt for native sound render. Text-to-video.
+prompt: |
+  A red rally car racing through a forest. It hits a puddle, and water sprays toward the camera. High-RPM engine sound and splashing water. 2K resolution, shaky-cam effect.

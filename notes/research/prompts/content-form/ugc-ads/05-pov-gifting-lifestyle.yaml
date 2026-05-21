@@ -1,0 +1,31 @@
+slug: ugc-pov-gifting-lifestyle
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: First-person POV gifting reveal (gifts / subscriptions / lifestyle)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  POV-hands-first opening lowers the human-i2v risk — Seedance handles hands well; the face only
+  enters at 5-9s. Still safer to route human reveal through Kling if drift appears. Spoken English
+  ("You did not") → Kling --audio if migrating. Source omits music direction — explicitly ban music
+  in the prompt for Kling. Strong gifting-emotion finale needs the start↔end-frame motion delta
+  rule: ensure the surprise beat reads as a distinct facial change vs the wrapping shot.
+prompt: |
+  First-person POV shot. Hands unwrapping a matte black box on a white table. 0 to 4s: Slow pull back on packaging, fingers carefully lifting the lid. No face. Ambient sound of tissue paper and box opening. 5 to 9s: Product is revealed, camera tilts up from the product to a woman's face across the table. She covers her mouth in surprise. 10 to 14s: She picks it up, looks at camera and says "You did not." Soft laugh. 15s: Product stays in frame, name card visible beside it. Warm afternoon light, 9:16 vertical, emotional gifting atmosphere.

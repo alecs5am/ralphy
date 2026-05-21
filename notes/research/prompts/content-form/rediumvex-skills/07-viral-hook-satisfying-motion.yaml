@@ -1,0 +1,22 @@
+slug: viral-hook-satisfying-motion
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Dopamine-trigger hook — ASMR satisfying motion
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[liquid pouring perfectly into glass / knife slicing through smooth surface / sand cascading in slow motion]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Dopamine-trigger ASMR. Macro/shallow DoF baked in.
+prompt: |
+  Extreme close-up: [liquid pouring perfectly into glass / knife slicing through smooth surface / sand cascading in slow motion]. Macro lens, shallow depth of field. Sound design: crisp ASMR audio synced to motion. Slow motion at 0.5x speed. Warm golden lighting from side.

@@ -1,0 +1,42 @@
+slug: course-promo-prompt-skeleton
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Course-promo master prompt skeleton — HOOK/BODY/CTA structure
+form_factor: course promo
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "[DURATION], [ASPECT RATIO], [STYLE TEMPLATE NAME]"
+    required: true
+  - kind: slot_value
+    role: "[ASSET], [HOOK COPY], [CTA COPY]"
+    required: true
+  - kind: slot_value
+    role: "[LIGHTING PRESET], [target emotion]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/04-course-promo/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/04-course-promo/SKILL.md
+notes: |
+  Course-promo prompt skeleton. Maps to Ralphy's scenarist beat-list template.
+prompt: |
+  Seedance 2.0 prompt — [DURATION] seconds, [ASPECT RATIO], [STYLE TEMPLATE NAME]
+
+  HOOK [0:00–0:02]
+  @material[[ASSET]] — [one-sentence visual description] — [camera movement].
+  [LIGHTING PRESET]. Color grade: [3-word descriptor].
+  Text overlay: "[HOOK COPY]" — [typography spec].
+  Sound: [music or silence description].
+  The viewer should feel: [target emotion].
+
+  BODY [0:02–[MIDPOINT]]
+  [2–4 beats following the Hook Patterns table above]
+  [Each beat: timestamp, asset reference, camera, text overlay, sound]
+
+  CTA [[MIDPOINT]–[END]]
+  Hard cut to [background color/treatment].
+  Text: "[CTA COPY]" — [typography spec] — held for [X] seconds.
+  [Secondary info: URL, date, handle]
+  Sound: [music resolution or silence instruction].

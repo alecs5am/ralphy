@@ -1,0 +1,55 @@
+slug: kitchen-dialogue-domestic-conflict
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Two-character dialogue scene with native audio (domestic conflict)
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with character voice tags
+    required: true
+    constraints: |
+      max 2500 chars; uses [Character X, tone]: "line" syntax
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+  - kind: flag
+    name: duration
+    values: 5s | 10s
+    required: false
+    selected: 10s
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16 | 1:1
+    required: false
+source:
+  url: https://blog.fal.ai/kling-3-0-prompting-guide/
+  author: fal.ai
+  retrieved: 2026-05-21
+notes: |
+  Native-audio dialogue example from fal.ai official guide. Music is part of the prompt
+  (piano chord) — fine here because it is diegetic and explicitly cued. For Ralphy's
+  no-music rule, strip the piano line and add music as a separate ElevenLabs pass.
+  English-only — Kling --audio drifts on non-EN.
+prompt: |
+  A dim kitchen late at night.
+  Only the refrigerator hum fills the silence.
+
+  A plate is set down too hard.
+  Ceramic clinks sharply.
+
+  [Character A: Exhausted Partner, trembling frustrated voice]: "You never listen to me."
+
+  Immediately, the other partner turns around, eyes wide.
+  [Character B: Defensive Partner, shouting loudly]: "Because you never stop blaming!"
+
+  The exhausted partner exhales shakily.
+  [Exhausted Partner, voice cracking]: "I'm not blaming… I'm begging."
+
+  Silence.
+
+  The defensive partner sighs heavily.
+  [Defensive Partner, softly, regretful]: "I don't know how to fix this."
+
+  A sad piano chord enters quietly.

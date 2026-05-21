@@ -1,0 +1,36 @@
+slug: retro-corporate-1980s
+model: veo-3.1
+provider: gemini
+use_case: cinematic single-shot — retro period piece with practical lighting
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Veo 3.1 supports multi-image references for character / style consistency
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: false
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1
+  author: Google Cloud
+  retrieved: 2026-05-21
+notes: |
+  Google official guide example for "style & ambiance" prompting. No native audio called out — silent cinematic frame.
+  Note the explicit film-stock and lighting references (fluorescent + monochrome monitor green glow) which Veo 3.1 honors literally.
+prompt: |
+  Medium shot, a tired corporate worker, rubbing his temples in exhaustion, in front of a bulky 1980s computer in a cluttered office late at night. The scene is lit by the harsh fluorescent overhead lights and the green glow of the monochrome monitor. Retro aesthetic, shot as if on 1980s color film, slightly grainy.

@@ -1,0 +1,49 @@
+slug: faceless-prompt-skeleton
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Faceless content master prompt skeleton — TOPIC/HOOK/BEAT/CLOSE structure
+form_factor: faceless content (b-roll/motion/ambient/documentary)
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "[subject], [platform], [duration], [style]"
+    required: true
+  - kind: slot_value
+    role: "Hook pattern + camera + sound layer per beat"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/05-faceless-channel/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/05-faceless-channel/SKILL.md
+notes: |
+  Faceless-channel skeleton. SKILL.md is mostly workflow; this is the one structured paste-able skeleton.
+prompt: |
+  TOPIC: [subject]
+  PLATFORM: [TikTok 9:16 / YouTube 16:9 / Reels 9:16]
+  DURATION: [4s / 8s / 10s]
+  STYLE: [cinematic b-roll / motion graphics / ambient / documentary]
+
+  HOOK (0-2s):
+  [Hook pattern] — [opening frame description]
+  Camera: [movement + speed]
+  Sound: [impact layer]
+
+  BEAT 1 (2-Xs):
+  [Scene description]
+  Camera: [movement]
+  Lighting: [setup]
+  Sound: [layer]
+
+  BEAT 2 (X-Ys):
+  [Scene description]
+  Camera: [movement]
+  Lighting: [shift if any]
+  Sound: [layer]
+
+  CLOSE (final 1-2s):
+  [Resolution frame]
+  Camera: [settling movement]
+  Sound: [resolution]
+
+  MATERIAL REFS: @image1 [what], @video1 [what], @audio1 [what]

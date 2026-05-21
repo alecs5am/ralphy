@@ -1,0 +1,30 @@
+slug: football-stadium-tunnel-runout
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: High-motion sports cinematic multi-shot with team-captain shout
+form_factor: horizontal 16:9 / 15s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: 5-shot sports timeline with dialogue + SFX cues
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Useful for "caught on TV" broadcast feel — note Ralphy memory: broadcast-style
+  shots may want 1:1 square aspect, not 9:16. Orchestral music in final shot is
+  in prompt — strip for Ralphy and post-mix.
+prompt: |
+  Stadium tunnel, dim lighting, sound of distant crowd roaring. American football players in full gear.
+  Shot 1 (0-2 seconds): Low angle shot looking up at players, backlit dramatically.
+  Shot 2 (2-5 seconds): Handheld camera following players as they start moving forward, gaining momentum. SFX: Heavy footsteps, equipment jingling.
+  Shot 3 (5-8 seconds): Close-up on quarterback's face through helmet facemask, intense focus. He shouts:
+  [Character A: Team Captain, powerful commanding voice]: "IT'S GAME TIME!"
+  Shot 4 (8-12 seconds): Wide shot as team bursts out of tunnel into bright stadium lights. Crowd erupting. Fast tracking shot following the team.
+  Shot 5 (12-15 seconds): Aerial crane shot rising up to reveal packed stadium, pyrotechnics firing. Intense orchestral music building.

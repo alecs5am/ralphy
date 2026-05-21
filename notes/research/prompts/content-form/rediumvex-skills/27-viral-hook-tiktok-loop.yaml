@@ -1,0 +1,19 @@
+slug: viral-hook-tiktok-loop
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Platform preset — seamless TikTok loop point
+form_factor: closing-frame modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  TikTok-loop closing frame preset.
+prompt: |
+  Final frame composition mirrors opening frame — same camera angle, same lighting, same subject position. Last 0.5s movement creates visual continuation into the first frame when video replays. Seamless loop point.

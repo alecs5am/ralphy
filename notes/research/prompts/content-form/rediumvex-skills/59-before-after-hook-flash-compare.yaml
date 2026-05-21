@@ -1,0 +1,22 @@
+slug: before-after-hook-flash-compare
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation hook — rapid flash stutter between states
+form_factor: before/after transformation hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[before state] / [after state]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Flash-compare hook structure for transformations.
+prompt: |
+  rapid flash cut between [before state] and [after state], alternating twice in the first 1.5 seconds, creating a visual stutter effect that forces viewer attention

@@ -1,0 +1,22 @@
+slug: course-promo-lighting-warm-workshop
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Course-promo lighting preset — warm workshop diffused daylight
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/04-course-promo/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/04-course-promo/SKILL.md
+notes: |
+  Warm-workshop lighting preset.
+prompt: |
+  Lighting: large window-light simulation (soft, directional, slightly cool at 5500K),
+  warm practical sources scattered in background (3000K),
+  no visible shadows — diffused and even — feels like a well-lit creative studio,
+  slight fill from a white V-flat to open up shadows

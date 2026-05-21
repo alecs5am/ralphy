@@ -1,0 +1,35 @@
+slug: cinematic-timeline-sci-fi-blockbuster
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: cinematic — Hollywood sci-fi sequence, 3-shot timeline (wide → cockpit → crane)
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-prompted)
+    required: true
+    constraints: |
+      Uses [00:00–00:04] / [00:04–00:07] / [00:07–00:10] inline timestamp ranges
+      for shot-by-shot choreography.
+  - kind: flag
+    name: camera_movement
+    role: wide tracking, cockpit tight, crane pull-back, lens flare
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  10-second Hollywood sci-fi prompt with explicit shot intervals.
+  Demonstrates Seedance 2.0 multi-shot timeline syntax variant
+  (range form vs single-timestamp form). Text-to-video.
+prompt: |
+  Create a 10-second cinematic sequence, Hollywood sci-fi blockbuster style.
+
+  [00:00–00:04] Wide Tracking Shot — a sleek starfighter banks hard over a desolate alien canyon at sunset, twin suns burning low on the horizon. Camera tracks alongside the ship at high speed, dust and debris streaking past the lens. Anamorphic lens flare on every reflective surface.
+
+  [00:04–00:07] Cockpit / Tight Action Shot — cut inside the cockpit. The pilot grits their teeth as alarms flash red across the canopy glass. Tight handheld feel, sparks fly from a console behind them.
+
+  [00:07–00:10] Epic Pull-Back / Crane Shot — match-cut back to exterior. Camera cranes upward and pulls back rapidly to reveal a vast armada of identical starfighters emerging from behind the canyon wall in formation.
+
+  Cinematic, IMAX-grade, deep teal-and-orange grade, heavy lens flare, no on-screen text.

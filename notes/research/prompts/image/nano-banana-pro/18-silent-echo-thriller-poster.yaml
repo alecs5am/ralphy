@@ -1,0 +1,21 @@
+slug: silent-echo-thriller-poster
+model: nano-banana-pro
+provider: gemini
+use_case: Minimalist movie poster with large legible title typography
+form_factor: poster
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/the-ultimate-nano-banana-pro-prompting-guide-mastering-gemini-3-pro-image
+  author: Atlabs — Ultimate Nano Banana Pro Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  "Text-Perfect" marketing-asset pattern. Title is bold-marked in the source
+  and quoted in single quotes — this is the documented way to anchor exact
+  typography. Explicit "perfectly legible and centered" instruction is what
+  enforces text-fidelity.
+prompt: |
+  Create a minimalist movie poster for a thriller titled **'THE SILENT ECHO'**. The text should be large, distressed sans-serif font at the top. The visual is a lone cabin in a snowy forest viewed from above. High contrast black and white. Ensure the title is perfectly legible and centered.

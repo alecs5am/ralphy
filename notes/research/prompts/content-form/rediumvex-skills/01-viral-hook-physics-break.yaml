@@ -1,0 +1,22 @@
+slug: viral-hook-physics-break
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Pattern-interrupt viral hook — object defies physics for first 2 seconds
+form_factor: short-form vertical (TikTok/Reel/Shorts) hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[object] — the object that defies physics"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Maps to Ralphy's scenarist + art-director hook stage. Pattern-interrupt category. Compare against viral-hook templates in templates/entertainment-viral/.
+prompt: |
+  Open with [object] defying physics — floating upward, sliding in reverse, freezing mid-air. Camera steady, treating impossible action as mundane. First 0.8s shows normal expectation, 0.8-2s breaks it. No music, only ambient sound emphasizing the wrongness.

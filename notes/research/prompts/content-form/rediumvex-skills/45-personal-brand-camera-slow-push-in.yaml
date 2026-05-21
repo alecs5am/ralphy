@@ -1,0 +1,19 @@
+slug: personal-brand-camera-slow-push-in
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand camera preset — slow 6s dolly push-in
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  Slow push-in camera preset.
+prompt: |
+  Camera dollies forward 4 feet over 6 seconds. Constant speed. Subject framing ratio maintained as camera compensates. Depth-of-field shift.

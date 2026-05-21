@@ -1,0 +1,37 @@
+slug: park-bench-reunion-multishot
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Multi-shot two-character reunion with native audio (5-shot, 15s)
+form_factor: horizontal 16:9 / 15s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: 5-shot timeline with character voice tags
+    required: true
+    constraints: |
+      Explicit Shot N (start-end seconds) markers
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Atlabs expansion of the fal.ai park-bench example into explicit 5-shot timeline
+  (0-3, 3-6, 6-9, 9-12, 12-15s). Acoustic guitar music is in prompt — strip and
+  post-mix via ElevenLabs.
+prompt: |
+  A quiet park bench in late afternoon golden hour. Birds chirping. Wind through trees. Soft acoustic guitar music.
+  Two old friends sit side by side.
+  Shot 1 (0-3 seconds): Wide shot establishing the peaceful park setting, two figures on bench.
+  Shot 2 (3-6 seconds): Medium shot, one friend smiles softly.
+  [Character A: Old Friend 1, warm nostalgic voice]: "It's been… what, ten years?"
+  Shot 3 (6-9 seconds): Close-up on second friend, emotional expression.
+  [Character B: Old Friend 2, voice trembling slightly]: "Too long."
+  Shot 4 (9-12 seconds): Return to wider two-shot, moment of silence, wind rustling leaves.
+  Shot 5 (12-15 seconds): Close-up on first friend.
+  [Old Friend 1, softly speaking]: "I missed you."
+  The other nods slowly, eyes glistening.
+  [Old Friend 2, whispering]: "Me too."

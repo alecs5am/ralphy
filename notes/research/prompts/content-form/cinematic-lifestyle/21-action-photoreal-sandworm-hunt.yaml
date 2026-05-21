@@ -1,0 +1,51 @@
+slug: photoreal-sandworm-hunt
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Cinematic short film — desert creature hunt in IMAX style
+form_factor: horizontal 16:9 / 15s
+category: action
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (rich timeline with [0-2s] beats + lens specs)
+    required: true
+    constraints: |
+      timestamps in [0–2s] [2–4s] [4–7s] format
+      "Film Style:" / "Lens:" / "Camera:" header pattern
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR — single woman lead w/ wrapped linen + goggles (face mostly obscured by goggles). Lower privacy-filter risk; Seedance may accept. Test first.
+  - kind: flag
+    name: duration
+    values: 15s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "overhead drone open, ECU eruption, chase tracking, mid-air jump"
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: Changning Liu (@ChangningL29508) via ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  IMAX 65mm prompt — strong cinematic spec. Useful template for "creature hunt" beat structure.
+prompt: |
+  Cinematic short film, photorealistic VFX. 15-second desert hunt at high noon. Blinding light, zero shade, heat shimmer on everything.
+
+  [0–2s] Overhead drone — red desert canyon system. Sandstone towers, wind-carved arches, dry riverbeds. One figure: a woman on a sand-skiff — a flat wooden board with a triangular sail, gliding across compacted sand on bone runners. She wears wrapped linen armor, copper goggles, a weighted net coiled at her waist. She watches the sand.
+
+  [2–4s] ECU the sand surface — it's BREATHING. Rippling outward from a point 200 yards ahead. The sand rises like a slow dome. The dome ERUPTS — a sandworm. 40 feet, segmented, chitinous plates the color of rust. Its mouth is a vertical iris lined with grinding teeth like a rock crusher. Sand cascades off its body. It roars — the sound is DEEP, below human hearing, but you feel it shake the frame.
+
+  [4–7s] Chase through the canyon — the skiff banks between sandstone pillars. The worm follows UNDERGROUND — you see its path as a moving ridge of sand, smashing through the earth, pillars cracking as it passes beneath their foundations. She throws the weighted net — it wraps around a sandstone tower, rope trailing to her skiff.
+
+  [7–10s] The worm surfaces directly in the skiff's path. She leans the board, catches wind, and the skiff JUMPS — airborne over the worm's back. In mid-air she drives a barbed stake into the top of its head plate. Lands the skiff on the other side. Rope connects stake to the sandstone tower.
+
+  [10–13s] The worm charges away — the rope goes taut against the tower. The tower HOLDS. The worm's momentum whiplashes it sideways. It crashes into a canyon wall. Sandstone debris cascades. Dust cloud erupts like a bomb. Silence inside the cloud.
+
+  [13–15s]

@@ -1,0 +1,19 @@
+slug: viral-hook-sound-bass-drop
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Sound-design preset — 1.5s silence then bass drop
+form_factor: sound-design modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Bass-drop sound preset. Seedance --audio supports this; Kling --audio also acceptable for EN only.
+prompt: |
+  Audio: 1.5s of near-silence (faint ambient). At 1.5s marker: deep 808 bass hit synced to visual cut. Sub-bass vibration. Music enters on beat 2.

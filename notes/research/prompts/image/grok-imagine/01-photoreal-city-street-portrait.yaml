@@ -1,0 +1,26 @@
+slug: photoreal-city-street-portrait
+model: grok-imagine
+provider: xai
+use_case: Photoreal street-style portrait at night with rain reflections
+form_factor: still 16:9
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2I
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+source:
+  url: https://www.genaintel.com/guides/grok-imagine-xai-guide
+  author: GenAIntel
+  retrieved: 2026-05-21
+notes: |
+  Mode not specified in source — defaulting to Normal. Labelled "Prompt – Photoreal City Street Portrait" in the GenAIntel walkthrough.
+prompt: |
+  Photoreal street-style portrait: an adult woman (25+) wearing a modern techwear jacket walking through a rainy city street at night, warm streetlamp reflections on wet pavement, soft rim lighting from behind, natural skin texture, shallow depth of field, 50mm lens, cinematic color grade, ultra-detailed, 16:9.

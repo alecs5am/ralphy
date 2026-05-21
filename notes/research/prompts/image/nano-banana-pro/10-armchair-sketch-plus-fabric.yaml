@@ -1,0 +1,24 @@
+slug: armchair-sketch-plus-fabric
+model: nano-banana-pro
+provider: gemini
+use_case: Multimodal generation — combine a sketch (structure) with a fabric swatch (texture)
+form_factor: product render
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: Two refs — first is structural sketch, second is fabric texture swatch.
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-nano-banana
+  author: Google Cloud — Ultimate Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Showcases Nano Banana Pro's ability to split reference roles — one ref drives
+  silhouette, another drives surface material. Order of refs matters; the prompt
+  refers to them by role ("napkin sketch", "fabric sample").
+prompt: |
+  Using the attached napkin sketch as the structure and the attached fabric sample as the texture, transform this into a high-fidelity 3D armchair render. Place it in a sun-drenched, minimalist living room.

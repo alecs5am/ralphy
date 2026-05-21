@@ -1,0 +1,29 @@
+slug: photorealistic-candid-portrait
+model: gpt-image-1.5
+provider: openai
+use_case: Photorealistic candid portrait with explicit anti-AI-slop cues (real skin texture, film grain, no glamorization)
+form_factor: 1024x1536 portrait
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-1.5-prompting_guide
+  author: OpenAI Cookbook — GPT Image 1.5 Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 4.3 "Photorealistic Images". Strong reference for anti-AI-slop register:
+  names a specific film stock (35mm), lens (50mm), light quality (soft coastal
+  daylight), and explicitly bans glamorization / heavy retouching. Author also
+  recommends quality="high" for finished work.
+prompt: |
+  Create a photorealistic candid photograph of an elderly sailor standing on a small fishing boat. He has weathered skin with visible wrinkles, pores, and sun texture, and a few faded traditional sailor tattoos on his arms. He is calmly adjusting a net while his dog sits nearby on the deck. Shot like a 35mm film photograph, medium close-up at eye level, using a 50mm lens. Soft coastal daylight, shallow depth of field, subtle film grain, natural color balance. The image should feel honest and unposed, with real skin texture, worn materials, and everyday detail. No glamorization, no heavy retouching.

@@ -1,0 +1,34 @@
+slug: i2v-product-animate-push-in-template
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: i2v product animation — slow push-in + light sweep, preserve packaging
+form_factor: horizontal 16:9 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: motion / camera / lighting description (do not redescribe the image)
+    required: true
+    constraints: |
+      Seedance i2v rule: "Do not redescribe every object in the uploaded
+      image. Keep the source image fixed, then describe only the motion,
+      camera movement, lighting shift, and mood."
+  - kind: image
+    role: i2v_anchor (product packshot)
+    required: true
+    notes: |
+      Product / packaging anchor — typically safe through privacy filter.
+      For photoreal human anchors switch to kwaivgi/kling-v3.0-pro.
+  - kind: flag
+    name: camera_movement
+    role: subtle push-in + light sweep
+    required: false
+source:
+  url: https://www.seedance.tv/blog/seedance-2-0-prompt-guide
+  author: Seedance.tv
+  retrieved: 2026-05-21
+notes: |
+  Canonical Seedance i2v packshot template. Honors the "describe motion
+  only, never re-describe the image" rule. Product / object anchor →
+  low privacy-filter risk.
+prompt: |
+  Animate this product image with a subtle camera push-in and soft light sweep across the packaging, keep the product shape and label stable, no new text, no background change, clean commercial look.

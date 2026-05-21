@@ -1,0 +1,26 @@
+slug: corgi-skateboards-viral
+model: grok-imagine
+provider: xai
+use_case: Fun/viral T2V — cartoon-style pet stunt
+form_factor: video
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Fun
+    required: false
+source:
+  url: https://www.dzinepixel.com/blog/grok-imagine-your-2025-guide-to-making-short-ai-videos-explained-simply/
+  author: Dzinepixel
+  retrieved: 2026-05-21
+notes: |
+  Prompt 41 of 50 in the Dzinepixel "Fun & Viral" category — well-suited to Grok Imagine's Fun mode (cartoonish exaggeration).
+prompt: |
+  Corgi skateboards down ramp, wobble crash, goofy pan, bark laugh, cartoon.

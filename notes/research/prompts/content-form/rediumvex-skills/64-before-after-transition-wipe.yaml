@@ -1,0 +1,22 @@
+slug: before-after-transition-wipe
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation transition — beat-synced wipe
+form_factor: before/after transition modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[left-to-right / bottom-to-top / diagonal], [after state], [before state]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Wipe transition modifier.
+prompt: |
+  smooth [left-to-right / bottom-to-top / diagonal] wipe transition revealing [after state] beneath [before state], wipe speed synchronized with the beat of the background audio

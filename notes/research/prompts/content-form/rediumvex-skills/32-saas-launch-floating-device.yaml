@@ -1,0 +1,25 @@
+slug: saas-launch-floating-device
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS product hero — floating device in dark void with orbit
+form_factor: SaaS product hero shot
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[product UI] — interface visible on device screen"
+    required: true
+  - kind: slot_value
+    role: "[duration] — orbit duration in seconds"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Floating-device hero. Apple-style device-marketing register. Maps to Ralphy b2b-saas templates.
+prompt: |
+  MacBook/phone/tablet floating in dark void at slight 15-degree angle. Screen displays [product UI]. Device has subtle reflection on invisible surface below. Single key light from upper-left at 45 degrees creates soft shadow. Rim light from behind separates device from black background. Camera slowly orbits 30 degrees over [duration]. UI on screen is live — elements animate, data flows, cursors move. Screen glow illuminates immediate surrounding space with product's brand color. Sound: minimal ambient electronic. UI interaction sounds (clicks, swooshes) synced to on-screen activity.

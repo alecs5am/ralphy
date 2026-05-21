@@ -1,0 +1,19 @@
+slug: saas-launch-clean-studio
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS aesthetic preset — Apple-style clean studio
+form_factor: SaaS aesthetic preset
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Clean-studio aesthetic preset.
+prompt: |
+  Product on device on white/light gray surface. Soft diffused overhead lighting — no harsh shadows. Fill light from all directions creating minimal shadow. Background is clean gradient (white to light gray). Product packaging or brand elements positioned as props. Sound: soft ambient, no music, focus on UI click sounds. Apple-style product photography as video.

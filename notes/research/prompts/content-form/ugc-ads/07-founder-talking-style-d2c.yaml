@@ -1,0 +1,30 @@
+slug: ugc-founder-talking-style-d2c
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Founder-mode authority testimonial (D2C / premium brand storytelling)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  Premium register, single human, fixed camera — drift-prone if i2v anchor isn't locked. Use a
+  master-shot ref for the founder identity across cuts (super-original refs memory) and pass via
+  --ref on every regen. Photoreal still register memory applies: Sony A7 IV + Sigma 35/85mm
+  improves believability. Kling for human i2v; English dialogue → Kling --audio.
+prompt: |
+  A 35-year-old woman at a clean kitchen table, minimal branding visible in background. She looks directly into camera with a calm, knowledgeable expression and no script energy. 0 to 4s: "We built this because I could not find anything that actually worked for me." She sets a product bottle on the table. Soft overhead lighting, fixed stable camera. 5 to 10s: She slides it closer to camera and explains one thing about it. 11 to 15s: She looks up from the product to camera and says "That is why I made this." Long beat. Holds eye contact. Warm, premium feel, 9:16 vertical.

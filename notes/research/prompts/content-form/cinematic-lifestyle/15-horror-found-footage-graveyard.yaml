@@ -1,0 +1,43 @@
+slug: found-footage-graveyard-creature-horror
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Horror — handheld smartphone found-footage creature attack
+form_factor: vertical 9:16 / 10s
+category: horror
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (no timestamps, single chaotic beat)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN-LIKE creature anchor — likely OK (not photoreal celebrity); Seedance safer than Kling here due to gore/horror
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "handheld smartphone, panicked retreat, jerks violently, abrupt extreme close-up"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Per Ralphy memory, Seedance handles jump-scares and non-default physics motion better than Kling.
+  Note "LED phone flashlight only" + "natural audio" — strong direction toward found-footage realism. No music specified (good).
+prompt: |
+  Low-light handheld smartphone footage, heavy grain, slight motion blur. Harsh LED phone flashlight only. Natural audio: insects, distant dogs, wind moving dry leaves. Location: an old Indian graveyard with uneven mud paths, cracked tombstones, iron fencing, overgrown grass, and leaning graves.
+
+  On top of a large, cracked tombstone, a woman is crouched unnaturally. Unnaturally thin body, grayish decaying skin with two heads clearly visible. Long tangled black hair hanging over her face. Milky white unfocused eyes. Mouth slightly open, revealing sharp Dracula-like fangs. A low guttural growl rises from her chest, mixing with the night sounds. Her head turns slowly toward the camera, hair sliding aside just enough to reveal her dead white eyes. Sudden violent movement as she launches off the tombstone, landing with a wet thud.
+
+  Panicked retreat between graves. Camera jerks violently. She drags herself across the ground and over headstones, limbs bending at impossible angles, snarling, dirt and dry grass scraping beneath her movements.
+
+  Abrupt extreme close-up. Her face slams into frame mid-screech, fangs fully exposed, eyes blank and lifeless, hair whipping forward. Instant cut to black.

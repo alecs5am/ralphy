@@ -1,0 +1,30 @@
+slug: ugc-3am-relatable-wellness
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Late-night relatable moment, no-dialogue UGC (sleep / wellness / stress / late-night use)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  No-dialogue UGC — both Seedance and Kling handle this register cleanly. No --audio dependency,
+  so post-mix everything via ElevenLabs Music + ambient SFX. Source explicitly cues "quiet ambient
+  sound" which aligns with Ralphy's no-Kling-music rule. Low-light register raises drift risk on
+  i2v human anchors — Kling preferred if running i2v.
+prompt: |
+  A 25-year-old person sits on a bed in a dark room, phone light illuminating their face, clearly awake too late. 0 to 3s: They look up from their phone directly at camera. Tired eyes, oversized hoodie. No words, just eye contact for two beats. 4 to 8s: They reach to the bedside table and pick up the product. Soft bedside lamp warm light. They look at it like it is the most obvious solution. 9 to 14s: Cut to them lying down, eyes closed, product on the table. Peaceful. 15s: Very slow push into the product. 9:16, low light, quiet ambient sound.

@@ -1,0 +1,19 @@
+slug: before-after-sound-low-to-high-energy
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation sound — BPM doubles at transition (70 → 140)
+form_factor: before/after sound modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Low-to-high-energy sound modifier.
+prompt: |
+  audio BPM doubles at the transition point, before state at 70 BPM ambient, after state at 140 BPM punchy, energy shift is immediate and total

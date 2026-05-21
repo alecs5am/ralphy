@@ -1,0 +1,21 @@
+slug: elaichi-chai-infographic
+model: nano-banana-pro
+provider: gemini
+use_case: Recipe / how-to infographic using model world-knowledge
+form_factor: infographic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/the-ultimate-nano-banana-pro-prompting-guide-mastering-gemini-3-pro-image
+  author: Atlabs — Ultimate Nano Banana Pro Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  "Fact-grounded" infographic pattern. Prompt explicitly invokes "the model's
+  world knowledge" — Atlabs notes this triggers more accurate ingredient lists
+  vs generic "show ingredients" phrasing. Also names a concrete visual style
+  (clean vector + pastel).
+prompt: |
+  Generate a step-by-step infographic showing **how to make Elaichi Chai**. Use the model's world knowledge to include accurate ingredients like cardamom pods, loose tea leaves, and milk. Style: Clean vector art with pastel colors. Label the ingredients correctly.

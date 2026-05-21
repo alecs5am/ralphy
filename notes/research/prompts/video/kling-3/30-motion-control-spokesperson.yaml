@@ -1,0 +1,26 @@
+slug: motion-control-spokesperson
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Motion-control identity prompt (corporate spokesperson)
+form_factor: horizontal 16:9 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: identity + wardrobe + setting + camera quality bar
+    required: true
+  - kind: image
+    role: elements
+    required: true
+    notes: reference video drives motion / lipsync timing
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Companion to news-anchor-motion-control-i2v. Spokesperson swap template —
+  pair with a clean lipsync source clip.
+prompt: |
+  Confident marketing spokesperson in tailored navy suit with crisp
+  white shirt, professional grooming. Modern corporate studio with
+  soft diffused lighting and shallow depth of field. Cinematic realism,
+  commercial broadcast quality.

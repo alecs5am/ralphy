@@ -1,0 +1,20 @@
+slug: fashion-editorial-text-to-image
+model: nano-banana-pro
+provider: gemini
+use_case: Editorial fashion shot, text-only generation (no refs)
+form_factor: medium-full editorial
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-nano-banana
+  author: Google Cloud — Ultimate Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Canonical text-to-image fashion prompt from Google Cloud's ultimate guide.
+  Names film stock ("medium-format analog"), framing, and backdrop color
+  explicitly. No reference image required.
+prompt: |
+  A striking fashion model wearing a tailored brown dress, sleek boots, and holding a structured handbag. Posing with a confident, statuesque stance, slightly turned. A seamless, deep cherry red studio backdrop. Medium-full shot, center-framed. Fashion magazine style editorial, shot on medium-format analog film, pronounced grain, high saturation, cinematic lighting effect.

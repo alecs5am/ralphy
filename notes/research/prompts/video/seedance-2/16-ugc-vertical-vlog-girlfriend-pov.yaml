@@ -1,0 +1,36 @@
+slug: ugc-vertical-vlog-girlfriend-pov
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: UGC ad / lifestyle — handheld vertical vlog with golden hour + multi-shot
+form_factor: vertical 9:16 / 15s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (multi-shot)
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: handheld, first-person, natural light, slight shake
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Vertical 9:16 UGC pattern — handheld, film grain, golden hour. Three
+  beat shots (rushed intro → river share → ice-cream interaction).
+  Text-to-video; no human anchor.
+prompt: |
+  Create a 15-second vertical (9:16) handheld vlog in natural golden-hour light, with film grain and slight camera shake.
+
+  Shot 1: A girl runs up to the camera, slightly out of breath, smiles wide and waves — first-person girlfriend-POV intro vibe.
+
+  Shot 2: She turns the camera around to share a slow pan over a river at golden hour, water glittering, her voice slightly off-mic.
+
+  Shot 3: She holds an ice cream cone toward the lens, takes a bite, laughs. Camera drifts handheld, soft focus pulls.
+
+  Warm, naturalistic color grade. No on-screen text. UGC vlog aesthetic.

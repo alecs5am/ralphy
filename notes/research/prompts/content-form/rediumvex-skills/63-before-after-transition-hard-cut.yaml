@@ -1,0 +1,22 @@
+slug: before-after-transition-hard-cut
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation transition — instant hard cut, no frames between
+form_factor: before/after transition modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[before] / [after]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Hard-cut transition modifier.
+prompt: |
+  instantaneous hard cut from [before] to [after] at the exact midpoint of the clip, no transition frames, pure contrast

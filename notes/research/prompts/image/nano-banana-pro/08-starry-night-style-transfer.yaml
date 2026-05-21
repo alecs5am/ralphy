@@ -1,0 +1,23 @@
+slug: starry-night-style-transfer
+model: gemini-3-pro-image
+provider: gemini
+use_case: Style transfer — apply a famous painter's style while preserving composition
+form_factor: matches input
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: style_anchor
+    required: true
+    notes: Composition is preserved from the input image; style is the prompt-named target.
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Canonical style-transfer pattern. Explicit "Preserve the original composition"
+  instruction is what locks subject layout while swapping aesthetic.
+prompt: |
+  Transform the provided photograph of a modern city street at night into the artistic style of Vincent van Gogh's 'Starry Night'. Preserve the original composition of buildings and cars, but render all elements with swirling, impasto brushstrokes and a dramatic palette of deep blues and bright yellows.

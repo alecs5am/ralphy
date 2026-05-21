@@ -1,0 +1,22 @@
+slug: nature-timelapse-mountain-dawn
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: nature / lifestyle — timelapse establishing shot
+form_factor: horizontal 16:9 / 5–10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: locked-off + slow zoom
+    required: false
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Official fal-ai sample. Static-camera nature timelapse with HDR grade.
+prompt: |
+  Timelapse of a dramatic mountain landscape transitioning from dawn to midday. Fog rolls through the valley as the sun crests the peaks, casting long golden rays across alpine meadows. Clouds accelerate overhead in soft streaks. Camera holds steady on a wide establishing shot with a slow, barely perceptible zoom. Vivid natural colors, HDR dynamic range.

@@ -1,0 +1,35 @@
+slug: old-sailor-dialogue
+model: veo-3.1
+provider: gemini
+use_case: character-driven dialogue close-up — natural lip sync
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Veo 3.1 supports multi-image references for character consistency.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://deepmind.google/models/veo/prompt-guide/
+  author: Google DeepMind
+  retrieved: 2026-05-21
+notes: |
+  DeepMind official "Craft Your Characters" example. Note the wardrobe + gesture detail (knitted blue sailor hat, pipe gesture) which anchors identity; the spoken line is naturally short enough to fit inside 8s of native VO.
+prompt: |
+  A medium shot frames an old sailor, his knitted blue sailor hat casting a shadow over his eyes, a thick grey beard obscuring his chin. He holds his pipe in one hand, gesturing with it towards the churning, grey sea beyond the ship's railing. "This ocean, it's a force, a wild, untamed might. And she commands your awe, with every breaking light"

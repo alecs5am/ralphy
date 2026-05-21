@@ -1,0 +1,41 @@
+slug: snowy-japanese-town-cat-journey
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Narrative cozy short — animal protagonist multi-location journey
+form_factor: horizontal 16:9 / 10s
+category: narrative
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (chapter-by-chapter narrative)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: animal anchor (cat) — no human privacy filter concern
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "close-ups, slow-motion, wide shots, shallow depth of field"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  "Studio Ghibli inspired realism" — useful style tag. Long multi-location narrative; consider splitting into per-location 5s shots and stitching in the editor stage.
+prompt: |
+  Cinematic cozy winter anime realism sequence of a fluffy white ragdoll cat wandering through a snowy Japanese town at night, wearing a knitted scarf and warm winter coat. Snow gently falls under glowing red lanterns while icy streets reflect warm shop lights. The cat slowly walks past tiny ramen shops, steaming food stalls, and snow-covered bicycles parked beside wooden buildings. Soft ambient snowfall and cold winter wind create a peaceful emotional atmosphere.
+  The cat enters a cozy fish market tucked beneath glowing lanterns and snowy rooftops. Cinematic close-up shots of fresh salmon and tuna resting on crushed ice, warm steam rising from nearby soup stalls, snowflakes melting on wooden counters. Friendly seafood vendors wrap fresh fish while the cat carefully chooses dinner ingredients. Cozy winter ambience with soft chatter and distant train sounds.
+  Next, the cat stops at a small roadside sweet potato and roasted chestnut stand beside a snowy alley. Slow-motion shots of steam rising from hot roasted snacks, glowing charcoal fire, warm hands exchanging food. The cat places roasted chestnuts into a small canvas tote bag while snow continues falling softly around lantern-lit streets.
+  The cat walks home through quiet snow-covered Japanese backstreets at blue hour dusk. Cinematic wide shots of snowy rooftops, glowing vending machines, distant temple bells, and warm apartment windows. Footprints form behind the cat in fresh snow while soft wind carries snowflakes through narrow alleyways.
+  Inside a tiny wooden apartment, the cat relaxes beside a heater and takes a warm bubble bath with steam filling the room. Cozy close-ups of fluffy fur drying beside glowing lamps and knitted blankets. Snow continues falling outside the frosted window.
+  Final cooking sequence shows cinematic close-ups of fish frying in a pan with sizzling butter and steam, warm golden lighting filling the kitchen. The cat prepares hot soup and roasted chestnuts while snowfall glows softly outside the window. Final emotional scene of the cat sitting beside the snowy window eating dinner peacefully while warm lantern lights reflect across the icy night streets, ultra detailed winter atmosphere, Studio Ghibli inspired realism, cinematic camera movement, shallow depth of field, realistic snow and steam physics, emotional cozy storytelling, 4K animated film quality.

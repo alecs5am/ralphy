@@ -1,0 +1,19 @@
+slug: personal-brand-hook-the-gaze
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand hook — eye-contact snap to camera
+form_factor: creator/personal-brand short
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  The-Gaze hook for personal-brand creators. Maps to Ralphy creator-lifestyle category.
+prompt: |
+  Close-up of subject's face. Strong single key light from side. Eyes look off-camera, then snap to direct camera eye contact at 1s.

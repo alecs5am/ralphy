@@ -1,0 +1,26 @@
+slug: central-park-bench-portrait
+model: grok-imagine
+provider: xai
+use_case: Strong-example photoreal portrait demonstrating specificity (location + lens + lighting)
+form_factor: still
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2I
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+source:
+  url: https://tryonr.com/blog/how-to-use-grok-imagine
+  author: Tryonr
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Example prompt (strong)" — used in the Tryonr guide to contrast against the weak "a woman in a park" example.
+prompt: |
+  A woman in her 30s sitting on a wooden bench in Central Park, reading a book, autumn afternoon, golden hour lighting, shallow depth of field, Canon 85mm lens style, photorealistic

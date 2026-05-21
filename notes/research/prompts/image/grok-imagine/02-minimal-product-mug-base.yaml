@@ -1,0 +1,26 @@
+slug: minimal-product-mug-base
+model: grok-imagine
+provider: xai
+use_case: Minimal product photo (ceramic coffee mug) as base for I2I edit
+form_factor: still 16:9
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2I
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+source:
+  url: https://www.genaintel.com/guides/grok-imagine-xai-guide
+  author: GenAIntel
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Base Image Prompt – Minimal Product Photo". Designed as the source frame for an I2I follow-up edit (see 03-product-mug-i2i-style-edit.yaml).
+prompt: |
+  Product photo: a sleek ceramic coffee mug sits centered on a clean white table, soft daylight streams from the left, gentle shadows cast to the right, minimal background, eye-level camera angle, warm mood, 4K realism, 16:9.

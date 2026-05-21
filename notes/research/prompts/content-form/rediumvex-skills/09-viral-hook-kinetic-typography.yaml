@@ -1,0 +1,22 @@
+slug: viral-hook-kinetic-typography
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Dopamine-trigger hook — beat-synced kinetic text
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[provocative statement — 3-5 words max]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Kinetic-typography hook. Note Ralphy memory: "kinetic-typo" category is a known meme-header pattern.
+prompt: |
+  Bold white text on black background. Words slam into frame one at a time, synced to beat. Each word creates micro screen-shake. Text: [provocative statement — 3-5 words max]. Camera pushes in slightly with each word. Bass-heavy sound design.

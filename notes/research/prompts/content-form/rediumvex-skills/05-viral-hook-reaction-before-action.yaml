@@ -1,0 +1,19 @@
+slug: viral-hook-reaction-before-action
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Curiosity-gap hook — pure shock reaction with no context
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Reaction-only opener. No slots — direct paste.
+prompt: |
+  Open on person's face — eyes widen, jaw drops, hand covers mouth. Camera captures pure shock reaction for 2s. No context, no environment shown. Sound: gasp, then silence. The question 'what are they looking at?' forces continued viewing.

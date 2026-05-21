@@ -1,0 +1,19 @@
+slug: viral-hook-lighting-silhouette-pop
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Lighting preset — full backlight silhouette
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Silhouette-pop lighting preset.
+prompt: |
+  Complete backlight silhouette. Strong light source directly behind subject (window, LED panel, sunset). No fill light on face — pure black outline. Shape and posture tell the story. Viewer cannot identify subject = curiosity. Edge light catches hair/shoulder outline. Background blown out to white/gold.

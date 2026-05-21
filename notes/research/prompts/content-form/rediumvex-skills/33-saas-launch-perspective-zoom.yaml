@@ -1,0 +1,19 @@
+slug: saas-launch-perspective-zoom
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS demo — camera flies through screen into product interior
+form_factor: SaaS narrative demo
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Perspective-zoom into product UI. Strong demo opener.
+prompt: |
+  Start with wide shot: device on desk in stylish workspace. Warm ambient lighting, shallow depth of field. Camera begins pushing toward screen. At 2s: camera crosses the screen boundary — transition from physical space to digital space. The UI fills the entire frame. Camera continues moving forward, navigating through interface elements as if flying through the product. UI elements pass by camera at different depths — parallax effect. Sidebar slides past on left, cards float by on right. Navigation elements form a corridor. Camera moves through the product like walking through a building. Sound: real-world ambient fades out as camera enters screen. Digital ambient fades in — clean, processed, reverb-free. UI sounds become prominent. Music becomes more electronic/digital.

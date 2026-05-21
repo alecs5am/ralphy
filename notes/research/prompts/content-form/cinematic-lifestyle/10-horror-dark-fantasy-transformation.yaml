@@ -1,0 +1,49 @@
+slug: dark-fantasy-horror-transformation
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Horror / dark-fantasy character transformation with lip-synced dialog
+form_factor: horizontal 16:9 / 15s
+category: horror
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-supported, dialog with lip sync direction)
+    required: true
+    constraints: |
+      timestamps in [0:00–0:05] [0:05–0:10] [0:10–0:15] format
+      inline lipsync dialog line
+  - kind: image
+    role: i2v_anchor
+    required: true
+    notes: HUMAN ANCHOR — pale girl + creature design must stay consistent. Seedance privacy filter likely rejects photoreal human i2v anchors; switch to kwaivgi/kling-v3.0-pro and pass --audio for English.
+  - kind: flag
+    name: duration
+    values: 15s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "medium shot, slow push in, chest up framing, medium-to-wide reveal"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  HARD case for Seedance — photoreal female face anchor + lipsync dialog. Per Ralphy memory, route to Kling-v3.0-pro instead.
+  Explicit sound direction section at the end is reusable as a template footer.
+  Dialog line: "It was never following me. It was becoming me." — English only; per Ralphy memory Kling --audio gives accent slip on Russian.
+prompt: |
+  A bleak, wet, fog covered wasteland under cold gray light. A young woman with a pale face, long dark braided hair, and a flowing black dress stands beside a massive shadow creature made of soaked root like strands, torn black tendrils, and glowing white eyes. Keep the woman's exact face, exact dress, and the creature's exact design consistent throughout the video. Dark fantasy horror, disturbing, photoreal, ultra cinematic, slow dramatic pacing. Sound design: low horror pulse, deep rumble, cold wind, wet organic texture movement.
+
+  [0:00–0:05] Medium shot, slow push in. The girl stands still with one hand resting against the creature, then turns her face slightly toward camera. Her hair and dress move subtly in the wind. Behind her, the towering shadow being breathes almost imperceptibly, its glowing eyes cutting through the fog. The mood is intimate, ominous, and deeply unsettling.
+
+  [0:05–0:10] Closer chest up framing as the push in continues. Black tendrils begin spreading from her fingers, arms, shoulders, back, and the edges of her dress. The tendrils wrap around her body like liquid shadow. Her skin gradually darkens into slick shadow texture, her face melts into black organic form, and her hair unravels into root like shredded strands. The transformation is slow, painful, elegant, and disturbing. During this moment, with clear accurate lip sync and a calm eerie delivery, she says: "It was never following me. It was becoming me."
+
+  [0:10–0:15] Final reveal in a medium to wide shot, with the slow push in still continuing. Where the girl stood, there is now the fully formed shadow creature in the exact same design language: soaked, shredded, branch like black mass with glowing white eyes. It stands perfectly still and faces camera, tilting its head slightly with an unnervingly calm awareness, as if her human consciousness remains inside it. End on a disturbing calm final stare, heavy fog thickening around the creature, low rumble deepening, then fade to black.
+
+  Sound Direction: Low horror pulse with deep sub rumble, distant wind, subtle wet organic movement, minimal dark drone rising during the tendril spread, no melodic music, just oppressive atmospheric tension.

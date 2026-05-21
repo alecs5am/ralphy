@@ -1,0 +1,31 @@
+slug: luxury-hotel-architectural
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Luxury hotel — 8s monumental travertine lobby architecture
+form_factor: luxury hospitality
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: full scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/06-luxury-aesthetic/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/06-luxury-aesthetic/SKILL.md
+notes: |
+  Luxury hotel architectural worked example. 16:9, slow push-in.
+prompt: |
+  Wide interior shot: a monumental travertine lobby, ceiling height implied at 8 meters, floor-to-ceiling frosted glass panels along the far wall filtering uniform overcast daylight into the space. The floor is pale travertine, slightly reflective, showing the diffused light source above.
+
+  A single figure — a woman in a dark structured coat — stands in the far middle distance, occupying perhaps 8% of the total frame height. She is still, facing the window. She does not move.
+
+  Camera begins locked off, static. After 2 seconds of absolute stillness, an extremely slow, barely-perceptible push-in begins — traveling perhaps 15cm of apparent distance over the remaining 6 seconds.
+
+  Lighting: diffused daylight only, 5600K, no shadows. Even, enveloping, cool.
+
+  Color grade: architectural neutral — travertine tones, cool daylight whites, compressed contrast, no saturation enrichment.
+
+  Sound direction: 2 seconds of open silence, then very low ambient room tone, footstep on stone surface once at second 4, silence resumes.
+
+  Aspect ratio: 16:9. Duration: 8 seconds.

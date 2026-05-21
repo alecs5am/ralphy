@@ -1,0 +1,29 @@
+slug: music-video-dance-rooftop-neon
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: music video — choreo i2v with character + motion refs, cut-to-wide
+form_factor: vertical 9:16 / 10s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description with @Image1 + @Video1 refs
+    required: true
+  - kind: image
+    role: i2v_anchor (@Image1 — dancer)
+    required: true
+    notes: |
+      PRIVACY FILTER concern — photoreal human anchor may be rejected.
+      Use kwaivgi/kling-v3.0-pro for human-anchored choreo.
+  - kind: video
+    role: choreography reference (@Video1)
+    required: true
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Uses "Cut scene to" mid-prompt to choreograph a multi-shot beat
+  (medium → wide above). may be rejected by Seedance privacy filter —
+  consider Kling for human anchors.
+prompt: |
+  @Image1 performs the choreography from @Video1 on a rain-soaked rooftop at night, neon signs reflecting in puddles. Camera tracks alongside the movement. Cut scene to a wide shot from above as the dancer hits the final pose, city lights stretching out below. High contrast, vibrant neon color grading, cinematic slow-motion on the final beat.

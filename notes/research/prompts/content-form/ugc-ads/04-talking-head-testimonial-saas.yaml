@@ -1,0 +1,30 @@
+slug: ugc-talking-head-testimonial-saas
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Documentary-style talking-head testimonial (SaaS / apps / productivity)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  Documentary register requires the photoreal-still memory: Sony A7 IV + Sigma 35/85mm direction
+  improves realism if you swap "handheld stable camera" with that anchor. Human-anchored — Kling
+  for any i2v variant. English dialogue → Kling --audio. Source omits music direction; add
+  "no music, no logo, no text on screen" explicit ban if running through Kling.
+prompt: |
+  A 28-year-old East Asian man at a minimal white desk, laptop open beside him, casual button-up. He leans forward slightly toward the camera. 0 to 3s: "Okay so I have been using this for three weeks and I cannot go back." Serious, not performative. Handheld stable camera, soft window light from left. 4 to 10s: He gestures with his hands as he talks, points at the laptop screen, mimes scrolling. 11 to 15s: He leans back and says "Just try it for a week" with a relaxed smile. Slight zoom out on the final line. Neutral background, 9:16, documentary style.

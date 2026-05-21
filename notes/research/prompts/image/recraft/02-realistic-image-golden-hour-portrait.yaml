@@ -1,0 +1,41 @@
+slug: realistic-image-golden-hour-portrait
+model: recraft-v3
+provider: recraft
+use_case: Photoreal lifestyle / editorial portrait
+form_factor: 1024x1365 portrait, 50mm
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: realistic_image
+  - kind: flag
+    name: substyle
+    required: false
+    selected: null
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1365
+  - kind: flag
+    name: colors
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/visual-formats/photorealism.md
+  author: Recraft
+  retrieved: 2026-05-21
+notes: |
+  Per Recraft photorealism guide — explicit framing ("from shoulders up"),
+  hands-out-of-frame to dodge fingers artifact, lens (50mm), aperture (f/2.8),
+  light state (golden hour backlight, rim light), and tone palette. Pair with
+  `style: realistic_image`.
+prompt: |
+  Photorealistic medium portrait of woman in tall grass field at sunset, framing from shoulders up with face and flowing hair in focus, hands completely out of frame below, golden wheat and wildflowers surrounding her at shoulder level, warm golden hour backlighting creating rim light on hair, soft bokeh background with rolling fields, f/2.8 shallow depth, natural glowing skin, peaceful dreamy expression, simple natural style, warm amber and green tones, serene pastoral mood, lifestyle editorial photography, 50mm portrait lens, cinematic natural light

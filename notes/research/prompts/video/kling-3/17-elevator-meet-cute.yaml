@@ -1,0 +1,30 @@
+slug: elevator-meet-cute
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Short two-character meet-cute dialogue with whispered VO
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: shorthand-labeled multi-shot dialogue
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Compact dialogue scene with reference to "The Smiths" — band name is verbatim
+  in source; safe in Kling prompt, would be blocked in ElevenLabs Music.
+prompt: |
+  [Woman]: "I love that band too." Close-up: Man opens eyes, removes headphone. [Man, surprised]: "You know The Smiths?" Medium shot: Her subtle smile.
+  [Woman]: "They're my favorite."
+  Close-up: His quiet realization.
+  Over-shoulder: She watches him.
+  [Man, whisper]: "Nobody ever knows them."
+  Two-shot: Small smiles, connection forming.
+  Elevator dings.
+  Wide shot: Doors open, hesitation.

@@ -1,0 +1,22 @@
+slug: park-autumn-with-negatives
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Anti-AI-slop pattern — main prompt + inline negative list
+form_factor: vertical 9:16 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: main subject + inline negative-elements list
+    required: true
+    constraints: |
+      Pattern: "<main prompt> [main prompt]. <negatives> [negative elements]."
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Demonstrates Kling 3.0's inline negative syntax — labeling parts of the prompt
+  as [main prompt] vs [negative elements]. Aligns with Ralphy's anti-AI-slop
+  rule (no morphing clothes, no distorted hands, no flickering).
+prompt: |
+  A woman walks through a park in autumn leaves [main prompt]. No morphing clothes, no distorted hands, no flickering textures, stable facial features [negative elements].

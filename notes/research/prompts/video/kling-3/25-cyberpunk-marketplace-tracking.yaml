@@ -1,0 +1,28 @@
+slug: cyberpunk-marketplace-tracking
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Sci-fi cyberpunk tracking shot with character beat
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene + character action + camera move
+    required: true
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.5
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Strong color-direction cues (magenta + cyan neon). Distinct physical beat
+  (picks up component, inspects, nods) supports start→end frame delta rule.
+prompt: |
+  Slow tracking through massive cyberpunk marketplace. Holographic signs
+  in Mandarin and English. Woman with chrome cybernetic arm browses stall
+  of glowing circuit boards. Ground fog, magenta and cyan neon on metallic
+  implants. She picks up component, inspects, nods to vendor. Camera cranes
+  up revealing megastructure. Synth drone, electronic chatter, servo whirr.

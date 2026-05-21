@@ -1,0 +1,29 @@
+slug: paris-saxophone-street-doc
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Handheld street documentary (musician)
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: handheld doc scene
+    required: true
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.5
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Doc-style handheld with rack-focus call-out. 35mm film grain. Useful UGC-
+  adjacent template.
+prompt: |
+  Handheld shoulder-cam following street musician playing saxophone on
+  rainy Paris sidewalk at dusk. Worn leather jacket, fedora tilted low.
+  Camera sways naturally, rack-focusing between musician and blurred
+  pedestrians with umbrellas. Wet cobblestones reflect warm streetlamp
+  and blue twilight. 35mm film grain. Raw saxophone, rain on pavement,
+  distant cafe chatter.

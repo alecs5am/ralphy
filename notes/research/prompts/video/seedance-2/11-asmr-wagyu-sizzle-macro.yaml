@@ -1,0 +1,23 @@
+slug: asmr-wagyu-sizzle-macro
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: ASMR / food — macro texture + audio cue (sizzle)
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with audio cue
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: extreme close-up, shallow DoF
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Hyper-realism / texture prompt — uses audio cue (sizzling) baked into
+  the description for Seedance's native audio render. Text-to-video.
+prompt: |
+  Close-up of a wagyu steak hitting a hot cast-iron skillet. You can see the fat rendering and bubbles of oil. Loud, aggressive sizzling. Shallow depth of field, 2K resolution.

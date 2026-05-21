@@ -1,0 +1,19 @@
+slug: ramen-shop-static-tripod
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Single-shot atmospheric scene with film-stock spec
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene + camera + lens/film grade
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Photoreal still-photo register pattern (per Ralphy memory): specific film stock
+  (35mm), shallow focus, bokeh, neon. No --audio, no dialogue — pure mood shot.
+prompt: |
+  Static tripod camera in narrow neon-lit ramen shop, condensation fogs the window, couple sits side by side under flickering magenta sign, steam rising from bowls as they eat noodles in slow synchronized rhythm, broth splattering gently, their faces softly illuminated by red neon glow, shot on 35mm film with shallow focus and glowing bokeh behind them.

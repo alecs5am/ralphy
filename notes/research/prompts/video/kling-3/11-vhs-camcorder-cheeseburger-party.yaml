@@ -1,0 +1,23 @@
+slug: vhs-camcorder-cheeseburger-party
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Found-footage / VHS-aesthetic handheld with heavy camera motion
+form_factor: vertical 9:16 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene + lens/grade + motion description
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: false
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Single-shot stylized aesthetic — VHS grain + chromatic aberration + handheld
+  shake. Good template for "found footage" / nostalgia UGC look.
+prompt: |
+  Handheld camcorder footage in dimly lit room, two women with red lipstick frantically eating cheeseburgers surrounded by colorful fast food wrappers, VHS camcorder aesthetic with heavy grain and chromatic aberration, camera shaking wildly, they stumble through dense crowd of partygoers, strobing colored lights, chaotic handheld movement

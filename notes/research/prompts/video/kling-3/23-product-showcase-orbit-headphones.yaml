@@ -1,0 +1,32 @@
+slug: product-showcase-orbit-headphones
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Product orbit-and-reveal showcase
+form_factor: horizontal 16:9 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: product + camera + lighting description
+    required: true
+  - kind: image
+    role: elements
+    required: false
+    notes: brand product reference image if a specific SKU is involved (reference-required gate)
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.4
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Generic product showcase — no named brand, so no ref required. If the user
+  brings a real SKU (e.g. AirPods Max), reference-required gate fires.
+prompt: |
+  Slow orbit around matte black wireless headphones floating against
+  dark gradient background. Subtle rim lighting in cool white. 180-degree
+  rotation revealing cushion detail and brushed metal. Camera pulls back
+  as volumetric light rays sweep frame. Minimal, premium. Clean electronic
+  ambient, soft bass pulse.

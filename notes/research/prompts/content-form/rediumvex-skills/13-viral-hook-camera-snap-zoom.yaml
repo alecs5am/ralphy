@@ -1,0 +1,19 @@
+slug: viral-hook-camera-snap-zoom
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Camera-movement preset — hard mechanical snap zoom
+form_factor: camera-movement modifier (combine with scene prompt)
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Camera-movement preset; chain with scene description.
+prompt: |
+  Snap zoom from wide to tight close-up in 0.3s. No easing — hard, mechanical zoom. Subject centered. Creates urgency and disorientation.

@@ -1,0 +1,22 @@
+slug: testimonial-number-impact
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Testimonial — kinetic metric category + number slam
+form_factor: testimonial / case-study short
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "REVENUE / HOURS SAVED / CLIENTS ADDED — metric category"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/08-testimonial-story/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/08-testimonial-story/SKILL.md
+notes: |
+  Number-impact testimonial opener.
+prompt: |
+  Black frame. Single word appears — the relevant metric category (REVENUE / HOURS SAVED / CLIENTS ADDED) — in thin caps, gray. 0.5s pause. Then: the number SLAMS in from below, large, white, kinetic. Overshoot bounce physics on landing. Camera shakes 2px on impact. Sound: deep bass thud synced to number landing. Reverb tail. Number holds 0.8s. Then secondary text fades in below: customer name, company, timeframe. Credibility layered after impact.

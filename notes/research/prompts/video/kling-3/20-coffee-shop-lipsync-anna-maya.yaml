@@ -1,0 +1,34 @@
+slug: coffee-shop-lipsync-anna-maya
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Two-character lip-sync dialogue (named characters with voice profile)
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene with named-character voice tags
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Note the voice-profile attribute pattern: [Anna, cheerful mid-range voice],
+  [Maya, surprised, slightly high-pitched]. Soft jazz "music" in prompt — strip
+  for Ralphy and post-mix.
+prompt: |
+  Medium shot, warm coffee shop with exposed brick. Two women at a
+  small wooden table.
+
+  [Anna, cheerful mid-range voice]: "I finally quit my job yesterday."
+
+  She leans back with relieved smile, wrapping hands around her mug.
+
+  [Maya, surprised, slightly high-pitched]: "Wait, seriously?"
+
+  Maya sets down her cup, leans forward. Camera slowly pushes in.
+  Ambient cafe noise, soft jazz, ceramic clinking.

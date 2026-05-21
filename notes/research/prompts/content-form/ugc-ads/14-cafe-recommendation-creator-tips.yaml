@@ -1,0 +1,31 @@
+slug: ugc-cafe-recommendation-creator-tips
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Outdoor cafe selfie creator-tips list-style recommendation (creator / personal brand)
+form_factor: vertical 9:16 / 10s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 10s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://videoai.me/blog/seedance-2-0-ugc-prompts
+  author: VideoAI.me
+  retrieved: 2026-05-21
+notes: |
+  Outdoor selfie register with handheld iPhone-front-camera framing — Kling for any human i2v.
+  English VO list-format opener → Kling --audio fine for EN audiences. Color palette explicit
+  ("warm cream, espresso brown, sage green") — keep verbatim. Source bans music; aligned with
+  Ralphy Kling discipline. Good template for "3 things I'm doing" creator-tips structure — swap
+  in your numbered list.
+prompt: |
+  UGC creator, a man in his late twenties sitting at an outdoor cafe table with a flat white and an open notebook. He looks up from writing, points the phone at himself, smiles and says: "Three things I'm doing differently this month. One. I'm batching my video content on Sundays." He takes a sip of coffee, raises his eyebrows. Soft morning sunlight, blurred greenery in the background, palette of warm cream, espresso brown, sage green. Filmed with iPhone front camera, handheld, shallow depth of field, slight wind in his hair. - No music, no logo, no text on screen.

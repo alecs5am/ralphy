@@ -1,0 +1,28 @@
+slug: macro-asmr-honey-pancakes
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Macro ASMR food shot (low motion, food-porn)
+form_factor: vertical 9:16 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: macro food scene with lens + grade
+    required: true
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    selected: 0.2
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Very low motion ASMR pattern. Lens spec (100mm macro) and grade ("warm grade")
+  inline. ASMR sounds described — Kling can render diegetic SFX without --audio.
+prompt: |
+  Extreme macro, shallow depth of field. Hand slowly drizzles warm
+  honey over golden pancakes. Honey catches morning window light,
+  forming glossy ribbon pooling between layers. Steam rises. Static
+  tripod, then slow push-in as butter melts and slides. Crispy sizzle,
+  viscous drip, soft plate clink. Macro 100mm lens, warm grade.

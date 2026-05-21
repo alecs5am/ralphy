@@ -1,0 +1,23 @@
+slug: kawaii-red-panda-sticker
+model: gemini-3-pro-image
+provider: gemini
+use_case: Kawaii sticker / die-cut illustration with white background
+form_factor: 1:1 sticker
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: style
+    values: kawaii / cel-shaded vector
+    required: false
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Canonical stylized-illustration prompt. Note explicit white background
+  instruction — required for clean sticker cutout / transparent-bg downstream.
+prompt: |
+  A kawaii-style sticker of a happy red panda wearing a tiny bamboo hat. It's munching on a green bamboo leaf. The design features bold, clean outlines, simple cel-shading, and a vibrant color palette. The background must be white.

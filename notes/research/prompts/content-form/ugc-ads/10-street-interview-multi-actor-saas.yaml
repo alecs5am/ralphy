@@ -1,0 +1,31 @@
+slug: ugc-street-interview-multi-actor-saas
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Multi-actor street interview with branded callouts (SaaS / app / consumer product)
+form_factor: vertical 9:16 / 10s+ TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 10s+
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://videoai.me/blog/seedance-2-0-ugc-prompts
+  author: VideoAI.me
+  retrieved: 2026-05-21
+notes: |
+  Brand-name callout ("VIDEO AI ME!") is a placeholder — swap in your brand string. Multi-actor
+  scene with 5 quick cuts and synced English shouts: Seedance time-segmented control needed for
+  one-shot, otherwise generate per-cut and assemble in Remotion. Human-anchored — Kling for any
+  i2v variant. English dialogue → Kling --audio fine for EN audiences. Source ends with explicit
+  "No music, No logo, no text on screen" — already aligned with Ralphy Kling discipline.
+prompt: |
+  UGC street interview style, multiple quick cuts on a busy downtown sidewalk in bright daylight. Shot 1: A young woman sprints toward the camera from ten meters away, stops abruptly, grabs the microphone and shouts: "VIDEO AI ME! You literally type a prompt and it makes a whole video. I'm not even joking!" Shot 2: A guy in a hoodie leans into the mic and says: "Wait it does UGC too? Like with real-looking people?" Shot 3: An older woman with sunglasses shakes her head in disbelief: "So you don't need to hire actors anymore? That's wild." Shot 4: A man eating a sandwich stops chewing, points at camera: "How much does it cost? Because I just paid two grand for a thirty second ad." Shot 5: The first girl runs back into frame from the side, bumps into the interviewer and yells: "Just use VIDEO AI ME! Trust me!" Filmed with iPhone, harsh midday sun, handheld shaky energy, fast jump cuts between each person, different street backgrounds each time. - No music, No logo, no text on screen.

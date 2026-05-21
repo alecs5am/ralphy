@@ -1,0 +1,19 @@
+slug: testimonial-contrast-story
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Testimonial — before/after split-screen collapsing to after
+form_factor: testimonial / case-study short
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/08-testimonial-story/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/08-testimonial-story/SKILL.md
+notes: |
+  Contrast-story testimonial opener. Compare to skill 07 (before-after) templates.
+prompt: |
+  Split-screen. Left side: grainy, slightly desaturated footage or image representing the 'before' state — the problem, the struggle, the mess. Right side: clean, warm, vibrant footage representing 'after.' Both sides hold for 1.5s. Then: left side collapses toward center, right side expands to fill full frame. Sound: before side has flat, muted audio. Transition whoosh. After side has rich, warm audio treatment. The visual argument is already made before a word is spoken.

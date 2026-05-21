@@ -1,0 +1,19 @@
+slug: matte-black-mug-product-shot
+model: gemini-3-pro-image
+provider: gemini
+use_case: Commercial product photography with studio-light specification
+form_factor: 1:1 square
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Reference prompt for studio product photography. Specifies three-point softbox,
+  surface, camera angle, and "Square image" inline (no separate aspect_ratio flag).
+prompt: |
+  A high-resolution, studio-lit product photograph of a minimalist ceramic coffee mug in matte black, presented on a polished concrete surface. The lighting is a three-point softbox setup designed to create soft, diffused highlights and eliminate harsh shadows. The camera angle is a slightly elevated 45-degree shot to showcase its clean lines. Ultra-realistic, with sharp focus on the steam rising from the coffee. Square image.

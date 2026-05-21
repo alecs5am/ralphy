@@ -1,0 +1,29 @@
+slug: product-mug-i2i-style-edit
+model: grok-imagine
+provider: xai
+use_case: I2I style restyle of a product photo while preserving composition and adding a logo
+form_factor: still 16:9
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: i2i_anchor
+    required: true
+  - kind: flag
+    name: task
+    values: I2I
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+source:
+  url: https://www.genaintel.com/guides/grok-imagine-xai-guide
+  author: GenAIntel
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Edit Prompt – Change Style Without Reframing". Pairs with the base mug image (02-minimal-product-mug-base.yaml) as the i2i_anchor.
+prompt: |
+  Keep the exact same composition, camera angle, and mug shape. Change only the style to a premium cinematic product ad: darker moody background, warm tungsten key light, subtle rim light, richer reflections, and add a small gold logo on the mug that reads "AURORA" in clean sans-serif text.

@@ -1,0 +1,33 @@
+slug: news-anchor-motion-control-i2v
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Motion Control character swap (driven by reference video)
+form_factor: horizontal 16:9 / 5s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: new character identity + studio + lighting
+    required: true
+  - kind: image
+    role: elements
+    required: true
+    notes: reference video drives motion; new identity comes from this prompt
+  - kind: flag
+    name: motion_intensity
+    values: 0.1 .. 1.0
+    required: false
+    notes: defined by the reference video, not the prompt
+source:
+  url: https://www.kling3-ai.com/blog/kling-3-prompt-guide
+  author: Kling3-AI
+  retrieved: 2026-05-21
+notes: |
+  Motion-control pattern — reference video supplies motion, prompt supplies
+  new identity / wardrobe / lighting. Useful for swapping the talking-head
+  while preserving lipsync timing from a source clip.
+prompt: |
+  Professional female news anchor in navy blazer and pearl earrings,
+  natural makeup, warm skin. Modern broadcast studio with LED world map
+  screen. Three-point lighting: key at 45 degrees left, fill right,
+  backlight rim on hair. Sharp subject, soft background. Broadcast quality,
+  16:9, color-calibrated.

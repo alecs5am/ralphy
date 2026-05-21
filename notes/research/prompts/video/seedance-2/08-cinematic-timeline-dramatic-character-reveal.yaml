@@ -1,0 +1,42 @@
+slug: cinematic-timeline-dramatic-character-reveal
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: cinematic — thriller character reveal with timeline-prompted choreography
+form_factor: horizontal 16:9 / 8s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (timeline-prompted)
+    required: true
+    constraints: |
+      Uses [0s] / [3s] / [6s] / [8s] inline timestamps to choreograph
+      camera movement and action beats — Seedance 2.0 timeline prompting.
+  - kind: flag
+    name: camera_movement
+    role: dolly forward, rack focus
+    required: false
+source:
+  url: https://www.mindstudio.ai/blog/timeline-prompting-seedance-2-cinematic-ai-video
+  author: MindStudio
+  retrieved: 2026-05-21
+notes: |
+  Canonical example of Seedance 2.0 timeline prompting — preserve the
+  [0s] [3s] [6s] [8s] timestamps verbatim; they choreograph camera + action.
+  Text-to-video, no human anchor.
+prompt: |
+  [0s] Wide shot: A figure in a long coat stands at the end of an empty
+  rain-slicked city street at night. Camera is static, framed from behind
+  the figure. Neon signs reflect in puddles. High-contrast, low-key lighting.
+
+  [3s] Slow dolly forward begins, camera closing in on the figure from
+  behind. Rain falls in foreground, shallow depth of field with bokeh
+  streetlights.
+
+  [6s] Camera continues push in, now at medium shot. The figure turns
+  their head slightly — profile barely visible. Tension holds.
+
+  [8s] Rack focus: background city blur sharpens briefly, then returns
+  to subject.
+
+  Cinematic, 35mm film grain, desaturated with cold blue tones, anamorphic
+  lens flare from streetlights.

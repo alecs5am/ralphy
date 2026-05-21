@@ -1,0 +1,41 @@
+slug: neon-megacity-truck-chase
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Action — cyberpunk rooftop-of-truck fight chase
+form_factor: horizontal 16:9 / 10s
+category: action
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (beat-by-beat, no timestamps)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: masked combatants in armor — face mostly hidden, lower privacy-filter risk than open-face. Still safer with Kling if attaching ref.
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "low mounted near asphalt, rises to convoy, drone pull-back final reveal"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Strong action camera language — "mounted inches above wet asphalt" is a reusable spec phrase. Drone pull-back final reveal is a known Seedance strength.
+prompt: |
+  Cinematic action sequence on top of speeding armored trucks racing through a neon dystopian megacity during torrential rain, holographic billboards flickering through smog, endless traffic streams below.
+  Camera mounted inches above wet asphalt weaving through traffic before rising onto a speeding convoy. A masked interceptor in matte-black armor jumps between moving trucks.
+  A corporate enforcer emerges from the roof hatch of the lead vehicle carrying an electrified shock baton. Rain streaks aggressively across the lens.
+  Baton collides against a glowing combat knife, sparks exploding into the rain while nearby vehicles narrowly avoid collisions. Slow-motion impact shakes the truck violently.
+  Fast grounded combat on unstable truck roofs as drones explode overhead and neon reflections smear across soaked metal surfaces.
+  Drone pull-back reveals the convoy disappearing into the gigantic cyberpunk city while both silhouettes continue fighting atop the moving vehicles.

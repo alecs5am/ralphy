@@ -1,0 +1,51 @@
+slug: dark-fantasy-witch-sequence
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Dark fantasy character beat — witch + living shadow gown
+form_factor: horizontal 16:9 / 10s
+category: fantasy
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (continuous narrative pass)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR (witch) — privacy filter risk if photoreal face attached. Stylized fantasy may pass, but switch to Kling for guaranteed identity lock.
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "slow circling orbit, push close, final wide reveal"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Note the embedded credit "Made in @Hailuo_AI" — the original prompt was tested on Hailuo, not Seedance. Should still work but expect adaptation.
+  Style footer is rich — "elegant horror tone, deep blacks and silver highlights, surreal living fabric effects".
+prompt: |
+  Ultra cinematic dark fantasy sequence inside a massive candlelit gothic chamber during a thunderstorm. A mysterious witch sits alone at an ancient sewing table surrounded by floating candles, black silk, occult symbols, and drifting ash particles. Moonlight enters through towering cathedral windows while rain runs down cracked glass.
+
+  The witch slowly threads a silver needle using living shadows pulled directly from the floor. The darkness moves like liquid smoke, writhing and resisting as she sews it into her long black dress. Every stitch causes the fabric to pulse with supernatural movement beneath the surface.
+
+  The camera circles slowly around her while shadow creatures crawl across walls and ceiling. Long tendrils of darkness coil around her arms like obedient serpents. Her dress gradually transforms into a living entity made of flowing black mist, raven feathers, torn silk, and moving faces trapped inside the fabric.
+
+  As thunder shakes the cathedral, the stitched shadows spread across the room, extinguishing candles one by one. The witch rises gracefully from the chair while her enormous shadow gown drags unnaturally behind her, constantly reshaping itself and leaking smoke across the stone floor.
+
+  The camera pushes close as her glowing eyes open beneath a lace veil. The dress suddenly erupts outward into gigantic wings of living darkness filling the entire cathedral interior. Papers, feathers, and black dust spiral violently through the air.
+
+  Final cinematic wide shot reveals the witch standing at the center of the darkened cathedral while the living shadow dress breathes and moves around her like a sentient storm.
+
+  Hyper detailed gothic fantasy aesthetic, volumetric moonlight, cinematic shadows, realistic cloth simulation, dark magic atmosphere, black smoke particles, elegant horror tone, slow cinematic camera movement, dramatic thunder lighting, AAA fantasy film quality, deep blacks and silver highlights, surreal living fabric effects.
+
+  Made in @Hailuo_AI

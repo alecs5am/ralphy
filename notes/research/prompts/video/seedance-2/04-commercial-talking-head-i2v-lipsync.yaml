@@ -1,0 +1,29 @@
+slug: commercial-talking-head-i2v-lipsync
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: commercial / talking head — i2v anchor + audio reference for lip-sync
+form_factor: horizontal 16:9 / 5–10s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description with @Image1 and @Audio1 refs
+    required: true
+  - kind: image
+    role: i2v_anchor (@Image1)
+    required: true
+    notes: |
+      PRIVACY FILTER concern — Seedance can reject photoreal human i2v anchors.
+      If @Image1 is a recognizable photoreal human, fall back to kwaivgi/kling-v3.0-pro.
+  - kind: audio
+    role: lip-sync source (@Audio1)
+    required: true
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Official fal-ai sample for talking-head i2v with audio-driven lipsync.
+  IMPORTANT: may be rejected by Seedance privacy filter — consider Kling for
+  human anchors. @Image1 / @Audio1 are placeholders; substitute project refs.
+prompt: |
+  @Image1 speaks directly into the camera with confident, natural gestures. Professional studio setting with soft three-point lighting and a slightly blurred office background. Medium shot framing from the chest up, subtle head movements and eye contact throughout while delivering @Audio1.

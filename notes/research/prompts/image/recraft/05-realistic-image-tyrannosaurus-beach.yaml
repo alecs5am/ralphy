@@ -1,0 +1,40 @@
+slug: realistic-image-trex-beach
+model: recraft-v3
+provider: aimlapi
+use_case: Whimsical photoreal scene (smoke-test prompt)
+form_factor: 1024x1024
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: realistic_image
+  - kind: flag
+    name: substyle
+    required: false
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://docs.aimlapi.com/api-references/image-models/recraftai/recraft-v3
+  author: AI/ML API docs
+  retrieved: 2026-05-21
+notes: |
+  AI/ML API's canonical Recraft V3 smoke-test prompt. Two variants are shown:
+  base ("A T-Rex relaxing on a beach...") and the JS-example variant that
+  appends "Realistic photo." to nudge `style: realistic_image`. Useful as a
+  smoke-test before running any production batch.
+prompt: |
+  A T-Rex relaxing on a beach, lying on a sun lounger and wearing sunglasses. Realistic photo.
