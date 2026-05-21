@@ -1,0 +1,38 @@
+slug: nature-metropolis-takeover-sequence
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Nature / fantasy disaster — bioluminescent tree taking over city
+form_factor: horizontal 16:9 / 15s
+category: nature
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (3-second beat timeline)
+    required: true
+    constraints: |
+      timestamps in 0-3s, 3-6s, 6-9s, 9-12s, 12-15s format
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: environmental t2v — no face anchor needed
+  - kind: flag
+    name: duration
+    values: 15s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "static-to-erupting, ultra-wide final reveal, IMAX-style"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Note: source has literal \n characters in the prompt — preserved verbatim. Some downstream tools may interpret these as newlines; check before paste.
+prompt: |
+  A cinematic fantasy disaster sequence where nature suddenly overrides a modern metropolis.\n\n0–3s: Quiet nighttime city. Streetlights glow over empty roads, cars parked, buildings reflecting calm darkness. A faint vibration starts beneath the ground in the center of the city.\n\n3–6s: The pavement suddenly cracks open violently. Massive glowing roots erupt from underground, tearing through roads, subway lines, and concrete structures as the entire street begins to lift and split apart.\n\n6–9s: The growth accelerates unnaturally. A colossal tree trunk rises through skyscraper height, pushing through buildings without stopping. Windows shatter, debris falls in slow motion, and green-gold light pulses through the bark.\n\n9–12s: Towering branches spread across the skyline, reaching into storm clouds. Leaves emit a soft bioluminescent glow, illuminating the entire city. Birds and wind swirl around the expanding structure.\n\n12–15s: Final ultra-wide cinematic shot. The giant tree fully dominates the city, roots integrated through streets like veins, while glowing branches pierce the clouds above. The metropolis is now transformed into a living, mythical forest-city hybrid.\n\nStyle: ultra cinematic realism, fantasy nature takeover, massive environmental scale, glowing bioluminescent effects, dramatic destruction + rebirth contrast, volumetric lighting, IMAX-style framing, detailed city-to-nature transformation, film-grade color grading.

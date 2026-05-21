@@ -1,0 +1,22 @@
+slug: viral-hook-color-bomb
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Pattern-interrupt hook — desaturated frame ignites with saturated color
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[neon pink/electric blue/gold]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Color-bomb hook. Audio sync cue baked into prompt.
+prompt: |
+  Scene begins fully desaturated — gray, lifeless, muted. At 1.2s, single element ignites with saturated color [neon pink/electric blue/gold]. Color bleeds outward across frame over 0.8s. Hard bass hit synced to color moment.

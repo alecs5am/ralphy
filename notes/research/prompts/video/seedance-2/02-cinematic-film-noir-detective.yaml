@@ -1,0 +1,23 @@
+slug: cinematic-film-noir-detective
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: cinematic — film noir character intro, wide → push-in
+form_factor: horizontal 16:9 / 5–10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary (wide → slow push-in)
+    required: false
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Official fal-ai sample. High-contrast BW, 35mm grain. Text-to-video,
+  no human-anchor concern.
+prompt: |
+  A hard-faced detective in a long coat stands under a flickering streetlamp on a rain-soaked city street. He lights a cigarette, the flame briefly illuminating his scarred jawline. Camera starts wide, slowly pushing in as rain streaks catch the neon light from a bar sign behind him. High contrast black and white, deep shadows, 35mm grain.

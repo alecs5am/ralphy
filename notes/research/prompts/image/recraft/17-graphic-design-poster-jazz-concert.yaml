@@ -1,0 +1,41 @@
+slug: graphic-design-poster-jazz-concert
+model: recraft-v3
+provider: recraft
+use_case: Minimal typographic concert poster
+form_factor: 1024x1707 vector poster 9:16
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: vector_illustration
+  - kind: flag
+    name: substyle
+    required: false
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1707
+  - kind: flag
+    name: colors
+    role: hex array for palette lock
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/visual-formats/graphic-design.md
+  author: Recraft (Graphic Design guide)
+  retrieved: 2026-05-21
+notes: |
+  Recraft labels this "Poster" — minimal jazz-concert design with bold
+  yellow-on-black typography. Pair with `vector_illustration` for crisp
+  typography render; switch to `digital_illustration` if you want softer
+  raster textures.
+prompt: |
+  Minimal poster design for jazz concert, bold yellow headline typography on black background, sans-serif lettering, high contrast

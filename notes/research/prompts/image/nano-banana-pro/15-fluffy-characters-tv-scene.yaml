@@ -1,0 +1,25 @@
+slug: fluffy-characters-tv-scene
+model: gemini-3-pro-image
+provider: gemini
+use_case: Multi-character consistency — pack many distinct characters into one cozy scene
+form_factor: medium shot
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: Reference image(s) of the 14 fluffy characters supplied as input — identity is locked across all of them.
+source:
+  url: https://deepmind.google/models/gemini-image/pro/
+  author: Google DeepMind — Gemini Image Pro model page
+  retrieved: 2026-05-21
+notes: |
+  Showcase prompt for many-character consistency. Lighting motivation
+  ("warm light from a window on the left and the glow from the TV") gives the
+  model a physically grounded reason for color cast on every face — prevents
+  flat lighting on a crowd.
+prompt: |
+  A medium shot of the 14 fluffy characters sitting squeezed together side-by-side on a worn beige fabric sofa and on the floor. They are all facing forwards, watching a vintage, wooden-boxed television set placed on a low wooden table in front of the sofa. The room is dimly lit, with warm light from a window on the left and the glow from the TV illuminating the creatures' faces and fluffy textures. The background is a cozy, slightly cluttered living room with a braided rug, a bookshelf with old books, and rustic kitchen elements in the background. The overall atmosphere is warm, cozy, and amused.

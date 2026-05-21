@@ -1,0 +1,19 @@
+slug: personal-brand-lighting-creator-workshop
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand lighting preset — multiple practical light sources
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  Creator-workshop lighting preset.
+prompt: |
+  Multiple practical light sources visible: desk lamp, monitor glow, LED panel. Each different color temperature. Shadows from multiple angles.

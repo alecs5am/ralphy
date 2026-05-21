@@ -1,0 +1,22 @@
+slug: before-after-camera-push-in-reveal
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation camera — push-in then pull-back reveal
+form_factor: before/after camera modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[before state], [after state]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Push-in reveal camera modifier.
+prompt: |
+  slow push in from wide to close-up during [before state], transition at closest point, then slow pull back revealing [after state] in full

@@ -1,0 +1,25 @@
+slug: luxury-luggage-9part-storyboard
+model: nano-banana-pro
+provider: gemini
+use_case: 9-image commercial storyboard with locked-identity dual characters
+form_factor: 16:9 sequential frames
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+source:
+  url: https://dev.to/googleai/nano-banana-pro-prompting-guide-strategies-1h9n
+  author: DEV.to — Google AI team prompting guide
+  retrieved: 2026-05-21
+notes: |
+  Sequential storyboard pattern. Two locks: (a) identity of woman + man +
+  attire across all 9 frames, (b) "Please generate images one at a time" —
+  this is the documented way to get high-quality sequential generations
+  instead of a smushed composite. 16:9 stated inline.
+prompt: |
+  Create an addictively intriguing 9-part story with 9 images featuring a woman and man in an award-winning luxury luggage commercial. The story should have emotional highs and lows, ending on an elegant shot of the woman with the logo. **The identity of the woman and man and their attire must stay consistent throughout** but they can and should be seen from different angles and distances. Please generate images one at a time. Make sure every image is in a 16:9 landscape format.

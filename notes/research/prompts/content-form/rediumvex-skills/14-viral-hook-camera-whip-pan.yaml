@@ -1,0 +1,19 @@
+slug: viral-hook-camera-whip-pan
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Camera-movement preset — whip pan with motion blur
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Whip-pan camera preset.
+prompt: |
+  Whip pan left-to-right in 0.5s. Motion blur trails. Camera settles on new subject with slight overshoot and bounce-back. Horizontal momentum.

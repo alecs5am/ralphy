@@ -1,0 +1,19 @@
+slug: viral-hook-camera-pull-back-reveal
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Camera-movement preset — pull-back reveal of full scene
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Pull-back reveal camera preset.
+prompt: |
+  Tight close-up on detail. Camera pulls back steadily over 2s revealing the full scene. The context changes the meaning of what was shown initially. Smooth dolly movement, no jitter.

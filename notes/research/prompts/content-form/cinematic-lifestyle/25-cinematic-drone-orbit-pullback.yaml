@@ -1,0 +1,38 @@
+slug: cinematic-drone-orbit-pullback
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Cinematic establishing — single-subject portrait into wide aerial reveal
+form_factor: horizontal 16:9 / 10s
+category: cinematic
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description (single descriptive pass, no timeline)
+    required: true
+    constraints: |
+      "a girl" is a placeholder — replace with actual subject + outfit + setting
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR if user provides a face — Seedance privacy filter risk for photoreal female portrait. Kling preferred for face-anchored portrait→wide drone reveals.
+  - kind: flag
+    name: duration
+    values: 10s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "close-up portrait → 360 orbit → rising pull-back → aerial wide"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Highly reusable single-subject reveal recipe. Marked is_template because "a girl standing in an open environment" is a slot.
+prompt: |
+  Create an ultra-realistic cinematic drone video of a girl standing in an open environment. The subject remains centered as the drone starts with a close-up portrait shot, capturing fine facial details, natural skin texture, and subtle wind movement in her hair and outfit. The camera then begins a smooth 360-degree orbit around her, maintaining perfect stabilization and cinematic motion blur. As the orbit continues, the drone gradually pulls back and rises upward, increasing altitude while slowly revealing more of the surrounding environment. The scene transitions from a medium shot to a wide cinematic view, and finally to a far aerial perspective, showing the girl as a small subject within a beautifully detailed landscape. Lighting is soft and natural, with realistic shadows, depth of field, and film-like color grading. The atmosphere feels emotional, dramatic, and visually immersive. Style: Ultra-realistic, cinematic drone footage, 8K, smooth stabilization, shallow depth of field, natural lighting, professional film look.

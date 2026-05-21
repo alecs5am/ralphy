@@ -1,0 +1,23 @@
+slug: horror-pov-cave-exploration
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: horror / POV — first-person handheld cave exploration with headlamp
+form_factor: horizontal 16:9 / 5–10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (first-person POV)
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: handheld POV, pan left to right, natural shake
+    required: false
+source:
+  url: https://imagine.art/blogs/seedance-2-0-prompt-guide
+  author: ImagineArt
+  retrieved: 2026-05-21
+notes: |
+  Seedance is the right pick for POV / walking / jump-scare physics
+  (per repo memory). Text-to-video, no human face anchor — privacy filter OK.
+prompt: |
+  First-person POV handheld footage with slight natural shake. The only light comes from a headlamp cutting a narrow beam through pitch-black cave darkness. Wet limestone walls glisten. The beam pans left to right, catches stalactites overhead, then drops to reveal an opening narrowing into a tight passage. Breath audible. Subtle drip echo. 35mm cinematic, deep blacks, ISO grain.

@@ -1,0 +1,19 @@
+slug: viral-hook-sound-the-glitch
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Sound-design preset — digital glitch interrupt
+form_factor: sound-design modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Glitch sound preset.
+prompt: |
+  Audio: clean ambient interrupted by digital glitch sounds — bit-crush, stutter, frequency sweep. 0.3s glitch at 0.8s mark. Creates 'something wrong' feeling. Synced to visual glitch effect.

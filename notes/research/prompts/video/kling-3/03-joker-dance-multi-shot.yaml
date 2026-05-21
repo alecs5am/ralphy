@@ -1,0 +1,35 @@
+slug: joker-dance-multi-shot
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Multi-shot character performance (high-motion dance descent)
+form_factor: horizontal 16:9 / 10s (2x5s shots)
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: master prompt + per-shot prompts with explicit durations
+    required: true
+    constraints: |
+      Master prompt sets identity; per-shot prompts get 5s each
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: false
+  - kind: flag
+    name: duration
+    values: 5s | 10s
+    required: false
+    selected: 5s
+source:
+  url: https://blog.fal.ai/kling-3-0-prompting-guide/
+  author: fal.ai
+  retrieved: 2026-05-21
+notes: |
+  Canonical fal.ai multi-shot pattern — one master identity prompt then N x 5s
+  shot prompts. High motion intensity (spinning, kicking). Good test for
+  character/wardrobe consistency across cuts. No --audio in source.
+prompt: |
+  Master Prompt: Joker begins his iconic dance descent down the stairs, arms outstretched, pure chaotic joy.
+
+  Multi shot Prompt 1: Man in red suit starts dancing at top of stairs, taking first exaggerated steps down, arms spreading wide, head tilting back in ecstasy, cigarette smoke trailing (Duration: 5 seconds)
+
+  Multi shot Prompt 2: Continuing wild dance down concrete steps, spinning and kicking, coat flapping dramatically, pure liberation and madness, reaching the bottom with triumphant pose (Duration: 5 seconds)

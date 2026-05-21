@@ -1,0 +1,20 @@
+slug: faceless-core-prompt-structure
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Faceless content one-line full-form structure
+form_factor: faceless content single-shot
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "[SCENE DESCRIPTION] + [CAMERA MOVEMENT] + [LIGHTING] + [MOOD] + [MOTION] + [SOUND]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/05-faceless-channel/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/05-faceless-channel/SKILL.md
+notes: |
+  Faceless full-form structure (single line).
+prompt: |
+  [SCENE DESCRIPTION] — [CAMERA MOVEMENT] — [LIGHTING] — [MOOD/ATMOSPHERE]
+  — [MOTION DETAILS] — [SOUND DIRECTION]

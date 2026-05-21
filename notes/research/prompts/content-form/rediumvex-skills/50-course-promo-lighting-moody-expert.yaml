@@ -1,0 +1,22 @@
+slug: course-promo-lighting-moody-expert
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Course-promo lighting preset — moody expert single-source
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/04-course-promo/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/04-course-promo/SKILL.md
+notes: |
+  Moody-expert lighting preset.
+prompt: |
+  Lighting: single hard key light from above-left casting strong facial shadow,
+  deep background with single warm practical source (lamp or candle),
+  color temperature 3200K on key, 2700K on background practical,
+  subtle blue-teal rim light from camera-right for dimension

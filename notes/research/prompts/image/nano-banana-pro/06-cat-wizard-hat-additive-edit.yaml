@@ -1,0 +1,22 @@
+slug: cat-wizard-hat-additive-edit
+model: gemini-3-pro-image
+provider: gemini
+use_case: Additive edit — add a new object to a user-supplied photo
+form_factor: matches input
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: edit_base
+    required: true
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Canonical additive-edit pattern. Note explicit "matches the soft lighting"
+  instruction — required for naturalistic composite.
+prompt: |
+  Using the provided image of my cat, please add a small, knitted wizard hat on its head. Make it look like it's sitting comfortably and matches the soft lighting of the photo.

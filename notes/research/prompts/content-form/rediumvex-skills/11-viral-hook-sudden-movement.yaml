@@ -1,0 +1,19 @@
+slug: viral-hook-sudden-movement
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Primal-attention hook — sudden fast object/person entry
+form_factor: short-form vertical hook
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Sudden-movement primal-attention hook.
+prompt: |
+  Frame is static, calm, almost boring for 1s. Then — fast object enters frame from edge at high speed. Or person lunges toward camera. Movement creates motion blur trails. Camera flinches slightly in response. Sound: sharp whoosh or impact synced to movement.

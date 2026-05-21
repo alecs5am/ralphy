@@ -1,0 +1,20 @@
+slug: beauty-product-multilingual-text
+model: nano-banana-pro
+provider: gemini
+use_case: Beauty product hero with mixed-font typography + multilingual translation
+form_factor: commercial still
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-nano-banana
+  author: Google Cloud — Ultimate Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Demonstrates per-line font specification ("Brush Script", "Impact",
+  "Century Gothic") plus inline translation request (Korean + Arabic) in a single
+  pass. Wrap exact typeset strings in single quotes — the documented pattern.
+prompt: |
+  A high-end, glossy commercial beauty shot of a sleek, minimalist nude-colored face moisturizer jar resting on a warm studio background. The lighting is soft and radiant. Next to the product, render three lines of text with the following exact styling: For the top line, the word 'GLOW' in a flowing, elegant Brush Script font. For the middle line, the text '10% OFF' in a heavy, blocky Impact font. For the bottom line, the text 'Your First Order' in a thin, minimalist Century Gothic font." Then translate the text into Korean and Arabic.

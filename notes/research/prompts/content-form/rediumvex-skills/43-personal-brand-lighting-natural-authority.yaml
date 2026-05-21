@@ -1,0 +1,19 @@
+slug: personal-brand-lighting-natural-authority
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand lighting preset — large window source diffused daylight
+form_factor: lighting modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  Natural-authority lighting preset.
+prompt: |
+  Large window source camera-left. Soft diffused daylight. Subject positioned 3 feet from window. Background shows workspace slightly out of focus.

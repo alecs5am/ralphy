@@ -1,0 +1,31 @@
+slug: ugc-talking-head-honest-review-skincare
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Selfie talking-head honest review (skincare / supplements / wellness)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  Source pairs prompt with Seedance 2.0. Human-anchored selfie with synced dialogue — Seedance privacy
+  filter can reject photoreal human i2v anchors, so if running i2v swap to kwaivgi/kling-v3.0-pro
+  (Kling --audio is canonical for English VO). English dialogue → Kling --audio is fine; Russian / non-EN
+  → strip dialogue and post-mix VO via ElevenLabs. Music is not specified — ban it in the prompt if
+  routing through Kling to avoid stock-music drift.
+prompt: |
+  A 26-year-old South Asian woman sits casually on her bathroom counter in the morning, no makeup, just woken up. She holds a small amber glass serum bottle up to the camera, squinting slightly like she is genuinely thinking. 0 to 3s: She says directly to camera, "Okay I need to talk about this." Handheld camera, natural bathroom lighting, slightly overexposed. 4 to 9s: She presses two fingers to her cheek and shows the bottle label close up. 10 to 15s: She looks back at camera, grins, says "You will thank me later" and the camera slowly pulls back. Warm tone, documentary feel, 9:16 vertical, ambient morning sound.

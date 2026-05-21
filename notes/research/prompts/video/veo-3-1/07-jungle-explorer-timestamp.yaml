@@ -1,0 +1,41 @@
+slug: jungle-explorer-timestamp
+model: veo-3.1
+provider: gemini
+use_case: multi-shot 8s sequence via timestamp prompting — SFX + orchestral score
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Optional — can be combined with a character ref for the explorer's face/outfit consistency.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1
+  author: Google Cloud
+  retrieved: 2026-05-21
+notes: |
+  Canonical Google example for "Timestamp Prompting" — four 2-second beats inside a single 8s clip with shot grammar callouts and inline SFX cues. Veo 3.1 honors the [HH:MM-HH:MM] brackets as scene-section markers. No dialogue, but ambient SFX + score are layered natively.
+prompt: |
+  [00:00-00:02] Medium shot from behind a young female explorer with a leather satchel and messy brown hair in a ponytail, as she pushes aside a large jungle vine to reveal a hidden path.
+
+  [00:02-00:04] Reverse shot of the explorer's freckled face, her expression filled with awe as she gazes upon ancient, moss-covered ruins in the background. SFX: The rustle of dense leaves, distant exotic bird calls.
+
+  [00:04-00:06] Tracking shot following the explorer as she steps into the clearing and runs her hand over the intricate carvings on a crumbling stone wall. Emotion: Wonder and reverence.
+
+  [00:06-00:08] Wide, high-angle crane shot, revealing the lone explorer standing small in the center of the vast, forgotten temple complex, half-swallowed by the jungle. SFX: A swelling, gentle orchestral score begins to play.

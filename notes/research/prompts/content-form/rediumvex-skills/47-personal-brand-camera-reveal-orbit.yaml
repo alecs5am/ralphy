@@ -1,0 +1,19 @@
+slug: personal-brand-camera-reveal-orbit
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand camera preset — 180-degree orbit revealing environment
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  Reveal-orbit camera preset (slower than viral orbit-reveal — 8s vs 3s).
+prompt: |
+  Camera orbits subject 180 degrees over 8 seconds. Subject centered. Each angle reveals environmental elements. Consistent distance maintained.

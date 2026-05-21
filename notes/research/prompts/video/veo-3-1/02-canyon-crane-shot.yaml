@@ -1,0 +1,36 @@
+slug: canyon-crane-shot
+model: veo-3.1
+provider: gemini
+use_case: cinematic camera-movement demo — crane reveal
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Veo 3.1 supports multi-image references for character / style consistency
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: false
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1
+  author: Google Cloud
+  retrieved: 2026-05-21
+notes: |
+  Canonical Google example for "crane shot starting low → ascending high → reveal" camera grammar.
+  Veo 3.1 parses the explicit verbs (starting / ascending / revealing) into a coherent camera path.
+prompt: |
+  Crane shot starting low on a lone hiker and ascending high above, revealing they are standing on the edge of a colossal, mist-filled canyon at sunrise, epic fantasy style, awe-inspiring, soft morning light.

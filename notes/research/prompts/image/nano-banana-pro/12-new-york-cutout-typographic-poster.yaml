@@ -1,0 +1,19 @@
+slug: new-york-cutout-typographic-poster
+model: nano-banana-pro
+provider: gemini
+use_case: Typographic poster where text acts as a cut-out window into a photo
+form_factor: poster
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-nano-banana
+  author: Google Cloud — Ultimate Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Text-first composition — emphasis on ONLY-inside-letterform photo masking.
+  Capitalized ONLY is from the source and reads as a hard constraint to the model.
+prompt: |
+  A typographic poster with a solid black background, bold letters spell "New York", filling the center of the frame. The text acts as a cut-out window. A photograph of New York skyline is visible ONLY inside the letterforms.

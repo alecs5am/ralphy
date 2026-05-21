@@ -1,0 +1,35 @@
+slug: stop-motion-camping
+model: veo-3.1
+provider: gemini
+use_case: stop-motion comedy — two-character dialogue exchange
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Optional character refs to lock the puppet look.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://deepmind.google/models/veo/prompt-guide/
+  author: Google DeepMind
+  retrieved: 2026-05-21
+notes: |
+  Minimalist "Visual Style and Tone" example. Style tag in parens ("Stop Motion") sets the entire render aesthetic; two named voices ("Camper:" / "Bear:") get separate native lip sync.
+prompt: |
+  Camping (Stop Motion): Camper: "I'm one with nature now!" Bear: "Nature would prefer some personal space."

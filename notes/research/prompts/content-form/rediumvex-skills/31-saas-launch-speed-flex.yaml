@@ -1,0 +1,19 @@
+slug: saas-launch-speed-flex
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS-launch hook — rapid dashboard data population in 3 seconds
+form_factor: SaaS product launch
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Speed-flex hook for productivity SaaS.
+prompt: |
+  Dashboard interface rendered in 3D space. Data fields populate in rapid succession — each field animates in 0.1s. Counter in corner ticks: tasks complete in 3 seconds. Camera pushes in as final element locks into place. Sound: rapid-fire confirmation chimes accelerating, then single resolution tone.

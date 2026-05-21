@@ -1,0 +1,38 @@
+slug: podcast-kinetic-typography
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Podcast clip — word-by-word kinetic typography reveal
+form_factor: podcast clip visualization
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "{{ASPECT_RATIO}}, {{DURATION}}, {{BACKGROUND_TREATMENT}}, {{INITIAL_TEXT_STATE}}"
+    required: true
+  - kind: slot_value
+    role: "{{PRIMARY_QUOTE}}, {{FONT_FAMILY}}, {{FONT_WEIGHT}}, {{COLOR}}"
+    required: true
+  - kind: slot_value
+    role: "{{ANIMATION_BEHAVIOR_PER_WORD_TYPE}}, {{TEXT_TRANSFORMATION}}, {{CAMERA_BEHAVIOR}}"
+    required: true
+  - kind: slot_value
+    role: "{{CLOSING_TEXT_TREATMENT}}, {{SPEAKER_ID}}, {{COLOR_GRADE_DIRECTION}}"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/10-podcast-visual/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/10-podcast-visual/SKILL.md
+notes: |
+  Kinetic-typography podcast template. Per project memory, kinetic-typo can hide AI-slop.
+prompt: |
+  Seedance 2.0 video prompt, {{ASPECT_RATIO}}, {{DURATION}} seconds:
+
+  Opening {{TIME}} seconds: {{BACKGROUND_TREATMENT}}. {{INITIAL_TEXT_STATE}}.
+
+  Word-by-word reveal: {{PRIMARY_QUOTE}} — {{FONT_FAMILY}}, {{FONT_WEIGHT}}, {{COLOR}}. Animation behavior: {{ANIMATION_BEHAVIOR_PER_WORD_TYPE}}.
+
+  At second {{X}}: {{TEXT_TRANSFORMATION}}. {{CAMERA_BEHAVIOR}}.
+
+  Final {{TIME}} seconds: {{CLOSING_TEXT_TREATMENT}}. {{SPEAKER_ID}}.
+
+  Color grade: {{COLOR_GRADE_DIRECTION}}.

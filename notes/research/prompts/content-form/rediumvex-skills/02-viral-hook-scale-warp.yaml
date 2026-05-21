@@ -1,0 +1,22 @@
+slug: viral-hook-scale-warp
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Pattern-interrupt viral hook — tiny object scaled to building size
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[tiny object — coin, key, pen]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Scale-warp hook. Pairs with Ralphy art-director's pattern-interrupt category.
+prompt: |
+  Extreme wide shot: [tiny object — coin, key, pen] scaled to building size in landscape. Human figure provides scale reference at base. Drone-style camera slowly pushing forward. Overcast lighting, photorealistic. Viewer spends 2s processing scale.

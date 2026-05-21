@@ -1,0 +1,24 @@
+slug: floral-dress-fashion-fusion
+model: gemini-3-pro-image
+provider: gemini
+use_case: Multi-image fusion — put product from image A onto subject from image B
+form_factor: full-body editorial
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: image
+    role: multi_subject_fusion
+    required: true
+    notes: First image = the dress (garment). Second image = the woman (subject).
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Canonical multi-image-fusion prompt. Order of references is meaningful — the
+  prompt explicitly refers to "the first image" and "the second image". Lighting
+  reconciliation instruction is what prevents flat composite look.
+prompt: |
+  Create a professional e-commerce fashion photo. Take the blue floral dress from the first image and let the woman from the second image wear it. Generate a realistic, full-body shot of the woman wearing the dress, with the lighting and shadows adjusted to match the outdoor environment.

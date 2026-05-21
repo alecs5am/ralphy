@@ -1,0 +1,22 @@
+slug: before-after-transition-object-match
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation transition — hidden cut on object motion match
+form_factor: before/after transition modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[specific object], [before environment], [after environment]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Object-match transition modifier — seamless invisible cut.
+prompt: |
+  camera tracks [specific object] in continuous motion, transition hidden within the movement at the moment [object] is fully in frame, [before environment] seamlessly becomes [after environment] without breaking the motion
