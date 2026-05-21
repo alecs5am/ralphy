@@ -27,7 +27,6 @@
 
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 
 import {
   type Author,
@@ -43,17 +42,25 @@ export const contentType = "image/png";
  * edge and node; we pick node for the simpler font loading path. */
 export const runtime = "nodejs";
 
-const PUBLIC = join(process.cwd(), "public");
+/* Assets live in ./og-assets/ next to this route file. Loading via
+ * `new URL(..., import.meta.url)` is the only path that works
+ * reliably across local dev AND Vercel serverless functions:
+ * `process.cwd() + "/public"` does not resolve to the deployed
+ * function's filesystem (public/ isn't bundled into the function),
+ * so `path.join` reads will 500 in production. */
+function assetUrl(rel: string): URL {
+  return new URL(`./og-assets/${rel}`, import.meta.url);
+}
 
 async function loadFonts() {
   /* Satori (under next/og) only accepts raw OpenType / TTF — it rejects
    * woff2 with "Unsupported OpenType signature wOF2". We ship TTF copies
    * alongside the woff2 fonts used by the live site, decompressed once
-   * via `fonttools ttLib.woff2 decompress` (see public/assets/fonts-og/). */
+   * via `fonttools ttLib.woff2 decompress`. */
   const [diatypeMonoBold, diatypeRegular, fragmentMono] = await Promise.all([
-    readFile(join(PUBLIC, "assets/fonts-og/AWSDiatypeRoundedSemi-Mono-Bold.ttf")),
-    readFile(join(PUBLIC, "assets/fonts-og/AWSDiatype-Regular.ttf")),
-    readFile(join(PUBLIC, "assets/fonts-og/FragmentMono-Regular.ttf")),
+    readFile(assetUrl("AWSDiatypeRoundedSemi-Mono-Bold.ttf")),
+    readFile(assetUrl("AWSDiatype-Regular.ttf")),
+    readFile(assetUrl("FragmentMono-Regular.ttf")),
   ]);
   return [
     { name: "Diatype Mono", data: diatypeMonoBold, style: "normal" as const, weight: 700 as const },
@@ -66,7 +73,7 @@ async function loadBgDataUri() {
   /* Use the @2x asset for sharpness — Satori downscales to fit the
    * 1200×630 canvas; starting from 2400×1260 keeps the edges crisp on
    * platforms that re-encode at 2x density (Twitter, LinkedIn). */
-  const bytes = await readFile(join(PUBLIC, "og/blog-bg@2x.png"));
+  const bytes = await readFile(assetUrl("blog-bg@2x.png"));
   return `data:image/png;base64,${bytes.toString("base64")}`;
 }
 
