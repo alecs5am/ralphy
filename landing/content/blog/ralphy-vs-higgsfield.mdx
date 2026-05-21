@@ -1,0 +1,87 @@
+---
+title: "Ralphy vs Higgsfield / Supercomputer — what AI-native teams actually need"
+description: "A blunt comparison: hosted UGC studios (Higgsfield, Supercomputer) vs an open-source CLI you run yourself. Vendor lock-in, token decay, audit logs, and the parts marketing teams keep finding out the hard way."
+date: "2026-05-21"
+author: "Ralphy team"
+---
+
+# Ralphy vs Higgsfield / Supercomputer — what AI-native teams actually need
+
+Marketing tools shipping AI features have split into two camps.
+
+**Camp one** is the hosted studio: Higgsfield, Supercomputer, the next dozen seed-funded clones. You log in, type a brief, get a video. Their pitch is convenience. Their business model is owning the pipeline.
+
+**Camp two** is the open-source CLI you run yourself. Ralphy lives here. The pitch is the opposite: you keep the pipeline. The studio is software you can read, fork, and pin.
+
+If you ship one TikTok a quarter, camp one is fine. If your team ships ten a week — or you intend to — the difference compounds fast. Below is the honest version of what teams discover six months in.
+
+## Five things you actually own in camp two
+
+### 1. Your provider keys, your provider rates
+
+Hosted studios run on credits. Higgsfield's image credit ≠ Higgsfield's video credit ≠ the upgrade tier you got grandfathered into. The price they pay OpenAI or fal.ai is not the price they charge you, and they keep both sides opaque on purpose.
+
+Ralphy never holds a credit. The only secrets it needs are your `OPENROUTER_API_KEY` and `ELEVENLABS_API_KEY`. Every generation is a direct, logged call against your account, at the published list price. When Sora-2 drops and is half the cost of Veo, you swap one line in `MODELS.md` — no Ralphy update required, no waiting for the platform to "support" it.
+
+### 2. The generations log, in plain JSON, on your disk
+
+Each project under Ralphy writes a `workspace/projects/<id>/logs/generations.jsonl`. Every model call: input prompt, output URI, latency, cost, model id. Append-only. Greppable. Not behind a "View History" tab that paginates twenty entries and times out.
+
+Six months in, this is the file that lets you answer questions a CMO actually asks:
+
+- Which prompt template produced our three highest-performing reels?
+- What did we spend on hands-and-eyes regens in Q1?
+- Show me every scene where we used `kling-v3.0-pro --audio` for Russian VO.
+
+In Higgsfield or Supercomputer, those questions are either a support ticket or impossible.
+
+### 3. No "your tokens expired" surprise
+
+Pre-paid AI credit pools have a known failure mode: they expire. Sometimes after 30 days, sometimes after a "subscription pause". The credits you saved for a campaign launch can vanish because billing rolled over while the legal review was happening.
+
+Ralphy doesn't have a token concept. There is no Ralphy account. You pay OpenRouter and ElevenLabs directly, on their cadence, with their rules — which are at least documented and not unilaterally rewriteable by a Series-A startup chasing margin.
+
+### 4. Reference fidelity that lives in your repo, not in someone's product
+
+The hard part of producing UGC isn't generating *a* video — it's generating one that matches a brand. Higgsfield's "style transfer" is a closed black box: you upload three reference images, get something back, can't tell what features were extracted, can't reuse them next month.
+
+Ralphy's reference pipeline is six discrete CLI verbs (`ralphy ref pull → frames → transcript → vision → audio-describe → blueprint`) that write structured JSON. Master shots, persona descriptors, camera-grammar notes — all checked into your repo next to the project. When the campaign extends to round 2 in eight months, you re-run the same blueprint instead of paying for a "Vision Analysis" credit pack again.
+
+This is also why Ralphy refuses to render named real entities ("Elon Musk", "Coca-Cola can") without a checked-in reference image. The gate is offline and reads from `cli/lib/eval/refs.ts`. Higgsfield's content policy lives on a slide deck and is enforced by trust.
+
+### 5. Determinism the rendering pipeline can prove
+
+Ralphy uses Remotion for the final composition pass. Remotion is just React + a headless Chromium renderer — meaning your final mp4 is the output of code you can read, version, and test like any other module. Caption timing is a function call. Transition curves are TypeScript. Music ducking is a constant.
+
+Hosted studios ship a render engine you cannot inspect. When the "magic" subtly changes between releases — different easing on the title card, a new caption font — your client sees the difference before you do.
+
+## What hosted studios actually have on us
+
+Honesty: there are three things Higgsfield and Supercomputer do better today.
+
+1. **Zero setup.** You don't have to install bun, get a `ralphy` binary, set two env vars, run `ralphy doctor`. If your team writes zero code, that gap is real.
+2. **One billing relationship.** OpenRouter + ElevenLabs is two cards, two invoices, two TOS pages. A studio is one.
+3. **A web UI that designers can click in.** Ralphy is a CLI. The intended user is an AI coding agent (Claude Code, Cursor, etc.) operating on your behalf. If you don't have agentic workflows yet, the seam is sharper.
+
+If those three matter more to you than the five we listed above, hosted is the right call. If you're an AI-native team that already runs `gh`, `claude`, and a dotfiles repo, the trade-off inverts.
+
+## What "AI-native" looks like in practice
+
+The teams that get the most out of Ralphy share a few habits:
+
+- **They treat prompts like code.** Versioned, reviewed, diff-able. Ralphy puts `prompts.json` and `STORYBOARD.md` in each project — both are checked into git.
+- **They let an agent drive the CLI.** `claude` reads `AGENTS.md`, picks the right playbook for the user intent, executes the right `ralphy` verbs, and writes the logs. The human reviews the diff and the mp4.
+- **They retrofit their stack instead of replacing it.** Ralphy doesn't replace your Figma, your Notion, your Linear, or your video reviewer. It slots between the brief and the render, leaving the rest of your tooling intact.
+
+If that's the loop you're already in — or planning to be in by Q4 — you don't need a hosted studio. You need a CLI you can pin to a commit, a Slack channel where the team can grep prompt history, and an agent that knows when to refuse to render.
+
+## Try it
+
+```bash
+brew tap alecs5am/tap
+brew install ralphy
+ralphy setup     # walks you through the two API keys
+ralphy new "vertical reel about <your product>"
+```
+
+Source: [github.com/alecs5am/ralphy](https://github.com/alecs5am/ralphy). Issues, ideas, and bench-marking PRs welcome.
