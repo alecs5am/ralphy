@@ -48,18 +48,37 @@ export function SkillsListing() {
         })}
       </div>
 
-      <motion.div className="skill-list" layout>
+      <div className="skill-list">
         <AnimatePresence mode="popLayout" initial={false}>
-          {list.map((s, i) => (
-            <SkillWideCard key={s.slug} s={s} index={i} />
+          {list.map((s) => (
+            <SkillWideCard key={s.slug} s={s} />
           ))}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </>
   );
 }
 
-function SkillWideCard({ s, index }: { s: Skill; index: number }) {
+/* Animation strategy for the filtered list:
+ *   • popLayout — exiting cards are immediately removed from the
+ *     flow (positioned absolutely by framer-motion) so remaining
+ *     cards can reflow without waiting for the exit to finish.
+ *   • layout prop on each card — drives the reflow with a snappy
+ *     spring (no stagger; cascading delays were what caused the
+ *     "choppy" feel when many rows shifted at once).
+ *   • Separate transitions per property — exit is opacity-only and
+ *     fast (160ms tween, GPU); enter is opacity + small y on a
+ *     short ease-out; layout uses a tight spring.
+ *   • No willChange on the card itself — the layout animation
+ *     handles its own transform optimisation. */
+const LAYOUT_TRANSITION = {
+  type: "spring" as const,
+  stiffness: 380,
+  damping: 32,
+  mass: 0.6,
+};
+
+function SkillWideCard({ s }: { s: Skill }) {
   return (
     <motion.a
       layout
@@ -67,13 +86,13 @@ function SkillWideCard({ s, index }: { s: Skill; index: number }) {
       target="_blank"
       rel="noopener"
       className="skill-wide"
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
+      exit={{ opacity: 0 }}
       transition={{
-        duration: 0.5,
-        delay: index * 0.05,
-        ease: [0.16, 1, 0.3, 1],
+        layout: LAYOUT_TRANSITION,
+        opacity: { duration: 0.18, ease: "easeOut" },
+        y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
       }}
     >
       <div className="skill-wide-head">
