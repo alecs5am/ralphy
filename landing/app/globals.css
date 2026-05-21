@@ -54,6 +54,7 @@
   --vio-3:     #C75C82;
   --vio-ink:   #6E2F4A;
 
+  --warn:      #F2C66B;
   --line:      rgb(245 245 244 / 0.12);
   --line-2:    rgb(245 245 244 / 0.20);
   --line-3:    rgb(245 245 244 / 0.32);
@@ -1771,15 +1772,39 @@ section { position: relative; padding-top: 80px; }
 }
 .blog-body p:has(+ ul), .blog-body p:has(+ ol) { margin-bottom: 16px; }
 .blog-body strong { color: var(--ink); font-weight: 600; }
-.blog-body em { color: var(--ink); font-style: italic; }
-.blog-body a {
-  color: var(--vio);
-  text-decoration: none;
-  background: linear-gradient(currentColor, currentColor) bottom / 100% 1px no-repeat;
-  background-position: 0 95%;
-  transition: color 160ms ease;
+.blog-body del { color: var(--mute); text-decoration-color: var(--mute-2); }
+
+/* Native markdown table (via remark-gfm). Lighter sibling of
+   <ComparisonTable> — use it for plain key/value matrices. */
+.blog-body table {
+  width: 100%;
+  margin: 32px 0;
+  border-collapse: collapse;
+  font-size: 15px;
+  background: var(--bg-1);
+  border-radius: 14px;
+  overflow: hidden;
 }
-.blog-body a:hover { color: var(--vio-2, var(--vio)); }
+.blog-body thead { background: var(--bg-2); }
+.blog-body th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mute);
+  padding: 14px 18px;
+  font-weight: 500;
+}
+.blog-body td {
+  padding: 14px 18px;
+  color: var(--ink-2);
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.blog-body tr:first-child td { box-shadow: none; }
+.blog-body td code,
+.blog-body th code { background: var(--bg-3); }
+.blog-body em { color: var(--ink); font-style: italic; }
 .blog-body ul, .blog-body ol {
   margin: 0 0 32px;
   padding-left: 28px;
@@ -1787,32 +1812,6 @@ section { position: relative; padding-top: 80px; }
 }
 .blog-body li { margin: 0 0 12px; line-height: 1.5; }
 .blog-body li::marker { color: var(--mute); }
-.blog-body :not(pre) > code {
-  font-family: var(--font-mono);
-  font-size: 0.86em;
-  padding: 2px 7px;
-  background: var(--bg-2);
-  color: var(--ink);
-  border-radius: 5px;
-}
-.blog-body pre {
-  background: var(--bg-1);
-  border-radius: 14px;
-  margin: 36px 0;
-  padding: 22px 24px;
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--ink);
-}
-.blog-body pre code {
-  font-family: var(--font-mono);
-  background: transparent;
-  padding: 0;
-  font-size: inherit;
-  color: inherit;
-}
 .blog-body blockquote {
   margin: 32px 0;
   padding: 18px 24px;
@@ -1831,6 +1830,958 @@ section { position: relative; padding-top: 80px; }
   .blog-article { padding: 64px 0 96px; }
   .blog-body p { margin-bottom: 20px; }
   .blog-body h2 { margin-top: 48px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MDX — blog article components
+   ───────────────────────────────────────────────────────────────────────────
+   Drop-in replacement for the MDX section in landing/app/globals.css.
+
+   In globals.css there is currently a region of selectors that begins around
+   `.blog-body .mdx-lede {` and ends after `.blog-body .mdx-pullquote cite {`
+   (mobile overrides included). REPLACE that entire region with the rules in
+   this file. The non-MDX `.blog-article` / `.blog-body` reset above it
+   (margins, headings, links, paragraphs) stays as-is.
+
+   Variant picks (locked):
+     01 Tags         · C — sharp uppercase chip
+     02 Inline links · D — mono chip, command-style
+     03 Inline code  · A — mono on bg-2 plate
+     04 Code blocks  · B — filename tab top
+     05 Callouts     · D — big glyph plate
+     06 CTA banner   · B — full-bleed orange plate
+     07 Link cards   · D — listing of related links
+     08 Compare      · B (cards) default; A (rows) via layout="rows"
+     09 Pricing      · A (striped rows) + PriceHero (D)
+     10 FAQ          · A, native single-open via <details name="">
+     11 Pull quote   · D — author plate, avatar
+     12 Stat strips  · A (three-up) + BarStats (D)
+     13 Steps        · B — vertical timeline
+     14 Figures      · A (caption below) with optional gallery (D)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* ─── Default `a` inside the blog body — variant 02-D ─────────────
+   Mono chip with `→` prefix. Strong stylistic choice: every inline
+   link reads as "follow this". If a particular paragraph needs a
+   quieter link, wrap text in <span> or use a footnote.
+   ───────────────────────────────────────────────────────────────── */
+.blog-body a {
+  color: var(--ink);
+  background: var(--bg-2);
+  padding: 1px 8px 2px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 160ms ease;
+}
+.blog-body a::before {
+  content: "→";
+  color: var(--vio);
+  margin-right: 6px;
+}
+.blog-body a:hover { background: var(--bg-3); }
+
+/* Component cards / banners are themselves <a>; cancel the chip
+   styling on those so the card wins. */
+.blog-body a.mdx-cta,
+.blog-body a.mdx-linklist-row {
+  background: initial;
+  padding: initial;
+  border-radius: initial;
+  font-family: initial;
+  font-size: initial;
+  line-height: initial;
+  white-space: initial;
+}
+.blog-body a.mdx-cta::before,
+.blog-body a.mdx-linklist-row::before { content: none; }
+
+
+/* ─── Inline code — variant 03-A ──────────────────────────────────
+   Bare `backticks` in MDX. */
+.blog-body :not(pre) > code,
+.blog-body .mdx-code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--bg-2);
+  color: var(--ink);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+
+/* ─── Lede ──────────────────────────────────────────────────────── */
+.blog-body .mdx-lede {
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 40px;
+  max-width: 64ch;
+  font-weight: 400;
+}
+/* MDX wraps inner text in <p>; inherit Lede's typography so the inner
+   paragraph doesn't pick up the default blog-body p margins / color. */
+.blog-body .mdx-lede > p {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   01 · Tag — variant C (sharp uppercase chip)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-tag {
+  display: inline-block;
+  padding: 1px 7px 2px;
+  border-radius: 3px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.72em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.blog-body .mdx-tag-neutral {
+  background: var(--ink);
+  color: var(--bg);
+}
+.blog-body .mdx-tag-accent {
+  background: var(--vio);
+  color: var(--bg);
+}
+.blog-body .mdx-tag-warn {
+  background: var(--warn, #F2C66B);
+  color: var(--bg);
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   05 · Callout — variant D (big glyph plate)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-callout {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  background: var(--bg-1);
+  border-radius: 18px;
+  padding: 26px 28px;
+  margin: 32px 0;
+}
+.blog-body .mdx-callout-glyph {
+  width: 78px;
+  height: 78px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 38px;
+  line-height: 1;
+  color: var(--bg);
+}
+.blog-body .mdx-callout-info   .mdx-callout-glyph { background: var(--ink); }
+.blog-body .mdx-callout-good   .mdx-callout-glyph { background: var(--vio); }
+.blog-body .mdx-callout-warn   .mdx-callout-glyph { background: var(--warn, #F2C66B); }
+.blog-body .mdx-callout-danger .mdx-callout-glyph { background: #E89094; }
+.blog-body .mdx-callout-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.blog-body .mdx-callout-content { color: var(--ink-3); font-size: 16px; line-height: 1.5; }
+.blog-body .mdx-callout-content > :first-child { margin-top: 0; }
+.blog-body .mdx-callout-content > :last-child { margin-bottom: 0; }
+.blog-body .mdx-callout-content p { margin: 0; }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   06 · CTA — variant B (full-bleed orange plate)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  background: var(--vio);
+  color: var(--bg);
+  border-radius: 22px;
+  padding: 32px 36px;
+  margin: 40px 0;
+  text-decoration: none;
+  transition: transform 180ms ease;
+}
+.blog-body .mdx-cta:hover { transform: translateY(-2px); }
+.blog-body .mdx-cta-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  line-height: 1.0;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+  color: var(--bg);
+}
+.blog-body .mdx-cta-caption {
+  margin: 0;
+  color: rgb(10 10 11 / 0.7);
+  font-size: 15px;
+  max-width: 44ch;
+  line-height: 1.5;
+}
+.blog-body .mdx-cta-caption .mdx-code,
+.blog-body .mdx-cta-caption code {
+  background: rgb(10 10 11 / 0.16);
+  color: var(--bg);
+}
+.blog-body .mdx-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 14px 22px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.blog-body .mdx-cta-arrow {
+  color: var(--vio);
+  font-family: var(--font-mono);
+  transition: transform 180ms ease;
+}
+.blog-body .mdx-cta:hover .mdx-cta-arrow { transform: translateX(4px); }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   07 · LinkList — variant D (related-listing)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-linklist {
+  background: var(--bg-1);
+  border-radius: 16px;
+  padding: 8px 0;
+  margin: 32px 0;
+  display: block;
+}
+.blog-body .mdx-linklist-head {
+  padding: 14px 22px 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin: 0;
+}
+.blog-body .mdx-linklist-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 22px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.blog-body .mdx-linklist-row + .mdx-linklist-row {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.blog-body .mdx-linklist-row:hover { background: var(--bg-2); }
+.blog-body .mdx-linklist-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--mute);
+  width: 26px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.blog-body .mdx-linklist-title { flex: 1; font-size: 16px; line-height: 1.4; }
+.blog-body .mdx-linklist-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--mute);
+  flex-shrink: 0;
+}
+.blog-body .mdx-linklist-arrow {
+  color: var(--vio);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  transition: transform 180ms ease;
+}
+.blog-body .mdx-linklist-row:hover .mdx-linklist-arrow { transform: translateX(4px); }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   08 · ComparisonTable
+       cards (B, default) — column-per-vendor
+       rows  (A)          — striped rows, dense layout
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-compare { margin: 36px 0; }
+.blog-body .mdx-compare-caption {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--mute);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ── B · Cards ── */
+.blog-body .mdx-cmp-cards {
+  display: grid;
+  gap: 14px;
+}
+.blog-body .mdx-cmp-card {
+  background: var(--bg-1);
+  border-radius: 18px;
+  padding: 22px 22px 14px;
+  display: grid;
+  gap: 8px;
+}
+.blog-body .mdx-cmp-card.is-accent {
+  background: var(--vio);
+  color: var(--bg);
+}
+.blog-body .mdx-cmp-card-head {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+.blog-body .mdx-cmp-card.is-accent .mdx-cmp-card-head { color: var(--bg); }
+.blog-body .mdx-cmp-card-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  box-shadow: inset 0 -1px 0 var(--line);
+  font-size: 14px;
+}
+.blog-body .mdx-cmp-card-row:last-child { box-shadow: none; }
+.blog-body .mdx-cmp-card.is-accent .mdx-cmp-card-row {
+  box-shadow: inset 0 -1px 0 rgb(10 10 11 / 0.18);
+}
+.blog-body .mdx-cmp-card-lbl { color: var(--ink-3); }
+.blog-body .mdx-cmp-card.is-accent .mdx-cmp-card-lbl { color: rgb(10 10 11 / 0.62); }
+.blog-body .mdx-cmp-card-val {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+/* ── A · Rows (also used by PricingTable) ── */
+.blog-body .mdx-cmp-grid {
+  border-radius: 14px;
+  overflow: hidden;
+  display: grid;
+  font-size: 15px;
+}
+.blog-body .mdx-cmp-h {
+  background: var(--bg-1);
+  color: var(--mute);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 14px 18px;
+}
+.blog-body .mdx-cmp-h.is-accent { color: var(--vio); }
+.blog-body .mdx-cmp-c {
+  padding: 16px 18px;
+  background: var(--bg-1);
+  color: var(--ink-2);
+}
+/* Alternating row stripe — bg-1 / bg-2, 4 cols wide. Generalize via
+   nth-of-type math so 3-col and 4-col grids both stripe correctly.
+   Author owns this — adjust to match column count if you change it. */
+.blog-body .mdx-cmp-grid > .mdx-cmp-c { background: var(--bg-1); }
+.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+5),
+.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+6),
+.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+7),
+.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+8) {
+  background: var(--bg-2);
+}
+.blog-body .mdx-cmp-c-feat .lbl { display: block; color: var(--ink); font-weight: 500; }
+.blog-body .mdx-cmp-c-feat .sub { display: block; color: var(--mute); font-size: 13px; margin-top: 2px; }
+.blog-body .mdx-cmp-c-val { text-align: center; }
+.blog-body .mdx-cmp-c-text {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  text-align: center;
+}
+.blog-body .mdx-cmp-c-text.is-accent { color: var(--vio); font-weight: 700; }
+
+/* Ticks and chips */
+.blog-body .mdx-tick {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--vio);
+}
+.blog-body .mdx-tick.on-accent { color: var(--bg); }
+.blog-body .mdx-tick-no { color: var(--mute-2); font-weight: 400; }
+.blog-body .mdx-tick-na { color: var(--mute-2); font-weight: 400; }
+.blog-body .mdx-cell-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.blog-body .mdx-cell-text {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   09 · PriceHero — variant D
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-pricehero {
+  background: var(--bg-1);
+  border-radius: 22px;
+  padding: 32px 36px;
+  margin: 40px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 36px;
+  align-items: center;
+}
+.blog-body .mdx-pricehero-eye {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vio);
+  margin: 0 0 10px;
+}
+.blog-body .mdx-pricehero-ttl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.04;
+}
+.blog-body .mdx-pricehero-sub {
+  color: var(--ink-3);
+  font-size: 15px;
+  margin: 8px 0 0;
+  max-width: 38ch;
+  line-height: 1.5;
+}
+.blog-body .mdx-pricehero-r { text-align: right; }
+.blog-body .mdx-pricehero-big {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(56px, 8vw, 88px);
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  color: var(--vio);
+  margin: 0;
+}
+.blog-body .mdx-pricehero-big small {
+  font-size: 14px;
+  color: var(--mute);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+.blog-body .mdx-pricehero-cap {
+  color: var(--mute);
+  font-size: 13px;
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   10 · FAQ — variant A, native single-open accordion
+   Uses <details name="faq"> for exclusive group behavior. Supported
+   in Chrome 120+, Edge 120+, Safari 17.5+, Firefox 132+. On older
+   browsers behaves like a normal multi-open accordion (safe degrade).
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-faq {
+  background: var(--bg-1);
+  border-radius: 16px;
+  overflow: hidden;
+  margin: 32px 0;
+}
+.blog-body .mdx-faq-item { margin: 0; }
+.blog-body .mdx-faq-item + .mdx-faq-item {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.blog-body .mdx-faq-q {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 160ms ease;
+}
+.blog-body .mdx-faq-q::-webkit-details-marker { display: none; }
+.blog-body .mdx-faq-q:hover { background: var(--bg-2); }
+.blog-body .mdx-faq-chev {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--vio);
+  transition: transform 220ms ease;
+  flex-shrink: 0;
+}
+.blog-body .mdx-faq-item[open] .mdx-faq-chev { transform: rotate(90deg); }
+.blog-body .mdx-faq-a {
+  padding: 0 24px 22px 56px;
+  color: var(--ink-3);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+.blog-body .mdx-faq-a > :first-child { margin-top: 0; }
+.blog-body .mdx-faq-a > :last-child { margin-bottom: 0; }
+.blog-body .mdx-faq-a p { margin: 0 0 14px; }
+.blog-body .mdx-faq-a p:last-child { margin-bottom: 0; }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   11 · PullQuote — variant D (author plate, avatar)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-pullquote {
+  margin: 40px 0;
+  padding: 26px 28px;
+  background: var(--bg-1);
+  border-radius: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 28px;
+  align-items: center;
+  border-left: none;  /* override blog-body default blockquote */
+}
+.blog-body .mdx-pullquote-text,
+.blog-body .mdx-pullquote-text p {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  font-style: italic;
+}
+.blog-body .mdx-pullquote-who {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+.blog-body .mdx-pullquote-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--vio);
+  color: var(--bg);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.blog-body .mdx-pullquote-name {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.blog-body .mdx-pullquote-role {
+  font-size: 12.5px;
+  color: var(--mute);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   12 · Stats — variant A (three-up plates) + BarStats (D)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-statrow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 32px 0;
+}
+.blog-body .mdx-stat {
+  background: var(--bg-1);
+  border-radius: 18px;
+  padding: 26px 24px;
+}
+.blog-body .mdx-stat-value {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  color: var(--vio);
+  margin-bottom: 8px;
+}
+.blog-body .mdx-stat-label {
+  font-size: 13.5px;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+.blog-body .mdx-barstats {
+  background: var(--bg-1);
+  border-radius: 18px;
+  padding: 26px 28px;
+  margin: 32px 0;
+  display: grid;
+  gap: 18px;
+}
+.blog-body .mdx-barstats-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr 72px;
+  gap: 20px;
+  align-items: center;
+}
+.blog-body .mdx-barstats-lbl {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.blog-body .mdx-barstats-lbl b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.blog-body .mdx-barstats-bar {
+  height: 8px;
+  background: var(--bg-3);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.blog-body .mdx-barstats-bar i {
+  display: block;
+  height: 100%;
+  background: var(--ink-2);
+  border-radius: 999px;
+}
+.blog-body .mdx-barstats-bar.is-accent i { background: var(--vio); }
+.blog-body .mdx-barstats-v {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+  text-align: right;
+  letter-spacing: -0.01em;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   13 · Steps — variant B (vertical timeline)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-steps {
+  list-style: none;
+  margin: 32px 0;
+  padding: 0 0 0 8px;
+  display: grid;
+  gap: 28px;
+  counter-reset: step;
+}
+.blog-body .mdx-step {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+  position: relative;
+  counter-increment: step;
+}
+.blog-body .mdx-step + .mdx-step::before {
+  content: "";
+  position: absolute;
+  left: 27px;
+  top: -36px;
+  width: 2px;
+  height: 36px;
+  background: var(--bg-3);
+}
+.blog-body .mdx-step-num {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--vio);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  letter-spacing: -0.02em;
+}
+.blog-body .mdx-step-num:empty::before {
+  content: counter(step, decimal-leading-zero);
+}
+.blog-body .mdx-step-ttl {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  margin: 6px 0 6px;
+}
+.blog-body .mdx-step-text {
+  color: var(--ink-3);
+  font-size: 15.5px;
+  line-height: 1.6;
+  max-width: 64ch;
+}
+.blog-body .mdx-step-text > :first-child { margin-top: 0; }
+.blog-body .mdx-step-text > :last-child { margin-bottom: 0; }
+.blog-body .mdx-step-text p { margin: 0 0 10px; }
+.blog-body .mdx-step-text p:last-child { margin-bottom: 0; }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   14 · Figure — variant A (caption below) + optional gallery (D)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-figure {
+  margin: 32px 0;
+}
+.blog-body .mdx-figure-cell {
+  display: block;
+  background: var(--bg-1);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 16 / 9;
+}
+.blog-body .mdx-figure-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.blog-body .mdx-figure-cell-empty::after {
+  content: "Image missing";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.blog-body .mdx-figure-gallery {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.blog-body .mdx-figure-gallery .mdx-figure-cell {
+  aspect-ratio: 4 / 5;
+}
+.blog-body .mdx-figure-label {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  padding: 4px 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+}
+.blog-body .mdx-figure figcaption {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--mute);
+  line-height: 1.5;
+}
+.blog-body .mdx-figure figcaption b {
+  color: var(--ink-2);
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   04 · CodeBlock — variant B (filename tab top)
+   Bare ```fenced``` code in MDX also picks up the same shell (no tab)
+   via the .blog-body pre rules at the end of this file.
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-codeblock {
+  margin: 32px 0;
+}
+.blog-body .mdx-codeblock-bar {
+  display: flex;
+  align-items: stretch;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.blog-body .mdx-codeblock-tab {
+  background: var(--bg-2);
+  color: var(--ink);
+  padding: 9px 14px 9px 16px;
+  border-radius: 10px 10px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.blog-body .mdx-codeblock-tab .ic { color: var(--vio); }
+.blog-body .mdx-codeblock-meta {
+  margin-left: auto;
+  color: var(--mute);
+  padding: 9px 14px;
+  align-self: center;
+}
+.blog-body .mdx-codeblock pre {
+  margin: 0;
+  background: var(--bg-2);
+  color: var(--ink);
+  border-radius: 0 14px 14px 14px;
+  padding: 22px 26px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+}
+.blog-body .mdx-codeblock pre code {
+  font-family: inherit;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Bare ```fence``` code blocks — match the CodeBlock shell, no tab. */
+.blog-body > pre,
+.blog-body p + pre,
+.blog-body pre:not(.mdx-codeblock pre) {
+  margin: 32px 0;
+  background: var(--bg-2);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 22px 26px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.blog-body pre code {
+  font-family: inherit;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+   Legacy — TeamRecs (kept for ralphy-vs-higgsfield article)
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-recs {
+  background: var(--bg-1);
+  border-radius: 16px;
+  padding: 8px 24px;
+  margin: 32px 0;
+}
+.blog-body .mdx-rec {
+  padding: 18px 0;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+.blog-body .mdx-rec:last-child { box-shadow: none; }
+.blog-body .mdx-rec-team {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vio);
+  margin: 0 0 6px;
+}
+.blog-body .mdx-rec-body,
+.blog-body .mdx-rec-body p { margin: 0; color: var(--ink-3); font-size: 15.5px; line-height: 1.55; font-style: normal; }
+.blog-body .mdx-rec-pick { color: var(--ink); font-weight: 600; }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   Mobile
+   ═════════════════════════════════════════════════════════════════ */
+@media (max-width: 760px) {
+  .blog-body .mdx-cta,
+  .blog-body .mdx-pullquote,
+  .blog-body .mdx-pricehero {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .blog-body .mdx-pricehero-r { text-align: left; }
+
+  .blog-body .mdx-callout {
+    grid-template-columns: 56px 1fr;
+    gap: 18px;
+    padding: 22px 22px;
+  }
+  .blog-body .mdx-callout-glyph {
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+    border-radius: 12px;
+  }
+
+  .blog-body .mdx-statrow,
+  .blog-body .mdx-cmp-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .blog-body .mdx-barstats-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "lbl v"
+      "bar bar";
+    gap: 8px 16px;
+  }
+  .blog-body .mdx-barstats-lbl { grid-area: lbl; }
+  .blog-body .mdx-barstats-v   { grid-area: v; }
+  .blog-body .mdx-barstats-bar { grid-area: bar; }
+
+  .blog-body .mdx-figure-gallery { grid-template-columns: 1fr; }
+
+  /* Rows table — stack value cells under each feature, label them
+     with the column header text. Authors don't need to do anything;
+     the JSX renders header order naturally. */
+  .blog-body .mdx-cmp-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
 /* ─── Nav: Back link (subpage variant) ─────────────────────────────── */
