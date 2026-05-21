@@ -20,7 +20,7 @@ import { getDisplayStars } from "@/lib/data";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-type Author = { handle: string; name?: string };
+type Author = { name: string; handle?: string };
 
 type Frontmatter = {
   title?: string;
@@ -199,29 +199,51 @@ export default async function BlogPostPage({ params }: PageProps) {
   );
 }
 
-/* Resolve frontmatter author fields into a normalized list. Supports:
+/* GitHub handle: 1–39 chars, alphanumeric or hyphen, can't start/end with
+ * a hyphen, no consecutive hyphens. Matches GitHub's actual validation —
+ * an invalid value is silently dropped so a typo'd frontmatter doesn't
+ * link to a 404 profile or load a broken avatar. */
+const GH_HANDLE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+function isValidHandle(h: string | undefined): h is string {
+  return typeof h === "string" && GH_HANDLE.test(h);
+}
+
+/* Resolve frontmatter author fields into a normalized list.
  *   • New: `authors: ["alecs5am"]` (preferred) or
  *          `authors: ["Display Name|alecs5am", ...]`
  *   • Back-compat: single `github: "alecs5am"` with optional `author: "..."`
- *   Each entry resolves to { handle, name? } — handle is required for the
- *   GitHub avatar / profile link. */
+ *
+ * Each entry resolves to { name, handle? }. If `handle` is missing or
+ * doesn't match GitHub's pattern we keep the name but skip the avatar /
+ * profile link — the byline still renders, just plain. */
 function resolveAuthors(fm: Frontmatter): Author[] {
+  let raw: Array<{ name?: string; handle?: string }> = [];
   if (Array.isArray(fm.authors) && fm.authors.length > 0) {
-    return fm.authors.map((entry) => {
+    raw = fm.authors.map((entry) => {
       const [a, b] = entry.split("|");
       if (b) return { name: a!.trim(), handle: b.trim() };
-      return { handle: a!.trim() };
+      return { name: a!.trim(), handle: a!.trim() };
     });
+  } else if (fm.github || fm.author) {
+    raw = [{ name: fm.author ?? fm.github, handle: fm.github }];
   }
-  if (fm.github) {
-    return [{ handle: fm.github, name: fm.author }];
-  }
-  return [];
+  return raw
+    .map((a) => ({
+      name: a.name,
+      handle: isValidHandle(a.handle) ? a.handle : undefined,
+    }))
+    .filter((a) => a.name || a.handle)
+    .map((a) => ({ name: a.name ?? a.handle!, handle: a.handle }));
 }
 
 /* Byline — one-line author row under the H1. Modeled on the PostHog
  * masthead pattern: small avatar(s) + display name(s), then date, then
- * an optional category chip. No plate, no bg — inline editorial row. */
+ * an optional category chip. No plate, no bg — inline editorial row.
+ *
+ * If an author has a valid handle we render the avatar + a link to the
+ * GitHub profile. Otherwise we render initials in a coloured disc and
+ * skip the link — invalid handles never reach this point (resolveAuthors
+ * strips them) but the no-handle branch also catches anonymous bylines. */
 function Byline({
   authors,
   date,
@@ -234,23 +256,50 @@ function Byline({
   if (authors.length === 0 && !date && !category) return null;
   return (
     <div className="blog-byline">
-      {authors.map((a, i) => (
-        <a
-          key={i}
-          className="blog-byline-author"
-          href={`https://github.com/${a.handle}`}
-          target="_blank"
-          rel="noopener"
-        >
+      {authors.map((a, i) => {
+        const initials = a.name
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((p) => p[0]?.toUpperCase() ?? "")
+          .join("");
+        const avatar = (
           <span className="blog-byline-avatar">
-            <img
-              src={`https://github.com/${a.handle}.png?size=96`}
-              alt={`${a.name ?? a.handle} avatar`}
-            />
+            {/* Initials are always rendered as the bottom layer so a
+                handle that 404s on GitHub still shows something
+                legible instead of an empty disc. */}
+            <span className="blog-byline-initials" aria-hidden>
+              {initials}
+            </span>
+            {a.handle && (
+              <img
+                src={`https://github.com/${a.handle}.png?size=96`}
+                alt=""
+              />
+            )}
           </span>
-          <span className="blog-byline-name">{a.name ?? a.handle}</span>
-        </a>
-      ))}
+        );
+        const inner = (
+          <>
+            {avatar}
+            <span className="blog-byline-name">{a.name}</span>
+          </>
+        );
+        return a.handle ? (
+          <a
+            key={i}
+            className="blog-byline-author"
+            href={`https://github.com/${a.handle}`}
+            target="_blank"
+            rel="noopener"
+          >
+            {inner}
+          </a>
+        ) : (
+          <span key={i} className="blog-byline-author is-static">
+            {inner}
+          </span>
+        );
+      })}
       {date && <span className="blog-byline-date">{date}</span>}
       {category && (
         <span className="blog-byline-category">{category}</span>
