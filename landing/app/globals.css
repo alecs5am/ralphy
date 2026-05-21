@@ -1977,8 +1977,13 @@ section { position: relative; padding-top: 80px; }
 }
 
 /* Wide cards — full-width plates stacked vertically. Two-column
-   body grid (info on the left, i/o + cta aside on the right). */
+   body grid (info on the left, i/o + cta aside on the right).
+   `position: relative` is required by framer-motion's popLayout
+   mode — exiting cards get position:absolute and must be scoped
+   to the list bounds, not the document body, or the surviving
+   cards visibly jump while the layout snaps around the rogue. */
 .skill-list {
+  position: relative;
   display: flex; flex-direction: column;
   gap: 14px;
 }
