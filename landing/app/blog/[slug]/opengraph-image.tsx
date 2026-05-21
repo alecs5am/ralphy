@@ -44,9 +44,30 @@ import {
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/* Need node runtime for fs reads (fonts + bg PNG). Satori works on both
- * edge and node; we pick node for the simpler font loading path. */
+/* Node runtime — we use Node's Buffer for base64 decoding of the
+ * inlined font/bg assets. */
 export const runtime = "nodejs";
+
+/* Pre-render the OG image at build time for every known slug. Without
+ * this the route runs at request time, and on Vercel the serverless
+ * function can't see content/blog/*.mdx (it's not packaged into the
+ * function bundle), so `readPost` returns null and every card falls
+ * back to the generic Ralphy title. With generateStaticParams the
+ * route runs during `next build` where the MDX content IS on disk,
+ * each card is rendered once, and Vercel serves them as static PNGs. */
+export async function generateStaticParams() {
+  const { promises: fs } = await import("node:fs");
+  const path = await import("node:path");
+  const dir = path.join(process.cwd(), "content", "blog");
+  try {
+    const entries = await fs.readdir(dir);
+    return entries
+      .filter((f) => f.endsWith(".mdx"))
+      .map((f) => ({ slug: f.replace(/\.mdx$/, "") }));
+  } catch {
+    return [];
+  }
+}
 
 /* Assets are inlined as base64 strings in ./og-assets-inline.ts so
  * they ship inside the JS bundle of this route. Previous attempts at
