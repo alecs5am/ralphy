@@ -7,7 +7,7 @@ Extracted from `workspace/projects/analog-horror-fridge-001/logs/generations.jso
 | Phase | Min-viable run | Source-project actual | Why source overspent |
 |---|---|---|---|
 | Image — style prototype (1 shot) | $0.15 | $1.00+ | Iterated 5 wrong-style gpt-5.4 prototypes before passing a `--ref` from the reference video |
-| Image — locked batch (9 sibling icons) | $1.35 | $1.95 | One wrong-style batch on gemini ($1.50 sunk) before user said "не пиксельные" |
+| Image — locked batch (9 sibling icons) | $1.35 | $1.95 | One wrong-style batch on gemini ($1.50 sunk) before user said "not pixel-art" |
 | Image — extra attempts after style 90% there | $0.00 | $0.30 | 2 "almost right" tweaks |
 | Voiceover (10 lines, 1-3 takes) | $0 (sub) | $0 | Cap |
 | SFX (13-17 clips + climax growl variants) | $0 (sub) | $0 | Cap |

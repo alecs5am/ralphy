@@ -226,24 +226,6 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 
 ---
 
-## G. Profile share
-
-### G1. "Export my profile"
-
-**Utterance:**
-- "export my profile <nick>", "share my templates"
-
-**Flow:** `ralphy profile export <nick>` → `profiles/<nick>/` with `PROFILE.md` + templates + references + projects (no renders).
-
-### G2. "Import <nick>"
-
-**Utterance:**
-- "pull profile <nick>", "import <nick> additively"
-
-**Flow:** `ralphy profile import <nick>` (additive). Use `--overwrite` if there are conflicts.
-
----
-
 ## Coverage check
 
 After every major change to skills or the CLI, walk this file and confirm all examples still hold. If an utterance isn't covered, either add it, or document it as explicit out-of-scope.

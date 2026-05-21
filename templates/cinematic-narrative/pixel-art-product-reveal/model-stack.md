@@ -114,7 +114,7 @@ ralphy generate video \
 
 ### Why seedance over kling-pro (refined rule from playdate-pixel-001 #7)
 
-For PHOTOREAL HAND + camera motion (scene-03 180° orbit), the user explicitly compared the two takes: kling-pro single-frame "сделал ещё хуже". Seedance multi-frame produced the cleaner orbit. The flipper postmortem rule "real human faces → kling-pro" applies to **expression-only animation on a tight portrait**, not bodies-in-motion + camera moves.
+For PHOTOREAL HAND + camera motion (scene-03 180° orbit), the user explicitly compared the two takes: kling-pro single-frame "made it even worse". Seedance multi-frame produced the cleaner orbit. The flipper postmortem rule "real human faces → kling-pro" applies to **expression-only animation on a tight portrait**, not bodies-in-motion + camera moves.
 
 **Refined rule:** seedance is the default for everything in this template. Kling-pro single-frame is reserved for tight-portrait expression-only acting — which this template has zero of.
 

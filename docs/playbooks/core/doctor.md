@@ -96,16 +96,7 @@ ralphy doctor
 ```
 Should return `blockers: []`.
 
-### Step 6 — Optional starter profile
-```bash
-ralphy profile import ralphy-showcase
-```
-Additive — pulls references and example projects from a real workspace. The repo's `templates/` already ships the canonical pack (soviet-nostalgic, ai-vegetables, talking-head-rant, before-after-product, talking-character) — no profile import needed for those.
-
-> "Pulled starter pack: N references, M example projects.
-> Try 'make me a vegetable video' for the cold-start template flow."
-
-### Step 7 — Done
+### Step 6 — Done
 
 2-3 concrete first actions:
 - "Make AI vegetables about <topic>" (template flow)

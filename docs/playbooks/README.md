@@ -8,7 +8,7 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 | [scenarist.md](scenarist.md) | "write a script", "make a video about X", "rework scene 3", "rewrite hook", "shorten / lengthen", scenario feedback |
 | [art-director.md](art-director.md) | "generate prompts / assets", "make images / video / VO / music", "regenerate scene-XX", model swap, A/B variants, cost preview |
 | [editor.md](editor.md) | "compose the video", "render", "captions", "transitions", "audio mix", "final cut", "preview" |
-| [producer.md](producer.md) | "make video end-to-end", batch (N≥3), "save as template", "review batch", profile export/import |
+| [producer.md](producer.md) | "make video end-to-end", batch (N≥3), "save as template", "review batch" |
 | [core.md](core.md) | "set up", "ralphy doctor", "nothing works", "read logs", any ralphy CLI usage question |
 | [ralphy-install.md](ralphy-install.md) | Fresh machine, `which ralphy` empty, "install ralphy" |
 | [remotion.md](remotion.md) | Writing or editing Remotion code (compositions, components, ffmpeg post) |

@@ -5,7 +5,6 @@ description: >-
   Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness / dead-air, caption density, and per-scene visual analysis. Produces an actionable report (eval.json + eval-report.md) sized for a downstream fixer agent.
   USE WHEN the user asks to "evaluate / score / grade / review / QA / check quality of" a rendered video, asks "is this video good?", drops an mp4 path with no other instruction, mentions "find issues / problems / artifacts", asks for retention or scroll-stop assessment, or has just rendered something and wants verification before publishing.
   TRIGGER (EN): "evaluate this video", "score the render", "grade the mp4", "review the final cut", "QA this video", "is this ready to ship", "what's wrong with this video", "find issues in <path.mp4>", "audit the video", "scene-by-scene breakdown", "retention check", "quality gate".
-  TRIGGER (RU): "оцени", "оцени рендер", "проверь видео", "что не так с видео", "найди косяки", "разбор рендера", "готово к публикации", "финальный аудит", "оценка качества".
   See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 

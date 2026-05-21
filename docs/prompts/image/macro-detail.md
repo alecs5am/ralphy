@@ -1,12 +1,12 @@
 # Mode: macro-detail
 
-Extreme close-up. Текстура, шиммер, капли, плотность, surface treatment — то что хочется потрогать. Канонический формат для beauty (тональник, помада), drinks (condensation), skincare (drop), packaging (emboss/foil).
+Extreme close-up. Texture, shimmer, drops, density, surface treatment — what you want to touch. Canonical format for beauty (foundation, lipstick), drinks (condensation), skincare (drop), packaging (emboss/foil).
 
 ## When to use
 
-- Юзер просит "макро", "текстура", "шиммер", "капли", "extreme close-up", "feel the texture".
-- Цель — sensory seduction. Это hero-shot для motion-graphic intro или ad hook.
-- Если нужен общий план продукта в руке — иди в [`closeup-with-person.md`](closeup-with-person.md).
+- User asks "macro", "texture", "shimmer", "drops", "extreme close-up", "feel the texture".
+- Goal — sensory seduction. This is a hero-shot for motion-graphic intro or ad hook.
+- If a general view of the product in hand is needed — go to [`closeup-with-person.md`](closeup-with-person.md).
 
 ## Master template (slot-fill)
 
@@ -23,7 +23,7 @@ shallow depth of field, {{bokeh_color}} bokeh background, shot on
 ### Example 1 — Lip Gloss Wand Macro
 > Extreme close-up macro product shot of a lip gloss wand with visible shimmer texture and glossy highlights, shallow depth of field, creamy bokeh background in soft beige, shot on Canon R5 with 100mm macro lens, f/4, ultra-realistic liquid texture, high resolution beauty photography --ar 4:5
 
-- Source: media.io (#6) + reference seed по запросу
+- Source: media.io (#6) + reference seed on demand
 - Aspect: 4:5
 - Best for: lip gloss / serum / liquid beauty
 
@@ -53,7 +53,7 @@ shallow depth of field, {{bokeh_color}} bokeh background, shot on
 
 - Source: media.io (#13)
 - Aspect: 4:5
-- Best for: beverages / energy drinks / "fresh" моменты
+- Best for: beverages / energy drinks / "fresh" moments
 
 ## Slot vocabulary
 
@@ -69,14 +69,14 @@ shallow depth of field, {{bokeh_color}} bokeh background, shot on
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Лучше держит микро-детали, типографику на упаковке, мелкие highlights.
-- Для liquid / splash моментов с физикой движения — обе модели работают, но gpt-image-2 даёт чище "frozen motion" без артефактов.
-- Если нужно совмещать с другим референсным шотом продукта (consistency через несколько макро) — `--ref` обязателен.
+- **Default — `openai/gpt-5.4-image-2`**. Better holds micro-details, typography on packaging, small highlights.
+- For liquid / splash moments with motion physics — both models work, but gpt-image-2 gives cleaner "frozen motion" without artifacts.
+- If you need to combine with another reference shot of the product (consistency across several macros) — `--ref` is mandatory.
 
 ## Caveats
 
-- **Aperture matters** — f/2.8 даёт max bokeh, но почти ничего в фокусе кроме одной точки. Для рекламы продукта обычно f/4-f/5.6 — достаточно cinematic bokeh, но лейбл/верх продукта чёткие.
-- **"Frozen motion"** для splash — обязательно `dramatic strobe lighting, frozen motion, high-speed flash look`. Иначе модель размажет.
-- **Macro lens lie** — в реальности 50mm не делает true macro. Но для AI-промпта 100mm/105mm macro работает как стилистический ярлык: модель понимает "extreme close-up".
-- **Условие "label sharp and readable"** в макро — критично; без него модель часто блюрит лейбл вместе с фоном.
-- **Background colour cohesion** — bokeh_color должен совпадать с brand palette продукта, иначе кадр выглядит несвязным.
+- **Aperture matters** — f/2.8 gives max bokeh, but almost nothing in focus except one point. For product advertising usually f/4-f/5.6 — enough cinematic bokeh, but label/top of product clear.
+- **"Frozen motion"** for splash — mandatory `dramatic strobe lighting, frozen motion, high-speed flash look`. Otherwise the model will blur it.
+- **Macro lens lie** — in reality 50mm does not make true macro. But for AI-prompt 100mm/105mm macro works as a stylistic label: the model understands "extreme close-up".
+- **The condition "label sharp and readable"** in macro — critical; without it the model often blurs the label along with the background.
+- **Background colour cohesion** — bokeh_color must match the product's brand palette, otherwise the frame looks incoherent.

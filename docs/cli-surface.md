@@ -17,7 +17,7 @@
 | `ralphy --version` / `-v` | today | — | Print binary version |
 | `ralphy --help` | today | — | Top-level help |
 | `ralphy help <command>` | today | nested walker | Walks nested help |
-| `ralphy setup` | today (hardening at `01.04`) | `[-y] [--openrouter-key K] [--elevenlabs-key K] [--keys-from-env] [--project-dir D] [--import-profile P] [--no-verify] [--allow-unverified] [--no-skill-install]` | First-time wizard. Validates keys with live probes. On `v1.0` ends by offering to install the agent skill bundle (`01.09.06`). |
+| `ralphy setup` | today (hardening at `01.04`) | `[-y] [--openrouter-key K] [--elevenlabs-key K] [--keys-from-env] [--project-dir D] [--no-verify] [--allow-unverified] [--no-skill-install]` | First-time wizard. Validates keys with live probes. On `v1.0` ends by offering to install the agent skill bundle (`01.09.06`). |
 | `ralphy status` | today | `[-p]` | Ambient state: project, keys, daemon, queue, install mode |
 | `ralphy doctor` | today (hardening at `01.04.03`) | `[-p]` | Env health: bun / ffmpeg / yt-dlp / keys / workspace / install mode |
 | `ralphy new "<brief>"` | v1.0 | `[--id <slug>] [--brand <slug>] [--persona <slug>] [--template <slug>]` | Casual on-ramp. Creates project under `~/.ralphy/projects/<id>/` (`01.09.01`). |
@@ -67,7 +67,6 @@ All share: `--project <id>`, `--slot <slug>`, `--dry-run`, `--cref <r>`, `--sref
 | `ralphy asset` | today | per-slot asset management. `ralphy asset promote <project> <slot> <version>` (v1.0 per `05.03.02`). |
 | `ralphy workspace` | today | `workspace status`, `workspace reindex` (v1.0 per `05.01.02`), `workspace migrate-to-home` (v1.0-stretch per `01.09.08`), `workspace migrate-gen-log` (v1.0 per `10.01.02`). |
 | `ralphy config` | today | `config set <k> <v>`, `config get <k>`, `config list`. Global at `~/.ralphy/config.json` (v1.0 per `01.09.02`). |
-| `ralphy profile` | today | `profile export <name>`, `profile import <tarball>` (round-trip per `05.06`). |
 | `ralphy memory` | v1.0 | `memory add "<text>" [--kind <k>] [--scope <s>]`, `memory list`, `memory show <slug>`, `memory edit <slug>`, `memory remove <slug>`, `memory clear --confirm`, `memory export`, `memory import` (per `05.06A`). |
 
 ---
