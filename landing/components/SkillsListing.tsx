@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { skills, type Namespace, type Skill } from "@/lib/skills-data";
 
@@ -63,14 +63,21 @@ export function SkillsListing() {
  *   • popLayout — exiting cards are immediately removed from the
  *     flow (positioned absolutely by framer-motion) so remaining
  *     cards can reflow without waiting for the exit to finish.
- *   • layout prop on each card — drives the reflow with a snappy
- *     spring (no stagger; cascading delays were what caused the
- *     "choppy" feel when many rows shifted at once).
- *   • Separate transitions per property — exit is opacity-only and
- *     fast (160ms tween, GPU); enter is opacity + small y on a
- *     short ease-out; layout uses a tight spring.
- *   • No willChange on the card itself — the layout animation
- *     handles its own transform optimisation. */
+ *     CRITICAL: this requires the AnimatePresence parent to have
+ *     `position: relative` (set on .skill-list in globals.css)
+ *     so the popped-out exiting elements stay positioned within
+ *     the list bounds. Without that, exiting cards fly relative
+ *     to <body>, which makes the surviving card appear to jump
+ *     down then up as the layout snaps around the rogue absolute.
+ *   • SkillWideCard must use forwardRef so framer-motion can
+ *     attach its ref to the underlying DOM node — without it,
+ *     the layout measurement is racy and the surviving card's
+ *     spring overshoots / undershoots its target.
+ *   • No stagger. Cascading delays multiplied the visual choppy-
+ *     ness when many rows shifted simultaneously.
+ *   • Transitions per property — opacity is a quick GPU fade,
+ *     layout uses a tight spring, no y on the card itself (the
+ *     spring handles vertical movement on its own). */
 const LAYOUT_TRANSITION = {
   type: "spring" as const,
   stiffness: 380,
@@ -78,21 +85,22 @@ const LAYOUT_TRANSITION = {
   mass: 0.6,
 };
 
-function SkillWideCard({ s }: { s: Skill }) {
-  return (
+const SkillWideCard = forwardRef<HTMLAnchorElement, { s: Skill }>(
+  function SkillWideCard({ s }, ref) {
+    return (
     <motion.a
+      ref={ref}
       layout
       href={`${REPO_BASE}.agents/skills/${s.slug}/SKILL.md`}
       target="_blank"
       rel="noopener"
       className="skill-wide"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{
         layout: LAYOUT_TRANSITION,
-        opacity: { duration: 0.18, ease: "easeOut" },
-        y: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        opacity: { duration: 0.2, ease: "easeOut" },
       }}
     >
       <div className="skill-wide-head">
@@ -130,5 +138,6 @@ function SkillWideCard({ s }: { s: Skill }) {
         </aside>
       </div>
     </motion.a>
-  );
-}
+    );
+  }
+);
