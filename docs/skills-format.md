@@ -153,9 +153,9 @@ analysis, publish-readiness check… USE WHEN the user asks to "evaluate this
 video", "score the render", "grade the mp4", "review the final cut", "QA this
 video", "is this ready to ship", "what's wrong with this video", "find issues
 in <path.mp4>", "audit the video", "scene-by-scene breakdown", "retention
-check", "quality gate", "оцени", "оцени рендер", "проверь видео", "что не так
-с видео", "найди косяки", "разбор рендера", "готово к публикации", "финальный
-аудит", "оценка качества"…
+check", "quality gate", "rate it", "rate the render", "check the video", "what's
+wrong with the video", "find the issues", "render breakdown", "ready to publish",
+"final audit", "quality assessment"…
 ```
 
 The bad example happens when descriptions get treated as a search index. The

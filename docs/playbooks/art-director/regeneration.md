@@ -23,7 +23,7 @@ Why this works: Kling (and seedance, and veo) have strong source-archetype prior
 | Music ToS rejection | the API's `prompt_suggestion` verbatim (now structured per Fix #8) | Drop named refs, use genre+tempo only |
 | 400 base64 on kling `--last-frame` | the auto-C2PA-strip should catch (commit a64e94b) | Fall back to seedance multi-frame |
 
-The CLI now auto-archives the existing slot file to `<slot>.v{N}.<ext>` on every regen (commit 753d2f7) — "try once more then redesign" is risk-free at the file-system level. Pass `--force-overwrite` only on explicit "просто перепиши" from the user.
+The CLI now auto-archives the existing slot file to `<slot>.v{N}.<ext>` on every regen (commit 753d2f7) — "try once more then redesign" is risk-free at the file-system level. Pass `--force-overwrite` only on explicit "just overwrite it" from the user.
 
 Always surface the redesign to the user before generating: "Kling rendered the jar-near-cheek shot as 'applying powder compact' on both takes. Suggest redesigning to jar-at-arms-length, two-handed, with the dropper held above. Generate?"
 
@@ -38,7 +38,7 @@ Always surface the redesign to the user before generating: "Kling rendered the j
 3. Confirm with the user:
    - Updated prompt (or "same prompt, new seed/model").
    - Estimated cost (one line from MODELS.md).
-4. Run **`ralphy generate <kind>`** for this slot only. **Append-only**: the new file lands at `assets/<kind>/<slot>.v<N+1>.<ext>` (auto-incremented), the previous version is left on disk and stays referenced in `generations.jsonl`. Never pass `--overwrite` or hand-delete the old file — even if the user says "регенерируй", that is not consent to delete the previous artifact. Cleanup is a separate, explicit request (`ralphy project clean <id> --slot <slot>` once that verb exists, or user-typed `rm`).
+4. Run **`ralphy generate <kind>`** for this slot only. **Append-only**: the new file lands at `assets/<kind>/<slot>.v<N+1>.<ext>` (auto-incremented), the previous version is left on disk and stays referenced in `generations.jsonl`. Never pass `--overwrite` or hand-delete the old file — even if the user says "regenerate it", that is not consent to delete the previous artifact. Cleanup is a separate, explicit request (`ralphy project clean <id> --slot <slot>` once that verb exists, or user-typed `rm`).
    ```
    ralphy generate image --project <id> --slot <slot> --model <m> --prompt <p> [--ref <url>]
    ```

@@ -1,12 +1,12 @@
 # Mode: conceptual-product
 
-Сюрреал / CGI / left-field. Левитация, color gels, splash freeze, neon reflections, paper-cut shadows. Это hook-shot для соцсетей или campaign hero — продукт превращается в art-piece.
+Surreal / CGI / left-field. Levitation, color gels, splash freeze, neon reflections, paper-cut shadows. This is a hook-shot for social networks or campaign hero — the product turns into an art-piece.
 
 ## When to use
 
-- Юзер просит "сюрреал", "CGI", "левитация", "всплеск", "splash freeze", "neon", "color gels", "creative art shot".
-- Цель — scroll-stop attention для feed-рекламы или campaign launch.
-- Если просто чистый studio packshot — иди в [`product-shot.md`](product-shot.md).
+- User asks "surreal", "CGI", "levitation", "splash", "splash freeze", "neon", "color gels", "creative art shot".
+- Goal — scroll-stop attention for feed advertising or campaign launch.
+- If just a clean studio packshot — go to [`product-shot.md`](product-shot.md).
 
 ## Master template (slot-fill)
 
@@ -30,7 +30,7 @@ Commercial product photography of {{product}} {{conceptual_treatment}},
 
 - Source: media.io (#13)
 - Aspect: 4:5
-- Best for: beverages, energy drinks, "fresh from the fridge" моменты
+- Best for: beverages, energy drinks, "fresh from the fridge" moments
 
 ### Example 3 — Neon Night Tech
 > Commercial product photo of a smartphone on a wet reflective surface with neon city light reflections (blue and pink), moody night ambience, crisp screen glow, shot on Sony A1 with 35mm, f/2.8, cinematic contrast, high detail, realistic reflections and raindrops --ar 4:5
@@ -51,7 +51,7 @@ Commercial product photography of {{product}} {{conceptual_treatment}},
 
 - Source: rephrase-it.com (#3)
 - Aspect: 1080×1350 (portrait)
-- Best for: brand-coloured studio art piece — копируй и заполняй
+- Best for: brand-coloured studio art piece — copy and fill
 
 ### Example 6 — Pastel Gradient Backdrop
 > Photorealistic product photography of a minimalist cosmetics compact on a pastel gradient backdrop (peach to lavender), soft studio lighting with smooth shadow, gentle specular highlights, centered composition with negative space for text, shot on Nikon Z8 with 85mm lens, f/7.1, clean modern ad aesthetic --ar 4:5
@@ -74,15 +74,15 @@ Commercial product photography of {{product}} {{conceptual_treatment}},
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Лучше держит "frozen motion" без артефактов, точнее color gels, чище typography (нужно для can / bottle labels).
-- Для splash / liquid / smoke effects обе модели работают, но gpt даёт чище physics.
-- Если делаешь серию (5 разных concept-shots одного продукта) — gemini-3-pro с `--ref product.png` лучше держит consistency продукта между разными conceptual treatments.
+- **Default — `openai/gpt-5.4-image-2`**. Better holds "frozen motion" without artifacts, more accurate color gels, cleaner typography (needed for can / bottle labels).
+- For splash / liquid / smoke effects both models work, but gpt gives cleaner physics.
+- If you are doing a series (5 different concept-shots of one product) — gemini-3-pro with `--ref product.png` better holds product consistency across different conceptual treatments.
 
 ## Caveats
 
-- **Color gel coherence** — `cyan rim + magenta fill` должно совпадать с brand colors. Иначе кадр выглядит как стоковая разноцветная мешанина. Если у тебя brand colors — указывай их в HEX.
-- **Splash physics** — единственный самый сложный paragraph. `dynamic water splash with frozen motion, dramatic strobe lighting, f/11 high-speed flash look` — это формула которая работает. Без `frozen motion` и `f/11` модель часто размазывает.
-- **No text on object** — `crisp typography` в промпте означает чёткий лейбл продукта, не наложенный текст. Никогда не проси модель писать headline на фоне.
-- **Neon overuse** — neon рefllections выглядят свежо в одном кадре, дешево в десяти подряд. Используй для hero shot, не для каталога.
-- **Levitation drop shadow** — модель часто забывает добавить shadow под левитирующим продуктом, и он выглядит как cutout. Обязательно `with soft realistic drop shadow 2-3 cm below`.
-- **Conceptual ≠ surreal-fake** — `surreal CGI-style levitating` это один полюс, `dreamlike Pinterest aesthetic with floating petals` это другой. Будь точным в стиле, иначе модель усреднит в "abstract pretty".
+- **Color gel coherence** — `cyan rim + magenta fill` must match brand colors. Otherwise the frame looks like a stock multicolored mess. If you have brand colors — specify them in HEX.
+- **Splash physics** — the single most difficult paragraph. `dynamic water splash with frozen motion, dramatic strobe lighting, f/11 high-speed flash look` — this is the formula that works. Without `frozen motion` and `f/11` the model often blurs.
+- **No text on object** — `crisp typography` in the prompt means a clear product label, not overlaid text. Never ask the model to write a headline on the background.
+- **Neon overuse** — neon reflections look fresh in one frame, cheap in ten in a row. Use for hero shot, not for catalog.
+- **Levitation drop shadow** — the model often forgets to add a shadow under a levitating product, and it looks like a cutout. Mandatory `with soft realistic drop shadow 2-3 cm below`.
+- **Conceptual ≠ surreal-fake** — `surreal CGI-style levitating` is one pole, `dreamlike Pinterest aesthetic with floating petals` is another. Be precise in style, otherwise the model averages into "abstract pretty".

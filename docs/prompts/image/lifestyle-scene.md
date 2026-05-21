@@ -1,13 +1,13 @@
 # Mode: lifestyle-scene
 
-Продукт в реальной среде. Кухня, зал, полка в магазине, кафе, рабочий стол — место где продукт реально используют. Цель — продать атмосферу и эмоцию, не только спеки.
+Product in a real environment. Kitchen, gym, store shelf, cafe, desk — the place where the product is actually used. Goal — sell the atmosphere and emotion, not just specs.
 
 ## When to use
 
-- Юзер просит "lifestyle", "в реальной среде", "на кухне / в зале / на полке", "in use".
-- Цель — emotional context для рекламы / соцсетей / DTC PDP.
-- Если нужно крупно показать руки/использование — иди в [`closeup-with-person.md`](closeup-with-person.md).
-- Если нужно showroom-studio — иди в [`product-shot.md`](product-shot.md).
+- User asks "lifestyle", "in real environment", "in the kitchen / gym / on the shelf", "in use".
+- Goal — emotional context for advertising / social networks / DTC PDP.
+- If you need to show hands/usage up-close — go to [`closeup-with-person.md`](closeup-with-person.md).
+- If you need showroom-studio — go to [`product-shot.md`](product-shot.md).
 
 ## Master template (slot-fill)
 
@@ -40,21 +40,21 @@ extra products, no warped perspective, no surreal props.
 
 - Source: letsenhance.io (Lifestyle #5)
 - Aspect: 4:5 / 1:1
-- Best for: универсальный baseline для любого товара
+- Best for: universal baseline for any product
 
 ### Example 2 — Minimal Interior
 > Place the [product] in a modern minimal interior, clean composition, neutral styling, realistic daylight, the product remains the hero, no clutter, editorial e-commerce photography.
 
 - Source: letsenhance.io (Lifestyle #6)
 - Aspect: 4:5
-- Best for: домашний декор, мебель, smart-home
+- Best for: home decor, furniture, smart-home
 
 ### Example 3 — Outdoor Lifestyle
 > Place the [product] in an outdoor setting that matches its use, natural light, realistic environment, accurate texture and color, product clearly visible, premium lifestyle product photography.
 
 - Source: letsenhance.io (Lifestyle #7)
 - Aspect: 16:9
-- Best for: спорт, аутдор, путешествия, drinks
+- Best for: sports, outdoor, travel, drinks
 
 ### Example 4 — Desktop Context
 > Place the [product] in a realistic desk setup with complementary objects, clean arrangement, soft window light, keep the product as the focal point, modern commercial photography.
@@ -68,35 +68,35 @@ extra products, no warped perspective, no surreal props.
 
 - Source: rephrase-it.com (#2)
 - Aspect: 16:9
-- Best for: full-production replica — копируй и заполняй
+- Best for: full-production replica — copy and fill
 
 ### Example 6 — Soft Shadow Play (Cozy Home)
 > Photorealistic product photo of a minimalist candle jar with soft shadow patterns cast through sheer curtains, warm neutral background, cozy lifestyle lighting, subtle grain, shot on Fujifilm GFX 100S with 80mm, f/5.6, editorial home aesthetic, realistic glass reflections --ar 4:5
 
 - Source: media.io (#7)
 - Aspect: 4:5
-- Best for: свечи, диффузоры, candles, home fragrance
+- Best for: candles, diffusers, candles, home fragrance
 
 ### Example 7 — Natural Sunbeam Shelf
 > Photorealistic product shot of a glass serum dropper bottle on a light wood shelf with natural sunbeam streaks, dust motes subtly visible, warm morning mood, shot on Sony A7R V with 85mm, f/4.5, realistic refractions, soft background blur, lifestyle ecommerce hybrid --ar 4:5
 
 - Source: media.io (#10)
 - Aspect: 4:5
-- Best for: skincare с lifestyle нотой, шкаф / vanity полка
+- Best for: skincare with a lifestyle note, cabinet / vanity shelf
 
 ### Example 8 — Eco Brand Craft
 > Professional product photography of a sustainable soap bar in kraft paper packaging, placed on textured linen fabric with dried botanical accents, soft daylight from right, natural shadows, warm earthy color grading, shot on Canon R5 with 50mm, f/5.6, organic lifestyle aesthetic --ar 4:5
 
 - Source: media.io (#12)
 - Aspect: 4:5
-- Best for: эко-бренды, soap, candles, organic
+- Best for: eco-brands, soap, candles, organic
 
 ### Example 9 — Kitchen Counter
 > Photorealistic product photography of a premium olive oil bottle on a bright kitchen counter, subtle props (wood board, lemon slice, linen towel) arranged minimally, soft window light, natural shadows, shot on Sony A7IV with 50mm, f/4, warm lifestyle branding look --ar 4:5
 
 - Source: media.io (#15)
 - Aspect: 4:5
-- Best for: food, кулинария, beverages
+- Best for: food, culinary, beverages
 
 ## Slot vocabulary
 
@@ -114,13 +114,13 @@ extra products, no warped perspective, no surreal props.
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Photoreal natural light в нем выходит чище чем в Gemini, лучше handling реальных интерьеров.
-- Если хочешь больше "магии" / drama / surreal nightside vibe — `google/gemini-3-pro-image-preview` иногда даёт более кинематографичный свет.
-- Для consistency через сцены (тот же продукт в 5 разных средах) — gemini с `--ref product.png` на каждой генерации.
+- **Default — `openai/gpt-5.4-image-2`**. Photoreal natural light comes out cleaner in it than in Gemini, better handling of real interiors.
+- If you want more "magic" / drama / surreal nightside vibe — `google/gemini-3-pro-image-preview` sometimes gives a more cinematic light.
+- For consistency across scenes (same product in 5 different environments) — gemini with `--ref product.png` on each generation.
 
 ## Caveats
 
-- **Props overload** — самая частая ошибка. "Minimal set dressing" и "no clutter" должны остаться в промпте, иначе модель заливает кадр случайным барахлом.
-- **Lighting honesty** — если просишь "natural window light", не пиши одновременно "dramatic studio strobes" — модель усреднит во что-то фальшивое.
-- **Logo accuracy** — для lifestyle часто промпт включает `keep the exact product design, branding, and proportions`. Если ты делаешь real brand — обязательно дай `--ref` с реальным флаконом, иначе модель додумает.
-- Для русскоязычных брендов с кириллическим лейблом — пиши промпт на английском, но в `material/finish` опиши лейбл буквально ("Cyrillic brand wordmark on front, white sans-serif"); gpt-5.4-image-2 ловит лучше.
+- **Props overload** — the most common mistake. "Minimal set dressing" and "no clutter" must remain in the prompt, otherwise the model fills the frame with random junk.
+- **Lighting honesty** — if you ask for "natural window light", don't write "dramatic studio strobes" at the same time — the model will average into something fake.
+- **Logo accuracy** — for lifestyle, the prompt often includes `keep the exact product design, branding, and proportions`. If you're doing a real brand — mandatory `--ref` with a real bottle, otherwise the model will make it up.
+- For Russian-language brands with a Cyrillic label — write the prompt in English, but in `material/finish` describe the label literally ("Cyrillic brand wordmark on front, white sans-serif"); gpt-5.4-image-2 catches it better.

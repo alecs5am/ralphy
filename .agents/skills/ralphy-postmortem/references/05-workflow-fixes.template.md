@@ -73,7 +73,7 @@ A table linking back to `01-chat-history.md`'s end-of-session audit. Each row is
 
 | Artifact deleted/overwritten | Turn | What triggered it | How to prevent | Linked fix |
 |---|---|---|---|---|
-| `assets/videos/scene-03.mp4` | 14 | "регенерируй scene-03" — agent overwrote instead of writing `.v2.` | Change `art-director/regeneration.md` L14 to mandate `.vN.ext` (already done in this PR? mark ✅) | #<n> above |
+| `assets/videos/scene-03.mp4` | 14 | "regenerate scene-03" — agent overwrote instead of writing `.v2.` | Change `art-director/regeneration.md` L14 to mandate `.vN.ext` (already done in this PR? mark ✅) | #<n> above |
 | ... | ... | ... | ... | ... |
 
 ## Suggested doc PRs (extracted from fix rows)
@@ -90,7 +90,7 @@ If the routing in AGENTS.md sent the agent to the wrong playbook, or a useful sk
 
 | Should have fired | Actually fired (or didn't) | Trigger that was missing | Fix |
 |---|---|---|---|
-| `ralph-evaluator` after `ralphy render` | did not fire | description doesn't match "ну как, ок?" — needs Russian trigger | Add Russian phrases to ralph-evaluator description |
+| `ralph-evaluator` after `ralphy render` | did not fire | description doesn't match "how is it, ok?" — needs a casual-check trigger | Add casual-check phrases to ralph-evaluator description |
 | ... | ... | ... | ... |
 
 ---

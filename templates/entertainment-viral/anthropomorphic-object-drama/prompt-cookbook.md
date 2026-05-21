@@ -237,6 +237,6 @@ Model: `elevenlabs/scribe_v1` on the FINAL mixed audio (concat of all 7 Veo clip
 
 Render: pop ONE word at a time at the emotional peak. Not every word, only the strongest in each line. Inter 900 uppercase, white `#FFFFFF` fill, 5px black `#000000` stroke, ~104px, anchored bottom-center y ≈ 1380, 700ms hold + 100ms fade. Spring scale-in.
 
-No LLM prompt needed for caption generation itself — the heuristic is: per dialogue line, manually choose the strongest emotional word in your scenario's `dialogue[].text`, and only pop that one. The source baked these in `scenario.json:scenes[].baked_caption` per scene (`СЕМЬЯ`, `ОСТАНЬСЯ`, `СЛАДКИЙ`, `ПОМАДА`, `ДЕСЯТЬ ЛЕТ`, `ПРОСТИ`, `МОРКОВКА`).
+No LLM prompt needed for caption generation itself — the heuristic is: per dialogue line, manually choose the strongest emotional word in your scenario's `dialogue[].text`, and only pop that one. The source baked these in `scenario.json:scenes[].baked_caption` per scene (e.g. `FAMILY`, `STAY`, `SWEET`, `LIPSTICK`, `TEN YEARS`, `SORRY`, `CARROT`).
 
-If language is non-Latin (cyrillic, etc.), set captions in the editor stage only — never ask Veo to render them in-clip.
+If language is non-Latin, set captions in the editor stage only — never ask Veo to render them in-clip.

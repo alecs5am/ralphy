@@ -6,7 +6,7 @@
 
 A **vibe-style** template — prompt cookbook + hooks + model stack + worked variants. NO Remotion composition included (the source project's Remotion at `src/videos/tokyo-y2k-001/` is project-specific; consumers hand-author their own using the patterns in `TEMPLATE.md` → "Composition tricks").
 
-Crystallized from `workspace/projects/tokyo-y2k-001/` (user rating 8.5/10, *"очень эстетично приятно видео получилось"*).
+Crystallized from `workspace/projects/tokyo-y2k-001/` (user rating 8.5/10, *"the video turned out very aesthetically pleasing"*).
 
 ## When to use this template
 

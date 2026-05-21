@@ -45,7 +45,7 @@ The protocol:
 3. Generate one beat at a time → wait for user feedback → next beat.
 4. Final eval gate via `/ralphy-evaluator` before declaring done.
 
-User override: "просто сгенери / just go" switches to batch mode for that project. Note it in memory; don't generalize.
+User override: "just go" switches to batch mode for that project. Note it in memory; don't generalize.
 
 ## Rule 5 — Append-only is now enforced in CLI, not just documented
 
