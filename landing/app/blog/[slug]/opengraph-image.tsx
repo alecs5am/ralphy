@@ -42,25 +42,29 @@ export const contentType = "image/png";
  * edge and node; we pick node for the simpler font loading path. */
 export const runtime = "nodejs";
 
-/* Assets live in ./og-assets/ next to this route file. Loading via
- * `new URL(..., import.meta.url)` is the only path that works
- * reliably across local dev AND Vercel serverless functions:
- * `process.cwd() + "/public"` does not resolve to the deployed
- * function's filesystem (public/ isn't bundled into the function),
- * so `path.join` reads will 500 in production. */
-function assetUrl(rel: string): URL {
-  return new URL(`./og-assets/${rel}`, import.meta.url);
-}
-
+/* Assets live in ./og-assets/ next to this route file. They're loaded
+ * via `new URL("./og-assets/...", import.meta.url)` which is the only
+ * path that works on Vercel — `process.cwd() + "/public"` doesn't
+ * resolve in the serverless function (public/ isn't bundled into the
+ * function bundle), and a dynamic template `./og-assets/${name}` is
+ * opaque to Next's bundler so it won't include those files either.
+ * Each URL must be a static string literal for Next to statically
+ * track and copy the binary into the function output. */
 async function loadFonts() {
   /* Satori (under next/og) only accepts raw OpenType / TTF — it rejects
-   * woff2 with "Unsupported OpenType signature wOF2". We ship TTF copies
-   * alongside the woff2 fonts used by the live site, decompressed once
-   * via `fonttools ttLib.woff2 decompress`. */
+   * woff2 with "Unsupported OpenType signature wOF2". TTF copies live
+   * alongside this route, decompressed from the site's woff2 once via
+   * `fonttools ttLib.woff2 decompress`. */
   const [diatypeMonoBold, diatypeRegular, fragmentMono] = await Promise.all([
-    readFile(assetUrl("AWSDiatypeRoundedSemi-Mono-Bold.ttf")),
-    readFile(assetUrl("AWSDiatype-Regular.ttf")),
-    readFile(assetUrl("FragmentMono-Regular.ttf")),
+    readFile(
+      new URL("./og-assets/AWSDiatypeRoundedSemi-Mono-Bold.ttf", import.meta.url),
+    ),
+    readFile(
+      new URL("./og-assets/AWSDiatype-Regular.ttf", import.meta.url),
+    ),
+    readFile(
+      new URL("./og-assets/FragmentMono-Regular.ttf", import.meta.url),
+    ),
   ]);
   return [
     { name: "Diatype Mono", data: diatypeMonoBold, style: "normal" as const, weight: 700 as const },
@@ -70,10 +74,12 @@ async function loadFonts() {
 }
 
 async function loadBgDataUri() {
-  /* Use the @2x asset for sharpness — Satori downscales to fit the
-   * 1200×630 canvas; starting from 2400×1260 keeps the edges crisp on
-   * platforms that re-encode at 2x density (Twitter, LinkedIn). */
-  const bytes = await readFile(assetUrl("blog-bg@2x.png"));
+  /* Starting from the 2x asset (2400×1260) keeps the edges crisp on
+   * platforms that re-encode at retina density (Twitter, LinkedIn).
+   * Satori downscales to fit the 1200×630 canvas. */
+  const bytes = await readFile(
+    new URL("./og-assets/blog-bg@2x.png", import.meta.url),
+  );
   return `data:image/png;base64,${bytes.toString("base64")}`;
 }
 
@@ -116,6 +122,31 @@ export default async function OgImage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  try {
+    return await render(params);
+  } catch (err) {
+    /* Asset load or Satori render failure — log loudly so Vercel
+     * Function logs surface the cause, then fall back to a blank
+     * amber card so social platforms see *something* instead of a
+     * 500 (Telegram / X / LinkedIn cache the bad result aggressively). */
+    console.error("[opengraph-image]", err);
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: 1200,
+            height: 630,
+            background: "#FFA630",
+            display: "flex",
+          }}
+        />
+      ),
+      size,
+    );
+  }
+}
+
+async function render(params: Promise<{ slug: string }>) {
   const { slug } = await params;
   const post = await readPost(slug);
 
