@@ -17,86 +17,16 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { mdxComponents } from "@/components/mdx";
 import { getDisplayStars } from "@/lib/data";
+import {
+  type Author,
+  formatDate,
+  readPost,
+  resolveAuthors,
+} from "@/lib/blog";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-type Author = { name: string; handle?: string };
-
-type Frontmatter = {
-  title?: string;
-  description?: string;
-  date?: string;
-  /** Single author (back-compat). Prefer `authors` for new posts. */
-  author?: string;
-  /** GitHub handle for single-author posts (back-compat). */
-  github?: string;
-  /** Multi-author byline. Each entry can be a bare handle ("alecs5am")
-   *  or "Display Name|handle" if you want a different display name. */
-  authors?: string[];
-  /** Category chip shown at the end of the byline. */
-  category?: string;
-};
-
 const CONTENT_DIR = path.join(process.cwd(), "content", "blog");
-
-// Slugs are file basenames. Refuse anything that would let us escape
-// the content dir or read non-MDX files.
-function isSafeSlug(slug: string): boolean {
-  return /^[a-z0-9][a-z0-9-]*$/.test(slug);
-}
-
-async function readPost(slug: string): Promise<{
-  source: string;
-  frontmatter: Frontmatter;
-} | null> {
-  if (!isSafeSlug(slug)) return null;
-  const file = path.join(CONTENT_DIR, `${slug}.mdx`);
-  let raw: string;
-  try {
-    raw = await fs.readFile(file, "utf8");
-  } catch {
-    return null;
-  }
-  return parseFrontmatter(raw);
-}
-
-// Minimal YAML-frontmatter parser. Supports flat `key: "value"` pairs
-// and `key: [..., ...]` JSON-array values — that's all blog posts need;
-// reaching for `gray-matter` would pull js-yaml and a transitive tree.
-function parseFrontmatter(raw: string): {
-  source: string;
-  frontmatter: Frontmatter;
-} {
-  if (!raw.startsWith("---\n")) {
-    return { source: raw, frontmatter: {} };
-  }
-  const end = raw.indexOf("\n---", 4);
-  if (end === -1) return { source: raw, frontmatter: {} };
-  const block = raw.slice(4, end);
-  const body = raw.slice(end + 4).replace(/^\n/, "");
-  const fm = {} as Record<string, unknown>;
-  for (const line of block.split("\n")) {
-    const m = line.match(/^([a-zA-Z_]+):\s*(.+)$/);
-    if (!m) continue;
-    const key = m[1]!;
-    let value: string = m[2]!.trim();
-    // Array — parse as JSON (handles ["a","b"], [1,2], etc).
-    if (value.startsWith("[") && value.endsWith("]")) {
-      try {
-        fm[key] = JSON.parse(value);
-        continue;
-      } catch {
-        /* fall through to string */
-      }
-    }
-    // Strip wrapping double-quotes.
-    if (value.startsWith('"') && value.endsWith('"')) {
-      value = value.slice(1, -1);
-    }
-    fm[key] = value;
-  }
-  return { source: body, frontmatter: fm as Frontmatter };
-}
 
 export async function generateStaticParams() {
   let entries: string[];
@@ -116,21 +46,24 @@ export async function generateMetadata({
   const { slug } = await params;
   const post = await readPost(slug);
   if (!post) return { title: "Not found · Ralphy" };
+  const title = post.frontmatter.title ?? slug;
+  const description = post.frontmatter.description;
   return {
-    title: `${post.frontmatter.title ?? slug} · Ralphy`,
-    description: post.frontmatter.description,
+    title: `${title} · Ralphy`,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      publishedTime: post.frontmatter.date,
+      authors: resolveAuthors(post.frontmatter).map((a) => a.name),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
-}
-
-function formatDate(iso: string | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
@@ -199,51 +132,10 @@ export default async function BlogPostPage({ params }: PageProps) {
   );
 }
 
-/* GitHub handle: 1–39 chars, alphanumeric or hyphen, can't start/end with
- * a hyphen, no consecutive hyphens. Matches GitHub's actual validation —
- * an invalid value is silently dropped so a typo'd frontmatter doesn't
- * link to a 404 profile or load a broken avatar. */
-const GH_HANDLE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
-function isValidHandle(h: string | undefined): h is string {
-  return typeof h === "string" && GH_HANDLE.test(h);
-}
-
-/* Resolve frontmatter author fields into a normalized list.
- *   • New: `authors: ["alecs5am"]` (preferred) or
- *          `authors: ["Display Name|alecs5am", ...]`
- *   • Back-compat: single `github: "alecs5am"` with optional `author: "..."`
- *
- * Each entry resolves to { name, handle? }. If `handle` is missing or
- * doesn't match GitHub's pattern we keep the name but skip the avatar /
- * profile link — the byline still renders, just plain. */
-function resolveAuthors(fm: Frontmatter): Author[] {
-  let raw: Array<{ name?: string; handle?: string }> = [];
-  if (Array.isArray(fm.authors) && fm.authors.length > 0) {
-    raw = fm.authors.map((entry) => {
-      const [a, b] = entry.split("|");
-      if (b) return { name: a!.trim(), handle: b.trim() };
-      return { name: a!.trim(), handle: a!.trim() };
-    });
-  } else if (fm.github || fm.author) {
-    raw = [{ name: fm.author ?? fm.github, handle: fm.github }];
-  }
-  return raw
-    .map((a) => ({
-      name: a.name,
-      handle: isValidHandle(a.handle) ? a.handle : undefined,
-    }))
-    .filter((a) => a.name || a.handle)
-    .map((a) => ({ name: a.name ?? a.handle!, handle: a.handle }));
-}
-
-/* Byline — one-line author row under the H1. Modeled on the PostHog
- * masthead pattern: small avatar(s) + display name(s), then date, then
- * an optional category chip. No plate, no bg — inline editorial row.
- *
- * If an author has a valid handle we render the avatar + a link to the
- * GitHub profile. Otherwise we render initials in a coloured disc and
- * skip the link — invalid handles never reach this point (resolveAuthors
- * strips them) but the no-handle branch also catches anonymous bylines. */
+/* Byline — one-line author row under the H1. Avatar(s) + display
+ * name(s), then date, then an optional category chip. If an author has
+ * a valid handle we render the avatar + a link to the GitHub profile;
+ * otherwise we render initials in a coloured disc and skip the link. */
 function Byline({
   authors,
   date,
@@ -264,9 +156,6 @@ function Byline({
           .join("");
         const avatar = (
           <span className="blog-byline-avatar">
-            {/* Initials are always rendered as the bottom layer so a
-                handle that 404s on GitHub still shows something
-                legible instead of an empty disc. */}
             <span className="blog-byline-initials" aria-hidden>
               {initials}
             </span>
