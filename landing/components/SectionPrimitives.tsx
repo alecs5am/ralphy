@@ -43,27 +43,3 @@ export function TerminalBlock({ title = "Terminal", lines }: { title?: string; l
   );
 }
 
-export function Duo({
-  reverse,
-  kicker,
-  title,
-  copy,
-  terminal,
-}: {
-  reverse?: boolean;
-  kicker?: ReactNode;
-  title: ReactNode;
-  copy: ReactNode;
-  terminal: ReactNode;
-}) {
-  return (
-    <div className={`duo ${reverse ? "reverse" : ""}`}>
-      <div className="copy-side">
-        {kicker && <span className="kicker">{kicker}</span>}
-        <h3>{title}</h3>
-        <p>{copy}</p>
-      </div>
-      <div className="term-side">{terminal}</div>
-    </div>
-  );
-}
