@@ -1703,21 +1703,86 @@ section { position: relative; padding-top: 80px; }
    clamp() degrades these on narrower viewports. */
 .blog-article { padding: 88px 0 128px; }
 .blog-article .container { max-width: 1020px; }
-.blog-header { margin-bottom: 32px; }
-.blog-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.16em;
+.blog-header { margin-bottom: 40px; }
+
+/* Page-level H1 — rendered from frontmatter.title, sits above the byline
+   row. Matches the .blog-body h1 sizing so an article with the title in
+   MDX vs in frontmatter looks identical. */
+.blog-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(40px, 4.6vw, 56px);
+  letter-spacing: -0.018em;
+  line-height: 1.06;
   text-transform: uppercase;
-  color: var(--vio);
-  margin: 0 0 14px;
+  margin: 0 0 22px;
+  color: var(--ink);
+  text-wrap: balance;
 }
-.blog-meta {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--mute);
+
+/* Byline — masthead row under the H1. Avatar(s) + name(s), date, then
+   an optional category chip. Inline editorial layout — no plate, no bg.
+   Modeled on the PostHog blog header. */
+.blog-byline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   margin: 0;
+}
+.blog-byline-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--ink);
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: opacity 160ms ease;
+}
+.blog-byline-author::before { content: none; } /* kill the chip-link arrow */
+.blog-byline-author:hover { opacity: 0.78; }
+.blog-byline-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-2);
+  flex-shrink: 0;
+}
+.blog-byline-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.blog-byline-name {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.blog-byline-date {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--mute);
   letter-spacing: 0.02em;
+}
+.blog-byline-category {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .blog-body {
