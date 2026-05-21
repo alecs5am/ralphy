@@ -50,8 +50,8 @@ export function SkillsListing() {
 
       <div className="skill-list">
         <AnimatePresence mode="popLayout" initial={false}>
-          {list.map((s) => (
-            <SkillWideCard key={s.slug} s={s} />
+          {list.map((s, i) => (
+            <SkillWideCard key={s.slug} s={s} index={i} />
           ))}
         </AnimatePresence>
       </div>
@@ -85,8 +85,18 @@ const LAYOUT_TRANSITION = {
   mass: 0.6,
 };
 
-const SkillWideCard = forwardRef<HTMLAnchorElement, { s: Skill }>(
-  function SkillWideCard({ s }, ref) {
+const SkillWideCard = forwardRef<HTMLAnchorElement, { s: Skill; index: number }>(
+  function SkillWideCard({ s, index }, ref) {
+    /* Per-state transition keeps the three motions distinct:
+     *   • enter — opacity + y, staggered by index so new cards
+     *     cascade in (visible motion even when no layout shift
+     *     fires for them)
+     *   • exit  — opacity-only and fast, no stagger so the list
+     *     reflow can start immediately
+     *   • layout — independent spring, fires only on the survivors
+     *     whose grid index changed (no stagger or it'd defeat the
+     *     purpose of the spring) */
+    const enterDelay = Math.min(index, 6) * 0.05;
     return (
     <motion.a
       ref={ref}
@@ -95,13 +105,20 @@ const SkillWideCard = forwardRef<HTMLAnchorElement, { s: Skill }>(
       target="_blank"
       rel="noopener"
       className="skill-wide"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{
-        layout: LAYOUT_TRANSITION,
-        opacity: { duration: 0.2, ease: "easeOut" },
+      initial={{ opacity: 0, y: 18 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        transition: {
+          opacity: { duration: 0.32, ease: "easeOut", delay: enterDelay },
+          y: { duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: enterDelay },
+        },
       }}
+      exit={{
+        opacity: 0,
+        transition: { duration: 0.18, ease: "easeOut" },
+      }}
+      transition={{ layout: LAYOUT_TRANSITION }}
     >
       <div className="skill-wide-head">
         <code className="skill-wide-slash">/{s.slug}</code>
