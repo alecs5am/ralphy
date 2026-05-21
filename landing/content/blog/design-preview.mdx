@@ -254,17 +254,54 @@ use it directly — it's lighter than `<ComparisonTable>`.
 ## 17 · Code
 
 Inline `code` reads like `prompts.json` — mono on a `bg-2` plate. Use for
-short tokens. Multi-line code goes in a fenced block (no filename tab)…
+short tokens. Multi-line code goes in a fenced block (no filename tab),
+with **server-side syntax highlighting** via `rehype-highlight` /
+`highlight.js` — zero JS at runtime, every language detected from the
+fence info-string:
 
 ```bash
 $ brew install alecs5am/tap/ralphy
 $ ralphy doctor
 ✓ openrouter · 200 OK
 ✓ elevenlabs · 200 OK
+$ ralphy new "vertical reel about <your product>"
 ```
 
-…or in a `<CodeBlock>` with a filename tab when you want to surface what
-file the snippet came from:
+JSON:
+
+```json
+{
+  "scene": 1,
+  "model": "kling-v3.0-pro",
+  "persona": "$personas.founder_a",
+  "shot": "low-angle POV, hand-held",
+  "vo": "Day one, eight thousand orders.",
+  "duration_s": 4.5,
+  "audio": true
+}
+```
+
+TypeScript:
+
+```ts
+import { Cta } from "@/components/mdx";
+import type { ReactNode } from "react";
+
+export function Banner({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <Cta
+      title="Ship 60 reels"
+      cta="Get Ralphy"
+      href="https://github.com/alecs5am/ralphy"
+    >
+      {children}
+    </Cta>
+  );
+}
+```
+
+When you want to surface the file name a snippet came from, wrap it in
+`<CodeBlock filename …>` — same shell with a tab on top:
 
 <CodeBlock filename="prompts.json" lang="json" meta="42 lines · ralphy ref">
 {`{
@@ -276,43 +313,71 @@ file the snippet came from:
 }`}
 </CodeBlock>
 
-A multi-line TypeScript snippet:
+### Multi-tab code group
 
-```ts
-import { Cta } from "@/components/mdx";
+For "same task, different language" snippets, use `<CodeTabs>` — animated
+tab switching via framer-motion, only the active panel is in the DOM at a
+time:
 
-export function Banner() {
-  return (
-    <Cta title="Ship 60 reels" cta="Get Ralphy" href="https://github.com/alecs5am/ralphy" />
-  );
-}
+<CodeTabs>
+  <CodeTab label="bash">
+```bash
+brew install alecs5am/tap/ralphy
+ralphy new "vertical reel about my product"
+ralphy render reel-001
 ```
+  </CodeTab>
+  <CodeTab label="npm">
+```bash
+npm install -g @alecs5am/ralphy
+ralphy new "vertical reel about my product"
+ralphy render reel-001
+```
+  </CodeTab>
+  <CodeTab label="curl">
+```bash
+curl -fsSL https://ralphy.dev/install.sh | sh
+ralphy new "vertical reel about my product"
+ralphy render reel-001
+```
+  </CodeTab>
+  <CodeTab label="docker">
+```bash
+docker pull ghcr.io/alecs5am/ralphy:latest
+docker run -v $(pwd):/work ralphy new "..."
+docker run -v $(pwd):/work ralphy render reel-001
+```
+  </CodeTab>
+</CodeTabs>
 
 ## 18 · Figure — variant A + gallery
 
-Single image, caption below. The mock layer renders an "Image missing"
-placeholder when `src` is omitted (useful for design preview).
+Single image, caption below. Pass `src` for a real image; omit it to get
+the dark placeholder (useful while waiting on art).
 
 <Figure
   fig="01"
-  caption="Ralphy CLI rendering scene 03 of a 6-scene reel. Generation log appended on success."
+  src="/assets/posters/metal-04.jpg"
+  caption="Reference poster pulled into the project's brand kit. Source resolution preserved; figure aspect-ratio is 16/9."
 />
 
 Two-up gallery — same component, pass `items` instead of `src`:
 
 <Figure
   fig="02"
-  caption="Model swap, same prompt — re-rendered in 4.2s."
+  caption="Two reference styles compared side by side — soviet vs metal poster aesthetic."
   items={[
-    { label: "before · kling-v2" },
-    { label: "after · kling-v3.0-pro" }
+    { src: "/assets/posters/soviet-03.jpg", label: "ref · soviet-03" },
+    { src: "/assets/posters/metal-07.jpg",  label: "ref · metal-07" }
   ]}
 />
 
-## 19 · FAQ — native single-open accordion
+## 19 · FAQ — animated single-open accordion
 
-`<details name="faq">` group — opening one closes the others. Zero-JS.
-Pass `open` on the first item to keep it expanded on page load.
+framer-motion height + opacity transition on toggle, chevron rotates
+in lockstep. Single-open group — opening one closes the others.
+Respects `prefers-reduced-motion` (falls back to a plain fade). Pass
+`open` on any item to expand it by default.
 
 <FAQ>
   <FaqItem q="Why a CLI, not a web UI?" open>
