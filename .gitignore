@@ -28,3 +28,8 @@ docs/runtime-context.md
 # at render time (cli/commands/render.ts). Fonts and shared assets are pulled
 # on demand from the ralphy-assets companion repo, not tracked in this repo.
 public/
+
+# …but the Next.js landing has its own public/ that ships brand SVGs +
+# preloaded assets. Un-ignore that subtree.
+!landing/public/
+!landing/public/**
