@@ -59,7 +59,7 @@ export function Showcase() {
 
   return (
     <section id="showcase" style={{ paddingTop: 56 }}>
-      <div className="container">
+      <div className="container container-w-1760">
         <div className="section-head" style={{ marginBottom: 24 }}>
           <div className="eyebrow">
             <span className="dot" />

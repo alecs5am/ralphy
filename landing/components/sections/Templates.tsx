@@ -5,7 +5,7 @@ import { SectionHead } from "../SectionPrimitives";
 export function Templates() {
   return (
     <section id="templates">
-      <div className="container">
+      <div className="container container-w-1760">
         <SectionHead
           eyebrow="templates"
           title={
