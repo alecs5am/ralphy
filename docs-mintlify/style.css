@@ -133,39 +133,86 @@ article > hr,
   font-size: 0.88em !important;
 }
 
-/* ── Code blocks ── flat, single surface, NO chrome wrapper ── */
+/* ── Code blocks ── exact .term-card / .term-bar / .term-body clone ──
+   Mintlify renders TWO stacked wrappers whose classes both contain
+   "code-block" as a substring:
+     1. <div class="code-block ..."> ← outer terminal frame
+     2. <div class="... code-block-background ..."> ← inner body
+   A naïve `[class*="code-block"]` selector grabs BOTH, which was the
+   doubled-chrome bug. We use `[class~="code-block"]` (whole-token)
+   for the outer frame, and target the inner body by its dedicated
+   `code-block-background` token. Result:
+     • Outer = .term-card  (radius, clip, bg-1 chrome bar)
+     • Inner = .term-body  (#050506, padded under the chrome strip)
+     • <pre> = transparent passthrough
+   This mirrors landing/components/SectionPrimitives.tsx <Terminal/>. */
 code, kbd, pre, samp { font-family: var(--font-mono) !important; }
 
-/* The outer Mintlify wrapper(s) → invisible. Background + radius
-   live on the <pre> only, so we never see a frame-around-frame. */
-[class*="code-block"], [class*="CodeBlock"],
-[class*="codeblock"], [class*="Codeblock"],
-figure[class*="code"],
-div:has(> pre),
-div:has(> div > pre) {
+[class~="code-block"] {
+  position: relative !important;
+  /* Card background = terminal BODY color. The chrome strip is
+     painted by a single linear-gradient on top — no pseudo, no
+     z-index battles with Mintlify's `relative` inner wrapper. */
+  background:
+    linear-gradient(var(--bg-1) 0 32px, transparent 32px) no-repeat,
+    #050506 !important;
+  background-size: 100% 100%, auto !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 14px !important;
+  padding: 0 !important;
+  margin: 14px 0 !important;
+  overflow: hidden !important;
+}
+/* Three grey traffic-light dots, painted on the outer card itself
+   via ::before (single pseudo, three discs through box-shadow). */
+[class~="code-block"]::before {
+  content: "";
+  position: absolute;
+  top: 11.5px; left: 14px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #555;
+  box-shadow: 15px 0 0 #555, 30px 0 0 #555;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Inner Mintlify body wrapper → fully transparent. The outer card's
+   gradient owns the chrome strip + body bg; this div just provides
+   padding-top to push the code below the strip. */
+[class~="code-block"] > div:not([data-floating-buttons]) {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 46px 18px 16px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+/* Mintlify nests one more <div class="font-mono ...">  inside the
+   body wrapper. Strip its chrome too so the parent body bg shows. */
+[class~="code-block"] > div:not([data-floating-buttons]) > div {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
   padding: 0 !important;
-}
-[class*="code-block"] [class*="header"],
-[class*="CodeBlock"] [class*="header"],
-[class*="codeblock"] [class*="header"] {
-  background: transparent !important;
-  border: 0 !important;
-  padding: 6px 10px 0 14px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
 }
 
-pre {
-  background: #050506 !important;
+/* <pre> — transparent passthrough; the parent wrapper owns the bg. */
+[class~="code-block"] pre {
+  position: static !important;
+  background: transparent !important;
   border: 0 !important;
-  border-radius: 14px !important;
+  border-radius: 0 !important;
   color: var(--ink) !important;
-  padding: 16px 18px !important;
-  margin: 12px 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
   overflow-x: auto;
 }
-pre code {
+[class~="code-block"] pre code {
   background: transparent !important;
   border: 0 !important;
   padding: 0 !important;
@@ -174,12 +221,21 @@ pre code {
   line-height: 1.65 !important;
 }
 
-/* Copy button — calm */
+/* Copy button — calm, vertically centered in the 32px chrome strip.
+   Mintlify positions the floating-buttons wrapper at `top: 12px`
+   (Tailwind `top-3`) which leaves the 26px button bottom-aligned to
+   the strip. Pulling the wrapper up to top:3px puts the button
+   center on the strip center (16px), level with the three dots. */
+[class~="code-block"] > div[data-floating-buttons] {
+  top: 3px !important;
+  right: 8px !important;
+}
 button[aria-label*="Copy" i],
 button[aria-label*="copy" i] {
   background: transparent !important;
   border: 0 !important;
   color: var(--mute) !important;
+  z-index: 3 !important;
 }
 button[aria-label*="Copy" i]:hover { color: var(--acc) !important; }
 
@@ -511,35 +567,69 @@ td { color: var(--ink-3) !important; }
 tr + tr td { box-shadow: inset 0 1px 0 var(--line); }
 tr:hover td { background: rgb(255 255 255 / 0.02) !important; }
 
-/* ── Tabs / CodeGroup tabbar ── no chrome, active = white pill ── */
+/* ── Tabs / CodeGroup tabbar ── no chrome, active = white pill ──
+   Mintlify v4 renders:
+     <li role="tab">                       ← styling target #1 (outer)
+       <div data-component-part="tab-button"   ← styling target #2 (inner)
+            class="pt-3 pb-2.5 -mb-px border-b leading-6 ...">
+   The inner <div> carries Tailwind utilities (pt-3 pb-2.5 leading-6 +
+   border-b for the underline-style active marker). If we only style
+   the outer <li>, our padding stacks on top of pt-3 pb-2.5 and the
+   pill swells to ~46px. We zero the outer + drive the pill on the
+   inner element, override pt/pb/lh/border longhand explicitly so
+   Tailwind's classes don't bleed through. */
 [role="tablist"] {
   background: transparent !important;
   border: 0 !important;
+  border-bottom: 0 !important;
   border-radius: 0 !important;
   padding: 0 !important;
   display: inline-flex !important;
   gap: 4px !important;
   width: auto !important;
-  margin: 0 0 8px !important;
+  margin: 0 0 12px !important;
+  min-width: 0 !important;
 }
 [role="tab"] {
+  background: transparent !important;
   border: 0 !important;
   border-radius: 999px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  list-style: none !important;
+}
+[role="tab"] [data-component-part="tab-button"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding-top: 6px !important;
+  padding-right: 14px !important;
+  padding-bottom: 6px !important;
+  padding-left: 14px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 999px !important;
+  line-height: 1.35 !important;
+  height: auto !important;
+  min-height: 0 !important;
   font-family: var(--font-sans) !important;
   font-size: 13px !important;
   font-weight: 500 !important;
-  color: var(--ink) !important;
-  padding: 6px 14px !important;
+  color: var(--ink-2) !important;
   background: transparent !important;
   transition: background 160ms ease, color 160ms ease;
 }
-[role="tab"]:hover:not([aria-selected="true"]) {
+[role="tab"]:hover [data-component-part="tab-button"] {
   color: var(--ink) !important;
-  background: transparent !important;
+  background: rgb(255 255 255 / 0.05) !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
 }
-[role="tab"][aria-selected="true"] {
+[role="tab"][aria-selected="true"] [data-component-part="tab-button"] {
   background: rgb(255 255 255 / 0.96) !important;
   color: #0A0A0B !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
   box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
 }
 
