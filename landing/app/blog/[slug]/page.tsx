@@ -10,9 +10,11 @@ import path from "node:path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { mdxComponents } from "@/components/mdx";
 import { getDisplayStars } from "@/lib/data";
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -132,7 +134,25 @@ export default async function BlogPostPage({ params }: PageProps) {
             </header>
 
             <div className="blog-body">
-              <MDXRemote source={post.source} />
+              <MDXRemote
+                source={post.source}
+                components={mdxComponents}
+                options={{
+                  // next-mdx-remote v6 defaults `blockJS: true` which strips
+                  // every JSX attribute expression — e.g. items={[…]} becomes
+                  // undefined. Our MDX is checked into the repo, not user
+                  // input, so the JS-injection threat model doesn't apply.
+                  // Keep dangerous-JS guard on (blocks eval / Function ctor /
+                  // require, etc.) but allow normal expressions through.
+                  blockJS: false,
+                  blockDangerousJS: true,
+                  mdxOptions: {
+                    // GFM gives us markdown tables, strikethrough, autolinks,
+                    // and task lists — all standard for technical writing.
+                    remarkPlugins: [remarkGfm],
+                  },
+                }}
+              />
             </div>
           </div>
         </article>
