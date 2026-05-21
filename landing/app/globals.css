@@ -1752,8 +1752,23 @@ section { position: relative; padding-top: 80px; }
   height: 24px;
   border-radius: 999px;
   overflow: hidden;
-  background: var(--bg-2);
+  background: var(--vio);
   flex-shrink: 0;
+  position: relative;
+  /* The colored background is the fallback layer — if <img> fails to
+     load (broken handle, GitHub 404), we still see a clean disc with
+     the initials underneath instead of a broken-image glyph. */
+}
+.blog-byline-initials {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0;
 }
 .blog-byline-avatar img {
   width: 100%;
@@ -1761,6 +1776,10 @@ section { position: relative; padding-top: 80px; }
   object-fit: cover;
   display: block;
 }
+/* When the browser can't load the avatar img it draws the broken-image
+   glyph (and any alt text). Hide that — the wrapper's bg + initials
+   show through. */
+.blog-byline-avatar img[alt=""] { color: transparent; }
 .blog-byline-name {
   font-weight: 600;
   letter-spacing: -0.005em;
