@@ -24,7 +24,7 @@ If a playbook references a tool you've never used (yt-dlp, Playwright, ffmpeg, r
 Before matching the routing table, decide which mode this request is.
 
 - **User mode (default).** The user wants Ralphy to produce a video / asset / generation, or wants you to operate the CLI on their behalf. Skip this section, go straight to the routing table.
-- **Dev mode.** The user wants you to **develop Ralphy itself** — add or fix a CLI verb, refactor `cli/`, edit a playbook, write a skill / template / model entry, touch `docs/`, change a roadmap row, file an idea in `notes/`. **Read [`docs/developing-ralphy.md`](docs/developing-ralphy.md) FIRST** before anything else. It points at the non-obvious things you would otherwise miss: the `notes/` folder, the append-only error catalog, the auto-generated files, the lint suite, the docs styleguide, the skill / template / model discipline.
+- **Dev mode.** The user wants you to **develop Ralphy itself** — add or fix a CLI verb, refactor `cli/`, edit a playbook, write a skill / template / model entry, touch `docs/`, change a roadmap row, file an idea in `notes/`. **Read [`docs/developing-ralphy.md`](docs/developing-ralphy.md) FIRST** before anything else. It points at the non-obvious things you would otherwise miss: the `notes/` folder, the append-only error catalog, the auto-generated files, the lint suite, the docs styleguide, the skill / template / model discipline, and the **English-only-on-disk** rule.
 
 **Triggers for dev mode (any one is enough):**
 
