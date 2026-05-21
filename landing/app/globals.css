@@ -317,6 +317,11 @@ section { position: relative; padding-top: 80px; }
 }
 .nav-links a:hover { background: var(--bg-2); color: var(--ink); }
 @media (min-width: 1000px) { .nav-links { display: flex; } }
+/* Subpage variant: keep the "← Back to landing" link visible at all
+   breakpoints so users on /skills, /blog, etc. can always navigate
+   home. Home page anchor-links stay hidden on mobile (they'd just
+   scroll within an already-visible single-column page). */
+.nav-links:has(.nav-back) { display: flex; }
 
 .nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .nav-kbd {
@@ -521,12 +526,26 @@ section { position: relative; padding-top: 80px; }
 .tab.active .ic { color: #0A0A0B; }
 .tab .ic svg { width: 16px; height: 16px; display: block; }
 
-/* Switcher row — two tab groups + github link */
+/* Switcher row — two tab groups + github link. On narrow viewports
+   we collapse to centered, wrapped rows so the inner Agent + Github
+   block also breaks across lines instead of overflowing horizontally. */
 .switcher-row {
   margin-top: 32px;
   display: flex; flex-wrap: wrap;
   align-items: center; justify-content: space-between;
   gap: 14px;
+}
+.switcher-row > .flex { flex-wrap: wrap; }
+@media (max-width: 720px) {
+  .switcher-row {
+    justify-content: center;
+    gap: 10px;
+  }
+  .switcher-row > .flex {
+    justify-content: center;
+    width: 100%;
+    gap: 8px;
+  }
 }
 
 .hero-github {
@@ -669,7 +688,12 @@ section { position: relative; padding-top: 80px; }
   gap: 20px;
   min-width: 0;
 }
-.chapter.reverse .chapter-head { flex-direction: row-reverse; }
+/* Reverse mirroring only applies on the 2-col desktop layout. On
+   mobile the body stacks vertically so left-to-right head reading
+   stays consistent across all chapters. */
+@media (min-width: 960px) {
+  .chapter.reverse .chapter-head { flex-direction: row-reverse; }
+}
 
 /* Body — title+copy on one side, terminal on the other. Terminal
    sits in the wider column regardless of reverse. */
@@ -698,19 +722,23 @@ section { position: relative; padding-top: 80px; }
   min-width: 0;
 }
 /* In reverse, title + copy block right-aligns so it visually
-   anchors toward the giant number on that side of the head row. */
-.chapter.reverse .chapter-title {
-  margin-left: auto;
-  text-align: right;
-}
-.chapter.reverse .chapter-copy {
-  margin-left: auto;
-  text-align: right;
+   anchors toward the giant number on that side of the head row.
+   Only on the desktop 2-col layout — on mobile both sides stack
+   single-column and left-align stays universally readable. */
+@media (min-width: 960px) {
+  .chapter.reverse .chapter-title {
+    margin-left: auto;
+    text-align: right;
+  }
+  .chapter.reverse .chapter-copy {
+    margin-left: auto;
+    text-align: right;
+  }
 }
 .chapter-n {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(72px, 9.5vw, 140px);
+  font-size: clamp(56px, 9.5vw, 140px);
   letter-spacing: -0.04em;
   line-height: 0.85;
   color: var(--vio);
