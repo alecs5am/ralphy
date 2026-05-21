@@ -124,12 +124,35 @@ describe("render --dry-run", () => {
   });
 
   test("--summary collapses to per-stage rollup", () => {
+    // Default engine is HyperFrames; project has no composition-props.json and
+    // no index.html, so the resolver falls back to the hyperframes-render stage.
     const r = ralphy(["render", "dryrun-001", "--dry-run", "--summary", "--loudnorm"]);
     expect(r.exitCode).toBe(0);
-    const j = r.json as { dryRun: boolean; stages: Record<string, unknown>; cost_estimate_usd: number };
+    const j = r.json as {
+      dryRun: boolean;
+      engine: string;
+      stages: Record<string, unknown>;
+      cost_estimate_usd: number;
+    };
     expect(j.dryRun).toBe(true);
-    expect(j.stages["remotion-render"]).toBeTruthy();
+    expect(j.engine).toBe("hyperframes");
+    expect(j.stages["hyperframes-render"]).toBeTruthy();
     expect(j.stages["ffmpeg-loudnorm"]).toBeTruthy();
+  });
+
+  test("--engine remotion forces the legacy fallback engine", () => {
+    const r = ralphy([
+      "render",
+      "dryrun-001",
+      "--dry-run",
+      "--summary",
+      "--engine",
+      "remotion",
+    ]);
+    expect(r.exitCode).toBe(0);
+    const j = r.json as { dryRun: boolean; engine: string; stages: Record<string, unknown> };
+    expect(j.engine).toBe("remotion");
+    expect(j.stages["remotion-render"]).toBeTruthy();
   });
 });
 
