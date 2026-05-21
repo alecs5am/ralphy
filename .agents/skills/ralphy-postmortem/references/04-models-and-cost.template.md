@@ -89,7 +89,7 @@ Pulled from the `>1` slot query above. Tells you which slots burned the most ite
 
 | Slot | # of gens | Cost | Iterations driver | Final version |
 |---|---|---|---|---|
-| `scene-03-vid` | 4 | $0.42 | user "слишком статично" at turn 9, model swap at turn 11 | `v4` (seedance, prompt rewrite) |
+| `scene-03-vid` | 4 | $0.42 | user "too static" at turn 9, model swap at turn 11 | `v4` (seedance, prompt rewrite) |
 | `hook-vo` | 3 | $0.18 | voice swap + length tweak | `v3` |
 | ... | ... | ... | ... | ... |
 

@@ -2,7 +2,7 @@
 
 Long-form 75s cinematic near-miss arc in the register of KYO KIMURA's `honeybee` — locked-off tripod, 35mm Kodak Portra 400 emulation, soft natural light, frame-within-a-frame compositions through glass / rain / curtains, zero diegetic audio, intimate piano-bed adagio carrying every beat. Two strangers, one city, one day, never speak.
 
-Crystallized from `workspace/projects/tokyo-y2k-001/` ("Tokyo, slow shutter" — 17-shot ~75s arc, user rating 8.5/10, *"очень эстетично приятно видео получилось"*).
+Crystallized from `workspace/projects/tokyo-y2k-001/` ("Tokyo, slow shutter" — 17-shot ~75s arc, user rating 8.5/10, *"the video turned out very aesthetically pleasing"*).
 
 ## Vibe
 

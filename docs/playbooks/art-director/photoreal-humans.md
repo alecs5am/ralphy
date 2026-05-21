@@ -24,7 +24,7 @@ NO airbrush, NO uniform porelessness, NO oversharpened eyelashes, NO catchlight-
 NO Tom-Ford chiaroscuro, NO TV-commercial register, NO Apple-keynote rim-light.
 ```
 
-User feedback "слишком иишно идеально" (too AI-perfectly-perfect) on noski + glitter-cream traces to skipping this block.
+User feedback "too AI-perfectly-perfect" on noski + glitter-cream traces to skipping this block.
 
 ## Anatomy checklist (before accepting any character anchor)
 

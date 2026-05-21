@@ -29,7 +29,7 @@ Before matching the routing table, decide which mode this request is.
 **Triggers for dev mode (any one is enough):**
 
 - The user names a path under `cli/`, `scripts/`, `tests/`, `roadmap/`, `notes/`, `docs/`, `docs-mintlify/`, `templates/<slug>/`, `.agents/skills/`, or any top-level `*.md` (`AGENTS.md`, `MODELS.md`, `CLAUDE.md`, `MEMORY.md`).
-- The user uses dev verbs aimed at Ralphy itself: "implement", "add", "fix", "refactor", "lint", "test", "commit", "release", "publish", "debug", "ship", "сделай PR", "поправь баг", "добавь верб", "напиши тест".
+- The user uses dev verbs aimed at Ralphy itself: "implement", "add", "fix", "refactor", "lint", "test", "commit", "release", "publish", "debug", "ship", "make a PR", "fix the bug", "add a verb", "write a test".
 - The user references a roadmap task (`01.02.03`), a decision ID (`D-04`), an error code (`E_REF_REQUIRED`), or a SPEC marker (`[ ]` / `[~]` / `[x]`).
 - The user wants to add or change a playbook, skill, template, or model.
 - The user wants to file an idea, a found issue, or a design note (`notes/`).
@@ -41,12 +41,12 @@ If none fire, stay in user mode — go straight to the routing table below. **Do
 
 | User intent | Playbook |
 |---|---|
-| **NEW PROJECT REQUEST** — "сделай видео про X", "хочу как у вот этого + <url>", "запусти проект Y", any brief with > 1 unknown (audience? brand? aesthetic? duration?). FIRES before any other playbook. | [`docs/playbooks/intake.md`](docs/playbooks/intake.md) — ask 3-5 clarifying questions, draft a plan, wait for user "go" before any paid generation, then proceed one beat at a time with checkpoints |
+| **NEW PROJECT REQUEST** — "make a video about X", "I want one like this + <url>", "launch project Y", any brief with > 1 unknown (audience? brand? aesthetic? duration?). FIRES before any other playbook. | [`docs/playbooks/intake.md`](docs/playbooks/intake.md) — ask 3-5 clarifying questions, draft a plan, wait for user "go" before any paid generation, then proceed one beat at a time with checkpoints |
 | Open research, URL drop in reference context, "style from <site>", "analyze @handle", "break down TikTok / Reel / Shorts", competitor audit, "what's trending in <X>" | [`.agents/skills/ralphy-researcher/SKILL.md`](.agents/skills/ralphy-researcher/SKILL.md) (then [`docs/playbooks/researcher.md`](docs/playbooks/researcher.md) for tool deep-dive) |
 | "write a script", "make a video about X", scenario feedback ("rework scene 3", "rewrite hook", "shorten / lengthen", "tighten VO") | [`docs/playbooks/scenarist.md`](docs/playbooks/scenarist.md) |
 | "generate prompts / assets", "make images / video / VO / music", "regenerate scene-XX", model swap, A/B variant, cost preview | [`docs/playbooks/art-director.md`](docs/playbooks/art-director.md) |
 | "compose the video", "render", "captions", "transitions", "audio mix", "final cut", "preview", Remotion code edits | [`docs/playbooks/editor.md`](docs/playbooks/editor.md) (then [`remotion.md`](docs/playbooks/remotion.md) for API specifics) |
-| "make video end-to-end", batch (N≥3), "save as template", "review batch", cost rollup, profile export / import | [`docs/playbooks/producer.md`](docs/playbooks/producer.md) |
+| "make video end-to-end", batch (N≥3), "save as template", "review batch", cost rollup | [`docs/playbooks/producer.md`](docs/playbooks/producer.md) |
 | "evaluate / score / grade / QA / review" a rendered mp4, "is this ready to ship", "find issues in this video", scene-by-scene breakdown of a render, retention / scroll-stop check, post-render quality gate | [`.agents/skills/ralphy-evaluator/SKILL.md`](.agents/skills/ralphy-evaluator/SKILL.md) |
 | "set this up", "ralphy doctor", "nothing works", "read logs", "missing key", any ralphy CLI usage question | [`docs/playbooks/core.md`](docs/playbooks/core.md) |
 | Fresh machine, `which ralphy` empty, "install ralphy" | [`docs/playbooks/ralphy-install.md`](docs/playbooks/ralphy-install.md) |
@@ -72,7 +72,7 @@ If none fire, stay in user mode — go straight to the routing table below. **Do
 11. **Heavy assets and example projects live in a companion repo** ([`ralphy-assets`](https://github.com/alecs5am/ralphy-assets)). Required template assets auto-pull on `ralphy template use`; cache at `workspace/.ralph/asset-cache/`. SHA-256 verified, no auth needed.
 13. **Append-only on generations. NEVER delete or overwrite user/agent-produced artifacts without an explicit user request.** This rule applies to *everything* under `workspace/projects/<id>/` — `assets/`, `render/`, `logs/`, `prompts.json`, `asset-manifest.json`, `STORYBOARD.md`, `POSTMORTEM.md`, the `postmortem/` directory, and any user-supplied refs. Concretely:
     - **Regen → new version, never overwrite.** `ralphy generate ...` on a slot that already has a file auto-writes `.<slot>.v2.<ext>` (then `v3`, `v4`, …) as of 2026-05-19; the existing file is preserved unchanged. Pass `--force-overwrite` only when the user explicitly asks for legacy destructive behavior. The manifest tracks both; only "promote" a chosen variant on explicit user say-so.
-    - **No `rm`, `fs.rm`, `fs.unlink`, `fs.rename`-over-existing inside a project dir** unless the user said the words "delete / remove / clean / wipe / удали / снеси" pointing at that artifact. "Regenerate scene-04" is **not** consent to delete the old scene-04.
+    - **No `rm`, `fs.rm`, `fs.unlink`, `fs.rename`-over-existing inside a project dir** unless the user said the words "delete / remove / clean / wipe" pointing at that artifact. "Regenerate scene-04" is **not** consent to delete the old scene-04.
     - **`generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl` are append-only by definition.** Never truncate, rewrite, or filter them in place. Read-and-rewrite to "tidy" is a defect.
     - **Failed / rejected generations stay on disk** until the user explicitly purges them. The gen-log + manifest reasoning across sessions depends on the failed artifacts still being there.
     - **If the user wants a clean slate**, use `ralphy project delete <id>` (registry-aware) or wait for explicit `rm -rf` permission scoped to a named path. Never volunteer a cleanup.

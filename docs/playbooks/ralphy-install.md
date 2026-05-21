@@ -2,7 +2,7 @@
 
 **Read this when:** "install ralphy", "set this up from scratch", "fresh machine", "/ralphy-install", or when `which ralphy` returns nothing in a session that's about to use ralphy commands.
 
-The very first playbook a new user hits. It gets the `ralphy` binary onto their machine, makes sure `bun` and `ffmpeg` are present (the few dependencies that the bundled binary doesn't ship), runs the interactive setup wizard for keys and profiles, and points ralphy at their checkout of `ugc-cli`.
+The very first playbook a new user hits. It gets the `ralphy` binary onto their machine, makes sure `bun` and `ffmpeg` are present (the few dependencies that the bundled binary doesn't ship), runs the interactive setup wizard for keys, and points ralphy at their checkout of `ugc-cli`.
 
 After this playbook runs, the user can do `ralphy <anything>` from any directory. Then hand off to the [core playbook](core.md) for in-tree dev tasks.
 
@@ -69,7 +69,6 @@ This is an interactive `@clack/prompts` wizard that:
 - Asks for the project path if it can't find one, and saves the link to the global config.
 - Shows a status table of currently-set keys.
 - Lets the user multi-select providers and prompts for each missing key, with a live API ping to verify.
-- Offers to import any public profiles from `profiles/`.
 - Optionally launches Remotion Studio + dashboard in the background.
 
 The user drives the wizard interactively — don't try to run it non-interactively. If you need to script it (e.g. for CI), use the underlying flags: `ralphy setup --link <path>`, `ralphy setup --status`.
@@ -90,7 +89,7 @@ Then suggest a concrete next step depending on what's enabled:
 
 ## Notes
 
-- This playbook is non-destructive. The wizard never overwrites a key without asking, and `--overwrite` is required for profile imports that would replace files.
+- This playbook is non-destructive. The wizard never overwrites a key without asking.
 - For in-tree development on the project itself (running `bun run dev`, editing components, debugging the pipeline), hand off to [core playbook](core.md).
 - The Vercel AI Gateway key (`VERCEL_AI_GATEWAY_KEY`) is the recommended LLM provider — one key unlocks Gemini, Claude, GPT, and embeddings via a unified gateway. OpenRouter and OpenAI are accepted fallbacks, picked automatically by `cli/lib/providers/llm.ts`.
 - Why not a Homebrew tap yet: we ship via GitHub Releases first; brew tap comes later once the release cadence is stable.

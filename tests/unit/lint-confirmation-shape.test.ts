@@ -27,11 +27,6 @@ describe("scanText", () => {
     expect(hits[0]!.phrase).toBe("would you like me to");
   });
 
-  test("flags Russian 'продолжить?'", () => {
-    const hits = scanText("Готов рендерить — продолжить?\n", "doc.md");
-    expect(hits).toHaveLength(1);
-  });
-
   test("passes a clean playbook line", () => {
     const hits = scanText("Run `ralphy render <id>` next.\n", "doc.md");
     expect(hits).toHaveLength(0);
@@ -79,12 +74,11 @@ describe("scanText", () => {
 });
 
 describe("BANNED_PHRASES", () => {
-  test("covers the canonical English + Russian patterns", () => {
+  test("covers the canonical English patterns", () => {
     const lower = BANNED_PHRASES.map((p) => p.toLowerCase());
     expect(lower).toContain("shall i proceed");
     expect(lower).toContain("would you like me to");
     expect(lower).toContain("do you want me to");
-    expect(lower).toContain("хочешь чтобы я");
   });
 });
 

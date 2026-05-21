@@ -15,7 +15,7 @@ $ bun cli/index.ts skill install --agent claude
 
 The JSON-mode output for the same command was correct. The bug lived in `cli/lib/output.ts → printObject`, which pushed top-level array-of-object values straight into `uiKv`. `uiKv` calls `String(value)` on each cell, and `String([{...}])` is `[object Object]`.
 
-The user's reaction: "Меня настораживает что баг с object object есть на таком шаге. Это вызывает сомнения насчет качества наших тестов в cli." They were right — this is a structural test gap, not a one-off bug.
+The user's reaction: "It worries me that an `[object Object]` bug exists at this stage. It casts doubt on the quality of our CLI tests." They were right — this is a structural test gap, not a one-off bug.
 
 ## What
 

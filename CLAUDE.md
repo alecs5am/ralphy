@@ -25,7 +25,6 @@ Four companion files the agent should also keep in mind:
 - `docs/playbooks/` — role / domain instruction docs. The agent reads these on demand based on `AGENTS.md` routing.
 - `.agents/skills/` — thin slash-command shims (`/ralphy-researcher`, etc.) that redirect to the playbooks. `.claude/skills/` symlinks.
 - `dashboard/` — retired in v2. Code stays for now, undocumented.
-- `profiles/<nick>/` — committed dumps of users' workspaces (additive imports).
 - **Companion repo** [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) — heavy required template assets (trend music) and complete example projects.
 
 ## ralphy CLI
@@ -34,7 +33,7 @@ Four companion files the agent should also keep in mind:
 - Globally: `ralphy <command>` (installs via `curl ... install.sh | sh`).
 - In-tree dev: `bun run ralph -- <command>` or `bun run ralphy -- <command>`.
 
-Resources: `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`, `profile`. Each: `create | list | show <id> | update <id> | delete <id>`.
+Resources: `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`. Each: `create | list | show <id> | update <id> | delete <id>`.
 
 Top-level: `setup`, `status`, `doctor`, `generate {image|video|voiceover|music}`, `render <project>`, `assets {list|pull|install|clean|cache-info}`, `example {list|pull}`.
 

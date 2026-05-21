@@ -100,7 +100,7 @@ Recognizable horror / dread music beds heavily used on horror-TikTok in 2024-202
 | `old-doll-bluerra-sai` | 4.57 MB | _any_ | fair-use-meme-reference | Original creepy-doll-music-box composition by Bluerra_sai, popular on horror-dollhouse TikToks. |
 | `phantomimes-song-extended` | 3.01 MB | _any_ | fair-use-meme-reference | Extended version of the Phantomimes horror theme. Bouncy-circus-meets-dread aesthetic. |
 | `porter-robinson-goodbye-to-a-world-slowed` | 3.31 MB | _any_ | fair-use-meme-reference | Slowed/pitched-down edit of Porter Robinson's 'Goodbye To A World'. 'End of the world' melancholic-horror bed. |
-| `privet-privet-2009-slowed` | 2.83 MB | _any_ | fair-use-meme-reference | Russian-internet horror edit, slowed phonk-adjacent. Widely used in slavic-TikTok нагнетающий dread loops. |
+| `privet-privet-2009-slowed` | 2.83 MB | _any_ | fair-use-meme-reference | Russian-internet horror edit, slowed phonk-adjacent. Widely used in slavic-TikTok dread loops. |
 | `sound-production-gin-tiktok-synth` | 2.03 MB | _any_ | fair-use-meme-reference | Royalty-style synth-tension bed by Sound Production Gin. THE generic TikTok horror sting heard under thousands of recent dread videos. |
 | `suspense-horror-piano-music-box` | 4.37 MB | _any_ | fair-use-meme-reference | Generic suspense piano + music-box bed, royalty-free style. Drop-in for childhood-horror / haunted-nursery POVs without copyright concerns. |
 | `the-sound-of-the-fear` | 3.95 MB | _any_ | fair-use-meme-reference | Generic horror drone bed often used as a low-cost, copyright-safe substitute for branded horror cues. |

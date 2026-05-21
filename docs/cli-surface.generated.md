@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **35**
+Verbs registered: **34**
 
 ## Top-level verbs
 
@@ -137,30 +137,28 @@ ____        __      __
 
 Usage: ralphy setup [options]
 
-Setup wizard — API keys, profiles, dev services
+Setup wizard — API keys, dev services
 
 Options:
-  --status                  Print capability status as JSON and exit (no TUI)
-  --link <path>             Link ralphy to a project directory (global config)
-  --unlink                  Remove the global project link
-  --non-interactive         Agent / CI mode: never prompt, never open a TUI,
-                            emit a JSON summary (default: false)
-  -y, --yes                 Alias for --non-interactive (default: false)
-  --openrouter-key <key>    Set OPENROUTER_API_KEY (use `-` to read from stdin).
-                            Implies --non-interactive
-  --elevenlabs-key <key>    Set ELEVENLABS_API_KEY (use `-` to read from stdin).
-                            Implies --non-interactive
-  --keys-from-env           Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from
-                            the current process env. Implies --non-interactive
-                            (default: false)
-  --project-dir <path>      Link ralphy to this project directory before
-                            configuring keys. Implies --non-interactive
-  --import-profile <names>  Comma-separated profile names to import (additive,
-                            safe to re-run) (default: [])
-  --no-verify               Skip API ping verification when saving keys
-  --allow-unverified        When --verify is on (default) and a key fails to
-                            verify, save it anyway and exit 0 (default: false)
-  -h, --help                display help for command
+  --status                Print capability status as JSON and exit (no TUI)
+  --link <path>           Link ralphy to a project directory (global config)
+  --unlink                Remove the global project link
+  --non-interactive       Agent / CI mode: never prompt, never open a TUI, emit
+                          a JSON summary (default: false)
+  -y, --yes               Alias for --non-interactive (default: false)
+  --openrouter-key <key>  Set OPENROUTER_API_KEY (use `-` to read from stdin).
+                          Implies --non-interactive
+  --elevenlabs-key <key>  Set ELEVENLABS_API_KEY (use `-` to read from stdin).
+                          Implies --non-interactive
+  --keys-from-env         Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from
+                          the current process env. Implies --non-interactive
+                          (default: false)
+  --project-dir <path>    Link ralphy to this project directory before
+                          configuring keys. Implies --non-interactive
+  --no-verify             Skip API ping verification when saving keys
+  --allow-unverified      When --verify is on (default) and a key fails to
+                          verify, save it anyway and exit 0 (default: false)
+  -h, --help              display help for command
 ```
 
 ### `ralphy status`
@@ -804,34 +802,6 @@ Options:
   --port <port>  Port number (default: "4321")
   --open         Open in browser
   -h, --help     display help for command
-```
-
-### `ralphy profile`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy profile [options] [command]
-
-Share workspace artifacts across users via committed profiles/
-
-Options:
-  -h, --help                   display help for command
-
-Commands:
-  export [options] <nickname>  Copy local workspace/ → profiles/<nickname>/ for
-                               committing to the repo
-  import [options] <nickname>  Copy profiles/<nickname>/ → local workspace/
-                               (additive by default, merges registry + logs)
-  list                         List all available profiles in profiles/
-  show <nickname>              Print PROFILE.md for a given profile
-  help [command]               display help for command
 ```
 
 ### `ralphy assets`

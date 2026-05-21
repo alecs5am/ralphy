@@ -3,7 +3,7 @@
 **Read this when:** "generate prompts", "generate assets", "make images / video / VO / music", "regenerate scene-XX <slot>", "try a different model", "A/B variant", "how much will it cost".
 
 > **Anchor order discipline (every multi-scene project):**
-> 1. **Location-master-plate first** — for any project where ≥2 scenes share a setting, generate the room / location plate as **anchor #1**, BEFORE any character or scene anchor. Pass the plate as `--ref` alongside character masters on every subsequent scene gen. Skipping this cost noski-people-001 ~$4.50 + 45 min ("на всех картинках они сидят на разных диванах а я просил на одном"). This is the single highest-leverage rule in this playbook.
+> 1. **Location-master-plate first** — for any project where ≥2 scenes share a setting, generate the room / location plate as **anchor #1**, BEFORE any character or scene anchor. Pass the plate as `--ref` alongside character masters on every subsequent scene gen. Skipping this cost noski-people-001 ~$4.50 + 45 min ("in every shot they're sitting on a different couch and I asked for the same one"). This is the single highest-leverage rule in this playbook.
 > 2. **Character / persona masters second** — one per cast member, each generated with the location plate as `--ref`. Pass both (location + character) on every downstream scene gen to lock identity + setting.
 > 3. **Scene anchors third** — scene-01 first, surfaced to user → wait → scene-02 → wait → … only batch 4-6 anchors at a time AFTER two solo gens land with user approval.
 > 4. **i2v / video generation last** — never i2v an unapproved scene anchor.

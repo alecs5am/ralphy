@@ -20,7 +20,7 @@ Built from a single 15s Kling clip with native ambient audio. No multi-scene cut
 
 ## Key rules (from kbo-broadcast-001 postmortem)
 
-1. **Render the anchor still SQUARE, not 9:16. Real broadcast cameras shoot 16:9 — strict portrait feels AI-generated.** Square 1:1 (1024x1024 from `openai/gpt-5.4-image-2`) "splits the difference" between landscape broadcast and vertical-feed and reads as a phone capture of a live TV screen. Verified post-hoc: the user picked the 960x960 square Kling output over the technically-correct 716x1284 9:16 version as "лучше и реалистичнее". Crop / pad to platform-strict 9:16 only at final delivery, never at origin.
+1. **Render the anchor still SQUARE, not 9:16. Real broadcast cameras shoot 16:9 — strict portrait feels AI-generated.** Square 1:1 (1024x1024 from `openai/gpt-5.4-image-2`) "splits the difference" between landscape broadcast and vertical-feed and reads as a phone capture of a live TV screen. Verified post-hoc: the user picked the 960x960 square Kling output over the technically-correct 716x1284 9:16 version as "better and more realistic". Crop / pad to platform-strict 9:16 only at final delivery, never at origin.
 
 2. **`gpt-5.4-image-2` silently rounds `--size 1080x1920` to 1024² (square), and Kling honors the input first-frame aspect over `--aspect-ratio 9:16`.** This is a feature for this template, not a bug — let it happen. If you need strict 9:16 from origin, switch to `google/gemini-3-pro-image-preview`, but expect a less-realistic broadcast feel.
 

@@ -1,12 +1,12 @@
 # Mode: product-shot
 
-Studio packshot. Чистый фон (белый / серый / цветной), товар — единственный герой кадра, никаких props. Это база для маркетплейс-листингов, e-commerce каталога, hero-секций PDP.
+Studio packshot. Clean background (white / gray / colored), product — the only hero of the frame, no props. This is the base for marketplace listings, e-commerce catalog, PDP hero sections.
 
 ## When to use
 
-- Юзер просит "packshot", "studio photo", "белый фон", "каталог", "marketplace listing".
-- Цель — точная передача формы / цвета / лейбла, минимум контекста.
-- Если нужна сцена / окружение — иди в [`lifestyle-scene.md`](lifestyle-scene.md).
+- User asks "packshot", "studio photo", "white background", "catalog", "marketplace listing".
+- Goal — accurate transmission of shape / color / label, minimum context.
+- If a scene / environment is needed — go to [`lifestyle-scene.md`](lifestyle-scene.md).
 
 ## Master template (slot-fill)
 
@@ -57,7 +57,7 @@ no text, no watermark, no random branding, no reflections showing a room.
 
 - Source: rephrase-it.com (#1)
 - Aspect: 1:1
-- Best for: full-production replica — самый детальный скелет, копируй и заполняй
+- Best for: full-production replica — the most detailed skeleton, copy and fill
 
 ### Example 5 — Pure White Hero (Skincare)
 > Photorealistic studio product photography of a single premium skincare bottle centered on a seamless pure white background, soft diffused key light with gentle shadow under the base, crisp label readability, minimal reflections, shot on Canon R5 with 85mm lens, f/8, ultra-sharp focus, ecommerce listing style, high resolution, natural color accuracy --ar 4:5
@@ -71,7 +71,7 @@ no text, no watermark, no random branding, no reflections showing a room.
 
 - Source: media.io (#2)
 - Aspect: 4:5
-- Best for: премиум-парфюм, watches, luxury
+- Best for: premium-perfume, watches, luxury
 
 ### Example 7 — Acrylic Pedestal Display
 > Professional product photo of a vitamin supplement jar on a clear acrylic pedestal, seamless light gray background, bright airy softbox lighting, realistic contact shadow and subtle reflections, sharp label, shot on Canon R6 with 70mm, f/8, commercial catalog quality, neutral color grading --ar 4:5
@@ -103,14 +103,14 @@ no text, no watermark, no random branding, no reflections showing a room.
 
 ## Slot vocabulary
 
-- **product**: краткое имя товара + ключевые приметы (форма, материал, цвет).
+- **product**: short name of the product + key identifiers (shape, material, color).
 - **material**: matte plastic | glossy ceramic | brushed aluminum | frosted glass | chrome | satin | leather | linen | kraft paper
 - **finish**: matte | glossy | satin | metallic | iridescent | rubberized
 - **logo_placement**: front-center | top-front | embossed-side | none (preserve exact)
-- **lens**: 50mm | 70mm | 85mm | 100mm | 105mm — packshot чаще всего 70-100mm для минимальной дисторсии.
+- **lens**: 50mm | 70mm | 85mm | 100mm | 105mm — packshot most often 70-100mm for minimal distortion.
 - **angle**: straight-on | slight 3/4 | low hero | top-down 15°
 - **key_light**: large softbox | strip softbox | beauty dish | window-like diffuser
-- **fill**: gentle bounce | reflector | negative fill (для драмы)
+- **fill**: gentle bounce | reflector | negative fill (for drama)
 - **shadow_type**: soft natural | hard directional | contact drop | floating
 - **shadow_placement**: directly under product | offset right | minimal
 - **background**: seamless pure white (#FFFFFF) | light gray seamless | soft pastel gradient | matte black acrylic | warm cream | brand-color HEX
@@ -119,12 +119,12 @@ no text, no watermark, no random branding, no reflections showing a room.
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Лучше типографика лейбла, точнее текст, меньше галлюцинаций мелких деталей. Это то что нужно для marketplace где лейбл должен читаться.
-- Multi-ref (флакон + текстура + brand-color swatch одновременно) — `google/gemini-3-pro-image-preview` с 2-3 `--ref`.
-- Если экспериментируешь со стилем — попробуй обе, в gpt-image-2 чище studio, в gemini пластичнее свет.
+- **Default — `openai/gpt-5.4-image-2`**. Better label typography, more accurate text, fewer hallucinations of small details. This is what is needed for marketplace where the label must be readable.
+- Multi-ref (bottle + texture + brand-color swatch simultaneously) — `google/gemini-3-pro-image-preview` with 2-3 `--ref`.
+- If experimenting with style — try both, in gpt-image-2 studio is cleaner, in gemini light is more pliable.
 
 ## Caveats
 
-- Размер выхода: gpt-5.4-image-2 и gemini-3-pro округляют до своих natural buckets (1024² для 1:1, 768×1376 для 9:16, 1280×720 для 16:9). Точный 1080×1350 не получишь — Remotion/ffmpeg доскейлит.
-- "Hard exclusions" блок реально работает — не выкидывай его, особенно строки про watermark и extra text.
-- Для marketplace где требуется ровный pure-white фон без gradient — добавь `--negative "gradient background, color cast, vignette"`.
+- Output size: gpt-5.4-image-2 and gemini-3-pro round to their natural buckets (1024² for 1:1, 768×1376 for 9:16, 1280×720 for 16:9). You will not get exact 1080×1350 — Remotion/ffmpeg will upscale.
+- "Hard exclusions" block really works — don't drop it, especially lines about watermark and extra text.
+- For marketplace where an even pure-white background without gradient is required — add `--negative "gradient background, color cast, vignette"`.

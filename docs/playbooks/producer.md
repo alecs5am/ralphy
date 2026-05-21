@@ -1,8 +1,8 @@
 # Producer playbook
 
-**Read this when:** "make video end-to-end", "make N videos", "run full pipeline", batch generate, "save as template", "create template from", "review batch", "export profile", "import profile".
+**Read this when:** "make video end-to-end", "make N videos", "run full pipeline", batch generate, "save as template", "create template from", "review batch".
 
-Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review, cost rollup, profile share.
+Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review and cost rollup.
 
 > **STOP rule.** Producer never writes scenarios / prompts / Remotion code, and never runs a batch loop by hand — every step is a `ralphy template use` / `ralphy batch create` invocation. AGENTS invariant #2.
 
@@ -32,11 +32,6 @@ ralphy template create --from-project <id> --slug <new-slug>
 ralphy project list -p                                       # status across all projects
 ralphy workspace stats                                       # disk + counts + cost
 ralphy project log <id> --type all --limit 200               # one project's full history
-
-# Profile share (workspace export / import)
-ralphy profile list                                          # available shared workspaces
-ralphy profile export <nickname>                             # workspace/ → profiles/<nickname>/
-ralphy profile import <nickname>                             # profiles/<nickname>/ → workspace/
 ```
 
 I do not invent templates on the fly. New format → `extract-template` from a successful project first.
@@ -48,7 +43,6 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 | [producer/orchestration.md](producer/orchestration.md) | Single-video end-to-end + template-suggest flow |
 | [producer/batch.md](producer/batch.md) | ≥3 videos from one template, batch review, cost rollup |
 | [producer/template-extract.md](producer/template-extract.md) | Successful project → `templates/<slug>/` |
-| [producer/profile-share.md](producer/profile-share.md) | Export / import workspace profiles |
 
 ## Sub-tasks
 
@@ -59,7 +53,6 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 | `batch-from-template` | ≥3 videos from one template | batch |
 | `batch-review` | "how's the batch", "what failed" | batch (review section) |
 | `extract-template` | project landed → template | template-extract |
-| `profile-share` | export / import | profile-share |
 
 ## What I read on start
 
@@ -70,7 +63,6 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 - **`docs/templates-index.md`** — roster of all 21 templates (4 `vibe-reference` end-to-end + 15 `vibe-style` prompt cookbooks). Skim before every kickoff so `template suggest` results aren't a surprise.
 - `templates/` + `workspace/templates/` + `ralphy template list -p` — what's available.
 - `workspace/batches/<batch-id>/state.json` for running batches.
-- `profiles/` — what's available to import.
 - `MODELS.md` — per-model cost figures.
 
 ## Hard rules (inherited from AGENTS.md)

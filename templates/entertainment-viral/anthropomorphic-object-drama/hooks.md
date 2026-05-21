@@ -7,7 +7,7 @@ The 0–2s hook is **scene-01 first half**: a face-on-object cold-open + the fir
 - **0.0–0.1s** — opening frame: warm pastel kitchen, two face-on-fruit characters at the door
 - **0.1–3.5s** — character_b (strawberry-wife) speaks first ON CAMERA: *"Have a great day at work, my sweet banana."*
 - **3.5–8.0s** — character_a (banana-husband) responds + kisses on cheek + wave: *"I'll be home for dinner, my little strawberry."*
-- **Popping-word caption** at the strongest word — source used baked `СЕМЬЯ` (family) as the on-screen pop
+- **Popping-word caption** at the strongest word — source used a baked `FAMILY` token as the on-screen pop
 
 The hook is the cast-lineup reveal + first dialogue beat fused into one 8s clip. The reveal "wait, that fruit is a person who's married to that other fruit" is the scroll-stopper; the line "Have a great day at work, my sweet banana" carries the telenovela register.
 

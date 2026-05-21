@@ -1,13 +1,13 @@
 # Mode: virtual-model-tryout
 
-AI-сгенерированная модель носит / использует продукт. Полный человек или существенная часть (плечи + лицо, торс, руки до груди). Это премиум-формат UGC рекламы — выглядит как студийная фотосессия с моделью, но без budget и time-cost real shoot.
+AI-generated model wears / uses the product. Full person or substantial part (shoulders + face, torso, hands up to chest). This is a premium-format UGC advertising — looks like a studio photoshoot with a model, but without budget and time-cost of a real shoot.
 
 ## When to use
 
-- Юзер просит "AI-модель носит", "виртуальная примерка", "model wearing X", "person using product on camera", "lookbook shot".
-- Цель — премиум-presentation продукта с человеческой эмоцией.
-- Если нужны только руки / частичное лицо — иди в [`closeup-with-person.md`](closeup-with-person.md).
-- Если показываешь real person (реальный человек из brand) — обязательно `--ref` фотографии (см. AGENTS.md "Reference-required gate"), иначе face-similarity не гарантирован.
+- User asks "AI-model wears", "virtual try-on", "model wearing X", "person using product on camera", "lookbook shot".
+- Goal — premium-presentation of the product with human emotion.
+- If you only need hands / partial face — go to [`closeup-with-person.md`](closeup-with-person.md).
+- If showing a real person (real person from a brand) — mandatory `--ref` photo (see AGENTS.md "Reference-required gate"), otherwise face-similarity is not guaranteed.
 
 ## Master template (slot-fill)
 
@@ -41,7 +41,7 @@ features, no extra people, no extra products, no fake logo, no watermark.
 
 - Source: letsenhance.io (With-People #14)
 - Aspect: 4:5 / 9:16
-- Best for: универсальный baseline
+- Best for: universal baseline
 
 ### Example 2 — Wearing Jewelry Close-up
 > Ultra-realistic product lifestyle photo of a model wearing a delicate gold necklace, close-up from collarbone to chin, soft studio lighting, skin texture natural, necklace sparkling with controlled highlights, minimal background, shot on Nikon Z9 with 105mm, f/4, luxury campaign look --ar 4:5
@@ -61,7 +61,7 @@ features, no extra people, no extra products, no fake logo, no watermark.
 *(synthesised from media.io #20 / #14 patterns — adapted for AI tryout)*
 > Photoreal premium portrait of a 28-year-old woman with warm light-brown skin and natural shoulder-length dark hair, applying a serum dropper to her cheek with one hand, the other hand holding the bottle visible in frame, exact product: clear glass dropper bottle with white minimalist label, soft window light from camera-right, neutral pale blush background, shallow depth of field with face and product in sharp focus, shot on Canon R5 with 85mm at f/3.5, modern beauty ad style, --ar 4:5
 
-- Source: synthesised (не verbatim — рабочий пример master template)
+- Source: synthesised (not verbatim — working example of master template)
 - Aspect: 4:5
 - Best for: skincare routine demonstration
 
@@ -82,16 +82,16 @@ features, no extra people, no extra products, no fake logo, no watermark.
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Лучше держит руки (меньше extra fingers), точнее лицо, чище skin texture.
-- **Для consistency через 3-5 сцен** (та же модель в 5 разных средах с тем же продуктом) — обязательно `google/gemini-3-pro-image-preview` с `--ref model.png --ref product.png` на каждой генерации. Это nano-banana lineage, она лучшая в multi-ref consistency.
-- **Real brand ambassador** — `--ref` с реальным фото модели обязателен. Без него Hard invariant #3 (reference-required gate) нарушен.
+- **Default — `openai/gpt-5.4-image-2`**. Better holds hands (less extra fingers), more accurate face, cleaner skin texture.
+- **For consistency across 3-5 scenes** (same model in 5 different environments with the same product) — mandatory `google/gemini-3-pro-image-preview` with `--ref model.png --ref product.png` on each generation. This is nano-banana lineage, it is the best at multi-ref consistency.
+- **Real brand ambassador** — `--ref` with a real photo of the model is mandatory. Without it Hard invariant #3 (reference-required gate) is violated.
 
 ## Caveats
 
-- **Faces are hard** — даже gpt-5.4-image-2 иногда даёт асимметричное лицо. Обычно лечится re-roll'ом или добавлением `symmetrical natural features` в "Hard exclusions".
-- **Hands are harder** — самая частая failure mode. Если делаешь action involving hands (applying, holding two items, drinking), добавь явно `realistic five-finger anatomy, no warped hands, no extra fingers, hands proportional to face`.
-- **Brand-specific model** — если в задании "use our model from previous shoot", без `--ref` не получится. Откажись и попроси reference.
-- **Product accuracy** — при focus на модели часто продукт уплывает в "approximate vibe". Обязательно `exact product design: {{material}}, {{color}}, {{finish}}, {{logo_placement}}` в промпте, и в идеале `--ref product.png`.
-- **Diverse cast** — если в промпте не указан skin tone / age / gender, модель идёт в дефолт (молодая белая женщина). Это часто не то что нужно — указывай явно.
-- **No nudity / no suggestive** — для одежды / beauty / underwear если хочешь shot above-collarbone — явно `framed from neck-up only, no visible torso below shoulders`. Иначе модель может уйти в neutral под-белье что не ad-friendly.
-- **AI-tell signs** to avoid: смотреть прямо в камеру с слишком "perfect" lighting — выглядит CGI. Лучше "natural confident expression, slight off-camera glance, candid moment" — читается человечнее.
+- **Faces are hard** — even gpt-5.4-image-2 sometimes gives an asymmetric face. Usually fixed by a re-roll or adding `symmetrical natural features` to "Hard exclusions".
+- **Hands are harder** — the most common failure mode. If you do an action involving hands (applying, holding two items, drinking), explicitly add `realistic five-finger anatomy, no warped hands, no extra fingers, hands proportional to face`.
+- **Brand-specific model** — if the task says "use our model from previous shoot", without `--ref` it won't work. Refuse and ask for a reference.
+- **Product accuracy** — with focus on the model, the product often drifts into "approximate vibe". Mandatory `exact product design: {{material}}, {{color}}, {{finish}}, {{logo_placement}}` in the prompt, and ideally `--ref product.png`.
+- **Diverse cast** — if skin tone / age / gender is not specified in the prompt, the model goes to default (young white woman). This is often not what is needed — specify explicitly.
+- **No nudity / no suggestive** — for clothing / beauty / underwear, if you want a shot above-collarbone — explicitly `framed from neck-up only, no visible torso below shoulders`. Otherwise the model can go into neutral underwear that is not ad-friendly.
+- **AI-tell signs** to avoid: looking straight at the camera with too "perfect" lighting — looks CGI. Better "natural confident expression, slight off-camera glance, candid moment" — reads more human.

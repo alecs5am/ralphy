@@ -7,7 +7,7 @@
 > 2. **Aspect / platform** (9:16 TikTok / 16:9 YouTube / 1:1 broadcast realism). Square for caught-on-TV trends, never portrait.
 > 3. **Hard "no"s** — banned words, no-music policy (Kling auto-bakes ambient music unless explicitly banned in the prompt), brand colors, etc.
 > 4. **Template fit** — run `ralphy template suggest "<the brief>"` and surface top-3. If a template matches, pivot to `ralphy template use <slug>` and skip improvisation.
-> 5. **Storyboard lock** — produce `STORYBOARD.md` (scene table) and get explicit user "поехали / go" BEFORE handing to art-director. Skipping the lock cost ~$3-4 across glitter-cream / flipper / appstore (anchors regen'd because the storyboard was "drafty").
+> 5. **Storyboard lock** — produce `STORYBOARD.md` (scene table) and get explicit user "go" BEFORE handing to art-director. Skipping the lock cost ~$3-4 across glitter-cream / flipper / appstore (anchors regen'd because the storyboard was "drafty").
 >
 > See [`docs/playbooks/intake.md`](intake.md) for the full intake protocol that fires before this playbook.
 

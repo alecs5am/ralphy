@@ -13,7 +13,7 @@ When in doubt — **read the specs, don't improvise flags**.
 
 ## Resources & operations
 
-- **Resources:** `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`, `profile`.
+- **Resources:** `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`.
 - **Operations per resource:** `create | list | show <id> | update <id> | delete <id>`.
 - **Top-level:** `setup`, `status`, `doctor`, `generate {image|video|voiceover|music|captions}`, `render <project>`.
 
@@ -79,16 +79,6 @@ ralphy brand create --name "..." --url <URL>
 ralphy persona list
 ralphy persona create --name "..." --archetype "<archetype>"
 ralphy persona show <name> -p
-```
-
-### Profile
-```bash
-ralphy profile list
-ralphy profile show <nickname>
-ralphy profile import <nickname>                  # additive
-ralphy profile import <nickname> --overwrite
-ralphy profile export <nickname>
-ralphy profile export <nickname> --include-renders
 ```
 
 ### Setup / status

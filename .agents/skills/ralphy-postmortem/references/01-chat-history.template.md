@@ -58,7 +58,7 @@ A self-audit: list every artifact under `workspace/projects/<id>/` and confirm i
 | Path | Created at turn | Status | Notes |
 |---|---|---|---|
 | `assets/images/scene-01.png` | 4 | original, kept | — |
-| `assets/images/scene-01.v2.png` | 7 | regen, append | user asked "не нравится 01" |
+| `assets/images/scene-01.v2.png` | 7 | regen, append | user asked "don't like 01" |
 | `assets/videos/scene-03.mp4` | 5 | DELETED | ⚠️ violation — agent overwrote on regen; flag in 03-cli-issues.md |
 
 If any row shows DELETED / OVERWRITTEN without a user-typed delete command in the matching turn — that's an append-only violation. Cross-reference into `05-workflow-fixes.md`.
@@ -69,7 +69,7 @@ If any row shows DELETED / OVERWRITTEN without a user-typed delete command in th
 ## Filling guidance
 
 - **One row per user turn is the rule of thumb.** If the user fired off 3 commands in one message, that's still one turn — list the agent's response as 3 steps under it.
-- **Quote the user verbatim when the wording mattered** ("плохо, переделай", "слишком статично" — these become evidence in 02-lessons.md). Paraphrasing is fine for "ок, погнали" / housekeeping turns.
+- **Quote the user verbatim when the wording mattered** ("bad, redo it", "too static" — these become evidence in 02-lessons.md). Paraphrasing is fine for "ok, let's go" / housekeeping turns.
 - **Cite exact CLI commands** in agent steps. "ran `ralphy generate image --project foo --slot scene-01 --model openai/gpt-5.4-image-2`" — not "generated an image".
 - **Don't editorialize** ("the user was being unreasonable" — never; "the agent made a mistake" — only if it factually did, e.g. ran the wrong model). Interpretation lives in 02-lessons.md and 05-workflow-fixes.md.
 - **Append-only check** is critical — it's the only place a violation gets logged. Make this table even if everything is fine ("clean session, no violations").

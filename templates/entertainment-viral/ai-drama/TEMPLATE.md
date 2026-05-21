@@ -33,7 +33,7 @@ The viral wave keeps recycling a small set of templates. Pick one and swap the c
 |---|---|---|
 | **The Affair** | happy-family → temptation → caught → confrontation → walk-out → rebound | fruit-drama-001 (default) |
 | **The Breakup** | cute-couple → fight → silent-treatment → tearful goodbye → glow-up | — |
-| **Found Family** | lonely-orphan → bumps-into-mom → invited-home → meal-together → adopted | original fruittalesco "выхожу на какое-то время" |
+| **Found Family** | lonely-orphan → bumps-into-mom → invited-home → meal-together → adopted | original fruittalesco "stepping out for a while" |
 | **Love Triangle** | established-couple → new-arrival → tension → choice → fallout | — |
 | **Parent-Child** | helicopter-parent → teen-rebellion → big-fight → reconciliation | — |
 | **Glow-up Revenge** | bullied-protagonist → time-jump → success → bullies-stunned | — |

@@ -30,7 +30,7 @@ Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 has no formal `--draft` / `--sh
 
 **Acceptance criteria:**
 - After intake (`intake.md` steps 1-2 — clarifying questions + plan approval), the agent generates ONE representative beat first — usually the location-master-plate or scene-01 anchor — and surfaces it before fanning out to the rest.
-- Only after the user says "good" / "поехали" / equivalent does the agent batch the remaining scenes (in groups of 4-6 with checkpoints, never the whole set blind).
+- Only after the user says "good" / "let's go" / equivalent does the agent batch the remaining scenes (in groups of 4-6 with checkpoints, never the whole set blind).
 - Always uses the best model per kind (`MODELS.md` top picks) — no "cheaper draft model" path. Discipline = scope reduction, not model swap.
 - Implementation: encoded in `intake.md` step 3 (already written); no new CLI mode is added.
 
@@ -168,7 +168,7 @@ Behaviors that apply across every flow in this category. These are agent-discipl
 
 **Acceptance criteria:**
 - Reiterates `AGENTS.md` invariant #13 and the in-code enforcement at [`05.03`](../05-project-resources/SPEC.md).
-- The agent never deletes a prior generation, scenario version, asset, or log line unless the user used the words "delete / remove / wipe / clean / удали / снеси" referring to that artifact.
+- The agent never deletes a prior generation, scenario version, asset, or log line unless the user used the words "delete / remove / wipe / clean" referring to that artifact.
 - Regenerating a slot always writes a new version (`.v2`, `.v3`, …) — see [`05.03.02`](../05-project-resources/SPEC.md).
 - Playbooks include this rule verbatim in their "Hard invariants" section.
 
@@ -278,7 +278,7 @@ Per [D-02](OPEN-QUESTIONS.md#decision-log), v1.0 ships clean SIGINT handling but
 - Detects the last cancelled stage from the gen-log and resumes from the next step.
 - Idempotent — re-running doesn't duplicate completed work.
 
-**Notes:** v1.0 substitute — the user simply re-engages with the agent in chat ("ok, продолжаем с scene-04"); the agent reads gen-log + manifest to know what's already done.
+**Notes:** v1.0 substitute — the user simply re-engages with the agent in chat ("ok, continuing with scene-04"); the agent reads gen-log + manifest to know what's already done.
 
 ### 04.06.03 Chat-side "stop" interrupt  [ ]
 **v1.0:** stretch

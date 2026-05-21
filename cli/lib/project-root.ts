@@ -16,17 +16,8 @@ import os from "node:os";
 
 const PROJECT_NAME = "ugc-cli";
 
-export type ImportedProfile = {
-  name: string;
-  imported_at: string;
-};
-
 export type GlobalConfig = {
   default_project_dir?: string;
-  /** Profiles the user has already imported via the wizard. Used to mark them
-   *  as "(imported)" in the multi-select hint on subsequent runs — purely
-   *  informational; profile import itself is additive and re-runs are safe. */
-  imports?: ImportedProfile[];
 };
 
 export function globalConfigPath(): string {

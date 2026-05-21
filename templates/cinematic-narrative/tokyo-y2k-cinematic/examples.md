@@ -9,7 +9,7 @@ Two worked cookbooks, plus the source instance. Each variant changes `{{city_nam
 **Style anchor:** KYO KIMURA — `honeybee` (x.com/noukin_camera/status/2041722047022428265)
 **Duration:** 75.05s · **Shots:** 17 (15 city + 2 pastoral inserts) · **Aspects:** 9:16 letterboxed 1.85:1 + 16:9 native · **fps:** 24
 **Final render:** `render/final.mp4` (33.5 MB) + `render/final-16x9.mp4` (78 MB)
-**User rating:** 8.5/10 — *"очень эстетично приятно видео получилось"*
+**User rating:** 8.5/10 — *"the video turned out very aesthetically pleasing"*
 **Cost:** ~$22.35 cumulative
 
 **Slot fills (verbatim from source):**

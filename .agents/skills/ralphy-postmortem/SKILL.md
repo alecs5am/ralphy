@@ -1,7 +1,7 @@
 ---
 name: ralphy-postmortem
 namespace: ralphy
-description: Distil the conversation we just had into a structured 6-file postmortem set under `workspace/projects/<id>/postmortem/` for the active ralphy project. Splits the record into chronological chat history, lessons learned, ralphy-CLI bug list (with the raw `bunx` / `ffmpeg` / `curl` workarounds the agent had to reach for), model-and-cost rollup, and workflow / playbook fixes. Use this skill whenever the user types `/ralphy-postmortem`, asks for a "retro" / "lessons learned" / "что мы узнали" / "распиши уроки", or says things like "напиши best practices", "разбор полётов", "запиши что не работало" after a non-trivial multi-iteration ralphy session. Also use proactively at the end of any ralphy session that had ≥2 user-driven course corrections (re-rolls, model swaps, scope pivots) or ≥1 CLI gap the agent worked around with raw tooling — the iteration history fades from chat memory, and a checked-in `postmortem/` set is the only durable record. Don't skip this even if the project shipped successfully — successful projects with painful iteration history are the most valuable to document.
+description: Distil the conversation we just had into a structured 6-file postmortem set under `workspace/projects/<id>/postmortem/` for the active ralphy project. Splits the record into chronological chat history, lessons learned, ralphy-CLI bug list (with the raw `bunx` / `ffmpeg` / `curl` workarounds the agent had to reach for), model-and-cost rollup, and workflow / playbook fixes. Use this skill whenever the user types `/ralphy-postmortem`, asks for a "retro" / "lessons learned" / "what did we learn" / "write up the lessons", or says things like "write best practices", "debrief", "record what didn't work" after a non-trivial multi-iteration ralphy session. Also use proactively at the end of any ralphy session that had ≥2 user-driven course corrections (re-rolls, model swaps, scope pivots) or ≥1 CLI gap the agent worked around with raw tooling — the iteration history fades from chat memory, and a checked-in `postmortem/` set is the only durable record. Don't skip this even if the project shipped successfully — successful projects with painful iteration history are the most valuable to document.
 ---
 
 # Postmortem skill — ralphy pipeline
@@ -21,13 +21,12 @@ When you stuff all four into one file, the CLI-issues list gets buried in a 500-
 
 Hard triggers (always do it):
 - User types `/postmortem`
-- "напиши постмортем", "разбор полётов", "распиши уроки", "что мы узнали"
-- "write a postmortem", "retro this", "what did we learn"
+- "write a postmortem", "retro this", "what did we learn", "write up the lessons", "debrief"
 
 Proactive triggers (offer to do it, don't auto-execute):
-- Session has had ≥2 user corrections ("не нравится", "2/10", "переделай") AND a project ID was active
+- Session has had ≥2 user corrections ("don't like it", "2/10", "redo it") AND a project ID was active
 - ≥1 instance of the agent reaching past ralphy (raw `bunx tsx` against a TS file, raw `ffmpeg`, raw `curl` against a provider) — that's a CLI gap and the session must document it before it's lost
-- User says "ну в общем это всё" / "проект готов" after a long iteration session
+- User says "well that's about it" / "project is done" after a long iteration session
 - After a `ralphy render` succeeds at the end of a multi-iteration session
 
 ## What I produce
@@ -61,7 +60,7 @@ Don't write from memory — pull from the actual session artifacts. Different do
 
 1. **Conversation context** (drives 01-chat-history.md, 02-lessons.md, 05-workflow-fixes.md) — scroll back through the recent message history in this chat. Capture:
    - Every user turn that drove a phase change (scenario lock, asset gen, render, regen, postmortem). One row per user turn in 01.
-   - User-feedback moments ("не нравится", "плохо", "2/10", "переделай", "слишком статично", "не похоже") and what the agent did in response.
+   - User-feedback moments ("don't like it", "bad", "2/10", "redo it", "too static", "doesn't match") and what the agent did in response.
    - Model swaps you made (started with X → switched to Y after Z failed).
    - **Every time the agent reached past ralphy** — raw `bunx tsx`, raw `ffmpeg`, raw `curl`, raw `yt-dlp`, hand-written TS in `workspace/projects/<id>/scripts/`. Each instance is a row in 03-cli-issues.md.
    - Failed CLI runs (exit code 1, content moderation refusals, "no job.id", "File is not in a valid base64 format"). Each is a row in 03.
@@ -145,7 +144,7 @@ The postmortem skill MUST follow the same append-only rule as the rest of ralphy
 - **Never overwrite an existing postmortem file.** Always append a new `## Iteration N addendum` section at the end of each file.
 - **Never delete an old `POSTMORTEM.md` single-file** in projects that pre-date the multi-doc layout. Link to it from 00-INDEX.md instead.
 - **Never re-flow / reorganize an earlier iteration's content** — fixing a stale claim is one thing, but the historical record stays.
-- Even if the user says "перепиши постмортем" — interpret that as "add a fresh addendum at the top of 00-INDEX.md and the relevant docs" unless they explicitly say "удали старое и напиши заново".
+- Even if the user says "rewrite the postmortem" — interpret that as "add a fresh addendum at the top of 00-INDEX.md and the relevant docs" unless they explicitly say "delete the old one and write it from scratch".
 
 ## Example calls to mental-prototype before writing
 

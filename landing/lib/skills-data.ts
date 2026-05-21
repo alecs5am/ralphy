@@ -44,7 +44,7 @@ export const skills: Skill[] = [
     namespace: "ralphy",
     summary:
       "Distil a finished project into a reusable vibe-reference or vibe-style template — composition skeleton, prompt cookbook with slots, model stack.",
-    trigger: '"save as template" · "сохрани вайб как шаблон" · post-render rated 8+/10',
+    trigger: '"save as template" · "save the vibe as a template" · post-render rated 8+/10',
     input: "shipped project",
     output: "templates/<category>/<slug>/",
   },
@@ -54,7 +54,7 @@ export const skills: Skill[] = [
     namespace: "ralphy",
     summary:
       "After a multi-iteration session: capture chat history, lessons learned, CLI gaps, model-and-cost rollup, and workflow fixes into a 6-file set.",
-    trigger: '"postmortem" · "распиши уроки" · "разбор полётов" · end of any ≥2-iteration session',
+    trigger: '"postmortem" · "lessons learned" · "retro" · end of any ≥2-iteration session',
     input: "the conversation we just had",
     output: "workspace/projects/<id>/postmortem/",
   },
@@ -84,7 +84,7 @@ export const skills: Skill[] = [
     namespace: "ralphy-dev",
     summary:
       "Ship a new ralphy version across all 3 channels in one shot — GitHub Release, Homebrew tap, npm. Drafts changelog, bumps versions in lockstep, refreshes docs.",
-    trigger: '"cut a release" · "сделай релиз" · "publish a release" · ready-to-ship feature',
+    trigger: '"cut a release" · "tag a new version" · "publish a release" · ready-to-ship feature',
     input: "main HEAD",
     output: "v0.X.Y on brew + npm + gh release",
   },

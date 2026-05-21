@@ -3,7 +3,7 @@ name: ralphy-dev-release
 namespace: ralphy-dev
 description: >-
   Cut a new release of the `ralphy` CLI across all 3 distribution channels in one shot — GitHub Release (binaries + checksums), Homebrew tap (`alecs5am/homebrew-tap`), and npm (`@alecs5am/ralphy`). Proposes a semver bump from commit history (Conventional-Commits-ish), drafts a grouped changelog, bumps version files in lockstep, refreshes `docs-mintlify/`, then tag-pushes + verifies each channel published.
-  USE WHEN the user types `/ralphy-dev-release`, says "cut a release", "publish a release", "сделай релиз", "залей релиз", "напиши release notes", "tag a new version", or after a meaningful chunk of CLI work landed on main. ALSO FIRE proactively after the user lands a feature they call "ready to ship" / says "это финал" / "это последнее на сегодня".
+  USE WHEN the user types `/ralphy-dev-release`, says "cut a release", "publish a release", "write release notes", "tag a new version", or after a meaningful chunk of CLI work landed on main. ALSO FIRE proactively after the user lands a feature they call "ready to ship" / says "this is the final one" / "this is the last one for today".
   DO NOT FIRE for documentation-only or landing-only commits unless explicitly asked.
   See body for full step-by-step + HARD INVARIANTS (never amend a published release, never skip the brew + npm steps).
 ---
@@ -15,13 +15,12 @@ description: >-
 Hard triggers (always do it):
 - User types `/release`
 - "cut a release" / "publish a release" / "tag a new version"
-- "сделай релиз" / "залей релиз" / "новый релиз"
 - "release notes for the last week"
 - "publish to brew/npm" — even if the binaries are already up
 
 Proactive triggers (offer it, don't auto-execute):
 - A meaningful CLI feature just landed on `main` and there are ≥5 commits since the last tag.
-- User says "это финал" / "ready to ship" after a feature session.
+- User says "this is the final one" / "ready to ship" after a feature session.
 - A new install instruction was just published and `brew upgrade` / `npm update` would resolve to the previous version.
 
 ## What I produce
@@ -177,7 +176,7 @@ Print to the user:
 - The exact list of files that will change in the bump commit: `package.json`, `cli/lib/version.ts`, `npm/package.json`, **`AGENTS.md`** (single line), plus whatever `docs-mintlify/**` pages came out of step 3b.
 - A separate trailing commit will rewrite `scripts/release/last-release-commit` (step 5) — call this out so the user isn't surprised by two commits.
 
-**Wait for explicit user confirmation** ("yes" / "go" / "погнали") before doing anything destructive.
+**Wait for explicit user confirmation** ("yes" / "go" / "let's go") before doing anything destructive.
 
 ### 5 — Bump version files + commit
 
@@ -364,7 +363,7 @@ v0.1.0 published across all channels:
 - The local current-platform build fails — fix the build first.
 - There are no commits since the last tag (no-op release).
 - The change is **only** in `landing/`, `docs/` (internal playbooks), `.agents/skills/`, or a non-CLI directory — that's not what this skill ships. Note: a docs-only change inside `docs-mintlify/` *also* doesn't need a tagged release — Mintlify auto-redeploys on any push to `main`. Just commit and push without invoking `/release`.
-- The user said "do not release" / "сначала проверим" earlier in the same conversation.
+- The user said "do not release" / "let's check first" earlier in the same conversation.
 - `npm whoami` / `gh auth status` is not the right account.
 
 ## State sources

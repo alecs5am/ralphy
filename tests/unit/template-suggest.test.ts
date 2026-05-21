@@ -98,8 +98,8 @@ describe("keywordScore", () => {
     expect(r[0].slug).toBe("pixel-art-product-reveal");
   });
 
-  test("Russian utterance produces near-zero score across EN templates", () => {
-    const r = keywordScore("хочу спортивные трибуны", TEMPLATES);
+  test("off-domain utterance produces near-zero score across templates", () => {
+    const r = keywordScore("crispy midnight bleachers vibe", TEMPLATES);
     expect(r[0].score).toBeLessThan(0.3);
   });
 
@@ -131,7 +131,7 @@ describe("keywordScore", () => {
   test("scores tier into strong / weak / below-threshold", () => {
     const r = keywordScore("tokyo y2k cinematic", TEMPLATES);
     expect(r[0].tier).toBe("strong");
-    const weak = keywordScore("неон ночь", TEMPLATES);
+    const weak = keywordScore("crispy midnight bleachers", TEMPLATES);
     expect(weak[0].tier).toBe("below-threshold");
   });
 });
@@ -161,13 +161,13 @@ describe("suggestTemplates orchestrator", () => {
           {
             slug: "broadcast-caught-on-tv-square",
             score: 0.92,
-            reasoning: "sports broadcast realism is the closest fit for 'спортивные трибуны'",
+            reasoning: "sports broadcast realism is the closest fit for 'midnight bleachers vibe'",
           },
           { slug: "noski-deadpan-2hander", score: 0.45, reasoning: "creator-lifestyle adjacent" },
         ],
       }),
     );
-    const r = await suggestTemplates("хочу спортивные трибуны", TEMPLATES, {
+    const r = await suggestTemplates("crispy midnight bleachers vibe", TEMPLATES, {
       llmFn,
       threshold: 0.7,
       limit: 3,
@@ -182,7 +182,7 @@ describe("suggestTemplates orchestrator", () => {
     const llmFn = mock(async () => {
       throw new Error("ECONNRESET");
     });
-    const r = await suggestTemplates("хочу спортивные трибуны", TEMPLATES, {
+    const r = await suggestTemplates("crispy midnight bleachers vibe", TEMPLATES, {
       llmFn,
       threshold: 0.7,
       limit: 3,
@@ -194,7 +194,7 @@ describe("suggestTemplates orchestrator", () => {
 
   test("falls back to keyword if LLM returns malformed JSON", async () => {
     const llmFn = mock(async () => "this is not JSON, sorry");
-    const r = await suggestTemplates("хочу спортивные трибуны", TEMPLATES, {
+    const r = await suggestTemplates("crispy midnight bleachers vibe", TEMPLATES, {
       llmFn,
       threshold: 0.7,
       limit: 3,
@@ -208,7 +208,7 @@ describe("suggestTemplates orchestrator", () => {
         results: [{ slug: "totally-made-up-slug", score: 0.95, reasoning: "..." }],
       }),
     );
-    const r = await suggestTemplates("хочу спортивные трибуны", TEMPLATES, {
+    const r = await suggestTemplates("crispy midnight bleachers vibe", TEMPLATES, {
       llmFn,
       threshold: 0.7,
       limit: 3,
@@ -218,7 +218,7 @@ describe("suggestTemplates orchestrator", () => {
 
   test("--no-llm forces keyword-only even when below threshold", async () => {
     const llmFn = mock(async () => "should not be called");
-    const r = await suggestTemplates("хочу спортивные трибуны", TEMPLATES, {
+    const r = await suggestTemplates("crispy midnight bleachers vibe", TEMPLATES, {
       llmFn,
       threshold: 0.7,
       limit: 3,
@@ -239,7 +239,7 @@ describe("suggestTemplates orchestrator", () => {
         ],
       }),
     );
-    const r = await suggestTemplates("хочу что-то странное", TEMPLATES, {
+    const r = await suggestTemplates("want something weird", TEMPLATES, {
       llmFn,
       threshold: 0.7,
       limit: 2,

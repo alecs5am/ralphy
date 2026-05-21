@@ -1,12 +1,12 @@
 # Mode: flat-lay
 
-Top-down съёмка. Раскладка на плоскости — стол, фон, мраморная доска. Идеален для cosmetics, food, accessories, beauty kits, "what's in the box".
+Top-down shot. Layout on a flat surface — table, background, marble board. Ideal for cosmetics, food, accessories, beauty kits, "what's in the box".
 
 ## When to use
 
-- Юзер просит "сверху", "flat lay", "top-down", "раскладка", "what's in my bag".
-- Цель — показать состав / collection / arrangement в одном чистом кадре.
-- Если центральный продукт стоит вертикально на surface — иди в [`product-shot.md`](product-shot.md) или [`lifestyle-scene.md`](lifestyle-scene.md).
+- User asks "from above", "flat lay", "top-down", "layout", "what's in my bag".
+- Goal — show the composition / collection / arrangement in one clean frame.
+- If the central product stands vertically on a surface — go to [`product-shot.md`](product-shot.md) or [`lifestyle-scene.md`](lifestyle-scene.md).
 
 ## Master template (slot-fill)
 
@@ -24,7 +24,7 @@ Top-down flat lay product photography of {{subject}} on {{surface}},
 
 - Source: letsenhance.io (Studio #4)
 - Aspect: 1:1
-- Best for: универсальный baseline
+- Best for: universal baseline
 
 ### Example 2 — Flat Lay Minimal Desk
 > Top-down flat lay product photography of a sleek wireless earbuds case on a clean white desk surface, minimal props (single silver pen and folded paper), soft window-like lighting from left, gentle shadows, shot on Sony A7IV with 35mm, f/6.3, modern tech aesthetic, crisp details --ar 4:5
@@ -43,16 +43,16 @@ Top-down flat lay product photography of {{subject}} on {{surface}},
 ### Example 4 — Multiple Angle Composition
 > Create a clean product composition showing the [product] from front, side, and slightly angled views in one frame, consistent lighting, neutral background, preserve exact color and shape, catalog-ready.
 
-- Source: letsenhance.io (Scale #10) — *not strictly flat-lay but adjacent — multi-view raсkdown*
+- Source: letsenhance.io (Scale #10) — *not strictly flat-lay but adjacent — multi-view breakdown*
 - Aspect: 16:9 / 4:5
-- Best for: catalog "all-angles" поясняющий шот
+- Best for: catalog "all-angles" explanatory shot
 
 ### Example 5 — Eco Brand Flat Lay
 > Professional product photography of a sustainable soap bar in kraft paper packaging, placed on textured linen fabric with dried botanical accents, soft daylight from right, natural shadows, warm earthy color grading, shot on Canon R5 with 50mm, f/5.6, organic lifestyle aesthetic --ar 4:5
 
 - Source: media.io (#12) — adapted for top-down framing
 - Aspect: 4:5
-- Best for: эко-бренды, soap, candles
+- Best for: eco-brands, soap, candles
 
 ## Slot vocabulary
 
@@ -63,19 +63,19 @@ Top-down flat lay product photography of {{subject}} on {{surface}},
 - **shadow_quality**: gentle shadows | clean shadows | almost no shadows | dramatic side shadow
 - **camera**: Sony A7IV | Canon R5 | Canon R3 | Nikon Z9
 - **lens**: 35mm (wider frame) | 50mm (natural compression) | 80mm (tight)
-- **aperture**: f/5.6 | f/6.3 | f/7.1 | f/8 — для flat lay нужен большой DoF чтобы всё было в фокусе
+- **aperture**: f/5.6 | f/6.3 | f/7.1 | f/8 — for flat lay you need a large DoF so that everything is in focus
 - **aesthetic**: modern tech | premium catalog | organic lifestyle | luxury editorial | minimal Scandinavian | dark moody
 - **aspect**: 4:5 (Instagram portrait, default) | 1:1 (square feed) | 9:16 (story / TikTok)
 
 ## Model recommendation
 
-- **Default — `openai/gpt-5.4-image-2`**. Точнее раскладка предметов, лучше label sharpness на каждом элементе.
-- Для очень сложных flat lay с 5+ предметами одной brand-системы — `google/gemini-3-pro-image-preview` с `--ref` всего набора лучше держит consistency.
+- **Default — `openai/gpt-5.4-image-2`**. More accurate layout of objects, better label sharpness on each element.
+- For very complex flat lay with 5+ items of one brand-system — `google/gemini-3-pro-image-preview` with `--ref` of the entire set better holds consistency.
 
 ## Caveats
 
-- **Big aperture для flat lay** — единственная ошибка которую я бы выделил. Если попадёшь в `f/2.8` для top-down — половина композиции уйдёт в bokeh; держи f/5.6 и выше.
-- **Prop overload** — top-down особенно склонен к "throw everything on the surface". `minimal props (X and Y)` с конкретным списком в две позиции работает лучше чем "tasteful arrangement".
-- **Shadow direction** — solid flat lay имеет single light direction (lighting from left → shadows on right). Если в промпте смешиваются направления — модель путает реалистичность.
-- **Не путай flat lay с overhead lifestyle** — flat lay строго top-down (90°). "Slightly elevated 75°" — это already lifestyle, иди в [`lifestyle-scene.md`](lifestyle-scene.md).
-- **Surface texture matters** — `marble with subtle gray veining` или `textured linen` дают характер; "white background" в flat lay часто читается как studio cutout и выглядит дёшево.
+- **Big aperture for flat lay** — the only mistake I would highlight. If you land on `f/2.8` for top-down — half the composition will go into bokeh; keep f/5.6 and above.
+- **Prop overload** — top-down is especially prone to "throw everything on the surface". `minimal props (X and Y)` with a specific list in two positions works better than "tasteful arrangement".
+- **Shadow direction** — solid flat lay has a single light direction (lighting from left → shadows on right). If directions are mixed in the prompt — the model confuses realism.
+- **Don't confuse flat lay with overhead lifestyle** — flat lay is strictly top-down (90°). "Slightly elevated 75°" — that is already lifestyle, go to [`lifestyle-scene.md`](lifestyle-scene.md).
+- **Surface texture matters** — `marble with subtle gray veining` or `textured linen` gives character; "white background" in flat lay often reads as studio cutout and looks cheap.

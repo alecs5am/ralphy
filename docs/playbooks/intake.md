@@ -10,7 +10,7 @@
 | **learning** | 2.0-3.9 | Full intake (5 questions). Inline "why" only on the first occurrence of a concept this session. No tutorial concepts; let user ask. |
 | **intermediate** | 4.0-5.9 | Full intake (5 questions). No "why" unless user flags confusion. Step-by-step with one-beat-at-a-time gates. |
 | **comfortable** | 6.0-7.9 | Full intake but tighter (3-5 questions, skip obvious ones if `preferences.default_*` is set). Batch 4-6 gens after 2 solo approvals. |
-| **experienced** | 8.0-9.9 | Compact intake: only critical params (brand / aspect / target_language). Batch by default; user opts into single-step with "по одной". |
+| **experienced** | 8.0-9.9 | Compact intake: only critical params (brand / aspect / target_language). Batch by default; user opts into single-step with "one at a time". |
 | **expert** | 10 | One-line confirmation before paid gens. Assume user knows every rule. Surface CLI output JSON-style without prose explanations. |
 | **developer badge** | any | Trumps the band. Minimal intake + raw CLI suggestions + ship-fast default. User can swear at you; you don't sandbag bug reports. |
 
@@ -29,14 +29,14 @@ This file is referenced from the AGENTS.md routing table and is the **first** th
 ## When this protocol fires
 
 ALWAYS, when the user's request is one of:
-- "Сделай видео про X" / "Make a video about X"
-- "Я хочу как у вот этого" + URL or screenshot
-- "Хочу что-то типа <vague aesthetic>"
-- "Запусти проект <name>"
+- "Make a video about X"
+- "I want it like this one" + URL or screenshot
+- "I want something like <vague aesthetic>"
+- "Start project <name>"
 - Any brief with > 1 unknown (target audience? brand? characters? aesthetic? duration?)
 
 NEVER fires when:
-- User explicitly says "просто сгенери / just generate", "не спрашивай / don't ask", "погнали".
+- User explicitly says "just generate", "don't ask", "let's go".
 - User picked a specific template via `ralphy template use <slug>` — the template encodes most decisions; only fill in remaining slots.
 - Request is a single asset (`ralphy generate image ...`), an edit ("rework scene 3"), or a debug ask.
 
@@ -51,7 +51,7 @@ Before quoting a single $ or running `ralphy generate`, surface the missing cont
 5. **Duration / clip count budget.** Most templates document `typicalDurationSec` + `typicalClipCount`. If the user picked a template, confirm; if not, default to ≤15s for first iteration, scale up after a successful test render.
 6. **Hard constraints.** Banned words, music policy (Kling auto-soundtrack is enabled unless explicitly banned in prompt — kbo / glitter-cream), brand colors, etc.
 
-For ambiguous one-liners ("сделай как Старый Спайс"), pull the canonical brand reference via `ralphy ref pull <url>` + `ralphy ref analyze-video <slug>` BEFORE drafting prompts. Don't improvise from memory (venom-bodywash postmortem: TV-commercial register vs still-photo register; ~$3 burn).
+For ambiguous one-liners ("make it like Old Spice"), pull the canonical brand reference via `ralphy ref pull <url>` + `ralphy ref analyze-video <slug>` BEFORE drafting prompts. Don't improvise from memory (venom-bodywash postmortem: TV-commercial register vs still-photo register; ~$3 burn).
 
 Keep the question set tight — 3-5 questions max in a single turn. Use `AskUserQuestion` with multiSelect when applicable. Sample first-turn template:
 
@@ -85,9 +85,9 @@ Once the questions land, draft a **plan** as a chat message — never a side fil
 **First checkpoint:** scene-01 anchor → wait for your "go" before batching scenes 2-N
 ```
 
-Stop there. **Wait for user "go" / "поехали" / equivalent before generating ANY paid asset.** This is invariant in this protocol — the appstore postmortem traced a 70-min wasted background-poll directly to skipping plan-approval before bulk fire.
+Stop there. **Wait for user "go" / "let's go" / equivalent before generating ANY paid asset.** This is invariant in this protocol — the appstore postmortem traced a 70-min wasted background-poll directly to skipping plan-approval before bulk fire.
 
-If the user says "another approach" / "не так" / "this part is wrong", re-draft the plan from the user's correction. Don't dig in on the rejected approach.
+If the user says "another approach" / "not like that" / "this part is wrong", re-draft the plan from the user's correction. Don't dig in on the rejected approach.
 
 ## Step 3 — Step-by-step generation with checkpoints
 
@@ -102,7 +102,7 @@ After plan approval, generate **one beat at a time**, surfacing each to the user
 7. **Render** with `ralphy editor preflight <id>` first, then `ralphy render <id>`.
 8. **Hand off** to `/ralphy-evaluator` for the post-render quality gate.
 
-Exception: the user explicitly says "не спрашивай каждый раз / fire the whole batch / больше так не делай по 1 штуке". Honor that and switch to batch mode for THAT project. Note the preference in memory for that project; don't generalize.
+Exception: the user explicitly says "stop asking every time / fire the whole batch / don't do them one at a time anymore". Honor that and switch to batch mode for THAT project. Note the preference in memory for that project; don't generalize.
 
 ## Step 4 — Mid-flight corrections
 
@@ -164,9 +164,9 @@ The intake protocol caps real questions at 5 per turn for legibility, BUT every 
 "Would you like me to ..."
 "Just to confirm, ..."
 "I'll go ahead and ..."
-"Мне продолжить?"
-"Хочешь, чтобы я ...?"
-"Продолжить?"
+"Should I continue?"
+"Do you want me to ...?"
+"Keep going?"
 ```
 <!-- /confirmation-shape-allow:section -->
 
@@ -174,7 +174,7 @@ These add no information and break the one-beat-at-a-time loop. Replace with act
 
 ## Ship (04.01.04)
 
-"Ship it" / "поехали в финал" / "залей" is the explicit transition from iteration to final render. Mechanics:
+"Ship it" / "let's go to the final" / "publish it" is the explicit transition from iteration to final render. Mechanics:
 
 1. **Reference-required gate re-check.** Before the final render, re-run `ralphy ref check <project-id>` to confirm any named real entity has a satisfied ref (or a logged `--no-ref-consent`). The intake-step ref check at step 1 may be stale if the scenario changed.
 2. **Quality gates.** Run `ralphy editor preflight <id>` (aspect / fps / music-length divergence). The agent quality gates (`scoreScenario`, `scoreImage`, `scoreVideo`) refuse-not-warn per AGENTS invariant #4; if any fails twice in a row, stop and report concrete options — do not render mp4 over a failed gate. There is no model upgrade between draft and ship: best models are used throughout (AGENTS invariant + `04.0A.03`).
@@ -186,7 +186,7 @@ These add no information and break the one-beat-at-a-time loop. Replace with act
 
 The default cadence is **every paid generation OR every named scene**, whichever is shorter. As trust builds within a project (3+ scenes accepted in a row), you may batch the next 2-3 scenes together without waiting — but always return to single-step pacing the moment the user flags a miss.
 
-For **template-driven** projects (`ralphy template use <slug>`), the template's `composition.md` or `TEMPLATE.md` may pre-define a tighter / looser pacing. Honor the template, but if the user says "по одной", you're back to scene-by-scene regardless of template default.
+For **template-driven** projects (`ralphy template use <slug>`), the template's `composition.md` or `TEMPLATE.md` may pre-define a tighter / looser pacing. Honor the template, but if the user says "one at a time", you're back to scene-by-scene regardless of template default.
 
 ## Cross-references
 
