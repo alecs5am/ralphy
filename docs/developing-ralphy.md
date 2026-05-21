@@ -4,6 +4,23 @@
 
 This file does **not** describe the architecture — read `CLAUDE.md`, `cli/index.ts`, and `docs/playbooks/README.md` for that, or grep the codebase. This file lists the **non-obvious** things you'd miss without being told.
 
+## English-only output (hard rule, applies to EVERY dev edit)
+
+**Every file you write or edit lands on disk in English. EXCLUSIVELY.** Cyrillic (or any other non-Latin script in prose / identifiers / examples) is banned repo-wide. This includes:
+
+- TypeScript code: identifiers, string literals, JSDoc, inline comments.
+- Markdown: prose, headings, callouts, example utterances, table cells.
+- JSON fixtures: every `description`, `name`, `example`, `prompt`, `reason`, `note`.
+- Playbooks, skills, templates, prompts (`docs/prompts/`), `notes/`, `roadmap/SPEC.md`, `MODELS.md`.
+- Commit messages, PR titles + bodies, release notes, CHANGELOG entries.
+- Tests + fixtures — including "fixture for the Russian-utterance case." Pick an off-domain English string that produces the same low-keyword-score path instead (see `tests/unit/template-suggest.test.ts` for the worked pattern).
+
+**The user talking to you in Russian is fine — match their language in chat.** What lands in a file is English. If the user pastes a Russian quote and asks you to file it, translate / paraphrase before committing. If the file is by nature a verbatim transcript of a Russian user, you still translate — the on-disk artifact is English.
+
+Before every commit, run `rg '\p{Cyrillic}' --hidden -g '!.git' -g '!node_modules' -g '!*.lock'` (PCRE2 / `--pcre2`-enabled rg). **Empty output is the gate.** A `lint:no-cyrillic` script should be wired into CI; if it's not yet, file a `notes/issues/` entry rather than skip the check.
+
+
+
 ## Where things live (non-obvious only)
 
 - **`notes/`** — running list of ideas, found issues, and informal decisions before they earn a row in `roadmap/`. See `notes/README.md` for the shape. **Filing a note is the right first move** when the user surfaces an idea that isn't immediately actionable. Don't invent a SPEC row for half-baked ideas.
