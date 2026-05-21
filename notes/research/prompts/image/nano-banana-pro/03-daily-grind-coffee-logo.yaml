@@ -1,0 +1,19 @@
+slug: daily-grind-coffee-logo
+model: gemini-3-pro-image
+provider: gemini
+use_case: Brand logo with legible text rendering
+form_factor: 1:1 logo
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Demonstrates Nano Banana Pro's accurate text rendering capability — quoting
+  brand name explicitly in single quotes is the documented pattern.
+prompt: |
+  Create a modern, minimalist logo for a coffee shop called 'The Daily Grind'. The text should be in a clean, bold, sans-serif font. The color scheme is black and white. Put the logo in a circle. Use a coffee bean in a clever way.

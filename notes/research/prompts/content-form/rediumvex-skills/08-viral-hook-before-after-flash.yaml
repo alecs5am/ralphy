@@ -1,0 +1,19 @@
+slug: viral-hook-before-after-flash
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Dopamine-trigger hook — dramatic before/after contrast
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Before/after-flash hook. See also skill 07 for full before-after templates.
+prompt: |
+  Split screen or quick cut: left/top shows 'before' state for 0.8s. Hard cut or wipe transition. Right/bottom shows transformed 'after' state. The contrast must be dramatic — ugly to beautiful, chaos to order, empty to full. Transition sound: whoosh + impact.

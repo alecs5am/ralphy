@@ -1,0 +1,33 @@
+slug: virtual-try-on
+model: gpt-image-1.5
+provider: openai
+use_case: Virtual clothing try-on — swap garments while preserving the model's identity, pose, and lighting
+form_factor: 1024x1536 portrait
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: multi_image_input
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide
+  author: OpenAI Cookbook — GPT Image Generation Models Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 5.2 "Virtual Clothing Try-On". Identity-preservation pattern — the
+  entire prompt is a list of "do not change X" instructions which is the right
+  shape for any edit where the subject must stay constant across variants.
+  Reusable for face-preservation tasks (swap clothing → swap background, swap
+  accessories, etc).
+prompt: |
+  Edit the image to dress the woman using the provided clothing images. Do not change her face, facial features, skin tone, body shape, pose, or identity in any way. Preserve her exact likeness, expression, hairstyle, and proportions. Replace only the clothing, fitting the garments naturally to her existing pose and body geometry with realistic fabric behavior. Match lighting, shadows, and color temperature to the original photo so the outfit integrates photorealistically, without looking pasted on. Do not change the background, camera angle, framing, or image quality, and do not add accessories, text, logos, or watermarks.

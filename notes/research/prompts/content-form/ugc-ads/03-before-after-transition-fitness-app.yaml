@@ -1,0 +1,31 @@
+slug: ugc-before-after-transition-fitness-app
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Before/after transformation cut (fitness apps / meal kits / wellness)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  Source explicitly bans music ("Authentic UGC feel, no music, ambient kitchen sounds") — matches Ralphy
+  Kling discipline. Single human, no real-entity refs → safe to run without --ref. For photoreal i2v
+  prefer kwaivgi/kling-v3.0-pro (Seedance privacy filter trips on human anchors). Two visual states
+  in one prompt requires Seedance time-segmented control (0-5s tired / 5-10s energized) — Kling
+  splits into 2 scenes instead.
+prompt: |
+  0 to 5s: A tired 30-year-old man at a kitchen counter, fluorescent lighting, slouched, staring at a cluttered counter. He exhales and rubs his face. Handheld, slightly grainy, realistic tone. 5 to 10s: Cut to the same man, same setting but warmer light, upright, energized. He holds up a clean product container and taps it twice. 10 to 15s: He looks at camera and says "This is the one thing that actually worked for me" and pulls back to wide shot. Authentic UGC feel, no music, ambient kitchen sounds, 9:16 vertical.

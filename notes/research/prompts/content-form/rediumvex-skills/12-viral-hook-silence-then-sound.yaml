@@ -1,0 +1,19 @@
+slug: viral-hook-silence-then-sound
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Primal-attention hook — 1.5s silence followed by audio explosion
+form_factor: short-form vertical hook
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Silence-then-sound hook. Strong scroll-stop on platforms.
+prompt: |
+  First 1.5s: complete silence. Black screen or static wide shot. No sound at all — the absence itself is jarring on a platform of constant noise. At 1.5s: explosive audio — bass drop, scream, impact, alarm. Synced with hard visual cut to action.

@@ -1,0 +1,22 @@
+slug: before-after-sound-silence-to-music
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation sound — silence pre-transition, beat drop at after
+form_factor: before/after sound modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[genre: cinematic, trap, acoustic, electronic]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Silence-to-music sound modifier. Music is post-mix on ElevenLabs per project memory.
+prompt: |
+  before state in ambient near-silence, transformation point triggers exact beat drop of [genre: cinematic, trap, acoustic, electronic], music at full volume from the first frame of the after state

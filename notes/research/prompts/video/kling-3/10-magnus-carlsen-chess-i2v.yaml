@@ -1,0 +1,29 @@
+slug: magnus-carlsen-chess-i2v
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Image-to-video with character consistency (slow push-in portrait)
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: motion + camera description on top of start frame
+    required: true
+  - kind: image
+    role: start_frame
+    required: true
+    notes: drives identity (Magnus Carlsen) and framing — required for Kling i2v
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: false
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Reference-required gate FIRES — Magnus Carlsen is a named real person.
+  Cannot run without a ref image; use --no-ref-consent only if user explicitly
+  overrides. Kling 3.0 is the default for human-anchored i2v (Seedance rejects
+  photoreal humans).
+prompt: |
+  Sweat slowly beading down Magnus Carlsen's face as the camera slowly pushes in. His eyes intensely focused on the board. Shallow depth of field blurring the background. The focus remains tack sharp on his eyes and sweat droplets as they slowly move across his skin, creating a suffocating sense of concentration and pressure.

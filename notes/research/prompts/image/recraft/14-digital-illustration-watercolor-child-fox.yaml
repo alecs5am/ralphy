@@ -1,0 +1,41 @@
+slug: digital-illustration-watercolor-child-fox
+model: recraft-v3
+provider: recraft
+use_case: Watercolor children's-book illustration
+form_factor: 1024x1024 square illustration
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: digital_illustration
+  - kind: flag
+    name: substyle
+    required: false
+    selected: watercolor
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/visual-formats/illustration.md
+  author: Recraft (Illustration guide)
+  retrieved: 2026-05-21
+notes: |
+  Source lists three technique variants (watercolor / ink / digital_painting)
+  over the same subject — child + fox + forest — as a controlled comparison
+  set. Use `digital_illustration` as the primary style; `substyle: watercolor`
+  triggers the curated Recraft watercolor sub-style.
+prompt: |
+  Watercolor illustration of close up child and fox walking in the forest, soft diffused edges, flowing pigment washes, warm orange and green palette, visible paper texture, dreamy atmosphere, painterly style

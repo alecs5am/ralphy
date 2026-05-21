@@ -1,0 +1,46 @@
+slug: children-book-character-anchor
+model: gpt-image-1.5
+provider: openai
+use_case: Establish a children's-book character anchor that can be reused across sequential illustrations for identity consistency
+form_factor: 1024x1536 portrait
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide
+  author: OpenAI Cookbook — GPT Image Generation Models Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 6.4a "Children's Book — Character Anchor". The companion 6.4b prompt
+  ("Continue the children's book story using the same character...") uses
+  images.edit() with the anchor as input image and an explicit
+  "Character Consistency: same tunic / same facial features / same palette"
+  block — this is the canonical multi-turn-consistency pattern for any
+  character-driven series (kids' book, comic, brand mascot, recurring host).
+prompt: |
+  Create a children's book illustration introducing a main character.
+
+  Character:
+  A young, storybook-style hero inspired by a little forest outlaw, wearing a simple green hooded tunic, soft brown boots, and a small belt pouch. The character has a kind expression, gentle eyes, and a brave but warm demeanor. Carries a small wooden bow used only for helping, never harming.
+
+  Theme:
+  The character protects and rescues small forest animals like squirrels, birds, and rabbits.
+
+  Style:
+  Children's book illustration, hand-painted watercolor look, soft outlines, warm earthy colors, whimsical and friendly. Proportions suitable for picture books (slightly oversized head, expressive face).
+
+  Constraints:
+  - Original character (no copyrighted characters)
+  - No text
+  - No watermarks
+  - Plain forest background to clearly showcase the character

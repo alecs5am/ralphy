@@ -1,0 +1,36 @@
+slug: podcast-abstract-visualization
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Podcast clip — abstract void visualization with speaker ID
+form_factor: podcast clip visualization
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "{{ASPECT_RATIO}}, {{DURATION}}, {{PRIMARY_COLOR_PALETTE}}, {{LIGHT_SOURCE_DESCRIPTION}}"
+    required: true
+  - kind: slot_value
+    role: "{{CAMERA_BEHAVIOR}}, {{MOTION_BEHAVIOR_DESCRIPTION}}, {{PARTICLE_OR_TEXTURE_BEHAVIOR}}"
+    required: true
+  - kind: slot_value
+    role: "{{SPEAKER_NAME}}, {{SHOW_NAME}}, {{NUMBER}} (episode)"
+    required: true
+  - kind: slot_value
+    role: "{{POSITION}}, {{FONT_DESCRIPTION}}, {{COLOR_GRADE_DIRECTION}}"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/10-podcast-visual/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/10-podcast-visual/SKILL.md
+notes: |
+  Abstract-visualization podcast template. Heavy slot use ({{Mustache}} style).
+prompt: |
+  Seedance 2.0 video prompt, {{ASPECT_RATIO}}, {{DURATION}} seconds:
+
+  Opening frame: {{PRIMARY_COLOR_PALETTE}} void, {{LIGHT_SOURCE_DESCRIPTION}}. Camera is {{CAMERA_BEHAVIOR}}. Hold {{TIME}} seconds.
+
+  At second {{X}}: {{MOTION_BEHAVIOR_DESCRIPTION}} over {{DURATION}} seconds. {{PARTICLE_OR_TEXTURE_BEHAVIOR}}.
+
+  Final {{TIME}} seconds: {{RESOLUTION_VISUAL}}. Speaker name appears {{POSITION}} in {{FONT_DESCRIPTION}}: "— {{SPEAKER_NAME}}." Below: "{{SHOW_NAME}} | Episode {{NUMBER}}." Fade to black.
+
+  Color grade: {{COLOR_GRADE_DIRECTION}}.

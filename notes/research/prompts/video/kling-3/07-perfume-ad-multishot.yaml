@@ -1,0 +1,28 @@
+slug: perfume-ad-multishot
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: 4-shot product ad with influencer voiceover + macro spray hero
+form_factor: horizontal 16:9 / 15s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: 4-shot product timeline with dialogue
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  UGC-influencer product structure: macro product → talking-head VO → macro slow-mo
+  → CTA. "Calm ambient music" + "elegant background music" inside prompt — strip
+  for Ralphy. SFX line at end is part of prompt.
+prompt: |
+  A sleek modern studio with soft gradient lighting. Calm ambient music playing.
+  Shot 1 (0-4 seconds): Close-up on hands holding a perfume bottle, rotating it slowly to catch the light. Glass gleaming.
+  Shot 2 (4-8 seconds): Medium shot of woman in elegant dress. [Character A: Lifestyle Influencer, warm enthusiastic voice]: "I have to show you my new signature scent because it is literally a dream."
+  Shot 3 (8-11 seconds): Extreme close-up of perfume mist spraying in slow motion, particles catching light beautifully.
+  Shot 4 (11-15 seconds): Return to woman, smiling at camera. [Lifestyle Influencer, excited tone]: "Seriously, if you love vanilla and jasmine, you need this in your life. Link in my bio."SFX: Soft spray sound, elegant background music

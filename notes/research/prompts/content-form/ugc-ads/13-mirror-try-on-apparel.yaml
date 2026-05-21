@@ -1,0 +1,30 @@
+slug: ugc-mirror-try-on-apparel
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Bedroom mirror try-on with selfie-camera VO (apparel / new drop / OOTD)
+form_factor: vertical 9:16 / 10s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 10s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://videoai.me/blog/seedance-2-0-ugc-prompts
+  author: VideoAI.me
+  retrieved: 2026-05-21
+notes: |
+  Mirror-selfie register is a known Seedance failure mode (reflection physics drift) — route i2v
+  through kwaivgi/kling-v3.0-pro. Lock the apparel + model identity via --ref on every regen
+  (super-original refs memory). English VO line → Kling --audio OK; non-EN strip line and post-mix
+  via ElevenLabs. Source already bans music — keep verbatim.
+prompt: |
+  UGC creator, a young woman with curly hair standing in front of a full length mirror in a small bedroom. She is wearing an oversized cream linen shirt and wide-leg jeans. She turns slightly left, then right, checks the back over her shoulder, smiles at her reflection in the mirror, then looks directly at the camera in her hand and says: "This shirt is from the new drop. Sized down. Worth it." Soft window light from the left, warm wood floor, palette of cream, denim blue, oak brown. Filmed with iPhone front camera, slight handheld motion, shallow depth of field. - No music, no logo, no text on screen.

@@ -1,0 +1,37 @@
+slug: parked-car-night-conversation
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Two-character intimate vehicle dialogue with native audio
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description with character voice tags
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://blog.fal.ai/kling-3-0-prompting-guide/
+  author: fal.ai
+  retrieved: 2026-05-21
+notes: |
+  Quiet emotional dialogue, low motion. Background music ("Low lo-fi music")
+  is part of the prompt — strip for Ralphy and add via ElevenLabs Music.
+prompt: |
+  Inside a parked car at night.
+  Rain tapping softly on the roof.
+  Low lo-fi music playing from the speakers.
+
+  A driver grips the steering wheel, nervous.
+  [Character A: Driver Friend, hesitant voice]: "So… are you mad at me?"
+
+  Immediately, the passenger stares out the window.
+  [Character B: Passenger Friend, quiet cold tone]: "I don't know."
+
+  The driver swallows.
+  [Driver Friend, softly speaking]: "That's worse than yes."
+
+  The passenger sighs deeply.
+  [Passenger Friend, tired voice]: "I just didn't expect it from you."

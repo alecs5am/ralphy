@@ -1,0 +1,34 @@
+slug: logo-vector-bakery
+model: gpt-image-1.5
+provider: openai
+use_case: Original vector-style brand logo with negative-space discipline and plain background
+form_factor: 1024x1536
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: medium
+    required: false
+  - kind: flag
+    name: n
+    values: "4"
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-1.5-prompting_guide
+  author: OpenAI Cookbook — GPT Image 1.5 Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 4.5 "Logo Generation". Author runs with n=4 to get a variation board.
+  Template-shaped — swap "Field & Flour, a local bakery" for any brand/category
+  and the surrounding constraint stack ("clean vector-like shapes, strong
+  silhouette, balanced negative space, flat design, no gradients, plain
+  background, no watermark") stays the same.
+prompt: |
+  Create an original, non-infringing logo for a company called Field & Flour, a local bakery. The logo should feel warm, simple, and timeless. Use clean, vector-like shapes, a strong silhouette, and balanced negative space. Favor simplicity over detail so it reads clearly at small and large sizes. Flat design, minimal strokes, no gradients unless essential. Plain background. Deliver a single centered logo with generous padding. No watermark.

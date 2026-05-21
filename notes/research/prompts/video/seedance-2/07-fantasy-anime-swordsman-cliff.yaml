@@ -1,0 +1,29 @@
+slug: fantasy-anime-swordsman-cliff
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: fantasy / anime — stylized action i2v anchored on style image
+form_factor: horizontal 16:9 / 5–10s
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description with @Image1 style ref
+    required: true
+  - kind: image
+    role: style anchor (@Image1 — anime style ref)
+    required: true
+    notes: |
+      Style anchor (not photoreal human) — privacy filter typically OK on
+      illustrated / anime refs. Verify before commit.
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary (sweep behind → low-angle frontal)
+    required: false
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Stylized i2v — anime style anchor, cel-shaded. Lower privacy-filter risk
+  than photoreal human anchors but still worth verifying.
+prompt: |
+  In the style of @Image1, a young swordsman stands on a cliff edge overlooking a vast ocean at sunset. Wind catches his cloak and hair. He unsheathes a glowing blade and takes a battle stance. Camera sweeps from behind to a dramatic low-angle frontal shot. Vibrant anime color palette, dynamic action lines, cel-shaded lighting.

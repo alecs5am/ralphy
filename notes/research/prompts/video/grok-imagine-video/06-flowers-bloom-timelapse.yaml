@@ -1,0 +1,26 @@
+slug: flowers-bloom-timelapse
+model: grok-imagine
+provider: xai
+use_case: Abstract/timelapse T2V — macro fast-forward bloom
+form_factor: video
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+source:
+  url: https://www.dzinepixel.com/blog/grok-imagine-your-2025-guide-to-making-short-ai-videos-explained-simply/
+  author: Dzinepixel
+  retrieved: 2026-05-21
+notes: |
+  Prompt 11 of 50 in the Dzinepixel "Abstract & Timelapse" category.
+prompt: |
+  Flowers bloom in fast-forward, petals unfurl, macro zoom, soft chimes, pastel dawn.

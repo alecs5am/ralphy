@@ -1,0 +1,40 @@
+slug: v4-vector-tourism-icon-set
+model: recraft-v4
+provider: recraft
+use_case: 12-piece bold silhouette icon collection
+form_factor: 1024x1024 grid (3 rows x 4 icons)
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: vector_illustration
+  - kind: flag
+    name: substyle
+    required: false
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/prompting-with-recraft-v4.md
+  author: Recraft (Prompting with Recraft V4)
+  retrieved: 2026-05-21
+notes: |
+  V4-era prompt. Recraft V4 handles long structured prompts substantially
+  better than V3 — note the explicit roster ("include exactly these 12") and
+  the consistency callout ("identical tiny dot eyes"). Pair with
+  `vector_illustration` for SVG-able output.
+prompt: |
+  Create a collection of 12 clean vector tourism character icons arranged in a grid with four per row (three rows total). Ultra-minimal bold silhouette style, pure black solid shapes on a white background. No gradients, no textures, no outlines — only simple geometric filled forms with strong silhouette clarity. All characters must have identical tiny dot eyes, same size and placement, with no additional facial details. The icons should feel playful, abstract, slightly absurd, and clearly tourism-inspired in a modern Scandinavian-brutalist pictogram style. Include exactly these 12 characters: a mountain with minimal sunrise rays, a rolling suitcase with small wheels, a tall lighthouse with beam lines, a rounded airplane, a palm tree with a face in the trunk, a camper van, a sun disk with short rays, a hot air balloon with a small basket, a backpack with visible straps, a triangular tent, a cruise ship with stacked decks, and a camera with a circular lens. Ensure even spacing, consistent visual weight, uniform eye placement, and a bold, clean, graphic poster-like composition.

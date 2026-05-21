@@ -1,0 +1,37 @@
+slug: olympic-diver-dynamic-sequence
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Sports — Olympic diving slow-mo from platform takeoff
+form_factor: horizontal 16:9 / 5s
+category: sports
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (single beat, no timeline)
+    required: true
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN ANCHOR — female athlete face. Privacy filter risk; switch to Kling if attaching face ref.
+  - kind: flag
+    name: duration
+    values: 5s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "dynamic shot, full sequence — implies multi-angle within continuous shot"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Minimal one-liner — useful as a hook test. Pair with Seedance ASMR-cinematic style guide if used for broadcast spec.
+  Per Ralphy memory, broadcast-realism shots default to 1:1 square — but classic sports framing is 16:9.
+prompt: |
+  Female Olympic diver from platform takeoff to mid-air perfect dive into blue pool, full sequence action, colorful swimsuit, dynamic shot.

@@ -1,0 +1,24 @@
+slug: chiaroscuro-portrait-edit
+model: gemini-3-pro-image
+provider: gemini
+use_case: Re-light an existing portrait with hard directional chiaroscuro while locking identity
+form_factor: matches input
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: edit_base
+    required: true
+source:
+  url: https://deepmind.google/models/gemini-image/pro/
+  author: Google DeepMind — Gemini Image Pro model page
+  retrieved: 2026-05-21
+notes: |
+  Studio-quality lighting control. Explicit "retain his original features and
+  expression" is what stops Nano Banana from re-rendering the face. Direction
+  ("from above and slightly to the left") is given in plain English — no
+  light-rig diagram needed.
+prompt: |
+  Generate an image with an intense chiaroscuro effect. The man should retain his original features and expression. Introduce harsh, directional light, appearing to come from above and slightly to the left, casting deep, defined shadows across the face. Only slivers of light illuminating his eyes and cheekbones, the rest of the face is in deep shadow.

@@ -1,0 +1,43 @@
+slug: logo-raster-pasta-monogram-minimal
+model: recraft-v3
+provider: recraft
+use_case: Minimal modern logo with negative-space wordmark
+form_factor: 1024x1024 logo
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: logo_raster
+  - kind: flag
+    name: substyle
+    required: false
+    selected: null
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    role: hex array for palette lock
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/visual-formats/logos-and-icons.md
+  author: Recraft (Logos & Icons guide)
+  retrieved: 2026-05-21
+notes: |
+  Recraft labels this "Modern minimal: clean lines, minimal style". Source
+  does NOT name the enum explicitly, but the "minimalist", "centered logo",
+  raster-aesthetic phrasing pairs with `logo_raster`. If you need an SVG
+  output instead, re-run with `style: vector_illustration` (per fal.ai logos
+  guidance, see #09).
+prompt: |
+  Minimalist pasta brand logo centered in composition, circular icon with brand name integrated as negative space cutout within the circle, letters carved from pasta nest spiral, text visible through transparent areas of symbol, typography and icon fused as one shape, soft golden beige outline on white, modern serif letterforms becoming part of circular geometry, unified design where you cannot separate text from image, balanced central placement with white space buffer, zen minimalist aesthetic where form and meaning unite

@@ -1,0 +1,22 @@
+slug: commercial-product-smartphone-orbit
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: commercial — product showcase, 360° orbit + macro cut
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary (360° orbit, macro cut)
+    required: false
+source:
+  url: https://github.com/fal-ai/seedance-2.0-api
+  author: fal-ai (official API repo)
+  retrieved: 2026-05-21
+notes: |
+  Official fal-ai sample. Studio product ad pattern. Text-to-video.
+prompt: |
+  A premium smartphone rotates slowly on a matte black surface, studio lighting reflecting off the glass edges. Camera orbits 360 degrees at eye level, then cuts to a macro shot of the camera module with lens flare. Minimal, clean aesthetic with soft gradient background shifting from deep navy to charcoal.

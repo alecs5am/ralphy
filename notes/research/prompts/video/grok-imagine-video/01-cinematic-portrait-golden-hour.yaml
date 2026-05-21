@@ -1,0 +1,30 @@
+slug: cinematic-portrait-golden-hour
+model: grok-imagine
+provider: xai
+use_case: Cinematic T2V close-up portrait with golden-hour push-in
+form_factor: video 8s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+source:
+  url: https://replicate.com/xai/grok-imagine-video
+  author: Replicate (xai/grok-imagine-video model card)
+  retrieved: 2026-05-21
+notes: |
+  Labelled "Cinematic portrait" in the Replicate T2V section. Mode not specified — defaulting to Normal.
+prompt: |
+  Close-up shot of a young woman turning her head to look at the camera, golden hour light casting warm shadows across her face, gentle wind moving through her hair, slow camera push-in, nostalgic mood, shallow depth of field, 50mm lens feel, photoreal natural light.

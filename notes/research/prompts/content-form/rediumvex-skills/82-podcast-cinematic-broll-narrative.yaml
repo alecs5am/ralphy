@@ -1,0 +1,38 @@
+slug: podcast-cinematic-broll-narrative
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Podcast clip — cinematic b-roll narrative with quote pull
+form_factor: podcast clip visualization
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "{{ASPECT_RATIO}}, {{DURATION}}, {{ENVIRONMENT_DESCRIPTION}}, {{SPECIFIC_OBJECT_IN_FRAME}}"
+    required: true
+  - kind: slot_value
+    role: "{{MOTIVATED_MOVEMENT}}, {{NEW_ENVIRONMENT}}, {{LIGHTING_SOURCE}}, {{BEHAVIOR}}"
+    required: true
+  - kind: slot_value
+    role: "{{QUOTE_TEXT}}, {{EXACT_QUOTE}}, {{TEXT_TREATMENT}}, {{BACKGROUND_TREATMENT}}, {{TEXT_PERSISTENCE}}"
+    required: true
+  - kind: slot_value
+    role: "{{CLOSING_VISUAL}}, {{SPEAKER_ID_TREATMENT}}, {{COLOR_GRADE_DIRECTION}}"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/10-podcast-visual/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/10-podcast-visual/SKILL.md
+notes: |
+  Cinematic b-roll narrative podcast template.
+prompt: |
+  Seedance 2.0 video prompt, {{ASPECT_RATIO}}, {{DURATION}} seconds:
+
+  Opening {{TIME}} seconds: {{ENVIRONMENT_DESCRIPTION}}. {{SPECIFIC_OBJECT_IN_FRAME}}. Camera {{MOTIVATED_MOVEMENT}}.
+
+  Cut at second {{X}}: {{NEW_ENVIRONMENT}}. {{LIGHTING_SOURCE}}. Camera {{BEHAVIOR}}.
+
+  At second {{Y}}: {{QUOTE_TEXT}} appears as {{TEXT_TREATMENT}} on {{BACKGROUND_TREATMENT}}: "{{EXACT_QUOTE}}." {{TEXT_PERSISTENCE}}.
+
+  Final {{TIME}} seconds: {{CLOSING_VISUAL}}. {{SPEAKER_ID_TREATMENT}}.
+
+  Color grade: {{COLOR_GRADE_DIRECTION}}.

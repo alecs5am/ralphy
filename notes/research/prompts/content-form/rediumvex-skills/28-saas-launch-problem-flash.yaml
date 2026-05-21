@@ -1,0 +1,19 @@
+slug: saas-launch-problem-flash
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS-launch hook — montage of frustrating software moments resolving into product reveal
+form_factor: SaaS product launch
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Problem-flash SaaS opener. Maps to Ralphy's b2b-saas template category.
+prompt: |
+  Quick montage of frustrating software moments: loading spinners, error messages, cluttered UIs, spreadsheet chaos. 0.3s per shot, 6 shots in 1.8s. Flat fluorescent lighting, desaturated color. Sound: each cut accompanied by error buzz/notification spam. At 2s: hard cut to black, then your product appears in clean, premium lighting.

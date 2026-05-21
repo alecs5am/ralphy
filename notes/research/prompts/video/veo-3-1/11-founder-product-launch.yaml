@@ -1,0 +1,35 @@
+slug: founder-product-launch
+model: veo-3.1
+provider: gemini
+use_case: brand / founder UGC — short native VO with ambient layering
+form_factor: horizontal 16:9 / 6s direct-to-camera
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: false
+    notes: Optionally pass the actual product photo as a ref — that's the workflow Veo 3.1 is best at (single product image → talking-head clip).
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://www.veo3ai.io/blog/veo-3-native-audio-prompt-guide-2026
+  author: veo3ai.io
+  retrieved: 2026-05-21
+notes: |
+  Textbook audio-aware prompt. Notice the explicit negations ("No background music, no extra speech") — Veo 3.1 honors these denials and keeps the mix clean. Also names delivery style ("calm confident", "brief pause") which the model maps to pacing.
+prompt: |
+  Create a six-second medium shot of a founder in a bright studio holding a product prototype. The founder looks at camera and says, "We turned one product photo into a launch video." Natural lip sync, calm confident delivery, line begins after a brief pause. Add quiet studio room tone and a soft product handling sound. No background music, no extra speech.

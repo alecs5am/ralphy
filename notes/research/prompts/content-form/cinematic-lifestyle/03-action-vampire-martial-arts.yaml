@@ -1,0 +1,40 @@
+slug: vampire-martial-arts-combat
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Short high-speed martial arts action beat
+form_factor: horizontal 16:9 / 5s
+category: action
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+    constraints: |
+      no timestamps — single explosive action shot
+  - kind: image
+    role: i2v_anchor
+    required: false
+    notes: HUMAN CHARACTER ANCHOR — Seedance privacy filter may reject photoreal humans. Switch to kwaivgi/kling-v3.0-pro if i2v with face ref.
+  - kind: flag
+    name: duration
+    values: 5s
+    required: false
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9
+    required: false
+  - kind: flag
+    name: camera_movement
+    role: cinematic vocabulary
+    required: false
+    notes: "fast whip pan, heavy motion blur"
+source:
+  url: https://github.com/YouMind-OpenLab/awesome-seedance-2-prompts
+  author: YouMind-OpenLab
+  retrieved: 2026-05-21
+notes: |
+  Named character DRAEV implies a recurring IP — if user has a specific reference, attach it. Otherwise model will improvise.
+  Explicit "No music, No intro sound" — same Ralphy pattern as Kling: ban music in gen-prompt, layer ElevenLabs Music in post.
+  Human-anchor concern flagged.
+prompt: |
+  High-speed action shot. From the shadows, DRAEV with his white hair and glowing red eyes blitzes into the frame in a blur. He slams the speaking gangster against the wall with his left hand, gripping his throat as the body turns into dark smoke. Simultaneously, DRAEV spins and kicks the second vampire's chest, throwing him violently against concrete blocks. Fast whip pan, heavy motion blur, violent fluid martial arts movement. No music , No intro sound.

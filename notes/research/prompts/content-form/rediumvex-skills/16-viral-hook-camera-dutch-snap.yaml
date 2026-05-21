@@ -1,0 +1,19 @@
+slug: viral-hook-camera-dutch-snap
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Camera-movement preset — Dutch tilt snap
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Dutch-snap camera preset.
+prompt: |
+  Camera rotates 30 degrees clockwise in 0.3s. Horizon tilts. Creates instant visual tension. Hold the tilted frame — don't correct it.

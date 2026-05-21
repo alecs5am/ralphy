@@ -1,0 +1,35 @@
+slug: pop-star-180-arc
+model: veo-3.1
+provider: gemini
+use_case: first-and-last-frame transition with native dialogue/singing
+form_factor: horizontal 16:9 / 8s cinematic
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description (cinematic, dialogue-rich)
+    required: true
+  - kind: image
+    role: reference
+    required: true
+    notes: Veo 3.1 first-and-last-frame workflow — provide 2 reference images (start frame + end frame). The 180° arc is interpolated between them.
+  - kind: flag
+    name: aspect_ratio
+    values: 16:9 | 9:16
+    required: false
+  - kind: flag
+    name: duration
+    values: 8s
+    required: false
+  - kind: flag
+    name: audio_enabled
+    role: Veo 3.1 has native audio (dialogue + SFX + music)
+    required: false
+    selected: true
+source:
+  url: https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1
+  author: Google Cloud
+  retrieved: 2026-05-21
+notes: |
+  Google official example for the "First and Last Frame" workflow. The two image refs are start frame (front-facing) and end frame (POV from behind on stage). Veo 3.1 sings the quoted lyric line natively — no separate VO pass needed.
+prompt: |
+  The camera performs a smooth 180-degree arc shot, starting with the front-facing view of the singer and circling around her to seamlessly end on the POV shot from behind her on stage. The singer sings "when you look me in the eyes, I can see a million stars."

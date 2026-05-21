@@ -1,0 +1,36 @@
+slug: whiplash-drum-solo-dialogue
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Multi-shot tense dialogue with shouted dialogue + SFX
+form_factor: horizontal 16:9 / 10s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: multi-shot script with character voice tags
+    required: true
+  - kind: flag
+    name: --audio
+    role: synthesize speech inline (EN only)
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Stress test for shouted dialogue + emotional range (cold → fury → quiet).
+  Uses shorthand shot labels ("Wide shot:", "Close-up:") instead of seconds.
+prompt: |
+  Wide shot: Instructor watches, drummer playing.
+  Snare hits. Tempo uneven. [Instructor, cold]: "Again."
+  Close-up: Drummer's sweating hands, gripping sticks. Rhythm falters. Instructor steps closer, menacing.
+  [Instructor, shouting]: "NOT MY TEMPO!"
+  Medium shot: Drummer flinches, stops.
+  [Drummer, shaking]: "I'm trying—"
+  Close-up: Instructor's rage, veins visible.
+  [Instructor, fury]: "RUSHING OR DRAGGING?!"
+  Over-shoulder: Drummer's terrified eyes.
+  [Drummer, stammering]: "I... don't know..."
+  Instructor slams cymbal. Metal crash.
+  [Instructor, quiet]: "Start counting."
+  Tight shot: Drummer's face, tears forming.
+  Begins playing. Snare intensifies.

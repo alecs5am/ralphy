@@ -1,0 +1,19 @@
+slug: viral-hook-camera-orbit-reveal
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Camera-movement preset — 180-degree orbit reveal
+form_factor: camera-movement modifier
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Orbit-reveal camera preset.
+prompt: |
+  Camera orbits 180 degrees around subject over 3s. Each 45 degrees reveals new environmental element. Consistent distance from subject. Reveals build narrative: what seemed simple becomes complex.

@@ -1,0 +1,24 @@
+slug: robotic-arm-lateral-pass
+model: kwaivgi/kling-v3.0-pro
+provider: replicate
+use_case: Snappy robotic-arm camera move (product or hero portrait)
+form_factor: horizontal 16:9 / 5s
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: pure camera-motion directive (append to subject prompt)
+    required: true
+  - kind: image
+    role: start_frame
+    required: true
+    notes: subject must be defined in start frame — this prompt is camera-only
+source:
+  url: https://www.atlabs.ai/blog/kling-3-0-prompting-guide-master-ai-video-generation
+  author: Atlabs
+  retrieved: 2026-05-21
+notes: |
+  Camera-only fragment — combine with a subject start frame. Contains hard
+  negative cues ("no circular motion", "no shake", "stable face", "Braids intact",
+  "Outfit artifact free") that ship as part of the prompt body in Kling 3.0.
+prompt: |
+  Camera performs a fast lateral pass left to right (0.5-0.8 seconds), then a brief crash push into the face. Quick pull back and a fast pass back right to left. No circular motion around the object. Robotic arm camera control. Very snappy accelerations, but no shake. Stable face. Braids intact. Outfit artifact free.

@@ -1,0 +1,30 @@
+slug: ugc-unboxing-reaction-fashion-beauty
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Unboxing reaction with surprise beat (fashion / beauty / DTC)
+form_factor: vertical 9:16 / 15s TikTok-style
+platform: TikTok+Reel+Shorts
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: duration
+    values: 15s
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 9:16
+    required: true
+source:
+  url: https://www.atlabs.ai/blog/how-to-make-ugc-ads-with-a-single-prompt-using-seedance-2.0-(15-prompts)
+  author: Atlabs AI
+  retrieved: 2026-05-21
+notes: |
+  Human-anchored UGC — if seedance-2.0 rejects the photoreal person on i2v, swap to kwaivgi/kling-v3.0-pro.
+  Spoken English ("I was not expecting this") → Kling --audio handles inline VO; for non-EN audiences
+  drop the line from the prompt and add ElevenLabs VO in post. Source already bans music ("ring light
+  warmth", no music dir) but consider explicitly banning music when routing through Kling.
+prompt: |
+  A 24-year-old Black woman sits cross-legged on a bed surrounded by tissue paper, mid-unboxing. Oversized vintage tee, natural hair. 0 to 3s: She pulls out a sleek product box and her eyes go wide with genuine surprise, she mouths the word "wait." Handheld shaky cam, ring light warmth. 4 to 8s: She holds the product up, turning it slowly. Camera follows her hands in a close medium shot. 9 to 13s: She puts it down, looks straight at camera and says "I was not expecting this" with a small laugh. 14 to 15s: Quick cut to product alone on white bedsheet. 9:16 vertical, bright casual room lighting, relatable energy.

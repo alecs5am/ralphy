@@ -1,0 +1,19 @@
+slug: saas-launch-dark-mode-showcase
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: SaaS aesthetic preset — dark-mode product in dark room with screen as hero light
+form_factor: SaaS aesthetic preset
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/02-saas-launch/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/02-saas-launch/SKILL.md
+notes: |
+  Dark-mode aesthetic preset.
+prompt: |
+  Product displayed on device with dark-mode UI. Environment is dark room. Screen is primary light source — UI colors illuminate surroundings. Brand accent color creates colored light spill on desk surface and walls. Subtle volumetric haze makes light rays from screen visible. No other light sources. Screen glow is hero. Moody, premium, modern.

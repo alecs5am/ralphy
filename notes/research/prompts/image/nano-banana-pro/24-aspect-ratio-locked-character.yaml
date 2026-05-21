@@ -1,0 +1,28 @@
+slug: aspect-ratio-locked-character
+model: gemini-3-pro-image
+provider: gemini
+use_case: Re-aspect-ratio a generated image while locking the subject in place
+form_factor: arbitrary (driven by ratio value)
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: edit_base
+    required: true
+  - kind: flag
+    name: aspect_ratio
+    values: 1:1 | 4:3 | 5:3 | 1.85:1 | 2.39:1 | 2.75:1 | 4:1 | 9:16 | 1:4
+    required: false
+source:
+  url: https://deepmind.google/models/gemini-image/pro/
+  author: Google DeepMind — Gemini Image Pro model page
+  retrieved: 2026-05-21
+notes: |
+  Template prompt — replace {ratio} with target. DeepMind's documented set:
+  1:1, 4:3, 5:3, 1.85:1, 2.39:1, 2.75:1, 4:1, 9:16, 1:4. The "reducing
+  background" phrasing is critical — without it the model may letterbox or
+  crop the character.
+prompt: |
+  change aspect ratio to {ratio} by reducing background. The character, remains exactly locked in its current position

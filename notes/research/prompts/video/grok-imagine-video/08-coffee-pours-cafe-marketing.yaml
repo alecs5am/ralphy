@@ -1,0 +1,26 @@
+slug: coffee-pours-cafe-marketing
+model: grok-imagine
+provider: xai
+use_case: Professional/marketing T2V — coffee pour close-up for cafe ad
+form_factor: video
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Normal
+    required: false
+source:
+  url: https://www.dzinepixel.com/blog/grok-imagine-your-2025-guide-to-making-short-ai-videos-explained-simply/
+  author: Dzinepixel
+  retrieved: 2026-05-21
+notes: |
+  Prompt 32 of 50 in the Dzinepixel "Professional/Marketing" category.
+prompt: |
+  Coffee pours with steam, cup swirls, close-up pour, gurgle aroma, cafe warm.

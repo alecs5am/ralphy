@@ -1,0 +1,28 @@
+slug: course-promo-voice-template
+model: elevenlabs
+provider: elevenlabs
+use_case: Course-promo voice direction template for VO
+form_factor: voiceover spec
+is_template: true
+inputs:
+  - kind: slot_value
+    role: "[gender/tone descriptor]"
+    required: true
+  - kind: slot_value
+    role: "[timestamp] — voice entry timecode"
+    required: true
+  - kind: slot_value
+    role: "[choose: authoritative / conversational / conspiratorial / celebratory]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/04-course-promo/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/04-course-promo/SKILL.md
+notes: |
+  Voice-direction spec. ElevenLabs target. Per project memory, prefer ElevenLabs for non-EN.
+prompt: |
+  Voiceover: [gender/tone descriptor] voice, warm and direct, speaking at 140 words per minute,
+  no music during voiceover — underscore only (music at -18dB),
+  voice enters at [timestamp], one breath between each key statement,
+  tone is [choose: authoritative / conversational / conspiratorial / celebratory]

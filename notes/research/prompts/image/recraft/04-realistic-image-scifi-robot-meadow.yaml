@@ -1,0 +1,40 @@
+slug: realistic-image-scifi-robot-meadow
+model: recraft-v3
+provider: recraft
+use_case: Cinematic sci-fi narrative still (35mm lens look)
+form_factor: 1365x1024 landscape
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: realistic_image
+  - kind: flag
+    name: substyle
+    required: false
+    selected: null
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1365x1024
+  - kind: flag
+    name: colors
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/prompt-templates/universal.md
+  author: Recraft (Universal Prompt Template)
+  retrieved: 2026-05-21
+notes: |
+  This is Recraft's canonical "universal template" example. Note the structure:
+  subject + framing + environment + style descriptor + mood + light + palette +
+  focus + DOF + lens. Replicates well in `realistic_image` style.
+prompt: |
+  A humanoid robot with black body standing in a vast wildflower meadow with arms raised upward, captured from behind, dramatic mountain ranges stretching across the horizon in soft focus, endless field of blue and white flowers surrounding the robot, professional cinematic photograph, contemporary sci-fi style, contemplative and mystical mood, soft diffused daylight with gentle atmospheric haze, cool color palette with pastel blues, whites, and muted greens, sharp focus on the robotic silhouette, slight depth of field blur on distant mountains, shot with 35mm lens at f/2.8

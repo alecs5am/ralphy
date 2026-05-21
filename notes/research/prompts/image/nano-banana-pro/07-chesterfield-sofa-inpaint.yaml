@@ -1,0 +1,22 @@
+slug: chesterfield-sofa-inpaint
+model: gemini-3-pro-image
+provider: gemini
+use_case: Semantic inpainting — swap one object while preserving everything else
+form_factor: matches input
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: edit_base
+    required: true
+source:
+  url: https://ai.google.dev/gemini-api/docs/image-generation
+  author: Google AI Developer Docs
+  retrieved: 2026-05-21
+notes: |
+  Canonical semantic-mask / inpaint prompt. Explicit "Keep the rest of the room
+  ... unchanged" clause prevents drift on pillows, lighting, walls.
+prompt: |
+  Using the provided image of a living room, change only the blue sofa to be a vintage, brown leather chesterfield sofa. Keep the rest of the room, including the pillows on the sofa and the lighting, unchanged.

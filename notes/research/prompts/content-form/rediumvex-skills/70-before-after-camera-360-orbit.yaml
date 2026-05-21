@@ -1,0 +1,22 @@
+slug: before-after-camera-360-orbit
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation camera — 360 orbit hiding transition at 180
+form_factor: before/after camera modifier
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[subject], [behind/below]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  360-orbit camera modifier.
+prompt: |
+  continuous 360-degree orbit around [subject], transition hidden as camera passes [behind/below] at the 180-degree mark, smooth uninterrupted motion throughout

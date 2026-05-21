@@ -1,0 +1,22 @@
+slug: before-after-hook-slow-morph
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Transformation hook — slow morph back-and-forth proving reversibility
+form_factor: before/after transformation hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: slot_value
+    role: "[before state] / [after state]"
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/07-before-after/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/07-before-after/SKILL.md
+notes: |
+  Slow-morph hook structure.
+prompt: |
+  begins on [after state], slow morph backward to [before state] over 1 second, pause, then forward morph to [after state], implying the transformation is reversible and therefore real

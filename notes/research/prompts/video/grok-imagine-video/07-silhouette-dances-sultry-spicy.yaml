@@ -1,0 +1,26 @@
+slug: silhouette-dances-sultry-spicy
+model: grok-imagine
+provider: xai
+use_case: Sultry T2V silhouette dance — Spicy-mode example
+form_factor: video
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+  - kind: flag
+    name: task
+    values: T2V
+    required: true
+  - kind: flag
+    name: mode
+    values: Spicy
+    required: false
+source:
+  url: https://www.dzinepixel.com/blog/grok-imagine-your-2025-guide-to-making-short-ai-videos-explained-simply/
+  author: Dzinepixel
+  retrieved: 2026-05-21
+notes: |
+  Prompt 21 of 50 in the Dzinepixel "Spicy/NSFW-Inspired" category — requires Grok Imagine Spicy mode (X Premium / SuperGrok tier and 18+ acknowledgement). Suggestive, not explicit.
+prompt: |
+  Silhouette dances with fluid sway, shadows play, low-angle rise, sultry bass, dim lounge.

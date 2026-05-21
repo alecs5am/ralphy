@@ -1,0 +1,19 @@
+slug: personal-brand-hook-the-environment
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Personal-brand hook — premium workspace push-in reveals subject
+form_factor: creator/personal-brand short
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/03-personal-brand/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/03-personal-brand/SKILL.md
+notes: |
+  The-Environment hook.
+prompt: |
+  Wide shot of premium workspace/studio/office. Camera slowly pushes in. Subject enters frame at 1.5s or is revealed by camera movement.

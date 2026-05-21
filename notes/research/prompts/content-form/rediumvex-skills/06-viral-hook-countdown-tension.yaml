@@ -1,0 +1,19 @@
+slug: viral-hook-countdown-tension
+model: bytedance/seedance-2.0
+provider: replicate
+use_case: Curiosity-gap hook — 3-2-1 countdown without reveal
+form_factor: short-form vertical hook
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: scene description
+    required: true
+source:
+  url: https://github.com/rediumvex/ai-video-generator-claude/blob/main/skills/01-viral-hook/SKILL.md
+  author: rediumvex
+  retrieved: 2026-05-21
+  skill_path: skills/01-viral-hook/SKILL.md
+notes: |
+  Countdown without payoff in the hook itself.
+prompt: |
+  Bold text '3' appears center-frame with bass hit. Cut to new angle, '2' with rising synth. Cut again, '1' with tension peak. Frame holds on black for 0.5s. The reveal never comes in the hook — it's downstream. Camera movements accelerate with countdown.

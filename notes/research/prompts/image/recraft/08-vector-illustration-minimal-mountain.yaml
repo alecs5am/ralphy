@@ -1,0 +1,40 @@
+slug: vector-illustration-minimal-mountain
+model: recraft-v3
+provider: recraft
+use_case: Minimal two-color vector illustration (logo-adjacent)
+form_factor: 1024x1024 square vector
+is_template: false
+inputs:
+  - kind: text_prompt
+    role: subject description
+    required: true
+  - kind: flag
+    name: style
+    values: realistic_image | digital_illustration | vector_illustration | icon | logo_raster | any
+    required: true
+    selected: vector_illustration
+  - kind: flag
+    name: substyle
+    required: false
+  - kind: flag
+    name: size
+    values: 1024x1024 | 1024x1365 | 1365x1024 | 1024x1707 | 1707x1024
+    required: false
+    selected: 1024x1024
+  - kind: flag
+    name: colors
+    role: hex array for palette lock
+    required: false
+  - kind: image
+    role: style_reference
+    required: false
+source:
+  url: https://www.recraft.ai/docs/prompt-engineering-guide/visual-formats/vector-art.md
+  author: Recraft (Vector Art guide)
+  retrieved: 2026-05-21
+notes: |
+  Minimal end of the ladder — two-color palette, simple geometric shapes.
+  Ideal first-pass when you intend to lock palette via `colors=[hex,hex]`
+  on the Recraft API.
+prompt: |
+  Flat vector illustration of mountain landscape, simple geometric shapes, two-color palette (blue, green), clean lines, minimal design

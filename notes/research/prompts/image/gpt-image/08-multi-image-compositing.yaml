@@ -1,0 +1,32 @@
+slug: multi-image-compositing
+model: gpt-image-1.5
+provider: openai
+use_case: Composite a subject from image B into the setting of image A while matching lighting and style
+form_factor: 1024x1536 portrait
+is_template: true
+inputs:
+  - kind: text_prompt
+    role: edit instruction
+    required: true
+  - kind: image
+    role: multi_image_input
+    required: true
+  - kind: flag
+    name: size
+    values: 1024x1536
+    required: false
+  - kind: flag
+    name: quality
+    values: high
+    required: false
+source:
+  url: https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide
+  author: OpenAI Cookbook — GPT Image Generation Models Prompting Guide
+  retrieved: 2026-05-21
+notes: |
+  Section 5.9 "Multi-Image Compositing". The author calls out
+  input_fidelity="high" + quality="high" — without input_fidelity the model
+  reinterprets the dog rather than preserving it. Template — swap "dog from
+  the second image", "woman", "lighting/composition/background".
+prompt: |
+  Place the dog from the second image into the setting of image 1, right next to the woman, use the same style of lighting, composition and background. Do not change anything else.
