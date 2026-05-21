@@ -2,25 +2,45 @@ import { site, navItems } from "@/lib/data";
 import { I } from "./Icons";
 import { LogoGlyph } from "./MascotSVG";
 
-export function Nav({ stars }: { stars: string }) {
+type NavVariant = "home" | "subpage";
+
+export function Nav({
+  stars,
+  variant = "home",
+}: {
+  stars: string;
+  variant?: NavVariant;
+}) {
+  const isSubpage = variant === "subpage";
+
   return (
     <header className="nav">
       <div className="nav-inner">
-        <a className="nav-brand" href="#top">
+        <a className="nav-brand" href={isSubpage ? "/" : "#top"}>
           <LogoGlyph />
           <span className="nav-name">Ralphy</span>
         </a>
         <nav className="nav-links" aria-label="Primary">
-          {navItems.map((it) => (
-            <a key={it.href} href={it.href}>
-              {it.label}
+          {isSubpage ? (
+            <a className="nav-back" href="/">
+              <span className="nav-back-arrow" aria-hidden="true">
+                ←
+              </span>
+              Back to landing
             </a>
-          ))}
-          <a className="nav-skills" href="/skills">
-            <span className="nav-skills-pulse" aria-hidden="true" />
-            Skills
-            <span className="nav-skills-new">NEW</span>
-          </a>
+          ) : (
+            <>
+              {navItems.map((it) => (
+                <a key={it.href} href={it.href}>
+                  {it.label}
+                </a>
+              ))}
+              <a className="nav-skills" href="/skills">
+                <span className="nav-skills-dot" aria-hidden="true" />
+                Skills
+              </a>
+            </>
+          )}
         </nav>
         <div className="nav-right">
           <a className="nav-ghost" href={site.docs} target="_blank" rel="noopener">
