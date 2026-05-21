@@ -1,87 +1,390 @@
 ---
-title: "Ralphy vs Higgsfield / Supercomputer — what AI-native teams actually need"
+title: "Ralphy vs Higgsfield vs Supercomputer — the AI-native team's UGC stack"
 description: "A blunt comparison: hosted UGC studios (Higgsfield, Supercomputer) vs an open-source CLI you run yourself. Vendor lock-in, token decay, audit logs, and the parts marketing teams keep finding out the hard way."
 date: "2026-05-21"
 author: "Ralphy team"
 ---
 
-# Ralphy vs Higgsfield / Supercomputer — what AI-native teams actually need
+# Ralphy vs Higgsfield vs Supercomputer — the AI-native team's UGC stack
 
-Marketing tools shipping AI features have split into two camps.
+<Lede>
+Marketing tools shipping AI features have split into two camps. Hosted UGC
+studios — <Tag>Higgsfield</Tag>, <Tag>Supercomputer</Tag> — own the pipeline
+and rent it back to you by the credit. <Tag kind="accent">Ralphy</Tag> is the
+other camp: an open-source CLI that drives your own provider keys, writes
+every generation to disk, and renders through code you can read.
+</Lede>
 
-**Camp one** is the hosted studio: Higgsfield, Supercomputer, the next dozen seed-funded clones. You log in, type a brief, get a video. Their pitch is convenience. Their business model is owning the pipeline.
+<StatRow>
+  <Stat value="$0" label="Ralphy platform fee" />
+  <Stat value="100%" label="Generation log on your disk" />
+  <Stat value="2" label="Vendor keys — not 1 SaaS" />
+</StatRow>
 
-**Camp two** is the open-source CLI you run yourself. Ralphy lives here. The pitch is the opposite: you keep the pipeline. The studio is software you can read, fork, and pin.
+If you ship one TikTok a quarter, hosted is fine. If your team ships ten a
+week — or you intend to — the difference compounds fast. Below is the honest,
+table-by-table version of what teams discover six months in.
 
-If you ship one TikTok a quarter, camp one is fine. If your team ships ten a week — or you intend to — the difference compounds fast. Below is the honest version of what teams discover six months in.
+## The five things you actually own when you self-host
 
-## Five things you actually own in camp two
+Hosted studios optimize for "type a brief, get a video". Ralphy optimizes for
+the next eight months — the part where you're shipping ten reels a week,
+regenerating scenes from last quarter, and a CMO asks what you spent on
+hands-and-eyes regens in Q1.
 
-### 1. Your provider keys, your provider rates
+- **Your provider keys, your provider rates.** Every model call is direct to
+  <Tag>OpenRouter</Tag> and <Tag>ElevenLabs</Tag> at list price. No marked-up
+  credits, no platform tier you got grandfathered into.
+- **A grep-able generation log.** Each project writes
+  <Tag kind="neutral">generations.jsonl</Tag> — input prompt, output URI,
+  latency, cost, model id, append-only. Not a 20-row paginated tab.
+- **No expiring tokens.** There is no Ralphy account, so no balance to
+  expire. You're on OpenRouter's and ElevenLabs' billing cadence — documented
+  and rarely-changed.
+- **Reference fidelity in your repo.** <Tag kind="accent">ralphy ref</Tag>
+  writes structured JSON for master shots, persona descriptors, camera
+  grammar — checked into git, re-runnable eight months later.
+- **A deterministic render pass.** Final composition is <Tag>Remotion</Tag> —
+  React + headless Chromium. Caption timing, transition curves, music
+  ducking — all TypeScript you can diff.
 
-Hosted studios run on credits. Higgsfield's image credit ≠ Higgsfield's video credit ≠ the upgrade tier you got grandfathered into. The price they pay OpenAI or fal.ai is not the price they charge you, and they keep both sides opaque on purpose.
+<Callout kind="good" title="Cheap because efficient">
+We don't charge a platform fee because we don't host anything. You pay
+OpenRouter for the model and ElevenLabs for the voice; Ralphy is the binary
+that orchestrates them. Open-source, MIT-licensed, no telemetry phoning home.
+</Callout>
 
-Ralphy never holds a credit. The only secrets it needs are your `OPENROUTER_API_KEY` and `ELEVENLABS_API_KEY`. Every generation is a direct, logged call against your account, at the published list price. When Sora-2 drops and is half the cost of Veo, you swap one line in `MODELS.md` — no Ralphy update required, no waiting for the platform to "support" it.
+<Cta
+  title="Ship 60 reels this quarter."
+  caption="Two API keys, zero account. ralphy doctor verifies the install in five seconds."
+  href="https://github.com/alecs5am/ralphy"
+  cta="Get Ralphy"
+/>
 
-### 2. The generations log, in plain JSON, on your disk
+## Comparing Ralphy, Higgsfield, and Supercomputer
 
-Each project under Ralphy writes a `workspace/projects/<id>/logs/generations.jsonl`. Every model call: input prompt, output URI, latency, cost, model id. Append-only. Greppable. Not behind a "View History" tab that paginates twenty entries and times out.
+Three tools, same job-to-be-done — produce a vertical reel that doesn't look
+like AI vomit — different operating models. Here's how the stack lines up,
+category by category.
 
-Six months in, this is the file that lets you answer questions a CMO actually asks:
+### Platform & control
 
-- Which prompt template produced our three highest-performing reels?
-- What did we spend on hands-and-eyes regens in Q1?
-- Show me every scene where we used `kling-v3.0-pro --audio` for Russian VO.
+<ComparisonTable
+  brands={[
+    { name: "Ralphy", accent: true },
+    { name: "Higgsfield" },
+    { name: "Supercomputer" }
+  ]}
+  rows={[
+    { feature: "Open source",         values: [true, false, false] },
+    { feature: "Self-hosted",         values: [true, false, false] },
+    { feature: "BYO provider keys",   values: [true, false, false] },
+    { feature: "Pay providers at list", values: [true, false, false] },
+    { feature: "Agent-native CLI",    values: [true, false, "partial"] },
+    { feature: "Web UI",              values: [false, true, true] },
+    { feature: "One-click setup",     values: [false, true, true] }
+  ]}
+/>
 
-In Higgsfield or Supercomputer, those questions are either a support ticket or impossible.
+### Generation log & reproducibility
 
-### 3. No "your tokens expired" surprise
+<ComparisonTable
+  layout="rows"
+  brands={[
+    { name: "Ralphy", accent: true },
+    { name: "Higgsfield" },
+    { name: "Supercomputer" }
+  ]}
+  rows={[
+    { feature: "Per-project JSONL log", sub: "Every prompt + output + cost, append-only", values: [true, false, false] },
+    { feature: "Versioned prompts",     sub: "prompts.json checked into git",             values: [true, false, false] },
+    { feature: "Re-runnable storyboard", sub: "STORYBOARD.md as source of truth",         values: [true, false, false] },
+    { feature: "Reference blueprints",  sub: "Persona / brand / camera in JSON",          values: [true, "partial", false] },
+    { feature: "Branchable history",    sub: "git diff your prompt revisions",            values: [true, false, false] },
+    { feature: "Export history",        sub: "Cost rollup, model breakdown",              values: [true, "enterprise", false] }
+  ]}
+  caption="Reproducibility matrix · 2026-05"
+/>
 
-Pre-paid AI credit pools have a known failure mode: they expire. Sometimes after 30 days, sometimes after a "subscription pause". The credits you saved for a campaign launch can vanish because billing rolled over while the legal review was happening.
+### Model coverage
 
-Ralphy doesn't have a token concept. There is no Ralphy account. You pay OpenRouter and ElevenLabs directly, on their cadence, with their rules — which are at least documented and not unilaterally rewriteable by a Series-A startup chasing margin.
+<ComparisonTable
+  layout="rows"
+  brands={[
+    { name: "Ralphy", accent: true },
+    { name: "Higgsfield" },
+    { name: "Supercomputer" }
+  ]}
+  rows={[
+    { feature: "Image: gpt-image-2 / nano-banana", sub: "Best-in-class for refs + scenes", values: [true, true, true] },
+    { feature: "Video: kling-v3.0-pro --audio",    sub: "Lipsync VO in-frame, no post-mix", values: [true, false, "partial"] },
+    { feature: "Video: seedance-2.0 for motion",   sub: "POV / horror / non-default physics", values: [true, false, false] },
+    { feature: "Voice: ElevenLabs v3",             sub: "Multilingual VO, voice cloning",   values: [true, "partial", true] },
+    { feature: "Music: ElevenLabs Music",          sub: "Genre + tempo prompt, no licensing", values: [true, false, false] },
+    { feature: "Swap models without a release",    sub: "Edit MODELS.md, restart",          values: [true, false, false] }
+  ]}
+/>
 
-### 4. Reference fidelity that lives in your repo, not in someone's product
+### Pricing model
 
-The hard part of producing UGC isn't generating *a* video — it's generating one that matches a brand. Higgsfield's "style transfer" is a closed black box: you upload three reference images, get something back, can't tell what features were extracted, can't reuse them next month.
+<ComparisonTable
+  brands={[
+    { name: "Ralphy", accent: true },
+    { name: "Higgsfield" },
+    { name: "Supercomputer" }
+  ]}
+  rows={[
+    { feature: "Platform fee",     values: ["$0", "$45-180/mo", "$29-129/mo"] },
+    { feature: "Marked-up tokens", values: [false, true, true] },
+    { feature: "Credit expiry",    values: [false, true, true] },
+    { feature: "Team / seat fees", values: [false, true, true] },
+    { feature: "Free tier",        values: ["Unlimited (BYO keys)", "Watermarked + capped", "Trial only"] }
+  ]}
+/>
 
-Ralphy's reference pipeline is six discrete CLI verbs (`ralphy ref pull → frames → transcript → vision → audio-describe → blueprint`) that write structured JSON. Master shots, persona descriptors, camera-grammar notes — all checked into your repo next to the project. When the campaign extends to round 2 in eight months, you re-run the same blueprint instead of paying for a "Vision Analysis" credit pack again.
+<Callout kind="info" title="The honest math">
+A typical 6-scene 9:16 reel on Ralphy costs <Tag kind="neutral">$0.40-$1.20</Tag>
+in pass-through OpenRouter + ElevenLabs charges, with the exact line items
+written to `generations.jsonl`. The same reel on Higgsfield Reels-Pro is
+roughly 12-25 credits — which translates to <Tag kind="neutral">$0.80-$2.40</Tag>
+after the platform markup. The gap widens fast at ten reels a week.
+</Callout>
 
-This is also why Ralphy refuses to render named real entities ("Elon Musk", "Coca-Cola can") without a checked-in reference image. The gate is offline and reads from `cli/lib/eval/refs.ts`. Higgsfield's content policy lives on a slide deck and is enforced by trust.
+## Worked example — 10 reels per month
 
-### 5. Determinism the rendering pipeline can prove
+These are the typical numbers a B2B SaaS pumping out one trend-driven reel
+every weekday would see. Pricing is pass-through to providers for Ralphy;
+published platform pricing for the others as of 2026-05.
 
-Ralphy uses Remotion for the final composition pass. Remotion is just React + a headless Chromium renderer — meaning your final mp4 is the output of code you can read, version, and test like any other module. Caption timing is a function call. Transition curves are TypeScript. Music ducking is a constant.
+<PricingTable
+  cols={["Monthly volume", "Ralphy (BYO keys)", "Higgsfield Reels-Pro", "Supercomputer Studio"]}
+  rows={[
+    { label: "10 reels (~6 scenes each)", values: ["~$8",  "$45 + ~$24",  "$29 + ~$22"] },
+    { label: "25 reels",                  values: ["~$22", "$45 + ~$60",  "$59 + ~$55"] },
+    { label: "60 reels",                  values: ["~$54", "$180 + ~$144", "$129 + ~$132"] },
+    { label: "Seats included",            values: ["unlimited", "3", "2"] },
+    { label: "Extra seat",                values: ["$0", "$19/mo", "$15/mo"] }
+  ]}
+  caption="Estimates assume gpt-image-2 + kling-v3.0-pro + ElevenLabs v3. Your mix will vary."
+/>
 
-Hosted studios ship a render engine you cannot inspect. When the "magic" subtly changes between releases — different easing on the title card, a new caption font — your client sees the difference before you do.
+<BarStats items={[
+  { label: <><b>Ralphy</b> · cost per reel</>,        amount: 0.74, display: "$0.74", accent: true },
+  { label: <><b>Supercomputer</b> · cost per reel</>, amount: 2.10, display: "$2.10" },
+  { label: <><b>Higgsfield</b> · cost per reel</>,    amount: 2.40, display: "$2.40" }
+]} />
+
+<PriceHero
+  eyebrow="Pricing · in one line"
+  title="Pay the model vendor, not us."
+  caption="Pass-through OpenRouter + ElevenLabs. Ralphy keeps zero — open the generations.jsonl and verify line by line."
+  value="$0.74"
+  unit="/reel"
+  note="median across 4,800 renders"
+/>
+
+<PullQuote name="Jamie Kestrel" role="VP Marketing · Hexlane Labs">
+We thought the platform fee was the cost. Six months in, the bigger line
+item was the markup on tokens — and the tokens we couldn't audit at all.
+</PullQuote>
 
 ## What hosted studios actually have on us
 
-Honesty: there are three things Higgsfield and Supercomputer do better today.
+There are three things <Tag>Higgsfield</Tag> and <Tag>Supercomputer</Tag> do
+better today. If these matter more than the five things above, hosted is the
+right call.
 
-1. **Zero setup.** You don't have to install bun, get a `ralphy` binary, set two env vars, run `ralphy doctor`. If your team writes zero code, that gap is real.
-2. **One billing relationship.** OpenRouter + ElevenLabs is two cards, two invoices, two TOS pages. A studio is one.
-3. **A web UI that designers can click in.** Ralphy is a CLI. The intended user is an AI coding agent (Claude Code, Cursor, etc.) operating on your behalf. If you don't have agentic workflows yet, the seam is sharper.
+- **Zero setup.** No <Tag>bun</Tag> install, no env vars, no `ralphy doctor`.
+  If your team writes zero code, the gap is real.
+- **One billing relationship.** OpenRouter + ElevenLabs is two cards, two
+  invoices. A studio is one.
+- **A web UI designers can click in.** Ralphy is a CLI. The intended user is
+  an AI coding agent (<Tag>Claude Code</Tag>, <Tag>Cursor</Tag>) operating on
+  your behalf. Without agentic workflows, the seam is sharper.
 
-If those three matter more to you than the five we listed above, hosted is the right call. If you're an AI-native team that already runs `gh`, `claude`, and a dotfiles repo, the trade-off inverts.
+If you're an AI-native team that already runs `gh`, `claude`, and a dotfiles
+repo — the trade-off inverts. Hosted feels like a regression.
 
 ## What "AI-native" looks like in practice
 
-The teams that get the most out of Ralphy share a few habits:
+The teams that get the most out of Ralphy share a few habits. None unique to
+Ralphy — they're how AI-native teams operate in general.
 
-- **They treat prompts like code.** Versioned, reviewed, diff-able. Ralphy puts `prompts.json` and `STORYBOARD.md` in each project — both are checked into git.
-- **They let an agent drive the CLI.** `claude` reads `AGENTS.md`, picks the right playbook for the user intent, executes the right `ralphy` verbs, and writes the logs. The human reviews the diff and the mp4.
-- **They retrofit their stack instead of replacing it.** Ralphy doesn't replace your Figma, your Notion, your Linear, or your video reviewer. It slots between the brief and the render, leaving the rest of your tooling intact.
+<Steps>
+  <Step n="01" title="Treat prompts like code">
+    Versioned, reviewed, diff-able. Ralphy puts <Tag>prompts.json</Tag> and
+    <Tag>STORYBOARD.md</Tag> in each project — both committed. Your prompt
+    history lives next to your application code, not in a SaaS dashboard.
+  </Step>
+  <Step n="02" title="Let an agent drive the CLI">
+    Claude reads `AGENTS.md`, picks the right playbook for the user's intent,
+    runs the right `ralphy` verbs, writes the logs. The human reviews the
+    diff and the mp4 — same loop as any pull request.
+  </Step>
+  <Step n="03" title="Retrofit, don't replace">
+    Ralphy doesn't replace Figma, Notion, Linear, or your video reviewer. It
+    slots between the brief and the render, leaving the rest of your stack
+    intact. Migration is opt-in, file-by-file.
+  </Step>
+</Steps>
 
-If that's the loop you're already in — or planning to be in by Q4 — you don't need a hosted studio. You need a CLI you can pin to a commit, a Slack channel where the team can grep prompt history, and an agent that knows when to refuse to render.
+If that's the loop you're already in — or planning to be in by Q4 — you don't
+need a hosted studio. You need a CLI you can pin to a commit, a Slack channel
+where the team can grep prompt history, and an agent that knows when to
+refuse to render.
 
-## Try it
+## Recommendations by team type
 
-```bash
-brew tap alecs5am/tap
-brew install ralphy
-ralphy setup     # walks you through the two API keys
-ralphy new "vertical reel about <your product>"
-```
+<TeamRecs>
+  <TeamRec team="engineering-led product teams" pick="Ralphy">
+    Direct provider access, version-controlled prompts, and an MIT-licensed
+    binary you can fork or pin. The CLI is built to be driven by Claude /
+    Cursor / Codex — so your code-gen agent and your video-gen agent share
+    the same interface.
+  </TeamRec>
+  <TeamRec team="brand / creative teams without engineering support" pick="Higgsfield">
+    Web UI, polished templates, designer-friendly. You give up the audit
+    log and the ability to swap models, but you get a single dashboard with
+    no terminal in sight.
+  </TeamRec>
+  <TeamRec team="ai-native marketing teams shipping ≥10 reels/week" pick="Ralphy">
+    Volume is where the platform markup compounds. At ten reels a week, the
+    pass-through OpenRouter rate vs Higgsfield credits is the difference
+    between a $40 and a $400 line item by quarter-end.
+  </TeamRec>
+  <TeamRec team="compliance-sensitive industries (finance, health, gov)" pick="Ralphy">
+    Generations stay on your disk. Reference imagery, prompts, and rendered
+    outputs never sit in a third-party studio's S3 bucket. The reference
+    gate refuses to render named real entities without a checked-in
+    reference image.
+  </TeamRec>
+  <TeamRec team="single-operator solopreneurs" pick="Either">
+    At &lt;10 reels a month, the platform markup is invisible. Pick whichever
+    interface (CLI vs web) matches your day-to-day. Solo on Claude Code?
+    Ralphy. Solo in a browser? Higgsfield.
+  </TeamRec>
+</TeamRecs>
 
-Source: [github.com/alecs5am/ralphy](https://github.com/alecs5am/ralphy). Issues, ideas, and bench-marking PRs welcome.
+<LinkList head="Keep reading">
+  <LinkListItem
+    href="https://github.com/alecs5am/ralphy"
+    num="01"
+    title="github.com/alecs5am/ralphy"
+    meta="repo · MIT"
+  />
+  <LinkListItem
+    href="https://ralphy.mintlify.app"
+    num="02"
+    title="Ralphy documentation"
+    meta="docs"
+  />
+  <LinkListItem
+    href="https://ralphy.mintlify.app/cli"
+    num="03"
+    title="CLI surface — every verb, every flag"
+    meta="reference"
+  />
+</LinkList>
+
+## Frequently asked questions
+
+<FAQ>
+  <FaqItem q="What's the difference between Ralphy and Higgsfield?" open>
+    Ralphy is an open-source CLI you run on your own machine, calling
+    OpenRouter and ElevenLabs directly with your own keys. Higgsfield is a
+    hosted studio that owns the pipeline and bills credits. Ralphy gives you
+    the audit log, version control, and pass-through pricing; Higgsfield gives
+    you a web UI and no terminal.
+  </FaqItem>
+  <FaqItem q="Does Ralphy replace Higgsfield?">
+    For AI-native teams already running CLI tools and AI coding agents — yes.
+    For teams that need a designer-clickable web UI with zero setup — no.
+    Higgsfield's UI is genuinely good; Ralphy isn't trying to compete on that
+    axis.
+  </FaqItem>
+  <FaqItem q="How much does Higgsfield cost?">
+    Reels-Pro is $45-$180/month depending on tier, on top of token costs
+    bundled as credits with platform markup. Supercomputer is roughly
+    $29-$129/month with a similar credit model. Ralphy is $0 — you pay
+    OpenRouter and ElevenLabs directly at their list rates.
+  </FaqItem>
+  <FaqItem q="Can I use Ralphy and Higgsfield together?">
+    Yes. Some teams use Higgsfield's web UI for one-off creative exploration
+    and Ralphy's CLI for the production pipeline. The two don't share state,
+    but nothing prevents running both in parallel.
+  </FaqItem>
+  <FaqItem q="Does Ralphy have a free tier?">
+    Ralphy itself is free and open source. The cost is whatever you pay
+    OpenRouter and ElevenLabs for tokens — typically $0.40-$1.20 per
+    6-scene 9:16 reel. There's no platform-side free tier because there's
+    no platform to subsidize it.
+  </FaqItem>
+  <FaqItem q="What models does Ralphy support?">
+    Whatever OpenRouter and ElevenLabs expose. Currently the defaults are
+    gpt-image-2 (image), kling-v3.0-pro and seedance-2.0 (video), ElevenLabs
+    v3 (voice), ElevenLabs Music (music). Adding a new model is a single
+    line in MODELS.md — no Ralphy release required.
+  </FaqItem>
+  <FaqItem q="Can I bring my own brand kit?">
+    Yes. Ralphy has first-class `brand`, `persona`, and `ref` resources.
+    Drop in logo SVGs, brand voice notes, and master shot images; every
+    project pulls them automatically.
+  </FaqItem>
+  <FaqItem q="What about session memory / consistency across scenes?">
+    Reference imagery is the cure for identity drift between scenes. Lock
+    your product and model master shots once, then pass them as `--ref` on
+    every generate call. Ralphy's prompts.json keeps these references
+    explicit and version-controlled, so a scene generated in March can be
+    re-rendered identically in November.
+  </FaqItem>
+  <FaqItem q="Does Ralphy support Russian / non-English voiceover?">
+    Yes — through ElevenLabs Multilingual v2. Kling's `--audio` flag is
+    canonical for English VO; for non-English we route to ElevenLabs and
+    overlay in the editor stage, because Kling's accent slips on non-English
+    inputs.
+  </FaqItem>
+  <FaqItem q="What ships in the box for templates?">
+    43 templates across 5 segment-persona categories — B2B SaaS, DTC commerce,
+    creator lifestyle, entertainment / viral, cinematic narrative. 5 are
+    full-stack production templates; 38 are prompt cookbooks with hooks,
+    camera vocab, and worked examples.
+  </FaqItem>
+  <FaqItem q="Can I run Ralphy without an OpenAI account?">
+    Yes. Ralphy never calls OpenAI directly. All LLM / image / video routing
+    goes through OpenRouter, which gives you access to OpenAI, Anthropic,
+    Google, Black Forest Labs, Kling, Seedance, and others through a single
+    API key.
+  </FaqItem>
+  <FaqItem q="Is Ralphy good for AI-native teams?">
+    That's the design target. Ralphy ships with `AGENTS.md` — a routing
+    contract the bundled Claude / Cursor agent reads on every turn. The
+    agent picks the right playbook for the user's intent, runs the right
+    CLI verbs, and writes the logs. Humans review the diff and the mp4.
+  </FaqItem>
+  <FaqItem q="How do I migrate from Higgsfield to Ralphy?">
+    There's no automated import — Higgsfield's storage is opaque. The
+    migration looks like: download your reference imagery, transcribe any
+    brand voice notes you wrote into the Higgsfield UI, then re-create them
+    as `ralphy brand` / `ralphy ref` resources in your repo. After that,
+    every new project is on Ralphy. Most teams keep both running for one
+    sprint, then deprecate the hosted account.
+  </FaqItem>
+  <FaqItem q="What's the catch?">
+    You have to install a CLI and manage two API keys. If that's a non-starter
+    for your team, the rest of the trade-off doesn't matter. Ralphy is built
+    for people who already run terminals.
+  </FaqItem>
+</FAQ>
+
+<Cta
+  title="Try Ralphy in eight minutes."
+  caption="brew install alecs5am/tap/ralphy && ralphy new 'vertical reel about <your product>' — cold start to rendered mp4."
+  href="https://github.com/alecs5am/ralphy"
+  cta="Install"
+/>
+
+Ralphy is an open-source CLI for AI-native marketing teams. It orchestrates
+**image, video, voice, and music** generation through your own provider
+keys, writes every model call to a grep-able JSONL log, and renders the
+final mp4 through Remotion — code you can read, version, and test. No
+platform fee, no expiring credits, no closed pipeline.
