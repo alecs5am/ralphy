@@ -26,7 +26,13 @@
  */
 
 import { ImageResponse } from "next/og";
-import { readFile } from "node:fs/promises";
+
+import {
+  BLOG_BG_PNG_B64,
+  DIATYPE_MONO_BOLD_B64,
+  DIATYPE_REGULAR_B64,
+  FRAGMENT_MONO_B64,
+} from "./og-assets-inline";
 
 import {
   type Author,
@@ -42,45 +48,43 @@ export const contentType = "image/png";
  * edge and node; we pick node for the simpler font loading path. */
 export const runtime = "nodejs";
 
-/* Assets live in ./og-assets/ next to this route file. They're loaded
- * via `new URL("./og-assets/...", import.meta.url)` which is the only
- * path that works on Vercel — `process.cwd() + "/public"` doesn't
- * resolve in the serverless function (public/ isn't bundled into the
- * function bundle), and a dynamic template `./og-assets/${name}` is
- * opaque to Next's bundler so it won't include those files either.
- * Each URL must be a static string literal for Next to statically
- * track and copy the binary into the function output. */
-async function loadFonts() {
-  /* Satori (under next/og) only accepts raw OpenType / TTF — it rejects
-   * woff2 with "Unsupported OpenType signature wOF2". TTF copies live
-   * alongside this route, decompressed from the site's woff2 once via
-   * `fonttools ttLib.woff2 decompress`. */
-  const [diatypeMonoBold, diatypeRegular, fragmentMono] = await Promise.all([
-    readFile(
-      new URL("./og-assets/AWSDiatypeRoundedSemi-Mono-Bold.ttf", import.meta.url),
-    ),
-    readFile(
-      new URL("./og-assets/AWSDiatype-Regular.ttf", import.meta.url),
-    ),
-    readFile(
-      new URL("./og-assets/FragmentMono-Regular.ttf", import.meta.url),
-    ),
-  ]);
+/* Assets are inlined as base64 strings in ./og-assets-inline.ts so
+ * they ship inside the JS bundle of this route. Previous attempts at
+ * fs-based loading (process.cwd()+public, new URL(import.meta.url),
+ * outputFileTracingIncludes) all silently failed on Vercel — the
+ * binaries never made it into the serverless function output and the
+ * route 500ed in prod. Inlining trades ~875KB of bundle size for a
+ * deploy-target-agnostic asset load that works on Vercel, edge,
+ * standalone, and any future runtime. */
+function decode(b64: string): Buffer {
+  return Buffer.from(b64, "base64");
+}
+
+function loadFonts() {
   return [
-    { name: "Diatype Mono", data: diatypeMonoBold, style: "normal" as const, weight: 700 as const },
-    { name: "Diatype Sans", data: diatypeRegular, style: "normal" as const, weight: 400 as const },
-    { name: "Fragment Mono", data: fragmentMono, style: "normal" as const, weight: 400 as const },
+    {
+      name: "Diatype Mono",
+      data: decode(DIATYPE_MONO_BOLD_B64),
+      style: "normal" as const,
+      weight: 700 as const,
+    },
+    {
+      name: "Diatype Sans",
+      data: decode(DIATYPE_REGULAR_B64),
+      style: "normal" as const,
+      weight: 400 as const,
+    },
+    {
+      name: "Fragment Mono",
+      data: decode(FRAGMENT_MONO_B64),
+      style: "normal" as const,
+      weight: 400 as const,
+    },
   ];
 }
 
-async function loadBgDataUri() {
-  /* Starting from the 2x asset (2400×1260) keeps the edges crisp on
-   * platforms that re-encode at retina density (Twitter, LinkedIn).
-   * Satori downscales to fit the 1200×630 canvas. */
-  const bytes = await readFile(
-    new URL("./og-assets/blog-bg@2x.png", import.meta.url),
-  );
-  return `data:image/png;base64,${bytes.toString("base64")}`;
+function loadBgDataUri() {
+  return `data:image/png;base64,${BLOG_BG_PNG_B64}`;
 }
 
 /* Fetch the GitHub avatar server-side and inline it as a data URI so
@@ -159,11 +163,9 @@ async function render(params: Promise<{ slug: string }>) {
     ? resolveAuthors(post.frontmatter)[0]
     : undefined;
 
-  const [fonts, bgUri, avatarUri] = await Promise.all([
-    loadFonts(),
-    loadBgDataUri(),
-    loadAvatar(author?.handle),
-  ]);
+  const fonts = loadFonts();
+  const bgUri = loadBgDataUri();
+  const avatarUri = await loadAvatar(author?.handle);
 
   /* Title sizing: long titles auto-shrink so they wrap to more lines
    * inside the 640px left column instead of bleeding into the mascot
