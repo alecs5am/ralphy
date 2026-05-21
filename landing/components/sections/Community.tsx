@@ -35,7 +35,7 @@ function chanGlyph(k: string): ReactNode {
 export function Community() {
   return (
     <section id="community">
-      <div className="container">
+      <div className="container container-w-1480">
         <SectionHead
           eyebrow="open source"
           title={

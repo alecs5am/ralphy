@@ -22,7 +22,7 @@ export function StackSection() {
               {stack.inside.map((c, i) => (
                 <span key={i} className={`chip ${c.muted ? "muted" : ""}`}>
                   {c.icon && I[c.icon] && (
-                    <span className="ic">
+                    <span className="ic" data-brand={c.icon}>
                       {I[c.icon]()}
                     </span>
                   )}
@@ -37,7 +37,7 @@ export function StackSection() {
               {stack.powered.map((c, i) => (
                 <span key={i} className={`chip ${c.muted ? "muted" : ""}`}>
                   {c.icon && I[c.icon] && (
-                    <span className="ic">
+                    <span className="ic" data-brand={c.icon}>
                       {I[c.icon]()}
                     </span>
                   )}
@@ -52,7 +52,7 @@ export function StackSection() {
               {stack.ship.map((c, i) => (
                 <span key={i} className={`chip ${c.muted ? "muted" : ""}`}>
                   {c.icon && I[c.icon] && (
-                    <span className="ic">
+                    <span className="ic" data-brand={c.icon}>
                       {I[c.icon]()}
                     </span>
                   )}

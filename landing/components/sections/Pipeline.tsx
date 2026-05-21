@@ -28,12 +28,12 @@ export function Pipeline() {
         <div
           className="flex flex-wrap gap-2 justify-center"
           style={{
-            marginTop: 14,
-            padding: "16px 22px",
+            marginTop: 16,
+            padding: "20px 26px",
             background: "var(--bg-1)",
-            borderRadius: 16,
+            borderRadius: 18,
             fontFamily: "var(--font-mono)",
-            fontSize: 13,
+            fontSize: 14,
             color: "var(--ink-3)",
             justifyContent: "space-between",
           }}
