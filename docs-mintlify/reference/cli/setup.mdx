@@ -1,6 +1,6 @@
 ---
 title: "ralphy setup"
-description: "Setup wizard — API keys, profiles, dev services"
+description: "Setup wizard — API keys, dev services"
 ---
 
 {/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
@@ -34,7 +34,6 @@ ralphy setup [options]
 | `--elevenlabs-key <key>` | Set ELEVENLABS_API_KEY (use `-` to read from stdin). Implies --non-interactive |
 | `--keys-from-env` | Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from the current process env. Implies --non-interactive (default: false) |
 | `--project-dir <path>` | Link ralphy to this project directory before configuring keys. Implies --non-interactive |
-| `--import-profile <names>` | Comma-separated profile names to import (additive, safe to re-run) (default: []) |
 | `--no-verify` | Skip API ping verification when saving keys |
 | `--allow-unverified` | When --verify is on (default) and a key fails to verify, save it anyway and exit 0 (default: false) |
 | `-h, --help` | display help for command |
