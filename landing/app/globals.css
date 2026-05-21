@@ -1866,7 +1866,12 @@ section { position: relative; padding-top: 80px; }
    link reads as "follow this". If a particular paragraph needs a
    quieter link, wrap text in <span> or use a footnote.
    ───────────────────────────────────────────────────────────────── */
-.blog-body a {
+/* Scope the chip styling to inline links only — component-level
+   anchors (mdx-cta, mdx-linklist-row) get their own full styling.
+   Using :not() instead of a cancel rule avoids the specificity war
+   where `initial` reverts to user-agent defaults (serif font, no bg)
+   and breaks the orange CTA + link-list rows. */
+.blog-body a:not(.mdx-cta):not(.mdx-linklist-row):not(.nav-back) {
   color: var(--ink);
   background: var(--bg-2);
   padding: 1px 8px 2px;
@@ -1878,27 +1883,14 @@ section { position: relative; padding-top: 80px; }
   white-space: nowrap;
   transition: background 160ms ease;
 }
-.blog-body a::before {
+.blog-body a:not(.mdx-cta):not(.mdx-linklist-row):not(.nav-back)::before {
   content: "→";
   color: var(--vio);
   margin-right: 6px;
 }
-.blog-body a:hover { background: var(--bg-3); }
-
-/* Component cards / banners are themselves <a>; cancel the chip
-   styling on those so the card wins. */
-.blog-body a.mdx-cta,
-.blog-body a.mdx-linklist-row {
-  background: initial;
-  padding: initial;
-  border-radius: initial;
-  font-family: initial;
-  font-size: initial;
-  line-height: initial;
-  white-space: initial;
+.blog-body a:not(.mdx-cta):not(.mdx-linklist-row):not(.nav-back):hover {
+  background: var(--bg-3);
 }
-.blog-body a.mdx-cta::before,
-.blog-body a.mdx-linklist-row::before { content: none; }
 
 
 /* ─── Inline code — variant 03-A ──────────────────────────────────
@@ -2201,6 +2193,11 @@ section { position: relative; padding-top: 80px; }
   padding: 14px 18px;
 }
 .blog-body .mdx-cmp-h.is-accent { color: var(--vio); }
+/* Center value-column headers so they line up with the centered tick /
+   text cells below. First grid column stays left-aligned because that's
+   the feature / label column. */
+.blog-body .mdx-cmp-grid > .mdx-cmp-h { text-align: center; }
+.blog-body .mdx-cmp-grid > .mdx-cmp-h:first-child { text-align: left; }
 .blog-body .mdx-cmp-c {
   padding: 16px 18px;
   background: var(--bg-1);
@@ -2318,10 +2315,10 @@ section { position: relative; padding-top: 80px; }
 
 
 /* ═════════════════════════════════════════════════════════════════
-   10 · FAQ — variant A, native single-open accordion
-   Uses <details name="faq"> for exclusive group behavior. Supported
-   in Chrome 120+, Edge 120+, Safari 17.5+, Firefox 132+. On older
-   browsers behaves like a normal multi-open accordion (safe degrade).
+   10 · FAQ — variant A, single-open accordion
+   Now backed by a framer-motion client component (Faq.tsx) — height
+   and opacity animate on toggle, chevron rotates via motion.span.
+   Markup: <div.mdx-faq-item> > <button.mdx-faq-q> + <div.mdx-faq-a>.
    ═════════════════════════════════════════════════════════════════ */
 .blog-body .mdx-faq {
   background: var(--bg-1);
@@ -2338,25 +2335,32 @@ section { position: relative; padding-top: 80px; }
   align-items: center;
   gap: 14px;
   padding: 20px 24px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  text-align: left;
   font-family: var(--font-sans);
   font-weight: 500;
   font-size: 16px;
   color: var(--ink);
   cursor: pointer;
-  list-style: none;
   user-select: none;
   transition: background 160ms ease;
 }
-.blog-body .mdx-faq-q::-webkit-details-marker { display: none; }
 .blog-body .mdx-faq-q:hover { background: var(--bg-2); }
+.blog-body .mdx-faq-q:focus-visible {
+  background: var(--bg-2);
+  box-shadow: inset 2px 0 0 var(--vio);
+}
 .blog-body .mdx-faq-chev {
+  display: inline-block;
   font-family: var(--font-mono);
   font-size: 18px;
   color: var(--vio);
-  transition: transform 220ms ease;
   flex-shrink: 0;
+  /* Rotation handled by framer-motion via animate prop. */
 }
-.blog-body .mdx-faq-item[open] .mdx-faq-chev { transform: rotate(90deg); }
 .blog-body .mdx-faq-a {
   padding: 0 24px 22px 56px;
   color: var(--ink-3);
@@ -2521,13 +2525,19 @@ section { position: relative; padding-top: 80px; }
   position: relative;
   counter-increment: step;
 }
-.blog-body .mdx-step + .mdx-step::before {
+/* Connector line: emitted by every step EXCEPT the last, starting just
+   below the circle (top: 60px = circle height 56 + 4px breath) and
+   extending down through the gap into the next circle. Using ::after
+   on the current step (rather than ::before on the next) lets us
+   pin the line to a stable origin — the current circle's center
+   column at left:27. */
+.blog-body .mdx-step:not(:last-child)::after {
   content: "";
   position: absolute;
   left: 27px;
-  top: -36px;
+  top: 60px;
+  bottom: -32px;
   width: 2px;
-  height: 36px;
   background: var(--bg-3);
 }
 .blog-body .mdx-step-num {
@@ -2704,6 +2714,96 @@ section { position: relative; padding-top: 80px; }
   padding: 0;
   border-radius: 0;
   color: inherit;
+}
+
+/* highlight.js theme — palette mapped onto our tokens. Server-rendered
+   by rehype-highlight at build time, zero JS at runtime. */
+.blog-body .hljs              { color: var(--ink); background: transparent; }
+.blog-body .hljs-comment,
+.blog-body .hljs-quote         { color: var(--mute); font-style: italic; }
+.blog-body .hljs-keyword,
+.blog-body .hljs-selector-tag,
+.blog-body .hljs-literal,
+.blog-body .hljs-section,
+.blog-body .hljs-link           { color: var(--vio); }
+.blog-body .hljs-built_in,
+.blog-body .hljs-type           { color: #F2A0BD; }
+.blog-body .hljs-string,
+.blog-body .hljs-meta-string    { color: var(--warn, #F2C66B); }
+.blog-body .hljs-number,
+.blog-body .hljs-attr,
+.blog-body .hljs-symbol,
+.blog-body .hljs-bullet,
+.blog-body .hljs-template-tag,
+.blog-body .hljs-template-variable { color: #C8A2FF; }
+.blog-body .hljs-title,
+.blog-body .hljs-name,
+.blog-body .hljs-function .hljs-title,
+.blog-body .hljs-class .hljs-title { color: var(--ink); font-weight: 600; }
+.blog-body .hljs-tag             { color: var(--ink-3); }
+.blog-body .hljs-attribute       { color: var(--vio-2, #F2A0BD); }
+.blog-body .hljs-variable,
+.blog-body .hljs-params          { color: var(--ink-2); }
+.blog-body .hljs-meta            { color: var(--mute); }
+.blog-body .hljs-emphasis        { font-style: italic; }
+.blog-body .hljs-strong          { font-weight: 700; }
+.blog-body .hljs-addition        { color: #7BD89E; }
+.blog-body .hljs-deletion        { color: #E89094; }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   CodeTabs — client component with framer-motion tab switching
+   ═════════════════════════════════════════════════════════════════ */
+.blog-body .mdx-codetabs {
+  margin: 32px 0;
+  background: var(--bg-2);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.blog-body .mdx-codetabs-bar {
+  display: flex;
+  gap: 2px;
+  padding: 8px 8px 0;
+  background: var(--bg-1);
+}
+.blog-body .mdx-codetabs-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--mute);
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  transition: color 160ms ease, background 160ms ease;
+}
+.blog-body .mdx-codetabs-tab:hover { color: var(--ink-3); }
+.blog-body .mdx-codetabs-tab.is-active {
+  color: var(--ink);
+  background: var(--bg-2);
+}
+.blog-body .mdx-codetabs-tab .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mute-2);
+}
+.blog-body .mdx-codetabs-tab.is-active .dot { background: var(--vio); }
+.blog-body .mdx-codetabs-panel {
+  padding: 22px 26px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.blog-body .mdx-codetabs-panel pre {
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
 }
 
 

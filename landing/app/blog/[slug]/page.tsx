@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
@@ -150,6 +151,15 @@ export default async function BlogPostPage({ params }: PageProps) {
                     // GFM gives us markdown tables, strikethrough, autolinks,
                     // and task lists — all standard for technical writing.
                     remarkPlugins: [remarkGfm],
+                    // Server-side syntax highlighting via highlight.js. We
+                    // ship one tinted theme in globals.css under .hljs-*; no
+                    // runtime cost, no client bundle.
+                    rehypePlugins: [
+                      [
+                        rehypeHighlight,
+                        { detect: true, ignoreMissing: true },
+                      ],
+                    ],
                   },
                 }}
               />

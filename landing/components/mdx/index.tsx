@@ -29,6 +29,9 @@
 
 import type { ReactNode } from "react";
 
+import { FAQ, FaqItem } from "./Faq";
+import { CodeTabs, CodeTab } from "./CodeTabs";
+
 /* ─────────────────────────────────────────────────────────────────
    Lede — opening paragraph.
    Renders as <div> (not <p>) because MDX auto-wraps the inner text
@@ -460,45 +463,11 @@ export function PriceHero({
    Pass a `group` prop to FAQ if you have multiple FAQ blocks on
    one page that should accordion independently.
    ───────────────────────────────────────────────────────────────── */
-export function FAQ({
-  children,
-  group = "faq",
-}: {
-  children: ReactNode;
-  group?: string;
-}) {
-  return (
-    <div className="mdx-faq" data-group={group}>
-      {children}
-    </div>
-  );
-}
-
-export function FaqItem({
-  q,
-  open = false,
-  children,
-}: {
-  q: ReactNode;
-  open?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <details
-      className="mdx-faq-item"
-      name="faq"
-      {...(open ? { open: true } : {})}
-    >
-      <summary className="mdx-faq-q">
-        <span className="mdx-faq-chev" aria-hidden>
-          ›
-        </span>
-        <span>{q}</span>
-      </summary>
-      <div className="mdx-faq-a">{children}</div>
-    </details>
-  );
-}
+/* FAQ / FaqItem live in a client component (Faq.tsx) because they
+   animate height on open/close via framer-motion. CodeTabs / CodeTab
+   are also client (Faq + CodeTabs are imported at the top of this
+   file and re-exported through `mdxComponents` below). */
+export { FAQ, FaqItem, CodeTabs, CodeTab };
 
 /* ─────────────────────────────────────────────────────────────────
    PullQuote (variant D) — author plate. `avatar` is optional; if
@@ -632,7 +601,7 @@ export function Step({
    Gallery:       <Figure caption fig items={[{src,label}, ...]} />
                   Items render as a 2-up grid above the caption.
    ───────────────────────────────────────────────────────────────── */
-type FigureItem = { src: string; alt?: string; label?: ReactNode };
+type FigureItem = { src?: string; alt?: string; label?: ReactNode };
 
 export function Figure({
   src,
@@ -655,8 +624,13 @@ export function Figure({
       {items && items.length > 0 ? (
         <div className="mdx-figure-gallery">
           {items.map((it, i) => (
-            <span key={i} className="mdx-figure-cell">
-              <img src={it.src} alt={it.alt ?? ""} />
+            <span
+              key={i}
+              className={`mdx-figure-cell ${
+                it.src ? "" : "mdx-figure-cell-empty"
+              }`}
+            >
+              {it.src && <img src={it.src} alt={it.alt ?? ""} />}
               {it.label && <span className="mdx-figure-label">{it.label}</span>}
             </span>
           ))}
@@ -783,6 +757,8 @@ export const mdxComponents = {
   Step,
   Figure,
   CodeBlock,
+  CodeTabs,
+  CodeTab,
 
   // Legacy
   TeamRecs,
