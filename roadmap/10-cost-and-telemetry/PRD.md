@@ -8,7 +8,7 @@ The landing promises "iterate from numbers". The gen-log is the foundation but t
 2. **Cost is derived locally, not pulled from OpenRouter.** We compute cost from `MODELS.md` pricing tables. Pricing tables drift; the OpenRouter `/api/v1/generation` endpoint returns the authoritative `total_cost`. We should pull, not estimate (estimate as fallback only).
 3. **No budget enforcement.** Today the agent reports cost retroactively. The user can't set "stop at $5 per project" or "stop at $50 per session" with hard enforcement.
 4. **No cost rollup verb.** `ralphy project log` lists generations; there's no `ralphy cost report` that summarizes by project / brand / time window / model.
-5. **External analytics integration is unbuilt.** TikTok / Meta / YT view-and-CTR data is the half of "iterate from numbers" that closes the loop. Cross-link [`01.08.03`](../01-cli/SPEC.md).
+5. **External analytics integration is unbuilt.** TikTok / Meta / YT view-and-CTR data is the half of "iterate from numbers" that closes the loop. Cross-link [`01.08.03`](../01-cli/PRD.md).
 6. **No opt-in usage telemetry.** For a self-hosted OSS CLI this is the right default — but at v1.0 we should at least *have* a clear "we don't phone home" statement and a future opt-in path documented.
 
 This category owns "where the numbers come from, how they're aggregated, where they can go".
@@ -66,6 +66,6 @@ This category owns "where the numbers come from, how they're aggregated, where t
 **Post-launch:**
 
 - `10.07` — External analytics adapters (TikTok / Meta / YT)
-- `10.08` — `ralphy iterate` analytics loop (cross-link [`01.01.04`](../01-cli/SPEC.md))
+- `10.08` — `ralphy iterate` analytics loop (cross-link [`01.01.04`](../01-cli/PRD.md))
 - `10.09` — Opt-in anonymous usage stats
 - `10.10` — Cost forecasting on `ralphy make` based on history
