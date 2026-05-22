@@ -43,4 +43,4 @@ The work:
 - **bun.** Parallel idea: can we ship a tiny bun runtime via the install script? Probably not worth it — bun's whole pitch is "install bun once, use everywhere," and the bun binary is 90+ MB on its own. Leave bun as a real prereq, bundle just ffmpeg.
 - **Companion: yt-dlp.** Same shape applies — `cli/lib/yt-dlp-runner.ts` shells out to host `yt-dlp`. There's `youtube-dl-exec` on npm that wraps yt-dlp. Out of scope for this idea but worth a sibling note (`notes/ideas/002-yt-dlp-bundled.md`?) once this one matures.
 
-When promoting: probably lands under a new "Distribution & UX" sub-section in `roadmap/09-distribution-and-release/SPEC.md`, or under `roadmap/06-utilities/SPEC.md` if we want to keep release-flow separate from runtime-shim concerns.
+When promoting: probably lands under a new "Distribution & UX" sub-section in `roadmap/09-distribution-and-release/PRD.md`, or under `roadmap/06-utilities/PRD.md` if we want to keep release-flow separate from runtime-shim concerns.

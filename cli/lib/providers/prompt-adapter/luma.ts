@@ -4,7 +4,7 @@
 //
 // References:
 //   docs/prompts/video/luma.md
-//   roadmap/02-prompts-and-templates/SPEC.md#020103
+//   roadmap/02-prompts-and-templates/PRD.md
 
 import { gestureToProse } from "../../schemas/gestures.js";
 import type { Adapter, NormalizedPrompt, AdapterOutput } from "./types.js";

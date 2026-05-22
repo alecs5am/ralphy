@@ -44,7 +44,7 @@ The "AI agent" persona is co-equal with the "human developer" persona — not su
 | Time from `curl install.sh` to first `ralphy --help` working | ≤ 60s on a clean macOS / Linux box | Manual timing; encoded in `09 — Distribution` smoke test |
 | Time from `ralphy setup` start to a green `ralphy doctor` | ≤ 5 min, ignoring API-key paste latency | Manual timing |
 | Time from first idea to first finished mp4 | ≤ 15 min, single video | Stopwatch against the cold-start templates in [`docs/use-cases.md`](../../docs/use-cases.md); cross-ref with [`docs/perf-targets.md`](../../docs/perf-targets.md) |
-| Front-stage verbs landed | All 6 (`trend`, `clone`, `make`, `iterate`, `mcp`, `skill install`) `[x]` | Status markers in `SPEC.md` |
+| Front-stage verbs landed | All 6 (`trend`, `clone`, `make`, `iterate`, `mcp`, `skill install`) `[x]` | Frontmatter status field across roadmap/{todo,doing,done,cancelled}/ |
 | Verbs with a stable JSON schema (documented, validated by tests) | 100% of front-stage + 100% of `generate / render / models / doctor / status / setup / template / project` | Schema files committed under `docs/cli-spec.md` + smoke tests in `11 — Testing` |
 | `--help` per verb shows working examples that match the landing copy 1:1 | 100% of front-stage verbs | Grep-test in CI: each landing example string appears verbatim in some `--help` output |
 | Unique error `code` values surfaced | < 30 (a manageable switch table for agents) | Audit before v1.0 |

@@ -109,21 +109,21 @@ export const ERROR_CODES = {
     httpAnalog: 400,
     message: "Agent not supported in v1.0: {agent}",
     hint: "Use --agent claude|cursor|codex. Wider adapters tracked under roadmap 01.11.04.",
-    relatedDocs: "roadmap/01-cli/SPEC.md#0111-post-launch-tracked-here-for-visibility",
+    relatedDocs: "roadmap/01-cli/PRD.md",
   },
   E_WIZARD_NEEDS_TTY: {
     class: "user",
     httpAnalog: 400,
     message: "Interactive wizard needs a TTY ({verb})",
     hint: "Re-run on a terminal, or pass explicit flags (e.g. --agent claude --scope user) to skip the wizard.",
-    relatedDocs: "roadmap/03-skills/SPEC.md#030206-interactive-wizard--config-persistence",
+    relatedDocs: "roadmap/03-skills/PRD.md",
   },
   E_SKILL_BUNDLE_NOT_FOUND: {
     class: "user",
     httpAnalog: 404,
     message: "Could not locate the Ralphy skill bundle (looked in {candidates})",
     hint: "Run from a ugc-cli checkout, or set RALPHY_REPO_ROOT=<path-to-checkout>, or pass --repo <path>.",
-    relatedDocs: "roadmap/03-skills/SPEC.md#03-skills",
+    relatedDocs: "roadmap/03-skills/PRD.md",
   },
   E_TEMPLATE_VERSION_UNSUPPORTED: {
     class: "user",
@@ -137,7 +137,7 @@ export const ERROR_CODES = {
     httpAnalog: 422,
     message: "Template {id} requires a {requirement} but none was supplied",
     hint: "Supply via the matching flag (e.g. `--brand <slug>`) or create the resource first (e.g. `ralphy brand create`).",
-    relatedDocs: "roadmap/02-prompts-and-templates/SPEC.md#020502",
+    relatedDocs: "roadmap/02-prompts-and-templates/PRD.md",
   },
   E_TEMPLATE_SLUG_INVALID: {
     class: "user",

@@ -6,7 +6,7 @@ Ralphy's agent layer is two things stitched together: routing (`AGENTS.md`) and 
 
 1. **No formal adoption of the agentskills.io standard.** Our skills already have the right frontmatter shape (`name`, `description`), but we haven't declared compliance, haven't enforced it, and we drift slightly from the spec (e.g., we sometimes use multi-paragraph descriptions where the spec wants one line).
 2. **Cross-agent portability is hand-rolled.** Users on Cursor get our skills only if they manually adapt them to `.cursor/rules/*.mdc`. Copilot users need `.github/instructions/`. Codex / Aider / Zed / Warp all read `AGENTS.md` natively but ignore our `.agents/skills/`. There's no generator.
-3. **The `ralphy skill install` verb is unbuilt** (see [`01.01.06`](../01-cli/SPEC.md)). It's the bridge from "skills exist in this repo" to "skills live in my agent's config dir".
+3. **The `ralphy skill install` verb is unbuilt** (see [`01.01.06`](../01-cli/PRD.md)). It's the bridge from "skills exist in this repo" to "skills live in my agent's config dir".
 4. **Description fields aren't optimized for the trigger budget.** Claude Code allots ~1% of context for skill discovery — our descriptions vary from 100 to 800+ chars without intent. Bigger isn't better; specific is better.
 5. **No `!`-block usage for state pre-loading.** Claude Code skills can run shell commands inline before the prompt is sent. We could pre-load `ralphy status`, `ralphy project show <id>`, gen-log summaries — saving the agent a round trip on every skill invocation. We don't.
 
@@ -57,7 +57,7 @@ This category owns the agent-side surface: how Ralphy presents itself as a skill
 **Must ship:**
 
 - `03.01` — Skill format declared as agentskills.io-compliant; lint enforces
-- `03.02` — `ralphy skill install` covering Claude Code, Cursor, Copilot, Codex (cross-link [`01.01.06`](../01-cli/SPEC.md))
+- `03.02` — `ralphy skill install` covering Claude Code, Cursor, Copilot, Codex (cross-link [`01.01.06`](../01-cli/PRD.md))
 - `03.03` — Description-field discipline (≤ 1536 chars; trigger-accuracy eval)
 - `03.04` — `!`-block state preloading in playbook entry skills
 - `03.05` — `AGENTS.md` audited; routing table 1:1 with skills

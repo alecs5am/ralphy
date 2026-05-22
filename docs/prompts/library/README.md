@@ -2,7 +2,7 @@
 
 Organized by **what the user is trying to do**, not by **which model they're calling**. Each entry is a worked example the agent can read and pattern-match from before generating.
 
-> **Status (v1.0):** Library scaffolding + 5 seed entries shipped. Full 50-entry catalog is tracked under 02.0L follow-up — see `roadmap/02-prompts-and-templates/SPEC.md#020l`. Pattern is stable; new entries can be added without code changes.
+> **Status (v1.0):** Library scaffolding + 5 seed entries shipped. Full 50-entry catalog is tracked under 02.0L follow-up — see `roadmap/02-prompts-and-templates/PRD.md#020l`. Pattern is stable; new entries can be added without code changes.
 
 ## Entry families
 

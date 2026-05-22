@@ -5,7 +5,7 @@
 Ralphy's positioning is "autonomous agent that turns an idea into an mp4 in 8 minutes". Today it can do that, but the experience requires the user to know which verb to type and how the agent expects to be steered. Two failure modes recur:
 
 1. **Refuse-first when ambiguous.** `AGENTS.md` invariant #3 ("Reference-required gate") makes the agent refuse generation of "named real entities" without a user-supplied ref. This was a deliberate guard against garbage output — but for v1.0 it overshoots. By v1.0, Ralphy should understand the UGC industry well enough (templates + cookbooks + structured scenes) to generate quality output from a free-text brief alone. References should be required only when the work actually depends on a specific real entity the model can't fabricate (a recognizable brand product, a specific named person, a copyrighted IP). For generic creative work — "make me a TikTok about my coffee shop" — refs should be optional and Ralphy should produce something good on the first run.
-2. **No single front-stage verb.** The user wanting "make a video about X" has to know whether to start with `ralphy template suggest`, `ralphy project create`, or `ralphy ref pull`. Power users learn the chain; first-time users hit the wall. [`01.01.01 ralphy make`](../01-cli/SPEC.md) is part of the answer, but flow also matters: when the user types something ambiguous, what does the agent ask, and when does it act?
+2. **No single front-stage verb.** The user wanting "make a video about X" has to know whether to start with `ralphy template suggest`, `ralphy project create`, or `ralphy ref pull`. Power users learn the chain; first-time users hit the wall. [`01.01.01 ralphy make`](../01-cli/PRD.md) is part of the answer, but flow also matters: when the user types something ambiguous, what does the agent ask, and when does it act?
 
 Adjacent flow problems:
 
@@ -74,7 +74,7 @@ This category owns the flow: what happens in the first 30 seconds of a session, 
 - `04.05` — Producer mode for batch
 - `04.06` — Interrupt + resume
 - `04.0A` — Hard invariants: append-only enforced, motion graphics via Remotion, best models always
-- `ralphy memory` — cross-session memory layer (cross-link [`05.NN`](../05-project-resources/SPEC.md))
+- `ralphy memory` — cross-session memory layer (cross-link [`05.NN`](../05-project-resources/PRD.md))
 
 **Post-launch:**
 

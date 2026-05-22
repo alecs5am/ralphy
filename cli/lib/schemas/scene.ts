@@ -8,7 +8,7 @@
 //     niche moves go in `notes`.
 //
 // References:
-//   roadmap/02-prompts-and-templates/SPEC.md#02-04
+//   roadmap/02-prompts-and-templates/PRD.md#02-04
 //   roadmap/02-prompts-and-templates/OPEN-QUESTIONS.md#d-01
 //   roadmap/02-prompts-and-templates/OPEN-QUESTIONS.md#d-06
 

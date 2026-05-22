@@ -60,7 +60,7 @@ Reliability isn't separate from quality — but where [`08 — Quality & Evaluat
 - `11.02` — Golden renders for TOP-5 templates
 - `11.03` — Doctor scenario tests
 - `11.04` — Playbook lint (every `ralphy ...` invocation in playbooks is callable)
-- `11.05` — Recipe tests (cross-link with [`06.01.04`](../06-utilities/SPEC.md))
+- `11.05` — Recipe tests (cross-link with [`06.01.04`](../06-utilities/PRD.md))
 - `11.06` — CI matrix (macOS + Linux)
 - `11.07` — Paid-test gating via `RALPHY_TEST_PAID=1`
 

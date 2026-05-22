@@ -94,7 +94,7 @@ ralphy --version
 
 ### Everything succeeded but a smoke test caught a runtime bug
 
-Don't try to amend the release. [09.04.03](../roadmap/09-distribution-and-release/SPEC.md)
+Don't try to amend the release. [09.04.03](../roadmap/09-distribution-and-release/PRD.md)
 makes this an invariant: `E_RELEASE_IMMUTABLE`. Instead:
 
 1. **Mark the release as broken on GitHub** — edit the Release body, prepend
@@ -130,7 +130,7 @@ makes this an invariant: `E_RELEASE_IMMUTABLE`. Instead:
   the first ~30 seconds of downloads — `/release` skill orders the steps so this doesn't
   happen in practice.
 - npm token must have **2FA-bypass** scope for CI publishes — see
-  [`09.04.04`](../roadmap/09-distribution-and-release/SPEC.md) credential preflight.
+  [`09.04.04`](../roadmap/09-distribution-and-release/PRD.md) credential preflight.
 
 ### install.sh / install.ps1
 

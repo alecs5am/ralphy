@@ -4,7 +4,7 @@
 // rest of the scenario.
 //
 // References:
-//   roadmap/02-prompts-and-templates/SPEC.md#02-08
+//   roadmap/02-prompts-and-templates/PRD.md#02-08
 
 import { z } from "zod";
 import { SceneRefSchema } from "./scene.js";

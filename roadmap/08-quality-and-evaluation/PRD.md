@@ -51,7 +51,7 @@ This category owns "is this output any good?" — the system, the rubrics, the c
 
 - **Reproducing VBench / EvalCrafter at full scale.** Their dimension taxonomy is gold; their implementations require Python + GPU + large model weights. Borrow the taxonomy, skip the deps.
 - **Visual aesthetic scoring above LAION's predictor + a CLIP-similarity check.** Anything beyond is research, not v1.0.
-- **External analytics integration.** "Iterate from numbers" with TikTok/Meta APIs is owned by [`10`](../10-cost-and-telemetry/) and [`01.08.03`](../01-cli/SPEC.md), post-launch.
+- **External analytics integration.** "Iterate from numbers" with TikTok/Meta APIs is owned by [`10`](../10-cost-and-telemetry/) and [`01.08.03`](../01-cli/PRD.md), post-launch.
 - **Human review queue.** No human-in-the-loop UI for v1.0. The agent + the user pair via chat.
 - **Cross-render comparison ("is v2 better than v1?")** beyond reading both verdicts side by side.
 

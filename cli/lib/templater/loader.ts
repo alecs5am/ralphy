@@ -5,7 +5,7 @@
 // `E_TEMPLATE_VERSION_UNSUPPORTED`.
 //
 // References:
-//   roadmap/02-prompts-and-templates/SPEC.md#02-05
+//   roadmap/02-prompts-and-templates/PRD.md
 //   roadmap/02-prompts-and-templates/OPEN-QUESTIONS.md#d-03
 
 import fs from "node:fs/promises";
