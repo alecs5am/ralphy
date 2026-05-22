@@ -72,7 +72,7 @@ This issue is **partially mitigated**, not closed. A complete remediation needs:
 
 5. **ANSI-in-pipe audit.** Pretty mode currently emits ANSI even when piped if `--pretty` is set explicitly. Verify against the styleguide ("`--pretty` should still respect `NO_COLOR`").
 
-When promoting to SPEC: probably lands as `roadmap/11-testing/SPEC.md` subsection "Pretty-mode invariants" with 4-5 task rows. Decision needed (`D-??`): do we keep the "auto-detect TTY" branch as the canonical path, or always require an explicit mode flag in CI / tests?
+When promoting to SPEC: probably lands as `roadmap/11-testing/PRD.md` subsection "Pretty-mode invariants" with 4-5 task rows. Decision needed (`D-??`): do we keep the "auto-detect TTY" branch as the canonical path, or always require an explicit mode flag in CI / tests?
 
 ## Tracking
 

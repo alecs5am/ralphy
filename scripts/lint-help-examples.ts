@@ -23,7 +23,7 @@ export interface LintResult {
   checked: number;
 }
 
-// Verbs that exist in v1.0 (per roadmap/01-cli/SPEC.md). Post-launch verbs
+// Verbs that exist in v1.0 (per roadmap/01-cli/PRD.md). Post-launch verbs
 // listed in 01.11.x are NOT in this set.
 const V1_VERB_PREFIXES = [
   "ralphy clone",
