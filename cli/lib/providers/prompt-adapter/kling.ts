@@ -5,7 +5,7 @@
 //
 // References:
 //   docs/prompts/video/kling.md
-//   roadmap/02-prompts-and-templates/SPEC.md#020102
+//   roadmap/02-prompts-and-templates/PRD.md
 
 import { gestureToProse } from "../../schemas/gestures.js";
 import type { Adapter, NormalizedPrompt, AdapterOutput } from "./types.js";
