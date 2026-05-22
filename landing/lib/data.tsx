@@ -49,14 +49,14 @@ export async function getDisplayStars(): Promise<string> {
   return formatStars(Math.max(site.fakeStars, real));
 }
 
-export const navItems = [
-  { label: "How it works", href: "#how" },
-  { label: "Showcase", href: "#showcase" },
-  { label: "Templates", href: "#templates" },
-  { label: "Pipeline", href: "#pipeline" },
-  { label: "Roadmap", href: "#roadmap" },
-  { label: "Stack", href: "#stack" },
-  { label: "Community", href: "#community" },
+export type NavItem = { label: string; href: string };
+
+/* Only cross-page routes live in the navbar. In-page anchors used to
+ * live here but read as redundant on the home view (the page already
+ * scrolls past every section) and as broken on subpages. */
+export const navItems: NavItem[] = [
+  { label: "Blog",   href: "/blog" },
+  { label: "Skills", href: "/skills" },
 ];
 
 export type Workflow = { n: string; title: string; copy: ReactNode; glyph: string };
