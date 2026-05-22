@@ -1862,15 +1862,31 @@ section { position: relative; padding-top: 80px; }
 .blog-body del { color: var(--mute); text-decoration-color: var(--mute-2); }
 
 /* Native markdown table (via remark-gfm). Lighter sibling of
-   <ComparisonTable> — use it for plain key/value matrices. */
+   <ComparisonTable> — use it for plain key/value matrices. Tables
+   are wrapped in <.mdx-table-scroll> by the MDX components map
+   (ScrollTable override), giving them horizontal scroll on narrow
+   viewports without breaking table layout semantics. */
+.blog-body .mdx-table-scroll {
+  margin: 32px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 14px;
+  scrollbar-color: var(--bg-3) transparent;
+}
+.blog-body .mdx-table-scroll::-webkit-scrollbar { height: 6px; }
+.blog-body .mdx-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--bg-3);
+  border-radius: 999px;
+}
 .blog-body table {
   width: 100%;
-  margin: 32px 0;
+  margin: 0;
   border-collapse: collapse;
   font-size: 15px;
   background: var(--bg-1);
   border-radius: 14px;
   overflow: hidden;
+  min-width: max-content;
 }
 .blog-body thead { background: var(--bg-2); }
 .blog-body th {
@@ -2217,9 +2233,14 @@ section { position: relative; padding-top: 80px; }
 }
 
 /* ── B · Cards ── */
+/* Column count is passed via `--cmp-cols` from the component (inline
+   style) — putting it on a CSS var instead of `style.gridTemplateColumns`
+   lets the mobile rule collapse to a single column without fighting
+   inline-style specificity. */
 .blog-body .mdx-cmp-cards {
   display: grid;
   gap: 14px;
+  grid-template-columns: repeat(var(--cmp-cols, 3), minmax(0, 1fr));
 }
 .blog-body .mdx-cmp-card {
   background: var(--bg-1);
@@ -2264,11 +2285,31 @@ section { position: relative; padding-top: 80px; }
 }
 
 /* ── A · Rows (also used by PricingTable) ── */
+/* Wrapper enables horizontal scroll on narrow viewports without
+   destroying the grid layout. The grid itself keeps its desktop
+   columns; the wrapper clips + scrolls. min-width inside the grid
+   forces the columns to render at their natural width rather than
+   squashing. */
+.blog-body .mdx-cmp-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 14px;
+  /* Subtle fade hint on the right edge so the affordance reads as
+     "more content over there" rather than a cut-off card. Hidden
+     once the user scrolls to the end via scroll-padding trick. */
+  scrollbar-color: var(--bg-3) transparent;
+}
+.blog-body .mdx-cmp-scroll::-webkit-scrollbar { height: 6px; }
+.blog-body .mdx-cmp-scroll::-webkit-scrollbar-thumb {
+  background: var(--bg-3);
+  border-radius: 999px;
+}
 .blog-body .mdx-cmp-grid {
   border-radius: 14px;
   overflow: hidden;
   display: grid;
   font-size: 15px;
+  min-width: max-content;
 }
 .blog-body .mdx-cmp-h {
   background: var(--bg-1);
@@ -2948,7 +2989,15 @@ section { position: relative; padding-top: 80px; }
     border-radius: 12px;
   }
 
-  .blog-body .mdx-statrow,
+  .blog-body .mdx-statrow {
+    grid-template-columns: 1fr;
+  }
+  /* Cards variant — stack to a single column on mobile. Note we
+     override `grid-template-columns` directly (not the `--cmp-cols`
+     var the component sets inline): inline custom-property
+     declarations beat stylesheet declarations of the same var, so
+     touching the var in CSS wouldn't win. There is no inline
+     grid-template-columns, so this overrides cleanly. */
   .blog-body .mdx-cmp-cards {
     grid-template-columns: 1fr;
   }
@@ -2966,11 +3015,45 @@ section { position: relative; padding-top: 80px; }
 
   .blog-body .mdx-figure-gallery { grid-template-columns: 1fr; }
 
-  /* Rows table — stack value cells under each feature, label them
-     with the column header text. Authors don't need to do anything;
-     the JSX renders header order naturally. */
-  .blog-body .mdx-cmp-grid {
-    grid-template-columns: 1fr 1fr !important;
+  /* Rows / pricing tables keep their desktop column widths and scroll
+     horizontally inside .mdx-cmp-scroll. Native markdown tables behave
+     the same via .mdx-table-scroll. Both communicate "more →" with the
+     thin scrollbar; no clipped columns, no faux-mobile reshuffle. */
+  .blog-body .mdx-cmp-c,
+  .blog-body .mdx-cmp-h { padding-left: 14px; padding-right: 14px; }
+  .blog-body td,
+  .blog-body th { padding-left: 14px; padding-right: 14px; }
+
+  /* LinkList — keep num + title on the first line; meta drops below
+     so the title doesn't squeeze against the right edge. */
+  .blog-body .mdx-linklist-row {
+    flex-wrap: wrap;
+    column-gap: 14px;
+    row-gap: 4px;
+    padding: 14px 18px;
+  }
+  .blog-body .mdx-linklist-num { width: 22px; }
+  .blog-body .mdx-linklist-title { flex: 1 1 auto; min-width: 0; }
+  .blog-body .mdx-linklist-meta {
+    flex: 1 0 100%;
+    order: 3;
+    padding-left: 36px;
+  }
+  .blog-body .mdx-linklist-arrow { order: 2; }
+
+  /* TeamRecs cards — stack and tighten padding. */
+  .blog-body .mdx-rec {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 22px 22px;
+  }
+
+  /* CodeBlock — shrink padding so long lines have room to breathe
+     inside the (already overflow-x: auto) <pre>. */
+  .blog-body .mdx-codeblock pre,
+  .blog-body pre:not(.mdx-codeblock pre) {
+    padding: 18px 18px;
+    font-size: 13px;
   }
 }
 
