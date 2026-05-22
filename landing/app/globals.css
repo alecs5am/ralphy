@@ -307,24 +307,27 @@ section { position: relative; padding-top: 80px; }
 @media (min-width: 1100px) { .nav-name .v { display: inline; } }
 .nav-links {
   display: none; align-items: center; gap: 2px;
-  flex: 1;
-  justify-content: center;
+  /* Sit on the left, tight against the logo. The nav-right cluster
+     gets margin-left: auto on .nav-right to push itself to the far
+     edge — no flex: 1 stretch on the links, no centering. */
 }
-.nav-links a {
+.nav-links a, .nav-links .nav-link {
+  display: inline-flex; align-items: center; gap: 7px;
   padding: 8px 14px; border-radius: 999px;
-  color: var(--ink-3); font-size: 14px; font-weight: 500;
+  font-size: 14px; font-weight: 500;
   letter-spacing: -0.005em;
-  transition: color 160ms ease, background 160ms ease;
+  color: var(--ink-2);
+  background: transparent;
+  text-decoration: none;
+  transition: color 160ms ease;
 }
-.nav-links a:hover { background: var(--bg-2); color: var(--ink); }
-@media (min-width: 1000px) { .nav-links { display: flex; } }
-/* Subpage variant: keep the "← Back to landing" link visible at all
-   breakpoints so users on /skills, /blog, etc. can always navigate
-   home. Home page anchor-links stay hidden on mobile (they'd just
-   scroll within an already-visible single-column page). */
-.nav-links:has(.nav-back) { display: flex; }
+.nav-links a:hover, .nav-links .nav-link:hover { color: var(--ink); }
+/* Mobile burger now takes over below 1200px — wide enough that
+   tablet-portrait still gets the sheet, but the floating pill on
+   landscape laptops still shows full inline nav. */
+@media (min-width: 1200px) { .nav-links { display: flex; } }
 
-.nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .nav-kbd {
   display: none;
   align-items: center; gap: 6px;
@@ -2971,62 +2974,7 @@ section { position: relative; padding-top: 80px; }
   }
 }
 
-/* ─── Nav: Back link (subpage variant) ─────────────────────────────── */
-.nav-back {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  color: var(--ink-3);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  transition: color 160ms ease, background 160ms ease;
-}
-.nav-back:hover {
-  color: var(--ink);
-  background: var(--bg-2);
-}
-.nav-back-arrow {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--vio);
-  transition: transform 200ms ease;
-  display: inline-block;
-}
-.nav-back:hover .nav-back-arrow { transform: translateX(-2px); }
 
-/* ─── Nav: Skills link (matches sibling links, dot signals "new") ─── */
-
-.nav-skills {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  color: var(--ink-3);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  transition: color 160ms ease, background 160ms ease;
-}
-.nav-skills:hover {
-  background: var(--bg-2);
-  color: var(--ink);
-}
-.nav-skills-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--vio);
-  box-shadow: 0 0 0 0 rgb(232 123 161 / 0.55);
-  animation: nav-skills-dot-pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  flex-shrink: 0;
-}
-@keyframes nav-skills-dot-pulse {
-  0%   { box-shadow: 0 0 0 0 rgb(232 123 161 / 0.55); }
-  70%  { box-shadow: 0 0 0 6px rgb(232 123 161 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(232 123 161 / 0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .nav-skills-dot { animation: none; }
-}
 
 /* ─── Skills gallery page ─────────────────────────────────────────────
    Visual language mirrors the Roadmap section: bg-tint plates on the
@@ -3306,4 +3254,335 @@ section { position: relative; padding-top: 80px; }
   background: var(--bg-3);
   color: var(--ink);
   border-radius: 5px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Blog index — hero + tag-filterable card grid
+   Same bento language as /skills (filter chips, bg-1 plates).
+   ───────────────────────────────────────────────────────────── */
+.blog-hero { padding: 84px 0 28px; }
+.blog-h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(40px, 4.6vw, 56px);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  margin: 8px 0 18px;
+  color: var(--ink);
+  max-width: 18ch;
+}
+.blog-sub {
+  font-size: clamp(16px, 1.4vw, 19px);
+  line-height: 1.55;
+  color: var(--ink-3);
+  margin: 0;
+  max-width: 66ch;
+}
+.blog-sub a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+.blog-index { padding: 24px 0 96px; }
+
+.blog-filter-row {
+  display: flex; flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+.blog-filter {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  background: var(--bg-1);
+  color: var(--ink-3);
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  border: 0;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: background 160ms ease, color 160ms ease;
+}
+.blog-filter:hover { background: var(--bg-2); color: var(--ink); }
+.blog-filter.is-active { background: var(--ink); color: var(--bg); }
+.blog-filter-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 8px;
+  background: var(--bg-3);
+  color: var(--ink-3);
+  border-radius: 999px;
+  line-height: 1;
+}
+.blog-filter.is-active .blog-filter-count {
+  background: rgb(0 0 0 / 0.18);
+  color: var(--bg);
+}
+
+.blog-list {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .blog-list { grid-template-columns: 1fr 1fr; gap: 18px; }
+}
+@media (min-width: 1100px) {
+  .blog-list { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+.blog-card {
+  display: flex; flex-direction: column;
+  gap: 14px;
+  padding: 26px 26px 22px;
+  background: var(--bg-1);
+  border-radius: 20px;
+  text-decoration: none;
+  color: var(--ink);
+  min-height: 240px;
+  transition: background 200ms ease, transform 200ms ease;
+}
+.blog-card:hover {
+  background: var(--bg-2);
+  transform: translateY(-2px);
+}
+.blog-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--mute);
+  text-transform: uppercase;
+}
+.blog-card-category {
+  padding: 4px 10px;
+  background: rgba(255, 166, 48, 0.16);
+  color: var(--vio);
+  border-radius: 999px;
+  font-weight: 600;
+}
+.blog-card-date { color: var(--mute); }
+.blog-card-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.18;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--ink);
+}
+.blog-card-desc {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  flex: 1;
+}
+.blog-card-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+}
+.blog-card-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.blog-card-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 3px 8px;
+  background: var(--bg-3);
+  color: var(--ink-3);
+  border-radius: 999px;
+  text-transform: lowercase;
+}
+.blog-card-cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--vio);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.blog-card-cta span[aria-hidden] { transition: transform 200ms ease; }
+.blog-card:hover .blog-card-cta span[aria-hidden] { transform: translateX(3px); }
+
+.blog-empty {
+  grid-column: 1 / -1;
+  padding: 48px 0;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 15px;
+}
+.blog-empty code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 2px 7px;
+  background: var(--bg-2);
+  color: var(--ink);
+  border-radius: 6px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Mobile burger menu + animated sheet
+   Hidden ≥1000px (the .nav-links breakpoint). Sheet drops below
+   the floating nav pill; backdrop scrim sits behind it. Animation
+   handled by framer-motion in components/Nav.tsx — CSS only owns
+   layout, sizing, and visibility.
+   ───────────────────────────────────────────────────────────── */
+.nav-burger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  background: var(--bg-2);
+  color: var(--ink);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 160ms ease;
+}
+.nav-burger:hover { background: var(--bg-3); }
+.nav-burger.is-open { background: var(--ink); color: var(--bg); }
+@media (min-width: 1200px) {
+  .nav-burger { display: none; }
+}
+
+/* Hide secondary nav-right items on tight viewports so the burger
+   carries them. Docs is duplicated in the sheet; the star CTA gets
+   its own row in the sheet. */
+@media (max-width: 720px) {
+  .nav-ghost { display: none; }
+  .nav-cta { display: none; }
+  .nav-inner { padding: 8px 8px 8px 16px; gap: 10px; }
+  .nav { top: 10px; padding: 0 10px; }
+}
+
+/* The parent <header className="nav"> sets pointer-events: none on
+   itself so the floating pill doesn't block clicks on the page below.
+   The scrim + sheet are children of <header>, so they inherit none —
+   without explicit `auto`, every tap-through fails. That was the
+   "links not clickable in burger" bug. */
+.nav-scrim {
+  position: fixed; inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(2px);
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.nav-sheet {
+  position: fixed;
+  top: 76px;
+  left: 16px;
+  right: 16px;
+  z-index: 60;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px;
+  background: var(--bg-1);
+  border-radius: 22px;
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+@media (min-width: 1200px) {
+  .nav-sheet, .nav-scrim { display: none; }
+}
+
+/* Sheet header — title + an explicit close button, so the user has
+   three ways to dismiss the menu (close button, scrim tap, Escape). */
+.nav-sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px 12px;
+}
+.nav-sheet-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--mute);
+  text-transform: uppercase;
+}
+.nav-sheet-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.nav-sheet-close:hover {
+  background: var(--bg-3);
+  color: var(--ink);
+  transform: rotate(90deg);
+}
+
+.nav-sheet-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.nav-sheet-item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: var(--bg-2);
+  color: var(--ink);
+  transition: background 160ms ease, transform 160ms ease;
+}
+.nav-sheet-item:hover {
+  background: var(--bg-3);
+  transform: translateX(2px);
+}
+.nav-sheet-item-label { display: inline-flex; align-items: center; gap: 10px; }
+.nav-sheet-arrow {
+  font-family: var(--font-mono);
+  color: var(--mute);
+  transition: transform 200ms ease, color 200ms ease;
+}
+.nav-sheet-item:hover .nav-sheet-arrow {
+  color: var(--vio);
+  transform: translateX(3px);
+}
+
+.nav-sheet-cta-row { margin-top: 10px; }
+.nav-sheet-cta {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+/* Star-count chip inside the CTA pill. On the cream ink background
+   we need a darker plate with dark text — previously was rgb(0 0 0)
+   with color: var(--bg) which read as black-on-black on some screens.
+   Now: bg-2 plate with full ink text for unambiguous contrast. */
+.nav-sheet-cta-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 3px 9px;
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0;
 }

@@ -6,6 +6,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+export { formatDate } from "./blog-shared";
+export type { Frontmatter, PostSummary } from "./blog-shared";
+import type { Frontmatter, PostSummary } from "./blog-shared";
+
 export type Author = {
   /** Display name. Falls back to the handle if no name supplied. */
   name: string;
@@ -14,24 +18,6 @@ export type Author = {
   handle?: string;
   /** Optional role string, e.g. "Founder, Ralphy". Used by the OG card. */
   role?: string;
-};
-
-export type Frontmatter = {
-  title?: string;
-  description?: string;
-  date?: string;
-  /** Single author (back-compat). Prefer `authors` for new posts. */
-  author?: string;
-  /** GitHub handle for single-author posts (back-compat). */
-  github?: string;
-  /** Multi-author byline. Each entry is one of:
-   *    "alecs5am"
-   *    "Display Name|alecs5am"
-   *    "Display Name|alecs5am|Founder, Ralphy"
-   */
-  authors?: string[];
-  /** Category chip shown in the byline + OG card top-right. */
-  category?: string;
 };
 
 export type Post = {
@@ -135,13 +121,50 @@ export function resolveAuthors(fm: Frontmatter): Author[] {
     }));
 }
 
-export function formatDate(iso: string | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+/* Read every .mdx in content/blog and return a summary list. Filters out
+ * non-`public` posts (draft / hidden) and sorts by date desc. The /blog
+ * slug route still serves any file regardless of visibility — drafts are
+ * link-reachable, just not indexed. */
+export async function listPosts(): Promise<PostSummary[]> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(CONTENT_DIR);
+  } catch {
+    return [];
+  }
+  const slugs = entries
+    .filter((f) => f.endsWith(".mdx"))
+    .map((f) => f.replace(/\.mdx$/, ""))
+    .filter(isSafeSlug);
+  const posts: PostSummary[] = [];
+  for (const slug of slugs) {
+    const raw = await fs.readFile(path.join(CONTENT_DIR, `${slug}.mdx`), "utf8");
+    const { frontmatter } = parseFrontmatter(raw);
+    const visibility = frontmatter.visibility ?? "public";
+    if (visibility !== "public") continue;
+    posts.push({ slug, frontmatter });
+  }
+  posts.sort((a, b) => {
+    const da = a.frontmatter.date ?? "";
+    const db = b.frontmatter.date ?? "";
+    return db.localeCompare(da);
   });
+  return posts;
 }
+
+/* Aggregate every distinct tag across published posts with a count.
+ * Lowercased + de-duped. Sorted by count desc, then alpha. */
+export function collectTags(posts: PostSummary[]): { tag: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const p of posts) {
+    for (const t of p.frontmatter.tags ?? []) {
+      const k = String(t).toLowerCase().trim();
+      if (!k) continue;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+

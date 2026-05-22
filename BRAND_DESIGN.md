@@ -153,6 +153,32 @@ We follow doka.guide's measure as our density anchor: prose column ~1020px, comf
 
 If two elements feel cramped, the fix is **always** spacing first, never a border or a shadow.
 
+## Motion
+
+Motion is part of the visual system, not decoration on top of it. The same "geometry over decoration" rule applies — animation expresses physical behaviour (a sheet sliding in, a card reflowing, a chevron rotating) and never substitutes for hierarchy or affordance.
+
+**Library: [`framer-motion`](https://www.framer.com/motion/)** is the canonical motion library across `landing/`, the docs, and any future React surface. It is already a dependency in `landing/package.json` and used by `components/SkillsListing.tsx`, `components/mdx/CodeTabs.tsx`, `components/mdx/Faq.tsx`, and `components/Nav.tsx`. Do not introduce alternatives (GSAP, Lottie, plain CSS keyframes for component-level motion) without an explicit reason — those primitives belong to HyperFrames compositions, not the marketing site.
+
+When framer-motion does not fit (single transform on hover, scroll-linked headers, a logo blink loop), CSS transitions / keyframes are acceptable — see `.nav-cta::before` and `@keyframes logoEyesLook` for examples.
+
+### Motion principles
+
+- **Easings are biased to the tail end.** Default to `[0.22, 1, 0.36, 1]` (a cubic out-expo) for entrances and `easeOut` for exits. The first 60 % of the curve does most of the work; the tail eases into stillness. Linear easings are a defect.
+- **Layout animations use a tight spring.** When a list reflows (filtered grid, accordion open), use `{ type: "spring", stiffness: 380, damping: 32, mass: 0.6 }`. Tighter than the framer-motion default (the default overshoots, which reads as toy).
+- **Stagger by index, capped at 6.** Cascade entrances at 40–60 ms per child for the first six items, then collapse to zero. Beyond six, the stagger reads as artificial latency, not delight.
+- **Exits are 50–60 % the duration of entrances.** Things should disappear faster than they appear. ~180 ms exit vs ~320 ms enter is the working ratio.
+- **`AnimatePresence mode="popLayout"`** is the right tool for filtered lists. Exiting items are positioned absolutely so survivors can spring to their new positions immediately. Pair with `position: relative` on the parent or exiting elements escape to `<body>`.
+- **`prefers-reduced-motion: reduce` is honoured.** Either short-circuit the animation (e.g. `animation: none` in CSS) or pass `transition={{ duration: 0 }}` in framer-motion. Decorative ambient loops (mascot eyes, dot pulse) must respect it.
+- **No infinite spinners as a loading state.** A pulsing skeleton plate (bg-1 → bg-2 → bg-1) is the design language; spinners are reserved for genuinely opaque waits.
+- **No parallax, no scroll-jacked storytelling.** Both fight the OS-level scroll and read as agency-design — exactly what we are not (§ "Examples in the wild").
+
+### Reference implementations
+
+- **Filtered list reflow** — `components/SkillsListing.tsx`. `layout` on each card, `popLayout` on the parent, per-state transitions (opacity quick fade, y eased, layout spring).
+- **Cross-fading content** — `components/mdx/CodeTabs.tsx`. `AnimatePresence mode="wait"` between code panels.
+- **Accordion / disclosure** — `components/mdx/Faq.tsx`. Height + opacity transition, chevron rotation, single-open behaviour.
+- **Mobile burger sheet** — `components/Nav.tsx`. Scrim fades, sheet drops + scales in, list items stagger from the top.
+
 ## Bento layering
 
 Every visual depth cue in the system comes from one mechanism: nest a lighter plate inside a darker one.
