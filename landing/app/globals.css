@@ -2331,16 +2331,15 @@ section { position: relative; padding-top: 80px; }
   background: var(--bg-1);
   color: var(--ink-2);
 }
-/* Alternating row stripe — bg-1 / bg-2, 4 cols wide. Generalize via
-   nth-of-type math so 3-col and 4-col grids both stripe correctly.
-   Author owns this — adjust to match column count if you change it. */
+/* Alternating row stripe. Earlier we relied on `:nth-of-type(8n+5..8)`
+   which silently assumes a 4-column grid (1 feature + 3 brands) — in
+   tables with a different brand count the modulo math falls on the
+   wrong cells, producing half-striped rows with a visible vertical
+   seam down the middle. The component now tags every cell of an odd
+   row with `.is-stripe`, so the stripe is correct regardless of how
+   many columns the table has. */
 .blog-body .mdx-cmp-grid > .mdx-cmp-c { background: var(--bg-1); }
-.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+5),
-.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+6),
-.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+7),
-.blog-body .mdx-cmp-grid > .mdx-cmp-c:nth-of-type(8n+8) {
-  background: var(--bg-2);
-}
+.blog-body .mdx-cmp-grid > .mdx-cmp-c.is-stripe { background: var(--bg-2); }
 .blog-body .mdx-cmp-c-feat .lbl { display: block; color: var(--ink); font-weight: 500; }
 .blog-body .mdx-cmp-c-feat .sub { display: block; color: var(--mute); font-size: 13px; margin-top: 2px; }
 .blog-body .mdx-cmp-c-val { text-align: center; }
