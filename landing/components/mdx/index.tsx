@@ -27,7 +27,7 @@
  *   14 Figures      · A (caption below) with optional gallery (D)
  */
 
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 import { FAQ, FaqItem } from "./Faq";
 import { CodeTabs, CodeTab } from "./CodeTabs";
@@ -257,7 +257,7 @@ function CompareCards({
     <figure className="mdx-compare mdx-compare-cards">
       <div
         className="mdx-cmp-cards"
-        style={{ gridTemplateColumns: `repeat(${brands.length}, minmax(0, 1fr))` }}
+        style={{ "--cmp-cols": brands.length } as React.CSSProperties}
       >
         {brands.map((b, colIdx) => (
           <div
@@ -292,24 +292,26 @@ function CompareRows({
 }) {
   return (
     <figure className="mdx-compare mdx-compare-rows">
-      <div
-        className="mdx-cmp-grid"
-        style={{
-          gridTemplateColumns: `minmax(220px, 1.6fr) repeat(${brands.length}, minmax(110px, 1fr))`,
-        }}
-      >
-        <div className="mdx-cmp-h" />
-        {brands.map((b) => (
-          <div
-            key={b.name}
-            className={`mdx-cmp-h ${b.accent ? "is-accent" : ""}`}
-          >
-            {b.name}
-          </div>
-        ))}
-        {rows.map((r) => (
-          <RowFragment key={r.feature} row={r} cols={brands.length} />
-        ))}
+      <div className="mdx-cmp-scroll">
+        <div
+          className="mdx-cmp-grid"
+          style={{
+            gridTemplateColumns: `minmax(220px, 1.6fr) repeat(${brands.length}, minmax(110px, 1fr))`,
+          }}
+        >
+          <div className="mdx-cmp-h" />
+          {brands.map((b) => (
+            <div
+              key={b.name}
+              className={`mdx-cmp-h ${b.accent ? "is-accent" : ""}`}
+            >
+              {b.name}
+            </div>
+          ))}
+          {rows.map((r) => (
+            <RowFragment key={r.feature} row={r} cols={brands.length} />
+          ))}
+        </div>
       </div>
       {caption && <figcaption className="mdx-compare-caption">{caption}</figcaption>}
     </figure>
@@ -368,25 +370,27 @@ export function PricingTable({
 }) {
   return (
     <figure className="mdx-compare mdx-compare-rows mdx-pricing">
-      <div
-        className="mdx-cmp-grid"
-        style={{
-          gridTemplateColumns: `minmax(180px, 1fr) repeat(${
-            cols.length - 1
-          }, minmax(120px, 1fr))`,
-        }}
-      >
-        {cols.map((c, i) => (
-          <div
-            key={c}
-            className={`mdx-cmp-h ${i === 1 ? "is-accent" : ""}`}
-          >
-            {c}
-          </div>
-        ))}
-        {rows.map((r, ri) => (
-          <PriceRow key={ri} row={r} cols={cols.length - 1} />
-        ))}
+      <div className="mdx-cmp-scroll">
+        <div
+          className="mdx-cmp-grid"
+          style={{
+            gridTemplateColumns: `minmax(180px, 1fr) repeat(${
+              cols.length - 1
+            }, minmax(120px, 1fr))`,
+          }}
+        >
+          {cols.map((c, i) => (
+            <div
+              key={c}
+              className={`mdx-cmp-h ${i === 1 ? "is-accent" : ""}`}
+            >
+              {c}
+            </div>
+          ))}
+          {rows.map((r, ri) => (
+            <PriceRow key={ri} row={r} cols={cols.length - 1} />
+          ))}
+        </div>
       </div>
       {caption && <figcaption className="mdx-compare-caption">{caption}</figcaption>}
     </figure>
@@ -763,4 +767,16 @@ export const mdxComponents = {
   // Legacy
   TeamRecs,
   TeamRec,
+
+  // Markdown overrides — wrap native tables in a horizontal scroller so
+  // wide matrices don't overflow the prose column on narrow viewports.
+  table: ScrollTable,
 };
+
+function ScrollTable(props: HTMLAttributes<HTMLTableElement>) {
+  return (
+    <div className="mdx-table-scroll">
+      <table {...props} />
+    </div>
+  );
+}
