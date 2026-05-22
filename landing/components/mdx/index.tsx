@@ -308,8 +308,13 @@ function CompareRows({
               {b.name}
             </div>
           ))}
-          {rows.map((r) => (
-            <RowFragment key={r.feature} row={r} cols={brands.length} />
+          {rows.map((r, i) => (
+            <RowFragment
+              key={r.feature}
+              row={r}
+              cols={brands.length}
+              stripe={i % 2 === 1}
+            />
           ))}
         </div>
       </div>
@@ -318,15 +323,24 @@ function CompareRows({
   );
 }
 
-function RowFragment({ row, cols }: { row: CompareRow; cols: number }) {
+function RowFragment({
+  row,
+  cols,
+  stripe = false,
+}: {
+  row: CompareRow;
+  cols: number;
+  stripe?: boolean;
+}) {
+  const cls = stripe ? "mdx-cmp-c is-stripe" : "mdx-cmp-c";
   return (
     <>
-      <div className="mdx-cmp-c mdx-cmp-c-feat">
+      <div className={`${cls} mdx-cmp-c-feat`}>
         <span className="lbl">{row.feature}</span>
         {row.sub && <span className="sub">{row.sub}</span>}
       </div>
       {Array.from({ length: cols }).map((_, i) => (
-        <div key={i} className="mdx-cmp-c mdx-cmp-c-val">
+        <div key={i} className={`${cls} mdx-cmp-c-val`}>
           <CompareCell v={row.values[i]} />
         </div>
       ))}
@@ -388,7 +402,12 @@ export function PricingTable({
             </div>
           ))}
           {rows.map((r, ri) => (
-            <PriceRow key={ri} row={r} cols={cols.length - 1} />
+            <PriceRow
+              key={ri}
+              row={r}
+              cols={cols.length - 1}
+              stripe={ri % 2 === 1}
+            />
           ))}
         </div>
       </div>
@@ -400,19 +419,22 @@ export function PricingTable({
 function PriceRow({
   row,
   cols,
+  stripe = false,
 }: {
   row: { label: string; values: string[]; accent?: number };
   cols: number;
+  stripe?: boolean;
 }) {
+  const stripeCls = stripe ? "is-stripe" : "";
   return (
     <>
-      <div className="mdx-cmp-c mdx-cmp-c-feat">
+      <div className={`mdx-cmp-c mdx-cmp-c-feat ${stripeCls}`}>
         <span className="lbl">{row.label}</span>
       </div>
       {Array.from({ length: cols }).map((_, i) => (
         <div
           key={i}
-          className={`mdx-cmp-c mdx-cmp-c-val mdx-cmp-c-text ${
+          className={`mdx-cmp-c mdx-cmp-c-val mdx-cmp-c-text ${stripeCls} ${
             i === 0 || row.accent === i ? "is-accent" : ""
           }`}
         >
