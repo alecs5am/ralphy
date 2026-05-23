@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
@@ -20,6 +20,7 @@ import {
   refPaths,
 } from "../lib/research.js";
 import type { TranscribeBackend, TranscribeLanguage } from "../lib/transcribe.js";
+import { callLLM } from "../lib/providers/llm.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -447,6 +448,84 @@ export function refCmd() {
       out({ deleted: id });
     });
 
+  // ── locate (find object bbox in an image via Gemini vision) ──────────────
+  cmd
+    .command("locate")
+    .description("Locate an object in an image — returns pixel bbox(es) via Gemini vision")
+    .requiredOption("--image <path>", "Path to source image (jpg/png)")
+    .requiredOption("--object <text>", "Plain-text description of the object to find")
+    .option("--model <id>", "Vision model id", "google/gemini-2.5-flash")
+    .option("--top-k <n>", "Max number of candidate bboxes to return", "5")
+    .action(async (opts: { image: string; object: string; model: string; topK: string }) => {
+      const imgPath = path.resolve(opts.image);
+      const buf = await fs.readFile(imgPath).catch(() => {
+        raiseError("E_NOT_FOUND", { kind: "Image", id: imgPath });
+        return Buffer.alloc(0);
+      });
+
+      const probe = spawnSync(
+        "ffprobe",
+        ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "default=noprint_wrappers=1:nokey=0", imgPath],
+        { encoding: "utf-8" }
+      );
+      const width = Number((probe.stdout.match(/width=(\d+)/) || [])[1]);
+      const height = Number((probe.stdout.match(/height=(\d+)/) || [])[1]);
+      if (!width || !height) {
+        err("Could not read image dimensions; install ffmpeg or check file path.");
+        process.exit(1);
+      }
+
+      const ext = path.extname(imgPath).slice(1).toLowerCase() || "jpeg";
+      const mime = ext === "jpg" ? "jpeg" : ext;
+      const b64 = buf.toString("base64");
+
+      const prompt = `Find every visible instance of: "${opts.object}".
+Image dimensions: ${width}x${height} pixels.
+Return ONLY a JSON array, no prose, no markdown fences. Each element:
+  {"label": "<short noun>", "x": <pixels from left>, "y": <pixels from top>, "width": <px>, "height": <px>, "score": <0..1>}
+Coordinates MUST be integers in absolute pixel space (not normalized 0..1).
+Be precise — return tight bboxes around the object, not the whole region containing it.
+If the object is not visible, return [].
+Limit output to the top ${opts.topK} candidates by confidence.`;
+
+      let content = "";
+      try {
+        const result = await callLLM({
+          model: opts.model,
+          maxTokens: 1024,
+          temperature: 0,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: `data:image/${mime};base64,${b64}` } },
+              ],
+            },
+          ],
+          endpoint: "ref-locate",
+        });
+        content = result.text;
+      } catch (e: any) {
+        err(`Vision call failed: ${e?.message ?? String(e)}`);
+        process.exit(1);
+      }
+
+      const cleaned = content.replace(/```(?:json)?\s*([\s\S]*?)```/, "$1").trim();
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        err(`Model did not return valid JSON. Raw output:\n${content}`);
+        process.exit(1);
+      }
+      if (!Array.isArray(parsed)) {
+        err(`Expected JSON array, got: ${typeof parsed}`);
+        process.exit(1);
+      }
+      out({ image: imgPath, dimensions: { width, height }, object: opts.object, matches: parsed });
+    });
+
   cmd.addHelpText(
     "after",
     `
@@ -456,6 +535,7 @@ Examples:
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
   ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
+  ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
 `,
   );
 
