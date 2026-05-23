@@ -617,6 +617,7 @@ Commands:
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
   check [options] <project-id>                   Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.
   delete <id>                                    Delete a reference
+  locate [options]                               Locate an object in an image — returns pixel bbox(es) via Gemini vision
   help [command]                                 display help for command
 
 Examples:
@@ -625,6 +626,7 @@ Examples:
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
   ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
+  ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
 ```
 
 ### `ralphy project`
