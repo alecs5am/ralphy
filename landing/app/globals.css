@@ -3981,10 +3981,9 @@ section { position: relative; padding-top: 80px; }
   font-size: 14.5px;
   color: var(--ink);
   letter-spacing: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .lib-cta-action {
   display: inline-flex;
@@ -4393,6 +4392,19 @@ body.mp-modal-open .nav { visibility: hidden; }
   background: var(--bg-2);
   padding: 2px 7px;
   border-radius: 6px;
+}
+
+/* Long inline-code strings (curl URLs, slug-qualified commands) must wrap
+   at arbitrary characters or they blow out the container on narrow
+   viewports. Pre-formatted code blocks keep their own scroll behaviour. */
+.lib-hero-content code,
+.lib-cta-hint code,
+.lib-origin code,
+.lib-cta-tag,
+.lib-body-section code:not(pre code),
+.lib-remix-steps code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* (legacy `.lib-lightbox` block removed — examples now use MediaPlayer's
