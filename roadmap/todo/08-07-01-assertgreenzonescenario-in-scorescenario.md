@@ -1,6 +1,6 @@
 ---
 id: 08.07.01
-status: doing
+status: todo
 v1_0: yes
 category: 08-quality-and-evaluation
 topic: "08.07 Green-zone enforcement"

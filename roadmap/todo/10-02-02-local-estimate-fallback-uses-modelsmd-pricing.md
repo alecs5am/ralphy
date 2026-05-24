@@ -1,6 +1,6 @@
 ---
 id: 10.02.02
-status: doing
+status: todo
 v1_0: yes
 category: 10-cost-and-telemetry
 topic: "10.02 Cost-from-OpenRouter"

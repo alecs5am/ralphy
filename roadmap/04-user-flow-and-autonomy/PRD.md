@@ -71,12 +71,15 @@ This category owns the flow: what happens in the first 30 seconds of a session, 
 - `04.02` — Reference gate fires only for named real entities; generic creative work proceeds without refs
 - `04.03` — Ask as many real questions as needed; never ask for confirmation
 - `04.04` — Cold-start template suggestion integrated into chat
-- `04.05` — Producer mode for batch
-- `04.06` — Interrupt + resume
+- `04.06` — Interrupt + resume (SIGINT path; full `ralphy resume` is post-launch per [D-02](OPEN-QUESTIONS.md#decision-log))
 - `04.0A` — Hard invariants: append-only enforced, motion graphics via Remotion, best models always
-- `ralphy memory` — cross-session memory layer (cross-link [`05.NN`](../05-project-resources/PRD.md))
 
-**Post-launch:**
+**Post-launch** (deferred per [D-02](OPEN-QUESTIONS.md#decision-log)):
 
-- `04.07` — Voice / image input to chat
-- `04.09` — Natural-language workspace query
+- `04.05` — Producer / batch mode (one-verb batch-N) — reopens when concrete demand surfaces
+- `04.07` — Catch-all post-launch flow extensions
+  - `04.07.01` Voice / image input to chat
+  - `04.07.02` Cross-session memory layer (`ralphy memory`)
+  - `04.07.03` Natural-language workspace query
+- `04.08` — Path-2 readiness study (Higgsfield / OpenAI / Nvidia / ExplainX / browser-use-video — external research scoped outside the v1.0 surface)
+- `04.09` — Weekly content plan + posting + engagement feedback loop

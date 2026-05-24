@@ -1,6 +1,6 @@
 ---
 id: 05.06.01
-status: doing
+status: todo
 v1_0: yes
 category: 05-project-resources
 topic: "05.06 Profile export / import"

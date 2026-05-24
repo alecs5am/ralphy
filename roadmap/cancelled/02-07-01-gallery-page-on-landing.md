@@ -11,4 +11,4 @@ title: "Gallery page on landing"
 
 **v1.0:** no
 
-**Resolution (2026-05-20):** Subsumed by the existing landing showcase marquee. Reopen as `02.09.04` if the catalog grows past what hand-curated showcase content can represent.
+**Resolution (2026-05-20):** Superseded by [`07.07.01`](../done/07-07-01-gallery-page-route.md) — the gallery page shipped under category 07 (`landing/app/templates/page.tsx`) per [D-04](../02-prompts-and-templates/OPEN-QUESTIONS.md#decision-log). Work moved categories, not killed.

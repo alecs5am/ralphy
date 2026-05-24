@@ -9,7 +9,7 @@ title: "Provider layer routes refs to the right model slot"
 
 # 02.02.02 — Provider layer routes refs to the right model slot
 
-**v1.0:** stretch — not in v1.0 scope. Provider-internal optimization. The single `--ref` may already be split internally by the adapter when the model benefits (Runway Gen-4 cref/sref split is the most likely first beneficiary). Deferred behind the broader `02.09.05` 3-slot grammar work.
+**v1.0:** stretch — not in v1.0 scope. Provider-internal optimization. The single `--ref` may already be split internally by the adapter when the model benefits (Runway Gen-4 cref/sref split is the most likely first beneficiary). Deferred behind the broader `02.02.01` 3-slot grammar work.
 
 **Acceptance criteria:**
 - Runway: refs categorized into `subjectReference[]` / `styleReference[]` by heuristic (filename hint OR provider-internal classifier).

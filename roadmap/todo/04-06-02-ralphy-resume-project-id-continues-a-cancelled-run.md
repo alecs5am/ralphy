@@ -9,7 +9,7 @@ title: "ralphy resume <project-id> continues a cancelled run"
 
 # 04.06.02 — `ralphy resume <project-id>` continues a cancelled run
 
-**v1.0:** no — deferred per [D-02](../04-user-flow-and-autonomy/OPEN-QUESTIONS.md#decision-log). Reopen as `04.07.05` if soft-launch testers consistently lose context after Ctrl-C.
+**v1.0:** no — deferred per [D-02](../04-user-flow-and-autonomy/OPEN-QUESTIONS.md#decision-log). Reopens post-launch if soft-launch testers consistently lose context after Ctrl-C.
 
 **Acceptance criteria:** (post-launch)
 - Detects the last cancelled stage from the gen-log and resumes from the next step.
