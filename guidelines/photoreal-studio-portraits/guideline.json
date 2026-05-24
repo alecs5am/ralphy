@@ -1,0 +1,17 @@
+{
+  "slug": "photoreal-studio-portraits",
+  "name": "Photoreal studio portraits",
+  "tag": "@guideline:photoreal-studio-portraits",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "Anti-AI-slop portrait prompts for Gemini and GPT image models — real camera + real lens + film grain + asymmetry beat any glossy commercial default.",
+  "description": "How to prompt an image model so it produces a portrait that reads as a photograph of a real person, not as AI. Covers master-portrait anchors, location-aware plates, close-ups, and the negative-prompt cluster that suppresses the beauty-filter default.",
+  "cover": "master-boy-portrait",
+  "scope": ["image", "portrait", "ugc", "talking-head", "lifestyle"],
+  "models": [
+    "google/gemini-3-pro-image-preview",
+    "openai/gpt-5.4-image-2"
+  ],
+  "tags": ["photoreal", "portrait", "anti-ai-slop", "image", "humans"],
+  "patterns": ["master-portrait", "location-master-plate", "topdown-closeup", "story-detail-cutaway"]
+}

@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **34**
+Verbs registered: **35**
 
 ## Top-level verbs
 
@@ -717,6 +717,33 @@ Commands:
                                     concept-level / typo queries. Returns top-N
                                     with reasoning when LLM fires.
   help [command]                    display help for command
+```
+
+### `ralphy guideline`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy guideline [options] [command]
+
+Prompt-library guidelines — LLM rules for writing model-specific prompts
+
+Options:
+  -h, --help             display help for command
+
+Commands:
+  list                   List every guideline shipped in the repo
+  show [options] <slug>  Print guideline.md raw (pipe-friendly for LLM
+                         consumers)
+  use [options] <slug>   Resolve a guideline tag — prints the body + the agent
+                         tag for the next prompt
+  help [command]         display help for command
 ```
 
 ### `ralphy batch`
