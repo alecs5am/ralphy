@@ -1,0 +1,41 @@
+{
+  "slug": "photoreal-studio-portraits",
+  "items": [
+    {
+      "id": "master-boy-portrait",
+      "media": "master-boy-portrait.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "Master-portrait anchor. GPT-5.4-image-2, plain backdrop, no scene context. Identity lock for every downstream shot.",
+      "pattern": "master-portrait",
+      "model": "openai/gpt-5.4-image-2"
+    },
+    {
+      "id": "master-girl-portrait",
+      "media": "master-girl-portrait.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "Second master-portrait. Same six-token spine — different character, same register.",
+      "pattern": "master-portrait",
+      "model": "openai/gpt-5.4-image-2"
+    },
+    {
+      "id": "location-master-plate",
+      "media": "location-master-plate.jpg",
+      "kind": "image",
+      "aspect": "9:16",
+      "caption": "Location-master-plate — both characters in the room. Multi-ref reconciliation: character portraits + composition + props. Anchors every downstream scene.",
+      "pattern": "location-master-plate",
+      "model": "google/gemini-3-pro-image-preview"
+    },
+    {
+      "id": "cu-girl-topdown",
+      "media": "cu-girl-topdown.jpg",
+      "kind": "image",
+      "aspect": "9:16",
+      "caption": "Top-down close-up. Uses both refs (character + location). Strict 90-degree angle + 'EYES WIDE OPEN' fixes the half-closed-eyes failure mode.",
+      "pattern": "topdown-closeup",
+      "model": "google/gemini-3-pro-image-preview"
+    }
+  ]
+}
