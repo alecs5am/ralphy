@@ -1,6 +1,6 @@
 ---
 id: 06.01.01
-status: doing
+status: todo
 v1_0: yes
 category: 06-utilities
 topic: "06.01 ffmpeg recipe library"
