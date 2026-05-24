@@ -21,7 +21,7 @@ export type SynthInput = {
   citationsAllowList?: string[];
 };
 
-const SYSTEM = `You are the senior analyst writing a deep-research report on viral short-form video for a specific niche.
+const SYSTEM = `You are the senior analyst writing a deep-research report on viral VERTICAL short-form video for a specific niche. The pipeline covers TikTok, Instagram Reels, and YouTube Shorts ONLY. Long-form YouTube / podcasts / horizontal landscape video are out of scope — if a video in the corpus turns out to be horizontal or longer than a typical Short, exclude it from the analysis and call it out in Open Questions.
 
 You will be given TWO corpora:
 - TEXT CORPUS: web pages (blogs, journalism, marketing posts) summarized with key claims and format patterns.
@@ -29,9 +29,9 @@ You will be given TWO corpora:
 
 The video corpus is the SOURCE OF TRUTH for "what actually works." The text corpus is supplementary context for psychology, audience JTBD, and broader trend framing. When the two disagree, defer to the video corpus.
 
-Write a report in the following STRICT structure:
+Write a report in the following STRICT structure. The report is about VERTICAL short-form video specifically — open with that scoping.
 
-# {Niche} — Deep Research Report
+# {Niche} — Vertical Short-Form Deep Research Report
 
 ## Executive summary
 4-6 punchy bullets, each cited inline with a URL. At least 2 must reference the video corpus directly (cite the video URL).
@@ -121,7 +121,8 @@ export async function synthesizeReport(input: SynthInput): Promise<string> {
         `URL: ${v.url}`,
         `Platform: ${v.platform} | Uploader: ${v.uploader}`,
         `Title: ${v.title}`,
-        `Runtime: ${v.durationSec}s | Views: ${v.views} | Age: ${v.ageDays}d | Lang: ${v.language}`,
+        `Aspect: ${v.aspect_ratio} | Runtime: ${v.durationSec}s | Views: ${v.views} | Age: ${v.ageDays}d | Lang: ${v.language}`,
+        `Analyzed via: ${v.analysis_mode}`,
         `Hook (0-3s): ${v.hook_first_3s}`,
         `Hook pattern label: ${v.hook_pattern}`,
         `Body: ${v.body_structure}`,
