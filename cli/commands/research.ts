@@ -123,6 +123,13 @@ export function researchCmd() {
     .option("--job-id <id>", "Override job id (default: timestamp-randhash)")
     .option("--context <text>", "Extra brief / context for the planner")
     .option("--budget-seconds <n>", "Hard wall-clock budget", (v) => parseInt(v, 10))
+    .option("--max-videos <n>", "Top videos to download + vision-analyze (0 disables video track)", (v) => parseInt(v, 10))
+    .option("--video-hits-per-query <n>", "DDG hits per video discovery query", (v) => parseInt(v, 10))
+    .option("--video-meta-concurrency <n>", "Parallel yt-dlp meta probes", (v) => parseInt(v, 10))
+    .option("--video-pull-concurrency <n>", "Parallel full video downloads", (v) => parseInt(v, 10))
+    .option("--video-summary-concurrency <n>", "Parallel vision summarize calls", (v) => parseInt(v, 10))
+    .option("--video-summary-model <id>", "OpenRouter model for video vision summaries")
+    .option("--no-video", "Disable the video track entirely (text-only research)")
     .option("--quiet", "Suppress progress events on stderr")
     .action(async (queryParts: string[], opts: {
       maxSources?: number;
@@ -135,6 +142,13 @@ export function researchCmd() {
       jobId?: string;
       context?: string;
       budgetSeconds?: number;
+      maxVideos?: number;
+      videoHitsPerQuery?: number;
+      videoMetaConcurrency?: number;
+      videoPullConcurrency?: number;
+      videoSummaryConcurrency?: number;
+      videoSummaryModel?: string;
+      video?: boolean;
       quiet?: boolean;
     }) => {
       try {
@@ -160,6 +174,12 @@ export function researchCmd() {
           summaryModel: opts.summaryModel,
           synthModel: opts.synthModel,
           budgetSeconds: opts.budgetSeconds,
+          maxVideos: opts.video === false ? 0 : opts.maxVideos,
+          videoHitsPerQuery: opts.videoHitsPerQuery,
+          videoMetaConcurrency: opts.videoMetaConcurrency,
+          videoPullConcurrency: opts.videoPullConcurrency,
+          videoSummaryConcurrency: opts.videoSummaryConcurrency,
+          videoSummaryModel: opts.videoSummaryModel,
           onEvent,
         });
         ok(`Research complete → ${result.reportPath}`);
@@ -168,9 +188,13 @@ export function researchCmd() {
           jobDir: result.jobDir,
           query: result.query,
           subqueries: result.plan.subqueries.length,
+          videoQueries: result.plan.video_discovery_queries.length,
           sourcesAttempted: result.sourcesAttempted,
           sourcesFetched: result.sourcesFetched,
           sourcesSummarized: result.sourcesSummarized,
+          videosDiscovered: result.videosDiscovered,
+          videosMetaProbed: result.videosMetaProbed,
+          videosAnalyzed: result.videosAnalyzed,
           reportPath: result.reportPath,
           registryPath: result.registryPath,
           citationRate: Number(result.citationRate.toFixed(3)),
