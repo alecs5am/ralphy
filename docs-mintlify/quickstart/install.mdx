@@ -1,158 +1,58 @@
 ---
 title: "Install"
-description: "Drop the ralphy binary on your PATH, add two API keys, verify with ralphy doctor."
+description: "Clone the repo, open it in Claude Code, ask Claude to set you up. The standalone binary is the alternative."
 ---
 
-Three install paths, all produce the same `ralphy` binary at `~/.local/bin/ralphy` (or `/opt/homebrew/bin/ralphy` for brew). Pick the one that fits your machine, then add two API keys and run `ralphy doctor` to confirm everything's wired.
+Ralphy is agent-driven. The fastest install is: clone the repo, open it in Claude Code, ask Claude to set you up. Claude reads `AGENTS.md`, routes to the install playbook, runs `ralphy doctor`, walks you through the key wizard, and confirms. You end with a working `ralphy` invocation and a project ready for the first brief.
 
-## Install the binary
+## The default path — clone + Claude Code
 
-<Tabs>
-  <Tab title="macOS (brew)">
-    ```bash
-    brew tap alecs5am/tap
-    brew install ralphy
-    ```
+```bash
+git clone https://github.com/alecs5am/ralphy.git ugc-cli
+cd ugc-cli
+claude
+```
 
-    Verify:
+In chat, say:
 
-    ```bash
-    ralphy --version
-    # → 0.1.0
-    ```
+> set me up
 
-    Brew handles upgrades — `brew upgrade ralphy` picks up new releases automatically.
-  </Tab>
-  <Tab title="Linux/macOS (curl)">
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
-    ```
+Claude does the rest:
 
-    The installer detects your OS and arch (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64), grabs the matching binary from the latest GitHub Release, drops it at `~/.local/bin/ralphy`, and appends a PATH line to your shell rc if needed. On macOS it also strips the `com.apple.quarantine` attribute so Gatekeeper lets the unsigned binary run.
+1. Runs `which bun`, `which ffmpeg`, `which ralphy`. Tells you what's missing.
+2. Installs `bun` and/or `ffmpeg` for you (interactive — you confirm each step).
+3. Drops the `ralphy` binary onto your `PATH` if it isn't there yet.
+4. Runs `ralphy setup` for the two API keys. You paste each one; the wizard pings the provider to verify before saving.
+5. Runs `ralphy doctor` one last time. Greens across the board means you're ready.
 
-    Reload your shell or open a new terminal, then verify:
-
-    ```bash
-    ralphy --version
-    # → 0.1.0
-    ```
-
-    To install a specific version or a custom directory:
-
-    ```bash
-    RALPHY_VERSION=v0.2.0 RALPHY_BIN_DIR=$HOME/bin \
-      curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
-    ```
-  </Tab>
-  <Tab title="npm (cross-platform)">
-    ```bash
-    npm i -g @alecs5am/ralphy
-    ```
-
-    The npm package wraps the same binary. Works on Windows without extra setup.
-
-    ```bash
-    ralphy --version
-    # → 0.1.0
-    ```
-
-    Upgrades: `npm update -g @alecs5am/ralphy`.
-  </Tab>
-</Tabs>
+The whole thing takes 3-5 minutes on a clean machine, most of it spent grabbing OpenRouter and ElevenLabs keys.
 
 <Note>
-Ralphy needs two host-side tools the binary doesn't ship: `bun` (the JS runtime ralphy uses for Remotion rendering) and `ffmpeg` (encode and trim). Install them with `brew install bun ffmpeg` on macOS or your distro's package manager on Linux. `ralphy doctor` will tell you if either is missing.
+You need Claude Code on your machine for this path. Install it from [claude.com/claude-code](https://claude.com/claude-code) — free for personal use. Cursor, Copilot, and Codex work too once Ralphy is set up; see [Connect your editor](/quickstart/connect-editor).
 </Note>
 
-## First doctor pass
+## What you'll need
 
-Before you add any keys, run `ralphy doctor` to see what's missing:
+- **`git`** — to clone the repo.
+- **Claude Code** (or another supported editor — see [Connect your editor](/quickstart/connect-editor)).
+- **`bun` and `ffmpeg`** on the host. Claude will install them if missing.
+- **An [OpenRouter](https://openrouter.ai/keys) key** — covers image, video, LLM, vision, transcription.
+- **An [ElevenLabs](https://elevenlabs.io/app/settings/api-keys) key** — covers voiceover and music.
 
-```bash
-ralphy doctor
-```
-
-```json
-{
-  "ralphy": {
-    "installed": true,
-    "version": "0.2.0",
-    "linkedProject": null,
-    "cwd": "/Users/you",
-    "mode": "binary",
-    "home": "/Users/you/.ralphy"
-  },
-  "deps": { "bun": true, "ffmpeg": true },
-  "keys": {
-    "OPENROUTER_API_KEY": false,
-    "ELEVENLABS_API_KEY": false
-  },
-  "blockers": [
-    "OPENROUTER_API_KEY missing — OpenRouter required (https://openrouter.ai/keys). Run `ralphy setup`.",
-    "ELEVENLABS_API_KEY missing — ElevenLabs required (https://elevenlabs.io/app/settings/api-keys). Run `ralphy setup`."
-  ],
-  "warnings": []
-}
-```
-
-What each check verifies:
-
-- **`deps.bun`** — `bun` is on your `PATH`. Needed for Remotion bundling and render.
-- **`deps.ffmpeg`** — `ffmpeg` is on your `PATH`. Needed for encoding, scaling, audio mix.
-- **`keys.OPENROUTER_API_KEY`** — the unified key that unlocks image generation (gemini-3-pro-image-preview, gpt-5.4-image-2), video (kling-v3.0-pro, veo-3.1, seedance-2.0), LLM/vision, and transcription.
-- **`keys.ELEVENLABS_API_KEY`** — voiceover (eleven_multilingual_v2, eleven_v3) and music (ElevenLabs Music API).
-- **`linkedProject`** — the `ugc-cli` checkout ralphy is pointed at. Set during `ralphy setup`.
-
-For a human-readable view:
-
-```bash
-ralphy doctor -p
-```
-
-## Add your keys
-
-Get the two keys:
-
-1. **OpenRouter** — sign up at [openrouter.ai/keys](https://openrouter.ai/keys), create a key, top up a few dollars of credit.
-2. **ElevenLabs** — sign up at [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys), create a key. The free tier is enough for one or two test videos.
-
-Then run the setup wizard:
-
-```bash
-ralphy setup
-```
-
-The wizard asks for the path to your `ugc-cli` checkout (if you don't have one, `git clone https://github.com/alecs5am/ralphy` first), shows a status table of currently-set keys, lets you paste each missing key, and pings the provider's API to verify before saving. Keys land in `<project>/.env`.
-
-<Tip>
-Prefer `direnv`? After `ralphy setup` writes `.env`, add an `.envrc` alongside it with `dotenv` so the keys load on `cd`. Ralphy reads from process env; either source works.
-</Tip>
-
-For CI or scripts, drive setup non-interactively:
-
-```bash
-ralphy setup -y \
-  --openrouter-key sk-or-... \
-  --elevenlabs-key xi-... \
-  --project-dir ~/code/ugc-cli
-```
-
-Or pipe a key from stdin: `cat key.txt | ralphy setup -y --openrouter-key -`.
+You don't need Vercel, FAL, or OpenAI direct. Two keys, one repo, one chat.
 
 ## Verify
 
-Run doctor again:
+After Claude finishes, run it yourself to confirm:
 
 ```bash
 ralphy doctor -p
 ```
 
-You should see both checks green:
-
 ```text
  ★ ralphy v0.2.0
-   cwd      /Users/you
-   project  /Users/you/code/ugc-cli
+   cwd      /Users/you/ugc-cli
+   project  /Users/you/ugc-cli
 
    Dependencies
    ✓ bun
@@ -165,15 +65,83 @@ You should see both checks green:
    ✓ ready
 ```
 
-If anything's red, the `blockers` array tells you the exact next command. Re-run `ralphy setup` to add a missing key, or `brew install bun ffmpeg` to fix the deps.
+If anything's red, the `blockers` array tells you the exact next command. Tell Claude "ralphy doctor is failing" and it'll fix it.
+
+## Standalone binary (alternative)
+
+If you don't want to clone the repo — for CI, scripts, or a one-off render — install the binary directly. You still need a `ugc-cli` checkout somewhere on disk for templates and asset cache; the wizard asks for its path.
+
+<Tabs>
+  <Tab title="macOS (brew)">
+    ```bash
+    brew tap alecs5am/tap
+    brew install ralphy
+    ```
+
+    Brew handles upgrades — `brew upgrade ralphy` picks up new releases.
+  </Tab>
+  <Tab title="Linux/macOS (curl)">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+    ```
+
+    The installer detects your OS and arch, drops the binary at `~/.local/bin/ralphy`, appends a PATH line to your shell rc, and strips quarantine on macOS. Reload your shell or open a new terminal.
+
+    Pin a version or change the install dir:
+
+    ```bash
+    RALPHY_VERSION=v0.2.0 RALPHY_BIN_DIR=$HOME/bin \
+      curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh
+    ```
+  </Tab>
+  <Tab title="npm (cross-platform)">
+    ```bash
+    npm i -g @alecs5am/ralphy
+    ```
+
+    The npm package wraps the same binary. Works on Windows without WSL.
+
+    Upgrades: `npm update -g @alecs5am/ralphy`.
+  </Tab>
+</Tabs>
+
+Then run setup yourself:
+
+```bash
+ralphy setup
+```
+
+The wizard asks for the path to your `ugc-cli` checkout (if you don't have one, `git clone https://github.com/alecs5am/ralphy ugc-cli` first), accepts each key, pings the provider to verify, and writes them to `<project>/.env`.
+
+For CI or scripts, drive setup non-interactively:
+
+```bash
+ralphy setup -y \
+  --openrouter-key sk-or-... \
+  --elevenlabs-key xi-... \
+  --project-dir ~/code/ugc-cli
+```
+
+Or pipe a key from stdin: `cat key.txt | ralphy setup -y --openrouter-key -`.
+
+<Tip>
+Prefer `direnv`? After `ralphy setup` writes `.env`, add an `.envrc` alongside it with `dotenv` so the keys load on `cd`. Ralphy reads from process env; either source works.
+</Tip>
+
+## Why clone + Claude Code is the default
+
+Ralphy is built around an agent reading playbooks. The repo *is* the playbook bundle — `AGENTS.md`, `docs/playbooks/`, `templates/`, `MODELS.md`. When Claude Code opens the repo, it gets the routing table on every turn, picks the right playbook per request, and runs `ralphy` for every model call. With the standalone binary alone, you have the engine but not the routing — you'd be improvising prompts and skipping the postmortem-validated patterns the repo ships with.
+
+In short: the binary runs commands; the repo carries the intelligence. You want both.
 
 ## Next
 
-Time to make a video. Head to [Your first video](/quickstart/first-video).
+Drop your first brief into chat — head to [Your first video](/quickstart/first-video).
 
 ## Related
 
-- [Connect your editor](/quickstart/connect-editor) — wire the playbook routing into Claude Code / Cursor / Copilot / Codex
+- [Your first video](/quickstart/first-video) — drive a render from chat
+- [Connect your editor](/quickstart/connect-editor) — wire Cursor, Copilot, or Codex if you don't use Claude Code
 - [setup &amp; doctor reference](/cli/setup-doctor) — every flag and edge case
 - [Install playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/ralphy-install.md) — canonical source
 - [OpenRouter keys](https://openrouter.ai/keys) and [ElevenLabs keys](https://elevenlabs.io/app/settings/api-keys)

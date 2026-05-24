@@ -3,22 +3,22 @@ title: "Your first video"
 description: "From a one-line brief to a rendered mp4, driven by chat in your editor. About 8 minutes."
 ---
 
-You'll type one sentence in your editor's chat, answer 3-5 clarifying questions, watch Ralphy generate scenes one at a time, and end with `final.mp4` on disk. Target time: 5-8 minutes cold-start, per the [perf targets](https://github.com/alecs5am/ralphy/blob/main/docs/perf-targets.md). If you don't yet have an editor connected, do that first — [Connect your editor](/quickstart/connect-editor).
+You'll type one sentence in chat, answer 3-5 clarifying questions, watch Ralphy generate scenes one at a time, and end with `final.mp4` on disk. Target time: 5-8 minutes cold-start, per the [perf targets](https://github.com/alecs5am/ralphy/blob/main/docs/perf-targets.md). This page assumes you've already cloned `ugc-cli` and opened it in Claude Code — if not, run through [Install](/quickstart/install) first.
 
 <Steps>
-  <Step title="Open the project, confirm the agent is connected">
-    Open your `ugc-cli` checkout in your editor:
+  <Step title="Open the project in Claude Code">
+    From the directory you cloned into:
 
     ```bash
-    cd ~/code/ugc-cli
-    code .   # or: cursor . / claude code
+    cd ugc-cli
+    claude
     ```
 
-    In a new chat, ask:
+    In chat, confirm the agent sees the routing table:
 
-    > "are you reading AGENTS.md?"
+    > are you reading AGENTS.md?
 
-    The agent should confirm and list the playbooks it routes to (intake, researcher, scenarist, art-director, editor, producer). If it doesn't, run `ralphy skill install` and reopen the editor — see [Connect your editor](/quickstart/connect-editor).
+    The agent should confirm and list the playbooks it routes to (intake, researcher, scenarist, art-director, editor, producer). If it doesn't, you're probably in the wrong directory — `pwd` should end in `/ugc-cli`. On Cursor / Copilot / Codex, run `ralphy skill install` once — see [Connect your editor](/quickstart/connect-editor).
   </Step>
 
   <Step title="Type your brief in chat">

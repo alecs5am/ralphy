@@ -38,6 +38,10 @@
     "codeblocks": "dark"
   },
   "navbar": {
+    "links": [
+      { "label": "Library", "href": "https://ralphy.dev/library" },
+      { "label": "Skills", "href": "https://ralphy.dev/skills" }
+    ],
     "primary": {
       "type": "button",
       "label": "Star on GitHub",
@@ -50,76 +54,50 @@
         "tab": "Documentation",
         "groups": [
           {
-            "group": "Concepts",
+            "group": "Guides",
             "pages": [
-              "concepts/index",
-              "concepts/what-is-ralphy",
-              "concepts/architecture",
-              "concepts/workspace",
-              "concepts/projects",
-              "concepts/brands-personas",
-              "concepts/references",
-              "concepts/templates",
-              "concepts/asset-catalog",
-              "concepts/generation-log",
-              "concepts/playbooks-and-skills"
-            ]
-          },
-          {
-            "group": "Quickstart",
-            "pages": [
-              "quickstart/index",
-              "quickstart/install",
-              "quickstart/first-video",
-              "quickstart/connect-editor",
-              "quickstart/what-happened"
-            ]
-          },
-          {
-            "group": "Working with Ralphy",
-            "pages": [
-              "working/index",
-              "working/talking-to-ralphy",
-              "working/starting-a-project",
-              "working/picking-a-template",
-              "working/brand-persona-refs",
-              "working/generating-assets",
-              "working/reviewing-iterating",
-              "working/rendering",
-              "working/batches",
-              "working/profiles",
-              "working/logs-and-costs"
-            ]
-          },
-          {
-            "group": "Prompting",
-            "pages": [
-              "prompting/index",
-              "prompting/philosophy",
-              "prompting/image",
-              "prompting/video",
-              "prompting/per-model",
-              "prompting/voice",
-              "prompting/music",
-              "prompting/prompt-library"
-            ]
-          },
-          {
-            "group": "Cookbook",
-            "pages": [
-              "cookbook/index",
-              "cookbook/tiktok-confession-rant",
-              "cookbook/broadcast-square",
-              "cookbook/oldspice-vfx",
-              "cookbook/brand-launch-refs",
-              "cookbook/brainrot-character",
-              "cookbook/photoreal-humans",
-              "cookbook/frame-break-hook",
-              "cookbook/batch-of-10",
-              "cookbook/new-template",
-              "cookbook/new-skill",
-              "cookbook/new-model",
-              "cookbook/migrating-project"
+              {
+                "group": "Concepts",
+                "pages": [
+                  "concepts/index",
+                  "concepts/what-is-ralphy",
+                  "concepts/architecture",
+                  "concepts/workspace",
+                  "concepts/projects",
+                  "concepts/brands-personas",
+                  "concepts/references",
+                  "concepts/templates",
+                  "concepts/asset-catalog",
+                  "concepts/generation-log",
+                  "concepts/playbooks-and-skills"
+                ]
+              },
+              {
+                "group": "Quickstart",
+                "pages": [
+                  "quickstart/index",
+                  "quickstart/install",
+                  "quickstart/first-video",
+                  "quickstart/connect-editor",
+                  "quickstart/what-happened"
+                ]
+              },
+              {
+                "group": "Working with Ralphy",
+                "pages": [
+                  "working/index",
+                  "working/talking-to-ralphy",
+                  "working/starting-a-project",
+                  "working/picking-a-template",
+                  "working/brand-persona-refs",
+                  "working/generating-assets",
+                  "working/reviewing-iterating",
+                  "working/rendering",
+                  "working/batches",
+                  "working/profiles",
+                  "working/logs-and-costs"
+                ]
+              }
             ]
           }
         ]
@@ -128,64 +106,69 @@
         "tab": "CLI",
         "groups": [
           {
-            "group": "CLI Reference",
+            "group": "Reference",
             "pages": [
-              "cli/index",
-              "cli/overview",
-              "cli/output-modes",
-              "cli/setup-doctor",
-              "cli/project-verbs",
-              "cli/resource-crud",
-              "cli/generation-verbs",
-              "cli/rendering-verbs",
-              "cli/skills-playbooks",
-              "cli/assets",
-              "cli/templates",
-              "cli/examples",
-              "cli/eval-research",
-              "cli/models",
-              "cli/error-catalog",
-              "cli/env-config"
-            ]
-          },
-          {
-            "group": "Verbs (auto-generated)",
-            "pages": [
-              "reference/cli/setup",
-              "reference/cli/doctor",
-              "reference/cli/status",
-              "reference/cli/new",
-              "reference/cli/clone",
-              "reference/cli/render",
-              "reference/cli/generate",
-              "reference/cli/skill",
-              "reference/cli/project",
-              "reference/cli/template",
-              "reference/cli/ref",
-              "reference/cli/brand",
-              "reference/cli/persona",
-              "reference/cli/models",
-              "reference/cli/assets",
-              "reference/cli/queue",
-              "reference/cli/batch",
-              "reference/cli/eval",
-              "reference/cli/whoami",
-              "reference/cli/profile",
-              "reference/cli/config",
-              "reference/cli/prompts",
-              "reference/cli/research",
-              "reference/cli/editor",
-              "reference/cli/voice",
-              "reference/cli/video",
-              "reference/cli/audio",
-              "reference/cli/workspace",
-              "reference/cli/example",
-              "reference/cli/banner",
-              "reference/cli/daemon",
-              "reference/cli/asset",
-              "reference/cli/init",
-              "reference/cli/dashboard",
-              "reference/cli/version"
+              {
+                "group": "CLI Reference",
+                "pages": [
+                  "cli/index",
+                  "cli/overview",
+                  "cli/output-modes",
+                  "cli/setup-doctor",
+                  "cli/project-verbs",
+                  "cli/resource-crud",
+                  "cli/generation-verbs",
+                  "cli/rendering-verbs",
+                  "cli/skills-playbooks",
+                  "cli/assets",
+                  "cli/templates",
+                  "cli/examples",
+                  "cli/eval-research",
+                  "cli/models",
+                  "cli/error-catalog",
+                  "cli/env-config"
+                ]
+              },
+              {
+                "group": "Verbs (auto-generated)",
+                "pages": [
+                  "reference/cli/setup",
+                  "reference/cli/doctor",
+                  "reference/cli/status",
+                  "reference/cli/new",
+                  "reference/cli/clone",
+                  "reference/cli/render",
+                  "reference/cli/generate",
+                  "reference/cli/skill",
+                  "reference/cli/project",
+                  "reference/cli/template",
+                  "reference/cli/ref",
+                  "reference/cli/brand",
+                  "reference/cli/persona",
+                  "reference/cli/models",
+                  "reference/cli/assets",
+                  "reference/cli/queue",
+                  "reference/cli/batch",
+                  "reference/cli/eval",
+                  "reference/cli/whoami",
+                  "reference/cli/profile",
+                  "reference/cli/config",
+                  "reference/cli/prompts",
+                  "reference/cli/research",
+                  "reference/cli/editor",
+                  "reference/cli/voice",
+                  "reference/cli/video",
+                  "reference/cli/audio",
+                  "reference/cli/workspace",
+                  "reference/cli/example",
+                  "reference/cli/banner",
+                  "reference/cli/daemon",
+                  "reference/cli/asset",
+                  "reference/cli/init",
+                  "reference/cli/dashboard",
+                  "reference/cli/version"
+                ]
+              }
             ]
           }
         ]
@@ -222,7 +205,9 @@
   },
   "redirects": [
     { "source": "/", "destination": "/concepts/what-is-ralphy" },
-    { "source": "/introduction", "destination": "/concepts/what-is-ralphy" }
+    { "source": "/introduction", "destination": "/concepts/what-is-ralphy" },
+    { "source": "/cookbook/:slug*", "destination": "/working/index" },
+    { "source": "/prompting/:slug*", "destination": "https://ralphy.dev/library" }
   ],
   "footer": {
     "socials": {
