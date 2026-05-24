@@ -110,6 +110,7 @@ describe("searchDuckDuckGo (integration via mock server)", () => {
     try {
       const hits = await searchDuckDuckGo("anything", {
         baseUrl: `http://localhost:${server.port}/html/`,
+        retries: 0,
       });
       expect(hits).toEqual([]);
     } finally {

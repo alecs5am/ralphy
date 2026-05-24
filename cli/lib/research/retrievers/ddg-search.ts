@@ -109,20 +109,47 @@ export type SearchOptions = {
   limit?: number;
   timeoutMs?: number;
   region?: string;
+  /** Max retries on empty / blocked responses. Default 3. */
+  retries?: number;
 };
 
-export async function searchDuckDuckGo(
+// Process-wide concurrency cap on DDG to avoid CAPTCHA / 403 rate-limits when
+// multiple research jobs share a process or a single planner fans out wide.
+// Empirically 2 concurrent works; >=3 starts seeing empty HTML responses.
+const DDG_CONCURRENCY = 2;
+let _inFlight = 0;
+const _waiters: Array<() => void> = [];
+
+async function acquireSlot(): Promise<void> {
+  if (_inFlight < DDG_CONCURRENCY) {
+    _inFlight += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => _waiters.push(resolve));
+  _inFlight += 1;
+}
+
+function releaseSlot(): void {
+  _inFlight -= 1;
+  const w = _waiters.shift();
+  if (w) w();
+}
+
+function jitter(baseMs: number): number {
+  return baseMs + Math.floor(Math.random() * baseMs);
+}
+
+async function ddgFetchOnce(
   query: string,
-  opts: SearchOptions = {},
-): Promise<SearchHit[]> {
-  const base = opts.baseUrl ?? DEFAULT_BASE;
-  const limit = opts.limit ?? 10;
-  const timeoutMs = opts.timeoutMs ?? 15_000;
+  base: string,
+  region: string | undefined,
+  timeoutMs: number,
+): Promise<SearchHit[] | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const form = new URLSearchParams({ q: query });
-    if (opts.region) form.set("kl", opts.region);
+    if (region) form.set("kl", region);
     const resp = await fetch(`${base}?${form.toString()}`, {
       signal: ctrl.signal,
       redirect: "follow",
@@ -132,13 +159,44 @@ export async function searchDuckDuckGo(
         "accept-language": "en-US,en;q=0.9",
       },
     });
-    if (!resp.ok) return [];
+    if (!resp.ok) return null;
     const html = await resp.text();
+    if (/anomaly|captcha|too many requests|rate.?limit/i.test(html.slice(0, 4096))) {
+      return null;
+    }
     const hits = parseDuckDuckGoHtml(html);
-    return hits.slice(0, limit);
+    return hits;
   } catch {
-    return [];
+    return null;
   } finally {
     clearTimeout(t);
+  }
+}
+
+export async function searchDuckDuckGo(
+  query: string,
+  opts: SearchOptions = {},
+): Promise<SearchHit[]> {
+  const base = opts.baseUrl ?? DEFAULT_BASE;
+  const limit = opts.limit ?? 10;
+  const timeoutMs = opts.timeoutMs ?? 15_000;
+  const retries = opts.retries ?? 3;
+  await acquireSlot();
+  try {
+    let attempt = 0;
+    while (attempt <= retries) {
+      // Jitter on every attempt — DDG fingerprints burst patterns.
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, jitter(750 * attempt)));
+      } else {
+        await new Promise((r) => setTimeout(r, jitter(150)));
+      }
+      const hits = await ddgFetchOnce(query, base, opts.region, timeoutMs);
+      if (hits && hits.length > 0) return hits.slice(0, limit);
+      attempt += 1;
+    }
+    return [];
+  } finally {
+    releaseSlot();
   }
 }
