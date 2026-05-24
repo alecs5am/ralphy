@@ -112,13 +112,18 @@ export async function ytSearch(
 // Run yt-dlp search but re-tag results to prefer Shorts URLs (replace
 // /watch?v=ID with /shorts/ID for short videos). The /shorts/ form behaves
 // the same for download but improves the readability of citations.
+//
+// YouTube Shorts officially supports up to 180 seconds since 2024. We
+// auto-promote anything under that threshold. Longer videos stay as
+// "youtube" (long-form) and are dropped by the vertical-only filter.
 export async function ytSearchShortsBias(
   query: string,
-  opts: { limit?: number; timeoutMs?: number } = {},
+  opts: { limit?: number; timeoutMs?: number; maxShortsDurationSec?: number } = {},
 ): Promise<YtdlpHit[]> {
   const hits = await ytSearch(query, opts);
+  const maxDur = opts.maxShortsDurationSec ?? 180;
   return hits.map((h) => {
-    if (h.durationSec > 0 && h.durationSec <= 90 && h.platform === "youtube") {
+    if (h.durationSec > 0 && h.durationSec <= maxDur && h.platform === "youtube") {
       const m = h.url.match(/v=([\w-]{11})/);
       if (m) {
         return {
