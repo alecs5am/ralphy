@@ -31,3 +31,7 @@ The verifier, retrievers, and job manager must operate with `OPENROUTER_API_KEY`
 ### D-02 — Hardest-first ordering: verifier before everything else (2026-05-25)
 
 Stage 1 starts with the deterministic citation verifier and an append-only source registry, on top of a single-agent ReAct loop. Rationale: if the verifier doesn't hit ≥97% citation resolution on the eval set, no amount of orchestration around it adds quality — it amplifies hallucinations. The architecture survey at [`docs/research/deep-research-architecture-foundations.md`](../../docs/research/deep-research-architecture-foundations.md) §6 documents the same conclusion across NVIDIA AI-Q, Anthropic CitationAgent, and STORM.
+
+### D-03 — Video pipeline pulled forward into Stage 1 (2026-05-25)
+
+Originally Stage 3 in the source idea, the video-corpus track (yt-dlp + native video input via `google/gemini-3.1-pro-preview`) landed alongside the text corpus in Stage 1 because the user explicitly required actual viral-video analysis to match commercial Deep Research products. Live runs validated 200+ candidate discovery, vertical-only filtering, and per-video micro-breakdowns. The async job manager (originally Stage 2) is now the only remaining Stage 1+2 gap.
