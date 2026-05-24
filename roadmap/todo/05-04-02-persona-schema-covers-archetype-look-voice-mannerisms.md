@@ -1,6 +1,6 @@
 ---
 id: 05.04.02
-status: doing
+status: todo
 v1_0: yes
 category: 05-project-resources
 topic: "05.04 Brand & Persona as first-class"

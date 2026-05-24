@@ -9,7 +9,7 @@ title: "CLI flags --cref, --sref, --pref"
 
 # 02.02.01 — CLI flags `--cref`, `--sref`, `--pref`
 
-**v1.0:** no — deferred per [D-02](../02-prompts-and-templates/OPEN-QUESTIONS.md#decision-log). Moves to `02.09.05` (post-launch).
+**v1.0:** no — deferred per [D-02](../02-prompts-and-templates/OPEN-QUESTIONS.md#decision-log). Stays in `02.02.01` (post-launch).
 
 **Acceptance criteria:** (post-launch)
 - `ralphy generate {image|video} --cref <character.png> --sref <style.png> --pref <product.png>`.
