@@ -175,6 +175,29 @@ function ImagePlayer({ src, alt, className, aspect, onExpand, variant = "inline"
 function VideoPlayer({ src, alt, className, aspect, poster, autoPlay = false, defaultMuted = true, onExpand, variant = "inline" }: VideoProps & InlineProps) {
   const isFs = variant === "fullscreen";
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Native fullscreen API path. Reuses the existing <video> element +
+  // its already-buffered frames (no reload, no flash). Falls back to the
+  // parent's custom modal when the API isn't available (older Safari,
+  // etc.). iOS Safari uses `webkitEnterFullscreen` on the video itself.
+  const enterFullscreen = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    type FsVideo = HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitSupportsFullscreen?: boolean;
+    };
+    const fv = v as FsVideo;
+    if (v.requestFullscreen) {
+      void v.requestFullscreen().catch(() => onExpand?.());
+      return;
+    }
+    if (fv.webkitEnterFullscreen) {
+      fv.webkitEnterFullscreen();
+      return;
+    }
+    onExpand?.();
+  };
   const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [volume, setVolume] = useState(defaultMuted ? 0 : 1);
   const [progress, setProgress] = useState(0);
@@ -334,11 +357,11 @@ function VideoPlayer({ src, alt, className, aspect, poster, autoPlay = false, de
                     </motion.button>
                   ))}
                 </div>
-                {onExpand && !isFs && (
+                {!isFs && (
                   <motion.button
                     type="button"
                     className="mp-btn"
-                    onClick={(e) => { e.stopPropagation(); onExpand(); }}
+                    onClick={(e) => { e.stopPropagation(); enterFullscreen(); }}
                     whileHover={{ scale: 1.08 }}
                     whileTap={{ scale: 0.92 }}
                     aria-label="Expand to fullscreen"
