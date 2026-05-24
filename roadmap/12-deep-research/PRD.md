@@ -69,7 +69,7 @@ Live in [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md). Snapshot: storage backend (SQL
 
 ## Cross-references
 
-- Source idea: [`notes/ideas/006-deep-research-architecture.md`](../../notes/ideas/006-deep-research-architecture.md) — promoted into this category on 2026-05-25, deletion follows the convention in [`developing-ralphy.md`](../../docs/developing-ralphy.md#when-to-file-a-note-vs-add-a-spec-row).
+- Source idea: previously at `notes/ideas/006-deep-research-architecture.md` — promoted into this category on 2026-05-25 and removed from `notes/` per the convention in [`developing-ralphy.md`](../../docs/developing-ralphy.md#when-to-file-a-note-vs-add-a-spec-row). Git history preserves the original rationale.
 - Architecture survey: [`docs/research/deep-research-architecture-foundations.md`](../../docs/research/deep-research-architecture-foundations.md).
 - Prior critique of the shallow skill: [`docs/research/skill-activation.md`](../../docs/research/skill-activation.md).
 - Consumes the provider layer at [`cli/lib/providers/llm.ts`](../../cli/lib/providers/llm.ts) and [`cli/lib/providers/media.ts`](../../cli/lib/providers/media.ts).
