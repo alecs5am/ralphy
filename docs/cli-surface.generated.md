@@ -1054,6 +1054,8 @@ Commands:
                                 synthesis)
   list                          List all research topics under
                                 workspace/research/
+  run [options] <query...>      Deep research: plan → fan-out search → fetch →
+                                summarize → cited report
   help [command]                display help for command
 ```
 
