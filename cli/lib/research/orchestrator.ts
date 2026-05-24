@@ -168,11 +168,11 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
   const hitsPerSubquery = opts.hitsPerSubquery ?? 8;
   const fetchConcurrency = opts.fetchConcurrency ?? 8;
   const summaryConcurrency = opts.summaryConcurrency ?? 4;
-  const maxVideos = opts.maxVideos ?? 50;
-  const videoHitsPerQuery = opts.videoHitsPerQuery ?? 10;
+  const maxVideos = opts.maxVideos ?? 200;
+  const videoHitsPerQuery = opts.videoHitsPerQuery ?? 12;
   const videoMetaConcurrency = opts.videoMetaConcurrency ?? 4;
   const videoPullConcurrency = opts.videoPullConcurrency ?? 3;
-  const videoSummaryConcurrency = opts.videoSummaryConcurrency ?? 4;
+  const videoSummaryConcurrency = opts.videoSummaryConcurrency ?? 3;
   const deadline = opts.budgetSeconds
     ? Date.now() + opts.budgetSeconds * 1000
     : null;
@@ -363,6 +363,15 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
 
     // Flatten + dedup. Keep YouTube hits' pre-fetched view counts so we can
     // pre-rank without a yt-dlp meta call per video.
+    //
+    // Vertical-only constraint: keep ONLY tiktok / youtube-shorts /
+    // instagram-reel. Long-form YouTube `watch?v=...` and IG posts (`/p/`)
+    // are out of scope for this research even if the keyword match is good.
+    const VERTICAL_PLATFORMS = new Set([
+      "tiktok",
+      "youtube-shorts",
+      "instagram-reel",
+    ]);
     const seenVideoUrls = new Set<string>();
     const videoCandidates: Array<{
       url: string;
@@ -373,6 +382,7 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     for (const list of ytLists) {
       for (const h of list) {
         if (seenVideoUrls.has(h.url)) continue;
+        if (!VERTICAL_PLATFORMS.has(h.platform)) continue;
         seenVideoUrls.add(h.url);
         videoCandidates.push({ url: h.url, title: h.title, platform: h.platform, prefetched: h });
       }
@@ -381,6 +391,7 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
       for (const h of list) {
         const platform = detectVideoUrl(h.url);
         if (!platform) continue;
+        if (!VERTICAL_PLATFORMS.has(platform)) continue;
         if (seenVideoUrls.has(h.url)) continue;
         seenVideoUrls.add(h.url);
         videoCandidates.push({ url: h.url, title: h.title, platform });
@@ -500,12 +511,13 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
       // Vision summarize
       if (ready.length > 0) {
         emit({ kind: "video_summarize_start", total: ready.length });
-        videoSummaries = await runConcurrent(
+        const rawSummaries = await runConcurrent(
           ready,
           async ({ entry, pull }) => {
             try {
               return await summarizeVideo({
                 meta: entry.meta,
+                mp4Path: pull.mp4Path,
                 framePaths: pull.framePaths,
                 transcript: pull.transcript,
                 niche: opts.query,
@@ -523,8 +535,20 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
               emit({ kind: "video_summarize_progress", done, total });
             }
           },
-        ).then((arr) => arr.filter((s): s is VideoSummary => s !== null && s.niche_fit !== "off-topic"));
+        );
 
+        // Persist EVERY raw summary (including off-topic) for debugging /
+        // post-hoc analysis. Synthesis only consumes the kept subset.
+        const nonNullRaw = rawSummaries.filter(
+          (s): s is VideoSummary => s !== null,
+        );
+        await writeFile(
+          path.join(jobDir, "video-summaries-raw.json"),
+          JSON.stringify(nonNullRaw, null, 2),
+          "utf8",
+        );
+
+        videoSummaries = nonNullRaw.filter((s) => s.niche_fit !== "off-topic");
         videosAnalyzedCount = videoSummaries.length;
 
         await writeFile(
