@@ -208,102 +208,166 @@ function run(
   });
 }
 
+// yt-dlp's --print %()j produces JSON of *just the fields named*, which
+// bypasses the n-challenge / format-resolution that --dump-single-json
+// requires. Critical for YouTube — YouTube refuses format resolution to
+// programmatic clients in 2026, but the metadata fields are still served.
+const META_FIELDS = [
+  "id",
+  "title",
+  "webpage_url",
+  "uploader",
+  "uploader_id",
+  "channel",
+  "channel_url",
+  "duration",
+  "view_count",
+  "like_count",
+  "heart_count",
+  "comment_count",
+  "repost_count",
+  "share_count",
+  "upload_date",
+  "description",
+  "thumbnail",
+  "tags",
+].join(",");
+
 export async function pullVideoMeta(
   url: string,
-  opts: { timeoutMs?: number } = {},
+  opts: { timeoutMs?: number; cookiesFromBrowser?: string } = {},
 ): Promise<VideoMeta | null> {
   if (!ensureBin("yt-dlp")) {
     throw new Error("yt-dlp not on PATH; install via `brew install yt-dlp`");
   }
+  const cookiesFromBrowser = opts.cookiesFromBrowser ?? "chrome";
+
   const r = await run(
     "yt-dlp",
     [
-      "--dump-single-json",
+      ...(cookiesFromBrowser ? ["--cookies-from-browser", cookiesFromBrowser] : []),
+      "--print",
+      `%(.{${META_FIELDS}})j`,
       "--no-download",
       "--no-playlist",
       "--no-warnings",
       "--socket-timeout",
       "10",
+      "--ignore-no-formats-error",
       url,
     ],
     { timeoutMs: opts.timeoutMs ?? 25_000 },
   );
-  if (r.code !== 0) return null;
-  try {
-    const raw = JSON.parse(r.stdout) as RawVideoMeta;
-    return normalizeVideoMeta(raw, url);
-  } catch {
-    return null;
+
+  // --print emits the JSON line to stdout even on partial errors; check
+  // stdout first.
+  const line = r.stdout.split(/\r?\n/).find((l) => l.trim().startsWith("{"));
+  if (line) {
+    try {
+      const raw = JSON.parse(line) as RawVideoMeta;
+      return normalizeVideoMeta(raw, url);
+    } catch {
+      // fall through to fallback below
+    }
   }
+
+  // Fallback path: try without cookies (TikTok / IG / X don't need them and
+  // chrome cookie extraction sometimes fails to acquire the keychain lock).
+  if (cookiesFromBrowser) {
+    const r2 = await run(
+      "yt-dlp",
+      [
+        "--print",
+        `%(.{${META_FIELDS}})j`,
+        "--no-download",
+        "--no-playlist",
+        "--no-warnings",
+        "--socket-timeout",
+        "10",
+        "--ignore-no-formats-error",
+        url,
+      ],
+      { timeoutMs: opts.timeoutMs ?? 25_000 },
+    );
+    const line2 = r2.stdout.split(/\r?\n/).find((l) => l.trim().startsWith("{"));
+    if (line2) {
+      try {
+        const raw = JSON.parse(line2) as RawVideoMeta;
+        return normalizeVideoMeta(raw, url);
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
 }
 
 export type FullPullResult = {
   meta: VideoMeta;
-  mp4Path: string;
+  mp4Path: string | null;
   framePaths: string[];
   transcript: string;
   videoDir: string;
+  /** "full" — mp4 + N frames sampled; "thumbnail" — thumbnail+subs only;
+   *  "meta-only" — neither (still useful for view-count / title citation). */
+  mode: "full" | "thumbnail" | "meta-only";
 };
 
 export type FullPullOptions = {
   /** N frames to sample evenly across the clip. */
   numFrames?: number;
-  /** Max video duration to download in seconds. Anything longer is skipped. */
+  /** Max video duration to download in seconds. Anything longer falls back to thumbnail mode. */
   maxDurationSec?: number;
   /** Max filesize hint to yt-dlp. */
   maxFilesize?: string;
   timeoutMs?: number;
+  /** Browser to pull cookies from. yt-dlp needs cookies to bypass YouTube's
+   *  "Sign in to confirm you're not a bot" gate. */
+  cookiesFromBrowser?: string;
 };
 
-export async function pullVideoFull(
+const COMMON_YTDLP_ARGS = [
+  "--no-playlist",
+  "--no-warnings",
+  "--socket-timeout",
+  "15",
+  "--ignore-no-formats-error",
+];
+
+async function tryFullDownload(
   url: string,
   outDir: string,
-  opts: FullPullOptions = {},
-): Promise<FullPullResult | null> {
-  if (!ensureBin("yt-dlp") || !ensureBin("ffmpeg")) {
-    throw new Error("yt-dlp + ffmpeg required on PATH");
-  }
-  const numFrames = opts.numFrames ?? 8;
-  const maxDurationSec = opts.maxDurationSec ?? 180;
-  const maxFilesize = opts.maxFilesize ?? "30M";
-  const timeoutMs = opts.timeoutMs ?? 60_000;
-
-  const meta = await pullVideoMeta(url);
-  if (!meta) return null;
-  if (meta.durationSec > maxDurationSec) return null;
-
-  await mkdir(outDir, { recursive: true });
+  meta: VideoMeta,
+  numFrames: number,
+  maxFilesize: string,
+  cookiesFromBrowser: string | undefined,
+  timeoutMs: number,
+): Promise<{ mp4Path: string; framePaths: string[] } | null> {
   const mp4Path = path.join(outDir, "video.mp4");
-  const dl = await run(
-    "yt-dlp",
-    [
-      "-f",
-      "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/b",
-      "--merge-output-format",
-      "mp4",
-      "--max-filesize",
-      maxFilesize,
-      "--no-playlist",
-      "--no-warnings",
-      "--socket-timeout",
-      "15",
-      "--write-auto-subs",
-      "--write-subs",
-      "--sub-langs",
-      "en.*,en,*",
-      "--sub-format",
-      "vtt/srt/best",
-      "--convert-subs",
-      "vtt",
-      "-o",
-      mp4Path,
-      url,
-    ],
-    { timeoutMs },
-  );
+  const args = [
+    ...(cookiesFromBrowser ? ["--cookies-from-browser", cookiesFromBrowser] : []),
+    "-f",
+    "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/b[height<=720]/b",
+    "--merge-output-format",
+    "mp4",
+    "--max-filesize",
+    maxFilesize,
+    "--write-auto-subs",
+    "--write-subs",
+    "--sub-langs",
+    "en-orig,en,en-US,en-GB",
+    "--convert-subs",
+    "vtt",
+    ...COMMON_YTDLP_ARGS,
+    "-o",
+    mp4Path,
+    url,
+  ];
+  const dl = await run("yt-dlp", args, { timeoutMs });
   if (dl.code !== 0) return null;
+  if (!existsSync(mp4Path)) return null;
 
-  // Frames
   const framesDir = path.join(outDir, "frames");
   await mkdir(framesDir, { recursive: true });
   const fps = numFrames / Math.max(1, meta.durationSec);
@@ -319,7 +383,7 @@ export async function pullVideoFull(
       "-vf",
       `fps=${fps.toFixed(4)},scale=640:-2`,
       "-frames:v",
-      String(numFrames * 2), // overshoot a bit; we trim below
+      String(numFrames * 2),
       "-q:v",
       "5",
       framesOut,
@@ -333,11 +397,131 @@ export async function pullVideoFull(
   );
   allFrames.sort();
   const framePaths = allFrames.slice(0, numFrames).map((f) => path.join(framesDir, f));
+  if (framePaths.length === 0) return null;
+  return { mp4Path, framePaths };
+}
 
-  // Transcript — find any .vtt sidecar emitted by yt-dlp.
+async function tryThumbnailFallback(
+  url: string,
+  outDir: string,
+  cookiesFromBrowser: string | undefined,
+  timeoutMs: number,
+): Promise<{ framePaths: string[] } | null> {
+  const stem = path.join(outDir, "thumb");
+  const args = [
+    ...(cookiesFromBrowser ? ["--cookies-from-browser", cookiesFromBrowser] : []),
+    "--skip-download",
+    "--write-thumbnail",
+    "--write-auto-subs",
+    "--write-subs",
+    "--sub-langs",
+    "en-orig,en,en-US,en-GB",
+    "--convert-subs",
+    "vtt",
+    ...COMMON_YTDLP_ARGS,
+    "-o",
+    stem,
+    url,
+  ];
+  const r = await run("yt-dlp", args, { timeoutMs });
+  if (r.code !== 0) {
+    // Even with --ignore-no-formats-error, the command can exit non-zero;
+    // check if files showed up anyway.
+  }
+
+  // Find any image file produced. yt-dlp may emit .webp / .jpg / .jpeg / .png.
+  const entries = await readdir(outDir).catch(() => []);
+  const imgExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+  const imgs = entries
+    .filter((e) => imgExtensions.includes(path.extname(e).toLowerCase()))
+    .map((e) => path.join(outDir, e));
+  if (imgs.length === 0) return null;
+
+  // Normalize to JPEG so the vision LLM call shape is uniform.
+  const jpegPath = path.join(outDir, "thumbnail.jpg");
+  const ff = await run(
+    "ffmpeg",
+    ["-y", "-loglevel", "error", "-i", imgs[0], "-q:v", "5", jpegPath],
+    { timeoutMs: 10_000 },
+  );
+  if (ff.code !== 0 || !existsSync(jpegPath)) return null;
+  return { framePaths: [jpegPath] };
+}
+
+export async function pullVideoFull(
+  url: string,
+  outDir: string,
+  opts: FullPullOptions = {},
+): Promise<FullPullResult | null> {
+  if (!ensureBin("yt-dlp") || !ensureBin("ffmpeg")) {
+    throw new Error("yt-dlp + ffmpeg required on PATH");
+  }
+  const numFrames = opts.numFrames ?? 8;
+  const maxDurationSec = opts.maxDurationSec ?? 180;
+  const maxFilesize = opts.maxFilesize ?? "30M";
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  // Default cookies source: chrome (Safari containerized files are not readable).
+  const cookiesFromBrowser = opts.cookiesFromBrowser ?? "chrome";
+
+  const meta = await pullVideoMeta(url);
+  if (!meta) return null;
+
+  await mkdir(outDir, { recursive: true });
+
+  // Phase A: full mp4 + frame sampling. Skipped for clips longer than max.
+  let mode: FullPullResult["mode"] = "meta-only";
+  let mp4Path: string | null = null;
+  let framePaths: string[] = [];
+
+  if (meta.durationSec > 0 && meta.durationSec <= maxDurationSec) {
+    const full = await tryFullDownload(
+      url,
+      outDir,
+      meta,
+      numFrames,
+      maxFilesize,
+      cookiesFromBrowser,
+      timeoutMs,
+    ).catch(() => null);
+    if (full) {
+      mp4Path = full.mp4Path;
+      framePaths = full.framePaths;
+      mode = "full";
+    }
+  }
+
+  // Phase B (fallback): thumbnail + subs only. Triggered when the mp4 path
+  // failed (YouTube anti-bot, geo-block, age gate, etc.) or when the clip
+  // was too long to download in full.
+  if (framePaths.length === 0) {
+    const thumb = await tryThumbnailFallback(
+      url,
+      outDir,
+      cookiesFromBrowser,
+      Math.min(45_000, timeoutMs),
+    ).catch(() => null);
+    if (thumb) {
+      framePaths = thumb.framePaths;
+      mode = "thumbnail";
+    }
+  }
+
   const transcript = await readSidecarTranscript(outDir);
 
-  return { meta, mp4Path, framePaths, transcript, videoDir: outDir };
+  if (framePaths.length === 0 && !transcript) {
+    return null;
+  }
+
+  return { meta, mp4Path, framePaths, transcript, videoDir: outDir, mode };
+}
+
+function existsSync(p: string): boolean {
+  try {
+    require("node:fs").accessSync(p);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function readSidecarTranscript(dir: string): Promise<string> {
