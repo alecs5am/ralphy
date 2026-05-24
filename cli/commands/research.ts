@@ -23,6 +23,7 @@ import {
   listTopics,
   topicPaths,
 } from "../lib/research-topic.js";
+import { runDeepResearch } from "../lib/research/orchestrator.js";
 
 export function researchCmd() {
   const cmd = new Command("research").description("Topic-level research: aggregate multiple sources into a single report");
@@ -107,6 +108,82 @@ export function researchCmd() {
         createdAt: t.createdAt,
         lastSynthesizedAt: t.lastSynthesizedAt ?? null,
       })));
+    });
+
+  cmd
+    .command("run <query...>")
+    .description("Deep research: plan → fan-out search → fetch → summarize → cited report")
+    .option("--max-sources <n>", "Hard cap on sources to fetch + summarize", (v) => parseInt(v, 10))
+    .option("--hits-per-subquery <n>", "DDG hits per subquery", (v) => parseInt(v, 10))
+    .option("--fetch-concurrency <n>", "Parallel page fetches", (v) => parseInt(v, 10))
+    .option("--summary-concurrency <n>", "Parallel summary LLM calls", (v) => parseInt(v, 10))
+    .option("--planner-model <id>", "OpenRouter model for the planner / synthesis")
+    .option("--summary-model <id>", "OpenRouter model for per-source summaries")
+    .option("--synth-model <id>", "OpenRouter model for final synthesis")
+    .option("--job-id <id>", "Override job id (default: timestamp-randhash)")
+    .option("--context <text>", "Extra brief / context for the planner")
+    .option("--budget-seconds <n>", "Hard wall-clock budget", (v) => parseInt(v, 10))
+    .option("--quiet", "Suppress progress events on stderr")
+    .action(async (queryParts: string[], opts: {
+      maxSources?: number;
+      hitsPerSubquery?: number;
+      fetchConcurrency?: number;
+      summaryConcurrency?: number;
+      plannerModel?: string;
+      summaryModel?: string;
+      synthModel?: string;
+      jobId?: string;
+      context?: string;
+      budgetSeconds?: number;
+      quiet?: boolean;
+    }) => {
+      try {
+        const query = queryParts.join(" ").trim();
+        if (!query) {
+          err("usage: ralphy research run \"<niche / question>\"");
+          return;
+        }
+        const onEvent = opts.quiet
+          ? undefined
+          : (e: { kind: string; [k: string]: unknown }) => {
+              process.stderr.write(`[${e.kind}] ${JSON.stringify(e)}\n`);
+            };
+        const result = await runDeepResearch({
+          query,
+          jobId: opts.jobId,
+          context: opts.context,
+          maxSources: opts.maxSources,
+          hitsPerSubquery: opts.hitsPerSubquery,
+          fetchConcurrency: opts.fetchConcurrency,
+          summaryConcurrency: opts.summaryConcurrency,
+          plannerModel: opts.plannerModel,
+          summaryModel: opts.summaryModel,
+          synthModel: opts.synthModel,
+          budgetSeconds: opts.budgetSeconds,
+          onEvent,
+        });
+        ok(`Research complete → ${result.reportPath}`);
+        out({
+          jobId: result.jobId,
+          jobDir: result.jobDir,
+          query: result.query,
+          subqueries: result.plan.subqueries.length,
+          sourcesAttempted: result.sourcesAttempted,
+          sourcesFetched: result.sourcesFetched,
+          sourcesSummarized: result.sourcesSummarized,
+          reportPath: result.reportPath,
+          registryPath: result.registryPath,
+          citationRate: Number(result.citationRate.toFixed(3)),
+          citations: {
+            total: result.verify.matched.length + result.verify.unmatched.length,
+            matched: result.verify.matched.length,
+            unmatched: result.verify.unmatched.length,
+            byLevel: result.verify.byLevel,
+          },
+        });
+      } catch (e) {
+        err(`run failed: ${(e as Error).message}`);
+      }
     });
 
   return cmd;
