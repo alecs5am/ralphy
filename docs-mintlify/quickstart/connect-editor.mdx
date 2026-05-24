@@ -1,32 +1,32 @@
 ---
 title: "Connect your editor"
-description: "Wire Ralphy into Claude Code, Cursor, Copilot, or Codex with one ralphy skill install."
+description: "Use Cursor, Copilot, or Codex instead of Claude Code. One ralphy skill install wires the routing in."
 ---
 
-Ralphy is agent-driven — the CLI does the work, but your editor's chat is the interface. `ralphy skill install` writes the playbook routing block into the right config file for your editor so the agent reads `AGENTS.md` on every turn and picks the right playbook for your request. The install is sentinel-bounded: existing content is preserved, only the Ralphy block between sentinels is touched on re-runs.
+The default path is Claude Code — clone the repo, run `claude`, and the agent reads `AGENTS.md` automatically. Nothing to wire. If you'd rather drive Ralphy from Cursor, Copilot, or Codex, run `ralphy skill install --agent <name>` once and the routing block lands in the right config file for that editor. The install is sentinel-bounded: existing content is preserved, only the Ralphy block between sentinels is touched on re-runs.
+
+<Note>
+**Skip this page if you're on Claude Code.** Opening the cloned repo with `claude` is enough — `AGENTS.md` at the repo root is loaded on every turn. Come back here only if you want to switch editors.
+</Note>
 
 ## Install for your editor
 
 <Tabs>
-  <Tab title="Claude Code">
+  <Tab title="Claude Code (default — no install needed)">
+    No command to run. When you cloned `ugc-cli` and opened it with `claude`, Claude already loaded the repo's `AGENTS.md` as part of the project context — that file is the routing table. Run `claude` from the repo root and start chatting.
+
+    If you also want global routing (so Claude routes Ralphy briefs from any directory):
+
     ```bash
     ralphy skill install --agent claude
     ```
 
     What gets written:
 
-    - `~/.claude/skills/ralphy/` — copy of the skill bundle (SKILL.md plus routing scripts).
+    - `~/.claude/skills/ralphy/` — copy of the skill bundle.
     - `~/.claude/CLAUDE.md` — sentinel-merged routing pointer that tells Claude to read `AGENTS.md` and use `ralphy` for every generation step.
 
     Verify by opening `~/.claude/CLAUDE.md` — look for the `<!-- ralphy:start v=1 -->` block near the bottom.
-
-    Project scope instead of user scope (this checkout only):
-
-    ```bash
-    ralphy skill install --agent claude --scope project
-    ```
-
-    Writes `./.claude/skills/ralphy/` and `./CLAUDE.md` inside the current repo.
   </Tab>
   <Tab title="Cursor">
     ```bash
