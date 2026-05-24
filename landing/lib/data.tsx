@@ -55,8 +55,9 @@ export type NavItem = { label: string; href: string };
  * live here but read as redundant on the home view (the page already
  * scrolls past every section) and as broken on subpages. */
 export const navItems: NavItem[] = [
-  { label: "Blog",   href: "/blog" },
-  { label: "Skills", href: "/skills" },
+  { label: "Library", href: "/library" },
+  { label: "Blog",    href: "/blog" },
+  { label: "Skills",  href: "/skills" },
 ];
 
 export type Workflow = { n: string; title: string; copy: ReactNode; glyph: string };

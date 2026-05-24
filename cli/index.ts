@@ -59,6 +59,7 @@ import { newCmd } from "./commands/new.js";
 import { cloneCmd } from "./commands/clone.js";
 import { skillCmd } from "./commands/skill.js";
 import { promptsCmd } from "./commands/prompts.js";
+import { guidelineCmd } from "./commands/guideline.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -135,6 +136,7 @@ program.addCommand(personaCmd());
 program.addCommand(refCmd());
 program.addCommand(projectCmd());
 program.addCommand(templateCmd());
+program.addCommand(guidelineCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());

@@ -1,0 +1,17 @@
+{
+  "slug": "cinematic-90s-film",
+  "name": "Cinematic 35mm film register",
+  "tag": "@guideline:cinematic-90s-film",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "Late-1990s Japanese art-cinema look — Kodak Vision3 250D grain, halation, lifted milky blacks, magenta-cyan telecine bias. Beats digital-HD instincts.",
+  "description": "How to prompt an image model so the output reads as a scanned 35mm film print from circa 1999, not as a modern HD photograph. Covers stock + grade + multi-source isolated lighting + composition (vanishing-point wides, letterbox 1.85:1, small-figure-in-landscape). Use for cinematic-narrative shorts (Iwai-leaning summer pastoral, Tokyo y2k night register, contemplative letterboxed verticals).",
+  "cover": "scene-14-platform",
+  "scope": ["image", "cinematic", "landscape", "atmosphere", "letterbox"],
+  "models": [
+    "google/gemini-3-pro-image-preview",
+    "openai/gpt-5.4-image-2"
+  ],
+  "tags": ["cinematic", "film", "35mm", "1990s", "iwai", "letterbox", "narrative"],
+  "patterns": ["pastoral-wide-anchor", "night-platform-vanishing-point", "multi-source-isolated-light", "letterbox-1.85"]
+}

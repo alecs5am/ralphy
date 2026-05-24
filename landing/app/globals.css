@@ -3668,3 +3668,740 @@ section { position: relative; padding-top: 80px; }
   font-weight: 500;
   letter-spacing: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Library — /library + /library/[slug]
+   BRAND_DESIGN compliance:
+     §3 binary radii — pills 999px, cards 18px, sharp 0 for chips
+     §4 no shadows — depth via bg-step contrast (bg → bg-1 → bg-2)
+     §5 no borders on cards/buttons/pills — bg-tint separates
+     §1 big type — h1 keeps .skills-h1, h2 set at 28-32px
+   ───────────────────────────────────────────────────────────── */
+
+/* Library listing — filter bar + tag row + masonry grid.
+   Pinterest-style multi-column flow so cards reflow naturally based on
+   each cover's natural aspect. Same pattern the landing's Showcase uses. */
+.lib-listing { margin-top: 28px; }
+
+/* Filter UI — full-width search bar on top, then kind chips, then tag chips.
+   Inactive chip = bg-1 (same as cards). Active chip = solid vio fill so it
+   reads at a glance, no hunting for tint deltas. */
+.lib-search {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--bg-1);
+  border-radius: 18px;
+  padding: 18px 22px;
+  color: var(--mute);
+  margin-bottom: 16px;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lib-search:focus-within { background: var(--bg-2); color: var(--ink-3); }
+.lib-search svg { width: 20px; height: 20px; flex-shrink: 0; }
+.lib-search-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  padding: 2px 0;
+  min-width: 0;
+}
+.lib-search-input::placeholder { color: var(--mute-2); }
+
+.lib-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.lib-chip {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-3);
+  background: var(--bg-1);
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lib-chip:hover { background: var(--bg-2); color: var(--ink); }
+.lib-chip.is-active {
+  color: var(--bg);
+  background: var(--vio);
+  font-weight: 600;
+}
+.lib-chip.is-active:hover { background: var(--vio-2); }
+
+.lib-tagrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.lib-tagchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--ink-3);
+  background: var(--bg-1);
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lib-tagchip:hover { background: var(--bg-2); color: var(--ink); }
+.lib-tagchip.is-active {
+  color: var(--bg);
+  background: var(--vio);
+}
+.lib-tagchip.is-active:hover { background: var(--vio-2); }
+.lib-tagchip-count {
+  font-size: 10.5px;
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+.lib-tagchip.is-active .lib-tagchip-count { color: rgb(0 0 0 / 0.55); }
+
+.lib-result-count {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mute);
+  margin: 0 0 18px;
+}
+.lib-clear {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vio);
+  background: transparent;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+.lib-clear:hover { color: var(--vio-2); }
+
+.lib-empty {
+  padding: 48px 20px;
+  background: var(--bg-1);
+  border-radius: 18px;
+  text-align: center;
+  color: var(--mute);
+}
+.lib-empty p { margin: 0; font-size: 14px; }
+
+.lib-grid {
+  columns: 3;
+  column-gap: 18px;
+  margin-top: 0;
+}
+@media (max-width: 1100px) { .lib-grid { columns: 2; } }
+@media (max-width: 640px)  { .lib-grid { columns: 1; } }
+
+.lib-card {
+  display: block;
+  break-inside: avoid;
+  margin: 0 0 18px;
+  background: var(--bg-1);
+  border-radius: 20px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lib-card:hover { background: var(--bg-2); transform: translateY(-2px); }
+
+/* Cover — the image is flush with the card's left/right/top edges and has
+   its OWN border-radius on all 4 corners. Top corners align with the card
+   corners (same radius). Bottom corners curve inward, revealing the card
+   bg-1 in the pinch — that's the "double-rounded" effect, no padding
+   between card and image. */
+.lib-card-cover {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 20px;
+}
+.lib-card-cover-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  background: #050506;
+}
+.lib-card:hover .lib-card-cover-media { transform: scale(1.025); }
+.lib-card-cover-empty {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--bg-2) 0%, var(--bg-3) 100%);
+}
+
+.lib-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+.lib-card-kicker {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vio);
+}
+.lib-card-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.12;
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.lib-card-line {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lib-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+.lib-card-tag {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--vio-2);
+  background: color-mix(in srgb, var(--vio) 12%, transparent);
+  padding: 3px 9px;
+  border-radius: 999px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-card-models {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+.lib-models-hero { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 18px 0 0; }
+.lib-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  background: var(--bg-2);
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.lib-card:hover .lib-pill { background: var(--bg-3); }
+.lib-pill-more { color: var(--mute); }
+
+/* Detail page — back link */
+.lib-back-link {
+  color: var(--mute);
+  text-decoration: none;
+}
+.lib-back-link:hover { color: var(--vio); }
+
+/* Detail page — CTA. The shape echoes the landing's install-cmd block: a
+   dark code-style line you click to copy. No candy orange-on-orange pill.
+   Visual hierarchy reads: eyebrow → code row → hint. The whole row is the
+   button so the affordance is unambiguous. */
+.lib-cta-wrap {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+}
+.lib-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 14px 18px;
+  background: var(--bg-1);
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+  width: 100%;
+  max-width: 100%;
+  color: var(--ink);
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lib-cta:hover { background: var(--bg-2); }
+.lib-cta-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vio);
+}
+.lib-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+.lib-cta-tag {
+  font-family: var(--font-mono);
+  font-size: 14.5px;
+  color: var(--ink);
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.lib-cta-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 6px 10px 6px 9px;
+  background: var(--bg-2);
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: color 180ms, background 180ms;
+}
+.lib-cta:hover .lib-cta-action { color: var(--vio); background: var(--bg-3); }
+.lib-cta.is-copied .lib-cta-action {
+  color: var(--vio);
+  background: color-mix(in srgb, var(--vio) 18%, transparent);
+}
+.lib-cta-action svg { display: block; }
+
+.lib-cta-hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--mute);
+}
+.lib-cta-hint code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  background: var(--bg-2);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+/* Detail page — Examples grid */
+.lib-examples { padding: 24px 0 16px; }
+.lib-section-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.06;
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.lib-section-sub {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  margin: 0 0 24px;
+  max-width: 64ch;
+}
+/* Examples grid — each tile is a MediaPlayer (raw image/video + own expand
+   button). Caption below. No bespoke card chrome. */
+.lib-examples-grid {
+  columns: 3;
+  column-gap: 18px;
+}
+@media (max-width: 1100px) { .lib-examples-grid { columns: 2; } }
+@media (max-width: 640px)  { .lib-examples-grid { columns: 1; } }
+.lib-example {
+  margin: 0 0 22px;
+  break-inside: avoid;
+  display: block;
+}
+.lib-example-frame {
+  background: #050506;
+  cursor: zoom-in;
+  border: 0;
+  padding: 0;
+  display: block;
+}
+.lib-example-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 2px 0;
+}
+
+/* Detail-page hero — split layout. Left column has the media (capped so a
+   9:16 vertical doesn't dominate); right column has title, tagline, CTA.
+   Long-form body / examples flow underneath in single-column. Mobile
+   stacks media on top, content below. */
+.lib-hero { padding: 96px 0 32px; }
+.lib-hero-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  gap: 48px;
+  align-items: start;
+}
+.lib-hero-split-textonly { grid-template-columns: 1fr; }
+.lib-hero-media { min-width: 0; }
+.lib-hero-media-sticky {
+  position: sticky;
+  top: 96px;
+  max-width: 420px;
+}
+.lib-hero-media-sticky .mp-shell { max-height: 70vh; }
+.lib-hero-media-sticky .mp-video,
+.lib-hero-media-sticky .mp-image {
+  max-height: 70vh;
+  object-fit: contain;
+}
+.lib-hero-content { min-width: 0; }
+.lib-hero-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 4.6vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 12px 0 14px;
+}
+.lib-hero-tagline {
+  font-size: clamp(17px, 1.4vw, 20px);
+  line-height: 1.5;
+  color: var(--ink-3);
+  margin: 0 0 4px;
+  max-width: 60ch;
+}
+@media (max-width: 900px) {
+  .lib-hero { padding: 72px 0 16px; }
+  .lib-hero-split { grid-template-columns: 1fr; gap: 28px; }
+  .lib-hero-media-sticky { position: static; max-width: 100%; margin: 0 auto; }
+  .lib-hero-media-sticky .mp-shell { max-height: 60vh; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MediaPlayer — uniform shell for images + videos.
+   Adapted from the reference shadcn/Tailwind player. Animated entrance,
+   hover-to-reveal controls block at the bottom (glassy chip), inline
+   progress + volume sliders, 4-speed selector.
+   ───────────────────────────────────────────────────────────── */
+.mp-shell {
+  position: relative;
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #050506;
+}
+.mp-shell-video { cursor: pointer; }
+.mp-shell-clickable { cursor: zoom-in; }
+.mp-shell-clickable:focus-visible { outline: 2px solid var(--vio); outline-offset: 2px; }
+.mp-shell-image:hover .mp-expand,
+.mp-shell-video:hover .mp-expand { opacity: 1; }
+.mp-shell-fs {
+  background: transparent;
+  border-radius: 18px;
+  cursor: default;
+}
+.mp-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #050506;
+}
+.mp-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  background: #050506;
+}
+
+.mp-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 10px;
+  padding: 14px 16px;
+  background: rgb(17 17 17 / 0.66);
+  backdrop-filter: blur(14px);
+  border-radius: 16px;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mp-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Expand-to-fullscreen affordance — floats top-right on the inline player. */
+.mp-expand {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: rgb(17 17 17 / 0.66);
+  backdrop-filter: blur(8px);
+  color: var(--ink);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms;
+  z-index: 5;
+}
+.mp-expand:hover { background: rgb(17 17 17 / 0.86); }
+/* On images the expand affordance is purely decorative — the whole shell
+   is the click target, but the icon should still light up on hover. */
+.mp-expand-static { pointer-events: none; }
+.mp-shell-image:hover .mp-expand-static { background: rgb(17 17 17 / 0.86); }
+@media (hover: none) { .mp-expand { opacity: 1; } }
+
+/* While a MediaPlayer is expanded, hide the sticky nav — its own
+   stacking context outranks fixed-position descendants on some browsers,
+   so we kill it at the source instead of fighting z-index. */
+body.mp-modal-open .nav { visibility: hidden; }
+
+/* Fullscreen overlay — opaque backdrop, large media, sits above everything. */
+.mp-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgb(5 5 6 / 0.98);
+  backdrop-filter: blur(20px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.mp-fullscreen-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(98vw, 1600px);
+  max-height: 96vh;
+  width: 100%;
+  height: 100%;
+}
+.mp-fullscreen-stage .mp-shell {
+  max-width: min(98vw, 1600px);
+  max-height: 96vh;
+  background: transparent;
+  width: auto;
+  height: auto;
+}
+.mp-fullscreen-stage .mp-video,
+.mp-fullscreen-stage .mp-image {
+  max-height: 96vh;
+  max-width: min(98vw, 1600px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.mp-fullscreen-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mp-fullscreen-close:hover { background: var(--bg-2); }
+@media (max-width: 720px) {
+  .mp-fullscreen-close { top: 16px; right: 16px; }
+}
+.mp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mp-row-progress { gap: 12px; }
+.mp-row-bottom { justify-content: space-between; gap: 16px; }
+
+.mp-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mp-time {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+}
+
+.mp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mp-btn:hover { background: rgb(17 17 17 / 0.82); }
+
+.mp-speeds { gap: 4px; }
+.mp-speed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  border-radius: 999px;
+  cursor: pointer;
+  letter-spacing: 0;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1), color 180ms;
+}
+.mp-speed:hover { background: rgb(17 17 17 / 0.82); }
+.mp-speed.is-active {
+  background: rgb(17 17 17 / 0.82);
+  color: var(--vio-2);
+}
+
+.mp-slider {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.mp-slider-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--ink);
+  border-radius: 999px;
+}
+.mp-progress { flex: 1; }
+.mp-vol-slider { width: 80px; }
+
+@media (max-width: 540px) {
+  .mp-row-bottom { flex-wrap: wrap; }
+  .mp-vol-slider { width: 60px; }
+  .mp-speeds { gap: 2px; }
+  .mp-speed { padding: 0 7px; font-size: 11px; }
+}
+.lib-remix-steps li code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--bg-2);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+/* (legacy `.lib-lightbox` block removed — examples now use MediaPlayer's
+   own fullscreen overlay so there's a single modal grammar across the
+   site.) */
+.lib-example-pattern {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vio-2);
+}
+.lib-example-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.lib-example-model {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--mute);
+  margin-top: 2px;
+}
+
+/* Detail page — Body block (reuses .blog-body, just trims top spacing) */
+.lib-body-section { padding: 56px 0 96px; }
+.lib-body { margin-top: 8px; }
+.lib-origin {
+  margin: 40px 0 0;
+  padding: 16px 18px;
+  background: var(--bg-1);
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.lib-inline-code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--bg-2);
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--ink);
+}
+.lib-inline-link {
+  color: var(--vio);
+  text-decoration: none;
+}
+.lib-inline-link:hover { color: var(--vio-2); text-decoration: underline; }
