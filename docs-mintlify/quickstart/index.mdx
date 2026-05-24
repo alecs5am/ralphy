@@ -1,21 +1,33 @@
 ---
 title: "Quickstart"
-description: "Install ralphy, wire it into your editor, render your first UGC video. About 10 minutes."
+description: "Clone the repo, open it in Claude Code, ask Claude to set you up, render your first video. About 10 minutes."
 ---
 
-Ralphy turns a one-line brief into a rendered UGC video. You drive it from chat in your editor (Claude Code, Cursor, Copilot, Codex) and the `ralphy` CLI does the work — image, video, voiceover, music, render. This quickstart gets you from a fresh machine to `final.mp4` in roughly ten minutes.
+Ralphy turns a one-line brief into a rendered UGC video. The default install is dead simple: clone the repo, open Claude Code in it, ask Claude to set you up. From there you chat — Claude reads `AGENTS.md`, routes to the right playbook, and calls the `ralphy` CLI for every model call and render.
 
-You'll do four things in order:
+This quickstart gets you from a fresh machine to `final.mp4` in roughly ten minutes.
+
+## The 30-second version
+
+```bash
+git clone https://github.com/alecs5am/ralphy.git ugc-cli
+cd ugc-cli
+claude
+```
+
+Then in chat: **"set me up"** → keys, deps, doctor. Then: **"make a 15-second TikTok about <X>"** → first render.
+
+## The four steps in order
 
 <CardGroup cols={2}>
   <Card title="Install" icon="download" href="/quickstart/install">
-    Drop the `ralphy` binary onto your machine, add two API keys, verify with `ralphy doctor`.
+    Clone the repo, open Claude Code, ask Claude to set you up. About 3-5 minutes including grabbing two API keys.
   </Card>
   <Card title="Your first video" icon="film" href="/quickstart/first-video">
     Type a brief in chat. Ralphy runs intake, generates scenes, renders `final.mp4`. About 8 minutes cold-start.
   </Card>
   <Card title="Connect your editor" icon="plug" href="/quickstart/connect-editor">
-    `ralphy skill install` wires the playbook routing into Claude Code, Cursor, Copilot, or Codex.
+    Using Cursor, Copilot, or Codex instead of Claude Code? One command wires the routing in.
   </Card>
   <Card title="What just happened" icon="map" href="/quickstart/what-happened">
     Walk through every file Ralphy wrote — `BRIEF.md`, `prompts.json`, `assets/`, `generations.jsonl`, `final.mp4`.
@@ -24,20 +36,20 @@ You'll do four things in order:
 
 ## What you'll need
 
-- A terminal on macOS or Linux. Windows works via WSL or the Windows binary.
+- A terminal on macOS or Linux. Windows works via WSL.
+- [Claude Code](https://claude.com/claude-code) on your machine (Cursor / Copilot / Codex also work — see step 3).
 - An [OpenRouter](https://openrouter.ai/keys) key — covers image, video, LLM, vision, transcription.
 - An [ElevenLabs](https://elevenlabs.io/app/settings/api-keys) key — covers voiceover and music.
-- One of: Claude Code, Cursor, GitHub Copilot, or Codex. Ralphy is agent-driven; chat is the interface.
 
-You don't need Vercel, FAL, OpenAI, or any other provider. Two keys, one binary, one editor.
+You don't need Vercel, FAL, OpenAI direct, or any other provider. Two keys, one repo, one chat.
 
 ## How Ralphy works in one paragraph
 
-You write a brief like `"15-second TikTok about my espresso bar, morning vibe, selfie POV"` in chat. The connected agent reads `AGENTS.md`, picks the right [playbook](/concepts/architecture), asks 3-5 clarifying questions, then calls `ralphy` for every model invocation and render step. Each project lives under `workspace/projects/<id>/` with an append-only [generation log](/concepts/generation-log), so you can replay, branch, and audit costs after the fact. The agent reviews scenes with you before paid generation; nothing burns budget without consent.
+You clone `ugc-cli` and open it in Claude Code. The repo ships `AGENTS.md`, a routing table the agent reads on every turn. You write a brief like `"15-second TikTok about my espresso bar, morning vibe, selfie POV"` in chat. Claude matches the brief to a [playbook](/concepts/architecture), asks 3-5 clarifying questions, then calls `ralphy` for every model invocation and render step. Each project lives under `workspace/projects/<id>/` with an append-only [generation log](/concepts/generation-log), so you can replay, branch, and audit costs after the fact. The agent reviews scenes with you before paid generation; nothing burns budget without consent.
 
 ## Pick your path
 
-If you already have `ralphy` on your `PATH`, [skip to "Your first video"](/quickstart/first-video). If `which ralphy` returns nothing, start at [Install](/quickstart/install).
+If `which ralphy` returns nothing and you haven't cloned the repo yet, start at [Install](/quickstart/install). If `ralphy doctor` is already green, [skip to "Your first video"](/quickstart/first-video).
 
 ## Related
 
@@ -45,3 +57,4 @@ If you already have `ralphy` on your `PATH`, [skip to "Your first video"](/quick
 - [Architecture](/concepts/architecture) — the deeper read after your first render
 - [Talking to Ralphy](/working/talking-to-ralphy) — how to phrase briefs and follow-ups
 - [Install playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/ralphy-install.md) — canonical source
+- [Prompt library](https://ralphy.dev/library) and [Skills gallery](https://ralphy.dev/skills) on the landing
