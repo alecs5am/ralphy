@@ -469,7 +469,9 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
             maxFilesize: "30M",
             timeoutMs: 90_000,
           }).catch(() => null);
-          if (r && r.framePaths.length > 0) {
+          // "ok" = we got SOMETHING the vision/text summarizer can use —
+          // frames (any number) OR a non-empty transcript.
+          if (r && (r.framePaths.length > 0 || r.transcript.length > 50)) {
             okPull += 1;
           } else {
             failPull += 1;
@@ -492,7 +494,7 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
 
       const ready = pulled.filter(
         (p): p is { entry: typeof top[number]; pull: NonNullable<typeof p.pull> } =>
-          p.pull !== null && p.pull.framePaths.length > 0,
+          p.pull !== null && (p.pull.framePaths.length > 0 || p.pull.transcript.length > 50),
       );
 
       // Vision summarize
