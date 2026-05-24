@@ -4113,7 +4113,10 @@ section { position: relative; padding-top: 80px; }
   .lib-hero { padding: 72px 0 16px; }
   .lib-hero-split { grid-template-columns: 1fr; gap: 28px; }
   .lib-hero-media-sticky { position: static; max-width: 100%; margin: 0 auto; }
-  .lib-hero-media-sticky .mp-shell { max-height: 60vh; }
+  /* No height cap on mobile — let the inline media use the container width
+     proportional to its natural aspect. Cap was making 9:16 videos render
+     at ~70% of available width which felt squashed. */
+  .lib-hero-media-sticky .mp-shell { max-height: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -4262,33 +4265,33 @@ body.mp-modal-open .nav { visibility: hidden; }
 }
 .mp-fullscreen-close:hover { background: var(--bg-2); }
 
-/* Mobile: lose the 24px frame, let media fill the viewport on the short
-   axis. CSS allows the image to scale UP past its natural size by using
-   `width: 100%` (otherwise the image stays at its 421px source ceiling
-   on portrait phones, leaving 50% of the screen black). */
+/* Mobile: lose the 24px frame, let media use the full viewport.
+   For videos the expand-button calls requestFullscreen() and the native
+   player takes over (no custom modal involved). This block mostly
+   targets the image modal. */
 @media (max-width: 720px) {
   .mp-fullscreen { padding: 0; }
   .mp-fullscreen-stage {
     max-width: 100vw;
     max-height: 100dvh;
+    width: 100vw;
+    height: 100dvh;
   }
   .mp-fullscreen-stage .mp-shell {
     max-width: 100vw;
     max-height: 100dvh;
-    width: 100%;
+    width: 100vw;
+    height: auto;
     border-radius: 0;
   }
   .mp-fullscreen-stage .mp-video,
   .mp-fullscreen-stage .mp-image {
+    width: 100vw;
     max-width: 100vw;
     max-height: 100dvh;
-    width: 100%;
     height: auto;
+    object-fit: contain;
   }
-  /* Portrait phone: square sources should stop at the viewport-width
-     square so the rest of the column stays black backdrop (avoids
-     stretching pixels past their useful resolution). */
-  .mp-fullscreen-stage .mp-shell-image .mp-image { display: block; margin: 0 auto; }
   .mp-fullscreen-close {
     top: 14px;
     right: 14px;
@@ -4296,16 +4299,6 @@ body.mp-modal-open .nav { visibility: hidden; }
     height: 40px;
     background: rgb(17 17 17 / 0.82);
     backdrop-filter: blur(8px);
-  }
-}
-/* Landscape phone / short viewport: prioritise height instead of width
-   so a portrait 9:16 source isn't squashed into a sliver. */
-@media (max-width: 900px) and (orientation: landscape) {
-  .mp-fullscreen-stage .mp-video,
-  .mp-fullscreen-stage .mp-image {
-    width: auto;
-    height: 100dvh;
-    max-width: 100vw;
   }
 }
 .mp-row {
