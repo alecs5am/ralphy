@@ -14,8 +14,17 @@ import { workspace } from "../paths.js";
 import { planResearch, type ResearchPlan } from "./planner.js";
 import { searchDuckDuckGo, type SearchHit } from "./retrievers/ddg-search.js";
 import { fetchPage } from "./retrievers/web-fetch.js";
+import {
+  detectVideoUrl,
+  pullVideoMeta,
+  pullVideoFull,
+  computeViralityScore,
+  type VideoMeta,
+} from "./retrievers/video.js";
+import { ytSearchShortsBias, type YtdlpHit } from "./retrievers/ytdlp-search.js";
 import { appendSource, loadRegistry } from "./source-registry.js";
 import { summarizeSource, type SourceSummary } from "./summarizer.js";
+import { summarizeVideo, type VideoSummary } from "./video-summarizer.js";
 import { synthesizeReport } from "./synthesizer.js";
 import { extractUrls } from "./url-extractor.js";
 import { verifyCitations, type VerifyResult } from "./citation-verifier.js";
@@ -24,7 +33,7 @@ export type RunOptions = {
   query: string;
   jobId?: string;
   context?: string;
-  /** Max sources to fetch + summarize. Hard cap. */
+  /** Max text sources to fetch + summarize. Hard cap. */
   maxSources?: number;
   /** DDG results to pull per subquery. */
   hitsPerSubquery?: number;
@@ -32,9 +41,20 @@ export type RunOptions = {
   fetchConcurrency?: number;
   /** Parallel summary calls. */
   summaryConcurrency?: number;
+  /** Max videos to analyze with vision. 0 disables the video track. */
+  maxVideos?: number;
+  /** Hits to pull per video discovery query before filtering. */
+  videoHitsPerQuery?: number;
+  /** Parallel yt-dlp meta probes. */
+  videoMetaConcurrency?: number;
+  /** Parallel full-pull (mp4 + frames) jobs. */
+  videoPullConcurrency?: number;
+  /** Parallel vision summarizations. */
+  videoSummaryConcurrency?: number;
   plannerModel?: string;
   summaryModel?: string;
   synthModel?: string;
+  videoSummaryModel?: string;
   /** Hook for live progress reporting. Called with status objects. */
   onEvent?: (e: ProgressEvent) => void;
   /** Hard timeout in seconds for the entire run. */
@@ -43,13 +63,22 @@ export type RunOptions = {
 
 export type ProgressEvent =
   | { kind: "plan_start"; query: string }
-  | { kind: "plan_done"; subqueries: number; intent: string }
+  | { kind: "plan_done"; subqueries: number; videoQueries: number; intent: string }
   | { kind: "search_start"; total: number }
   | { kind: "search_done"; uniqueUrls: number }
   | { kind: "fetch_start"; total: number }
   | { kind: "fetch_progress"; done: number; total: number; ok: number; failed: number }
   | { kind: "summarize_start"; total: number }
   | { kind: "summarize_progress"; done: number; total: number }
+  | { kind: "video_discovery_start"; queries: number }
+  | { kind: "video_discovery_done"; candidates: number }
+  | { kind: "video_meta_start"; total: number }
+  | { kind: "video_meta_progress"; done: number; total: number; usable: number }
+  | { kind: "video_filter_done"; kept: number; dropped: number }
+  | { kind: "video_pull_start"; total: number }
+  | { kind: "video_pull_progress"; done: number; total: number; ok: number; failed: number }
+  | { kind: "video_summarize_start"; total: number }
+  | { kind: "video_summarize_progress"; done: number; total: number }
   | { kind: "synthesize_start" }
   | { kind: "synthesize_done"; words: number }
   | { kind: "verify_done"; matched: number; unmatched: number; rate: number };
@@ -62,6 +91,9 @@ export type RunResult = {
   sourcesAttempted: number;
   sourcesFetched: number;
   sourcesSummarized: number;
+  videosDiscovered: number;
+  videosMetaProbed: number;
+  videosAnalyzed: number;
   report: string;
   reportPath: string;
   registryPath: string;
@@ -136,6 +168,11 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
   const hitsPerSubquery = opts.hitsPerSubquery ?? 8;
   const fetchConcurrency = opts.fetchConcurrency ?? 8;
   const summaryConcurrency = opts.summaryConcurrency ?? 4;
+  const maxVideos = opts.maxVideos ?? 50;
+  const videoHitsPerQuery = opts.videoHitsPerQuery ?? 10;
+  const videoMetaConcurrency = opts.videoMetaConcurrency ?? 4;
+  const videoPullConcurrency = opts.videoPullConcurrency ?? 3;
+  const videoSummaryConcurrency = opts.videoSummaryConcurrency ?? 4;
   const deadline = opts.budgetSeconds
     ? Date.now() + opts.budgetSeconds * 1000
     : null;
@@ -158,7 +195,12 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     JSON.stringify(plan, null, 2),
     "utf8",
   );
-  emit({ kind: "plan_done", subqueries: plan.subqueries.length, intent: plan.intent });
+  emit({
+    kind: "plan_done",
+    subqueries: plan.subqueries.length,
+    videoQueries: plan.video_discovery_queries.length,
+    intent: plan.intent,
+  });
 
   // ── Phase 2: Fan-out search ────────────────────────────────────────────
   emit({ kind: "search_start", total: plan.subqueries.length });
@@ -291,6 +333,225 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     throw new Error("budget exceeded after summarize phase");
   }
 
+  // ── Phase 4b: Video discovery + meta + virality filter + pull + analyze ─
+  // Runs in parallel-ish with text summarize on the timeline, but kept here
+  // sequentially for simplicity. Skipped when maxVideos===0.
+  let videoSummaries: VideoSummary[] = [];
+  let videosDiscoveredCount = 0;
+  let videosMetaProbedCount = 0;
+  let videosAnalyzedCount = 0;
+
+  if (maxVideos > 0 && plan.video_discovery_queries.length > 0) {
+    emit({ kind: "video_discovery_start", queries: plan.video_discovery_queries.length });
+
+    // Discovery uses TWO backends in parallel:
+    // (a) yt-dlp ytsearch — high-signal for YouTube + Shorts, returns view
+    //     counts in the same response, so we can pre-rank cheaply.
+    // (b) DDG HTML search — catches TikTok / Instagram / Reddit / X video
+    //     URLs that surface in normal web indexing.
+    const ytHitsPromise = runConcurrent(
+      plan.video_discovery_queries,
+      (q) => ytSearchShortsBias(q.query, { limit: videoHitsPerQuery, timeoutMs: 30_000 }),
+      Math.min(4, plan.video_discovery_queries.length),
+    );
+    const ddgHitsPromise = runConcurrent(
+      plan.video_discovery_queries,
+      (q) => searchDuckDuckGo(q.query, { limit: videoHitsPerQuery }),
+      Math.min(3, plan.video_discovery_queries.length),
+    );
+    const [ytLists, ddgLists] = await Promise.all([ytHitsPromise, ddgHitsPromise]);
+
+    // Flatten + dedup. Keep YouTube hits' pre-fetched view counts so we can
+    // pre-rank without a yt-dlp meta call per video.
+    const seenVideoUrls = new Set<string>();
+    const videoCandidates: Array<{
+      url: string;
+      title: string;
+      platform: ReturnType<typeof detectVideoUrl>;
+      prefetched?: YtdlpHit;
+    }> = [];
+    for (const list of ytLists) {
+      for (const h of list) {
+        if (seenVideoUrls.has(h.url)) continue;
+        seenVideoUrls.add(h.url);
+        videoCandidates.push({ url: h.url, title: h.title, platform: h.platform, prefetched: h });
+      }
+    }
+    for (const list of ddgLists) {
+      for (const h of list) {
+        const platform = detectVideoUrl(h.url);
+        if (!platform) continue;
+        if (seenVideoUrls.has(h.url)) continue;
+        seenVideoUrls.add(h.url);
+        videoCandidates.push({ url: h.url, title: h.title, platform });
+      }
+    }
+    videosDiscoveredCount = videoCandidates.length;
+    emit({ kind: "video_discovery_done", candidates: videoCandidates.length });
+
+    await writeFile(
+      path.join(jobDir, "video-candidates.json"),
+      JSON.stringify(videoCandidates, null, 2),
+      "utf8",
+    );
+
+    // Pre-rank YouTube candidates by their flat-playlist view_count so we
+    // can spend the meta-probe budget where it matters. Non-YouTube
+    // candidates (TikTok, IG, etc.) keep their original order.
+    const ytSorted = videoCandidates
+      .filter((c) => c.prefetched)
+      .sort((a, b) => (b.prefetched?.views ?? 0) - (a.prefetched?.views ?? 0));
+    const otherCandidates = videoCandidates.filter((c) => !c.prefetched);
+    const orderedCandidates = [...ytSorted, ...otherCandidates];
+
+    // Meta probe (cheap yt-dlp --dump-json). Cap by 3x maxVideos so we have
+    // headroom for the virality filter.
+    const metaTargets = orderedCandidates.slice(0, Math.max(maxVideos * 3, maxVideos));
+    emit({ kind: "video_meta_start", total: metaTargets.length });
+    let usable = 0;
+    const metas = await runConcurrent(
+      metaTargets,
+      async (hit) => {
+        const meta = await pullVideoMeta(hit.url, { timeoutMs: 30_000 }).catch(() => null);
+        if (meta) usable += 1;
+        return { hit, meta };
+      },
+      videoMetaConcurrency,
+      (done, total) => {
+        if (done % 5 === 0 || done === total) {
+          emit({ kind: "video_meta_progress", done, total, usable });
+        }
+      },
+    );
+    videosMetaProbedCount = metas.filter((m) => m.meta !== null).length;
+
+    // Filter: keep videos with sane duration + non-zero views, rank by
+    // virality score (log-views-per-day * engagement-boost), pick top N.
+    type MetaPair = (typeof metas)[number];
+    type ResolvedMeta = MetaPair & { meta: VideoMeta };
+    const withScore = metas
+      .filter((m): m is ResolvedMeta => m.meta !== null)
+      .filter((m) => m.meta.durationSec > 0 && m.meta.durationSec <= 180)
+      .filter((m) => m.meta.views >= 500) // drop micro-videos
+      .map((m) => ({ ...m, score: computeViralityScore(m.meta) }))
+      .sort((a, b) => b.score - a.score);
+
+    const top = withScore.slice(0, maxVideos);
+    emit({ kind: "video_filter_done", kept: top.length, dropped: withScore.length - top.length });
+
+    await writeFile(
+      path.join(jobDir, "video-meta.json"),
+      JSON.stringify(
+        metas.map((m) => ({ url: m.hit.url, meta: m.meta })),
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    // Full pull: download mp4 + frames + subs. Each video gets its own
+    // subdir under <jobDir>/videos/<sanitized-id>/.
+    if (deadline && Date.now() > deadline) {
+      // Skip pull phase if we're out of budget but keep the metas.
+    } else {
+      emit({ kind: "video_pull_start", total: top.length });
+      let okPull = 0;
+      let failPull = 0;
+      const pulled = await runConcurrent(
+        top,
+        async (entry) => {
+          const safeId = entry.meta.id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 60) ||
+            `vid${Math.random().toString(36).slice(2, 8)}`;
+          const vDir = path.join(jobDir, "videos", `${entry.meta.platform}-${safeId}`);
+          const r = await pullVideoFull(entry.meta.url, vDir, {
+            numFrames: 8,
+            maxDurationSec: 180,
+            maxFilesize: "30M",
+            timeoutMs: 90_000,
+          }).catch(() => null);
+          if (r && r.framePaths.length > 0) {
+            okPull += 1;
+          } else {
+            failPull += 1;
+          }
+          return { entry, pull: r };
+        },
+        videoPullConcurrency,
+        (done, total) => {
+          if (done % 3 === 0 || done === total) {
+            emit({
+              kind: "video_pull_progress",
+              done,
+              total,
+              ok: okPull,
+              failed: failPull,
+            });
+          }
+        },
+      );
+
+      const ready = pulled.filter(
+        (p): p is { entry: typeof top[number]; pull: NonNullable<typeof p.pull> } =>
+          p.pull !== null && p.pull.framePaths.length > 0,
+      );
+
+      // Vision summarize
+      if (ready.length > 0) {
+        emit({ kind: "video_summarize_start", total: ready.length });
+        videoSummaries = await runConcurrent(
+          ready,
+          async ({ entry, pull }) => {
+            try {
+              return await summarizeVideo({
+                meta: entry.meta,
+                framePaths: pull.framePaths,
+                transcript: pull.transcript,
+                niche: opts.query,
+                viralityScore: entry.score,
+                model: opts.videoSummaryModel,
+                projectId: jobId,
+              });
+            } catch (e) {
+              return null;
+            }
+          },
+          videoSummaryConcurrency,
+          (done, total) => {
+            if (done % 3 === 0 || done === total) {
+              emit({ kind: "video_summarize_progress", done, total });
+            }
+          },
+        ).then((arr) => arr.filter((s): s is VideoSummary => s !== null && s.niche_fit !== "off-topic"));
+
+        videosAnalyzedCount = videoSummaries.length;
+
+        await writeFile(
+          path.join(jobDir, "video-summaries.json"),
+          JSON.stringify(videoSummaries, null, 2),
+          "utf8",
+        );
+
+        // Append every analyzed video's URL to the citation source registry
+        // so the synthesizer can cite them and the verifier resolves.
+        for (const v of videoSummaries) {
+          await appendSource(jobDir, {
+            url: v.url,
+            text: `[VIDEO ANALYZED] ${v.title}\nUploader: ${v.uploader}\nViews: ${v.views}\nHook: ${v.hook_first_3s}\nWhy works: ${v.why_works}`,
+            retrievedAt: new Date().toISOString(),
+            score: 1,
+            kind: "video",
+            platform: v.platform,
+            virality: v.viralityScore,
+          });
+        }
+      }
+    }
+  }
+
+  if (deadline && Date.now() > deadline) {
+    throw new Error("budget exceeded after video phase");
+  }
+
   // ── Phase 5: Synthesize ────────────────────────────────────────────────
   emit({ kind: "synthesize_start" });
   const report = await synthesizeReport({
@@ -301,6 +562,7 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
       platforms: plan.platforms,
     },
     summaries: goodSummaries.length >= 5 ? goodSummaries : summaries,
+    videoSummaries,
     model: opts.synthModel,
     projectId: jobId,
   });
@@ -347,6 +609,9 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     sourcesAttempted: targets.length,
     sourcesFetched: okCount,
     sourcesSummarized: goodSummaries.length,
+    videosDiscovered: videosDiscoveredCount,
+    videosMetaProbed: videosMetaProbedCount,
+    videosAnalyzed: videosAnalyzedCount,
     report,
     reportPath,
     registryPath: path.join(jobDir, "sources.jsonl"),
