@@ -36,6 +36,7 @@ Eleven categories, each with its own folder. Numbering convention: `XX.YY.ZZ` wh
 | [09](09-distribution-and-release/) | **Distribution & Release** | install.sh, install.ps1, brew tap, npm wrapper, GitHub Releases, code signing, version pipeline. |
 | [10](10-cost-and-telemetry/) | **Cost & Telemetry** | Gen-log, cost rollup, budget caps, "iterate from numbers" loop, opt-in usage stats. |
 | [11](11-testing-and-reliability/) | **Testing & Reliability** | Golden renders, smoke tests per template, regression on CLI verbs, doctor scenarios, render-test reports. |
+| [12](12-deep-research/) | **Deep Research** | Own-engine deep-research backend: four-role topology (intent → clarifier → shallow → deep), async job manager, deterministic citation verifier, pluggable retrievers, niche-research overlay. |
 
 ## Reading order
 
