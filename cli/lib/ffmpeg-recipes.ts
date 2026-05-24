@@ -342,6 +342,15 @@ function probeDurationSec(src: string): number {
   return Number.isFinite(v) ? v : 0;
 }
 
+function probeHasAudio(src: string): boolean {
+  const r = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", src],
+    { encoding: "utf8" }
+  );
+  return (r.stdout || "").trim().length > 0;
+}
+
 // --- Recipe 8: add music bed over existing video audio -----------------
 
 export type AddMusicBedInput = {
@@ -392,21 +401,26 @@ export async function addMusicBed(input: AddMusicBedInput): Promise<string> {
     (fadeInSec > 0 ? `,afade=t=in:st=0:d=${fadeInSec}` : "") +
     (fadeOutSec > 0 ? `,afade=t=out:st=${fadeOutStart}:d=${fadeOutSec}` : "");
 
+  const hasSourceAudio = probeHasAudio(src);
+
+  // No-audio source (e.g. HyperFrames silent render): emit music-only audio.
   // amix with duration=first → output length = video audio length.
   // normalize=0 keeps explicit volumes (default amix normalize would halve them).
   // duck=true: route music through sidechaincompress keyed by SFX, then mix.
-  const filter = duck
-    ? [
-        `[0:a]volume=${sfxVol}[sfx]`,
-        `[1:a]${musicChain}[m]`,
-        `[m][sfx]sidechaincompress=threshold=${duckThreshold}:ratio=${duckRatio}:attack=10:release=250[mducked]`,
-        `[sfx][mducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
-      ].join(";")
-    : [
-        `[0:a]volume=${sfxVol}[sfx]`,
-        `[1:a]${musicChain}[m]`,
-        `[sfx][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
-      ].join(";");
+  const filter = !hasSourceAudio
+    ? `[1:a]${musicChain}[mix]`
+    : duck
+      ? [
+          `[0:a]volume=${sfxVol}[sfx]`,
+          `[1:a]${musicChain}[m]`,
+          `[m][sfx]sidechaincompress=threshold=${duckThreshold}:ratio=${duckRatio}:attack=10:release=250[mducked]`,
+          `[sfx][mducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
+        ].join(";")
+      : [
+          `[0:a]volume=${sfxVol}[sfx]`,
+          `[1:a]${musicChain}[m]`,
+          `[sfx][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
+        ].join(";");
 
   await runFfmpeg(
     [
@@ -424,7 +438,7 @@ export async function addMusicBed(input: AddMusicBedInput): Promise<string> {
     ],
     {
       endpoint: "ffmpeg/add-music-bed",
-      input: { src, music, dst, musicVol, sfxVol, fadeOutSec, fadeInSec, duck, duckThreshold, duckRatio, videoDurSec },
+      input: { src, music, dst, musicVol, sfxVol, fadeOutSec, fadeInSec, duck, duckThreshold, duckRatio, videoDurSec, hasSourceAudio },
       opts,
     }
   );
