@@ -1041,22 +1041,17 @@ Usage: ralphy research [options] [command]
 Topic-level research: aggregate multiple sources into a single report
 
 Options:
-  -h, --help                    display help for command
+  -h, --help                              display help for command
 
 Commands:
-  start [options] <topic>       Create a research topic directory
-                                (workspace/research/<slug>/)
-  add-source [options] <url>    Pull a URL and run the full ref chain, linking
-                                the result into a topic
-  synthesize [options] <topic>  Cross-source LLM synthesis → report.md +
-                                sources.json
-  show <topic>                  Print the topic state (sources, question, last
-                                synthesis)
-  list                          List all research topics under
-                                workspace/research/
-  run [options] <query...>      Deep research: plan → fan-out search → fetch →
-                                summarize → cited report
-  help [command]                display help for command
+  start [options] <topic>                 Create a research topic directory (workspace/research/<slug>/)
+  add-source [options] <url>              Pull a URL and run the full ref chain, linking the result into a topic
+  synthesize [options] <topic>            Cross-source LLM synthesis → report.md + sources.json
+  show <topic>                            Print the topic state (sources, question, last synthesis)
+  list                                    List all research topics under workspace/research/
+  run [options] <query...>                Deep research: plan → fan-out search → fetch → summarize → cited report
+  scrape-profile [options] <profile-url>  Distill one creator's style: yt-dlp lists N recent videos, vision-analyzes each, writes a style-sheet.md
+  help [command]                          display help for command
 ```
 
 ### `ralphy prompts`
