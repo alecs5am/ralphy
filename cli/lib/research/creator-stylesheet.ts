@@ -29,9 +29,25 @@ Your job: distill THE FORMULA. What does this creator do every time? What makes 
 
 **HARD RULE: lead with VIBE, not structure.** Most style-cloning attempts fail because the analysis enumerated the structural beats (hook → body → closer) but missed the cinematographic register. A clone that nails the structure but renders in the wrong register (e.g. painterly when the original is photoreal cinema, or 3D-CGI-clean when the original is photoreal-handheld) is immediately identifiable as off-brand. Therefore: the Vibe & visual register section comes FIRST, the structural sections follow, and the production playbook is anchored on the vibe choice not the structure choice.
 
+**HONESTY RULE (this matters more than completeness): if the corpus does not support a confident answer, SAY SO.** Style sheets get used to clone content with real money. A confident-but-wrong style sheet — one that invents a coherent register the creator does not actually use — is worse than no style sheet. Three honesty triggers, applied AT THE TOP of the document in a "Catalog audit" section BEFORE the Executive distillation:
+
+1. **Catalog size.** If fewer than 12 videos analyzed, mark every claim with "(sample of N videos — may not represent the catalog)". If fewer than 5, refuse synthesis: output only the catalog audit + a request for more videos / specific URLs.
+
+2. **Register unification.** Aggregate the per-video cinematographic_register values. If ≥75% concentrate on one register, declare the dominant register. If they spread across 3+ registers without a clear winner, write a CLUSTER-style sheet instead: name each cluster, count its share, list its reference videos, and refuse to declare a single "creator register". Better to honestly say "this creator publishes across three distinct registers" than to invent a unifying signature.
+
+3. **Source representativeness.** If the per-video meta shows the corpus is the N most recent videos (which is what scrape-profile does), say so explicitly. Note that older / pinned / most-viewed videos may diverge. Encourage the user to supply specific anchor URLs if the recent-N sample doesn't match the style they want to clone.
+
+If any honesty trigger fires, the style sheet body MUST acknowledge it inline: every contested claim gets a qualifier like "across the photoreal-cinema cluster (N videos)" rather than "this creator always".
+
 Write a style sheet in this STRICT structure:
 
 # {Creator handle} — Style Sheet
+
+## Catalog audit (MUST come first)
+Three short paragraphs:
+- **Size:** N videos analyzed, M with full vision (mp4 + frames), K with thumbnail-only fallback.
+- **Register distribution:** count of each cinematographic_register value across the corpus. State which dominates and by how much. If no clear winner, name the clusters.
+- **Sample bias:** the corpus is the N most-recent videos from <profile_url>. Mention any signals of catalog drift over time (e.g. older videos in the corpus differ stylistically — name the cutoff if visible).
 
 ## Executive distillation
 4-6 bullets. The ABSOLUTE essentials of this creator's formula. Each bullet must be specific enough that a violation would be immediately recognizable as "off-brand". The FIRST bullet must name the cinematographic register (photoreal-cinema / photoreal-handheld / painterly / 3D-CGI-clean / anime-cel / vfx-composite / vintage-analog / mixed-media). Cite video URLs inline.
