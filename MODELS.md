@@ -98,6 +98,10 @@ Always re-check via `ralphy models list` — these arrays change.
    `cli/lib/providers/media.ts → rewriteUpstreamError()` rewrites both error messages into actionable hints.
    Postmortems: appstore / analog-horror / tokyo.
 
+10. **`google/gemini-3-pro-image-preview` image-safety filter is materially stricter than `openai/gpt-5.4-image-2` on body-horror / cryptid / skinwalker / werewolf register.** Gemini returns `native_finish_reason: IMAGE_SAFETY` with an empty content body even when the prompt uses softened surreal-anatomy language (concentric maws lined with tongue-like protrusions, biological apertures with internal teeth on a recognizable creature in a real-world setting). The reasoning trace literally describes the requested transformation before the filter refuses. `openai/gpt-5.4-image-2` accepts the same prompts and delivers — validated on voidstomper-test-001's skinwalker BBQ frame after three gemini refusals. **Route rule:** for voidstomper-adjacent / Cronenberg / The Thing / mid-warp body-horror anchor images, start at `--model openai/gpt-5.4-image-2`. Accept the 1024×1024 default (gpt-image ignores arbitrary `--size`); use `--ref <gemini-9:16-scene>` to carry scene + character identity, then post-process to 9:16 with ffmpeg pad if your downstream i2v requires matching dimensions. Postmortem: voidstomper-test-001 (2026-05-25).
+
+11. **`google/veo-3.1` body-horror filter** rejects both the prompt AND the input frame independently. Sanitizing the prompt (stripping skinwalker / werewolf / vertebrae / Cronenberg words) does NOT unblock the path — Google's filter ALSO scans the first/last-frame anchor and refuses when the anchor itself is clearly body-horror. Combined with seedance's photoreal-human rejection (cap #6), this leaves `kwaivgi/kling-v3.0-pro` as **the only viable i2v provider for the photoreal-human + body-horror combination** that voidstomper-style content requires. Skip seedance and veo round-trips on those jobs; go straight to Kling. Postmortem: voidstomper-test-001 (2026-05-25).
+
 ## Tried-and-dropped (postmortem cross-reference)
 
 | Model | Context where it failed | Why | Postmortem |
