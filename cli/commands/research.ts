@@ -24,6 +24,7 @@ import {
   topicPaths,
 } from "../lib/research-topic.js";
 import { runDeepResearch } from "../lib/research/orchestrator.js";
+import { scrapeProfile } from "../lib/research/scrape-profile-orchestrator.js";
 
 export function researchCmd() {
   const cmd = new Command("research").description("Topic-level research: aggregate multiple sources into a single report");
@@ -207,6 +208,64 @@ export function researchCmd() {
         });
       } catch (e) {
         err(`run failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("scrape-profile <profile-url>")
+    .description("Distill one creator's style: yt-dlp lists N recent videos, vision-analyzes each, writes a style-sheet.md")
+    .option("--max <n>", "Number of recent videos to analyze (default 50)", (v) => parseInt(v, 10))
+    .option("--niche <text>", "Optional niche context to ground the style sheet")
+    .option("--pull-concurrency <n>", "Parallel video downloads", (v) => parseInt(v, 10))
+    .option("--summary-concurrency <n>", "Parallel vision summarize calls", (v) => parseInt(v, 10))
+    .option("--summary-model <id>", "OpenRouter model for per-video vision analysis")
+    .option("--synth-model <id>", "OpenRouter model for style-sheet synthesis")
+    .option("--job-id <id>", "Override job id")
+    .option("--budget-seconds <n>", "Hard wall-clock budget", (v) => parseInt(v, 10))
+    .option("--quiet", "Suppress progress events on stderr")
+    .action(async (profileUrl: string, opts: {
+      max?: number;
+      niche?: string;
+      pullConcurrency?: number;
+      summaryConcurrency?: number;
+      summaryModel?: string;
+      synthModel?: string;
+      jobId?: string;
+      budgetSeconds?: number;
+      quiet?: boolean;
+    }) => {
+      try {
+        const onEvent = opts.quiet
+          ? undefined
+          : (e: { kind: string; [k: string]: unknown }) => {
+              process.stderr.write(`[${e.kind}] ${JSON.stringify(e)}\n`);
+            };
+        const result = await scrapeProfile({
+          profileUrl,
+          max: opts.max,
+          niche: opts.niche,
+          pullConcurrency: opts.pullConcurrency,
+          summaryConcurrency: opts.summaryConcurrency,
+          summaryModel: opts.summaryModel,
+          synthModel: opts.synthModel,
+          jobId: opts.jobId,
+          budgetSeconds: opts.budgetSeconds,
+          onEvent,
+        });
+        ok(`Style sheet → ${result.reportPath}`);
+        out({
+          jobId: result.jobId,
+          jobDir: result.jobDir,
+          profileUrl: result.profileUrl,
+          creatorHandle: result.creatorHandle,
+          videosListed: result.videosListed,
+          videosPulled: result.videosPulled,
+          videosAnalyzed: result.videosAnalyzed,
+          reportPath: result.reportPath,
+          citationRate: Number(result.citationRate.toFixed(3)),
+        });
+      } catch (e) {
+        err(`scrape-profile failed: ${(e as Error).message}`);
       }
     });
 
