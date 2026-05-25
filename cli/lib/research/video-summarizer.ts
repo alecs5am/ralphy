@@ -46,6 +46,29 @@ export type VideoSummary = {
 
   /** Provenance: which path the summarizer took. */
   analysis_mode: "full-video" | "thumbnail+transcript";
+
+  // ── Vibe / register capture (added 2026-05-25 after voidstomper
+  // critique — the structural fields above answered WHAT happens but
+  // missed HOW it looks/feels, which is the whole point of style cloning). ─
+  /** Pick ONE: which render register does this video belong to. */
+  cinematographic_register:
+    | "photoreal-cinema"     // AI render targeting believable film-camera fidelity (Veo / Sora native register)
+    | "photoreal-handheld"   // photoreal but consumer-camera / phone register, lower fidelity by design
+    | "painterly"            // illustrated, painted-look, brush stroke visible
+    | "3d-cgi-clean"         // polished 3D animation, Pixar / unreal engine register
+    | "anime-cel"            // 2D animation, cel-shaded
+    | "vfx-composite"        // live action + obvious VFX layer
+    | "vintage-analog"       // VHS / film-grain / 16mm / Hi8 register (NOT just a filter — actually shot/rendered for the format)
+    | "mixed-media"          // collage of registers
+    | "unknown";
+  /** Which AI-generation model family this most resembles (best guess). */
+  ai_generation_signature: string; // e.g. "looks like Veo 3 / Sora 2 / Kling AI / Midjourney v7 / RunwayGen3" or "n/a — live action"
+  /** The specific aesthetic mechanism that makes the impossible content land. */
+  uncanny_mechanism: string;       // 2-3 sentences. What about the rendering itself (not the content) tricks the eye into "this is real"?
+  /** What the viewer feels at three breakpoints — captures the vibe arc, not the structure. */
+  viewer_experience_curve: string; // 2-3 sentences. seconds 0-3 / 3-10 / 10-end emotional signature.
+  /** Why someone who saw THIS video would compulsively click the NEXT one in the same creator's feed. */
+  why_follow_compulsion: string;   // 1-2 sentences. What makes the creator's feed addictive vs. one-hit-wonder.
 };
 
 export type SummarizeVideoInput = {
@@ -83,32 +106,54 @@ You receive ONE of two payloads:
 
 You also receive metadata (platform, uploader, view count, age, duration) and the user's niche.
 
-Your job: extract concrete, replicable structure. The user wants to make their OWN vertical short-form videos in this niche. The output JSON is fed verbatim into a cross-video synthesis step.
+Your job: extract concrete, replicable structure AND the VIBE / CINEMATOGRAPHIC REGISTER. The user wants to make their OWN vertical short-form videos that LOOK and FEEL like this creator's videos, not just have the same structural beats. Most cloning attempts fail because the analysis captured WHAT happens but missed HOW it's rendered — register confusion (e.g. painterly when the original is photoreal) instantly marks a clone as fake. So: characterize the visual register with the precision of a colorist or DP, name the AI generation signature, and isolate the uncanny mechanism — the specific reason the rendering makes the impossible content land. The output JSON is fed verbatim into a cross-video synthesis step.
 
 Output STRICT JSON only. No prose. No markdown fences. Schema:
 
 type VideoBreakdown = {
+  // ── STRUCTURE ──
   hook_first_3s: string;            // exact verbal + visual setup in seconds 0-3. Quote on-screen text and VO verbatim.
-  hook_pattern: string;             // short taxonomy label: "mistake-correction", "POV-immersion", "specific-timeframe-claim", "contrarian-claim", "gamified-rhythm", "comedy-sketch", "list-promise", "shadowing-clip", "comparison-meme", "tutorial-quick-hack", etc.
-  body_structure: string;           // beat-by-beat. 2-4 sentences. Include real timestamps when you have the video.
+  hook_pattern: string;             // short taxonomy label.
+  body_structure: string;           // beat-by-beat. 2-4 sentences. Real timestamps when you have the video.
   closer: string;                   // last 2-3 seconds — CTA, loop, cliffhanger, hard cut.
   on_screen_text_style: string;     // typography, position, animation, color. Concrete.
   visual_style: string;             // shot, lighting, POV, color register, background. Concrete.
   audio_use: string;                // VO, trending sound (name it if you can), beat-sync, silence.
   editing_pace: string;             // cuts per X seconds + transition style.
+
+  // ── VIBE / CINEMATOGRAPHIC REGISTER (the part most analyses miss) ──
+  cinematographic_register: "photoreal-cinema" | "photoreal-handheld" | "painterly" | "3d-cgi-clean" | "anime-cel" | "vfx-composite" | "vintage-analog" | "mixed-media" | "unknown";
+                                    // The render register. CRITICAL — most clones fail because they pick the wrong one.
+                                    // photoreal-cinema = looks like a 35mm cinema camera capture.
+                                    // photoreal-handheld = looks like phone / consumer camcorder.
+                                    // painterly = illustrated, brush-stroke, painted-look.
+                                    // 3d-cgi-clean = polished 3D animation register.
+                                    // anime-cel = 2D animation.
+                                    // vfx-composite = live action plate with obvious VFX layer.
+                                    // vintage-analog = actually shot for VHS / 16mm / Hi8, not just filtered.
+                                    // mixed-media = collage of multiple registers per clip.
+  ai_generation_signature: string;  // Best guess at which AI model family the render looks like.
+                                    // Examples: "Veo 3 — high-fidelity cinematic motion, slight micro-glitch on hands", "Sora 2 — strong physics, characteristic warp on rapid motion", "Kling 1.x — clean stable frames, slight character drift on long clips", "Midjourney v7 stills + i2v on Runway Gen-3", "n/a — live action with after-effects". Be specific.
+  uncanny_mechanism: string;        // 2-3 sentences. The aesthetic mechanism: WHAT about the rendering itself (not the content) tricks the eye? E.g. "The camera obeys real-world lens physics — shallow depth of field that breathes when the subject moves, dust motes that respond to candlelight flicker — so when an impossible biology appears in the frame, the viewer's eye has no fakeness-signal to dismiss it. The horror lives in the gap between believable photography and impossible content."
+  viewer_experience_curve: string;  // 2-3 sentences. The emotional arc broken into three windows: seconds 0-3, 3-10, 10-end. What the viewer FEELS at each window, not what happens visually.
+  why_follow_compulsion: string;    // 1-2 sentences. What about THIS video would make the viewer immediately watch the next one in the same creator's feed? Specific to the creator's hook/feel/escalation pattern, not generic.
+
+  // ── ATTRIBUTES ──
   why_works: string;                // 1-2 sentences. Psychology + algorithmic distribution. Specific to THIS video, NOT generic.
   replicable_template: string;      // 1-2 sentences. The formula the user could plug their own content into.
   hashtags: string[];               // hashtags actually visible in the video / description; otherwise [].
-  language: string;                 // primary spoken/written language code (en, ru, es, etc.).
-  aspect_ratio: "vertical" | "horizontal" | "square" | "unknown";  // verify from the actual video frames or thumbnail. Vertical = 9:16 (or close). Anything else means off-topic for this research.
-  niche_fit: "tight" | "loose" | "off-topic";  // "off-topic" if subject doesn't match niche OR aspect_ratio is horizontal.
+  language: string;                 // primary spoken/written language code.
+  aspect_ratio: "vertical" | "horizontal" | "square" | "unknown";
+  niche_fit: "tight" | "loose" | "off-topic";
 }
 
 Rules:
-- If aspect_ratio is NOT vertical, set niche_fit="off-topic" regardless of subject match. The user only wants vertical short-form patterns.
+- If aspect_ratio is NOT vertical, set niche_fit="off-topic" regardless of subject match.
 - If the video is off-topic, still fill every field but keep replicable_template empty.
 - Be specific. Never write generic filler like "engaging hook" or "uses good music" — name the technique.
 - Quotes from on-screen text or VO must be verbatim.
+- cinematographic_register: pick the SINGLE closest match even if you're not 100% sure. "unknown" only if you literally cannot see the video.
+- uncanny_mechanism is the MOST IMPORTANT new field. A clone made from this analysis will fail unless this field correctly names the rendering trick that makes the content land. If the content isn't uncanny / impossible / surprising, write "n/a — content matches the register (no uncanny gap)".
 `;
 
 export async function summarizeVideo(
@@ -195,7 +240,7 @@ export async function summarizeVideo(
     model,
     jsonMode: true,
     temperature: 0.2,
-    maxTokens: 2000,
+    maxTokens: 3000,
     projectId: input.projectId,
     endpoint: "research/video-summarize",
   });
@@ -272,6 +317,23 @@ function parseOrFallback(
     aspect_ratio: aspect,
     niche_fit: nicheFit,
     analysis_mode: usedFullVideo ? "full-video" : "thumbnail+transcript",
+    cinematographic_register: [
+      "photoreal-cinema",
+      "photoreal-handheld",
+      "painterly",
+      "3d-cgi-clean",
+      "anime-cel",
+      "vfx-composite",
+      "vintage-analog",
+      "mixed-media",
+      "unknown",
+    ].includes(parsed.cinematographic_register as string)
+      ? (parsed.cinematographic_register as VideoSummary["cinematographic_register"])
+      : "unknown",
+    ai_generation_signature: str(parsed.ai_generation_signature),
+    uncanny_mechanism: str(parsed.uncanny_mechanism),
+    viewer_experience_curve: str(parsed.viewer_experience_curve),
+    why_follow_compulsion: str(parsed.why_follow_compulsion),
   };
 }
 
