@@ -37,15 +37,50 @@ You evaluate rendered UGC videos and produce a report that another agent (the fi
 ralphy eval video <path-to-mp4>
 ```
 
-Auto-detects the project ID when the mp4 lives at `workspace/projects/<id>/render/...`. If detected, the report incorporates `scenario.json`, `captions.json`, and the template name from the project — these unlock the *declared-vs-actual* findings (duration drift, hook-zone-thin-vo, etc.) that are otherwise unavailable.
+Auto-detects the project ID when the mp4 lives at `workspace/projects/<id>/render/...`. If detected, the report incorporates `scenario.json`, `captions.json`, `BRIEF.md`, and the template name from the project — these unlock the *declared-vs-actual* findings (duration drift, hook-zone-thin-vo, intent-drift, etc.) that are otherwise unavailable.
 
-Useful flags:
+### Deep-vision pass (project-specific, anti-generic findings)
+
+When the user asks "validate against my niche / style / creator reference" — or you observe that the project has a style-sheet (typically from `ralphy research scrape-profile`) — pass `--style-sheet <path>` to enable the **deep-vision pass**: gemini-3.1-pro-preview ingests the full mp4 natively (millisecond-precision scene understanding, not sampled keyframes) and scores it against every rule in the style sheet's "Vibe & visual register" and "What this creator NEVER does" sections.
+
+```bash
+ralphy eval video <mp4> --style-sheet <style-sheet.md> [--brief <BRIEF.md>] [--reference-urls <url> <url> ...]
+```
+
+The deep-vision pass produces a separate structured JSON output at `<out-dir>/eval-deep-vision.json` with:
+- `overall_verdict` — holistic pass/warn/fail
+- `register_match` — declared vs observed cinematographic register, with severity if mismatched
+- `rule_conformance[]` — per-rule pass/warn/fail with **verbatim style-sheet quotes** and **specific timestamp evidence** from the rendered video
+- `brief_conformance[]` — same shape, scoring against BRIEF.md intent
+- `uncanny_mechanism_check` — whether the render delivers the style sheet's proprietary aesthetic mechanism or just mimics the surface
+- `pacing_and_timing` — hook / body / closer evaluation
+- `ai_artifacts[]` — concrete timestamp-tagged artifacts the model spotted
+- `what_works` — be honest, what the render did right
+- `what_to_redo` — prioritized 1-6 item fix list with `target` (start-frame / end-frame / i2v / audio / scene-prompt / model-swap / regen-entire)
+
+Each rule violation also flows into the main `findings[]` array under `style.register-mismatch`, `style.rule-violation`, `brief.intent-drift`, `style.aesthetic-mechanism-missing`, or `style.timing-*` categories so the unified scoring + downstream fixer pipeline pick them up.
+
+**When to fire the deep pass automatically:**
+1. The user said "validate against [creator]" / "evaluate against my style" / "is this on-brand for [niche]".
+2. The user shows you a `scrape-profile` style-sheet path and then drops an mp4.
+3. You're running an eval on an mp4 in a project that has a sibling style-sheet (search `workspace/.ralph/research/*/style-sheet.md` and ask the user to confirm which one applies if multiple).
+4. The project has its own `style-sheet.md` at `workspace/projects/<id>/style-sheet.md` (auto-detected — wired in a follow-up; for now, pass `--style-sheet` explicitly).
+
+**When NOT to fire the deep pass:**
+- Generic UGC quality check (no creator-style reference, just "is this video good"). The standard per-scene flash pass handles this — cheaper and faster.
+- The user said `--no-deep-vision`.
+- The mp4 is over 40 MB — the model rejects on body size. Re-encode at lower bitrate first.
+
+### Standard flags
+
 - `--no-vision` — skip the per-scene Gemini pass. Faster (~3s vs ~30s on a 1-min video) and free. Use it for quick structure / audio sanity, then re-run without the flag for the full check.
+- `--no-deep-vision` — skip the deep-vision pass even if `--style-sheet` / `--brief` / project `BRIEF.md` is present. Useful when you want only the structural findings.
+- `--deep-vision-model <id>` — override the deep-vision model. Default `google/gemini-3.1-pro-preview`. For cheaper smoke tests, swap to `google/gemini-2.5-pro`.
 - `--project <id>` — force project context when the mp4 was moved out of the project tree.
 - `--no-project` — explicitly evaluate as a standalone video (skips `scenario.json`-derived findings).
-- `--out-dir <path>` — override where `eval.json` + `eval-report.md` land. Default: project dir, or the mp4's parent for standalone.
+- `--out-dir <path>` — override where `eval.json` + `eval-report.md` + `eval-deep-vision.json` land. Default: project dir, or the mp4's parent for standalone.
 
-The command returns JSON with `verdict`, `score`, `findings` (count), and the two output paths.
+The command returns JSON with `verdict`, `score`, `findings` (count), and the output paths.
 
 ## How to read the report
 
