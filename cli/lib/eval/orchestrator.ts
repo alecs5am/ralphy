@@ -11,6 +11,7 @@ import { extractKeyframes } from "./keyframes.js";
 import { analyzeScenes } from "./vision.js";
 import { buildFindings, score } from "./findings.js";
 import { writeReport } from "./report.js";
+import { deepVisionEvaluate, type DeepVisionResult } from "./deep-vision.js";
 import type {
   CaptionStats,
   DeclaredMeta,
@@ -23,12 +24,26 @@ export interface EvaluateInput {
   videoPath: string;
   /** Override auto-detected project (or pass null to skip context). */
   projectId?: string | null;
-  /** Skip the vision pass — useful for fast smoke tests. */
+  /** Skip the standard per-scene vision pass — useful for fast smoke tests. */
   noVision?: boolean;
   /** Where to write eval.json + eval-report.md. Defaults to project dir or alongside the video. */
   outDir?: string;
   /** Per-scene vision concurrency (default 3). */
   visionConcurrency?: number;
+  /** Path to a style-sheet.md (e.g. from `ralphy research scrape-profile`).
+   *  When set, runs the deep-vision pass against the full mp4 using
+   *  google/gemini-3.1-pro-preview and appends style-conformance findings. */
+  styleSheetPath?: string | null;
+  /** Path to a BRIEF.md (or the project's own BRIEF.md). Sent to the
+   *  deep-vision pass to score intent conformance. */
+  briefPath?: string | null;
+  /** Reference video URLs the creator's catalog used — for deep-vision
+   *  benchmark context. */
+  referenceUrls?: string[];
+  /** Override deep-vision model. */
+  deepVisionModel?: string;
+  /** Skip the deep-vision pass even when context is available. */
+  noDeepVision?: boolean;
 }
 
 export interface EvaluateResult {
@@ -91,6 +106,38 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
     hookTranscript,
   });
 
+  // Deep-vision pass: project-aware, full-mp4, gemini-3.1-pro-preview.
+  // Runs in addition to the standard per-scene vision pass when a style
+  // sheet or brief is available. Adds style-conformance findings to the
+  // findings[] array — same shape as everything else, but harsher and
+  // tied to specific rules from the project's source-of-truth style sheet.
+  let deepVision: DeepVisionResult | null = null;
+  const briefDefault = projectRoot ? path.join(projectRoot, "BRIEF.md") : null;
+  const briefResolved = input.briefPath ?? (briefDefault && existsSync(briefDefault) ? briefDefault : null);
+  if (!input.noDeepVision && (input.styleSheetPath || briefResolved)) {
+    try {
+      deepVision = await deepVisionEvaluate(videoPath, {
+        styleSheetPath: input.styleSheetPath ?? null,
+        briefPath: briefResolved,
+        referenceUrls: input.referenceUrls ?? [],
+        projectId,
+        model: input.deepVisionModel,
+      });
+      findings.push(...deepVision.findings);
+    } catch (e) {
+      findings.push({
+        id: "DEEP-ERR",
+        category: "eval.deep-vision-error",
+        severity: "warn",
+        sceneIndex: null,
+        timestampSec: null,
+        message: `deep-vision pass failed: ${(e as Error).message}`,
+        fixHint: "Inspect deep-vision.ts logs; re-run with --no-deep-vision to skip.",
+        fixCommand: null,
+      });
+    }
+  }
+
   const scoring = score(findings);
 
   const sceneDurations = scenes.map((s) => s.durationSec);
@@ -119,6 +166,27 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
   };
 
   const { jsonPath, mdPath } = await writeReport(report, outDir);
+
+  // If deep-vision ran, persist its raw + parsed output alongside the
+  // standard report — the structured "what_to_redo" priority list is
+  // easier for a downstream fixer agent to act on than the flattened
+  // findings[].
+  if (deepVision) {
+    const deepJsonPath = path.join(outDir, "eval-deep-vision.json");
+    await fs.writeFile(
+      deepJsonPath,
+      JSON.stringify(
+        {
+          model: deepVision.modelUsed,
+          parsed: deepVision.parsed,
+          raw: deepVision.raw,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+  }
   return { report, jsonPath, mdPath };
 }
 

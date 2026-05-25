@@ -21,6 +21,11 @@ export function evalCmd() {
     .option("--no-vision", "Skip the per-scene vision pass (faster, no model spend)")
     .option("--out-dir <path>", "Override output directory (default: project dir or video's parent)")
     .option("--vision-concurrency <n>", "Parallel scene-vision requests (default 3)", (v) => parseInt(v, 10))
+    .option("--style-sheet <path>", "Path to a style-sheet.md (e.g. from `ralphy research scrape-profile`). Triggers deep-vision pass with project-specific style-conformance findings.")
+    .option("--brief <path>", "Path to a BRIEF.md. Sent to deep-vision pass to score intent conformance.")
+    .option("--reference-urls <urls...>", "Reference video URLs (the creator's target benchmark) — fed into deep-vision context")
+    .option("--deep-vision-model <id>", "Override deep-vision model (default google/gemini-3.1-pro-preview)")
+    .option("--no-deep-vision", "Skip the deep-vision pass even when style-sheet or BRIEF.md is available")
     .action(async (videoPath: string, opts) => {
       try {
         const result = await evaluateVideo({
@@ -29,6 +34,11 @@ export function evalCmd() {
           noVision: opts.vision === false,
           outDir: opts.outDir,
           visionConcurrency: opts.visionConcurrency,
+          styleSheetPath: opts.styleSheet ?? null,
+          briefPath: opts.brief ?? null,
+          referenceUrls: opts.referenceUrls ?? [],
+          deepVisionModel: opts.deepVisionModel,
+          noDeepVision: opts.deepVision === false,
         });
         out({
           verdict: result.report.scoring.verdict,
