@@ -216,6 +216,7 @@ export function researchCmd() {
     .description("Distill one creator's style: yt-dlp lists N recent videos, vision-analyzes each, writes a style-sheet.md")
     .option("--max <n>", "Number of recent videos to analyze (default 50)", (v) => parseInt(v, 10))
     .option("--niche <text>", "Optional niche context to ground the style sheet")
+    .option("--reanalyze-from <existing-job-id>", "Skip list+pull; reuse video dirs from an existing job and re-run summarize+stylesheet with the current prompts")
     .option("--pull-concurrency <n>", "Parallel video downloads", (v) => parseInt(v, 10))
     .option("--summary-concurrency <n>", "Parallel vision summarize calls", (v) => parseInt(v, 10))
     .option("--summary-model <id>", "OpenRouter model for per-video vision analysis")
@@ -226,6 +227,7 @@ export function researchCmd() {
     .action(async (profileUrl: string, opts: {
       max?: number;
       niche?: string;
+      reanalyzeFrom?: string;
       pullConcurrency?: number;
       summaryConcurrency?: number;
       summaryModel?: string;
@@ -244,6 +246,7 @@ export function researchCmd() {
           profileUrl,
           max: opts.max,
           niche: opts.niche,
+          reanalyzeFrom: opts.reanalyzeFrom,
           pullConcurrency: opts.pullConcurrency,
           summaryConcurrency: opts.summaryConcurrency,
           summaryModel: opts.summaryModel,

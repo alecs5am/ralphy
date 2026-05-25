@@ -23,19 +23,30 @@ const SYSTEM = `You are the senior analyst writing a single-creator STYLE SHEET.
 
 - The creator's profile URL.
 - The creator's handle.
-- A corpus of beat-by-beat video breakdowns analyzed by a vision model directly on the actual videos (or thumbnail+transcript fallback). Each entry has hook, body structure, closer, visual style, audio use, editing pace, replicable template, virality score, and view count.
+- A corpus of beat-by-beat video breakdowns analyzed by a vision model directly on the actual videos (or thumbnail+transcript fallback). Each entry has hook, body structure, closer, visual style, audio use, editing pace, replicable template, virality score, view count, AND vibe fields: cinematographic_register, ai_generation_signature, uncanny_mechanism, viewer_experience_curve, why_follow_compulsion.
 
 Your job: distill THE FORMULA. What does this creator do every time? What makes their content recognizable from any of their videos? What are the rules a follower must follow to make a video that would convincingly slot into this creator's feed?
+
+**HARD RULE: lead with VIBE, not structure.** Most style-cloning attempts fail because the analysis enumerated the structural beats (hook → body → closer) but missed the cinematographic register. A clone that nails the structure but renders in the wrong register (e.g. painterly when the original is photoreal cinema, or 3D-CGI-clean when the original is photoreal-handheld) is immediately identifiable as off-brand. Therefore: the Vibe & visual register section comes FIRST, the structural sections follow, and the production playbook is anchored on the vibe choice not the structure choice.
 
 Write a style sheet in this STRICT structure:
 
 # {Creator handle} — Style Sheet
 
 ## Executive distillation
-4-6 bullets. The ABSOLUTE essentials of this creator's formula. Each bullet must be specific enough that a violation would be immediately recognizable as "off-brand". Cite video URLs inline.
+4-6 bullets. The ABSOLUTE essentials of this creator's formula. Each bullet must be specific enough that a violation would be immediately recognizable as "off-brand". The FIRST bullet must name the cinematographic register (photoreal-cinema / photoreal-handheld / painterly / 3D-CGI-clean / anime-cel / vfx-composite / vintage-analog / mixed-media). Cite video URLs inline.
+
+## Vibe & visual register (the most important section — read first)
+4-6 paragraphs that fully characterize the FEEL of this creator's videos, with the precision of a colorist / DP / aesthetic director:
+
+- **Cinematographic register lock.** State the ONE register this creator commits to (photoreal-cinema / photoreal-handheld / painterly / etc.). Cite 4-6 reference videos that exemplify it. Be specific about what this register MEANS visually (e.g. "photoreal-cinema = looks like a real 35mm cinema camera capture: shallow depth of field that breathes with subject motion, believable lens flare, micro-imperfections in highlights, anamorphic-style horizontal lens distortion, controlled cinematic LUT").
+- **AI generation signature.** Aggregate the per-video ai_generation_signature fields. Name the model family this creator most resembles (Veo / Sora / Kling / Midjourney-i2v / Runway / mixed). Mention any characteristic tell — "Veo 3's subtle hand-warp on rapid motion", "Sora 2's coherent physics + occasional eye drift". A clone that uses the wrong model family will look wrong even if everything else is right.
+- **The uncanny mechanism.** Aggregate the per-video uncanny_mechanism fields. Distill the SINGLE most important aesthetic trick this creator uses to make impossible / surprising / off-script content land. This is THE proprietary core of the formula. 3-5 sentences. If the creator's content isn't uncanny (e.g. a tutorial creator), name the equivalent "trust-mechanism" — what about the rendering makes the viewer accept the content.
+- **Viewer experience arc.** The emotional curve a follower feels watching any of this creator's videos: 0-3s window, 3-10s, 10-end. Aggregate the per-video viewer_experience_curve fields. Don't restate the structure (hook/body/closer) — name the FEELING (dread / awe / disbelief / amusement / dissonance / etc.) and what triggers it.
+- **The follow-compulsion mechanism.** Why does watching one of this creator's videos compel the viewer to watch the next one in the feed? Aggregate why_follow_compulsion. This is what separates a one-hit-wonder from a creator with a recognizable feed.
 
 ## The formula
-A single paragraph (4-7 sentences) that reads like a recipe: "Every {creator handle} video opens with X, then Y for Z seconds, then W. Visual register is always A. Audio is always B. Closer is always C." Cite 3-5 video URLs that exemplify each piece.
+A single paragraph (4-7 sentences) that reads like a recipe BUT leads with register: "Every {creator handle} video is rendered in {register} register with a {ai_generation_signature} signature. The vibe arc is {curve}. Structurally it opens with X, then Y for Z seconds, then W." Cite 3-5 video URLs that exemplify each piece.
 
 ## Visual register
 Specific, copyable rules:
@@ -102,6 +113,11 @@ export async function distillCreatorStyleSheet(
         `Title: ${v.title}`,
         `Aspect: ${v.aspect_ratio} | Runtime: ${v.durationSec}s | Views: ${v.views} | Age: ${v.ageDays}d | Lang: ${v.language}`,
         `Analyzed via: ${v.analysis_mode}`,
+        `Cinematographic register: ${v.cinematographic_register}`,
+        `AI generation signature: ${v.ai_generation_signature}`,
+        `Uncanny mechanism: ${v.uncanny_mechanism}`,
+        `Viewer experience curve: ${v.viewer_experience_curve}`,
+        `Follow compulsion: ${v.why_follow_compulsion}`,
         `Hook (0-3s): ${v.hook_first_3s}`,
         `Hook pattern: ${v.hook_pattern}`,
         `Body: ${v.body_structure}`,
