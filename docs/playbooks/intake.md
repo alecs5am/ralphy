@@ -47,7 +47,7 @@ Before quoting a single $ or running `ralphy generate`, surface the missing cont
 1. **Target audience language.** EN / RU / KR / other? Drives the audio pipeline (Kling `--audio` for EN, ElevenLabs for non-EN). Chat language ≠ video language — this trip-wired noski-people-001 for ~10 min and one wasted memory write.
 2. **Aspect / platform.** 9:16 TikTok? 16:9 YouTube? 1:1 broadcast realism? Square is the right call for caught-on-TV trends (kbo postmortem).
 3. **Brand / named person / specific entity.** If the brief names a real entity the model cannot fabricate (a specific person, a recognizable brand product, an IP / character), the **reference-required gate** (AGENTS invariant #3) fires — refuse generation until the user supplies a ref or explicitly opts out via `--no-ref-consent "<reason>"` on the failing generate call (logged as `stage: "no-ref-consent"` in `user-prompts.jsonl`). Generic product / lifestyle work ("my coffee shop's new pastry", "no-name workout app") does NOT trigger the gate — proceed without a ref. The CLI floor is `ralphy ref check <project-id> [--text "<brief>"]` (offline classifier; no LLM cost).
-4. **Existing template fit.** Before improvising, **always** run `ralphy template suggest "<the user's brief>"` and surface the top-3 hits with one-liners. If one fits, pivot to `ralphy template use <slug>` and skip improvisation entirely. (Templates encode the postmortem-validated workflow for that vibe — see `templates/CATEGORIES.md`.)
+4. **Existing template fit.** Before improvising, run `ralphy template suggest "<the user's brief>"` and **surface** the top-3 hits with one-liners as a question, not a decision (full discipline in the "Cold-start template suggestion" section below). The user picks: apply a template, name a different one, or draft freeform. **Never auto-apply** a template that wasn't explicitly requested.
 5. **Duration / clip count budget.** Most templates document `typicalDurationSec` + `typicalClipCount`. If the user picked a template, confirm; if not, default to ≤15s for first iteration, scale up after a successful test render.
 6. **Hard constraints.** Banned words, music policy (Kling auto-soundtrack is enabled unless explicitly banned in prompt — kbo / glitter-cream), brand colors, etc.
 
@@ -123,14 +123,24 @@ Before declaring done:
 
 ## Cold-start template suggestion (04.04.01 + 04.04.03)
 
-When the user's first utterance has no explicit template (no `ralphy template use <slug>`), do this BEFORE drafting a plan:
+**Hard rule: templates are a SUGGESTION, not a default. Never auto-apply a template the user did not explicitly request.** The only exceptions are (a) the user typed `ralphy template use <slug>` themselves, or (b) the user named a slug in chat ("use the venom-bodywash template"). Otherwise — surface the option, do not commit.
+
+When the user's first utterance has no explicit template (no `ralphy template use <slug>`, no slug named), do this BEFORE drafting a plan:
 
 1. **Run `ralphy template suggest "<the user's brief>" --limit 3`.** The verb returns a ranked list with a `score` and a `tier` per result; `--threshold` defaults to 0.7 and triggers an LLM rerank on multilingual / paraphrase utterances.
-2. **Read the top result.**
-   - If `tier === "primary"` (top result is a strong match) → announce the pick inline and proceed: "Using the **<template>** template — `<one-line of what it does>`. Switch with `ralphy template use <other-slug>` if it's wrong." Then keep going. Do NOT ask "should I use this?" — the announce-and-proceed is the action; user interrupts if they disagree.
-   - If `tier === "secondary"` (top result is a weak match) → list top-3 with one-liners and ask once: "These three are close — `<a>`, `<b>`, `<c>`. Which fits, or should I draft from scratch?"
-   - If `tier === "fallback"` (top result is below confidence) → enter **free-form mode**. Say once: "No close template match — drafting from scratch with the vibe-style cookbook." Then jump to `docs/playbooks/scenarist.md` step "scenario-from-brief" and improvise. Do not re-run `template suggest`.
-3. **Once a template is locked**, the rest of intake (steps 1-5 above) fills the gaps the template doesn't already encode (target audience language, brand-named-entity, banned words). Most other defaults come from `template.json`.
+2. **Surface the top-1 to top-3 results as a question, NOT a decision.** Format:
+
+   > "I see a close template match: **`<slug>`** — `<one-line of what it does>` (https://www.alecs5am.com/templates#<slug>). Do you want to use it, browse the others (https://www.alecs5am.com/templates), or draft freeform from your brief?"
+
+   Wait for the user's answer. Don't pre-stage any `ralphy template use` invocation.
+3. **Branch on the user's reply:**
+   - User says "yes / use it / go" → run `ralphy template use <slug> --project <id> --brief "<text>"` and continue from the template-driven path.
+   - User says "no / freeform / from scratch" → enter **free-form mode**, jump to `docs/playbooks/scenarist.md` step "scenario-from-brief".
+   - User names a different slug → use that one instead.
+   - `tier === "fallback"` (top match below confidence) → skip the question, just say once: "No close template match — drafting freeform from your brief. Browse the library at https://www.alecs5am.com/templates if you want to anchor to one." Then proceed freeform without asking.
+4. **Once a template is locked**, the rest of intake (steps 1-5 above) fills the gaps the template doesn't already encode (target audience language, brand-named-entity, banned words). Most other defaults come from `template.json`.
+
+**Why this discipline:** Auto-applied templates produce off-brand videos for creators who follow a recognizable style outside the catalog — e.g. requesting "a video in the style of @voidstomper" should NOT route to `found-footage-mockumentary` just because the template's description mentions "voidstomper lineage". The user's named reference always takes priority over a tag-match suggestion.
 
 ## Default-pick rules (04.03.02)
 
@@ -138,7 +148,7 @@ When a user request is concrete but doesn't specify a parameter, **pick the defa
 
 | Missing | Default | Where it comes from |
 |---|---|---|
-| Template | `template suggest` top-1 if `tier === primary`, otherwise free-form | `ralphy template suggest` |
+| Template | **Never a default.** Always surfaced as a question (top-1 to top-3 with landing-page link). User confirms before any `ralphy template use` invocation. | `ralphy template suggest` |
 | Persona | The matched brand's `default_persona` if set; otherwise the closest archetype from `workspace/personas/ARCHETYPES.md` | `ralphy brand show <id>` → `persona` field |
 | Duration | 15s | Intake step 5 default |
 | Aspect | 9:16 unless the template hard-codes a different one | Intake step 1.2 |
