@@ -15,7 +15,7 @@ Adjacent flow problems:
 
 6. **No cross-session memory.** Ralphy forgets what kind of work the user prefers, which template they reach for, what their brand quirks are, what failed last time. Each session starts cold. A `ralphy memory` layer — additive, user-owned, transparent — would close this.
 
-7. **Motion graphics get routed to video gen.** When the user wants animated text, kinetic typography, a chart animating in, or any code-able motion graphic, the agent reaches for `ralphy generate video` — wrong tool. We have Remotion; that's where motion graphics belong.
+7. **Motion graphics get routed to video gen.** When the user wants animated text, kinetic typography, a chart animating in, or any code-able motion graphic, the agent reaches for `ralphy generate video` — wrong tool. We have HyperFrames; that's where motion graphics belong.
 
 This category owns the flow: what happens in the first 30 seconds of a session, between turns, and at ship time.
 
@@ -38,7 +38,7 @@ This category owns the flow: what happens in the first 30 seconds of a session, 
 6. As any **user**, the agent never asks "shall I proceed?" or "would you like me to..." when the request was concrete.
 7. As any **user**, I can interrupt at any point (Ctrl-C in CLI, or "stop" in chat). The agent commits what's been done, leaves the rest, and reports state.
 8. As any **user**, the agent never deletes or overwrites my prior generations. Every regen is a new version; old versions stay on disk until I explicitly clear them.
-9. As any **user**, when I describe motion graphics ("animated text intro", "chart that animates in", "kinetic typography for the CTA"), the agent reaches for Remotion components — not a video model. The output looks like a polished web animation, not an AI-glitched frame.
+9. As any **user**, when I describe motion graphics ("animated text intro", "chart that animates in", "kinetic typography for the CTA"), the agent reaches for HyperFrames components — not a video model. The output looks like a polished web animation, not an AI-glitched frame.
 10. As a **returning user**, Ralphy remembers patterns from prior sessions: which templates I reach for, what my brand quirks are, what I rejected and why. `ralphy memory` surfaces this; it's additive and I can inspect / edit / clear it.
 
 ## Success metrics
@@ -52,7 +52,7 @@ This category owns the flow: what happens in the first 30 seconds of a session, 
 | Time from "ship it" to full-res mp4 | ≤ 8 min on cold-start template | Stopwatch |
 | Sessions ending in "ship" with zero scene reworks (cold-start works first try) | ≥ 30% | Log audit |
 | Sessions ending in "ship" with ≤ 2 scene reworks | ≥ 70% | Log audit |
-| Motion-graphics requests routed to Remotion components (not video gen) | 100% | Audit prompts.json on 20 sessions |
+| Motion-graphics requests routed to HyperFrames components (not video gen) | 100% | Audit prompts.json on 20 sessions |
 | Append-only invariant violations | 0 | CI lint + audit |
 
 ## Non-goals
@@ -72,7 +72,7 @@ This category owns the flow: what happens in the first 30 seconds of a session, 
 - `04.03` — Ask as many real questions as needed; never ask for confirmation
 - `04.04` — Cold-start template suggestion integrated into chat
 - `04.06` — Interrupt + resume (SIGINT path; full `ralphy resume` is post-launch per [D-02](OPEN-QUESTIONS.md#decision-log))
-- `04.0A` — Hard invariants: append-only enforced, motion graphics via Remotion, best models always
+- `04.0A` — Hard invariants: append-only enforced, motion graphics via HyperFrames, best models always
 
 **Post-launch** (deferred per [D-02](OPEN-QUESTIONS.md#decision-log)):
 

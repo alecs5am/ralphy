@@ -114,7 +114,7 @@ Sentenza emessa: bastonata. Tung tung tung sahur."
 
 Cost: ~$0.03 for 15s of audio (eleven_multilingual_v2).
 
-## Composition checklist (Remotion)
+## Composition checklist (HyperFrames)
 
 - [ ] 1080×1920, 30fps, single composition
 - [ ] Hero video shot(s) full-bleed

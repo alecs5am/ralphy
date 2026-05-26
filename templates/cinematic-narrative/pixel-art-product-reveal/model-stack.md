@@ -12,7 +12,7 @@ Source-project rollup (`playdate-pixel-001`): **~$12.70 total** across 31 image 
 | C2PA strip | 1 ffmpeg loop | $0 | $0 |
 | i2v (8 clips) | 8 | $0.56–$0.70 | ~$4.80–$5.60 |
 | Music (5 variants in parallel) | 5 | subscription | $0 (in-plan) |
-| Remotion renders (5 variants) | 5 | local | $0 |
+| HyperFrames renders (5 variants) | 5 | local | $0 |
 | **Total cold-run** | | | **~$7.50–$8.50** |
 
 Add ~$3 if v1 stills miss aesthetic (the `playdate-pixel-001` v1→v2 case) and an extra 14-call regen is needed. Cap the ralphy gen budget at **~$15** before stopping for user re-scope.
@@ -128,7 +128,7 @@ Confirmed broken on OpenRouter for ≥6 days (2026-05-12 documented in flipper p
 
 ## Stage 4 — Captions
 
-**None in the body.** The wordmark + tagline at scene-06 are hand-illustrated typography baked into the keyframe by gpt-5.4-image-2, NOT a Remotion caption overlay. Captions added on top break the duotone register.
+**None in the body.** The wordmark + tagline at scene-06 are hand-illustrated typography baked into the keyframe by gpt-5.4-image-2, NOT a HyperFrames caption overlay. Captions added on top break the duotone register.
 
 ## Stage 5 — Music (5 variants)
 
@@ -156,7 +156,7 @@ Replacement vocabulary:
 - "Disasterpeace" → "indie game soundtrack"
 - "Anamanaguchi" → "punchy 8-bit drums and bright square-wave melody"
 
-## Stage 6 — Remotion render (5× final, A/B compare)
+## Stage 6 — HyperFrames render (5× final, A/B compare)
 
 `src/videos/<id>/{scenes.ts, index.tsx}`, registered in `src/Root.tsx`. Clone the `playdate-pixel-001` structure — same scene-timing skeleton, just different `videoFile` slugs.
 

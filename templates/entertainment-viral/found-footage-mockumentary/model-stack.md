@@ -36,7 +36,7 @@ Reconstructed from `workspace/projects/occult-mockumentary-001/logs/generations.
 - **Use for:** all 5 audio elements (horror ambient bed, wet inhale, wet crunch + multi-foot step, camera-drop thud + VHS static, distant chant whisper). See `prompt-cookbook.md → Stage 3` for verbatim prompts.
 - **Critical:** every SFX prompt MUST include "NO music, NO melody, NO rhythm, NO percussion, NO singing" or equivalent. Without the ban, ElevenLabs's classifier routes the request through its music synthesis and returns a melody that doesn't fit. With the ban, returns clean sound-design audio every time.
 
-### Render — Remotion (`remotion-render`)
+### Render — HyperFrames (`hyperframes-render`)
 
 - **Cost:** $0 (local compute)
 - **Use:** final composition with VHS overlay shader for Act-1 clips, clean cinema for Act-2 reveal, 3 lower-third captions, persistent REC-dot HUD, `SIGNAL LOST` end card. Render with `--loudnorm` because the SFX layering produces uneven peaks otherwise.
@@ -70,7 +70,7 @@ Most of the source project's spend was the kling phase + re-rolls. A clean pass 
 - **`kling-v3.0-pro` for the cultist-retreat scene** — kling let the cultists drift / sway in the distance as the operator retreated, which broke the "they are frozen statues" rule. Seedance held them perfectly still.
 - **`kling-v3.0-pro` for the monster jump-scare lunge** — kling's motion model is too smooth / too cinematic for a sudden violent lunge; the result read as a graceful walk rather than a predator strike. Seedance produced the explosive forward motion.
 - **`kling-v3.0-pro` 15s multi-cut clips with two-anchor first-frame + last-frame** — kling errored when given both first and last frame anchors (gen-log `note`: "kling errored on 2-anchor"). Falling back to first-frame-only at higher cost, then ultimately switching to seedance.
-- **Heavy VHS-glitch baked into the i2v prompt** — kling produced cartoon-ABC artifacts in the early Clip C attempts ("v1 glitched into cartoon ABC"). Solution: keep the i2v clip clean Hi8 register, apply the VHS overlay shader in Remotion post.
+- **Heavy VHS-glitch baked into the i2v prompt** — kling produced cartoon-ABC artifacts in the early Clip C attempts ("v1 glitched into cartoon ABC"). Solution: keep the i2v clip clean Hi8 register, apply the VHS overlay shader in the HyperFrames composition post.
 
 ## Open question for a future postmortem
 

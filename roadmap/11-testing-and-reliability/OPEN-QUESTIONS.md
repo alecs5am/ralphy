@@ -25,7 +25,7 @@
 **Options:**
 - A. In-repo with Git LFS. Slowest clone, simplest auth.
 - B. Out-of-repo (S3 or GH Releases asset), downloaded on `bun test:golden:setup`. Faster clone, separate failure mode.
-- C. Compute-on-demand: cache gens but re-run cheap ops (Remotion render) each PR. Lighter.
+- C. Compute-on-demand: cache gens but re-run cheap ops (HyperFrames render) each PR. Lighter.
 **Blocking:** `11.02.01`.
 **Owner:** user.
 

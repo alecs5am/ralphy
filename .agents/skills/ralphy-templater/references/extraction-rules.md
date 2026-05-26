@@ -63,7 +63,7 @@ Extract:
 
 Output target: `template.json`.
 
-If absent: this is a vibe-style template (per `kind-decision.md`). Skip the `compositionTemplate` field entirely; consumers will hand-author per-project Remotion.
+If absent: this is a vibe-style template (per `kind-decision.md`). Skip the `compositionTemplate` field entirely; consumers will hand-author per-project HyperFrames HTML.
 
 ### `BRIEF.md` (preferred)
 

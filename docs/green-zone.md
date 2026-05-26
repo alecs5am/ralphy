@@ -5,7 +5,7 @@ Where you can place text and UI elements on a 1080×1920 vertical video so the p
 Source: `dansugc/reelclaw/references/green-zone.md` + personal QA.
 
 Used by:
-- `src/lib/utils/green-zone.ts` — for Remotion compositions (`isInGreenZone`, `getTextPreset`).
+- HyperFrames compositions — apply the geometry directly in CSS (`top`, `left`, `width`).
 - `cli/lib/score.ts` → `scoreScenario()` — gate before handoff out of `scenarist playbook`.
 - `art-director playbook` while generating prompts.json — checks text overlay positions.
 
@@ -43,8 +43,6 @@ Use the universal box if a clip is published on multiple platforms. If targeting
 We only implement Universal (first generation). Per-platform comes if we add platform-targeted exports.
 
 ## Text position presets (for typical roles)
-
-Use `getTextPreset(role)` from `src/lib/utils/green-zone.ts`:
 
 | Role | Y | Font size | When |
 |---|---|---|---|
@@ -87,37 +85,19 @@ For UGC video the text hierarchy matters more than the font choice. Standard lad
 | Main caption | Medium (500) | Word-by-word body captions |
 | CTA | Bold (700) | Finale call-to-action |
 
-Our stack uses `@remotion/google-fonts` — for Russian we recommend **Inter** or **Onest** (both with Cyrillic and the required weights).
+For non-Latin scripts we recommend **Inter** or **Onest** (both with Cyrillic and the required weights). The HyperFrames composition loads fonts via standard `<link rel="stylesheet">` to Google Fonts.
 
 ## Quick check
 
-Import and use directly in a Remotion composition:
+Apply the geometry as plain CSS inside the HyperFrames composition:
 
-```tsx
-import { GREEN_ZONE, getTextPreset, isInGreenZone } from "../../lib/utils/green-zone";
-
-const HookText: React.FC<{ text: string }> = ({ text }) => {
-  const preset = getTextPreset("hook");
-  return (
-    <div style={{
-      position: "absolute",
-      top: preset.y,
-      left: GREEN_ZONE.xMin,
-      width: GREEN_ZONE.width,
-      textAlign: "center",
-      fontSize: preset.fontSize,
-      fontWeight: 900,
-      color: "white",
-      textShadow: "0 0 8px rgba(0,0,0,0.8)",
-    }}>{text}</div>
-  );
-};
+```html
+<div class="clip" data-start="0" data-duration="3"
+     style="position: absolute; top: 280px; left: 60px; width: 960px;
+            text-align: center; font-size: 72px; font-weight: 900;
+            color: white; text-shadow: 0 0 8px rgba(0,0,0,0.8);">
+  When you push to main on Friday
+</div>
 ```
 
-Or a dev-time check:
-
-```ts
-if (!isInGreenZone({ x: 600, y: 1500, width: 400, height: 60 })) {
-  console.warn("Out of Green Zone — will be covered by platform UI");
-}
-```
+Mental check: `y >= 210`, `y + height <= 1480`, `x >= 60`, `x + width <= 960`.

@@ -1,5 +1,5 @@
 // Multi-backend transcription. Single entry-point `transcribe()` returns
-// Caption[] in the @remotion/captions shape. Three backends, all log via
+// Caption[] in the standard caption shape (cli/lib/captions/types.ts). Three backends, all log via
 // gen-log when projectId is supplied.
 //
 // Default = ElevenLabs Scribe v1 (rationale below). OpenRouter whisper-1 is
@@ -36,7 +36,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
-import type { Caption } from "@remotion/captions";
+import type { Caption } from "./captions/types.js";
 import { callLLM } from "./providers/llm.js";
 
 export type TranscribeBackend = "elevenlabs" | "openrouter" | "gemini";

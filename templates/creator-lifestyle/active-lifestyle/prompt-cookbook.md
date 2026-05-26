@@ -14,7 +14,7 @@ Per-beat prompt: <specific motion verb> + <product placement note> + <camera mov
 [SATISFACTION — 18-25s]
 Slow-mo or held shot. Smile / breath / view / refill / sip.
 Prompt: <facial expression> + <slow-mo cue> + <golden-hour or post-effort tone>.
-[Brand title overlay last 1.5s — Remotion text overlay, sans-serif bold]
+[Brand title overlay last 1.5s — HyperFrames text overlay, sans-serif bold]
 ```
 
 ## Activity vocabulary by sport
@@ -39,7 +39,7 @@ Prompt: <facial expression> + <slow-mo cue> + <golden-hour or post-effort tone>.
 | Activity beat 2 | In-frame but not framed | Subject is the action; product happens to be there. |
 | Activity beat 3 | Brief hero-glance OK | Watch-tap, bottle-sip, shoe-stride — incidental, not posed. |
 | Satisfaction | Slow-mo with product visible | Now you can hold on it 1.5-2s. Still feels earned. |
-| Outro | Brand title overlay | Remotion text, bottom-third, 1.5s hold, sans-serif bold. |
+| Outro | Brand title overlay | HyperFrames text, bottom-third, 1.5s hold, sans-serif bold. |
 
 ## Camera language
 
@@ -91,7 +91,7 @@ Prefer real diegetic capture or licensed library; ElevenLabs SFX library can fil
 ## Brand title-card outro
 
 - 1.5s hold at end of clip
-- Remotion text overlay, lower-third (Y around 1500-1600 in 1080×1920)
+- HyperFrames text overlay, lower-third (Y around 1500-1600 in 1080×1920)
 - Font: sans-serif bold (Inter Bold / Onest Bold / Manrope Bold)
 - Color: brand color OR white with subtle drop shadow
 - Animation: spring-in from bottom (0.4s)

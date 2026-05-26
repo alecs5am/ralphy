@@ -11,7 +11,7 @@
 | Clip count | 2-4 (hook → hero rotation → macro → finale) |
 | FPS | 30 |
 | Voiceover | **None by default.** Optional 1-line tag at finale ("From $199") only if user explicitly asks. |
-| Captions | Spec / feature overlays only — Remotion-rendered, not Whisper-transcribed |
+| Captions | Spec / feature overlays only — HyperFrames-rendered, not Whisper-transcribed |
 | Music | One track matched to category (cinematic / electronic / piano / percussion) |
 | Reference required? | **YES — real product photo / packaging / logo. Hard refuse without it.** |
 

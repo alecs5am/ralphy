@@ -66,7 +66,7 @@ Not a rule, just the actuals for reference:
 - **Title reveal:** opacity interpolates 0→1 over last 0.8s of clip 8.
 - **Outro:** 2s black card, fade in 0.5s / fade out 0.33s.
 
-See `composition.md` for the full Remotion pattern.
+See `composition.md` for the full HyperFrames pattern.
 
 ## What varies between videos in this vibe
 

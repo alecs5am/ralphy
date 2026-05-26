@@ -431,7 +431,7 @@ export function templateCmd() {
           ["hooks.md", "0-2s hook patterns + anti-patterns"],
           ["prompt-cookbook.md", "model-layer prompts + worked examples + camera vocabulary"],
           ["characters.md", "canonical character roster (italian-brainrot only)"],
-          ["composition.md", "Remotion composition pattern (vibe-reference)"],
+          ["composition.md", "HyperFrames composition pattern (vibe-reference)"],
           ["fragments.md", "reusable prompt fragments (vibe-reference)"],
           ["model-stack.md", "model choices + what to avoid (vibe-reference)"],
           ["reference-example.md", "concrete reference from the original project (vibe-reference)"],
@@ -513,26 +513,6 @@ export function templateCmd() {
 
       if (opts.brief) {
         await fs.writeFile(path.join(projDir, "BRIEF.md"), `# Brief\n\n${opts.brief}\n`);
-      }
-
-      // composition-props.json skeleton — wires `ralphy render <project>` to the
-      // generic per-template Remotion composition in src/lib/templates/. Templates
-      // declare `compositionTemplate.id` and an optional `compositionTemplate.defaults`
-      // map in template.json. Skipped if template.json doesn't declare it (legacy
-      // templates that hand-author per-project Remotion still work as before).
-      const compTemplate = (meta as any)?.compositionTemplate as
-        | { id: string; defaults?: Record<string, unknown> }
-        | undefined;
-      if (compTemplate?.id) {
-        const compProps: Record<string, unknown> = {
-          compositionId: compTemplate.id,
-          projectSlug: projectId,
-          ...(compTemplate.defaults ?? {}),
-        };
-        await fs.writeFile(
-          path.join(projDir, "composition-props.json"),
-          JSON.stringify(compProps, null, 2) + "\n",
-        );
       }
 
       const createdAt = new Date().toISOString();

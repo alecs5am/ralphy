@@ -193,7 +193,7 @@ and engineering.
 4. **Wrong color temperature for the category.** Luxury watch under 6500K daylight reads as a stock photo. Cosmetics under 5600K cool reads as clinical / pharmacy. Match temp to category (luxury / leather / wood = warm 3200-3500K; tech / metal / glass = cool 5400K+; cosmetics = warm-soft 3200K diffuse).
 5. **Camera shake on the rotation.** Negative-prompt it explicitly: `no camera shake, no handheld feel, locked-center static camera`.
 6. **Macro detail with the wrong focus plane.** Always specify the EXACT detail in the macro prompt (`extreme macro on the diagonal saddle-stitching at the bag handle base`), not just "close-up of the product".
-7. **Spec overlay text rendered by the i2v model.** Don't. Generate clean clips with no text, then add Remotion text overlays in composition. AI-rendered text always misspells the brand.
+7. **Spec overlay text rendered by the i2v model.** Don't. Generate clean clips with no text, then add HyperFrames text overlays in composition. AI-rendered text always misspells the brand.
 8. **Adding VO when the user didn't ask for it.** This template is no-VO by default. Resist the urge.
 
 ---
@@ -226,7 +226,7 @@ Keyframe: same as Beat 1 hero shot, with very subtle warm shift (3500K hint adds
 
 i2v: `Static. Subtle final 5° rotation back toward dead-center hero angle. Final spotlight intensity bump for hero presentation. Camera locked.`
 
-Remotion overlays: `Heritage Automatic` fades in at 10.0s, `Swiss-Made · 38 Jewels` at 10.7s, `From $8,500` at 11.3s. All bottom-third, white sans-serif, fade-out at 11.9s.
+HyperFrames overlays: `Heritage Automatic` fades in at 10.0s, `Swiss-Made · 38 Jewels` at 10.7s, `From $8,500` at 11.3s. All bottom-third, white sans-serif, fade-out at 11.9s.
 
 Music: Cinematic strings sustain throughout, single bell chime sonic signature on final fade.
 
@@ -256,7 +256,7 @@ i2v: `Case lid hinges open smoothly, lid pivots back 100°, revealing earbuds in
 
 **Beat 4 (9-10s) — Lid-closed hero + CTA.**
 
-Remotion overlays: `40hr battery · Active ANC · From $199`. Fade through final mechanical click + sonic chime.
+HyperFrames overlays: `40hr battery · Active ANC · From $199`. Fade through final mechanical click + sonic chime.
 
 Music: Ambient electronic pulse, harmonic chime at finale.
 
@@ -286,6 +286,6 @@ i2v: `Slow push-in on the brass hardware, then quick dissolve to macro on handle
 
 **Beat 4 (12-14s) — Hero lock + CTA.**
 
-Return to three-quarter front. Remotion overlays: `Full-grain Italian leather`, `Heritage saddle-stitched`, `From $480`.
+Return to three-quarter front. HyperFrames overlays: `Full-grain Italian leather`, `Heritage saddle-stitched`, `From $480`.
 
 Music: Warm orchestral underscore, soft leather creak foley, final warm chime.

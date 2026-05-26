@@ -107,7 +107,7 @@
 
 > "Big update on [topic] — here's what changed and what to do."
 
-- **Setup.** News-anchor archetype. Neutral expression, slight forward lean. Lower-third style overlay (handled in Remotion).
+- **Setup.** News-anchor archetype. Neutral expression, slight forward lean. Lower-third style overlay (handled in the HyperFrames composition).
 - **Why.** Authority + utility. Best paired with the news-anchor archetype + minimal background.
 - **Ideal niche.** Tech news, regulatory updates, finance, AI tools.
 - **Lip-sync emphasis.** "Big update" — clean plosives. Pause 300ms before "here's what changed". News-brief cadence is slower than ad cadence; let the avatar breathe.

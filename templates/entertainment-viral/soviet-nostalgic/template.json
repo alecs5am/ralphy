@@ -25,7 +25,7 @@
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter (generate_audio: false)",
     "voiceover": "ElevenLabs eleven_multilingual_v2 + user-chosen voice_id (native Russian, never model-native TTS)",
     "music": "Soviet bed = REQUIRED canonical trend track at assets/trend-soviet-bed.mp3 (do not generate). Hip-hop bed = ElevenLabs Music via ralphy generate music (force_instrumental: true) or user-provided.",
-    "composition": "Remotion 4.0.441 with TransitionSeries fade crossfades + dual-music split at era flip"
+    "composition": "HyperFrames 4.0.441 with TransitionSeries fade crossfades + dual-music split at era flip"
   },
   "assets": {
     "trendSovietBed": {

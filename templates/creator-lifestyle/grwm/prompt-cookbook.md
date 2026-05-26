@@ -55,7 +55,7 @@ Hard cut every **4-7 seconds**. Never linger on one beat past 8s. The exception 
 
 When in doubt, cut earlier. The format's energy comes from the rhythm.
 
-In Remotion, set each `<Sequence>` to start exactly where the previous one ends — no fade, no crossfade between makeup beats. A direct cut is the GRWM signature. Crossfade is reserved for the hook→base transition (optional, 6 frames) and final-look→CTA (optional, 8 frames).
+In HyperFrames, set each `<Sequence>` to start exactly where the previous one ends — no fade, no crossfade between makeup beats. A direct cut is the GRWM signature. Crossfade is reserved for the hook→base transition (optional, 6 frames) and final-look→CTA (optional, 8 frames).
 
 ## Voiceover settings
 
@@ -83,7 +83,7 @@ Pick one per project; do not split mid-video like in `before-after-product`.
 - **Hormozi-yellow** (default for high-energy storytime) — large, yellow + black outline, kinetic. For hot-takes, gossip, confessional.
 - **MinimalCaptions, bottom-third** (calmer vlog tone) — small, white, no outline. For corporate GRWM, advice, lifestyle vlog.
 
-Use OpenRouter `whisper-1` for transcription, then style in the Remotion composition. Do not let captions cover the makeup work — keep them in the bottom-third for any beat where the face is the subject.
+Use OpenRouter `whisper-1` for transcription, then style in the HyperFrames composition. Do not let captions cover the makeup work — keep them in the bottom-third for any beat where the face is the subject.
 
 ## Music
 

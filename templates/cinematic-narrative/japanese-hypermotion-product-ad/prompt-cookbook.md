@@ -376,7 +376,7 @@ energy, sparkly bells and crystal hits, 15 seconds instrumental
 
 ## SFX layer (per cut)
 
-Layered via `<Audio>` in `scenes.ts → sfx[]`. Use Remotion library where available, generate via ElevenLabs SFX otherwise.
+Layered via `<Audio>` in `scenes.ts → sfx[]`. Use HyperFrames library where available, generate via ElevenLabs SFX otherwise.
 
 | Cut | SFX |
 |---|---|

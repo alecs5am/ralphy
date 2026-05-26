@@ -150,7 +150,7 @@ const CURSOR_PLAYBOOKS: Array<{ slug: string; description: string }> = [
   { slug: "researcher", description: "Ralphy researcher — analyze references, URLs, @handles, trend queries" },
   { slug: "scenarist", description: "Ralphy scenarist — write scripts, scene-level scenario edits" },
   { slug: "art-director", description: "Ralphy art-director — image / video / VO / music generation + model swaps" },
-  { slug: "editor", description: "Ralphy editor — Remotion compositions, render, captions, audio mix" },
+  { slug: "editor", description: "Ralphy editor — HyperFrames compositions, render, captions, audio mix" },
   { slug: "producer", description: "Ralphy producer — end-to-end batches and template extraction" },
   { slug: "core", description: "Ralphy core — CLI setup, doctor, logs, missing keys" },
 ];

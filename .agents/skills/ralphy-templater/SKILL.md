@@ -32,7 +32,7 @@ Every extraction is keyed to a known file. If a file is missing, the skill degra
 | `prompts.json` (preferred) | Per-stage prompts (image / video / VO / music / captions) | `prompt-cookbook.md` — with `{{slots}}` replacing brand / product / persona names |
 | `asset-manifest.json` (required) | Locked refs, music beds, character masters, location plates | `template.json:assets` map + pool migration of heavy items |
 | `logs/generations.jsonl` (required) | Per-stage model picks + actual params + cost rollup | `model-stack.md` — model defaults + what to avoid + cost ballpark |
-| `composition-props.json` (vibe-ref only) | Remotion composition id + per-template defaults | `template.json:compositionTemplate.{id, defaults}` |
+| `index.html` (vibe-ref only) | HyperFrames composition skeleton + per-template defaults | `template.json:compositionTemplate.{id, defaults}` |
 | `BRIEF.md` (preferred) | The original user brief — sentence-level intent | Drives category classification + initial description draft |
 | `postmortem/02-lessons.md` (preferred) | Top rules + anti-patterns + workflow ordering | `TEMPLATE.md` "Key rules" section (top 5–7 distilled) |
 | `postmortem/04-models-and-cost.md` (preferred) | Spend rollup per stage | `README.md` "Cost ballpark" + `model-stack.md` defaults |
@@ -83,7 +83,7 @@ Output (JSON, pipe-friendly):
 
 2. **Read `BRIEF.md` (if present) + `scenario.json` headers** to get the elevator pitch. This grounds the LLM passes that follow.
 
-3. **Auto-detect `--kind`** via the rules in `references/kind-decision.md`. Default to `vibe-reference` if all four exist: `scenario.json`, `prompts.json`, `asset-manifest.json`, `composition-props.json`. Otherwise `vibe-style` (prompt cookbook only, no Remotion composition wiring).
+3. **Auto-detect `--kind`** via the rules in `references/kind-decision.md`. Default to `vibe-reference` if all four exist: `scenario.json`, `prompts.json`, `asset-manifest.json`, `index.html`. Otherwise `vibe-style` (prompt cookbook only, no composition wiring).
 
 4. **LLM pass — classify `--category`** through `callLLM()` using the prompt in `references/category-classifier.md`. The five segment-persona folders are defined there. User override via `--category` always wins.
 

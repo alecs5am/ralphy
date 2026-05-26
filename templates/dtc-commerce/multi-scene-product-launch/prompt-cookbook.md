@@ -180,7 +180,7 @@ extra logos.
 **Model:** `kwaivgi/kling-v3.0-pro`. (DO NOT use `bytedance/seedance-2.0` — content-moderation filter blocks photoreal AI faces.)
 **Image ref:** `scenes/NN/picked.png` (the chosen keyframe variant).
 **Duration:** `max(3, ceil(scene.durationSec))` — Kling minimum is 3s.
-**Aspect:** `9:16`, resolution `720p` (only one Kling supports — Remotion upscales).
+**Aspect:** `9:16`, resolution `720p` (only one Kling supports — HyperFrames upscales).
 **Cost:** ~$0.42 / 3s clip.
 
 ### Walking / dancing / floating clip — the locked block stack
@@ -255,9 +255,9 @@ appearing, no fingertip lifting off.
 
 ---
 
-## Stage 4 — Title cards (NO model call — Remotion-rendered)
+## Stage 4 — Title cards (NO model call — HyperFrames-rendered)
 
-Title cards are pure Remotion typography on black. Each `<TitleCard>` is a 1-state component; the cycling endcard is a `<TitleCardCycle>` that swaps strings every `duration / N_states`.
+Title cards are pure HyperFrames typography on black. Each `<TitleCard>` is a 1-state component; the cycling endcard is a `<TitleCardCycle>` that swaps strings every `duration / N_states`.
 
 Strings to wire (from the source project's pattern):
 
@@ -272,7 +272,7 @@ Use the brand's display typeface (e.g. Nothing kit uses `Ndot55` + `NType82`). I
 
 ---
 
-## Remotion composition patterns
+## HyperFrames composition patterns
 
 ```tsx
 // Per scene

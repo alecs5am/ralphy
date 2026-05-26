@@ -64,4 +64,4 @@ This scaffolds `workspace/projects/<new-project-id>/` with the empty subdirs + a
 - **Identity-lock is non-negotiable.** This template's entire reuse value is the discipline. A `ralphy template use` that skips the master-lock phase will produce drifty UGC.
 - **Geometry rule is non-negotiable.** Product stays >=30cm from face. Source project paid $2.24 to learn this.
 - **Russian / non-English target**: kling `--audio` accent-drifts (memory: `feedback_kling_no_ru_audio`). Switch to kling audio-off + ElevenLabs `eleven_multilingual_v2` post-hoc.
-- **Composition is hand-authored Remotion per-project** (~20 lines: `<Sequence>` x clip count + one `<Audio volume={0.18}>` overlay). This is `vibe-style`, not `vibe-reference` — there is no generic composition wiring.
+- **Composition is hand-authored HyperFrames per-project** (~20 lines: `<Sequence>` x clip count + one `<Audio volume={0.18}>` overlay). This is `vibe-style`, not `vibe-reference` — there is no generic composition wiring.

@@ -12,7 +12,7 @@ description: Pixar-3D-cartoon mini-soap-opera between anthropomorphic fruits /
   found-family) carried by direct character dialogue, not narrator. Veo 3.1 with
   native audio generates lip-synced speech directly; ElevenLabs adds NO
   additional music bed (Veo already injects ambient under each clip — two layers
-  = mud). Single-word pop-up captions in TheBoldFont sit on top via Remotion.
+  = mud). Single-word pop-up captions in TheBoldFont sit on top via HyperFrames.
 tags:
   - ai-drama
   - fruit-drama

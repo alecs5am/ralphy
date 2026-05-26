@@ -69,7 +69,7 @@
     "framingDefault": "9:16 letterboxed 1.85:1 — outer AbsoluteFill #000, inner 1080x584 div centered at top:668px, OffthreadVideo objectFit:'cover' to crop 16:9 source into 1.85:1 frame (~4% horizontal crop, invisible). Same scenes.ts drives the 16:9 wide composition via separate <Wide> wrapper.",
     "motionDoctrine": "every clip has one distinct physical micro-beat (gesture, head turn, shutter press, train pulling away) — start frame ≠ end frame per feedback_start_end_frame_motion_delta. NO pans, NO zooms, NO handheld. The camera doesn't have opinions; the framing does.",
     "lightDoctrine": "soft natural light only — window light, overcast sky, kissaten tube-fluorescent through condensation, top-down konbini, neon as fill. NO hard direct sunlight on faces, NO on-camera flash, NO HDR.",
-    "soundDoctrine": "zero diegetic audio (no train clatter, no rain, no traffic, no shutter). Pure music. Cuts on musical phrasing, NOT strict beats. Fade-to-black via Remotion interpolate (1.5s / 36 frames at 24fps) — no ffmpeg post-pass.",
+    "soundDoctrine": "zero diegetic audio (no train clatter, no rain, no traffic, no shutter). Pure music. Cuts on musical phrasing, NOT strict beats. Fade-to-black via HyperFrames interpolate (1.5s / 36 frames at 24fps) — no ffmpeg post-pass.",
     "gradeDoctrine": "color shifts per location: dawn cool-slate + cream / kissaten warm-tungsten + cyan / platform desaturated-gray + green Yamanote stripe / vending alley electric-cool-white + magenta sky / Shibuya dusk pink-purple + tungsten signage / rain monochrome cool-blue / trains-passing isolated soft pinks+blues + deep blacks",
     "skinDoctrine": "pores visible, slight asymmetry, no beauty-filter, warm skin tone, soft shadows (NEVER crushed-black on faces) — per feedback_photoreal_still_register memory",
     "trimDoctrine": "Kling/Seedance ALWAYS return clip duration + ~1s (24 frames at 24fps). Plan trim pass into the editor stage from turn 1 — run `ralphy ref analyze-video <local-path>` with the strict-JSON schema prompt against every clip in parallel (xargs -P 6 is safe). Bias trims toward gemini's 'tail' recommendation (cleaner cuts). Reserve extra duration for the peak shot."
@@ -175,6 +175,6 @@
     }
   },
   "compositionTemplate": null,
-  "compositionNote": "Source project's Remotion lives at src/videos/tokyo-y2k-001/{scenes.ts, index.tsx} and is project-specific (NOT a generic composition in src/lib/templates/). vibe-style kind per kind-decision.md — consumers will hand-author Remotion using the patterns documented in TEMPLATE.md Composition tricks section. Two-aspect output pattern (9:16 letterbox 1.85:1 + 16:9 native from one scenes.ts) is the reusable structure.",
+  "compositionNote": "Source project's HyperFrames lives at src/videos/tokyo-y2k-001/{scenes.ts, index.tsx} and is project-specific (NOT a generic composition in src/lib/templates/). vibe-style kind per kind-decision.md — consumers will hand-author HyperFrames using the patterns documented in TEMPLATE.md Composition tricks section. Two-aspect output pattern (9:16 letterbox 1.85:1 + 16:9 native from one scenes.ts) is the reusable structure.",
   "sourceProject": "workspace/projects/tokyo-y2k-001"
 }

@@ -109,5 +109,5 @@ Match archetype to subject:
 
 - `fragments.md` — character prompts + hook screenshot generators + monologue formulas.
 - `model-stack.md` — concrete `ralphy generate` commands and the veo vs kling trade-off.
-- `composition.md` — Remotion skeleton with the hook-screenshot overlay timing.
+- `composition.md` — HyperFrames skeleton with the hook-screenshot overlay timing.
 - `reference-example.md` — placeholder; fills in after the first real run.

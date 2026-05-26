@@ -92,4 +92,4 @@ The default multi-clip path is the production-grade output. Static mode exists f
 ## Read also
 
 - `hooks.md` — 12 brainrot opens with audio cues and stop-the-scroll mechanics.
-- `prompt-cookbook.md` — split-screen Remotion composition spec, ElevenLabs voice picks, caption style references, gameplay-loop sourcing, C2PA disclosure recipe, 8 mistakes, 4 worked examples.
+- `prompt-cookbook.md` — split-screen HyperFrames composition spec, ElevenLabs voice picks, caption style references, gameplay-loop sourcing, C2PA disclosure recipe, 8 mistakes, 4 worked examples.

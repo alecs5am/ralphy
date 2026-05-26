@@ -45,7 +45,7 @@ This is the format that moves athletic apparel, smart watches, supplements, and 
           shaker on rack between sets, sunglasses worn through the swing.
           2-4 micro-moments of the activity. Cadence, breath, form.
 18-25s  → Satisfaction beat. Smile at horizon / heavy breath / refill / recovery sip / fist-bump.
-          Optional last 1.5s: brand title-card overlay (Remotion).
+          Optional last 1.5s: brand title-card overlay (HyperFrames).
 ```
 
 ## Required user inputs

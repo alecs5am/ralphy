@@ -2,7 +2,7 @@
   "name": "Podcast Clip",
   "slug": "podcast-clip",
   "kind": "vibe-style",
-  "description": "Long-form podcast / interview / panel / talk \u2192 15-60s viral cut for TikTok / Reels / Shorts. Reference-required: a source long-form video URL or file MUST be supplied \u2014 there is no way to invent podcast content. Style discipline: title-banner with provocative hook quote at the top (12% of frame), karaoke captions sync'd to speech at the bottom (18%), dynamic 9:16 reframe (smart-crop on the active speaker), occasional B-roll cuts for variety, music typically OFF (diegetic VO carries) with optional low bed under the title-banner moment. One 60-90 minute podcast usually yields 2-4 short cuts that go viral. The tooling pipeline is end-to-end: yt-dlp pull \u2192 transcribe \u2192 Gemini-vision viral-moment picker \u2192 lossless extract \u2192 Remotion compose.",
+  "description": "Long-form podcast / interview / panel / talk \u2192 15-60s viral cut for TikTok / Reels / Shorts. Reference-required: a source long-form video URL or file MUST be supplied \u2014 there is no way to invent podcast content. Style discipline: title-banner with provocative hook quote at the top (12% of frame), karaoke captions sync'd to speech at the bottom (18%), dynamic 9:16 reframe (smart-crop on the active speaker), occasional B-roll cuts for variety, music typically OFF (diegetic VO carries) with optional low bed under the title-banner moment. One 60-90 minute podcast usually yields 2-4 short cuts that go viral. The tooling pipeline is end-to-end: yt-dlp pull \u2192 transcribe \u2192 Gemini-vision viral-moment picker \u2192 lossless extract \u2192 HyperFrames compose.",
   "tags": [
     "podcast",
     "podcast-clip",
@@ -49,9 +49,9 @@
     "transcription": "ElevenLabs Scribe v1 via `ralphy ref transcribe <slug>` \u2014 word-level timestamps (ts_start, ts_end per token). This is what makes karaoke captions sync to the millisecond and what feeds the viral-moment picker context window.",
     "viralMomentPicker": "OpenRouter google/gemini-2.5-flash via `.agents/skills/ralphy-researcher/scripts/find-viral-moments.ts` \u2014 ingests the transcript + sampled video frames, returns 4-8 candidate moments with (start, end, hook-quote, why-it-works) JSON. Cheap (\u2248$0.02-0.06 per 60-min source).",
     "lossSelessCut": "`ralphy video extract-segment <ref-slug> --start <ss> --end <ee> --pad-before 0.15 --pad-after 0.10 --out <project-id>/clips/cut-NN.mp4` \u2014 copy-codec ffmpeg cut, snapped to word boundaries from the transcript so no syllable is ever clipped.",
-    "reframe": "src/lib/utils/smart-crop.ts \u2014 single-speaker face-tracker (mediapipe-style bbox per frame) drives a panning 9:16 viewport over the source 16:9. For 2-speaker debates, vertical split-screen via Remotion <Sequence>+<OffthreadVideo>.",
+    "reframe": "src/lib/utils/smart-crop.ts \u2014 single-speaker face-tracker (mediapipe-style bbox per frame) drives a panning 9:16 viewport over the source 16:9. For 2-speaker debates, vertical split-screen via HyperFrames <Sequence>+<OffthreadVideo>.",
     "captions": "ElevenLabs Scribe v1 word-level timestamps consumed by KaraokeCaptions (Inter Bold 50px, bottom 18%, word-by-word fill). HormoziCaptions optional for hot-takes.",
-    "titleBanner": "Remotion overlay at top 12% of frame \u2014 animated 0.4s slide-in at clip start, holds for 2.0s, then fades. Inter Bold 70px, max 2 lines. Hook quote pulled from the picker output.",
+    "titleBanner": "HyperFrames overlay at top 12% of frame \u2014 animated 0.4s slide-in at clip start, holds for 2.0s, then fades. Inter Bold 70px, max 2 lines. Hook quote pulled from the picker output.",
     "music": "Typically OFF \u2014 diegetic voice carries the moment. Optional ElevenLabs Music low instrumental bed at -18dB under the first 2s (banner reveal) only, force_instrumental: true. Never under speech."
   },
   "constants": {
