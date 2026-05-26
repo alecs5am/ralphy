@@ -33,3 +33,7 @@ public/
 # preloaded assets. Un-ignore that subtree.
 !landing/public/
 !landing/public/**
+
+# …and the desktop app's public/ ships the brand fonts. Un-ignore it too.
+!desktop/public/
+!desktop/public/**
