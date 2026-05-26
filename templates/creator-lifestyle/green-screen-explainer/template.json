@@ -38,7 +38,7 @@
   },
   "stackSummary": {
     "characterKeyframe": "google/gemini-3-pro-image-preview via OpenRouter — creator pose with pointing / circle gesture, neutral background that crops cleanly. Multi-ref WITH user-supplied creator photo if a recurring persona is in play.",
-    "backdropOverlay": "Remotion-composited. The 'green-screen' is NOT a chroma-key trick — it's a Remotion composition: the user-supplied backdrop image fills the frame, the creator video is matte-cropped (or chroma-keyed if shot against green) and positioned at bottom-right ~1/3 of frame. Circle / arrow annotations are spring-in <Sequence> overlays.",
+    "backdropOverlay": "HyperFrames-composited. The 'green-screen' is NOT a chroma-key trick — it's a HyperFrames composition: the user-supplied backdrop image fills the frame, the creator video is matte-cropped (or chroma-keyed if shot against green) and positioned at bottom-right ~1/3 of frame. Circle / arrow annotations are spring-in <Sequence> overlays.",
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for the talking-head clip (5-15s, 1-3 clips, generate_audio: false). veo-3.1 acceptable when synced lip-sync on a real person reference is required.",
     "voiceover": "ElevenLabs eleven_multilingual_v2 — single TTS pass, voice settings tuned to reaction tone (calm-explain / outraged / curious / sarcastic). Language follows brief.",
     "captions": "OpenRouter whisper-1 word-level. Burn-in via MinimalCaptions or KaraokeCaptions positioned ABOVE the creator (so they don't block the backdrop or the creator).",

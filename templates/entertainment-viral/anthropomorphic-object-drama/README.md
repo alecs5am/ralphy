@@ -4,7 +4,7 @@ Pixar-3D telenovela parody played dead-straight by face-on-object characters (fr
 
 ## At a glance
 
-- **Kind:** vibe-style (no generic Remotion shipped — consumer hand-authors `src/videos/<id>/`)
+- **Kind:** vibe-style (no generic HyperFrames shipped — consumer hand-authors `src/videos/<id>/`)
 - **Category:** `entertainment-viral`
 - **Platform:** TikTok / Reels / Shorts (9:16, 1080×1920, 30 fps)
 - **Duration:** 48–64s (sweet spot: 56s = 7 × 8s)
@@ -53,7 +53,7 @@ Derived from `workspace/projects/fruit-drama-001/` ("AI Fruit Drama — Banana c
 
 ## Roadmap (TODO for a future iteration)
 
-- Generalize the Remotion composition into `src/lib/templates/AnthropomorphicObjectDrama.tsx` so this template can upgrade to `vibe-reference` with a `compositionTemplate.id` field
+- Generalize the HyperFrames composition into `src/lib/templates/AnthropomorphicObjectDrama.tsx` so this template can upgrade to `vibe-reference` with a `compositionTemplate.id` field
 - Run `/postmortem` on the next consumer project + backfill `TEMPLATE.md` with "Key rules" + "Workflow"
 - Migrate the `anchor-master-cast-lineup.png` + music bed to `ralphy-assets/pool/anthropomorphic-object-drama/` so they're shareable across machines without baking into the template repo
 - Add language-pair sub-cookbooks for non-EN audio (RU drifts on Veo, ES + ZH are reportedly cleaner — needs validation)

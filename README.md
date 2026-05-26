@@ -15,7 +15,7 @@
 
 ## What is this
 
-`ralphy` is a CLI + Remotion render pipeline + AI-agent skill bundle that turns a one-line brief into a finished UGC-style mp4. It wires up **OpenRouter** (image, video, LLM, vision, transcription), **ElevenLabs** (voice + music), **Remotion** (composition + final render), and a local **bun + SQLite** job queue.
+`ralphy` is a CLI + HyperFrames render pipeline + AI-agent skill bundle that turns a one-line brief into a finished UGC-style mp4. It wires up **OpenRouter** (image, video, LLM, vision, transcription), **ElevenLabs** (voice + music), **HyperFrames** (HTML + GSAP composition + final render), and a local **bun + SQLite** job queue.
 
 Two API keys. Two commands. Then ask your agent for a video.
 
@@ -116,6 +116,6 @@ PRs welcome — especially new templates (`templates/<category>/<slug>/`), new m
 
 <div align="center">
 
-Built with <a href="https://claude.com/claude-code">Claude Code</a>, <a href="https://bun.sh">Bun</a>, <a href="https://remotion.dev">Remotion</a>, <a href="https://openrouter.ai">OpenRouter</a>, and <a href="https://elevenlabs.io">ElevenLabs</a>.
+Built with <a href="https://claude.com/claude-code">Claude Code</a>, <a href="https://bun.sh">Bun</a>, <a href="https://github.com/heygen-com/hyperframes">HyperFrames</a>, <a href="https://openrouter.ai">OpenRouter</a>, and <a href="https://elevenlabs.io">ElevenLabs</a>.
 
 </div>

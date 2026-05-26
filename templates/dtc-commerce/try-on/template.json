@@ -43,7 +43,7 @@
     "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — character keyframe with consistent face / body / lighting / camera angle across ALL variants. Use ONE seed model image as ref, then generate N variant frames swapping ONLY the product (garment / glasses / lip color / earring). Drift in face or pose between variants is the #1 failure mode of this format.",
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 2-3s clips per variant (3-8 total). Motion vocabulary: slow turn, mirror flash, outfit-change spin, walk-into-camera. generate_audio: false.",
     "voiceover": "Usually NONE. Text-overlay product names + price carry the spot. If VO is requested: ElevenLabs eleven_multilingual_v2, single short tag-line at the final 'winner' beat.",
-    "captions": "No spoken-line captions. Remotion text-overlay only — large bold sans-serif product name + SKU + price, anchored bottom-third, fades on each variant beat.",
+    "captions": "No spoken-line captions. HyperFrames text-overlay only — large bold sans-serif product name + SKU + price, anchored bottom-third, fades on each variant beat.",
     "music": "ElevenLabs Music — single trend-bed (upbeat pop / hip-hop / electronic) with a clean BPM. Transitions land on the beat; the format dies if cuts are off-beat. Optional: licensed trend audio for TikTok-native uploads."
   },
   "constants": {

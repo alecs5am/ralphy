@@ -44,7 +44,7 @@
     "voiceover": "ElevenLabs eleven_multilingual_v2 — short POV line per scene (4-7 words). Language follows the user's brief; works in any language.",
     "music": "ElevenLabs Music — quirky upbeat instrumental, force_instrumental: true",
     "captions": "OpenRouter whisper-1 + HormoziCaptions or TikTokCaptions (large pop)",
-    "composition": "Remotion 4.0.441 — TransitionSeries fade 6 frames between scenes, music ducked under VO"
+    "composition": "HyperFrames 4.0.441 — TransitionSeries fade 6 frames between scenes, music ducked under VO"
   },
   "constants": {
     "vibeAnchor": "absurd-but-believable",

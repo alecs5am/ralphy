@@ -2,7 +2,7 @@
 
 The opening text overlay is optional but high-leverage: it sets the niche in <1s and gives the algorithm a hookable first frame. Keep it 1-7 words, kerned, low-key sans-serif (or a soft serif for fashion / aesthetic dumps), placed lower-third or top-third to leave the photo's subject visible.
 
-If the dump is silent (no VO), the text appears as a Remotion `<h1>` overlay across the first 1-2 photos and fades out before the chorus snap-cuts begin. If narrated, ElevenLabs reads the line over photo 1 only, then drops out.
+If the dump is silent (no VO), the text appears as a HyperFrames `<h1>` overlay across the first 1-2 photos and fades out before the chorus snap-cuts begin. If narrated, ElevenLabs reads the line over photo 1 only, then drops out.
 
 Each pattern below: setup → niche fit → example.
 

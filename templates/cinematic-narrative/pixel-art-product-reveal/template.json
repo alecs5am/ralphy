@@ -52,7 +52,7 @@
     "keyframes": "openai/gpt-5.4-image-2 via OpenRouter for product fidelity + typography (10/14 stills); google/gemini-3-pro-image-preview for hybrid photoreal-subject + illustrated-world scenes (4/14 stills, only when a hard layer-split between photoreal element and flat duotone world is the headline). Pass 3-4 ATOMIC style refs per call, not one composite screenshot.",
     "i2v": "bytedance/seedance-2.0 multi-frame (first+last) is the default — works for everything from entrance slams to photoreal-hand 180-degree orbits. Single-frame for the 2 macro inserts. AVOID kwaivgi/kling-v3.0-pro multi-frame: still broken on OpenRouter (`400 File is not in a valid base64 format`) as of 2026-05-18 — confirmed across two postmortems. Kling-pro single-frame works but is reserved for tight-portrait expression-only acting; on this template no such shot exists, so seedance owns the whole pipeline.",
     "voiceover": "None. This template is music + SFX only. Adding a human VO over a duotone-halftone world breaks the wordless print-zine register.",
-    "captions": "None in the body. The wordmark + tagline lockup at scene-08 is hand-illustrated typography baked into the keyframe, NOT a Remotion caption overlay.",
+    "captions": "None in the body. The wordmark + tagline lockup at scene-08 is hand-illustrated typography baked into the keyframe, NOT a HyperFrames caption overlay.",
     "music": "ElevenLabs Music — generate 5 parallel variants on different chiptune/lo-fi/indie-cinematic axes after the visual cut locks. STRIP ALL BRAND NAMES from the prompt (Game Boy / NES / SNES / Tetris / Mario Kart / Disasterpeace / Anamanaguchi all 400 with `bad_prompt`). Use the 400 response's `prompt_suggestion` field on retry."
   },
   "constants": {
@@ -62,7 +62,7 @@
     "motionRule": "all-caps-action-verbs-WHIPS-SLAMS-PUNCHES-per-flipper-rule-8",
     "layerRule": "hard-layer-split-photoreal-device-plus-flat-duotone-world-no-painterly-blend",
     "colorRule": "the-product-is-the-only-color-in-the-frame-everything-else-is-strict-2-tone-duotone",
-    "compositionWarning": "Remotion is project-specific at src/videos/<id>/ — clone scenes.ts/index.tsx skeleton from playdate-pixel-001, do NOT expect a generic composition in src/lib/templates/"
+    "compositionWarning": "HyperFrames is project-specific at src/videos/<id>/ — clone scenes.ts/index.tsx skeleton from playdate-pixel-001, do NOT expect a generic composition in src/lib/templates/"
   },
   "variationAxes": [
     "outro chroma slab style (full-bleed brand color / centered hero on slab / wordmark over halftone-burst / tagline-only over slab)",

@@ -71,7 +71,7 @@ Source project ran 6 prompt-iteration passes. For a DISCIPLINED single-pass run 
     "model": "kwaivgi/kling-v3.0-pro",
     "duration": "max(3, ceil(scene.durationSec))",
     "aspect": "9:16",
-    "resolution": "720p",           // upscale in Remotion
+    "resolution": "720p",           // upscale in the HyperFrames composition
     "image_ref": "scenes/NN/picked.png",
     "concurrency": 5                // parallel submits to provider
   }

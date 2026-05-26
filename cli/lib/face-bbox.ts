@@ -17,7 +17,7 @@ import { spawnSync } from "node:child_process";
 import { ensureFfmpeg } from "./ffmpeg-recipes.js";
 import { logGeneration } from "./gen-log.js";
 import { callLLM, resolveLLMProvider } from "./providers/llm.js";
-import type { Bbox, FrameBboxes } from "../../src/lib/utils/smart-crop.js";
+import type { Bbox, FrameBboxes } from "./smart-crop-types.js";
 
 export type DetectFacesOptions = {
   videoPath: string;

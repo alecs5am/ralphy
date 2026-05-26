@@ -44,9 +44,9 @@ ralphy project log-asset <id> --kind <kind> --source <path> --purpose <purpose>
 | Generation 5xx | Provider transient | Retry with exponential backoff (`ralphy generate` has built-in retry) |
 | Captions empty | whisper-1 didn't detect language | Pass `--language ru` explicitly |
 | Captions clip mid-word | No word-level timestamps | Confirm `transcribe.ts` sends `timestamp_granularities[]=word` |
-| Render fails "Cannot find composition" | `src/Root.tsx` not registered | Hand back to editor |
-| Render fails "version mismatch" | Remotion packages drift | `bun install` — all on 4.0.441 |
-| Asset 404 in render | symlink broken | `ls public/project-<id>` — re-create symlink |
+| Render fails "lint error" | `index.html` missing `data-composition-id` / `class="clip"` | `bunx hyperframes lint <project>` |
+| Render fails "timeline not registered" | `window.__timelines[<id>]` key mismatch | Confirm the key on registration matches `data-composition-id` byte-for-byte |
+| Asset 404 in render | Relative path broken in `index.html` | Verify `assets/` paths from inside the composition |
 | `ralphy setup` silently hangs | terminal without TTY | Use `--link <path>` non-TUI mode |
 
 ## Cost-tracking issues
@@ -85,6 +85,6 @@ bun run ralph -- <command>
 
 - Failed generation with an unclear prompt → `art-director playbook`.
 - Scenario doesn't land → `scenarist playbook`.
-- Render error in Remotion → `editor playbook` + `/ralphy-remotion`.
+- Render error in HyperFrames → `editor playbook` + `/hyperframes`.
 - Provider down → wait, no handback.
 - User wants a new feature → not my zone, I'll say so.

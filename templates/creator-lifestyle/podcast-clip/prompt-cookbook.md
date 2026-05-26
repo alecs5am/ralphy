@@ -21,7 +21,7 @@ The full mechanics of turning a long-form source into 1-4 viral cuts. Read this 
         ▼  ralphy video extract-segment   (lossless, snap-to-words)
 [ clips/cut-NN.mp4 — 9:16-reframable source crop ]
         │
-        ▼  Remotion compose
+        ▼  HyperFrames compose
         │     • smart-crop reframe (face-tracker pan)
         │     • karaoke captions (word-level from transcript)
         │     • title-banner overlay (top 12%, hook quote)
@@ -36,7 +36,7 @@ Six stages, all `ralphy`-driven. Never reach for `yt-dlp` / `ffmpeg` / `curl` di
 
 ---
 
-## Title-banner design (Remotion overlay spec)
+## Title-banner design (HyperFrames overlay spec)
 
 Position: **top 12% of frame** (y: 0 → 230 on a 1920-tall canvas; banner sits at y: 60-230).
 Width: full frame, 1080px.
@@ -51,22 +51,18 @@ Color matrix:
 
 Animation:
 
-```ts
-// Remotion pseudocode
-import { spring, useCurrentFrame, useVideoConfig } from 'remotion';
+```js
+// HyperFrames pseudocode — a paused GSAP timeline drives a banner element.
+// `tl` is registered on window.__timelines[<composition-id>]; the runtime seeks it.
 
-const frame = useCurrentFrame();
-const { fps } = useVideoConfig();
+// Slide-in 0.4s: translate from -100px to 0 with a spring-like ease.
+tl.fromTo("#title-banner",
+  { y: -100, opacity: 0 },
+  { y: 0, opacity: 1, duration: 0.4, ease: "back.out(1.7)" }, 0);
 
-// Slide-in: 0.4s
-const slide = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 12 });
-
-// Hold: 1.6s (frames 12-60)
-// Fade-out: 0.4s (frames 60-72)
-const fadeFrame = Math.max(0, frame - 60);
-const opacity = interpolate(fadeFrame, [0, 12], [1, 0], { extrapolateRight: 'clamp' });
-
-const translateY = interpolate(slide, [0, 1], [-100, 0]); // px
+// Hold 1.6s (0.4 → 2.0)
+// Fade-out 0.4s at the 2.0s mark.
+tl.to("#title-banner", { opacity: 0, duration: 0.4 }, 2.0);
 ```
 
 Hold can extend to 3.0s for the "wait for it..." cliffhanger pattern (#11 in `hooks.md`).
@@ -118,7 +114,7 @@ Pipeline (`src/lib/utils/smart-crop.ts`):
 2. **Detect face bbox** per frame (mediapipe or equivalent). For multi-speaker frames, pick the largest bbox or the one nearest to the speaker-diarization label from the transcript.
 3. **Smooth the x-center trajectory** with a 0.4s moving average — raw bbox jitter at 30fps causes visible shake.
 4. **Constrain to source bounds**: `x ∈ [crop_w/2, source_w - crop_w/2]`.
-5. **Output the crop as a per-frame `translateX` offset** to a Remotion `<OffthreadVideo>` scaled to fit-height.
+5. **Output the crop as a per-frame `translateX` offset** to a HyperFrames `<OffthreadVideo>` scaled to fit-height.
 
 Smoothing is critical. A jittery crop is the #1 viewer-noticeable defect; viewers can't articulate why the clip "feels off" but it cuts retention by ~15%.
 

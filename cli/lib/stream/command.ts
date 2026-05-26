@@ -4,7 +4,7 @@
 // Usage from a verb:
 //   const cs = new CommandStream();
 //   cs.event("render-started", { compositionId });
-//   /* ...spawn remotion... */
+//   /* ...spawn hyperframes... */
 //   cs.event("render-finished", { exitCode: 0 });
 //   cs.summary({ project, path, bytes, latencyMs });
 //

@@ -160,7 +160,7 @@ workspace/projects/<id>/
     music/                — background music
     captions/             — subtitles (.srt)
   asset-manifest.json     — asset registry (output of /ralph-ugc:generate-assets)
-  composition-props.json  — Remotion props (output of /ralph-ugc:compose-video)
+  index.html              — HyperFrames composition (output of /ralph-ugc:compose-video)
   render/
     final.mp4             — final video
 ```
@@ -209,7 +209,7 @@ templates/<id>/  (repo)   ─OR─   workspace/templates/<id>/  (local)
   reference-example.md    — concrete example from the source project with annotations (optional but recommended)
   fragments.md            — reusable prompt fragments (style, characters, products, quality guards, music, VO settings)
   model-stack.md          — what to use, what NOT to use (with failure modes)
-  composition.md          — Remotion pattern (TransitionSeries, music split, VO sync)
+  composition.md          — HyperFrames composition pattern (timing, transitions, music split, VO sync)
 ```
 
 **Principle:** a template is a vibe-reference. The scenario is written fresh through `scenarist playbook` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
@@ -395,7 +395,7 @@ ralph template create --name "Product Ad" --from-project working-example
 # 2. Create template.json (metadata), TEMPLATE.md (vibe, workflow),
 #    reference-example.md (concrete example from the source project),
 #    fragments.md (prompt library), model-stack.md (what/why),
-#    composition.md (Remotion pattern)
+#    composition.md (HyperFrames composition pattern)
 # 3. ralph template register <slug>
 #
 # Important: a template carries vibe and patterns, but does NOT generate the scenario mechanically.
@@ -451,12 +451,7 @@ ugc-cli/
 │   ├── index.ts             # Entry point (commander setup)
 │   ├── commands/            # Commands (brand.ts, project.ts, ...)
 │   └── lib/                 # Utilities (registry.ts, output.ts, paths.ts, ...)
-├── src/                     # Remotion sources
-│   ├── lib/components/      # Base library (captions, text, overlays, layouts)
-│   ├── showcase/            # Component preview (Remotion Studio = Storybook)
-│   ├── videos/{name}/       # Video-specific compositions (deletable)
-│   └── Root.tsx             # Registers all compositions
-├── dashboard/               # React SPA dashboard
+├── dashboard/               # React SPA dashboard (retired)
 │   ├── server/              # Hono API + chokidar + WebSocket
 │   └── src/                 # React + Zustand + Vite
 ├── workspace/               # ALL GENERATED FILES (gitignored)
@@ -485,8 +480,8 @@ ugc-cli/
 
 1. **Always use the ralph CLI** for CRUD operations. Don't write to registry.json directly.
 2. **Parse the JSON output** of CLI commands inside skills to get data.
-3. **Generated content** lives in `workspace/` only. Never auto-write into `src/`.
-4. **Remotion assets** — symlinks `public/project-{id}` → `workspace/projects/{id}/assets/` before render, removed after.
+3. **Generated content** lives in `workspace/projects/<id>/` only.
+4. **HyperFrames assets** — reference `workspace/projects/{id}/assets/` via relative paths from inside `index.html`. No symlinks.
 5. **Check status** via `ralph project show <id> --status` before launching the next pipeline step.
 6. **Batch mode** — don't run more projects in parallel than `config.render.concurrency`.
 7. **This documentation can be updated** — if you add a new command or change behavior, refresh this file.

@@ -16,7 +16,7 @@ openai/gpt-5.4-image-2         ← 1024x1024 SQUARE still (~$0.20, ~3 min)
 kwaivgi/kling-v3.0-pro --audio ← 15s 960x960 clip + diegetic ambient (~$2.10, ~3 min)
         │
         ▼
-final mp4 — ship raw, no Remotion composition needed
+final mp4 — ship raw, no HyperFrames composition needed
 ```
 
 ## Stage 1 — Image (square broadcast-capture still)
@@ -62,7 +62,7 @@ final mp4 — ship raw, no Remotion composition needed
 | Voiceover | 0 (Kling produces diegetic audio) | $0.00 |
 | Music | 0 (template anti-pattern — never add) | $0.00 |
 | Captions | 0 (template uses no caption layer; add at composition time if posting with a hot-take overlay) | $0.00 |
-| Render | 0 (ship raw Kling mp4 — no Remotion composition) | $0.00 |
+| Render | 0 (ship raw Kling mp4 — no HyperFrames composition) | $0.00 |
 | **Total — minimum-viable** | | **$2.30** |
 
 ## Cost ballpark for a typical session

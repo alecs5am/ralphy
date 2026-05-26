@@ -28,7 +28,6 @@ type DoctorReport = {
     home: string;
     repoRoot: string | null;
     templatesSource: "bundled" | "repo";
-    remotionSource: "bundled" | "repo";
   };
   versions?: {
     current: string;
@@ -104,7 +103,6 @@ export function doctorCmd() {
           home: ralphyHome(),
           repoRoot: installInfo.repoRoot,
           templatesSource: installInfo.mode === "developer" ? "repo" : "bundled",
-          remotionSource: installInfo.mode === "developer" ? "repo" : "bundled",
         },
         deps: { bun: false, ffmpeg: false },
         keys: {},

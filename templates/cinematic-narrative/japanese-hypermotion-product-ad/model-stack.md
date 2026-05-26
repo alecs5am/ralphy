@@ -52,7 +52,7 @@ Slot names lowercase-kebab only (`music-a-orchestral`, NEVER `music-A-orchestral
 
 ## Captions
 
-**None.** This template has no caption layer. All on-screen text is diegetic katakana baked into the still (impact text, speech bubbles, exploded-view labels, final logo + slogan). The text IS part of the still composition, not a Remotion caption overlay.
+**None.** This template has no caption layer. All on-screen text is diegetic katakana baked into the still (impact text, speech bubbles, exploded-view labels, final logo + slogan). The text IS part of the still composition, not a HyperFrames caption overlay.
 
 ## Cost per stage (Flipper baseline, disciplined run target)
 

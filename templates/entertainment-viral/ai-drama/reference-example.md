@@ -5,7 +5,7 @@ The canonical seed project for this template. Built 2026-05-11. 56s English frui
 ## At a glance
 
 - **Project ID:** `fruit-drama-001`
-- **Composition ID in Remotion:** `FruitDrama001`
+- **Composition ID in the HyperFrames composition:** `FruitDrama001`
 - **Duration:** 56.1s = 7 scenes × 8s
 - **Aspect:** 9:16, 1080×1920, 30fps
 - **VO language:** English (Veo native)
@@ -42,9 +42,9 @@ workspace/projects/fruit-drama-001/
 ├── render/
 │   ├── concat.mp4                ← lossless concat of 7 Veo mp4s
 │   ├── final.mp4                 ← concat + loudnorm (Veo audio only)
-│   ├── final-popwords.mp4        ← Remotion render w/ PopWordCaptions overlay  ← deliverable
+│   ├── final-popwords.mp4        ← HyperFrames render w/ PopWordCaptions overlay  ← deliverable
 │   ├── final-with-2music.mp4     ← bug archive (had double-music; kept for diffing)
-│   └── final.srt                 ← optional .srt for non-Remotion captioning paths
+│   └── final.srt                 ← optional .srt for non-HyperFrames captioning paths
 └── logs/
     ├── generations.jsonl         ← every model call + cost
     └── user-prompts.jsonl
@@ -105,8 +105,8 @@ ffmpeg -i $P/render/concat.mp4 -af "loudnorm=I=-16:TP=-1.5:LRA=11" \
 ralphy generate captions --project fruit-drama-001 \
   --audio $P/render/final.mp4 --language en
 
-# 4. Remotion render with PopWordCaptions
-bunx remotion render src/index.ts FruitDrama001 \
+# 4. HyperFrames render with PopWordCaptions
+bunx hyperframes render src/index.ts FruitDrama001 \
   $P/render/final-popwords.mp4 --codec h264 --crf 18 --concurrency 4
 ```
 

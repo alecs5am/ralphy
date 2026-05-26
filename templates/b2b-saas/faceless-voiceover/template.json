@@ -42,7 +42,7 @@
     "voiceover": "ElevenLabs eleven_multilingual_v2 (default, calm-narrator) or eleven_v3 (storytelling drama / true-crime). Single TTS pass with stability 0.4-0.5, similarity_boost 0.75, style 0.15-0.30 depending on tone. Language follows the brief.",
     "keyframes": "google/gemini-3-pro-image-preview via OpenRouter for AI-generated b-roll keyframes (1 keyframe per b-roll cut, 6-14 total). Static stock footage is an alternate path — when used, this stage is skipped.",
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for short b-roll motion clips (5s default; 3s for fast cuts). generate_audio: false. One i2v call per keyframe. Mix freely with stock for hybrid b-roll.",
-    "captions": "ElevenLabs Scribe v1 transcribes the rendered VO to word-level timestamps. Burn-in via Remotion HormoziCaptions (default), KaraokeCaptions (story-pacing), or MinimalCaptions (minimal). Mandatory — 85% watch muted.",
+    "captions": "ElevenLabs Scribe v1 transcribes the rendered VO to word-level timestamps. Burn-in via HyperFrames HormoziCaptions (default), KaraokeCaptions (story-pacing), or MinimalCaptions (minimal). Mandatory — 85% watch muted.",
     "music": "ElevenLabs Music — single ambient/cinematic underscore at low volume, ducked under VO via `ralphy audio sidechain` to roughly -12dB. No vocals, no melody hooks that compete with narration."
   },
   "constants": {

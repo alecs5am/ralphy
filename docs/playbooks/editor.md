@@ -4,27 +4,20 @@
 
 Composer + renderer. I take `scenario.json` + `asset-manifest.json`, assemble an HTML composition with GSAP, and render an MP4 via HyperFrames. I do not generate media — that's the art director. I stitch, time, transition, caption, mix, sanity-check.
 
-> **STOP rule.** Render only via `ralphy render`. FFmpeg only via `ralphy audio` / `ralphy video`. No direct `bunx hyperframes render` / `bunx remotion render` outside debugging, no ad-hoc `ffmpeg` shells — every recipe is a verb that auto-logs. AGENTS invariant #2.
+> **STOP rule.** Render only via `ralphy render`. FFmpeg only via `ralphy audio` / `ralphy video`. No direct `bunx hyperframes render` outside debugging, no ad-hoc `ffmpeg` shells — every recipe is a verb that auto-logs. AGENTS invariant #2.
 
-## Engine selection
+## Engine
 
-| Project shape | Engine | Default |
-|---|---|---|
-| `workspace/projects/<id>/index.html` present | HyperFrames | ✅ |
-| `workspace/projects/<id>/composition-props.json` present (no index.html) | Remotion (fallback) | — |
-| Neither | Error — author `index.html` first | — |
-
-Force via `--engine hyperframes|remotion`. HyperFrames is the **default** for new work — see [`hyperframes.md`](hyperframes.md) for composition rules, GSAP timelines, registry blocks, captions, transitions, audio mixing. The legacy Remotion path is documented at [`remotion.md`](remotion.md) and stays available for `src/videos/*` and any project that explicitly ships `composition-props.json`.
+HyperFrames is the only render engine. Every project must ship `workspace/projects/<id>/index.html`. See [`hyperframes.md`](hyperframes.md) for composition rules, GSAP timelines, registry blocks, captions, transitions, audio mixing.
 
 ## CLI cookbook
 
-**Render only via `ralphy render`. FFmpeg only via `ralphy audio` / `ralphy video`. Never call `bunx hyperframes render` / `bunx remotion render` directly outside debugging, and never shell out to ad-hoc ffmpeg — every recipe below is a verb that auto-logs.**
+**Render only via `ralphy render`. FFmpeg only via `ralphy audio` / `ralphy video`. Never call `bunx hyperframes render` directly outside debugging, and never shell out to ad-hoc ffmpeg — every recipe below is a verb that auto-logs.**
 
 ```bash
-# Final render — auto-detect engine (HyperFrames if index.html, else Remotion)
+# Final render
 ralphy render <project-id> [--loudnorm]
-ralphy render <project-id> --engine hyperframes --fps 60 --quality high
-ralphy render <project-id> --engine remotion             # force fallback
+ralphy render <project-id> --fps 60 --quality high
 
 # Captions
 ralphy generate captions --project <id> --audio <vo.mp3>     # → captions.json (Caption[])
@@ -54,7 +47,7 @@ ralphy project show <id> --status        # what's done / missing
 ralphy project log <id> --type generations --limit 50    # ffmpeg + render entries
 ```
 
-For HyperFrames API specifics (composition rules, GSAP timelines, captions, transitions, registry blocks) read [`hyperframes.md`](hyperframes.md) — that's the reference manual, not this playbook. For the Remotion fallback engine specifics, read [`remotion.md`](remotion.md).
+For HyperFrames API specifics (composition rules, GSAP timelines, captions, transitions, registry blocks) read [`hyperframes.md`](hyperframes.md) — that's the reference manual, not this playbook.
 
 ## Sub-docs (read on demand)
 
@@ -80,23 +73,21 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 ## What I read on start
 
 - **`AGENTS.md`** — invariants (no auto-Studio, no scripts, ralphy render).
-- **[hyperframes playbook](hyperframes.md)** — reference manual for HyperFrames composition / captions / transitions / GSAP / registry. **Default engine.**
-- **[remotion playbook](remotion.md)** — fallback engine reference (only when `--engine remotion` or `composition-props.json` is present).
+- **[hyperframes playbook](hyperframes.md)** — reference manual for HyperFrames composition / captions / transitions / GSAP / registry.
 - `workspace/projects/<id>/scenario.json` — structure and timings.
 - `workspace/projects/<id>/asset-manifest.json` — asset paths.
-- `workspace/projects/<id>/index.html` (HyperFrames) or `workspace/projects/<id>/composition-props.json` (Remotion fallback).
+- `workspace/projects/<id>/index.html` — the composition.
 - `workspace/projects/<id>/design.md` — brand source-of-truth (HyperFrames skill gate).
-- `src/lib/components/` — legacy durable Remotion library (12 caption styles, overlays, layouts). Used only on the Remotion fallback path.
 - `docs/green-zone.md` for text positioning.
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **`ralphy render <id>`** — the only render path. Don't call `bunx hyperframes render` / `bunx remotion render` directly (except for debugging).
-2. **No auto-launched preview / Studio.** Don't run `hyperframes preview` or `remotion studio` in the background. If the user wants a preview — tell them plainly to run it foreground.
+1. **`ralphy render <id>`** — the only render path. Don't call `bunx hyperframes render` directly (except for debugging).
+2. **No auto-launched preview / Studio.** Don't run `hyperframes preview` in the background. If the user wants a preview — tell them plainly to run it foreground.
 3. **Captions via `ralphy generate captions`** (whisper-1 OpenRouter) or `bunx hyperframes transcribe` for word-level timestamps. See [editor/captions.md](editor/captions.md).
 4. **Quality gate before final-render** — every slot in the manifest must have `score >= 7` or explicit bypass-consent.
 5. **FFmpeg post-processing** — only via `cli/lib/ffmpeg-recipes.ts`. See [editor/hard-rules.md](editor/hard-rules.md) (12 items).
-6. **Motion graphics → composition code, never video models** (`04.0A.02`). See the decision tree below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as HyperFrames HTML + GSAP (or Remotion components on the fallback path). They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
+6. **Motion graphics → composition code, never video models** (`04.0A.02`). See the decision tree below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as HyperFrames HTML + GSAP. They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
 
 ## Pixels vs code — the motion-graphics decision tree (04.0A.02)
 
@@ -105,18 +96,18 @@ Before routing a scene to `ralphy generate video`, classify the output:
 | Pattern | Route | Why |
 |---|---|---|
 | Live-action scene (person, room, action, weather, gameplay capture) | `ralphy generate video` (i2v / t2v) | Model produces pixels the code can't fake |
-| Photoreal still + parallax | `ralphy generate image` + HyperFrames GSAP tween (or Remotion `interpolate`/`spring` on fallback) | Image is the asset; motion is the composition |
-| Animated text / kinetic typography / "WORDS SLAM IN" | HyperFrames component + GSAP timeline (or `src/lib/captions/*` Remotion component on fallback) | Code controls timing and exact spelling; video model will smear letters and drift fonts |
-| Lower-third / name card / chyron | HyperFrames HTML + GSAP (or Remotion component on fallback) | Trivially parameterized; pixel-route would re-render fonts every gen |
-| Animated chart / data viz | HyperFrames HTML + GSAP / Three.js (or Remotion Recharts/D3 on fallback) | Code is the source of truth for the data; pixel-route would hallucinate values |
-| Animated UI mockup / app screen | HyperFrames HTML + GSAP (or Remotion JSX on fallback) | Pixel-route invents UI affordances; the result reads as AI slop |
-| Transition between two clips | HyperFrames shader/crossfade registry block (or Remotion `<TransitionSeries>` on fallback) | The two clips are the assets; the transition is a code recipe |
-| Particle / FX overlay | HyperFrames CSS/SVG/Canvas/WebGPU (or Remotion component on fallback) | Repeatable; pixel-route is non-deterministic |
-| Lottie animation drop-in | HyperFrames `lottie` adapter (or Remotion `<Lottie />` on fallback) | Lottie file is the asset; runtime plays it deterministically |
+| Photoreal still + parallax | `ralphy generate image` + HyperFrames GSAP tween | Image is the asset; motion is the composition |
+| Animated text / kinetic typography / "WORDS SLAM IN" | HyperFrames component + GSAP timeline | Code controls timing and exact spelling; video model will smear letters and drift fonts |
+| Lower-third / name card / chyron | HyperFrames HTML + GSAP | Trivially parameterized; pixel-route would re-render fonts every gen |
+| Animated chart / data viz | HyperFrames HTML + GSAP / Three.js | Code is the source of truth for the data; pixel-route would hallucinate values |
+| Animated UI mockup / app screen | HyperFrames HTML + GSAP | Pixel-route invents UI affordances; the result reads as AI slop |
+| Transition between two clips | HyperFrames shader/crossfade registry block | The two clips are the assets; the transition is a code recipe |
+| Particle / FX overlay | HyperFrames CSS/SVG/Canvas/WebGPU | Repeatable; pixel-route is non-deterministic |
+| Lottie animation drop-in | HyperFrames `lottie` adapter | Lottie file is the asset; runtime plays it deterministically |
 
 **Tell-tale signs** (the lint at `bun run lint:templates` flags known offenders in `prompts.json`): "animated text", "kinetic typography", "lower third animates in", "chart animates in", "logo slides in", "transition wipe" → these go to the HTML+GSAP side, not the video model. If you find yourself writing one of those phrases as a `--prompt` to `ralphy generate video`, stop and compose the component instead.
 
-Cross-link: read [`hyperframes.md`](hyperframes.md) (default) or [`remotion.md`](remotion.md) (fallback) for the API specifics.
+Cross-link: read [`hyperframes.md`](hyperframes.md) for the API specifics.
 
 ## Handoff
 
@@ -124,4 +115,3 @@ Cross-link: read [`hyperframes.md`](hyperframes.md) (default) or [`remotion.md`]
 - Timings drifted (VO ≠ scenario.duration) → **scenarist playbook** to re-time scenes.
 - After `final-render`, if it's part of a batch → **producer playbook**.
 - New HyperFrames pattern → **[hyperframes playbook](hyperframes.md)** + relevant skill body (`gsap`, `lottie`, `animejs`, …) before writing code.
-- Porting a legacy Remotion composition → use the `remotion-to-hyperframes` skill, or stay on Remotion via `--engine remotion`.

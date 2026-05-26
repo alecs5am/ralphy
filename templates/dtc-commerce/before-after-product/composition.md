@@ -1,177 +1,46 @@
 # Composition — before-after-product
 
-Remotion 4.0.441, 9:16, 30fps, 1080×1920. Total length: 15-18s.
+HyperFrames, 9:16, 30fps, 1080×1920. Total length: 15-18s.
 
-## Skeleton
+## Beat structure
 
-```tsx
-// src/videos/before-after-<slug>/index.tsx
-import React from "react";
-import { AbsoluteFill, Audio, Sequence, Video, staticFile } from "remotion";
-import { TransitionSeries, linearTiming } from "@remotion/transitions";
-import { fade } from "@remotion/transitions/fade";
-import { HormoziCaptions } from "../../lib/components/captions/HormoziCaptions";
-import { MinimalCaptions } from "../../lib/components/captions/MinimalCaptions";
-import type { Caption } from "@remotion/captions";
+The canonical before/after split lands the reveal at the 5s mark.
 
-const FPS = 30;
-const FADE_FRAMES = 6;
-const SPLIT_FRAME = 150; // 5s mark — pain → solution split
-const MUSIC_CROSSFADE_FRAMES = 30; // 1s
+| Phase | Window | Content | Music |
+|---|---|---|---|
+| Before | 0–5s | 2-3 short pain-state clips (total ~5s) | `music-before.mp3` — flat, slightly melancholic, low energy |
+| Reveal | 5.0–6.5s | 1–1.5s product reveal clip | crossfade music tracks across 30 frames |
+| After | 6.5–15.0s | 2-3 solution clips (total ~9s) | `music-after.mp3` — upbeat, brighter |
 
-type Scene = { id: string; durationSec: number; videoSrc: string };
-type Props = {
-  beforeScenes: Scene[];   // 2-3 clips, total ~5s
-  revealClip: Scene;       // 1-1.5s
-  afterScenes: Scene[];    // 2-3 clips, total ~9s
-  voBeforeSrc: string;
-  voAfterSrc: string;
-  captionsBefore: Caption[];
-  captionsAfter: Caption[];
-  musicBeforeSrc: string;
-  musicAfterSrc: string;
-  totalDurationSec: number;
-};
+## Layer stack
 
-export const BeforeAfterProduct: React.FC<Props> = ({
-  beforeScenes, revealClip, afterScenes,
-  voBeforeSrc, voAfterSrc,
-  captionsBefore, captionsAfter,
-  musicBeforeSrc, musicAfterSrc,
-}) => {
-  return (
-    <AbsoluteFill>
-      <TransitionSeries>
-        {/* "Before" section: pain scenes (~5s) */}
-        {beforeScenes.map((scene, i) => (
-          <React.Fragment key={`before-${i}`}>
-            <TransitionSeries.Sequence durationInFrames={Math.round(scene.durationSec * FPS)}>
-              <Video src={staticFile(scene.videoSrc)} muted />
-            </TransitionSeries.Sequence>
-            <TransitionSeries.Transition
-              presentation={fade()}
-              timing={linearTiming({ durationInFrames: FADE_FRAMES })}
-            />
-          </React.Fragment>
-        ))}
-
-        {/* Reveal: 1-1.5s */}
-        <TransitionSeries.Sequence durationInFrames={Math.round(revealClip.durationSec * FPS)}>
-          <Video src={staticFile(revealClip.videoSrc)} muted />
-        </TransitionSeries.Sequence>
-        <TransitionSeries.Transition
-          presentation={fade()}
-          timing={linearTiming({ durationInFrames: FADE_FRAMES })}
-        />
-
-        {/* "After" section: demo + outro (~9s) */}
-        {afterScenes.map((scene, i) => (
-          <React.Fragment key={`after-${i}`}>
-            <TransitionSeries.Sequence durationInFrames={Math.round(scene.durationSec * FPS)}>
-              <Video src={staticFile(scene.videoSrc)} muted />
-            </TransitionSeries.Sequence>
-            {i < afterScenes.length - 1 && (
-              <TransitionSeries.Transition
-                presentation={fade()}
-                timing={linearTiming({ durationInFrames: FADE_FRAMES })}
-              />
-            )}
-          </React.Fragment>
-        ))}
-      </TransitionSeries>
-
-      {/* Captions split — Hormozi for "before", Minimal for "after" */}
-      <Sequence from={0} durationInFrames={SPLIT_FRAME}>
-        <HormoziCaptions captions={captionsBefore} />
-      </Sequence>
-      <Sequence from={SPLIT_FRAME}>
-        <MinimalCaptions captions={captionsAfter} />
-      </Sequence>
-
-      {/* VO split */}
-      <Sequence from={0} durationInFrames={SPLIT_FRAME}>
-        <Audio src={staticFile(voBeforeSrc)} />
-      </Sequence>
-      <Sequence from={SPLIT_FRAME}>
-        <Audio src={staticFile(voAfterSrc)} />
-      </Sequence>
-
-      {/* Music cross-fade at SPLIT_FRAME */}
-      <Audio
-        src={staticFile(musicBeforeSrc)}
-        volume={(f) => {
-          if (f < SPLIT_FRAME - MUSIC_CROSSFADE_FRAMES) return 0.6;
-          if (f < SPLIT_FRAME) {
-            const t = (f - (SPLIT_FRAME - MUSIC_CROSSFADE_FRAMES)) / MUSIC_CROSSFADE_FRAMES;
-            return 0.6 * (1 - t);
-          }
-          return 0;
-        }}
-      />
-      <Audio
-        src={staticFile(musicAfterSrc)}
-        volume={(f) => {
-          if (f < SPLIT_FRAME) return 0;
-          if (f < SPLIT_FRAME + MUSIC_CROSSFADE_FRAMES) {
-            const t = (f - SPLIT_FRAME) / MUSIC_CROSSFADE_FRAMES;
-            return 0.6 * t;
-          }
-          return 0.6;
-        }}
-        startFrom={0}
-      />
-    </AbsoluteFill>
-  );
-};
-```
+1. **Before clips** — `<video class="clip" data-start="<off>" data-duration="<dur>" data-volume="0">` stacked with 6-frame crossfades.
+2. **Reveal clip** — `<video class="clip" data-start="5.0" data-duration="1.5" data-volume="0">` with a GSAP scale-in (`back.out(2)`) for impact.
+3. **After clips** — same pattern, with brighter color grade applied via CSS `filter` on the wrapping `<div>`.
+4. **Captions (before)** — minimal style block, low-energy (`bunx hyperframes add karaoke-warm` with a muted accent color).
+5. **Captions (after)** — kinetic-slam block (`bunx hyperframes add kinetic-slam`) with high-energy reveals.
+6. **VO (before)** — `<audio data-start="0" data-volume="1" src="assets/voiceover/vo-before.mp3">`.
+7. **VO (after)** — `<audio data-start="<after-start>" data-volume="1" src="assets/voiceover/vo-after.mp3">`.
+8. **Music before** — `<audio data-start="0" data-volume="0.12" src="assets/music/music-before.mp3">`. GSAP fades volume to 0 across the reveal window.
+9. **Music after** — `<audio data-start="<reveal-end>" data-volume="0" src="assets/music/music-after.mp3">`. GSAP fades volume from 0 to 0.15 across the reveal window.
 
 ## Component choices
 
-- **Captions split:** `HormoziCaptions` (before) → `MinimalCaptions` (after). Visual mirror of the emotional arc.
-- **Transitions:** `fade` 6 frames between every scene. The reveal frame fades in from black over 6 frames for subtle drama.
-- **No hook screenshot** in this template — the pain visual is itself the hook.
+- **Captions:** karaoke-warm (calm, muted) for the before phase; kinetic-slam (energetic) for the after phase. The contrast in caption energy reinforces the emotional flip.
+- **Transition:** 6-frame fade between adjacent clips. The reveal itself uses a GSAP scale-in, not a transition block.
 
 ## Audio mix
 
-| Track | Volume | Duck under VO? |
+| Track | Volume | Notes |
 |---|---|---|
-| VO before | 1.0 | — |
-| VO after | 1.0 | — |
-| Music before | 0.6 baseline, fade out at split | yes (duck to 0.15 while VO is active) |
-| Music after | 0.6 baseline, fade in at split | yes (duck to 0.15 while VO is active) |
-
-For full ducking, wrap each music's `volume` lambda in another `interpolate` checking the VO active windows. See [`../../docs/playbooks/editor/audio-mixing.md`](../../docs/playbooks/editor/audio-mixing.md) for the ducking pattern.
+| VO master | 1.0 | mono mp3, two separate files for before / after halves |
+| Music before | 0.12 | ducks to 0 over reveal window |
+| Music after | 0 → 0.15 | ramps in over reveal window |
 
 Loudnorm post-render via `ralphy render <id> --loudnorm`.
 
-## Composition props shape
+## Authoring
 
-```json
-{
-  "compositionId": "BeforeAfterProduct",
-  "totalDurationSec": 15,
-  "beforeScenes": [
-    { "id": "scene-before-01", "durationSec": 2, "videoSrc": "videos/scene-before-01.mp4" },
-    { "id": "scene-before-02", "durationSec": 3, "videoSrc": "videos/scene-before-02.mp4" }
-  ],
-  "revealClip": { "id": "scene-reveal", "durationSec": 1, "videoSrc": "videos/scene-reveal.mp4" },
-  "afterScenes": [
-    { "id": "scene-after-01", "durationSec": 4, "videoSrc": "videos/scene-after-01.mp4" },
-    { "id": "scene-after-02", "durationSec": 3, "videoSrc": "videos/scene-after-02.mp4" },
-    { "id": "scene-outro", "durationSec": 2, "videoSrc": "videos/scene-outro.mp4" }
-  ],
-  "voBeforeSrc": "voiceover/vo-before.mp3",
-  "voAfterSrc": "voiceover/vo-after.mp3",
-  "captionsBefore": [],
-  "captionsAfter": [],
-  "musicBeforeSrc": "music/music-before.mp3",
-  "musicAfterSrc": "music/music-after.mp3"
-}
-```
+Build offsets in JS inside the `<script>` tag, register the timeline on `window.__timelines["<id>"]`, mark all timed elements with `class="clip"` and `data-start` / `data-duration` attributes. The root needs `data-composition-id`, `data-width="1080"`, `data-height="1920"`, `data-start="0"`.
 
-## Quirks / gotchas
-
-- **Reveal timing is critical.** `SPLIT_FRAME = 150` (5s @ 30fps). If the reveal doesn't land exactly on this frame, the emotional arc breaks. The editor must confirm the reveal clip's "moment of reveal" aligns with the split.
-- **Music cross-fade is 30 frames (1s) — short.** Don't lengthen it; a longer fade smears the reveal between two tracks and kills the emotional payoff.
-- **Caption-style switch can feel jarring.** If the scenarist wants something smoother, keep `HormoziCaptions` for the full duration and scale it down in the "after" section (custom `scale` prop).
-- **Logo accuracy in the reveal.** Pre-render `scoreImage` ≥ 8 on the reveal frame. If the model hallucinated the logo, regen the reveal frame before generating video — fixing it later is a per-frame headache.
+See [`docs/playbooks/hyperframes.md`](../../../docs/playbooks/hyperframes.md) for the full authoring rules and `bunx hyperframes catalog` for caption / transition / overlay blocks.

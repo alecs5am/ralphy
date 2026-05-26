@@ -20,7 +20,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import type { Caption } from "@remotion/captions";
+import type { Caption } from "./captions/types.js";
 import { referencesDir } from "./paths.js";
 import { transcribe, type TranscribeBackend, type TranscribeLanguage } from "./transcribe.js";
 import { callLLM } from "./providers/llm.js";

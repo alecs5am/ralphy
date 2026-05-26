@@ -6,7 +6,7 @@ Extracted from `workspace/projects/playdate-pixel-001/` (Playdate by Panic). Gen
 
 ## At a glance
 
-- **Kind:** `vibe-style` (prompt cookbook + hooks + camera vocabulary + worked examples; NO generic Remotion composition — clone the source project's `src/videos/playdate-pixel-001/` structure)
+- **Kind:** `vibe-style` (prompt cookbook + hooks + camera vocabulary + worked examples; NO generic HyperFrames composition — clone the source project's `src/videos/playdate-pixel-001/` structure)
 - **Category:** `cinematic-narrative`
 - **Format:** 1080×1920, 30fps, ~13–17s, 8 cuts averaging ~1.9s
 - **Audio:** music-only (ElevenLabs Music), no VO

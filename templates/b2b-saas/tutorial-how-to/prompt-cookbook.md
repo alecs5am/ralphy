@@ -337,5 +337,5 @@ Once you've filled the 4-block scaffold:
 1. `ralphy project create` with the topic, then write the scaffold to `workspace/projects/<id>/brief.md`.
 2. Hand to `/ralph-scenarist` to expand into `scenario.json` (per-scene durations, VO lines, shot prompts).
 3. `/ralph-art-director` generates keyframes, video clips, VO, and music per `template.json → stackSummary`.
-4. `/ralph-editor` composes in Remotion using the step-card design vocabulary above.
+4. `/ralph-editor` composes in the HyperFrames composition using the step-card design vocabulary above.
 5. `ralphy render <project>` to produce the MP4. Verify retention discipline (no dead air, balanced step durations, payoff held 1.5-2s) before publishing.

@@ -14,7 +14,7 @@ What to use, in what order, and the failure modes that matter — so the next ch
 5. Voiceover             → ElevenLabs eleven_multilingual_v2     (subscription)
 6. Music                 → Soviet bed (trend, copy) + ElevenLabs Music (modern bed) (subscription)
 7. Captions              → OpenRouter whisper-1                  (~$0.006/min)
-8. Composition           → Remotion 4.0.441                      (local)
+8. Composition           → HyperFrames 4.0.441                      (local)
 ```
 
 ## Keyframes — `google/gemini-3-pro-image-preview` via OpenRouter
@@ -118,9 +118,9 @@ ralphy generate captions \
 - ~$0.006/audio-min. A 65s video ≈ $0.007.
 - Word-level timestamps by default (consumed by `HormoziCaptions` / `KaraokeCaptions`).
 
-## Composition — Remotion 4.0.441
+## Composition — HyperFrames 4.0.441
 
-- **Transitions:** `@remotion/transitions` `TransitionSeries` + `fade()` + `linearTiming({ durationInFrames: 12 })` for 0.4s crossfades.
+- **Transitions:** `HyperFrames transition blocks` `TransitionSeries` + `fade()` + `linearTiming({ durationInFrames: 12 })` for 0.4s crossfades.
 - **VO sync:** precompute `CLIP_STARTS[]` on the shortened timeline; each scene's VO `<Sequence from={CLIP_STARTS[i]}>` gets a 6-frame volume fade-in/out.
 - **Music split:** two separate `<Sequence>` blocks. Soviet bed on `[0, CLIP_STARTS[5]]` at volume 0.14 with a 5-frame duck-out. Hip-hop on `[CLIP_STARTS[5], CLIPS_TOTAL_FRAMES]` at volume 0.28 with a 2-frame attack and a 60-frame fade-out.
 - **Studio preview quirk:** audio transitions between VO sequences sound abrupt in Studio preview but render cleanly. Don't chase a non-existent bug.

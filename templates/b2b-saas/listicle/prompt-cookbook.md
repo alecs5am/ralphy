@@ -31,7 +31,7 @@ Each item beat has the same internal shape:
 
 The counter and item title stay on screen for the *entire* beat. They're the format's spine — never animate them off mid-beat.
 
-## Counter-overlay design (Remotion component pattern)
+## Counter-overlay design (HyperFrames component pattern)
 
 The numbered counter is the most important visual element. Treat it like the brand logo of the format.
 
@@ -53,7 +53,7 @@ The numbered counter is the most important visual element. Treat it like the bra
 - On item change: morph the digit (cross-fade old digit → new digit), don't cut. The "/N" stays static.
 - Don't animate the counter mid-beat. It sits still until the next cut.
 
-**Remotion component sketch.**
+**HyperFrames component sketch.**
 
 ```tsx
 <AbsoluteFill>

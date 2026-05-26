@@ -48,7 +48,7 @@ A handful of rules cut across every page below. Knowing them up front saves mone
 
 - **Append-only on generations.** Ralphy never overwrites a generated file when you regen — the new version lands at `.v2.<ext>`, the old one stays on disk, and the manifest tracks both. This is [AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md). Pass `--force-overwrite` only if you genuinely want the legacy destructive behavior.
 - **The reference-required gate.** When your brief names a real person, a recognizable brand product, or a known IP, Ralphy refuses to generate until you attach a reference image — or until you opt out per-call with `--no-ref-consent "<reason>"`. Generic work ("my coffee shop's new pastry") proceeds without a ref. This is [AGENTS invariant #3](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md).
-- **`ralphy` is the only entry point.** No raw `curl`, no `bunx remotion`, no ad-hoc `ffmpeg`. Every model call, render, and project mutation flows through a `ralphy` verb so the cost rollup, the manifest, and the gen-log stay honest.
+- **`ralphy` is the only entry point.** No raw `curl`, no `bunx hyperframes render`, no ad-hoc `ffmpeg`. Every model call, render, and project mutation flows through a `ralphy` verb so the cost rollup, the manifest, and the gen-log stay honest.
 
 ## Related
 

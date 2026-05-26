@@ -98,9 +98,9 @@
 - **DO NOT generate music before locking total `DURATION_SEC` in `scenes.ts`.** Reversing order wastes 5-10 min of wall time per variant.
 - **DO NOT put brand/artist names in music prompts.** ElevenLabs ToS filter 400s with `bad_prompt`. Use generic descriptors.
 - **DO NOT try `kwaivgi/kling-v3.0-pro` multi-frame.** It's broken on OpenRouter (`400 File is not in a valid base64 format`), confirmed across two postmortems over a 6-day span.
-- **DO NOT trim an i2v clip in Remotion when the clip's *ending* matters (e.g. outro freeze).** Set Remotion slot duration = clip duration. Trim only the LEADING static portion via `startFrom`.
+- **DO NOT trim an i2v clip in the HyperFrames composition when the clip's *ending* matters (e.g. outro freeze).** Set HyperFrames slot duration = clip duration. Trim only the LEADING static portion via `startFrom`.
 - **DO NOT skip the C2PA metadata strip before i2v.** Provider-side moderation flags un-stripped AI imagery as "AI-generated" and refuses some i2v calls. Raw ffmpeg loop is still the workaround.
-- **DO NOT scaffold a generic composition from `src/lib/templates/`.** This template ships no Remotion composition — the Playdate composition lives at `src/videos/playdate-pixel-001/` and is project-specific. Consumers clone its `scenes.ts` / `index.tsx` structure and rewire for their own beats.
+- **DO NOT scaffold a generic composition from `src/lib/templates/`.** This template ships no HyperFrames composition — the Playdate composition lives at `src/videos/playdate-pixel-001/` and is project-specific. Consumers clone its `scenes.ts` / `index.tsx` structure and rewire for their own beats.
 
 ## Beat structure (clone-and-adapt from `playdate-pixel-001`)
 

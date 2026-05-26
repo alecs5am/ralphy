@@ -2,7 +2,7 @@
 
 ## Problem
 
-`CLAUDE.md` says "TDD-leaning. New CLI command → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion. New UI → Playwright. New Remotion component → render frames 0–10 for crash check." That's the policy. The reality is thinner:
+`CLAUDE.md` says "TDD-leaning. New CLI command → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint` + `bunx hyperframes snapshot`." That's the policy. The reality is thinner:
 
 1. **No formal test harness for the CLI.** Smoke tests are ad-hoc shell scripts or one-off `bunx tsx` invocations. Coverage is unknown.
 2. **No golden renders.** The TOP-5 templates work today; they could regress tomorrow and we wouldn't notice until a user complains. The `render-test-2026-05-11.md` report is a one-off snapshot, not an ongoing check.

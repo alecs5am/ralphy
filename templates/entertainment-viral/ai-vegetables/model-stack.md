@@ -66,7 +66,7 @@ ralphy generate captions \
   --language en   # or ru, depending on the VO
 ```
 
-Output: `captions.json` in `Caption[]` format (the shape `@remotion/captions` expects). Word-level timestamps are on by default — needed by `HormoziCaptions` and `KaraokeCaptions`.
+Output: `captions.json` in `Caption[]` format (the shape `HyperFrames captions` expects). Word-level timestamps are on by default — needed by `HormoziCaptions` and `KaraokeCaptions`.
 
 ## Stage 5 — Music
 

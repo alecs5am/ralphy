@@ -1,96 +1,21 @@
 # Composition — talking-head-rant
 
-Remotion 4.0.441, 9:16, 30fps, 1080×1920. Length = video clip + 0.5s outro fade.
+HyperFrames, 9:16, 30fps, 1080×1920. Length = video clip + 0.5s outro fade.
 
-## Skeleton
+## Layer stack
 
-```tsx
-// src/videos/talking-head-rant-<slug>/index.tsx
-import React from "react";
-import { AbsoluteFill, Audio, Sequence, Video, Img, staticFile, interpolate, useCurrentFrame } from "remotion";
-import { HormoziCaptions } from "../../lib/components/captions/HormoziCaptions";
-// HookScreenshot is the dedicated component (TODO — see "Hook screenshot overlay" below).
+A single-take talking-head composition with an optional Reddit/headline hook overlay.
 
-const FPS = 30;
-
-type Props = {
-  videoSrc: string;
-  voSrc: string;
-  musicSrc: string;
-  captions: Caption[];
-  hookScreenshotSrc?: string;
-  hookDurationSec?: number; // 3-4
-  totalDurationSec: number;
-};
-
-export const TalkingHeadRant: React.FC<Props> = ({
-  videoSrc, voSrc, musicSrc, captions,
-  hookScreenshotSrc, hookDurationSec, totalDurationSec,
-}) => {
-  const hookFrames = (hookDurationSec ?? 0) * FPS;
-
-  return (
-    <AbsoluteFill>
-      {/* Talking-head video — full duration */}
-      <Video src={staticFile(videoSrc)} muted />
-
-      {/* Hook screenshot overlay — first 3-4 seconds, fade-out last 30 frames */}
-      {hookScreenshotSrc && (
-        <Sequence from={0} durationInFrames={hookFrames}>
-          <HookOverlay src={staticFile(hookScreenshotSrc)} hookFrames={hookFrames} />
-        </Sequence>
-      )}
-
-      {/* Captions — start after the hook fades */}
-      <Sequence from={hookFrames}>
-        <HormoziCaptions captions={captions} />
-      </Sequence>
-
-      {/* VO — full duration */}
-      <Audio src={staticFile(voSrc)} />
-
-      {/* Music bed — very low volume */}
-      <Audio src={staticFile(musicSrc)} volume={0.10} />
-    </AbsoluteFill>
-  );
-};
-
-// Inline fallback while the dedicated HookScreenshot component is still TODO.
-const HookOverlay: React.FC<{ src: string; hookFrames: number }> = ({ src, hookFrames }) => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [hookFrames - 30, hookFrames], [1, 0], {
-    extrapolateRight: "clamp",
-  });
-  return (
-    <AbsoluteFill style={{ background: "rgba(0,0,0,0.4)", opacity }}>
-      <Img src={src} style={{ width: "70%", margin: "auto", marginTop: "20%" }} />
-    </AbsoluteFill>
-  );
-};
-```
-
-## Hook screenshot overlay
-
-**Component:** `src/lib/components/overlays/HookScreenshot.tsx` (TODO — to create as a follow-on).
-
-Contract:
-```ts
-type Props = {
-  src: string;             // staticFile path
-  durationFrames?: number; // default 120 (4s @ 30fps)
-  fadeFrames?: number;     // default 30 (1s)
-  position?: "center" | "top";
-};
-```
-
-Displays a full-screen overlay scaled to 60-70% of the canvas with a semi-transparent dark backdrop, fading out in the last `fadeFrames` of its duration via `interpolate(frame, [duration-fadeFrames, duration], [1, 0])`.
-
-Until the dedicated component is created, the inline `HookOverlay` above does the same job.
+1. **Talking-head video** — full duration, full-bleed. `<video data-start="0" data-volume="0">` (audio muted; VO is its own track).
+2. **Hook screenshot overlay** (optional, first 3-4s) — full-screen overlay at 60-70% of canvas, semi-transparent dark backdrop, GSAP fade-out in the last 30 frames of its duration.
+3. **Captions** — a karaoke / kinetic caption block from the HyperFrames registry (`bunx hyperframes add karaoke-warm` or `kinetic-slam`). Starts after the hook fades.
+4. **VO** — `<audio data-start="0" data-volume="1">` mono mp3 128 kbps.
+5. **Music bed** — `<audio data-start="0" data-volume="0.10">` low, constant, NOT ducked.
 
 ## Component choices
 
-- **Captions:** `HormoziCaptions` (default) — best for rant impact. Switch to `KaraokeCaptions` for a more intimate feel.
-- **Caption start frame:** `hookFrames` (after the hook fades). Word-level timestamps in `captions.json` already sit on the VO timeline, so they'll line up automatically.
+- **Captions:** kinetic-slam (default) — best for rant impact. Switch to karaoke-warm for a more intimate feel.
+- **Caption start:** after the hook fades. Word-level timestamps in `captions.json` already sit on the VO timeline, so they line up automatically.
 - **Caption position:** Y 1100-1300 — the supporting / CTA zone of the green safe area.
 - **No transitions** — single continuous clip, no cuts. The talking-head must look continuous.
 
@@ -103,40 +28,15 @@ Until the dedicated component is created, the inline `HookOverlay` above does th
 
 Loudnorm post-render via `ralphy render <id> --loudnorm`.
 
-## Composition props shape
+## Composition shape
 
-```json
-{
-  "compositionId": "TalkingHeadRant",
-  "durationSec": 18,
-  "videoSrc": "videos/talking-head.mp4",
-  "voSrc": "voiceover/vo-master.mp3",
-  "musicSrc": "music/bed.mp3",
-  "captionsSrc": "captions.json",
-  "hookScreenshotSrc": "uploaded/hook-reddit-post.png",
-  "hookDurationSec": 4
-}
-```
+Author at `workspace/projects/<id>/index.html`. The root needs `data-composition-id`, `data-width="1080"`, `data-height="1920"`, `data-start="0"`. A paused GSAP timeline drives the hook overlay opacity and the caption block reveal; the runtime owns video/audio playback via `data-start` / `data-duration` / `data-volume`.
 
-`captions` — load `Caption[]` from `captionsSrc` at the editor stage and pass it as a prop.
-
-## Register
-
-```tsx
-<Composition
-  id="TalkingHeadRant"
-  component={TalkingHeadRant}
-  durationInFrames={18 * 30}
-  fps={30}
-  width={1080}
-  height={1920}
-  defaultProps={{ /* ... */ }}
-/>
-```
+See [`docs/playbooks/hyperframes.md`](../../../docs/playbooks/hyperframes.md) for the full authoring rules and `bunx hyperframes catalog` for available caption / hook overlay blocks.
 
 ## Quirks / gotchas
 
 - **veo-3.1 lip-sync requires an audio reference in the request.** See `model-stack.md` Stage 2 — current `generateVideo` doesn't pass audio yet (tracked follow-on).
 - **kling fallback is not lip-synced.** Captions help hide desync; don't compose a tight close-up on the mouth in this mode.
-- **Hook timing.** If the scenarist picks a longer hook (5-6s), bump `hookDurationSec` accordingly. Captions automatically start later because they're sequenced from `hookFrames`.
-- **Single take.** Do NOT use `TransitionSeries` with cuts. The talking-head must read as a continuous take or the intimacy breaks.
+- **Hook timing.** If the scenarist picks a longer hook (5-6s), bump the overlay duration accordingly. Captions automatically start later.
+- **Single take.** Do NOT cut. The talking-head must read as a continuous take or the intimacy breaks.
