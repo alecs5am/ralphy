@@ -2,34 +2,30 @@
 
 <img src="docs/branding/banner.png" alt="RALPHY — UGC video pipeline CLI" width="100%" />
 
-**An autonomous UGC-video studio in one repo.** Drive it from a chat. Get an mp4 in ~8 minutes.
+# Your AI video pipeline as code.
+
+**Open-source, agent-native CLI for AI video.** Fork-able, observable, reproducible.
+Drive it from Claude Code / Cursor / Codex. Get an mp4 in ~8 minutes.
 
 [![Tests](https://github.com/alecs5am/ralphy/actions/workflows/test.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/test.yml)
 [![Release](https://github.com/alecs5am/ralphy/actions/workflows/release.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/release.yml)
 [![Latest release](https://img.shields.io/github/v/release/alecs5am/ralphy?include_prereleases&label=release)](https://github.com/alecs5am/ralphy/releases)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
 </div>
 
 ---
 
-## What is this
+## What it is
 
-`ralphy` is a CLI + HyperFrames render pipeline + AI-agent skill bundle that turns a one-line brief into a finished UGC-style mp4. It wires up **OpenRouter** (image, video, LLM, vision, transcription), **ElevenLabs** (voice + music), **HyperFrames** (HTML + GSAP composition + final render), and a local **bun + SQLite** job queue.
-
-Two API keys. Two commands. Then ask your agent for a video.
+Two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`), one CLI, a video pipeline you can ship to prod. Ralphy wires up image / video / vision / LLM (OpenRouter), voice + music (ElevenLabs), HTML+GSAP composition (HyperFrames), and a local async-job queue (bun + SQLite). Your agent drives it.
 
 ## Demo
 
-[**See what Ralphy makes →**](https://ralphy.dev/#showcase) (11 rendered outputs from real projects).
+[**See what Ralphy makes →**](https://ralphy.dev/#showcase) — 11 rendered outputs from real projects.
 
-<div align="center">
-  <video src="https://raw.githubusercontent.com/alecs5am/ralphy/main/landing/public/assets/showcase/glitter-cream-001.mp4" width="320" autoplay loop muted playsinline>
-    <a href="https://ralphy.dev/#showcase">Watch on ralphy.dev →</a>
-  </video>
-</div>
-
-**Cost:** ~$8–12 per 30s video. **Speed:** ~8 min cold-start, ~25 min for a 10-batch.
+**Cost:** ~$8–12 per 30s video. **Speed:** ~8 min cold-start, ~25 min for a 10-batch. **Engine:** HyperFrames (HTML + GSAP, deterministic Puppeteer + FFmpeg render).
 
 ## Install
 
@@ -40,54 +36,99 @@ Two API keys. Two commands. Then ask your agent for a video.
 | Windows (PowerShell) | `irm https://raw.githubusercontent.com/alecs5am/ralphy/main/install.ps1 \| iex` |
 | Cross-platform (npm) | `npm install -g @alecs5am/ralphy` |
 
-All four ship the same statically-linked binary. Then:
+All four ship the same binary.
 
 ```bash
 ralphy setup          # interactive wizard — paste the two API keys + install agent skill
 ralphy doctor         # verify env is green
 ```
 
-> **Got a macOS Gatekeeper warning?** You used the direct-download path. Brew / npm / `install.sh`
-> never trigger this — they bypass Gatekeeper or auto-strip quarantine. If you downloaded the
-> archive from a Release page, run `xattr -d com.apple.quarantine /path/to/ralphy` once and you're
-> done. Full notes: [troubleshooting](https://ralphy.dev/docs/reference/troubleshooting#macos-gatekeeper-warning).
->
-> **Verify your install:** every Release includes a `SHA256SUMS` file. `shasum -a 256 -c SHA256SUMS`
-> (macOS / Linux) or `Get-FileHash` (Windows) confirms the binary matches.
+Expected output:
 
-## 5 things to try first
+```
+✦ ralphy v1.0.0
+▸ Dependencies          ✓ bun  ✓ ffmpeg
+▸ API keys              ✓ OPENROUTER_API_KEY  ✓ ELEVENLABS_API_KEY
+  ✓ ready
+```
+
+> **macOS Gatekeeper warning?** You used the direct-download path. Brew / npm / `install.sh` bypass Gatekeeper automatically. If you hit it: `xattr -d com.apple.quarantine /path/to/ralphy` once and you're done.
+>
+> **Verify your install:** every Release includes a `SHA256SUMS` file. `shasum -a 256 -c SHA256SUMS` (macOS / Linux) or `Get-FileHash` (Windows) confirms the binary matches.
+
+## 60-second tour
 
 ```bash
-# 1. Create your first project under ~/.ralphy/projects/
-ralphy new "Spring 2026 ad for my espresso machine" --id espresso-001
+# 1. Create a project
+ralphy new "Spring espresso ad" --id espresso-001
 
 # 2. Find a template by free-text utterance
-ralphy template suggest "talking head rant about deadlines"
+ralphy template suggest "talking head rant about deadlines" -p
+```
+```
+✦ Query: "talking head rant about deadlines"
+  1. ✓ talking-head-rant  ███████████░░░░░  0.70  strong
+  2. ⚠ storytime          ████████░░░░░░░░  0.50  weak
+  3. ⚠ yap-talking-head   ████████░░░░░░░░  0.50  weak
+```
+```bash
+# 3. Scaffold from the chosen template (assets auto-pull from companion repo)
+ralphy template use talking-head-rant --id espresso-001
 
-# 3. Clone a style from a public URL (TikTok / Reels / Shorts)
-ralphy clone https://tiktok.com/@x/video/72939...
-
-# 4. Generate one image (dry-run = $0)
+# 4. Cost-preview before spending a cent
 ralphy generate image --project espresso-001 --slot scene-01-bg \
-  --prompt "studio packshot, white seamless, 50mm, photoreal not glossy" --dry-run
+  --prompt "studio packshot, white seamless, 50mm, photoreal" --dry-run
 
-# 5. Render the project to mp4 (once assets are in place)
+# 5. Render the project to mp4
 ralphy render espresso-001
 ```
 
-The full surface is in [`docs/cli-surface.md`](docs/cli-surface.md) and on [Mintlify](https://ralphy.dev/docs).
+That's it. Full CLI surface in [`docs/cli-surface.md`](docs/cli-surface.md) and at [ralphy.dev/docs](https://ralphy.dev/docs).
+
+## Why Ralphy
+
+What you actually get vs other ways to do this:
+
+|  | Closed SaaS (Higgsfield, HeyGen, Captions) | Other OSS (ShortGPT, MoneyPrinterTurbo) | **Ralphy** |
+|---|---|---|---|
+| Source | Closed | OSS (script-shaped) | **Apache 2.0, fork-able** |
+| Agent surface | Their cloud agent | None | **Local skills + playbooks; works in any agent** |
+| Models | Vendor lock-in | One model, hardcoded | **Any OpenRouter model — Kling / Seedance / Veo / Sora / Nano-Banana** |
+| Cost transparency | Subscription black box | Free-but-you-DIY | **`--dry-run` shows the bill before you spend** |
+| Reproducibility | Vibes | Vibes | **Append-only genlogs + postmortems + templates-as-git** |
+| Quality gates | Best-effort | None | **Refuse-not-warn: bad scene = no render** |
+| Reference grounding | None | None | **Built-in research engine (`ralphy research`) + guideline library** |
+| Composer | Web canvas (theirs) | MoviePy / FFmpeg scripts | **HyperFrames (HTML + GSAP) — versioned in git, tested in CI** |
+
+The hard rule that makes the rest work: **`ralphy <verb>` is the only entry-point.** No ad-hoc `ffmpeg` shell-outs, no direct provider fetches, no orphan scripts. Every model call lands in `generations.jsonl`, every cost in the rollup, every failure in the postmortem.
+
+## Architecture
+
+```mermaid
+graph LR
+    A[Agent: Claude Code / Cursor / Codex] -->|playbooks| B[ralphy CLI]
+    B --> C[Provider router]
+    C --> D[OpenRouter<br/>Kling / Seedance / Veo / Sora / Nano-Banana]
+    C --> E[ElevenLabs<br/>TTS + Music]
+    B --> F[HyperFrames composer<br/>HTML + GSAP]
+    F --> G[mp4 via Puppeteer + FFmpeg]
+    B --> H[Project memory<br/>genlogs · postmortems · cost rollup]
+    B --> I[Templates + guidelines<br/>versioned in git]
+```
+
+5 agent roles (researcher / scenarist / art-director / editor / producer) routed via [`AGENTS.md`](AGENTS.md). The router decides which playbook the agent reads before acting.
 
 ## Documentation & community
 
 | Surface | Read when |
 |---|---|
 | [**Mintlify docs**](https://ralphy.dev/docs) | Quickstart, concepts, cookbook, CLI reference (auto-gen). |
+| [**Models page**](https://ralphy.dev/models) | Live model picks, prices, known pitfalls (Kling rotation bias, Seedance privacy filter, gpt-image concurrent cap=1, …). |
 | [`AGENTS.md`](AGENTS.md) | First. Routing rules + the "read the playbook before acting" discipline. |
 | [`MODELS.md`](MODELS.md) | Before **every** model call. Claude's training is stale on model names. |
 | [`docs/playbooks/`](docs/playbooks/) | Per-role instructions (researcher, scenarist, art-director, editor, producer). |
-| [`docs/templates-index.md`](docs/templates-index.md) | Template roster + categories. |
-| [`templates/CATEGORIES.md`](templates/CATEGORIES.md) | Slug-by-category template roster. |
-| [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) | Q&A, Show & Tell, Tester feedback. The single community channel for v1.0. |
+| [`templates/CATEGORIES.md`](templates/CATEGORIES.md) | 50+ vibe-references + vibe-style templates, by category. |
+| [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) | Q&A, Show & Tell, Tester feedback. |
 
 ## Contributing
 
@@ -95,18 +136,21 @@ The full surface is in [`docs/cli-surface.md`](docs/cli-surface.md) and on [Mint
 git clone https://github.com/alecs5am/ralphy.git
 cd ralphy && bun install
 
-bun test                       # unit + integration
-bun run lint                   # eslint + tsc
-bun run lint:errors            # error-code catalog drift check
-bun run lint:help-examples     # landing claims vs --help parity
+bun test                       # unit + integration (450+ tests)
+bun run lint                   # typecheck + project lints (errors / help-examples / skills / agents-md / templates / cli-surface)
 bun run docs:cli               # regenerate docs-mintlify/reference/cli/
-
 bun run build:bin              # build cross-platform binaries
 ```
 
 A pre-commit hook runs the test suite. CI runs the same on push/PR.
 
-PRs welcome — especially new templates (`templates/<category>/<slug>/`), new model entries in `MODELS.md`, and bug fixes in `cli/lib/providers/`. For non-trivial changes, open an issue first or start a discussion.
+PRs welcome — especially:
+- **New templates** under [`templates/<category>/<slug>/`](templates/) (5 categories: b2b-saas, dtc-commerce, creator-lifestyle, entertainment-viral, cinematic-narrative).
+- **New model entries** in [`MODELS.md`](MODELS.md) with real cost numbers + known pitfalls.
+- **Bug fixes** in [`cli/lib/providers/`](cli/lib/providers/).
+- **New guidelines** under [`guidelines/<slug>/`](guidelines/) (image-prompt rules — tag-able from chat as `@guideline:<slug>`).
+
+For non-trivial changes, open an issue first or start a discussion.
 
 ## License
 
