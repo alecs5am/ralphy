@@ -632,7 +632,7 @@ export function templateCmd() {
         return;
       }
 
-      const { c, icons, section, bar } = ui;
+      const { c, icons, bar } = ui;
       console.log();
       console.log(`${icons.spark} ${c.bold("Query:")} ${c.value('"' + utterance + '"')}`);
       const sourceColors: Record<string, string> = {

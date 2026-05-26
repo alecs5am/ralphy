@@ -16,11 +16,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { projectsDir } from "../lib/paths.js";
 import { out, err, ok, isPretty } from "../lib/output.js";
-import { c, icons, section, kv, withSpinner } from "../lib/ui.js";
-
-async function safeJson(fp: string): Promise<unknown> {
-  try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
-}
+import { c, icons, section, kv } from "../lib/ui.js";
 
 type ProbeResult = {
   path: string;

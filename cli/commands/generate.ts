@@ -10,7 +10,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { projectsDir } from "../lib/paths.js";
-import { out, err } from "../lib/output.js";
+import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
   generateImage,
@@ -80,7 +80,7 @@ type Manifest = {
   slots: Record<
     string,
     {
-      kind: "image" | "video" | "voiceover" | "music" | "captions";
+      kind: "image" | "video" | "voiceover" | "music" | "captions" | "sfx";
       path: string;
       model?: string;
       costUsd?: number;
