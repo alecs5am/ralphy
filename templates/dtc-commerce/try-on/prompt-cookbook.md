@@ -90,8 +90,8 @@ Drift sources, in order of impact:
 
 | Transition | Frames | When to use | Implementation |
 |---|---|---|---|
-| **Snap-cut** | 1 frame | 7-variant tier-list, fast pacing, hard beats | Hard cut on beat. No motion blur. Remotion: butt-cut two clips. |
-| **Mirror-flash** | 8 frames (~0.27s) | 3-5 variant glasses / makeup / jewelry | White-frame flash overlay 8 frames at the cut, then reveal next variant. Remotion: `<AbsoluteFill backgroundColor="white" />` for 8 frames, opacity ramp 0→1→0. |
+| **Snap-cut** | 1 frame | 7-variant tier-list, fast pacing, hard beats | Hard cut on beat. No motion blur. HyperFrames: butt-cut two clips. |
+| **Mirror-flash** | 8 frames (~0.27s) | 3-5 variant glasses / makeup / jewelry | White-frame flash overlay 8 frames at the cut, then reveal next variant. HyperFrames: `<AbsoluteFill backgroundColor="white" />` for 8 frames, opacity ramp 0→1→0. |
 | **Spin** | 24 frames (~0.8s) | 3-variant fashion outfits | Last 12 frames of clip A and first 12 frames of clip B both motion-blurred + rotation. Generated in kling with prompt "model spins quickly clockwise" at clip end. |
 | **Walk-into-camera** | 30 frames (~1.0s) | GRWM-style, premium / "Same X, N ways" | kling clip: model walks toward camera, fills frame, then next clip starts with the new outfit on. The walk IS the transition. |
 
@@ -107,7 +107,7 @@ Line 1: PRODUCT NAME (smaller, ~60px)
 Line 2: $XX.XX  ·  SKU-1234 (larger, ~96px, bold)
 ```
 
-**Animation.** Fade in over 6 frames as the variant lands. Hold throughout the variant's clip. Fade out over 6 frames as the transition starts. Remotion: `interpolate(frame, [0, 6, clipDuration - 6, clipDuration], [0, 1, 1, 0])`.
+**Animation.** Fade in over 6 frames as the variant lands. Hold throughout the variant's clip. Fade out over 6 frames as the transition starts. HyperFrames: `interpolate(frame, [0, 6, clipDuration - 6, clipDuration], [0, 1, 1, 0])`.
 
 **Color.** White on dark scenes, black on light scenes. Add a 4-6px text shadow / outline if the variant's background is mid-tone (gray, beige) for legibility. Do not use brand-color text — readability beats brand polish.
 

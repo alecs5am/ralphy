@@ -3,11 +3,19 @@ title: "Changelog"
 description: "What's new in Ralphy."
 ---
 
+<Update label="May 26, 2026">
+
+## Breaking
+
+**Removed Remotion legacy engine.** HyperFrames is now the only render engine. The `--engine` flag, the Remotion fallback path, `composition-props.json` auto-detection, `src/videos/*`, and all `@remotion/*` packages are gone. Projects must ship `workspace/projects/<id>/index.html`. See [Rendering](/working/rendering).
+
+</Update>
+
 <Update label="May 22, 2026" description="v0.2.0">
 
 ## New
 
-**HyperFrames is the default render engine.** A new HTML + GSAP renderer ships as the default for `ralphy render`. It's faster to iterate on, supports per-render `--fps`, `--quality`, `--format`, and `--resolution` flags, and falls back to Remotion automatically for legacy `src/videos/*` projects. See [`ralphy render`](/reference/cli/render) and the [rendering guide](/working/rendering).
+**HyperFrames is the default render engine.** A new HTML + GSAP renderer ships as the default for `ralphy render`. It's faster to iterate on, supports per-render `--fps`, `--quality`, `--format`, and `--resolution` flags. See [`ralphy render`](/reference/cli/render) and the [rendering guide](/working/rendering).
 
 **Skills gallery.** Browse the full catalog of Ralphy skills on the new [skills page](https://ralphy.dev/skills) — filterable by namespace, with motion-driven previews.
 
@@ -19,7 +27,7 @@ description: "What's new in Ralphy."
 
 **Skill namespaces rebranded to `ralphy:` and `ralphy-dev:`.** Skill IDs now follow a clean kebab namespace. Reinstall via `ralphy skill install` to pick up the new names. See [Skill format](/advanced/skill-format).
 
-**Render flag surface.** `ralphy render` gained `--engine`, `--fps`, `--quality`, `--format`, and `--resolution`. Run with `--dry-run` to preview the resolved plan without burning a render. See [`ralphy render`](/reference/cli/render).
+**Render flag surface.** `ralphy render` gained `--fps`, `--quality`, `--format`, and `--resolution`. Run with `--dry-run` to preview the resolved plan without burning a render. See [`ralphy render`](/reference/cli/render).
 
 ## Fixes
 

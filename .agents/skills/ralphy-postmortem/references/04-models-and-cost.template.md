@@ -49,7 +49,7 @@ Derived from `workspace/projects/<id>/logs/generations.jsonl`. Every $ figure tr
 | Voiceover (`<eleven-model>`) | K takes | $D |
 | Music bed | N variants | $E |
 | Captions | 1 pass | ~$0.01 |
-| Render (Remotion local) | — | $0 |
+| Render (HyperFrames local) | — | $0 |
 | **TOTAL** | | **~$<total>** |
 
 ## Model picks — image generation

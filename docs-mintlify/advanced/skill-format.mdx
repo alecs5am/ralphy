@@ -61,7 +61,7 @@ That file passes `bun run lint:skills` and renders correctly in every supported 
   ralphy-researcher/SKILL.md
   ralphy-install/SKILL.md
   release/SKILL.md
-  ralphy-remotion/SKILL.md
+  hyperframes/SKILL.md
 ```
 
 One folder per skill. The folder name must match the `name:` field — the lint rejects a mismatch. The folder is yours; drop scripts, templates, or worked-example files alongside `SKILL.md` and they ship with the skill on install.
@@ -117,7 +117,7 @@ Any other value is rejected. The split:
 | Namespace | Audience | Examples |
 |---|---|---|
 | `ralphy` | end users | `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `ralphy-remotion`, `skill-creator` |
+| `ralphy-dev` | maintainers / contributors | `release`, `skill-creator` |
 
 `ralphy skill install` installs only `ralphy` skills by default. `--dev` opts into the maintainer set. The agents-md lint (`scripts/lint-agents-md.ts`) reads `namespace:` and skips the "is this skill referenced from the routing table" check for `ralphy-dev` skills — maintainer skills are explicit-invocation-only.
 

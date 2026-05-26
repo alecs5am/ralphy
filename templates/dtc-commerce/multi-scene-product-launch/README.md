@@ -32,7 +32,7 @@ ralphy template use multi-scene-product-launch --project <new-id> \
   --brief "<one-line brief — brand, product, register>"
 ```
 
-This scaffolds `workspace/projects/<new-id>/` with the template's locked-ref assets copied in. Note: this template is `vibe-style`, NOT `vibe-reference` — you will hand-author the Remotion composition at `src/videos/<new-id>/` (the source project's composition at `src/videos/nothing-hp1-001/` is a reference pattern, not generic).
+This scaffolds `workspace/projects/<new-id>/` with the template's locked-ref assets copied in. Note: this template is `vibe-style`, NOT `vibe-reference` — you will hand-author the HyperFrames composition at `src/videos/<new-id>/` (the source project's composition at `src/videos/nothing-hp1-001/` is a reference pattern, not generic).
 
 ## Cost ballpark
 
@@ -54,7 +54,7 @@ See `model-stack.md` for the per-stage breakdown and `prompt-cookbook.md` for th
 | Character identity masters (2 cast x 4 variants) | 3 min |
 | Scene keyframes (27 scenes x 4 variants, parallel) | ~80 sec compute + ~30 min human review |
 | i2v batch (22-25 clips, parallel, Kling poll) | ~10 min |
-| Remotion composition author + render | 30-60 min author + 1-2 min render |
+| HyperFrames composition author + render | 30-60 min author + 1-2 min render |
 | **Total** | **~2.5-4h** including review |
 
 ## File map (this template)

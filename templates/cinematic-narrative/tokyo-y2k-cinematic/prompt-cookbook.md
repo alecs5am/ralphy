@@ -124,7 +124,7 @@ Aspect: {{16:9 widescreen cinematic | 9:16 letterboxed if generated direct-to-9:
 | 11 | rain-on-glass record shop | her reflection on the glass holds still; he turns his head once inside the shop (he can't see her); she remains looking at her own reflection |
 | 12 | trains passing | the two trains close, reflections align for ~12 frames at 24fps, then the trains pull apart |
 | 13 | half-smile close | almost-imperceptible half-smile crosses her face — single micro-expression, no full smile |
-| 14 | empty platform fade | single fluorescent ad-sign cycles once; fade to black mid-music-phrase (handled in Remotion, not here) |
+| 14 | empty platform fade | single fluorescent ad-sign cycles once; fade to black mid-music-phrase (handled in the HyperFrames composition, not here) |
 
 ## Stage 3 — Trim analysis (one call per clip, 15-17 calls)
 

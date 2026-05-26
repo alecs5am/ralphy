@@ -43,7 +43,7 @@ All hooks below are i2v anchors — the first-frame image carries the persona ma
 ## What NOT to do in the first 2 seconds
 
 - **No product at face / cheek / mouth**. Kling drifts to powder-compact stamping. Keep at arms length.
-- **No music in the kling prompt**. Music is overlaid in Remotion at volume 0.18; baked-in kling music conflicts.
+- **No music in the kling prompt**. Music is overlaid in the HyperFrames composition at volume 0.18; baked-in kling music conflicts.
 - **No theatrical surprise**. The format is calm curious GRWM, not "look-at-this-omg" influencer-tone. Voice-tag block enforces.
-- **No text overlay** on the kling clip itself. Captions / brand tags go on the Remotion track if at all.
+- **No text overlay** on the kling clip itself. Captions / brand tags go on the HyperFrames track if at all.
 - **No `--audio: false` for English**. You will reshoot. (Memory: take1 of source project burned $0.42 here.)

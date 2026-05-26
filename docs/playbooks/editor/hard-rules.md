@@ -1,6 +1,6 @@
 # Hard rules — FFmpeg / post-render discipline
 
-Applies when using `cli/lib/ffmpeg-recipes.ts` (see `docs/ffmpeg-recipes.md`) — post-Remotion processing or pre-processing of user uploads.
+Applies when using `cli/lib/ffmpeg-recipes.ts` (see `docs/ffmpeg-recipes.md`) — post-render processing or pre-processing of user uploads.
 
 1. **Subtitles last.** `burnSubtitles` runs after every other filter (tonemap, loudnorm). Otherwise the next filter resamples the letters → artifacts.
 
@@ -38,7 +38,7 @@ Applies when using `cli/lib/ffmpeg-recipes.ts` (see `docs/ffmpeg-recipes.md`) �
 - Hook text: Y 280-340. Upper-mid: Y 360-440. Supporting: Y 1100. CTA: Y 1380.
 - Hard fails: `y<210`, `y>1480`, `x>960`. Burned-in subtitles `marginV: 90` = Y 1830 — inside the universal zone.
 
-See `docs/green-zone.md` + `src/lib/utils/green-zone.ts:isInGreenZone()` to validate.
+See `docs/green-zone.md` to validate.
 
 ## We don't write runtime ffmpeg scripts
 

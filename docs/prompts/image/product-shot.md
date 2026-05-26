@@ -125,6 +125,6 @@ no text, no watermark, no random branding, no reflections showing a room.
 
 ## Caveats
 
-- Output size: gpt-5.4-image-2 and gemini-3-pro round to their natural buckets (1024² for 1:1, 768×1376 for 9:16, 1280×720 for 16:9). You will not get exact 1080×1350 — Remotion/ffmpeg will upscale.
+- Output size: gpt-5.4-image-2 and gemini-3-pro round to their natural buckets (1024² for 1:1, 768×1376 for 9:16, 1280×720 for 16:9). You will not get exact 1080×1350 — the HyperFrames composition / ffmpeg will upscale.
 - "Hard exclusions" block really works — don't drop it, especially lines about watermark and extra text.
 - For marketplace where an even pure-white background without gradient is required — add `--negative "gradient background, color cast, vignette"`.

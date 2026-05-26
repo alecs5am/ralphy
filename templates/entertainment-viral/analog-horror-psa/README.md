@@ -2,7 +2,7 @@
 
 Fake government-issued emergency behavioral PSA in analog-horror style. Cold robo-female ElevenLabs VO over flat yellow 1970s-civil-defense pictograms on pure black. IF / DO-NOT / BUT / AND beat scaffold. No music, only SFX. Climax in blurred SMPTE color-bars + signal-lost 1kHz tone. Source: `workspace/projects/analog-horror-fridge-001/` ("Compliance Bulletin 9-D — Your Dog Is Not Your Dog").
 
-**Kind:** vibe-style (composition is project-specific — consumer hand-authors Remotion or copies `src/videos/analog-horror-fridge-001/index.tsx`).
+**Kind:** vibe-style (composition is project-specific — consumer hand-authors HyperFrames or copies `src/videos/analog-horror-fridge-001/index.tsx`).
 **Category:** entertainment-viral.
 **Length:** 25-35s (source: 30s).
 **Format:** 9:16, 30fps, 1080×1920.
@@ -59,7 +59,7 @@ The 14 slots:
 
 1. Lock the icon style on ONE prototype before generating the other 9. Pass `--ref` from FIRST shot.
 2. Sequential bash loop for image batches. NEVER `ralphy queue`.
-3. Chroma-key icons to alpha via two-pass ffmpeg colorkey BEFORE Remotion composition.
+3. Chroma-key icons to alpha via two-pass ffmpeg colorkey BEFORE HyperFrames composition.
 4. ALL CAPS input to ElevenLabs for monotone PSA cadence. Verify voice exists before bulk gen.
 5. Loudnorm AFTER all VOs are final, never during regen loop.
 6. 4 climax growl variants LAYERED at staggered offsets. Single growl = chihuahua yipping.

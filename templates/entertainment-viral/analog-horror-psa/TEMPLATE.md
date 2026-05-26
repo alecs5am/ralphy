@@ -25,7 +25,7 @@
 
 2. **Use sequential bash for-loops, NEVER `ralphy queue` for image batches.** `ralphy queue` triggers an undocumented OpenRouter burst-cap 403 even though `/v1/credits` shows balance. Workaround: `for slot in ...; do ralphy generate image ...; sleep 2; done`. See POSTMORTEM.md open issue #1.
 
-3. **Chroma-key icons to alpha BEFORE Remotion composition.** Generated icons come with a near-black bg that doesn't match Remotion's underlay, producing visible rectangles. Run `ffmpeg -vf "colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05,format=rgba"` on every icon → save to `assets/images-keyed/` → reference THAT path in Remotion.
+3. **Chroma-key icons to alpha BEFORE HyperFrames composition.** Generated icons come with a near-black bg that doesn't match HyperFrames's underlay, producing visible rectangles. Run `ffmpeg -vf "colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05,format=rgba"` on every icon → save to `assets/images-keyed/` → reference THAT path in the HyperFrames composition.
 
 4. **ElevenLabs CAPS input → flatter PSA delivery.** "DO NOT LOOK IN ITS EYES" reads more monotone than "Do not look in its eyes." Verify the voice ID exists via `/v1/voices/<id>` before bulk gen (community voice IDs disappear between sessions). Run VO sequentially — even 3 parallel calls hit ElevenLabs 429.
 
@@ -33,7 +33,7 @@
 
 6. **For climax growls, generate 4 variants and LAYER them at staggered offsets.** Single growl reads as "chihuahua yipping at me". 4 layered (offset 1.5s / 1.8s / 1.9s / 2.1s, volumes 0.55-0.60) reads as "monster."
 
-7. **For analog-horror noise, render at CRF 30 + `-tune grain`.** Default Remotion CRF 18 + canvas-noise produces 190 MB / 30s files (unsharable). CRF 30 + grain produces 28 MB with zero perceptual loss because `-tune grain` deliberately preserves random-noise texture while spending bits on structural content. Use `ralphy video optimize --crf 30 --tune grain --preset veryslow` as a post-render step.
+7. **For analog-horror noise, render at CRF 30 + `-tune grain`.** Default HyperFrames CRF 18 + canvas-noise produces 190 MB / 30s files (unsharable). CRF 30 + grain produces 28 MB with zero perceptual loss because `-tune grain` deliberately preserves random-noise texture while spending bits on structural content. Use `ralphy video optimize --crf 30 --tune grain --preset veryslow` as a post-render step.
 
 ## Workflow (~30 min, ~$1.50 if rules above are followed; source project was ~$4.45 / multiple hours)
 

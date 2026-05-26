@@ -85,7 +85,7 @@ ElevenLabs Music presets that pair well with the niches:
 | Brand week-recap | "uplifting cinematic ambient, 75 BPM, light piano + strings, no vocals" |
 | Product week-recap | "modern minimal pop instrumental, 105 BPM, plucked synth, soft kick, no vocals" |
 
-Always request a duration **slightly longer** than the video (28s for an 18s video) — the extra tail gives Remotion room to land the last beat cleanly without a hard cutoff.
+Always request a duration **slightly longer** than the video (28s for an 18s video) — the extra tail gives HyperFrames room to land the last beat cleanly without a hard cutoff.
 
 ## 5. Transition styles
 

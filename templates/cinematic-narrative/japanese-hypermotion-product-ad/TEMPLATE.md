@@ -60,7 +60,7 @@ Total: 14 still anchors (most scenes have first+last keyframes; the two macro in
 3. **Stills (10 min, parallel).** 2 stills per major scene (first + last) via gpt-image-2; banana for any photoreal human inserts. Pass 2-3 refs per call: canonical product + this template's tile-grid style ref + scene-specific ref. Strip C2PA in batch after generation. User-reviews the 12-16 stills BEFORE video gen.
 4. **i2v clips (10-15 min, parallel).** Hyper-motion / explosions / runway / coin-arc → seedance-2.0 (4s, $0.56). Real-human orbit → kling-v3.0-pro single-frame (5s, $0.70). Fallback for vendor refusal → wan-2.7 (4s, $0.40).
 5. **Music (1 min).** Generate 3 variants in parallel for A/B/C compare. Lowercase slot names only. Render all 3, user picks, swap MUSIC_FILE constant for final render.
-6. **Composition (15 min, mostly manual).** Symlink `public/<project-id>` → `workspace/projects/<id>/`. `src/videos/<id>/{scenes.ts, index.tsx}`. Register in `src/Root.tsx`. Smoke-render frames 0-30 to validate composition. Full render via `bunx remotion render`.
+6. **Composition (15 min, mostly manual).** Symlink `public/<project-id>` → `workspace/projects/<id>/`. `src/videos/<id>/{scenes.ts, index.tsx}`. Register in `src/Root.tsx`. Smoke-render frames 0-30 to validate composition. Full render via `bunx hyperframes render`.
 7. **SFX layer (post-music-pick).** 8 whoosh / impact / sparkle / coin / magnet / cartoon / explode / glint / typewriter `<Audio>` overlays dropped into `scenes.ts` as a `sfx[]` field.
 
 ## Anti-patterns (DO NOT — every one of these costs iterations)
@@ -85,7 +85,7 @@ Total: 14 still anchors (most scenes have first+last keyframes; the two macro in
 - **Cultural-genre framing > literal-act framing for moderation.** "Hacker / smug / hack" gets refused; "gambling-ecstasy / anime money-eyes trope / kane-no-me / arcade reaction" gets accepted. Same intent, different acceptance rate.
 - **Single-frame is the safer bet for tricky person-content shots.** If multi-frame failed once on a human shot, drop to single-frame and let the prompt drive motion.
 - **`startFrom: 30-60` per Sequence on i2v clips.** Most i2v clips have a "static-ish" first 0.3-0.8s while the model initializes motion. Trim into the most-dynamic window.
-- **Smoke-render frames 0-30** before full render: `bunx remotion render src/index.ts <id> /tmp/smoke.mp4 --frames 0-30`. Catches scene.ts bugs in 5 seconds.
+- **Smoke-render frames 0-30** before full render: `bunx hyperframes render src/index.ts <id> /tmp/smoke.mp4 --frames 0-30`. Catches scene.ts bugs in 5 seconds.
 
 ## Cost ballpark
 

@@ -30,7 +30,7 @@ workspace/projects/espresso-001/
 │   ├── user-prompts.jsonl
 │   └── user-assets.jsonl
 └── render/
-    └── final.mp4                     # Remotion + ffmpeg output (CLI-written)
+    └── final.mp4                     # HyperFrames + ffmpeg output (CLI-written)
 ```
 
 Everything under `workspace/` is gitignored — see [Workspace](/concepts/workspace). Safe to inspect, copy, branch, or wipe.
@@ -79,7 +79,7 @@ If you regenerated a scene, you'll see versioned files alongside: `.scene-02-bg-
 
 ### `asset-manifest.json` — the canonical scene list
 
-Written and updated by the CLI as each scene completes. The renderer reads this file to know which assets to pull into the Remotion composition.
+Written and updated by the CLI as each scene completes. The renderer reads this file to know which assets to pull into the HyperFrames composition.
 
 ```json
 {
@@ -135,7 +135,7 @@ If you dropped any reference images or URLs into chat (e.g. "here's a competitor
 
 ### `render/final.mp4` — the output
 
-The CLI writes this via `ralphy render <id>`. Remotion bundles the composition from `src/videos/`, pulls assets per `asset-manifest.json`, hands the frame stream to ffmpeg, and ffmpeg encodes the mp4. The agent reads the render result and reports duration, file size, and total project spend back to you in chat.
+The CLI writes this via `ralphy render <id>`. HyperFrames opens `workspace/projects/<id>/index.html` headlessly, Puppeteer rasterizes each frame, ffmpeg muxes the mp4 with the audio tracks declared in the composition. The agent reads the render result and reports duration, file size, and total project spend back to you in chat.
 
 ## Who wrote what
 
@@ -145,7 +145,7 @@ The CLI writes this via `ralphy render <id>`. Remotion bundles the composition f
 | **The CLI** (`ralphy generate`, `ralphy project log-*`, `ralphy render`) | `assets/*`, `asset-manifest.json`, `logs/*.jsonl`, `render/final.mp4` |
 | **You** (rarely, only if you dropped them in) | files under `assets/refs/` |
 
-The split matters because it tells you where to look when something's wrong. If a prompt was off, the agent wrote it — read `prompts.json`. If a cost looks high, the CLI logged it — grep `generations.jsonl`. If the render failed, ffmpeg or Remotion is the culprit — `ralphy doctor`.
+The split matters because it tells you where to look when something's wrong. If a prompt was off, the agent wrote it — read `prompts.json`. If a cost looks high, the CLI logged it — grep `generations.jsonl`. If the render failed, ffmpeg or HyperFrames is the culprit — `ralphy doctor`.
 
 ## Why the structure looks this way
 
@@ -158,7 +158,7 @@ The split matters because it tells you where to look when something's wrong. If 
 
 You know the file layout. Two good follow-ups:
 
-- [Architecture](/concepts/architecture) — the full picture: how the agent, the CLI, Remotion, and the providers fit together.
+- [Architecture](/concepts/architecture) — the full picture: how the agent, the CLI, HyperFrames, and the providers fit together.
 - [Talking to ralphy](/working/talking-to-ralphy) — phrasing patterns for daily use: regen, variant, batch, postmortem.
 
 ## Related

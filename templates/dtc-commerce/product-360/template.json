@@ -38,7 +38,7 @@
     "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied product photo (required for every frame the product is visible). Generate 2-4 angle keyframes (hero, profile, back, macro detail) — i2v interpolates rotation between them.",
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips with smooth orbital / turntable motion prompts ('slow 360 turntable rotation, locked center, no camera shake'). generate_audio: false.",
     "voiceover": "None by default. Optional 1-line ElevenLabs eleven_multilingual_v2 tag at finale ('From $199', product name) only if user explicitly asks.",
-    "captions": "Spec / feature overlays only — rendered in Remotion (not Whisper). Bottom-third, fade-in 2s after start, fade-out 1s before end. Examples: product name → key feature → price/CTA.",
+    "captions": "Spec / feature overlays only — rendered in the HyperFrames composition (not Whisper). Bottom-third, fade-in 2s after start, fade-out 1s before end. Examples: product name → key feature → price/CTA.",
     "music": "ElevenLabs Music — single track matched to product category. Luxury (jewelry, watches): cinematic strings + sonic chime at finale. Tech: ambient electronic pulse. Beauty: soft piano / harp. Athletic / automotive: tight modern percussion."
   },
   "constants": {

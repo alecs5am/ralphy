@@ -43,7 +43,7 @@
     "i2v": "Two-track choice. Premium: google/veo-3.1 — ~30-45s talking-head with native lip-sync to the provided VO (best mouth-shape accuracy, ~$15-22 per clip). Budget: kwaivgi/kling-v3.0-pro — same shot at ~$3-5 per 5-10s segment, slightly looser lip-sync that the captions hide. Both with generate_audio: false (we own the VO track).",
     "voiceover": "ElevenLabs eleven_multilingual_v2. Settings tuned for raw human energy, NOT smooth audiobook: stability 0.35, similarity_boost 0.7, style 0.4, use_speaker_boost true. Pacing target ~2.5 words/second. Single take from a single VO script, no scene splits.",
     "captions": "ElevenLabs Scribe v1 for word-level timestamps (preferred over whisper-1 here — Scribe gives cleaner word boundaries for the karaoke fill). Rendered with HormoziCaptions / TikTokCaptions / KaraokeCaptions from src/lib/components/captions/. Emoji injected at ~1 per 5s cadence on emphasis words.",
-    "headline": "Static headline overlay rendered in Remotion (Inter Black 96-128px, top-of-frame, holds 0-1s with a 6-frame fade-out). Pulled from hooks.md patterns; see prompt-cookbook.md headline design section.",
+    "headline": "Static headline overlay rendered in the HyperFrames composition (Inter Black 96-128px, top-of-frame, holds 0-1s with a 6-frame fade-out). Pulled from hooks.md patterns; see prompt-cookbook.md headline design section.",
     "music": "Optional — low-volume bed (-22 to -26 LUFS under VO). ElevenLabs Music with prompt 'minimal lo-fi loop, soft kick, no melody, podcast-friendly'. Many YAP videos run dry (no music) — that's a valid choice and reinforces the raw read."
   },
   "constants": {

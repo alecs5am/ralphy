@@ -33,6 +33,6 @@ Word-by-word animated captions. Each word fills with the brand color exactly as 
 
 ## Notes for the implementer
 
-- Always use `KaraokeCaptions` (or `HormoziCaptions`) — both already implement the per-word color fill in Remotion.
+- Use a karaoke / kinetic-slam caption block from the HyperFrames registry (`bunx hyperframes add karaoke-warm` or `bunx hyperframes add kinetic-slam`) — both implement the per-word color fill.
 - Pass the raw Scribe v1 JSON; do NOT re-time by hand.
 - Brand color must come from the project's `brand.json`; never hardcode.

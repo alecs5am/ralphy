@@ -4,7 +4,7 @@ The recipe book the art-director consults when running this template. Concrete g
 
 ---
 
-## 1. Master Remotion composition spec (split-screen)
+## 1. Master HyperFrames composition spec (split-screen)
 
 Single composition, 1080×1920 @ 30fps, ~45 seconds. Three layers stacked top-to-bottom in the JSX:
 
@@ -134,7 +134,7 @@ for i in 1 2 3 4; do
 done
 ```
 
-Sequence them in Remotion with hard cuts (no transitions — pace is part of the format). Cost: 4 × 5s × $0.14/s = **~$2.80**; add one 5s if you want a 5th beat = $3.50.
+Sequence them in the HyperFrames composition with hard cuts (no transitions — pace is part of the format). Cost: 4 × 5s × $0.14/s = **~$2.80**; add one 5s if you want a 5th beat = $3.50.
 
 ### (b) Static AI image with Ken Burns — fallback only, ~$0.15
 
@@ -201,7 +201,7 @@ The bottom-half clip is the one piece of this template that is **never AI-genera
 3. **Captured by the user from public livestreams.** Risky — Subway Surfers (Sybo / Kiloo), Minecraft (Mojang / Microsoft), GTA (Take-Two), Rocket League (Psyonix / Epic) all hold IP rights. Fair-use commentary cover is *thin* on a no-commentary loop. The pragmatic norm in the genre is to use these clips anyway, but document the source and don't brand the resulting video commercially around the IP.
 4. **AI-generated gameplay (kling, runway).** **DO NOT.** Reads as obviously fake within 2 seconds and the format collapses.
 
-The clip should be ≥30s; if shorter, Remotion `<Video loop />` papers over the seam, but a noticeable cut at the loop point is a tell.
+The clip should be ≥30s; if shorter, HyperFrames `<Video loop />` papers over the seam, but a noticeable cut at the loop point is a tell.
 
 Commit the loop to `workspace/projects/<id>/assets/uploaded/gameplay-loop.mp4`. The reference-required gate checks for this exact path.
 

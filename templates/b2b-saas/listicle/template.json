@@ -43,7 +43,7 @@
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — short 4-5s b-roll loops per item, generate_audio: false. Loops should idle (subtle camera drift, ambient motion) so the on-screen counter and item text dominate attention.",
     "voiceover": "ElevenLabs eleven_multilingual_v2 — single continuous VO take across all items, ~one item per ~7s, energetic-but-clear delivery (faceless host pacing, not GRWM-soft, not rant-loud).",
     "music": "ElevenLabs Music — one steady-tempo or building-urgency bed underneath the whole video, with a small lift at #1 reveal. No abrupt cuts.",
-    "captions": "OpenRouter whisper-1 + a Remotion-rendered numbered counter overlay (1/5, 2/5, …) plus an item-name title. Counter is the dominant visual element, not the captions."
+    "captions": "OpenRouter whisper-1 + a HyperFrames-rendered numbered counter overlay (1/5, 2/5, …) plus an item-name title. Counter is the dominant visual element, not the captions."
   },
   "constants": {
     "vibeAnchor": "numbered-countdown-with-1-at-end",

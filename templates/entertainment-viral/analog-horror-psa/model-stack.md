@@ -67,7 +67,7 @@ If trying ElevenLabs Music in a future iteration: ToS blocks artist / producer n
 
 | Stage | Tool | Settings | Why |
 |---|---|---|---|
-| Render | Remotion 4.0.441 | Default CRF 18 | Off-the-shelf |
+| Render | HyperFrames 4.0.441 | Default CRF 18 | Off-the-shelf |
 | Optimize | `ralphy video optimize` → ffmpeg x264 | `--crf 30 --tune grain --preset veryslow` | For analog-horror noise-heavy renders, this is the right preset. CRF 18 produces 190 MB / 30s; CRF 30 + grain produces 28 MB with zero perceptual loss because `-tune grain` preserves random-noise texture while spending bits on structural content. Default x264 smooths the snow into mush. Source added the verb mid-session (`cli/lib/ffmpeg-recipes.ts:optimizeReencode`, `cli/commands/video.ts:optimize`). |
 
 ## What we tried and dropped
@@ -80,8 +80,8 @@ If trying ElevenLabs Music in a future iteration: ToS blocks artist / producer n
 | Loudnorm + regen in the same shell loop | Double-norm bug when regen failed (404 voice) and loudnorm ran on stale files | **Always: gen all → verify durations → separate loudnorm pass.** |
 | Single climax growl SFX | Read as "chihuahua yipping at me" | **Generate 4 growl variants and LAYER them at staggered offsets.** |
 | First climax was 220 random colored confetti rects per frame | Looked like Mario Kart, not analog-TV signal-lost | **Match the reference literally** — blurred SMPTE color bars + sync-jitter + tracking band + chromatic-aberration ghost. The blur is non-negotiable. |
-| Icons rendered on Remotion `#1a1a1a` bg with their generated near-black bg | Visible black rectangle around each icon | **Two-pass ffmpeg colorkey** (`colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05,format=rgba`) → save to `assets/images-keyed/` → reference THAT path in Remotion + use pure `#000000` Remotion bg. |
-| Default Remotion CRF 18 + canvas noise | 190 MB / 30s — unsharable | **`ralphy video optimize --crf 30 --tune grain --preset veryslow`** as a post-render step. |
+| Icons rendered on HyperFrames `#1a1a1a` bg with their generated near-black bg | Visible black rectangle around each icon | **Two-pass ffmpeg colorkey** (`colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05,format=rgba`) → save to `assets/images-keyed/` → reference THAT path in the HyperFrames composition + use pure `#000000` HyperFrames bg. |
+| Default HyperFrames CRF 18 + canvas noise | 190 MB / 30s — unsharable | **`ralphy video optimize --crf 30 --tune grain --preset veryslow`** as a post-render step. |
 
 ## Stage-by-stage gen-log shape (for future log analysis)
 
@@ -93,7 +93,7 @@ Source gen-log (`logs/generations.jsonl`, 116 entries) breakdown:
 | `image` | `openai/gpt-5.4-image-2` | 5 | $1.00 |
 | `voiceover` | `eleven_multilingual_v2` | 46 | $0 (sub) |
 | `sfx` | `sound-generation` | 17 | $0 (sub) |
-| `video` | `remotion-render` | 14 | $0 (local) |
+| `video` | `hyperframes-render` | 14 | $0 (local) |
 | `video` | `ffmpeg/optimize` | 1 | $0 (local) |
 | **TOTAL** | | **116** | **$4.45** |
 

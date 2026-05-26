@@ -52,7 +52,7 @@
     "voiceover": "NONE separately — Veo native audio IS the on-camera dialogue. Do not stack ElevenLabs TTS on top; lip-sync would desync.",
     "music": "ElevenLabs Music — ONE continuous bed, ~duration of full video, with internal emotional arc (warm opening + swell at confrontation beat). Two structural moments inside ONE stem, not two separate stems. Mixed under VO at ~-22 LUFS via ffmpeg sidechain-compress so dialogue stays intelligible.",
     "captions": "ElevenLabs scribe_v1 word-level on the final mixed audio → popping-word overlay (one word at a time, spring scale-in on emotional peak, ~700ms hold, ~100ms fade). White fill, heavy black stroke, Inter 900 uppercase, anchored bottom-center.",
-    "composition": "Custom per-project Remotion (this template ships no generic composition). Consumer hand-authors src/videos/<id>/ — concat 7 clips, overlay music bed at -22 LUFS sidechained, burn popping-word captions on top."
+    "composition": "Custom per-project HyperFrames (this template ships no generic composition). Consumer hand-authors src/videos/<id>/ — concat 7 clips, overlay music bed at -22 LUFS sidechained, burn popping-word captions on top."
   },
   "constants": {
     "vibeAnchor": "Pixar-3D anthropomorphic object cast acting out a dead-serious telenovela in 7 beats of 8s each",

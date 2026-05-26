@@ -105,7 +105,7 @@ Follow-ups:
 
 - **OpenRouter media:** 2-3 parallel safe; 5+ throttle.
 - **ElevenLabs starter cap:** 3 concurrent → 429. Always sequential PER PROJECT; parallelism only across projects.
-- **Local Remotion render:** CPU-bound, one at a time on local machine.
+- **Local HyperFrames render:** CPU-bound (Puppeteer + ffmpeg), one at a time on local machine.
 - **Music:** 1 per project, negligible.
 
 ## Failure recovery

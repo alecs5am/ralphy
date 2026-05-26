@@ -261,7 +261,7 @@ ralph project run <id> --from prompts      # Start from a specific step
 ralph project run <id> --to assets         # Stop at a step
 
 # Utilities
-ralph project open <id>                    # Open in Remotion Studio
+ralph project open <id>                    # Open the project directory
 ralph project export <id> --output ./export/  # Export video + assets
 ralph project clone <id> --name "Copy"     # Clone the project
 ralph project reset <id> --step assets     # Reset a step (delete its results)
@@ -438,27 +438,6 @@ ralph workspace clean --stale --days 7
 
 ralph workspace doctor                      # Integrity check (broken links, etc.)
 ralph workspace du                          # Disk usage by category
-```
-
----
-
-### `ralph component`
-
-Manage the Remotion component library.
-
-```bash
-# List
-ralph component list                        # All components in src/lib/components/
-ralph component list --category captions    # By category
-
-# Scaffold new component
-ralph component create --name GlitchText --category text
-ralph component create --name PolaroidLayout --category layouts
-# → creates a file at src/lib/components/{category}/{Name}.tsx + a showcase entry
-
-# List video-specific compositions
-ralph component videos                     # src/videos/*
-ralph component videos --clean <name>      # Remove a video composition
 ```
 
 ---

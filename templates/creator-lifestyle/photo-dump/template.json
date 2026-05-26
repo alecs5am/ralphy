@@ -40,7 +40,7 @@
     "stillPhotos": "google/gemini-3-pro-image-preview via OpenRouter for AI-generated still photos when the user has no source library. For personal photo-dumps and brand week-recaps, user-supplied JPG/PNG/HEIC photos are used directly (no model call needed). Mixing AI + user photos in the same dump also works as long as the look (grain / color palette / framing) is held consistent.",
     "i2v": "Not used. This format is photos + beat-sync, not video. Skipping i2v keeps cost and render time low — the entire production cost can be $0 if user-supplied photos and a licensed/trend track are used.",
     "voiceover": "Optional ElevenLabs eleven_multilingual_v2 — a single short TTS call ONLY if the opening text line is narrated. Most photo-dumps are silent (no VO) and let the music carry the emotional arc.",
-    "captions": "Not used. Photo-dumps use a single text-overlay (the opening line) rendered as a Remotion <h1> over the first 1-2 photos. No whisper / no auto-captions.",
+    "captions": "Not used. Photo-dumps use a single text-overlay (the opening line) rendered as a HyperFrames <h1> over the first 1-2 photos. No whisper / no auto-captions.",
     "music": "ElevenLabs Music (or licensed trend track) — ONE bed only, no split. Photos snap to the kick / snare on every beat. If using a trend track from the platform, supply BPM and downbeat offset; if generating with ElevenLabs Music, request a specific BPM and 'four-on-the-floor' or 'half-time hip-hop' rhythm so beat-snaps land cleanly."
   },
   "constants": {

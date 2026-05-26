@@ -171,7 +171,7 @@ background. This icon will only be visible for first 0.8s of
 the climax scene before HARD CUT to color-bar static.
 ```
 
-Note: per POSTMORTEM lesson #11, the post-cut climax is NOT this icon — it's a separately-rendered SMPTE blurred color-bar pattern in Remotion. See `composition.md` (TODO: generalize from `src/videos/analog-horror-fridge-001/index.tsx`).
+Note: per POSTMORTEM lesson #11, the post-cut climax is NOT this icon — it's a separately-rendered SMPTE blurred color-bar pattern in the HyperFrames composition. See `composition.md` (TODO: generalize from `src/videos/analog-horror-fridge-001/index.tsx`).
 
 ## Stage: Voiceover (10 lines)
 
@@ -193,7 +193,7 @@ AND {{AND_STING_CAPS}}.
 Model: ElevenLabs `eleven_multilingual_v2` or `eleven_v3`.
 Voice: `{{vo_voice_id}}`. Source winner was the "Alerter" community voice generated manually in the 11Labs UI; API-callable fallback `weA4Q36twV5kwSaTEL0Q` (Ava) reads with too much inflection — switch voices before fighting prompts.
 Settings: `stability: 0.5`, `similarity_boost: 0.75`, `style: 0.10-0.15`, `use_speaker_boost: true`.
-Pause: ~250ms between sentences. Generate one mp3 per scene, sequenced in Remotion against `startSec`.
+Pause: ~250ms between sentences. Generate one mp3 per scene, sequenced in the HyperFrames composition against `startSec`.
 Run sequentially — ElevenLabs 429s on >3 concurrent.
 Verify voice exists FIRST: `xh GET /v1/voices/{{vo_voice_id}}` — community voice IDs can 404 between sessions.
 
@@ -309,9 +309,9 @@ Source used: "Sound Production Gin - Creepy scary horror synth tension" via yt-d
 
 ElevenLabs Music was not attempted on this format. The yt-dlp path was faster and the result already matched. If you do try ElevenLabs Music, the slop prevention rule applies — no artist / producer names (see MEMORY note `feedback_elevenlabs_music_no_artist_names`).
 
-## Stage: Captions (Remotion, no LLM)
+## Stage: Captions (HyperFrames, no LLM)
 
-Captions are derived from the VO text — same content, uppercase, word-by-word. Style spec is in `template.json:captionsStyle`. No prompt needed; this is a Remotion render decision.
+Captions are derived from the VO text — same content, uppercase, word-by-word. Style spec is in `template.json:captionsStyle`. No prompt needed; this is a HyperFrames render decision.
 
 Style cheatsheet:
 - Font: VT323 (Google Fonts)

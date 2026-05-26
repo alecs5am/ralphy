@@ -31,7 +31,7 @@ Then in the new project:
 1. Log the user selfie: `ralphy project log-asset <id> --kind photo --purpose character-ref --source <selfie>`
 2. Stage 1 still: `ralphy generate image --slot scene-01-still --model openai/gpt-5.4-image-2 --ref <selfie> --prompt "$(cat prompt-cookbook.md from-stage-1-section, slots filled)"`
 3. Stage 2 video: `ralphy generate video --slot scene-01-vid --model kwaivgi/kling-v3.0-pro --duration 15 --audio --first-frame <still>.png --prompt "$(cat prompt-cookbook.md from-stage-2-section, pronouns swapped, slots filled)"`
-4. Ship raw Kling mp4 — no Remotion composition needed.
+4. Ship raw Kling mp4 — no HyperFrames composition needed.
 
 ## Files in this template
 

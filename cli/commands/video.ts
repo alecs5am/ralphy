@@ -156,7 +156,7 @@ export function videoCmd() {
   cmd
     .command("smart-crop")
     .description(
-      "Detect speaker face bboxes in a source video and write face-bboxes.json. Output is consumed by the <SmartReframe> Remotion component (used by podcast-clip template) to follow the active speaker with a virtual 9:16 camera, eliminating letterbox bars on horizontal sources.",
+      "Detect speaker face bboxes in a source video and write face-bboxes.json. Output is consumed by HyperFrames smart-reframe overlays (used by the podcast-clip template) to follow the active speaker with a virtual 9:16 camera, eliminating letterbox bars on horizontal sources.",
     )
     .requiredOption("--in <path>", "Source video (typically 16:9 podcast cut)")
     .requiredOption("--out <path>", "Output face-bboxes.json")

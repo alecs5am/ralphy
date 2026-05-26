@@ -87,7 +87,7 @@ Use the platform's trending-audio panel. Reels: Reels Trends in the creator dash
   - Modesty / dream-pop: `"dream-pop instrumental, 90 BPM, soft synth pads, light percussion, no vocals, downbeats every 2.65s"`
   - Thrift / amapiano: `"amapiano instrumental, 110 BPM, log drums, shaker, no vocals, downbeats every 2.18s"`
 
-Generate 5-10s longer than the video — gives Remotion margin to fade out cleanly.
+Generate 5-10s longer than the video — gives HyperFrames margin to fade out cleanly.
 
 ## 6 mistakes (bottom-of-the-page critique)
 

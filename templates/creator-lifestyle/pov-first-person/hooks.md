@@ -2,7 +2,7 @@
 
 12 POV opener patterns. Each one is a frame for the text overlay that lands in the first 2 seconds. Pick one per project, fill in the specific scenario, and write the payoff to match. Don't paste verbatim — the patterns are armature, not script.
 
-The overlay is rendered as a separate centered text element (top-third or middle), big, white with stroke or shadow. It stays on screen for the full hook beat (≥ 2s). It is NOT part of the spoken VO captions — handle it as a static overlay with `<AbsoluteFill>` + `<H1>` in Remotion.
+The overlay is rendered as a separate centered text element (top-third or middle), big, white with stroke or shadow. It stays on screen for the full hook beat (≥ 2s). It is NOT part of the spoken VO captions — handle it as a static overlay with `<AbsoluteFill>` + `<H1>` in the HyperFrames composition.
 
 ---
 

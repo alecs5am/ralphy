@@ -47,7 +47,7 @@
     "voiceover": "Usually OFF. Diegetic sport sounds (breath, footstrike, chain, ball-pop, weight-clank) plus the music bed carry the format. If VO is used at all → ONE conversational line at the outro, ElevenLabs eleven_multilingual_v2, language follows the brief.",
     "captions": "Usually OFF. If used: MinimalCaptions for an outro single line only — never full-video Hormozi captions, that pushes the piece into 'ad' pattern-recognition.",
     "music": "ElevenLabs Music — single energetic-but-not-hyped bed, full-length. Three audio profiles: instrumental electronic 110-130 BPM (driven sports — cycling, running, gym), acoustic indie / driving-acoustic 90-110 BPM (serene flow — yoga, hiking, surf), hip-hop 100-110 BPM (gym, padel). Avoid 'ad-pumped' EDM stings — they tip the format from lifestyle to commercial.",
-    "overlay": "Brand title-card on the last 1.5s only (Remotion overlay, lower-third or centered). No mid-video brand overlays — they break the diegetic feel."
+    "overlay": "Brand title-card on the last 1.5s only (HyperFrames overlay, lower-third or centered). No mid-video brand overlays — they break the diegetic feel."
   },
   "constants": {
     "vibeAnchor": "real-person-real-activity-product-not-hero",

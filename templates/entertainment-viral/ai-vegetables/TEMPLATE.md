@@ -75,5 +75,5 @@ Cheaper than `soviet-nostalgic` (~$10-14) because the clips are shorter, there's
 
 - `fragments.md` — reusable prompt seeds for vegetables and settings.
 - `model-stack.md` — order of operations and what to avoid.
-- `composition.md` — Remotion skeleton.
+- `composition.md` — HyperFrames skeleton.
 - `reference-example.md` — placeholder; fills in after the first real run.

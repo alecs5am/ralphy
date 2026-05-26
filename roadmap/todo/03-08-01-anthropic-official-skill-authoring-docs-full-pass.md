@@ -13,4 +13,4 @@ title: "Anthropic official skill-authoring docs — full pass"
 **Acceptance criteria:**
 - Read all 6 official sources in bibliography §7 / Anthropic official (best-practices, Claude Code Skills docs, engineering blog, 33-page PDF, Skilljar course, anthropics/skills repo + skill-creator).
 - Distil into `notes/research/anthropic-skill-authoring.md` with: the 6 principles, description-field discipline, `!`-block patterns, when to split a skill vs extend.
-- Audit our 7 skills against the principles; file specific fix tasks for any that fail (e.g. `ralphy-remotion` and `ralphy-install` lacked `##`-section headings per `lint:skills`).
+- Audit our shipped skills against the principles; file specific fix tasks for any that fail (e.g. some lacked `##`-section headings per `lint:skills`).

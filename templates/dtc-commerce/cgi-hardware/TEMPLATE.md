@@ -11,7 +11,7 @@
 | Clip count | 3-6 (establishing → 3-4 macro beats → hero-pose finale) |
 | FPS | 30 |
 | Voiceover | **None by default.** Optional 1-line brand-tag at outro only if user explicitly asks. Keynote-narrator timbre, never UGC peer voice. |
-| Captions | Brand-mark + product name overlay only — Remotion-rendered, single line, at hero finale. No Whisper. |
+| Captions | Brand-mark + product name overlay only — HyperFrames-rendered, single line, at hero finale. No Whisper. |
 | Music | One track — keynote-electronica / cinematic-score bed. Swell peaks at hero-pose frame. |
 | Sound design | **Mandatory.** Foley layer (button-click, snap-fit, vibrate, fan-spin, dial-detent, magnet-snap). |
 | Reference required? | **YES — real hardware photos. Hard refuse without them.** |
@@ -96,7 +96,7 @@ This template is **reference-required**. Before any generation:
 | Keyframes | 4-6 × `gemini-3-pro-image-preview` @ $0.15 | ~$0.60-0.90 |
 | Video clips | 4 × `kling-v3.0-pro` × 3s @ $0.14/s | ~$1.68 |
 | Music | 1 ElevenLabs Music call (subscription) | $0 |
-| Sound design | foley layer mixed in Remotion | $0 |
+| Sound design | foley layer mixed in the HyperFrames composition | $0 |
 | VO (optional) | 1 ElevenLabs call (subscription) | $0 |
 | Render | local | $0 |
 | **Total** | | **~$2.30-2.60 per spot** |

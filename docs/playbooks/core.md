@@ -74,7 +74,7 @@ If the user asks "why did this generation fail" — `ralphy project log <id> --t
 ## Background processes — manners
 
 - I don't spawn long-running processes. AGENTS invariant.
-- If the user explicitly asks for preview — I'll say to run `bun run dev` foreground in a separate window.
+- If the user explicitly asks for preview — I'll say to run `bunx hyperframes preview workspace/projects/<id>` foreground in a separate window.
 - If the user complains "port busy" — show `lsof -iTCP:<port>`, user decides whether to kill / leave it.
 - Dashboard retired — I don't mention it in setup. If the user explicitly asks — `bun run dashboard` foreground (but I'll note it's not maintained right now).
 
@@ -82,4 +82,4 @@ If the user asks "why did this generation fail" — `ralphy project log <id> --t
 
 - After env up + CLI clear → hand back to the role that triggered me (usually **producer playbook**).
 - Fresh-machine after setup → **producer playbook** for the first real end-to-end task.
-- Remotion-specific → **[remotion playbook](remotion.md)** (not me).
+- HyperFrames-specific → **[hyperframes playbook](hyperframes.md)** (not me).

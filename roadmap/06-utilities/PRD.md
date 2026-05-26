@@ -46,7 +46,7 @@ This category owns "everything Ralphy can do without spending API credits".
 - **Replacing API-based gen with local models.** Local stays opt-in for narrow tasks (captioning, palette extraction). Image / video gen remains API-only.
 - **A pluggable codec abstraction.** ffmpeg is the engine. Don't add a HandBrake / x264 / NVENC selector matrix.
 - **GPU acceleration framework.** macOS gets VideoToolbox via ffmpeg defaults; Linux gets whatever ffmpeg detects. No custom CUDA path for v1.0.
-- **Rendering itself.** That belongs to Remotion — see [`docs/playbooks/remotion.md`](../../docs/playbooks/remotion.md). This category owns post-render and pre-render utilities, not the render itself.
+- **Rendering itself.** That belongs to HyperFrames — see [`docs/playbooks/hyperframes.md`](../../docs/playbooks/hyperframes.md). This category owns post-render and pre-render utilities, not the render itself.
 - **Image gen / inpainting locally.** Image gen is API-only.
 
 ## v1.0 cut

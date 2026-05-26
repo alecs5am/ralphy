@@ -2,9 +2,7 @@
 
 **Read this when:** writing or modifying HyperFrames code — compositions, GSAP animation timelines, captions, transitions, audio mixing, registry blocks. This is the *primary* composer + renderer reference for new Ralphy projects.
 
-HyperFrames is now the default render engine. Compositions are plain HTML files with `data-*` timing attributes, animated by a paused GSAP timeline the runtime seeks deterministically, rendered to MP4 via Puppeteer + FFmpeg. No React, no bundler, no JSX.
-
-> Legacy projects under `src/videos/*` (and any workspace project shipping a `composition-props.json`) still use the [Remotion playbook](remotion.md) as a fallback. New work goes here.
+HyperFrames is the render engine. Compositions are plain HTML files with `data-*` timing attributes, animated by a paused GSAP timeline the runtime seeks deterministically, rendered to MP4 via Puppeteer + FFmpeg. No React, no bundler, no JSX.
 
 ## Source of truth
 
@@ -23,7 +21,6 @@ The full HyperFrames domain knowledge lives in the **`.agents/skills/hyperframes
 | `three` / `typegpu` / `waapi` | Three.js scenes, raw WebGPU, Web Animations API — all deterministic. |
 | `tailwind` | Tailwind v4 browser-runtime usage inside compositions. |
 | `website-to-hyperframes` | URL → captured composition. |
-| `remotion-to-hyperframes` | Port a legacy Remotion composition to HTML. |
 | `contribute-catalog` | Ship a new registry block upstream. |
 
 ## First reads — top-5 high-leverage files
@@ -117,9 +114,8 @@ bunx hyperframes snapshot <project>  # frame capture at beat midpoints
 ## CLI cookbook
 
 ```bash
-# Render the project (HyperFrames is the default engine when index.html is present)
+# Render the project
 ralphy render <project-id>
-ralphy render <project-id> --engine hyperframes        # explicit
 ralphy render <project-id> --fps 60 --quality high     # bump quality
 ralphy render <project-id> --resolution portrait        # 1080×1920 portrait via DPR
 ralphy render <project-id> --loudnorm                   # +EBU R128 -16 LUFS post-pass
@@ -256,9 +252,9 @@ Example: *"22s, 1920×1080, tech-broadcast slam, brand pink #E87BA1, AWS Diatype
 - **`workspace/projects/<id>/asset-manifest.json`** — asset paths.
 - **`docs/green-zone.md`** — text positioning safe zone for 1080×1920.
 
-## Pixels vs code — motion-graphics decision tree (HyperFrames variant)
+## Pixels vs code — motion-graphics decision tree
 
-Same principle as the Remotion playbook: code-composited motion belongs in the HTML composition, not in `ralphy generate video`. The route table:
+Code-composited motion belongs in the HTML composition, not in `ralphy generate video`. The route table:
 
 | Pattern | Route | Why |
 |---|---|---|
@@ -279,5 +275,4 @@ If you're typing one of "animated text", "kinetic typography", "lower third anim
 - Missing assets → **art-director playbook** to regenerate.
 - Timings drift (VO ≠ scenario.duration) → **scenarist playbook** to re-time scenes.
 - After final-render in a batch → **producer playbook**.
-- Porting a legacy Remotion composition → invoke the **remotion-to-hyperframes** skill, or fall back to [`remotion.md`](remotion.md) and keep it on the Remotion engine via `--engine remotion`.
 - HyperFrames API specifics you don't find in this file → read the matching `.agents/skills/<topic>/SKILL.md` body.

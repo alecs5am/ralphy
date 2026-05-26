@@ -54,9 +54,9 @@ From the gen-log re-roll pattern:
 - **Not restating character lock_strings in every Veo prompt.** Veo has no character-lock primitive. The source restates every character's full ~80-word lock_string in every video prompt — that's why characters stay on-model.
 - **Asking Veo for background music in-clip.** Every Veo prompt must explicitly ban music ("no music, no background score, ambient diegetic only"). Two music sources (Veo's + ElevenLabs') = mud.
 
-## Composition note (no generic Remotion shipped)
+## Composition note (no generic HyperFrames shipped)
 
-This is a `vibe-style` template — it does NOT ship a generic Remotion composition. The source project (`fruit-drama-001`) authored its own composition at `src/videos/fruit-drama-001/index.tsx`, hardcoded to 7 beats of 8s each. Consumers of this template will hand-author their own `src/videos/<new-id>/` Remotion file. The structure is straightforward:
+This is a `vibe-style` template — it does NOT ship a generic HyperFrames composition. The source project (`fruit-drama-001`) authored its own composition at `src/videos/fruit-drama-001/index.tsx`, hardcoded to 7 beats of 8s each. Consumers of this template will hand-author their own `src/videos/<new-id>/` HyperFrames file. The structure is straightforward:
 
 1. `<OffthreadVideo src={concat.mp4} />` — full-bleed video layer
 2. `<Audio src={music-bed.mp3} volume={0.35} />` — music underlay, sidechain-compressed under VO in the audio mix

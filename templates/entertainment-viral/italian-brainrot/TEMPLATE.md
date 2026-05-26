@@ -77,6 +77,6 @@ ralphy assets list --template italian-brainrot
 2. Pull canonical reference → art-director generates image-to-video shots.
 3. ElevenLabs gibberish VO (one call, ~15s).
 4. Optional: phonetic captions burned in.
-5. Render via Remotion (single composition, hero shot + optional caption layer).
+5. Render via HyperFrames (single composition, hero shot + optional caption layer).
 
 Cost target: **<$0.50 per video** at default stack (1× hero image already pulled, 2× 5s kling clips, 1× ElevenLabs VO).

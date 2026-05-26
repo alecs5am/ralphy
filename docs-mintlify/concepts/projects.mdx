@@ -81,7 +81,7 @@ A project moves through five stages. The agent's role at each stage is in [`docs
     The art-director playbook resolves scenes into model-specific prompts and runs the generation verbs: `ralphy generate image`, `ralphy generate video`, `ralphy generate voiceover`, `ralphy generate music`, `ralphy generate sfx`. Each produced file is a slot in `asset-manifest.json`. Each call is an entry in `generations.jsonl`. Quality gates (`scoreImage`, `scoreVideo`) run per asset.
   </Step>
   <Step title="Composition and render">
-    The editor playbook stitches the assets into a Remotion composition (under `src/videos/<project>/`) and runs `ralphy render <project>` to produce `render/final.mp4`. Captions, transitions, audio mix, and color grade are all editor-stage. A re-render archives the previous mp4 to `final.v1.mp4`.
+    The editor playbook authors the HyperFrames composition (`workspace/projects/<id>/index.html`) and runs `ralphy render <project>` to produce `render/final.mp4`. Captions, transitions, audio mix, and color grade are all editor-stage. A re-render archives the previous mp4 to `final.v1.mp4`.
   </Step>
   <Step title="Postmortem">
     Once the user signs off on the cut (or the project is abandoned), the `/postmortem` skill writes the 6-file split under `postmortem/`. The lessons file is what the *next* project's agent reads at session start (see [`docs/playbooks/meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) rule 1). This is where most of the institutional knowledge in the codebase actually accumulates.

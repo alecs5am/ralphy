@@ -55,7 +55,7 @@
     "voiceover": "Native to Kling --audio for English target audience. NO separate ElevenLabs VO pass. If target is non-English (RU/UA/etc) — Kling --audio is unsafe (accent slip, age drift); fall back to ElevenLabs eleven_multilingual_v2 post-mix and disable Kling --audio.",
     "captions": "Optional. The format works without on-screen text; if used, MinimalCaptions at the hook beat only. Full-video Hormozi captions push it into 'ad' pattern-recognition.",
     "music": "ElevenLabs Music — single lofi cafe instrumental bed at 65 BPM, -22 LUFS, full-length (~110s for a 73s video with 1.5s fade in / 2s fade out). Music sits at -18dB under VO with optional sidechain ducking. Never name artists in the prompt (ToS rejection).",
-    "render": "ffmpeg-based hard-cut concat (no Remotion needed for the deadpan register — hard cuts, no animated overlays). Per-clip pre-process: ffprobe real duration, Scribe word timestamps for speech-aware trim, 50ms audio fade in/out before concat to kill the AAC-boundary click bug."
+    "render": "ffmpeg-based hard-cut concat (no HyperFrames needed for the deadpan register — hard cuts, no animated overlays). Per-clip pre-process: ffprobe real duration, Scribe word timestamps for speech-aware trim, 50ms audio fade in/out before concat to kill the AAC-boundary click bug."
   },
   "constants": {
     "vibeAnchor": "two-people-seated-head-back-on-couch-eyes-up",

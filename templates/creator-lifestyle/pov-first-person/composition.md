@@ -1,6 +1,6 @@
 # Composition — `pov-first-person`
 
-How a `pov-first-person` project is laid out at render time. Read this when the editor agent assembles the Remotion composition from generated assets.
+How a `pov-first-person` project is laid out at render time. Read this when the editor agent assembles the HyperFrames composition (`index.html` + GSAP timeline) from generated assets.
 
 ## Aspect / frame
 
@@ -22,7 +22,7 @@ A canonical 15-second POV looks like:
 
 ## Layer stack (top → bottom)
 
-1. **Caption overlay** — `KaraokeCaptions` from `src/lib/components/captions/` (animated word-by-word).
+1. **Caption overlay** — a HyperFrames karaoke caption block installed via `bunx hyperframes add karaoke-warm` (animated word-by-word).
 2. **Hook headline** (scene-01 only) — Inter Black 96-128px, top-of-frame, 0-1s hold + 6-frame fade.
 3. **Video plane** — generated i2v clips via Kling-v3-pro (selfie / POV variants).
 4. **Music bed** — `lofi-narrative` mode from `docs/prompts/music/lofi-narrative.md`, ducked to −24 LUFS under VO.

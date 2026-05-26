@@ -9,20 +9,7 @@ A UGC video has two audio tracks by default:
 
 ## Ducking (sidechain compression)
 
-Music ducks under VO. In the Remotion composition — via `interpolate` on `volume`:
-
-```tsx
-<Audio
-  src={staticFile("music.mp3")}
-  volume={(f) => {
-    // Duck during VO scenes (frames 30-450)
-    const isVoActive = f >= 30 && f <= 450;
-    return isVoActive ? 0.12 : 0.7;
-  }}
-/>
-```
-
-For post-Remotion ducking (if content is already rendered with a flat mix) — `cli/lib/ffmpeg-recipes.ts:sidechainCompress`.
+Music ducks under VO. In the HyperFrames composition, gate music with a GSAP-keyframed `data-volume` schedule, or set per-scene `<audio data-volume="0.12">` while VO is active. For post-render ducking (if content is already rendered with a flat mix) use `ralphy audio sidechain` → `cli/lib/ffmpeg-recipes.ts:sidechainCompress`.
 
 ## Loudnorm (TikTok target)
 

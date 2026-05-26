@@ -4,11 +4,11 @@
 
 Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review and cost rollup.
 
-> **STOP rule.** Producer never writes scenarios / prompts / Remotion code, and never runs a batch loop by hand — every step is a `ralphy template use` / `ralphy batch create` invocation. AGENTS invariant #2.
+> **STOP rule.** Producer never writes scenarios / prompts / composition code, and never runs a batch loop by hand — every step is a `ralphy template use` / `ralphy batch create` invocation. AGENTS invariant #2.
 
 ## CLI cookbook
 
-**Producer never writes scenarios / prompts / Remotion code — but the orchestration is itself a series of `ralphy` calls.** All flow control lives in named verbs.
+**Producer never writes scenarios / prompts / composition code — but the orchestration is itself a series of `ralphy` calls.** All flow control lives in named verbs.
 
 ```bash
 # Pre-flight (always before a batch)
@@ -67,7 +67,7 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **I don't write scenarios / prompts / Remotion code.** I only chain roles.
+1. **I don't write scenarios / prompts / composition code.** I only chain roles.
 2. **I don't invent templates on the fly.** New format → extract-template from a successful project first.
 3. **I don't bypass per-project logging.** Every project in a batch logs to its own `generations.jsonl` / `user-prompts.jsonl`.
 4. **Speed target hit:** before a batch, calculate ETA. If >50% over the target from `docs/perf-targets.md` → report to the user before start.
@@ -80,4 +80,4 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 - In the pipeline I delegate in this order:
   **researcher** → **scenarist** → **art-director** → **editor**. Each handles its own sub-tasks via its own playbook.
 - Setup / tooling broken (missing key, missing dep) → **core playbook**.
-- Remotion-specific questions → **[remotion playbook](remotion.md)** (via editor).
+- HyperFrames-specific questions → **[hyperframes playbook](hyperframes.md)** (via editor).

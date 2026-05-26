@@ -1,6 +1,6 @@
 ---
 title: "ralphy render"
-description: "Render a project to MP4. Default engine: HyperFrames (HTML + GSAP). Fallback: Remotion (React/TSX, legacy src/videos/*). Writes workspace/projects/<id>/render/f"
+description: "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm."
 ---
 
 {/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
@@ -15,14 +15,14 @@ ralphy render [options] <project>
 
 | Flag | Description |
 |---|---|
-| `--engine <engine>` | Render engine: hyperframes\|remotion (default: auto-detect, hyperframes-first) |
-| `--composition <id>` | Composition id (default: from props or 'UGCVideo') |
+| `--composition <id>` | Composition id (default: index.html) |
 | `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
+| `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
 
 **Example**
 
 ```bash
-ralphy render spring-001                            # auto-detect engine
+ralphy render spring-001
 ```
 
 <Expandable title="Full reference">
@@ -31,15 +31,13 @@ ralphy render spring-001                            # auto-detect engine
 
 | Flag | Description |
 |---|---|
-| `--engine <engine>` | Render engine: hyperframes\|remotion (default: auto-detect, hyperframes-first) |
-| `--composition <id>` | Composition id (default: from props or 'UGCVideo') |
+| `--composition <id>` | Composition id (default: index.html) |
 | `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
 | `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
-| `--keep-symlink` | Don't remove the public/project-&lt;id&gt; symlink after render (remotion only) |
-| `--fps <fps>` | Frame rate (hyperframes only; default 30) |
-| `--quality <quality>` | Quality preset: draft\|standard\|high (hyperframes only; default standard) |
-| `--format <format>` | Output format: mp4\|webm\|mov\|png-sequence (hyperframes only; default mp4) |
-| `--resolution <preset>` | Resolution preset: portrait\|landscape\|square\|1080p\|4k\|... (hyperframes only) |
+| `--fps <fps>` | Frame rate (default 30) |
+| `--quality <quality>` | Quality preset: draft\|standard\|high (default standard) |
+| `--format <format>` | Output format: mp4\|webm\|mov\|png-sequence (default mp4) |
+| `--resolution <preset>` | Resolution preset: portrait\|landscape\|square\|1080p\|4k\|... |
 | `--dry-run` | Print the resolved render plan; no engine run (default: false) |
 | `--summary` | Collapse the dry-run plan to a per-stage rollup (default: false) |
 | `-h, --help` | display help for command |
@@ -47,12 +45,10 @@ ralphy render spring-001                            # auto-detect engine
 **All examples**
 
 ```bash
-ralphy render spring-001                            # auto-detect engine
-ralphy render spring-001 --engine hyperframes       # force HyperFrames (HTML + GSAP)
-ralphy render spring-001 --engine remotion          # force Remotion (legacy React/TSX)
+ralphy render spring-001
 ralphy render proj-001 --loudnorm
 ralphy render proj-001 --output ./out.mp4
-ralphy render proj-001 --engine hyperframes --fps 60 --quality high
+ralphy render proj-001 --fps 60 --quality high
 ```
 
 </Expandable>

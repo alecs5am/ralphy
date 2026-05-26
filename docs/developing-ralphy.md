@@ -94,7 +94,7 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 ## Test discipline
 
 - `bun test` runs everything (`tests/unit/`, `tests/integration/`). No jest/vitest/mocha.
-- TDD-leaning: new CLI verb → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion in `tests/unit/`. New UI → Playwright. New Remotion component → render frames 0–10 for crash-check.
+- TDD-leaning: new CLI verb → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion in `tests/unit/`. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint workspace/projects/<id>` + `bunx hyperframes snapshot` for keyframe PNGs.
 - Errors-catalog test is the gatekeeper for the append-only contract — never bypass it.
 
 ## Tools
@@ -114,7 +114,7 @@ If you need any of these, read the actual source — they're discoverable:
 
 - The CLI verb surface — read `cli/index.ts` and `cli/commands/<verb>.ts`, or use `ralphy --help`.
 - The provider layer — read `cli/lib/providers/media.ts` and `cli/lib/providers/llm.ts`.
-- The Remotion composition layer — read `src/Root.tsx` and `src/lib/`.
+- The HyperFrames composition layer — read `workspace/projects/<id>/index.html` examples and the `.agents/skills/hyperframes/` skill body.
 - The role playbooks — read `docs/playbooks/<role>.md` per-task; routing is in `AGENTS.md`.
 - Architecture diagram — `docs-mintlify/concepts/architecture.mdx`.
 

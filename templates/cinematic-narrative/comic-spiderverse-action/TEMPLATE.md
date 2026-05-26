@@ -2,7 +2,7 @@
 
 A 27-second 16:9 painterly action scene rendered in a **comic-panel split + halftone dot bleed + ink-stroke caption** aesthetic. Two stylized characters mid-action over an urban backdrop, captured as **2 stitched seedance-2.0 t2v clips** with diegetic-only audio, then mixed with a post-render ElevenLabs music bed using sidechain duck under the SFX. Inspired by Across the Spider-Verse / Arcane painterly grammar without copying a single frame.
 
-The template is **video-first** — no Remotion composition, no VO lane, no caption overlay layer. The painterly style + comic SFX text + halftone bleed all live INSIDE the seedance frames; the ffmpeg pipeline only stitches and mixes.
+The template is **video-first** — no HyperFrames composition, no VO lane, no caption overlay layer. The painterly style + comic SFX text + halftone bleed all live INSIDE the seedance frames; the ffmpeg pipeline only stitches and mixes.
 
 ## Vibe
 

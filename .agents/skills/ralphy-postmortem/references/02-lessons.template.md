@@ -74,7 +74,7 @@ A table. Every row from a real failure in this session, with a citation to `01-c
 
 ## Section 5 — Composition tricks that paid off
 
-Bullet list of Remotion / ffmpeg / editing patterns that worked. Skip this section if the session never reached compose/render.
+Bullet list of HyperFrames / ffmpeg / editing patterns that worked. Skip this section if the session never reached compose/render.
 
 - **<pattern name>** — <when to use it, what problem it solves, citation>.
 - ...

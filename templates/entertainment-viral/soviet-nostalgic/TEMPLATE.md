@@ -127,7 +127,7 @@ Either works. The hip-hop track is less trend-bound than the Soviet bed — any 
 
 8. **Prepare music** — the Soviet bed was already copied at scaffold time. Generate or provide the hip-hop bed via `ralphy generate music`.
 
-9. **Compose** — Remotion composition following the pattern in [composition.md](composition.md). Register in `src/Root.tsx`, then `ralphy render <id>`.
+9. **Compose** — HyperFrames composition following the pattern in [composition.md](composition.md). Register in `src/Root.tsx`, then `ralphy render <id>`.
 
 10. **After success, update the template** if you discovered something reusable — add a fragment, document a failure mode, adjust guidance.
 
@@ -148,5 +148,5 @@ Either works. The hip-hop track is less trend-bound than the Soviet bed — any 
 - [reference-example.md](reference-example.md) — concrete example from `solutions-metal-001` with annotations
 - [fragments.md](fragments.md) — reusable prompt-fragment library (style, character descriptions, product descriptions, quality guards, music prompts, VO settings)
 - [model-stack.md](model-stack.md) — what to use, what to avoid, why, with documented failure modes
-- [composition.md](composition.md) — Remotion TSX skeleton with TransitionSeries fade + dual-music split + VO sync pattern
+- [composition.md](composition.md) — HyperFrames TSX skeleton with TransitionSeries fade + dual-music split + VO sync pattern
 - `template.json` — machine-readable metadata

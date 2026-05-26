@@ -14,7 +14,7 @@ Variations: any dense neon Asian metropolis (Tokyo / Seoul / Hong Kong / Taipei 
 
 1. **Source-clip duration ALWAYS overshoots the storyboard's requested duration by ~1s, every model, every clip.** Kling-v3.0-pro and Seedance-2.0 both return 4.04s / 5.04s / 6.04s / 9.04s when asked for 4 / 5 / 6 / 9. The extra 24 frames is the model's silent buffer. **Plan the trim pass into the workflow from turn 1.** Skipping this rule cost the source project ~$2 + 30 min iteration.
 
-2. **`STATIC_ROOT` in the Remotion composition MUST equal `project-<id>`, NOT bare `<id>`, and paths inside `staticFile()` MUST drop the `assets/` prefix.** `ralphy render` materializes the symlink `public/project-<id>` → `<project>/assets/`. The `playdate-pixel-001` composition is the legacy outlier (bare-id convention); new compositions follow the `project-<id>` convention.
+2. **`STATIC_ROOT` in the HyperFrames composition MUST equal `project-<id>`, NOT bare `<id>`, and paths inside `staticFile()` MUST drop the `assets/` prefix.** `ralphy render` materializes the symlink `public/project-<id>` → `<project>/assets/`. The `playdate-pixel-001` composition is the legacy outlier (bare-id convention); new compositions follow the `project-<id>` convention.
 
 3. **`ralphy render <id>` hard-fails without `composition-props.json` even when the composition takes zero props.** Stub it: `echo '{"compositionId":"<CompId>"}' > workspace/projects/<id>/composition-props.json`.
 
@@ -22,7 +22,7 @@ Variations: any dense neon Asian metropolis (Tokyo / Seoul / Hong Kong / Taipei 
 
 5. **ElevenLabs Music has a 2-concurrent-request hard cap.** Fan-out 3+ in parallel → one returns HTTP 429 `concurrent_limit_exceeded`. Batch in groups of 2, OR run serially.
 
-6. **For this register, compose at 24fps native, NOT 30fps.** Kling and Seedance return 24fps natively. Composition at 24fps = zero resampling = cleanest motion. 30fps would force Remotion's video-rate conversion and add micro-stutter.
+6. **For this register, compose at 24fps native, NOT 30fps.** Kling and Seedance return 24fps natively. Composition at 24fps = zero resampling = cleanest motion. 30fps would force HyperFrames's video-rate conversion and add micro-stutter.
 
 7. **Letterboxed 1.85:1 inside 9:16 = `1080×584` inner box centered vertically at `top: 668px` (math: `(1920 - 584) / 2 = 668`).** Use `overflow: hidden` + `objectFit: 'cover'` on `<OffthreadVideo>` to crop 16:9 source into 1.85:1 — ~4% horizontal crop, invisible to the eye.
 
@@ -96,7 +96,7 @@ At 1× minimum-iteration (no STATIC_ROOT mistake, no composition-props.json scra
 
 - **DO NOT** treat `composition-props.json` as optional for parameterless compositions — `ralphy render` hard-fails without it.
 - **DO NOT** copy the `STATIC_ROOT = "<id>"` pattern from `src/videos/playdate-pixel-001/` — that's a legacy bare-id convention; new compositions must use `STATIC_ROOT = "project-<id>"`.
-- **DO NOT** request 30fps composition for this register — Kling/Seedance return 24fps natively, 30fps forces Remotion video-rate conversion and adds micro-stutter.
+- **DO NOT** request 30fps composition for this register — Kling/Seedance return 24fps natively, 30fps forces HyperFrames video-rate conversion and adds micro-stutter.
 - **DO NOT** trust gemini's `observed_duration_sec` field — it rounds to nearest integer. Use ffprobe for exact durations.
 - **DO NOT** fan-out 3+ parallel ElevenLabs Music gens — 2-concurrent cap returns 429 on the over-cap call.
 - **DO NOT** generate video clips with `--audio` ON — zero diegetic invariant. All audio is a separate ElevenLabs Music post-mix, per `feedback_kling_no_music_eleven_music_postmix.md`.
@@ -105,9 +105,9 @@ At 1× minimum-iteration (no STATIC_ROOT mistake, no composition-props.json scra
 - **DO NOT** include named-artist or named-producer references in ElevenLabs Music prompts — blocked by ToS (per `feedback_elevenlabs_music_no_artist_names`). Genre + tempo + instrumentation only.
 - **DO NOT** compose the letterbox with two stacked rect overlays — use the outer-fill + inner-div pattern (outer `AbsoluteFill` black, inner `1080×584` div at `top:668px` with `overflow:hidden` + `objectFit:'cover'`). The inner div doubles as the crop clip.
 - **DO NOT** ship single-aspect — author the dual-composition (9:16 letterbox + 16:9 native sibling) from the same `scenes.ts` and `MUSIC_FILE` constants. One scene-edit propagates to both.
-- **DO NOT** ffmpeg-post the fade-to-black — use Remotion `interpolate` opacity on an `AbsoluteFill` overlay, return `null` when `opacity <= 0` to skip the DOM node.
+- **DO NOT** ffmpeg-post the fade-to-black — use HyperFrames `interpolate` opacity on an `AbsoluteFill` overlay, return `null` when `opacity <= 0` to skip the DOM node.
 
-## Composition tricks that paid off (vibe-style: hand-author Remotion)
+## Composition tricks that paid off (vibe-style: hand-author HyperFrames)
 
 - **Letterbox via outer-fill + inner div.** Outer `AbsoluteFill` is `#000`; inner `1080×584` div centered at `top: 668px` is where the video lives. Cleaner than overlaying two black bars on a full-bleed video, and the inner div doubles as the `overflow: hidden` clip for `objectFit: 'cover'`.
 - **Fade-to-black via `interpolate` opacity on an `AbsoluteFill` overlay**, returning `null` when `opacity <= 0` to skip the DOM node. No ffmpeg post-pass needed. Fires on the last 36 frames (1.5s) of the final shot.

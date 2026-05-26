@@ -33,7 +33,7 @@ The source project. Specificity-bait viral mechanic: cute charm-shape inclusions
 
 ### Render
 
-Two kling clips (`opt-b-clip1-v3-charms.mp4` 9s + `opt-b-clip2-v3-tiltlight.mp4` 8s) Remotion-spliced with `<Audio src={bg-music-v1-lofi.mp3} volume={0.18}>` overlay. `ralphy render --loudnorm` to -16 LUFS.
+Two kling clips (`opt-b-clip1-v3-charms.mp4` 9s + `opt-b-clip2-v3-tiltlight.mp4` 8s) HyperFrames-spliced with `<Audio src={bg-music-v1-lofi.mp3} volume={0.18}>` overlay. `ralphy render --loudnorm` to -16 LUFS.
 
 ### Reference example assets in this template
 

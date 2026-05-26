@@ -76,7 +76,7 @@ For longer sequences (5-6 panels): same shape, scale each beat to 2-3s, total 18
 | VO | 1-3 ElevenLabs calls (subscription) | $0 |
 | Music | 1 ElevenLabs Music call (subscription) | $0 |
 | Captions | 1 × whisper-1 | ~$0.001 |
-| Render | local Remotion | $0 |
+| Render | local HyperFrames | $0 |
 | **Total** | | **~$2.70** |
 
 Mid-tier cost. Goes up linearly with panel count: 6 panels ≈ $5, 8 panels ≈ $6.50.

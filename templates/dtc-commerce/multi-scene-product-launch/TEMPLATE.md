@@ -76,9 +76,9 @@ The shape is **dense (avg ~2s per shot), rhythm-driven, no VO** — the source-a
 
 7. **Generate 4 variants per scene in PARALLEL, in one shell script with `&` + `wait`.** 28 generations finish in ~80s parallel; sequential is ~25min. $0.60/scene buys statistical insurance against bad RNG.
 
-8. **Hard motion transitions don't survive a single Kling clip — cut in Remotion.** If a beat requires the body to rotate >45° or change action class (walk -> float, sit -> run), split it across two scenes with a hard cut. Don't burn $5 trying to make Kling do a transition.
+8. **Hard motion transitions don't survive a single Kling clip — cut in the HyperFrames composition.** If a beat requires the body to rotate >45° or change action class (walk -> float, sit -> run), split it across two scenes with a hard cut. Don't burn $5 trying to make Kling do a transition.
 
-9. **Kling minimum clip is 3s. Trim in Remotion via `<Sequence durationInFrames>` — never in Kling.** Because frame-0 is already mid-motion (per rule #4), the first 24 frames of a 3s clip are usable for any 0.8-1s source shot.
+9. **Kling minimum clip is 3s. Trim in the HyperFrames composition via `<Sequence durationInFrames>` — never in Kling.** Because frame-0 is already mid-motion (per rule #4), the first 24 frames of a 3s clip are usable for any 0.8-1s source shot.
 
 10. **For brand recreations, audio is source-1:1. No VO regen, no music regen.** The brand audio IS the point.
 
@@ -89,11 +89,11 @@ The shape is **dense (avg ~2s per shot), rhythm-driven, no VO** — the source-a
 - **DO NOT** describe wardrobe in text only — establish a visual wardrobe-reference image after the first pilot and pass it as `--ref` on every gen.
 - **DO NOT** describe a printed backdrop as the actual environment ("misty pine forest") — always say "printed fabric banner with visible texture, NOT a real forest".
 - **DO NOT** trust `camera_motion: tracking` from gemini's auto-shot-detection — default to STATIC and override only with eyes-on-source evidence.
-- **DO NOT** ask Kling for a >45° body rotation mid-clip — use a Remotion hard cut between two static-pose clips instead.
+- **DO NOT** ask Kling for a >45° body rotation mid-clip — use a HyperFrames hard cut between two static-pose clips instead.
 - **DO NOT** generate a single variant per scene on first pass — 4 variants per scene is the minimum (parallel, $0.60 budget).
 - **DO NOT** rely on `$?` after a `( ... ) &` bash subshell — capture `rc=$?` immediately. Silent API failures (key-limit 403, content-filter 400) otherwise look like exit 0.
 - **DO NOT** flat-pack 80+ generated PNGs into one directory — scaffold `scenes/01/`, `scenes/02/`, ... `scenes/NN/` with `meta.json` + `original-scene-img.jpg` per folder before any image gen, so human review is feasible.
-- **DO NOT** forget to `ln -s ../workspace/projects/<id> public/<id>` — Remotion `staticFile()` only sees `public/`, and every Remotion path in this template assumes the symlink.
+- **DO NOT** forget to `ln -s ../workspace/projects/<id> public/<id>` — HyperFrames `staticFile()` only sees `public/`, and every HyperFrames path in this template assumes the symlink.
 
 ## Workflow
 
@@ -103,7 +103,7 @@ The shape is **dense (avg ~2s per shot), rhythm-driven, no VO** — the source-a
 
 2. **Scaffold folders + extract mid-shot frames.** One shell script that mkdirs `scenes/01/` ... `scenes/NN/`, writes a `meta.json` per scene, and ffmpeg-extracts the source mp4 at each scene's midpoint into `scenes/NN/original-scene-img.jpg`.
 
-3. **Symlink for Remotion.** `ln -s ../workspace/projects/<id> public/<id>`.
+3. **Symlink for HyperFrames.** `ln -s ../workspace/projects/<id> public/<id>`.
 
 4. **Generate product hero masters** (5-8 angles). `openai/gpt-5.4-image-2` works fine here since they're 1:1. Three-quarter, side, front, flat-lay, macro, back-detail. These become the product `--ref` pool.
 
@@ -119,18 +119,18 @@ The shape is **dense (avg ~2s per shot), rhythm-driven, no VO** — the source-a
 
 10. **Batch all remaining i2v in parallel.** 5 concurrent Kling submits ≈ time of 1. ~$0.42 per 3s clip, ~$10-15 for 22-25 clips.
 
-11. **Compose in Remotion.** `src/videos/<id>/{fonts,scenes,TitleCard,index}.tsx`. Per scene: `<Sequence from durationInFrames><OffthreadVideo src muted style="objectFit: cover"></Sequence>`. Master audio: one `<Audio src="source-audio.mp3">` at composition root.
+11. **Compose in the HyperFrames composition.** `src/videos/<id>/{fonts,scenes,TitleCard,index}.tsx`. Per scene: `<Sequence from durationInFrames><OffthreadVideo src muted style="objectFit: cover"></Sequence>`. Master audio: one `<Audio src="source-audio.mp3">` at composition root.
 
 12. **Render.** `ralphy render <id>` -> `render/final.mp4` (1080x1920, 30fps).
 
-## Custom Remotion composition (heads-up)
+## Custom HyperFrames composition (heads-up)
 
-This template is `vibe-style`, not `vibe-reference`. There is NO generic `src/lib/templates/<slug>/` Remotion composition you can wire up via `composition-props.json`. The source project's composition lives at `src/videos/nothing-hp1-001/` and is hand-authored against its specific 27-scene timeline.
+This template is `vibe-style`, not `vibe-reference`. There is NO generic `src/lib/templates/<slug>/` HyperFrames composition you can wire up via `composition-props.json`. The source project's composition lives at `src/videos/nothing-hp1-001/` and is hand-authored against its specific 27-scene timeline.
 
 Consumers of this template will hand-author their own `src/videos/<new-id>/` composition. The template gives you:
 
 - The beat structure (above) — copy the durations + functions, swap the visuals.
-- The Remotion patterns (see `prompt-cookbook.md` "Remotion composition patterns").
+- The HyperFrames patterns (see `prompt-cookbook.md` "HyperFrames composition patterns").
 - The font-injection helper (`ensureNothingFonts()` pattern in source project's `fonts.ts`).
 
 If you build a generic version of this composition (parameterized title cards + scene-array driven `<Sequence>` loop), promote this template to `vibe-reference` and add `compositionTemplate.id` to `template.json`.
@@ -138,5 +138,5 @@ If you build a generic version of this composition (parameterized title cards + 
 ## What's still TODO on this template
 
 - **Canonical /postmortem split** — run `/postmortem` on the next project that uses this template to materialize the 6-file rollup.
-- **Generalized Remotion composition** in `src/lib/templates/multi-scene-product-launch/` — would promote this to `vibe-reference`.
+- **Generalized HyperFrames composition** in `src/lib/templates/multi-scene-product-launch/` — would promote this to `vibe-reference`.
 - **Pool migration** — the locked-ref assets in `assets/refs/` are local-only for now. Phase 2 of this skill will migrate them to `ralphy-assets/pool/master-shots/` so they survive `ralphy template use` cleanly.

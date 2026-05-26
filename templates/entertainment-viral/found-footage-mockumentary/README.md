@@ -34,7 +34,7 @@ POV operator stumbles on a hooded cult, takes a photo, the cultists are now faci
 - 8-10 image gens × $0.15 = ~$1.20-$1.50
 - 6 video clips × $0.70 (seedance-2.0 @ 5s) = ~$4.20
 - 5 SFX tracks via ElevenLabs (free tier or low cost)
-- Local Remotion render (free)
+- Local HyperFrames render (free)
 
 The source project (`occult-mockumentary-001`) actually burned ~$27.42 because it iterated through 6 render versions and tried kling before settling on seedance. A clean pass starting with seedance from clip 1 avoids that. See `model-stack.md` for the breakdown.
 
@@ -55,5 +55,5 @@ Then follow the prompt-cookbook top-to-bottom, fill the four slots, and run the 
 ## See also
 
 - [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — the generic asset-generation playbook
-- [`docs/playbooks/editor.md`](../../../docs/playbooks/editor.md) — Remotion composition + caption / overlay specifics
+- [`docs/playbooks/editor.md`](../../../docs/playbooks/editor.md) — HyperFrames composition + caption / overlay specifics
 - [`MODELS.md`](../../../MODELS.md) — current model catalog (Claude training is stale; check before every gen)

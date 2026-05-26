@@ -1,6 +1,6 @@
 # UGC Video Generation Pipeline
 
-Autonomous UGC-video generation: agent + HyperFrames (default) / Remotion (fallback) + OpenRouter media + ElevenLabs voice/music.
+Autonomous UGC-video generation: agent + HyperFrames + OpenRouter media + ElevenLabs voice/music.
 
 @AGENTS.md
 
@@ -17,15 +17,12 @@ Four companion files the agent should also keep in mind:
 ## Project layout
 
 - `cli/` — ralphy CLI (TypeScript, tsx). Commands `cli/commands/`, libs `cli/lib/`.
-- `cli/lib/render/hyperframes.ts` — HyperFrames render adapter (default engine). Remotion adapter is inline in `cli/commands/render.ts` as the fallback path.
-- `src/lib/` — legacy durable Remotion components (captions, overlays, layouts). Used by the Remotion fallback engine.
-- `src/videos/{name}/` — legacy per-video Remotion (React/TSX) compositions. New work goes to `workspace/projects/<id>/index.html` (HyperFrames).
+- `cli/lib/render/hyperframes.ts` — HyperFrames render adapter (the render engine).
 - `templates/` — repo-public template pack, committed to git, shipped on every clone. Read by `ralphy template list` / `suggest` / `use`.
 - `workspace/` — generated files (gitignored). Safe to wipe. `workspace/templates/` overrides repo templates on id collision.
 - `workspace/.ralph/asset-cache/` — local cache of files pulled from the `ralphy-assets` companion repo.
 - `docs/playbooks/` — role / domain instruction docs. The agent reads these on demand based on `AGENTS.md` routing.
 - `.agents/skills/` — thin slash-command shims (`/ralphy-researcher`, etc.) that redirect to the playbooks. `.claude/skills/` symlinks.
-- `dashboard/` — retired in v2. Code stays for now, undocumented.
 - **Companion repo** [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) — heavy required template assets (trend music) and complete example projects.
 
 ## ralphy CLI
@@ -53,12 +50,11 @@ CLI: `ralphy project log <id>` / `ralphy project timeline <id>` / `ralphy projec
 
 - Project ID: `{context}-{NNN}` (e.g. `spring-2026-001`).
 - Scene ID: `scene-{NN}`. Asset slot: `{scene-id}-{type}-{descriptor}`.
-- HyperFrames (default): authored as `workspace/projects/<id>/index.html` with `data-*` timing attributes and a paused GSAP timeline registered on `window.__timelines`. See [`docs/playbooks/hyperframes.md`](docs/playbooks/hyperframes.md).
-- Remotion (legacy fallback): all Remotion packages share one version (`4.0.441`); use `staticFile()` for every asset reference; organize compositions via `<Folder>` in `Root.tsx`.
+- HyperFrames: authored as `workspace/projects/<id>/index.html` with `data-*` timing attributes and a paused GSAP timeline registered on `window.__timelines`. See [`docs/playbooks/hyperframes.md`](docs/playbooks/hyperframes.md).
 
 ## Testing
 
-TDD-leaning. New CLI command → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint workspace/projects/<id>` + `bunx hyperframes snapshot` for key-frame PNGs. New Remotion component (fallback) → render frames 0–10 for crash check.
+TDD-leaning. New CLI command → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint workspace/projects/<id>` + `bunx hyperframes snapshot` for key-frame PNGs.
 
 ## Help & feedback
 

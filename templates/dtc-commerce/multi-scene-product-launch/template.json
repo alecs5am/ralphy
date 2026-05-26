@@ -51,9 +51,9 @@
     "keyframes": "google/gemini-3-pro-image-preview via OpenRouter — the ONLY model that respects 9:16 (returns 768x1376 native, lanczos-upscale to 1080x1920). 4 variants per scene in parallel, $0.15/img. Each call passes 3-4 refs: locked storyboard frame from source + character base + wardrobe-reference + product hero. AVOID openai/gpt-5.4-image-2 for 9:16 — it ignores aspect-ratio and returns 1024x1024 squares. Use gpt-5.4-image-2 only for square product hero shots.",
     "productMasters": "openai/gpt-5.4-image-2 OR google/gemini-3-pro-image-preview — generate 5-8 product hero angles (three-quarter, side, front, flat-lay, macro, back tech-detail, floating tilt, low-angle stand) ONCE at project start. These become the product --ref pool for every scene gen.",
     "characterMasters": "google/gemini-3-pro-image-preview — generate one identity-locked editorial portrait per character (pass the user-supplied base photo as ref, ask for tech-commercial restyle). Pick the cleanest variant for {{model_a}}-wardrobe-reference.png after pilot scene.",
-    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — 3-6s clips at $0.14/s, 720p (Remotion upscales). AVOID bytedance/seedance-2.0 — content-moderation filter blocks ~80% of photoreal AI faces with InputImageSensitiveContentDetected. Every clip needs STATIC LOCKED-OFF CAMERA + CONTINUOUS MID-MOTION blocks to fight Kling's deep-breath idle tic and ramp-up start tic.",
+    "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter — 3-6s clips at $0.14/s, 720p (HyperFrames upscales). AVOID bytedance/seedance-2.0 — content-moderation filter blocks ~80% of photoreal AI faces with InputImageSensitiveContentDetected. Every clip needs STATIC LOCKED-OFF CAMERA + CONTINUOUS MID-MOTION blocks to fight Kling's deep-breath idle tic and ramp-up start tic.",
     "voiceover": "None — source audio is preserved 1:1 from the original mp4. For recreations the brand audio is the point. ElevenLabs only if user explicitly wants a translated VO replacement.",
-    "captions": "None by default. Title cards rendered as Remotion <TitleCard /> components (brand wordmark, slogan, URL). For multi-state endcards use a <TitleCardCycle /> that swaps strings every (duration / N states).",
+    "captions": "None by default. Title cards rendered as HyperFrames <TitleCard /> components (brand wordmark, slogan, URL). For multi-state endcards use a <TitleCardCycle /> that swaps strings every (duration / N states).",
     "music": "None — source audio carries it. For non-recreation variants of this template, ElevenLabs Music with category-matched cue (cinematic for tech, electronic for sport, ambient for luxury)."
   },
   "constants": {
@@ -63,7 +63,7 @@
     "lighting": "soft top key + cool fill, occasional rim — clean studio, no chiaroscuro",
     "cameraMotion": "STATIC by default — only allow zoom / push-in if confirmed by source review",
     "aspectLock": "9:16 vertical, 1080x1920 final, 30fps",
-    "minClipDuration": "3s (Kling minimum) — trim in Remotion via <Sequence durationInFrames>"
+    "minClipDuration": "3s (Kling minimum) — trim in the HyperFrames composition via <Sequence durationInFrames>"
   },
   "variationAxes": [
     "product category (headphones, smartwatch, smart speaker, fitness tracker, camera, phone, gaming controller, drone)",

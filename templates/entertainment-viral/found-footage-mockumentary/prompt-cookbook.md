@@ -270,7 +270,7 @@ Do NOT have the camera drop. Do NOT show operator face. Do NOT add jump-scare zo
 
 ### Clip F — Monster reveal (DIEGETIC REGISTER BREAK — Hi8 → clean cinema)
 
-Endpoint: `seedance-2.0`. This is the only clip in the cut WITHOUT the VHS overlay layer in Remotion — the diegetic justification is that the camera fell at the end of Clip E and the cinema register represents "the truth visible without the amateur-camera filter".
+Endpoint: `seedance-2.0`. This is the only clip in the cut WITHOUT the VHS overlay layer in the HyperFrames composition — the diegetic justification is that the camera fell at the end of Clip E and the cinema register represents "the truth visible without the amateur-camera filter".
 
 ```
 9:16 vertical cinematic horror, 5s, ONE continuous take, no cuts. CINEMA register — clean grade,
@@ -382,7 +382,7 @@ a faint environmental ambient. NO music, NO melody, NO percussion, NO instrument
 
 ---
 
-## Stage 4 — Captions + HUD overlays (Remotion)
+## Stage 4 — Captions + HUD overlays (HyperFrames)
 
 3 diegetic captions in `{{target_language}}` max in a 40s cut. Lower-third, simple sans-serif system-font, no kinetic typography. No VO at all (template default).
 

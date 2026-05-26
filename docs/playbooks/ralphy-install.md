@@ -69,7 +69,7 @@ This is an interactive `@clack/prompts` wizard that:
 - Asks for the project path if it can't find one, and saves the link to the global config.
 - Shows a status table of currently-set keys.
 - Lets the user multi-select providers and prompts for each missing key, with a live API ping to verify.
-- Optionally launches Remotion Studio + dashboard in the background.
+- Optionally launches a HyperFrames preview server in the foreground.
 
 The user drives the wizard interactively — don't try to run it non-interactively. If you need to script it (e.g. for CI), use the underlying flags: `ralphy setup --link <path>`, `ralphy setup --status`.
 

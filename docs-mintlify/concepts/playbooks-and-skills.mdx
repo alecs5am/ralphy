@@ -18,12 +18,12 @@ A playbook is a plain Markdown file. No frontmatter, no slash-command, no skill 
 | [`intake.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/intake.md) | New project request — captures the brief in 3-5 questions before any paid generation |
 | [`scenarist.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/scenarist.md) | "write a script", "make a video about X", scenario feedback ("rework scene 3", "tighten VO") |
 | [`art-director.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/art-director.md) | "generate prompts / assets", "make images / video / VO / music", model swap, A/B variants |
-| [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) | "compose the video", "render", captions, transitions, audio mix, Remotion code edits |
+| [`editor.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md) | "compose the video", "render", captions, transitions, audio mix, HyperFrames composition edits |
 | [`producer.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/producer.md) | End-to-end, batch (N ≥ 3), "save as template", profile export / import |
 | [`researcher.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/researcher.md) | URL drop, "style from `<site>`", "analyze @handle", competitor audit |
 | [`core.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/core.md) | `ralphy doctor`, "nothing works", "read logs", any CLI usage question |
 | [`ralphy-install.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/ralphy-install.md) | Fresh machine, `which ralphy` empty |
-| [`remotion.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/remotion.md) | Remotion API details — captions, transitions, audio, ffmpeg, animation |
+| [`hyperframes.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/hyperframes.md) | HyperFrames composition rules — GSAP timelines, captions, transitions, audio, ffmpeg |
 | [`meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) | Start-of-session discipline — read once per session |
 | [`README.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/README.md) | Catalogue / index of all playbooks |
 
@@ -41,7 +41,7 @@ The routing table in [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/
 | URL drop, "analyze @handle", "what's trending in X" | `researcher.md` (and the `/ralphy-researcher` skill) |
 | "write a script", scenario feedback | `scenarist.md` |
 | "generate prompts / assets", model swap | `art-director.md` |
-| "compose the video", "render", "captions" | `editor.md` (then `remotion.md` for API specifics) |
+| "compose the video", "render", "captions" | `editor.md` (then `hyperframes.md` for API specifics) |
 | End-to-end, batch (N ≥ 3), "save as template" | `producer.md` |
 | "evaluate / score / QA" a rendered mp4 | `/ralphy-evaluator` skill |
 | `ralphy doctor`, CLI usage question | `core.md` |
@@ -64,7 +64,7 @@ The seven skills today, in the order they appear under `.agents/skills/`:
 | [`ralphy-researcher`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-researcher/SKILL.md) | `ralphy` | URLs / handles / topic → `report.md` + `sources.json` |
 | [`ralphy-templater`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-templater/SKILL.md) | `ralphy` | shipped project → vibe-reference template under `templates/<category>/<slug>/` |
 | [`ralphy-install`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-install/SKILL.md) | `ralphy` | fresh machine → installed binary, configured keys, working `ralphy doctor` |
-| [`ralphy-remotion`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-remotion/SKILL.md) | `ralphy` | Remotion API question → topic-specific sub-doc |
+| [`hyperframes`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/hyperframes/SKILL.md) | `ralphy` | HyperFrames composition question → topic-specific sub-doc |
 | [`ralphy-postmortem`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-postmortem/SKILL.md) | `ralphy` | iteration session → 6-file postmortem set under `workspace/projects/<id>/postmortem/` |
 | [`ralphy-dev-release`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-dev-release/SKILL.md) | `ralphy-dev` | main-branch HEAD → new GitHub Release + brew + npm publication |
 
@@ -77,7 +77,7 @@ Skills ship in two namespaces:
 | Namespace | Audience | Examples |
 |---|---|---|
 | `ralphy` | end users | `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `ralphy-remotion`, `skill-creator` |
+| `ralphy-dev` | maintainers / contributors | `release`, `skill-creator` |
 
 The install wizard (`ralphy skill install`) installs the `ralphy` set by default. `ralphy skill install --dev` opts into the maintainer set. The split exists so a tester running `/<TAB>` on a fresh install does not see `/release` (which ships the binary, not the user's project) or `/skill-creator` (a maintainer authoring tool).
 
@@ -87,7 +87,7 @@ A skill in `ralphy-dev` ships through the same lint and installer plumbing as `r
 
 The two layers solve different problems.
 
-**Playbooks** are *role docs*. They are read by the agent when a user intent matches a row in the routing table. They cover roles (`scenarist`, `art-director`, `editor`, `producer`, `core`) and domains (`remotion`, `intake`). No frontmatter, no activation contract — they are just Markdown the agent reads.
+**Playbooks** are *role docs*. They are read by the agent when a user intent matches a row in the routing table. They cover roles (`scenarist`, `art-director`, `editor`, `producer`, `core`) and domains (`hyperframes`, `intake`). No frontmatter, no activation contract — they are just Markdown the agent reads.
 
 **Skills** are *workflows*. They have a deterministic input → output contract and a single CLI command. They are slash-invocable (`/ralphy-evaluator <path.mp4>`) and they produce specific artifacts on disk. The agent invokes a skill when the user types the slash command, or when the routing table points the agent at a skill (e.g. "evaluate this video" → `/ralphy-evaluator`).
 

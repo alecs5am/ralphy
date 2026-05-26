@@ -15,7 +15,7 @@ description: "Long-form podcast / interview / panel / talk → 15-60s viral cut
   variety, music typically OFF (diegetic VO carries) with optional low bed under
   the title-banner moment. One 60-90 minute podcast usually yields 2-4 short
   cuts that go viral. The tooling pipeline is end-to-end: yt-dlp pull →
-  transcribe → Gemini-vision viral-moment picker → lossless extract → Remotion
+  transcribe → Gemini-vision viral-moment picker → lossless extract → HyperFrames
   compose."
 tags:
   - podcast

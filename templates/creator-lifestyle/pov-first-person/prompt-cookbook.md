@@ -93,7 +93,7 @@ If ElevenLabs delivers a too-confident tone for a panicked beat, regen with lowe
 
 ## Captions
 
-The POV text line is **NOT** a caption — it's a separate static overlay, large, centered, persistent for the hook beat. Render it via `<AbsoluteFill>` + a custom text component in Remotion. Don't pass it through whisper-1.
+The POV text line is **NOT** a caption — it's a separate static overlay, large, centered, persistent for the hook beat. Render it via `<AbsoluteFill>` + a custom text component in the HyperFrames composition. Don't pass it through whisper-1.
 
 The VO line(s) inside the scene ARE captions. Two style options:
 
@@ -226,4 +226,4 @@ If the payoff line is the only spoken line in the whole video, render it as capt
 
 ## Final assembly note
 
-The POV text overlay is added in **Remotion post-render**, NOT in the i2v generation. Generate clean clips without text in frame (use the negative prompt above to enforce). Add the overlay as a `<AbsoluteFill>` + custom-text component in the composition. This way the overlay is sharp (vector text), correctly sized for the safe-area, and editable without re-generating video.
+The POV text overlay is added in **HyperFrames post-render**, NOT in the i2v generation. Generate clean clips without text in frame (use the negative prompt above to enforce). Add the overlay as a `<AbsoluteFill>` + custom-text component in the composition. This way the overlay is sharp (vector text), correctly sized for the safe-area, and editable without re-generating video.

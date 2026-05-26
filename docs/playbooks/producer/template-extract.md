@@ -66,7 +66,7 @@ ralphy template create --slug <kebab> --name "<Human>" --from-project <project-i
 - Pinned versions where critical.
 
 #### 4.4 `composition.md`
-- Remotion skeleton.
+- HyperFrames composition skeleton (HTML + GSAP timeline).
 - Key patterns (transition durations, VO sync, dual-music split).
 - Quirks.
 

@@ -4,19 +4,19 @@ Thin wrappers over `ffmpeg` for a production-correct video pipeline. Source: ada
 
 Implementation: `cli/lib/ffmpeg-recipes.ts`. Uses the system `ffmpeg` (Homebrew). Every call is auto-logged through `logGeneration()` if `projectId` is passed (provider: `"ffmpeg"`, cost: 0).
 
-## When to use this (and when to use Remotion)
+## When to use this (and when to use HyperFrames)
 
 | Task | Tool |
 |---|---|
-| Video composition (scenes + captions + music + transitions) | **Remotion** |
+| Video composition (scenes + captions + music + transitions) | **HyperFrames** |
 | Cut a single clip out of a long source file | `extractSegment` |
 | Concatenate already-rendered MP4s without re-encode | `concatLossless` |
 | Normalize loudness for TikTok | `loudnorm` |
 | Music under VO with ducking | `sidechainCompress` |
 | iPhone HDR video into SDR for shorts | `tonemapHDR` |
-| Burn .srt subtitles into a final mp4 (post-Remotion) | `burnSubtitles` |
+| Burn .srt subtitles into a final mp4 (post-render) | `burnSubtitles` |
 
-Remotion renders the final MP4 — these recipes are for **pre/post-processing** of the source files or the rendered output for cross-platform compression.
+HyperFrames renders the final MP4 — these recipes are for **pre/post-processing** of the source files or the rendered output for cross-platform compression.
 
 ## Recipe 1: `extractSegment`
 
@@ -88,7 +88,7 @@ await sidechainCompress({
 });
 ```
 
-**Alternative:** do the ducking directly in Remotion via `<Audio volume={interpolate(...)} />`. Works if you know exact VO intervals. Sidechain — automatic detection.
+**Alternative:** do the ducking directly in the HyperFrames composition by scheduling `data-volume` on the music `<audio>` element. Works if you know exact VO intervals. Sidechain — automatic detection.
 
 ## Recipe 5: `tonemapHDR`
 
@@ -104,11 +104,11 @@ await tonemapHDR({
 });
 ```
 
-**When:** on ANY user-uploaded iPhone footage in `assets/uploaded/`. Before that footage hits Remotion.
+**When:** on ANY user-uploaded iPhone footage in `assets/uploaded/`. Before that footage hits the HyperFrames composition.
 
 ## Recipe 6: `burnSubtitles`
 
-Burn-in `.srt` over the video — final step after Remotion (if subtitles aren't part of the composition).
+Burn-in `.srt` over the video — final step after the HyperFrames render (if subtitles aren't part of the composition).
 
 ```ts
 import { burnSubtitles } from "./cli/lib/ffmpeg-recipes.js";
@@ -127,7 +127,7 @@ await burnSubtitles({
 
 **Hard rule (Editor Hard Rules #1):** subtitles **last**, after every video filter. If you do tonemap or loudnorm — first; subtitles at the end.
 
-**In our stack:** captions are normally embedded in the Remotion composition through `@remotion/captions` components (12 styles in `src/lib/components/captions/`). `burnSubtitles` is needed only for legacy `.srt` flows.
+**In our stack:** captions are normally embedded in the HyperFrames composition via registry caption-style blocks (`bunx hyperframes add <slug>`). `burnSubtitles` is needed only for legacy `.srt` flows.
 
 ## Anti-patterns
 

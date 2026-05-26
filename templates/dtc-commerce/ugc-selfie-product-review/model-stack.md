@@ -10,7 +10,7 @@ Defaults validated on `glitter-cream-001`. Total spend $13.79 across 11 successf
 | Persona master + scene first-frames | `google/gemini-3-pro-image-preview` | OpenRouter | Best at holding face / wardrobe / room across MULTI-REF calls (product + persona). Verified — same freckles, glasses, pajama, bedroom across 5+ generations. | $0.15 / shot |
 | All UGC selfie video clips | `kwaivgi/kling-v3.0-pro` (`--audio`) | OpenRouter | Honors internal HARD JUMP CUTs (~0.2s precision). Renders EN speech + tactile SFX inline. Holds locked first-frame identity. | $0.14 / sec |
 | BG instrumental music | `elevenlabs/music_v1` | ElevenLabs | $0 on subscription. `force_instrumental: true`. 3 variant pass standard. | $0 |
-| Render + loudnorm | Remotion 4.0.441 + ffmpeg loudnorm | local | $0. Composition-props.json required even prop-less. | $0 |
+| Render + loudnorm | HyperFrames 4.0.441 + ffmpeg loudnorm | local | $0. Composition-props.json required even prop-less. | $0 |
 
 Both image models accept local PNG paths via `--ref` (auto-data-URI'd in-process). No upload step.
 
@@ -49,7 +49,7 @@ Both image models accept local PNG paths via `--ref` (auto-data-URI'd in-process
 | **Opt B v3 cheek-tilt-light + B1 v3 specificity-bait - SHIPPED** | 2 clips | $2.38 |
 | **Video subtotal** | **11 clips + 4 zero-cost 400 errors** | **$10.64** |
 | ElevenLabs music x 3 variants | 3 tracks | $0 |
-| Remotion render + loudnorm | 1 render | $0 |
+| HyperFrames render + loudnorm | 1 render | $0 |
 | **TOTAL** | | **$13.79** |
 
 ## Cost ballpark for the next user of this template

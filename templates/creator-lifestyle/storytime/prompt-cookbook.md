@@ -147,7 +147,7 @@ generate_audio: false.
 
 **Purpose.** Visual exclamation point at the peak. The same talking-head clip pushed in 1.0 → 1.4 with a 4-frame handheld shake at the apex.
 
-**Composition.** No new asset needed. Apply in Remotion via `interpolate` on the `transform: scale()` and a small random `translate` offset on frames 1380-1392 (a 12-frame shake).
+**Composition.** No new asset needed. Apply in the HyperFrames composition via `interpolate` on the `transform: scale()` and a small random `translate` offset on frames 1380-1392 (a 12-frame shake).
 
 ### Interrupt type 4 — Frozen-frame thought-bubble
 
@@ -170,7 +170,7 @@ Storytime VO lives or dies on emotional swing. Stable / monotone reads as flat; 
 
 **Slicing strategy.** Generate one VO per beat, not one VO for the whole story. Reasons:
 1. Each beat can have its own emotion — frustrated → resigned → shocked → relieved — without re-rolling the whole take.
-2. Beat-level VO files are trivially re-cuttable in Remotion if a pattern-interrupt timing changes.
+2. Beat-level VO files are trivially re-cuttable in the HyperFrames composition if a pattern-interrupt timing changes.
 3. Failed gates re-run only the offending beat.
 
 **SSML / inline directives.** ElevenLabs supports `[laugh]`, `[gasp]`, `[sigh]` inline cues. Use them sparingly at peaks — over-use sounds robotic. Pause cues (`...`, `—`) work better than literal `<break time="0.5s"/>`.

@@ -77,7 +77,7 @@ If no audio source is supplied:
 | Video clips | 3-8 × `kling-v3.0-pro` × 1-3s @ $0.14/s | $0.50 - $3.40 |
 | VO (optional) | 0-1 ElevenLabs calls (subscription) | $0 |
 | Music | NONE — the trend audio is the music | $0 |
-| Captions | NONE by default; text overlay is rendered in Remotion | $0 |
+| Captions | NONE by default; text overlay is rendered in the HyperFrames composition | $0 |
 | Render | local | $0 |
 | **Total** | | **~$0.95 - $4.60** |
 

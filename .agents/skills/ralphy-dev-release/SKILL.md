@@ -44,7 +44,6 @@ This skill **never** touches:
 - `landing/` — the Next.js marketing landing is shipped independently (Vercel / Netlify).
 - `docs/`, `README.md` — these are repo-internal playbook / orientation docs. Only `package.json` / `cli/lib/version.ts` / `npm/package.json` / `AGENTS.md` (the single version line) / `scripts/release/last-release-commit` / `docs-mintlify/**` get edited under this skill.
 - `.agents/skills/` — other skills are versioned with the repo, not with the binary.
-- `src/videos/` — Remotion compositions ride along but aren't user-facing.
 
 **Two targeted exceptions** that go *inside* the version-bump commit (or the docs-sync commit right before it):
 

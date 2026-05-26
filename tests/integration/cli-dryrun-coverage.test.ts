@@ -140,20 +140,6 @@ describe("render --dry-run", () => {
     expect(j.stages["ffmpeg-loudnorm"]).toBeTruthy();
   });
 
-  test("--engine remotion forces the legacy fallback engine", () => {
-    const r = ralphy([
-      "render",
-      "dryrun-001",
-      "--dry-run",
-      "--summary",
-      "--engine",
-      "remotion",
-    ]);
-    expect(r.exitCode).toBe(0);
-    const j = r.json as { dryRun: boolean; engine: string; stages: Record<string, unknown> };
-    expect(j.engine).toBe("remotion");
-    expect(j.stages["remotion-render"]).toBeTruthy();
-  });
 });
 
 describe("generate video --dry-run --summary", () => {

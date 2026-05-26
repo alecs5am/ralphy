@@ -185,7 +185,7 @@ ffmpeg -i $P/render/concat.mp4 \
 ralphy render <id>
 ```
 
-The Remotion render does the captions overlay; Veo audio comes through `OffthreadVideo`. No `<Audio>` component for music, no `<Audio>` component for VO — single audio source = the concatenated Veo native audio.
+The HyperFrames render does the captions overlay; Veo audio comes through `OffthreadVideo`. No `<Audio>` component for music, no `<Audio>` component for VO — single audio source = the concatenated Veo native audio.
 
 ## Cost rollup (56s video, 7 scenes)
 

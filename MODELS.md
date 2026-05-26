@@ -27,7 +27,7 @@ Endpoint: `POST /api/v1/chat/completions` with `modalities: ["image","text"]`. O
 
 **Reference images:** `--ref` accepts URL, local path, or `data:` URI. Local paths are auto-converted to `data:` URI in-process — no upload step. Both `gpt-5.4-image-2` and `gemini-3-pro-image-preview` accept image inputs; gemini is materially stronger at *multi-ref* consistency (2+ refs).
 
-**Size:** `--size 1080x1920` is forwarded to the model as a prompt-level hint. Image models round to their internal natural buckets: 1024² for 1:1, ~768×1376 for 9:16, ~1280×720 for 16:9. You will not get pixel-exact 1080×1920 — downstream Remotion / ffmpeg compositions handle the scale-to-cover.
+**Size:** `--size 1080x1920` is forwarded to the model as a prompt-level hint. Image models round to their internal natural buckets: 1024² for 1:1, ~768×1376 for 9:16, ~1280×720 for 16:9. You will not get pixel-exact 1080×1920 — downstream HyperFrames / ffmpeg compositions handle the scale-to-cover.
 
 **Prompt cookbook:** mode-by-mode masters in `docs/prompts/image/` (product-shot, lifestyle-scene, closeup-with-person, macro-detail, flat-lay, virtual-model-tryout, hero-banner, conceptual-product, iteration-edit). The agent fills slots from user request, then calls `ralphy generate image --prompt "<filled>"` — no new CLI flag, just a curated library.
 
@@ -79,7 +79,7 @@ Always re-check via `ralphy models list` — these arrays change.
 ### Lessons from this session (2026-05-08)
 
 1. **`kwaivgi/kling-v3.0-pro` rotates "wide" prompts inside the 9:16 container.** Phrases like *"wide overhead cityscape"*, *"massive crowd in town square"*, *"dancers under starlit sky"* bias the model toward landscape composition; OR returns a 1080×1920 file but the *content* is laid out for 16:9. **Fix:** anchor with `--first-frame <portrait-image>` and rewrite the prompt with explicit vertical wording (*"tall vertical portrait shot, low camera angle looking up, narrow alley framing, subjects centered vertically, half-timbered houses tower vertically on both sides"*). The first-frame image overrides the model's compositional bias.
-2. **`--resolution 720p` is silently upgraded** to 1080p by `kwaivgi/kling-v3.0-pro` even though the catalog only lists 720p. The output dimension is whatever the model decides; treat resolution as a soft hint and let downstream Remotion / ffmpeg crop+scale to the composition's exact frame.
+2. **`--resolution 720p` is silently upgraded** to 1080p by `kwaivgi/kling-v3.0-pro` even though the catalog only lists 720p. The output dimension is whatever the model decides; treat resolution as a soft hint and let downstream HyperFrames / ffmpeg crop+scale to the composition's exact frame.
 3. **OR's per-clip billing** is fixed (e.g., a 5s kling-pro clip is ~$0.70 regardless of "duration in body" precision). The per-second figures above are therefore ballparks; pre-flight `--dry-run` to see the estimate before submitting.
 4. **`generate_audio: true` is unsafe outside English.** Confirmed for `kwaivgi/kling-v3.0-pro`, `bytedance/seedance-2.0`, and `google/veo-3.1` on Russian — accent slips, voice age drifts, text gets cut. Default is `false`; only enable for EN with `--audio`.
 
@@ -183,7 +183,7 @@ Response: 200 → binary mp3 (application/octet-stream)
 
 | Use case | Model | Price | Why |
 |---|---|---|---|
-| **Default** — word-level captions for compositions | ElevenLabs `scribe_v1` (default in `cli/lib/transcribe.ts`) | ~$0.004 per audio-minute | Returns word-level timestamps natively in the shape Remotion's caption components expect; no second normalization pass. Verified end-to-end on the brainrot 54.6s VO → 121 word entries. |
+| **Default** — word-level captions for compositions | ElevenLabs `scribe_v1` (default in `cli/lib/transcribe.ts`) | ~$0.004 per audio-minute | Returns word-level timestamps natively in the shape HyperFrames caption layers expect; no second normalization pass. Verified end-to-end on the brainrot 54.6s VO → 121 word entries. |
 | **Fallback** — when ElevenLabs is down | OpenRouter `openai/whisper-1` (`--backend openrouter`) | ~$0.006 / min | One key covers it. Sometimes 400s on long audio; re-encode to 64kbps mono mp3 if you hit them. |
 
 CLI: `ralphy generate captions --project <id> --audio <vo.mp3> --language en` (writes `captions.json` next to the project).

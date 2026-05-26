@@ -4,7 +4,7 @@ The 0-1s headline overlay is the most load-bearing single asset in a YAP video. 
 
 - **Setup** — the rhetorical move the headline performs.
 - **Niche fit** — where it lands hardest.
-- **Headline design** — typographic spec for the Remotion overlay.
+- **Headline design** — typographic spec for the HyperFrames overlay.
 
 The patterns are not interchangeable. Pick the one whose rhetorical move matches the idea, not the one that "looks coolest."
 

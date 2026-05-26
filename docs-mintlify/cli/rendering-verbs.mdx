@@ -7,20 +7,16 @@ description: "ralphy render plus the audio, video, voice, editor utility verbs t
 
 ## ralphy render
 
-Reads `composition-props.json` + `asset-manifest.json` (and inlines `captions.json` if the composition takes captions inline), creates the `public/project-<id>` symlink Remotion needs, runs `bunx remotion render`, optionally post-processes with EBU R128 loudnorm.
+Reads `scenario.json` + `asset-manifest.json`, drives HyperFrames (Puppeteer rasterizer + FFmpeg muxer) against `workspace/projects/<id>/index.html`, optionally post-processes with EBU R128 loudnorm.
 
 ```bash
 ralphy render demo-001
 ralphy render demo-001 --loudnorm
 ralphy render demo-001 --output ./out.mp4
-ralphy render demo-001 --composition UGCVideo
+ralphy render demo-001 --fps 60 --quality high
 ```
 
 Output lands at `workspace/projects/<id>/render/final.mp4`. With `--loudnorm`, the raw render writes to `final.raw.mp4` and the ffmpeg pass produces `final.mp4` at `-16 LUFS` (TikTok/Reels target).
-
-<ParamField path="--composition <id>" type="string">
-  Override the composition. Default: from `composition-props.json#compositionId` or `UGCVideo`.
-</ParamField>
 
 <ParamField path="--output <path>" type="string">
   Custom output path. Default: `workspace/projects/<id>/render/final.mp4`.
@@ -30,25 +26,23 @@ Output lands at `workspace/projects/<id>/render/final.mp4`. With `--loudnorm`, t
   Post-process with `loudnorm=I=-16:TP=-1.5:LRA=11`. Adds a few seconds, fixes the "too quiet on mobile" problem.
 </ParamField>
 
-<ParamField path="--keep-symlink" type="boolean">
-  Don't remove the `public/project-<id>` symlink after render. Default: cleaned up. Set when iterating in Remotion Studio.
+<ParamField path="--fps <fps>" type="number">
+  Frame rate. Default: 30.
+</ParamField>
+
+<ParamField path="--quality <quality>" type="string">
+  Quality preset: `draft` | `standard` | `high`. Default: `standard`.
 </ParamField>
 
 <ParamField path="--dry-run" type="boolean">
-  Print the resolved render plan; skip the actual Remotion call.
+  Print the resolved render plan; skip the actual render.
 </ParamField>
 
 Full surface: [`/reference/cli/render`](/reference/cli/render).
 
-### What gets read
-
-`render` resolves composition props with one ergonomic shortcut: if `data.captions` is empty and `captions.json` exists next to `composition-props.json`, it inlines them into a transient `.composition-props.resolved.json` and points Remotion at that. The user's source file stays clean.
-
-When `composition-props.json` is missing and `--composition` is set, the verb auto-stubs the file with the bare minimum (`{ compositionId: "..." }`) and continues — three postmortems flagged this as the single most common new-session friction point. A stderr warning names the path so the user knows to fill in `inputProps` later.
-
 ### When it fails
 
-Remotion render exits non-zero → the log line goes to `generations.jsonl` with `status: "error"` and `E_INTERNAL` raises with the last 500 bytes of stderr. Loudnorm failure → same, with the ffmpeg tail.
+HyperFrames render exits non-zero → the log line goes to `generations.jsonl` with `status: "error"` and `E_INTERNAL` raises with the last 500 bytes of stderr. Loudnorm failure → same, with the ffmpeg tail.
 
 ## ralphy editor
 
@@ -124,5 +118,5 @@ ralphy eval video workspace/projects/demo-001/render/final.mp4
 - [Rendering a project](/working/rendering) — the end-to-end walkthrough
 - [Generation verbs](/cli/generation-verbs) — what feeds into the render
 - [Eval and research](/cli/eval-research) — post-render QA
-- [Editor playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md), [Remotion playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/remotion.md)
+- [Editor playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/editor.md), [HyperFrames playbook](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/hyperframes.md)
 - [cli/commands/render.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/render.ts), [cli/commands/editor.ts](https://github.com/alecs5am/ralphy/blob/main/cli/commands/editor.ts)

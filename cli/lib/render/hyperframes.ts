@@ -2,9 +2,8 @@
 // a workspace project that ships an `index.html` (+ optional `meta.json` +
 // `compositions/`) at its root.
 //
-// HyperFrames is now the default render engine (default engine flag in
-// `cli/commands/render.ts`). Remotion remains as a fallback for legacy projects
-// authored under `src/videos/` + `composition-props.json`.
+// HyperFrames is the render engine (see `cli/commands/render.ts`). Remotion
+// was removed 2026-05-26 — see `notes/audit-2026-05/action-items.md`.
 //
 // See:
 // - https://hyperframes.heygen.com/

@@ -6,9 +6,8 @@
 // third", "chart animates in", "logo slides in") that landed in a
 // `video.prompt` field — i.e. someone is about to ask `ralphy generate video`
 // to produce code-composited motion. That's the wrong route. Per
-// `04.0A.02`, motion graphics belong in a Remotion React component under
-// `src/lib/` (or `~/.ralphy/render-cache/<id>/components/`), not in a video
-// model's prompt.
+// `04.0A.02`, motion graphics belong in a HyperFrames composition layer
+// (HTML + GSAP overlays on `index.html`), not in a video model's prompt.
 //
 // This is a **warning lint**, not a hard error — sometimes a kinetic-
 // typography pass actually IS the right pixel content (e.g. a real text-
@@ -38,7 +37,7 @@ export interface LintReport {
   hits: MotionGraphicsHit[];
 }
 
-// Phrases that strongly suggest "this should be a Remotion component".
+// Phrases that strongly suggest "this should be a HyperFrames overlay layer".
 export const MOTION_GRAPHICS_TELLS = [
   "animated text",
   "kinetic typography",
@@ -153,7 +152,7 @@ async function main(): Promise<void> {
     );
   }
   process.stderr.write(
-    `\n${report.hits.length} motion-graphics signal(s). Re-route to a Remotion component (docs/playbooks/editor.md#pixels-vs-code) or suppress with <!-- motion-graphics-allow -->.\n`,
+    `\n${report.hits.length} motion-graphics signal(s). Re-route to a HyperFrames overlay (docs/playbooks/editor.md#pixels-vs-code) or suppress with <!-- motion-graphics-allow -->.\n`,
   );
   process.exit(strict ? 1 : 0);
 }

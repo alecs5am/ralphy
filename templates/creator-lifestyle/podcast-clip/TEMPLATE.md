@@ -79,7 +79,7 @@ For sub-30s cuts: collapse to `0-2s banner → 2-28s moment → 28-30s hard cut 
 | Reframe | local (smart-crop runs on CPU/GPU) | $0 |
 | Captions | already in transcription | $0 |
 | Music (optional bed) | ElevenLabs Music (subscription, optional) | $0 |
-| Render | local Remotion | $0 |
+| Render | local HyperFrames | $0 |
 | **Total per cut** | | **~$0.01** |
 
 By far the cheapest format in the pack — almost everything is local + subscription. Picking and rendering 4 cuts from one 90-min podcast costs less than a quarter.
@@ -125,7 +125,7 @@ ralphy video extract-segment rogan-2284 \
   --out workspace/projects/rogan-2284-clips/clips/cut-01.mp4
 # Repeat for cut-02, cut-03, ...
 
-# 6. Compose each cut in Remotion (banner + karaoke + reframe).
+# 6. Compose each cut in the HyperFrames composition (banner + karaoke + reframe).
 #    The template ships a composition skeleton; ralphy wires it.
 ralphy generate composition \
   --project rogan-2284-clips \

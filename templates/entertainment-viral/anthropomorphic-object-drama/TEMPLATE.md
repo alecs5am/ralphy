@@ -46,7 +46,7 @@ Single-word pop-ups, NOT continuous subtitles.
 - Trigger: fires on the emotional-peak word of each dialogue line, NOT every word
 - Hold: 700ms, fade: 100ms
 - Non-Latin caveat: the original scenario baked one local-language word per scene (e.g. `FAMILY`, `LIPSTICK`, `TEN YEARS` in the source culture); for English ship the strongest English word on the same beat
-- Non-Latin captions are NEVER asked of Veo (it mangles non-Latin in-clip text) — they are burned on top in the Remotion editor stage
+- Non-Latin captions are NEVER asked of Veo (it mangles non-Latin in-clip text) — they are burned on top in the HyperFrames editor stage
 
 ## Music arc (one bed, two structural moments)
 

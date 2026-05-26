@@ -1,8 +1,8 @@
 # Prompt cookbook — green-screen-explainer
 
-Concrete recipes for the keyframe, the Remotion composition, the pointer / circle animation, the zoom cadence, the VO, the captions, and the music bed. Plus six common mistakes and four worked examples (news / Reddit / chart / meme).
+Concrete recipes for the keyframe, the HyperFrames composition, the pointer / circle animation, the zoom cadence, the VO, the captions, and the music bed. Plus six common mistakes and four worked examples (news / Reddit / chart / meme).
 
-> The "green-screen" in this template is **not** a chroma-key trick. It's a Remotion composition: the user-supplied backdrop image fills the frame, and the creator video is matte-cropped (or chroma-keyed if shot against green) and positioned at bottom-right. Everything in this cookbook assumes that layout.
+> The "green-screen" in this template is **not** a chroma-key trick. It's a HyperFrames composition: the user-supplied backdrop image fills the frame, and the creator video is matte-cropped (or chroma-keyed if shot against green) and positioned at bottom-right. Everything in this cookbook assumes that layout.
 
 ---
 
@@ -30,7 +30,7 @@ of the final 1080x1920 frame).
 
 ---
 
-## Composition design (Remotion layout)
+## Composition design (HyperFrames layout)
 
 The composition is two layers and a few overlays:
 
@@ -90,7 +90,7 @@ The composition is two layers and a few overlays:
 
 ## Pointer / circle animation
 
-Use a Remotion spring for the annotation entrance — fast, then settle.
+Use a HyperFrames spring for the annotation entrance — fast, then settle.
 
 ```tsx
 const CircleAnnotation: React.FC<{ x: number; y: number; r: number }> = ({ x, y, r }) => {
@@ -249,7 +249,7 @@ Music should be instrumental, mid-tempo, no melodic peaks that compete with VO s
 - **Tone:** calm-explain.
 - **Length:** 40s.
 - **Zoom cadence:** once-mid, zooming on the inflection point of the chart.
-- **Annotation:** arrow pointing at the inflection point with a small label rendered as a Remotion text overlay.
+- **Annotation:** arrow pointing at the inflection point with a small label rendered as a HyperFrames text overlay.
 - **VO direction:** ElevenLabs calm-explain settings, slow pacing (~155 wpm).
 - **Captions:** MinimalCaptions, 55%.
 - **Music:** none. Calm-explain on finance reads as more credible without a bed.

@@ -44,7 +44,7 @@
     "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied product photo / logo (required for any frame where the product is visible — packaging, hero shot, in-hand, lifestyle).",
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, 5s clips (4-6 total: hook, hero rotation, detail macro, lifestyle, CTA), generate_audio: false. Excellent for smooth 360 rotations and macro texture.",
     "voiceover": "ElevenLabs eleven_multilingual_v2 — optional, brief (hook line + benefit line + CTA line, total <8s). Many top-performing product ads run music + on-screen text only.",
-    "captions": "OpenRouter whisper-1 if VO present; on-screen text overlays composed in Remotion (problem callout, benefit, social proof, price, CTA).",
+    "captions": "OpenRouter whisper-1 if VO present; on-screen text overlays composed in the HyperFrames composition (problem callout, benefit, social proof, price, CTA).",
     "music": "ElevenLabs Music — single track matched to category BPM: luxury 80-100, wellness/cozy 90-110, fashion/social 120-140, tech/trend 130-150."
   },
   "constants": {

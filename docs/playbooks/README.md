@@ -11,7 +11,7 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 | [producer.md](producer.md) | "make video end-to-end", batch (N≥3), "save as template", "review batch" |
 | [core.md](core.md) | "set up", "ralphy doctor", "nothing works", "read logs", any ralphy CLI usage question |
 | [ralphy-install.md](ralphy-install.md) | Fresh machine, `which ralphy` empty, "install ralphy" |
-| [remotion.md](remotion.md) | Writing or editing Remotion code (compositions, components, ffmpeg post) |
+| [hyperframes.md](hyperframes.md) | Writing or editing HyperFrames compositions (HTML + GSAP, captions, transitions, ffmpeg post) |
 
 ## How they fit together
 
@@ -24,9 +24,9 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 ## Playbooks vs skills
 
 - **Playbooks (here, `docs/playbooks/`)** — role / domain instruction docs. The agent reads them on demand. Loaded via `Read` after `AGENTS.md` routing matches an intent. No frontmatter, no slash-command. They cover roles like *scenarist* / *art-director* / *editor* / *producer* / *core* (env / debug / CLI).
-- **Skills (`.agents/skills/<name>/SKILL.md`)** — narrow workflows with a deterministic input → output contract and a single CLI command. They are slash-invocable (`/<name>`). Currently three exist:
+- **Skills (`.agents/skills/<name>/SKILL.md`)** — narrow workflows with a deterministic input → output contract and a single CLI command. They are slash-invocable (`/<name>`). Examples:
   - `ralphy-researcher` — URLs / handles / topic → `report.md` + `sources.json` (workspace/research/<slug>/)
   - `ralphy-evaluator` — rendered mp4 → `eval-report.md` + `eval.json`
-  - `ralphy-remotion` — reference rules for Remotion code
+  - `hyperframes` — reference rules for HyperFrames composition code
 
 Old role-shim skills (`ralph-art-director`, `ralph-core`, `ralph-editor`, `ralph-producer`, `ralph-scenarist`) were removed in favor of direct routing via `AGENTS.md` → playbooks. If you need to invoke those roles in chat, just say the role-utterance (e.g. "compose the video") and the routing will pick the right playbook.

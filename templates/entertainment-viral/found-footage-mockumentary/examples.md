@@ -109,6 +109,6 @@ For a fresh combination, fill the four slots and walk the cookbook prompts top-t
 3. Generate per-clip first-frame anchors using the relevant master(s) as `--ref`.
 4. Generate clips A-F via seedance-2.0 with the first-frame anchor + verbatim cookbook prompt + your slot-filled action block.
 5. Generate the 5 SFX tracks via ElevenLabs Music with the banned-music block.
-6. Compose in Remotion: VHS overlay on clips A-E, clean cinema on F, REC-dot HUD persistent through E, three diegetic captions, `SIGNAL LOST`-class end card.
+6. Compose in the HyperFrames composition: VHS overlay on clips A-E, clean cinema on F, REC-dot HUD persistent through E, three diegetic captions, `SIGNAL LOST`-class end card.
 
 Cost target: ~$5-$10 if you avoid the kling regen trap that the source project fell into. See `model-stack.md` for the per-stage breakdown.

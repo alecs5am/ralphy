@@ -14,8 +14,8 @@ Single-doc directory of every template shipped in `templates/` (repo) and `works
 
 | `kind` | What it gives you | Run flow |
 |---|---|---|
-| `vibe-reference` | A specific UGC format with a complete Remotion stack: scenarios get written fresh per project against this vibe. Has a worked reference example, model stack with real costs, composition.md. End-to-end production-ready. | `ralphy template use <slug> --project <id>` then run scenarist → art-director → editor. |
-| `vibe-style` | A prompt cookbook ported from the higgsfield-claude-skills pack. Strong on hooks, camera vocabulary, lighting setups, and ready-to-paste example prompts. Lighter than `vibe-reference` (no composition.md or worked-example walk-through), but covers a much broader catalog of visual styles and verticals. | Same `ralphy template use`, but expect art-director to author Remotion composition fresh — the cookbook accelerates prompt-writing, not Remotion structure. |
+| `vibe-reference` | A specific UGC format with a complete HyperFrames stack: scenarios get written fresh per project against this vibe. Has a worked reference example, model stack with real costs, composition.md. End-to-end production-ready. | `ralphy template use <slug> --project <id>` then run scenarist → art-director → editor. |
+| `vibe-style` | A prompt cookbook ported from the higgsfield-claude-skills pack. Strong on hooks, camera vocabulary, lighting setups, and ready-to-paste example prompts. Lighter than `vibe-reference` (no composition.md or worked-example walk-through), but covers a much broader catalog of visual styles and verticals. | Same `ralphy template use`, but expect art-director to author the HyperFrames composition fresh — the cookbook accelerates prompt-writing, not composition structure. |
 
 Mix freely. Use a `vibe-style` template when the user's brief leans on a visual style or vertical (cinematic, anime, real-estate, food); use a `vibe-reference` when the user wants a known proven UGC format (before/after, Soviet nostalgic, talking-head rant, AI vegetables).
 
