@@ -1,0 +1,71 @@
+/* ─────────────────────────────────────────────────────────────
+   Ralphy Desktop — brand tokens.
+   Mirrored from landing/app/globals.css so the desktop surface reads
+   identical to the marketing site. Source of truth for the rules is
+   BRAND_DESIGN.md (no borders, binary radii, no shadows, bento layers).
+   Fonts are copied into public/assets/fonts/ from the landing.
+   ───────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: "AWS Diatype";
+  src: url("/assets/fonts/AWSDiatype-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AWS Diatype Mono";
+  src: url("/assets/fonts/AWSDiatypeRoundedSemi-Mono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "AWS Diatype Mono";
+  src: url("/assets/fonts/AWSDiatypeRoundedSemi-Mono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fragment Mono";
+  src: url("/assets/fonts/FragmentMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Background scale — bento layering (5 steps). The ONLY depth mechanism. */
+  --bg:     #0A0A0B;
+  --bg-1:   #131316;
+  --bg-2:   #1A1A1D;
+  --bg-3:   #212125;
+  --bg-4:   #28282C;
+  --inset:  #050506;
+
+  /* Ink scale — heading / body / label / caption encoded purely here. */
+  --ink:    #F5F5F4;
+  --ink-2:  #DDDDDA;
+  --ink-3:  #B5B5B2;
+  --mute:   #8E8E8B;
+  --mute-2: #5A5A5E;
+
+  /* Single accent — Ralphy orange (the landing's --vio override). */
+  --vio:    #FFA630;
+  --vio-2:  #FFB85C;
+  --vio-3:  #D97E1A;
+
+  --ok:     #6FCF97;
+  --warn:   #F2C66B;
+  --err:    #E8736B;
+
+  --font-display: "AWS Diatype Mono", -apple-system, system-ui, sans-serif;
+  --font-sans:    "AWS Diatype", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    "Fragment Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Binary radii — sharp, fully-round, or the bento-plate band. Nothing else. */
+  --r-sharp: 4px;
+  --r-pill:  999px;
+  --r-card:  16px;
+  --r-panel: 22px;
+}
