@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prompt Engineering Expert"
+  short_description: "Analyze and improve AI prompts"
+  default_prompt: "Use $prompt-engineering-expert to review this prompt and suggest clearer, more reliable instructions."s
