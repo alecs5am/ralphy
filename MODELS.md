@@ -2,14 +2,14 @@
 
 A short, opinionated list of the models we actually use. **Two API keys only:** `OPENROUTER_API_KEY` for media / LLM / transcription, `ELEVENLABS_API_KEY` for voice and music. Everything else is out of scope.
 
-> **Last reviewed: 2026-05-08.** If this file is older than 30 days, re-check the models on OpenRouter — versions drift silently. The OR video catalog is the source of truth; surface it via `ralphy models list` (24h cached).
+> **Last reviewed: 2026-05-08.** If this file is older than 30 days, recheck OpenRouter — model versions change without notice. The catalog is the source of truth; pull it with `ralphy models list` (24h cached).
 
 ## How to use this file
 
 1. **Before any model call**, open the matching section. The top pick has the reason it's the top pick.
-2. **For video**, also run `ralphy models show <id>` — it returns the live `supported_durations`, `supported_resolutions`, `supported_aspect_ratios`, `supported_frame_images` from OR. Don't hand-pick parameters that aren't in those arrays — the submit will fail validation (`ralphy generate video` runs the check pre-flight; bypass with `--no-validate`).
-3. **For image**, the `--size` flag is a prompt-level hint, not an enforced constraint — gemini and gpt image models round to their internal natural sizes (1024², 768×1376, …). If you need an exact dimension, post-process with `ralphy video extract-segment` / `ffmpeg` after generation.
-4. **For cost preview**, every video gen accepts `--dry-run` — prints resolved request body + cost estimate without spending credits.
+2. **For video**, also run `ralphy models show <id>`. It returns the live `supported_durations`, `supported_resolutions`, `supported_aspect_ratios`, `supported_frame_images` from OR. Don't hand-pick parameters that aren't in those arrays; the submit will fail validation (`ralphy generate video` runs the check pre-flight; bypass with `--no-validate`).
+3. **For image**, the `--size` flag is a prompt-level hint, not an enforced constraint. Gemini and gpt image models round to their internal natural sizes (1024², 768×1376, …). If you need an exact dimension, post-process with `ralphy video extract-segment` or `ffmpeg` after generation.
+4. **For cost preview**, every video gen accepts `--dry-run`. It prints the resolved request body and cost estimate without spending credits.
 5. **If the task is new** (not in this file) — DO NOT invent a provider. Tell the user the task is out of scope or needs a model-list extension.
 
 ---
@@ -25,16 +25,16 @@ Endpoint: `POST /api/v1/chat/completions` with `modalities: ["image","text"]`. O
 | **Budget OpenAI** | `openai/gpt-5-image-mini` | ~$0.08 / image | Cheap iteration during prompt exploration. |
 | **Cheapest viable** | `google/gemini-2.5-flash-image` | ~$0.02 / image | Smoke-test only — quality dip is visible. |
 
-**Reference images:** `--ref` accepts URL, local path, or `data:` URI. Local paths are auto-converted to `data:` URI in-process — no upload step. Both `gpt-5.4-image-2` and `gemini-3-pro-image-preview` accept image inputs; gemini is materially stronger at *multi-ref* consistency (2+ refs).
+**Reference images:** `--ref` accepts URL, local path, or `data:` URI. Local paths are auto-converted to `data:` URI in-process; there's no upload step. Both `gpt-5.4-image-2` and `gemini-3-pro-image-preview` accept image inputs; gemini is much better at *multi-ref* consistency (2+ refs).
 
-**Size:** `--size 1080x1920` is forwarded to the model as a prompt-level hint. Image models round to their internal natural buckets: 1024² for 1:1, ~768×1376 for 9:16, ~1280×720 for 16:9. You will not get pixel-exact 1080×1920 — downstream HyperFrames / ffmpeg compositions handle the scale-to-cover.
+**Size:** `--size 1080x1920` is forwarded to the model as a prompt-level hint. Image models round to their internal natural buckets: 1024² for 1:1, ~768×1376 for 9:16, ~1280×720 for 16:9. You will not get pixel-exact 1080×1920. Downstream HyperFrames / ffmpeg compositions handle the scale-to-cover.
 
-**Prompt cookbook:** mode-by-mode masters in `docs/prompts/image/` (product-shot, lifestyle-scene, closeup-with-person, macro-detail, flat-lay, virtual-model-tryout, hero-banner, conceptual-product, iteration-edit). The agent fills slots from user request, then calls `ralphy generate image --prompt "<filled>"` — no new CLI flag, just a curated library.
+**Prompt cookbook:** mode-by-mode masters in `docs/prompts/image/` (product-shot, lifestyle-scene, closeup-with-person, macro-detail, flat-lay, virtual-model-tryout, hero-banner, conceptual-product, iteration-edit). The agent fills slots from a user request, then calls `ralphy generate image --prompt "<filled>"`. There's no new CLI flag for this; it's a curated library, not a feature.
 
 **Avoid:**
-- Any model more than a year old (`stable-diffusion-xl`, `flux/schnell`, `dall-e-3`) — quality is below the current top picks at the same price.
-- `gpt-image-1` — legacy line; `gpt-5.4-image-2` is the current stable OpenAI image model (NOT to be confused with "gpt-image-2" naming convention some external docs use).
-- Hard-coded fal.ai endpoints — left the stack in Sprint 2.
+- Any model more than a year old (`stable-diffusion-xl`, `flux/schnell`, `dall-e-3`). Quality is below the current top picks at the same price.
+- `gpt-image-1`: legacy line. `gpt-5.4-image-2` is the current stable OpenAI image model (not to be confused with the "gpt-image-2" naming some external docs use).
+- Hard-coded fal.ai endpoints. We left fal.ai behind in Sprint 2.
 
 ---
 
@@ -44,7 +44,7 @@ Endpoint: **async-job pattern** at `POST /api/v1/videos`. Submit returns `{ id, 
 
 ### Per-model matrix (live from `/api/v1/videos/models`, snapshot 2026-05-08)
 
-Always re-check via `ralphy models list` — these arrays change.
+Always recheck via `ralphy models list`. These arrays change.
 
 | Model | Durations (s) | Resolutions | Aspects | Frame anchors | $/sec billed |
 |---|---|---|---|---|---|
@@ -62,7 +62,7 @@ Always re-check via `ralphy models list` — these arrays change.
 | `bytedance/seedance-2.0-fast` | 4-15 | 480p, 720p | 7 aspects | first + last | $0.14 ✓ (was ~$0.05 — wrong) |
 | `bytedance/seedance-1-5-pro` | 4-12 | 480p, 720p, 1080p | 7 aspects | first + last | ~$0.10 |
 
-> **Pricing reality check (2026-05-11):** OpenRouter bills video generation **per-clip flat** — the duration parameter sets the clip length, the billed cost ≈ rate × duration. A `✓` in the rate column means the rate was empirically verified against actual OR billing on 2026-05-11 (see `docs/render-test-2026-05-11.md` §1.1). Earlier docs claimed half-price std and per-second steps that didn't match observation; those have been corrected here and in `cli/lib/providers/media.ts:VIDEO_PRICE_PER_SEC`. Models without `✓` are ballparks from the OR catalog — verify on first use and add `✓` once confirmed.
+> **Pricing reality check (2026-05-11):** OpenRouter bills video generation **per-clip flat**. The duration parameter sets the clip length and the billed cost ≈ rate × duration. A `✓` in the rate column means we verified the rate against actual OR billing on 2026-05-11 (see `docs/render-test-2026-05-11.md` §1.1). Earlier docs claimed half-price std and per-second steps that didn't match observation; those have been corrected here and in `cli/lib/providers/media.ts:VIDEO_PRICE_PER_SEC`. Models without `✓` are ballparks from the OR catalog. Verify on first use and add `✓` once confirmed.
 
 ### When to pick which
 
@@ -118,9 +118,9 @@ Always re-check via `ralphy models list` — these arrays change.
 | `bytedance/seedance-2.0` t2v + i2v anchor poster | spider-verse skater | image-anchor with baked-in-text confuses; pure t2v with strong subject-block worked | skater |
 
 **Avoid:**
-- `kling-video/v1.6` or `v2.x` — outdated.
-- `luma-dream-machine` — worse than kling at the same price; out of OR catalog now.
-- `fal-ai/*` endpoints — the stack moved to OpenRouter in Sprint 2.
+- `kling-video/v1.6` or `v2.x`: outdated.
+- `luma-dream-machine`: worse than kling at the same price; out of OR catalog now.
+- `fal-ai/*` endpoints: the stack moved to OpenRouter in Sprint 2.
 
 ---
 
@@ -129,7 +129,7 @@ Always re-check via `ralphy models list` — these arrays change.
 | Use case | Model | Price | Why |
 |---|---|---|---|
 | **Default — Russian** | ElevenLabs `eleven_multilingual_v2` | subscription | The only path to clean deadpan Russian without regional accent slip. User-owned voice clones work best. |
-| **English premium** | ElevenLabs `eleven_v3` | subscription | Most emotional for English. Validated 2026-05-08 against the brainrot test (Adam preset, dramatic narrator, 45-55s). **Unstable on Russian — don't use in production for RU.** |
+| **English premium** | ElevenLabs `eleven_v3` | subscription | Most emotional for English. Validated 2026-05-08 against the brainrot test (Adam preset, dramatic narrator, 45-55s). **Unstable on Russian; don't use in production for RU.** |
 
 **Voice settings (deadpan young Russian):**
 ```json
@@ -145,7 +145,7 @@ Voice picks: Adam (`pNInz6obpgDQGcFmaJgB`) for dramatic narrator, Brian (`nPczCj
 **Failure modes:**
 - Default UA on Node 20+ → Cloudflare 403. Send `User-Agent: Mozilla/5.0 (...)`.
 - Free/starter cap is 3 concurrent → 429. Run sequentially, not in parallel.
-- Default library voices (`clyde-warvet`, `daniel-deep`, etc.) — too theatrical for RU. A custom clone is mandatory for RU production.
+- Default library voices (`clyde-warvet`, `daniel-deep`, etc.): too theatrical for RU. A custom clone is mandatory for RU production.
 - VO drift: dramatic narration on `eleven_v3` consistently runs **~15-25% longer than scripted word-count would suggest** (Strasbourg 45s scenario rendered at 54.6s). Time-budget compositions to actual VO duration via `ralphy project transcribe`, not scenario text length.
 
 **Avoid:**
@@ -169,13 +169,13 @@ Response: 200 → binary mp3 (application/octet-stream)
          422 → JSON validation error
 ```
 
-**Trend-music rule:** if a template references a specific trend track (`assets/trend-*.mp3`), copy the file from the `ralphy-assets` companion repo — **don't generate a substitute**. Track recognition is half of what makes a trend video a trend.
+**Trend-music rule:** if a template references a specific trend track (`assets/trend-*.mp3`), copy the file from the `ralphy-assets` companion repo. **Don't generate a substitute.** Track recognition is half of what makes a trend video a trend.
 
-**Fallback** (if ElevenLabs Music quality regresses): temporarily route to `fal-ai/lyria2` via `FAL_KEY` as a documented exception. As of 2026-05-08 the fallback is not activated — ElevenLabs Music is the only path.
+**Fallback** (if ElevenLabs Music quality regresses): temporarily route to `fal-ai/lyria2` via `FAL_KEY` as a documented exception. As of 2026-05-08 the fallback is not active; ElevenLabs Music is the only path.
 
 **Avoid:**
 - Suno (not on OpenRouter).
-- `lyria2` directly via `FAL_KEY` while ElevenLabs Music works — don't multiply optional keys.
+- `lyria2` directly via `FAL_KEY` while ElevenLabs Music works: don't multiply optional keys.
 
 ---
 
@@ -189,8 +189,8 @@ Response: 200 → binary mp3 (application/octet-stream)
 CLI: `ralphy generate captions --project <id> --audio <vo.mp3> --language en` (writes `captions.json` next to the project).
 
 **Avoid:**
-- Local whisper.cpp — large binary, no real benefit over the cloud at our volumes.
-- Direct OpenAI API — we route through OpenRouter so one key covers vision + scoring + transcription.
+- Local whisper.cpp: large binary, no real benefit over the cloud at our volumes.
+- Direct OpenAI API: we route through OpenRouter so one key covers vision + scoring + transcription.
 
 ---
 
@@ -207,7 +207,7 @@ CLI: `ralphy generate captions --project <id> --audio <vo.mp3> --language en` (w
 
 **Avoid:**
 - Direct `fetch("https://openrouter.ai/...")` calls in new scripts. Go through `callLLM()` so users can switch providers via `ralphy setup`.
-- Hard-coded `anthropic.com` or `openai.com` URLs — everything through OpenRouter.
+- Hard-coded `anthropic.com` or `openai.com` URLs; everything goes through OpenRouter.
 
 ---
 
@@ -232,8 +232,8 @@ These models / families were removed during OpenRouter consolidation (Sprint 1.3
 
 ## When to update this file
 
-- On the first session in a new chat — check `Last reviewed`, refresh if stale.
-- After every failure mode on a new model — add it to "Avoid" / "Lessons" with the reason.
-- When you change a default in a skill or script — sync it here.
-- When you add a verb to `ralphy generate` or a flag — sync the price / param notes here.
-- At least once a month — even if nothing broke.
+- On the first session in a new chat: check `Last reviewed`, refresh if stale.
+- After every failure mode on a new model: add it to "Avoid" / "Lessons" with the reason.
+- When you change a default in a skill or script: sync it here.
+- When you add a verb to `ralphy generate` or a flag: sync the price / param notes here.
+- At least once a month, even if nothing broke.
