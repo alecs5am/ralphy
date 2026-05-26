@@ -2,7 +2,7 @@ import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
 import { projectsDir } from "../lib/paths.js";
-import { out, err } from "../lib/output.js";
+import { out } from "../lib/output.js";
 
 const MEDIA_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".aiff", ".srt"];
 

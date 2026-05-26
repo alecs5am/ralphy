@@ -7,12 +7,8 @@
 // subcommand's option matrix into JSON.
 
 import fs from "node:fs/promises";
-import {
-  insertJob,
-  insertJobsAtomic,
-  type JobInsertInput,
-} from "./db.js";
-import type { JobKind } from "./types.js";
+import { insertJob, insertJobsAtomic } from "./db.js";
+import type { JobInsertInput, JobKind } from "./types.js";
 import { ensureDaemonRunning } from "./daemon.js";
 
 export type QueueFlags = {

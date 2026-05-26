@@ -47,6 +47,7 @@ export type GenerationEntry = {
     url?: string;
     local?: string;
     bytes?: number;
+    job_id?: string;
   };
   status: "ok" | "error";
   error?: string;
