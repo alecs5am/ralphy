@@ -6,7 +6,6 @@ import {
   loadManifest,
   resolveDownloadUrl,
   downloadVerified,
-  type ExampleEntry,
 } from "../lib/assets-repo.js";
 import { assetCacheDir, projectsDir } from "../lib/paths.js";
 import { addEntity } from "../lib/registry.js";

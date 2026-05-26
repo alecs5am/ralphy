@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
-import { addEntity, getEntity, listEntities, deleteEntity } from "../lib/registry.js";
+import { addEntity, listEntities, deleteEntity } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
 import { batchesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";

@@ -18,7 +18,6 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { logGeneration } from "../gen-log.js";
 import { hasCapability, requireCapability } from "../capabilities.js";
 import { projectsDir } from "../paths.js";

@@ -13,7 +13,7 @@
 
 import { Command } from "commander";
 import path from "node:path";
-import { out, ok, err } from "../lib/output.js";
+import { out, err } from "../lib/output.js";
 import { root } from "../lib/paths.js";
 import {
   loadUserProfile,

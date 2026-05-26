@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { out, ok, err } from "../lib/output.js";
+import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 
 export function brandCmd() {

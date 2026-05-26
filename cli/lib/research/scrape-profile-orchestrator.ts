@@ -8,7 +8,7 @@
 // Bypasses the planner / web fan-out / niche-research synthesis. This is a
 // focused single-creator style extraction.
 
-import { mkdir, writeFile, appendFile, readFile, readdir, stat } from "node:fs/promises";
+import { mkdir, writeFile, appendFile, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { workspace } from "../paths.js";
 import {

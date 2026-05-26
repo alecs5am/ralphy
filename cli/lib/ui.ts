@@ -11,9 +11,9 @@
 import chalk from "chalk";
 import ora, { type Ora, type Options as OraOptions } from "ora";
 // cli-table3 ships CJS — TS default-import complains under esModuleInterop strict.
-// `require` works at runtime via bun's CJS shim; types are loaded explicitly.
+// `require` works at runtime via bun's CJS shim; types are loaded via `Table.HorizontalTable` pattern below.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const Table = require("cli-table3") as typeof import("cli-table3").default;
+const Table = require("cli-table3") as typeof import("cli-table3");
 
 // ─── Color palette ───────────────────────────────────────────────────────────
 

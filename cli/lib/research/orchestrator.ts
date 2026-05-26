@@ -243,7 +243,7 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
   emit({ kind: "fetch_start", total: targets.length });
   let okCount = 0;
   let failCount = 0;
-  const fetched = await runConcurrent(
+  await runConcurrent(
     targets,
     async (hit) => {
       const r = await fetchPage(hit.url, { timeoutMs: 15_000, maxBytes: 200_000 });

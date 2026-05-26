@@ -8,12 +8,11 @@ import {
   requiredForTemplate,
   poolKinds,
   poolItems,
-  poolForTemplate,
   wipeCache,
   type Manifest,
 } from "../lib/assets-repo.js";
 import { assetCacheDir, projectsDir, root } from "../lib/paths.js";
-import { out, ok, err } from "../lib/output.js";
+import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 
 export function assetsCmd() {
