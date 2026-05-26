@@ -166,7 +166,7 @@ ralphy generate captions \
   --output workspace/projects/<id>/captions.json
 ```
 
-`scribe-v1` returns word-level timestamps with `start`, `end`, `confidence`. Burn-in via Remotion using one of:
+`scribe-v1` returns word-level timestamps with `start`, `end`, `confidence`. Burn-in via HyperFrames using one of:
 
 | Component | When to use |
 |---|---|
@@ -219,7 +219,7 @@ ralphy audio sidechain \
   --output workspace/projects/<id>/assets/music/music-ducked.mp3
 ```
 
-In the Remotion composition, use the ducked mp3, not the original. Final loudnorm post-render via `ralphy render <id> --loudnorm`.
+In the HyperFrames composition, use the ducked mp3, not the original. Final loudnorm post-render via `ralphy render <id> --loudnorm`.
 
 ## 8 mistakes (what kills faceless videos)
 

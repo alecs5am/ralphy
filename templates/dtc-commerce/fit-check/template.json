@@ -44,7 +44,7 @@
     "voiceover": "Typically NONE. Text overlays + brand tags carry the read. If a single-line VO is needed (rare): ElevenLabs eleven_multilingual_v2, one short call (≤ 5 words), e.g. 'Today's fit.'",
     "captions": "Brand-tag overlays are static text per outfit (item + price + handle), not auto-captions. If a VO line is added, MinimalCaptions only — never Hormozi here, it fights the visual.",
     "music": "ElevenLabs Music — one trend-bed track (or licensed track passed in by the user). Style: hyperpop / amapiano / 90s-house / drill / latin-trap depending on niche. BPM matches the cut count: 1 outfit ≈ any tempo; 3 outfits ≈ ≥ 100 BPM with strong on-beat hits at the transitions. Composition cuts every keyframe ON the beat — this is the format's defining mechanic.",
-    "compose": "Remotion-composed beat-synced transitions: snap (hard cut on downbeat), mirror-flash (white frame flash for 2 frames), jump-cut (camera-stutter, 3 cuts in 0.4s). Hold final pose 1-2s with an end-card / handle tag."
+    "compose": "HyperFrames-composed beat-synced transitions: snap (hard cut on downbeat), mirror-flash (white frame flash for 2 frames), jump-cut (camera-stutter, 3 cuts in 0.4s). Hold final pose 1-2s with an end-card / handle tag."
   },
   "constants": {
     "vibeAnchor": "outfit-on-beat",

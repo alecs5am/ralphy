@@ -4,7 +4,7 @@
 **Length:** 40-75s.
 **Format:** TikTok / Shorts / Reels, 9:16, 30fps, 1080×1920.
 
-> **Remotion-heavy.** The tier grid is the hero of the composition and is built in Remotion (color-coded rows, spring item pops, audio cues, tier highlight). gemini-3-pro generates per-item icons. kling-v3.0-pro i2v is OPTIONAL and only for the hook intro. Do not try to generate the grid itself with i2v — it'll look mushy and unreadable.
+> **HyperFrames-heavy.** The tier grid is the hero of the composition and is built in the HyperFrames composition (color-coded rows, spring item pops, audio cues, tier highlight). gemini-3-pro generates per-item icons. kling-v3.0-pro i2v is OPTIONAL and only for the hook intro. Do not try to generate the grid itself with i2v — it'll look mushy and unreadable.
 
 ## Why this works
 

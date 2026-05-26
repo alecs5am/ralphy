@@ -89,7 +89,7 @@ added in post), no fake logos, no extra products, no watermarks.
 ## Caveats
 
 - **Negative space is a soft constraint** — the models sometimes fill it with atmospheric "glow". If the copywriter requires a clean right corner — explicitly add `the right two-thirds must be empty / soft gradient, no objects, no textures, no light streaks`.
-- **No text in image** — never ask the model to write a headline / CTA. Text will lie crookedly and is not readable. Only generate the background, and overlay the text in Figma / Remotion / on top.
+- **No text in image** — never ask the model to write a headline / CTA. Text will lie crookedly and is not readable. Only generate the background, and overlay the text in Figma / the HyperFrames composition / on top.
 - **21:9 cinema** — gpt-5.4-image-2 goes into native 16:9 bucket more often than into 21:9. After generation, ffmpeg crop is often needed. Alternative — `bytedance/seedance-2.0` for static 21:9 highlight (but this is video, not image).
 - **Brand colour consistency** — if there is a strict HEX (for example `#0EA5E9` blue) — specify literally in "background colour ID". Otherwise the model will average to "deep blue".
 - **Logo distortion** — for a banner with a large label, mandatory `--ref product.png` if real brand; with just a text description the logo is reproduced approximately.

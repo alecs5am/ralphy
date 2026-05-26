@@ -86,7 +86,7 @@ HyperFrames seeks them all to the same composition time.
 
 - After Effects exports that are already known to render correctly in lottie-web.
 - Logo reveals, icon loops, decorative accents, and product UI motion.
-- Translating Remotion Lottie usage into plain HyperFrames HTML.
+- Embedding lottie-web JSON or `.lottie` players inside HyperFrames HTML.
 
 ## Avoid
 

@@ -10,7 +10,7 @@ ralphy generate captions --project <id> \
   --language ru
 ```
 
-Output: `workspace/projects/<id>/captions.json` — `Caption[]` in the `@remotion/captions` shape:
+Output: `workspace/projects/<id>/captions.json` — `Caption[]`:
 ```ts
 { text: string; startMs: number; endMs: number; timestampMs: number; confidence: number }
 ```
@@ -43,17 +43,9 @@ The composition imports them all and stitches per scene with offset.
 
 ## Consume in composition
 
-The 12 ready-made components in `src/lib/components/captions/` accept `Caption[]` directly — no conversion needed:
+Install a caption-style block from the HyperFrames registry — `bunx hyperframes add <caption-slug> workspace/projects/<id>` — and point it at `captions.json`. Browse `bunx hyperframes catalog` for the full list (`kinetic-slam`, `karaoke-warm`, `matrix-decode`, `neon-accent`, etc.).
 
-- `HormoziCaptions` — large pop-effect, best for viral hooks
-- `TikTokCaptions` — standard TikTok-style
-- `KaraokeCaptions` — words highlight in sync with speech
-- `Typewriter*` — typewriter
-- `Glow*` / `Gradient*` / `Boxed*` / `Bounce*` — stylistic variants
-- `YellowPop*` — bright yellow
-- `LuxuryMinimal*` / `Minimal*` — thin/minimalist
-
-Style choice is a function of the template / scenario vibe. Default for UGC — `HormoziCaptions` or `TikTokCaptions`.
+Style choice is a function of the template / scenario vibe. Default for UGC — a kinetic-slam or karaoke variant. See `.agents/skills/hyperframes/references/dynamic-techniques.md` for the caption-animation energy table.
 
 ## Word-boundary cuts (related)
 

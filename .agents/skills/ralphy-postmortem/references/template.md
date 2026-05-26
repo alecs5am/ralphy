@@ -128,7 +128,7 @@ Numbered list of bugs, playbook gaps, or CLI feature requests surfaced in this s
 
 ## Section 7 — Composition tricks that paid off
 
-Bullet list of Remotion / ffmpeg / editing patterns that worked. Specific to media projects — skip this section for non-media work.
+Bullet list of HyperFrames / ffmpeg / editing patterns that worked. Specific to media projects — skip this section for non-media work.
 
 ```markdown
 - **<pattern name>** — <when to use it, what problem it solves>.

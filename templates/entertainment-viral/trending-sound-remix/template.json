@@ -43,8 +43,8 @@
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter, short i2v clips (1-3s each) per beat-segment, generate_audio: false (the trending sound is the audio bed; clip-internal audio is muted in composition).",
     "voiceover": "OPTIONAL only — ElevenLabs eleven_multilingual_v2 for a single niche-explainer beat if the trend audio has a quiet pocket and the angle needs a spoken line. Default is no VO; let the trend audio carry.",
     "music": "NONE. The trending sound IS the music. Do not call ElevenLabs Music for this template.",
-    "captions": "NONE by default — trending sounds usually don't need transcription. A single text overlay (1-2 short lines, large bold sans-serif, top of frame) is rendered via Remotion `<AbsoluteFill>` + a styled `<div>`, not via the captions pipeline.",
-    "composition": "Remotion composition reads the audio waveform and beat-timestamps from a small `beats.json` the agent writes during prompt-gen. Each clip is exactly one beat-segment long. Audio plays from frame 0 with zero leading silence."
+    "captions": "NONE by default — trending sounds usually don't need transcription. A single text overlay (1-2 short lines, large bold sans-serif, top of frame) is rendered via HyperFrames `<AbsoluteFill>` + a styled `<div>`, not via the captions pipeline.",
+    "composition": "HyperFrames composition reads the audio waveform and beat-timestamps from a small `beats.json` the agent writes during prompt-gen. Each clip is exactly one beat-segment long. Audio plays from frame 0 with zero leading silence."
   },
   "constants": {
     "vibeAnchor": "trending-audio-plus-niche-overlay",

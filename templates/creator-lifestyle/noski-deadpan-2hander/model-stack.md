@@ -170,4 +170,4 @@ ffmpeg -f concat -safe 0 -i list.txt \
 | VO (EN) | Kling `--audio` (native) | One pass, voice consistency anchor | ElevenLabs separate VO | Adds a render stage, no quality gain |
 | VO (non-EN) | ElevenLabs `eleven_multilingual_v2` | Kling `--audio` unsafe for non-EN | Kling `--audio` on RU/UA | Accent slip, age drift |
 | Captions | `elevenlabs/scribe_v1` | Word-level timestamps for speech-aware trim | — | — |
-| Render | local ffmpeg | No animated overlays needed for deadpan register | Remotion | Overkill for 32 hard-cut clips |
+| Render | local ffmpeg | No animated overlays needed for deadpan register | HyperFrames | Overkill for 32 hard-cut clips |

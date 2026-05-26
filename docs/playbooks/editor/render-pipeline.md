@@ -6,53 +6,37 @@
 
 ### Decide composition target
 
-- **Base `UGCVideo`** — for scenarios that match the generic data-driven layout. Just write/update `composition-props.json`.
-- **Per-project composition** — `src/videos/<project-slug>/index.tsx`. Build by composing primitives from `src/lib/components/` (captions, text, overlays, layouts). Register in `src/Root.tsx` under the `Videos` folder with a `<Folder>` wrapper.
+Every project ships `workspace/projects/<id>/index.html` — a HyperFrames composition with `data-*` timing attributes and a paused GSAP timeline. See [`hyperframes.md`](../hyperframes.md) for the authoring rules.
 
-### Build composition-props.json
+### Wire assets
 
-Resolve every slot from the manifest into a `staticFile()` key. Asset symlink:
-
-```bash
-ln -sfn ../../workspace/projects/<id>/assets public/project-<id>
-```
+Reference assets from `workspace/projects/<id>/assets/` directly via relative paths in the HTML composition (`<img src="assets/scene-01.png">`, `<video src="assets/scene-02.mp4" data-start="0" data-volume="0">`, `<audio src="assets/vo.mp3" data-start="0">`).
 
 ### Implement transitions / captions
 
-- `TransitionSeries` with `<Sequence>` per scene.
-- Captions from `captions.json` via one of the 12 ready-made components in `src/lib/components/captions/`.
-- Dual audio (VO + music) with `volume` ducking via `interpolate`. See [`audio-mixing.md`](audio-mixing.md).
-
-### Remotion version
-
-**All packages on `4.0.441`, identically.** Drift → render fails cryptically.
+- Inter-scene transitions via registry blocks — `bunx hyperframes add <transition-slug> workspace/projects/<id>`.
+- Captions from `captions.json` via a caption-style block from the registry (`bunx hyperframes add kinetic-slam` etc.) or hand-rolled GSAP keyframes.
+- Dual audio (VO + music) — `<audio>` elements with `data-volume`, and an optional sidechain ducking pass post-render (see [`audio-mixing.md`](audio-mixing.md)).
 
 ## Preview
 
-**We don't auto-launch Studio.** If the user wants a preview:
+**We don't auto-launch preview.** If the user wants one:
 
-> "Run `bun run dev` foreground in a separate terminal — Studio opens at http://localhost:3000. Composition: `Videos/<project-slug>` or `UGCVideo` with props from `composition-props.json`."
-
-Check that the `public/project-<id>` → `assets` symlink is active.
+> "Run `bunx hyperframes preview workspace/projects/<id>` foreground in a separate terminal."
 
 ## Final-render
 
 **Always:**
 1. Run `preflight` (see below). Don't skip.
-2. Symlink active.
-3. Rendering — **via `ralphy render <id>`**, not direct invocation:
+2. Rendering — **via `ralphy render <id>`**, not direct invocation:
    ```bash
    ralphy render <id>
    # or in dev:
    bun run ralph -- render <id>
    ```
-4. Cleanup the symlink after the render:
-   ```bash
-   rm public/project-<id>
-   ```
-5. Chat: render path + duration + file size.
+3. Chat: render path + duration + file size.
 
-`ralphy render` encapsulates `bunx remotion render` + symlink lifecycle + log generation event with `provider: "local"`, `kind: "render"`, `cost_usd: 0`.
+`ralphy render` encapsulates the HyperFrames render + log generation event with `provider: "local"`, `kind: "render"`, `cost_usd: 0`.
 
 ## Preflight checklist
 
@@ -62,14 +46,14 @@ Before rendering:
 2. VO durations match (or ±0.2s) the scenes' `durationHintSec`. Drift → handback to scenarist.
 3. `captions.json` (Caption[]) exists for every VO track.
 4. Music bed duration ≥ total composition duration, or there's a loop rule.
-5. `composition-props.json` resolves every `staticFile()` key.
+5. `index.html` resolves every asset reference and the GSAP timeline is registered on `window.__timelines`.
 6. **Quality gate:** every slot has `score >= 7` in the manifest (or explicit bypass-consent).
 
 Output: a compact chat checklist (`OK` / `MISSING <reason>` per scene).
 
 ## Per-clip captions variant
 
-If scenes have separate VO files — transcribe each one separately. As of 2026-05-19 (commit 915dcd6), `ralphy generate captions` writes to `<project>/assets/captions/<slot>.json` by default — no manual `cp` needed. The composition reads them via `staticFile()`. See `src/videos/lyadov-podcast/` for a working pattern.
+If scenes have separate VO files — transcribe each one separately. `ralphy generate captions` writes to `<project>/assets/captions/<slot>.json` by default — no manual `cp` needed. The composition wires them per-scene with a caption block.
 
 ## Post-render evaluator handback (always)
 

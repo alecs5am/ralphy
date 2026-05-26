@@ -88,7 +88,7 @@ If the user explicitly opts out: "generate without reference, I understand the q
 | Video clips | 4-5 × `kling-v3.0-pro` × 5s @ $0.14/s | $2.80 - $3.50 |
 | VO (optional) | 1-2 ElevenLabs calls (subscription) | $0 |
 | Music | 1 ElevenLabs Music call (subscription) | $0 |
-| Captions / overlays | composed in Remotion | $0 |
+| Captions / overlays | composed in the HyperFrames composition | $0 |
 | Render | local | $0 |
 | **Total** | | **~$3.80 - $4.50** |
 

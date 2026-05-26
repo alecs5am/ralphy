@@ -74,7 +74,7 @@ arguments: [path]            # optional, schema for positional args
 > **Namespace split.** Skills marked `namespace: ralphy` are user-facing
 > (`/ralphy:postmortem`, `/ralphy:researcher`). Skills marked
 > `namespace: ralphy-dev` are maintainer-only (`/ralphy-dev:release`,
-> `/ralphy-dev:ralphy-remotion`). `ralphy skill install` installs only
+> `/ralphy-dev:skill-creator`). `ralphy skill install` installs only
 > `ralphy:` by default; `--dev` opts into the maintainer set.
 
 ## Body structure
@@ -183,7 +183,7 @@ Ralphy ships skills in two namespaces (per
 | Namespace    | Audience                | Examples                                       |
 | ------------ | ----------------------- | ---------------------------------------------- |
 | `ralphy`     | end users               | `postmortem`, `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `ralphy-remotion`, `skill-creator` |
+| `ralphy-dev` | maintainers / contributors | `release`, `skill-creator` |
 
 A skill in `ralphy-dev` ships through the same lint + installer plumbing as
 `ralphy`. The install wizard hides them by default so a tester running

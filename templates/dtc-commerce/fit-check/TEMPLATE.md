@@ -80,7 +80,7 @@ Override path: user explicitly says "generate without reference, I understand th
 | Video clips | 1-3 × `kling-v3.0-pro` × 5s @ $0.14/s | $0.70 - $2.10 |
 | VO | 0 (typical) or 1 ElevenLabs call (subscription) | $0 |
 | Music | 1 ElevenLabs Music call (subscription) OR licensed track from the user | $0 |
-| Brand-tag overlays | local Remotion text | $0 |
+| Brand-tag overlays | local HyperFrames text | $0 |
 | Render | local | $0 |
 | **Total** | | **~$0.85 - $2.55** |
 

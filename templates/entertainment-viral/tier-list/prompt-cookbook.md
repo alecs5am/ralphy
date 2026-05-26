@@ -1,8 +1,8 @@
 # Tier List — prompt cookbook
 
-Concrete recipes for the gemini-3-pro item icons, the Remotion grid composition, the optional kling i2v hook intro, the ElevenLabs VO and music. Every recipe is opinion-as-content first, search-friendly second, controversy-engineered third.
+Concrete recipes for the gemini-3-pro item icons, the HyperFrames grid composition, the optional kling i2v hook intro, the ElevenLabs VO and music. Every recipe is opinion-as-content first, search-friendly second, controversy-engineered third.
 
-> **The grid is built in Remotion, not generated.** This file describes the icons that go INTO the grid and the audio/VO that goes OVER it. The grid component itself lives in `src/lib/` and is composed with `<TierGrid />` + `<TierItem />` props. Don't ever try to i2v the whole tier list — it'll look mushy.
+> **The grid is built in the HyperFrames composition, not generated.** This file describes the icons that go INTO the grid and the audio/VO that goes OVER it. The grid component itself lives in `src/lib/` and is composed with `<TierGrid />` + `<TierItem />` props. Don't ever try to i2v the whole tier list — it'll look mushy.
 
 ---
 
@@ -26,9 +26,9 @@ Three style locks to choose from per tier list (pick ONE, never mix):
 
 ---
 
-## Tier grid layout vocabulary (Remotion)
+## Tier grid layout vocabulary (HyperFrames)
 
-The Remotion `<TierGrid />` component owns these props. This is shared design language, not flexibility — deviating breaks legibility.
+The HyperFrames `<TierGrid />` component owns these props. This is shared design language, not flexibility — deviating breaks legibility.
 
 | Prop | Spec |
 |---|---|

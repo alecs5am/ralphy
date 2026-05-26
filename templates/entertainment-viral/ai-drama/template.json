@@ -2,7 +2,7 @@
   "name": "AI Fruit / Object Drama",
   "slug": "ai-drama",
   "kind": "vibe-reference",
-  "description": "Pixar-3D-cartoon mini-soap-opera between anthropomorphic fruits / objects / animals with on-camera dialogue in 8s beats. 7×8s = 56s default. The format popularized by @fruittalesco — a melodramatic plot (affair, breakup, found-family) carried by direct character dialogue, not narrator. Veo 3.1 with native audio generates lip-synced speech directly; ElevenLabs adds NO additional music bed (Veo already injects ambient under each clip — two layers = mud). Single-word pop-up captions in TheBoldFont sit on top via Remotion.",
+  "description": "Pixar-3D-cartoon mini-soap-opera between anthropomorphic fruits / objects / animals with on-camera dialogue in 8s beats. 7×8s = 56s default. The format popularized by @fruittalesco — a melodramatic plot (affair, breakup, found-family) carried by direct character dialogue, not narrator. Veo 3.1 with native audio generates lip-synced speech directly; ElevenLabs adds NO additional music bed (Veo already injects ambient under each clip — two layers = mud). Single-word pop-up captions in TheBoldFont sit on top via HyperFrames.",
   "tags": [
     "ai-drama",
     "fruit-drama",
@@ -41,7 +41,7 @@
     "voiceover": "NONE separately — Veo native audio IS the voiceover. Do not call ElevenLabs voiceover. Do not stack TTS on top.",
     "music": "NONE separately — Veo native audio already includes scene-appropriate ambient/score. Do not call ElevenLabs Music; layering it on top creates double-music mud. The 'no background music' anti-instruction in every Veo prompt is load-bearing.",
     "captions": "ElevenLabs scribe_v1 word-level → PopWordCaptions (TheBoldFont 700, one word at a time, spring pop-in)",
-    "composition": "Remotion 4.0.441 — single OffthreadVideo of concat.mp4 (Veo audio preserved) + PopWordCaptions overlay"
+    "composition": "HyperFrames 4.0.441 — single OffthreadVideo of concat.mp4 (Veo audio preserved) + PopWordCaptions overlay"
   },
   "constants": {
     "vibeAnchor": "fruittalesco — Pixar-3D anthropomorphic cast, melodramatic on-camera dialogue, soap-opera plot arc",

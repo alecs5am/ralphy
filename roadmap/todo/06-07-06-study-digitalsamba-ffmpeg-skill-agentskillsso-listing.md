@@ -3,7 +3,7 @@ id: 06.07.06
 status: todo
 v1_0: no
 category: 06-utilities
-topic: "06.07 Remotion + FFmpeg research"
+topic: "06.07 FFmpeg research"
 title: "Study digitalsamba ffmpeg skill + agentskills.so listing"
 ---
 

@@ -90,7 +90,7 @@ The arc is shape, not prescription. A tight 35-second YAP can collapse 40-50s an
 | Talking-head video (budget) | `kling-v3.0-pro` × 45s (assembled from 5-10s segments) | ~$4.50 |
 | VO | ElevenLabs eleven_multilingual_v2 (subscription) | $0 |
 | Captions | ElevenLabs Scribe v1 | ~$0.005 |
-| Headline render | Remotion local | $0 |
+| Headline render | HyperFrames local | $0 |
 | Music (optional) | ElevenLabs Music (subscription) | $0 |
 | **Total (premium)** | | **~$22.65** |
 | **Total (budget)** | | **~$4.65** |

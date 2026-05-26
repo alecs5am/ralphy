@@ -111,5 +111,5 @@ The fix is structural, not "louder voice, quieter music":
 
 - `fragments.md` — character lock-strings, scene fragments, the no-music clause, plot beat templates.
 - `model-stack.md` — order of operations, the literal Veo prompt template that bakes in the no-music rule.
-- `composition.md` — Remotion skeleton with PopWordCaptions + how to NOT add a music track.
+- `composition.md` — HyperFrames skeleton with PopWordCaptions + how to NOT add a music track.
 - `reference-example.md` — the canonical fruit-drama-001 reference (Banana × Strawberry × Cherry × Carrot affair plot, 56s English).

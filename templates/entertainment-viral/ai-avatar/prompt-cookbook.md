@@ -84,7 +84,7 @@ Note: `--audio` is a boolean flag that enables veo's model-native audio (mouth s
 For non-English/non-Chinese languages, `generate_audio: true` on veo introduces accent slips and voice drift (MODELS.md lesson 2026-05-08). Pipeline:
 1. Generate VO via ElevenLabs `eleven_multilingual_v2` separately (`ralphy generate voiceover --project <id> --slot vo-ru --text "..."`)
 2. Render avatar **without** `--audio` (no model-native audio, silent video output). The veo clip will have generic mouth motion driven by the prompt text — accept the slight de-sync from the actual ElevenLabs VO; for talking-head close-ups at TikTok phone resolution this passes.
-3. Mix the ElevenLabs VO with the silent avatar video at compose-time in Remotion (audio track from `vo-<lang>.mp3`, video frames from the silent veo render).
+3. Mix the ElevenLabs VO with the silent avatar video at compose-time in the HyperFrames composition (audio track from `vo-<lang>.mp3`, video frames from the silent veo render).
 
 ```bash
 ralphy generate video \
@@ -187,7 +187,7 @@ for lang in en ru es pt fr de hi ar zh ja; do
 done
 ```
 
-The persona keyframe is the SAME bytes for every language. Only the VO and the lip-sync output differ. Languages other than EN/zh get a silent veo render (mouth motion conditioned on the localized prompt text) with the ElevenLabs VO mixed in at Remotion compose time. This is the moat: 10 markets, **~$70-80 total marginal cost** (one keyframe amortized + 10 `veo-3.1-fast` renders @ ~$6-8 each for 45-60s × $0.14/s + 10 ElevenLabs VO calls free under subscription). The earlier "$10-15 for 10 markets" claim was from the FAL-era pricing — see `docs/render-test-2026-05-11.md` §1.1 for the corrected numbers.
+The persona keyframe is the SAME bytes for every language. Only the VO and the lip-sync output differ. Languages other than EN/zh get a silent veo render (mouth motion conditioned on the localized prompt text) with the ElevenLabs VO mixed in at HyperFrames compose time. This is the moat: 10 markets, **~$70-80 total marginal cost** (one keyframe amortized + 10 `veo-3.1-fast` renders @ ~$6-8 each for 45-60s × $0.14/s + 10 ElevenLabs VO calls free under subscription). The earlier "$10-15 for 10 markets" claim was from the FAL-era pricing — see `docs/render-test-2026-05-11.md` §1.1 for the corrected numbers.
 
 ### Step 5 — Compose + render per language
 
@@ -290,13 +290,13 @@ No B-roll. The avatar carries the entire screen time. "Not financial advice" bot
 **Script (master).**
 ```
 0-3s:  "Big update on the EU AI Act. Here's what changed and what to do."
-3-40s: [3 changes summarized, lower-third overlay per change in Remotion]
+3-40s: [3 changes summarized, lower-third overlay per change in the HyperFrames composition]
 40-50s: "Full breakdown linked below. Follow for tomorrow's brief."
 ```
 
 **Stack.**
 - 1 persona keyframe (news-anchor, blazer, neutral grey backdrop) → $0.15
-- 3 × 7 × 8s veo-3.1-fast renders (one chain per language, 50s ≈ 7 clips each) @ $0.14/s → ~$23.52. For RU/HI, veo's `generate_audio: true` accent drifts (MODELS.md lesson 2026-05-08) — render the avatar with `generate_audio: false` and mix the ElevenLabs VO at Remotion compose time. EN can pass `generate_audio: true` directly.
+- 3 × 7 × 8s veo-3.1-fast renders (one chain per language, 50s ≈ 7 clips each) @ $0.14/s → ~$23.52. For RU/HI, veo's `generate_audio: true` accent drifts (MODELS.md lesson 2026-05-08) — render the avatar with `generate_audio: false` and mix the ElevenLabs VO at HyperFrames compose time. EN can pass `generate_audio: true` directly.
 - 3 ElevenLabs VOs (Russian + Hindi rely on `eleven_multilingual_v2`'s 30+ language coverage) → $0
 - 3 whisper-1 → $0.003
 - **Total 3 languages: ~$23.67**

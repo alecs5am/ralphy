@@ -44,7 +44,7 @@
     "keyframes": "google/gemini-3-pro-image-preview via OpenRouter, multi-ref WITH user-supplied hardware product photos (REQUIRED — no AI-improvised gadget designs). Use 3-6 reference angles for industrial design accuracy: front, three-quarter, port detail, surface texture, button/dial macro. Gemini-3-pro is non-negotiable here — lesser image models hallucinate ports, mis-render anodized finishes, and invent buttons.",
     "i2v": "kwaivgi/kling-v3.0-pro via OpenRouter for camera-move motion (slow orbit, dolly-push-in, pull-back-reveal, controlled detail explore). 5s clips, 3-6 total, generate_audio: false. For premium camera fidelity (rack-focus, exploded-view fly-throughs, dolly-zoom) swap to veo-3.1 — expect ~3x cost.",
     "voiceover": "None by default. Sound design + music carry the spot. Optional 1-line brand tag at outro (ElevenLabs eleven_multilingual_v2) — keynote-narrator timbre, never UGC peer voice.",
-    "captions": "None default. Brand-title overlay (single line, brand-mark + product name) Remotion-rendered at the hero-pose finale frame. No Whisper transcription.",
+    "captions": "None default. Brand-title overlay (single line, brand-mark + product name) HyperFrames-rendered at the hero-pose finale frame. No Whisper transcription.",
     "music": "ElevenLabs Music — keynote-electronica or cinematic-score bed (Trent Reznor / Jeremy Zuckerman style for tension; keynote-piano-arpeggio for warmer launches). Single track, swell peaks at the hero-pose frame (typically 75-85% through the spot).",
     "soundDesign": "Foley layer is mandatory: button-click, snap-fit, magnet-snap, vibrate-feel, fan-spin, dial-detent, key-feel. Layered under music. The 'tactile' sound is what sells 'premium' more than the visuals."
   },

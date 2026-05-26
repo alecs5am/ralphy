@@ -1,6 +1,6 @@
 # Prompt Cookbook — Trending Sound Remix
 
-This is the operational recipe for the agent. The art-director playbook reads this before generating prompts; the editor playbook reads it before composing the Remotion timeline. Everything here assumes the trending audio already lives at `workspace/projects/<id>/assets/uploaded/trend.<ext>`.
+This is the operational recipe for the agent. The art-director playbook reads this before generating prompts; the editor playbook reads it before composing the HyperFrames timeline. Everything here assumes the trending audio already lives at `workspace/projects/<id>/assets/uploaded/trend.<ext>`.
 
 ---
 
@@ -79,7 +79,7 @@ Aim for **3-8 beat events**. Fewer = boring. More = stroboscopic.
 - **Present for the FULL duration.** No animations in/out. The overlay is constant; the visuals change underneath it.
 - **Quote audio literally OR state your angle.** Don't editorialize.
 
-Render via Remotion `<AbsoluteFill>` + a styled `<div>`, NOT via the captions pipeline. Captions are a different format and will conflict with the overlay.
+Render via HyperFrames `<AbsoluteFill>` + a styled `<div>`, NOT via the captions pipeline. Captions are a different format and will conflict with the overlay.
 
 ---
 
@@ -254,7 +254,7 @@ ralphy generate voiceover \
   --text "<one-line niche explainer>"
 ```
 
-Render the composition (Remotion reads `beats.json` and your audio):
+Render the composition (HyperFrames reads `beats.json` and your audio):
 
 ```bash
 ralphy render <id>

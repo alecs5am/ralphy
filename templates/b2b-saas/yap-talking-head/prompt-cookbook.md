@@ -10,7 +10,7 @@ A YAP video is one composition with three rendered layers and one optional bed:
 [layer 1] talking-head video clip          (veo-3.1 or kling-v3.0-pro, 30-60s, generate_audio: false)
 [layer 2] VO audio                         (eleven_multilingual_v2, single take)
 [layer 3] caption track                    (Scribe v1 word-timestamps → HormoziCaptions / TikTokCaptions / KaraokeCaptions component)
-[layer 4] headline overlay                 (Remotion <Sequence> from frame 0 to frame 30, fade-out 6 frames)
+[layer 4] headline overlay                 (HyperFrames <Sequence> from frame 0 to frame 30, fade-out 6 frames)
 [layer 5] (optional) music bed             (ElevenLabs Music, ducked to -22 LUFS under VO)
 ```
 
@@ -128,7 +128,7 @@ Examples:
 
 Avoid: 😂 / 🥺 / 💯 — these read as TikTok-2022 and undercut the educational tone.
 
-### Headline overlay (Remotion)
+### Headline overlay (HyperFrames)
 
 Spec for the 0-1s headline:
 
@@ -304,7 +304,7 @@ ralphy generate video \
   --duration 10 --segments 5 \
   --project <id> --slot scene-01-clip
 
-# Render the final composition (Remotion picks up headline + captions automatically)
+# Render the final composition (HyperFrames picks up headline + captions automatically)
 ralphy render <id>
 ```
 

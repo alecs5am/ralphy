@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **35**
+Verbs registered: **34**
 
 ## Top-level verbs
 
@@ -344,8 +344,7 @@ ____        __      __
 
 Usage: ralphy render [options] <project>
 
-Render a project to MP4. Default engine: HyperFrames (HTML + GSAP). Fallback:
-Remotion (React/TSX, legacy `src/videos/*`). Writes
+Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes
 workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with
 --loudnorm.
 
@@ -353,23 +352,16 @@ Arguments:
   project                Project ID
 
 Options:
-  --engine <engine>      Render engine: hyperframes|remotion (default:
-                         auto-detect, hyperframes-first)
-  --composition <id>     Composition id (default: from props or 'UGCVideo')
+  --composition <id>     Composition id (default: index.html)
   --output <path>        Output mp4 path (default:
                          workspace/projects/<id>/render/final.mp4)
   --loudnorm             Apply EBU R128 loudnorm (-16 LUFS) post-render via
                          ffmpeg
-  --keep-symlink         Don't remove the public/project-<id> symlink after
-                         render (remotion only)
-  --fps <fps>            Frame rate (hyperframes only; default 30)
-  --quality <quality>    Quality preset: draft|standard|high (hyperframes only;
-                         default standard)
-  --format <format>      Output format: mp4|webm|mov|png-sequence (hyperframes
-                         only; default mp4)
+  --fps <fps>            Frame rate (default 30)
+  --quality <quality>    Quality preset: draft|standard|high (default standard)
+  --format <format>      Output format: mp4|webm|mov|png-sequence (default mp4)
   --resolution <preset>  Resolution preset:
-                         portrait|landscape|square|1080p|4k|... (hyperframes
-                         only)
+                         portrait|landscape|square|1080p|4k|...
   --dry-run              Print the resolved render plan; no engine run (default:
                          false)
   --summary              Collapse the dry-run plan to a per-stage rollup
@@ -377,12 +369,10 @@ Options:
   -h, --help             display help for command
 
 Examples:
-  ralphy render spring-001                            # auto-detect engine
-  ralphy render spring-001 --engine hyperframes       # force HyperFrames (HTML + GSAP)
-  ralphy render spring-001 --engine remotion          # force Remotion (legacy React/TSX)
+  ralphy render spring-001
   ralphy render proj-001 --loudnorm
   ralphy render proj-001 --output ./out.mp4
-  ralphy render proj-001 --engine hyperframes --fps 60 --quality high
+  ralphy render proj-001 --fps 60 --quality high
 ```
 
 ### `ralphy editor`
@@ -828,27 +818,6 @@ Commands:
   help [command]   display help for command
 ```
 
-### `ralphy dashboard`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy dashboard [options]
-
-Start the dashboard web UI
-
-Options:
-  --port <port>  Port number (default: "4321")
-  --open         Open in browser
-  -h, --help     display help for command
-```
-
 ### `ralphy assets`
 
 ```
@@ -968,8 +937,8 @@ Commands:
   tonemap-hdr [options]      HDR HLG/PQ → Rec.709 SDR via zscale + tonemap
                              (default algo: hable)
   smart-crop [options]       Detect speaker face bboxes in a source video and
-                             write face-bboxes.json. Output is consumed by the
-                             <SmartReframe> Remotion component (used by
+                             write face-bboxes.json. Output is consumed by
+                             HyperFrames smart-reframe overlays (used by the
                              podcast-clip template) to follow the active speaker
                              with a virtual 9:16 camera, eliminating letterbox
                              bars on horizontal sources.

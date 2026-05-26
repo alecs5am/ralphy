@@ -4,7 +4,7 @@
 
 ## What this is
 
-A **vibe-style** template — prompt cookbook + hooks + model stack + worked variants. NO Remotion composition included (the source project's Remotion at `src/videos/tokyo-y2k-001/` is project-specific; consumers hand-author their own using the patterns in `TEMPLATE.md` → "Composition tricks").
+A **vibe-style** template — prompt cookbook + hooks + model stack + worked variants. NO HyperFrames composition included (the source project's HyperFrames at `src/videos/tokyo-y2k-001/` is project-specific; consumers hand-author their own using the patterns in `TEMPLATE.md` → "Composition tricks").
 
 Crystallized from `workspace/projects/tokyo-y2k-001/` (user rating 8.5/10, *"the video turned out very aesthetically pleasing"*).
 
@@ -30,7 +30,7 @@ Crystallized from `workspace/projects/tokyo-y2k-001/` (user rating 8.5/10, *"the
 3. Run the image stage (gemini-3-pro-image-preview + locked character master refs).
 4. Run the video i2v stage (kling-v3.0-pro for human shots, seedance-2.0 for landscape / hands-only).
 5. **Run the trim-analysis pass** — `ralphy ref analyze-video` per clip in parallel (xargs -P 6). This is **mandatory**, not optional — Kling / Seedance overshoot the requested duration by ~1s every time.
-6. Author Remotion scenes.ts + index.tsx (use the source project's `src/videos/tokyo-y2k-001/` as a structural reference but rewrite for your slots).
+6. Author HyperFrames scenes.ts + index.tsx (use the source project's `src/videos/tokyo-y2k-001/` as a structural reference but rewrite for your slots).
 7. Stub `composition-props.json` with `{"compositionId":"<X>"}`.
 8. `ralphy render <id>` for both 9:16 and 16:9 aspects.
 9. `/ralphy-evaluator` quality gate before publish.

@@ -13,7 +13,7 @@ Crystallized from `workspace/projects/tokyo-y2k-001/logs/generations.jsonl` (91 
 | Video i2v — phantom-limb / motion regens | 2-4 | same | ~$1.50-2.80 | Per-shot regens for anatomy / motion failures |
 | Music — main + 3 variants | 4 | `elevenlabs/eleven_music_v1` | $0 | Free-tier as of source-project session. Plus 1 retry after 429 if you fan-out 3 parallel |
 | Trim analysis | 15-17 | `google/gemini-3.1-pro-preview` via `ralphy ref analyze-video` | ~$1-3 est | NOT logged in generations.jsonl currently — see [tokyo-y2k-001 postmortem 03-cli-issues #4] |
-| Render | 2 | Remotion local (`bunx remotion render` via `ralphy render`) | $0 | 9:16 + 16:9 from same scenes.ts |
+| Render | 2 | HyperFrames local (`bunx hyperframes render` via `ralphy render`) | $0 | 9:16 + 16:9 from same scenes.ts |
 | **TOTAL — minimum-viable pass** | | | **~$15-20** | If anchor v1 lands the grade |
 | **TOTAL — source project actual** | | | **~$22.35** | 1.4× minimum due to v1→v2 90s-film register pivot |
 
@@ -80,7 +80,7 @@ Source project final spend: ~$22.35 cumulative (63 images $9.75 + 20 video gens 
 
 ### What worked
 
-- **Remotion local** via `bunx remotion render` (called through `ralphy render <id>`). Latency: 83s for 1800 frames at 4× concurrency on M-series Mac (9:16); 108s for 1800 frames at 4× concurrency (16:9). Cost: $0.
+- **HyperFrames local** via `bunx hyperframes render` (called through `ralphy render <id>`). Latency: 83s for 1800 frames at 4× concurrency on M-series Mac (9:16); 108s for 1800 frames at 4× concurrency (16:9). Cost: $0.
 
 ### What we tried and dropped
 
