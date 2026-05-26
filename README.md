@@ -110,7 +110,7 @@ PRs welcome — especially new templates (`templates/<category>/<slug>/`), new m
 
 ## License
 
-UNLICENSED for now. Drop a note in [Discussions](https://github.com/alecs5am/ralphy/discussions) if you want a permissive license for your use case — a public license is on the v1.0 launch checklist.
+[Apache 2.0](LICENSE). Use, fork, ship to prod — patent grant included.
 
 ---
 
