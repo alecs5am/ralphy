@@ -56,7 +56,6 @@ export type NavItem = { label: string; href: string };
  * scrolls past every section) and as broken on subpages. */
 export const navItems: NavItem[] = [
   { label: "Library", href: "/library" },
-  { label: "Models",  href: "/models" },
   { label: "Blog",    href: "/blog" },
   { label: "Skills",  href: "/skills" },
 ];

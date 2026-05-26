@@ -23,6 +23,26 @@ import {
   readPost,
   resolveAuthors,
 } from "@/lib/blog";
+import { loadModelsDoc } from "@/lib/models-loader";
+
+/**
+ * Some blog posts inject content from elsewhere in the repo (MODELS.md,
+ * docs, etc.) so the MDX file stays tiny while the body comes from the
+ * actual source-of-truth. Marker → loader.
+ */
+const INJECTIONS: Record<string, () => string> = {
+  "{/* MODELS_REGISTRY_INJECT */}": () => loadModelsDoc().source,
+};
+
+function expandInjections(source: string): string {
+  let out = source;
+  for (const [marker, load] of Object.entries(INJECTIONS)) {
+    if (out.includes(marker)) {
+      out = out.replace(marker, load());
+    }
+  }
+  return out;
+}
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -86,6 +106,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const stars = await getDisplayStars();
   const date = formatDate(post.frontmatter.date);
+  const expandedSource = expandInjections(post.source);
 
   return (
     <>
@@ -108,7 +129,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
             <div className="blog-body">
               <MDXRemote
-                source={post.source}
+                source={expandedSource}
                 components={mdxComponents}
                 options={{
                   // next-mdx-remote v6 defaults `blockJS: true` which strips
