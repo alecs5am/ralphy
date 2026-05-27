@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **34**
+Verbs registered: **35**
 
 ## Top-level verbs
 
@@ -236,6 +236,31 @@ Commands:
   captions [options]   Transcribe audio to Caption[] (≤25MB). Default backend:
                        ElevenLabs Scribe v1 (word-level).
   help [command]       display help for command
+```
+
+### `ralphy provider`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy provider [options] [command]
+
+Inspect provider connectors and their capability matrix (image / video / voice /
+music / sfx / text / transcribe).
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  list            List registered provider connectors, their capabilities, and
+                  whether each is configured (key present).
+  help [command]  display help for command
 ```
 
 ### `ralphy models`

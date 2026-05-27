@@ -1,8 +1,36 @@
 # Pluggable provider spec — third-party connectors for Ralphy
 
-> **Status:** idea
+> **Status:** partially shipped — in-tree connector slice landed 2026-05-27
 > **Filed:** 2026-05-24
 > **Folder:** ideas
+
+## Shipped (2026-05-27) — in-tree connector slice
+
+The first slice of this spec landed. The provider call path is now de-hardcoded
+into per-provider connector files implementing the contract below:
+
+- `cli/lib/providers/types.ts` — the `RalphyConnector` contract + `Capability`.
+- `cli/lib/providers/shared.ts` — provider-agnostic plumbing + `requireProviderKey`
+  (replaces the hardcoded `requireCapability("llm-openrouter")` in the call path;
+  a connector now gates on its own `envVar`).
+- `cli/lib/providers/openrouter.ts` — OpenRouter connector (`callLLM`, `generateImage`,
+  `generateVideo`).
+- `cli/lib/providers/elevenlabs.ts` — ElevenLabs connector (`generateVoiceover`,
+  `generateMusic`, `generateSfx`).
+- `cli/lib/providers/registry.ts` — registers the two connectors, `resolveConnector(cap, --provider?)`
+  with "first available wins", and a registry-routed `callLLM`.
+- `cli/commands/generate.ts` — `--provider <id>` on image/video/voiceover/music/sfx.
+- `cli/commands/provider.ts` — `ralphy provider list` (capability matrix).
+- `cli/lib/providers/{media,llm}.ts` — thinned to back-compat barrels.
+- Tests: `tests/unit/provider-registry.test.ts`. Verified live across text / image
+  (text, 1-ref, multi-ref) / voice / music / sfx / video (image→video).
+
+**Still pending (the rest of this spec, not yet built):** TOML config +
+dynamic-imported npm connectors (§1–2), the `<provider>:<model>` prefix routing
+(§3), `provider add/remove/test` (§4), the `--mode` overlay (§0), and the
+MODELS.md → dynamic catalog migration (§6). Promotion of the remaining scope to
+a `roadmap/<NN>-connector-spec/` category is the natural pairing with the planned
+src architecture review (see [[010-src-architecture-maintainability]]).
 
 ## Context
 
@@ -25,7 +53,68 @@ opt-in through the same gate.
 This idea is the **spec design**, not the implementation. Goal: write
 down the contract so we can debate the shape before any code lands.
 
+The 2026-05-27 conversation reinforced this framing and added the
+**mode/model split** below (section 0): the connector owns the *model*,
+Ralphy owns the *prompt mode*. That split is the load-bearing reason a
+pluggable provider layer is worth building — it's what keeps Ralphy's
+value (prompt craft) intact no matter whose model is underneath.
+
 ## What
+
+### 0. The mental model — two engines, cleanly split
+
+Reframe Ralphy's identity around two separable engines:
+
+- **Generation engine = the provider.** Gives access to a raw model and
+  nothing more. "Here is `gpt-image-2`, here is the bytes-in/bytes-out
+  call." This is the pluggable part (sections 1–6 below).
+- **Ralphy = the harness over any provider + the prompt craft.** Knows
+  *how to prompt* — the tuned modes, the per-register presets, the
+  failure-mode guardrails. This is the part that does not change when the
+  provider swaps. It is the actual product.
+
+Each generation verb is a **capability** (the matrix axis):
+
+```
+generate image | generate video | generate text
+generate voice | clone voice    | generate sfx | generate music
+```
+
+Every provider advertises which cells of that matrix it fills (OpenRouter
+fills most today; ElevenLabs fills voice / clone / sfx / music). A call
+then composes two orthogonal choices:
+
+- `--model <id>` — the *base model*, supplied by the provider's catalog.
+- `--mode <id>` — the *prompt overlay*, supplied by **Ralphy**, provider-
+  agnostic. A mode is a named, tuned preset (e.g. `gr-iii-shot`,
+  `photoreal-still`, `broadcast-square`, `anti-ai-slop`) that injects the
+  hard-won prompt scaffolding for a register.
+
+```
+ralphy generate image --model gpt-image-2 --mode gr-iii-shot
+                       └── from provider ──┘ └── from Ralphy ──┘
+```
+
+Ralphy fuses them: take the provider's base-model call, wrap it in the
+mode's prompt construction (and the model-family adapter), then dispatch.
+The mode is decoupled from both provider and model — the same
+`gr-iii-shot` mode should apply over `gpt-image-2`, a self-hosted Flux,
+or a future model, as long as the provider advertises the `image`
+capability.
+
+This generalizes what already exists piecemeal: today the per-model-family
+prompt adapters (`cli/lib/providers/prompt-adapter.ts`, the kling/veo/luma
+skeletons, the "video cookbook with 5 modes per model family" — roadmap
+`02.03.01`, done) are *coupled* to specific models. The proposal is to
+lift "mode" into a first-class, provider-independent `--mode` axis that
+composes with any capable model. Tie-in to the existing guideline library
+(`ralphy guideline show <slug>`): a guideline is essentially a mode's
+prompt-craft content; modes could be the executable form of guidelines.
+
+**Open question for this section:** are `--mode` and `@guideline:<slug>`
+the same concept under two names? Lean yes — a mode IS a guideline made
+callable. Worth settling before the roadmap split so we don't ship two
+overlapping overlay mechanisms.
 
 ### 1. The interface (TypeScript, single file)
 
