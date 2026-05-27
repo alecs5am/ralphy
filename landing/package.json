@@ -20,9 +20,12 @@
     "rough-notation": "^0.5.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
+    "tailwindcss": "^4.3.0",
     "typescript": "^5.7.3"
   }
 }

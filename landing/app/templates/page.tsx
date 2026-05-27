@@ -24,107 +24,59 @@ export default function TemplatesPage() {
   const grouped = groupByCategory(rows);
 
   return (
-    <main className="container" style={{ padding: "4rem 1rem" }}>
-      <header style={{ marginBottom: "3rem" }}>
-        <p className="eyebrow" style={{ opacity: 0.6, fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+    <main className="container !px-4 py-16">
+      <header className="mb-12">
+        <p className="eyebrow opacity-60 text-[0.8rem] tracking-[0.1em] uppercase">
           Templates · {rows.length}
         </p>
-        <h1 style={{ fontSize: "3rem", fontWeight: 700, margin: "0.5rem 0 1rem" }}>
+        <h1 className="text-[3rem] font-bold m-0 mt-2 mb-4">
           Every vibe template that ships in the binary.
         </h1>
-        <p style={{ fontSize: "1.1rem", opacity: 0.75, maxWidth: "60ch", lineHeight: 1.6 }}>
+        <p className="text-[1.1rem] opacity-75 max-w-[60ch] leading-[1.6]">
           Two kinds: <strong>vibe-reference</strong> (full production templates with composition.md + reference mp4)
           and <strong>vibe-style</strong> (prompt cookbooks with hooks + camera vocab + worked examples). Workspace
           templates override repo on id collision.
         </p>
-        <p style={{ marginTop: "1.5rem", fontSize: "0.95rem", opacity: 0.7 }}>
+        <p className="mt-6 text-[0.95rem] opacity-70">
           Try one:{" "}
-          <code style={{ background: "var(--bg-2)", padding: "0.2rem 0.5rem", borderRadius: 4 }}>
+          <code className="bg-bg-2 px-2 py-1 rounded">
             ralphy template suggest &quot;your brief here&quot;
           </code>
         </p>
       </header>
 
       {grouped.map((group) => (
-        <section key={group.category} style={{ marginBottom: "4rem" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.5rem" }}>
-            {group.label} <span style={{ opacity: 0.5, fontWeight: 400 }}>({group.rows.length})</span>
+        <section key={group.category} className="mb-16">
+          <h2 className="text-[1.5rem] font-bold mb-2">
+            {group.label} <span className="opacity-50 font-normal">({group.rows.length})</span>
           </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: "1rem",
-              marginTop: "1.5rem",
-            }}
-          >
+          <div className="grid gap-4 mt-6 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
             {group.rows.map((row) => (
               <Link
                 key={row.slug}
                 href={`${REPO_BASE}${row.sourcePath}`}
                 target="_blank"
                 rel="noopener"
-                style={{
-                  display: "block",
-                  padding: "1.25rem",
-                  background: "var(--bg-1)",
-                  border: "1px solid var(--line-2, rgba(255,255,255,0.08))",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "background 180ms ease, border-color 180ms ease",
-                }}
+                className="block p-5 bg-bg-1 rounded-lg no-underline text-inherit transition-colors duration-[180ms] hover:bg-bg-2"
               >
-                <div
-                  style={{
-                    fontSize: "0.7rem",
-                    opacity: 0.5,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    marginBottom: "0.5rem",
-                  }}
-                >
+                <div className="text-[0.7rem] opacity-50 tracking-[0.08em] uppercase mb-2">
                   {row.kind}
                   {row.estimatedCostUsd !== undefined && <> · ~${row.estimatedCostUsd.toFixed(2)}</>}
                   {row.durationSec !== undefined && <> · {row.durationSec}s</>}
                 </div>
-                <h3 style={{ fontSize: "1.05rem", fontWeight: 600, margin: 0 }}>{row.name}</h3>
-                <code
-                  style={{
-                    display: "block",
-                    fontSize: "0.75rem",
-                    opacity: 0.55,
-                    margin: "0.25rem 0 0.75rem",
-                  }}
-                >
+                <h3 className="text-[1.05rem] font-semibold m-0">{row.name}</h3>
+                <code className="block text-[0.75rem] opacity-55 mt-1 mb-3">
                   {row.slug}
                 </code>
-                <p
-                  style={{
-                    fontSize: "0.85rem",
-                    opacity: 0.75,
-                    lineHeight: 1.5,
-                    margin: 0,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
+                <p className="text-[0.85rem] opacity-75 leading-[1.5] m-0 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">
                   {row.description.slice(0, 220) || "—"}
                 </p>
                 {row.tags.length > 0 && (
-                  <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                  <div className="mt-3 flex flex-wrap gap-1">
                     {row.tags.slice(0, 4).map((tag) => (
                       <span
                         key={tag}
-                        style={{
-                          fontSize: "0.65rem",
-                          padding: "0.15rem 0.45rem",
-                          background: "var(--bg-2)",
-                          opacity: 0.7,
-                          borderRadius: 3,
-                        }}
+                        className="text-[0.65rem] px-[0.45rem] py-[0.15rem] bg-bg-2 opacity-70 rounded-[3px]"
                       >
                         {tag}
                       </span>
@@ -137,12 +89,12 @@ export default function TemplatesPage() {
         </section>
       ))}
 
-      <footer style={{ marginTop: "4rem", padding: "2rem 0", borderTop: "1px solid var(--line-2, rgba(255,255,255,0.08))" }}>
-        <p style={{ opacity: 0.6 }}>
+      <footer className="mt-16 py-8 [box-shadow:inset_0_1px_0_var(--color-line)]">
+        <p className="opacity-60">
           Templates index is rebuilt at every landing deploy from{" "}
           <code>templates/&lt;category&gt;/&lt;slug&gt;/template.json</code>. Edit the JSON to update what shows here.
           See the{" "}
-          <a href={`${REPO_BASE}templates/CATEGORIES.md`} target="_blank" rel="noopener" style={{ color: "var(--vio)" }}>
+          <a href={`${REPO_BASE}templates/CATEGORIES.md`} target="_blank" rel="noopener" className="text-vio">
             full roster on GitHub
           </a>
           .

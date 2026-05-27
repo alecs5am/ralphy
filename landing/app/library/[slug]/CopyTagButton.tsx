@@ -30,13 +30,19 @@ export function CopyTagButton({ tag, label = "Try in Ralphy" }: { tag: string; l
     <button
       type="button"
       onClick={onClick}
-      className={`lib-cta ${copied ? "is-copied" : ""}`}
+      className="group flex flex-col gap-2 pl-[18px] pr-4 py-3.5 bg-bg-1 border-0 rounded-[14px] cursor-pointer font-sans text-left w-full max-w-full text-ink transition-[background] duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-bg-2"
       aria-label={`Copy ${tag} to clipboard`}
     >
-      <span className="lib-cta-eyebrow">{label}</span>
-      <span className="lib-cta-row">
-        <code className="lib-cta-tag">{tag}</code>
-        <span className="lib-cta-action">
+      <span className="font-mono text-[11px] tracking-[0.12em] uppercase text-vio">{label}</span>
+      <span className="flex items-center justify-between gap-4 min-w-0">
+        <code className="font-mono text-[14.5px] text-ink min-w-0 [overflow-wrap:anywhere] break-words">{tag}</code>
+        <span
+          className={`inline-flex items-center gap-1.5 font-mono text-[11.5px] tracking-[0.08em] uppercase pl-[9px] pr-2.5 py-1.5 rounded-full shrink-0 transition-[color,background] duration-[180ms] [&_svg]:block ${
+            copied
+              ? "text-vio bg-[color-mix(in_srgb,var(--color-vio)_18%,transparent)]"
+              : "text-ink-3 bg-bg-2 group-hover:text-vio group-hover:bg-bg-3"
+          }`}
+        >
           {copied ? (
             <>
               <CheckIcon />
