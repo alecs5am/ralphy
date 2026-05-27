@@ -3,6 +3,11 @@
 > **Status:** worked-around for v0.2.0 release (bytecode disabled in `build:bin` + `build:bin:current`)
 > **Filed:** 2026-05-20
 > **Folder:** issues
+>
+> **Re-checked 2026-05-27:** still open. `package.json` keeps `--no-bytecode` on both
+> `build:bin` and `build:bin:current`; the `201c38e` bisect was never done; and
+> `.github/workflows/release.yml` still has no post-build `ralphy --version` smoke step
+> (follow-up #4). All four follow-ups below remain outstanding.
 
 ## Context
 
