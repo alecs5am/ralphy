@@ -36,6 +36,26 @@ const ENV_VAR = "OPENROUTER_API_KEY";
 const SIGNUP_URL = "https://openrouter.ai/keys";
 const BASE_URL = "https://openrouter.ai/api/v1";
 
+// OpenRouter image models accept a structured `image_config.aspect_ratio`
+// (chat-completions image modality). Passing it is the only reliable way to get
+// non-square output — the in-prompt size hint alone is ignored by gpt-image,
+// which always falls back to 1024². Map a "WxH" size string to the nearest
+// allowed ratio. Allowed set per OR docs (2026-05): 1:1 2:3 3:2 3:4 4:3 4:5 5:4
+// 9:16 16:9 21:9.
+const OR_ASPECT_RATIOS: Array<[string, number]> = [
+  ["1:1", 1], ["2:3", 2 / 3], ["3:2", 3 / 2], ["3:4", 3 / 4], ["4:3", 4 / 3],
+  ["4:5", 4 / 5], ["5:4", 5 / 4], ["9:16", 9 / 16], ["16:9", 16 / 9], ["21:9", 21 / 9],
+];
+function sizeToAspectRatio(size: string): string | undefined {
+  const m = size.match(/^(\d+)\s*x\s*(\d+)$/i);
+  if (!m) return undefined;
+  const ratio = Number(m[1]) / Number(m[2]);
+  if (!isFinite(ratio) || ratio <= 0) return undefined;
+  return OR_ASPECT_RATIOS.reduce((best, c) =>
+    Math.abs(c[1] - ratio) < Math.abs(best[1] - ratio) ? c : best
+  )[0];
+}
+
 function requireKey(): void {
   requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
 }
@@ -160,6 +180,13 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     modalities,
     messages: [{ role: "user", content: userContent }],
   };
+  // Structured aspect-ratio control. Recraft (image-only vector) ignores it; for
+  // everyone else, map the size hint to OR's `image_config.aspect_ratio` so the
+  // model returns non-square output instead of defaulting to 1024².
+  const aspectRatio = isRecraft ? undefined : sizeToAspectRatio(size);
+  if (aspectRatio) {
+    body.image_config = { aspect_ratio: aspectRatio };
+  }
 
   let resp: Response;
   try {
