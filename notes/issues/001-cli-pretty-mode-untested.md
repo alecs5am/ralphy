@@ -1,8 +1,15 @@
 # CLI pretty-mode pipeline had zero test coverage
 
-> **Status:** partially mitigated — see Disposition
+> **Status:** partially mitigated — only structural follow-ups remain
 > **Filed:** 2026-05-20
 > **Folder:** issues
+>
+> **Re-checked 2026-05-27:** the 3 printer-layer fixes are live in `cli/lib/output.ts`
+> (`formatGenericCell` JSON.stringifies object cells, see line ~99-104), and all 3 test
+> files exist (`tests/unit/output-pretty.test.ts`, `output-pretty-fuzz.test.ts`,
+> `tests/integration/cli-pretty-smoke.test.ts`). Still NOT done: per-verb snapshot tests,
+> `scripts/lint-out-coverage.ts`, force-pretty/PTY integration variant, null-policy audit,
+> ANSI-in-pipe audit. See "What remains open" — promote those 5 to `11-testing` when ready.
 
 ## Context
 
