@@ -56,11 +56,17 @@ export default async function GuidelinePage({ params }: PageProps) {
       <Nav stars={stars} variant="subpage" />
 
       <main>
-        <section className="lib-hero">
+        <section className="pt-24 pb-8 max-[900px]:pt-[72px] max-[900px]:pb-4">
           <div className="container">
-            <div className={`lib-hero-split ${g.cover ? "" : "lib-hero-split-textonly"}`}>
+            <div
+              className={`grid gap-12 items-start max-[900px]:grid-cols-1 max-[900px]:gap-7 ${
+                g.cover
+                  ? "[grid-template-columns:minmax(280px,0.85fr)_minmax(0,1.15fr)]"
+                  : "grid-cols-1"
+              }`}
+            >
               {g.cover && (
-                <div className="lib-hero-media">
+                <div className="min-w-0">
                   <div className="lib-hero-media-sticky">
                     <MediaPlayer
                       kind={g.cover.kind}
@@ -74,26 +80,26 @@ export default async function GuidelinePage({ params }: PageProps) {
                   </div>
                 </div>
               )}
-              <div className="lib-hero-content">
+              <div className="min-w-0 [&_code]:[overflow-wrap:anywhere] [&_code]:break-words">
                 <p className="eyebrow">
-                  <Link href="/library" className="lib-back-link">Library</Link>
+                  <Link href="/library" className="text-mute no-underline hover:text-vio">Library</Link>
                   {" · "}{KIND_LABELS[g.kind]}
                   {g.version && <> · v{g.version}</>}
                 </p>
-                <h1 className="lib-hero-h1">{g.name}</h1>
-                {g.tagline && <p className="lib-hero-tagline">{g.tagline}</p>}
+                <h1 className="font-display text-[clamp(40px,4.6vw,64px)] leading-[1.04] tracking-[-0.015em] font-semibold text-ink mt-3 mb-3.5">{g.name}</h1>
+                {g.tagline && <p className="text-[clamp(17px,1.4vw,20px)] leading-[1.5] text-ink-3 m-0 mb-1 max-w-[60ch]">{g.tagline}</p>}
                 {g.models.length > 0 && (
-                  <ul className="lib-card-models lib-models-hero">
+                  <ul className="flex flex-wrap gap-1.5 list-none p-0 mt-[18px] mb-0">
                     {g.models.map((m) => (
-                      <li key={m} className="lib-pill">{m}</li>
+                      <li key={m} className="font-mono text-[11px] text-ink-3 bg-bg-2 px-[9px] py-[3px] rounded-full whitespace-nowrap">{m}</li>
                     ))}
                   </ul>
                 )}
-                <div className="lib-cta-wrap">
+                <div className="mt-6 flex flex-col gap-2.5 max-w-[640px]">
                   <CopyTagButton tag={g.cta.tag} label={g.cta.label} />
-                  <p className="lib-cta-hint">
+                  <p className="m-0 text-[13.5px] leading-[1.55] text-mute">
                     Paste in Claude Code / Cursor / Codex — the agent runs{" "}
-                    <code>{g.cta.hintCmd}</code>{" "}
+                    <code className="font-mono text-[12.5px] text-ink-3 bg-bg-2 px-[7px] py-0.5 rounded-full">{g.cta.hintCmd}</code>{" "}
                     {isRemix
                       ? "and scaffolds a project pre-loaded with the template's prompts, refs, and composition. You bring the brief."
                       : "and loads the recipe before drafting the next prompt."}
@@ -105,10 +111,10 @@ export default async function GuidelinePage({ params }: PageProps) {
         </section>
 
         {g.examples.length > 0 && (
-          <section className="lib-examples">
+          <section className="pt-6 pb-4">
             <div className="container">
-              <h2 className="lib-section-h2">Examples</h2>
-              <p className="lib-section-sub">
+              <h2 className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.06] m-0 mb-2 font-semibold text-ink tracking-[-0.01em]">Examples</h2>
+              <p className="text-[16px] leading-[1.55] text-ink-3 m-0 mb-6 max-w-[64ch]">
                 Generated with prompts written from these rules. Click any
                 tile to open it full-size.
               </p>
@@ -118,15 +124,15 @@ export default async function GuidelinePage({ params }: PageProps) {
         )}
 
         {isRemix ? (
-          <section className="lib-body-section">
+          <section className="pt-14 pb-24">
             <div className="container container-narrow">
-              <h2 className="lib-section-h2">How to remix</h2>
-              <p className="lib-section-sub">
+              <h2 className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.06] m-0 mb-2 font-semibold text-ink tracking-[-0.01em]">How to remix</h2>
+              <p className="text-[16px] leading-[1.55] text-ink-3 m-0 mb-6 max-w-[64ch]">
                 The template is the full reproduction kit — scenario JSON,
                 prompt cookbook, asset slots, and the composition. You bring
                 the new brief and the agent assembles a fresh project.
               </p>
-              <ol className="skill-how-list lib-remix-steps">
+              <ol className="m-0 pl-[22px] flex flex-col gap-2.5 text-[14.5px] leading-[1.55] text-ink-2 [&_code]:font-mono [&_code]:text-[12.5px] [&_code]:text-ink-2 [&_code]:bg-bg-2 [&_code]:px-[7px] [&_code]:py-0.5 [&_code]:rounded-md [&_code]:[overflow-wrap:anywhere] [&_code]:break-words">
                 <li>
                   <strong>Open Claude Code / Cursor / Codex</strong> inside a
                   ralphy-installed repo. New machine?{" "}
@@ -139,9 +145,10 @@ export default async function GuidelinePage({ params }: PageProps) {
                   <code>{g.cta.hintCmd}</code>.
                 </li>
                 <li>
-                  <strong>Hand it your brief.</strong> Subject, brand,
-                  audience, deviation from the reference. The agent fills the
-                  template&apos;s slots, generates fresh assets, and renders.
+                  <strong>Name your swap.</strong> &ldquo;Same video, but
+                  replace the narrator with my mascot&rdquo; / &ldquo;swap the
+                  product for mine.&rdquo; Everything else stays; the agent
+                  re-runs only what the swap touches, then renders your version.
                 </li>
                 <li>
                   <strong>Iterate.</strong>{" "}
@@ -150,13 +157,13 @@ export default async function GuidelinePage({ params }: PageProps) {
                   the final mp4.
                 </li>
               </ol>
-              <p className="lib-origin">
+              <p className="mt-10 px-[18px] py-4 bg-bg-1 rounded-[14px] text-[14px] leading-[1.5] text-ink-3 [&_code]:[overflow-wrap:anywhere] [&_code]:break-words">
                 Browse the template source on{" "}
                 <a
                   href={g.sourcePath}
                   target="_blank"
                   rel="noopener"
-                  className="lib-inline-link"
+                  className="text-vio no-underline hover:text-vio-2 hover:underline"
                 >
                   GitHub
                 </a>{" "}
@@ -165,16 +172,16 @@ export default async function GuidelinePage({ params }: PageProps) {
             </div>
           </section>
         ) : (
-          <section className="lib-body-section">
+          <section className="pt-14 pb-24">
             <div className="container container-narrow">
-              <h2 className="lib-section-h2">The guideline</h2>
-              <p className="lib-section-sub">
+              <h2 className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.06] m-0 mb-2 font-semibold text-ink tracking-[-0.01em]">The guideline</h2>
+              <p className="text-[16px] leading-[1.55] text-ink-3 m-0 mb-6 max-w-[64ch]">
                 This is what your agent reads. Source on{" "}
                 <a
                   href={`${REPO_BASE}${g.sourcePath}/guideline.md`}
                   target="_blank"
                   rel="noopener"
-                  className="lib-inline-link"
+                  className="text-vio no-underline hover:text-vio-2 hover:underline"
                 >
                   GitHub
                 </a>
@@ -195,11 +202,11 @@ export default async function GuidelinePage({ params }: PageProps) {
               </div>
 
               {g.patterns.length > 0 && (
-                <p className="lib-origin">
+                <p className="mt-10 px-[18px] py-4 bg-bg-1 rounded-[14px] text-[14px] leading-[1.5] text-ink-3">
                   Reusable patterns covered:{" "}
                   {g.patterns.map((p, i) => (
                     <span key={p}>
-                      <code className="lib-inline-code">{p}</code>
+                      <code className="font-mono text-[12.5px] bg-bg-2 px-[7px] py-0.5 rounded-full text-ink">{p}</code>
                       {i < g.patterns.length - 1 ? " · " : null}
                     </span>
                   ))}

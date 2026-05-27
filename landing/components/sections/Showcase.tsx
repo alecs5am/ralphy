@@ -58,14 +58,14 @@ export function Showcase() {
   const columns = packIntoColumns(clips, cols);
 
   return (
-    <section id="showcase" style={{ paddingTop: 56 }}>
+    <section id="showcase" className="pt-14">
       <div className="container container-w-1760">
-        <div className="section-head" style={{ marginBottom: 24 }}>
+        <div className="text-center mb-6">
           <div className="eyebrow">
-            <span className="dot" />
+            <span className="w-[7px] h-[7px] bg-vio rounded-[1px]" />
             showcase
           </div>
-          <h2 style={{ marginTop: 12 }}>
+          <h2 className="mt-3 font-display font-bold text-[clamp(28px,4.5vw,56px)] tracking-[-0.02em] leading-none uppercase text-ink mx-auto max-w-[22ch] text-balance [&_.acc]:text-vio">
             Renders that <span className="acc">move the scroll.</span>
           </h2>
         </div>
@@ -88,15 +88,7 @@ export function Showcase() {
             );
           })}
         </div>
-        <p
-          style={{
-            marginTop: 14,
-            fontSize: 12.5,
-            color: "var(--mute)",
-            fontFamily: "var(--font-mono)",
-            textAlign: "center",
-          }}
-        >
+        <p className="mt-[14px] text-[12.5px] text-mute font-mono text-center">
           hover a column to pause · click a tile for fullscreen · ← / → to navigate
         </p>
       </div>
