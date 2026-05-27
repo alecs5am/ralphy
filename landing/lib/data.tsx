@@ -191,6 +191,7 @@ export const clips: Clip[] = [
   { id: "kbo-broadcast-001", src: "/assets/showcase/kbo-broadcast-001.mp4", poster: "/assets/showcase/posters/kbo-broadcast-001.jpg", label: "Broadcast", title: "KBO caught-on-TV", span: "sq" },
   { id: "tokyo-y2k-001", src: "/assets/showcase/tokyo-y2k-001.mp4", poster: "/assets/showcase/posters/tokyo-y2k-001.jpg", label: "Cinematic", title: "Tokyo Y2K", span: "h2" },
   { id: "skater-spiderverse-001", src: "/assets/showcase/skater-spiderverse-001.mp4", poster: "/assets/showcase/posters/skater-spiderverse-001.jpg", label: "Comic", title: "Skater duel", span: "h2" },
+  { id: "arena-rocker-001", src: "/assets/showcase/arena-rocker-001.mp4", poster: "/assets/showcase/posters/arena-rocker-001.jpg", label: "Comic", title: "Arena rocker", span: "h2" },
 ];
 
 /* ─────────────────────────────────────────────────────────────
