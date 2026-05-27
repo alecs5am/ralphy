@@ -20,6 +20,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { projectsDir } from "./paths.js";
 
+// Open enum: the listed ids are the known/bundled providers (kept for
+// autocomplete + grep), but any connector id is accepted now that providers are
+// pluggable (notes/ideas/005). `(string & {})` preserves literal hints while
+// widening the type to arbitrary strings.
 export type Provider =
   | "fal"
   | "elevenlabs"
@@ -28,7 +32,9 @@ export type Provider =
   | "vercel"
   | "ffmpeg"
   | "replicate"
-  | "other";
+  | "other"
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  | (string & {});
 
 export type GenerationEntry = {
   timestamp: string;
