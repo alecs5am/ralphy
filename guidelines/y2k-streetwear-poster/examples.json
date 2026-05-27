@@ -1,0 +1,35 @@
+{
+  "slug": "y2k-streetwear-poster",
+  "items": [
+    {
+      "id": "boom-royal-blue",
+      "media": "boom-royal-blue.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "BOOM — royal-blue to navy gradient, marigold beveled wordmark with chrome highlights. Hood-up hero, original yellow blob glyph on the chest, red lollipop at mouth level. Three vinyl-star stickers (lollipop macro, blob face, pixel NEW DROP).",
+      "pattern": "beveled-slab-wordmark",
+      "model": "openai/gpt-5.4-image-2",
+      "project": "loud-kids-poster-001"
+    },
+    {
+      "id": "dang-coral-plum",
+      "media": "dang-coral-plum.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "DANG — coral-to-plum sunset gradient, mint-green wordmark. Box-braids hero in a varsity jacket, original cyclops-cloud chest glyph, dripping twin-stick popsicle. Same fixed layout, fully swapped palette / hero / product.",
+      "pattern": "chest-up-hero-with-prop",
+      "model": "openai/gpt-5.4-image-2",
+      "project": "loud-kids-poster-001"
+    },
+    {
+      "id": "yikes-lime-forest",
+      "media": "yikes-lime-forest.jpg",
+      "kind": "image",
+      "aspect": "1:1",
+      "caption": "YIKES — lime-to-forest gradient, hot-pink wordmark. Bleached-buzzcut hero in a retro tracksuit + round shades, original lopsided star glyph, plain unbranded soda can. Demonstrates the scaffold survives a third hard palette / aesthetic swing.",
+      "pattern": "vinyl-sticker-collage",
+      "model": "openai/gpt-5.4-image-2",
+      "project": "loud-kids-poster-001"
+    }
+  ]
+}
