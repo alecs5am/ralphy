@@ -25,15 +25,13 @@ Specifically, **before picking `--model`**, scan:
 - The "Discovered breakage" numbered list (now 9 items as of 2026-05-19)
 - The "Tried-and-dropped" cross-reference table
 
-## Rule 3 — Use `ralphy template suggest` before improvising
+## Rule 3 — Match a niche skill; templates are remix-only
 
-Hard CLAUDE.md invariant #10. Before drafting prompts for a "new" idea, run:
+Hard AGENTS.md invariant #10. Read [`docs/skills-vs-templates.md`](../skills-vs-templates.md) for the full model. The short version:
 
-```bash
-ralphy template suggest "<the user's brief in their words>"
-```
-
-If the top hit has `score ≥ 0.5`, **use the template** (`ralphy template use <slug>`) instead of improvising. Templates encode the postmortem-validated workflow for that vibe — see `templates/CATEGORIES.md` for the full slug roster and the per-template `TEMPLATE.md` for what each one is good at. 54 templates ship; chances are high that what the user asked for is already there.
+- On a generic brief ("make an unboxing video", "make a talking-head rant"), **match a niche skill** (`/ralphy-ugc-*`) — generalized know-how that overlays the standard pipeline and works for any subject. Do **not** run `ralphy template suggest` to find "something close"; that forces the user's brief into a one-off mold and produces off-brand, samey output.
+- A **template** is a single concrete video, used only for **remix** — when the user explicitly points at one specific video (`@template:<slug>`, "remix this one", names a slug) and says what to swap. Templates are user-initiated, never auto-suggested. `ralphy template use <slug>` runs only on that explicit pointer.
+- If no niche skill matches and the user did not point at a template → go freeform via the scenarist. `ralphy template suggest` is for remix-shopping (the user browsing for a video to reproduce), not cold start.
 
 ## Rule 4 — Intake protocol before any paid generation
 
