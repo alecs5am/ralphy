@@ -53,8 +53,8 @@ Notable extensions:
 - `project score <id>` — run virality rubric over `scenario.json` (no LLM).
 - `project transcribe <id>` — Scribe v1 → `captions.json` (Caption[]).
 - `project clone <id>` — duplicate.
-- `template suggest "<utterance...>"` — keyword-rank templates (top-3 with score 0..1). **Always run first** before picking a template by hand.
-- `template use <id>` — scaffold a project; auto-pulls required assets.
+- `template suggest "<utterance...>"` — keyword-rank templates (top-3 with score 0..1). **Remix-shopping only** — run when the user wants to find a specific video to reproduce, NOT on a cold "make a video about X" (that matches a niche skill; see `docs/skills-vs-templates.md`).
+- `template use <id>` — scaffold a project from a template; auto-pulls required assets. Used for the remix path (user pointed at a specific video).
 - `ref blueprint <slug>` / `ref scrape-trends` — research helpers.
 - `batch submit --from <file>` — topo-sorted batch insert with symbolic dependencies. Use this for "N generations + 1 render".
 

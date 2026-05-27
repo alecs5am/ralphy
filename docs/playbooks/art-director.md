@@ -75,7 +75,7 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 
 - **`AGENTS.md`** — invariants (no FAL, no scripts, ref-required, quality gates).
 - **`MODELS.md`** — every model call. Don't hardcode from memory.
-- **`docs/templates-index.md`** — single-doc roster of all 21 templates (4 vibe-reference + 15 vibe-style cookbooks). Pair with `ralphy template suggest "<utterance>"` to pick the right one before authoring prompts from scratch.
+- **`.agents/skills/ralphy-ugc-*`** — the niche skill for the brief's *kind* of video (loaded as the prompt-authoring overlay). Templates are remix-only — consult `docs/templates-index.md` only when the user pointed at a specific video to reproduce. See [`docs/skills-vs-templates.md`](../skills-vs-templates.md).
 - **`workspace/personas/ARCHETYPES.md`** — 8 archetypes (when there's a persona slot).
 - **`workspace/scenes/SETTINGS.md`** — 9 scene settings (when you need to pick a setting).
 - `workspace/projects/<id>/scenario.json` — slots + VO text.
