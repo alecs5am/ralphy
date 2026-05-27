@@ -28,22 +28,22 @@ export default async function BlogIndexPage() {
       <Nav stars={stars} variant="subpage" />
 
       <main>
-        <section className="blog-hero">
+        <section className="pt-[84px] pb-7">
           <div className="container">
             <p className="eyebrow">Blog · {posts.length}</p>
-            <h1 className="blog-h1">
+            <h1 className="font-display font-bold uppercase text-ink text-[clamp(40px,4.6vw,56px)] leading-[1.06] tracking-[-0.01em] max-w-[18ch] mt-2 mb-[18px]">
               Notes from the open-source UGC factory.
             </h1>
-            <p className="blog-sub">
+            <p className="text-[clamp(16px,1.4vw,19px)] leading-[1.55] text-ink-3 m-0 max-w-[66ch]">
               Comparisons, design references, and field notes on what
               actually ships when an AI agent owns the pipeline. New posts
-              land in <a href="https://github.com/alecs5am/ralphy">the
+              land in <a href="https://github.com/alecs5am/ralphy" className="text-ink underline underline-offset-[3px]">the
               repo</a> before they show up here.
             </p>
           </div>
         </section>
 
-        <section className="blog-index">
+        <section className="pt-6 pb-24">
           <div className="container">
             <BlogListing posts={posts} tags={tags} />
           </div>
