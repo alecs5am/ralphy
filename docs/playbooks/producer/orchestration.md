@@ -6,17 +6,9 @@ One video, end-to-end. User: "make a video about X", "run the full pipeline".
 
 ## Steps
 
-### 0. Template suggest (first)
+### 0. Match a niche skill (first) — never auto-suggest a template
 
-```bash
-ralphy template suggest "<user-utterance>"
-```
-
-Returns top-3 ranked templates. Propose top-1:
-
-> "Template **<id>** (vibe: ..., ~$X). Starting — or say 'no template'."
-
-If `score < 0.5` — don't propose, go straight to scenarist flow.
+Read the brief for the *kind* of video and match a niche skill (`/ralphy-ugc-*`). If one fits, load it as the domain overlay and continue. If none fits, go straight to the scenarist flow (freeform). Do **not** run `ralphy template suggest` — templates are remix-only and enter only on an explicit pointer from the user (`@template:<slug>`, "remix this", named slug). See [`../../skills-vs-templates.md`](../../skills-vs-templates.md).
 
 ### 1. Research if needed
 
@@ -25,11 +17,11 @@ If user supplied site/social URL → **researcher playbook** first → reference
 ### 2. Scaffold project
 
 ```bash
-# With a template:
-ralphy template use <slug> --project <ctx>-<NNN> --name "<human>" --brief "<brief>"
-
-# Without a template:
+# Default (niche-skill or freeform):
 ralphy project create --id <ctx>-<NNN> --name "<human>"
+
+# Remix only (user explicitly pointed at a specific video to reproduce):
+ralphy template use <slug> --project <ctx>-<NNN> --name "<human>" --brief "<the swap>"
 ```
 
 ### 3. Save brief

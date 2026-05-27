@@ -8,9 +8,9 @@ User utterances below are shown in English.
 
 ---
 
-## A. Cold-start templates
+## A. Cold-start niche videos
 
-Template-first flow: the chat suggests a template via `ralphy template suggest` immediately rather than writing a scenario from scratch.
+Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` skill if one exists, else freeform in that niche) and runs the normal pipeline. It does **NOT** suggest a template — templates are remix-only, used only when the user points at one specific video to reproduce. The slugs named below identify the niche; each also exists as a remix template the user can ask for by name. See [`docs/skills-vs-templates.md`](skills-vs-templates.md).
 
 ### A1. AI vegetables
 
@@ -18,10 +18,10 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 - "make me an AI vegetables video about <topic>", "I want a vegetable video AI-style", "do AI vegetables for <X>"
 
 **Expected first response:**
-> The **ai-vegetables** template (viral POV, 15s, ~$8). Confirm and I'll start.
+> AI-vegetables niche (viral POV, ~15s, ~$8). I'll build it from your topic. Starting.
 
 **Flow:**
-1. `ralphy template use ai-vegetables --project <slug>-001 --brief "<topic>"`
+1. `ralphy project create --id <slug>-001 --name "<human>"` + load the matching niche skill (or work freeform in the AI-vegetables niche). *Remix variant: if the user pointed at the `ai-vegetables` video to reproduce → `ralphy template use ai-vegetables --project <slug>-001 --brief "<the swap>"`.*
 2. `art-director playbook` → keyframe (gemini-3-pro-image-preview) → i2v (kling-v3.0-pro)
 3. `editor playbook` → captions (whisper-1) → render
 4. `ralphy render <id>` → mp4 path
@@ -34,11 +34,11 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 - "make a talking head about <X>", "monologue where a guy rants about <Y>", "deadpan rant about <Z>"
 
 **Expected first response:**
-> The **talking-head-rant** template (15-20s, character + hook screenshot, ~$10). Which archetype — remote IT worker, courier/driver, stay-at-home creator? If you don't know, I'll pick.
+> Talking-head-rant niche (15-20s, character + hook screenshot, ~$10). Which archetype — remote IT worker, courier/driver, stay-at-home creator? If you don't know, I'll pick.
 
 **Flow:**
 1. `ralphy persona suggest --archetype <inferred>` or the chat proposes a default.
-2. `ralphy template use talking-head-rant`
+2. `ralphy project create` + load the talking-head niche skill (or freeform). *Remix variant: user named the `talking-head-rant` video → `ralphy template use talking-head-rant`.*
 3. `scenarist playbook` → 15-20s scenario with hook in the first 3s.
 4. `art-director playbook` → character image → veo-3.1 talking-head.
 5. `editor playbook` → captions + hook screenshot overlay → render.
@@ -51,11 +51,11 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 - "make an ad for <product>", "before-after for <tool>", "5s pain + 10s solution for <X>"
 
 **Expected first response:**
-> The **before-after-product** template (15s, classic UGC pattern, ~$8). Drop a screenshot / logo / packaging — I won't generate without a reference.
+> Before/after niche (15s, classic UGC pattern, ~$8). Drop a screenshot / logo / packaging — I won't generate without a reference.
 
 **Flow:**
 1. **Gate:** wait for the reference (see section D). Without it — refuse.
-2. `ralphy template use before-after-product --project <id>` with the reference in `assets/uploaded/`.
+2. `ralphy project create --project <id>` + load the before/after niche skill (or freeform), reference in `assets/uploaded/`. *Remix variant: user named the `before-after-product` video → `ralphy template use before-after-product`.*
 3. `scenarist playbook` → 5s problem + 10s demo.
 4. `art-director playbook` → 2 keyframes → 2 i2v clips.
 5. `editor playbook` → captions + transition → render.
@@ -68,9 +68,9 @@ Template-first flow: the chat suggests a template via `ralphy template suggest` 
 - "make a Soviet-style video about <X>", "Soviet-format video about <Y>", "USSR nostalgia about <Z>"
 
 **Expected first response:**
-> The **soviet-nostalgic** template (two-era TikTok narrative, ~60s, ~$12). Starting.
+> Soviet-nostalgic niche (two-era TikTok narrative, ~60s, ~$12). Building from your topic. Starting.
 
-**Flow:** see `templates/entertainment-viral/soviet-nostalgic/TEMPLATE.md`.
+**Flow:** match the niche skill (or freeform) and run the pipeline. *Remix variant: user named the `soviet-nostalgic` video → `ralphy template use soviet-nostalgic`; its composition is in `templates/entertainment-viral/soviet-nostalgic/`.*
 
 ---
 
@@ -217,12 +217,12 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 
 **Flow:** `ralphy template list -p` — table.
 
-### F3. "Suggest a template"
+### F3. "Find a video to remix"
 
 **Utterance:**
-- "which template fits <request>"
+- "which video could I remix for <request>", "show me a template like <X> to copy"
 
-**Flow:** `ralphy template suggest "<utterance>"` — top-3 ranked.
+**Flow:** `ralphy template suggest "<utterance>"` — top-3 ranked. **Remix-shopping only** — this is the user explicitly browsing for a specific video to reproduce, NOT the cold-start route for "make a video about X" (that matches a niche skill — see section A).
 
 ---
 

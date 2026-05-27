@@ -6,7 +6,7 @@
 > 1. **Target audience language** (EN / RU / KR / other). Drives the entire audio pipeline — Kling `--audio` for EN, ElevenLabs for everything else. Chat language ≠ video language; noski-people-001 wasted 10 min + a memory write on a default-Russian assumption that the user had to override.
 > 2. **Aspect / platform** (9:16 TikTok / 16:9 YouTube / 1:1 broadcast realism). Square for caught-on-TV trends, never portrait.
 > 3. **Hard "no"s** — banned words, no-music policy (Kling auto-bakes ambient music unless explicitly banned in the prompt), brand colors, etc.
-> 4. **Template fit** — run `ralphy template suggest "<the brief>"` and **surface** the top-3 to the user as a question with the landing-page link (https://www.alecs5am.com/templates#<slug>). Apply a template ONLY if the user says yes; never auto-pivot. Full discipline in intake playbook's "Cold-start template suggestion" section.
+> 4. **Niche-skill fit** — match the brief to a niche skill (`/ralphy-ugc-*`) and load it as the domain overlay. Do NOT run `ralphy template suggest`; templates are remix-only and enter only on an explicit pointer. Full discipline in the intake playbook's "Cold-start niche-skill match" section + [`docs/skills-vs-templates.md`](../skills-vs-templates.md).
 > 5. **Storyboard lock** — produce `STORYBOARD.md` (scene table) and get explicit user "go" BEFORE handing to art-director. Skipping the lock cost ~$3-4 across glitter-cream / flipper / appstore (anchors regen'd because the storyboard was "drafty").
 >
 > See [`docs/playbooks/intake.md`](intake.md) for the full intake protocol that fires before this playbook.
@@ -50,8 +50,8 @@ The scenario the scenarist emits MUST conform to `cli/lib/schemas/scene.ts` (`Sc
 # Read the current scenario / template / persona context
 ralphy project show <id> --scenario      # scenario.json
 ralphy project show <id> --status        # which pipeline steps are done
-ralphy template suggest "<utterance>"    # top-3 templates ranked by tag match
-ralphy template show <id> -p             # template vibe + fragments
+ralphy template suggest "<utterance>"    # remix-shopping ONLY — never on cold start (see skills-vs-templates.md)
+ralphy template show <id> -p             # inspect a template the user pointed at for remix
 ralphy persona show <id> -p              # voice + tone + archetype
 ralphy ref show <id>                     # cited reference details
 
