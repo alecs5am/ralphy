@@ -12,13 +12,6 @@ import { existsSync } from "node:fs";
 import { projectsDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
-import {
-  generateImage,
-  generateVideo,
-  generateVoiceover,
-  generateMusic,
-  generateSfx,
-} from "../lib/providers/media.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { logUserPrompt } from "../lib/gen-log.js";
@@ -31,6 +24,7 @@ import {
 import { enqueueGenerate } from "../lib/jobs/enqueue.js";
 import type { JobKind } from "../lib/jobs/types.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
+import { resolveConnector } from "../lib/providers/registry.js";
 
 const QUEUE_FLAGS = (cmd: Command): Command =>
   cmd
@@ -206,6 +200,7 @@ export function generateCmd() {
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image)")
     .requiredOption("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
     .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview, the nano-banana-pro lineage; switch to openai/gpt-5.4-image-2 for premium typography on labels)", "google/gemini-3-pro-image-preview")
+    .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image. See `ralphy provider list`.")
     .option(
       "--ref <ref...>",
       "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI"
@@ -255,6 +250,7 @@ export function generateCmd() {
         });
         return;
       }
+      const conn = resolveConnector("image", opts.provider);
       if (variants > 1) {
         // Parallel fire — N independent gens, each into its own slot. Honors the
         // OR per-key concurrent cap (gpt-5.4-image-2 = 1) by serializing if the
@@ -263,7 +259,7 @@ export function generateCmd() {
         const isCapped = resolvedModel === "openai/gpt-5.4-image-2";
         const runOne = async (i: number) => {
           const variantSlot = `${opts.slot}-v${i + 1}`;
-          const r = await generateImage({
+          const r = await conn.generateImage!({
             projectId: opts.project,
             slot: variantSlot,
             prompt: opts.prompt,
@@ -305,7 +301,7 @@ export function generateCmd() {
       const result = await ui.withSpinner(
         `image (${resolvedModel}) → ${opts.slot}`,
         () =>
-          generateImage({
+          conn.generateImage!({
             projectId: opts.project,
             slot: opts.slot,
             prompt: opts.prompt,
@@ -351,6 +347,7 @@ export function generateCmd() {
     .requiredOption("--prompt <prompt>", "Motion / camera description")
     .requiredOption("--duration <seconds>", "Duration in seconds. Per-model `supported_durations` may be discrete (e.g. hailuo only 6/10) — see `ralphy models show <id>`", parseFloat)
     .option("--model <model>", "OpenRouter model id", "kwaivgi/kling-v3.0-pro")
+    .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports video. See `ralphy provider list`.")
     .option(
       "--first-frame <ref>",
       "First-frame anchor for i2v (URL / local path / data: URI). Strongly recommended for portrait orientation when prompt has wide-shot bias"
@@ -437,6 +434,7 @@ export function generateCmd() {
         return;
       }
 
+      const connV = resolveConnector("video", opts.provider);
       const uiv = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
       const cs = new CommandStream();
@@ -450,7 +448,7 @@ export function generateCmd() {
       const result = await uiv.withSpinner(
         `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
         () =>
-          generateVideo({
+          connV.generateVideo!({
             projectId: opts.project,
             slot: opts.slot,
             prompt: opts.prompt,
@@ -542,6 +540,7 @@ export function generateCmd() {
     .requiredOption("--voice <voiceId>", "ElevenLabs voice id (clone or library)")
     .requiredOption("--text <text>", "VO text (RU or EN)")
     .option("--model <model>", "ElevenLabs TTS model id", "eleven_multilingual_v2")
+    .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports voice. See `ralphy provider list`.")
     .option("--stability <n>", "Voice stability 0-1 (lower = more variation, useful for emotional / cinematic deliveries; higher = monotone, useful for analog-horror PSA / robo-narrator). Default 0.55.", (v) => parseFloat(v))
     .option("--similarity-boost <n>", "Similarity-to-source 0-1 (higher = closer to the cloned voice; lower = more interpretation). Default 0.8.", (v) => parseFloat(v))
     .option("--style <n>", "Style amplification 0-1 (0 = monotone broadcast register, 1 = full dramatic). Default 0.25. Analog-horror postmortem: style 0 with stability ~0.5 produced the cold-robo-female PSA register.", (v) => parseFloat(v))
@@ -577,11 +576,12 @@ export function generateCmd() {
       if (opts.similarityBoost !== undefined) voiceSettings.similarity_boost = opts.similarityBoost;
       if (opts.style !== undefined) voiceSettings.style = opts.style;
       if (opts.speakerBoost === false) voiceSettings.use_speaker_boost = false;
+      const connVo = resolveConnector("voice", opts.provider);
       const uivo = await import("../lib/ui.js");
       const result = await uivo.withSpinner(
         `voiceover (${opts.model}, voice ${opts.voice}) → ${opts.slot}`,
         () =>
-          generateVoiceover({
+          connVo.generateVoiceover!({
             projectId: opts.project,
             slot: opts.slot,
             voiceId: opts.voice,
@@ -623,6 +623,7 @@ export function generateCmd() {
     .requiredOption("--slot <slot>", "Asset slot id (e.g. bed-01)")
     .requiredOption("--prompt <prompt>", "Music description (genre, tempo, mood)")
     .requiredOption("--duration <seconds>", "Duration in seconds (3-600)", parseFloat)
+    .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports music. See `ralphy provider list`.")
     .option("--with-vocals", "Allow vocals (default: instrumental only)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
@@ -649,6 +650,7 @@ export function generateCmd() {
         return;
       }
 
+      const connM = resolveConnector("music", opts.provider);
       const uim = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
       const cs = new CommandStream();
@@ -656,7 +658,7 @@ export function generateCmd() {
       const result = await uim.withSpinner(
         `music (${opts.duration}s${opts.withVocals ? "" : ", instrumental"}) → ${opts.slot}`,
         () =>
-          generateMusic({
+          connM.generateMusic!({
             projectId: opts.project,
             slot: opts.slot,
             prompt: opts.prompt,
@@ -699,6 +701,7 @@ export function generateCmd() {
     .requiredOption("--slot <slot>", "Asset slot id (e.g. static-pop-01)")
     .requiredOption("--prompt <prompt>", "SFX description (e.g. 'short analog TV static pop')")
     .option("--duration <seconds>", "Duration in seconds (0.5-22)", parseFloat, 4)
+    .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports sfx. See `ralphy provider list`.")
     .option("--prompt-influence <n>", "Prompt adherence 0-1 (default 0.4 — let model interpret)", parseFloat, 0.4)
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
@@ -708,11 +711,12 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
+      const connSfx = resolveConnector("sfx", opts.provider);
       const uisfx = await import("../lib/ui.js");
       const result = await uisfx.withSpinner(
         `sfx (${opts.duration}s) → ${opts.slot}`,
         () =>
-          generateSfx({
+          connSfx.generateSfx!({
             projectId: opts.project,
             slot: opts.slot,
             prompt: opts.prompt,
