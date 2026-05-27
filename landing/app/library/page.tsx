@@ -15,7 +15,7 @@ import { LibraryListing } from "./LibraryListing";
 export const metadata: Metadata = {
   title: "Library · Ralphy",
   description:
-    "Prompt-library guidelines + remixable video templates. Tag-able from chat, copy-pasted by your coding agent. Search and filter by kind, model, and tag.",
+    "The remix collection — reproduce a specific Ralphy video and swap any element (subject, brand, character). Plus image-prompt guidelines. Tag-able from chat, search and filter by kind, model, and tag.",
 };
 
 export default async function LibraryPage() {
@@ -28,45 +28,53 @@ export default async function LibraryPage() {
       <Nav stars={stars} variant="subpage" />
 
       <main>
-        <section className="skills-hero">
+        <section className="pt-24 pb-9">
           <div className="container">
-            <p className="eyebrow">Library · {entries.length}</p>
-            <h1 className="skills-h1">
-              Prompt guidelines and remixable videos, one tag away.
+            <p className="eyebrow font-mono text-[11.5px] tracking-[0.16em] uppercase text-vio mb-[18px]">Library · {entries.length}</p>
+            <h1 className="font-display font-bold text-[clamp(36px,5.2vw,64px)] tracking-[-0.015em] leading-[1.02] uppercase m-0 mb-[22px] max-w-[22ch]">
+              The remix collection.
             </h1>
-            <p className="skills-sub">
-              Tag any of these in chat (<code>@guideline:&lt;slug&gt;</code> or{" "}
-              <code>@template:&lt;slug&gt;</code>) and your coding agent
-              pulls the recipe in before drafting prompts or scaffolding a
-              project. Image-prompt guidelines codify the rules; video remixes
-              are full vibe-references you brief end-to-end.
+            <p className="text-[16.5px] leading-[1.55] text-ink-3 m-0 mb-[26px] max-w-[66ch] [&_strong]:text-ink [&_strong]:font-semibold">
+              Each video here is one concrete clip you can reproduce. Tag it in
+              chat (<code>@template:&lt;slug&gt;</code>) and say what to swap —
+              &ldquo;same video, but replace the narrator with my mascot&rdquo;
+              — and your agent rebuilds it with your change. Want to make a{" "}
+              <em>kind</em> of video instead of copying one? That&apos;s a{" "}
+              <a href="/skills" className="text-vio no-underline hover:text-vio-2 hover:underline">skill</a>. This
+              page also holds image-prompt{" "}
+              <code>@guideline:&lt;slug&gt;</code> rules.
             </p>
           </div>
         </section>
 
-        <section className="skills-body">
+        <section className="pt-9 pb-24">
           <div className="container">
             <LibraryListing entries={entries} />
 
-            <div className="skill-how">
-              <h2 className="skill-how-title">How it works</h2>
-              <ol className="skill-how-list">
+            <div className="mt-12 px-8 py-7 bg-bg-1 rounded-[20px]">
+              <h2 className="font-display font-bold text-[22px] tracking-[-0.005em] uppercase m-0 mb-3.5 text-ink">How remixing works</h2>
+              <ol className="m-0 pl-[22px] flex flex-col gap-2.5 text-[14.5px] leading-[1.55] text-ink-2 [&_code]:font-mono [&_code]:text-[12.5px] [&_code]:px-1.5 [&_code]:py-px [&_code]:bg-bg-3 [&_code]:text-ink [&_code]:rounded-[5px]">
                 <li>
-                  Open Claude Code / Cursor / Codex inside the ralphy repo.
+                  Open Claude Code / Cursor / Codex inside a ralphy-installed
+                  repo.
                 </li>
                 <li>
-                  Paste <code>@guideline:&lt;slug&gt;</code> (image rules) or{" "}
-                  <code>@template:&lt;slug&gt;</code> (full video) into the
-                  chat. The agent runs the matching{" "}
-                  <code>ralphy guideline show</code> or{" "}
-                  <code>ralphy template use</code> and loads the recipe.
+                  Paste the video&apos;s tag{" "}
+                  <code>@template:&lt;slug&gt;</code> and state your swap in
+                  plain language: &ldquo;make this exact video but replace the
+                  product with mine&rdquo; / &ldquo;same clip, swap the actor
+                  for a cartoon mascot.&rdquo;
                 </li>
                 <li>
-                  For image guidelines the agent then writes a{" "}
-                  <code>ralphy generate image</code> prompt using the rules.
-                  For video templates it scaffolds a project and asks for
-                  your brief — your subject, your story, the template&apos;s
-                  vibe.
+                  The agent runs <code>ralphy template use &lt;slug&gt;</code>,
+                  keeps everything else from the source, and re-runs only the
+                  parts your swap touches — then renders your version.
+                </li>
+                <li>
+                  Image-prompt entries work the same way with{" "}
+                  <code>@guideline:&lt;slug&gt;</code> — the agent loads the
+                  rules before writing your next{" "}
+                  <code>ralphy generate image</code> prompt.
                 </li>
               </ol>
             </div>

@@ -38,7 +38,11 @@ import { CodeTabs, CodeTab } from "./CodeTabs";
    in a <p>; nesting <p><p>…</p></p> trips React's hydration check.
    ───────────────────────────────────────────────────────────────── */
 export function Lede({ children }: { children: ReactNode }) {
-  return <div className="mdx-lede">{children}</div>;
+  return (
+    <div className="text-[22px] leading-[1.5] text-ink m-0 mb-10 max-w-[64ch] font-normal [&>p]:m-0 [&>p]:font-[inherit] [&>p]:text-inherit [&>p]:tracking-[inherit]">
+      {children}
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -55,7 +59,19 @@ export function Tag({
   children: ReactNode;
   kind?: "neutral" | "accent" | "warn";
 }) {
-  return <span className={`mdx-tag mdx-tag-${kind}`}>{children}</span>;
+  const tone =
+    kind === "accent"
+      ? "bg-vio text-bg"
+      : kind === "warn"
+        ? "bg-warn text-bg"
+        : "bg-ink text-bg";
+  return (
+    <span
+      className={`inline-block px-[7px] pt-px pb-0.5 rounded-[3px] font-display font-bold text-[0.72em] tracking-[0.08em] uppercase align-[2px] leading-[1.4] whitespace-nowrap ${tone}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -77,14 +93,31 @@ export function Callout({
   const fallback =
     glyph ??
     (kind === "warn" ? "!" : kind === "danger" ? "×" : kind === "good" ? "✦" : "i");
+  const glyphBg =
+    kind === "good"
+      ? "bg-vio"
+      : kind === "warn"
+        ? "bg-warn"
+        : kind === "danger"
+          ? "bg-[#E89094]"
+          : "bg-ink";
   return (
-    <aside className={`mdx-callout mdx-callout-${kind}`}>
-      <span className="mdx-callout-glyph" aria-hidden>
+    <aside className="grid grid-cols-[78px_minmax(0,1fr)] gap-6 items-center bg-bg-1 rounded-[18px] px-7 py-[26px] my-8">
+      <span
+        className={`w-[78px] h-[78px] rounded-[14px] grid place-items-center font-display font-bold text-[38px] leading-none text-bg ${glyphBg}`}
+        aria-hidden
+      >
         {fallback}
       </span>
-      <div className="mdx-callout-body">
-        {title && <p className="mdx-callout-title">{title}</p>}
-        <div className="mdx-callout-content">{children}</div>
+      <div>
+        {title && (
+          <p className="font-display font-bold text-[18px] tracking-[-0.005em] uppercase text-ink m-0 mb-1.5">
+            {title}
+          </p>
+        )}
+        <div className="text-ink-3 text-[16px] leading-[1.5] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p]:m-0">
+          {children}
+        </div>
       </div>
     </aside>
   );
@@ -107,14 +140,28 @@ export function Cta({
   cta?: string;
 }) {
   return (
-    <a className="mdx-cta" href={href} target="_blank" rel="noopener">
-      <div className="mdx-cta-text">
-        <p className="mdx-cta-title">{title}</p>
-        {caption && <p className="mdx-cta-caption">{caption}</p>}
+    <a
+      className="mdx-cta group grid grid-cols-[minmax(0,1fr)_auto] gap-7 items-center bg-vio text-bg rounded-[22px] px-9 py-8 my-10 no-underline transition-transform duration-200 hover:-translate-y-0.5"
+      href={href}
+      target="_blank"
+      rel="noopener"
+    >
+      <div>
+        <p className="font-display font-bold text-[30px] tracking-[-0.02em] leading-none uppercase m-0 mb-2 text-bg">
+          {title}
+        </p>
+        {caption && (
+          <p className="m-0 text-[rgb(10_10_11/0.7)] text-[15px] max-w-[44ch] leading-[1.5] [&_code]:bg-[rgb(10_10_11/0.16)] [&_code]:text-bg">
+            {caption}
+          </p>
+        )}
       </div>
-      <span className="mdx-cta-btn">
+      <span className="inline-flex items-center gap-2.5 bg-bg text-ink px-[22px] py-3.5 rounded-full font-sans font-semibold text-sm whitespace-nowrap">
         {cta}
-        <span className="mdx-cta-arrow" aria-hidden>
+        <span
+          className="text-vio font-mono transition-transform duration-200 group-hover:translate-x-1"
+          aria-hidden
+        >
           →
         </span>
       </span>
@@ -138,7 +185,12 @@ export function InstallCard({
   return (
     <Cta
       title={title ?? "Ship reels with Ralphy"}
-      caption={caption ?? (cmd ? <><code className="mdx-code">{cmd}</code></> : null)}
+      caption={
+        caption ??
+        (cmd ? (
+          <code className="font-mono text-[0.88em] px-[7px] py-0.5 rounded">{cmd}</code>
+        ) : null)
+      }
       href={href}
       cta="Install"
     />
@@ -161,8 +213,12 @@ export function LinkList({
   children: ReactNode;
 }) {
   return (
-    <nav className="mdx-linklist">
-      {head && <p className="mdx-linklist-head">{head}</p>}
+    <nav className="block bg-bg-1 rounded-[16px] py-2 my-8 [&_.mdx-linklist-row+.mdx-linklist-row]:shadow-[inset_0_1px_0_var(--color-line)]">
+      {head && (
+        <p className="px-[22px] pt-3.5 pb-2 font-mono text-[11.5px] tracking-[0.16em] uppercase text-mute m-0">
+          {head}
+        </p>
+      )}
       {children}
     </nav>
   );
@@ -182,14 +238,23 @@ export function LinkListItem({
   const external = href.startsWith("http");
   return (
     <a
-      className="mdx-linklist-row"
+      className="mdx-linklist-row group flex items-center gap-4 px-[22px] py-4 text-ink no-underline hover:bg-bg-2"
       href={href}
       {...(external ? { target: "_blank", rel: "noopener" } : {})}
     >
-      {num !== undefined && <span className="mdx-linklist-num">{num}</span>}
-      <span className="mdx-linklist-title">{title}</span>
-      {meta && <span className="mdx-linklist-meta">{meta}</span>}
-      <span className="mdx-linklist-arrow" aria-hidden>
+      {num !== undefined && (
+        <span className="font-mono text-[13px] text-mute w-[26px] text-right shrink-0">
+          {num}
+        </span>
+      )}
+      <span className="flex-1 text-[16px] leading-[1.4]">{title}</span>
+      {meta && (
+        <span className="font-mono text-xs text-mute shrink-0">{meta}</span>
+      )}
+      <span
+        className="text-vio font-mono shrink-0 transition-transform duration-200 group-hover:translate-x-1"
+        aria-hidden
+      >
         →
       </span>
     </a>
@@ -254,21 +319,40 @@ function CompareCards({
   caption?: ReactNode;
 }) {
   return (
-    <figure className="mdx-compare mdx-compare-cards">
+    <figure className="my-9">
       <div
-        className="mdx-cmp-cards"
+        className="grid gap-3.5 [grid-template-columns:repeat(var(--cmp-cols,3),minmax(0,1fr))]"
         style={{ "--cmp-cols": brands.length } as React.CSSProperties}
       >
         {brands.map((b, colIdx) => (
           <div
             key={b.name}
-            className={`mdx-cmp-card ${b.accent ? "is-accent" : ""}`}
+            className={`rounded-[18px] px-[22px] pt-[22px] pb-3.5 grid gap-2 ${
+              b.accent ? "bg-vio text-bg" : "bg-bg-1"
+            }`}
           >
-            <div className="mdx-cmp-card-head">{b.name}</div>
-            {rows.map((r) => (
-              <div key={r.feature} className="mdx-cmp-card-row">
-                <span className="mdx-cmp-card-lbl">{r.feature}</span>
-                <span className="mdx-cmp-card-val">
+            <div
+              className={`font-display font-bold text-[20px] uppercase tracking-[-0.01em] mb-2 ${
+                b.accent ? "text-bg" : "text-ink"
+              }`}
+            >
+              {b.name}
+            </div>
+            {rows.map((r, ri) => (
+              <div
+                key={r.feature}
+                className={`grid grid-cols-[1fr_auto] items-baseline gap-3 py-2.5 text-sm ${
+                  ri === rows.length - 1
+                    ? ""
+                    : b.accent
+                      ? "shadow-[inset_0_-1px_0_rgb(10_10_11/0.18)]"
+                      : "shadow-[inset_0_-1px_0_var(--color-line)]"
+                }`}
+              >
+                <span className={b.accent ? "text-[rgb(10_10_11/0.62)]" : "text-ink-3"}>
+                  {r.feature}
+                </span>
+                <span className="font-mono text-ink-2 text-[13px]">
                   <CompareCell v={r.values[colIdx]} accent={b.accent} />
                 </span>
               </div>
@@ -276,8 +360,16 @@ function CompareCards({
           </div>
         ))}
       </div>
-      {caption && <figcaption className="mdx-compare-caption">{caption}</figcaption>}
+      {caption && <CompareCaption>{caption}</CompareCaption>}
     </figure>
+  );
+}
+
+function CompareCaption({ children }: { children: ReactNode }) {
+  return (
+    <figcaption className="mt-3.5 font-mono text-[12.5px] text-mute text-center leading-[1.5]">
+      {children}
+    </figcaption>
   );
 }
 
@@ -291,19 +383,19 @@ function CompareRows({
   caption?: ReactNode;
 }) {
   return (
-    <figure className="mdx-compare mdx-compare-rows">
-      <div className="mdx-cmp-scroll">
+    <figure className="my-9">
+      <div className="overflow-x-auto rounded-[14px]">
         <div
-          className="mdx-cmp-grid"
+          className="rounded-[14px] overflow-hidden grid text-[15px] min-w-max"
           style={{
             gridTemplateColumns: `minmax(220px, 1.6fr) repeat(${brands.length}, minmax(110px, 1fr))`,
           }}
         >
-          <div className="mdx-cmp-h" />
+          <div className={`${HEAD_CELL} text-left`} />
           {brands.map((b) => (
             <div
               key={b.name}
-              className={`mdx-cmp-h ${b.accent ? "is-accent" : ""}`}
+              className={`${HEAD_CELL} text-center ${b.accent ? "text-vio" : ""}`}
             >
               {b.name}
             </div>
@@ -318,10 +410,13 @@ function CompareRows({
           ))}
         </div>
       </div>
-      {caption && <figcaption className="mdx-compare-caption">{caption}</figcaption>}
+      {caption && <CompareCaption>{caption}</CompareCaption>}
     </figure>
   );
 }
+
+const HEAD_CELL =
+  "bg-bg-1 text-mute font-mono text-xs tracking-[0.14em] uppercase px-[18px] py-3.5";
 
 function RowFragment({
   row,
@@ -332,15 +427,17 @@ function RowFragment({
   cols: number;
   stripe?: boolean;
 }) {
-  const cls = stripe ? "mdx-cmp-c is-stripe" : "mdx-cmp-c";
+  const cell = `px-[18px] py-4 text-ink-2 ${stripe ? "bg-bg-2" : "bg-bg-1"}`;
   return (
     <>
-      <div className={`${cls} mdx-cmp-c-feat`}>
-        <span className="lbl">{row.feature}</span>
-        {row.sub && <span className="sub">{row.sub}</span>}
+      <div className={cell}>
+        <span className="block text-ink font-medium">{row.feature}</span>
+        {row.sub && (
+          <span className="block text-mute text-[13px] mt-0.5">{row.sub}</span>
+        )}
       </div>
       {Array.from({ length: cols }).map((_, i) => (
-        <div key={i} className={`${cls} mdx-cmp-c-val`}>
+        <div key={i} className={`${cell} text-center`}>
           <CompareCell v={row.values[i]} />
         </div>
       ))}
@@ -355,18 +452,19 @@ function CompareCell({
   v: CompareValue | undefined;
   accent?: boolean;
 }) {
+  const tick = "font-mono text-[16px] font-bold";
+  const chip =
+    "inline-flex items-center px-[9px] py-0.5 rounded-full bg-bg-3 text-ink-3 font-mono text-xs";
   if (v === true)
-    return (
-      <span className={`mdx-tick ${accent ? "on-accent" : ""}`}>✓</span>
-    );
-  if (v === false) return <span className="mdx-tick mdx-tick-no">✗</span>;
+    return <span className={`${tick} ${accent ? "text-bg" : "text-vio"}`}>✓</span>;
+  if (v === false)
+    return <span className={`${tick} text-mute-2 font-normal`}>✗</span>;
   if (v === undefined || v === "")
-    return <span className="mdx-tick mdx-tick-na">—</span>;
-  if (v === "partial")
-    return <span className="mdx-cell-chip">partial</span>;
+    return <span className={`${tick} text-mute-2 font-normal`}>—</span>;
+  if (v === "partial") return <span className={chip}>partial</span>;
   if (v === "enterprise" || v === "add-on")
-    return <span className="mdx-cell-chip">enterprise</span>;
-  return <span className="mdx-cell-text">{v}</span>;
+    return <span className={chip}>enterprise</span>;
+  return <span className="font-mono text-sm text-ink-2">{v}</span>;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -383,10 +481,10 @@ export function PricingTable({
   caption?: ReactNode;
 }) {
   return (
-    <figure className="mdx-compare mdx-compare-rows mdx-pricing">
-      <div className="mdx-cmp-scroll">
+    <figure className="my-9">
+      <div className="overflow-x-auto rounded-[14px]">
         <div
-          className="mdx-cmp-grid"
+          className="rounded-[14px] overflow-hidden grid text-[15px] min-w-max"
           style={{
             gridTemplateColumns: `minmax(180px, 1fr) repeat(${
               cols.length - 1
@@ -396,7 +494,9 @@ export function PricingTable({
           {cols.map((c, i) => (
             <div
               key={c}
-              className={`mdx-cmp-h ${i === 1 ? "is-accent" : ""}`}
+              className={`${HEAD_CELL} ${i === 0 ? "text-left" : "text-center"} ${
+                i === 1 ? "text-vio" : ""
+              }`}
             >
               {c}
             </div>
@@ -411,7 +511,7 @@ export function PricingTable({
           ))}
         </div>
       </div>
-      {caption && <figcaption className="mdx-compare-caption">{caption}</figcaption>}
+      {caption && <CompareCaption>{caption}</CompareCaption>}
     </figure>
   );
 }
@@ -425,22 +525,25 @@ function PriceRow({
   cols: number;
   stripe?: boolean;
 }) {
-  const stripeCls = stripe ? "is-stripe" : "";
+  const bg = stripe ? "bg-bg-2" : "bg-bg-1";
   return (
     <>
-      <div className={`mdx-cmp-c mdx-cmp-c-feat ${stripeCls}`}>
-        <span className="lbl">{row.label}</span>
+      <div className={`px-[18px] py-4 text-ink-2 ${bg}`}>
+        <span className="block text-ink font-medium">{row.label}</span>
       </div>
-      {Array.from({ length: cols }).map((_, i) => (
-        <div
-          key={i}
-          className={`mdx-cmp-c mdx-cmp-c-val mdx-cmp-c-text ${stripeCls} ${
-            i === 0 || row.accent === i ? "is-accent" : ""
-          }`}
-        >
-          {row.values[i] ?? "—"}
-        </div>
-      ))}
+      {Array.from({ length: cols }).map((_, i) => {
+        const isAccent = i === 0 || row.accent === i;
+        return (
+          <div
+            key={i}
+            className={`px-[18px] py-4 font-mono text-sm text-center ${bg} ${
+              isAccent ? "text-vio font-bold" : "text-ink-2"
+            }`}
+          >
+            {row.values[i] ?? "—"}
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -465,18 +568,34 @@ export function PriceHero({
   note?: ReactNode;
 }) {
   return (
-    <div className="mdx-pricehero">
-      <div className="mdx-pricehero-l">
-        {eyebrow && <p className="mdx-pricehero-eye">{eyebrow}</p>}
-        <p className="mdx-pricehero-ttl">{title}</p>
-        {caption && <p className="mdx-pricehero-sub">{caption}</p>}
-      </div>
-      <div className="mdx-pricehero-r">
-        <p className="mdx-pricehero-big">
-          {value}
-          {unit && <small>{unit}</small>}
+    <div className="bg-bg-1 rounded-[22px] px-9 py-8 my-10 grid grid-cols-[minmax(0,1fr)_auto] gap-9 items-center">
+      <div>
+        {eyebrow && (
+          <p className="font-mono text-[11.5px] tracking-[0.16em] uppercase text-vio m-0 mb-2.5">
+            {eyebrow}
+          </p>
+        )}
+        <p className="font-display font-bold text-[28px] uppercase tracking-[-0.02em] m-0 text-ink leading-[1.04]">
+          {title}
         </p>
-        {note && <p className="mdx-pricehero-cap">{note}</p>}
+        {caption && (
+          <p className="text-ink-3 text-[15px] mt-2 mb-0 max-w-[38ch] leading-[1.5]">
+            {caption}
+          </p>
+        )}
+      </div>
+      <div className="text-right">
+        <p className="font-display font-bold text-[clamp(56px,8vw,88px)] tracking-[-0.04em] leading-[0.9] text-vio m-0">
+          {value}
+          {unit && (
+            <small className="text-sm text-mute font-mono font-normal tracking-normal ml-1">
+              {unit}
+            </small>
+          )}
+        </p>
+        {note && (
+          <p className="text-mute text-[13px] mt-1.5 mb-0 font-mono">{note}</p>
+        )}
       </div>
     </div>
   );
@@ -521,16 +640,26 @@ export function PullQuote({
           .join("")
       : "");
   return (
-    <blockquote className="mdx-pullquote">
+    <blockquote className="my-10 px-7 py-[26px] bg-bg-1 rounded-[18px] grid grid-cols-[minmax(0,1fr)_240px] gap-7 items-center not-italic font-normal">
       {/* div, not p — MDX wraps body text in its own <p>, so a <p> here
           would nest and trip React hydration. */}
-      <div className="mdx-pullquote-text">{children}</div>
+      <div className="m-0 text-[19px] leading-[1.5] text-ink-2 italic [&_p]:m-0 [&_p]:text-[19px] [&_p]:leading-[1.5] [&_p]:text-ink-2 [&_p]:italic">
+        {children}
+      </div>
       {(name || role) && (
-        <div className="mdx-pullquote-who">
-          <span className="mdx-pullquote-avatar">{initials}</span>
+        <div className="grid grid-cols-[48px_1fr] gap-3.5 items-center">
+          <span className="w-12 h-12 rounded-full bg-vio text-bg grid place-items-center font-display font-bold text-[15px]">
+            {initials}
+          </span>
           <div>
-            {name && <div className="mdx-pullquote-name">{name}</div>}
-            {role && <div className="mdx-pullquote-role">{role}</div>}
+            {name && (
+              <div className="text-sm text-ink font-semibold">{name}</div>
+            )}
+            {role && (
+              <div className="text-[12.5px] text-mute font-mono mt-0.5">
+                {role}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -542,7 +671,9 @@ export function PullQuote({
    StatRow / Stat (variant A) — three-up plates. Unchanged API.
    ───────────────────────────────────────────────────────────────── */
 export function StatRow({ children }: { children: ReactNode }) {
-  return <div className="mdx-statrow">{children}</div>;
+  return (
+    <div className="grid grid-cols-3 gap-3.5 my-8">{children}</div>
+  );
 }
 export function Stat({
   value,
@@ -552,9 +683,11 @@ export function Stat({
   label: ReactNode;
 }) {
   return (
-    <div className="mdx-stat">
-      <span className="mdx-stat-value">{value}</span>
-      <span className="mdx-stat-label">{label}</span>
+    <div className="bg-bg-1 rounded-[18px] px-6 py-[26px]">
+      <span className="block font-display font-bold text-[48px] leading-[0.95] tracking-[-0.025em] text-vio mb-2">
+        {value}
+      </span>
+      <span className="text-[13.5px] text-ink-3 leading-[1.4]">{label}</span>
     </div>
   );
 }
@@ -576,16 +709,28 @@ type BarItem = {
 export function BarStats({ items }: { items: BarItem[] }) {
   const max = Math.max(1, ...items.map((i) => i.amount));
   return (
-    <div className="mdx-barstats">
+    <div className="bg-bg-1 rounded-[18px] px-7 py-[26px] my-8 grid gap-[18px]">
       {items.map((it, i) => {
         const pct = Math.max(2, Math.round((it.amount / max) * 100));
         return (
-          <div key={i} className="mdx-barstats-row">
-            <span className="mdx-barstats-lbl">{it.label}</span>
-            <span className={`mdx-barstats-bar ${it.accent ? "is-accent" : ""}`}>
-              <i style={{ width: `${pct}%` }} />
+          <div
+            key={i}
+            className="grid grid-cols-[minmax(160px,220px)_1fr_72px] gap-5 items-center"
+          >
+            <span className="font-mono text-xs tracking-[0.12em] uppercase text-mute [&_b]:text-ink [&_b]:font-medium">
+              {it.label}
             </span>
-            <span className="mdx-barstats-v">{it.display ?? it.amount}</span>
+            <span className="h-2 bg-bg-3 rounded-full overflow-hidden relative">
+              <i
+                className={`block h-full rounded-full ${
+                  it.accent ? "bg-vio" : "bg-ink-2"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </span>
+            <span className="font-display font-bold text-[18px] text-ink text-right tracking-[-0.01em]">
+              {it.display ?? it.amount}
+            </span>
           </div>
         );
       })}
@@ -597,7 +742,11 @@ export function BarStats({ items }: { items: BarItem[] }) {
    Steps (variant B) — vertical timeline. Wrap N <Step> children.
    ───────────────────────────────────────────────────────────────── */
 export function Steps({ children }: { children: ReactNode }) {
-  return <ol className="mdx-steps">{children}</ol>;
+  return (
+    <ol className="list-none my-8 pl-2 grid gap-7 [counter-reset:step]">
+      {children}
+    </ol>
+  );
 }
 
 export function Step({
@@ -611,11 +760,17 @@ export function Step({
   children: ReactNode;
 }) {
   return (
-    <li className="mdx-step">
-      <span className="mdx-step-num">{n ?? null}</span>
-      <div className="mdx-step-body">
-        <p className="mdx-step-ttl">{title}</p>
-        <div className="mdx-step-text">{children}</div>
+    <li className="grid grid-cols-[56px_minmax(0,1fr)] gap-[22px] items-start relative [counter-increment:step] [&:not(:last-child)]:after:content-[''] [&:not(:last-child)]:after:absolute [&:not(:last-child)]:after:left-[27px] [&:not(:last-child)]:after:top-[60px] [&:not(:last-child)]:after:-bottom-8 [&:not(:last-child)]:after:w-0.5 [&:not(:last-child)]:after:bg-bg-3">
+      <span className="w-14 h-14 rounded-full bg-bg-1 text-vio font-display font-bold text-[22px] grid place-items-center tracking-[-0.02em] empty:before:[content:counter(step,decimal-leading-zero)]">
+        {n ?? null}
+      </span>
+      <div>
+        <p className="font-display font-bold text-[18px] uppercase tracking-[-0.005em] text-ink my-1.5">
+          {title}
+        </p>
+        <div className="text-ink-3 text-[15.5px] leading-[1.6] max-w-[64ch] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p]:my-0 [&_p]:mb-2.5 [&_p:last-child]:mb-0">
+          {children}
+        </div>
       </div>
     </li>
   );
@@ -646,37 +801,54 @@ export function Figure({
   items?: FigureItem[];
 }) {
   return (
-    <figure className="mdx-figure">
+    <figure className="my-8">
       {items && items.length > 0 ? (
-        <div className="mdx-figure-gallery">
+        <div className="grid grid-cols-2 gap-3.5">
           {items.map((it, i) => (
             <span
               key={i}
-              className={`mdx-figure-cell ${
-                it.src ? "" : "mdx-figure-cell-empty"
-              }`}
+              className={`${FIG_CELL} aspect-[4/5] ${it.src ? "" : FIG_EMPTY}`}
             >
-              {it.src && <img src={it.src} alt={it.alt ?? ""} />}
-              {it.label && <span className="mdx-figure-label">{it.label}</span>}
+              {it.src && (
+                <img
+                  src={it.src}
+                  alt={it.alt ?? ""}
+                  className="w-full h-full object-cover block"
+                />
+              )}
+              {it.label && (
+                <span className="absolute left-3.5 bottom-3.5 px-2.5 py-1 bg-bg text-ink font-mono text-[11.5px] tracking-[0.08em] rounded">
+                  {it.label}
+                </span>
+              )}
             </span>
           ))}
         </div>
       ) : src ? (
-        <span className="mdx-figure-cell">
-          <img src={src} alt={alt ?? ""} />
+        <span className={`${FIG_CELL} aspect-video`}>
+          <img
+            src={src}
+            alt={alt ?? ""}
+            className="w-full h-full object-cover block"
+          />
         </span>
       ) : (
-        <span className="mdx-figure-cell mdx-figure-cell-empty" />
+        <span className={`${FIG_CELL} aspect-video ${FIG_EMPTY}`} />
       )}
       {(fig || caption) && (
-        <figcaption>
-          {fig && <b>Fig {fig}</b>}
+        <figcaption className="mt-3.5 font-mono text-[13px] text-mute leading-[1.5]">
+          {fig && <b className="text-ink-2 font-medium mr-2">Fig {fig}</b>}
           {caption}
         </figcaption>
       )}
     </figure>
   );
 }
+
+const FIG_CELL =
+  "block bg-bg-1 rounded-[16px] overflow-hidden relative";
+const FIG_EMPTY =
+  "after:content-['Image_missing'] after:absolute after:inset-0 after:grid after:place-items-center after:font-mono after:text-xs after:text-mute after:tracking-[0.14em] after:uppercase";
 
 /* ─────────────────────────────────────────────────────────────────
    CodeBlock (variant B) — filename tab on top. Use when you have a
@@ -695,19 +867,19 @@ export function CodeBlock({
   children: ReactNode;
 }) {
   return (
-    <div className="mdx-codeblock">
+    <div className="my-8">
       {(filename || meta) && (
-        <div className="mdx-codeblock-bar">
+        <div className="flex items-stretch font-mono text-[12.5px]">
           {filename && (
-            <span className="mdx-codeblock-tab">
-              <span className="ic" aria-hidden>
+            <span className="bg-bg-2 text-ink pl-4 pr-3.5 py-[9px] rounded-t-[10px] inline-flex items-center gap-2">
+              <span className="text-vio" aria-hidden>
                 ›
               </span>
               {filename}
             </span>
           )}
           {(lang || meta) && (
-            <span className="mdx-codeblock-meta">
+            <span className="ml-auto text-mute px-3.5 py-[9px] self-center">
               {lang}
               {lang && meta ? " · " : ""}
               {meta}
@@ -715,7 +887,7 @@ export function CodeBlock({
           )}
         </div>
       )}
-      <pre>
+      <pre className="m-0 bg-bg-2 text-ink rounded-tr-[14px] rounded-b-[14px] px-[26px] py-[22px] font-mono text-sm leading-[1.7] overflow-x-auto whitespace-pre [&_code]:font-[inherit] [&_code]:bg-transparent [&_code]:p-0 [&_code]:rounded-none [&_code]:text-[length:inherit] [&_code]:text-inherit">
         <code>{children}</code>
       </pre>
     </div>
@@ -727,7 +899,11 @@ export function CodeBlock({
    ralphy-vs-higgsfield article.
    ───────────────────────────────────────────────────────────────── */
 export function TeamRecs({ children }: { children: ReactNode }) {
-  return <div className="mdx-recs">{children}</div>;
+  return (
+    <div className="bg-bg-1 rounded-[16px] px-6 py-2 my-8 [&>:last-child]:shadow-none">
+      {children}
+    </div>
+  );
 }
 export function TeamRec({
   team,
@@ -739,11 +915,13 @@ export function TeamRec({
   children: ReactNode;
 }) {
   return (
-    <div className="mdx-rec">
-      <p className="mdx-rec-team">For {team}</p>
+    <div className="py-[18px] shadow-[inset_0_-1px_0_var(--color-line)]">
+      <p className="font-mono text-[11.5px] tracking-[0.16em] uppercase text-vio m-0 mb-1.5">
+        For {team}
+      </p>
       {/* div, not p — children may be MDX-paragraph-wrapped. */}
-      <div className="mdx-rec-body">
-        <span className="mdx-rec-pick">{pick}</span>
+      <div className="m-0 text-ink-3 text-[15.5px] leading-[1.55] not-italic [&_p]:m-0 [&_p]:text-ink-3 [&_p]:text-[15.5px] [&_p]:leading-[1.55]">
+        <span className="text-ink font-semibold">{pick}</span>
         {" — "}
         {children}
       </div>
@@ -797,7 +975,7 @@ export const mdxComponents = {
 
 function ScrollTable(props: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="mdx-table-scroll">
+    <div className="my-8 overflow-x-auto rounded-[14px]">
       <table {...props} />
     </div>
   );

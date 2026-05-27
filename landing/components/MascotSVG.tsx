@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useId, type CSSProperties } from "react";
 
 type Props = {
   className?: string;
@@ -8,11 +10,15 @@ type Props = {
 };
 
 export function MascotSVG({ className, style, fill = "#F5F5F4", ariaLabel = "Ralphy" }: Props) {
+  // Stable, unique, CSS-safe mask id per instance. Deriving it from
+  // `className` broke when callers passed Tailwind utility strings (spaces →
+  // invalid id → mask never resolves → eyes vanish).
+  const maskId = `mascot-eyes-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
     <svg viewBox="185 223 1591 1591" className={className} style={style} aria-label={ariaLabel}>
       <defs>
         <mask
-          id={`${className || "mascot"}-eyes-mask`}
+          id={maskId}
           maskUnits="userSpaceOnUse"
           x="185"
           y="223"
@@ -38,7 +44,7 @@ export function MascotSVG({ className, style, fill = "#F5F5F4", ariaLabel = "Ral
           </g>
         </mask>
       </defs>
-      <g mask={`url(#${className || "mascot"}-eyes-mask)`}>
+      <g mask={`url(#${maskId})`}>
         <path
           transform="translate(365,473)"
           d="m0 0h13l14 2 18 5 21 10 18 11 14 10 18 14 14 12 11 10 11 9 9 8 10 8 13 11 17 13 16 13 17 12 17 11 24 14 18 10 17 9 34 15 24 9 36 12 22 6 48 10 36 6 24 3 42 3 35 1h24l36-2 44-5 41-7 33-7 28-8 31-11 32-12 27-12 25-12 19-9 16-8 23-12 16-9 22-11 36-19 34-15 26-10 23-7 23-5 16-2h26l21 4 15 5 23 12 11 9 7 6 11 14 9 16 5 12 4 13 3 19v26l-4 22-6 21-9 20-8 16-9 13-8 11-8 10-7 9h-2l-2 4-16 16-11 9-10 9-18 13-15 9-23 12-21 10-27 9-13 4-10 7-3 4 1 8 14 31 7 15 10 25 13 37 9 30 9 35 10 52 5 34 3 30 3 40 3 58 4 32 6 29 7 24 9 26 14 44 6 25 3 20 2 30-1 24-3 20-5 19-8 20-10 19-12 17-11 13-7 7-14 11-13 9-16 9-19 8-15 5-24 5-27 3h-34l-35-4-27-5-23-5-7-1h-27l-17 3-17 6-15 8-26 17-29 17-21 11-31 13-28 10-31 8-35 6-37 4-17 1h-38l-27-2-41-6-27-6-40-12-22-9-34-16-24-14-21-13-10-7-17-10-16-6-15-3h-27l-31 5-27 5-32 4-13 1h-28l-30-4-23-5-24-8-19-9-15-10-14-11-9-8-9-11-13-18-9-15-7-16-5-15-6-29-2-16v-24l5-35 6-26 12-36 9-25 12-36 6-25 6-42 6-83 4-38 8-50 6-28 10-40 10-33 12-36 9-24 15-33 11-23 11-20 6-12 13-23 16-24 14-19 26-32 9-10 4-2 42 12 41 12 40 10 53 12 50 9 35 5 45 5 46 4 22 1h52l33-2 49-4 43-5 50-8 82-15 27-4 29-2h17l32 2 23 4 19 6 15 6 19 10 12 9 16 16 7 8 9 7 6 2 7-1 6-4 6-10 1-2-1-10-10-16-11-12-15-15-17-12-22-12-28-11-21-5-28-4-10-1h-45l-39 4-45 7-67 11-50 7-42 4-49 3h-70l-31-2-52-6-41-5-41-7-41-9-56-13-31-8-37-11-25-6-39-8-11-1h-15l-11 2-9 6-6 12v9l8 11 4 2 29 2-2 4-10 10-9 11-11 14-5-2-20-11-30-20-16-13-14-11-12-11-8-8-7-8-10-10-10-13-12-18-9-15-8-16-8-24-5-20-1-10v-13l3-21 6-21 8-16 8-11 9-10 14-11 16-8 17-4z"

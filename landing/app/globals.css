@@ -1,4 +1,48 @@
 /* ─────────────────────────────────────────────────────────────
+   Tailwind v4. Theme + utilities only (NO preflight) during the
+   CSS migration, so existing hand-written styles stay untouched.
+   @theme mirrors the design tokens below so utilities (bg-bg-1,
+   text-ink, text-vio, font-display, border-line, …) match exactly.
+   Add preflight once globals.css is fully retired.
+   ───────────────────────────────────────────────────────────── */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-bg: #0A0A0B;
+  --color-bg-1: #131316;
+  --color-bg-2: #1A1A1D;
+  --color-bg-3: #212125;
+  --color-bg-4: #28282C;
+
+  --color-ink: #F5F5F4;
+  --color-ink-2: #DDDDDA;
+  --color-ink-3: #B5B5B2;
+  --color-mute: #8E8E8B;
+  --color-mute-2: #5A5A5E;
+
+  /* Reference the runtime vars, not literals: the active theme overrides
+     --vio on <html> (layout.tsx sets it to #FFA630 orange). Hardcoding the
+     :root rose fallback here made every bg-vio/text-vio utility render pink
+     while legacy var(--vio) CSS rendered orange. */
+  --color-vio: var(--vio);
+  --color-vio-2: var(--vio-2);
+  --color-vio-3: var(--vio-3);
+  --color-vio-ink: var(--vio-ink);
+
+  --color-warn: #F2C66B;
+  --color-line: rgb(245 245 244 / 0.12);
+  --color-line-2: rgb(245 245 244 / 0.20);
+  --color-line-3: rgb(245 245 244 / 0.32);
+
+  --font-display: "AWS Diatype Mono", "Geist", -apple-system, system-ui, sans-serif;
+  --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "Fragment Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-pixel: "VT323", "JetBrains Mono", monospace;
+}
+
+/* ─────────────────────────────────────────────────────────────
    Fonts — AWS Diatype family + Fragment Mono (self-hosted)
    ───────────────────────────────────────────────────────────── */
 @font-face {
@@ -126,7 +170,7 @@ button { font: inherit; cursor: pointer; }
   width: 7px; height: 7px; background: var(--vio);
   border-radius: 1px;
 }
-.pixel { font-family: var(--font-pixel); letter-spacing: 0.04em; }
+
 .mono  { font-family: var(--font-mono); }
 
 /* ─────────────────────────────────────────────────────────────
@@ -148,12 +192,7 @@ button { font: inherit; cursor: pointer; }
               border-color 180ms ease, color 180ms ease;
 }
 .btn:hover { background: var(--bg-2); border-color: var(--line-3); transform: translateY(-1px); }
-.btn-primary {
-  background: var(--ink);
-  color: var(--bg);
-  border-color: var(--ink);
-}
-.btn-primary:hover { background: var(--ink-2); color: var(--bg); }
+
 .btn-vio {
   position: relative;
   background: var(--vio);
@@ -210,15 +249,9 @@ button { font: inherit; cursor: pointer; }
    Apply as a second class on the same element:
      <div className="container container-w-1480">
 */
-.container-w-872  { max-width: 872px; }
-.container-w-1096 { max-width: 1096px; }
-.container-w-1320 { max-width: 1320px; }
+
 .container-w-1480 { max-width: 1480px; }
 .container-w-1760 { max-width: 1760px; }
-.container-full   {
-  max-width: none;
-  padding-left: 0; padding-right: 0;
-}
 
 section { position: relative; padding-top: 80px; }
 @media (min-width: 900px) { section { padding-top: 120px; } }
@@ -242,17 +275,6 @@ section { position: relative; padding-top: 80px; }
   padding: 0 16px;
   pointer-events: none;
 }
-.nav-inner {
-  pointer-events: auto;
-  display: flex; align-items: center; justify-content: space-between; gap: 18px;
-  width: 100%;
-  max-width: 1240px;
-  padding: 10px 10px 10px 22px;
-  background: var(--bg-1);
-  border-radius: 999px;
-}
-.nav-brand { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; line-height: 1; }
-.nav-brand img { display: block; }
 
 /* ── Logo eyes — looking + blinking animation ── */
 @keyframes logoEyesLook {
@@ -280,17 +302,7 @@ section { position: relative; padding-top: 80px; }
 @media (prefers-reduced-motion: reduce) {
   .logo-eyes-look, .logo-eye-blink { animation: none; }
 }
-.nav-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.04em;
-  color: var(--ink);
-  text-transform: uppercase;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-}
+
 .nav-name .v {
   display: none;
   font-family: var(--font-mono);
@@ -305,82 +317,14 @@ section { position: relative; padding-top: 80px; }
   letter-spacing: 0;
 }
 @media (min-width: 1100px) { .nav-name .v { display: inline; } }
-.nav-links {
-  display: none; align-items: center; gap: 2px;
-  /* Sit on the left, tight against the logo. The nav-right cluster
-     gets margin-left: auto on .nav-right to push itself to the far
-     edge — no flex: 1 stretch on the links, no centering. */
-}
-.nav-links a, .nav-links .nav-link {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 8px 14px; border-radius: 999px;
-  font-size: 14px; font-weight: 500;
-  letter-spacing: -0.005em;
-  color: var(--ink-2);
-  background: transparent;
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-.nav-links a:hover, .nav-links .nav-link:hover { color: var(--ink); }
+
 /* Mobile burger now takes over below 1200px — wide enough that
    tablet-portrait still gets the sheet, but the floating pill on
    landscape laptops still shows full inline nav. */
 @media (min-width: 1200px) { .nav-links { display: flex; } }
 
-.nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
-.nav-kbd {
-  display: none;
-  align-items: center; gap: 6px;
-  padding: 8px 14px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--ink-3);
-  background: transparent;
-  border-radius: 999px;
-}
 @media (min-width: 1100px) { .nav-kbd { display: inline-flex; } }
-.nav-kbd kbd {
-  font-family: var(--font-mono);
-  background: var(--bg-3);
-  border-radius: 999px;
-  padding: 2px 7px;
-  font-size: 11.5px;
-  color: var(--ink-2);
-}
-.nav-cta {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 10px 18px;
-  background: var(--ink);
-  color: var(--bg);
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.01em;
-  border: none;
-  overflow: hidden;
-  isolation: isolate;
-  transition: color 1100ms ease;
-}
-.nav-cta::before {
-  content: "";
-  position: absolute;
-  left: 50%; bottom: 0;
-  /* Aspect-ratio 1:1 circle large enough to engulf the pill */
-  width: 220%;
-  aspect-ratio: 1 / 1;
-  background: var(--vio);
-  border-radius: 50%;
-  transform: translate(-50%, 60%) scale(0);
-  transform-origin: center center;
-  transition: transform 1120ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  /* Sit below in-flow content (including raw text nodes) — `isolation: isolate`
-     on .nav-cta confines this to its own stacking context, so the negative
-     z-index never escapes upward. */
-  z-index: -1;
-}
-.nav-cta:hover { color: var(--bg); }
-.nav-cta:hover::before { transform: translate(-50%, 60%) scale(1); }
+
 .nav-cta .star-count {
   font-family: var(--font-mono);
   background: rgb(0 0 0 / 0.18);
@@ -391,17 +335,6 @@ section { position: relative; padding-top: 80px; }
   transition: background 1100ms ease;
 }
 .nav-cta:hover .star-count { background: rgb(0 0 0 / 0.22); }
-.nav-ghost {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 10px 16px;
-  color: var(--ink-2);
-  border-radius: 999px;
-  font-weight: 500;
-  font-size: 14px;
-  background: transparent;
-  transition: background 160ms ease, color 160ms ease;
-}
-.nav-ghost:hover { background: var(--bg-2); color: var(--ink); }
 
 /* ─────────────────────────────────────────────────────────────
    Hero — centered title, sub, tab switcher, 3 install cards
@@ -438,16 +371,7 @@ section { position: relative; padding-top: 80px; }
   width: 8em;
   flex-shrink: 0;
 }
-.cycle-row {
-  position: absolute;
-  inset: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.18em;
-  white-space: nowrap;
-  color: var(--ink);
-}
+
 @keyframes cycleIn {
   from { transform: translateY(-110%); opacity: 0; }
   to   { transform: translateY(0);     opacity: 1; }
@@ -456,12 +380,7 @@ section { position: relative; padding-top: 80px; }
   from { transform: translateY(0);    opacity: 1; }
   to   { transform: translateY(110%); opacity: 0; }
 }
-.cycle-row.entering {
-  animation: cycleIn 1000ms cubic-bezier(0.65, 0.05, 0.36, 1) both;
-}
-.cycle-row.leaving {
-  animation: cycleOut 1000ms cubic-bezier(0.65, 0.05, 0.36, 1) both;
-}
+
 @media (prefers-reduced-motion: reduce) {
   .cycle-row.entering, .cycle-row.leaving { animation: none; }
 }
@@ -484,23 +403,10 @@ section { position: relative; padding-top: 80px; }
   margin: 0 0.06em -0.05em;
   vertical-align: -0.05em;
 }
-.hero-sub {
-  margin: 22px auto 0;
-  max-width: 560px;
-  font-size: clamp(15.5px, 1.2vw, 17.5px);
-  color: var(--ink-3);
-  line-height: 1.55;
-  text-wrap: balance;
-}
 
 /* Tab switcher under hero subtitle (MCP / CLI / Skill style) */
 /* Tab switcher — Higgsfield-style: compact, refined, white-pill active */
-.tab-row {
-  display: inline-flex; align-items: center; gap: 2px;
-  background: var(--bg-2);
-  border-radius: 12px;
-  padding: 3px;
-}
+
 .tab {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 8px 14px;
@@ -533,12 +439,7 @@ section { position: relative; padding-top: 80px; }
 /* Switcher row — two tab groups + github link. On narrow viewports
    we collapse to centered, wrapped rows so the inner Agent + Github
    block also breaks across lines instead of overflowing horizontally. */
-.switcher-row {
-  margin-top: 32px;
-  display: flex; flex-wrap: wrap;
-  align-items: center; justify-content: space-between;
-  gap: 14px;
-}
+
 .switcher-row > .flex { flex-wrap: wrap; }
 @media (max-width: 720px) {
   .switcher-row {
@@ -552,30 +453,12 @@ section { position: relative; padding-top: 80px; }
   }
 }
 
-.hero-github {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--font-mono); font-size: 13px;
-  color: var(--ink-3);
-  padding: 8px 14px; border-radius: 9px;
-}
-.hero-github:hover { color: var(--ink); background: rgb(255 255 255 / 0.04); }
-
 /* Numbered install steps */
-.install-row {
-  margin-top: 28px;
-  display: grid; gap: 10px;
-  grid-template-columns: minmax(0, 1fr);
-  text-align: left;
-}
+
 @media (min-width: 900px) {
   .install-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-.install-step {
-  background: var(--bg-1);
-  border-radius: 18px;
-  padding: 26px 24px 20px;
-  display: flex; flex-direction: column; gap: 14px;
-}
+
 .install-step .head { display: flex; align-items: center; gap: 12px; }
 .install-step .num {
   width: 28px; height: 28px;
@@ -587,7 +470,7 @@ section { position: relative; padding-top: 80px; }
   font-size: 12.5px;
   font-weight: 700;
 }
-.install-step .ttl { font-weight: 600; font-size: 16px; color: var(--ink); letter-spacing: -0.005em; }
+
 .install-step .desc {
   color: var(--ink-3); font-size: 14px; line-height: 1.55;
 }
@@ -632,22 +515,7 @@ section { position: relative; padding-top: 80px; }
 /* ─────────────────────────────────────────────────────────────
    Section header — centered display + sub
    ───────────────────────────────────────────────────────────── */
-.section-head {
-  text-align: center;
-  margin-bottom: 40px;
-}
-.section-head h2 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(28px, 4.5vw, 56px);
-  letter-spacing: -0.02em;
-  line-height: 1.0;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin: 0 auto;
-  max-width: 22ch;
-  text-wrap: balance;
-}
+
 .section-head h2 .acc { color: var(--vio); }
 .section-head .sub {
   margin: 16px auto 0;
@@ -669,12 +537,7 @@ section { position: relative; padding-top: 80px; }
    No outer card chrome — separation between chapters comes from
    spacing only.
    ───────────────────────────────────────────────────────────── */
-.duo-stack {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 88px;
-  padding: 24px 0;
-}
+
 @media (max-width: 720px) {
   .duo-stack { gap: 64px; }
 }
@@ -701,12 +564,7 @@ section { position: relative; padding-top: 80px; }
 
 /* Body — title+copy on one side, terminal on the other. Terminal
    sits in the wider column regardless of reverse. */
-.chapter-body {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 28px;
-  align-items: start;
-}
+
 @media (min-width: 960px) {
   .chapter-body {
     grid-template-columns: 1fr 1.6fr;
@@ -738,32 +596,6 @@ section { position: relative; padding-top: 80px; }
     margin-left: auto;
     text-align: right;
   }
-}
-.chapter-n {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(56px, 9.5vw, 140px);
-  letter-spacing: -0.04em;
-  line-height: 0.85;
-  color: var(--vio);
-  flex-shrink: 0;
-  display: inline-block;
-}
-.chapter-rule {
-  display: block;
-  flex: 1;
-  height: 2px;
-  background: var(--bg-3);
-  min-width: 32px;
-}
-.chapter-kicker {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--mute);
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .chapter-title {
@@ -806,31 +638,11 @@ section { position: relative; padding-top: 80px; }
   border-radius: 14px;
   overflow: hidden;
 }
-.term-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--bg-1);
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--mute);
-}
-.tty-lights { display: inline-flex; gap: 6px; }
-.tty-lights span { width: 9px; height: 9px; border-radius: 50%; }
+
 .tty-lights .r { background: #555; }
 .tty-lights .y { background: #555; }
 .tty-lights .g { background: #555; }
 
-.term-body {
-  background: #050506;
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 14.5px;
-  line-height: 1.7;
-  padding: 22px 26px;
-  overflow-x: auto;
-  white-space: pre;
-  margin: 0;
-}
 .term-body .cmt { color: var(--mute-2); }
 .term-body .prm { color: var(--vio); }
 .term-body .ok  { color: #B0E3B5; }
@@ -842,48 +654,12 @@ section { position: relative; padding-top: 80px; }
 /* ─────────────────────────────────────────────────────────────
    Showcase — big oversized category cards (Higgsfield style)
    ───────────────────────────────────────────────────────────── */
-.show-rail {
-  display: flex; gap: 18px;
-  overflow-x: auto; padding-bottom: 6px;
-  scrollbar-width: thin;
-}
-.show-rail::-webkit-scrollbar { height: 6px; }
-.show-rail::-webkit-scrollbar-track { background: transparent; }
-.show-rail::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 6px; }
 
-.show-card {
-  position: relative; flex: 0 0 auto;
-  width: clamp(220px, 26vw, 320px);
-  aspect-ratio: 3 / 4;
-  border-radius: 20px; overflow: hidden;
-  background: #0E0E10;
-  cursor: pointer;
-  isolation: isolate;
-  transition: transform 220ms ease;
-}
-.show-card:hover { transform: translateY(-3px); }
-.show-card video, .show-card img {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-}
 .show-card .overlay {
   position: absolute; inset: 0; z-index: 3;
   background: linear-gradient(180deg, rgb(0 0 0 / 0.35) 0%, transparent 35%, rgb(0 0 0 / 0.75) 100%);
 }
-.show-card .ttl {
-  position: absolute; left: 18px; right: 18px; bottom: 18px; z-index: 4;
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
-}
-.show-card .ttl h3 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 15.5px;
-  letter-spacing: -0.005em;
-  color: white;
-  margin: 0;
-  line-height: 1.15;
-  max-width: 75%;
-}
+
 .show-card .ttl .plus {
   display: grid; place-items: center;
   width: 32px; height: 32px; border-radius: 999px;
@@ -1172,19 +948,6 @@ section { position: relative; padding-top: 80px; }
 .chip.muted .ic { color: var(--mute) !important; }
 .chip.muted .ic img { filter: saturate(0) opacity(0.55); }
 
-.chip-row {
-  display: grid; grid-template-columns: 200px 1fr; gap: 24px;
-  align-items: start; padding: 22px 0;
-}
-.chip-row + .chip-row { margin-top: 0; }
-.chip-row .lbl {
-  font-family: var(--font-mono);
-  color: var(--mute);
-  font-size: 14.5px;
-  letter-spacing: 0.005em;
-  padding-top: 8px;
-}
-.chip-row .chips-wrap { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 700px) {
   .chip-row { grid-template-columns: 1fr; gap: 12px; padding: 18px 0; }
   .chip-row .lbl { padding-top: 0; font-size: 13.5px; }
@@ -1193,11 +956,7 @@ section { position: relative; padding-top: 80px; }
 }
 
 /* Container for chip-rows */
-.stack-card {
-  background: var(--bg-1);
-  border-radius: 22px;
-  padding: 12px 30px;
-}
+
 @media (max-width: 700px) {
   .stack-card { padding: 8px 18px; border-radius: 18px; }
 }
@@ -1205,20 +964,10 @@ section { position: relative; padding-top: 80px; }
 /* ─────────────────────────────────────────────────────────────
    Style grid (templates)
    ───────────────────────────────────────────────────────────── */
-.style-grid {
-  display: grid; gap: 10px;
-  grid-template-columns: 1fr;
-}
+
 @media (min-width: 700px)  { .style-grid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1100px) { .style-grid { grid-template-columns: repeat(5, 1fr); } }
-.style-tile {
-  background: var(--bg-1);
-  border-radius: 16px;
-  padding: 24px 24px 22px;
-  display: flex; flex-direction: column; gap: 14px;
-  transition: background 180ms ease;
-}
-.style-tile:hover { background: var(--bg-2); }
+
 .style-tile .head { display: flex; align-items: center; justify-content: space-between; }
 .style-tile .kicker {
   font-family: var(--font-mono);
@@ -1226,12 +975,7 @@ section { position: relative; padding-top: 80px; }
   font-size: 13px;
   letter-spacing: 0.04em;
 }
-.style-tile .ttl {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 18.5px; letter-spacing: -0.008em;
-  color: var(--ink); text-transform: uppercase;
-  line-height: 1.15;
-}
+
 .style-tile .copy { font-size: 14px; color: var(--ink-3); line-height: 1.55; }
 .pill {
   display: inline-flex; align-items: center;
@@ -1239,8 +983,6 @@ section { position: relative; padding-top: 80px; }
   font-family: var(--font-mono); font-size: 10.5px;
   letter-spacing: 0.04em; text-transform: uppercase;
 }
-.pill-live { background: var(--vio); color: var(--bg); }
-.pill-soon { background: var(--bg-3); color: var(--mute); }
 
 /* ─────────────────────────────────────────────────────────────
    Roadmap — accordion of category cards. Each card opens to a
@@ -1248,149 +990,19 @@ section { position: relative; padding-top: 80px; }
    carry a checkmark before the title; "in progress" items get a
    small kicker; "planned" items are visually identical (no markers).
    ───────────────────────────────────────────────────────────── */
-.roadmap-list {
-  display: grid; grid-template-columns: 1fr; gap: 12px;
-}
-.roadmap-card {
-  background: var(--bg-1);
-  border-radius: 20px;
-  overflow: hidden;
-  transition: background 180ms ease;
-}
-.roadmap-card:hover { background: var(--bg-2); }
-.roadmap-card.is-open { background: var(--bg-1); }
-.roadmap-card.is-open:hover { background: var(--bg-1); }
-
-.roadmap-card-head {
-  /* button reset */
-  appearance: none;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
-  cursor: pointer;
-
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: flex-start;
-  gap: 24px;
-  padding: 28px 30px;
-  transition: background 180ms ease;
-}
-.roadmap-card-head:hover { background: var(--bg-2); }
-.roadmap-card-head:focus-visible {
-  outline: 2px solid var(--vio);
-  outline-offset: -2px;
-}
-.roadmap-card-head-text {
-  display: flex; flex-direction: column; gap: 10px;
-  min-width: 0;
-}
-.roadmap-card-title {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 28px; letter-spacing: -0.01em;
-  color: var(--ink); text-transform: uppercase;
-  margin: 0;
-  line-height: 1.05;
-}
-.roadmap-card-why {
-  font-size: 14.5px; color: var(--ink-3); line-height: 1.55;
-  margin: 0; max-width: 80ch;
-}
 
 /* Big rounded "chapter" number badge in the corner — matches the
    educational-module look that inspired this design */
-.roadmap-card-num {
-  display: grid; place-items: center;
-  width: 38px; height: 38px;
-  background: var(--bg-3);
-  color: var(--ink);
-  border-radius: 10px;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-  transition: background 180ms ease, color 180ms ease;
-}
-.roadmap-card.is-open .roadmap-card-num {
-  background: var(--vio);
-  color: var(--bg);
-}
 
 /* accordion body — grid-template-rows 0fr→1fr is the modern
    animatable height idiom (Chrome 117+, Safari 17+, FF 124+) */
-.roadmap-card-body {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 280ms ease;
-}
-.roadmap-card.is-open .roadmap-card-body {
-  grid-template-rows: 1fr;
-}
-.roadmap-card-body-inner {
-  overflow: hidden;
-  min-height: 0;
-}
 
 /* Mini-card grid — items sit inside the parent card with simple
    spacing, no per-cell borders or hairline dividers. Status reads
    from the ✓ checkmark and `in progress` tag, not from chrome. */
-.roadmap-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 8px 24px 28px;
-}
+
 @media (max-width: 1100px) { .roadmap-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px)  { .roadmap-grid { grid-template-columns: 1fr; padding: 4px 18px 22px; } }
-
-.roadmap-mini {
-  background: var(--bg-2);
-  border-radius: 14px;
-  padding: 22px 24px;
-  display: flex; flex-direction: column;
-  gap: 10px;
-  min-height: 155px;
-}
-.roadmap-mini.is-planned .roadmap-mini-title,
-.roadmap-mini.is-planned .roadmap-mini-copy {
-  /* Slight recession for items that are direction-only — keeps
-     the eye drawn to ✓ done and in-progress cells first. */
-  opacity: 0.7;
-}
-.roadmap-mini-tag {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--vio-2);
-  padding: 3px 9px;
-  border-radius: 999px;
-  align-self: flex-start;
-  background: rgba(232, 123, 161, 0.12);
-}
-.roadmap-mini-title-row {
-  display: flex; align-items: flex-start;
-  gap: 8px;
-}
-.roadmap-mini-check {
-  flex-shrink: 0;
-  color: var(--vio);
-  margin-top: 1px;
-}
-.roadmap-mini-title {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 14.5px; letter-spacing: 0.005em;
-  color: var(--ink); text-transform: uppercase;
-  margin: 0;
-  line-height: 1.3;
-}
-.roadmap-mini-copy {
-  font-size: 14px; color: var(--ink-3); line-height: 1.55;
-  margin: 0;
-}
 
 @media (max-width: 720px) {
   .roadmap-card-head {
@@ -1405,41 +1017,12 @@ section { position: relative; padding-top: 80px; }
 /* ─────────────────────────────────────────────────────────────
    Community cards
    ───────────────────────────────────────────────────────────── */
-.channel-grid {
-  display: grid; grid-template-columns: 1fr; gap: 12px;
-}
+
 @media (min-width: 700px)  { .channel-grid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1100px) { .channel-grid { grid-template-columns: repeat(4, 1fr); } }
-.channel-card {
-  display: flex; flex-direction: column; gap: 12px;
-  padding: 26px 26px 24px;
-  background: var(--bg-1);
-  border-radius: 20px;
-  min-height: 200px;
-  transition: background 180ms ease, transform 180ms ease;
-}
-.channel-card:hover { background: var(--bg-2); }
-.channel-card:not(.hl-card):hover { transform: translateY(-2px); }
+
 .channel-card .glyph { color: var(--vio); display: grid; place-items: center; }
-.channel-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
-}
-.channel-brand-icon {
-  height: 26px; width: auto; max-width: 110px;
-  display: block; flex-shrink: 0;
-}
-.channel-card h3 {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 21.5px; color: var(--ink); margin: 0;
-  text-transform: uppercase; letter-spacing: -0.008em;
-}
-.channel-card .hl-title {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 21.5px; color: var(--ink); margin: 0;
-  text-transform: uppercase; letter-spacing: -0.008em;
-  line-height: 1.2;
-}
+
 .eyebrow-hl {
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1467,10 +1050,7 @@ section { position: relative; padding-top: 80px; }
   transform: rotate(-1.2deg) skewX(-6deg);
   opacity: 0.95;
 }
-.channel-card p {
-  flex: 1; font-size: 14px; line-height: 1.6;
-  color: var(--ink-3); margin: 0;
-}
+
 .channel-card .arr {
   font-family: var(--font-mono); color: var(--vio); font-size: 13px;
 }
@@ -1478,65 +1058,9 @@ section { position: relative; padding-top: 80px; }
 /* ─────────────────────────────────────────────────────────────
    Final CTA — solid accent block, mascot peek
    ───────────────────────────────────────────────────────────── */
-.cta-section { padding-top: 56px; }
-.cta-section-inner { padding: 0 16px; }
-.cta-block {
-  position: relative;
-  margin: 0 auto;
-  background: var(--vio);
-  border-radius: 32px;
-  padding: 96px 32px 0;
-  text-align: center;
-  overflow: hidden;
-  isolation: isolate;
-  /* max-width is driven by framer-motion in StarCta.tsx (kiro.dev-
-     style scroll expand 1320 → 1480). Default kept here as fallback
-     for SSR / reduced-motion / pre-hydration paint. */
-  max-width: 1320px;
-  width: 100%;
-}
-.cta-headline {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(40px, 6vw, 76px);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin: 0;
-  text-wrap: balance;
-}
-.cta-sub {
-  margin: 18px auto 28px;
-  color: rgb(10 10 11 / 0.7);
-  font-size: 15.5px;
-  line-height: 1.5;
-}
-.cta-buttons {
-  display: flex; flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 64px;
-  position: relative;
-  z-index: 3;
-}
 
 /* Light pill button (Star on GitHub) */
-.cta-btn-light {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 22px;
-  background: #FFFFFF;
-  color: #0A0A0B;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.005em;
-  border: none;
-  transition: background 220ms ease, transform 180ms ease;
-}
-.cta-btn-light:hover { background: #F1EEEA; transform: translateY(-1px); }
-.cta-btn-light svg { color: #0A0A0B; }
+
 .cta-btn-light .star-count {
   font-family: var(--font-mono);
   background: rgb(0 0 0 / 0.08);
@@ -1548,59 +1072,13 @@ section { position: relative; padding-top: 80px; }
 }
 
 /* CLI button — dark pill with terminal-like preview baked in */
-.cta-btn-cli {
-  display: inline-flex; align-items: stretch;
-  background: #0E0E10;
-  color: var(--ink);
-  border-radius: 999px;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  padding: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: border-color 180ms ease;
-}
-.cta-btn-cli:hover { border-color: rgb(255 255 255 / 0.24); }
-.cta-btn-cli .cta-cli-label {
-  display: inline-flex; align-items: center;
-  padding: 12px 16px;
-  color: #F5F5F4;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.005em;
-}
-.cta-btn-cli .cta-cli-cmd {
-  display: inline-flex; align-items: center;
-  padding: 12px 14px;
-  background: #050506;
-  color: #F5F5F4;
-  white-space: nowrap;
-  border-left: 1px solid rgb(255 255 255 / 0.08);
-}
+
 .cta-btn-cli .cta-cli-cmd .prm { color: var(--vio); margin-right: 4px; }
 .cta-btn-cli .cta-cli-cmd .dim { color: rgb(245 245 244 / 0.55); }
-.cta-btn-cli .cta-cli-copy {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 12px 14px;
-  background: #050506;
-  color: rgb(245 245 244 / 0.6);
-  border-left: 1px solid rgb(255 255 255 / 0.08);
-  transition: color 180ms ease;
-}
-.cta-btn-cli:hover .cta-cli-copy { color: var(--vio); }
+
 .cta-btn-cli.copied .cta-cli-copy { color: #B0E3B5; }
 
 /* Mascot peeking from bottom — clipped by the rounded block */
-.cta-mascot {
-  display: block;
-  width: clamp(220px, 32vw, 360px);
-  height: auto;
-  margin: 0 auto -6%;
-  position: relative;
-  z-index: 2;
-}
 
 @media (max-width: 640px) {
   .cta-btn-cli .cta-cli-cmd { display: none; }
@@ -1667,8 +1145,6 @@ section { position: relative; padding-top: 80px; }
   display: flex; flex-wrap: wrap; gap: 24px;
   align-items: center; justify-content: space-between;
 }
-.footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
-.footer-links a:hover { color: var(--ink); }
 
 /* ─────────────────────────────────────────────────────────────
    Misc helpers
@@ -1677,7 +1153,7 @@ section { position: relative; padding-top: 80px; }
 .flex-wrap { flex-wrap: wrap; }
 .flex-col { flex-direction: column; }
 .items-center { align-items: center; }
-.items-end { align-items: flex-end; }
+
 .items-start { align-items: flex-start; }
 .justify-between { justify-content: space-between; }
 .justify-center { justify-content: center; }
@@ -1704,108 +1180,22 @@ section { position: relative; padding-top: 80px; }
      h3             32px / lh 1.18
      h4             26px / lh 1.25
    clamp() degrades these on narrower viewports. */
-.blog-article { padding: 88px 0 128px; }
+
 .blog-article .container { max-width: 1020px; }
-.blog-header { margin-bottom: 40px; }
 
 /* Page-level H1 — rendered from frontmatter.title, sits above the byline
    row. Matches the .blog-body h1 sizing so an article with the title in
    MDX vs in frontmatter looks identical. */
-.blog-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(40px, 4.6vw, 56px);
-  letter-spacing: -0.018em;
-  line-height: 1.06;
-  text-transform: uppercase;
-  margin: 0 0 22px;
-  color: var(--ink);
-  text-wrap: balance;
-}
 
 /* Byline — masthead row under the H1. Avatar(s) + name(s), date, then
    an optional category chip. Inline editorial layout — no plate, no bg.
    Modeled on the PostHog blog header. */
-.blog-byline {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin: 0;
-}
-.blog-byline-author {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  color: var(--ink);
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.2;
-  white-space: nowrap;
-  transition: opacity 160ms ease;
-}
-.blog-byline-author::before { content: none; } /* kill the chip-link arrow */
-.blog-byline-author:hover { opacity: 0.78; }
-.blog-byline-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--vio);
-  flex-shrink: 0;
-  position: relative;
-  /* The colored background is the fallback layer — if <img> fails to
-     load (broken handle, GitHub 404), we still see a clean disc with
-     the initials underneath instead of a broken-image glyph. */
-}
-.blog-byline-initials {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--bg);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 10px;
-  letter-spacing: 0;
-}
-.blog-byline-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+
+ /* kill the chip-link arrow */
+
 /* When the browser can't load the avatar img it draws the broken-image
    glyph (and any alt text). Hide that — the wrapper's bg + initials
    show through. */
-.blog-byline-avatar img[alt=""] { color: transparent; }
-.blog-byline-name {
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--ink);
-}
-.blog-byline-date {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--mute);
-  letter-spacing: 0.02em;
-}
-.blog-byline-category {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--bg-2);
-  color: var(--ink-2);
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 
 .blog-body {
   color: var(--ink-2);
@@ -1963,7 +1353,6 @@ section { position: relative; padding-top: 80px; }
      14 Figures      · A (caption below) with optional gallery (D)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-
 /* ─── Default `a` inside the blog body — variant 02-D ─────────────
    Mono chip with `→` prefix. Strong stylistic choice: every inline
    link reads as "follow this". If a particular paragraph needs a
@@ -1995,7 +1384,6 @@ section { position: relative; padding-top: 80px; }
   background: var(--bg-3);
 }
 
-
 /* ─── Inline code — variant 03-A ──────────────────────────────────
    Bare `backticks` in MDX. */
 .blog-body :not(pre) > code,
@@ -2007,7 +1395,6 @@ section { position: relative; padding-top: 80px; }
   padding: 2px 7px;
   border-radius: 4px;
 }
-
 
 /* ─── Lede ──────────────────────────────────────────────────────── */
 .blog-body .mdx-lede {
@@ -2026,7 +1413,6 @@ section { position: relative; padding-top: 80px; }
   color: inherit;
   letter-spacing: inherit;
 }
-
 
 /* ═════════════════════════════════════════════════════════════════
    01 · Tag — variant C (sharp uppercase chip)
@@ -2056,7 +1442,6 @@ section { position: relative; padding-top: 80px; }
   background: var(--warn, #F2C66B);
   color: var(--bg);
 }
-
 
 /* ═════════════════════════════════════════════════════════════════
    05 · Callout — variant D (big glyph plate)
@@ -2100,7 +1485,6 @@ section { position: relative; padding-top: 80px; }
 .blog-body .mdx-callout-content > :first-child { margin-top: 0; }
 .blog-body .mdx-callout-content > :last-child { margin-bottom: 0; }
 .blog-body .mdx-callout-content p { margin: 0; }
-
 
 /* ═════════════════════════════════════════════════════════════════
    06 · CTA — variant B (full-bleed orange plate)
@@ -2161,7 +1545,6 @@ section { position: relative; padding-top: 80px; }
 }
 .blog-body .mdx-cta:hover .mdx-cta-arrow { transform: translateX(4px); }
 
-
 /* ═════════════════════════════════════════════════════════════════
    07 · LinkList — variant D (related-listing)
    ═════════════════════════════════════════════════════════════════ */
@@ -2215,7 +1598,6 @@ section { position: relative; padding-top: 80px; }
   transition: transform 180ms ease;
 }
 .blog-body .mdx-linklist-row:hover .mdx-linklist-arrow { transform: translateX(4px); }
-
 
 /* ═════════════════════════════════════════════════════════════════
    08 · ComparisonTable
@@ -2376,7 +1758,6 @@ section { position: relative; padding-top: 80px; }
   color: var(--ink-2);
 }
 
-
 /* ═════════════════════════════════════════════════════════════════
    09 · PriceHero — variant D
    ═════════════════════════════════════════════════════════════════ */
@@ -2440,7 +1821,6 @@ section { position: relative; padding-top: 80px; }
   font-family: var(--font-mono);
 }
 
-
 /* ═════════════════════════════════════════════════════════════════
    10 · FAQ — variant A, single-open accordion
    Now backed by a framer-motion client component (Faq.tsx) — height
@@ -2499,7 +1879,6 @@ section { position: relative; padding-top: 80px; }
 .blog-body .mdx-faq-a p { margin: 0 0 14px; }
 .blog-body .mdx-faq-a p:last-child { margin-bottom: 0; }
 
-
 /* ═════════════════════════════════════════════════════════════════
    11 · PullQuote — variant D (author plate, avatar)
    ═════════════════════════════════════════════════════════════════ */
@@ -2552,7 +1931,6 @@ section { position: relative; padding-top: 80px; }
   font-family: var(--font-mono);
   margin-top: 2px;
 }
-
 
 /* ═════════════════════════════════════════════════════════════════
    12 · Stats — variant A (three-up plates) + BarStats (D)
@@ -2632,7 +2010,6 @@ section { position: relative; padding-top: 80px; }
   letter-spacing: -0.01em;
 }
 
-
 /* ═════════════════════════════════════════════════════════════════
    13 · Steps — variant B (vertical timeline)
    ═════════════════════════════════════════════════════════════════ */
@@ -2703,7 +2080,6 @@ section { position: relative; padding-top: 80px; }
 .blog-body .mdx-step-text p { margin: 0 0 10px; }
 .blog-body .mdx-step-text p:last-child { margin-bottom: 0; }
 
-
 /* ═════════════════════════════════════════════════════════════════
    14 · Figure — variant A (caption below) + optional gallery (D)
    ═════════════════════════════════════════════════════════════════ */
@@ -2768,7 +2144,6 @@ section { position: relative; padding-top: 80px; }
   font-weight: 500;
   margin-right: 8px;
 }
-
 
 /* ═════════════════════════════════════════════════════════════════
    04 · CodeBlock — variant B (filename tab top)
@@ -2877,7 +2252,6 @@ section { position: relative; padding-top: 80px; }
 .blog-body .hljs-addition        { color: #7BD89E; }
 .blog-body .hljs-deletion        { color: #E89094; }
 
-
 /* ═════════════════════════════════════════════════════════════════
    CodeTabs — multi-filename group built on the CodeBlock chrome.
    Each tab uses the same .mdx-codeblock-tab pill as a single
@@ -2936,7 +2310,6 @@ section { position: relative; padding-top: 80px; }
   border-radius: 0;
 }
 
-
 /* ═════════════════════════════════════════════════════════════════
    Legacy — TeamRecs (kept for ralphy-vs-higgsfield article)
    ═════════════════════════════════════════════════════════════════ */
@@ -2962,7 +2335,6 @@ section { position: relative; padding-top: 80px; }
 .blog-body .mdx-rec-body,
 .blog-body .mdx-rec-body p { margin: 0; color: var(--ink-3); font-size: 15.5px; line-height: 1.55; font-style: normal; }
 .blog-body .mdx-rec-pick { color: var(--ink); font-weight: 600; }
-
 
 /* ═════════════════════════════════════════════════════════════════
    Mobile
@@ -3056,14 +2428,11 @@ section { position: relative; padding-top: 80px; }
   }
 }
 
-
-
 /* ─── Skills gallery page ─────────────────────────────────────────────
    Visual language mirrors the Roadmap section: bg-tint plates on the
    page surface, no strokes, no dashed dividers. Hierarchy comes from
    background contrast steps (bg → bg-1 → bg-2 → bg-3) and spacing. */
 
-.skills-hero { padding: 96px 0 36px; }
 .skills-hero .eyebrow {
   font-family: var(--font-mono);
   font-size: 11.5px;
@@ -3072,73 +2441,15 @@ section { position: relative; padding-top: 80px; }
   color: var(--vio);
   margin-bottom: 18px;
 }
-.skills-h1 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(36px, 5.2vw, 64px);
-  letter-spacing: -0.015em;
-  line-height: 1.02;
-  text-transform: uppercase;
-  margin: 0 0 22px;
-  max-width: 22ch;
-}
-.skills-sub {
-  font-size: 16.5px;
-  line-height: 1.55;
-  color: var(--ink-3);
-  margin: 0 0 26px;
-  max-width: 66ch;
-}
-.skills-sub strong { color: var(--ink); font-weight: 600; }
-.skills-clone { font-size: 14px; color: var(--ink-3); margin: 0; }
-.skills-clone-cmd {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  padding: 6px 10px;
-  background: var(--bg-2);
-  color: var(--ink-2);
-  border-radius: 8px;
-  display: inline-block;
-  margin-left: 4px;
-}
-
-.skills-body { padding: 36px 0 96px; }
 
 /* Filter row — pill-tabs that drive the listing's namespace filter.
    Wraps as a horizontal scroll-row on tight viewports. */
-.skill-filter-row {
-  display: flex; flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 24px;
-}
-.skill-filter {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 10px 18px;
-  background: var(--bg-1);
-  color: var(--ink-3);
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  border: 0;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease;
-}
-.skill-filter:hover { background: var(--bg-2); color: var(--ink); }
+
 .skill-filter.is-active {
   background: var(--ink);
   color: var(--bg);
 }
-.skill-filter-count {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 2px 8px;
-  background: var(--bg-3);
-  color: var(--ink-3);
-  border-radius: 999px;
-  line-height: 1;
-}
+
 .skill-filter.is-active .skill-filter-count {
   background: rgb(0 0 0 / 0.18);
   color: var(--bg);
@@ -3150,59 +2461,11 @@ section { position: relative; padding-top: 80px; }
    mode — exiting cards get position:absolute and must be scoped
    to the list bounds, not the document body, or the surviving
    cards visibly jump while the layout snaps around the rogue. */
-.skill-list {
-  position: relative;
-  display: flex; flex-direction: column;
-  gap: 14px;
-}
-.skill-wide {
-  display: flex; flex-direction: column;
-  gap: 24px;
-  padding: 32px 36px;
-  background: var(--bg-1);
-  border-radius: 22px;
-  text-decoration: none;
-  color: var(--ink);
-  transition: background 200ms ease, transform 200ms ease;
-}
-.skill-wide:hover {
-  background: var(--bg-2);
-  transform: translateY(-2px);
-}
+
 @media (max-width: 720px) {
   .skill-wide { padding: 24px 22px; gap: 20px; border-radius: 18px; }
 }
 
-.skill-wide-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 14px;
-}
-.skill-wide-slash {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--vio);
-  background: rgba(255, 166, 48, 0.12);
-  padding: 6px 12px;
-  border-radius: 999px;
-  letter-spacing: -0.005em;
-}
-.skill-wide-ns {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  padding: 5px 12px;
-  border-radius: 999px;
-  text-transform: uppercase;
-}
-.skill-wide-ns-ralphy { background: rgba(255, 166, 48, 0.16); color: var(--vio); }
-.skill-wide-ns-ralphy-dev { background: var(--bg-3); color: var(--ink-3); }
-
-.skill-wide-body {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
-}
 @media (min-width: 880px) {
   .skill-wide-body {
     grid-template-columns: 1fr 340px;
@@ -3211,300 +2474,27 @@ section { position: relative; padding-top: 80px; }
   }
 }
 
-.skill-wide-info { min-width: 0; }
-.skill-wide-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(22px, 2.2vw, 28px);
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
-  line-height: 1.1;
-  margin: 0 0 12px;
-  color: var(--ink);
-}
-.skill-wide-summary {
-  margin: 0 0 20px;
-  font-size: 15.5px;
-  line-height: 1.6;
-  color: var(--ink-3);
-  max-width: 64ch;
-}
-.skill-wide-trigger { display: flex; flex-direction: column; gap: 4px; }
-.skill-wide-trigger-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--mute);
-}
-.skill-wide-trigger-text {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--ink-3);
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
 /* Aside (right column on desktop): IO plate + CTA */
-.skill-wide-aside {
-  display: flex; flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-}
-.skill-wide-io {
-  margin: 0;
-  display: grid;
-  gap: 10px;
-  padding: 16px 18px;
-  background: var(--bg-3);
-  border-radius: 14px;
-}
-.skill-wide:hover .skill-wide-io { background: var(--bg-4); }
-.skill-wide-io-row {
-  display: grid;
-  grid-template-columns: 36px 1fr;
-  align-items: baseline;
-  gap: 12px;
-}
-.skill-wide-io-row dt {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--mute);
-  margin: 0;
-}
-.skill-wide-io-row dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink-2);
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-.skill-wide-cta {
-  display: inline-flex; align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 18px;
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  border-radius: 999px;
-  transition: color 200ms ease, background 200ms ease;
-}
-.skill-wide-cta span[aria-hidden] {
-  font-family: var(--font-mono);
-  color: var(--vio);
-  transition: transform 200ms ease;
-}
-.skill-wide:hover .skill-wide-cta span[aria-hidden] {
-  transform: translateX(3px);
-}
 
 /* How-skills-work explainer block — same bg-1 plate language. */
-.skill-how {
-  margin-top: 48px;
-  padding: 28px 32px;
-  background: var(--bg-1);
-  border-radius: 20px;
-}
-.skill-how-title {
-  font-family: var(--font-display); font-weight: 700;
-  font-size: 22px; letter-spacing: -0.005em;
-  text-transform: uppercase;
-  margin: 0 0 14px;
-  color: var(--ink);
-}
-.skill-how-list {
-  margin: 0; padding-left: 22px;
-  display: flex; flex-direction: column; gap: 10px;
-  font-size: 14.5px; line-height: 1.55;
-  color: var(--ink-2);
-}
-.skill-how-list code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  padding: 1px 6px;
-  background: var(--bg-3);
-  color: var(--ink);
-  border-radius: 5px;
-}
 
 /* ─────────────────────────────────────────────────────────────
    Blog index — hero + tag-filterable card grid
    Same bento language as /skills (filter chips, bg-1 plates).
    ───────────────────────────────────────────────────────────── */
-.blog-hero { padding: 84px 0 28px; }
-.blog-h1 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(40px, 4.6vw, 56px);
-  line-height: 1.06;
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
-  margin: 8px 0 18px;
-  color: var(--ink);
-  max-width: 18ch;
-}
-.blog-sub {
-  font-size: clamp(16px, 1.4vw, 19px);
-  line-height: 1.55;
-  color: var(--ink-3);
-  margin: 0;
-  max-width: 66ch;
-}
-.blog-sub a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
-.blog-index { padding: 24px 0 96px; }
-
-.blog-filter-row {
-  display: flex; flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 24px;
-}
-.blog-filter {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 10px 18px;
-  background: var(--bg-1);
-  color: var(--ink-3);
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  border: 0;
-  cursor: pointer;
-  text-transform: lowercase;
-  transition: background 160ms ease, color 160ms ease;
-}
-.blog-filter:hover { background: var(--bg-2); color: var(--ink); }
 .blog-filter.is-active { background: var(--ink); color: var(--bg); }
-.blog-filter-count {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 2px 8px;
-  background: var(--bg-3);
-  color: var(--ink-3);
-  border-radius: 999px;
-  line-height: 1;
-}
+
 .blog-filter.is-active .blog-filter-count {
   background: rgb(0 0 0 / 0.18);
   color: var(--bg);
 }
 
-.blog-list {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
 @media (min-width: 720px) {
   .blog-list { grid-template-columns: 1fr 1fr; gap: 18px; }
 }
 @media (min-width: 1100px) {
   .blog-list { grid-template-columns: 1fr 1fr 1fr; }
-}
-
-.blog-card {
-  display: flex; flex-direction: column;
-  gap: 14px;
-  padding: 26px 26px 22px;
-  background: var(--bg-1);
-  border-radius: 20px;
-  text-decoration: none;
-  color: var(--ink);
-  min-height: 240px;
-  transition: background 200ms ease, transform 200ms ease;
-}
-.blog-card:hover {
-  background: var(--bg-2);
-  transform: translateY(-2px);
-}
-.blog-card-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.04em;
-  color: var(--mute);
-  text-transform: uppercase;
-}
-.blog-card-category {
-  padding: 4px 10px;
-  background: rgba(255, 166, 48, 0.16);
-  color: var(--vio);
-  border-radius: 999px;
-  font-weight: 600;
-}
-.blog-card-date { color: var(--mute); }
-.blog-card-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 22px;
-  line-height: 1.18;
-  letter-spacing: -0.005em;
-  text-transform: uppercase;
-  margin: 0;
-  color: var(--ink);
-}
-.blog-card-desc {
-  margin: 0;
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: var(--ink-3);
-  flex: 1;
-}
-.blog-card-foot {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  margin-top: auto;
-}
-.blog-card-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.blog-card-tag {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  padding: 3px 8px;
-  background: var(--bg-3);
-  color: var(--ink-3);
-  border-radius: 999px;
-  text-transform: lowercase;
-}
-.blog-card-cta {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--vio);
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-.blog-card-cta span[aria-hidden] { transition: transform 200ms ease; }
-.blog-card:hover .blog-card-cta span[aria-hidden] { transform: translateX(3px); }
-
-.blog-empty {
-  grid-column: 1 / -1;
-  padding: 48px 0;
-  text-align: center;
-  color: var(--ink-3);
-  font-size: 15px;
-}
-.blog-empty code {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  padding: 2px 7px;
-  background: var(--bg-2);
-  color: var(--ink);
-  border-radius: 6px;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -3514,19 +2504,7 @@ section { position: relative; padding-top: 80px; }
    handled by framer-motion in components/Nav.tsx — CSS only owns
    layout, sizing, and visibility.
    ───────────────────────────────────────────────────────────── */
-.nav-burger {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px;
-  background: var(--bg-2);
-  color: var(--ink);
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 160ms ease;
-}
-.nav-burger:hover { background: var(--bg-3); }
-.nav-burger.is-open { background: var(--ink); color: var(--bg); }
+
 @media (min-width: 1200px) {
   .nav-burger { display: none; }
 }
@@ -3546,16 +2524,6 @@ section { position: relative; padding-top: 80px; }
    The scrim + sheet are children of <header>, so they inherit none —
    without explicit `auto`, every tap-through fails. That was the
    "links not clickable in burger" bug. */
-.nav-scrim {
-  position: fixed; inset: 0;
-  z-index: 40;
-  background: rgb(0 0 0 / 0.6);
-  backdrop-filter: blur(2px);
-  border: 0;
-  cursor: pointer;
-  padding: 0;
-  pointer-events: auto;
-}
 
 .nav-sheet {
   position: fixed;
@@ -3578,96 +2546,11 @@ section { position: relative; padding-top: 80px; }
 
 /* Sheet header — title + an explicit close button, so the user has
    three ways to dismiss the menu (close button, scrim tap, Escape). */
-.nav-sheet-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 10px 12px;
-}
-.nav-sheet-title {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  color: var(--mute);
-  text-transform: uppercase;
-}
-.nav-sheet-close {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px;
-  background: var(--bg-2);
-  color: var(--ink-2);
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
-}
-.nav-sheet-close:hover {
-  background: var(--bg-3);
-  color: var(--ink);
-  transform: rotate(90deg);
-}
 
-.nav-sheet-list {
-  list-style: none;
-  margin: 0; padding: 0;
-  display: flex; flex-direction: column;
-  gap: 4px;
-}
-.nav-sheet-item {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: 14px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 17px;
-  letter-spacing: 0.005em;
-  text-transform: uppercase;
-  text-decoration: none;
-  background: var(--bg-2);
-  color: var(--ink);
-  transition: background 160ms ease, transform 160ms ease;
-}
-.nav-sheet-item:hover {
-  background: var(--bg-3);
-  transform: translateX(2px);
-}
-.nav-sheet-item-label { display: inline-flex; align-items: center; gap: 10px; }
-.nav-sheet-arrow {
-  font-family: var(--font-mono);
-  color: var(--mute);
-  transition: transform 200ms ease, color 200ms ease;
-}
-.nav-sheet-item:hover .nav-sheet-arrow {
-  color: var(--vio);
-  transform: translateX(3px);
-}
-
-.nav-sheet-cta-row { margin-top: 10px; }
-.nav-sheet-cta {
-  display: flex; align-items: center; justify-content: center;
-  gap: 10px;
-  padding: 16px 18px;
-  background: var(--ink);
-  color: var(--bg);
-  border-radius: 14px;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-}
 /* Star-count chip inside the CTA pill. On the cream ink background
    we need a darker plate with dark text — previously was rgb(0 0 0)
    with color: var(--bg) which read as black-on-black on some screens.
    Now: bg-2 plate with full ink text for unambiguous contrast. */
-.nav-sheet-cta-count {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 3px 9px;
-  background: var(--bg);
-  color: var(--ink);
-  border-radius: 999px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
 
 /* ─────────────────────────────────────────────────────────────
    Library — /library + /library/[slug]
@@ -3681,25 +2564,11 @@ section { position: relative; padding-top: 80px; }
 /* Library listing — filter bar + tag row + masonry grid.
    Pinterest-style multi-column flow so cards reflow naturally based on
    each cover's natural aspect. Same pattern the landing's Showcase uses. */
-.lib-listing { margin-top: 28px; }
 
 /* Filter UI — full-width search bar on top, then kind chips, then tag chips.
    Inactive chip = bg-1 (same as cards). Active chip = solid vio fill so it
    reads at a glance, no hunting for tint deltas. */
-.lib-search {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  background: var(--bg-1);
-  border-radius: 18px;
-  padding: 18px 22px;
-  color: var(--mute);
-  margin-bottom: 16px;
-  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lib-search:focus-within { background: var(--bg-2); color: var(--ink-3); }
-.lib-search svg { width: 20px; height: 20px; flex-shrink: 0; }
+
 .lib-search-input {
   flex: 1;
   background: transparent;
@@ -3713,25 +2582,6 @@ section { position: relative; padding-top: 80px; }
 }
 .lib-search-input::placeholder { color: var(--mute-2); }
 
-.lib-chiprow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.lib-chip {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--ink-3);
-  background: var(--bg-1);
-  padding: 9px 18px;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lib-chip:hover { background: var(--bg-2); color: var(--ink); }
 .lib-chip.is-active {
   color: var(--bg);
   background: var(--vio);
@@ -3739,347 +2589,43 @@ section { position: relative; padding-top: 80px; }
 }
 .lib-chip.is-active:hover { background: var(--vio-2); }
 
-.lib-tagrow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 18px;
-}
-.lib-tagchip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0;
-  color: var(--ink-3);
-  background: var(--bg-1);
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lib-tagchip:hover { background: var(--bg-2); color: var(--ink); }
 .lib-tagchip.is-active {
   color: var(--bg);
   background: var(--vio);
 }
 .lib-tagchip.is-active:hover { background: var(--vio-2); }
-.lib-tagchip-count {
-  font-size: 10.5px;
-  color: var(--mute);
-  font-variant-numeric: tabular-nums;
-}
+
 .lib-tagchip.is-active .lib-tagchip-count { color: rgb(0 0 0 / 0.55); }
 
-.lib-result-count {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--mute);
-  margin: 0 0 18px;
-}
-.lib-clear {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--vio);
-  background: transparent;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-}
-.lib-clear:hover { color: var(--vio-2); }
-
-.lib-empty {
-  padding: 48px 20px;
-  background: var(--bg-1);
-  border-radius: 18px;
-  text-align: center;
-  color: var(--mute);
-}
-.lib-empty p { margin: 0; font-size: 14px; }
-
-.lib-grid {
-  columns: 3;
-  column-gap: 18px;
-  margin-top: 0;
-}
 @media (max-width: 1100px) { .lib-grid { columns: 2; } }
 @media (max-width: 640px)  { .lib-grid { columns: 1; } }
-
-.lib-card {
-  display: block;
-  break-inside: avoid;
-  margin: 0 0 18px;
-  background: var(--bg-1);
-  border-radius: 20px;
-  text-decoration: none;
-  color: inherit;
-  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lib-card:hover { background: var(--bg-2); transform: translateY(-2px); }
 
 /* Cover — the image is flush with the card's left/right/top edges and has
    its OWN border-radius on all 4 corners. Top corners align with the card
    corners (same radius). Bottom corners curve inward, revealing the card
    bg-1 in the pinch — that's the "double-rounded" effect, no padding
    between card and image. */
-.lib-card-cover {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  border-radius: 20px;
-}
-.lib-card-cover-media {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 30%;
-  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: #050506;
-}
-.lib-card:hover .lib-card-cover-media { transform: scale(1.025); }
-.lib-card-cover-empty {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, var(--bg-2) 0%, var(--bg-3) 100%);
-}
-
-.lib-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px 16px;
-}
-.lib-card-kicker {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--vio);
-}
-.lib-card-title {
-  font-family: var(--font-display);
-  font-size: 20px;
-  line-height: 1.12;
-  margin: 0;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-.lib-card-line {
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--ink-3);
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.lib-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-.lib-card-tag {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--vio-2);
-  background: color-mix(in srgb, var(--vio) 12%, transparent);
-  padding: 3px 9px;
-  border-radius: 999px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.lib-card-models {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  flex-shrink: 0;
-}
-.lib-models-hero { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 18px 0 0; }
-.lib-pill {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-3);
-  background: var(--bg-2);
-  padding: 3px 9px;
-  border-radius: 999px;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-.lib-card:hover .lib-pill { background: var(--bg-3); }
-.lib-pill-more { color: var(--mute); }
 
 /* Detail page — back link */
-.lib-back-link {
-  color: var(--mute);
-  text-decoration: none;
-}
-.lib-back-link:hover { color: var(--vio); }
 
 /* Detail page — CTA. The shape echoes the landing's install-cmd block: a
    dark code-style line you click to copy. No candy orange-on-orange pill.
    Visual hierarchy reads: eyebrow → code row → hint. The whole row is the
    button so the affordance is unambiguous. */
-.lib-cta-wrap {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 640px;
-}
-.lib-cta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px 14px 18px;
-  background: var(--bg-1);
-  border: 0;
-  border-radius: 14px;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  text-align: left;
-  width: 100%;
-  max-width: 100%;
-  color: var(--ink);
-  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lib-cta:hover { background: var(--bg-2); }
-.lib-cta-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--vio);
-}
-.lib-cta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-width: 0;
-}
-.lib-cta-tag {
-  font-family: var(--font-mono);
-  font-size: 14.5px;
-  color: var(--ink);
-  letter-spacing: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-.lib-cta-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  padding: 6px 10px 6px 9px;
-  background: var(--bg-2);
-  border-radius: 999px;
-  flex-shrink: 0;
-  transition: color 180ms, background 180ms;
-}
-.lib-cta:hover .lib-cta-action { color: var(--vio); background: var(--bg-3); }
-.lib-cta.is-copied .lib-cta-action {
-  color: var(--vio);
-  background: color-mix(in srgb, var(--vio) 18%, transparent);
-}
-.lib-cta-action svg { display: block; }
-
-.lib-cta-hint {
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--mute);
-}
-.lib-cta-hint code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--ink-3);
-  background: var(--bg-2);
-  padding: 2px 7px;
-  border-radius: 999px;
-}
 
 /* Detail page — Examples grid */
-.lib-examples { padding: 24px 0 16px; }
-.lib-section-h2 {
-  font-family: var(--font-display);
-  font-size: clamp(28px, 3.4vw, 40px);
-  line-height: 1.06;
-  margin: 0 0 8px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-.lib-section-sub {
-  font-size: 16px;
-  line-height: 1.55;
-  color: var(--ink-3);
-  margin: 0 0 24px;
-  max-width: 64ch;
-}
+
 /* Examples grid — each tile is a MediaPlayer (raw image/video + own expand
    button). Caption below. No bespoke card chrome. */
-.lib-examples-grid {
-  columns: 3;
-  column-gap: 18px;
-}
+
 @media (max-width: 1100px) { .lib-examples-grid { columns: 2; } }
 @media (max-width: 640px)  { .lib-examples-grid { columns: 1; } }
-.lib-example {
-  margin: 0 0 22px;
-  break-inside: avoid;
-  display: block;
-}
-.lib-example-frame {
-  background: #050506;
-  cursor: zoom-in;
-  border: 0;
-  padding: 0;
-  display: block;
-}
-.lib-example-caption {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 2px 0;
-}
 
 /* Detail-page hero — split layout. Left column has the media (capped so a
    9:16 vertical doesn't dominate); right column has title, tagline, CTA.
    Long-form body / examples flow underneath in single-column. Mobile
    stacks media on top, content below. */
-.lib-hero { padding: 96px 0 32px; }
-.lib-hero-split {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
-  gap: 48px;
-  align-items: start;
-}
-.lib-hero-split-textonly { grid-template-columns: 1fr; }
-.lib-hero-media { min-width: 0; }
+
 .lib-hero-media-sticky {
   position: sticky;
   top: 96px;
@@ -4091,23 +2637,7 @@ section { position: relative; padding-top: 80px; }
   max-height: 70vh;
   object-fit: contain;
 }
-.lib-hero-content { min-width: 0; }
-.lib-hero-h1 {
-  font-family: var(--font-display);
-  font-size: clamp(40px, 4.6vw, 64px);
-  line-height: 1.04;
-  letter-spacing: -0.015em;
-  font-weight: 600;
-  color: var(--ink);
-  margin: 12px 0 14px;
-}
-.lib-hero-tagline {
-  font-size: clamp(17px, 1.4vw, 20px);
-  line-height: 1.5;
-  color: var(--ink-3);
-  margin: 0 0 4px;
-  max-width: 60ch;
-}
+
 @media (max-width: 900px) {
   .lib-hero { padding: 72px 0 16px; }
   .lib-hero-split { grid-template-columns: 1fr; gap: 28px; }
@@ -4385,72 +2915,100 @@ body.mp-modal-open .nav { visibility: hidden; }
   .mp-speeds { gap: 2px; }
   .mp-speed { padding: 0 7px; font-size: 11px; }
 }
-.lib-remix-steps li code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--ink-2);
-  background: var(--bg-2);
-  padding: 2px 7px;
-  border-radius: 6px;
-}
 
 /* Long inline-code strings (curl URLs, slug-qualified commands) must wrap
    at arbitrary characters or they blow out the container on narrow
    viewports. Pre-formatted code blocks keep their own scroll behaviour. */
-.lib-hero-content code,
-.lib-cta-hint code,
-.lib-origin code,
-.lib-cta-tag,
-.lib-body-section code:not(pre code),
-.lib-remix-steps code {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
 
 /* (legacy `.lib-lightbox` block removed — examples now use MediaPlayer's
    own fullscreen overlay so there's a single modal grammar across the
    site.) */
-.lib-example-pattern {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--vio-2);
-}
-.lib-example-text {
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
-.lib-example-model {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--mute);
-  margin-top: 2px;
-}
 
 /* Detail page — Body block (reuses .blog-body, just trims top spacing) */
-.lib-body-section { padding: 56px 0 96px; }
+
 .lib-body { margin-top: 8px; }
-.lib-origin {
-  margin: 40px 0 0;
-  padding: 16px 18px;
+
+/* ── Skills marketplace ───────────────────────────────────────── */
+
+.skill-filter.is-active { background: var(--ink); color: var(--bg); }
+
+/* ── Skill detail ─────────────────────────────────────────────── */
+
+/* One visual block: file tree + content pane. Only the content pane scrolls. */
+
+.skill-tree-file.is-active { background: var(--vio); color: var(--bg); }
+
+.skill-tree-file.is-active .skill-tree-icon { opacity: 1; }
+
+.skill-doc {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-1);
-  border-radius: 14px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--ink-3);
+  border-radius: 10px;
+  overflow: hidden;
 }
-.lib-inline-code {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  background: var(--bg-2);
-  padding: 2px 7px;
+
+/* Page (non-modal) detail: the block gets a bounded height so content scrolls. */
+
+/* Wraps the explorer block + the footer action bar. */
+
+/* Footer action bar (matches the reference: closes off the content block). */
+
+/* Scrollbar styling is the one genuinely CSS-only bit (pseudo-elements).
+   Applied via the `skill-scroll` class on the tree + doc panes. */
+.skill-scroll { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.skill-scroll::-webkit-scrollbar { width: 10px; }
+.skill-scroll::-webkit-scrollbar-track { background: transparent; }
+.skill-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-2);
   border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.skill-scroll::-webkit-scrollbar-thumb:hover { background: var(--line-3); background-clip: padding-box; }
+
+/* ── Skill detail modal (intercepted route) ───────────────────── */
+
+@keyframes skill-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes skill-modal-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal variant: column with fixed header + flex content block; only the
+   content pane inside .skill-doc scrolls. */
+
+/* ── Skill-doc typography (denser than blog articles) ─────────── */
+.skill-doc .lib-body { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+.skill-doc .lib-body h1,
+.skill-doc .lib-body h2,
+.skill-doc .lib-body h3,
+.skill-doc .lib-body h4 {
+  text-transform: none;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
-.lib-inline-link {
-  color: var(--vio);
-  text-decoration: none;
+.skill-doc .lib-body h1 { font-size: 1.35rem; margin: 0.2rem 0 0.7rem; line-height: 1.15; }
+.skill-doc .lib-body h2 { font-size: 1.05rem; margin: 1.4rem 0 0.5rem; line-height: 1.2; }
+.skill-doc .lib-body h3 { font-size: 0.94rem; margin: 1.1rem 0 0.4rem; }
+.skill-doc .lib-body h4 { font-size: 0.86rem; margin: 0.9rem 0 0.35rem; }
+.skill-doc .lib-body p { margin: 0 0 0.7rem; }
+.skill-doc .lib-body ul, .skill-doc .lib-body ol { margin: 0 0 0.8rem; padding-left: 1.2rem; }
+.skill-doc .lib-body li { margin: 0 0 0.35rem; line-height: 1.55; }
+.skill-doc .lib-body :not(pre) > code { font-size: 0.8em; padding: 0.1em 0.35em; }
+.skill-doc .lib-body pre { font-size: 12px; line-height: 1.5; padding: 0.85rem 1rem; border-radius: 8px; }
+.skill-doc .lib-body table { font-size: 12.5px; }
+.skill-doc .lib-body th, .skill-doc .lib-body td { padding: 6px 10px; }
+.skill-doc .lib-body h2:first-child,
+.skill-doc .lib-body h1:first-child { margin-top: 0; }
+
+@media (max-width: 760px) {
+  .skill-explorer { grid-template-columns: 1fr; }
+  .skill-tree { position: static; }
+  .skill-search { min-width: 0; flex: 1; }
+  .skill-modal-scroll { padding: 1.4rem 1.1rem 1.6rem; }
 }
-.lib-inline-link:hover { color: var(--vio-2); text-decoration: underline; }

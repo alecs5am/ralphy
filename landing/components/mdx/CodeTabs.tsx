@@ -56,8 +56,11 @@ export function CodeTabs({ children }: { children: ReactNode }) {
   if (tabs.length === 0) return null;
 
   return (
-    <div className="mdx-codeblock mdx-codetabs">
-      <div className="mdx-codeblock-bar mdx-codetabs-bar" role="tablist">
+    <div className="my-8">
+      <div
+        className="flex items-stretch flex-wrap gap-0.5 pr-3 font-mono text-[12.5px]"
+        role="tablist"
+      >
         {tabs.map((t, i) => {
           const isActive = i === active;
           const props = t.props;
@@ -68,11 +71,16 @@ export function CodeTabs({ children }: { children: ReactNode }) {
               role="tab"
               aria-selected={isActive}
               onClick={() => setActive(i)}
-              className={`mdx-codeblock-tab mdx-codetabs-tab ${
-                isActive ? "is-active" : ""
+              className={`group pl-4 pr-3.5 py-[9px] rounded-t-[10px] inline-flex items-center gap-2 border-0 cursor-pointer font-[inherit] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-vio focus-visible:[outline-offset:-2px] ${
+                isActive
+                  ? "bg-bg-2 text-ink"
+                  : "bg-bg-1 text-mute hover:bg-bg-3 hover:text-ink-3"
               }`}
             >
-              <span className="ic" aria-hidden>
+              <span
+                className={isActive ? "text-vio" : "text-mute-2"}
+                aria-hidden
+              >
                 ›
               </span>
               {labelText}
@@ -80,10 +88,12 @@ export function CodeTabs({ children }: { children: ReactNode }) {
           );
         })}
         {tabs[active]?.props.lang && (
-          <span className="mdx-codeblock-meta">{tabs[active]!.props.lang}</span>
+          <span className="ml-auto text-mute px-3.5 py-[9px] self-center">
+            {tabs[active]!.props.lang}
+          </span>
         )}
       </div>
-      <div className="mdx-codetabs-panel">
+      <div className="bg-bg-2 text-ink px-[26px] py-[22px] font-mono text-sm leading-[1.7] overflow-x-auto rounded-tr-[14px] rounded-b-[14px] [&_pre]:bg-transparent [&_pre]:m-0 [&_pre]:p-0 [&_pre]:rounded-none">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active}

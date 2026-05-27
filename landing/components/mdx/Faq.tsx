@@ -52,7 +52,10 @@ export function FAQ({
   if (items.length === 0) return null;
 
   return (
-    <div className="mdx-faq" role="list">
+    <div
+      className="bg-bg-1 rounded-[16px] overflow-hidden my-8 [&>*+*]:shadow-[inset_0_1px_0_var(--color-line)]"
+      role="list"
+    >
       {items.map((it, i) => {
         const isOpen = openIdx === i;
         return (
@@ -89,17 +92,17 @@ function AccordionRow({
   const panelId = useId();
   const buttonId = useId();
   return (
-    <div className="mdx-faq-item" data-open={isOpen ? "true" : "false"}>
+    <div className="m-0" data-open={isOpen ? "true" : "false"}>
       <button
         id={buttonId}
         type="button"
         aria-controls={panelId}
         aria-expanded={isOpen}
         onClick={onToggle}
-        className="mdx-faq-q"
+        className="flex items-center gap-3.5 px-6 py-5 w-full bg-transparent border-0 outline-0 text-left font-sans font-medium text-[16px] text-ink cursor-pointer select-none transition-colors duration-150 hover:bg-bg-2 focus-visible:bg-bg-2 focus-visible:shadow-[inset_2px_0_0_var(--color-vio)]"
       >
         <motion.span
-          className="mdx-faq-chev"
+          className="inline-block font-mono text-[18px] text-vio shrink-0"
           aria-hidden
           animate={{ rotate: isOpen ? 90 : 0 }}
           transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
@@ -124,7 +127,9 @@ function AccordionRow({
             }}
             style={{ overflow: "hidden" }}
           >
-            <div className="mdx-faq-a">{children}</div>
+            <div className="pt-0 px-6 pb-[22px] pl-14 text-ink-3 text-[15.5px] leading-[1.6] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p]:m-0 [&_p]:mb-3.5 [&_p:last-child]:mb-0">
+              {children}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

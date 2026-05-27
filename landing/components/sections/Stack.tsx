@@ -1,6 +1,7 @@
 import { stack } from "@/lib/data";
 import { I } from "../Icons";
 import { SectionHead } from "../SectionPrimitives";
+import { Chip } from "../Chip";
 
 export function StackSection() {
   return (
@@ -15,49 +16,34 @@ export function StackSection() {
           }
           sub="Ralphy is glue. Skills live as markdown. The model registry is one file. The template library is open. MIT, always — your keys, your repo, your files."
         />
-        <div className="stack-card">
-          <div className="chip-row">
-            <div className="lbl">lives inside</div>
-            <div className="chips-wrap">
+        <div className="bg-bg-1 rounded-[22px] py-3 px-[30px] max-[700px]:py-2 max-[700px]:px-[18px] max-[700px]:rounded-[18px]">
+          <div className="grid grid-cols-1 max-[700px]:gap-3 min-[701px]:grid-cols-[200px_1fr] gap-6 items-start py-[22px] max-[700px]:py-[18px]">
+            <div className="font-mono text-mute text-[14.5px] max-[700px]:text-[13.5px] tracking-[0.005em] pt-2 max-[700px]:pt-0">lives inside</div>
+            <div className="flex flex-wrap gap-[10px]">
               {stack.inside.map((c, i) => (
-                <span key={i} className={`chip ${c.muted ? "muted" : ""}`}>
-                  {c.icon && I[c.icon] && (
-                    <span className="ic" data-brand={c.icon}>
-                      {I[c.icon]()}
-                    </span>
-                  )}
+                <Chip key={i} muted={c.muted} brand={c.icon ?? undefined} icon={c.icon && I[c.icon] ? I[c.icon]() : undefined}>
                   {c.label}
-                </span>
+                </Chip>
               ))}
             </div>
           </div>
-          <div className="chip-row">
-            <div className="lbl">powered by</div>
-            <div className="chips-wrap">
+          <div className="grid grid-cols-1 max-[700px]:gap-3 min-[701px]:grid-cols-[200px_1fr] gap-6 items-start py-[22px] max-[700px]:py-[18px]">
+            <div className="font-mono text-mute text-[14.5px] max-[700px]:text-[13.5px] tracking-[0.005em] pt-2 max-[700px]:pt-0">powered by</div>
+            <div className="flex flex-wrap gap-[10px]">
               {stack.powered.map((c, i) => (
-                <span key={i} className={`chip ${c.muted ? "muted" : ""}`}>
-                  {c.icon && I[c.icon] && (
-                    <span className="ic" data-brand={c.icon}>
-                      {I[c.icon]()}
-                    </span>
-                  )}
+                <Chip key={i} muted={c.muted} brand={c.icon ?? undefined} icon={c.icon && I[c.icon] ? I[c.icon]() : undefined}>
                   {c.label}
-                </span>
+                </Chip>
               ))}
             </div>
           </div>
-          <div className="chip-row">
-            <div className="lbl">ship as</div>
-            <div className="chips-wrap">
+          <div className="grid grid-cols-1 max-[700px]:gap-3 min-[701px]:grid-cols-[200px_1fr] gap-6 items-start py-[22px] max-[700px]:py-[18px]">
+            <div className="font-mono text-mute text-[14.5px] max-[700px]:text-[13.5px] tracking-[0.005em] pt-2 max-[700px]:pt-0">ship as</div>
+            <div className="flex flex-wrap gap-[10px]">
               {stack.ship.map((c, i) => (
-                <span key={i} className={`chip ${c.muted ? "muted" : ""}`}>
-                  {c.icon && I[c.icon] && (
-                    <span className="ic" data-brand={c.icon}>
-                      {I[c.icon]()}
-                    </span>
-                  )}
+                <Chip key={i} muted={c.muted} brand={c.icon ?? undefined} icon={c.icon && I[c.icon] ? I[c.icon]() : undefined}>
                   {c.label}
-                </span>
+                </Chip>
               ))}
             </div>
           </div>

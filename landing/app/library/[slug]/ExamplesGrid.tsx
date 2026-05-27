@@ -9,9 +9,9 @@ import { MediaPlayer } from "@/components/MediaPlayer";
 
 export function ExamplesGrid({ examples }: { examples: GuidelineExample[] }) {
   return (
-    <div className="lib-examples-grid">
+    <div className="[columns:3] [column-gap:18px] max-[1100px]:[columns:2] max-[640px]:[columns:1]">
       {examples.map((ex) => (
-        <figure key={ex.id} className="lib-example">
+        <figure key={ex.id} className="block break-inside-avoid mb-[22px] m-0">
           <MediaPlayer
             kind={ex.kind}
             src={ex.src}
@@ -20,13 +20,13 @@ export function ExamplesGrid({ examples }: { examples: GuidelineExample[] }) {
             autoPlay={ex.kind === "video"}
             defaultMuted
           />
-          <figcaption className="lib-example-caption">
+          <figcaption className="flex flex-col gap-1.5 px-0.5 pt-3">
             {ex.pattern && (
-              <span className="lib-example-pattern">{ex.pattern}</span>
+              <span className="font-mono text-[11px] tracking-[0.08em] uppercase text-vio-2">{ex.pattern}</span>
             )}
-            <span className="lib-example-text">{ex.caption}</span>
+            <span className="text-[13.5px] leading-[1.5] text-ink-3">{ex.caption}</span>
             {ex.model && (
-              <span className="lib-example-model">{ex.model}</span>
+              <span className="font-mono text-[11.5px] text-mute mt-0.5">{ex.model}</span>
             )}
           </figcaption>
         </figure>

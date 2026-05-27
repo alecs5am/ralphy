@@ -17,7 +17,7 @@ export function HowItWorks() {
           sub="Trend research, style cloning, video generation, and self-critic — all wired into the same chat you already use for code."
         />
 
-        <div className="duo-stack">
+        <div className="grid grid-cols-1 gap-[88px] max-[720px]:gap-16 py-6">
           <DuoCard
             n="01"
             kicker="trend-watch"
