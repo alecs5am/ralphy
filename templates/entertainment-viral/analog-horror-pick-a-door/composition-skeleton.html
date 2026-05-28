@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: 'VT323'; src: url('fonts/VT323.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; background: #000; overflow: hidden; }
+  #root { position: relative; width: 1080px; height: 1920px; background: #000; font-family: 'VT323', 'Courier New', monospace; }
+
+  .vid { position: absolute; inset: 0; width: 1080px; height: 1920px; object-fit: cover; display: block; z-index: 1; }
+  #fin-cell { position: absolute; inset: 0; width: 1080px; height: 1920px; z-index: 2; }
+  #fin-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  #monster-group { position: absolute; inset: 0; z-index: 15; opacity: 0; transform-origin: 50% 30%; }
+  .mface { position: absolute; left: 50%; top: -40px; height: 2000px; transform: translateX(-50%); opacity: 0; }
+  #dark-wash { position: absolute; inset: 0; z-index: 14; background: #000; opacity: 0; pointer-events: none; }
+
+  .grain { position: absolute; inset: 0; z-index: 40; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.28) 2px 3px); mix-blend-mode: multiply; opacity: 0.6; }
+  .vignette { position: absolute; inset: 0; z-index: 41; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 45%, rgba(0,0,0,0) 52%, rgba(0,0,0,0.66) 100%); }
+
+  #countdown { position: absolute; z-index: 30; left: 50%; top: 42%; transform: translate(-50%,-50%); width: 460px; height: 460px; opacity: 0; }
+  #countdown svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #cd-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 300px; color: #EDEDED; text-shadow: 0 0 28px rgba(0,0,0,0.9); line-height: 1; }
+  .cd-ring { fill: none; stroke: rgba(237,237,237,0.30); stroke-width: 6; }
+  .cd-sweep { fill: none; stroke: #EDEDED; stroke-width: 10; transform: rotate(-90deg); transform-origin: 50% 50%; }
+  .cd-cross { stroke: rgba(237,237,237,0.45); stroke-width: 4; }
+
+  #limits { position: absolute; z-index: 28; left: 50%; top: 14%; width: 620px; opacity: 0; text-align: center; }
+  #limits .hud-title { font-size: 44px; letter-spacing: 8px; color: #d3e0f7; text-transform: uppercase; text-shadow: 0 0 12px rgba(22,102,224,0.9), 0 2px 8px rgba(0,0,0,0.9); }
+  #limits .gauge { position: relative; margin: 16px auto 0; width: 560px; height: 64px; background: rgba(8,14,26,0.78); box-shadow: 0 0 0 6px rgba(159,179,217,0.25), 0 10px 40px rgba(0,0,0,0.6); }
+  #limits .fill { position: absolute; left: 6px; top: 6px; bottom: 6px; width: 548px; background: #39D98A; transform-origin: left center; transform: scaleX(1); box-shadow: 0 0 24px rgba(57,217,138,0.6); }
+  #limits .nub { position: absolute; right: -20px; top: 50%; transform: translateY(-50%); width: 18px; height: 30px; background: rgba(159,179,217,0.55); }
+  #limits .pct { margin-top: 14px; font-size: 80px; color: #EDEDED; line-height: 1; text-shadow: 0 0 18px rgba(0,0,0,0.8); }
+
+  #mbox { position: absolute; z-index: 32; left: 120px; right: 120px; bottom: 470px; min-height: 190px;
+    padding: 30px 40px; opacity: 0; background: rgba(2,4,8,0.92); border: 4px solid #EDEDED;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 0 2px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+  #mbox-text { font-size: 58px; line-height: 1.25; color: #EDEDED; letter-spacing: 1px; text-align: center; text-shadow: 0 0 6px rgba(255,255,255,0.25); }
+
+  #endcard { position: absolute; z-index: 33; left: 0; right: 0; bottom: 375px; text-align: center; opacity: 0; }
+  #endcard .top { font-size: 84px; letter-spacing: 14px; color: #EDEDED; text-shadow: 0 0 26px rgba(0,0,0,0.9); }
+  #endcard .mark { font-size: 168px; letter-spacing: 10px; color: #FF3B30; line-height: 0.95; text-shadow: 0 0 34px rgba(255,59,48,0.55), 0 4px 18px rgba(0,0,0,0.9); }
+
+  .cap { position: absolute; z-index: 35; left: 70px; right: 70px; bottom: 360px; text-align: center; color: #EDEDED;
+    font-size: 66px; line-height: 1.16; letter-spacing: 1px; opacity: 0; text-shadow: 0 4px 22px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.95); }
+  .cap .r { color: #ff9c98; } .cap .b { color: #8fb6ff; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="ralphy-vs-higgsfield-001" data-width="1080" data-height="1920" data-start="0" data-duration="68.6">
+
+  <video id="v-room"   class="vid clip" data-start="0"    data-duration="11.9" data-track-index="0" src="assets/videos/room-fit.mp4"          muted playsinline crossorigin="anonymous"></video>
+  <video id="v-red"    class="vid clip" data-start="11.9" data-duration="3.0"  data-track-index="0" src="assets/videos/scene-enter-red-3s.mp4"  muted playsinline crossorigin="anonymous"></video>
+  <video id="v-ralphy" class="vid clip" data-start="14.9" data-duration="23.9" data-track-index="0" src="assets/videos/ralphy-montage-slow.mp4" muted playsinline crossorigin="anonymous"></video>
+  <video id="v-blue"   class="vid clip" data-start="38.8" data-duration="3.0"  data-track-index="0" src="assets/videos/scene-enter-blue-3s.mp4" muted playsinline crossorigin="anonymous"></video>
+  <video id="v-hall"   class="vid clip" data-start="41.8" data-duration="4.5"  data-track-index="0" src="assets/videos/hall-fit.mp4"          muted playsinline crossorigin="anonymous"></video>
+  <video id="v-work"   class="vid clip" data-start="46.3" data-duration="3.0"  data-track-index="0" src="assets/videos/vid-higgs-work.mp4"   muted playsinline crossorigin="anonymous"></video>
+  <video id="v-cell"   class="vid clip" data-start="49.3" data-duration="2.6"  data-track-index="0" src="assets/videos/cell-fit.mp4"          muted playsinline crossorigin="anonymous"></video>
+  <div class="clip" id="fin-cell" data-start="51.9" data-duration="16.7" data-track-index="0"><img src="assets/images/master-higgsfield-cell.png" alt="" crossorigin="anonymous"></div>
+
+  <div id="monster-group">
+    <img id="m-flat-open"   class="mface" src="assets/cutouts/monster-emote-flat-open.png"   alt="" crossorigin="anonymous">
+    <img id="m-talk-mid"    class="mface" src="assets/cutouts/monster-talk-mid.png"          alt="" crossorigin="anonymous">
+    <img id="m-talk-open"   class="mface" src="assets/cutouts/monster-talk-open.png"         alt="" crossorigin="anonymous">
+    <img id="m-flat-closed" class="mface" src="assets/cutouts/monster-emote-flat-closed.png" alt="" crossorigin="anonymous">
+  </div>
+  <div id="dark-wash"></div>
+
+  <div id="countdown">
+    <svg viewBox="0 0 460 460">
+      <circle class="cd-ring" cx="230" cy="230" r="210"></circle>
+      <circle class="cd-sweep" id="cd-sweep" cx="230" cy="230" r="210"></circle>
+      <line class="cd-cross" x1="230" y1="6" x2="230" y2="454"></line>
+      <line class="cd-cross" x1="6" y1="230" x2="454" y2="230"></line>
+    </svg>
+    <div id="cd-num">5</div>
+  </div>
+
+  <div id="limits">
+    <div class="hud-title">// LIMITS</div>
+    <div class="gauge"><div class="fill" id="limits-fill"></div><div class="nub"></div></div>
+    <div class="pct" id="limits-pct">100%</div>
+  </div>
+
+  <div id="mbox"><span id="mbox-text"></span></div>
+  <div id="endcard"><div class="top">OBEY THE</div><div class="mark">LIMITS</div></div>
+
+  <div class="cap" id="cap-pick">Pick a door.</div>
+  <div class="cap" id="cap-fate">The one you open decides your next 48 hours.</div>
+  <div class="cap" id="cap-r1">If you chose <span class="r">red</span> — you're safe.</div>
+  <div class="cap" id="cap-r2">This is Ralphy.</div>
+  <div class="cap" id="cap-r3">You hang out, sip something warm, make stuff.</div>
+  <div class="cap" id="cap-r4">You render all night — the tea never goes cold.</div>
+  <div class="cap" id="cap-r5">No meter. No countdown.</div>
+  <div class="cap" id="cap-r6">It just works. Cozy, right?</div>
+  <div class="cap" id="cap-h1">If you chose <span class="b">blue</span> — you're not.</div>
+  <div class="cap" id="cap-h2">The door locks. A meter burns into your arm.</div>
+  <div class="cap" id="cap-h3">While it has charge, you're useful. So you work.</div>
+  <div class="cap" id="cap-h4">Every render feeds it.</div>
+  <div class="cap" id="cap-h5">And it always runs out.</div>
+
+  <div class="grain"></div>
+  <div class="vignette"></div>
+
+  <audio id="vo-pick"       class="clip" src="assets/voiceover/vo-pick-radio.mp3"       data-start="0.5"  data-duration="0.86" data-track-index="9" data-volume="1"></audio>
+  <audio id="vo-fate"       class="clip" src="assets/voiceover/vo-fate-radio.mp3"       data-start="7.7"  data-duration="3.6"  data-track-index="9" data-volume="1"></audio>
+  <audio id="vo-ralphy"     class="clip" src="assets/voiceover/vo-ralphy-radio.mp3"     data-start="15.2" data-duration="22.15" data-track-index="9" data-volume="1"></audio>
+  <audio id="vo-higgsfield" class="clip" src="assets/voiceover/vo-higgsfield-radio.mp3" data-start="39.3" data-duration="12.25" data-track-index="9" data-volume="1"></audio>
+
+  <audio id="bed-neutral" class="clip" src="assets/music/bed-neutral-mix.mp3" data-start="0"    data-duration="15.5"  data-track-index="12" data-volume="0.22"></audio>
+  <audio id="bed-chill"   class="clip" src="assets/music/bed-chill-long.mp3"  data-start="14.5" data-duration="24.0"  data-track-index="13" data-volume="0.22"></audio>
+  <!-- creepy bed CUTS at the screamer (51.6) → ~1.4s of dead silence → resumes when the monster speaks (53.0) -->
+  <audio id="bed-creepy-a" class="clip" src="assets/music/bed-creepy-mix.mp3" data-start="38.0" data-duration="13.6" data-media-start="0"  data-track-index="14" data-volume="0.26"></audio>
+  <audio id="bed-creepy-b" class="clip" src="assets/music/bed-creepy-mix.mp3" data-start="53.0" data-duration="15.6" data-media-start="15" data-track-index="14" data-volume="0.26"></audio>
+  <!-- TV hiss / ambient stays continuous the whole video (only music drops on the screamer) -->
+  <audio id="tv-hiss"     class="clip" src="assets/sfx/tv-hiss-real.mp3" data-start="0"    data-duration="68.6" data-media-start="0"  data-track-index="15" data-volume="0.2"></audio>
+
+  <audio id="tick5" class="clip" src="assets/sfx/sfx-tick-vhs-a.mp3" data-start="2.55" data-duration="0.7" data-track-index="10" data-volume="0.85"></audio>
+  <audio id="tick6" class="clip" src="assets/sfx/sfx-tick-vhs-a.mp3" data-start="3.55" data-duration="0.7" data-track-index="10" data-volume="0.85"></audio>
+  <audio id="tick7" class="clip" src="assets/sfx/sfx-tick-vhs-a.mp3" data-start="4.55" data-duration="0.7" data-track-index="10" data-volume="0.85"></audio>
+  <audio id="tick8" class="clip" src="assets/sfx/sfx-tick-vhs-a.mp3" data-start="5.55" data-duration="0.7" data-track-index="10" data-volume="0.85"></audio>
+  <audio id="tick9" class="clip" src="assets/sfx/sfx-tick-final.mp3" data-start="6.55" data-duration="0.9" data-track-index="10" data-volume="1"></audio>
+
+  <audio id="beep1" class="clip" src="assets/sfx/beeps/box1.mp3" data-start="53.0" data-duration="1.0"  data-track-index="11" data-volume="0.8"></audio>
+  <audio id="beep2" class="clip" src="assets/sfx/beeps/box2.mp3" data-start="55.6" data-duration="1.05" data-track-index="11" data-volume="0.8"></audio>
+  <audio id="beep3" class="clip" src="assets/sfx/beeps/box3.mp3" data-start="58.3" data-duration="1.46" data-track-index="11" data-volume="0.8"></audio>
+  <audio id="beep4" class="clip" src="assets/sfx/beeps/box3.mp3" data-start="61.4" data-duration="1.46" data-track-index="11" data-volume="0.8"></audio>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const C = 2 * Math.PI * 210;
+
+    gsap.set("#cd-sweep", { strokeDasharray: C, strokeDashoffset: 0 });
+    gsap.set(".cap", { opacity: 0, y: 36 });
+    gsap.set("#limits", { xPercent: -50 });
+    gsap.set("#limits-fill", { scaleX: 1, backgroundColor: "#39D98A" });
+
+    // ===== INTRO =====
+    tl.to("#cap-pick", { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 0.6);
+    tl.to("#cap-pick", { opacity: 0, duration: 0.3 }, 1.9);
+    tl.to("#countdown", { opacity: 1, duration: 0.25 }, 2.4);
+    for (let i = 0; i < 5; i++) {
+      const t = 2.5 + i;
+      tl.set("#cd-num", { textContent: 5 - i }, t);
+      tl.fromTo("#cd-sweep", { strokeDashoffset: 0 }, { strokeDashoffset: C, duration: 1, ease: "none" }, t);
+      tl.fromTo("#cd-num", { scale: 1.18, opacity: 0.4 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" }, t);
+    }
+    tl.to("#countdown", { opacity: 0, scale: 1.25, duration: 0.4, ease: "power2.in" }, 7.5);
+    tl.to("#cap-fate", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 7.8);
+    tl.to("#cap-fate", { opacity: 0, duration: 0.3 }, 11.3);
+
+    // ===== RALPHY montage =====
+    tl.to("#cap-r1", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 15.4);
+    tl.to("#cap-r1", { opacity: 0, duration: 0.3 }, 18.6);
+    tl.to("#cap-r2", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 18.9);
+    tl.to("#cap-r2", { opacity: 0, duration: 0.3 }, 22.4);
+    tl.to("#cap-r3", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 22.7);
+    tl.to("#cap-r3", { opacity: 0, duration: 0.3 }, 26.4);
+    tl.to("#cap-r4", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 26.7);
+    tl.to("#cap-r4", { opacity: 0, duration: 0.3 }, 30.4);
+    tl.to("#cap-r5", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 30.7);
+    tl.to("#cap-r5", { opacity: 0, duration: 0.3 }, 34.0);
+    tl.to("#cap-r6", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 34.3);
+    tl.to("#cap-r6", { opacity: 0, duration: 0.3 }, 37.8);
+
+    // ===== HIGGSFIELD branch =====
+    tl.to("#cap-h1", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 39.5);
+    tl.to("#cap-h1", { opacity: 0, duration: 0.3 }, 41.6);
+    tl.to("#cap-h2", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 41.9);
+    tl.to("#cap-h2", { opacity: 0, duration: 0.3 }, 44.6);
+
+    // LIMITS: slow gentle drain, then CRASH to 0 on "and it always runs out"
+    tl.fromTo("#limits", { opacity: 0, y: -20, xPercent: -50 }, { opacity: 1, y: 0, xPercent: -50, duration: 0.4, ease: "power2.out" }, 43.0);
+    const drain = { v: 100 };
+    tl.to(drain, { v: 58, duration: 7.0, ease: "none",
+      onUpdate: () => { const el = document.getElementById("limits-pct"); if (el) el.textContent = Math.max(0, Math.round(drain.v)) + "%"; } }, 43.5);
+    tl.to("#limits-fill", { scaleX: 0.58, duration: 7.0, ease: "none" }, 43.5);
+    // the CRASH (≈1s) timed to "...always runs out"
+    tl.to(drain, { v: 0, duration: 1.0, ease: "power2.in",
+      onUpdate: () => { const el = document.getElementById("limits-pct"); if (el) el.textContent = Math.max(0, Math.round(drain.v)) + "%"; } }, 50.8);
+    tl.to("#limits-fill", { scaleX: 0, duration: 1.0, ease: "power2.in" }, 50.8);
+    tl.to("#limits-fill", { backgroundColor: "#FF3B30", duration: 0.5, ease: "none" }, 50.8);
+    tl.to("#limits-pct",  { color: "#FF3B30", duration: 0.2 }, 51.2);
+
+    tl.to("#cap-h3", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 44.8);
+    tl.to("#cap-h3", { opacity: 0, duration: 0.3 }, 47.9);
+    tl.to("#cap-h4", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 48.1);
+    tl.to("#cap-h4", { opacity: 0, duration: 0.3 }, 49.7);
+    tl.to("#cap-h5", { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 49.9);
+    tl.to("#cap-h5", { opacity: 0, duration: 0.2 }, 51.4);
+
+    const FACES = ["m-flat-open", "m-talk-mid", "m-talk-open", "m-flat-closed"];
+    function setFace(t, id) { FACES.forEach(f => tl.set("#" + f, { opacity: f === id ? 1 : 0 }, t)); }
+    const TALK = ["m-flat-open","m-talk-mid","m-talk-open","m-talk-mid","m-flat-open","m-talk-open","m-talk-mid","m-flat-closed"];
+    function talk(start, end) { let t = start, i = 0; while (t < end) { setFace(t, TALK[i % TALK.length]); i++; t += 0.16; } setFace(end, "m-flat-open"); }
+
+    // ===== SCREAMER (audio cuts to silence via split tracks at 51.6) =====
+    tl.set("#limits", { opacity: 0 }, 51.55);
+    tl.set("#dark-wash", { opacity: 1 }, 51.6);                         // hard BLACK blink
+    tl.set("#monster-group", { opacity: 1, scale: 1, x: 0, y: 0 }, 51.8); // monster SNAPS in
+    tl.set("#dark-wash", { opacity: 0.42 }, 51.82);                    // dim — monster visible, dead silence
+    setFace(51.8, "m-flat-open");                                      // silent dead stare into camera
+
+    // ~1.2s SILENT HOLD (no box, no beeps, no movement) — then it starts speaking
+    // discrete snap cycle (right-only + scale-lurch) runs only while it talks (53.0+)
+    (function () { let cyc = 53.0;
+      while (cyc < 63.9) {
+        tl.set("#monster-group", { x: 0,  scale: 1.0 },  cyc);
+        tl.set("#monster-group", { x: 22, scale: 1.03 }, cyc + 0.18);
+        tl.set("#monster-group", { x: 46, scale: 1.08 }, cyc + 0.36);
+        tl.set("#monster-group", { x: 0,  scale: 1.0 },  cyc + 0.54);
+        cyc += 1.2;
+      }
+      tl.set("#monster-group", { x: 0, scale: 1.0 }, 63.9); })();
+
+    function box(text, tStart, dur) {
+      tl.to("#mbox", { opacity: 1, duration: 0.2 }, tStart - 0.1);
+      tl.to({ n: 0 }, { n: text.length, duration: dur, ease: "none",
+        onUpdate: function () { const e = document.getElementById("mbox-text"); if (e) e.textContent = text.slice(0, Math.round(this.targets()[0].n)); } }, tStart);
+      tl.to("#mbox", { opacity: 0, duration: 0.2 }, tStart + dur + 1.2);
+    }
+
+    box("your limits are up.", 53.0, 0.95);             talk(53.0, 55.0);
+    box("you belong to me now.", 55.6, 1.0);            talk(55.6, 57.6);
+    box("down here, the meter never refills.", 58.3, 1.45); talk(58.3, 60.8);
+    box("we render together. forever.", 61.4, 1.45);   talk(61.4, 63.9);
+    setFace(63.9, "m-flat-open");
+
+    // ===== FINALE: INSTANT snap-zoom into OUR monster's face (open eyes), centered + OBEY THE LIMITS =====
+    tl.set("#monster-group", { x: 0, y: -210, scale: 2.6 }, 65.0);
+    tl.fromTo("#endcard", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, 65.4);
+
+    window.__timelines = window.__timelines || {};
+    window.__timelines["ralphy-vs-higgsfield-001"] = tl;
+  </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+# Auto-generated from template.json by scripts/migrate-templates-to-yaml.ts.
+# Re-run `bun run scripts/migrate-templates-to-yaml.ts --force` to refresh.
+version: 1
+id: analog-horror-pick-a-door
+aliases: []
+kind: vibe-reference
+category: entertainment-viral
+name: Analog-Horror Pick-A-Door
+description: "Analog-horror 'pick a door / choose your fate' brand-comparison
+  short (9:16, ~60-70s). Two doors: the SAFE brand (WARM-LIMINAL hangout — lone
+  empty room, plush alone, fluorescent + warm lamp, oversized empty space) vs
+  the BAD brand (cold-liminal descent → a credit/limit meter that drains on your
+  arm → a screamer where a silent obsidian-headed monster appears and threatens
+  you via VT323 textboxes + Undertale-style beeps). One unified aesthetic
+  end-to-end: liminal-spaces / found-footage internet-horror, three lighting
+  variants (warm / neutral / cold). Real tape hiss, chromatic aberration, mirage
+  drift, film-leader countdown. Satirical product comparison in horror clothing.
+  Reuses a pre-built monster character system + VHS SFX stack + Undertale-style
+  beeps + VT323 font."
+tags:
+  - analog-horror
+  - pick-a-door
+  - choose-your-fate
+  - liminal-space
+  - vhs
+  - found-footage
+  - screamer
+  - horror-meme
+  - brand-comparison
+  - satire
+  - monster
+  - undertale-textbox
+  - credit-meter
+  - tiktok
+  - reels
+  - shorts
+  - 9:16
+  - remix
+  - warm-liminal
+  - internet-horror
+  - two-doors
+  - branching-narrative
+  - binary-choice
+  - undertale-beeps
+  - vt323
+requires: {}
+scenes: []
+references: []
+
