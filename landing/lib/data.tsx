@@ -5,7 +5,7 @@ export const site = {
   tagline: "Open-source content factory CLI. Turn your coding agent into a video marketer.",
   repo: "https://github.com/alecs5am/ralphy",
   docs: "https://ralphy.mintlify.app/",
-  discord: "https://discord.gg/QqSTUScY",
+  discord: "https://discord.gg/hXDGcNRhdS",
   x: "https://x.com/alecs5am",
   install: "curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh",
   /**
