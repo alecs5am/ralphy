@@ -28,7 +28,7 @@ export type LinkKind = "external" | "internal" | "anchor" | "skipped";
 //   • Known-flaky CDNs (raw.githubusercontent.com sporadically 5xx)
 const EXTERNAL_ALLOWLIST = [
   "https://ralphy.dev",  // not yet live; tracked under 07.02
-  "https://discord.gg/QqSTUScY",  // Discord invite (community)
+  "https://discord.gg/hXDGcNRhdS",  // Discord invite (community)
   "https://x.com/alecs5am",  // founder's X account
   "https://www.npmjs.com/package/@alecs5am/ralphy",  // post-launch publish
   "https://github.com/alecs5am/homebrew-tap",  // brew tap repo
