@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "name": "Analog-Horror Pick-A-Door",
+  "slug": "analog-horror-pick-a-door",
+  "kind": "vibe-reference",
+  "description": "Analog-horror 'pick a door / choose your fate' brand-comparison short (9:16, ~60-70s). Two doors: the SAFE brand (WARM-LIMINAL hangout — lone empty room, plush alone, fluorescent + warm lamp, oversized empty space) vs the BAD brand (cold-liminal descent → a credit/limit meter that drains on your arm → a screamer where a silent obsidian-headed monster appears and threatens you via VT323 textboxes + Undertale-style beeps). One unified aesthetic end-to-end: liminal-spaces / found-footage internet-horror, three lighting variants (warm / neutral / cold). Real tape hiss, chromatic aberration, mirage drift, film-leader countdown. Satirical product comparison in horror clothing. Reuses a pre-built monster character system + VHS SFX stack + Undertale-style beeps + VT323 font.",
+  "tags": [
+    "analog-horror",
+    "pick-a-door",
+    "choose-your-fate",
+    "liminal-space",
+    "vhs",
+    "found-footage",
+    "screamer",
+    "horror-meme",
+    "brand-comparison",
+    "satire",
+    "monster",
+    "undertale-textbox",
+    "credit-meter",
+    "tiktok",
+    "reels",
+    "shorts",
+    "9:16",
+    "remix",
+    "warm-liminal",
+    "internet-horror",
+    "two-doors",
+    "branching-narrative",
+    "binary-choice",
+    "undertale-beeps",
+    "vt323"
+  ],
+  "platform": "tiktok",
+  "aspectRatio": "9:16",
+  "typicalDurationSec": [60, 70],
+  "typicalClipCount": [10, 14],
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "createdAt": "2026-05-27T00:00:00.000Z",
+  "docs": {
+    "main": "TEMPLATE.md",
+    "composition": "composition.md",
+    "cookbook": "prompt-cookbook.md",
+    "models": "model-stack.md",
+    "recipes": "recipes.md"
+  },
+  "compositionTemplate": {
+    "skeleton": "composition-skeleton.html",
+    "engine": "hyperframes",
+    "defaults": {
+      "fps": 30,
+      "width": 1080,
+      "height": 1920,
+      "font": "VT323",
+      "musicRegister": "liminal-space ambient (neutral / chill / creepy by section)"
+    }
+  },
+  "slots": [
+    { "id": "{{brand_safe}}", "desc": "the safe brand (red door / warm-liminal side)", "example": "Ralphy" },
+    { "id": "{{brand_bad}}", "desc": "the bad brand depicted as the monster's domain (blue door / cold-liminal side)", "example": "Higgsfield" },
+    { "id": "{{safe_color}}", "desc": "safe-door hex", "example": "#E10600" },
+    { "id": "{{bad_color}}", "desc": "bad-door hex", "example": "#1666E0" },
+    { "id": "{{door_style}}", "desc": "door treatment — flat painted (default), industrial steel, bunker hatch, glowing trim, rune-etched wood, neon-bordered, sci-fi sliding — whatever fits the world", "example": "flat painted, white frames, blank, no text" },
+    { "id": "{{location_set}}", "desc": "the unified location set (overrides the default 'suburban party hub + 90s liminal rooms'). E.g. 'subway tunnels + arcade + apartments', 'space-station corridors', 'school hallways at night'.", "example": "low-ceiling suburban party room + empty 90s offices + cold concrete corridors" },
+    { "id": "{{safe_world_prompt}}", "desc": "what the cozy safe world looks like (found-footage register)", "example": "lampy dev den, plush mascot, tea, vinyl" },
+    { "id": "{{meter_name}}", "desc": "the draining HUD's label", "example": "LIMITS" },
+    { "id": "{{vo_intro}}", "desc": "narrator intro line", "example": "Pick a door. The one you open decides your next 48 hours." },
+    { "id": "{{vo_safe}}", "desc": "safe-side narration (If you chose X — you're safe ...)", "example": "If you chose red — you're safe. This is Ralphy..." },
+    { "id": "{{vo_bad}}", "desc": "bad-side narration (If you chose X — you're not ...)", "example": "If you chose blue — you're not. The door locks..." },
+    { "id": "{{monster_lines}}", "desc": "3-4 short textbox threats (lowercase)", "example": "your limits are up. / you belong to me now. / we render together. forever." },
+    { "id": "{{endcard}}", "desc": "final slam over the monster's face", "example": "OBEY THE LIMITS" }
+  ],
+  "assets": {
+    "monster_system": { "dir": "assets/monster", "required": true, "desc": "obsidian-head monster: greenscreen master + transparent emotion cutouts (flat/talk/stern/shock + blink) + full-frame closeup. flat-open is the locked eyes reference." },
+    "vhs_sfx": { "dir": "assets/sfx", "required": true, "desc": "real VHS tape-hiss bed, countdown ticks, Undertale-style beep tracks + gaster sample." },
+    "font": { "path": "assets/VT323.woff2", "required": true }
+  }
+}
