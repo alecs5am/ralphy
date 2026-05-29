@@ -1,6 +1,6 @@
 # `kling-v3.0-pro` multi-frame submissions always fail; no CLI preflight
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
