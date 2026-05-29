@@ -44,20 +44,25 @@ NEVER fires when:
 
 Before quoting a single $ or running `ralphy generate`, surface the missing context. Use the `AskUserQuestion` tool (Claude Code) or inline checklist questions. Cover at minimum:
 
-1. **Target audience language.** EN / RU / KR / other? Drives the audio pipeline (Kling `--audio` for EN, ElevenLabs for non-EN). Chat language ≠ video language — this trip-wired noski-people-001 for ~10 min and one wasted memory write.
-2. **Aspect / platform.** 9:16 TikTok? 16:9 YouTube? 1:1 broadcast realism? Square is the right call for caught-on-TV trends (kbo postmortem).
-3. **Brand / named person / specific entity.** If the brief names a real entity the model cannot fabricate (a specific person, a recognizable brand product, an IP / character), the **reference-required gate** (AGENTS invariant #3) fires — refuse generation until the user supplies a ref or explicitly opts out via `--no-ref-consent "<reason>"` on the failing generate call (logged as `stage: "no-ref-consent"` in `user-prompts.jsonl`). Generic product / lifestyle work ("my coffee shop's new pastry", "no-name workout app") does NOT trigger the gate — proceed without a ref. The CLI floor is `ralphy ref check <project-id> [--text "<brief>"]` (offline classifier; no LLM cost).
-4. **Niche-skill fit.** Match the brief to a niche skill (`/ralphy-ugc-*`) — the generalized "how to make a `<niche>` video" overlay. If one fits, load it and run the normal pipeline. Do **not** run `ralphy template suggest` to find "something close" — templates are remix-only (full discipline in the "Cold-start niche-skill match" section below). If no skill fits and the user did not point at a specific video to remix → go freeform.
-5. **Duration / clip count budget.** Most templates document `typicalDurationSec` + `typicalClipCount`. If the user picked a template, confirm; if not, default to ≤15s for first iteration, scale up after a successful test render.
-6. **Hard constraints.** Banned words, music policy (Kling auto-soundtrack is enabled unless explicitly banned in prompt — kbo / glitter-cream), brand colors, etc.
+1. **Target audience language.** EN / RU / KR / other? **Always ask** — chat language ≠ video language, and the answer drives the audio pipeline (next field). This trip-wired noski-people-001 for ~10 min and one wasted memory write.
+2. **Audio pipeline.** Three buckets, picked from the target-language answer + the niche skill's defaults:
+   - **Kling `--audio` (in-clip lipsync VO).** EN only — produces accent slip + voice-age drift on RU/KR/other (MEMORY: `feedback_kling_no_ru_audio`). Cheapest, syncs lipflap for free.
+   - **ElevenLabs post-mix VO + music.** Default for non-EN. Also default whenever lipsync isn't needed (faceless explainers, voice-over-cuts, lifestyle b-roll).
+   - **Ambient / SFX-only.** Stylized action, montage cuts, or any brief where speech would dilute the visual. Music is still a separate ElevenLabs Music pass (Kling auto-soundtrack is banned by default — MEMORY: `feedback_kling_no_music_eleven_music_postmix`).
+   Announce the pick once; don't grill the user.
+3. **Aspect / platform.** **9:16 default UNLESS the matched niche skill sets its own aspect default** — e.g. `ralphy-ugc-toon-action` defaults 16:9, broadcast-realism work defaults 1:1 (MEMORY: `feedback_broadcast_realism_square`). Confirm with the user only if the brief contradicts the skill's default. 9:16 TikTok / 16:9 YouTube / 1:1 broadcast are the three live registers.
+4. **Brand / named person / specific entity.** If the brief names a real entity the model cannot fabricate (a specific person, a recognizable brand product, an IP / character), the **reference-required gate** (AGENTS invariant #3) fires — refuse generation until the user supplies a ref or explicitly opts out via `--no-ref-consent "<reason>"` on the failing generate call (logged as `stage: "no-ref-consent"` in `user-prompts.jsonl`). Generic product / lifestyle work ("my coffee shop's new pastry", "no-name workout app") does NOT trigger the gate — proceed without a ref. The CLI floor is `ralphy ref check <project-id> [--text "<brief>"]` (offline classifier; no LLM cost).
+5. **Niche-skill fit.** Match the brief to a niche skill (`/ralphy-ugc-*`) — the generalized "how to make a `<niche>` video" overlay. If one fits, load it and run the normal pipeline. Do **not** run `ralphy template suggest` to find "something close" — templates are remix-only (full discipline in the "Cold-start niche-skill match" section below). If no skill fits and the user did not point at a specific video to remix → go freeform.
+6. **Duration / clip count budget.** Most templates document `typicalDurationSec` + `typicalClipCount`. If the user picked a template, confirm; if not, default to ≤15s for first iteration, scale up after a successful test render.
+7. **Hard constraints.** Banned words, music policy (Kling auto-soundtrack is enabled unless explicitly banned in prompt — kbo / glitter-cream), brand colors, etc.
 
 For ambiguous one-liners ("make it like Old Spice"), pull the canonical brand reference via `ralphy ref pull <url>` + `ralphy ref analyze-video <slug>` BEFORE drafting prompts. Don't improvise from memory (venom-bodywash postmortem: TV-commercial register vs still-photo register; ~$3 burn).
 
 Keep the question set tight — 3-5 questions max in a single turn. Use `AskUserQuestion` with multiSelect when applicable. Sample first-turn template:
 
 > "Quick intent capture before we start:
->  1. Target audience language? (EN / RU / KR / other)
->  2. Aspect? (9:16 / 16:9 / 1:1)
+>  1. Target audience language? (EN / RU / KR / other) — drives the audio pipeline.
+>  2. Aspect? (9:16 / 16:9 / 1:1 — default per matched niche skill if any.)
 >  3. Brand or named person involved? If yes, drop a reference image / URL.
 >  4. Duration ballpark? (5-10s test render / 15-30s standard / 60s+ long-form)
 >  5. Any hard "no"s? (no music, no captions, specific banned vocabulary)"
@@ -154,10 +159,11 @@ When a user request is concrete but doesn't specify a parameter, **pick the defa
 | Niche skill | Match to the brief's *kind* of video and load it; if none fits, go freeform. Not a question — announce the match ("This is an unboxing — using the unboxing skill"). | niche-skill match (this section) |
 | Template | **Never a default and never auto-suggested.** A template enters only on an explicit remix pointer (`@template:<slug>`, "remix this one", named slug). | Remix path (this section) |
 | Persona | The matched brand's `default_persona` if set; otherwise the closest archetype from `workspace/personas/ARCHETYPES.md` | `ralphy brand show <id>` → `persona` field |
-| Duration | 15s | Intake step 5 default |
-| Aspect | 9:16 unless the template hard-codes a different one | Intake step 1.2 |
-| Music | Instrumental, ElevenLabs Music post-mix (Kling music disabled by default, per AGENTS invariant + venom-bodywash postmortem) | Intake step 6 + art-director playbook |
-| Output language | Chat language unless the user names a different audience | Intake step 1.1 — but only as a *default*; ask if the brief is ambiguous (noski-people-001 trip-wire). |
+| Duration | 15s | Intake step 6 default |
+| Aspect | 9:16 UNLESS the matched niche skill sets its own default (e.g. toon-action → 16:9, broadcast-realism → 1:1) OR the user explicitly remixes a template that hard-codes one | Intake step 3 |
+| Audio pipeline | Kling `--audio` if target language is EN AND the niche calls for lipsync; ElevenLabs post-mix VO+music for non-EN or faceless; ambient/SFX-only for stylized action | Intake step 2 |
+| Music | Instrumental, ElevenLabs Music post-mix (Kling music disabled by default, per AGENTS invariant + venom-bodywash postmortem) | Intake step 7 + art-director playbook |
+| Output language | **Always ask** — chat language ≠ video language (noski-people-001 trip-wire). | Intake step 1 |
 
 Announce the pick once, then move on. **Do not** ask "shall I use 15s?" — say "Going 15s, 9:16, instrumental music — flag any of those if wrong."
 
