@@ -76,6 +76,81 @@ Across the full tokyo-y2k-001 cut, planned 75s of clips landed as 90.7s of raw m
 
 **Cross-link.** The model-level fact is also in MODELS.md (rows for `kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0`); this section is the playbook recipe.
 
+## Legacy: Remotion `STATIC_ROOT` recipe (archived, for postmortem cross-reference)
+
+> **Status — not the current engine.** The active render path is HyperFrames (commit `92ef823` removed the Remotion path). This section documents the `STATIC_ROOT` / `composition-props.json` convention that the *removed* Remotion code expected, so that postmortems referencing the failure mode (tokyo-y2k-001, analog-horror-fridge-001, glitter-cream-001) remain readable and so that anyone resurrecting a Remotion branch doesn't repeat the first-render 404 that burned ~30 min × 3 projects. **For new work, ignore this section — author `index.html` per [`hyperframes.md`](../hyperframes.md) instead.**
+>
+> If you only care about HyperFrames, skip to [Per-clip captions variant](#per-clip-captions-variant).
+
+### The convention (correct / new)
+
+`ralphy render <id>` (under the Remotion path) materialized a symlink at `public/project-<id>` → `<project>/assets/`. Therefore every Remotion composition under `src/videos/<id>/index.tsx` had to use:
+
+```ts
+const STATIC_ROOT = "project-<id>";   // ← note the "project-" prefix
+// asset paths DO NOT include "assets/" — the symlink already points at it
+src={staticFile(`${STATIC_ROOT}/videos/${scene.videoFile}`)}
+src={staticFile(`${STATIC_ROOT}/music/${MUSIC_FILE}`)}
+src={staticFile(`${STATIC_ROOT}/images/${img}`)}
+```
+
+Verbatim from the corrected `src/videos/tokyo-y2k-001/index.tsx` (post-fix, pre-Remotion-removal — see `git show 92ef823^:src/videos/tokyo-y2k-001/index.tsx`):
+
+```tsx
+import { AbsoluteFill, Audio, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { SCENES, MUSIC_FILE, FPS, DURATION_SEC, TOTAL_FRAMES } from "./scenes";
+
+const STATIC_ROOT = "project-tokyo-y2k-001";
+
+const VideoTrack: React.FC = () => (
+  <>
+    {SCENES.map((scene) => (
+      <Sequence
+        key={scene.id}
+        from={scene.from}
+        durationInFrames={scene.durationInFrames}
+        name={`scene-${scene.id} — ${scene.label}`}
+      >
+        <OffthreadVideo
+          src={staticFile(`${STATIC_ROOT}/videos/${scene.videoFile}`)}
+          startFrom={Math.round(scene.startFromSec * FPS)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          muted
+        />
+      </Sequence>
+    ))}
+  </>
+);
+```
+
+### The anti-pattern (legacy / wrong)
+
+Older `src/videos/*/index.tsx` files — `playdate-pixel-001`, `fruit-drama-*`, etc. — used a **bare-id** `STATIC_ROOT` with an extra `assets/` segment in the path:
+
+```tsx
+// WRONG — only worked because a hand-rolled public/<id> symlink existed
+const STATIC_ROOT = "playdate-pixel-001";          // ← missing "project-" prefix
+src={staticFile(`${STATIC_ROOT}/assets/videos/${scene.videoFile}`)}   // ← spurious "assets/"
+```
+
+This pattern only happened to render on legacy projects where someone had manually created a `public/<id>` → `<project>/` symlink long ago. For any *new* project under the Remotion path, the bare-id pattern produced 404s on every asset slot. `tokyo-y2k-001` hit exactly this — it copied `STATIC_ROOT = "tokyo-y2k-001"` from `playdate-pixel-001/index.tsx` and the first render 404'd every clip with `http://localhost:3002/public/tokyo-y2k-001/assets/videos/scene-00-video-shot.mp4`. Cross-ref: `workspace/projects/tokyo-y2k-001/postmortem/03-cli-issues.md` (#2) and `05-workflow-fixes.md` (#1).
+
+**The contradictory state was never fixed at the code level** — the Remotion path was removed wholesale in `92ef823` before the legacy compositions could be migrated. If you ever resurrect Remotion, migrate every `src/videos/*/index.tsx` to the `project-<id>` convention in the same PR; **don't ship both conventions side-by-side**.
+
+### `composition-props.json` is required, even when empty
+
+Under the Remotion path, `ralphy render <id>` read `workspace/projects/<id>/composition-props.json` to forward props to the Remotion bundle. The guard fired even for prop-less compositions — `analog-horror-fridge-001` and `glitter-cream-001` both hit `composition-props.json not found …` on first render despite their `React.FC` having zero props.
+
+Workaround for any project under the legacy path: stub a one-line file by hand,
+
+```bash
+echo '{"compositionId":"<CompositionName>"}' > workspace/projects/<id>/composition-props.json
+```
+
+— and re-run `ralphy render <id>`. The stub is a no-op; the file just has to exist.
+
+Auto-generation from `src/Root.tsx` registration and a `--composition <id>` flag that skips the read entirely were on the wishlist (see `notes/issues/009-*` and `notes/issues/020-*`) but were never implemented — the Remotion removal in `92ef823` made the verb-level fix moot. **This is a docs-only entry**; no CLI change ships with it.
+
 ## Per-clip captions variant
 
 If scenes have separate VO files — transcribe each one separately. `ralphy generate captions` writes to `<project>/assets/captions/<slot>.json` by default — no manual `cp` needed. The composition wires them per-scene with a caption block.

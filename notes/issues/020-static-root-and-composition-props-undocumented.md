@@ -1,6 +1,6 @@
 # Remotion `STATIC_ROOT` + `composition-props.json` conventions undocumented
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
