@@ -1,6 +1,6 @@
 # Remix intake missing "frame-study the source register up front" step
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
