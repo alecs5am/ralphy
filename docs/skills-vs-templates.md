@@ -49,7 +49,8 @@ Remix is a usage pattern, not a feature with its own command:
 
 1. The user tags a template and states the swap: "remix `<slug>`, but replace the narrator with my brand mascot."
 2. The agent loads the template (`ralphy template use <slug> --project <id> --brief "<swap>"`), keeps everything else from the source, and runs intake only on the deltas the swap introduces (e.g. the new entity may trip the reference-required gate).
-3. Generation proceeds through the normal pipeline. The output is a near-copy of the source video with the requested element swapped.
+3. **Frame-study the source BEFORE drafting any prompt.** Fetch the source mp4 with `ralphy ref pull <url-or-slug>`, then slice it at 0.1-0.2s through key beats via `ralphy ref frames <slug> --fps 5-10`. READ the resulting JPEGs to lock (a) realism register, (b) character eye/mouth/motion design, (c) cut pacing. Record the locked register as a project `guideline:` before generating. Frame-study costs ~$0 and ~2 min; skipping it costs $0.50-$3 per regen wave when the first prompt misses the register. See issue 017 for the realism-register axis, issue 047 for HyperFrames composition edge-cases, and intake.md's "Remix path" for the full step list.
+4. Generation proceeds through the normal pipeline. The output is a near-copy of the source video with the requested element swapped.
 
 ## Why the split matters
 
