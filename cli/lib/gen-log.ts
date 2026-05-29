@@ -68,6 +68,22 @@ export type UserAssetEntry = {
   kind: "screenshot" | "photo" | "video" | "audio" | "doc" | "ref-url" | "other";
   source: string;                // original path or URL from user
   dest?: string;                 // stored path inside project, if copied in
+  /**
+   * Original location on the user's machine (e.g. the macOS NSIRD disposable
+   * screenshot path) — preserved alongside `localPath` when `--copy-from`
+   * rescued the file into the project. Same shape as `source` for grep-friendliness
+   * but kept distinct so downstream readers can tell "where it came from"
+   * from "where we stashed it" without parsing `source` heuristically. (#038)
+   */
+  originalPath?: string;
+  /**
+   * Project-local copy of the file (under `<project>/refs/`), written by
+   * `log-asset --copy-from`. Set when the CLI actually copied bytes — distinct
+   * from `dest`, which can be a user-supplied "I already put it here" path.
+   * Same value as `dest` when both are present; logging both leaves room for
+   * the two to diverge later (e.g. promotion). (#038)
+   */
+  localPath?: string;
   purpose?: string;              // "character-ref" | "product-ref" | "brand-screenshot" | ...
   note?: string;
 };

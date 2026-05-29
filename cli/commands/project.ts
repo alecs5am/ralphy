@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "node:crypto";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
 import { projectsDir } from "../lib/paths.js";
@@ -335,32 +336,102 @@ export function projectCmd() {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
-      let dest = opts.dest;
+      // Disposable-path detector (issue #038). macOS screenshot temp paths
+      // auto-delete within minutes; warn loudly when the user logs one
+      // without --copy-from so they at least know the file is on borrowed time.
+      const looksDisposable = (p: string): boolean => {
+        if (!p) return false;
+        return (
+          p.includes("/var/folders/") ||
+          p.includes("NSIRD_") ||
+          p.includes("/TemporaryItems/") ||
+          p.startsWith("/tmp/") ||
+          /\/Screenshot[^/]*\.png$/i.test(p) ||
+          /\/Снимок экрана[^/]*\.png$/i.test(p)
+        );
+      };
+
+      let dest = opts.dest as string | undefined;
+      let originalPath: string | undefined;
+      let localPath: string | undefined;
+
       if (opts.copyFrom) {
         const src = path.resolve(opts.copyFrom);
+        originalPath = src;
         // Sanitize the basename: replace U+202F NARROW NO-BREAK SPACE / U+00A0 NBSP /
-        // U+200B ZERO-WIDTH SPACE with a regular hyphen. macOS NSIRD paths contain
-        // these (appstore postmortem hit ENOENT on `ls` showed the file but `cp`
-        // failed because of invisible U+202F between words).
+        // U+200B ZERO-WIDTH SPACE / U+2007 FIGURE SPACE with a regular hyphen.
+        // macOS NSIRD paths contain these (appstore postmortem hit ENOENT on `ls`
+        // showed the file but `cp` failed because of invisible U+202F between words).
         const rawBase = path.basename(src);
         const sanitized = rawBase
           .replace(/[   ​]/g, "-")
           .replace(/\s+/g, "-");
         const refsDir = path.join(projectsDir(), id, "refs");
         await fs.mkdir(refsDir, { recursive: true });
-        dest = path.join(refsDir, sanitized);
-        // Detect disposable paths and surface a breadcrumb so the user knows we rescued.
-        const isDisposable =
-          src.includes("/var/folders/") ||
-          src.includes("NSIRD_") ||
-          src.startsWith("/tmp/") ||
-          src.includes("/TemporaryItems/");
+
+        // Idempotency: if a file with the same name already exists in refs/
+        // AND has the same sha256, skip the copy (AGENTS.md invariant #14 —
+        // never overwrite existing refs/ files without explicit consent).
+        // If the name collides but the sha differs, pick the next free
+        // `<stem>-N<ext>` slot — never overwrite.
+        const sha = async (p: string): Promise<string> => {
+          const buf = await fs.readFile(p);
+          return crypto.createHash("sha256").update(buf).digest("hex");
+        };
+
+        let srcSha = "";
         try {
-          await fs.copyFile(src, dest);
-          if (isDisposable) {
+          srcSha = await sha(src);
+        } catch (e) {
+          err(`Failed to read ${src}: ${(e as Error).message}`);
+        }
+
+        let candidate = path.join(refsDir, sanitized);
+        let copied = false;
+        let skippedSameSha = false;
+        let collided = false;
+        try {
+          const stat = await fs.stat(candidate).catch(() => null);
+          if (stat && stat.isFile()) {
+            const existingSha = await sha(candidate);
+            if (existingSha === srcSha) {
+              skippedSameSha = true;
+            } else {
+              collided = true;
+              const ext = path.extname(sanitized);
+              const stem = sanitized.slice(0, sanitized.length - ext.length);
+              let n = 2;
+              while (true) {
+                const next = path.join(refsDir, `${stem}-${n}${ext}`);
+                const exists = await fs.stat(next).catch(() => null);
+                if (!exists) { candidate = next; break; }
+                if (exists.isFile()) {
+                  const existSha = await sha(next);
+                  if (existSha === srcSha) {
+                    candidate = next;
+                    skippedSameSha = true;
+                    break;
+                  }
+                }
+                n += 1;
+                if (n > 9999) {
+                  err(`Too many filename collisions for ${sanitized} in refs/`);
+                  break;
+                }
+              }
+            }
+          }
+          if (!skippedSameSha) {
+            await fs.copyFile(src, candidate);
+            copied = true;
+          }
+          dest = candidate;
+          localPath = candidate;
+
+          if (looksDisposable(src)) {
             // eslint-disable-next-line no-console
             console.error(
-              `ralphy: rescued disposable path → ${dest} (source was under ${src.split("/").slice(0, 5).join("/")}/...)`,
+              `ralphy: rescued disposable path → ${candidate} (source was under ${src.split("/").slice(0, 5).join("/")}/...)`,
             );
           }
           if (sanitized !== rawBase) {
@@ -369,20 +440,48 @@ export function projectCmd() {
               `ralphy: filename sanitized: "${rawBase}" → "${sanitized}"`,
             );
           }
+          if (skippedSameSha) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `ralphy: copy skipped (same sha256 already at ${candidate})`,
+            );
+          } else if (copied && collided) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `ralphy: name collision (different sha256), wrote ${candidate}`,
+            );
+          }
         } catch (e) {
-          err(`Failed to copy ${src} → ${dest}: ${(e as Error).message}`);
+          err(`Failed to copy ${src} → ${candidate}: ${(e as Error).message}`);
         }
+      } else if (looksDisposable(opts.source)) {
+        // Warn when the user logs a path that macOS will eat. The asset is
+        // load-bearing for the art-director stage; losing it is silent data loss.
+        // (issue #038)
+        // eslint-disable-next-line no-console
+        console.error(
+          `ralphy: warning — "${opts.source}" looks like a disposable / temp path (macOS NSIRD, /tmp, or "Screenshot ...png"). Pass --copy-from <src> to stash it in <project>/refs/ before it auto-deletes. (issue #038)`,
+        );
       }
 
       await logUserAsset(id, {
         kind: opts.kind,
         source: opts.source,
         dest,
+        originalPath,
+        localPath,
         purpose: opts.purpose,
         note: opts.note,
       });
       ok(`Asset logged for ${id}${dest ? ` (saved at ${dest})` : ""}`);
-      out({ project: id, logged: "user-asset", kind: opts.kind, dest });
+      out({
+        project: id,
+        logged: "user-asset",
+        kind: opts.kind,
+        dest,
+        originalPath,
+        localPath,
+      });
     });
 
   cmd
