@@ -37,15 +37,23 @@ export function requireProviderKey(opts: { envVar: string; label: string; signup
  * postmortem spent ~30 min debugging credits when the real cause was a
  * per-endpoint concurrent-call cap (gpt-5.4-image-2 = 1). Several others got
  * similar treatment so future agents don't repeat the debug cycle.
+ *
+ * #007: the 403 surface now distinguishes "concurrent-call limit" (the actual
+ * cause, NOT a $ balance issue) from balance-class 402. The in-process
+ * semaphore (`concurrency.ts`) self-throttles on top of this, so this message
+ * fires only when the per-key cap is hit DESPITE the semaphore (e.g. multiple
+ * `ralphy` processes sharing one OR key).
  */
 export function rewriteUpstreamError(model: string, status: number, rawText: string): string {
   const lower = rawText.toLowerCase();
-  if (status === 403 && lower.includes("key limit exceeded")) {
+  if (
+    status === 403 &&
+    (lower.includes("key limit exceeded") || lower.includes("total limit"))
+  ) {
     return (
-      `OpenRouter 403 "Key limit exceeded" — this is misleading. The literal cause is a per-endpoint ` +
-      `CONCURRENT-CALL cap on your API key, not a credits issue. ` +
-      `For ${model}: run image batches at --concurrency 1 OR swap to google/gemini-3-pro-image-preview ` +
-      `(tolerates ≥4 parallel). Raw upstream: ${rawText.slice(0, 200)}`
+      `OpenRouter concurrent-call limit on ${model}; try --concurrency 1 or switch model. ` +
+      `(This is NOT a $ balance issue — check 'ralphy doctor' for credits.) ` +
+      `Raw upstream: ${rawText.slice(0, 200)}`
     );
   }
   if (status === 429 && lower.includes("concurrent_limit_exceeded")) {

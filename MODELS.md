@@ -20,8 +20,8 @@ Endpoint: `POST /api/v1/chat/completions` with `modalities: ["image","text"]`. O
 
 | Use case | Model | Price | Why |
 |---|---|---|---|
-| **Default — multi-ref / character consistency** | `google/gemini-3-pro-image-preview` (= nano-banana-pro lineage) | ~$0.15 / image | Holds face / wardrobe / product identity across multiple references. Tolerates ≥4 concurrent calls. Pass 2-3 `--ref` images for "same model + same product across 5 scenes" workflows. Made default 2026-05-20 (re-flip from the 2026-05-12 gpt-5.4-image-2 default — multi-ref wins for almost every UGC workflow). |
-| **Premium typography / label accuracy** | `openai/gpt-5.4-image-2` | ~$0.20 / image | Best typography on labels, fewer hallucinations on small details, cleanest photorealism for hero product shots where the wordmark must read crisp. Caps at 1 concurrent — serialize batches. |
+| **Default — multi-ref / character consistency** | `google/gemini-3-pro-image-preview` (= nano-banana-pro lineage) | ~$0.15 / image | Holds face / wardrobe / product identity across multiple references. Tolerates ≥4 concurrent in the OR catalog; **in-process semaphore caps at 2** (`concurrency.ts`) to stay under shared-key OR limits. Pass 2-3 `--ref` images for "same model + same product across 5 scenes" workflows. Made default 2026-05-20 (re-flip from the 2026-05-12 gpt-5.4-image-2 default — multi-ref wins for almost every UGC workflow). |
+| **Premium typography / label accuracy** | `openai/gpt-5.4-image-2` | ~$0.20 / image | Best typography on labels, fewer hallucinations on small details, cleanest photorealism for hero product shots where the wordmark must read crisp. **Concurrency: 2 in-process** (#007 — validated 2026-05-29, NOT hard-capped to 1 as earlier docs claimed). Self-throttled by `cli/lib/providers/concurrency.ts`; the old 403 "Key limit exceeded" misread is now surfaced as "concurrent-call limit on …; try --concurrency 1 or switch model". |
 | **Budget OpenAI** | `openai/gpt-5-image-mini` | ~$0.08 / image | Cheap iteration during prompt exploration. |
 | **Cheapest viable** | `google/gemini-2.5-flash-image` | ~$0.02 / image | Smoke-test only — quality dip is visible. |
 
@@ -45,7 +45,7 @@ Append-only. Add a row when a new quirk costs >5 min of debugging or a re-roll.
 | `google/gemini-3-pro-image-preview` | **"skeleton null" transient** — response returns `finish_reason: null, content: null, native_finish_reason: null` with no error body. Sporadic, not prompt-related. | Retry up to 3× (same prompt, same refs). If all 3 fail, fall back to `openai/gpt-5.4-image-2` (accept the 1024² default + concurrency=1). Tracked by `cli/lib/providers/openrouter.ts` retry loop. |
 | `google/gemini-3-pro-image-preview` | **Body-horror `IMAGE_SAFETY` refusal** (cap #10 below) — empty content + `native_finish_reason: IMAGE_SAFETY` on cryptid / skinwalker / Cronenberg prompts. | Route to `openai/gpt-5.4-image-2` for the anchor frame; carry scene identity via `--ref`. |
 | `google/gemini-3-pro-image-preview` | **Typography smudging on embedded labels** (kanji buttons, LED digits, brand wordmarks). | Switch to `openai/gpt-5.4-image-2` when copy must be legible — it holds glyphs cleanly. Lesson from flipper-hypermotion-001. |
-| `openai/gpt-5.4-image-2` | **Concurrency cap = 1.** 2+ parallel calls return misleading `403 "Key limit exceeded (total limit)"`. | Serialize batches (`--concurrency 1`). For parallel, swap to `gemini-3-pro-image-preview` (tolerates ≥4). |
+| `openai/gpt-5.4-image-2` | **Concurrency cap = 2** (per #007, validated 2026-05-29 — earlier "cap of 1" was conservative). 3+ parallel may still trip OR's per-key limit and return misleading `403 "Key limit exceeded (total limit)"`. | Self-throttled to 2 in-flight by `cli/lib/providers/concurrency.ts`; the 403 is now rewritten as "concurrent-call limit on …; try --concurrency 1 or switch model — NOT a $ balance issue". For >2 parallel, swap to `gemini-3-pro-image-preview`. |
 | `openai/gpt-5.4-image-2` | **Ignores in-prompt size hints**, defaults to 1024². | Pass `image_config.aspect_ratio` via `--size WxH` (mapped automatically in `openrouter.ts → sizeToAspectRatio`). |
 
 ---
@@ -103,12 +103,18 @@ Always recheck via `ralphy models list`. These arrays change.
 
 8. **ElevenLabs Music 2-concurrent cap per subscription.** Three+ parallel calls return 429 `concurrent_limit_exceeded` and pollute `generations.jsonl` with error rows. Serialize music gen or stay ≤2 in-flight. Postmortem: tokyo.
 
-9. **OpenRouter per-key concurrent-call caps** are NOT visible from the catalog. Confirmed in production:
-   - `openai/gpt-5.4-image-2` — cap of 1 (returns misleading `403 "Key limit exceeded (total limit)"`). Run image batches at `--concurrency 1` or swap to `google/gemini-3-pro-image-preview` which tolerates ≥4 parallel.
-   - `elevenlabs/music_v1` — cap of 2 (returns `429 concurrent_limit_exceeded`).
-   - Most other endpoints — at least 4 concurrent is safe.
-   `cli/lib/providers/media.ts → rewriteUpstreamError()` rewrites both error messages into actionable hints.
-   Postmortems: appstore / analog-horror / tokyo.
+9. **Per-endpoint concurrent-call caps are now self-throttled in-process** (`cli/lib/providers/concurrency.ts`, #007). The semaphore wraps every network round-trip so the CLI never round-trips an over-cap call; the retry helper sits OUTSIDE the semaphore so backoff sleeps don't pin a slot. Current caps:
+   - `elevenlabs/tts` — **3 concurrent** (choose-your-guide-001: 9 parallel → 6 hard-failed 429).
+   - `elevenlabs/music_v1` — **2 concurrent** (tokyo-y2k-001: 3 parallel → 1 hard-failed 429).
+   - `openrouter:openai/gpt-5.4-image-2` — **2 concurrent** (validated 2026-05-29; appstore-takeaminute-001 hit 73/73 403 on uncapped fan-out).
+   - `openrouter:google/gemini-3-pro-image-preview` — **2 concurrent** (catalog tolerates ≥4, kept at 2 for shared-key safety).
+   - `openrouter:bytedance/seedance-2.0` — **1 concurrent** (queue depth + multi-block extend is inherently sequential).
+   - `openrouter:kwaivgi/kling-v3.0-pro` — **2 concurrent**.
+   - LLM chat-completions default — **4 concurrent**.
+   - Default fallback for unknown endpoints — **2 concurrent**.
+   When the per-key OR cap still trips despite the semaphore (e.g. two `ralphy` processes sharing one key), `shared.ts → rewriteUpstreamError()` now surfaces the 403 as `"concurrent-call limit on <model>; try --concurrency 1 or switch model. (This is NOT a $ balance issue — check 'ralphy doctor' for credits.)"` — no more credits-misread.
+   Follow-up: the in-process semaphore does NOT span processes. The queue daemon's own worker count gates cross-process for now; a file-locked queue is a future enhancement.
+   Postmortems: appstore / analog-horror / tokyo / choose-your-guide.
 
 10. **`google/gemini-3-pro-image-preview` image-safety filter is materially stricter than `openai/gpt-5.4-image-2` on body-horror / cryptid / skinwalker / werewolf register.** Gemini returns `native_finish_reason: IMAGE_SAFETY` with an empty content body even when the prompt uses softened surreal-anatomy language (concentric maws lined with tongue-like protrusions, biological apertures with internal teeth on a recognizable creature in a real-world setting). The reasoning trace literally describes the requested transformation before the filter refuses. `openai/gpt-5.4-image-2` accepts the same prompts and delivers — validated on voidstomper-test-001's skinwalker BBQ frame after three gemini refusals. **Route rule:** for voidstomper-adjacent / Cronenberg / The Thing / mid-warp body-horror anchor images, start at `--model openai/gpt-5.4-image-2`. Accept the 1024×1024 default (gpt-image ignores arbitrary `--size`); use `--ref <gemini-9:16-scene>` to carry scene + character identity, then post-process to 9:16 with ffmpeg pad if your downstream i2v requires matching dimensions. Postmortem: voidstomper-test-001 (2026-05-25).
 
