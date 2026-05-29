@@ -62,11 +62,41 @@ ralphy project score <id> --strict       # exit 1 on failure (CI-friendly)
 # Length / word-budget sanity (re-transcribe an existing VO if scenes drifted)
 ralphy project transcribe <id> --audio <vo.mp3>   # ElevenLabs Scribe v1 default
 
-# Log the conversation — both directions
-ralphy project log-prompt <id> --text "<feedback>" --stage feedback
-ralphy project log-asset <id> --kind doc --source <path> --purpose brief
-ralphy project timeline <id>             # who said what, when, in chronological order
+# Log EVERY user feedback turn — both directions (see "User-prompt logging" rule below)
+ralphy project log-prompt <id> --text "<original brief>"          --stage brief
+ralphy project log-prompt <id> --text "<rework scene 3>"          --stage feedback
+ralphy project log-prompt <id> --text "<looks great, ship it>"    --stage approval
+ralphy project log-prompt <id> --text "<too AI-slop in scene 2>"  --stage critique
+ralphy project log-prompt <id> --text "<no, kill this whole arc>" --stage rejection
+ralphy project log-asset  <id> --kind doc --source <path> --purpose brief
+ralphy project timeline   <id>           # who said what, when, in chronological order
 ```
+
+## User-prompt logging (MUST, every turn)
+
+`user-prompts.jsonl` is the **only durable record of user intent across sessions**. Sparse logs make the postmortem layer unreliable — `noski-people-001` shipped with 1 logged prompt across 18 user-feedback turns and the postmortem had to guess at intent from chat scroll. That is a defect class this playbook now closes.
+
+**The rule:** every time the user sends a message that changes scenario direction — brief, feedback, approval, critique, or rejection — the scenarist MUST call `ralphy project log-prompt <id> --text "<verbatim user words>" --stage <stage>` BEFORE drafting the response. Not "may log". Not "log the important ones". **Every turn.**
+
+**Named stages** (use one):
+
+| `--stage` | When | Example user utterance |
+|---|---|---|
+| `brief` | The original ask that created the project, or any later message that reframes the project goal | "make a 15s unboxing for my coffee grinder" |
+| `feedback` | User asks for a change to an existing artifact (scenario / scene / hook / VO) | "shorten scene 2", "rewrite the hook punchier", "swap the CTA" |
+| `approval` | User signs off on a draft / variant — locks the artifact for the next stage | "looks good, ship it", "approved", "go with v2" |
+| `critique` | User flags a problem but doesn't yet say how to fix it (you need to propose options) | "scene 3 feels AI-slop", "the pacing is off", "this doesn't match the ref" |
+| `rejection` | User kills an entire direction / asks to start over on a scope chunk | "scrap the whole CTA arc", "no — different aesthetic entirely", "throw out v3" |
+
+When the user message contains multiple stages (e.g. "approve scene 1 BUT rework scene 3"), log it twice — once per stage. The CLI is cheap; the postmortem layer is not.
+
+**Out of scope as user-prompt turns** (do NOT log these, they are agent-internal):
+
+- Your own clarifying questions back to the user.
+- Status pings ("ok", "thanks", "yes") with no scenario impact.
+- Automatic `--no-ref-consent` overrides (the CLI logs those itself with `stage: "no-ref-consent"`).
+
+Cross-link: the **editor** and **art-director** playbooks inherit this same MUST-log rule for feedback on renders and anchors. See [`editor.md`](editor.md) and [`art-director.md`](art-director.md).
 
 If the scenario references a creator / TikTok / IG handle and there's no `workspace/references/<slug>/`, **handback to researcher** — don't invent the reference (`ralphy ref pull <url>` is a one-liner there).
 
@@ -105,7 +135,7 @@ If the scenario references a creator / TikTok / IG handle and there's no `worksp
 2. **Reference-required in scenario.** If a slot contains a named persona/brand — verify there is a ref in `assets/uploaded/`, otherwise the scenario must either require a reference (refuse) or use an archetype.
 3. **Template vibe ≠ template fill-in.** Don't copy VO lines / clip tables / timings from `reference-example.md` literally. The template is a vibe anchor; the scenario is written from scratch.
 4. **Don't invent brand facts.** If the brief is thin — ask once or leave a `<FILL>` placeholder.
-5. **Log brief and feedback** via `ralphy project log-prompt`.
+5. **MUST log every user feedback turn** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <brief|feedback|approval|critique|rejection>`. Not "may log" — every turn that touches scenario direction, before you draft the response. See the "User-prompt logging" section above for stage definitions. Sparse logs are the documented cause of unreliable postmortems (issue [`044`](../../notes/issues/044-user-prompt-logging-under-used.md)).
 
 ## Conventions
 
