@@ -56,6 +56,71 @@ function sizeToAspectRatio(size: string): string | undefined {
   )[0];
 }
 
+// Natural output resolution per model + aspect ratio. The hosted image
+// endpoints snap user-supplied --size to these regardless of what the prompt /
+// flag says — passing 1290x2796 on gpt-5.4-image-2 produces a 1024² image and
+// the user gets surprised. #051: warn-on-mismatch at submit time so the
+// surprise is visible, and expose a `naturalSizeFor()` helper the CLI can use
+// to resolve a friendly `--aspect <9:16>` request to the right pixel grid.
+type AspectKey = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9";
+type NaturalSizeTable = Partial<Record<AspectKey, string>>;
+const NATURAL_SIZE_BY_MODEL: Record<string, NaturalSizeTable> = {
+  // gpt-5.4-image-2: hard-snaps to a fixed pixel grid per aspect. Numbers from
+  // OpenAI's gpt-image-1 docs (which gpt-5.4 inherits).
+  "openai/gpt-5.4-image-2": {
+    "1:1": "1024x1024",
+    "9:16": "1024x1536",
+    "16:9": "1536x1024",
+    "2:3": "1024x1536",
+    "3:2": "1536x1024",
+    "3:4": "1024x1536",
+    "4:3": "1536x1024",
+  },
+  // gemini-3-pro-image-preview: nano-banana-pro lineage. 768x1376 portrait,
+  // 1376x768 landscape, 1024² square. Other ratios round to the nearest.
+  "google/gemini-3-pro-image-preview": {
+    "1:1": "1024x1024",
+    "9:16": "768x1376",
+    "16:9": "1376x768",
+    "3:4": "768x1024",
+    "4:3": "1024x768",
+  },
+  "google/gemini-3.1-flash-image-preview": {
+    "1:1": "1024x1024",
+    "9:16": "768x1376",
+    "16:9": "1376x768",
+  },
+  "google/gemini-2.5-flash-image": {
+    "1:1": "1024x1024",
+    "9:16": "768x1376",
+    "16:9": "1376x768",
+  },
+};
+
+/** Look up the natural output size a model produces for a given aspect ratio. Returns undefined when unknown. */
+export function naturalSizeFor(model: string, aspect: string): string | undefined {
+  const tbl = NATURAL_SIZE_BY_MODEL[model];
+  if (!tbl) return undefined;
+  return tbl[aspect as AspectKey];
+}
+
+/**
+ * Compare the user-supplied `--size W×H` against the model's natural grid for
+ * the resolved aspect. Returns a single-line warning when they disagree, or
+ * undefined when they match / the model isn't in the table. #051.
+ */
+export function sizeMismatchWarning(
+  model: string,
+  size: string,
+  aspect: string | undefined,
+): string | undefined {
+  if (!aspect) return undefined;
+  const natural = naturalSizeFor(model, aspect);
+  if (!natural) return undefined;
+  if (size.trim().toLowerCase() === natural.toLowerCase()) return undefined;
+  return `--size ${size} ignored by ${model}; natural output for aspect ${aspect} is ${natural}.`;
+}
+
 function requireKey(): void {
   requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
 }
@@ -187,6 +252,15 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const aspectRatio = isRecraft ? undefined : sizeToAspectRatio(size);
   if (aspectRatio) {
     body.image_config = { aspect_ratio: aspectRatio };
+  }
+
+  // #051: when --size doesn't match the model's natural grid for the resolved
+  // aspect, emit a warning to stderr at submit time. The hosted endpoints
+  // silently snap to natural output; users wasted time expecting Apple App
+  // Store native 1290x2796 from gpt-5.4-image-2 and getting back 1024².
+  const mismatch = aspectRatio ? sizeMismatchWarning(model, size, aspectRatio) : undefined;
+  if (mismatch) {
+    process.stderr.write(`[warn] ${mismatch}\n`);
   }
 
   let resp: Response;

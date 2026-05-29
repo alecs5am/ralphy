@@ -21,7 +21,14 @@ export type Capability =
 
 // ─── Shared media types ──────────────────────────────────────────────────────
 
+/**
+ * Canonical 9:16 size hints. Kept as a literal union for documentation, but
+ * the actual `size` field accepts any "WxH" string — image endpoints snap to
+ * the model's natural grid regardless of what we send (#051).
+ */
 export type Size9x16 = "1080x1920" | "720x1280" | "540x960";
+/** The size string actually accepted by `generateImage` — "WxH" or a canonical alias. */
+export type ImageSize = Size9x16 | (string & {});
 
 export type GenerateResult = {
   /** Remote URL returned by the provider, if any (may expire). */
@@ -57,7 +64,7 @@ export type GenerateImageInput = CommonInput & {
   prompt: string;
   /** Optional multi-ref URLs. Both gemini-3-pro-image-preview and gpt-5.4-image-2 accept image inputs; gemini is materially stronger at multi-ref character consistency. */
   refs?: string[];
-  size?: Size9x16;
+  size?: ImageSize;
   /** Negative prompt where supported. */
   negativePrompt?: string;
 };
