@@ -1,6 +1,6 @@
 # Art-director playbook missing "register" axis and character-fit rule
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
