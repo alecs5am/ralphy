@@ -36,19 +36,46 @@ export type Provider =
   // eslint-disable-next-line @typescript-eslint/ban-types
   | (string & {});
 
+/**
+ * Canonical generation log entry (issue #032).
+ *
+ * Schema invariants — all writers MUST emit these keys, no aliases:
+ * - `provider` (top-level)         — connector id ("openrouter", "elevenlabs", "ffmpeg", …)
+ * - `model`    (top-level)         — fully-qualified model id ("google/gemini-3-pro-image-preview").
+ *                                     For non-LLM endpoints (ffmpeg, ffprobe), mirror the endpoint slug.
+ * - `endpoint` (top-level)         — provider-specific endpoint slug ("tts/eleven_multilingual_v2",
+ *                                     "openrouter/chat-completions"). Same as `model` for LLM calls.
+ * - `kind`     (top-level)         — coarse classifier ("image", "video", "voiceover", "music",
+ *                                     "sfx", "text", "video-analysis", "embed", "other").
+ * - `cost_usd` (top-level)         — best-effort USD estimate. NEVER `costUsd`.
+ * - `attempt`  (top-level)         — 1-indexed retry attempt counter (default 1).
+ * - `input.slot`                   — asset slot this generation targets ("scene-01-bg-image").
+ *                                     Persisted INSIDE input so per-slot cost rollups work
+ *                                     without inferring from `note` or filenames. (#032)
+ * - `input.project`                — project id, mirrored into the row body so cross-project
+ *                                     greps don't need to know which file they came from. (#032)
+ * - `input.*`                      — call-specific input payload (prompt, refs, durations, …).
+ *
+ * Back-compat: legacy rows (pre-#032) may carry `slot` at the top level or `costUsd` instead
+ * of `cost_usd`. **Readers MUST go through `readGeneration()` or `normalizeGenerationEntry()`**
+ * which transparently coerces both shapes to canonical.
+ *
+ * Append-only on disk (AGENTS invariant #14): writers add NEW canonical rows; existing rows
+ * are never rewritten. The read-side normalizer is the migration path.
+ */
 export type GenerationEntry = {
   timestamp: string;
   provider: Provider;
+  model: string;                 // canonical model id; mirrors endpoint for non-LLM calls
   endpoint: string;              // e.g. "fal-ai/kling-video/v3/pro/image-to-video"
-  kind: "image" | "video" | "audio" | "music" | "voiceover" | "sfx" | "text" | "embed" | "other";
+  kind: "image" | "video" | "audio" | "music" | "voiceover" | "sfx" | "text" | "video-analysis" | "embed" | "other";
   /**
-   * Asset slot this generation targets (e.g. "scene-01-bg-image"). Persisted so
-   * per-slot cost rollups work without inferring from `note`. Multiple postmortems
-   * (noski, venom) had to grep `.locked-vN` filenames to reconstruct slot-level
-   * spend because this wasn't here.
+   * @deprecated Top-level `slot` is preserved for back-compat with legacy rows but new writers
+   * MUST set `input.slot` instead. Readers go through `normalizeGenerationEntry()` which mirrors
+   * this field into `input.slot` if missing. Will be dropped in a future major.
    */
   slot?: string;
-  input: Record<string, unknown>;
+  input: Record<string, unknown> & { slot?: string; project?: string };
   output?: {
     url?: string;
     local?: string;
@@ -59,9 +86,77 @@ export type GenerationEntry = {
   error?: string;
   latency_ms?: number;
   cost_usd?: number;             // best-effort estimate, optional
+  attempt?: number;              // 1-indexed retry attempt counter (default 1)
   request_id?: string;           // fal queue id, elevenlabs id, etc.
   note?: string;                 // free-form human tag, e.g. "clip-03 v2 hand crumples sample"
 };
+
+/**
+ * Raw row shape on disk. Same as {@link GenerationEntry} but with the legacy fields
+ * (`costUsd`, top-level `slot`, missing `model`) still permitted. Always run through
+ * {@link normalizeGenerationEntry} before consuming.
+ */
+export type RawGenerationEntry = Partial<GenerationEntry> & {
+  timestamp?: string;
+  provider?: Provider | string;
+  endpoint?: string;
+  model?: string;
+  kind?: string;
+  slot?: string;
+  input?: Record<string, unknown>;
+  output?: GenerationEntry["output"];
+  status?: "ok" | "error";
+  error?: string;
+  latency_ms?: number;
+  // legacy alias seen in some early rows
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  costUsd?: number;
+  cost_usd?: number;
+  attempt?: number;
+  request_id?: string;
+  note?: string;
+};
+
+/**
+ * Read-side normalizer (issue #032). Accepts both legacy and canonical row shapes,
+ * returns canonical. NEVER mutates the input. Safe to call on any object — unknown
+ * fields are preserved.
+ *
+ * Coercions:
+ * - `costUsd` → `cost_usd` (if `cost_usd` missing)
+ * - top-level `slot` → mirrored into `input.slot` (if `input.slot` missing)
+ * - missing `model` → falls back to `endpoint`
+ * - missing `kind`  → "other"
+ * - missing `attempt` → 1
+ * - missing `input` → {}
+ */
+export function normalizeGenerationEntry(row: RawGenerationEntry): GenerationEntry {
+  const inputObj = (row.input ?? {}) as Record<string, unknown> & { slot?: string; project?: string };
+  // Mirror top-level slot into input.slot if absent.
+  if (row.slot && inputObj.slot == null) {
+    inputObj.slot = row.slot;
+  }
+  const cost = row.cost_usd ?? (row as { costUsd?: number }).costUsd;
+  const endpoint = row.endpoint ?? row.model ?? "unknown";
+  const model = row.model ?? row.endpoint ?? "unknown";
+  return {
+    timestamp: row.timestamp ?? new Date(0).toISOString(),
+    provider: (row.provider as Provider) ?? "other",
+    model,
+    endpoint,
+    kind: (row.kind as GenerationEntry["kind"]) ?? "other",
+    slot: row.slot ?? inputObj.slot,
+    input: inputObj,
+    output: row.output,
+    status: row.status ?? "ok",
+    error: row.error,
+    latency_ms: row.latency_ms,
+    cost_usd: cost,
+    attempt: row.attempt ?? 1,
+    request_id: row.request_id,
+    note: row.note,
+  };
+}
 
 export type UserAssetEntry = {
   timestamp: string;
@@ -106,13 +201,51 @@ async function appendJsonl(file: string, entry: unknown) {
 
 export async function logGeneration(
   projectId: string,
-  entry: Omit<GenerationEntry, "timestamp"> & { timestamp?: string }
+  entry: Omit<GenerationEntry, "timestamp" | "model" | "input"> & {
+    timestamp?: string;
+    model?: string;
+    input: Record<string, unknown> & { slot?: string; project?: string };
+  },
 ): Promise<void> {
+  // Canonical schema enforcement (issue #032):
+  //  - `model` is required; fall back to `endpoint` when callers haven't been migrated yet.
+  //  - `input.slot` mirrors top-level `slot` (top-level kept for legacy reader back-compat).
+  //  - `input.project` mirrors the projectId arg so cross-project greps don't need the file path.
+  //  - `attempt` defaults to 1.
+  const model = entry.model ?? entry.endpoint ?? "unknown";
+  const input: Record<string, unknown> & { slot?: string; project?: string } = { ...entry.input };
+  if (entry.slot && input.slot == null) input.slot = entry.slot;
+  if (input.project == null) input.project = projectId;
   const full: GenerationEntry = {
     timestamp: entry.timestamp ?? new Date().toISOString(),
-    ...entry,
+    provider: entry.provider,
+    model,
+    endpoint: entry.endpoint,
+    kind: entry.kind,
+    slot: entry.slot,
+    input,
+    output: entry.output,
+    status: entry.status,
+    error: entry.error,
+    latency_ms: entry.latency_ms,
+    cost_usd: entry.cost_usd,
+    attempt: entry.attempt ?? 1,
+    request_id: entry.request_id,
+    note: entry.note,
   };
   await appendJsonl(path.join(logsDir(projectId), "generations.jsonl"), full);
+}
+
+/**
+ * Read `generations.jsonl` and return canonical rows (issue #032). Equivalent to
+ * `readLog<GenerationEntry>(id, "generations")` followed by `normalizeGenerationEntry`
+ * on every row. Postmortems and rollup queries should ALWAYS go through this — never
+ * directly through `readLog` for the generations log — so legacy + canonical rows are
+ * indistinguishable downstream.
+ */
+export async function readGenerations(projectId: string): Promise<GenerationEntry[]> {
+  const rows = await readLog<RawGenerationEntry>(projectId, "generations");
+  return rows.map(normalizeGenerationEntry);
 }
 
 export async function logUserAsset(
@@ -191,6 +324,7 @@ export async function loggedFetch(
       } catch { /* non-json bodies are fine */ }
       await logGeneration(meta.projectId, {
         provider: meta.provider,
+        model: meta.endpoint,
         endpoint: meta.endpoint,
         kind: meta.kind,
         input: meta.input,
@@ -207,6 +341,7 @@ export async function loggedFetch(
     if (meta.projectId) {
       await logGeneration(meta.projectId, {
         provider: meta.provider,
+        model: meta.endpoint,
         endpoint: meta.endpoint,
         kind: meta.kind,
         input: meta.input,

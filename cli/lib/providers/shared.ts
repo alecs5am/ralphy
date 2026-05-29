@@ -218,9 +218,10 @@ export async function logFailure(
   await logGeneration(input.projectId, {
     slot: input.slot,
     provider,
+    model,
     endpoint: model,
     kind,
-    input: body,
+    input: { slot: input.slot, project: input.projectId, ...body },
     status: "error",
     error: err instanceof Error ? err.message : String(err),
     latency_ms: Date.now() - t0,

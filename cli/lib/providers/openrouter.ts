@@ -102,9 +102,10 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
   if (opts.projectId) {
     await logGeneration(opts.projectId, {
       provider: ID,
+      model,
       endpoint: opts.endpoint ?? "openrouter/chat-completions",
       kind: "text",
-      input: { model, messages: opts.messages.length },
+      input: { model, messages: opts.messages.length, slot: opts.slot, project: opts.projectId },
       output: { bytes: text.length },
       status: "ok",
       latency_ms: latencyMs,
@@ -247,9 +248,10 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   await logGeneration(input.projectId, {
     slot: input.slot,
     provider: ID,
+    model,
     endpoint: model,
     kind: "image",
-    input: { prompt: input.prompt, size, refs: input.refs ?? [] },
+    input: { slot: input.slot, project: input.projectId, prompt: input.prompt, size, refs: input.refs ?? [] },
     output: { url, local: localPath },
     status: "ok",
     latency_ms: result.latencyMs,
@@ -453,9 +455,12 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   await logGeneration(input.projectId, {
     slot: input.slot,
     provider: ID,
+    model,
     endpoint: model,
     kind: "video",
     input: {
+      slot: input.slot,
+      project: input.projectId,
       prompt: input.prompt,
       duration_sec: input.durationSec,
       aspect_ratio: aspectRatio,

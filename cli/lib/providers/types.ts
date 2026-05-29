@@ -136,6 +136,8 @@ export type CallLLMOptions = {
   projectId?: string;
   /** Endpoint label for the log line. */
   endpoint?: string;
+  /** Slot id for the log line (mirrored into `input.slot`). #032 */
+  slot?: string;
   /** Explicit provider connector id (e.g. "openrouter"). Default: first available text provider. */
   provider?: string;
 };
