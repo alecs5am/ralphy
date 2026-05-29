@@ -33,6 +33,42 @@ function requireKey(): void {
   requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
 }
 
+// ─── voice-exists pre-flight (#051) ───────────────────────────────────────────
+//
+// `analog-horror-fridge-001` postmortem: a community voice id silently
+// disappeared between sessions; the next `generate voiceover` call returned 404
+// mid-batch and the loudnorm step then double-normed old files because regen
+// failed silently. The fix: fetch GET /v1/voices/<id> before submitting a TTS
+// request, throw a clean error if 404. Cached per-process to avoid hammering
+// the endpoint on a batch of N clips that share one voice id.
+
+const voiceExistsCache = new Map<string, boolean>();
+
+/** Reset the in-process voice-exists cache. Tests use this. */
+export function _resetVoiceExistsCache(): void {
+  voiceExistsCache.clear();
+}
+
+export async function ensureVoiceExists(voiceId: string, signal?: AbortSignal): Promise<void> {
+  if (voiceExistsCache.get(voiceId) === true) return;
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const resp = await fetch(`${BASE_URL}/voices/${encodeURIComponent(voiceId)}`, {
+    method: "GET",
+    headers: { "xi-api-key": apiKey, "User-Agent": UA },
+    signal,
+  });
+  if (resp.status === 404) {
+    throw new Error(
+      `ElevenLabs voice not in library: ${voiceId}. Run \`ralphy voice list\` for your voices, or \`ralphy voice exists ${voiceId}\` for a one-shot probe.`,
+    );
+  }
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`ElevenLabs voices ${resp.status}: ${body.slice(0, 400)}`);
+  }
+  voiceExistsCache.set(voiceId, true);
+}
+
 // ─── voiceover (TTS) ──────────────────────────────────────────────────────────
 
 const DEFAULT_VOICE_SETTINGS = {
@@ -47,6 +83,10 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
   const t0 = Date.now();
   const apiKey = process.env.ELEVENLABS_API_KEY!;
   const modelId = input.modelId ?? "eleven_multilingual_v2";
+
+  // #051: voice-existence pre-flight. Fail fast with a clean error if the voice
+  // id no longer resolves (community-voice deletion, typo, library wipe).
+  await ensureVoiceExists(input.voiceId, input.signal);
 
   const body = {
     text: input.text,

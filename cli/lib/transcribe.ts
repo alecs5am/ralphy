@@ -66,6 +66,13 @@ export type TranscribeOptions = {
   signal?: AbortSignal;
 };
 
+export type LowConfidenceWord = {
+  text: string;
+  startMs: number;
+  endMs: number;
+  confidence: number;
+};
+
 export type TranscribeResult = {
   captions: Caption[];
   language: string;
@@ -74,7 +81,23 @@ export type TranscribeResult = {
   durationMs: number;
   audioDurationSec: number;
   costUsd: number;
+  /**
+   * Backend's self-reported confidence that the detected `language` is correct.
+   * 0..1. null when the backend doesn't return it. #051: when this is low AND
+   * the caller passed no `--language` hint, the caller should surface a warning
+   * — Scribe sometimes locks onto the wrong language on borderline clips.
+   */
+  languageProbability: number | null;
+  /**
+   * Words whose per-word confidence is below the threshold (default 0.6).
+   * Empty when no per-word confidence is exposed. #051: makes it easy to triage
+   * misheard caption tokens before publishing.
+   */
+  lowConfidenceWords: LowConfidenceWord[];
 };
+
+/** Per-word confidence threshold below which a word is flagged as low-confidence. */
+export const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public entry-point
@@ -120,6 +143,18 @@ function wrap(
   };
 }
 
+/** Extract a confidence in [0, 1] from a Scribe word entry, when possible. */
+function scribeWordConfidence(w: ScribeWord): number | null {
+  if (typeof w.confidence === "number" && isFinite(w.confidence)) {
+    return Math.max(0, Math.min(1, w.confidence));
+  }
+  if (typeof w.logprob === "number" && isFinite(w.logprob)) {
+    // logprob is in (-∞, 0]; exp(logprob) gives a probability in (0, 1].
+    return Math.max(0, Math.min(1, Math.exp(w.logprob)));
+  }
+  return null;
+}
+
 function pickBackend(): TranscribeBackend {
   if (process.env.ELEVENLABS_API_KEY) return "elevenlabs";
   if (process.env.OPENROUTER_API_KEY) return "openrouter";
@@ -140,6 +175,10 @@ type ScribeWord = {
   start: number;
   end: number;
   type?: "word" | "spacing" | "audio_event";
+  /** Scribe v1 returns logprob per word — exp() gives a confidence in [0,1]. */
+  logprob?: number;
+  /** Some Scribe variants expose a direct 0..1 confidence. */
+  confidence?: number;
 };
 type ScribeResponse = {
   language_code?: string;
@@ -191,17 +230,22 @@ async function viaElevenLabs(
   );
 
   let captions: Caption[];
+  const lowConfidenceWords: LowConfidenceWord[] = [];
   const audioDurationSec = json.audio_duration_secs ?? 0;
   if (wordEntries.length > 0) {
     captions = wordEntries.map((w) => {
       const startMs = Math.round(w.start * 1000);
       const endMs = Math.round(w.end * 1000);
+      const conf = scribeWordConfidence(w);
+      if (conf !== null && conf < LOW_CONFIDENCE_THRESHOLD) {
+        lowConfidenceWords.push({ text: w.text, startMs, endMs, confidence: conf });
+      }
       return {
         text: w.text,
         startMs,
         endMs,
         timestampMs: Math.round((startMs + endMs) / 2),
-        confidence: null,
+        confidence: conf,
       };
     });
   } else if (json.text && json.text.trim()) {
@@ -230,6 +274,9 @@ async function viaElevenLabs(
   return {
     captions,
     language: json.language_code ?? language,
+    languageProbability:
+      typeof json.language_probability === "number" ? json.language_probability : null,
+    lowConfidenceWords,
     model: SCRIBE_MODEL,
     audioDurationSec,
     costUsd,
@@ -330,6 +377,8 @@ async function viaOpenRouter(
   return {
     captions,
     language: json.language ?? language,
+    languageProbability: null,
+    lowConfidenceWords: [],
     model: WHISPER_MODEL,
     audioDurationSec,
     costUsd,
@@ -409,6 +458,8 @@ async function viaGemini(
   return {
     captions,
     language,
+    languageProbability: null,
+    lowConfidenceWords: [],
     model: GEMINI_AUDIO_MODEL,
     audioDurationSec: 0,
     costUsd: COST_PER_MIN_GEMINI,

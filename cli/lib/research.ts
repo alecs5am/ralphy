@@ -487,6 +487,12 @@ export type AnalyzeFramesResult = {
   latencyMs: number;
 };
 
+// #051: ask the model to detect text language / script / region cues. Three
+// new fields surface when there is visible on-screen text, signage, or
+// language-coded UI — they're nullable so the model can leave them out cleanly
+// when nothing is visible. `flipper-hypermotion-001` mis-framed a Korean
+// reference as Japanese; capturing the script + region lets the scenarist
+// catch that before drafting.
 const DEFAULT_FRAMES_PROMPT = `You are a UGC-video format analyst. Given the sampled frames below (in order), return a JSON object with these keys:
 
 {
@@ -498,6 +504,9 @@ const DEFAULT_FRAMES_PROMPT = `You are a UGC-video format analyst. Given the sam
   "setting": "<where>",
   "captions_style": "<one-word, e.g. word-pop, hormozi, none>",
   "color_grade": "<one-line>",
+  "language_detected_in_text": "<BCP-47-ish code for visible on-screen text / signage / UI (e.g. en, ru, ja, ko, zh-Hans, ar). Null if no visible text.>",
+  "script_detected": "<Unicode script tag for the visible text — Latin, Cyrillic, Han, Hangul, Hiragana, Katakana, Arabic, Hebrew, Thai, Devanagari, etc. Null when no text.>",
+  "region_hints": [ "<short geo / cultural cue from the frames: 'KR-traffic-signage', 'JP-konbini', 'US-strip-mall', 'EU-tram'. Empty array if none clearly visible.>" ],
   "hook": { "first_seconds": "<what grabs attention>", "why_it_works": "<1 sentence>" },
   "scenes": [
     { "approx_start_sec": <number>, "description": "<what happens>", "on_screen_text": "<verbatim if visible, or null>" }
@@ -505,6 +514,8 @@ const DEFAULT_FRAMES_PROMPT = `You are a UGC-video format analyst. Given the sam
   "viral_factors": [ "<bullet 1>", "<bullet 2>" ],
   "reproduction": { "difficulty": "easy"|"medium"|"hard", "key_assets": ["..."], "steps": ["..."] }
 }
+
+For language_detected_in_text / script_detected / region_hints: be precise — do NOT guess from skin tone or generic aesthetic. Only fill these when you actually see text, signage, packaging, or language-coded UI in the frames. When in doubt, return null / [].
 
 Output ONLY the JSON. No prose, no preface, no code fences.`;
 
@@ -557,6 +568,16 @@ export async function analyzeFrames(opts: AnalyzeFramesOptions): Promise<Analyze
   } catch {
     parsed = undefined;
   }
+
+  // #051: backfill the language / script / region fields with explicit null /
+  // [] when the model omitted them, so downstream code can rely on the shape.
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && !opts.prompt) {
+    const obj = parsed as Record<string, unknown>;
+    if (!("language_detected_in_text" in obj)) obj.language_detected_in_text = null;
+    if (!("script_detected" in obj)) obj.script_detected = null;
+    if (!("region_hints" in obj)) obj.region_hints = [];
+  }
+
   await fs.writeFile(
     paths.analysis,
     parsed !== undefined ? JSON.stringify(parsed, null, 2) + "\n" : text + "\n",

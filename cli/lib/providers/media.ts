@@ -12,6 +12,7 @@ export { generateVoiceover, generateMusic, generateSfx } from "./elevenlabs.js";
 
 export type {
   Size9x16,
+  ImageSize,
   GenerateResult,
   GenerateImageInput,
   GenerateVideoInput,
