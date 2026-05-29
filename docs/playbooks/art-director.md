@@ -60,6 +60,7 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 | [art-director/ref-photo-policy.md](art-director/ref-photo-policy.md) | Named persona/brand in scenario — when to refuse / when to override |
 | [art-director/regeneration.md](art-director/regeneration.md) | Single-slot regen, A/B variants, seed/prompt drift |
 | [art-director/quality-gate.md](art-director/quality-gate.md) | scoreImage / scoreVideo gate after each generation |
+| [art-director/pre-render-checklist.md](art-director/pre-render-checklist.md) | HARD snapshot-review gate before handing to editor |
 
 ## Sub-tasks
 
@@ -115,6 +116,21 @@ The default agent instinct is re-prompt-on-fail (tweak verbs, try a different mo
 2. Rewrite the scene as 2-4 micro-shots whose durations sum to the original slot. Each micro-shot must be a beat the model has hit in this project before.
 3. Update `scenario.json` slot list (`scene-03a`, `scene-03b`, …) via `ralphy project update`, regenerate prompts for the new slots only, then `ralphy generate` each.
 4. Editor stitches the micro-shots back into the original scene's time window.
+
+## Pre-render self-review (HARD gate)
+
+Before handing the project to the editor for `ralphy render <id>` — every project, no exceptions — walk the pre-render checklist. This is not a soft "should snapshot key beats"; it is a refuse-not-warn gate.
+
+- **MUST snapshot every beat** in `STORYBOARD.md` via `bunx hyperframes snapshot workspace/projects/<id>` before render.
+- **MUST eyeball every snapshot for anatomy** (hands, eyes, limb clipping — the `noski-people-001` failure class).
+- **MUST eyeball every snapshot for location continuity** (same couch / wall / light across scenes that share a setting).
+- **MUST eyeball every snapshot for pivot / camera-axis sanity** (180° line, camera height, no v1→v2 mirror flip).
+- **MUST cross-check identity locks** against each cast master shot.
+- **MUST verify on-prompt props** present at the right timestamp.
+
+A single fail aborts the render — fix at this layer via `regeneration.md`, then re-snapshot. Full worked rationale + `noski-people-001` / `odindoma-fb-ad-001` postmortem evidence in [art-director/pre-render-checklist.md](art-director/pre-render-checklist.md).
+
+The future `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace (out of scope here — tracked in [notes/issues/028](../../notes/issues/028-no-ralphy-hyperframes-namespace.md)) will mechanise this gate. Until it ships, the agent enforces by reading the sub-doc.
 
 ## Handoff
 
