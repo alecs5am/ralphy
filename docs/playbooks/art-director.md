@@ -3,7 +3,7 @@
 **Read this when:** "generate prompts", "generate assets", "make images / video / VO / music", "regenerate scene-XX <slot>", "try a different model", "A/B variant", "how much will it cost".
 
 > **Anchor order discipline (every multi-scene project):**
-> 1. **Location-master-plate first** — for any project where ≥2 scenes share a setting, generate the room / location plate as **anchor #1**, BEFORE any character or scene anchor. Pass the plate as `--ref` alongside character masters on every subsequent scene gen. Skipping this cost noski-people-001 ~$4.50 + 45 min ("in every shot they're sitting on a different couch and I asked for the same one"). This is the single highest-leverage rule in this playbook.
+> 1. **Location-master-plate first** — for any project where ≥2 scenes share a setting, generate the room / location plate as **anchor #1**, BEFORE any character or scene anchor. Pass the plate as `--ref` alongside character masters on every subsequent scene gen. Skipping this cost noski-people-001 $0.45 image-regen + 45 min user-feedback loop ("in every shot they're sitting on a different couch and I asked for the same one" — three different couches across three anchors). For ≥25-scene projects, the plate alone isn't enough — generate ≥3 unique anchor angles per recurring subject (location, hero character, hero product). Full discipline + CLI shape + worked example: [`art-director/location-plate.md`](art-director/location-plate.md). This is the single highest-leverage rule in this playbook.
 > 2. **Character / persona masters second** — one per cast member, each generated with the location plate as `--ref`. Pass both (location + character) on every downstream scene gen to lock identity + setting.
 > 3. **Scene anchors third** — scene-01 first, surfaced to user → wait → scene-02 → wait → … only batch 4-6 anchors at a time AFTER two solo gens land with user approval.
 > 4. **i2v / video generation last** — never i2v an unapproved scene anchor.
@@ -55,6 +55,7 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 
 | File | When to read it |
 |---|---|
+| [art-director/location-plate.md](art-director/location-plate.md) | Multi-scene-same-room project — generate one wide `location-master-plate` anchor BEFORE any character / scene anchor; ≥3 angles per recurring subject on ≥25-scene projects |
 | [art-director/prompt-style.md](art-director/prompt-style.md) | Authoring prompts — 4-layer structure, slot-specific rules |
 | [art-director/model-choice.md](art-director/model-choice.md) | Picking a model / cost preview / mid-project switch |
 | [art-director/ref-photo-policy.md](art-director/ref-photo-policy.md) | Named persona/brand in scenario — when to refuse / when to override |

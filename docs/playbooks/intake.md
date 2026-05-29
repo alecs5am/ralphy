@@ -98,7 +98,7 @@ If the user says "another approach" / "not like that" / "this part is wrong", re
 
 After plan approval, generate **one beat at a time**, surfacing each to the user before the next:
 
-1. **Anchor #1 = location-master-plate** (if any scene shares a setting). Show user → wait for "good" / "fix the couch" / etc. Without the location plate, every scene anchor invents a different room — noski-people-001 spent ~$4.50 + 45 min relearning this. Anchor #1 BEFORE any character or scene anchor.
+1. **Anchor #1 = location-master-plate** (if any scene shares a setting — apartment, café, garage, office, store interior, any "same room" recurrence). Show user → wait for "good" / "fix the couch" / etc. Without the location plate, every scene anchor invents a different room — noski-people-001 spent $0.45 image-regen + 45 min user-feedback loop relearning this (three different couches across three anchors). Anchor #1 BEFORE any character or scene anchor. For ≥25-scene projects, generate ≥3 unique anchor angles per recurring subject (location, hero character, hero product). Full discipline + CLI shape: [`art-director/location-plate.md`](art-director/location-plate.md).
 2. **Character / persona masters.** One per cast member, each passed through with `--ref <location-master-plate>` for context. Wait for user yes/no.
 3. **Scene anchors.** Generate scene-01 first → wait → scene-02 → wait → … Group into batches of 4-6 ONLY after at least 2 individual gens land with user approval.
 4. **i2v clips.** Same cadence: scene-01-vid → check → scene-02-vid → check. Don't background-fire the whole batch.
