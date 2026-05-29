@@ -10,6 +10,8 @@
 >
 > **Photoreal-human projects:** read [`art-director/photoreal-humans.md`](art-director/photoreal-humans.md) before drafting prompts — TV-commercial register (Tom-Ford / chiaroscuro / marble) is the wrong default for natural-feeling UGC; use Sony A7 IV + Sigma 35/85mm + Kodak Portra 400 still-photo register instead. Venom-bodywash-001 burned ~$3 on this miscalibration.
 >
+> **Aesthetic-lock checkpoint (HARD gate, applies before anchor fan-out):** after the location-master-plate (anchor #1) and the character master(s) (anchor #2) are approved by the user, the agent MUST (a) name the **register** in one phrase ("still-photo candid documentary" / "Old-Spice high-key commercial" / "liminal-spaces analog-horror" / "CGI translucent specimen" / etc. — taxonomy at the top of [`photoreal-humans.md`](art-director/photoreal-humans.md)), (b) run the [`character-fit.md`](art-director/character-fit.md) check (clean mascot + gritty register? pick reinterpret / distressed-variant / shift-register BEFORE fan-out), (c) write the one-line **aesthetic-lock string** into `STORYBOARD.md`, and (d) generate **one cover per register** and surface it to the user. **Refuse to fan out scene anchors until the cover is approved.** Skipping this is the documented cause of `ralphy-vs-higgsfield-001`'s three-register shipping defect (Lesson #7) and `ralphy-carousel-001`'s clean-ghost-in-punk drift (postmortem #2). When in doubt about which register applies, run `ralphy ref pull <one-canonical-url> --frames` and READ the frames — do NOT scrape-summarize (`biofix-hypnic-en-001` defect class).
+>
 > **Model drift handling:** read [`art-director/regeneration.md`](art-director/regeneration.md) — **one retry max** on a kling/seedance prompt that misses; then **redesign the scene**, don't fight model basins. Glitter-cream-001 lost 2× $0.42 fighting "jar near cheek → powder compact" drift across 3 retries.
 
 Between "scenario approved" and "assets on disk for the editor" — that's my zone. Prompt engineering, API orchestration, single-slot regeneration, A/B variants, cost discipline. Never invent model-id from memory — always cross-check `MODELS.md`.
@@ -56,7 +58,9 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 | File | When to read it |
 |---|---|
 | [art-director/location-plate.md](art-director/location-plate.md) | Multi-scene-same-room project — generate one wide `location-master-plate` anchor BEFORE any character / scene anchor; ≥3 angles per recurring subject on ≥25-scene projects |
-| [art-director/prompt-style.md](art-director/prompt-style.md) | Authoring prompts — 4-layer structure, slot-specific rules |
+| [art-director/photoreal-humans.md](art-director/photoreal-humans.md) | Photoreal human characters — still-photo register (Sony A7 IV + Sigma + Kodak Portra 400), 5-cue checklist, anti-AI-slop block, wider register taxonomy |
+| [art-director/character-fit.md](art-director/character-fit.md) | Clean brand mascot paired with a gritty register (punk / acid / horror / xerox) — three choices: reinterpret-in-medium, distressed variant, or shift register. Decide at cover-first checkpoint |
+| [art-director/prompt-style.md](art-director/prompt-style.md) | Authoring prompts — register-first axis, 4-layer structure, slot-specific rules |
 | [art-director/model-choice.md](art-director/model-choice.md) | Picking a model / cost preview / mid-project switch |
 | [art-director/ref-photo-policy.md](art-director/ref-photo-policy.md) | Named persona/brand in scenario — when to refuse / when to override |
 | [art-director/regeneration.md](art-director/regeneration.md) | Single-slot regen, A/B variants, seed/prompt drift |
