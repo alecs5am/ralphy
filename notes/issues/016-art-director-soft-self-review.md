@@ -1,6 +1,6 @@
 # Art-director self-review is a soft checklist, not a hard gate
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
