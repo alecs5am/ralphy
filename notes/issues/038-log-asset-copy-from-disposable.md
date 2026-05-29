@@ -1,6 +1,6 @@
 # `project log-asset` doesn't copy; macOS disposable paths auto-delete
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
