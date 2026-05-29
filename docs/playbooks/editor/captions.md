@@ -1,5 +1,11 @@
 # Captions
 
+## Captions-first discipline (AGENTS.md invariant #16)
+
+**If the composition has caption overlays, run `ralphy generate captions` on each scene VO BEFORE writing any HyperFrames / Remotion timing constant.** Then snap every constant — scene-in, scene-out, beat marker, music duck-point — to a word-level `startMs` from the resulting `captions.json`. Don't open `index.html` and start typing `data-start="2400"` from feel; that path costs 3–11 edit iterations per project (`venom-bodywash-001` at 1.0–1.4s off, `choose-your-guide-001` at 11 iterations) and the captions still drift.
+
+For an aligned-to-VO cut as a whole (scene cuts gated by speech, not just caption overlays), use the stitched-VO scribe pattern in [`vo-sync.md`](vo-sync.md) first — it produces one `transcript.json` that drives both the cut and the captions.
+
 ## Generation
 
 Tool: `ralphy generate captions` (under the hood `cli/lib/transcribe.ts` → OpenRouter `openai/whisper-1`).
