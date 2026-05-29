@@ -1,6 +1,6 @@
 # "Split scene instead of regen" iteration pattern not in playbook
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
