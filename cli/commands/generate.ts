@@ -25,6 +25,34 @@ import { enqueueGenerate } from "../lib/jobs/enqueue.js";
 import type { JobKind } from "../lib/jobs/types.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
 import { resolveConnector } from "../lib/providers/registry.js";
+import { naturalSizeFor } from "../lib/providers/openrouter.js";
+
+/**
+ * Resolve --size / --aspect on the image command. #051: --aspect always wins
+ * when passed (it's the friendlier path that knows the model's natural grid);
+ * --size is kept as the legacy back-compat path. Returns the WxH string to
+ * forward to the connector.
+ */
+function resolveImageSize(opts: {
+  model: string | undefined;
+  size?: string;
+  aspect?: string;
+}): string {
+  if (!opts.model) return opts.size ?? "1080x1920";
+  const fallback = opts.size ?? "1080x1920";
+  if (!opts.aspect) return fallback;
+  const natural = naturalSizeFor(opts.model, opts.aspect);
+  if (natural) return natural;
+  // Aspect was passed but the model isn't in the table — synthesize WxH from
+  // the ratio so the downstream sizeToAspectRatio() still maps it correctly.
+  const m = opts.aspect.match(/^(\d+)\s*:\s*(\d+)$/);
+  if (m) {
+    const w = parseInt(m[1]!, 10);
+    const h = parseInt(m[2]!, 10);
+    if (w > 0 && h > 0) return `${1024 * w / Math.max(w, h) | 0}x${1024 * h / Math.max(w, h) | 0}`;
+  }
+  return fallback;
+}
 
 const QUEUE_FLAGS = (cmd: Command): Command =>
   cmd
@@ -238,8 +266,12 @@ export function generateCmd() {
     )
     .option(
       "--size <size>",
-      "Size hint (passed to model as prompt-level guidance; gemini/gpt image models do not accept exact pixel dimensions and will round to their natural sizes)",
-      "1080x1920"
+      "Size hint (passed to model as prompt-level guidance; gemini/gpt image models do not accept exact pixel dimensions and will round to their natural sizes). When --size doesn't match the model's natural grid, a warning is emitted to stderr at submit time (#051).",
+      "1080x1920",
+    )
+    .option(
+      "--aspect <aspect>",
+      "Aspect-ratio alias (9:16 | 16:9 | 1:1 | 3:4 | 4:3 | 2:3 | 3:2). Resolves to the chosen model's natural pixel grid (e.g. 9:16 on gpt-5.4-image-2 → 1024x1536, on gemini-3-pro-image-preview → 768x1376). Wins over --size when both are passed. #051",
     )
     .option("--negative <prompt>", "Negative prompt")
     .option("--note <note>", "Free-form note for generations.jsonl")
@@ -287,6 +319,7 @@ export function generateCmd() {
         // OR per-key concurrent cap (gpt-5.4-image-2 = 1) by serializing if the
         // model is known-capped; gemini-3-pro-image-preview tolerates ≥4 parallel.
         const resolvedModel = resolveModelAlias(opts.model);
+        const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
         const isCapped = resolvedModel === "openai/gpt-5.4-image-2";
         const runOne = async (i: number) => {
           const variantSlot = `${opts.slot}-v${i + 1}`;
@@ -296,7 +329,7 @@ export function generateCmd() {
             prompt: opts.prompt,
             model: resolvedModel,
             refs: opts.ref,
-            size: opts.size,
+            size: resolvedSize,
             negativePrompt: opts.negative,
             note: `${opts.note ?? ""} (variant ${i + 1}/${variants})`.trim(),
             overwrite: opts.forceOverwrite,
@@ -329,6 +362,7 @@ export function generateCmd() {
 
       const ui = await import("../lib/ui.js");
       const resolvedModel = resolveModelAlias(opts.model);
+      const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
       const result = await ui.withSpinner(
         `image (${resolvedModel}) → ${opts.slot}`,
         () =>
@@ -338,7 +372,7 @@ export function generateCmd() {
             prompt: opts.prompt,
             model: resolvedModel,
             refs: opts.ref,
-            size: opts.size,
+            size: resolvedSize,
             negativePrompt: opts.negative,
             note: opts.note,
             overwrite: opts.forceOverwrite,
@@ -788,7 +822,17 @@ export function generateCmd() {
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--audio <path>", "Audio file (mp3/m4a/wav, ≤25MB)")
     .option("--slot <slot>", "Slot id (default: derived from audio filename)")
-    .option("--language <lang>", "Audio language: ru | en | auto", "ru")
+    .option(
+      "--language <lang>",
+      "Audio language hint forwarded to ElevenLabs Scribe — ru | en | auto (default auto: Scribe auto-detects). #051: passing a wrong hint forces Scribe to lock onto that language; ralphy-vs-higgsfield-001 hit a misdetection by leaving the legacy 'ru' default in place on an EN clip.",
+      "auto",
+    )
+    .option(
+      "--low-confidence-threshold <n>",
+      "Per-word confidence threshold under which a word is surfaced in `low_confidence_words` in the output JSON. Default 0.6. #051",
+      (v) => Math.max(0, Math.min(1, parseFloat(v))),
+      0.6,
+    )
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
     .option("--output <path>", "Custom output path. Default: workspace/projects/<id>/assets/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
     .option("--legacy-output", "Write to the legacy shared captions.json instead of assets/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path.")
@@ -835,12 +879,28 @@ export function generateCmd() {
       };
       await writeManifest(opts.project, manifest);
 
+      // #051: surface low-confidence words (filtered by the user-tunable
+      // threshold) + the backend's self-reported language probability so the
+      // caller can spot a misdetected language without re-running.
+      const threshold = (opts.lowConfidenceThreshold as number | undefined) ?? 0.6;
+      const lowConfidenceWords = (result.lowConfidenceWords ?? []).filter(
+        (w) => w.confidence < threshold,
+      );
+      const languageWarning =
+        result.languageProbability !== null && result.languageProbability < 0.85
+          ? `Low language-detection confidence (${result.languageProbability.toFixed(2)}). Pass --language <code> to lock the language.`
+          : undefined;
+
       out({
         slot,
         path: outPath,
         captions: result.captions.length,
         durationSec: result.audioDurationSec,
         language: result.language,
+        languageProbability: result.languageProbability,
+        languageWarning,
+        lowConfidenceWords,
+        lowConfidenceThreshold: threshold,
         costUsd: result.costUsd,
         latencyMs: Date.now() - t0,
       });
