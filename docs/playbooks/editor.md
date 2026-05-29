@@ -111,6 +111,8 @@ Before routing a scene to `ralphy generate video`, classify the output:
 
 Cross-link: read [`hyperframes.md`](hyperframes.md) for the API specifics.
 
+> **Historical aside (Remotion).** If you're spelunking a pre-`92ef823` branch or a postmortem that mentions `STATIC_ROOT` / `composition-props.json`, the legacy Remotion convention is documented at [editor/render-pipeline.md → Legacy: Remotion `STATIC_ROOT` recipe](editor/render-pipeline.md#legacy-remotion-static_root-recipe-archived-for-postmortem-cross-reference). Not relevant to current HyperFrames work.
+
 ## Handoff
 
 - `preflight` found missing assets → **art-director playbook** to regenerate.
