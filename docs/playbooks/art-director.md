@@ -32,6 +32,10 @@ ralphy generate video --project <id> --slot scene-01-vid --prompt "<motion>" \
   --duration 5 [--image <ref-url>] [--model <id>] [--audio]   # --audio only with veo-3.1
 
 # Voiceover via ElevenLabs (eleven_multilingual_v2)
+# Parallel calls targeting the SAME slot are serialized by an in-process file lock
+# (#039) and verified via ffprobe after write — a corrupted 0-duration mp3 is
+# treated as a transient blip and retried once before failing hard. Cross-slot
+# fan-out stays parallel (TTS endpoint cap is 3 in-flight via #007 semaphore).
 ralphy generate voiceover --project <id> --slot scene-01-vo --voice <voiceId> --text "<line>"
 
 # Music bed via ElevenLabs Music
