@@ -99,6 +99,23 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 5. **Iterate by single-slot regen, never overwrite.** "Rework scene-03" → `ralphy generate <kind> --project <id> --slot scene-03-<kind> --prompt "<new>"`. Append-only versioning writes `<slot>.v2.<ext>` (then `v3`, `v4`, …). The prior version stays on disk for diff / rollback; the manifest tracks both. Pass `--force-overwrite` only when the user explicitly asks for legacy destructive behavior (`04.01.03`).
 6. **Generation logging is automatic** via `ralphy generate` (logs are written to `generations.jsonl`). **User-prompt logging is NOT automatic — you MUST log it.** Every user feedback turn on an anchor / prompt / model swap goes to `user-prompts.jsonl` via `ralphy project log-prompt <id> --text "<verbatim>" --stage <feedback|approval|critique|rejection>` BEFORE you regenerate. Same MUST-log discipline as the scenarist playbook (see [`scenarist.md` → "User-prompt logging"](scenarist.md#user-prompt-logging-must-every-turn)). "Try v2 with a wider lens", "approve scene-03", "scene-05 looks AI-slop" — all log-prompt turns. Sparse logs are the documented cause of unreliable postmortems.
 
+## Split-scene-instead-of-regen (repeat-failure rule)
+
+**Rule.** When a single scene fails twice on the same axis — the same motion beat, the same camera move, the same physically-impossible action — **stop re-prompting and split it into N micro-shots inside the original slot's time budget.** Don't try a third prompt variant; that loop converges nowhere.
+
+The default agent instinct is re-prompt-on-fail (tweak verbs, try a different model, add a negative). For "one beat the model can't deliver" failures, that instinct is wrong. Splitting converts an impossible 5s shot into three possible ~1.6s shots — each a beat the model *can* hit — and the editor stitches them within the same slot duration. The total cost is usually lower than a third regen and the result actually lands.
+
+**Concrete example — `flipper-hypermotion-001` scene-03 (POSTMORTEM rule #11).** Scene-03 was a single 5s hypermotion shot the model couldn't sustain; two regens on the same prompt axis drifted the same way. The redo (one scene, split into micro-shots) cost **$1.28 — ~10% of the entire project budget** — and produced more lessons per dollar than the rest of phase 3 combined. The lesson the postmortem locked in: the second failure on the same axis is the signal to restructure, not to re-prompt.
+
+**Structural pairing.** Splitting becomes much cheaper once `ralphy ref extract-frame` + `ralphy generate video --extend-from <slot>` ship (see [notes/issues/012-no-frame-extract-or-i2v-extend-verbs.md](../../notes/issues/012-no-frame-extract-or-i2v-extend-verbs.md)) — that pair lets you i2v-anchor each micro-shot from the previous one's last frame, keeping continuity without a fresh anchor for every sub-beat. Until those verbs land, hand-author the split by reusing the scene anchor as `--ref` on every micro-shot.
+
+**Operationally.**
+
+1. After the second failure on the same axis, write down the axis in one line ("camera can't crash-zoom through the prop on contact") and stop regenerating.
+2. Rewrite the scene as 2-4 micro-shots whose durations sum to the original slot. Each micro-shot must be a beat the model has hit in this project before.
+3. Update `scenario.json` slot list (`scene-03a`, `scene-03b`, …) via `ralphy project update`, regenerate prompts for the new slots only, then `ralphy generate` each.
+4. Editor stitches the micro-shots back into the original scene's time window.
+
 ## Handoff
 
 - After `generate-assets` with all slots filled → **editor playbook** (compose + render).

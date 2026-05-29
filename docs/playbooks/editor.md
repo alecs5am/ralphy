@@ -119,3 +119,4 @@ Cross-link: read [`hyperframes.md`](hyperframes.md) for the API specifics.
 - Timings drifted (VO ≠ scenario.duration) → **scenarist playbook** to re-time scenes.
 - After `final-render`, if it's part of a batch → **producer playbook**.
 - New HyperFrames pattern → **[hyperframes playbook](hyperframes.md)** + relevant skill body (`gsap`, `lottie`, `animejs`, …) before writing code.
+- A scene fails twice on the same axis during recompose / regen — see **[art-director playbook → Split-scene-instead-of-regen](art-director.md#split-scene-instead-of-regen-repeat-failure-rule)**. Stop re-prompting; split into micro-shots inside the same slot budget.
