@@ -1,6 +1,6 @@
 # Feedback memory entries over-applied; no "Does NOT apply to" line
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
