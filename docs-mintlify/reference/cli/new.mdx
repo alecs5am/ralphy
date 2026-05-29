@@ -1,6 +1,6 @@
 ---
 title: "ralphy new"
-description: "Create a new project under ~/.ralphy/projects/<id>/ with a canonical layout. CWD-independent. Pass a brief to seed BRIEF.md or just --id <slug> for an empty she"
+description: "Create a new project under <workspace>/projects/<id>/ with a canonical layout. Lightweight on-ramp — pass a brief to seed BRIEF.md or just --id <slug> for an em"
 ---
 
 {/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
@@ -16,6 +16,8 @@ ralphy new [options] [brief...]
 | Flag | Description |
 |---|---|
 | `--id <slug>` | Project id slug (default: derived from brief or YYMMDD-HHMMSS) |
+| `--name <name>` | Display name (default: title-cased id) |
+| `--brand <id>` | Brand id (registry lookup) |
 
 **Example**
 
@@ -30,6 +32,13 @@ ralphy new "Spring 2026 ad for Acme dental floss"
 | Flag | Description |
 |---|---|
 | `--id <slug>` | Project id slug (default: derived from brief or YYMMDD-HHMMSS) |
+| `--name <name>` | Display name (default: title-cased id) |
+| `--brand <id>` | Brand id (registry lookup) |
+| `--persona <id>` | Persona id (registry lookup) |
+| `--template <id>` | Template id |
+| `--platform <platform>` | Target platform (default: "tiktok") |
+| `--aspect-ratio <ratio>` | Aspect ratio (default: "9:16") |
+| `--duration <seconds>` | Target duration in seconds |
 | `-h, --help` | display help for command |
 
 **All examples**
