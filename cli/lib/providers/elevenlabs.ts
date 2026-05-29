@@ -13,6 +13,8 @@ import {
   protectExistingAsset,
   logFailure,
   requireProviderKey,
+  retryTransient,
+  TerminalProviderError,
 } from "./shared.js";
 import type {
   RalphyConnector,
@@ -95,31 +97,46 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     output_format: "mp3_44100_128",
   };
 
-  let resp: Response;
-  try {
-    resp = await fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
-      method: "POST",
-      headers: {
-        "xi-api-key": apiKey,
-        "Content-Type": "application/json",
-        "User-Agent": UA,
+  // #005: wrap the TTS POST in transient-error retry. 4xx → terminal, 5xx /
+  // TLS / ECONNRESET → 2-retry exponential backoff. Voice-existence preflight
+  // is OUTSIDE this loop on purpose — a 404 voice id is a terminal config
+  // error, not a network blip.
+  const tts = await retryTransient<{ buf: Buffer; attempt: number }>(
+    async (attempt) => {
+      let resp: Response;
+      try {
+        resp = await fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
+          method: "POST",
+          headers: {
+            "xi-api-key": apiKey,
+            "Content-Type": "application/json",
+            "User-Agent": UA,
+          },
+          body: JSON.stringify(body),
+          signal: input.signal,
+        });
+      } catch (err) {
+        throw err;
+      }
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        const message = `ElevenLabs TTS ${resp.status}: ${text.slice(0, 500)}`;
+        if (resp.status >= 400 && resp.status < 500) {
+          throw new TerminalProviderError(message);
+        }
+        throw new Error(message);
+      }
+      return { buf: Buffer.from(await resp.arrayBuffer()), attempt };
+    },
+    {
+      noRetry: input.noRetry,
+      onTransientFailure: async (err, attempt) => {
+        await logFailure(input, ID, modelId, "voiceover", body, err, t0, attempt);
       },
-      body: JSON.stringify(body),
-      signal: input.signal,
-    });
-  } catch (err) {
-    await logFailure(input, ID, modelId, "voiceover", body, err, t0);
-    throw err;
-  }
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    const err = new Error(`ElevenLabs TTS ${resp.status}: ${text.slice(0, 500)}`);
-    await logFailure(input, ID, modelId, "voiceover", body, err, t0);
-    throw err;
-  }
-
-  const buf = Buffer.from(await resp.arrayBuffer());
+    },
+  );
+  const buf = tts.buf;
   const localPath = assetPath(input.projectId, "voiceover", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
   await protectExistingAsset(localPath, input.overwrite);
@@ -143,6 +160,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     status: "ok",
     latency_ms: result.latencyMs,
     cost_usd: 0,
+    attempt: tts.attempt,
     note: input.note ?? input.slot,
   });
   return result;
@@ -165,53 +183,67 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     model_id: modelId,
   };
 
-  let resp: Response;
-  try {
-    resp = await fetch(`${BASE_URL}/music`, {
-      method: "POST",
-      headers: {
-        "xi-api-key": apiKey,
-        "Content-Type": "application/json",
-        "User-Agent": UA,
-      },
-      body: JSON.stringify(body),
-      signal: input.signal,
-    });
-  } catch (err) {
-    await logFailure(input, ID, modelId, "music", body, err, t0);
-    throw err;
-  }
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    // ElevenLabs Music returns 422 `bad_prompt` ToS rejections with a `detail.data.prompt_suggestion`
-    // field carrying a model-cleaned rewrite. Surface it as a structured property on the thrown
-    // error so callers (skill code, CLI retry loops) can resubmit programmatically rather than
-    // hand-rewriting. Three postmortems (playdate / skater / glitter-cream) hit this and wasted
-    // 3 manual rewrites per session.
-    let promptSuggestion: string | undefined;
-    try {
-      const parsed = JSON.parse(text) as {
-        detail?: { data?: { prompt_suggestion?: string } } | string;
-      };
-      if (parsed?.detail && typeof parsed.detail === "object") {
-        promptSuggestion = parsed.detail.data?.prompt_suggestion;
+  // #005: wrap the Music POST in transient-error retry. 4xx (including 422
+  // `bad_prompt` ToS — #006 owns the auto-resubmit) → terminal. 5xx / TLS /
+  // socket → 2-retry backoff. The `promptSuggestion` rewrite stays on the
+  // terminal-error path so callers see it on the first refusal.
+  const music = await retryTransient<{ buf: Buffer; attempt: number }>(
+    async (attempt) => {
+      let resp: Response;
+      try {
+        resp = await fetch(`${BASE_URL}/music`, {
+          method: "POST",
+          headers: {
+            "xi-api-key": apiKey,
+            "Content-Type": "application/json",
+            "User-Agent": UA,
+          },
+          body: JSON.stringify(body),
+          signal: input.signal,
+        });
+      } catch (err) {
+        throw err;
       }
-    } catch {
-      /* not JSON — leave promptSuggestion undefined */
-    }
-    const err = new Error(
-      `ElevenLabs Music ${resp.status}: ${text.slice(0, 500)}` +
-        (promptSuggestion ? `\n  prompt_suggestion: ${promptSuggestion}` : ""),
-    );
-    if (promptSuggestion) {
-      (err as Error & { promptSuggestion?: string }).promptSuggestion = promptSuggestion;
-    }
-    await logFailure(input, ID, modelId, "music", body, err, t0);
-    throw err;
-  }
 
-  const buf = Buffer.from(await resp.arrayBuffer());
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        let promptSuggestion: string | undefined;
+        try {
+          const parsed = JSON.parse(text) as {
+            detail?: { data?: { prompt_suggestion?: string } } | string;
+          };
+          if (parsed?.detail && typeof parsed.detail === "object") {
+            promptSuggestion = parsed.detail.data?.prompt_suggestion;
+          }
+        } catch {
+          /* not JSON — leave promptSuggestion undefined */
+        }
+        const message =
+          `ElevenLabs Music ${resp.status}: ${text.slice(0, 500)}` +
+          (promptSuggestion ? `\n  prompt_suggestion: ${promptSuggestion}` : "");
+        if (resp.status >= 400 && resp.status < 500) {
+          const err = new TerminalProviderError(message);
+          if (promptSuggestion) {
+            (err as Error & { promptSuggestion?: string }).promptSuggestion = promptSuggestion;
+          }
+          throw err;
+        }
+        const err = new Error(message);
+        if (promptSuggestion) {
+          (err as Error & { promptSuggestion?: string }).promptSuggestion = promptSuggestion;
+        }
+        throw err;
+      }
+      return { buf: Buffer.from(await resp.arrayBuffer()), attempt };
+    },
+    {
+      noRetry: input.noRetry,
+      onTransientFailure: async (err, attempt) => {
+        await logFailure(input, ID, modelId, "music", body, err, t0, attempt);
+      },
+    },
+  );
+  const buf = music.buf;
   const localPath = assetPath(input.projectId, "music", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
   await protectExistingAsset(localPath, input.overwrite);
@@ -234,6 +266,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     status: "ok",
     latency_ms: result.latencyMs,
     cost_usd: 0,
+    attempt: music.attempt,
     note: input.note ?? input.slot,
   });
   return result;

@@ -278,6 +278,7 @@ export function generateCmd() {
     .option("--variants <n>", "Generate N parallel variants (writes <slot>-v1.png .. <slot>-vN.png). Useful for A/B exploration without re-typing the prompt. appstore postmortem ate ~20 min hand-suffixing this.", (v) => Math.max(1, Math.min(8, parseInt(v, 10) || 1)))
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Use for tests / debugging where you want the first response no matter what.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
@@ -333,6 +334,7 @@ export function generateCmd() {
             negativePrompt: opts.negative,
             note: `${opts.note ?? ""} (variant ${i + 1}/${variants})`.trim(),
             overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
           });
           return { slot: variantSlot, ...r };
         };
@@ -376,6 +378,7 @@ export function generateCmd() {
             negativePrompt: opts.negative,
             note: opts.note,
             overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
           }),
         {
           successText: (r) => `image ${ui.c.cmd(opts.slot)} → ${ui.c.path(r.localPath)} ${ui.c.muted(`($${r.costUsd.toFixed(3)}, ${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
@@ -448,6 +451,7 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp4.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Wraps the initial videos-submit POST; the poll loop has its own budget.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
@@ -529,6 +533,7 @@ export function generateCmd() {
             pollMaxAttempts: opts.pollMaxAttempts,
             note: opts.note,
             overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
           }),
         {
           successText: (r) => `video ${uiv.c.cmd(opts.slot)} → ${uiv.c.path(r.localPath)} ${uiv.c.muted(`($${r.costUsd.toFixed(2)}, ${(r.latencyMs / 1000).toFixed(0)}s)`)}`,
@@ -613,6 +618,7 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
@@ -655,6 +661,7 @@ export function generateCmd() {
             voiceSettings: Object.keys(voiceSettings).length > 0 ? (voiceSettings as any) : undefined,
             note: opts.note,
             overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
           }),
         {
           successText: (r) => `voiceover ${uivo.c.cmd(opts.slot)} → ${uivo.c.path(r.localPath)} ${uivo.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
@@ -693,6 +700,7 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff. 422 `bad_prompt` ToS rejections are terminal (not retried) — #006 owns the auto-resubmit path.")
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
@@ -731,6 +739,7 @@ export function generateCmd() {
             forceInstrumental: !opts.withVocals,
             note: opts.note,
             overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
           }),
         {
           successText: (r) => `music ${uim.c.cmd(opts.slot)} → ${uim.c.path(r.localPath)} ${uim.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
@@ -771,6 +780,7 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx.")
     .action(async (opts) => {
       await ensureProject(opts.project);
       opts.slot = normalizeSlot(opts.slot);
@@ -789,6 +799,7 @@ export function generateCmd() {
             promptInfluence: opts.promptInfluence,
             note: opts.note,
             overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
           }),
         {
           successText: (r) => `sfx ${uisfx.c.cmd(opts.slot)} → ${uisfx.c.path(r.localPath)} ${uisfx.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,

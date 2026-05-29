@@ -20,6 +20,9 @@ import {
   logFailure,
   rewriteUpstreamError,
   requireProviderKey,
+  retryTransient,
+  TerminalProviderError,
+  TransientPayloadError,
 } from "./shared.js";
 import type {
   RalphyConnector,
@@ -133,7 +136,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
   requireKey();
   const apiKey = process.env.OPENROUTER_API_KEY!;
   const model = opts.model ?? DEFAULT_LLM_MODEL;
-  const t0 = Date.now();
+  const endpoint = opts.endpoint ?? "openrouter/chat-completions";
 
   const body: Record<string, unknown> = {
     model,
@@ -143,41 +146,95 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
   };
   if (opts.jsonMode) body.response_format = { type: "json_object" };
 
-  const resp = await fetch(`${BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  // #005: wrap the chat-completions POST in a transient-error retry loop.
+  // Skeleton-null / MALFORMED_FUNCTION_CALL go through TransientPayloadError;
+  // 4xx semantic errors stay TerminalProviderError so the user sees the real
+  // refusal without burning retries.
+  return retryTransient(
+    async (attempt) => {
+      const t0 = Date.now();
+      const resp = await fetch(`${BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const latencyMs = Date.now() - t0;
+
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        const message = `${ID} ${resp.status}: ${errText.slice(0, 500)}`;
+        if (resp.status >= 400 && resp.status < 500) {
+          throw new TerminalProviderError(message);
+        }
+        // 5xx → plain Error so classifier sees the status + body and decides.
+        throw new Error(message);
+      }
+
+      const json = (await resp.json()) as {
+        choices?: Array<{
+          message?: { content?: string };
+          finish_reason?: string | null;
+        }>;
+      };
+      const choice = json.choices?.[0];
+      const text = choice?.message?.content ?? "";
+      const finish = choice?.finish_reason ?? null;
+
+      // Gemini skeleton-null: 200-OK with `finish_reason: null` and empty
+      // content. kbo-broadcast-001 hit this 4× before the 5th attempt
+      // succeeded. Treat as transient.
+      if ((finish === null || finish === undefined) && text.length === 0) {
+        throw new TransientPayloadError(
+          `${ID} chat-completions returned skeleton-null (finish_reason=${finish}, content="") on ${model}. Raw: ${JSON.stringify(json).slice(0, 500)}`,
+        );
+      }
+      // MALFORMED_FUNCTION_CALL: OR returns this finish_reason when a tool-use
+      // turn glitches — retry usually clears it.
+      if (finish === "MALFORMED_FUNCTION_CALL") {
+        throw new TransientPayloadError(
+          `${ID} chat-completions finish_reason=MALFORMED_FUNCTION_CALL on ${model}. Raw: ${JSON.stringify(json).slice(0, 500)}`,
+        );
+      }
+
+      if (opts.projectId) {
+        await logGeneration(opts.projectId, {
+          provider: ID,
+          model,
+          endpoint,
+          kind: "text",
+          input: { model, messages: opts.messages.length, slot: opts.slot, project: opts.projectId },
+          output: { bytes: text.length },
+          status: "ok",
+          latency_ms: latencyMs,
+          attempt,
+        });
+      }
+
+      return { text, raw: json, provider: ID, model, latencyMs };
     },
-    body: JSON.stringify(body),
-  });
-
-  const latencyMs = Date.now() - t0;
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => "");
-    throw new Error(`${ID} ${resp.status}: ${errText.slice(0, 500)}`);
-  }
-
-  const json = (await resp.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const text = json.choices?.[0]?.message?.content ?? "";
-
-  if (opts.projectId) {
-    await logGeneration(opts.projectId, {
-      provider: ID,
-      model,
-      endpoint: opts.endpoint ?? "openrouter/chat-completions",
-      kind: "text",
-      input: { model, messages: opts.messages.length, slot: opts.slot, project: opts.projectId },
-      output: { bytes: text.length },
-      status: "ok",
-      latency_ms: latencyMs,
-    });
-  }
-
-  return { text, raw: json, provider: ID, model, latencyMs };
+    {
+      noRetry: opts.noRetry,
+      onTransientFailure: opts.projectId
+        ? async (err, attempt) => {
+            await logGeneration(opts.projectId!, {
+              provider: ID,
+              model,
+              endpoint,
+              kind: "text",
+              input: { model, messages: opts.messages.length, slot: opts.slot, project: opts.projectId },
+              status: "error",
+              error: err instanceof Error ? err.message : String(err),
+              attempt,
+              note: `transient retry ${attempt}`,
+            });
+          }
+        : undefined,
+    },
+  );
 }
 
 // ─── image ───────────────────────────────────────────────────────────────────
@@ -263,57 +320,77 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     process.stderr.write(`[warn] ${mismatch}\n`);
   }
 
-  let resp: Response;
-  try {
-    resp = await fetch(`${BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: input.signal,
-    });
-  } catch (err) {
-    await logFailure(input, ID, model, "image", body, err, t0);
-    throw err;
-  }
+  // #005: wrap the POST + payload-parse in `retryTransient`. Only the network
+  // call is retried; once we have a `url`, the protect+write block runs once.
+  type ImageNetResult = { url: string; rawJson: unknown };
+  const net = await retryTransient<ImageNetResult & { _attempt: number }>(
+    async (attempt) => {
+      const tCall = Date.now();
+      let resp: Response;
+      try {
+        resp = await fetch(`${BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+          signal: input.signal,
+        });
+      } catch (err) {
+        // Network-layer throw (fetch failed, TLS, ECONNRESET). Re-throw as-is —
+        // classifier sees `.code` / message and decides transient vs terminal.
+        throw err;
+      }
 
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    const err = new Error(`OpenRouter images ${rewriteUpstreamError(model, resp.status, text)}`);
-    await logFailure(input, ID, model, "image", body, err, t0);
-    throw err;
-  }
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        const rewritten = rewriteUpstreamError(model, resp.status, text);
+        const message = `OpenRouter images ${rewritten}`;
+        if (resp.status >= 400 && resp.status < 500) {
+          throw new TerminalProviderError(message);
+        }
+        throw new Error(message);
+      }
 
-  const json = (await resp.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string;
-        images?: Array<{ image_url?: { url?: string }; url?: string }>;
+      const json = (await resp.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: string;
+            images?: Array<{ image_url?: { url?: string }; url?: string }>;
+          };
+          finish_reason?: string;
+        }>;
       };
-      finish_reason?: string;
-    }>;
-  };
-  const imgEntry = json.choices?.[0]?.message?.images?.[0];
-  const url = imgEntry?.image_url?.url ?? imgEntry?.url;
-  if (!url) {
-    const finish = json.choices?.[0]?.finish_reason ?? "unknown";
-    const text = json.choices?.[0]?.message?.content ?? "";
-    const rawDump = JSON.stringify(json).slice(0, 1500);
-    const err = new Error(
-      `OpenRouter image response had no images[0] (model=${model}, finish_reason=${finish}). Message text: ${text.slice(0, 600) || "<empty>"}. Raw response: ${rawDump}`
-    );
-    await logFailure(input, ID, model, "image", body, err, t0);
-    throw err;
-  }
+      const imgEntry = json.choices?.[0]?.message?.images?.[0];
+      const url = imgEntry?.image_url?.url ?? imgEntry?.url;
+      if (!url) {
+        const finish = json.choices?.[0]?.finish_reason ?? "unknown";
+        const text = json.choices?.[0]?.message?.content ?? "";
+        const rawDump = JSON.stringify(json).slice(0, 1500);
+        // Skeleton / empty `images[]` on 200 — transient (gpt-image + gemini
+        // both surface this when the upstream pool blips).
+        throw new TransientPayloadError(
+          `OpenRouter image response had no images[0] (model=${model}, finish_reason=${finish}). Message text: ${text.slice(0, 600) || "<empty>"}. Raw response: ${rawDump}`,
+        );
+      }
+      void tCall;
+      return { url, rawJson: json, _attempt: attempt };
+    },
+    {
+      noRetry: input.noRetry,
+      onTransientFailure: async (err, attempt) => {
+        await logFailure(input, ID, model, "image", body, err, t0, attempt);
+      },
+    },
+  );
 
   const imgDest = assetPath(input.projectId, "images", `${input.slot}.png`);
   await protectExistingAsset(imgDest, input.overwrite);
-  const localPath = await writeImageFromUrlOrDataUri(url, imgDest);
+  const localPath = await writeImageFromUrlOrDataUri(net.url, imgDest);
 
   const result: GenerateResult = {
-    url,
+    url: net.url,
     localPath,
     costUsd: IMAGE_PRICE_PER_GEN[model] ?? IMAGE_PRICE_FALLBACK,
     latencyMs: Date.now() - t0,
@@ -326,10 +403,11 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     endpoint: model,
     kind: "image",
     input: { slot: input.slot, project: input.projectId, prompt: input.prompt, size, refs: input.refs ?? [] },
-    output: { url, local: localPath },
+    output: { url: net.url, local: localPath },
     status: "ok",
     latency_ms: result.latencyMs,
     cost_usd: result.costUsd,
+    attempt: net._attempt,
     note: input.note ?? input.slot,
   });
   return result;
@@ -415,29 +493,6 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   }
   if (frameImages.length > 0) body.frame_images = frameImages;
 
-  let resp: Response;
-  try {
-    resp = await fetch(`${BASE_URL}/videos`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: input.signal,
-    });
-  } catch (err) {
-    await logFailure(input, ID, model, "video", body, err, t0);
-    throw err;
-  }
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    const err = new Error(`OpenRouter videos submit ${rewriteUpstreamError(model, resp.status, text)}`);
-    await logFailure(input, ID, model, "video", body, err, t0);
-    throw err;
-  }
-
   type VideoJob = {
     id: string;
     status: string;
@@ -446,19 +501,59 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     error?: string | { message?: string };
   };
 
-  let job = (await resp.json()) as VideoJob & Record<string, unknown>;
-  if (!job.id) {
-    const jobErr =
-      typeof job.error === "string"
-        ? job.error
-        : (job.error as { message?: string } | undefined)?.message ?? "";
-    const rawDump = JSON.stringify(job).slice(0, 1500);
-    const err = new Error(
-      `OpenRouter video submit had no job.id (model=${model}). Error field: ${jobErr || "<empty>"}. Raw response: ${rawDump}`
-    );
-    await logFailure(input, ID, model, "video", body, err, t0);
-    throw err;
-  }
+  // #005: wrap the initial submit in `retryTransient`. The poll loop below
+  // is its own thing and already has a max-attempts budget — keep them
+  // separate so a real terminal error during submit doesn't burn polls.
+  const submitResult = await retryTransient<{ job: VideoJob & Record<string, unknown>; attempt: number }>(
+    async (attempt) => {
+      let resp: Response;
+      try {
+        resp = await fetch(`${BASE_URL}/videos`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+          signal: input.signal,
+        });
+      } catch (err) {
+        throw err;
+      }
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        const rewritten = rewriteUpstreamError(model, resp.status, text);
+        const message = `OpenRouter videos submit ${rewritten}`;
+        if (resp.status >= 400 && resp.status < 500) {
+          throw new TerminalProviderError(message);
+        }
+        throw new Error(message);
+      }
+
+      const submitted = (await resp.json()) as VideoJob & Record<string, unknown>;
+      if (!submitted.id) {
+        const jobErr =
+          typeof submitted.error === "string"
+            ? submitted.error
+            : (submitted.error as { message?: string } | undefined)?.message ?? "";
+        const rawDump = JSON.stringify(submitted).slice(0, 1500);
+        // No job.id on 200 → transient (choose-your-guide hit this via OR 502).
+        throw new TransientPayloadError(
+          `OpenRouter video submit had no job.id (model=${model}). Error field: ${jobErr || "<empty>"}. Raw response: ${rawDump}`,
+        );
+      }
+      return { job: submitted, attempt };
+    },
+    {
+      noRetry: input.noRetry,
+      onTransientFailure: async (err, attempt) => {
+        await logFailure(input, ID, model, "video", body, err, t0, attempt);
+      },
+    },
+  );
+  let job = submitResult.job;
+  const submitAttempt = submitResult.attempt;
 
   const terminalErr = new Set(["failed", "cancelled", "expired"]);
   for (let attempt = 1; attempt <= pollMaxAttempts; attempt += 1) {
@@ -545,6 +640,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     status: "ok",
     latency_ms: result.latencyMs,
     cost_usd: result.costUsd,
+    attempt: submitAttempt,
     note: input.note ?? input.slot,
   });
   return result;
