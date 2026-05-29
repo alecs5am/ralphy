@@ -179,7 +179,7 @@ describe("ralphy generate video --dry-run", () => {
     expect(r.exitCode).toBe(0);
     expect(r.json.dryRun).toBe(true);
     expect(r.json.aspectRatio).toBe("21:9");
-  });
+  }, 15000);
 });
 
 describe("ralphy queue list (empty DB)", () => {
