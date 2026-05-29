@@ -1,6 +1,6 @@
 # Slot-id validator too strict; no auto-normalize
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** low
