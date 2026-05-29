@@ -367,7 +367,7 @@ export function generateCmd() {
       "Resolution. Per-model whitelist: kling 720p only, veo up to 4K, seedance 480p/720p/1080p. See `ralphy models show <id>`",
       "720p"
     )
-    .option("--audio", "Enable model-native audio. Supported by veo-3.1, kling-v3.0-pro (EN only — accent slip / age drift on RU per noski + venom postmortems), seedance-2.0, and most other modern i2v endpoints. See MODELS.md per-model audio column.", false)
+    .option("--audio", "Enable model-native audio. veo-3.1 default; kling-v3.0-pro + seedance-2.0 also support it (SPEECH: kling EN only, seedance unvalidated; AMBIENT/SFX: any). See MODELS.md `--audio` policy section.", false)
     .option("--poll-interval-ms <ms>", "Polling cadence (default 15000)", parseInt)
     .option("--poll-max-attempts <n>", "Max polls before timeout (default 80 ≈ 20min)", parseInt)
     .option(
