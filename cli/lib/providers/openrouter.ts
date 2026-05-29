@@ -25,6 +25,7 @@ import {
   TerminalProviderError,
   TransientPayloadError,
 } from "./shared.js";
+import { withConcurrency } from "./concurrency.js";
 import type {
   RalphyConnector,
   CallLLMOptions,
@@ -154,14 +155,19 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
   return retryTransient(
     async (attempt) => {
       const t0 = Date.now();
-      const resp = await fetch(`${BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+      // #007: hold a concurrency slot only for the network round-trip. The
+      // retry backoff sleep runs OUTSIDE the semaphore so a stuck call doesn't
+      // starve other callers — retry re-acquires a fresh slot on each attempt.
+      const resp = await withConcurrency(ID, model, "text", () =>
+        fetch(`${BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }),
+      );
 
       const latencyMs = Date.now() - t0;
 
@@ -329,15 +335,19 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
       const tCall = Date.now();
       let resp: Response;
       try {
-        resp = await fetch(`${BASE_URL}/chat/completions`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-          signal: input.signal,
-        });
+        // #007: in-process concurrency self-throttle. Wraps the round-trip
+        // only; retry-OUTSIDE-semaphore so backoff sleeps don't pin the slot.
+        resp = await withConcurrency(ID, model, "image", () =>
+          fetch(`${BASE_URL}/chat/completions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+            signal: input.signal,
+          }),
+        );
       } catch (err) {
         // Network-layer throw (fetch failed, TLS, ECONNRESET). Re-throw as-is —
         // classifier sees `.code` / message and decides transient vs terminal.
@@ -549,15 +559,20 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     async (attempt) => {
       let resp: Response;
       try {
-        resp = await fetch(`${BASE_URL}/videos`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-          signal: input.signal,
-        });
+        // #007: hold a concurrency slot for the submit round-trip only. The
+        // poll loop below is its own thing and doesn't pin a slot — long-
+        // running video jobs would starve everyone otherwise.
+        resp = await withConcurrency(ID, model, "video", () =>
+          fetch(`${BASE_URL}/videos`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+            signal: input.signal,
+          }),
+        );
       } catch (err) {
         throw err;
       }
