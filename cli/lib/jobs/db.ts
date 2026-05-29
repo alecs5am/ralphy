@@ -315,6 +315,117 @@ export function retryJob(id: number): boolean {
   return (r.changes ?? 0) > 0;
 }
 
+/**
+ * Bulk cancel jobs matched by tag and/or state. At least one of `tag` /
+ * `state` must be set — we refuse to mass-cancel without a filter to make
+ * accidental "cancel everything" wipes harder.
+ *
+ * Append-only invariant: this flips status to 'cancelled' on rows whose
+ * status is currently in {pending, running, blocked}. Rows are NOT deleted.
+ * Terminal rows (completed / failed / already cancelled) are skipped — pass
+ * them explicitly via --state if you want to no-op-match them.
+ *
+ * Returns the list of affected job ids (in id order) plus the count of
+ * matched-but-not-eligible rows so callers can report "matched N, cancelled M".
+ */
+export function cancelJobsByFilter(filter: {
+  tag?: string;
+  state?: JobStatus | JobStatus[];
+}): { cancelled: number[]; matchedButTerminal: number } {
+  if (!filter.tag && !filter.state) {
+    throw new Error(
+      "cancelJobsByFilter requires at least one of `tag` or `state` — refusing to mass-cancel without a filter",
+    );
+  }
+  const db = openDb();
+  const where: string[] = [];
+  const params: any[] = [];
+  if (filter.tag) {
+    where.push("tag = ?");
+    params.push(filter.tag);
+  }
+  if (filter.state) {
+    const arr = Array.isArray(filter.state) ? filter.state : [filter.state];
+    where.push(`status IN (${arr.map(() => "?").join(",")})`);
+    params.push(...arr);
+  }
+  const matches = db
+    .query(`SELECT id, status FROM jobs WHERE ${where.join(" AND ")} ORDER BY id ASC`)
+    .all(...params) as Array<{ id: number; status: JobStatus }>;
+  const CANCELLABLE = new Set<JobStatus>(["pending", "running", "blocked"]);
+  const cancelled: number[] = [];
+  let matchedButTerminal = 0;
+  const stmt = db.prepare(
+    "UPDATE jobs SET status='cancelled', ended_at=? WHERE id=? AND status IN ('pending','running','blocked')",
+  );
+  const txn = db.transaction(() => {
+    for (const m of matches) {
+      if (!CANCELLABLE.has(m.status)) {
+        matchedButTerminal++;
+        continue;
+      }
+      const r = stmt.run(Date.now(), m.id);
+      if ((r.changes ?? 0) > 0) cancelled.push(m.id);
+    }
+  });
+  txn();
+  return { cancelled, matchedButTerminal };
+}
+
+/**
+ * Bulk retry jobs matched by tag and/or state. Same filter discipline as
+ * cancelJobsByFilter — at least one filter required. Only rows in
+ * {failed, cancelled, blocked} are retried; others are reported as
+ * matchedButNotRetryable.
+ *
+ * Append-only: increments retry_count and resets started_at/ended_at/
+ * exit_code/error_message back to null without touching the prior log
+ * entries (those live in job_logs and stay forever).
+ */
+export function retryJobsByFilter(filter: {
+  tag?: string;
+  state?: JobStatus | JobStatus[];
+}): { retried: number[]; matchedButNotRetryable: number } {
+  if (!filter.tag && !filter.state) {
+    throw new Error(
+      "retryJobsByFilter requires at least one of `tag` or `state` — refusing to mass-retry without a filter",
+    );
+  }
+  const db = openDb();
+  const where: string[] = [];
+  const params: any[] = [];
+  if (filter.tag) {
+    where.push("tag = ?");
+    params.push(filter.tag);
+  }
+  if (filter.state) {
+    const arr = Array.isArray(filter.state) ? filter.state : [filter.state];
+    where.push(`status IN (${arr.map(() => "?").join(",")})`);
+    params.push(...arr);
+  }
+  const matches = db
+    .query(`SELECT id, status FROM jobs WHERE ${where.join(" AND ")} ORDER BY id ASC`)
+    .all(...params) as Array<{ id: number; status: JobStatus }>;
+  const RETRYABLE = new Set<JobStatus>(["failed", "cancelled", "blocked"]);
+  const retried: number[] = [];
+  let matchedButNotRetryable = 0;
+  const stmt = db.prepare(
+    "UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL, error_message=NULL, retry_count=retry_count+1 WHERE id=? AND status IN ('failed','cancelled','blocked')",
+  );
+  const txn = db.transaction(() => {
+    for (const m of matches) {
+      if (!RETRYABLE.has(m.status)) {
+        matchedButNotRetryable++;
+        continue;
+      }
+      const r = stmt.run(m.id);
+      if ((r.changes ?? 0) > 0) retried.push(m.id);
+    }
+  });
+  txn();
+  return { retried, matchedButNotRetryable };
+}
+
 export function appendLog(
   jobId: number,
   stream: "stdout" | "stderr" | "system",
