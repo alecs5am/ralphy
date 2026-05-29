@@ -1,6 +1,6 @@
 # Kling / seedance clip duration overshoots `--duration` by ~1s, undocumented
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
