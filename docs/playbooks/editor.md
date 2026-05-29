@@ -88,6 +88,7 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 4. **Quality gate before final-render** — every slot in the manifest must have `score >= 7` or explicit bypass-consent.
 5. **FFmpeg post-processing** — only via `cli/lib/ffmpeg-recipes.ts`. See [editor/hard-rules.md](editor/hard-rules.md) (12 items).
 6. **Motion graphics → composition code, never video models** (`04.0A.02`). See the decision tree below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as HyperFrames HTML + GSAP. They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
+7. **MUST log every user feedback turn on the render** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <feedback|approval|critique|rejection>` — push-back on a cut, caption fix, audio re-mix, "ship it" approval, render-killer critique. Same MUST-log discipline as the scenarist playbook (see [`scenarist.md` → "User-prompt logging"](scenarist.md#user-prompt-logging-must-every-turn)). Sparse logs leave the postmortem layer guessing about which render version the user actually approved.
 
 ## Pixels vs code — the motion-graphics decision tree (04.0A.02)
 

@@ -97,7 +97,7 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 3. **Quality gate.** See [art-director/quality-gate.md](art-director/quality-gate.md). Two failures in a row → stop, report concrete options to the user. Refuse, do not warn (AGENTS invariant #4).
 4. **MODELS.md is the only source.** See [art-director/model-choice.md](art-director/model-choice.md). Always pick the best model per kind — there is no "cheaper draft" path. Budget caps (`docs/playbooks/producer.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
 5. **Iterate by single-slot regen, never overwrite.** "Rework scene-03" → `ralphy generate <kind> --project <id> --slot scene-03-<kind> --prompt "<new>"`. Append-only versioning writes `<slot>.v2.<ext>` (then `v3`, `v4`, …). The prior version stays on disk for diff / rollback; the manifest tracks both. Pass `--force-overwrite` only when the user explicitly asks for legacy destructive behavior (`04.01.03`).
-6. **Logging is automatic** via `ralphy generate` (logs are written to `generations.jsonl`).
+6. **Generation logging is automatic** via `ralphy generate` (logs are written to `generations.jsonl`). **User-prompt logging is NOT automatic — you MUST log it.** Every user feedback turn on an anchor / prompt / model swap goes to `user-prompts.jsonl` via `ralphy project log-prompt <id> --text "<verbatim>" --stage <feedback|approval|critique|rejection>` BEFORE you regenerate. Same MUST-log discipline as the scenarist playbook (see [`scenarist.md` → "User-prompt logging"](scenarist.md#user-prompt-logging-must-every-turn)). "Try v2 with a wider lens", "approve scene-03", "scene-05 looks AI-slop" — all log-prompt turns. Sparse logs are the documented cause of unreliable postmortems.
 
 ## Handoff
 
