@@ -3,6 +3,37 @@ title: "Changelog"
 description: "What's new in Ralphy."
 ---
 
+<Update label="May 29, 2026">
+
+## New
+
+**Ralphy Desktop (preview).** A new desktop app that drives a Ralphy project through an embedded Claude Code chat — onboarding, live project panel, and a confirm-with-cost permission modal. Runs against your local `claude` install, so it uses your existing subscription credit instead of a separate API key. Ships as an early spike; expect rough edges.
+
+**`--provider` flag and `ralphy provider list`.** Generation commands (`image`, `video`, `voiceover`, `music`, `sfx`) now accept `--provider <id>` to pin a specific backend, and `ralphy provider list` prints the capability matrix for every connector you have keys for. See [`ralphy provider`](/reference/cli/provider) and [`ralphy generate`](/reference/cli/generate).
+
+**Skills marketplace.** The public [skills page](https://ralphy.dev/skills) is now a real marketplace — grid, filters, search, per-skill icons, and a detail modal with the full file tree for each skill.
+
+**New skills.**
+- `ralphy-ugc-toon-action` — subject-agnostic Spider-Verse/Arcane action-clip skill with style locks and multi-clip continuity.
+- `ralphy-poster` — fixed poster-as-landing layout (banner → wordmark → hero → sticker collage → copy → footer) with parameterized slots.
+- Four niche UGC skills: `unboxing`, `ad`, `model-swap`, and `rockstar`.
+
+See [Skill format](/advanced/skill-format) and run `ralphy skill list` to install.
+
+**`analog-horror-pick-a-door` template.** A full reproduction kit for the "pick a door" brand-comparison format — composition skeleton, monster cutouts, VHS/SFX bed, beep system, font, and a prompt cookbook. See [`ralphy template`](/reference/cli/template).
+
+**`y2k-streetwear-poster` guideline.** A new image-prompt guideline with three validated square examples, surfaced in the library and referenceable as `@guideline:y2k-streetwear-poster`.
+
+## Updates
+
+**Templates are remix-only.** Generic "make a video about X" prompts now route to a generalized **skill**, not a one-off template. Templates are only applied when you explicitly opt in (e.g. `@template:<slug>, swap X for Y`). See [Picking a template](/working/picking-a-template).
+
+## Fixes
+
+**`gpt-5.4-image-2` honors aspect ratios.** The `--size` flag (`9:16`, `1:1`, etc.) is now passed through correctly for image generation across all flows; previously the model ignored the in-prompt hint and returned 1024² regardless. See [`ralphy generate`](/reference/cli/generate).
+
+</Update>
+
 <Update label="May 26, 2026">
 
 ## Breaking
