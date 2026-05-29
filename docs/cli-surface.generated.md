@@ -318,7 +318,8 @@ Commands:
   stop             Send SIGTERM to the daemon and wait up to 7s for graceful
                    exit
   status           Report whether the daemon is running and how many jobs are in
-                   each state
+                   each state. Exits 2 if pending jobs exist but no worker is
+                   running.
   help [command]   display help for command
 ```
 
@@ -338,6 +339,8 @@ Usage: ralphy queue [options] [command]
 Manage the local job queue (add work, watch progress, cancel, retry)
 
 Options:
+  --auto-start             Spawn the daemon if it's not running before applying
+                           the subcommand (default off) (default: false)
   -h, --help               display help for command
 
 Commands:
@@ -346,9 +349,12 @@ Commands:
                            use `generate ... --queue` instead.
   list [options]           List jobs (default: most recent first, all states)
   show <id>                Show full details of one job
-  cancel <id>              Cancel a pending or running job (SIGTERM if running)
-  retry <id>               Re-queue a failed/cancelled/blocked job (resets
-                           status to pending)
+  cancel [options] [id]    Cancel a pending/running job by id, OR bulk-cancel by
+                           --tag and/or --state. Status is flipped to
+                           'cancelled' (rows are never deleted).
+  retry [options] [id]     Re-queue a failed/cancelled/blocked job by id, OR
+                           bulk-retry by --tag and/or --state. Resets status to
+                           'pending' and bumps retry_count (logs are preserved).
   logs [options] <id>      Print all captured stdout+stderr lines for one job
   watch [options] [id]     Live monitor: with <id>, tails one job's logs in real
                            time; without, renders an ANSI dashboard of all

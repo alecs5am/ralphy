@@ -13,11 +13,37 @@ import {
   getJob,
   cancelJob,
   retryJob,
+  cancelJobsByFilter,
+  retryJobsByFilter,
   tailLogs,
   countByStatus,
 } from "../lib/jobs/db.js";
 import { ensureDaemonRunning, daemonStatus } from "../lib/jobs/daemon.js";
 import type { JobStatus, JobLogRow } from "../lib/jobs/types.js";
+
+const VALID_STATES: JobStatus[] = [
+  "pending",
+  "running",
+  "failed",
+  "completed",
+  "cancelled",
+  "blocked",
+];
+
+function parseStateFilter(raw: string | undefined): JobStatus[] | undefined {
+  if (!raw) return undefined;
+  // Accept comma-separated and singular forms ("done" → "completed").
+  const states = raw.split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
+    if (s === "done") return "completed";
+    return s;
+  }) as JobStatus[];
+  for (const s of states) {
+    if (!VALID_STATES.includes(s)) {
+      err(`unknown --state value: "${s}". Expected one of ${VALID_STATES.join("|")} (or "done" alias for "completed").`);
+    }
+  }
+  return states;
+}
 
 const TERMINAL_STATES = new Set<JobStatus>([
   "completed",
@@ -27,9 +53,33 @@ const TERMINAL_STATES = new Set<JobStatus>([
 ]);
 
 export function queueCmd() {
-  const cmd = new Command("queue").description(
-    "Manage the local job queue (add work, watch progress, cancel, retry)",
-  );
+  const cmd = new Command("queue")
+    .description(
+      "Manage the local job queue (add work, watch progress, cancel, retry)",
+    )
+    // Top-level opt-in: when set, retry / cancel will also ensure the daemon
+    // is running so revived jobs don't sit idle. Default OFF to keep current
+    // behavior unchanged on a no-flag invocation.
+    .option(
+      "--auto-start",
+      "Spawn the daemon if it's not running before applying the subcommand (default off)",
+      false,
+    );
+
+  // preAction fires before any subcommand action. When the user passes
+  // `--auto-start` at the top level, kick the daemon up front so even
+  // read-only subcommands like `list` give a true running count immediately.
+  cmd.hook("preAction", (thisCmd) => {
+    const opts = thisCmd.opts() as { autoStart?: boolean };
+    if (opts.autoStart) {
+      try {
+        ensureDaemonRunning();
+      } catch {
+        // Best-effort — the subcommand will surface a clearer error if it
+        // genuinely needed the daemon.
+      }
+    }
+  });
 
   // ── add ────────────────────────────────────────────────────────────────
   // Use `--` to separate ralphy options from the wrapped command, so the
@@ -109,22 +159,84 @@ export function queueCmd() {
     });
 
   // ── cancel ─────────────────────────────────────────────────────────────
+  // Two modes:
+  //   ralphy queue cancel <id>                 — cancel one job by id
+  //   ralphy queue cancel --tag X --state pending  — bulk cancel by filter
+  // At least one of `--tag` / `--state` is required for bulk mode. Filter
+  // mode is additive to queue state (status flip only — rows never deleted).
   cmd
-    .command("cancel <id>")
-    .description("Cancel a pending or running job (SIGTERM if running)")
-    .action((id) => {
-      const ok = cancelJob(Number(id));
-      out({ id: Number(id), cancelled: ok });
+    .command("cancel [id]")
+    .description(
+      "Cancel a pending/running job by id, OR bulk-cancel by --tag and/or --state. Status is flipped to 'cancelled' (rows are never deleted).",
+    )
+    .option("--tag <tag>", "Filter: only cancel jobs with this tag")
+    .option(
+      "--state <s>",
+      `Filter: only cancel jobs in this state (${VALID_STATES.join("|")}, or "done" alias). Comma-separated to OR-match multiple.`,
+    )
+    .action((id, opts) => {
+      const states = parseStateFilter(opts.state);
+      const hasFilter = Boolean(opts.tag) || (states && states.length > 0);
+      if (id && hasFilter) {
+        err("queue cancel: pass either <id> OR --tag/--state filters, not both.");
+      }
+      if (!id && !hasFilter) {
+        err("queue cancel: pass <id>, or at least one of --tag / --state.");
+      }
+      if (id) {
+        const ok = cancelJob(Number(id));
+        out({ id: Number(id), cancelled: ok });
+        return;
+      }
+      const r = cancelJobsByFilter({ tag: opts.tag, state: states });
+      out({
+        filter: { tag: opts.tag ?? null, state: states ?? null },
+        cancelled: r.cancelled,
+        cancelled_count: r.cancelled.length,
+        matched_but_terminal: r.matchedButTerminal,
+      });
     });
 
   // ── retry ──────────────────────────────────────────────────────────────
+  // Two modes:
+  //   ralphy queue retry <id>                  — retry one job by id
+  //   ralphy queue retry --tag X --state failed  — bulk retry by filter
   cmd
-    .command("retry <id>")
-    .description("Re-queue a failed/cancelled/blocked job (resets status to pending)")
-    .action((id) => {
-      const ok = retryJob(Number(id));
-      if (ok) ensureDaemonRunning();
-      out({ id: Number(id), retried: ok });
+    .command("retry [id]")
+    .description(
+      "Re-queue a failed/cancelled/blocked job by id, OR bulk-retry by --tag and/or --state. Resets status to 'pending' and bumps retry_count (logs are preserved).",
+    )
+    .option("--tag <tag>", "Filter: only retry jobs with this tag")
+    .option(
+      "--state <s>",
+      `Filter: only retry jobs in this state (${VALID_STATES.join("|")}, or "done" alias). Comma-separated to OR-match multiple.`,
+    )
+    .action((id, opts) => {
+      const states = parseStateFilter(opts.state);
+      const hasFilter = Boolean(opts.tag) || (states && states.length > 0);
+      if (id && hasFilter) {
+        err("queue retry: pass either <id> OR --tag/--state filters, not both.");
+      }
+      if (!id && !hasFilter) {
+        err("queue retry: pass <id>, or at least one of --tag / --state.");
+      }
+      // Top-level `--auto-start` (or any retry that revives ≥1 job) ensures
+      // the daemon is up so revived jobs don't immediately sit idle.
+      const parentOpts = cmd.opts() as { autoStart?: boolean };
+      if (id) {
+        const ok = retryJob(Number(id));
+        if (ok) ensureDaemonRunning();
+        out({ id: Number(id), retried: ok });
+        return;
+      }
+      const r = retryJobsByFilter({ tag: opts.tag, state: states });
+      if (r.retried.length > 0 || parentOpts.autoStart) ensureDaemonRunning();
+      out({
+        filter: { tag: opts.tag ?? null, state: states ?? null },
+        retried: r.retried,
+        retried_count: r.retried.length,
+        matched_but_not_retryable: r.matchedButNotRetryable,
+      });
     });
 
   // ── logs ───────────────────────────────────────────────────────────────

@@ -15,6 +15,8 @@ import { findProjectRootSafe, readGlobalConfig } from "../lib/project-root.js";
 import { out, isPretty } from "../lib/output.js";
 import { readGlobalConfig as readHomeConfig } from "../lib/global-config.js";
 import { checkForUpdate, type InstallMode as UpdateInstallMode } from "../lib/update-check.js";
+import { daemonStatus } from "../lib/jobs/daemon.js";
+import { countByStatus } from "../lib/jobs/db.js";
 
 type InstallMode = "binary" | "developer";
 
@@ -39,6 +41,14 @@ type DoctorReport = {
     ffmpeg: boolean;
   };
   keys: Record<string, boolean>;
+  daemon?: {
+    running: boolean;
+    pid: number | null;
+    pending: number;
+    running_jobs: number;
+    failed: number;
+    idle_with_pending: boolean;
+  };
   blockers: string[];
   warnings: string[];
 };
@@ -142,6 +152,32 @@ export function doctorCmd() {
             `${cap.envVar} missing — ${cap.label} required (${cap.signupUrl}). Run \`ralphy setup\`.`,
           );
         }
+      }
+
+      // Daemon health (issue #027) — if the queue has pending work but the
+      // daemon isn't running (or is up with zero workers active), warn loudly
+      // so the user knows their fan-out is stuck. We open the jobs DB lazily;
+      // if it doesn't exist yet (no project / no jobs ever queued) we skip.
+      try {
+        const ds = daemonStatus();
+        const counts = countByStatus();
+        const idleWithPending = counts.pending > 0 && counts.running === 0;
+        report.daemon = {
+          running: ds.running,
+          pid: ds.pid,
+          pending: counts.pending,
+          running_jobs: counts.running,
+          failed: counts.failed,
+          idle_with_pending: idleWithPending,
+        };
+        if (idleWithPending) {
+          report.warnings.push(
+            `daemon idle while ${counts.pending} job${counts.pending === 1 ? "" : "s"} pending — run \`ralphy daemon start\`${counts.failed > 0 ? " or `ralphy queue retry --state failed`" : ""}.`,
+          );
+        }
+      } catch {
+        // No jobs DB available — not a developer environment or a fresh
+        // workspace; silent skip.
       }
 
       // Update check (09.05.04) — opt-out via RALPHY_DOCTOR_NO_UPDATE_CHECK=1
