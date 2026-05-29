@@ -16,6 +16,7 @@ import {
   retryTransient,
   TerminalProviderError,
 } from "./shared.js";
+import { withConcurrency } from "./concurrency.js";
 import type {
   RalphyConnector,
   GenerateVoiceoverInput,
@@ -105,16 +106,22 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     async (attempt) => {
       let resp: Response;
       try {
-        resp = await fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
-          method: "POST",
-          headers: {
-            "xi-api-key": apiKey,
-            "Content-Type": "application/json",
-            "User-Agent": UA,
-          },
-          body: JSON.stringify(body),
-          signal: input.signal,
-        });
+        // #007: hold a concurrency slot for the network call only. ElevenLabs
+        // TTS free/starter caps at 3 concurrent; choose-your-guide-001 hit 6
+        // hard-failed 429s with 9 parallel calls. Semaphore key is "tts" so
+        // every voice / model on the TTS endpoint shares one cap.
+        resp = await withConcurrency(ID, "tts", "voice", () =>
+          fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
+            method: "POST",
+            headers: {
+              "xi-api-key": apiKey,
+              "Content-Type": "application/json",
+              "User-Agent": UA,
+            },
+            body: JSON.stringify(body),
+            signal: input.signal,
+          }),
+        );
       } catch (err) {
         throw err;
       }
@@ -191,16 +198,22 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     async (attempt) => {
       let resp: Response;
       try {
-        resp = await fetch(`${BASE_URL}/music`, {
-          method: "POST",
-          headers: {
-            "xi-api-key": apiKey,
-            "Content-Type": "application/json",
-            "User-Agent": UA,
-          },
-          body: JSON.stringify(body),
-          signal: input.signal,
-        });
+        // #007: ElevenLabs Music caps at 2 concurrent per subscription
+        // (tokyo-y2k-001: 3 parallel → 1 hard-failed 429
+        // `concurrent_limit_exceeded`). Semaphore key is the modelId so a
+        // future `music_v2` gets its own cap entry in MODELS.md.
+        resp = await withConcurrency(ID, modelId, "music", () =>
+          fetch(`${BASE_URL}/music`, {
+            method: "POST",
+            headers: {
+              "xi-api-key": apiKey,
+              "Content-Type": "application/json",
+              "User-Agent": UA,
+            },
+            body: JSON.stringify(body),
+            signal: input.signal,
+          }),
+        );
       } catch (err) {
         throw err;
       }
