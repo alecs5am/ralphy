@@ -214,6 +214,7 @@ export async function logFailure(
   body: Record<string, unknown>,
   err: unknown,
   t0: number,
+  attempt = 1,
 ): Promise<void> {
   await logGeneration(input.projectId, {
     slot: input.slot,
@@ -226,6 +227,194 @@ export async function logFailure(
     error: err instanceof Error ? err.message : String(err),
     latency_ms: Date.now() - t0,
     cost_usd: 0,
+    attempt,
     note: input.note ?? input.slot,
   });
+}
+
+// ─── transient-error retry helper (#005) ────────────────────────────────────
+//
+// Background: every multi-slot session re-discovers the same handful of
+// transient provider blips — TLS handshake hiccups, ECONNRESET / ETIMEDOUT /
+// DNS class, 5xx with empty body, OR 200-OK responses with missing payload
+// (gemini "skeleton null"), MALFORMED_FUNCTION_CALL — and silently drops one
+// slot in an otherwise running batch. Six postmortems trace lost artifacts to
+// exactly this failure mode (#005 sources).
+//
+// Strategy: wrap every provider submission in `retryTransient()` with an
+// exponential backoff (1s → 4s → 16s by default, 2 retries). Only RETRY a
+// classified-transient error; terminal classes (4xx semantic, content-policy,
+// ToS bad_prompt — #006 owns that one) throw on the first attempt so the
+// caller sees the real reason without burning N more API calls.
+//
+// Logging: each FAILED attempt is written to `generations.jsonl` with
+// `status: "error"` and `attempt: N` (1-indexed). The SUCCESSFUL attempt is
+// logged once with `attempt: <final-N>`. Append-only — no row is rewritten.
+//
+// Stub-file invariant (AGENTS #14): on final failure, the connector throws
+// without writing a stub asset. This module never touches disk on the error
+// path beyond the JSONL log.
+
+/**
+ * Mark an error as terminal to bypass the retry loop. Connector code throws
+ * one of these for content-policy / 4xx semantic / ToS rejections so the
+ * outer `retryTransient()` doesn't burn N more API calls on a guaranteed-no.
+ */
+export class TerminalProviderError extends Error {
+  readonly terminal = true as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "TerminalProviderError";
+  }
+}
+
+/**
+ * Mark a 200-OK-but-empty-payload (gemini skeleton-null, gpt-image empty
+ * images[], `MALFORMED_FUNCTION_CALL` on chat-completions) as transient.
+ * Connector code throws this from the response-parsing branch so `classify()`
+ * sees it as retry-eligible without us having to grep the message text.
+ */
+export class TransientPayloadError extends Error {
+  readonly transient = true as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "TransientPayloadError";
+  }
+}
+
+const TRANSIENT_CODE_SET = new Set([
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ECONNREFUSED",
+  "ENETUNREACH",
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+
+const TRANSIENT_MESSAGE_HINTS = [
+  "unknown certificate verification error",
+  "tls",
+  "handshake",
+  "socket hang up",
+  "fetch failed",
+  "network",
+  "stream was destroyed",
+  "premature close",
+  "malformed_function_call",
+];
+
+/**
+ * Classify an error as transient (retry-eligible) or terminal. The classifier
+ * is intentionally conservative — if we can't recognize an error as transient,
+ * we treat it as terminal so we don't burn budget retrying a real failure.
+ *
+ * Transient classes (return `true`):
+ *  - TransientPayloadError sentinel (200-OK-but-empty-payload, skeleton-null)
+ *  - errno on TRANSIENT_CODE_SET (TLS / ECONNRESET / ETIMEDOUT / DNS)
+ *  - message matches TRANSIENT_MESSAGE_HINTS
+ *  - 5xx with empty / very short body
+ *
+ * Terminal classes (return `false`):
+ *  - TerminalProviderError sentinel (4xx semantic, content-policy, ToS)
+ *  - everything else
+ */
+export function classifyError(err: unknown): "transient" | "terminal" {
+  if (err instanceof TerminalProviderError) return "terminal";
+  if (err instanceof TransientPayloadError) return "transient";
+  if (!(err instanceof Error)) return "terminal";
+
+  const code = (err as Error & { code?: string; cause?: { code?: string } }).code
+    ?? (err as Error & { cause?: { code?: string } }).cause?.code;
+  if (code && TRANSIENT_CODE_SET.has(code)) return "transient";
+
+  const msg = err.message.toLowerCase();
+  for (const hint of TRANSIENT_MESSAGE_HINTS) {
+    if (msg.includes(hint)) return "transient";
+  }
+
+  // 5xx-with-empty-body: connector code constructs the error message as
+  // `<provider> <status>: <body>` — match the 5xx prefix + trailing empty body.
+  const fiveXx = /\b5\d{2}\b/.exec(err.message);
+  if (fiveXx) {
+    // Heuristic: HTTP 5xx errors with no meaningful body are gateway / proxy blips.
+    // Body lives after the first ":" in the connector's error message convention.
+    const colonIdx = err.message.indexOf(":");
+    const body = colonIdx >= 0 ? err.message.slice(colonIdx + 1).trim() : "";
+    if (body.length < 40) return "transient";
+    if (/bad gateway|gateway timeout|service unavailable/i.test(err.message)) return "transient";
+  }
+
+  return "terminal";
+}
+
+export type RetryOptions = {
+  /** Max retries (so total attempts = retries + 1). Default 2 → 3 attempts. */
+  retries?: number;
+  /** Backoff schedule in ms. Default [1000, 4000, 16000]. Index = attempt - 1. */
+  backoffMs?: number[];
+  /** When true, bypass retries entirely (--no-retry). Total attempts = 1. */
+  noRetry?: boolean;
+  /**
+   * Called before each retry sleep — connectors use this to write an
+   * `attempt: N` error row to `generations.jsonl` without re-doing the logFailure
+   * plumbing inside `retryTransient`.
+   */
+  onTransientFailure?: (err: unknown, attempt: number) => Promise<void> | void;
+  /** Injectable sleeper. Default uses real `setTimeout`. Tests pass a fake. */
+  sleep?: (ms: number) => Promise<void>;
+};
+
+const DEFAULT_BACKOFF_MS = [1000, 4000, 16000];
+
+/**
+ * Tests set RALPHY_TEST_RETRY_BACKOFF_MS to a comma-separated list (e.g. "0,0,0")
+ * to short-circuit the backoff schedule without rewiring every connector to thread
+ * a `backoffMs` arg. Production code never reads this — env vars are inspected
+ * lazily per call so tests can flip the value mid-suite.
+ */
+function envBackoffOverride(): number[] | undefined {
+  const raw = process.env.RALPHY_TEST_RETRY_BACKOFF_MS;
+  if (!raw) return undefined;
+  const parts = raw
+    .split(",")
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n >= 0);
+  return parts.length > 0 ? parts : undefined;
+}
+
+export async function retryTransient<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts: RetryOptions = {},
+): Promise<T> {
+  const retries = opts.noRetry ? 0 : opts.retries ?? 2;
+  const backoff = opts.backoffMs ?? envBackoffOverride() ?? DEFAULT_BACKOFF_MS;
+  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (err) {
+      lastErr = err;
+      const klass = classifyError(err);
+      if (klass === "terminal") throw err;
+      if (attempt > retries) throw err;
+      if (opts.onTransientFailure) {
+        try {
+          await opts.onTransientFailure(err, attempt);
+        } catch {
+          /* logging is best-effort — never let it mask the original */
+        }
+      }
+      const wait = backoff[attempt - 1] ?? backoff[backoff.length - 1] ?? 1000;
+      await sleep(wait);
+    }
+  }
+  // Unreachable — the loop either returns or throws.
+  throw lastErr;
 }
