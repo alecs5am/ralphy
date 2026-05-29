@@ -102,6 +102,8 @@ Always recheck via `ralphy models list`. These arrays change.
 
 11. **`google/veo-3.1` body-horror filter** rejects both the prompt AND the input frame independently. Sanitizing the prompt (stripping skinwalker / werewolf / vertebrae / Cronenberg words) does NOT unblock the path — Google's filter ALSO scans the first/last-frame anchor and refuses when the anchor itself is clearly body-horror. Combined with seedance's photoreal-human rejection (cap #6), this leaves `kwaivgi/kling-v3.0-pro` as **the only viable i2v provider for the photoreal-human + body-horror combination** that voidstomper-style content requires. Skip seedance and veo round-trips on those jobs; go straight to Kling. Postmortem: voidstomper-test-001 (2026-05-25).
 
+12. **`kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0` overshoot `--duration` by ~1s.** Both models return clips ~1 second longer than the requested `--duration` — silent, billed against the requested duration, not the delivered one. tokyo-y2k-001 measured `5s/4s/9s` storyboard → `6.04/5.04/10.04` actual; planned 75s of clips landed as 90.7s of raw mp4. Editor recipe (pre-shorten at art-director stage, or budget a vision-trim pass) lives in [`docs/playbooks/editor/render-pipeline.md → Source-clip duration overshoot`](docs/playbooks/editor/render-pipeline.md#source-clip-duration-overshoot-kling--seedance). Postmortem: tokyo-y2k-001 (workflow-fixes #3).
+
 ## Tried-and-dropped (postmortem cross-reference)
 
 | Model | Context where it failed | Why | Postmortem |
