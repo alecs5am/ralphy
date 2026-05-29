@@ -685,10 +685,13 @@ Commands:
                              (Caption[]). Default backend: ElevenLabs Scribe v1
                              (word-level).
   clone [options] <id>       Clone a project
-  verify [options] <id>      ffprobe every slot in asset-manifest.json + flag
-                             divergences (missing file, wrong duration, wrong
-                             dimensions, broken codec). Exit non-zero on any
-                             red.
+  assets [options] <id>      ffprobe-truth every media file under
+                             <project>/assets/ and emit a flat array. Honors
+                             --kind video|image|audio.
+  verify [options] <id>      ffprobe every slot in asset-manifest.json and flag
+                             divergences from claimed duration / dimensions /
+                             size (tolerance: 100ms on duration). Exit non-zero
+                             on any red.
   help [command]             display help for command
 ```
 
