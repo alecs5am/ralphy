@@ -1,6 +1,6 @@
 # Intake playbook missing target-language; aspect default conflicts with niche skills
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
