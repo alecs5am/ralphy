@@ -54,7 +54,8 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 | File | When to read it |
 |---|---|
 | [editor/render-pipeline.md](editor/render-pipeline.md) | Preflight, composition authoring, preview, final-render |
-| [editor/captions.md](editor/captions.md) | Wiring `captions.json` into a caption component |
+| [editor/vo-sync.md](editor/vo-sync.md) | Aligned-to-VO cuts — stitch → scribe → slice; reverse-areverse + concat demuxer (AGENTS invariant #16) |
+| [editor/captions.md](editor/captions.md) | Wiring `captions.json` into a caption component; captions-first before writing timing constants |
 | [editor/transitions.md](editor/transitions.md) | Crossfade / push / wipe patterns |
 | [editor/audio-mixing.md](editor/audio-mixing.md) | VO + music + SFX levels, ducking, fades |
 | [editor/green-zone.md](editor/green-zone.md) | Text/overlay placement inside 1080×1920 safe zone |
@@ -65,7 +66,7 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 | Sub-task | When | Sub-docs |
 |---|---|---|
 | `preflight` | "ready to render?" | render-pipeline |
-| `generate-captions` | VO ready, no captions.json | captions |
+| `generate-captions` | VO ready, no captions.json | captions + vo-sync (for aligned-to-VO cuts) |
 | `author-composition` | manifest complete, composition missing | render-pipeline + transitions + [hyperframes.md](hyperframes.md) |
 | `preview` | "look in the browser" | render-pipeline + `bunx hyperframes preview` |
 | `final-render` | composition approved | render-pipeline + hard-rules |
@@ -85,7 +86,7 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 
 1. **`ralphy render <id>`** — the only render path. Don't call `bunx hyperframes render` directly (except for debugging).
 2. **No auto-launched preview / Studio.** Don't run `hyperframes preview` in the background. If the user wants a preview — tell them plainly to run it foreground.
-3. **Captions via `ralphy generate captions`** (whisper-1 OpenRouter) or `bunx hyperframes transcribe` for word-level timestamps. See [editor/captions.md](editor/captions.md).
+3. **Captions via `ralphy generate captions`** (whisper-1 OpenRouter) or `bunx hyperframes transcribe` for word-level timestamps. **Run it BEFORE writing any HF / Remotion timing constants** when the composition has caption overlays (AGENTS invariant #16). For aligned-to-VO cuts overall, scribe-first via [editor/vo-sync.md](editor/vo-sync.md). See [editor/captions.md](editor/captions.md).
 4. **Quality gate before final-render** — every slot in the manifest must have `score >= 7` or explicit bypass-consent.
 5. **FFmpeg post-processing** — only via `cli/lib/ffmpeg-recipes.ts`. See [editor/hard-rules.md](editor/hard-rules.md) (12 items).
 6. **Motion graphics → composition code, never video models** (`04.0A.02`). See the decision tree below — animated text, kinetic typography, lower-thirds, animated charts, animated UI mocks, transition wipes are **all** composed as HyperFrames HTML + GSAP. They are NOT generated via `ralphy generate video`; that path is reserved for live-action / illustration / photoreal scenes — pixel content the model produces, not code-composited motion.
