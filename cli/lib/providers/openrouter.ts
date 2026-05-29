@@ -439,6 +439,18 @@ const VIDEO_PRICE_PER_SEC: Record<string, number> = {
   "minimax/hailuo-2.3": 0.10,
 };
 
+// Per-model prompt-length cap. OR returns 400 after a round-trip when exceeded
+// (4× wasted submits in glitter-cream-001 before this preflight landed). Catch
+// it client-side as a TerminalProviderError so the retry helper bails immediately
+// and the user sees an actionable hint. Add a row whenever a model documents a
+// hard prompt cap (seedance / veo / wan caps are not yet measured — add on
+// first round-trip 400). Source: notes/issues/008.
+const MAX_PROMPT_CHARS: Record<string, number> = {
+  "kwaivgi/kling-v3.0-pro": 2500,
+  "kwaivgi/kling-v3.0-std": 2500,
+  "kwaivgi/kling-video-o1": 2500,
+};
+
 export async function generateVideo(input: GenerateVideoInput): Promise<GenerateResult> {
   requireKey();
   const t0 = Date.now();
@@ -449,15 +461,37 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   const pollIntervalMs = input.pollIntervalMs ?? 15_000;
   const pollMaxAttempts = input.pollMaxAttempts ?? 80;
 
-  // Kling 2500-char prompt cap. OR returns 400 after a round-trip if exceeded —
-  // 4× per session in glitter-cream. Catch it client-side with an actionable hint
-  // about which clauses are load-bearing (voice-tag, no-music ban, on-camera-EN)
-  // and which to trim first (atmosphere / setting prose).
-  if (model.startsWith("kwaivgi/kling-") && input.prompt.length > 2500) {
-    throw new Error(
-      `Prompt exceeds Kling 2500-char cap (got ${input.prompt.length}). ` +
-        `Trim atmosphere / setting prose first — voice-tag, no-music ban, and on-camera-EN clauses are load-bearing. ` +
-        `See MODELS.md "Kling 2500-char prompt cap" for the rationale.`,
+  // ── Preflight: kling-v3.0-pro multi-frame is a known-bad path. Even after
+  // the 2026-05-19 C2PA-strip mitigation, both-frame submissions consistently
+  // return 400 "File is not in a valid base64 format" across flipper, glitter-
+  // cream, playdate, venom. The right answer is seedance-2.0 (honors --last-
+  // frame natively for non-photoreal-human anchors). Throw a TerminalProvider-
+  // Error so the retry helper bails immediately — no fetch, no cost. Issue #008.
+  if (
+    model === "kwaivgi/kling-v3.0-pro" &&
+    (input.firstFrame ?? input.image) &&
+    input.lastFrame
+  ) {
+    throw new TerminalProviderError(
+      "kling-v3.0-pro multi-frame submissions always fail (base64 encoding bug); use bytedance/seedance-2.0 for first+last frame anchoring.",
+    );
+  }
+
+  // ── Preflight: per-model prompt-length cap. Kling rejects >2500 chars with a
+  // round-trip 400 — preflight saves the round-trip and points the user at the
+  // load-bearing clauses (voice-tag, no-music ban, on-camera-EN) that should
+  // not be cut. Throw as TerminalProviderError so the retry helper doesn't loop.
+  const maxChars = MAX_PROMPT_CHARS[model];
+  if (maxChars !== undefined && input.prompt.length > maxChars) {
+    if (model.startsWith("kwaivgi/kling-")) {
+      throw new TerminalProviderError(
+        `kling-v3.0-pro prompt cap is ${maxChars} chars; got ${input.prompt.length}. Compress before submit. ` +
+          `Trim atmosphere / setting prose first — voice-tag, no-music ban, and on-camera-EN clauses are load-bearing. ` +
+          `See MODELS.md "Kling 2500-char prompt cap" for the rationale.`,
+      );
+    }
+    throw new TerminalProviderError(
+      `${model} prompt cap is ${maxChars} chars; got ${input.prompt.length}. Compress before submit.`,
     );
   }
 
