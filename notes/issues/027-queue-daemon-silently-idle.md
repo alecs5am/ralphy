@@ -1,6 +1,6 @@
 # Queue daemon can show pending jobs while `running: 0`
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium

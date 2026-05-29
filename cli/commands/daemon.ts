@@ -54,18 +54,32 @@ export function daemonCmd() {
 
   cmd
     .command("status")
-    .description("Report whether the daemon is running and how many jobs are in each state")
+    .description("Report whether the daemon is running and how many jobs are in each state. Exits 2 if pending jobs exist but no worker is running.")
     .action(() => {
       const s = daemonStatus();
       // Reading counts also opens the DB — safe even when daemon is down.
       const counts = countByStatus();
+      // Idle-with-pending detection (issue #027): if jobs are waiting and
+      // nothing is running (either daemon is down OR daemon is up but no
+      // worker slot is active), agents would otherwise silently wait forever.
+      const idle = counts.pending > 0 && counts.running === 0;
+      const warning = idle
+        ? `daemon idle while ${counts.pending} job${counts.pending === 1 ? "" : "s"} pending — try \`ralphy daemon start\`${counts.failed > 0 ? " or `ralphy queue retry --state failed`" : ""}`
+        : null;
       out({
         running: s.running,
         pid: s.pid,
         pidFile: s.pidFile,
         logFile: s.logFile,
         jobs: counts,
+        idle,
+        warning,
       });
+      if (warning) {
+        // Loud stderr so scripts piping JSON still see the alarm.
+        process.stderr.write(`⚠️  ${warning}\n`);
+        process.exitCode = 2;
+      }
     });
 
   return cmd;
