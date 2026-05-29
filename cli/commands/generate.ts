@@ -154,21 +154,51 @@ async function maybeLogNoRefConsent(opts: { project?: string; refConsent?: unkno
 }
 
 /**
+ * Best-effort sanitize an arbitrary string into the canonical kebab-case form.
+ * Used for the "did you mean ..." hint surfaced from the hard-reject branch:
+ *   1. lowercase
+ *   2. unicode → ASCII fold (drops accents)
+ *   3. spaces, dots, slashes, underscores → `-`
+ *   4. strip anything still outside `[a-z0-9-]`
+ *   5. collapse runs of `-`, trim leading/trailing `-`
+ *   6. strip a leading run of digits (canonical form must start with [a-z])
+ * Returns null if the result would be empty (no useful suggestion possible).
+ */
+function suggestSlot(slot: string): string | null {
+  const ascii = slot
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, ""); // drop combining accents
+  const collapsed = ascii
+    .replace(/[\s._/\\]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/^[0-9]+(?:-|$)/, ""); // canonical form must start with [a-z]
+  return collapsed.length > 0 ? collapsed : null;
+}
+
+/**
  * Validate and normalize a slot id. Strict canonical form is `[a-z0-9-]+` —
  * lowercase kebab-case. Relaxed input accepts `[a-zA-Z0-9_-]+` and auto-normalizes:
  *   uppercase → lowercase, `_` → `-`, then revalidate against canonical.
  * Emits a stderr warning when normalization happened so the caller learns the
  * canonical form for next time.
  *
- * Returns the canonical slug. Throws via `err()` if input contains characters
- * outside the relaxed set (spaces, dots, slashes, unicode, etc.) — those are
- * structural mistakes that auto-normalize can't safely recover from.
+ * Returns the canonical slug. Throws via `raiseError()` if input contains
+ * characters outside the relaxed set (spaces, dots, slashes, unicode, etc.) or
+ * starts with a digit — those are structural mistakes that auto-normalize
+ * can't safely recover from. The error detail lists the valid character set
+ * AND a "did you mean ..." sanitized suggestion when one exists, so the
+ * caller can retry without guessing the canonical form.
  */
-function normalizeSlot(slot: string): string {
+export function normalizeSlot(slot: string): string {
+  const validChars = "[a-z0-9-], canonical form is lowercase kebab-case (e.g. 'scene-01-bg-image')";
   if (!SLOT_REGEX_RELAXED.test(slot)) {
+    const suggestion = suggestSlot(slot);
     raiseError("E_INPUT_INVALID", {
       field: "slot",
-      detail: `'${slot}' contains characters outside [a-zA-Z0-9_-]`,
+      detail: `'${slot}' contains characters outside ${validChars}${suggestion ? ` — did you mean '${suggestion}'?` : ""}`,
       verb: "generate",
     });
   }
@@ -180,9 +210,10 @@ function normalizeSlot(slot: string): string {
     );
   }
   if (!SLOT_REGEX_CANONICAL.test(canonical)) {
+    const suggestion = suggestSlot(slot);
     raiseError("E_INPUT_INVALID", {
       field: "slot",
-      detail: `'${slot}' could not normalize to canonical kebab-case`,
+      detail: `'${slot}' could not normalize to canonical kebab-case (valid chars: ${validChars})${suggestion && suggestion !== canonical ? ` — did you mean '${suggestion}'?` : ""}`,
       verb: "generate",
     });
   }
