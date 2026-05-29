@@ -39,16 +39,25 @@ ____        __      __
 
 Usage: ralphy new [options] [brief...]
 
-Create a new project under ~/.ralphy/projects/<id>/ with a canonical layout.
-CWD-independent. Pass a brief to seed BRIEF.md or just --id <slug> for an empty
-shell.
+Create a new project under <workspace>/projects/<id>/ with a canonical layout.
+Lightweight on-ramp — pass a brief to seed BRIEF.md or just --id <slug> for an
+empty shell. Equivalent to `ralphy project create` but with positional brief +
+auto-defaulted --name (issue #031).
 
 Arguments:
-  brief        Brief — free-form text describing the video to make
+  brief                   Brief — free-form text describing the video to make
 
 Options:
-  --id <slug>  Project id slug (default: derived from brief or YYMMDD-HHMMSS)
-  -h, --help   display help for command
+  --id <slug>             Project id slug (default: derived from brief or
+                          YYMMDD-HHMMSS)
+  --name <name>           Display name (default: title-cased id)
+  --brand <id>            Brand id (registry lookup)
+  --persona <id>          Persona id (registry lookup)
+  --template <id>         Template id
+  --platform <platform>   Target platform (default: "tiktok")
+  --aspect-ratio <ratio>  Aspect ratio (default: "9:16")
+  --duration <seconds>    Target duration in seconds
+  -h, --help              display help for command
 
 Examples:
   ralphy new "Spring 2026 ad for Acme dental floss"
@@ -678,9 +687,11 @@ Commands:
                              user-assets)
   timeline <id>              Merged project timeline (user requests + assets +
                              generations) as pretty chronological log
-  log-prompt [options] <id>  Append a user-prompt entry to project logs
-  log-asset [options] <id>   Append a user-asset entry to project logs. With
-                             --copy-from <src>, copies the file into
+  log-prompt [options] [id]  Append a user-prompt entry to project logs. Accept
+                             project id positionally OR via --project (#031).
+  log-asset [options] [id]   Append a user-asset entry to project logs. Accept
+                             project id positionally OR via --project (#031).
+                             With --copy-from <src>, copies the file into
                              <project>/refs/ first (auto-detects disposable
                              macOS NSIRD / /tmp paths and rescues them before
                              they evaporate). Sanitizes U+202F NARROW NO-BREAK

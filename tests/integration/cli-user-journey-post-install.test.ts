@@ -2,7 +2,9 @@
 //
 // These tests simulate exactly what a brew/npm-installed user does:
 //
-//   1. Run `ralphy new "<brief>"` to create a project (lives under $RALPHY_HOME).
+//   1. Run `ralphy new "<brief>"` to create a project (lives under
+//      <project-root>/workspace/projects/<id>/ as of #031 — pre-#031 it lived
+//      under $RALPHY_HOME, which made it invisible to generate / render).
 //   2. cd into the project directory.
 //   3. Run `ralphy skill install --agent claude --scope project` to wire up
 //      Claude Code skills + the CLAUDE.md routing pointer.
@@ -94,13 +96,16 @@ function lastErrorPayload(stderr: string): { code: string; message: string; hint
 }
 
 describe("user journey · ralphy new → ralphy skill install --agent claude", () => {
-  test("creates project under $RALPHY_HOME with the canonical layout", () => {
+  test("creates project under <root>/workspace/projects/<id>/ with the canonical layout (#031)", () => {
     const r = ralphy(["new", "test brief about a coffee shop"]);
     expect(r.exitCode).toBe(0);
     expect(r.json).toBeTruthy();
     const payload = r.json as { project_id: string; path: string; brief: string };
     expect(payload.project_id).toMatch(/^[a-z0-9-]+$/);
-    expect(payload.path.startsWith(ralphyHome)).toBe(true);
+    // #031: project now lives under the workspace, NOT $RALPHY_HOME, so
+    // generate / render can see it.
+    expect(payload.path).toContain(path.join("workspace", "projects"));
+    expect(payload.path).not.toContain(path.join(".ralphy", "projects"));
     expect(payload.brief).toBe("test brief about a coffee shop");
 
     // Canonical layout: assets/, render/, logs/ + BRIEF.md + empty logs.
