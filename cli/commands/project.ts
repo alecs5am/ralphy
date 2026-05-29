@@ -16,6 +16,17 @@ async function safeJson(fp: string) {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
 }
 
+// "kbo-broadcast-001" → "Kbo Broadcast 001". Used to default --name from --id
+// on `project create` (#031). Keeps `ralphy project create --id foo-001` viable
+// without forcing the user to redundantly retype `--name "Foo 001"`.
+function titleCaseFromId(id: string): string {
+  return id
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => (part.length === 0 ? part : part[0].toUpperCase() + part.slice(1)))
+    .join(" ");
+}
+
 async function getProjectStatus(id: string) {
   const dir = path.join(projectsDir(), id);
   const hasScenario = !!(await safeJson(path.join(dir, "scenario.json")));
@@ -35,7 +46,7 @@ export function projectCmd() {
   cmd
     .command("create")
     .description("Create a new project")
-    .requiredOption("--name <name>", "Project name")
+    .option("--name <name>", "Project name (default: title-cased --id)")
     .option("--brand <id>", "Brand ID")
     .option("--persona <id>", "Persona ID")
     .option("--template <id>", "Template ID")
@@ -45,7 +56,17 @@ export function projectCmd() {
     .option("--duration <seconds>", "Target duration in seconds", parseInt)
     .option("--id <id>", "Custom project ID")
     .action(async (opts) => {
+      // #031: --name is now optional. Default to title-cased --id, or to a
+      // generated id slug if neither is provided. Either --name or --id must
+      // disambiguate the project, but no longer both.
+      if (!opts.name && !opts.id) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--name | --id",
+          detail: "at least one of --name or --id is required",
+        });
+      }
       const id = opts.id || slugify(opts.name) || generateId("proj");
+      const name: string = opts.name || titleCaseFromId(id);
       const dir = path.join(projectsDir(), id);
       await fs.mkdir(dir, { recursive: true });
       await fs.mkdir(path.join(dir, "assets", "images"), { recursive: true });
@@ -56,7 +77,7 @@ export function projectCmd() {
       await fs.mkdir(path.join(dir, "render"), { recursive: true });
 
       const data: Record<string, unknown> = {
-        name: opts.name,
+        name,
         platform: opts.platform,
         aspectRatio: opts.aspectRatio,
         status: "draft",
@@ -306,12 +327,15 @@ export function projectCmd() {
     });
 
   cmd
-    .command("log-prompt <id>")
-    .description("Append a user-prompt entry to project logs")
+    .command("log-prompt [id]")
+    .description("Append a user-prompt entry to project logs. Accept project id positionally OR via --project (#031).")
+    .option("--project <id>", "Project id (alternative to the positional <id>)")
     .requiredOption("--text <text>", "Prompt text")
     .option("--stage <stage>", "Stage label (brief | feedback | ...)")
     .option("--note <note>", "Free-form note")
-    .action(async (id: string, opts: any) => {
+    .action(async (idArg: string | undefined, opts: any) => {
+      const id = idArg ?? (opts.project as string | undefined);
+      if (!id) raiseError("E_VALIDATION_FAILED", { target: "project id", detail: "pass it positionally or via --project" });
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       await logUserPrompt(id, { text: opts.text, stage: opts.stage, note: opts.note });
@@ -320,10 +344,11 @@ export function projectCmd() {
     });
 
   cmd
-    .command("log-asset <id>")
+    .command("log-asset [id]")
     .description(
-      "Append a user-asset entry to project logs. With --copy-from <src>, copies the file into <project>/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames.",
+      "Append a user-asset entry to project logs. Accept project id positionally OR via --project (#031). With --copy-from <src>, copies the file into <project>/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames.",
     )
+    .option("--project <id>", "Project id (alternative to the positional <id>)")
     .requiredOption("--kind <kind>", "screenshot | photo | video | audio | doc | ref-url | other")
     .requiredOption("--source <source>", "Original path or URL")
     .option("--dest <dest>", "Stored path inside project (used as-is if no --copy-from)")
@@ -333,7 +358,9 @@ export function projectCmd() {
     )
     .option("--purpose <purpose>", "character-ref | product-ref | brand-screenshot | ...")
     .option("--note <note>", "Free-form note")
-    .action(async (id: string, opts: any) => {
+    .action(async (idArg: string | undefined, opts: any) => {
+      const id = idArg ?? (opts.project as string | undefined);
+      if (!id) raiseError("E_VALIDATION_FAILED", { target: "project id", detail: "pass it positionally or via --project" });
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 

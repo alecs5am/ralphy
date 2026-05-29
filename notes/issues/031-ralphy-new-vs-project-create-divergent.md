@@ -1,10 +1,14 @@
 # `ralphy new` and `ralphy project create` write to divergent registries
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
 > **Category:** cli
+
+## Resolution (2026-05-30)
+
+Unified both verbs onto `workspace/projects/<id>/` via the workspace registry (Option A). `ralphy new` now writes to the canonical location and registers the project so `generate` / `render` find it. `--name` defaults to title-cased `--id` on both `new` and `project create`. `log-prompt` / `log-asset` accept `--project <id>` in addition to the positional id. Legacy orphan projects under `~/.ralphy/projects/` are preserved on disk (AGENTS.md invariant #14); a one-shot stderr hint announces them on the next `ralphy new`. Silence with `RALPHY_SKIP_LEGACY_HINT=1`.
 
 ## Context
 

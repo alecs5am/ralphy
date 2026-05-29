@@ -20,7 +20,7 @@
 | `ralphy setup` | today (hardening at `01.04`) | `[-y] [--openrouter-key K] [--elevenlabs-key K] [--keys-from-env] [--project-dir D] [--no-verify] [--allow-unverified] [--no-skill-install]` | First-time wizard. Validates keys with live probes. On `v1.0` ends by offering to install the agent skill bundle (`01.09.06`). |
 | `ralphy status` | today | `[-p]` | Ambient state: project, keys, daemon, queue, install mode |
 | `ralphy doctor` | today (hardening at `01.04.03`) | `[-p]` | Env health: bun / ffmpeg / yt-dlp / keys / workspace / install mode |
-| `ralphy new "<brief>"` | v1.0 | `[--id <slug>] [--brand <slug>] [--persona <slug>] [--template <slug>]` | Casual on-ramp. Creates project under `~/.ralphy/projects/<id>/` (`01.09.01`). |
+| `ralphy new "<brief>"` | v1.0 | `[--id <slug>] [--name <name>] [--brand <slug>] [--persona <slug>] [--template <slug>] [--platform <p>] [--aspect-ratio <r>] [--duration <s>]` | Casual on-ramp. Creates project under `workspace/projects/<id>/` and registers it — unified with `project create` as of #031. `--name` defaults to the title-cased id. |
 | `ralphy make "<brief>"` | v1.0 | `[--style <slug>] [--ref <list>] [--cref <r>] [--sref <r>] [--pref <r>] [--batch <n>] [--budget <usd>] [--dry-run] [--final]` | Brief → mp4. Default mode = draft (minimum scope, best models). `--final` ships directly. |
 | `ralphy ship <project-id>` | v1.0 | `[--allow-failed-eval] [--allow-over-budget] [--no-ref-consent --reason <text>]` | Promote draft to full storyboard + final render. Runs gates. |
 | `ralphy trend <target>` | v1.0 | `[--niche <s>] [--platforms tiktok,reels,shorts] [--window 14d] [--top 20] [--save-refs]` | Niche / handle scanner. Wraps `research scrape-trends`. |
