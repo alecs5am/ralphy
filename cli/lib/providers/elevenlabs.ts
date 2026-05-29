@@ -7,6 +7,7 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { logGeneration } from "../gen-log.js";
 import {
   assetPath,
@@ -15,6 +16,7 @@ import {
   requireProviderKey,
   retryTransient,
   TerminalProviderError,
+  TransientPayloadError,
 } from "./shared.js";
 import { withConcurrency } from "./concurrency.js";
 import type {
@@ -72,6 +74,124 @@ export async function ensureVoiceExists(voiceId: string, signal?: AbortSignal): 
   voiceExistsCache.set(voiceId, true);
 }
 
+// ─── per-slot file lock + ffprobe-verify (#039) ──────────────────────────────
+//
+// Background: even with the #007 semaphore in place (TTS capped at 3
+// in-process), two parallel `generateVoiceover` calls that target the SAME
+// destination path (same project + same slot — e.g. an external batcher firing
+// `ralphy generate voiceover ...` twice for `scene-01-vo`) can race the
+// `fs.writeFile` step and leave a corrupted mp3 on disk (ffprobe sees empty
+// duration; ElevenLabs Scribe rejects it as "File is corrupted"). The semaphore
+// throttles NETWORK calls, not local writes — and two same-path writers were
+// previously unprotected.
+//
+// Strategy: in-process per-destination-path serialization. Second caller awaits
+// the first via a Map keyed by absolute destination path. After the (now
+// serialized) write completes, ffprobe asserts duration > 0 and a readable
+// audio codec. A 0-byte / unreadable result throws TransientPayloadError so
+// the outer retryTransient() loop retries once before giving up.
+//
+// ffprobe missing on the host: verify is a graceful no-op (one-shot stderr
+// warning). The lock still runs — that's the load-bearing half of the fix.
+
+/** In-process write locks keyed by absolute destination path. */
+const slotWriteLocks = new Map<string, Promise<unknown>>();
+
+/** Reset the slot-lock map. Tests use this to start from a clean slate. */
+export function _resetSlotWriteLocks(): void {
+  slotWriteLocks.clear();
+}
+
+/**
+ * Serialize concurrent writes to the same destination path. Second caller
+ * awaits the first; on completion (success OR failure) the lock is cleared so
+ * the next caller starts fresh.
+ */
+async function withSlotLock<T>(destPath: string, fn: () => Promise<T>): Promise<T> {
+  const prev = slotWriteLocks.get(destPath);
+  if (prev) {
+    // Wait for the in-flight write to complete (or fail) before we start ours.
+    try {
+      await prev;
+    } catch {
+      /* The prior write's error belongs to its own caller — we just need the slot freed. */
+    }
+  }
+  const run = (async () => fn())();
+  slotWriteLocks.set(destPath, run);
+  try {
+    return await run;
+  } finally {
+    // Clear only if our run is still the registered one — a later caller may have
+    // already chained onto a successor.
+    if (slotWriteLocks.get(destPath) === run) {
+      slotWriteLocks.delete(destPath);
+    }
+  }
+}
+
+let ffprobeMissingWarned = false;
+
+/**
+ * Verify an audio file on disk via ffprobe. Returns:
+ *  - `{ ok: true }` when ffprobe reports duration > 0 and an audio codec.
+ *  - `{ ok: false, reason }` when ffprobe ran and rejected the file.
+ *  - `{ ok: true, skipped: true }` when ffprobe is missing (graceful skip + warn once).
+ *
+ * Called after the mp3 lands on disk. A `false` result triggers a
+ * TransientPayloadError so retryTransient retries once before failing hard.
+ */
+export function verifyAudioFile(
+  filePath: string,
+): { ok: true; skipped?: boolean } | { ok: false; reason: string } {
+  const result = spawnSync(
+    "ffprobe",
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "a:0",
+      "-show_entries",
+      "stream=codec_name:format=duration",
+      "-of",
+      "default=nw=1:nk=0",
+      filePath,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") {
+    if (!ffprobeMissingWarned) {
+      ffprobeMissingWarned = true;
+      // eslint-disable-next-line no-console
+      console.error(
+        "ralphy: ffprobe not found — skipping voiceover audio-verify pass. " +
+          "Install ffmpeg (which bundles ffprobe) to catch corrupted mp3 writes.",
+      );
+    }
+    return { ok: true, skipped: true };
+  }
+  if (result.status !== 0) {
+    const stderr = (result.stderr ?? "").trim();
+    return {
+      ok: false,
+      reason: stderr.slice(0, 200) || `ffprobe exit ${result.status}`,
+    };
+  }
+  const stdout = (result.stdout ?? "").trim();
+  const codecMatch = stdout.match(/codec_name=(\S+)/);
+  const durationMatch = stdout.match(/duration=([0-9.]+)/);
+  if (!codecMatch) {
+    return { ok: false, reason: `no audio codec stream found (probe: ${stdout.slice(0, 120)})` };
+  }
+  if (!durationMatch || Number(durationMatch[1]) <= 0) {
+    return {
+      ok: false,
+      reason: `duration <= 0 (probe: ${stdout.slice(0, 120)})`,
+    };
+  }
+  return { ok: true };
+}
+
 // ─── voiceover (TTS) ──────────────────────────────────────────────────────────
 
 const DEFAULT_VOICE_SETTINGS = {
@@ -98,56 +218,85 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     output_format: "mp3_44100_128",
   };
 
-  // #005: wrap the TTS POST in transient-error retry. 4xx → terminal, 5xx /
-  // TLS / ECONNRESET → 2-retry exponential backoff. Voice-existence preflight
-  // is OUTSIDE this loop on purpose — a 404 voice id is a terminal config
-  // error, not a network blip.
-  const tts = await retryTransient<{ buf: Buffer; attempt: number }>(
-    async (attempt) => {
-      let resp: Response;
-      try {
-        // #007: hold a concurrency slot for the network call only. ElevenLabs
-        // TTS free/starter caps at 3 concurrent; choose-your-guide-001 hit 6
-        // hard-failed 429s with 9 parallel calls. Semaphore key is "tts" so
-        // every voice / model on the TTS endpoint shares one cap.
-        resp = await withConcurrency(ID, "tts", "voice", () =>
-          fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
-            method: "POST",
-            headers: {
-              "xi-api-key": apiKey,
-              "Content-Type": "application/json",
-              "User-Agent": UA,
-            },
-            body: JSON.stringify(body),
-            signal: input.signal,
-          }),
-        );
-      } catch (err) {
-        throw err;
-      }
+  const localPath = assetPath(input.projectId, "voiceover", `${input.slot}.mp3`);
 
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        const message = `ElevenLabs TTS ${resp.status}: ${text.slice(0, 500)}`;
-        if (resp.status >= 400 && resp.status < 500) {
-          throw new TerminalProviderError(message);
-        }
-        throw new Error(message);
-      }
-      return { buf: Buffer.from(await resp.arrayBuffer()), attempt };
-    },
-    {
-      noRetry: input.noRetry,
-      onTransientFailure: async (err, attempt) => {
-        await logFailure(input, ID, modelId, "voiceover", body, err, t0, attempt);
-      },
-    },
+  // #039: per-slot file lock — two parallel calls targeting the same dest path
+  // serialize their write+verify pass. The lock wraps the ENTIRE retryTransient
+  // loop because a partial write from caller A would otherwise be observed by
+  // caller B's verify pass mid-flight. The #007 concurrency semaphore inside
+  // retryTransient handles cross-slot fan-out independently.
+  const tts = await withSlotLock(localPath, () =>
+    // #005: wrap the TTS POST in transient-error retry. 4xx → terminal, 5xx /
+    // TLS / ECONNRESET → 2-retry exponential backoff. Voice-existence preflight
+    // is OUTSIDE this loop on purpose — a 404 voice id is a terminal config
+    // error, not a network blip.
+    //
+    // #039: write + ffprobe-verify happen INSIDE the retry loop so a corrupted
+    // mp3 (0-duration / unreadable codec) throws TransientPayloadError and gets
+    // one retry before failing hard. The existing-asset auto-archive happens
+    // ONCE outside the loop — otherwise a retry would v-bump the same archive
+    // every attempt.
+    (async () => {
+      await fs.mkdir(path.dirname(localPath), { recursive: true });
+      await protectExistingAsset(localPath, input.overwrite);
+      return retryTransient<{ buf: Buffer; attempt: number }>(
+        async (attempt) => {
+          let resp: Response;
+          try {
+            // #007: hold a concurrency slot for the network call only. ElevenLabs
+            // TTS free/starter caps at 3 concurrent; choose-your-guide-001 hit 6
+            // hard-failed 429s with 9 parallel calls. Semaphore key is "tts" so
+            // every voice / model on the TTS endpoint shares one cap.
+            resp = await withConcurrency(ID, "tts", "voice", () =>
+              fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
+                method: "POST",
+                headers: {
+                  "xi-api-key": apiKey,
+                  "Content-Type": "application/json",
+                  "User-Agent": UA,
+                },
+                body: JSON.stringify(body),
+                signal: input.signal,
+              }),
+            );
+          } catch (err) {
+            throw err;
+          }
+
+          if (!resp.ok) {
+            const text = await resp.text().catch(() => "");
+            const message = `ElevenLabs TTS ${resp.status}: ${text.slice(0, 500)}`;
+            if (resp.status >= 400 && resp.status < 500) {
+              throw new TerminalProviderError(message);
+            }
+            throw new Error(message);
+          }
+          const buf = Buffer.from(await resp.arrayBuffer());
+
+          // Write to disk THEN verify. Write-then-verify (vs. verify-buf-in-memory)
+          // catches partial-flush / filesystem-truncation classes too — the
+          // failure mode in #039 is a corrupted file on disk, not a corrupted
+          // buffer.
+          await fs.writeFile(localPath, buf);
+          const verify = verifyAudioFile(localPath);
+          if (!verify.ok) {
+            throw new TransientPayloadError(
+              `ElevenLabs TTS returned audio that ffprobe rejected at ${localPath}: ${verify.reason}. ` +
+                `Bytes written: ${buf.length}. Treating as transient and retrying once.`,
+            );
+          }
+          return { buf, attempt };
+        },
+        {
+          noRetry: input.noRetry,
+          onTransientFailure: async (err, attempt) => {
+            await logFailure(input, ID, modelId, "voiceover", body, err, t0, attempt);
+          },
+        },
+      );
+    })(),
   );
   const buf = tts.buf;
-  const localPath = assetPath(input.projectId, "voiceover", `${input.slot}.mp3`);
-  await fs.mkdir(path.dirname(localPath), { recursive: true });
-  await protectExistingAsset(localPath, input.overwrite);
-  await fs.writeFile(localPath, buf);
 
   // ElevenLabs subscription billing — log "subscription" not a per-call price.
   const result: GenerateResult = {
