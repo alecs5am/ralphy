@@ -74,6 +74,7 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 
 - **`AGENTS.md`** — invariants (no auto-Studio, no scripts, ralphy render).
 - **[hyperframes playbook](hyperframes.md)** — reference manual for HyperFrames composition / captions / transitions / GSAP / registry.
+- **[art-director/pre-render-checklist.md](art-director/pre-render-checklist.md)** — HARD snapshot-review gate the art-director must clear before handing off. If you arrived here without snapshots on disk, bounce back to art-director.
 - `workspace/projects/<id>/scenario.json` — structure and timings.
 - `workspace/projects/<id>/asset-manifest.json` — asset paths.
 - `workspace/projects/<id>/index.html` — the composition.
