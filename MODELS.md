@@ -36,6 +36,18 @@ Endpoint: `POST /api/v1/chat/completions` with `modalities: ["image","text"]`. O
 - `gpt-image-1`: legacy line. `gpt-5.4-image-2` is the current stable OpenAI image model (not to be confused with the "gpt-image-2" naming some external docs use).
 - Hard-coded fal.ai endpoints. We left fal.ai behind in Sprint 2.
 
+### Failure modes (per-model quick reference)
+
+Append-only. Add a row when a new quirk costs >5 min of debugging or a re-roll.
+
+| Model | Failure mode | Workaround |
+|---|---|---|
+| `google/gemini-3-pro-image-preview` | **"skeleton null" transient** — response returns `finish_reason: null, content: null, native_finish_reason: null` with no error body. Sporadic, not prompt-related. | Retry up to 3× (same prompt, same refs). If all 3 fail, fall back to `openai/gpt-5.4-image-2` (accept the 1024² default + concurrency=1). Tracked by `cli/lib/providers/openrouter.ts` retry loop. |
+| `google/gemini-3-pro-image-preview` | **Body-horror `IMAGE_SAFETY` refusal** (cap #10 below) — empty content + `native_finish_reason: IMAGE_SAFETY` on cryptid / skinwalker / Cronenberg prompts. | Route to `openai/gpt-5.4-image-2` for the anchor frame; carry scene identity via `--ref`. |
+| `google/gemini-3-pro-image-preview` | **Typography smudging on embedded labels** (kanji buttons, LED digits, brand wordmarks). | Switch to `openai/gpt-5.4-image-2` when copy must be legible — it holds glyphs cleanly. Lesson from flipper-hypermotion-001. |
+| `openai/gpt-5.4-image-2` | **Concurrency cap = 1.** 2+ parallel calls return misleading `403 "Key limit exceeded (total limit)"`. | Serialize batches (`--concurrency 1`). For parallel, swap to `gemini-3-pro-image-preview` (tolerates ≥4). |
+| `openai/gpt-5.4-image-2` | **Ignores in-prompt size hints**, defaults to 1024². | Pass `image_config.aspect_ratio` via `--size WxH` (mapped automatically in `openrouter.ts → sizeToAspectRatio`). |
+
 ---
 
 ## Video generation (text-to-video + image-to-video)
@@ -102,7 +114,53 @@ Always recheck via `ralphy models list`. These arrays change.
 
 11. **`google/veo-3.1` body-horror filter** rejects both the prompt AND the input frame independently. Sanitizing the prompt (stripping skinwalker / werewolf / vertebrae / Cronenberg words) does NOT unblock the path — Google's filter ALSO scans the first/last-frame anchor and refuses when the anchor itself is clearly body-horror. Combined with seedance's photoreal-human rejection (cap #6), this leaves `kwaivgi/kling-v3.0-pro` as **the only viable i2v provider for the photoreal-human + body-horror combination** that voidstomper-style content requires. Skip seedance and veo round-trips on those jobs; go straight to Kling. Postmortem: voidstomper-test-001 (2026-05-25).
 
-12. **`kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0` overshoot `--duration` by ~1s.** Both models return clips ~1 second longer than the requested `--duration` — silent, billed against the requested duration, not the delivered one. tokyo-y2k-001 measured `5s/4s/9s` storyboard → `6.04/5.04/10.04` actual; planned 75s of clips landed as 90.7s of raw mp4. Editor recipe (pre-shorten at art-director stage, or budget a vision-trim pass) lives in [`docs/playbooks/editor/render-pipeline.md → Source-clip duration overshoot`](docs/playbooks/editor/render-pipeline.md#source-clip-duration-overshoot-kling--seedance). Postmortem: tokyo-y2k-001 (workflow-fixes #3).
+12. **`kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0` overshoot `--duration` by ~1s.** Both models return clips ~1 second longer than the requested `--duration` — silent, billed against the requested duration, not the delivered one. tokyo-y2k-001 measured `5s/4s/9s` storyboard → `6.04/5.04/10.04` actual; planned 75s of clips landed as 90.7s of raw mp4. Editor recipe (pre-shorten at art-director stage, or budget a vision-trim pass) lives in [`docs/playbooks/editor/render-pipeline.md → Source-clip duration overshoot`](docs/playbooks/editor/render-pipeline.md#source-clip-duration-overshoot-kling--seedance). Filed long-form: [`notes/issues/042-clip-duration-overshoot-undocumented.md`](notes/issues/042-clip-duration-overshoot-undocumented.md). Postmortem: tokyo-y2k-001 (workflow-fixes #3).
+
+### Failure modes (per-model quick reference)
+
+Append-only. Each row is a quirk that has already cost ≥1 re-roll across sessions.
+
+| Model | Failure mode | Workaround |
+|---|---|---|
+| `kwaivgi/kling-v3.0-pro` | **Multi-frame (first+last) base64 was 400-prone** before the 2026-05-19 `resolveImageRef()` C2PA strip — still resurfaces on PNGs with exotic metadata. | If 400 returns on a clean modern PNG, fall back to `bytedance/seedance-2.0` for the multi-frame path (it honors `--last-frame` natively for non-photoreal-human anchors). |
+| `kwaivgi/kling-v3.0-pro` | **`--audio` slips on Russian / UA** — accent slip, voice-age drift, occasional cut text. EN is clean. | Use `--audio` for EN VO only. For RU / non-EN, generate silent clip + post-mix ElevenLabs VO in the editor stage. (Memory: `feedback_kling_no_ru_audio`.) |
+| `kwaivgi/kling-v3.0-pro` | **2500-char prompt cap** — OR returns 400 round-trip if exceeded. | Trim atmosphere/setting paragraphs first; never cut voice-tag, no-music, on-camera-EN clauses (load-bearing). |
+| `kwaivgi/kling-v3.0-pro` | **Wide-prompt rotation inside 9:16** — landscape wording biases composition to 16:9 inside the portrait container. | Anchor with `--first-frame <portrait>` and rewrite prompt with explicit vertical wording (cap #1 above). |
+| `bytedance/seedance-2.0` | **Privacy filter blocks photoreal-human i2v anchors** — `InputImageSensitiveContentDetected.PrivacyInformation`, even when the human is AI-generated. | Reserve seedance for cartoons / non-human / landscapes / hands / abstract motion. Photoreal humans → `kwaivgi/kling-v3.0-pro`. (Memory: `feedback_seedance_rejects_realistic_people`.) |
+| `bytedance/seedance-2.0` | **Concurrency cap = 1** (effective, per current OR keys). | Serialize multi-clip jobs; parallelize across providers, not within seedance. |
+| `kling` + `seedance` (both) | **`--duration` overshoots by ~1s** (cap #12 above). | Pre-shorten at art-director stage OR budget a vision-trim pass in the editor. See [`docs/playbooks/editor/render-pipeline.md`](docs/playbooks/editor/render-pipeline.md#source-clip-duration-overshoot-kling--seedance) + [`notes/issues/042`](notes/issues/042-clip-duration-overshoot-undocumented.md). |
+| `google/veo-3.1` | **Body-horror filter scans the anchor frame independently of the prompt** — sanitizing the prompt does not unblock if the input frame reads as body-horror. | For photoreal-human + body-horror, use `kwaivgi/kling-v3.0-pro`; skip veo + seedance round-trips on those jobs (cap #11 above). |
+| `google/veo-3.1` | **8s clip cap** — needs Kling 15s for longer narrative beats. | Use `kwaivgi/kling-v3.0-pro` for >8s; chain veo clips for talking-head only when the cut is acceptable. |
+| `google/gemini-3.1-pro-preview` (video-analysis via `callLLM`) | **Occasional HTTP 502 with empty body** on full-length source mp4s. Vision-trim + ref-analysis pipelines hit this most. | Compress source mp4 to 540×960 CRF28 (`ffmpeg -vf scale=540:960 -crf 28`) + retry. If still 502, fall back to `google/gemini-2.5-flash` (lower context but reliable). Last resort: `ralphy ref frames` + frame-level analysis. |
+| `elevenlabs/music_v1` | **Artist-name ToS rejection** — naming any rapper / producer / band returns 422 with `prompt_suggestion`. Modern hip-hop especially. | Genre + tempo + instrumentation only; resubmit the API's `prompt_suggestion` verbatim. (Memory: `feedback_elevenlabs_music_no_artist_names`.) |
+| `elevenlabs/music_v1` | **Concurrency cap = 2** — 3+ parallel returns `429 concurrent_limit_exceeded` and pollutes `generations.jsonl`. | Serialize music gen or stay ≤2 in-flight (`--concurrency 2`). |
+| `elevenlabs/scribe_v1` + voice endpoints | **Default Node UA → Cloudflare 403.** Geo-blocked regions return HTTP 200 + HTML body cast as `.mp3`. | Send `User-Agent: Mozilla/5.0 (...)` header (already wired). From geo-blocked region, fall back to Kokoro for VO and `openai/whisper-1` for transcription. (Memory: `feedback_elevenlabs_geoblock_html_in_mp3`.) |
+
+### Routing rules (which video model for what)
+
+Apply these before drafting a `ralphy generate video` prompt. They short-circuit re-rolls.
+
+- **Hyper-motion** (explosions, runway-sprint, coin-arcs, particle bursts, sports collisions, parkour, falling) → `bytedance/seedance-2.0`. Kling reads these as narrative beats and softens the physics. **Caveat:** seedance's privacy filter rejects photoreal-human i2v anchors — only use seedance hyper-motion on cartoon / non-human / landscape / hands / abstract subjects.
+- **Talking-head, photoreal humans, slow narrative, lip-sync** → `kwaivgi/kling-v3.0-pro`. Multi-frame works post-2026-05-19. `--audio` for EN VO only.
+- **4K hero piece** → `google/veo-3.1-fast` (the only catalog entry with 4K).
+- **3:4 / 4:3 portrait magazine aspect** → `alibaba/wan-2.7` (only model with these in stock).
+- **Cinema 21:9** → `bytedance/seedance-2.0` (only model with 21:9 in stock).
+- **Photoreal humans + body-horror anchor** → `kwaivgi/kling-v3.0-pro` only. Seedance rejects the anchor, veo rejects both prompt and anchor (caps #6 + #11).
+- **Cheapest acceptable batch** → `google/veo-3.1-lite` (~$0.09/s) for non-photoreal-human work; otherwise `kwaivgi/kling-v3.0-std` (same rate as pro but worse keyframe holds).
+
+### `--audio` policy: SPEECH vs AMBIENT/DIEGETIC
+
+Two distinct audio jobs hide behind the single `--audio` flag — different rules apply.
+
+- **SPEECH (on-camera VO / dialogue / lip-sync).** Stakes are high — voice age, accent, and word-cut are visible.
+  - **Default:** `google/veo-3.1` for English on-camera dialogue.
+  - **`kwaivgi/kling-v3.0-pro --audio` works for EN only.** Slips on RU / UA / non-English (memory `feedback_kling_no_ru_audio`). For RU, render silent + post-mix ElevenLabs `eleven_multilingual_v2` in the editor stage.
+  - `bytedance/seedance-2.0 --audio` is not validated for SPEECH — treat as off.
+- **AMBIENT / DIEGETIC (background noise, footsteps, crowd murmur, wind, traffic, room tone, prop SFX).** Stakes are low — language doesn't apply.
+  - **Any of kling / seedance / veo `--audio: true`** are fine. Generate alongside the visuals; cheaper than a separate SFX pass.
+  - If the brief explicitly bans music (most UGC beds do), keep the `no music — only diegetic ambient + sparse SFX` clause in the prompt regardless of which model.
+
+When in doubt: SPEECH = veo (EN) / kling-EN-only / silent+ElevenLabs (everything else). AMBIENT = whichever video model is already in the shot list.
 
 ## Tried-and-dropped (postmortem cross-reference)
 

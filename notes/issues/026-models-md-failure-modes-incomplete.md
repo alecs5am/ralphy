@@ -1,6 +1,6 @@
 # MODELS.md drift from code; missing failure modes and routing nuance
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
