@@ -1,6 +1,6 @@
 # i2v anchor pre-processing (C2PA strip + resize PNG→JPG) not in CLI
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
