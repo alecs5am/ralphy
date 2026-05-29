@@ -10,6 +10,7 @@ import { raiseError } from "../lib/errors/index.js";
 import { readLog, logUserPrompt, logUserAsset, logGeneration, type GenerationEntry, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
+import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
 
 async function safeJson(fp: string) {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
@@ -594,23 +595,151 @@ export function projectCmd() {
       out({ id: newId, clonedFrom: id });
     });
 
+  // ── assets ─────────────────────────────────────────────────────────────
+  // Issue #029. Walks <project>/assets/, ffprobe-truths every media file,
+  // emits a flat array of {slot, path, kind, duration_s, width, height, fps,
+  // codecs, size_bytes}. The point: stop every multi-clip project from
+  // re-inventing an ad-hoc `ffprobe -show_entries` loop and inheriting wrong
+  // duration constants from sibling projects.
+  cmd
+    .command("assets <id>")
+    .description(
+      "ffprobe-truth every media file under <project>/assets/ and emit a flat array. Honors --kind video|image|audio.",
+    )
+    .option("--kind <kind>", "Filter by classified kind: video | image | audio")
+    .action(async (id: string, opts: { kind?: string }) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const dir = path.join(projectsDir(), id);
+
+      try {
+        ensureFfprobe();
+      } catch (e) {
+        err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg + ffprobe are installed.`);
+      }
+
+      const assetsDir = path.join(dir, "assets");
+      const files = await walkMediaFiles(assetsDir);
+
+      // Build a slot lookup from asset-manifest.json (if present) so each row
+      // carries the canonical slot name when we have one. We resolve real
+      // paths on both sides so symlink-prefixed temp dirs (macOS /tmp vs
+      // /private/tmp) still match.
+      const manifest = await safeJson(path.join(dir, "asset-manifest.json"));
+      const pathToSlot = new Map<string, string>();
+      const tryRealpath = async (p: string): Promise<string> => {
+        try { return await fs.realpath(p); } catch { return path.resolve(p); }
+      };
+      if (manifest && typeof manifest === "object") {
+        const slots = (manifest as { slots?: Record<string, any>; assets?: Array<any> }).slots;
+        if (slots) {
+          for (const [slot, meta] of Object.entries(slots)) {
+            const p = (meta as { path?: string }).path;
+            if (p) pathToSlot.set(await tryRealpath(p), slot);
+          }
+        }
+        // Legacy manifest shape: `assets: [{id, file, ...}]`.
+        const legacy = (manifest as { assets?: Array<{ id?: string; file?: string }> }).assets;
+        if (Array.isArray(legacy)) {
+          for (const a of legacy) {
+            if (a.file && a.id) {
+              pathToSlot.set(await tryRealpath(path.join(dir, a.file)), a.id);
+            }
+          }
+        }
+      }
+
+      const rows: Array<Record<string, unknown>> = [];
+      for (const f of files) {
+        const kind = classifyFile(f);
+        if (opts.kind && kind !== opts.kind) continue;
+        const probe = await probeFile(f);
+        const slot = pathToSlot.get(await tryRealpath(f));
+        rows.push({
+          slot: slot ?? null,
+          path: path.relative(dir, f),
+          absolute_path: f,
+          kind,
+          duration_s: probe.duration_s ?? null,
+          width: probe.width ?? null,
+          height: probe.height ?? null,
+          fps: probe.fps ?? null,
+          codecs: probe.codecs ?? null,
+          size_bytes: probe.size_bytes ?? null,
+          has_video: probe.has_video ?? null,
+          has_audio: probe.has_audio ?? null,
+          error: probe.error ?? null,
+        });
+      }
+
+      await logGeneration(id, {
+        provider: "ffmpeg",
+        endpoint: "ffprobe/project-assets",
+        kind: "other",
+        input: { project: id, filter_kind: opts.kind ?? null, count: rows.length },
+        status: "ok",
+        cost_usd: 0,
+        note: `ffprobe ${rows.length} media files under assets/`,
+      });
+
+      out(rows);
+    });
+
   // ── verify ─────────────────────────────────────────────────────────────
-  // Postmortem-driven: tokyo + kbo flagged that asset-manifest.json claims
-  // can drift from on-disk reality (wrong aspect, wrong duration, truncated
-  // codec). Probes every slot file with ffprobe and reports divergences.
+  // Postmortem-driven (tokyo + kbo + noski): asset-manifest.json claims can
+  // drift from on-disk reality (wrong aspect, wrong duration, truncated codec).
+  // ffprobes every slot file and compares against the manifest's own claim.
+  // Tolerance: 100ms on duration; exact on width / height / size_bytes.
   cmd
     .command("verify <id>")
     .description(
-      "ffprobe every slot in asset-manifest.json + flag divergences (missing file, wrong duration, wrong dimensions, broken codec). Exit non-zero on any red.",
+      "ffprobe every slot in asset-manifest.json and flag divergences from claimed duration / dimensions / size (tolerance: 100ms on duration). Exit non-zero on any red.",
     )
     .option("--strict", "Treat warnings (missing optional metadata) as errors too", false)
     .action(async (id: string, opts: { strict?: boolean }) => {
-      const { spawnSync } = await import("node:child_process");
       const dir = path.join(projectsDir(), id);
       try { await fs.access(dir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id }); }
-      const manifest = await safeJson(path.join(dir, "asset-manifest.json"));
-      if (!manifest || !manifest.slots) {
-        err(`asset-manifest.json missing or invalid at ${path.join(dir, "asset-manifest.json")}`);
+
+      try {
+        ensureFfprobe();
+      } catch (e) {
+        err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg + ffprobe are installed.`);
+      }
+
+      const manifestPath = path.join(dir, "asset-manifest.json");
+      const manifest = await safeJson(manifestPath);
+      if (!manifest) {
+        err(`asset-manifest.json missing or invalid at ${manifestPath}`);
+      }
+
+      // Normalize to a uniform { slot, claim, path } shape across the two
+      // shapes we see in the wild:
+      //   1. `slots: { <slot>: { path, kind, durationSec?, width?, height? } }`
+      //   2. `assets: [ { id, file, durationSec?, width?, height? } ]`
+      type Entry = { slot: string; claim: Record<string, unknown>; localPath: string | null; kind?: string };
+      const entries: Entry[] = [];
+      const m = manifest as any;
+      if (m.slots && typeof m.slots === "object") {
+        for (const [slot, meta] of Object.entries(m.slots as Record<string, any>)) {
+          entries.push({
+            slot,
+            claim: meta as Record<string, unknown>,
+            localPath: (meta?.path as string | undefined) ?? null,
+            kind: meta?.kind as string | undefined,
+          });
+        }
+      } else if (Array.isArray(m.assets)) {
+        for (const a of m.assets as Array<Record<string, unknown>>) {
+          const file = (a.file as string | undefined) ?? (a.path as string | undefined);
+          entries.push({
+            slot: (a.id as string | undefined) ?? (file ?? "<unknown>"),
+            claim: a,
+            localPath: file ? (path.isAbsolute(file) ? file : path.join(dir, file)) : null,
+            kind: a.type as string | undefined,
+          });
+        }
+      } else {
+        err(`asset-manifest.json has neither .slots nor .assets at ${manifestPath}`);
       }
 
       type SlotReport = {
@@ -618,70 +747,73 @@ export function projectCmd() {
         path: string | null;
         exists: boolean;
         kind?: string;
-        durationSec?: number;
-        width?: number;
-        height?: number;
-        codec?: string;
-        bytes?: number;
+        probe: Record<string, unknown>;
+        divergences: Array<{ field: string; manifest: unknown; ffprobe: unknown; delta?: number }>;
         issues: string[];
       };
       const reports: SlotReport[] = [];
       let red = 0;
 
-      for (const [slot, meta] of Object.entries((manifest as { slots: Record<string, any> }).slots)) {
+      for (const e of entries) {
         const issues: string[] = [];
-        const localPath = (meta as { path?: string }).path;
-        const r: SlotReport = { slot, path: localPath ?? null, exists: false, kind: (meta as any).kind, issues };
-        if (!localPath) {
-          issues.push("manifest slot has no `path` field");
+        const r: SlotReport = {
+          slot: e.slot,
+          path: e.localPath,
+          exists: false,
+          kind: e.kind,
+          probe: {},
+          divergences: [],
+          issues,
+        };
+        if (!e.localPath) {
+          issues.push("manifest entry has no `path` / `file` field");
           red += 1;
           reports.push(r);
           continue;
         }
-        try {
-          const st = await fs.stat(localPath);
-          r.exists = true;
-          r.bytes = st.size;
-        } catch {
-          issues.push(`file missing on disk: ${localPath}`);
+        const ext = path.extname(e.localPath).toLowerCase();
+        // Probe only if it's media we understand; otherwise just stat-check.
+        const probe = await probeFile(e.localPath);
+        r.exists = probe.exists;
+        r.probe = {
+          duration_s: probe.duration_s ?? null,
+          width: probe.width ?? null,
+          height: probe.height ?? null,
+          fps: probe.fps ?? null,
+          codecs: probe.codecs ?? null,
+          size_bytes: probe.size_bytes ?? null,
+        };
+        if (!probe.exists) {
+          issues.push(`file missing on disk: ${e.localPath}`);
           red += 1;
           reports.push(r);
           continue;
         }
-
-        // ffprobe the file for shape. Skip if it's a non-media slot.
-        const ext = path.extname(localPath).toLowerCase();
-        if ([".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mov", ".webm", ".mp3", ".wav", ".m4a", ".ogg"].includes(ext)) {
-          const probe = spawnSync(
-            "ffprobe",
-            [
-              "-v", "error",
-              "-show_entries", "format=duration:stream=width,height,codec_name",
-              "-of", "default=nw=1",
-              localPath,
-            ],
-            { encoding: "utf8" },
-          );
-          if (probe.status === 0) {
-            for (const line of (probe.stdout || "").split("\n")) {
-              const [k, v] = line.split("=");
-              if (k === "duration") r.durationSec = Number(v);
-              if (k === "width") r.width = Number(v);
-              if (k === "height") r.height = Number(v);
-              if (k === "codec_name") r.codec = r.codec || v;
-            }
-          } else {
-            issues.push(`ffprobe failed: ${(probe.stderr || "").slice(0, 200)}`);
-            red += 1;
-          }
+        if (probe.error) {
+          issues.push(probe.error);
+          red += 1;
         }
 
-        if (opts.strict && r.exists && !r.codec) {
+        const div = diffManifestVsProbe(e.claim, probe);
+        r.divergences = div;
+        if (div.length > 0) red += 1;
+
+        if (opts.strict && probe.exists && !probe.codecs?.length && ext && ext !== ".srt" && ext !== ".vtt") {
           issues.push("strict: file has no decodable codec");
           red += 1;
         }
         reports.push(r);
       }
+
+      await logGeneration(id, {
+        provider: "ffmpeg",
+        endpoint: "ffprobe/project-verify",
+        kind: "other",
+        input: { project: id, strict: !!opts.strict, slotCount: reports.length, redCount: red },
+        status: red === 0 ? "ok" : "error",
+        cost_usd: 0,
+        note: `verify: ${reports.length} slots, ${red} red`,
+      });
 
       out({
         project: id,
