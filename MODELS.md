@@ -232,8 +232,11 @@ POST https://api.elevenlabs.io/v1/music
 Headers: xi-api-key: $ELEVENLABS_API_KEY, Content-Type: application/json
 Body: { "prompt": "...", "music_length_ms": 30000, "force_instrumental": true, "output_format": "mp3_44100_128", "model_id": "music_v1" }
 Response: 200 → binary mp3 (application/octet-stream)
+         400 → JSON ToS rejection (`bad_prompt`) — see "Prompt content policy"
          422 → JSON validation error
 ```
+
+**Prompt content policy (#006).** ElevenLabs Music ToS rejects prompts that name specific artists / producers / copyrighted tracks (rappers, named producers, song titles, scored themes) with HTTP **400 `bad_prompt`**. The 400 envelope carries a `detail.data.prompt_suggestion` field containing a provider-sanitized rewrite the CLI can resubmit verbatim. The connector surfaces this on `TerminalProviderError.promptSuggestion`; `ralphy generate music --auto-retry-on-tos-rejection` will log the original failure and resubmit once using the rewrite. Use **genre + tempo + instrumentation + mood** framing instead of named entities (e.g. "trap beat, 140 BPM, 808 sub-bass, dark minor-key piano stab"). The CLI runs a soft pre-submit linter (`cli/lib/music-prompt-lint.ts`) against a known artist/track regex set and warns to stderr before submit — non-blocking, false positives are cheaper than missed catches.
 
 **Trend-music rule:** if a template references a specific trend track (`assets/trend-*.mp3`), copy the file from the `ralphy-assets` companion repo. **Don't generate a substitute.** Track recognition is half of what makes a trend video a trend.
 
