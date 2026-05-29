@@ -17,6 +17,7 @@ import {
   protectExistingAsset,
   writeImageFromUrlOrDataUri,
   resolveImageRef,
+  resolveImageRefForVideo,
   logFailure,
   rewriteUpstreamError,
   requireProviderKey,
@@ -509,21 +510,27 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   };
   const firstFrameRef = input.firstFrame ?? input.image;
   const frameImages: Array<Record<string, unknown>> = [];
+  // Pre-processing telemetry per anchor — logged into `input.preprocess` on the
+  // generations.jsonl row so postmortems can trace which anchors got C2PA-
+  // stripped and/or downscaled to JPG before going on the wire. See #021.
+  const preprocess: Record<string, unknown> = {};
   if (firstFrameRef) {
-    const url = await resolveImageRef(firstFrameRef);
+    const { url, info } = await resolveImageRefForVideo(firstFrameRef);
     frameImages.push({
       type: "image_url",
       image_url: { url },
       frame_type: "first_frame",
     });
+    preprocess.first_frame = info;
   }
   if (input.lastFrame) {
-    const url = await resolveImageRef(input.lastFrame);
+    const { url, info } = await resolveImageRefForVideo(input.lastFrame);
     frameImages.push({
       type: "image_url",
       image_url: { url },
       frame_type: "last_frame",
     });
+    preprocess.last_frame = info;
   }
   if (frameImages.length > 0) body.frame_images = frameImages;
 
@@ -669,6 +676,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
       aspect_ratio: aspectRatio,
       resolution,
       image: input.image ? "[ref-supplied]" : undefined,
+      preprocess: Object.keys(preprocess).length > 0 ? preprocess : undefined,
     },
     output: { url: downloadUrl, local: dest, job_id: job.id },
     status: "ok",

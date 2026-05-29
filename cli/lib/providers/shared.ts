@@ -193,6 +193,140 @@ async function stripImageMetadata(srcBuf: Buffer, ext: string): Promise<Buffer> 
   return await fs.readFile(cachedOut);
 }
 
+/**
+ * Probe an image buffer for pixel dimensions via ffprobe. Returns null when
+ * ffprobe is missing / fails — caller treats that as "skip resize" rather than
+ * blowing up the i2v submit.
+ */
+async function probeImageDimensions(
+  buf: Buffer,
+  ext: string,
+): Promise<{ width: number; height: number } | null> {
+  const normalized = ext === "jpeg" ? "jpg" : ext;
+  if (!["png", "jpg", "webp"].includes(normalized)) return null;
+  const sha = crypto.createHash("sha256").update(buf).digest("hex").slice(0, 16);
+  const cacheDir = path.join(os.tmpdir(), "ralphy-probe-refs");
+  await fs.mkdir(cacheDir, { recursive: true });
+  const tmpIn = path.join(cacheDir, `${sha}.${normalized}`);
+  try {
+    await fs.writeFile(tmpIn, buf);
+    const result = spawnSync(
+      "ffprobe",
+      [
+        "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=s=x:p=0",
+        tmpIn,
+      ],
+      { encoding: "utf8" },
+    );
+    if (result.status !== 0) return null;
+    const out = (result.stdout ?? "").trim();
+    const m = out.match(/^(\d+)x(\d+)$/);
+    if (!m) return null;
+    return { width: Number(m[1]), height: Number(m[2]) };
+  } catch {
+    return null;
+  } finally {
+    await fs.unlink(tmpIn).catch(() => {});
+  }
+}
+
+/**
+ * Resize an oversized PNG / WEBP buffer down to fit within a target box (default
+ * 720×1280 — the natural anchor size for kling / seedance / veo 9:16) and
+ * re-encode as JPG. Re-encoding to JPG shrinks 700KB PNG anchors to ~80KB,
+ * which is what every i2v provider expects on the wire.
+ *
+ * Returns the resized JPG buffer + new dimensions + new ext. Falls back to the
+ * original buffer when ffmpeg is missing / fails (best-effort, same as the
+ * C2PA strip — the pipeline must not break on a tooling gap, the agent will
+ * see the upstream 400 elsewhere).
+ *
+ * Cached by sha256 so repeated `--ref` uses of the same image don't re-encode.
+ */
+async function resizeForI2VAnchor(
+  srcBuf: Buffer,
+  ext: string,
+  targetMax: { width: number; height: number },
+): Promise<{ buf: Buffer; ext: "jpg"; width: number; height: number } | null> {
+  const normalized = ext === "jpeg" ? "jpg" : ext;
+  if (!["png", "jpg", "webp"].includes(normalized)) return null;
+
+  const sha = crypto.createHash("sha256").update(srcBuf).digest("hex").slice(0, 16);
+  const cacheDir = path.join(os.tmpdir(), "ralphy-resized-refs");
+  const cachedOut = path.join(
+    cacheDir,
+    `${sha}.${targetMax.width}x${targetMax.height}.jpg`,
+  );
+
+  try {
+    const cached = await fs.readFile(cachedOut);
+    const probed = await probeImageDimensions(cached, "jpg");
+    if (probed) {
+      return { buf: cached, ext: "jpg", width: probed.width, height: probed.height };
+    }
+  } catch {
+    /* cache miss — fall through */
+  }
+
+  await fs.mkdir(cacheDir, { recursive: true });
+  const cachedIn = path.join(cacheDir, `${sha}.in.${normalized}`);
+  await fs.writeFile(cachedIn, srcBuf);
+
+  // scale=w:h:force_original_aspect_ratio=decrease preserves aspect so we don't
+  // squish a 1080×1920 anchor into a non-9:16 grid. -map_metadata -1 also strips
+  // any residual EXIF the C2PA-strip pass missed. -q:v 4 ≈ 80-90 quality, the
+  // sweet spot for ~80KB outputs on a 720×1280 portrait.
+  const args = [
+    "-y",
+    "-hide_banner",
+    "-loglevel", "error",
+    "-i", cachedIn,
+    "-vf", `scale=${targetMax.width}:${targetMax.height}:force_original_aspect_ratio=decrease`,
+    "-map_metadata", "-1",
+    "-q:v", "4",
+    cachedOut,
+  ];
+
+  const result = spawnSync("ffmpeg", args);
+  await fs.unlink(cachedIn).catch(() => {});
+  if (result.status !== 0) return null;
+
+  const outBuf = await fs.readFile(cachedOut);
+  const probed = await probeImageDimensions(outBuf, "jpg");
+  if (!probed) return { buf: outBuf, ext: "jpg", width: targetMax.width, height: targetMax.height };
+  return { buf: outBuf, ext: "jpg", width: probed.width, height: probed.height };
+}
+
+/**
+ * Telemetry shape for pre-processing an i2v reference image. Mirrored into
+ * `input.preprocess` on the `generations.jsonl` row so postmortems can see the
+ * lineage of any anchor that hit the wire.
+ */
+export type RefPreprocessInfo = {
+  /** True when the C2PA / EXIF strip pass actually re-encoded the buffer. */
+  c2pa_stripped: boolean;
+  /** True when the source exceeded the i2v target box and was downscaled to JPG. */
+  resized: boolean;
+  /** Source pixel dimensions, when ffprobe could determine them. */
+  src_dimensions?: { width: number; height: number };
+  /** Output pixel dimensions after resize (omitted when no resize happened). */
+  out_dimensions?: { width: number; height: number };
+  /** Source byte size on disk before any pre-processing. */
+  src_bytes: number;
+  /** Final byte size sent to the provider after both passes. */
+  out_bytes: number;
+  /** Final MIME / encoding ("image/png" → "image/jpeg" after resize). */
+  out_mime: string;
+};
+
+/**
+ * Resolve a single ref string for an IMAGE-generation call (multi-ref, style
+ * transfer, etc.). Strips C2PA but does NOT resize — image-gen tolerates large
+ * refs and they sometimes carry detail the model needs.
+ */
 export async function resolveImageRef(ref: string): Promise<string> {
   if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
     return ref;
@@ -204,6 +338,100 @@ export async function resolveImageRef(ref: string): Promise<string> {
   const buf = await stripImageMetadata(rawBuf, ext);
   const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "webp" ? "image/webp" : "image/png";
   return `data:${mime};base64,${buf.toString("base64")}`;
+}
+
+/** Default target box for i2v anchors — matches kling / seedance / veo 9:16 natural input. */
+export const I2V_ANCHOR_TARGET = { width: 720, height: 1280 } as const;
+
+/**
+ * Resolve a ref string for a VIDEO i2v anchor (firstFrame / lastFrame / image
+ * on `generateVideo`). Two-step pre-processing: (1) strip C2PA / EXIF (load-
+ * bearing — Kling rejects `caBX` chunks as "not in a valid base64 format"), and
+ * (2) if the source PNG exceeds the model's natural anchor box, downscale +
+ * re-encode as JPG (~80KB) so the wire payload stays tiny.
+ *
+ * Originals on disk are NEVER overwritten — preprocessed bytes live in a tmp
+ * cache under `os.tmpdir()/ralphy-{stripped,resized}-refs/`. AGENTS invariant #14.
+ *
+ * Returns the data: URL to pass through and an info struct the caller logs
+ * into `input.preprocess`. http/https/data: refs are passed through verbatim
+ * with `c2pa_stripped: false, resized: false` so manifest rows still record the
+ * decision.
+ */
+export async function resolveImageRefForVideo(
+  ref: string,
+  opts: { targetMax?: { width: number; height: number } } = {},
+): Promise<{ url: string; info: RefPreprocessInfo }> {
+  if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
+    // Remote / inline refs skip pre-processing — we can't know their byte / pixel size
+    // cheaply and rewriting a data: URL through ffmpeg defeats the caller passing one in.
+    return {
+      url: ref,
+      info: {
+        c2pa_stripped: false,
+        resized: false,
+        src_bytes: 0,
+        out_bytes: 0,
+        out_mime: ref.startsWith("data:") ? ref.slice(5, ref.indexOf(";")) || "application/octet-stream" : "application/octet-stream",
+      },
+    };
+  }
+
+  const rawBuf = await fs.readFile(ref);
+  const srcExt = path.extname(ref).slice(1).toLowerCase();
+  const srcBytes = rawBuf.byteLength;
+  const srcDims = await probeImageDimensions(rawBuf, srcExt);
+
+  // Step 1: C2PA / EXIF strip.
+  const stripped = await stripImageMetadata(rawBuf, srcExt);
+  const c2paStripped = stripped !== rawBuf && !stripped.equals(rawBuf);
+
+  // Step 2: resize when source exceeds the target box. PNG / WEBP that
+  // matches-or-fits skips the resize → caller still gets a tiny payload via
+  // the C2PA-strip pass.
+  const target = opts.targetMax ?? I2V_ANCHOR_TARGET;
+  let finalBuf = stripped;
+  type OutExt = "jpg" | "png" | "webp";
+  const normalizedSrcExt: OutExt =
+    srcExt === "jpeg" || srcExt === "jpg"
+      ? "jpg"
+      : srcExt === "webp"
+        ? "webp"
+        : "png";
+  let finalExt: OutExt = normalizedSrcExt;
+  let outDims: { width: number; height: number } | undefined;
+  let resized = false;
+  const oversized =
+    srcDims && (srcDims.width > target.width || srcDims.height > target.height);
+  if (oversized) {
+    const result = await resizeForI2VAnchor(stripped, srcExt, target);
+    if (result) {
+      finalBuf = result.buf;
+      finalExt = "jpg";
+      outDims = { width: result.width, height: result.height };
+      resized = true;
+    }
+  }
+
+  const mime: string =
+    finalExt === "jpg"
+      ? "image/jpeg"
+      : finalExt === "webp"
+        ? "image/webp"
+        : "image/png";
+
+  return {
+    url: `data:${mime};base64,${finalBuf.toString("base64")}`,
+    info: {
+      c2pa_stripped: c2paStripped,
+      resized,
+      src_dimensions: srcDims ?? undefined,
+      out_dimensions: outDims,
+      src_bytes: srcBytes,
+      out_bytes: finalBuf.byteLength,
+      out_mime: mime,
+    },
+  };
 }
 
 export async function logFailure(
