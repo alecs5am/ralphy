@@ -105,7 +105,10 @@ const VALID_ANGLES = [
 
 type ScenarioScene = {
   id?: string;
+  /** Legacy field — see normalizeScene(). */
   durationSec?: number;
+  /** Canonical field per cli/lib/schemas/scene.ts (ScenarioSchema). */
+  target_duration_s?: number;
   text_overlays?: Array<{
     x?: number;
     y?: number;
@@ -115,18 +118,31 @@ type ScenarioScene = {
     role?: string;
   }>;
   voiceover?: { text?: string; durationSec?: number };
+  vo_text?: string;
+  role?: string;
 };
 
 export type Scenario = {
-  duration?: number;          // total seconds, target
+  /** Legacy field — total seconds, target. */
+  duration?: number;
+  /** Canonical field per ScenarioSchema. */
+  target_duration_s?: number;
   angle?: string;
   hook?:
     | string
     | {
         primary?: string;
         variant_b?: string;
+        /** Canonical SceneRef shape (per ScenarioSchema). */
+        scene_id?: string;
+        vo?: string;
+        duration_s?: number;
       };
-  scenes?: ScenarioScene[];
+  /**
+   * Scenes. Canonical (per ScenarioSchema) is a record keyed by scene id.
+   * Legacy shape was an array of scenes. Both are accepted; record is preferred.
+   */
+  scenes?: ScenarioScene[] | Record<string, ScenarioScene>;
 };
 
 export type ScenarioCheck = {
@@ -134,6 +150,43 @@ export type ScenarioCheck = {
   failures: string[];
   warnings: string[];
 };
+
+/**
+ * Normalize a single scene across legacy + canonical shapes.
+ * Canonical (per cli/lib/schemas/scene.ts):  target_duration_s, vo_text.
+ * Legacy:                                    durationSec, voiceover.text.
+ */
+function normalizeScene(s: ScenarioScene) {
+  return {
+    id: s.id,
+    durationSec: s.target_duration_s ?? s.durationSec ?? 0,
+    text_overlays: s.text_overlays ?? [],
+  };
+}
+
+/**
+ * Normalize the scenes container to an array regardless of input shape.
+ * Returns `{ scenes: ScenarioScene[]; shape: "record" | "array" | "missing" }`.
+ */
+function normalizeScenes(input: Scenario["scenes"]): {
+  scenes: ScenarioScene[];
+  shape: "record" | "array" | "missing";
+} {
+  if (input == null) return { scenes: [], shape: "missing" };
+  if (Array.isArray(input)) return { scenes: input, shape: "array" };
+  if (typeof input === "object") {
+    // Record keyed by scene id. Preserve insertion order (matches JSON.parse
+    // key order — same order scenarist emitted them). Inject the key as `id`
+    // when the value omits it, so downstream logic ("first scene", per-scene
+    // reporting) still has a stable identifier.
+    const scenes = Object.entries(input).map(([key, value]) => ({
+      ...value,
+      id: value.id ?? key,
+    }));
+    return { scenes, shape: "record" };
+  }
+  return { scenes: [], shape: "missing" };
+}
 
 export function scoreScenario(scenario: Scenario): ScenarioCheck {
   const failures: string[] = [];
@@ -146,7 +199,7 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   //   mid-form:  15-45s — first scene ≤6s, scenes ≤8s, +1.0s cap
   //   long-form: >45s   — first scene ≤10s, scenes ≤12s, +2.0s cap
   // Hook word-count and hook presence apply universally.
-  const declaredDuration = scenario.duration ?? 15;
+  const declaredDuration = scenario.target_duration_s ?? scenario.duration ?? 15;
   const tier: "short-ad" | "mid-form" | "long-form" =
     declaredDuration <= 15 ? "short-ad" : declaredDuration <= 45 ? "mid-form" : "long-form";
   const limits = tier === "short-ad"
@@ -155,9 +208,27 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
     ? { firstSceneMax: 6, sceneMax: 8, durationOverhead: 1.0 }
     : { firstSceneMax: 10, sceneMax: 12, durationOverhead: 2.0 };
 
-  // Hook present and short.
+  // Normalize scenes upfront so the rest of the gate is shape-agnostic.
+  // Canonical schema (cli/lib/schemas/scene.ts) keys scenes by id; legacy
+  // shape was an array. Both are accepted — record preferred.
+  const { scenes: scenesList, shape: scenesShape } = normalizeScenes(scenario.scenes);
+  if (scenesShape === "array" && scenesList.length > 0) {
+    warnings.push(
+      "scenario.scenes is an array (legacy shape); canonical schema uses a record keyed by scene id. " +
+        "See cli/lib/schemas/scene.ts → ScenarioSchema."
+    );
+  }
+  const normalizedScenes = scenesList.map(normalizeScene);
+
+  // Hook present and short. Accept three shapes:
+  //   • legacy string                — scenario.hook = "watch this"
+  //   • legacy object with primary   — scenario.hook.primary
+  //   • canonical SceneRef           — scenario.hook = { scene_id, vo, duration_s }
+  const hookObj = typeof scenario.hook === "object" ? scenario.hook : null;
   const hookPrimary =
-    typeof scenario.hook === "string" ? scenario.hook : scenario.hook?.primary;
+    typeof scenario.hook === "string"
+      ? scenario.hook
+      : hookObj?.primary ?? hookObj?.vo;
   if (!hookPrimary || !hookPrimary.trim()) {
     failures.push("Missing hook.primary — first scene must have a hook line");
   } else {
@@ -168,7 +239,7 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   }
 
   // First scene = hook window. Tier-calibrated.
-  const firstScene = scenario.scenes?.[0];
+  const firstScene = normalizedScenes[0];
   if (firstScene) {
     const start = firstScene.durationSec ?? 0;
     if (start > limits.firstSceneMax) {
@@ -181,10 +252,7 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   }
 
   // Total duration — hard cap relative to declared target, with tier overhead.
-  const total = (scenario.scenes ?? []).reduce(
-    (acc, s) => acc + (s.durationSec ?? 0),
-    0
-  );
+  const total = normalizedScenes.reduce((acc, s) => acc + (s.durationSec ?? 0), 0);
   if (total > declaredDuration + limits.durationOverhead) {
     failures.push(
       `Total duration ${total}s exceeds target ${declaredDuration}s (${tier} hard cap +${limits.durationOverhead}s)`
@@ -199,7 +267,7 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   }
 
   // Per-scene cut discipline — tier-calibrated.
-  for (const scene of scenario.scenes ?? []) {
+  for (const scene of normalizedScenes) {
     if ((scene.durationSec ?? 0) > limits.sceneMax) {
       warnings.push(
         `Scene ${scene.id ?? "?"} is ${scene.durationSec}s — break with internal cut/transition (${tier} max ${limits.sceneMax}s)`
@@ -219,7 +287,7 @@ export function scoreScenario(scenario: Scenario): ScenarioCheck {
   }
 
   // Green Zone — every text overlay must fit.
-  for (const scene of scenario.scenes ?? []) {
+  for (const scene of normalizedScenes) {
     for (const overlay of scene.text_overlays ?? []) {
       const x = overlay.x ?? 0;
       const y = overlay.y ?? 0;
