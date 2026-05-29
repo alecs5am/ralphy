@@ -56,6 +56,13 @@ export type CommonInput = {
    */
   overwrite?: boolean;
   signal?: AbortSignal;
+  /**
+   * Bypass the transient-error retry loop (#005). Default false → connector
+   * wraps the network call with `retryTransient()` (2 retries, 1s/4s/16s
+   * backoff). Set true from the `--no-retry` CLI flag, primarily for tests
+   * and debugging where you want the first response no matter what.
+   */
+  noRetry?: boolean;
 };
 
 export type GenerateImageInput = CommonInput & {
@@ -147,6 +154,12 @@ export type CallLLMOptions = {
   slot?: string;
   /** Explicit provider connector id (e.g. "openrouter"). Default: first available text provider. */
   provider?: string;
+  /**
+   * Bypass the transient-error retry loop (#005). Default false → wraps the
+   * chat-completions POST with `retryTransient()` (2 retries, 1s/4s/16s
+   * backoff). Mirror of the field on `CommonInput`.
+   */
+  noRetry?: boolean;
 };
 
 export type CallLLMResult = {

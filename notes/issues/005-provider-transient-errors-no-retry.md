@@ -1,6 +1,6 @@
 # `ralphy generate` has no retry on transient provider errors
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
