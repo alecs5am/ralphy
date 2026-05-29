@@ -220,6 +220,10 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
+        // #006: parse the ToS rejection envelope. Real shape from the wire is
+        // `{detail:{message,data:{prompt_suggestion}}}` (HTTP 400 `bad_prompt`).
+        // Some adjacent 4xx responses use the same envelope without
+        // `prompt_suggestion`, so missing-field is normal — leave it undefined.
         let promptSuggestion: string | undefined;
         try {
           const parsed = JSON.parse(text) as {
@@ -235,11 +239,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
           `ElevenLabs Music ${resp.status}: ${text.slice(0, 500)}` +
           (promptSuggestion ? `\n  prompt_suggestion: ${promptSuggestion}` : "");
         if (resp.status >= 400 && resp.status < 500) {
-          const err = new TerminalProviderError(message);
-          if (promptSuggestion) {
-            (err as Error & { promptSuggestion?: string }).promptSuggestion = promptSuggestion;
-          }
-          throw err;
+          throw new TerminalProviderError(message, { promptSuggestion });
         }
         const err = new Error(message);
         if (promptSuggestion) {

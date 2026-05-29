@@ -26,6 +26,12 @@ import type { JobKind } from "../lib/jobs/types.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { naturalSizeFor } from "../lib/providers/openrouter.js";
+import { TerminalProviderError } from "../lib/providers/shared.js";
+import {
+  lintMusicPrompt,
+  formatMusicPromptLintReport,
+  submitMusicWithToSAutoRetry,
+} from "../lib/music-prompt-lint.js";
 
 /**
  * Resolve --size / --aspect on the image command. #051: --aspect always wins
@@ -700,7 +706,8 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
-    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff. 422 `bad_prompt` ToS rejections are terminal (not retried) — #006 owns the auto-resubmit path.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff. 400 `bad_prompt` ToS rejections are terminal (not retried) — pass --auto-retry-on-tos-rejection for a one-shot resubmit using the provider's sanitized rewrite.")
+    .option("--auto-retry-on-tos-rejection", "On a 400 `bad_prompt` ToS rejection that carries a `prompt_suggestion`, log the original failure and auto-resubmit ONCE using the provider's sanitized rewrite. Opt-in — the default still surfaces the rejection to the caller. #006", false)
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
@@ -708,6 +715,15 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
+
+      // #006: soft pre-submit lint. Known artist / producer / track names
+      // surface a warning + a generic alternative; we never block — the user
+      // may have a clean phrasing the linter doesn't yet know about.
+      const lintReport = formatMusicPromptLintReport(lintMusicPrompt(opts.prompt));
+      if (lintReport) {
+        // eslint-disable-next-line no-console
+        console.error(lintReport);
+      }
 
       if (opts.dryRun) {
         // ElevenLabs Music charges per second of generated audio; nominal $0.005/s.
@@ -728,24 +744,66 @@ export function generateCmd() {
       const { CommandStream } = await import("../lib/stream/command.js");
       const cs = new CommandStream();
       cs.event("generate-music-started", { slot: opts.slot, durationSec: opts.duration });
-      const result = await uim.withSpinner(
-        `music (${opts.duration}s${opts.withVocals ? "" : ", instrumental"}) → ${opts.slot}`,
-        () =>
-          connM.generateMusic!({
-            projectId: opts.project,
-            slot: opts.slot,
-            prompt: opts.prompt,
-            durationSec: opts.duration,
-            forceInstrumental: !opts.withVocals,
-            note: opts.note,
-            overwrite: opts.forceOverwrite,
-            noRetry: opts.retry === false,
-          }),
-        {
-          successText: (r) => `music ${uim.c.cmd(opts.slot)} → ${uim.c.path(r.localPath)} ${uim.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
-          failText: (e) => `music ${uim.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
-        },
-      );
+
+      // #006: when --auto-retry-on-tos-rejection is set, catch a 400 `bad_prompt`
+      // ToS rejection that carries a `prompt_suggestion`, log the original
+      // failure with `status: "error"` + `error: "tos_rejected: ..."`, then
+      // resubmit ONCE using the provider's sanitized rewrite. The decision is
+      // factored out into `submitMusicWithToSAutoRetry` (see
+      // `cli/lib/music-prompt-lint.ts`) so unit tests can exercise it without
+      // commander.
+      const submit = async (prompt: string) =>
+        connM.generateMusic!({
+          projectId: opts.project,
+          slot: opts.slot,
+          prompt,
+          durationSec: opts.duration,
+          forceInstrumental: !opts.withVocals,
+          note: opts.note,
+          overwrite: opts.forceOverwrite,
+          noRetry: opts.retry === false,
+        });
+
+      let result;
+      const runSpinner = (prompt: string, label: string) =>
+        uim.withSpinner(
+          `music (${label}${opts.duration}s${opts.withVocals ? "" : ", instrumental"}) → ${opts.slot}`,
+          () => submit(prompt),
+          {
+            successText: (r) => `music ${uim.c.cmd(opts.slot)} → ${uim.c.path(r.localPath)} ${uim.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+            failText: (e) => `music ${uim.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+          },
+        );
+
+      if (opts.autoRetryOnTosRejection) {
+        const retried = await submitMusicWithToSAutoRetry({
+          projectId: opts.project,
+          slot: opts.slot,
+          prompt: opts.prompt,
+          durationSec: opts.duration,
+          forceInstrumental: !opts.withVocals,
+          submit: (p) => runSpinner(p, p === opts.prompt ? "" : "resubmit "),
+        });
+        result = retried.result;
+        if (retried.resubmitted) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `ralphy: ToS rejection on music prompt — auto-resubmitted with provider rewrite:\n  ${retried.promptSuggestion}`,
+          );
+        }
+      } else {
+        try {
+          result = await runSpinner(opts.prompt, "");
+        } catch (err) {
+          if (err instanceof TerminalProviderError && err.promptSuggestion) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `ralphy: ToS rejection. Provider sanitized rewrite available — re-run with --auto-retry-on-tos-rejection, or paste:\n  ${err.promptSuggestion}`,
+            );
+          }
+          throw err;
+        }
+      }
       const manifest = await readManifest(opts.project);
       manifest.slots[opts.slot] = {
         kind: "music",

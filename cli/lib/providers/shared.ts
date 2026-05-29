@@ -495,12 +495,27 @@ export async function logFailure(
  * Mark an error as terminal to bypass the retry loop. Connector code throws
  * one of these for content-policy / 4xx semantic / ToS rejections so the
  * outer `retryTransient()` doesn't burn N more API calls on a guaranteed-no.
+ *
+ * #006: optional `extras` field carries structured payload the caller can use
+ * to recover — currently ElevenLabs Music ToS rejection passes
+ * `{ promptSuggestion: "<provider-sanitized rewrite>" }` so callers can show
+ * the rewrite or auto-resubmit under `--auto-retry-on-tos-rejection`.
  */
+export type TerminalProviderErrorExtras = {
+  /** Provider-supplied sanitized prompt rewrite (ElevenLabs Music ToS path). */
+  promptSuggestion?: string;
+};
+
 export class TerminalProviderError extends Error {
   readonly terminal = true as const;
-  constructor(message: string) {
+  /** Provider-supplied sanitized prompt rewrite (ElevenLabs Music ToS path). */
+  readonly promptSuggestion?: string;
+  constructor(message: string, extras?: TerminalProviderErrorExtras) {
     super(message);
     this.name = "TerminalProviderError";
+    if (extras) {
+      if (extras.promptSuggestion) this.promptSuggestion = extras.promptSuggestion;
+    }
   }
 }
 
