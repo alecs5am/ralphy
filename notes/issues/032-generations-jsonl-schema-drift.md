@@ -1,6 +1,6 @@
 # `generations.jsonl` schema drift; missing `input.slot`; analyze-video not logged
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium

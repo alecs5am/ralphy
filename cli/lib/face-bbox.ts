@@ -166,9 +166,10 @@ export async function detectFaces(opts: DetectFacesOptions): Promise<DetectFaces
     const cfg = resolveLLMProvider();
     await logGeneration(projectId, {
       provider: cfg.provider,
+      model: "google/gemini-2.5-flash",
       endpoint: `${cfg.provider}/google/gemini-2.5-flash:vision/face-bbox`,
       kind: "text",
-      input: { videoPath, sampleFps, frames: framePaths.length },
+      input: { project: projectId, videoPath, sampleFps, frames: framePaths.length },
       output: cachePath ? { local: cachePath } : undefined,
       status: "ok",
       latency_ms: Date.now() - t0,

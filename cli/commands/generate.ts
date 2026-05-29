@@ -813,10 +813,11 @@ export function generateCmd() {
 
       await logGeneration(opts.project, {
         provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+        model: result.model,
         endpoint: result.model,
         kind: "text",
         slot,
-        input: { audio: audioPath, language: opts.language, backend: result.backend },
+        input: { slot, project: opts.project, audio: audioPath, language: opts.language, backend: result.backend },
         output: { local: outPath, bytes: result.captions.length },
         status: "ok",
         latency_ms: Date.now() - t0,

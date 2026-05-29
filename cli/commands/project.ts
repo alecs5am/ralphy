@@ -7,7 +7,7 @@ import { slugify, generateId } from "../lib/ids.js";
 import { projectsDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
-import { readLog, logUserPrompt, logUserAsset, logGeneration, type GenerationEntry, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
+import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
@@ -286,7 +286,9 @@ export function projectCmd() {
 
       const combined: any[] = [];
       for (const t of types) {
-        const entries = await readLog(id, t);
+        // Use the normalizer for generations so legacy rows (top-level slot, costUsd,
+        // missing model) are coerced to canonical before display. #032
+        const entries = t === "generations" ? await readGenerations(id) : await readLog(id, t);
         for (const e of entries) combined.push({ _type: t, ...(e as object) });
       }
       combined.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
@@ -303,7 +305,7 @@ export function projectCmd() {
       const [prompts, assets, gens] = await Promise.all([
         readLog<UserPromptEntry>(id, "user-prompts"),
         readLog<UserAssetEntry>(id, "user-assets"),
-        readLog<GenerationEntry>(id, "generations"),
+        readGenerations(id), // canonicalizes legacy rows transparently (#032)
       ]);
       type Row = { timestamp: string; kind: string; summary: string };
       const rows: Row[] = [];
@@ -570,9 +572,10 @@ export function projectCmd() {
 
         await logGeneration(id, {
           provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+          model: result.model,
           endpoint: result.model,
           kind: "text",
-          input: { audio: audioPath, language, backend: result.backend },
+          input: { project: id, audio: audioPath, language, backend: result.backend },
           output: { local: outPath },
           status: "ok",
           latency_ms: result.durationMs,
@@ -595,9 +598,10 @@ export function projectCmd() {
       } catch (e: any) {
         await logGeneration(id, {
           provider: backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+          model: backend === "openrouter" ? WHISPER_MODEL : `transcribe/${backend}`,
           endpoint: backend === "openrouter" ? WHISPER_MODEL : `transcribe/${backend}`,
           kind: "text",
-          input: { audio: audioPath, language, backend },
+          input: { project: id, audio: audioPath, language, backend },
           status: "error",
           error: e?.message || String(e),
           latency_ms: Date.now() - t0,
@@ -701,6 +705,7 @@ export function projectCmd() {
 
       await logGeneration(id, {
         provider: "ffmpeg",
+        model: "ffprobe/project-assets",
         endpoint: "ffprobe/project-assets",
         kind: "other",
         input: { project: id, filter_kind: opts.kind ?? null, count: rows.length },
@@ -834,6 +839,7 @@ export function projectCmd() {
 
       await logGeneration(id, {
         provider: "ffmpeg",
+        model: "ffprobe/project-verify",
         endpoint: "ffprobe/project-verify",
         kind: "other",
         input: { project: id, strict: !!opts.strict, slotCount: reports.length, redCount: red },
