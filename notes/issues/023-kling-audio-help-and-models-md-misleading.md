@@ -1,6 +1,6 @@
 # `--audio` help text and MODELS.md disagree about kling support
 
-> **Status:** issue
+> **Status:** done — 2026-05-29
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** low
