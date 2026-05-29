@@ -161,9 +161,10 @@ Examples:
       if (rr.exitCode !== 0) {
         await logGeneration(projectId, {
           provider: "other",
+          model: "hyperframes-render",
           endpoint: "hyperframes-render",
           kind: "video",
-          input: { engine, projectDir, composition: opts.composition },
+          input: { project: projectId, engine, projectDir, composition: opts.composition },
           status: "error",
           error: rr.stderr.slice(-500),
           latency_ms: Date.now() - t0,
@@ -193,9 +194,10 @@ Examples:
       cs.event("render-finished", { project: projectId, engine, bytes: size });
       await logGeneration(projectId, {
         provider: "other",
+        model: "hyperframes-render",
         endpoint: "hyperframes-render",
         kind: "video",
-        input: { engine, projectDir, composition: opts.composition, loudnorm: Boolean(opts.loudnorm) },
+        input: { project: projectId, engine, projectDir, composition: opts.composition, loudnorm: Boolean(opts.loudnorm) },
         output: { local: outputPath, bytes: size },
         status: "ok",
         latency_ms: Date.now() - t0,

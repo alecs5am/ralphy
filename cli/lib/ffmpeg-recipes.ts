@@ -50,9 +50,10 @@ async function runFfmpeg(
       if (meta.opts?.projectId) {
         await logGeneration(meta.opts.projectId, {
           provider: "ffmpeg",
+          model: meta.endpoint,
           endpoint: meta.endpoint,
           kind: "video",
-          input: meta.input,
+          input: { project: meta.opts.projectId, ...meta.input },
           status: code === 0 ? "ok" : "error",
           error: code === 0 ? undefined : stderr.slice(0, 500),
           latency_ms: durationMs,

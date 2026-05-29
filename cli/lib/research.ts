@@ -441,9 +441,10 @@ export async function transcribeRef(opts: TranscribeRefOptions): Promise<Transcr
   // log to a synthetic project so `ralphy project log` can show research too
   await logGeneration("_research", {
     provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+    model: result.model,
     endpoint: result.model,
     kind: "text",
-    input: { audio: paths.audio, language: opts.language ?? "ru", backend: result.backend },
+    input: { slot: `ref-${opts.slug}-transcript`, project: "_research", audio: paths.audio, language: opts.language ?? "ru", backend: result.backend },
     output: { local: paths.transcript },
     status: "ok",
     latency_ms: result.durationMs,
@@ -659,7 +660,19 @@ const MIME_BY_EXT: Record<string, string> = {
   ".avi": "video/x-msvideo",
 };
 
+/**
+ * Infer the project id from a path under `workspace/projects/<id>/...`. Returns null
+ * for paths outside the workspace tree (e.g. `workspace/references/<slug>/...`, or
+ * user-supplied absolute paths). #032 — used to attach `analyzeVideo` log entries to
+ * the right project when the caller didn't pass `slug`.
+ */
+function inferProjectIdFromVideoPath(videoPath: string): string | null {
+  const m = videoPath.match(/[\\/]workspace[\\/]projects[\\/]([^\\/]+)[\\/]/);
+  return m ? m[1]! : null;
+}
+
 export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVideoResult> {
+  const t0 = Date.now();
   // Resolve the video path
   let videoPath: string | undefined;
   let defaultOut: string | undefined;
@@ -716,15 +729,50 @@ export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVi
   }
 
   const model = opts.model ?? "google/gemini-3.1-pro-preview";
-  const r = await callLLM({
-    messages: [{ role: "user", content }],
-    model,
-    jsonMode: false, // custom prompt is JSON-array, not JSON-object — leave off
-    maxTokens: opts.maxTokens ?? 16384,
-    temperature: opts.temperature ?? 0.2,
-    projectId: opts.slug ? "_research" : undefined,
-    endpoint: `video-vision/${model.split("/").pop() ?? model}`,
-  });
+  // Infer the destination project for the log entry (#032):
+  //  - explicit slug → `_research` synthetic project (preserves existing behaviour)
+  //  - videoPath under `workspace/projects/<id>/...` → that project
+  //  - otherwise → null (skip the row; the callLLM internal log still fires)
+  const logProjectId =
+    opts.slug != null
+      ? "_research"
+      : inferProjectIdFromVideoPath(videoPath);
+  let r: { text: string; raw: unknown; provider: string; model: string; latencyMs: number };
+  try {
+    r = await callLLM({
+      messages: [{ role: "user", content }],
+      model,
+      jsonMode: false, // custom prompt is JSON-array, not JSON-object — leave off
+      maxTokens: opts.maxTokens ?? 16384,
+      temperature: opts.temperature ?? 0.2,
+      // NOTE: do NOT pass projectId to callLLM — that would log a generic
+      // `kind: "text"` row. We log a richer `kind: "video-analysis"` row below
+      // so postmortems can grep for video-vision spend distinctly. (#032 §4)
+      endpoint: `video-vision/${model.split("/").pop() ?? model}`,
+    });
+  } catch (err) {
+    // Issue #032 §4: analyzeVideo failures previously dropped on the floor — log them.
+    if (logProjectId) {
+      await logGeneration(logProjectId, {
+        provider: "openrouter",
+        model,
+        endpoint: `video-vision/${model.split("/").pop() ?? model}`,
+        kind: "video-analysis",
+        input: {
+          slot: opts.slug ? `ref-${opts.slug}-video-analysis` : `video-analysis-${path.basename(videoPath)}`,
+          project: logProjectId,
+          videoPath,
+          inputBytes,
+          expectedShots: opts.expectedShots,
+        },
+        status: "error",
+        error: err instanceof Error ? err.message : String(err),
+        latency_ms: Date.now() - t0,
+        note: opts.slug ? `ref:${opts.slug}` : `video-analysis:${path.basename(videoPath)}`,
+      });
+    }
+    throw err;
+  }
 
   // Parse the JSON output (strip code fences if the model added them)
   let text = r.text.trim();
@@ -749,6 +797,33 @@ export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVi
 
   if (opts.slug) {
     await writeState(opts.slug, { videoAnalyzedAt: new Date().toISOString() });
+  }
+
+  // Issue #032 §4: log a dedicated `video-analysis` row.
+  // Cost: ballpark $0.001/MB for gemini-3.1-pro-preview video input + a small token cost
+  // for the output. Postmortem accuracy > 100% — we'd rather a rough number on disk than
+  // the `$1-3 (est)` placeholder tokyo-y2k-001 had to settle for.
+  const estCostUsd = Math.max(0.001, (inputBytes / (1024 * 1024)) * 0.001);
+  if (logProjectId) {
+    await logGeneration(logProjectId, {
+      provider: "openrouter",
+      model: r.model,
+      endpoint: `video-vision/${model.split("/").pop() ?? model}`,
+      kind: "video-analysis",
+      input: {
+        slot: opts.slug ? `ref-${opts.slug}-video-analysis` : `video-analysis-${path.basename(videoPath)}`,
+        project: logProjectId,
+        videoPath,
+        inputBytes,
+        expectedShots: opts.expectedShots,
+        outPath: outPath ?? undefined,
+      },
+      output: outPath ? { local: outPath } : undefined,
+      status: "ok",
+      latency_ms: Date.now() - t0,
+      cost_usd: estCostUsd,
+      note: opts.slug ? `ref:${opts.slug}` : `video-analysis:${path.basename(videoPath)}`,
+    });
   }
 
   return {
@@ -839,9 +914,10 @@ export async function audioDescribeRef(opts: AudioDescribeOptions): Promise<Audi
     const txt = await resp.text().catch(() => "");
     await logGeneration("_research", {
       provider: "openrouter",
+      model,
       endpoint: `audio/${model}`,
       kind: "text",
-      input: { audio: paths.audio },
+      input: { slot: `ref-${opts.slug}-audio-analysis`, project: "_research", audio: paths.audio },
       status: "error",
       error: `${resp.status}: ${txt.slice(0, 300)}`,
       latency_ms: latency,
@@ -866,9 +942,10 @@ export async function audioDescribeRef(opts: AudioDescribeOptions): Promise<Audi
 
   await logGeneration("_research", {
     provider: "openrouter",
+    model,
     endpoint: `audio/${model}`,
     kind: "text",
-    input: { audio: paths.audio },
+    input: { slot: `ref-${opts.slug}-audio-analysis`, project: "_research", audio: paths.audio },
     output: { local: paths.audioAnalysis },
     status: "ok",
     latency_ms: latency,
