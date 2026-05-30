@@ -5,6 +5,7 @@ id: interview-dialog
 aliases: []
 kind: vibe-style
 category: b2b-saas
+format: video
 name: Interview / Dialog
 description: Two-person dialog format. Two real people (or two AI-avatars) talk
   to each other on camera — expert+interviewer, two-friends-discussing,

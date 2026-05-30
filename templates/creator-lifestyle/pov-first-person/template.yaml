@@ -5,6 +5,7 @@ id: pov-first-person
 aliases: []
 kind: vibe-style
 category: creator-lifestyle
+format: video
 name: POV First-Person
 description: "Human-POV format. Viewer is projected into the scene from first
   person via a centered text overlay (\"POV: you just…\"). The creator plays the

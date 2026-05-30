@@ -5,6 +5,7 @@ id: photo-dump
 aliases: []
 kind: vibe-style
 category: creator-lifestyle
+format: video
 name: Photo Dump
 description: "Photo Dump / Carousel-as-Video — a series of 5-16 still photos
   that snap to the beat of a trending music bed, building a 'scrollable mood

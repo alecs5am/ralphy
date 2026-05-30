@@ -7,7 +7,9 @@ import {
   parseTemplateManifest,
   loadTemplateManifest,
   diagnoseRequiredInputs,
+  findStyleTemplates,
 } from "../../cli/lib/templater/loader.ts";
+import type { TemplateYaml } from "../../cli/lib/schemas/template.ts";
 
 let tmpDir = "";
 
@@ -44,11 +46,13 @@ describe("Template loader (02.05.01)", () => {
       "id: yap-talking-head\n" +
       "kind: vibe-style\n" +
       "category: b2b-saas\n" +
+      "format: video\n" +
       "name: YAP Talking-Head\n" +
       "description: single-idea direct-to-camera monologue\n";
     const parsed = parseTemplateManifest(raw, "yaml", "yap-talking-head");
     expect(parsed.version).toBe(1);
     expect(parsed.kind).toBe("vibe-style");
+    expect(parsed.format).toBe("video");
   });
 
   test("loadTemplateManifest round-trip from disk", async () => {
@@ -57,6 +61,7 @@ describe("Template loader (02.05.01)", () => {
       "id: my-test\n" +
       "kind: vibe-style\n" +
       "category: b2b-saas\n" +
+      "format: video\n" +
       "name: My Test\n" +
       "description: test\n";
     await fs.writeFile(path.join(tmpDir, "template.yaml"), raw);
@@ -70,12 +75,13 @@ describe("Template loader (02.05.01)", () => {
   });
 
   test("diagnoseRequiredInputs reports the first missing requirement", () => {
-    const tmpl = {
+    const tmpl: TemplateYaml = {
       version: 1 as const,
       id: "x",
       aliases: [],
       kind: "vibe-style" as const,
       category: "b2b-saas" as const,
+      format: "video" as const,
       name: "x",
       description: "x",
       tags: [],
@@ -91,5 +97,27 @@ describe("Template loader (02.05.01)", () => {
     expect(r3?.requirement).toContain("ref");
     const r4 = diagnoseRequiredInputs(tmpl, { brand: "acme", persona: "p", refCount: 1 });
     expect(r4).toBeNull();
+  });
+
+  test("findStyleTemplates returns children pointing at the general slug (052)", () => {
+    const mk = (id: string, style_of?: string): TemplateYaml => ({
+      version: 1,
+      id,
+      aliases: [],
+      kind: "vibe-style",
+      category: "b2b-saas",
+      format: "video",
+      style_of,
+      name: id,
+      description: id,
+      tags: [],
+      requires: {},
+      scenes: [],
+      references: [],
+    });
+    const all = [mk("general-video"), mk("style-a", "general-video"), mk("style-b", "general-video"), mk("loner")];
+    const styles = findStyleTemplates("general-video", all);
+    expect(styles.map((t) => t.id).sort()).toEqual(["style-a", "style-b"]);
+    expect(findStyleTemplates("loner", all)).toEqual([]);
   });
 });

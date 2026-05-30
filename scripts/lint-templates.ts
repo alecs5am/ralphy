@@ -16,14 +16,16 @@ import url from "node:url";
 import {
   validateSlug,
   TEMPLATE_CATEGORIES,
+  TEMPLATE_FORMATS,
   type TemplateCategory,
+  type TemplateYaml,
 } from "../cli/lib/schemas/template.ts";
 import { loadTemplateManifest } from "../cli/lib/templater/loader.ts";
 
 const REPO_ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 
 export type LintIssue = {
-  kind: "slug" | "manifest";
+  kind: "slug" | "manifest" | "format" | "style_of";
   slug: string;
   category: string;
   detail: string;
@@ -58,22 +60,63 @@ export async function* walkTemplates(repoRoot = REPO_ROOT): AsyncGenerator<{
 
 export async function lintTemplates(repoRoot = REPO_ROOT): Promise<LintIssue[]> {
   const issues: LintIssue[] = [];
+  // First pass: validate each manifest + record format-by-slug so the second
+  // pass can verify `style_of` parents exist and share the child's format.
+  const loadedBySlug = new Map<string, TemplateYaml>();
+
   for await (const { slug, category, dir } of walkTemplates(repoRoot)) {
     // Slug rule
     const v = validateSlug(slug);
     if (!v.ok) {
       issues.push({ kind: "slug", slug, category, detail: v.reason });
     }
-    // Manifest rule — must have a v1 yaml that parses.
+    // Manifest rule — must have a v1 yaml that parses. The Zod schema already
+    // requires `format` to be a member of TEMPLATE_FORMATS, so a missing /
+    // invalid format surfaces here as a manifest parse failure. We re-check
+    // explicitly below to emit a clearer `format` issue.
     try {
       const loaded = await loadTemplateManifest(dir, slug);
       if (!loaded) {
         issues.push({ kind: "manifest", slug, category, detail: "no template.yaml found" });
+        continue;
+      }
+      loadedBySlug.set(slug, loaded);
+      if (!(TEMPLATE_FORMATS as readonly string[]).includes(loaded.format)) {
+        issues.push({
+          kind: "format",
+          slug,
+          category,
+          detail: `format \`${loaded.format}\` is not one of ${TEMPLATE_FORMATS.join("|")}`,
+        });
       }
     } catch (e) {
       issues.push({ kind: "manifest", slug, category, detail: (e as Error).message });
     }
   }
+
+  // Second pass: referential integrity for the general → style relationship.
+  for (const [slug, loaded] of loadedBySlug) {
+    if (!loaded.style_of) continue;
+    const parent = loadedBySlug.get(loaded.style_of);
+    if (!parent) {
+      issues.push({
+        kind: "style_of",
+        slug,
+        category: loaded.category,
+        detail: `style_of \`${loaded.style_of}\` does not resolve to any template`,
+      });
+      continue;
+    }
+    if (parent.format !== loaded.format) {
+      issues.push({
+        kind: "style_of",
+        slug,
+        category: loaded.category,
+        detail: `style_of parent \`${loaded.style_of}\` has format \`${parent.format}\` but this template is \`${loaded.format}\` (must match)`,
+      });
+    }
+  }
+
   return issues;
 }
 

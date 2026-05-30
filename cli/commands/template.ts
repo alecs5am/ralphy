@@ -145,6 +145,35 @@ async function readTemplateMeta(ref: ResolvedTemplate) {
   }
 }
 
+// `format` + `style_of` live in the typed YAML manifest (issue 052), not in the
+// legacy template.json. Read them from the yaml when present so format-aware
+// surfaces (list/suggest --format, show) can key off the primary axis. Returns
+// nulls for flat/legacy templates that ship no template.yaml.
+//
+// This deliberately does NOT go through `loadTemplateManifest`: that path calls
+// `raiseError("E_TEMPLATE_VERSION_UNSUPPORTED")` (process.exit) on a legacy /
+// version-less workspace template, which would abort `list`/`suggest` over a
+// single stray manifest. Taxonomy enrichment must degrade gracefully, so we
+// read + parse the yaml defensively and bail to nulls on anything unexpected.
+async function readTemplateTaxonomy(
+  ref: ResolvedTemplate,
+): Promise<{ format: string | null; style_of: string | null }> {
+  if (ref.kind !== "dir") return { format: null, style_of: null };
+  const yamlPath = path.join(ref.dir, "template.yaml");
+  try {
+    const raw = await fs.readFile(yamlPath, "utf-8");
+    const YAML = (await import("yaml")).default;
+    const value = YAML.parse(raw);
+    if (!value || typeof value !== "object") return { format: null, style_of: null };
+    const v = value as Record<string, unknown>;
+    const format = typeof v.format === "string" ? v.format : null;
+    const style_of = typeof v.style_of === "string" ? v.style_of : null;
+    return { format, style_of };
+  } catch {
+    return { format: null, style_of: null };
+  }
+}
+
 export function templateCmd() {
   const cmd = new Command("template").description("Manage scenario/video templates");
 
@@ -224,12 +253,15 @@ export function templateCmd() {
   cmd
     .command("list")
     .description("List all templates (both repo-public templates/ and local workspace/templates/)")
-    .action(async () => {
+    .option("--format <f>", "Filter to a single media format (video|image|carousel|fb-creative|motion-design|poster|sticker-pack)")
+    .action(async (opts: { format?: string }) => {
       type Row = {
         id: string;
         name: string;
         kind: "dir" | "flat";
         source: TemplateSource;
+        format?: string;
+        style_of?: string;
         description?: string;
         tags?: string[];
         unregistered?: boolean;
@@ -245,11 +277,15 @@ export function templateCmd() {
           if (rows.has(id)) continue;
           const meta = await readTemplateMeta(ref);
           if (!meta) continue;
+          const tax = await readTemplateTaxonomy(ref);
+          if (opts.format && tax.format !== opts.format) continue;
           rows.set(id, {
             id,
             name: meta.name || id,
             kind: ref.kind,
             source,
+            format: tax.format ?? undefined,
+            style_of: tax.style_of ?? undefined,
             description: meta.description,
             tags: meta.tags,
           });
@@ -276,6 +312,11 @@ export function templateCmd() {
           key: "id",
           header: "slug",
           format: (v) => c.cmd(String(v)),
+        },
+        {
+          key: "format",
+          header: "format",
+          format: (v) => (v ? c.brand(String(v)) : c.muted("—")),
         },
         {
           key: "kind",
@@ -337,7 +378,14 @@ export function templateCmd() {
       if (opts.json) {
         const meta = await readTemplateMeta(ref);
         if (!meta) err(`No template.json in ${ref.dir}`);
-        out(meta);
+        // Surface the primary-axis taxonomy (issue 052) alongside the legacy
+        // template.json metadata. format/style_of live in the YAML manifest.
+        const tax = await readTemplateTaxonomy(ref);
+        out({
+          ...meta,
+          ...(tax.format ? { format: tax.format } : {}),
+          ...(tax.style_of ? { style_of: tax.style_of } : {}),
+        });
         return;
       }
 
@@ -548,6 +596,7 @@ export function templateCmd() {
     .requiredOption("--category <c>", "Template category (b2b-saas|dtc-commerce|creator-lifestyle|entertainment-viral|cinematic-narrative)")
     .requiredOption("--slug <s>", "Target template slug (kebab-case)")
     .option("--kind <k>", "Template kind (vibe-reference|vibe-style)", "vibe-style")
+    .option("--format <f>", "Media format (video|image|carousel|fb-creative|motion-design|poster|sticker-pack)", "video")
     .option("--name <n>", "Human-readable template name (defaults from slug)")
     .option("--description <d>", "One-line description (defaults to extracted-template stub)")
     .option("--tags <list>", "Comma-separated tags (default: empty)")
@@ -617,6 +666,7 @@ export function templateCmd() {
           slug: opts.slug,
           category: opts.category,
           kind: opts.kind,
+          format: opts.format,
           name: opts.name,
           description: opts.description,
           tags: typeof opts.tags === "string" ? opts.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
@@ -798,31 +848,39 @@ export function templateCmd() {
     .option("--threshold <n>", "Min keyword score before falling through to LLM (default 0.7)", (v) => parseFloat(v), 0.7)
     .option("--no-llm", "Force keyword-only — skip the LLM fallback even if the keyword scorer comes back below threshold")
     .option("--llm-model <id>", "LLM model id for the rerank pass (default google/gemini-2.5-flash)")
-    .action(async (utteranceArgs: string[], opts: { limit: number; threshold: number; llm: boolean; llmModel?: string }) => {
+    .option("--format <f>", "Restrict ranking to a single media format (video|image|carousel|fb-creative|motion-design|poster|sticker-pack)")
+    .action(async (utteranceArgs: string[], opts: { limit: number; threshold: number; llm: boolean; llmModel?: string; format?: string }) => {
       const utterance = utteranceArgs.join(" ");
 
       // Build the Candidate[] from the on-disk template catalog. This is the
       // same disk walk the legacy implementation did; it's lifted up into a
       // pure-data shape that the new suggest.ts can score without touching fs.
       const refs = await discoverAllTemplates();
-      const candidates: Candidate[] = await Promise.all(
+      const built = await Promise.all(
         refs.map(async (ref) => {
           const id = ref.kind === "dir" ? path.basename(ref.dir) : path.basename(ref.file).replace(/\.json$/, "");
           const meta = await readTemplateMeta(ref);
+          const tax = await readTemplateTaxonomy(ref);
           let docText = "";
           if (ref.kind === "dir") {
             docText = await fs.readFile(ref.docPath, "utf-8").catch(() => "");
           }
           return {
-            slug: id,
-            name: typeof meta?.name === "string" ? meta.name : id,
-            description: typeof meta?.description === "string" ? meta.description : "",
-            tags: Array.isArray(meta?.tags) ? meta.tags : [],
-            doc: docText,
-            meta: { source: ref.source, kind: meta?.kind },
+            candidate: {
+              slug: id,
+              name: typeof meta?.name === "string" ? meta.name : id,
+              description: typeof meta?.description === "string" ? meta.description : "",
+              tags: Array.isArray(meta?.tags) ? meta.tags : [],
+              doc: docText,
+              meta: { source: ref.source, kind: meta?.kind, format: tax.format ?? undefined, style_of: tax.style_of ?? undefined },
+            } satisfies Candidate,
+            format: tax.format,
           };
         }),
       );
+      const candidates: Candidate[] = built
+        .filter((b) => !opts.format || b.format === opts.format)
+        .map((b) => b.candidate);
 
       const ui = await import("../lib/ui.js");
       const result = ui.isPrettyMode()

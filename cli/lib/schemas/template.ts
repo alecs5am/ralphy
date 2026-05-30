@@ -24,6 +24,25 @@ export const TEMPLATE_CATEGORIES = [
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
 
 /**
+ * Media **format** — the primary axis of the template system (issue 052,
+ * "everything is a template"). Each format groups a `general` baseline template
+ * plus N `style` templates that specialize it via `style_of`. `kind` and
+ * `category` remain secondary facets. This list is intentionally additive:
+ * new formats (e.g. `carousel`, `poster`, `sticker-pack`) arrive via issues
+ * 053/058 and slot in here without breaking existing templates.
+ */
+export const TEMPLATE_FORMATS = [
+  "video",
+  "image",
+  "carousel",
+  "fb-creative",
+  "motion-design",
+  "poster",
+  "sticker-pack",
+] as const;
+export type TemplateFormat = (typeof TEMPLATE_FORMATS)[number];
+
+/**
  * Maintainer-curated deny list of real-creator / brand tokens that may NOT
  * appear in template slugs (per [02-D-05]). Creator references stay legal as
  * **prose** inside `README.md` / `composition.md`, never in the slug. Add new
@@ -82,6 +101,17 @@ export const TemplateYamlSchema = z.object({
   aliases: z.array(z.string()).default([]),
   kind: z.enum(TEMPLATE_KINDS),
   category: z.enum(TEMPLATE_CATEGORIES),
+  /**
+   * Media format — the primary axis (issue 052). Required. Members live in
+   * `TEMPLATE_FORMATS`.
+   */
+  format: z.enum(TEMPLATE_FORMATS),
+  /**
+   * When set, the slug of the *general* template (same `format`) that this one
+   * specializes. Absent = a general/standalone template. A format with only
+   * styles and no general baseline is valid (no baselines exist yet).
+   */
+  style_of: z.string().optional(),
   name: z.string().min(1),
   description: z.string().min(1),
   tags: z.array(z.string()).default([]),
