@@ -76,6 +76,19 @@ export async function loadTemplateManifest(dir: string, idHint?: string): Promis
 }
 
 /**
+ * Find the style templates of a general template — every loaded manifest whose
+ * `style_of` points at `generalSlug` (matched case-sensitively on the slug).
+ * Same-format filtering is the caller's job at lint time; this helper is a thin
+ * relationship resolver over an already-loaded set.
+ */
+export function findStyleTemplates(
+  generalSlug: string,
+  all: readonly TemplateYaml[],
+): TemplateYaml[] {
+  return all.filter((t) => t.style_of === generalSlug);
+}
+
+/**
  * Diagnose what's missing from a template's `requires` block given the
  * resolved inputs. Returns the first missing requirement as a kind hint
  * (e.g. "brand", "persona", "ref"). `null` means everything required is
