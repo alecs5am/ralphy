@@ -1,6 +1,6 @@
 # AGENTS.md hard invariants not enforced by CI tests
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
@@ -35,3 +35,11 @@ When the doc and the code drift, agents (and humans) trust the doc and act on a 
 - `workspace/projects/kbo-broadcast-001/postmortem/05-workflow-fixes.md` — Finding A
 - `workspace/projects/openrouter-ship-001/postmortem/05-workflow-fixes.md` — Fix 1 "aspirational not actual"
 - `workspace/projects/noski-people-001/postmortem/05-workflow-fixes.md` — Finding C
+
+## Resolution (2026-05-30)
+
+Added `tests/unit/agents-md-invariants.test.ts` (6 tests) covering invariants **#1**, **#2**, **#7**, **#13**, complementing the existing **#14** lock at `tests/unit/auto-version-invariant.test.ts` and the **#2/Remotion** check at `tests/integration/cli-render-from-clip.test.ts`. Canonical schema enforcement (gen-log) is already wired into `bun run lint` via `scripts/lint-gen-log-schema.ts`.
+
+The five testable invariants now have explicit `> **Tested by:** …` annotations directly in AGENTS.md. The remaining twelve (#3 has its own `eval-refs` test, #4–#6, #8–#12, #15–#17) are inherently agent-discipline or routing rules — listing them as "tested" would be performative. Coverage decisions are captured at the top of the invariants test file.
+
+Test count delta: unit 871 → 877 (+6).
