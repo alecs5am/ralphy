@@ -339,8 +339,16 @@ export async function resolveImageRef(ref: string): Promise<string> {
   if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:")) {
     return ref;
   }
-  const rawBuf = await fs.readFile(ref);
-  const ext = path.extname(ref).slice(1).toLowerCase();
+  // .svg refs are rasterized in-process to a cached PNG before the rest of
+  // the C2PA-strip + base64 pipeline runs. Recipe: cli/lib/image/cutout.ts
+  // (issue #037). Caller's original .svg on disk is never touched.
+  let resolvedRef = ref;
+  if (ref.toLowerCase().endsWith(".svg")) {
+    const { ensureSvgRasterized } = await import("../image/cutout.js");
+    resolvedRef = await ensureSvgRasterized(ref);
+  }
+  const rawBuf = await fs.readFile(resolvedRef);
+  const ext = path.extname(resolvedRef).slice(1).toLowerCase();
   // Strip C2PA / EXIF before base64 — OpenRouter video providers reject payloads
   // with `caBX` C2PA chunks. See stripImageMetadata() for the rationale.
   const buf = await stripImageMetadata(rawBuf, ext);
@@ -385,8 +393,16 @@ export async function resolveImageRefForVideo(
     };
   }
 
-  const rawBuf = await fs.readFile(ref);
-  const srcExt = path.extname(ref).slice(1).toLowerCase();
+  // .svg refs are rasterized in-process to a cached PNG before C2PA strip +
+  // resize. cli/lib/image/cutout.ts (issue #037).
+  let resolvedRef = ref;
+  if (ref.toLowerCase().endsWith(".svg")) {
+    const { ensureSvgRasterized } = await import("../image/cutout.js");
+    resolvedRef = await ensureSvgRasterized(ref);
+  }
+
+  const rawBuf = await fs.readFile(resolvedRef);
+  const srcExt = path.extname(resolvedRef).slice(1).toLowerCase();
   const srcBytes = rawBuf.byteLength;
   const srcDims = await probeImageDimensions(rawBuf, srcExt);
 
