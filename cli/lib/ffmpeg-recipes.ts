@@ -844,6 +844,40 @@ export async function extractFrame(input: ExtractFrameInput): Promise<string> {
   return dst;
 }
 
+// --- Recipe 13b: last-frame extract (#012) -----------------------------
+//
+// `ffmpeg -sseof -1 -i <src> -update 1 -frames:v 1 <dst.png>` grabs the LAST
+// frame of an mp4 without us having to probe its duration first. The
+// `-sseof -N` flag seeks to N seconds before EOF. `-update 1` tells ffmpeg to
+// overwrite a single output image (the default with sequential filenames
+// would emit `dst-001.png` etc.). Used as the anchor for `ralphy video extend`
+// (multi-block i2v continuation chains, MEMORY: feedback_seedance_multiblock_i2v_extend).
+
+export type ExtractLastFrameInput = {
+  src: string;
+  dst: string;
+} & FFmpegOptions;
+
+/**
+ * Build the `-sseof` argv for last-frame extract. Exported so unit tests can
+ * pin the exact shape without spawning ffmpeg.
+ */
+export function buildLastFrameArgs(src: string, dst: string): string[] {
+  return ["-sseof", "-1", "-i", src, "-update", "1", "-frames:v", "1", "-q:v", "2", dst];
+}
+
+export async function extractLastFrame(input: ExtractLastFrameInput): Promise<string> {
+  const { src, dst, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await runFfmpeg(buildLastFrameArgs(src, dst), {
+    endpoint: "ffmpeg/extract-last-frame",
+    input: { src, dst },
+    opts,
+    kind: "video",
+  });
+  return dst;
+}
+
 // --- Recipe 14: audio loudness probe (#049) ----------------------------
 //
 // Combines `volumedetect` (mean / peak in dBFS) and `ebur128` (integrated

@@ -4,6 +4,7 @@
 // video post-processing primitives without making the agent write code.
 
 import { Command } from "commander";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -16,11 +17,18 @@ import {
   applyVhs,
   compressForSocial,
   colorGrade,
+  extractFrame,
+  extractLastFrame,
   type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { projectsDir } from "../lib/paths.js";
+import { logGeneration } from "../lib/gen-log.js";
+import { resolveConnector } from "../lib/providers/registry.js";
+import { resolveModelAlias } from "../lib/model-aliases.js";
+import { estimateVideoCostUsd } from "../lib/or-catalog.js";
 
 export function videoCmd() {
   const cmd = new Command("video").description(
@@ -53,6 +61,278 @@ export function videoCmd() {
         out({ src: opts.in, dst, startSec: opts.start, endSec: opts.end });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `extract-segment: ` });
+      }
+    });
+
+  // ── frame (#012) ───────────────────────────────────────────────────────
+  //
+  // Single-frame extract for i2v anchoring / QA / poster. Wraps the
+  // `extractFrame` and `extractLastFrame` ffmpeg recipes so agents stop
+  // shelling out to raw `ffmpeg -sseof -1 -frames:v 1` and dropping PNGs in
+  // /tmp (issue #012).
+  //
+  //   ralphy video frame <clip> --at 1.5 --out frame.png
+  //   ralphy video frame <clip> --at last --out last.png
+  //   ralphy video frame <clip> --at last --project arena-rocker-001 \
+  //       --slot scene-02-anchor
+  //
+  // When `--project` is passed and `--out` is omitted, the frame is written
+  // into `<project>/refs/<clip-basename>-frame-<t>.png` and logged to the
+  // project gen-log with `input.source_clip` + `input.frame_at` so postmortems
+  // can rollup extend chains.
+  cmd
+    .command("frame")
+    .description(
+      "Extract a single frame (i2v anchor / QA still / poster). " +
+        "`--at` accepts a numeric seconds value or the literal `last` (`-sseof -1`).",
+    )
+    .argument("<clip>", "Input video path (absolute, or relative to cwd)")
+    .requiredOption(
+      "--at <ts>",
+      "Timestamp: numeric seconds (`1.5`) or `last` for the final frame",
+    )
+    .option(
+      "--out <path>",
+      "Output PNG. Optional when `--project` is set — defaults to <project>/refs/<clip>-frame-<t>.png.",
+    )
+    .option("--project <id>", "Project ID — logs the extract to gen-log and resolves default --out.")
+    .option(
+      "--slot <slot>",
+      "Optional asset slot id (e.g. `scene-02-first-frame`). Recorded in the gen-log row.",
+    )
+    .option("--note <note>", "Free-form note")
+    .action(async (clip: string, opts: any) => {
+      const src = path.resolve(clip);
+      if (!existsSync(src)) {
+        raiseError("E_FILE_UNREADABLE", { path: src });
+        return;
+      }
+
+      const atRaw = String(opts.at).trim();
+      const isLast = atRaw.toLowerCase() === "last";
+      const atSec = isLast ? null : Number(atRaw);
+      if (!isLast && !Number.isFinite(atSec)) {
+        raiseError("E_INPUT_INVALID", {
+          field: "--at",
+          detail: `expected numeric seconds or 'last', got '${opts.at}'`,
+        });
+        return;
+      }
+
+      // Resolve --out: explicit wins; otherwise project's refs/ if --project given.
+      let dst: string;
+      if (opts.out) {
+        dst = path.resolve(opts.out);
+      } else if (opts.project) {
+        const dir = path.join(projectsDir(), opts.project);
+        if (!existsSync(dir)) {
+          raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
+          return;
+        }
+        const base = path.basename(src, path.extname(src));
+        const tag = isLast ? "last" : String(atSec).replace(/\./g, "p");
+        dst = path.join(dir, "refs", `${base}-frame-${tag}.png`);
+      } else {
+        raiseError("E_INPUT_INVALID", {
+          field: "--out",
+          detail: "either --out <path> or --project <id> is required",
+        });
+        return;
+      }
+
+      try {
+        if (isLast) {
+          await extractLastFrame({
+            src,
+            dst,
+            projectId: opts.project,
+            note: opts.note,
+          });
+        } else {
+          await extractFrame({
+            src,
+            atSec: atSec!,
+            dst,
+            projectId: opts.project,
+            note: opts.note,
+          });
+        }
+
+        // Additional gen-log row with the canonical `input.source_clip` +
+        // `input.frame_at` shape the issue prescribes (recipes log a generic
+        // ffmpeg row; this adds the slot-aware lineage row).
+        if (opts.project) {
+          await logGeneration(opts.project, {
+            provider: "ffmpeg",
+            model: "ffmpeg/video-frame",
+            endpoint: isLast ? "ffmpeg/extract-last-frame" : "ffmpeg/extract-frame",
+            kind: "image",
+            input: {
+              project: opts.project,
+              slot: opts.slot,
+              source_clip: src,
+              frame_at: isLast ? "last" : atSec,
+            },
+            output: { local: dst },
+            status: "ok",
+            cost_usd: 0,
+            note: opts.note ?? "video.frame",
+          });
+        }
+
+        ok(`Frame extracted → ${dst}`);
+        out({
+          src,
+          dst,
+          at: isLast ? "last" : atSec,
+          project: opts.project ?? null,
+          slot: opts.slot ?? null,
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `video frame: ${e?.message || e}` });
+      }
+    });
+
+  // ── extend (#012) ──────────────────────────────────────────────────────
+  //
+  // Multi-block i2v continuation. Grabs the last frame of `<clip>`, feeds it
+  // as `--first-frame` to a new video generation, and records `input.extends:
+  // <clip>` in the manifest entry so postmortems can rollup extend chains.
+  // MEMORY: feedback_seedance_multiblock_i2v_extend documents the pattern.
+  //
+  //   ralphy video extend scene-01.mp4 --slot scene-02 --duration 15 \
+  //       --prompt "..." --project arena-rocker-001
+  //
+  // `--dry-run` extracts the anchor frame (cheap, local) and prints the
+  // planned generation without submitting — useful for plan review before a
+  // paid i2v round-trip.
+  cmd
+    .command("extend")
+    .description(
+      "Last-frame i2v continuation: extracts the last frame of <clip> and runs a new generation anchored on it. " +
+        "Records `input.extends: <clip>` lineage in the gen-log.",
+    )
+    .argument("<clip>", "Source video to extend (its last frame becomes the first-frame anchor)")
+    .requiredOption("--project <id>", "Project ID")
+    .requiredOption("--slot <slot>", "New asset slot id for the extended clip (e.g. `scene-02-vid`)")
+    .requiredOption("--prompt <text>", "Motion / camera description for the continuation")
+    .requiredOption("--duration <seconds>", "Duration in seconds (model-dependent grid)", parseFloat)
+    .option("--model <id>", "Video model (default: bytedance/seedance-2.0)", "bytedance/seedance-2.0")
+    .option("--aspect-ratio <ratio>", "Aspect ratio passed to the model", "9:16")
+    .option("--resolution <res>", "Resolution", "720p")
+    .option("--audio", "Enable model-native audio (per-model support varies)", false)
+    .option("--note <note>", "Free-form note")
+    .option(
+      "--dry-run",
+      "Extract the anchor frame + print the planned generation; do NOT submit",
+      false,
+    )
+    .action(async (clip: string, opts: any) => {
+      const src = path.resolve(clip);
+      if (!existsSync(src)) {
+        raiseError("E_FILE_UNREADABLE", { path: src });
+        return;
+      }
+      const projectDir = path.join(projectsDir(), opts.project);
+      if (!existsSync(projectDir)) {
+        raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
+        return;
+      }
+
+      // Step 1: extract the last frame into the project's refs/ so the i2v
+      // call has a stable anchor file under the project tree (manifest can
+      // point at it).
+      const base = path.basename(src, path.extname(src));
+      const anchorPath = path.join(projectDir, "refs", `${base}-last-frame.png`);
+      try {
+        await extractLastFrame({
+          src,
+          dst: anchorPath,
+          projectId: opts.project,
+          note: `video.extend anchor for ${opts.slot}`,
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `video extend last-frame: ${e?.message || e}` });
+        return;
+      }
+
+      const resolvedModel = resolveModelAlias(opts.model) ?? opts.model;
+
+      if (opts.dryRun) {
+        ok(`Anchor frame ready → ${anchorPath}`);
+        out({
+          dryRun: true,
+          chain: { extends: src, anchor: anchorPath, into: opts.slot },
+          model: resolvedModel,
+          project: opts.project,
+          slot: opts.slot,
+          durationSec: opts.duration,
+          prompt: opts.prompt,
+          aspectRatio: opts.aspectRatio,
+          resolution: opts.resolution,
+          generateAudio: !!opts.audio,
+          estimatedCostUsd: estimateVideoCostUsd(resolvedModel, opts.duration),
+        });
+        return;
+      }
+
+      // Step 2: live i2v with the anchor as --first-frame.
+      const connV = resolveConnector("video");
+      if (!connV.generateVideo) {
+        raiseError("E_INTERNAL", { detail: "no video connector available for `video extend`" });
+        return;
+      }
+
+      try {
+        const result = await connV.generateVideo({
+          projectId: opts.project,
+          slot: opts.slot,
+          prompt: opts.prompt,
+          durationSec: opts.duration,
+          model: resolvedModel,
+          firstFrame: anchorPath,
+          aspectRatio: opts.aspectRatio,
+          resolution: opts.resolution,
+          generateAudio: !!opts.audio,
+          note: opts.note,
+        });
+
+        // Lineage row — `kind: "i2v-extend"` per issue #012 plus the canonical
+        // `input.extends: <clip>` pointer so postmortems can walk the chain.
+        await logGeneration(opts.project, {
+          provider: "openrouter",
+          model: resolvedModel,
+          endpoint: "openrouter/video-extend",
+          kind: "video",
+          input: {
+            project: opts.project,
+            slot: opts.slot,
+            extends: src,
+            anchor: anchorPath,
+            prompt: opts.prompt,
+            duration: opts.duration,
+            extend_chain: true,
+          },
+          output: { local: result.localPath, url: result.url },
+          status: "ok",
+          cost_usd: result.costUsd,
+          latency_ms: result.latencyMs,
+          note: opts.note ?? "video.extend",
+        });
+
+        ok(`Extended → ${result.localPath}`);
+        out({
+          project: opts.project,
+          slot: opts.slot,
+          model: resolvedModel,
+          path: result.localPath,
+          extends: src,
+          anchor: anchorPath,
+          costUsd: result.costUsd,
+          latencyMs: result.latencyMs,
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `video extend i2v: ${e?.message || e}` });
       }
     });
 
