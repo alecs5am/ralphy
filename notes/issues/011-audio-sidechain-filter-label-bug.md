@@ -1,6 +1,6 @@
 # `ralphy audio sidechain` ffmpeg filter graph is broken
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high

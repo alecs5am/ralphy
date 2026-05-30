@@ -35,9 +35,11 @@ export function ensureFfmpeg(): void {
   }
 }
 
+type FFmpegLogKind = "video" | "audio";
+
 async function runFfmpeg(
   args: string[],
-  meta: { endpoint: string; input: Record<string, unknown>; opts?: FFmpegOptions }
+  meta: { endpoint: string; input: Record<string, unknown>; opts?: FFmpegOptions; kind?: FFmpegLogKind }
 ): Promise<{ stderr: string; durationMs: number }> {
   ensureFfmpeg();
   const t0 = Date.now();
@@ -52,7 +54,7 @@ async function runFfmpeg(
           provider: "ffmpeg",
           model: meta.endpoint,
           endpoint: meta.endpoint,
-          kind: "video",
+          kind: meta.kind ?? "video",
           input: { project: meta.opts.projectId, ...meta.input },
           status: code === 0 ? "ok" : "error",
           error: code === 0 ? undefined : stderr.slice(0, 500),
@@ -169,6 +171,7 @@ export async function loudnorm(input: LoudnormInput): Promise<string> {
       endpoint: "ffmpeg/loudnorm",
       input: { src, dst, target, truePeak, loudnessRange },
       opts,
+      kind: "audio",
     }
   );
   return dst;
@@ -186,7 +189,52 @@ export type SidechainCompressInput = {
   ratio?: number;
   /** Mix volumes [voice, music]. Music is pre-duck, default [1, 0.6] */
   mix?: [number, number];
+  /**
+   * Optional EBU R128 loudnorm pass on the mixed output. When set, the
+   * filter graph chains a `loudnorm=I=<target>:TP=-1.5:LRA=11` step after
+   * the amix label so the final file lands on-target. Common targets:
+   *   -16 LUFS (TikTok / Reels / Shorts default)
+   *   -14 LUFS (Spotify / YouTube)
+   *   -23 LUFS (EBU broadcast)
+   * Pass a number to enable, omit/undefined to skip.
+   */
+  loudnorm?: number;
 } & FFmpegOptions;
+
+/**
+ * Build the filter_complex string used by `sidechainCompress`. Exported so
+ * unit tests can assert label correctness without spawning ffmpeg.
+ *
+ * Hard-won detail (#011): internal filter labels MUST be multi-char.
+ * Single-letter labels like `[v]` / `[m]` get parsed by ffmpeg's stream
+ * specifier grammar before they reach the filtergraph parser, causing
+ * `Stream specifier 'v' matches no streams` and exit 234. Use `[voice]`,
+ * `[music]`, `[mducked]`, `[mixed]` — verified accepted by ffmpeg 7.1+.
+ */
+export function buildSidechainFilter(opts: {
+  threshold: number;
+  ratio: number;
+  mix: [number, number];
+  loudnorm?: number;
+}): string {
+  const { threshold, ratio, mix, loudnorm: lufs } = opts;
+  const chain = [
+    `[0:a]volume=${mix[0]}[voice]`,
+    `[1:a]volume=${mix[1]}[music]`,
+    `[music][voice]sidechaincompress=threshold=${threshold}:ratio=${ratio}:attack=10:release=250[mducked]`,
+  ];
+  if (typeof lufs === "number" && Number.isFinite(lufs)) {
+    chain.push(
+      `[voice][mducked]amix=inputs=2:duration=longest:dropout_transition=2[premix]`,
+      `[premix]loudnorm=I=${lufs}:TP=-1.5:LRA=11[mixed]`,
+    );
+  } else {
+    chain.push(
+      `[voice][mducked]amix=inputs=2:duration=longest:dropout_transition=2[mixed]`,
+    );
+  }
+  return chain.join(";");
+}
 
 export async function sidechainCompress(input: SidechainCompressInput): Promise<string> {
   const {
@@ -196,19 +244,20 @@ export async function sidechainCompress(input: SidechainCompressInput): Promise<
     threshold = 0.05,
     ratio = 8,
     mix = [1, 0.6] as [number, number],
+    loudnorm: loudnormTarget,
     ...opts
   } = input;
   await fs.mkdir(path.dirname(dst), { recursive: true });
 
   // Filter graph:
   //   [music] sidechain'd by [voice] → ducked music
-  //   [voice] + ducked music → mixed
-  const filter = [
-    `[0:a]volume=${mix[0]}[v]`,
-    `[1:a]volume=${mix[1]}[m]`,
-    `[m][v]sidechaincompress=threshold=${threshold}:ratio=${ratio}:attack=10:release=250[mducked]`,
-    `[v][mducked]amix=inputs=2:duration=longest:dropout_transition=2[mixed]`,
-  ].join(";");
+  //   [voice] + ducked music → mixed (optionally loudnorm'd)
+  const filter = buildSidechainFilter({
+    threshold,
+    ratio,
+    mix,
+    loudnorm: loudnormTarget,
+  });
   await runFfmpeg(
     [
       "-i", voice,
@@ -220,8 +269,9 @@ export async function sidechainCompress(input: SidechainCompressInput): Promise<
     ],
     {
       endpoint: "ffmpeg/sidechain-compress",
-      input: { voice, music, dst, threshold, ratio, mix },
+      input: { voice, music, dst, threshold, ratio, mix, loudnorm: loudnormTarget },
       opts,
+      kind: "audio",
     }
   );
   return dst;
@@ -408,19 +458,21 @@ export async function addMusicBed(input: AddMusicBedInput): Promise<string> {
   // amix with duration=first → output length = video audio length.
   // normalize=0 keeps explicit volumes (default amix normalize would halve them).
   // duck=true: route music through sidechaincompress keyed by SFX, then mix.
+  // Multi-char labels everywhere (#011) — `[m]` collides with ffmpeg's
+  // stream-specifier grammar and trips exit 234. Use `[music]` instead.
   const filter = !hasSourceAudio
     ? `[1:a]${musicChain}[mix]`
     : duck
       ? [
           `[0:a]volume=${sfxVol}[sfx]`,
-          `[1:a]${musicChain}[m]`,
-          `[m][sfx]sidechaincompress=threshold=${duckThreshold}:ratio=${duckRatio}:attack=10:release=250[mducked]`,
+          `[1:a]${musicChain}[music]`,
+          `[music][sfx]sidechaincompress=threshold=${duckThreshold}:ratio=${duckRatio}:attack=10:release=250[mducked]`,
           `[sfx][mducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
         ].join(";")
       : [
           `[0:a]volume=${sfxVol}[sfx]`,
-          `[1:a]${musicChain}[m]`,
-          `[sfx][m]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
+          `[1:a]${musicChain}[music]`,
+          `[sfx][music]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mix]`,
         ].join(";");
 
   await runFfmpeg(

@@ -59,6 +59,14 @@ export function audioCmd() {
     .option("--ratio <n>", "Compression ratio (heavy duck = 8)", (v) => Number(v), 8)
     .option("--voice-vol <n>", "Voice mix volume", (v) => Number(v), 1)
     .option("--music-vol <n>", "Music pre-duck volume", (v) => Number(v), 0.6)
+    .option(
+      "--loudnorm [lufs]",
+      "Chain an EBU R128 loudnorm pass on the mixed output (default target -16 LUFS when flag is set without a value)",
+      (v: string) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : -16;
+      },
+    )
     .option("--project <id>", "Project ID for log line")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
@@ -70,6 +78,17 @@ export function audioCmd() {
           threshold: opts.threshold,
           ratio: opts.ratio,
           mix: [opts.voiceVol, opts.musicVol],
+          // Commander returns `true` when --loudnorm is passed without a
+          // value (boolean preset), a number when our parser ran (with-value
+          // path), and `undefined` when omitted. Coerce all three into a
+          // number-or-undef for the recipe helper.
+          loudnorm: (() => {
+            const v: unknown = opts.loudnorm;
+            if (v === undefined || v === false || v === null) return undefined;
+            if (v === true) return -16;
+            const n = Number(v);
+            return Number.isFinite(n) ? n : -16;
+          })(),
           projectId: opts.project,
           note: opts.note,
         });
