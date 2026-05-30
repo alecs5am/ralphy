@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **36**
+Verbs registered: **37**
 
 ## Top-level verbs
 
@@ -417,6 +417,65 @@ Examples:
   ralphy render proj-001 --loudnorm
   ralphy render proj-001 --output ./out.mp4
   ralphy render proj-001 --fps 60 --quality high
+```
+
+### `ralphy hyperframes`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy hyperframes|hf [options] [command]
+
+HyperFrames inner-loop verbs (lint / validate / snapshot / render / save-version
+/ extract-frames / watch). Wraps `bunx hyperframes` so iterations log to
+generations.jsonl. Issue #028.
+
+Options:
+  -h, --help                          display help for command
+
+Commands:
+  lint [options] <project>            Run the in-repo HyperFrames lint (issue
+                                      #047). Exit 1 on errors, 0 on warnings
+                                      only.
+  validate <project>                  Run `bunx hyperframes validate` against
+                                      the project and log the result.
+  snapshot [options] <project>        Capture key-frame PNGs via `bunx
+                                      hyperframes snapshot`. When --at is
+                                      omitted, auto-picks one timestamp per
+                                      scene from STORYBOARD.md / scenario.json.
+  render [options] <project>          Render a project to MP4. Thin namespace
+                                      wrapper over `ralphy render` that adds the
+                                      --require-snapshot-review staleness gate
+                                      and a hyperframes.render gen-log row.
+  save-version <project>              Copy current index.html →
+                                      compositions/v<N>.html (numeric increment,
+                                      never overwrites). Closes invariant #14
+                                      gap for HTML (issue #004).
+  extract-frames [options] <project>  Extract still frames from a
+                                      rendered/source video for QA via ffmpeg.
+                                      Standalone helper — issue #012 may later
+                                      route through a broader `ralphy video
+                                      frame` verb.
+  watch <project>                     Live-preview the composition via `bunx
+                                      hyperframes watch`. Runs foreground;
+                                      Ctrl-C to stop.
+  help [command]                      display help for command
+
+Examples:
+  ralphy hyperframes lint spring-001
+  ralphy hyperframes validate spring-001
+  ralphy hyperframes snapshot spring-001                # auto --at from STORYBOARD
+  ralphy hyperframes snapshot spring-001 --at 0.5 1.8 3.2
+  ralphy hyperframes save-version spring-001            # → compositions/v1.html
+  ralphy hyperframes render spring-001 --require-snapshot-review
+  ralphy hyperframes extract-frames spring-001 --in render/final.mp4 --at 1.0 5.0
+  ralphy hyperframes watch spring-001
 ```
 
 ### `ralphy editor`
