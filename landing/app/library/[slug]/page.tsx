@@ -21,6 +21,7 @@ import { mdxComponents } from "@/components/mdx";
 import { MediaPlayer } from "@/components/MediaPlayer";
 import { CopyTagButton } from "./CopyTagButton";
 import { ExamplesGrid } from "./ExamplesGrid";
+import { TemplateShowcase } from "./TemplateShowcase";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -109,6 +110,10 @@ export default async function GuidelinePage({ params }: PageProps) {
             </div>
           </div>
         </section>
+
+        {/* Seam for issue 055 — per-template results / showcase gallery.
+            Renders nothing today; the gallery mounts here when 055 lands. */}
+        <TemplateShowcase slug={g.slug} />
 
         {g.examples.length > 0 && (
           <section className="pt-6 pb-4">

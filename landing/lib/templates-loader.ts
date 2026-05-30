@@ -4,8 +4,9 @@
 // Walks `templates/<category>/<slug>/template.json` and returns a flat list
 // of TemplateRow records that the gallery page renders into a grid.
 //
-// Used by landing/app/templates/page.tsx as a Server Component data source —
-// runs at build time on Next.js, so the user gets static HTML.
+// Consumed by landing/lib/library-index.ts (which folds templates, guidelines,
+// and showcase clips into the single /library discovery surface) — runs at
+// build time on Next.js, so the user gets static HTML.
 
 import fs from "node:fs";
 import path from "node:path";
