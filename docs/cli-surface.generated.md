@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **37**
+Verbs registered: **38**
 
 ## Top-level verbs
 
@@ -531,6 +531,37 @@ Commands:
                                       capped (default 3) to respect the
                                       gemini-3.1-pro-preview concurrency floor.
   help [command]                      display help for command
+```
+
+### `ralphy compose`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy compose [options] <projectId>
+
+Timeline-aware composer. Reads assets/ + scenario.json + scribe captions, builds
+a Timeline, optionally re-flows after structural edits, and renders a single
+mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle (#013).
+
+Arguments:
+  projectId                Project id under workspace/projects/
+
+Options:
+  --remove-segment <slot>  Drop the segment with this slot id and re-flow VO +
+                           captions + music. Repeatable.
+  --out <path>             Output path (default:
+                           workspace/projects/<id>/render/compose.mp4).
+                           Collisions auto-bump to -v2, -v3, ...
+  --dry-run                Print the resolved timeline + filter graph; do not
+                           spawn ffmpeg.
+  -h, --help               display help for command
 ```
 
 ### `ralphy voice`
