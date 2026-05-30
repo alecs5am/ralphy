@@ -1,6 +1,6 @@
 # `generate captions` writes to a shared file and throws on silence
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high

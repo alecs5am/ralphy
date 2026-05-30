@@ -13,6 +13,17 @@ import { projectsDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
+import {
+  type BrandSpellingDict,
+  mergeBrandSpelling,
+  applyBrandSpellingToCaptions,
+  resolveSafeZone,
+  type SafeZone,
+  wrapCaptionText,
+  captionsToSrt,
+  captionsToDrawtextFilter,
+} from "../lib/captions/helpers.js";
+import { protectExistingAsset } from "../lib/providers/shared.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { logUserPrompt } from "../lib/gen-log.js";
 import {
@@ -904,7 +915,39 @@ export function generateCmd() {
     )
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
     .option("--output <path>", "Custom output path. Default: workspace/projects/<id>/assets/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
-    .option("--legacy-output", "Write to the legacy shared captions.json instead of assets/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path.")
+    .option("--out <path>", "Alias for --output (kept because the 'Did you mean ...' hint used to advertise this spelling). #010")
+    .option("--legacy-output", "Write to the legacy shared captions.json instead of assets/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path. Emits a deprecation warning. #010")
+    .option(
+      "--max-width-pct <n>",
+      "Caption wrap: max width of the text box as a percentage of frame width (0..100). Default: safe-zone preset or 90. #010",
+      (v) => Math.max(10, Math.min(100, parseFloat(v))),
+    )
+    .option(
+      "--font-file <path>",
+      "Path to a .ttf/.otf font file. Forwarded to the drawtext filter sidecar; omitted falls back to ffmpeg default. #010",
+    )
+    .option(
+      "--font-size <px>",
+      "Caption font size in pixels (drives wrap + drawtext sidecar). Default: 64.",
+      (v) => Math.max(8, parseInt(v, 10)),
+      64,
+    )
+    .option(
+      "--safe-zone <preset>",
+      "Safe-zone preset for the drawtext sidecar: tiktok | reels | shorts | none. Default: none. #010",
+      "none",
+    )
+    .option(
+      "--brand-spelling <path>",
+      "Path to a brand-spelling JSON dict (lowercase key → replacement). Default: <project>/brand-spelling.json if it exists, falls back to the built-in dict. #010",
+    )
+    .option(
+      "--frame-width <px>",
+      "Source frame width for wrap calculation. Default: 1080 (9:16 portrait).",
+      (v) => Math.max(64, parseInt(v, 10)),
+      1080,
+    )
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.json (+ .srt, .drawtext.filter).")
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
       await ensureProject(opts.project);
@@ -913,16 +956,110 @@ export function generateCmd() {
       const backend = opts.backend as TranscribeBackend;
       const t0 = Date.now();
       const result = await transcribe({ audioPath, language: opts.language, backend });
-      // Per-slot output (noski + venom postmortems: shared captions.json was
-      // clobbered between calls, forcing manual `cp captions.json assets/audio/<slot>.json`).
-      // Default → assets/captions/<slot>.json. --output overrides; --legacy-output forces old path.
-      const outPath = opts.output
-        ? path.resolve(opts.output)
+
+      // ── output path resolution ──────────────────────────────────────────
+      // #010: shared captions.json clobber → per-slot output as default.
+      // --output / --out: explicit override (--out is the alias the "Did you
+      //   mean ..." error used to advertise).
+      // --legacy-output: opt-in to the pre-2026-05 shared-file path; emits
+      //   a deprecation warning so the user knows it's a legacy escape hatch.
+      // Default: workspace/projects/<id>/assets/captions/<slot>.json
+      const explicitOut = opts.output ?? opts.out;
+      if (opts.legacyOutput) {
+        // eslint-disable-next-line no-console
+        console.error(
+          "ralphy: --legacy-output is deprecated. Shared captions.json clobbers on concurrent / batch calls; use the per-slot default (assets/captions/<slot>.json) or --output. #010",
+        );
+      }
+      const outPath = explicitOut
+        ? path.resolve(explicitOut)
         : opts.legacyOutput
           ? path.join(projectsDir(), opts.project, "captions.json")
           : path.join(projectsDir(), opts.project, "assets", "captions", `${slot}.json`);
       await fs.mkdir(path.dirname(outPath), { recursive: true });
-      await fs.writeFile(outPath, JSON.stringify(result.captions, null, 2), "utf8");
+
+      // AGENTS invariant #14: never overwrite an existing per-slot caption
+      // file. Archive to <slot>.v{N}.json (mirrors what image/video/voiceover
+      // already do via protectExistingAsset). --force-overwrite skips this.
+      await protectExistingAsset(outPath, opts.forceOverwrite);
+
+      // ── brand-spelling substitution ─────────────────────────────────────
+      // #010: caption-wrap / safe-zone / brand-spelling all lived in user-
+      // land Python before this. Pull the project's dict (if any) and merge
+      // on top of the built-in floor.
+      const brandSpellingPath =
+        (opts.brandSpelling as string | undefined) ??
+        path.join(projectsDir(), opts.project, "brand-spelling.json");
+      let projectDict: BrandSpellingDict | null = null;
+      try {
+        const raw = await fs.readFile(brandSpellingPath, "utf8");
+        projectDict = JSON.parse(raw) as BrandSpellingDict;
+      } catch {
+        // Missing / unparseable → fall back to built-in only. Not an error.
+      }
+      const dict = mergeBrandSpelling(projectDict);
+      const captions = applyBrandSpellingToCaptions(result.captions, dict);
+
+      // ── wrap captions to the safe zone ──────────────────────────────────
+      const safeZone = (opts.safeZone as SafeZone) ?? "none";
+      const spec = resolveSafeZone(safeZone, opts.maxWidthPct as number | undefined);
+      const fontSizePx = (opts.fontSize as number | undefined) ?? 64;
+      const frameWidth = (opts.frameWidth as number | undefined) ?? 1080;
+      const wrapped = captions.map((c) => ({
+        ...c,
+        text: wrapCaptionText(c.text, {
+          frameWidth,
+          maxWidthPct: spec.maxWidthPct,
+          fontSizePx,
+        }),
+      }));
+
+      // ── low-confidence words (#051) ─────────────────────────────────────
+      // Output JSON shape carries `captions`, `low_confidence_words`, and
+      // metadata. #010 adds `low_confidence_words: []` even on empty
+      // transcripts for shape consistency, so consumers don't need to
+      // null-check.
+      const threshold = (opts.lowConfidenceThreshold as number | undefined) ?? 0.6;
+      const lowConfidenceWords = (result.lowConfidenceWords ?? []).filter(
+        (w) => w.confidence < threshold,
+      );
+
+      // ── persist sidecar files ───────────────────────────────────────────
+      const jsonPayload = {
+        captions: wrapped,
+        // Keep these top-level so downstream `cli/lib/components/captions/*`
+        // consumers (which type against the bare Caption[] shape) can still
+        // do `JSON.parse(raw).captions` or just `raw` when stored as array.
+        low_confidence_words: lowConfidenceWords,
+        language: result.language,
+        languageProbability: result.languageProbability,
+        durationSec: result.audioDurationSec,
+        slot,
+        safeZone,
+        maxWidthPct: spec.maxWidthPct,
+        fontSizePx,
+        frameWidth,
+        model: result.model,
+        backend: result.backend,
+      };
+      await fs.writeFile(outPath, JSON.stringify(jsonPayload, null, 2), "utf8");
+
+      // SRT + drawtext-per-line filter snippet next to the JSON (#010: editors
+      // can grab the ffmpeg filter directly instead of hand-rolling one).
+      const srtPath = outPath.replace(/\.json$/, ".srt");
+      const drawtextPath = outPath.replace(/\.json$/, ".drawtext.filter");
+      await fs.writeFile(srtPath, captionsToSrt(wrapped), "utf8");
+      await fs.writeFile(
+        drawtextPath,
+        captionsToDrawtextFilter(wrapped, {
+          fontFile: opts.fontFile as string | undefined,
+          fontSizePx,
+          fontColor: "white",
+          boxColor: "black@0.5",
+          yCenter: spec.yCenter,
+        }),
+        "utf8",
+      );
 
       await logGeneration(opts.project, {
         provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
@@ -930,8 +1067,21 @@ export function generateCmd() {
         endpoint: result.model,
         kind: "text",
         slot,
-        input: { slot, project: opts.project, audio: audioPath, language: opts.language, backend: result.backend },
-        output: { local: outPath, bytes: result.captions.length },
+        input: {
+          slot,
+          project: opts.project,
+          audio: audioPath,
+          language: opts.language,
+          backend: result.backend,
+          safeZone,
+          maxWidthPct: spec.maxWidthPct,
+          fontSizePx,
+          frameWidth,
+        },
+        output: {
+          local: outPath,
+          bytes: wrapped.length,
+        },
         status: "ok",
         latency_ms: Date.now() - t0,
         cost_usd: result.costUsd,
@@ -948,13 +1098,6 @@ export function generateCmd() {
       };
       await writeManifest(opts.project, manifest);
 
-      // #051: surface low-confidence words (filtered by the user-tunable
-      // threshold) + the backend's self-reported language probability so the
-      // caller can spot a misdetected language without re-running.
-      const threshold = (opts.lowConfidenceThreshold as number | undefined) ?? 0.6;
-      const lowConfidenceWords = (result.lowConfidenceWords ?? []).filter(
-        (w) => w.confidence < threshold,
-      );
       const languageWarning =
         result.languageProbability !== null && result.languageProbability < 0.85
           ? `Low language-detection confidence (${result.languageProbability.toFixed(2)}). Pass --language <code> to lock the language.`
@@ -963,13 +1106,19 @@ export function generateCmd() {
       out({
         slot,
         path: outPath,
-        captions: result.captions.length,
+        srtPath,
+        drawtextPath,
+        captions: wrapped.length,
         durationSec: result.audioDurationSec,
         language: result.language,
         languageProbability: result.languageProbability,
         languageWarning,
         lowConfidenceWords,
         lowConfidenceThreshold: threshold,
+        safeZone,
+        maxWidthPct: spec.maxWidthPct,
+        fontSizePx,
+        frameWidth,
         costUsd: result.costUsd,
         latencyMs: Date.now() - t0,
       });
