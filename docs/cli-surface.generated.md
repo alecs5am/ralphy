@@ -410,6 +410,12 @@ Options:
   --format <format>      Output format: mp4|webm|mov|png-sequence (default mp4)
   --resolution <preset>  Resolution preset:
                          portrait|landscape|square|1080p|4k|...
+  --music-variants       After the base render, mix one variant per
+                         <project>/assets/music/*.mp3 onto the final mp4. Writes
+                         render/final.<music-basename>.mp4 per bed. #049
+                         (default: false)
+  --music-volume <n>     Music gain for --music-variants (default 0.18,
+                         background bed under VO) (default: 0.18)
   --dry-run              Print the resolved render plan; no engine run (default:
                          false)
   --summary              Collapse the dry-run plan to a per-stage rollup
@@ -652,6 +658,9 @@ Commands:
   show <id>              Show brand details
   update [options] <id>  Update a brand
   delete <id>            Delete a brand
+  extract <svg>          Parse an SVG and report layer structure: compound
+                         paths, fill-rule, interior polygons, overlay rects.
+                         JSON output.
   help [command]         display help for command
 ```
 
@@ -748,41 +757,53 @@ Usage: ralphy project [options] [command]
 Manage video projects
 
 Options:
-  -h, --help                 display help for command
+  -h, --help                    display help for command
 
 Commands:
-  create [options]           Create a new project
-  list [options]             List all projects
-  show [options] <id>        Show project details
-  update [options] <id>      Update project
-  delete [options] <id>      Delete a project
-  log [options] <id>         Tail project logs (generations / user-prompts /
-                             user-assets)
-  timeline <id>              Merged project timeline (user requests + assets +
-                             generations) as pretty chronological log
-  log-prompt [options] [id]  Append a user-prompt entry to project logs. Accept
-                             project id positionally OR via --project (#031).
-  log-asset [options] [id]   Append a user-asset entry to project logs. Accept
-                             project id positionally OR via --project (#031).
-                             With --copy-from <src>, copies the file into
-                             <project>/refs/ first (auto-detects disposable
-                             macOS NSIRD / /tmp paths and rescues them before
-                             they evaporate). Sanitizes U+202F NARROW NO-BREAK
-                             SPACE in filenames.
-  score [options] <id>       Run virality rubric over scenario.json (Hard fails
-                             + warnings, no LLM)
-  transcribe [options] <id>  Transcribe an audio file → captions.json
-                             (Caption[]). Default backend: ElevenLabs Scribe v1
-                             (word-level).
-  clone [options] <id>       Clone a project
-  assets [options] <id>      ffprobe-truth every media file under
-                             <project>/assets/ and emit a flat array. Honors
-                             --kind video|image|audio.
-  verify [options] <id>      ffprobe every slot in asset-manifest.json and flag
-                             divergences from claimed duration / dimensions /
-                             size (tolerance: 100ms on duration). Exit non-zero
-                             on any red.
-  help [command]             display help for command
+  create [options]              Create a new project
+  list [options]                List all projects
+  show [options] <id>           Show project details
+  update [options] <id>         Update project
+  delete [options] <id>         Delete a project
+  log [options] <id>            Tail project logs (generations / user-prompts /
+                                user-assets)
+  timeline <id>                 Merged project timeline (user requests + assets
+                                + generations) as pretty chronological log
+  log-prompt [options] [id]     Append a user-prompt entry to project logs.
+                                Accept project id positionally OR via --project
+                                (#031).
+  log-asset [options] [id]      Append a user-asset entry to project logs.
+                                Accept project id positionally OR via --project
+                                (#031). With --copy-from <src>, copies the file
+                                into <project>/refs/ first (auto-detects
+                                disposable macOS NSIRD / /tmp paths and rescues
+                                them before they evaporate). Sanitizes U+202F
+                                NARROW NO-BREAK SPACE in filenames.
+  score [options] <id>          Run virality rubric over scenario.json (Hard
+                                fails + warnings, no LLM)
+  transcribe [options] <id>     Transcribe an audio file → captions.json
+                                (Caption[]). Default backend: ElevenLabs Scribe
+                                v1 (word-level).
+  clone [options] <id>          Clone a project
+  assets [options] <id>         ffprobe-truth every media file under
+                                <project>/assets/ and emit a flat array. Honors
+                                --kind video|image|audio.
+  verify [options] <id>         ffprobe every slot in asset-manifest.json and
+                                flag divergences from claimed duration /
+                                dimensions / size (tolerance: 100ms on
+                                duration). Exit non-zero on any red.
+  thumbnail [options] <id>      Extract a single frame from a project video.
+                                Default source: <project>/render/final.mp4.
+  audio-stats [options] <id>    Loudness table (mean/peak dBFS + integrated LUFS
+                                + true peak + LRA) for every audio file under
+                                <project>/assets/.
+  contact-sheet [options] <id>  Grid montage of images. --slots accepts a glob
+                                over <project>/assets/images/ (e.g. 'zine-*').
+                                Default cols=5.
+  zip [options] <id>            Zip a project's deliverables into
+                                <cwd>/<id>.zip. --selected = <project>/selected/
+                                only. --all = everything except logs/cache.
+  help [command]                display help for command
 ```
 
 ### `ralphy template`

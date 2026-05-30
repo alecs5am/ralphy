@@ -1,8 +1,10 @@
 import { Command } from "commander";
+import path from "node:path";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { extractSvgFile } from "../lib/svg-extract.js";
 
 export function brandCmd() {
   const cmd = new Command("brand").description("Manage brands (design systems)");
@@ -86,6 +88,25 @@ export function brandCmd() {
       if (!ok_) raiseError("E_NOT_FOUND", { kind: "Brand", id });
       ok(`Brand deleted: ${id}`);
       out({ deleted: id });
+    });
+
+  // ── extract (#049) ─────────────────────────────────────────────────────
+  // `ralphy brand extract <svg>` — list compound paths, fill-rule attrs,
+  // interior polygons, overlay rects. Helps agents avoid the
+  // twitch-fb-ads-001 missed-white-interior bug.
+  cmd
+    .command("extract <svg>")
+    .description(
+      "Parse an SVG and report layer structure: compound paths, fill-rule, interior polygons, overlay rects. JSON output.",
+    )
+    .action(async (svg: string) => {
+      const p = path.resolve(svg);
+      try {
+        const report = await extractSvgFile(p);
+        out(report);
+      } catch (e) {
+        raiseError("E_FILE_UNREADABLE", { path: p, detail: (e as Error).message });
+      }
     });
 
   return cmd;

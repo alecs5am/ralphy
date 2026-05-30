@@ -2,6 +2,7 @@ import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
 import { projectsDir } from "../lib/paths.js";
@@ -11,6 +12,7 @@ import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, t
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
+import { extractFrame, audioStats, contactSheet } from "../lib/ffmpeg-recipes.js";
 
 async function safeJson(fp: string) {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
@@ -55,6 +57,11 @@ export function projectCmd() {
     .option("--aspect-ratio <ratio>", "Aspect ratio", "9:16")
     .option("--duration <seconds>", "Target duration in seconds", parseInt)
     .option("--id <id>", "Custom project ID")
+    .option(
+      "--kind <kind>",
+      "Project shape: video (default — scenes + scenario) | image-pack (just assets/images + selected + refs, no scenario.json)",
+      "video",
+    )
     .action(async (opts) => {
       // #031: --name is now optional. Default to title-cased --id, or to a
       // generated id slug if neither is provided. Either --name or --id must
@@ -65,19 +72,36 @@ export function projectCmd() {
           detail: "at least one of --name or --id is required",
         });
       }
+      const kind = String(opts.kind || "video");
+      if (kind !== "video" && kind !== "image-pack") {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--kind",
+          detail: `unknown --kind '${kind}'. Allowed: video | image-pack`,
+        });
+      }
       const id = opts.id || slugify(opts.name) || generateId("proj");
       const name: string = opts.name || titleCaseFromId(id);
       const dir = path.join(projectsDir(), id);
       await fs.mkdir(dir, { recursive: true });
-      await fs.mkdir(path.join(dir, "assets", "images"), { recursive: true });
-      await fs.mkdir(path.join(dir, "assets", "videos"), { recursive: true });
-      await fs.mkdir(path.join(dir, "assets", "voiceover"), { recursive: true });
-      await fs.mkdir(path.join(dir, "assets", "music"), { recursive: true });
-      await fs.mkdir(path.join(dir, "assets", "captions"), { recursive: true });
-      await fs.mkdir(path.join(dir, "render"), { recursive: true });
+      if (kind === "image-pack") {
+        // #049: image-pack shape — no scenes / scenario scaffold. Just the
+        // dirs the appstore postmortem actually used: images, selected (the
+        // cherry-picked subset for handoff), and refs (input references).
+        await fs.mkdir(path.join(dir, "assets", "images"), { recursive: true });
+        await fs.mkdir(path.join(dir, "selected"), { recursive: true });
+        await fs.mkdir(path.join(dir, "refs"), { recursive: true });
+      } else {
+        await fs.mkdir(path.join(dir, "assets", "images"), { recursive: true });
+        await fs.mkdir(path.join(dir, "assets", "videos"), { recursive: true });
+        await fs.mkdir(path.join(dir, "assets", "voiceover"), { recursive: true });
+        await fs.mkdir(path.join(dir, "assets", "music"), { recursive: true });
+        await fs.mkdir(path.join(dir, "assets", "captions"), { recursive: true });
+        await fs.mkdir(path.join(dir, "render"), { recursive: true });
+      }
 
       const data: Record<string, unknown> = {
         name,
+        kind,
         platform: opts.platform,
         aspectRatio: opts.aspectRatio,
         status: "draft",
@@ -859,6 +883,246 @@ export function projectCmd() {
         // Non-zero exit so CI / scripts can chain
         process.exitCode = 1;
       }
+    });
+
+  // ── thumbnail (#049) ───────────────────────────────────────────────────
+  // `ralphy project thumbnail <id> --at <t>` — single-frame extract for QA
+  // preview. Replaces the venom-bodywash workaround of 30 raw `ffmpeg -ss`
+  // invocations. Writes <project>/compositions/thumbnails/<basename>-<t>.png
+  // if --slot/--src given, else <project>/thumb-<t>.png. Numeric-suffix on
+  // collision (AGENTS.md #14: no overwrite).
+  cmd
+    .command("thumbnail <id>")
+    .description(
+      "Extract a single frame from a project video. Default source: <project>/render/final.mp4.",
+    )
+    .requiredOption("--at <seconds>", "Timestamp in seconds (float ok)", parseFloat)
+    .option(
+      "--src <path>",
+      "Video to thumbnail (default: <project>/render/final.mp4). Relative paths resolve under the project dir.",
+    )
+    .option("--out <path>", "Output PNG path (default under <project>/compositions/thumbnails/)")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const dir = path.join(projectsDir(), id);
+      const src = opts.src
+        ? (path.isAbsolute(opts.src) ? opts.src : path.join(dir, opts.src))
+        : path.join(dir, "render", "final.mp4");
+      const t = Number(opts.at);
+      if (!Number.isFinite(t) || t < 0) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--at",
+          detail: `must be a non-negative number, got '${opts.at}'`,
+        });
+      }
+      const baseSlug = path
+        .basename(src, path.extname(src))
+        .replace(/[^a-zA-Z0-9_-]+/g, "-");
+      const defaultOut = path.join(
+        dir,
+        "compositions",
+        "thumbnails",
+        `${baseSlug}-${t.toString().replace(".", "p")}.png`,
+      );
+      let dst = opts.out
+        ? (path.isAbsolute(opts.out) ? opts.out : path.join(dir, opts.out))
+        : defaultOut;
+      // Numeric-suffix on collision (AGENTS.md #14). Never overwrite.
+      const ext = path.extname(dst);
+      const stem = dst.slice(0, dst.length - ext.length);
+      let n = 2;
+      while (await fs.access(dst).then(() => true).catch(() => false)) {
+        dst = `${stem}-${n}${ext}`;
+        n += 1;
+        if (n > 9999) break;
+      }
+      await fs.mkdir(path.dirname(dst), { recursive: true });
+      await extractFrame({ src, atSec: t, dst, projectId: id, note: `thumbnail @${t}s` });
+      out({ project: id, src, atSec: t, out: dst });
+    });
+
+  // ── audio-stats (#049) ─────────────────────────────────────────────────
+  // `ralphy project audio-stats <id>` — LUFS / peak / mean per audio file
+  // under <project>/assets/. Replaces venom-bodywash's 10 raw
+  // `ffmpeg -af volumedetect` invocations. JSON output, gen-log row per
+  // file.
+  cmd
+    .command("audio-stats <id>")
+    .description(
+      "Loudness table (mean/peak dBFS + integrated LUFS + true peak + LRA) for every audio file under <project>/assets/.",
+    )
+    .option("--src <path>", "Single file to probe instead of the assets/ walk")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const dir = path.join(projectsDir(), id);
+      let files: string[];
+      if (opts.src) {
+        const p = path.isAbsolute(opts.src) ? opts.src : path.join(dir, opts.src);
+        files = [p];
+      } else {
+        try {
+          ensureFfprobe();
+        } catch (e) {
+          err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg is installed.`);
+        }
+        const all = await walkMediaFiles(path.join(dir, "assets"));
+        files = all.filter((f) => classifyFile(f) === "audio");
+      }
+      const rows: Array<Record<string, unknown>> = [];
+      for (const f of files) {
+        try {
+          const stats = await audioStats({ src: f, projectId: id, note: "project audio-stats" });
+          rows.push({ ...stats, path: path.relative(dir, f), absolute_path: f });
+        } catch (e) {
+          rows.push({ path: path.relative(dir, f), absolute_path: f, error: (e as Error).message });
+        }
+      }
+      out({ project: id, count: rows.length, files: rows });
+    });
+
+  // ── contact-sheet (#049) ───────────────────────────────────────────────
+  // `ralphy project contact-sheet <id> --slots 'pattern' --cols 5` — montage
+  // images into an N-column grid PNG. Replaces 6 raw ffmpeg hstack invocations
+  // from ralphy-carousel-001.
+  cmd
+    .command("contact-sheet <id>")
+    .description(
+      "Grid montage of images. --slots accepts a glob over <project>/assets/images/ (e.g. 'zine-*'). Default cols=5.",
+    )
+    .option(
+      "--slots <pattern>",
+      "Glob pattern matched against filenames under <project>/assets/images/ (default: '*' = all images)",
+      "*",
+    )
+    .option("--cols <n>", "Grid columns (default 5)", (v) => parseInt(v, 10), 5)
+    .option("--tile-w <n>", "Tile width (default 480)", (v) => parseInt(v, 10), 480)
+    .option("--tile-h <n>", "Tile height (default 270)", (v) => parseInt(v, 10), 270)
+    .option("--name <name>", "Output basename (default: contact-<timestamp>)")
+    .option("--out <path>", "Override output path entirely")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      const dir = path.join(projectsDir(), id);
+      const imagesDir = path.join(dir, "assets", "images");
+      let entries: string[] = [];
+      try {
+        entries = await fs.readdir(imagesDir);
+      } catch {
+        raiseError("E_FILE_UNREADABLE", { path: imagesDir });
+      }
+      // Tiny inline glob — only `*` and `?` are honored, keeps the surface small.
+      const pattern = String(opts.slots || "*");
+      const rx = new RegExp(
+        "^" +
+          pattern
+            .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+            .replace(/\*/g, ".*")
+            .replace(/\?/g, ".") +
+          "$",
+      );
+      const srcs = entries
+        .filter((f) => /\.(png|jpg|jpeg|webp)$/i.test(f))
+        .filter((f) => rx.test(f) || rx.test(path.basename(f, path.extname(f))))
+        .map((f) => path.join(imagesDir, f))
+        .sort();
+      if (srcs.length === 0) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--slots",
+          detail: `no images matched '${pattern}' under ${imagesDir}`,
+        });
+      }
+      const cols = Number(opts.cols) > 0 ? Number(opts.cols) : 5;
+      const tileW = Number(opts.tileW) > 0 ? Number(opts.tileW) : 480;
+      const tileH = Number(opts.tileH) > 0 ? Number(opts.tileH) : 270;
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const name = String(opts.name || `contact-${stamp}`);
+      const dst = opts.out
+        ? (path.isAbsolute(opts.out) ? opts.out : path.join(dir, opts.out))
+        : path.join(dir, "compositions", "contact", `${name}.png`);
+      await contactSheet({ srcs, dst, cols, tileW, tileH, projectId: id, note: `contact-sheet --slots ${pattern}` });
+      out({ project: id, slotPattern: pattern, tileCount: srcs.length, cols, rows: Math.ceil(srcs.length / cols), out: dst });
+    });
+
+  // ── zip (#049) ─────────────────────────────────────────────────────────
+  // `ralphy project zip <id> [--selected|--all]` — handoff bundle. Replaces
+  // the appstore-takeaminute hand-assembled 32-PNG + curated-8-PNG zips. Uses
+  // the system `zip` binary (always present on macOS / linux). gen-log row.
+  cmd
+    .command("zip <id>")
+    .description(
+      "Zip a project's deliverables into <cwd>/<id>.zip. --selected = <project>/selected/ only. --all = everything except logs/cache.",
+    )
+    .option("--selected", "Zip only <project>/selected/ (cherry-picked deliverables)")
+    .option("--all", "Zip everything except logs/ and node_modules / cache")
+    .option("--out <path>", "Output path (default: <cwd>/<id>.zip)")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+      if (!opts.selected && !opts.all) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--selected | --all",
+          detail: "pass --selected (cherry-picked deliverables) or --all (full project minus logs/cache)",
+        });
+      }
+      const dir = path.join(projectsDir(), id);
+      const t0 = Date.now();
+      const dst = opts.out
+        ? path.resolve(opts.out)
+        : path.resolve(process.cwd(), `${id}.zip`);
+      // Numeric-suffix on collision — never overwrite an existing zip.
+      let finalDst = dst;
+      const ext = path.extname(finalDst);
+      const stem = finalDst.slice(0, finalDst.length - ext.length);
+      let n = 2;
+      while (await fs.access(finalDst).then(() => true).catch(() => false)) {
+        finalDst = `${stem}-${n}${ext}`;
+        n += 1;
+        if (n > 9999) break;
+      }
+      await fs.mkdir(path.dirname(finalDst), { recursive: true });
+      const args = ["-r", finalDst];
+      if (opts.selected) {
+        const sel = path.join(dir, "selected");
+        try {
+          await fs.access(sel);
+        } catch {
+          raiseError("E_FILE_UNREADABLE", { path: sel });
+        }
+        args.push("selected");
+      } else {
+        // --all: every top-level entry except logs/ and the .ralph cache.
+        const top = await fs.readdir(dir);
+        for (const e of top) {
+          if (e === "logs" || e === ".ralph" || e === "node_modules") continue;
+          args.push(e);
+        }
+      }
+      const r = await new Promise<{ exitCode: number; stderr: string }>((resolve) => {
+        const proc = spawn("zip", args, { cwd: dir });
+        let stderr = "";
+        proc.stderr.on("data", (d) => (stderr += d.toString()));
+        proc.on("error", (e) => resolve({ exitCode: 1, stderr: e.message }));
+        proc.on("close", (code) => resolve({ exitCode: code ?? 1, stderr }));
+      });
+      if (r.exitCode !== 0) {
+        raiseError("E_INTERNAL", { detail: `zip failed (exit ${r.exitCode}): ${r.stderr.slice(0, 300)}` });
+      }
+      const size = (await fs.stat(finalDst)).size;
+      await logGeneration(id, {
+        provider: "other",
+        model: "zip/project",
+        endpoint: "zip/project",
+        kind: "other",
+        input: { project: id, mode: opts.selected ? "selected" : "all" },
+        output: { local: finalDst, bytes: size },
+        status: "ok",
+        latency_ms: Date.now() - t0,
+        cost_usd: 0,
+        note: `project zip (${opts.selected ? "selected" : "all"})`,
+      });
+      out({ project: id, mode: opts.selected ? "selected" : "all", out: finalDst, bytes: size });
     });
 
   return cmd;

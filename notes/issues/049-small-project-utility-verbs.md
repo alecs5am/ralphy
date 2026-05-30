@@ -1,6 +1,6 @@
 # Missing small utility verbs: thumbnail, audio-stats, contact-sheet, music-variants, project-zip
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** low

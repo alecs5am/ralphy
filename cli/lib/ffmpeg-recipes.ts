@@ -815,3 +815,229 @@ export async function burnSubtitles(input: BurnSubtitlesInput): Promise<string> 
   );
   return dst;
 }
+
+// --- Recipe 13: single-frame thumbnail extract (#049) ------------------
+//
+// `ffmpeg -ss <t> -i src -frames:v 1 dst`. Pre-seek (-ss BEFORE -i) is the
+// fast path; for accuracy on inter-frame compressed inputs we re-encode the
+// extracted frame as PNG. The CLI surface is `ralphy project thumbnail`.
+
+export type ExtractFrameInput = {
+  src: string;
+  /** Timestamp in seconds (float ok). */
+  atSec: number;
+  dst: string;
+} & FFmpegOptions;
+
+export async function extractFrame(input: ExtractFrameInput): Promise<string> {
+  const { src, atSec, dst, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await runFfmpeg(
+    ["-ss", String(atSec), "-i", src, "-frames:v", "1", "-q:v", "2", dst],
+    {
+      endpoint: "ffmpeg/extract-frame",
+      input: { src, atSec, dst },
+      opts,
+      kind: "video",
+    },
+  );
+  return dst;
+}
+
+// --- Recipe 14: audio loudness probe (#049) ----------------------------
+//
+// Combines `volumedetect` (mean / peak in dBFS) and `ebur128` (integrated
+// LUFS) into a single ffmpeg pass per file. Output is JSON-friendly,
+// downstream is `ralphy project audio-stats`. No file is written — we read
+// stderr only. ffmpeg writes the volumedetect + ebur128 summary to stderr at
+// `-loglevel info`, so we override the global "error" level locally.
+
+export type AudioStats = {
+  path: string;
+  mean_volume_db: number | null;
+  max_volume_db: number | null;
+  integrated_lufs: number | null;
+  true_peak_db: number | null;
+  loudness_range_lu: number | null;
+};
+
+export function parseAudioStats(path_: string, stderr: string): AudioStats {
+  // volumedetect lines:
+  //   [Parsed_volumedetect_0 @ ...] mean_volume: -23.4 dB
+  //   [Parsed_volumedetect_0 @ ...] max_volume: -1.5 dB
+  // ebur128 summary block:
+  //     Integrated loudness:
+  //         I:         -16.2 LUFS
+  //         Threshold: -26.3 LUFS
+  //     Loudness range:
+  //         LRA:         8.3 LU
+  //     True peak:
+  //         Peak:       -1.4 dBFS
+  const num = (re: RegExp): number | null => {
+    const m = stderr.match(re);
+    if (!m) return null;
+    const v = parseFloat(m[1]!);
+    return Number.isFinite(v) ? v : null;
+  };
+  return {
+    path: path_,
+    mean_volume_db: num(/mean_volume:\s*(-?[\d.]+)\s*dB/),
+    max_volume_db: num(/max_volume:\s*(-?[\d.]+)\s*dB/),
+    integrated_lufs: num(/I:\s*(-?[\d.]+)\s*LUFS/),
+    true_peak_db: num(/Peak:\s*(-?[\d.]+)\s*dBFS/),
+    loudness_range_lu: num(/LRA:\s*(-?[\d.]+)\s*LU/),
+  };
+}
+
+export type AudioStatsInput = {
+  src: string;
+} & FFmpegOptions;
+
+export async function audioStats(input: AudioStatsInput): Promise<AudioStats> {
+  const { src, ...opts } = input;
+  ensureFfmpeg();
+  const t0 = Date.now();
+  // Need stderr at info-level for volumedetect + ebur128 summary text.
+  const { stderr, exitCode } = await new Promise<{ stderr: string; exitCode: number }>(
+    (resolve) => {
+      const proc = spawn("ffmpeg", [
+        "-hide_banner",
+        "-nostats",
+        "-i", src,
+        "-af", "volumedetect,ebur128=peak=true",
+        "-f", "null", "-",
+      ]);
+      let buf = "";
+      proc.stderr.on("data", (d) => (buf += d.toString()));
+      proc.on("close", (code) => resolve({ stderr: buf, exitCode: code ?? 1 }));
+    },
+  );
+  if (exitCode !== 0) {
+    throw new Error(`ffmpeg audio-stats exit ${exitCode}: ${stderr.slice(0, 500)}`);
+  }
+  const stats = parseAudioStats(src, stderr);
+  if (opts.projectId) {
+    await logGeneration(opts.projectId, {
+      provider: "ffmpeg",
+      model: "ffmpeg/audio-stats",
+      endpoint: "ffmpeg/audio-stats",
+      kind: "audio",
+      input: { project: opts.projectId, src },
+      output: { local: src },
+      status: "ok",
+      latency_ms: Date.now() - t0,
+      cost_usd: 0,
+      note: opts.note,
+    });
+  }
+  return stats;
+}
+
+// --- Recipe 15: contact-sheet grid (#049) ------------------------------
+//
+// Compose a grid of input images via `xstack` (rectangular grid) or `hstack`
+// (single row, cols=N). Resolves rows from `Math.ceil(srcs.length / cols)`.
+// Each tile is letterboxed to `tileW × tileH` (default 480×270) so mismatched
+// aspect inputs still align.
+
+export type ContactSheetInput = {
+  srcs: string[];
+  dst: string;
+  cols?: number;
+  tileW?: number;
+  tileH?: number;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+/**
+ * Build the `-filter_complex` chain for an `xstack` grid. Exported so unit
+ * tests can pin the layout string without spawning ffmpeg.
+ *
+ * Layout grammar: `x0_y0|x1_y1|...` with one entry per tile, in row-major
+ * order. ffmpeg's xstack requires every tile to share dimensions, so we
+ * scale + pad each input first.
+ */
+export function buildContactSheetFilter(opts: {
+  count: number;
+  cols: number;
+  tileW: number;
+  tileH: number;
+}): { filter: string; rows: number } {
+  const { count, cols, tileW, tileH } = opts;
+  if (count === 0) throw new Error("buildContactSheetFilter: count must be > 0");
+  const rows = Math.ceil(count / cols);
+  const labels: string[] = [];
+  const chain: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const label = `t${i}`;
+    chain.push(
+      `[${i}:v]scale=${tileW}:${tileH}:force_original_aspect_ratio=decrease,` +
+        `pad=${tileW}:${tileH}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1[${label}]`,
+    );
+    labels.push(`[${label}]`);
+  }
+  // Build the xstack layout map.
+  const positions: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = col === 0 ? "0" : Array.from({ length: col }, () => "w0").join("+");
+    const y = row === 0 ? "0" : Array.from({ length: row }, () => "h0").join("+");
+    positions.push(`${x}_${y}`);
+  }
+  // Pad to a full rectangle if needed — xstack rejects ragged grids.
+  while (labels.length < rows * cols) {
+    const i = labels.length;
+    const label = `t${i}`;
+    chain.push(`color=black:size=${tileW}x${tileH}:duration=0.1[${label}]`);
+    labels.push(`[${label}]`);
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = col === 0 ? "0" : Array.from({ length: col }, () => "w0").join("+");
+    const y = row === 0 ? "0" : Array.from({ length: row }, () => "h0").join("+");
+    positions.push(`${x}_${y}`);
+  }
+  const stack =
+    `${labels.join("")}xstack=inputs=${labels.length}:layout=${positions.join("|")}[grid]`;
+  chain.push(stack);
+  return { filter: chain.join(";"), rows };
+}
+
+export async function contactSheet(input: ContactSheetInput): Promise<string> {
+  const {
+    srcs,
+    dst,
+    cols = 5,
+    tileW = 480,
+    tileH = 270,
+    forceOverwrite = false,
+    ...opts
+  } = input;
+  if (srcs.length === 0) throw new Error("contactSheet: srcs is empty");
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  const { filter, rows } = buildContactSheetFilter({
+    count: srcs.length,
+    cols,
+    tileW,
+    tileH,
+  });
+  const args: string[] = [];
+  for (const s of srcs) args.push("-i", s);
+  // Padding tiles (color=black) live inside the filter as virtual inputs via
+  // the `color=` filter source; xstack reads them from labels, not -i flags.
+  args.push(
+    "-filter_complex", filter,
+    "-map", "[grid]",
+    "-frames:v", "1",
+    dst,
+  );
+  await runFfmpeg(args, {
+    endpoint: "ffmpeg/contact-sheet",
+    input: { srcs, dst, cols, rows, tileW, tileH },
+    opts,
+    kind: "video",
+  });
+  return dst;
+}

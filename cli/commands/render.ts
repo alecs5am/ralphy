@@ -23,6 +23,7 @@ import {
 import {
   colorGrade,
   compressForSocial,
+  mixMusic,
   qualityPresetToCrf,
   type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
@@ -115,6 +116,17 @@ Examples:
     .option(
       "--resolution <preset>",
       "Resolution preset: portrait|landscape|square|1080p|4k|...",
+    )
+    .option(
+      "--music-variants",
+      "After the base render, mix one variant per <project>/assets/music/*.mp3 onto the final mp4. Writes render/final.<music-basename>.mp4 per bed. #049",
+      false,
+    )
+    .option(
+      "--music-volume <n>",
+      "Music gain for --music-variants (default 0.18, background bed under VO)",
+      (v) => parseFloat(v),
+      0.18,
     )
     .option("--dry-run", "Print the resolved render plan; no engine run", false)
     .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
@@ -375,6 +387,51 @@ Examples:
           .filter(Boolean)
           .join(" + "),
       });
+      // --music-variants (#049): auto-discover <project>/assets/music/*.mp3
+      // and render one variant per file. Final mp4 untouched — each variant
+      // is a sibling final.<music-basename>.mp4 next to it.
+      const musicVariants: Array<{ music: string; out: string; bytes: number }> = [];
+      if (opts.musicVariants) {
+        const musicDir = path.join(projectsDir(), projectId, "assets", "music");
+        let beds: string[] = [];
+        try {
+          const entries = await fs.readdir(musicDir);
+          beds = entries
+            .filter((e) => /\.(mp3|m4a|wav|aac|ogg)$/i.test(e))
+            .sort()
+            .map((e) => path.join(musicDir, e));
+        } catch {
+          /* no music dir — emit empty variants */
+        }
+        for (const bed of beds) {
+          const bedBase = path.basename(bed, path.extname(bed));
+          const variantOut = path.join(renderDir, `final.${bedBase}.mp4`);
+          // Numeric-suffix on collision — never overwrite an existing variant.
+          let dst = variantOut;
+          let n = 2;
+          while (await fs.access(dst).then(() => true).catch(() => false)) {
+            dst = path.join(renderDir, `final.${bedBase}.v${n}.mp4`);
+            n += 1;
+            if (n > 9999) break;
+          }
+          await ui.withSpinner(
+            `Music variant (${bedBase}) → ${path.basename(dst)}`,
+            () =>
+              mixMusic({
+                src: outputPath,
+                music: bed,
+                dst,
+                volume: Number(opts.musicVolume) || 0.18,
+                forceOverwrite: false,
+                projectId,
+                note: `render --music-variants ${bedBase}`,
+              }),
+            { successText: () => `Variant ${bedBase} → ${ui.c.path(dst)}` },
+          );
+          const vsize = await fileSize(dst);
+          musicVariants.push({ music: bed, out: dst, bytes: vsize });
+        }
+      }
       cs.summary({
         project: projectId,
         engine,
@@ -384,6 +441,7 @@ Examples:
         loudnorm: Boolean(opts.loudnorm),
         grade: gradePreset ?? null,
         quality: deliverableQuality ?? null,
+        musicVariants: musicVariants.length > 0 ? musicVariants : undefined,
         latencyMs: Date.now() - t0,
       });
     });
