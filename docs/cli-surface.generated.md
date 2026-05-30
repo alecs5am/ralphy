@@ -838,6 +838,13 @@ Commands:
                                     templates, JSON for flat
   use [options] <id>                Create a new project scaffolded from a
                                     template
+  extract [options] <project-id>    Promote a finished workspace project into a
+                                    reusable template at
+                                    templates/<category>/<slug>/. Copies
+                                    prompts/, scenario, composition variables,
+                                    and refs; substitutes brand/persona/VO with
+                                    {{slots}}; drafts a README from POSTMORTEM
+                                    'Lessons learned'.
   delete <id>                       Delete a workspace template (flat file or
                                     whole dir). Repo templates are read-only —
                                     edit templates/ in the repo directly.
