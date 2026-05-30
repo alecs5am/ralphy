@@ -22,6 +22,7 @@ import {
 import type { TranscribeBackend, TranscribeLanguage } from "../lib/transcribe.js";
 import { callLLM } from "../lib/providers/llm.js";
 import { intakePath } from "../lib/path-resolution.js";
+import { rasterizeSvg } from "../lib/image/cutout.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -321,6 +322,49 @@ export function refCmd() {
         out({ slug, path: r.path, bytes: r.bytes });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `blueprint: ` });
+      }
+    });
+
+  // ── rasterize (svg → png) ──────────────────────────────────────────────
+  // Vector logos / brand marks → crisp PNG for use as `--ref`. Recipe origin:
+  // ralphy-carousel-001 had a 95-line user-land Playwright helper for this.
+  // Issue #037.
+  cmd
+    .command("rasterize <file>")
+    .description(
+      "Rasterize a vector reference (SVG) to a crisp PNG at the requested long-edge size. Preserves intrinsic aspect ratio. `--bg <hex>` adds a solid background (default: transparent).",
+    )
+    .requiredOption("--size <n>", "Long-edge size in pixels (default 1024)", (v) => parseInt(v, 10), 1024)
+    .option("--out <path>", "Output PNG path (default: alongside the SVG with `.png` extension)")
+    .option("--bg <hex>", "Background colour (default: transparent)")
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (file: string, opts: any) => {
+      try {
+        const src = path.resolve(file);
+        if (!src.toLowerCase().endsWith(".svg")) {
+          raiseError("E_INPUT_INVALID", {
+            field: "file",
+            detail: `expected a .svg file, got "${file}"`,
+            verb: "ref rasterize",
+          });
+          return;
+        }
+        const dst = opts.out
+          ? path.resolve(opts.out)
+          : src.replace(/\.svg$/i, ".png");
+        await rasterizeSvg({
+          src,
+          dst,
+          size: opts.size,
+          bg: opts.bg,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Rasterized → ${dst}`);
+        out({ src: file, dst, size: opts.size, bg: opts.bg ?? null });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `ref rasterize: ${e?.message ?? e}` });
       }
     });
 
