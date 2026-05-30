@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **35**
+Verbs registered: **36**
 
 ## Top-level verbs
 
@@ -650,6 +650,7 @@ Commands:
   analyze-video [options] <slug-or-path-or-url>  Send the full mp4 to Gemini for precise shot-cut detection (better than `analyze` for fast-cut commercials). Arg can be a ref slug, a local file path, or an http(s) URL.
   audio-describe [options] <slug>                Send <slug>/source.mp3 to Gemini-audio → <slug>/audio-analysis.json (tone, music, VO style)
   blueprint <slug>                               Synthesize <slug>/blueprint.md from {meta + analysis + audio-analysis + transcript}
+  rasterize [options] <file>                     Rasterize a vector reference (SVG) to a crisp PNG at the requested long-edge size. Preserves intrinsic aspect ratio. `--bg <hex>` adds a solid background (default: transparent).
   paths <slug>                                   Print every research path for <slug> (helpful when scripting follow-ups)
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
   check [options] <project-id>                   Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.
@@ -842,12 +843,17 @@ Usage: ralphy asset [options] [command]
 Manage and generate assets
 
 Options:
-  -h, --help       display help for command
+  -h, --help                 display help for command
 
 Commands:
-  list [options]   List assets in a project
-  clean [options]  Remove assets from a project
-  help [command]   display help for command
+  list [options]             List assets in a project
+  clean [options]            Remove assets from a project
+  chromakey [options] <img>  Key out a background colour from a single image →
+                             transparent PNG. Uses ffmpeg `colorkey`. Default
+                             colour is 0x00b140 (greenscreen green); pass
+                             `--despill` for a `colorhold` cleanup pass that
+                             kills the green halo on anti-aliased edges.
+  help [command]             display help for command
 ```
 
 ### `ralphy workspace`
@@ -1014,6 +1020,38 @@ Commands:
   concat [options]           Lossless concat of video segments (must share
                              codec/resolution)
   help [command]             display help for command
+```
+
+### `ralphy image`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy image [options] [command]
+
+Image post-processing recipes (cutout, fit, …). Wraps cli/lib/image/cutout.ts.
+
+Options:
+  -h, --help        display help for command
+
+Commands:
+  cutout [options]  Background removal for stickers / mascots. `--bg chroma`
+                    uses ffmpeg `colorkey` (single-color match, fast). `--bg
+                    flood` walks the canvas in headless Chromium from the four
+                    corners and clears only the connected background — preserves
+                    the die-cut outline + interior white islands (per the
+                    free-air-vpn-stickerpack lessons; u2net cuts them off).
+  fit [options]     Alpha-trim + scale. `--long N` sets the long-edge target
+                    preserving aspect; `--trim-alpha` removes transparent
+                    margins first (essential for stickers); `--telegram` is
+                    shorthand for `--trim-alpha --long 512` (TG sticker spec).
+  help [command]    display help for command
 ```
 
 ### `ralphy banner`
