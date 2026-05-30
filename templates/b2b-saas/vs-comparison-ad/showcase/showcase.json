@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slug": "vs-comparison-ad",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "ralphy-vs-higgsfield-001",
+      "media": "workspace/projects/ralphy-vs-higgsfield-001/render/final-compressed.mp4",
+      "format": "motion-design",
+      "caption": "68.6s 9:16 head-to-head comparison short — two color-coded paths, a draining LIMITS gauge on the bad side, film-leader countdown, kinetic captions. HyperFrames cut + gemini/seedance/wan gens, VHS post-pass. User-rated 8.5/10.",
+      "created": "2026-05-27"
+    }
+  ]
+}

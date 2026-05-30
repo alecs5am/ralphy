@@ -1,0 +1,58 @@
+version: 1
+id: live-platform-motion-ad
+aliases: []
+kind: vibe-style
+category: entertainment-viral
+format: motion-design
+name: Live Platform Motion Ad
+description: >-
+  Square 1:1 silent feed ad for a live-streaming / always-on platform, built in
+  HyperFrames as ONE composition with opacity-gated scene divs and a single
+  paused GSAP timeline. Five beats carry the "something is happening RIGHT NOW"
+  energy: a glitch-reveal brand wordmark with a pulsing LIVE-red dot, a 6-tile
+  stream WALL of real muted `<video>` clips (not static thumbnails) whose viewer
+  counts tick up from zero, a single tile expanding to full-bleed with a
+  faux chat-firehose scrolling up the rail, a marquee of category pills sweeping
+  across a brand-gradient wash, and a wordmark slam + CTA end-slate. The register
+  is broadcast-functional, NOT bouncy — snappy motion, flat tier shifts, colored
+  glow instead of drop shadows, the LIVE-red dot on screen in every beat as the
+  silent "watch now" cue. The two load-bearing details: stream tiles are real
+  `<video>` tags pulled fresh from the platform (audio stripped at preprocess),
+  and the brand glyph is built from its OWN multi-layer SVG (white interior +
+  compound `fill-rule="evenodd"` frame + eye bars), never reconstructed from
+  memory. $0 model spend — all assets are platform clips + brand SVG + ffmpeg.
+  Silent by design (FB feed auto-mutes). Derived from `twitch-fb-ads-001`.
+tags:
+  - motion-design
+  - motion-graphics
+  - live-streaming
+  - streaming-platform
+  - feed-ad
+  - facebook-ad
+  - meta-ad
+  - square
+  - 1-1
+  - silent
+  - hyperframes
+  - gsap
+  - opacity-gated-scenes
+  - stream-wall
+  - video-tiles
+  - live-video-clips
+  - chat-firehose
+  - viewer-count-tick
+  - live-badge
+  - category-marquee
+  - glitch-reveal
+  - broadcast-ui
+  - brand-svg-layers
+  - pre-rolled-motion
+  - zero-cost
+  - no-ai-gen
+  - entertainment
+requires:
+  brand: true
+scenes: []
+references: []
+estimated_cost_usd: 0
+estimated_duration_s: 15

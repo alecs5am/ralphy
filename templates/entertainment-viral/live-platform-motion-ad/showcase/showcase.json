@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slug": "live-platform-motion-ad",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "twitch-fb-ads-001",
+      "media": "workspace/projects/twitch-fb-ads-001/renders/twitch-fb-ads-001-v4.mp4",
+      "format": "motion-design",
+      "caption": "15s 1:1 silent feed ad for a live-streaming platform — glitch wordmark, a 6-tile wall of real muted stream clips, chat firehose, category marquee, CTA slam. HyperFrames, $0 model spend.",
+      "created": "2026-05-28"
+    }
+  ]
+}

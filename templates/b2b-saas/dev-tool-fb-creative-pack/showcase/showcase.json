@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "slug": "dev-tool-fb-creative-pack",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "sotaocr-fb-001",
+      "media": "workspace/projects/sotaocr-fb-001/final/02-a2-testimonial.jpg",
+      "format": "fb-creative",
+      "caption": "Set A — real-people testimonial portrait (photo block + pull-quote card + CTA pill). Sony A7 IV + Sigma 85mm + named-imperfection prompt formula.",
+      "created": "2026-05-29"
+    },
+    {
+      "id": "output-02",
+      "source_project": "sotaocr-fb-001",
+      "media": "workspace/projects/sotaocr-fb-001/final/17-b8-crossed-prices.jpg",
+      "format": "fb-creative",
+      "caption": "Set B — strikethrough price stack (competitors struck through, brand row in win-color). One of 32 creatives across the 5-set matrix.",
+      "created": "2026-05-29"
+    },
+    {
+      "id": "output-03",
+      "source_project": "sotaocr-fb-001",
+      "media": "workspace/projects/sotaocr-fb-001/final/11-b2-versus.jpg",
+      "format": "fb-creative",
+      "caption": "Set C — horizontal bar-chart data-viz (named track + fill colors, brand bar in win-color). Site-grounded palette, hero-as-ref on every gen.",
+      "created": "2026-05-29"
+    }
+  ]
+}
