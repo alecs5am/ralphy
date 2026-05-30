@@ -48,6 +48,18 @@ import {
   readPromptOrFile,
   readRefsOrFile,
 } from "../lib/path-resolution.js";
+import {
+  type BatchItem,
+  readBatchJsonl,
+  readPromptsDir,
+  buildVariantItems,
+  buildBatchDryRun,
+  imageCostUsd,
+} from "../lib/generate-batch.js";
+
+// Re-export for unit tests (single import target).
+export { buildVariantItems } from "../lib/generate-batch.js";
+// Note: parseBatchJsonl is tested via the underlying lib module directly.
 
 /**
  * Resolve --size / --aspect on the image command. #051: --aspect always wins
@@ -270,6 +282,94 @@ export function normalizeSlot(slot: string): string {
   return canonical;
 }
 
+/**
+ * Run a BatchItem[] fan-out for `generate image`. Each item submits an image
+ * gen through the resolved connector; the per-endpoint concurrency semaphore
+ * (#007) inside the connector throttles in-flight calls — we just fire
+ * everything in parallel and let the semaphore line them up.
+ *
+ * Logs per-line progress to stderr ("[N/M] slot ... ok ($cost, Ts)") and
+ * returns the aggregate result. The connector handles its own gen-log
+ * writes; this helper updates the asset manifest on each success.
+ */
+async function runImageBatch(args: {
+  projectId: string;
+  items: BatchItem[];
+  defaultModel: string;
+  defaultRefs?: string[];
+  defaultNegative?: string;
+  resolvedSize: string;
+  forceOverwrite: boolean;
+  noRetry: boolean;
+  provider?: string;
+  note?: string;
+}): Promise<{
+  count: number;
+  totalCostUsd: number;
+  slots: Array<{ slot: string; path: string; model: string; costUsd: number; latencyMs: number }>;
+  failures: Array<{ slot: string; error: string }>;
+}> {
+  const conn = resolveConnector("image", args.provider);
+  const total = args.items.length;
+  const results: Array<{ slot: string; path: string; model: string; costUsd: number; latencyMs: number }> = [];
+  const failures: Array<{ slot: string; error: string }> = [];
+  let done = 0;
+
+  const runOne = async (item: BatchItem): Promise<void> => {
+    const slot = normalizeSlot(item.slot);
+    const model = resolveModelAlias(item.model ?? args.defaultModel);
+    const refs = item.refs ?? args.defaultRefs;
+    const negative = item.negative ?? args.defaultNegative;
+    try {
+      const r = await conn.generateImage!({
+        projectId: args.projectId,
+        slot,
+        prompt: item.prompt,
+        model,
+        refs,
+        size: args.resolvedSize,
+        negativePrompt: negative,
+        note: args.note ? `${args.note} (batch)` : "batch",
+        overwrite: args.forceOverwrite,
+        noRetry: args.noRetry,
+      });
+      done += 1;
+      results.push({ slot, path: r.localPath, model: r.model, costUsd: r.costUsd, latencyMs: r.latencyMs });
+      process.stderr.write(
+        `[${done}/${total}] ${slot} → ok ($${r.costUsd.toFixed(3)}, ${(r.latencyMs / 1000).toFixed(1)}s)\n`,
+      );
+    } catch (err) {
+      done += 1;
+      const msg = (err as Error).message?.slice(0, 200) ?? String(err);
+      failures.push({ slot, error: msg });
+      process.stderr.write(`[${done}/${total}] ${slot} → FAILED: ${msg}\n`);
+      // Continue the batch — partial success is the norm for large fan-outs.
+      // The caller surfaces failures in the rollup JSON for downstream retry.
+      void err;
+    }
+  };
+
+  // Fan out — the per-endpoint semaphore inside generateImage() throttles.
+  // Promise.all with allSettled-equivalent (runOne catches) so a single
+  // failure doesn't abort the whole batch.
+  await Promise.all(args.items.map((it) => runOne(it)));
+
+  // Update the manifest after the dust settles.
+  const manifest = await readManifest(args.projectId);
+  for (const r of results) {
+    manifest.slots[r.slot] = {
+      kind: "image",
+      path: r.path,
+      model: r.model,
+      costUsd: r.costUsd,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+  await writeManifest(args.projectId, manifest);
+  const totalCostUsd = results.reduce((s, r) => s + r.costUsd, 0);
+  return { count: results.length, totalCostUsd, slots: results, failures };
+}
+
 export function generateCmd() {
   const cmd = new Command("generate").description("Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.");
 
@@ -278,7 +378,7 @@ export function generateCmd() {
     .command("image")
     .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency.")
     .requiredOption("--project <id>", "Project ID")
-    .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image)")
+    .option("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image). Required unless --batch <jsonl> is passed (the jsonl carries per-line slots).")
     .option("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
     .option("--prompt-file <path>", "Read the prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed. Path resolves project-relative when --project is set.")
     .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview, the nano-banana-pro lineage; switch to openai/gpt-5.4-image-2 for premium typography on labels)", "google/gemini-3-pro-image-preview")
@@ -302,7 +402,8 @@ export function generateCmd() {
     )
     .option("--negative <prompt>", "Negative prompt")
     .option("--note <note>", "Free-form note for generations.jsonl")
-    .option("--variants <n>", "Generate N parallel variants (writes <slot>-v1.png .. <slot>-vN.png). Useful for A/B exploration without re-typing the prompt. appstore postmortem ate ~20 min hand-suffixing this.", (v) => Math.max(1, Math.min(8, parseInt(v, 10) || 1)))
+    .option("--variants <n>", "Generate N parallel variants (writes <slot>-v1.png .. <slot>-vN.png). Useful for A/B exploration without re-typing the prompt. Routes through the same batch fan-out as --batch so it respects #007 per-endpoint concurrency + emits a cost rollup. appstore postmortem ate ~20 min hand-suffixing this.", (v) => Math.max(1, Math.min(8, parseInt(v, 10) || 1)))
+    .option("--batch <path>", "Fan out N image gens from a `.jsonl` file (one `{slot, prompt, refs?, model?, negative?}` per line). Respects #007 per-endpoint concurrency; emits per-line progress to stderr and a cost-rollup JSON on stdout. Blank lines + `#` comments ignored. #024")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.png.")
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Use for tests / debugging where you want the first response no matter what.")
@@ -310,9 +411,77 @@ export function generateCmd() {
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
       await ensureProject(opts.project);
-      opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
+
+      const resolvedDefaultModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image-preview";
+      const resolvedSize = resolveImageSize({ model: resolvedDefaultModel, size: opts.size, aspect: opts.aspect });
+      const variants = opts.variants ?? 1;
+
+      // ── #024: --batch <jsonl> mode ──────────────────────────────────────
+      // Read + parse the jsonl into a BatchItem[] up front; reused for both
+      // dry-run preview and live fan-out. Slot/prompt comes from each line;
+      // global --slot/--prompt/--ref serve as defaults the line can override.
+      if (opts.batch) {
+        const batchPath = intakePath(opts.batch, opts.project, "batch");
+        const items = await readBatchJsonl(batchPath);
+        if (items.length === 0) {
+          raiseError("E_INPUT_INVALID", {
+            field: "batch",
+            detail: `batch jsonl is empty: ${batchPath}`,
+            verb: "generate image",
+          });
+        }
+        // Path-intake every per-line ref so the same project-relative resolution
+        // applies (#025). The batch helper keeps refs as plain strings.
+        for (const it of items) {
+          if (it.refs) it.refs = it.refs.map((r) => intakePath(r, opts.project, "ref"));
+        }
+        // Inline --ref still flows in as the per-item default when a line omits it.
+        const defaultRefs = await readRefsOrFile({
+          refs: opts.ref,
+          refFile: opts.refFile,
+          projectId: opts.project,
+        });
+        if (opts.dryRun) {
+          out(buildBatchDryRun({
+            defaultModel: resolvedDefaultModel,
+            items,
+            projectId: opts.project,
+          }));
+          return;
+        }
+        const result = await runImageBatch({
+          projectId: opts.project,
+          items,
+          defaultModel: resolvedDefaultModel,
+          defaultRefs,
+          defaultNegative: opts.negative,
+          resolvedSize,
+          forceOverwrite: opts.forceOverwrite,
+          noRetry: opts.retry === false,
+          provider: opts.provider,
+          note: opts.note,
+        });
+        out({
+          mode: "batch",
+          count: result.count,
+          totalCostUsd: Number(result.totalCostUsd.toFixed(4)),
+          slots: result.slots.map((r) => ({ slot: r.slot, path: r.path, model: r.model, costUsd: r.costUsd })),
+          failures: result.failures,
+        });
+        return;
+      }
+
+      // From here, --slot is required (single + variants modes).
+      if (!opts.slot) {
+        raiseError("E_INPUT_INVALID", {
+          field: "slot",
+          detail: "--slot <slot> is required unless --batch <jsonl> is passed",
+          verb: "generate image",
+        });
+      }
+      opts.slot = normalizeSlot(opts.slot);
 
       // #025: project-relative + NBSP-safe path intake. Mutate opts so the
       // dry-run branch + the live branch both see the resolved values.
@@ -335,19 +504,56 @@ export function generateCmd() {
         projectId: opts.project,
       });
 
-      const variants = opts.variants ?? 1;
+      // ── --variants N mode (#024 dry-run-aware + batch fan-out route) ────
+      if (variants > 1) {
+        const items = buildVariantItems({
+          baseSlot: opts.slot,
+          prompt: opts.prompt,
+          variants,
+          refs: opts.ref,
+          model: resolvedDefaultModel,
+          negative: opts.negative,
+        });
+        if (opts.dryRun) {
+          out(buildBatchDryRun({
+            defaultModel: resolvedDefaultModel,
+            items,
+            projectId: opts.project,
+          }));
+          return;
+        }
+        const result = await runImageBatch({
+          projectId: opts.project,
+          items,
+          defaultModel: resolvedDefaultModel,
+          defaultRefs: opts.ref,
+          defaultNegative: opts.negative,
+          resolvedSize,
+          forceOverwrite: opts.forceOverwrite,
+          noRetry: opts.retry === false,
+          provider: opts.provider,
+          note: opts.note,
+        });
+        out({
+          mode: "variants",
+          variants: result.count,
+          totalCostUsd: Number(result.totalCostUsd.toFixed(4)),
+          slots: result.slots.map((r) => ({ slot: r.slot, path: r.path, model: r.model, costUsd: r.costUsd })),
+          failures: result.failures,
+        });
+        return;
+      }
 
       if (opts.dryRun) {
         // Single-step verb — `--summary` is a no-op accepted for shell-script
         // consistency (per 01-D-06).
-        const resolvedModel = resolveModelAlias(opts.model);
-        const estPerCall = 0.04;  // gemini-3-pro-image-preview nominal; precise estimate post-launch (01.11.x).
+        const estPerCall = imageCostUsd(resolvedDefaultModel);
         out({
           dryRun: true,
           would_call: [
             {
               stage: "image",
-              model_id: resolvedModel,
+              model_id: resolvedDefaultModel,
               slot: opts.slot,
               variants,
               est_usd: estPerCall * variants,
@@ -355,72 +561,22 @@ export function generateCmd() {
           ],
           cost_estimate_usd: estPerCall * variants,
           would_write: [
-            variants > 1
-              ? `workspace/projects/${opts.project}/assets/${opts.slot}-v{1..${variants}}.png`
-              : `workspace/projects/${opts.project}/assets/${opts.slot}.png`,
+            `workspace/projects/${opts.project}/assets/${opts.slot}.png`,
           ],
         });
         return;
       }
       const conn = resolveConnector("image", opts.provider);
-      if (variants > 1) {
-        // Parallel fire — N independent gens, each into its own slot. Honors the
-        // OR per-key concurrent cap (gpt-5.4-image-2 = 1) by serializing if the
-        // model is known-capped; gemini-3-pro-image-preview tolerates ≥4 parallel.
-        const resolvedModel = resolveModelAlias(opts.model);
-        const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
-        const isCapped = resolvedModel === "openai/gpt-5.4-image-2";
-        const runOne = async (i: number) => {
-          const variantSlot = `${opts.slot}-v${i + 1}`;
-          const r = await conn.generateImage!({
-            projectId: opts.project,
-            slot: variantSlot,
-            prompt: opts.prompt,
-            model: resolvedModel,
-            refs: opts.ref,
-            size: resolvedSize,
-            negativePrompt: opts.negative,
-            note: `${opts.note ?? ""} (variant ${i + 1}/${variants})`.trim(),
-            overwrite: opts.forceOverwrite,
-            noRetry: opts.retry === false,
-          });
-          return { slot: variantSlot, ...r };
-        };
-        const results: Array<{ slot: string; localPath: string; model: string; costUsd: number; latencyMs: number; url?: string }> = [];
-        if (isCapped) {
-          // Serialize to respect the cap-of-1.
-          for (let i = 0; i < variants; i++) results.push(await runOne(i));
-        } else {
-          const fired = await Promise.all(Array.from({ length: variants }, (_, i) => runOne(i)));
-          results.push(...fired);
-        }
-        const manifest = await readManifest(opts.project);
-        for (const r of results) {
-          manifest.slots[r.slot] = {
-            kind: "image",
-            path: r.localPath,
-            model: r.model,
-            costUsd: r.costUsd,
-            url: r.url,
-            generatedAt: new Date().toISOString(),
-          };
-        }
-        await writeManifest(opts.project, manifest);
-        out({ variants: results.length, totalCostUsd: results.reduce((s, r) => s + r.costUsd, 0), slots: results.map((r) => ({ slot: r.slot, path: r.localPath, model: r.model, costUsd: r.costUsd })) });
-        return;
-      }
 
       const ui = await import("../lib/ui.js");
-      const resolvedModel = resolveModelAlias(opts.model);
-      const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
       const result = await ui.withSpinner(
-        `image (${resolvedModel}) → ${opts.slot}`,
+        `image (${resolvedDefaultModel}) → ${opts.slot}`,
         () =>
           conn.generateImage!({
             projectId: opts.project,
             slot: opts.slot,
             prompt: opts.prompt,
-            model: resolvedModel,
+            model: resolvedDefaultModel,
             refs: opts.ref,
             size: resolvedSize,
             negativePrompt: opts.negative,
@@ -453,6 +609,100 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(imageCmd);
+
+  // ── image-batch (#024) ─────────────────────────────────────────────────
+  // Directory-driven fan-out: glob `<dir>/*.txt`, each file is one slot named
+  // by its stem. Shared --ref / --model / --size across the batch. The jsonl
+  // mode (`generate image --batch <prompts.jsonl>`) covers the per-line-
+  // override use case; this verb is the lighter "32 prompt files in a folder"
+  // use case used by the App Store + Free Air sticker pack postmortems.
+  cmd
+    .command("image-batch")
+    .description("Fan out N image gens from a directory of `*.txt` prompt files (each file → one slot named by stem). Shares --model / --ref / --size across the batch; respects #007 per-endpoint concurrency. #024")
+    .requiredOption("--project <id>", "Project ID")
+    .requiredOption("--prompts-dir <dir>", "Directory containing `*.txt` prompt files. Each file → one slot named by stem (e.g. `scene-01.txt` → slot `scene-01`).")
+    .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview)", "google/gemini-3-pro-image-preview")
+    .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image.")
+    .option(
+      "--ref <ref...>",
+      "Reference image(s) shared by every item in the batch. Same path resolution as `generate image --ref` (#025).",
+    )
+    .option(
+      "--ref-file <path>",
+      "Read newline-separated ref paths from a file. Concatenated with inline --ref entries.",
+    )
+    .option(
+      "--size <size>",
+      "Size hint passed to every item in the batch.",
+      "1080x1920",
+    )
+    .option(
+      "--aspect <aspect>",
+      "Aspect-ratio alias (9:16 | 16:9 | 1:1 | 3:4 | 4:3 | 2:3 | 3:2). Wins over --size.",
+    )
+    .option("--negative <prompt>", "Negative prompt shared by every item.")
+    .option("--note <note>", "Free-form note appended to every gen-log row in this batch.")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite existing slot files in place. Default: archive existing to <slot>.v{N}.png.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3).")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005). Applies to every item in the batch.")
+    .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
+    .action(async (opts) => {
+      await ensureProject(opts.project);
+      await maybeLogNoRefConsent(opts);
+
+      const promptsDir = intakePath(opts.promptsDir, opts.project, "prompts-dir");
+      if (!existsSync(promptsDir)) {
+        raiseError("E_FILE_UNREADABLE", {
+          path: promptsDir,
+          detail: "--prompts-dir does not exist",
+        });
+      }
+      const items = await readPromptsDir(promptsDir);
+      if (items.length === 0) {
+        raiseError("E_INPUT_INVALID", {
+          field: "prompts-dir",
+          detail: `no non-empty *.txt files in ${promptsDir}`,
+          verb: "generate image-batch",
+        });
+      }
+
+      const resolvedModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image-preview";
+      const resolvedSize = resolveImageSize({ model: resolvedModel, size: opts.size, aspect: opts.aspect });
+      const sharedRefs = await readRefsOrFile({
+        refs: opts.ref,
+        refFile: opts.refFile,
+        projectId: opts.project,
+      });
+
+      if (opts.dryRun) {
+        out(buildBatchDryRun({
+          defaultModel: resolvedModel,
+          items,
+          projectId: opts.project,
+        }));
+        return;
+      }
+
+      const result = await runImageBatch({
+        projectId: opts.project,
+        items,
+        defaultModel: resolvedModel,
+        defaultRefs: sharedRefs,
+        defaultNegative: opts.negative,
+        resolvedSize,
+        forceOverwrite: opts.forceOverwrite,
+        noRetry: opts.retry === false,
+        provider: opts.provider,
+        note: opts.note,
+      });
+      out({
+        mode: "image-batch",
+        count: result.count,
+        totalCostUsd: Number(result.totalCostUsd.toFixed(4)),
+        slots: result.slots.map((r) => ({ slot: r.slot, path: r.path, model: r.model, costUsd: r.costUsd })),
+        failures: result.failures,
+      });
+    });
 
   // ── video ───────────────────────────────────────────────────────────────
   const videoCmd = cmd
