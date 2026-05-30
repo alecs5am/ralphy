@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "slug": "before-after-product",
+  "outputs": [
+    { "id": "r1", "source_project": "glitter-cream-001", "media": "final.mp4", "type": "video", "format": "video", "aspect": "9 / 16", "caption": "Rendered with this template." },    { "id": "r2", "source_project": "glitter-cream-001", "media": "montage-no-music.mp4", "type": "video", "format": "video", "aspect": "9 / 16", "caption": "Rendered with this template." },    { "id": "r3", "source_project": "glitter-cream-001", "media": "opt-a-15s-5shots.mp4", "type": "video", "format": "video", "aspect": "9 / 16", "caption": "Rendered with this template." }
+  ]
+}
