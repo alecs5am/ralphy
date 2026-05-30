@@ -398,7 +398,11 @@ Options:
   --loudnorm             Apply EBU R128 loudnorm (-16 LUFS) post-render via
                          ffmpeg
   --fps <fps>            Frame rate (default 30)
-  --quality <quality>    Quality preset: draft|standard|high (default standard)
+  --quality <quality>    Quality preset: draft|standard|high (HyperFrames
+                         engine) OR web|print|archive (post-render CRF 23|18|12)
+  --grade <preset>       Color-grade preset post-render: tv-commercial-soft |
+                         tv-commercial-strong | cinematic-teal-orange |
+                         analog-horror
   --format <format>      Output format: mp4|webm|mov|png-sequence (default mp4)
   --resolution <preset>  Resolution preset:
                          portrait|landscape|square|1080p|4k|...
@@ -955,6 +959,9 @@ Commands:
                        -16 LUFS by default)
   sidechain [options]  Duck music under voice via sidechain compressor → single
                        mixed file
+  mix-music [options]  Overlay a music bed onto a video at a fixed volume — no
+                       ducking, no fades. Single-call surface for A/B preview
+                       workflows.
   concat [options]     Lossless concat of audio segments via the concat demuxer
   help [command]       display help for command
 ```
@@ -997,6 +1004,13 @@ Commands:
   add-music [options]        Mix a music bed over the video's existing audio
                              (SFX gets attenuated). Music auto-trims to video
                              length with a fade-out tail.
+  vhs [options]              VHS post-process chain: chroma shift + sine drift +
+                             film grain + vignette + slight desat/contrast.
+  compress [options]         x264 CRF + faststart for social-shareable
+                             deliverables. Default CRF 23 (`--social` is
+                             implicit).
+  grade [options]            Apply a named color-grade preset
+                             (tv-commercial-soft|tv-commercial-strong|cinematic-teal-orange|analog-horror).
   concat [options]           Lossless concat of video segments (must share
                              codec/resolution)
   help [command]             display help for command

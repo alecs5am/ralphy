@@ -20,6 +20,29 @@ import {
   lintHyperframesProject,
   formatHyperframesLintReport,
 } from "../lib/render/hyperframes-lint.js";
+import {
+  colorGrade,
+  compressForSocial,
+  qualityPresetToCrf,
+  type ColorGradePreset,
+} from "../lib/ffmpeg-recipes.js";
+
+const GRADE_PRESETS: readonly ColorGradePreset[] = [
+  "tv-commercial-soft",
+  "tv-commercial-strong",
+  "cinematic-teal-orange",
+  "analog-horror",
+] as const;
+
+const QUALITY_PRESETS = ["web", "print", "archive"] as const;
+type QualityPreset = (typeof QUALITY_PRESETS)[number];
+
+function isGradePreset(v: string): v is ColorGradePreset {
+  return (GRADE_PRESETS as readonly string[]).includes(v);
+}
+function isDeliverableQuality(v: string): v is QualityPreset {
+  return (QUALITY_PRESETS as readonly string[]).includes(v);
+}
 
 async function runLoudnorm(src: string, dst: string): Promise<{ exitCode: number; stderr: string }> {
   return new Promise((resolve) => {
@@ -79,7 +102,11 @@ Examples:
     .option("--fps <fps>", "Frame rate (default 30)")
     .option(
       "--quality <quality>",
-      "Quality preset: draft|standard|high (default standard)",
+      "Quality preset: draft|standard|high (HyperFrames engine) OR web|print|archive (post-render CRF 23|18|12)",
+    )
+    .option(
+      "--grade <preset>",
+      `Color-grade preset post-render: ${GRADE_PRESETS.join(" | ")}`,
     )
     .option(
       "--format <format>",
@@ -96,6 +123,36 @@ Examples:
       const engine = "hyperframes" as const;
       const engineEndpoint = "hyperframes-render";
 
+      // Validate --grade up front; reject unknown values with a concrete ask.
+      const gradePreset: ColorGradePreset | undefined = (() => {
+        if (!opts.grade) return undefined;
+        if (!isGradePreset(opts.grade)) {
+          raiseError("E_INTERNAL", {
+            detail: `Unknown --grade preset '${opts.grade}'. Allowed: ${GRADE_PRESETS.join(", ")}.`,
+          });
+        }
+        return opts.grade as ColorGradePreset;
+      })();
+
+      // --quality can mean two things. The legacy form (draft|standard|high) is
+      // forwarded to the HyperFrames engine. The new deliverable form
+      // (web|print|archive) drives a post-render x264 CRF re-encode. Resolve.
+      const deliverableQuality: QualityPreset | undefined =
+        opts.quality && isDeliverableQuality(opts.quality) ? opts.quality : undefined;
+      const ENGINE_QUALITIES = ["draft", "standard", "high"] as const;
+      type EngineQuality = (typeof ENGINE_QUALITIES)[number];
+      const engineQuality: EngineQuality | undefined = (() => {
+        if (!opts.quality || isDeliverableQuality(opts.quality)) return undefined;
+        if ((ENGINE_QUALITIES as readonly string[]).includes(opts.quality)) {
+          return opts.quality as EngineQuality;
+        }
+        raiseError("E_INTERNAL", {
+          detail:
+            `Unknown --quality '${opts.quality}'. Allowed: ${[...ENGINE_QUALITIES, ...QUALITY_PRESETS].join(", ")}.`,
+        });
+        return undefined;
+      })();
+
       if (opts.dryRun) {
         const renderDir = path.join(projectsDir(), projectId, "render");
         const renderFinal = opts.output ? path.resolve(opts.output) : path.join(renderDir, "final.mp4");
@@ -103,6 +160,10 @@ Examples:
         const stages = [
           { stage: engineEndpoint, engine, composition: compositionId, output: renderFinal, est_usd: 0 },
           ...(opts.loudnorm ? [{ stage: "ffmpeg-loudnorm", target: "-16 LUFS", est_usd: 0 }] : []),
+          ...(gradePreset ? [{ stage: "ffmpeg-color-grade", preset: gradePreset, est_usd: 0 }] : []),
+          ...(deliverableQuality
+            ? [{ stage: "ffmpeg-compress", quality: deliverableQuality, crf: qualityPresetToCrf(deliverableQuality), est_usd: 0 }]
+            : []),
         ];
         if (opts.summary) {
           out({
@@ -111,6 +172,8 @@ Examples:
             stages: {
               [engineEndpoint]: { count: 1, est_usd: 0 },
               ...(opts.loudnorm ? { "ffmpeg-loudnorm": { count: 1, est_usd: 0 } } : {}),
+              ...(gradePreset ? { "ffmpeg-color-grade": { count: 1, est_usd: 0 } } : {}),
+              ...(deliverableQuality ? { "ffmpeg-compress": { count: 1, est_usd: 0 } } : {}),
             },
             cost_estimate_usd: 0,
           });
@@ -174,7 +237,12 @@ Examples:
 
 
       cs.event("render-started", { project: projectId, engine, composition: compositionLabel });
-      const renderOut = opts.loudnorm ? renderRaw : renderFinal;
+      // We need to land the raw render in a temp slot whenever ANY post-render
+      // pass is requested (loudnorm, grade, or deliverable compress). Each pass
+      // re-encodes into the next slot; the final pass writes to `renderFinal`.
+      const hasPostRender =
+        Boolean(opts.loudnorm) || Boolean(gradePreset) || Boolean(deliverableQuality);
+      const renderOut = hasPostRender ? renderRaw : renderFinal;
       const rr = await ui.withSpinner(
         `Rendering ${compositionLabel} (hyperframes) → ${path.basename(renderOut)}`,
         () =>
@@ -183,7 +251,7 @@ Examples:
             outputPath: renderOut,
             composition: opts.composition,
             fps: opts.fps !== undefined ? Number(opts.fps) : undefined,
-            quality: opts.quality,
+            quality: engineQuality,
             format: opts.format,
             resolution: opts.resolution,
           }),
@@ -212,16 +280,69 @@ Examples:
       }
 
       let outputPath = renderOut;
-      if (opts.loudnorm) {
-        const lr = await ui.withSpinner(
-          `Loudnorm → ${path.basename(renderFinal)}`,
-          () => runLoudnorm(renderRaw, renderFinal),
-          { successText: () => `Loudnorm applied (-16 LUFS) → ${ui.c.path(renderFinal)}` },
-        );
-        if (lr.exitCode !== 0) {
-          raiseError("E_INTERNAL", { detail: `ffmpeg loudnorm failed: ${lr.stderr.slice(-300)}` });
+      const tmpStages: string[] = [];
+      // Each post-render stage reads from `outputPath` and writes to the next
+      // slot. The last stage in the chain writes to `renderFinal`. Intermediate
+      // slots live alongside renderRaw and are cleaned up at the end.
+      const stageQueue: Array<"loudnorm" | "grade" | "compress"> = [];
+      if (opts.loudnorm) stageQueue.push("loudnorm");
+      if (gradePreset) stageQueue.push("grade");
+      if (deliverableQuality) stageQueue.push("compress");
+
+      for (let i = 0; i < stageQueue.length; i++) {
+        const stage = stageQueue[i]!;
+        const isLast = i === stageQueue.length - 1;
+        const nextOut = isLast
+          ? renderFinal
+          : path.join(renderDir, `.final.stage-${i + 1}-${stage}.mp4`);
+        if (!isLast) tmpStages.push(nextOut);
+        if (stage === "loudnorm") {
+          const lr = await ui.withSpinner(
+            `Loudnorm → ${path.basename(nextOut)}`,
+            () => runLoudnorm(outputPath, nextOut),
+            { successText: () => `Loudnorm applied (-16 LUFS) → ${ui.c.path(nextOut)}` },
+          );
+          if (lr.exitCode !== 0) {
+            raiseError("E_INTERNAL", { detail: `ffmpeg loudnorm failed: ${lr.stderr.slice(-300)}` });
+          }
+        } else if (stage === "grade") {
+          await ui.withSpinner(
+            `Grade (${gradePreset}) → ${path.basename(nextOut)}`,
+            () =>
+              colorGrade({
+                src: outputPath,
+                dst: nextOut,
+                preset: gradePreset!,
+                forceOverwrite: true, // intermediate stage slot — controlled by us
+                projectId,
+                note: `render --grade ${gradePreset}`,
+              }),
+            { successText: () => `Graded (${gradePreset}) → ${ui.c.path(nextOut)}` },
+          );
+        } else if (stage === "compress") {
+          const crf = qualityPresetToCrf(deliverableQuality!);
+          await ui.withSpinner(
+            `Compress (${deliverableQuality}, CRF ${crf}) → ${path.basename(nextOut)}`,
+            () =>
+              compressForSocial({
+                src: outputPath,
+                dst: nextOut,
+                crf,
+                forceOverwrite: true,
+                projectId,
+                note: `render --quality ${deliverableQuality}`,
+              }),
+            { successText: () => `Compressed (${deliverableQuality}, CRF ${crf}) → ${ui.c.path(nextOut)}` },
+          );
         }
+        outputPath = nextOut;
+      }
+      if (hasPostRender) {
+        // Remove the raw + any in-between scratch files; keep only renderFinal.
         await fs.unlink(renderRaw).catch(() => undefined);
+        for (const t of tmpStages) {
+          await fs.unlink(t).catch(() => undefined);
+        }
         outputPath = renderFinal;
       }
 
@@ -232,12 +353,27 @@ Examples:
         model: "hyperframes-render",
         endpoint: "hyperframes-render",
         kind: "video",
-        input: { project: projectId, engine, projectDir, composition: opts.composition, loudnorm: Boolean(opts.loudnorm) },
+        input: {
+          project: projectId,
+          engine,
+          projectDir,
+          composition: opts.composition,
+          loudnorm: Boolean(opts.loudnorm),
+          grade: gradePreset ?? null,
+          quality: deliverableQuality ?? null,
+        },
         output: { local: outputPath, bytes: size },
         status: "ok",
         latency_ms: Date.now() - t0,
         cost_usd: 0,
-        note: opts.loudnorm ? "render + loudnorm" : "render",
+        note: [
+          "render",
+          opts.loudnorm ? "loudnorm" : null,
+          gradePreset ? `grade=${gradePreset}` : null,
+          deliverableQuality ? `quality=${deliverableQuality}` : null,
+        ]
+          .filter(Boolean)
+          .join(" + "),
       });
       cs.summary({
         project: projectId,
@@ -246,6 +382,8 @@ Examples:
         path: outputPath,
         bytes: size,
         loudnorm: Boolean(opts.loudnorm),
+        grade: gradePreset ?? null,
+        quality: deliverableQuality ?? null,
         latencyMs: Date.now() - t0,
       });
     });

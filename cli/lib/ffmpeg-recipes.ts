@@ -22,6 +22,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { logGeneration } from "./gen-log.js";
+import { protectExistingAsset } from "./providers/shared.js";
 
 export type FFmpegOptions = {
   projectId?: string;
@@ -496,6 +497,282 @@ export async function addMusicBed(input: AddMusicBedInput): Promise<string> {
     }
   );
   return dst;
+}
+
+// --- Recipe 9: color grade presets (#036) ------------------------------
+//
+// Four preset tables. Each maps to an ffmpeg -vf chain combining `eq`,
+// `colorchannelmixer`, and `curves` to land the deliverable in a consistent
+// register without per-project regrade. Validated against the venom-bodywash
+// and analog-horror-fridge postmortems.
+
+export type ColorGradePreset =
+  | "tv-commercial-soft"
+  | "tv-commercial-strong"
+  | "cinematic-teal-orange"
+  | "analog-horror";
+
+/**
+ * Build the -vf filter string for a named grade preset. Exported so unit
+ * tests can assert each preset's chain verbatim without spawning ffmpeg.
+ */
+export function buildColorGradeFilter(preset: ColorGradePreset): string {
+  switch (preset) {
+    case "tv-commercial-soft":
+      // Lifted shadows, +5% saturation, +3% brightness, subtle warm tint.
+      return [
+        "eq=contrast=1.05:brightness=0.03:saturation=1.05",
+        "colorchannelmixer=rr=1.02:bb=0.98",
+      ].join(",");
+    case "tv-commercial-strong":
+      // Higher contrast, +18% saturation, punchy commercial pop.
+      return [
+        "eq=contrast=1.15:brightness=0.02:saturation=1.18",
+        "colorchannelmixer=rr=1.05:bb=0.95",
+      ].join(",");
+    case "cinematic-teal-orange":
+      // Classic blockbuster: orange highlights, teal shadows, +10% sat.
+      return [
+        "eq=contrast=1.10:saturation=1.10",
+        "colorchannelmixer=rr=1.08:gg=1.00:bb=0.92",
+        "curves=r='0/0 0.5/0.55 1/1':b='0/0 0.5/0.45 1/1'",
+      ].join(",");
+    case "analog-horror":
+      // Crushed blacks, desaturated, slight green-shift, low contrast.
+      return [
+        "eq=contrast=0.92:brightness=-0.04:saturation=0.78",
+        "colorchannelmixer=rr=0.95:gg=1.05:bb=0.95",
+        "curves=all='0/0.05 0.5/0.45 1/0.92'",
+      ].join(",");
+  }
+}
+
+export type ColorGradeInput = {
+  src: string;
+  dst: string;
+  preset: ColorGradePreset;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+export async function colorGrade(input: ColorGradeInput): Promise<string> {
+  const { src, dst, preset, forceOverwrite = false, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  const filter = buildColorGradeFilter(preset);
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-vf", filter,
+      "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+      "-c:a", "copy",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/color-grade",
+      input: { src, dst, preset, filter },
+      opts,
+    }
+  );
+  return dst;
+}
+
+// --- Recipe 10: VHS post-process (#036) --------------------------------
+//
+// Lifted out of ralphy-vs-higgsfield-001 / analog-horror-fridge-001 raw chains.
+// Combines chroma shift (RGB-channel offsets via rgbashift), low-amplitude
+// sine drift (mirage), film grain, vignette, and a slight saturation/contrast
+// nudge. Each layer is toggleable.
+
+export type ApplyVhsInput = {
+  src: string;
+  dst: string;
+  /** Sine-wave horizontal drift in pixels (0 = off). Default 2. */
+  drift?: number;
+  /** Grain strength 0..100 (0 = off). Default 8. */
+  grain?: number;
+  /** Chroma R/B horizontal shift in pixels (0 = off). Default 3. */
+  chroma?: number;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+/**
+ * Build the -vf filter string for the VHS chain. Exported for unit tests.
+ */
+export function buildVhsFilter(opts: {
+  drift: number;
+  grain: number;
+  chroma: number;
+}): string {
+  const { drift, grain, chroma } = opts;
+  const parts: string[] = [];
+  if (chroma > 0) {
+    // rgbashift offsets the R and B planes horizontally — visually identical
+    // to the legacy chromashift / hstack workaround but built-in to ffmpeg.
+    parts.push(`rgbashift=rh=${chroma}:bh=${-chroma}`);
+  }
+  if (drift > 0) {
+    // 0.6 Hz sine wave on x for a slow tape-wobble. `t` is frame time.
+    parts.push(`crop=in_w-${drift * 2}:in_h:${drift}+${drift}*sin(2*PI*0.6*t):0`);
+  }
+  if (grain > 0) {
+    // noise=alls=N:allf=t adds temporal luma+chroma noise.
+    parts.push(`noise=alls=${grain}:allf=t`);
+  }
+  // Always end with vignette + slight desat — a VHS deck never produced
+  // pristine corners or full saturation.
+  parts.push("vignette=PI/5");
+  parts.push("eq=saturation=0.92:contrast=1.05");
+  return parts.join(",");
+}
+
+export async function applyVhs(input: ApplyVhsInput): Promise<string> {
+  const {
+    src,
+    dst,
+    drift = 2,
+    grain = 8,
+    chroma = 3,
+    forceOverwrite = false,
+    ...opts
+  } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  const filter = buildVhsFilter({ drift, grain, chroma });
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-vf", filter,
+      "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+      "-c:a", "copy",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/apply-vhs",
+      input: { src, dst, drift, grain, chroma, filter },
+      opts,
+    }
+  );
+  return dst;
+}
+
+// --- Recipe 11: mix-music (#036) ---------------------------------------
+//
+// Lighter-weight variant of addMusicBed for the common case: drop a music
+// bed onto an existing video at a fixed volume, no ducking, no fades by
+// default. Single-call CLI surface for the A/B/C music preview workflow
+// (glitter-cream postmortem).
+
+export type MixMusicInput = {
+  src: string;
+  music: string;
+  dst: string;
+  /** Music gain. Default 0.18 (background bed under VO). */
+  volume?: number;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+/**
+ * Build the -filter_complex string for mix-music. Multi-char labels per #011.
+ */
+export function buildMixMusicFilter(opts: {
+  volume: number;
+  hasSourceAudio: boolean;
+}): string {
+  const { volume, hasSourceAudio } = opts;
+  if (!hasSourceAudio) {
+    return `[1:a]volume=${volume}[mixed]`;
+  }
+  return [
+    `[1:a]volume=${volume}[mbed]`,
+    `[0:a][mbed]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed]`,
+  ].join(";");
+}
+
+export async function mixMusic(input: MixMusicInput): Promise<string> {
+  const { src, music, dst, volume = 0.18, forceOverwrite = false, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  const hasSourceAudio = probeHasAudio(src);
+  const filter = buildMixMusicFilter({ volume, hasSourceAudio });
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-i", music,
+      "-filter_complex", filter,
+      "-map", "0:v",
+      "-map", "[mixed]",
+      "-c:v", "copy",
+      "-c:a", "aac",
+      "-b:a", "192k",
+      "-shortest",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/mix-music",
+      input: { src, music, dst, volume, hasSourceAudio, filter },
+      opts,
+      kind: "audio",
+    }
+  );
+  return dst;
+}
+
+// --- Recipe 12: compress for social (#036) -----------------------------
+//
+// x264 CRF + faststart for shareable social deliverables. Default CRF 23
+// (high-quality web) plus `+faststart` so the moov atom lands at the front
+// of the file (required by every web player for progressive playback).
+// `--social` is the explicit flag the issue mentions; it's the default mode.
+
+export type CompressForSocialInput = {
+  src: string;
+  dst: string;
+  /** x264 CRF. Default 23 (web). 18 = print, 12 = archive. */
+  crf?: number;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+export async function compressForSocial(input: CompressForSocialInput): Promise<string> {
+  const { src, dst, crf = 23, forceOverwrite = false, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-c:v", "libx264", "-preset", "slow", "-crf", String(crf),
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "128k",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/compress-social",
+      input: { src, dst, crf },
+      opts,
+    }
+  );
+  return dst;
+}
+
+/**
+ * Map the `ralphy render --quality` enum to an x264 CRF value.
+ *   web     → 23 (small, shareable on socials)
+ *   print   → 18 (visually lossless, archival client deliverable)
+ *   archive → 12 (near-mathematically-lossless master)
+ */
+export function qualityPresetToCrf(quality: "web" | "print" | "archive"): number {
+  switch (quality) {
+    case "web": return 23;
+    case "print": return 18;
+    case "archive": return 12;
+  }
 }
 
 export async function burnSubtitles(input: BurnSubtitlesInput): Promise<string> {
