@@ -1,0 +1,55 @@
+version: 1
+id: ship-announcement
+aliases: []
+kind: vibe-style
+category: b2b-saas
+format: motion-design
+name: Ship Announcement Card
+description: >-
+  Square 1:1 typographic product-announcement motion card in the "Ship Week"
+  developer-launch register — a wordmark, a one-line manifesto, a 5-row
+  feature/model table, and an end-slate URL, all revealed by a PARALLEL
+  TYPEWRITER primitive (clip-path inset + `ease: steps(N)` where N = the line's
+  char count), over a sparse animated cube grid that fills the upper dead air
+  without ever crossing the text band. Built entirely in HyperFrames (single
+  composition, one paused GSAP timeline) from variables-first markup — every
+  brand-specific value (`wordmark`, `copy`, `rows` JSON, `finalRowIndex`, `url`,
+  `accent`) is a `data-composition-variables` entry, so it is template-ready at
+  render time with $0 model spend. The discipline that makes it cheap and on-tone:
+  identify the signature intro primitive from the source's first 0.5s BEFORE
+  authoring, declare a named motion pattern per layer (drift / hop / twinkle /
+  spread), pin a side-by-side comparison harness from iteration one, and gate
+  background contrast on a 100x100 downscale legibility test. Silent by design.
+  Derived from `openrouter-ship-001`.
+tags:
+  - motion-design
+  - motion-graphics
+  - typographic
+  - product-announcement
+  - launch-card
+  - ship-week
+  - dev-launch
+  - square
+  - 1-1
+  - silent
+  - hyperframes
+  - gsap
+  - parallel-typewriter
+  - clip-path-reveal
+  - steps-easing
+  - variables-first
+  - cube-grid
+  - probability-placement
+  - zone-clamp
+  - opacity-gated-beats
+  - zero-cost
+  - no-ai-gen
+  - brand-dna
+  - b2b
+  - developer-marketing
+requires:
+  brand: true
+scenes: []
+references: []
+estimated_cost_usd: 0
+estimated_duration_s: 8.5

@@ -1,0 +1,58 @@
+version: 1
+id: brand-motion-ad
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+format: motion-design
+name: Hand-Drawn Brand Motion Bumper
+description: >-
+  A short hand-drawn picture-book brand bumper (~6s, 4:3 or 1:1) in the
+  naive-cartoon / felt-tip register: a chunky bubble wordmark pops in, a single
+  letter hand-corrects in (the brand's signature), an organic blob marker-wipe
+  floods the canvas and shrinks back into a product-shaped window, and a single
+  sustained drawn mascot waves out of that window while a two-line slogan types
+  word-by-word with ONE highlighted keyword. Built in HyperFrames (single
+  composition, one paused GSAP timeline) with the load-bearing trick being the
+  "boil" layer — every drawn shape gets a 1-2px frame-by-frame vertex jitter via
+  `animation: boil .166s steps(1) infinite`, which sells the frame-by-frame
+  cel-animation feel. Color, fonts, and the wipe physics are SITE-GROUNDED:
+  pull the brand's real palette + self-hosted webfonts, and override the
+  reference's accent to the brand's own (pick the highlight color from across the
+  color wheel so it never clashes). The ONE mascot is the only paid asset —
+  gpt-5.4-image-2 transparent PNG locked to the picture-book line aesthetic; an
+  optional `seedance-2.0` t2v pass can render a fully-animated alternate cut.
+  Elastic pop-ins (scale 0 -> 1.08 -> 1) on every entrance, never linear fades.
+  Derived from `odindoma-motion-001`.
+tags:
+  - motion-design
+  - motion-graphics
+  - brand-bumper
+  - hand-drawn
+  - picture-book
+  - naive-cartoon
+  - felt-tip
+  - marker-wipe
+  - blob-wipe
+  - boil-jitter
+  - cel-animation
+  - bubble-wordmark
+  - hand-correction
+  - mascot
+  - single-sustained-mascot
+  - elastic-popin
+  - keyword-highlight
+  - hyperframes
+  - gsap
+  - site-grounded
+  - webfont-grounded
+  - opacity-gated-beats
+  - seedance
+  - gpt-image-2
+  - dtc
+requires:
+  brand: true
+  refs: 1
+scenes: []
+references: []
+estimated_cost_usd: 1.49
+estimated_duration_s: 6

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slug": "ship-announcement",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "openrouter-ship-001",
+      "media": "workspace/projects/openrouter-ship-001/render/final.mp4",
+      "format": "motion-design",
+      "caption": "8.5s 1:1 silent typographic product-announcement card — parallel-typewriter reveal over a sparse cube grid, variables-first HyperFrames composition, $0 model spend.",
+      "created": "2026-05-28"
+    }
+  ]
+}
