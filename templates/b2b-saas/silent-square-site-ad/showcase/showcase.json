@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slug": "silent-square-site-ad",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "odindoma-fb-ad-001",
+      "media": "workspace/projects/odindoma-fb-ad-001/renders/odindoma-fb-21s-v11.mp4",
+      "format": "fb-creative",
+      "caption": "21s silent 1:1 square FB feed ad — site-grounded HyperFrames composition, $0 model spend.",
+      "created": "2026-05-28"
+    }
+  ]
+}

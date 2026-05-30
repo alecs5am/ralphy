@@ -1,0 +1,51 @@
+version: 1
+id: vpn-sticker-pack
+aliases: []
+kind: vibe-style
+category: dtc-commerce
+format: sticker-pack
+name: Mascot Sticker Pack
+description: >-
+  Full Telegram / messaging sticker pack (~32 die-cut stickers) built around one
+  featureless brand mascot. The mascot's identity is locked across every sticker
+  via a single neutral master shot passed as `--ref` on every generation, so a
+  translucent-jelly / clay / plush character stays on-model across 30+ poses.
+  Emotion is carried by POSE + PROP + minimalist eye-marks, never by a literal
+  mouth/nose — each sticker reproduces a recognizable chat meme (table-flip,
+  this-is-fine, sigma, 4-arms-busy, beg). Generated on flat chroma-green WITHOUT
+  a baked outline, then soft-keyed by flood-fill connectivity + Gaussian feather,
+  despilled, cropped to the solid bounding box, and scaled to a 512px long side
+  (never padded to a square). gemini-3-pro-image holds the character; gpt-5.4-image-2
+  is reserved only for the one text-bearing sticker. Two deliverable sets ship from
+  one render pass: white-die-cut-outline and clean-silhouette. Derived from
+  `free-air-vpn-stickerpack`.
+tags:
+  - sticker-pack
+  - telegram-stickers
+  - messaging-stickers
+  - die-cut
+  - mascot
+  - brand-mascot
+  - character-lock
+  - multi-ref
+  - identity-anchor
+  - kawaii
+  - clay-3d
+  - jelly-mascot
+  - chroma-key
+  - flood-fill-cutout
+  - transparent-png
+  - meme-pose
+  - eye-marks
+  - no-mouth
+  - 512px
+  - gemini-image
+  - gpt-image-2
+  - still-image-set
+  - dtc
+  - product-mascot
+requires:
+  refs: 1
+scenes: []
+references: []
+estimated_cost_usd: 6.5

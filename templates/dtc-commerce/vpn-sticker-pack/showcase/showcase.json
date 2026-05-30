@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slug": "vpn-sticker-pack",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "free-air-vpn-stickerpack",
+      "media": "workspace/projects/free-air-vpn-stickerpack/stickers/01-hi-beg.png",
+      "format": "sticker-pack",
+      "caption": "Translucent jelly mascot — 32-sticker Telegram pack, white die-cut set. Lead sticker shown; full pack in stickers/ and stickers-no-outline/.",
+      "created": "2026-05-27"
+    }
+  ]
+}
