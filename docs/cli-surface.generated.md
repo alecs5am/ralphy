@@ -226,25 +226,29 @@ Generate a single asset (image / video / voiceover / music / captions). Logs
 cost + path automatically.
 
 Options:
-  -h, --help           display help for command
+  -h, --help             display help for command
 
 Commands:
-  image [options]      Generate one image via OpenRouter (default:
-                       google/gemini-3-pro-image-preview — nano-banana-pro,
-                       multi-ref consistency, ≥4 concurrent). Pass --model
-                       openai/gpt-5.4-image-2 when label typography matters more
-                       than ref consistency.
-  video [options]      Generate one video via OpenRouter (default:
-                       kling-v3.0-pro)
-  voiceover [options]  Generate voiceover via ElevenLabs (default:
-                       eleven_multilingual_v2)
-  music [options]      Generate music bed via ElevenLabs Music (instrumental by
-                       default)
-  sfx [options]        Generate a sound effect via ElevenLabs Sound Generation
-                       (≤22s)
-  captions [options]   Transcribe audio to Caption[] (≤25MB). Default backend:
-                       ElevenLabs Scribe v1 (word-level).
-  help [command]       display help for command
+  image [options]        Generate one image via OpenRouter (default:
+                         google/gemini-3-pro-image-preview — nano-banana-pro,
+                         multi-ref consistency, ≥4 concurrent). Pass --model
+                         openai/gpt-5.4-image-2 when label typography matters
+                         more than ref consistency.
+  image-batch [options]  Fan out N image gens from a directory of `*.txt` prompt
+                         files (each file → one slot named by stem). Shares
+                         --model / --ref / --size across the batch; respects
+                         #007 per-endpoint concurrency. #024
+  video [options]        Generate one video via OpenRouter (default:
+                         kling-v3.0-pro)
+  voiceover [options]    Generate voiceover via ElevenLabs (default:
+                         eleven_multilingual_v2)
+  music [options]        Generate music bed via ElevenLabs Music (instrumental
+                         by default)
+  sfx [options]          Generate a sound effect via ElevenLabs Sound Generation
+                         (≤22s)
+  captions [options]     Transcribe audio to Caption[] (≤25MB). Default backend:
+                         ElevenLabs Scribe v1 (word-level).
+  help [command]         display help for command
 ```
 
 ### `ralphy provider`
