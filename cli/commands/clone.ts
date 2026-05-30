@@ -38,11 +38,21 @@ function isUrl(s: string): boolean {
   return /^https?:\/\//i.test(s);
 }
 
-export function cloneCmd(): Command {
-  const cmd = new Command("clone")
+/**
+ * Build the "lift the style of a public clip → vibe-style template" verb.
+ * Exported as the underlying builder so the same logic can mount as both
+ * `ralphy clone` (deprecation alias) and `ralphy template clone` (canonical).
+ *
+ * #030: the verb was renamed to remove the name collision with `voice clone`
+ * (Instant Voice Cloning) — agents kept conflating "clone this video's style"
+ * with "clone this person's voice". The deprecation alias emits a stderr
+ * warning + remains in place for one release.
+ */
+export function buildCloneCommand(name: string, opts?: { deprecated?: boolean }): Command {
+  const cmd = new Command(name)
     .argument("<url-or-ref>", "Public source URL (TikTok / Reels / Shorts / X) OR a registered ref slug")
     .description(
-      "Lift the style of a public clip into a reusable template. Chains ref pull → frames → analyze → blueprint → template create.",
+      "Lift the style of a public clip into a reusable vibe-style template. Chains ref pull → frames → analyze → blueprint → template create.",
     )
     .option("--as-template <id>", "Output template id (default: derived from source slug)")
     .option("--strict-look", "Mirror palette + grading + hook in the blueprint")
@@ -52,6 +62,12 @@ export function cloneCmd(): Command {
       "Vision model id for frame analysis (default google/gemini-2.5-flash)",
     )
     .action(async (input: string, opts) => {
+      if ((cmd as Command & { _deprecated?: boolean })._deprecated) {
+        // eslint-disable-next-line no-console
+        console.error(
+          "ralphy: `ralphy clone` is deprecated — use `ralphy template clone` instead (renamed to remove the name collision with `ralphy voice clone`). The old verb will be removed in the next minor release.",
+        );
+      }
       // 1. Pull (or detect existing slug)
       let slug: string;
       let sourceUrl: string | null = null;
@@ -130,16 +146,33 @@ export function cloneCmd(): Command {
         template_dir: templateDir,
       });
     });
+  const prefix = name === "clone" ? "ralphy clone" : "ralphy template clone";
   cmd.addHelpText(
     "after",
     `
 Examples:
-  ralphy clone https://tiktok.com/@x/video/72939...
-  ralphy clone https://www.instagram.com/reel/Cabc123 --as-template winter-vibe-002
-  ralphy clone existing-ref-slug --strict-look --prompt-only
+  ${prefix} https://tiktok.com/@x/video/72939...
+  ${prefix} https://www.instagram.com/reel/Cabc123 --as-template winter-vibe-002
+  ${prefix} existing-ref-slug --strict-look --prompt-only
 `,
   );
+  if (opts?.deprecated) {
+    (cmd as Command & { _deprecated?: boolean })._deprecated = true;
+  }
   return cmd;
+}
+
+/**
+ * Deprecation alias mounted as `ralphy clone`. Will be removed in the next
+ * minor release; users should switch to `ralphy template clone` (#030).
+ */
+export function cloneCmd(): Command {
+  return buildCloneCommand("clone", { deprecated: true });
+}
+
+/** Canonical mount: `ralphy template clone`. */
+export function templateCloneCmd(): Command {
+  return buildCloneCommand("clone");
 }
 
 /** Minimal YAML serializer (flat key:value + booleans + nulls). Avoids a yaml dep. */
