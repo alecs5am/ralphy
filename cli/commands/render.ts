@@ -16,6 +16,10 @@ import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { CommandStream } from "../lib/stream/command.js";
 import { runHyperframesRender, looksLikeHyperframesProject } from "../lib/render/hyperframes.js";
+import {
+  lintHyperframesProject,
+  formatHyperframesLintReport,
+} from "../lib/render/hyperframes-lint.js";
 
 async function runLoudnorm(src: string, dst: string): Promise<{ exitCode: number; stderr: string }> {
   return new Promise((resolve) => {
@@ -138,6 +142,37 @@ Examples:
         });
       }
       const compositionLabel = opts.composition ?? "index.html";
+
+      // Author-time HyperFrames lint (#047). Upstream runs lint at render
+      // time, but two edge cases — wrapper-on-video and many-short-same-track
+      // — only surface AFTER a silent freeze. We mirror those checks here so
+      // they block (errors) or warn (short-stack heuristic) BEFORE we shell
+      // out to upstream render. If the composition file isn't readable, fall
+      // through and let upstream surface the clearer error.
+      let lintResult;
+      try {
+        lintResult = await lintHyperframesProject(projectDir, opts.composition);
+      } catch (err) {
+        if ((err as { code?: string } | undefined)?.code !== "ENOENT") {
+          throw err;
+        }
+        lintResult = undefined;
+      }
+      if (lintResult) {
+        const report = formatHyperframesLintReport(lintResult);
+        if (report) {
+          process.stderr.write(`${report}\n`);
+        }
+        if (!lintResult.ok) {
+          raiseError("E_INTERNAL", {
+            detail:
+              `HyperFrames lint failed with ${lintResult.errors.length} error(s) before render. ` +
+              `Fix the errors above and re-run, or see notes/issues/047-hyperframes-edge-case-rules.md.`,
+          });
+        }
+      }
+
+
       cs.event("render-started", { project: projectId, engine, composition: compositionLabel });
       const renderOut = opts.loudnorm ? renderRaw : renderFinal;
       const rr = await ui.withSpinner(

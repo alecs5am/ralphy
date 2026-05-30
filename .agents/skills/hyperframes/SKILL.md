@@ -284,6 +284,54 @@ Video must be `muted playsinline`. Audio is always a separate `<audio>` element:
 ></audio>
 ```
 
+### HARD RULES for timed media (#047)
+
+Both rules below are enforced by `cli/lib/render/hyperframes-lint.ts` before
+every `ralphy render` call. Violating either causes a silent freeze at capture
+time, not a clean error — that is why they are pre-render gates.
+
+1. **Timed media carries `id` + `data-start` on the element itself, never on a
+   wrapper.** A `<div data-start="0" data-track-index="0"><video src="..."></video></div>`
+   wrapper is invisible to the HyperFrames media scheduler — the runtime reads
+   timing from the `<video>` / `<audio>` element directly. The render-time
+   lint codes `media_missing_id` and `media_missing_data_start` are now author-
+   time errors that block render.
+
+   ```html
+   <!-- WRONG — wrapper owns the timing attrs -->
+   <div data-start="0" data-track-index="0" data-duration="6">
+     <video src="clip.mp4" muted playsinline></video>
+   </div>
+
+   <!-- RIGHT — attrs on the element itself -->
+   <video
+     id="clip-1"
+     data-start="0"
+     data-track-index="0"
+     data-duration="6"
+     src="clip.mp4"
+     muted
+     playsinline
+   ></video>
+   ```
+
+2. **For a montage of N short clips on one track, concat them into a single
+   video.** The HyperFrames runtime cannot reliably switch between many short
+   same-track video clips during capture — typically only the first plays and
+   the rest render as a static frame. When `> 4` `<video>` elements share a
+   `data-track-index` AND each `data-duration` is `< 3` seconds, the pre-render
+   lint warns with a concat-fix suggestion. Either:
+
+   - Concat the clips with `ffmpeg -f concat -i list.txt -c copy out.mp4` and
+     reference the single resulting video, OR
+   - Put each clip on its own `data-track-index` if they really must remain
+     separate (e.g. for per-clip animation), OR
+   - Add `data-allow-short-stack="true"` to any of the affected `<video>` tags
+     once you have verified the composition renders correctly (override).
+
+   Origin: `ralphy-vs-higgsfield-001` postmortem — 6×2s clips on track 0
+   rendered only the first, others frozen / blank.
+
 ## Timeline Contract
 
 - All timelines start `{ paused: true }` — the player controls playback
@@ -308,7 +356,7 @@ Video must be `muted playsinline`. Audio is always a separate `<audio>` element:
 
 1. Forget `window.__timelines` registration
 2. Use video for audio — always muted video + separate `<audio>`
-3. Nest video inside a timed div — use a non-timed wrapper
+3. Nest video inside a timed div — use a non-timed wrapper. The runtime reads `id` + `data-start` + `data-track-index` + `data-duration` from the `<video>` / `<audio>` element ITSELF, never from a parent. See "HARD RULES for timed media" below. Enforced by `cli/lib/render/hyperframes-lint.ts` (#047)
 4. Use `data-layer` (use `data-track-index`) or `data-end` (use `data-duration`)
 5. Animate video element dimensions — animate a wrapper div
 6. Call play/pause/seek on media — framework owns playback

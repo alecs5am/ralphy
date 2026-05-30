@@ -1,10 +1,36 @@
 # HyperFrames edge-case rules need to be hard rules, not lint warnings
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
 > **Category:** render-engine
+
+## Resolution
+
+Implemented `cli/lib/render/hyperframes-lint.ts` — author-time lint that runs
+inside `ralphy render <id>` **before** the upstream `bunx hyperframes render`
+shellout. The lint catches both edge cases:
+
+- `media_missing_id` / `media_missing_data_start` / `media_attrs_on_wrapper` —
+  blocking errors. Render exits non-zero with a pointer back to this issue.
+- `many_short_same_track_video` — warning with concat-fix suggestion. Fires
+  when `> 4` `<video>` elements share a `data-track-index` AND each has
+  `data-duration < 3` seconds. Override: `data-allow-short-stack="true"` on
+  any of the affected `<video>` tags.
+
+Documentation:
+
+- `.agents/skills/hyperframes/SKILL.md` — new "HARD RULES for timed media"
+  section + cross-reference from the "Never do" list.
+- `docs/playbooks/hyperframes.md` — rows #8 and #9 in the "Hard kills" table.
+
+Tests: `tests/unit/hyperframes-lint.test.ts` (13 cases) and
+`tests/integration/render-hyperframes-lint.test.ts` (4 cases — error blocks,
+warning passes through to stderr, override suppresses warning).
+
+Upstream `hyperframes` lint was not modified — the rules live in our pre-
+render gate so the contract is enforced without forking the upstream package.
 
 ## Context
 
