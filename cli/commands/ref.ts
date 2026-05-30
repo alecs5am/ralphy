@@ -21,6 +21,7 @@ import {
 } from "../lib/research.js";
 import type { TranscribeBackend, TranscribeLanguage } from "../lib/transcribe.js";
 import { callLLM } from "../lib/providers/llm.js";
+import { intakePath } from "../lib/path-resolution.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -206,7 +207,8 @@ export function refCmd() {
       try {
         let prompt = opts.prompt as string | undefined;
         if (!prompt && opts.promptFile) {
-          prompt = await fs.readFile(path.resolve(opts.promptFile), "utf8");
+          // #025: NBSP-safe path intake; no project context here (ref is global).
+          prompt = await fs.readFile(intakePath(opts.promptFile, undefined, "prompt-file"), "utf8");
         }
         const r = await analyzeFrames({ slug, prompt, model: opts.model });
         ok(`Analyzed → ${r.path}`);
@@ -239,7 +241,8 @@ export function refCmd() {
       try {
         let prompt = opts.prompt as string | undefined;
         if (!prompt && opts.promptFile) {
-          prompt = await fs.readFile(path.resolve(opts.promptFile), "utf8");
+          // #025: NBSP-safe path intake; no project context here (ref is global).
+          prompt = await fs.readFile(intakePath(opts.promptFile, undefined, "prompt-file"), "utf8");
         }
         // Detect input mode: slug if no path separator and not a URL and exists as a ref
         const isUrl = /^https?:\/\//i.test(arg);
@@ -290,7 +293,8 @@ export function refCmd() {
       try {
         let prompt = opts.prompt as string | undefined;
         if (!prompt && opts.promptFile) {
-          prompt = await fs.readFile(path.resolve(opts.promptFile), "utf8");
+          // #025: NBSP-safe path intake; no project context here (ref is global).
+          prompt = await fs.readFile(intakePath(opts.promptFile, undefined, "prompt-file"), "utf8");
         }
         const r = await audioDescribeRef({ slug, prompt, model: opts.model });
         ok(`Audio described → ${r.path}`);
@@ -457,7 +461,8 @@ export function refCmd() {
     .option("--model <id>", "Vision model id", "google/gemini-2.5-flash")
     .option("--top-k <n>", "Max number of candidate bboxes to return", "5")
     .action(async (opts: { image: string; object: string; model: string; topK: string }) => {
-      const imgPath = path.resolve(opts.image);
+      // #025: NBSP-safe path intake.
+      const imgPath = intakePath(opts.image, undefined, "image");
       const buf = await fs.readFile(imgPath).catch(() => {
         raiseError("E_NOT_FOUND", { kind: "Image", id: imgPath });
         return Buffer.alloc(0);

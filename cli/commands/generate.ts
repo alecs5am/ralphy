@@ -43,6 +43,11 @@ import {
   formatMusicPromptLintReport,
   submitMusicWithToSAutoRetry,
 } from "../lib/music-prompt-lint.js";
+import {
+  intakePath,
+  readPromptOrFile,
+  readRefsOrFile,
+} from "../lib/path-resolution.js";
 
 /**
  * Resolve --size / --aspect on the image command. #051: --aspect always wins
@@ -274,12 +279,17 @@ export function generateCmd() {
     .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency.")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image)")
-    .requiredOption("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
+    .option("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
+    .option("--prompt-file <path>", "Read the prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed. Path resolves project-relative when --project is set.")
     .option("--model <model>", "OpenRouter model id (default google/gemini-3-pro-image-preview, the nano-banana-pro lineage; switch to openai/gpt-5.4-image-2 for premium typography on labels)", "google/gemini-3-pro-image-preview")
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image. See `ralphy provider list`.")
     .option(
       "--ref <ref...>",
-      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI"
+      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI. Path-only refs resolve cwd-first, then `workspace/projects/<id>/` and `workspace/projects/<id>/refs/` (#025). NBSP / zero-width whitespace in macOS screenshot paths is auto-normalized with a stderr warning.",
+    )
+    .option(
+      "--ref-file <path>",
+      "Read newline-separated ref paths from a file. Concatenated with inline --ref entries. Blank lines + `#` comments ignored. Symmetric with --ref (#025).",
     )
     .option(
       "--size <size>",
@@ -303,6 +313,27 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
+
+      // #025: project-relative + NBSP-safe path intake. Mutate opts so the
+      // dry-run branch + the live branch both see the resolved values.
+      const promptResolved = await readPromptOrFile({
+        prompt: opts.prompt,
+        promptFile: opts.promptFile,
+        projectId: opts.project,
+      });
+      if (!promptResolved) {
+        raiseError("E_INPUT_INVALID", {
+          field: "prompt",
+          detail: "either --prompt <text> or --prompt-file <path> is required",
+          verb: "generate image",
+        });
+      }
+      opts.prompt = promptResolved!;
+      opts.ref = await readRefsOrFile({
+        refs: opts.ref,
+        refFile: opts.refFile,
+        projectId: opts.project,
+      });
 
       const variants = opts.variants ?? 1;
 
@@ -429,19 +460,20 @@ export function generateCmd() {
     .description("Generate one video via OpenRouter (default: kling-v3.0-pro)")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-vid)")
-    .requiredOption("--prompt <prompt>", "Motion / camera description")
+    .option("--prompt <prompt>", "Motion / camera description")
+    .option("--prompt-file <path>", "Read the prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed.")
     .requiredOption("--duration <seconds>", "Duration in seconds. Per-model `supported_durations` may be discrete (e.g. hailuo only 6/10) — see `ralphy models show <id>`", parseFloat)
     .option("--model <model>", "OpenRouter model id", "kwaivgi/kling-v3.0-pro")
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports video. See `ralphy provider list`.")
     .option(
       "--first-frame <ref>",
-      "First-frame anchor for i2v (URL / local path / data: URI). Strongly recommended for portrait orientation when prompt has wide-shot bias"
+      "First-frame anchor for i2v (URL / local path / data: URI). Path-only refs resolve cwd-first, then workspace/projects/<id>/ + refs/ (#025).",
     )
     .option(
       "--last-frame <ref>",
-      "Last-frame anchor (URL / local path / data: URI). Only models with `supported_frame_images: ['first_frame','last_frame']` accept this — see `ralphy models show <id>`"
+      "Last-frame anchor (URL / local path / data: URI). Only models with `supported_frame_images: ['first_frame','last_frame']` accept this — see `ralphy models show <id>`. Same path resolution as --first-frame (#025).",
     )
-    .option("--image <ref>", "Alias for --first-frame (back-compat)")
+    .option("--image <ref>", "Alias for --first-frame (back-compat). Same path resolution (#025).")
     .option(
       "--aspect-ratio <ratio>",
       "Aspect ratio. Per-model whitelist: kling 9:16/16:9/1:1, veo 9:16/16:9, hailuo 16:9 only, seedance/wan up to 7 ratios. See `ralphy models show <id>`",
@@ -474,6 +506,25 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.video", opts.project)) return;
+
+      // #025: --prompt / --prompt-file symmetry + path intake for the
+      // three i2v anchors. Mutate opts so dry-run + live both see resolved.
+      const videoPrompt = await readPromptOrFile({
+        prompt: opts.prompt,
+        promptFile: opts.promptFile,
+        projectId: opts.project,
+      });
+      if (!videoPrompt) {
+        raiseError("E_INPUT_INVALID", {
+          field: "prompt",
+          detail: "either --prompt <text> or --prompt-file <path> is required",
+          verb: "generate video",
+        });
+      }
+      opts.prompt = videoPrompt!;
+      if (opts.firstFrame) opts.firstFrame = intakePath(opts.firstFrame, opts.project, "first-frame");
+      if (opts.lastFrame) opts.lastFrame = intakePath(opts.lastFrame, opts.project, "last-frame");
+      if (opts.image) opts.image = intakePath(opts.image, opts.project, "image");
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
       const lastFrameRef = opts.lastFrame;
@@ -625,7 +676,8 @@ export function generateCmd() {
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-vo)")
     .requiredOption("--voice <voiceId>", "ElevenLabs voice id (clone or library)")
-    .requiredOption("--text <text>", "VO text (RU or EN)")
+    .option("--text <text>", "VO text (RU or EN)")
+    .option("--text-file <path>", "Read VO text from a file (#025). Symmetric with --text; inline wins when both are passed.")
     .option("--model <model>", "ElevenLabs TTS model id", "eleven_multilingual_v2")
     .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports voice. See `ralphy provider list`.")
     .option("--stability <n>", "Voice stability 0-1 (lower = more variation, useful for emotional / cinematic deliveries; higher = monotone, useful for analog-horror PSA / robo-narrator). Default 0.55.", (v) => parseFloat(v))
@@ -644,6 +696,22 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
+
+      // #025: --text / --text-file symmetry. readPromptOrFile maps "prompt" →
+      // text since the helper is shape-agnostic; we just rename at the call.
+      const voText = await readPromptOrFile({
+        prompt: opts.text,
+        promptFile: opts.textFile,
+        projectId: opts.project,
+      });
+      if (!voText) {
+        raiseError("E_INPUT_INVALID", {
+          field: "text",
+          detail: "either --text <text> or --text-file <path> is required",
+          verb: "generate voiceover",
+        });
+      }
+      opts.text = voText!;
 
       if (opts.dryRun) {
         const chars = (opts.text || "").length;
@@ -728,7 +796,8 @@ export function generateCmd() {
     .description("Generate music bed via ElevenLabs Music (instrumental by default)")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. bed-01)")
-    .requiredOption("--prompt <prompt>", "Music description (genre, tempo, mood)")
+    .option("--prompt <prompt>", "Music description (genre, tempo, mood)")
+    .option("--prompt-file <path>", "Read prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed.")
     .requiredOption("--duration <seconds>", "Duration in seconds (3-600)", parseFloat)
     .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports music. See `ralphy provider list`.")
     .option("--with-vocals", "Allow vocals (default: instrumental only)")
@@ -744,6 +813,21 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
+
+      // #025: --prompt / --prompt-file symmetry.
+      const musicPrompt = await readPromptOrFile({
+        prompt: opts.prompt,
+        promptFile: opts.promptFile,
+        projectId: opts.project,
+      });
+      if (!musicPrompt) {
+        raiseError("E_INPUT_INVALID", {
+          field: "prompt",
+          detail: "either --prompt <text> or --prompt-file <path> is required",
+          verb: "generate music",
+        });
+      }
+      opts.prompt = musicPrompt!;
 
       // #006: soft pre-submit lint. Known artist / producer / track names
       // surface a warning + a generic alternative; we never block — the user
@@ -860,7 +944,8 @@ export function generateCmd() {
     .description("Generate a sound effect via ElevenLabs Sound Generation (≤22s)")
     .requiredOption("--project <id>", "Project ID")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. static-pop-01)")
-    .requiredOption("--prompt <prompt>", "SFX description (e.g. 'short analog TV static pop')")
+    .option("--prompt <prompt>", "SFX description (e.g. 'short analog TV static pop')")
+    .option("--prompt-file <path>", "Read prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed.")
     .option("--duration <seconds>", "Duration in seconds (0.5-22)", parseFloat, 4)
     .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports sfx. See `ralphy provider list`.")
     .option("--prompt-influence <n>", "Prompt adherence 0-1 (default 0.4 — let model interpret)", parseFloat, 0.4)
@@ -873,6 +958,22 @@ export function generateCmd() {
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
       if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
+
+      // #025: --prompt / --prompt-file symmetry.
+      const sfxPrompt = await readPromptOrFile({
+        prompt: opts.prompt,
+        promptFile: opts.promptFile,
+        projectId: opts.project,
+      });
+      if (!sfxPrompt) {
+        raiseError("E_INPUT_INVALID", {
+          field: "prompt",
+          detail: "either --prompt <text> or --prompt-file <path> is required",
+          verb: "generate sfx",
+        });
+      }
+      opts.prompt = sfxPrompt!;
+
       const connSfx = resolveConnector("sfx", opts.provider);
       const uisfx = await import("../lib/ui.js");
       const result = await uisfx.withSpinner(
@@ -969,7 +1070,8 @@ export function generateCmd() {
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
       await ensureProject(opts.project);
-      const audioPath = path.resolve(opts.audio);
+      // #025: NBSP-normalize + project-relative fallback for the --audio path.
+      const audioPath = intakePath(opts.audio, opts.project, "audio");
       const slot = normalizeSlot(opts.slot ?? `captions-${path.basename(audioPath, path.extname(audioPath))}`);
       const backend = opts.backend as TranscribeBackend;
       const t0 = Date.now();
