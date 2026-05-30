@@ -871,7 +871,7 @@ Commands:
                                     or file
   register <id>                     Register an existing dir template in the
                                     local registry (workspace or repo)
-  list                              List all templates (both repo-public
+  list [options]                    List all templates (both repo-public
                                     templates/ and local workspace/templates/)
   show [options] <id>               Show template — prints TEMPLATE.md for dir
                                     templates, JSON for flat
