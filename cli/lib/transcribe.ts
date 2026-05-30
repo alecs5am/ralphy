@@ -108,6 +108,27 @@ export async function transcribe(opts: TranscribeOptions): Promise<TranscribeRes
   const language = opts.language ?? "ru";
   const backend = opts.backend ?? pickBackend();
 
+  // Test hook (#010): integration tests for `ralphy generate captions` can
+  // short-circuit the live HTTP call by setting RALPHY_FAKE_TRANSCRIBE_JSON
+  // to a JSON file path containing { captions, audioDurationSec, language? }.
+  // Never read in prod paths — env var is intentionally narrowly scoped.
+  const fakeJsonPath = process.env.RALPHY_FAKE_TRANSCRIBE_JSON;
+  if (fakeJsonPath) {
+    const raw = await fs.readFile(fakeJsonPath, "utf8");
+    const fake = JSON.parse(raw) as Partial<TranscribeResult> & { captions?: Caption[] };
+    return {
+      captions: fake.captions ?? [],
+      language: fake.language ?? "eng",
+      languageProbability: fake.languageProbability ?? 0.99,
+      lowConfidenceWords: fake.lowConfidenceWords ?? [],
+      model: SCRIBE_MODEL,
+      backend,
+      durationMs: Date.now() - t0,
+      audioDurationSec: fake.audioDurationSec ?? 0,
+      costUsd: 0,
+    };
+  }
+
   const abs = path.resolve(opts.audioPath);
   if (!existsSync(abs)) throw new Error(`Audio not found: ${abs}`);
   const size = statSync(abs).size;
@@ -368,7 +389,11 @@ async function viaOpenRouter(
       },
     ];
   } else {
-    throw new Error("OpenRouter returned no text/segments/words");
+    // Issue #010: silent / sub-threshold audio used to throw here, breaking
+    // batch caption calls in noski-people-001 (~80 calls) + venom-bodywash-001.
+    // Return [] so the caller can decide what to do; the shared captions.json
+    // clobber that prompted the throw is also fixed (per-slot output).
+    captions = [];
   }
 
   const audioDurationSec = json.duration ?? 0;
@@ -449,11 +474,11 @@ async function viaGemini(
     choices?: Array<{ message?: { content?: string } }>;
   };
   const text = (json.choices?.[0]?.message?.content ?? "").trim();
-  if (!text) throw new Error("Gemini audio returned empty transcript");
-
-  const captions: Caption[] = [
-    { text, startMs: 0, endMs: 0, timestampMs: 0, confidence: null },
-  ];
+  // Issue #010: empty transcript used to throw here. Return [] so silent /
+  // music-only clips don't break batch caption calls.
+  const captions: Caption[] = text
+    ? [{ text, startMs: 0, endMs: 0, timestampMs: 0, confidence: null }]
+    : [];
 
   return {
     captions,
