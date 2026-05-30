@@ -715,6 +715,7 @@ Commands:
   show <id>                                      Show reference details
   attach [options] <refId>                       Attach reference to a project
   pull [options] [urls...]                       Pull a video via yt-dlp (single URL, default), OR bulk-download images when --kind reference-image / --from-file is set (#048). Bulk mode dedupes by sha256 and writes into <project>/refs/.
+  pull-site [options] <url>                      Fan-out Playwright crawl of a brand site → screenshots + tokens.json + apis.md (AGENTS invariant #15). Run BEFORE drafting brand-DNA or any code-on-screen creative.
   frames [options] <slug>                        Sample JPEG frames from <slug>/source.mp4 → <slug>/frames/
   transcribe [options] <slug>                    Transcribe <slug>/source.mp3 → <slug>/transcript.json (Caption[]). Default backend: ElevenLabs Scribe v1.
   analyze [options] <slug>                       Run vision LLM over <slug>/frames/* → <slug>/analysis.json. Default prompt = UGC blueprint extractor.
@@ -733,6 +734,7 @@ Examples:
   ralphy ref pull https://tiktok.com/@x/video/72939...
   ralphy ref pull https://a.com/x.png https://b.com/y.jpg --kind reference-image --project my-proj-001
   ralphy ref pull --from-file urls.txt --kind reference-image --project my-proj-001
+  ralphy ref pull-site https://example.com --project my-proj-001
   ralphy ref analyze my-reference-slug
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json

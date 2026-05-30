@@ -1,6 +1,26 @@
 # Step 1: Capture & Understand
 
-## Run the capture
+## Brand-DNA pre-flight (AGENTS invariant #15)
+
+Before the HyperFrames capture, if your project is **brand-derived** (the user named a real brand URL — sotaocr.com / linear.app / their own startup), run the ralphy brand-DNA crawl first. It captures CSS palette, fonts, hero screenshot, and the **documented API surfaces** that prevent SDK hallucination on code-on-screen creatives.
+
+```bash
+ralphy ref pull-site <URL> --project <id>
+```
+
+Example: `ralphy ref pull-site https://stripe.com --project stripe-launch-001`
+
+Writes into `workspace/projects/<id>/refs/`:
+
+- `<slug>-hero.png` — full-page screenshot of the landing
+- `<slug>-<page>.png` — one per crawled page (home, docs, pricing, features, examples, blog)
+- `<slug>-<page>.md` — visible body copy per page
+- `<slug>-tokens.json` — merged CSS colours, fonts, `--*` custom properties
+- `<slug>-apis.md` — every detected code surface (curl / Python / TS / npm / pip / etc), the document every code creative must cite
+
+This is the single source of truth for brand-DNA. **No memory-sourced palette guesses.** Full discipline at [`docs/playbooks/site-grounding.md`](../../../../docs/playbooks/site-grounding.md). Skip only when the brief is a generic UGC / video with no specific brand site named.
+
+## Run the HyperFrames capture
 
 Create a project directory for your video, then capture the website into a `capture/` subfolder within it:
 
