@@ -1,10 +1,36 @@
 # `ralphy generate` overwrites slot files instead of versioning them
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** high
 > **Category:** cli
+
+## Resolution
+
+Audit confirmed the fix had already landed piecemeal across #010 (captions),
+#028 (`index.html` / `compositions/v<N>.html`), and #039 (voiceover lock + write-then-verify),
+on top of `protectExistingAsset()` in `cli/lib/providers/shared.ts` which covers
+`image | video | voiceover | music | sfx | captions` uniformly. No connector
+gap was found; every generator function passes its slot dest variable through
+`protectExistingAsset(<dest>, input.overwrite)` before `fs.writeFile`.
+
+What landed in this issue:
+
+- `tests/unit/auto-version-invariant.test.ts` — 20-case lock-in suite. Behavioral
+  matrix asserts v1 + v2 + v3 coexist for every kind (png, mp4, mp3, json),
+  plus a non-contiguous-archive regression (v1 + v3 on disk → next slot is v4,
+  not v2). Negative tests confirm `--force-overwrite` skips archiving across all
+  kinds. Static-source audit per generator function (`generateImage`,
+  `generateVideo`, `generateVoiceover`, `generateMusic`, `generateSfx`,
+  captions handler in `cli/commands/generate.ts`) extracts the brace-balanced
+  body and asserts every `fs.writeFile(<destVar>, …)` is matched by a
+  `protectExistingAsset(<destVar>, …)` in the same scope. A future refactor
+  that drops the protect call fails this test, not a postmortem.
+- AGENTS.md invariant #14 — extended to explicitly list `index.html` /
+  `compositions/*.html`, the six covered generate kinds, and a pointer to the
+  test file. Cross-references the existing `ralphy hyperframes save-version`
+  verb as the manual snapshot path for HTML compositions.
 
 ## Context
 
