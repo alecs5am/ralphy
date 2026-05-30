@@ -13,6 +13,10 @@ import {
   concatLossless,
   optimizeReencode,
   addMusicBed,
+  applyVhs,
+  compressForSocial,
+  colorGrade,
+  type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok } from "../lib/output.js";
@@ -222,6 +226,122 @@ export function videoCmd() {
         out({ src: opts.in, music: opts.music, dst, musicVol: opts.musicVol, sfxVol: opts.sfxVol, duck: opts.duck });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `add-music: ` });
+      }
+    });
+
+  // ── vhs ────────────────────────────────────────────────────────────────
+  cmd
+    .command("vhs")
+    .description(
+      "VHS post-process chain: chroma shift + sine drift + film grain + vignette + slight desat/contrast.",
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--out <path>", "Output video")
+    .option("--drift <px>", "Sine-wave horizontal drift in px (0 = off)", (v) => Number(v), 2)
+    .option("--grain <n>", "Grain strength 0..100 (0 = off)", (v) => Number(v), 8)
+    .option("--chroma <px>", "Chroma R/B horizontal shift in px (0 = off)", (v) => Number(v), 3)
+    .option("--force-overwrite", "Skip the .v2 collision archive", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await applyVhs({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          drift: opts.drift,
+          grain: opts.grain,
+          chroma: opts.chroma,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`VHS chain applied → ${dst}`);
+        out({ src: opts.in, dst, drift: opts.drift, grain: opts.grain, chroma: opts.chroma });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `vhs: ${e?.message || e}` });
+      }
+    });
+
+  // ── compress ───────────────────────────────────────────────────────────
+  cmd
+    .command("compress")
+    .description(
+      "x264 CRF + faststart for social-shareable deliverables. Default CRF 23 (`--social` is implicit).",
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--out <path>", "Output video")
+    .option("--crf <n>", "x264 CRF (23 web, 18 print, 12 archive)", (v) => parseInt(v, 10), 23)
+    .option("--social", "Alias for the CRF 23 + faststart default (kept for discoverability)", false)
+    .option("--force-overwrite", "Skip the .v2 collision archive", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await compressForSocial({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          crf: opts.crf,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        const before = (await fs.stat(path.resolve(opts.in))).size;
+        const after = (await fs.stat(dst)).size;
+        ok(`Compressed → ${dst}`);
+        out({
+          src: opts.in,
+          dst,
+          crf: opts.crf,
+          bytesBefore: before,
+          bytesAfter: after,
+          ratio: Number((before / after).toFixed(2)),
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `compress: ${e?.message || e}` });
+      }
+    });
+
+  // ── grade ──────────────────────────────────────────────────────────────
+  cmd
+    .command("grade")
+    .description(
+      "Apply a named color-grade preset (tv-commercial-soft|tv-commercial-strong|cinematic-teal-orange|analog-horror).",
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--out <path>", "Output video")
+    .requiredOption(
+      "--preset <name>",
+      "tv-commercial-soft | tv-commercial-strong | cinematic-teal-orange | analog-horror",
+    )
+    .option("--force-overwrite", "Skip the .v2 collision archive", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const allowed: ColorGradePreset[] = [
+          "tv-commercial-soft",
+          "tv-commercial-strong",
+          "cinematic-teal-orange",
+          "analog-horror",
+        ];
+        if (!allowed.includes(opts.preset)) {
+          raiseError("E_INTERNAL", {
+            detail: `Unknown grade preset '${opts.preset}'. Allowed: ${allowed.join(", ")}.`,
+          });
+          return;
+        }
+        const dst = await colorGrade({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          preset: opts.preset,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Graded (${opts.preset}) → ${dst}`);
+        out({ src: opts.in, dst, preset: opts.preset });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `grade: ${e?.message || e}` });
       }
     });
 
