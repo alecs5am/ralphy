@@ -5,6 +5,7 @@ id: anime-action
 aliases: []
 kind: vibe-style
 category: cinematic-narrative
+format: video
 name: Anime Action
 description: "Anime-style action video prompts: cel-shaded 2D look, limited
   animation with strategic impact frames, speed lines, dramatic rim lighting,

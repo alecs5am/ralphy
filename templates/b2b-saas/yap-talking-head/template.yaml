@@ -5,6 +5,7 @@ id: yap-talking-head
 aliases: []
 kind: vibe-style
 category: b2b-saas
+format: video
 name: YAP Talking-Head
 description: "Selfie-style talking-head with minimal processing: a creator
   delivers ONE crisp idea straight to camera while a 0-1s headline overlay

@@ -5,6 +5,7 @@ id: tier-list
 aliases: []
 kind: vibe-style
 category: entertainment-viral
+format: video
 name: Tier List / Ranking
 description: S/A/B/C/D-tier visual grid with item ranking. 40-75s, 9:16. 0-2s
   setup ('ranking [X]'), then each item pops into its tier with a short reason

@@ -20,8 +20,10 @@ import path from "node:path";
 import {
   TEMPLATE_KINDS,
   TEMPLATE_CATEGORIES,
+  TEMPLATE_FORMATS,
   validateSlug,
   type TemplateCategory,
+  type TemplateFormat,
   type TemplateKind,
   type TemplateYaml,
 } from "../schemas/template.js";
@@ -101,6 +103,7 @@ export function buildTemplateManifest(args: {
   slug: string;
   category: TemplateCategory;
   kind?: TemplateKind;
+  format?: TemplateFormat;
   name?: string;
   description?: string;
   tags?: string[];
@@ -116,6 +119,12 @@ export function buildTemplateManifest(args: {
   const kind: TemplateKind = args.kind ?? "vibe-style";
   if (!TEMPLATE_KINDS.includes(kind)) {
     throw new Error(`invalid kind '${kind}'`);
+  }
+  // Primary-axis format (issue 052). Defaults to `video` — extraction promotes
+  // a rendered project, which is overwhelmingly a video. Caller can override.
+  const format: TemplateFormat = args.format ?? "video";
+  if (!TEMPLATE_FORMATS.includes(format)) {
+    throw new Error(`invalid format '${format}'`);
   }
 
   // Default name / description derive from the slug if the caller didn't
@@ -166,6 +175,7 @@ export function buildTemplateManifest(args: {
     aliases: [],
     kind,
     category: args.category,
+    format,
     name,
     description,
     tags: args.tags ?? [],

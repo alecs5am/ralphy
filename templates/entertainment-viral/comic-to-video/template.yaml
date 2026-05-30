@@ -5,6 +5,7 @@ id: comic-to-video
 aliases: []
 kind: vibe-style
 category: entertainment-viral
+format: video
 name: Comic to Video
 description: "Animate comic panels, manga pages, webtoons, and illustrated
   storyboards into short narrative video. Each panel becomes a beat: keyframes

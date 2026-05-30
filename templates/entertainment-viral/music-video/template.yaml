@@ -5,6 +5,7 @@ id: music-video
 aliases: []
 kind: vibe-style
 category: entertainment-viral
+format: video
 name: Music Video
 description: "Beat-synced music video / lyric video / performance clip in 9:16
   or 16:9. The song is the spine: every visual change is anchored to a kick,

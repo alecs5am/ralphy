@@ -4,6 +4,7 @@ import {
   validateSlug,
   isSupportedVersion,
   DENIED_SLUG_TOKENS,
+  TEMPLATE_FORMATS,
 } from "../../cli/lib/schemas/template.ts";
 
 describe("Template schema (02.05.01)", () => {
@@ -13,6 +14,7 @@ describe("Template schema (02.05.01)", () => {
       id: "yap-talking-head",
       kind: "vibe-style",
       category: "b2b-saas",
+      format: "video",
       name: "YAP Talking-Head",
       description: "single-idea direct-to-camera monologue",
     });
@@ -21,14 +23,14 @@ describe("Template schema (02.05.01)", () => {
 
   test("rejects a template without version", () => {
     const bad = TemplateYamlSchema.safeParse({
-      id: "x", kind: "vibe-style", category: "b2b-saas", name: "x", description: "x",
+      id: "x", kind: "vibe-style", category: "b2b-saas", format: "video", name: "x", description: "x",
     });
     expect(bad.success).toBe(false);
   });
 
   test("rejects unknown kind", () => {
     const bad = TemplateYamlSchema.safeParse({
-      version: 1, id: "x", kind: "free-form", category: "b2b-saas", name: "x", description: "x",
+      version: 1, id: "x", kind: "free-form", category: "b2b-saas", format: "video", name: "x", description: "x",
     });
     expect(bad.success).toBe(false);
   });
@@ -38,6 +40,58 @@ describe("Template schema (02.05.01)", () => {
     expect(isSupportedVersion(2)).toBe(false);
     expect(isSupportedVersion("1")).toBe(false);
     expect(isSupportedVersion(undefined)).toBe(false);
+  });
+});
+
+describe("Template format taxonomy (052)", () => {
+  const base = {
+    version: 1 as const,
+    id: "some-template",
+    kind: "vibe-style" as const,
+    category: "b2b-saas" as const,
+    name: "x",
+    description: "x",
+  };
+
+  test("rejects a template missing format", () => {
+    const bad = TemplateYamlSchema.safeParse(base);
+    expect(bad.success).toBe(false);
+  });
+
+  test("rejects a format outside the enum", () => {
+    const bad = TemplateYamlSchema.safeParse({ ...base, format: "hologram" });
+    expect(bad.success).toBe(false);
+  });
+
+  test("accepts every member of TEMPLATE_FORMATS", () => {
+    for (const format of TEMPLATE_FORMATS) {
+      const res = TemplateYamlSchema.safeParse({ ...base, format });
+      expect(res.success).toBe(true);
+    }
+  });
+
+  test("style_of is optional and passes through when set", () => {
+    const res = TemplateYamlSchema.safeParse({ ...base, format: "video", style_of: "general-video" });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.style_of).toBe("general-video");
+  });
+
+  test("style_of defaults to undefined when absent", () => {
+    const res = TemplateYamlSchema.safeParse({ ...base, format: "video" });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.style_of).toBeUndefined();
+  });
+
+  test("TEMPLATE_FORMATS includes the issue-052 enum", () => {
+    expect([...TEMPLATE_FORMATS]).toEqual([
+      "video",
+      "image",
+      "carousel",
+      "fb-creative",
+      "motion-design",
+      "poster",
+      "sticker-pack",
+    ]);
   });
 });
 

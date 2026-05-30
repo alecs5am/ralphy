@@ -15,11 +15,24 @@ const TEMPLATES_DIR = path.join(REPO_ROOT, "templates");
 
 export type TemplateKind = "vibe-style" | "vibe-reference" | "unknown";
 
+export type TemplateFormat =
+  | "video"
+  | "image"
+  | "carousel"
+  | "fb-creative"
+  | "motion-design"
+  | "poster"
+  | "sticker-pack";
+
 export interface TemplateRow {
   slug: string;
   category: string;
   name: string;
   kind: TemplateKind;
+  /** Primary media-format axis (issue 052). Undefined for legacy templates that ship no template.yaml. */
+  format?: TemplateFormat;
+  /** Slug of the general template this one specializes (same format). Undefined = general/standalone. */
+  styleOf?: string;
   description: string;
   tags: string[];
   platform?: string;
@@ -56,6 +69,40 @@ export function categoryLabel(slug: string): string {
   return CATEGORY_LABELS[slug] ?? slug;
 }
 
+const VALID_FORMATS: ReadonlySet<string> = new Set<TemplateFormat>([
+  "video",
+  "image",
+  "carousel",
+  "fb-creative",
+  "motion-design",
+  "poster",
+  "sticker-pack",
+]);
+
+// `format` + `style_of` are the primary-axis taxonomy (issue 052) and live in
+// the typed `template.yaml`, not in the legacy `template.json` this loader
+// reads. The landing build does not depend on a YAML parser, so we extract the
+// two top-level scalar fields with a minimal line scan — they are always simple
+// scalars in the migrate-generated shape (`format: video`, `style_of: foo`).
+function readYamlTaxonomy(dir: string): { format?: TemplateFormat; styleOf?: string } {
+  const yamlPath = path.join(dir, "template.yaml");
+  if (!fs.existsSync(yamlPath)) return {};
+  let text: string;
+  try {
+    text = fs.readFileSync(yamlPath, "utf8");
+  } catch {
+    return {};
+  }
+  const out: { format?: TemplateFormat; styleOf?: string } = {};
+  for (const line of text.split(/\r?\n/)) {
+    const fmt = /^format:\s*"?([a-z-]+)"?\s*$/.exec(line);
+    if (fmt && VALID_FORMATS.has(fmt[1])) out.format = fmt[1] as TemplateFormat;
+    const so = /^style_of:\s*"?([a-z0-9-]+)"?\s*$/.exec(line);
+    if (so) out.styleOf = so[1];
+  }
+  return out;
+}
+
 export function loadTemplates(): TemplateRow[] {
   if (!fs.existsSync(TEMPLATES_DIR)) return [];
   const rows: TemplateRow[] = [];
@@ -74,11 +121,14 @@ export function loadTemplates(): TemplateRow[] {
         continue;
       }
       const kind = (parsed.kind as TemplateKind) || "unknown";
+      const tax = readYamlTaxonomy(path.join(catDir, tpl.name));
       rows.push({
         slug: parsed.slug || tpl.name,
         category: cat.name,
         name: parsed.name || tpl.name,
         kind,
+        format: tax.format,
+        styleOf: tax.styleOf,
         description: (parsed.description || "").trim(),
         tags: parsed.tags || [],
         platform: parsed.platform,

@@ -20,7 +20,9 @@ import url from "node:url";
 import {
   TemplateYamlSchema,
   TEMPLATE_CATEGORIES,
+  TEMPLATE_FORMATS,
   type TemplateCategory,
+  type TemplateFormat,
   type TemplateKind,
 } from "../cli/lib/schemas/template.ts";
 
@@ -43,6 +45,19 @@ export function buildTemplateYaml(
   const kindRaw = (json.kind as string | undefined) ?? "vibe-style";
   const kind: TemplateKind = kindRaw === "vibe-reference" ? "vibe-reference" : "vibe-style";
 
+  // `format` is the primary axis (issue 052). Carry it through from the source
+  // json if present; otherwise default to `video` (the overwhelming majority).
+  // NOTE: the canonical `format`/`style_of` live in the hand-curated
+  // template.yaml, so a `--force` re-run from json would reset them to this
+  // default — re-run is rare and additive-only.
+  const formatRaw = (json.format as string | undefined) ?? "video";
+  const format: TemplateFormat = (TEMPLATE_FORMATS as readonly string[]).includes(formatRaw)
+    ? (formatRaw as TemplateFormat)
+    : "video";
+  const styleOf = typeof (json as { style_of?: unknown }).style_of === "string"
+    ? ((json as { style_of: string }).style_of)
+    : undefined;
+
   const requiresUserReference = Boolean((json as { requiresUserReference?: boolean }).requiresUserReference);
   const requires: Record<string, unknown> = {};
   if (requiresUserReference) requires.refs = 1;
@@ -57,6 +72,8 @@ export function buildTemplateYaml(
     aliases: [] as string[],
     kind,
     category,
+    format,
+    ...(styleOf ? { style_of: styleOf } : {}),
     name: typeof json.name === "string" ? json.name : slug,
     description: typeof json.description === "string" ? json.description : "",
     tags,
