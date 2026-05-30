@@ -18,6 +18,7 @@
 import { loadTemplates, type TemplateRow, type TemplateFormat } from "./templates-loader";
 import { loadGuidelines } from "./guidelines-loader";
 import { loadShowcaseClips } from "./library-clips";
+import { showcaseCover } from "./showcase-loader";
 import {
   LIBRARY_FORMATS,
   type LibraryFormat,
@@ -25,15 +26,27 @@ import {
   type LibraryItem,
 } from "./library-index-types";
 
-const REPO_TREE_BASE = "https://github.com/alecs5am/ralphy/tree/main/";
-
 function isFormat(f: TemplateFormat | undefined): f is LibraryFormat {
   return f !== undefined && (LIBRARY_FORMATS as string[]).includes(f);
 }
 
+/** Format → a tasteful designed-fallback aspect (matches how the format ships).
+ *  Used by the card's gradient fallback when a template has no media cover. */
+const FALLBACK_ASPECT: Record<string, string> = {
+  video: "9 / 16",
+  image: "1 / 1",
+  carousel: "4 / 5",
+  "fb-creative": "1 / 1",
+  "motion-design": "16 / 9",
+  poster: "4 / 5",
+  "sticker-pack": "1 / 1",
+};
+
 /** Templates are the primary unit. They carry the `format` + `style_of`
- * taxonomy and reproduce via `@template:<slug>`. They have no on-disk detail
- * page, so they link to the GitHub source tree. */
+ * taxonomy and reproduce via `@template:<slug>`. Each links to its own on-disk
+ * detail page (`/library/<slug>`); GitHub is demoted to a secondary link on the
+ * detail page itself. Covers come from the first hosted showcase output, else a
+ * declared thumbnail / reference, else a designed format-keyed fallback. */
 function templateItem(t: TemplateRow): LibraryItem {
   const format = isFormat(t.format) ? t.format : undefined;
   const tag = `@template:${t.slug}`;
@@ -50,6 +63,20 @@ function templateItem(t: TemplateRow): LibraryItem {
   ]
     .join(" ")
     .toLowerCase();
+
+  // Cover precedence: hosted showcase media (the dense-gallery effect) → a
+  // declared thumbnail / reference → undefined (the card renders a designed
+  // format-keyed fallback, never an empty dark box).
+  const sc = showcaseCover(t.slug);
+  const fallbackAspect = (format && FALLBACK_ASPECT[format]) || "4 / 5";
+  const cover = sc
+    ? { src: sc.src, kind: sc.kind, poster: sc.poster, alt: t.name, aspect: sc.aspect }
+    : t.thumbnail
+      ? { src: t.thumbnail, kind: "image" as const, alt: t.name, aspect: fallbackAspect }
+      : t.referenceMp4
+        ? { src: t.referenceMp4, kind: "video" as const, alt: t.name, aspect: fallbackAspect }
+        : undefined;
+
   return {
     key: `template:${t.slug}`,
     slug: t.slug,
@@ -64,12 +91,8 @@ function templateItem(t: TemplateRow): LibraryItem {
     category: t.category,
     tag,
     cliCmd,
-    cover: t.thumbnail
-      ? { src: t.thumbnail, kind: "image", alt: t.name, aspect: "9 / 16" }
-      : t.referenceMp4
-        ? { src: t.referenceMp4, kind: "video", alt: t.name, aspect: "9 / 16" }
-        : undefined,
-    href: { kind: "external", url: `${REPO_TREE_BASE}${t.sourcePath}` },
+    cover,
+    href: { kind: "internal", url: `/library/${t.slug}` },
     text,
   };
 }
