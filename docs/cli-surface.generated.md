@@ -78,8 +78,8 @@ ____        __      __
 
 Usage: ralphy clone [options] <url-or-ref>
 
-Lift the style of a public clip into a reusable template. Chains ref pull →
-frames → analyze → blueprint → template create.
+Lift the style of a public clip into a reusable vibe-style template. Chains ref
+pull → frames → analyze → blueprint → template create.
 
 Arguments:
   url-or-ref            Public source URL (TikTok / Reels / Shorts / X) OR a
@@ -477,6 +477,9 @@ Commands:
   exists <voiceId>  Pre-flight check that an ElevenLabs voice ID resolves.
                     Returns 200 + voice metadata if OK, exits 1 with a clear
                     error if 404. Run before any multi-clip VO batch.
+  clone [options]   Clone a voice into your ElevenLabs library via Instant Voice
+                    Cloning (/v1/voices/add). Optional pre-pass through
+                    /v1/audio-isolation strips background music / noise (#030).
   list              List voices available on the user's ElevenLabs account
                     (custom clones + favorites).
   help [command]    display help for command
@@ -731,6 +734,10 @@ Options:
   -h, --help                        display help for command
 
 Commands:
+  clone [options] <url-or-ref>      Lift the style of a public clip into a
+                                    reusable vibe-style template. Chains ref
+                                    pull → frames → analyze → blueprint →
+                                    template create.
   create [options]                  Create a template (flat JSON) from a project
                                     or file
   register <id>                     Register an existing dir template in the

@@ -19,6 +19,7 @@ import {
   TransientPayloadError,
 } from "./shared.js";
 import { withConcurrency } from "./concurrency.js";
+import { voiceoverCostUsd } from "./voice-pricing.js";
 import type {
   RalphyConnector,
   GenerateVoiceoverInput,
@@ -298,10 +299,15 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
   );
   const buf = tts.buf;
 
-  // ElevenLabs subscription billing — log "subscription" not a per-call price.
+  // #030: best-effort per-call cost estimate. ElevenLabs bills via subscription
+  // pool, NOT per-call invoice — this is the $/1k-chars-tier rate applied to
+  // this call so VO rows are directly comparable to image/video rows in the
+  // gen-log rollup. See voice-pricing.ts for the model→rate map.
+  const costUsd = voiceoverCostUsd(input.text.length, modelId);
+
   const result: GenerateResult = {
     localPath,
-    costUsd: 0,
+    costUsd,
     latencyMs: Date.now() - t0,
     model: modelId,
   };
@@ -311,14 +317,197 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     model: modelId,
     endpoint: `tts/${modelId}`,
     kind: "voiceover",
-    input: { slot: input.slot, project: input.projectId, voice_id: input.voiceId, text_chars: input.text.length, model_id: modelId },
+    input: {
+      slot: input.slot,
+      project: input.projectId,
+      voice_id: input.voiceId,
+      text_chars: input.text.length,
+      model_id: modelId,
+      voice_settings: body.voice_settings,
+    },
     output: { local: localPath, bytes: buf.length },
     status: "ok",
     latency_ms: result.latencyMs,
-    cost_usd: 0,
+    cost_usd: costUsd,
     attempt: tts.attempt,
     note: input.note ?? input.slot,
   });
+  return result;
+}
+
+// ─── voice clone (Instant Voice Cloning) ─────────────────────────────────────
+//
+// Wraps `/v1/voices/add` (Instant Voice Cloning). Optional pre-pass through
+// `/v1/audio-isolation` strips background music / noise so the voiceprint is
+// clean. `remove_background_noise=true` is forced on the `voices/add` body by
+// default — postmortem #030 (choose-your-guide-001 GAP-14) cites this as
+// tribal knowledge agents kept missing when they fell back to raw curl.
+//
+// Concurrency: same `voice-clone` semaphore key for both the isolation and
+// the add step. Cap = 2 — ElevenLabs doesn't document a hard cap on voice
+// management endpoints but PUT /v1/voices/add is heavier than a TTS call
+// (it kicks off a server-side fingerprint job) and 3+ in parallel has been
+// observed to 429 occasionally.
+
+export type CloneVoiceInput = {
+  projectId?: string;
+  /** Local path to the source audio sample (mp3 / wav / m4a). */
+  fromPath: string;
+  /** Display name for the new voice. */
+  name: string;
+  /** Optional description stored on the ElevenLabs voice. */
+  description?: string;
+  /** Comma-separated labels (e.g. `accent=neutral,age=young`). */
+  labels?: Record<string, string>;
+  /**
+   * Pre-process the source through `/v1/audio-isolation` to strip background
+   * music / noise before submitting to `voices/add`. Off by default — the
+   * `voices/add` endpoint already runs its own light denoiser via
+   * `remove_background_noise=true`, so isolation is opt-in for the harder
+   * cases (location recording, footage rip, podcast clip with bed music).
+   */
+  isolate?: boolean;
+  /**
+   * Force `remove_background_noise=false` on the `voices/add` request. Default
+   * is true (server-side denoise on). Off only when the user explicitly wants
+   * to preserve roomtone characteristics in the voiceprint.
+   */
+  denoise?: boolean;
+  signal?: AbortSignal;
+};
+
+export type CloneVoiceResult = {
+  voiceId: string;
+  name: string;
+  /** Path the isolated audio was written to (if --isolate). */
+  isolatedPath?: string;
+  latencyMs: number;
+  costUsd: number;
+};
+
+export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResult> {
+  requireKey();
+  const t0 = Date.now();
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+
+  // Validate the input file exists and is non-empty before we burn an upload.
+  const stat = await fs.stat(input.fromPath).catch(() => null);
+  if (!stat || !stat.isFile()) {
+    throw new Error(`voice clone: source audio not found at ${input.fromPath}`);
+  }
+  if (stat.size === 0) {
+    throw new Error(`voice clone: source audio at ${input.fromPath} is 0 bytes`);
+  }
+
+  let uploadPath = input.fromPath;
+  let isolatedPath: string | undefined;
+
+  // Optional pre-pass: /v1/audio-isolation strips background music / noise.
+  // Output goes next to the source as `<basename>.isolated.mp3`.
+  if (input.isolate) {
+    const sourceBuf = await fs.readFile(input.fromPath);
+    const form = new FormData();
+    form.append(
+      "audio",
+      new Blob([sourceBuf], { type: "audio/mpeg" }),
+      path.basename(input.fromPath),
+    );
+    const isoResp = await withConcurrency(ID, "voice-clone", "voice", () =>
+      fetch(`${BASE_URL}/audio-isolation`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "User-Agent": UA,
+        },
+        body: form,
+        signal: input.signal,
+      }),
+    );
+    if (!isoResp.ok) {
+      const text = await isoResp.text().catch(() => "");
+      throw new Error(`ElevenLabs audio-isolation ${isoResp.status}: ${text.slice(0, 400)}`);
+    }
+    const isoBuf = Buffer.from(await isoResp.arrayBuffer());
+    const ext = path.extname(input.fromPath) || ".mp3";
+    const base = path.basename(input.fromPath, ext);
+    isolatedPath = path.join(path.dirname(input.fromPath), `${base}.isolated${ext}`);
+    await fs.writeFile(isolatedPath, isoBuf);
+    uploadPath = isolatedPath;
+  }
+
+  // POST /v1/voices/add — multipart form with files[], name, description,
+  // labels (JSON), remove_background_noise.
+  const removeNoise = input.denoise === false ? false : true;
+  const sampleBuf = await fs.readFile(uploadPath);
+  const addForm = new FormData();
+  addForm.append("name", input.name);
+  if (input.description) addForm.append("description", input.description);
+  if (input.labels) addForm.append("labels", JSON.stringify(input.labels));
+  addForm.append("remove_background_noise", String(removeNoise));
+  addForm.append(
+    "files",
+    new Blob([sampleBuf], { type: "audio/mpeg" }),
+    path.basename(uploadPath),
+  );
+
+  const resp = await withConcurrency(ID, "voice-clone", "voice", () =>
+    fetch(`${BASE_URL}/voices/add`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "User-Agent": UA,
+      },
+      body: addForm,
+      signal: input.signal,
+    }),
+  );
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`ElevenLabs voices/add ${resp.status}: ${text.slice(0, 400)}`);
+  }
+  const json = (await resp.json()) as { voice_id?: string; requires_verification?: boolean };
+  if (!json.voice_id) {
+    throw new Error(`ElevenLabs voices/add returned no voice_id: ${JSON.stringify(json).slice(0, 300)}`);
+  }
+
+  // Invalidate the in-process voice-exists cache so subsequent
+  // `generateVoiceover` calls don't have a stale-miss on the new voice id.
+  voiceExistsCache.set(json.voice_id, true);
+
+  const result: CloneVoiceResult = {
+    voiceId: json.voice_id,
+    name: input.name,
+    isolatedPath,
+    latencyMs: Date.now() - t0,
+    costUsd: 0, // clone is a one-shot setup, not metered per-call
+  };
+
+  // Log to the project's gen-log when a projectId is supplied. Without a
+  // project the clone is a one-off setup action — still useful in stderr,
+  // just not append-only-logged.
+  if (input.projectId) {
+    await logGeneration(input.projectId, {
+      slot: `voice-clone-${json.voice_id}`,
+      provider: ID,
+      model: "voices/add",
+      endpoint: "voices/add",
+      kind: "audio",
+      input: {
+        project: input.projectId,
+        from_path: input.fromPath,
+        name: input.name,
+        isolate: !!input.isolate,
+        remove_background_noise: removeNoise,
+      },
+      output: { local: isolatedPath ?? uploadPath },
+      status: "ok",
+      latency_ms: result.latencyMs,
+      cost_usd: 0,
+      request_id: json.voice_id,
+      note: `voice clone: ${input.name}`,
+    });
+  }
+
   return result;
 }
 

@@ -631,6 +631,7 @@ export function generateCmd() {
     .option("--stability <n>", "Voice stability 0-1 (lower = more variation, useful for emotional / cinematic deliveries; higher = monotone, useful for analog-horror PSA / robo-narrator). Default 0.55.", (v) => parseFloat(v))
     .option("--similarity-boost <n>", "Similarity-to-source 0-1 (higher = closer to the cloned voice; lower = more interpretation). Default 0.8.", (v) => parseFloat(v))
     .option("--style <n>", "Style amplification 0-1 (0 = monotone broadcast register, 1 = full dramatic). Default 0.25. Analog-horror postmortem: style 0 with stability ~0.5 produced the cold-robo-female PSA register.", (v) => parseFloat(v))
+    .option("--speed <n>", "Playback speed 0-2 (1.0 = natural, <0.7 sludgy, >1.3 chipmunky). Default 1.0. Forwarded to voice_settings.speed (#030).", (v) => parseFloat(v))
     .option("--no-speaker-boost", "Disable use_speaker_boost (default on; turn off for monotone broadcast / robo registers)")
     .option("--note <note>", "Free-form note")
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp3.")
@@ -646,8 +647,10 @@ export function generateCmd() {
 
       if (opts.dryRun) {
         const chars = (opts.text || "").length;
-        // ElevenLabs multilingual_v2 charges per-character; nominal $0.30/1k chars.
-        const estUsd = (chars / 1000) * 0.3;
+        // #030: route the dry-run estimate through the same pricing module
+        // the live call uses, so dry-run and post-call cost match.
+        const { voiceoverCostUsd } = await import("../lib/providers/voice-pricing.js");
+        const estUsd = voiceoverCostUsd(chars, opts.model);
         out({
           dryRun: true,
           would_call: [
@@ -659,10 +662,25 @@ export function generateCmd() {
         return;
       }
 
+      // #030: range-validate the voice_settings sliders. ElevenLabs accepts
+      // 0..1 for stability / similarity_boost / style and 0..2 for speed. We
+      // fail-fast here rather than letting the API return a cryptic 422 mid-
+      // batch — the CLI is the right place to catch a typo'd --style 1.5.
+      const rangeCheck = (name: string, val: unknown, lo: number, hi: number) => {
+        if (val === undefined) return;
+        if (typeof val !== "number" || Number.isNaN(val) || val < lo || val > hi) {
+          throw new Error(`--${name} must be a number in [${lo}, ${hi}], got: ${val}`);
+        }
+      };
+      rangeCheck("stability", opts.stability, 0, 1);
+      rangeCheck("similarity-boost", opts.similarityBoost, 0, 1);
+      rangeCheck("style", opts.style, 0, 1);
+      rangeCheck("speed", opts.speed, 0, 2);
       const voiceSettings: Record<string, unknown> = {};
       if (opts.stability !== undefined) voiceSettings.stability = opts.stability;
       if (opts.similarityBoost !== undefined) voiceSettings.similarity_boost = opts.similarityBoost;
       if (opts.style !== undefined) voiceSettings.style = opts.style;
+      if (opts.speed !== undefined) voiceSettings.speed = opts.speed;
       if (opts.speakerBoost === false) voiceSettings.use_speaker_boost = false;
       const connVo = resolveConnector("voice", opts.provider);
       const uivo = await import("../lib/ui.js");

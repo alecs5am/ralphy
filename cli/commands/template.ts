@@ -11,6 +11,7 @@ import {
   loadTemplateManifest,
   diagnoseRequiredInputs,
 } from "../lib/templater/loader.js";
+import { templateCloneCmd } from "./clone.js";
 
 // Templates live in two places (both readable transparently):
 //   - templates/                  → repo-public, committed to git, shipped on clone
@@ -146,6 +147,11 @@ async function readTemplateMeta(ref: ResolvedTemplate) {
 
 export function templateCmd() {
   const cmd = new Command("template").description("Manage scenario/video templates");
+
+  // #030: mount the style-lift verb under `template clone` to remove the name
+  // collision with `voice clone` (Instant Voice Cloning). The legacy
+  // `ralphy clone` still works as a deprecation alias for one release.
+  cmd.addCommand(templateCloneCmd());
 
   cmd
     .command("create")

@@ -110,6 +110,12 @@ export type GenerateVoiceoverInput = CommonInput & {
     similarity_boost?: number;
     style?: number;
     use_speaker_boost?: boolean;
+    /**
+     * Playback speed multiplier — 0..2, where 1.0 is natural. Below ~0.7 the
+     * voice gets sludgy; above ~1.3 it gets chipmunky. Forwarded to the
+     * ElevenLabs `voice_settings.speed` field (#030).
+     */
+    speed?: number;
   };
 };
 

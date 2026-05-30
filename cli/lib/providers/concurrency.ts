@@ -32,6 +32,11 @@ const CAPS: Record<string, number> = {
   // Music: 2 concurrent per subscription (tokyo-y2k 3 parallel → 1 failed
   // 429). Documented in MODELS.md failure-mode table.
   "elevenlabs:music_v1": 2,
+  // Voice clone (Instant Voice Cloning): cap = 2. /v1/voices/add kicks off a
+  // server-side fingerprint job that's heavier than a TTS call; 3+ in
+  // parallel has been observed to 429 occasionally (issue #030). Shared with
+  // /v1/audio-isolation since the clone flow chains them.
+  "elevenlabs:voice-clone": 2,
 
   // ── OpenRouter image models ─────────────────────────────────────────────
   // gpt-5.4-image-2: NOT hard-capped to 1 (per MEMORY
