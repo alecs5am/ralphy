@@ -6,8 +6,10 @@
 // `ralphy generate voiceover` commits a batch.
 
 import { Command } from "commander";
+import path from "node:path";
 import { out, err } from "../lib/output.js";
 import { requireCapability } from "../lib/capabilities.js";
+import { cloneVoice } from "../lib/providers/elevenlabs.js";
 
 export function voiceCmd(): Command {
   const cmd = new Command("voice").description(
@@ -44,6 +46,49 @@ export function voiceCmd(): Command {
         description: v.description,
       });
     });
+
+  cmd
+    .command("clone")
+    .description(
+      "Clone a voice into your ElevenLabs library via Instant Voice Cloning (/v1/voices/add). Optional pre-pass through /v1/audio-isolation strips background music / noise (#030).",
+    )
+    .requiredOption("--from <path>", "Local audio sample (mp3 / wav / m4a). 30s-2min of clean speech works best.")
+    .requiredOption("--name <name>", "Display name for the new voice")
+    .option("--description <text>", "Voice description (stored on ElevenLabs)")
+    .option("--isolate", "Run the source through /v1/audio-isolation first to strip background music / noise. Off by default — opt-in for hard cases (location recording, footage rip).", false)
+    .option("--no-denoise", "Disable the voices/add server-side denoise pass. Default: denoise on (remove_background_noise=true) — tribal-knowledge gotcha #030.")
+    .option("--project <id>", "Project id to attach the clone to in the gen-log (optional — without it the clone is a one-off setup action).")
+    .action(async (opts) => {
+      requireCapability("voiceover-elevenlabs");
+      const from = path.resolve(opts.from);
+      try {
+        const result = await cloneVoice({
+          projectId: opts.project,
+          fromPath: from,
+          name: opts.name,
+          description: opts.description,
+          isolate: !!opts.isolate,
+          denoise: opts.denoise !== false,
+        });
+        out({
+          voice_id: result.voiceId,
+          name: result.name,
+          isolated_path: result.isolatedPath,
+          latency_ms: result.latencyMs,
+        });
+      } catch (e) {
+        err((e as Error).message);
+      }
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  ralphy voice clone --from refs/narrator.mp3 --name "Alerter"
+  ralphy voice clone --from refs/podcast-rip.mp3 --name "Host" --isolate
+  ralphy voice clone --from refs/clean.wav --name "PSA" --project analog-horror-001
+`,
+    );
 
   cmd
     .command("list")

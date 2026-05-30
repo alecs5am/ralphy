@@ -85,8 +85,9 @@ describe("generate voiceover --dry-run", () => {
     expect(r.exitCode).toBe(0);
     const j = r.json as { dryRun: boolean; cost_estimate_usd: number };
     expect(j.dryRun).toBe(true);
-    // 1000 chars at $0.30 / 1k chars
-    expect(j.cost_estimate_usd).toBeCloseTo(0.3, 3);
+    // 1000 chars on eleven_multilingual_v2 → ceil(1000/1000) * $0.20 = $0.20
+    // (rate sourced from cli/lib/providers/voice-pricing.ts as of #030).
+    expect(j.cost_estimate_usd).toBeCloseTo(0.2, 3);
   });
 });
 
