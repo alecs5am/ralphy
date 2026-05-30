@@ -57,7 +57,7 @@ live-action/photoreal).
   (one concrete reproducible video) while the skill carries the
   generalized know-how — the two are complementary, not duplicates
   (per the skill-vs-template model). Likely keep both.
-- Name TBD: `ralphy-ugc-toon-action` vs broader `ralphy-ugc-animation`.
+- Name TBD: `ugc-toon-action` vs broader `ralphy-ugc-animation`.
 - Subject-agnostic test: re-run on a non-skater subject (e.g. a
   cooking duel, a pet, a product mascot) to confirm it generalizes
   before shipping.

@@ -5,7 +5,7 @@
 > "hype graphic", "album-cover-style still", or anything that needs a *bold
 > character-driven brand poster with one huge readable word* — the rules below
 > are the register. This guideline is the prompt reference; the
-> [`/ralphy-poster`](../../.agents/skills/ralphy-poster/SKILL.md) skill is the
+> [`/poster`](../../.agents/skills/poster/SKILL.md) skill is the
 > end-to-end workflow.
 
 ## When to apply

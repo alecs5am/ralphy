@@ -1,6 +1,6 @@
 # Ralphy install playbook
 
-**Read this when:** "install ralphy", "set this up from scratch", "fresh machine", "/ralphy-install", or when `which ralphy` returns nothing in a session that's about to use ralphy commands.
+**Read this when:** "install ralphy", "set this up from scratch", "fresh machine", "/install", or when `which ralphy` returns nothing in a session that's about to use ralphy commands.
 
 The very first playbook a new user hits. It gets the `ralphy` binary onto their machine, makes sure `bun` and `ffmpeg` are present (the few dependencies that the bundled binary doesn't ship), runs the interactive setup wizard for keys, and points ralphy at their checkout of `ugc-cli`.
 
@@ -8,7 +8,7 @@ After this playbook runs, the user can do `ralphy <anything>` from any directory
 
 ## When to invoke me
 
-- User says: "install ralphy", "set this up", "fresh machine", "nothing works", "/ralphy-install".
+- User says: "install ralphy", "set this up", "fresh machine", "nothing works", "/install".
 - `which ralphy` returns nothing.
 - `ralphy status` errors with "Could not locate the ugc-cli project".
 

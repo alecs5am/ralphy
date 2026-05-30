@@ -12,9 +12,9 @@ Three recurring project shapes have no niche skill. Agents reinvent the structur
 
 ## What
 
-- **`ralphy-fb-creatives`** — sotaocr-fb-001 improvised 32-creative scaffold + ad-set grouping (5-set matrix: A real-people / B graphic / C proof / D meme / E niche).
-- **`ralphy-carousel`** — ralphy-carousel-001 improvised cover-first checkpoint, dual-ref cohesion, mascot-fit rule from scratch using two external user-supplied files. Workflow-fixes #1.
-- **`ralphy-analog-horror-psa`** — analog-horror-fridge-001 hand-built the 10-scene × 3s stenciled-pictogram PSA format (IF/DO-NOT/BUT/AND structure, robo-PSA voice, VHS overlay, SMPTE climax). $4.45 spent with no reusable artifact.
+- **`fb-creatives`** — sotaocr-fb-001 improvised 32-creative scaffold + ad-set grouping (5-set matrix: A real-people / B graphic / C proof / D meme / E niche).
+- **`carousel`** — ralphy-carousel-001 improvised cover-first checkpoint, dual-ref cohesion, mascot-fit rule from scratch using two external user-supplied files. Workflow-fixes #1.
+- **`analog-horror-psa`** — analog-horror-fridge-001 hand-built the 10-scene × 3s stenciled-pictogram PSA format (IF/DO-NOT/BUT/AND structure, robo-PSA voice, VHS overlay, SMPTE climax). $4.45 spent with no reusable artifact.
 
 ## Why it matters
 
@@ -22,9 +22,9 @@ Each missing skill means the next project of that shape starts at zero. The stru
 
 ## Suggested fix
 
-- Create `.agents/skills/ralphy-fb-creatives/SKILL.md` (5-set scaffold A real-people / B graphic / C proof / D meme / E niche; per-set prompt cookbook).
-- Create `.agents/skills/ralphy-carousel/SKILL.md` (cover-first checkpoint, dual-ref cohesion, mascot-fit rule).
-- Create `.agents/skills/ralphy-analog-horror-psa/SKILL.md` + scaffold `templates/entertainment-viral/analog-horror-psa/` from fridge postmortem via `/ralphy-templater`. Lift `MobiusWobble + VcrTrackingCanvas + SnowCanvas + GlitchX` to `src/lib/components/overlays/AnalogTV.tsx`.
+- Create `.agents/skills/fb-creatives/SKILL.md` (5-set scaffold A real-people / B graphic / C proof / D meme / E niche; per-set prompt cookbook).
+- Create `.agents/skills/carousel/SKILL.md` (cover-first checkpoint, dual-ref cohesion, mascot-fit rule).
+- Create `.agents/skills/analog-horror-psa/SKILL.md` + scaffold `templates/entertainment-viral/analog-horror-psa/` from fridge postmortem via `/templater`. Lift `MobiusWobble + VcrTrackingCanvas + SnowCanvas + GlitchX` to `src/lib/components/overlays/AnalogTV.tsx`.
 - Add routing rows in AGENTS.md.
 
 ## Sources

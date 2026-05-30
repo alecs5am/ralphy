@@ -38,12 +38,12 @@ The routing table in [`AGENTS.md`](https://github.com/alecs5am/ralphy/blob/main/
 | User intent | Playbook |
 |---|---|
 | New project request, brief with > 1 unknown | `intake.md` — fires before any other playbook |
-| URL drop, "analyze @handle", "what's trending in X" | `researcher.md` (and the `/ralphy-researcher` skill) |
+| URL drop, "analyze @handle", "what's trending in X" | `researcher.md` (and the `/researcher` skill) |
 | "write a script", scenario feedback | `scenarist.md` |
 | "generate prompts / assets", model swap | `art-director.md` |
 | "compose the video", "render", "captions" | `editor.md` (then `hyperframes.md` for API specifics) |
 | End-to-end, batch (N ≥ 3), "save as template" | `producer.md` |
-| "evaluate / score / QA" a rendered mp4 | `/ralphy-evaluator` skill |
+| "evaluate / score / QA" a rendered mp4 | `/evaluator` skill |
 | `ralphy doctor`, CLI usage question | `core.md` |
 
 **Composition.** A request that spans roles is a chain in role order. "Make a video in the style of `<url>` for `<brand>`" → researcher → scenarist → art-director → editor. The producer playbook is the wrapper for end-to-end.
@@ -60,13 +60,13 @@ The seven skills today, in the order they appear under `.agents/skills/`:
 
 | Skill | Namespace | Input → Output |
 |---|---|---|
-| [`ralphy-evaluator`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-evaluator/SKILL.md) | `ralphy` | rendered mp4 → `eval.json` + `eval-report.md` |
-| [`ralphy-researcher`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-researcher/SKILL.md) | `ralphy` | URLs / handles / topic → `report.md` + `sources.json` |
-| [`ralphy-templater`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-templater/SKILL.md) | `ralphy` | shipped project → vibe-reference template under `templates/<category>/<slug>/` |
-| [`ralphy-install`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-install/SKILL.md) | `ralphy` | fresh machine → installed binary, configured keys, working `ralphy doctor` |
-| [`hyperframes`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/hyperframes/SKILL.md) | `ralphy` | HyperFrames composition question → topic-specific sub-doc |
-| [`ralphy-postmortem`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-postmortem/SKILL.md) | `ralphy` | iteration session → 6-file postmortem set under `workspace/projects/<id>/postmortem/` |
-| [`ralphy-dev-release`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/ralphy-dev-release/SKILL.md) | `ralphy-dev` | main-branch HEAD → new GitHub Release + brew + npm publication |
+| [`evaluator`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/evaluator/SKILL.md) | `user` | rendered mp4 → `eval.json` + `eval-report.md` |
+| [`researcher`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/researcher/SKILL.md) | `user` | URLs / handles / topic → `report.md` + `sources.json` |
+| [`templater`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/templater/SKILL.md) | `user` | shipped project → vibe-reference template under `templates/<category>/<slug>/` |
+| [`install`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/install/SKILL.md) | `user` | fresh machine → installed binary, configured keys, working `ralphy doctor` |
+| [`hyperframes`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/hyperframes/SKILL.md) | `user` | HyperFrames composition question → topic-specific sub-doc |
+| [`postmortem`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/postmortem/SKILL.md) | `user` | iteration session → 6-file postmortem set under `workspace/projects/<id>/postmortem/` |
+| [`dev-release`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/dev-release/SKILL.md) | `maintainer` | main-branch HEAD → new GitHub Release + brew + npm publication |
 
 The skill body follows a conventional section order — `## Trigger`, `## Hard invariants`, `## Workflow`, `## Outputs`, `## Cookbook` — see [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) for the authoring guide.
 
@@ -76,12 +76,12 @@ Skills ship in two namespaces:
 
 | Namespace | Audience | Examples |
 |---|---|---|
-| `ralphy` | end users | `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `skill-creator` |
+| `user` | end users | `evaluator`, `researcher`, `templater`, `install` |
+| `maintainer` | maintainers / contributors | `dev-release`, `dev-tasks` |
 
-The install wizard (`ralphy skill install`) installs the `ralphy` set by default. `ralphy skill install --dev` opts into the maintainer set. The split exists so a tester running `/<TAB>` on a fresh install does not see `/release` (which ships the binary, not the user's project) or `/skill-creator` (a maintainer authoring tool).
+The install wizard (`ralphy skill install`) installs the `user` set by default. `ralphy skill install --dev` opts into the maintainer set. The split exists so a tester running `/<TAB>` on a fresh install does not see `/dev-release` (which ships the binary, not the user's project) or `/dev-tasks` (a maintainer authoring tool).
 
-A skill in `ralphy-dev` ships through the same lint and installer plumbing as `ralphy` — it is the same format, just gated behind the `--dev` flag in the installer.
+A skill in the `maintainer` namespace ships through the same lint and installer plumbing as a `user` skill — it is the same format, just gated behind the `--dev` flag in the installer.
 
 ## Playbooks vs. skills
 
@@ -89,7 +89,7 @@ The two layers solve different problems.
 
 **Playbooks** are *role docs*. They are read by the agent when a user intent matches a row in the routing table. They cover roles (`scenarist`, `art-director`, `editor`, `producer`, `core`) and domains (`hyperframes`, `intake`). No frontmatter, no activation contract — they are just Markdown the agent reads.
 
-**Skills** are *workflows*. They have a deterministic input → output contract and a single CLI command. They are slash-invocable (`/ralphy-evaluator <path.mp4>`) and they produce specific artifacts on disk. The agent invokes a skill when the user types the slash command, or when the routing table points the agent at a skill (e.g. "evaluate this video" → `/ralphy-evaluator`).
+**Skills** are *workflows*. They have a deterministic input → output contract and a single CLI command. They are slash-invocable (`/evaluator <path.mp4>`) and they produce specific artifacts on disk. The agent invokes a skill when the user types the slash command, or when the routing table points the agent at a skill (e.g. "evaluate this video" → `/evaluator`).
 
 The old role-shim skills (`ralph-art-director`, `ralph-core`, `ralph-editor`, `ralph-producer`, `ralph-scenarist`) were removed in favor of direct routing via `AGENTS.md` → playbooks. If you need to invoke a role, you say the role-utterance ("compose the video") and the routing picks the right playbook. You no longer need a slash command for the everyday flow.
 
@@ -126,7 +126,7 @@ For a new playbook:
 For a new skill:
 
 1. Create `.agents/skills/<name>/SKILL.md` with valid frontmatter (`name`, `description` ≤ 1536 chars).
-2. Pick a namespace — `ralphy` for user-facing, `ralphy-dev` for maintainer-only.
+2. Pick a namespace — `user` for user-facing, `maintainer` for maintainer-only.
 3. Follow the section order — `## Trigger`, `## Hard invariants`, `## Workflow`, `## Outputs`, `## Cookbook`.
 4. Run `bun run lint:skills` — CI runs the same lint.
 5. Add a row to the routing table in `AGENTS.md` if the skill should fire from a user-intent match.

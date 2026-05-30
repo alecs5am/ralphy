@@ -23,7 +23,7 @@ A skill (e.g. `/publish-template`) that, from the active project context:
    the postmortem) and seeds a showcase entry (`055`) from the project's render.
 3. Migrates heavy locked refs to `ralphy-assets/pool/`.
 4. **Commits + pushes** to `origin` (main) — same channel discipline as
-   `/ralphy-dev-release`. Reports the live `/library` URL.
+   `/dev-release`. Reports the live `/library` URL.
 
 ## Scope / acceptance
 
@@ -42,4 +42,4 @@ phrase in the project chat" instead of a manual multi-step extraction.
 ## Notes
 
 - Depends on `052` (format placement) + reuses the existing extract verb.
-- Model it on `/ralphy-dev-release` (3-channel publish discipline).
+- Model it on `/dev-release` (3-channel publish discipline).

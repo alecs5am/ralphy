@@ -10,8 +10,8 @@
 
 The `ralphy-` / `ralphy-dev-` prefixes on skill names are noise — they confuse
 more than they namespace. And the experiment of encoding content niches as
-skills (`ralphy-ugc-*`, `ralphy-poster`, `ralphy-analog-horror-psa`,
-`ralphy-fb-creatives`, `ralphy-carousel`) did not pan out: those are *templates*,
+skills (`ralphy-ugc-*`, `poster`, `analog-horror-psa`,
+`fb-creatives`, `carousel`) did not pan out: those are *templates*,
 not skills (see `052`). This reverses the model in note `008`.
 
 ## What
@@ -24,8 +24,8 @@ not skills (see `052`). This reverses the model in note `008`.
    `guidelines` system), research, evaluator, install, postmortem, dev tooling
    (release, tasks), the HyperFrames engine skills.
 3. **Migrate content-niche skills into templates** under `052`'s taxonomy:
-   `ralphy-ugc-*`, `ralphy-poster`, `ralphy-carousel`, `ralphy-fb-creatives`,
-   `ralphy-analog-horror-psa` → style templates. Preserve the real craft text.
+   `ralphy-ugc-*`, `poster`, `carousel`, `fb-creatives`,
+   `analog-horror-psa` → style templates. Preserve the real craft text.
 4. Skills are **referenced in Ralphy's system prompt** (`AGENTS.md`) for
    technical use, not as the content-routing default.
 

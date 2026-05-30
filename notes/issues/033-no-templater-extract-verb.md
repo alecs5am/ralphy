@@ -1,4 +1,4 @@
-# `/ralphy-templater` skill has no backing CLI verb
+# `/templater` skill has no backing CLI verb
 
 > **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
@@ -8,7 +8,7 @@
 
 ## Context
 
-The `/ralphy-templater` skill is the documented path for promoting a finished project into `templates/<category>/<slug>/`. There is no CLI verb. Extraction is hand-done or skipped entirely. Even successful projects with rich postmortems never become reusable templates.
+The `/templater` skill is the documented path for promoting a finished project into `templates/<category>/<slug>/`. There is no CLI verb. Extraction is hand-done or skipped entirely. Even successful projects with rich postmortems never become reusable templates.
 
 ## What
 
@@ -27,7 +27,7 @@ The whole point of the template system is that costly experiments compound. When
   - Generates `template.json` (manifest), sample remix script, and a README skeleton.
   - Lifts heavy reference assets (>1MB or marked-reusable) to `ralphy-assets/pool/`.
   - Records the extraction in `generations.jsonl` so postmortems see it.
-- Reuse `.agents/skills/ralphy-templater/SKILL.md` as the human-readable how-to; the CLI verb handles mechanics.
+- Reuse `.agents/skills/templater/SKILL.md` as the human-readable how-to; the CLI verb handles mechanics.
 
 ## Sources
 
