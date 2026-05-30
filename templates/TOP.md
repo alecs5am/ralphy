@@ -71,9 +71,8 @@ Eleven templates derived from shipped projects (the showcase grid on the landing
 | [`analog-horror-psa`](entertainment-viral/analog-horror-psa/) | entertainment-viral | `analog-horror-fridge-001` | EBS-PSA hijack format; tight IF→DO-NOT→BUT→AND beat scaffold |
 | [`noski-deadpan-2hander`](creator-lifestyle/noski-deadpan-2hander/) | creator-lifestyle | `noski-people-001` | @americanbaron deadpan register — strong creator-lifestyle pattern |
 | [`tokyo-y2k-cinematic`](cinematic-narrative/tokyo-y2k-cinematic/) | cinematic-narrative | `tokyo-y2k-001` | Dual-aspect output (9:16 + 16:9), neon-soaked y2k cinematic |
-| [`pixel-art-product-reveal`](cinematic-narrative/pixel-art-product-reveal/) | cinematic-narrative | `playdate-pixel-001` | Photoreal product as only-chroma in duotone world — iconic Panic-style reveal |
-| [`japanese-hypermotion-product-ad`](cinematic-narrative/japanese-hypermotion-product-ad/) | cinematic-narrative | `flipper-hypermotion-001` | 8-cut hyperpop product ad with chibi orbit — strong product-launch format |
-| [`comic-spiderverse-action`](cinematic-narrative/comic-spiderverse-action/) | cinematic-narrative | `skater-spiderverse-001` | 16:9 painterly action duel in Spider-Verse/Arcane register |
+| [`japanese-hypermotion-product-ad`](cinematic-narrative/japanese-hypermotion-product-ad/) | cinematic-narrative | `flipper-hypermotion-001` | **Hyper-Motion Product Ad** — hyper-kinetic cuts, CGI product hero + pixel-art reveal beats (covers Flipper + Playdate takes) |
+| [`cartoon`](cinematic-narrative/cartoon/) | cinematic-narrative | `skater-spiderverse-001` | **Seedance Cartoon** — cel-shaded + Spider-Verse/Arcane action (covers arena-rocker + skater-duel takes) |
 | [`found-footage-mockumentary`](entertainment-viral/found-footage-mockumentary/) | entertainment-viral | `occult-mockumentary-001` | First-person handheld horror — seedance-2.0 for non-default physics |
 | [`anthropomorphic-object-drama`](entertainment-viral/anthropomorphic-object-drama/) | entertainment-viral | `fruit-drama-001` | Pixar-3D telenovela parody with editor-stage music bed (sibling to `ai-drama`) |
 | [`ugc-selfie-product-review`](dtc-commerce/ugc-selfie-product-review/) | dtc-commerce | `glitter-cream-001` | Handheld UGC selfie review with identity-lock via product + persona masters |

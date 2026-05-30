@@ -1,8 +1,8 @@
 {
-  "name": "Before / After Product",
+  "name": "UGC Ad",
   "slug": "before-after-product",
   "kind": "vibe-reference",
-  "description": "Classic UGC product ad: 5s of relatable pain → 1s product reveal → 9s of demo / transformation. 15-18s total, 9:16. Reference-required: a real product photo / packaging / logo must be supplied as a reference, otherwise generation refuses (no AI-improvised branding, ever). Tonal arc in VO and music carries the emotional payoff (frustrated → satisfied). The most reliably converting UGC pattern in our pack.",
+  "description": "Authentic UGC-style product ad — handheld selfie review, before/after reveal, casual voiceover. The Glitter-cream review is the reference render.",
   "tags": [
     "before-after",
     "product",
@@ -21,8 +21,14 @@
   ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
-  "typicalDurationSec": [15, 18],
-  "typicalClipCount": [3, 5],
+  "typicalDurationSec": [
+    15,
+    18
+  ],
+  "typicalClipCount": [
+    3,
+    5
+  ],
   "fps": 30,
   "width": 1080,
   "height": 1920,
