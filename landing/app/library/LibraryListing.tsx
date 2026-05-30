@@ -326,12 +326,63 @@ function GeneralBaselineCard({ item }: { item: LibraryItem }) {
   );
 }
 
+/** Per-format visual identity for the designed fallback cover. A tinted
+ *  gradient + a big format glyph + the template name — intentional, never an
+ *  empty dark box. Keyed so each format reads as its own family at a glance. */
+const FALLBACK_STYLE: Record<
+  string,
+  { glyph: string; from: string; to: string; aspect: string }
+> = {
+  video: { glyph: "▶", from: "#1b2342", to: "#0d1020", aspect: "9 / 16" },
+  image: { glyph: "◐", from: "#2a2140", to: "#120e1f", aspect: "1 / 1" },
+  carousel: { glyph: "❯", from: "#10303a", to: "#0a191e", aspect: "4 / 5" },
+  "fb-creative": { glyph: "❤", from: "#3a1c2c", to: "#1c0e16", aspect: "1 / 1" },
+  "motion-design": { glyph: "✳", from: "#143a2e", to: "#0a1d17", aspect: "16 / 9" },
+  poster: { glyph: "✦", from: "#3a2a14", to: "#1d150a", aspect: "4 / 5" },
+  "sticker-pack": { glyph: "✺", from: "#2c1438", to: "#160a1c", aspect: "1 / 1" },
+};
+const FALLBACK_DEFAULT = { glyph: "◆", from: "#222226", to: "#0e0e10", aspect: "4 / 5" };
+
+function fallbackStyle(format?: LibraryFormat) {
+  return (format && FALLBACK_STYLE[format]) || FALLBACK_DEFAULT;
+}
+
+function FallbackCover({ format, name }: { format?: LibraryFormat; name: string }) {
+  const s = fallbackStyle(format);
+  return (
+    <div
+      className="relative w-full h-full grid place-items-center overflow-hidden"
+      style={{ background: `linear-gradient(150deg, ${s.from} 0%, ${s.to} 100%)` }}
+      aria-hidden
+    >
+      <span
+        className="absolute -right-4 -bottom-6 text-[160px] leading-none font-display text-white/[0.06] select-none"
+        style={{ fontFeatureSettings: "normal" }}
+      >
+        {s.glyph}
+      </span>
+      <div className="relative z-10 flex flex-col items-center gap-2.5 px-5 text-center">
+        <span className="grid place-items-center w-12 h-12 rounded-2xl bg-white/[0.07] text-[22px] text-white/80">
+          {s.glyph}
+        </span>
+        <span className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-white/55">
+          {format ? FORMAT_LABELS[format] : "template"}
+        </span>
+        <span className="font-display text-[15px] leading-[1.15] font-semibold text-white/85 max-w-[18ch] tracking-[-0.01em]">
+          {name}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function Card({ item, onStyleOf }: { item: LibraryItem; onStyleOf?: () => void }) {
+  const fallbackAspect = fallbackStyle(item.format).aspect;
   const inner = (
     <>
       <div
         className="relative w-full overflow-hidden rounded-[20px]"
-        style={item.cover ? ({ aspectRatio: item.cover.aspect } as React.CSSProperties) : { aspectRatio: "4 / 5" }}
+        style={item.cover ? ({ aspectRatio: item.cover.aspect } as React.CSSProperties) : { aspectRatio: fallbackAspect }}
       >
         {item.cover ? (
           item.cover.kind === "video" ? (
@@ -355,11 +406,7 @@ function Card({ item, onStyleOf }: { item: LibraryItem; onStyleOf?: () => void }
             />
           )
         ) : (
-          <div className="w-full h-full grid place-items-center bg-[linear-gradient(135deg,var(--color-bg-2)_0%,var(--color-bg-3)_100%)]" aria-hidden>
-            <span className="font-mono text-[11px] tracking-[0.16em] uppercase text-mute-2">
-              {item.format ?? "template"}
-            </span>
-          </div>
+          <FallbackCover format={item.format} name={item.name} />
         )}
       </div>
       <div className="flex flex-col gap-2 px-4 pt-3.5 pb-4">

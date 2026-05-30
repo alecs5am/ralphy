@@ -59,6 +59,18 @@ export interface ShowcaseOutput {
   /** Declared media format from the manifest (e.g. "sticker-pack"). */
   format?: string;
   created?: string;
+  // ── Backward-compatible grouping extension (issue 060) ──────────────────────
+  // Outputs with no `group` render as one flat grid (legacy behavior). Outputs
+  // that share a `group` are rendered together as a campaign / pack / carousel
+  // sub-section by the per-format detail components.
+  /** Group id this output belongs to (campaign set, sticker pack, carousel id). */
+  group?: string;
+  /** Human title for the group's sub-section header. */
+  groupTitle?: string;
+  /** Order within the group (ascending). Falls back to manifest order. */
+  order?: number;
+  /** Poster frame for a video tile, if a sibling `<stem>.poster.jpg` exists. */
+  poster?: string;
 }
 
 interface RawShowcase {
@@ -71,7 +83,20 @@ interface RawShowcase {
     format?: string;
     caption?: string;
     created?: string;
+    type?: ShowcaseMediaKind;
+    group?: string;
+    groupTitle?: string;
+    order?: number;
+    aspect?: string;
   }>;
+}
+
+/** Coerce an aspect string like "4:5" / "9 / 16" into the CSS form "4 / 5". */
+function normalizeAspect(input: string | undefined): string | undefined {
+  if (!input) return undefined;
+  const m = input.match(/(\d+(?:\.\d+)?)\s*[:/x]\s*(\d+(?:\.\d+)?)/);
+  if (!m) return undefined;
+  return `${m[1]} / ${m[2]}`;
 }
 
 // Format → default aspect-ratio. Renders vary, but these match how each format
@@ -101,30 +126,34 @@ function readJson<T>(file: string): T | null {
 function resolvePublicMedia(
   slug: string,
   media: string,
-): { src: string; kind: ShowcaseMediaKind } | null {
+): { src: string; kind: ShowcaseMediaKind; poster?: string } | null {
   const base = path.basename(media);
   const stem = base.replace(/\.[^.]+$/, "");
   const dir = path.join(PUBLIC_SHOWCASE_DIR, slug);
   if (!fs.existsSync(dir)) return null;
 
   const isVideoSource = /\.(mp4|webm|mov|m4v)$/i.test(base);
+  const poster = `${stem}.poster.jpg`;
+  const posterUrl = fs.existsSync(path.join(dir, poster))
+    ? `${PUBLIC_SHOWCASE_BASE}/${slug}/${poster}`
+    : undefined;
 
   if (isVideoSource) {
-    // Prefer a committed poster frame (the >3 MB-mp4 path).
-    const poster = `${stem}.poster.jpg`;
-    if (fs.existsSync(path.join(dir, poster))) {
-      return { src: `${PUBLIC_SHOWCASE_BASE}/${slug}/${poster}`, kind: "image" };
-    }
-    // Else a small mp4 copied verbatim.
+    // A small mp4 copied verbatim renders as inline video (with poster if any).
     if (fs.existsSync(path.join(dir, base))) {
-      return { src: `${PUBLIC_SHOWCASE_BASE}/${slug}/${base}`, kind: "video" };
+      return { src: `${PUBLIC_SHOWCASE_BASE}/${slug}/${base}`, kind: "video", poster: posterUrl };
     }
+    // Else a committed poster frame stands in as a static image tile.
+    if (posterUrl) return { src: posterUrl, kind: "image" };
     return null;
   }
 
-  // Image source copied verbatim.
-  if (fs.existsSync(path.join(dir, base))) {
-    return { src: `${PUBLIC_SHOWCASE_BASE}/${slug}/${base}`, kind: "image" };
+  // Image source copied verbatim. Also try a `.webp` derivative of the same
+  // stem — the rich-content pass commits optimized webp under the same name.
+  for (const candidate of [base, `${stem}.webp`, `${stem}.jpg`]) {
+    if (fs.existsSync(path.join(dir, candidate))) {
+      return { src: `${PUBLIC_SHOWCASE_BASE}/${slug}/${candidate}`, kind: "image" };
+    }
   }
   return null;
 }
@@ -160,14 +189,49 @@ export function loadShowcase(slug: string): ShowcaseOutput[] {
       id: o.id,
       src: resolved.src,
       kind: resolved.kind,
-      aspect: (o.format && FORMAT_ASPECT[o.format]) || "1 / 1",
+      aspect:
+        normalizeAspect(o.aspect) ||
+        (o.format && FORMAT_ASPECT[o.format]) ||
+        "1 / 1",
       caption: o.caption,
       sourceProject: o.source_project,
       format: o.format,
       created: o.created,
+      group: o.group,
+      groupTitle: o.groupTitle,
+      order: o.order,
+      poster: resolved.poster,
     });
   }
+  // Stable sort by group then by `order` (manifest order is preserved when no
+  // explicit order is given, since Array.sort is stable in modern V8/Node).
+  out.sort((a, b) => {
+    const ga = a.group ?? "";
+    const gb = b.group ?? "";
+    if (ga !== gb) return 0; // keep relative order across groups as authored
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
   return out;
+}
+
+/** A cover descriptor derived from the first hosted showcase output for a slug,
+ *  used by the library index to put a real cover on every card. Returns null
+ *  when the slug has no hosted showcase media. Videos carry their poster. */
+export function showcaseCover(slug: string): {
+  src: string;
+  kind: ShowcaseMediaKind;
+  poster?: string;
+  aspect: string;
+} | null {
+  const outputs = loadShowcase(slug);
+  if (outputs.length === 0) return null;
+  const first = outputs[0];
+  return {
+    src: first.src,
+    kind: first.kind,
+    poster: first.poster,
+    aspect: first.aspect,
+  };
 }
 
 const REPO_TREE_BASE = "https://github.com/alecs5am/ralphy/tree/main/";
@@ -212,13 +276,12 @@ function findTemplateMeta(slug: string): TemplateMeta | null {
  * with a hosted showcase. The first showcase output is reused as the hero cover.
  */
 export function templateShowcaseAsFull(slug: string): GuidelineFull | null {
-  const outputs = loadShowcase(slug);
-  if (outputs.length === 0) return null;
   const tpl = findTemplateMeta(slug);
   if (!tpl) return null;
 
-  const tag = `@template:${slug}`;
+  const outputs = loadShowcase(slug);
   const cover = outputs[0];
+  const tag = `@template:${slug}`;
   return {
     slug,
     name: tpl.name,
@@ -229,12 +292,9 @@ export function templateShowcaseAsFull(slug: string): GuidelineFull | null {
     models: [],
     tags: tpl.tags,
     version: undefined,
-    cover: {
-      src: cover.src,
-      kind: cover.kind,
-      alt: tpl.name,
-      aspect: cover.aspect,
-    },
+    cover: cover
+      ? { src: cover.src, kind: cover.kind, alt: tpl.name, aspect: cover.aspect, poster: cover.poster }
+      : undefined,
     patterns: [],
     sourcePath: `${REPO_TREE_BASE}${tpl.sourcePath}`,
     cta: { label: "Remix in Ralphy", tag, hintCmd: `ralphy template use ${slug}` },
@@ -242,6 +302,42 @@ export function templateShowcaseAsFull(slug: string): GuidelineFull | null {
     body: "",
     examples: [],
   };
+}
+
+/** The `format` declared for a template slug (read from its template.yaml).
+ *  Drives the per-format detail gallery component registry. */
+export function templateFormat(slug: string): string | undefined {
+  if (!fs.existsSync(TEMPLATES_DIR)) return undefined;
+  for (const cat of fs.readdirSync(TEMPLATES_DIR, { withFileTypes: true })) {
+    if (!cat.isDirectory() || cat.name.startsWith(".")) continue;
+    const yamlPath = path.join(TEMPLATES_DIR, cat.name, slug, "template.yaml");
+    if (!fs.existsSync(yamlPath)) continue;
+    try {
+      const text = fs.readFileSync(yamlPath, "utf8");
+      const m = /^format:\s*"?([a-z-]+)"?\s*$/m.exec(text);
+      if (m) return m[1];
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/** Every template slug on disk (with a template.json), regardless of showcase
+ *  state — so the detail page's generateStaticParams covers ALL templates and
+ *  no card links to a 404. */
+export function listAllTemplateSlugs(): string[] {
+  if (!fs.existsSync(TEMPLATES_DIR)) return [];
+  const slugs: string[] = [];
+  for (const cat of fs.readdirSync(TEMPLATES_DIR, { withFileTypes: true })) {
+    if (!cat.isDirectory() || cat.name.startsWith(".")) continue;
+    const catDir = path.join(TEMPLATES_DIR, cat.name);
+    for (const tpl of fs.readdirSync(catDir, { withFileTypes: true })) {
+      if (!tpl.isDirectory()) continue;
+      if (fs.existsSync(path.join(catDir, tpl.name, "template.json"))) slugs.push(tpl.name);
+    }
+  }
+  return slugs;
 }
 
 /** Slugs that have a committed (renderable) showcase gallery. Used by the

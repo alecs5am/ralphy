@@ -3012,3 +3012,17 @@ body.mp-modal-open .nav { visibility: hidden; }
   .skill-search { min-width: 0; flex: 1; }
   .skill-modal-scroll { padding: 1.4rem 1.1rem 1.6rem; }
 }
+
+/* ── Sticker-pack checkerboard backing (library detail, issue 060) ──────────── */
+/* Transparent die-cut sticker PNGs need a neutral checker so the alpha reads.
+   Uses bg-tint steps only — no visible borders. */
+.sticker-checker {
+  background-color: var(--color-bg-2);
+  background-image:
+    linear-gradient(45deg, var(--color-bg-1) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-bg-1) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-bg-1) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-bg-1) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}

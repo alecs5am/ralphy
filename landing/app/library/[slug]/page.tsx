@@ -16,7 +16,12 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { loadGuideline, listGuidelineSlugs } from "@/lib/guidelines-loader";
-import { templateShowcaseAsFull, listShowcaseTemplateSlugs } from "@/lib/showcase-loader";
+import {
+  templateShowcaseAsFull,
+  listShowcaseTemplateSlugs,
+  listAllTemplateSlugs,
+  templateFormat,
+} from "@/lib/showcase-loader";
 import { KIND_LABELS } from "@/lib/library-types";
 import { mdxComponents } from "@/components/mdx";
 import { MediaPlayer } from "@/components/MediaPlayer";
@@ -29,10 +34,15 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  // Guideline folders + showcase clips (loadGuideline) plus templates that have
-  // a hosted results gallery (issue 055) — the latter have no guideline folder
-  // but earn a detail page once their showcase media is committed.
-  const slugs = new Set([...listGuidelineSlugs(), ...listShowcaseTemplateSlugs()]);
+  // Every template gets its own detail page (issue 060 — cards link internally,
+  // never to GitHub). Guideline folders + showcase clips supply the rest. The
+  // union covers ALL template slugs ∪ guideline slugs ∪ showcase-clip slugs so
+  // no library card ever resolves to a 404.
+  const slugs = new Set([
+    ...listAllTemplateSlugs(),
+    ...listShowcaseTemplateSlugs(),
+    ...listGuidelineSlugs(),
+  ]);
   return Array.from(slugs).map((slug) => ({ slug }));
 }
 
@@ -122,9 +132,11 @@ export default async function GuidelinePage({ params }: PageProps) {
           </div>
         </section>
 
-        {/* Seam for issue 055 — per-template results / showcase gallery.
-            Renders nothing today; the gallery mounts here when 055 lands. */}
-        <TemplateShowcase slug={g.slug} />
+        {/* Per-template results gallery, driven by the template's `format`
+            through a component registry (issue 060): video/poster/image grids,
+            campaign-grouped fb-creative, expandable sticker packs, swipeable
+            carousels. Renders nothing when the template has no hosted media. */}
+        <TemplateShowcase slug={g.slug} format={templateFormat(g.slug)} />
 
         {g.examples.length > 0 && (
           <section className="pt-6 pb-4">
