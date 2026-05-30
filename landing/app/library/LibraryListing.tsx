@@ -1,47 +1,37 @@
 "use client";
 
-// Full-width, format-organized, deep-linkable, infinite-scroll discovery
-// surface over the unified library index (issue 054).
+// Library home listing (redesign) — a Pinterest-style masonry of every
+// template, organized by format, with a browse-by-format card row that doubles
+// as the filter, plus search. Cards are per-format logical components (sticker
+// 2×2 peek, carousel stacked deck, FB 2×2 matrix, hover-play video, image
+// still, designed fallback). A hover Remix button opens the shared modal.
 //
-// URL query params are the SINGLE SOURCE OF TRUTH for view state:
-//   ?format=<f>&style=<general-slug>&q=<search>&tag=<tag>
-// The URL drives the rendered view; every control writes back to the URL via
-// router.replace (so back/forward works and a pasted URL reproduces the exact
-// view). We mirror the params into local React state on read, and never hold
-// state the URL doesn't reflect.
+// URL query params remain the SINGLE SOURCE OF TRUTH for view state
+// (?format=&style=&q=&tag=) — every control writes back via router.replace, so
+// back/forward + pasted URLs reproduce the exact view. Rendering is windowed:
+// an IntersectionObserver sentinel reveals the next page on scroll.
 //
-// Scale: the index is precomputed at build time (each item carries a lowercase
-// `text` haystack), so filtering 10k+ items is a single linear scan per
-// keystroke with no per-item field joins. Rendering is windowed — only the
-// first N cards mount, and an IntersectionObserver sentinel reveals the next
-// page as the user scrolls, so the DOM never holds more than the revealed
-// slice regardless of total count.
-//
-// No visible borders anywhere (hard memory rule) — cards/chips separate via
-// bg-tint steps + shadow + spacing.
+// No visible borders anywhere — cards/chips separate via bg-tint + shadow.
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import {
   FORMAT_BLURBS,
+  FORMAT_GLYPHS,
+  FORMAT_HUE_VARS,
   FORMAT_LABELS,
   LIBRARY_FORMATS,
   type LibraryFormat,
   type LibraryIndex,
   type LibraryItem,
 } from "@/lib/library-index-types";
+import { RemixModal } from "./_shared/RemixModal";
+import type { RemixPayload } from "./_shared/types";
+import { RemixIcon, SearchIcon } from "./_shared/icons";
 
 const PAGE_SIZE = 24;
 
-/** Read-only view of the URL params we care about. */
 interface ViewState {
   format: LibraryFormat | null;
   style: string | null;
@@ -54,12 +44,30 @@ function parseFormat(v: string | null): LibraryFormat | null {
   return null;
 }
 
+function hueVar(f?: LibraryFormat): string | undefined {
+  return f ? `var(${FORMAT_HUE_VARS[f]})` : undefined;
+}
+
+function remixForItem(item: LibraryItem): RemixPayload {
+  return {
+    tag: item.tag,
+    cli: item.cliCmd,
+    title: item.name,
+    eyebrow: "Remix this template",
+    thumb: item.cover
+      ? { kind: item.cover.kind, src: item.cover.src }
+      : item.format
+        ? { glyph: FORMAT_GLYPHS[item.format] }
+        : undefined,
+    swapHint: "e.g. “reproduce this, but swap the brand for mine.” Ralphy rebuilds it from your refs, re-running only what the swap touches.",
+  };
+}
+
 export function LibraryListing({ index }: { index: LibraryIndex }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [remix, setRemix] = useState<RemixPayload | null>(null);
 
-  // URL → view state. searchParams is the source of truth; this re-derives on
-  // every navigation (including back/forward and pasted URLs).
   const view: ViewState = useMemo(
     () => ({
       format: parseFormat(searchParams.get("format")),
@@ -70,12 +78,9 @@ export function LibraryListing({ index }: { index: LibraryIndex }) {
     [searchParams],
   );
 
-  // Local mirror for the search box so typing is responsive; pushed to the URL
-  // (debounced) which then flows back through `view`.
   const [queryDraft, setQueryDraft] = useState(view.q);
   useEffect(() => setQueryDraft(view.q), [view.q]);
 
-  // Write a partial param patch back to the URL. `undefined` deletes a key.
   const setParams = useCallback(
     (patch: Record<string, string | null | undefined>) => {
       const next = new URLSearchParams(searchParams.toString());
@@ -89,56 +94,35 @@ export function LibraryListing({ index }: { index: LibraryIndex }) {
     [router, searchParams],
   );
 
-  // Debounce search-box → URL so we don't spam history.
   useEffect(() => {
     if (queryDraft === view.q) return;
     const id = window.setTimeout(() => setParams({ q: queryDraft || undefined }), 220);
     return () => window.clearTimeout(id);
   }, [queryDraft, view.q, setParams]);
 
-  // Full filtered set (cheap linear scan over precomputed `text` haystacks).
   const filtered = useMemo(() => {
     const q = view.q.trim().toLowerCase();
-    return index.items.filter((it) => {
+    const list = index.items.filter((it) => {
       if (view.format && it.format !== view.format) return false;
       if (view.style && it.styleOf !== view.style && it.slug !== view.style) return false;
       if (view.tag && !it.tags.includes(view.tag)) return false;
       if (q && !it.text.includes(q)) return false;
       return true;
     });
+    // Strong covers first, then index order (general → alphabetical).
+    return list.slice().sort((a, b) => (a.cover ? 0 : 1) - (b.cover ? 0 : 1));
   }, [index.items, view.format, view.style, view.tag, view.q]);
 
-  // The general baseline (if any) for the selected format — surfaced above the
-  // style grid per the issue ("its general template + the style grid").
-  const generalForFormat = useMemo(() => {
-    if (!view.format) return null;
-    return filtered.find((it) => it.format === view.format && it.isGeneral) ?? null;
-  }, [filtered, view.format]);
-
-  // Tag facets within the current filtered set (top by count).
-  const tagFacets = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const it of filtered) for (const t of it.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 18)
-      .map(([tag, count]) => ({ tag, count }));
-  }, [filtered]);
-
-  // ---- Infinite scroll / windowing ----------------------------------------
+  // ---- windowing ----------------------------------------------------------
   const [visible, setVisible] = useState(PAGE_SIZE);
-  // Reset the window whenever the filtered set identity changes.
   useEffect(() => setVisible(PAGE_SIZE), [filtered]);
-
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisible((v) => Math.min(v + PAGE_SIZE, filtered.length));
-        }
+        if (entries[0]?.isIntersecting) setVisible((v) => Math.min(v + PAGE_SIZE, filtered.length));
       },
       { rootMargin: "800px 0px" },
     );
@@ -150,399 +134,294 @@ export function LibraryListing({ index }: { index: LibraryIndex }) {
   const hasMore = visible < filtered.length;
   const hasFilters = !!(view.format || view.style || view.q || view.tag);
 
-  const formatChip = (active: boolean) =>
-    `inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-medium cursor-pointer border-0 transition-colors duration-[160ms] ${
-      active ? "bg-ink text-bg" : "bg-bg-1 text-ink-3 hover:bg-bg-2 hover:text-ink"
-    }`;
-
-  const tagChip = (active: boolean) =>
-    `inline-flex items-center gap-1.5 font-mono text-[12px] rounded-full px-3 py-1.5 border-0 cursor-pointer transition-colors duration-[160ms] ${
-      active ? "text-bg bg-vio hover:bg-vio-2" : "text-ink-3 bg-bg-1 hover:bg-bg-2 hover:text-ink"
-    }`;
-
   return (
-    <div className="mt-2">
+    <div>
       {/* Search */}
-      <label
-        className="flex items-center gap-3.5 w-full bg-bg-1 rounded-[18px] px-[22px] py-[16px] text-mute mb-5 transition-[background] duration-[160ms] focus-within:bg-bg-2 focus-within:text-ink-3"
-        htmlFor="lib-search-input"
-      >
-        <SearchIcon />
-        <input
-          id="lib-search-input"
-          type="search"
-          placeholder="Search templates, tags, models…"
-          value={queryDraft}
-          onChange={(e) => setQueryDraft(e.target.value)}
-          className="flex-1 bg-transparent border-0 outline-none text-ink font-sans text-[17px] py-0.5 min-w-0 placeholder:text-mute-2"
-          aria-label="Search the library"
-        />
-      </label>
-
-      {/* Format nav — top-level taxonomy */}
-      <div className="flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Filter by media format">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={!view.format}
-          onClick={() => setParams({ format: undefined, style: undefined, tag: undefined })}
-          className={formatChip(!view.format)}
-        >
-          <span>All</span>
-          <span className="tabular-nums opacity-70 text-[12px]">{index.total}</span>
-        </button>
-        {LIBRARY_FORMATS.map((f) => {
-          const count = index.formatCounts[f] ?? 0;
-          return (
-            <button
-              key={f}
-              type="button"
-              role="tab"
-              aria-selected={view.format === f}
-              onClick={() =>
-                // Clear `tag` on format switch: tag facets are computed per
-                // filtered-set, so a tag from the previous format is stale and
-                // would AND to zero results (e.g. fb-creative + motion-design).
-                setParams({ format: view.format === f ? undefined : f, style: undefined, tag: undefined })
-              }
-              className={formatChip(view.format === f)}
-            >
-              <span>{FORMAT_LABELS[f]}</span>
-              <span className="tabular-nums opacity-70 text-[12px]">{count}</span>
-            </button>
-          );
-        })}
+      <div className="lib-toolbar">
+        <label className="lib-search" htmlFor="lib-search-input">
+          <SearchIcon />
+          <input
+            id="lib-search-input"
+            type="search"
+            placeholder="Search templates, tags, models…"
+            value={queryDraft}
+            onChange={(e) => setQueryDraft(e.target.value)}
+            aria-label="Search the library"
+          />
+        </label>
       </div>
 
-      {/* Format blurb + general baseline when a format is selected */}
-      {view.format && (
-        <div className="mb-4">
-          <p className="text-[14px] leading-[1.55] text-ink-3 m-0 max-w-[72ch]">
-            {FORMAT_BLURBS[view.format]}
-          </p>
-          {generalForFormat && !view.style && (
-            <div className="mt-4">
-              <p className="font-mono text-[10.5px] tracking-[0.12em] uppercase text-vio m-0 mb-2">
-                General baseline
-              </p>
-              <GeneralBaselineCard item={generalForFormat} />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tag facets */}
-      {tagFacets.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-4" aria-label="Filter by tag">
-          {tagFacets.map(({ tag, count }) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => setParams({ tag: view.tag === tag ? undefined : tag })}
-              className={tagChip(view.tag === tag)}
-            >
-              {tag}
-              <span
-                className={`text-[10.5px] tabular-nums ${view.tag === tag ? "text-black/55" : "text-mute"}`}
-              >
-                {count}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Result count + clear */}
-      <p className="flex items-center gap-3 font-mono text-[11.5px] tracking-[0.08em] uppercase text-mute m-0 mb-[18px]">
-        {filtered.length} of {index.total}
-        {view.style && <span className="text-vio">style of {view.style}</span>}
-        {hasFilters && (
+      {/* Browse-by-format strip — doubles as the format filter */}
+      <div className="browse">
+        <div className="browse-grid" role="tablist" aria-label="Filter by media format">
           <button
             type="button"
-            className="font-mono text-[11.5px] tracking-[0.08em] uppercase text-vio bg-transparent p-0 border-0 cursor-pointer hover:text-vio-2"
-            onClick={() => router.replace("/library", { scroll: false })}
+            role="tab"
+            aria-selected={!view.format}
+            className={`catcard all${!view.format ? " active" : ""}`}
+            onClick={() => setParams({ format: undefined, style: undefined, tag: undefined })}
           >
+            <span className="gly" style={{ background: "var(--ink)", color: "var(--bg)" }}>
+              ✦
+            </span>
+            <span>
+              <span className="cc-name">All</span>
+              <span className="cc-count">{index.total} templates</span>
+            </span>
+          </button>
+          {LIBRARY_FORMATS.map((f) => {
+            const active = view.format === f;
+            const hue = `var(${FORMAT_HUE_VARS[f]})`;
+            return (
+              <button
+                key={f}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`catcard${active ? " active" : ""}`}
+                style={active ? { boxShadow: `inset 0 0 0 2px ${hue}` } : undefined}
+                onClick={() => setParams({ format: active ? undefined : f, style: undefined, tag: undefined })}
+              >
+                <span className="glow" style={{ background: hue }} />
+                <span className="gly" style={{ background: hue }}>
+                  {FORMAT_GLYPHS[f]}
+                </span>
+                <span>
+                  <span className="cc-name">{FORMAT_LABELS[f]}</span>
+                  <span className="cc-count">{index.formatCounts[f] ?? 0} templates</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {view.format && <p className="shelf-blurb">{FORMAT_BLURBS[view.format]}</p>}
+
+      {/* Result bar */}
+      <p className="resultbar">
+        <span>
+          {filtered.length} {filtered.length === 1 ? "template" : "templates"}
+        </span>
+        {view.style && <span style={{ color: "var(--vio)" }}>style of {view.style}</span>}
+        {hasFilters && (
+          <button type="button" className="clear" onClick={() => router.replace("/library", { scroll: false })}>
             clear
           </button>
         )}
       </p>
 
-      {/* Full-width masonry grid */}
-      <div className="[columns:5] [column-gap:18px] max-[1600px]:[columns:4] max-[1280px]:[columns:3] max-[900px]:[columns:2] max-[600px]:[columns:1]">
-        {shown.map((it) => (
-          <Card
-            key={it.key}
-            item={it}
-            onStyleOf={
-              it.isGeneral && it.source === "template"
-                ? () => setParams({ style: it.slug })
-                : undefined
-            }
-          />
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="px-5 py-12 bg-bg-1 rounded-[18px] text-center text-mute">
-          <p className="m-0 text-[14px]">No matches. Try a different format, tag, or clear the filters.</p>
+      {filtered.length === 0 ? (
+        <div className="empty">
+          <p style={{ margin: 0 }}>No matches. Try a different format, tag, or clear the filters.</p>
+        </div>
+      ) : (
+        <div className="masonry">
+          {shown.map((it) => (
+            <Card key={it.key} item={it} onRemix={() => setRemix(remixForItem(it))} />
+          ))}
         </div>
       )}
 
-      {/* Infinite-scroll sentinel */}
       {hasMore && (
-        <div ref={sentinelRef} className="h-16 flex items-center justify-center" aria-hidden>
-          <span className="font-mono text-[11px] tracking-[0.1em] uppercase text-mute-2">
-            Loading more…
-          </span>
+        <div ref={sentinelRef} className="sentinel" aria-hidden>
+          Loading more…
         </div>
       )}
+
+      <RemixModal payload={remix} onClose={() => setRemix(null)} />
     </div>
   );
 }
 
-/** The format's general baseline, shown as a wide banner card above the grid. */
-function GeneralBaselineCard({ item }: { item: LibraryItem }) {
-  const inner = (
-    <div className="flex items-center justify-between gap-4 px-5 py-4">
-      <div className="min-w-0">
-        <h3 className="font-display text-[18px] leading-[1.15] m-0 font-semibold text-ink tracking-[-0.01em]">
-          {item.name}
-        </h3>
-        {item.tagline && (
-          <p className="text-[13px] leading-[1.45] text-ink-3 m-0 mt-1 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:1] [-webkit-box-orient:vertical]">
-            {item.tagline}
-          </p>
-        )}
-      </div>
-      <CopyTagInline tag={item.tag} />
-    </div>
-  );
-  const cls =
-    "block bg-bg-1 rounded-[16px] no-underline text-inherit shadow-[0_1px_2px_rgb(0_0_0/0.25)] transition-[background] duration-[180ms] hover:bg-bg-2";
-  return item.href.kind === "external" ? (
-    <a href={item.href.url} target="_blank" rel="noopener" className={cls}>{inner}</a>
-  ) : (
-    <Link href={item.href.url} className={cls}>{inner}</Link>
+/* ── Looping preview video — always autoplays, muted, looped ──────── */
+function LoopVideo({ src }: { src: string }) {
+  return (
+    <video
+      src={`${src}#t=0.1`}
+      muted
+      loop
+      autoPlay
+      playsInline
+      preload="metadata"
+      disablePictureInPicture
+    />
   );
 }
 
-/** Per-format visual identity for the designed fallback cover. A tinted
- *  gradient + a big format glyph + the template name — intentional, never an
- *  empty dark box. Keyed so each format reads as its own family at a glance. */
-const FALLBACK_STYLE: Record<
-  string,
-  { glyph: string; from: string; to: string; aspect: string }
-> = {
-  video: { glyph: "▶", from: "#1b2342", to: "#0d1020", aspect: "9 / 16" },
-  image: { glyph: "◐", from: "#2a2140", to: "#120e1f", aspect: "1 / 1" },
-  carousel: { glyph: "❯", from: "#10303a", to: "#0a191e", aspect: "4 / 5" },
-  "fb-creative": { glyph: "❤", from: "#3a1c2c", to: "#1c0e16", aspect: "1 / 1" },
-  "motion-design": { glyph: "✳", from: "#143a2e", to: "#0a1d17", aspect: "16 / 9" },
-  poster: { glyph: "✦", from: "#3a2a14", to: "#1d150a", aspect: "4 / 5" },
-  "sticker-pack": { glyph: "✺", from: "#2c1438", to: "#160a1c", aspect: "1 / 1" },
+/* ── Designed fallback cover ──────────────────────────────────────── */
+const FALLBACK_GRAD: Record<string, [string, string]> = {
+  video: ["#1b2342", "#0d1020"],
+  image: ["#2a2140", "#120e1f"],
+  carousel: ["#10303a", "#0a191e"],
+  "fb-creative": ["#3a1c2c", "#1c0e16"],
+  "motion-design": ["#143a2e", "#0a1d17"],
+  poster: ["#3a2a14", "#1d150a"],
+  "sticker-pack": ["#2c1438", "#160a1c"],
 };
-const FALLBACK_DEFAULT = { glyph: "◆", from: "#222226", to: "#0e0e10", aspect: "4 / 5" };
-
-function fallbackStyle(format?: LibraryFormat) {
-  return (format && FALLBACK_STYLE[format]) || FALLBACK_DEFAULT;
-}
+const FALLBACK_ASPECT: Record<string, string> = {
+  video: "9 / 16",
+  image: "1 / 1",
+  carousel: "4 / 5",
+  "fb-creative": "1 / 1",
+  "motion-design": "16 / 9",
+  poster: "4 / 5",
+  "sticker-pack": "1 / 1",
+};
 
 function FallbackCover({ format, name }: { format?: LibraryFormat; name: string }) {
-  const s = fallbackStyle(format);
+  const glyph = format ? FORMAT_GLYPHS[format] : "◆";
+  const [from, to] = (format && FALLBACK_GRAD[format]) || ["#222226", "#0e0e10"];
   return (
-    <div
-      className="relative w-full h-full grid place-items-center overflow-hidden"
-      style={{ background: `linear-gradient(150deg, ${s.from} 0%, ${s.to} 100%)` }}
-      aria-hidden
-    >
-      <span
-        className="absolute -right-4 -bottom-6 text-[160px] leading-none font-display text-white/[0.06] select-none"
-        style={{ fontFeatureSettings: "normal" }}
-      >
-        {s.glyph}
-      </span>
-      <div className="relative z-10 flex flex-col items-center gap-2.5 px-5 text-center">
-        <span className="grid place-items-center w-12 h-12 rounded-2xl bg-white/[0.07] text-[22px] text-white/80">
-          {s.glyph}
-        </span>
-        <span className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-white/55">
-          {format ? FORMAT_LABELS[format] : "template"}
-        </span>
-        <span className="font-display text-[15px] leading-[1.15] font-semibold text-white/85 max-w-[18ch] tracking-[-0.01em]">
-          {name}
-        </span>
+    <div className="fallback" style={{ background: `linear-gradient(150deg, ${from}, ${to})` }} aria-hidden>
+      <span className="bgly">{glyph}</span>
+      <div className="inner">
+        <span className="chip">{glyph}</span>
+        <span className="fl-fmt">{format ? FORMAT_LABELS[format] : "template"}</span>
+        <span className="fl-name">{name}</span>
       </div>
     </div>
   );
 }
 
-function Card({ item, onStyleOf }: { item: LibraryItem; onStyleOf?: () => void }) {
-  const fallbackAspect = fallbackStyle(item.format).aspect;
+/* ── Per-format card media (the "logical components") ─────────────── */
+function CardMedia({ item }: { item: LibraryItem }) {
+  const f = item.format;
+  const glyph = f ? FORMAT_GLYPHS[f] : "◆";
+  const count = item.preview?.count ?? 0;
+  const srcs = item.preview?.srcs ?? [];
+
+  // Sticker pack → 2×2 die-cut peek on checker.
+  if (f === "sticker-pack" && srcs.length > 0) {
+    const four = srcs.slice(0, 4);
+    return (
+      <div className="card-media checker" style={{ aspectRatio: "1 / 1" }}>
+        <div className="sticker-peek" style={{ position: "absolute", inset: 0 }}>
+          {four.map((s, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <span key={i} className="sp">
+              <img src={s} alt="" loading="lazy" />
+            </span>
+          ))}
+        </div>
+        <span className="badge br dark">✺ {count} stickers</span>
+      </div>
+    );
+  }
+
+  // FB matrix → 2×2 creative peek.
+  if (f === "fb-creative" && srcs.length > 0) {
+    const four = srcs.slice(0, 4);
+    return (
+      <div className="card-media" style={{ aspectRatio: "1 / 1" }}>
+        <div className="fb-peek" style={{ position: "absolute", inset: 0 }}>
+          {four.map((s, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <span key={i} className="fp">
+              <img src={s} alt="" loading="lazy" />
+            </span>
+          ))}
+        </div>
+        <span className="badge br dark">❤ {count} creatives</span>
+      </div>
+    );
+  }
+
+  // Carousel → stacked deck peek above the front cover.
+  if (f === "carousel" && item.cover) {
+    return (
+      <div className="card-media" style={{ background: "transparent" }}>
+        <div className="deck">
+          <span className="deck-l l2" />
+          <span className="deck-l l1" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="deck-front" src={item.cover.src} alt={item.name} loading="lazy" />
+          <span className="badge br dark">❯ {count || "—"} slides</span>
+        </div>
+      </div>
+    );
+  }
+
+  // No real cover → designed fallback.
+  if (!item.cover) {
+    return (
+      <div className="card-media" style={{ aspectRatio: (f && FALLBACK_ASPECT[f]) || "4 / 5" }}>
+        <FallbackCover format={f} name={item.name} />
+      </div>
+    );
+  }
+
+  // Video cover → hover-play.
+  if (item.cover.kind === "video") {
+    return (
+      <div className="card-media" style={{ aspectRatio: item.cover.aspect }}>
+        <LoopVideo src={item.cover.src} />
+        <span className="badge tl dark">
+          {glyph} {f ? FORMAT_LABELS[f] : "Video"}
+        </span>
+      </div>
+    );
+  }
+
+  // Image / poster still.
+  return (
+    <div className="card-media" style={{ aspectRatio: item.cover.aspect }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={item.cover.src} alt={item.name} loading="lazy" />
+    </div>
+  );
+}
+
+function Card({ item, onRemix }: { item: LibraryItem; onRemix: () => void }) {
+  const f = item.format;
+  const model = item.models[0] ? item.models[0].split("/")[1] || item.models[0] : null;
   const inner = (
     <>
-      <div
-        className="relative w-full overflow-hidden rounded-[20px]"
-        style={item.cover ? ({ aspectRatio: item.cover.aspect } as React.CSSProperties) : { aspectRatio: fallbackAspect }}
-      >
-        {item.cover ? (
-          item.cover.kind === "video" ? (
-            <video
-              src={item.cover.src}
-              poster={item.cover.poster}
-              className="block w-full h-full object-cover [object-position:center_30%] bg-[#050506] transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/card:scale-[1.025]"
-              muted
-              loop
-              playsInline
-              autoPlay
-              preload="metadata"
-            />
-          ) : (
-            <Image
-              src={item.cover.src}
-              alt={item.cover.alt}
-              fill
-              className="block w-full h-full object-cover [object-position:center_30%] bg-[#050506] transition-transform duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/card:scale-[1.025]"
-              sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, (max-width: 1280px) 33vw, 20vw"
-            />
-          )
-        ) : (
-          <FallbackCover format={item.format} name={item.name} />
-        )}
-      </div>
-      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-4">
-        <span className="font-mono text-[10.5px] tracking-[0.12em] uppercase text-vio">
-          {item.format ? FORMAT_LABELS[item.format] : item.source}
-          {item.styleOf && <span className="text-mute"> · style of {item.styleOf}</span>}
-        </span>
-        <h2 className="font-display text-[19px] leading-[1.12] m-0 font-semibold text-ink tracking-[-0.01em]">{item.name}</h2>
-        {item.tagline && (
-          <p className="text-[13px] leading-[1.5] text-ink-3 m-0 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">{item.tagline}</p>
-        )}
-        <div className="flex items-center justify-between gap-2 mt-1">
-          <code className="font-mono text-[11.5px] text-vio-2 bg-[color-mix(in_srgb,var(--color-vio)_12%,transparent)] px-[9px] py-[3px] rounded-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{item.tag}</code>
-          {item.models.length > 0 && (
-            <ul className="flex flex-nowrap gap-1.5 list-none p-0 m-0 shrink-0">
-              {item.models.slice(0, 1).map((m) => (
-                <li key={m} className="font-mono text-[11px] text-ink-3 bg-bg-2 px-[9px] py-[3px] rounded-full whitespace-nowrap group-hover/card:bg-bg-3">{m.split("/")[1] ?? m}</li>
-              ))}
-              {item.models.length > 1 && (
-                <li className="font-mono text-[11px] text-mute bg-bg-2 px-[9px] py-[3px] rounded-full whitespace-nowrap group-hover/card:bg-bg-3">+{item.models.length - 1}</li>
-              )}
-            </ul>
+      <CardMedia item={item} />
+      <div className="card-body">
+        <span className="card-flabel" style={{ color: hueVar(f) }}>
+          <span className="dot" style={{ background: hueVar(f) }} />
+          {f ? FORMAT_LABELS[f] : item.source}
+          {item.preview && item.preview.count > 0 && (
+            <span style={{ color: "var(--mute)" }}>
+              {" · "}
+              {item.preview.count} {item.preview.count === 1 ? "example" : "examples"}
+            </span>
           )}
-        </div>
+        </span>
+        <h3 className="card-name">{item.name}</h3>
+        {item.tagline && <p className="card-tagline">{item.tagline}</p>}
+        {model && (
+          <div className="card-foot">
+            <span className="modelchip">{model}</span>
+          </div>
+        )}
       </div>
     </>
   );
 
-  const cardClass =
-    "group/card block break-inside-avoid mb-[18px] bg-bg-1 rounded-[20px] no-underline text-inherit shadow-[0_1px_2px_rgb(0_0_0/0.25)] transition-[background,transform,box-shadow] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-bg-2 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgb(0_0_0/0.3)]";
-
-  // The card itself navigates to the detail / source; the copy-tag button and
-  // the optional "view styles" affordance sit on top without nesting controls
-  // inside the anchor (which is invalid + breaks click target).
   return (
-    <div className={`${cardClass} relative`}>
+    <div className="card">
       {item.href.kind === "external" ? (
-        <a href={item.href.url} target="_blank" rel="noopener" className="block no-underline text-inherit">{inner}</a>
+        <a href={item.href.url} target="_blank" rel="noopener" style={{ display: "block", color: "inherit" }}>
+          {inner}
+        </a>
       ) : (
-        <Link href={item.href.url} className="block no-underline text-inherit">{inner}</Link>
+        <Link href={item.href.url} style={{ display: "block", color: "inherit" }}>
+          {inner}
+        </Link>
       )}
-      <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
-        <CopyTagInline tag={item.tag} />
-        {onStyleOf && (
-          <button
-            type="button"
-            onClick={onStyleOf}
-            className="font-mono text-[10.5px] tracking-[0.08em] uppercase text-ink-3 bg-bg-2/90 backdrop-blur-sm px-2.5 py-1 rounded-full border-0 cursor-pointer transition-colors hover:bg-bg-3 hover:text-ink"
-          >
-            View styles
-          </button>
-        )}
-      </div>
+      <button
+        type="button"
+        className="card-remix"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onRemix();
+        }}
+      >
+        <RemixIcon /> Remix
+      </button>
     </div>
-  );
-}
-
-/** Compact one-click copy-tag button. Copies the reproduce tag for the item
- * (e.g. `@template:<slug>` / `@guideline:<slug>`) — the exact string the
- * Ralphy agent consumes via AGENTS.md routing. */
-function CopyTagInline({ tag }: { tag: string }) {
-  const [copied, setCopied] = useState(false);
-  const onClick = useCallback(
-    async (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      try {
-        await navigator.clipboard.writeText(tag);
-      } catch {
-        const ta = document.createElement("textarea");
-        ta.value = tag;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-          document.execCommand("copy");
-        } catch {
-          /* swallow */
-        }
-        document.body.removeChild(ta);
-      }
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    },
-    [tag],
-  );
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Copy ${tag} to clipboard`}
-      title={`Copy ${tag}`}
-      className={`inline-flex items-center gap-1.5 font-mono text-[10.5px] tracking-[0.08em] uppercase px-2.5 py-1 rounded-full border-0 cursor-pointer backdrop-blur-sm transition-colors duration-[160ms] [&_svg]:block ${
-        copied
-          ? "text-vio bg-[color-mix(in_srgb,var(--color-vio)_22%,transparent)]"
-          : "text-ink-3 bg-bg-2/90 hover:text-vio hover:bg-bg-3"
-      }`}
-    >
-      {copied ? (
-        <>
-          <CheckIcon />
-          Copied
-        </>
-      ) : (
-        <>
-          <CopyIcon />
-          Copy tag
-        </>
-      )}
-    </button>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <rect x="3.5" y="1.5" width="7" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M2 4v7.5A1.5 1.5 0 0 0 3.5 13H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

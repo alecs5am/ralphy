@@ -18,7 +18,7 @@
 import { loadTemplates, type TemplateRow, type TemplateFormat } from "./templates-loader";
 import { loadGuidelines } from "./guidelines-loader";
 import { loadShowcaseClips } from "./library-clips";
-import { showcaseCover } from "./showcase-loader";
+import { showcaseCover, showcasePreview } from "./showcase-loader";
 import {
   LIBRARY_FORMATS,
   type LibraryFormat,
@@ -68,6 +68,7 @@ function templateItem(t: TemplateRow): LibraryItem {
   // declared thumbnail / reference → undefined (the card renders a designed
   // format-keyed fallback, never an empty dark box).
   const sc = showcaseCover(t.slug);
+  const preview = showcasePreview(t.slug) ?? undefined;
   const fallbackAspect = (format && FALLBACK_ASPECT[format]) || "4 / 5";
   const cover = sc
     ? { src: sc.src, kind: sc.kind, poster: sc.poster, alt: t.name, aspect: sc.aspect }
@@ -92,6 +93,7 @@ function templateItem(t: TemplateRow): LibraryItem {
     tag,
     cliCmd,
     cover,
+    preview,
     href: { kind: "internal", url: `/library/${t.slug}` },
     text,
   };
@@ -154,6 +156,29 @@ function guidelineItem(g: ReturnType<typeof loadGuidelines>[number]): LibraryIte
  *   > guideline. In practice the three slug-spaces are disjoint today, but the
  * de-dupe keeps a future slug collision from producing two cards.
  */
+// Hero clips that duplicate an example-backed template category (issue: library
+// content normalization). They remain in the homepage hero mosaic (data.tsx →
+// `clips`) but are NOT surfaced as separate library cards — the canonical
+// template category already shows the equivalent outputs. The two genuinely
+// unique clips (glitter-cream-001, nothing-hp1-001) are intentionally kept.
+const HIDE_SLUGS = new Set<string>([
+  "noski-people-001", // → noski-deadpan-2hander
+  "analog-horror-fridge-001", // → analog-horror-psa
+  "ralphy-vs-higgsfield-001", // → analog-horror-psa (pick-a-door)
+  "flipper-hypermotion-001", // → japanese-hypermotion-product-ad (Hyper-Motion Ad)
+  "occult-mockumentary-001", // → found-footage-mockumentary
+  "fruit-drama-001", // → ai-vegetables (AI object/food drama)
+  "playdate-pixel-001", // → japanese-hypermotion-product-ad (folded with pixel-art)
+  "kbo-broadcast-001", // → broadcast-caught-on-tv-square
+  "tokyo-y2k-001", // → tokyo-y2k-cinematic
+  "skater-spiderverse-001", // → cartoon (Seedance Cartoon)
+  "arena-rocker-001", // → cartoon (Seedance Cartoon)
+  "glitter-cream-001", // → before-after-product (UGC Ad) — it IS that template's reference render
+  // Guideline cards that duplicate a template category:
+  "y2k-streetwear-poster", // → streetwear-drop-poster (same poster concept)
+  "cgi-product-renders", // → japanese-hypermotion-product-ad (Hyper-Motion Ad)
+]);
+
 export function buildLibraryIndex(): LibraryIndex {
   const bySlug = new Map<string, LibraryItem>();
   const rank: Record<LibraryItem["source"], number> = { showcase: 3, template: 2, guideline: 1 };
@@ -182,11 +207,17 @@ export function buildLibraryIndex(): LibraryIndex {
   for (const c of loadShowcaseClips()) consider(showcaseItem(c));
   for (const g of loadGuidelines()) consider(guidelineItem(g));
 
-  const items = Array.from(bySlug.values()).sort((a, b) => {
-    // General baselines first within a format, then alphabetical by name.
-    if (a.isGeneral !== b.isGeneral) return a.isGeneral ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  const items = Array.from(bySlug.values())
+    // Content gate: a library card must have a real preview (cover) and must not
+    // be a hidden duplicate. Empty placeholder templates (no showcase media, no
+    // thumbnail) carry no cover and are dropped here — they still exist on disk
+    // for `ralphy template suggest`, they just don't surface as cards.
+    .filter((it) => !!it.cover && !HIDE_SLUGS.has(it.slug))
+    .sort((a, b) => {
+      // General baselines first within a format, then alphabetical by name.
+      if (a.isGeneral !== b.isGeneral) return a.isGeneral ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 
   const formatCounts: Record<string, number> = {};
   for (const f of LIBRARY_FORMATS) formatCounts[f] = 0;

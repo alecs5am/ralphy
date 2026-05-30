@@ -127,6 +127,14 @@ function resolvePublicMedia(
   slug: string,
   media: string,
 ): { src: string; kind: ShowcaseMediaKind; poster?: string } | null {
+  // Absolute public path (starts with "/") — serve verbatim, no per-slug
+  // resolution. Used to point a library output at an already-shipped asset
+  // (e.g. the homepage hero clip under /assets/showcase/<id>.mp4) instead of
+  // duplicating the bytes under /showcase/<slug>/.
+  if (media.startsWith("/")) {
+    const isVideo = /\.(mp4|webm|mov|m4v)$/i.test(media);
+    return { src: media, kind: isVideo ? "video" : "image" };
+  }
   const base = path.basename(media);
   const stem = base.replace(/\.[^.]+$/, "");
   const dir = path.join(PUBLIC_SHOWCASE_DIR, slug);
@@ -232,6 +240,24 @@ export function showcaseCover(slug: string): {
     poster: first.poster,
     aspect: first.aspect,
   };
+}
+
+/** Per-format card-media preview for a slug: the total hosted-output count and
+ *  up to `max` representative image srcs, spread evenly across the set (so an
+ *  FB pack's 2×2 peek samples different sets, not just the first four). Returns
+ *  null when the slug has no hosted image outputs. */
+export function showcasePreview(
+  slug: string,
+  max = 4,
+): { count: number; srcs: string[] } | null {
+  const outputs = loadShowcase(slug);
+  if (outputs.length === 0) return null;
+  const images = outputs.filter((o) => o.kind === "image");
+  if (images.length === 0) return { count: outputs.length, srcs: [] };
+  const n = Math.min(max, images.length);
+  const step = images.length / n;
+  const srcs = Array.from({ length: n }, (_, i) => images[Math.floor(i * step)].src);
+  return { count: outputs.length, srcs };
 }
 
 const REPO_TREE_BASE = "https://github.com/alecs5am/ralphy/tree/main/";

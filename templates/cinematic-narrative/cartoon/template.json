@@ -1,8 +1,8 @@
 {
-  "name": "Cartoon",
+  "name": "Seedance Cartoon",
   "slug": "cartoon",
   "kind": "vibe-style",
-  "description": "Cartoon and animation-style short-form video: 2D, cel-shaded, hand-drawn, rubber-hose, flat-vector, watercolor, pixel, neon line, manga, claymation, doodle, or 3D toon-shading. 5-15s, 9:16, vibe reference only — copy the style language, not the literal scene. Lean on classic 12 animation principles (squash-stretch, anticipation, follow-through, arcs) and a strong 2-second hook. Use whenever a brief asks for cartoon, animation, illustrated, animated, fun, playful, whimsical, or any non-photoreal stylized look.",
+  "description": "Stylized cartoon / Spider-Verse comic action shorts rendered with Seedance — bold cel-shaded characters, ink lines, halftone, impossible camera moves. Covers arena-rocker and skater-duel takes.",
   "tags": [
     "cartoon",
     "animation",
@@ -29,8 +29,14 @@
   ],
   "platform": "tiktok",
   "aspectRatio": "9:16",
-  "typicalDurationSec": [5, 15],
-  "typicalClipCount": [2, 4],
+  "typicalDurationSec": [
+    5,
+    15
+  ],
+  "typicalClipCount": [
+    2,
+    4
+  ],
   "fps": 30,
   "width": 1080,
   "height": 1920,

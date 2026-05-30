@@ -16,18 +16,26 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { loadGuideline, listGuidelineSlugs } from "@/lib/guidelines-loader";
+import { showcaseClipAsFull, listShowcaseSlugs } from "@/lib/library-clips";
 import {
   templateShowcaseAsFull,
   listShowcaseTemplateSlugs,
   listAllTemplateSlugs,
   templateFormat,
+  loadShowcase,
 } from "@/lib/showcase-loader";
 import { KIND_LABELS } from "@/lib/library-types";
+import {
+  FORMAT_HUE_VARS,
+  FORMAT_LABELS,
+  LIBRARY_FORMATS,
+  type LibraryFormat,
+} from "@/lib/library-index-types";
 import { mdxComponents } from "@/components/mdx";
 import { MediaPlayer } from "@/components/MediaPlayer";
-import { CopyTagButton } from "./CopyTagButton";
 import { ExamplesGrid } from "./ExamplesGrid";
 import { TemplateShowcase } from "./TemplateShowcase";
+import { DetailMeta } from "./DetailMeta";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -42,14 +50,16 @@ export async function generateStaticParams() {
     ...listAllTemplateSlugs(),
     ...listShowcaseTemplateSlugs(),
     ...listGuidelineSlugs(),
+    ...listShowcaseSlugs(),
   ]);
   return Array.from(slugs).map((slug) => ({ slug }));
 }
 
-// Resolve a detail-page entry: a guideline / showcase clip first, else a
-// template that has a hosted showcase gallery (issue 055).
+// Resolve a detail-page entry: a guideline, else a template with a hosted
+// showcase gallery (issue 055), else a homepage showcase clip (so the kept
+// unique clips — glitter-cream, nothing-hp1 — have a working detail page).
 function resolveEntry(slug: string) {
-  return loadGuideline(slug) ?? templateShowcaseAsFull(slug);
+  return loadGuideline(slug) ?? templateShowcaseAsFull(slug) ?? showcaseClipAsFull(slug);
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -72,24 +82,40 @@ export default async function GuidelinePage({ params }: PageProps) {
   const stars = await getDisplayStars();
   const isRemix = g.kind === "recreate-video";
 
+  // Format identity for the hero (breadcrumb hue, label dot, glyph). Prefer the
+  // template's declared format; fall back to the guideline kind for image-prompt
+  // / recreate-video guidelines that have no template.yaml.
+  const fmtRaw = templateFormat(g.slug) ?? (g.kind === "image-prompt" ? "image" : "video");
+  const fmt = (LIBRARY_FORMATS as string[]).includes(fmtRaw) ? (fmtRaw as LibraryFormat) : undefined;
+  const fmtLabel = fmt ? FORMAT_LABELS[fmt] : KIND_LABELS[g.kind];
+  const fmtHue = fmt ? `var(${FORMAT_HUE_VARS[fmt]})` : "var(--vio)";
+  const outputCount = loadShowcase(g.slug).length;
+  const isSticker = fmt === "sticker-pack";
+
   return (
     <>
       <div className="dot-bg" aria-hidden />
       <Nav stars={stars} variant="subpage" />
 
       <main>
-        <section className="pt-24 pb-8 max-[900px]:pt-[72px] max-[900px]:pb-4">
-          <div className="container">
-            <div
-              className={`grid gap-12 items-start max-[900px]:grid-cols-1 max-[900px]:gap-7 ${
-                g.cover
-                  ? "[grid-template-columns:minmax(280px,0.85fr)_minmax(0,1.15fr)]"
-                  : "grid-cols-1"
-              }`}
-            >
+        <section className="detail-top">
+          <div className="container container-w-1760">
+            <p className="breadcrumb">
+              <Link href="/library">Library</Link>
+              <span className="sep">/</span>
+              <Link href={fmt ? `/library?format=${fmt}` : "/library"} style={{ color: fmtHue }}>
+                {fmtLabel}
+              </Link>
+            </p>
+            <div className={`detail-hero${g.cover ? "" : " nomedia"}`}>
               {g.cover && (
-                <div className="min-w-0">
-                  <div className="lib-hero-media-sticky">
+                <div className="detail-media">
+                  {isSticker ? (
+                    <div className="sticker-stage sticker-checker">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={g.cover.src} alt={g.name} />
+                    </div>
+                  ) : (
                     <MediaPlayer
                       kind={g.cover.kind}
                       src={g.cover.src}
@@ -99,44 +125,27 @@ export default async function GuidelinePage({ params }: PageProps) {
                       autoPlay={g.cover.kind === "video"}
                       defaultMuted
                     />
-                  </div>
+                  )}
                 </div>
               )}
-              <div className="min-w-0 [&_code]:[overflow-wrap:anywhere] [&_code]:break-words">
-                <p className="eyebrow">
-                  <Link href="/library" className="text-mute no-underline hover:text-vio">Library</Link>
-                  {" · "}{KIND_LABELS[g.kind]}
-                  {g.version && <> · v{g.version}</>}
-                </p>
-                <h1 className="font-display text-[clamp(40px,4.6vw,64px)] leading-[1.04] tracking-[-0.015em] font-semibold text-ink mt-3 mb-3.5">{g.name}</h1>
-                {g.tagline && <p className="text-[clamp(17px,1.4vw,20px)] leading-[1.5] text-ink-3 m-0 mb-1 max-w-[60ch]">{g.tagline}</p>}
-                {g.models.length > 0 && (
-                  <ul className="flex flex-wrap gap-1.5 list-none p-0 mt-[18px] mb-0">
-                    {g.models.map((m) => (
-                      <li key={m} className="font-mono text-[11px] text-ink-3 bg-bg-2 px-[9px] py-[3px] rounded-full whitespace-nowrap">{m}</li>
-                    ))}
-                  </ul>
-                )}
-                <div className="mt-6 flex flex-col gap-2.5 max-w-[640px]">
-                  <CopyTagButton tag={g.cta.tag} label={g.cta.label} />
-                  <p className="m-0 text-[13.5px] leading-[1.55] text-mute">
-                    Paste in Claude Code / Cursor / Codex — the agent runs{" "}
-                    <code className="font-mono text-[12.5px] text-ink-3 bg-bg-2 px-[7px] py-0.5 rounded-full">{g.cta.hintCmd}</code>{" "}
-                    {isRemix
-                      ? "and scaffolds a project pre-loaded with the template's prompts, refs, and composition. You bring the brief."
-                      : "and loads the recipe before drafting the next prompt."}
-                  </p>
-                </div>
-              </div>
+              <DetailMeta
+                name={g.name}
+                tagline={g.tagline}
+                formatLabel={fmtLabel}
+                hue={fmtHue}
+                count={outputCount}
+                models={g.models}
+                tag={g.cta.tag}
+                cli={g.cta.hintCmd}
+              />
             </div>
           </div>
         </section>
 
-        {/* Per-template results gallery, driven by the template's `format`
-            through a component registry (issue 060): video/poster/image grids,
-            campaign-grouped fb-creative, expandable sticker packs, swipeable
-            carousels. Renders nothing when the template has no hosted media. */}
-        <TemplateShowcase slug={g.slug} format={templateFormat(g.slug)} />
+        {/* Per-template results gallery, driven by the template's `format`:
+            video/poster/image grids, FB angle-tabs, sticker accordion, swipe
+            carousel modal. Renders nothing when there's no hosted media. */}
+        <TemplateShowcase slug={g.slug} name={g.name} format={templateFormat(g.slug)} />
 
         {g.examples.length > 0 && (
           <section className="pt-6 pb-4">
@@ -151,55 +160,11 @@ export default async function GuidelinePage({ params }: PageProps) {
           </section>
         )}
 
-        {isRemix ? (
-          <section className="pt-14 pb-24">
-            <div className="container container-narrow">
-              <h2 className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.06] m-0 mb-2 font-semibold text-ink tracking-[-0.01em]">How to remix</h2>
-              <p className="text-[16px] leading-[1.55] text-ink-3 m-0 mb-6 max-w-[64ch]">
-                The template is the full reproduction kit — scenario JSON,
-                prompt cookbook, asset slots, and the composition. You bring
-                the new brief and the agent assembles a fresh project.
-              </p>
-              <ol className="m-0 pl-[22px] flex flex-col gap-2.5 text-[14.5px] leading-[1.55] text-ink-2 [&_code]:font-mono [&_code]:text-[12.5px] [&_code]:text-ink-2 [&_code]:bg-bg-2 [&_code]:px-[7px] [&_code]:py-0.5 [&_code]:rounded-md [&_code]:[overflow-wrap:anywhere] [&_code]:break-words">
-                <li>
-                  <strong>Open Claude Code / Cursor / Codex</strong> inside a
-                  ralphy-installed repo. New machine?{" "}
-                  <code>curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh</code>
-                </li>
-                <li>
-                  <strong>Paste the tag</strong>{" "}
-                  <code>{g.cta.tag}</code> into chat — your agent picks it
-                  up via AGENTS.md routing and reads the template via{" "}
-                  <code>{g.cta.hintCmd}</code>.
-                </li>
-                <li>
-                  <strong>Name your swap.</strong> &ldquo;Same video, but
-                  replace the narrator with my mascot&rdquo; / &ldquo;swap the
-                  product for mine.&rdquo; Everything else stays; the agent
-                  re-runs only what the swap touches, then renders your version.
-                </li>
-                <li>
-                  <strong>Iterate.</strong>{" "}
-                  <code>ralphy generate image --slot &lt;name&gt; …</code> for
-                  scene regens; <code>ralphy render &lt;id&gt;</code> for
-                  the final mp4.
-                </li>
-              </ol>
-              <p className="mt-10 px-[18px] py-4 bg-bg-1 rounded-[14px] text-[14px] leading-[1.5] text-ink-3 [&_code]:[overflow-wrap:anywhere] [&_code]:break-words">
-                Browse the template source on{" "}
-                <a
-                  href={g.sourcePath}
-                  target="_blank"
-                  rel="noopener"
-                  className="text-vio no-underline hover:text-vio-2 hover:underline"
-                >
-                  GitHub
-                </a>{" "}
-                — composition.md, prompt-library.md, asset-manifest.json.
-              </p>
-            </div>
-          </section>
-        ) : (
+        {/* Remix templates: the hero CTA + the on-demand "Details, models & how it
+            works" disclosure in <DetailMeta> now carry the remix instructions, so
+            the old standalone "How to remix" section is gone. Image-prompt
+            guidelines still render their full rule body below. */}
+        {!isRemix && (
           <section className="pt-14 pb-24">
             <div className="container container-narrow">
               <h2 className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.06] m-0 mb-2 font-semibold text-ink tracking-[-0.01em]">The guideline</h2>

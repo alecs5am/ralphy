@@ -2,6 +2,15 @@
   "version": 2,
   "slug": "live-platform-motion-ad",
   "outputs": [
-    { "id": "r1", "source_project": "twitch-fb-ads-001", "media": "twitch-fb-ads-001-v2.mp4", "type": "video", "format": "motion-design", "aspect": "1 / 1", "caption": "Rendered with this template." },    { "id": "r2", "source_project": "twitch-fb-ads-001", "media": "twitch-fb-ads-001-v3.mp4", "type": "video", "format": "motion-design", "aspect": "1 / 1", "caption": "Rendered with this template." },    { "id": "r3", "source_project": "twitch-fb-ads-001", "media": "twitch-fb-ads-001-v4.mp4", "type": "video", "format": "motion-design", "aspect": "1 / 1", "caption": "Rendered with this template." }
+    {
+      "id": "r3",
+      "source_project": "twitch-fb-ads-001",
+      "media": "twitch-fb-ads-001-v4.mp4",
+      "type": "video",
+      "format": "motion-design",
+      "aspect": "1 / 1",
+      "caption": "Final render",
+      "order": 0
+    }
   ]
 }
