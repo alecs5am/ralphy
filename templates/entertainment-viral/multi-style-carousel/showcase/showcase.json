@@ -3,6 +3,66 @@
   "slug": "multi-style-carousel",
   "outputs": [
     {
+      "id": "club-01",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-01.png",
+      "format": "carousel",
+      "type": "image",
+      "group": "club",
+      "groupTitle": "Club — flyer night-out",
+      "order": 0,
+      "aspect": "4 / 5",
+      "caption": "Slide 1 of 5 — flyer night-out register."
+    },
+    {
+      "id": "club-02",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-02.png",
+      "format": "carousel",
+      "type": "image",
+      "group": "club",
+      "groupTitle": "Club — flyer night-out",
+      "order": 1,
+      "aspect": "4 / 5",
+      "caption": "Slide 2 of 5 — flyer night-out register."
+    },
+    {
+      "id": "club-03",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-03.png",
+      "format": "carousel",
+      "type": "image",
+      "group": "club",
+      "groupTitle": "Club — flyer night-out",
+      "order": 2,
+      "aspect": "4 / 5",
+      "caption": "Slide 3 of 5 — flyer night-out register."
+    },
+    {
+      "id": "club-04",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-04.png",
+      "format": "carousel",
+      "type": "image",
+      "group": "club",
+      "groupTitle": "Club — flyer night-out",
+      "order": 3,
+      "aspect": "4 / 5",
+      "caption": "Slide 4 of 5 — flyer night-out register."
+    },
+    {
+      "id": "club-05",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-05.png",
+      "format": "carousel",
+      "type": "image",
+      "group": "club",
+      "groupTitle": "Club — flyer night-out",
+      "order": 4,
+      "aspect": "4 / 5",
+      "caption": "Slide 5 of 5 — flyer night-out register."
+    },
+    {
       "id": "swiss-01",
       "source_project": "ralphy-carousel-001",
       "media": "workspace/projects/ralphy-carousel-001/assets/images/swiss-01.png",
@@ -241,66 +301,6 @@
       "order": 4,
       "aspect": "4 / 5",
       "caption": "Slide 5 of 5 — duotone print register."
-    },
-    {
-      "id": "club-01",
-      "source_project": "ralphy-carousel-001",
-      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-01.png",
-      "format": "carousel",
-      "type": "image",
-      "group": "club",
-      "groupTitle": "Club — flyer night-out",
-      "order": 0,
-      "aspect": "4 / 5",
-      "caption": "Slide 1 of 5 — flyer night-out register."
-    },
-    {
-      "id": "club-02",
-      "source_project": "ralphy-carousel-001",
-      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-02.png",
-      "format": "carousel",
-      "type": "image",
-      "group": "club",
-      "groupTitle": "Club — flyer night-out",
-      "order": 1,
-      "aspect": "4 / 5",
-      "caption": "Slide 2 of 5 — flyer night-out register."
-    },
-    {
-      "id": "club-03",
-      "source_project": "ralphy-carousel-001",
-      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-03.png",
-      "format": "carousel",
-      "type": "image",
-      "group": "club",
-      "groupTitle": "Club — flyer night-out",
-      "order": 2,
-      "aspect": "4 / 5",
-      "caption": "Slide 3 of 5 — flyer night-out register."
-    },
-    {
-      "id": "club-04",
-      "source_project": "ralphy-carousel-001",
-      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-04.png",
-      "format": "carousel",
-      "type": "image",
-      "group": "club",
-      "groupTitle": "Club — flyer night-out",
-      "order": 3,
-      "aspect": "4 / 5",
-      "caption": "Slide 4 of 5 — flyer night-out register."
-    },
-    {
-      "id": "club-05",
-      "source_project": "ralphy-carousel-001",
-      "media": "workspace/projects/ralphy-carousel-001/assets/images/club-05.png",
-      "format": "carousel",
-      "type": "image",
-      "group": "club",
-      "groupTitle": "Club — flyer night-out",
-      "order": 4,
-      "aspect": "4 / 5",
-      "caption": "Slide 5 of 5 — flyer night-out register."
     },
     {
       "id": "punk-01",

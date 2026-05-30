@@ -38,6 +38,30 @@ export const FORMAT_LABELS: Record<LibraryFormat, string> = {
   "sticker-pack": "Sticker pack",
 };
 
+/** Per-format glyph used on browse cards, label dots, fallback covers, and
+ * gallery empty states. Matches the prototype's format iconography. */
+export const FORMAT_GLYPHS: Record<LibraryFormat, string> = {
+  video: "▶",
+  image: "◐",
+  carousel: "❯",
+  "fb-creative": "❤",
+  "motion-design": "✳",
+  poster: "✦",
+  "sticker-pack": "✺",
+};
+
+/** CSS custom-property name carrying each format's accent hue (defined in
+ * app/library/library.css). Use as `var(FORMAT_HUE_VARS[f])`. */
+export const FORMAT_HUE_VARS: Record<LibraryFormat, string> = {
+  video: "--f-video",
+  image: "--f-image",
+  carousel: "--f-carousel",
+  "fb-creative": "--f-fb-creative",
+  "motion-design": "--f-motion-design",
+  poster: "--f-poster",
+  "sticker-pack": "--f-sticker-pack",
+};
+
 /** One-line definition surfaced under each format header (from FORMATS.md). */
 export const FORMAT_BLURBS: Record<LibraryFormat, string> = {
   video: "Short- or long-form moving-image content — generated footage cut and composed into a clip.",
@@ -82,6 +106,15 @@ export interface LibraryItem {
     poster?: string;
     alt: string;
     aspect: string;
+  };
+  /** Build-time preview for per-format card media (the "logical components"):
+   * the total hosted-output count + a handful of representative image srcs so
+   * the card can render a sticker 2×2 peek, an FB 2×2 matrix, or a count badge
+   * without re-reading the showcase manifest on the client. Absent when the
+   * item has no hosted multi-output gallery. */
+  preview?: {
+    count: number;
+    srcs: string[];
   };
   href: { kind: "internal" | "external"; url: string };
   /** Precomputed lowercase search haystack. */

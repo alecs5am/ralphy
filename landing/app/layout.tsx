@@ -22,7 +22,22 @@ const BRAND_PRELOADS = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" style={{ "--vio": "#FFA630" } as React.CSSProperties}>
+    <html
+      lang="en"
+      style={
+        {
+          // Override the WHOLE orange accent family — not just --vio. The :root
+          // defaults for --vio-2/-3/-ink are dusty rose; if only --vio is
+          // overridden, every hover / secondary accent (button hover, code
+          // pills, lightbox labels) renders pink. Mirror the prototype's orange
+          // ramp so the accent is consistently orange everywhere.
+          "--vio": "#FFA630",
+          "--vio-2": "#FFC074",
+          "--vio-3": "#E08A1E",
+          "--vio-ink": "#5C3A06",
+        } as React.CSSProperties
+      }
+    >
       <head>
         {BRAND_PRELOADS.map((f) => (
           <link key={f} rel="preload" as="image" href={`/assets/brands/${f}`} />
