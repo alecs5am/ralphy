@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "slug": "multi-style-carousel",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/zine-01.jpg",
+      "format": "carousel",
+      "caption": "Zine-style cover (slide 01) — die-cut + tape + letterpress. One of 6 aesthetics the same 5-slide benefit arc was reshot across.",
+      "created": "2026-05-29"
+    },
+    {
+      "id": "output-02",
+      "source_project": "ralphy-carousel-001",
+      "media": "workspace/projects/ralphy-carousel-001/assets/images/swiss-01.jpg",
+      "format": "carousel",
+      "caption": "Swiss-style cover (slide 01) — clean editorial register, same mascot + copy deck, single-accent lock.",
+      "created": "2026-05-29"
+    }
+  ]
+}

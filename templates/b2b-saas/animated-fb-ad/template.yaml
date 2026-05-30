@@ -1,0 +1,55 @@
+version: 1
+id: animated-fb-ad
+aliases: []
+kind: vibe-style
+category: b2b-saas
+format: motion-design
+name: Animated FB Showcase Reel
+description: >-
+  A single animated 1:1 square silent motion piece for Facebook / Meta / IG feed —
+  a self-promo "showcase reel" for a tool that produces visual outputs, built
+  entirely in HyperFrames as ONE opacity-gated GSAP timeline (no sub-compositions).
+  Five beats over ~30s: HOOK (mascot + eyebrow + tagline), SHOWCASE WALL (a tiled
+  grid of muted pre-rendered output clips proving range), FEATURED (one hero clip +
+  the one-prompt claim), STACK (a scrolling marquee of integration logo SVGs — "plugs
+  into your stack"), CTA (mascot + wordmark + URL + button). The discipline: reuse
+  the tool's OWN already-rendered outputs as the proof wall (zero new model spend),
+  drive all video layers MUTED (FB feed auto-mutes — silent by design), gate every
+  beat by opacity on a single timeline registered on window.__timelines, and use a
+  TIME_SCALE wrapper to stretch a 15s authored storyboard to a 30s render without
+  rewriting tween positions. Brand fonts + a single accent + a corner stamp keep it
+  on-brand with no AI media generation. Derived from `ralphy-fb-ads-001`.
+tags:
+  - motion-design
+  - fb-creative
+  - facebook-ad
+  - meta-ad
+  - instagram-ad
+  - showcase-reel
+  - square
+  - 1-1
+  - silent
+  - feed-ad
+  - hyperframes
+  - motion-graphics
+  - gsap
+  - opacity-gated-beats
+  - single-composition
+  - video-wall
+  - muted-video-layers
+  - logo-marquee
+  - integration-wall
+  - time-scale
+  - brand-fonts
+  - single-accent
+  - zero-cost
+  - no-ai-gen
+  - b2b
+  - saas
+  - paid-social
+requires:
+  brand: true
+scenes: []
+references: []
+estimated_cost_usd: 0
+estimated_duration_s: 30

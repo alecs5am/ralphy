@@ -1,0 +1,66 @@
+version: 1
+id: vs-comparison-ad
+aliases: []
+kind: vibe-style
+category: b2b-saas
+format: motion-design
+name: Head-to-Head Comparison Ad
+description: >-
+  A vertical 9:16 "pick a side" head-to-head product-comparison short (~60-70s)
+  built as ONE HyperFrames composition: sequential `<video>` / still clips on a
+  single track 0 carry the two paths (the SAFE brand vs the BAD brand), while a
+  stack of ALWAYS-PRESENT overlay divs — a film-leader countdown, a depleting
+  LIMITS/credit gauge, kinetic captions, an end-card — are gated open/closed by
+  one paused GSAP timeline. The comparison reads on color and a draining meter,
+  not narration: one side is a calm accent (red = safe here) with "no meter, no
+  countdown"; the other side is the opposite accent (blue) where a battery-style
+  gauge drains 100%->0% on the viewer's behalf and flips danger-red at zero. The
+  load-bearing mechanics: build the gauge as a `scaleX` fill + an `onUpdate`
+  percent counter on a proxy tween (slow drain, then a 1s crash on the trigger
+  beat); build the countdown as an SVG ring `strokeDashoffset` sweep per second;
+  keep ALL labels/wordmarks as a VT323-style overlay in HyperFrames (never baked
+  into the generated frames — the image model smudges text); and hold ONE
+  aesthetic end-to-end (the single biggest miss in the source was the SAFE
+  montage breaking register). Every background is a still with a slow Ken-Burns
+  push-in; scene changes are 0.5s opacity crossfades, never hard cuts. Locations
+  + motion are AI-generated (gemini-3-pro-image multi-ref for identity lock,
+  seedance-2.0 for door-through plunges, wan-2.7 for cheap push-ins); VHS / grade
+  is a post-process ffmpeg pass, never in-composition. Derived from
+  `ralphy-vs-higgsfield-001`.
+tags:
+  - motion-design
+  - motion-graphics
+  - comparison-ad
+  - head-to-head
+  - versus
+  - pick-a-side
+  - two-path
+  - product-comparison
+  - vertical
+  - 9-16
+  - hyperframes
+  - gsap
+  - single-track-clips
+  - always-present-overlays
+  - timeline-gated
+  - depleting-gauge
+  - limit-meter
+  - film-leader-countdown
+  - kinetic-captions
+  - vt323-overlay
+  - ken-burns
+  - crossfade
+  - multi-ref-identity-lock
+  - gemini-image
+  - seedance
+  - wan
+  - vhs-postprocess
+  - one-aesthetic-rule
+  - b2b
+requires:
+  brand: true
+  refs: 1
+scenes: []
+references: []
+estimated_cost_usd: 13.85
+estimated_duration_s: 68.6

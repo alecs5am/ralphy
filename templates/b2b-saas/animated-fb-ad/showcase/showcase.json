@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slug": "animated-fb-ad",
+  "outputs": [
+    {
+      "id": "output-01",
+      "source_project": "ralphy-fb-ads-001",
+      "media": "workspace/projects/ralphy-fb-ads-001/renders/ralphy-fb-ads-001-v4.mp4",
+      "format": "motion-design",
+      "caption": "30s silent 1:1 square FB/IG showcase reel — single opacity-gated HyperFrames timeline, the tool's own renders tiled as the muted proof wall. $0 model spend.",
+      "created": "2026-05-29"
+    }
+  ]
+}
