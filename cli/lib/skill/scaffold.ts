@@ -18,7 +18,7 @@ export interface ScaffoldOptions {
   name: string;
   intent: string;
   triggers: string[];
-  namespace: "ralphy" | "ralphy-dev";
+  namespace: "user" | "maintainer";
 }
 
 export interface ScaffoldResult {

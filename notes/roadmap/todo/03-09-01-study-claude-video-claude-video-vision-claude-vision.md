@@ -13,4 +13,4 @@ title: "Study claude-video / claude-video-vision / claude-vision"
 **Acceptance criteria:**
 - Read 3 repos (bradautomates, jordanrendric, ellyseum).
 - Output: `notes/research/video-watch-skills.md` comparing yt-dlp + ffmpeg + Whisper toolchains to our current `ralphy ref pull` chain.
-- Identify ≥3 missing capabilities we could add to `ralphy-researcher`.
+- Identify ≥3 missing capabilities we could add to `researcher`.

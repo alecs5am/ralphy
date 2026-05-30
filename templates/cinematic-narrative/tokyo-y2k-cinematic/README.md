@@ -33,7 +33,7 @@ Crystallized from `workspace/projects/tokyo-y2k-001/` (user rating 8.5/10, *"the
 6. Author HyperFrames scenes.ts + index.tsx (use the source project's `src/videos/tokyo-y2k-001/` as a structural reference but rewrite for your slots).
 7. Stub `composition-props.json` with `{"compositionId":"<X>"}`.
 8. `ralphy render <id>` for both 9:16 and 16:9 aspects.
-9. `/ralphy-evaluator` quality gate before publish.
+9. `/evaluator` quality gate before publish.
 
 ## Cost ballpark
 

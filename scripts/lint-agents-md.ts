@@ -97,7 +97,7 @@ export function lintAgentsMd(repoRoot: string): LintReport {
   // 2. Cross-check: every `.agents/skills/<name>/SKILL.md` listed has a
   //    corresponding folder, and every skill folder either appears in the
   //    routing table OR is intentionally maintainer-only (namespace:
-  //    ralphy-dev). Soft check — warns only when a `ralphy:` namespace skill
+  //    maintainer). Soft check — warns only when a `user` namespace skill
   //    is missing from the routing table.
   const skillsRoot = path.join(repoRoot, ".agents", "skills");
   if (fs.existsSync(skillsRoot)) {
@@ -112,7 +112,7 @@ export function lintAgentsMd(repoRoot: string): LintReport {
     );
     for (const f of skillFolders) {
       const ns = readSkillNamespace(path.join(skillsRoot, f, "SKILL.md"));
-      if (ns === "ralphy-dev") continue; // maintainer-only skills don't need a row
+      if (ns === "maintainer") continue; // maintainer-only skills don't need a row
       if (!referenced.has(f)) {
         // Soft check — skill is user-facing but doesn't appear in the routing
         // table. Most user-facing skills do appear, but a handful are

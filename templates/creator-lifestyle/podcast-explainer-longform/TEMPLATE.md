@@ -159,7 +159,7 @@ ralphy render <id> --aspect 16:9
 - `hooks.md` — opening-line patterns + thesis-quote card recipes for the first 15 seconds.
 - `composition.md` — HyperFrames `index.html` skeleton + chapter sub-composition pattern.
 - `../../../docs/playbooks/hyperframes.md` — composition rules, GSAP, registry blocks.
-- `.agents/skills/ralphy-audio-explainer/SKILL.md` — the orchestrator skill that runs this end-to-end.
+- `.agents/skills/audio-explainer/SKILL.md` — the orchestrator skill that runs this end-to-end.
 
 ## Reference example
 

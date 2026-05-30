@@ -90,11 +90,44 @@ function fmValue(fm: string, key: string): string {
   return out.join(" ").replace(/\s+/g, " ").trim();
 }
 
+// Render-engine skills are the HyperFrames adapter set — an explicit list,
+// since slugs no longer carry a category-revealing prefix.
+const RENDER_ENGINE_SLUGS = new Set([
+  "hyperframes",
+  "hyperframes-cli",
+  "hyperframes-media",
+  "hyperframes-registry",
+  "gsap",
+  "lottie",
+  "animejs",
+  "css-animations",
+  "three",
+  "typegpu",
+  "waapi",
+  "tailwind",
+  "website-to-hyperframes",
+  "contribute-catalog",
+]);
+
+// Content-niche craft overlays (pending templatization in issue 058). Matched
+// by explicit list + the `ugc-` prefix that the niche video skills share.
+const CONTENT_NICHE_SLUGS = new Set([
+  "poster",
+  "carousel",
+  "fb-creatives",
+  "analog-horror-psa",
+  "audio-explainer",
+]);
+
+function isContentNiche(slug: string): boolean {
+  return slug.startsWith("ugc-") || CONTENT_NICHE_SLUGS.has(slug);
+}
+
 function categoryFor(slug: string, namespace: string): SkillCategory {
-  if (namespace === "ralphy-dev") return "Maintainer";
-  if (slug.startsWith("ralphy-ugc-")) return "UGC niches";
-  if (slug.startsWith("ralphy-")) return "Workflow";
-  return "Render engine";
+  if (namespace === "maintainer") return "Maintainer";
+  if (RENDER_ENGINE_SLUGS.has(slug)) return "Render engine";
+  if (isContentNiche(slug)) return "UGC niches";
+  return "Workflow";
 }
 
 function firstSentence(s: string): string {
@@ -104,7 +137,7 @@ function firstSentence(s: string): string {
 }
 
 function monogramFor(slug: string): string {
-  const core = slug.replace(/^ralphy-(ugc-|dev-)?/, "");
+  const core = slug.replace(/^(ugc-|dev-)/, "");
   const parts = core.split("-").filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return core.slice(0, 2).toUpperCase();
@@ -112,7 +145,7 @@ function monogramFor(slug: string): string {
 
 function tagsFor(slug: string, category: SkillCategory): string[] {
   const tags: string[] = [category];
-  if (slug.startsWith("ralphy-ugc-")) tags.push("niche");
+  if (isContentNiche(slug)) tags.push("niche");
   if (category === "Render engine") tags.push("engine");
   if (category === "Workflow") tags.push("ops");
   return tags;
@@ -153,7 +186,7 @@ export function loadSkills(): SkillRecord[] {
     const raw = fs.readFileSync(skillMd, "utf8");
     const [fm, body] = splitFrontmatter(raw);
     const name = fmValue(fm, "name") || slug;
-    const namespace = fmValue(fm, "namespace") || "ralphy";
+    const namespace = fmValue(fm, "namespace") || "user";
     const description = fmValue(fm, "description");
     const category = categoryFor(slug, namespace);
 

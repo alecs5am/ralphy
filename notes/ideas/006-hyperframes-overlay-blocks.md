@@ -6,7 +6,7 @@
 
 ## Context
 
-Filed during the design pass for the `podcast-explainer-longform` template + `ralphy-audio-explainer` skill (2026-05-25 chat). The skill needs a small set of overlay blocks that cover the dev-essay / faceless-podcast vocabulary. None of them exist in the upstream HyperFrames registry yet — the skill ships with inline fallbacks, but a proper upstream contribution would let any HyperFrames project reuse them via `bunx hyperframes add <block>`.
+Filed during the design pass for the `podcast-explainer-longform` template + `audio-explainer` skill (2026-05-25 chat). The skill needs a small set of overlay blocks that cover the dev-essay / faceless-podcast vocabulary. None of them exist in the upstream HyperFrames registry yet — the skill ships with inline fallbacks, but a proper upstream contribution would let any HyperFrames project reuse them via `bunx hyperframes add <block>`.
 
 The reference video the format targets is at `workspace/references/codex-remotion-podcast/` — see `video-analysis.json` for the empirical recipe.
 
@@ -46,7 +46,7 @@ Each block:
 ## Acceptance
 
 - One PR per block to the upstream HF registry repo.
-- After all 7 land, the `ralphy-audio-explainer` skill switches from inline fallbacks to `bunx hyperframes add <block>`.
+- After all 7 land, the `audio-explainer` skill switches from inline fallbacks to `bunx hyperframes add <block>`.
 - The fallback HTML in the skill stays around for one major version cycle as the offline path.
 
 ## Promotion path

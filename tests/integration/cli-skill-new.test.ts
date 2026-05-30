@@ -164,7 +164,7 @@ describe("ralphy skill new", () => {
     const skillPath = path.join(tmpRepo, ".agents", "skills", "linted-skill", "SKILL.md");
     const src = fs.readFileSync(skillPath, "utf8");
     expect(src).toMatch(/^---\nname: linted-skill\n/);
-    expect(src).toMatch(/namespace: ralphy/);
+    expect(src).toMatch(/namespace: user/);
     expect(src).toContain("description:");
   });
 });

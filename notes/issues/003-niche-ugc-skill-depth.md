@@ -6,7 +6,7 @@
 
 ## Context
 
-Surfaced running `/ralphy-ugc-ad` end-to-end on a test brief (no-name
+Surfaced running `/ugc-ad` end-to-end on a test brief (no-name
 coffee grinder, project `ugc-ad-test-001`, 2026-05-27). The pipeline
 executed cleanly — gates, refs, model calls, composition, all correct
 — but the user judged the result AI-slop and not shippable. The skill
@@ -17,7 +17,7 @@ pressure-tested against a real render.
 
 ## What
 
-Research and rework the niche UGC skills (`ralphy-ugc-ad` first, then
+Research and rework the niche UGC skills (`ugc-ad` first, then
 the rest) so each is super-detailed and *operational*, not a thin
 overlay. Each skill body should spell out, with worked specifics:
 

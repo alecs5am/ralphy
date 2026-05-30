@@ -27,9 +27,9 @@ H1 (tighter triggers in-place) is incomplete — even with perfect descriptions,
 | ralph-core | 323 | 719 | no | no |
 | ralph-editor | 229 | 586 | no | no |
 | ralph-producer | 328 | 553 | no | no |
-| ralphy-researcher | 405 | 966 | no | no |
+| researcher | 405 | 966 | no | no |
 | ralph-scenarist | 177 | 627 | no | no |
-| ralphy-install | 131 | 509 | no | no |
+| install | 131 | 509 | no | no |
 | ralphy-remotion | 61 | 53 | no | **yes (38 files)** |
 | skill-creator | 485 | 319 | no | partial (`agents/`, `references/`, `scripts/`) |
 

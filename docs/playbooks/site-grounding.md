@@ -142,8 +142,8 @@ For visual consistency across N creatives, every `ralphy generate image` call ge
 ## Cross-references
 
 - `docs/playbooks/intake.md` step 1 — first turn where this discipline must fire if the brief is brand-derived
-- `.agents/skills/ralphy-poster/SKILL.md` — single-poster path; site-grounding is the pre-flight
-- `.agents/skills/ralphy-researcher/SKILL.md` — for video-style research (TikToks, Reels). This playbook is its sibling for brand-site research.
+- `.agents/skills/poster/SKILL.md` — single-poster path; site-grounding is the pre-flight
+- `.agents/skills/researcher/SKILL.md` — for video-style research (TikToks, Reels). This playbook is its sibling for brand-site research.
 - AGENTS.md hard invariant #15 — the route-level enforcement
 - Memory: [[feedback_site_grounding_before_brand_dna]], [[feedback_verify_sdk_before_code_creative]]
 - Postmortem of origin: `workspace/projects/sotaocr-fb-001/postmortem/02-lessons.md` rule #1 + Iteration 2 rule #8

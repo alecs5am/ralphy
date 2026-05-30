@@ -25,13 +25,14 @@ Specifically, **before picking `--model`**, scan:
 - The "Discovered breakage" numbered list (now 9 items as of 2026-05-19)
 - The "Tried-and-dropped" cross-reference table
 
-## Rule 3 — Match a niche skill; templates are remix-only
+## Rule 3 — Match the format / template first; niche skills are craft overlays
 
 Hard AGENTS.md invariant #10. Read [`docs/skills-vs-templates.md`](../skills-vs-templates.md) for the full model. The short version:
 
-- On a generic brief ("make an unboxing video", "make a talking-head rant"), **match a niche skill** (`/ralphy-ugc-*`) — generalized know-how that overlays the standard pipeline and works for any subject. Do **not** run `ralphy template suggest` to find "something close"; that forces the user's brief into a one-off mold and produces off-brand, samey output.
-- A **template** is a single concrete video, used only for **remix** — when the user explicitly points at one specific video (`@template:<slug>`, "remix this one", names a slug) and says what to swap. Templates are user-initiated, never auto-suggested. `ralphy template use <slug>` runs only on that explicit pointer.
-- If no niche skill matches and the user did not point at a template → go freeform via the scenarist. `ralphy template suggest` is for remix-shopping (the user browsing for a video to reproduce), not cold start.
+- On a generic brief ("make an unboxing video", "make a talking-head rant"), **match the media format / template library first** — `ralphy template suggest "<brief>" --format <f>` (formats in [`templates/FORMATS.md`](../../templates/FORMATS.md)). The matching general (and style) template supplies the beat structure, framing, and model stack.
+- **Content-niche skills (`ugc-*`, `poster`, `carousel`, `fb-creatives`, `analog-horror-psa`, `audio-explainer`) are supplementary craft overlays** — loaded on top of a template match to enrich a brief, not the primary route. They are pending conversion to format templates in issue 058.
+- A **style template** can also reproduce one concrete video: that is the **remix path** — the user explicitly points at one specific video (`@template:<slug>`, "remix this one", names a slug) and says what to swap. Remix is user-initiated, never auto-suggested for a generic brief.
+- If nothing in the library matches → go freeform via the scenarist.
 
 ## Rule 4 — Intake protocol before any paid generation
 
@@ -41,7 +42,7 @@ The protocol:
 1. Capture intent via 3-5 clarifying questions (target language, aspect, brand, duration, hard "no"s).
 2. Draft a plan in chat. Wait for user "go".
 3. Generate one beat at a time → wait for user feedback → next beat.
-4. Final eval gate via `/ralphy-evaluator` before declaring done.
+4. Final eval gate via `/evaluator` before declaring done.
 
 User override: "just go" switches to batch mode for that project. Note it in memory; don't generalize.
 

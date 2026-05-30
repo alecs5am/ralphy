@@ -6,7 +6,10 @@
 //   • `name` is kebab-case and matches the folder name
 //   • `description` is present and ≤ 1536 chars (agentskills.io cap)
 //   • Body has the expected section ordering (warning, not error)
-//   • Optional `namespace` field is `ralphy` or `ralphy-dev` (03.01.04)
+//   • Optional `namespace` field is `user` or `maintainer` (03.01.04 / 053)
+//
+// Slugs carry no `ralphy-` prefix. Audience is marked by the `namespace` field
+// (`user` default, `maintainer` for the two `dev-*` skills), not by the slug.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -26,7 +29,7 @@ export interface SkillFrontmatter {
 
 const NAME_RE = /^[a-z][a-z0-9-]*$/;
 const DESC_MAX = 1536;
-const NAMESPACE_VALUES = new Set(["ralphy", "ralphy-dev"]);
+const NAMESPACE_VALUES = new Set(["user", "maintainer"]);
 const EXPECTED_SECTIONS = ["Trigger", "Hard invariants", "Workflow", "Outputs", "Cookbook"];
 
 // ─── Frontmatter parser ────────────────────────────────────────────────────

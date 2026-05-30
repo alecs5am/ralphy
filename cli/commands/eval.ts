@@ -2,7 +2,7 @@
 //
 // Per AGENTS.md hard rule #2, all model calls (the per-scene vision pass)
 // route through cli/lib/providers/llm.ts. The CLI surface is the
-// single entry-point so the agent skill `/ralphy-evaluator` doesn't have
+// single entry-point so the agent skill `/evaluator` doesn't have
 // to reach into TS internals.
 
 import { Command } from "commander";

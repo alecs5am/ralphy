@@ -41,8 +41,8 @@ description: >-
   });
 
   test("handles namespace field", () => {
-    const fm = parseFrontmatter(`---\nname: foo\ndescription: bar\nnamespace: ralphy-dev\n---\n`);
-    expect(fm!.namespace).toBe("ralphy-dev");
+    const fm = parseFrontmatter(`---\nname: foo\ndescription: bar\nnamespace: maintainer\n---\n`);
+    expect(fm!.namespace).toBe("maintainer");
   });
 });
 
@@ -98,11 +98,11 @@ describe("validateSkill", () => {
     expect(r.errors.some((e) => e.includes("namespace"))).toBe(true);
   });
 
-  test("accepts namespace=ralphy or ralphy-dev", () => {
+  test("accepts namespace=user or maintainer", () => {
     const fm: SkillFrontmatter = {
       name: "my-skill",
       description: "x",
-      namespace: "ralphy",
+      namespace: "user",
     };
     const r = validateSkill("my-skill", fm, "# Body");
     expect(r.errors).toEqual([]);

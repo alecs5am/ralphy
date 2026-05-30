@@ -11,7 +11,7 @@ which yt-dlp || brew install yt-dlp
 yt-dlp --version
 ```
 
-If it's missing on a fresh machine, hand to the [ralphy-install playbook](../ralphy-install.md) — it goes in alongside `bun` / `ffmpeg`.
+If it's missing on a fresh machine, hand to the [install playbook](../ralphy-install.md) — it goes in alongside `bun` / `ffmpeg`.
 
 ## Standard download
 

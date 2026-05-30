@@ -22,7 +22,7 @@ Four companion files the agent should also keep in mind:
 - `workspace/` — generated files (gitignored). Safe to wipe. `workspace/templates/` overrides repo templates on id collision.
 - `workspace/.ralph/asset-cache/` — local cache of files pulled from the `ralphy-assets` companion repo.
 - `docs/playbooks/` — role / domain instruction docs. The agent reads these on demand based on `AGENTS.md` routing.
-- `.agents/skills/` — thin slash-command shims (`/ralphy-researcher`, etc.) that redirect to the playbooks. `.claude/skills/` symlinks.
+- `.agents/skills/` — thin slash-command shims (`/researcher`, etc.) that redirect to the playbooks. `.claude/skills/` symlinks.
 - **Companion repo** [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) — heavy required template assets (trend music) and complete example projects.
 
 ## ralphy CLI

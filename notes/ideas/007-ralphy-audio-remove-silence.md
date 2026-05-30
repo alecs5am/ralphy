@@ -6,7 +6,7 @@
 
 ## Context
 
-Filed during the design pass for the `ralphy-audio-explainer` skill (2026-05-25 chat). The skill needs to trim dead air from raw podcast audio before transcription — otherwise the resulting video has the pacing of a podcast cut, not of a montage.
+Filed during the design pass for the `audio-explainer` skill (2026-05-25 chat). The skill needs to trim dead air from raw podcast audio before transcription — otherwise the resulting video has the pacing of a podcast cut, not of a montage.
 
 ffmpeg has the primitive (`silenceremove`), and the codebase already has `cli/lib/ffmpeg-recipes.ts` with `loudnorm`, `sidechain`, `concat` recipes. The skill currently calls the ffmpeg recipe via an inline `bunx tsx` invocation as a workaround. A real CLI verb would clean that up and make the recipe reusable beyond this skill.
 
@@ -51,7 +51,7 @@ Implementation: thin wrapper around ffmpeg's `silenceremove` filter, exposing th
 - Verb shipped, lints pass (`lint:help-examples`, `lint:errors`).
 - `docs-mintlify/reference/cli/audio.mdx` regenerated.
 - `docs/cli-surface.generated.md` regenerated.
-- `ralphy-audio-explainer` skill body updated to call the verb instead of the inline `bunx tsx` workaround.
+- `audio-explainer` skill body updated to call the verb instead of the inline `bunx tsx` workaround.
 - Smoke test + integration test in `tests/`.
 
 ## Promotion path

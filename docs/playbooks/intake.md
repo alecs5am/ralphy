@@ -50,9 +50,9 @@ Before quoting a single $ or running `ralphy generate`, surface the missing cont
    - **ElevenLabs post-mix VO + music.** Default for non-EN. Also default whenever lipsync isn't needed (faceless explainers, voice-over-cuts, lifestyle b-roll).
    - **Ambient / SFX-only.** Stylized action, montage cuts, or any brief where speech would dilute the visual. Music is still a separate ElevenLabs Music pass (Kling auto-soundtrack is banned by default — MEMORY: `feedback_kling_no_music_eleven_music_postmix`).
    Announce the pick once; don't grill the user.
-3. **Aspect / platform.** **9:16 default UNLESS the matched niche skill sets its own aspect default** — e.g. `ralphy-ugc-toon-action` defaults 16:9, broadcast-realism work defaults 1:1 (MEMORY: `feedback_broadcast_realism_square`). Confirm with the user only if the brief contradicts the skill's default. 9:16 TikTok / 16:9 YouTube / 1:1 broadcast are the three live registers.
+3. **Aspect / platform.** **9:16 default UNLESS the matched niche skill sets its own aspect default** — e.g. `ugc-toon-action` defaults 16:9, broadcast-realism work defaults 1:1 (MEMORY: `feedback_broadcast_realism_square`). Confirm with the user only if the brief contradicts the skill's default. 9:16 TikTok / 16:9 YouTube / 1:1 broadcast are the three live registers.
 4. **Brand / named person / specific entity.** If the brief names a real entity the model cannot fabricate (a specific person, a recognizable brand product, an IP / character), the **reference-required gate** (AGENTS invariant #3) fires — refuse generation until the user supplies a ref or explicitly opts out via `--no-ref-consent "<reason>"` on the failing generate call (logged as `stage: "no-ref-consent"` in `user-prompts.jsonl`). Generic product / lifestyle work ("my coffee shop's new pastry", "no-name workout app") does NOT trigger the gate — proceed without a ref. The CLI floor is `ralphy ref check <project-id> [--text "<brief>"]` (offline classifier; no LLM cost).
-5. **Niche-skill fit.** Match the brief to a niche skill (`/ralphy-ugc-*`) — the generalized "how to make a `<niche>` video" overlay. If one fits, load it and run the normal pipeline. Do **not** run `ralphy template suggest` to find "something close" — templates are remix-only (full discipline in the "Cold-start niche-skill match" section below). If no skill fits and the user did not point at a specific video to remix → go freeform.
+5. **Format / template fit.** Match the brief to a media **format** in the template library (`ralphy template suggest "<brief>" --format <f>`; formats in [`templates/FORMATS.md`](../../templates/FORMATS.md)). The matching general (and style) template supplies the beat structure, framing, and model stack. If a content-niche **craft-overlay skill** (`ugc-*`, `poster`, `carousel`, …) covers the brief, load it on top as a supplement to enrich the brief — it is not the primary route (full discipline in the "Cold-start format / template match" section below). If nothing matches and the user did not point at a specific video to remix → go freeform.
 6. **Duration / clip count budget.** Most templates document `typicalDurationSec` + `typicalClipCount`. If the user picked a template, confirm; if not, default to ≤15s for first iteration, scale up after a successful test render.
 7. **Hard constraints.** Banned words, music policy (Kling auto-soundtrack is enabled unless explicitly banned in prompt — kbo / glitter-cream), brand colors, etc.
 
@@ -75,7 +75,7 @@ Once the questions land, draft a **plan** as a chat message — never a side fil
 ## Plan for "<one-line title>"
 
 **Vibe:** <2-3 sentences capturing what we're making>
-**Niche skill (if matched):** <skill> (e.g. `/ralphy-ugc-unboxing`) OR "freeform — no niche skill matched". (Only name a template here if the user explicitly asked to remix a specific video.)
+**Format / template:** <format> + <template-slug> (e.g. `video` / `unboxing-general`) OR "freeform — no template matched". **Craft overlay (if any):** <skill> (e.g. `/ugc-unboxing`) loaded on top. (Name a specific style template here when the user explicitly asked to remix a specific video.)
 **Beat structure:**
   1. <beat one — duration — model — anchor>
   2. <beat two — ...>
@@ -105,7 +105,7 @@ After plan approval, generate **one beat at a time**, surfacing each to the user
 5. **Music + VO.** After the visual cuts lock — never before, otherwise re-trim cascades into music re-sync (playdate-pixel-001).
 6. **Caption pass.** `ralphy generate captions` on the locked VO files (per-slot now).
 7. **Render** with `ralphy editor preflight <id>` first, then `ralphy render <id>`.
-8. **Hand off** to `/ralphy-evaluator` for the post-render quality gate.
+8. **Hand off** to `/evaluator` for the post-render quality gate.
 
 Exception: the user explicitly says "stop asking every time / fire the whole batch / don't do them one at a time anymore". Honor that and switch to batch mode for THAT project. Note the preference in memory for that project; don't generalize.
 
@@ -123,22 +123,22 @@ Before declaring done:
 
 1. Run `ralphy editor preflight <id>` — flags any aspect / fps / music-length divergence.
 2. Run `ralphy project verify <id>` — flags any manifest/disk drift.
-3. Run `/ralphy-evaluator` skill on the final mp4 — produces `eval.json` + `eval-report.md`. Surface the report inline.
+3. Run `/evaluator` skill on the final mp4 — produces `eval.json` + `eval-report.md`. Surface the report inline.
 4. **Only after the eval lands**, ask the user "ready to ship / commit / push?". User's "yes" is the only thing that authorizes git/network operations on shared state (CLAUDE.md "Executing actions with care").
 
-## Cold-start niche-skill match (04.04.01 + 04.04.03)
+## Cold-start format / template match (04.04.01 + 04.04.03)
 
-**Hard rule: on a generic brief, match a niche skill — never auto-suggest a template.** A template is a single concrete video, used only for explicit remix (see "Remix path" below). Forcing a generic brief into a pre-made template produces off-brand, samey output. The full model is in [`docs/skills-vs-templates.md`](../skills-vs-templates.md).
+**Hard rule: on a generic brief, match the media format / template library first; load a content-niche craft skill on top only as a supplement.** Templates are the primary content route, organized by media format ([`templates/FORMATS.md`](../../templates/FORMATS.md)); the niche skills (`ugc-*`, `poster`, `carousel`, …) are supplementary craft overlays pending conversion to templates in issue 058. The full model is in [`docs/skills-vs-templates.md`](../skills-vs-templates.md).
 
-When the user's first utterance is a generic video request (no `@template:<slug>`, no "remix this", no slug named), do this BEFORE drafting a plan:
+When the user's first utterance is a generic content request (no `@template:<slug>`, no "remix this", no slug named), do this BEFORE drafting a plan:
 
-1. **Identify the niche.** Read the brief for the *kind* of video: unboxing, talking-head rant, tier-list, before/after, day-in-the-life, etc. Match it to a niche skill (`/ralphy-ugc-*`). The skills are discoverable in `.agents/skills/` (and Claude Code's slash menu).
+1. **Identify the format.** Read the brief for the media **format** and the *kind* of content: video (unboxing, talking-head rant, tier-list, before/after, day-in-the-life), poster, carousel, fb-creative, motion-design, etc. Match it to a format in the template library — `ralphy template suggest "<brief>" --format <f>` surfaces the general + style candidates.
 2. **Branch:**
-   - **Niche skill matches** → load it as the domain overlay (it encodes the beat structure, framing, model stack, and pitfalls for that niche) and continue intake; the skill fills most stack defaults, the user fills the subject.
-   - **No niche skill matches** → enter **free-form mode**, jump to `docs/playbooks/scenarist.md` step "scenario-from-brief". Say once: "No niche skill fits this one — drafting freeform from your brief." Then proceed without asking.
-3. **Do NOT run `ralphy template suggest`** on cold start. It is for remix-shopping only (the user browsing the library for a specific video to reproduce).
+   - **A format / template matches** → reach for the matching general (and style) template; it encodes the beat structure, framing, model stack, and pitfalls. If a content-niche craft-overlay skill (`/ugc-unboxing`, `/poster`, …) covers the brief, load it on top as a supplement to enrich it. Continue intake; the template fills most stack defaults, the user fills the subject.
+   - **Nothing matches** → enter **free-form mode**, jump to `docs/playbooks/scenarist.md` step "scenario-from-brief". Say once: "No template fits this one — drafting freeform from your brief." Then proceed without asking.
+3. **Use `ralphy template suggest` to surface format candidates on cold start** — that is the cold-start move. (The remix path below is reserved for the user pointing at one specific made video to reproduce by slug.)
 
-**Why this discipline:** A niche skill generalizes — it works for the user's coffee grinder, someone else's keyboard, any no-name product. A template answers a different question ("I want *this* exact video"). Suggesting a template for "make a video about X" is a category error: it answers a question the user didn't ask, and routes a custom brief into a one-off mold — e.g. "a video in the style of @voidstomper" should NOT pivot to `found-footage-mockumentary` just because the template mentions "voidstomper lineage".
+**Why this discipline:** The template library, organized by format, scales across subjects and reproduces specific videos through the same surface. A *general* template works for the user's coffee grinder, someone else's keyboard, any no-name product; a *style* template can also reproduce one concrete video on an explicit remix pointer. Steering a generic brief into a single hand-picked "closest" recipe was the old failure mode — e.g. "a video in the style of @voidstomper" should match the video format's general template (overlaid with the relevant niche craft skill), not silently pivot to `found-footage-mockumentary` just because that style template mentions "voidstomper lineage".
 
 ## Remix path (explicit pointer only)
 
@@ -161,8 +161,9 @@ When a user request is concrete but doesn't specify a parameter, **pick the defa
 
 | Missing | Default | Where it comes from |
 |---|---|---|
-| Niche skill | Match to the brief's *kind* of video and load it; if none fits, go freeform. Not a question — announce the match ("This is an unboxing — using the unboxing skill"). | niche-skill match (this section) |
-| Template | **Never a default and never auto-suggested.** A template enters only on an explicit remix pointer (`@template:<slug>`, "remix this one", named slug). | Remix path (this section) |
+| Format / template | Match to the brief's media format + *kind* of content and load the matching general/style template; if none fits, go freeform. Not a question — announce the match ("This is an unboxing video — using the unboxing template"). | format / template match (this section) |
+| Craft overlay | If a content-niche craft skill (`/ugc-unboxing`, `/poster`, …) covers the brief, load it on top of the template match as a supplement. Announce it; not a question. | format / template match (this section) |
+| Remix template | **Never a cold-start default and never auto-suggested.** A specific style template enters as a reproduction target only on an explicit remix pointer (`@template:<slug>`, "remix this one", named slug). | Remix path (this section) |
 | Persona | The matched brand's `default_persona` if set; otherwise the closest archetype from `workspace/personas/ARCHETYPES.md` | `ralphy brand show <id>` → `persona` field |
 | Duration | 15s | Intake step 6 default |
 | Aspect | 9:16 UNLESS the matched niche skill sets its own default (e.g. toon-action → 16:9, broadcast-realism → 1:1) OR the user explicitly remixes a template that hard-codes one | Intake step 3 |
@@ -204,7 +205,7 @@ These add no information and break the one-beat-at-a-time loop. Replace with act
 1. **Reference-required gate re-check.** Before the final render, re-run `ralphy ref check <project-id>` to confirm any named real entity has a satisfied ref (or a logged `--no-ref-consent`). The intake-step ref check at step 1 may be stale if the scenario changed.
 2. **Quality gates.** Run `ralphy editor preflight <id>` (aspect / fps / music-length divergence). The agent quality gates (`scoreScenario`, `scoreImage`, `scoreVideo`) refuse-not-warn per AGENTS invariant #4; if any fails twice in a row, stop and report concrete options — do not render mp4 over a failed gate. There is no model upgrade between draft and ship: best models are used throughout (AGENTS invariant + `04.0A.03`).
 3. **Render.** `ralphy render <project-id>` → `workspace/projects/<id>/render/final.mp4`.
-4. **Post-render eval.** Hand off to `/ralphy-evaluator` for `eval.json` + `eval-report.md`. Surface the report inline.
+4. **Post-render eval.** Hand off to `/evaluator` for `eval.json` + `eval-report.md`. Surface the report inline.
 5. **Authorize commit/push.** Only after the eval lands, ask once "ready to commit/push?". User's "yes" is the only thing that authorizes git/network operations on shared state (CLAUDE.md "Executing actions with care").
 
 ## What's a "step" worth gating on?
@@ -220,8 +221,9 @@ For **template-driven** projects (`ralphy template use <slug>`), the template's 
 - `docs/playbooks/art-director.md` — receives the locked scenario + per-scene generation cadence.
 - `docs/playbooks/producer.md` — orchestrates the end-to-end chain; references intake.md for the gate at every role-transition.
 - `docs/skills-vs-templates.md` — the skills-vs-remix-templates model behind step 1.4.
-- `.agents/skills/ralphy-ugc-*` — the niche skills matched in the cold-start step.
-- `templates/CATEGORIES.md` — the remix-template roster (used only on an explicit remix pointer).
+- `.agents/skills/ugc-*` (and `/poster`, `/carousel`, …) — the content-niche craft-overlay skills loaded on top of a template match in the cold-start step.
+- `templates/FORMATS.md` — the media-format map (primary template axis matched on cold start).
+- `templates/CATEGORIES.md` — the template roster (general + style; style templates double as remix targets on an explicit pointer).
 - `MODELS.md` "Tried-and-dropped" table — what to avoid when picking the stack in step 2.
 - All 10 project postmortems under `workspace/projects/<id>/postmortem/` or root `POSTMORTEM.md` — they exist BECAUSE skipping one of these gates cost real money. Re-read the closest sibling postmortem if you're about to skip a step.
 

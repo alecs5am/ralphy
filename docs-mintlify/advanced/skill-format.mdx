@@ -7,12 +7,12 @@ A Ralphy skill is one folder under `.agents/skills/<name>/` containing a single 
 
 ## Full example
 
-A valid `.agents/skills/ralphy-evaluator/SKILL.md`:
+A valid `.agents/skills/evaluator/SKILL.md`:
 
 ```markdown
 ---
-name: ralphy-evaluator
-namespace: ralphy
+name: evaluator
+namespace: user
 description: >-
   Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness,
   caption density, and per-scene visual analysis. Produces an actionable report
@@ -22,7 +22,7 @@ description: >-
   See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 
-# ralphy-evaluator
+# evaluator
 
 ## Trigger refinements
 
@@ -57,9 +57,9 @@ That file passes `bun run lint:skills` and renders correctly in every supported 
 
 ```
 .agents/skills/
-  ralphy-evaluator/SKILL.md
-  ralphy-researcher/SKILL.md
-  ralphy-install/SKILL.md
+  evaluator/SKILL.md
+  researcher/SKILL.md
+  install/SKILL.md
   release/SKILL.md
   hyperframes/SKILL.md
 ```
@@ -74,7 +74,7 @@ The frontmatter is a YAML block between `---` fences. `scripts/lint-skills.ts` e
 |---|---|---|---|
 | `name` | yes | `/^[a-z][a-z0-9-]*$/`, matches folder name | kebab-case |
 | `description` | yes | length ≤ 1536 chars | agentskills.io hard cap |
-| `namespace` | no | `ralphy` or `ralphy-dev` | drives install wizard visibility |
+| `namespace` | no | `user` or `maintainer` | drives install wizard visibility |
 | `when_to_use` | no | free-form string | downstream filter tag (e.g. `post-render`) |
 | `allowed-tools` | no | string array | tool allowlist |
 | `disable-model-invocation` | no | boolean | `true` makes the skill docs-only |
@@ -109,17 +109,17 @@ const DESC_MAX = 1536;
 ### The namespace whitelist
 
 ```ts
-const NAMESPACE_VALUES = new Set(["ralphy", "ralphy-dev"]);
+const NAMESPACE_VALUES = new Set(["user", "maintainer"]);
 ```
 
 Any other value is rejected. The split:
 
 | Namespace | Audience | Examples |
 |---|---|---|
-| `ralphy` | end users | `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `skill-creator` |
+| `user` | end users | `evaluator`, `researcher`, `templater`, `install` |
+| `maintainer` | maintainers / contributors | `dev-release`, `dev-tasks` |
 
-`ralphy skill install` installs only `ralphy` skills by default. `--dev` opts into the maintainer set. The agents-md lint (`scripts/lint-agents-md.ts`) reads `namespace:` and skips the "is this skill referenced from the routing table" check for `ralphy-dev` skills — maintainer skills are explicit-invocation-only.
+`ralphy skill install` installs only `user` skills by default. `--dev` opts into the maintainer set. The agents-md lint (`scripts/lint-agents-md.ts`) reads `namespace:` and skips the "is this skill referenced from the routing table" check for `maintainer` skills — maintainer skills are explicit-invocation-only.
 
 ## Body structure
 
@@ -148,7 +148,7 @@ The lint walks for any `##` heading starting with `Trigger`, `Hard invariants`, 
 
 ## Writing a great description
 
-The description is the **user-facing summary** of the skill, not an auto-route trigger phrase list. Claude Code renders it in the `/ralphy:<skill>` slash-command menu, the "suggest this skill" surface, and the `ralphy skill list` output. A scannable paragraph beats a wall of synonyms.
+The description is the **user-facing summary** of the skill, not an auto-route trigger phrase list. Claude Code renders it in the `/<skill>` slash-command menu, the "suggest this skill" surface, and the `ralphy skill list` output. A scannable paragraph beats a wall of synonyms.
 
 ### Good: ~300 chars
 
@@ -193,7 +193,7 @@ The agentskills.io cap (1536) and the menu-budget reality (~1500 soft) are not t
 
 ## ALSO FIRE / DO NOT FIRE / HARD INVARIANTS
 
-For longer skills (the existing `ralphy-evaluator` and `ralphy-researcher`), the description ends with `See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.` and those clauses move into the body under `## Trigger refinements` and `## Hard invariants`. This pattern keeps the description scannable while preserving the routing-fidelity detail the agent needs once the skill fires.
+For longer skills (the existing `evaluator` and `researcher`), the description ends with `See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.` and those clauses move into the body under `## Trigger refinements` and `## Hard invariants`. This pattern keeps the description scannable while preserving the routing-fidelity detail the agent needs once the skill fires.
 
 The rule of thumb: if a clause is longer than half a sentence, move it from the description into the body. The description's job is "should this skill fire?"; the body's job is "now that it fired, what do I do?"
 
@@ -208,7 +208,7 @@ The script walks `.agents/skills/*/SKILL.md` and checks:
 - Frontmatter parses cleanly (a `---` … `---` block with valid YAML).
 - `name` matches `/^[a-z][a-z0-9-]*$/` and equals the folder name.
 - `description` is present and ≤ 1536 chars.
-- `namespace`, if set, is `ralphy` or `ralphy-dev`.
+- `namespace`, if set, is `user` or `maintainer`.
 - (Warning) The body has at least one `##` section heading.
 
 CI runs `lint:skills` on every PR. A failing lint blocks merge.

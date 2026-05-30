@@ -72,7 +72,7 @@ export default async function SkillsPage() {
                 </li>
                 <li>
                   You type a brief or a slash command (
-                  <code>/ralphy-researcher</code>, etc.) and the right skill
+                  <code>/researcher</code>, etc.) and the right skill
                   fires.
                 </li>
                 <li>

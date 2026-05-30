@@ -64,9 +64,9 @@ const SHAPES: Array<[string, unknown]> = [
     "skill.list",
     {
       skills: [
-        { name: "ralphy-evaluator", namespace: "ralphy", description: "score a rendered mp4" },
-        { name: "ralphy-researcher", namespace: "ralphy", description: "URL teardown" },
-        { name: "skill-creator", namespace: "ralphy-dev", description: "scaffold a skill" },
+        { name: "evaluator", namespace: "user", description: "score a rendered mp4" },
+        { name: "researcher", namespace: "user", description: "URL teardown" },
+        { name: "skill-creator", namespace: "maintainer", description: "scaffold a skill" },
       ],
     },
   ],

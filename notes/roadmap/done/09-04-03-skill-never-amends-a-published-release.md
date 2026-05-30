@@ -12,5 +12,5 @@ title: "Skill never amends a published release"
 **v1.0:** yes
 
 **Acceptance criteria:**
-- Documented invariant in `.claude/skills/ralphy-dev-release/SKILL.md`.
+- Documented invariant in `.claude/skills/dev-release/SKILL.md`.
 - Re-running on an already-cut version errors with `E_RELEASE_IMMUTABLE`.
