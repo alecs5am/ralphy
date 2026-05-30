@@ -6,9 +6,9 @@ One video, end-to-end. User: "make a video about X", "run the full pipeline".
 
 ## Steps
 
-### 0. Match a niche skill (first) — never auto-suggest a template
+### 0. Match the format / template (first) — niche skills are craft overlays
 
-Read the brief for the *kind* of video and match a niche skill (`/ralphy-ugc-*`). If one fits, load it as the domain overlay and continue. If none fits, go straight to the scenarist flow (freeform). Do **not** run `ralphy template suggest` — templates are remix-only and enter only on an explicit pointer from the user (`@template:<slug>`, "remix this", named slug). See [`../../skills-vs-templates.md`](../../skills-vs-templates.md).
+Read the brief for the media **format** and *kind* of content, and match the template library first — `ralphy template suggest "<brief>" --format <f>` (formats in [`../../../templates/FORMATS.md`](../../../templates/FORMATS.md)). Reach for the matching general (and style) template. If a content-niche craft-overlay skill (`ugc-*`, `poster`, …) covers the brief, load it on top as a supplement. If nothing matches, go straight to the scenarist flow (freeform). A *style* template doubles as a remix target only on an explicit pointer from the user (`@template:<slug>`, "remix this", named slug). See [`../../skills-vs-templates.md`](../../skills-vs-templates.md).
 
 ### 1. Research if needed
 

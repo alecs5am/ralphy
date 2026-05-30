@@ -36,7 +36,7 @@ Mechanics for turning one audio file into a long-form overlay-driven essay. The 
 [ render/final.mp4 — 1920×1080 @ 30fps ]
 ```
 
-Every step is `ralphy`-driven except the LLM segmentation passes and the HTML emit — those live in the skill body (`.agents/skills/ralphy-audio-explainer/SKILL.md`).
+Every step is `ralphy`-driven except the LLM segmentation passes and the HTML emit — those live in the skill body (`.agents/skills/audio-explainer/SKILL.md`).
 
 ---
 

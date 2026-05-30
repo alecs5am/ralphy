@@ -34,14 +34,23 @@ CATEGORY_BG = {
 }
 
 
+# Render-engine (HyperFrames) skills carry no `ralphy-`-era prefix; match by slug.
+RENDER_ENGINE_SLUGS = {
+    "hyperframes", "hyperframes-cli", "hyperframes-media", "hyperframes-registry",
+    "gsap", "lottie", "animejs", "css-animations", "three", "typegpu", "waapi",
+    "tailwind", "website-to-hyperframes", "contribute-catalog",
+}
+
+
 def category_for(slug: str) -> str:
-    if slug.startswith("ralphy-dev-"):
+    # Slugs were de-prefixed in issue 053 (no more `ralphy-`/`ralphy-dev-`).
+    if slug.startswith("dev-"):
         return "Maintainer"
-    if slug.startswith("ralphy-ugc-"):
+    if slug.startswith("ugc-"):
         return "UGC niches"
-    if slug.startswith("ralphy-"):
-        return "Workflow"
-    return "Render engine"
+    if slug in RENDER_ENGINE_SLUGS:
+        return "Render engine"
+    return "Workflow"
 
 
 def chroma_key(img: Image.Image) -> Image.Image:

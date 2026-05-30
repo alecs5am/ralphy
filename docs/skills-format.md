@@ -16,9 +16,9 @@ Code, Cursor, Codex, Copilot).
 
 ```
 .agents/skills/
-  ├── ralphy-evaluator/
+  ├── evaluator/
   │   └── SKILL.md
-  ├── ralphy-researcher/
+  ├── researcher/
   │   └── SKILL.md
   └── …
 ```
@@ -32,8 +32,8 @@ without polluting the bundle.
 
 ```yaml
 ---
-name: ralphy-evaluator        # required, kebab-case, matches folder name
-namespace: ralphy            # optional, "ralphy" (user) or "ralphy-dev" (maintainer)
+name: evaluator        # required, kebab-case, matches folder name (no ralphy- prefix)
+namespace: user              # optional, "user" (default) or "maintainer"
 description: >-              # required, ≤ 1536 chars (agentskills.io cap)
   Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness,
   caption density, and per-scene visual analysis. Produces an actionable report.
@@ -62,7 +62,7 @@ arguments: [path]            # optional, schema for positional args
 
 | Field                      | Purpose                                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
-| `namespace`                | `ralphy` (user-invokable) or `ralphy-dev` (maintainer-only). Drives the install wizard.  |
+| `namespace`                | `user` (user-invokable, default) or `maintainer` (maintainer-only). Drives the install wizard. |
 | `when_to_use`              | Free-form tag for downstream filtering (e.g. `post-render`, `pre-flight`).                |
 | `allowed-tools`            | Allowlist of tools the skill is allowed to call.                                          |
 | `disable-model-invocation` | When `true`, the skill is documentation-only — never spawns a model call.                 |
@@ -71,11 +71,11 @@ arguments: [path]            # optional, schema for positional args
 | `argument-hint`            | Shown next to the slash command in Claude Code's menu.                                    |
 | `arguments`                | Positional-argument schema; consumed by future MCP exposure.                              |
 
-> **Namespace split.** Skills marked `namespace: ralphy` are user-facing
-> (`/ralphy:postmortem`, `/ralphy:researcher`). Skills marked
-> `namespace: ralphy-dev` are maintainer-only (`/ralphy-dev:release`,
-> `/ralphy-dev:skill-creator`). `ralphy skill install` installs only
-> `ralphy:` by default; `--dev` opts into the maintainer set.
+> **Namespace split.** Skills marked `namespace: user` are user-facing
+> (`/postmortem`, `/researcher`). Skills marked `namespace: maintainer` are
+> maintainer-only (`/dev-release`, `/dev-tasks`). Slugs carry no `ralphy-`
+> prefix — the namespace field marks audience. `ralphy skill install` installs
+> only the `user` set by default; `--dev` opts into the maintainer set.
 
 ## Body structure
 
@@ -180,14 +180,14 @@ skill fires; the description is where the user looks before invoking it.
 Ralphy ships skills in two namespaces (per
 [03.01.04](../roadmap/03-skills/PRD.md#030104-two-namespace-skill-split-ralphy-user-vs-ralphy-dev-maintainer)):
 
-| Namespace    | Audience                | Examples                                       |
-| ------------ | ----------------------- | ---------------------------------------------- |
-| `ralphy`     | end users               | `postmortem`, `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install` |
-| `ralphy-dev` | maintainers / contributors | `release`, `skill-creator` |
+| Namespace     | Audience                   | Examples                                       |
+| ------------- | -------------------------- | ---------------------------------------------- |
+| `user`        | end users                  | `postmortem`, `evaluator`, `researcher`, `templater`, `install` |
+| `maintainer`  | maintainers / contributors | `dev-release`, `dev-tasks` |
 
-A skill in `ralphy-dev` ships through the same lint + installer plumbing as
-`ralphy`. The install wizard hides them by default so a tester running
-`/<TAB>` on a fresh `ralphy skill install` doesn't see `/release` (which
+A `maintainer` skill ships through the same lint + installer plumbing as a
+`user` skill. The install wizard hides them by default so a tester running
+`/<TAB>` on a fresh `ralphy skill install` doesn't see `/dev-release` (which
 ships the binary, not the user's project).
 
 ## Lint
@@ -201,7 +201,7 @@ The lint walks `.agents/skills/*/SKILL.md` and checks:
 - Frontmatter parses (`---` … `---` block with valid YAML).
 - `name` is kebab-case and matches the folder name.
 - `description` exists and is ≤ 1536 chars.
-- (Optional) `namespace` is one of `ralphy` / `ralphy-dev`.
+- (Optional) `namespace` is one of `user` / `maintainer`.
 - (Warning) Body has `##` section headings.
 
 CI runs `lint:skills` on every PR. A failing lint blocks merge.

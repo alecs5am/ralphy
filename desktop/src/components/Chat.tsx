@@ -24,7 +24,7 @@ export function Chat({ items, busy, onSend }: { items: ChatItem[]; busy: boolean
             <span className="who">Ralphy</span>
             <div className="bubble">
               Tell me what to make — "an unboxing for my coffee grinder", "a 15s UGC ad
-              for my skincare set". I'll match a niche skill, draft the scenario, and
+              for my skincare set". I'll match a format / template, draft the scenario, and
               check with you before any paid generation.
             </div>
           </div>

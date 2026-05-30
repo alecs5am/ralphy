@@ -13,4 +13,4 @@ title: "Council verb wraps and replaces ralphy eval"
 
 **Acceptance criteria:**
 - `ralphy eval <project-id>` is kept as an alias for `ralphy council <project-id> --agents 1 --quick`.
-- The `ralphy-evaluator` skill is renamed to `ralph-council` and invokes the verb.
+- The `evaluator` skill is renamed to `ralph-council` and invokes the verb.

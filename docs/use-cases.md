@@ -10,7 +10,7 @@ User utterances below are shown in English.
 
 ## A. Cold-start niche videos
 
-Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` skill if one exists, else freeform in that niche) and runs the normal pipeline. It does **NOT** suggest a template — templates are remix-only, used only when the user points at one specific video to reproduce. The slugs named below identify the niche; each also exists as a remix template the user can ask for by name. See [`docs/skills-vs-templates.md`](skills-vs-templates.md).
+Format-first flow: the chat matches the brief to a media format / template (`ralphy template suggest "<brief>" --format <f>`; formats in [`templates/FORMATS.md`](../templates/FORMATS.md)), loads any matching content-niche craft-overlay skill (`ugc-*`, `poster`, …) on top as a supplement, and runs the normal pipeline. Templates are the primary content route; the niche craft skills are supplementary overlays pending conversion to templates in issue 058. A *style* template doubles as a remix target when the user points at one specific video to reproduce by slug. The slugs named below identify the niche; each also exists as a style template the user can remix by name. See [`docs/skills-vs-templates.md`](skills-vs-templates.md).
 
 ### A1. AI vegetables
 
@@ -21,7 +21,7 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 > AI-vegetables niche (viral POV, ~15s, ~$8). I'll build it from your topic. Starting.
 
 **Flow:**
-1. `ralphy project create --id <slug>-001 --name "<human>"` + load the matching niche skill (or work freeform in the AI-vegetables niche). *Remix variant: if the user pointed at the `ai-vegetables` video to reproduce → `ralphy template use ai-vegetables --project <slug>-001 --brief "<the swap>"`.*
+1. Match the video format / template (`ralphy template suggest "<brief>" --format video`), `ralphy project create --id <slug>-001 --name "<human>"`, and load the matching content-niche craft-overlay skill on top (or work freeform in the AI-vegetables niche). *Remix variant: if the user pointed at the `ai-vegetables` style template to reproduce → `ralphy template use ai-vegetables --project <slug>-001 --brief "<the swap>"`.*
 2. `art-director playbook` → keyframe (gemini-3-pro-image-preview) → i2v (kling-v3.0-pro)
 3. `editor playbook` → captions (whisper-1) → render
 4. `ralphy render <id>` → mp4 path
@@ -38,7 +38,7 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 
 **Flow:**
 1. `ralphy persona suggest --archetype <inferred>` or the chat proposes a default.
-2. `ralphy project create` + load the talking-head niche skill (or freeform). *Remix variant: user named the `talking-head-rant` video → `ralphy template use talking-head-rant`.*
+2. Match the video format / template, `ralphy project create`, and load the talking-head craft-overlay skill on top (or freeform). *Remix variant: user named the `talking-head-rant` style template → `ralphy template use talking-head-rant`.*
 3. `scenarist playbook` → 15-20s scenario with hook in the first 3s.
 4. `art-director playbook` → character image → veo-3.1 talking-head.
 5. `editor playbook` → captions + hook screenshot overlay → render.
@@ -55,7 +55,7 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 
 **Flow:**
 1. **Gate:** wait for the reference (see section D). Without it — refuse.
-2. `ralphy project create --project <id>` + load the before/after niche skill (or freeform), reference in `assets/uploaded/`. *Remix variant: user named the `before-after-product` video → `ralphy template use before-after-product`.*
+2. Match the video format / template, `ralphy project create --project <id>`, load the before/after craft-overlay skill on top (or freeform), reference in `assets/uploaded/`. *Remix variant: user named the `before-after-product` style template → `ralphy template use before-after-product`.*
 3. `scenarist playbook` → 5s problem + 10s demo.
 4. `art-director playbook` → 2 keyframes → 2 i2v clips.
 5. `editor playbook` → captions + transition → render.
@@ -70,7 +70,7 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 **Expected first response:**
 > Soviet-nostalgic niche (two-era TikTok narrative, ~60s, ~$12). Building from your topic. Starting.
 
-**Flow:** match the niche skill (or freeform) and run the pipeline. *Remix variant: user named the `soviet-nostalgic` video → `ralphy template use soviet-nostalgic`; its composition is in `templates/entertainment-viral/soviet-nostalgic/`.*
+**Flow:** match the video format / template, load the matching craft-overlay skill on top (or freeform), and run the pipeline. *Remix variant: user named the `soviet-nostalgic` style template → `ralphy template use soviet-nostalgic`; its composition is in `templates/entertainment-viral/soviet-nostalgic/`.*
 
 ---
 
@@ -82,10 +82,10 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 - "take the style from https://...", "make a landing-promo in the aesthetic of <site>", "shoot it like <site>"
 
 **Expected first response:**
-> Launching `/ralphy-researcher` — pulling design tokens and screenshots from <site>. ~2 min.
+> Launching `/researcher` — pulling design tokens and screenshots from <site>. ~2 min.
 
 **Flow:**
-1. `/ralphy-researcher` → `extract-design.ts` → `workspace/references/<site-slug>/`.
+1. `/researcher` → `extract-design.ts` → `workspace/references/<site-slug>/`.
 2. The chat shows the extracted palette + typography + 3 screenshots → user confirms.
 3. `scenarist playbook` → scenario referencing the design.
 4. `art-director playbook` → prompts that pass the reference screenshots into `image_urls`.
@@ -101,7 +101,7 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 **Expected first response:**
 > Pulling the top 10 videos for @handle, running viral-moments analysis. ~3 min.
 
-**Flow:** `/ralphy-researcher` sub-task `discover-trends` → `scrape-tiktok-trends.ts` → `scoreTikTok()` → top-N + analysis.
+**Flow:** `/researcher` sub-task `discover-trends` → `scrape-tiktok-trends.ts` → `scoreTikTok()` → top-N + analysis.
 
 ---
 
@@ -126,7 +126,7 @@ Niche-skill-first flow: the chat matches the brief to a niche (`/ralphy-ugc-*` s
 - "video about Stripe", "ad for <brand>", "<product> packaging"
 
 **Expected first response (refusal with proposal):**
-> Need a logo / packaging / brand kit. Drop a photo here or a link to the site — I'll pull it through `/ralphy-researcher`.
+> Need a logo / packaging / brand kit. Drop a photo here or a link to the site — I'll pull it through `/researcher`.
 
 ### C3. The style of a specific show / channel
 
@@ -222,7 +222,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 **Utterance:**
 - "which video could I remix for <request>", "show me a template like <X> to copy"
 
-**Flow:** `ralphy template suggest "<utterance>"` — top-3 ranked. **Remix-shopping only** — this is the user explicitly browsing for a specific video to reproduce, NOT the cold-start route for "make a video about X" (that matches a niche skill — see section A).
+**Flow:** `ralphy template suggest "<utterance>"` — top-3 ranked. Used both as the **cold-start format / template match** for "make a video about X" (see section A) and for **remix-shopping** when the user is explicitly browsing for a specific style template to reproduce.
 
 ---
 

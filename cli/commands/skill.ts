@@ -96,7 +96,7 @@ export function skillCmd(): Command {
     .option("--symlink", "Symlink the bundle instead of copying (default copy)")
     .option("--copy", "Force copy mode (default — opposite of --symlink)")
     .option("--repo <path>", "Path to the ugc-cli checkout containing the skill bundle (overrides $RALPHY_REPO_ROOT and cwd)")
-    .option("--dev", "Also install the ralphy-dev: maintainer namespace")
+    .option("--dev", "Also install the maintainer-namespace skills")
     .option("--reconfigure", "Re-launch the wizard, overwriting any persisted choice")
     .action(async (opts) => {
       const explicitAgent = (opts.agent as string | undefined) ?? null;
@@ -176,7 +176,7 @@ export function skillCmd(): Command {
     .option("--intent <text>", "One-line intent the skill captures (description's first sentence)")
     .option("--trigger <phrases...>", "Trigger phrases (repeatable; rendered as USE WHEN)")
     .option("--row <text>", "Intent text used in the AGENTS.md routing row")
-    .option("--namespace <ns>", "ralphy (user) or ralphy-dev (maintainer)", "ralphy")
+    .option("--namespace <ns>", "user (default) or maintainer", "user")
     .option("--add-to-routing", "Also append a row to AGENTS.md (sentinel-bounded, idempotent)")
     .option("--non-interactive", "Skip clack prompts; require --intent / --trigger flags")
     .action(async (name: string, opts) => {
@@ -193,8 +193,8 @@ export function skillCmd(): Command {
       let intent: string = (opts.intent as string | undefined) ?? "";
       let triggers: string[] = (opts.trigger as string[] | undefined) ?? [];
       let rowText: string = (opts.row as string | undefined) ?? "";
-      const namespace: "ralphy" | "ralphy-dev" =
-        (opts.namespace as "ralphy" | "ralphy-dev") ?? "ralphy";
+      const namespace: "user" | "maintainer" =
+        (opts.namespace as "user" | "maintainer") ?? "user";
 
       if (!ni && (!intent || triggers.length === 0)) {
         p.intro(`ralphy skill new ${name}`);
@@ -271,7 +271,7 @@ export function skillCmd(): Command {
 Examples:
   ralphy skill new my-flow --non-interactive --intent "Does X" --trigger "do X" --trigger "/x"
   ralphy skill new fancy --add-to-routing --row "When user wants fancy"
-  ralphy skill new dev-only --namespace ralphy-dev --non-interactive --intent "Maintainer-only flow" --trigger "/dev-only"
+  ralphy skill new dev-only --namespace maintainer --non-interactive --intent "Maintainer-only flow" --trigger "/dev-only"
 `,
   );
 

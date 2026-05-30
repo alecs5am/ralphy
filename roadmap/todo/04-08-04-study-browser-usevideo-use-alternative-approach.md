@@ -12,4 +12,4 @@ title: "Study browser-use/video-use alternative approach"
 **v1.0:** no
 **Acceptance criteria:**
 - Read browser-use/video-use repo (agentic video editor with self-eval loop).
-- Output: `notes/research/browser-use-video.md` — their self-eval loop pattern + whether it influences our `ralphy-evaluator` design.
+- Output: `notes/research/browser-use-video.md` — their self-eval loop pattern + whether it influences our `evaluator` design.

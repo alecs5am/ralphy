@@ -8,7 +8,7 @@
 
 ## Context
 
-`docs/playbooks/intake.md` does not require target-audience-language as a clarifying-question field, and its global 9:16 default contradicts aspect defaults set by some niche skills (e.g. `ralphy-ugc-toon-action` uses 16:9; broadcast-realism work uses 1:1 — MEMORY: `feedback_broadcast_realism_square`).
+`docs/playbooks/intake.md` does not require target-audience-language as a clarifying-question field, and its global 9:16 default contradicts aspect defaults set by some niche skills (e.g. `ugc-toon-action` uses 16:9; broadcast-realism work uses 1:1 — MEMORY: `feedback_broadcast_realism_square`).
 
 ## What
 

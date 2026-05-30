@@ -1,6 +1,6 @@
 # Skills vs. templates rework — phased plan
 
-> **Status:** exploring (phase 1 landed: concept + system prompts)
+> **Status:** SUPERSEDED by #052 (everything-is-a-template format taxonomy) + #053 (de-prefix skills, technical-only scope). The "niche content skills are the default route" model below is reversed: templates organized by format are now the content unit, and content-niche skills became de-prefixed craft overlays pending templatization in #058. Kept for history.
 > **Filed:** 2026-05-27
 > **Folder:** ideas
 
@@ -12,7 +12,7 @@ Templates were being over-recommended. The agent answered "make a video like X" 
 
 Two clean concepts, two jobs — full write-up in [`docs/skills-vs-templates.md`](../../docs/skills-vs-templates.md):
 
-- **Skill** = generalized niche know-how ("how to make a *kind* of video", e.g. `/ralphy-ugc-unboxing`). A domain overlay on the standard pipeline. The default route for a generic brief. Lives in `.agents/skills/ralphy-ugc-*`.
+- **Skill** = generalized niche know-how ("how to make a *kind* of video", e.g. `/ugc-unboxing`). A domain overlay on the standard pipeline. The default route for a generic brief. Lives in `.agents/skills/ralphy-ugc-*`.
 - **Remix template** = one concrete reproducible video. User-initiated only: the user points at a specific video (`@template:<slug>`, "remix this one") and states a swap ("same video, replace Stallone with SpongeBob"). Never auto-suggested. No new CLI verb — it is the existing `ralphy template use <slug>` driven by an explicit pointer.
 
 ## Phases
@@ -22,16 +22,16 @@ Two clean concepts, two jobs — full write-up in [`docs/skills-vs-templates.md`
 - `docs/skills-vs-templates.md` — the source-of-truth concept doc.
 - `AGENTS.md` invariant #10 rewritten; routing table gained a niche-skill row + a remix row.
 - Playbooks de-template-ified: `meta.md` Rule 3, `intake.md` (cold-start niche-skill match + remix path + default-pick table), `scenarist.md`, `art-director.md`, `producer.md` + `producer/orchestration.md`, `docs/use-cases.md` section A + F3.
-- Seeded the canonical niche skill `.agents/skills/ralphy-ugc-unboxing/SKILL.md` (+ `.claude/skills` symlink).
+- Seeded the canonical niche skill `.agents/skills/ugc-unboxing/SKILL.md` (+ `.claude/skills` symlink).
 
 ### Phase 2 — niche-skill library build-out (PARTIAL, 2026-05-27)
 
 Promoted from `notes/skills/` into live `.agents/skills/ralphy-ugc-*` (+ `.claude` symlinks), each fully adapted to our stack (OpenRouter + ElevenLabs only, all via `ralphy generate`/`ralphy render`, model ids from MODELS.md) and our memory rules:
 
-- `ralphy-ugc-unboxing` (authored fresh, phase 1).
-- `ralphy-ugc-ad` ← `ugc-ad-production`. Ported: shooting-script columns, mannerisms=trust, problem-mirror hook, reverb/room-presence, CTA urgency.
-- `ralphy-ugc-model-swap` ← `ugc-model-swap`. Ported the face-lock / prop-negative / continuous-scene / body-mechanics craft. **Corrected the model choice**: source said "always Seedance" — our memory says Seedance blocks photoreal humans, so photoreal swap → kling-v3.0-pro; stylized/cartoon swap → seedance. This is the craft behind the remix-with-swap pattern.
-- `ralphy-ugc-rockstar` ← `rockstar-agent`. Self-contained GTA-V style overlay, infra-neutralized (dropped Higgsfield/Runway/sub-files), original-homage guardrail.
+- `ugc-unboxing` (authored fresh, phase 1).
+- `ugc-ad` ← `ugc-ad-production`. Ported: shooting-script columns, mannerisms=trust, problem-mirror hook, reverb/room-presence, CTA urgency.
+- `ugc-model-swap` ← `ugc-model-swap`. Ported the face-lock / prop-negative / continuous-scene / body-mechanics craft. **Corrected the model choice**: source said "always Seedance" — our memory says Seedance blocks photoreal humans, so photoreal swap → kling-v3.0-pro; stylized/cartoon swap → seedance. This is the craft behind the remix-with-swap pattern.
+- `ugc-rockstar` ← `rockstar-agent`. Self-contained GTA-V style overlay, infra-neutralized (dropped Higgsfield/Runway/sub-files), original-homage guardrail.
 
 **Deferred candidates** (in `notes/skills/`, NOT promoted — reasons):
 - `flash-reel` — not a niche; it hardcodes one specific person's 5 ref CDN IDs + a "demon ball" concept. It's one video, not generalized know-how. Would need a full rewrite to generalize.

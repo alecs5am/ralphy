@@ -30,10 +30,10 @@ describe("parseRoutingTable", () => {
 
   test("extracts rows pointing at .agents/skills/", () => {
     const src = `
-| Intent | [\`.agents/skills/ralphy-researcher/SKILL.md\`](.agents/skills/ralphy-researcher/SKILL.md) |
+| Intent | [\`.agents/skills/researcher/SKILL.md\`](.agents/skills/researcher/SKILL.md) |
 `;
     const rows = parseRoutingTable(src);
-    expect(rows[0]!.target).toBe(".agents/skills/ralphy-researcher/SKILL.md");
+    expect(rows[0]!.target).toBe(".agents/skills/researcher/SKILL.md");
   });
 
   test("ignores non-routing content", () => {

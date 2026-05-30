@@ -130,7 +130,7 @@ bun run lint:agents-md
 `scripts/lint-agents-md.ts` enforces four invariants:
 
 1. **Every routing-table row points at an existing file.** Targets matching `docs/playbooks/<name>.md` or `.agents/skills/<name>/SKILL.md` are checked against the filesystem. Missing target → error.
-2. **Every `ralphy`-namespace skill is referenced.** Soft check (info-level). `ralphy-dev` skills are skipped — they are maintainer-only and live outside the routing table.
+2. **Every `user`-namespace skill is referenced.** Soft check (info-level). `maintainer` skills are skipped — they are maintainer-only and live outside the routing table.
 3. **AGENTS.md contains no Claude-isms.** The lint scans for `~/.claude/` paths and `claude mcp add` invocations via `scanForClaudeIsms()` — those are Claude-Code-specific and belong in `CLAUDE.md`, not the cross-agent routing file.
 4. **CLAUDE.md routing rules also appear in AGENTS.md.** If `CLAUDE.md` adds a row that AGENTS.md does not have, the lint errors with "move the rule to AGENTS.md (D-06)". The routing table is single-sourced.
 
@@ -163,7 +163,7 @@ CI runs `lint:agents-md` on every PR. Failures block merge.
 | Playbook (`docs/playbooks/<role>.md`) | Role or domain knowledge. Read on demand by the agent. No slash command. |
 | Skill (`.agents/skills/<name>/SKILL.md`) | Narrow workflow with a deterministic input → output contract and one CLI command. Slash-invocable. |
 
-The current split: scenarist, art-director, editor, producer, researcher, core are playbooks. `ralphy-evaluator`, `ralphy-researcher`, `ralphy-templater`, `ralphy-install`, `release`, `hyperframes`, `skill-creator` are skills.
+The current split: scenarist, art-director, editor, producer, researcher, core are playbooks. `evaluator`, `researcher`, `templater`, `install`, `dev-release`, `hyperframes`, `dev-tasks` are skills.
 
 Old role-shim skills (`ralph-art-director`, `ralph-core`, `ralph-editor`, `ralph-producer`, `ralph-scenarist`) were retired in favor of direct routing via `AGENTS.md` → playbooks.
 

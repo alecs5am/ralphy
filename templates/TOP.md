@@ -54,7 +54,7 @@ By **reference-required** gate:
 3. **Scaffold a test project**: `ralphy template use <slug> --project test-<slug>-001 --brief "<one-line brief>"`.
 4. **Run the playbook chain**: scenarist → art-director → editor (see `AGENTS.md` routing). Each agent reads the per-role playbook in `docs/playbooks/`.
 5. **Render**: `ralphy render test-<slug>-001`.
-6. **Evaluate**: run `ralphy-evaluator` skill on the rendered mp4 — emits `eval.json` + `eval-report.md` per project.
+6. **Evaluate**: run `evaluator` skill on the rendered mp4 — emits `eval.json` + `eval-report.md` per project.
 7. **Log issues per slug** so the template can be hardened: update `template.json.tags` for resolution, fix `hooks.md` if hook-stop is weak, fix `prompt-cookbook.md` if asset gen drifts.
 
 Goal of the walk-through: a verified, gated "production-ready" set of 20 templates that the agent can scaffold and ship end-to-end without surprises.

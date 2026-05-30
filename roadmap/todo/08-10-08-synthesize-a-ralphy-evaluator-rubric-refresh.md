@@ -4,10 +4,10 @@ status: todo
 v1_0: no
 category: 08-quality-and-evaluation
 topic: "08.10 Virality + retention benchmark research"
-title: "Synthesize a ralphy-evaluator rubric refresh"
+title: "Synthesize a evaluator rubric refresh"
 ---
 
-# 08.10.08 — Synthesize a `ralphy-evaluator` rubric refresh
+# 08.10.08 — Synthesize a `evaluator` rubric refresh
 
 **v1.0:** no
 **Acceptance criteria:**

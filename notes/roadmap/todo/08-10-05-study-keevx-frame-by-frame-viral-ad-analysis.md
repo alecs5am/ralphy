@@ -13,4 +13,4 @@ title: "Study Keevx frame-by-frame viral ad analysis"
 **Acceptance criteria:**
 - Read Keevx article (82% follow hook/payoff/loop pattern).
 - Output: `notes/research/keevx-viral-ad-structure.md` — the hook/payoff/loop structure with timing windows.
-- This is the structural rubric for `ralphy-evaluator`'s scene-segment scoring.
+- This is the structural rubric for `evaluator`'s scene-segment scoring.

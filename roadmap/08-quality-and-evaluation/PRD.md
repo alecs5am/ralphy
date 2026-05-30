@@ -2,7 +2,7 @@
 
 ## Problem
 
-Ralphy has three quality layers: `scoreScenario` (pre-render gate on scenario), `scoreImage` / `scoreVideo` (per-asset gates), and `ralphy-evaluator` (post-render audit). They exist in `cli/lib/score.ts` and the evaluator skill. They use a "virality rubric" (`docs/virality-rubric.md`) and a "green zone" enforcement (`docs/green-zone.md`).
+Ralphy has three quality layers: `scoreScenario` (pre-render gate on scenario), `scoreImage` / `scoreVideo` (per-asset gates), and `evaluator` (post-render audit). They exist in `cli/lib/score.ts` and the evaluator skill. They use a "virality rubric" (`docs/virality-rubric.md`) and a "green zone" enforcement (`docs/green-zone.md`).
 
 The scaffolding is right; the discipline is shallow. Concrete gaps from competitive research:
 
@@ -21,14 +21,14 @@ This category owns "is this output any good?" — the system, the rubrics, the c
 | User | Need |
 |---|---|
 | **Producer agent** | Decisive pre-render gate. "Refuse if X, Y, Z. Proceed otherwise." |
-| **Evaluator agent** (`ralphy-evaluator` skill) | Decomposed verdict per render, with per-dimension evidence and reproducible scores. |
+| **Evaluator agent** (`evaluator` skill) | Decomposed verdict per render, with per-dimension evidence and reproducible scores. |
 | **Human user** | Honest feedback on what's wrong with a draft. "Hook is unclear" beats "score 4/10". |
 | **Template author** | Per-template rubric overlays. A meme template doesn't have the same dead-air budget as a corporate spot. |
 
 ## User stories
 
 1. As the **producer**, before render, I run `scoreScenario` and get a `Verdict` — per-dimension scores (0-5), pass/fail markers, weighted total, threshold. If `passed: false`, I refuse to render unless explicitly overridden.
-2. As the **evaluator**, after render, I run `ralphy-evaluator` and produce an `eval-report.md` that decomposes the render: hook clarity, payload density, caption legibility, audio intelligibility, visual consistency, aesthetic. Each dimension has a score, reason, evidence (timestamp/frame).
+2. As the **evaluator**, after render, I run `evaluator` and produce an `eval-report.md` that decomposes the render: hook clarity, payload density, caption legibility, audio intelligibility, visual consistency, aesthetic. Each dimension has a score, reason, evidence (timestamp/frame).
 3. As a **template author**, I write `templates/<slug>/rubric.yaml` overlay that adjusts thresholds for my template (e.g., the brainrot template can have 10% dead air; the corporate spot cannot).
 4. As a **maintainer**, on every PR that touches `cli/lib/eval/`, the calibration test runs against the golden set and asserts Cohen's κ ≥ 0.6 per dimension.
 5. As an **agent**, the verdict structure is stable and machine-readable. I can act on `verdict.dimensions[id="hook_clarity"].pass` without parsing prose.

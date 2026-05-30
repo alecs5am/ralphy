@@ -74,7 +74,7 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 
 - `name`: kebab-case, `/^[a-z][a-z0-9-]*$/`.
 - `description`: ≤ **1536 chars**. If you exceed, move ALSO FIRE / DO NOT FIRE / HARD INVARIANTS blocks from the description into body sections (`## ALSO FIRE`, `## DO NOT FIRE`, `## HARD INVARIANTS`).
-- `namespace`: `ralphy` (user-facing) or `ralphy-dev` (maintainer). Never invent a new namespace.
+- `namespace`: `user` (user-facing, default) or `maintainer` (the two `dev-*` skills). Slugs carry no `ralphy-` prefix. Never invent a new namespace value.
 - The installer (`cli/lib/skill/installer.ts`) writes via **sentinel-bounded merge**: `<!-- ralphy:start v=1 --> ... <!-- ralphy:end -->`. Never delete those markers. Content above and below them belongs to the user.
 
 ## Template discipline
