@@ -1082,6 +1082,13 @@ Options:
 Commands:
   extract-segment [options]  Cut a re-encoded segment between start/end seconds
                              (frame-accurate)
+  frame [options] <clip>     Extract a single frame (i2v anchor / QA still /
+                             poster). `--at` accepts a numeric seconds value or
+                             the literal `last` (`-sseof -1`).
+  extend [options] <clip>    Last-frame i2v continuation: extracts the last
+                             frame of <clip> and runs a new generation anchored
+                             on it. Records `input.extends: <clip>` lineage in
+                             the gen-log.
   optimize [options]         Re-encode with x264 CRF + tune for noise/grain
                              content. Preserves visual content; shrinks 4-8x for
                              noisy footage.
