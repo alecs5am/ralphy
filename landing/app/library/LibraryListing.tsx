@@ -185,7 +185,7 @@ export function LibraryListing({ index }: { index: LibraryIndex }) {
           type="button"
           role="tab"
           aria-selected={!view.format}
-          onClick={() => setParams({ format: undefined, style: undefined })}
+          onClick={() => setParams({ format: undefined, style: undefined, tag: undefined })}
           className={formatChip(!view.format)}
         >
           <span>All</span>
@@ -200,7 +200,10 @@ export function LibraryListing({ index }: { index: LibraryIndex }) {
               role="tab"
               aria-selected={view.format === f}
               onClick={() =>
-                setParams({ format: view.format === f ? undefined : f, style: undefined })
+                // Clear `tag` on format switch: tag facets are computed per
+                // filtered-set, so a tag from the previous format is stale and
+                // would AND to zero results (e.g. fb-creative + motion-design).
+                setParams({ format: view.format === f ? undefined : f, style: undefined, tag: undefined })
               }
               className={formatChip(view.format === f)}
             >
