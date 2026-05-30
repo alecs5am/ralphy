@@ -399,6 +399,11 @@ Options:
   --composition <id>     Composition id (default: index.html)
   --output <path>        Output mp4 path (default:
                          workspace/projects/<id>/render/final.mp4)
+  --from-clip <path>     Pure-clip deliverable mode: faststart-wrap (and
+                         optionally loudnorm) an existing mp4 instead of running
+                         the HyperFrames engine. Logs to the project's gen-log
+                         so the single-entry-point invariant (AGENTS.md #2)
+                         holds. #009
   --loudnorm             Apply EBU R128 loudnorm (-16 LUFS) post-render via
                          ffmpeg
   --fps <fps>            Frame rate (default 30)
@@ -427,6 +432,7 @@ Examples:
   ralphy render proj-001 --loudnorm
   ralphy render proj-001 --output ./out.mp4
   ralphy render proj-001 --fps 60 --quality high
+  ralphy render arena-rocker-001 --from-clip raw.mp4 --loudnorm
 ```
 
 ### `ralphy hyperframes`

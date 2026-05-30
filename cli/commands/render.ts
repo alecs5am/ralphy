@@ -94,11 +94,16 @@ Examples:
   ralphy render proj-001 --loudnorm
   ralphy render proj-001 --output ./out.mp4
   ralphy render proj-001 --fps 60 --quality high
+  ralphy render arena-rocker-001 --from-clip raw.mp4 --loudnorm
 `,
   );
   return cmd
     .option("--composition <id>", "Composition id (default: index.html)")
     .option("--output <path>", "Output mp4 path (default: workspace/projects/<id>/render/final.mp4)")
+    .option(
+      "--from-clip <path>",
+      "Pure-clip deliverable mode: faststart-wrap (and optionally loudnorm) an existing mp4 instead of running the HyperFrames engine. Logs to the project's gen-log so the single-entry-point invariant (AGENTS.md #2) holds. #009",
+    )
     .option("--loudnorm", "Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg")
     .option("--fps <fps>", "Frame rate (default 30)")
     .option(
@@ -169,20 +174,30 @@ Examples:
         const renderDir = path.join(projectsDir(), projectId, "render");
         const renderFinal = opts.output ? path.resolve(opts.output) : path.join(renderDir, "final.mp4");
         const compositionId = opts.composition ?? "index.html";
-        const stages = [
-          { stage: engineEndpoint, engine, composition: compositionId, output: renderFinal, est_usd: 0 },
-          ...(opts.loudnorm ? [{ stage: "ffmpeg-loudnorm", target: "-16 LUFS", est_usd: 0 }] : []),
-          ...(gradePreset ? [{ stage: "ffmpeg-color-grade", preset: gradePreset, est_usd: 0 }] : []),
-          ...(deliverableQuality
-            ? [{ stage: "ffmpeg-compress", quality: deliverableQuality, crf: qualityPresetToCrf(deliverableQuality), est_usd: 0 }]
-            : []),
-        ];
+        const stages = opts.fromClip
+          ? [
+              { stage: "ffmpeg-from-clip-wrap", source: path.resolve(opts.fromClip), output: renderFinal, est_usd: 0 },
+              ...(opts.loudnorm ? [{ stage: "ffmpeg-loudnorm", target: "-16 LUFS", est_usd: 0 }] : []),
+              ...(gradePreset ? [{ stage: "ffmpeg-color-grade", preset: gradePreset, est_usd: 0 }] : []),
+              ...(deliverableQuality
+                ? [{ stage: "ffmpeg-compress", quality: deliverableQuality, crf: qualityPresetToCrf(deliverableQuality), est_usd: 0 }]
+                : []),
+            ]
+          : [
+              { stage: engineEndpoint, engine, composition: compositionId, output: renderFinal, est_usd: 0 },
+              ...(opts.loudnorm ? [{ stage: "ffmpeg-loudnorm", target: "-16 LUFS", est_usd: 0 }] : []),
+              ...(gradePreset ? [{ stage: "ffmpeg-color-grade", preset: gradePreset, est_usd: 0 }] : []),
+              ...(deliverableQuality
+                ? [{ stage: "ffmpeg-compress", quality: deliverableQuality, crf: qualityPresetToCrf(deliverableQuality), est_usd: 0 }]
+                : []),
+            ];
         if (opts.summary) {
+          const baseStageKey = opts.fromClip ? "ffmpeg-from-clip-wrap" : engineEndpoint;
           out({
             dryRun: true,
-            engine,
+            engine: opts.fromClip ? "ffmpeg" : engine,
             stages: {
-              [engineEndpoint]: { count: 1, est_usd: 0 },
+              [baseStageKey]: { count: 1, est_usd: 0 },
               ...(opts.loudnorm ? { "ffmpeg-loudnorm": { count: 1, est_usd: 0 } } : {}),
               ...(gradePreset ? { "ffmpeg-color-grade": { count: 1, est_usd: 0 } } : {}),
               ...(deliverableQuality ? { "ffmpeg-compress": { count: 1, est_usd: 0 } } : {}),
@@ -192,7 +207,7 @@ Examples:
         } else {
           out({
             dryRun: true,
-            engine,
+            engine: opts.fromClip ? "ffmpeg" : engine,
             would_call: stages,
             cost_estimate_usd: 0,
             would_write: [renderFinal],
@@ -211,6 +226,175 @@ Examples:
       const ui = await import("../lib/ui.js");
 
       const projectDir = path.join(projectsDir(), projectId);
+
+      // --from-clip mode (#009): pure-clip deliverable — no HF engine run.
+      // Faststart-wrap the source clip into renderFinal, then run the same
+      // optional loudnorm / grade / compress chain. Single entry-point invariant
+      // (AGENTS.md #2) is preserved because everything still flows through
+      // `ralphy render` and lands a gen-log row.
+      if (opts.fromClip) {
+        const src = path.resolve(opts.fromClip);
+        try {
+          await fs.access(src);
+        } catch {
+          raiseError("E_FILE_UNREADABLE", { path: src });
+        }
+        cs.event("render-started", { project: projectId, engine: "ffmpeg", source: src });
+        const hasPostRender =
+          Boolean(opts.loudnorm) || Boolean(gradePreset) || Boolean(deliverableQuality);
+        const wrapOut = hasPostRender ? renderRaw : renderFinal;
+        // Plain faststart wrap: stream copy A/V, just rewrite the moov atom to
+        // the front of the file for browser-progressive playback.
+        const wrap = await ui.withSpinner(
+          `Wrap (faststart) → ${path.basename(wrapOut)}`,
+          () =>
+            new Promise<{ exitCode: number; stderr: string }>((resolve) => {
+              const proc = spawn(
+                "ffmpeg",
+                [
+                  "-y",
+                  "-i",
+                  src,
+                  "-c",
+                  "copy",
+                  "-movflags",
+                  "+faststart",
+                  wrapOut,
+                ],
+                { stdio: ["ignore", "ignore", "pipe"] },
+              );
+              let stderr = "";
+              proc.stderr.on("data", (c) => (stderr += c.toString()));
+              proc.on("close", (code) => resolve({ exitCode: code ?? 1, stderr }));
+            }),
+          {
+            successText: () => `Wrapped (faststart) → ${ui.c.path(wrapOut)}`,
+            failText: () => `ffmpeg faststart wrap failed`,
+          },
+        );
+        if (wrap.exitCode !== 0) {
+          await logGeneration(projectId, {
+            provider: "ffmpeg",
+            model: "ffmpeg-from-clip-wrap",
+            endpoint: "ffmpeg-from-clip-wrap",
+            kind: "video",
+            input: { project: projectId, source: src, loudnorm: Boolean(opts.loudnorm) },
+            status: "error",
+            error: wrap.stderr.slice(-500),
+            latency_ms: Date.now() - t0,
+            cost_usd: 0,
+            note: "from-clip wrap failed",
+          });
+          raiseError("E_INTERNAL", {
+            detail: `ffmpeg faststart wrap failed (exit ${wrap.exitCode}): ${wrap.stderr.slice(-300)}`,
+          });
+        }
+
+        let outputPath = wrapOut;
+        const tmpStages: string[] = [];
+        const stageQueue: Array<"loudnorm" | "grade" | "compress"> = [];
+        if (opts.loudnorm) stageQueue.push("loudnorm");
+        if (gradePreset) stageQueue.push("grade");
+        if (deliverableQuality) stageQueue.push("compress");
+
+        for (let i = 0; i < stageQueue.length; i++) {
+          const stage = stageQueue[i]!;
+          const isLast = i === stageQueue.length - 1;
+          const nextOut = isLast
+            ? renderFinal
+            : path.join(renderDir, `.final.stage-${i + 1}-${stage}.mp4`);
+          if (!isLast) tmpStages.push(nextOut);
+          if (stage === "loudnorm") {
+            const lr = await ui.withSpinner(
+              `Loudnorm → ${path.basename(nextOut)}`,
+              () => runLoudnorm(outputPath, nextOut),
+              { successText: () => `Loudnorm applied (-16 LUFS) → ${ui.c.path(nextOut)}` },
+            );
+            if (lr.exitCode !== 0) {
+              raiseError("E_INTERNAL", { detail: `ffmpeg loudnorm failed: ${lr.stderr.slice(-300)}` });
+            }
+          } else if (stage === "grade") {
+            await ui.withSpinner(
+              `Grade (${gradePreset}) → ${path.basename(nextOut)}`,
+              () =>
+                colorGrade({
+                  src: outputPath,
+                  dst: nextOut,
+                  preset: gradePreset!,
+                  forceOverwrite: true,
+                  projectId,
+                  note: `render --from-clip --grade ${gradePreset}`,
+                }),
+              { successText: () => `Graded (${gradePreset}) → ${ui.c.path(nextOut)}` },
+            );
+          } else if (stage === "compress") {
+            const crf = qualityPresetToCrf(deliverableQuality!);
+            await ui.withSpinner(
+              `Compress (${deliverableQuality}, CRF ${crf}) → ${path.basename(nextOut)}`,
+              () =>
+                compressForSocial({
+                  src: outputPath,
+                  dst: nextOut,
+                  crf,
+                  forceOverwrite: true,
+                  projectId,
+                  note: `render --from-clip --quality ${deliverableQuality}`,
+                }),
+              { successText: () => `Compressed (${deliverableQuality}, CRF ${crf}) → ${ui.c.path(nextOut)}` },
+            );
+          }
+          outputPath = nextOut;
+        }
+        if (hasPostRender) {
+          await fs.unlink(renderRaw).catch(() => undefined);
+          for (const t of tmpStages) {
+            await fs.unlink(t).catch(() => undefined);
+          }
+          outputPath = renderFinal;
+        }
+
+        const sz = await fileSize(outputPath);
+        cs.event("render-finished", { project: projectId, engine: "ffmpeg", bytes: sz });
+        await logGeneration(projectId, {
+          provider: "ffmpeg",
+          model: "ffmpeg-from-clip-wrap",
+          endpoint: "ffmpeg-from-clip-wrap",
+          kind: "video",
+          input: {
+            project: projectId,
+            source: src,
+            loudnorm: Boolean(opts.loudnorm),
+            grade: gradePreset ?? null,
+            quality: deliverableQuality ?? null,
+          },
+          output: { local: outputPath, bytes: sz },
+          status: "ok",
+          latency_ms: Date.now() - t0,
+          cost_usd: 0,
+          note: [
+            "from-clip",
+            opts.loudnorm ? "loudnorm" : null,
+            gradePreset ? `grade=${gradePreset}` : null,
+            deliverableQuality ? `quality=${deliverableQuality}` : null,
+          ]
+            .filter(Boolean)
+            .join(" + "),
+        });
+        cs.summary({
+          project: projectId,
+          engine: "ffmpeg",
+          mode: "from-clip",
+          source: src,
+          path: outputPath,
+          bytes: sz,
+          loudnorm: Boolean(opts.loudnorm),
+          grade: gradePreset ?? null,
+          quality: deliverableQuality ?? null,
+          latencyMs: Date.now() - t0,
+        });
+        return;
+      }
+
       if (!looksLikeHyperframesProject(projectDir)) {
         raiseError("E_FILE_UNREADABLE", {
           path: path.join(projectDir, "index.html"),
