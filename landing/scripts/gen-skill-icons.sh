@@ -48,6 +48,13 @@ ITEMS=(
 "typegpu|computer GPU chip with circuit lines"
 "waapi|horizontal timeline bar with keyframe diamonds"
 "website-to-hyperframes|browser window with a play button turning into a film frame"
+"analog-horror-psa|old CRT television with a yellow warning triangle on its screen"
+"carousel|stack of swipeable cards with a right-pointing arrow"
+"dev-publish-template|upward share arrow rising over a layered template card"
+"dev-tasks|kanban board with three columns of sticky notes"
+"fb-creatives|grid of four ad rectangles"
+"poster|framed poster showing a big bold capital letter"
+"ugc-toon-action|comic-style action star burst with motion speed lines"
 )
 
 bun run cli/index.ts project create --id "$PROJ" --name "Landing skill icons" >/dev/null 2>&1 || true
