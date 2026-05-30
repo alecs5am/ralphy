@@ -178,6 +178,8 @@ describe("`ralphy ref pull-site` (#014)", () => {
   test.skipIf(!HAS_CHROMIUM)(
     "writes hero PNG + per-page PNG + tokens.json + apis.md into <project>/refs/",
     () => {
+      // Playwright cold-start under full-suite load can exceed the bun default
+      // 5s per-test timeout; pre-push hook does not pass --timeout. Bump.
       const r = ralphy([
         "ref",
         "pull-site",
@@ -218,6 +220,7 @@ describe("`ralphy ref pull-site` (#014)", () => {
       // curl signature in home + docs.
       expect(apisMd.toLowerCase()).toContain("curl");
     },
+    30_000,
   );
 
   test.skipIf(!HAS_CHROMIUM)("appends a gen-log row with provider='playwright' for each page", () => {
@@ -253,7 +256,7 @@ describe("`ralphy ref pull-site` (#014)", () => {
     expect(last.cost_usd).toBe(0);
     expect(last.input.project).toBe("test-site-001");
     expect(last.input.kind_hint).toBe("reference-website");
-  });
+  }, 30_000);
 
   test("missing project raises E_NOT_FOUND with a clean exit code", () => {
     const r = ralphy([
