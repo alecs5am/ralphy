@@ -2,78 +2,66 @@
 //
 // Postmortem-driven (tokyo, noski, kbo): the editor stage was reaching for raw
 // ffprobe + ad-hoc bash loops because the CLI didn't expose:
-//   - `preflight`: ffprobe every clip + music, sum durations, flag missing scenes,
-//                  surface aspect / fps / codec mismatches before render
-//   - `trim-analyze`: per-clip gemini-vision dead-head / dead-tail analysis, run
-//                     in parallel, return strict JSON for the editor to act on
+//   - `preflight`: ffprobe every clip + music, sum durations, music-gap, scene
+//                  completeness against scenario.json, surface aspect / fps /
+//                  codec / audio-track mismatches before render
+//   - `trim-analyze`: per-clip gemini-vision dead-time / hot-moment analysis,
+//                     run in parallel (#007 gemini-3.1-pro-preview cap = 2-4),
+//                     aggregated into assets/analysis/summary.json with mtime
+//                     idempotency (#034)
 //
 // These verbs make the agent's editor-stage workflow CLI-native and keep
-// AGENTS.md invariant #2 honest (no raw ffmpeg loops outside cli/).
+// AGENTS.md invariant #2 honest (no raw ffmpeg loops outside cli/). Helpers
+// live in cli/lib/editor/ so the prompt + shapes + completeness + music-gap
+// math are unit-testable without spawning ffprobe / LLMs.
 
 import { Command } from "commander";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { projectsDir } from "../lib/paths.js";
 import { out, err, ok, isPretty } from "../lib/output.js";
 import { c, icons, section, kv } from "../lib/ui.js";
+import { probeFile, ensureFfprobe } from "../lib/ffprobe.js";
+import type { ProbeResult } from "../lib/ffprobe.js";
+import {
+  buildPreflightRow,
+  computeMusicGap,
+  checkCompleteness,
+  type PreflightClipRow,
+  type ScenarioLike,
+} from "../lib/editor/preflight.js";
+import {
+  buildTrimAnalysisPrompt,
+  loadOrSeedSummary,
+  needsAnalysis,
+  normalizeTrimAnalysisJson,
+  slotFromClipPath,
+  upsertRow,
+  type TrimAnalysisRow,
+} from "../lib/editor/trim.js";
 
-type ProbeResult = {
-  path: string;
-  exists: boolean;
-  durationSec?: number;
-  width?: number;
-  height?: number;
-  aspect?: string;
-  fps?: number;
-  codec?: string;
-  bytes?: number;
-  error?: string;
-};
+const VIDEO_EXTS = [".mp4", ".mov", ".webm", ".mkv", ".m4v"];
+const AUDIO_EXTS = [".mp3", ".wav", ".m4a", ".ogg", ".flac"];
 
-async function ffprobeFile(filePath: string): Promise<ProbeResult> {
-  const r: ProbeResult = { path: filePath, exists: false };
+async function listDirByExts(dir: string, exts: string[]): Promise<string[]> {
   try {
-    const st = await fs.stat(filePath);
-    r.exists = true;
-    r.bytes = st.size;
+    const items = await fs.readdir(dir);
+    return items
+      .filter((f) => exts.includes(path.extname(f).toLowerCase()))
+      .map((f) => path.join(dir, f))
+      .sort();
   } catch {
-    r.error = "file not found";
-    return r;
+    return [];
   }
-  const probe = spawnSync(
-    "ffprobe",
-    [
-      "-v", "error",
-      "-show_entries", "format=duration:stream=width,height,codec_name,r_frame_rate",
-      "-of", "default=nw=1",
-      filePath,
-    ],
-    { encoding: "utf8" },
-  );
-  if (probe.status !== 0) {
-    r.error = (probe.stderr || "ffprobe failed").slice(0, 200);
-    return r;
+}
+
+async function readScenario(projectDir: string): Promise<ScenarioLike | null> {
+  try {
+    const raw = await fs.readFile(path.join(projectDir, "scenario.json"), "utf8");
+    return JSON.parse(raw) as ScenarioLike;
+  } catch {
+    return null;
   }
-  for (const line of (probe.stdout || "").split("\n")) {
-    const [k, v] = line.split("=");
-    if (!k) continue;
-    if (k === "duration") r.durationSec = Number(v);
-    if (k === "width") r.width = Number(v);
-    if (k === "height") r.height = Number(v);
-    if (k === "codec_name") r.codec = r.codec || v;
-    if (k === "r_frame_rate" && v?.includes("/")) {
-      const [num, den] = v.split("/").map(Number);
-      if (den) r.fps = Math.round((num / den) * 100) / 100;
-    }
-  }
-  if (r.width && r.height) {
-    // Reduce GCD for a clean aspect string like "9:16" / "16:9" / "1:1"
-    const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-    const g = gcd(r.width, r.height);
-    r.aspect = `${r.width / g}:${r.height / g}`;
-  }
-  return r;
 }
 
 export function editorCmd(): Command {
@@ -85,7 +73,7 @@ export function editorCmd(): Command {
   cmd
     .command("preflight <projectId>")
     .description(
-      "ffprobe every clip + music in workspace/projects/<id>/assets/, sum durations, flag missing slots from manifest, surface aspect/fps/codec mismatches. Exit 1 on red. Run before `ralphy render` to catch wrong-aspect leftovers from a model swap, encoder overshoot, missing scenes, etc.",
+      "ffprobe every clip + music in workspace/projects/<id>/assets/, surface durations / fps / codec / audio / aspect, run a music-gap check, and verify every scenario scene has a corresponding clip on disk. Exit 1 on red. Run BEFORE `ralphy render`.",
     )
     .option(
       "--expected-aspect <ratio>",
@@ -98,240 +86,340 @@ export function editorCmd(): Command {
     )
     .option(
       "--music-tolerance-sec <n>",
-      "Acceptable delta (in seconds) between total clip duration and music length. Default 2.0.",
+      "Acceptable |delta| (seconds) between total clip duration and longest music track. Default 2.0.",
       (v) => Number(v),
       2.0,
     )
-    .action(async (projectId: string, opts: { expectedAspect?: string; expectedFps?: number; musicToleranceSec: number }) => {
-      const dir = path.join(projectsDir(), projectId);
-      try { await fs.access(dir); } catch { err(`Project not found: ${projectId}`); }
-
-      const videosDir = path.join(dir, "assets", "videos");
-      const musicDir = path.join(dir, "assets", "music");
-
-      let videoFiles: string[] = [];
-      try {
-        videoFiles = (await fs.readdir(videosDir))
-          .filter((f) => [".mp4", ".mov", ".webm"].includes(path.extname(f).toLowerCase()))
-          .map((f) => path.join(videosDir, f))
-          .sort();
-      } catch {
-        ok(`No videos/ directory under ${videosDir} — skipping clip preflight.`);
-      }
-
-      const clipReports = await Promise.all(videoFiles.map(ffprobeFile));
-
-      let musicFiles: string[] = [];
-      try {
-        musicFiles = (await fs.readdir(musicDir))
-          .filter((f) => [".mp3", ".wav", ".m4a", ".ogg"].includes(path.extname(f).toLowerCase()))
-          .map((f) => path.join(musicDir, f));
-      } catch { /* no music dir is OK */ }
-
-      const musicReports = await Promise.all(musicFiles.map(ffprobeFile));
-
-      // Aspect inference: mode of clip aspects.
-      const aspectCounts: Record<string, number> = {};
-      for (const r of clipReports) if (r.aspect) aspectCounts[r.aspect] = (aspectCounts[r.aspect] || 0) + 1;
-      const inferredAspect = Object.entries(aspectCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
-      const expectedAspect = opts.expectedAspect || inferredAspect;
-
-      const fpsValues = clipReports.map((r) => r.fps).filter((v): v is number => typeof v === "number");
-      const has24 = fpsValues.includes(24);
-      const expectedFps = opts.expectedFps ?? (has24 ? 24 : 30);
-
-      const totalClipSec = clipReports.reduce((s, r) => s + (r.durationSec || 0), 0);
-      const totalMusicSec = musicReports.reduce((s, r) => s + (r.durationSec || 0), 0);
-
-      const issues: string[] = [];
-      let red = 0;
-
-      for (const r of clipReports) {
-        if (!r.exists) { issues.push(`MISSING: ${r.path}`); red += 1; continue; }
-        if (r.error) { issues.push(`PROBE-FAIL ${r.path}: ${r.error}`); red += 1; continue; }
-        if (expectedAspect && r.aspect && r.aspect !== expectedAspect) {
-          issues.push(`ASPECT-DRIFT ${r.path}: expected ${expectedAspect}, got ${r.aspect}`);
-          red += 1;
+    .action(
+      async (
+        projectId: string,
+        opts: { expectedAspect?: string; expectedFps?: number; musicToleranceSec: number },
+      ) => {
+        const dir = path.join(projectsDir(), projectId);
+        try {
+          await fs.access(dir);
+        } catch {
+          err(`Project not found: ${projectId}`);
         }
-        if (expectedFps && r.fps && r.fps !== expectedFps) {
-          issues.push(`FPS-DRIFT ${r.path}: expected ${expectedFps}, got ${r.fps}`);
-          red += 1;
+        try {
+          ensureFfprobe();
+        } catch (e) {
+          err((e as Error).message);
         }
-      }
 
-      // Music length vs total clip length
-      if (musicReports.length > 0 && totalClipSec > 0) {
-        for (const m of musicReports) {
-          if (!m.durationSec) continue;
-          const delta = Math.abs(m.durationSec - totalClipSec);
-          if (delta > opts.musicToleranceSec) {
-            issues.push(
-              `MUSIC-GAP ${m.path}: ${m.durationSec.toFixed(2)}s vs total clips ${totalClipSec.toFixed(2)}s (delta ${delta.toFixed(2)}s > ${opts.musicToleranceSec}s)`,
-            );
+        const videosDir = path.join(dir, "assets", "videos");
+        const musicDir = path.join(dir, "assets", "music");
+
+        const videoFiles = await listDirByExts(videosDir, VIDEO_EXTS);
+        const musicFiles = await listDirByExts(musicDir, AUDIO_EXTS);
+
+        const clipProbes: ProbeResult[] = await Promise.all(videoFiles.map(probeFile));
+        const musicProbes: ProbeResult[] = await Promise.all(musicFiles.map(probeFile));
+
+        const clipRows: PreflightClipRow[] = clipProbes.map((p) =>
+          buildPreflightRow(slotFromClipPath(p.path), p),
+        );
+        const musicRows: PreflightClipRow[] = musicProbes.map((p) =>
+          buildPreflightRow(slotFromClipPath(p.path), p),
+        );
+
+        // Aspect inference: mode of clip aspects.
+        const aspectCounts: Record<string, number> = {};
+        for (const r of clipRows) if (r.aspect) aspectCounts[r.aspect] = (aspectCounts[r.aspect] || 0) + 1;
+        const inferredAspect = Object.entries(aspectCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const expectedAspect = opts.expectedAspect || inferredAspect;
+
+        const fpsValues = clipRows.map((r) => r.fps).filter((v): v is number => typeof v === "number");
+        const has24 = fpsValues.some((f) => Math.abs(f - 24) < 0.5);
+        const expectedFps = opts.expectedFps ?? (has24 ? 24 : 30);
+
+        const clipDurations = clipRows.map((r) => r.durationSec ?? 0);
+        const musicDurations = musicRows.map((r) => r.durationSec ?? 0);
+        const totalClipSec = clipDurations.reduce((s, x) => s + x, 0);
+        const totalMusicSec = musicDurations.reduce((s, x) => s + x, 0);
+        const musicGap = computeMusicGap(
+          clipDurations.filter((d) => d > 0),
+          musicDurations.filter((d) => d > 0),
+          opts.musicToleranceSec,
+        );
+
+        const scenario = await readScenario(dir);
+        const completeness = checkCompleteness(scenario, clipRows.map((r) => r.slot));
+
+        const issues: string[] = [];
+        let red = 0;
+        for (const r of clipRows) {
+          if (!r.exists) {
+            issues.push(`MISSING: ${r.path}`);
+            red += 1;
+            continue;
+          }
+          if (r.error) {
+            issues.push(`PROBE-FAIL ${r.path}: ${r.error}`);
+            red += 1;
+            continue;
+          }
+          if (expectedAspect && r.aspect && r.aspect !== expectedAspect) {
+            issues.push(`ASPECT-DRIFT ${r.path}: expected ${expectedAspect}, got ${r.aspect}`);
             red += 1;
           }
+          if (expectedFps && typeof r.fps === "number" && Math.abs(r.fps - expectedFps) > 0.5) {
+            issues.push(`FPS-DRIFT ${r.path}: expected ${expectedFps}, got ${r.fps}`);
+            red += 1;
+          }
+          if (r.hasAudio === false) {
+            // Silent clip is informational, not a hard fail — kling-mute is a
+            // common path. We still surface it.
+            issues.push(`NO-AUDIO ${r.path}`);
+          }
         }
-      }
+        if (musicGap?.exceedsTolerance) {
+          issues.push(
+            `MUSIC-GAP: total clips ${musicGap.totalClipSec}s vs music ${musicGap.musicSec}s (delta ${musicGap.deltaSec}s > tolerance ${musicGap.toleranceSec}s)`,
+          );
+          red += 1;
+        }
+        for (const missing of completeness.missingScenes) {
+          issues.push(`SCENE-MISSING: scenario scene "${missing}" has no clip in assets/videos/`);
+          red += 1;
+        }
 
-      const payload = {
-        project: projectId,
-        verdict: red === 0 ? "ok" : "fail",
-        expectedAspect,
-        expectedFps,
-        totals: {
-          clips: clipReports.length,
-          clipDurationSec: Math.round(totalClipSec * 100) / 100,
-          musicTracks: musicReports.length,
-          musicDurationSec: Math.round(totalMusicSec * 100) / 100,
-        },
-        aspectDistribution: aspectCounts,
-        clips: clipReports,
-        music: musicReports,
-        issues,
-      };
+        const payload = {
+          project: projectId,
+          verdict: red === 0 ? "ok" : "fail",
+          expectedAspect,
+          expectedFps,
+          totals: {
+            clips: clipRows.length,
+            clipDurationSec: Math.round(totalClipSec * 1000) / 1000,
+            musicTracks: musicRows.length,
+            musicDurationSec: Math.round(totalMusicSec * 1000) / 1000,
+          },
+          aspectDistribution: aspectCounts,
+          musicGap,
+          completeness,
+          clips: clipRows,
+          music: musicRows,
+          issues,
+        };
 
-      if (!isPretty()) {
-        out(payload);
+        if (!isPretty()) {
+          out(payload);
+          if (red > 0) process.exitCode = 1;
+          return;
+        }
+
+        // Pretty preflight report
+        console.log();
+        const verdictIcon = red === 0 ? icons.ok : icons.fail;
+        const verdictColor = red === 0 ? c.ok : c.err;
+        console.log(
+          `${verdictIcon} ${c.bold(`editor preflight ${projectId}`)}  ${verdictColor(red === 0 ? "OK" : `FAIL (${red} issue${red === 1 ? "" : "s"})`)}`,
+        );
+        section("Expectations", [
+          `${c.label("Aspect:")} ${c.value(expectedAspect ?? "—")}`,
+          `${c.label("FPS:   ")} ${c.value(String(expectedFps))}`,
+        ]);
+        section("Totals");
+        kv(
+          {
+            Clips: `${payload.totals.clips}  ${c.muted(`(${payload.totals.clipDurationSec}s total)`)}`,
+            "Music tracks": `${payload.totals.musicTracks}  ${c.muted(`(${payload.totals.musicDurationSec}s total)`)}`,
+            "Scenes (scenario)": `${completeness.totalScenes}  ${c.muted(`(${completeness.missingScenes.length} missing)`)}`,
+          },
+          { maxKeyWidth: 18 },
+        );
+        if (musicGap) {
+          section("Music gap");
+          kv(
+            {
+              "Clip total": `${musicGap.totalClipSec}s`,
+              "Music length": `${musicGap.musicSec}s`,
+              Delta: `${musicGap.deltaSec}s  ${c.muted(`(tolerance ${musicGap.toleranceSec}s)`)}`,
+            },
+            { maxKeyWidth: 14 },
+          );
+        }
+        if (Object.keys(aspectCounts).length > 1) {
+          section("Aspect distribution");
+          kv(aspectCounts as Record<string, number>, { maxKeyWidth: 8 });
+        }
+        if (issues.length > 0) {
+          section(`Issues  ${c.err(`(${issues.length})`)}`);
+          for (const issue of issues) {
+            const icon =
+              issue.startsWith("MISSING") || issue.startsWith("PROBE-FAIL") || issue.startsWith("SCENE-MISSING")
+                ? icons.fail
+                : icons.warn;
+            const color =
+              issue.startsWith("MISSING") || issue.startsWith("PROBE-FAIL") || issue.startsWith("SCENE-MISSING")
+                ? c.err
+                : c.warn;
+            console.log(`  ${icon} ${color(issue)}`);
+          }
+        }
+        console.log();
         if (red > 0) process.exitCode = 1;
-        return;
-      }
-
-      // Pretty preflight report
-      console.log();
-      const verdictIcon = red === 0 ? icons.ok : icons.fail;
-      const verdictColor = red === 0 ? c.ok : c.err;
-      console.log(`${verdictIcon} ${c.bold(`editor preflight ${projectId}`)}  ${verdictColor(red === 0 ? "OK" : `FAIL (${red} issue${red === 1 ? "" : "s"})`)}`);
-      section("Expectations", [
-        `${c.label("Aspect:")} ${c.value(expectedAspect ?? "—")}`,
-        `${c.label("FPS:   ")} ${c.value(String(expectedFps))}`,
-      ]);
-      section("Totals");
-      kv(
-        {
-          "Clips": `${payload.totals.clips}  ${c.muted(`(${payload.totals.clipDurationSec}s total)`)}`,
-          "Music tracks": `${payload.totals.musicTracks}  ${c.muted(`(${payload.totals.musicDurationSec}s total)`)}`,
-        },
-        { maxKeyWidth: 14 },
-      );
-      if (Object.keys(aspectCounts).length > 1) {
-        section("Aspect distribution");
-        kv(aspectCounts as Record<string, number>, { maxKeyWidth: 8 });
-      }
-      if (issues.length > 0) {
-        section(`Issues  ${c.err(`(${issues.length})`)}`);
-        for (const issue of issues) {
-          const icon = issue.includes("MISSING") || issue.includes("PROBE-FAIL") ? icons.fail : icons.warn;
-          const color = issue.includes("MISSING") || issue.includes("PROBE-FAIL") ? c.err : c.warn;
-          console.log(`  ${icon} ${color(issue)}`);
-        }
-      }
-      console.log();
-      if (red > 0) process.exitCode = 1;
-    });
+      },
+    );
 
   // ── trim-analyze ─────────────────────────────────────────────────────────
   // Wraps the existing per-clip gemini-vision analysis (cli/lib/research.ts:
-  // analyzeVideo) for editor-stage use. Strict JSON schema enforces dead-head /
-  // dead-tail / best-subwindow / trim_recommendation per the tokyo postmortem.
+  // analyzeVideo) for editor-stage use. Aggregates results to
+  // `<project>/assets/analysis/summary.json`. Idempotent via per-clip mtime:
+  // a clip whose mtime is <= the summary row's clipMtimeMs is skipped.
   cmd
     .command("trim-analyze <projectId>")
     .description(
-      "Run gemini-3.1-pro vision over every clip in assets/videos/ and write per-clip trim analysis to logs/trim-analysis/<clip>.json. Returns strict JSON: { observed_duration_sec, dead_head_sec, dead_tail_sec, best_subwindow{start,end}, trim_recommendation{max_trim_sec, trim_from}, beats[] }.",
+      "Run gemini-3.1-pro-preview vision over every clip in assets/videos/, write per-clip JSON to assets/analysis/<clip>.json, and aggregate to assets/analysis/summary.json. Idempotent: clips with mtime <= prior summary row are skipped. Parallelism is capped (default 3) to respect the gemini-3.1-pro-preview concurrency floor.",
     )
-    .option("--model <id>", "Vision model id. Default google/gemini-3.1-pro-preview.", "google/gemini-3.1-pro-preview")
-    .option("--concurrency <n>", "Parallel clip analyses. Default 6.", (v) => Number(v), 6)
-    .option("--prompt-file <path>", "Custom analysis prompt path. Default: cli/lib/editor/trim-prompt.md.")
-    .action(async (projectId: string, opts: { model: string; concurrency: number; promptFile?: string }) => {
-      const dir = path.join(projectsDir(), projectId);
-      const videosDir = path.join(dir, "assets", "videos");
-      const outDir = path.join(dir, "logs", "trim-analysis");
-      await fs.mkdir(outDir, { recursive: true });
+    .option(
+      "--model <id>",
+      "Vision model id. Default google/gemini-3.1-pro-preview.",
+      "google/gemini-3.1-pro-preview",
+    )
+    .option(
+      "--concurrency <n>",
+      "Parallel clip analyses. Default 3 (gemini-3.1-pro-preview practical cap is 2-4 — see issue #007).",
+      (v) => Number(v),
+      3,
+    )
+    .option("--force", "Re-analyze every clip, ignoring the mtime idempotency cache.")
+    .option("--dry-run", "Print the analysis plan (which clips would run, which are cached) without calling the LLM.")
+    .action(
+      async (
+        projectId: string,
+        opts: { model: string; concurrency: number; force?: boolean; dryRun?: boolean },
+      ) => {
+        const dir = path.join(projectsDir(), projectId);
+        try {
+          await fs.access(dir);
+        } catch {
+          err(`Project not found: ${projectId}`);
+        }
+        const videosDir = path.join(dir, "assets", "videos");
+        const analysisDir = path.join(dir, "assets", "analysis");
+        const summaryPath = path.join(analysisDir, "summary.json");
 
-      let videoFiles: string[] = [];
-      try {
-        videoFiles = (await fs.readdir(videosDir))
-          .filter((f) => [".mp4", ".mov", ".webm"].includes(path.extname(f).toLowerCase()))
-          .map((f) => path.join(videosDir, f))
-          .sort();
-      } catch {
-        err(`No videos/ directory at ${videosDir}`);
-      }
+        const videoFiles = await listDirByExts(videosDir, VIDEO_EXTS);
+        if (videoFiles.length === 0) {
+          ok("No clips to analyze.");
+          out({ project: projectId, clipCount: 0, summaryPath, plan: [], results: [] });
+          return;
+        }
 
-      if (videoFiles.length === 0) {
-        ok("No clips to analyze.");
-        out({ project: projectId, clipCount: 0, results: [] });
-        return;
-      }
+        await fs.mkdir(analysisDir, { recursive: true });
 
-      // Default prompt — strict JSON schema. User can override via --prompt-file.
-      const defaultPrompt = `You are analyzing one short video clip for editor-stage trim decisions.
-
-Return ONLY this JSON object (no preamble, no fences):
-{
-  "observed_duration_sec": <number — what you actually see, NOT what the file claims>,
-  "dead_head_sec": <number — seconds of static / pre-action / loading at the START>,
-  "dead_tail_sec": <number — seconds of static / lingering / wind-down at the END>,
-  "best_subwindow": { "start": <number>, "end": <number> },
-  "trim_recommendation": {
-    "max_trim_sec": <number — total seconds we could safely cut>,
-    "trim_from": "head" | "tail" | "both"
-  },
-  "beats": [ { "t": <sec>, "intensity": "low" | "medium" | "high", "what": "<one-line>" } ]
-}
-
-Calibration: PRESERVING > AGGRESSIVE. If unsure, recommend LESS trim. Beats[] is the choreography map — every visible action / cut / camera-move gets a row.`;
-
-      const promptText = opts.promptFile
-        ? await fs.readFile(path.resolve(opts.promptFile), "utf-8")
-        : defaultPrompt;
-
-      // Re-use cli/lib/research.ts analyzeVideo() — it already routes through
-      // callLLM() so the gen-log captures the spend (Fix #11 of postmortem plan
-      // verified this is wired up correctly).
-      const { analyzeVideo } = await import("../lib/research.js");
-
-      // Concurrency-limited batch
-      const results: Array<{ clip: string; ok: boolean; out?: string; error?: string }> = [];
-      const queue = [...videoFiles];
-      const workers: Promise<void>[] = [];
-      const N = Math.max(1, Math.min(opts.concurrency, queue.length));
-
-      const worker = async () => {
-        while (queue.length > 0) {
-          const clip = queue.shift();
-          if (!clip) break;
-          const base = path.basename(clip, path.extname(clip));
-          const outPath = path.join(outDir, `${base}.json`);
+        // mtimes
+        const clipMtimes = new Map<string, number>();
+        for (const clip of videoFiles) {
           try {
-            const analysis = await analyzeVideo({
-              videoPath: clip,
-              prompt: promptText,
-              model: opts.model,
-              outPath: outPath,
-              slug: projectId,
-            });
-            // analyzeVideo writes outPath internally; just record the result.
-            void analysis;
-            results.push({ clip, ok: true, out: outPath });
-          } catch (e) {
-            results.push({ clip, ok: false, error: (e as Error).message });
+            const st = await fs.stat(clip);
+            clipMtimes.set(clip, st.mtimeMs);
+          } catch {
+            clipMtimes.set(clip, 0);
           }
         }
-      };
-      for (let i = 0; i < N; i++) workers.push(worker());
-      await Promise.all(workers);
 
-      const okCount = results.filter((r) => r.ok).length;
-      out({
-        project: projectId,
-        clipCount: videoFiles.length,
-        succeeded: okCount,
-        failed: results.length - okCount,
-        outDir,
-        results,
-      });
-      if (okCount < results.length) process.exitCode = 1;
-    });
+        // Existing summary
+        const summary = await loadOrSeedSummary(summaryPath, projectId, opts.model);
+        const priorBySlot = new Map<string, TrimAnalysisRow>();
+        for (const r of summary.clips) priorBySlot.set(r.slot, r);
+
+        // Build the plan
+        const plan = videoFiles.map((clip) => {
+          const slot = slotFromClipPath(clip);
+          const mtimeMs = clipMtimes.get(clip) ?? 0;
+          const prior = priorBySlot.get(slot);
+          const stale = opts.force ? true : needsAnalysis(mtimeMs, prior);
+          return {
+            slot,
+            clip,
+            clipMtimeMs: mtimeMs,
+            cached: !stale,
+            priorClipMtimeMs: prior?.clipMtimeMs,
+          };
+        });
+
+        if (opts.dryRun) {
+          const toRun = plan.filter((p) => !p.cached);
+          out({
+            project: projectId,
+            dryRun: true,
+            model: opts.model,
+            concurrency: Math.max(1, Math.min(opts.concurrency, toRun.length || 1)),
+            clipCount: videoFiles.length,
+            toRun: toRun.length,
+            cached: plan.length - toRun.length,
+            summaryPath,
+            plan,
+          });
+          return;
+        }
+
+        const promptText = buildTrimAnalysisPrompt();
+
+        // Re-use cli/lib/research.ts analyzeVideo() — it routes through callLLM()
+        // so the gen-log captures the spend (#032 wired the canonical schema row).
+        const { analyzeVideo } = await import("../lib/research.js");
+
+        // Concurrency-limited batch over only the stale clips.
+        const queue = plan.filter((p) => !p.cached);
+        const results: Array<{ slot: string; clip: string; ok: boolean; out?: string; error?: string }> = [];
+        let workingSummary = summary;
+        // The summary row written by analyzeVideo is the raw model JSON; we
+        // also normalize into a TrimAnalysisRow for the aggregate summary.json.
+        const N = Math.max(1, Math.min(opts.concurrency, queue.length || 1));
+
+        const worker = async () => {
+          while (queue.length > 0) {
+            const job = queue.shift();
+            if (!job) break;
+            const base = slotFromClipPath(job.clip);
+            const outPath = path.join(analysisDir, `${base}.json`);
+            try {
+              const analysis = await analyzeVideo({
+                videoPath: job.clip,
+                prompt: promptText,
+                model: opts.model,
+                outPath,
+              });
+              const row = normalizeTrimAnalysisJson(analysis.json, {
+                slot: base,
+                clipPath: job.clip,
+                clipMtimeMs: job.clipMtimeMs,
+                analysisPath: outPath,
+                model: opts.model,
+              });
+              workingSummary = upsertRow(workingSummary, row);
+              results.push({ slot: base, clip: job.clip, ok: true, out: outPath });
+            } catch (e) {
+              results.push({ slot: base, clip: job.clip, ok: false, error: (e as Error).message });
+            }
+          }
+        };
+        const workers: Promise<void>[] = [];
+        for (let i = 0; i < N; i++) workers.push(worker());
+        await Promise.all(workers);
+
+        // Persist the aggregated summary.
+        await fs.writeFile(summaryPath, JSON.stringify(workingSummary, null, 2) + "\n");
+
+        const okCount = results.filter((r) => r.ok).length;
+        out({
+          project: projectId,
+          clipCount: videoFiles.length,
+          toRun: results.length,
+          cached: plan.length - results.length,
+          succeeded: okCount,
+          failed: results.length - okCount,
+          summaryPath,
+          analysisDir,
+          results,
+        });
+        if (okCount < results.length) process.exitCode = 1;
+      },
+    );
 
   return cmd;
 }
