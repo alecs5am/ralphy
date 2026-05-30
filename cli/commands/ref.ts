@@ -26,6 +26,7 @@ import { rasterizeSvg } from "../lib/image/cutout.js";
 import { bulkFetch, readUrlList } from "../lib/bulk-fetch.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { projectsDir } from "../lib/paths.js";
+import { extractSite } from "../lib/playwright/site-extract.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -296,6 +297,98 @@ export function refCmd() {
     }
     return out;
   }
+
+  // ── pull-site (Playwright brand-DNA fan-out crawl, #014) ───────────────
+  // AGENTS.md invariant #15 enforced as a CLI verb. Captures CSS palette,
+  // fonts, hero screenshot, and documented API surfaces — the four inputs
+  // brand-DNA + code-on-screen creatives need before they can be drafted.
+  cmd
+    .command("pull-site <url>")
+    .description(
+      "Fan-out Playwright crawl of a brand site → screenshots + tokens.json + apis.md (AGENTS invariant #15). Run BEFORE drafting brand-DNA or any code-on-screen creative.",
+    )
+    .option("--project <id>", "Project ID — refs/ lives under workspace/projects/<id>/refs/")
+    .option("--slug <name>", "Custom slug (default: derived from URL host)")
+    .option("--depth <n>", "Max additional pages beyond home (default 6)", (v) => parseInt(v, 10), 6)
+    .option("--page-timeout <ms>", "Per-page timeout in ms (default 20000)", (v) => parseInt(v, 10), 20_000)
+    .action(async (url: string, opts: any) => {
+      const t0 = Date.now();
+      const projectId: string | undefined = opts.project;
+      // Compute outDir: per-project refs/ when --project given, else a
+      // workspace-level references/<slug>/ scratch dir.
+      const outDir = projectId
+        ? path.join(projectsDir(), projectId, "refs")
+        : path.join(root(), "workspace", "references", new URL(url).hostname.replace(/^www\./, ""));
+      if (projectId) {
+        const project = await getEntity("projects", projectId);
+        if (!project) {
+          raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+          return;
+        }
+      }
+      try {
+        const result = await extractSite({
+          url,
+          outDir,
+          slug: opts.slug,
+          depth: opts.depth,
+          pageTimeoutMs: opts.pageTimeout,
+        });
+        // Log one row per crawled page so a postmortem can reconstruct the
+        // fan-out, plus a parent row that summarises the run.
+        if (projectId) {
+          for (const page of result.pages) {
+            await logGeneration(projectId, {
+              provider: "playwright",
+              model: "playwright/site-extract",
+              endpoint: "ref-pull-site",
+              kind: "other",
+              input: {
+                project: projectId,
+                url: page.url,
+                page_slug: page.slug,
+                kind_hint: "reference-website",
+              },
+              output: {
+                local: path.relative(path.join(projectsDir(), projectId), page.screenshotPath),
+              },
+              status: "ok",
+              cost_usd: 0,
+              latency_ms: Date.now() - t0,
+              note: `pull-site: ${page.slug} (${page.apis.length} api surfaces)`,
+            });
+          }
+        }
+        ok(`Crawled ${result.pages.length} page${result.pages.length === 1 ? "" : "s"} → ${path.relative(root(), outDir)}`);
+        const projRoot = projectId ? path.join(projectsDir(), projectId) : root();
+        out({
+          url,
+          slug: result.slug,
+          outDir: path.relative(root(), outDir),
+          pages: result.pages.map((p) => ({
+            slug: p.slug,
+            url: p.url,
+            title: p.title,
+            screenshot: path.relative(projRoot, p.screenshotPath),
+            body: path.relative(projRoot, p.bodyPath),
+            apis: p.apis.length,
+          })),
+          tokens: path.relative(projRoot, result.tokensPath),
+          apis: path.relative(projRoot, result.apisPath),
+          hero: result.heroPath ? path.relative(projRoot, result.heroPath) : null,
+        });
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        if (msg.includes("playwright install") || msg.includes("Chromium binary missing") || msg.includes("playwright module not installed")) {
+          raiseError("E_DEP_MISSING", {
+            dep: "playwright-chromium",
+            detail: `${msg}. After installing, re-run \`ralphy doctor\` to verify.`,
+          });
+          return;
+        }
+        raiseError("E_PROVIDER_HTTP", { provider: "playwright", status: 0, detail: msg });
+      }
+    });
 
   // ── frames (ffmpeg sampler) ────────────────────────────────────────────
   cmd
@@ -732,6 +825,7 @@ Examples:
   ralphy ref pull https://tiktok.com/@x/video/72939...
   ralphy ref pull https://a.com/x.png https://b.com/y.jpg --kind reference-image --project my-proj-001
   ralphy ref pull --from-file urls.txt --kind reference-image --project my-proj-001
+  ralphy ref pull-site https://example.com --project my-proj-001
   ralphy ref analyze my-reference-slug
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
