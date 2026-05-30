@@ -1,6 +1,6 @@
 # Missing niche skills: FB-creatives, carousel, analog-horror-PSA
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** medium
