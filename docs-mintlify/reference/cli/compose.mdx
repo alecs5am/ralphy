@@ -1,0 +1,33 @@
+---
+title: "ralphy compose"
+description: "Timeline-aware composer. Reads assets/ + scenario.json + scribe captions, builds a Timeline, optionally re-flows after structural edits, and renders a single mp"
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy compose [options] <projectId>
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--remove-segment <slot>` | Drop the segment with this slot id and re-flow VO + captions + music. Repeatable. |
+| `--out <path>` | Output path (default: workspace/projects/&lt;id&gt;/render/compose.mp4). Collisions auto-bump to -v2, -v3, ... |
+| `--dry-run` | Print the resolved timeline + filter graph; do not spawn ffmpeg. |
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--remove-segment <slot>` | Drop the segment with this slot id and re-flow VO + captions + music. Repeatable. |
+| `--out <path>` | Output path (default: workspace/projects/&lt;id&gt;/render/compose.mp4). Collisions auto-bump to -v2, -v3, ... |
+| `--dry-run` | Print the resolved timeline + filter graph; do not spawn ffmpeg. |
+| `-h, --help` | display help for command |
+
+</Expandable>
