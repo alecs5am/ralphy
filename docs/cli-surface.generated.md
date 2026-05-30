@@ -643,7 +643,7 @@ Commands:
   list [options]                                 List all references
   show <id>                                      Show reference details
   attach [options] <refId>                       Attach reference to a project
-  pull [options] <url>                           Pull a video into workspace/references/<slug>/. Default: yt-dlp from URL. With --local: copy from local mp4 path (url arg becomes a label).
+  pull [options] [urls...]                       Pull a video via yt-dlp (single URL, default), OR bulk-download images when --kind reference-image / --from-file is set (#048). Bulk mode dedupes by sha256 and writes into <project>/refs/.
   frames [options] <slug>                        Sample JPEG frames from <slug>/source.mp4 → <slug>/frames/
   transcribe [options] <slug>                    Transcribe <slug>/source.mp3 → <slug>/transcript.json (Caption[]). Default backend: ElevenLabs Scribe v1.
   analyze [options] <slug>                       Run vision LLM over <slug>/frames/* → <slug>/analysis.json. Default prompt = UGC blueprint extractor.
@@ -660,6 +660,8 @@ Commands:
 
 Examples:
   ralphy ref pull https://tiktok.com/@x/video/72939...
+  ralphy ref pull https://a.com/x.png https://b.com/y.jpg --kind reference-image --project my-proj-001
+  ralphy ref pull --from-file urls.txt --kind reference-image --project my-proj-001
   ralphy ref analyze my-reference-slug
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
@@ -905,6 +907,7 @@ Commands:
   install [options] <project-id> <template-slug>  Pull required assets for a template and copy them into a project's asset tree
   pull-pool [options] <ref>                       Download a single pool item by '<kind>/<slug>' (e.g. italian-brainrot-characters/tung-tung-tung-sahur)
   catalog [options]                               Print or regenerate docs/assets-catalog.md from the live manifest (single source of truth)
+  unpack [options] <zip>                          Unpack a brand zip into <project>/brand/, flatten nested dirs into kebab-case filenames, drop __MACOSX/ and .DS_Store, suffix collisions with -N. Idempotent on re-run.
   clean                                           Wipe the local asset cache (workspace/.ralph/asset-cache)
   cache-info                                      Show the asset cache location and what's currently in it
   help [command]                                  display help for command
@@ -914,6 +917,7 @@ Examples:
   ralphy assets list --kind <kind>
   ralphy assets pull <template-slug>
   ralphy assets install <project-id> <template-slug>
+  ralphy assets unpack ./brand.zip --project my-proj-001
 ```
 
 ### `ralphy example`

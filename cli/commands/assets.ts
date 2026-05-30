@@ -14,6 +14,10 @@ import {
 import { assetCacheDir, projectsDir, root } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { unpackBrandZip } from "../lib/unpack-zip.js";
+import { intakePath } from "../lib/path-resolution.js";
+import { logGeneration } from "../lib/gen-log.js";
+import { getEntity } from "../lib/registry.js";
 
 export function assetsCmd() {
   const cmd = new Command("assets").description("Pull / list / clean assets from the ralphy-assets companion repo");
@@ -199,6 +203,121 @@ export function assetsCmd() {
       }
     });
 
+  // ── unpack (#048: brand-zip flattener) ───────────────────────────────
+  cmd
+    .command("unpack <zip>")
+    .description(
+      "Unpack a brand zip into <project>/brand/, flatten nested dirs into kebab-case filenames, drop __MACOSX/ and .DS_Store, suffix collisions with -N. Idempotent on re-run.",
+    )
+    .requiredOption("--project <id>", "Target project id (zip is flattened into workspace/projects/<id>/brand/)")
+    .option("--dest <subdir>", "Subdir under <project>/ for output (default: 'brand')", "brand")
+    .action(async (zipArg: string, opts: { project: string; dest: string }) => {
+      const project = await getEntity("projects", opts.project);
+      if (!project) {
+        raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
+        return;
+      }
+      const zipPath = intakePath(zipArg, opts.project, "zip");
+      let stat;
+      try {
+        stat = await fs.stat(zipPath);
+      } catch {
+        raiseError("E_NOT_FOUND", { kind: "File", id: zipPath });
+        return;
+      }
+      if (!stat.isFile()) {
+        raiseError("E_INPUT_INVALID", {
+          field: "zip",
+          detail: `not a file: ${zipPath}`,
+          verb: "assets unpack",
+        });
+        return;
+      }
+      const projDir = path.join(projectsDir(), opts.project);
+      const destDir = path.join(projDir, opts.dest);
+      let result;
+      try {
+        result = await unpackBrandZip(zipPath, destDir);
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `assets unpack: ${e?.message ?? e}` });
+        return;
+      }
+
+      // Summary table on stderr (out() writes JSON to stdout).
+      if (result.entries.length > 0) {
+        const widthOrig = Math.min(
+          48,
+          Math.max(8, ...result.entries.map((e) => e.originalPath.length)),
+        );
+        const widthFlat = Math.min(
+          40,
+          Math.max(8, ...result.entries.map((e) => e.flatName.length)),
+        );
+        process.stderr.write(
+          `\n${"original".padEnd(widthOrig)}  ${"→ flat".padEnd(widthFlat)}  ${"size".padStart(10)}  sha256\n`,
+        );
+        process.stderr.write(
+          `${"-".repeat(widthOrig)}  ${"-".repeat(widthFlat)}  ${"-".repeat(10)}  ${"-".repeat(12)}\n`,
+        );
+        for (const e of result.entries) {
+          const orig =
+            e.originalPath.length > widthOrig
+              ? "…" + e.originalPath.slice(-(widthOrig - 1))
+              : e.originalPath.padEnd(widthOrig);
+          const flat =
+            e.flatName.length > widthFlat
+              ? "…" + e.flatName.slice(-(widthFlat - 1))
+              : e.flatName.padEnd(widthFlat);
+          const sz = formatBytes(e.bytes).padStart(10);
+          process.stderr.write(`${orig}  ${flat}  ${sz}  ${e.sha256.slice(0, 12)}\n`);
+        }
+        process.stderr.write("\n");
+      }
+
+      // gen-log row for the unpack op (one row per zip, not per entry — keeps
+      // the log readable; per-entry details land in the summary JSON).
+      await logGeneration(opts.project, {
+        provider: "ffmpeg", // local op; reuse the 'ffmpeg' bucket the way other recipes do
+        model: "unzip",
+        endpoint: "assets-unpack",
+        kind: "other",
+        input: {
+          project: opts.project,
+          zip: path.basename(zipPath),
+          destDir: path.relative(projDir, destDir),
+        },
+        output: {
+          local: path.relative(projDir, destDir),
+          bytes: result.entries.reduce((a, e) => a + e.bytes, 0),
+        },
+        status: result.errors.length === 0 ? "ok" : "error",
+        error: result.errors.length === 0 ? undefined : `${result.errors.length} entries failed`,
+        cost_usd: 0,
+        note: `${result.entries.length} files unpacked, ${result.skipped.length} skipped`,
+      });
+
+      ok(
+        `Unpacked ${result.entries.length} files → ${path.relative(projDir, destDir)} (${result.skipped.length} skipped, ${result.errors.length} errored)`,
+      );
+      out({
+        project: opts.project,
+        zip: path.basename(zipPath),
+        destDir: path.relative(projDir, destDir),
+        unpacked: result.entries.length,
+        skipped: result.skipped.length,
+        errored: result.errors.length,
+        entries: result.entries.map((e) => ({
+          original: e.originalPath,
+          flat: e.flatName,
+          dest: path.relative(projDir, e.dest),
+          bytes: e.bytes,
+          sha256: e.sha256,
+        })),
+        ...(result.skipped.length > 0 ? { skippedEntries: result.skipped } : {}),
+        ...(result.errors.length > 0 ? { errors: result.errors } : {}),
+      });
+    });
+
   cmd
     .command("clean")
     .description("Wipe the local asset cache (workspace/.ralph/asset-cache)")
@@ -232,6 +351,7 @@ Examples:
   ralphy assets list --kind <kind>
   ralphy assets pull <template-slug>
   ralphy assets install <project-id> <template-slug>
+  ralphy assets unpack ./brand.zip --project my-proj-001
 `,
   );
 
@@ -335,6 +455,13 @@ function renderCatalog(manifest: Manifest): string {
   lines.push("");
   lines.push("_Regenerate with `ralphy assets catalog --write`._");
   return lines.join("\n") + "\n";
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(2)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 async function collectFiles(root: string, rel = ""): Promise<string[]> {

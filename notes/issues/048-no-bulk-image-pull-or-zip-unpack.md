@@ -1,6 +1,6 @@
 # Missing verbs: `ref pull-bulk <urls>` and `assets unpack <zip>`
 
-> **Status:** issue
+> **Status:** done — 2026-05-30
 > **Filed:** 2026-05-29
 > **Folder:** issues
 > **Severity:** low
