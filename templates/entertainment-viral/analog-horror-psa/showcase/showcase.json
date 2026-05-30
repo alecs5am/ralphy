@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "slug": "analog-horror-psa",
+  "outputs": [
+    { "id": "r1", "source_project": "analog-horror-fridge-001", "media": "final-mobius.mp4", "type": "video", "format": "video", "aspect": "9 / 16", "caption": "Rendered with this template." },    { "id": "r2", "source_project": "analog-horror-fridge-001", "media": "final-glitchx.mp4", "type": "video", "format": "video", "aspect": "9 / 16", "caption": "Rendered with this template." },    { "id": "r3", "source_project": "analog-horror-fridge-001", "media": "final-glitchx-full.mp4", "type": "video", "format": "video", "aspect": "9 / 16", "caption": "Rendered with this template." }
+  ]
+}
