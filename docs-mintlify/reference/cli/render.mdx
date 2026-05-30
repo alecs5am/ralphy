@@ -35,7 +35,8 @@ ralphy render spring-001
 | `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
 | `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
 | `--fps <fps>` | Frame rate (default 30) |
-| `--quality <quality>` | Quality preset: draft\|standard\|high (default standard) |
+| `--quality <quality>` | Quality preset: draft\|standard\|high (HyperFrames engine) OR web\|print\|archive (post-render CRF 23\|18\|12) |
+| `--grade <preset>` | Color-grade preset post-render: tv-commercial-soft \| tv-commercial-strong \| cinematic-teal-orange \| analog-horror |
 | `--format <format>` | Output format: mp4\|webm\|mov\|png-sequence (default mp4) |
 | `--resolution <preset>` | Resolution preset: portrait\|landscape\|square\|1080p\|4k\|... |
 | `--dry-run` | Print the resolved render plan; no engine run (default: false) |
