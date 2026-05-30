@@ -16,6 +16,7 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { loadGuideline, listGuidelineSlugs } from "@/lib/guidelines-loader";
+import { templateShowcaseAsFull, listShowcaseTemplateSlugs } from "@/lib/showcase-loader";
 import { KIND_LABELS } from "@/lib/library-types";
 import { mdxComponents } from "@/components/mdx";
 import { MediaPlayer } from "@/components/MediaPlayer";
@@ -28,12 +29,22 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  return listGuidelineSlugs().map((slug) => ({ slug }));
+  // Guideline folders + showcase clips (loadGuideline) plus templates that have
+  // a hosted results gallery (issue 055) — the latter have no guideline folder
+  // but earn a detail page once their showcase media is committed.
+  const slugs = new Set([...listGuidelineSlugs(), ...listShowcaseTemplateSlugs()]);
+  return Array.from(slugs).map((slug) => ({ slug }));
+}
+
+// Resolve a detail-page entry: a guideline / showcase clip first, else a
+// template that has a hosted showcase gallery (issue 055).
+function resolveEntry(slug: string) {
+  return loadGuideline(slug) ?? templateShowcaseAsFull(slug);
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const g = loadGuideline(slug);
+  const g = resolveEntry(slug);
   if (!g) return { title: "Library · Ralphy" };
   return {
     title: `${g.name} · Ralphy library`,
@@ -45,7 +56,7 @@ const REPO_BASE = "https://github.com/alecs5am/ralphy/blob/main/";
 
 export default async function GuidelinePage({ params }: PageProps) {
   const { slug } = await params;
-  const g = loadGuideline(slug);
+  const g = resolveEntry(slug);
   if (!g) notFound();
 
   const stars = await getDisplayStars();
