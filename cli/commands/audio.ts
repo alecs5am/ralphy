@@ -11,6 +11,7 @@ import {
   loudnorm,
   sidechainCompress,
   concatLossless,
+  mixMusic,
 } from "../lib/ffmpeg-recipes.js";
 import { out, ok, err } from "../lib/output.js";
 
@@ -96,6 +97,37 @@ export function audioCmd() {
         out({ voice: opts.voice, music: opts.music, dst });
       } catch (e: any) {
         err(`sidechain failed: ${e?.message || e}`);
+      }
+    });
+
+  // ── mix-music (single-call music bed) ──────────────────────────────────
+  cmd
+    .command("mix-music")
+    .description(
+      "Overlay a music bed onto a video at a fixed volume — no ducking, no fades. Single-call surface for A/B preview workflows.",
+    )
+    .requiredOption("--in <path>", "Input video (mp4 / mov)")
+    .requiredOption("--music <path>", "Music audio file (mp3 / m4a / wav)")
+    .requiredOption("--out <path>", "Output video")
+    .option("--volume <n>", "Music gain (default 0.18 = background bed)", (v) => Number(v), 0.18)
+    .option("--force-overwrite", "Skip the .v2 collision archive", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await mixMusic({
+          src: path.resolve(opts.in),
+          music: path.resolve(opts.music),
+          dst: path.resolve(opts.out),
+          volume: opts.volume,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Music bed mixed → ${dst}`);
+        out({ src: opts.in, music: opts.music, dst, volume: opts.volume });
+      } catch (e: any) {
+        err(`mix-music failed: ${e?.message || e}`);
       }
     });
 
