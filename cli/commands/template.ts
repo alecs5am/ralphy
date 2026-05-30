@@ -541,6 +541,236 @@ export function templateCmd() {
     });
 
   cmd
+    .command("extract <project-id>")
+    .description(
+      "Promote a finished workspace project into a reusable template at templates/<category>/<slug>/. Copies prompts/, scenario, composition variables, and refs; substitutes brand/persona/VO with {{slots}}; drafts a README from POSTMORTEM 'Lessons learned'.",
+    )
+    .requiredOption("--category <c>", "Template category (b2b-saas|dtc-commerce|creator-lifestyle|entertainment-viral|cinematic-narrative)")
+    .requiredOption("--slug <s>", "Target template slug (kebab-case)")
+    .option("--kind <k>", "Template kind (vibe-reference|vibe-style)", "vibe-style")
+    .option("--name <n>", "Human-readable template name (defaults from slug)")
+    .option("--description <d>", "One-line description (defaults to extracted-template stub)")
+    .option("--tags <list>", "Comma-separated tags (default: empty)")
+    .option(
+      "--lift-heavy",
+      "Move refs >1MB into ralphy-assets/pool/<slug>/. Default is to COPY everything in place (per AGENTS.md invariant #14).",
+    )
+    .option(
+      "--assets-repo <path>",
+      "Path to the ralphy-assets companion repo. Required when --lift-heavy is set.",
+    )
+    .option("--force", "Overwrite the target template directory if it already exists.")
+    .action(async (projectId: string, opts: any) => {
+      const ex = await import("../lib/templater/extract.js");
+      const { logGeneration } = await import("../lib/gen-log.js");
+
+      const projDir = path.join(projectsDir(), projectId);
+      try { await fs.access(projDir); } catch {
+        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+      }
+
+      // Category + slug validation upfront — surface structured errors before
+      // any disk work (avoids partial template dirs on failure).
+      const allowedCats = ["b2b-saas", "dtc-commerce", "creator-lifestyle", "entertainment-viral", "cinematic-narrative"];
+      if (!allowedCats.includes(opts.category)) {
+        raiseError("E_INPUT_INVALID", { field: "--category", detail: `expected one of ${allowedCats.join("|")}, got '${opts.category}'`, verb: "template extract" });
+      }
+
+      const targetDir = path.join(repoTemplatesDir(), opts.category, opts.slug);
+      if (await pathExists(targetDir)) {
+        if (!opts.force) {
+          raiseError("E_ALREADY_EXISTS", { kind: "Template", id: `${opts.category}/${opts.slug}` });
+        }
+      }
+
+      // Read scenario.json (required) and POSTMORTEM.md (optional).
+      const scenarioPath = path.join(projDir, "scenario.json");
+      let scenario: unknown = null;
+      try {
+        scenario = JSON.parse(await fs.readFile(scenarioPath, "utf-8"));
+      } catch {
+        raiseError("E_FILE_UNREADABLE", { path: `workspace/projects/${projectId}/scenario.json` });
+      }
+
+      // Read POSTMORTEM (preferring postmortem/02-lessons.md, then POSTMORTEM.md).
+      let postmortem = "";
+      const lessonsPath = path.join(projDir, "postmortem", "02-lessons.md");
+      const flatPostmortem = path.join(projDir, "POSTMORTEM.md");
+      try { postmortem = await fs.readFile(lessonsPath, "utf-8"); } catch {
+        try { postmortem = await fs.readFile(flatPostmortem, "utf-8"); } catch { /* none */ }
+      }
+
+      // Read index.html if present, extract data-composition-variables.
+      let compositionVars: Array<Record<string, unknown>> | null = null;
+      try {
+        const html = await fs.readFile(path.join(projDir, "index.html"), "utf-8");
+        compositionVars = ex.extractCompositionVariables(html);
+      } catch { /* not a HyperFrames project */ }
+
+      // Slot substitution on the scenario.
+      const { scenario: patchedScenario, slots } = ex.extractSlotsFromScenario(scenario);
+
+      // Build manifest.
+      let manifest;
+      try {
+        manifest = ex.buildTemplateManifest({
+          slug: opts.slug,
+          category: opts.category,
+          kind: opts.kind,
+          name: opts.name,
+          description: opts.description,
+          tags: typeof opts.tags === "string" ? opts.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+          scenario: patchedScenario,
+        });
+      } catch (e) {
+        raiseError("E_INPUT_INVALID", { field: "--slug/--category/--kind", detail: (e as Error).message, verb: "template extract" });
+      }
+
+      // Now write everything atomically — create the target dir, copy prompts,
+      // copy/lift refs, write generated files.
+      await fs.mkdir(targetDir, { recursive: true });
+      await fs.mkdir(path.join(targetDir, "prompts"), { recursive: true });
+      await fs.mkdir(path.join(targetDir, "refs"), { recursive: true });
+
+      // Copy prompts/<scene>.txt
+      const promptsCopied: string[] = [];
+      const srcPrompts = path.join(projDir, "prompts");
+      try {
+        const entries = await fs.readdir(srcPrompts, { withFileTypes: true });
+        for (const e of entries) {
+          if (!e.isFile()) continue;
+          if (!/\.(txt|md|json)$/iu.test(e.name)) continue;
+          await fs.copyFile(path.join(srcPrompts, e.name), path.join(targetDir, "prompts", e.name));
+          promptsCopied.push(e.name);
+        }
+      } catch { /* no prompts/ dir in source */ }
+
+      // Refs: by default COPY; --lift-heavy MOVES files ≥1MB to ralphy-assets/pool/<slug>/.
+      const refsCopied: Array<{ name: string; dest: string; sizeBytes: number }> = [];
+      const refsLifted: Array<{ name: string; pooledTo: string; sizeBytes: number }> = [];
+      const srcRefs = path.join(projDir, "refs");
+      let assetsRoot = opts.assetsRepo as string | undefined;
+      if (opts.liftHeavy && !assetsRoot) {
+        // Best-effort default: ~/github/ralphy-assets if it looks like a repo,
+        // otherwise refuse with a concrete ask.
+        const candidate = path.join(process.env.HOME || "", "github", "ralphy-assets");
+        if (await pathExists(path.join(candidate, "manifest.json"))) {
+          assetsRoot = candidate;
+        } else {
+          raiseError("E_INPUT_INVALID", {
+            field: "--assets-repo",
+            detail: "--lift-heavy requires --assets-repo pointing at a checkout of the ralphy-assets companion repo",
+            verb: "template extract",
+          });
+        }
+      }
+      try {
+        const entries = await fs.readdir(srcRefs, { withFileTypes: true });
+        for (const e of entries) {
+          if (!e.isFile()) continue;
+          const srcPath = path.join(srcRefs, e.name);
+          const stat = await fs.stat(srcPath);
+          if (opts.liftHeavy && ex.isHeavyRef(stat.size) && assetsRoot) {
+            const destPath = ex.poolDestForSlug(assetsRoot, opts.slug, e.name);
+            await fs.mkdir(path.dirname(destPath), { recursive: true });
+            await fs.copyFile(srcPath, destPath);
+            refsLifted.push({ name: e.name, pooledTo: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
+          } else {
+            const destPath = path.join(targetDir, "refs", e.name);
+            await fs.copyFile(srcPath, destPath);
+            refsCopied.push({ name: e.name, dest: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
+          }
+        }
+      } catch { /* no refs/ dir */ }
+
+      // Composition variables — captured as a sidecar JSON when present so the
+      // consumer of the template can wire them into a new HyperFrames composition.
+      if (compositionVars && compositionVars.length > 0) {
+        await fs.writeFile(
+          path.join(targetDir, "composition-variables.json"),
+          JSON.stringify(compositionVars, null, 2) + "\n",
+        );
+      }
+
+      // template.json (the manifest the loader reads).
+      await fs.writeFile(path.join(targetDir, "template.json"), ex.manifestToJson(manifest!));
+
+      // scenario-template.json: the patched scenario with {{slots}}. Distinct
+      // from template.json (the manifest) to keep the loader's expected shape.
+      await fs.writeFile(
+        path.join(targetDir, "scenario-template.json"),
+        JSON.stringify({ scenario: patchedScenario, slots }, null, 2) + "\n",
+      );
+
+      // README.md from POSTMORTEM lessons (or stub).
+      const readme = ex.readmeFromPostmortem({
+        slug: opts.slug,
+        category: opts.category,
+        postmortem,
+        projectId,
+      });
+      await fs.writeFile(path.join(targetDir, "README.md"), readme);
+
+      // Minimal TEMPLATE.md so `ralphy template show <slug>` doesn't 404 for
+      // LLM consumers. Real templates ship a longer TEMPLATE.md — extract
+      // bootstraps it from the README header.
+      const templateMd = [
+        `# ${manifest!.name}`,
+        ``,
+        manifest!.description,
+        ``,
+        `> Extracted from \`workspace/projects/${projectId}/\` on ${new Date().toISOString().slice(0, 10)}.`,
+        ``,
+        `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts; \`scenario-template.json\` for the slot-substituted scenario.`,
+        ``,
+      ].join("\n");
+      await fs.writeFile(path.join(targetDir, "TEMPLATE.md"), templateMd);
+
+      // sample-remix.md
+      await fs.writeFile(
+        path.join(targetDir, "sample-remix.md"),
+        ex.sampleRemixDoc({ slug: opts.slug, category: opts.category }),
+      );
+
+      // Log the extraction back to the source project's gen-log so postmortems
+      // can see when the project was templatized (canonical schema, kind=other).
+      try {
+        await logGeneration(projectId, {
+          provider: "other",
+          model: "template.extract",
+          endpoint: "template.extract",
+          kind: "other",
+          input: {
+            slot: "template.extract",
+            category: opts.category,
+            slug: opts.slug,
+            target_dir: path.relative(process.cwd(), targetDir),
+            lift_heavy: !!opts.liftHeavy,
+            prompts_copied: promptsCopied.length,
+            refs_copied: refsCopied.length,
+            refs_lifted: refsLifted.length,
+          },
+          status: "ok",
+          note: `templatized as ${opts.category}/${opts.slug}`,
+        });
+      } catch { /* logging is best-effort */ }
+
+      ok(`Extracted ${projectId} → templates/${opts.category}/${opts.slug}/`);
+      out({
+        project_id: projectId,
+        template_dir: path.relative(process.cwd(), targetDir),
+        slug: opts.slug,
+        category: opts.category,
+        kind: manifest!.kind,
+        prompts_copied: promptsCopied,
+        refs_copied: refsCopied,
+        refs_lifted: refsLifted,
+        slots: Object.keys(slots),
+        composition_variables: compositionVars?.length ?? 0,
+      });
+    });
+
+  cmd
     .command("delete <id>")
     .description("Delete a workspace template (flat file or whole dir). Repo templates are read-only — edit templates/ in the repo directly.")
     .action(async (id: string) => {
