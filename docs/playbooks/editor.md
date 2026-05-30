@@ -73,11 +73,13 @@ For HyperFrames API specifics (composition rules, GSAP timelines, captions, tran
 
 ## What I read on start
 
-- **`AGENTS.md`** — invariants (no auto-Studio, no scripts, ralphy render).
-- **[hyperframes playbook](hyperframes.md)** — reference manual for HyperFrames composition / captions / transitions / GSAP / registry.
-- **[art-director/pre-render-checklist.md](art-director/pre-render-checklist.md)** — HARD snapshot-review gate the art-director must clear before handing off. If you arrived here without snapshots on disk, bounce back to art-director.
-- `workspace/projects/<id>/scenario.json` — structure and timings.
-- `workspace/projects/<id>/asset-manifest.json` — asset paths.
+1. **Run `ralphy editor preflight <id>` first.** Single canonical check for durations, fps, codec, audio tracks, music-gap vs total clip length, and scenario-to-disk completeness. Exits 1 on red — fix before composing. Replaces every project's ad-hoc `ffprobe` loop. (#034)
+2. **Then `ralphy editor trim-analyze <id>`.** Batch gemini-3.1-pro-preview vision pass over `assets/videos/` for dead-time / hot-moments / suggested `trim_in_s` / `trim_out_s` per clip. Aggregates to `assets/analysis/summary.json` (idempotent via mtime — re-runs only re-analyze changed clips). Use `--dry-run` to preview the plan + cache state. Canonical solver for kling/seedance ~1s overshoot (#042). (#034)
+3. **`AGENTS.md`** — invariants (no auto-Studio, no scripts, ralphy render).
+4. **[hyperframes playbook](hyperframes.md)** — reference manual for HyperFrames composition / captions / transitions / GSAP / registry.
+5. **[art-director/pre-render-checklist.md](art-director/pre-render-checklist.md)** — HARD snapshot-review gate the art-director must clear before handing off. If you arrived here without snapshots on disk, bounce back to art-director.
+6. `workspace/projects/<id>/scenario.json` — structure and timings.
+7. `workspace/projects/<id>/asset-manifest.json` — asset paths.
 - `workspace/projects/<id>/index.html` — the composition.
 - `workspace/projects/<id>/design.md` — brand source-of-truth (HyperFrames skill gate).
 - `docs/green-zone.md` for text positioning.

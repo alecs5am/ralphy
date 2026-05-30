@@ -509,22 +509,21 @@ Options:
 
 Commands:
   preflight [options] <projectId>     ffprobe every clip + music in
-                                      workspace/projects/<id>/assets/, sum
-                                      durations, flag missing slots from
-                                      manifest, surface aspect/fps/codec
-                                      mismatches. Exit 1 on red. Run before
-                                      `ralphy render` to catch wrong-aspect
-                                      leftovers from a model swap, encoder
-                                      overshoot, missing scenes, etc.
-  trim-analyze [options] <projectId>  Run gemini-3.1-pro vision over every clip
-                                      in assets/videos/ and write per-clip trim
-                                      analysis to
-                                      logs/trim-analysis/<clip>.json. Returns
-                                      strict JSON: { observed_duration_sec,
-                                      dead_head_sec, dead_tail_sec,
-                                      best_subwindow{start,end},
-                                      trim_recommendation{max_trim_sec,
-                                      trim_from}, beats[] }.
+                                      workspace/projects/<id>/assets/, surface
+                                      durations / fps / codec / audio / aspect,
+                                      run a music-gap check, and verify every
+                                      scenario scene has a corresponding clip on
+                                      disk. Exit 1 on red. Run BEFORE `ralphy
+                                      render`.
+  trim-analyze [options] <projectId>  Run gemini-3.1-pro-preview vision over
+                                      every clip in assets/videos/, write
+                                      per-clip JSON to
+                                      assets/analysis/<clip>.json, and aggregate
+                                      to assets/analysis/summary.json.
+                                      Idempotent: clips with mtime <= prior
+                                      summary row are skipped. Parallelism is
+                                      capped (default 3) to respect the
+                                      gemini-3.1-pro-preview concurrency floor.
   help [command]                      display help for command
 ```
 
