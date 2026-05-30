@@ -23,6 +23,9 @@ import type { TranscribeBackend, TranscribeLanguage } from "../lib/transcribe.js
 import { callLLM } from "../lib/providers/llm.js";
 import { intakePath } from "../lib/path-resolution.js";
 import { rasterizeSvg } from "../lib/image/cutout.js";
+import { bulkFetch, readUrlList } from "../lib/bulk-fetch.js";
+import { logGeneration } from "../lib/gen-log.js";
+import { projectsDir } from "../lib/paths.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -108,17 +111,54 @@ export function refCmd() {
       out({ refId, projectId: opts.to });
     });
 
-  // ── pull (yt-dlp wrapper) ──────────────────────────────────────────────
+  // ── pull (yt-dlp wrapper, OR bulk image fetcher when --kind/--from-file is set) ─
+  // Single-URL video pull (yt-dlp): `ralphy ref pull <url>`.
+  // Bulk image pull (#048):         `ralphy ref pull <url...> --kind reference-image --project <id>`
+  //                                 `ralphy ref pull --from-file urls.txt --kind reference-image --project <id>`
   cmd
-    .command("pull <url>")
-    .description("Pull a video into workspace/references/<slug>/. Default: yt-dlp from URL. With --local: copy from local mp4 path (url arg becomes a label).")
-    .option("--slug <name>", "Custom slug (default: derived from URL or filename)")
+    .command("pull [urls...]")
+    .description(
+      "Pull a video via yt-dlp (single URL, default), OR bulk-download images when --kind reference-image / --from-file is set (#048). Bulk mode dedupes by sha256 and writes into <project>/refs/.",
+    )
+    .option("--slug <name>", "Custom slug (default: derived from URL or filename) — video mode only")
     .option("--local <path>", "Use a local mp4 file instead of yt-dlp. <url> becomes a label.")
     .option("--audio-only", "Skip the video stream — only fetch mp3 (URL mode only)")
     .option("--meta-only", "Skip download — only write meta.info.json (URL mode only)")
     .option("--no-audio-extract", "Skip auto-extraction of mono 64k mp3 from mp4")
     .option("--register", "Also call `ref add --type social <url>`", false)
-    .action(async (url: string, opts: any) => {
+    // Bulk-image-pull flags (#048):
+    .option("--kind <kind>", "Bulk mode: 'reference-image' triggers bulk-fetch into <project>/refs/")
+    .option("--project <id>", "Bulk mode: target project id (refs/ lives under workspace/projects/<id>/)")
+    .option("--from-file <path>", "Bulk mode: read URLs from a file (one per line, # comments OK)")
+    .option("--concurrency <n>", "Bulk mode: parallel downloads (default 4)", (v) => parseInt(v, 10), 4)
+    .option("--timeout <ms>", "Bulk mode: per-URL timeout in ms (default 30000)", (v) => parseInt(v, 10), 30_000)
+    .action(async (urls: string[], opts: any) => {
+      // Route: bulk-image mode when --kind reference-image OR --from-file is set.
+      const isBulkImage =
+        opts.kind === "reference-image" || typeof opts.fromFile === "string";
+      if (isBulkImage) {
+        await runBulkImagePull(urls, opts);
+        return;
+      }
+
+      // Legacy: single-URL yt-dlp video pull.
+      if (urls.length === 0) {
+        raiseError("E_INPUT_INVALID", {
+          field: "url",
+          detail: "expected exactly one URL for video pull, or use --kind reference-image / --from-file for bulk image mode",
+          verb: "ref pull",
+        });
+        return;
+      }
+      if (urls.length > 1) {
+        raiseError("E_INPUT_INVALID", {
+          field: "url",
+          detail: `single-URL video pull received ${urls.length} URLs. Pass --kind reference-image for bulk mode.`,
+          verb: "ref pull",
+        });
+        return;
+      }
+      const url = urls[0] as string;
       try {
         const result = await pullReference({
           url,
@@ -146,6 +186,116 @@ export function refCmd() {
         raiseError("E_PROVIDER_HTTP", { provider: "yt-dlp", status: 0, detail: e?.message ?? String(e) });
       }
     });
+
+  // ── bulk-image-pull worker (#048) ──────────────────────────────────────
+  async function runBulkImagePull(positional: string[], opts: any): Promise<void> {
+    const projectId: string | undefined = opts.project;
+    if (!projectId) {
+      raiseError("E_INPUT_INVALID", {
+        field: "--project",
+        detail: "bulk image pull requires --project <id> (target for refs/)",
+        verb: "ref pull",
+      });
+      return;
+    }
+    const project = await getEntity("projects", projectId);
+    if (!project) {
+      raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+      return;
+    }
+    // Collect URLs: positional + --from-file (deduped, order-preserving).
+    const fromFile: string[] = opts.fromFile
+      ? await readUrlList(intakePath(opts.fromFile, projectId, "from-file"))
+      : [];
+    const urls = dedupeOrdered([...positional, ...fromFile]);
+    if (urls.length === 0) {
+      raiseError("E_INPUT_INVALID", {
+        field: "urls",
+        detail: "no URLs supplied (positional or --from-file)",
+        verb: "ref pull",
+      });
+      return;
+    }
+    const projDir = path.join(projectsDir(), projectId);
+    const refsLocalDir = path.join(projDir, "refs");
+    const results = await bulkFetch({
+      urls,
+      destDir: refsLocalDir,
+      concurrency: opts.concurrency ?? 4,
+      timeoutMs: opts.timeout ?? 30_000,
+      onProgress: (r) => {
+        // Stream breadcrumbs on stderr so they don't pollute JSON on stdout.
+        if (r.status === "downloaded") process.stderr.write(`  ↓ ${r.url} → ${r.filename}\n`);
+        else if (r.status === "skipped-existing") process.stderr.write(`  ◦ ${r.url} → ${r.filename} (existing sha match)\n`);
+        else if (r.status === "skipped-duplicate") process.stderr.write(`  ◦ ${r.url} → ${r.filename} (duplicate sha)\n`);
+        else if (r.status === "error") process.stderr.write(`  ✗ ${r.url} — ${r.error}\n`);
+      },
+    });
+    // Log each download row (skip pure errors — they have no bytes).
+    for (const r of results) {
+      if (r.status === "error") {
+        await logGeneration(projectId, {
+          provider: "http",
+          model: "http-bulk-fetch",
+          endpoint: "ref-pull-bulk",
+          kind: "other",
+          input: { project: projectId, url: r.url, kind_hint: "reference-image" },
+          status: "error",
+          error: r.error,
+          cost_usd: 0,
+        });
+      } else {
+        await logGeneration(projectId, {
+          provider: "http",
+          model: "http-bulk-fetch",
+          endpoint: "ref-pull-bulk",
+          kind: "other",
+          input: { project: projectId, url: r.url, kind_hint: "reference-image" },
+          output: {
+            local: r.dest ? path.relative(projDir, r.dest) : undefined,
+            bytes: r.bytes,
+          },
+          status: "ok",
+          cost_usd: 0,
+          note: r.status === "downloaded"
+            ? `bulk-fetch: ${r.filename}`
+            : `bulk-fetch: ${r.filename} (${r.status})`,
+        });
+      }
+    }
+    const downloaded = results.filter((r) => r.status === "downloaded").length;
+    const skipped = results.filter((r) => r.status.startsWith("skipped")).length;
+    const errored = results.filter((r) => r.status === "error").length;
+    ok(`Bulk pull: ${downloaded} downloaded · ${skipped} skipped · ${errored} errored`);
+    out({
+      project: projectId,
+      destDir: path.relative(projDir, refsLocalDir),
+      total: results.length,
+      downloaded,
+      skipped,
+      errored,
+      results: results.map((r) => ({
+        url: r.url,
+        status: r.status,
+        filename: r.filename ?? null,
+        bytes: r.bytes ?? null,
+        sha256: r.sha256 ?? null,
+        ...(r.error ? { error: r.error } : {}),
+      })),
+    });
+  }
+
+  function dedupeOrdered(xs: string[]): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const x of xs) {
+      if (!seen.has(x)) {
+        seen.add(x);
+        out.push(x);
+      }
+    }
+    return out;
+  }
 
   // ── frames (ffmpeg sampler) ────────────────────────────────────────────
   cmd
@@ -580,6 +730,8 @@ Limit output to the top ${opts.topK} candidates by confidence.`;
     `
 Examples:
   ralphy ref pull https://tiktok.com/@x/video/72939...
+  ralphy ref pull https://a.com/x.png https://b.com/y.jpg --kind reference-image --project my-proj-001
+  ralphy ref pull --from-file urls.txt --kind reference-image --project my-proj-001
   ralphy ref analyze my-reference-slug
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
