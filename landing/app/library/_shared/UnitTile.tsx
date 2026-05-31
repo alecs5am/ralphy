@@ -9,7 +9,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Block, BlockKind, Format, Unit, UnitMedia } from "@/lib/library-v2/types";
-import { blockGlyph, blockKindLabel, fhue, mediaUrl } from "./blockMeta";
+import { blockGlyph, blockKindLabel, fhue, mediaUrl, unitTileAspect } from "./blockMeta";
 import { OpenIcon, PlayIcon, RemixIcon } from "./icons";
 
 // ── Block chip ────────────────────────────────────────────────────────────────
@@ -151,10 +151,6 @@ export function UnitTile({
 // When media is missing for a slot the cell falls back to a hue-tinted shape so
 // the format silhouette still reads.
 
-function aspectOf(format: Format | undefined, fallback: string): string {
-  return format?.aspect ?? fallback;
-}
-
 /** Pick a near-square grid that exactly fits `n` populated cells (cap ~9), so
  *  the card fills edge-to-edge with NO empty trailing cells. 4 → 2×2, 6 → 3×2,
  *  9 → 3×3. The real total still shows in the count badge. */
@@ -190,8 +186,13 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
   const media = u.media ?? [];
   const count = u.mediaCount;
   const hue = format ? fhue(format.id) : "var(--mute)";
+  // Tile aspect = the unit's OWN media aspect (a 16/9 clip renders landscape, a
+  // 1/1 square, a 9/16 portrait) — restoring the mixed-aspect Pinterest look.
+  // Fall back to the format default only when the unit has no media. This same
+  // helper feeds the masonry height estimate in LibraryListing.
+  const tileAspect = unitTileAspect(u, format);
   const style: React.CSSProperties = {
-    aspectRatio: aspectOf(format, "4 / 5"),
+    aspectRatio: tileAspect,
     ["--hue" as string]: hue,
   };
   const fmt = u.format;

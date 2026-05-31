@@ -319,12 +319,32 @@ export const UNITS: Unit[] = [
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/04-a4-pair-prog.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/05-a5-over-shoulder.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/06-a6-asian-founder.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/07-a7-senior-greybeard.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/08-a8-indie-hacker-cafe.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/09-a9-indian-dev-office.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/10-b1-big-number.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/11-b2-versus.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/12-b3-code-as-art.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/13-b4-price-hero.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/14-b5-languages-grid.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/15-b6-time-saved.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/16-b7-stats-cascade.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/17-b8-crossed-prices.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/18-c1-before-after.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/19-c2-works-with.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/20-c3-doc-genres.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/21-c4-api-flow.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/22-c5-rag-stack.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/23-c6-dashboard-mock.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/24-c7-regex-vs-3-lines.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/25-d1-wojak-meme.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/26-d2-twitter-mock.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/27-d3-drake-meme.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/28-d4-slack-chat.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/29-d5-distracted-bf.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/30-e1-rag-hook.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/31-e2-openai-credits.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/32-e3-weekend-ship.webp`, kind: "image", aspect: "4 / 5" },
     ],
   },
   // ── food-beverage (video) ──
@@ -551,22 +571,54 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [{ src: `${SHOWCASE}/soviet-nostalgic/final.mp4`, kind: "video", aspect: "9 / 16" }],
   },
-  // ── streetwear-drop-poster (poster, 3 variants) ──
+  // ── streetwear-drop-poster → split into 3 per-variant poster units ──
+  // The folder holds 3 distinct posters (boom / dang / yikes). A poster is a
+  // SINGLE still, so each variant is its own unit with its one real image.
   {
-    id: "streetwear-drop-poster",
+    id: "streetwear-drop-poster-boom",
     format: "poster",
-    title: "Streetwear Drop Poster",
+    title: "Streetwear Drop Poster — Boom",
     blurb:
-      "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. Three punchline variants.",
+      "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"boom\" punchline cut.",
     date: "2026-05",
     templateId: "product-reveal",
     styleId: "y2k-streetwear",
     recipeIds: ["halftone"],
     assetIds: ["brand-stickers"],
-    mediaCount: 3,
+    mediaCount: 1,
     media: [
       { src: `${SHOWCASE}/streetwear-drop-poster/variant-01-boom.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "streetwear-drop-poster-dang",
+    format: "poster",
+    title: "Streetwear Drop Poster — Dang",
+    blurb:
+      "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"dang\" punchline cut.",
+    date: "2026-05",
+    templateId: "product-reveal",
+    styleId: "y2k-streetwear",
+    recipeIds: ["halftone"],
+    assetIds: ["brand-stickers"],
+    mediaCount: 1,
+    media: [
       { src: `${SHOWCASE}/streetwear-drop-poster/variant-02-dang.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "streetwear-drop-poster-yikes",
+    format: "poster",
+    title: "Streetwear Drop Poster — Yikes",
+    blurb:
+      "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"yikes\" punchline cut.",
+    date: "2026-05",
+    templateId: "product-reveal",
+    styleId: "y2k-streetwear",
+    recipeIds: ["halftone"],
+    assetIds: ["brand-stickers"],
+    mediaCount: 1,
+    media: [
       { src: `${SHOWCASE}/streetwear-drop-poster/variant-03-yikes.webp`, kind: "image", aspect: "4 / 5" },
     ],
   },
@@ -599,6 +651,26 @@ export const UNITS: Unit[] = [
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-10-point.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-11-facepalm.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-12-thisisfine.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-13-explosion.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-14-micdrop.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-15-cry.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-16-skull.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-17-sus.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-18-mindblown.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-19-sweat.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-20-clown.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-21-rizz.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-22-sigma.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-23-money.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-24-salute.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-25-wait.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-26-lurk.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-27-idea.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-28-no.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-29-sleepy.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-30-sick.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-31-cold.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-32-bigw.webp`, kind: "image", aspect: "1 / 1" },
     ],
   },
   {
@@ -626,6 +698,26 @@ export const UNITS: Unit[] = [
       { src: `${SHOWCASE}/vpn-sticker-pack/outline-10-point.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/outline-11-facepalm.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/outline-12-thisisfine.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-13-explosion.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-14-micdrop.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-15-cry.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-16-skull.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-17-sus.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-18-mindblown.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-19-sweat.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-20-clown.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-21-rizz.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-22-sigma.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-23-money.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-24-salute.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-25-wait.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-26-lurk.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-27-idea.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-28-no.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-29-sleepy.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-30-sick.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-31-cold.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-32-bigw.webp`, kind: "image", aspect: "1 / 1" },
     ],
   },
   // NOTE: `vs-comparison-ad` was DROPPED in the v2 review fix-pass — its render
@@ -748,26 +840,14 @@ export const UNITS: Unit[] = [
       },
     ],
   },
-  {
-    id: "occult-mockumentary-001",
-    format: "video",
-    title: "Occult Mockumentary",
-    blurb: "A first-person found-footage occult story — handheld grain, dread between cuts, the camera shouldn't be here.",
-    date: "2026-05",
-    templateId: "story-time",
-    styleId: "found-footage",
-    recipeIds: ["vhs-overlay", "film-grain", "noir-grade"],
-    assetIds: ["mockumentary-room", "horror-bed"],
-    mediaCount: 1,
-    media: [
-      {
-        src: "/assets/showcase/occult-mockumentary-001.mp4",
-        kind: "video",
-        aspect: "9 / 16",
-        poster: "/assets/showcase/posters/occult-mockumentary-001.jpg",
-      },
-    ],
-  },
+  // NOTE: `occult-mockumentary-001` was DROPPED in the v2 review fix-pass — its
+  // render (`/assets/showcase/occult-mockumentary-001.mp4`) is a re-encode of the
+  // SAME forest-path found-footage content as the showcase-folder canonical
+  // `found-footage-mockumentary` (showcase/found-footage-mockumentary/final.mp4).
+  // A 16×16 perceptual frame-sweep at ~1s scored 0.42 mean-abs-gray-diff
+  // (effectively identical); rendered thumbnails confirmed the same REC overlay
+  // and "AUG 15 2003 23:47:12" timestamp. We keep the showcase-folder canonical
+  // and drop this duplicate hero clip.
   {
     id: "fruit-drama-001",
     format: "video",
@@ -808,26 +888,15 @@ export const UNITS: Unit[] = [
       },
     ],
   },
-  {
-    id: "kbo-broadcast-001",
-    format: "video",
-    title: "KBO Caught-On-TV",
-    blurb: "A 1:1 caught-on-TV baseball-crowd moment with real-broadcast camera grammar — square because real cameras shoot 16:9.",
-    date: "2026-05",
-    templateId: "lifestyle-montage",
-    styleId: "photoreal",
-    recipeIds: ["broadcast-square"],
-    assetIds: [],
-    mediaCount: 1,
-    media: [
-      {
-        src: "/assets/showcase/kbo-broadcast-001.mp4",
-        kind: "video",
-        aspect: "1 / 1",
-        poster: "/assets/showcase/posters/kbo-broadcast-001.jpg",
-      },
-    ],
-  },
+  // NOTE: `kbo-broadcast-001` was DROPPED in the v2 review fix-pass per the
+  // review brief (the user reported seeing "broadcast" twice in the feed). It
+  // shares the exact broadcast-square recipe + photoreal style + 1:1 caught-on-TV
+  // grammar as the showcase-folder canonical `broadcast-caught-on-tv-square`, so
+  // the two read as a duplicate concept in the feed. NB: the underlying RENDERS
+  // are NOT byte/perceptually identical (KBO baseball broadcast vs Lakers
+  // basketball broadcast — 41.6 mean-abs-gray-diff, different durations), so this
+  // is a concept/recipe collision the user flagged, not a re-encode. We keep the
+  // showcase-folder canonical and drop this hero clip.
   {
     id: "tokyo-y2k-001",
     format: "video",

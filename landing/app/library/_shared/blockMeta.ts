@@ -4,7 +4,7 @@
 // are deliberately OFF the format wheel so a block chip never reads as a format
 // chip (see the design handoff's block-accent token note).
 
-import type { Block, BlockKind, FormatId, UnitMedia } from "@/lib/library-v2/types";
+import type { Block, BlockKind, Format, FormatId, Unit, UnitMedia } from "@/lib/library-v2/types";
 
 export const KIND_META: Record<
   BlockKind,
@@ -53,6 +53,21 @@ export function blockKindLabel(b: Block): string {
 export function mediaUrl(m: UnitMedia): string {
   const withStorage = m as UnitMedia & { storageUrl?: string };
   return withStorage.storageUrl ?? m.src;
+}
+
+/** The CSS aspect-ratio a unit's TILE renders at — the unit's own first-media
+ *  aspect (so a 16/9 clip is landscape, 1/1 square, 9/16 portrait), falling back
+ *  to the format default only when the unit has no media. Single source of tile
+ *  aspect truth, shared by the tile shape AND the masonry height estimate. */
+export function unitTileAspect(u: Unit, format: Format | undefined): string {
+  return u.media?.[0]?.aspect ?? format?.aspect ?? "4 / 5";
+}
+
+/** Numeric W/H of a "W / H" CSS aspect string (e.g. "16 / 9" → 1.78). Falls back
+ *  to 0.8 (4/5 portrait) when unparseable. */
+export function aspectRatioNum(aspect: string): number {
+  const [w, h] = aspect.split("/").map((n) => parseFloat(n.trim()));
+  return w && h ? w / h : 0.8;
 }
 
 /** A multi-item unit's individual item renders as a single still / clip of its

@@ -14,8 +14,6 @@ import { MediaCell } from "../../_shared/UnitTile";
 import { Lightbox } from "../../_shared/Lightbox";
 import type { LightboxItem, LightboxState } from "../../_shared/types";
 
-const THUMB_CAP = 8;
-
 export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined }) {
   const media = u.media ?? [];
   const multi = u.mediaCount > 1 && media.length > 1;
@@ -96,8 +94,10 @@ export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined 
 
       {multi && (
         <div className="vctl">
+          {/* Scrollable strip — ALL items are reachable (no cap), so a 32-up pack
+              browses fully. The main stage shows the selected item. */}
           <div className="seg">
-            {media.slice(0, THUMB_CAP).map((m, k) => (
+            {media.map((m, k) => (
               <button
                 type="button"
                 key={k}
@@ -114,7 +114,7 @@ export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined 
           </div>
           <span className="vidx">
             {active + 1} / {u.mediaCount}
-            {u.mediaCount > Math.min(media.length, THUMB_CAP) ? " ·…" : ""}
+            {u.mediaCount > media.length ? " ·…" : ""}
           </span>
         </div>
       )}
