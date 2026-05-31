@@ -62,7 +62,7 @@ create table if not exists units (
   format      format_id   not null,
   title       text        not null,
   blurb       text,
-  date        date,
+  date        text,                       -- loose display string (e.g. "2026-05"), not a strict calendar date
   media       jsonb       not null default '[]',
   media_count int         not null default 1,
   hero        boolean     not null default false,
