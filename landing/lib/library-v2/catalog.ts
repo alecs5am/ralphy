@@ -160,6 +160,10 @@ const STYLES: Array<[string, string, string]> = [
   ["brainrot-split", "Brainrot split-screen", "Top talking layer over a bottom hypnotic-gameplay loop — the brainrot kit."],
   ["fashion-editorial", "Fashion editorial", "Lookbook polish — styled wardrobe, motivated light, model-forward framing."],
   ["kinetic-typography", "Kinetic typography", "Type-as-motion — words animate as the subject, code-exact, brand-led."],
+  ["risograph", "Risograph", "Paper-grain riso print — limited spot inks, mis-registered overprint, soft halftone texture."],
+  ["club-flyer", "Club flyer", "Late-night rave-flyer energy — high-contrast neon on black, blown gradients, bold party type."],
+  ["punk-collage", "Punk collage", "Xerox cut-and-paste zine punk — ransom-note type, torn edges, photocopied grit."],
+  ["zine-cutout", "Zine cut-out", "Hand-made paper-cutout zine — scissored shapes, tape, marker scrawl, scrapbook layering."],
 ];
 
 // Recipe blocks = composable effects / treatments. Only attached where the
@@ -313,6 +317,14 @@ export const UNITS: Unit[] = [
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/02-a2-testimonial.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/03-a3-lifestyle.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/dev-tool-fb-creative-pack/04-a4-pair-prog.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/05-a5-over-shoulder.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/06-a6-asian-founder.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/10-b1-big-number.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/11-b2-versus.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/12-b3-code-as-art.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/18-c1-before-after.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/25-d1-wojak-meme.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/dev-tool-fb-creative-pack/30-e1-rag-hook.webp`, kind: "image", aspect: "4 / 5" },
     ],
   },
   // ── food-beverage (video) ──
@@ -357,24 +369,128 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [{ src: `${SHOWCASE}/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4`, kind: "video", aspect: "16 / 9" }],
   },
-  // ── multi-style-carousel (carousel, 30 slides across 6 styles) ──
+  // ── multi-style-carousel → split into 6 per-aesthetic carousel units ──
+  // The single render hid 6 distinct aesthetics on disk (acid / club / punk /
+  // riso / swiss / zine, 5 slides each). One Style per Unit, so each look is its
+  // own carousel unit with its real 5 slides.
   {
-    id: "multi-style-carousel",
+    id: "multi-style-carousel-acid",
     format: "carousel",
-    title: "Multi-Style Carousel",
+    title: "Acid-Graphics Carousel",
     blurb:
-      "A six-style swipeable deck — the same mascot and copy rendered across acid, club, swiss, riso, punk, and clean registers, five slides each.",
+      "A five-slide swipeable deck in an acid-graphics register — chrome type, blown-out gradients, rave-flyer maximalism around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
     styleId: "acid-graphics",
     recipeIds: ["halftone", "chroma-split"],
     assetIds: ["vpn-mascot"],
-    mediaCount: 30,
+    mediaCount: 5,
     media: [
       { src: `${SHOWCASE}/multi-style-carousel/acid-01.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/multi-style-carousel/acid-02.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/multi-style-carousel/acid-03.webp`, kind: "image", aspect: "4 / 5" },
       { src: `${SHOWCASE}/multi-style-carousel/acid-04.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/acid-05.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "multi-style-carousel-club",
+    format: "carousel",
+    title: "Club-Flyer Carousel",
+    blurb:
+      "A five-slide swipeable deck in a club-flyer register — neon-on-black, blown gradients, late-night party type around the mascot.",
+    date: "2026-05",
+    templateId: "carousel-deck",
+    styleId: "club-flyer",
+    recipeIds: ["chroma-split", "bloom"],
+    assetIds: ["vpn-mascot"],
+    mediaCount: 5,
+    media: [
+      { src: `${SHOWCASE}/multi-style-carousel/club-01.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/club-02.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/club-03.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/club-04.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/club-05.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "multi-style-carousel-punk",
+    format: "carousel",
+    title: "Punk-Collage Carousel",
+    blurb:
+      "A five-slide swipeable deck in a punk-collage register — xerox cut-and-paste, ransom-note type, torn edges around the mascot.",
+    date: "2026-05",
+    templateId: "carousel-deck",
+    styleId: "punk-collage",
+    recipeIds: ["halftone"],
+    assetIds: ["vpn-mascot"],
+    mediaCount: 5,
+    media: [
+      { src: `${SHOWCASE}/multi-style-carousel/punk-01.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/punk-02.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/punk-03.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/punk-04.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/punk-05.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "multi-style-carousel-riso",
+    format: "carousel",
+    title: "Risograph Carousel",
+    blurb:
+      "A five-slide swipeable deck in a risograph register — paper-grain spot inks, mis-registered overprint, soft halftone around the mascot.",
+    date: "2026-05",
+    templateId: "carousel-deck",
+    styleId: "risograph",
+    recipeIds: ["halftone", "film-grain"],
+    assetIds: ["vpn-mascot"],
+    mediaCount: 5,
+    media: [
+      { src: `${SHOWCASE}/multi-style-carousel/riso-01.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/riso-02.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/riso-03.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/riso-04.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/riso-05.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "multi-style-carousel-swiss",
+    format: "carousel",
+    title: "Swiss-Editorial Carousel",
+    blurb:
+      "A five-slide swipeable deck in a swiss-editorial register — grid-locked, restrained, all about the type and the whitespace around the mascot.",
+    date: "2026-05",
+    templateId: "carousel-deck",
+    styleId: "swiss-editorial",
+    recipeIds: [],
+    assetIds: ["vpn-mascot"],
+    mediaCount: 5,
+    media: [
+      { src: `${SHOWCASE}/multi-style-carousel/swiss-01.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/swiss-02.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/swiss-03.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/swiss-04.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/swiss-05.webp`, kind: "image", aspect: "4 / 5" },
+    ],
+  },
+  {
+    id: "multi-style-carousel-zine",
+    format: "carousel",
+    title: "Zine-Cutout Carousel",
+    blurb:
+      "A five-slide swipeable deck in a zine cut-out register — scissored paper shapes, tape, marker scrawl, scrapbook layering around the mascot.",
+    date: "2026-05",
+    templateId: "carousel-deck",
+    styleId: "zine-cutout",
+    recipeIds: ["halftone"],
+    assetIds: ["vpn-mascot"],
+    mediaCount: 5,
+    media: [
+      { src: `${SHOWCASE}/multi-style-carousel/zine-01.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/zine-02.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/zine-03.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/zine-04.webp`, kind: "image", aspect: "4 / 5" },
+      { src: `${SHOWCASE}/multi-style-carousel/zine-05.webp`, kind: "image", aspect: "4 / 5" },
     ],
   },
   // ── podcast-explainer-longform (video) ──
@@ -454,40 +570,70 @@ export const UNITS: Unit[] = [
       { src: `${SHOWCASE}/streetwear-drop-poster/variant-03-yikes.webp`, kind: "image", aspect: "4 / 5" },
     ],
   },
-  // ── vpn-sticker-pack (sticker-pack, 64 stills across two looks) ──
+  // ── vpn-sticker-pack → split into the two looks on disk (clean / outline) ──
+  // Disk has 32 clean-* and 32 outline-* stills. One Style per Unit, so each look
+  // is its own pack unit; mediaCount stays 32 (the badge), media wires up to ~12
+  // real slides so the tile grid is full and the viewer strip has depth.
   {
-    id: "vpn-sticker-pack",
+    id: "vpn-sticker-pack-clean",
     format: "sticker-pack",
-    title: "Mascot Sticker Pack",
+    title: "Mascot Sticker Pack — Clean",
     blurb:
-      "The VPN shield mascot across reaction states — a flat-fill die-cut set plus a paper-grain riso variant, 64 stills total.",
+      "The VPN shield mascot across 32 reaction states — a flat-fill cel-cartoon die-cut set with bold outlines and soft bloom.",
     date: "2026-05",
     templateId: "sticker-set",
     styleId: "cel-cartoon",
     recipeIds: ["bloom"],
     assetIds: ["vpn-mascot"],
-    mediaCount: 64,
+    mediaCount: 32,
     media: [
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-01-hi-beg.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-02-popcorn.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-03-shy.webp`, kind: "image", aspect: "1 / 1" },
       { src: `${SHOWCASE}/vpn-sticker-pack/clean-04-busy.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-05-fu.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-06-love-mask.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-07-globe.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-08-tableflip.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-09-shrug.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-10-point.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-11-facepalm.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/clean-12-thisisfine.webp`, kind: "image", aspect: "1 / 1" },
     ],
   },
-  // ── vs-comparison-ad (video) ──
   {
-    id: "vs-comparison-ad",
-    format: "video",
-    title: "Head-to-Head Comparison Ad",
-    blurb: "A split-screen versus ad — this stack vs. that stack, a clear winner framed for the scroll.",
+    id: "vpn-sticker-pack-outline",
+    format: "sticker-pack",
+    title: "Mascot Sticker Pack — Outline",
+    blurb:
+      "The same VPN shield mascot across 32 reaction states in a paper-grain riso outline variant — spot-ink overprint and soft halftone texture.",
     date: "2026-05",
-    templateId: "versus",
-    styleId: "photoreal",
-    recipeIds: ["speed-ramp", "burned-captions"],
-    assetIds: ["hero-product"],
-    mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/vs-comparison-ad/final-compressed.mp4`, kind: "video", aspect: "9 / 16" }],
+    templateId: "sticker-set",
+    styleId: "risograph",
+    recipeIds: ["halftone", "film-grain"],
+    assetIds: ["vpn-mascot"],
+    mediaCount: 32,
+    media: [
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-01-hi-beg.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-02-popcorn.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-03-shy.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-04-busy.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-05-fu.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-06-love-mask.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-07-globe.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-08-tableflip.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-09-shrug.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-10-point.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-11-facepalm.webp`, kind: "image", aspect: "1 / 1" },
+      { src: `${SHOWCASE}/vpn-sticker-pack/outline-12-thisisfine.webp`, kind: "image", aspect: "1 / 1" },
+    ],
   },
+  // NOTE: `vs-comparison-ad` was DROPPED in the v2 review fix-pass — its render
+  // (`vs-comparison-ad/final-compressed.mp4`) is a low-res 12s crop of the SAME
+  // doors / "Pick a door." footage as `ralphy-vs-higgsfield-001`
+  // (choose-the-door), not a real head-to-head ad. Frames + probe confirmed
+  // identical content. We keep the doors clip under its correct
+  // choose-the-door provenance and drop this duplicate "versus" unit.
 
   // ── homepage hero clip that survives HIDE_SLUGS (data.tsx → clips) ──
   // Only `nothing-hp1-001` is NOT in the HIDE_SLUGS set, so it is the single
