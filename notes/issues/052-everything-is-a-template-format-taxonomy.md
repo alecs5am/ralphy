@@ -1,6 +1,10 @@
 # "Everything is a template" — format → styles taxonomy rework
 
-> **Status:** todo
+> **Status:** SUPERSEDED by #063 (content model: Unit + typed building blocks). The
+> single-`Template` / single-inheritance `style_of` tree below is replaced by distinct
+> typed blocks (Template = structure, Style, Recipe, Asset) composed into a Unit. The
+> `format` field + the format enum it added to `template.yaml` survive as a facet; the
+> "everything is one Template" framing does not. Kept for history + the `format` work.
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** high (foundational — blocks 053-058)

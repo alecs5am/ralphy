@@ -16,20 +16,30 @@ expressible; this issue is the surface + navigation that realizes it.
 
 ## What
 
-A **Unit detail page** plus the navigation model (information architecture):
+A **Unit detail page** built around the **ingredient list** (#063 typed blocks), plus
+the navigation model (information architecture):
 
-- Shows the Unit (full media) + metadata (format, tags, created).
-- **Provenance:** "Made with **Template X**" (the producing template, usually one).
-- **Applicable templates:** "Templates you can use to make this" (the N
-  `reproducible-via` matches from #063) — each links to its Template page.
-- **Two explicit actions** (the copy-intent separation):
-  1. **Remix this Unit** — reproduce this exact piece with a swap (uses the producing
-     template + the Unit's own inputs/slot-values). Maps to a per-Unit reproduce tag.
-  2. **Use a template** — pick one of the N templates → generate fresh / batch a farm.
-     Maps to `@template:<slug>`.
-- Template detail page cross-links back to **its Units** (close the loop).
-- Keep navigation a clean **2-level loop** (feed → Unit → Template → its Units), not
-  an infinite maze.
+- Shows the Unit (full media — 1..N items per its format) + metadata (format, tags, created).
+- **Ingredient slots** — the Unit's `provenance` blocks, one row per axis, each with a
+  `change` control:
+  - Template (structure) · Style (look) · Recipe[] (effects) · Asset[] (characters /
+    location / props / music).
+  - Each slot value links to that block's page (pivot). Clicking `change` opens the
+    **applicable picker** for that slot: other fitting blocks (#063 applicable links) ·
+    "describe a new one" (generate) · "upload" (ref). The non-changed slots stay pinned.
+- This realizes the user's remix sentences as **per-slot swaps**, e.g. keep both
+  Characters + Style, change Location; or keep everything, swap Characters.
+- **Two explicit copy actions** (the copy-intent separation):
+  1. **Remix this Unit** — reproduce this exact piece with one or more slot swaps (uses
+     the provenance blocks minus the swapped slots). Maps to a per-Unit reproduce tag.
+  2. **Use a building block** — jump to any block's page and start fresh / batch a farm
+     from it (e.g. "use this Template", "use this Style"). Maps to `@template:<slug>` and
+     the equivalent per-block tags.
+- **Building-block pages** (Template / Style / Recipe / Asset): each = the block's
+  definition + its reference examples (Style look-refs, Asset master-shots, Recipe
+  before/after) + a **filtered feed of Units that use it**. Same feed component as #065.
+- Keep navigation a clean **2-level loop** (feed → Unit → block → that block's Units),
+  not an infinite maze.
 
 ## Why it matters
 
@@ -39,16 +49,17 @@ A **Unit detail page** plus the navigation model (information architecture):
 
 ## Scope / acceptance
 
-- Route `/unit/<id>` (or equivalent) rendering provenance + applicable lists + both
-  actions, reading the #064 API.
-- Two copy actions emit the correct strings/tags: template-level `@template:<slug>`
-  vs a Unit-reproduce tag (e.g. `@template:<slug>/<unit-id>` — ties to the "two-level
-  addressable tags" idea captured earlier; the agent/CLI side is a separate Phase-2
-  effort).
-- Template detail lists its Units (provenance) and is reachable from a Unit's
-  applicable list.
-- IA doc: the feed → unit → template → units loop, with explicit guards against maze
-  navigation.
+- Route `/unit/<id>` (or equivalent) rendering the ingredient slots (provenance) with a
+  per-slot `change` → applicable picker (other block / describe-new / upload), reading
+  the #064 API. Non-changed slots stay pinned across a remix.
+- Block pages `/template|style|recipe|asset/<slug>` = definition + reference examples +
+  filtered Unit feed.
+- Copy actions emit the correct strings/tags: a Unit-reproduce tag (e.g.
+  `@template:<slug>/<unit-id>`, carrying the slot swaps) vs per-block tags
+  (`@template:<slug>`, and equivalents for style/recipe/asset). Agent/CLI resolution is
+  a separate Phase-2 effort.
+- IA doc: the feed → unit → block → that-block's-units loop, with explicit guards
+  against maze navigation.
 
 ## Notes
 
