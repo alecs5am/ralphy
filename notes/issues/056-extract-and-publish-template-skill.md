@@ -15,15 +15,20 @@ pushed — no manual category/slug/commit dance.
 
 ## What
 
-A skill (e.g. `/publish-template`) that, from the active project context:
+A skill (e.g. `/publish-template`) that, from the active project context,
+**decomposes the finished project into the #063 entity set** and publishes them:
 
-1. Runs `ralphy template extract` with the right `052` **format** + general/style
-   placement (infers format from the project; confirms with user).
-2. Fills the `template.yaml` (slots, tags, model stack, cost rollup, lessons from
-   the postmortem) and seeds a showcase entry (`055`) from the project's render.
-3. Migrates heavy locked refs to `ralphy-assets/pool/`.
-4. **Commits + pushes** to `origin` (main) — same channel discipline as
-   `/dev-release`. Reports the live `/library` URL.
+1. **Factor the project into entities** (#063): the render(s) → one or more **Units**;
+   the beat structure → a **Template**; the look + its anchor refs → a **Style**; the
+   VFX / encode / overlay recipes used → **Recipes**; the locked character/location/prop/
+   music refs → **Assets**. Match each against existing blocks first; only propose a NEW
+   block for a genuine gap. Confirm format + placement with the user.
+2. Fills each entity's metadata (slots, tags, model stack, cost rollup, lessons from the
+   postmortem; Style/Asset/Recipe example refs) and links the Units to their provenance
+   blocks (#063).
+3. Migrates heavy refs to blob storage (#064) / `ralphy-assets/pool/`.
+4. **Commits + pushes** (seed) and/or writes to the backend (#064) — same channel
+   discipline as `/dev-release`. Reports the live `/library` URL.
 
 ## Scope / acceptance
 
@@ -41,5 +46,8 @@ phrase in the project chat" instead of a manual multi-step extraction.
 
 ## Notes
 
-- Depends on `052` (format placement) + reuses the existing extract verb.
+- Depends on `063` (entity set — publish now emits 5 entity types, not one template) +
+  `064` (where they land) + reuses the existing extract verb (`062` removes its blockers).
+- This is the maintainer-internal contribute flow; `067` is the untrusted-user variant —
+  share the decomposition + validation logic.
 - Model it on `/dev-release` (3-channel publish discipline).

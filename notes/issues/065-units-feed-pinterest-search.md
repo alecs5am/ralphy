@@ -19,13 +19,17 @@ backed by the DB (#064), not build-time files.
 
 Rebuild the `/library` main grid as an **infinite feed of Units**:
 
-- Each tile is a Unit (video/image/sticker/etc.), media from blob storage (#064).
-- A single search box matches **both Units and Templates** (name, caption, tags,
-  format, the template a Unit was produced by).
-- Filters: format, tag, and "from template X".
+- Each tile is a Unit, media from blob storage (#064). A Unit holds **1..N media items**
+  (#063), so the tile renders per format: single video autoplays; `sticker-pack` shows a
+  contact-sheet + "32 stickers"; `carousel` swipes; `podcast-cuts` stacks "5 cuts";
+  `fb-creative` shows the set.
+- A single search box matches **Units and every block type** (Template / Style / Recipe /
+  Asset) by name, caption, tags, format.
+- Filters / pivots: format, tag, and **by any block** ("from Template X", "in Style
+  voxel", "uses Recipe rain-overlay", "with Asset armadillo") — each block is a queryable
+  facet, so any ingredient on a Unit page pivots into this feed filtered by it.
 - Windowed infinite scroll (the existing `LibraryListing` IntersectionObserver
   windowing pattern carries over).
-- Looping muted video previews on Unit tiles (already the card behavior).
 - Tile click → Unit detail (#066).
 
 ## Why it matters

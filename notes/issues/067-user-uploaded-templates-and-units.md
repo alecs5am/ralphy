@@ -17,11 +17,16 @@ prerequisite.
 
 ## What
 
-Let external users contribute templates and units to the library:
+Let external users contribute **any content entity** (#063) to the library:
 
-- **Accounts / auth** — who can upload, ownership of contributed templates/units.
-- **Upload pipeline** — a template (its `template.yaml` recipe + locked asset refs)
-  and/or unit media → validated → stored (blob for media, DB for metadata, #064).
+- **Accounts / auth** — who can upload, ownership of contributed entities.
+- **Upload pipeline** — any of the five entity types → validated → stored (blob for
+  media, DB for metadata, #064):
+  - a **Unit** (its 1..N media + the blocks it composes, or standalone media);
+  - a **Template** (structure + slots);
+  - a **Style** (look + example refs), **Recipe** (effect + before/after), or **Asset**
+    (character / location / prop / music + master refs).
+  Each uploaded block becomes reusable in others' compositions.
 - **Validation + moderation** — schema validation, safety/content moderation, before
   public listing.
 - **Attribution + visibility** — author credit; public / private / pending-review
