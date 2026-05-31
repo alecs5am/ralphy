@@ -5,7 +5,7 @@
 -- Apply with --push-db (service role) or via the Supabase MCP server. Do not hand-edit;
 -- regenerate with: cd landing && bun run scripts/seed-supabase.ts --dry-run
 --
--- Counts: 81 blocks, 16 units, 74 unit_blocks.
+-- Counts: 81 blocks, 28 units, 125 unit_blocks.
 
 begin;
 
@@ -116,7 +116,19 @@ insert into units (id, format, title, blurb, date, media, media_count, hero) val
   ('streetwear-drop-poster', 'poster', 'Streetwear Drop Poster', 'A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. Three punchline variants.', '2026-05', '[{"src":"/showcase/streetwear-drop-poster/variant-01-boom.webp","kind":"image","aspect":"4 / 5","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster/variant-01-boom.webp"},{"src":"/showcase/streetwear-drop-poster/variant-02-dang.webp","kind":"image","aspect":"4 / 5","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster/variant-02-dang.webp"},{"src":"/showcase/streetwear-drop-poster/variant-03-yikes.webp","kind":"image","aspect":"4 / 5","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster/variant-03-yikes.webp"}]'::jsonb, 3, false),
   ('vpn-sticker-pack', 'sticker-pack', 'Mascot Sticker Pack', 'The VPN shield mascot across reaction states — a flat-fill die-cut set plus a paper-grain riso variant, 64 stills total.', '2026-05', '[{"src":"/showcase/vpn-sticker-pack/clean-01-hi-beg.webp","kind":"image","aspect":"1 / 1","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack/clean-01-hi-beg.webp"},{"src":"/showcase/vpn-sticker-pack/clean-02-popcorn.webp","kind":"image","aspect":"1 / 1","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack/clean-02-popcorn.webp"},{"src":"/showcase/vpn-sticker-pack/clean-03-shy.webp","kind":"image","aspect":"1 / 1","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack/clean-03-shy.webp"},{"src":"/showcase/vpn-sticker-pack/clean-04-busy.webp","kind":"image","aspect":"1 / 1","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack/clean-04-busy.webp"}]'::jsonb, 64, false),
   ('vs-comparison-ad', 'video', 'Head-to-Head Comparison Ad', 'A split-screen versus ad — this stack vs. that stack, a clear winner framed for the scroll.', '2026-05', '[{"src":"/showcase/vs-comparison-ad/final-compressed.mp4","kind":"video","aspect":"9 / 16","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vs-comparison-ad/final-compressed.mp4"}]'::jsonb, 1, false),
-  ('nothing-hp1-001', 'video', 'Nothing HP1 launch', 'A product-launch hero spot for the Nothing HP1 — a clean reveal cut engineered around the hardware.', '2026-05', '[{"src":"/assets/showcase/nothing-hp1-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/nothing-hp1-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.jpg"}]'::jsonb, 1, true)
+  ('nothing-hp1-001', 'video', 'Nothing HP1 launch', 'A product-launch hero spot for the Nothing HP1 — a clean reveal cut engineered around the hardware.', '2026-05', '[{"src":"/assets/showcase/nothing-hp1-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/nothing-hp1-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.jpg"}]'::jsonb, 1, true),
+  ('noski-people-001', 'video', 'Socks or People', 'A deadpan two-hander talking-head bit — photoreal humans, naturalistic candid light, anti-AI-slop realism.', '2026-05', '[{"src":"/assets/showcase/noski-people-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/noski-people-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.jpg"}]'::jsonb, 1, false),
+  ('analog-horror-fridge-001', 'video', 'Compliance Bulletin 9-D', 'A fake civil-defense PSA — "your fridge is not your fridge" — stenciled pictograms, robo-broadcast voice, layered VHS dread.', '2026-05', '[{"src":"/assets/showcase/analog-horror-fridge-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/analog-horror-fridge-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.jpg"}]'::jsonb, 1, false),
+  ('ralphy-vs-higgsfield-001', 'video', 'Pick a Door — Ralphy vs Higgsfield', 'A fork-in-the-path decision reveal in analog-horror register — two doors, a beat of dread, then the pick.', '2026-05', '[{"src":"/assets/showcase/ralphy-vs-higgsfield-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/ralphy-vs-higgsfield-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.jpg"}]'::jsonb, 1, false),
+  ('flipper-hypermotion-001', 'video', 'Flipper Zero Ad', 'A Japanese-hypermotion product reveal — punchy speed ramps, glossy bloom, the hardware as the hero.', '2026-05', '[{"src":"/assets/showcase/flipper-hypermotion-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/flipper-hypermotion-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.jpg"}]'::jsonb, 1, false),
+  ('occult-mockumentary-001', 'video', 'Occult Mockumentary', 'A first-person found-footage occult story — handheld grain, dread between cuts, the camera shouldn''t be here.', '2026-05', '[{"src":"/assets/showcase/occult-mockumentary-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/occult-mockumentary-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/occult-mockumentary-001/occult-mockumentary-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/occult-mockumentary-001/occult-mockumentary-001.jpg"}]'::jsonb, 1, false),
+  ('fruit-drama-001', 'video', 'Fruit Drama', 'An anthropomorphic-object short — produce lives a tiny dramatized arc from its own POV, glossy 3D bloom.', '2026-05', '[{"src":"/assets/showcase/fruit-drama-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/fruit-drama-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/fruit-drama-001/fruit-drama-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/fruit-drama-001/fruit-drama-001.jpg"}]'::jsonb, 1, false),
+  ('playdate-pixel-001', 'video', 'Playdate Reveal', 'A handheld-console product reveal rendered in crunchy pixel-art — limited palette, dithered gradients, retro charm.', '2026-05', '[{"src":"/assets/showcase/playdate-pixel-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/playdate-pixel-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.jpg"}]'::jsonb, 1, false),
+  ('kbo-broadcast-001', 'video', 'KBO Caught-On-TV', 'A 1:1 caught-on-TV baseball-crowd moment with real-broadcast camera grammar — square because real cameras shoot 16:9.', '2026-05', '[{"src":"/assets/showcase/kbo-broadcast-001.mp4","kind":"video","aspect":"1 / 1","poster":"/assets/showcase/posters/kbo-broadcast-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/kbo-broadcast-001/kbo-broadcast-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/kbo-broadcast-001/kbo-broadcast-001.jpg"}]'::jsonb, 1, false),
+  ('tokyo-y2k-001', 'video', 'Tokyo Y2K', 'A first-person night walk through a neon-soaked Tokyo alley — rain spatter, crushed blacks, dreamy bloom.', '2026-05', '[{"src":"/assets/showcase/tokyo-y2k-001.mp4","kind":"video","aspect":"16 / 9","poster":"/assets/showcase/posters/tokyo-y2k-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.jpg"}]'::jsonb, 1, false),
+  ('skater-spiderverse-001', 'video', 'Skater Duel', 'A beat-driven skate showdown cut as inked comic panels — halftone shading, chroma-split edges, bold gutters.', '2026-05', '[{"src":"/assets/showcase/skater-spiderverse-001.mp4","kind":"video","aspect":"16 / 9","poster":"/assets/showcase/posters/skater-spiderverse-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.jpg"}]'::jsonb, 1, false),
+  ('arena-rocker-001', 'video', 'Arena Rocker', 'An arena-rock performance montage in saturated cel-cartoon — bold outlines, squash-and-stretch, punchy speed ramps.', '2026-05', '[{"src":"/assets/showcase/arena-rocker-001.mp4","kind":"video","aspect":"16 / 9","poster":"/assets/showcase/posters/arena-rocker-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.jpg"}]'::jsonb, 1, false),
+  ('glitter-cream-001', 'video', 'Glitter-Cream Review', 'A before/after UGC selfie review — establish the dull state, swipe, reveal the high-key commercial glow-up.', '2026-05', '[{"src":"/assets/showcase/glitter-cream-001.mp4","kind":"video","aspect":"9 / 16","poster":"/assets/showcase/posters/glitter-cream-001.jpg","storageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/glitter-cream-001/glitter-cream-001.mp4","posterStorageUrl":"https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/glitter-cream-001/glitter-cream-001.jpg"}]'::jsonb, 1, false)
 on conflict (id) do update set
   format      = excluded.format,
   title       = excluded.title,
@@ -201,7 +213,58 @@ insert into unit_blocks (unit_id, block_id, role, link_kind, position) values
   ('nothing-hp1-001', 'commercial-bright', 'style', 'provenance', 0),
   ('nothing-hp1-001', 'speed-ramp', 'recipe', 'provenance', 0),
   ('nothing-hp1-001', 'bloom', 'recipe', 'provenance', 1),
-  ('nothing-hp1-001', 'hero-product', 'asset', 'provenance', 0)
+  ('nothing-hp1-001', 'hero-product', 'asset', 'provenance', 0),
+  ('noski-people-001', 'talking-head', 'template', 'provenance', 0),
+  ('noski-people-001', 'photoreal-portrait', 'style', 'provenance', 0),
+  ('analog-horror-fridge-001', 'explainer', 'template', 'provenance', 0),
+  ('analog-horror-fridge-001', 'analog-horror', 'style', 'provenance', 0),
+  ('analog-horror-fridge-001', 'vhs-overlay', 'recipe', 'provenance', 0),
+  ('analog-horror-fridge-001', 'chroma-split', 'recipe', 'provenance', 1),
+  ('analog-horror-fridge-001', 'film-grain', 'recipe', 'provenance', 2),
+  ('ralphy-vs-higgsfield-001', 'choose-the-door', 'template', 'provenance', 0),
+  ('ralphy-vs-higgsfield-001', 'analog-horror', 'style', 'provenance', 0),
+  ('ralphy-vs-higgsfield-001', 'vhs-overlay', 'recipe', 'provenance', 0),
+  ('ralphy-vs-higgsfield-001', 'chroma-split', 'recipe', 'provenance', 1),
+  ('ralphy-vs-higgsfield-001', 'film-grain', 'recipe', 'provenance', 2),
+  ('flipper-hypermotion-001', 'product-reveal', 'template', 'provenance', 0),
+  ('flipper-hypermotion-001', 'cgi-render', 'style', 'provenance', 0),
+  ('flipper-hypermotion-001', 'speed-ramp', 'recipe', 'provenance', 0),
+  ('flipper-hypermotion-001', 'bloom', 'recipe', 'provenance', 1),
+  ('flipper-hypermotion-001', 'hero-product', 'asset', 'provenance', 0),
+  ('flipper-hypermotion-001', 'product-set', 'asset', 'provenance', 1),
+  ('occult-mockumentary-001', 'story-time', 'template', 'provenance', 0),
+  ('occult-mockumentary-001', 'found-footage', 'style', 'provenance', 0),
+  ('occult-mockumentary-001', 'vhs-overlay', 'recipe', 'provenance', 0),
+  ('occult-mockumentary-001', 'film-grain', 'recipe', 'provenance', 1),
+  ('occult-mockumentary-001', 'noir-grade', 'recipe', 'provenance', 2),
+  ('occult-mockumentary-001', 'mockumentary-room', 'asset', 'provenance', 0),
+  ('occult-mockumentary-001', 'horror-bed', 'asset', 'provenance', 1),
+  ('fruit-drama-001', 'pov-narrative', 'template', 'provenance', 0),
+  ('fruit-drama-001', '3d-cgi', 'style', 'provenance', 0),
+  ('fruit-drama-001', 'bloom', 'recipe', 'provenance', 0),
+  ('playdate-pixel-001', 'product-reveal', 'template', 'provenance', 0),
+  ('playdate-pixel-001', 'pixel-art', 'style', 'provenance', 0),
+  ('playdate-pixel-001', 'hero-product', 'asset', 'provenance', 0),
+  ('kbo-broadcast-001', 'lifestyle-montage', 'template', 'provenance', 0),
+  ('kbo-broadcast-001', 'photoreal', 'style', 'provenance', 0),
+  ('kbo-broadcast-001', 'broadcast-square', 'recipe', 'provenance', 0),
+  ('tokyo-y2k-001', 'pov-walk', 'template', 'provenance', 0),
+  ('tokyo-y2k-001', 'cinematic', 'style', 'provenance', 0),
+  ('tokyo-y2k-001', 'rain-overlay', 'recipe', 'provenance', 0),
+  ('tokyo-y2k-001', 'noir-grade', 'recipe', 'provenance', 1),
+  ('tokyo-y2k-001', 'bloom', 'recipe', 'provenance', 2),
+  ('tokyo-y2k-001', 'tokyo-alley', 'asset', 'provenance', 0),
+  ('skater-spiderverse-001', 'music-video', 'template', 'provenance', 0),
+  ('skater-spiderverse-001', 'comic-panel', 'style', 'provenance', 0),
+  ('skater-spiderverse-001', 'chroma-split', 'recipe', 'provenance', 0),
+  ('skater-spiderverse-001', 'halftone', 'recipe', 'provenance', 1),
+  ('arena-rocker-001', 'music-video', 'template', 'provenance', 0),
+  ('arena-rocker-001', 'cel-cartoon', 'style', 'provenance', 0),
+  ('arena-rocker-001', 'speed-ramp', 'recipe', 'provenance', 0),
+  ('glitter-cream-001', 'before-after', 'template', 'provenance', 0),
+  ('glitter-cream-001', 'commercial-bright', 'style', 'provenance', 0),
+  ('glitter-cream-001', 'speed-ramp', 'recipe', 'provenance', 0),
+  ('glitter-cream-001', 'hero-product', 'asset', 'provenance', 0)
 on conflict (unit_id, block_id, role) do update set
   link_kind = excluded.link_kind,
   position  = excluded.position;

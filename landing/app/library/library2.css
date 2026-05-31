@@ -159,7 +159,10 @@
   background: none; border: 0; cursor: pointer; color: var(--ink-2); text-align: left; width: 100%; }
 .afmenu .af-opt:hover { background: var(--bg-3); color: var(--ink); }
 .afmenu .af-opt .ao-name { flex: 1; font-size: 13.5px; }
-.afmenu .af-opt .ao-n { font-family: var(--font-mono); font-size: 11px; color: var(--mute); }
+.afmenu .af-opt .ao-kind { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--mute-2); background: var(--block-tint); padding: 3px 7px;
+  border-radius: 999px; flex-shrink: 0; }
+.afmenu .af-opt .ao-n { font-family: var(--font-mono); font-size: 11px; color: var(--mute); flex-shrink: 0; }
 
 /* ══ Detail: ingredient panel ══════════════════════════════════════════ */
 .udetail { display: grid; gap: 40px; align-items: start; grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr); }
