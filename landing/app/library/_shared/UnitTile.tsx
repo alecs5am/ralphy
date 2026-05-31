@@ -226,7 +226,7 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
         <span className="ph-glyph">{format?.glyph}</span>
         <div className="ph-cells" style={{ gridTemplateColumns: "repeat(4,1fr)", gridTemplateRows: "repeat(4,1fr)" }}>
           {Array.from({ length: 16 }).map((_, i) => (
-            <span key={i} className="c" style={{ position: "relative", overflow: "hidden" }}>
+            <span key={i} className={`c${cells[i] ? " has-media" : ""}`}>
               {cells[i] && <MediaCell m={cells[i]} alt={`${u.title} sticker ${i + 1}`} />}
             </span>
           ))}
@@ -267,7 +267,7 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
         <span className="ph-glyph">{format?.glyph}</span>
         <div className="ph-cells" style={{ gridTemplateColumns: `repeat(${cols},1fr)`, gridTemplateRows: `repeat(${rows},1fr)` }}>
           {Array.from({ length: n }).map((_, i) => (
-            <span key={i} className="c" style={{ position: "relative", overflow: "hidden" }}>
+            <span key={i} className={`c${cells[i] ? " has-media" : ""}`}>
               {cells[i] && <MediaCell m={cells[i]} alt={`${u.title} creative ${i + 1}`} />}
             </span>
           ))}

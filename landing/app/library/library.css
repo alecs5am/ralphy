@@ -355,7 +355,10 @@
 .remix-pill:hover { background: var(--vio); color: #1a1205; }
 
 /* ── Lightbox (shared) ───────────────────────────────────────────── */
-.lb { position: fixed; inset: 0; z-index: 200; background: rgb(0 0 0 / 0.95); backdrop-filter: blur(10px);
+/* Rendered via a portal to <body> (see Lightbox.tsx), so this z-index competes
+   only with other top-level overlays — kept well above nav (50) + sticky panel
+   so the backdrop covers ALL page content. */
+.lb { position: fixed; inset: 0; z-index: 1000; background: rgb(0 0 0 / 0.95); backdrop-filter: blur(10px);
   display: grid; place-items: center; padding: 28px; animation: lbfade .2s ease; }
 @keyframes lbfade { from { opacity: 0; } to { opacity: 1; } }
 .lb-stage { position: relative; display: grid; place-items: center; max-width: min(94vw, 1200px); max-height: 88vh; }
