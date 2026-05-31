@@ -19,6 +19,15 @@
   --f-motion-design: oklch(0.72 0.14 150);
   --f-poster:        oklch(0.72 0.14 70);
   --f-sticker-pack:  oklch(0.72 0.14 270);
+  /* +podcast-cuts hue, same chroma/lightness family (library v2). */
+  --f-podcast-cuts:  oklch(0.72 0.14 110);
+
+  /* Block accent (library v2) — deliberately OFF the format wheel: a low-chroma
+     cool tone so a block chip never reads as a format chip. Color = format;
+     mono + glyph = block. */
+  --block-ink:    oklch(0.84 0.028 245);
+  --block-tint:   oklch(0.84 0.028 245 / 0.10);
+  --block-tint-2: oklch(0.84 0.028 245 / 0.16);
 }
 
 /* ── Hero (library home) ─────────────────────────────────────────── */
