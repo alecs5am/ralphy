@@ -32,3 +32,5 @@ export const RemixIcon = ({ s = 13 }: { s?: number }) => (
 );
 export const PrevIcon = () => <Ic d="M11 4.5L6.5 9l4.5 4.5" w={18} vb={18} sw={1.7} />;
 export const NextIcon = () => <Ic d="M7 4.5L11.5 9 7 13.5" w={18} vb={18} sw={1.7} />;
+export const OpenIcon = ({ s = 13 }: { s?: number }) => <Ic d="M3 8h10M9 4l4 4-4 4" w={s} vb={16} sw={1.6} />;
+export const PlusIcon = ({ s = 14 }: { s?: number }) => <Ic d="M8 3v10M3 8h10" w={s} vb={16} sw={1.7} />;

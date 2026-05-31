@@ -1,30 +1,73 @@
 // landing/app/library/page.tsx
 //
-// The library — the primary, format-organized content discovery surface
-// (issue 054). Server Component: builds the unified library index at build
-// time (templates + guidelines + showcase clips) and hands it to the client
-// `LibraryListing`, which owns URL-param-driven filtering, format navigation,
-// and infinite scroll.
+// Library v2 — the Units feed (front door). Server Component: builds the v2
+// view-model from the `library-v2` data adapter (the committed static catalog
+// by default; Supabase only when the anon-key env is set, so SSG works today)
+// and hands it as plain JSON to the client `LibraryListing`, which owns the
+// URL-param-driven filter state, the format/pivot navigation, and the windowed
+// infinite scroll.
 //
-// `/templates` now redirects here — one discovery surface, no overlap.
+// The old library was a grid of templates organized by format; this is a feed
+// of finished UNITS, with the reusable building blocks (templates, styles,
+// recipes, assets) living behind each unit as swappable ingredients and as
+// filters.
 
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
-import { buildLibraryIndex } from "@/lib/library-index";
+import {
+  counts,
+  fmtCounts,
+  getBlocks,
+  getFormats,
+  getUnits,
+} from "@/lib/library-v2/source";
+import type { BlockKind } from "@/lib/library-v2/types";
 import { LibraryListing } from "./LibraryListing";
+import type { FeedViewModel } from "./LibraryListing";
 
 export const metadata: Metadata = {
   title: "Library · Ralphy",
   description:
-    "The format-organized template library — browse video, image, carousel, FB-creative, motion-design, poster, and sticker-pack templates. Copy a tag, reproduce any template with your own brief and refs. Deep-linkable, searchable, infinite-scroll.",
+    "Everything Ralphy made — a feed of finished units (videos, carousels, sticker packs, podcast cuts, ad sets, posters). Open any one to see the ingredients that built it — a template, a style, its recipes and assets — and swap any single block to remix it. Deep-linkable, searchable, infinite-scroll.",
 };
 
+const BLOCK_KINDS: BlockKind[] = ["style", "template", "recipe", "asset"];
+
 export default async function LibraryPage() {
-  const stars = await getDisplayStars();
-  const index = buildLibraryIndex();
+  // Build the v2 view-model. All reads go through the async adapter; on the
+  // open-source default it resolves the committed static catalog synchronously
+  // under the hood, so this stays SSG-friendly.
+  const [stars, formats, units, fmtCount] = await Promise.all([
+    getDisplayStars(),
+    getFormats(),
+    getUnits(),
+    fmtCounts(),
+  ]);
+
+  // Every block, grouped by kind, plus the per-block unit counts (for the
+  // add-filter menu badges) and the per-format counts (for the format cards).
+  const blocksByKind = Object.fromEntries(
+    await Promise.all(
+      BLOCK_KINDS.map(async (k) => [k, await getBlocks(k)] as const),
+    ),
+  ) as FeedViewModel["blocksByKind"];
+
+  const blockCounts = Object.fromEntries(
+    await Promise.all(
+      BLOCK_KINDS.map(async (k) => [k, await counts(k)] as const),
+    ),
+  ) as FeedViewModel["blockCounts"];
+
+  const vm: FeedViewModel = {
+    formats,
+    units,
+    blocksByKind,
+    blockCounts,
+    fmtCounts: fmtCount,
+  };
 
   return (
     <>
@@ -34,28 +77,26 @@ export default async function LibraryPage() {
       <main>
         <section className="lib-hero">
           <div className="container container-w-1760">
-            <p className="lib-eyebrow">Library · {index.total} templates</p>
+            <p className="lib-eyebrow">Library · {units.length} units</p>
             <h1 className="lib-title">
-              See what Ralphy
+              Everything Ralphy
               <br />
-              makes. <span className="acc">Remix it.</span>
+              made. <span className="acc">Remix the recipe.</span>
             </h1>
             <p className="lib-sub">
-              Every result Ralphy can produce, organized by <strong>format</strong>{" "}
-              — video, image, carousel, FB creative, motion design, poster,
-              sticker pack. Open any template to browse the full set of outputs
-              in detail, then hit <strong>Remix</strong> to reproduce it with
-              your own brief and refs. Looking for the technical / craft
-              capabilities instead? That&apos;s the{" "}
-              <a href="/skills">skills</a> page.
+              A feed of <strong>finished units</strong> — videos, carousels,
+              sticker packs, podcast cuts, ad sets, posters. Open any one to see
+              the <strong>ingredients</strong> that built it — a template, a
+              style, its recipes and assets — and swap any single block to make
+              it yours.
             </p>
           </div>
         </section>
 
         <section className="pt-0 pb-24">
           <div className="container container-w-1760">
-            <Suspense fallback={<ListingSkeleton total={index.total} />}>
-              <LibraryListing index={index} />
+            <Suspense fallback={<ListingSkeleton total={units.length} />}>
+              <LibraryListing vm={vm} />
             </Suspense>
           </div>
         </section>
@@ -75,7 +116,7 @@ function ListingSkeleton({ total }: { total: number }) {
       <div className="lib-toolbar">
         <div className="lib-search" aria-hidden style={{ height: 58 }} />
       </div>
-      <p className="resultbar">{total} templates</p>
+      <p className="resultbar">{total} units</p>
       <div className="masonry">
         {Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="break-inside-avoid mb-[18px] bg-bg-1 rounded-[20px] h-[280px]" aria-hidden />
