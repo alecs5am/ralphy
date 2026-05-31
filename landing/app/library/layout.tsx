@@ -2,6 +2,7 @@
 // browse-strip / card / gallery / lightbox / remix-modal classes load for both
 // `/library` and `/library/[slug]` without touching the global stylesheet.
 import "./library.css";
+import "./library2.css";
 
 export default function LibraryLayout({ children }: { children: React.ReactNode }) {
   return children;
