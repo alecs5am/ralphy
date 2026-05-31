@@ -37,12 +37,14 @@ import type { RemixPayload } from "./_shared/types";
 import { CloseIcon, PlusIcon, SearchIcon } from "./_shared/icons";
 import { BlockChip, UnitTile } from "./_shared/UnitTile";
 import {
+  aspectRatioNum,
   blockGlyph,
   FILTER_KINDS,
   fhue,
   KIND_META,
   mediaUrl,
   PREPO,
+  unitTileAspect,
 } from "./_shared/blockMeta";
 
 const PAGE_SIZE = 24;
@@ -69,6 +71,64 @@ interface ViewState {
 
 function parseList(v: string | null): string[] {
   return v ? v.split(",").filter(Boolean) : [];
+}
+
+// ── Balanced masonry ──────────────────────────────────────────────────────────
+//
+// Row-major packing: each tile (in feed order) drops into the currently-shortest
+// column. Heights are ESTIMATED deterministically from each unit's media aspect —
+// no DOM measuring — so the pack is stable across SSR/CSR and re-filters cleanly.
+
+/** Responsive column count, matching the prior CSS breakpoints
+ *  (5 ≥1600 / 4 ≥1280 / 3 ≥820 / 2 ≥520 / 1). */
+function columnsForWidth(w: number): number {
+  if (w >= 1600) return 5;
+  if (w >= 1280) return 4;
+  if (w >= 820) return 3;
+  if (w >= 520) return 2;
+  return 1;
+}
+
+function useMasonryColumns(): number {
+  // SSR-safe default (desktop → 5); the resize listener corrects on mount.
+  const [cols, setCols] = useState(5);
+  useEffect(() => {
+    const update = () => setCols(columnsForWidth(window.innerWidth));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return cols;
+}
+
+const MASONRY_GAP = 18; // matches .masonry gap + .utile margin-bottom in CSS
+const TILE_BODY_PX = 132; // fixed body chrome below the media (fmt + title + chips)
+
+/** Estimate one tile's rendered height in px from its media aspect + the column
+ *  width, so the packer can balance columns without measuring the DOM. */
+function estTileHeight(u: Unit, format: Format | undefined, colWidth: number): number {
+  const ratio = aspectRatioNum(unitTileAspect(u, format)); // W / H
+  const mediaH = colWidth / (ratio || 0.8);
+  return mediaH + TILE_BODY_PX + MASONRY_GAP;
+}
+
+/** Pack units (in order) into `cols` columns, each item into the shortest column
+ *  by running estimated height. Returns the per-column unit lists. */
+function packColumns(
+  units: Unit[],
+  cols: number,
+  colWidth: number,
+  formatById: Record<FormatId, Format>,
+): Unit[][] {
+  const buckets: Unit[][] = Array.from({ length: cols }, () => []);
+  const heights = new Array(cols).fill(0);
+  for (const u of units) {
+    let shortest = 0;
+    for (let c = 1; c < cols; c++) if (heights[c] < heights[shortest]) shortest = c;
+    buckets[shortest].push(u);
+    heights[shortest] += estTileHeight(u, formatById[u.format], colWidth);
+  }
+  return buckets;
 }
 
 export function LibraryListing({ vm }: { vm: FeedViewModel }) {
@@ -205,6 +265,28 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
   const hasMore = visible < filtered.length;
   const activeFmt = view.format ? formatById[view.format] : null;
 
+  // ── masonry packing ─────────────────────────────────────────────────────────
+  const cols = useMasonryColumns();
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const update = () => setGridWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Column width = (container − gaps) / cols. Fall back to a sane width before
+  // the ResizeObserver first fires so the SSR/initial pack still balances.
+  const colWidth =
+    gridWidth > 0 ? (gridWidth - MASONRY_GAP * (cols - 1)) / cols : 280;
+  const columns = useMemo(
+    () => packColumns(shown, cols, colWidth, formatById),
+    [shown, cols, colWidth, formatById],
+  );
+
   const anyFilter =
     !!view.format ||
     !!view.q ||
@@ -278,15 +360,19 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
           <p style={{ margin: 0 }}>No units match. Loosen a filter or clear the pivot.</p>
         </div>
       ) : (
-        <div className="masonry">
-          {shown.map((u) => (
-            <UnitTile
-              key={u.id}
-              u={u}
-              format={formatById[u.format]}
-              blockBy={blockBy}
-              onRemix={() => setRemix(remixForUnit(u, formatById[u.format]))}
-            />
+        <div className="masonry" ref={gridRef}>
+          {columns.map((colUnits, ci) => (
+            <div className="mcol" key={ci}>
+              {colUnits.map((u) => (
+                <UnitTile
+                  key={u.id}
+                  u={u}
+                  format={formatById[u.format]}
+                  blockBy={blockBy}
+                  onRemix={() => setRemix(remixForUnit(u, formatById[u.format]))}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}
