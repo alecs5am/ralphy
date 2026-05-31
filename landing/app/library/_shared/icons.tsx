@@ -34,3 +34,6 @@ export const PrevIcon = () => <Ic d="M11 4.5L6.5 9l4.5 4.5" w={18} vb={18} sw={1
 export const NextIcon = () => <Ic d="M7 4.5L11.5 9 7 13.5" w={18} vb={18} sw={1.7} />;
 export const OpenIcon = ({ s = 13 }: { s?: number }) => <Ic d="M3 8h10M9 4l4 4-4 4" w={s} vb={16} sw={1.6} />;
 export const PlusIcon = ({ s = 14 }: { s?: number }) => <Ic d="M8 3v10M3 8h10" w={s} vb={16} sw={1.7} />;
+export const SwapIcon = ({ s = 14 }: { s?: number }) => <Ic d="M4 6h8l-2.2-2.2M12 10H4l2.2 2.2" w={s} vb={16} sw={1.5} />;
+export const PinIcon = ({ s = 11 }: { s?: number }) => <Ic d="M8 2v5M8 7l-2 4h4l-2-4M8 11v3" w={s} vb={16} sw={1.4} />;
+export const UploadIcon = ({ s = 16 }: { s?: number }) => <Ic d="M8 11V3M5 6l3-3 3 3M3 11v2.5h10V11" w={s} vb={16} sw={1.5} />;
