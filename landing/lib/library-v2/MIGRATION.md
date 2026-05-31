@@ -11,10 +11,23 @@ exactly 1 Template + 1 Style + N Recipes + M Assets, in a Format.
 
 **Key rule applied:** Templates and Guidelines became **Blocks**, not Units. A
 Unit must have real rendered media on disk. The only sources of real media are
-the `landing/public/showcase/<slug>/` folders and the non-hidden homepage
-`clips` in `landing/lib/data.tsx`. So the 64 `template.yaml` files and 4
-guidelines fed the **block vocabulary**, and the 15 showcase folders + 1 surviving
-hero clip became the **16 Units**.
+the `landing/public/showcase/<slug>/` folders and the homepage `clips` in
+`landing/lib/data.tsx`. So the 64 `template.yaml` files and 4 guidelines fed the
+**block vocabulary**, and the 15 showcase folders + every homepage hero clip
+became the Units.
+
+**Correction (2026-06):** the first pass wrongly excluded the v1 `HIDE_SLUGS`
+clips from the Unit set. `HIDE_SLUGS` is a *homepage-hero-wall* lean-up filter —
+it collapses hero clips that duplicate a template category so the marketing hero
+stays tight. In a UNITS feed that reasoning does not hold: each produced clip
+has real rendered media on disk and so is a legitimate Unit. The 12 formerly
+hidden clips (`noski-people-001`, `analog-horror-fridge-001`,
+`ralphy-vs-higgsfield-001`, `flipper-hypermotion-001`, `occult-mockumentary-001`,
+`fruit-drama-001`, `playdate-pixel-001`, `kbo-broadcast-001`, `tokyo-y2k-001`,
+`skater-spiderverse-001`, `arena-rocker-001`, `glitter-cream-001`) are now
+surfaced as Units, taking the total to **28**. Provenance reuses EXISTING blocks
+only (no new blocks were invented); the per-clip mapping follows the template
+classification table in section (d).
 
 ---
 
@@ -22,7 +35,7 @@ hero clip became the **16 Units**.
 
 | Format | Units | Notes |
 |---|---|---|
-| video | 8 | brainrot, broadcast, food-beverage, found-footage, podcast-explainer, soviet-nostalgic, vs-comparison, nothing-hp1 |
+| video | 20 | brainrot, broadcast, food-beverage, found-footage, podcast-explainer, soviet-nostalgic, vs-comparison, nothing-hp1 + the 12 formerly-hidden hero clips (noski-people, analog-horror-fridge, ralphy-vs-higgsfield, flipper-hypermotion, occult-mockumentary, fruit-drama, playdate-pixel, kbo-broadcast, tokyo-y2k, skater-spiderverse, arena-rocker, glitter-cream) |
 | motion-design | 3 | animated-fb-ad, live-platform, ship-announcement |
 | fb-creative | 2 | dev-tool-fb-pack (32 stills), silent-square-site-ad |
 | carousel | 1 | multi-style-carousel (30 slides / 6 styles) |
@@ -30,7 +43,7 @@ hero clip became the **16 Units**.
 | sticker-pack | 1 | vpn-sticker-pack (64 stills / 2 looks) |
 | podcast-cuts | 0 | no rendered podcast-cut media on disk yet (format kept in taxonomy, count 0) |
 | image | 0 | no single-still `image`-format render hosted yet (guidelines are blocks, not Units) |
-| **Total** | **16** | |
+| **Total** | **28** | |
 
 `mediaCount` is the real on-disk file count for the packs/carousels/sets
 (dev-tool = 32, multi-style = 30, vpn = 64, streetwear = 3); single-clip/still

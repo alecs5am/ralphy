@@ -9,6 +9,7 @@
 import Link from "next/link";
 import type { Block, BlockKind, Format, Unit } from "@/lib/library-v2/types";
 import { UnitTile } from "../../_shared/UnitTile";
+import { KIND_META } from "../../_shared/blockMeta";
 
 export interface MoreFromProps {
   formats: Format[];
@@ -24,10 +25,22 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
   const blockBy = (kind: BlockKind, id: string): Block | undefined =>
     blocks.find((b) => b.kind === kind && b.id === id);
 
-  const rails: { title: string; sub: string; kind: BlockKind; block: Block; list: Unit[] }[] = [];
+  const rails: {
+    lead: string;
+    kindLabel: string;
+    glyph: string;
+    blockName: string;
+    sub: string;
+    kind: BlockKind;
+    block: Block;
+    list: Unit[];
+  }[] = [];
   if (template && fromTemplate.length > 0) {
     rails.push({
-      title: `More from ${template.name}`,
+      lead: "More from",
+      kindLabel: KIND_META.template.label,
+      glyph: KIND_META.template.glyph,
+      blockName: template.name,
       sub: `Other units built on the ${template.name.toLowerCase()} structure — same skeleton, different look.`,
       kind: "template",
       block: template,
@@ -36,7 +49,10 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
   }
   if (style && inStyle.length > 0) {
     rails.push({
-      title: `More in ${style.name}`,
+      lead: "More in",
+      kindLabel: KIND_META.style.label,
+      glyph: KIND_META.style.glyph,
+      blockName: style.name,
       sub: `Other units wearing the ${style.name.toLowerCase()} look — same register, different shape.`,
       kind: "style",
       block: style,
@@ -52,7 +68,14 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
         <section key={r.kind} className="sec morefrom">
           <div className="container container-w-1760">
             <div className="sec-head" style={{ marginBottom: 8 }}>
-              <h2 style={{ fontSize: "clamp(20px,2.4vw,28px)" }}>{r.title}</h2>
+              <h2 className="mf-title" style={{ fontSize: "clamp(20px,2.4vw,28px)" }}>
+                {r.lead}{" "}
+                <span className="mf-kind">
+                  <span className="mf-glyph">{r.glyph}</span>
+                  {r.kindLabel}
+                </span>{" "}
+                <span className="mf-sep">·</span> {r.blockName}
+              </h2>
               <Link
                 href={`/library/b/${r.kind}/${r.block.id}`}
                 className="seeall"
