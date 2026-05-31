@@ -29,21 +29,51 @@ surfaced as Units, taking the total to **28**. Provenance reuses EXISTING blocks
 only (no new blocks were invented); the per-clip mapping follows the template
 classification table in section (d).
 
+**Review fix-pass (2026-06):** four further corrections to the Unit set, taking
+the total from 28 to **33**:
+
+1. **`multi-style-carousel` split into 6 per-aesthetic carousel units.** The one
+   carousel unit hid 6 distinct aesthetics on disk (acid / club / punk / riso /
+   swiss / zine, 5 real slides each). The model allows exactly one Style per
+   Unit, so each look is now its own carousel unit — `multi-style-carousel-acid`
+   (`acid-graphics`), `-club` (`club-flyer`), `-punk` (`punk-collage`), `-riso`
+   (`risograph`), `-swiss` (`swiss-editorial`), `-zine` (`zine-cutout`), each
+   `mediaCount` 5 with its real 5 slides. Net +5 units. This resolves the
+   one-Style lossy edge flagged in section (e) item 2.
+2. **`vpn-sticker-pack` split into 2 looks.** Disk has 32 `clean-*` and 32
+   `outline-*` stills. Now two pack units — `vpn-sticker-pack-clean`
+   (`cel-cartoon`) and `vpn-sticker-pack-outline` (`risograph`, the paper-grain
+   riso variant), each `mediaCount` 32 with 12 real slides wired so the tile grid
+   and the viewer strip read full. Net +1 unit. Resolves section (e) item 3.
+3. **`vs-comparison-ad` dropped.** Its render is a low-res 12s crop of the SAME
+   doors / "Pick a door." footage as `ralphy-vs-higgsfield-001` (frames + probe
+   confirmed identical content). The doors clip is correctly a
+   `choose-the-door` / `analog-horror` unit; the duplicate `versus` unit is
+   removed. Net −1 unit.
+4. **Four new Style blocks added** (21 → 25): `risograph`, `club-flyer`,
+   `punk-collage`, `zine-cutout` — the carousel aesthetics that did not already
+   have a register. `acid-graphics` and `swiss-editorial` were reused.
+
+Also: single-item video/poster/image tiles now hide the placeholder play-badge /
+shimmer / corner-glyph when real media exists; pack tiles size their grid to the
+media actually present (no empty trailing cells); the FB pack now wires 12 real
+slides for a full grid + deeper viewer strip.
+
 ---
 
 ## (a) Units per format
 
 | Format | Units | Notes |
 |---|---|---|
-| video | 20 | brainrot, broadcast, food-beverage, found-footage, podcast-explainer, soviet-nostalgic, vs-comparison, nothing-hp1 + the 12 formerly-hidden hero clips (noski-people, analog-horror-fridge, ralphy-vs-higgsfield, flipper-hypermotion, occult-mockumentary, fruit-drama, playdate-pixel, kbo-broadcast, tokyo-y2k, skater-spiderverse, arena-rocker, glitter-cream) |
+| video | 19 | brainrot, broadcast, food-beverage, found-footage, podcast-explainer, soviet-nostalgic, nothing-hp1 + the 12 formerly-hidden hero clips (noski-people, analog-horror-fridge, ralphy-vs-higgsfield, flipper-hypermotion, occult-mockumentary, fruit-drama, playdate-pixel, kbo-broadcast, tokyo-y2k, skater-spiderverse, arena-rocker, glitter-cream). `vs-comparison-ad` dropped as a doors duplicate of `ralphy-vs-higgsfield-001`. |
 | motion-design | 3 | animated-fb-ad, live-platform, ship-announcement |
-| fb-creative | 2 | dev-tool-fb-pack (32 stills), silent-square-site-ad |
-| carousel | 1 | multi-style-carousel (30 slides / 6 styles) |
+| fb-creative | 2 | dev-tool-fb-pack (32 stills, 12 wired), silent-square-site-ad |
+| carousel | 6 | multi-style-carousel split per aesthetic: -acid, -club, -punk, -riso, -swiss, -zine (5 real slides each) |
 | poster | 1 | streetwear-drop-poster (3 variants) |
-| sticker-pack | 1 | vpn-sticker-pack (64 stills / 2 looks) |
+| sticker-pack | 2 | vpn-sticker-pack split into -clean (cel-cartoon) and -outline (risograph), 32 stills each / 12 wired |
 | podcast-cuts | 0 | no rendered podcast-cut media on disk yet (format kept in taxonomy, count 0) |
 | image | 0 | no single-still `image`-format render hosted yet (guidelines are blocks, not Units) |
-| **Total** | **28** | |
+| **Total** | **33** | |
 
 `mediaCount` is the real on-disk file count for the packs/carousels/sets
 (dev-tool = 32, multi-style = 30, vpn = 64, streetwear = 3); single-clip/still
@@ -57,7 +87,7 @@ packs a representative 4-item subset is wired (the full set lives on disk).
 | Kind | Count | Dedupe ratio (real entities → blocks) |
 |---|---|---|
 | template (structure) | 25 | 64 templates → 25 structure blocks (~2.6:1) |
-| style (register) | 21 | 64 templates + 4 guidelines → 21 styles (~3.2:1) |
+| style (register) | 25 | 64 templates + 4 guidelines → 21 styles (~3.2:1), + 4 carousel-aesthetic styles added in the review fix-pass (`risograph`, `club-flyer`, `punk-collage`, `zine-cutout`) |
 | recipe (treatment) | 16 | attached only where implied; not 1:1 with any entity |
 | asset (by sub) | 19 | from the asset pool + named anchors (6 character · 5 location · 4 prop · 4 music) |
 

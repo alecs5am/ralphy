@@ -476,7 +476,9 @@ function AddFilterMenu({
   onAdd: (kind: BlockKind, id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<BlockKind>("style");
+  // "all" is a pseudo-tab that searches across every kind at once; selecting a
+  // block still applies the correct per-kind `?{kind}=` param.
+  const [kind, setKind] = useState<BlockKind | "all">("all");
   const [filterQuery, setFilterQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -499,11 +501,23 @@ function AddFilterMenu({
   // Reset the search field whenever the menu reopens or the kind tab changes.
   useEffect(() => setFilterQuery(""), [open, kind]);
 
-  const counts = blockCounts[kind] ?? {};
   const fq = filterQuery.trim().toLowerCase();
-  const list = blocksByKind[kind]
-    .filter((b) => !view[kind].includes(b.id))
-    .filter((b) => !fq || b.name.toLowerCase().includes(fq));
+  // Each option carries its own kind so the "All" tab can mix kinds while still
+  // applying the correct `?{kind}=` param on select.
+  const list: { kind: BlockKind; b: Block }[] =
+    kind === "all"
+      ? FILTER_KINDS.flatMap((k) =>
+          blocksByKind[k]
+            .filter((b) => !view[k].includes(b.id))
+            .filter((b) => !fq || b.name.toLowerCase().includes(fq))
+            .map((b) => ({ kind: k, b })),
+        )
+      : blocksByKind[kind]
+          .filter((b) => !view[kind].includes(b.id))
+          .filter((b) => !fq || b.name.toLowerCase().includes(fq))
+          .map((b) => ({ kind, b }));
+
+  const scopeLabel = kind === "all" ? "blocks" : KIND_META[kind].plural.toLowerCase();
 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
@@ -513,6 +527,14 @@ function AddFilterMenu({
       {open && (
         <div className="afmenu">
           <div className="af-kinds">
+            <button
+              type="button"
+              className={`af-kind${kind === "all" ? " on" : ""}`}
+              onClick={() => setKind("all")}
+            >
+              <span className="g">✦</span>
+              All
+            </button>
             {FILTER_KINDS.map((k) => (
               <button
                 key={k}
@@ -530,20 +552,20 @@ function AddFilterMenu({
             <input
               type="search"
               value={filterQuery}
-              placeholder={`Search ${KIND_META[kind].plural.toLowerCase()}…`}
+              placeholder={`Search ${scopeLabel}…`}
               onChange={(e) => setFilterQuery(e.target.value)}
-              aria-label={`Search ${KIND_META[kind].plural.toLowerCase()}`}
+              aria-label={`Search ${scopeLabel}`}
               autoFocus
             />
           </label>
           <div className="af-list">
-            {list.map((b) => (
+            {list.map(({ kind: k, b }) => (
               <button
-                key={b.id}
+                key={k + b.id}
                 type="button"
                 className="af-opt"
                 onClick={() => {
-                  onAdd(kind, b.id);
+                  onAdd(k, b.id);
                   setOpen(false);
                 }}
               >
@@ -551,14 +573,15 @@ function AddFilterMenu({
                   {blockGlyph(b)}
                 </span>
                 <span className="ao-name">{b.name}</span>
-                <span className="ao-n">{counts[b.id] ?? 0} units</span>
+                {kind === "all" && <span className="ao-kind">{KIND_META[k].label}</span>}
+                <span className="ao-n">{(blockCounts[k]?.[b.id]) ?? 0} units</span>
               </button>
             ))}
             {list.length === 0 && (
               <p style={{ color: "var(--mute)", fontSize: 12.5, padding: "10px 12px", margin: 0 }}>
                 {fq
-                  ? `No ${KIND_META[kind].plural.toLowerCase()} match “${filterQuery.trim()}”.`
-                  : `All ${KIND_META[kind].plural.toLowerCase()} already active.`}
+                  ? `No ${scopeLabel} match “${filterQuery.trim()}”.`
+                  : `All ${scopeLabel} already active.`}
               </p>
             )}
           </div>
