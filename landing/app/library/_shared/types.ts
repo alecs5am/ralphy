@@ -20,6 +20,20 @@ export interface RemixPayload {
   thumb?: { kind: "image" | "video"; src: string } | { glyph: string };
   /** Free-text swap example folded into the closing hint. */
   swapHint?: string;
+  /** Staged ingredient swaps from the unit-detail panel. When present the modal
+   *  renders a "Your swaps" diff list and bakes `--set <axis>=<value>` flags
+   *  into the CLI line (caller already appends them to `cli`). */
+  swaps?: RemixSwap[];
+}
+
+/** One staged swap from the ingredient panel, shaped for the diff list. */
+export interface RemixSwap {
+  /** Human axis label ("Location", "Characters"). */
+  axis: string;
+  /** The block/asset being replaced (struck through in the diff). */
+  fromName: string;
+  /** What it's being replaced with — a block name, a described brief, or an upload. */
+  toLabel: string;
 }
 
 /** One item in the shared fullscreen lightbox. */

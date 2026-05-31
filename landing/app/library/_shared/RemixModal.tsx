@@ -5,7 +5,7 @@
 // `RemixPayload`. Esc / backdrop closes; body scroll-locked while open.
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckIcon, CloseIcon, CopyIcon } from "./icons";
+import { CheckIcon, CloseIcon, CopyIcon, SwapIcon } from "./icons";
 import type { RemixPayload } from "./types";
 import { lockScroll, unlockScroll } from "./scrollLock";
 
@@ -65,7 +65,7 @@ export function RemixModal({ payload, onClose }: { payload: RemixPayload | null;
 
   if (!payload) return null;
 
-  const { tag, cli, title, eyebrow, from, slotCmd, thumb, swapHint } = payload;
+  const { tag, cli, title, eyebrow, from, slotCmd, thumb, swapHint, swaps } = payload;
 
   let thumbNode: React.ReactNode = null;
   if (thumb && "src" in thumb) {
@@ -96,6 +96,37 @@ export function RemixModal({ payload, onClose }: { payload: RemixPayload | null;
             <CloseIcon s={16} />
           </button>
         </div>
+
+        {swaps && swaps.length > 0 && (
+          <>
+            <p className="m-label">Your swaps</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {swaps.map((s, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--ink-3)",
+                    background: "#050506",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                  }}
+                >
+                  <span style={{ color: "var(--mute)", textTransform: "uppercase", letterSpacing: ".08em", fontSize: 10, minWidth: 70 }}>
+                    {s.axis}
+                  </span>
+                  <span style={{ textDecoration: "line-through", color: "var(--mute-2)" }}>{s.fromName}</span>
+                  <SwapIcon s={13} />
+                  <span style={{ color: "var(--vio-2)" }}>{s.toLabel}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <p className="m-label">1 · Copy the tag</p>
         <CopyRow value={tag} />
