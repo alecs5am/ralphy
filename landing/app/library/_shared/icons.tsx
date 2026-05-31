@@ -37,3 +37,6 @@ export const PlusIcon = ({ s = 14 }: { s?: number }) => <Ic d="M8 3v10M3 8h10" w
 export const SwapIcon = ({ s = 14 }: { s?: number }) => <Ic d="M4 6h8l-2.2-2.2M12 10H4l2.2 2.2" w={s} vb={16} sw={1.5} />;
 export const PinIcon = ({ s = 11 }: { s?: number }) => <Ic d="M8 2v5M8 7l-2 4h4l-2-4M8 11v3" w={s} vb={16} sw={1.4} />;
 export const UploadIcon = ({ s = 16 }: { s?: number }) => <Ic d="M8 11V3M5 6l3-3 3 3M3 11v2.5h10V11" w={s} vb={16} sw={1.5} />;
+export const SparkIcon = ({ s = 14 }: { s?: number }) => (
+  <Ic d="M8 2l1.4 4.2L13.6 8 9.4 9.8 8 14l-1.4-4.2L2.4 8l4.2-1.8z" w={s} vb={16} sw={1.4} />
+);
