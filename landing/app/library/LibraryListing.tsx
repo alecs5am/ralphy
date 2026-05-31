@@ -477,6 +477,7 @@ function AddFilterMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<BlockKind>("style");
+  const [filterQuery, setFilterQuery] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -495,8 +496,14 @@ function AddFilterMenu({
     };
   }, [open]);
 
+  // Reset the search field whenever the menu reopens or the kind tab changes.
+  useEffect(() => setFilterQuery(""), [open, kind]);
+
   const counts = blockCounts[kind] ?? {};
-  const list = blocksByKind[kind].filter((b) => !view[kind].includes(b.id));
+  const fq = filterQuery.trim().toLowerCase();
+  const list = blocksByKind[kind]
+    .filter((b) => !view[kind].includes(b.id))
+    .filter((b) => !fq || b.name.toLowerCase().includes(fq));
 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
@@ -518,6 +525,17 @@ function AddFilterMenu({
               </button>
             ))}
           </div>
+          <label className="af-search">
+            <SearchIcon />
+            <input
+              type="search"
+              value={filterQuery}
+              placeholder={`Search ${KIND_META[kind].plural.toLowerCase()}…`}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              aria-label={`Search ${KIND_META[kind].plural.toLowerCase()}`}
+              autoFocus
+            />
+          </label>
           <div className="af-list">
             {list.map((b) => (
               <button
@@ -538,7 +556,9 @@ function AddFilterMenu({
             ))}
             {list.length === 0 && (
               <p style={{ color: "var(--mute)", fontSize: 12.5, padding: "10px 12px", margin: 0 }}>
-                All {KIND_META[kind].plural.toLowerCase()} already active.
+                {fq
+                  ? `No ${KIND_META[kind].plural.toLowerCase()} match “${filterQuery.trim()}”.`
+                  : `All ${KIND_META[kind].plural.toLowerCase()} already active.`}
               </p>
             )}
           </div>

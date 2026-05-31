@@ -2,12 +2,12 @@
 //
 // Library v2 — Screen 2: the Unit detail page (the ingredient panel). Server
 // Component. SSG over every unit id. Resolves the unit's provenance (its 1
-// template + 1 style + N recipes + M assets, grouped by asset sub), computes the
-// `applicable` swap list per slot, and the "More from / More in" sets, then hands
-// the resolved blocks + applicable lists to the client islands as plain JSON.
+// template + 1 style + N recipes + M assets, grouped by asset sub) and the
+// "More from / More in" sets, then hands the resolved blocks to the client
+// islands as plain JSON.
 //
 //   Left  — format label + title + blurb + the sticky UnitViewer (1..N media).
-//   Right — the IngredientPanel (editable slots, staged swaps, the commit bar).
+//   Right — the IngredientPanel (read-only provenance + the Remix CTA).
 //   Below — the MoreFrom rails.
 
 import type { Metadata } from "next";
@@ -16,7 +16,6 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import {
-  applicable,
   formatById,
   getBlock,
   getBlocks,
@@ -81,25 +80,6 @@ export default async function UnitDetailPage({
   const locations = bySub("location");
   const props = bySub("prop");
   const music = bySub("music");
-
-  // Applicable swap lists per slot (other fitting blocks of the same kind / sub).
-  const [
-    applTemplate,
-    applStyle,
-    applRecipe,
-    applCharacter,
-    applLocation,
-    applProp,
-    applMusic,
-  ] = await Promise.all([
-    applicable("template", unit, unit.templateId),
-    applicable("style", unit, unit.styleId),
-    applicable("recipe", unit, recipes[0]?.id),
-    applicable("asset", unit, characters[0]?.id, "character"),
-    applicable("asset", unit, locations[0]?.id, "location"),
-    applicable("asset", unit, props[0]?.id, "prop"),
-    applicable("asset", unit, music[0]?.id, "music"),
-  ]);
 
   // More-from sets — other units sharing this unit's template / style.
   const [fromTemplate, inStyle, allBlocks] = await Promise.all([
@@ -168,15 +148,6 @@ export default async function UnitDetailPage({
                   props={props}
                   music={music}
                   recipes={recipes}
-                  applicable={{
-                    template: applTemplate,
-                    style: applStyle,
-                    recipe: applRecipe,
-                    character: applCharacter,
-                    location: applLocation,
-                    prop: applProp,
-                    music: applMusic,
-                  }}
                 />
               </div>
             </div>

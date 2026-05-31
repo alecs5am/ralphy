@@ -4,7 +4,8 @@
 // Keyboard Esc / ← / →, body scroll-lock, optional checkerboard backing for
 // transparent stickers, and a bottom bar with a Remix-this action.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { CloseIcon, NextIcon, PrevIcon, RemixIcon } from "./icons";
 import type { LightboxState } from "./types";
 import type { RemixPayload } from "./types";
@@ -21,6 +22,14 @@ export function Lightbox({
   onNav: (dir: number) => void;
   onRemix: (payload: RemixPayload) => void;
 }) {
+  // Portal target: render into <body> so the overlay escapes every nested
+  // stacking context (the sticky ingredient panel, the sticky viewer, the nav).
+  // Without this, a position:fixed lightbox nested under a transform/sticky
+  // ancestor is trapped in that ancestor's stacking context and page chrome
+  // paints over it. Mount-gate so SSR never touches document.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     if (!state) return;
     const onKey = (e: KeyboardEvent) => {
@@ -36,13 +45,13 @@ export function Lightbox({
     };
   }, [state, onClose, onNav]);
 
-  if (!state) return null;
+  if (!state || !mounted) return null;
   const { items, index, checker } = state;
   const it = items[index];
   if (!it) return null;
   const hasNav = items.length > 1;
 
-  return (
+  return createPortal(
     <div className="lb" onClick={onClose} role="dialog" aria-modal="true">
       <button type="button" className="lb-close" onClick={onClose} aria-label="Close">
         <CloseIcon />
@@ -123,6 +132,7 @@ export function Lightbox({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

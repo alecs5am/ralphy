@@ -50,8 +50,17 @@
 
 /* multi-item structural peeks (drawn empty — shape, not content) */
 .ph-cells { position: absolute; inset: 0; z-index: 1; display: grid; gap: 5px; padding: 12px; }
-.ph-cells .c { border-radius: 8px; background: color-mix(in oklch, var(--hue) 12%, var(--bg-1));
+/* Each cell is a definite-size positioned box so a next/image `fill` (which is
+   position:absolute; inset:0) has a sizing context. Empty cells keep the
+   hue-tinted shape; populated cells drop the tint + ring so the real media
+   fills edge-to-edge instead of sitting inside a tinted box. */
+.ph-cells .c { position: relative; overflow: hidden; min-height: 0; min-width: 0;
+  border-radius: 8px; background: color-mix(in oklch, var(--hue) 12%, var(--bg-1));
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--hue) 16%, transparent); }
+.ph-cells .c.has-media { background: #050506; box-shadow: none; }
+.ph-cells .c.has-media > * { position: absolute; inset: 0; }
+.ph-cells .c.has-media img,
+.ph-cells .c.has-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ph-deck { position: absolute; inset: 0; z-index: 1; }
 .ph-deck .l { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 14px;
   background: var(--bg-3); }
@@ -131,7 +140,21 @@
   background: var(--bg-1); color: var(--ink-3); font-size: 12.5px; border: 0; cursor: pointer; }
 .afmenu .af-kind.on { background: var(--ink); color: var(--bg); }
 .afmenu .af-kind .g { font-family: var(--font-display); font-size: 12px; }
-.afmenu .af-list { max-height: 280px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+/* live-filter search at the top of the popover */
+.afmenu .af-search { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-radius: 11px;
+  background: #050506; color: var(--mute); margin-bottom: 8px; }
+.afmenu .af-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--ink);
+  font-family: var(--font-sans); font-size: 13.5px; }
+.afmenu .af-search input::placeholder { color: var(--mute-2); }
+.afmenu .af-search svg { flex-shrink: 0; }
+.afmenu .af-list { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent; }
+/* thin dark-theme scrollbar (not the default chunky bar) */
+.afmenu .af-list::-webkit-scrollbar { width: 8px; }
+.afmenu .af-list::-webkit-scrollbar-track { background: transparent; }
+.afmenu .af-list::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 999px;
+  border: 2px solid transparent; background-clip: padding-box; }
+.afmenu .af-list::-webkit-scrollbar-thumb:hover { background: color-mix(in oklch, var(--ink) 26%, var(--bg-3)); background-clip: padding-box; }
 .afmenu .af-opt { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
   background: none; border: 0; cursor: pointer; color: var(--ink-2); text-align: left; width: 100%; }
 .afmenu .af-opt:hover { background: var(--bg-3); color: var(--ink); }
@@ -143,7 +166,11 @@
 @media (max-width: 980px){ .udetail { grid-template-columns: 1fr; gap: 26px; } }
 .uviewer { position: sticky; top: 92px; }
 @media (max-width: 980px){ .uviewer { position: static; } }
-.uviewer .stage { border-radius: 20px; overflow: hidden; background: #050506; box-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+.uviewer .stage { display: block; width: 100%; padding: 0; border: 0; border-radius: 20px; overflow: hidden;
+  background: #050506; box-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+/* media box capped at 70vh, aspect preserved (width derived inline from the
+   ratio so a portrait clip shows full-frame), centered when narrower than column */
+.uviewer .stage .stage-media { position: relative; max-width: 100%; max-height: 70vh; margin-inline: auto; }
 .uviewer .vctl { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
 .uviewer .vctl .seg { display: flex; gap: 6px; flex-wrap: wrap; }
 .vthumb { width: 54px; height: 54px; border-radius: 12px; padding: 0; border: 0; cursor: pointer; overflow: hidden;
@@ -160,6 +187,32 @@
 .ipanel-head h2 { font-family: var(--font-display); font-weight: 700; font-size: 18px; text-transform: uppercase;
   letter-spacing: -0.01em; margin: 0; }
 .ipanel-head p { font-size: 12.5px; color: var(--ink-3); margin: 6px 0 0; line-height: 1.5; }
+
+/* ── read-only provenance panel ───────────────────────────────────────────
+   Three visually-distinct zones: the head, the grouped "core recipe" block
+   (Template/Style/Format), and the per-axis chip sections. Separation via
+   bg-tint steps + spacing only — no visible borders. */
+.ip-section-label { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--mute); margin: 0 0 8px; display: flex; align-items: center; gap: 7px; }
+.ip-section-label .ip-section-glyph { font-family: var(--font-display); font-size: 12px; color: var(--block-ink); }
+
+/* Core recipe — the 3 single-value axes grouped as one tinted block. */
+.ip-core { margin: 4px 8px 6px; padding: 12px 12px 8px; border-radius: 16px; background: var(--bg-2); }
+.ip-core-row { display: flex; align-items: center; gap: 13px; padding: 11px 10px; border-radius: 12px;
+  color: inherit; text-decoration: none; transition: background .16s; }
+.ip-core-row + .ip-core-row { margin-top: 2px; }
+.ip-core-row:hover { background: var(--bg-3); }
+.ip-core-row .slot-axis { width: 78px; flex-shrink: 0; }
+.ip-core-row .ip-open { color: var(--mute-2); flex-shrink: 0; display: inline-flex; transition: color .16s; }
+.ip-core-row:hover .ip-open { color: var(--vio); }
+.ip-core-row:hover .sn { color: var(--vio); }
+
+/* Per-axis chip sections (rendered only when populated). */
+.ip-msection { padding: 12px 16px 4px; }
+.ip-msection .ip-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.ip-chips .bchip { text-decoration: none; }
+.ip-chips .bchip .ip-chip-open { display: inline-flex; color: var(--mute-2); margin-left: 1px; transition: color .16s; }
+.ip-chips .bchip:hover .ip-chip-open { color: var(--block-ink); }
 
 .slot { display: flex; align-items: center; gap: 13px; padding: 12px 14px; border-radius: 14px;
   transition: background .16s; position: relative; }
@@ -310,6 +363,12 @@
 
 /* ══ misc: more-from strip, breadcrumb reuse, model chips removed ═══════ */
 .morefrom { margin-top: 8px; }
+/* typed rail title — make the block KIND (Template vs Style) explicit with its glyph */
+.mf-title .mf-kind { display: inline-flex; align-items: center; gap: 7px; vertical-align: middle;
+  font-family: var(--font-mono); font-size: 0.5em; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--block-ink); background: var(--block-tint); padding: 4px 10px; border-radius: 999px; }
+.mf-title .mf-kind .mf-glyph { font-family: var(--font-display); font-size: 1.15em; }
+.mf-title .mf-sep { color: var(--mute); }
 .relrail { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x mandatory; }
 .relrail .utile { flex: 0 0 clamp(220px, 24vw, 280px); margin-bottom: 0; scroll-snap-align: start; }
 
