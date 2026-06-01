@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **38**
+Verbs registered: **39**
 
 ## Top-level verbs
 
@@ -842,6 +842,37 @@ Commands:
                                 <cwd>/<id>.zip. --selected = <project>/selected/
                                 only. --all = everything except logs/cache.
   help [command]                display help for command
+```
+
+### `ralphy unit`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy unit [options] [command]
+
+Manage project-local curated deliverables (units = copies of selected assets +
+provenance)
+
+Options:
+  -h, --help                      display help for command
+
+Commands:
+  create [options] <project>      Form a unit by copying matched assets into
+                                  units/<slug>/ + writing unit.json
+  list <project>                  List units in a project
+  show <project> <slug>           Show a unit's manifest + resolved media paths
+  add [options] <project> <slug>  Copy more media into an existing unit (appends
+                                  to media, never drops existing)
+  delete <project> <slug>         Delete a unit directory (destructive — only
+                                  run on explicit user intent)
+  help [command]                  display help for command
 ```
 
 ### `ralphy template`
