@@ -9,6 +9,7 @@
         "cli-table3": "^0.6.5",
         "commander": "^14.0.3",
         "hyperframes": "^0.6.31",
+        "image-size": "^2.0.2",
         "ora": "^9.4.0",
         "playwright": "^1.58.2",
         "yaml": "^2.9.0",
@@ -333,6 +334,8 @@
     "husky": ["husky@9.1.7", "", { "bin": { "husky": "bin.js" } }, "sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA=="],
 
     "hyperframes": ["hyperframes@0.6.31", "", { "dependencies": { "@hono/node-server": "^1.8.0", "@puppeteer/browsers": "^2.13.0", "adm-zip": "^0.5.16", "citty": "^0.2.1", "compare-versions": "^6.1.1", "esbuild": "^0.25.12", "giget": "^3.2.0", "hono": "^4.0.0", "onnxruntime-node": "^1.20.0", "open": "^10.0.0", "postcss": "^8.5.8", "prettier": "^3.8.1", "puppeteer-core": "^24.39.1", "sharp": "^0.34.0" }, "optionalDependencies": { "@google/genai": "^1.50.1" }, "bin": { "hyperframes": "dist/cli.js" } }, "sha512-MAPCZ0BXKOKkNtjsUmKQR8C32Z0uhzj1JnnpXpZWDFiTnGsU6a0aqBpBydruWvvgJsr0I72t6mqx5OIMCX6YGQ=="],
+
+    "image-size": ["image-size@2.0.2", "", { "bin": { "image-size": "bin/image-size.js" } }, "sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w=="],
 
     "ip-address": ["ip-address@10.2.0", "", {}, "sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA=="],
 
