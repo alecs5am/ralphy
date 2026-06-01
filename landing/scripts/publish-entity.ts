@@ -1,0 +1,591 @@
+// landing/scripts/publish-entity.ts
+//
+// The entity-publish primitive (issue #056). Pushes ONE content entity — a Unit
+// or a standalone Block — to the live Supabase store (DB rows + Storage media)
+// AND appends it to the committed open-source snapshot (published.ts), so it
+// surfaces on the static site and stays downloadable.
+//
+// Two INDEPENDENT modes (a Unit and a Block publish are first-class on their own):
+//
+//   --unit <path>        path to a project unit dir: workspace/projects/<id>/units/<slug>/
+//                        (has unit.json + the copied media). Validates against the CLI
+//                        unit schema shape, uploads media to Storage at
+//                        units/<id>/<filename>, upserts the units row + unit_blocks
+//                        provenance rows (template/style/recipe/asset -> role; a
+//                        referenced block missing from Supabase is WARN-and-skipped,
+//                        never fabricated), then appends/replaces the unit in
+//                        published.ts (idempotent by id; media carries local + storageUrl).
+//
+//   --block <json>       inline block spec OR
+//   --block-file <path>  a JSON file: { kind, id, name, blurb, sub?, refs?[] }. Upserts
+//                        the blocks row, uploads any refs example media to Storage at
+//                        blocks/<kind>/<id>/<file>, appends/replaces in published.ts.
+//
+// Modes of execution (default = DRY-RUN):
+//   (default)  Print exactly what WOULD upload + the upsert rows + the published.ts
+//              edit. Touch NOTHING remote, do NOT edit published.ts.
+//   --push     Perform the Storage upload + DB upsert (via `pg` over SUPABASE_DB_URL)
+//              + the published.ts edit. Idempotent + append-only: re-publishing
+//              upserts / versions media, never deletes.
+//
+// Secrets are read from the environment at RUNTIME only — never printed, never
+// hardcoded. Run dry-run: cd landing && bun run scripts/publish-entity.ts --unit <dir>
+
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import type { Block, Unit, UnitMedia } from "../lib/library-v2/types";
+import { env, makeS3Client, publicUrlFor, putObject } from "./lib/supabase";
+
+// ── Paths ────────────────────────────────────────────────────────────────────
+
+const __dirname_ = resolve(fileURLToPath(import.meta.url), "..");
+const LANDING_ROOT = resolve(__dirname_, "..");
+const PUBLISHED_TS = join(LANDING_ROOT, "lib", "library-v2", "published.ts");
+
+// ── Args ─────────────────────────────────────────────────────────────────────
+
+interface Args {
+  push: boolean;
+  unit?: string;
+  block?: string;
+  blockFile?: string;
+}
+
+function parseArgs(argv: string[]): Args {
+  const out: Args = { push: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--push") out.push = true;
+    else if (a === "--dry-run") out.push = false;
+    else if (a === "--unit") out.unit = argv[++i];
+    else if (a === "--block") out.block = argv[++i];
+    else if (a === "--block-file") out.blockFile = argv[++i];
+  }
+  return out;
+}
+
+// ── Storage object keys ────────────────────────────────────────────────────────
+
+function unitObjectKey(unitId: string, src: string): string {
+  return `units/${unitId}/${basename(src)}`;
+}
+
+function blockObjectKey(kind: string, id: string, file: string): string {
+  return `blocks/${kind}/${id}/${basename(file)}`;
+}
+
+// ── published.ts read / write (sentinel-bounded, idempotent by id) ─────────────
+
+const UNITS_START = "// ralphy:published-units:start";
+const UNITS_END = "// ralphy:published-units:end";
+const BLOCKS_START = "// ralphy:published-blocks:start";
+const BLOCKS_END = "// ralphy:published-blocks:end";
+
+/** Slice the published.ts source into the head / units-literal / mid / blocks-literal
+ *  / tail regions, so we can rewrite each array between its sentinels in place. */
+function readPublishedRegions(): {
+  head: string;
+  mid: string;
+  tail: string;
+} {
+  const src = readFileSync(PUBLISHED_TS, "utf8");
+  const us = src.indexOf(UNITS_START);
+  const ue = src.indexOf(UNITS_END);
+  const bs = src.indexOf(BLOCKS_START);
+  const be = src.indexOf(BLOCKS_END);
+  if (us < 0 || ue < 0 || bs < 0 || be < 0) {
+    throw new Error("published.ts is missing one of the sentinel markers");
+  }
+  return {
+    head: src.slice(0, us),
+    mid: src.slice(ue + UNITS_END.length, bs),
+    tail: src.slice(be + BLOCKS_END.length),
+  };
+}
+
+/** Load the current PUBLISHED_UNITS / PUBLISHED_BLOCKS arrays at runtime. */
+async function loadPublished(): Promise<{ units: Unit[]; blocks: Block[] }> {
+  const mod = await import(PUBLISHED_TS);
+  return {
+    units: (mod.PUBLISHED_UNITS as Unit[]) ?? [],
+    blocks: (mod.PUBLISHED_BLOCKS as Block[]) ?? [],
+  };
+}
+
+/** Append-or-replace by id (idempotent re-publish): the new entity supersedes an
+ *  existing entry with the same id; all others are preserved. */
+function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
+  const next = list.filter((x) => x.id !== item.id);
+  next.push(item);
+  return next;
+}
+
+/** Re-emit published.ts with the two arrays rewritten between their sentinels. */
+function renderPublished(units: Unit[], blocks: Block[]): string {
+  const { head, mid, tail } = readPublishedRegions();
+  const unitsLit = `export const PUBLISHED_UNITS: Unit[] = ${JSON.stringify(units, null, 2)};\n`;
+  const blocksLit = `export const PUBLISHED_BLOCKS: Block[] = ${JSON.stringify(blocks, null, 2)};\n`;
+  return (
+    head +
+    UNITS_START +
+    "\n" +
+    unitsLit +
+    UNITS_END +
+    mid +
+    BLOCKS_START +
+    "\n" +
+    blocksLit +
+    BLOCKS_END +
+    tail
+  );
+}
+
+// ── Unit manifest (mirror of cli/lib/schemas/unit.ts shape) ─────────────────────
+//
+// The script intentionally does NOT cross-import the CLI Zod schema (separate
+// package, no build wiring). It validates the structural shape it relies on.
+
+interface UnitManifest {
+  slug: string;
+  format: string;
+  media: string[];
+  provenance?: {
+    template?: string;
+    style?: string;
+    recipes?: string[];
+    assets?: string[];
+  };
+  source_assets?: string[];
+  created: string;
+  title?: string;
+  blurb?: string;
+}
+
+const UNIT_FORMATS = [
+  "video",
+  "carousel",
+  "sticker-pack",
+  "podcast-cuts",
+  "fb-creative",
+  "motion-design",
+  "poster",
+  "image",
+];
+
+function validateManifest(m: unknown, dir: string): UnitManifest {
+  if (!m || typeof m !== "object") {
+    throw new Error(`unit.json in ${dir} is not an object`);
+  }
+  const o = m as Record<string, unknown>;
+  if (typeof o.slug !== "string") throw new Error("unit.json: slug must be a string");
+  if (typeof o.format !== "string" || !UNIT_FORMATS.includes(o.format)) {
+    throw new Error(`unit.json: format must be one of ${UNIT_FORMATS.join(", ")}`);
+  }
+  if (!Array.isArray(o.media) || o.media.some((x) => typeof x !== "string")) {
+    throw new Error("unit.json: media must be an array of filenames");
+  }
+  if (typeof o.created !== "string") throw new Error("unit.json: created must be a string");
+  return o as unknown as UnitManifest;
+}
+
+// ── Media-kind + aspect inference ──────────────────────────────────────────────
+
+function mediaKindFor(file: string): "image" | "video" {
+  const ext = file.toLowerCase().split(".").pop() ?? "";
+  return ext === "mp4" || ext === "webm" || ext === "mov" ? "video" : "image";
+}
+
+/** A coarse default aspect by format — the publish step records a placeholder the
+ *  maintainer can refine; the catalog uses CSS "W / H" strings. */
+function defaultAspectFor(format: string): string {
+  switch (format) {
+    case "video":
+    case "podcast-cuts":
+      return "9 / 16";
+    case "carousel":
+    case "poster":
+      return "4 / 5";
+    case "sticker-pack":
+    case "fb-creative":
+    case "image":
+      return "1 / 1";
+    case "motion-design":
+      return "16 / 9";
+    default:
+      return "1 / 1";
+  }
+}
+
+// ── Block spec ─────────────────────────────────────────────────────────────────
+
+interface BlockSpec {
+  kind: Block["kind"];
+  id: string;
+  name: string;
+  blurb?: string;
+  sub?: Block["sub"];
+  refs?: string[];
+}
+
+const BLOCK_KINDS = ["template", "style", "recipe", "asset"];
+
+function validateBlockSpec(raw: unknown): BlockSpec {
+  if (!raw || typeof raw !== "object") throw new Error("block spec is not an object");
+  const o = raw as Record<string, unknown>;
+  if (typeof o.kind !== "string" || !BLOCK_KINDS.includes(o.kind)) {
+    throw new Error(`block.kind must be one of ${BLOCK_KINDS.join(", ")}`);
+  }
+  if (typeof o.id !== "string" || o.id.length === 0) throw new Error("block.id required");
+  if (typeof o.name !== "string" || o.name.length === 0) throw new Error("block.name required");
+  const spec: BlockSpec = {
+    kind: o.kind as Block["kind"],
+    id: o.id,
+    name: o.name,
+  };
+  if (typeof o.blurb === "string") spec.blurb = o.blurb;
+  if (typeof o.sub === "string") spec.sub = o.sub as Block["sub"];
+  if (Array.isArray(o.refs)) spec.refs = o.refs.filter((r) => typeof r === "string");
+  return spec;
+}
+
+// ── pg client (live --push DB upsert over SUPABASE_DB_URL) ──────────────────────
+
+async function withDb<T>(fn: (q: (sql: string, params: unknown[]) => Promise<unknown>) => Promise<T>): Promise<T> {
+  const dsn = env("SUPABASE_DB_URL");
+  if (!dsn) throw new Error("--push DB upsert requires SUPABASE_DB_URL");
+  // Lazy import so dry-run never needs pg present at runtime.
+  const { Client } = await import("pg");
+  const client = new Client({ connectionString: dsn });
+  await client.connect();
+  try {
+    return await fn((sql, params) => client.query(sql, params));
+  } finally {
+    await client.end();
+  }
+}
+
+// ── Planning records (printed verbatim in dry-run) ──────────────────────────────
+
+interface PlannedUpload {
+  objectKey: string;
+  localPath: string;
+  exists: boolean;
+}
+
+interface UpsertRow {
+  table: string;
+  conflict: string;
+  values: Record<string, unknown>;
+}
+
+function printPlan(
+  label: string,
+  uploads: PlannedUpload[],
+  upserts: UpsertRow[],
+  publishedEdit: string,
+): void {
+  console.log(`\n=== ${label} ===`);
+  console.log(`\nStorage objects (${uploads.length}):`);
+  for (const u of uploads) {
+    console.log(`  ${u.exists ? "" : "[missing local!] "}${u.objectKey}  <-  ${u.localPath}`);
+  }
+  console.log(`\nDB upserts (${upserts.length}):`);
+  for (const r of upserts) {
+    console.log(`  ${r.table} (on conflict ${r.conflict}) <- ${JSON.stringify(r.values)}`);
+  }
+  console.log(`\npublished.ts edit: ${publishedEdit}`);
+}
+
+// ── Mode: publish a Unit ────────────────────────────────────────────────────────
+
+async function publishUnit(unitDir: string, push: boolean): Promise<void> {
+  const dir = resolve(unitDir);
+  const manifestPath = join(dir, "unit.json");
+  if (!existsSync(manifestPath)) {
+    throw new Error(`no unit.json at ${manifestPath}`);
+  }
+  const manifest = validateManifest(
+    JSON.parse(readFileSync(manifestPath, "utf8")),
+    dir,
+  );
+  // Unit id = the slug (the dir may be a `.vN` append-only variant; the slug is canonical).
+  const unitId = manifest.slug;
+
+  // Plan uploads: every media file in the unit dir.
+  const uploads: PlannedUpload[] = manifest.media.map((file) => {
+    const localPath = join(dir, file);
+    return {
+      objectKey: unitObjectKey(unitId, file),
+      localPath,
+      exists: existsSync(localPath),
+    };
+  });
+
+  // Build the unit media list (local src; storageUrl filled after a real upload).
+  const aspect = defaultAspectFor(manifest.format);
+  const buildMedia = (withStorage: boolean): UnitMedia[] =>
+    manifest.media.map((file) => {
+      const m: UnitMedia & { storageUrl?: string } = {
+        src: `/showcase/${unitId}/${basename(file)}`,
+        kind: mediaKindFor(file),
+        aspect,
+      };
+      if (withStorage) {
+        const url = publicUrlFor(unitObjectKey(unitId, file));
+        if (url) m.storageUrl = url;
+      }
+      return m;
+    });
+
+  const prov = manifest.provenance ?? {};
+  const templateId = prov.template ?? "";
+  const styleId = prov.style ?? "";
+  const recipeIds = prov.recipes ?? [];
+  const assetIds = prov.assets ?? [];
+
+  // unit row + unit_blocks provenance rows.
+  const unitUpsert: UpsertRow = {
+    table: "units",
+    conflict: "(id)",
+    values: {
+      id: unitId,
+      format: manifest.format,
+      title: manifest.title ?? manifest.slug,
+      blurb: manifest.blurb ?? null,
+      date: null,
+      media: buildMedia(false),
+      media_count: manifest.media.length,
+      hero: false,
+    },
+  };
+
+  const links: Array<{ blockId: string; role: Block["kind"]; position: number }> = [];
+  if (templateId) links.push({ blockId: templateId, role: "template", position: 0 });
+  if (styleId) links.push({ blockId: styleId, role: "style", position: 0 });
+  recipeIds.forEach((id, i) => links.push({ blockId: id, role: "recipe", position: i }));
+  assetIds.forEach((id, i) => links.push({ blockId: id, role: "asset", position: i }));
+
+  const linkUpserts: UpsertRow[] = links.map((l) => ({
+    table: "unit_blocks",
+    conflict: "(unit_id, block_id, role)",
+    values: {
+      unit_id: unitId,
+      block_id: l.blockId,
+      role: l.role,
+      link_kind: "provenance",
+      position: l.position,
+    },
+  }));
+
+  // The published Unit object that lands in published.ts.
+  const publishedUnit: Unit = {
+    id: unitId,
+    format: manifest.format as Unit["format"],
+    title: manifest.title ?? manifest.slug,
+    blurb: manifest.blurb ?? "",
+    templateId,
+    styleId,
+    recipeIds,
+    assetIds,
+    mediaCount: manifest.media.length,
+    media: buildMedia(false),
+  };
+
+  if (!push) {
+    printPlan(
+      `DRY-RUN publish-unit ${unitId}`,
+      uploads,
+      [unitUpsert, ...linkUpserts],
+      `append/replace PUBLISHED_UNITS[id=${unitId}] (idempotent)`,
+    );
+    const missing = uploads.filter((u) => !u.exists);
+    if (missing.length > 0) {
+      console.warn(`\n  WARNING: ${missing.length} media file(s) have no local copy.`);
+    }
+    console.log(
+      `\n  NOTE: provenance links reference ${links.length} block(s): ${links
+        .map((l) => `${l.role}:${l.blockId}`)
+        .join(", ") || "(none)"}. On --push, any block id absent from Supabase is WARN-and-skipped (never fabricated).`,
+    );
+    return;
+  }
+
+  // ── live push ──
+  const s3 = makeS3Client();
+  const uploadedStorage = new Set<string>();
+  for (const u of uploads) {
+    if (!u.exists) {
+      console.warn(`  SKIP (missing local file): ${u.localPath}`);
+      continue;
+    }
+    await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
+    uploadedStorage.add(u.objectKey);
+    console.log(`  UPLOADED ${u.objectKey}`);
+  }
+
+  // media with storageUrl for the rows + the snapshot.
+  const mediaWithStorage = buildMedia(true);
+  await withDb(async (q) => {
+    await q(
+      `insert into units (id, format, title, blurb, date, media, media_count, hero)
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+       on conflict (id) do update set
+         format = excluded.format, title = excluded.title, blurb = excluded.blurb,
+         date = excluded.date, media = excluded.media,
+         media_count = excluded.media_count, hero = excluded.hero`,
+      [
+        unitId,
+        manifest.format,
+        manifest.title ?? manifest.slug,
+        manifest.blurb ?? null,
+        null,
+        JSON.stringify(mediaWithStorage),
+        manifest.media.length,
+        false,
+      ],
+    );
+    for (const l of links) {
+      // Only link to a block that already exists in Supabase; never fabricate.
+      const exists = (await q(`select 1 from blocks where id = $1`, [l.blockId])) as {
+        rowCount: number;
+      };
+      if (!exists.rowCount) {
+        console.warn(`  WARN: block "${l.blockId}" not in Supabase — skipping ${l.role} link`);
+        continue;
+      }
+      await q(
+        `insert into unit_blocks (unit_id, block_id, role, link_kind, position)
+         values ($1, $2, $3, 'provenance', $4)
+         on conflict (unit_id, block_id, role) do update set
+           link_kind = excluded.link_kind, position = excluded.position`,
+        [unitId, l.blockId, l.role, l.position],
+      );
+    }
+  });
+
+  // Snapshot edit (media carries storageUrl when a base URL is set).
+  const snapshotUnit: Unit = { ...publishedUnit, media: mediaWithStorage };
+  const cur = await loadPublished();
+  const nextUnits = upsertById(cur.units, snapshotUnit);
+  writeFileSync(PUBLISHED_TS, renderPublished(nextUnits, cur.blocks), "utf8");
+  console.log(`  published.ts: upserted unit ${unitId} (${nextUnits.length} published unit(s))`);
+}
+
+// ── Mode: publish a Block ───────────────────────────────────────────────────────
+
+async function publishBlock(args: Args, push: boolean): Promise<void> {
+  const rawJson = args.blockFile
+    ? readFileSync(resolve(args.blockFile), "utf8")
+    : (args.block as string);
+  const spec = validateBlockSpec(JSON.parse(rawJson));
+
+  // refs example media: resolve each ref to a local file (relative to CWD or absolute).
+  const refUploads: PlannedUpload[] = (spec.refs ?? []).map((ref) => {
+    const localPath = resolve(ref);
+    return {
+      objectKey: blockObjectKey(spec.kind, spec.id, ref),
+      localPath,
+      exists: existsSync(localPath) && statSync(localPath).isFile(),
+    };
+  });
+
+  const blockUpsert: UpsertRow = {
+    table: "blocks",
+    conflict: "(id)",
+    values: {
+      id: spec.id,
+      kind: spec.kind,
+      name: spec.name,
+      blurb: spec.blurb ?? null,
+      sub: spec.sub ?? null,
+      refs: spec.refs ?? [],
+    },
+  };
+
+  // The published Block object — refs rewritten to their Storage public path when known.
+  const publishedRefs = (spec.refs ?? []).map((ref) => {
+    const url = publicUrlFor(blockObjectKey(spec.kind, spec.id, ref));
+    return url ?? ref;
+  });
+  const publishedBlock: Block = {
+    kind: spec.kind,
+    id: spec.id,
+    name: spec.name,
+    blurb: spec.blurb ?? "",
+    refs: publishedRefs,
+    ...(spec.sub ? { sub: spec.sub } : {}),
+  };
+
+  if (!push) {
+    printPlan(
+      `DRY-RUN publish-block ${spec.kind}:${spec.id}`,
+      refUploads,
+      [blockUpsert],
+      `append/replace PUBLISHED_BLOCKS[id=${spec.id}] (idempotent)`,
+    );
+    const missing = refUploads.filter((u) => !u.exists);
+    if (missing.length > 0) {
+      console.warn(`\n  WARNING: ${missing.length} ref media file(s) have no local copy.`);
+    }
+    return;
+  }
+
+  // ── live push ──
+  const s3 = makeS3Client();
+  for (const u of refUploads) {
+    if (!u.exists) {
+      console.warn(`  SKIP (missing ref file): ${u.localPath}`);
+      continue;
+    }
+    await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
+    console.log(`  UPLOADED ${u.objectKey}`);
+  }
+
+  await withDb(async (q) => {
+    await q(
+      `insert into blocks (id, kind, name, blurb, sub, refs)
+       values ($1, $2, $3, $4, $5, $6::jsonb)
+       on conflict (id) do update set
+         kind = excluded.kind, name = excluded.name, blurb = excluded.blurb,
+         sub = excluded.sub, refs = excluded.refs`,
+      [spec.id, spec.kind, spec.name, spec.blurb ?? null, spec.sub ?? null, JSON.stringify(spec.refs ?? [])],
+    );
+  });
+
+  const cur = await loadPublished();
+  const nextBlocks = upsertById(cur.blocks, publishedBlock);
+  writeFileSync(PUBLISHED_TS, renderPublished(cur.units, nextBlocks), "utf8");
+  console.log(`  published.ts: upserted block ${spec.id} (${nextBlocks.length} published block(s))`);
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const mode = args.push ? "push" : "dry-run";
+  console.log(`publish-entity: mode=${mode}`);
+
+  const hasUnit = Boolean(args.unit);
+  const hasBlock = Boolean(args.block || args.blockFile);
+  if (hasUnit === hasBlock) {
+    throw new Error(
+      "exactly one mode required: --unit <dir> OR (--block <json> | --block-file <path>)",
+    );
+  }
+
+  if (hasUnit) await publishUnit(args.unit as string, args.push);
+  else await publishBlock(args, args.push);
+
+  if (!args.push) {
+    console.log(
+      "\ndry-run: nothing uploaded, no DB writes, published.ts untouched. Re-run with --push to apply.",
+    );
+  }
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
