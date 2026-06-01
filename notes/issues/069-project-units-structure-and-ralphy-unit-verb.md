@@ -10,7 +10,7 @@
 
 The library has a first-class **Unit** entity now (#063), but a *workspace project*
 has no place for finished deliverables. `assets/` is an append-only working dump
-(every `.v2/.v3`, rejects, scratch) — "рабочая свалка". So users hand-make ad-hoc
+(every `.v2/.v3`, rejects, scratch) — a working dump. So users hand-make ad-hoc
 folders: `free-air-vpn-stickerpack/` already has `stickers/` + `stickers-no-outline/`
 at the project root, created by hand. That ad-hoc folder IS a Unit, just informal.
 
