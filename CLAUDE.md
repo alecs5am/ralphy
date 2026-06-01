@@ -21,6 +21,8 @@ Four companion files the agent should also keep in mind:
 - `templates/` — repo-public template pack, committed to git, shipped on every clone. Read by `ralphy template list` / `suggest` / `use`.
 - `workspace/` — generated files (gitignored). Safe to wipe. `workspace/templates/` overrides repo templates on id collision.
 - `workspace/.ralph/asset-cache/` — local cache of files pulled from the `ralphy-assets` companion repo.
+- `workspace/projects/<id>/assets/` — the **raw working dump**: every `ralphy generate` output, every `.v2`/`.v3` re-roll, rejects, scratch. Append-only, versioned, never the deliverable.
+- `workspace/projects/<id>/units/` — **curated deliverables** (#069). Each `units/<slug>/` holds COPIES of selected `assets/` files (ordered) + a `unit.json` manifest (format + ordered media + provenance), mirroring the library-v2 Unit entity so publish (#056) is mechanical. COPY-not-move (the source `assets/` stay untouched) and **append-only** (a new slug = a new dir; re-`create` on an existing slug = a `<slug>.v2/` dir, never an overwrite; `unit add` appends). Formed explicitly via `ralphy unit`; `ralphy generate` never writes here.
 - `docs/playbooks/` — role / domain instruction docs. The agent reads these on demand based on `AGENTS.md` routing.
 - `.agents/skills/` — thin slash-command shims (`/researcher`, etc.) that redirect to the playbooks. `.claude/skills/` symlinks.
 - **Companion repo** [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) — heavy required template assets (trend music) and complete example projects.
@@ -31,7 +33,7 @@ Four companion files the agent should also keep in mind:
 - Globally: `ralphy <command>` (installs via `curl ... install.sh | sh`).
 - In-tree dev: `bun run ralph -- <command>` or `bun run ralphy -- <command>`.
 
-Resources: `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `config`. Each: `create | list | show <id> | update <id> | delete <id>`.
+Resources: `brand`, `persona`, `ref`, `project`, `unit`, `template`, `batch`, `asset`, `workspace`, `config`. Each: `create | list | show <id> | update <id> | delete <id>` (`unit` adds `add`, scoped per-project: `unit <verb> <project> [<slug>]`).
 
 Top-level: `setup`, `status`, `doctor`, `generate {image|video|voiceover|music}`, `render <project>`, `assets {list|pull|install|clean|cache-info}`, `example {list|pull}`.
 
