@@ -385,3 +385,15 @@
 
 /* tweak surfaces — mono block-accent variant (optional toggle) */
 [data-block-accent="mono"] { --block-ink: var(--ink-3); --block-tint: rgb(245 245 244 / 0.06); --block-tint-2: rgb(245 245 244 / 0.11); }
+
+/* Thin themed scrollbar for the horizontal More-from rails + the viewer
+   thumbnail strip (carousel feel, no chunky default bar). */
+.relrail, .uviewer .vctl .seg { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
+.relrail::-webkit-scrollbar, .uviewer .vctl .seg::-webkit-scrollbar { height: 8px; width: 8px; }
+.relrail::-webkit-scrollbar-track, .uviewer .vctl .seg::-webkit-scrollbar-track { background: transparent; }
+.relrail::-webkit-scrollbar-thumb, .uviewer .vctl .seg::-webkit-scrollbar-thumb {
+  background: var(--bg-4); border-radius: 999px; }
+.relrail::-webkit-scrollbar-thumb:hover, .uviewer .vctl .seg::-webkit-scrollbar-thumb:hover {
+  background: var(--mute-2); }
+/* Letterbox backing so a contained sticker/still reads intentionally on the stage. */
+.uviewer .stage .stage-media { background: color-mix(in oklch, var(--hue) 8%, var(--bg)); border-radius: 16px; }
