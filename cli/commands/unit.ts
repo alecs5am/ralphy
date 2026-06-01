@@ -16,8 +16,10 @@
 
 import { Command } from "commander";
 import fs from "node:fs/promises";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { imageSize } from "image-size";
 import { projectsDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -26,10 +28,109 @@ import {
   UNIT_FORMATS,
   isValidUnitSlug,
   type UnitManifest,
+  type UnitMediaMeta,
   type UnitProvenance,
 } from "../lib/schemas/unit.js";
 
 const UNITS_DIRNAME = "units";
+
+const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"]);
+const VIDEO_EXTS = new Set([".mp4", ".mov", ".webm", ".m4v"]);
+
+/**
+ * The common aspect ratios we snap a detected w:h to (within a small relative
+ * tolerance) so the catalog stores a clean CSS "W / H" string instead of a raw
+ * pixel ratio. Order matters only for readability; each is tested independently.
+ */
+const COMMON_ASPECTS: Array<[number, number]> = [
+  [1, 1],
+  [4, 5],
+  [9, 16],
+  [16, 9],
+  [3, 2],
+  [2, 3],
+];
+
+/** Reduce w:h to a clean common "W / H" if it maps to one within ~2%; else raw. */
+function aspectString(width: number, height: number): string | undefined {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return undefined;
+  }
+  const ratio = width / height;
+  const TOL = 0.02; // 2% relative tolerance
+  for (const [w, h] of COMMON_ASPECTS) {
+    const target = w / h;
+    if (Math.abs(ratio - target) / target <= TOL) return `${w} / ${h}`;
+  }
+  return `${width} / ${height}`;
+}
+
+/** Probe an image header for its dimensions. Returns null on any failure. */
+function imageDimensions(absPath: string): { width: number; height: number } | null {
+  try {
+    const { width, height } = imageSize(readFileSync(absPath));
+    if (typeof width === "number" && typeof height === "number") return { width, height };
+  } catch {
+    /* unreadable / unsupported header */
+  }
+  return null;
+}
+
+/** Probe a video stream for its dimensions via ffprobe. Returns null on failure. */
+function videoDimensions(absPath: string): { width: number; height: number } | null {
+  try {
+    const r = spawnSync(
+      "ffprobe",
+      [
+        "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=p=0",
+        absPath,
+      ],
+      { encoding: "utf8" },
+    );
+    if (r.status !== 0 || !r.stdout) return null;
+    const first = r.stdout.trim().split("\n")[0] ?? "";
+    const [w, h] = first.split(",").map((s) => parseInt(s.trim(), 10));
+    if (Number.isFinite(w) && Number.isFinite(h) && w! > 0 && h! > 0) {
+      return { width: w!, height: h! };
+    }
+  } catch {
+    /* ffprobe missing or errored */
+  }
+  return null;
+}
+
+/**
+ * Detect a copied media file's intrinsic aspect + kind. Kind is derived from the
+ * extension first (so it is always known); aspect comes from a header read for
+ * images and ffprobe for videos. On any detection failure aspect is omitted —
+ * the create must NEVER crash on undetectable media.
+ */
+function detectMediaMeta(absPath: string): UnitMediaMeta {
+  const ext = path.extname(absPath).toLowerCase();
+  const kind: UnitMediaMeta["kind"] = VIDEO_EXTS.has(ext) ? "video" : "image";
+  const dims = kind === "video" ? videoDimensions(absPath) : imageDimensions(absPath);
+  const aspect = dims ? aspectString(dims.width, dims.height) : undefined;
+  return aspect ? { aspect, kind } : { kind };
+}
+
+/**
+ * Build the `media_meta` map for an ordered list of unit-relative basenames that
+ * live in `unitDir`. Files whose meta could not be detected still get a `kind`
+ * entry (extension-derived); aspect is simply absent for those.
+ */
+function buildMediaMeta(unitDir: string, basenames: string[]): Record<string, UnitMediaMeta> {
+  const meta: Record<string, UnitMediaMeta> = {};
+  for (const base of basenames) {
+    const ext = path.extname(base).toLowerCase();
+    // Only record meta for media we recognize; skip stray non-media filenames.
+    if (!IMAGE_EXTS.has(ext) && !VIDEO_EXTS.has(ext)) continue;
+    meta[base] = detectMediaMeta(path.join(unitDir, base));
+  }
+  return meta;
+}
 
 /** Resolve `<project>` to its on-disk dir, refusing if it does not exist. */
 function resolveProjectDir(projectId: string): string {
@@ -248,11 +349,13 @@ export function unitCmd() {
       const unitDir = path.join(unitsDir, dirName);
 
       const media = await copyMedia(projectDir, unitDir, sources);
+      const mediaMeta = buildMediaMeta(unitDir, media);
 
       const manifest: UnitManifest = {
         slug,
         format: format as UnitManifest["format"],
         media,
+        ...(Object.keys(mediaMeta).length && { media_meta: mediaMeta }),
         ...(buildProvenance(opts) && { provenance: buildProvenance(opts) }),
         source_assets: sources,
         created: new Date().toISOString(),
@@ -338,10 +441,13 @@ export function unitCmd() {
         });
       }
       const added = await copyMedia(projectDir, unitDir, sources);
+      const addedMeta = buildMediaMeta(unitDir, added);
+      const mergedMeta = { ...(manifest!.media_meta ?? {}), ...addedMeta };
 
       const updated: UnitManifest = {
         ...manifest!,
         media: [...manifest!.media, ...added],
+        ...(Object.keys(mergedMeta).length && { media_meta: mergedMeta }),
         source_assets: [...(manifest!.source_assets ?? []), ...sources],
       };
       const parsed = UnitManifestSchema.parse(updated);
