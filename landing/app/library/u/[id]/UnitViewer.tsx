@@ -83,7 +83,9 @@ export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined 
           }}
         >
           {stageItem ? (
-            <MediaCell m={stageItem} alt={u.title} />
+            // contain (not cover) on the detail stage so the whole sticker /
+            // creative / still is visible — cover was cropping tall stickers.
+            <MediaCell m={stageItem} alt={u.title} fit="contain" />
           ) : (
             <div className="ph" style={{ position: "absolute", inset: 0, ["--hue" as string]: hue }}>
               <span className="ph-glyph">{format?.glyph}</span>
