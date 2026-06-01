@@ -47,11 +47,27 @@ export const UnitProvenanceSchema = z
 
 export type UnitProvenance = z.infer<typeof UnitProvenanceSchema>;
 
+/**
+ * Per-file media metadata, keyed by the unit-relative filename. Optional and
+ * additive (older `unit.json` files predate it and must still validate). Each
+ * entry carries the file's intrinsic `aspect` ("W / H", omitted when detection
+ * failed) and its `kind` (image vs video). Populated by `unit create` / `add`
+ * via header-read (`image-size`) for images and `ffprobe` for videos.
+ */
+export const UnitMediaMetaSchema = z.object({
+  aspect: z.string().optional(),
+  kind: z.enum(["image", "video"]),
+});
+
+export type UnitMediaMeta = z.infer<typeof UnitMediaMetaSchema>;
+
 export const UnitManifestSchema = z.object({
   slug: z.string().regex(SLUG_RE, "unit slug must be kebab-case"),
   format: z.enum(UNIT_FORMATS),
   /** Ordered filenames relative to the unit dir (the copied media). */
   media: z.array(z.string()),
+  /** Per-file intrinsic aspect + kind, keyed by filename. Optional/additive. */
+  media_meta: z.record(z.string(), UnitMediaMetaSchema).optional(),
   provenance: UnitProvenanceSchema.optional(),
   /** Original project-relative paths the media was copied from. */
   source_assets: z.array(z.string()).optional(),

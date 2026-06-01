@@ -31,8 +31,8 @@
 // Secrets are read from the environment at RUNTIME only — never printed, never
 // hardcoded. Run dry-run: cd landing && bun run scripts/publish-entity.ts --unit <dir>
 
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Block, Unit, UnitMedia } from "../lib/library-v2/types";
@@ -43,6 +43,7 @@ import { env, makeS3Client, publicUrlFor, putObject } from "./lib/supabase";
 const __dirname_ = resolve(fileURLToPath(import.meta.url), "..");
 const LANDING_ROOT = resolve(__dirname_, "..");
 const PUBLISHED_TS = join(LANDING_ROOT, "lib", "library-v2", "published.ts");
+const SHOWCASE_ROOT = join(LANDING_ROOT, "public", "showcase");
 
 // ── Args ─────────────────────────────────────────────────────────────────────
 
@@ -147,10 +148,16 @@ function renderPublished(units: Unit[], blocks: Block[]): string {
 // The script intentionally does NOT cross-import the CLI Zod schema (separate
 // package, no build wiring). It validates the structural shape it relies on.
 
+interface UnitMediaMeta {
+  aspect?: string;
+  kind: "image" | "video";
+}
+
 interface UnitManifest {
   slug: string;
   format: string;
   media: string[];
+  media_meta?: Record<string, UnitMediaMeta>;
   provenance?: {
     template?: string;
     style?: string;
@@ -324,13 +331,18 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   });
 
   // Build the unit media list (local src; storageUrl filled after a real upload).
-  const aspect = defaultAspectFor(manifest.format);
+  // Prefer the per-file `media_meta` (real intrinsic aspect + kind recorded by
+  // `ralphy unit create`/`add`); fall back to the coarse format-default aspect +
+  // extension-derived kind only when meta is absent (older units).
+  const fallbackAspect = defaultAspectFor(manifest.format);
+  const metaMap = manifest.media_meta ?? {};
   const buildMedia = (withStorage: boolean): UnitMedia[] =>
     manifest.media.map((file) => {
+      const meta = metaMap[basename(file)] ?? metaMap[file];
       const m: UnitMedia & { storageUrl?: string } = {
         src: `/showcase/${unitId}/${basename(file)}`,
-        kind: mediaKindFor(file),
-        aspect,
+        kind: meta?.kind ?? mediaKindFor(file),
+        aspect: meta?.aspect ?? fallbackAspect,
       };
       if (withStorage) {
         const url = publicUrlFor(unitObjectKey(unitId, file));
@@ -338,6 +350,15 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
       }
       return m;
     });
+
+  // Plan the open-source static copies into landing/public/showcase/<id>/<file>
+  // (committed so the `/showcase/...` src resolves from the repo, not only via
+  // the Supabase storageUrl). Performed on --push only.
+  const showcaseCopies = manifest.media.map((file) => ({
+    from: join(dir, file),
+    to: join(SHOWCASE_ROOT, unitId, basename(file)),
+    rel: `public/showcase/${unitId}/${basename(file)}`,
+  }));
 
   const prov = manifest.provenance ?? {};
   const templateId = prov.template ?? "";
@@ -409,6 +430,14 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
         .map((l) => `${l.role}:${l.blockId}`)
         .join(", ") || "(none)"}. On --push, any block id absent from Supabase is WARN-and-skipped (never fabricated).`,
     );
+    console.log(`\n  Unit media (real aspect/kind, source: ${manifest.media_meta ? "media_meta" : "format-default"}):`);
+    for (const m of buildMedia(false)) {
+      console.log(`    ${m.src}  kind=${m.kind}  aspect="${m.aspect}"`);
+    }
+    console.log(`\n  Open-source static copies (WOULD copy on --push, ${showcaseCopies.length}):`);
+    for (const c of showcaseCopies) {
+      console.log(`    ${c.rel}  <-  ${c.from}`);
+    }
     return;
   }
 
@@ -423,6 +452,19 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
     await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
     uploadedStorage.add(u.objectKey);
     console.log(`  UPLOADED ${u.objectKey}`);
+  }
+
+  // Copy each media file into the committed open-source static path so the
+  // `/showcase/<id>/...` src resolves from the repo (idempotent — overwrite with
+  // an identical file is fine). Mirrors the Storage upload; not a replacement.
+  for (const c of showcaseCopies) {
+    if (!existsSync(c.from)) {
+      console.warn(`  SKIP showcase copy (missing local file): ${c.from}`);
+      continue;
+    }
+    mkdirSync(dirname(c.to), { recursive: true });
+    copyFileSync(c.from, c.to);
+    console.log(`  COPIED ${c.rel}`);
   }
 
   // media with storageUrl for the rows + the snapshot.
