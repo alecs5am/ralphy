@@ -7,14 +7,14 @@ The cover page. ~30-60 lines. Skimmable in 60 seconds.
 ```markdown
 # Postmortem — <project-id>
 
-End-to-end record of `<project-id>` (<project-name>). Split into 5 substantive docs so each can be skimmed by the right reader.
+End-to-end record of `<project-id>` (<project-name>). Split into 6 substantive docs so each can be skimmed by the right reader.
 
 **Session:** <YYYY-MM-DD> · <duration estimate, e.g. "~3h, 4 iteration cycles">
 **Final spend:** ~$<total> (image $A · video $B · music $C · VO $D · render free)
 **Final winner:** `render/<filename.mp4>` (<one-line note: variant, why>)
 **Iterations vs. minimum-viable:** ~<N>× over (could have been <M>× with discipline below)
 
-## The 5 docs
+## The 6 docs
 
 | File | What's in it | Who reads it |
 |---|---|---|
@@ -23,6 +23,7 @@ End-to-end record of `<project-id>` (<project-name>). Split into 5 substantive d
 | [03-cli-issues.md](03-cli-issues.md) | ralphy verbs that failed or didn't exist + raw workaround used + suggested CLI fix | The CLI maintainer (turn each row into a GitHub issue) |
 | [04-models-and-cost.md](04-models-and-cost.md) | $ rollup by phase, model picks, discovered model breakage | Anyone scoping a similar project |
 | [05-workflow-fixes.md](05-workflow-fixes.md) | Where the playbook misled us, what to add to AGENTS.md / docs/playbooks/ | The playbook author (turn each row into a doc PR) |
+| [06-units.md](06-units.md) | Units shipped + provenance blocks (NEW vs REUSED), as a record | The extract/publish step (`templater` + `publish-entity.ts` #056) |
 
 ## TL;DR — 3 things this session taught us
 

@@ -2,158 +2,155 @@
 name: templater
 namespace: user
 description: >-
-  Turns a finished `workspace/projects/<id>/` (with optional postmortem/) into a reusable vibe-reference or vibe-style template under `templates/<category>/<slug>/`. Extracts the durable bits — composition skeleton, prompt cookbook with `{{slots}}`, model stack notes, the model+cost rollup, lessons learned — and migrates heavy locked-ref assets (master shots, music beds) to `ralphy-assets/pool/` so they stay reusable across future projects. The resulting template is immediately discoverable via the existing `ralphy template list / show / suggest / use` CLI surface.
+  Decompose a finished `workspace/projects/<id>/` into the content-entity model (#063): read its `units/*/unit.json` (#069) as the Unit source of truth, then factor the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (concrete reusable media). Match each candidate block against existing library blocks FIRST; only propose a NEW block for a genuine gap. The output is an EXTRACT + CLASSIFY pass: a structured entity bundle (units + their provenance + the new blocks worth keeping), optionally a local `templates/<category>/<slug>/` artifact. The actual push to the library is handed to the #056 publish path (`landing/scripts/publish-entity.ts`), NOT done here.
 
-  USE WHEN the user says any of: "save this as a template", "turn the project into a template", "templatify <project-id>", "extract a template from <project>", "I want others to reproduce this video", "make a reusable version of <project>", "save the vibe as a template", "we should keep this so it's repeatable", "save as template", "freeze this project", "make a template from X". ALSO FIRE proactively after a successful render + postmortem that the user rates 8+/10 — the experience is most reusable while still fresh, before details fade.
+  USE WHEN the user says any of: "save this as a template", "turn the project into a template", "templatify <project-id>", "extract a template from <project>", "decompose this project into blocks", "what units/blocks did this project produce", "I want others to reproduce this", "make a reusable version of <project>", "extract the entities from <project>", "classify this project", "freeze this project". ALSO FIRE proactively after a successful render + postmortem the user rates 8+/10 — the experience is most reusable while still fresh.
 
-  DO NOT FIRE for: scaffolding a new project (that is `ralphy template use <existing-slug>`), one-off renders (producer), quality evaluation (evaluator), projects without `scenario.json` and `asset-manifest.json` (refuse with the concrete ask "run /postmortem first OR finish the project pipeline").
-
-  HARD INVARIANTS: templates physically live in `ugc-cli/templates/` (NOT in ralphy-assets — that contains `pool/` and `examples/` only). Heavy assets migrate to `ralphy-assets/pool/<kind>/<slug>/` and are referenced from `template.json:assets[].manifestKey`. The source project is NEVER modified — the template is a derived artifact. All LLM classification / slot detection / tag synthesis routes through `cli/lib/providers/llm.ts → callLLM()`. The only entrypoint is `ralphy template create-from-project <project-id> --slug <kebab-slug>`. No raw scripts, no direct OpenRouter calls, no manual writes into `templates/`.
+  DO NOT FIRE for: scaffolding a new project (that is `ralphy template use <existing-slug>`), one-off renders (producer), quality evaluation (evaluator), or pushing to the live Supabase library (that is the #056 publish path / `publish-entity.ts`). See body for HARD INVARIANTS.
 ---
 
 # templater
 
-You turn a finished project into a reusable template. The contract is: **a future agent reading `templates/<category>/<slug>/` should be able to reproduce the vibe — same flow, same models, same prompt patterns — without re-deriving any of it from the source project.**
+You decompose a finished project into the **content-entity model** (#063) and classify its pieces into reusable blocks. The contract is: **a future agent should be able to reproduce the work — same units, same blocks (Template / Style / Recipe / Asset) — without re-deriving any of it from the raw `assets/` dump.**
 
-## What this skill is not
+This skill does two jobs and exactly two: **EXTRACT** (read the project's finished deliverables) and **CLASSIFY** (factor them into the five entities, matching existing blocks first). It does **not** publish. Publishing to the live library (Supabase DB + Storage + the committed `published.ts`) is a separate primitive — see [Hand-off to publish](#hand-off-to-publish-056).
 
-- **Not a project scaffolder.** That is `ralphy template use <slug> --project <new-id>`. This skill produces the template; `use` consumes it.
-- **Not a postmortem generator.** That is `/postmortem`. Run that first if the source project doesn't have one — the lessons in `postmortem/02-lessons.md` are the highest-signal input here.
-- **Not an asset uploader.** Heavy-asset migration to `ralphy-assets/pool/` is a side effect when the project has locked refs / music beds the template should re-use. The skill does NOT push arbitrary mp4s or final renders — those go to `ralphy-assets/examples/` via a different flow.
-- **Not for unfinished projects.** A project without a final render is not yet a candidate. Refuse and point at the missing pieces.
+## The five entities (read this first)
+
+The library model (`landing/lib/library-v2/types.ts`) has five entities. Every project decomposes into them:
+
+- **Unit** — a finished deliverable in a Format (`video`, `carousel`, `sticker-pack`, `podcast-cuts`, `fb-creative`, `motion-design`, `poster`, `image`), holding 1..N ordered media items. A Unit = exactly **1 Template + 1 Style + N Recipes + M Assets**. That ingredient list is the Unit's **provenance**.
+- **Template** (block, single-per-unit) — the STRUCTURE / skeleton only, style-agnostic. The beat structure, the slide count + slot layout, the composition skeleton.
+- **Style** (block, single-per-unit) — the visual look / register. The aesthetic + its anchor reference images.
+- **Recipe** (block, multi-per-unit) — a composable effect / treatment. A VFX layer, an encode recipe, an overlay pass, a caption style.
+- **Asset** (block, multi-per-unit, has a `sub`: `character` / `location` / `prop` / `music`) — concrete reusable media: a locked character master, a location plate, a prop, a music bed.
+
+The **Unit source of truth is `workspace/projects/<id>/units/*/unit.json`** (formed by `ralphy unit create`, #069). Each `unit.json` already carries `format`, ordered `media`, and a `provenance` block (`template` / `style` / `recipes[]` / `assets[]` slugs) — so much of the decomposition is reading, not inventing. The `postmortem/06-units.md` record (if the project has one) is the second-highest-signal input: it already marks each provenance block NEW vs. REUSED.
+
+## What this skill is NOT
+
+- **Not a project scaffolder.** That is `ralphy template use <slug> --project <new-id>`.
+- **Not a postmortem generator.** That is `/postmortem`. Run it first if the source has none — `postmortem/02-lessons.md` (lessons) and `postmortem/06-units.md` (units + provenance) are the highest-signal inputs here.
+- **Not the library publisher.** It does NOT push to Supabase, does NOT edit `landing/lib/library-v2/published.ts`, does NOT run `seed-supabase.ts`. The publish step is the #056 primitive `landing/scripts/publish-entity.ts` (`--unit` / `--block` modes). templater produces the classified bundle; publish pushes it.
+- **Not a single-template extractor.** The old `create-from-project` "one template per project" framing is retired. A project produces a SET of entities (often several units + several blocks), not one template.
 
 ## Source-of-truth files in the source project
 
-Every extraction is keyed to a known file. If a file is missing, the skill degrades gracefully (per the table below), it does not invent content.
+Every extraction is keyed to a known file. If a file is missing, the skill degrades gracefully (it derives what it can, never invents). **`scenario.json` is PREFERRED, not required** — scenario-less still / HyperFrames projects (sticker packs, FB packs, poster sets) are valid; derive structure from `asset-manifest.json` + `units/` + `index.html` and skip the scene table (the #062 fix).
 
-| Source file in `workspace/projects/<id>/` | What gets pulled | Output target |
-|---|---|---|
-| `scenario.json` (required) | Scene skeleton: beats + durations + speaker map + VO/SFX flags | `composition.md` (vibe-reference) — pure structure, no prompts |
-| `prompts.json` (preferred) | Per-stage prompts (image / video / VO / music / captions) | `prompt-cookbook.md` — with `{{slots}}` replacing brand / product / persona names |
-| `asset-manifest.json` (required) | Locked refs, music beds, character masters, location plates | `template.json:assets` map + pool migration of heavy items |
-| `logs/generations.jsonl` (required) | Per-stage model picks + actual params + cost rollup | `model-stack.md` — model defaults + what to avoid + cost ballpark |
-| `index.html` (vibe-ref only) | HyperFrames composition skeleton + per-template defaults | `template.json:compositionTemplate.{id, defaults}` |
-| `BRIEF.md` (preferred) | The original user brief — sentence-level intent | Drives category classification + initial description draft |
-| `postmortem/02-lessons.md` (preferred) | Top rules + anti-patterns + workflow ordering | `TEMPLATE.md` "Key rules" section (top 5–7 distilled) |
-| `postmortem/04-models-and-cost.md` (preferred) | Spend rollup per stage | `README.md` "Cost ballpark" + `model-stack.md` defaults |
-| `postmortem/05-workflow-fixes.md` (preferred) | Playbook fixes raised during the session | `TEMPLATE.md` "Workflow" ordered list |
+| Source file in `workspace/projects/<id>/` | Required? | What gets pulled | Maps to entity |
+|---|---|---|---|
+| `units/*/unit.json` | **REQUIRED** | Finished deliverables + ordered media + provenance block slugs (#069) | **Unit** (+ seeds all four block axes via `provenance`) |
+| `asset-manifest.json` | **REQUIRED** | Locked refs, music beds, character masters, location plates; final slot list | **Asset** blocks; backstop for Units when `units/` is thin |
+| `scenario.json` | PREFERRED | Scene skeleton: beats + durations + speaker map + VO/SFX flags | **Template** block (structure only) |
+| `prompts.json` | PREFERRED | Per-stage prompts (image / video / VO / music / captions) | **Style** block prompt cookbook (with `{{slots}}`) + Recipe hints |
+| `index.html` (HyperFrames) | PREFERRED | Composition skeleton + per-template defaults; encode / overlay recipes | **Template** block (composition); **Recipe** blocks (VFX / encode / overlay) |
+| `logs/generations.jsonl` | PREFERRED | Per-stage model picks + params + cost rollup | Model-stack notes on the Style / Template blocks |
+| `BRIEF.md` | PREFERRED | Original user brief — sentence-level intent | Drives Format + category classification + descriptions |
+| `postmortem/06-units.md` | PREFERRED | Units shipped + provenance, NEW vs REUSED per block | The classification spine — read it before re-deriving anything |
+| `postmortem/02-lessons.md` | PREFERRED | Top rules + anti-patterns | "Key rules" on the relevant blocks |
+| `postmortem/04-models-and-cost.md` | PREFERRED | Spend rollup per stage | Cost ballpark on the blocks |
 
-If `postmortem/` is missing, the skill writes a slimmer template: `TEMPLATE.md` gets only the brief + scenario summary (no "Key rules", no "Workflow" — those sections are noted as "TODO: run /postmortem"). The skill warns the user and offers to pause for postmortem first.
+If `units/` is genuinely empty AND `asset-manifest.json` has finished deliverables, surface that gap: the project has shippable media but no curated Units — suggest `ralphy unit create <id> --slug <s> --format <f> --from '<glob>'` first, then re-run. You can still classify candidate blocks from the manifest, but a clean per-unit publish needs the units formed.
 
 See `references/extraction-rules.md` for the per-file extraction details and edge cases.
 
 ## The workflow
 
-One CLI verb covers everything. The skill orchestrates the workflow but never reaches around the CLI.
+1. **Resolve the project + read its Units.** `ralphy unit list <project-id>` and read each `units/<slug>/unit.json`. These are the Units. Read `postmortem/06-units.md` if present — it pre-classifies the provenance blocks (NEW vs REUSED). NEVER fabricate units from the raw `assets/` dump.
 
-```bash
-ralphy template create-from-project <project-id> \
-  --slug <kebab-slug>                  # required, e.g. tokyo-y2k-cinematic
-  [--kind vibe-reference|vibe-style]   # auto-detect; see references/kind-decision.md
-  [--category <one-of-5>]              # LLM-suggest; b2b-saas | dtc-commerce | creator-lifestyle | entertainment-viral | cinematic-narrative
-  [--description "<one-liner>"]        # LLM-draft from BRIEF.md
-  [--tags tag1,tag2,...]               # LLM-suggest from scenario + manifest + cookbook
-  [--no-push-assets]                   # OFF heavy-asset migration (default is ON)
-  [--manifest-key-prefix <prefix>]     # ralphy-assets/pool/ key prefix (default = `<slug>/`)
-  [--dry-run]                          # print bundle to stdout, no writes
-  [--force]                            # overwrite existing template at the target path
-```
+2. **Read `BRIEF.md` + (if present) `scenario.json` headers** for the elevator pitch. This grounds the classification passes.
 
-Output (JSON, pipe-friendly):
+3. **Decompose into the five entities.** For each Unit, resolve its provenance into concrete block candidates:
+   - **Template** — from `scenario.json` (beats) or, for scenario-less projects, from `index.html` (composition skeleton) / the slide-slot layout. Structure only, style-agnostic.
+   - **Style** — from `prompts.json` + the locked anchor refs. The look + its reference images.
+   - **Recipes** — VFX layers, encode recipes (`-tune grain`, CRF), overlay passes, caption styles. From `index.html` + `prompts.json` + postmortem lessons. Multi-value.
+   - **Assets** — locked character masters, location plates, props, music beds from `asset-manifest.json`. Each carries a `sub` (`character`/`location`/`prop`/`music`). Multi-value.
+
+4. **Match existing blocks FIRST.** Before proposing any NEW block, check whether an existing library block already covers it. Use `ralphy template list` / `ralphy template suggest` for template/style candidates and `ralphy assets list --kind <kind>` for asset candidates. If `postmortem/06-units.md` already marked a block REUSED, trust that. Only propose a **NEW** block for a genuine gap — a structure / look / effect / asset the library does not yet have. Over-creating duplicate blocks is the failure mode this step prevents.
+
+5. **Classify slots + tags (LLM, via `callLLM()`).** Through `cli/lib/providers/llm.ts → callLLM()`:
+   - **Slots** — extract `{{slots}}` (brand / product / character names / location keys / target language) from `prompts.json` per `references/slot-detection.md`, so the Style block's prompt cookbook is reusable across subjects.
+   - **Format** — confirm each Unit's `format` (it is in `unit.json`; validate it against the eight library formats).
+   - **Category + tags + description** — per `references/category-classifier.md`, for any local `templates/<category>/<slug>/` artifact.
+
+6. **Emit the entity bundle.** The primary output is a classified bundle: the Units with resolved provenance, plus the NEW blocks worth keeping (each with kind, slug, blurb, the slots/refs/lessons that define it). Mark every block NEW vs REUSED. This bundle is what the publish primitive consumes. Print it as JSON (see [Output](#output)).
+
+7. **(Optional) Write a local `templates/<category>/<slug>/` artifact.** When the user wants a downloadable repo template (the `vibe-reference` / `vibe-style` form), write it under `templates/<category>/<slug>/` so `ralphy template list / show / suggest / use` pick it up. This is ONE optional output, not the skill's reason for being — the entity publish is the #056 primitive. Schema is the one `cli/commands/template.ts` consumes. Never modify the source project.
+
+8. **Hand off to publish (#056).** Do NOT push to the library here. Print the exact `publish-entity.ts` commands the user can run (see below) and stop. The user (or a maintainer skill) drives the actual push.
+
+## Output
+
+JSON, pipe-friendly:
 
 ```json
 {
-  "slug": "tokyo-y2k-cinematic",
-  "kind": "vibe-reference",
-  "category": "cinematic-narrative",
-  "template_dir": "templates/cinematic-narrative/tokyo-y2k-cinematic",
-  "files_written": ["template.json", "TEMPLATE.md", "composition.md", "prompt-cookbook.md", "model-stack.md", "reference-example.md"],
-  "slots_detected": ["{{brand_name}}", "{{product_name}}", "{{target_language}}", "{{location_master_plate}}"],
-  "pool_assets_migrated": [
-    { "key": "tokyo-y2k-cinematic/master-night-alley.png", "size_mb": 0.8, "from": "workspace/projects/tokyo-y2k-001/assets/images/master-night-alley.png" }
+  "project": "free-air-vpn-stickerpack",
+  "units": [
+    {
+      "slug": "stickers-outline",
+      "format": "sticker-pack",
+      "media_count": 32,
+      "provenance": {
+        "template": { "slug": "sticker-set", "status": "REUSED" },
+        "style": { "slug": "free-air-jelly-pure", "status": "NEW" },
+        "recipes": [{ "slug": "floodfill-diecut-cutout", "status": "NEW" }],
+        "assets": [{ "slug": "free-air-mascot", "sub": "character", "status": "NEW" }]
+      },
+      "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/free-air-vpn-stickerpack/units/stickers-outline"
+    }
   ],
-  "suggest_rank_for_original_brief": { "rank": 1, "score": 0.82 },
+  "new_blocks": [
+    { "kind": "style", "slug": "free-air-jelly-pure", "blurb": "...", "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --block-file <spec.json>" },
+    { "kind": "recipe", "slug": "floodfill-diecut-cutout", "blurb": "..." },
+    { "kind": "asset", "slug": "free-air-mascot", "sub": "character", "blurb": "..." }
+  ],
+  "reused_blocks": [{ "kind": "template", "slug": "sticker-set" }],
+  "local_template_artifact": null,
+  "scenario_present": false,
   "warnings": []
 }
 ```
 
-## Workflow
+## Hand-off to publish (#056)
 
-1. **Validate the source project.** Required files: `scenario.json` + `asset-manifest.json` + `logs/generations.jsonl`. If any is missing, refuse with a concrete ask: "Run /producer to finish the pipeline, or point me at the right project id." Never proceed on a half-finished project — the template inherits the gaps.
-
-2. **Read `BRIEF.md` (if present) + `scenario.json` headers** to get the elevator pitch. This grounds the LLM passes that follow.
-
-3. **Auto-detect `--kind`** via the rules in `references/kind-decision.md`. Default to `vibe-reference` if all four exist: `scenario.json`, `prompts.json`, `asset-manifest.json`, `index.html`. Otherwise `vibe-style` (prompt cookbook only, no composition wiring).
-
-4. **LLM pass — classify `--category`** through `callLLM()` using the prompt in `references/category-classifier.md`. The five segment-persona folders are defined there. User override via `--category` always wins.
-
-5. **LLM pass — extract `{{slots}}` from prompts.json** via the patterns in `references/slot-detection.md`. Full-auto: the LLM proposes a complete slot map (brand / product / character names / location plate keys / target language / etc.) and the skill applies the substitutions across `prompts.json` → `prompt-cookbook.md` without asking the user for confirmation. The user can edit slots after the fact by editing the template file directly — that is faster than an interactive gate, and the cost of a wrong slot is just a regen.
-
-6. **LLM pass — synthesize tags + description.** From the scenario summary + cookbook excerpts + category, propose a 10–20 tag set and a one-paragraph description. These feed `ralphy template suggest` ranking.
-
-7. **EXTRACTION** per the table above. Read the source files, write the template files. Files are listed in `references/extraction-rules.md`. The skill writes ONLY to `templates/<category>/<slug>/` — never modifies the source.
-
-8. **Pool migration** (if `--no-push-assets` is NOT set, which is the default). For each `asset-manifest.json` entry tagged as a locked-ref / character-master / location-plate / music-bed:
-   - Copy the file to `/Users/maximovchinnikov/github/ralphy-assets/pool/<kind>/<slug>/<name>`
-   - Compute SHA-256, file size
-   - Update `ralphy-assets/manifest.json` with the new entry (key = `<slug>/<filename>`, kind = inferred from extension + slot role)
-   - Regenerate `docs/assets-catalog.md` via `ralphy assets catalog --write`
-   - In `template.json:assets`, reference the pool entry via `{ remote: true, manifestKey: "<slug>/<filename>", required: true }`
-   - See `references/pool-migration.md` for the migration algorithm + kind-mapping rules.
-
-9. **Write `template.json` + supporting markdown files** to `templates/<category>/<slug>/`. Schema is the same one `cli/commands/template.ts` already consumes (so `list / show / use` all work out of the box).
-
-10. **Verification gates.** Run these three CLI commands and assert their outputs:
-    - `ralphy template list` → new slug must appear, source = repo, kind matches.
-    - `ralphy template show <slug>` → TEMPLATE.md must parse (no broken frontmatter).
-    - `ralphy template suggest "<original BRIEF.md sentence>"` → new slug must rank in top-3 with score ≥ 0.5. If not, surface the failure — usually means tags / description are too generic.
-
-11. **Show the diff + commit summary** to the user. Two commits propose-stage:
-    - `ugc-cli`: `templates/<category>/<slug>/` (8–15 files depending on kind)
-    - `ralphy-assets`: `pool/<kind>/<slug>/` + `manifest.json` update (only if heavy assets migrated)
-    
-    Don't auto-push. Show the file list and one-liner per file, then ask the user before `git add` / `git commit` / `git push`. The user owns both repos, so it's a confirmation, not a permission gate.
-
-## How to use the output template
-
-Once the template is written and committed, the consumer flow (a future agent or the user) becomes one command:
+templater extracts + classifies; the **publish to library is the #056 primitive**, `landing/scripts/publish-entity.ts`. It has two independent modes (both first-class — a Unit and a standalone Block publish on their own):
 
 ```bash
-ralphy template use <slug> --project <new-project-id> --brief "<one-line brief>"
+# Publish a finished Unit (its media -> Storage, units row + provenance rows, append to published.ts):
+cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug>          # dry-run
+cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug> --push    # actually push
+
+# Publish a standalone Block (a Style / Recipe / Asset can be pushed without a Unit):
+cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json>          # dry-run
+cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json> --push    # actually push
 ```
 
-This is the existing `template use` verb — nothing new on the consumer side. It:
-- Scaffolds `workspace/projects/<new-id>/` with empty subdirs
-- Copies required assets (locally if present, or pulls from `ralphy-assets/pool/` via the `assets-repo.ts` flow)
-- Writes `TEMPLATE_ORIGIN.md` so the next agent reads the template's `TEMPLATE.md` + `prompt-cookbook.md` first
-- The scenario is then authored fresh by `/ralph-ugc:create-scenario` using the template as vibe reference (NOT mechanically copied — see template.ts L321 for why)
-
-The agent on the consumer side fills `{{slots}}` from the new project's brief, then runs the pipeline as normal.
+A `--block` spec is `{ kind, id, name, blurb, sub?, refs?[] }`. The script writes to Supabase (DB + Storage) AND appends to the committed open-source `landing/lib/library-v2/published.ts` (idempotent by id, append-only). Default run is DRY-RUN. **templater never invokes `--push`** — it prints the commands and hands control back. The maintainer one-shot that runs them is `dev-publish-template` (#056).
 
 ## Edge cases & refusals
 
-- **Source project not yet rendered** → refuse. Templates are crystallized experience; pre-render projects have nothing crystallized.
-- **Slug already exists in `templates/`** → refuse unless `--force`. Show the diff first.
-- **No `postmortem/`** → proceed but warn. The TEMPLATE.md will lack "Key rules" + "Workflow" sections; the user gets a clear suggestion to `/postmortem` first.
-- **Heavy assets in workspace exceed 50 MB total** → confirm before pool migration. GitHub raw limit is 100 MB; the template should stream from `raw.githubusercontent.com` cleanly.
-- **`--dry-run`** → print the proposed bundle as JSON (file → content), no writes anywhere. Useful for previewing before committing the slug.
-- **LLM classification picks the wrong category** → user override via `--category` always wins. Surface the LLM's reasoning in the JSON output so the user can correct fast.
+- **No `units/` AND no finished deliverables in `asset-manifest.json`** → the project isn't done. Refuse, point at what's missing (run /producer or finish the pipeline).
+- **No `units/` but finished media exists** → DO NOT refuse. Surface the gap, suggest `ralphy unit create`, classify candidate blocks from the manifest anyway. (This is the #062 fix in spirit — never hard-block scenario-less / unit-thin projects.)
+- **No `scenario.json`** → DO NOT refuse (the #062 fix). Derive the Template block's structure from `index.html` / slide layout, skip the scene table.
+- **No `postmortem/`** → proceed but warn. Block classification leans harder on `prompts.json` + `asset-manifest.json`; offer to `/postmortem` (now a 7-file set incl. `06-units.md`) first for a cleaner NEW/REUSED split.
+- **A block looks like an existing one** → match it, mark REUSED, do NOT create a duplicate. When genuinely unsure, prefer REUSED and flag the uncertainty in `warnings`.
+- **Slug collision in `templates/`** (only if writing the optional local artifact) → refuse unless `--force`, show the diff first.
 
-## Why this skill exists (the durable-experience angle)
+## Why this skill exists
 
-Today every project's 6-file postmortem captures the most expensive lessons (which model produced bad anatomy, which prompt wording fixed an identity drift, which ffmpeg flag eliminated a click bug) — and then those lessons sit unindexed. The next agent who wants to make a similar video has no way to consume them short of reading the full postmortem.
-
-A template is the compression layer: it crystallizes those lessons into a `prompt-cookbook.md` + `model-stack.md` + `TEMPLATE.md` rules section, then ships them into a discoverable surface (`ralphy template suggest`). The next agent types one CLI command and starts the next project at the postmortem's wisdom level, not at the pre-postmortem flailing level.
-
-This skill is the bridge between "we shipped a render" and "we shipped a method." 
+A finished project's postmortem captures the expensive lessons; `units/*/unit.json` captures the finished deliverables and their provenance. Without templater, those sit unindexed — the next agent re-derives the structure, the look, the effects from scratch. templater is the **compression + classification layer**: it factors the project into the five reusable entities and matches them against the library so the next project starts at the library's wisdom level. The publish primitive (#056) then makes those entities discoverable. This skill is the bridge between "we shipped deliverables" and "we shipped reusable blocks."
 
 ## References
 
 - `references/extraction-rules.md` — per-source-file extraction details + edge cases.
-- `references/slot-detection.md` — LLM prompt + heuristic patterns for finding `{{slots}}` in prompts.json.
-- `references/kind-decision.md` — vibe-reference vs vibe-style decision tree.
+- `references/slot-detection.md` — LLM prompt + heuristics for `{{slots}}` in prompts.json.
+- `references/kind-decision.md` — vibe-reference vs vibe-style decision tree (for the optional local artifact).
 - `references/category-classifier.md` — the five segment-persona categories + LLM classification prompt.
-- `references/pool-migration.md` — heavy-asset migration algorithm + ralphy-assets manifest update flow.
-- `cli/commands/template.ts` — the existing template surface (list / show / suggest / use / create). The new `create-from-project` subcommand lives in the same module to share helpers.
-- `templates/CATEGORIES.md` — full slug-by-category roster (existing templates by category).
-- `docs/playbooks/producer.md` — finished-project pipeline (the prerequisite to this skill firing).
+- `references/pool-migration.md` — heavy-asset migration to `ralphy-assets/pool/` (for Asset blocks / the local artifact).
+- `cli/lib/schemas/unit.ts` — the `unit.json` Zod schema (the Unit source of truth, #069).
+- `landing/lib/library-v2/types.ts` — the five-entity shapes (Format / Unit / Block kinds).
+- `landing/scripts/publish-entity.ts` — the publish primitive (#056); templater hands off to it.
+- `docs/skills-vs-templates.md` — templater = extract/classify; #056 = the Supabase→library writer.
+- `.agents/skills/dev-publish-template/SKILL.md` — the maintainer one-shot that runs the publish for you.
