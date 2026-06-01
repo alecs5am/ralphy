@@ -1,21 +1,22 @@
 ---
 name: postmortem
 namespace: user
-description: Distil the conversation we just had into a structured 6-file postmortem set under `workspace/projects/<id>/postmortem/` for the active ralphy project. Splits the record into chronological chat history, lessons learned, ralphy-CLI bug list (with the raw `bunx` / `ffmpeg` / `curl` workarounds the agent had to reach for), model-and-cost rollup, and workflow / playbook fixes. Use this skill whenever the user types `/postmortem`, asks for a "retro" / "lessons learned" / "what did we learn" / "write up the lessons", or says things like "write best practices", "debrief", "record what didn't work" after a non-trivial multi-iteration ralphy session. Also use proactively at the end of any ralphy session that had ≥2 user-driven course corrections (re-rolls, model swaps, scope pivots) or ≥1 CLI gap the agent worked around with raw tooling — the iteration history fades from chat memory, and a checked-in `postmortem/` set is the only durable record. Don't skip this even if the project shipped successfully — successful projects with painful iteration history are the most valuable to document.
+description: Distil the conversation we just had into a structured 7-file postmortem set under `workspace/projects/<id>/postmortem/` for the active ralphy project. Splits the record into chronological chat history, lessons learned, ralphy-CLI bug list (with the raw `bunx` / `ffmpeg` / `curl` workarounds the agent had to reach for), model-and-cost rollup, workflow / playbook fixes, and a units-produced + provenance record (the shipped Units + their template/style/recipe/asset blocks, for the extract/publish path). Use this skill whenever the user types `/postmortem`, asks for a "retro" / "lessons learned" / "what did we learn" / "write up the lessons", or says things like "write best practices", "debrief", "record what didn't work" after a non-trivial multi-iteration ralphy session. Also use proactively at the end of any ralphy session that had ≥2 user-driven course corrections (re-rolls, model swaps, scope pivots) or ≥1 CLI gap the agent worked around with raw tooling — the iteration history fades from chat memory, and a checked-in `postmortem/` set is the only durable record. Don't skip this even if the project shipped successfully — successful projects with painful iteration history are the most valuable to document.
 ---
 
 # Postmortem skill — ralphy pipeline
 
 ## Why multi-doc
 
-A single `POSTMORTEM.md` mixes four very different audiences:
+A single `POSTMORTEM.md` mixes very different audiences:
 
 - **Future-me on the next similar project** wants *lessons + model picks + prompt patterns* (02-lessons.md, 04-models-and-cost.md).
 - **The user reviewing what we actually did** wants a *chronological replay* of their asks and the agent's steps (01-chat-history.md).
 - **A CLI maintainer** wants a clean list of *ralphy verbs that failed or didn't exist, plus the raw workaround used* (03-cli-issues.md). This is the highest-leverage doc — it's what turns the session into a CLI roadmap.
 - **The playbook author** wants meta-level *where did the workflow break, what doc was wrong / missing* (05-workflow-fixes.md).
+- **The extract / publish step** (`templater`, the `publish-entity.ts` path #056) wants a clean record of *which finished Units the project shipped and the provenance blocks behind each* (06-units.md). It freezes the entity facts while fresh so they can be classified + published later without re-deriving them.
 
-When you stuff all four into one file, the CLI-issues list gets buried in a 500-line rules document and never makes it into a PR. The split is so each doc can be skimmed by the right reader.
+When you stuff all of these into one file, the CLI-issues list and the units record get buried in a 500-line rules document and never make it into a PR. The split is so each doc can be skimmed by the right reader.
 
 ## When to fire
 
@@ -31,16 +32,17 @@ Proactive triggers (offer to do it, don't auto-execute):
 
 ## What I produce
 
-A directory at `workspace/projects/<id>/postmortem/` with **6 files**:
+A directory at `workspace/projects/<id>/postmortem/` with **7 files**:
 
 ```
 workspace/projects/<id>/postmortem/
-├── 00-INDEX.md            map + 3-bullet TL;DR linking to the 5 substantive docs
+├── 00-INDEX.md            map + 3-bullet TL;DR linking to the 6 substantive docs
 ├── 01-chat-history.md     chronological: user prompt → agent steps → outcome
 ├── 02-lessons.md          rules learned the hard way (TL;DR, pipeline-from-scratch, pitfalls, prompt patterns)
 ├── 03-cli-issues.md       ralphy verbs that failed or didn't exist + raw workaround used + suggested fix
 ├── 04-models-and-cost.md  $ rollup by phase + which model won which task + discovered model breakage
-└── 05-workflow-fixes.md   meta: where the playbook misled us, what to add to AGENTS.md / docs/playbooks/
+├── 05-workflow-fixes.md   meta: where the playbook misled us, what to add to AGENTS.md / docs/playbooks/
+└── 06-units.md            units produced + provenance: each shipped Unit + its block slugs (NEW vs REUSED)
 ```
 
 Each file has its own template under [`references/`](references/). Read the template for the doc you're about to write — don't paraphrase the structure from memory.
@@ -53,6 +55,7 @@ Each file has its own template under [`references/`](references/). Read the temp
 | 03-cli-issues.md | [`references/03-cli-issues.template.md`](references/03-cli-issues.template.md) |
 | 04-models-and-cost.md | [`references/04-models-and-cost.template.md`](references/04-models-and-cost.template.md) |
 | 05-workflow-fixes.md | [`references/05-workflow-fixes.template.md`](references/05-workflow-fixes.template.md) |
+| 06-units.md | [`references/06-units.template.md`](references/06-units.template.md) |
 
 ## Source material to read (in order)
 
@@ -82,7 +85,10 @@ Don't write from memory — pull from the actual session artifacts. Different do
 
 6. **`workspace/projects/<id>/asset-manifest.json` or `assets/` dir listing** — what actually ended up in the render. **Pay attention to `.v2.`, `.v3.` files** — they are evidence of regen iterations and feed the cost-vs-minimum estimate.
 
-7. **`git log --oneline -20`** — commits made during the session reveal phase boundaries.
+7. **`workspace/projects/<id>/units/*/unit.json`** (drives 06-units.md) — the finished, curated **Units** the project shipped (formed by `ralphy unit create`, issue #069). Each carries `slug`, `format`, ordered `media`, and a `provenance` block (`template` / `style` / `recipes[]` / `assets[]` slugs). 06-units.md records each Unit and marks every provenance block NEW vs. REUSED. If there is no `units/` dir, 06 uses its empty case — do NOT fabricate units from `assets/`.
+   Run: `for u in workspace/projects/<id>/units/*/unit.json; do jq -c '{slug, format, provenance}' "$u"; done`
+
+8. **`git log --oneline -20`** — commits made during the session reveal phase boundaries.
 
 ## Path logic
 
@@ -96,13 +102,14 @@ Don't write from memory — pull from the actual session artifacts. Different do
    - workspace/projects/<id>/postmortem/
 
 3. If the dir exists already (previous session ran the skill):
-   - For each of the 6 files, APPEND an "Iteration N addendum" section (numbered).
+   - For each of the 7 files, APPEND an "Iteration N addendum" section (numbered).
    - Never delete or rewrite existing addendum sections (append-only invariant).
    - Update 00-INDEX.md to reflect the new iteration count in its TL;DR.
+   - If a prior session pre-dates 06-units.md (6-file set), CREATE 06-units.md fresh from its template this run — that is a new file, not an overwrite.
 
 4. If the dir doesn't exist:
    - Create it.
-   - Write all 6 files from their templates.
+   - Write all 7 files from their templates.
    - Date the bottom of each with today's date.
 
 5. Legacy `POSTMORTEM.md` (single-file) at the project root:
@@ -136,6 +143,7 @@ Per-file length calibration (sweet spot):
 - 03-cli-issues.md: 100-250 lines (every row is actionable)
 - 04-models-and-cost.md: 80-150 lines
 - 05-workflow-fixes.md: 100-200 lines
+- 06-units.md: 40-150 lines (scales with unit count; the empty case is ~15 lines)
 
 ## Append-only invariant (applies to this skill too)
 
@@ -155,8 +163,9 @@ Before opening Write tool, mentally walk through each doc:
 - **03-cli-issues.md** — "How many times did I type `bunx tsx`, `ffmpeg`, or `curl` against a provider? Each one is a row."
 - **04-models-and-cost.md** — "Did I run `jq` over generations.jsonl, or am I guessing at $?"
 - **05-workflow-fixes.md** — "What playbook section, if it had said X, would have prevented the worst iteration?"
+- **06-units.md** — "Which `units/<slug>/unit.json` did this project form, and for each provenance block, is it NEW (publish candidate) or REUSED (already in the library)? If there is no `units/` dir, the empty case applies."
 
-If you can't answer all five with specifics from this session, you don't have enough material yet — read more of the conversation / gen-log before writing.
+If you can't answer all six with specifics from this session, you don't have enough material yet — read more of the conversation / gen-log before writing.
 
 ## What NOT to do
 
@@ -169,13 +178,14 @@ If you can't answer all five with specifics from this session, you don't have en
 
 ## Final step
 
-After writing all 6 files, give the user this summary in chat:
+After writing all 7 files, give the user this summary in chat:
 
-1. **Where it's saved**: `workspace/projects/<id>/postmortem/` (list the 6 filenames).
+1. **Where it's saved**: `workspace/projects/<id>/postmortem/` (list the 7 filenames).
 2. **N rules captured**: brief one-line list of the headline rules from 02-lessons.md.
 3. **$ accounted**: total spend + avoidable-vs-genuine breakdown (from 04).
 4. **CLI gaps to file**: count + one-line list of suggested new ralphy verbs (from 03).
 5. **Playbook fixes proposed**: count + one-line list of which playbook docs need editing (from 05).
-6. **Next-time win**: the single biggest "if I knew this at the start I'd have saved $X" insight.
+6. **Units shipped**: count of Units recorded + the NEW-block publish candidates from 06 (one line — record only; publishing is `templater` + the `publish-entity.ts` path #056).
+7. **Next-time win**: the single biggest "if I knew this at the start I'd have saved $X" insight.
 
 Ask if they want any section expanded or any rule re-phrased. Don't auto-iterate — let them drive.
