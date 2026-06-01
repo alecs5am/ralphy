@@ -26,9 +26,42 @@
 import type { Block, Unit } from "./types";
 
 // ralphy:published-units:start
-export const PUBLISHED_UNITS: Unit[] = [];
+export const PUBLISHED_UNITS: Unit[] = [
+  {
+    "id": "voxel-fork",
+    "format": "image",
+    "title": "Voxel Horror Fork",
+    "blurb": "First-person lantern at a fork in the path — armadillo by the mine, gnome with umbrella, lighthouse beam through the rain. Voxel horror-game still.",
+    "templateId": "choose-the-door",
+    "styleId": "voxel-night-rain",
+    "recipeIds": [
+      "rain-overlay",
+      "lantern-glow",
+      "voxel-dither",
+      "noir-grade"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/voxel-fork/voxel-fork.png",
+        "kind": "image",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/voxel-fork/voxel-fork.png"
+      }
+    ]
+  }
+];
 // ralphy:published-units:end
 
 // ralphy:published-blocks:start
-export const PUBLISHED_BLOCKS: Block[] = [];
+export const PUBLISHED_BLOCKS: Block[] = [
+  {
+    "kind": "style",
+    "id": "voxel-night-rain",
+    "name": "Voxel night-rain",
+    "blurb": "Blocky voxel 3D under heavy rain and lantern light — cozy-eerie horror-game mood, dense fog, deep blues, warm point-light pools.",
+    "refs": []
+  }
+];
 // ralphy:published-blocks:end

@@ -74,6 +74,9 @@ export interface UnitMedia {
   aspect: string;
   /** Poster frame for a video tile, when one exists. */
   poster?: string;
+  /** Supabase Storage public URL (set when published/seeded). The adapter
+   *  prefers this over the local `src` when present (mediaUrl). */
+  storageUrl?: string;
 }
 
 /** A finished deliverable. `templateId` + `styleId` are single; `recipeIds` +
