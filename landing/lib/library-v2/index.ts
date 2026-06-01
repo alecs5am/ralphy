@@ -12,11 +12,17 @@
 // server component alike. The catalog is a static module, so all the maps are
 // computed once at module-eval time.
 
-import { BLOCKS, FORMATS, UNITS } from "./catalog";
+import {
+  BLOCKS as BASE_BLOCKS,
+  FORMATS,
+  UNITS as BASE_UNITS,
+} from "./catalog";
+import { PUBLISHED_BLOCKS, PUBLISHED_UNITS } from "./published";
 import type {
   ApplicableFn,
   Block,
   BlockKind,
+  BlocksByKind,
   CountsFn,
   FmtCounts,
   Format,
@@ -39,7 +45,46 @@ export type {
   UnitMedia,
   UnitsUsingFn,
 } from "./types";
-export { BLOCKS, FORMATS, UNITS } from "./catalog";
+export { FORMATS } from "./catalog";
+
+// ── Merge: base catalog + published entities ─────────────────────────────────
+// The committed catalog (catalog.ts) is the hand-curated migration output; the
+// publish script (issue #056) appends to published.ts instead of editing the
+// catalog. The loader concatenates both and dedupes by id, with the PUBLISHED
+// entry winning on an id clash (a re-publish supersedes a stale catalog entry).
+// Everything downstream (the lookup maps below, source.ts's static fallback, and
+// the feed) reads the merged result, so published entities surface automatically.
+
+/** Concat two arrays, dedupe by `id`, last-writer-wins. `overrides` win on clash. */
+function mergeById<T extends { id: string }>(base: T[], overrides: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const item of base) byId.set(item.id, item);
+  for (const item of overrides) byId.set(item.id, item); // published wins
+  return Array.from(byId.values());
+}
+
+/** All Units: base catalog merged with published units (published wins by id). */
+export const UNITS: Unit[] = mergeById(BASE_UNITS, PUBLISHED_UNITS);
+
+/** All Blocks by kind: base catalog merged with published blocks of each kind. */
+export const BLOCKS: BlocksByKind = {
+  template: mergeById(
+    BASE_BLOCKS.template,
+    PUBLISHED_BLOCKS.filter((b) => b.kind === "template"),
+  ),
+  style: mergeById(
+    BASE_BLOCKS.style,
+    PUBLISHED_BLOCKS.filter((b) => b.kind === "style"),
+  ),
+  recipe: mergeById(
+    BASE_BLOCKS.recipe,
+    PUBLISHED_BLOCKS.filter((b) => b.kind === "recipe"),
+  ),
+  asset: mergeById(
+    BASE_BLOCKS.asset,
+    PUBLISHED_BLOCKS.filter((b) => b.kind === "asset"),
+  ),
+};
 
 /** Format lookup by id. */
 export const F_BY: Record<string, Format> = Object.fromEntries(
