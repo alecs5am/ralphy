@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./reset.css";
 import "./globals.css";
+import { PostHogProvider } from "./providers";
 
 export const metadata: Metadata = {
   title: "Ralphy · Open-source content factory CLI",
@@ -44,7 +45,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ))}
       </head>
       <body suppressHydrationWarning>
-        <div id="root">{children}</div>
+        <PostHogProvider>
+          <div id="root">{children}</div>
+        </PostHogProvider>
       </body>
     </html>
   );
