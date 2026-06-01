@@ -161,7 +161,7 @@ function packGrid(n: number): { cols: number; rows: number; count: number } {
   return { cols, rows, count };
 }
 
-export function MediaCell({ m, alt }: { m: UnitMedia; alt: string }) {
+export function MediaCell({ m, alt, fit = "cover" }: { m: UnitMedia; alt: string; fit?: "cover" | "contain" }) {
   const url = mediaUrl(m);
   if (m.kind === "video") {
     return (
@@ -173,12 +173,12 @@ export function MediaCell({ m, alt }: { m: UnitMedia; alt: string }) {
         playsInline
         preload="metadata"
         disablePictureInPicture
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        style={{ width: "100%", height: "100%", objectFit: fit, display: "block" }}
       />
     );
   }
   return (
-    <Image src={url} alt={alt} fill sizes="(max-width: 820px) 50vw, 20vw" style={{ objectFit: "cover" }} unoptimized />
+    <Image src={url} alt={alt} fill sizes="(max-width: 820px) 50vw, 20vw" style={{ objectFit: fit }} unoptimized />
   );
 }
 
