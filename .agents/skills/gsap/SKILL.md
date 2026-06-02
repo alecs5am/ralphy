@@ -1,6 +1,6 @@
 ---
 name: gsap
-description: GSAP animation reference for HyperFrames. Covers gsap.to(), from(), fromTo(), easing, stagger, defaults, timelines (gsap.timeline(), position parameter, labels, nesting, playback), and performance (transforms, will-change, quickTo). Use when writing GSAP animations in HyperFrames compositions.
+description: GSAP animation reference for HyperFrames. Covers gsap.to(), from(), fromTo(), easing, stagger, defaults, timelines (gsap.timeline(), position parameter, labels, nesting, playback), performance (transforms, will-change, quickTo), plugins (SplitText, DrawSVG, MorphSVG, MotionPath, Flip, CustomEase/CustomWiggle/CustomBounce, Physics2D, ScrambleText — via references/plugins.md), and gsap.utils (distribute, interpolate, snap, wrap, mapRange, splitColor — via references/utils.md). Use when writing GSAP animations in HyperFrames compositions, animating text per-char/word/line, drawing or morphing SVG, moving along a path, or distributing values across many elements.
 ---
 
 # GSAP
@@ -214,7 +214,13 @@ Pause or kill off-screen animations.
 
 ## References (loaded on demand)
 
-- **[references/effects.md](references/effects.md)** — Drop-in effects: typewriter text, audio visualizer. Read when needing ready-made effect patterns for HyperFrames.
+| File | When to read it |
+|---|---|
+| [references/effects.md](references/effects.md) | Ready-made effect patterns: typewriter text, audio visualizer. |
+| [references/plugins.md](references/plugins.md) | Any GSAP plugin work: SplitText (per-char/word/line text animation), DrawSVG (stroke draw-on), MorphSVG (shape morph), MotionPath (move along a path), Flip (layout-state transitions), CustomEase / CustomWiggle / CustomBounce (camera shake, custom curves), Physics2D / PhysicsProps (projectiles, confetti), ScrambleText, GSDevTools, Pixi. CDN registration recipe included. |
+| [references/utils.md](references/utils.md) | gsap.utils helpers: distribute (grid/cascade value spreads), interpolate, mapRange / normalize / clamp, snap, wrap / wrapYoyo, splitColor, toArray / selector / pipe, random (with the determinism caveat). |
+
+The plugin and utils references are vendored from the official [greensock/gsap-skills](https://github.com/greensock/gsap-skills) (MIT) with HyperFrames adaptation headers — read those headers first; upstream examples assume interactive pages, not seek-driven renders.
 
 ## Best Practices
 
@@ -238,3 +244,4 @@ Pause or kill off-screen animations.
 - HyperFrames adapter source: `packages/core/src/runtime/adapters/gsap.ts`.
 - GSAP documentation: https://gsap.com/docs/v3/
 - GSAP timeline pause and seek behavior: https://gsap.com/docs/v3/GSAP/Timeline/pause%28%29/
+- Official GSAP skills (upstream of references/plugins.md and references/utils.md): https://github.com/greensock/gsap-skills (MIT, vendored at commit `aed9cfd`). The upstream `gsap-react`, `gsap-frameworks`, and `gsap-scrolltrigger` skills are intentionally NOT vendored — compositions are vanilla single-file HTML and renders have no scroll; consult upstream directly if that ever changes.
