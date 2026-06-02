@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -21,8 +21,22 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # SVG-rasterize tests (#037) launch a real headless Chromium via
+      # playwright; without this step they fail with "Executable doesn't exist".
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install chromium --with-deps
+
+      # --timeout 15000 matches package.json test scripts + the pre-commit hook.
+      # bunfig.toml's [test] timeout is NOT honored by `bun test` (verified on
+      # 1.2.22), and the 5s default kills cold CLI spawnSync tests on CI runners.
       - name: Run unit + integration tests
-        run: bun test tests/unit/ tests/integration/
+        run: bun test --timeout 15000 tests/unit/ tests/integration/
         env:
           # Tests use a fixture catalog and never hit the network.
           # Set placeholder env vars so any code path that reads them
