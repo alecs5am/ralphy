@@ -964,5 +964,15 @@ export function templateCmd() {
       console.log();
     });
 
+  cmd.addHelpText(
+    "after",
+    `
+Examples:
+  ralphy template suggest "unboxing video for my skincare brand"
+  ralphy template list --format video
+  ralphy template use <slug> --project <id> --brief "<the swap>"
+`,
+  );
+
   return cmd;
 }
