@@ -3,6 +3,42 @@ title: "Changelog"
 description: "What's new in Ralphy."
 ---
 
+<Update label="June 2, 2026" description="v0.3.0">
+
+## New
+
+**`ralphy unit` — curated deliverables.** Projects now have an append-only `units/` layer: `ralphy unit create <project> --slug <s> --format <f> --from "<glob>"` copies selected assets into a versioned deliverable with a `unit.json` provenance manifest (template + style + recipes + assets). See [`ralphy unit`](/reference/cli/unit).
+
+**`ralphy compose` — timeline-aware composition.** Build the HyperFrames timeline from the asset manifest with explicit scene ordering and timing. See [`ralphy compose`](/reference/cli/compose).
+
+**`ralphy image` — local image ops.** `chromakey`, `cutout`, `fit`, and `svg-rasterize` for sticker cutouts, aspect fitting, and overlay prep — no model call needed. See [`ralphy image`](/reference/cli/image).
+
+**`ralphy guideline` — prompt-library rules.** `list` and `show <slug>` surface the field-tested prompt guidelines (photoreal humans, anti-AI-slop, broadcast realism) so they can be folded into any generation prompt. See [`ralphy guideline`](/reference/cli/guideline).
+
+**`ralphy research run` — deep-research engine.** Planner + fan-out retrievers + a deterministic 5-level citation verifier, including native video analysis of TikTok/Shorts via `gemini-3.1-pro-preview`. See [eval & research](/cli/eval-research).
+
+**`ralphy hyperframes` namespace.** HF utility verbs with gen-log wiring, including `save-version` snapshots of `index.html` before structural edits. See [`ralphy hyperframes`](/reference/cli/hyperframes).
+
+**More new verbs.** `ref locate` (vision-based bounding boxes), `ref pull-site` (Playwright brand-DNA crawl), `ref pull-bulk` + `assets unpack` (bulk pulls), `template extract` (promote a project to a template), `video frame` / `extend` (i2v anchoring), `generate batch` / `variants` / `image-batch` with cost `--dry-run`, `voice clone`, `editor preflight` / `trim-analyze`, `project assets` / `verify`.
+
+## Updates
+
+**Provider reliability.** Transient errors retry with exponential backoff, per-endpoint concurrency self-throttles, oversized PNG anchors auto-resize for i2v, and ElevenLabs ToS rejections return structured errors with auto-resubmit. Voice/scribe/vision/size preflights run before paid calls.
+
+**Render flags.** `ralphy render` gains `--grade` / `--quality`, plus a `--from-clip` loudnorm mode for single-clip finishing. New audio/video recipes: grade, VHS, mix-music, compress. See [`ralphy render`](/reference/cli/render).
+
+**Templates: format → styles taxonomy.** Every template now declares a media format (`video`, `image`, `carousel`, `fb-creative`, `motion-design`, `poster`, `sticker-pack`); `ralphy template suggest` takes `--format`. See [Picking a template](/working/picking-a-template).
+
+## Fixes
+
+**`ralphy new` unified with `project create`.** No more orphan project dirs invisible to `generate` / `render` (#031).
+
+**Gen-log canonical schema.** Every generation logs a consistent record with a `slot` field; `analyze-video` calls are logged too (#032).
+
+**Captions per-slot output.** `ralphy generate captions` writes per-slot files, returns a silent empty array for no-speech clips, and wraps to the caption safe zone (#010).
+
+</Update>
+
 <Update label="May 29, 2026">
 
 ## New

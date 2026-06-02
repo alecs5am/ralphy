@@ -18,7 +18,7 @@ The verb's whole job is to be the choke point. No raw `curl`, no `bunx tsx` agai
 | `generate sfx` | ElevenLabs Sound Generation (≤22s) | MP3, slot-named | flat per call |
 | `generate captions` | ElevenLabs Scribe v1 (word-level) | JSON `Caption[]`, slot-named | ~$0.005 per minute |
 
-Defaults are the live values from [`cli/commands/generate.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/commands/generate.ts) as of v0.2.0. Always cross-check [`MODELS.md`](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) before assuming — Claude's training is stale, and Ralphy reads `MODELS.md` before every call for a reason.
+Defaults are the live values from [`cli/commands/generate.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/commands/generate.ts) as of v0.3.0. Always cross-check [`MODELS.md`](https://github.com/alecs5am/ralphy/blob/main/MODELS.md) before assuming — Claude's training is stale, and Ralphy reads `MODELS.md` before every call for a reason.
 
 ## When the agent drives, when you drive
 
