@@ -926,6 +926,11 @@ Commands:
                                     concept-level / typo queries. Returns top-N
                                     with reasoning when LLM fires.
   help [command]                    display help for command
+
+Examples:
+  ralphy template suggest "unboxing video for my skincare brand"
+  ralphy template list --format video
+  ralphy template use <slug> --project <id> --brief "<the swap>"
 ```
 
 ### `ralphy guideline`
