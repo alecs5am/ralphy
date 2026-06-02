@@ -50,6 +50,11 @@ async function build(target: Target, distDir: string, withBytecode: boolean): Pr
     "--minify",
     "--sourcemap",
     `--target=${target.target}`,
+    // playwright-core ships an electron loader (lib/server/electron/loader.js)
+    // that require()s "electron"; it's never reached at runtime, but the bundler
+    // tries to resolve it. Keep electron external so the compile succeeds.
+    "--external",
+    "electron",
     "cli/index.ts",
     `--outfile=${outPath}`,
   ];
