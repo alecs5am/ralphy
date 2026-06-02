@@ -35,3 +35,16 @@ which then also skips the legitimate `cli:surface:check` / `lint` gates.
   OR mock the spawn so dry-run coverage doesn't shell out; OR move heavy
   spawn-based integration tests out of the pre-commit hook (keep them in CI only).
 - Cross-ref `001-cli-pretty-mode-untested`, `015-invariants-not-tested-in-ci`.
+
+## Update 2026-06-02
+
+Hit 2x more in one session (landing the seedance-prompts + gsap-skills commits):
+pre-push full-suite runs failed on `cli-dryrun-coverage.test.ts > --summary is
+accepted as a no-op for single-step verbs`, this time at a **5s** per-test
+timeout (`timed out after 5001ms (killed 1 dangling process)`), not the 15s
+reported above — the spawn-heavy tests appear to run with an even tighter
+default in this path. Both times an immediate `git push` retry passed with zero
+changes. Pattern holds: pre-commit run green, back-to-back pre-push rerun of the
+identical tree flakes. Reinforces the "don't run the full spawn-heavy suite
+twice per push" angle: pre-push re-running what pre-commit just validated
+doubles the starvation window for no signal.
