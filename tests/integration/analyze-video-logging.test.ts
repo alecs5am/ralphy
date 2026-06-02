@@ -4,65 +4,68 @@
 // postmortem.
 //
 // We exercise `analyzeVideo()` directly (rather than `ralphy ref analyze-video`
-// at the CLI) so we can mock `callLLM` without spinning up OpenRouter. The
-// shape of the row is what we care about; the CLI surface is a thin wrapper.
+// at the CLI) so we can stub the network without spinning up OpenRouter. The
+// stub lives at the `globalThis.fetch` level — the REAL `callLLM` + openrouter
+// connector run end-to-end against a canned chat-completions response. Do NOT
+// reach for `mock.module` here: it mutates the process-wide module registry, so
+// every later-loaded test file inherits the mock (the leak wedged the suite at
+// analyze-frames-language.test.ts on CI — see notes/issues/072 fallout).
 
-import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
 import { setRoot } from "../../cli/lib/paths.js";
 import { readGenerations } from "../../cli/lib/gen-log.js";
-// Captured BEFORE mock.module below fires — bindings imported before the mock
-// keep pointing at the real implementation (verified on bun 1.2.22).
-import { callLLM as realCallLLM } from "../../cli/lib/providers/llm.js";
 
 let tmpRoot: string;
 let origRoot: string;
 
-// Module-level mock for callLLM. Stored as a module-level state so the per-test
-// closure can swap behavior without re-running mock.module each time.
-const callLLMState: {
-  fn: (opts: unknown) => Promise<{
-    text: string;
-    raw: unknown;
-    provider: string;
-    model: string;
-    latencyMs: number;
-  }>;
-} = {
-  fn: async () => {
-    throw new Error("callLLM mock not initialised");
-  },
-};
-mock.module("../../cli/lib/providers/llm.js", () => ({
-  callLLM: (opts: unknown) => callLLMState.fn(opts),
-}));
+const originalFetch = globalThis.fetch;
+const originalKey = process.env.OPENROUTER_API_KEY;
+
+/** Stub fetch with a canned OpenRouter chat-completions response. Returns a
+ *  call counter so tests can assert the network layer was actually reached. */
+function mockFetch(respond: () => Response): { calls: number } {
+  const state = { calls: 0 };
+  globalThis.fetch = (async () => {
+    state.calls += 1;
+    return respond();
+  }) as typeof fetch;
+  return state;
+}
+
+function chatOk(content: string): Response {
+  return new Response(
+    JSON.stringify({
+      id: "gen-test",
+      model: "google/gemini-3.1-pro-preview",
+      choices: [{ message: { content }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-analyze-video-"));
   origRoot = process.cwd();
   setRoot(tmpRoot);
+  // The real connector requires a key to resolve; never hits the network here.
+  process.env.OPENROUTER_API_KEY = "test-or-key";
 });
 
 afterEach(() => {
+  globalThis.fetch = originalFetch;
+  if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY;
+  else process.env.OPENROUTER_API_KEY = originalKey;
   setRoot(origRoot);
   try {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   } catch {
     /* best-effort cleanup */
   }
-});
-
-afterAll(() => {
-  // mock.module mutates the PROCESS-WIDE module registry: any test file loaded
-  // after this one that reaches callLLM (directly or via research.js) gets the
-  // wrapper above, with whatever fn the last test here left behind — on CI that
-  // leaked "simulated 503" into analyze-frames-language.test.ts. Restoring the
-  // real implementation makes the wrapper a transparent passthrough for
-  // later-loaded files, so their own fetch-level mocks keep working.
-  callLLMState.fn = realCallLLM as typeof callLLMState.fn;
 });
 
 describe("analyzeVideo logging (#032)", () => {
@@ -77,17 +80,9 @@ describe("analyzeVideo logging (#032)", () => {
     const mp4Path = path.join(assetsDir, "scene-01.mp4");
     fs.writeFileSync(mp4Path, Buffer.from("fake-mp4-bytes-for-test"));
 
-    let callCount = 0;
-    callLLMState.fn = async () => {
-      callCount += 1;
-      return {
-        text: '[{"id":1,"start_sec":0,"end_sec":3,"description":"mocked"}]',
-        raw: {},
-        provider: "openrouter",
-        model: "google/gemini-3.1-pro-preview",
-        latencyMs: 42,
-      };
-    };
+    const net = mockFetch(() =>
+      chatOk('[{"id":1,"start_sec":0,"end_sec":3,"description":"mocked"}]'),
+    );
 
     const research = await import("../../cli/lib/research.js");
     await research.analyzeVideo({
@@ -105,10 +100,10 @@ describe("analyzeVideo logging (#032)", () => {
     expect(typeof r.input.slot).toBe("string");
     expect(r.status).toBe("ok");
     expect(typeof r.cost_usd).toBe("number");
-    expect(callCount).toBeGreaterThanOrEqual(1);
+    expect(net.calls).toBeGreaterThanOrEqual(1);
   });
 
-  test("logs an error row when callLLM throws", async () => {
+  test("logs an error row when the provider call fails", async () => {
     const projectId = "test-vlog-002";
     const projDir = path.join(tmpRoot, "workspace", "projects", projectId);
     const assetsDir = path.join(projDir, "assets");
@@ -117,9 +112,15 @@ describe("analyzeVideo logging (#032)", () => {
     const mp4Path = path.join(assetsDir, "scene-01.mp4");
     fs.writeFileSync(mp4Path, Buffer.from("more-fake-bytes"));
 
-    callLLMState.fn = async () => {
-      throw new Error("simulated 503 from OpenRouter");
-    };
+    // 4xx → TerminalProviderError immediately (no #005 retries), message
+    // carries the body — so the asserted "503" marker survives verbatim.
+    mockFetch(
+      () =>
+        new Response(
+          JSON.stringify({ error: { message: "simulated 503 from OpenRouter" } }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        ),
+    );
 
     const research = await import("../../cli/lib/research.js");
     await expect(
