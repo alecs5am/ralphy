@@ -7,13 +7,16 @@
 // at the CLI) so we can mock `callLLM` without spinning up OpenRouter. The
 // shape of the row is what we care about; the CLI surface is a thin wrapper.
 
-import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
 import { setRoot } from "../../cli/lib/paths.js";
 import { readGenerations } from "../../cli/lib/gen-log.js";
+// Captured BEFORE mock.module below fires — bindings imported before the mock
+// keep pointing at the real implementation (verified on bun 1.2.22).
+import { callLLM as realCallLLM } from "../../cli/lib/providers/llm.js";
 
 let tmpRoot: string;
 let origRoot: string;
@@ -50,6 +53,16 @@ afterEach(() => {
   } catch {
     /* best-effort cleanup */
   }
+});
+
+afterAll(() => {
+  // mock.module mutates the PROCESS-WIDE module registry: any test file loaded
+  // after this one that reaches callLLM (directly or via research.js) gets the
+  // wrapper above, with whatever fn the last test here left behind — on CI that
+  // leaked "simulated 503" into analyze-frames-language.test.ts. Restoring the
+  // real implementation makes the wrapper a transparent passthrough for
+  // later-loaded files, so their own fetch-level mocks keep working.
+  callLLMState.fn = realCallLLM as typeof callLLMState.fn;
 });
 
 describe("analyzeVideo logging (#032)", () => {
