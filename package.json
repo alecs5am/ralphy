@@ -1,6 +1,6 @@
 {
   "name": "ugc-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Ralphy — open-source UGC video factory CLI. Monorepo root. Published binary is `@alecs5am/ralphy` (see npm/).",
   "repository": {
     "type": "git",
