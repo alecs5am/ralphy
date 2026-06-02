@@ -149,8 +149,9 @@ describe("user journey · ralphy new → ralphy skill install --agent claude", (
     expect(fs.existsSync(skillsDir)).toBe(true);
     const skillEntries = fs.readdirSync(skillsDir);
     expect(skillEntries.length).toBeGreaterThan(0);
-    // Spot-check one expected skill is in the bundle.
-    expect(skillEntries.some((e) => e.startsWith("ralph-") || e.startsWith("ralphy-"))).toBe(true);
+    // Spot-check one expected skill is in the bundle. Slugs carry no
+    // `ralphy-` prefix as of 03.01.04 / 053 — check a known core slug.
+    expect(skillEntries).toContain("researcher");
   });
 
   test("post-new: `--agent claude` from a project dir without RALPHY_REPO_ROOT raises E_SKILL_BUNDLE_NOT_FOUND (clean error, not E_INTERNAL)", () => {
