@@ -74,11 +74,13 @@ See `references/extraction-rules.md` for the per-file extraction details and edg
    - **Format** — confirm each Unit's `format` (it is in `unit.json`; validate it against the eight library formats).
    - **Category + tags + description** — per `references/category-classifier.md`, for any local `templates/<category>/<slug>/` artifact.
 
-6. **Emit the entity bundle.** The primary output is a classified bundle: the Units with resolved provenance, plus the NEW blocks worth keeping (each with kind, slug, blurb, the slots/refs/lessons that define it). Mark every block NEW vs REUSED. This bundle is what the publish primitive consumes. Print it as JSON (see [Output](#output)).
+6. **Capture each Unit's Blueprint (#076 — local + free).** For EACH Unit, run `ralphy blueprint create <project-id> --unit <slug>`. This is the per-unit reproduction recipe: it reads the (gitignored) project files and writes a self-contained `units/<slug>/blueprint/` payload (`blueprint.json` + copied `index.html` / prompt files / hard-asset files), validated against `BlueprintSchema`. It is **extraction only** — reads local files, makes no network call, costs nothing, and is **append-only** (a re-run on a slug that already has a `blueprint/` writes `blueprint.v2/`, never overwrites). Record the result in the bundle as `units[].blueprint` (status `NEW` if this run created the first `blueprint/`, `REUSED` if a prior capture already existed, with the payload path `units/<slug>/blueprint/`). See `references/extraction-rules.md` → "Blueprint capture (per Unit)".
 
-7. **(Optional) Write a local `templates/<category>/<slug>/` artifact.** When the user wants a downloadable repo template (the `vibe-reference` / `vibe-style` form), write it under `templates/<category>/<slug>/` so `ralphy template list / show / suggest / use` pick it up. This is ONE optional output, not the skill's reason for being — the entity publish is the #056 primitive. Schema is the one `cli/commands/template.ts` consumes. Never modify the source project.
+7. **Emit the entity bundle.** The primary output is a classified bundle: the Units with resolved provenance AND each Unit's captured Blueprint, plus the NEW blocks worth keeping (each with kind, slug, blurb, the slots/refs/lessons that define it). Mark every block NEW vs REUSED. This bundle is what the publish primitive consumes. Print it as JSON (see [Output](#output)).
 
-8. **Hand off to publish (#056).** Do NOT push to the library here. Print the exact `publish-entity.ts` commands the user can run (see below) and stop. The user (or a maintainer skill) drives the actual push.
+8. **(Optional) Write a local `templates/<category>/<slug>/` artifact.** When the user wants a downloadable repo template (the `vibe-reference` / `vibe-style` form), write it under `templates/<category>/<slug>/` so `ralphy template list / show / suggest / use` pick it up. This is ONE optional output, not the skill's reason for being — the entity publish is the #056 primitive. Schema is the one `cli/commands/template.ts` consumes. Never modify the source project.
+
+9. **Hand off to publish (#056).** Do NOT push to the library here. Print the exact `publish-entity.ts` commands the user can run (see below) — `--unit`, `--block-file`, AND `--blueprint` for each Unit — and stop. The user (or a maintainer skill) drives the actual push.
 
 ## Output
 
@@ -97,6 +99,11 @@ JSON, pipe-friendly:
         "style": { "slug": "free-air-jelly-pure", "status": "NEW" },
         "recipes": [{ "slug": "floodfill-diecut-cutout", "status": "NEW" }],
         "assets": [{ "slug": "free-air-mascot", "sub": "character", "status": "NEW" }]
+      },
+      "blueprint": {
+        "status": "NEW",
+        "path": "workspace/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint",
+        "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint"
       },
       "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/free-air-vpn-stickerpack/units/stickers-outline"
     }
@@ -125,9 +132,13 @@ cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/u
 # Publish a standalone Block (a Style / Recipe / Asset can be pushed without a Unit):
 cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json>          # dry-run
 cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json> --push    # actually push
+
+# Publish a Unit's Blueprint (#077 — the per-unit reproduction payload, one per Unit):
+cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint          # dry-run
+cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint --push    # actually push
 ```
 
-A `--block` spec is `{ kind, id, name, blurb, sub?, refs?[] }`. The script writes to Supabase (DB + Storage) AND appends to the committed open-source `landing/lib/library-v2/published.ts` (idempotent by id, append-only). Default run is DRY-RUN. **templater never invokes `--push`** — it prints the commands and hands control back. The maintainer one-shot that runs them is `dev-publish-template` (#056).
+A `--block` spec is `{ kind, id, name, blurb, sub?, refs?[] }`. A `--blueprint` dir is the `units/<slug>/blueprint/` payload that step 6 captured (`blueprint.json` + copied `index.html` / prompts / hard assets). The three modes are independent and first-class — a Unit, a standalone Block, and a Blueprint each publish on their own. The script writes to Supabase (DB + Storage) AND appends to the committed open-source `landing/lib/library-v2/published.ts` (idempotent by id / unitId, append-only). Default run is DRY-RUN. **templater never invokes `--push`** — it captures the Blueprint locally (free), then prints the commands and hands control back. The maintainer one-shot that runs them is `dev-publish-template` (#056).
 
 ## Edge cases & refusals
 
@@ -150,6 +161,8 @@ A finished project's postmortem captures the expensive lessons; `units/*/unit.js
 - `references/category-classifier.md` — the five segment-persona categories + LLM classification prompt.
 - `references/pool-migration.md` — heavy-asset migration to `ralphy-assets/pool/` (for Asset blocks / the local artifact).
 - `cli/lib/schemas/unit.ts` — the `unit.json` Zod schema (the Unit source of truth, #069).
+- `cli/commands/blueprint.ts` — the `ralphy blueprint create|show|list|use` surface (#076/#079); templater runs `blueprint create` per Unit in step 6.
+- `cli/lib/schemas/blueprint.ts` — the `BlueprintSchema` Zod shape (#074): the six reproduction axes a captured Blueprint carries.
 - `landing/lib/library-v2/types.ts` — the five-entity shapes (Format / Unit / Block kinds).
 - `landing/scripts/publish-entity.ts` — the publish primitive (#056); templater hands off to it.
 - `docs/skills-vs-templates.md` — templater = extract/classify; #056 = the Supabase→library writer.
