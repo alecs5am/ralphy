@@ -332,6 +332,120 @@ export const PUBLISHED_UNITS: Unit[] = [
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny40-angry.png"
       }
     ]
+  },
+  {
+    "id": "choose-silenthill",
+    "format": "video",
+    "title": "Choose Your Guide: Silent Hill",
+    "blurb": "PS1 fog-horror choose-your-guide: the bandaged nurse vs the armed madman",
+    "templateId": "analog-horror-pick-a-door",
+    "styleId": "ps1-fog-horror",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-silenthill/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-silenthill/showcase.mp4"
+      }
+    ]
+  },
+  {
+    "id": "choose-spaceship",
+    "format": "video",
+    "title": "Choose Your Guide: Derelict Ship",
+    "blurb": "PS1 sci-fi horror: trust the soothing ship-AI or the abrasive engineer",
+    "templateId": "analog-horror-pick-a-door",
+    "styleId": "ps1-scifi-horror",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-spaceship/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-spaceship/showcase.mp4"
+      }
+    ]
+  },
+  {
+    "id": "choose-swamp",
+    "format": "video",
+    "title": "Choose Your Guide: The Swamp",
+    "blurb": "PS1 Slavic folk-horror: read the witch, or trust-but-verify the leshy",
+    "templateId": "analog-horror-pick-a-door",
+    "styleId": "ps1-folk-horror",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-swamp/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-swamp/showcase.mp4"
+      }
+    ]
+  },
+  {
+    "id": "choose-backrooms",
+    "format": "video",
+    "title": "Choose Your Path: Backrooms",
+    "blurb": "PS1 liminal descent, party of 4 dwindles to 1, the blue-pipe subversion",
+    "templateId": "analog-horror-pick-a-door",
+    "styleId": "ps1-liminal",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-backrooms/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-backrooms/showcase.mp4"
+      }
+    ]
+  },
+  {
+    "id": "choose-warofworlds",
+    "format": "video",
+    "title": "Choose Your Guide: War of the Worlds",
+    "blurb": "PS1 invasion horror: the gentle alien is a trap, the grim survivor is the way out",
+    "templateId": "analog-horror-pick-a-door",
+    "styleId": "ps1-scifi-invasion",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-warofworlds/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-warofworlds/showcase.mp4"
+      }
+    ]
+  },
+  {
+    "id": "choose-magicschool",
+    "format": "video",
+    "title": "Choose Your Path: Magic School",
+    "blurb": "Colorful PS1 magic-school dash to class: staircases, living armor, portals, Peeves",
+    "templateId": "analog-horror-pick-a-door",
+    "styleId": "ps1-magic-colorful",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-magicschool/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-magicschool/showcase.mp4"
+      }
+    ]
   }
 ];
 // ralphy:published-units:end
