@@ -42,7 +42,7 @@ workspace/projects/<id>/postmortem/
 ├── 03-cli-issues.md       ralphy verbs that failed or didn't exist + raw workaround used + suggested fix
 ├── 04-models-and-cost.md  $ rollup by phase + which model won which task + discovered model breakage
 ├── 05-workflow-fixes.md   meta: where the playbook misled us, what to add to AGENTS.md / docs/playbooks/
-└── 06-units.md            units produced + provenance: each shipped Unit + its block slugs (NEW vs REUSED)
+└── 06-units.md            units produced + provenance: each shipped Unit + its block slugs (NEW vs REUSED) + any captured Blueprint path
 ```
 
 Each file has its own template under [`references/`](references/). Read the template for the doc you're about to write — don't paraphrase the structure from memory.
@@ -163,7 +163,7 @@ Before opening Write tool, mentally walk through each doc:
 - **03-cli-issues.md** — "How many times did I type `bunx tsx`, `ffmpeg`, or `curl` against a provider? Each one is a row."
 - **04-models-and-cost.md** — "Did I run `jq` over generations.jsonl, or am I guessing at $?"
 - **05-workflow-fixes.md** — "What playbook section, if it had said X, would have prevented the worst iteration?"
-- **06-units.md** — "Which `units/<slug>/unit.json` did this project form, and for each provenance block, is it NEW (publish candidate) or REUSED (already in the library)? If there is no `units/` dir, the empty case applies."
+- **06-units.md** — "Which `units/<slug>/unit.json` did this project form, and for each provenance block, is it NEW (publish candidate) or REUSED (already in the library)? Was a per-unit Blueprint captured (`units/<slug>/blueprint/`, #076)? If there is no `units/` dir, the empty case applies."
 
 If you can't answer all six with specifics from this session, you don't have enough material yet — read more of the conversation / gen-log before writing.
 
