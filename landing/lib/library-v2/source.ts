@@ -15,6 +15,7 @@ import {
   applicable as staticApplicable,
   BLOCK_BY as staticBlockBy,
   BLOCKS as STATIC_BLOCKS,
+  BLUEPRINT_BY as STATIC_BLUEPRINT_BY,
   counts as staticCounts,
   F_BY as STATIC_F_BY,
   fmtCounts as staticFmtCounts,
@@ -41,6 +42,7 @@ import type {
   AssetSub,
   Block,
   BlockKind,
+  Blueprint,
   FmtCounts,
   Format,
   FormatId,
@@ -283,6 +285,19 @@ export async function getUnits(filter?: { format?: FormatId }): Promise<Unit[]> 
 export async function getUnit(id: string): Promise<Unit | undefined> {
   if (!isSupabaseBacked()) return STATIC_U_BY[id];
   return (await loadGraph()).units.find((u) => u.id === id);
+}
+
+/** The per-unit Blueprint (#074) — the full reproduction recipe for one Unit,
+ *  or undefined when the unit has no published Blueprint yet (the default today:
+ *  0 published, backfill is #081). The static catalog is the spec-critical path.
+ *
+ *  Supabase backend: the `blueprints` table is not yet seeded (#081) and a faithful
+ *  fetch (one row keyed by `unitId`, JSON-decoded into the six axes) is non-trivial
+ *  relative to the zero-row payoff, so we serve the static lookup on both backends
+ *  for now and leave the wiring as a follow-up.
+ *  // TODO(#078): supabase blueprints fetch when the table is seeded (#081). */
+export async function getBlueprint(unitId: string): Promise<Blueprint | undefined> {
+  return STATIC_BLUEPRINT_BY[unitId];
 }
 
 /** A single Block by (kind, id), or undefined. */
