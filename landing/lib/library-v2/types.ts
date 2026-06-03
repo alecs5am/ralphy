@@ -243,6 +243,12 @@ export interface BlueprintComposition {
   timing?: { A?: number[]; SEG?: number[] };
   /** HyperFrames components / registry blocks / overlay functions referenced. */
   components?: string[];
+  /** Publish-time (#077): public Storage URL for the composition's index.html
+   *  so `blueprint use` (#079) can pull it on a fresh machine. */
+  storageUrl?: string;
+  /** Publish-time (#077): the composition's index.html inlined into the mirror
+   *  when small enough to commit, so `blueprint use` (#079) needs no network. */
+  html?: string;
 }
 
 /** Axis 4 — one hard asset, pinned by file ref (the actual file, not a name). */

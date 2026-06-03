@@ -103,6 +103,18 @@ export const BlueprintCompositionSchema = z.object({
     })
     .optional(),
   components: z.array(z.string()).optional(),
+  /**
+   * Publish-time annotation (#077): a public Storage URL for the composition's
+   * index.html, so `blueprint use` (#079) can pull it offline-less. Set by the
+   * landing publish path, never by `ralphy blueprint create`.
+   */
+  storageUrl: z.string().optional(),
+  /**
+   * Publish-time annotation (#077): the composition's index.html inlined into
+   * the mirror when it is small enough to commit. Lets `blueprint use` (#079)
+   * write a real index.html with zero network. Set by the publish path.
+   */
+  html: z.string().optional(),
 });
 
 /** Axis 4 — one hard asset, pinned by file ref. */

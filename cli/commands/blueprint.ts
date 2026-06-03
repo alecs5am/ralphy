@@ -19,7 +19,10 @@ import { Command } from "commander";
 import fs from "node:fs/promises";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { projectsDir } from "../lib/paths.js";
+import { createWriteStream } from "node:fs";
+import { Readable } from "node:stream";
+import { finished } from "node:stream/promises";
+import { projectsDir, root } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { UnitManifestSchema, type UnitManifest } from "../lib/schemas/unit.js";
@@ -592,6 +595,104 @@ function walkFiles(root: string, rel = "", out: string[] = []): string[] {
   return out;
 }
 
+// ── `use` — scaffold a reproducible project from a PUBLISHED Blueprint (#079) ──
+
+/**
+ * Resolve a published Blueprint by its `unitId`, OFFLINE, from the committed
+ * mirror (`landing/lib/library-v2/published.ts`). The CLI has NO Supabase creds
+ * (AGENTS.md invariant #1), so the committed mirror is the only source.
+ *
+ * Order:
+ *   1. In-tree committed mirror (PRIMARY): import `PUBLISHED_BLUEPRINTS` from the
+ *      published.ts sibling of the repo's `templates/` and find `unitId`.
+ *   2. Graceful failure: if the mirror file is absent (global binary, no
+ *      `landing/` dir) OR the unitId isn't in it → return null + a reason.
+ *
+ * Never attempts a Supabase / authed fetch — there are no creds for one.
+ */
+async function resolvePublishedBlueprint(
+  unitId: string,
+): Promise<{ blueprint: Blueprint | null; reason: string | null }> {
+  // The published mirror is a sibling of the repo's `templates/` dir (both anchor
+  // off `root()` — same anchor `repoTemplatesDir()` uses).
+  const mirrorPath = path.join(root(), "landing", "lib", "library-v2", "published.ts");
+  if (!existsSync(mirrorPath)) {
+    return {
+      blueprint: null,
+      reason: `committed mirror not found at ${path.relative(root(), mirrorPath)} (a global binary has no landing/ dir)`,
+    };
+  }
+  let mod: { PUBLISHED_BLUEPRINTS?: unknown };
+  try {
+    // Bun runs TS directly; the mirror imports only `./types` (pure types).
+    mod = (await import(mirrorPath)) as { PUBLISHED_BLUEPRINTS?: unknown };
+  } catch (e) {
+    return {
+      blueprint: null,
+      reason: `could not import the committed mirror: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+  const list = mod.PUBLISHED_BLUEPRINTS;
+  if (!Array.isArray(list)) {
+    return { blueprint: null, reason: "PUBLISHED_BLUEPRINTS is not an array in the mirror" };
+  }
+  const raw = (list as Array<Record<string, unknown>>).find((b) => b?.unitId === unitId);
+  if (!raw) {
+    return { blueprint: null, reason: `no published blueprint with unitId '${unitId}' in the mirror` };
+  }
+  // TODO(#079): public HTTPS fetch of the published blueprint for global-binary users.
+  const parsed = BlueprintSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      blueprint: null,
+      reason: `published blueprint '${unitId}' failed schema validation: ${parsed.error.message}`,
+    };
+  }
+  return { blueprint: parsed.data, reason: null };
+}
+
+/** Download a public URL to a destination path (no sha256 — Storage URLs carry none). */
+async function downloadPublic(url: string, destPath: string): Promise<void> {
+  await fs.mkdir(path.dirname(destPath), { recursive: true });
+  const res = await fetch(url, { headers: { "User-Agent": "ralphy-cli/1.0" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.body) throw new Error("empty body");
+  const tmp = `${destPath}.partial`;
+  const sink = createWriteStream(tmp);
+  const stream = Readable.fromWeb(res.body as any);
+  stream.pipe(sink);
+  await finished(sink);
+  await fs.rename(tmp, destPath);
+}
+
+/** Map a hard-asset kind to the project assets/ subdir it belongs in. */
+function assetSubdirForKind(kind: BlueprintAssetKind): string {
+  if (kind === "music") return path.join("assets", "music");
+  // character / location / prop / ref / master are all still images by default.
+  return path.join("assets", "images");
+}
+
+/** Best-effort file extension for a downloaded asset URL. */
+function extFromUrl(url: string, fallback: string): string {
+  try {
+    const p = new URL(url).pathname;
+    const ext = path.extname(p);
+    return ext || fallback;
+  } catch {
+    return path.extname(url) || fallback;
+  }
+}
+
+/** Whether a dir exists and contains at least one entry. */
+function dirIsNonEmpty(dir: string): boolean {
+  if (!existsSync(dir)) return false;
+  try {
+    return readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // ── command ──────────────────────────────────────────────────────────────────
 
 export function blueprintCmd() {
@@ -741,6 +842,245 @@ export function blueprintCmd() {
       out(BlueprintSchema.parse(JSON.parse(text!)));
     });
 
+  // ── use ─────────────────────────────────────────────────────────────────
+  cmd
+    .command("use <unit-id>")
+    .description(
+      "Scaffold a ready-to-run project from a PUBLISHED Blueprint (offline; #079)",
+    )
+    .requiredOption("--project <project-id>", "New project ID to scaffold")
+    .action(async (unitId: string, opts: { project: string }) => {
+      const projectId = String(opts.project);
+
+      // Source resolution (graceful degrade): committed mirror only — no creds.
+      const { blueprint, reason } = await resolvePublishedBlueprint(unitId);
+      if (!blueprint) {
+        raiseError("E_NOT_FOUND", {
+          kind: "Blueprint",
+          id: `${unitId} — not found offline (${reason}). The committed mirror (landing/lib/library-v2/published.ts) is the only offline source; a public-fetch path for globally-installed binaries is a known follow-up (#079)`,
+        });
+      }
+
+      // Append-only / no-clobber: never overwrite an existing project (#14).
+      const projDir = path.join(projectsDir(), projectId);
+      if (dirIsNonEmpty(projDir)) {
+        raiseError("E_ALREADY_EXISTS", { kind: "Project", id: projectId });
+      }
+
+      const warnings: string[] = [];
+
+      // Standard project tree (mirrors `template use`).
+      await fs.mkdir(path.join(projDir, "assets", "images"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "assets", "videos"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "assets", "voiceover"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "assets", "music"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "assets", "captions"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "render"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "logs"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "scripts"), { recursive: true });
+      await fs.mkdir(path.join(projDir, "prompts"), { recursive: true });
+
+      const written: string[] = [];
+
+      // ── Prompts → prompts/<slot|stage-N>.<ext> verbatim ────────────────────
+      for (let i = 0; i < blueprint.prompts.length; i++) {
+        const p = blueprint.prompts[i]!;
+        const base = (p.slot ?? `${p.stage}-${String(i + 1).padStart(2, "0")}`)
+          .replace(/[^a-zA-Z0-9._/-]/g, "-");
+        const ext = base.includes(".") ? "" : ".txt";
+        const rel = path.join("prompts", `${base}${ext}`);
+        const dst = path.join(projDir, rel);
+        await fs.mkdir(path.dirname(dst), { recursive: true });
+        await fs.writeFile(dst, p.text, "utf8");
+        written.push(rel);
+      }
+
+      // ── Scenario → STORYBOARD.md + scenario.json ───────────────────────────
+      if (blueprint.scenario) {
+        if (blueprint.scenario.storyboardMd) {
+          await fs.writeFile(
+            path.join(projDir, "STORYBOARD.md"),
+            blueprint.scenario.storyboardMd,
+            "utf8",
+          );
+          written.push("STORYBOARD.md");
+        }
+        if (blueprint.scenario.scenes.length > 0) {
+          await fs.writeFile(
+            path.join(projDir, "scenario.json"),
+            JSON.stringify({ scenes: blueprint.scenario.scenes }, null, 2) + "\n",
+            "utf8",
+          );
+          written.push("scenario.json");
+        }
+      } else {
+        warnings.push("blueprint has no scenario (scenario-less still project)");
+      }
+
+      // ── Composition → index.html ───────────────────────────────────────────
+      const comp = blueprint.composition;
+      const compFile = comp?.file;
+      const compStorageUrl = comp?.storageUrl;
+      const compInline = comp?.html;
+      if (comp) {
+        const indexDst = path.join(projDir, "index.html");
+        if (compStorageUrl) {
+          try {
+            await downloadPublic(compStorageUrl, indexDst);
+            written.push("index.html (downloaded from storageUrl)");
+          } catch (e) {
+            warnings.push(
+              `could not download composition from storageUrl: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          }
+        } else if (typeof compInline === "string" && compInline.length > 0) {
+          await fs.writeFile(indexDst, compInline, "utf8");
+          written.push("index.html (inline)");
+        } else {
+          // Only a path recorded — no fetchable content. Placeholder + note.
+          await fs.writeFile(
+            indexDst,
+            [
+              "<!doctype html>",
+              "<!--",
+              "  PLACEHOLDER index.html — the published blueprint recorded the",
+              `  composition by path only (${compFile ?? "index.html"}), with no`,
+              "  fetchable content. Re-author the HyperFrames composition from the",
+              "  timing + components recorded in BLUEPRINT_ORIGIN.md, then render.",
+              "-->",
+              '<html><head><meta charset="utf-8"></head><body></body></html>',
+              "",
+            ].join("\n"),
+            "utf8",
+          );
+          written.push("index.html (placeholder — composition not fetchable)");
+          warnings.push(
+            "composition recorded by path only — index.html is a placeholder; re-author from BLUEPRINT_ORIGIN.md",
+          );
+        }
+      } else {
+        warnings.push("blueprint has no composition (non-HyperFrames output)");
+      }
+
+      // ── Hard assets → assets/<subdir>/ (download when a storageUrl exists) ──
+      const manualFetch: Array<{ slot?: string; path: string; kind: string; note: string }> = [];
+      const downloaded: string[] = [];
+      for (const a of blueprint.assets) {
+        if (a.storageUrl) {
+          const sub = assetSubdirForKind(a.kind);
+          const baseName =
+            (a.slot ? a.slot.replace(/[^a-zA-Z0-9._-]/g, "-") : path.basename(new URL(a.storageUrl).pathname)) ;
+          const ext = path.extname(baseName) ? "" : extFromUrl(a.storageUrl, ".bin");
+          const rel = path.join(sub, `${baseName}${ext}`);
+          const dst = path.join(projDir, rel);
+          try {
+            await downloadPublic(a.storageUrl, dst);
+            downloaded.push(rel);
+          } catch (e) {
+            manualFetch.push({
+              slot: a.slot,
+              path: a.path,
+              kind: a.kind,
+              note: `download failed (${e instanceof Error ? e.message : String(e)}) — fetch manually from the source project`,
+            });
+          }
+        } else {
+          // No public URL (oversizeSkipped / unpublished) — record for manual fetch.
+          manualFetch.push({
+            slot: a.slot,
+            path: a.path,
+            kind: a.kind,
+            note: "no storageUrl — fetch manually from the source project",
+          });
+        }
+      }
+      if (manualFetch.length > 0) {
+        warnings.push(
+          `${manualFetch.length} hard asset(s) need manual fetch — see BLUEPRINT_ORIGIN.md`,
+        );
+      }
+
+      // ── BLUEPRINT_ORIGIN.md (provenance + model stack + recipes + next steps) ─
+      const lines: string[] = [];
+      lines.push(`# Blueprint origin`);
+      lines.push(``);
+      lines.push(`This project was scaffolded from the PUBLISHED blueprint \`${unitId}\`.`);
+      lines.push(`Source: committed mirror \`landing/lib/library-v2/published.ts\` (offline).`);
+      if (blueprint.costRollupUsd != null) {
+        lines.push(``);
+        lines.push(`Original cost rollup: **$${blueprint.costRollupUsd}**.`);
+      }
+
+      lines.push(``, `## Model stack`, ``);
+      if (blueprint.modelStack.length === 0) {
+        lines.push(`_(none recorded)_`);
+      } else {
+        lines.push(`| Stage | Model | Voice | Cost (USD) | Params |`);
+        lines.push(`|---|---|---|---|---|`);
+        for (const m of blueprint.modelStack) {
+          const params = m.params ? JSON.stringify(m.params) : "";
+          lines.push(
+            `| ${m.stage} | \`${m.model}\` | ${m.voiceId ?? ""} | ${m.costUsd ?? ""} | ${params.replace(/\|/g, "\\|")} |`,
+          );
+        }
+      }
+
+      lines.push(``, `## Recipes`, ``);
+      if (blueprint.recipes.length === 0) {
+        lines.push(`_(none recorded)_`);
+      } else {
+        for (const r of blueprint.recipes) {
+          lines.push(`- **${r.name}** (${r.kind})${r.command ? `: \`${r.command}\`` : ""}`);
+        }
+      }
+
+      if (comp?.timing || (comp?.components && comp.components.length > 0)) {
+        lines.push(``, `## Composition`, ``);
+        if (comp.timing?.A) lines.push(`- \`A[]\` (scene-start offsets): ${JSON.stringify(comp.timing.A)}`);
+        if (comp.timing?.SEG) lines.push(`- \`SEG[]\` (segment durations): ${JSON.stringify(comp.timing.SEG)}`);
+        if (comp.components && comp.components.length > 0) {
+          lines.push(`- components / blocks: ${comp.components.join(", ")}`);
+        }
+      }
+
+      if (manualFetch.length > 0) {
+        lines.push(``, `## Hard assets — fetch manually`, ``);
+        lines.push(`These assets were not downloadable offline. ${"Fetch them from the source project and drop them in the right assets/ subdir."}`);
+        lines.push(``);
+        for (const m of manualFetch) {
+          lines.push(`- [${m.kind}] ${m.slot ? `\`${m.slot}\` → ` : ""}\`${m.path}\` — ${m.note}`);
+        }
+      }
+      if (downloaded.length > 0) {
+        lines.push(``, `## Hard assets — downloaded`, ``);
+        for (const d of downloaded) lines.push(`- \`${d}\``);
+      }
+
+      lines.push(``, `## Next steps`, ``);
+      lines.push(`1. Run the per-stage generations: \`ralphy generate {image|video|voiceover|music}\` using the prompts in \`prompts/\` and the model stack above.`);
+      lines.push(`2. Bake / stitch per the recipes above (ffmpeg xfade master, overlays, encode).`);
+      lines.push(`3. Render the composition: \`ralphy render ${projectId}\`.`);
+      lines.push(``);
+      await fs.writeFile(path.join(projDir, "BLUEPRINT_ORIGIN.md"), lines.join("\n"), "utf8");
+      written.push("BLUEPRINT_ORIGIN.md");
+
+      ok(`Scaffolded project '${projectId}' from blueprint '${unitId}'`);
+      out({
+        unitId,
+        project: projectId,
+        dir: path.relative(root(), projDir),
+        prompts: blueprint.prompts.length,
+        scenes: blueprint.scenario?.scenes.length ?? 0,
+        composition: comp ? (compStorageUrl ? "downloaded" : compInline ? "inline" : "placeholder") : null,
+        assetsDownloaded: downloaded.length,
+        assetsNeedingManualFetch: manualFetch.length,
+        modelStack: blueprint.modelStack.length,
+        recipes: blueprint.recipes.length,
+        written,
+        warnings,
+      });
+    });
+
   cmd.addHelpText(
     "after",
     `
@@ -748,6 +1088,7 @@ Examples:
   ralphy blueprint create choose-silenthill-001 --unit choose-silenthill
   ralphy blueprint list choose-silenthill-001
   ralphy blueprint show choose-silenthill-001 --unit choose-silenthill
+  ralphy blueprint use choose-silenthill --project choose-silenthill-repro-001
 `,
   );
 

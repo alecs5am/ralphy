@@ -783,9 +783,22 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
   const uploadable = uploads.filter((u) => u.exists && !u.oversize);
   const oversizeRels = oversize.map((u) => u.rel);
 
+  // The committable-inline cap for the composition's index.html: small enough to
+  // live in the committed mirror so `blueprint use` (#079) can write a real
+  // index.html with zero network. Larger compositions resolve via storageUrl.
+  const COMPOSITION_INLINE_MAX_BYTES = 256 * 1024; // 256 KiB
+  const compRel = compFile
+    ? compFile.replace(/\\/g, "/").replace(/^\.\//, "")
+    : undefined;
+  const compPlan = compRel ? uploads.find((u) => u.rel === compRel) : undefined;
+
   // Build the published Blueprint object. Set storageUrl on each asset whose file
   // is uploadable; record oversize files in `oversizeSkipped` (kept on disk, the
   // local `path` preserved so they can still be fetched from the repo / project).
+  // Also feed the composition reproduction path #079 consumes: set
+  // composition.storageUrl to the uploaded index.html, and inline composition.html
+  // when the file is small enough to commit (so the offline mirror reproduces a
+  // real composition without a network fetch).
   const buildPublished = (withStorage: boolean): Blueprint => {
     const bp: Blueprint = {
       ...blueprint,
@@ -800,6 +813,20 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
         return next;
       }),
     };
+    if (bp.composition && compPlan && compPlan.exists && !compPlan.oversize) {
+      const composition = { ...bp.composition };
+      if (withStorage) {
+        const url = publicUrlFor(compPlan.objectKey);
+        if (url) composition.storageUrl = url;
+      }
+      // Inline the composition HTML into the committed mirror when small. This
+      // path runs in dry-run too (it reads a local file, touches nothing remote)
+      // so the offline reproduce works even when nothing was pushed.
+      if (compPlan.bytes <= COMPOSITION_INLINE_MAX_BYTES) {
+        composition.html = readFileSync(compPlan.localPath, "utf8");
+      }
+      bp.composition = composition;
+    }
     if (oversizeRels.length > 0) bp.oversizeSkipped = oversizeRels;
     return bp;
   };
