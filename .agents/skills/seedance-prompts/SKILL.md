@@ -2,10 +2,12 @@
 name: seedance-prompts
 namespace: user
 description: >-
-  Write effective prompts for Seedance 2.0 (bytedance/seedance-2.0) multimodal video generation — the @ reference
-  system (@Image1/@Video1/@Audio1 role assignment), camera-language vocabulary, time-segmented prompt structure,
+  Write effective prompts for Seedance 2.0 (bytedance/seedance-2.0) multimodal video generation — the official basic
+  prompt formula (Subject+Motion required; Environment/Aesthetics/Camera/Audio optional), the @ reference
+  system (@Image1/@Video1/@Audio1 role assignment, equivalent to the guide's plain Image 1/Video 1), camera-language
+  vocabulary, time-segmented prompt structure, in-video text (slogans/titles, subtitles, speech bubbles),
   and capability-specific patterns (character consistency, camera/effects replication, video extension, editing,
-  music beat-matching, dialogue, one-take, e-commerce, educational). A craft overlay on the art-director step:
+  track completion / multi-clip stitching, music beat-matching, dialogue, one-take, e-commerce, educational). A craft overlay on the art-director step:
   the output prompt is fed to `ralphy generate video --model bytedance/seedance-2.0`, never to a provider API directly.
   USE WHEN the user is generating video with seedance and needs a prompt drafted or improved, asks "write a seedance
   prompt", "how do I reference my uploaded image/video in the prompt", wants beat-synced cuts / camera replication /
@@ -89,6 +91,30 @@ You can combine multiple references in a single prompt:
 @Image1's character as the subject, reference @Video1's camera movement
 and action choreography, BGM references @Audio1, scene references @Image2
 ```
+
+### `@Image1` vs plain `Image 1`
+The official Seedance 2.0 guide writes references as plain **`Image 1` / `Video 1` / `Audio 1`** (no `@`) — e.g. "Reference the woman's appearance from Image 1, Image 2, and Image 3". The `@`-prefixed form above is the platform-UI shorthand for the same role assignment. **Both work; the role-assignment principle is identical.** Either form maps to the `--ref` order on `ralphy generate video` (first `--ref` = `Image 1` / `@Image1`, etc.). Prefer matching the official phrasing (`Image N`) when you copy a pattern straight out of this guide.
+
+---
+
+## Official Basic Prompt Formula (guide §1.1)
+
+Seedance 2.0 "deeply follows natural language logic", so combine these six elements freely. Two are required, four are optional:
+
+| Element | Required? | What it sets |
+|---|---|---|
+| **Subject** | ✅ Required | WHO (or what) is in the shot |
+| **Motion** | ✅ Required | WHAT action that subject performs — Subject + Motion is the logical spine of every prompt |
+| **Environment** | optional | Spatial background, location, set |
+| **Aesthetics** | optional | Lighting, color, visual style, overall tone |
+| **Camera** | optional | Camera choreography (see Camera Language Reference below) |
+| **Audio** | optional | Ambient sound effects, music, voice — for immersive audiovisual output |
+
+**Multimodal Reference Control (guide §1.2)** — two principles when feeding reference material:
+1. **Clearly specify references** — say exactly what to take from each asset ("use the composition from Image 1", "follow the action from Video 2"), never a bare "reference Image 1".
+2. **Precise reproduction** — the model auto-extracts core features from each reference and fuses them with your text, so a tight role assignment yields high-fidelity output.
+
+These map onto the per-capability reference formulas (image §3, video §4) and the @-role table above.
 
 ---
 
@@ -278,6 +304,100 @@ bloodstream. Camera follows blood flow. Blood gradually thickens,
 yellowish lipid deposits form on vessel walls.
 10–15s: Vessel lumen visibly narrows, flow speed decreases. Before/after
 comparison creates visual contrast. Overall colors darken.
+```
+
+### 11. Track Completion (stitch up to 3 videos) — guide §5.3
+Connect separate clips into one continuous piece with controlled transitions. Up to **3 video inputs, ≤ 15s total**; the model auto-captures the connecting portions of the first and last clips and keeps only the segments it needs.
+```
+Formula: [Video 1] + [transition description] + connect to [Video 2]
+         + [transition description] + connect to [Video 3]
+
+Example: Video 1, at the moment the leaf touches the ground, golden
+particle effects burst out, a gust of wind blows, then connect to Video 2.
+```
+Distinct from §4 *video extension*: extension grows ONE clip forward/backward; track completion **joins multiple clips** with a designed transition at each seam.
+
+---
+
+## Text in Video (guide §02)
+
+Seedance 2.0 can bake text overlays in **T2V, I2V, R2V, and V2V** scenarios. It auto-matches style and color to context, and you can also specify color, font, appearance method, timing, and position. **Use common characters — avoid rare glyphs or special symbols** for reliable rendering. For strict logo/wordmark fidelity, drive it from a reference image instead (see Logo Reference below).
+
+### Slogans / Title text — guide §2.1
+```
+Formula: [Text Content] + [Appearance Timing] + [Position]
+         + [Appearance Method], [Text Style (color, font)]
+
+Example: Hand-drawn comic style, three people sitting together eating
+the fried chicken from Image 1, the atmosphere friendly and joyful, then
+the scene gradually blurs and the text "Joy is in Seedance" appears in
+the center of the screen.
+```
+
+### Subtitles — guide §2.2
+Bottom-of-screen text synchronized to the audio/narration rhythm. Describe the spoken line, then say subtitles follow it.
+```
+Pattern: ...subtitles appear at the bottom of the screen with the content
+"...", synchronized with the audio rhythm.
+
+Example: Generate a video with voiceover narration. A deep, calm male
+voice says: "In the grand universe, our world is but a fleeting moment..."
+The scene slowly transitions from night to dawn. Subtitles appear at the
+bottom of the screen following the narration.
+```
+Works for dialogue too: give each speaker's line and add "subtitles appear at the bottom matching each line."
+
+### Speech bubbles — guide §2.3
+Dialogue rendered in a bubble anchored to the speaking character.
+```
+Pattern: [Character] says: "...", speech bubbles appear around the
+character with the dialogue text.
+
+Example: The two people from Image 1 run on a school track. The girl
+smiles and says: "We can definitely do it!" The camera cuts to the boy,
+who hesitates: "Are you sure?" Speech bubbles appear around each speaking
+character with the corresponding dialogue.
+```
+
+---
+
+## Official Reference Formulas (guide §3–§4)
+
+The capability patterns above show worked examples; these are the bare formula templates straight from the guide. Fill the brackets, keep references explicit.
+
+### Image reference
+```
+§3.1 Multi-angle subject:
+  Reference / Extract / Combine + [Image N]'s [Subject], generate
+  [Scene Description], maintaining consistent [Subject] features.
+
+§3.2 Multi-image (logo / multi-subject / multi-element / storyboard):
+  Reference / Extract / Combine / Follow / Generate + [Image N]'s
+  [Referenced Element], generate [Scene Description], maintaining
+  consistent [Referenced Element] features.
+```
+Multi-image sub-patterns the guide calls out explicitly:
+- **Logo** — "...the scene gradually blurs, then the Logo from Image 1 appears" (timed reveal), or "the logo from Image 5 is always displayed in the bottom-right corner."
+- **Multi-element** — assign every asset a slot in one sentence: "scene set inside the restaurant from Image 4; the girl from Image 1 wearing the outfit from Image 2; the boy from Image 3 walks up; the logo from Image 5 in the bottom-right."
+- **Multi-panel storyboard** — "Reference the storyboard in the image; each panel's composition should appear in order," optionally binding character refs to panels (girl = Image 1, dad = Image 2) and panning between panel scenes.
+
+### Video reference
+```
+§4.1 Action:   Reference [Video N]'s [Action], generate [Scene],
+               maintaining consistent action details.
+§4.2 Camera:   Reference [Video N]'s [Camera Movement], generate [Scene],
+               maintaining consistent camera movement.
+§4.3 Effects:  Reference [Video N]'s [Effects], generate [Scene],
+               maintaining consistent effects.
+```
+
+### Video editing — Add / Remove / Modify (guide §5.1)
+```
+Add:    At [Time Position] + [Spatial Position] of [Video N], add
+        [Desired Element].
+Remove: Remove [Element] from [Video N], keep everything else unchanged.
+Modify: Replace [Original Element] in [Video N] with [Desired Element]
+        (keep motion and camera unchanged).
 ```
 
 ---
