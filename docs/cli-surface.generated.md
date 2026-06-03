@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **39**
+Verbs registered: **40**
 
 ## Top-level verbs
 
@@ -889,6 +889,39 @@ Commands:
   delete <project> <slug>         Delete a unit directory (destructive — only
                                   run on explicit user intent)
   help [command]                  display help for command
+```
+
+### `ralphy blueprint`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy blueprint [options] [command]
+
+Assemble / inspect a reproduction-grade Blueprint for a project's unit
+(#074/#076)
+
+Options:
+  -h, --help                  display help for command
+
+Commands:
+  create [options] <project>  Capture a self-contained Blueprint for a unit into
+                              units/<slug>/blueprint/ (append-only)
+  list <project>              List units that have a captured blueprint/ + which
+                              versions exist
+  show [options] <project>    Print a unit's latest blueprint.json
+  help [command]              display help for command
+
+Examples:
+  ralphy blueprint create choose-silenthill-001 --unit choose-silenthill
+  ralphy blueprint list choose-silenthill-001
+  ralphy blueprint show choose-silenthill-001 --unit choose-silenthill
 ```
 
 ### `ralphy template`
