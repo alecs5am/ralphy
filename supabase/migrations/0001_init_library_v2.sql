@@ -81,6 +81,16 @@ create table if not exists unit_blocks (
   primary key (unit_id, block_id, role)
 );
 
+-- Per-unit reproduction Blueprints (#074/#077). 1:1 with a unit (unit_id is the
+-- primary key AND the FK). `data` is the full JSON-serialized Blueprint object
+-- (the six axes + the resolved storageUrl-per-asset + any oversizeSkipped note).
+-- Idempotent upsert keyed by unit_id; append-only (a re-publish replaces the row).
+create table if not exists blueprints (
+  unit_id    text primary key references units(id) on delete cascade,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
+
 -- ── Indexes ──────────────────────────────────────────────────────────────────
 
 create index if not exists unit_blocks_block_id_idx on unit_blocks (block_id);
@@ -92,6 +102,7 @@ create index if not exists blocks_kind_idx           on blocks (kind);
 alter table blocks      enable row level security;
 alter table units       enable row level security;
 alter table unit_blocks enable row level security;
+alter table blueprints  enable row level security;
 
 do $$ begin
   create policy blocks_public_select on blocks
@@ -105,5 +116,10 @@ exception when duplicate_object then null; end $$;
 
 do $$ begin
   create policy unit_blocks_public_select on unit_blocks
+    for select using (true);
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create policy blueprints_public_select on blueprints
     for select using (true);
 exception when duplicate_object then null; end $$;
