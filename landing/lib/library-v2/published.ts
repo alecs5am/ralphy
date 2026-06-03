@@ -337,11 +337,22 @@ export const PUBLISHED_UNITS: Unit[] = [
     "id": "choose-silenthill",
     "format": "video",
     "title": "Choose Your Guide: Silent Hill",
-    "blurb": "PS1 fog-horror choose-your-guide: the bandaged nurse vs the armed madman",
-    "templateId": "analog-horror-pick-a-door",
-    "styleId": "ps1-fog-horror",
-    "recipeIds": [],
-    "assetIds": [],
+    "blurb": "PS1 fog-horror: the bandaged nurse vs the armed madman",
+    "templateId": "choose-your-path-gauntlet",
+    "styleId": "analog-horror",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack"
+    ],
     "mediaCount": 1,
     "media": [
       {
@@ -356,11 +367,25 @@ export const PUBLISHED_UNITS: Unit[] = [
     "id": "choose-spaceship",
     "format": "video",
     "title": "Choose Your Guide: Derelict Ship",
-    "blurb": "PS1 sci-fi horror: trust the soothing ship-AI or the abrasive engineer",
-    "templateId": "analog-horror-pick-a-door",
-    "styleId": "ps1-scifi-horror",
-    "recipeIds": [],
-    "assetIds": [],
+    "blurb": "PS1 sci-fi horror: soothing ship-AI vs abrasive engineer",
+    "templateId": "choose-your-path-gauntlet",
+    "styleId": "analog-horror",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "aura-hologram",
+      "voss-engineer"
+    ],
     "mediaCount": 1,
     "media": [
       {
@@ -375,11 +400,25 @@ export const PUBLISHED_UNITS: Unit[] = [
     "id": "choose-swamp",
     "format": "video",
     "title": "Choose Your Guide: The Swamp",
-    "blurb": "PS1 Slavic folk-horror: read the witch, or trust-but-verify the leshy",
-    "templateId": "analog-horror-pick-a-door",
-    "styleId": "ps1-folk-horror",
-    "recipeIds": [],
-    "assetIds": [],
+    "blurb": "PS1 Slavic folk-horror: read the witch, trust-but-verify the leshy",
+    "templateId": "choose-your-path-gauntlet",
+    "styleId": "analog-horror",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "vedma-witch",
+      "leshy-trent"
+    ],
     "mediaCount": 1,
     "media": [
       {
@@ -394,11 +433,24 @@ export const PUBLISHED_UNITS: Unit[] = [
     "id": "choose-backrooms",
     "format": "video",
     "title": "Choose Your Path: Backrooms",
-    "blurb": "PS1 liminal descent, party of 4 dwindles to 1, the blue-pipe subversion",
-    "templateId": "analog-horror-pick-a-door",
-    "styleId": "ps1-liminal",
-    "recipeIds": [],
-    "assetIds": [],
+    "blurb": "PS1 liminal descent, party of 4 dwindles to 1, blue-pipe subversion",
+    "templateId": "choose-your-path-gauntlet",
+    "styleId": "analog-horror",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "hazmat-scientists"
+    ],
     "mediaCount": 1,
     "media": [
       {
@@ -413,11 +465,25 @@ export const PUBLISHED_UNITS: Unit[] = [
     "id": "choose-warofworlds",
     "format": "video",
     "title": "Choose Your Guide: War of the Worlds",
-    "blurb": "PS1 invasion horror: the gentle alien is a trap, the grim survivor is the way out",
-    "templateId": "analog-horror-pick-a-door",
-    "styleId": "ps1-scifi-invasion",
-    "recipeIds": [],
-    "assetIds": [],
+    "blurb": "PS1 invasion horror: gentle-alien trap vs grim survivor",
+    "templateId": "choose-your-path-gauntlet",
+    "styleId": "analog-horror",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "peaceful-alien",
+      "oneeyed-survivor"
+    ],
     "mediaCount": 1,
     "media": [
       {
@@ -432,11 +498,22 @@ export const PUBLISHED_UNITS: Unit[] = [
     "id": "choose-magicschool",
     "format": "video",
     "title": "Choose Your Path: Magic School",
-    "blurb": "Colorful PS1 magic-school dash to class: staircases, living armor, portals, Peeves",
-    "templateId": "analog-horror-pick-a-door",
+    "blurb": "Colorful PS1 magic-school dash: staircases, living armor, portals, Peeves",
+    "templateId": "choose-your-path-gauntlet",
     "styleId": "ps1-magic-colorful",
-    "recipeIds": [],
-    "assetIds": [],
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack"
+    ],
     "mediaCount": 1,
     "media": [
       {
@@ -457,34 +534,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "id": "voxel-night-rain",
     "name": "Voxel night-rain",
     "blurb": "Blocky voxel 3D under heavy rain and lantern light — cozy-eerie horror-game mood, dense fog, deep blues, warm point-light pools.",
-    "refs": []
-  },
-  {
-    "kind": "template",
-    "id": "choose-your-path-gauntlet",
-    "name": "Choose-Your-Path Gauntlet",
-    "blurb": "Hub → pick a guide → a chain of binary 50/50 forks (scene plays → freeze + 3-2-1 timer → consequence) → branch payoff. Generalizes analog-horror-pick-a-door into a guide-choice survival gauntlet. Narration restates each choice ('you picked X — …') for retention.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "vhs-pause-freeze",
-    "name": "VHS Pause-Freeze",
-    "blurb": "Play a clip then hold its last frame (ffmpeg tpad clone) for the choice beat; overlay canvas VCR noise + scanlines + wobble + SMPTE countdown disc + soft beeps; clear all overlays BEFORE the dissolve so the timer never bleeds into the next scene.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "ffmpeg-xfade-master",
-    "name": "ffmpeg xfade master",
-    "blurb": "HyperFrames cannot render video↔video crossfades — bake them: trim segments → normalize (fps/format/sar) → xfade-chain (offset = sum(dur[0..k]) − (k+1)·d) → drive ONE <video>; overlays gated by an embedded clip-start array.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "old-radio-ps1-vo",
-    "name": "Old-Radio PS1 VO",
-    "blurb": "Creepy lo-fi narrator filter for cloned VO: highpass=300,lowpass=3100,acrusher bits=10,acompressor,+5dB — band-limited, crunchy, PS1-horror voice.",
     "refs": []
   },
   {
@@ -524,6 +573,133 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "blurb": "Liminal-horror ambient music bed used under the gauntlet. EXTERNAL track (YouTube 'Backrooms.' by Deaven Wink) — metadata only, not redistributed.",
     "refs": [],
     "sub": "music"
+  },
+  {
+    "kind": "asset",
+    "id": "aura-hologram",
+    "name": "AURA — Ship-AI Hologram",
+    "blurb": "Giant translucent pink-magenta holographic woman (Joi-style), scanline flicker, echoed across ship monitors. The soothing-but-lethal AI guide (spaceship).",
+    "refs": [],
+    "sub": "character"
+  },
+  {
+    "kind": "recipe",
+    "id": "boomerang-motion-fill",
+    "name": "Boomerang Motion Fill",
+    "blurb": "Fill a segment longer than its clip with forward+reverse motion (split/reverse/concat, -t target) instead of a frozen tpad tail — keeps hubs and idle endings alive. Fork freezes stay frozen by design.",
+    "refs": []
+  },
+  {
+    "kind": "recipe",
+    "id": "choose-path-xfade-master",
+    "name": "Choose-Path xfade Master Bake",
+    "blurb": "Stitch N i2v clips into one master via ffmpeg xfade (0.5s, offset = sum(dur)-k*0.5), every input normalized to 1080x1920@24; emits A[]/SEG[] timing arrays for the overlay composition.",
+    "refs": []
+  },
+  {
+    "kind": "asset",
+    "id": "choosepath-soundtrack",
+    "name": "Choose-Path Soundtrack",
+    "blurb": "The shared dark-ambient trend bed used across the whole choose-your-path series (soundtrack.mp3), looped/faded per video length.",
+    "refs": [],
+    "sub": "music"
+  },
+  {
+    "kind": "asset",
+    "id": "hazmat-scientists",
+    "name": "Hazmat Scientist Trio",
+    "blurb": "Three biohazard-suit gas-mask scientists (orange/teal/purple), the dwindling party of the Backrooms descent.",
+    "refs": [],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "leshy-trent",
+    "name": "LESHY — Half-Tree Trent",
+    "blurb": "50/50 flesh-and-bark forest spirit, never speaks, only groans/gestures. Trust-but-verify guide (swamp).",
+    "refs": [],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "oneeyed-survivor",
+    "name": "One-Eyed Survivor",
+    "blurb": "Big ~60yo Black man, milky scarred blind eye, green overshirt, sawn-off rifle. Grim honest guide (war of the worlds).",
+    "refs": [],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "peaceful-alien",
+    "name": "Peaceful Alien (brain-in-capsule)",
+    "blurb": "Floating pink-brain in a clean capsule with soft tentacles, benevolent warm glow — the welcoming lie (war of the worlds).",
+    "refs": [],
+    "sub": "character"
+  },
+  {
+    "kind": "recipe",
+    "id": "play-freeze-fork",
+    "name": "Play-Freeze Fork Beat",
+    "blurb": "Fork beat: play the clip's full action (~3.9s), then tpad-freeze the last frame for the held dilemma while a 0.5s/tick SMPTE countdown runs. The decision-moment primitive.",
+    "refs": []
+  },
+  {
+    "kind": "style",
+    "id": "ps1-magic-colorful",
+    "name": "PS1 Magic-School (Colorful)",
+    "blurb": "Vibrant glowing PS1/PS2-era magic-castle render — floating candles, jewel-tone stained glass, sparkling motes, warm torchlight. Bright magical, NOT horror.",
+    "refs": []
+  },
+  {
+    "kind": "recipe",
+    "id": "vhs-pause-freeze",
+    "name": "VHS Pause-Freeze",
+    "blurb": "Play a clip then hold its last frame (ffmpeg tpad clone) for the choice beat; overlay canvas VCR noise + scanlines + wobble + SMPTE countdown disc + soft beeps; clear all overlays BEFORE the dissolve so the timer never bleeds into the next scene.",
+    "refs": []
+  },
+  {
+    "kind": "recipe",
+    "id": "ffmpeg-xfade-master",
+    "name": "ffmpeg xfade master",
+    "blurb": "HyperFrames cannot render video↔video crossfades — bake them: trim segments → normalize (fps/format/sar) → xfade-chain (offset = sum(dur[0..k]) − (k+1)·d) → drive ONE <video>; overlays gated by an embedded clip-start array.",
+    "refs": []
+  },
+  {
+    "kind": "recipe",
+    "id": "old-radio-ps1-vo",
+    "name": "Old-Radio PS1 VO",
+    "blurb": "Creepy lo-fi narrator filter for cloned VO: highpass=300,lowpass=3100,acrusher bits=10,acompressor,+5dB — band-limited, crunchy, PS1-horror voice.",
+    "refs": []
+  },
+  {
+    "kind": "recipe",
+    "id": "smpte-countdown-disc",
+    "name": "SMPTE 3-2-1 Countdown Disc",
+    "blurb": "GSAP sweeping-ring countdown disc (3-2-1) over a fork, with soft beep ticks (2 soft + 1 final). Punches in right after the guide's command.",
+    "refs": []
+  },
+  {
+    "kind": "template",
+    "id": "choose-your-path-gauntlet",
+    "name": "Choose-Your-Path Gauntlet",
+    "blurb": "Hub → pick a guide → a chain of binary 50/50 forks (scene plays → freeze + 3-2-1 timer → consequence) → branch payoff. Generalizes analog-horror-pick-a-door into a guide-choice survival gauntlet. Narration restates each choice ('you picked X — …') for retention.",
+    "refs": []
+  },
+  {
+    "kind": "asset",
+    "id": "vedma-witch",
+    "name": "VEDMA — Bog Witch",
+    "blurb": "Beautiful (not a hag) purple-gowned pointed-hat Slavic witch with grim help. Read-the-witch guide (swamp).",
+    "refs": [],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "voss-engineer",
+    "name": "VOSS — Derelict-Ship Engineer",
+    "blurb": "Fat balding bearded low-poly engineer, yellow hard hat, grimy coverall, cigarette. The abrasive-but-right guide (spaceship).",
+    "refs": [],
+    "sub": "character"
   }
 ];
 // ralphy:published-blocks:end
