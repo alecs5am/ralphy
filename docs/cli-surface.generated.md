@@ -390,7 +390,9 @@ Usage: ralphy render [options] <project>
 
 Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes
 workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with
---loudnorm.
+--loudnorm. Also auto-emits a compressed social sibling render/final-social.mp4
+(CRF 20 default, x264 faststart) so 'render → upload' is one command; pass
+--no-compress to skip it.
 
 Arguments:
   project                Project ID
@@ -421,6 +423,10 @@ Options:
                          (default: false)
   --music-volume <n>     Music gain for --music-variants (default 0.18,
                          background bed under VO) (default: 0.18)
+  --no-compress          Skip the auto social-compressed deliverable
+                         (render/final-social.mp4)
+  --social-crf <n>       x264 CRF for the auto social cut (default 20; raise for
+                         smaller files, lower for cleaner grain) (default: 20)
   --dry-run              Print the resolved render plan; no engine run (default:
                          false)
   --summary              Collapse the dry-run plan to a per-stage rollup
@@ -433,6 +439,16 @@ Examples:
   ralphy render proj-001 --output ./out.mp4
   ralphy render proj-001 --fps 60 --quality high
   ralphy render arena-rocker-001 --from-clip raw.mp4 --loudnorm
+  ralphy render proj-001 --no-compress              # master only, skip final-social.mp4
+  ralphy render proj-001 --social-crf 18            # higher-quality (larger) social cut
+
+The social cut: every render also writes render/final-social.mp4 — an x264
+faststart re-encode of the finalized master, sized for direct upload. Default
+CRF is 20 (not 23) because grainy registers (PS1 / VHS) are high-entropy and
+ring at higher CRFs; raise --social-crf for a smaller file at the cost of grain
+fidelity, lower it for a larger, cleaner cut. The social cut inherits the
+master's already-loudnormed audio (no double loudnorm) and never overwrites
+render/final.mp4 (append-only).
 ```
 
 ### `ralphy hyperframes`

@@ -79,12 +79,52 @@ async function fileSize(p: string): Promise<number> {
   }
 }
 
+// Emit the auto social-compressed sibling deliverable (#073). Derives the
+// social path next to the finalized master (<basename>-social.mp4), re-encodes
+// it via the shared compress recipe with forceOverwrite:false so an existing
+// social cut auto-versions instead of being clobbered (append-only invariant
+// #14), and returns the resolved path + byte size for the command summary. The
+// recipe logs its own `ffmpeg/compress-social` gen-log row because projectId is
+// passed — no manual duplicate row here.
+async function emitSocialDeliverable(args: {
+  renderFinal: string;
+  socialCrf: number;
+  projectId: string;
+  ui: typeof import("../lib/ui.js");
+}): Promise<{ path: string; bytes: number }> {
+  const { renderFinal, socialCrf, projectId, ui } = args;
+  const socialDst = path.join(
+    path.dirname(renderFinal),
+    path.basename(renderFinal, ".mp4") + "-social.mp4",
+  );
+  const written = await ui.withSpinner(
+    `Social cut (CRF ${socialCrf}) → ${path.basename(socialDst)}`,
+    () =>
+      compressForSocial({
+        src: renderFinal,
+        dst: socialDst,
+        crf: socialCrf,
+        forceOverwrite: false,
+        projectId,
+        note: "render --social",
+      }),
+    {
+      successText: (p) => `Social cut (CRF ${socialCrf}) → ${ui.c.path(p)}`,
+      failText: () => `Social compress failed`,
+    },
+  );
+  const finalPath = typeof written === "string" ? written : socialDst;
+  return { path: finalPath, bytes: await fileSize(finalPath) };
+}
+
 export function renderCmd() {
   const cmd = new Command("render")
     .argument("<project>", "Project ID")
     .description(
       "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). " +
-        "Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm.",
+        "Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. " +
+        "Also auto-emits a compressed social sibling render/final-social.mp4 (CRF 20 default, x264 faststart) " +
+        "so 'render → upload' is one command; pass --no-compress to skip it.",
     );
   cmd.addHelpText(
     "after",
@@ -95,6 +135,16 @@ Examples:
   ralphy render proj-001 --output ./out.mp4
   ralphy render proj-001 --fps 60 --quality high
   ralphy render arena-rocker-001 --from-clip raw.mp4 --loudnorm
+  ralphy render proj-001 --no-compress              # master only, skip final-social.mp4
+  ralphy render proj-001 --social-crf 18            # higher-quality (larger) social cut
+
+The social cut: every render also writes render/final-social.mp4 — an x264
+faststart re-encode of the finalized master, sized for direct upload. Default
+CRF is 20 (not 23) because grainy registers (PS1 / VHS) are high-entropy and
+ring at higher CRFs; raise --social-crf for a smaller file at the cost of grain
+fidelity, lower it for a larger, cleaner cut. The social cut inherits the
+master's already-loudnormed audio (no double loudnorm) and never overwrites
+render/final.mp4 (append-only).
 `,
   );
   return cmd
@@ -133,6 +183,16 @@ Examples:
       (v) => parseFloat(v),
       0.18,
     )
+    .option(
+      "--no-compress",
+      "Skip the auto social-compressed deliverable (render/final-social.mp4)",
+    )
+    .option(
+      "--social-crf <n>",
+      "x264 CRF for the auto social cut (default 20; raise for smaller files, lower for cleaner grain)",
+      (v) => parseInt(v, 10),
+      20,
+    )
     .option("--dry-run", "Print the resolved render plan; no engine run", false)
     .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
     .action(async (projectId: string, opts) => {
@@ -170,10 +230,22 @@ Examples:
         return undefined;
       })();
 
+      // Commander maps `--no-compress` to opts.compress === false (default true).
+      const socialCrf: number = typeof opts.socialCrf === "number" ? opts.socialCrf : 20;
+      const emitSocial = opts.compress !== false;
+
       if (opts.dryRun) {
         const renderDir = path.join(projectsDir(), projectId, "render");
         const renderFinal = opts.output ? path.resolve(opts.output) : path.join(renderDir, "final.mp4");
+        // The social sibling sits next to the master: <basename>-social.mp4.
+        const socialFinal = path.join(
+          path.dirname(renderFinal),
+          path.basename(renderFinal, ".mp4") + "-social.mp4",
+        );
         const compositionId = opts.composition ?? "index.html";
+        const socialStage = emitSocial
+          ? [{ stage: "ffmpeg-compress-social", crf: socialCrf, output: socialFinal, est_usd: 0 }]
+          : [];
         const stages = opts.fromClip
           ? [
               { stage: "ffmpeg-from-clip-wrap", source: path.resolve(opts.fromClip), output: renderFinal, est_usd: 0 },
@@ -182,6 +254,7 @@ Examples:
               ...(deliverableQuality
                 ? [{ stage: "ffmpeg-compress", quality: deliverableQuality, crf: qualityPresetToCrf(deliverableQuality), est_usd: 0 }]
                 : []),
+              ...socialStage,
             ]
           : [
               { stage: engineEndpoint, engine, composition: compositionId, output: renderFinal, est_usd: 0 },
@@ -190,6 +263,7 @@ Examples:
               ...(deliverableQuality
                 ? [{ stage: "ffmpeg-compress", quality: deliverableQuality, crf: qualityPresetToCrf(deliverableQuality), est_usd: 0 }]
                 : []),
+              ...socialStage,
             ];
         if (opts.summary) {
           const baseStageKey = opts.fromClip ? "ffmpeg-from-clip-wrap" : engineEndpoint;
@@ -201,6 +275,7 @@ Examples:
               ...(opts.loudnorm ? { "ffmpeg-loudnorm": { count: 1, est_usd: 0 } } : {}),
               ...(gradePreset ? { "ffmpeg-color-grade": { count: 1, est_usd: 0 } } : {}),
               ...(deliverableQuality ? { "ffmpeg-compress": { count: 1, est_usd: 0 } } : {}),
+              ...(emitSocial ? { "ffmpeg-compress-social": { count: 1, crf: socialCrf, est_usd: 0 } } : {}),
             },
             cost_estimate_usd: 0,
           });
@@ -210,7 +285,7 @@ Examples:
             engine: opts.fromClip ? "ffmpeg" : engine,
             would_call: stages,
             cost_estimate_usd: 0,
-            would_write: [renderFinal],
+            would_write: [renderFinal, ...(emitSocial ? [socialFinal] : [])],
           });
         }
         return;
@@ -380,6 +455,18 @@ Examples:
             .filter(Boolean)
             .join(" + "),
         });
+        // Auto social-compressed sibling deliverable (#073). Re-encodes the
+        // finalized master (which already carries the loudnormed audio) into a
+        // share-ready x264 faststart cut. Never overwrites the master:
+        // compressForSocial(forceOverwrite:false) auto-versions on collision.
+        const social = emitSocial
+          ? await emitSocialDeliverable({
+              renderFinal: outputPath,
+              socialCrf,
+              projectId,
+              ui,
+            })
+          : null;
         cs.summary({
           project: projectId,
           engine: "ffmpeg",
@@ -390,6 +477,7 @@ Examples:
           loudnorm: Boolean(opts.loudnorm),
           grade: gradePreset ?? null,
           quality: deliverableQuality ?? null,
+          social,
           latencyMs: Date.now() - t0,
         });
         return;
@@ -616,6 +704,18 @@ Examples:
           musicVariants.push({ music: bed, out: dst, bytes: vsize });
         }
       }
+      // Auto social-compressed sibling deliverable (#073). Runs only once the
+      // master is fully finalized (post loudnorm/grade/quality-compress) so the
+      // social cut inherits the loudnormed audio — no double loudnorm. Writes a
+      // NEW file, never overwrites final.mp4 (append-only invariant #14).
+      const social = emitSocial
+        ? await emitSocialDeliverable({
+            renderFinal: outputPath,
+            socialCrf,
+            projectId,
+            ui,
+          })
+        : null;
       cs.summary({
         project: projectId,
         engine,
@@ -626,6 +726,7 @@ Examples:
         grade: gradePreset ?? null,
         quality: deliverableQuality ?? null,
         musicVariants: musicVariants.length > 0 ? musicVariants : undefined,
+        social,
         latencyMs: Date.now() - t0,
       });
     });

@@ -1,6 +1,6 @@
 ---
 title: "ralphy render"
-description: "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm."
+description: "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. Also auto-e"
 ---
 
 {/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
@@ -42,6 +42,8 @@ ralphy render spring-001
 | `--resolution <preset>` | Resolution preset: portrait\|landscape\|square\|1080p\|4k\|... |
 | `--music-variants` | After the base render, mix one variant per &lt;project&gt;/assets/music/*.mp3 onto the final mp4. Writes render/final.&lt;music-basename&gt;.mp4 per bed. #049 (default: false) |
 | `--music-volume <n>` | Music gain for --music-variants (default 0.18, background bed under VO) (default: 0.18) |
+| `--no-compress` | Skip the auto social-compressed deliverable (render/final-social.mp4) |
+| `--social-crf <n>` | x264 CRF for the auto social cut (default 20; raise for smaller files, lower for cleaner grain) (default: 20) |
 | `--dry-run` | Print the resolved render plan; no engine run (default: false) |
 | `--summary` | Collapse the dry-run plan to a per-stage rollup (default: false) |
 | `-h, --help` | display help for command |
@@ -54,6 +56,8 @@ ralphy render proj-001 --loudnorm
 ralphy render proj-001 --output ./out.mp4
 ralphy render proj-001 --fps 60 --quality high
 ralphy render arena-rocker-001 --from-clip raw.mp4 --loudnorm
+ralphy render proj-001 --no-compress              # master only, skip final-social.mp4
+ralphy render proj-001 --social-crf 18            # higher-quality (larger) social cut
 ```
 
 </Expandable>
