@@ -5,7 +5,7 @@
 // AND appends it to the committed open-source snapshot (published.ts), so it
 // surfaces on the static site and stays downloadable.
 //
-// Two INDEPENDENT modes (a Unit and a Block publish are first-class on their own):
+// Three INDEPENDENT modes (Unit / Block / Blueprint publishes are each first-class):
 //
 //   --unit <path>        path to a project unit dir: workspace/projects/<id>/units/<slug>/
 //                        (has unit.json + the copied media). Validates against the CLI
@@ -21,6 +21,18 @@
 //                        the blocks row, uploads any refs example media to Storage at
 //                        blocks/<kind>/<id>/<file>, appends/replaces in published.ts.
 //
+//   --blueprint <dir>    a project unit's blueprint dir (#076):
+//                        workspace/projects/<id>/units/<slug>/blueprint/ — has
+//                        blueprint.json (#074) + a copied payload (index.html,
+//                        prompts/**, assets/** hard files). Validates the #074
+//                        shape, uploads the payload to Storage at
+//                        blueprints/<unitId>/<relpath> (files over a 50 MiB cap are
+//                        LOUD-warned + recorded in oversizeSkipped[], never silently
+//                        dropped), upserts the 1:1 blueprints row (on conflict
+//                        (unit_id)), then appends/replaces PUBLISHED_BLUEPRINTS in
+//                        published.ts (idempotent by unitId; each uploaded asset
+//                        carries its storageUrl).
+//
 // Modes of execution (default = DRY-RUN):
 //   (default)  Print exactly what WOULD upload + the upsert rows + the published.ts
 //              edit. Touch NOTHING remote, do NOT edit published.ts.
@@ -31,11 +43,19 @@
 // Secrets are read from the environment at RUNTIME only — never printed, never
 // hardcoded. Run dry-run: cd landing && bun run scripts/publish-entity.ts --unit <dir>
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Block, Unit, UnitMedia } from "../lib/library-v2/types";
+import type { Block, Blueprint, Unit, UnitMedia } from "../lib/library-v2/types";
 import { env, makeS3Client, publicUrlFor, putObject } from "./lib/supabase";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -52,6 +72,7 @@ interface Args {
   unit?: string;
   block?: string;
   blockFile?: string;
+  blueprint?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -63,6 +84,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === "--unit") out.unit = argv[++i];
     else if (a === "--block") out.block = argv[++i];
     else if (a === "--block-file") out.blockFile = argv[++i];
+    else if (a === "--blueprint") out.blueprint = argv[++i];
   }
   return out;
 }
@@ -77,18 +99,38 @@ function blockObjectKey(kind: string, id: string, file: string): string {
   return `blocks/${kind}/${id}/${basename(file)}`;
 }
 
+/** Blueprint payload object key. `relpath` is the file's path RELATIVE to the
+ *  blueprint dir (e.g. "index.html", "prompts/char-guide.txt", "assets/x.png"),
+ *  preserved verbatim so prompts/ and assets/ subtrees stay distinct in Storage. */
+function blueprintObjectKey(unitId: string, relpath: string): string {
+  // Normalize any backslashes (Windows) and strip a leading "./".
+  const clean = relpath.replace(/\\/g, "/").replace(/^\.\//, "");
+  return `blueprints/${unitId}/${clean}`;
+}
+
+/** Max single-object size for a blueprint payload upload. The real #073 failure
+ *  was 56-80 MB showcase mp4s vs the bucket cap; blueprint payloads are normally
+ *  small (prompts / index.html / char-masters / music), so this is a loud guard,
+ *  never a silent drop. */
+const BLUEPRINT_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB
+
 // ── published.ts read / write (sentinel-bounded, idempotent by id) ─────────────
 
 const UNITS_START = "// ralphy:published-units:start";
 const UNITS_END = "// ralphy:published-units:end";
 const BLOCKS_START = "// ralphy:published-blocks:start";
 const BLOCKS_END = "// ralphy:published-blocks:end";
+const BLUEPRINTS_START = "// ralphy:published-blueprints:start";
+const BLUEPRINTS_END = "// ralphy:published-blueprints:end";
 
-/** Slice the published.ts source into the head / units-literal / mid / blocks-literal
- *  / tail regions, so we can rewrite each array between its sentinels in place. */
+/** Slice the published.ts source into the head / units-literal / mid1 /
+ *  blocks-literal / mid2 / blueprints-literal / tail regions, so we can rewrite
+ *  each of the THREE arrays between its sentinels in place. The literal order on
+ *  disk is units → blocks → blueprints. */
 function readPublishedRegions(): {
   head: string;
-  mid: string;
+  mid1: string;
+  mid2: string;
   tail: string;
 } {
   const src = readFileSync(PUBLISHED_TS, "utf8");
@@ -96,22 +138,31 @@ function readPublishedRegions(): {
   const ue = src.indexOf(UNITS_END);
   const bs = src.indexOf(BLOCKS_START);
   const be = src.indexOf(BLOCKS_END);
-  if (us < 0 || ue < 0 || bs < 0 || be < 0) {
+  const ps = src.indexOf(BLUEPRINTS_START);
+  const pe = src.indexOf(BLUEPRINTS_END);
+  if (us < 0 || ue < 0 || bs < 0 || be < 0 || ps < 0 || pe < 0) {
     throw new Error("published.ts is missing one of the sentinel markers");
   }
   return {
     head: src.slice(0, us),
-    mid: src.slice(ue + UNITS_END.length, bs),
-    tail: src.slice(be + BLOCKS_END.length),
+    mid1: src.slice(ue + UNITS_END.length, bs),
+    mid2: src.slice(be + BLOCKS_END.length, ps),
+    tail: src.slice(pe + BLUEPRINTS_END.length),
   };
 }
 
-/** Load the current PUBLISHED_UNITS / PUBLISHED_BLOCKS arrays at runtime. */
-async function loadPublished(): Promise<{ units: Unit[]; blocks: Block[] }> {
+/** Load the current PUBLISHED_UNITS / PUBLISHED_BLOCKS / PUBLISHED_BLUEPRINTS
+ *  arrays at runtime. */
+async function loadPublished(): Promise<{
+  units: Unit[];
+  blocks: Block[];
+  blueprints: Blueprint[];
+}> {
   const mod = await import(PUBLISHED_TS);
   return {
     units: (mod.PUBLISHED_UNITS as Unit[]) ?? [],
     blocks: (mod.PUBLISHED_BLOCKS as Block[]) ?? [],
+    blueprints: (mod.PUBLISHED_BLUEPRINTS as Blueprint[]) ?? [],
   };
 }
 
@@ -123,22 +174,40 @@ function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
   return next;
 }
 
-/** Re-emit published.ts with the two arrays rewritten between their sentinels. */
-function renderPublished(units: Unit[], blocks: Block[]): string {
-  const { head, mid, tail } = readPublishedRegions();
+/** Append-or-replace a Blueprint by its `unitId` (1:1 with the unit). Append-only:
+ *  a re-publish replaces that one entry in place; all others are preserved. */
+function upsertBlueprint(list: Blueprint[], item: Blueprint): Blueprint[] {
+  const next = list.filter((x) => x.unitId !== item.unitId);
+  next.push(item);
+  return next;
+}
+
+/** Re-emit published.ts with the THREE arrays rewritten between their sentinels. */
+function renderPublished(
+  units: Unit[],
+  blocks: Block[],
+  blueprints: Blueprint[],
+): string {
+  const { head, mid1, mid2, tail } = readPublishedRegions();
   const unitsLit = `export const PUBLISHED_UNITS: Unit[] = ${JSON.stringify(units, null, 2)};\n`;
   const blocksLit = `export const PUBLISHED_BLOCKS: Block[] = ${JSON.stringify(blocks, null, 2)};\n`;
+  const blueprintsLit = `export const PUBLISHED_BLUEPRINTS: Blueprint[] = ${JSON.stringify(blueprints, null, 2)};\n`;
   return (
     head +
     UNITS_START +
     "\n" +
     unitsLit +
     UNITS_END +
-    mid +
+    mid1 +
     BLOCKS_START +
     "\n" +
     blocksLit +
     BLOCKS_END +
+    mid2 +
+    BLUEPRINTS_START +
+    "\n" +
+    blueprintsLit +
+    BLUEPRINTS_END +
     tail
   );
 }
@@ -511,7 +580,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   const snapshotUnit: Unit = { ...publishedUnit, media: mediaWithStorage };
   const cur = await loadPublished();
   const nextUnits = upsertById(cur.units, snapshotUnit);
-  writeFileSync(PUBLISHED_TS, renderPublished(nextUnits, cur.blocks), "utf8");
+  writeFileSync(PUBLISHED_TS, renderPublished(nextUnits, cur.blocks, cur.blueprints), "utf8");
   console.log(`  published.ts: upserted unit ${unitId} (${nextUnits.length} published unit(s))`);
 }
 
@@ -598,8 +667,214 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
 
   const cur = await loadPublished();
   const nextBlocks = upsertById(cur.blocks, publishedBlock);
-  writeFileSync(PUBLISHED_TS, renderPublished(cur.units, nextBlocks), "utf8");
+  writeFileSync(PUBLISHED_TS, renderPublished(cur.units, nextBlocks, cur.blueprints), "utf8");
   console.log(`  published.ts: upserted block ${spec.id} (${nextBlocks.length} published block(s))`);
+}
+
+// ── Mode: publish a Blueprint (#077) ────────────────────────────────────────────
+//
+// A blueprint dir is `workspace/projects/<id>/units/<slug>/blueprint/` (or a
+// `.vN` variant), produced by `ralphy blueprint create` (#076). It holds:
+//   blueprint.json      the #074 Blueprint object (the six axes + unitId)
+//   index.html          the copied composition skeleton (composition.file)
+//   prompts/**          the verbatim prompt files
+//   assets/**           the hard-asset files (asset.path is posix-relative)
+//
+// We upload the payload to Storage under blueprints/<unitId>/..., set each
+// uploaded file's public storageUrl back into the blueprint object (so the
+// committed mirror resolves remotely), upsert a 1:1 `blueprints` DB row keyed by
+// unitId, and append/replace in PUBLISHED_BLUEPRINTS (idempotent by unitId).
+
+/** A minimal structural guard for the #074 Blueprint shape. We do NOT cross-import
+ *  the CLI Zod schema (separate package); a field-presence check is enough, and
+ *  it fails loudly if `unitId` is missing. */
+function validateBlueprint(raw: unknown, file: string): Blueprint {
+  if (!raw || typeof raw !== "object") {
+    throw new Error(`${file} is not an object`);
+  }
+  const o = raw as Record<string, unknown>;
+  if (typeof o.unitId !== "string" || o.unitId.length === 0) {
+    throw new Error(`${file}: unitId is required (a Blueprint is 1:1 with its Unit)`);
+  }
+  if (typeof o.schemaVersion !== "number") {
+    throw new Error(`${file}: schemaVersion (number) is required`);
+  }
+  // The six axes (#074). scenario + composition are nullable; the four collections
+  // must be present (possibly empty arrays).
+  if (!("scenario" in o)) throw new Error(`${file}: missing scenario axis`);
+  if (!("composition" in o)) throw new Error(`${file}: missing composition axis`);
+  if (!Array.isArray(o.prompts)) throw new Error(`${file}: prompts must be an array`);
+  if (!Array.isArray(o.assets)) throw new Error(`${file}: assets must be an array`);
+  if (!Array.isArray(o.modelStack)) throw new Error(`${file}: modelStack must be an array`);
+  if (!Array.isArray(o.recipes)) throw new Error(`${file}: recipes must be an array`);
+  return o as unknown as Blueprint;
+}
+
+/** Recursively enumerate files under `dir`, returning paths RELATIVE to `dir`
+ *  (posix-joined). Returns [] when the dir is absent. */
+function walkRel(root: string, sub = ""): string[] {
+  const abs = sub ? join(root, sub) : root;
+  if (!existsSync(abs)) return [];
+  const out: string[] = [];
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    const rel = sub ? `${sub}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...walkRel(root, rel));
+    else if (entry.isFile()) out.push(rel);
+  }
+  return out;
+}
+
+/** A planned blueprint payload upload, carrying the file size + an oversize flag
+ *  so the dry-run can list it and the live push can loud-warn-and-skip it. */
+interface PlannedBlueprintUpload {
+  objectKey: string;
+  localPath: string;
+  /** Path relative to the blueprint dir (the key the blueprint object indexes by). */
+  rel: string;
+  exists: boolean;
+  bytes: number;
+  oversize: boolean;
+}
+
+async function publishBlueprint(blueprintDir: string, push: boolean): Promise<void> {
+  const dir = resolve(blueprintDir);
+  const manifestPath = join(dir, "blueprint.json");
+  if (!existsSync(manifestPath)) {
+    throw new Error(`no blueprint.json at ${manifestPath}`);
+  }
+  const blueprint = validateBlueprint(
+    JSON.parse(readFileSync(manifestPath, "utf8")),
+    manifestPath,
+  );
+  const unitId = blueprint.unitId;
+
+  // Enumerate the payload files RELATIVE to the blueprint dir:
+  //   - the composition file (index.html, from composition.file)
+  //   - every file under prompts/**
+  //   - every hard-asset file referenced by assets[].path (posix-relative)
+  const payloadRels = new Set<string>();
+  const compFile = blueprint.composition?.file;
+  if (compFile) payloadRels.add(compFile.replace(/\\/g, "/").replace(/^\.\//, ""));
+  for (const rel of walkRel(join(dir, "prompts"))) payloadRels.add(`prompts/${rel}`);
+  for (const a of blueprint.assets) {
+    if (typeof a.path === "string" && a.path.length > 0) {
+      payloadRels.add(a.path.replace(/\\/g, "/").replace(/^\.\//, ""));
+    }
+  }
+
+  // Plan each upload: stat for size, flag oversize (never silently dropped).
+  const uploads: PlannedBlueprintUpload[] = Array.from(payloadRels)
+    .sort()
+    .map((rel) => {
+      const localPath = join(dir, rel);
+      const exists = existsSync(localPath) && statSync(localPath).isFile();
+      const bytes = exists ? statSync(localPath).size : 0;
+      return {
+        objectKey: blueprintObjectKey(unitId, rel),
+        localPath,
+        rel,
+        exists,
+        bytes,
+        oversize: exists && bytes > BLUEPRINT_MAX_BYTES,
+      };
+    });
+
+  const oversize = uploads.filter((u) => u.oversize);
+  const uploadable = uploads.filter((u) => u.exists && !u.oversize);
+  const oversizeRels = oversize.map((u) => u.rel);
+
+  // Build the published Blueprint object. Set storageUrl on each asset whose file
+  // is uploadable; record oversize files in `oversizeSkipped` (kept on disk, the
+  // local `path` preserved so they can still be fetched from the repo / project).
+  const buildPublished = (withStorage: boolean): Blueprint => {
+    const bp: Blueprint = {
+      ...blueprint,
+      assets: blueprint.assets.map((a) => {
+        const rel = a.path?.replace(/\\/g, "/").replace(/^\.\//, "");
+        const plan = rel ? uploads.find((u) => u.rel === rel) : undefined;
+        const next: typeof a = { ...a };
+        if (withStorage && plan && plan.exists && !plan.oversize) {
+          const url = publicUrlFor(plan.objectKey);
+          if (url) next.storageUrl = url;
+        }
+        return next;
+      }),
+    };
+    if (oversizeRels.length > 0) bp.oversizeSkipped = oversizeRels;
+    return bp;
+  };
+
+  const blueprintUpsert: UpsertRow = {
+    table: "blueprints",
+    conflict: "(unit_id)",
+    values: {
+      unit_id: unitId,
+      data: "<blueprint jsonb>",
+    },
+  };
+
+  if (!push) {
+    // Dry-run: print exactly what WOULD upload + the DB upsert + the published.ts
+    // edit, touching NOTHING. Mirrors publishUnit / publishBlock.
+    const planned: PlannedUpload[] = uploadable.map((u) => ({
+      objectKey: u.objectKey,
+      localPath: u.localPath,
+      exists: u.exists,
+    }));
+    printPlan(
+      `DRY-RUN publish-blueprint ${unitId}`,
+      planned,
+      [blueprintUpsert],
+      `append/replace PUBLISHED_BLUEPRINTS[unitId=${unitId}] (idempotent)`,
+    );
+    const missing = uploads.filter((u) => !u.exists);
+    if (missing.length > 0) {
+      console.warn(`\n  WARNING: ${missing.length} payload file(s) referenced by the blueprint have no local copy:`);
+      for (const m of missing) console.warn(`    ${m.rel}`);
+    }
+    if (oversize.length > 0) {
+      console.warn(`\n  OVERSIZE (> ${BLUEPRINT_MAX_BYTES} bytes / ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap) — NOT uploaded, kept on disk:`);
+      for (const o of oversize) {
+        console.warn(`    ${o.rel}  (${o.bytes} bytes / ${(o.bytes / 1024 / 1024).toFixed(1)} MiB) exceeds the ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap`);
+      }
+      console.warn(`  These ${oversize.length} file(s) WOULD be recorded in the blueprint's oversizeSkipped[] (storageUrl absent, local path kept).`);
+    }
+    console.log(`\n  Blueprint payload: ${uploadable.length} file(s) WOULD upload under blueprints/${unitId}/`);
+    console.log(`  DB: blueprints row (unit_id=${unitId}) WOULD upsert on conflict (unit_id), data = full blueprint jsonb.`);
+    return;
+  }
+
+  // ── live push ──
+  const s3 = makeS3Client();
+  for (const u of uploads) {
+    if (!u.exists) {
+      console.warn(`  SKIP (missing payload file): ${u.localPath}`);
+      continue;
+    }
+    if (u.oversize) {
+      console.warn(`  OVERSIZE SKIP: ${u.rel} (${u.bytes} bytes) exceeds the ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap — kept on disk, recorded in oversizeSkipped[]`);
+      continue;
+    }
+    await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
+    console.log(`  UPLOADED ${u.objectKey}`);
+  }
+
+  const publishedBlueprint = buildPublished(true);
+
+  await withDb(async (q) => {
+    await q(
+      `insert into blueprints (unit_id, data)
+       values ($1, $2::jsonb)
+       on conflict (unit_id) do update set
+         data = excluded.data`,
+      [unitId, JSON.stringify(publishedBlueprint)],
+    );
+  });
+
+  const cur = await loadPublished();
+  const nextBlueprints = upsertBlueprint(cur.blueprints, publishedBlueprint);
+  writeFileSync(PUBLISHED_TS, renderPublished(cur.units, cur.blocks, nextBlueprints), "utf8");
+  console.log(`  published.ts: upserted blueprint ${unitId} (${nextBlueprints.length} published blueprint(s))`);
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -611,13 +886,16 @@ async function main(): Promise<void> {
 
   const hasUnit = Boolean(args.unit);
   const hasBlock = Boolean(args.block || args.blockFile);
-  if (hasUnit === hasBlock) {
+  const hasBlueprint = Boolean(args.blueprint);
+  const modeCount = [hasUnit, hasBlock, hasBlueprint].filter(Boolean).length;
+  if (modeCount !== 1) {
     throw new Error(
-      "exactly one mode required: --unit <dir> OR (--block <json> | --block-file <path>)",
+      "exactly one mode required: --unit <dir> OR (--block <json> | --block-file <path>) OR --blueprint <dir>",
     );
   }
 
   if (hasUnit) await publishUnit(args.unit as string, args.push);
+  else if (hasBlueprint) await publishBlueprint(args.blueprint as string, args.push);
   else await publishBlock(args, args.push);
 
   if (!args.push) {

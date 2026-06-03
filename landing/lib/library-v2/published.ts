@@ -23,7 +23,7 @@
 // Hand-edit only with care: the publish script rewrites the two array literals
 // below between the sentinel markers. Keep the markers intact.
 
-import type { Block, Unit } from "./types";
+import type { Block, Blueprint, Unit } from "./types";
 
 // ralphy:published-units:start
 export const PUBLISHED_UNITS: Unit[] = [
@@ -703,3 +703,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
   }
 ];
 // ralphy:published-blocks:end
+
+// ralphy:published-blueprints:start
+export const PUBLISHED_BLUEPRINTS: Blueprint[] = [];
+// ralphy:published-blueprints:end

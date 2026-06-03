@@ -305,4 +305,8 @@ export interface Blueprint {
   /** ISO timestamp the blueprint was formed. */
   createdAt?: string;
   notes?: string;
+  /** Payload files that exceeded the publish size cap (#077) and were NOT uploaded
+   *  to Storage — kept on disk, the local `path` preserved. Blueprint-relative
+   *  paths (e.g. "assets/showcase.mp4"). Absent when nothing was skipped. */
+  oversizeSkipped?: string[];
 }
