@@ -916,12 +916,15 @@ Commands:
   list <project>              List units that have a captured blueprint/ + which
                               versions exist
   show [options] <project>    Print a unit's latest blueprint.json
+  use [options] <unit-id>     Scaffold a ready-to-run project from a PUBLISHED
+                              Blueprint (offline; #079)
   help [command]              display help for command
 
 Examples:
   ralphy blueprint create choose-silenthill-001 --unit choose-silenthill
   ralphy blueprint list choose-silenthill-001
   ralphy blueprint show choose-silenthill-001 --unit choose-silenthill
+  ralphy blueprint use choose-silenthill --project choose-silenthill-repro-001
 ```
 
 ### `ralphy template`
