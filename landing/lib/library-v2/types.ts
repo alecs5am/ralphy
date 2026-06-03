@@ -132,3 +132,159 @@ export type CountsFn = (kind: BlockKind) => Record<string, number>;
 
 /** Unit-count per format, for the format cards. */
 export type FmtCounts = Record<FormatId, number>;
+
+// ── Blueprint — the per-unit, reproduction-grade recipe (#074) ───────────────
+//
+// SETTLED DECISIONS (do not redesign — recorded here as the canonical contract):
+//
+//   - LAYERS, does NOT replace, the four block kinds. Blocks (Template / Style /
+//     Recipe / Asset) stay the generic discovery vocabulary (107 already live).
+//     A Blueprint REFERENCES the unit's blocks (via the unit's provenance) and
+//     ADDS the full reproduction payload on top — the verbatim prompts, the
+//     scene table, the composition skeleton, the hard asset files, the model
+//     stack with params + cost, and the concrete ffmpeg/encode/overlay recipes.
+//     Layering is the least-disruptive choice; blocks remain untouched.
+//
+//   - Cardinality: Template 1→N Units; Unit 1→1 Blueprint. A Blueprint belongs
+//     to exactly one Unit and carries `unitId` (= `Unit.id`). The generic side
+//     (Template generalizing across many Units) is expanded in #075.
+//
+// The payload covers six axes: (1) scenario / scene table, (2) per-stage prompts
+// verbatim, (3) composition, (4) hard assets by ref, (5) model stack + params +
+// cost, (6) concrete recipes / effects. `scenario` and `composition` are nullable
+// for scenario-less still projects / non-HyperFrames outputs (#062).
+//
+// Pure types, fs-free, JSON-serializable (no functions / symbols) so the same
+// shape seeds a `blueprints` DB table later. The DB table + publish path are #077
+// — NOT implemented here.
+
+/** Pipeline stages a prompt or model-stack entry can target. Shared `as const`
+ *  so the CLI Zod schema can mirror it member-for-member. */
+export type BlueprintStage =
+  | "image"
+  | "i2v"
+  | "video"
+  | "vo"
+  | "music"
+  | "captions"
+  | "sfx";
+
+/** Hard-asset kinds a Blueprint pins by file ref (not just name). */
+export type BlueprintAssetKind =
+  | "character"
+  | "location"
+  | "prop"
+  | "music"
+  | "ref"
+  | "master";
+
+/** Recipe kinds — the concrete treatment classes a Blueprint records with
+ *  values (a raw ffmpeg command, an encode setting, an overlay, a bake). */
+export type BlueprintRecipeKind = "ffmpeg" | "encode" | "overlay" | "bake";
+
+/** Axis 1 — one row of the scenario / scene table. A `fork` marks a branching
+ *  beat (choose-path); all fields beyond `id` are optional per scene. */
+export interface BlueprintScene {
+  id: string;
+  label?: string;
+  durationSec?: number;
+  /** Verbatim VO line for the scene. */
+  vo?: string;
+  /** SFX flags / cues for the scene. */
+  sfx?: string[];
+  /** Branch beat: a fork label + its option labels. */
+  fork?: { label: string; options?: string[] };
+  notes?: string;
+}
+
+/** Axis 1 — scenario / scene table. `null` for scenario-less still projects. */
+export interface BlueprintScenario {
+  scenes: BlueprintScene[];
+  /** Raw STORYBOARD.md text when present. */
+  storyboardMd?: string;
+}
+
+/** Axis 2 — one per-stage prompt, VERBATIM, with `{{slots}}` noted. */
+export interface BlueprintPrompt {
+  stage: BlueprintStage;
+  /** Asset slot the prompt targets (e.g. "scene-04-image-fork"). */
+  slot?: string;
+  /** Model id the prompt was sent to (read MODELS.md before naming one). */
+  model?: string;
+  /** The prompt text, exactly as sent. */
+  text: string;
+  /** Slot tokens present in `text` (e.g. ["product", "city"]). */
+  slots?: string[];
+}
+
+/** Axis 3 — composition. `null` for non-HyperFrames outputs (e.g. stills). */
+export interface BlueprintComposition {
+  /** Unit-relative path to the copied index.html. */
+  file?: string;
+  /** Parsed scene-start offsets (`A[]`) / segment durations (`SEG[]`). */
+  timing?: { A?: number[]; SEG?: number[] };
+  /** HyperFrames components / registry blocks / overlay functions referenced. */
+  components?: string[];
+}
+
+/** Axis 4 — one hard asset, pinned by file ref (the actual file, not a name). */
+export interface BlueprintAsset {
+  /** Asset slot id when known. */
+  slot?: string;
+  /** Unit-relative (or project-relative) path to the file. */
+  path: string;
+  kind: BlueprintAssetKind;
+  bytes?: number;
+  /** Supabase Storage public URL (set when published/seeded). */
+  storageUrl?: string;
+}
+
+/** Axis 5 — one model-stack entry: the model + params + cost for a stage. */
+export interface BlueprintModelStackEntry {
+  stage: string;
+  model: string;
+  params?: Record<string, unknown>;
+  /** ElevenLabs / TTS voice id when the stage is voice. */
+  voiceId?: string;
+  costUsd?: number;
+}
+
+/** Axis 6 — one concrete recipe / effect with VALUES (command + params). */
+export interface BlueprintRecipe {
+  name: string;
+  kind: BlueprintRecipeKind;
+  /** The raw command (ffmpeg / encode), verbatim, with values. */
+  command?: string;
+  params?: Record<string, unknown>;
+}
+
+/**
+ * Blueprint — a self-contained, reproduction-grade recipe for ONE Unit (#074).
+ * Carries everything a human or an agent needs to reproduce the unit end-to-end
+ * from an empty project, leaving zero open questions. 1:1 with a Unit via
+ * `unitId`. Layers on top of the unit's blocks (it references them via the
+ * unit's provenance and adds the full payload — it does not replace them).
+ */
+export interface Blueprint {
+  /** 1:1 with `Unit.id`. */
+  unitId: string;
+  /** Forward-compat schema version (starts at 1). */
+  schemaVersion: number;
+  /** Axis 1 — scene table; `null` for scenario-less still projects. */
+  scenario: BlueprintScenario | null;
+  /** Axis 2 — per-stage verbatim prompts. */
+  prompts: BlueprintPrompt[];
+  /** Axis 3 — composition; `null` for non-HyperFrames outputs. */
+  composition: BlueprintComposition | null;
+  /** Axis 4 — hard assets, by file ref. */
+  assets: BlueprintAsset[];
+  /** Axis 5 — model stack + params + cost per stage. */
+  modelStack: BlueprintModelStackEntry[];
+  /** Axis 6 — concrete recipes / effects with values. */
+  recipes: BlueprintRecipe[];
+  /** Total cost to reproduce, summed across stages. */
+  costRollupUsd?: number;
+  /** ISO timestamp the blueprint was formed. */
+  createdAt?: string;
+  notes?: string;
+}
