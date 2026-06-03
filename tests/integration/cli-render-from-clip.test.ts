@@ -100,7 +100,8 @@ describe("ralphy render --from-clip (#009)", () => {
     expect(r.exitCode).toBe(0);
     const j = JSON.parse(r.stdout) as { would_call: Array<{ stage: string }> };
     const stages = j.would_call.map((s) => s.stage);
-    expect(stages).toEqual(["ffmpeg-from-clip-wrap", "ffmpeg-loudnorm"]);
+    // The auto social-compress pass (#073) is default-on and trails the chain.
+    expect(stages).toEqual(["ffmpeg-from-clip-wrap", "ffmpeg-loudnorm", "ffmpeg-compress-social"]);
   });
 
   test("refuses when --from-clip points at a missing file", () => {
@@ -138,18 +139,36 @@ describe("ralphy render --from-clip (#009)", () => {
       );
       expect(fs.existsSync(genLog)).toBe(true);
       const lines = fs.readFileSync(genLog, "utf8").trim().split("\n").filter(Boolean);
-      const last = JSON.parse(lines[lines.length - 1]!) as {
+      // The auto social-compress pass (#073) appends its own row after the
+      // wrap, so the wrap row is no longer last — find it by endpoint.
+      const wrapRow = JSON.parse(
+        [...lines]
+          .reverse()
+          .find((l) => (JSON.parse(l) as { endpoint: string }).endpoint === "ffmpeg-from-clip-wrap")!,
+      ) as {
         provider: string;
         endpoint: string;
         kind: string;
         status: string;
         cost_usd: number;
       };
-      expect(last.provider).toBe("ffmpeg");
-      expect(last.endpoint).toBe("ffmpeg-from-clip-wrap");
-      expect(last.kind).toBe("video");
-      expect(last.status).toBe("ok");
-      expect(last.cost_usd).toBe(0);
+      expect(wrapRow.provider).toBe("ffmpeg");
+      expect(wrapRow.endpoint).toBe("ffmpeg-from-clip-wrap");
+      expect(wrapRow.kind).toBe("video");
+      expect(wrapRow.status).toBe("ok");
+      expect(wrapRow.cost_usd).toBe(0);
+
+      // And the social sibling deliverable exists alongside the master.
+      const socialMp4 = path.join(
+        tmpRoot,
+        "workspace",
+        "projects",
+        projectId,
+        "render",
+        "final-social.mp4",
+      );
+      expect(fs.existsSync(socialMp4)).toBe(true);
+      expect(fs.statSync(socialMp4).size).toBeGreaterThan(0);
     },
     90_000,
   );
@@ -191,16 +210,16 @@ describe("ralphy render --from-clip (#009)", () => {
         "generations.jsonl",
       );
       const lines = fs.readFileSync(genLog, "utf8").trim().split("\n").filter(Boolean);
-      const lastOk = JSON.parse(
-        // last entry with status=ok carries the final summary; the wrap stage
-        // might also be `ok` but its `input.loudnorm` is the contract bit.
-        [...lines].reverse().find((l) => {
-          const e = JSON.parse(l) as { status: string };
-          return e.status === "ok";
-        })!,
+      // The from-clip wrap row carries the loudnorm contract bit. The auto
+      // social-compress pass (#073) appends its own row afterward, so we target
+      // the wrap row by endpoint rather than "last ok".
+      const wrapRow = JSON.parse(
+        [...lines]
+          .reverse()
+          .find((l) => (JSON.parse(l) as { endpoint: string }).endpoint === "ffmpeg-from-clip-wrap")!,
       ) as { input: { loudnorm?: boolean }; note: string };
-      expect(lastOk.input.loudnorm).toBe(true);
-      expect(lastOk.note).toMatch(/loudnorm/);
+      expect(wrapRow.input.loudnorm).toBe(true);
+      expect(wrapRow.note).toMatch(/loudnorm/);
     },
     90_000,
   );

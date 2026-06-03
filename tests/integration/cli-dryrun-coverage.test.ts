@@ -114,14 +114,26 @@ describe("generate music --dry-run", () => {
 });
 
 describe("render --dry-run", () => {
-  test("emits full plan with would_write", () => {
+  test("emits full plan with would_write (master + auto social cut)", () => {
     const r = ralphy(["render", "dryrun-001", "--dry-run"]);
     expect(r.exitCode).toBe(0);
-    const j = r.json as { dryRun: boolean; would_call: unknown[]; would_write: string[] };
+    const j = r.json as { dryRun: boolean; would_call: Array<{ stage: string }>; would_write: string[] };
     expect(j.dryRun).toBe(true);
-    expect(j.would_call.length).toBe(1);
-    expect(j.would_write.length).toBe(1);
+    // Engine render + the default-on social compress pass (#073).
+    expect(j.would_call.length).toBe(2);
+    expect(j.would_call.map((s) => s.stage)).toContain("ffmpeg-compress-social");
+    expect(j.would_write.length).toBe(2);
     expect(j.would_write[0]).toContain("final.mp4");
+    expect(j.would_write[1]).toContain("final-social.mp4");
+  });
+
+  test("--no-compress drops the social stage and the social file (#073)", () => {
+    const r = ralphy(["render", "dryrun-001", "--dry-run", "--no-compress"]);
+    expect(r.exitCode).toBe(0);
+    const j = r.json as { would_call: Array<{ stage: string }>; would_write: string[] };
+    expect(j.would_call.map((s) => s.stage)).not.toContain("ffmpeg-compress-social");
+    expect(j.would_write.length).toBe(1);
+    expect(j.would_write.some((p) => p.includes("final-social.mp4"))).toBe(false);
   });
 
   test("--summary collapses to per-stage rollup", () => {
