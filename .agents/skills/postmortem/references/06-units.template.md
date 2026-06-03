@@ -73,6 +73,9 @@ For each `units/<slug>/unit.json`, fill one block:
   | asset | `<slug>` (sub: character/location/prop/music) | NEW \| REUSED | <one line> |
 
 - **Source assets it was curated from:** `<source_assets[] from unit.json>`
+- **Blueprint captured:** `units/<slug>/blueprint/` (`ralphy blueprint create <project-id>
+  --unit <slug>`, #076) — the per-unit reproduction recipe \| not captured. Record only;
+  `templater` invokes the capture, `publish-entity.ts --blueprint <dir>` (#077) pushes it.
 - **Publish status:** not published \| published to library (`/library/<id>`) — record
   only; `publish-entity.ts` (#056) does the actual push.
 
@@ -120,6 +123,10 @@ publish step has one list to work from. Blocks recur across units; list each onc
   `templater` and #056 act on them.
 - **The block inventory dedupes.** A style reused across five units is one row, not
   five. The per-unit graph shows the recurrence; the inventory shows the distinct set.
+- **Record the Blueprint path if one was captured.** If `templater` (or a `ralphy
+  blueprint create` run) produced a `units/<slug>/blueprint/`, note it on the unit so the
+  publish step finds the per-unit reproduction payload. This is a record only — do not run
+  the capture or the publish from this doc.
 
 ## Iteration N addendum
 

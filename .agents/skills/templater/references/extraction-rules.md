@@ -110,6 +110,32 @@ Extract:
 
 Output target: `TEMPLATE.md`.
 
+## Blueprint capture (per Unit)
+
+After classifying the entities, templater captures a **Blueprint** for each Unit by invoking the CLI — it does NOT assemble the payload by hand:
+
+```bash
+ralphy blueprint create <project-id> --unit <slug>
+```
+
+This is `cli/commands/blueprint.ts` (#076), validated against `BlueprintSchema` (`cli/lib/schemas/blueprint.ts`, #074). It pulls the **six reproduction axes** out of the scattered (gitignored) project files into one self-contained `units/<slug>/blueprint/` payload:
+
+1. **scenario** — the scene table (beats / durations / VO / forks), from the scene `*.jsonl` rows or `STORYBOARD.md`; `null` for scenario-less still projects.
+2. **prompts** — every `prompts/**` file VERBATIM, tagged by inferred stage (`image` / `i2v` / `vo` / `music` / `sfx` / `captions`), with any `{{slots}}` noted.
+3. **composition** — the `index.html` timing arrays (`A` / `SEG`) + the components / registry blocks / overlay fns it references; `null` for non-HyperFrames output. The `index.html` itself is COPIED into the payload.
+4. **assets** — each `asset-manifest.json` slot pinned as a hard asset (kind `character` / `location` / `prop` / `music` / `ref` / `master`); local files under the copy ceiling are COPIED into `blueprint/assets/`, the rest recorded by ref.
+5. **modelStack** — per-stage model picks + representative params + voice ids + summed `costRollupUsd`, aggregated from `logs/generations.jsonl`.
+6. **recipes** — the unit's provenance `recipes[]` named treatments, each tagged a kind (`ffmpeg` / `encode` / `overlay` / `bake`).
+
+Properties templater relies on:
+
+- **Extraction only / free** — reads local files, makes no network call, costs nothing. Safe to run in the EXTRACT+CLASSIFY pass.
+- **Append-only** — a re-run on a slug that already has a `blueprint/` writes `blueprint.v2/` (then `.v3`…), never overwrites a prior capture (AGENTS.md invariant #14; mirrors `unit.ts`).
+- **COPY, never move** — the source project files stay untouched.
+- **Degrades gracefully** — a missing scenario / prompts dir / `index.html` / manifest yields a VALID blueprint with that axis `null` / empty and a `notes` line, never a crash.
+
+So templater just invokes `blueprint create` per Unit and records the path + status (`NEW` if it created the first `blueprint/`, `REUSED` if one already existed) into `units[].blueprint`. The actual push to the live library is the #077 `publish-entity.ts --blueprint <dir>` mode — NOT done here.
+
 ## File output mapping
 
 | Template kind | Files written |
