@@ -19,6 +19,7 @@ import {
   formatById,
   getBlock,
   getBlocks,
+  getBlueprint,
   getFormats,
   getUnit,
   getUnits,
@@ -28,6 +29,7 @@ import type { AssetSub, Block } from "@/lib/library-v2/types";
 import { fhue } from "../../_shared/blockMeta";
 import { UnitViewer } from "./UnitViewer";
 import { IngredientPanel } from "./IngredientPanel";
+import { BlueprintPanel } from "./BlueprintPanel";
 import { MoreFrom } from "./MoreFrom";
 
 export const dynamicParams = false;
@@ -89,6 +91,10 @@ export default async function UnitDetailPage({
   ]);
   const moreFromTemplate = fromTemplate.filter((u) => u.id !== unit.id);
   const moreInStyle = inStyle.filter((u) => u.id !== unit.id);
+
+  // The per-unit Blueprint (#074) — full reproduction recipe. Undefined when the
+  // unit has no published Blueprint yet; the panel then renders nothing.
+  const blueprint = await getBlueprint(unit.id);
 
   const hue = format ? fhue(format.id) : "var(--mute)";
 
@@ -153,6 +159,8 @@ export default async function UnitDetailPage({
             </div>
           </div>
         </section>
+
+        <BlueprintPanel blueprint={blueprint} />
 
         <MoreFrom
           formats={formats}
