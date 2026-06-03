@@ -271,6 +271,93 @@
 .tryhint:hover { background: var(--block-tint-2); color: var(--ink); }
 .tryhint .tn { font-family: var(--font-display); font-size: 11px; color: var(--block-ink); }
 
+/* ══ Blueprint panel — full reproduction recipe (#078) ══════════════════
+   Full-width section below the udetail grid. Same rules as the rest of the
+   app: bg-tint separation, NO visible borders. Each axis is its own tinted
+   sub-card; verbatim prompts / recipes / timing arrays sit in mono <pre> blocks
+   that stay selectable + copy-pasteable. */
+.bp-section { padding: 8px 0 12px; }
+.bp-panel { background: var(--bg-1); border-radius: 22px; padding: 26px 26px 22px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .25); }
+.bp-head { margin-bottom: 6px; }
+.bp-head .bp-eye { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--mute); margin: 0 0 5px; }
+.bp-head h2 { font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  text-transform: uppercase; letter-spacing: -0.01em; margin: 0; }
+.bp-head .bp-sub { font-size: 13px; color: var(--ink-3); margin: 8px 0 0; line-height: 1.55; max-width: 80ch; }
+.bp-head .bp-cost { font-family: var(--font-mono); color: var(--vio-2); }
+
+/* One axis = one tinted sub-card. */
+.bp-axis { margin-top: 16px; padding: 16px 18px 18px; border-radius: 16px; background: var(--bg-2); }
+.bp-axis-label { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--mute); margin: 0 0 12px; }
+
+/* Mono pre — verbatim prompts / commands / timing arrays. Selectable, wraps. */
+.bp-pre { font-family: var(--font-mono); font-size: 12px; line-height: 1.55; color: var(--ink-2);
+  background: var(--bg); border-radius: 12px; padding: 13px 15px; margin: 0;
+  white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+.bp-pre-inline { display: inline-block; padding: 8px 12px; }
+.bp-storyboard { margin-top: 10px; }
+.bp-mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2); }
+
+/* Tables — scene table + model stack. Zebra via bg-tint, no borders. */
+.bp-table-wrap { overflow-x: auto; border-radius: 12px; }
+.bp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.bp-table th { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--mute); text-align: left; font-weight: 500;
+  padding: 8px 12px; background: var(--bg-3); }
+.bp-table th:first-child { border-radius: 8px 0 0 0; }
+.bp-table th:last-child { border-radius: 0 8px 0 0; }
+.bp-table td { padding: 9px 12px; color: var(--ink-2); vertical-align: top; }
+.bp-table tbody tr:nth-child(odd) td { background: var(--bg); }
+.bp-table .bp-vo { color: var(--ink); max-width: 32ch; }
+.bp-table .bp-params { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); max-width: 34ch; }
+
+/* Prompts + recipes — stacked cards each with a meta tag row + a pre. */
+.bp-prompts { display: flex; flex-direction: column; gap: 12px; }
+.bp-prompt { background: var(--bg); border-radius: 12px; padding: 12px 14px; }
+.bp-prompt-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+.bp-prompt .bp-pre { background: var(--bg-2); }
+.bp-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; padding: 3px 9px;
+  border-radius: 999px; background: var(--block-tint); color: var(--ink-3); }
+.bp-tag-stage { background: var(--block-tint-2); color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.1em; }
+.bp-tag-model { color: var(--vio-2); }
+.bp-slots { font-family: var(--font-mono); font-size: 10.5px; color: var(--mute); margin: 8px 0 0; }
+
+/* Composition — keyed blocks of pills + arrays. */
+.bp-comp { display: flex; flex-direction: column; gap: 14px; }
+.bp-comp-key { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--mute); margin: 0 0 8px; }
+.bp-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+.bp-pill { font-family: var(--font-mono); font-size: 11.5px; padding: 5px 11px; border-radius: 999px;
+  background: var(--block-tint); color: var(--ink-2); }
+.bp-comp-note { font-size: 12px; color: var(--ink-3); margin: 0; }
+
+/* Hard assets — grouped by kind, each row a download link or a source-note. */
+.bp-asset-group { margin-top: 12px; }
+.bp-asset-group:first-of-type { margin-top: 0; }
+.bp-asset-group-label { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--mute-2); margin: 0 0 7px; }
+.bp-assets { display: flex; flex-direction: column; gap: 6px; }
+.bp-asset { display: flex; align-items: center; gap: 12px; padding: 10px 13px; border-radius: 12px;
+  background: var(--bg); text-decoration: none; color: inherit; transition: background .16s; }
+.bp-asset-dl:hover { background: var(--bg-3); }
+.bp-asset-glyph { font-family: var(--font-display); font-size: 15px; color: var(--block-ink); flex-shrink: 0; }
+.bp-asset-dl .bp-asset-glyph { color: var(--vio); }
+.bp-asset-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bp-asset-name { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bp-asset-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bp-asset-action { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--vio-2); flex-shrink: 0; }
+.bp-asset-note { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--mute-2); flex-shrink: 0; }
+
+/* Oversize-skipped — surfaced clearly, never hidden. */
+.bp-oversize-note { font-size: 12.5px; color: var(--ink-3); margin: 0 0 8px; }
+.bp-oversize-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.bp-oversize-list li { font-size: 11.5px; padding: 8px 12px; border-radius: 10px; background: var(--bg); color: var(--ink-3); }
+
 /* ══ Slot picker overlay ════════════════════════════════════════════════ */
 .picker { position: fixed; inset: 0; z-index: 220; background: rgb(0 0 0 / 0.72); backdrop-filter: blur(8px);
   display: grid; place-items: center; padding: 24px; animation: lbfade .18s ease; }
