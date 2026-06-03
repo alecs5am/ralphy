@@ -30,6 +30,14 @@ A **skill** is a technical or operational capability, not the content-routing de
 
 Skills live under `.agents/skills/<slug>/` (Claude Code slash commands). Slugs carry **no `ralphy-` prefix**; audience is marked by the `namespace` frontmatter field (`user` default, `maintainer` for the two `dev-*` skills).
 
+## Blueprint (per-unit reproduction recipe) vs the 4 blocks
+
+A **Blueprint** (#074) is the per-unit, reproduction-grade recipe — the verbatim prompts, the scene table, the composition skeleton + timing, the hard asset files, the model stack with params + cost, and the concrete ffmpeg/encode/overlay recipes. Settled decisions:
+
+- **Blueprint LAYERS on top of the four block kinds — it does NOT replace them.** Blocks (Template / Style / Recipe / Asset) stay the generic discovery vocabulary; a Blueprint references the unit's blocks (via the unit's provenance) and adds the full reproduction payload on top. Layering is the least-disruptive choice (107 blocks already live).
+- **Cardinality: Unit 1→1 Blueprint; Template 1→N Units.** A Blueprint belongs to exactly one Unit (carries `unitId` = `Unit.id`); a Template generalizes across many Units (the generic side, expanded in #075).
+- The type lives at [`landing/lib/library-v2/types.ts`](../landing/lib/library-v2/types.ts) (`Blueprint`) with a CLI Zod mirror at [`cli/lib/schemas/blueprint.ts`](../cli/lib/schemas/blueprint.ts). The `ralphy blueprint` verb is #076, publish is #077, UI is #078.
+
 ## Contrast
 
 | | Template | Skill |
