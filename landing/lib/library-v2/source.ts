@@ -23,6 +23,20 @@ import {
   UNITS as STATIC_UNITS,
   unitsUsing as staticUnitsUsing,
 } from "./index";
+import { PUBLISHED_UNITS } from "./published";
+
+// Feed order = newest-published first. `published.ts` appends on every publish
+// (newest last), so a higher index = more recently published. We rank by that
+// index and sort published units to the front (newest → oldest); catalog units
+// (not in PUBLISHED_UNITS) keep their order after, via stable sort. Using the
+// publish index rather than `date` because freshly published units carry a null
+// date and would otherwise sink to the bottom.
+const PUBLISH_RANK = new Map(PUBLISHED_UNITS.map((u, i) => [u.id, i]));
+function newestFirst(units: Unit[]): Unit[] {
+  return units
+    .slice()
+    .sort((a, b) => (PUBLISH_RANK.get(b.id) ?? -1) - (PUBLISH_RANK.get(a.id) ?? -1));
+}
 import type {
   AssetSub,
   Block,
@@ -260,7 +274,7 @@ export async function getBlocks(kind?: BlockKind): Promise<Block[]> {
 
 /** Units, optionally filtered by format. */
 export async function getUnits(filter?: { format?: FormatId }): Promise<Unit[]> {
-  const all = isSupabaseBacked() ? (await loadGraph()).units : STATIC_UNITS;
+  const all = newestFirst(isSupabaseBacked() ? (await loadGraph()).units : STATIC_UNITS);
   if (filter?.format) return all.filter((u) => u.format === filter.format);
   return all;
 }
