@@ -174,6 +174,38 @@ async function readTemplateTaxonomy(
   }
 }
 
+// #075: the structured facets that make a Template a generic "how to make this
+// content type" guide — its `requires` block (which brand/persona/ref/voice/
+// music inputs it needs), its `scenes` composition skeleton, the estimated
+// cost, and reference exemplars. These live ONLY in the typed YAML manifest
+// (issue 052), not in the legacy template.json that `show --json` reads. We
+// surface them so `ralphy template show <slug> --json` reports the full Template
+// entity, not just the legacy metadata. Read defensively (same graceful-degrade
+// contract as `readTemplateTaxonomy`): a legacy/version-less workspace template
+// returns an empty object rather than aborting.
+async function readTemplateFacets(
+  ref: ResolvedTemplate,
+): Promise<Record<string, unknown>> {
+  if (ref.kind !== "dir") return {};
+  const yamlPath = path.join(ref.dir, "template.yaml");
+  try {
+    const raw = await fs.readFile(yamlPath, "utf-8");
+    const YAML = (await import("yaml")).default;
+    const value = YAML.parse(raw);
+    if (!value || typeof value !== "object") return {};
+    const v = value as Record<string, unknown>;
+    const facets: Record<string, unknown> = {};
+    if (v.requires && typeof v.requires === "object") facets.requires = v.requires;
+    if (Array.isArray(v.scenes) && v.scenes.length > 0) facets.scenes = v.scenes;
+    if (typeof v.estimated_cost_usd === "number") facets.estimated_cost_usd = v.estimated_cost_usd;
+    if (typeof v.estimated_duration_s === "number") facets.estimated_duration_s = v.estimated_duration_s;
+    if (Array.isArray(v.references) && v.references.length > 0) facets.references = v.references;
+    return facets;
+  } catch {
+    return {};
+  }
+}
+
 export function templateCmd() {
   const cmd = new Command("template").description("Manage scenario/video templates");
 
@@ -351,9 +383,12 @@ export function templateCmd() {
 
   cmd
     .command("show <id>")
-    .description("Show template — prints TEMPLATE.md for dir templates, JSON for flat")
+    .description("Show template — prints TEMPLATE.md (the prompt-cookbook) for dir templates, JSON for flat. `--meta` prints the structured manifest facets (#075) for dir templates.")
     .option("--path", "Print the on-disk path only")
-    .option("--json", "Print template.json metadata (dir templates only)")
+    .option(
+      "--meta",
+      "Print structured manifest metadata (dir templates only): template.json + the YAML facets — format/style_of/requires/scenes/estimated_cost_usd/references (#075). Was `--json`, renamed to avoid the global `--json` output-mode flag.",
+    )
     .action(async (id: string, opts: any) => {
       const ref = await resolveTemplate(id);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
@@ -375,16 +410,20 @@ export function templateCmd() {
       }
 
       // dir template
-      if (opts.json) {
+      if (opts.meta) {
         const meta = await readTemplateMeta(ref);
         if (!meta) err(`No template.json in ${ref.dir}`);
-        // Surface the primary-axis taxonomy (issue 052) alongside the legacy
-        // template.json metadata. format/style_of live in the YAML manifest.
+        // Surface the primary-axis taxonomy (issue 052) AND the structured
+        // facets (#075 — requires/scenes/cost/references) alongside the legacy
+        // template.json metadata. Both live in the YAML manifest, not in
+        // template.json, so a `show --json` reports the full Template entity.
         const tax = await readTemplateTaxonomy(ref);
+        const facets = await readTemplateFacets(ref);
         out({
           ...meta,
           ...(tax.format ? { format: tax.format } : {}),
           ...(tax.style_of ? { style_of: tax.style_of } : {}),
+          ...facets,
         });
         return;
       }

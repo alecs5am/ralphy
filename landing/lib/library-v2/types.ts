@@ -45,7 +45,25 @@ export interface Format {
 }
 
 /** The four block kinds. `template` is the only single-value-per-unit axis
- *  alongside `style`; `recipe` and `asset` are multi-value. */
+ *  alongside `style`; `recipe` and `asset` are multi-value.
+ *
+ *  NAMING NOTE (#075): the `"template"` block-KIND here is the per-unit,
+ *  style-agnostic STRUCTURE tag in a Unit's provenance — the structure axis of
+ *  THIS one Unit's ingredient list. It is DISTINCT from two other "Template"
+ *  meanings:
+ *    1. the generic repo TEMPLATE ENTITY — the `templates/<category>/<slug>/`
+ *       cookbook artifact (prompt-cookbook + `{{slots}}` + common model stack +
+ *       composition skeleton) that answers "how do I make THIS KIND of
+ *       content?" and scaffolds a project via `ralphy template use`. One generic
+ *       Template fans out to N Units; this block-kind labels the structure of
+ *       each such Unit and stays consistent with that generic Template's
+ *       skeleton; and
+ *    2. the per-unit BLUEPRINT (#074, defined below) — the reproduction-grade
+ *       recipe that answers "how do I reproduce THIS EXACT one?" (Unit 1→1
+ *       Blueprint). The Blueprint LAYERS on top of these four block-kinds; it
+ *       does NOT replace them — the block-kinds stay the generic discovery
+ *       vocabulary.
+ *  Full disambiguation: docs/skills-vs-templates.md → "The reproduction trio". */
 export type BlockKind = "template" | "style" | "recipe" | "asset";
 
 /** Asset sub-kinds. A swap fits same-sub only (swap a location for a location). */

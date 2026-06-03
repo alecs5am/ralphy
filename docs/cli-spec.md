@@ -315,7 +315,7 @@ ralph template list                      # all templates from both roots
 ralph template suggest "<utterance>"      # ranked match by tags + metadata
 ralph template show <id>                 # prints TEMPLATE.md for dir, JSON for flat
 ralph template show <id> --path          # path only (repo or workspace, whichever wins)
-ralph template show <id> --json          # template.json metadata (dir only)
+ralph template show <id> --meta          # structured manifest facets (dir only): requires/scenes/cost/references
 
 # Scaffold new project from template (works with either source)
 ralph template use <id> \

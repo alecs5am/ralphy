@@ -30,12 +30,44 @@ A **skill** is a technical or operational capability, not the content-routing de
 
 Skills live under `.agents/skills/<slug>/` (Claude Code slash commands). Slugs carry **no `ralphy-` prefix**; audience is marked by the `namespace` frontmatter field (`user` default, `maintainer` for the two `dev-*` skills).
 
+## The reproduction trio: Template (generic) → Unit → Blueprint (specific)
+
+Three entities form one spine, from "how to make this *kind* of content" down to "how to reproduce *this exact* one." Read them as a chain, not as competitors:
+
+- **Template (generic)** — the repo `templates/<category>/<slug>/` artifact: a prompt-cookbook + `{{slots}}` + the common model stack + common assets + a composition skeleton. It answers **"how do I make THIS KIND of content?"** It is the learn / discover / scaffold-from entity. `ralphy template show <slug>` surfaces its cookbook; `ralphy template use <slug> --project <id>` scaffolds a fresh project from it. This is the entity issue #075 formalizes as "Template."
+- **Unit** — one finished deliverable in a Format (the #063 / #069 entity). A Unit is made *in the manner of* a Template but is a concrete, shipped piece.
+- **Blueprint (specific, #074)** — the per-unit, reproduction-grade recipe for ONE Unit: verbatim prompts, scene table, composition skeleton + timing, hard asset files, model stack with params + cost, concrete ffmpeg/encode/overlay recipes. It answers **"how do I reproduce THIS EXACT one?"**
+
+**Cardinality (the load-bearing line):**
+
+- **Template (generic) 1 → N Units.** One Template fans out to many Units, each made in that content-type's manner.
+- **Unit 1 → 1 Blueprint.** Each Unit has exactly one reproduction recipe (`Blueprint.unitId` = `Unit.id`).
+- Therefore **Template 1 → N Blueprints** transitively (one per Unit it spawned), but a Template is never itself a reproduction recipe — it is the generalized cookbook, the Blueprint is the exact-copy recipe.
+
+**What each carries:**
+
+| Entity | Carries | Answers | Surface |
+|---|---|---|---|
+| Template (generic) | Prompt-cookbook, `{{slots}}`, common model stack, common assets, composition skeleton, craft rules + anti-patterns | "How do I make this *kind*?" | `templates/<cat>/<slug>/`; `ralphy template show / use` |
+| Unit | The finished media + its provenance (1 Template + 1 Style + N Recipes + M Assets) | "What did this project ship?" | `units/<slug>/unit.json` (#069); library feed |
+| Blueprint | Verbatim prompts, scene table, composition + timing, hard asset files, model stack + params + cost, raw recipes | "How do I reproduce *this exact* one?" | `Blueprint` type (#074); `ralphy blueprint` (#076) |
+
+### Disambiguating the three-way "Template" overload
+
+The word "Template" is used for three distinct things; keep them separate:
+
+1. **Template ENTITY (generic)** — the repo cookbook artifact described above. The discover / scaffold-from entity. **This is what #075 formalizes.**
+2. **Template BLOCK-KIND** — one of the four #063 metadata blocks (`Block` with `kind: "template"` in [`landing/lib/library-v2/types.ts`](../landing/lib/library-v2/types.ts)): the per-unit, **style-agnostic STRUCTURE tag** in a Unit's provenance. It is the structure axis of *that one Unit's* ingredient list, and it points back at / stays consistent with the generic Template's skeleton. It is the generic *discovery vocabulary* — it is **not** replaced by the Blueprint (per #074's layer-not-replace decision).
+3. **Blueprint (specific, #074)** — the per-unit reproduction recipe, above.
+
+The resolution in one line: **Template (generic) answers "how to make this kind"; the Template block-kind labels one Unit's structure within its provenance; Blueprint answers "how to reproduce this exact one."** The generic Template and the Template block-kind are consistent (the block-kind names the structure the generic Template generalizes); the Blueprint layers the full reproduction payload on top of all four block-kinds without replacing any of them.
+
 ## Blueprint (per-unit reproduction recipe) vs the 4 blocks
 
 A **Blueprint** (#074) is the per-unit, reproduction-grade recipe — the verbatim prompts, the scene table, the composition skeleton + timing, the hard asset files, the model stack with params + cost, and the concrete ffmpeg/encode/overlay recipes. Settled decisions:
 
 - **Blueprint LAYERS on top of the four block kinds — it does NOT replace them.** Blocks (Template / Style / Recipe / Asset) stay the generic discovery vocabulary; a Blueprint references the unit's blocks (via the unit's provenance) and adds the full reproduction payload on top. Layering is the least-disruptive choice (107 blocks already live).
-- **Cardinality: Unit 1→1 Blueprint; Template 1→N Units.** A Blueprint belongs to exactly one Unit (carries `unitId` = `Unit.id`); a Template generalizes across many Units (the generic side, expanded in #075).
+- **Cardinality: Unit 1→1 Blueprint; Template 1→N Units.** A Blueprint belongs to exactly one Unit (carries `unitId` = `Unit.id`); a Template generalizes across many Units (the generic side, expanded in #075 and in "The reproduction trio" above).
 - The type lives at [`landing/lib/library-v2/types.ts`](../landing/lib/library-v2/types.ts) (`Blueprint`) with a CLI Zod mirror at [`cli/lib/schemas/blueprint.ts`](../cli/lib/schemas/blueprint.ts). The `ralphy blueprint` verb is #076, publish is #077, UI is #078.
 
 ## Contrast
