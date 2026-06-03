@@ -920,8 +920,10 @@ Commands:
                                     local registry (workspace or repo)
   list [options]                    List all templates (both repo-public
                                     templates/ and local workspace/templates/)
-  show [options] <id>               Show template — prints TEMPLATE.md for dir
-                                    templates, JSON for flat
+  show [options] <id>               Show template — prints TEMPLATE.md (the
+                                    prompt-cookbook) for dir templates, JSON for
+                                    flat. `--meta` prints the structured
+                                    manifest facets (#075) for dir templates.
   use [options] <id>                Create a new project scaffolded from a
                                     template
   extract [options] <project-id>    Promote a finished workspace project into a
