@@ -37,3 +37,7 @@ public/
 # …and the desktop app's public/ ships the brand fonts. Un-ignore it too.
 !desktop/public/
 !desktop/public/**
+
+# Per-project scratch bake / i2v shell scripts (tied to gitignored workspace
+# projects, use /tmp paths). scripts/ is for permanent tooling only.
+scripts/tmp-*.sh
