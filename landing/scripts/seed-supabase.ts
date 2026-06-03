@@ -33,8 +33,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
 
-import { BLOCKS, UNITS } from "../lib/library-v2/index";
-import type { Block, Unit, UnitMedia } from "../lib/library-v2/types";
+import { BLOCKS, BLUEPRINTS, UNITS } from "../lib/library-v2/index";
+import type { Block, Blueprint, Unit, UnitMedia } from "../lib/library-v2/types";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 
@@ -295,14 +295,39 @@ function unitBlockSql(rows: UnitBlockRow[]): string[] {
   );
 }
 
+/** Blueprint seed rows: one (unit_id, data jsonb) tuple per published Blueprint
+ *  (#077). 1:1 with its unit; `data` is the full JSON-serialized Blueprint. */
+function blueprintRows(): string[] {
+  return BLUEPRINTS.map(
+    (bp: Blueprint) => `  (${sqlText(bp.unitId)}, ${sqlJson(bp)})`,
+  );
+}
+
 function buildSql(mediaByUnit: Map<string, UnitMedia[]>): {
   sql: string;
-  counts: { blocks: number; units: number; unitBlocks: number };
+  counts: { blocks: number; units: number; unitBlocks: number; blueprints: number };
 } {
   const blocks = blockRows();
   const units = unitRows(mediaByUnit);
   const ub = unitBlockRows();
   const ubSql = unitBlockSql(ub);
+  const blueprints = blueprintRows();
+
+  // Blueprints seed is conditional — an empty `insert ... values` is invalid SQL,
+  // so only emit the block when at least one Blueprint is published (#077). The
+  // table DDL itself always ships (idempotent `if not exists`).
+  const blueprintsSql =
+    blueprints.length > 0
+      ? `
+-- ── blueprints (1:1 per-unit reproduction recipe; #077) ──────────────────────
+insert into blueprints (unit_id, data) values
+${blueprints.join(",\n")}
+on conflict (unit_id) do update set
+  data = excluded.data;
+`
+      : `
+-- ── blueprints (1:1 per-unit reproduction recipe; #077) — none published yet ──
+`;
 
   const sql = `-- supabase/seed/library_v2.sql
 --
@@ -311,9 +336,16 @@ function buildSql(mediaByUnit: Map<string, UnitMedia[]>): {
 -- Apply with --push-db (service role) or via the Supabase MCP server. Do not hand-edit;
 -- regenerate with: cd landing && bun run scripts/seed-supabase.ts --dry-run
 --
--- Counts: ${blocks.length} blocks, ${units.length} units, ${ubSql.length} unit_blocks.
+-- Counts: ${blocks.length} blocks, ${units.length} units, ${ubSql.length} unit_blocks, ${blueprints.length} blueprints.
 
 begin;
+
+-- ── blueprints table (DDL; canonical home is supabase/migrations/0001) ───────
+create table if not exists blueprints (
+  unit_id    text primary key references units(id) on delete cascade,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
 
 -- ── blocks ─────────────────────────────────────────────────────────────────
 insert into blocks (id, kind, name, blurb, sub, refs) values
@@ -343,13 +375,18 @@ ${ubSql.join(",\n")}
 on conflict (unit_id, block_id, role) do update set
   link_kind = excluded.link_kind,
   position  = excluded.position;
-
+${blueprintsSql}
 commit;
 `;
 
   return {
     sql,
-    counts: { blocks: blocks.length, units: units.length, unitBlocks: ubSql.length },
+    counts: {
+      blocks: blocks.length,
+      units: units.length,
+      unitBlocks: ubSql.length,
+      blueprints: blueprints.length,
+    },
   };
 }
 
@@ -421,7 +458,7 @@ async function main(): Promise<void> {
   writeFileSync(SEED_SQL_PATH, sql, "utf8");
   console.log(`wrote ${SEED_SQL_PATH}`);
   console.log(
-    `rows: blocks=${counts.blocks} units=${counts.units} unit_blocks=${counts.unitBlocks}`,
+    `rows: blocks=${counts.blocks} units=${counts.units} unit_blocks=${counts.unitBlocks} blueprints=${counts.blueprints}`,
   );
 
   // 3. DB push

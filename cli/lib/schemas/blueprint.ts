@@ -149,6 +149,13 @@ export const BlueprintSchema = z.object({
   costRollupUsd: z.number().optional(),
   createdAt: z.string().optional(),
   notes: z.string().optional(),
+  /**
+   * Publish-time annotation (#077): hard-asset payload files that exceeded the
+   * Storage size cap and were recorded by-ref instead of uploaded. Set by the
+   * landing publish path, never by `ralphy blueprint create`. Kept here so the
+   * CLI schema stays in lockstep with the library-v2 `Blueprint` type.
+   */
+  oversizeSkipped: z.array(z.string()).optional(),
 });
 
 export type Blueprint = z.infer<typeof BlueprintSchema>;

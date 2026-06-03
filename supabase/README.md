@@ -36,8 +36,12 @@ tables; the composition is a join table.
   N recipe + M asset** rows per unit, all `link_kind = 'provenance'`. The
   `applicable` swap links (other blocks of the same kind / same asset sub) are
   **derived at query time** and are never stored.
+- **`blueprints`** — per-unit reproduction Blueprints (#074/#077). 1:1 with a unit
+  (`unit_id` is both PK and FK → `units(id)`); `data` jsonb holds the full
+  serialized Blueprint (the six axes + resolved per-asset `storageUrl` + any
+  `oversizeSkipped` note). Upsert is idempotent + append-only, keyed by `unit_id`.
 - **Indexes:** `unit_blocks(block_id)`, `units(format)`, `blocks(kind)`.
-- **RLS:** enabled on all three tables with a PUBLIC SELECT policy each (the data is
+- **RLS:** enabled on all four tables with a PUBLIC SELECT policy each (the data is
   open). There is intentionally **no** insert/update/delete policy — writes go
   through the service role / Supabase MCP only.
 

@@ -17,12 +17,13 @@ import {
   FORMATS,
   UNITS as BASE_UNITS,
 } from "./catalog";
-import { PUBLISHED_BLOCKS, PUBLISHED_UNITS } from "./published";
+import { PUBLISHED_BLOCKS, PUBLISHED_BLUEPRINTS, PUBLISHED_UNITS } from "./published";
 import type {
   ApplicableFn,
   Block,
   BlockKind,
   BlocksByKind,
+  Blueprint,
   CountsFn,
   FmtCounts,
   Format,
@@ -37,6 +38,7 @@ export type {
   Block,
   BlockKind,
   BlocksByKind,
+  Blueprint,
   CountsFn,
   FmtCounts,
   Format,
@@ -65,6 +67,23 @@ function mergeById<T extends { id: string }>(base: T[], overrides: T[]): T[] {
 
 /** All Units: base catalog merged with published units (published wins by id). */
 export const UNITS: Unit[] = mergeById(BASE_UNITS, PUBLISHED_UNITS);
+
+/** Published per-unit Blueprints (#077), deduped by `unitId` (published wins on a
+ *  clash). The base catalog ships none today, so this is just the published set;
+ *  the dedupe keeps a re-publish idempotent (latest entry replaces the prior one).
+ *  Keyed on `unitId` (1:1 with `Unit.id`), not the `id` field `mergeById` expects. */
+function mergeByUnitId(...lists: Blueprint[][]): Blueprint[] {
+  const byUnit = new Map<string, Blueprint>();
+  for (const list of lists) for (const bp of list) byUnit.set(bp.unitId, bp);
+  return Array.from(byUnit.values());
+}
+
+export const BLUEPRINTS: Blueprint[] = mergeByUnitId(PUBLISHED_BLUEPRINTS);
+
+/** Blueprint lookup by the unit id it reproduces (1:1 with `Unit.id`). */
+export const BLUEPRINT_BY: Record<string, Blueprint> = Object.fromEntries(
+  BLUEPRINTS.map((bp) => [bp.unitId, bp]),
+);
 
 /** All Blocks by kind: base catalog merged with published blocks of each kind. */
 export const BLOCKS: BlocksByKind = {
@@ -166,6 +185,8 @@ export const RX = {
   BLOCK_BY,
   UNITS,
   U_BY,
+  BLUEPRINTS,
+  BLUEPRINT_BY,
   unitsUsing,
   applicable,
   counts,
