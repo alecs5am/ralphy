@@ -1,8 +1,27 @@
 # Normalize the 23 recipe blocks into real-recipes vs tags + prune dup
 
-> **Status:** todo
+> **Status:** partly done (2026-06-04) — enrichment + prune shipped; tag-demotion deferred
 > **Filed:** 2026-06-04
 > **Folder:** issues
+
+## Done (2026-06-04, live)
+
+- 16 recipes classified REAL and enriched (recipeKind + body + artifact + params),
+  5 with live-runnable HyperFrames `demo.html`; published to Supabase + the mirror.
+- `choosepath-soundtrack` published with the real soundtrack.mp3 (asset page plays it).
+- Dup `choose-path-xfade-master` pruned (DB block row + published.ts mirror).
+
+## Remaining — DECISION NEEDED (deferred)
+
+The 6 pure-descriptor recipes (`rain-overlay`, `lantern-glow`, `halftone`,
+`light-leak`, `bloom`, `halation`) were found to be referenced by **20+ catalog
+units** (bloom×9, halftone×9, rain-overlay×2, lantern-glow×1) — NOT "no units" as
+first assumed. Demoting them to tags is therefore a base-`catalog.ts` migration
+across many units + DB `unit_blocks` rewrites. Two options for the user:
+(a) **demote** — move them from each unit's `recipeIds` to `tags[]` (catalog.ts +
+DB migration, ~20 units); or (b) **enrich** — author real artifacts for them too
+(they are standard ffmpeg/CSS effects) and keep them as recipes. Pick one in a
+focused follow-up; do not do it blind at session end.
 
 ## Context
 
