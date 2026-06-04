@@ -1,6 +1,6 @@
 # Retire the repo `templates/` folder — Supabase is the source for public templates
 
-> **Status:** todo (decision made; execution deferred — has two blockers below)
+> **Status:** done — 2026-06-04 (folder deleted + CLI on Supabase; landing component refactor → #086-#097, mirror regen → #098)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** high (architecture direction + removes 64 committed files)
