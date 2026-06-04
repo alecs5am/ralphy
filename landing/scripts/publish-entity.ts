@@ -731,11 +731,20 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
   // Refs that go to BOTH the DB jsonb AND the published.ts mirror. Previously the
   // DB stored the raw local `spec.refs` while the mirror stored the storageUrl-
   // rewritten copy — the #056 publishBlock divergence that leaked a local path
-  // into the DB. Compute ONE sanitized list and feed it to both sinks: rewrite to
-  // the Storage public URL when known, else strip to the basename.
+  // into the DB. Compute ONE sanitized list and feed it to both sinks.
+  //
+  // Any non-remote ref is a local file destined for Storage, so its PUBLISHED
+  // form is the Storage public URL — keyed on "is this already a remote URL",
+  // NOT on whether the path matches the leak regex. This is the fix for the
+  // earlier bug where a local file under a relative path the leak regex did not
+  // match (e.g. workspace/.ralph/...) passed through verbatim. When no Storage
+  // URL is resolvable (dry-run with no env), strip to the basename — never the
+  // raw local path. Already-remote (http/https) refs pass through unchanged.
   const publishedRefs = (spec.refs ?? []).map((ref) => {
+    if (/^https?:\/\//i.test(ref)) return ref;
     const url = publicUrlFor(blockObjectKey(spec.kind, spec.id, ref));
-    return sanitizeForPublish(ref, { safe: url, field: `block:${spec.id} refs[]` });
+    if (url) return url;
+    return sanitizeForPublish(ref, { field: `block:${spec.id} refs[]` });
   });
 
   const blockUpsert: UpsertRow = {
