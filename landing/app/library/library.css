@@ -45,7 +45,10 @@
 
 /* ── Search (sticky pill) ────────────────────────────────────────── */
 .lib-toolbar { position: sticky; top: 78px; z-index: 30; padding-top: 18px; padding-bottom: 14px;
-  background: linear-gradient(to bottom, var(--bg) 64%, transparent); }
+  /* Translucent blur (matches the Nav above) instead of an opaque black band —
+     the feed shows faintly through the sticky strip rather than a hard black bar. */
+  background: color-mix(in oklch, var(--bg) 80%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1); -webkit-backdrop-filter: blur(14px) saturate(1.1); }
 @media (max-width: 900px) { .lib-toolbar { top: 12px; } }
 .lib-search { display: flex; align-items: center; gap: 14px; width: 100%; background: var(--bg-1);
   border-radius: 16px; padding: 15px 20px; color: var(--mute); transition: background .16s; }
