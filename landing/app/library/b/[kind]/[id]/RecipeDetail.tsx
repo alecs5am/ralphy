@@ -18,10 +18,6 @@
 //
 // No visible borders: separation via bg-tint steps + shadow + spacing only.
 
-import { MDXRemote } from "next-mdx-remote/rsc";
-import rehypeHighlight from "rehype-highlight";
-import remarkGfm from "remark-gfm";
-import { mdxComponents } from "@/components/mdx";
 import type { Block, BlockRecipeDemo, RecipeKind } from "@/lib/library-v2/types";
 import { CopyArtifact } from "./CopyArtifact";
 
@@ -59,19 +55,10 @@ export function RecipeDetail({ block }: { block: Block }) {
           {hasBody && (
             <div className="rx-axis">
               <p className="rx-axis-label">What it is</p>
-              <div className="blog-body lib-body rx-body">
-                <MDXRemote
-                  source={block.body!}
-                  components={mdxComponents}
-                  options={{
-                    parseFrontmatter: false,
-                    mdxOptions: {
-                      remarkPlugins: [remarkGfm],
-                      rehypePlugins: [[rehypeHighlight, { detect: true, ignoreMissing: true }]],
-                    },
-                  }}
-                />
-              </div>
+              {/* Plain whitespace-preserving render — recipe bodies are authored
+                  how-to text and must NOT go through the MDX/JSX compiler, which
+                  throws on arbitrary `{`/`<` in ffmpeg/prompt prose (#083). */}
+              <div className="rx-body">{block.body}</div>
             </div>
           )}
 
