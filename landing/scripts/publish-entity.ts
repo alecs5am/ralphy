@@ -73,7 +73,7 @@ import { env, makeS3Client, publicUrlFor, putObject } from "./lib/supabase";
 
 const __dirname_ = resolve(fileURLToPath(import.meta.url), "..");
 const LANDING_ROOT = resolve(__dirname_, "..");
-const PUBLISHED_TS = join(LANDING_ROOT, "lib", "library-v2", "published.ts");
+export const PUBLISHED_TS = join(LANDING_ROOT, "lib", "library-v2", "published.ts");
 const SHOWCASE_ROOT = join(LANDING_ROOT, "public", "showcase");
 
 // ── Args ─────────────────────────────────────────────────────────────────────
@@ -111,10 +111,10 @@ function parseArgs(argv: string[]): Args {
 // `LOCAL_PATH_RE` is the single regex both the per-field sanitizer AND the final
 // backstop assertion use, so "what we strip" and "what we refuse" can never drift.
 
-const LOCAL_PATH_RE = /(\/Users\/|\/home\/|\/var\/|\/tmp\/|\/private\/|workspace\/projects)/;
+export const LOCAL_PATH_RE = /(\/Users\/|\/home\/|\/var\/|\/tmp\/|\/private\/|workspace\/projects)/;
 
 /** True when `value` carries an absolute local FS path or a workspace/projects segment. */
-function looksLocal(value: string): boolean {
+export function looksLocal(value: string): boolean {
   return LOCAL_PATH_RE.test(value);
 }
 
@@ -147,7 +147,7 @@ function sanitizeForPublish(value: string, opts: { safe?: string; field: string 
  * published.ts / upserted into the DB jsonb, and refuse loudly if any local path
  * survived the per-field sanitizer. Fail-closed: never publish a leak.
  */
-function assertNoLocalPaths(payload: unknown, field: string): void {
+export function assertNoLocalPaths(payload: unknown, field: string): void {
   const serialized = JSON.stringify(payload);
   if (LOCAL_PATH_RE.test(serialized)) {
     const m = LOCAL_PATH_RE.exec(serialized);
@@ -195,7 +195,7 @@ const BLUEPRINTS_END = "// ralphy:published-blueprints:end";
  *  blocks-literal / mid2 / blueprints-literal / tail regions, so we can rewrite
  *  each of the THREE arrays between its sentinels in place. The literal order on
  *  disk is units → blocks → blueprints. */
-function readPublishedRegions(): {
+export function readPublishedRegions(): {
   head: string;
   mid1: string;
   mid2: string;
@@ -251,7 +251,7 @@ function upsertBlueprint(list: Blueprint[], item: Blueprint): Blueprint[] {
 }
 
 /** Re-emit published.ts with the THREE arrays rewritten between their sentinels. */
-function renderPublished(
+export function renderPublished(
   units: Unit[],
   blocks: Block[],
   blueprints: Blueprint[],
@@ -1145,7 +1145,11 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+// Only run the CLI when invoked directly (not when imported for its exported
+// helpers, e.g. by scripts/sync-published-mirror.ts).
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
+}

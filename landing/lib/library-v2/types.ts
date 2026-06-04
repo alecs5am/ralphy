@@ -169,6 +169,10 @@ export interface UnitMedia {
   /** Supabase Storage public URL (set when published/seeded). The adapter
    *  prefers this over the local `src` when present (mediaUrl). */
   storageUrl?: string;
+  /** Supabase Storage public URL for the `poster` frame (set when published/
+   *  seeded). The remote companion to the local `poster`, mirroring how
+   *  `storageUrl` companions `src`. */
+  posterStorageUrl?: string;
 }
 
 /** A finished deliverable. `templateId` is single; `recipeIds` + `assetIds` are
