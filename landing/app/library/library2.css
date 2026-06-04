@@ -792,3 +792,101 @@
 /* The large media: whole, contained, capped to viewport — never native size. */
 .media-lb-stage .media-lb-el { display: block; max-width: min(94vw, 1200px);
   max-height: 88vh; width: auto; height: auto; object-fit: contain; }
+
+/* ══ Media-first "Visual Feed" card (#100) ══════════════════════════════
+   The /library masonry card. Resting state = real media (via UnitMediaShape
+   feed) + an icon-only format badge + a one-line caption. Hover/focus-within
+   reveals the recipe overlay (eyebrow + genome + Template/look chips + Open /
+   Remix actions) over a bottom scrim. Ported pixel-accurately from the design
+   handoff's visual-feed.css + cards.css, scoped to live inside the existing JS
+   masonry column (.mcol): the column gap comes from each card's margin-bottom
+   (matching .utile), NOT from a CSS `columns` rule. --hue is the format hue,
+   passed inline by FeedCard. No visible borders (the badge inset ring is an
+   inset highlight, not a 1px solid border). */
+
+.gcard { position: relative; break-inside: avoid; margin-bottom: 18px; width: 100%;
+  cursor: pointer; color: inherit; }
+
+.gmedia { position: relative; border-radius: 18px; overflow: hidden; isolation: isolate;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3); transition: box-shadow .22s, transform .22s; }
+.gcard:hover .gmedia, .gcard:focus-within .gmedia {
+  box-shadow: 0 18px 46px rgb(0 0 0 / 0.5); transform: translateY(-3px); }
+/* The real media (.ph) is the zoom target — scale it on hover. */
+.gmedia .ph { border-radius: 0; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+.gcard:hover .gmedia .ph { transform: scale(1.045); }
+
+/* icon-only type badge — the format glyph carries the type, no words */
+.gbadge { position: absolute; top: 10px; left: 10px; z-index: 4; width: 30px; height: 30px;
+  border-radius: 9px; display: grid; place-items: center; font-family: var(--font-display);
+  font-size: 15px; line-height: 1; color: var(--hue); background: rgb(8 8 9 / 0.46);
+  backdrop-filter: blur(7px); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.09);
+  transition: opacity .2s; pointer-events: none; }
+.gcard:hover .gbadge, .gcard:focus-within .gbadge { opacity: 0; }
+
+/* centered play affordance for video + motion-design */
+.gplay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 4;
+  width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center;
+  background: color-mix(in oklch, var(--hue) 38%, var(--bg)); color: var(--ink);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4); pointer-events: none; transition: opacity .2s; }
+.gcard:hover .gplay, .gcard:focus-within .gplay { opacity: 0; }
+
+/* hover detail overlay (the recipe panel) */
+.gover { position: absolute; inset: 0; z-index: 3; opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+  background: linear-gradient(to top, rgb(8 8 9 / 0.95) 0%, rgb(8 8 9 / 0.62) 28%,
+    rgb(8 8 9 / 0.12) 52%, transparent 66%); }
+.gcard:hover .gover, .gcard:focus-within .gover { opacity: 1; pointer-events: auto; }
+
+.gover-actions { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 7px;
+  transform: translateY(-5px); transition: transform .22s; }
+.gcard:hover .gover-actions, .gcard:focus-within .gover-actions { transform: none; }
+
+.gover-info { position: absolute; left: 14px; right: 14px; bottom: 13px; display: flex;
+  flex-direction: column; gap: 9px; transform: translateY(7px); transition: transform .22s; }
+.gcard:hover .gover-info, .gcard:focus-within .gover-info { transform: none; }
+.gover-eye { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; color: var(--hue); }
+.gover-eye .dot { width: 7px; height: 7px; border-radius: 2px; background: currentColor; flex-shrink: 0; }
+.gover-eye .ct { color: var(--ink-3); }
+.gover-info .vc-genome { background: rgb(245 245 244 / 0.09); align-self: flex-start; }
+.gnames { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* action pill buttons (top-right of the overlay) */
+.va { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono);
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 7px 11px;
+  border-radius: 999px; border: 0; cursor: pointer; line-height: 1; white-space: nowrap;
+  text-decoration: none; }
+.va.open { background: rgb(245 245 244 / 0.92); color: var(--bg); backdrop-filter: blur(6px); }
+.va.open:hover { background: #fff; }
+.va.remix { background: var(--vio); color: #1a1205; }
+.va.remix:hover { background: var(--vio-2); }
+
+/* one-line caption */
+.gcap { display: flex; align-items: center; gap: 8px; padding: 9px 5px 2px; min-width: 0; }
+.gcap .cdot { width: 7px; height: 7px; border-radius: 2px; background: var(--hue); flex-shrink: 0; }
+.gcap .t { font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  letter-spacing: -0.005em; color: var(--ink-3); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; transition: color .18s; text-decoration: none; min-width: 0; }
+.gcard:hover .gcap .t, .gcard:focus-within .gcap .t { color: var(--ink); }
+/* stretched-link: the title link's ::after covers the whole card so the card
+   surface is clickable while staying a single valid <a> (the overlay's Open
+   link + Remix button sit above it via their own z-index). */
+.gcard-link::after { content: ""; position: absolute; inset: 0; z-index: 2; }
+
+/* genome (ingredient fingerprint) — glyph segments on a faint pill */
+.vc-genome { display: flex; align-items: center; gap: 0; flex-wrap: wrap; row-gap: 6px;
+  padding: 7px 4px; border-radius: 11px; background: rgb(245 245 244 / 0.035); }
+.vc-gseg { display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; }
+.vc-gseg + .vc-gseg { box-shadow: inset 1px 0 0 rgb(245 245 244 / 0.09); }
+.vc-gly { font-family: var(--font-display); font-size: 14px; line-height: 1; }
+.vc-gly.fmt { color: var(--hue); }
+.vc-gly.blk { color: var(--block-ink); }
+.vc-gcount { font-family: var(--font-mono); font-size: 10.5px; color: var(--mute); margin-left: 1px; }
+
+/* honor reduced motion — neutralize the zoom / lift / slide / fades */
+@media (prefers-reduced-motion: reduce) {
+  .gmedia, .gmedia .ph, .gbadge, .gplay, .gover, .gover-actions, .gover-info, .gcap .t {
+    transition: none !important; }
+  .gcard:hover .gmedia, .gcard:focus-within .gmedia { transform: none; }
+  .gcard:hover .gmedia .ph { transform: none; }
+}
