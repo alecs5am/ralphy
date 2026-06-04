@@ -120,7 +120,14 @@ export default async function UnitDetailPage({
             </p>
 
             <div className="udetail">
-              {/* Left — title + sticky viewer */}
+              {/* Left — the CONTENT (media) is the focus. Pinterest-style: the
+                  unit's media leads; the title, blurb and CTAs move to the right
+                  column so the eye lands on the content first. */}
+              <div style={{ position: "relative" }}>
+                <UnitViewer u={unit} format={format} />
+              </div>
+
+              {/* Right — title + blurb + reproduce CTAs + the ingredient panel */}
               <div style={{ position: "relative" }}>
                 <span
                   className="ufmt"
@@ -148,11 +155,6 @@ export default async function UnitDetailPage({
                     recipe in a modal; "Use in ralphy" surfaces the reproduce
                     command. Both render only when this unit has a Blueprint. */}
                 <BlueprintCta unitId={unit.id} title={unit.title} blueprint={blueprint} />
-                <UnitViewer u={unit} format={format} />
-              </div>
-
-              {/* Right — the ingredient panel */}
-              <div style={{ position: "relative" }}>
                 <IngredientPanel
                   unit={unit}
                   format={format}
