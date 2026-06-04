@@ -23,6 +23,7 @@ export const SearchIcon = () => (
   </svg>
 );
 export const PlayIcon = ({ s = 16 }: { s?: number }) => <Ic d="M6 4l9 5-9 5V4Z" fill w={s} vb={18} />;
+export const PauseIcon = ({ s = 16 }: { s?: number }) => <Ic d="M6 4h2.5v10H6zM9.5 4H12v10H9.5z" fill w={s} vb={18} />;
 export const ChevDown = ({ s = 18 }: { s?: number }) => <Ic d="M4.5 6.5L9 11l4.5-4.5" w={s} vb={18} sw={1.6} />;
 export const CloseIcon = ({ s = 18 }: { s?: number }) => <Ic d="M4 4l10 10M14 4L4 14" w={s} vb={18} sw={1.7} />;
 export const CopyIcon = () => <Ic d="M3.5 1.5h7v9h-7zM2 4v7.5A1.5 1.5 0 0 0 3.5 13H9" w={12} vb={14} sw={1.4} />;
