@@ -1,8 +1,10 @@
 "use client";
 
-// Shared unit tile + block chip + per-format media shapes (the <Ph> shapes,
-// filled with real media). One definition used by the feed (LibraryListing) and
-// by the unit-detail More-from rails — keep it the single source of tile truth.
+// Shared unit card + block chip + per-format media shapes (the <Ph> shapes,
+// filled with real media). One definition (`<UnitCard>`) consumed by every
+// unit-listing surface — the feed masonry (LibraryListing), the block-page
+// units grid (<UnitGrid>), and the unit-detail rails (<UnitRail>) — so a card
+// looks + behaves identically everywhere. The single source of card truth.
 //
 // No visible borders: separation via bg-tint + shadow + spacing only.
 
@@ -83,7 +85,7 @@ export function BlockChip({
 
 // ── Unit tile ──────────────────────────────────────────────────────────────────
 
-export function UnitTile({
+export function UnitCard({
   u,
   format,
   blockBy,

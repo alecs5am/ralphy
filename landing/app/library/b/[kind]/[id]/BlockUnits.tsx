@@ -1,42 +1,14 @@
 "use client";
 
-// Library v2 — Screen 3 body: "Units that use this block" tile grid. A thin client
-// island around the shared UnitTile so each tile can open the shared RemixModal
-// (the tile's Remix action needs a click handler + local modal state). The server
-// page resolves the units + the flat block list; this component only wires the
-// per-tile Remix payload, identical to the feed (LibraryListing) tile section.
+// Library v2 — Screen 3 body: "Units that use this block".
 //
-// Layout: a responsive CSS grid (`.block-units-grid`, auto-fill minmax 240px),
-// NOT the feed's flex `.masonry`. `.masonry` expects pre-packed column children;
-// dropping UnitTiles straight in made `.utile{width:100%}` stretch a single tile
-// to full container width (and a lone unit's video filled the whole page). The
-// grid gives every tile a bounded ~240–300px column and flows many into rows.
+// Thin delegate to the shared <UnitGrid> (#089): the server page resolves the
+// units + the flat block list; <UnitGrid> renders the canonical <UnitCard>s in
+// the auto-fill `.block-units-grid` and owns the RemixModal state internally.
+// No bespoke tile markup or remix builder here anymore.
 
-import { useMemo, useState } from "react";
-import type { Block, BlockKind, Format, Unit } from "@/lib/library-v2/types";
-import { mediaUrl } from "../../../_shared/blockMeta";
-import { RemixModal } from "../../../_shared/RemixModal";
-import type { RemixPayload } from "../../../_shared/types";
-import { UnitTile } from "../../../_shared/UnitTile";
-
-function remixForUnit(u: Unit, f: Format | undefined): RemixPayload {
-  const firstMedia = u.media && u.media.length > 0 ? u.media[0] : undefined;
-  const thumb = firstMedia
-    ? { kind: firstMedia.kind, src: mediaUrl(firstMedia) }
-    : f
-      ? { glyph: f.glyph }
-      : undefined;
-  return {
-    tag: `@unit:${u.id}`,
-    cli: `ralphy remix ${u.id}`,
-    title: u.title,
-    eyebrow: "Remix this unit",
-    from: f ? `${f.label} · keeps everything you didn't touch` : undefined,
-    thumb,
-    swapHint:
-      "say what to swap (a character, a location, the style). Ralphy reads the unit's recipe and re-runs only what your swap touches, keeping the rest pinned.",
-  };
-}
+import type { Block, Format, Unit } from "@/lib/library-v2/types";
+import { UnitGrid } from "../../../_shared/UnitGrid";
 
 export function BlockUnits({
   units,
@@ -47,34 +19,5 @@ export function BlockUnits({
   formats: Format[];
   blocks: Block[];
 }) {
-  const [remix, setRemix] = useState<RemixPayload | null>(null);
-
-  const formatById = useMemo(() => {
-    const m: Record<string, Format> = {};
-    for (const f of formats) m[f.id] = f;
-    return m;
-  }, [formats]);
-
-  const blockBy = useMemo(() => {
-    const m = new Map<string, Block>();
-    for (const b of blocks) m.set(`${b.kind}:${b.id}`, b);
-    return (kind: BlockKind, id: string) => m.get(`${kind}:${id}`);
-  }, [blocks]);
-
-  return (
-    <>
-      <div className="block-units-grid">
-        {units.map((u) => (
-          <UnitTile
-            key={u.id}
-            u={u}
-            format={formatById[u.format]}
-            blockBy={blockBy}
-            onRemix={() => setRemix(remixForUnit(u, formatById[u.format]))}
-          />
-        ))}
-      </div>
-      <RemixModal payload={remix} onClose={() => setRemix(null)} />
-    </>
-  );
+  return <UnitGrid units={units} formats={formats} blocks={blocks} />;
 }

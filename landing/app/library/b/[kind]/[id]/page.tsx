@@ -14,7 +14,7 @@
 //             Recipe                    → ALWAYS nothing here; its demo + artifact
 //                                        live LOWER on the page in RecipeDetail.
 //   Body: "Units that use this {kind}" → the feed filtered to this block (the
-//         same UnitTile masonry, via the BlockUnits client island).
+//         shared <UnitGrid>, via the BlockUnits client island).
 //
 // When the proof renders nothing, the `.bhead` drops to a single column
 // (`.bhead.no-proof`) so the header text spans full width — no empty right gap.
