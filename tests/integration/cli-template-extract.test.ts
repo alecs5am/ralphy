@@ -71,11 +71,10 @@ irrelevant
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-tmpl-extract-"));
   fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
-  // Templates land in the repo root, but for an integration test we want
-  // them in the tmp dir to avoid polluting templates/. The CLI uses
-  // `repoTemplatesDir()` which reads `_root` (i.e. process.cwd() through
-  // `setRoot()`) — `--cwd <tmp>` reroutes both workspace AND repo dirs to
-  // the tmp, so writes land in <tmp>/templates/<category>/<slug>/.
+  // `template extract` now writes to the user-local workspace tier
+  // (`workspace/templates/<slug>/`, flat) — the repo-public templates/ folder
+  // is retired. `--cwd <tmp>` reroutes the workspace dir to the tmp, so writes
+  // land in <tmp>/workspace/templates/<slug>/.
   setupProject();
 });
 
@@ -92,7 +91,7 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 }
 
 describe("ralphy template extract", () => {
-  test("writes templates/<category>/<slug>/ with manifest + prompts + scenario + README", () => {
+  test("writes workspace/templates/<slug>/ with manifest + prompts + scenario + README", () => {
     const r = ralphy([
       "template",
       "extract",
@@ -116,7 +115,7 @@ describe("ralphy template extract", () => {
     }
     expect(r.exitCode).toBe(0);
 
-    const target = path.join(tmp, "templates", "b2b-saas", "extracted-demo");
+    const target = path.join(tmp, "workspace", "templates", "extracted-demo");
     expect(fs.existsSync(path.join(target, "template.json"))).toBe(true);
     expect(fs.existsSync(path.join(target, "TEMPLATE.md"))).toBe(true);
     expect(fs.existsSync(path.join(target, "README.md"))).toBe(true);

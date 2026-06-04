@@ -992,10 +992,10 @@ Commands:
                                     template create.
   create [options]                  Create a template (flat JSON) from a project
                                     or file
-  register <id>                     Register an existing dir template in the
-                                    local registry (workspace or repo)
-  list [options]                    List all templates (both repo-public
-                                    templates/ and local workspace/templates/)
+  register <id>                     Register an existing workspace dir template
+                                    in the local registry
+  list [options]                    List all templates (public library templates
+                                    + local workspace/templates/)
   show [options] <id>               Show template — prints TEMPLATE.md (the
                                     prompt-cookbook) for dir templates, JSON for
                                     flat. `--meta` prints the structured
@@ -1003,15 +1003,18 @@ Commands:
   use [options] <id>                Create a new project scaffolded from a
                                     template
   extract [options] <project-id>    Promote a finished workspace project into a
-                                    reusable template at
-                                    templates/<category>/<slug>/. Copies
+                                    reusable user-local template at
+                                    workspace/templates/<slug>/. Copies
                                     prompts/, scenario, composition variables,
                                     and refs; substitutes brand/persona/VO with
                                     {{slots}}; drafts a README from POSTMORTEM
-                                    'Lessons learned'.
+                                    'Lessons learned'. To publish it to the
+                                    public library, use the templater /
+                                    dev-publish-template path.
   delete <id>                       Delete a workspace template (flat file or
-                                    whole dir). Repo templates are read-only —
-                                    edit templates/ in the repo directly.
+                                    whole dir). Public library templates are
+                                    read-only — they live in Supabase, not on
+                                    disk.
   suggest [options] <utterance...>  Rank templates for a user utterance. Hybrid:
                                     substring scorer first (fast, free); if
                                     top-1 score is below threshold (default
