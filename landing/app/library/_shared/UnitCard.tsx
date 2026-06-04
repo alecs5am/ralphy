@@ -208,13 +208,14 @@ export function MediaCell({ m, alt, fit = "cover" }: { m: UnitMedia; alt: string
   );
 }
 
-/** The CSS aspect a unit's tile renders at in the MEDIA-FIRST feed (#100): the
- *  unit's own media aspect everywhere, EXCEPT `video` + `podcast-cuts` are
- *  cropped to 4/5 so a vertical clip doesn't become a giant monolith in the
- *  column (the full native aspect shows on the unit detail page). Mirrors the
- *  prototype's FEED_ASPECT_V. Shared with the masonry height estimate. */
+/** The CSS aspect a unit's tile renders at in the MEDIA-FIRST feed (#100).
+ *  Uses each unit's OWN native media aspect (9/16 video, 1/1 square, 4/5
+ *  carousel/poster, 16/9 motion, …) so the column heights stagger — the
+ *  varied-height Pinterest look. The prototype's 4/5 crop for video/podcast was
+ *  dropped on user feedback: with video the dominant format it flattened every
+ *  card to one height and the feed read as an even grid, not a masonry. Shared
+ *  with the masonry height estimate so balance matches what renders. */
 export function feedTileAspect(u: Unit, format: Format | undefined): string {
-  if (u.format === "video" || u.format === "podcast-cuts") return "4 / 5";
   return unitTileAspect(u, format);
 }
 
