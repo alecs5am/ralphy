@@ -496,7 +496,7 @@
 .rx-axis-label { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--mute-2); margin: 0 0 12px; }
 /* MDX body inside the recipe panel — inherit the shared blog/lib body styling. */
-.rx-body { font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+.rx-body { font-size: 14px; line-height: 1.6; color: var(--ink-2); white-space: pre-wrap; }
 .rx-body > :first-child { margin-top: 0; }
 .rx-body > :last-child { margin-bottom: 0; }
 

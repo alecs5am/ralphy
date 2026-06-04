@@ -583,28 +583,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "sub": "character"
   },
   {
-    "kind": "recipe",
-    "id": "boomerang-motion-fill",
-    "name": "Boomerang Motion Fill",
-    "blurb": "Fill a segment longer than its clip with forward+reverse motion (split/reverse/concat, -t target) instead of a frozen tpad tail — keeps hubs and idle endings alive. Fork freezes stay frozen by design.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "choose-path-xfade-master",
-    "name": "Choose-Path xfade Master Bake",
-    "blurb": "Stitch N i2v clips into one master via ffmpeg xfade (0.5s, offset = sum(dur)-k*0.5), every input normalized to 1080x1920@24; emits A[]/SEG[] timing arrays for the overlay composition.",
-    "refs": []
-  },
-  {
-    "kind": "asset",
-    "id": "choosepath-soundtrack",
-    "name": "Choose-Path Soundtrack",
-    "blurb": "The shared dark-ambient trend bed used across the whole choose-your-path series (soundtrack.mp3), looped/faded per video length.",
-    "refs": [],
-    "sub": "music"
-  },
-  {
     "kind": "asset",
     "id": "hazmat-scientists",
     "name": "Hazmat Scientist Trio",
@@ -637,45 +615,10 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "sub": "character"
   },
   {
-    "kind": "recipe",
-    "id": "play-freeze-fork",
-    "name": "Play-Freeze Fork Beat",
-    "blurb": "Fork beat: play the clip's full action (~3.9s), then tpad-freeze the last frame for the held dilemma while a 0.5s/tick SMPTE countdown runs. The decision-moment primitive.",
-    "refs": []
-  },
-  {
     "kind": "style",
     "id": "ps1-magic-colorful",
     "name": "PS1 Magic-School (Colorful)",
     "blurb": "Vibrant glowing PS1/PS2-era magic-castle render — floating candles, jewel-tone stained glass, sparkling motes, warm torchlight. Bright magical, NOT horror.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "vhs-pause-freeze",
-    "name": "VHS Pause-Freeze",
-    "blurb": "Play a clip then hold its last frame (ffmpeg tpad clone) for the choice beat; overlay canvas VCR noise + scanlines + wobble + SMPTE countdown disc + soft beeps; clear all overlays BEFORE the dissolve so the timer never bleeds into the next scene.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "ffmpeg-xfade-master",
-    "name": "ffmpeg xfade master",
-    "blurb": "HyperFrames cannot render video↔video crossfades — bake them: trim segments → normalize (fps/format/sar) → xfade-chain (offset = sum(dur[0..k]) − (k+1)·d) → drive ONE <video>; overlays gated by an embedded clip-start array.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "old-radio-ps1-vo",
-    "name": "Old-Radio PS1 VO",
-    "blurb": "Creepy lo-fi narrator filter for cloned VO: highpass=300,lowpass=3100,acrusher bits=10,acompressor,+5dB — band-limited, crunchy, PS1-horror voice.",
-    "refs": []
-  },
-  {
-    "kind": "recipe",
-    "id": "smpte-countdown-disc",
-    "name": "SMPTE 3-2-1 Countdown Disc",
-    "blurb": "GSAP sweeping-ring countdown disc (3-2-1) over a fork, with soft beep ticks (2 soft + 1 final). Punches in right after the guide's command.",
     "refs": []
   },
   {
@@ -700,6 +643,299 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "blurb": "Fat balding bearded low-poly engineer, yellow hard hat, grimy coverall, cigarette. The abrasive-but-right guide (spaceship).",
     "refs": [],
     "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "choosepath-soundtrack",
+    "name": "ChoosePath Soundtrack",
+    "blurb": "The looping dread bed under the choose-path PS1-horror series — slow, low, tension-holding, leaves headroom for the radio narrator and the death stingers. Shared across all six choose-* units.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/choosepath-soundtrack/soundtrack.mp3"
+    ],
+    "sub": "music"
+  },
+  {
+    "kind": "recipe",
+    "id": "boomerang-motion-fill",
+    "name": "Boomerang Motion Fill",
+    "blurb": "Play a short clip forward then reversed (split + reverse + concat) so an idle/hub loop keeps moving for a longer beat without a freeze or a re-roll. Used for the hub and ending idle clips.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nA ping-pong loop: `split` the clip, `reverse` the copy, `concat` forward+backward into one seamless out-and-back. It lets a 3.5s idle clip carry a 7s beat with continuous motion and no visible loop seam — the key fix for the \"dead-still world\" complaint on idle/hub frames (MEMORY: idle_ending_anchor_clean_still).\n\n## When to use it\n\n- A hub/intro or ending idle clip that needs to fill a longer window (CTA voiceover) without freezing.\n- Any short loop where a hard cut back to frame 0 would read as a stutter.\n\n## Knobs\n\n- `-t` = total length to hold (set to ~2x the clip, trimmed to the beat).\n- Combine with the master `VF` normalize chain when feeding the xfade bake.",
+    "artifact": "# Verbatim from scripts/tmp-bake-*.sh BOOM filter (hub/idle segment build):\nBOOM='split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1[v]'\nffmpeg -y -i idle.mp4 -filter_complex \"[0:v]$VF,$BOOM\" -map \"[v]\" -t 7.0 -an -c:v libx264 -preset veryfast -crf 20 -r 24 idle_boomerang.mp4",
+    "params": {
+      "concat_n": 2,
+      "hold_sec": 7
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "broadcast-square",
+    "name": "Broadcast Square (1:1 Crop)",
+    "blurb": "For \"caught on TV\" registers (sports / news / audience-cam), default to a 1:1 square crop instead of strict 9:16 — real broadcast cameras shoot 16:9, so a centered square reads as authentic TV; full portrait reads as AI-generated.",
+    "refs": [],
+    "recipeKind": "prompt",
+    "body": "## What it is\n\nA framing + crop convention, not a pixel effect. Real broadcast cameras shoot 16:9; a hard 9:16 portrait of a \"TV moment\" instantly reads as AI-generated. So for caught-on-TV trends, generate the still at 1:1 (or 16:9) with `gpt-5.4-image-2`, drive it through Kling, and center-crop to a 1:1 square for the feed — the letterbox/squared look sells the broadcast authenticity (MEMORY: feedback_broadcast_realism_square).\n\n## When to use it\n\n- Sports highlights, news desk, audience-cam, sideline-interview, any \"this aired on TV\" register.\n- Does NOT apply to native-9:16 selfie/UGC, vertical phone-footage registers, or stylized verticals.\n\n## How to apply\n\n- Image stage: request 1:1 (square) from the image model; do not force 9:16.\n- Compose stage: center-crop the 16:9/square source to 1:1 and place it on the feed canvas.",
+    "artifact": "# Center-crop a 16:9 (or any) source to a 1:1 square for the broadcast-TV look:\nffmpeg -i in.mp4 -vf \"crop='min(iw,ih)':'min(iw,ih)':(iw-min(iw,ih))/2:(ih-min(iw,ih))/2,setsar=1\" -c:v libx264 -preset fast -crf 18 -c:a copy square.mp4\n\n# Image stage: prefer a 1:1 / 16:9 prompt on openai/gpt-5.4-image-2, NOT a forced 9:16 aspect.",
+    "params": {
+      "aspect": "1:1",
+      "image_model": "openai/gpt-5.4-image-2",
+      "applies_to": "caught-on-TV / sports / news / audience-cam registers"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "burned-captions",
+    "name": "Burned Captions",
+    "blurb": "Two routes for baked-in captions: an animated HyperFrames cap() driver (slide-up in, fade out, hard-cleared) and the ffmpeg subtitles burn (Inter, outline 3, MarginV=90 safe zone) for SRT-driven cuts.",
+    "refs": [],
+    "recipeKind": "hyperframes",
+    "body": "## What it is\n\nOn-screen captions baked into the frame (no separate track). The choose-path series uses the HyperFrames `cap(text, tin, tout)` driver — set the text, slide it up + fade in over 0.32s, fade out at `tout`, and hard-clear opacity afterward (the non-linear-seek safety every choose-path overlay needs). For SRT-driven cuts, the ffmpeg `subtitles` filter is the equivalent burn with a TikTok-safe `MarginV=90`.\n\n## When to use it\n\n- HyperFrames `cap()` for per-beat narrator lines timed by hand against `A[]`/`SEG[]`.\n- ffmpeg `subtitles` when you already have a word-aligned SRT (scribe-first workflow) and want to burn it as the LAST encode step.\n\n## Knobs\n\n- HF: slide `y:26 -> 0`, in 0.32s / out 0.28s; `white-space: pre-line` for `\\n` line breaks.\n- ffmpeg: `FontSize`, `Outline=3`, `MarginV=90` (safe zone), `PrimaryColour`/`OutlineColour` in ASS `&HBBGGRR&`.",
+    "artifact": "// HyperFrames cap() driver — verbatim from the choose-path index.html.\nfunction cap(text, tin, tout) {\n  tl.set(\"#cap\", { textContent: text }, tin - 0.01);\n  tl.fromTo(\"#cap\", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.32, ease: \"power3.out\", overwrite: \"auto\" }, tin);\n  tl.to(\"#cap\", { opacity: 0, duration: 0.28, overwrite: \"auto\" }, tout);\n  tl.set(\"#cap\", { opacity: 0 }, tout + 0.29);\n}\n\n# ffmpeg SRT burn (verbatim from cli/lib/ffmpeg-recipes.ts burnSubtitles defaults):\nffmpeg -i in.mp4 -vf \"subtitles=cap.srt:force_style='FontName=Inter,FontSize=36,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BorderStyle=1,Outline=3,Shadow=0,Bold=-1,Alignment=2,MarginV=90'\" -c:v libx264 -preset fast -crf 18 -c:a copy out.mp4",
+    "params": {
+      "hf_slide_y": 26,
+      "hf_in_sec": 0.32,
+      "hf_out_sec": 0.28,
+      "fontName": "Inter",
+      "fontSize": 36,
+      "outline": 3,
+      "marginV": 90
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "chroma-split",
+    "name": "Chroma Split",
+    "blurb": "RGB-channel offset (red/cyan fringe) for VHS / glitch / death-hit accents. Two flavors: an ffmpeg rgbashift bake for whole clips, and a zero-cost CSS text-shadow split for overlay text.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nA red/cyan (RGB-channel) split that fakes the chromatic aberration of a worn VHS head or a CRT. It reads as \"signal damage\" and is the cheapest way to make a clean AI frame feel analog or to punch a death/jump-scare beat.\n\n## When to use it\n\n- Whole-clip VHS / analog-horror grade: bake the ffmpeg `rgbashift` over the master.\n- A single overlay word (DEAD, WARNING) where you do NOT want to re-encode the video: use the CSS text-shadow variant instead (free, GPU-composited, seek-deterministic in HyperFrames).\n\n## Knobs\n\n- ffmpeg: `rh` / `bh` = horizontal pixel offset of the Red and Blue planes (push them opposite ways: `rh=N`, `bh=-N`). 2-4 px reads as VHS; 7+ px reads as a hard glitch hit.\n- CSS: the `7px 0` red + `-7px 0` cyan text-shadow pair — bump the px to widen the fringe.",
+    "artifact": "# ffmpeg bake over a whole clip (verbatim from cli/lib/ffmpeg-recipes.ts buildVhsFilter chroma layer):\nffmpeg -i in.mp4 -vf \"rgbashift=rh=3:bh=-3\" -c:v libx264 -preset fast -crf 20 -c:a copy out.mp4\n\n/* CSS overlay-text variant (verbatim from the choose-path index.html #death rule) */\n#death {\n  color: #ff2a2a;\n  text-shadow:\n    7px 0 0 rgba(255,0,46,0.55),\n    -7px 0 0 rgba(0,200,255,0.45),\n    0 0 40px rgba(255,40,40,0.7),\n    0 6px 16px rgba(0,0,0,0.95);\n}",
+    "params": {
+      "rh": 3,
+      "bh": -3,
+      "rh_glitch_hit": 7,
+      "css_offset_px": 7
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "crt-scanlines",
+    "name": "CRT Scanlines",
+    "blurb": "A zero-cost CSS scanline + RGB-stripe overlay (dark every other line + faint vertical R/G/B columns) laid over the video in HyperFrames — the CRT look without re-encoding.",
+    "refs": [],
+    "recipeKind": "hyperframes",
+    "body": "## What it is\n\nA pure-CSS overlay `<div>` that fakes a CRT/VHS scan: a repeating horizontal gradient darkens every other 1.5px line, and a second 4px-period vertical gradient adds faint R/G/B phosphor stripes. It composites over the master `<video>` with `pointer-events:none`, so it costs nothing at render and seeks deterministically (no canvas, no JS).\n\n## When to use it\n\n- Any retro / PS1 / analog register where you want scanlines but do NOT want to bake them into the video (keeps the source crisp and lets you toggle opacity over time).\n- Pair with `film-grain` (added grain layer) and `chroma-split` for a full CRT stack.\n\n## Knobs\n\n- `background-size: 100% 3px` = scanline pitch (smaller = denser lines).\n- The `90deg` gradient alphas (0.04 / 0.02 / 0.04) = RGB-stripe intensity.\n- Wrapper `opacity` = overall strength.",
+    "artifact": "/* Verbatim from the choose-path index.html #vhs .scan rule. Drop the div over the video. */\n.scan {\n  position: absolute; inset: 0; pointer-events: none;\n  background:\n    linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.30) 50%),\n    linear-gradient(90deg, rgba(255,0,0,0.04), rgba(0,255,0,0.02), rgba(0,0,255,0.04));\n  background-size: 100% 3px, 4px 100%;\n}",
+    "params": {
+      "scanline_pitch_px": 3,
+      "scanline_alpha": 0.3,
+      "rgb_stripe_period_px": 4
+    },
+    "demo": {
+      "kind": "hyperframes",
+      "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{margin:0;background:#111}#box{position:relative;width:225px;height:400px;margin:8px auto;overflow:hidden;background:linear-gradient(135deg,#2a6,#6cf 60%,#fc6)}#box .scan{position:absolute;inset:0;pointer-events:none;background:linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.30) 50%),linear-gradient(90deg, rgba(255,0,0,0.04), rgba(0,255,0,0.02), rgba(0,0,255,0.04));background-size:100% 3px, 4px 100%}#box .lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font:700 22px monospace;text-shadow:0 2px 8px #000}</style></head><body><div id=\"box\"><div class=\"lbl\">CRT SCAN</div><div class=\"scan\"></div></div></body></html>"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "ffmpeg-xfade-master",
+    "name": "FFmpeg Xfade Master Bake",
+    "blurb": "Bake N per-scene clips into one seamless master mp4 with crossfade dissolves, and emit the scene-start (A[]) + segment-duration (SEG[]) arrays the HyperFrames overlay timeline keys off.",
+    "refs": [],
+    "recipeKind": "bake",
+    "body": "## What it is\n\nThe master-assembly step for a multi-scene branching video. Each scene clip is normalized to 1080x1920/24fps, then chained with `xfade=transition=fade` so every cut is a 0.5s dissolve. The script computes each clip's xfade `offset` (the running output length minus the overlap) and prints two arrays — `A[]` (scene-start offsets) and `SEG[]` (per-segment durations) — which you paste into the HyperFrames composition so the GSAP overlay timeline lands every caption/fork/death on the right frame.\n\n## When to use it\n\n- Any time you assemble several i2v clips into one continuous master (the choose-path series, any multi-beat reel where overlays must be frame-accurate over a single `<video>`).\n- The single-`<video>`-plus-baked-dissolves pattern is mandatory when overlays cross a cut — in-composition opacity crossfades between separate video clips render as hard cuts (MEMORY: hyperframes_video_crossfade_bake).\n\n## Knobs\n\n- `D` = crossfade duration (0.5s default).\n- The xfade offset for clip k = (running output length) - D; re-baking only the tail keeps A[0..n] stable.\n- `VF` = the per-clip normalize chain (scale/crop/fps/setsar/format).",
+    "artifact": "# Per-clip normalize, verbatim from scripts/tmp-bake-*.sh:\nVF=\"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=24,setsar=1,format=yuv420p\"\nD=0.5\n\n# xfade chain build (verbatim shape): for each clip k>=1\n#   offset[k] = running_outlen - D\n#   fc += \"${prev}[k:v]xfade=transition=fade:duration=$D:offset=${offset[k]}[vk];\"\n# final ffmpeg call:\nffmpeg -y $inputs -filter_complex \"$fc\" -map \"[vout]\" -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -r 24 master.mp4\n\n# Emit the arrays the HyperFrames composition needs:\n#   A=[0.00,6.50,12.38,...]   (scene starts)\n#   SEG=[7.00,6.38,3.88,...]  (segment durations)",
+    "params": {
+      "D": 0.5,
+      "fps": 24,
+      "resolution": "1080x1920",
+      "crf": 20,
+      "transition": "fade",
+      "offset_formula": "running_outlen - D"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "film-grain",
+    "name": "Film Grain",
+    "blurb": "Temporal luma/chroma noise to break up flat AI gradients, plus the matching x264 `-tune grain` encode so the grain survives compression instead of being smeared away.",
+    "refs": [],
+    "recipeKind": "encode",
+    "body": "## What it is\n\nTwo things that go together: (1) `noise=alls=N:allf=t` adds per-frame (temporal) grain so banded AI skies / gradients stop looking plastic, and (2) the `-tune grain` x264 preset tells the encoder to preserve that random texture instead of denoising it away. Skipping (2) is the classic mistake — the grain you added gets smeared into mush at any reasonable CRF.\n\n## When to use it\n\n- Any analog / VHS / horror register, or any clip with visible AI banding.\n- As the FINAL encode of a noise-heavy render (the choose-path masters use CRF 30 `-tune grain`).\n\n## Knobs\n\n- `alls` = grain strength 0..100. 8 is a light tape grain; 20+ is heavy 16mm.\n- `allf=t` = temporal (re-randomized every frame). Drop the `t` for static grain.\n- Encode: `-tune grain`, CRF 20-30. Higher CRF is fine here because grain hides compression.",
+    "artifact": "# Add grain (verbatim from cli/lib/ffmpeg-recipes.ts buildVhsFilter grain layer):\nffmpeg -i in.mp4 -vf \"noise=alls=8:allf=t\" -c:v libx264 -preset fast -crf 20 -c:a copy grain.mp4\n\n# Grain-preserving final encode (verbatim from optimizeReencode, the -tune grain path):\nffmpeg -i grain.mp4 -c:v libx264 -preset slow -crf 23 -tune grain -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart out.mp4",
+    "params": {
+      "alls": 8,
+      "allf": "t",
+      "tune": "grain",
+      "crf": 23,
+      "crf_noise_heavy": 30
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "noir-grade",
+    "name": "Noir / Analog-Horror Grade",
+    "blurb": "Crushed blacks, desaturated, slight green-shift, low-contrast color grade — the dread/horror register grade. The `analog-horror` preset from the ffmpeg color-grade table.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nA color grade that pushes a clip into a cold, dread, low-light register: blacks lifted+crushed via a `curves` shadow tweak, saturation pulled to ~0.78, a faint green channel shift, and contrast slightly under 1.0. This is the `analog-horror` preset in the production color-grade table (validated against the analog-horror-fridge postmortem).\n\n## When to use it\n\n- Horror / liminal / dread registers (silenthill, backrooms branches).\n- Any clip that came out of the image model too bright/clean for the mood.\n\n## Knobs\n\nThis is a fixed preset — the three sub-filters (`eq`, `colorchannelmixer`, `curves`) carry the tuned values. For a warmer or punchier look, swap the preset name (`tv-commercial-soft` / `tv-commercial-strong` / `cinematic-teal-orange`) in the same color-grade helper.",
+    "artifact": "# Verbatim from cli/lib/ffmpeg-recipes.ts buildColorGradeFilter(\"analog-horror\"):\nffmpeg -i in.mp4 -vf \"eq=contrast=0.92:brightness=-0.04:saturation=0.78,colorchannelmixer=rr=0.95:gg=1.05:bb=0.95,curves=all='0/0.05 0.5/0.45 1/0.92'\" -c:v libx264 -preset fast -crf 18 -c:a copy out.mp4",
+    "params": {
+      "preset": "analog-horror",
+      "contrast": 0.92,
+      "brightness": -0.04,
+      "saturation": 0.78,
+      "curves": "0/0.05 0.5/0.45 1/0.92"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "old-radio-ps1-vo",
+    "name": "Old-Radio / PS1 VO Filter",
+    "blurb": "Band-limit a clean voiceover into a disembodied old-radio narrator: highpass + lowpass band, light bit-crush, compressor, gain. The per-clip postFX for the choose-path narrator.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nAn audio filter chain that turns a clean cloned VO into the crackly, mid-bandy, disembodied PS1-era radio narrator. A `highpass`/`lowpass` pair clips the lows and highs to a radio band, `acrusher` adds a faint digital bit-crush, `acompressor` evens the level, and a `volume` boost brings it back up. It is the diegetic-vs-narrator contrast tool: the narrator gets this filter (white captions); a character's own diegetic voice stays bright/unfiltered (yellow captions).\n\n## When to use it\n\n- The disembodied narrator track on a choose-path / interactive-fiction reel.\n- Any \"voice over a PA / radio / intercom\" register.\n\n## Two band presets (pick by feel)\n\n- Fuller broadcast register: `highpass=200, lowpass=4500` (preferred — `300/3000` plus a compressor came out \"tinny and noisy\" per the choose-your-guide postmortem).\n- Narrow telephone register: `highpass=300, lowpass=3100` + `acrusher=bits=10` (the grittier PS1 narrator).\n\n## Hard rule\n\nDo NOT double-compress: if the per-clip chain already has `acompressor`, do not add another global compressor after the `amix` — it pumps. Run one global `loudnorm I=-16` at the end instead.",
+    "artifact": "# Per-clip narrator postFX (verbatim from the choose-path compose-template, PS1 narrator variant):\nffmpeg -i vo.mp3 -af \"highpass=300,lowpass=3100,acrusher=bits=10:mode=log,acompressor=threshold=-20dB:ratio=4,volume=5dB\" vo_radio.mp3\n\n# Fuller broadcast variant (preferred per postmortem; no in-clip compressor, compress once globally):\nffmpeg -i vo.mp3 -af \"highpass=200,lowpass=4500,volume=2dB\" vo_radio.mp3\n# ...then ONE global pass after amix:\n#   amix -> acompressor(ratio=3,makeup=2dB) -> loudnorm=I=-16:TP=-1.5:LRA=11 -> alimiter=limit=0.9",
+    "params": {
+      "highpass_ps1": 300,
+      "lowpass_ps1": 3100,
+      "acrusher_bits": 10,
+      "acompressor_ratio": 4,
+      "volume_db": 5,
+      "highpass_broadcast": 200,
+      "lowpass_broadcast": 4500,
+      "loudnorm_target_lufs": -16
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "play-freeze-fork",
+    "name": "Play / Freeze / Fork",
+    "blurb": "The choose-path branch beat: let the action play, then freeze and slam in two choice labels (LEFT/RIGHT) sliding from the edges, immediately followed by a fast countdown. The HyperFrames freezeFork() driver.",
+    "refs": [],
+    "recipeKind": "hyperframes",
+    "body": "## What it is\n\nThe interactive-fiction fork moment. The clip plays its action live, then at `A[i]+3.9s` the world freezes (a VHS pause overlay holds), two large choice labels slide in from the left and right edges, and a 0.5s-per-tick countdown disc fires right after. Command-over-action then a fast timer is the validated pacing — a slow timer is only needed if the timer runs DURING narration (MEMORY: choose_path_compose_template).\n\n## When to use it\n\n- Any \"pick a path\" branch beat over a baked master where the fork must land on a specific frame.\n- Drives the labels + freeze + countdown together; pairs with `vhs-pause-freeze` (the hold) and `smpte-countdown-disc` (the timer).\n\n## Knobs\n\n- `fs = A[i]+3.9` (freeze start), `cd = A[i]+4.2` (countdown start), `clear = cd+1.55` (labels out).\n- Labels slide `x:-44 -> 0` (left) and `x:44 -> 0` (right) over 0.28s.\n- `disc(cd, 0.5)` sets the 0.5s/tick timer.",
+    "artifact": "// Verbatim from the choose-path index.html freezeFork() driver (GSAP, paused timeline `tl`).\nfunction freezeFork(i, l, r) {\n  const fs = A[i] + 3.9, cd = A[i] + 4.2, clear = cd + 1.5 + 0.05;\n  vhs(fs, clear - fs);                                   // hold a VHS pause over the freeze\n  tl.set(\"#fork-l\", { textContent: l }, fs);\n  tl.set(\"#fork-r\", { textContent: r }, fs);\n  tl.fromTo(\"#fork-l\", { opacity: 0, x: -44 }, { opacity: 1, x: 0, duration: 0.28, ease: \"power3.out\", overwrite: \"auto\" }, fs + 0.05);\n  tl.fromTo(\"#fork-r\", { opacity: 0, x:  44 }, { opacity: 1, x: 0, duration: 0.28, ease: \"power3.out\", overwrite: \"auto\" }, fs + 0.05);\n  tl.to([\"#fork-l\", \"#fork-r\"], { opacity: 0, duration: 0.22, overwrite: \"auto\" }, clear - 0.05);\n  tl.set([\"#fork-l\", \"#fork-r\"], { opacity: 0 }, clear + 0.2);\n  disc(cd, 0.5);                                          // fast 0.5s/tick countdown right after\n}",
+    "params": {
+      "freeze_offset_sec": 3.9,
+      "countdown_offset_sec": 4.2,
+      "label_slide_px": 44,
+      "label_in_duration": 0.28,
+      "countdown_step_sec": 0.5
+    },
+    "demo": {
+      "kind": "hyperframes",
+      "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{margin:0;background:#000;overflow:hidden}#box{position:relative;width:225px;height:400px;margin:8px auto;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#243,#010)}#fork-l,#fork-r{position:absolute;top:38%;font:700 30px monospace;color:#fff3d0;opacity:0;text-shadow:0 0 8px #000,0 2px 4px #000}#fork-l{left:14px;text-align:left}#fork-r{right:14px;text-align:right}#cd{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%);width:120px;height:120px;opacity:0}#cd circle{fill:none}#ring{stroke:rgba(255,226,122,.3);stroke-width:5}#sweep{stroke:#ffe27a;stroke-width:7;transform:rotate(-90deg);transform-origin:50% 50%}#num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 70px monospace;color:#fff3d0}</style></head><body><div id=\"box\"><div id=\"fork-l\">LEFT</div><div id=\"fork-r\">RIGHT</div><div id=\"cd\"><svg viewBox=\"0 0 120 120\" width=\"120\" height=\"120\"><circle id=\"ring\" cx=\"60\" cy=\"60\" r=\"52\"/><circle id=\"sweep\" cx=\"60\" cy=\"60\" r=\"52\"/></svg><div id=\"num\">3</div></div></div><script src=\"https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js\"></script><script>const C=2*Math.PI*52;gsap.set(\"#sweep\",{strokeDasharray:C,strokeDashoffset:0});const tl=gsap.timeline({repeat:-1,repeatDelay:0.6});tl.fromTo(\"#fork-l\",{opacity:0,x:-30},{opacity:1,x:0,duration:.3,ease:\"power3.out\"},0).fromTo(\"#fork-r\",{opacity:0,x:30},{opacity:1,x:0,duration:.3,ease:\"power3.out\"},0);tl.set(\"#cd\",{opacity:1},.4);for(let i=0;i<3;i++){const t=.4+i*.5;tl.set(\"#num\",{textContent:3-i},t).fromTo(\"#sweep\",{strokeDashoffset:0},{strokeDashoffset:C,duration:.5,ease:\"none\"},t);}tl.to([\"#fork-l\",\"#fork-r\",\"#cd\"],{opacity:0,duration:.3},2.0);</script></body></html>"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "smpte-countdown-disc",
+    "name": "SMPTE Countdown Disc",
+    "blurb": "The film-leader 3-2-1 countdown: a sweeping SVG ring + crosshair + a back.out-popping number, on a dark plate. The HyperFrames disc() driver that times the fork decision window.",
+    "refs": [],
+    "recipeKind": "hyperframes",
+    "body": "## What it is\n\nA cinema-leader countdown disc. An SVG ring has its `stroke-dashoffset` swept from 0 to the full circumference each tick (the wiping clock hand), a crosshair sits behind it, and the big number pops in with a `back.out(2)` scale each step. Three ticks at `step` seconds each, then the disc + its plate fade out. It gives the fork a visible decision deadline.\n\n## When to use it\n\n- The timer on a choose-path fork (call `disc(cd, 0.5)` right after the labels appear — fast 0.5s/tick once the narration has already moved on).\n- Any \"you have N seconds\" beat. Use a 1s step only if the timer must run during a voiceover.\n\n## Knobs\n\n- `step` = seconds per tick (0.5 fast / 1.0 narrated).\n- `C = 2*PI*r` = the sweep circumference (must match the ring radius).\n- Number pop = `back.out(2)`, plate `#cd-plate` opacity for the backing.",
+    "artifact": "// Verbatim from the choose-path index.html disc() driver (GSAP paused timeline `tl`).\n// Setup once: const C = 2*Math.PI*210; gsap.set(\"#cd-sweep\",{strokeDasharray:C,strokeDashoffset:0});\nfunction disc(s, step) {\n  step = step || 0.5;\n  tl.fromTo(\"#cd-plate\", { opacity: 0 }, { opacity: 1, duration: 0.16, overwrite: \"auto\" }, s - 0.1);\n  tl.fromTo(\"#countdown\", { opacity: 0 }, { opacity: 1, duration: 0.16, overwrite: \"auto\" }, s - 0.1);\n  for (let i = 0; i < 3; i++) {\n    const t = s + i * step;\n    tl.set(\"#cd-num\", { textContent: 3 - i }, t);\n    tl.fromTo(\"#cd-sweep\", { strokeDashoffset: 0 }, { strokeDashoffset: C, duration: step, ease: \"none\" }, t);\n    tl.fromTo(\"#cd-num\", { scale: 1.2, opacity: 0.4 }, { scale: 1, opacity: 1, duration: step * 0.45, ease: \"back.out(2)\" }, t);\n  }\n  tl.to([\"#countdown\", \"#cd-plate\"], { opacity: 0, duration: 0.2, ease: \"power2.in\", overwrite: \"auto\" }, s + 3 * step - 0.04);\n}",
+    "params": {
+      "step_fast_sec": 0.5,
+      "step_narrated_sec": 1,
+      "ring_radius": 210,
+      "number_ease": "back.out(2)",
+      "ticks": 3
+    },
+    "demo": {
+      "kind": "hyperframes",
+      "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{margin:0;background:#000;overflow:hidden}#box{position:relative;width:225px;height:400px;margin:8px auto;overflow:hidden;background:radial-gradient(120% 90% at 50% 40%,#222,#000)}#plate{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:170px;height:170px;background:rgba(20,16,8,.5);opacity:0}#cd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:160px;height:160px;opacity:0}circle{fill:none}#ring{stroke:rgba(255,226,122,.3);stroke-width:6}#sweep{stroke:#ffe27a;stroke-width:9;transform:rotate(-90deg);transform-origin:50% 50%}line{stroke:rgba(255,226,122,.45);stroke-width:3}#num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 96px monospace;color:#fff3d0;text-shadow:0 0 12px #000}</style></head><body><div id=\"box\"><div id=\"plate\"></div><div id=\"cd\"><svg viewBox=\"0 0 160 160\" width=\"160\" height=\"160\"><circle id=\"ring\" cx=\"80\" cy=\"80\" r=\"70\"/><circle id=\"sweep\" cx=\"80\" cy=\"80\" r=\"70\"/><line x1=\"80\" y1=\"4\" x2=\"80\" y2=\"156\"/><line x1=\"4\" y1=\"80\" x2=\"156\" y2=\"80\"/></svg><div id=\"num\">3</div></div></div><script src=\"https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js\"></script><script>const C=2*Math.PI*70;gsap.set(\"#sweep\",{strokeDasharray:C,strokeDashoffset:0});const tl=gsap.timeline({repeat:-1,repeatDelay:0.7});tl.fromTo(\"#plate\",{opacity:0},{opacity:1,duration:.16},0).fromTo(\"#cd\",{opacity:0},{opacity:1,duration:.16},0);const step=.6;for(let i=0;i<3;i++){const t=i*step;tl.set(\"#num\",{textContent:3-i},t).fromTo(\"#sweep\",{strokeDashoffset:0},{strokeDashoffset:C,duration:step,ease:\"none\"},t).fromTo(\"#num\",{scale:1.2,opacity:.4},{scale:1,opacity:1,duration:step*.45,ease:\"back.out(2)\"},t);}tl.to([\"#cd\",\"#plate\"],{opacity:0,duration:.2},3*step);</script></body></html>"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "speed-ramp",
+    "name": "Speed Ramp",
+    "blurb": "Retime a clip with setpts so a short i2v clip stretches to fill the voiceover beat (slow-mo) without re-rolling — the per-segment retime used in the master bake.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nA presentation-timestamp retime. `setpts=f*PTS` multiplies every frame's timestamp by `f`, so `f>1` slows the clip down (stretch) and `f<1` speeds it up. The choose-path bake uses it to stretch a fixed 3.9s i2v clip to cover a longer voiceover line: `f = (vo + 1.0) / 3.9`, applied only when the needed time exceeds the base clip length.\n\n## When to use it\n\n- A scene clip is shorter than the VO/beat it must cover — slow it instead of re-generating.\n- A hold/anticipation beat where a gentle slow-mo adds weight.\n\n## Knobs\n\n- `f` = the PTS multiplier. >1 = slower, <1 = faster.\n- Video-only retime (`setpts`); audio would need a matching `atempo` if present (the bake strips audio with `-an` and remixes later).",
+    "artifact": "# Verbatim retime from scripts/tmp-bake-*.sh (plain-segment slow-mo branch):\n#   t = vo + 1.0;  if t > BASE(3.9):  f = t / BASE\nffmpeg -y -t 3.9 -i scene.mp4 -vf \"$VF,setpts=$f*PTS\" -an -c:v libx264 -preset veryfast -crf 20 -r 24 scene_slow.mp4\n# VF = scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=24,setsar=1,format=yuv420p",
+    "params": {
+      "base_clip_sec": 3.9,
+      "f_formula": "(vo + 1.0) / 3.9",
+      "fps": 24
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "typewriter-reveal",
+    "name": "Typewriter Reveal",
+    "blurb": "Reveal text character-by-character via an animated clip-path with steps() timing — pure CSS/GSAP, GPU-composited, no per-char DOM. The announcement-card text-in effect.",
+    "refs": [],
+    "recipeKind": "hyperframes",
+    "body": "## What it is\n\nA monospace typewriter reveal that wipes the text in left-to-right using `clip-path: inset(...)` animated with a `steps(N)` ease, where N = the character count. Because it animates one property with a stepped ease, it looks like discrete keystrokes without splitting the text into per-character spans, and it stays seek-deterministic in HyperFrames (validated in the Vercel-Ship-style composition, MEMORY: project_ship_style_template).\n\n## When to use it\n\n- Announcement / ship-note / terminal cards where each line should type in.\n- Any place a per-char SplitText reveal would be overkill and you want a single cheap animated property.\n\n## Knobs\n\n- `steps(N)` where N = number of characters in the line (each step = one glyph).\n- `duration` = total type time (≈ N * 0.04s reads as fast typing).\n- A trailing caret is an optional `::after` block that blinks.",
+    "artifact": "/* CSS: monospace line clipped from the right, revealed left-to-right. */\n.tw { font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; clip-path: inset(0 100% 0 0); }\n\n// GSAP: step the clip from fully-hidden to fully-shown over N characters.\n// chars = line.textContent.length\nconst chars = el.textContent.length;\ntl.to(el, { clipPath: \"inset(0 0% 0 0)\", duration: chars * 0.04, ease: `steps(${chars})` }, startSec);",
+    "params": {
+      "ease": "steps(N) where N = char count",
+      "per_char_sec": 0.04
+    },
+    "demo": {
+      "kind": "hyperframes",
+      "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{margin:0;background:#0b0b10;overflow:hidden}#box{position:relative;width:225px;height:400px;margin:8px auto;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 18px;box-sizing:border-box}.tw{font-family:'Courier New',monospace;font-size:18px;color:#7CFFB2;white-space:nowrap;overflow:hidden;clip-path:inset(0 100% 0 0)}.tw.b{color:#fff;font-size:22px;font-weight:700}</style></head><body><div id=\"box\"><div class=\"tw b\" id=\"l1\">SHIPPED.</div><div class=\"tw\" id=\"l2\">recipe normalization</div><div class=\"tw\" id=\"l3\">23 blocks audited</div></div><script src=\"https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js\"></script><script>function tw(id,at){const el=document.getElementById(id),n=el.textContent.length;return{el,n,at};}const lines=[tw(\"l1\",0),tw(\"l2\",0.6),tw(\"l3\",1.4)];const tl=gsap.timeline({repeat:-1,repeatDelay:1});lines.forEach(L=>tl.to(L.el,{clipPath:\"inset(0 0% 0 0)\",duration:L.n*0.05,ease:\"steps(\"+L.n+\")\"},L.at));tl.to({},{duration:.5});lines.forEach(L=>tl.set(L.el,{clipPath:\"inset(0 100% 0 0)\"},\"<\"));</script></body></html>"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "vhs-overlay",
+    "name": "VHS Overlay",
+    "blurb": "The full ffmpeg VHS chain — chroma shift + sine tape-wobble + temporal grain + vignette + slight desat — in one filtergraph. The whole-clip analog look behind the choose-path series.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nThe complete tape-deck look in one `-vf` chain: an `rgbashift` chroma split, a 0.6 Hz sine `crop` wobble for slow horizontal drift, temporal `noise` grain, a `vignette`, and a small `eq` desaturate/contrast nudge (a VHS deck never produced pristine corners or full saturation). Toggle any layer by zeroing its knob.\n\n## When to use it\n\n- A whole clip you want to read as a found-tape / 1990s home-video / analog-horror register.\n- For a single momentary \"PAUSE\"-style freeze overlay inside HyperFrames, use `vhs-pause-freeze` instead (this one bakes the whole clip).\n\n## Knobs\n\n- `chroma` = R/B horizontal shift in px (the rgbashift offsets). 0 = off.\n- `drift` = sine-wobble amplitude in px. 0 = off.\n- `grain` = noise strength 0..100. 0 = off.",
+    "artifact": "# Verbatim from cli/lib/ffmpeg-recipes.ts buildVhsFilter({drift,grain,chroma}) with the defaults\n# (chroma=3, drift=2, grain=8). The vignette + eq tail are always appended.\nffmpeg -i in.mp4 -vf \"rgbashift=rh=3:bh=-3,crop=in_w-4:in_h:2+2*sin(2*PI*0.6*t):0,noise=alls=8:allf=t,vignette=PI/5,eq=saturation=0.92:contrast=1.05\" -c:v libx264 -preset fast -crf 20 -c:a copy out.mp4",
+    "params": {
+      "chroma": 3,
+      "drift": 2,
+      "grain": 8,
+      "vignette": "PI/5",
+      "saturation": 0.92,
+      "contrast": 1.05
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "vhs-pause-freeze",
+    "name": "VHS Pause Freeze",
+    "blurb": "The \"||PAUSE\" overlay of a paused VCR: a canvas snow field + a jittering tracking band + scanlines + a tape tint + a PAUSE caption, driven for an exact window in HyperFrames. Used to hold the freeze on every fork.",
+    "refs": [],
+    "recipeKind": "hyperframes",
+    "body": "## What it is\n\nThe artifact of a paused VHS tape. A `<canvas>` redraws per-frame snow (deterministic mulberry32 noise) plus a horizontal tracking-error band, layered under CSS scanlines + a warm tape tint + a `||PAUSE` caption. A tiny `y: +/-1` vertical jitter every 0.1s sells the unstable head. The whole stack fades in for the freeze window and out when play resumes.\n\n## When to use it\n\n- To hold a freeze beat (the fork moment) so it reads as \"someone hit pause\", not a render glitch.\n- Anywhere you want a momentary analog-pause punctuation. For a whole-clip VHS bake use `vhs-overlay` instead.\n\n## Knobs\n\n- `drawVHS(t)` snow alpha = `(r()*54)` and the 22 tracking streaks per band.\n- `#vcr` opacity (0.45) = snow strength; the jitter loop pitch (0.1s).\n- `vhs(s, dur)` = show from `s` for `dur` seconds.",
+    "artifact": "// Verbatim from the choose-path index.html: the deterministic snow draw + the vhs() driver.\nfunction mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}\nfunction drawVHS(t){const r=mulberry32((Math.floor(t*30)|0)+1);const w=vcr.width,h=vcr.height;const img=vctx.createImageData(w,h),d=img.data;for(let i=0;i<d.length;i+=4){const v=(r()*255)|0;d[i]=d[i+1]=d[i+2]=v;d[i+3]=(r()*54)|0;}vctx.putImageData(img,0,0);const band=Math.floor((t*60)%h);vctx.fillStyle=\"rgba(255,255,255,0.5)\";for(let k=0;k<22;k++){const x=(r()*w)|0,y=band+((r()*46)|0)-23;vctx.fillRect(x,y,(r()*7)|0,2);}}\nfunction vhs(s,dur){tl.set(\"#vhs\",{opacity:1},s);const pf={v:s};tl.to(pf,{v:s+dur,duration:dur,ease:\"none\",onUpdate:()=>drawVHS(pf.v),overwrite:\"auto\"},s);let t=s,k=0;while(t<s+dur){tl.set(\"#vhs\",{y:(k%2?1:-1)},t);t+=0.1;k++;}tl.set(\"#vhs\",{y:0},s+dur);tl.to(\"#vhs\",{opacity:0,duration:0.12,overwrite:\"auto\"},s+dur);}",
+    "params": {
+      "snow_alpha_max": 54,
+      "tracking_streaks": 22,
+      "jitter_pitch_sec": 0.1,
+      "fade_out_sec": 0.12,
+      "vcr_canvas": "270x480"
+    },
+    "demo": {
+      "kind": "hyperframes",
+      "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{margin:0;background:#000;overflow:hidden}#box{position:relative;width:225px;height:400px;margin:8px auto;overflow:hidden;background:linear-gradient(135deg,#345,#122)}#vcr{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.45}.scan{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.30) 50%),linear-gradient(90deg, rgba(255,0,0,.04), rgba(0,255,0,.02), rgba(0,0,255,.04));background-size:100% 3px,4px 100%}.tint{position:absolute;inset:0;background:rgba(40,32,12,.12)}.pause{position:absolute;top:16px;left:16px;font:700 24px monospace;letter-spacing:3px;color:#fff3d0;text-shadow:0 0 8px #000,0 2px 4px #000}</style></head><body><div id=\"box\"><canvas id=\"vcr\" width=\"135\" height=\"240\"></canvas><div class=\"tint\"></div><div class=\"scan\"></div><div class=\"pause\"><b>&#10073;&#10073;</b> PAUSE</div></div><script>const vcr=document.getElementById(\"vcr\"),vctx=vcr.getContext(\"2d\");function m(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}function draw(t){const r=m((Math.floor(t*30)|0)+1),w=vcr.width,h=vcr.height,img=vctx.createImageData(w,h),d=img.data;for(let i=0;i<d.length;i+=4){const v=(r()*255)|0;d[i]=d[i+1]=d[i+2]=v;d[i+3]=(r()*54)|0;}vctx.putImageData(img,0,0);const band=Math.floor((t*60)%h);vctx.fillStyle=\"rgba(255,255,255,.5)\";for(let k=0;k<22;k++){const x=(r()*w)|0,y=band+((r()*46)|0)-23;vctx.fillRect(x,y,(r()*7)|0,2);}}let t=0;setInterval(()=>{t+=1/30;draw(t);vcr.style.transform=\"translateY(\"+((Math.floor(t*10)%2)?1:-1)+\"px)\";},33);</script></body></html>"
+    }
+  },
+  {
+    "kind": "recipe",
+    "id": "voxel-dither",
+    "name": "Voxel Dither",
+    "blurb": "A PS1/retro-console look: hard posterize the color depth then add ordered (Bayer) dithering so the banding reads as deliberate low-bit dither rather than AI artifacting.",
+    "refs": [],
+    "recipeKind": "ffmpeg",
+    "body": "## What it is\n\nThe low-bit dither pass of the PS1 register. `vaguedenoiser` (optional) flattens noise, `eq` adds a little contrast, then `format` + a palette-style quantize posterizes the color depth, and an ordered dither stamps a Bayer pattern so the reduced palette reads as a real 90s-console dither instead of compression banding. Pair with `crt-scanlines` + `film-grain` for the full PS1 stack.\n\n## When to use it\n\n- A clip you want to read as PS1 / early-3D / voxel-console rendering.\n- Knocking an over-smooth AI gradient into a chunky, deliberate palette.\n\n## Knobs\n\n- `bayer_scale` = dither block size (larger = chunkier dots).\n- The quantized palette size (fewer colors = harder posterize).",
+    "artifact": "# Ordered (Bayer) dither against a reduced palette — the deliberate low-bit look.\nffmpeg -i in.mp4 -vf \"eq=contrast=1.06,format=rgb24,paletteuse=dither=bayer:bayer_scale=3\" -c:v libx264 -preset fast -crf 20 -c:a copy out.mp4\n# (paletteuse needs a palettegen pass / -i palette.png; for a fixed-palette dither use:)\nffmpeg -i in.mp4 -vf \"format=rgb24,deband,dither=bayer\" -c:v libx264 -crf 20 out.mp4",
+    "params": {
+      "bayer_scale": 3,
+      "contrast": 1.06
+    }
   }
 ];
 // ralphy:published-blocks:end
