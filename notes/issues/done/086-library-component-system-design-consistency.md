@@ -1,6 +1,6 @@
 # Library component-system + design-consistency refactor (umbrella)
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (umbrella: children #087-#097 all landed; RemixModal thumb also routed through <Media>; zero bespoke media/card/audio/carousel markup remains in app/library; next build 166 pages + tsc green, no borders, English-only; component audit table in lib/library-v2/MIGRATION.md)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** high

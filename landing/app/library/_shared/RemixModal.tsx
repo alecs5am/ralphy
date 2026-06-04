@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CheckIcon, CloseIcon, CopyIcon, SwapIcon } from "./icons";
 import type { RemixPayload } from "./types";
 import { lockScroll, unlockScroll } from "./scrollLock";
+import { Media } from "./Media";
 
 function CopyRow({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -69,13 +70,21 @@ export function RemixModal({ payload, onClose }: { payload: RemixPayload | null;
 
   let thumbNode: React.ReactNode = null;
   if (thumb && "src" in thumb) {
-    thumbNode =
-      thumb.kind === "video" ? (
-        <video src={thumb.src} muted loop playsInline autoPlay />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={thumb.src} alt="" />
-      );
+    // Route the thumbnail through the shared <Media> (#086/#088) — fill the
+    // fixed .m-thumb box (cover), no lightbox (it's a chrome thumb, not content).
+    thumbNode = (
+      <Media
+        src={thumb.src}
+        kind={thumb.kind}
+        fit="cover"
+        lightbox={false}
+        muted
+        loop
+        autoPlay
+        className="media-cell"
+        alt=""
+      />
+    );
   } else if (thumb && "glyph" in thumb) {
     thumbNode = (
       <span style={{ fontFamily: "var(--font-display)", fontSize: 26, color: "var(--vio)" }}>{thumb.glyph}</span>
