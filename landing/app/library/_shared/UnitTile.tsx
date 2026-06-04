@@ -9,7 +9,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Block, BlockKind, Format, Unit, UnitMedia } from "@/lib/library-v2/types";
-import { blockGlyph, blockKindLabel, fhue, mediaUrl, unitTileAspect } from "./blockMeta";
+import { RECIPE_KIND_META, blockGlyph, blockKindLabel, fhue, mediaUrl, unitTileAspect } from "./blockMeta";
 import { OpenIcon, PlayIcon, RemixIcon } from "./icons";
 
 // ── Block chip ────────────────────────────────────────────────────────────────
@@ -29,24 +29,33 @@ export function BlockChip({
   title?: string;
   onClick?: (e: React.MouseEvent) => void;
 }) {
-  const cls = `bchip${size === "sm" ? " sm" : ""}`;
+  // Recipe blocks read their treatment class via a kind-specific icon + hue tint
+  // (#082); every other kind keeps the mono glyph + cool block tint.
+  const rk = b.kind === "recipe" && b.recipeKind ? RECIPE_KIND_META[b.recipeKind] : undefined;
+  const cls = `bchip${size === "sm" ? " sm" : ""}${rk ? " rk" : ""}`;
+  const rkStyle = rk
+    ? ({ ["--rk" as string]: rk.hue, ["--rk-t" as string]: rk.tint } as React.CSSProperties)
+    : undefined;
+  const Icon = rk?.icon;
   const inner = (
     <>
-      <span className="bg">{blockGlyph(b)}</span>
-      {withKind && <span className="bk">{blockKindLabel(b)}</span>}
+      <span className="bg" aria-hidden={!!Icon}>
+        {Icon ? <Icon s={size === "sm" ? 11 : 12} /> : blockGlyph(b)}
+      </span>
+      {withKind && <span className="bk">{rk ? rk.label : blockKindLabel(b)}</span>}
       <span className="bn">{b.name}</span>
     </>
   );
-  const titleAttr = title || `${blockKindLabel(b)}: ${b.name}`;
+  const titleAttr = title || `${rk ? rk.label : blockKindLabel(b)}: ${b.name}`;
   if (href) {
     return (
-      <Link className={cls} href={href} title={titleAttr} onClick={onClick}>
+      <Link className={cls} href={href} title={titleAttr} onClick={onClick} style={rkStyle}>
         {inner}
       </Link>
     );
   }
   return (
-    <button type="button" className={cls} title={titleAttr} onClick={onClick}>
+    <button type="button" className={cls} title={titleAttr} onClick={onClick} style={rkStyle}>
       {inner}
     </button>
   );
