@@ -482,6 +482,8 @@
 .bhero { padding-top: 92px; }
 @media (max-width: 900px){ .bhero { padding-top: 64px; } }
 .bhead { display: grid; gap: 36px; grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr); align-items: start; }
+/* No proof media → drop the empty right column; the header text spans full width. */
+.bhead.no-proof { grid-template-columns: 1fr; }
 @media (max-width: 900px){ .bhead { grid-template-columns: 1fr; gap: 22px; } }
 .bhead .bh-eye { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--block-ink); display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; }
