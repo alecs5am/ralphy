@@ -28,8 +28,10 @@ import { getDisplayStars } from "@/lib/data";
 import { getBlock, getBlocks, getFormats, unitsUsing } from "@/lib/library-v2/source";
 import type { Block, BlockKind } from "@/lib/library-v2/types";
 import { KIND_META, SUB_META, blockGlyph } from "../../../_shared/blockMeta";
+import { AssetMedia, hasAssetMedia } from "./AssetMedia";
 import { BlockUnits } from "./BlockUnits";
 import { ComposeCta, ComposeLink } from "./ComposeModal";
+import { RecipeDetail } from "./RecipeDetail";
 
 export const dynamicParams = false;
 
@@ -90,6 +92,13 @@ function SchematicTile({ glyph, label }: { glyph: string; label: string }) {
 
 function BlockRefs({ block }: { block: Block }) {
   const glyph = blockGlyph(block);
+
+  // Asset with real ref media (#085) → a live player (audio / image / video) by
+  // sub, replacing the schematic 4-up grid. Falls through to the schematic
+  // placeholder below when the asset has no refs yet (graceful default).
+  if (block.kind === "asset" && hasAssetMedia(block)) {
+    return <AssetMedia block={block} />;
+  }
 
   if (block.kind === "recipe") {
     // Before / after pair.
@@ -192,6 +201,10 @@ export default async function BlockPage({
             </div>
           </div>
         </section>
+
+        {/* Recipe branch (#084): described body + copyable artifact + live demo.
+            Renders nothing when the recipe has no enriched content yet. */}
+        {block.kind === "recipe" && <RecipeDetail block={block} />}
 
         <section className="sec sec-results">
           <div className="container container-w-1760">

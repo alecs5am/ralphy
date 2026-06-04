@@ -107,6 +107,12 @@ export function IngredientPanel(props: PanelProps) {
         <ChipSection label="Recipes" glyph="❉" blocks={recipes} kind="recipe" />
         <ChipSection label="Audio · music" glyph={ASSET_GLYPH.music} blocks={music} kind="asset" />
 
+        {/* Tags (#084): textual descriptors for finding similar units. NOT blocks
+            — no detail page. Rendered as plain filter chips that link to the feed
+            filtered by tag, visually distinct from the clickable block chips
+            above. Empty until #083 backfills unit tags. */}
+        <TagSection tags={unit.tags ?? []} />
+
         {/* commit bar — one whole-unit Remix CTA + block-link shortcuts */}
         <div className="commit">
           <div className="commit-row">
@@ -167,6 +173,41 @@ function CoreRow({
         <OpenIcon s={13} />
       </span>
     </Link>
+  );
+}
+
+// ── Tag chips — filter links, NOT blocks (#084) ───────────────────────────────
+//
+// Tags are textual descriptors for finding similar units. They get NO detail
+// page; each chip links to the feed filtered by that tag (`/library?tag=<t>`).
+// Styled distinctly from block chips (`.tagchip`, no glyph / open-arrow) so the
+// "this opens a block page" vs "this filters the feed" affordance is unambiguous.
+// Hidden entirely when the unit has no tags (the default until #083).
+
+function TagSection({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return null;
+  return (
+    <div className="ip-msection">
+      <p className="ip-section-label">
+        <span className="ip-section-glyph">#</span>
+        Tags
+      </p>
+      <div className="ip-chips">
+        {tags.map((t) => (
+          <Link
+            key={t}
+            className="tagchip"
+            href={`/library?tag=${encodeURIComponent(t)}`}
+            title={`Find units tagged "${t}"`}
+          >
+            <span className="tagchip-hash" aria-hidden>
+              #
+            </span>
+            <span className="tagchip-name">{t}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
 
