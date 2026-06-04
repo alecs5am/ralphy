@@ -74,3 +74,10 @@ export function researchDir() {
 export function assetCacheDir() {
   return path.join(ralphDir(), "asset-cache");
 }
+
+// Per-workspace cache for the public content library read over PostgREST
+// (gitignored). Short-TTL JSON files keyed by request, written by
+// cli/lib/library/client.ts. Safe to wipe; a miss/parse error just refetches.
+export function libraryCacheDir() {
+  return path.join(ralphDir(), "library-cache");
+}

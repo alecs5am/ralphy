@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **40**
+Verbs registered: **41**
 
 ## Top-level verbs
 
@@ -925,6 +925,46 @@ Examples:
   ralphy blueprint list choose-silenthill-001
   ralphy blueprint show choose-silenthill-001 --unit choose-silenthill
   ralphy blueprint use choose-silenthill --project choose-silenthill-repro-001
+```
+
+### `ralphy library`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy library [options] [command]
+
+Read the public content library (units, blocks, blueprints, formats) from
+Supabase (read-only)
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  units           Finished deliverables (Units)
+  templates       Reusable template blocks
+  recipes         Reusable recipe blocks
+  assets          Reusable asset blocks
+  blueprints      Per-unit reproduction blueprints
+  formats         The media-format taxonomy (static)
+  help [command]  display help for command
+
+Examples:
+  ralphy library units list
+  ralphy library units show animated-fb-ad
+  ralphy library templates list
+  ralphy library recipes show noir-grade
+  ralphy library blueprints list
+  ralphy library blueprints show choose-magicschool
+  ralphy library formats list
+
+Source: Supabase PostgREST (override with RALPHY_LIBRARY_URL / RALPHY_LIBRARY_KEY).
 ```
 
 ### `ralphy template`
