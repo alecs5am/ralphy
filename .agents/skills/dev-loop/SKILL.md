@@ -14,7 +14,7 @@ A **maintainer** skill. It executes the open work in `notes/issues/` (the inbox 
 
 ## Scope + limit
 
-- **Default scope:** every open issue at the **flat top level** of `notes/issues/`. The `notes/issues/done/` and `notes/issues/deprecated/` subfolders are the closed archive — **never in scope** (status is encoded by folder; see [Issues folder layout](../../../notes/README.md#issues-folder-layout)). Optionally include `roadmap/todo/` if the user says so.
+- **Default scope:** every open issue at the **flat top level** of `notes/issues/`. The `notes/issues/done/` and `notes/issues/deprecated/` subfolders are the closed archive — **never in scope** (status is encoded by folder; see [Issues folder layout](../../../notes/README.md#issues-folder-layout)).
 - **Default limit:** **25 issues** per loop run. If the user's prompt names more (or "no limit", or a specific subset / range), honor that.
 - The user can narrow scope in their prompt ("just the landing ones", "only #052-#055", "everything tagged cli").
 

@@ -2,9 +2,9 @@
 name: dev-issues
 namespace: maintainer
 description: >-
-  Turn a free-form brain-dump into a clean, ordered set of `notes/issues/*.md` work items. The user tags `/dev-issues` and writes a long stream of everything in their head — features, refactors, bugs, half-formed ideas, product direction. This skill decomposes that stream into discrete, well-shaped, individually-actionable issue files, asks clarifying questions only where a decision is genuinely the user's, collision-checks against existing notes + roadmap so it updates rather than duplicates, then commits the batch. The end state: every thought is captured as an issue a downstream agent (or `/dev-loop`) can pick up and execute.
+  Turn a free-form brain-dump into a clean, ordered set of `notes/issues/*.md` work items. The user tags `/dev-issues` and writes a long stream of everything in their head — features, refactors, bugs, half-formed ideas, product direction. This skill decomposes that stream into discrete, well-shaped, individually-actionable issue files, asks clarifying questions only where a decision is genuinely the user's, collision-checks against the existing `notes/` inbox so it updates rather than duplicates, then commits the batch. The end state: every thought is captured as an issue a downstream agent (or `/dev-loop`) can pick up and execute.
   USE WHEN the user types `/dev-issues`, says "let me brain-dump", "capture all of this into issues", "break this into issues", "I have a bunch of ideas", "distribute these thoughts", or pastes a long unstructured list of things they want done to Ralphy.
-  DO NOT FIRE for a single scoped change (just do it), for content/video work (that is the routing table), or to manage the roadmap board lifecycle (that is `dev-tasks`).
+  DO NOT FIRE for a single scoped change (just do it), for content/video work (that is the routing table), or to capture a one-off idea / decision into the `notes/` inbox (that is `dev-tasks`).
   See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 
@@ -16,17 +16,17 @@ A **maintainer** skill. It does not touch `workspace/projects/` or call media mo
 
 - The user tags `/dev-issues` and then writes a lot — a wall of ideas, gripes, product direction, "and also we should…". The longer and less structured the input, the more this skill earns its keep.
 - ALSO FIRE when a normal dev conversation produces ≥3 distinct actionable threads the user wants preserved before they evaporate.
-- DO NOT FIRE for one scoped task (do it, or file a single note via `dev-tasks`), for content production, or for roadmap board moves (`dev-tasks`).
+- DO NOT FIRE for one scoped task (do it, or file a single note via `dev-tasks`), for content production, or for one-off idea/decision capture into the `notes/` inbox (`dev-tasks`).
 
 ## Workflow
 
-1. **Read the inputs first.** Read `notes/README.md` (the note shape + the [Issues folder layout](../../../notes/README.md#issues-folder-layout)), `docs/developing-ralphy.md` (English-only rule, the lint suite), and skim the **active** backlog (the flat top level of `notes/issues/`) plus `notes/ideas/` + `roadmap/todo/` so you know what already exists. `notes/issues/done/` and `notes/issues/deprecated/` are the closed archive — skim them only during collision-check (step 3). `dev-tasks` is the sibling skill for the board lifecycle.
+1. **Read the inputs first.** Read `notes/README.md` (the note shape + the [Issues folder layout](../../../notes/README.md#issues-folder-layout)), `docs/developing-ralphy.md` (English-only rule, the lint suite), and skim the **active** backlog (the flat top level of `notes/issues/`) plus `notes/ideas/` so you know what already exists. `notes/issues/done/` and `notes/issues/deprecated/` are the closed archive — skim them only during collision-check (step 3). `dev-tasks` is the sibling skill for `notes/` inbox capture (ideas / decisions).
 
    > **Status-by-folder.** `notes/issues/` is split into the flat top level (the live backlog), `done/` (resolved / promoted-and-landed), and `deprecated/` (superseded / won't-do). New issues are always filed at the flat top level. Each issue keeps its `> **Status:**` line in sync with its folder.
 
 2. **Decompose the brain-dump into discrete items.** One issue = one coherent unit of work (one verb / file / feature / refactor / bug). Split compound thoughts; merge near-duplicates. Aim for issues a single sub-agent could execute end-to-end.
 
-3. **Collision-check before filing each.** Search **all of `notes/issues/` (active top level + `done/` + `deprecated/`)**, `notes/ideas/`, and `roadmap/` for an existing entity that already covers the thought. If one exists, **update it** (or note the overlap) rather than spawning a duplicate. If the match lives in `done/`, the thought is likely a regression or follow-up — `git mv` it back to the active top level and reset its `> **Status:**` line, or file a fresh issue that cross-links it. Never let the same thing live in two places.
+3. **Collision-check before filing each.** Search **all of `notes/issues/` (active top level + `done/` + `deprecated/`)** and `notes/ideas/` for an existing entity that already covers the thought. If one exists, **update it** (or note the overlap) rather than spawning a duplicate. If the match lives in `done/`, the thought is likely a regression or follow-up — `git mv` it back to the active top level and reset its `> **Status:**` line, or file a fresh issue that cross-links it. Never let the same thing live in two places.
 
 4. **Ask clarifying questions only where the answer changes what gets filed** — a genuine fork the user must decide (scope, irreversibility, a product direction with no sensible default). Use `AskUserQuestion`, batch the questions, and offer a recommended option. Do NOT ask about things you can decide from the repo or sensible defaults. If the user wrote in Russian (or any non-English), that is fine in chat — but everything you WRITE to disk is English (translate/paraphrase).
 

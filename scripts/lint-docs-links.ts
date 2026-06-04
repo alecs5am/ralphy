@@ -137,9 +137,9 @@ async function main(): Promise<void> {
   const timeoutMs = 30_000;
 
   // Scope: by default only the canonical doc surfaces (README + docs/ +
-  // docs-mintlify/ + roadmap/). Pass --scope full to also scan templates/,
-  // landing/, etc. Templates have ~75 known-stale internal links from old
-  // reorgs that are tracked as a separate cleanup pass (07.09.x follow-up).
+  // docs-mintlify/). Pass --scope full to also scan templates/, landing/, etc.
+  // Templates have ~75 known-stale internal links from old reorgs that are
+  // tracked as a separate cleanup pass.
   const fullScope = process.argv.includes("--scope=full");
   const scopedRoots = fullScope
     ? [repo]
@@ -151,7 +151,6 @@ async function main(): Promise<void> {
         path.join(repo, "CLI.md"),
         path.join(repo, "docs"),
         path.join(repo, "docs-mintlify"),
-        path.join(repo, "roadmap"),
       ];
 
   const files: string[] = [];
