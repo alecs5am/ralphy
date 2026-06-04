@@ -69,6 +69,10 @@ export const UnitManifestSchema = z.object({
   /** Per-file intrinsic aspect + kind, keyed by filename. Optional/additive. */
   media_meta: z.record(z.string(), UnitMediaMetaSchema).optional(),
   provenance: UnitProvenanceSchema.optional(),
+  /** Tags (#082): textual descriptors for finding similar videos. Filter-only —
+   *  carried into the published Unit + the units `tags` column. Optional/additive,
+   *  kept in lockstep with `Unit.tags` in landing/lib/library-v2/types.ts. */
+  tags: z.array(z.string()).optional(),
   /** Original project-relative paths the media was copied from. */
   source_assets: z.array(z.string()).optional(),
   /** ISO timestamp the unit was formed. */

@@ -176,6 +176,34 @@ export const fmtCounts: FmtCounts = Object.fromEntries(
   FORMATS.map((f) => [f.id, unitsUsing("format", f.id).length]),
 ) as FmtCounts;
 
+// ── Tags facet (#082) ────────────────────────────────────────────────────────
+// A Tag is a filter-only unit label (NOT a block, no detail page). The feed
+// filtering (#084) needs the distinct tags across all units with their unit
+// counts. Pure derivation from `Unit.tags` — no fetch, computed once at
+// module-eval, mirroring how block kinds are exposed via `counts`/`BLOCKS`.
+
+/** One tag facet entry: the tag string + how many units carry it. */
+export interface TagFacet {
+  tag: string;
+  count: number;
+}
+
+/** Distinct unit tags across all units, with per-tag unit counts, sorted by
+ *  count desc then tag asc (stable, deterministic). */
+export const TAGS: TagFacet[] = (() => {
+  const m = new Map<string, number>();
+  for (const u of UNITS) {
+    for (const t of u.tags ?? []) m.set(t, (m.get(t) ?? 0) + 1);
+  }
+  return Array.from(m.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+})();
+
+/** Units carrying the given tag — the feed's tag filter. */
+export const unitsWithTag = (tag: string): Unit[] =>
+  UNITS.filter((u) => (u.tags ?? []).includes(tag));
+
 /** The full v2 graph, mirroring the prototype's `window.RX` surface so a screen
  *  can destructure one import. */
 export const RX = {
@@ -191,6 +219,8 @@ export const RX = {
   applicable,
   counts,
   fmtCounts,
+  TAGS,
+  unitsWithTag,
 } as const;
 
 // Re-export the FormatId-typed format-count helper for callers that want the
