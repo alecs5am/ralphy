@@ -4,19 +4,24 @@
 // UNITS backed by reusable BLOCKS"). Pure types, fs-free, so a client island can
 // import them without dragging node:fs into the browser bundle.
 //
-// The model has five entities (see the design handoff README):
+// The model has four block-bearing entities + tags (see the design handoff
+// README):
 //   Format  — the SHAPE of a deliverable (how many media items + aspect).
 //   Unit    — a finished deliverable in a Format, holding 1..N media items.
-//   Block   — a reusable building block, one of four kinds:
-//     Template — the STRUCTURE / skeleton only, style-agnostic.
-//     Style    — the visual look / register.
+//   Block   — a reusable building block, one of three kinds:
+//     Template — the STRUCTURE / skeleton only, look-agnostic.
 //     Recipe   — a composable effect / treatment (many per Unit).
 //     Asset    — concrete reusable media, by `sub` kind.
+//   Tag     — a unit-level textual descriptor (incl. the LOOK / register). A
+//             filter-only label, NOT a block, with no detail page (the "style as
+//             a tag" decision — the look's reproduction payload lives in the
+//             repo `vibe-style` templates + `guidelines/`, its anchor images are
+//             Assets, and the label itself is just a discovery descriptor).
 //
-// A Unit = exactly 1 Template + 1 Style + N Recipes + M Assets, in a Format.
-// That ingredient list is the Unit's PROVENANCE (the factual blocks that made
-// it). The swap menu offers APPLICABLE blocks (other blocks of the same kind
-// that fit a slot; for assets, the same `sub`).
+// A Unit = exactly 1 Template + N Recipes + M Assets, in a Format, plus N Tags
+// (its look among them). The blocks are the Unit's PROVENANCE (the factual
+// blocks that made it). The swap menu offers APPLICABLE blocks (other blocks of
+// the same kind that fit a slot; for assets, the same `sub`).
 //
 // This file matches the `window.RX` shape spec in the prototype's `lib2/data.js`
 // exactly — the catalog there is illustrative, the shape is the contract.
@@ -44,11 +49,12 @@ export interface Format {
   blurb: string;
 }
 
-/** The four block kinds. `template` is the only single-value-per-unit axis
- *  alongside `style`; `recipe` and `asset` are multi-value.
+/** The three block kinds. `template` is the only single-value-per-unit axis;
+ *  `recipe` and `asset` are multi-value. (The former `style` kind was demoted to
+ *  a unit-level Tag — the look is now a `tags[]` descriptor, not a block.)
  *
  *  NAMING NOTE (#075): the `"template"` block-KIND here is the per-unit,
- *  style-agnostic STRUCTURE tag in a Unit's provenance — the structure axis of
+ *  look-agnostic STRUCTURE tag in a Unit's provenance — the structure axis of
  *  THIS one Unit's ingredient list. It is DISTINCT from two other "Template"
  *  meanings:
  *    1. the generic repo TEMPLATE ENTITY — the `templates/<category>/<slug>/`
@@ -64,7 +70,7 @@ export interface Format {
  *       does NOT replace them — the block-kinds stay the generic discovery
  *       vocabulary.
  *  Full disambiguation: docs/skills-vs-templates.md → "The reproduction trio". */
-export type BlockKind = "template" | "style" | "recipe" | "asset";
+export type BlockKind = "template" | "recipe" | "asset";
 
 /** Asset sub-kinds. A swap fits same-sub only (swap a location for a location). */
 export type AssetSub = "character" | "location" | "prop" | "music";
@@ -73,10 +79,13 @@ export type AssetSub = "character" | "location" | "prop" | "music";
 //
 // SETTLED DESIGN (user decision 2026-06-04 — do not redesign):
 //
-//   - **Tag** = a textual descriptor for finding SIMILAR videos. Filter-only — a
-//     chip in the feed, never a block, NO detail page. Modeled as `tags: string[]`
-//     on a `Unit` (a unit-level label). The loader derives a `TAGS` facet from the
-//     distinct unit tags for filtering; tags carry no extractable artifact.
+//   - **Tag** = a textual descriptor for finding SIMILAR videos, INCLUDING the
+//     unit's LOOK / register (the former `style` block was demoted to a tag).
+//     Filter-only — a chip in the feed, never a block, NO detail page. Modeled as
+//     `tags: string[]` on a `Unit` (a unit-level label). The loader derives a
+//     `TAGS` facet from the distinct unit tags for filtering; tags carry no
+//     extractable artifact (the look's reproduction know-how lives in the repo
+//     `vibe-style` templates + `guidelines/`; its anchor images are Assets).
 //
 //   - **Recipe** = an EXTRACTABLE / APPLICABLE artifact (an ffmpeg filtergraph, a
 //     HyperFrames snippet, a prompt template). It STAYS a Block (`kind:"recipe"`),
@@ -162,10 +171,11 @@ export interface UnitMedia {
   storageUrl?: string;
 }
 
-/** A finished deliverable. `templateId` + `styleId` are single; `recipeIds` +
- *  `assetIds` are many. `mediaCount` is derived from the format default when not
- *  explicit. `media` carries the real on-disk paths (the ONLY source of Units in
- *  this migration). `hero` flags the feed's lead unit. */
+/** A finished deliverable. `templateId` is single; `recipeIds` + `assetIds` are
+ *  many. The look is carried in `tags` (the former single-value `styleId` axis
+ *  was demoted to a tag). `mediaCount` is derived from the format default when
+ *  not explicit. `media` carries the real on-disk paths (the ONLY source of
+ *  Units in this migration). `hero` flags the feed's lead unit. */
 export interface Unit {
   id: string;
   format: FormatId;
@@ -173,7 +183,6 @@ export interface Unit {
   blurb: string;
   date?: string;
   templateId: string;
-  styleId: string;
   recipeIds: string[];
   assetIds: string[];
   /** Item count: actual file count for packs/carousels/cuts/sets when known,
@@ -182,16 +191,16 @@ export interface Unit {
   /** Real on-disk media paths. */
   media?: UnitMedia[];
   hero?: boolean;
-  /** Tags (#082): textual descriptors for finding similar videos. Filter-only —
-   *  they drive the feed's `TAGS` facet, are NOT blocks, and have NO detail page.
-   *  Optional/additive: units without tags still validate. */
+  /** Tags (#082): textual descriptors for finding similar videos, INCLUDING the
+   *  unit's LOOK / register (the former `styleId` is folded in here). Filter-only
+   *  — they drive the feed's `TAGS` facet, are NOT blocks, and have NO detail
+   *  page. Optional/additive: units without tags still validate. */
   tags?: string[];
 }
 
-/** The four block arrays, deduped, keyed by kind. */
+/** The three block arrays, deduped, keyed by kind. */
 export interface BlocksByKind {
   template: Block[];
-  style: Block[];
   recipe: Block[];
   asset: Block[];
 }

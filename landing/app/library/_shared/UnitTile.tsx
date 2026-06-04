@@ -12,6 +12,26 @@ import type { Block, BlockKind, Format, Unit, UnitMedia } from "@/lib/library-v2
 import { RECIPE_KIND_META, blockGlyph, blockKindLabel, fhue, mediaUrl, unitTileAspect } from "./blockMeta";
 import { OpenIcon, PlayIcon, RemixIcon } from "./icons";
 
+// ── Tag chip (#082/#084 look-as-tag) ──────────────────────────────────────────
+// The unit's look / register is a Tag now (not a block) — a filter link to the
+// feed, visually distinct from the clickable block chips. Mirrors the
+// `.tagchip` used on the unit-detail IngredientPanel.
+
+export function TagChip({ tag, size }: { tag: string; size?: "sm" }) {
+  return (
+    <Link
+      className={`tagchip${size === "sm" ? " sm" : ""}`}
+      href={`/library?tag=${encodeURIComponent(tag)}`}
+      title={`Find units tagged "${tag}"`}
+    >
+      <span className="tagchip-hash" aria-hidden>
+        #
+      </span>
+      <span className="tagchip-name">{tag}</span>
+    </Link>
+  );
+}
+
 // ── Block chip ────────────────────────────────────────────────────────────────
 
 export function BlockChip({
@@ -78,7 +98,7 @@ export function UnitTile({
   compact?: boolean;
 }) {
   const tpl = blockBy("template", u.templateId);
-  const sty = blockBy("style", u.styleId);
+  const tags = u.tags ?? [];
   const recN = u.recipeIds.length;
   const astN = u.assetIds.length;
   const href = `/library/u/${u.id}`;
@@ -127,15 +147,7 @@ export function UnitTile({
                 title={`Template: ${tpl.name}`}
               />
             )}
-            {sty && (
-              <BlockChip
-                b={sty}
-                size="sm"
-                withKind={false}
-                href={`/library/b/style/${sty.id}`}
-                title={`Style: ${sty.name}`}
-              />
-            )}
+            {tags[0] && <TagChip tag={tags[0]} size="sm" />}
             {recN + astN > 0 && (
               <span className="umore">
                 +{recN} recipes · {astN} assets

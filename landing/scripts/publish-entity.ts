@@ -11,10 +11,14 @@
 //                        (has unit.json + the copied media). Validates against the CLI
 //                        unit schema shape, uploads media to Storage at
 //                        units/<id>/<filename>, upserts the units row + unit_blocks
-//                        provenance rows (template/style/recipe/asset -> role; a
+//                        provenance rows (template/recipe/asset -> role; a
 //                        referenced block missing from Supabase is WARN-and-skipped,
-//                        never fabricated), then appends/replaces the unit in
-//                        published.ts (idempotent by id; media carries local + storageUrl).
+//                        never fabricated). The look / register is a unit Tag now
+//                        (not a block): a unit.json `provenance.style` slug is
+//                        folded into the unit's tags, never written as a style
+//                        block-role or a units.style column. Then appends/replaces
+//                        the unit in published.ts (idempotent by id; media carries
+//                        local + storageUrl).
 //
 //   --block <json>       inline block spec OR
 //   --block-file <path>  a JSON file: { kind, id, name, blurb, sub?, refs?[] }. Upserts
@@ -377,7 +381,7 @@ interface BlockSpec {
   demo?: BlockRecipeDemo;
 }
 
-const BLOCK_KINDS = ["template", "style", "recipe", "asset"];
+const BLOCK_KINDS = ["template", "recipe", "asset"];
 const RECIPE_KINDS = ["ffmpeg", "encode", "overlay", "bake", "hyperframes", "prompt"];
 const DEMO_KINDS = ["hyperframes", "media"];
 
@@ -533,13 +537,18 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
 
   const prov = manifest.provenance ?? {};
   const templateId = prov.template ?? "";
-  const styleId = prov.style ?? "";
   const recipeIds = prov.recipes ?? [];
   const assetIds = prov.assets ?? [];
   // Tags (#082): filter-only unit labels. Absent in older units -> [].
-  const tags = Array.isArray(manifest.tags)
+  // The look / register is a TAG now (the `style` block kind was removed). If a
+  // unit.json still carries a `provenance.style` slug, fold it into the tags
+  // (deduped, lead position) instead of writing a style block-role or units.style.
+  const baseTags = Array.isArray(manifest.tags)
     ? manifest.tags.filter((t) => typeof t === "string")
     : [];
+  const lookTag = typeof prov.style === "string" ? prov.style : "";
+  const tags =
+    lookTag && !baseTags.includes(lookTag) ? [lookTag, ...baseTags] : baseTags;
 
   // unit row + unit_blocks provenance rows.
   const unitUpsert: UpsertRow = {
@@ -560,7 +569,6 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
 
   const links: Array<{ blockId: string; role: Block["kind"]; position: number }> = [];
   if (templateId) links.push({ blockId: templateId, role: "template", position: 0 });
-  if (styleId) links.push({ blockId: styleId, role: "style", position: 0 });
   recipeIds.forEach((id, i) => links.push({ blockId: id, role: "recipe", position: i }));
   assetIds.forEach((id, i) => links.push({ blockId: id, role: "asset", position: i }));
 
@@ -583,7 +591,6 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
     title: manifest.title ?? manifest.slug,
     blurb: manifest.blurb ?? "",
     templateId,
-    styleId,
     recipeIds,
     assetIds,
     mediaCount: manifest.media.length,
