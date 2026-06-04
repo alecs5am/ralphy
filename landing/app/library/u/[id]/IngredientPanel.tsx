@@ -5,11 +5,12 @@
 // as a chip/row that LINKS to its block page (/library/b/[kind]/[id]).
 //
 // No editing here (per product: the change/swap UX has no meaning yet). The
-// three single-value axes (Template · Style · Format) are grouped as one visually
-// distinct "recipe" block; the multi-value axes (Characters · Location · Props ·
+// two single-value axes (Template · Format) are grouped as one visually distinct
+// "core recipe" block; the multi-value axes (Characters · Location · Props ·
 // Recipes · Audio) render only when they HAVE content — empty axes are hidden.
-// One whole-unit "Remix this" CTA emits the copy-tag (`@unit:<id>` /
-// `ralphy remix <id>`), plus the two block-link shortcuts.
+// The look / register is shown in the Tags section (it is a tag now, not a
+// block). One whole-unit "Remix this" CTA emits the copy-tag (`@unit:<id>` /
+// `ralphy remix <id>`), plus the template block-link shortcut.
 //
 // No visible borders: separation via bg-tint steps + shadow + spacing only.
 
@@ -27,7 +28,6 @@ export interface PanelProps {
   unit: Unit;
   format: Format | undefined;
   template?: Block;
-  style?: Block;
   characters: Block[];
   locations: Block[];
   props: Block[];
@@ -43,7 +43,7 @@ const ASSET_GLYPH = {
 } as const;
 
 export function IngredientPanel(props: PanelProps) {
-  const { unit, format, template, style, characters, locations, props: propAssets, music, recipes } = props;
+  const { unit, format, template, characters, locations, props: propAssets, music, recipes } = props;
   const [remix, setRemix] = useState<RemixPayload | null>(null);
 
   function openRemix() {
@@ -77,14 +77,6 @@ export function IngredientPanel(props: PanelProps) {
               glyph="▦"
               block={template}
               href={`/library/b/template/${template.id}`}
-            />
-          )}
-          {style && (
-            <CoreRow
-              axis="Style"
-              glyph="✸"
-              block={style}
-              href={`/library/b/style/${style.id}`}
             />
           )}
           <CoreRow
@@ -125,12 +117,6 @@ export function IngredientPanel(props: PanelProps) {
             {template && (
               <Link href={`/library/b/template/${template.id}`} style={{ color: "var(--vio-2)" }}>
                 use the template
-              </Link>
-            )}
-            {template && style && " · "}
-            {style && (
-              <Link href={`/library/b/style/${style.id}`} style={{ color: "var(--vio-2)" }}>
-                use this style
               </Link>
             )}
             .

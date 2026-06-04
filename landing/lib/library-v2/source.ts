@@ -111,6 +111,8 @@ interface UnitRow {
   media: UnitMedia[] | null;
   media_count: number;
   hero: boolean;
+  /** Filter-only unit labels, incl. the look (the former `style` block-role). */
+  tags: string[] | null;
 }
 
 interface UnitBlockRow {
@@ -135,7 +137,6 @@ function toBlock(r: BlockRow): Block {
 function toUnit(u: UnitRow, comp: Map<string, UnitBlockRow[]>): Unit {
   const rows = (comp.get(u.id) ?? []).sort((a, b) => a.position - b.position);
   const templateId = rows.find((r) => r.role === "template")?.block_id ?? "";
-  const styleId = rows.find((r) => r.role === "style")?.block_id ?? "";
   const recipeIds = rows.filter((r) => r.role === "recipe").map((r) => r.block_id);
   const assetIds = rows.filter((r) => r.role === "asset").map((r) => r.block_id);
   const unit: Unit = {
@@ -144,7 +145,6 @@ function toUnit(u: UnitRow, comp: Map<string, UnitBlockRow[]>): Unit {
     title: u.title,
     blurb: u.blurb ?? "",
     templateId,
-    styleId,
     recipeIds,
     assetIds,
     mediaCount: u.media_count,
@@ -152,6 +152,9 @@ function toUnit(u: UnitRow, comp: Map<string, UnitBlockRow[]>): Unit {
   };
   if (u.date) unit.date = u.date;
   if (u.hero) unit.hero = u.hero;
+  // The look is a unit Tag (the former `style` block-role is gone). Carry the
+  // `tags` jsonb column when present.
+  if (Array.isArray(u.tags)) unit.tags = u.tags;
   return unit;
 }
 
@@ -191,7 +194,6 @@ async function loadGraph(): Promise<Graph> {
 
     const blocksByKind: Record<BlockKind, Block[]> = {
       template: [],
-      style: [],
       recipe: [],
       asset: [],
     };
@@ -214,8 +216,6 @@ function unitsUsingIn(units: Unit[], kind: BlockKind | "format", id: string): Un
     switch (kind) {
       case "template":
         return u.templateId === id;
-      case "style":
-        return u.styleId === id;
       case "recipe":
         return u.recipeIds.includes(id);
       case "asset":
@@ -259,7 +259,6 @@ export async function getBlocks(kind?: BlockKind): Promise<Block[]> {
     if (kind) return STATIC_BLOCKS[kind];
     return [
       ...STATIC_BLOCKS.template,
-      ...STATIC_BLOCKS.style,
       ...STATIC_BLOCKS.recipe,
       ...STATIC_BLOCKS.asset,
     ];
@@ -268,7 +267,6 @@ export async function getBlocks(kind?: BlockKind): Promise<Block[]> {
   if (kind) return g.blocksByKind[kind];
   return [
     ...g.blocksByKind.template,
-    ...g.blocksByKind.style,
     ...g.blocksByKind.recipe,
     ...g.blocksByKind.asset,
   ];

@@ -2,9 +2,10 @@
 
 // MoreFrom — the below-the-fold horizontal rails on the unit-detail page:
 //   More from {Template} — other units built on the same skeleton
-//   More in {Style}      — other units wearing the same look
-// Compact UnitTiles in a scroll-snap rail, each rail headed by an "open block →"
-// link to the (next task's) building-block page.
+//   More with {tag}      — other units sharing this unit's look / tag (a tag is
+//                          a feed filter, so its rail head links to ?tag=, not a
+//                          block page).
+// Compact UnitTiles in a scroll-snap rail.
 
 import Link from "next/link";
 import type { Block, BlockKind, Format, Unit } from "@/lib/library-v2/types";
@@ -15,12 +16,13 @@ export interface MoreFromProps {
   formats: Format[];
   blocks: Block[];
   template?: Block;
-  style?: Block;
+  /** The unit's lead look tag (was the Style block) — drives the "More with" rail. */
+  lookTag?: string;
   fromTemplate: Unit[];
-  inStyle: Unit[];
+  withLook: Unit[];
 }
 
-export function MoreFrom({ formats, blocks, template, style, fromTemplate, inStyle }: MoreFromProps) {
+export function MoreFrom({ formats, blocks, template, lookTag, fromTemplate, withLook }: MoreFromProps) {
   const fmtById = new Map(formats.map((f) => [f.id, f]));
   const blockBy = (kind: BlockKind, id: string): Block | undefined =>
     blocks.find((b) => b.kind === kind && b.id === id);
@@ -31,8 +33,8 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
     glyph: string;
     blockName: string;
     sub: string;
-    kind: BlockKind;
-    block: Block;
+    /** Where the rail head links: a block page or, for the look tag, the tag feed. */
+    href: string;
     list: Unit[];
   }[] = [];
   if (template && fromTemplate.length > 0) {
@@ -42,21 +44,19 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
       glyph: KIND_META.template.glyph,
       blockName: template.name,
       sub: `Other units built on the ${template.name.toLowerCase()} structure — same skeleton, different look.`,
-      kind: "template",
-      block: template,
+      href: `/library/b/template/${template.id}`,
       list: fromTemplate,
     });
   }
-  if (style && inStyle.length > 0) {
+  if (lookTag && withLook.length > 0) {
     rails.push({
-      lead: "More in",
-      kindLabel: KIND_META.style.label,
-      glyph: KIND_META.style.glyph,
-      blockName: style.name,
-      sub: `Other units wearing the ${style.name.toLowerCase()} look — same register, different shape.`,
-      kind: "style",
-      block: style,
-      list: inStyle,
+      lead: "More with",
+      kindLabel: "Tag",
+      glyph: "#",
+      blockName: lookTag,
+      sub: `Other units sharing the ${lookTag} look — same register, different shape.`,
+      href: `/library?tag=${encodeURIComponent(lookTag)}`,
+      list: withLook,
     });
   }
 
@@ -65,7 +65,7 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
   return (
     <>
       {rails.map((r) => (
-        <section key={r.kind} className="sec morefrom">
+        <section key={r.href} className="sec morefrom">
           <div className="container container-w-1760">
             <div className="sec-head" style={{ marginBottom: 8 }}>
               <h2 className="mf-title" style={{ fontSize: "clamp(20px,2.4vw,28px)" }}>
@@ -77,7 +77,7 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
                 <span className="mf-sep">·</span> {r.blockName}
               </h2>
               <Link
-                href={`/library/b/${r.kind}/${r.block.id}`}
+                href={r.href}
                 className="seeall"
                 style={{
                   fontFamily: "var(--font-mono)",
@@ -87,7 +87,7 @@ export function MoreFrom({ formats, blocks, template, style, fromTemplate, inSty
                   color: "var(--vio)",
                 }}
               >
-                open block →
+                {r.kindLabel === "Tag" ? "see all →" : "open block →"}
               </Link>
             </div>
             <p className="sec-blurb" style={{ marginTop: 0 }}>

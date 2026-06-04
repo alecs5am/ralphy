@@ -6,11 +6,10 @@
 // by classifying EVERY existing library entity in the repo into the five-entity
 // model (see ./types.ts and ../../docs/developing-ralphy.md). It is hand-authored
 // from a one-time classification pass over:
-//   - ~64 `templates/<category>/<slug>/template.yaml` (structure + style + recipe
-//     + asset blocks; templates are the block source, NOT Units — they have no
-//     rendered media of their own).
-//   - 4 `guidelines/<slug>/guideline.json` (style blocks; the prompt-library
-//     registers).
+//   - ~64 `templates/<category>/<slug>/template.yaml` (structure + recipe + asset
+//     blocks; templates are the block source, NOT Units — they have no rendered
+//     media of their own). The look each implies is carried as a unit Tag, not a
+//     block (the `style` kind was removed).
 //   - The real rendered media under `landing/public/showcase/<slug>/` and the
 //     non-hidden `clips` in `landing/lib/data.tsx` (the ONLY source of Units —
 //     a Unit must have real media on disk).
@@ -101,9 +100,9 @@ export const FORMATS: Format[] = [
 // ── Building blocks ────────────────────────────────────────────────────────
 // Each tuple is [id, name, blurb] (and [id, name, sub, blurb] for assets). The
 // arrays are already deduped — many real templates collapse onto one structure
-// block, many real styles share one register.
+// block. (The look / register is no longer a block — it is a unit Tag.)
 
-// Template blocks = STRUCTURE / skeleton, style-agnostic. Seeded from the
+// Template blocks = STRUCTURE / skeleton, look-agnostic. Seeded from the
 // prototype vocab + new skeletons the real template set demands.
 const TEMPLATES: Array<[string, string, string]> = [
   // ── prototype-seeded structures ──
@@ -133,37 +132,6 @@ const TEMPLATES: Array<[string, string, string]> = [
   ["showcase-wall", "Showcase wall", "A tiled proof-wall of prior outputs — hook, wall, featured, stack, CTA."],
   ["pov-narrative", "POV narrative", "An object / character lives a short dramatized arc from its own POV."],
   ["walkthrough-tour", "Walkthrough tour", "A guided spatial tour — a property, a space, a UI, room by room."],
-];
-
-// Style blocks = aesthetic register. Seeded from the 4 guidelines + the
-// prototype style vocab + the register each real template implies. Deduped hard
-// (many photoreal templates share one `photoreal` style).
-const STYLES: Array<[string, string, string]> = [
-  ["photoreal", "Photoreal", "Clean cinematic realism — shallow depth, motivated light, no stylization."],
-  ["photoreal-portrait", "Photoreal portrait", "Anti-AI-slop human realism — real camera + lens + film grain + asymmetry, naturalistic not glossy."],
-  ["cinematic", "Cinematic film", "35mm-grade narrative look — halation, lifted blacks, telecine bias, letterbox."],
-  ["commercial-bright", "Commercial bright", "High-key pastel commercial light — clean, saturated, advertising gloss."],
-  ["cgi-render", "CGI render", "Hyper-real product / hardware render — rim-light pairs, macro, studio-clean."],
-  ["3d-cgi", "3D / CGI", "Stylized 3D animation — rigged characters, rendered worlds, not camera footage."],
-  ["anime-action", "Anime action", "High-energy 2D anime — speed lines, dynamic poses, saturated key art."],
-  ["cel-cartoon", "Cel cartoon", "Saturday-morning cel shading, bold outlines, squash-and-stretch."],
-  ["comic-panel", "Comic panel", "Inked comic-book panels — halftone shading, bold outlines, panel gutters."],
-  ["pixel-art", "Pixel art", "Crunchy dithered 8-/16-bit pixels with a limited palette."],
-  ["analog-horror", "Analog horror", "Degraded VHS, wrong colors, dread between the frames."],
-  ["found-footage", "Found footage", "Handheld faux-documentary grain — timestamp, drift, the camera shouldn't be here."],
-  ["soviet-propaganda", "Soviet propaganda", "Heroic constructivist register — red, ochre, grain, big diagonal type."],
-  ["soviet-nostalgic", "Soviet nostalgic", "Faded late-Soviet home-archive look — VHS warmth, grain, period detail."],
-  ["y2k-streetwear", "Y2K streetwear", "Skate-surf Y2K energy — beveled slab wordmarks, vinyl-sticker collage, vivid gradient."],
-  ["acid-graphics", "Acid graphics", "Chrome type, blown-out gradients, rave-flyer maximalism."],
-  ["swiss-editorial", "Swiss editorial", "Grid-locked, restrained — all about the type and the whitespace."],
-  ["italian-brainrot", "Italian brainrot", "Surreal AI animal-object hybrids with nonsensical Italian voice — meme chaos."],
-  ["brainrot-split", "Brainrot split-screen", "Top talking layer over a bottom hypnotic-gameplay loop — the brainrot kit."],
-  ["fashion-editorial", "Fashion editorial", "Lookbook polish — styled wardrobe, motivated light, model-forward framing."],
-  ["kinetic-typography", "Kinetic typography", "Type-as-motion — words animate as the subject, code-exact, brand-led."],
-  ["risograph", "Risograph", "Paper-grain riso print — limited spot inks, mis-registered overprint, soft halftone texture."],
-  ["club-flyer", "Club flyer", "Late-night rave-flyer energy — high-contrast neon on black, blown gradients, bold party type."],
-  ["punk-collage", "Punk collage", "Xerox cut-and-paste zine punk — ransom-note type, torn edges, photocopied grit."],
-  ["zine-cutout", "Zine cut-out", "Hand-made paper-cutout zine — scissored shapes, tape, marker scrawl, scrapbook layering."],
 ];
 
 // Recipe blocks = composable effects / treatments. Only attached where the
@@ -214,9 +182,6 @@ const ASSETS: Array<[string, string, "character" | "location" | "prop" | "music"
 function mkTemplates(): Block[] {
   return TEMPLATES.map(([id, name, blurb]) => ({ kind: "template" as const, id, name, blurb, refs: [] }));
 }
-function mkStyles(): Block[] {
-  return STYLES.map(([id, name, blurb]) => ({ kind: "style" as const, id, name, blurb, refs: [] }));
-}
 function mkRecipes(): Block[] {
   return RECIPES.map(([id, name, blurb]) => ({ kind: "recipe" as const, id, name, blurb, refs: [] }));
 }
@@ -226,12 +191,10 @@ function mkAssets(): Block[] {
 
 export const BLOCKS: {
   template: Block[];
-  style: Block[];
   recipe: Block[];
   asset: Block[];
 } = {
   template: mkTemplates(),
-  style: mkStyles(),
   recipe: mkRecipes(),
   asset: mkAssets(),
 };
@@ -243,9 +206,10 @@ export const BLOCKS: {
 // hero clips that duplicate a template category; only `nothing-hp1-001`
 // survives that filter as a unique homepage clip).
 //
-// `provenance` = best-match single Template + single Style + applicable Recipes
-// + named Assets. Where the Unit came from a known template, that template's
-// classification is the factual provenance.
+// `provenance` = best-match single Template + applicable Recipes + named Assets,
+// with the look carried as a `tags[]` descriptor (the former single-value Style
+// axis was demoted to a tag). Where the Unit came from a known template, that
+// template's classification is the factual provenance.
 
 const SHOWCASE = "/showcase";
 
@@ -259,9 +223,8 @@ export const UNITS: Unit[] = [
       "A 1:1 silent motion reel that proves a tool's range — hook, a tiled showcase wall of prior outputs, a featured clip, an integration-logo marquee, and a CTA card. One opacity-gated GSAP timeline.",
     date: "2026-05",
     templateId: "showcase-wall",
-    styleId: "kinetic-typography",
     recipeIds: ["typewriter-reveal"],
-    tags: ["bloom"],
+    tags: ["kinetic-typography", "bloom"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
     media: [{ src: `${SHOWCASE}/animated-fb-ad/ralphy-fb-ads-001-v4.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/animated-fb-ad/ralphy-fb-ads-001-v4.mp4", kind: "video", aspect: "1 / 1" }],
@@ -274,7 +237,7 @@ export const UNITS: Unit[] = [
     blurb: "A talking AI-meme layer stacked over a hypnotic gameplay loop — the canonical brainrot split-screen kit.",
     date: "2026-05",
     templateId: "story-time",
-    styleId: "brainrot-split",
+    tags: ["brainrot-split"],
     recipeIds: ["burned-captions"],
     assetIds: ["gameplay-loop"],
     mediaCount: 1,
@@ -288,7 +251,7 @@ export const UNITS: Unit[] = [
     blurb: "A 1:1 caught-on-TV moment with real-broadcast camera grammar — sports / news / audience-cam energy.",
     date: "2026-05",
     templateId: "lifestyle-montage",
-    styleId: "photoreal",
+    tags: ["photoreal"],
     recipeIds: ["broadcast-square"],
     assetIds: [],
     mediaCount: 1,
@@ -303,7 +266,7 @@ export const UNITS: Unit[] = [
       "A 32-up static Meta ad matrix for a dev tool — real-people testimonials, typography posters, proof / data-viz, memes, and niche hooks, all on-brand via site-grounding + ref discipline.",
     date: "2026-05",
     templateId: "fb-creative-pack",
-    styleId: "photoreal-portrait",
+    tags: ["photoreal-portrait"],
     recipeIds: ["film-grain"],
     assetIds: ["studio-cyc", "doctor-authority"],
     mediaCount: 32,
@@ -350,9 +313,8 @@ export const UNITS: Unit[] = [
     blurb: "Appetizing macro product motion — pour, splash, glisten — engineered around a single hero drink.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "commercial-bright",
     recipeIds: ["speed-ramp"],
-    tags: ["bloom"],
+    tags: ["commercial-bright", "bloom"],
     assetIds: ["hero-product", "product-set"],
     mediaCount: 1,
     media: [{ src: `${SHOWCASE}/food-beverage/ginger-recreate-001.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/food-beverage/ginger-recreate-001.mp4", kind: "video", aspect: "9 / 16" }],
@@ -365,7 +327,7 @@ export const UNITS: Unit[] = [
     blurb: "A faux-documentary occult short — handheld grain, dread between cuts, the camera shouldn't be here.",
     date: "2026-04",
     templateId: "story-time",
-    styleId: "found-footage",
+    tags: ["found-footage"],
     recipeIds: ["vhs-overlay", "film-grain", "noir-grade"],
     assetIds: ["mockumentary-room", "horror-bed"],
     mediaCount: 1,
@@ -379,17 +341,16 @@ export const UNITS: Unit[] = [
     blurb: "A kinetic-typography motion ad for a live-streaming platform — code-driven, brand-led, beat-synced.",
     date: "2026-05",
     templateId: "motion-card",
-    styleId: "kinetic-typography",
     recipeIds: ["chroma-split"],
-    tags: ["bloom"],
+    tags: ["kinetic-typography", "bloom"],
     assetIds: ["electronic-beat"],
     mediaCount: 1,
     media: [{ src: `${SHOWCASE}/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4", kind: "video", aspect: "16 / 9" }],
   },
   // ── multi-style-carousel → split into 6 per-aesthetic carousel units ──
   // The single render hid 6 distinct aesthetics on disk (acid / club / punk /
-  // riso / swiss / zine, 5 slides each). One Style per Unit, so each look is its
-  // own carousel unit with its real 5 slides.
+  // riso / swiss / zine, 5 slides each). One look per Unit (tagged), so each look
+  // is its own carousel unit with its real 5 slides.
   {
     id: "multi-style-carousel-acid",
     format: "carousel",
@@ -398,9 +359,8 @@ export const UNITS: Unit[] = [
       "A five-slide swipeable deck in an acid-graphics register — chrome type, blown-out gradients, rave-flyer maximalism around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
-    styleId: "acid-graphics",
     recipeIds: ["chroma-split"],
-    tags: ["halftone"],
+    tags: ["acid-graphics", "halftone"],
     assetIds: ["vpn-mascot"],
     mediaCount: 5,
     media: [
@@ -419,9 +379,8 @@ export const UNITS: Unit[] = [
       "A five-slide swipeable deck in a club-flyer register — neon-on-black, blown gradients, late-night party type around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
-    styleId: "club-flyer",
     recipeIds: ["chroma-split"],
-    tags: ["bloom"],
+    tags: ["club-flyer", "bloom"],
     assetIds: ["vpn-mascot"],
     mediaCount: 5,
     media: [
@@ -440,9 +399,8 @@ export const UNITS: Unit[] = [
       "A five-slide swipeable deck in a punk-collage register — xerox cut-and-paste, ransom-note type, torn edges around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
-    styleId: "punk-collage",
     recipeIds: [],
-    tags: ["halftone"],
+    tags: ["punk-collage", "halftone"],
     assetIds: ["vpn-mascot"],
     mediaCount: 5,
     media: [
@@ -461,9 +419,8 @@ export const UNITS: Unit[] = [
       "A five-slide swipeable deck in a risograph register — paper-grain spot inks, mis-registered overprint, soft halftone around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
-    styleId: "risograph",
     recipeIds: ["film-grain"],
-    tags: ["halftone"],
+    tags: ["risograph", "halftone"],
     assetIds: ["vpn-mascot"],
     mediaCount: 5,
     media: [
@@ -482,7 +439,7 @@ export const UNITS: Unit[] = [
       "A five-slide swipeable deck in a swiss-editorial register — grid-locked, restrained, all about the type and the whitespace around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
-    styleId: "swiss-editorial",
+    tags: ["swiss-editorial"],
     recipeIds: [],
     assetIds: ["vpn-mascot"],
     mediaCount: 5,
@@ -502,9 +459,8 @@ export const UNITS: Unit[] = [
       "A five-slide swipeable deck in a zine cut-out register — scissored paper shapes, tape, marker scrawl, scrapbook layering around the mascot.",
     date: "2026-05",
     templateId: "carousel-deck",
-    styleId: "zine-cutout",
     recipeIds: [],
-    tags: ["halftone"],
+    tags: ["zine-cutout", "halftone"],
     assetIds: ["vpn-mascot"],
     mediaCount: 5,
     media: [
@@ -523,7 +479,7 @@ export const UNITS: Unit[] = [
     blurb: "A faceless long-form explainer cut over an audio track — overlay-driven, captioned, chapter-paced.",
     date: "2026-05",
     templateId: "explainer",
-    styleId: "swiss-editorial",
+    tags: ["swiss-editorial"],
     recipeIds: ["burned-captions"],
     assetIds: ["lofi-bed"],
     mediaCount: 1,
@@ -538,7 +494,7 @@ export const UNITS: Unit[] = [
       "A square typographic ship-week launch card — wordmark, manifesto, a five-row feature table, end-slate URL — revealed by a parallel typewriter primitive over a sparse cube grid.",
     date: "2026-04",
     templateId: "motion-card",
-    styleId: "kinetic-typography",
+    tags: ["kinetic-typography"],
     recipeIds: ["typewriter-reveal"],
     assetIds: [],
     mediaCount: 1,
@@ -553,7 +509,7 @@ export const UNITS: Unit[] = [
       "A 1:1 silent Meta feed ad built entirely from a brand's own live-site assets — opacity-gated beats, a sticker dump, a color-split bridged by the logo. Zero AI media spend.",
     date: "2026-05",
     templateId: "motion-card",
-    styleId: "swiss-editorial",
+    tags: ["swiss-editorial"],
     recipeIds: ["typewriter-reveal"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
@@ -567,7 +523,7 @@ export const UNITS: Unit[] = [
     blurb: "A faded late-Soviet home-archive ad — VHS warmth, period detail, riding the recognizable Soviet trend bed.",
     date: "2026-04",
     templateId: "lifestyle-montage",
-    styleId: "soviet-nostalgic",
+    tags: ["soviet-nostalgic"],
     recipeIds: ["vhs-overlay", "film-grain"],
     assetIds: ["trend-soviet-bed"],
     mediaCount: 1,
@@ -584,9 +540,8 @@ export const UNITS: Unit[] = [
       "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"boom\" punchline cut.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "y2k-streetwear",
     recipeIds: [],
-    tags: ["halftone"],
+    tags: ["y2k-streetwear", "halftone"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
     media: [
@@ -601,9 +556,8 @@ export const UNITS: Unit[] = [
       "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"dang\" punchline cut.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "y2k-streetwear",
     recipeIds: [],
-    tags: ["halftone"],
+    tags: ["y2k-streetwear", "halftone"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
     media: [
@@ -618,9 +572,8 @@ export const UNITS: Unit[] = [
       "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"yikes\" punchline cut.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "y2k-streetwear",
     recipeIds: [],
-    tags: ["halftone"],
+    tags: ["y2k-streetwear", "halftone"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
     media: [
@@ -628,8 +581,8 @@ export const UNITS: Unit[] = [
     ],
   },
   // ── vpn-sticker-pack → split into the two looks on disk (clean / outline) ──
-  // Disk has 32 clean-* and 32 outline-* stills. One Style per Unit, so each look
-  // is its own pack unit; mediaCount stays 32 (the badge), media wires up to ~12
+  // Disk has 32 clean-* and 32 outline-* stills. One look per Unit (tagged), so each
+  // look is its own pack unit; mediaCount stays 32 (the badge), media wires up to ~12
   // real slides so the tile grid is full and the viewer strip has depth.
   {
     id: "vpn-sticker-pack-clean",
@@ -639,9 +592,8 @@ export const UNITS: Unit[] = [
       "The VPN shield mascot across 32 reaction states — a flat-fill cel-cartoon die-cut set with bold outlines and soft bloom.",
     date: "2026-05",
     templateId: "sticker-set",
-    styleId: "cel-cartoon",
     recipeIds: [],
-    tags: ["bloom"],
+    tags: ["cel-cartoon", "bloom"],
     assetIds: ["vpn-mascot"],
     mediaCount: 32,
     media: [
@@ -687,9 +639,8 @@ export const UNITS: Unit[] = [
       "The same VPN shield mascot across 32 reaction states in a paper-grain riso outline variant — spot-ink overprint and soft halftone texture.",
     date: "2026-05",
     templateId: "sticker-set",
-    styleId: "risograph",
     recipeIds: ["film-grain"],
-    tags: ["halftone"],
+    tags: ["risograph", "halftone"],
     assetIds: ["vpn-mascot"],
     mediaCount: 32,
     media: [
@@ -745,9 +696,8 @@ export const UNITS: Unit[] = [
     blurb: "A product-launch hero spot for the Nothing HP1 — a clean reveal cut engineered around the hardware.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "commercial-bright",
     recipeIds: ["speed-ramp"],
-    tags: ["bloom"],
+    tags: ["commercial-bright", "bloom"],
     assetIds: ["hero-product"],
     mediaCount: 1,
     media: [
@@ -775,7 +725,7 @@ export const UNITS: Unit[] = [
     blurb: "A deadpan two-hander talking-head bit — photoreal humans, naturalistic candid light, anti-AI-slop realism.",
     date: "2026-05",
     templateId: "talking-head",
-    styleId: "photoreal-portrait",
+    tags: ["photoreal-portrait"],
     recipeIds: [],
     assetIds: [],
     mediaCount: 1,
@@ -795,7 +745,7 @@ export const UNITS: Unit[] = [
     blurb: "A fake civil-defense PSA — \"your fridge is not your fridge\" — stenciled pictograms, robo-broadcast voice, layered VHS dread.",
     date: "2026-05",
     templateId: "explainer",
-    styleId: "analog-horror",
+    tags: ["analog-horror"],
     recipeIds: ["vhs-overlay", "chroma-split", "film-grain"],
     assetIds: [],
     mediaCount: 1,
@@ -815,7 +765,7 @@ export const UNITS: Unit[] = [
     blurb: "A fork-in-the-path decision reveal in analog-horror register — two doors, a beat of dread, then the pick.",
     date: "2026-05",
     templateId: "choose-the-door",
-    styleId: "analog-horror",
+    tags: ["analog-horror"],
     recipeIds: ["vhs-overlay", "chroma-split", "film-grain"],
     assetIds: [],
     mediaCount: 1,
@@ -835,9 +785,8 @@ export const UNITS: Unit[] = [
     blurb: "A Japanese-hypermotion product reveal — punchy speed ramps, glossy bloom, the hardware as the hero.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "cgi-render",
     recipeIds: ["speed-ramp"],
-    tags: ["bloom"],
+    tags: ["cgi-render", "bloom"],
     assetIds: ["hero-product", "product-set"],
     mediaCount: 1,
     media: [
@@ -864,9 +813,8 @@ export const UNITS: Unit[] = [
     blurb: "An anthropomorphic-object short — produce lives a tiny dramatized arc from its own POV, glossy 3D bloom.",
     date: "2026-05",
     templateId: "pov-narrative",
-    styleId: "3d-cgi",
     recipeIds: [],
-    tags: ["bloom"],
+    tags: ["3d-cgi", "bloom"],
     assetIds: [],
     mediaCount: 1,
     media: [
@@ -885,7 +833,7 @@ export const UNITS: Unit[] = [
     blurb: "A handheld-console product reveal rendered in crunchy pixel-art — limited palette, dithered gradients, retro charm.",
     date: "2026-05",
     templateId: "product-reveal",
-    styleId: "pixel-art",
+    tags: ["pixel-art"],
     recipeIds: [],
     assetIds: ["hero-product"],
     mediaCount: 1,
@@ -914,9 +862,8 @@ export const UNITS: Unit[] = [
     blurb: "A first-person night walk through a neon-soaked Tokyo alley — rain spatter, crushed blacks, dreamy bloom.",
     date: "2026-05",
     templateId: "pov-walk",
-    styleId: "cinematic",
     recipeIds: ["noir-grade"],
-    tags: ["rain-overlay", "bloom"],
+    tags: ["cinematic", "rain-overlay", "bloom"],
     assetIds: ["tokyo-alley"],
     mediaCount: 1,
     media: [
@@ -935,9 +882,8 @@ export const UNITS: Unit[] = [
     blurb: "A beat-driven skate showdown cut as inked comic panels — halftone shading, chroma-split edges, bold gutters.",
     date: "2026-05",
     templateId: "music-video",
-    styleId: "comic-panel",
     recipeIds: ["chroma-split"],
-    tags: ["halftone"],
+    tags: ["comic-panel", "halftone"],
     assetIds: [],
     mediaCount: 1,
     media: [
@@ -956,7 +902,7 @@ export const UNITS: Unit[] = [
     blurb: "An arena-rock performance montage in saturated cel-cartoon — bold outlines, squash-and-stretch, punchy speed ramps.",
     date: "2026-05",
     templateId: "music-video",
-    styleId: "cel-cartoon",
+    tags: ["cel-cartoon"],
     recipeIds: ["speed-ramp"],
     assetIds: [],
     mediaCount: 1,
@@ -976,7 +922,7 @@ export const UNITS: Unit[] = [
     blurb: "A before/after UGC selfie review — establish the dull state, swipe, reveal the high-key commercial glow-up.",
     date: "2026-05",
     templateId: "before-after",
-    styleId: "commercial-bright",
+    tags: ["commercial-bright"],
     recipeIds: ["speed-ramp"],
     assetIds: ["hero-product"],
     mediaCount: 1,

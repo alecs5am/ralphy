@@ -5,12 +5,14 @@
 // Unit / Block that has been published to the live Supabase store.
 //
 // Why a separate file from catalog.ts:
-//   catalog.ts is the hand-curated one-time migration output (the live 33 units /
-//   85 blocks). It must stay intact and hand-authored. New publishes never touch
-//   it — they append here instead. The loader (./index.ts) MERGES catalog + this
-//   file (concat, dedupe by id; PUBLISHED wins on an id clash), so everything
-//   downstream (source.ts, the feed, the detail pages) sees published entities
-//   automatically.
+//   catalog.ts is the hand-curated one-time migration output. It must stay intact
+//   and hand-authored. New publishes never touch it — they append here instead.
+//   The loader (./index.ts) MERGES catalog + this file (concat, dedupe by id;
+//   PUBLISHED wins on an id clash), so everything downstream (source.ts, the
+//   feed, the detail pages) sees published entities automatically.
+//
+//   Block kinds are template / recipe / asset only — the look / register is a
+//   unit Tag, never a block (the `style` block kind was removed).
 //
 // Discipline (AGENTS.md invariant #14 — append-only on generations):
 //   - The publish script appends or REPLACES by id (idempotent re-publish), it
@@ -33,7 +35,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Voxel Horror Fork",
     "blurb": "First-person lantern at a fork in the path — armadillo by the mine, gnome with umbrella, lighthouse beam through the rain. Voxel horror-game still.",
     "templateId": "choose-the-door",
-    "styleId": "voxel-night-rain",
     "recipeIds": [
       "voxel-dither",
       "noir-grade"
@@ -49,6 +50,7 @@ export const PUBLISHED_UNITS: Unit[] = [
       }
     ],
     "tags": [
+      "voxel-night-rain",
       "rain-overlay",
       "lantern-glow"
     ]
@@ -59,7 +61,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Path — voxel horror gauntlet (EN)",
     "blurb": "Branching POV horror: pick a guide, survive a chain of 50/50 freeze-timer forks. PS1/voxel register. English VO.",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "voxel-night-rain",
     "recipeIds": [
       "vhs-pause-freeze",
       "ffmpeg-xfade-master",
@@ -80,6 +81,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-path-voxel-en/final-en-compressed.mp4"
       }
+    ],
+    "tags": [
+      "voxel-night-rain"
     ]
   },
   {
@@ -88,7 +92,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Free Air — 40 emote stickers FINAL (TG-ready)",
     "blurb": "Final 40 Free Air mascot emote stickers (hippo-pack pose port, client IP). gpt-5.4-image-2 double-ref, green-keyed, no outline, 512px transparent PNG. 3 borderline poses (walk/aww/sad) re-rolled and swapped to best variant. Ready for @Stickers upload.",
     "templateId": "",
-    "styleId": "",
     "recipeIds": [],
     "assetIds": [],
     "mediaCount": 40,
@@ -341,7 +344,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Guide: Silent Hill",
     "blurb": "PS1 fog-horror: the bandaged nurse vs the armed madman",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "analog-horror",
     "recipeIds": [
       "ffmpeg-xfade-master",
       "vhs-pause-freeze",
@@ -363,6 +365,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-silenthill/showcase.mp4"
       }
+    ],
+    "tags": [
+      "analog-horror"
     ]
   },
   {
@@ -371,7 +376,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Guide: Derelict Ship",
     "blurb": "PS1 sci-fi horror: soothing ship-AI vs abrasive engineer",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "analog-horror",
     "recipeIds": [
       "ffmpeg-xfade-master",
       "vhs-pause-freeze",
@@ -396,6 +400,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-spaceship/showcase.mp4"
       }
+    ],
+    "tags": [
+      "analog-horror"
     ]
   },
   {
@@ -404,7 +411,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Guide: The Swamp",
     "blurb": "PS1 Slavic folk-horror: read the witch, trust-but-verify the leshy",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "analog-horror",
     "recipeIds": [
       "ffmpeg-xfade-master",
       "vhs-pause-freeze",
@@ -429,6 +435,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-swamp/showcase.mp4"
       }
+    ],
+    "tags": [
+      "analog-horror"
     ]
   },
   {
@@ -437,7 +446,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Path: Backrooms",
     "blurb": "PS1 liminal descent, party of 4 dwindles to 1, blue-pipe subversion",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "analog-horror",
     "recipeIds": [
       "ffmpeg-xfade-master",
       "vhs-pause-freeze",
@@ -461,6 +469,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-backrooms/showcase.mp4"
       }
+    ],
+    "tags": [
+      "analog-horror"
     ]
   },
   {
@@ -469,7 +480,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Guide: War of the Worlds",
     "blurb": "PS1 invasion horror: gentle-alien trap vs grim survivor",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "analog-horror",
     "recipeIds": [
       "ffmpeg-xfade-master",
       "vhs-pause-freeze",
@@ -494,6 +504,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-warofworlds/showcase.mp4"
       }
+    ],
+    "tags": [
+      "analog-horror"
     ]
   },
   {
@@ -502,7 +515,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "title": "Choose Your Path: Magic School",
     "blurb": "Colorful PS1 magic-school dash: staircases, living armor, portals, Peeves",
     "templateId": "choose-your-path-gauntlet",
-    "styleId": "ps1-magic-colorful",
     "recipeIds": [
       "ffmpeg-xfade-master",
       "vhs-pause-freeze",
@@ -524,6 +536,9 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-magicschool/showcase.mp4"
       }
+    ],
+    "tags": [
+      "ps1-magic-colorful"
     ]
   }
 ];
@@ -963,57 +978,12 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "sub": "character"
   },
   {
-    "kind": "style",
-    "id": "3d-cgi",
-    "name": "3D / CGI",
-    "blurb": "Stylized 3D animation — rigged characters, rendered worlds, not camera footage.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/3d-cgi/3d-cgi.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "analog-horror",
-    "name": "Analog horror",
-    "blurb": "Degraded VHS, wrong colors, dread between the frames.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/analog-horror/analog-horror.png"
-    ]
-  },
-  {
     "kind": "template",
     "id": "before-after",
     "name": "Before / After",
     "blurb": "The classic transformation cut — establish the sad state, swipe, reveal the glow-up.",
     "refs": [
       "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/before-after/before-after.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "brainrot-split",
-    "name": "Brainrot split-screen",
-    "blurb": "Top talking layer over a bottom hypnotic-gameplay loop — the brainrot kit.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/brainrot-split/brainrot-split.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "cel-cartoon",
-    "name": "Cel cartoon",
-    "blurb": "Saturday-morning cel shading, bold outlines, squash-and-stretch.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/cel-cartoon/cel-cartoon.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "cgi-render",
-    "name": "CGI render",
-    "blurb": "Hyper-real product / hardware render — rim-light pairs, macro, studio-clean.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/cgi-render/cgi-render.png"
     ]
   },
   {
@@ -1035,57 +1005,12 @@ export const PUBLISHED_BLOCKS: Block[] = [
     ]
   },
   {
-    "kind": "style",
-    "id": "cinematic",
-    "name": "Cinematic film",
-    "blurb": "35mm-grade narrative look — halation, lifted blacks, telecine bias, letterbox.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/cinematic/cinematic.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "comic-panel",
-    "name": "Comic panel",
-    "blurb": "Inked comic-book panels — halftone shading, bold outlines, panel gutters.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/comic-panel/comic-panel.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "commercial-bright",
-    "name": "Commercial bright",
-    "blurb": "High-key pastel commercial light — clean, saturated, advertising gloss.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/commercial-bright/commercial-bright.png"
-    ]
-  },
-  {
     "kind": "template",
     "id": "explainer",
     "name": "Explainer",
     "blurb": "Step-by-step walkthrough with labelled beats and a payoff.",
     "refs": [
       "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/explainer/explainer.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "found-footage",
-    "name": "Found footage",
-    "blurb": "Handheld faux-documentary grain — timestamp, drift, the camera shouldn't be here.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/found-footage/found-footage.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "kinetic-typography",
-    "name": "Kinetic typography",
-    "blurb": "Type-as-motion — words animate as the subject, code-exact, brand-led.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/kinetic-typography/kinetic-typography.png"
     ]
   },
   {
@@ -1116,33 +1041,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
     ]
   },
   {
-    "kind": "style",
-    "id": "photoreal-portrait",
-    "name": "Photoreal portrait",
-    "blurb": "Anti-AI-slop human realism — real camera + lens + film grain + asymmetry, naturalistic not glossy.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/photoreal-portrait/photoreal-portrait.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "photoreal",
-    "name": "Photoreal",
-    "blurb": "Clean cinematic realism — shallow depth, motivated light, no stylization.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/photoreal/photoreal.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "pixel-art",
-    "name": "Pixel art",
-    "blurb": "Crunchy dithered 8-/16-bit pixels with a limited palette.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/pixel-art/pixel-art.png"
-    ]
-  },
-  {
     "kind": "template",
     "id": "pov-narrative",
     "name": "POV narrative",
@@ -1170,30 +1068,12 @@ export const PUBLISHED_BLOCKS: Block[] = [
     ]
   },
   {
-    "kind": "style",
-    "id": "ps1-magic-colorful",
-    "name": "PS1 Magic-School (Colorful)",
-    "blurb": "Vibrant glowing PS1/PS2-era magic-castle render — floating candles, jewel-tone stained glass, sparkling motes, warm torchlight. Bright magical, NOT horror.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/ps1-magic-colorful/ps1-magic-colorful.png"
-    ]
-  },
-  {
     "kind": "template",
     "id": "showcase-wall",
     "name": "Showcase wall",
     "blurb": "A tiled proof-wall of prior outputs — hook, wall, featured, stack, CTA.",
     "refs": [
       "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/showcase-wall/showcase-wall.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "soviet-nostalgic",
-    "name": "Soviet nostalgic",
-    "blurb": "Faded late-Soviet home-archive look — VHS warmth, grain, period detail.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/soviet-nostalgic/soviet-nostalgic.png"
     ]
   },
   {
@@ -1206,30 +1086,12 @@ export const PUBLISHED_BLOCKS: Block[] = [
     ]
   },
   {
-    "kind": "style",
-    "id": "swiss-editorial",
-    "name": "Swiss editorial",
-    "blurb": "Grid-locked, restrained — all about the type and the whitespace.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/swiss-editorial/swiss-editorial.png"
-    ]
-  },
-  {
     "kind": "template",
     "id": "talking-head",
     "name": "Talking head",
     "blurb": "One presenter delivers straight to camera — a hook, a take, a button.",
     "refs": [
       "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/talking-head/talking-head.png"
-    ]
-  },
-  {
-    "kind": "style",
-    "id": "voxel-night-rain",
-    "name": "Voxel night-rain",
-    "blurb": "Blocky voxel 3D under heavy rain and lantern light — cozy-eerie horror-game mood, dense fog, deep blues, warm point-light pools.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/voxel-night-rain/voxel-night-rain.png"
     ]
   },
   {

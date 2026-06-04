@@ -666,3 +666,5 @@
 .tagchip:hover { background: var(--bg-3); color: var(--ink); transform: translateY(-1px); }
 .tagchip .tagchip-hash { color: var(--mute-2); }
 .tagchip:hover .tagchip-hash { color: var(--vio-2); }
+/* Small variant — the tile ingredient ribbon (matches .bchip.sm sizing). */
+.tagchip.sm { padding: 3px 9px 3px 8px; font-size: 11.5px; }

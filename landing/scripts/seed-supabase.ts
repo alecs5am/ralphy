@@ -240,7 +240,6 @@ function enrichMedia(unit: Unit, uploadedSrcs: Set<string>): UnitMedia[] {
 function blockRows(): string[] {
   const all: Block[] = [
     ...BLOCKS.template,
-    ...BLOCKS.style,
     ...BLOCKS.recipe,
     ...BLOCKS.asset,
   ];
@@ -279,12 +278,12 @@ interface UnitBlockRow {
   position: number;
 }
 
-/** Derive the provenance composition rows: 1 template + 1 style + N recipe + M asset. */
+/** Derive the provenance composition rows: 1 template + N recipe + M asset. The
+ *  look / register is a unit Tag (the units.tags column), not a block-role. */
 function unitBlockRows(): UnitBlockRow[] {
   const rows: UnitBlockRow[] = [];
   for (const u of UNITS) {
     rows.push({ unitId: u.id, blockId: u.templateId, role: "template", position: 0 });
-    rows.push({ unitId: u.id, blockId: u.styleId, role: "style", position: 0 });
     u.recipeIds.forEach((id, i) =>
       rows.push({ unitId: u.id, blockId: id, role: "recipe", position: i }),
     );

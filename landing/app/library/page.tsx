@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     "Everything Ralphy made — a feed of finished units (videos, carousels, sticker packs, podcast cuts, ad sets, posters). Open any one to see the ingredients that built it — a template, a style, its recipes and assets — and swap any single block to remix it. Deep-linkable, searchable, infinite-scroll.",
 };
 
-const BLOCK_KINDS: BlockKind[] = ["style", "template", "recipe", "asset"];
+const BLOCK_KINDS: BlockKind[] = ["template", "recipe", "asset"];
 
 export default async function LibraryPage() {
   // Build the v2 view-model. All reads go through the async adapter; on the

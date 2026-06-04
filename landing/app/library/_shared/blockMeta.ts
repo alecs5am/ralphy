@@ -20,7 +20,6 @@ export const KIND_META: Record<
   { label: string; plural: string; glyph: string }
 > = {
   template: { label: "Template", plural: "Templates", glyph: "▦" },
-  style: { label: "Style", plural: "Styles", glyph: "✸" },
   recipe: { label: "Recipe", plural: "Recipes", glyph: "❉" },
   asset: { label: "Asset", plural: "Assets", glyph: "◆" },
 };
@@ -58,15 +57,14 @@ export const SUB_META: Record<string, { label: string; glyph: string }> = {
   music: { label: "Music", glyph: "♪" },
 };
 
-/** Pivot-rail preposition per kind ("in a Style", "from a Template", …). */
+/** Pivot-rail preposition per kind ("from a Template", "uses a Recipe", …). */
 export const PREPO: Record<BlockKind, string> = {
-  style: "in",
   template: "from",
   recipe: "uses",
   asset: "with",
 };
 
-export const FILTER_KINDS: BlockKind[] = ["style", "template", "recipe", "asset"];
+export const FILTER_KINDS: BlockKind[] = ["template", "recipe", "asset"];
 
 export function fhue(fmt: FormatId): string {
   return `var(--f-${fmt})`;
