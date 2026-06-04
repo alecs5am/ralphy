@@ -432,7 +432,11 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
 
       {hasMore && (
         <div ref={sentinelRef} className="sentinel" aria-hidden>
-          Loading more…
+          <span className="dot3">
+            <i />
+            <i />
+            <i />
+          </span>
         </div>
       )}
 

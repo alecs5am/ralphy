@@ -110,6 +110,9 @@ interface UnitRowDb {
   media_count: number;
   hero: boolean;
   tags: string[] | null;
+  /** Publish recency — used ONLY to order the mirror (not written to the Unit).
+   *  See the units sort below. pg returns timestamptz as a Date. */
+  created_at: string | Date | null;
 }
 
 interface BlockRowDb {
@@ -219,13 +222,17 @@ function toUnit(u: UnitRowDb, comp: Map<string, UnitBlockRowDb[]>): Unit {
   return unit;
 }
 
-/** Pull the FULL live graph. Deterministic ordering throughout (stable sort by id
- *  / unitId) so a re-run against an unchanged DB produces a zero-diff file. */
+/** Pull the FULL live graph. Blocks/blueprints are sorted by id for a zero-diff
+ *  re-run; UNITS are ordered by publish recency (created_at ASC → newest LAST),
+ *  NOT by id. That order is load-bearing: source.ts builds `PUBLISH_RANK` from
+ *  each unit's INDEX in PUBLISHED_UNITS and feeds the newest-first feed sort from
+ *  it (most units carry a null `date`, so the publish index is the only recency
+ *  signal). An id-sort here scrambles the feed order — see #100. */
 async function loadLiveGraph(): Promise<LiveGraph> {
   return withDb(async (q) => {
     // Serial, not Promise.all: a single pg Client cannot run concurrent queries.
     const unitsRes = await q<UnitRowDb>(
-      "select id, format, title, blurb, date, media, media_count, hero, tags from units",
+      "select id, format, title, blurb, date, media, media_count, hero, tags, created_at from units",
     );
     const blocksRes = await q<BlockRowDb>(
       "select id, kind, name, blurb, sub, refs, recipe_kind, data from blocks",
@@ -242,9 +249,18 @@ async function loadLiveGraph(): Promise<LiveGraph> {
       comp.set(r.unit_id, list);
     }
 
+    // Order by publish recency: oldest → newest, so a unit's INDEX in the mirror
+    // is its publish rank (higher = newer), matching publish-entity's append
+    // convention and source.ts's PUBLISH_RANK / newestFirst. Tiebreak by id
+    // within a same-timestamp publish batch for a deterministic, minimal-diff file.
     const units = unitsRes.rows
-      .map((u) => toUnit(u, comp))
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .slice()
+      .sort((a, b) => {
+        const ta = a.created_at ? +new Date(a.created_at) : 0;
+        const tb = b.created_at ? +new Date(b.created_at) : 0;
+        return ta - tb || a.id.localeCompare(b.id);
+      })
+      .map((u) => toUnit(u, comp));
 
     // Blocks: deterministic by (kind, id) — keeps template/recipe/asset clustered
     // and stable within a kind. The mirror array is a single flat Block[] (all

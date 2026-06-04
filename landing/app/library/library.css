@@ -198,6 +198,15 @@
 .empty { padding: 56px 20px; background: var(--bg-1); border-radius: 18px; text-align: center; color: var(--mute); }
 .sentinel { height: 60px; display: grid; place-items: center; font-family: var(--font-mono);
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute-2); }
+/* Infinite-scroll loader (#100): 3-dot pulse instead of a text string. */
+.sentinel .dot3 { display: inline-flex; gap: 6px; }
+.sentinel .dot3 i { width: 6px; height: 6px; border-radius: 50%; background: var(--mute-2);
+  animation: dpulse 1s infinite ease-in-out; }
+.sentinel .dot3 i:nth-child(2) { animation-delay: 0.15s; }
+.sentinel .dot3 i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dpulse { 0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .sentinel .dot3 i { animation: none; opacity: 0.6; } }
 
 /* ── Detail page ─────────────────────────────────────────────────── */
 .detail-top { padding-top: 96px; padding-bottom: 8px; }
