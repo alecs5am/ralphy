@@ -1,6 +1,6 @@
 # Backfill templates from the last 20-30 projects
 
-> **Status:** todo
+> **Status:** SUPERSEDED — 2026-06-05 by the units-publish path (#081 et al.); depended on the deprecated #052 taxonomy
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** medium

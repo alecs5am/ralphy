@@ -1,6 +1,6 @@
 # Library page redesign — full-width, deep-linkable, infinite-scroll at scale
 
-> **Status:** todo
+> **Status:** SUPERSEDED — 2026-06-05 by the shipped library-v2 (#092/#093/#100); depended on the deprecated #052 taxonomy
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** high
