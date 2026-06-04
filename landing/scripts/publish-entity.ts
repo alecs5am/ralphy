@@ -55,7 +55,14 @@ import {
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Block, Blueprint, Unit, UnitMedia } from "../lib/library-v2/types";
+import type {
+  Block,
+  BlockRecipeDemo,
+  Blueprint,
+  RecipeKind,
+  Unit,
+  UnitMedia,
+} from "../lib/library-v2/types";
 import { env, makeS3Client, publicUrlFor, putObject } from "./lib/supabase";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -237,6 +244,8 @@ interface UnitManifest {
   created: string;
   title?: string;
   blurb?: string;
+  /** Tags (#082): filter-only unit labels carried into the units row + published Unit. */
+  tags?: string[];
 }
 
 const UNIT_FORMATS = [
@@ -303,9 +312,17 @@ interface BlockSpec {
   blurb?: string;
   sub?: Block["sub"];
   refs?: string[];
+  // Enriched-recipe payload (#082) — present only on kind:"recipe".
+  recipeKind?: RecipeKind;
+  body?: string;
+  artifact?: string;
+  params?: Record<string, unknown>;
+  demo?: BlockRecipeDemo;
 }
 
 const BLOCK_KINDS = ["template", "style", "recipe", "asset"];
+const RECIPE_KINDS = ["ffmpeg", "encode", "overlay", "bake", "hyperframes", "prompt"];
+const DEMO_KINDS = ["hyperframes", "media"];
 
 function validateBlockSpec(raw: unknown): BlockSpec {
   if (!raw || typeof raw !== "object") throw new Error("block spec is not an object");
@@ -323,6 +340,34 @@ function validateBlockSpec(raw: unknown): BlockSpec {
   if (typeof o.blurb === "string") spec.blurb = o.blurb;
   if (typeof o.sub === "string") spec.sub = o.sub as Block["sub"];
   if (Array.isArray(o.refs)) spec.refs = o.refs.filter((r) => typeof r === "string");
+
+  // Enriched-recipe fields (#082). Minimal validation: recipeKind/demo.kind must be
+  // a known member; the rest are carried through as-is (body/artifact strings,
+  // params object, demo URLs). These belong only on recipe blocks.
+  if (typeof o.recipeKind === "string") {
+    if (!RECIPE_KINDS.includes(o.recipeKind)) {
+      throw new Error(`block.recipeKind must be one of ${RECIPE_KINDS.join(", ")}`);
+    }
+    spec.recipeKind = o.recipeKind as RecipeKind;
+  }
+  if (typeof o.body === "string") spec.body = o.body;
+  if (typeof o.artifact === "string") spec.artifact = o.artifact;
+  if (o.params && typeof o.params === "object" && !Array.isArray(o.params)) {
+    spec.params = o.params as Record<string, unknown>;
+  }
+  if (o.demo && typeof o.demo === "object") {
+    const d = o.demo as Record<string, unknown>;
+    if (typeof d.kind !== "string" || !DEMO_KINDS.includes(d.kind)) {
+      throw new Error(`block.demo.kind must be one of ${DEMO_KINDS.join(", ")}`);
+    }
+    const demo: BlockRecipeDemo = { kind: d.kind as BlockRecipeDemo["kind"] };
+    if (typeof d.html === "string") demo.html = d.html;
+    if (typeof d.storageUrl === "string") demo.storageUrl = d.storageUrl;
+    if (typeof d.beforeUrl === "string") demo.beforeUrl = d.beforeUrl;
+    if (typeof d.afterUrl === "string") demo.afterUrl = d.afterUrl;
+    if (typeof d.posterUrl === "string") demo.posterUrl = d.posterUrl;
+    spec.demo = demo;
+  }
   return spec;
 }
 
@@ -434,6 +479,10 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   const styleId = prov.style ?? "";
   const recipeIds = prov.recipes ?? [];
   const assetIds = prov.assets ?? [];
+  // Tags (#082): filter-only unit labels. Absent in older units -> [].
+  const tags = Array.isArray(manifest.tags)
+    ? manifest.tags.filter((t) => typeof t === "string")
+    : [];
 
   // unit row + unit_blocks provenance rows.
   const unitUpsert: UpsertRow = {
@@ -448,6 +497,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
       media: buildMedia(false),
       media_count: manifest.media.length,
       hero: false,
+      tags,
     },
   };
 
@@ -481,6 +531,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
     assetIds,
     mediaCount: manifest.media.length,
     media: buildMedia(false),
+    ...(tags.length > 0 ? { tags } : {}),
   };
 
   if (!push) {
@@ -540,12 +591,13 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   const mediaWithStorage = buildMedia(true);
   await withDb(async (q) => {
     await q(
-      `insert into units (id, format, title, blurb, date, media, media_count, hero)
-       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+      `insert into units (id, format, title, blurb, date, media, media_count, hero, tags)
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb)
        on conflict (id) do update set
          format = excluded.format, title = excluded.title, blurb = excluded.blurb,
          date = excluded.date, media = excluded.media,
-         media_count = excluded.media_count, hero = excluded.hero`,
+         media_count = excluded.media_count, hero = excluded.hero,
+         tags = excluded.tags`,
       [
         unitId,
         manifest.format,
@@ -555,6 +607,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
         JSON.stringify(mediaWithStorage),
         manifest.media.length,
         false,
+        JSON.stringify(tags),
       ],
     );
     for (const l of links) {
@@ -602,6 +655,16 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     };
   });
 
+  // The enriched-recipe payload (#082) packs into the `data` jsonb column. Only
+  // populated for recipe blocks that actually carry any of the fields; otherwise
+  // `data` stays null so non-recipe / bare-recipe blocks are unchanged.
+  const recipeData: Record<string, unknown> = {};
+  if (spec.body !== undefined) recipeData.body = spec.body;
+  if (spec.artifact !== undefined) recipeData.artifact = spec.artifact;
+  if (spec.params !== undefined) recipeData.params = spec.params;
+  if (spec.demo !== undefined) recipeData.demo = spec.demo;
+  const hasRecipeData = Object.keys(recipeData).length > 0;
+
   const blockUpsert: UpsertRow = {
     table: "blocks",
     conflict: "(id)",
@@ -612,6 +675,8 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
       blurb: spec.blurb ?? null,
       sub: spec.sub ?? null,
       refs: spec.refs ?? [],
+      recipe_kind: spec.recipeKind ?? null,
+      data: hasRecipeData ? recipeData : null,
     },
   };
 
@@ -627,6 +692,11 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     blurb: spec.blurb ?? "",
     refs: publishedRefs,
     ...(spec.sub ? { sub: spec.sub } : {}),
+    ...(spec.recipeKind ? { recipeKind: spec.recipeKind } : {}),
+    ...(spec.body !== undefined ? { body: spec.body } : {}),
+    ...(spec.artifact !== undefined ? { artifact: spec.artifact } : {}),
+    ...(spec.params !== undefined ? { params: spec.params } : {}),
+    ...(spec.demo !== undefined ? { demo: spec.demo } : {}),
   };
 
   if (!push) {
@@ -656,12 +726,22 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
 
   await withDb(async (q) => {
     await q(
-      `insert into blocks (id, kind, name, blurb, sub, refs)
-       values ($1, $2, $3, $4, $5, $6::jsonb)
+      `insert into blocks (id, kind, name, blurb, sub, refs, recipe_kind, data)
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::jsonb)
        on conflict (id) do update set
          kind = excluded.kind, name = excluded.name, blurb = excluded.blurb,
-         sub = excluded.sub, refs = excluded.refs`,
-      [spec.id, spec.kind, spec.name, spec.blurb ?? null, spec.sub ?? null, JSON.stringify(spec.refs ?? [])],
+         sub = excluded.sub, refs = excluded.refs,
+         recipe_kind = excluded.recipe_kind, data = excluded.data`,
+      [
+        spec.id,
+        spec.kind,
+        spec.name,
+        spec.blurb ?? null,
+        spec.sub ?? null,
+        JSON.stringify(spec.refs ?? []),
+        spec.recipeKind ?? null,
+        hasRecipeData ? JSON.stringify(recipeData) : null,
+      ],
     );
   });
 

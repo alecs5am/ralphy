@@ -244,12 +244,21 @@ function blockRows(): string[] {
     ...BLOCKS.recipe,
     ...BLOCKS.asset,
   ];
-  return all.map(
-    (b) =>
-      `  (${sqlText(b.id)}, ${sqlText(b.kind)}, ${sqlText(b.name)}, ${sqlText(
-        b.blurb ?? null,
-      )}, ${b.sub ? sqlText(b.sub) : "null"}, ${sqlJson(b.refs ?? [])})`,
-  );
+  return all.map((b) => {
+    // Enriched-recipe payload (#082): recipe_kind column + the data jsonb
+    // ({ body, artifact, params, demo }). Null for non-recipe / bare blocks.
+    const recipeData: Record<string, unknown> = {};
+    if (b.body !== undefined) recipeData.body = b.body;
+    if (b.artifact !== undefined) recipeData.artifact = b.artifact;
+    if (b.params !== undefined) recipeData.params = b.params;
+    if (b.demo !== undefined) recipeData.demo = b.demo;
+    const dataSql = Object.keys(recipeData).length > 0 ? sqlJson(recipeData) : "null";
+    return `  (${sqlText(b.id)}, ${sqlText(b.kind)}, ${sqlText(b.name)}, ${sqlText(
+      b.blurb ?? null,
+    )}, ${b.sub ? sqlText(b.sub) : "null"}, ${sqlJson(b.refs ?? [])}, ${
+      b.recipeKind ? sqlText(b.recipeKind) : "null"
+    }, ${dataSql})`;
+  });
 }
 
 function unitRows(mediaByUnit: Map<string, UnitMedia[]>): string[] {
@@ -259,7 +268,7 @@ function unitRows(mediaByUnit: Map<string, UnitMedia[]>): string[] {
       u.title,
     )}, ${sqlText(u.blurb ?? null)}, ${u.date ? sqlText(u.date) : "null"}, ${sqlJson(
       media,
-    )}, ${sqlInt(u.mediaCount)}, ${sqlBool(Boolean(u.hero))})`;
+    )}, ${sqlInt(u.mediaCount)}, ${sqlBool(Boolean(u.hero))}, ${sqlJson(u.tags ?? [])})`;
   });
 }
 
@@ -347,18 +356,25 @@ create table if not exists blueprints (
   created_at timestamptz not null default now()
 );
 
+-- ── additive columns: Tag vs Recipe split (#082; canonical home is migrations/0001) ──
+alter table blocks add column if not exists recipe_kind text;
+alter table blocks add column if not exists data        jsonb;
+alter table units  add column if not exists tags        jsonb not null default '[]';
+
 -- ── blocks ─────────────────────────────────────────────────────────────────
-insert into blocks (id, kind, name, blurb, sub, refs) values
+insert into blocks (id, kind, name, blurb, sub, refs, recipe_kind, data) values
 ${blocks.join(",\n")}
 on conflict (id) do update set
-  kind  = excluded.kind,
-  name  = excluded.name,
-  blurb = excluded.blurb,
-  sub   = excluded.sub,
-  refs  = excluded.refs;
+  kind        = excluded.kind,
+  name        = excluded.name,
+  blurb       = excluded.blurb,
+  sub         = excluded.sub,
+  refs        = excluded.refs,
+  recipe_kind = excluded.recipe_kind,
+  data        = excluded.data;
 
 -- ── units ──────────────────────────────────────────────────────────────────
-insert into units (id, format, title, blurb, date, media, media_count, hero) values
+insert into units (id, format, title, blurb, date, media, media_count, hero, tags) values
 ${units.join(",\n")}
 on conflict (id) do update set
   format      = excluded.format,
@@ -367,7 +383,8 @@ on conflict (id) do update set
   date        = excluded.date,
   media       = excluded.media,
   media_count = excluded.media_count,
-  hero        = excluded.hero;
+  hero        = excluded.hero,
+  tags        = excluded.tags;
 
 -- ── unit_blocks (provenance composition; applicable links derived at query time) ──
 insert into unit_blocks (unit_id, block_id, role, link_kind, position) values
