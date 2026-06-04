@@ -23,7 +23,7 @@ Two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`), one CLI, a video pip
 
 ## Demo
 
-[**See what Ralphy makes →**](https://ralphy.dev/#showcase) — 11 rendered outputs from real projects.
+[**See what Ralphy makes →**](https://ralphy.dev/#showcase) — 24 rendered outputs from real projects.
 
 **Cost:** ~$8–12 per 30s video. **Speed:** ~8 min cold-start, ~25 min for a 10-batch. **Engine:** HyperFrames (HTML + GSAP, deterministic Puppeteer + FFmpeg render).
 
@@ -46,7 +46,7 @@ ralphy doctor         # verify env is green
 Expected output:
 
 ```
-✦ ralphy v1.0.0
+✦ ralphy v0.3.0
 ▸ Dependencies          ✓ bun  ✓ ffmpeg
 ▸ API keys              ✓ OPENROUTER_API_KEY  ✓ ELEVENLABS_API_KEY
   ✓ ready
@@ -127,7 +127,7 @@ graph LR
 | [`AGENTS.md`](AGENTS.md) | First. Routing rules + the "read the playbook before acting" discipline. |
 | [`MODELS.md`](MODELS.md) | Before **every** model call. Claude's training is stale on model names. |
 | [`docs/playbooks/`](docs/playbooks/) | Per-role instructions (researcher, scenarist, art-director, editor, producer). |
-| [`templates/CATEGORIES.md`](templates/CATEGORIES.md) | 50+ vibe-references + vibe-style templates, by category. |
+| [`templates/CATEGORIES.md`](templates/CATEGORIES.md) | 64 templates (7 vibe-reference + 57 vibe-style), by category. |
 | [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) | Q&A, Show & Tell, Tester feedback. |
 
 ## Contributing
@@ -136,7 +136,7 @@ graph LR
 git clone https://github.com/alecs5am/ralphy.git
 cd ralphy && bun install
 
-bun test                       # unit + integration (450+ tests)
+bun test                       # unit + integration (1,000+ tests)
 bun run lint                   # typecheck + project lints (errors / help-examples / skills / agents-md / templates / cli-surface)
 bun run docs:cli               # regenerate docs-mintlify/reference/cli/
 bun run build:bin              # build cross-platform binaries

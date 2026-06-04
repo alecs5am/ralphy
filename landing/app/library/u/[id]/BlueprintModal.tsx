@@ -7,23 +7,31 @@
 // behind a button:
 //
 //   • Blueprint — reproduce this unit  → blue button (.btn-blueprint) opening the
-//     wide BlueprintModal, whose body is the full BlueprintBody (scenario /
-//     prompts / composition / model stack / recipes / assets).
+//     wide TWO-PANE BlueprintModal (#080) — a LEFT rail of the present sections
+//     (scenario / prompts / composition / model stack / recipes / hard assets,
+//     via `blueprintSections()`) + a Use-in-ralphy CTA, beside a RIGHT pane that
+//     scrolls only the selected section. Mirrors the skills detail modal; no
+//     longer one giant scroll across every axis.
 //   • Use in ralphy → always-visible button opening a small copy-command modal
 //     (mirrors ComposeModal) with `ralphy blueprint use <unit-id> --project <id>`.
+//     The same copy-command also lives INSIDE the Blueprint modal's left rail, so
+//     the user can reproduce without closing it.
 //
 // Mirrors RemixModal / ComposeModal: Esc / backdrop close, ref-counted body
-// scroll-lock (lockScroll / unlockScroll) while open. Pure presentation — the
-// resolved Blueprint is handed down as a serializable prop from the server page.
-// Renders nothing when the unit has no Blueprint.
+// scroll-lock (lockScroll / unlockScroll) while open. Both modals render through
+// a PORTAL at `document.body` so the `.modal` overlay (z-index 220) escapes the
+// unit page's stacking context and sits ABOVE the sticky Nav (z-index 50) — the
+// navbar no longer overlaps the modal. Pure presentation — the resolved Blueprint
+// is a serializable prop from the server page. Renders nothing without a Blueprint.
 //
 // No visible borders: modal cards separate via bg-tint + shadow only.
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Blueprint } from "@/lib/library-v2/types";
 import { CheckIcon, CloseIcon, CopyIcon, SparkIcon } from "../../_shared/icons";
 import { lockScroll, unlockScroll } from "../../_shared/scrollLock";
-import { BlueprintBody, blueprintCost } from "./BlueprintPanel";
+import { blueprintCost, blueprintSections } from "./BlueprintPanel";
 
 function CopyRow({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -80,20 +88,41 @@ function useModalShell(onClose: () => void) {
   }, [onClose]);
 }
 
-/** The full Blueprint detail in a wide scrollable modal. */
+/** The full Blueprint detail in a wide two-pane modal (#080) — mirrors the
+ *  skills detail `variant="modal"`: a fixed LEFT rail of the present sections
+ *  (Scenario / Prompts / Composition / Model stack / Recipes / Hard assets) +
+ *  the always-visible "Use in ralphy" CTA, beside a RIGHT pane that scrolls the
+ *  selected section. Each section is addressable via `blueprintSections()` so the
+ *  rail and pane stay in sync without one giant scroll across every axis.
+ *
+ *  Rendered through a portal at `document.body` so the overlay escapes the unit
+ *  page's stacking context and the `.modal` z-index (220) reliably sits ABOVE
+ *  the sticky Nav (z-index 50). */
 function BlueprintModal({
   title,
+  unitId,
   blueprint,
   onClose,
 }: {
   title: string;
+  unitId: string;
   blueprint: Blueprint;
   onClose: () => void;
 }) {
   useModalShell(onClose);
   const cost = blueprintCost(blueprint);
+  const sections = blueprintSections(blueprint);
+  const [active, setActive] = useState(sections[0]?.id ?? "");
+  const cli = `ralphy blueprint use ${unitId} --project <new-id>`;
 
-  return (
+  const activeIndex = Math.max(
+    0,
+    sections.findIndex((s) => s.id === active),
+  );
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true">
       <div
         className="modal-card modal-card-wide bp-modal-card"
@@ -114,11 +143,38 @@ function BlueprintModal({
           </button>
         </div>
 
-        <div className="bp-modal-body">
-          <BlueprintBody blueprint={blueprint} />
+        <div className="bp-two-pane">
+          {/* LEFT — section rail + Use-in-ralphy CTA (fixed, does not scroll) */}
+          <aside className="bp-rail" aria-label="Blueprint sections">
+            <nav className="bp-rail-nav">
+              {sections.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`bp-rail-item${s.id === active ? " is-active" : ""}`}
+                  onClick={() => setActive(s.id)}
+                >
+                  {s.title}
+                </button>
+              ))}
+            </nav>
+            <div className="bp-rail-foot">
+              <p className="m-label">Use in ralphy</p>
+              <CopyRow value={cli} />
+              <p className="bp-rail-hint">
+                Replays the full Blueprint into a fresh project.
+              </p>
+            </div>
+          </aside>
+
+          {/* RIGHT — only the selected section scrolls */}
+          <div className="bp-pane" key={active}>
+            {sections[activeIndex]?.node}
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -135,7 +191,9 @@ function UseModal({
   useModalShell(onClose);
   const cli = `ralphy blueprint use ${unitId} --project <new-id>`;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="m-head">
@@ -166,7 +224,8 @@ function UseModal({
           project.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -206,7 +265,12 @@ export function BlueprintCta({
       </div>
 
       {view === "blueprint" && (
-        <BlueprintModal title={title} blueprint={blueprint} onClose={close} />
+        <BlueprintModal
+          title={title}
+          unitId={unitId}
+          blueprint={blueprint}
+          onClose={close}
+        />
       )}
       {view === "use" && <UseModal title={title} unitId={unitId} onClose={close} />}
     </>

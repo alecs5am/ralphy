@@ -1,5 +1,5 @@
-// BlueprintBody — the full "reproduce this unit end-to-end" detail: the complete,
-// copy-pasteable reproduction recipe across the six axes —
+// BlueprintPanel — the full "reproduce this unit end-to-end" detail: the
+// complete, copy-pasteable reproduction recipe across the six axes —
 //   1. scenario / scene table   2. per-stage verbatim prompts
 //   3. composition skeleton      4. model stack + params + cost
 //   5. concrete recipes / effects 6. hard assets (downloadable)
@@ -11,11 +11,19 @@
 // the blue "Blueprint — reproduce this unit" button. Because it has no client
 // directive, it can be composed by the client modal as a plain child.
 //
-// When `blueprint` is undefined it renders nothing (graceful: units with no
-// published Blueprint show no button + no modal).
+// Each axis is exposed as an ADDRESSABLE SECTION (id + title + node) via
+// `blueprintSections()` so the two-pane modal (#080) can drive a left rail of
+// section names against a right scrollable pane — only sections that carry data
+// are returned. `BlueprintBody` keeps composing every section in order for any
+// caller that wants the flat dump.
+//
+// When `blueprint` is undefined the section list is empty and the body renders
+// nothing (graceful: units with no published Blueprint show no button + no
+// modal).
 //
 // No visible borders: separation via bg-tint steps + shadow + spacing only.
 
+import type { ReactNode } from "react";
 import type {
   Blueprint,
   BlueprintAsset,
@@ -59,10 +67,19 @@ export function blueprintCost(blueprint?: Blueprint): string | undefined {
   return fmtUsd(blueprint.costRollupUsd);
 }
 
-/** The full Blueprint detail, without any section / panel chrome — meant to be
- *  dropped into the BlueprintModal body. Renders nothing when no blueprint. */
-export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
-  if (!blueprint) return null;
+/** One addressable Blueprint axis — `id` targets the left-rail nav, `title`
+ *  labels it, `node` is the rendered content for the right pane. */
+export interface BlueprintSection {
+  id: string;
+  title: string;
+  node: ReactNode;
+}
+
+/** Factor a blueprint into its present sections (the ones that carry data), in
+ *  canonical order. Drives the two-pane modal's left rail + right pane, and the
+ *  flat `BlueprintBody`. Returns [] when no blueprint. */
+export function blueprintSections(blueprint?: Blueprint): BlueprintSection[] {
+  if (!blueprint) return [];
 
   const { scenario, prompts, composition, modelStack, recipes, assets } = blueprint;
 
@@ -80,10 +97,13 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
   const hasAssets = assets.length > 0;
   const hasOversize = (blueprint.oversizeSkipped?.length ?? 0) > 0;
 
-  return (
-    <>
-      {/* 1 — Scenario / scene table */}
-      {hasScenario && (
+  const sections: BlueprintSection[] = [];
+
+  if (hasScenario) {
+    sections.push({
+      id: "scenario",
+      title: "Scenario",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">Scenario</p>
           {scenario!.scenes && scenario!.scenes.length > 0 && (
@@ -128,10 +148,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             <pre className="bp-pre bp-storyboard">{scenario!.storyboardMd}</pre>
           )}
         </div>
-      )}
+      ),
+    });
+  }
 
-      {/* 2 — Prompts */}
-      {hasPrompts && (
+  if (hasPrompts) {
+    sections.push({
+      id: "prompts",
+      title: "Prompts",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">Prompts</p>
           <div className="bp-prompts">
@@ -152,10 +177,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             ))}
           </div>
         </div>
-      )}
+      ),
+    });
+  }
 
-      {/* 3 — Composition */}
-      {hasComposition && (
+  if (hasComposition) {
+    sections.push({
+      id: "composition",
+      title: "Composition",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">Composition</p>
           <div className="bp-comp">
@@ -195,10 +225,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             )}
           </div>
         </div>
-      )}
+      ),
+    });
+  }
 
-      {/* 4 — Model stack */}
-      {hasModels && (
+  if (hasModels) {
+    sections.push({
+      id: "models",
+      title: "Model stack",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">Model stack</p>
           <div className="bp-table-wrap">
@@ -232,10 +267,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             </table>
           </div>
         </div>
-      )}
+      ),
+    });
+  }
 
-      {/* 5 — Recipes */}
-      {hasRecipes && (
+  if (hasRecipes) {
+    sections.push({
+      id: "recipes",
+      title: "Recipes",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">Recipes</p>
           <div className="bp-prompts">
@@ -257,10 +297,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             ))}
           </div>
         </div>
-      )}
+      ),
+    });
+  }
 
-      {/* 6 — Hard assets */}
-      {hasAssets && (
+  if (hasAssets) {
+    sections.push({
+      id: "assets",
+      title: "Hard assets",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">Hard assets</p>
           {ASSET_GROUP_ORDER.map((kind) => {
@@ -278,10 +323,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             );
           })}
         </div>
-      )}
+      ),
+    });
+  }
 
-      {/* Oversize-skipped — surfaced, never hidden */}
-      {hasOversize && (
+  if (hasOversize) {
+    sections.push({
+      id: "oversize",
+      title: "In the source project",
+      node: (
         <div className="bp-axis">
           <p className="bp-axis-label">In the source project</p>
           <p className="bp-oversize-note">
@@ -296,7 +346,25 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
             ))}
           </ul>
         </div>
-      )}
+      ),
+    });
+  }
+
+  return sections;
+}
+
+/** The full Blueprint detail, without any section / panel chrome — every present
+ *  section composed in order. Meant as a flat fallback dump; the BlueprintModal
+ *  drives `blueprintSections()` directly for its two-pane layout. Renders
+ *  nothing when no blueprint. */
+export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
+  const sections = blueprintSections(blueprint);
+  if (sections.length === 0) return null;
+  return (
+    <>
+      {sections.map((s) => (
+        <div key={s.id}>{s.node}</div>
+      ))}
     </>
   );
 }
