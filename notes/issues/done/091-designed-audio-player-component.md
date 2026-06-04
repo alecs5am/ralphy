@@ -1,6 +1,6 @@
 # Designed `<AudioPlayer>` component (replace the default `<audio>` element)
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (AudioPlayer.tsx: hidden <audio> driven by ref, play/pause + drag-scrub seek + mm:ss + CSS-only waveform ticks + Space/arrow keyboard, role=slider a11y; AssetMedia music branch routed through it, native controls removed; no borders; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium

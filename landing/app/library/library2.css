@@ -660,10 +660,49 @@
 
 /* ── Asset detail (#085) — real player by sub (audio / image / video) ───────── */
 .am-audio-stack { display: flex; flex-direction: column; gap: 12px; }
-.am-audio { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px;
-  background: var(--bg-2); }
-.am-audio-el { width: 100%; display: block; }
-.am-audio-name { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+
+/* ── Designed audio player (#091) — replaces the native <audio controls>.
+   Pure-black surface (bg-tint, no borders), single --vio accent. The hidden
+   <audio> element is the engine; this is just designed chrome. ─────────────── */
+.ap-root { display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  border-radius: 14px; background: var(--bg-2);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.02); }
+.ap-root:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--vio); }
+
+.ap-toggle { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 999px;
+  display: grid; place-items: center; cursor: pointer; color: var(--bg);
+  background: var(--vio); transition: background .15s ease, transform .08s ease; }
+.ap-toggle:hover { background: var(--vio-2); }
+.ap-toggle:active { transform: scale(0.94); }
+.ap-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg-2), 0 0 0 4px var(--vio); }
+
+.ap-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ap-topline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ap-name { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-time { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3);
+  flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+.ap-bar { position: relative; height: 16px; cursor: pointer; touch-action: none;
+  display: flex; align-items: center; }
+.ap-bar::before { content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  height: 8px; transform: translateY(-50%); border-radius: 999px; background: var(--bg-4); }
+/* Decorative static "waveform-ish" texture inside the track — CSS gradient
+   only, no audio analysis. Faint vertical ticks suggesting a waveform. */
+.ap-wave { position: absolute; left: 0; right: 0; top: 50%; height: 8px;
+  transform: translateY(-50%); border-radius: 999px; overflow: hidden;
+  background-image: repeating-linear-gradient(90deg,
+    rgb(255 255 255 / 0.07) 0 2px, transparent 2px 6px); opacity: 0.8; }
+.ap-fill { position: absolute; left: 0; top: 50%; height: 8px; transform: translateY(-50%);
+  border-radius: 999px; background: var(--vio); pointer-events: none; }
+.ap-thumb { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 999px;
+  background: var(--vio); transform: translate(-50%, -50%); pointer-events: none;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.5); opacity: 0; transition: opacity .12s ease; }
+.ap-bar:hover .ap-thumb, .ap-bar:focus-visible .ap-thumb, .ap-bar.is-scrubbing .ap-thumb { opacity: 1; }
+.ap-bar:focus-visible { outline: none; }
+.ap-bar:focus-visible::before { box-shadow: 0 0 0 2px var(--vio); }
+
+.ap-audio-hidden { display: none; }
 .am-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* Each cell just rounds + clips; the inner <Media> (#088) owns aspect, fit, the
    cinema-bar fill, and the click-to-lightbox. The old per-cell sizing (4/3 cell,
