@@ -29,7 +29,7 @@
 // on any of the affected video elements.
 //
 // Origin: `ralphy-vs-higgsfield-001` postmortem (workflow-fixes #2, #3).
-// Issue: notes/issues/047-hyperframes-edge-case-rules.md.
+// Issue: notes/issues/done/047-hyperframes-edge-case-rules.md.
 
 import { readFile } from "node:fs/promises";
 

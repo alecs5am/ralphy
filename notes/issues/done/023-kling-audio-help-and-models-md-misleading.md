@@ -12,7 +12,7 @@
 
 ## What
 
-- `kbo-broadcast-001`: agent burned a turn proposing ElevenLabs music fallback before user pushed back ("клинг сам может звуки нагенерить").
+- `kbo-broadcast-001`: agent burned a turn proposing ElevenLabs music fallback before user pushed back ("kling can generate the sounds itself").
 - `noski-people-001`: #6 — same misdirection.
 - `glitter-cream-001`: $0.42 on a silent-by-default kling take.
 - `skater-spiderverse-001`: almost declined `--audio` on seedance based on help text.

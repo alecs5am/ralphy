@@ -111,7 +111,7 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 
 ## Prompt hygiene
 
-Three small rules every `ralphy generate` call should clear before submit. Each is a one-liner; each saves one regen cycle (~$0.15–$1) per occurrence and was filed from a real postmortem. See [notes/issues/050-anti-mockup-and-prompt-hygiene.md](../../notes/issues/050-anti-mockup-and-prompt-hygiene.md) for the bundle.
+Three small rules every `ralphy generate` call should clear before submit. Each is a one-liner; each saves one regen cycle (~$0.15–$1) per occurrence and was filed from a real postmortem. See [notes/issues/done/050-anti-mockup-and-prompt-hygiene.md](../../notes/issues/done/050-anti-mockup-and-prompt-hygiene.md) for the bundle.
 
 ### 1. Anti-mockup directive (nano-banana / gemini-3-pro-image-preview)
 
@@ -166,7 +166,7 @@ The default agent instinct is re-prompt-on-fail (tweak verbs, try a different mo
 
 **Concrete example — `flipper-hypermotion-001` scene-03 (POSTMORTEM rule #11).** Scene-03 was a single 5s hypermotion shot the model couldn't sustain; two regens on the same prompt axis drifted the same way. The redo (one scene, split into micro-shots) cost **$1.28 — ~10% of the entire project budget** — and produced more lessons per dollar than the rest of phase 3 combined. The lesson the postmortem locked in: the second failure on the same axis is the signal to restructure, not to re-prompt.
 
-**Structural pairing.** Splitting becomes much cheaper once `ralphy ref extract-frame` + `ralphy generate video --extend-from <slot>` ship (see [notes/issues/012-no-frame-extract-or-i2v-extend-verbs.md](../../notes/issues/012-no-frame-extract-or-i2v-extend-verbs.md)) — that pair lets you i2v-anchor each micro-shot from the previous one's last frame, keeping continuity without a fresh anchor for every sub-beat. Until those verbs land, hand-author the split by reusing the scene anchor as `--ref` on every micro-shot.
+**Structural pairing.** Splitting becomes much cheaper once `ralphy ref extract-frame` + `ralphy generate video --extend-from <slot>` ship (see [notes/issues/done/012-no-frame-extract-or-i2v-extend-verbs.md](../../notes/issues/done/012-no-frame-extract-or-i2v-extend-verbs.md)) — that pair lets you i2v-anchor each micro-shot from the previous one's last frame, keeping continuity without a fresh anchor for every sub-beat. Until those verbs land, hand-author the split by reusing the scene anchor as `--ref` on every micro-shot.
 
 **Operationally.**
 
@@ -188,7 +188,7 @@ Before handing the project to the editor for `ralphy render <id>` — every proj
 
 A single fail aborts the render — fix at this layer via `regeneration.md`, then re-snapshot. Full worked rationale + `noski-people-001` / `odindoma-fb-ad-001` postmortem evidence in [art-director/pre-render-checklist.md](art-director/pre-render-checklist.md).
 
-The future `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace (out of scope here — tracked in [notes/issues/028](../../notes/issues/028-no-ralphy-hyperframes-namespace.md)) will mechanise this gate. Until it ships, the agent enforces by reading the sub-doc.
+The future `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace (out of scope here — tracked in [notes/issues/028](../../notes/issues/done/028-no-ralphy-hyperframes-namespace.md)) will mechanise this gate. Until it ships, the agent enforces by reading the sub-doc.
 
 ## Handoff
 
