@@ -16,7 +16,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Block, Format, Unit } from "@/lib/library-v2/types";
-import { blockGlyph } from "../../_shared/blockMeta";
+import { RECIPE_KIND_META, blockGlyph } from "../../_shared/blockMeta";
 import { OpenIcon, RemixIcon } from "../../_shared/icons";
 import { RemixModal } from "../../_shared/RemixModal";
 import type { RemixPayload } from "../../_shared/types";
@@ -232,16 +232,56 @@ function ChipSection({
         {label}
       </p>
       <div className="ip-chips">
-        {blocks.map((b) => (
-          <Link key={b.id} className="bchip" href={`/library/b/${kind}/${b.id}`} title={b.blurb}>
-            <span className="bg">{blockGlyph(b)}</span>
-            <span className="bn">{b.name}</span>
-            <span className="ip-chip-open" aria-hidden>
-              <OpenIcon s={11} />
-            </span>
-          </Link>
-        ))}
+        {blocks.map((b) =>
+          kind === "recipe" ? (
+            <RecipeChip key={b.id} block={b} />
+          ) : (
+            <Link key={b.id} className="bchip" href={`/library/b/${kind}/${b.id}`} title={b.blurb}>
+              <span className="bg">{blockGlyph(b)}</span>
+              <span className="bn">{b.name}</span>
+              <span className="ip-chip-open" aria-hidden>
+                <OpenIcon s={11} />
+              </span>
+            </Link>
+          ),
+        )}
       </div>
     </div>
+  );
+}
+
+// ── Recipe chip — icon + hue tint per recipeKind, so the treatment class reads
+// at a glance without parsing the name. Falls back to the generic recipe glyph
+// + neutral tint when a recipe has no recipeKind (shouldn't happen post-#083).
+
+function RecipeChip({ block }: { block: Block }) {
+  const meta = block.recipeKind ? RECIPE_KIND_META[block.recipeKind] : undefined;
+  if (!meta) {
+    return (
+      <Link className="bchip" href={`/library/b/recipe/${block.id}`} title={block.blurb}>
+        <span className="bg">{blockGlyph(block)}</span>
+        <span className="bn">{block.name}</span>
+        <span className="ip-chip-open" aria-hidden>
+          <OpenIcon s={11} />
+        </span>
+      </Link>
+    );
+  }
+  const Icon = meta.icon;
+  return (
+    <Link
+      className="bchip rk"
+      href={`/library/b/recipe/${block.id}`}
+      title={`${meta.label} — ${block.blurb}`}
+      style={{ ["--rk" as string]: meta.hue, ["--rk-t" as string]: meta.tint }}
+    >
+      <span className="bg" aria-hidden>
+        <Icon s={12} />
+      </span>
+      <span className="bn">{block.name}</span>
+      <span className="ip-chip-open" aria-hidden>
+        <OpenIcon s={11} />
+      </span>
+    </Link>
   );
 }

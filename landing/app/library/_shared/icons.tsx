@@ -40,3 +40,32 @@ export const UploadIcon = ({ s = 16 }: { s?: number }) => <Ic d="M8 11V3M5 6l3-3
 export const SparkIcon = ({ s = 14 }: { s?: number }) => (
   <Ic d="M8 2l1.4 4.2L13.6 8 9.4 9.8 8 14l-1.4-4.2L2.4 8l4.2-1.8z" w={s} vb={16} sw={1.4} />
 );
+
+// ── Recipe-kind icons (#082) — one distinct glyph per recipeKind so a recipe
+// chip / page reads its treatment class at a glance. Small inline SVGs, same
+// stroked style as the set above. ──────────────────────────────────────────
+
+/** ffmpeg — clapperboard / filtergraph. */
+export const FfmpegIcon = ({ s = 13 }: { s?: number }) => (
+  <Ic d="M2 6h12v7.5H2zM2 6l1.5-3h2L4 6M6.5 3l-1.5 3M9.5 3L8 6M12.5 3L11 6" w={s} vb={16} sw={1.4} />
+);
+/** encode — compression gauge. */
+export const EncodeIcon = ({ s = 13 }: { s?: number }) => (
+  <Ic d="M2.5 11a5.5 5.5 0 1 1 11 0M8 11l3-3" w={s} vb={16} sw={1.5} />
+);
+/** overlay — stacked layers. */
+export const OverlayIcon = ({ s = 13 }: { s?: number }) => (
+  <Ic d="M8 2.5l5.5 3-5.5 3-5.5-3zM2.5 9l5.5 3 5.5-3M2.5 12l5.5 3 5.5-3" w={s} vb={16} sw={1.4} />
+);
+/** bake — merge arrows into one. */
+export const BakeIcon = ({ s = 13 }: { s?: number }) => (
+  <Ic d="M3 2.5v3a3 3 0 0 0 3 3h4a3 3 0 0 1 3 3v3M6 11l-3 3-3-3M10 11l3 3 3-3" w={s} vb={16} sw={1.4} />
+);
+/** hyperframes — play in a frame (the live-runnable one). */
+export const FramesIcon = ({ s = 13 }: { s?: number }) => (
+  <Ic d="M2.5 3.5h11v9h-11zM6.5 6l3.5 2.5L6.5 11z" w={s} vb={16} sw={1.4} />
+);
+/** prompt — quote / text spark. */
+export const PromptIcon = ({ s = 13 }: { s?: number }) => (
+  <Ic d="M3 4.5h7M3 8h10M3 11.5h6M13 9.5l.7 1.8L15.5 12l-1.8.7L13 14.5l-.7-1.8L10.5 12l1.8-.7z" w={s} vb={16} sw={1.3} />
+);
