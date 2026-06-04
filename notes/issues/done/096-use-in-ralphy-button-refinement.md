@@ -1,6 +1,6 @@
 # "Use in ralphy" — clean the button + a blue copy-command CTA
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (UseInRalphyButton: blue "Use in Ralphy" that COPIES the reproduce command on click with a "Copied — paste in your terminal" flash, command in title tooltip; replaced the clunky UseModal on the standalone button and the CopyRow in the modal rail-foot — modal keeps the command as a visible reveal; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** low-medium

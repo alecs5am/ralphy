@@ -29,47 +29,60 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Blueprint } from "@/lib/library-v2/types";
-import { CheckIcon, CloseIcon, CopyIcon, SparkIcon } from "../../_shared/icons";
+import { CheckIcon, CloseIcon, SparkIcon } from "../../_shared/icons";
 import { lockScroll, unlockScroll } from "../../_shared/scrollLock";
 import { blueprintCost, blueprintSections } from "./BlueprintPanel";
 
-function CopyRow({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = useCallback(async () => {
+/** Robust clipboard write — async API with a hidden-textarea fallback. */
+async function copyToClipboard(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
     try {
-      await navigator.clipboard.writeText(value);
+      document.execCommand("copy");
     } catch {
-      const ta = document.createElement("textarea");
-      ta.value = value;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand("copy");
-      } catch {
-        /* swallow */
-      }
-      document.body.removeChild(ta);
+      /* swallow */
     }
+    document.body.removeChild(ta);
+  }
+}
+
+/** Blue "Use in Ralphy" button (#096). The button does NOT print the raw command
+ *  — clicking COPIES `ralphy blueprint use …` to the clipboard and flashes a
+ *  "Copied — paste in your terminal" confirmation. The full command stays
+ *  discoverable in the `title` tooltip for anyone who wants to see/edit it. */
+function UseInRalphyButton({ cli, className }: { cli: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const onClick = useCallback(async () => {
+    await copyToClipboard(cli);
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-  }, [value]);
+    window.setTimeout(() => setCopied(false), 1900);
+  }, [cli]);
   return (
-    <div className="m-copyrow">
-      <code>{value}</code>
-      <button type="button" className={`copy${copied ? " copied" : ""}`} onClick={copy}>
-        {copied ? (
-          <>
-            <CheckIcon /> Copied
-          </>
-        ) : (
-          <>
-            <CopyIcon /> Copy
-          </>
-        )}
-      </button>
-    </div>
+    <button
+      type="button"
+      className={`btn-use-ralphy${copied ? " copied" : ""}${className ? ` ${className}` : ""}`}
+      onClick={onClick}
+      title={cli}
+      aria-label={`Use in Ralphy — copy command: ${cli}`}
+    >
+      {copied ? (
+        <>
+          <CheckIcon /> Copied — paste in your terminal
+        </>
+      ) : (
+        <>
+          <SparkIcon s={15} /> Use in Ralphy
+        </>
+      )}
+    </button>
   );
 }
 
@@ -159,8 +172,11 @@ function BlueprintModal({
               ))}
             </nav>
             <div className="bp-rail-foot">
-              <p className="m-label">Use in ralphy</p>
-              <CopyRow value={cli} />
+              <p className="m-label">Use in Ralphy</p>
+              <UseInRalphyButton cli={cli} />
+              {/* The command stays visible here as a reveal (there's room in the
+                  modal); the standalone button keeps it in a tooltip. */}
+              <code className="bp-rail-cmd">{cli}</code>
               <p className="bp-rail-hint">
                 Replays the full Blueprint into a fresh project.
               </p>
@@ -172,57 +188,6 @@ function BlueprintModal({
             {sections[activeIndex]?.node}
           </div>
         </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-/** The "Use in ralphy" copy-command modal (mirrors ComposeModal). */
-function UseModal({
-  title,
-  unitId,
-  onClose,
-}: {
-  title: string;
-  unitId: string;
-  onClose: () => void;
-}) {
-  useModalShell(onClose);
-  const cli = `ralphy blueprint use ${unitId} --project <new-id>`;
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="modal" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="m-head">
-          <div
-            className="m-thumb"
-            style={{
-              background: "var(--bp-tint-2)",
-              color: "var(--bp-ink)",
-              display: "grid",
-              placeItems: "center",
-            }}
-          >
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 26 }}>▣</span>
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p className="m-eyebrow bp-eyebrow">Use in ralphy</p>
-            <h3>{title}</h3>
-          </div>
-          <button type="button" className="m-close" onClick={onClose} aria-label="Close">
-            <CloseIcon s={16} />
-          </button>
-        </div>
-        <p className="m-label">Run the CLI</p>
-        <CopyRow value={cli} />
-        <p className="m-hint">
-          Reproduce this <strong>exact unit</strong> end-to-end — Ralphy replays the
-          full Blueprint (scenario, prompts, model stack, composition) into a fresh
-          project.
-        </p>
       </div>
     </div>,
     document.body,
@@ -241,10 +206,12 @@ export function BlueprintCta({
   title: string;
   blueprint?: Blueprint;
 }) {
-  const [view, setView] = useState<"none" | "blueprint" | "use">("none");
+  const [view, setView] = useState<"none" | "blueprint">("none");
   const close = useCallback(() => setView("none"), []);
 
   if (!blueprint) return null;
+
+  const cli = `ralphy blueprint use ${unitId} --project <new-id>`;
 
   return (
     <>
@@ -259,9 +226,7 @@ export function BlueprintCta({
           </span>
           Blueprint — reproduce this unit
         </button>
-        <button type="button" className="btn-use-ralphy" onClick={() => setView("use")}>
-          <SparkIcon s={15} /> Use in ralphy
-        </button>
+        <UseInRalphyButton cli={cli} />
       </div>
 
       {view === "blueprint" && (
@@ -272,7 +237,6 @@ export function BlueprintCta({
           onClose={close}
         />
       )}
-      {view === "use" && <UseModal title={title} unitId={unitId} onClose={close} />}
     </>
   );
 }
