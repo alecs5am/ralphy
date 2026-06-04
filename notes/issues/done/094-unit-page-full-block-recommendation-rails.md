@@ -1,6 +1,6 @@
 # Unit page — full block-recommendation rails (more in type / tag / template / …)
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (page.tsx buildRails computes per-dimension rails IN-MEMORY from one getUnits()+getBlocks() — template→each tag→each recipe→each asset→format, deduped across rails via a seen set, self-excluded, capped 12, empties dropped; MoreFrom renders N rails as UnitRail/Carousel; no per-id source calls; next build SSGs all 42 unit pages green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium-high
