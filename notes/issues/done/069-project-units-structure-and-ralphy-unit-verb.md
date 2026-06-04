@@ -1,6 +1,6 @@
 # Project-local `units/` + a `ralphy unit` command
 
-> **Status:** todo
+> **Status:** done — 2026-06-05 (`cli/commands/unit.ts` + `ralphy unit` verb shipped; CLAUDE.md/AGENTS.md document `units/`)
 > **Filed:** 2026-06-01
 > **Folder:** issues
 > **Severity:** high (foundational — the project-side half of the Unit model)

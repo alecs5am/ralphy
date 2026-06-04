@@ -1,6 +1,6 @@
 # Normalize-skills skill + auto-generate missing icons
 
-> **Status:** todo
+> **Status:** done — 2026-06-05 (shipped as the `normalize-skills` skill)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** medium

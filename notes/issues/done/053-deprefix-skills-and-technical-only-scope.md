@@ -1,6 +1,6 @@
 # De-prefix skills and narrow skill scope to technical operations
 
-> **Status:** todo
+> **Status:** done — 2026-06-05 (skills de-prefixed; technical-only scope landed; AGENTS.md + `lint:skills` reflect the new model; no `ralphy-`/`*-dev-` skill dirs remain)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** high
