@@ -6,10 +6,10 @@
 //
 // No visible borders: separation via bg-tint + shadow + spacing only.
 
-import Image from "next/image";
 import Link from "next/link";
 import type { Block, BlockKind, Format, Unit, UnitMedia } from "@/lib/library-v2/types";
 import { RECIPE_KIND_META, blockGlyph, blockKindLabel, fhue, mediaUrl, unitTileAspect } from "./blockMeta";
+import { Media } from "./Media";
 import { OpenIcon, PlayIcon, RemixIcon } from "./icons";
 
 // ── Tag chip (#082/#084 look-as-tag) ──────────────────────────────────────────
@@ -182,24 +182,27 @@ function packGrid(n: number): { cols: number; rows: number; count: number } {
   return { cols, rows, count };
 }
 
+// Tile media cell — delegates to the shared <Media> (#088). Tiles are LINKS,
+// not lightbox triggers, so lightbox={false}. The per-format scaffolds
+// (UnitMediaShape: contact sheet / deck / stack) keep their structure; only the
+// inner cell flows through <Media>. Default fit=cover for the masonry/Pinterest
+// look; contain when a caller wants the whole frame. The cell fills its
+// positioned parent (the .ph / .c / .s host boxes) via .media-cell.
 export function MediaCell({ m, alt, fit = "cover" }: { m: UnitMedia; alt: string; fit?: "cover" | "contain" }) {
-  const url = mediaUrl(m);
-  if (m.kind === "video") {
-    return (
-      <video
-        src={`${url}#t=0.1`}
-        muted
-        loop
-        autoPlay
-        playsInline
-        preload="metadata"
-        disablePictureInPicture
-        style={{ width: "100%", height: "100%", objectFit: fit, display: "block" }}
-      />
-    );
-  }
   return (
-    <Image src={url} alt={alt} fill sizes="(max-width: 820px) 50vw, 20vw" style={{ objectFit: fit }} unoptimized />
+    <Media
+      src={mediaUrl(m)}
+      kind={m.kind}
+      alt={alt}
+      displayAspect={m.aspect}
+      fit={fit}
+      lightbox={false}
+      poster={m.poster}
+      muted
+      loop
+      autoPlay
+      className="media-cell"
+    />
   );
 }
 

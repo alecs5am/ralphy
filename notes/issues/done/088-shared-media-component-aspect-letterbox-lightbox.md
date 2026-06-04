@@ -1,6 +1,6 @@
 # Shared `<Media>` component — aspect-preserving, letterboxed, click-to-lightbox
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (Media.tsx: aspect-locked box + object-fit:contain with bg-tint cinema bars, fit="cover" escape hatch, shadcn-dialog single-item lightbox; routed AssetMedia img/video + RecipeDetail demo + UnitViewer + UnitTile MediaCell; audio branch left for #091, gallery Lightbox kept intact; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** high
