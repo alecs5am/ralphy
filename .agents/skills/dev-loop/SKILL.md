@@ -14,13 +14,13 @@ A **maintainer** skill. It executes the open work in `notes/issues/` (the inbox 
 
 ## Scope + limit
 
-- **Default scope:** every open issue under `notes/issues/` (skip ones marked `Status: done`). Optionally include `roadmap/todo/` if the user says so.
+- **Default scope:** every open issue at the **flat top level** of `notes/issues/`. The `notes/issues/done/` and `notes/issues/deprecated/` subfolders are the closed archive — **never in scope** (status is encoded by folder; see [Issues folder layout](../../../notes/README.md#issues-folder-layout)). Optionally include `roadmap/todo/` if the user says so.
 - **Default limit:** **25 issues** per loop run. If the user's prompt names more (or "no limit", or a specific subset / range), honor that.
 - The user can narrow scope in their prompt ("just the landing ones", "only #052-#055", "everything tagged cli").
 
 ## Workflow (per run)
 
-1. **Read the rules first.** `docs/developing-ralphy.md` (English-only, the lint suite, append-only contract, auto-generated files), `AGENTS.md` (the hard invariants — especially "wait for user 'go' before any paid generation"), and `notes/README.md`. Skim every candidate issue.
+1. **Read the rules first.** `docs/developing-ralphy.md` (English-only, the lint suite, append-only contract, auto-generated files), `AGENTS.md` (the hard invariants — especially "wait for user 'go' before any paid generation"), and `notes/README.md` (including the [Issues folder layout](../../../notes/README.md#issues-folder-layout) — active work is the flat top level only). Skim every candidate issue.
 
 2. **Build the execution order.** Sort issues by dependency, not by number:
    - Foundational / schema / data-model changes FIRST (everything keys off them).
@@ -33,7 +33,7 @@ A **maintainer** skill. It executes the open work in `notes/issues/` (the inbox 
    a. **Dispatch ONE sub-agent** (the `Agent` tool, usually `general-purpose`) with a tight, self-contained mandate: the mandatory reads, the exact scope, the gates it must pass, "do NOT git commit or push — leave changes in the working tree", and a required structured report-back. Give it the rename maps / file lists / schema decisions up front so it does not improvise on settled questions. Run agents **sequentially** — wait for one to finish and land before starting the next — to avoid collisions on shared files (`AGENTS.md`, skills, the landing app, the template schema).
    b. **Review the diff yourself.** Read the changed files / diffstat. Trust but verify the agent's report — re-run the real gates manually: the relevant `lint:*` scripts, the affected `bun test` files, `cd landing && bunx next build` for landing changes, the regenerated `cli:surface:build` / `docs:cli` for CLI-surface changes, and `rg '\p{Cyrillic}' --pcre2` over changed files (text only; `.webp`/`.png` are binary false positives).
    c. **Close gaps.** Fix small issues inline; for a substantive miss, dispatch a focused follow-up agent (you cannot resume a finished agent — `SendMessage` is not available — so either edit directly or spawn a fresh scoped agent).
-   d. **Commit + push to main, then move on.** One commit per issue with a Conventional-Commits message referencing the issue number. Mark the issue `Status: done` (or delete the note if that is the convention) as part of the commit. Push to `origin` (this repo commits to main; never `gitlab`).
+   d. **Commit + push to main, then move on.** One commit per issue with a Conventional-Commits message referencing the issue number. As part of that same commit, **`git mv` the issue into `notes/issues/done/` and update its `> **Status:**` line to `done — <YYYY-MM-DD>`** (the folder is the live signal, the line carries the date/why — keep them in sync). If the issue turns out to be obsolete or superseded rather than implemented, `git mv` it into `notes/issues/deprecated/` and set the line to `SUPERSEDED by #NNN` / `dropped (<reason>)` instead. Never delete the note — moving preserves the record. Push to `origin` (this repo commits to main; never `gitlab`).
 
 4. **Repeat** until the scope is exhausted or the limit is hit. Report a final summary: issues landed (with commit SHAs), issues skipped/deferred and why, and any new issues discovered mid-run (file them via the `/dev-issues` shape).
 
@@ -55,4 +55,5 @@ The husky hooks run the full `bun test` suite, which contains a load-dependent f
 - **Review every agent diff.** The agent's report is a claim; the gates are the proof. Re-run them.
 - **English-only on disk.** Run the Cyrillic gate before every commit.
 - **Respect the paid-generation and irreversible-action gates above** — the loop is autonomous, not unsupervised.
+- **Resolve = move, never delete.** A landed issue is `git mv`'d into `notes/issues/done/` (obsolete → `deprecated/`) with its `> **Status:**` line synced — never `rm`'d. The archive is the record of what was already tried. Only the flat top level is ever in scope.
 - **Append-only on `workspace/projects/` and the JSONL logs** (AGENTS.md #14).

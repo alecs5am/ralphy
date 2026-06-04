@@ -2,7 +2,7 @@
 // record-shaped `scenes` (per cli/lib/schemas/scene.ts → ScenarioSchema) and
 // the legacy array shape that older fixtures still use.
 //
-// Origin: notes/issues/046-project-score-schema-drift.md — `ralphy project
+// Origin: notes/issues/done/046-project-score-schema-drift.md — `ralphy project
 // score` used to crash with "(scenario.scenes ?? []).reduce is not a function"
 // on every scenario that conforms to the actual schema.
 
