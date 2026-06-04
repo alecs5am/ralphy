@@ -37,7 +37,8 @@ import type {
 import { RemixModal } from "./_shared/RemixModal";
 import type { RemixPayload } from "./_shared/types";
 import { CloseIcon, PlusIcon, SearchIcon } from "./_shared/icons";
-import { BlockChip, UnitCard } from "./_shared/UnitCard";
+import { BlockChip, feedTileAspect } from "./_shared/UnitCard";
+import { FeedCard } from "./_shared/FeedCard";
 import { remixForUnit } from "./_shared/remix";
 import {
   aspectRatioNum,
@@ -46,7 +47,6 @@ import {
   fhue,
   KIND_META,
   PREPO,
-  unitTileAspect,
 } from "./_shared/blockMeta";
 
 const PAGE_SIZE = 24;
@@ -114,15 +114,20 @@ function useMasonryColumns(): number {
   return cols;
 }
 
-const MASONRY_GAP = 18; // matches .masonry gap + .utile margin-bottom in CSS
-const TILE_BODY_PX = 132; // fixed body chrome below the media (fmt + title + chips)
+const MASONRY_GAP = 18; // matches .masonry gap + .gcard margin-bottom in CSS
+// The media-first FeedCard body is just a one-line caption (#100), not the old
+// ~132px tile body: .gcap padding (9px top + 2px bottom) + the ~18px display-700
+// line + a couple px of leading ≈ 34px. (The hover overlay sits ON the media
+// and adds zero resting height.)
+const FEED_TILE_BODY_PX = 34;
 
-/** Estimate one tile's rendered height in px from its media aspect + the column
- *  width, so the packer can balance columns without measuring the DOM. */
+/** Estimate one FeedCard's rendered height in px from its FEED media aspect (the
+ *  4/5 crop for video/podcast-cuts) + the column width, so the packer can balance
+ *  columns without measuring the DOM. Must mirror what FeedCard actually renders. */
 function estTileHeight(u: Unit, format: Format | undefined, colWidth: number): number {
-  const ratio = aspectRatioNum(unitTileAspect(u, format)); // W / H
+  const ratio = aspectRatioNum(feedTileAspect(u, format)); // W / H
   const mediaH = colWidth / (ratio || 0.8);
-  return mediaH + TILE_BODY_PX + MASONRY_GAP;
+  return mediaH + FEED_TILE_BODY_PX + MASONRY_GAP;
 }
 
 // Masonry packing is incremental + stateful (see the packRef block in the
@@ -412,7 +417,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
           {columns.map((colUnits, ci) => (
             <div className="mcol" key={ci}>
               {colUnits.map((u) => (
-                <UnitCard
+                <FeedCard
                   key={u.id}
                   u={u}
                   format={formatById[u.format]}

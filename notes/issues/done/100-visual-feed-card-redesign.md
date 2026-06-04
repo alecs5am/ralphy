@@ -1,6 +1,6 @@
 # Library main-feed unit card redesign — media-first Pinterest "Visual Feed"
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (new FeedCard.tsx media-first .gcard in the /library masonry: icon badge + hover-reveal scrim/genome/chips/Open+Remix, real media via UnitMediaShape feed variant (4/5 crop video/podcast, count suppressed at rest), genome adapts to Style-as-tag, stretched-link a11y; JS packer kept, FEED_TILE_BODY_PX=34 + feed aspect; compact UnitCard untouched on grids/rails; next build + tsc green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** high
