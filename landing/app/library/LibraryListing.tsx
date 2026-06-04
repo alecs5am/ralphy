@@ -114,24 +114,10 @@ function estTileHeight(u: Unit, format: Format | undefined, colWidth: number): n
   return mediaH + TILE_BODY_PX + MASONRY_GAP;
 }
 
-/** Pack units (in order) into `cols` columns, each item into the shortest column
- *  by running estimated height. Returns the per-column unit lists. */
-function packColumns(
-  units: Unit[],
-  cols: number,
-  colWidth: number,
-  formatById: Record<FormatId, Format>,
-): Unit[][] {
-  const buckets: Unit[][] = Array.from({ length: cols }, () => []);
-  const heights = new Array(cols).fill(0);
-  for (const u of units) {
-    let shortest = 0;
-    for (let c = 1; c < cols; c++) if (heights[c] < heights[shortest]) shortest = c;
-    buckets[shortest].push(u);
-    heights[shortest] += estTileHeight(u, formatById[u.format], colWidth);
-  }
-  return buckets;
-}
+// Masonry packing is incremental + stateful (see the packRef block in the
+// component): each scroll-appended page folds only its new tiles into the
+// existing per-column buckets, so the feed scales without re-packing the whole
+// window on every append.
 
 export function LibraryListing({ vm }: { vm: FeedViewModel }) {
   const router = useRouter();
@@ -283,12 +269,50 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
   }, []);
   // Column width = (container − gaps) / cols. Fall back to a sane width before
   // the ResizeObserver first fires so the SSR/initial pack still balances.
-  const colWidth =
-    gridWidth > 0 ? (gridWidth - MASONRY_GAP * (cols - 1)) / cols : 280;
-  const columns = useMemo(
-    () => packColumns(shown, cols, colWidth, formatById),
-    [shown, cols, colWidth, formatById],
+  // Bin to whole px so sub-pixel ResizeObserver jitter doesn't force a re-pack.
+  const colWidth = Math.round(
+    gridWidth > 0 ? (gridWidth - MASONRY_GAP * (cols - 1)) / cols : 280,
   );
+
+  // Incremental masonry packing (#092): appending a page does NOT re-pack the
+  // whole window. We keep the per-column buckets + running heights in a ref and
+  // only fold in the units beyond what's already packed (O(delta), not O(n)).
+  // Layout (cols/colWidth) or filter (`filtered` identity) change → full reset.
+  // The append loop is guarded by `count`, so it stays idempotent under React
+  // StrictMode's double-invoke. Result is identical to a deterministic full pack
+  // (same greedy shortest-column on the same prefix order) — just cheaper.
+  const packRef = useRef<{
+    cols: number;
+    colWidth: number;
+    filtered: Unit[];
+    buckets: Unit[][];
+    heights: number[];
+    count: number;
+  } | null>(null);
+  const columns = useMemo(() => {
+    let st = packRef.current;
+    if (!st || st.cols !== cols || st.colWidth !== colWidth || st.filtered !== filtered) {
+      st = {
+        cols,
+        colWidth,
+        filtered,
+        buckets: Array.from({ length: cols }, () => []),
+        heights: new Array(cols).fill(0),
+        count: 0,
+      };
+      packRef.current = st;
+    }
+    for (let i = st.count; i < shown.length; i++) {
+      const u = shown[i]!;
+      let shortest = 0;
+      for (let c = 1; c < cols; c++) if (st.heights[c]! < st.heights[shortest]!) shortest = c;
+      st.buckets[shortest]!.push(u);
+      st.heights[shortest]! += estTileHeight(u, formatById[u.format], colWidth);
+    }
+    st.count = shown.length;
+    // Shallow-clone the columns so React sees new arrays to reconcile.
+    return st.buckets.map((b) => b.slice());
+  }, [shown, cols, colWidth, formatById, filtered]);
 
   const anyFilter =
     !!view.format ||

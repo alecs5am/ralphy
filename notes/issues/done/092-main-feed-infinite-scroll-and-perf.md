@@ -1,6 +1,6 @@
 # Main library feed — Pinterest infinite scroll + optimization
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (infinite-scroll IntersectionObserver sentinel + windowed PAGE_SIZE was already in; made masonry packing incremental — appends fold O(delta) into a packRef instead of re-packing the window; colWidth binned to whole px; media already lazy via <Media>; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** high
