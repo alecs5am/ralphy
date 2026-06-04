@@ -35,8 +35,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "templateId": "choose-the-door",
     "styleId": "voxel-night-rain",
     "recipeIds": [
-      "rain-overlay",
-      "lantern-glow",
       "voxel-dither",
       "noir-grade"
     ],
@@ -49,6 +47,10 @@ export const PUBLISHED_UNITS: Unit[] = [
         "aspect": "9 / 16",
         "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/voxel-fork/voxel-fork.png"
       }
+    ],
+    "tags": [
+      "rain-overlay",
+      "lantern-glow"
     ]
   },
   {
