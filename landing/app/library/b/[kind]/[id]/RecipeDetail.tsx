@@ -20,6 +20,7 @@
 
 import type { Block, BlockRecipeDemo } from "@/lib/library-v2/types";
 import { recipeKindLabel } from "../../../_shared/blockMeta";
+import { Media } from "../../../_shared/Media";
 import { CopyArtifact } from "./CopyArtifact";
 
 export function RecipeDetail({ block }: { block: Block }) {
@@ -150,15 +151,20 @@ const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
 
 function DemoMedia({ url, poster, tag }: { url: string; poster?: string; tag?: string }) {
   const isVideo = VIDEO_EXT.test(url);
+  // Route through <Media> (#088): contain + cinema bars into a 16/9 demo box +
+  // click-to-lightbox. Folds in the old `.rx-media { width:100%; height:auto }`
+  // native-dimension rendering. The `.tag` overlay (before/after label) stays.
   return (
     <div className="rx-bap">
       {tag && <span className="tag">{tag}</span>}
-      {isVideo ? (
-        <video className="rx-media" src={url} poster={poster} controls playsInline preload="metadata" />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="rx-media" src={url} alt={tag ?? "recipe demo"} loading="lazy" />
-      )}
+      <Media
+        src={url}
+        kind={isVideo ? "video" : "image"}
+        alt={tag ?? "recipe demo"}
+        poster={poster}
+        displayAspect="16 / 9"
+        controls={isVideo}
+      />
     </div>
   );
 }

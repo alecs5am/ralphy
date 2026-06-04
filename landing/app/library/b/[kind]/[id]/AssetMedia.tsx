@@ -19,6 +19,7 @@
 // No visible borders: separation via bg-tint + shadow + spacing only.
 
 import type { Block } from "@/lib/library-v2/types";
+import { Media } from "../../../_shared/Media";
 
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
 const AUDIO_EXT = /\.(mp3|wav|m4a|aac|ogg|flac)(\?|#|$)/i;
@@ -52,40 +53,59 @@ export function AssetMedia({ block }: { block: Block }) {
     );
   }
 
-  // Video refs → video players.
+  // Video refs → video players (through <Media>, contain + cinema bars +
+  // click-to-lightbox).
   if (refs.every((r) => VIDEO_EXT.test(r))) {
     return (
       <div className="bh-refs">
         <p className="rh">Reference clips</p>
-        <div className="am-grid">
-          {refs.map((src) => (
-            <div key={src} className="am-item">
-              <video className="am-media" src={src} controls playsInline preload="metadata" />
-            </div>
-          ))}
-        </div>
+        <RefGrid refs={refs} kind={() => "video"} name={block.name} />
       </div>
     );
   }
 
-  // character / location / prop (and any image refs) → image viewer.
+  // character / location / prop (and any image refs) → image viewer (mixed
+  // image/video routed per-ref through <Media>).
   return (
     <div className="bh-refs">
       <p className="rh">Reference examples</p>
-      <div className="am-grid">
-        {refs.map((src) =>
-          VIDEO_EXT.test(src) ? (
-            <div key={src} className="am-item">
-              <video className="am-media" src={src} controls playsInline preload="metadata" />
-            </div>
-          ) : (
-            <div key={src} className="am-item">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="am-media" src={src} alt={block.name} loading="lazy" />
-            </div>
-          ),
-        )}
-      </div>
+      <RefGrid refs={refs} kind={(src) => (VIDEO_EXT.test(src) ? "video" : "image")} name={block.name} />
+    </div>
+  );
+}
+
+/** The proof grid. A single ref renders CONTAINED + capped (whole frame, never
+ *  page-tall — folds in the old `.am-grid:has(:only-child)` max-height:360px
+ *  cap); multiple refs are cover-cropped 4/3 cells (the tidy proof grid). Both
+ *  click → lightbox via <Media>. */
+function RefGrid({
+  refs,
+  kind,
+  name,
+}: {
+  refs: string[];
+  kind: (src: string) => "image" | "video";
+  name: string;
+}) {
+  const single = refs.length === 1;
+  return (
+    <div className={`am-grid${single ? " am-grid-single" : ""}`}>
+      {refs.map((src) => (
+        <div key={src} className="am-item">
+          <Media
+            src={src}
+            kind={kind(src)}
+            alt={name}
+            // Single ref: contain into a 4/3 box capped at 360px so a portrait
+            // shows whole with side bars and a landscape whole with top/bottom
+            // bars — never page-tall native. Multiple refs: cover-crop 4/3.
+            fit={single ? "contain" : "cover"}
+            displayAspect="4 / 3"
+            maxHeight={single ? "360px" : undefined}
+            controls={kind(src) === "video"}
+          />
+        </div>
+      ))}
     </div>
   );
 }
