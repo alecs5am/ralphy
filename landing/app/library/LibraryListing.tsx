@@ -51,6 +51,15 @@ import {
 
 const PAGE_SIZE = 24;
 
+/** One tag in the main-feed tag cloud (#093): a distinct unit tag + its count. */
+export interface FeedTag {
+  tag: string;
+  count: number;
+}
+
+/** How many tag chips show before the "show all" expander (#093). */
+const TAG_CLOUD_TOP_N = 24;
+
 /** The plain-JSON view-model the server page hands down. */
 export interface FeedViewModel {
   formats: Format[];
@@ -58,6 +67,8 @@ export interface FeedViewModel {
   blocksByKind: Record<BlockKind, Block[]>;
   blockCounts: Record<BlockKind, Record<string, number>>;
   fmtCounts: Record<FormatId, number>;
+  /** Distinct unit tags + counts, sorted count-desc then tag-asc (#093). */
+  tags: FeedTag[];
 }
 
 // ── View state from the URL ──────────────────────────────────────────────────
@@ -175,6 +186,11 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
   const setFormat = useCallback(
     (id: FormatId | null) => setParams({ format: id ?? undefined }),
     [setParams],
+  );
+  // Tag cloud (#093): toggle the active tag in the existing `?tag=` filter.
+  const setTag = useCallback(
+    (tag: string) => setParams({ tag: view.tag === tag ? undefined : tag }),
+    [setParams, view.tag],
   );
   const addBlock = useCallback(
     (kind: BlockKind, id: string) => {
@@ -347,6 +363,9 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
         active={view.format}
         onPick={setFormat}
       />
+      {vm.tags.length > 0 && (
+        <TagCloud tags={vm.tags} active={view.tag} onPick={setTag} />
+      )}
       {activeFmt && <p className="shelf-blurb">{activeFmt.blurb}</p>}
 
       {/* Matching blocks (search) */}
@@ -413,6 +432,72 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
       )}
 
       <RemixModal payload={remix} onClose={() => setRemix(null)} />
+    </div>
+  );
+}
+
+// ── Tag cloud ───────────────────────────────────────────────────────────────
+//
+// Sits under the format cards (#093). Every distinct unit tag as a counted chip,
+// sorted count-desc (the order the view-model hands us), capped to the top N with
+// a "show all" expander so a long tail doesn't overwhelm the header. Clicking a
+// chip toggles the existing `?tag=` filter; the active tag is highlighted.
+// No borders — chips are bg-tint pills, the active one carries the accent.
+
+function TagCloud({
+  tags,
+  active,
+  onPick,
+}: {
+  tags: FeedTag[];
+  active: string | null;
+  onPick: (tag: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const overflow = tags.length > TAG_CLOUD_TOP_N;
+  // Always show the active tag even if it lives in the collapsed tail.
+  const shown =
+    expanded || !overflow
+      ? tags
+      : (() => {
+          const head = tags.slice(0, TAG_CLOUD_TOP_N);
+          if (active && !head.some((t) => t.tag === active)) {
+            const hit = tags.find((t) => t.tag === active);
+            if (hit) head.push(hit);
+          }
+          return head;
+        })();
+
+  return (
+    <div className="tagcloud" role="group" aria-label="Filter by tag">
+      {shown.map((t) => {
+        const isActive = active === t.tag;
+        return (
+          <button
+            key={t.tag}
+            type="button"
+            className={`tagchip${isActive ? " active" : ""}`}
+            aria-pressed={isActive}
+            title={`Find units tagged "${t.tag}"`}
+            onClick={() => onPick(t.tag)}
+          >
+            <span className="tagchip-hash" aria-hidden>
+              #
+            </span>
+            <span className="tagchip-name">{t.tag}</span>
+            <span className="tagchip-count">{t.count}</span>
+          </button>
+        );
+      })}
+      {overflow && (
+        <button
+          type="button"
+          className="tagcloud-more"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "show less" : `show all ${tags.length}`}
+        </button>
+      )}
     </div>
   );
 }
