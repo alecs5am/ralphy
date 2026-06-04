@@ -63,6 +63,7 @@ export interface FeedViewModel {
 interface ViewState {
   format: FormatId | null;
   q: string;
+  tag: string | null;
   style: string[];
   template: string[];
   recipe: string[];
@@ -153,6 +154,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
         return f && vm.formats.some((x) => x.id === f) ? (f as FormatId) : null;
       })(),
       q: searchParams.get("q") || "",
+      tag: searchParams.get("tag") || null,
       style: parseList(searchParams.get("style")),
       template: parseList(searchParams.get("template")),
       recipe: parseList(searchParams.get("recipe")),
@@ -203,6 +205,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
     },
     [view, setParams],
   );
+  const clearTag = useCallback(() => setParams({ tag: undefined }), [setParams]);
   const clearAll = useCallback(() => {
     router.replace("/library", { scroll: false });
   }, [router]);
@@ -226,6 +229,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
   const filtered = useMemo(() => {
     return vm.units.filter((u) => {
       if (view.format && u.format !== view.format) return false;
+      if (view.tag && !(u.tags ?? []).includes(view.tag)) return false;
       for (const id of view.style) if (u.styleId !== id) return false;
       for (const id of view.template) if (u.templateId !== id) return false;
       for (const id of view.recipe) if (!u.recipeIds.includes(id)) return false;
@@ -290,6 +294,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
   const anyFilter =
     !!view.format ||
     !!view.q ||
+    !!view.tag ||
     FILTER_KINDS.some((k) => view[k].length > 0);
 
   const total = vm.units.length;
@@ -339,6 +344,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
         blocksByKind={vm.blocksByKind}
         blockCounts={vm.blockCounts}
         onRemove={removeBlock}
+        onRemoveTag={clearTag}
         onAdd={addBlock}
         onClear={clearAll}
       />
@@ -480,6 +486,7 @@ function PivotRail({
   blocksByKind,
   blockCounts,
   onRemove,
+  onRemoveTag,
   onAdd,
   onClear,
 }: {
@@ -489,12 +496,30 @@ function PivotRail({
   blocksByKind: Record<BlockKind, Block[]>;
   blockCounts: Record<BlockKind, Record<string, number>>;
   onRemove: (kind: BlockKind, id: string) => void;
+  onRemoveTag: () => void;
   onAdd: (kind: BlockKind, id: string) => void;
   onClear: () => void;
 }) {
   return (
     <div className="pivot">
       <span className="pivot-lead">Pivot</span>
+      {view.tag && (
+        <span className="fpill" key={`tag:${view.tag}`}>
+          <span className="fp-kind">tagged</span>
+          <span className="tagchip-hash" aria-hidden>
+            #
+          </span>
+          {view.tag}
+          <button
+            type="button"
+            className="fp-x"
+            aria-label={`Remove tag ${view.tag}`}
+            onClick={onRemoveTag}
+          >
+            <CloseIcon s={11} />
+          </button>
+        </span>
+      )}
       {FILTER_KINDS.map((kind) =>
         view[kind].map((id) => {
           const b = blockBy(kind, id);
