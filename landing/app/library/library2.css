@@ -737,7 +737,7 @@
    (client-side ?tag= toggle), so reset native button chrome. No borders — the
    active chip carries the accent fill; the count rides a deeper bg-tint pill. */
 .tagcloud { display: flex; flex-wrap: wrap; gap: 7px; align-items: center;
-  margin: 14px 0 4px; }
+  margin: 14px 0 20px; }
 .tagcloud .tagchip { border: 0; cursor: pointer; appearance: none; }
 .tagchip .tagchip-count { color: var(--mute-2); font-variant-numeric: tabular-nums;
   margin-left: 1px; }

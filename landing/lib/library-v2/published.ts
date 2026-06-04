@@ -30,34 +30,6 @@ import type { Block, Blueprint, Unit } from "./types";
 // ralphy:published-units:start
 export const PUBLISHED_UNITS: Unit[] = [
   {
-    "id": "analog-horror-fridge-001",
-    "format": "video",
-    "title": "Compliance Bulletin 9-D",
-    "blurb": "A fake civil-defense PSA — \"your fridge is not your fridge\" — stenciled pictograms, robo-broadcast voice, layered VHS dread.",
-    "templateId": "explainer",
-    "recipeIds": [
-      "vhs-overlay",
-      "chroma-split",
-      "film-grain"
-    ],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/analog-horror-fridge-001.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "poster": "/assets/showcase/posters/analog-horror-fridge-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "analog-horror"
-    ]
-  },
-  {
     "id": "animated-fb-ad",
     "format": "motion-design",
     "title": "Animated FB Showcase Reel",
@@ -82,32 +54,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "tags": [
       "kinetic-typography",
       "bloom"
-    ]
-  },
-  {
-    "id": "arena-rocker-001",
-    "format": "video",
-    "title": "Arena Rocker",
-    "blurb": "An arena-rock performance montage in saturated cel-cartoon — bold outlines, squash-and-stretch, punchy speed ramps.",
-    "templateId": "music-video",
-    "recipeIds": [
-      "speed-ramp"
-    ],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/arena-rocker-001.mp4",
-        "kind": "video",
-        "aspect": "16 / 9",
-        "poster": "/assets/showcase/posters/arena-rocker-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "cel-cartoon"
     ]
   },
   {
@@ -158,240 +104,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "date": "2026-05",
     "tags": [
       "photoreal"
-    ]
-  },
-  {
-    "id": "choose-backrooms",
-    "format": "video",
-    "title": "Choose Your Path: Backrooms",
-    "blurb": "PS1 liminal descent, party of 4 dwindles to 1, blue-pipe subversion",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "ffmpeg-xfade-master",
-      "vhs-pause-freeze",
-      "smpte-countdown-disc",
-      "old-radio-ps1-vo",
-      "chroma-split",
-      "film-grain",
-      "burned-captions",
-      "voxel-dither",
-      "boomerang-motion-fill"
-    ],
-    "assetIds": [
-      "choosepath-soundtrack",
-      "hazmat-scientists"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-backrooms/showcase.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-backrooms/showcase.mp4"
-      }
-    ],
-    "tags": [
-      "analog-horror"
-    ]
-  },
-  {
-    "id": "choose-magicschool",
-    "format": "video",
-    "title": "Choose Your Path: Magic School",
-    "blurb": "Colorful PS1 magic-school dash: staircases, living armor, portals, Peeves",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "ffmpeg-xfade-master",
-      "vhs-pause-freeze",
-      "smpte-countdown-disc",
-      "old-radio-ps1-vo",
-      "chroma-split",
-      "film-grain",
-      "burned-captions",
-      "boomerang-motion-fill"
-    ],
-    "assetIds": [
-      "choosepath-soundtrack"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-magicschool/showcase.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-magicschool/showcase.mp4"
-      }
-    ],
-    "tags": [
-      "ps1-magic-colorful"
-    ]
-  },
-  {
-    "id": "choose-path-voxel-en",
-    "format": "video",
-    "title": "Choose Your Path — voxel horror gauntlet (EN)",
-    "blurb": "Branching POV horror: pick a guide, survive a chain of 50/50 freeze-timer forks. PS1/voxel register. English VO.",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "vhs-pause-freeze",
-      "ffmpeg-xfade-master",
-      "old-radio-ps1-vo",
-      "voxel-dither"
-    ],
-    "assetIds": [
-      "shpundel-armadillo",
-      "tolik-old-man",
-      "kobold-swarm",
-      "backrooms-bed"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-path-voxel-en/final-en-compressed.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-path-voxel-en/final-en-compressed.mp4"
-      }
-    ],
-    "tags": [
-      "voxel-night-rain"
-    ]
-  },
-  {
-    "id": "choose-silenthill",
-    "format": "video",
-    "title": "Choose Your Guide: Silent Hill",
-    "blurb": "PS1 fog-horror: the bandaged nurse vs the armed madman",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "ffmpeg-xfade-master",
-      "vhs-pause-freeze",
-      "smpte-countdown-disc",
-      "old-radio-ps1-vo",
-      "chroma-split",
-      "film-grain",
-      "burned-captions",
-      "voxel-dither"
-    ],
-    "assetIds": [
-      "choosepath-soundtrack"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-silenthill/showcase.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-silenthill/showcase.mp4"
-      }
-    ],
-    "tags": [
-      "analog-horror"
-    ]
-  },
-  {
-    "id": "choose-spaceship",
-    "format": "video",
-    "title": "Choose Your Guide: Derelict Ship",
-    "blurb": "PS1 sci-fi horror: soothing ship-AI vs abrasive engineer",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "ffmpeg-xfade-master",
-      "vhs-pause-freeze",
-      "smpte-countdown-disc",
-      "old-radio-ps1-vo",
-      "chroma-split",
-      "film-grain",
-      "burned-captions",
-      "voxel-dither",
-      "boomerang-motion-fill"
-    ],
-    "assetIds": [
-      "choosepath-soundtrack",
-      "aura-hologram",
-      "voss-engineer"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-spaceship/showcase.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-spaceship/showcase.mp4"
-      }
-    ],
-    "tags": [
-      "analog-horror"
-    ]
-  },
-  {
-    "id": "choose-swamp",
-    "format": "video",
-    "title": "Choose Your Guide: The Swamp",
-    "blurb": "PS1 Slavic folk-horror: read the witch, trust-but-verify the leshy",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "ffmpeg-xfade-master",
-      "vhs-pause-freeze",
-      "smpte-countdown-disc",
-      "old-radio-ps1-vo",
-      "chroma-split",
-      "film-grain",
-      "burned-captions",
-      "voxel-dither",
-      "boomerang-motion-fill"
-    ],
-    "assetIds": [
-      "choosepath-soundtrack",
-      "vedma-witch",
-      "leshy-trent"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-swamp/showcase.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-swamp/showcase.mp4"
-      }
-    ],
-    "tags": [
-      "analog-horror"
-    ]
-  },
-  {
-    "id": "choose-warofworlds",
-    "format": "video",
-    "title": "Choose Your Guide: War of the Worlds",
-    "blurb": "PS1 invasion horror: gentle-alien trap vs grim survivor",
-    "templateId": "choose-your-path-gauntlet",
-    "recipeIds": [
-      "ffmpeg-xfade-master",
-      "vhs-pause-freeze",
-      "smpte-countdown-disc",
-      "old-radio-ps1-vo",
-      "chroma-split",
-      "film-grain",
-      "burned-captions",
-      "voxel-dither",
-      "boomerang-motion-fill"
-    ],
-    "assetIds": [
-      "choosepath-soundtrack",
-      "peaceful-alien",
-      "oneeyed-survivor"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/choose-warofworlds/showcase.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-warofworlds/showcase.mp4"
-      }
-    ],
-    "tags": [
-      "analog-horror"
     ]
   },
   {
@@ -608,36 +320,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     ]
   },
   {
-    "id": "flipper-hypermotion-001",
-    "format": "video",
-    "title": "Flipper Zero Ad",
-    "blurb": "A Japanese-hypermotion product reveal — punchy speed ramps, glossy bloom, the hardware as the hero.",
-    "templateId": "product-reveal",
-    "recipeIds": [
-      "speed-ramp"
-    ],
-    "assetIds": [
-      "hero-product",
-      "product-set"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/flipper-hypermotion-001.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "poster": "/assets/showcase/posters/flipper-hypermotion-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "cgi-render",
-      "bloom"
-    ]
-  },
-  {
     "id": "food-beverage",
     "format": "video",
     "title": "Ginger Pour",
@@ -695,6 +377,250 @@ export const PUBLISHED_UNITS: Unit[] = [
     ]
   },
   {
+    "id": "live-platform-motion-ad",
+    "format": "motion-design",
+    "title": "Live Platform Motion Ad",
+    "blurb": "A kinetic-typography motion ad for a live-streaming platform — code-driven, brand-led, beat-synced.",
+    "templateId": "motion-card",
+    "recipeIds": [
+      "chroma-split"
+    ],
+    "assetIds": [
+      "electronic-beat"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4",
+        "kind": "video",
+        "aspect": "16 / 9",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "kinetic-typography",
+      "bloom"
+    ]
+  },
+  {
+    "id": "nothing-hp1-001",
+    "format": "video",
+    "title": "Nothing HP1 launch",
+    "blurb": "A product-launch hero spot for the Nothing HP1 — a clean reveal cut engineered around the hardware.",
+    "templateId": "product-reveal",
+    "recipeIds": [
+      "speed-ramp"
+    ],
+    "assetIds": [
+      "hero-product"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/nothing-hp1-001.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "poster": "/assets/showcase/posters/nothing-hp1-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "hero": true,
+    "tags": [
+      "commercial-bright",
+      "bloom"
+    ]
+  },
+  {
+    "id": "podcast-explainer-longform",
+    "format": "video",
+    "title": "Podcast Explainer (long-form, faceless)",
+    "blurb": "A faceless long-form explainer cut over an audio track — overlay-driven, captioned, chapter-paced.",
+    "templateId": "explainer",
+    "recipeIds": [
+      "burned-captions"
+    ],
+    "assetIds": [
+      "lofi-bed"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/podcast-explainer-longform/final.mp4",
+        "kind": "video",
+        "aspect": "16 / 9",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/podcast-explainer-longform/final.mp4"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "swiss-editorial"
+    ]
+  },
+  {
+    "id": "ship-announcement",
+    "format": "motion-design",
+    "title": "Ship Announcement Card",
+    "blurb": "A square typographic ship-week launch card — wordmark, manifesto, a five-row feature table, end-slate URL — revealed by a parallel typewriter primitive over a sparse cube grid.",
+    "templateId": "motion-card",
+    "recipeIds": [
+      "typewriter-reveal"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/ship-announcement/final.mp4",
+        "kind": "video",
+        "aspect": "1 / 1",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ship-announcement/final.mp4"
+      }
+    ],
+    "date": "2026-04",
+    "tags": [
+      "kinetic-typography"
+    ]
+  },
+  {
+    "id": "silent-square-site-ad",
+    "format": "fb-creative",
+    "title": "Silent Square Site Ad",
+    "blurb": "A 1:1 silent Meta feed ad built entirely from a brand's own live-site assets — opacity-gated beats, a sticker dump, a color-split bridged by the logo. Zero AI media spend.",
+    "templateId": "motion-card",
+    "recipeIds": [
+      "typewriter-reveal"
+    ],
+    "assetIds": [
+      "brand-stickers"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/silent-square-site-ad/odindoma-fb-21s-v11.mp4",
+        "kind": "video",
+        "aspect": "1 / 1",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/silent-square-site-ad/odindoma-fb-21s-v11.mp4"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "swiss-editorial"
+    ]
+  },
+  {
+    "id": "soviet-nostalgic",
+    "format": "video",
+    "title": "Soviet Nostalgic TikTok Ad",
+    "blurb": "A faded late-Soviet home-archive ad — VHS warmth, period detail, riding the recognizable Soviet trend bed.",
+    "templateId": "lifestyle-montage",
+    "recipeIds": [
+      "vhs-overlay",
+      "film-grain"
+    ],
+    "assetIds": [
+      "trend-soviet-bed"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/soviet-nostalgic/final.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/soviet-nostalgic/final.mp4"
+      }
+    ],
+    "date": "2026-04",
+    "tags": [
+      "soviet-nostalgic"
+    ]
+  },
+  {
+    "id": "analog-horror-fridge-001",
+    "format": "video",
+    "title": "Compliance Bulletin 9-D",
+    "blurb": "A fake civil-defense PSA — \"your fridge is not your fridge\" — stenciled pictograms, robo-broadcast voice, layered VHS dread.",
+    "templateId": "explainer",
+    "recipeIds": [
+      "vhs-overlay",
+      "chroma-split",
+      "film-grain"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/analog-horror-fridge-001.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "poster": "/assets/showcase/posters/analog-horror-fridge-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "arena-rocker-001",
+    "format": "video",
+    "title": "Arena Rocker",
+    "blurb": "An arena-rock performance montage in saturated cel-cartoon — bold outlines, squash-and-stretch, punchy speed ramps.",
+    "templateId": "music-video",
+    "recipeIds": [
+      "speed-ramp"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/arena-rocker-001.mp4",
+        "kind": "video",
+        "aspect": "16 / 9",
+        "poster": "/assets/showcase/posters/arena-rocker-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "cel-cartoon"
+    ]
+  },
+  {
+    "id": "flipper-hypermotion-001",
+    "format": "video",
+    "title": "Flipper Zero Ad",
+    "blurb": "A Japanese-hypermotion product reveal — punchy speed ramps, glossy bloom, the hardware as the hero.",
+    "templateId": "product-reveal",
+    "recipeIds": [
+      "speed-ramp"
+    ],
+    "assetIds": [
+      "hero-product",
+      "product-set"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/flipper-hypermotion-001.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "poster": "/assets/showcase/posters/flipper-hypermotion-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "cgi-render",
+      "bloom"
+    ]
+  },
+  {
     "id": "fruit-drama-001",
     "format": "video",
     "title": "Fruit Drama",
@@ -748,29 +674,137 @@ export const PUBLISHED_UNITS: Unit[] = [
     ]
   },
   {
-    "id": "live-platform-motion-ad",
-    "format": "motion-design",
-    "title": "Live Platform Motion Ad",
-    "blurb": "A kinetic-typography motion ad for a live-streaming platform — code-driven, brand-led, beat-synced.",
-    "templateId": "motion-card",
-    "recipeIds": [
-      "chroma-split"
-    ],
-    "assetIds": [
-      "electronic-beat"
-    ],
+    "id": "noski-people-001",
+    "format": "video",
+    "title": "Socks or People",
+    "blurb": "A deadpan two-hander talking-head bit — photoreal humans, naturalistic candid light, anti-AI-slop realism.",
+    "templateId": "talking-head",
+    "recipeIds": [],
+    "assetIds": [],
     "mediaCount": 1,
     "media": [
       {
-        "src": "/showcase/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4",
+        "src": "/assets/showcase/noski-people-001.mp4",
         "kind": "video",
-        "aspect": "16 / 9",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4"
+        "aspect": "9 / 16",
+        "poster": "/assets/showcase/posters/noski-people-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.jpg"
       }
     ],
     "date": "2026-05",
     "tags": [
-      "kinetic-typography",
+      "photoreal-portrait"
+    ]
+  },
+  {
+    "id": "playdate-pixel-001",
+    "format": "video",
+    "title": "Playdate Reveal",
+    "blurb": "A handheld-console product reveal rendered in crunchy pixel-art — limited palette, dithered gradients, retro charm.",
+    "templateId": "product-reveal",
+    "recipeIds": [],
+    "assetIds": [
+      "hero-product"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/playdate-pixel-001.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "poster": "/assets/showcase/posters/playdate-pixel-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "pixel-art"
+    ]
+  },
+  {
+    "id": "ralphy-vs-higgsfield-001",
+    "format": "video",
+    "title": "Pick a Door — Ralphy vs Higgsfield",
+    "blurb": "A fork-in-the-path decision reveal in analog-horror register — two doors, a beat of dread, then the pick.",
+    "templateId": "choose-the-door",
+    "recipeIds": [
+      "vhs-overlay",
+      "chroma-split",
+      "film-grain"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/ralphy-vs-higgsfield-001.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "poster": "/assets/showcase/posters/ralphy-vs-higgsfield-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "skater-spiderverse-001",
+    "format": "video",
+    "title": "Skater Duel",
+    "blurb": "A beat-driven skate showdown cut as inked comic panels — halftone shading, chroma-split edges, bold gutters.",
+    "templateId": "music-video",
+    "recipeIds": [
+      "chroma-split"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/skater-spiderverse-001.mp4",
+        "kind": "video",
+        "aspect": "16 / 9",
+        "poster": "/assets/showcase/posters/skater-spiderverse-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "comic-panel",
+      "halftone"
+    ]
+  },
+  {
+    "id": "tokyo-y2k-001",
+    "format": "video",
+    "title": "Tokyo Y2K",
+    "blurb": "A first-person night walk through a neon-soaked Tokyo alley — rain spatter, crushed blacks, dreamy bloom.",
+    "templateId": "pov-walk",
+    "recipeIds": [
+      "noir-grade"
+    ],
+    "assetIds": [
+      "tokyo-alley"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/assets/showcase/tokyo-y2k-001.mp4",
+        "kind": "video",
+        "aspect": "16 / 9",
+        "poster": "/assets/showcase/posters/tokyo-y2k-001.jpg",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.mp4",
+        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.jpg"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "cinematic",
+      "rain-overlay",
       "bloom"
     ]
   },
@@ -1071,627 +1105,6 @@ export const PUBLISHED_UNITS: Unit[] = [
     "tags": [
       "zine-cutout",
       "halftone"
-    ]
-  },
-  {
-    "id": "noski-people-001",
-    "format": "video",
-    "title": "Socks or People",
-    "blurb": "A deadpan two-hander talking-head bit — photoreal humans, naturalistic candid light, anti-AI-slop realism.",
-    "templateId": "talking-head",
-    "recipeIds": [],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/noski-people-001.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "poster": "/assets/showcase/posters/noski-people-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "photoreal-portrait"
-    ]
-  },
-  {
-    "id": "nothing-hp1-001",
-    "format": "video",
-    "title": "Nothing HP1 launch",
-    "blurb": "A product-launch hero spot for the Nothing HP1 — a clean reveal cut engineered around the hardware.",
-    "templateId": "product-reveal",
-    "recipeIds": [
-      "speed-ramp"
-    ],
-    "assetIds": [
-      "hero-product"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/nothing-hp1-001.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "poster": "/assets/showcase/posters/nothing-hp1-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "hero": true,
-    "tags": [
-      "commercial-bright",
-      "bloom"
-    ]
-  },
-  {
-    "id": "nyastics-emotes-final",
-    "format": "sticker-pack",
-    "title": "Free Air — 40 emote stickers FINAL (TG-ready)",
-    "blurb": "Final 40 Free Air mascot emote stickers (hippo-pack pose port, client IP). gpt-5.4-image-2 double-ref, green-keyed, no outline, 512px transparent PNG. 3 borderline poses (walk/aww/sad) re-rolled and swapped to best variant. Ready for @Stickers upload.",
-    "templateId": "",
-    "recipeIds": [],
-    "assetIds": [],
-    "mediaCount": 40,
-    "media": [
-      {
-        "src": "/showcase/nyastics-emotes-final/ny01-laugh.png",
-        "kind": "image",
-        "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny01-laugh.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny02-tada.png",
-        "kind": "image",
-        "aspect": "376 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny02-tada.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny03-rofl.png",
-        "kind": "image",
-        "aspect": "512 / 438",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny03-rofl.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny04-walk.png",
-        "kind": "image",
-        "aspect": "457 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny04-walk.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny05-splash.png",
-        "kind": "image",
-        "aspect": "498 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny05-splash.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny06-aww.png",
-        "kind": "image",
-        "aspect": "512 / 499",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny06-aww.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny07-hi.png",
-        "kind": "image",
-        "aspect": "322 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny07-hi.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny08-scheme.png",
-        "kind": "image",
-        "aspect": "295 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny08-scheme.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny09-excited.png",
-        "kind": "image",
-        "aspect": "389 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny09-excited.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny10-chill.png",
-        "kind": "image",
-        "aspect": "487 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny10-chill.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny11-lurk.png",
-        "kind": "image",
-        "aspect": "512 / 463",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny11-lurk.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny12-cake.png",
-        "kind": "image",
-        "aspect": "2 / 3",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny12-cake.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny13-noodles.png",
-        "kind": "image",
-        "aspect": "373 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny13-noodles.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny14-plusone.png",
-        "kind": "image",
-        "aspect": "277 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny14-plusone.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny15-shake.png",
-        "kind": "image",
-        "aspect": "376 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny15-shake.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny16-feast.png",
-        "kind": "image",
-        "aspect": "512 / 401",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny16-feast.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny17-stack.png",
-        "kind": "image",
-        "aspect": "223 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny17-stack.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny18-pizza.png",
-        "kind": "image",
-        "aspect": "357 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny18-pizza.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny19-melon.png",
-        "kind": "image",
-        "aspect": "366 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny19-melon.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny20-grumpy.png",
-        "kind": "image",
-        "aspect": "230 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny20-grumpy.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny21-salad.png",
-        "kind": "image",
-        "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny21-salad.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny22-warrior.png",
-        "kind": "image",
-        "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny22-warrior.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny23-sad.png",
-        "kind": "image",
-        "aspect": "222 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny23-sad.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny24-sus.png",
-        "kind": "image",
-        "aspect": "276 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny24-sus.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny25-huh.png",
-        "kind": "image",
-        "aspect": "318 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny25-huh.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny26-writing.png",
-        "kind": "image",
-        "aspect": "512 / 408",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny26-writing.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny27-sleep.png",
-        "kind": "image",
-        "aspect": "512 / 408",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny27-sleep.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny28-money.png",
-        "kind": "image",
-        "aspect": "332 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny28-money.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny29-reading.png",
-        "kind": "image",
-        "aspect": "512 / 366",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny29-reading.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny30-rose.png",
-        "kind": "image",
-        "aspect": "235 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny30-rose.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny31-stand.png",
-        "kind": "image",
-        "aspect": "304 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny31-stand.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny32-car.png",
-        "kind": "image",
-        "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny32-car.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny33-fire.png",
-        "kind": "image",
-        "aspect": "475 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny33-fire.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny34-grass.png",
-        "kind": "image",
-        "aspect": "399 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny34-grass.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny35-crawl.png",
-        "kind": "image",
-        "aspect": "445 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny35-crawl.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny36-dead.png",
-        "kind": "image",
-        "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny36-dead.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny37-drink.png",
-        "kind": "image",
-        "aspect": "395 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny37-drink.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny38-cry.png",
-        "kind": "image",
-        "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny38-cry.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny39-yawn.png",
-        "kind": "image",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny39-yawn.png"
-      },
-      {
-        "src": "/showcase/nyastics-emotes-final/ny40-angry.png",
-        "kind": "image",
-        "aspect": "400 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny40-angry.png"
-      }
-    ]
-  },
-  {
-    "id": "playdate-pixel-001",
-    "format": "video",
-    "title": "Playdate Reveal",
-    "blurb": "A handheld-console product reveal rendered in crunchy pixel-art — limited palette, dithered gradients, retro charm.",
-    "templateId": "product-reveal",
-    "recipeIds": [],
-    "assetIds": [
-      "hero-product"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/playdate-pixel-001.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "poster": "/assets/showcase/posters/playdate-pixel-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "pixel-art"
-    ]
-  },
-  {
-    "id": "podcast-explainer-longform",
-    "format": "video",
-    "title": "Podcast Explainer (long-form, faceless)",
-    "blurb": "A faceless long-form explainer cut over an audio track — overlay-driven, captioned, chapter-paced.",
-    "templateId": "explainer",
-    "recipeIds": [
-      "burned-captions"
-    ],
-    "assetIds": [
-      "lofi-bed"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/podcast-explainer-longform/final.mp4",
-        "kind": "video",
-        "aspect": "16 / 9",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/podcast-explainer-longform/final.mp4"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "swiss-editorial"
-    ]
-  },
-  {
-    "id": "ralphy-vs-higgsfield-001",
-    "format": "video",
-    "title": "Pick a Door — Ralphy vs Higgsfield",
-    "blurb": "A fork-in-the-path decision reveal in analog-horror register — two doors, a beat of dread, then the pick.",
-    "templateId": "choose-the-door",
-    "recipeIds": [
-      "vhs-overlay",
-      "chroma-split",
-      "film-grain"
-    ],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/ralphy-vs-higgsfield-001.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "poster": "/assets/showcase/posters/ralphy-vs-higgsfield-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "analog-horror"
-    ]
-  },
-  {
-    "id": "ship-announcement",
-    "format": "motion-design",
-    "title": "Ship Announcement Card",
-    "blurb": "A square typographic ship-week launch card — wordmark, manifesto, a five-row feature table, end-slate URL — revealed by a parallel typewriter primitive over a sparse cube grid.",
-    "templateId": "motion-card",
-    "recipeIds": [
-      "typewriter-reveal"
-    ],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/ship-announcement/final.mp4",
-        "kind": "video",
-        "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ship-announcement/final.mp4"
-      }
-    ],
-    "date": "2026-04",
-    "tags": [
-      "kinetic-typography"
-    ]
-  },
-  {
-    "id": "silent-square-site-ad",
-    "format": "fb-creative",
-    "title": "Silent Square Site Ad",
-    "blurb": "A 1:1 silent Meta feed ad built entirely from a brand's own live-site assets — opacity-gated beats, a sticker dump, a color-split bridged by the logo. Zero AI media spend.",
-    "templateId": "motion-card",
-    "recipeIds": [
-      "typewriter-reveal"
-    ],
-    "assetIds": [
-      "brand-stickers"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/silent-square-site-ad/odindoma-fb-21s-v11.mp4",
-        "kind": "video",
-        "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/silent-square-site-ad/odindoma-fb-21s-v11.mp4"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "swiss-editorial"
-    ]
-  },
-  {
-    "id": "skater-spiderverse-001",
-    "format": "video",
-    "title": "Skater Duel",
-    "blurb": "A beat-driven skate showdown cut as inked comic panels — halftone shading, chroma-split edges, bold gutters.",
-    "templateId": "music-video",
-    "recipeIds": [
-      "chroma-split"
-    ],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/skater-spiderverse-001.mp4",
-        "kind": "video",
-        "aspect": "16 / 9",
-        "poster": "/assets/showcase/posters/skater-spiderverse-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "comic-panel",
-      "halftone"
-    ]
-  },
-  {
-    "id": "soviet-nostalgic",
-    "format": "video",
-    "title": "Soviet Nostalgic TikTok Ad",
-    "blurb": "A faded late-Soviet home-archive ad — VHS warmth, period detail, riding the recognizable Soviet trend bed.",
-    "templateId": "lifestyle-montage",
-    "recipeIds": [
-      "vhs-overlay",
-      "film-grain"
-    ],
-    "assetIds": [
-      "trend-soviet-bed"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/soviet-nostalgic/final.mp4",
-        "kind": "video",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/soviet-nostalgic/final.mp4"
-      }
-    ],
-    "date": "2026-04",
-    "tags": [
-      "soviet-nostalgic"
-    ]
-  },
-  {
-    "id": "streetwear-drop-poster-boom",
-    "format": "poster",
-    "title": "Streetwear Drop Poster — Boom",
-    "blurb": "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"boom\" punchline cut.",
-    "templateId": "product-reveal",
-    "recipeIds": [],
-    "assetIds": [
-      "brand-stickers"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/streetwear-drop-poster/variant-01-boom.webp",
-        "kind": "image",
-        "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-boom/variant-01-boom.webp"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "y2k-streetwear",
-      "halftone"
-    ]
-  },
-  {
-    "id": "streetwear-drop-poster-dang",
-    "format": "poster",
-    "title": "Streetwear Drop Poster — Dang",
-    "blurb": "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"dang\" punchline cut.",
-    "templateId": "product-reveal",
-    "recipeIds": [],
-    "assetIds": [
-      "brand-stickers"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/streetwear-drop-poster/variant-02-dang.webp",
-        "kind": "image",
-        "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-dang/variant-02-dang.webp"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "y2k-streetwear",
-      "halftone"
-    ]
-  },
-  {
-    "id": "streetwear-drop-poster-yikes",
-    "format": "poster",
-    "title": "Streetwear Drop Poster — Yikes",
-    "blurb": "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"yikes\" punchline cut.",
-    "templateId": "product-reveal",
-    "recipeIds": [],
-    "assetIds": [
-      "brand-stickers"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/streetwear-drop-poster/variant-03-yikes.webp",
-        "kind": "image",
-        "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-yikes/variant-03-yikes.webp"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "y2k-streetwear",
-      "halftone"
-    ]
-  },
-  {
-    "id": "tokyo-y2k-001",
-    "format": "video",
-    "title": "Tokyo Y2K",
-    "blurb": "A first-person night walk through a neon-soaked Tokyo alley — rain spatter, crushed blacks, dreamy bloom.",
-    "templateId": "pov-walk",
-    "recipeIds": [
-      "noir-grade"
-    ],
-    "assetIds": [
-      "tokyo-alley"
-    ],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/assets/showcase/tokyo-y2k-001.mp4",
-        "kind": "video",
-        "aspect": "16 / 9",
-        "poster": "/assets/showcase/posters/tokyo-y2k-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.jpg"
-      }
-    ],
-    "date": "2026-05",
-    "tags": [
-      "cinematic",
-      "rain-overlay",
-      "bloom"
-    ]
-  },
-  {
-    "id": "voxel-fork",
-    "format": "image",
-    "title": "Voxel Horror Fork",
-    "blurb": "First-person lantern at a fork in the path — armadillo by the mine, gnome with umbrella, lighthouse beam through the rain. Voxel horror-game still.",
-    "templateId": "choose-the-door",
-    "recipeIds": [
-      "voxel-dither",
-      "noir-grade"
-    ],
-    "assetIds": [],
-    "mediaCount": 1,
-    "media": [
-      {
-        "src": "/showcase/voxel-fork/voxel-fork.png",
-        "kind": "image",
-        "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/voxel-fork/voxel-fork.png"
-      }
-    ],
-    "tags": [
-      "voxel-night-rain",
-      "rain-overlay",
-      "lantern-glow"
     ]
   },
   {
@@ -2116,6 +1529,593 @@ export const PUBLISHED_UNITS: Unit[] = [
     "tags": [
       "risograph",
       "halftone"
+    ]
+  },
+  {
+    "id": "streetwear-drop-poster-boom",
+    "format": "poster",
+    "title": "Streetwear Drop Poster — Boom",
+    "blurb": "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"boom\" punchline cut.",
+    "templateId": "product-reveal",
+    "recipeIds": [],
+    "assetIds": [
+      "brand-stickers"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/streetwear-drop-poster/variant-01-boom.webp",
+        "kind": "image",
+        "aspect": "4 / 5",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-boom/variant-01-boom.webp"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "y2k-streetwear",
+      "halftone"
+    ]
+  },
+  {
+    "id": "streetwear-drop-poster-dang",
+    "format": "poster",
+    "title": "Streetwear Drop Poster — Dang",
+    "blurb": "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"dang\" punchline cut.",
+    "templateId": "product-reveal",
+    "recipeIds": [],
+    "assetIds": [
+      "brand-stickers"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/streetwear-drop-poster/variant-02-dang.webp",
+        "kind": "image",
+        "aspect": "4 / 5",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-dang/variant-02-dang.webp"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "y2k-streetwear",
+      "halftone"
+    ]
+  },
+  {
+    "id": "streetwear-drop-poster-yikes",
+    "format": "poster",
+    "title": "Streetwear Drop Poster — Yikes",
+    "blurb": "A poster-as-landing-page for a streetwear drop — massive beveled slab wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. The \"yikes\" punchline cut.",
+    "templateId": "product-reveal",
+    "recipeIds": [],
+    "assetIds": [
+      "brand-stickers"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/streetwear-drop-poster/variant-03-yikes.webp",
+        "kind": "image",
+        "aspect": "4 / 5",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-yikes/variant-03-yikes.webp"
+      }
+    ],
+    "date": "2026-05",
+    "tags": [
+      "y2k-streetwear",
+      "halftone"
+    ]
+  },
+  {
+    "id": "voxel-fork",
+    "format": "image",
+    "title": "Voxel Horror Fork",
+    "blurb": "First-person lantern at a fork in the path — armadillo by the mine, gnome with umbrella, lighthouse beam through the rain. Voxel horror-game still.",
+    "templateId": "choose-the-door",
+    "recipeIds": [
+      "voxel-dither",
+      "noir-grade"
+    ],
+    "assetIds": [],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/voxel-fork/voxel-fork.png",
+        "kind": "image",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/voxel-fork/voxel-fork.png"
+      }
+    ],
+    "tags": [
+      "voxel-night-rain",
+      "rain-overlay",
+      "lantern-glow"
+    ]
+  },
+  {
+    "id": "choose-path-voxel-en",
+    "format": "video",
+    "title": "Choose Your Path — voxel horror gauntlet (EN)",
+    "blurb": "Branching POV horror: pick a guide, survive a chain of 50/50 freeze-timer forks. PS1/voxel register. English VO.",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "vhs-pause-freeze",
+      "ffmpeg-xfade-master",
+      "old-radio-ps1-vo",
+      "voxel-dither"
+    ],
+    "assetIds": [
+      "shpundel-armadillo",
+      "tolik-old-man",
+      "kobold-swarm",
+      "backrooms-bed"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-path-voxel-en/final-en-compressed.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-path-voxel-en/final-en-compressed.mp4"
+      }
+    ],
+    "tags": [
+      "voxel-night-rain"
+    ]
+  },
+  {
+    "id": "nyastics-emotes-final",
+    "format": "sticker-pack",
+    "title": "Free Air — 40 emote stickers FINAL (TG-ready)",
+    "blurb": "Final 40 Free Air mascot emote stickers (hippo-pack pose port, client IP). gpt-5.4-image-2 double-ref, green-keyed, no outline, 512px transparent PNG. 3 borderline poses (walk/aww/sad) re-rolled and swapped to best variant. Ready for @Stickers upload.",
+    "templateId": "",
+    "recipeIds": [],
+    "assetIds": [],
+    "mediaCount": 40,
+    "media": [
+      {
+        "src": "/showcase/nyastics-emotes-final/ny01-laugh.png",
+        "kind": "image",
+        "aspect": "1 / 1",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny01-laugh.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny02-tada.png",
+        "kind": "image",
+        "aspect": "376 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny02-tada.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny03-rofl.png",
+        "kind": "image",
+        "aspect": "512 / 438",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny03-rofl.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny04-walk.png",
+        "kind": "image",
+        "aspect": "457 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny04-walk.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny05-splash.png",
+        "kind": "image",
+        "aspect": "498 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny05-splash.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny06-aww.png",
+        "kind": "image",
+        "aspect": "512 / 499",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny06-aww.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny07-hi.png",
+        "kind": "image",
+        "aspect": "322 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny07-hi.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny08-scheme.png",
+        "kind": "image",
+        "aspect": "295 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny08-scheme.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny09-excited.png",
+        "kind": "image",
+        "aspect": "389 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny09-excited.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny10-chill.png",
+        "kind": "image",
+        "aspect": "487 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny10-chill.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny11-lurk.png",
+        "kind": "image",
+        "aspect": "512 / 463",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny11-lurk.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny12-cake.png",
+        "kind": "image",
+        "aspect": "2 / 3",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny12-cake.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny13-noodles.png",
+        "kind": "image",
+        "aspect": "373 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny13-noodles.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny14-plusone.png",
+        "kind": "image",
+        "aspect": "277 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny14-plusone.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny15-shake.png",
+        "kind": "image",
+        "aspect": "376 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny15-shake.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny16-feast.png",
+        "kind": "image",
+        "aspect": "512 / 401",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny16-feast.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny17-stack.png",
+        "kind": "image",
+        "aspect": "223 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny17-stack.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny18-pizza.png",
+        "kind": "image",
+        "aspect": "357 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny18-pizza.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny19-melon.png",
+        "kind": "image",
+        "aspect": "366 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny19-melon.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny20-grumpy.png",
+        "kind": "image",
+        "aspect": "230 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny20-grumpy.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny21-salad.png",
+        "kind": "image",
+        "aspect": "4 / 5",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny21-salad.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny22-warrior.png",
+        "kind": "image",
+        "aspect": "4 / 5",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny22-warrior.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny23-sad.png",
+        "kind": "image",
+        "aspect": "222 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny23-sad.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny24-sus.png",
+        "kind": "image",
+        "aspect": "276 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny24-sus.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny25-huh.png",
+        "kind": "image",
+        "aspect": "318 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny25-huh.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny26-writing.png",
+        "kind": "image",
+        "aspect": "512 / 408",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny26-writing.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny27-sleep.png",
+        "kind": "image",
+        "aspect": "512 / 408",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny27-sleep.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny28-money.png",
+        "kind": "image",
+        "aspect": "332 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny28-money.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny29-reading.png",
+        "kind": "image",
+        "aspect": "512 / 366",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny29-reading.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny30-rose.png",
+        "kind": "image",
+        "aspect": "235 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny30-rose.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny31-stand.png",
+        "kind": "image",
+        "aspect": "304 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny31-stand.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny32-car.png",
+        "kind": "image",
+        "aspect": "1 / 1",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny32-car.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny33-fire.png",
+        "kind": "image",
+        "aspect": "475 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny33-fire.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny34-grass.png",
+        "kind": "image",
+        "aspect": "399 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny34-grass.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny35-crawl.png",
+        "kind": "image",
+        "aspect": "445 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny35-crawl.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny36-dead.png",
+        "kind": "image",
+        "aspect": "1 / 1",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny36-dead.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny37-drink.png",
+        "kind": "image",
+        "aspect": "395 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny37-drink.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny38-cry.png",
+        "kind": "image",
+        "aspect": "1 / 1",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny38-cry.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny39-yawn.png",
+        "kind": "image",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny39-yawn.png"
+      },
+      {
+        "src": "/showcase/nyastics-emotes-final/ny40-angry.png",
+        "kind": "image",
+        "aspect": "400 / 512",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny40-angry.png"
+      }
+    ]
+  },
+  {
+    "id": "choose-silenthill",
+    "format": "video",
+    "title": "Choose Your Guide: Silent Hill",
+    "blurb": "PS1 fog-horror: the bandaged nurse vs the armed madman",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-silenthill/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-silenthill/showcase.mp4"
+      }
+    ],
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "choose-spaceship",
+    "format": "video",
+    "title": "Choose Your Guide: Derelict Ship",
+    "blurb": "PS1 sci-fi horror: soothing ship-AI vs abrasive engineer",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "aura-hologram",
+      "voss-engineer"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-spaceship/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-spaceship/showcase.mp4"
+      }
+    ],
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "choose-swamp",
+    "format": "video",
+    "title": "Choose Your Guide: The Swamp",
+    "blurb": "PS1 Slavic folk-horror: read the witch, trust-but-verify the leshy",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "vedma-witch",
+      "leshy-trent"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-swamp/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-swamp/showcase.mp4"
+      }
+    ],
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "choose-backrooms",
+    "format": "video",
+    "title": "Choose Your Path: Backrooms",
+    "blurb": "PS1 liminal descent, party of 4 dwindles to 1, blue-pipe subversion",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "hazmat-scientists"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-backrooms/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-backrooms/showcase.mp4"
+      }
+    ],
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "choose-warofworlds",
+    "format": "video",
+    "title": "Choose Your Guide: War of the Worlds",
+    "blurb": "PS1 invasion horror: gentle-alien trap vs grim survivor",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "voxel-dither",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack",
+      "peaceful-alien",
+      "oneeyed-survivor"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-warofworlds/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-warofworlds/showcase.mp4"
+      }
+    ],
+    "tags": [
+      "analog-horror"
+    ]
+  },
+  {
+    "id": "choose-magicschool",
+    "format": "video",
+    "title": "Choose Your Path: Magic School",
+    "blurb": "Colorful PS1 magic-school dash: staircases, living armor, portals, Peeves",
+    "templateId": "choose-your-path-gauntlet",
+    "recipeIds": [
+      "ffmpeg-xfade-master",
+      "vhs-pause-freeze",
+      "smpte-countdown-disc",
+      "old-radio-ps1-vo",
+      "chroma-split",
+      "film-grain",
+      "burned-captions",
+      "boomerang-motion-fill"
+    ],
+    "assetIds": [
+      "choosepath-soundtrack"
+    ],
+    "mediaCount": 1,
+    "media": [
+      {
+        "src": "/showcase/choose-magicschool/showcase.mp4",
+        "kind": "video",
+        "aspect": "9 / 16",
+        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-magicschool/showcase.mp4"
+      }
+    ],
+    "tags": [
+      "ps1-magic-colorful"
     ]
   }
 ];
