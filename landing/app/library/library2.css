@@ -182,6 +182,8 @@
   background: var(--bg-2); position: relative; flex-shrink: 0; }
 .vthumb.on { box-shadow: 0 0 0 2px var(--vio); }
 .vthumb .ph { border-radius: 12px; }
+/* The thumb's inner <Media> (#088) fills the 54×54 button (cover crop). */
+.vthumb .vthumb-media { width: 100%; height: 100%; border-radius: 12px; }
 .vidx { font-family: var(--font-mono); font-size: 11px; color: var(--mute); }
 
 /* ingredients column */
@@ -634,7 +636,8 @@
   font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2);
   background: color-mix(in srgb, var(--bg) 70%, transparent); padding: 3px 8px; border-radius: 999px;
   backdrop-filter: blur(4px); }
-.rx-media { display: block; width: 100%; height: auto; }
+/* The recipe demo media now renders through <Media> (#088) — it owns the box
+   sizing + contain + cinema bars. The old native `.rx-media` rule is retired. */
 
 /* ── Asset detail (#085) — real player by sub (audio / image / video) ───────── */
 .am-audio-stack { display: flex; flex-direction: column; gap: 12px; }
@@ -643,19 +646,14 @@
 .am-audio-el { width: 100%; display: block; }
 .am-audio-name { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 .am-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.am-item { border-radius: 12px; overflow: hidden; background: #050506; }
-/* Multi-ref tiles: fixed 4/3 cells, cover-cropped — a tidy proof grid. */
-.am-grid .am-item { aspect-ratio: 4 / 3; }
-.am-grid .am-media { display: block; width: 100%; height: 100%; object-fit: cover; }
-/* Single ref: a CONTAINED, downscaled thumbnail — never native size. Cap the
-   height so a tall 9/16 portrait stays a tidy preview instead of page-tall, and
-   center it in its tinted box. `contain` keeps the whole frame visible. */
-.am-grid:has(.am-item:only-child) { grid-template-columns: minmax(0, max-content);
-  justify-content: start; }
-.am-grid:has(.am-item:only-child) .am-item { aspect-ratio: auto;
-  display: grid; place-items: center; }
-.am-grid:has(.am-item:only-child) .am-media { width: auto; height: auto;
-  max-width: 100%; max-height: 360px; object-fit: contain; }
+/* Each cell just rounds + clips; the inner <Media> (#088) owns aspect, fit, the
+   cinema-bar fill, and the click-to-lightbox. The old per-cell sizing (4/3 cell,
+   cover media, single-ref contain max-height:360px) folded INTO <Media> via its
+   displayAspect / fit / maxHeight props. */
+.am-item { border-radius: 12px; overflow: hidden; }
+/* Single ref: a left-aligned max-content column so the capped contain preview
+   doesn't stretch to a full grid track. */
+.am-grid-single { grid-template-columns: minmax(0, max-content); justify-content: start; }
 
 /* ── Tag chips (#084) — feed-filter links, distinct from block chips ────────── */
 /* Square-cornered, low-chroma, no glyph/open-arrow — reads as "filter the feed",
@@ -668,3 +666,46 @@
 .tagchip:hover .tagchip-hash { color: var(--vio-2); }
 /* Small variant — the tile ingredient ribbon (matches .bchip.sm sizing). */
 .tagchip.sm { padding: 3px 9px 3px 8px; font-size: 11.5px; }
+
+/* ── Shared <Media> (#088) — single image/video renderer ─────────────────────
+   ONE aspect-locked box used everywhere a picture/video appears. The box's own
+   background is the CINEMA-BAR fill (a deep media-void tint, NOT a border):
+   with object-fit:contain the media shows whole and the box background shows
+   through wherever contain leaves a gap — pillarbox (L/R) when the media is
+   taller than the slot, letterbox (T/B) when it is wider. fit:cover crops to
+   fill (the masonry tile cells / contact sheets). No native-dimension rendering
+   — the inner media is absolutely positioned and sized 100% of this box.
+   Supersedes the per-page caps (.am-grid single-ref max-height, .rx-media
+   native width, .stage-media 70vh) — those now flow through the maxHeight /
+   displayAspect props. */
+.media-box { position: relative; overflow: hidden; border-radius: inherit;
+  background: #050506; display: block; }
+/* The inner element (next/image renders its own positioned <img>; the plain
+   <img>/<video> get pinned here). object-fit is set inline per call. */
+.media-box .media-el { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.media-box > img { object-fit: inherit; }
+/* Tile cell variant: the host box (.ph wrapper / .ph-cells .c / .ph-stack .s /
+   carousel inset) already controls the slot shape, so the cell FILLS it exactly
+   and drops its own aspect-lock — cover crops within the host (the masonry /
+   Pinterest look). */
+.media-cell { width: 100% !important; height: 100% !important; aspect-ratio: auto !important;
+  margin-inline: 0 !important; max-height: none !important; }
+/* Trigger variant — the whole box is a zoom-in button (no border, no padding). */
+.media-trigger { padding: 0; border: 0; cursor: zoom-in; width: 100%; text-align: left;
+  appearance: none; color: inherit; font: inherit; transition: transform .18s; }
+.media-trigger:hover { transform: translateY(-1px); }
+
+/* Lightbox stage — shadcn Dialog content, stripped to a viewport-capped media
+   void. No card chrome: separation is the dark stage + the dialog's own shadow
+   (no border). */
+.media-lb-content { max-width: min(94vw, 1200px) !important; width: auto !important;
+  padding: 0 !important; background: transparent !important; box-shadow: none !important;
+  gap: 0 !important; }
+.media-lb-stage { position: relative; display: grid; place-items: center;
+  width: min(94vw, 1200px); max-height: 88vh; border-radius: 14px; overflow: hidden;
+  background: #050506; }
+.media-lb-stage.is-checker { background: var(--bg-2); padding: 30px; border-radius: 18px; }
+.media-lb-stage.is-checker .media-lb-el { max-height: 70vh; }
+/* The large media: whole, contained, capped to viewport — never native size. */
+.media-lb-stage .media-lb-el { display: block; max-width: min(94vw, 1200px);
+  max-height: 88vh; width: auto; height: auto; object-fit: contain; }

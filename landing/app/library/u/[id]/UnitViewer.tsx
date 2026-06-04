@@ -10,7 +10,7 @@
 import { useState } from "react";
 import type { Format, Unit } from "@/lib/library-v2/types";
 import { fhue, mediaUrl, singleItemFormat } from "../../_shared/blockMeta";
-import { MediaCell } from "../../_shared/UnitTile";
+import { Media } from "../../_shared/Media";
 import { Lightbox } from "../../_shared/Lightbox";
 import type { LightboxItem, LightboxState } from "../../_shared/types";
 
@@ -26,13 +26,6 @@ export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined 
   // For single-item units prefer the media's OWN aspect (a video unit can be
   // 1/1, 16/9, or 9/16) over the format default.
   const itemAspect = multi ? "1 / 1" : (stageItem?.aspect ?? format?.aspect ?? "4 / 5");
-  // Numeric W/H ratio so the stage can derive its width from the 70vh height cap
-  // (CSS `aspect-ratio` alone won't re-derive width once `width:100%` is set, so
-  // a portrait clip would otherwise crop to the column width).
-  const ratio = (() => {
-    const [w, h] = itemAspect.split("/").map((n) => parseFloat(n.trim()));
-    return w && h ? w / h : 0.75;
-  })();
   const isStickerLike = u.format === "sticker-pack";
 
   const lbItems: LightboxItem[] = media.map((m, i) => ({
@@ -68,30 +61,36 @@ export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined 
         onClick={() => openLightbox(active)}
         aria-label={stageItem ? `Open ${u.title} in fullscreen` : u.title}
       >
-        {/* Cap the media at 70vh while preserving aspect + centering, so a
-            portrait (9/16) clip fits comfortably beside the panel instead of
-            dominating the page. aspect-ratio + max-height lets the box shrink
-            to fit the cap; margin auto centers the narrower result. */}
-        <div
-          className="stage-media"
-          style={{
-            aspectRatio: itemAspect,
-            // width capped at the column width OR (70vh × aspect ratio), so the
-            // portrait full frame shows within the 70vh height cap.
-            width: `min(100%, calc(70vh * ${ratio}))`,
-            ["--hue" as string]: hue,
-          }}
-        >
-          {stageItem ? (
-            // contain (not cover) on the detail stage so the whole sticker /
-            // creative / still is visible — cover was cropping tall stickers.
-            <MediaCell m={stageItem} alt={u.title} fit="contain" />
-          ) : (
-            <div className="ph" style={{ position: "absolute", inset: 0, ["--hue" as string]: hue }}>
-              <span className="ph-glyph">{format?.glyph}</span>
-            </div>
-          )}
-        </div>
+        {/* The stage media now flows through <Media> (#088): contain + cinema
+            bars into the item's aspect, capped at 70vh (Media derives its own
+            width from maxHeight × aspect, replacing the manual width calc), so a
+            portrait (9/16) clip fits beside the panel instead of dominating the
+            page and never crops. lightbox={false} — the click is handled by the
+            enclosing .stage button, which opens the MULTI-ITEM gallery Lightbox
+            (prev/next + remix bar) below, not a single-item dialog. */}
+        {stageItem ? (
+          <Media
+            src={mediaUrl(stageItem)}
+            kind={stageItem.kind}
+            alt={u.title}
+            displayAspect={itemAspect}
+            maxHeight="70vh"
+            fit="contain"
+            lightbox={false}
+            className="stage-media"
+            checker={isStickerLike}
+            muted
+            loop
+            autoPlay
+          />
+        ) : (
+          <div
+            className="stage-media ph"
+            style={{ aspectRatio: itemAspect, position: "relative", ["--hue" as string]: hue }}
+          >
+            <span className="ph-glyph">{format?.glyph}</span>
+          </div>
+        )}
       </button>
 
       {multi && (
@@ -108,9 +107,18 @@ export function UnitViewer({ u, format }: { u: Unit; format: Format | undefined 
                 aria-label={`Item ${k + 1}`}
                 style={{ ["--hue" as string]: hue }}
               >
-                <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                  <MediaCell m={m} alt={`${u.title} item ${k + 1}`} />
-                </div>
+                <Media
+                  src={mediaUrl(m)}
+                  kind={m.kind}
+                  alt={`${u.title} item ${k + 1}`}
+                  displayAspect="1 / 1"
+                  fit="cover"
+                  lightbox={false}
+                  muted
+                  loop
+                  autoPlay
+                  className="vthumb-media"
+                />
               </button>
             ))}
           </div>
