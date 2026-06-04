@@ -6,7 +6,7 @@ Rules about how to start a ralphy session, not what to do in any specific role. 
 
 Every finished project under `workspace/projects/<id>/` ships a postmortem (either a 6-file split under `postmortem/` or a legacy single `POSTMORTEM.md`). Those documents are the highest-density distillation of what's worked, what's failed, and what burned money on a similar brief.
 
-**Concrete: when a new project request lands, before running `ralphy generate`, identify the closest sibling project and re-read its `02-lessons.md` / lessons section.** "Closest" = same template kind, same category (per `templates/CATEGORIES.md`), same aesthetic register. The 10 minutes you spend reading saves $5-20 of regen burn.
+**Concrete: when a new project request lands, before running `ralphy generate`, identify the closest sibling project and re-read its `02-lessons.md` / lessons section.** "Closest" = same template kind, same category (per `ralphy template list -p` / the public Library), same aesthetic register. The 10 minutes you spend reading saves $5-20 of regen burn.
 
 Examples of the closest-sibling pattern:
 - New analog-horror PSA brief → re-read `workspace/projects/analog-horror-fridge-001/POSTMORTEM.md`
@@ -29,7 +29,7 @@ Specifically, **before picking `--model`**, scan:
 
 Hard AGENTS.md invariant #10. Read [`docs/skills-vs-templates.md`](../skills-vs-templates.md) for the full model. The short version:
 
-- On a generic brief ("make an unboxing video", "make a talking-head rant"), **match the media format / template library first** — `ralphy template suggest "<brief>" --format <f>` (formats in [`templates/FORMATS.md`](../../templates/FORMATS.md)). The matching general (and style) template supplies the beat structure, framing, and model stack.
+- On a generic brief ("make an unboxing video", "make a talking-head rant"), **match the media format / template library first** — `ralphy template suggest "<brief>" --format <f>` (formats in `ralphy template suggest --help`). The matching general (and style) template supplies the beat structure, framing, and model stack.
 - **Content-niche skills (`ugc-*`, `poster`, `carousel`, `fb-creatives`, `analog-horror-psa`, `audio-explainer`) are supplementary craft overlays** — loaded on top of a template match to enrich a brief, not the primary route. They are pending conversion to format templates in issue 058.
 - A **style template** can also reproduce one concrete video: that is the **remix path** — the user explicitly points at one specific video (`@template:<slug>`, "remix this one", names a slug) and says what to swap. Remix is user-initiated, never auto-suggested for a generic brief.
 - If nothing in the library matches → go freeform via the scenarist.

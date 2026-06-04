@@ -54,7 +54,7 @@ You can short-circuit the suggest step at any time by naming the slug yourself: 
 
 ## The five categories
 
-54 templates live in `templates/<category>/<slug>/`. Categories are organized by **who's watching** the content, not by visual style. The full roster is in [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md); a quick map:
+Public templates live in the hosted content library (browse on [`/library`](https://www.alecs5am.com/library)); your own live under `workspace/templates/`. Categories are organized by **who's watching** the content, not by visual style. The full roster is on the Library; a quick map:
 
 | Category | Audience | Tone | Count |
 |---|---|---|---|
@@ -83,7 +83,7 @@ Add `--json` for the metadata, `--path` for the on-disk location, `-p` for prett
 
 ## The Top-20 cross-category playlist
 
-For a hand-curated "what's actually moving the needle in 2026" shortlist, read [`templates/TOP.md`](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md). It picks twenty templates across four of the five categories (cinematic-narrative is intentionally excluded — those are aesthetic-first, not virality-first) and explains the selection criteria. If you're learning Ralphy by doing, walking the Top-20 list is the test-drive set: each one exercises a different viral pattern.
+For a hand-curated "what's actually moving the needle in 2026" shortlist, sort the public [Library](https://www.alecs5am.com/library) by popularity. It surfaces high-leverage templates across four of the five categories (cinematic-narrative is aesthetic-first, not virality-first). If you're learning Ralphy by doing, walking that shortlist is the test-drive set: each one exercises a different viral pattern.
 
 ## Using a template
 
@@ -122,8 +122,7 @@ Free-form mode is a first-class path. Ralphy enters it automatically when `templ
 ## Related
 
 - [Starting a project](/working/starting-a-project) — where `template suggest` slots into intake
-- [Templates concept](/concepts/templates) — repo-public vs workspace, slug resolution
+- [Templates concept](/concepts/templates) — public library vs workspace, slug resolution
 - [Template format](/advanced/template-format) — `template.json`, file layout, requires
 - [CLI: templates](/cli/templates) — every flag on every template verb
-- [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) — full roster by category
-- [`templates/TOP.md`](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md) — Top-20 viral-2026 playlist
+- [Library](https://www.alecs5am.com/library) — full roster, browsable by category
