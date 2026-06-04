@@ -263,6 +263,44 @@
 .commit .summary b { color: var(--vio-2); font-weight: 400; }
 .btn-remix-full { flex: 1; justify-content: center; }
 
+/* ── Blueprint accent + reproduce CTAs (#079) ─────────────────────────
+   The Blueprint reads in a cool blue — deliberately OFF the format/orange
+   wheel so it never competes with a format hue or the --vio accent. No
+   visible borders: solid blue fill on the primary, bg-tint on the secondary. */
+:root {
+  --bp-blue:    oklch(0.66 0.16 250);
+  --bp-blue-2:  oklch(0.74 0.15 250);
+  --bp-ink:     oklch(0.86 0.05 250);
+  --bp-tint:    oklch(0.66 0.16 250 / 0.14);
+  --bp-tint-2:  oklch(0.66 0.16 250 / 0.22);
+}
+
+/* Left-column reproduce CTAs — the blue Blueprint button + Use-in-ralphy. */
+.bp-cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+
+.btn-blueprint { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px;
+  border-radius: 999px; background: var(--bp-blue); color: #05060a; font-weight: 600;
+  font-size: 15px; border: 0; cursor: pointer; transition: transform .16s, background .16s; }
+.btn-blueprint:hover { background: var(--bp-blue-2); transform: translateY(-1px); }
+.btn-blueprint .btn-blueprint-glyph { font-family: var(--font-display); font-size: 17px;
+  line-height: 1; margin-top: -1px; }
+
+.btn-use-ralphy { display: inline-flex; align-items: center; gap: 8px; padding: 13px 20px;
+  border-radius: 999px; background: var(--bp-tint); color: var(--bp-ink); font-weight: 600;
+  font-size: 15px; border: 0; cursor: pointer; transition: background .16s, transform .16s; }
+.btn-use-ralphy:hover { background: var(--bp-tint-2); transform: translateY(-1px); }
+
+/* Blue eyebrow inside the Blueprint / Use modals (overrides the orange .m-eyebrow). */
+.modal-card .m-eyebrow.bp-eyebrow { color: var(--bp-blue-2); }
+
+/* Wide, scrollable modal for the full Blueprint detail. */
+.modal-card-wide { max-width: 960px; }
+.bp-modal-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+.bp-modal-card .m-head { margin-bottom: 14px; }
+.bp-modal-body { overflow-y: auto; overscroll-behavior: contain; padding-right: 4px;
+  display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 720px) { .modal-card-wide { max-width: 100%; } }
+
 /* try-hints (make the two required swap flows explicit) */
 .tryrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 14px 6px; }
 .tryhint { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 10.5px;

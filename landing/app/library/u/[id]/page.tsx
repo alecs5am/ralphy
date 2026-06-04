@@ -29,7 +29,7 @@ import type { AssetSub, Block } from "@/lib/library-v2/types";
 import { fhue } from "../../_shared/blockMeta";
 import { UnitViewer } from "./UnitViewer";
 import { IngredientPanel } from "./IngredientPanel";
-import { BlueprintPanel } from "./BlueprintPanel";
+import { BlueprintCta } from "./BlueprintModal";
 import { MoreFrom } from "./MoreFrom";
 
 export const dynamicParams = false;
@@ -93,7 +93,8 @@ export default async function UnitDetailPage({
   const moreInStyle = inStyle.filter((u) => u.id !== unit.id);
 
   // The per-unit Blueprint (#074) — full reproduction recipe. Undefined when the
-  // unit has no published Blueprint yet; the panel then renders nothing.
+  // unit has no published Blueprint yet; the CTA island then renders nothing (no
+  // Blueprint button, no "Use in ralphy" button — the page is just viewer + rail).
   const blueprint = await getBlueprint(unit.id);
 
   const hue = format ? fhue(format.id) : "var(--mute)";
@@ -136,9 +137,13 @@ export default async function UnitDetailPage({
                 <h1 className="detail-title" style={{ margin: "10px 0 12px" }}>
                   {unit.title}
                 </h1>
-                <p className="detail-sub" style={{ marginBottom: 20, maxWidth: "56ch" }}>
+                <p className="detail-sub" style={{ marginBottom: 18, maxWidth: "56ch" }}>
                   {unit.blurb}
                 </p>
+                {/* Reproduce CTAs (#079) — blue Blueprint button opens the full
+                    recipe in a modal; "Use in ralphy" surfaces the reproduce
+                    command. Both render only when this unit has a Blueprint. */}
+                <BlueprintCta unitId={unit.id} title={unit.title} blueprint={blueprint} />
                 <UnitViewer u={unit} format={format} />
               </div>
 
@@ -159,8 +164,6 @@ export default async function UnitDetailPage({
             </div>
           </div>
         </section>
-
-        <BlueprintPanel blueprint={blueprint} />
 
         <MoreFrom
           formats={formats}
