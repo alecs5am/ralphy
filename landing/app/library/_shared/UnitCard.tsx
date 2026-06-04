@@ -208,15 +208,39 @@ export function MediaCell({ m, alt, fit = "cover" }: { m: UnitMedia; alt: string
   );
 }
 
-export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefined }) {
+/** The CSS aspect a unit's tile renders at in the MEDIA-FIRST feed (#100): the
+ *  unit's own media aspect everywhere, EXCEPT `video` + `podcast-cuts` are
+ *  cropped to 4/5 so a vertical clip doesn't become a giant monolith in the
+ *  column (the full native aspect shows on the unit detail page). Mirrors the
+ *  prototype's FEED_ASPECT_V. Shared with the masonry height estimate. */
+export function feedTileAspect(u: Unit, format: Format | undefined): string {
+  if (u.format === "video" || u.format === "podcast-cuts") return "4 / 5";
+  return unitTileAspect(u, format);
+}
+
+export function UnitMediaShape({
+  u,
+  format,
+  feed = false,
+}: {
+  u: Unit;
+  format: Format | undefined;
+  /** Media-first feed variant (#100): 4/5 crop for video/podcast-cuts, and the
+   *  resting `.ph-count` text badge + the no-media `.ph-fmt`/glyph chrome are
+   *  suppressed (the count moves to the hover eyebrow; type is carried by the
+   *  badge + shape + aspect + hue rendered by FeedCard on top). Additive — the
+   *  default (false) keeps the original compact-card behavior unchanged. */
+  feed?: boolean;
+}) {
   const media = u.media ?? [];
   const count = u.mediaCount;
   const hue = format ? fhue(format.id) : "var(--mute)";
   // Tile aspect = the unit's OWN media aspect (a 16/9 clip renders landscape, a
   // 1/1 square, a 9/16 portrait) — restoring the mixed-aspect Pinterest look.
-  // Fall back to the format default only when the unit has no media. This same
-  // helper feeds the masonry height estimate in LibraryListing.
-  const tileAspect = unitTileAspect(u, format);
+  // Fall back to the format default only when the unit has no media. In the feed
+  // variant, video/podcast-cuts are cropped to 4/5. This same helper feeds the
+  // masonry height estimate in LibraryListing.
+  const tileAspect = feed ? feedTileAspect(u, format) : unitTileAspect(u, format);
   const style: React.CSSProperties = {
     aspectRatio: tileAspect,
     ["--hue" as string]: hue,
@@ -237,6 +261,17 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
           <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
             <MediaCell m={m} alt={u.title} />
           </div>
+        </div>
+      );
+    }
+    // Feed variant: the no-media empty state shows only the hue-tinted shape +
+    // a faint corner glyph — the format chrome (label / aspect sub) is dropped
+    // (type is carried by FeedCard's badge + aspect + hue), and the center
+    // play badge is FeedCard's responsibility too.
+    if (feed) {
+      return (
+        <div className={`ph${isMotion ? " is-motion" : ""}`} style={style}>
+          <span className="ph-glyph">{format?.glyph}</span>
         </div>
       );
     }
@@ -276,7 +311,7 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
             </span>
           ))}
         </div>
-        <span className="ph-count">✺ {count} stickers</span>
+        {!feed && <span className="ph-count">✺ {count} stickers</span>}
       </div>
     );
   }
@@ -296,7 +331,7 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
             <MediaCell m={front} alt={u.title} />
           </div>
         )}
-        <span className="ph-count">❯ {count} slides</span>
+        {!feed && <span className="ph-count">❯ {count} slides</span>}
       </div>
     );
   }
@@ -315,7 +350,7 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
             </span>
           ))}
         </div>
-        <span className="ph-count">❤ {count} creatives</span>
+        {!feed && <span className="ph-count">❤ {count} creatives</span>}
       </div>
     );
   }
@@ -342,7 +377,7 @@ export function UnitMediaShape({ u, format }: { u: Unit; format: Format | undefi
                 </span>
               ))}
         </div>
-        <span className="ph-count">♬ {count} cuts</span>
+        {!feed && <span className="ph-count">♬ {count} cuts</span>}
       </div>
     );
   }
