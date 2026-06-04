@@ -1,15 +1,20 @@
-// Library v2 — Screen 3 Asset branch (#085). Renders a REAL player for an
-// asset block in the header-proof slot, sourced from `block.refs` (the ref
-// media URLs). Server Component — the native <audio>/<video>/<img> controls
-// need no JS. By `sub`:
+// Library v2 — Screen 3 header-proof player (#085, generalized for the
+// media-or-nothing proof slot). Renders a REAL player for ANY block kind
+// (asset / template / style) in the header-proof slot, sourced from
+// `block.refs` (the ref media URLs). Server Component — the native
+// <audio>/<video>/<img> controls need no JS. Routing:
 //
-//   music             → inline <audio controls> (play the bed). The concrete
-//                       ask: clicking "Choose-Path Soundtrack" yields a player.
-//   character/location/prop → the reference image(s) in a simple <img> viewer.
-//   video refs        → <video controls poster>.
+//   music sub / audio ext      → inline <audio controls> (play the bed). The
+//                                concrete ask: clicking "Choose-Path Soundtrack"
+//                                yields a player.
+//   all-video refs             → <video controls poster>.
+//   image refs (default — incl.
+//   character/location/prop,
+//   template/style previews)   → the reference image(s) in a simple <img> viewer.
 //
-// Graceful fallback: when `block.refs` is empty (the default until #083), this
-// returns null and the page keeps the existing schematic placeholder.
+// Media-or-nothing: when `block.refs` is empty, this returns null and the proof
+// slot renders NOTHING — no schematic placeholder (the user's "no dumb
+// placeholders" rule). The caller drops `.bhead` to a single column.
 //
 // No visible borders: separation via bg-tint + shadow + spacing only.
 
@@ -18,8 +23,8 @@ import type { Block } from "@/lib/library-v2/types";
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
 const AUDIO_EXT = /\.(mp3|wav|m4a|aac|ogg|flac)(\?|#|$)/i;
 
-/** True when this asset block has at least one playable ref. */
-export function hasAssetMedia(block: Block): boolean {
+/** True when this block has at least one playable ref to show in the proof slot. */
+export function hasRefMedia(block: Block): boolean {
   return !!block.refs && block.refs.length > 0;
 }
 
