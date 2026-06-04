@@ -3,19 +3,20 @@
 // Library v2 — Screen 3: the building-BLOCK page. One layout reused for every
 // kind (Template / Style / Recipe / Asset). Server Component, fully SSG.
 //
-//   Header (.bhead, 2-col):
+//   Header (.bhead, 2-col when proof exists, single-col when it does not):
 //     left  — eyebrow `{glyph} {Kind}` (+ "· Asset" for assets), H1 name, blurb,
 //             CTA "Use this {kind}" (→ ComposeCta client modal) + "{n} units use it".
-//     right — proof, per kind:
-//             Template      → 4 "structure beats" (schematic).
-//             Style / Asset → 4-up reference-examples grid (schematic).
-//             Recipe        → before / after pair (schematic).
+//     right — proof, MEDIA-OR-NOTHING (the user's "no dumb placeholders" rule):
+//             Template / Style / Asset → the real `block.refs` media (image /
+//                                        video / audio) via AssetMedia. No refs
+//                                        → render NOTHING (no schematic grid).
+//             Recipe                    → ALWAYS nothing here; its demo + artifact
+//                                        live LOWER on the page in RecipeDetail.
 //   Body: "Units that use this {kind}" → the feed filtered to this block (the
 //         same UnitTile masonry, via the BlockUnits client island).
 //
-// Block reference media is intentionally absent this pass (Block.refs is empty),
-// so the proof tiles render as schematic hue/glyph placeholders — never a broken
-// <img>. The grid is shaped to drop in real media when block.refs lands later.
+// When the proof renders nothing, the `.bhead` drops to a single column
+// (`.bhead.no-proof`) so the header text spans full width — no empty right gap.
 //
 // This closes the loop: feed → unit → block → that block's units. The block-chip
 // and More-from links from Screens 1 + 2 point here.
@@ -27,8 +28,8 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { getBlock, getBlocks, getFormats, unitsUsing } from "@/lib/library-v2/source";
 import type { Block, BlockKind } from "@/lib/library-v2/types";
-import { KIND_META, RECIPE_KIND_META, SUB_META, blockGlyph } from "../../../_shared/blockMeta";
-import { AssetMedia, hasAssetMedia } from "./AssetMedia";
+import { KIND_META, RECIPE_KIND_META, SUB_META } from "../../../_shared/blockMeta";
+import { AssetMedia, hasRefMedia } from "./AssetMedia";
 import { BlockUnits } from "./BlockUnits";
 import { ComposeCta, ComposeLink } from "./ComposeModal";
 import { RecipeDetail } from "./RecipeDetail";
@@ -71,14 +72,6 @@ export async function generateMetadata({
   };
 }
 
-// ── Schematic proof tile ────────────────────────────────────────────────────
-//
-// No real reference media exists this pass, so a proof tile is a hue-tinted .ph
-// shell carrying the block-accent glyph + a corner label. The block accent is
-// deliberately off the format wheel (cool low-chroma --block-ink), so the proof
-// reads as "a block", not "a format". When block.refs media lands, swap the
-// inner content for the real <Image>/<video> while keeping this .ph wrapper.
-
 // ── Recipe-kind badge — the colored type tag under the H1 on a recipe page, so
 // the treatment class (ffmpeg / encode / overlay / bake / hyperframes / prompt)
 // is obvious before reading the body. Renders nothing for a recipe with no
@@ -101,70 +94,28 @@ function RecipeKindBadge({ block }: { block: Block }) {
   );
 }
 
-function SchematicTile({ glyph, label }: { glyph: string; label: string }) {
-  return (
-    <div className="ph" style={{ ["--hue" as string]: "var(--block-ink)", aspectRatio: "auto" }}>
-      <span className="ph-glyph">{glyph}</span>
-      <span className="ph-count" style={{ left: 8, right: "auto", bottom: 8 }}>
-        {label}
-      </span>
-    </div>
-  );
+// ── Header proof slot — MEDIA-OR-NOTHING ─────────────────────────────────────
+//
+// The proof slot shows a REAL preview when one exists, and renders NOTHING
+// otherwise (the user's "no dumb placeholders" rule). No schematic fallback.
+//
+//   recipe                   → always null here. Its before/after demo + the
+//                              copyable artifact live in <RecipeDetail> below,
+//                              so a top proof would only duplicate.
+//   template / style / asset → AssetMedia from `block.refs` (image / video /
+//                              audio viewer) when refs exist; null when empty.
+//
+// `hasBlockProof` is the SSR-side predicate so the header can pre-switch to a
+// single column (`.bhead.no-proof`) — keeping the two in lockstep.
+
+function hasBlockProof(block: Block): boolean {
+  if (block.kind === "recipe") return false;
+  return hasRefMedia(block);
 }
 
 function BlockRefs({ block }: { block: Block }) {
-  const glyph = blockGlyph(block);
-
-  // Asset with real ref media (#085) → a live player (audio / image / video) by
-  // sub, replacing the schematic 4-up grid. Falls through to the schematic
-  // placeholder below when the asset has no refs yet (graceful default).
-  if (block.kind === "asset" && hasAssetMedia(block)) {
-    return <AssetMedia block={block} />;
-  }
-
-  if (block.kind === "recipe") {
-    // Before / after pair.
-    return (
-      <div className="bh-refs">
-        <p className="rh">Before / after</p>
-        <div className="ba-pair">
-          <div className="bap" style={{ ["--hue" as string]: "var(--block-ink)" }}>
-            <span className="tag">before</span>
-            <div className="ph" style={{ ["--hue" as string]: "var(--block-ink)", aspectRatio: "auto" }}>
-              <span className="ph-glyph">{glyph}</span>
-            </div>
-          </div>
-          <div className="bap" style={{ ["--hue" as string]: "var(--block-ink)" }}>
-            <span className="tag">after · {block.name}</span>
-            <div className="ph" style={{ ["--hue" as string]: "var(--block-ink)", aspectRatio: "auto" }}>
-              <span className="ph-glyph">{glyph}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Template → 4 structure beats; Style / Asset → 4-up reference examples.
-  const isTemplate = block.kind === "template";
-  const labels = isTemplate
-    ? ["frame 1", "frame 2", "frame 3", "payoff"]
-    : block.kind === "asset"
-      ? ["hero", "3⁄4", "in-scene", "alt"]
-      : ["still", "motion", "card", "type"];
-
-  return (
-    <div className="bh-refs">
-      <p className="rh">{isTemplate ? "Structure beats" : "Reference examples"}</p>
-      <div className="bh-refgrid">
-        {labels.map((l) => (
-          <div key={l} className="rf">
-            <SchematicTile glyph={glyph} label={l} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  if (!hasBlockProof(block)) return null;
+  return <AssetMedia block={block} />;
 }
 
 export default async function BlockPage({
@@ -188,6 +139,7 @@ export default async function BlockPage({
   const meta = kindMeta(block);
   const lower = meta.label.toLowerCase();
   const n = units.length;
+  const showProof = hasBlockProof(block);
 
   return (
     <>
@@ -203,7 +155,7 @@ export default async function BlockPage({
               <span>{KIND_META[block.kind].plural}</span>
             </p>
 
-            <div className="bhead">
+            <div className={`bhead${showProof ? "" : " no-proof"}`}>
               <div>
                 <p className="bh-eye">
                   <span className="g">{meta.glyph}</span>
@@ -220,7 +172,7 @@ export default async function BlockPage({
                   </span>
                 </div>
               </div>
-              <BlockRefs block={block} />
+              {showProof && <BlockRefs block={block} />}
             </div>
           </div>
         </section>
