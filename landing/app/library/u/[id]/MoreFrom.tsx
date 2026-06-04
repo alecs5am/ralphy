@@ -5,11 +5,11 @@
 //   More with {tag}      — other units sharing this unit's look / tag (a tag is
 //                          a feed filter, so its rail head links to ?tag=, not a
 //                          block page).
-// Compact UnitTiles in a scroll-snap rail.
+// Compact <UnitCard>s in a shared <UnitRail> scroll-snap strip.
 
 import Link from "next/link";
-import type { Block, BlockKind, Format, Unit } from "@/lib/library-v2/types";
-import { UnitTile } from "../../_shared/UnitTile";
+import type { Block, Format, Unit } from "@/lib/library-v2/types";
+import { UnitRail } from "../../_shared/UnitRail";
 import { KIND_META } from "../../_shared/blockMeta";
 
 export interface MoreFromProps {
@@ -23,10 +23,6 @@ export interface MoreFromProps {
 }
 
 export function MoreFrom({ formats, blocks, template, lookTag, fromTemplate, withLook }: MoreFromProps) {
-  const fmtById = new Map(formats.map((f) => [f.id, f]));
-  const blockBy = (kind: BlockKind, id: string): Block | undefined =>
-    blocks.find((b) => b.kind === kind && b.id === id);
-
   const rails: {
     lead: string;
     kindLabel: string;
@@ -93,11 +89,7 @@ export function MoreFrom({ formats, blocks, template, lookTag, fromTemplate, wit
             <p className="sec-blurb" style={{ marginTop: 0 }}>
               {r.sub}
             </p>
-            <div className="relrail">
-              {r.list.map((u) => (
-                <UnitTile key={u.id} u={u} format={fmtById.get(u.format)} blockBy={blockBy} compact />
-              ))}
-            </div>
+            <UnitRail units={r.list} formats={formats} blocks={blocks} />
           </div>
         </section>
       ))}

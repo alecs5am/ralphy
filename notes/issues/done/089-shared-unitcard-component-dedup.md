@@ -1,6 +1,6 @@
 # Shared `<UnitCard>` component — dedup the copied unit tiles
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (UnitTile→UnitCard canonical card; remixForUnit single-sourced to _shared/remix.ts; <UnitGrid>+<UnitRail> wrappers fold BlockUnits island + MoreFrom rail; feed masonry kept for #092; UnitRail structured for #090 carousel drop-in; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium
