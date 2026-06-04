@@ -577,46 +577,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "sub": "music"
   },
   {
-    "kind": "asset",
-    "id": "aura-hologram",
-    "name": "AURA — Ship-AI Hologram",
-    "blurb": "Giant translucent pink-magenta holographic woman (Joi-style), scanline flicker, echoed across ship monitors. The soothing-but-lethal AI guide (spaceship).",
-    "refs": [],
-    "sub": "character"
-  },
-  {
-    "kind": "asset",
-    "id": "hazmat-scientists",
-    "name": "Hazmat Scientist Trio",
-    "blurb": "Three biohazard-suit gas-mask scientists (orange/teal/purple), the dwindling party of the Backrooms descent.",
-    "refs": [],
-    "sub": "character"
-  },
-  {
-    "kind": "asset",
-    "id": "leshy-trent",
-    "name": "LESHY — Half-Tree Trent",
-    "blurb": "50/50 flesh-and-bark forest spirit, never speaks, only groans/gestures. Trust-but-verify guide (swamp).",
-    "refs": [],
-    "sub": "character"
-  },
-  {
-    "kind": "asset",
-    "id": "oneeyed-survivor",
-    "name": "One-Eyed Survivor",
-    "blurb": "Big ~60yo Black man, milky scarred blind eye, green overshirt, sawn-off rifle. Grim honest guide (war of the worlds).",
-    "refs": [],
-    "sub": "character"
-  },
-  {
-    "kind": "asset",
-    "id": "peaceful-alien",
-    "name": "Peaceful Alien (brain-in-capsule)",
-    "blurb": "Floating pink-brain in a clean capsule with soft tentacles, benevolent warm glow — the welcoming lie (war of the worlds).",
-    "refs": [],
-    "sub": "character"
-  },
-  {
     "kind": "style",
     "id": "ps1-magic-colorful",
     "name": "PS1 Magic-School (Colorful)",
@@ -629,22 +589,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Choose-Your-Path Gauntlet",
     "blurb": "Hub → pick a guide → a chain of binary 50/50 forks (scene plays → freeze + 3-2-1 timer → consequence) → branch payoff. Generalizes analog-horror-pick-a-door into a guide-choice survival gauntlet. Narration restates each choice ('you picked X — …') for retention.",
     "refs": []
-  },
-  {
-    "kind": "asset",
-    "id": "vedma-witch",
-    "name": "VEDMA — Bog Witch",
-    "blurb": "Beautiful (not a hag) purple-gowned pointed-hat Slavic witch with grim help. Read-the-witch guide (swamp).",
-    "refs": [],
-    "sub": "character"
-  },
-  {
-    "kind": "asset",
-    "id": "voss-engineer",
-    "name": "VOSS — Derelict-Ship Engineer",
-    "blurb": "Fat balding bearded low-poly engineer, yellow hard hat, grimy coverall, cigarette. The abrasive-but-right guide (spaceship).",
-    "refs": [],
-    "sub": "character"
   },
   {
     "kind": "asset",
@@ -938,6 +882,116 @@ export const PUBLISHED_BLOCKS: Block[] = [
       "bayer_scale": 3,
       "contrast": 1.06
     }
+  },
+  {
+    "kind": "asset",
+    "id": "aura-hologram",
+    "name": "AURA — Ship-AI Hologram",
+    "blurb": "Giant translucent pink-magenta holographic woman (Joi-style), scanline flicker, echoed across ship monitors. The soothing-but-lethal AI guide (spaceship).",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/aura-hologram/char-aura.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "brand-stickers",
+    "name": "Brand sticker set",
+    "blurb": "A pool of brand stickers dropped onto the canvas with an overshoot.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/brand-stickers/ny01-laugh.png"
+    ],
+    "sub": "prop"
+  },
+  {
+    "kind": "asset",
+    "id": "gameplay-loop",
+    "name": "Gameplay loop",
+    "blurb": "A hypnotic CS:GO-surf gameplay loop used as the brainrot bottom layer.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/gameplay-loop/cs-surf-loop.mp4"
+    ],
+    "sub": "prop"
+  },
+  {
+    "kind": "asset",
+    "id": "hazmat-scientists",
+    "name": "Hazmat Scientist Trio",
+    "blurb": "Three biohazard-suit gas-mask scientists (orange/teal/purple), the dwindling party of the Backrooms descent.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-doc.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "leshy-trent",
+    "name": "LESHY — Half-Tree Trent",
+    "blurb": "50/50 flesh-and-bark forest spirit, never speaks, only groans/gestures. Trust-but-verify guide (swamp).",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/leshy-trent/char-leshy.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "oneeyed-survivor",
+    "name": "One-Eyed Survivor",
+    "blurb": "Big ~60yo Black man, milky scarred blind eye, green overshirt, sawn-off rifle. Grim honest guide (war of the worlds).",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/oneeyed-survivor/char-survivor.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "peaceful-alien",
+    "name": "Peaceful Alien (brain-in-capsule)",
+    "blurb": "Floating pink-brain in a clean capsule with soft tentacles, benevolent warm glow — the welcoming lie (war of the worlds).",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/peaceful-alien/char-alien.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "trend-soviet-bed",
+    "name": "Soviet trend bed",
+    "blurb": "The canonical Soviet-nostalgic trend music bed — recognizability is half the format.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/trend-soviet-bed/trend-soviet-bed.mp3"
+    ],
+    "sub": "music"
+  },
+  {
+    "kind": "asset",
+    "id": "vedma-witch",
+    "name": "VEDMA — Bog Witch",
+    "blurb": "Beautiful (not a hag) purple-gowned pointed-hat Slavic witch with grim help. Read-the-witch guide (swamp).",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/vedma-witch/char-witch.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "voss-engineer",
+    "name": "VOSS — Derelict-Ship Engineer",
+    "blurb": "Fat balding bearded low-poly engineer, yellow hard hat, grimy coverall, cigarette. The abrasive-but-right guide (spaceship).",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/voss-engineer/char-voss.png"
+    ],
+    "sub": "character"
+  },
+  {
+    "kind": "asset",
+    "id": "vpn-mascot",
+    "name": "VPN shield mascot",
+    "blurb": "A round, friendly shield-creature — the sticker-pack lead.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/vpn-mascot/sticker-shield-pure.png"
+    ],
+    "sub": "character"
   }
 ];
 // ralphy:published-blocks:end
