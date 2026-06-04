@@ -326,10 +326,17 @@
 .btn-blueprint .btn-blueprint-glyph { font-family: var(--font-display); font-size: 17px;
   line-height: 1; margin-top: -1px; }
 
+/* Blue copy-on-click CTA (#096): copies the reproduce command, flashes a
+   "Copied — paste in your terminal" confirmation. On-brand blue, no border. */
 .btn-use-ralphy { display: inline-flex; align-items: center; gap: 8px; padding: 13px 20px;
-  border-radius: 999px; background: var(--bp-tint); color: var(--bp-ink); font-weight: 600;
+  border-radius: 999px; background: var(--bp-blue); color: #05060a; font-weight: 600;
   font-size: 15px; border: 0; cursor: pointer; transition: background .16s, transform .16s; }
-.btn-use-ralphy:hover { background: var(--bp-tint-2); transform: translateY(-1px); }
+.btn-use-ralphy:hover { background: var(--bp-blue-2); transform: translateY(-1px); }
+.btn-use-ralphy.copied { background: var(--bp-blue-2); }
+
+/* Command reveal under the in-modal Use-in-Ralphy button (#096). */
+.bp-rail-cmd { display: block; margin-top: 9px; font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--mute); word-break: break-all; line-height: 1.5; }
 
 /* Blue eyebrow inside the Blueprint / Use modals (overrides the orange .m-eyebrow). */
 .modal-card .m-eyebrow.bp-eyebrow { color: var(--bp-blue-2); }
