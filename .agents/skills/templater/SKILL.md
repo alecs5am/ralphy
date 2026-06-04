@@ -2,7 +2,7 @@
 name: templater
 namespace: user
 description: >-
-  Decompose a finished `workspace/projects/<id>/` into the content-entity model (#063): read its `units/*/unit.json` (#069) as the Unit source of truth, then factor the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (concrete reusable media). Match each candidate block against existing library blocks FIRST; only propose a NEW block for a genuine gap. The output is an EXTRACT + CLASSIFY pass: a structured entity bundle (units + their provenance + the new blocks worth keeping), optionally a local `templates/<category>/<slug>/` artifact. The actual push to the library is handed to the #056 publish path (`landing/scripts/publish-entity.ts`), NOT done here.
+  The full maximal-detail extract → classify → blueprint → de-dup → publish pipeline for a finished `workspace/projects/<id>/`. Read its `units/*/unit.json` (#069) as the Unit source of truth, then factor the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (concrete reusable media). Apply the recipe-vs-tag split (#082/#083): a candidate is a Recipe ONLY if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / bake/encode recipe / prompt technique) — author its `recipeKind`+`body`+`artifact`+`params`+`demo`; otherwise it is a Tag (a `tags[]` descriptor on the Unit, no block). Capture a per-unit Blueprint (#080). De-dup every block against the live library FIRST; never publish a duplicate or an empty recipe. Then print the exact ordered `publish-entity.ts` commands (dry-run → --push) for units, blocks, and blueprints. Publishing itself is the #056 path (`landing/scripts/publish-entity.ts`).
 
   USE WHEN the user says any of: "save this as a template", "turn the project into a template", "templatify <project-id>", "extract a template from <project>", "decompose this project into blocks", "what units/blocks did this project produce", "I want others to reproduce this", "make a reusable version of <project>", "extract the entities from <project>", "classify this project", "freeze this project". ALSO FIRE proactively after a successful render + postmortem the user rates 8+/10 — the experience is most reusable while still fresh.
 
@@ -13,7 +13,9 @@ description: >-
 
 You decompose a finished project into the **content-entity model** (#063) and classify its pieces into reusable blocks. The contract is: **a future agent should be able to reproduce the work — same units, same blocks (Template / Style / Recipe / Asset) — without re-deriving any of it from the raw `assets/` dump.**
 
-This skill does two jobs and exactly two: **EXTRACT** (read the project's finished deliverables) and **CLASSIFY** (factor them into the five entities, matching existing blocks first). It does **not** publish. Publishing to the live library (Supabase DB + Storage + the committed `published.ts`) is a separate primitive — see [Hand-off to publish](#hand-off-to-publish-056).
+This skill is the **full maximal-detail pipeline**: one invocation, followed end-to-end, reproduces what a careful maintainer does by hand. The six stages are **EXTRACT** (read the finished deliverables) → **CLASSIFY** (factor into the five entities, incl. the recipe-vs-tag split) → **BLUEPRINT** (capture a per-unit reproduction payload) → **DE-DUP** (match every candidate against the live library first) → **EMIT** the entity bundle → **PRINT the publish runbook** (the exact ordered `publish-entity.ts` commands).
+
+templater does the extraction, classification, blueprint capture, and de-dup itself. It does **not** invoke the live push (`--push`) — that is the user's deliberate step. It prints the full, ordered command set (dry-run first, then `--push`) and hands control back. Publishing to the live library (Supabase DB + Storage + the committed `published.ts`) is the #056 primitive — see [Publish runbook](#publish-runbook-056).
 
 ## The five entities (read this first)
 
@@ -64,23 +66,30 @@ See `references/extraction-rules.md` for the per-file extraction details and edg
 3. **Decompose into the five entities.** For each Unit, resolve its provenance into concrete block candidates:
    - **Template** — from `scenario.json` (beats) or, for scenario-less projects, from `index.html` (composition skeleton) / the slide-slot layout. Structure only, style-agnostic.
    - **Style** — from `prompts.json` + the locked anchor refs. The look + its reference images.
-   - **Recipes** — VFX layers, encode recipes (`-tune grain`, CRF), overlay passes, caption styles. From `index.html` + `prompts.json` + postmortem lessons. Multi-value.
+   - **Recipe candidates** — VFX layers, encode recipes (`-tune grain`, CRF), overlay passes, caption styles, baked transitions, prompt techniques. From `index.html` + `prompts.json` + bake scripts + postmortem lessons. Each candidate is then split recipe-vs-tag in step 4.
    - **Assets** — locked character masters, location plates, props, music beds from `asset-manifest.json`. Each carries a `sub` (`character`/`location`/`prop`/`music`). Multi-value.
 
-4. **Match existing blocks FIRST.** Before proposing any NEW block, check whether an existing library block already covers it. Use `ralphy template list` / `ralphy template suggest` for template/style candidates and `ralphy assets list --kind <kind>` for asset candidates. If `postmortem/06-units.md` already marked a block REUSED, trust that. Only propose a **NEW** block for a genuine gap — a structure / look / effect / asset the library does not yet have. Over-creating duplicate blocks is the failure mode this step prevents.
+4. **Recipe-vs-tag split (the #082/#083 discipline — read `references/recipe-vs-tag.md`).** For EACH recipe candidate from step 3, decide:
+   - **Recipe** (stays a block, earns a detail page) ONLY if you can author a real, copyable **artifact** — an ffmpeg filtergraph, an encode/bake command, a HyperFrames snippet, or a concrete prompt-style technique — **sourced from the project's own files, never invented**: `cli/lib/ffmpeg-recipes.ts` (the canonical builders) for ffmpeg/encode/overlay, the project's `scripts/*.sh` bake scripts + the captured `blueprint.json` `recipes[].command` for bakes, `index.html` for HyperFrames overlays, the gen-log / `prompts/**` for prompt recipes. When kept, author the FULL enriched payload: `recipeKind` (`ffmpeg`/`encode`/`overlay`/`bake`/`hyperframes`/`prompt`) + `body` (markdown how-to) + `artifact` (the real code) + `params` (named knobs) + `demo` (a self-contained runnable `demo.html` for HyperFrames recipes; before/after media for ffmpeg recipes **when real frames exist** — never fabricated).
+   - **Tag** (NOT a block, no detail page) if it is a pure textual descriptor with NO extractable artifact (e.g. "rain overlay" / "soft bloom" applied only as a vibe). It becomes a `tags[]` entry on the Unit(s) that used it, carried in `unit.json`.
+   - **The failure mode to kill: never publish an EMPTY recipe block** (refs:0, no `body`, no `artifact`). That empty chip is the "tag cloud" anti-pattern. If you cannot author a real artifact, it is a tag.
 
-5. **Classify slots + tags (LLM, via `callLLM()`).** Through `cli/lib/providers/llm.ts → callLLM()`:
+5. **Match existing blocks FIRST (de-dup before you author).** Before proposing ANY new block — and before authoring a kept recipe's `body`/`artifact` — check whether an existing library block already covers it. Read `PUBLISHED_BLOCKS` in `landing/lib/library-v2/published.ts` directly, and use `ralphy template list` / `ralphy template suggest` for template/style candidates and `ralphy assets list --kind <kind>` for asset candidates. If `postmortem/06-units.md` already marked a block REUSED, trust that. Only propose a **NEW** block for a genuine gap. **Worked cautionary example:** `choose-path-xfade-master` was published as a NEW recipe when the canonical `ffmpeg-xfade-master` already carried that exact artifact — a duplicate that #081/#083 had to delete and repoint. Reuse + cite the existing slug; never publish a second copy. Over-creating duplicate blocks is the failure mode this step prevents.
+
+6. **Classify slots + tags + descriptions (LLM, via `callLLM()`).** Through `cli/lib/providers/llm.ts → callLLM()`:
    - **Slots** — extract `{{slots}}` (brand / product / character names / location keys / target language) from `prompts.json` per `references/slot-detection.md`, so the Style block's prompt cookbook is reusable across subjects.
    - **Format** — confirm each Unit's `format` (it is in `unit.json`; validate it against the eight library formats).
-   - **Category + tags + description** — per `references/category-classifier.md`, for any local `templates/<category>/<slug>/` artifact.
+   - **Unit tags** — the descriptors demoted from step 4 land in each Unit's `unit.json` `tags[]` (filter-only labels for the feed's `TAGS` facet).
+   - **Category + description** — per `references/category-classifier.md`, for any local `templates/<category>/<slug>/` artifact.
+   - **English-only on disk.** ANY captured prose — storyboards, prompts, VO lines, block bodies, tags, descriptions — must land in English. Translate folklore / foreign terms before they touch a file (the swamp lesson: the Russian word *nechist* → "the unclean"). The user can chat in any language; the on-disk artifact is English. This is `docs/developing-ralphy.md`'s hard rule — the publish gate `rg '\p{Cyrillic}'` must come back empty.
 
-6. **Capture each Unit's Blueprint (#076 — local + free).** For EACH Unit, run `ralphy blueprint create <project-id> --unit <slug>`. This is the per-unit reproduction recipe: it reads the (gitignored) project files and writes a self-contained `units/<slug>/blueprint/` payload (`blueprint.json` + copied `index.html` / prompt files / hard-asset files), validated against `BlueprintSchema`. It is **extraction only** — reads local files, makes no network call, costs nothing, and is **append-only** (a re-run on a slug that already has a `blueprint/` writes `blueprint.v2/`, never overwrites). Record the result in the bundle as `units[].blueprint` (status `NEW` if this run created the first `blueprint/`, `REUSED` if a prior capture already existed, with the payload path `units/<slug>/blueprint/`). See `references/extraction-rules.md` → "Blueprint capture (per Unit)".
+7. **Capture each Unit's Blueprint (#080 — local + free).** For EACH Unit, run `ralphy blueprint create <project-id> --unit <slug>`. This is the per-unit reproduction recipe: it reads the (gitignored) project files and writes a self-contained `units/<slug>/blueprint/` payload (`blueprint.json` + copied `index.html` / prompt files / hard-asset files), validated against `BlueprintSchema`. It is **extraction only** — reads local files, makes no network call, costs nothing, and is **append-only** (a re-run on a slug that already has a `blueprint/` writes `blueprint.v2/`, never overwrites). Record the result in the bundle as `units[].blueprint` (status `NEW` if this run created the first `blueprint/`, `REUSED` if a prior capture already existed, with the payload path `units/<slug>/blueprint/`). See `references/extraction-rules.md` → "Blueprint capture (per Unit)".
 
-7. **Emit the entity bundle.** The primary output is a classified bundle: the Units with resolved provenance AND each Unit's captured Blueprint, plus the NEW blocks worth keeping (each with kind, slug, blurb, the slots/refs/lessons that define it). Mark every block NEW vs REUSED. This bundle is what the publish primitive consumes. Print it as JSON (see [Output](#output)).
+8. **Emit the entity bundle.** The primary output is a classified bundle: the Units (with resolved provenance, demoted `tags[]`, AND each Unit's captured Blueprint), plus the NEW blocks worth keeping — each recipe carrying its full `recipeKind`/`body`/`artifact`/`params`/`demo`. Mark every block NEW vs REUSED. This bundle is what the publish primitive consumes. Print it as JSON (see [Output](#output)).
 
-8. **(Optional) Write a local `templates/<category>/<slug>/` artifact.** When the user wants a downloadable repo template (the `vibe-reference` / `vibe-style` form), write it under `templates/<category>/<slug>/` so `ralphy template list / show / suggest / use` pick it up. This is ONE optional output, not the skill's reason for being — the entity publish is the #056 primitive. Schema is the one `cli/commands/template.ts` consumes. Never modify the source project.
+9. **(Optional) Write a local `templates/<category>/<slug>/` artifact.** When the user wants a downloadable repo template (the `vibe-reference` / `vibe-style` form), write it under `templates/<category>/<slug>/` so `ralphy template list / show / suggest / use` pick it up. This is ONE optional output, not the skill's reason for being — the entity publish is the #056 primitive. Schema is the one `cli/commands/template.ts` consumes. Never modify the source project.
 
-9. **Hand off to publish (#056).** Do NOT push to the library here. Print the exact `publish-entity.ts` commands the user can run (see below) — `--unit`, `--block-file`, AND `--blueprint` for each Unit — and stop. The user (or a maintainer skill) drives the actual push.
+10. **Print the publish runbook (#056), do NOT push.** Print the exact ordered `publish-entity.ts` commands the user runs — dry-run first, then `--push` — for the NEW blocks (`--block-file`, recipes carrying the enriched fields), the Units (`--unit`, carrying `unit.json.tags`), and each Unit's Blueprint (`--blueprint`). See [Publish runbook](#publish-runbook-056) for the full ordered set + the DB-migration prerequisite. Then stop. The user (or `dev-publish-template`) drives the actual push.
 
 ## Output
 
@@ -100,6 +109,7 @@ JSON, pipe-friendly:
         "recipes": [{ "slug": "floodfill-diecut-cutout", "status": "NEW" }],
         "assets": [{ "slug": "free-air-mascot", "sub": "character", "status": "NEW" }]
       },
+      "tags": ["white die-cut outline", "jelly mascot"],
       "blueprint": {
         "status": "NEW",
         "path": "workspace/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint",
@@ -110,35 +120,62 @@ JSON, pipe-friendly:
   ],
   "new_blocks": [
     { "kind": "style", "slug": "free-air-jelly-pure", "blurb": "...", "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --block-file <spec.json>" },
-    { "kind": "recipe", "slug": "floodfill-diecut-cutout", "blurb": "..." },
+    {
+      "kind": "recipe",
+      "slug": "floodfill-diecut-cutout",
+      "blurb": "...",
+      "recipeKind": "ffmpeg",
+      "body": "## What it is ...",
+      "artifact": "colorkey=0xffffff:0.1:0.0,despill=...",
+      "params": { "key": "0xffffff", "similarity": 0.1 },
+      "demo": { "kind": "media", "beforeUrl": "...", "afterUrl": "..." }
+    },
     { "kind": "asset", "slug": "free-air-mascot", "sub": "character", "blurb": "..." }
   ],
   "reused_blocks": [{ "kind": "template", "slug": "sticker-set" }],
+  "demoted_tags": ["white die-cut outline", "jelly mascot"],
   "local_template_artifact": null,
   "scenario_present": false,
   "warnings": []
 }
 ```
 
-## Hand-off to publish (#056)
+## Publish runbook (#056)
 
-templater extracts + classifies; the **publish to library is the #056 primitive**, `landing/scripts/publish-entity.ts`. It has two independent modes (both first-class — a Unit and a standalone Block publish on their own):
+templater extracts + classifies + blueprints + de-dups; the **publish to library is the #056 primitive**, `landing/scripts/publish-entity.ts`. It has THREE independent, first-class modes — a Unit, a standalone Block, and a Blueprint each publish on their own. Print the commands below in this **order** (blocks → units → blueprints), each as a dry-run line then the `--push` line. **templater never runs `--push`** — it prints the runbook and stops; the user (or `dev-publish-template`) runs it.
+
+### 0. DB prerequisite (once, on a fresh store)
+
+Before ANY `--push`, the Supabase schema must carry the `blueprints` table and the additive columns `blocks.recipe_kind`, `blocks.data`, `units.tags`. They live in `supabase/migrations/0001_init_library_v2.sql`. On a fresh store, apply that migration first (`psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init_library_v2.sql`, or `ralphy`'s seed path). Dry-runs touch nothing remote, so they are always safe to print/run first.
+
+### 1. NEW blocks first (so unit provenance + tag facets resolve)
+
+Each NEW block is a `--block-file <spec.json>`. A block spec is `{ kind, id, name, blurb, sub?, refs?[] }`; a **recipe** spec ALSO carries the enriched payload `{ recipeKind, body, artifact, params, demo }` (#082) — which pack into the `blocks.recipe_kind` column + the `blocks.data` jsonb. The recipe's `demo` (`demo.html` for HyperFrames, before/after media for ffmpeg) + any `refs` ride along to Storage so the library page is interactive (live recipe demo, audio player for a music asset). Tags are NOT blocks — they carry no `--block-file` line; they ride on the Unit.
 
 ```bash
-# Publish a finished Unit (its media -> Storage, units row + provenance rows, append to published.ts):
-cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug>          # dry-run
-cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug> --push    # actually push
-
-# Publish a standalone Block (a Style / Recipe / Asset can be pushed without a Unit):
-cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json>          # dry-run
-cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json> --push    # actually push
-
-# Publish a Unit's Blueprint (#077 — the per-unit reproduction payload, one per Unit):
-cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint          # dry-run
-cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint --push    # actually push
+cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json>           # dry-run (per NEW block)
+cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json> --push     # push
 ```
 
-A `--block` spec is `{ kind, id, name, blurb, sub?, refs?[] }`. A `--blueprint` dir is the `units/<slug>/blueprint/` payload that step 6 captured (`blueprint.json` + copied `index.html` / prompts / hard assets). The three modes are independent and first-class — a Unit, a standalone Block, and a Blueprint each publish on their own. The script writes to Supabase (DB + Storage) AND appends to the committed open-source `landing/lib/library-v2/published.ts` (idempotent by id / unitId, append-only). Default run is DRY-RUN. **templater never invokes `--push`** — it captures the Blueprint locally (free), then prints the commands and hands control back. The maintainer one-shot that runs them is `dev-publish-template` (#056).
+### 2. Units next (carrying unit.json.tags + provenance links)
+
+```bash
+cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug>          # dry-run (per Unit)
+cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug> --push    # push
+```
+
+The unit's media uploads to Storage; the `units` row + `unit_blocks` provenance rows upsert; the `tags[]` from `unit.json` land in the `units.tags` column → the feed's `TAGS` filter facet. A provenance block id absent from Supabase is WARN-and-skipped (never fabricated) — which is why blocks publish FIRST.
+
+### 3. Blueprints last (the per-unit reproduction payload, one per Unit)
+
+```bash
+cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint          # dry-run (per Unit)
+cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint --push    # push
+```
+
+The `--blueprint` dir is the `units/<slug>/blueprint/` payload step 7 captured (`blueprint.json` + copied `index.html` / prompts / hard assets). It uploads the payload to Storage under `blueprints/<unitId>/`, upserts the 1:1 `blueprints` row, and appends to `PUBLISHED_BLUEPRINTS`.
+
+Every mode writes to Supabase (DB + Storage) AND appends to the committed open-source `landing/lib/library-v2/published.ts` (idempotent by id / unitId, append-only). Default run is DRY-RUN. The maintainer one-shot that runs the whole runbook for you is `dev-publish-template` (#056).
 
 ## Edge cases & refusals
 
@@ -146,7 +183,9 @@ A `--block` spec is `{ kind, id, name, blurb, sub?, refs?[] }`. A `--blueprint` 
 - **No `units/` but finished media exists** → DO NOT refuse. Surface the gap, suggest `ralphy unit create`, classify candidate blocks from the manifest anyway. (This is the #062 fix in spirit — never hard-block scenario-less / unit-thin projects.)
 - **No `scenario.json`** → DO NOT refuse (the #062 fix). Derive the Template block's structure from `index.html` / slide layout, skip the scene table.
 - **No `postmortem/`** → proceed but warn. Block classification leans harder on `prompts.json` + `asset-manifest.json`; offer to `/postmortem` (now a 7-file set incl. `06-units.md`) first for a cleaner NEW/REUSED split.
-- **A block looks like an existing one** → match it, mark REUSED, do NOT create a duplicate. When genuinely unsure, prefer REUSED and flag the uncertainty in `warnings`.
+- **A block looks like an existing one** → match it, mark REUSED, do NOT create a duplicate. When genuinely unsure, prefer REUSED and flag the uncertainty in `warnings`. (The `choose-path-xfade-master` == `ffmpeg-xfade-master` dup is the canonical cautionary case — see `references/recipe-vs-tag.md`.)
+- **A recipe candidate has no extractable artifact** → it is a TAG, not a block. Demote it to the Unit's `tags[]`; never publish an empty `refs:0` recipe block. See `references/recipe-vs-tag.md`.
+- **Captured prose contains non-English** (folklore, foreign brand copy, RU/other-script VO) → translate before writing it to any file. English-only on disk; the `rg '\p{Cyrillic}'` gate must come back empty.
 - **Slug collision in `templates/`** (only if writing the optional local artifact) → refuse unless `--force`, show the diff first.
 
 ## Why this skill exists
@@ -155,15 +194,18 @@ A finished project's postmortem captures the expensive lessons; `units/*/unit.js
 
 ## References
 
+- `references/recipe-vs-tag.md` — the #082/#083 split: the decision rule, the enriched-recipe payload to author, where to source artifacts, the de-dup cautionary example.
 - `references/extraction-rules.md` — per-source-file extraction details + edge cases.
 - `references/slot-detection.md` — LLM prompt + heuristics for `{{slots}}` in prompts.json.
 - `references/kind-decision.md` — vibe-reference vs vibe-style decision tree (for the optional local artifact).
 - `references/category-classifier.md` — the five segment-persona categories + LLM classification prompt.
 - `references/pool-migration.md` — heavy-asset migration to `ralphy-assets/pool/` (for Asset blocks / the local artifact).
 - `cli/lib/schemas/unit.ts` — the `unit.json` Zod schema (the Unit source of truth, #069).
-- `cli/commands/blueprint.ts` — the `ralphy blueprint create|show|list|use` surface (#076/#079); templater runs `blueprint create` per Unit in step 6.
+- `cli/commands/blueprint.ts` — the `ralphy blueprint create|show|list|use` surface (#076/#079); templater runs `blueprint create` per Unit in step 7.
 - `cli/lib/schemas/blueprint.ts` — the `BlueprintSchema` Zod shape (#074): the six reproduction axes a captured Blueprint carries.
-- `landing/lib/library-v2/types.ts` — the five-entity shapes (Format / Unit / Block kinds).
+- `cli/lib/ffmpeg-recipes.ts` — the canonical ffmpeg/encode/overlay builders (`buildVhsFilter`, `buildColorGradeFilter`, `buildSidechainFilter`, `buildMixMusicFilter`, CRF helpers); the source-of-truth for a kept recipe's `artifact`.
+- `landing/lib/library-v2/types.ts` — the five-entity shapes (Format / Unit / Block kinds), the enriched-Recipe fields (#082: `recipeKind`/`body`/`artifact`/`params`/`demo`), and `Unit.tags`.
+- `supabase/migrations/0001_init_library_v2.sql` — the schema (the `blueprints` table + `blocks.recipe_kind` / `blocks.data` / `units.tags` columns) that must exist before any `--push`.
 - `landing/scripts/publish-entity.ts` — the publish primitive (#056); templater hands off to it.
 - `docs/skills-vs-templates.md` — templater = extract/classify; #056 = the Supabase→library writer.
 - `.agents/skills/dev-publish-template/SKILL.md` — the maintainer one-shot that runs the publish for you.
