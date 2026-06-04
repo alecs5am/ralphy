@@ -5,9 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Quick check — is this already on the roadmap?
-        [Roadmap categories](https://github.com/alecs5am/ralphy/tree/main/roadmap) live in-repo and
-        cover the v1.0 + post-launch surface. For open-ended ideas, please use
+        Quick check — is this already tracked?
+        The [issue backlog](https://github.com/alecs5am/ralphy/tree/main/notes/issues) lives in-repo
+        (flat top level = open work). For open-ended ideas, please use
         [Discussions](https://github.com/alecs5am/ralphy/discussions/new/choose) first.
   - type: textarea
     id: problem
@@ -29,7 +29,7 @@ body:
       label: Alternatives considered
       description: Workarounds you tried, other ways to solve it.
   - type: textarea
-    id: roadmap_ref
+    id: related_issue
     attributes:
-      label: Related roadmap entry (if any)
-      placeholder: "roadmap/01-cli/SPEC.md § 01.07.02"
+      label: Related issue (if any)
+      placeholder: "notes/issues/085-some-slug.md"

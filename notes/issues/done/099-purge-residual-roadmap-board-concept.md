@@ -1,6 +1,6 @@
 # Purge the residual roadmap-board concept (keep only notes/issues/)
 
-> **Status:** issue (cleanup; non-blocking — links already fixed)
+> **Status:** done — 2026-06-04 (deleted validate-roadmap.ts + the roadmap scan in lint-docs-links; rewrote developing-ralphy.md / notes/README.md / AGENTS.md dev-mode / dev-tasks+dev-issues+dev-loop skills / feature.yml to notes/issues-only; no live-process roadmap refs remain)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** low (stale prose + one orphan script; nothing breaks)

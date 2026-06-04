@@ -1,14 +1,14 @@
 # Developer notes
 
-Free-form workspace for ideas, found issues, and informal design discussion that hasn't yet earned a task file under `roadmap/todo/`.
+The capture inbox and the **only** dev tracker for Ralphy itself: ideas, found issues, and informal design discussion. There is no separate roadmap board — `notes/issues/` is the live backlog.
 
 The split:
 
 | Folder | What goes here | Lifecycle |
 |---|---|---|
-| `notes/ideas/` | Proposed features, refactors, dependency swaps. One file per idea, numbered prefix. | Mature → promoted to a `roadmap/todo/XX-YY-ZZ-<slug>.md` task file. |
-| `notes/issues/` | Known bugs, gaps, surprises. Stuff we noticed but didn't fix in the same session. | Resolved → move to `notes/issues/done/`. Superseded / won't-do → move to `notes/issues/deprecated/`. Promoted to a roadmap task → move to `done/` once the task file lands. (See [Issues folder layout](#issues-folder-layout).) |
-| `notes/decisions/` | Informal design discussions. Formal `D-NN` decisions still belong in the matching `roadmap/<NN-slug>/OPEN-QUESTIONS.md` decision log. | Promoted into `OPEN-QUESTIONS.md` as a decision entry → delete here. |
+| `notes/ideas/` | Proposed features, refactors, dependency swaps. One file per idea, numbered prefix. | Mature → promote into a tracked issue at the flat top level of `notes/issues/`, then drop the idea note. |
+| `notes/issues/` | The live backlog: known bugs, gaps, surprises, and scoped actionable work. Stuff a downstream agent (or `/dev-loop`) can pick up. | Resolved or landed → move to `notes/issues/done/`. Superseded / won't-do → move to `notes/issues/deprecated/`. (See [Issues folder layout](#issues-folder-layout).) |
+| `notes/decisions/` | Informal design discussions before they harden into a recorded decision. | Once a decision is settled, fold it into the relevant issue / doc as a `D-NN` entry → delete here. |
 
 ## Issues folder layout
 
@@ -48,7 +48,7 @@ Every note has the same shape:
 ```markdown
 # Short title
 
-> **Status:** idea | exploring | promoted to SPEC <ref> | dropped (reason)
+> **Status:** idea | exploring | issue | done | dropped (reason)
 > **Filed:** 2026-05-20
 > **Folder:** ideas | issues | decisions
 
@@ -69,15 +69,14 @@ Cost, UX impact, risk. Concrete.
 Open questions, references, alternatives considered. Bullet list.
 ```
 
-Keep notes short — under ~300 words. If a note grows past that, it's ready to become a roadmap task file.
+Keep notes short — under ~300 words. If a note grows past that, it's ready to become a tracked issue.
 
-## Promoting to roadmap
+## Promoting an idea into a tracked issue
 
-When a note matures, convert it into a roadmap task file:
+When an idea matures into something actionable, turn it into a `notes/issues/` work item:
 
-1. Pick the right category folder (`roadmap/XX-<slug>/`) and the next free `XX.YY.ZZ` ID — see [`roadmap/CONVENTIONS.md`](../roadmap/CONVENTIONS.md).
-2. Create `roadmap/todo/XX-YY-ZZ-<slug>.md` with frontmatter (`id`, `status: todo`, `v1_0`, `category`, `topic`, `title`) and concrete acceptance criteria. Copy the relevant body from the note.
-3. If a non-trivial trade-off was made, add a `D-NN` entry to `roadmap/XX-<slug>/OPEN-QUESTIONS.md`.
-4. Delete the note from `notes/` (git history preserves the rationale).
+1. Allocate the next free monotonic number (`fd -e md . notes/issues | rg -o '[0-9]{3}' | sort -n | tail -1`, increment).
+2. Create `notes/issues/NNN-<slug>.md` at the flat top level with the note shape **plus** a concrete `## Scope / acceptance` section (file paths, gates to pass, acceptance criteria) so a downstream agent can execute without re-deriving scope.
+3. Delete the idea note (git history preserves the rationale).
 
-Do not let a note live in both places — `roadmap/` is the source of truth once a thing is committed to.
+Do not let the same thing live as both an idea and an issue — once it's an issue, that's the single source of truth.
