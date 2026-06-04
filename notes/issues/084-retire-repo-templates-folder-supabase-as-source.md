@@ -80,6 +80,19 @@ User expanded the mandate and surfaced two live constraints:
 - (E) Landing off `TEMPLATES_DIR`: retire the dead `/library/[slug]` route + `showcase-loader.ts` local reads.
 - (F) Move user-project templates into `workspace/templates/`, delete repo `templates/`, clean up AGENTS.md / README / `lint:templates` / `template-suggest.test.ts`.
 
+## Progress + handoff (2026-06-04)
+
+**CLI tier — DONE (this is the cleanly-non-colliding half):**
+- Step B landed: `cli/lib/library/` data layer + `ralphy library` read command (commit `92bacce`). Reads Unit/Template/Recipe/Asset/Blueprint from Supabase PostgREST with the publishable key.
+- Step C landed: `template suggest/list/use/show/extract/create/register` rewired to public library + `workspace/templates/`, repo folder dropped as a source; `extract` writes to `workspace/templates/` (commit `958d819`). AGENTS.md invariant #10 updated.
+
+**Landing + deletion steps — HANDED OFF to the parallel #086-#097 batch (do NOT race):**
+- The parallel agent filed #086-#097 (`eb36d8a`) — the full library component-system + UX refactor, which OWNS the landing-side of this issue: `#088` shared `<Media>` (aspect-preserving previews, i.e. the Storage-backed media), `#092` feed, and **`#097` "verify the whole library reads through the Supabase API"** (= our workstream 2 on the landing side). 
+- Therefore the remaining steps here — (D) regen `published.ts` mirror, (E) landing off `TEMPLATES_DIR` / retire `/library/[slug]` + `showcase-loader.ts`, and (F) delete the repo `templates/` folder — are entangled with that batch. Two agents on `landing/library-v2` collide. Sequence AFTER #086-#097 lands.
+- `templates/` CANNOT be deleted until the landing stops reading it (`showcase-loader.ts` `TEMPLATES_DIR`, addressed by #088/#092). `lint:templates` (`scripts/lint-templates.ts`) walks the repo folder and must be retired/repointed at `workspace/templates/` as part of (F).
+
+**Net:** the CLI now operates on all public entities (Unit/Blueprint/Template/Recipe/Asset) from Supabase + the workspace tier. The folder-deletion + landing-decoupling is gated on the parallel landing refactor.
+
 ## Related
 
 - #063 (Unit + typed blocks content model), #064 (DB/blob infra), #067 (user-uploaded templates → the `workspace/templates/` tier), #056 (publish path), #069 (project units).
