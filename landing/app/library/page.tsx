@@ -61,12 +61,24 @@ export default async function LibraryPage() {
     ),
   ) as FeedViewModel["blockCounts"];
 
+  // Tag-cloud facet (#093): distinct unit tags + counts, derived from the loaded
+  // units so it matches whatever source resolved them (static catalog or live
+  // Supabase). Sorted count-desc then tag-asc for a stable, deterministic cloud.
+  const tagCounts = new Map<string, number>();
+  for (const u of units) {
+    for (const t of u.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+  }
+  const tags = [...tagCounts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+
   const vm: FeedViewModel = {
     formats,
     units,
     blocksByKind,
     blockCounts,
     fmtCounts: fmtCount,
+    tags,
   };
 
   return (
