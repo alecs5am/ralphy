@@ -1,10 +1,16 @@
 "use client";
 
-// Library v2 — Screen 3 body: "Units that use this block" masonry. A thin client
+// Library v2 — Screen 3 body: "Units that use this block" tile grid. A thin client
 // island around the shared UnitTile so each tile can open the shared RemixModal
 // (the tile's Remix action needs a click handler + local modal state). The server
 // page resolves the units + the flat block list; this component only wires the
 // per-tile Remix payload, identical to the feed (LibraryListing) tile section.
+//
+// Layout: a responsive CSS grid (`.block-units-grid`, auto-fill minmax 240px),
+// NOT the feed's flex `.masonry`. `.masonry` expects pre-packed column children;
+// dropping UnitTiles straight in made `.utile{width:100%}` stretch a single tile
+// to full container width (and a lone unit's video filled the whole page). The
+// grid gives every tile a bounded ~240–300px column and flows many into rows.
 
 import { useMemo, useState } from "react";
 import type { Block, BlockKind, Format, Unit } from "@/lib/library-v2/types";
@@ -57,7 +63,7 @@ export function BlockUnits({
 
   return (
     <>
-      <div className="masonry">
+      <div className="block-units-grid">
         {units.map((u) => (
           <UnitTile
             key={u.id}
