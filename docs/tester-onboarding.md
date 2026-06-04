@@ -1,6 +1,6 @@
 # Tester onboarding (soft-launch)
 
-Pinned during the v1.0 soft launch (per [07-D-06](../roadmap/07-socials-and-docs/OPEN-QUESTIONS.md#decision-log)). Stage 1 audience: ~5 hand-picked testers from the target persona (AI-savvy dev who already plays with UGC video).
+Pinned during the v1.0 soft launch (per [07-D-06](../notes/roadmap/07-socials-and-docs/OPEN-QUESTIONS.md#decision-log)). Stage 1 audience: ~5 hand-picked testers from the target persona (AI-savvy dev who already plays with UGC video).
 
 ## What we're asking
 

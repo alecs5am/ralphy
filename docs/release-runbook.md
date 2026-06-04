@@ -18,7 +18,7 @@ happy path; this doc covers what to do **when something goes wrong**.
 | **npm** | `@alecs5am/ralphy` scoped package | `npm publish` from `/release` skill | `npm i -g` smoke (09.06.04) |
 
 All three reference the same `vX.Y.Z` tag and the same set of binaries — there is no
-version drift between channels (per [`09-D-05`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log)).
+version drift between channels (per [`09-D-05`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log)).
 
 ## Happy path
 
@@ -94,7 +94,7 @@ ralphy --version
 
 ### Everything succeeded but a smoke test caught a runtime bug
 
-Don't try to amend the release. [09.04.03](../roadmap/09-distribution-and-release/PRD.md)
+Don't try to amend the release. [09.04.03](../notes/roadmap/09-distribution-and-release/PRD.md)
 makes this an invariant: `E_RELEASE_IMMUTABLE`. Instead:
 
 1. **Mark the release as broken on GitHub** — edit the Release body, prepend
@@ -130,7 +130,7 @@ makes this an invariant: `E_RELEASE_IMMUTABLE`. Instead:
   the first ~30 seconds of downloads — `/release` skill orders the steps so this doesn't
   happen in practice.
 - npm token must have **2FA-bypass** scope for CI publishes — see
-  [`09.04.04`](../roadmap/09-distribution-and-release/PRD.md) credential preflight.
+  [`09.04.04`](../notes/roadmap/09-distribution-and-release/PRD.md) credential preflight.
 
 ### install.sh / install.ps1
 
@@ -167,19 +167,19 @@ Within 24h of a release:
 2. Spot-check the README and Mintlify quickstart — version numbers, install commands.
 3. Verify the GitHub Release page renders the changelog correctly.
 4. If this was a milestone release (v0.2, v0.3, …) per
-   [`09-D-03`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log),
-   update [`roadmap/README.md`](../roadmap/README.md) "Milestone path" section to mark
+   [`09-D-03`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log),
+   update [`roadmap/README.md`](../notes/roadmap/README.md) "Milestone path" section to mark
    the milestone shipped.
 
 ## Related
 
-- [`09-D-01`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
+- [`09-D-01`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
   why we don't pay for an Apple Developer ID.
-- [`09-D-02`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
+- [`09-D-02`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
   PS1 is the only Windows install channel.
-- [`09-D-03`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
+- [`09-D-03`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
   staged v0.X milestones.
-- [`09-D-04`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
+- [`09-D-04`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
   doctor update check.
-- [`09-D-05`](../roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
+- [`09-D-05`](../notes/roadmap/09-distribution-and-release/OPEN-QUESTIONS.md#decision-log) —
   single release channel (no beta track).
