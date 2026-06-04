@@ -894,16 +894,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
   },
   {
     "kind": "asset",
-    "id": "hazmat-scientists",
-    "name": "Hazmat Scientist Trio",
-    "blurb": "Three biohazard-suit gas-mask scientists (orange/teal/purple), the dwindling party of the Backrooms descent.",
-    "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-doc.png"
-    ],
-    "sub": "character"
-  },
-  {
-    "kind": "asset",
     "id": "leshy-trent",
     "name": "LESHY — Half-Tree Trent",
     "blurb": "50/50 flesh-and-bark forest spirit, never speaks, only groans/gestures. Trust-but-verify guide (swamp).",
@@ -1241,6 +1231,18 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "refs": [
       "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/voxel-night-rain/voxel-night-rain.png"
     ]
+  },
+  {
+    "kind": "asset",
+    "id": "hazmat-scientists",
+    "name": "Hazmat Scientist Trio",
+    "blurb": "Three biohazard-suit gas-mask scientists (orange/teal/purple), the dwindling party of the Backrooms descent.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-doc.png",
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-rust.png",
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-vex.png"
+    ],
+    "sub": "character"
   }
 ];
 // ralphy:published-blocks:end
