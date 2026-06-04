@@ -204,16 +204,53 @@ function parseFork(v: unknown): { label: string; options?: string[] } | undefine
 // ── axis 2: prompts ──────────────────────────────────────────────────────────
 
 /**
- * Read every prompt file under `prompts/` verbatim, tag each with a `stage`
- * inferred from its filename, and note any `{{slots}}` it carries.
+ * Build the prompts axis from BOTH sources, merged + deduped:
+ *   1. the sparse `prompts/**` dir (filename-tagged, may carry `{{slots}}`);
+ *   2. the VERBATIM per-slot prompts harvested from `logs/generations.jsonl`
+ *      (the real strings that produced each asset — far denser, #074/#081).
+ *
+ * The gen-log is the reproduction-grade source: `prompts/**` on a 37-scene
+ * choose-* project holds ~5 files, while the gen-log holds the ~2200-char image
+ * prompt + ~400-char i2v prompt for every slot. Merge keeps both, dedupes by
+ * `(slot, stage, text)`, and orders deterministically by `(slot, stage)`.
  */
 function buildPrompts(
   projectDir: string,
   warnings: string[],
 ): Blueprint["prompts"] {
+  const fromDir = buildPromptsFromDir(projectDir, warnings);
+  const fromLog = buildPromptsFromGenLog(projectDir, warnings);
+
+  // Merge + dedupe by (slot, stage, text). The dir source comes first so a
+  // hand-authored prompt with `{{slots}}` survives over a gen-log duplicate.
+  const merged: Blueprint["prompts"] = [];
+  const seen = new Set<string>();
+  for (const p of [...fromDir, ...fromLog]) {
+    const key = `${p.slot ?? ""} ${p.stage} ${p.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(p);
+  }
+
+  // Deterministic order: by slot, then stage (re-runs are byte-stable).
+  merged.sort(
+    (a, b) =>
+      (a.slot ?? "").localeCompare(b.slot ?? "") || a.stage.localeCompare(b.stage),
+  );
+  return merged;
+}
+
+/**
+ * Read every prompt file under `prompts/` verbatim, tag each with a `stage`
+ * inferred from its filename, and note any `{{slots}}` it carries.
+ */
+function buildPromptsFromDir(
+  projectDir: string,
+  warnings: string[],
+): Blueprint["prompts"] {
   const promptsDir = path.join(projectDir, "prompts");
   if (!existsSync(promptsDir)) {
-    warnings.push("no prompts/: prompts axis is empty");
+    warnings.push("no prompts/: prompts axis falls back to the gen-log harvest");
     return [];
   }
   const prompts: Blueprint["prompts"] = [];
@@ -232,8 +269,113 @@ function buildPrompts(
       ...(slots.length ? { slots } : {}),
     });
   }
-  prompts.sort((a, b) => (a.slot ?? "").localeCompare(b.slot ?? ""));
   return prompts;
+}
+
+/**
+ * Harvest the VERBATIM per-slot prompts out of `logs/generations.jsonl` (#081).
+ *
+ * Procedure:
+ *   • Keep only rows that carry a non-empty `input.prompt` (string).
+ *   • Map kind → stage: `image`→`image`; `video` WITH a first-frame anchor
+ *     (`input.preprocess.first_frame` or `input.first_frame`)→`i2v`, else
+ *     `video`; `audio`→`music` when the slot/endpoint reads music, else `vo`;
+ *     `captions`→`captions`; `sfx`→`sfx`.
+ *   • Group by `(slot, stage)`; within a group prefer the LATEST `status:"ok"`
+ *     row (the winning re-roll). If none is ok, take the latest row. This
+ *     collapses the raw re-roll/version rows to ~one verbatim prompt per slot.
+ *   • Emit a BlueprintPromptSchema entry carrying model + any `{{slots}}`.
+ *
+ * Degrades to `[]` (no warning beyond the dir's) when the log is absent.
+ */
+function buildPromptsFromGenLog(
+  projectDir: string,
+  warnings: string[],
+): Blueprint["prompts"] {
+  const logPath = path.join(projectDir, "logs", "generations.jsonl");
+  if (!existsSync(logPath)) return [];
+  const text = safeReadText(logPath) ?? "";
+
+  // Group by (slot, stage). Each group tracks the chosen row (latest ok, else
+  // latest) by line index so a later re-roll wins.
+  type Picked = { idx: number; ok: boolean; stage: BlueprintStage; slot: string; model?: string; prompt: string };
+  const groups = new Map<string, Picked>();
+
+  let idx = 0;
+  for (const line of text.split("\n")) {
+    idx++;
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let o: Record<string, unknown>;
+    try {
+      o = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    const input = (o.input ?? {}) as Record<string, unknown>;
+    const prompt = strOrUndef(input.prompt);
+    if (!prompt) continue;
+
+    const slot = strOrUndef(input.slot) ?? "";
+    const stage = mapGenKindToPromptStage(strOrUndef(o.kind), input, strOrUndef(o.endpoint));
+    const model = strOrUndef(o.model ?? o.endpoint);
+    const ok = strOrUndef(o.status) === "ok";
+
+    const key = `${slot} ${stage}`;
+    const prev = groups.get(key);
+    // Prefer ok over non-ok; among same ok-ness, prefer the later line.
+    const better =
+      !prev ||
+      (ok && !prev.ok) ||
+      (ok === prev.ok && idx > prev.idx);
+    if (better) {
+      groups.set(key, { idx, ok, stage, slot, ...(model ? { model } : {}), prompt });
+    }
+  }
+
+  const prompts: Blueprint["prompts"] = [];
+  for (const g of groups.values()) {
+    const slots = extractSlots(g.prompt);
+    prompts.push({
+      stage: g.stage,
+      ...(g.slot ? { slot: g.slot } : {}),
+      ...(g.model ? { model: g.model } : {}),
+      text: g.prompt,
+      ...(slots.length ? { slots } : {}),
+    });
+  }
+  return prompts;
+}
+
+/**
+ * Map a gen-log row to the prompt STAGE it produced. Same intent as
+ * `mapGenKindToStage` (the model-stack axis), but here `audio` splits into
+ * `vo` / `music` on a slot / endpoint hint, since a prompt's stage matters for
+ * reproduction. Falls back: image kind→`image`, video-with-first-frame→`i2v`,
+ * other video→`video`, audio→`vo`.
+ */
+function mapGenKindToPromptStage(
+  kind: string | undefined,
+  input: Record<string, unknown>,
+  endpoint: string | undefined,
+): BlueprintStage {
+  const k = (kind ?? "").toLowerCase();
+  if (k === "image") return "image";
+  if (k === "captions") return "captions";
+  if (k === "sfx") return "sfx";
+  if (k === "video") {
+    const pre = input.preprocess as Record<string, unknown> | undefined;
+    if ((pre && pre.first_frame) || input.first_frame) return "i2v";
+    return "video";
+  }
+  if (k === "voiceover") return "vo";
+  if (k === "music") return "music";
+  if (k === "audio") {
+    const hint = `${strOrUndef(input.slot) ?? ""} ${endpoint ?? ""}`.toLowerCase();
+    if (/(music|track|soundtrack|score|song|bed)/.test(hint)) return "music";
+    return "vo";
+  }
+  return "image";
 }
 
 /** Infer the pipeline stage from a prompt filename / path. */
