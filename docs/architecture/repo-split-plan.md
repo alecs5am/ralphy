@@ -41,7 +41,7 @@ Every top-level entry, with its destination and a coupling note. "core" = the CL
 | `tests/` | **core** | Unit/integration/live tests of the CLI. |
 | `npm/` | **core** | npm wrapper package `@alecs5am/ralphy` (`npm/package.json`, `bin/ralphy.js`, `scripts/install.js`). Ships with core because it tracks the binary version in lockstep. |
 | `install.sh`, `install.ps1` | **core** | curl/iwr installers; pin `RALPHY_REPO=alecs5am/ralphy` by default. See §5. |
-| `templates/` | **core (owner)** | Read at runtime by the CLI (`repoTemplatesDir()` in [`../../cli/lib/paths.ts`](../../cli/lib/paths.ts)) AND at build time by landing ([`../../landing/lib/templates-loader.ts`](../../landing/lib/templates-loader.ts)). **SHARED** — see §3. Heavy *assets inside* a template move to `assets`; the `template.yaml`/`template.json` + prompt cookbook stay in core. |
+| `templates/` | **RETIRED (#084)** | The repo-public `templates/` folder was removed; the CLI now reads public templates from the hosted content library (Supabase) via `cli/lib/library/client.ts` + `workspace/templates/` (the repo-folder paths helper was deleted). Historical note: it used to be read at runtime by the CLI and at build time by landing. |
 | `.agents/` (skills) | **core (owner)** | Read at runtime by `ralphy skill *` ([`../../cli/commands/skill.ts`](../../cli/commands/skill.ts) `resolveBundleDir`) AND at build time by landing ([`../../landing/lib/skills-loader.ts`](../../landing/lib/skills-loader.ts)). `.claude/skills` is a symlink into `.agents/skills`. **SHARED** — see §3. |
 | `guidelines/` | **core (owner)** | Read at runtime by `ralphy guideline *` ([`../../cli/commands/guideline.ts`](../../cli/commands/guideline.ts)) AND at build time by landing ([`../../landing/lib/guidelines-loader.ts`](../../landing/lib/guidelines-loader.ts)). **SHARED** — see §3. |
 | `MODELS.md` | **core (owner)** | Read at build time by landing ([`../../landing/lib/models-loader.ts`](../../landing/lib/models-loader.ts)); referenced as guidance throughout `cli/`. **SHARED** — see §3. |
@@ -79,7 +79,7 @@ Every top-level entry, with its destination and a coupling note. "core" = the CL
 
 **Runtime reads (the CLI binary, against `root()`):**
 
-- `templates/` → `repoTemplatesDir()` = `path.join(root, "templates")` ([`../../cli/lib/paths.ts`](../../cli/lib/paths.ts)), used by `ralphy template list/show/suggest/use` ([`../../cli/commands/template.ts`](../../cli/commands/template.ts)).
+- `templates/` → **retired (#084)**; `ralphy template list/show/suggest/use` ([`../../cli/commands/template.ts`](../../cli/commands/template.ts)) now read the hosted content library + `workspace/templates/`, not a repo folder.
 - `.agents/skills/` → `resolveBundleDir()` walks `repoOverride` → `$RALPHY_REPO_ROOT` → `process.cwd()` ([`../../cli/commands/skill.ts`](../../cli/commands/skill.ts)).
 - `guidelines/` → `guidelinesDir()` = `path.join(root(), "guidelines")` ([`../../cli/commands/guideline.ts`](../../cli/commands/guideline.ts)).
 - `MODELS.md`, `AGENTS.md`, `docs/playbooks/` → read by the *agent* (Claude Code) at the linked checkout, and referenced by the skill installer which writes pointers to `<repo>/AGENTS.md` + `<repo>/docs/playbooks/` ([`../../cli/lib/skill/installer.ts`](../../cli/lib/skill/installer.ts)).

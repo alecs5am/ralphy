@@ -55,25 +55,26 @@ type DoctorReport = {
 
 /**
  * Detect install mode (01.09.07).
- * - "developer": running from a repo checkout — package.json + cli/ + templates/ all reachable.
+ * - "developer": running from a repo checkout — package.json + cli/index.ts both reachable.
  * - "binary":    running from a standalone binary install — no repo siblings.
  *
  * Heuristic: walk up from this file's dir (cli/commands/) looking for the
- * marker triple. If found, dev. Otherwise binary.
+ * marker pair. If found, dev. Otherwise binary. (The repo `templates/` folder
+ * was retired in #084 — public templates now live in Supabase — so the
+ * package.json + cli/index.ts pair is the developer-checkout signal.)
  */
 export function detectInstallMode(startDir?: string): {
   mode: InstallMode;
   repoRoot: string | null;
 } {
   // import.meta.dir points at cli/commands/ in dev; in a pkg-bundled binary
-  // it points inside the binary's virtual snapshot. The marker triple won't
+  // it points inside the binary's virtual snapshot. The marker pair won't
   // be reachable on disk in that case.
   let dir = startDir ?? import.meta.dir;
   for (let depth = 0; depth < 6; depth++) {
     if (
       existsSync(path.join(dir, "package.json")) &&
-      existsSync(path.join(dir, "cli", "index.ts")) &&
-      existsSync(path.join(dir, "templates"))
+      existsSync(path.join(dir, "cli", "index.ts"))
     ) {
       return { mode: "developer", repoRoot: dir };
     }

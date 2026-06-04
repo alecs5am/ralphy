@@ -67,13 +67,12 @@ ralphy template suggest "talking head rant about deadlines" -p
 ```
 ```
 ✦ Query: "talking head rant about deadlines"
-  1. ✓ talking-head-rant  ███████████░░░░░  0.70  strong
-  2. ⚠ storytime          ████████░░░░░░░░  0.50  weak
-  3. ⚠ yap-talking-head   ████████░░░░░░░░  0.50  weak
+  1. ✓ talking-head  ███████████████░  0.95  strong
+  2. ✓ story-time    ███████████░░░░░  0.70  strong
 ```
 ```bash
-# 3. Scaffold from the chosen template (assets auto-pull from companion repo)
-ralphy template use talking-head-rant --id espresso-001
+# 3. Scaffold from the chosen template (sourced from the hosted library)
+ralphy template use talking-head --id espresso-001
 
 # 4. Cost-preview before spending a cent
 ralphy generate image --project espresso-001 --slot scene-01-bg \
@@ -113,7 +112,7 @@ graph LR
     B --> F[HyperFrames composer<br/>HTML + GSAP]
     F --> G[mp4 via Puppeteer + FFmpeg]
     B --> H[Project memory<br/>genlogs · postmortems · cost rollup]
-    B --> I[Templates + guidelines<br/>versioned in git]
+    B --> I[Hosted template library<br/>+ guidelines in git]
 ```
 
 5 agent roles (researcher / scenarist / art-director / editor / producer) routed via [`AGENTS.md`](AGENTS.md). The router decides which playbook the agent reads before acting.
@@ -126,7 +125,6 @@ graph LR
 | [`AGENTS.md`](AGENTS.md) | First. Routing rules + the "read the playbook before acting" discipline. |
 | [`MODELS.md`](MODELS.md) | Before **every** model call. Claude's training is stale on model names. |
 | [`docs/playbooks/`](docs/playbooks/) | Per-role instructions (researcher, scenarist, art-director, editor, producer). |
-| [`templates/CATEGORIES.md`](templates/CATEGORIES.md) | 64 templates (7 vibe-reference + 57 vibe-style), by category. |
 | [GitHub Discussions](https://github.com/alecs5am/ralphy/discussions) | Q&A, Show & Tell, Tester feedback. |
 
 ## Contributing
@@ -136,7 +134,7 @@ git clone https://github.com/alecs5am/ralphy.git
 cd ralphy && bun install
 
 bun test                       # unit + integration (1,000+ tests)
-bun run lint                   # typecheck + project lints (errors / help-examples / skills / agents-md / templates / cli-surface)
+bun run lint                   # typecheck + project lints (errors / help-examples / skills / agents-md / cli-surface)
 bun run docs:cli               # regenerate docs-mintlify/reference/cli/
 bun run build:bin              # build cross-platform binaries
 ```
@@ -144,7 +142,6 @@ bun run build:bin              # build cross-platform binaries
 A pre-commit hook runs the test suite. CI runs the same on push/PR.
 
 PRs welcome — especially:
-- **New templates** under [`templates/<category>/<slug>/`](templates/) (5 categories: b2b-saas, dtc-commerce, creator-lifestyle, entertainment-viral, cinematic-narrative).
 - **New model entries** in [`MODELS.md`](MODELS.md) with real cost numbers + known pitfalls.
 - **Bug fixes** in [`cli/lib/providers/`](cli/lib/providers/).
 - **New guidelines** under [`guidelines/<slug>/`](guidelines/) (image-prompt rules — tag-able from chat as `@guideline:<slug>`).

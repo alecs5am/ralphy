@@ -10,7 +10,7 @@ User utterances below are shown in English.
 
 ## A. Cold-start niche videos
 
-Format-first flow: the chat matches the brief to a media format / template (`ralphy template suggest "<brief>" --format <f>`; formats in [`templates/FORMATS.md`](../templates/FORMATS.md)), loads any matching content-niche craft-overlay skill (`ugc-*`, `poster`, …) on top as a supplement, and runs the normal pipeline. Templates are the primary content route; the niche craft skills are supplementary overlays pending conversion to templates in issue 058. A *style* template doubles as a remix target when the user points at one specific video to reproduce by slug. The slugs named below identify the niche; each also exists as a style template the user can remix by name. See [`docs/skills-vs-templates.md`](skills-vs-templates.md).
+Format-first flow: the chat matches the brief to a media format / template (`ralphy template suggest "<brief>" --format <f>`; formats in `ralphy template suggest --help`), loads any matching content-niche craft-overlay skill (`ugc-*`, `poster`, …) on top as a supplement, and runs the normal pipeline. Templates are the primary content route; the niche craft skills are supplementary overlays pending conversion to templates in issue 058. A *style* template doubles as a remix target when the user points at one specific video to reproduce by slug. The slugs named below identify the niche; each also exists as a style template the user can remix by name. See [`docs/skills-vs-templates.md`](skills-vs-templates.md).
 
 ### A1. AI vegetables
 
