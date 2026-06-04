@@ -532,13 +532,6 @@ export const PUBLISHED_UNITS: Unit[] = [
 // ralphy:published-blocks:start
 export const PUBLISHED_BLOCKS: Block[] = [
   {
-    "kind": "style",
-    "id": "voxel-night-rain",
-    "name": "Voxel night-rain",
-    "blurb": "Blocky voxel 3D under heavy rain and lantern light — cozy-eerie horror-game mood, dense fog, deep blues, warm point-light pools.",
-    "refs": []
-  },
-  {
     "kind": "asset",
     "id": "shpundel-armadillo",
     "name": "Shpundel (armadillo guide)",
@@ -575,20 +568,6 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "blurb": "Liminal-horror ambient music bed used under the gauntlet. EXTERNAL track (YouTube 'Backrooms.' by Deaven Wink) — metadata only, not redistributed.",
     "refs": [],
     "sub": "music"
-  },
-  {
-    "kind": "style",
-    "id": "ps1-magic-colorful",
-    "name": "PS1 Magic-School (Colorful)",
-    "blurb": "Vibrant glowing PS1/PS2-era magic-castle render — floating candles, jewel-tone stained glass, sparkling motes, warm torchlight. Bright magical, NOT horror.",
-    "refs": []
-  },
-  {
-    "kind": "template",
-    "id": "choose-your-path-gauntlet",
-    "name": "Choose-Your-Path Gauntlet",
-    "blurb": "Hub → pick a guide → a chain of binary 50/50 forks (scene plays → freeze + 3-2-1 timer → consequence) → branch payoff. Generalizes analog-horror-pick-a-door into a guide-choice survival gauntlet. Narration restates each choice ('you picked X — …') for retention.",
-    "refs": []
   },
   {
     "kind": "asset",
@@ -992,6 +971,276 @@ export const PUBLISHED_BLOCKS: Block[] = [
       "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/vpn-mascot/sticker-shield-pure.png"
     ],
     "sub": "character"
+  },
+  {
+    "kind": "style",
+    "id": "3d-cgi",
+    "name": "3D / CGI",
+    "blurb": "Stylized 3D animation — rigged characters, rendered worlds, not camera footage.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/3d-cgi/3d-cgi.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "analog-horror",
+    "name": "Analog horror",
+    "blurb": "Degraded VHS, wrong colors, dread between the frames.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/analog-horror/analog-horror.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "before-after",
+    "name": "Before / After",
+    "blurb": "The classic transformation cut — establish the sad state, swipe, reveal the glow-up.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/before-after/before-after.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "brainrot-split",
+    "name": "Brainrot split-screen",
+    "blurb": "Top talking layer over a bottom hypnotic-gameplay loop — the brainrot kit.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/brainrot-split/brainrot-split.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "cel-cartoon",
+    "name": "Cel cartoon",
+    "blurb": "Saturday-morning cel shading, bold outlines, squash-and-stretch.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/cel-cartoon/cel-cartoon.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "cgi-render",
+    "name": "CGI render",
+    "blurb": "Hyper-real product / hardware render — rim-light pairs, macro, studio-clean.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/cgi-render/cgi-render.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "choose-the-door",
+    "name": "Choose the Door",
+    "blurb": "A fork-in-the-path decision reveal — two options framed left/right, a beat of suspense, then the pick.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/choose-the-door/choose-the-door.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "choose-your-path-gauntlet",
+    "name": "Choose-Your-Path Gauntlet",
+    "blurb": "Hub → pick a guide → a chain of binary 50/50 forks (scene plays → freeze + 3-2-1 timer → consequence) → branch payoff. Generalizes analog-horror-pick-a-door into a guide-choice survival gauntlet. Narration restates each choice ('you picked X — …') for retention.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/choose-your-path-gauntlet/choose-your-path-gauntlet.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "cinematic",
+    "name": "Cinematic film",
+    "blurb": "35mm-grade narrative look — halation, lifted blacks, telecine bias, letterbox.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/cinematic/cinematic.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "comic-panel",
+    "name": "Comic panel",
+    "blurb": "Inked comic-book panels — halftone shading, bold outlines, panel gutters.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/comic-panel/comic-panel.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "commercial-bright",
+    "name": "Commercial bright",
+    "blurb": "High-key pastel commercial light — clean, saturated, advertising gloss.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/commercial-bright/commercial-bright.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "explainer",
+    "name": "Explainer",
+    "blurb": "Step-by-step walkthrough with labelled beats and a payoff.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/explainer/explainer.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "found-footage",
+    "name": "Found footage",
+    "blurb": "Handheld faux-documentary grain — timestamp, drift, the camera shouldn't be here.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/found-footage/found-footage.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "kinetic-typography",
+    "name": "Kinetic typography",
+    "blurb": "Type-as-motion — words animate as the subject, code-exact, brand-led.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/kinetic-typography/kinetic-typography.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "lifestyle-montage",
+    "name": "Lifestyle montage",
+    "blurb": "A b-roll mood reel — fast cuts of a place, product, or routine in use.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/lifestyle-montage/lifestyle-montage.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "motion-card",
+    "name": "Motion card",
+    "blurb": "A typographic / kinetic announcement card revealed beat-by-beat, code-driven.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/motion-card/motion-card.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "music-video",
+    "name": "Music video",
+    "blurb": "Beat-driven performance / montage cut to a track, not a narrated script.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/music-video/music-video.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "photoreal-portrait",
+    "name": "Photoreal portrait",
+    "blurb": "Anti-AI-slop human realism — real camera + lens + film grain + asymmetry, naturalistic not glossy.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/photoreal-portrait/photoreal-portrait.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "photoreal",
+    "name": "Photoreal",
+    "blurb": "Clean cinematic realism — shallow depth, motivated light, no stylization.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/photoreal/photoreal.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "pixel-art",
+    "name": "Pixel art",
+    "blurb": "Crunchy dithered 8-/16-bit pixels with a limited palette.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/pixel-art/pixel-art.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "pov-narrative",
+    "name": "POV narrative",
+    "blurb": "An object / character lives a short dramatized arc from its own POV.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/pov-narrative/pov-narrative.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "pov-walk",
+    "name": "POV walk",
+    "blurb": "First-person traversal through a space, holding on landmarks.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/pov-walk/pov-walk.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "product-reveal",
+    "name": "Product reveal",
+    "blurb": "Tease, build, drop — a rhythm engineered around a single hero object.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/product-reveal/product-reveal.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "ps1-magic-colorful",
+    "name": "PS1 Magic-School (Colorful)",
+    "blurb": "Vibrant glowing PS1/PS2-era magic-castle render — floating candles, jewel-tone stained glass, sparkling motes, warm torchlight. Bright magical, NOT horror.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/ps1-magic-colorful/ps1-magic-colorful.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "showcase-wall",
+    "name": "Showcase wall",
+    "blurb": "A tiled proof-wall of prior outputs — hook, wall, featured, stack, CTA.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/showcase-wall/showcase-wall.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "soviet-nostalgic",
+    "name": "Soviet nostalgic",
+    "blurb": "Faded late-Soviet home-archive look — VHS warmth, grain, period detail.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/soviet-nostalgic/soviet-nostalgic.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "story-time",
+    "name": "Story time",
+    "blurb": "A first-person narrated arc — setup, conflict, resolution, punchline.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/story-time/story-time.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "swiss-editorial",
+    "name": "Swiss editorial",
+    "blurb": "Grid-locked, restrained — all about the type and the whitespace.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/swiss-editorial/swiss-editorial.png"
+    ]
+  },
+  {
+    "kind": "template",
+    "id": "talking-head",
+    "name": "Talking head",
+    "blurb": "One presenter delivers straight to camera — a hook, a take, a button.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/talking-head/talking-head.png"
+    ]
+  },
+  {
+    "kind": "style",
+    "id": "voxel-night-rain",
+    "name": "Voxel night-rain",
+    "blurb": "Blocky voxel 3D under heavy rain and lantern light — cozy-eerie horror-game mood, dense fog, deep blues, warm point-light pools.",
+    "refs": [
+      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/style/voxel-night-rain/voxel-night-rain.png"
+    ]
   }
 ];
 // ralphy:published-blocks:end
