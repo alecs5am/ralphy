@@ -329,3 +329,30 @@ Findings:
 - **Single adapter, uniformly branched.** Every `source.ts` getter (`getFormats`, `getBlocks`, `getUnits`, `getUnit`, `getBlock`, `unitsUsing`, `applicable*`, `counts`, `fmtCounts`, `getBlueprint`) guards on `isSupabaseBacked()` → `loadGraph()` (live) else the `STATIC_*` fallback. One code path, two stores, identical shapes.
 - **Mirror role reconciled.** `catalog.ts` + `published.ts` are the **offline fallback only** (OSS clone / no-creds CI). `published.ts` was refreshed to the live snapshot in #098 (42 units), so the no-creds build now matches prod. The live site reads live Supabase.
 - **Conclusion:** the entire library reads through `source.ts`; the static mirror is a documented snapshot fallback, not a divergent path. No remediation needed.
+
+## Component-system audit (#086, 2026-06-04)
+
+The `/library` surface grew page-by-page; media, unit tiles, audio, and rails
+were copy-pasted with drift. The #087–#097 batch factored the repeated UI into a
+small set of shared components on a common shadcn base. After it landed, no
+library page renders media / unit cards / audio / a carousel with bespoke
+per-page markup — each duplicated concept collapses to ONE component:
+
+| Duplicated UI concept (before) | Single shared component (after) | Issue |
+|---|---|---|
+| shadcn primitive base (dialog/popover/tabs/scroll-area/tooltip/aspect-ratio) | `components/ui/*` + token bridge `app/shadcn-tokens.css` | #087 |
+| image/video render (AssetMedia, RecipeDetail demo, UnitViewer, tiles, blueprint, RemixModal thumb) with per-page sizing | `_shared/Media.tsx` (aspect-fit + cinema bars, `fit="cover"` escape hatch, click→lightbox) | #088 |
+| unit tile (feed masonry, block-units grid, more-from rail) | `_shared/UnitCard.tsx` + wrappers `UnitGrid` / `UnitRail`; remix payload single-sourced to `_shared/remix.ts` | #089 |
+| bare `overflow-x` recommendation row | `_shared/Carousel.tsx` (prev/next + snap + drag + keyboard), consumed by `UnitRail` | #090 |
+| browser-default `<audio controls>` | `_shared/AudioPlayer.tsx` (designed, keyboard-accessible) | #091 |
+| feed up-front render / re-pack | windowed infinite scroll + incremental masonry packing in `LibraryListing` | #092 |
+| (new) tag discovery | `TagCloud` under the format cards, `?tag=` filter | #093 |
+| unit-page single MoreFrom rail | per-dimension rails (template/tags/recipes/assets/format), deduped | #094 |
+| navigate-not-download asset links | `_shared`/`u/[id]/DownloadAssetLink.tsx` (blob-fetch save) | #095 |
+| command-in-label modal-opening CTA | blue copy-on-click `UseInRalphyButton` | #096 |
+| divergent data fetch paths | single `source.ts` adapter (verified) | #097 |
+
+Acceptance verified: `bunx next build` green (166 pages), `bunx tsc --noEmit`
+clean, no `1px solid` hairline borders anywhere in the library (separation via
+bg-tint + shadow + spacing), English-only. `rg '<video|<img|<audio'` over
+`app/library` outside `Media.tsx` / `Lightbox.tsx` / `AudioPlayer.tsx` is empty.
