@@ -2,120 +2,111 @@
 name: dev-tasks
 namespace: maintainer
 description: >-
-  Manage Ralphy's own task system — the `notes/` capture inbox (`ideas/`, `issues/`, `decisions/`) and the committed `roadmap/` board (`todo/` → `doing/` → `done/` / `cancelled/`, one file per task, status = folder, IDs `XX.YY.ZZ`). Three jobs: (1) CAPTURE — turn a tagged thought into a correctly-shaped, correctly-placed note or roadmap task; (2) ITERATE — pick up open work (`notes/issues/`, `roadmap/doing/`, `roadmap/todo/`), do it, and move the file across statuses with frontmatter kept in sync; (3) COLLISION-CHECK — before filing anything new, search the inbox AND the board for an existing entity that already covers it, and update that instead of spawning a duplicate.
-  USE WHEN the user types `/dev-tasks`, says "log this idea", "file an issue", "add to the roadmap", "what should I work on next", "iterate on the issues", "what's open in <category>", "is there already a task for X", "promote this note", or drops a half-formed idea mid-dev-session for safekeeping.
+  Manage Ralphy's `notes/` capture inbox (`ideas/`, `issues/`, `decisions/`) — the only dev tracker for Ralphy itself; there is no separate roadmap board. Two jobs: (1) CAPTURE — turn a tagged thought into a correctly-shaped, correctly-placed note (an idea, an issue, or a decision); (2) COLLISION-CHECK — before filing anything new, search the inbox for an existing entity that already covers it, and update that instead of spawning a duplicate. For the `notes/issues/` backlog itself — decomposing a brain-dump into issues, executing them, moving them across `done/`/`deprecated/` — defer to the `dev-issues` skill (filing/shaping) and `dev-loop` (execution); this skill keeps `ideas/` + `decisions/` capture plus the cross-inbox collision check.
+  USE WHEN the user types `/dev-tasks`, says "log this idea", "file a note", "capture this", "record this decision", "what's in the inbox", "is there already a note/idea for X", "promote this note", or drops a half-formed idea mid-dev-session for safekeeping.
   See body for ALSO FIRE / DO NOT FIRE / HARD INVARIANTS.
 ---
 
-# dev-tasks — the task-system manager for Ralphy dev work
+# dev-tasks — the capture-inbox manager for Ralphy dev work
 
-This is a **maintainer** skill. It does not touch `workspace/projects/` or call media models. It curates the two-layer task system that tracks Ralphy's own development:
+This is a **maintainer** skill. It does not touch `workspace/projects/` or call media models. It curates the `notes/` capture inbox that tracks Ralphy's own development. **`notes/` is the only tracker — there is no separate roadmap board.**
 
-- **Inbox** — `notes/ideas/`, `notes/issues/`, `notes/decisions/`. Free-form, monotonic-numbered (`NNN-slug.md`), short-lived. The landing zone for anything not yet committed to.
-- **Board** — `roadmap/{todo,doing,done,cancelled}/`. One file per task (`XX-YY-ZZ-slug.md`), the parent folder IS the status, IDs are stable forever. Per-category `roadmap/XX-slug/{PRD,OPEN-QUESTIONS}.md`.
+- **Inbox** — `notes/ideas/`, `notes/issues/`, `notes/decisions/`. Free-form, monotonic-numbered (`NNN-slug.md`). The landing zone for any dev thought.
+- **`notes/issues/` is the live backlog**, status-by-folder: flat top level = active, `done/` = resolved/landed, `deprecated/` = superseded/won't-do.
 
-The contracts live in [`notes/README.md`](../../../notes/README.md) and [`roadmap/CONVENTIONS.md`](../../../roadmap/CONVENTIONS.md). **Read both before your first capture or move in a session** — this skill is the operator, those files are the law.
+The contract lives in [`notes/README.md`](../../../notes/README.md). **Read it before your first capture or move in a session** — this skill is the operator, that file is the law.
+
+## Division of labor with `dev-issues` / `dev-loop`
+
+- **This skill (`dev-tasks`)** owns `ideas/` + `decisions/` capture and the cross-inbox collision check.
+- **`dev-issues`** owns the `notes/issues/` backlog: decomposing a brain-dump into well-shaped issue files, shaping them, filing/updating them. Read [`.agents/skills/dev-issues/SKILL.md`](../dev-issues/SKILL.md) before doing any non-trivial issue work — don't duplicate its job here.
+- **`dev-loop`** owns issue *execution* (pick → implement → move to `done/`).
+
+When a captured idea matures into something actionable, promote it into a `notes/issues/` item (per `notes/README.md`) and hand the shaping/execution to `dev-issues` / `dev-loop`.
 
 ## Trigger
 
 Hard triggers (always act):
 - User types `/dev-tasks`.
 - "log this / file this / capture this" + an idea, bug, or design thought about Ralphy itself.
-- "add a task / add to the roadmap / promote this note".
-- "what should I work on next" / "what's open in `<category>`" / "iterate on the issues".
-- "is there already a task/idea for X" → run the collision check and report.
+- "record this decision" / "promote this note".
+- "what's in the inbox" / "what's open".
+- "is there already a note/idea for X" → run the collision check and report.
 
 ### ALSO FIRE (proactively, offer — don't auto-execute)
 - The user surfaces a design idea mid-dev-session and moves on without filing it → offer to capture it before it's lost.
-- A dev session just resolved a `notes/issues/` entry → offer to close it (update status or delete per lifecycle).
-- A note in `notes/ideas/` has clearly matured (concrete acceptance criteria, no open questions) → offer to promote it to `roadmap/todo/`.
+- A note in `notes/ideas/` has clearly matured (concrete acceptance criteria, no open questions) → offer to promote it into a `notes/issues/` item.
 
 ### DO NOT FIRE
 - User is in **user mode** (making a video / operating the CLI on their behalf). This skill is dev-only.
-- The thought is about a `workspace/projects/<id>` artifact → that's a project log / postmortem, not the task system.
-- A formal `D-NN` decision is being recorded → that belongs in the category's `OPEN-QUESTIONS.md` decision log directly, not `notes/decisions/`.
+- The thought is about a `workspace/projects/<id>` artifact → that's a project log / postmortem, not the inbox.
+- A long unstructured brain-dump the user wants decomposed into many issues → that's `dev-issues`.
+- Execute an open issue → that's `dev-loop`.
 
 ## Hard invariants
 
-1. **Collision-check before every create. No exceptions.** A new idea/issue/task is only created after the search in the Workflow's COLLISION-CHECK step comes back empty. If it overlaps an existing entity, update that entity instead. Proliferating near-duplicate entities is the exact failure this skill exists to prevent.
-2. **English only on disk.** Every note, task, frontmatter field, and slug lands in English (per `docs/developing-ralphy.md`). The user may tag you in Russian — translate/paraphrase before writing. Gate before commit: `rg --pcre2 '\p{Cyrillic}' notes/ roadmap/` must be empty.
-3. **One entity, one place.** A thing lives in EITHER the inbox OR the board, never both. Promoting a note to a roadmap task means deleting the note in the same commit (git history preserves the rationale).
-4. **Status = folder.** Moving a task file between `roadmap/{todo,doing,done,cancelled}/` IS the status change. Always sync the frontmatter `status:` field in the same edit. Never leave a `done`-in-frontmatter file sitting in `todo/`.
-5. **IDs are immutable, append-only.** `XX.YY.ZZ` is allocated once and never renumbered or reused. Categories (`XX`) are never renumbered. Allocate the next free `ZZ` within a topic; never recycle a cancelled task's ID.
-6. **Never move to `done/` without verifying the work landed.** Cite real code paths in the `**Implementation:**` block (`../../<path>` from a task file). Then run `bun run scripts/validate-roadmap.ts` — it checks cited paths resolve and writes `roadmap/VALIDATION.md`.
-7. **No new category without a conversation.** Adding a 12th… (currently 12 exist, 01–12) category is a deliberate decision per `CONVENTIONS.md` — pause and ask the user, don't allocate `13` unilaterally.
-8. **Don't invent acceptance criteria.** If a thought isn't sharp enough for concrete criteria, it stays a `notes/ideas/` note. Vague-but-committed is the anti-pattern; the inbox exists precisely so the board stays shippable.
+1. **Collision-check before every create. No exceptions.** A new idea/issue/decision is only created after the COLLISION-CHECK step comes back empty. If it overlaps an existing entity, update that entity instead. Proliferating near-duplicate entities is the exact failure this skill exists to prevent.
+2. **English only on disk.** Every note, frontmatter field, and slug lands in English (per `docs/developing-ralphy.md`). The user may tag you in Russian — translate/paraphrase before writing. Gate before commit: `rg --pcre2 '\p{Cyrillic}' notes/` must be empty.
+3. **One entity, one place.** A thing lives in exactly one inbox folder. Promoting an idea to an issue means deleting the idea note in the same commit (git history preserves the rationale).
+4. **Numbering is monotonic.** `NNN` is allocated once and never renumbered or reused. For `notes/issues/` count across active + `done/` + `deprecated/`; never reuse a number freed by a move.
+5. **`notes/issues/` status = folder.** Resolving an issue `git mv`s it into `done/`; abandoning one `git mv`s it into `deprecated/`. Always sync the `> **Status:**` line with the folder in the same edit. New active issues are filed at the flat top level only.
+6. **Don't invent acceptance criteria.** If a thought isn't sharp enough for concrete criteria, it stays a `notes/ideas/` note. The inbox exists precisely so the backlog stays executable.
 
 ## Workflow
 
 ### CAPTURE — file a tagged thought
 1. **Classify the thought:**
-   - Proposed feature / refactor / dependency swap → `notes/ideas/`.
-   - Known bug / gap / surprise we noticed but didn't fix → `notes/issues/`.
-   - Informal design discussion (not yet a formal decision) → `notes/decisions/`.
-   - Already scoped to one verb/file, criteria settled, starting now → skip the inbox, file straight to `roadmap/todo/` (or `doing/` if you start immediately).
+   - Proposed feature / refactor / dependency swap, not yet scoped → `notes/ideas/`.
+   - Known bug / gap / surprise, or a scoped actionable change → `notes/issues/` (flat top level). For a multi-item brain-dump, hand off to `dev-issues`.
+   - Informal design discussion (not yet a settled decision) → `notes/decisions/`.
 2. **Run COLLISION-CHECK (below).** If a match exists, update it and stop.
-3. **Allocate the number.** Inbox: `ls notes/<folder>/ | tail -1` and increment (monotonic per folder). Board: pick category `XX`, topic `YY`, next free `ZZ`.
-4. **Write the file in the canonical shape** — note shape from `notes/README.md`, task shape from `CONVENTIONS.md`. Keep notes under ~300 words; if it's longer, it's already a task.
+3. **Allocate the number.** `ls notes/<folder>/ | tail -1` and increment (monotonic per folder; for `issues/` count across active + `done/` + `deprecated/`).
+4. **Write the file in the canonical shape** — note shape from `notes/README.md`. Keep notes under ~300 words; if it's longer and actionable, it's already an issue (file via `dev-issues` shape, with a `## Scope / acceptance` section).
 5. **Report** the path created and any near-misses the collision check surfaced.
-
-### ITERATE — work the open queue
-1. **Survey what's open:**
-   - `eza notes/issues/` — unresolved bugs/gaps.
-   - `fd '^XX-' roadmap/doing/` — in-flight for a category; `fd '^XX-' roadmap/todo/` — ready to pick up.
-   - No category given → `ls roadmap/doing/` first (most likely stale), then ask which area.
-2. **Read the task file + its category `PRD.md`** for framing before touching code.
-3. **If criteria are concrete** → `mv` `todo/`→`doing/`, flip frontmatter `status: doing`, do the work.
-4. **If criteria are vague or conflict with current code** → stop, ask the user exactly one question. Do not improvise criteria.
-5. **On completion** → `mv` to `done/`, set `status: done`, add `**Implementation:**` with real paths, run the validator. All in the commit that makes it true.
-6. **Resolved `notes/issues/` entry** → update its status line, or delete if fully closed (lifecycle in `notes/README.md`). Re-verify against the actual repo first — a "fixed" claim must be checked, not trusted (the way issue 003 was confirmed shipped before deletion).
 
 ### COLLISION-CHECK — the anti-duplication gate (run before every CAPTURE)
 1. **Extract 2–4 keywords** from the thought (verb name, file, concept — e.g. `bytecode`, `cost forecast`, `smart-crop`).
-2. **Search both layers:**
+2. **Search the inbox (all of it, including the issues archive):**
    ```bash
-   rg -il '<keyword>' notes/ideas notes/issues notes/decisions roadmap/todo roadmap/doing roadmap/done roadmap/cancelled
-   fd '<keyword>' roadmap notes        # slug-level match
+   rg -il '<keyword>' notes/ideas notes/issues notes/decisions
+   fd '<keyword>' notes        # slug-level match
    ```
 3. **Triage each hit:**
    - **Same entity, open** → update it (append context, sharpen criteria). Do NOT create.
-   - **Same entity, in `done/` or `cancelled/`** → the idea recurred. Read the resolution first; if it's genuinely new scope, file fresh and cross-link the prior file. If it's a re-litigation, point the user at the closed file.
-   - **Adjacent but distinct** → file new, add a cross-link (`see XX.YY.ZZ` / `[[NNN-slug]]`) so the relationship is explicit.
+   - **Same entity, in `notes/issues/done/` or `deprecated/`** → the idea recurred. Read the resolution first; if it's genuinely new scope, file fresh and cross-link the prior file. If it's a re-litigation, point the user at the closed file.
+   - **Adjacent but distinct** → file new, add a cross-link (`see #NNN` / `[[NNN-slug]]`) so the relationship is explicit.
    - **No hit** → safe to create.
-4. **When unsure whether two things are "the same entity"** → surface both to the user with a one-line diff and let them decide. Better one question than two duplicate tasks.
+4. **When unsure whether two things are "the same entity"** → surface both to the user with a one-line diff and let them decide. Better one question than two duplicate notes.
 
 ## Cookbook
 
 ```bash
-# Survey the whole board at a glance
-for d in todo doing done cancelled; do printf "%-10s %s\n" "$d" "$(fd -e md . roadmap/$d | wc -l)"; done
+# Survey the inbox at a glance
+for d in ideas issues decisions; do printf "%-10s %s\n" "$d" "$(fd -e md -d 1 . notes/$d | wc -l)"; done
 
-# What's open in category 08 (quality & evaluation)
-fd '^08-' roadmap/todo roadmap/doing
+# Active issues only (flat top level — the live backlog)
+fd -d 1 -e md . notes/issues
 
 # Collision check before filing a "cost forecast" idea
-rg -il 'cost.forecast|forecast' notes roadmap
+rg -il 'cost.forecast|forecast' notes
+
+# Next free issue number (monotonic across active + done/ + deprecated/)
+fd -e md . notes/issues | rg -o '[0-9]{3}' | sort -n | tail -1
 
 # Next free idea number
 ls notes/ideas/ | tail -1
 
-# Promote a matured idea, then validate links
-mv notes/ideas/00X-slug.md /tmp/   # after writing roadmap/todo/XX-YY-ZZ-slug.md
-git rm notes/ideas/00X-slug.md
-bun run scripts/validate-roadmap.ts
-
 # Pre-commit gates
-rg --pcre2 '\p{Cyrillic}' notes/ roadmap/   # must be empty
-bun run lint:skills                          # if this skill itself was edited
+rg --pcre2 '\p{Cyrillic}' notes/   # must be empty
+bun run lint:skills                # if this skill itself was edited
 ```
 
 ## Outputs
 
-- A correctly-placed, correctly-shaped note or task file (never a duplicate).
-- Status moves reflected in BOTH the folder and the frontmatter.
+- A correctly-placed, correctly-shaped note (never a duplicate).
+- For `notes/issues/` moves: status reflected in BOTH the folder and the `> **Status:**` line.
 - A short report per action: what was created/moved/closed, the path, and any near-collisions surfaced.
-- `roadmap/VALIDATION.md` refreshed after any `done/` move or cross-folder shuffle.
 
-## Note on layout drift
+## Note on layout
 
-This skill targets the canonical board at repo-root `roadmap/` (what `scripts/validate-roadmap.ts`, `AGENTS.md`, and `docs/developing-ralphy.md` reference). If the board is ever relocated (e.g. under `notes/roadmap/`), update the paths in this skill's Workflow + Cookbook and re-point the validator in the same change — don't run against two copies.
+This skill targets the canonical inbox at repo-root `notes/` (what `notes/README.md`, `dev-issues`, `dev-loop`, `AGENTS.md`, and `docs/developing-ralphy.md` reference). There is no roadmap board; if the inbox is ever relocated, update the paths in this skill's Workflow + Cookbook in the same change.

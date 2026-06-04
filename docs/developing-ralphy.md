@@ -11,7 +11,7 @@ This file does **not** describe the architecture — read `CLAUDE.md`, `cli/inde
 - TypeScript code: identifiers, string literals, JSDoc, inline comments.
 - Markdown: prose, headings, callouts, example utterances, table cells.
 - JSON fixtures: every `description`, `name`, `example`, `prompt`, `reason`, `note`.
-- Playbooks, skills, templates, prompts (`docs/prompts/`), `notes/`, roadmap task files (`roadmap/{todo,doing,done,cancelled}/*.md`), `MODELS.md`.
+- Playbooks, skills, templates, prompts (`docs/prompts/`), `notes/` (including `notes/issues/*.md`), `MODELS.md`.
 - Commit messages, PR titles + bodies, release notes, CHANGELOG entries.
 - Tests + fixtures — including "fixture for the Russian-utterance case." Pick an off-domain English string that produces the same low-keyword-score path instead (see `tests/unit/template-suggest.test.ts` for the worked pattern).
 
@@ -23,8 +23,8 @@ Before every commit, run `rg '\p{Cyrillic}' --hidden -g '!.git' -g '!node_module
 
 ## Where things live (non-obvious only)
 
-- **`notes/`** — running list of ideas, found issues, and informal decisions before they earn a row in `roadmap/`. See `notes/README.md` for the shape. **Filing a note is the right first move** when the user surfaces an idea that isn't immediately actionable. Don't invent a SPEC row for half-baked ideas.
-- **`roadmap/`** — the source of truth for in-flight work. **One file per task**, organized by status: `roadmap/todo/`, `roadmap/doing/`, `roadmap/done/`, `roadmap/cancelled/`. Filename is `XX-YY-ZZ-<slug>.md`; frontmatter carries `id`, `status`, `v1_0`, `category`, `topic`. Status = folder, so moving a file between folders is the status change (sync the frontmatter `status:` field at the same time). Per-category PRDs and decision logs stay in `roadmap/<NN-slug>/PRD.md` + `OPEN-QUESTIONS.md`. **Never move a task to `done/` without verifying the work landed** — `bun run scripts/validate-roadmap.ts` checks that cited paths still resolve and writes `roadmap/VALIDATION.md`. Full mechanics: `roadmap/CONVENTIONS.md`.
+- **`notes/`** — the only dev tracker. Ideas, issues, and informal decisions all live here; there is no separate roadmap board. See `notes/README.md` for the shape. **Filing a note is the right first move** when the user surfaces an idea that isn't immediately actionable.
+- **`notes/issues/`** — the live backlog. Status is by folder: the flat top level holds active work (open issues), `notes/issues/done/` holds resolved or landed issues, `notes/issues/deprecated/` holds superseded / won't-do issues. Numbering is monotonic across all three (`NNN-slug.md`). To see open work, read the top-level files only. Full layout: `notes/README.md` (`#issues-folder-layout`).
 - **`MEMORY.md`** at `~/.claude/projects/-Users-maximovchinnikov-github-ugc-cli/memory/MEMORY.md` — the user's auto-memory. Battle-tested rules live here: anti-AI-slop, photoreal-still-register, Kling-no-RU-audio, ElevenLabs-no-artist-names, broadcast-realism=square, deliberate-prop-VFX, frame-break-hook, etc. **Read the relevant memory before recommending a prompt, model, or composition pattern.**
 - **`docs-mintlify/.archive/`** — old docs structure pre-2026-05-20 rewrite. If you're tempted to copy something from there, ask why it was archived first (the new IA is in `docs-mintlify/docs.json`).
 - **`docs-mintlify/.styleguide.md`** — tone, length, components, banned phrases, angle-bracket rules. **Read before editing any `docs-mintlify/*.mdx`** — and especially before dispatching a sub-agent to write docs.
@@ -101,11 +101,13 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 - **Bun only.** Never `npm` / `npx` / `yarn`. Always `bun` / `bunx`.
 - The user's machine has `fd`, `rg`, `bat`, `jq`, `yq`, `sd`, `ast-grep`, `xh`, `gh`, `hyperfine`, `dust`, `procs`, `mlr`, `scc`, `tokei` installed (see `~/.claude/CLAUDE.md`). **Prefer these over their legacy equivalents** — `fd` over `find`, `rg` over `grep -r`, `sd` over simple `sed`, `ast-grep` for structural code refactors.
 
-## When to file a note vs add a SPEC row
+## Where to file work (it all goes in `notes/`)
 
+There is no separate board — `notes/` is the only tracker.
+
+- **File in `notes/issues/`** (flat top level) when: the work is scoped enough for a downstream agent to pick up — a concrete bug, gap, or actionable change. This is the live backlog `/dev-loop` executes.
 - **File in `notes/ideas/`** when: the user surfaces an idea mid-conversation, the work isn't immediately scoped, the design has open questions, or the change would need a decision (`D-NN`) we haven't made yet.
-- **Add a SPEC row** when: the work is scoped to one verb / file / refactor, the design is settled, and you (or the user) plan to start it in the same session.
-- **Don't let both exist for the same thing.** Once a note is promoted to a SPEC row, delete the note (git history preserves the rationale).
+- When an idea matures into something actionable, **promote it into a tracked issue** under `notes/issues/` and drop the idea note (git history preserves the rationale). Don't let both exist for the same thing.
 
 ## What this file does NOT cover
 
