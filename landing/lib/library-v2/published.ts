@@ -2226,12 +2226,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "hub-ftf",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-silenthill-001/assets/images/hub-ftf.png",
+        "path": "assets/hub-ftf.png",
         "kind": "location"
       },
       {
         "slot": "hub-lowpoly",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-silenthill-001/assets/images/hub-lowpoly.png",
+        "path": "assets/hub-lowpoly.png",
         "kind": "location"
       },
       {
@@ -3306,12 +3306,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "char-voss-ps1a",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-spaceship-001/assets/images/char-voss-ps1a.png",
+        "path": "assets/char-voss-ps1a.png",
         "kind": "character"
       },
       {
         "slot": "char-voss-ps1b",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-spaceship-001/assets/images/char-voss-ps1b.png",
+        "path": "assets/char-voss-ps1b.png",
         "kind": "character"
       },
       {
@@ -3323,12 +3323,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "hub-ftf",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-spaceship-001/assets/images/hub-ftf.png",
+        "path": "assets/hub-ftf.png",
         "kind": "location"
       },
       {
         "slot": "hub-lowpoly",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-spaceship-001/assets/images/hub-lowpoly.png",
+        "path": "assets/hub-lowpoly.png",
         "kind": "location"
       },
       {
@@ -4298,12 +4298,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "hub-ftf",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/hub-ftf.png",
+        "path": "assets/hub-ftf.png",
         "kind": "location"
       },
       {
         "slot": "hub-lowpoly",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/hub-lowpoly.png",
+        "path": "assets/hub-lowpoly.png",
         "kind": "location"
       },
       {
@@ -4329,7 +4329,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s02-l0-fork",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s02-l0-fork.png",
+        "path": "assets/scene-s02-l0-fork.png",
         "kind": "location"
       },
       {
@@ -4348,7 +4348,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s03-death-rust",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s03-death-rust.png",
+        "path": "assets/scene-s03-death-rust.png",
         "kind": "location"
       },
       {
@@ -4367,7 +4367,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s04-through",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s04-through.png",
+        "path": "assets/scene-s04-through.png",
         "kind": "location"
       },
       {
@@ -4379,7 +4379,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s05-poolrooms",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s05-poolrooms.png",
+        "path": "assets/scene-s05-poolrooms.png",
         "kind": "location"
       },
       {
@@ -4398,12 +4398,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s06-l1-fork-slides",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s06-l1-fork-slides.png",
+        "path": "assets/scene-s06-l1-fork-slides.png",
         "kind": "location"
       },
       {
         "slot": "scene-s07-death-doc",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s07-death-doc.png",
+        "path": "assets/scene-s07-death-doc.png",
         "kind": "location"
       },
       {
@@ -4436,7 +4436,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s08-splash",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s08-splash.png",
+        "path": "assets/scene-s08-splash.png",
         "kind": "location"
       },
       {
@@ -4455,7 +4455,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s09-pipe",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s09-pipe.png",
+        "path": "assets/scene-s09-pipe.png",
         "kind": "location"
       },
       {
@@ -4488,12 +4488,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s10-l2-fork-pipes",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s10-l2-fork-pipes.png",
+        "path": "assets/scene-s10-l2-fork-pipes.png",
         "kind": "location"
       },
       {
         "slot": "scene-s11-death-vex",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s11-death-vex.png",
+        "path": "assets/scene-s11-death-vex.png",
         "kind": "location"
       },
       {
@@ -4512,7 +4512,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s12-down-blue",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s12-down-blue.png",
+        "path": "assets/scene-s12-down-blue.png",
         "kind": "location"
       },
       {
@@ -4545,7 +4545,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s13-mall",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s13-mall.png",
+        "path": "assets/scene-s13-mall.png",
         "kind": "location"
       },
       {
@@ -4564,12 +4564,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "scene-s14-l3-fork-exits",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s14-l3-fork-exits.png",
+        "path": "assets/scene-s14-l3-fork-exits.png",
         "kind": "location"
       },
       {
         "slot": "scene-s15-end",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-backrooms-001/assets/images/scene-s15-end.png",
+        "path": "assets/scene-s15-end.png",
         "kind": "location"
       }
     ],
@@ -5208,12 +5208,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "hub-ftf",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-warofworlds-001/assets/images/hub-ftf.png",
+        "path": "assets/hub-ftf.png",
         "kind": "location"
       },
       {
         "slot": "hub-lowpoly",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-warofworlds-001/assets/images/hub-lowpoly.png",
+        "path": "assets/hub-lowpoly.png",
         "kind": "location"
       },
       {
@@ -6164,12 +6164,12 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
       },
       {
         "slot": "hub-ftf",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-swamp-001/assets/images/hub-ftf.png",
+        "path": "assets/hub-ftf.png",
         "kind": "location"
       },
       {
         "slot": "hub-lowpoly",
-        "path": "/Users/maximovchinnikov/github/ugc-cli/workspace/projects/choose-swamp-001/assets/images/hub-lowpoly.png",
+        "path": "assets/hub-lowpoly.png",
         "kind": "location"
       },
       {
