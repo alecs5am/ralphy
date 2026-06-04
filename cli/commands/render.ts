@@ -514,7 +514,7 @@ render/final.mp4 (append-only).
           raiseError("E_INTERNAL", {
             detail:
               `HyperFrames lint failed with ${lintResult.errors.length} error(s) before render. ` +
-              `Fix the errors above and re-run, or see notes/issues/047-hyperframes-edge-case-rules.md.`,
+              `Fix the errors above and re-run, or see notes/issues/done/047-hyperframes-edge-case-rules.md.`,
           });
         }
       }

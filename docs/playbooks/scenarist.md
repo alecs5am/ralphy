@@ -135,7 +135,7 @@ If the scenario references a creator / TikTok / IG handle and there's no `worksp
 2. **Reference-required in scenario.** If a slot contains a named persona/brand — verify there is a ref in `assets/uploaded/`, otherwise the scenario must either require a reference (refuse) or use an archetype.
 3. **Template vibe ≠ template fill-in.** Don't copy VO lines / clip tables / timings from `reference-example.md` literally. The template is a vibe anchor; the scenario is written from scratch.
 4. **Don't invent brand facts.** If the brief is thin — ask once or leave a `<FILL>` placeholder.
-5. **MUST log every user feedback turn** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <brief|feedback|approval|critique|rejection>`. Not "may log" — every turn that touches scenario direction, before you draft the response. See the "User-prompt logging" section above for stage definitions. Sparse logs are the documented cause of unreliable postmortems (issue [`044`](../../notes/issues/044-user-prompt-logging-under-used.md)).
+5. **MUST log every user feedback turn** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <brief|feedback|approval|critique|rejection>`. Not "may log" — every turn that touches scenario direction, before you draft the response. See the "User-prompt logging" section above for stage definitions. Sparse logs are the documented cause of unreliable postmortems (issue [`044`](../../notes/issues/done/044-user-prompt-logging-under-used.md)).
 
 ## Conventions
 

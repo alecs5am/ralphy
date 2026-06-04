@@ -31,7 +31,7 @@ Refuse, do not warn. If the snapshots aren't on disk, you don't render — you s
 
 ## Future CLI enforcement
 
-A `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace will refuse to render when `compositions/snapshots/` is older than `index.html` (see [notes/issues/028](../../../notes/issues/028-no-ralphy-hyperframes-namespace.md) for the namespace, this checklist for the policy it enforces). Until that flag ships, the agent enforces the gate by reading this file.
+A `--require-snapshot-review` flag on the `ralphy hyperframes render` namespace will refuse to render when `compositions/snapshots/` is older than `index.html` (see [notes/issues/028](../../../notes/issues/done/028-no-ralphy-hyperframes-namespace.md) for the namespace, this checklist for the policy it enforces). Until that flag ships, the agent enforces the gate by reading this file.
 
 ## Handoff
 
