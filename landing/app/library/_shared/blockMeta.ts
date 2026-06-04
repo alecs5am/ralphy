@@ -4,7 +4,16 @@
 // are deliberately OFF the format wheel so a block chip never reads as a format
 // chip (see the design handoff's block-accent token note).
 
-import type { Block, BlockKind, Format, FormatId, Unit, UnitMedia } from "@/lib/library-v2/types";
+import type { ComponentType } from "react";
+import type { Block, BlockKind, Format, FormatId, RecipeKind, Unit, UnitMedia } from "@/lib/library-v2/types";
+import {
+  BakeIcon,
+  EncodeIcon,
+  FfmpegIcon,
+  FramesIcon,
+  OverlayIcon,
+  PromptIcon,
+} from "./icons";
 
 export const KIND_META: Record<
   BlockKind,
@@ -15,6 +24,32 @@ export const KIND_META: Record<
   recipe: { label: "Recipe", plural: "Recipes", glyph: "❉" },
   asset: { label: "Asset", plural: "Assets", glyph: "◆" },
 };
+
+/** Per-recipeKind presentation (#082): a distinct icon + label + hue so a recipe
+ *  reads its treatment class at a glance, BEFORE you read its name. The hue is an
+ *  oklch token in the same chroma/lightness family as the format wheel but pulled
+ *  one step muted (chroma 0.11) so it never out-shouts a format chip; the six
+ *  hues are spread around the wheel and deliberately avoid the orange accent
+ *  (~35-70) and the blue Blueprint tokens (~250). `var(--rk-<kind>)` /
+ *  `var(--rk-<kind>-tint)` are defined in library2.css. */
+export const RECIPE_KIND_META: Record<
+  RecipeKind,
+  { label: string; icon: ComponentType<{ s?: number }>; hue: string; tint: string }
+> = {
+  ffmpeg: { label: "ffmpeg filtergraph", icon: FfmpegIcon, hue: "var(--rk-ffmpeg)", tint: "var(--rk-ffmpeg-tint)" },
+  encode: { label: "encode settings", icon: EncodeIcon, hue: "var(--rk-encode)", tint: "var(--rk-encode-tint)" },
+  overlay: { label: "overlay recipe", icon: OverlayIcon, hue: "var(--rk-overlay)", tint: "var(--rk-overlay-tint)" },
+  bake: { label: "ffmpeg bake recipe", icon: BakeIcon, hue: "var(--rk-bake)", tint: "var(--rk-bake-tint)" },
+  hyperframes: { label: "HyperFrames snippet", icon: FramesIcon, hue: "var(--rk-hyperframes)", tint: "var(--rk-hyperframes-tint)" },
+  prompt: { label: "prompt template", icon: PromptIcon, hue: "var(--rk-prompt)", tint: "var(--rk-prompt-tint)" },
+};
+
+/** Human label for a recipe block's treatment class. Shared by the recipe chip
+ *  (IngredientPanel), the recipe page header badge, and RecipeDetail's artifact
+ *  label. Falls back to a neutral string when the kind is absent (pre-#083). */
+export function recipeKindLabel(kind: RecipeKind | undefined): string {
+  return kind ? RECIPE_KIND_META[kind].label : "recipe artifact";
+}
 
 export const SUB_META: Record<string, { label: string; glyph: string }> = {
   character: { label: "Character", glyph: "☻" },

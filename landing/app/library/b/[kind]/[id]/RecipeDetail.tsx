@@ -18,23 +18,9 @@
 //
 // No visible borders: separation via bg-tint steps + shadow + spacing only.
 
-import type { Block, BlockRecipeDemo, RecipeKind } from "@/lib/library-v2/types";
+import type { Block, BlockRecipeDemo } from "@/lib/library-v2/types";
+import { recipeKindLabel } from "../../../_shared/blockMeta";
 import { CopyArtifact } from "./CopyArtifact";
-
-/** Human label for the artifact's treatment class (drives the "How to use it"
- *  code-block label). */
-const RECIPE_KIND_LABEL: Record<RecipeKind, string> = {
-  ffmpeg: "ffmpeg filtergraph",
-  encode: "encode settings",
-  overlay: "overlay recipe",
-  bake: "ffmpeg bake recipe",
-  hyperframes: "HyperFrames snippet",
-  prompt: "prompt template",
-};
-
-function artifactLabel(kind: RecipeKind | undefined): string {
-  return kind ? RECIPE_KIND_LABEL[kind] : "recipe artifact";
-}
 
 export function RecipeDetail({ block }: { block: Block }) {
   const hasBody = !!block.body && block.body.trim().length > 0;
@@ -67,7 +53,7 @@ export function RecipeDetail({ block }: { block: Block }) {
             <div className="rx-axis">
               <p className="rx-axis-label">How to use it standalone</p>
               {hasArtifact && (
-                <CopyArtifact artifact={block.artifact!} label={artifactLabel(block.recipeKind)} />
+                <CopyArtifact artifact={block.artifact!} label={recipeKindLabel(block.recipeKind)} />
               )}
               {hasParams && (
                 <div className="bp-table-wrap rx-params">

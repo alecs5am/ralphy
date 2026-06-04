@@ -27,7 +27,7 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { getBlock, getBlocks, getFormats, unitsUsing } from "@/lib/library-v2/source";
 import type { Block, BlockKind } from "@/lib/library-v2/types";
-import { KIND_META, SUB_META, blockGlyph } from "../../../_shared/blockMeta";
+import { KIND_META, RECIPE_KIND_META, SUB_META, blockGlyph } from "../../../_shared/blockMeta";
 import { AssetMedia, hasAssetMedia } from "./AssetMedia";
 import { BlockUnits } from "./BlockUnits";
 import { ComposeCta, ComposeLink } from "./ComposeModal";
@@ -78,6 +78,28 @@ export async function generateMetadata({
 // deliberately off the format wheel (cool low-chroma --block-ink), so the proof
 // reads as "a block", not "a format". When block.refs media lands, swap the
 // inner content for the real <Image>/<video> while keeping this .ph wrapper.
+
+// ── Recipe-kind badge — the colored type tag under the H1 on a recipe page, so
+// the treatment class (ffmpeg / encode / overlay / bake / hyperframes / prompt)
+// is obvious before reading the body. Renders nothing for a recipe with no
+// recipeKind (graceful default pre-#083).
+
+function RecipeKindBadge({ block }: { block: Block }) {
+  if (block.kind !== "recipe" || !block.recipeKind) return null;
+  const meta = RECIPE_KIND_META[block.recipeKind];
+  const Icon = meta.icon;
+  return (
+    <span
+      className="rk-badge"
+      style={{ ["--rk" as string]: meta.hue, ["--rk-t" as string]: meta.tint, ["--rk-2" as string]: `var(--rk-${block.recipeKind}-2)` }}
+    >
+      <span className="rk-ic" aria-hidden>
+        <Icon s={13} />
+      </span>
+      {meta.label}
+    </span>
+  );
+}
 
 function SchematicTile({ glyph, label }: { glyph: string; label: string }) {
   return (
@@ -189,6 +211,7 @@ export default async function BlockPage({
                   {block.kind === "asset" ? " · Asset" : ""}
                 </p>
                 <h1>{block.name}</h1>
+                <RecipeKindBadge block={block} />
                 {block.blurb && <p className="bh-blurb">{block.blurb}</p>}
                 <div className="bh-cta">
                   <ComposeCta kind={kind} block={block} kindLabel={meta.label} />

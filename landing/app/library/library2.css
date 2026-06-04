@@ -273,7 +273,46 @@
   --bp-ink:     oklch(0.86 0.05 250);
   --bp-tint:    oklch(0.66 0.16 250 / 0.14);
   --bp-tint-2:  oklch(0.66 0.16 250 / 0.22);
+
+  /* Recipe-kind accents (#082) — one hue per recipeKind so a recipe chip / page
+     reads its treatment class at a glance. Same chroma/lightness family as the
+     format wheel but a step muted (chroma 0.11), spread around the wheel and
+     deliberately OFF the orange accent (~35-70) and the blue --bp tokens (250).
+     `*-2` = the readable ink tint, `*-tint` = the faint chip fill. */
+  --rk-ffmpeg:           oklch(0.74 0.11 22);
+  --rk-ffmpeg-2:         oklch(0.82 0.10 22);
+  --rk-ffmpeg-tint:      oklch(0.74 0.11 22 / 0.15);
+  --rk-encode:           oklch(0.74 0.11 95);
+  --rk-encode-2:         oklch(0.82 0.10 95);
+  --rk-encode-tint:      oklch(0.74 0.11 95 / 0.15);
+  --rk-overlay:          oklch(0.74 0.11 175);
+  --rk-overlay-2:        oklch(0.82 0.10 175);
+  --rk-overlay-tint:     oklch(0.74 0.11 175 / 0.15);
+  --rk-bake:             oklch(0.74 0.11 320);
+  --rk-bake-2:           oklch(0.82 0.10 320);
+  --rk-bake-tint:        oklch(0.74 0.11 320 / 0.15);
+  --rk-hyperframes:      oklch(0.74 0.11 285);
+  --rk-hyperframes-2:    oklch(0.82 0.10 285);
+  --rk-hyperframes-tint: oklch(0.74 0.11 285 / 0.15);
+  --rk-prompt:           oklch(0.74 0.11 145);
+  --rk-prompt-2:         oklch(0.82 0.10 145);
+  --rk-prompt-tint:      oklch(0.74 0.11 145 / 0.15);
 }
+
+/* Recipe chip — a .bchip carrying its recipeKind accent. The icon + a faint
+   hue-tinted fill make the kind legible before you read the name. --rk + --rk-t
+   are passed inline from the kind meta. No visible border — tint + hover only. */
+.bchip.rk { background: var(--rk-t); color: var(--ink-2); }
+.bchip.rk:hover { background: color-mix(in oklch, var(--rk) 24%, var(--bg-1)); color: var(--ink); }
+.bchip.rk .bg { color: var(--rk); display: inline-flex; align-items: center; }
+.bchip.rk:hover .bg, .bchip.rk:hover .ip-chip-open { color: var(--rk); }
+
+/* Recipe-kind badge — the colored type tag on the recipe block-page header,
+   sits under the H1 so the treatment class is obvious before reading. */
+.rk-badge { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 10px;
+  border-radius: 999px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; background: var(--rk-t); color: var(--rk-2); margin: 0 0 16px; }
+.rk-badge .rk-ic { display: inline-flex; align-items: center; color: var(--rk); }
 
 /* Left-column reproduce CTAs — the blue Blueprint button + Use-in-ralphy. */
 .bp-cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
