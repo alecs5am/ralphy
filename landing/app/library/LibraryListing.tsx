@@ -37,14 +37,14 @@ import type {
 import { RemixModal } from "./_shared/RemixModal";
 import type { RemixPayload } from "./_shared/types";
 import { CloseIcon, PlusIcon, SearchIcon } from "./_shared/icons";
-import { BlockChip, UnitTile } from "./_shared/UnitTile";
+import { BlockChip, UnitCard } from "./_shared/UnitCard";
+import { remixForUnit } from "./_shared/remix";
 import {
   aspectRatioNum,
   blockGlyph,
   FILTER_KINDS,
   fhue,
   KIND_META,
-  mediaUrl,
   PREPO,
   unitTileAspect,
 } from "./_shared/blockMeta";
@@ -369,7 +369,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
           {columns.map((colUnits, ci) => (
             <div className="mcol" key={ci}>
               {colUnits.map((u) => (
-                <UnitTile
+                <UnitCard
                   key={u.id}
                   u={u}
                   format={formatById[u.format]}
@@ -391,27 +391,6 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
       <RemixModal payload={remix} onClose={() => setRemix(null)} />
     </div>
   );
-}
-
-// ── Tile-level Remix payload ──────────────────────────────────────────────────
-
-function remixForUnit(u: Unit, f: Format | undefined): RemixPayload {
-  const firstMedia = u.media && u.media.length > 0 ? u.media[0] : undefined;
-  const thumb = firstMedia
-    ? { kind: firstMedia.kind, src: mediaUrl(firstMedia) }
-    : f
-      ? { glyph: f.glyph }
-      : undefined;
-  return {
-    tag: `@unit:${u.id}`,
-    cli: `ralphy remix ${u.id}`,
-    title: u.title,
-    eyebrow: "Remix this unit",
-    from: f ? `${f.label} · keeps everything you didn't touch` : undefined,
-    thumb,
-    swapHint:
-      "say what to swap (a character, a location, the style). Ralphy reads the unit's recipe and re-runs only what your swap touches, keeping the rest pinned.",
-  };
 }
 
 // ── Format cards ──────────────────────────────────────────────────────────────
