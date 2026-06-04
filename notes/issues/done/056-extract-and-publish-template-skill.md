@@ -1,6 +1,6 @@
 # Extract-and-publish-template skill (one-shot, like /release)
 
-> **Status:** todo
+> **Status:** done — 2026-06-05 (shipped as the `dev-publish-template` skill)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** medium

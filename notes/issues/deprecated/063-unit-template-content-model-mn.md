@@ -1,6 +1,6 @@
 # Content model: Unit + typed building blocks (Template / Style / Recipe / Asset)
 
-> **Status:** exploring (design-first, do not implement yet — user discussing with team)
+> **Status:** SUPERSEDED — 2026-06-05 — model implemented and evolved past (typed blocks + recipe-vs-tag #082; Blueprint #074-#080)
 > **Filed:** 2026-05-31
 > **Folder:** issues
 > **Severity:** high (foundational direction)

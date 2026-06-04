@@ -1,6 +1,6 @@
 # Units feed: Pinterest / higgsfield / artlist-style searchable feed
 
-> **Status:** exploring (design-first — depends on #063 + #064)
+> **Status:** SUPERSEDED — 2026-06-05 by the shipped units feed (#092/#093/#100)
 > **Filed:** 2026-05-31
 > **Folder:** issues
 > **Severity:** high

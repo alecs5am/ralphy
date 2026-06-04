@@ -1,6 +1,6 @@
 # Template detail = results/showcase gallery + copy-tag
 
-> **Status:** todo
+> **Status:** SUPERSEDED — 2026-06-05 by the unit/blueprint detail pages (#094/#095/#096)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** medium

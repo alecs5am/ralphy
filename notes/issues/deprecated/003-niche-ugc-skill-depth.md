@@ -1,6 +1,6 @@
 # Niche UGC skills are too thin to produce non-slop output
 
-> **Status:** issue
+> **Status:** SUPERSEDED — 2026-06-05 — skill-as-default-route premise retired by #053; ugc-* skills are now craft overlays pending templatization
 > **Filed:** 2026-05-27
 > **Folder:** issues
 

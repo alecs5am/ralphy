@@ -1,6 +1,6 @@
 # Backend infra for units/templates at scale: database + blob storage
 
-> **Status:** exploring (design-first / plan-only, like #059 — user discussing with team)
+> **Status:** SUPERSEDED — 2026-06-05 — Supabase Postgres + S3 is live (migration 0001, publish-entity.ts, .env.local)
 > **Filed:** 2026-05-31
 > **Folder:** issues
 > **Severity:** high (foundational infra)

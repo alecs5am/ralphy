@@ -1,6 +1,6 @@
 # Backfill full Blueprints for the 6 published choose-path units + prune dup block
 
-> **Status:** todo
+> **Status:** done — 2026-06-05 (choose-path blueprints backfilled in published.ts; dup `choose-path-xfade-master` pruned)
 > **Filed:** 2026-06-03
 > **Folder:** issues
 
