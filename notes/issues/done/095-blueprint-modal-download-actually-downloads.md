@@ -1,6 +1,6 @@
 # Blueprint modal — download buttons must download, not navigate
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (new DownloadAssetLink client component: blob-fetch + createObjectURL + programmatic anchor click forces a true save for the cross-origin Supabase Storage URLs where the download attr is ignored; falls back to new-tab on CORS; AssetRow routes through it; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium

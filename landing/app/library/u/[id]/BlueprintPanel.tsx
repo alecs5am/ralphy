@@ -29,6 +29,7 @@ import type {
   BlueprintAsset,
   BlueprintAssetKind,
 } from "@/lib/library-v2/types";
+import { DownloadAssetLink } from "./DownloadAssetLink";
 
 const ASSET_GROUP_LABEL: Record<BlueprintAssetKind, string> = {
   character: "Characters",
@@ -372,8 +373,15 @@ export function BlueprintBody({ blueprint }: { blueprint?: Blueprint }) {
 function AssetRow({ asset }: { asset: BlueprintAsset }) {
   const bytes = fmtBytes(asset.bytes);
   if (asset.storageUrl) {
+    // Cross-origin Storage URL — blob-fetch download so the click SAVES the file
+    // instead of navigating away (#095). Filename from the path's basename.
+    const filename = asset.path?.split("/").pop() || asset.slot || "download";
     return (
-      <a className="bp-asset bp-asset-dl" href={asset.storageUrl} download>
+      <DownloadAssetLink
+        className="bp-asset bp-asset-dl"
+        href={asset.storageUrl}
+        filename={filename}
+      >
         <span className="bp-asset-glyph" aria-hidden>
           ↓
         </span>
@@ -385,7 +393,7 @@ function AssetRow({ asset }: { asset: BlueprintAsset }) {
           </span>
         </span>
         <span className="bp-asset-action">Download</span>
-      </a>
+      </DownloadAssetLink>
     );
   }
   return (
