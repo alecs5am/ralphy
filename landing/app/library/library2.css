@@ -725,6 +725,24 @@
 /* Small variant — the tile ingredient ribbon (matches .bchip.sm sizing). */
 .tagchip.sm { padding: 3px 9px 3px 8px; font-size: 11.5px; }
 
+/* ── Main-feed tag cloud (#093) ──────────────────────────────────────────────
+   Counted, count-sorted tag chips under the format cards. Chips are <button>s
+   (client-side ?tag= toggle), so reset native button chrome. No borders — the
+   active chip carries the accent fill; the count rides a deeper bg-tint pill. */
+.tagcloud { display: flex; flex-wrap: wrap; gap: 7px; align-items: center;
+  margin: 14px 0 4px; }
+.tagcloud .tagchip { border: 0; cursor: pointer; appearance: none; }
+.tagchip .tagchip-count { color: var(--mute-2); font-variant-numeric: tabular-nums;
+  margin-left: 1px; }
+.tagchip:hover .tagchip-count { color: var(--ink-3); }
+.tagchip.active { background: var(--vio); color: var(--vio-ink); }
+.tagchip.active .tagchip-hash,
+.tagchip.active .tagchip-count { color: var(--vio-ink); opacity: .82; }
+.tagcloud-more { border: 0; cursor: pointer; appearance: none; background: transparent;
+  color: var(--vio); font-family: var(--font-mono); font-size: 11px; letter-spacing: .05em;
+  text-transform: uppercase; padding: 4px 6px; transition: color .16s; }
+.tagcloud-more:hover { color: var(--vio-2); }
+
 /* ── Shared <Media> (#088) — single image/video renderer ─────────────────────
    ONE aspect-locked box used everywhere a picture/video appears. The box's own
    background is the CINEMA-BAR fill (a deep media-void tint, NOT a border):

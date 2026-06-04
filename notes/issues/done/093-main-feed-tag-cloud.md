@@ -1,6 +1,6 @@
 # Main feed — tag cloud under the format cards (counts, sorted desc)
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (TagCloud under format cards: counted chips sorted count-desc, top-24 + show-all expander, active tag always shown; clicking toggles the existing ?tag= filter; facet derived in page.tsx from loaded units so it tracks static-or-Supabase source; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium
