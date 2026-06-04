@@ -8,6 +8,11 @@
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
 @plugin "@tailwindcss/typography";
+/* shadcn/ui (issue #087) — enter/exit + zoom/slide animation utilities
+   (animate-in, fade-in-0, zoom-in-95, slide-in-from-*) used by the
+   dialog / popover / tooltip primitives. Additive; does not affect
+   legacy hand-written CSS. */
+@plugin "tailwindcss-animate";
 
 @theme {
   --color-bg: #0A0A0B;

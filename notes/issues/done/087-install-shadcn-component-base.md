@@ -1,6 +1,6 @@
 # Install shadcn/ui as the component base
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (shadcn primitives dialog/popover/tabs/scroll-area/tooltip/aspect-ratio added manually on Tailwind v4 + React 19; CSS-var bridge in app/shadcn-tokens.css maps onto existing tokens, borders neutralized to transparent; next build green 166 pages)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./reset.css";
 import "./globals.css";
+import "./shadcn-tokens.css";
 import { PostHogProvider } from "./providers";
 
 export const metadata: Metadata = {
