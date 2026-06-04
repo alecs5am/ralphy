@@ -178,7 +178,7 @@ skill fires; the description is where the user looks before invoking it.
 ## Two namespaces
 
 Ralphy ships skills in two namespaces (per
-[03.01.04](../notes/roadmap/03-skills/PRD.md#030104-two-namespace-skill-split-ralphy-user-vs-ralphy-dev-maintainer)):
+03.01.04):
 
 | Namespace     | Audience                   | Examples                                       |
 | ------------- | -------------------------- | ---------------------------------------------- |
@@ -212,4 +212,4 @@ CI runs `lint:skills` on every PR. A failing lint blocks merge.
 - [`scripts/lint-skills.ts`](../scripts/lint-skills.ts) — the lint source.
 - [`cli/lib/skill/installer.ts`](../cli/lib/skill/installer.ts) — the cross-agent installer.
 - [`AGENTS.md`](../AGENTS.md) — the routing table every skill ultimately points back to.
-- [`roadmap/03-skills/PRD.md`](../notes/roadmap/03-skills/PRD.md) — the canonical scope + decision log.
+- `roadmap/03-skills/PRD.md` — the canonical scope + decision log.

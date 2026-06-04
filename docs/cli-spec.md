@@ -504,7 +504,7 @@ $ ralph project list --pretty
 
 ### NDJSON streams (long-running verbs)
 
-Per [`roadmap/01-cli/PRD.md#01.02.03`](../notes/roadmap/01-cli/PRD.md), the
+Per `roadmap/01-cli/PRD.md#01.02.03`, the
 following verbs emit NDJSON events on stdout while running, with the final
 summary as the last line. Every line is a complete JSON object carrying at
 minimum `{ ts: <ms epoch>, kind: <string> }`. `--quiet` suppresses every line
@@ -520,7 +520,7 @@ spinner UX and prints the same summary as a rendered table.
 | `ralphy batch run` | `batch-started`, `batch-variant`, `batch-finished` | `{ batchId, variants, totalCostUsd }` |
 | `ralphy iterate` (post-launch per D-04) | reserved kinds: `iterate-fetched`, `iterate-ranked`, `iterate-queued` | `{ retired, remixed, next_actions }` |
 
-Reserved error envelope (per [`01.02.04`](../notes/roadmap/01-cli/PRD.md)):
+Reserved error envelope (per `01.02.04`):
 ```json
 {"error":{"code":"E_INPUT_INVALID","message":"...","hint":"..."}}
 ```

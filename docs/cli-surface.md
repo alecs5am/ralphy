@@ -1,6 +1,6 @@
 # Ralphy CLI Surface
 
-> Single-file enumeration of every CLI verb — today's surface, what lands at v1.0, what's post-launch. Curated by hand for now; auto-gen lands per [`07.03.01`](../notes/roadmap/07-socials-and-docs/PRD.md). Mirrored into Mintlify at `docs-mintlify/cli/surface.mdx` (per [`01.10.02`](../notes/roadmap/01-cli/PRD.md)).
+> Single-file enumeration of every CLI verb — today's surface, what lands at v1.0, what's post-launch. Curated by hand for now; auto-gen lands per `07.03.01`. Mirrored into Mintlify at `docs-mintlify/cli/surface.mdx` (per `01.10.02`).
 
 **Status legend.**
 - `today` — implemented and working in v0.x.

@@ -7,7 +7,7 @@ Canonical brand assets shared across landing, Mintlify docs, CLI, and README.
 | Surface | File | Notes |
 |---|---|---|
 | Palette + fonts + voice | [`tokens.json`](tokens.json) | Machine-readable token set. Imported by landing, mirrored in `docs-mintlify/docs.json`, and referenced by `cli/lib/ui.ts`. |
-| README banner | [`banner.png`](banner.png) | Hand-designed (per [07-D-04](../../notes/roadmap/07-socials-and-docs/OPEN-QUESTIONS.md#decision-log)). No Ralphy-generated replacement for v1.0. |
+| README banner | [`banner.png`](banner.png) | Hand-designed (per 07-D-04). No Ralphy-generated replacement for v1.0. |
 | Logo (Mintlify + landing) | [`../../docs-mintlify/logo.svg`](../../docs-mintlify/logo.svg) | Single source — symlink or copy to landing if needed. |
 | Favicon (Mintlify) | [`../../docs-mintlify/favicon.svg`](../../docs-mintlify/favicon.svg) | SVG primary, PNG fallback at `favicon.png`. |
 
