@@ -1,6 +1,6 @@
 # Regenerate `landing/lib/library-v2/published.ts` from the live DB (9 → 42 units)
 
-> **Status:** issue (low-urgency hygiene; offline OSS fallback is stale)
+> **Status:** done — 2026-06-04 (new scripts/sync-published-mirror.ts reads the full live graph over SUPABASE_DB_URL and rewrites the 3 published.ts sentinels: units 9→42, blocks 45→73 (template 13→26, recipe 16, asset 16→31), blueprints 6; reuses publish-entity sentinel-writer + path-leak guard; --dry-run for counts; next build + publish tests green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** low (prod is unaffected — the live site reads live Supabase; only the no-creds OSS build falls back to this mirror)
