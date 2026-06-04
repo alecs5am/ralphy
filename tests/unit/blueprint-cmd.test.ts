@@ -114,19 +114,63 @@ beforeEach(() => {
     }) + "\n",
   );
 
-  // A generations.jsonl row (model stack + cost).
+  // A generations.jsonl with: an ERRORED image re-roll then an OK image re-roll
+  // for the SAME slot (the harvest must pick the ok one + collapse to one
+  // entry), plus an i2v row with a first_frame anchor (tagged stage:"i2v").
   fs.mkdirSync(path.join(proj, "logs"), { recursive: true });
   fs.writeFileSync(
     path.join(proj, "logs", "generations.jsonl"),
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      provider: "openrouter",
-      model: "openai/gpt-5.4-image-2",
-      endpoint: "openai/gpt-5.4-image-2",
-      kind: "image",
-      input: { slot: "char-guide", project: PROJECT, prompt: "a prompt", size: "1024x1024" },
-      cost_usd: 0.2,
-    }) + "\n",
+    [
+      {
+        timestamp: "2026-06-01T00:00:00.000Z",
+        provider: "openrouter",
+        model: "openai/gpt-5.4-image-2",
+        endpoint: "openai/gpt-5.4-image-2",
+        kind: "image",
+        status: "error",
+        input: {
+          slot: "char-guide",
+          project: PROJECT,
+          prompt: "ERRORED image prompt — first attempt, must not be captured.",
+          size: "1024x1024",
+        },
+      },
+      {
+        timestamp: "2026-06-01T00:01:00.000Z",
+        provider: "openrouter",
+        model: "openai/gpt-5.4-image-2",
+        endpoint: "openai/gpt-5.4-image-2",
+        kind: "image",
+        status: "ok",
+        input: {
+          slot: "char-guide",
+          project: PROJECT,
+          prompt: "WINNING image prompt — the ok re-roll, this is the one to capture.",
+          size: "1024x1024",
+        },
+        output: { local: path.join(proj, "index.html") },
+        cost_usd: 0.2,
+      },
+      {
+        timestamp: "2026-06-01T00:02:00.000Z",
+        provider: "openrouter",
+        model: "bytedance/seedance-2.0",
+        endpoint: "bytedance/seedance-2.0",
+        kind: "video",
+        status: "ok",
+        input: {
+          slot: "scene-01-follow-vid",
+          project: PROJECT,
+          prompt: "i2v motion prompt — slow push-in through the fog.",
+          duration_sec: 5,
+          preprocess: { first_frame: { out_mime: "image/png" } },
+        },
+        output: { local: path.join(proj, "index.html") },
+        cost_usd: 0.4,
+      },
+    ]
+      .map((r) => JSON.stringify(r))
+      .join("\n") + "\n",
   );
 
   // An asset-manifest.json with one real local hard asset (the index.html, so a
@@ -200,15 +244,52 @@ describe("ralphy blueprint (#076)", () => {
     );
     expect(bp.scenario?.scenes[0]?.id).toBe("scene-01");
     expect(bp.scenario?.scenes[0]?.vo).toBe("Pick your guide.");
-    expect(bp.prompts[0]?.stage).toBe("image");
-    expect(bp.prompts[0]?.slots).toEqual(["guide_name"]);
-    expect(bp.modelStack[0]?.model).toBe("openai/gpt-5.4-image-2");
-    expect(bp.costRollupUsd).toBeCloseTo(0.2);
+    // The dir-sourced char-guide image prompt (carries the {{guide_name}} slot)
+    // sorts first (slot "char-guide", stage "image").
+    const charGuideDir = bp.prompts.find(
+      (p) => p.slot === "char-guide" && p.slots?.includes("guide_name"),
+    );
+    expect(charGuideDir?.stage).toBe("image");
+    expect(bp.modelStack.some((m) => m.model === "openai/gpt-5.4-image-2")).toBe(true);
+    // cost rollup now sums the ok image (0.2) + the i2v (0.4).
+    expect(bp.costRollupUsd).toBeCloseTo(0.6);
     expect(bp.recipes.map((rc) => rc.name)).toEqual([
       "ffmpeg-xfade-master",
       "chroma-split",
       "film-grain-encode",
     ]);
+  });
+
+  test("harvests verbatim per-slot prompts from generations.jsonl (#081)", () => {
+    ralphy(["blueprint", "create", PROJECT, "--unit", SLUG]);
+    const bp = BlueprintSchema.parse(
+      JSON.parse(
+        fs.readFileSync(path.join(unitDir(), "blueprint", "blueprint.json"), "utf8"),
+      ),
+    );
+
+    // The OK image re-roll prompt is captured, tagged stage "image".
+    const winning = bp.prompts.find((p) => p.text.startsWith("WINNING image prompt"));
+    expect(winning).toBeDefined();
+    expect(winning?.stage).toBe("image");
+    expect(winning?.slot).toBe("char-guide");
+    expect(winning?.model).toBe("openai/gpt-5.4-image-2");
+
+    // The ERRORED earlier re-roll is NOT captured (winning row wins).
+    expect(bp.prompts.some((p) => p.text.startsWith("ERRORED image prompt"))).toBe(false);
+
+    // Re-rolls collapse to ONE gen-log entry per (slot, stage): exactly one
+    // gen-log-sourced char-guide image prompt (the dir prompt is a separate
+    // text and is allowed to coexist).
+    const charGuideFromLog = bp.prompts.filter(
+      (p) => p.slot === "char-guide" && p.stage === "image" && p.text.includes("re-roll"),
+    );
+    expect(charGuideFromLog.length).toBe(1);
+
+    // The video row with a first_frame anchor is tagged stage "i2v".
+    const i2v = bp.prompts.find((p) => p.slot === "scene-01-follow-vid");
+    expect(i2v?.stage).toBe("i2v");
+    expect(i2v?.text).toContain("push-in through the fog");
   });
 
   test("append-only — re-create lands in blueprint.v2/, leaving the first intact", () => {
