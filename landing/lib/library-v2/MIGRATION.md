@@ -308,3 +308,24 @@ blocks rather than as their own entities.
 - **No fabricated media** — every `media[]` path points at a file that already
   exists under `landing/public/showcase/` or `landing/public/assets/showcase/`.
 - **Typecheck** — `cd landing && bunx tsc --noEmit` exits 0.
+
+## Read-path verification (#097, 2026-06-04)
+
+Audited after the Supabase-as-source work (#084) landed. The contract: every
+`/library` surface resolves its data through the single `source.ts` adapter,
+which reads the **live Supabase DB when `NEXT_PUBLIC_SUPABASE_URL` +
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` are set**, and otherwise falls back to the
+committed static mirror (`catalog.ts` + `published.ts`). No surface bypasses it.
+
+| Surface | File | Fetches via |
+|---|---|---|
+| Main feed | `app/library/page.tsx` | `source.ts`: `getFormats`, `getUnits`, `getBlocks`, `counts`, `fmtCounts` (+ tag facet derived from the loaded units, #093) |
+| Unit page | `app/library/u/[id]/page.tsx` | `source.ts`: `getUnit`, `getBlock`, `getBlocks`, `getUnits`, `getBlueprint`, `getFormats`, `formatById` |
+| Block page | `app/library/b/[kind]/[id]/page.tsx` | `source.ts`: `getBlock`, `getBlocks`, `getFormats`, `unitsUsing` |
+| Client islands (LibraryListing, MoreFrom, BlueprintCta, AssetMedia, …) | — | Receive resolved data as plain-JSON props from the server pages; they do NOT fetch. |
+
+Findings:
+- **No bypass.** `rg 'library-v2/(catalog\|published\|index)"\|@supabase/supabase-js\|createClient' app/library` → empty. Nothing under `app/library/` imports the static catalog/published/index barrels or `@supabase/supabase-js` directly.
+- **Single adapter, uniformly branched.** Every `source.ts` getter (`getFormats`, `getBlocks`, `getUnits`, `getUnit`, `getBlock`, `unitsUsing`, `applicable*`, `counts`, `fmtCounts`, `getBlueprint`) guards on `isSupabaseBacked()` → `loadGraph()` (live) else the `STATIC_*` fallback. One code path, two stores, identical shapes.
+- **Mirror role reconciled.** `catalog.ts` + `published.ts` are the **offline fallback only** (OSS clone / no-creds CI). `published.ts` was refreshed to the live snapshot in #098 (42 units), so the no-creds build now matches prod. The live site reads live Supabase.
+- **Conclusion:** the entire library reads through `source.ts`; the static mirror is a documented snapshot fallback, not a divergent path. No remediation needed.
