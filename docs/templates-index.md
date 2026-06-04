@@ -1,14 +1,10 @@
 # Templates index
 
-Single-doc directory of every template shipped in `templates/` (repo) and `workspace/templates/` (user-local).
+Single-doc snapshot of the public template catalog. The live source of truth is the **public content library** (Supabase template blocks — the same library the [`/library`](https://www.alecs5am.com/library) landing serves, read by the CLI via `cli/lib/library/client.ts`), plus your user-local `workspace/templates/` tier. The old repo-public `templates/<category>/<slug>/` folder was retired (#084); templates are no longer shipped on disk in this repo.
 
-**Two manifests** — read whichever fits the task:
-- [`templates/CATEGORIES.md`](../templates/CATEGORIES.md) — full slug roster organized by segment-persona category (5 folders: `b2b-saas`, `dtc-commerce`, `creator-lifestyle`, `entertainment-viral`, `cinematic-narrative`). Use this for browsing / picking by audience.
-- [`templates/TOP.md`](../templates/TOP.md) — Top-20 viral-2026 cross-category playlist. Use this when test-driving the pipeline or picking the highest-leverage formats.
+> The authoritative discovery mechanism is `ralphy template suggest "<brief>"` / `ralphy template list -p` — this index is a static snapshot for fast grep / agent context loading. If you suspect drift, run the CLI or browse [`/library`](https://www.alecs5am.com/library).
 
-> The authoritative discovery mechanism is `ralphy template list -p` — this index is a static snapshot for fast grep / agent context loading. If you suspect drift, run the CLI.
-
-**Total: 43 repo templates** (5 vibe-reference + 38 vibe-style), physically organized into 5 segment-persona folders under `templates/`. The CLI resolves by slug regardless of category folder — `ralphy template use <slug>` still works as before, no slug change. Templates added 2026-05-07 cover the 20 trending short-form formats from the deep-research catalog plus 8 vertical / conversion-focused formats from direct user feedback (try-on, doctor-authority, life-changing-testimonial, active-lifestyle, podcast-clip, interview-dialog, cgi-hardware, cgi-architecture). Folder reshape: 2026-05-11. Added 2026-05-11: `italian-brainrot` (single-character AI-meme format with a 33-character canonical reference pool in [ralphy-assets](https://github.com/alecs5am/ralphy-assets/tree/main/pool/italian-brainrot-characters)).
+**Roster snapshot (historical):** ~43 public templates (5 vibe-reference + 38 vibe-style). The CLI resolves by slug — `ralphy template use <slug>` works regardless of where the template lives. Templates added 2026-05-07 cover the 20 trending short-form formats from the deep-research catalog plus 8 vertical / conversion-focused formats from direct user feedback (try-on, doctor-authority, life-changing-testimonial, active-lifestyle, podcast-clip, interview-dialog, cgi-hardware, cgi-architecture). Added 2026-05-11: `italian-brainrot` (single-character AI-meme format with a 33-character canonical reference pool in [ralphy-assets](https://github.com/alecs5am/ralphy-assets/tree/main/pool/italian-brainrot-characters)).
 
 ## `kind` field — what each one means
 

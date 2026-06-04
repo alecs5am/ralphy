@@ -36,7 +36,7 @@ The Ralphy stack has one routing surface (`AGENTS.md`) and four format contracts
 
 1. **A request comes in.** `AGENTS.md` routes it to a playbook (`docs/playbooks/<role>.md`). See [Playbook format](/advanced/playbook-format).
 2. **The playbook may invoke a skill.** Skills live under `.agents/skills/<name>/SKILL.md` and are slash-invocable. See [Skill format](/advanced/skill-format).
-3. **The skill or playbook picks a template.** Templates live under `templates/<category>/<slug>/` and declare a `template.yaml`. See [Template format](/advanced/template-format).
+3. **The skill or playbook picks a template.** Templates live in the hosted content library (and your `workspace/templates/`) and declare a `template.yaml`. See [Template format](/advanced/template-format).
 4. **The template names model IDs.** All available models are in `MODELS.md`. See [Models registry](/advanced/models-registry).
 5. **Every generation writes to project memory.** Append-only logs land in `workspace/projects/<id>/logs/`; per-slot pointers land in `asset-manifest.json`. See [Memory schemas](/advanced/memory-schemas) and [Asset manifest](/advanced/asset-manifest).
 

@@ -6,7 +6,7 @@ The model has two clean concepts with two different jobs. **Templates are the un
 
 ## Template — the universal unit of reusable content
 
-A **template** captures "how to make a piece of content," organized by media **format**. The format is the primary axis: `video`, `image`, `carousel`, `fb-creative`, `motion-design`, `poster`, `sticker-pack`, and so on (the full map is in [`templates/FORMATS.md`](../templates/FORMATS.md), landed in issue 052 — "everything is a template").
+A **template** captures "how to make a piece of content," organized by media **format**. The format is the primary axis: `video`, `image`, `carousel`, `fb-creative`, `motion-design`, `poster`, `sticker-pack`, and so on (the `--format` taxonomy is enumerated by `ralphy template suggest --help`; landed in issue 052 — "everything is a template").
 
 - Inside each format, a **general** template is the format's baseline how-to (the beat structure, framing vocabulary, model stack, common failure modes for that format). A **style** template specializes a general one (`style_of: <general-slug>`) with one concrete aesthetic or one reproducible video.
 - **This is what the agent matches to a content brief.** "Make an unboxing video," "make a poster for X," "make a 5-slide carousel," "make a set of FB ads" all resolve to a format (and, when the user points at a specific made video, to one style template under that format).
@@ -14,14 +14,14 @@ A **template** captures "how to make a piece of content," organized by media **f
   - **Generalized (general + most style templates).** Reusable across any subject in the format. The template supplies the know-how; the user supplies the subject.
   - **Reproduction (a style template that froze one concrete video).** A user who saw a specific video and wants their own version with one or two swaps. Trigger is explicit and user-initiated: `@template:<slug>`, "remix this one," "make the exact same video but…," or names a slug.
 
-Templates live under `templates/<category>/<slug>/` (repo, 5 persona categories) and `workspace/templates/<slug>/` (user-local). Slugs resolve via `ralphy template list / show / suggest / use` regardless of category folder; filter by format with `ralphy template list --format <f>` and `ralphy template suggest "<brief>" --format <f>`. Two `kind`s ship: `vibe-reference` (full production) and `vibe-style` (prompt cookbook).
+Templates live in the **public content library** (Supabase, served by `/library` and read by the CLI via `cli/lib/library/client.ts`) and in `workspace/templates/<slug>/` (user-local). The repo-public `templates/<category>/<slug>/` folder was retired in #084. Slugs resolve via `ralphy template list / show / suggest / use` across both tiers; filter by format with `ralphy template list --format <f>` and `ralphy template suggest "<brief>" --format <f>`. Two `kind`s ship: `vibe-reference` (full production) and `vibe-style` (prompt cookbook).
 
 ## Skill — technical / operational capability or craft overlay
 
 A **skill** is a technical or operational capability, not the content-routing default. Skills are referenced in Ralphy's system prompt (`AGENTS.md`) for technical use. They fall into a few groups:
 
 - **Operational workflows** — `researcher`, `evaluator`, `install`, `postmortem`, `templater`. Each has a deterministic input → output contract and a backing `ralphy` verb.
-  - **`templater` = extract + classify (+ blueprint + de-dup), not push.** It reads a finished project's `units/*/unit.json` (the Unit source of truth, formed by `ralphy unit`, issue #069) and decomposes the project into the five content entities — Unit + the four typed blocks Template / Style / Recipe / Asset (the #063 model, shapes in [`landing/lib/library-v2/types.ts`](../landing/lib/library-v2/types.ts)). It applies the **recipe-vs-tag split (#082/#083)**: a candidate is a Recipe block ONLY if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / bake-or-encode recipe / prompt technique) authored into `recipeKind`+`body`+`artifact`+`params`+`demo`; otherwise it is a Tag — a `tags[]` descriptor on the Unit, never a block (never publish an empty `refs:0` recipe). It matches each candidate against existing library blocks first and proposes NEW blocks only for genuine gaps. Its output is the classified entity bundle plus a per-unit Blueprint and the ordered publish runbook (optionally a local `templates/<category>/<slug>/` artifact); it does **not** push to the library. Full rule: [`.agents/skills/templater/references/recipe-vs-tag.md`](../.agents/skills/templater/references/recipe-vs-tag.md).
+  - **`templater` = extract + classify (+ blueprint + de-dup), not push.** It reads a finished project's `units/*/unit.json` (the Unit source of truth, formed by `ralphy unit`, issue #069) and decomposes the project into the five content entities — Unit + the four typed blocks Template / Style / Recipe / Asset (the #063 model, shapes in [`landing/lib/library-v2/types.ts`](../landing/lib/library-v2/types.ts)). It applies the **recipe-vs-tag split (#082/#083)**: a candidate is a Recipe block ONLY if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / bake-or-encode recipe / prompt technique) authored into `recipeKind`+`body`+`artifact`+`params`+`demo`; otherwise it is a Tag — a `tags[]` descriptor on the Unit, never a block (never publish an empty `refs:0` recipe). It matches each candidate against existing library blocks first and proposes NEW blocks only for genuine gaps. Its output is the classified entity bundle plus a per-unit Blueprint and the ordered publish runbook (optionally a local `workspace/templates/<slug>/` artifact); it does **not** push to the library. Full rule: [`.agents/skills/templater/references/recipe-vs-tag.md`](../.agents/skills/templater/references/recipe-vs-tag.md).
   - **The #056 publish skill / `landing/scripts/publish-entity.ts` = the Supabase → library writer.** It takes templater's classified entities and pushes them: `--unit <dir>` publishes a finished Unit (its media → Storage, the units + provenance rows, append to the committed `published.ts`), `--block` / `--block-file` publishes a standalone Style / Recipe / Asset on its own. Both modes are first-class and independent. The maintainer one-shot that runs the publish is `dev-publish-template`.
   - **`ralphy unit` = how a project forms Units.** It copies curated `assets/` picks into `workspace/projects/<id>/units/<slug>/unit.json` with provenance attached (#069). This is the project-side mirror of the library Unit; templater reads it, publish pushes it.
 - **Maintainer / dev tooling** — `dev-release`, `dev-tasks` (`namespace: maintainer`).
@@ -34,7 +34,7 @@ Skills live under `.agents/skills/<slug>/` (Claude Code slash commands). Slugs c
 
 Three entities form one spine, from "how to make this *kind* of content" down to "how to reproduce *this exact* one." Read them as a chain, not as competitors:
 
-- **Template (generic)** — the repo `templates/<category>/<slug>/` artifact: a prompt-cookbook + `{{slots}}` + the common model stack + common assets + a composition skeleton. It answers **"how do I make THIS KIND of content?"** It is the learn / discover / scaffold-from entity. `ralphy template show <slug>` surfaces its cookbook; `ralphy template use <slug> --project <id>` scaffolds a fresh project from it. This is the entity issue #075 formalizes as "Template."
+- **Template (generic)** — a published library template (or `workspace/templates/<slug>/`): a prompt-cookbook + `{{slots}}` + the common model stack + common assets + a composition skeleton. It answers **"how do I make THIS KIND of content?"** It is the learn / discover / scaffold-from entity. `ralphy template show <slug>` surfaces its cookbook; `ralphy template use <slug> --project <id>` scaffolds a fresh project from it. This is the entity issue #075 formalizes as "Template."
 - **Unit** — one finished deliverable in a Format (the #063 / #069 entity). A Unit is made *in the manner of* a Template but is a concrete, shipped piece.
 - **Blueprint (specific, #074)** — the per-unit, reproduction-grade recipe for ONE Unit: verbatim prompts, scene table, composition skeleton + timing, hard asset files, model stack with params + cost, concrete ffmpeg/encode/overlay recipes. It answers **"how do I reproduce THIS EXACT one?"**
 
@@ -78,7 +78,7 @@ A **Blueprint** (#074) is the per-unit, reproduction-grade recipe — the verbat
 | Answers | "How do I make this *kind* of content?" / "How do I reproduce *this* one?" | "How do I research / evaluate / install / render / publish?" |
 | Content routing | **Primary** — the agent matches a brief to a format | Supplementary — overlay on a template match, or a non-content operation |
 | Who initiates | Agent matches it to the brief (or user points at a specific style to remix) | Agent invokes it for the operation; user can slash-invoke |
-| Lives in | `templates/<category>/<slug>/` | `.agents/skills/<slug>/` |
+| Lives in | public library (Supabase) + `workspace/templates/<slug>/` | `.agents/skills/<slug>/` |
 | Discovery | `ralphy template list / show / suggest / use` | Claude Code slash commands |
 
 ## Decision tree (every "make a video / image / content" request)
@@ -103,7 +103,7 @@ Remix is a usage pattern, not a feature with its own command:
 
 ## See also
 
-- [`templates/FORMATS.md`](../templates/FORMATS.md) — the media-format map (primary template axis).
+- [Library](https://www.alecs5am.com/library) / `ralphy template suggest --help` — the media-format map (primary template axis).
 - [`docs/skills-format.md`](skills-format.md) — how to author a SKILL.md.
 - [`AGENTS.md`](../AGENTS.md) — invariant #10 + the routing table.
 - [`docs/playbooks/intake.md`](playbooks/intake.md) — the cold-start template match.

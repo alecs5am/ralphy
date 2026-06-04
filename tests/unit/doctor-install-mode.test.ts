@@ -1,8 +1,8 @@
 // Unit test for detectInstallMode (01.09.07).
 //
 // The heuristic walks up from a starting dir looking for the developer-mode
-// marker triple (package.json + cli/index.ts + templates/). If found,
-// returns "developer". Otherwise "binary".
+// marker pair (package.json + cli/index.ts). If found, returns "developer".
+// Otherwise "binary". (The repo templates/ folder was retired in #084.)
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
@@ -25,11 +25,10 @@ afterEach(() => {
 });
 
 describe("detectInstallMode", () => {
-  test("returns 'developer' when the marker triple exists", () => {
+  test("returns 'developer' when the marker pair exists", () => {
     fs.writeFileSync(path.join(tmp, "package.json"), "{}");
     fs.mkdirSync(path.join(tmp, "cli"), { recursive: true });
     fs.writeFileSync(path.join(tmp, "cli", "index.ts"), "");
-    fs.mkdirSync(path.join(tmp, "templates"), { recursive: true });
     // Start from a nested dir inside the fake repo — should walk up.
     const nested = path.join(tmp, "cli", "commands");
     fs.mkdirSync(nested, { recursive: true });

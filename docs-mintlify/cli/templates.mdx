@@ -5,19 +5,19 @@ description: "ralphy template list, suggest, use, show, register — slug resolu
 
 Templates are the reusable shape behind a video — a vibe-reference (full-stack production blueprint) or a vibe-style (prompt cookbook). They live in two locations that the CLI reads transparently, and the right way to discover one is `ralphy template suggest "<utterance>"`. Per [AGENTS.md invariant #10](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), always run `suggest` before reaching for a model — there's a good chance the format already exists.
 
-## Two roots, one resolver
+## Two tiers, one resolver
 
-| Location | Layout | Audience | Storage |
+| Tier | `source` | Audience | Storage |
 |---|---|---|---|
-| `templates/` (repo) | 5 category folders (`b2b-saas/`, `dtc-commerce/`, `creator-lifestyle/`, `entertainment-viral/`, `cinematic-narrative/`) | shipped on every clone | committed to git |
-| `workspace/templates/` | flat | user-local, gitignored | per-checkout |
+| Public content library | `public` | shipped to everyone | Supabase (hosted; the same library `/library` serves, read via `cli/lib/library/client.ts`) |
+| `workspace/templates/` | `workspace` | user-local, gitignored | per-checkout |
 
-The loader resolves slugs across both roots. Workspace overrides repo on collision — letting you edit a published template locally without touching the repo copy.
+The loader resolves slugs across both tiers. Workspace overrides the public tier on collision — letting you edit a published template locally. The public tier degrades gracefully when the library is unreachable (workspace-only + a warning). The old repo-public `templates/<category>/<slug>/` folder was retired in #084.
 
-Each location supports two on-disk layouts:
+The workspace tier supports two on-disk layouts:
 
-- **Flat:** `<root>/<id>.json`
-- **Dir:** `<root>/<id>/template.json` + `TEMPLATE.md` + `composition.md` and friends
+- **Flat:** `workspace/templates/<id>.json`
+- **Dir:** `workspace/templates/<id>/template.json` + `TEMPLATE.md` + `composition.md` and friends
 
 Dir-based templates are preferred — the LLM-readable doc (`TEMPLATE.md`) lives next to metadata.
 
@@ -41,10 +41,11 @@ ralphy template list
 ralphy template list --kind vibe-style
 ralphy template list --kind vibe-reference
 ralphy template list --category entertainment-viral
-ralphy template list --source repo
+ralphy template list --source public
+ralphy template list --source workspace
 ```
 
-Returns `{ id, kind, source, name, summary }`. Two `kind` values ship today: `vibe-reference` (full-stack production templates with `composition.md` + reference example, 5 in repo) and `vibe-style` (prompt cookbooks with hooks + camera vocab + worked example prompts, 38 in repo).
+Returns `{ id, kind, source, name, summary }`. Two `kind` values ship today: `vibe-reference` (full-stack production templates with `composition.md` + reference example) and `vibe-style` (prompt cookbooks with hooks + camera vocab + worked example prompts). `source` is `public` (hosted library) or `workspace` (user-local).
 
 ## ralphy template show &lt;id&gt;
 
@@ -82,7 +83,7 @@ ralphy template create \
   --summary "..."
 
 # Register an existing dir as a template
-ralphy template register my-format --dir ./templates/my-format
+ralphy template register my-format --dir ./workspace/templates/my-format
 
 # Remove
 ralphy template delete my-new-format
@@ -96,31 +97,13 @@ Given a slug, the resolver walks in this order:
 
 1. `workspace/templates/<id>/template.json` (dir, workspace)
 2. `workspace/templates/<id>.json` (flat, workspace)
-3. `templates/<category>/<id>/template.json` (dir, repo, any category)
-4. `templates/<id>/template.json` (dir, repo, uncategorized)
-5. `templates/<id>.json` (flat, repo)
+3. Public content library lookup by slug (Supabase, via `cli/lib/library/client.ts`)
 
-The first hit wins. Categorized repo layout (`templates/<category>/<id>/`) is the canonical shape post-2026-05; the flat fallbacks exist for back-compat.
+The first hit wins — the workspace tier shadows a public template of the same slug. The library lookup degrades gracefully when Supabase is unreachable (workspace-only).
 
-## Manifests
+## Browsing the catalog
 
-Two repo manifests track the template surface:
-
-- [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) — full slug-by-category roster
-- [`templates/TOP.md`](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md) — Top-20 viral-2026 cross-category playlist
-
-The agent reads `CATEGORIES.md` when it needs the full list and `TOP.md` when it's looking for a quick test-drive.
-
-## Lint scripts
-
-Two repo scripts catch template drift:
-
-```bash
-bun run lint:templates           # JSON schema + required inputs + slug rules
-bun run lint:motion-graphics     # composition.md sanity (vibe-reference only)
-```
-
-CI runs both on every PR — see `scripts/lint-templates.ts` and `scripts/lint-motion-graphics.ts`.
+The full roster lives on the public [Library](https://www.alecs5am.com/library); `ralphy template list -p` and `ralphy template suggest "<brief>"` are the CLI surfaces. The old repo-public `CATEGORIES.md` / `TOP.md` manifests were retired with the `templates/` folder (#084).
 
 ## Related
 

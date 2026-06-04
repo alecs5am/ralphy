@@ -3,11 +3,11 @@ title: "Template format"
 description: "template.yaml Zod schema, vibe-reference vs vibe-style, segment categories, slug rules, and version gating."
 ---
 
-A Ralphy template is one folder under `templates/<category>/<slug>/` (repo-public) or `workspace/templates/<slug>/` (user-local). Each folder declares a `template.yaml` manifest plus supporting prose (`TEMPLATE.md`, `composition.md`, `hooks.md`, `prompt-cookbook.md`). This page is the wire-format spec: the manifest Zod schema, the two `kind`s, the five category folders, the slug discipline, the version gate, and the lint.
+A Ralphy template is a `template.yaml` manifest plus supporting prose (`TEMPLATE.md`, `composition.md`, `hooks.md`, `prompt-cookbook.md`). Public templates are served from the hosted content library (Supabase); your own author into `workspace/templates/<slug>/` (user-local). The old repo-public `templates/<category>/<slug>/` folder was retired in #084. This page is the wire-format spec: the manifest Zod schema, the two `kind`s, the segment categories, the slug discipline, and the version gate.
 
 ## Full example
 
-A minimal `vibe-style` template at `templates/b2b-saas/brand-story/template.yaml`:
+A minimal `vibe-style` template at `workspace/templates/brand-story/template.yaml`:
 
 ```yaml
 version: 1
@@ -218,48 +218,40 @@ When `scenes[]` eventually gains a required field, the loader keeps a v1 reader 
 
 ## Slug resolution
 
-`ralphy template use <slug>` resolves a slug across both layouts:
+`ralphy template use <slug>` resolves a slug across both tiers:
 
 1. Search `workspace/templates/<slug>/template.yaml`.
-2. If not found, search `templates/<category>/<slug>/template.yaml` for each category.
+2. If not found, look the slug up in the public content library (Supabase).
 3. If still not found, search aliases (`aliases: [old-slug]`).
 
-Workspace overrides repo on id collision. Aliases let you rename a template without breaking existing user scripts.
+Workspace overrides the public tier on id collision. Aliases let you rename a template without breaking existing user scripts.
 
-## Lint
+## Validation
 
-```bash
-bun run lint:templates
-```
+The manifest parses through the v1 Zod loader (`cli/lib/templater/loader.ts`) on every `ralphy template show` / `use`. It enforces:
 
-`scripts/lint-templates.ts` walks `templates/<category>/<slug>/` and asserts:
-
-- The category is one of `TEMPLATE_CATEGORIES` (anything else is silently skipped).
+- The category is one of `TEMPLATE_CATEGORIES`.
 - The slug passes `validateSlug()` — kebab-case, no banned tokens.
-- `template.yaml` (or legacy `template.json`) is present.
-- The manifest parses through the v1 loader without throwing.
+- `template.yaml` (or legacy `template.json`) is present and parses without throwing.
 
-Issues are reported as `{kind: "slug" | "manifest", slug, category, detail}`. The script exits non-zero on any issue. CI runs this on every PR.
-
-The lint does not check `workspace/templates/` — that's user content, not repo content.
+(The repo-folder `lint:templates` script was retired with the `templates/` folder in #084 — there is no longer a committed repo catalog to walk.)
 
 ## Authoring checklist
 
-1. **Pick a category folder.** One of `b2b-saas`, `dtc-commerce`, `creator-lifestyle`, `entertainment-viral`, `cinematic-narrative`.
-2. **Pick a slug.** Kebab-case, no creator names. Run `bun run lint:templates` against a draft to catch banned tokens early.
+1. **Pick a category.** One of `b2b-saas`, `dtc-commerce`, `creator-lifestyle`, `entertainment-viral`, `cinematic-narrative`.
+2. **Pick a slug.** Kebab-case, no creator names.
 3. **Decide the kind.** `vibe-reference` if you're shipping a full production with refs; `vibe-style` if you're shipping a prompt cookbook.
-4. **Write `template.yaml`.** Start with `version: 1`, fill required fields, default the rest.
+4. **Write `template.yaml`** at `workspace/templates/<slug>/`. Start with `version: 1`, fill required fields, default the rest.
 5. **Write `TEMPLATE.md`.** Human-readable overview. Creator references go here, not in the slug.
 6. **For `vibe-reference`:** add `composition.md` (the narrated walkthrough) and `reference/` (worked artifacts).
 7. **For `vibe-style`:** add `hooks.md` (hook library) and `prompt-cookbook.md` (per-modality fragments).
-8. **Run `bun run lint:templates`.** Fix any issues.
-9. **Run `ralphy template suggest "<your test brief>"`.** Verify the new template surfaces with a sensible score.
+8. **Run `ralphy template register <slug>`** then **`ralphy template suggest "<your test brief>"`.** Verify the new template surfaces with a sensible score.
+9. **To publish to the public Library**, use the `templater` / `dev-publish-template` path.
 
 ## Related
 
 - [CLI: `ralphy template`](/reference/cli/template) — `list`, `suggest`, `use`, `show`.
-- [Templates gallery](https://ralphy.dev/templates) — every shipped template, browsable.
+- [Library](https://www.alecs5am.com/library) — every published template, browsable.
 - [Concepts: templates](/concepts/templates) — what a template *is*, narrated.
 - [`cli/lib/schemas/template.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/schemas/template.ts) — the Zod source.
-- [`scripts/lint-templates.ts`](https://github.com/alecs5am/ralphy/blob/main/scripts/lint-templates.ts) — the lint source.
-- [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) — current slug-by-category roster.
+- [`cli/lib/templater/loader.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/templater/loader.ts) — the loader / validator.

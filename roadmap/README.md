@@ -93,7 +93,7 @@ fd '^01-' roadmap/todo/ | wc -l   # how many CLI tasks are still open
 - [`docs/use-cases.md`](../docs/use-cases.md) — canonical user utterances, feeds 04-user-flow.
 - [`docs/perf-targets.md`](../docs/perf-targets.md) — speed & cost budgets, feeds 08 and 10.
 - [`docs/virality-rubric.md`](../docs/virality-rubric.md) — quality gate definition, feeds 08.
-- [`templates/CATEGORIES.md`](../templates/CATEGORIES.md), [`templates/TOP.md`](../templates/TOP.md) — template inventory, feeds 02.
+- Public template library (Supabase, browsable at `/library` / `ralphy library templates list`) — template inventory, feeds 02. (Was `templates/CATEGORIES.md` + `templates/TOP.md`, retired in #084.)
 
 ## Lifecycle
 

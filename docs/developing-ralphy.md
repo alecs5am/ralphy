@@ -53,14 +53,13 @@ If you change the *generator*, run the generator after; if the diff is non-empty
 
 ## Lint scripts (run before commit)
 
-There are 10. CI runs all of them. Run locally first:
+CI runs all of them. Run locally first:
 
 ```bash
 bun run lint:errors           # error catalog shape
 bun run lint:help-examples    # every verb's --help block has a working example
 bun run lint:skills           # skill frontmatter (name regex, ≤1536 char desc, namespace)
 bun run lint:agents-md        # AGENTS.md routing table + claude-isms
-bun run lint:templates        # template.yaml schema + slug validity
 bun run lint:confirmation-shape  # English/Russian confirmation phrases in prompts.json
 bun run lint:motion-graphics  # motion-graphics misroutes in prompts.json
 bun run lint:docs-links:fast  # internal links resolve (use lint:docs-links for external probe)
@@ -79,10 +78,10 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 
 ## Template discipline
 
-- Folder: `templates/<category>/<slug>/` where category ∈ `{b2b-saas, dtc-commerce, creator-lifestyle, entertainment-viral, cinematic-narrative}`.
-- Workspace overrides repo on id collision (`workspace/templates/<slug>/` wins).
+- The repo-public `templates/<category>/<slug>/` folder was retired in #084. Public templates now live in the hosted content library (Supabase), read by the CLI via `cli/lib/library/client.ts`. Author user-local templates into `workspace/templates/<slug>/`; publish onward via the `templater` / `dev-publish-template` path.
+- Category ∈ `{b2b-saas, dtc-commerce, creator-lifestyle, entertainment-viral, cinematic-narrative}`.
+- Workspace overrides the public tier on id collision (`workspace/templates/<slug>/` wins).
 - `template.yaml` schema is in `cli/lib/schemas/template.ts` (Zod). The version gate is `E_TEMPLATE_VERSION_UNSUPPORTED`.
-- After adding a template, run `bun run lint:templates`.
 
 ## Model discipline
 

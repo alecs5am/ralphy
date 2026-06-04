@@ -31,34 +31,24 @@ Templates are organized by **segment × persona** — who is watching the conten
 | `entertainment-viral/` | 15 | Passive scroll-feed / meme / brainrot | Pure attention, share, dwell | Punchy, surreal, AI-native |
 | `cinematic-narrative/` | 11 | Aesthetics-first / film-quality | Brand prestige, emotional resonance | Directorial, deliberate |
 
-Full per-category roster lives in [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md). The cross-category Top-20 viral-2026 playlist lives in [`templates/TOP.md`](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md).
+Browse the full roster on the public [Library](https://www.alecs5am.com/library), or run `ralphy template list -p`.
 
 ## Where templates live
 
-Two locations, both read by the same loader.
+Two tiers, both read by the same loader.
 
 ```
-templates/                        # repo-public, committed to git
-├── b2b-saas/
-│   ├── motion-design-ad/
-│   ├── brand-story/
-│   └── ...
-├── dtc-commerce/
-│   ├── before-after-product/      # vibe-reference
-│   ├── doctor-authority/
-│   └── ...
-├── creator-lifestyle/
-├── entertainment-viral/
-└── cinematic-narrative/
+public content library            # Supabase template blocks (hosted)
+                                   # served by /library + read via cli/lib/library/client.ts
 
 workspace/templates/              # user-local, gitignored
 ├── my-internal-template/
 └── ...
 ```
 
-The repo-public `templates/` directory is physically organized into 5 category folders. The user-local `workspace/templates/` stays flat. **The loader resolves by slug regardless of category folder** — `ralphy template use before-after-product --project <id>` works whether the slug lives at `templates/dtc-commerce/before-after-product/` or `workspace/templates/before-after-product/`.
+The **public content library** holds the shipped catalog (the same library the `/library` landing serves). The user-local `workspace/templates/` stays flat. The repo-public `templates/<category>/<slug>/` folder was retired in #084 — templates are no longer committed to git here. **The loader resolves by slug across both tiers** — `ralphy template use before-after-product --project <id>` works whether the slug is a public-library template or lives at `workspace/templates/before-after-product/`.
 
-**Workspace overrides repo on id collision.** If you copy a repo template into `workspace/templates/<slug>/` and edit it, the local version wins. That is the supported way to fork a template — you do not modify `templates/` directly.
+**Workspace overrides the public tier on id collision.** If you `ralphy template extract` a project into `workspace/templates/<slug>/` and edit it, the local version wins. The public tier degrades gracefully when the library is unreachable — the CLI lists workspace templates only and prints a warning.
 
 ## The slug system
 
@@ -80,7 +70,7 @@ The suggest verb is *the* gate against improvisation. 54 templates ship; the cha
 
 ## Example slug roster
 
-Here is a representative slice — see [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) for the full 54-entry list.
+Here is a representative slice — browse the full roster on the public [Library](https://www.alecs5am.com/library) or run `ralphy template list -p`.
 
 ### `b2b-saas/`
 
@@ -167,29 +157,26 @@ After `template use`, the project has a `BRIEF.md`, a draft `STORYBOARD.md`, and
 
 ## Adding a new template
 
+Author a template into your user-local workspace tier, then publish it onward to the public library.
+
 ```bash
-# 1. Pick a category by audience-persona (not visual style).
-# 2. Create the folder.
-mkdir -p templates/<category>/<slug>/
+# 1. Extract a finished project into workspace/templates/<slug>/ (or hand-author the folder there).
+ralphy template extract <project-id> --slug <slug> --category <category>
 
-# 3. Add the required files.
-#    Vibe-style: template.json, TEMPLATE.md, hooks.md, prompt-cookbook.md.
-#    Vibe-reference: template.json, TEMPLATE.md, composition.md,
-#                    model-stack.md, reference-example.md, fragments.md.
-
-# 4. Register.
+# 2. Register.
 ralphy template register <slug>
 
-# 5. Verify suggest finds it with score ≥ 0.5 for the canonical utterance.
+# 3. Verify suggest finds it with score ≥ 0.5 for the canonical utterance.
 ralphy template suggest "<the brief that should land on this template>"
 ```
 
-Update [`templates/CATEGORIES.md`](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) and (if it belongs) [`templates/TOP.md`](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md).
+To make it discoverable in the public Library, publish it via the `templater` / `dev-publish-template` path (Supabase + the open-source `published.ts`).
 
 ## Related
 
-- [Templates Categories manifest](https://github.com/alecs5am/ralphy/blob/main/templates/CATEGORIES.md) — full 54-template roster
-- [Top-20 viral-2026 playlist](https://github.com/alecs5am/ralphy/blob/main/templates/TOP.md) — cross-category test-drive set
+- [Library](https://www.alecs5am.com/library) — browse every published template + unit
+- [Asset catalog](/concepts/asset-catalog) — `ralphy template use` pulls required assets from the companion repo
+- [Projects](/concepts/projects) — what a scaffolded project looks like on disk
 - [Asset catalog](/concepts/asset-catalog) — `ralphy template use` pulls required assets from the companion repo
 - [Projects](/concepts/projects) — what a scaffolded project looks like on disk
 - [`/advanced/template-format`](/advanced/template-format) — the YAML / JSON schema for `template.json`
