@@ -519,7 +519,12 @@ async function buildAssets(
     const srcPath = strOrUndef(raw.path);
     if (!srcPath) continue;
     const kind = mapAssetKind(slot, strOrUndef(raw.kind));
-    let recordedPath = srcPath;
+    // SECURITY (#056 leak root-cause): NEVER record the absolute manifest path.
+    // When we copy the file into blueprint/assets/, record the relative copy
+    // (`assets/<name>`). When we cannot copy (missing / oversize / copy-failed),
+    // record the bare basename + keep the by-ref note. The absolute `srcPath`
+    // never lands in blueprint.json (which is published verbatim by #056).
+    let recordedPath = path.basename(srcPath);
     let bytes: number | undefined;
 
     if (existsSync(srcPath)) {
@@ -535,15 +540,15 @@ async function buildAssets(
           await fs.copyFile(srcPath, dest);
           recordedPath = path.posix.join("assets", path.basename(dest));
         } catch {
-          warnings.push(`could not copy hard asset for slot '${slot}'; recorded by ref`);
+          warnings.push(`could not copy hard asset for slot '${slot}'; recorded by basename (by-ref)`);
         }
       } else if (bytes != null) {
         warnings.push(
-          `hard asset for slot '${slot}' is ${bytes} bytes (> copy ceiling); recorded by ref only`,
+          `hard asset for slot '${slot}' is ${bytes} bytes (> copy ceiling); recorded by basename (by-ref) only`,
         );
       }
     } else {
-      warnings.push(`hard asset path for slot '${slot}' does not exist; recorded by ref`);
+      warnings.push(`hard asset path for slot '${slot}' does not exist; recorded by basename (by-ref)`);
     }
 
     out.push({
