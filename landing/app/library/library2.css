@@ -572,8 +572,27 @@
   color: var(--block-ink); background: var(--block-tint); padding: 4px 10px; border-radius: 999px; }
 .mf-title .mf-kind .mf-glyph { font-family: var(--font-display); font-size: 1.15em; }
 .mf-title .mf-sep { color: var(--mute); }
-.relrail { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x mandatory; }
-.relrail .utile { flex: 0 0 clamp(220px, 24vw, 280px); margin-bottom: 0; scroll-snap-align: start; }
+/* ── Carousel (#090) — recommendation-rail scroll mechanism ─────────────────
+   No visible borders: controls are bg-tint discs + shadow, accent on hover
+   (style-matched to .lb-nav). The track is the snap-scroll strip; .crsl-item
+   re-supplies the fixed rail-item width the old `.relrail .utile` rule gave. */
+.crsl { position: relative; }
+.crsl-track { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 14px;
+  scroll-snap-type: x mandatory; scroll-behavior: smooth; outline: none; touch-action: pan-x; }
+.crsl-track:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--vio) 55%, transparent); border-radius: 14px; }
+.crsl-track.crsl-dragging { scroll-snap-type: none; scroll-behavior: auto; cursor: grabbing; user-select: none; }
+.crsl-item { flex: 0 0 clamp(220px, 24vw, 280px); scroll-snap-align: start; }
+.crsl-item .utile { margin-bottom: 0; }
+/* prev/next discs — bg-tint + shadow, accent on hover; sit half over the rail
+   edges, vertically centered on the card media row. */
+.crsl-nav { position: absolute; top: 38%; transform: translateY(-50%); z-index: 4;
+  width: 40px; height: 40px; border-radius: 999px; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: var(--bg-2); color: var(--ink);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.34); transition: background .15s ease, color .15s ease, opacity .15s ease; }
+.crsl-nav.prev { left: -6px; } .crsl-nav.next { right: -6px; }
+.crsl-nav:hover { background: var(--bg-3); color: var(--vio); }
+.crsl-nav:disabled { opacity: 0; pointer-events: none; }
+@media (max-width: 700px) { .crsl-nav { display: none; } }
 
 /* format-cards row: 9 columns (All + 8 formats), responsive */
 .browse-grid.nine { grid-template-columns: repeat(9, 1fr); }
@@ -586,12 +605,12 @@
 
 /* Thin themed scrollbar for the horizontal More-from rails + the viewer
    thumbnail strip (carousel feel, no chunky default bar). */
-.relrail, .uviewer .vctl .seg { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
-.relrail::-webkit-scrollbar, .uviewer .vctl .seg::-webkit-scrollbar { height: 8px; width: 8px; }
-.relrail::-webkit-scrollbar-track, .uviewer .vctl .seg::-webkit-scrollbar-track { background: transparent; }
-.relrail::-webkit-scrollbar-thumb, .uviewer .vctl .seg::-webkit-scrollbar-thumb {
+.crsl-track, .uviewer .vctl .seg { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
+.crsl-track::-webkit-scrollbar, .uviewer .vctl .seg::-webkit-scrollbar { height: 8px; width: 8px; }
+.crsl-track::-webkit-scrollbar-track, .uviewer .vctl .seg::-webkit-scrollbar-track { background: transparent; }
+.crsl-track::-webkit-scrollbar-thumb, .uviewer .vctl .seg::-webkit-scrollbar-thumb {
   background: var(--bg-4); border-radius: 999px; }
-.relrail::-webkit-scrollbar-thumb:hover, .uviewer .vctl .seg::-webkit-scrollbar-thumb:hover {
+.crsl-track::-webkit-scrollbar-thumb:hover, .uviewer .vctl .seg::-webkit-scrollbar-thumb:hover {
   background: var(--mute-2); }
 /* Letterbox backing so a contained sticker/still reads intentionally on the stage. */
 .uviewer .stage .stage-media { background: color-mix(in oklch, var(--hue) 8%, var(--bg)); border-radius: 16px; }

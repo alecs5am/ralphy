@@ -7,16 +7,18 @@
 // strip (`.relrail`). Rail cards are compact (no ingredient ribbon, no Remix
 // action), so there is no RemixModal state to own here.
 //
-// #090 NOTE: the scroll mechanism lives ENTIRELY inside this component (the
-// `.relrail` div below). #090 will replace that div with a shadcn <Carousel>
-// WITHOUT touching the public props (units / formats / blocks) or any caller —
-// the carousel goes inside, callers keep passing the same data. Do not leak the
-// scroll mechanism out to callers.
+// #090 DONE: the scroll mechanism lives ENTIRELY inside this component — the
+// `.relrail` div was replaced with the shared <Carousel> WITHOUT touching the
+// public props (units / formats / blocks) or any caller. The carousel goes
+// inside; callers keep passing the same data. Each card is wrapped in a
+// fixed-width `.crsl-item` (re-supplying the old `.relrail .utile` rail-item
+// width) so compact cards keep their size.
 //
 // No visible borders: separation via bg-tint + shadow + spacing only.
 
 import { useMemo } from "react";
 import type { Block, BlockKind, Format, Unit } from "@/lib/library-v2/types";
+import { Carousel } from "./Carousel";
 import { UnitCard } from "./UnitCard";
 
 export function UnitRail({
@@ -40,12 +42,16 @@ export function UnitRail({
     return (kind: BlockKind, id: string) => m.get(`${kind}:${id}`);
   }, [blocks]);
 
-  // The scroll mechanism — #090 swaps this `.relrail` strip for <Carousel>.
+  // The scroll mechanism — #090 swapped the bare `.relrail` strip for <Carousel>.
+  // Each card is wrapped in `.crsl-item`, which re-supplies the fixed rail-item
+  // width the old `.relrail .utile` rule provided (else compact cards collapse).
   return (
-    <div className="relrail">
+    <Carousel className="relrail-crsl" label="Related units">
       {units.map((u) => (
-        <UnitCard key={u.id} u={u} format={formatById.get(u.format)} blockBy={blockBy} compact />
+        <div key={u.id} className="crsl-item">
+          <UnitCard u={u} format={formatById.get(u.format)} blockBy={blockBy} compact />
+        </div>
       ))}
-    </div>
+    </Carousel>
   );
 }

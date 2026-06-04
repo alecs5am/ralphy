@@ -1,6 +1,6 @@
 # `<Carousel>` component for recommendation rails (replace raw horizontal scroll)
 
-> **Status:** todo
+> **Status:** done — 2026-06-04 (zero-dep scroll-snap <Carousel>: prev/next scrollBy + drag + keyboard + end-detection + graceful small-count wrap; swapped into UnitRail internals, MoreFrom unchanged; rail-item fixed width re-supplied; no new deps — registry-flaky, embla avoided; next build green)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium
