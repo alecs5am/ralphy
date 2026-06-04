@@ -96,6 +96,63 @@ function parseArgs(argv: string[]): Args {
   return out;
 }
 
+// ── Local-filesystem-path sanitizer (security guard, #056 leak root-cause) ──────
+//
+// Publishing must NEVER leak an absolute local filesystem path
+// (`/Users/...`, `/home/...`, `/var/...`, `/tmp/...`, `/private/...`) or a
+// `workspace/projects/` segment into the DB jsonb, the Storage object key, or the
+// committed published.ts mirror. Those strings expose the maintainer's machine
+// and never resolve for any other user.
+//
+// `LOCAL_PATH_RE` is the single regex both the per-field sanitizer AND the final
+// backstop assertion use, so "what we strip" and "what we refuse" can never drift.
+
+const LOCAL_PATH_RE = /(\/Users\/|\/home\/|\/var\/|\/tmp\/|\/private\/|workspace\/projects)/;
+
+/** True when `value` carries an absolute local FS path or a workspace/projects segment. */
+function looksLocal(value: string): boolean {
+  return LOCAL_PATH_RE.test(value);
+}
+
+/**
+ * Reduce ONE path-like field to a publish-safe value.
+ *
+ *   • If the field is not a local path -> return it unchanged.
+ *   • If a `storageUrl` (or any safe replacement) is available -> use that.
+ *   • Otherwise strip to the basename and LOUD-warn (the page degrades to a
+ *     by-ref asset, but we NEVER emit the maintainer's absolute path).
+ *
+ * `safe` is the preferred replacement (a Storage public URL, or a curated
+ * `assets/<basename>` form). When absent / itself local, we fall back to the
+ * bare basename. `field` is a human label for the warning.
+ */
+function sanitizeForPublish(value: string, opts: { safe?: string; field: string }): string {
+  if (typeof value !== "string" || value.length === 0) return value;
+  if (!looksLocal(value)) return value;
+  const { safe, field } = opts;
+  if (safe && !looksLocal(safe)) return safe;
+  const safeName = basename(value);
+  console.warn(
+    `  WARN: sanitized local path out of ${field}: "${value}" -> "${safeName}" (by-ref; the page degrades — upload the asset to Storage to resolve it).`,
+  );
+  return safeName;
+}
+
+/**
+ * The final backstop. Serialize the EXACT object that is about to be written to
+ * published.ts / upserted into the DB jsonb, and refuse loudly if any local path
+ * survived the per-field sanitizer. Fail-closed: never publish a leak.
+ */
+function assertNoLocalPaths(payload: unknown, field: string): void {
+  const serialized = JSON.stringify(payload);
+  if (LOCAL_PATH_RE.test(serialized)) {
+    const m = LOCAL_PATH_RE.exec(serialized);
+    throw new Error(
+      `refuse to publish a local filesystem path: ${field} (matched "${m?.[0]}"). The sanitizer missed a field — fix it before publishing.`,
+    );
+  }
+}
+
 // ── Storage object keys ────────────────────────────────────────────────────────
 
 function unitObjectKey(unitId: string, src: string): string {
@@ -534,6 +591,12 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
     ...(tags.length > 0 ? { tags } : {}),
   };
 
+  // Backstop: the unit row jsonb + the published mirror Unit must carry no local
+  // path. The media src is `/showcase/<id>/<basename>` and storageUrl is a public
+  // URL (both safe by construction); this assertion locks that against regressions.
+  assertNoLocalPaths(unitUpsert.values, `unit:${unitId} DB upsert`);
+  assertNoLocalPaths({ ...publishedUnit, media: buildMedia(true) }, `unit:${unitId} published.ts`);
+
   if (!push) {
     printPlan(
       `DRY-RUN publish-unit ${unitId}`,
@@ -665,6 +728,16 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
   if (spec.demo !== undefined) recipeData.demo = spec.demo;
   const hasRecipeData = Object.keys(recipeData).length > 0;
 
+  // Refs that go to BOTH the DB jsonb AND the published.ts mirror. Previously the
+  // DB stored the raw local `spec.refs` while the mirror stored the storageUrl-
+  // rewritten copy — the #056 publishBlock divergence that leaked a local path
+  // into the DB. Compute ONE sanitized list and feed it to both sinks: rewrite to
+  // the Storage public URL when known, else strip to the basename.
+  const publishedRefs = (spec.refs ?? []).map((ref) => {
+    const url = publicUrlFor(blockObjectKey(spec.kind, spec.id, ref));
+    return sanitizeForPublish(ref, { safe: url, field: `block:${spec.id} refs[]` });
+  });
+
   const blockUpsert: UpsertRow = {
     table: "blocks",
     conflict: "(id)",
@@ -674,17 +747,13 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
       name: spec.name,
       blurb: spec.blurb ?? null,
       sub: spec.sub ?? null,
-      refs: spec.refs ?? [],
+      refs: publishedRefs,
       recipe_kind: spec.recipeKind ?? null,
       data: hasRecipeData ? recipeData : null,
     },
   };
 
-  // The published Block object — refs rewritten to their Storage public path when known.
-  const publishedRefs = (spec.refs ?? []).map((ref) => {
-    const url = publicUrlFor(blockObjectKey(spec.kind, spec.id, ref));
-    return url ?? ref;
-  });
+  // The published Block object — refs are the SAME sanitized list as the DB row.
   const publishedBlock: Block = {
     kind: spec.kind,
     id: spec.id,
@@ -698,6 +767,11 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     ...(spec.params !== undefined ? { params: spec.params } : {}),
     ...(spec.demo !== undefined ? { demo: spec.demo } : {}),
   };
+
+  // Backstop: neither the DB upsert payload nor the published mirror may carry a
+  // local path. Runs in dry-run too so a leak is caught BEFORE anyone passes --push.
+  assertNoLocalPaths(blockUpsert.values, `block:${spec.id} DB upsert`);
+  assertNoLocalPaths(publishedBlock, `block:${spec.id} published.ts`);
 
   if (!push) {
     printPlan(
@@ -738,7 +812,7 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
         spec.name,
         spec.blurb ?? null,
         spec.sub ?? null,
-        JSON.stringify(spec.refs ?? []),
+        JSON.stringify(publishedRefs),
         spec.recipeKind ?? null,
         hasRecipeData ? JSON.stringify(recipeData) : null,
       ],
@@ -886,18 +960,44 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
         const rel = a.path?.replace(/\\/g, "/").replace(/^\.\//, "");
         const plan = rel ? uploads.find((u) => u.rel === rel) : undefined;
         const next: typeof a = { ...a };
+        let storageUrl: string | undefined;
         if (withStorage && plan && plan.exists && !plan.oversize) {
           const url = publicUrlFor(plan.objectKey);
-          if (url) next.storageUrl = url;
+          if (url) {
+            next.storageUrl = url;
+            storageUrl = url;
+          }
+        }
+        // SECURITY: never let an absolute local path survive into `path`. With a
+        // storageUrl, drop to the curated `assets/<basename>` form; without one,
+        // strip to `<basename>` (by-ref) and LOUD-warn. Never the absolute path.
+        if (typeof next.path === "string" && looksLocal(next.path)) {
+          const safe = storageUrl ? `assets/${basename(next.path)}` : undefined;
+          next.path = sanitizeForPublish(next.path, {
+            safe,
+            field: `blueprint:${unitId} assets[slot=${a.slot ?? "?"}].path`,
+          });
         }
         return next;
       }),
     };
     if (bp.composition && compPlan && compPlan.exists && !compPlan.oversize) {
       const composition = { ...bp.composition };
+      let compStorageUrl: string | undefined;
       if (withStorage) {
         const url = publicUrlFor(compPlan.objectKey);
-        if (url) composition.storageUrl = url;
+        if (url) {
+          composition.storageUrl = url;
+          compStorageUrl = url;
+        }
+      }
+      // SECURITY: composition.file must stay relative. With a storageUrl, drop to
+      // the bare `<basename>`; without one, strip to `<basename>` + LOUD-warn.
+      if (typeof composition.file === "string" && looksLocal(composition.file)) {
+        composition.file = sanitizeForPublish(composition.file, {
+          safe: compStorageUrl ? basename(composition.file) : undefined,
+          field: `blueprint:${unitId} composition.file`,
+        });
       }
       // Inline the composition HTML into the committed mirror when small. This
       // path runs in dry-run too (it reads a local file, touches nothing remote)
@@ -906,6 +1006,15 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
         composition.html = readFileSync(compPlan.localPath, "utf8");
       }
       bp.composition = composition;
+    } else if (bp.composition && typeof bp.composition.file === "string" && looksLocal(bp.composition.file)) {
+      // No uploadable composition plan (missing / oversize) — still sanitize the
+      // recorded file path so an absolute path never reaches the mirror / DB.
+      bp.composition = {
+        ...bp.composition,
+        file: sanitizeForPublish(bp.composition.file, {
+          field: `blueprint:${unitId} composition.file`,
+        }),
+      };
     }
     if (oversizeRels.length > 0) bp.oversizeSkipped = oversizeRels;
     return bp;
@@ -919,6 +1028,14 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
       data: "<blueprint jsonb>",
     },
   };
+
+  // Backstop: build the object that WOULD be written/upserted and refuse loudly
+  // if any local path survived the per-field sanitizer. The `withStorage:false`
+  // form is the one used in dry-run + the published mirror's local-fallback; the
+  // `withStorage:true` form is the DB jsonb. Both must be clean. Runs in dry-run
+  // so a leak is caught before --push.
+  assertNoLocalPaths(buildPublished(false), `blueprint:${unitId} published.ts`);
+  assertNoLocalPaths(buildPublished(true), `blueprint:${unitId} DB upsert`);
 
   if (!push) {
     // Dry-run: print exactly what WOULD upload + the DB upsert + the published.ts
