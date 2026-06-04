@@ -1,13 +1,14 @@
 // landing/app/library/b/[kind]/[id]/page.tsx
 //
 // Library v2 — Screen 3: the building-BLOCK page. One layout reused for every
-// kind (Template / Style / Recipe / Asset). Server Component, fully SSG.
+// kind (Template / Recipe / Asset). Server Component, fully SSG. (The look is a
+// unit Tag, not a block, so there is no /b/style/* page.)
 //
 //   Header (.bhead, 2-col when proof exists, single-col when it does not):
 //     left  — eyebrow `{glyph} {Kind}` (+ "· Asset" for assets), H1 name, blurb,
 //             CTA "Use this {kind}" (→ ComposeCta client modal) + "{n} units use it".
 //     right — proof, MEDIA-OR-NOTHING (the user's "no dumb placeholders" rule):
-//             Template / Style / Asset → the real `block.refs` media (image /
+//             Template / Asset         → the real `block.refs` media (image /
 //                                        video / audio) via AssetMedia. No refs
 //                                        → render NOTHING (no schematic grid).
 //             Recipe                    → ALWAYS nothing here; its demo + artifact
@@ -36,7 +37,7 @@ import { RecipeDetail } from "./RecipeDetail";
 
 export const dynamicParams = false;
 
-const KINDS: BlockKind[] = ["template", "style", "recipe", "asset"];
+const KINDS: BlockKind[] = ["template", "recipe", "asset"];
 
 export async function generateStaticParams() {
   const lists = await Promise.all(KINDS.map((kind) => getBlocks(kind)));
@@ -102,7 +103,7 @@ function RecipeKindBadge({ block }: { block: Block }) {
 //   recipe                   → always null here. Its before/after demo + the
 //                              copyable artifact live in <RecipeDetail> below,
 //                              so a top proof would only duplicate.
-//   template / style / asset → AssetMedia from `block.refs` (image / video /
+//   template / asset         → AssetMedia from `block.refs` (image / video /
 //                              audio viewer) when refs exist; null when empty.
 //
 // `hasBlockProof` is the SSR-side predicate so the header can pre-switch to a

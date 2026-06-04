@@ -85,15 +85,12 @@ export const BLUEPRINT_BY: Record<string, Blueprint> = Object.fromEntries(
   BLUEPRINTS.map((bp) => [bp.unitId, bp]),
 );
 
-/** All Blocks by kind: base catalog merged with published blocks of each kind. */
+/** All Blocks by kind: base catalog merged with published blocks of each kind.
+ *  (The former `style` kind is gone — the look is now a unit Tag.) */
 export const BLOCKS: BlocksByKind = {
   template: mergeById(
     BASE_BLOCKS.template,
     PUBLISHED_BLOCKS.filter((b) => b.kind === "template"),
-  ),
-  style: mergeById(
-    BASE_BLOCKS.style,
-    PUBLISHED_BLOCKS.filter((b) => b.kind === "style"),
   ),
   recipe: mergeById(
     BASE_BLOCKS.recipe,
@@ -113,7 +110,6 @@ export const F_BY: Record<string, Format> = Object.fromEntries(
 /** Per-kind block index keyed by block id, for O(1) `BLOCK_BY`. */
 const BLOCK_INDEX: Record<BlockKind, Record<string, Block>> = {
   template: Object.fromEntries(BLOCKS.template.map((b) => [b.id, b])),
-  style: Object.fromEntries(BLOCKS.style.map((b) => [b.id, b])),
   recipe: Object.fromEntries(BLOCKS.recipe.map((b) => [b.id, b])),
   asset: Object.fromEntries(BLOCKS.asset.map((b) => [b.id, b])),
 };
@@ -135,8 +131,6 @@ export const unitsUsing: UnitsUsingFn = (kind, id) =>
     switch (kind) {
       case "template":
         return u.templateId === id;
-      case "style":
-        return u.styleId === id;
       case "recipe":
         return u.recipeIds.includes(id);
       case "asset":

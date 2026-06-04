@@ -17,9 +17,11 @@
 //   - windowed infinite scroll via an IntersectionObserver sentinel.
 //
 // URL query params are the SINGLE SOURCE OF TRUTH for the view state
-// (?format=&style=&template=&recipe=&asset=&q=) — every control writes back via
+// (?format=&tag=&template=&recipe=&asset=&q=) — every control writes back via
 // router.replace, so back/forward + pasted URLs reproduce the exact view.
 // Multi-value block filters are comma-joined; all active filters AND together.
+// The look / register is filtered as a TAG (?tag=), not a block (the `style`
+// block kind was removed).
 //
 // No visible borders anywhere — separation via bg-tint + shadow + inset rings.
 
@@ -64,7 +66,6 @@ interface ViewState {
   format: FormatId | null;
   q: string;
   tag: string | null;
-  style: string[];
   template: string[];
   recipe: string[];
   asset: string[];
@@ -155,7 +156,6 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
       })(),
       q: searchParams.get("q") || "",
       tag: searchParams.get("tag") || null,
-      style: parseList(searchParams.get("style")),
       template: parseList(searchParams.get("template")),
       recipe: parseList(searchParams.get("recipe")),
       asset: parseList(searchParams.get("asset")),
@@ -230,16 +230,15 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
     return vm.units.filter((u) => {
       if (view.format && u.format !== view.format) return false;
       if (view.tag && !(u.tags ?? []).includes(view.tag)) return false;
-      for (const id of view.style) if (u.styleId !== id) return false;
       for (const id of view.template) if (u.templateId !== id) return false;
       for (const id of view.recipe) if (!u.recipeIds.includes(id)) return false;
       for (const id of view.asset) if (!u.assetIds.includes(id)) return false;
       if (q) {
         const tpl = blockBy("template", u.templateId);
-        const sty = blockBy("style", u.styleId);
         const recN = u.recipeIds.map((r) => blockBy("recipe", r)?.name ?? "").join(" ");
         const astN = u.assetIds.map((a) => blockBy("asset", a)?.name ?? "").join(" ");
-        const hay = `${u.title} ${u.blurb} ${u.format} ${tpl?.name ?? ""} ${sty?.name ?? ""} ${recN} ${astN}`.toLowerCase();
+        const tagN = (u.tags ?? []).join(" ");
+        const hay = `${u.title} ${u.blurb} ${u.format} ${tpl?.name ?? ""} ${recN} ${astN} ${tagN}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -308,7 +307,7 @@ export function LibraryListing({ vm }: { vm: FeedViewModel }) {
           <input
             id="lib-search-input"
             type="search"
-            placeholder="Search units, styles, templates, recipes, assets…"
+            placeholder="Search units, templates, recipes, assets, tags…"
             value={queryDraft}
             onChange={(e) => setQueryDraft(e.target.value)}
             aria-label="Search the library"

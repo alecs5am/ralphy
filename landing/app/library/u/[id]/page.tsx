@@ -2,8 +2,8 @@
 //
 // Library v2 — Screen 2: the Unit detail page (the ingredient panel). Server
 // Component. SSG over every unit id. Resolves the unit's provenance (its 1
-// template + 1 style + N recipes + M assets, grouped by asset sub) and the
-// "More from / More in" sets, then hands the resolved blocks to the client
+// template + N recipes + M assets, grouped by asset sub; the look is a tag) and
+// the "More from / More with" sets, then hands the resolved blocks to the client
 // islands as plain JSON.
 //
 //   Left  — format label + title + blurb + the sticky UnitViewer (1..N media).
@@ -65,11 +65,12 @@ export default async function UnitDetailPage({
   const [stars, formats] = await Promise.all([getDisplayStars(), getFormats()]);
   const format = formatById(unit.format);
 
-  // Provenance — resolve the factual blocks that made this unit.
-  const [template, style] = await Promise.all([
-    unit.templateId ? getBlock("template", unit.templateId) : undefined,
-    unit.styleId ? getBlock("style", unit.styleId) : undefined,
-  ]);
+  // Provenance — resolve the factual blocks that made this unit. The look is a
+  // tag now (not a block); the lead tag drives the "More with this look" rail.
+  const template = unit.templateId
+    ? await getBlock("template", unit.templateId)
+    : undefined;
+  const lookTag = unit.tags?.[0];
   const recipes = (
     await Promise.all(unit.recipeIds.map((rid) => getBlock("recipe", rid)))
   ).filter((b): b is Block => !!b);
@@ -83,14 +84,17 @@ export default async function UnitDetailPage({
   const props = bySub("prop");
   const music = bySub("music");
 
-  // More-from sets — other units sharing this unit's template / style.
-  const [fromTemplate, inStyle, allBlocks] = await Promise.all([
+  // More-from sets — other units sharing this unit's template, plus other units
+  // sharing its lead look tag ("More with").
+  const [fromTemplate, allUnits, allBlocks] = await Promise.all([
     unit.templateId ? unitsUsing("template", unit.templateId) : Promise.resolve([]),
-    unit.styleId ? unitsUsing("style", unit.styleId) : Promise.resolve([]),
+    getUnits(),
     getBlocks(),
   ]);
   const moreFromTemplate = fromTemplate.filter((u) => u.id !== unit.id);
-  const moreInStyle = inStyle.filter((u) => u.id !== unit.id);
+  const moreWithLook = lookTag
+    ? allUnits.filter((u) => u.id !== unit.id && (u.tags ?? []).includes(lookTag))
+    : [];
 
   // The per-unit Blueprint (#074) — full reproduction recipe. Undefined when the
   // unit has no published Blueprint yet; the CTA island then renders nothing (no
@@ -153,7 +157,6 @@ export default async function UnitDetailPage({
                   unit={unit}
                   format={format}
                   template={template}
-                  style={style}
                   characters={characters}
                   locations={locations}
                   props={props}
@@ -169,9 +172,9 @@ export default async function UnitDetailPage({
           formats={formats}
           blocks={allBlocks}
           template={template}
-          style={style}
+          lookTag={lookTag}
           fromTemplate={moreFromTemplate}
-          inStyle={moreInStyle}
+          withLook={moreWithLook}
         />
       </main>
 
