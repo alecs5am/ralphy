@@ -125,7 +125,7 @@ This is `cli/commands/blueprint.ts` (#076), validated against `BlueprintSchema` 
 3. **composition** — the `index.html` timing arrays (`A` / `SEG`) + the components / registry blocks / overlay fns it references; `null` for non-HyperFrames output. The `index.html` itself is COPIED into the payload.
 4. **assets** — each `asset-manifest.json` slot pinned as a hard asset (kind `character` / `location` / `prop` / `music` / `ref` / `master`); local files under the copy ceiling are COPIED into `blueprint/assets/`, the rest recorded by ref.
 5. **modelStack** — per-stage model picks + representative params + voice ids + summed `costRollupUsd`, aggregated from `logs/generations.jsonl`.
-6. **recipes** — the unit's provenance `recipes[]` named treatments, each tagged a kind (`ffmpeg` / `encode` / `overlay` / `bake`).
+6. **recipes** — the unit's provenance `recipes[]` named treatments, each tagged a kind (`ffmpeg` / `encode` / `overlay` / `bake`). NOTE: the Blueprint's recipe axis records the NAME + kind (+ a `command` when one is captured) for reproduction. The published recipe BLOCK is richer — it carries the full `body` + `artifact` + `params` + `demo`. When you keep a recipe as a block (step 4 of the skill), author that enriched payload per `recipe-vs-tag.md`, sourcing the `artifact` from `cli/lib/ffmpeg-recipes.ts` / the project bake scripts / `index.html`, never invented.
 
 Properties templater relies on:
 
@@ -160,7 +160,7 @@ The canonical "what this template produces" pointer.
 ## Edge cases
 
 - **Missing `assets/` subdir** (vibe-style refs only) → OK, no pool migration needed. Just emit `prompts.json` extraction.
-- **`prompts.json` has prompts in mixed languages (RU+EN)** → preserve the original language. Slot detection still works on any language since it's regex + LLM-based on proper-noun extraction.
+- **`prompts.json` has prompts in mixed languages (non-English + English)** → slot detection still works on any language (regex + LLM-based proper-noun extraction), BUT the extracted prose that lands on disk must be **English** (the `docs/developing-ralphy.md` hard rule). Translate any non-English prompt / VO / storyboard line before writing it into a block body, a tag, a description, or a local template artifact — the swamp lesson (the Russian word *nechist* → "the unclean"). The on-disk artifact is always English; the source project's gitignored files keep their original language.
 - **Gen-log has stage `add-music` entries** → these are ffmpeg recipes, not model calls. Skip them for `model-stack.md`; surface in `composition.md` "Audio mix" section instead.
 - **Very long gen-log (>500 entries)** → cap at last 200 entries for the model-mode analysis. Older entries are typically failed early iterations.
 - **`scenario.json` was edited after final render** → trust the JSON. The skill doesn't time-correlate against the gen-log.
