@@ -643,9 +643,19 @@
 .am-audio-el { width: 100%; display: block; }
 .am-audio-name { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 .am-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.am-grid:has(.am-item:only-child) { grid-template-columns: 1fr; }
 .am-item { border-radius: 12px; overflow: hidden; background: #050506; }
-.am-media { display: block; width: 100%; height: auto; }
+/* Multi-ref tiles: fixed 4/3 cells, cover-cropped — a tidy proof grid. */
+.am-grid .am-item { aspect-ratio: 4 / 3; }
+.am-grid .am-media { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Single ref: a CONTAINED, downscaled thumbnail — never native size. Cap the
+   height so a tall 9/16 portrait stays a tidy preview instead of page-tall, and
+   center it in its tinted box. `contain` keeps the whole frame visible. */
+.am-grid:has(.am-item:only-child) { grid-template-columns: minmax(0, max-content);
+  justify-content: start; }
+.am-grid:has(.am-item:only-child) .am-item { aspect-ratio: auto;
+  display: grid; place-items: center; }
+.am-grid:has(.am-item:only-child) .am-media { width: auto; height: auto;
+  max-width: 100%; max-height: 360px; object-fit: contain; }
 
 /* ── Tag chips (#084) — feed-filter links, distinct from block chips ────────── */
 /* Square-cornered, low-chroma, no glyph/open-arrow — reads as "filter the feed",
