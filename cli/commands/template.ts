@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { addEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { templatesDir, repoTemplatesDir, projectsDir } from "../lib/paths.js";
+import { templatesDir, projectsDir } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
@@ -11,28 +11,65 @@ import {
   loadTemplateManifest,
   diagnoseRequiredInputs,
 } from "../lib/templater/loader.js";
+import { getBlocks, getBlock } from "../lib/library/client.js";
+import type { Block } from "../lib/library/types.js";
 import { templateCloneCmd } from "./clone.js";
 
-// Templates live in two places (both readable transparently):
-//   - templates/                  → repo-public, committed to git, shipped on clone
+// Templates source from two tiers (both readable transparently):
+//   - public                      → Supabase content library (template blocks),
+//                                    read via cli/lib/library/client.ts
 //   - workspace/templates/        → user-local, gitignored (lives under workspace/)
-// Workspace overrides repo if both define the same id (so a user can locally
-// edit a published template without touching the repo copy).
+// Workspace overrides public if both define the same id (so a user can locally
+// edit / shadow a published template without touching the library).
 //
-// Each location supports two layouts:
-//   Flat:   <root>/<id>.json
-//   Dir:    <root>/<id>/template.json + TEMPLATE.md + *.md
+// The repo-public `templates/<category>/<slug>/` folder is retired — public
+// templates now live in the library. This file no longer reads it.
+//
+// A workspace template supports two layouts:
+//   Flat:   workspace/templates/<id>.json
+//   Dir:    workspace/templates/<id>/template.json + TEMPLATE.md + *.md
 //
 // Dir-based templates are preferred for reusable video blueprints because the
 // LLM-consumable doc (TEMPLATE.md) lives next to metadata, and the template
 // can include supplementary fragments (prompt library, scene skeleton,
 // composition pattern, model stack rationale).
 
-type TemplateSource = "workspace" | "repo";
+type TemplateSource = "workspace" | "public";
 
 type ResolvedTemplate =
   | { kind: "dir"; source: TemplateSource; dir: string; metaPath: string; docPath: string }
-  | { kind: "flat"; source: TemplateSource; file: string };
+  | { kind: "flat"; source: TemplateSource; file: string }
+  | { kind: "public"; source: "public"; block: Block };
+
+// Fetch the public-tier template blocks from the library, degrading gracefully:
+// any network / library error returns [] plus a warning emitted via onWarn so
+// the calling command still works off the workspace tier alone.
+async function fetchPublicTemplates(
+  onWarn?: (msg: string) => void,
+): Promise<Block[]> {
+  try {
+    return await getBlocks("template");
+  } catch (e) {
+    onWarn?.(
+      `public library unreachable (${e instanceof Error ? e.message : String(e)}); listing workspace templates only`,
+    );
+    return [];
+  }
+}
+
+// Map a public template block into the keyword/LLM ranker Candidate shape.
+function publicBlockToCandidate(block: Block): Candidate {
+  const format = typeof block.format === "string" ? block.format : undefined;
+  const tags = Array.isArray(block.tags) ? (block.tags as unknown[]).map(String) : [];
+  return {
+    slug: block.id,
+    name: block.name || block.id,
+    description: block.blurb || "",
+    tags,
+    doc: "",
+    meta: { source: "public", kind: "template", ...(format ? { format } : {}) },
+  };
+}
 
 function dirRef(base: string, id: string, source: TemplateSource, parent?: string): ResolvedTemplate {
   const dir = parent ? path.join(base, parent, id) : path.join(base, id);
@@ -109,28 +146,36 @@ async function resolveInDir(id: string, baseDir: string, source: TemplateSource)
   return null;
 }
 
-async function resolveTemplate(id: string): Promise<ResolvedTemplate | null> {
-  return (
-    (await resolveInDir(id, templatesDir(), "workspace")) ??
-    (await resolveInDir(id, repoTemplatesDir(), "repo"))
-  );
-}
-
-// Discover all templates across both roots. Workspace overrides repo on id collision.
-async function discoverAllTemplates(): Promise<ResolvedTemplate[]> {
-  const seen = new Map<string, ResolvedTemplate>();
-  for (const [base, source] of [
-    [templatesDir(), "workspace" as const],
-    [repoTemplatesDir(), "repo" as const],
-  ] as const) {
-    for await (const { id, ref } of walkTemplateRoot(base, source)) {
-      if (!seen.has(id)) seen.set(id, ref);
-    }
+// Resolve a template id across the two tiers: workspace first (it overrides /
+// shadows public on id collision), else the public library. `onWarn` surfaces a
+// library-unreachable warning without crashing the resolve.
+async function resolveTemplate(
+  id: string,
+  onWarn?: (msg: string) => void,
+): Promise<ResolvedTemplate | null> {
+  const local = await resolveInDir(id, templatesDir(), "workspace");
+  if (local) return local;
+  let block: Block | null = null;
+  try {
+    block = await getBlock("template", id);
+  } catch (e) {
+    onWarn?.(
+      `public library unreachable (${e instanceof Error ? e.message : String(e)})`,
+    );
+    return null;
   }
-  return Array.from(seen.values());
+  if (block) return { kind: "public", source: "public", block };
+  return null;
 }
 
 async function readTemplateMeta(ref: ResolvedTemplate) {
+  if (ref.kind === "public") {
+    return {
+      name: ref.block.name || ref.block.id,
+      description: ref.block.blurb || "",
+      tags: Array.isArray(ref.block.tags) ? (ref.block.tags as unknown[]).map(String) : [],
+    };
+  }
   if (ref.kind === "dir") {
     try {
       return JSON.parse(await fs.readFile(ref.metaPath, "utf-8"));
@@ -241,22 +286,20 @@ export function templateCmd() {
 
       data.createdAt = new Date().toISOString();
 
-      // Warn if a repo template with the same id will be shadowed.
-      const repoCollision = await resolveInDir(id, repoTemplatesDir(), "repo");
-
       await fs.mkdir(templatesDir(), { recursive: true });
       await fs.writeFile(path.join(templatesDir(), `${id}.json`), JSON.stringify(data, null, 2) + "\n");
       await addEntity("templates", id, { name: opts.name, createdAt: data.createdAt, kind: "flat", source: "workspace" });
-      ok(`Template created: ${id}${repoCollision ? " (overrides repo template with same id)" : ""}`);
-      out({ id, name: opts.name, path: path.join(templatesDir(), `${id}.json`), shadows_repo: !!repoCollision });
+      ok(`Template created: ${id}`);
+      out({ id, name: opts.name, path: path.join(templatesDir(), `${id}.json`) });
     });
 
   cmd
     .command("register <id>")
-    .description("Register an existing dir template in the local registry (workspace or repo)")
+    .description("Register an existing workspace dir template in the local registry")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
+      if (ref!.kind === "public") raiseError("E_INPUT_INVALID", { field: "template-source", detail: `'${id}' is a public library template; register only applies to workspace dir templates`, verb: "template" });
       if (ref!.kind !== "dir") raiseError("E_INPUT_INVALID", { field: "template-kind", detail: `'${id}' is flat; use 'template create' for that layout`, verb: "template" });
       const meta = await readTemplateMeta(ref!);
       if (!meta) raiseError("E_FILE_MALFORMED", { format: "JSON", path: `${(ref as { dir: string }).dir}/template.json`, detail: "missing or invalid" });
@@ -284,13 +327,13 @@ export function templateCmd() {
 
   cmd
     .command("list")
-    .description("List all templates (both repo-public templates/ and local workspace/templates/)")
+    .description("List all templates (public library templates + local workspace/templates/)")
     .option("--format <f>", "Filter to a single media format (video|image|carousel|fb-creative|motion-design|poster|sticker-pack)")
     .action(async (opts: { format?: string }) => {
       type Row = {
         id: string;
         name: string;
-        kind: "dir" | "flat";
+        kind: "dir" | "flat" | "public";
         source: TemplateSource;
         format?: string;
         style_of?: string;
@@ -300,32 +343,47 @@ export function templateCmd() {
       };
       const rows = new Map<string, Row>();
 
-      // Workspace first so it overrides repo on id collision (matches resolveTemplate).
-      for (const [base, source] of [
-        [templatesDir(), "workspace" as const],
-        [repoTemplatesDir(), "repo" as const],
-      ] as const) {
-        for await (const { id, ref } of walkTemplateRoot(base, source)) {
-          if (rows.has(id)) continue;
-          const meta = await readTemplateMeta(ref);
-          if (!meta) continue;
-          const tax = await readTemplateTaxonomy(ref);
-          if (opts.format && tax.format !== opts.format) continue;
-          rows.set(id, {
-            id,
-            name: meta.name || id,
-            kind: ref.kind,
-            source,
-            format: tax.format ?? undefined,
-            style_of: tax.style_of ?? undefined,
-            description: meta.description,
-            tags: meta.tags,
-          });
-        }
+      // Workspace first so it overrides public on id collision (matches resolveTemplate).
+      for await (const { id, ref } of walkTemplateRoot(templatesDir(), "workspace")) {
+        if (rows.has(id)) continue;
+        const meta = await readTemplateMeta(ref);
+        if (!meta) continue;
+        const tax = await readTemplateTaxonomy(ref);
+        if (opts.format && tax.format !== opts.format) continue;
+        rows.set(id, {
+          id,
+          name: meta.name || id,
+          kind: ref.kind,
+          source: "workspace",
+          format: tax.format ?? undefined,
+          style_of: tax.style_of ?? undefined,
+          description: meta.description,
+          tags: meta.tags,
+        });
       }
 
-      // Mark unregistered (only meaningful for workspace — repo templates are always
-      // discoverable by scan, registry tracking is opt-in via `template register`).
+      // Public tier — Supabase library template blocks. Degrades to an empty
+      // list + a warning if the library is unreachable.
+      const warnings: string[] = [];
+      const publicBlocks = await fetchPublicTemplates((m) => warnings.push(m));
+      for (const block of publicBlocks) {
+        if (rows.has(block.id)) continue; // workspace shadows public
+        const format = typeof block.format === "string" ? block.format : undefined;
+        if (opts.format && format !== opts.format) continue;
+        rows.set(block.id, {
+          id: block.id,
+          name: block.name || block.id,
+          kind: "public",
+          source: "public",
+          format,
+          style_of: typeof block.style_of === "string" ? block.style_of : undefined,
+          description: block.blurb || undefined,
+          tags: Array.isArray(block.tags) ? (block.tags as unknown[]).map(String) : undefined,
+        });
+      }
+
+      // Mark unregistered (only meaningful for workspace — public templates are
+      // always discoverable; registry tracking is opt-in via `template register`).
       const registered = new Set((await listEntities("templates")).map((t: any) => t.id));
       for (const row of rows.values()) {
         if (row.source === "workspace" && !registered.has(row.id)) row.unregistered = true;
@@ -334,10 +392,11 @@ export function templateCmd() {
       const data = Array.from(rows.values()).sort((a, b) => a.id.localeCompare(b.id));
       const ui = await import("../lib/ui.js");
       if (!ui.isPrettyMode()) {
-        out(data);
+        out(warnings.length ? { templates: data, warnings } : data);
         return;
       }
       const { c, icons, section, table } = ui;
+      for (const w of warnings) console.log(`  ${icons.warn} ${c.warn(w)}`);
       section(`Templates  ${c.muted(`(${data.length} total)`)}`);
       table(data, [
         {
@@ -358,7 +417,7 @@ export function templateCmd() {
         {
           key: "source",
           header: "src",
-          format: (v) => (v === "repo" ? c.muted("repo") : c.accent("ws")),
+          format: (v) => (v === "public" ? c.muted("public") : c.accent("ws")),
         },
         {
           key: "name",
@@ -393,8 +452,27 @@ export function templateCmd() {
       const ref = await resolveTemplate(id);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
 
+      // Public library template — no on-disk doc. Emit the library entity +
+      // a pointer to the full library view / reproduce path.
+      if (ref!.kind === "public") {
+        const block = ref!.block;
+        if (opts.path) {
+          const pointer = `library:template/${block.id}`;
+          if (isPretty()) console.log(pointer);
+          else out({ path: pointer });
+          return;
+        }
+        out({
+          source: "public",
+          ...block,
+          reproduce_tag: `@template:${block.id}`,
+          library_show: `ralphy library templates show ${block.id}`,
+        });
+        return;
+      }
+
       if (opts.path) {
-        const p = ref.kind === "dir" ? ref.dir : ref.file;
+        const p = ref!.kind === "dir" ? ref!.dir : ref!.file;
         if (isPretty()) console.log(p);
         else out({ path: p });
         return;
@@ -459,6 +537,7 @@ export function templateCmd() {
       } catch { /* good, doesn't exist */ }
 
       const meta = ref.kind === "dir" ? await readTemplateMeta(ref) : null;
+      const isPublic = ref.kind === "public";
 
       // 02.05.02 — validate the typed YAML manifest (if present) BEFORE
       // scaffolding the project. Falls back silently for legacy templates
@@ -513,6 +592,24 @@ export function templateCmd() {
         ``,
         `This project was scaffolded from template \`${id}\`.`,
       ];
+      if (isPublic && ref.kind === "public") {
+        // Public library template — there are no repo files to copy. Record the
+        // library entity + the reproduce path so the next chat can pull the full
+        // structure (unit + blueprint) on demand.
+        const block = ref.block;
+        originLines.push(
+          ``,
+          `**Source: public content library** (not an on-disk template folder).`,
+          ``,
+          `- Library entity: \`template/${block.id}\`${block.name ? ` — ${block.name}` : ""}`,
+          ...(block.blurb ? [`- Blurb: ${block.blurb}`] : []),
+          `- Reproduce tag: \`@template:${block.id}\` (use the remix path in docs/skills-vs-templates.md)`,
+          `- Inspect the full block: \`ralphy library templates show ${block.id}\``,
+          `- The unit + per-unit blueprint that back this template carry the reproducible structure; pull them via the library before authoring the scenario.`,
+          ``,
+          `The scenario should be authored fresh by \`/ralph-ugc:create-scenario\` using this template as a vibe reference — do not mechanically copy structure.`,
+        );
+      }
       if (ref.kind === "dir") {
         // Only reference files that ACTUALLY EXIST in the template dir. Earlier
         // versions hardcoded the vibe-reference 4-file list (reference-example /
@@ -630,7 +727,7 @@ export function templateCmd() {
   cmd
     .command("extract <project-id>")
     .description(
-      "Promote a finished workspace project into a reusable template at templates/<category>/<slug>/. Copies prompts/, scenario, composition variables, and refs; substitutes brand/persona/VO with {{slots}}; drafts a README from POSTMORTEM 'Lessons learned'.",
+      "Promote a finished workspace project into a reusable user-local template at workspace/templates/<slug>/. Copies prompts/, scenario, composition variables, and refs; substitutes brand/persona/VO with {{slots}}; drafts a README from POSTMORTEM 'Lessons learned'. To publish it to the public library, use the templater / dev-publish-template path.",
     )
     .requiredOption("--category <c>", "Template category (b2b-saas|dtc-commerce|creator-lifestyle|entertainment-viral|cinematic-narrative)")
     .requiredOption("--slug <s>", "Target template slug (kebab-case)")
@@ -664,7 +761,11 @@ export function templateCmd() {
         raiseError("E_INPUT_INVALID", { field: "--category", detail: `expected one of ${allowedCats.join("|")}, got '${opts.category}'`, verb: "template extract" });
       }
 
-      const targetDir = path.join(repoTemplatesDir(), opts.category, opts.slug);
+      // Write to the user-local workspace tier (flat layout: workspace/templates/<slug>/).
+      // `--category` is retained for the manifest (it still records the segment
+      // persona), but no longer determines the on-disk path now that the
+      // repo-public templates/ folder is retired.
+      const targetDir = path.join(templatesDir(), opts.slug);
       if (await pathExists(targetDir)) {
         if (!opts.force) {
           raiseError("E_ALREADY_EXISTS", { kind: "Template", id: `${opts.category}/${opts.slug}` });
@@ -844,7 +945,7 @@ export function templateCmd() {
         });
       } catch { /* logging is best-effort */ }
 
-      ok(`Extracted ${projectId} → templates/${opts.category}/${opts.slug}/`);
+      ok(`Extracted ${projectId} → workspace/templates/${opts.slug}/`);
       out({
         project_id: projectId,
         template_dir: path.relative(process.cwd(), targetDir),
@@ -861,12 +962,13 @@ export function templateCmd() {
 
   cmd
     .command("delete <id>")
-    .description("Delete a workspace template (flat file or whole dir). Repo templates are read-only — edit templates/ in the repo directly.")
+    .description("Delete a workspace template (flat file or whole dir). Public library templates are read-only — they live in Supabase, not on disk.")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
-      if (ref.source === "repo") {
-        err(`Refusing to delete repo template '${id}' — edit templates/${id} in the repo directly (or shadow it by creating a workspace/templates/${id}/).`);
+      if (ref!.kind === "public") {
+        err(`Refusing to delete public library template '${id}' — it is read-only here. Shadow it by creating workspace/templates/${id}/.`);
+        return;
       }
       if (ref.kind === "dir") {
         await fs.rm(ref.dir, { recursive: true, force: true });
@@ -891,13 +993,21 @@ export function templateCmd() {
     .action(async (utteranceArgs: string[], opts: { limit: number; threshold: number; llm: boolean; llmModel?: string; format?: string }) => {
       const utterance = utteranceArgs.join(" ");
 
-      // Build the Candidate[] from the on-disk template catalog. This is the
-      // same disk walk the legacy implementation did; it's lifted up into a
-      // pure-data shape that the new suggest.ts can score without touching fs.
-      const refs = await discoverAllTemplates();
+      // Build the Candidate[] from BOTH tiers: workspace templates (on-disk) +
+      // public library template blocks. The on-disk walk is lifted into a pure
+      // data shape the ranker scores without touching fs again. The public tier
+      // degrades gracefully — a library error returns [] + a warning, and the
+      // ranker still runs over the workspace tier alone.
+      const warnings: string[] = [];
+
+      // Workspace tier.
+      const wsRefs: ResolvedTemplate[] = [];
+      for await (const { ref } of walkTemplateRoot(templatesDir(), "workspace")) {
+        wsRefs.push(ref);
+      }
       const built = await Promise.all(
-        refs.map(async (ref) => {
-          const id = ref.kind === "dir" ? path.basename(ref.dir) : path.basename(ref.file).replace(/\.json$/, "");
+        wsRefs.map(async (ref) => {
+          const id = ref.kind === "dir" ? path.basename(ref.dir) : path.basename((ref as { file: string }).file).replace(/\.json$/, "");
           const meta = await readTemplateMeta(ref);
           const tax = await readTemplateTaxonomy(ref);
           let docText = "";
@@ -911,13 +1021,24 @@ export function templateCmd() {
               description: typeof meta?.description === "string" ? meta.description : "",
               tags: Array.isArray(meta?.tags) ? meta.tags : [],
               doc: docText,
-              meta: { source: ref.source, kind: meta?.kind, format: tax.format ?? undefined, style_of: tax.style_of ?? undefined },
+              meta: { source: ref.source, kind: (meta as any)?.kind, format: tax.format ?? undefined, style_of: tax.style_of ?? undefined },
             } satisfies Candidate,
-            format: tax.format,
+            format: tax.format ?? undefined,
           };
         }),
       );
-      const candidates: Candidate[] = built
+      const seen = new Set(built.map((b) => b.candidate.slug));
+
+      // Public tier — Supabase library template blocks.
+      const publicBlocks = await fetchPublicTemplates((m) => warnings.push(m));
+      const publicBuilt = publicBlocks
+        .filter((block) => !seen.has(block.id)) // workspace shadows public
+        .map((block) => ({
+          candidate: publicBlockToCandidate(block),
+          format: typeof block.format === "string" ? block.format : undefined,
+        }));
+
+      const candidates: Candidate[] = [...built, ...publicBuilt]
         .filter((b) => !opts.format || b.format === opts.format)
         .map((b) => b.candidate);
 
@@ -953,11 +1074,12 @@ export function templateCmd() {
           name: r.name,
           description: r.description,
           tags: r.tags,
-          source: (r.meta?.source as string | undefined) ?? "repo",
+          source: (r.meta?.source as string | undefined) ?? "public",
           score: r.score,
           tier: r.tier,
           ...(r.reasoning ? { reasoning: r.reasoning } : {}),
         })),
+        ...(warnings.length ? { warnings } : {}),
       };
 
       if (!ui.isPrettyMode()) {
@@ -966,6 +1088,7 @@ export function templateCmd() {
       }
 
       const { c, icons, bar } = ui;
+      for (const w of warnings) console.log(`  ${icons.warn} ${c.warn(w)}`);
       console.log();
       console.log(`${icons.spark} ${c.bold("Query:")} ${c.value('"' + utterance + '"')}`);
       const sourceColors: Record<string, string> = {
