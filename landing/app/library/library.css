@@ -91,6 +91,19 @@
 .masonry { display: flex; align-items: flex-start; gap: 18px; }
 .mcol { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; }
 
+/* ── Block-page "Units that use this" grid ─────────────────────────── */
+/* The block page (Screen 3) lists units NOT through the JS-packed masonry but
+   as a plain responsive grid. `.masonry` is flex + expects pre-packed column
+   children; a bare UnitTile dropped in there stretches to 100% (a lone unit's
+   video then filled the page width). This grid bounds every tile to a ~240px
+   column and flows the rest into rows. Items align to the top so mixed-aspect
+   tiles don't stretch. */
+.block-units-grid { display: grid; gap: 18px; align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.block-units-grid .utile { margin-bottom: 0; }
+/* A single unit shouldn't blow up to a full-width tile — cap the lone column. */
+.block-units-grid:has(.utile:only-child) { grid-template-columns: minmax(240px, 300px); }
+
 /* ── Card ────────────────────────────────────────────────────────── */
 .card { position: relative; display: block; break-inside: avoid; margin-bottom: 18px;
   background: var(--bg-1); border-radius: 20px; cursor: pointer; text-align: left; width: 100%;
