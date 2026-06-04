@@ -165,7 +165,7 @@
 .afmenu .af-opt .ao-n { font-family: var(--font-mono); font-size: 11px; color: var(--mute); flex-shrink: 0; }
 
 /* ══ Detail: ingredient panel ══════════════════════════════════════════ */
-.udetail { display: grid; gap: 40px; align-items: start; grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr); }
+.udetail { display: grid; gap: 40px; align-items: start; grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.78fr); }
 @media (max-width: 980px){ .udetail { grid-template-columns: 1fr; gap: 26px; } }
 .uviewer { position: sticky; top: 92px; }
 @media (max-width: 980px){ .uviewer { position: static; } }
