@@ -1,6 +1,6 @@
 # `cli/commands/unit.ts` — 8 tsc errors from @types/node Dirent drift (CI typecheck red)
 
-> **Status:** issue (pre-existing; blocks `bun run lint` typecheck + CI `test` job)
+> **Status:** done — 2026-06-04 (entries annotated as a structural `{name,isDirectory,isFile}[]` + cast through the @types drift; `bunx tsc --noEmit` now 0 errors repo-wide)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium (CI is red; does not block the husky commit/push hooks, which run `bun test` + targeted lints, not full `tsc`)

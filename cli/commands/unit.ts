@@ -194,9 +194,15 @@ function expandFrom(projectDir: string, glob: string): string[] {
 
   function walk(absDir: string, relDir: string, segIdx: number): void {
     if (!existsSync(absDir)) return;
-    let entries: ReturnType<typeof readdirSync>;
+    // Structural type + cast: @types/node version drift changed the
+    // `withFileTypes:true` overload's Dirent name-type (string → NonSharedBuffer),
+    // so `ReturnType<typeof readdirSync>` no longer matches and `e.name` infers as
+    // a buffer. Pin the shape this helper actually uses. See notes/issues/done/085.
+    let entries: { name: string; isDirectory(): boolean; isFile(): boolean }[];
     try {
-      entries = readdirSync(absDir, { withFileTypes: true });
+      entries = readdirSync(absDir, {
+        withFileTypes: true,
+      }) as unknown as typeof entries;
     } catch {
       return;
     }
