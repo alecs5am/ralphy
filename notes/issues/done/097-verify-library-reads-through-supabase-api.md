@@ -1,6 +1,6 @@
 # Verify the whole library reads through the Supabase API (once it lands)
 
-> **Status:** todo (gated — blocked on the Supabase API work)
+> **Status:** done — 2026-06-04 (#084 Supabase-as-source landed → gate satisfied. Audited: all 3 /library server pages fetch exclusively via source.ts; nothing imports catalog/published/index/supabase-js directly; every source.ts getter branches isSupabaseBacked()→live else static mirror; client islands take props. Verification note in lib/library-v2/MIGRATION.md.)
 > **Filed:** 2026-06-04
 > **Folder:** issues
 > **Severity:** medium
