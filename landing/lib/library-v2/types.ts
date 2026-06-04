@@ -69,9 +69,63 @@ export type BlockKind = "template" | "style" | "recipe" | "asset";
 /** Asset sub-kinds. A swap fits same-sub only (swap a location for a location). */
 export type AssetSub = "character" | "location" | "prop" | "music";
 
+// ── Tag vs Recipe split (#082) ───────────────────────────────────────────────
+//
+// SETTLED DESIGN (user decision 2026-06-04 — do not redesign):
+//
+//   - **Tag** = a textual descriptor for finding SIMILAR videos. Filter-only — a
+//     chip in the feed, never a block, NO detail page. Modeled as `tags: string[]`
+//     on a `Unit` (a unit-level label). The loader derives a `TAGS` facet from the
+//     distinct unit tags for filtering; tags carry no extractable artifact.
+//
+//   - **Recipe** = an EXTRACTABLE / APPLICABLE artifact (an ffmpeg filtergraph, a
+//     HyperFrames snippet, a prompt template). It STAYS a Block (`kind:"recipe"`),
+//     now ENRICHED with described content + a copyable artifact + a live/visual
+//     demo (the `recipeKind` / `body` / `artifact` / `params` / `demo` fields
+//     below). A recipe is the thing you reproduce; a tag is the thing you filter by.
+//
+// All the recipe fields and `Unit.tags` are OPTIONAL/ADDITIVE — existing blocks
+// and units (with none of them) still load and validate unchanged.
+
+/** The concrete treatment class of an enriched recipe block (#082). Mirrors the
+ *  `BlueprintRecipeKind` set and adds `hyperframes` (a live HF snippet) +
+ *  `prompt` (a prompt-style recipe like "PS1 Harry Potter look"). */
+export type RecipeKind =
+  | "ffmpeg"
+  | "encode"
+  | "overlay"
+  | "bake"
+  | "hyperframes"
+  | "prompt";
+
+/** A live/visual demo for an enriched recipe block (#082).
+ *  - `kind:"hyperframes"` = a live-runnable embedded HyperFrames snippet, either
+ *    inlined (`html`) or fetched from Storage (`storageUrl`).
+ *  - `kind:"media"` = before/after (or single) preview media for non-runnable
+ *    kinds (ffmpeg / encode / bake): `beforeUrl` + `afterUrl`, or a single
+ *    `afterUrl`/`storageUrl` with an optional `posterUrl`. */
+export interface BlockRecipeDemo {
+  kind: "hyperframes" | "media";
+  /** `hyperframes` only — the inline live-runnable HF snippet. */
+  html?: string;
+  /** Supabase Storage public URL (the HF snippet file, or the single demo media). */
+  storageUrl?: string;
+  /** `media` only — the "before" frame/clip URL. */
+  beforeUrl?: string;
+  /** `media` only — the "after" frame/clip URL (or the single demo media). */
+  afterUrl?: string;
+  /** Poster frame for a video demo. */
+  posterUrl?: string;
+}
+
 /** A reusable building block. `sub` is present ONLY on assets. `refs` is an
- *  optional list of reference-example media paths surfaced on the block page —
- *  left empty in this migration pass (wiring reference media comes later). */
+ *  optional list of reference-example media paths surfaced on the block page.
+ *
+ *  The `recipeKind` / `body` / `artifact` / `params` / `demo` fields are the
+ *  ENRICHED-RECIPE payload (#082) — present ONLY on `kind:"recipe"` blocks, all
+ *  optional/additive so existing recipe blocks keep validating. They turn a
+ *  recipe from a bare tag-cloud chip into an extractable, described, demoable
+ *  artifact (see the "Tag vs Recipe split" note above). */
 export interface Block {
   kind: BlockKind;
   id: string;
@@ -81,6 +135,17 @@ export interface Block {
   sub?: AssetSub;
   /** Reference-example media for the block page. Empty in this pass. */
   refs?: string[];
+  /** Recipe-only (#082): the treatment class. */
+  recipeKind?: RecipeKind;
+  /** Recipe-only (#082): markdown how-to — what it is / how to use it standalone. */
+  body?: string;
+  /** Recipe-only (#082): the copyable reusable code (the ffmpeg filtergraph string
+   *  / the HyperFrames snippet / the prompt template). */
+  artifact?: string;
+  /** Recipe-only (#082): named knobs/values for the artifact. */
+  params?: Record<string, unknown>;
+  /** Recipe-only (#082): a live (HyperFrames) or visual (before/after media) demo. */
+  demo?: BlockRecipeDemo;
 }
 
 /** A single resolved, web-servable media item for a Unit. */
@@ -117,6 +182,10 @@ export interface Unit {
   /** Real on-disk media paths. */
   media?: UnitMedia[];
   hero?: boolean;
+  /** Tags (#082): textual descriptors for finding similar videos. Filter-only —
+   *  they drive the feed's `TAGS` facet, are NOT blocks, and have NO detail page.
+   *  Optional/additive: units without tags still validate. */
+  tags?: string[];
 }
 
 /** The four block arrays, deduped, keyed by kind. */

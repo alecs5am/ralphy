@@ -91,6 +91,17 @@ create table if not exists blueprints (
   created_at timestamptz not null default now()
 );
 
+-- ── Additive columns: Tag vs Recipe split (#082) ─────────────────────────────
+-- Enriched-recipe payload lives on the `blocks` row (present only on recipe blocks):
+--   recipe_kind — the treatment class (ffmpeg/encode/overlay/bake/hyperframes/prompt)
+--   data        — jsonb holding { body, artifact, params, demo } (the enriched payload)
+-- Tags are unit-level filter labels (no block, no detail page) on the `units` row.
+-- All `if not exists`, so re-running the migration is a no-op.
+
+alter table blocks add column if not exists recipe_kind text;
+alter table blocks add column if not exists data        jsonb;
+alter table units  add column if not exists tags        jsonb not null default '[]';
+
 -- ── Indexes ──────────────────────────────────────────────────────────────────
 
 create index if not exists unit_blocks_block_id_idx on unit_blocks (block_id);
