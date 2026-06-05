@@ -227,7 +227,7 @@ export const UNITS: Unit[] = [
     tags: ["kinetic-typography", "bloom"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/animated-fb-ad/ralphy-fb-ads-001-v4.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/animated-fb-ad/ralphy-fb-ads-001-v4.mp4", kind: "video", aspect: "1 / 1" }],
+    media: [{ src: `${SHOWCASE}/animated-fb-ad/ralphy-fb-ads-001-v4.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/animated-fb-ad/ralphy-fb-ads-001-v4.mp4", kind: "video", aspect: "1 / 1" }],
   },
   // ── brainrot-ai-meme (video) ──
   {
@@ -241,7 +241,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["burned-captions"],
     assetIds: ["gameplay-loop"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/brainrot-ai-meme/final.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/brainrot-ai-meme/final.mp4", kind: "video", aspect: "9 / 16" }],
+    media: [{ src: `${SHOWCASE}/brainrot-ai-meme/final.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/brainrot-ai-meme/final.mp4", kind: "video", aspect: "9 / 16" }],
   },
   // ── broadcast-caught-on-tv-square (video) ──
   {
@@ -255,7 +255,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["broadcast-square"],
     assetIds: [],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/broadcast-caught-on-tv-square/scene-01-vid.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/broadcast-caught-on-tv-square/scene-01-vid.mp4", kind: "video", aspect: "1 / 1" }],
+    media: [{ src: `${SHOWCASE}/broadcast-caught-on-tv-square/scene-01-vid.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/broadcast-caught-on-tv-square/scene-01-vid.mp4", kind: "video", aspect: "1 / 1" }],
   },
   // ── dev-tool-fb-creative-pack (fb-creative, 32 stills) ──
   {
@@ -317,7 +317,7 @@ export const UNITS: Unit[] = [
     tags: ["commercial-bright", "bloom"],
     assetIds: ["hero-product", "product-set"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/food-beverage/ginger-recreate-001.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/food-beverage/ginger-recreate-001.mp4", kind: "video", aspect: "9 / 16" }],
+    media: [{ src: `${SHOWCASE}/food-beverage/ginger-recreate-001.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/food-beverage/ginger-recreate-001.mp4", kind: "video", aspect: "9 / 16" }],
   },
   // ── found-footage-mockumentary (video) ──
   {
@@ -331,7 +331,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["vhs-overlay", "film-grain", "noir-grade"],
     assetIds: ["mockumentary-room", "horror-bed"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/found-footage-mockumentary/final.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/found-footage-mockumentary/final.mp4", kind: "video", aspect: "9 / 16" }],
+    media: [{ src: `${SHOWCASE}/found-footage-mockumentary/final.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/found-footage-mockumentary/final.mp4", kind: "video", aspect: "9 / 16" }],
   },
   // ── live-platform-motion-ad (motion-design) ──
   {
@@ -345,7 +345,7 @@ export const UNITS: Unit[] = [
     tags: ["kinetic-typography", "bloom"],
     assetIds: ["electronic-beat"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4", kind: "video", aspect: "16 / 9" }],
+    media: [{ src: `${SHOWCASE}/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4", kind: "video", aspect: "16 / 9" }],
   },
   // ── multi-style-carousel → split into 6 per-aesthetic carousel units ──
   // The single render hid 6 distinct aesthetics on disk (acid / club / punk /
@@ -483,7 +483,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["burned-captions"],
     assetIds: ["lofi-bed"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/podcast-explainer-longform/final.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/podcast-explainer-longform/final.mp4", kind: "video", aspect: "16 / 9" }],
+    media: [{ src: `${SHOWCASE}/podcast-explainer-longform/final.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/podcast-explainer-longform/final.mp4", kind: "video", aspect: "16 / 9" }],
   },
   // ── ship-announcement (motion-design) ──
   {
@@ -498,7 +498,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["typewriter-reveal"],
     assetIds: [],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/ship-announcement/final.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ship-announcement/final.mp4", kind: "video", aspect: "1 / 1" }],
+    media: [{ src: `${SHOWCASE}/ship-announcement/final.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/ship-announcement/final.mp4", kind: "video", aspect: "1 / 1" }],
   },
   // ── silent-square-site-ad (fb-creative) ──
   {
@@ -513,7 +513,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["typewriter-reveal"],
     assetIds: ["brand-stickers"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/silent-square-site-ad/odindoma-fb-21s-v11.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/silent-square-site-ad/odindoma-fb-21s-v11.mp4", kind: "video", aspect: "1 / 1" }],
+    media: [{ src: `${SHOWCASE}/silent-square-site-ad/odindoma-fb-21s-v11.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/silent-square-site-ad/odindoma-fb-21s-v11.mp4", kind: "video", aspect: "1 / 1" }],
   },
   // ── soviet-nostalgic (video) ──
   {
@@ -527,7 +527,7 @@ export const UNITS: Unit[] = [
     recipeIds: ["vhs-overlay", "film-grain"],
     assetIds: ["trend-soviet-bed"],
     mediaCount: 1,
-    media: [{ src: `${SHOWCASE}/soviet-nostalgic/final.mp4`, storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/soviet-nostalgic/final.mp4", kind: "video", aspect: "9 / 16" }],
+    media: [{ src: `${SHOWCASE}/soviet-nostalgic/final.mp4`, storageUrl: "https://ralphy.b-cdn.net/units/soviet-nostalgic/final.mp4", kind: "video", aspect: "9 / 16" }],
   },
   // ── streetwear-drop-poster → split into 3 per-variant poster units ──
   // The folder holds 3 distinct posters (boom / dang / yikes). A poster is a
@@ -702,7 +702,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/nothing-hp1-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.mp4",
+        src: "/assets/showcase/nothing-hp1-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/nothing-hp1-001/nothing-hp1-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/nothing-hp1-001.jpg",
@@ -731,7 +731,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/noski-people-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.mp4",
+        src: "/assets/showcase/noski-people-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/noski-people-001/noski-people-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/noski-people-001.jpg",
@@ -751,7 +751,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/analog-horror-fridge-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4",
+        src: "/assets/showcase/analog-horror-fridge-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/analog-horror-fridge-001.jpg",
@@ -771,7 +771,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/ralphy-vs-higgsfield-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4",
+        src: "/assets/showcase/ralphy-vs-higgsfield-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/ralphy-vs-higgsfield-001.jpg",
@@ -791,7 +791,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/flipper-hypermotion-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4",
+        src: "/assets/showcase/flipper-hypermotion-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/flipper-hypermotion-001.jpg",
@@ -819,7 +819,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/fruit-drama-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/fruit-drama-001/fruit-drama-001.mp4",
+        src: "/assets/showcase/fruit-drama-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/fruit-drama-001/fruit-drama-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/fruit-drama-001.jpg",
@@ -839,7 +839,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/playdate-pixel-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.mp4",
+        src: "/assets/showcase/playdate-pixel-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/playdate-pixel-001/playdate-pixel-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/playdate-pixel-001.jpg",
@@ -868,7 +868,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/tokyo-y2k-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.mp4",
+        src: "/assets/showcase/tokyo-y2k-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/tokyo-y2k-001/tokyo-y2k-001.mp4",
         kind: "video",
         aspect: "16 / 9",
         poster: "/assets/showcase/posters/tokyo-y2k-001.jpg",
@@ -888,7 +888,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/skater-spiderverse-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.mp4",
+        src: "/assets/showcase/skater-spiderverse-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/skater-spiderverse-001/skater-spiderverse-001.mp4",
         kind: "video",
         aspect: "16 / 9",
         poster: "/assets/showcase/posters/skater-spiderverse-001.jpg",
@@ -908,7 +908,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/arena-rocker-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.mp4",
+        src: "/assets/showcase/arena-rocker-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/arena-rocker-001/arena-rocker-001.mp4",
         kind: "video",
         aspect: "16 / 9",
         poster: "/assets/showcase/posters/arena-rocker-001.jpg",
@@ -928,7 +928,7 @@ export const UNITS: Unit[] = [
     mediaCount: 1,
     media: [
       {
-        src: "/assets/showcase/glitter-cream-001.mp4", storageUrl: "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/glitter-cream-001/glitter-cream-001.mp4",
+        src: "/assets/showcase/glitter-cream-001.mp4", storageUrl: "https://ralphy.b-cdn.net/units/glitter-cream-001/glitter-cream-001.mp4",
         kind: "video",
         aspect: "9 / 16",
         poster: "/assets/showcase/posters/glitter-cream-001.jpg",

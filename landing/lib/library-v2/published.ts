@@ -47,7 +47,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/animated-fb-ad/ralphy-fb-ads-001-v4.mp4",
         "kind": "video",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/animated-fb-ad/ralphy-fb-ads-001-v4.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/animated-fb-ad/ralphy-fb-ads-001-v4.mp4"
       }
     ],
     "date": "2026-05",
@@ -74,7 +74,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/brainrot-ai-meme/final.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/brainrot-ai-meme/final.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/brainrot-ai-meme/final.mp4"
       }
     ],
     "date": "2026-05",
@@ -98,7 +98,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/broadcast-caught-on-tv-square/scene-01-vid.mp4",
         "kind": "video",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/broadcast-caught-on-tv-square/scene-01-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/broadcast-caught-on-tv-square/scene-01-vid.mp4"
       }
     ],
     "date": "2026-05",
@@ -125,193 +125,193 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/dev-tool-fb-creative-pack/01-a1-pain-face.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/01-a1-pain-face.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/01-a1-pain-face.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/02-a2-testimonial.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/02-a2-testimonial.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/02-a2-testimonial.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/03-a3-lifestyle.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/03-a3-lifestyle.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/03-a3-lifestyle.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/04-a4-pair-prog.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/04-a4-pair-prog.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/04-a4-pair-prog.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/05-a5-over-shoulder.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/05-a5-over-shoulder.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/05-a5-over-shoulder.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/06-a6-asian-founder.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/06-a6-asian-founder.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/06-a6-asian-founder.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/07-a7-senior-greybeard.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/07-a7-senior-greybeard.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/07-a7-senior-greybeard.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/08-a8-indie-hacker-cafe.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/08-a8-indie-hacker-cafe.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/08-a8-indie-hacker-cafe.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/09-a9-indian-dev-office.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/09-a9-indian-dev-office.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/09-a9-indian-dev-office.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/10-b1-big-number.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/10-b1-big-number.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/10-b1-big-number.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/11-b2-versus.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/11-b2-versus.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/11-b2-versus.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/12-b3-code-as-art.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/12-b3-code-as-art.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/12-b3-code-as-art.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/13-b4-price-hero.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/13-b4-price-hero.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/13-b4-price-hero.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/14-b5-languages-grid.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/14-b5-languages-grid.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/14-b5-languages-grid.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/15-b6-time-saved.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/15-b6-time-saved.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/15-b6-time-saved.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/16-b7-stats-cascade.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/16-b7-stats-cascade.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/16-b7-stats-cascade.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/17-b8-crossed-prices.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/17-b8-crossed-prices.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/17-b8-crossed-prices.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/18-c1-before-after.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/18-c1-before-after.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/18-c1-before-after.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/19-c2-works-with.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/19-c2-works-with.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/19-c2-works-with.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/20-c3-doc-genres.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/20-c3-doc-genres.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/20-c3-doc-genres.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/21-c4-api-flow.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/21-c4-api-flow.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/21-c4-api-flow.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/22-c5-rag-stack.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/22-c5-rag-stack.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/22-c5-rag-stack.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/23-c6-dashboard-mock.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/23-c6-dashboard-mock.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/23-c6-dashboard-mock.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/24-c7-regex-vs-3-lines.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/24-c7-regex-vs-3-lines.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/24-c7-regex-vs-3-lines.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/25-d1-wojak-meme.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/25-d1-wojak-meme.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/25-d1-wojak-meme.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/26-d2-twitter-mock.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/26-d2-twitter-mock.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/26-d2-twitter-mock.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/27-d3-drake-meme.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/27-d3-drake-meme.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/27-d3-drake-meme.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/28-d4-slack-chat.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/28-d4-slack-chat.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/28-d4-slack-chat.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/29-d5-distracted-bf.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/29-d5-distracted-bf.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/29-d5-distracted-bf.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/30-e1-rag-hook.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/30-e1-rag-hook.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/30-e1-rag-hook.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/31-e2-openai-credits.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/31-e2-openai-credits.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/31-e2-openai-credits.webp"
       },
       {
         "src": "/showcase/dev-tool-fb-creative-pack/32-e3-weekend-ship.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/dev-tool-fb-creative-pack/32-e3-weekend-ship.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/dev-tool-fb-creative-pack/32-e3-weekend-ship.webp"
       }
     ],
     "date": "2026-05",
@@ -338,7 +338,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/food-beverage/ginger-recreate-001.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/food-beverage/ginger-recreate-001.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/food-beverage/ginger-recreate-001.mp4"
       }
     ],
     "date": "2026-05",
@@ -368,7 +368,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/found-footage-mockumentary/final.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/found-footage-mockumentary/final.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/found-footage-mockumentary/final.mp4"
       }
     ],
     "date": "2026-04",
@@ -394,7 +394,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4",
         "kind": "video",
         "aspect": "16 / 9",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/live-platform-motion-ad/twitch-fb-ads-001-v4.mp4"
       }
     ],
     "date": "2026-05",
@@ -422,8 +422,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/nothing-hp1-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nothing-hp1-001/nothing-hp1-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nothing-hp1-001/nothing-hp1-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/nothing-hp1-001/nothing-hp1-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -451,7 +451,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/podcast-explainer-longform/final.mp4",
         "kind": "video",
         "aspect": "16 / 9",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/podcast-explainer-longform/final.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/podcast-explainer-longform/final.mp4"
       }
     ],
     "date": "2026-05",
@@ -475,7 +475,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/ship-announcement/final.mp4",
         "kind": "video",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ship-announcement/final.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/ship-announcement/final.mp4"
       }
     ],
     "date": "2026-04",
@@ -501,7 +501,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/silent-square-site-ad/odindoma-fb-21s-v11.mp4",
         "kind": "video",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/silent-square-site-ad/odindoma-fb-21s-v11.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/silent-square-site-ad/odindoma-fb-21s-v11.mp4"
       }
     ],
     "date": "2026-05",
@@ -528,7 +528,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/soviet-nostalgic/final.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/soviet-nostalgic/final.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/soviet-nostalgic/final.mp4"
       }
     ],
     "date": "2026-04",
@@ -555,8 +555,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/analog-horror-fridge-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/analog-horror-fridge-001/analog-horror-fridge-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/analog-horror-fridge-001/analog-horror-fridge-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/analog-horror-fridge-001/analog-horror-fridge-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -581,8 +581,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "16 / 9",
         "poster": "/assets/showcase/posters/arena-rocker-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/arena-rocker-001/arena-rocker-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/arena-rocker-001/arena-rocker-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/arena-rocker-001/arena-rocker-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -610,8 +610,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/flipper-hypermotion-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/flipper-hypermotion-001/flipper-hypermotion-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/flipper-hypermotion-001/flipper-hypermotion-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/flipper-hypermotion-001/flipper-hypermotion-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -635,8 +635,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/fruit-drama-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/fruit-drama-001/fruit-drama-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/fruit-drama-001/fruit-drama-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/fruit-drama-001/fruit-drama-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/fruit-drama-001/fruit-drama-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -664,8 +664,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/glitter-cream-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/glitter-cream-001/glitter-cream-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/glitter-cream-001/glitter-cream-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/glitter-cream-001/glitter-cream-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/glitter-cream-001/glitter-cream-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -688,8 +688,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/noski-people-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/noski-people-001/noski-people-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/noski-people-001/noski-people-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/noski-people-001/noski-people-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -714,8 +714,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/playdate-pixel-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/playdate-pixel-001/playdate-pixel-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/playdate-pixel-001/playdate-pixel-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/playdate-pixel-001/playdate-pixel-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -742,8 +742,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "9 / 16",
         "poster": "/assets/showcase/posters/ralphy-vs-higgsfield-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/ralphy-vs-higgsfield-001/ralphy-vs-higgsfield-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -768,8 +768,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "16 / 9",
         "poster": "/assets/showcase/posters/skater-spiderverse-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/skater-spiderverse-001/skater-spiderverse-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/skater-spiderverse-001/skater-spiderverse-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/skater-spiderverse-001/skater-spiderverse-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -797,8 +797,8 @@ export const PUBLISHED_UNITS: Unit[] = [
         "kind": "video",
         "aspect": "16 / 9",
         "poster": "/assets/showcase/posters/tokyo-y2k-001.jpg",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.mp4",
-        "posterStorageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/tokyo-y2k-001/tokyo-y2k-001.jpg"
+        "storageUrl": "https://ralphy.b-cdn.net/units/tokyo-y2k-001/tokyo-y2k-001.mp4",
+        "posterStorageUrl": "https://ralphy.b-cdn.net/units/tokyo-y2k-001/tokyo-y2k-001.jpg"
       }
     ],
     "date": "2026-05",
@@ -826,31 +826,31 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/multi-style-carousel/acid-01.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-acid/acid-01.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-acid/acid-01.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/acid-02.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-acid/acid-02.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-acid/acid-02.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/acid-03.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-acid/acid-03.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-acid/acid-03.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/acid-04.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-acid/acid-04.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-acid/acid-04.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/acid-05.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-acid/acid-05.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-acid/acid-05.webp"
       }
     ],
     "date": "2026-05",
@@ -877,31 +877,31 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/multi-style-carousel/club-01.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-club/club-01.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-club/club-01.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/club-02.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-club/club-02.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-club/club-02.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/club-03.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-club/club-03.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-club/club-03.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/club-04.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-club/club-04.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-club/club-04.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/club-05.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-club/club-05.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-club/club-05.webp"
       }
     ],
     "date": "2026-05",
@@ -926,31 +926,31 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/multi-style-carousel/punk-01.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-punk/punk-01.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-punk/punk-01.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/punk-02.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-punk/punk-02.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-punk/punk-02.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/punk-03.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-punk/punk-03.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-punk/punk-03.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/punk-04.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-punk/punk-04.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-punk/punk-04.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/punk-05.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-punk/punk-05.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-punk/punk-05.webp"
       }
     ],
     "date": "2026-05",
@@ -977,31 +977,31 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/multi-style-carousel/riso-01.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-riso/riso-01.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-riso/riso-01.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/riso-02.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-riso/riso-02.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-riso/riso-02.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/riso-03.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-riso/riso-03.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-riso/riso-03.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/riso-04.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-riso/riso-04.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-riso/riso-04.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/riso-05.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-riso/riso-05.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-riso/riso-05.webp"
       }
     ],
     "date": "2026-05",
@@ -1026,31 +1026,31 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/multi-style-carousel/swiss-01.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-swiss/swiss-01.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-swiss/swiss-01.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/swiss-02.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-swiss/swiss-02.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-swiss/swiss-02.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/swiss-03.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-swiss/swiss-03.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-swiss/swiss-03.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/swiss-04.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-swiss/swiss-04.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-swiss/swiss-04.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/swiss-05.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-swiss/swiss-05.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-swiss/swiss-05.webp"
       }
     ],
     "date": "2026-05",
@@ -1074,31 +1074,31 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/multi-style-carousel/zine-01.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-zine/zine-01.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-zine/zine-01.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/zine-02.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-zine/zine-02.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-zine/zine-02.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/zine-03.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-zine/zine-03.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-zine/zine-03.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/zine-04.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-zine/zine-04.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-zine/zine-04.webp"
       },
       {
         "src": "/showcase/multi-style-carousel/zine-05.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/multi-style-carousel-zine/zine-05.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/multi-style-carousel-zine/zine-05.webp"
       }
     ],
     "date": "2026-05",
@@ -1123,193 +1123,193 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/vpn-sticker-pack/clean-01-hi-beg.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-01-hi-beg.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-01-hi-beg.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-02-popcorn.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-02-popcorn.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-02-popcorn.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-03-shy.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-03-shy.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-03-shy.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-04-busy.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-04-busy.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-04-busy.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-05-fu.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-05-fu.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-05-fu.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-06-love-mask.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-06-love-mask.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-06-love-mask.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-07-globe.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-07-globe.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-07-globe.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-08-tableflip.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-08-tableflip.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-08-tableflip.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-09-shrug.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-09-shrug.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-09-shrug.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-10-point.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-10-point.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-10-point.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-11-facepalm.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-11-facepalm.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-11-facepalm.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-12-thisisfine.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-12-thisisfine.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-12-thisisfine.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-13-explosion.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-13-explosion.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-13-explosion.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-14-micdrop.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-14-micdrop.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-14-micdrop.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-15-cry.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-15-cry.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-15-cry.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-16-skull.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-16-skull.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-16-skull.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-17-sus.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-17-sus.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-17-sus.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-18-mindblown.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-18-mindblown.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-18-mindblown.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-19-sweat.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-19-sweat.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-19-sweat.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-20-clown.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-20-clown.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-20-clown.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-21-rizz.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-21-rizz.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-21-rizz.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-22-sigma.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-22-sigma.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-22-sigma.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-23-money.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-23-money.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-23-money.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-24-salute.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-24-salute.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-24-salute.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-25-wait.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-25-wait.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-25-wait.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-26-lurk.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-26-lurk.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-26-lurk.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-27-idea.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-27-idea.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-27-idea.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-28-no.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-28-no.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-28-no.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-29-sleepy.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-29-sleepy.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-29-sleepy.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-30-sick.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-30-sick.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-30-sick.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-31-cold.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-31-cold.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-31-cold.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/clean-32-bigw.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-clean/clean-32-bigw.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-clean/clean-32-bigw.webp"
       }
     ],
     "date": "2026-05",
@@ -1336,193 +1336,193 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/vpn-sticker-pack/outline-01-hi-beg.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-01-hi-beg.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-01-hi-beg.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-02-popcorn.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-02-popcorn.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-02-popcorn.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-03-shy.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-03-shy.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-03-shy.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-04-busy.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-04-busy.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-04-busy.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-05-fu.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-05-fu.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-05-fu.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-06-love-mask.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-06-love-mask.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-06-love-mask.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-07-globe.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-07-globe.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-07-globe.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-08-tableflip.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-08-tableflip.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-08-tableflip.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-09-shrug.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-09-shrug.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-09-shrug.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-10-point.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-10-point.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-10-point.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-11-facepalm.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-11-facepalm.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-11-facepalm.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-12-thisisfine.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-12-thisisfine.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-12-thisisfine.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-13-explosion.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-13-explosion.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-13-explosion.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-14-micdrop.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-14-micdrop.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-14-micdrop.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-15-cry.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-15-cry.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-15-cry.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-16-skull.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-16-skull.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-16-skull.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-17-sus.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-17-sus.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-17-sus.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-18-mindblown.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-18-mindblown.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-18-mindblown.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-19-sweat.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-19-sweat.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-19-sweat.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-20-clown.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-20-clown.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-20-clown.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-21-rizz.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-21-rizz.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-21-rizz.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-22-sigma.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-22-sigma.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-22-sigma.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-23-money.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-23-money.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-23-money.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-24-salute.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-24-salute.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-24-salute.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-25-wait.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-25-wait.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-25-wait.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-26-lurk.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-26-lurk.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-26-lurk.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-27-idea.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-27-idea.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-27-idea.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-28-no.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-28-no.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-28-no.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-29-sleepy.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-29-sleepy.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-29-sleepy.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-30-sick.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-30-sick.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-30-sick.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-31-cold.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-31-cold.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-31-cold.webp"
       },
       {
         "src": "/showcase/vpn-sticker-pack/outline-32-bigw.webp",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/vpn-sticker-pack-outline/outline-32-bigw.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/vpn-sticker-pack-outline/outline-32-bigw.webp"
       }
     ],
     "date": "2026-05",
@@ -1547,7 +1547,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/streetwear-drop-poster/variant-01-boom.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-boom/variant-01-boom.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/streetwear-drop-poster-boom/variant-01-boom.webp"
       }
     ],
     "date": "2026-05",
@@ -1572,7 +1572,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/streetwear-drop-poster/variant-02-dang.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-dang/variant-02-dang.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/streetwear-drop-poster-dang/variant-02-dang.webp"
       }
     ],
     "date": "2026-05",
@@ -1597,7 +1597,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/streetwear-drop-poster/variant-03-yikes.webp",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/streetwear-drop-poster-yikes/variant-03-yikes.webp"
+        "storageUrl": "https://ralphy.b-cdn.net/units/streetwear-drop-poster-yikes/variant-03-yikes.webp"
       }
     ],
     "date": "2026-05",
@@ -1623,7 +1623,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/voxel-fork/voxel-fork.png",
         "kind": "image",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/voxel-fork/voxel-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/voxel-fork/voxel-fork.png"
       }
     ],
     "tags": [
@@ -1656,7 +1656,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-path-voxel-en/final-en-compressed.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-path-voxel-en/final-en-compressed.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-path-voxel-en/final-en-compressed.mp4"
       }
     ],
     "tags": [
@@ -1677,241 +1677,241 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/nyastics-emotes-final/ny01-laugh.png",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny01-laugh.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny01-laugh.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny02-tada.png",
         "kind": "image",
         "aspect": "376 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny02-tada.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny02-tada.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny03-rofl.png",
         "kind": "image",
         "aspect": "512 / 438",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny03-rofl.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny03-rofl.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny04-walk.png",
         "kind": "image",
         "aspect": "457 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny04-walk.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny04-walk.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny05-splash.png",
         "kind": "image",
         "aspect": "498 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny05-splash.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny05-splash.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny06-aww.png",
         "kind": "image",
         "aspect": "512 / 499",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny06-aww.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny06-aww.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny07-hi.png",
         "kind": "image",
         "aspect": "322 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny07-hi.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny07-hi.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny08-scheme.png",
         "kind": "image",
         "aspect": "295 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny08-scheme.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny08-scheme.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny09-excited.png",
         "kind": "image",
         "aspect": "389 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny09-excited.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny09-excited.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny10-chill.png",
         "kind": "image",
         "aspect": "487 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny10-chill.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny10-chill.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny11-lurk.png",
         "kind": "image",
         "aspect": "512 / 463",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny11-lurk.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny11-lurk.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny12-cake.png",
         "kind": "image",
         "aspect": "2 / 3",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny12-cake.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny12-cake.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny13-noodles.png",
         "kind": "image",
         "aspect": "373 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny13-noodles.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny13-noodles.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny14-plusone.png",
         "kind": "image",
         "aspect": "277 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny14-plusone.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny14-plusone.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny15-shake.png",
         "kind": "image",
         "aspect": "376 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny15-shake.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny15-shake.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny16-feast.png",
         "kind": "image",
         "aspect": "512 / 401",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny16-feast.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny16-feast.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny17-stack.png",
         "kind": "image",
         "aspect": "223 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny17-stack.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny17-stack.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny18-pizza.png",
         "kind": "image",
         "aspect": "357 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny18-pizza.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny18-pizza.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny19-melon.png",
         "kind": "image",
         "aspect": "366 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny19-melon.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny19-melon.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny20-grumpy.png",
         "kind": "image",
         "aspect": "230 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny20-grumpy.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny20-grumpy.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny21-salad.png",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny21-salad.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny21-salad.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny22-warrior.png",
         "kind": "image",
         "aspect": "4 / 5",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny22-warrior.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny22-warrior.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny23-sad.png",
         "kind": "image",
         "aspect": "222 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny23-sad.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny23-sad.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny24-sus.png",
         "kind": "image",
         "aspect": "276 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny24-sus.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny24-sus.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny25-huh.png",
         "kind": "image",
         "aspect": "318 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny25-huh.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny25-huh.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny26-writing.png",
         "kind": "image",
         "aspect": "512 / 408",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny26-writing.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny26-writing.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny27-sleep.png",
         "kind": "image",
         "aspect": "512 / 408",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny27-sleep.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny27-sleep.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny28-money.png",
         "kind": "image",
         "aspect": "332 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny28-money.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny28-money.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny29-reading.png",
         "kind": "image",
         "aspect": "512 / 366",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny29-reading.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny29-reading.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny30-rose.png",
         "kind": "image",
         "aspect": "235 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny30-rose.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny30-rose.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny31-stand.png",
         "kind": "image",
         "aspect": "304 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny31-stand.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny31-stand.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny32-car.png",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny32-car.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny32-car.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny33-fire.png",
         "kind": "image",
         "aspect": "475 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny33-fire.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny33-fire.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny34-grass.png",
         "kind": "image",
         "aspect": "399 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny34-grass.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny34-grass.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny35-crawl.png",
         "kind": "image",
         "aspect": "445 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny35-crawl.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny35-crawl.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny36-dead.png",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny36-dead.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny36-dead.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny37-drink.png",
         "kind": "image",
         "aspect": "395 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny37-drink.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny37-drink.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny38-cry.png",
         "kind": "image",
         "aspect": "1 / 1",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny38-cry.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny38-cry.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny39-yawn.png",
         "kind": "image",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny39-yawn.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny39-yawn.png"
       },
       {
         "src": "/showcase/nyastics-emotes-final/ny40-angry.png",
         "kind": "image",
         "aspect": "400 / 512",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/nyastics-emotes-final/ny40-angry.png"
+        "storageUrl": "https://ralphy.b-cdn.net/units/nyastics-emotes-final/ny40-angry.png"
       }
     ]
   },
@@ -1940,7 +1940,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-silenthill/showcase.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-silenthill/showcase.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-silenthill/showcase.mp4"
       }
     ],
     "tags": [
@@ -1975,7 +1975,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-spaceship/showcase.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-spaceship/showcase.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-spaceship/showcase.mp4"
       }
     ],
     "tags": [
@@ -2010,7 +2010,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-swamp/showcase.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-swamp/showcase.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-swamp/showcase.mp4"
       }
     ],
     "tags": [
@@ -2044,7 +2044,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-backrooms/showcase.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-backrooms/showcase.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-backrooms/showcase.mp4"
       }
     ],
     "tags": [
@@ -2079,7 +2079,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-warofworlds/showcase.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-warofworlds/showcase.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-warofworlds/showcase.mp4"
       }
     ],
     "tags": [
@@ -2111,7 +2111,7 @@ export const PUBLISHED_UNITS: Unit[] = [
         "src": "/showcase/choose-magicschool/showcase.mp4",
         "kind": "video",
         "aspect": "9 / 16",
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/units/choose-magicschool/showcase.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/units/choose-magicschool/showcase.mp4"
       }
     ],
     "tags": [
@@ -2136,7 +2136,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Before / After",
     "blurb": "The classic transformation cut — establish the sad state, swipe, reveal the glow-up.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/before-after/before-after.png"
+      "https://ralphy.b-cdn.net/blocks/template/before-after/before-after.png"
     ]
   },
   {
@@ -2152,7 +2152,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Choose the Door",
     "blurb": "A fork-in-the-path decision reveal — two options framed left/right, a beat of suspense, then the pick.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/choose-the-door/choose-the-door.png"
+      "https://ralphy.b-cdn.net/blocks/template/choose-the-door/choose-the-door.png"
     ]
   },
   {
@@ -2161,7 +2161,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Choose-Your-Path Gauntlet",
     "blurb": "Hub → pick a guide → a chain of binary 50/50 forks (scene plays → freeze + 3-2-1 timer → consequence) → branch payoff. Generalizes analog-horror-pick-a-door into a guide-choice survival gauntlet. Narration restates each choice ('you picked X — …') for retention.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/choose-your-path-gauntlet/choose-your-path-gauntlet.png"
+      "https://ralphy.b-cdn.net/blocks/template/choose-your-path-gauntlet/choose-your-path-gauntlet.png"
     ]
   },
   {
@@ -2177,7 +2177,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Explainer",
     "blurb": "Step-by-step walkthrough with labelled beats and a payoff.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/explainer/explainer.png"
+      "https://ralphy.b-cdn.net/blocks/template/explainer/explainer.png"
     ]
   },
   {
@@ -2207,7 +2207,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Lifestyle montage",
     "blurb": "A b-roll mood reel — fast cuts of a place, product, or routine in use.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/lifestyle-montage/lifestyle-montage.png"
+      "https://ralphy.b-cdn.net/blocks/template/lifestyle-montage/lifestyle-montage.png"
     ]
   },
   {
@@ -2216,7 +2216,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Motion card",
     "blurb": "A typographic / kinetic announcement card revealed beat-by-beat, code-driven.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/motion-card/motion-card.png"
+      "https://ralphy.b-cdn.net/blocks/template/motion-card/motion-card.png"
     ]
   },
   {
@@ -2225,7 +2225,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Music video",
     "blurb": "Beat-driven performance / montage cut to a track, not a narrated script.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/music-video/music-video.png"
+      "https://ralphy.b-cdn.net/blocks/template/music-video/music-video.png"
     ]
   },
   {
@@ -2234,7 +2234,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "POV narrative",
     "blurb": "An object / character lives a short dramatized arc from its own POV.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/pov-narrative/pov-narrative.png"
+      "https://ralphy.b-cdn.net/blocks/template/pov-narrative/pov-narrative.png"
     ]
   },
   {
@@ -2243,7 +2243,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "POV walk",
     "blurb": "First-person traversal through a space, holding on landmarks.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/pov-walk/pov-walk.png"
+      "https://ralphy.b-cdn.net/blocks/template/pov-walk/pov-walk.png"
     ]
   },
   {
@@ -2252,7 +2252,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Product reveal",
     "blurb": "Tease, build, drop — a rhythm engineered around a single hero object.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/product-reveal/product-reveal.png"
+      "https://ralphy.b-cdn.net/blocks/template/product-reveal/product-reveal.png"
     ]
   },
   {
@@ -2268,7 +2268,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Showcase wall",
     "blurb": "A tiled proof-wall of prior outputs — hook, wall, featured, stack, CTA.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/showcase-wall/showcase-wall.png"
+      "https://ralphy.b-cdn.net/blocks/template/showcase-wall/showcase-wall.png"
     ]
   },
   {
@@ -2284,7 +2284,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Story time",
     "blurb": "A first-person narrated arc — setup, conflict, resolution, punchline.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/story-time/story-time.png"
+      "https://ralphy.b-cdn.net/blocks/template/story-time/story-time.png"
     ]
   },
   {
@@ -2293,7 +2293,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Talking head",
     "blurb": "One presenter delivers straight to camera — a hook, a take, a button.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/template/talking-head/talking-head.png"
+      "https://ralphy.b-cdn.net/blocks/template/talking-head/talking-head.png"
     ]
   },
   {
@@ -2620,7 +2620,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "AURA — Ship-AI Hologram",
     "blurb": "Giant translucent pink-magenta holographic woman (Joi-style), scanline flicker, echoed across ship monitors. The soothing-but-lethal AI guide (spaceship).",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/aura-hologram/char-aura.png"
+      "https://ralphy.b-cdn.net/blocks/asset/aura-hologram/char-aura.png"
     ],
     "sub": "character"
   },
@@ -2654,7 +2654,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Brand sticker set",
     "blurb": "A pool of brand stickers dropped onto the canvas with an overshoot.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/brand-stickers/ny01-laugh.png"
+      "https://ralphy.b-cdn.net/blocks/asset/brand-stickers/ny01-laugh.png"
     ],
     "sub": "prop"
   },
@@ -2672,7 +2672,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "ChoosePath Soundtrack",
     "blurb": "The looping dread bed under the choose-path PS1-horror series — slow, low, tension-holding, leaves headroom for the radio narrator and the death stingers. Shared across all six choose-* units.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/choosepath-soundtrack/soundtrack.mp3"
+      "https://ralphy.b-cdn.net/blocks/asset/choosepath-soundtrack/soundtrack.mp3"
     ],
     "sub": "music"
   },
@@ -2706,7 +2706,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Gameplay loop",
     "blurb": "A hypnotic CS:GO-surf gameplay loop used as the brainrot bottom layer.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/gameplay-loop/cs-surf-loop.mp4"
+      "https://ralphy.b-cdn.net/blocks/asset/gameplay-loop/cs-surf-loop.mp4"
     ],
     "sub": "prop"
   },
@@ -2716,9 +2716,9 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Hazmat Scientist Trio",
     "blurb": "Three biohazard-suit gas-mask scientists (orange/teal/purple), the dwindling party of the Backrooms descent.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-doc.png",
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-rust.png",
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/hazmat-scientists/char-vex.png"
+      "https://ralphy.b-cdn.net/blocks/asset/hazmat-scientists/char-doc.png",
+      "https://ralphy.b-cdn.net/blocks/asset/hazmat-scientists/char-rust.png",
+      "https://ralphy.b-cdn.net/blocks/asset/hazmat-scientists/char-vex.png"
     ],
     "sub": "character"
   },
@@ -2744,7 +2744,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Candle-headed kobolds",
     "blurb": "Voxel/PS1 candle-headed kobold miners (cobalt-cave swarm + crowned chieftain). 'You no take candle.'",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/kobold-swarm/a07-death-candle.png"
+      "https://ralphy.b-cdn.net/blocks/asset/kobold-swarm/a07-death-candle.png"
     ],
     "sub": "character"
   },
@@ -2754,7 +2754,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "LESHY — Half-Tree Trent",
     "blurb": "50/50 flesh-and-bark forest spirit, never speaks, only groans/gestures. Trust-but-verify guide (swamp).",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/leshy-trent/char-leshy.png"
+      "https://ralphy.b-cdn.net/blocks/asset/leshy-trent/char-leshy.png"
     ],
     "sub": "character"
   },
@@ -2780,7 +2780,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "One-Eyed Survivor",
     "blurb": "Big ~60yo Black man, milky scarred blind eye, green overshirt, sawn-off rifle. Grim honest guide (war of the worlds).",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/oneeyed-survivor/char-survivor.png"
+      "https://ralphy.b-cdn.net/blocks/asset/oneeyed-survivor/char-survivor.png"
     ],
     "sub": "character"
   },
@@ -2790,7 +2790,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Peaceful Alien (brain-in-capsule)",
     "blurb": "Floating pink-brain in a clean capsule with soft tentacles, benevolent warm glow — the welcoming lie (war of the worlds).",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/peaceful-alien/char-alien.png"
+      "https://ralphy.b-cdn.net/blocks/asset/peaceful-alien/char-alien.png"
     ],
     "sub": "character"
   },
@@ -2808,7 +2808,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Shpundel (armadillo guide)",
     "blurb": "Voxel/PS1 armored armadillo-creature guide in a roadside shrine; the unsettling one.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/shpundel-armadillo/char-shpundel-master.png"
+      "https://ralphy.b-cdn.net/blocks/asset/shpundel-armadillo/char-shpundel-master.png"
     ],
     "sub": "character"
   },
@@ -2842,7 +2842,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Tolik (old-man guide)",
     "blurb": "Voxel/PS1 mustached old man in a blue raincoat with umbrella; the friendly-seeming lighthouse guide.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/tolik-old-man/char-tolik-master.png"
+      "https://ralphy.b-cdn.net/blocks/asset/tolik-old-man/char-tolik-master.png"
     ],
     "sub": "character"
   },
@@ -2860,7 +2860,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "Soviet trend bed",
     "blurb": "The canonical Soviet-nostalgic trend music bed — recognizability is half the format.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/trend-soviet-bed/trend-soviet-bed.mp3"
+      "https://ralphy.b-cdn.net/blocks/asset/trend-soviet-bed/trend-soviet-bed.mp3"
     ],
     "sub": "music"
   },
@@ -2870,7 +2870,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "VEDMA — Bog Witch",
     "blurb": "Beautiful (not a hag) purple-gowned pointed-hat Slavic witch with grim help. Read-the-witch guide (swamp).",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/vedma-witch/char-witch.png"
+      "https://ralphy.b-cdn.net/blocks/asset/vedma-witch/char-witch.png"
     ],
     "sub": "character"
   },
@@ -2880,7 +2880,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "VOSS — Derelict-Ship Engineer",
     "blurb": "Fat balding bearded low-poly engineer, yellow hard hat, grimy coverall, cigarette. The abrasive-but-right guide (spaceship).",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/voss-engineer/char-voss.png"
+      "https://ralphy.b-cdn.net/blocks/asset/voss-engineer/char-voss.png"
     ],
     "sub": "character"
   },
@@ -2890,7 +2890,7 @@ export const PUBLISHED_BLOCKS: Block[] = [
     "name": "VPN shield mascot",
     "blurb": "A round, friendly shield-creature — the sticker-pack lead.",
     "refs": [
-      "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blocks/asset/vpn-mascot/sticker-shield-pure.png"
+      "https://ralphy.b-cdn.net/blocks/asset/vpn-mascot/sticker-shield-pure.png"
     ],
     "sub": "character"
   }
@@ -2907,28 +2907,28 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/char-doc.png",
         "slot": "char-doc",
         "bytes": 1456440,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/char-doc.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/char-doc.png"
       },
       {
         "kind": "character",
         "path": "assets/char-rust.png",
         "slot": "char-rust",
         "bytes": 1459048,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/char-rust.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/char-rust.png"
       },
       {
         "kind": "character",
         "path": "assets/char-vex.png",
         "slot": "char-vex",
         "bytes": 1441248,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/char-vex.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/char-vex.png"
       },
       {
         "kind": "location",
         "path": "assets/hub.png",
         "slot": "hub",
         "bytes": 1343977,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/hub.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/hub.png"
       },
       {
         "kind": "location",
@@ -2945,21 +2945,21 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub-vid.mp4",
         "slot": "hub-vid",
         "bytes": 2562927,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/hub-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/hub-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-s02-fork-doors.png",
         "slot": "scene-s02-fork-doors",
         "bytes": 1305673,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s02-fork-doors.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s02-fork-doors.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s02-fork-doors-vid.mp4",
         "slot": "scene-s02-fork-doors-vid",
         "bytes": 2795291,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s02-fork-doors-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s02-fork-doors-vid.mp4"
       },
       {
         "kind": "location",
@@ -2971,14 +2971,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s03-death-red.png",
         "slot": "scene-s03-death-red",
         "bytes": 1108145,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s03-death-red.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s03-death-red.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s03-death-red-vid.mp4",
         "slot": "scene-s03-death-red-vid",
         "bytes": 2829890,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s03-death-red-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s03-death-red-vid.mp4"
       },
       {
         "kind": "location",
@@ -2990,14 +2990,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s04-blue-rust-lost.png",
         "slot": "scene-s04-blue-rust-lost",
         "bytes": 1360025,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s04-blue-rust-lost.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s04-blue-rust-lost.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s04-blue-rust-lost-vid.mp4",
         "slot": "scene-s04-blue-rust-lost-vid",
         "bytes": 2722789,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s04-blue-rust-lost-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s04-blue-rust-lost-vid.mp4"
       },
       {
         "kind": "location",
@@ -3009,7 +3009,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s05-pool-fork.png",
         "slot": "scene-s05-pool-fork",
         "bytes": 1208213,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s05-pool-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s05-pool-fork.png"
       },
       {
         "kind": "location",
@@ -3021,14 +3021,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s06-death-pool.png",
         "slot": "scene-s06-death-pool",
         "bytes": 1162222,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s06-death-pool.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s06-death-pool.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s06-death-pool-vid.mp4",
         "slot": "scene-s06-death-pool-vid",
         "bytes": 2501376,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s06-death-pool-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s06-death-pool-vid.mp4"
       },
       {
         "kind": "location",
@@ -3045,28 +3045,28 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s07-pool-doc-lost.png",
         "slot": "scene-s07-pool-doc-lost",
         "bytes": 1306928,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s07-pool-doc-lost.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s07-pool-doc-lost.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s07-pool-doc-lost-vid.mp4",
         "slot": "scene-s07-pool-doc-lost-vid",
         "bytes": 2656486,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s07-pool-doc-lost-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s07-pool-doc-lost-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-s08-pipe-fork.png",
         "slot": "scene-s08-pipe-fork",
         "bytes": 1286308,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s08-pipe-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s08-pipe-fork.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s08-pipe-fork-vid.mp4",
         "slot": "scene-s08-pipe-fork-vid",
         "bytes": 2030088,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s08-pipe-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s08-pipe-fork-vid.mp4"
       },
       {
         "kind": "location",
@@ -3078,14 +3078,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s09-death-redpipe.png",
         "slot": "scene-s09-death-redpipe",
         "bytes": 1317867,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s09-death-redpipe.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s09-death-redpipe.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s09-death-redpipe-vid.mp4",
         "slot": "scene-s09-death-redpipe-vid",
         "bytes": 3075077,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s09-death-redpipe-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s09-death-redpipe-vid.mp4"
       },
       {
         "kind": "location",
@@ -3097,28 +3097,28 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s09-redpipe-enter.png",
         "slot": "scene-s09-redpipe-enter",
         "bytes": 1195791,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s09-redpipe-enter.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s09-redpipe-enter.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s09-redpipe-enter-vid.mp4",
         "slot": "scene-s09-redpipe-enter-vid",
         "bytes": 2078621,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s09-redpipe-enter-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s09-redpipe-enter-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-s10-bluepipe-vex-lost.png",
         "slot": "scene-s10-bluepipe-vex-lost",
         "bytes": 1200937,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s10-bluepipe-vex-lost.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s10-bluepipe-vex-lost.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s10-bluepipe-vex-lost-vid.mp4",
         "slot": "scene-s10-bluepipe-vex-lost-vid",
         "bytes": 3243544,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s10-bluepipe-vex-lost-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s10-bluepipe-vex-lost-vid.mp4"
       },
       {
         "kind": "location",
@@ -3135,14 +3135,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s11-mall.png",
         "slot": "scene-s11-mall",
         "bytes": 1078399,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s11-mall.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s11-mall.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s11-mall-vid.mp4",
         "slot": "scene-s11-mall-vid",
         "bytes": 1485641,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s11-mall-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s11-mall-vid.mp4"
       },
       {
         "kind": "location",
@@ -3154,28 +3154,28 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s12-exit-fork.png",
         "slot": "scene-s12-exit-fork",
         "bytes": 1087951,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s12-exit-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s12-exit-fork.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s12-exit-fork-vid.mp4",
         "slot": "scene-s12-exit-fork-vid",
         "bytes": 886148,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s12-exit-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s12-exit-fork-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-s13-death-wrongexit.png",
         "slot": "scene-s13-death-wrongexit",
         "bytes": 1141661,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s13-death-wrongexit.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s13-death-wrongexit.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s13-death-wrongexit-vid.mp4",
         "slot": "scene-s13-death-wrongexit-vid",
         "bytes": 1780957,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s13-death-wrongexit-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s13-death-wrongexit-vid.mp4"
       },
       {
         "kind": "location",
@@ -3187,14 +3187,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/scene-s14-end.png",
         "slot": "scene-s14-end",
         "bytes": 1179349,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s14-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s14-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-s14-end-vid.mp4",
         "slot": "scene-s14-end-vid",
         "bytes": 4545763,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/assets/scene-s14-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/assets/scene-s14-end-vid.mp4"
       },
       {
         "kind": "location",
@@ -3855,7 +3855,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "vid",
         "vignette"
       ],
-      "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-backrooms/index.html"
+      "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-backrooms/index.html"
     },
     "costRollupUsd": 17.48,
     "schemaVersion": 1
@@ -3867,224 +3867,224 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub.png",
         "slot": "hub",
         "bytes": 2146006,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/hub.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/hub.png"
       },
       {
         "kind": "location",
         "path": "assets/hub-vid.mp4",
         "slot": "hub-vid",
         "bytes": 1914966,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/hub-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/hub-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s02-stair-fork.png",
         "slot": "s02-stair-fork",
         "bytes": 899054,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s02-stair-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s02-stair-fork.png"
       },
       {
         "kind": "ref",
         "path": "assets/s02-stair-fork-vid.mp4",
         "slot": "s02-stair-fork-vid",
         "bytes": 1737926,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s02-stair-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s02-stair-fork-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s03-death-stair.png",
         "slot": "s03-death-stair",
         "bytes": 938125,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s03-death-stair.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s03-death-stair.png"
       },
       {
         "kind": "ref",
         "path": "assets/s03-death-stair-vid.mp4",
         "slot": "s03-death-stair-vid",
         "bytes": 4179568,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s03-death-stair-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s03-death-stair-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s04-stair-cross.png",
         "slot": "s04-stair-cross",
         "bytes": 945033,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s04-stair-cross.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s04-stair-cross.png"
       },
       {
         "kind": "ref",
         "path": "assets/s04-stair-cross-vid.mp4",
         "slot": "s04-stair-cross-vid",
         "bytes": 3247619,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s04-stair-cross-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s04-stair-cross-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s05-armor-fork.png",
         "slot": "s05-armor-fork",
         "bytes": 1857468,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s05-armor-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s05-armor-fork.png"
       },
       {
         "kind": "ref",
         "path": "assets/s05-armor-fork-vid.mp4",
         "slot": "s05-armor-fork-vid",
         "bytes": 1429481,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s05-armor-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s05-armor-fork-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s06-death-armor.png",
         "slot": "s06-death-armor",
         "bytes": 935540,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s06-death-armor.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s06-death-armor.png"
       },
       {
         "kind": "ref",
         "path": "assets/s06-death-armor-vid.mp4",
         "slot": "s06-death-armor-vid",
         "bytes": 3096505,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s06-death-armor-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s06-death-armor-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s07-armor-past.png",
         "slot": "s07-armor-past",
         "bytes": 921255,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s07-armor-past.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s07-armor-past.png"
       },
       {
         "kind": "ref",
         "path": "assets/s07-armor-past-vid.mp4",
         "slot": "s07-armor-past-vid",
         "bytes": 2733187,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s07-armor-past-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s07-armor-past-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s08-portal-fork.png",
         "slot": "s08-portal-fork",
         "bytes": 1921630,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s08-portal-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s08-portal-fork.png"
       },
       {
         "kind": "ref",
         "path": "assets/s08-portal-fork-vid.mp4",
         "slot": "s08-portal-fork-vid",
         "bytes": 2123406,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s08-portal-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s08-portal-fork-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s09-death-portal.png",
         "slot": "s09-death-portal",
         "bytes": 999651,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s09-death-portal.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s09-death-portal.png"
       },
       {
         "kind": "ref",
         "path": "assets/s09-death-portal-vid.mp4",
         "slot": "s09-death-portal-vid",
         "bytes": 4052051,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s09-death-portal-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s09-death-portal-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s10-portal-through.png",
         "slot": "s10-portal-through",
         "bytes": 2141979,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s10-portal-through.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s10-portal-through.png"
       },
       {
         "kind": "ref",
         "path": "assets/s10-portal-through-vid.mp4",
         "slot": "s10-portal-through-vid",
         "bytes": 2930860,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s10-portal-through-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s10-portal-through-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s11-peeves-fork.png",
         "slot": "s11-peeves-fork",
         "bytes": 2152005,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s11-peeves-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s11-peeves-fork.png"
       },
       {
         "kind": "ref",
         "path": "assets/s11-peeves-fork-vid.mp4",
         "slot": "s11-peeves-fork-vid",
         "bytes": 1958852,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s11-peeves-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s11-peeves-fork-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s12-death-peeves.png",
         "slot": "s12-death-peeves",
         "bytes": 935057,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s12-death-peeves.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s12-death-peeves.png"
       },
       {
         "kind": "ref",
         "path": "assets/s12-death-peeves-vid.mp4",
         "slot": "s12-death-peeves-vid",
         "bytes": 3308521,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s12-death-peeves-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s12-death-peeves-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s13-peeves-past.png",
         "slot": "s13-peeves-past",
         "bytes": 1862211,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s13-peeves-past.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s13-peeves-past.png"
       },
       {
         "kind": "ref",
         "path": "assets/s13-peeves-past-vid.mp4",
         "slot": "s13-peeves-past-vid",
         "bytes": 3687066,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s13-peeves-past-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s13-peeves-past-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s14-class-fork.png",
         "slot": "s14-class-fork",
         "bytes": 906472,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s14-class-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s14-class-fork.png"
       },
       {
         "kind": "ref",
         "path": "assets/s14-class-fork-vid.mp4",
         "slot": "s14-class-fork-vid",
         "bytes": 1699695,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s14-class-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s14-class-fork-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s15-death-wrongdoor.png",
         "slot": "s15-death-wrongdoor",
         "bytes": 915189,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s15-death-wrongdoor.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s15-death-wrongdoor.png"
       },
       {
         "kind": "ref",
         "path": "assets/s15-death-wrongdoor-vid.mp4",
         "slot": "s15-death-wrongdoor-vid",
         "bytes": 3185274,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s15-death-wrongdoor-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s15-death-wrongdoor-vid.mp4"
       },
       {
         "kind": "ref",
         "path": "assets/s16-class-end.png",
         "slot": "s16-class-end",
         "bytes": 1877671,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s16-class-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s16-class-end.png"
       },
       {
         "kind": "ref",
         "path": "assets/s16-class-end-vid.mp4",
         "slot": "s16-class-end-vid",
         "bytes": 3705171,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/assets/s16-class-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/assets/s16-class-end-vid.mp4"
       }
     ],
     "unitId": "choose-magicschool",
@@ -4631,7 +4631,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "vid",
         "vignette"
       ],
-      "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-magicschool/index.html"
+      "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-magicschool/index.html"
     },
     "costRollupUsd": 12.48,
     "schemaVersion": 1
@@ -4644,21 +4644,21 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/char-nurse.png",
         "slot": "char-nurse",
         "bytes": 1171983,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/char-nurse.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/char-nurse.png"
       },
       {
         "kind": "character",
         "path": "assets/char-samaritan.png",
         "slot": "char-samaritan",
         "bytes": 1148383,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/char-samaritan.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/char-samaritan.png"
       },
       {
         "kind": "location",
         "path": "assets/hub.png",
         "slot": "hub",
         "bytes": 1195495,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/hub.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/hub.png"
       },
       {
         "kind": "location",
@@ -4675,294 +4675,294 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub-vid.mp4",
         "slot": "hub-vid",
         "bytes": 2130293,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/hub-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/hub-vid.mp4"
       },
       {
         "kind": "character",
         "path": "assets/scene-a02-follow-nurse.png",
         "slot": "scene-a02-follow-nurse",
         "bytes": 1095497,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a02-follow-nurse.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a02-follow-nurse.png"
       },
       {
         "kind": "character",
         "path": "assets/scene-a02-follow-nurse-vid.mp4",
         "slot": "scene-a02-follow-nurse-vid",
         "bytes": 1622736,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a02-follow-nurse-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a02-follow-nurse-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-siren.png",
         "slot": "scene-a03-fork-siren",
         "bytes": 1341714,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a03-fork-siren.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a03-fork-siren.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-siren-vid.mp4",
         "slot": "scene-a03-fork-siren-vid",
         "bytes": 2685299,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a03-fork-siren-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a03-fork-siren-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-death-run.png",
         "slot": "scene-a04-death-run",
         "bytes": 1320838,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a04-death-run.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a04-death-run.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-death-run-vid.mp4",
         "slot": "scene-a04-death-run-vid",
         "bytes": 3168734,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a04-death-run-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a04-death-run-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-passed.png",
         "slot": "scene-a05-passed",
         "bytes": 1295224,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a05-passed.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a05-passed.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-passed-vid.mp4",
         "slot": "scene-a05-passed-vid",
         "bytes": 2026608,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a05-passed-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a05-passed-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-fork-door.png",
         "slot": "scene-a06-fork-door",
         "bytes": 1183636,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a06-fork-door.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a06-fork-door.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-fork-door-vid.mp4",
         "slot": "scene-a06-fork-door-vid",
         "bytes": 2050486,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a06-fork-door-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a06-fork-door-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-death-opendoor.png",
         "slot": "scene-a07-death-opendoor",
         "bytes": 1110481,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a07-death-opendoor.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a07-death-opendoor.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-death-opendoor-vid.mp4",
         "slot": "scene-a07-death-opendoor-vid",
         "bytes": 3043207,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a07-death-opendoor-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a07-death-opendoor-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-through.png",
         "slot": "scene-a08-through",
         "bytes": 1151480,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a08-through.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a08-through.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-through-vid.mp4",
         "slot": "scene-a08-through-vid",
         "bytes": 2260134,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a08-through-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a08-through-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09-fork-dark.png",
         "slot": "scene-a09-fork-dark",
         "bytes": 1230969,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a09-fork-dark.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a09-fork-dark.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09-fork-dark-vid.mp4",
         "slot": "scene-a09-fork-dark-vid",
         "bytes": 1704906,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a09-fork-dark-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a09-fork-dark-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09b-death-follow.png",
         "slot": "scene-a09b-death-follow",
         "bytes": 1276949,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a09b-death-follow.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a09b-death-follow.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09b-death-follow-vid.mp4",
         "slot": "scene-a09b-death-follow-vid",
         "bytes": 2211862,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a09b-death-follow-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a09b-death-follow-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a10-end.png",
         "slot": "scene-a10-end",
         "bytes": 1098320,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a10-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a10-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a10-end-vid.mp4",
         "slot": "scene-a10-end-vid",
         "bytes": 2292755,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-a10-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-a10-end-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-with-sam.png",
         "slot": "scene-b11-with-sam",
         "bytes": 1141969,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b11-with-sam.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b11-with-sam.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-with-sam-vid.mp4",
         "slot": "scene-b11-with-sam-vid",
         "bytes": 8403988,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b11-with-sam-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b11-with-sam-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-fork-wounded.png",
         "slot": "scene-b12-fork-wounded",
         "bytes": 1111865,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b12-fork-wounded.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b12-fork-wounded.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-fork-wounded-vid.mp4",
         "slot": "scene-b12-fork-wounded-vid",
         "bytes": 1657258,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b12-fork-wounded-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b12-fork-wounded-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-death-help.png",
         "slot": "scene-b13-death-help",
         "bytes": 1172858,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b13-death-help.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b13-death-help.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-death-help-vid.mp4",
         "slot": "scene-b13-death-help-vid",
         "bytes": 2739455,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b13-death-help-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b13-death-help-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-moved.png",
         "slot": "scene-b14-moved",
         "bytes": 1202937,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b14-moved.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b14-moved.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-moved-vid.mp4",
         "slot": "scene-b14-moved-vid",
         "bytes": 2374814,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b14-moved-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b14-moved-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-fork-lurker.png",
         "slot": "scene-b15-fork-lurker",
         "bytes": 1214894,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b15-fork-lurker.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b15-fork-lurker.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-fork-lurker-vid.mp4",
         "slot": "scene-b15-fork-lurker-vid",
         "bytes": 1509737,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b15-fork-lurker-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b15-fork-lurker-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-death-runnow.png",
         "slot": "scene-b16-death-runnow",
         "bytes": 1244306,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b16-death-runnow.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b16-death-runnow.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-death-runnow-vid.mp4",
         "slot": "scene-b16-death-runnow-vid",
         "bytes": 2886187,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b16-death-runnow-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b16-death-runnow-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-slipped.png",
         "slot": "scene-b17-slipped",
         "bytes": 1245310,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b17-slipped.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b17-slipped.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-slipped-vid.mp4",
         "slot": "scene-b17-slipped-vid",
         "bytes": 2082376,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b17-slipped-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b17-slipped-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-fork-digin.png",
         "slot": "scene-b18-fork-digin",
         "bytes": 1078311,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b18-fork-digin.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b18-fork-digin.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-fork-digin-vid.mp4",
         "slot": "scene-b18-fork-digin-vid",
         "bytes": 1909036,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b18-fork-digin-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b18-fork-digin-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18b-death-wait.png",
         "slot": "scene-b18b-death-wait",
         "bytes": 1324688,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b18b-death-wait.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b18b-death-wait.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18b-death-wait-vid.mp4",
         "slot": "scene-b18b-death-wait-vid",
         "bytes": 3758015,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b18b-death-wait-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b18b-death-wait-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b19-end.png",
         "slot": "scene-b19-end",
         "bytes": 1298667,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b19-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b19-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b19-end-vid.mp4",
         "slot": "scene-b19-end-vid",
         "bytes": 2864273,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b19-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b19-end-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b20-idle-bright-vid.mp4",
         "slot": "scene-b20-idle-bright-vid",
         "bytes": 26212354,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/assets/scene-b20-idle-bright-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/assets/scene-b20-idle-bright-vid.mp4"
       }
     ],
     "unitId": "choose-silenthill",
@@ -5516,7 +5516,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "vid",
         "vignette"
       ],
-      "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-silenthill/index.html"
+      "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-silenthill/index.html"
     },
     "costRollupUsd": 25.96,
     "schemaVersion": 1
@@ -5529,14 +5529,14 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/char-aura.png",
         "slot": "char-aura",
         "bytes": 1430446,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/char-aura.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/char-aura.png"
       },
       {
         "kind": "character",
         "path": "assets/char-voss.png",
         "slot": "char-voss",
         "bytes": 1288282,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/char-voss.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/char-voss.png"
       },
       {
         "kind": "character",
@@ -5553,7 +5553,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub.png",
         "slot": "hub",
         "bytes": 1421370,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/hub.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/hub.png"
       },
       {
         "kind": "location",
@@ -5570,280 +5570,280 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub-vid.mp4",
         "slot": "hub-vid",
         "bytes": 1534312,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/hub-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/hub-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a02-follow.png",
         "slot": "scene-a02-follow",
         "bytes": 1185634,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a02-follow.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a02-follow.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a02-follow-vid.mp4",
         "slot": "scene-a02-follow-vid",
         "bytes": 2098499,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a02-follow-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a02-follow-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork.png",
         "slot": "scene-a03-fork",
         "bytes": 1293509,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a03-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a03-fork.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-vid.mp4",
         "slot": "scene-a03-fork-vid",
         "bytes": 2350928,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a03-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a03-fork-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-death-lift.png",
         "slot": "scene-a04-death-lift",
         "bytes": 1328067,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a04-death-lift.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a04-death-lift.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-death-lift-vid.mp4",
         "slot": "scene-a04-death-lift-vid",
         "bytes": 3153827,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a04-death-lift-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a04-death-lift-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-deck.png",
         "slot": "scene-a05-deck",
         "bytes": 1134428,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a05-deck.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a05-deck.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-deck-vid.mp4",
         "slot": "scene-a05-deck-vid",
         "bytes": 1915445,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a05-deck-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a05-deck-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-fork-pod.png",
         "slot": "scene-a06-fork-pod",
         "bytes": 1274782,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a06-fork-pod.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a06-fork-pod.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-fork-pod-vid.mp4",
         "slot": "scene-a06-fork-pod-vid",
         "bytes": 1538600,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a06-fork-pod-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a06-fork-pod-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-death-pod.png",
         "slot": "scene-a07-death-pod",
         "bytes": 1176536,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a07-death-pod.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a07-death-pod.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-death-pod-vid.mp4",
         "slot": "scene-a07-death-pod-vid",
         "bytes": 3184870,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a07-death-pod-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a07-death-pod-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-core.png",
         "slot": "scene-a08-core",
         "bytes": 1290407,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a08-core.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a08-core.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-core-vid.mp4",
         "slot": "scene-a08-core-vid",
         "bytes": 2067073,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a08-core-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a08-core-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09-fork-purge.png",
         "slot": "scene-a09-fork-purge",
         "bytes": 1185130,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a09-fork-purge.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a09-fork-purge.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09-fork-purge-vid.mp4",
         "slot": "scene-a09-fork-purge-vid",
         "bytes": 1398602,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a09-fork-purge-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a09-fork-purge-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09b-death-trust.png",
         "slot": "scene-a09b-death-trust",
         "bytes": 1483738,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a09b-death-trust.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a09b-death-trust.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09b-death-trust-vid.mp4",
         "slot": "scene-a09b-death-trust-vid",
         "bytes": 3660458,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a09b-death-trust-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a09b-death-trust-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a10-end.png",
         "slot": "scene-a10-end",
         "bytes": 1128973,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a10-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a10-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a10-end-vid.mp4",
         "slot": "scene-a10-end-vid",
         "bytes": 2328877,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-a10-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-a10-end-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-run.png",
         "slot": "scene-b11-run",
         "bytes": 1340288,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b11-run.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b11-run.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-run-vid.mp4",
         "slot": "scene-b11-run-vid",
         "bytes": 3461896,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b11-run-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b11-run-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-fork.png",
         "slot": "scene-b12-fork",
         "bytes": 1221841,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b12-fork.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b12-fork.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-fork-vid.mp4",
         "slot": "scene-b12-fork-vid",
         "bytes": 1280528,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b12-fork-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b12-fork-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-death-hall.png",
         "slot": "scene-b13-death-hall",
         "bytes": 1172973,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b13-death-hall.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b13-death-hall.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-death-hall-vid.mp4",
         "slot": "scene-b13-death-hall-vid",
         "bytes": 2128794,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b13-death-hall-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b13-death-hall-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-fork-reactor.png",
         "slot": "scene-b14-fork-reactor",
         "bytes": 1221860,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b14-fork-reactor.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b14-fork-reactor.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-fork-reactor-vid.mp4",
         "slot": "scene-b14-fork-reactor-vid",
         "bytes": 1695308,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b14-fork-reactor-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b14-fork-reactor-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-death-cover.png",
         "slot": "scene-b15-death-cover",
         "bytes": 1690874,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b15-death-cover.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b15-death-cover.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-death-cover-vid.mp4",
         "slot": "scene-b15-death-cover-vid",
         "bytes": 3027512,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b15-death-cover-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b15-death-cover-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-podbay.png",
         "slot": "scene-b16-podbay",
         "bytes": 1161369,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b16-podbay.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b16-podbay.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-podbay-vid.mp4",
         "slot": "scene-b16-podbay-vid",
         "bytes": 2391357,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b16-podbay-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b16-podbay-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-fork-pod.png",
         "slot": "scene-b17-fork-pod",
         "bytes": 1332930,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b17-fork-pod.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b17-fork-pod.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-fork-pod-vid.mp4",
         "slot": "scene-b17-fork-pod-vid",
         "bytes": 1895076,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b17-fork-pod-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b17-fork-pod-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17b-death-cleanpod.png",
         "slot": "scene-b17b-death-cleanpod",
         "bytes": 1095952,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b17b-death-cleanpod.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b17b-death-cleanpod.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17b-death-cleanpod-vid.mp4",
         "slot": "scene-b17b-death-cleanpod-vid",
         "bytes": 2499249,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b17b-death-cleanpod-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b17b-death-cleanpod-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-end.png",
         "slot": "scene-b18-end",
         "bytes": 1332336,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b18-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b18-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-end-vid.mp4",
         "slot": "scene-b18-end-vid",
         "bytes": 2702524,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-b18-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-b18-end-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-end-idle-vid.mp4",
         "slot": "scene-end-idle-vid",
         "bytes": 2029688,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/assets/scene-end-idle-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/assets/scene-end-idle-vid.mp4"
       }
     ],
     "unitId": "choose-spaceship",
@@ -6597,7 +6597,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "vid",
         "vignette"
       ],
-      "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-spaceship/index.html"
+      "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-spaceship/index.html"
     },
     "costRollupUsd": 27.28,
     "schemaVersion": 1
@@ -6610,21 +6610,21 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/char-leshy.png",
         "slot": "char-leshy",
         "bytes": 1333919,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/char-leshy.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/char-leshy.png"
       },
       {
         "kind": "character",
         "path": "assets/char-witch.png",
         "slot": "char-witch",
         "bytes": 1145548,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/char-witch.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/char-witch.png"
       },
       {
         "kind": "location",
         "path": "assets/hub.png",
         "slot": "hub",
         "bytes": 1331787,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/hub.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/hub.png"
       },
       {
         "kind": "location",
@@ -6641,287 +6641,287 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub-vid.mp4",
         "slot": "hub-vid",
         "bytes": 1602453,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/hub-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/hub-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a02-enter-shack.png",
         "slot": "scene-a02-enter-shack",
         "bytes": 1242104,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a02-enter-shack.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a02-enter-shack.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a02-enter-shack-vid.mp4",
         "slot": "scene-a02-enter-shack-vid",
         "bytes": 9269639,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a02-enter-shack-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a02-enter-shack-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-hearth.png",
         "slot": "scene-a03-fork-hearth",
         "bytes": 1334390,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a03-fork-hearth.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a03-fork-hearth.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-hearth-vid.mp4",
         "slot": "scene-a03-fork-hearth-vid",
         "bytes": 1489930,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a03-fork-hearth-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a03-fork-hearth-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-death-fire.png",
         "slot": "scene-a04-death-fire",
         "bytes": 1360285,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a04-death-fire.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a04-death-fire.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-death-fire-vid.mp4",
         "slot": "scene-a04-death-fire-vid",
         "bytes": 2782406,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a04-death-fire-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a04-death-fire-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-outside.png",
         "slot": "scene-a05-outside",
         "bytes": 1343575,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a05-outside.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a05-outside.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-outside-vid.mp4",
         "slot": "scene-a05-outside-vid",
         "bytes": 2912382,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a05-outside-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a05-outside-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-fork-brew.png",
         "slot": "scene-a06-fork-brew",
         "bytes": 1279553,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a06-fork-brew.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a06-fork-brew.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-fork-brew-vid.mp4",
         "slot": "scene-a06-fork-brew-vid",
         "bytes": 2470492,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a06-fork-brew-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a06-fork-brew-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-death-shove.png",
         "slot": "scene-a07-death-shove",
         "bytes": 1224236,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a07-death-shove.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a07-death-shove.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-death-shove-vid.mp4",
         "slot": "scene-a07-death-shove-vid",
         "bytes": 3149053,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a07-death-shove-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a07-death-shove-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-masked.png",
         "slot": "scene-a08-masked",
         "bytes": 1158740,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a08-masked.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a08-masked.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-masked-vid.mp4",
         "slot": "scene-a08-masked-vid",
         "bytes": 1522451,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a08-masked-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a08-masked-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09-fork-exits.png",
         "slot": "scene-a09-fork-exits",
         "bytes": 1201796,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a09-fork-exits.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a09-fork-exits.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09-fork-exits-vid.mp4",
         "slot": "scene-a09-fork-exits-vid",
         "bytes": 2030733,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a09-fork-exits-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a09-fork-exits-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09b-death-door.png",
         "slot": "scene-a09b-death-door",
         "bytes": 989432,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a09b-death-door.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a09b-death-door.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a09b-death-door-vid.mp4",
         "slot": "scene-a09b-death-door-vid",
         "bytes": 2904546,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a09b-death-door-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a09b-death-door-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a10-end.png",
         "slot": "scene-a10-end",
         "bytes": 1215069,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a10-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a10-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a10-end-vid.mp4",
         "slot": "scene-a10-end-vid",
         "bytes": 2367399,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-a10-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-a10-end-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-wood.png",
         "slot": "scene-b11-wood",
         "bytes": 1214438,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b11-wood.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b11-wood.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-wood-vid.mp4",
         "slot": "scene-b11-wood-vid",
         "bytes": 2060234,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b11-wood-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b11-wood-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-fork-channel.png",
         "slot": "scene-b12-fork-channel",
         "bytes": 1194270,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b12-fork-channel.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b12-fork-channel.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-fork-channel-vid.mp4",
         "slot": "scene-b12-fork-channel-vid",
         "bytes": 1766465,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b12-fork-channel-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b12-fork-channel-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-death-wade.png",
         "slot": "scene-b13-death-wade",
         "bytes": 1163237,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b13-death-wade.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b13-death-wade.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-death-wade-vid.mp4",
         "slot": "scene-b13-death-wade-vid",
         "bytes": 2376636,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b13-death-wade-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b13-death-wade-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-crossed.png",
         "slot": "scene-b14-crossed",
         "bytes": 1314687,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b14-crossed.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b14-crossed.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-crossed-vid.mp4",
         "slot": "scene-b14-crossed-vid",
         "bytes": 2519324,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b14-crossed-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b14-crossed-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-fork-brake.png",
         "slot": "scene-b15-fork-brake",
         "bytes": 1315697,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b15-fork-brake.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b15-fork-brake.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-fork-brake-vid.mp4",
         "slot": "scene-b15-fork-brake-vid",
         "bytes": 1245070,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b15-fork-brake-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b15-fork-brake-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-death-clearing.png",
         "slot": "scene-b16-death-clearing",
         "bytes": 1269331,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b16-death-clearing.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b16-death-clearing.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-death-clearing-vid.mp4",
         "slot": "scene-b16-death-clearing-vid",
         "bytes": 2746848,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b16-death-clearing-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b16-death-clearing-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-through.png",
         "slot": "scene-b17-through",
         "bytes": 1252551,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b17-through.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b17-through.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-through-vid.mp4",
         "slot": "scene-b17-through-vid",
         "bytes": 3077657,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b17-through-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b17-through-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-fork-lights.png",
         "slot": "scene-b18-fork-lights",
         "bytes": 1312769,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b18-fork-lights.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b18-fork-lights.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-fork-lights-vid.mp4",
         "slot": "scene-b18-fork-lights-vid",
         "bytes": 1737718,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b18-fork-lights-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b18-fork-lights-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18b-death-lookback.png",
         "slot": "scene-b18b-death-lookback",
         "bytes": 1325752,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b18b-death-lookback.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b18b-death-lookback.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18b-death-lookback-vid.mp4",
         "slot": "scene-b18b-death-lookback-vid",
         "bytes": 2856745,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b18b-death-lookback-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b18b-death-lookback-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b19-end.png",
         "slot": "scene-b19-end",
         "bytes": 1512876,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b19-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b19-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b19-end-vid.mp4",
         "slot": "scene-b19-end-vid",
         "bytes": 5493160,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/assets/scene-b19-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/assets/scene-b19-end-vid.mp4"
       }
     ],
     "unitId": "choose-swamp",
@@ -7605,7 +7605,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "vid",
         "vignette"
       ],
-      "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-swamp/index.html"
+      "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-swamp/index.html"
     },
     "costRollupUsd": 19.56,
     "schemaVersion": 1
@@ -7618,21 +7618,21 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/char-alien.png",
         "slot": "char-alien",
         "bytes": 1375343,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/char-alien.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/char-alien.png"
       },
       {
         "kind": "character",
         "path": "assets/char-survivor.png",
         "slot": "char-survivor",
         "bytes": 1163689,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/char-survivor.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/char-survivor.png"
       },
       {
         "kind": "location",
         "path": "assets/hub.png",
         "slot": "hub",
         "bytes": 1443302,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/hub.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/hub.png"
       },
       {
         "kind": "location",
@@ -7649,245 +7649,245 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "path": "assets/hub-vid.mp4",
         "slot": "hub-vid",
         "bytes": 1765677,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/hub-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/hub-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a02-shelter.png",
         "slot": "scene-a02-shelter",
         "bytes": 1271260,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a02-shelter.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a02-shelter.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a02-shelter-vid.mp4",
         "slot": "scene-a02-shelter-vid",
         "bytes": 2358464,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a02-shelter-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a02-shelter-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-door.png",
         "slot": "scene-a03-fork-door",
         "bytes": 1256051,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a03-fork-door.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a03-fork-door.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a03-fork-door-vid.mp4",
         "slot": "scene-a03-fork-door-vid",
         "bytes": 1202590,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a03-fork-door-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a03-fork-door-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-pen.png",
         "slot": "scene-a04-pen",
         "bytes": 1383609,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a04-pen.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a04-pen.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a04-pen-vid.mp4",
         "slot": "scene-a04-pen-vid",
         "bytes": 3243532,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a04-pen-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a04-pen-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-fork-sort.png",
         "slot": "scene-a05-fork-sort",
         "bytes": 1470804,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a05-fork-sort.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a05-fork-sort.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a05-fork-sort-vid.mp4",
         "slot": "scene-a05-fork-sort-vid",
         "bytes": 1989668,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a05-fork-sort-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a05-fork-sort-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-branded.png",
         "slot": "scene-a06-branded",
         "bytes": 1303715,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a06-branded.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a06-branded.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a06-branded-vid.mp4",
         "slot": "scene-a06-branded-vid",
         "bytes": 2128945,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a06-branded-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a06-branded-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-fork-conveyor.png",
         "slot": "scene-a07-fork-conveyor",
         "bytes": 1192367,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a07-fork-conveyor.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a07-fork-conveyor.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a07-fork-conveyor-vid.mp4",
         "slot": "scene-a07-fork-conveyor-vid",
         "bytes": 1808551,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a07-fork-conveyor-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a07-fork-conveyor-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-bad-end.png",
         "slot": "scene-a08-bad-end",
         "bytes": 1294484,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a08-bad-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a08-bad-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-a08-bad-end-vid.mp4",
         "slot": "scene-a08-bad-end-vid",
         "bytes": 2078040,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-a08-bad-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-a08-bad-end-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b09-run.png",
         "slot": "scene-b09-run",
         "bytes": 1307330,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b09-run.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b09-run.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b09-run-vid.mp4",
         "slot": "scene-b09-run-vid",
         "bytes": 2775348,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b09-run-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b09-run-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b10-fork-cellar.png",
         "slot": "scene-b10-fork-cellar",
         "bytes": 1199871,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b10-fork-cellar.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b10-fork-cellar.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b10-fork-cellar-vid.mp4",
         "slot": "scene-b10-fork-cellar-vid",
         "bytes": 1257433,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b10-fork-cellar-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b10-fork-cellar-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-death-cellar.png",
         "slot": "scene-b11-death-cellar",
         "bytes": 1311610,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b11-death-cellar.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b11-death-cellar.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b11-death-cellar-vid.mp4",
         "slot": "scene-b11-death-cellar-vid",
         "bytes": 2486486,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b11-death-cellar-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b11-death-cellar-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-across.png",
         "slot": "scene-b12-across",
         "bytes": 1274244,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b12-across.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b12-across.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b12-across-vid.mp4",
         "slot": "scene-b12-across-vid",
         "bytes": 3060794,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b12-across-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b12-across-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-fork-tunnel.png",
         "slot": "scene-b13-fork-tunnel",
         "bytes": 1152395,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b13-fork-tunnel.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b13-fork-tunnel.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b13-fork-tunnel-vid.mp4",
         "slot": "scene-b13-fork-tunnel-vid",
         "bytes": 925053,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b13-fork-tunnel-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b13-fork-tunnel-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-death-tunnel.png",
         "slot": "scene-b14-death-tunnel",
         "bytes": 1218534,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b14-death-tunnel.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b14-death-tunnel.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b14-death-tunnel-vid.mp4",
         "slot": "scene-b14-death-tunnel-vid",
         "bytes": 2843982,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b14-death-tunnel-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b14-death-tunnel-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-through.png",
         "slot": "scene-b15-through",
         "bytes": 1182612,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b15-through.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b15-through.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b15-through-vid.mp4",
         "slot": "scene-b15-through-vid",
         "bytes": 2132187,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b15-through-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b15-through-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-fork-evac.png",
         "slot": "scene-b16-fork-evac",
         "bytes": 1223411,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b16-fork-evac.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b16-fork-evac.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b16-fork-evac-vid.mp4",
         "slot": "scene-b16-fork-evac-vid",
         "bytes": 1302072,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b16-fork-evac-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b16-fork-evac-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-death-bolt.png",
         "slot": "scene-b17-death-bolt",
         "bytes": 1125347,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b17-death-bolt.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b17-death-bolt.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b17-death-bolt-vid.mp4",
         "slot": "scene-b17-death-bolt-vid",
         "bytes": 2894900,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b17-death-bolt-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b17-death-bolt-vid.mp4"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-end.png",
         "slot": "scene-b18-end",
         "bytes": 1273334,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b18-end.png"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b18-end.png"
       },
       {
         "kind": "location",
         "path": "assets/scene-b18-end-vid.mp4",
         "slot": "scene-b18-end-vid",
         "bytes": 3938447,
-        "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/assets/scene-b18-end-vid.mp4"
+        "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/assets/scene-b18-end-vid.mp4"
       }
     ],
     "unitId": "choose-warofworlds",
@@ -8486,7 +8486,7 @@ export const PUBLISHED_BLUEPRINTS: Blueprint[] = [
         "vid",
         "vignette"
       ],
-      "storageUrl": "https://nkwgcuhjdxwsqsestgnp.supabase.co/storage/v1/object/public/library/blueprints/choose-warofworlds/index.html"
+      "storageUrl": "https://ralphy.b-cdn.net/blueprints/choose-warofworlds/index.html"
     },
     "costRollupUsd": 16.36,
     "schemaVersion": 1
