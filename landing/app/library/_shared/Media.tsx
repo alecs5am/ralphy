@@ -31,7 +31,7 @@
 // No visible borders (repo hard rule): bars = bg-tint, separation = shadow +
 // radius, never a hairline.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Dialog,
@@ -87,6 +87,138 @@ function ratioOf(aspect: string | undefined, fallback: number): number {
   return w && h ? w / h : fallback;
 }
 
+/** Video element with viewport-gated loading + playback (egress optimization).
+ *
+ *  - `controls` (proof / demo / detail): a standard manual-play video. preload
+ *    "none" so the bytes only fetch when the user hits play; the poster carries
+ *    the first-frame preview meanwhile.
+ *  - `autoPlay` (the masonry/feed silent preview): NOT a real `autoplay`
+ *    attribute. The clip is mounted only once the tile comes within 400px of the
+ *    viewport, and play()/pause() are driven by an IntersectionObserver so a clip
+ *    streams ONLY while it is actually on screen. Off-screen tiles show a lazy
+ *    poster <img> and fetch zero video bytes — the whole point: a long feed no
+ *    longer downloads every clip at once. The visible-tile aesthetic is identical
+ *    (muted, looping, auto-playing while in view).
+ */
+function MediaVideo({
+  src,
+  poster,
+  controls,
+  autoPlay,
+  loop,
+  muted,
+  objectFit,
+}: {
+  src: string;
+  poster?: string;
+  controls?: boolean;
+  autoPlay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  objectFit: "cover" | "contain";
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const posterRef = useRef<HTMLImageElement>(null);
+  // A controls/manual video mounts immediately. A poster-less autoplay tile also
+  // mounts immediately (no still to defer behind). Only an autoplay tile WITH a
+  // poster gets the lazy mount.
+  const [hot, setHot] = useState(!autoPlay || !poster);
+
+  // Mount-gate: swap the lazy poster <img> for the <video> once the tile nears
+  // the viewport. Runs only while still cold (autoplay tiles with a poster).
+  useEffect(() => {
+    if (hot) return;
+    const el = posterRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setHot(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setHot(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hot]);
+
+  // Play-gate: an autoplay tile plays only while on screen, pauses off screen.
+  useEffect(() => {
+    if (!autoPlay || !hot) return;
+    const v = videoRef.current;
+    if (!v) return;
+    if (typeof IntersectionObserver === "undefined") {
+      v.play().catch(() => {});
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) v.play().catch(() => {});
+          else v.pause();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, [autoPlay, hot]);
+
+  if (controls) {
+    // Manual-play video on a detail / proof surface (user already chose to view
+    // it). Keep preload="metadata" so the first frame shows even without a
+    // poster — the small moov fetch is fine; this is not the feed-egress path.
+    return (
+      <video
+        ref={videoRef}
+        src={src}
+        poster={poster}
+        controls
+        loop={loop}
+        muted={muted}
+        playsInline
+        preload="metadata"
+        disablePictureInPicture
+        className="media-el"
+        style={{ objectFit }}
+      />
+    );
+  }
+
+  if (!hot) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        ref={posterRef}
+        src={poster}
+        alt=""
+        loading="lazy"
+        className="media-el"
+        style={{ objectFit }}
+      />
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={poster}
+      loop={loop}
+      muted={muted}
+      playsInline
+      preload="none"
+      disablePictureInPicture
+      className="media-el"
+      style={{ objectFit }}
+    />
+  );
+}
+
 /** The inner media element, absolutely filling its aspect-locked parent box. */
 function MediaEl({
   src,
@@ -116,18 +248,14 @@ function MediaEl({
   const objectFit = fit === "cover" ? "cover" : "contain";
   if (kind === "video") {
     return (
-      <video
+      <MediaVideo
         src={src}
         poster={poster}
         controls={controls}
         autoPlay={autoPlay}
         loop={loop}
         muted={muted}
-        playsInline
-        preload="metadata"
-        disablePictureInPicture
-        className="media-el"
-        style={{ objectFit }}
+        objectFit={objectFit}
       />
     );
   }
