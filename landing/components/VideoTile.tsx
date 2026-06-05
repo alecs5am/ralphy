@@ -74,7 +74,7 @@ export function VideoTile({ clip, onOpen }: { clip: Clip; onOpen: (c: Clip) => v
       role="button"
       aria-label={`Play ${clip.title}`}
     >
-      <img src={clip.poster} alt={clip.title} style={{ opacity: playing ? 0 : 1, transition: "opacity 300ms ease" }} />
+      <img src={clip.poster} alt={clip.title} loading="lazy" decoding="async" style={{ opacity: playing ? 0 : 1, transition: "opacity 300ms ease" }} />
       {hot && (
         <video
           ref={videoRef}
@@ -83,7 +83,7 @@ export function VideoTile({ clip, onOpen }: { clip: Clip; onOpen: (c: Clip) => v
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           style={{ opacity: playing ? 1 : 0, transition: "opacity 300ms ease" }}
         />
       )}
