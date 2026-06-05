@@ -67,7 +67,7 @@ import type {
   Unit,
   UnitMedia,
 } from "../lib/library-v2/types";
-import { env, makeS3Client, publicUrlFor, putObject } from "./lib/supabase";
+import { env, makeUploader, publicUrlFor, putObject } from "./lib/storage";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 
@@ -632,14 +632,14 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   }
 
   // ── live push ──
-  const s3 = makeS3Client();
+  const uploader = makeUploader();
   const uploadedStorage = new Set<string>();
   for (const u of uploads) {
     if (!u.exists) {
       console.warn(`  SKIP (missing local file): ${u.localPath}`);
       continue;
     }
-    await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
+    await putObject(uploader, u.objectKey, readFileSync(u.localPath), u.localPath);
     uploadedStorage.add(u.objectKey);
     console.log(`  UPLOADED ${u.objectKey}`);
   }
@@ -804,13 +804,13 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
   }
 
   // ── live push ──
-  const s3 = makeS3Client();
+  const uploader = makeUploader();
   for (const u of refUploads) {
     if (!u.exists) {
       console.warn(`  SKIP (missing ref file): ${u.localPath}`);
       continue;
     }
-    await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
+    await putObject(uploader, u.objectKey, readFileSync(u.localPath), u.localPath);
     console.log(`  UPLOADED ${u.objectKey}`);
   }
 
@@ -1085,7 +1085,7 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
   }
 
   // ── live push ──
-  const s3 = makeS3Client();
+  const uploader = makeUploader();
   for (const u of uploads) {
     if (!u.exists) {
       console.warn(`  SKIP (missing payload file): ${u.localPath}`);
@@ -1095,7 +1095,7 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
       console.warn(`  OVERSIZE SKIP: ${u.rel} (${u.bytes} bytes) exceeds the ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap — kept on disk, recorded in oversizeSkipped[]`);
       continue;
     }
-    await putObject(s3, u.objectKey, readFileSync(u.localPath), u.localPath);
+    await putObject(uploader, u.objectKey, readFileSync(u.localPath), u.localPath);
     console.log(`  UPLOADED ${u.objectKey}`);
   }
 

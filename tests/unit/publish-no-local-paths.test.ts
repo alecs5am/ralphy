@@ -55,16 +55,20 @@ function dbUpsertSection(stdout: string): string {
   return end < 0 ? after : after.slice(0, end);
 }
 
-/** Run publish-entity.ts from landing/, scrubbing every Supabase/S3 secret so a
- *  stray --push could not touch anything remote. Optionally inject a fake
- *  NEXT_PUBLIC_SUPABASE_URL so publicUrlFor() returns a Storage URL (positive case). */
+/** Run publish-entity.ts from landing/, scrubbing every Supabase/S3/Bunny secret
+ *  so a stray --push could not touch anything remote. Optionally inject a fake
+ *  BUNNY_CDN_BASE so publicUrlFor() returns a CDN URL (positive case). */
 function run(
   args: string[],
   extraEnv: Record<string, string> = {},
 ): { exitCode: number; stdout: string; stderr: string } {
   const env: Record<string, string | undefined> = { ...process.env };
   for (const k of Object.keys(env)) {
-    if (k.startsWith("SUPABASE_") || k.startsWith("NEXT_PUBLIC_SUPABASE_")) {
+    if (
+      k.startsWith("SUPABASE_") ||
+      k.startsWith("NEXT_PUBLIC_SUPABASE_") ||
+      k.startsWith("BUNNY_")
+    ) {
       delete env[k];
     }
   }
@@ -170,7 +174,7 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
   });
 
   test("positive: an absolute asset.path WITH a resolvable storageUrl publishes the storageUrl form, not the local path", () => {
-    // Provide a fake Supabase URL so publicUrlFor() resolves. Also drop the
+    // Provide a fake CDN base so publicUrlFor() resolves. Also drop the
     // referenced payload file under the blueprint dir so the upload is planned
     // (exists + not oversize) -> a storageUrl is derivable for it.
     const unitId = "test-leak-storage";
@@ -199,7 +203,7 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
     );
 
     const r = run(["--blueprint", blueprintDir], {
-      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      BUNNY_CDN_BASE: "https://ralphy.b-cdn.net",
     });
     expect(r.exitCode).toBe(0);
 
@@ -214,8 +218,8 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
   });
 
   test("positive: a block ref that is an ABSOLUTE local path WITH a resolvable storageUrl publishes the storageUrl, not the local path", () => {
-    // The ref is an absolute local path; with NEXT_PUBLIC_SUPABASE_URL set,
-    // publicUrlFor() resolves to a Storage public URL. The sanitizer must prefer
+    // The ref is an absolute local path; with BUNNY_CDN_BASE set,
+    // publicUrlFor() resolves to a CDN public URL. The sanitizer must prefer
     // that URL over the basename — and the absolute path must never reach the DB.
     const id = "test-leak-block-storage";
     const block = {
@@ -229,14 +233,14 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
     fs.writeFileSync(blockFile, JSON.stringify(block));
 
     const r = run(["--block-file", blockFile], {
-      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      BUNNY_CDN_BASE: "https://ralphy.b-cdn.net",
     });
     expect(r.exitCode).toBe(0);
 
     const db = dbUpsertSection(r.stdout);
-    // The published ref is the Storage public URL, NOT the local path.
+    // The published ref is the CDN public URL, NOT the local path.
     expect(db).toContain(
-      `https://example.supabase.co/storage/v1/object/public/library/blocks/asset/${id}/char-guide.png`,
+      `https://ralphy.b-cdn.net/blocks/asset/${id}/char-guide.png`,
     );
     expect(db).not.toContain("/Users/");
     expect(db).not.toContain("workspace/projects");
