@@ -80,10 +80,13 @@ function contentTypeFor(path: string): string {
 
 async function bunnyPut(key: string, body: Buffer): Promise<void> {
   const url = `https://${BUNNY_HOST}/${BUNNY_ZONE}/${key}`;
+  // lib.dom's `BodyInit` rejects `Uint8Array<ArrayBufferLike>` (TS 5.7+); the
+  // value is a valid fetch body at runtime, so cast through the over-strict type.
+  const view = new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
   const res = await fetch(url, {
     method: "PUT",
     headers: { AccessKey: BUNNY_PASS, "Content-Type": contentTypeFor(key) },
-    body,
+    body: view as unknown as BodyInit,
   });
   if (!res.ok) {
     throw new Error(`Bunny PUT ${key} → HTTP ${res.status} ${await res.text().catch(() => "")}`);

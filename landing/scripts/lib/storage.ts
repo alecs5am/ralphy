@@ -96,13 +96,17 @@ export async function putObject(
 ): Promise<void> {
   const key = objectKey.replace(/^\//, "");
   const url = `https://${uploader.host}/${uploader.zone}/${key}`;
+  // A Node Buffer/Uint8Array is a valid fetch body at runtime, but lib.dom's
+  // `BodyInit` is parameterized to `ArrayBufferView<ArrayBuffer>` (TS 5.7+) and
+  // rejects `Uint8Array<ArrayBufferLike>`. Cast through the over-strict types.
+  const view = new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
   const res = await fetch(url, {
     method: "PUT",
     headers: {
       AccessKey: uploader.password,
       "Content-Type": contentTypeFor(localPathForType),
     },
-    body,
+    body: view as unknown as BodyInit,
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
