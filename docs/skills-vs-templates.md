@@ -107,6 +107,6 @@ Remix is a usage pattern, not a feature with its own command:
 - [`docs/skills-format.md`](skills-format.md) — how to author a SKILL.md.
 - [`AGENTS.md`](../AGENTS.md) — invariant #10 + the routing table.
 - [`docs/playbooks/intake.md`](playbooks/intake.md) — the cold-start template match.
-- [`notes/issues/058-backfill-templates-from-recent-projects.md`](../notes/issues/058-backfill-templates-from-recent-projects.md) — content-niche skill → template conversion (pending).
+- [`notes/issues/deprecated/058-backfill-templates-from-recent-projects.md`](../notes/issues/deprecated/058-backfill-templates-from-recent-projects.md) — content-niche skill → template conversion (deprecated).
 - [`landing/lib/library-v2/types.ts`](../landing/lib/library-v2/types.ts) — the five content entities (Format / Unit / Template / Style / Recipe / Asset, the #063 model).
 - [`cli/lib/schemas/unit.ts`](../cli/lib/schemas/unit.ts) + `ralphy unit` — how a project forms Units (#069); `landing/scripts/publish-entity.ts` — the Supabase → library writer (#056). templater extracts/classifies into these entities; the publish primitive pushes them.
