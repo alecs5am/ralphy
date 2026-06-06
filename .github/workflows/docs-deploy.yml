@@ -1,0 +1,33 @@
+name: Docs deploy gate
+
+# Mintlify auto-deploys on every push to its connected branch, with no
+# path filter of its own. To stop CLI-only commits from burning free-tier
+# deploys, Mintlify is pointed at the `docs-live` branch instead of `main`.
+# This workflow advances `docs-live` to the latest `main` commit ONLY when
+# files under `docs-mintlify/` changed — so a deploy fires only on real
+# docs changes. (Dashboard: Mintlify → Git Settings → branch = docs-live.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs-mintlify/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-live-sync
+  cancel-in-progress: true
+
+jobs:
+  sync-docs-live:
+    name: Mirror main → docs-live
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Advance docs-live to this commit
+        run: git push origin HEAD:refs/heads/docs-live --force
