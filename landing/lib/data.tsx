@@ -9,11 +9,11 @@ export const site = {
   x: "https://x.com/alecs5am",
   install: "curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh",
   /**
-   * Display value, "fake-it-till-you-make-it". The real GitHub star count is
-   * fetched at build time via {@link getDisplayStars}; we show whichever is
-   * higher between this and the live count.
+   * Fallback star count, shown only if the live GitHub fetch fails
+   * (network error / rate-limit). The real {@link getDisplayStars} count
+   * is preferred whenever it can be fetched.
    */
-  fakeStars: 2400,
+  fallbackStars: 1337,
 };
 
 function formatStars(n: number): string {
@@ -25,28 +25,31 @@ function formatStars(n: number): string {
 }
 
 /**
- * Server-side fetch of the live star count.
- * Falls back silently to {@link site.fakeStars} on any network / parse error.
- * Cached for 1h so we don't hammer GitHub on every render.
+ * Server-side fetch of the live GitHub star count.
+ * Returns `null` (not 0) when the request fails, so callers can tell a
+ * genuine zero from a network / rate-limit error. Cached for 1h.
  */
-async function fetchRealStars(): Promise<number> {
+async function fetchRealStars(): Promise<number | null> {
   try {
     const res = await fetch("https://api.github.com/repos/alecs5am/ralphy", {
       next: { revalidate: 3600 },
       headers: { Accept: "application/vnd.github+json" },
     });
-    if (!res.ok) return 0;
+    if (!res.ok) return null;
     const json = (await res.json()) as { stargazers_count?: number };
-    return typeof json.stargazers_count === "number" ? json.stargazers_count : 0;
+    return typeof json.stargazers_count === "number" ? json.stargazers_count : null;
   } catch {
-    return 0;
+    return null;
   }
 }
 
-/** Returns `max(fakeStars, realStars)`, formatted as e.g. "2.4k". */
+/**
+ * Returns the live GitHub star count, formatted as e.g. "57" or "2.4k".
+ * Falls back to {@link site.fallbackStars} only when the live fetch fails.
+ */
 export async function getDisplayStars(): Promise<string> {
   const real = await fetchRealStars();
-  return formatStars(Math.max(site.fakeStars, real));
+  return formatStars(real ?? site.fallbackStars);
 }
 
 export type NavItem = { label: string; href: string };
