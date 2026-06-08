@@ -1,6 +1,6 @@
-// `ralphy library` — read the PUBLIC content library straight from Supabase
-// PostgREST (read-only). The foundation for retiring the local templates/ folder
-// (notes/issues/084).
+// `ralphy library` — read the PUBLIC content library from the static library.json
+// document served on Bunny CDN (read-only). The foundation for retiring the local
+// templates/ folder (notes/issues/084).
 //
 //   ralphy library units      list | show <id>
 //   ralphy library templates  list | show <id>   (blocks, kind=template)
@@ -95,7 +95,7 @@ function guard(fn: () => Promise<void>): () => Promise<void> {
 
 export function libraryCmd() {
   const cmd = new Command("library").description(
-    "Read the public content library (units, blocks, blueprints, formats) from Supabase (read-only)",
+    "Read the public content library (units, blocks, blueprints, formats) from the static library.json on Bunny CDN (read-only)",
   );
 
   // ── units ───────────────────────────────────────────────────────────────--
@@ -132,7 +132,7 @@ export function libraryCmd() {
   formats
     .command("list")
     .description("List all formats")
-    .action(() => out(getFormats()));
+    .action(guard(async () => out(await getFormats())));
 
   cmd.addHelpText(
     "after",
@@ -146,7 +146,7 @@ Examples:
   ralphy library blueprints show choose-magicschool
   ralphy library formats list
 
-Source: Supabase PostgREST (override with RALPHY_LIBRARY_URL / RALPHY_LIBRARY_KEY).
+Source: static library.json on Bunny CDN (override the URL with RALPHY_LIBRARY_URL).
 `,
   );
 

@@ -26,6 +26,7 @@ import { projectsDir, root } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { UnitManifestSchema, type UnitManifest } from "../lib/schemas/unit.js";
+import { getBlueprint } from "../lib/library/client.js";
 import {
   BlueprintSchema,
   type Blueprint,
@@ -745,57 +746,69 @@ function walkFiles(root: string, rel = "", out: string[] = []): string[] {
 // ── `use` — scaffold a reproducible project from a PUBLISHED Blueprint (#079) ──
 
 /**
- * Resolve a published Blueprint by its `unitId`, OFFLINE, from the committed
- * mirror (`landing/lib/library-v2/published.ts`). The CLI has NO Supabase creds
- * (AGENTS.md invariant #1), so the committed mirror is the only source.
+ * Resolve a published Blueprint by its `unitId`. Two sources, in order:
  *
- * Order:
- *   1. In-tree committed mirror (PRIMARY): import `PUBLISHED_BLUEPRINTS` from the
- *      published.ts sibling of the repo's `templates/` and find `unitId`.
- *   2. Graceful failure: if the mirror file is absent (global binary, no
- *      `landing/` dir) OR the unitId isn't in it → return null + a reason.
+ *   1. In-tree committed mirror (PRIMARY, offline): the `blueprints` array in
+ *      `landing/lib/library-v2/library.json` (anchored off `root()`). Present in
+ *      a repo checkout; absent for a globally-installed binary.
+ *   2. Bunny CDN library (FALLBACK): the public `library.json` the CLI library
+ *      client fetches (no creds — it is a static public document). This closes
+ *      the global-binary gap the old Supabase-less path could not.
  *
- * Never attempts a Supabase / authed fetch — there are no creds for one.
+ * Returns null + a human reason when neither source has the unitId.
  */
 async function resolvePublishedBlueprint(
   unitId: string,
 ): Promise<{ blueprint: Blueprint | null; reason: string | null }> {
-  // The published mirror is a sibling of the repo's `templates/` dir (both anchor
-  // off `root()` — same anchor `repoTemplatesDir()` uses).
-  const mirrorPath = path.join(root(), "landing", "lib", "library-v2", "published.ts");
-  if (!existsSync(mirrorPath)) {
-    return {
-      blueprint: null,
-      reason: `committed mirror not found at ${path.relative(root(), mirrorPath)} (a global binary has no landing/ dir)`,
-    };
+  // 1) Local committed library.json (offline path; same anchor as the rest of
+  //    the in-repo mirror).
+  const mirrorPath = path.join(root(), "landing", "lib", "library-v2", "library.json");
+  if (existsSync(mirrorPath)) {
+    try {
+      const doc = JSON.parse(readFileSync(mirrorPath, "utf8")) as {
+        blueprints?: Array<Record<string, unknown>>;
+      };
+      const list = Array.isArray(doc.blueprints) ? doc.blueprints : [];
+      const raw = list.find((b) => b?.unitId === unitId);
+      if (raw) {
+        const parsed = BlueprintSchema.safeParse(raw);
+        if (!parsed.success) {
+          return {
+            blueprint: null,
+            reason: `published blueprint '${unitId}' failed schema validation: ${parsed.error.message}`,
+          };
+        }
+        return { blueprint: parsed.data, reason: null };
+      }
+    } catch (e) {
+      return {
+        blueprint: null,
+        reason: `could not read the committed library.json: ${e instanceof Error ? e.message : String(e)}`,
+      };
+    }
   }
-  let mod: { PUBLISHED_BLUEPRINTS?: unknown };
+
+  // 2) Bunny CDN library (works for a global binary with no landing/ dir).
   try {
-    // Bun runs TS directly; the mirror imports only `./types` (pure types).
-    mod = (await import(mirrorPath)) as { PUBLISHED_BLUEPRINTS?: unknown };
+    const raw = (await getBlueprint(unitId)) as Record<string, unknown> | null;
+    if (raw) {
+      const parsed = BlueprintSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          blueprint: null,
+          reason: `published blueprint '${unitId}' failed schema validation: ${parsed.error.message}`,
+        };
+      }
+      return { blueprint: parsed.data, reason: null };
+    }
   } catch (e) {
     return {
       blueprint: null,
-      reason: `could not import the committed mirror: ${e instanceof Error ? e.message : String(e)}`,
+      reason: `library fetch failed: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
-  const list = mod.PUBLISHED_BLUEPRINTS;
-  if (!Array.isArray(list)) {
-    return { blueprint: null, reason: "PUBLISHED_BLUEPRINTS is not an array in the mirror" };
-  }
-  const raw = (list as Array<Record<string, unknown>>).find((b) => b?.unitId === unitId);
-  if (!raw) {
-    return { blueprint: null, reason: `no published blueprint with unitId '${unitId}' in the mirror` };
-  }
-  // TODO(#079): public HTTPS fetch of the published blueprint for global-binary users.
-  const parsed = BlueprintSchema.safeParse(raw);
-  if (!parsed.success) {
-    return {
-      blueprint: null,
-      reason: `published blueprint '${unitId}' failed schema validation: ${parsed.error.message}`,
-    };
-  }
-  return { blueprint: parsed.data, reason: null };
+
+  return { blueprint: null, reason: `no published blueprint with unitId '${unitId}' in the library` };
 }
 
 /** Download a public URL to a destination path (no sha256 — Storage URLs carry none). */
@@ -1004,7 +1017,7 @@ export function blueprintCmd() {
       if (!blueprint) {
         raiseError("E_NOT_FOUND", {
           kind: "Blueprint",
-          id: `${unitId} — not found offline (${reason}). The committed mirror (landing/lib/library-v2/published.ts) is the only offline source; a public-fetch path for globally-installed binaries is a known follow-up (#079)`,
+          id: `${unitId} — not found (${reason}). Sources tried: the committed library.json (landing/lib/library-v2/library.json) and the public library on Bunny CDN`,
         });
       }
 
@@ -1152,7 +1165,7 @@ export function blueprintCmd() {
       lines.push(`# Blueprint origin`);
       lines.push(``);
       lines.push(`This project was scaffolded from the PUBLISHED blueprint \`${unitId}\`.`);
-      lines.push(`Source: committed mirror \`landing/lib/library-v2/published.ts\` (offline).`);
+      lines.push(`Source: the published content library (\`library.json\` — committed mirror or Bunny CDN).`);
       if (blueprint.costRollupUsd != null) {
         lines.push(``);
         lines.push(`Original cost rollup: **$${blueprint.costRollupUsd}**.`);

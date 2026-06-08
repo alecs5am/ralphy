@@ -60,8 +60,8 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
     env: {
       ...process.env,
       // Point the public library at an unreachable host so the public tier
-      // degrades gracefully (empty + warning) instead of hitting Supabase.
-      RALPHY_LIBRARY_URL: "http://127.0.0.1:1/rest/v1",
+      // degrades gracefully (empty + warning) instead of hitting Bunny CDN.
+      RALPHY_LIBRARY_URL: "http://127.0.0.1:1/library.json",
     },
   });
   return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
