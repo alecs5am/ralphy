@@ -1,51 +1,51 @@
 // landing/scripts/publish-entity.ts
 //
-// The entity-publish primitive (issue #056). Pushes ONE content entity — a Unit
-// or a standalone Block — to the live Supabase store (DB rows + Storage media)
-// AND appends it to the committed open-source snapshot (published.ts), so it
-// surfaces on the static site and stays downloadable.
+// The entity-publish primitive (issue #056). Pushes ONE content entity — a Unit,
+// a standalone Block, or a Blueprint — to the PUBLIC library:
+//   • media bytes  → Bunny Storage Zone (served via the ralphy.b-cdn.net pull zone)
+//   • the entity   → the committed `lib/library-v2/library.json` (append/replace
+//                    by id; idempotent), the single source of truth
+//   • library.json → uploaded to Bunny so the CLI (which reads the static
+//                    library.json over CDN) sees the change immediately
+//
+// The Supabase Postgres backend was retired (June 2026): there is NO DB upsert.
+// library.json IS the database — committed to the repo, mirrored to Bunny.
 //
 // Three INDEPENDENT modes (Unit / Block / Blueprint publishes are each first-class):
 //
 //   --unit <path>        path to a project unit dir: workspace/projects/<id>/units/<slug>/
-//                        (has unit.json + the copied media). Validates against the CLI
-//                        unit schema shape, uploads media to Storage at
-//                        units/<id>/<filename>, upserts the units row + unit_blocks
-//                        provenance rows (template/recipe/asset -> role; a
-//                        referenced block missing from Supabase is WARN-and-skipped,
-//                        never fabricated). The look / register is a unit Tag now
-//                        (not a block): a unit.json `provenance.style` slug is
-//                        folded into the unit's tags, never written as a style
-//                        block-role or a units.style column. Then appends/replaces
-//                        the unit in published.ts (idempotent by id; media carries
-//                        local + storageUrl).
+//                        (has unit.json + the copied media). Validates the unit
+//                        shape, uploads media to Bunny at units/<id>/<filename>,
+//                        copies media into landing/public/showcase/<id>/ (so the
+//                        `/showcase/...` src resolves from the repo), and
+//                        appends/replaces the unit in library.json (idempotent by
+//                        id; media carries local src + storageUrl). The look /
+//                        register is a unit Tag (a unit.json `provenance.style`
+//                        slug is folded into the unit's tags).
 //
 //   --block <json>       inline block spec OR
-//   --block-file <path>  a JSON file: { kind, id, name, blurb, sub?, refs?[] }. Upserts
-//                        the blocks row, uploads any refs example media to Storage at
-//                        blocks/<kind>/<id>/<file>, appends/replaces in published.ts.
+//   --block-file <path>  a JSON file: { kind, id, name, blurb, sub?, refs?[], ... }.
+//                        Uploads any refs example media to Bunny at
+//                        blocks/<kind>/<id>/<file>, appends/replaces in library.json.
 //
 //   --blueprint <dir>    a project unit's blueprint dir (#076):
 //                        workspace/projects/<id>/units/<slug>/blueprint/ — has
-//                        blueprint.json (#074) + a copied payload (index.html,
-//                        prompts/**, assets/** hard files). Validates the #074
-//                        shape, uploads the payload to Storage at
-//                        blueprints/<unitId>/<relpath> (files over a 50 MiB cap are
-//                        LOUD-warned + recorded in oversizeSkipped[], never silently
-//                        dropped), upserts the 1:1 blueprints row (on conflict
-//                        (unit_id)), then appends/replaces PUBLISHED_BLUEPRINTS in
-//                        published.ts (idempotent by unitId; each uploaded asset
-//                        carries its storageUrl).
+//                        blueprint.json (#074) + a copied payload. Uploads the
+//                        payload to Bunny at blueprints/<unitId>/<relpath> (files
+//                        over a 50 MiB cap are LOUD-warned + recorded in
+//                        oversizeSkipped[]), then appends/replaces the blueprint in
+//                        library.json (idempotent by unitId).
 //
 // Modes of execution (default = DRY-RUN):
-//   (default)  Print exactly what WOULD upload + the upsert rows + the published.ts
-//              edit. Touch NOTHING remote, do NOT edit published.ts.
-//   --push     Perform the Storage upload + DB upsert (via `pg` over SUPABASE_DB_URL)
-//              + the published.ts edit. Idempotent + append-only: re-publishing
+//   (default)  Print exactly what WOULD upload + the library.json edit. Touch
+//              NOTHING remote, do NOT edit library.json.
+//   --push     Perform the Bunny media upload + the library.json edit + the
+//              library.json upload to Bunny. Idempotent + append-only: re-publishing
 //              upserts / versions media, never deletes.
 //
-// Secrets are read from the environment at RUNTIME only — never printed, never
-// hardcoded. Run dry-run: cd landing && bun run scripts/publish-entity.ts --unit <dir>
+// Secrets (Bunny Storage credentials) are read from the environment at RUNTIME
+// only — never printed, never hardcoded. Run dry-run:
+//   cd landing && bun run scripts/publish-entity.ts --unit <dir>
 
 import {
   copyFileSync,
@@ -63,18 +63,22 @@ import type {
   Block,
   BlockRecipeDemo,
   Blueprint,
+  Format,
   RecipeKind,
   Unit,
   UnitMedia,
 } from "../lib/library-v2/types";
-import { env, makeUploader, publicUrlFor, putObject } from "./lib/storage";
+import { makeUploader, publicUrlFor, putObject } from "./lib/storage";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 
 const __dirname_ = resolve(fileURLToPath(import.meta.url), "..");
 const LANDING_ROOT = resolve(__dirname_, "..");
-export const PUBLISHED_TS = join(LANDING_ROOT, "lib", "library-v2", "published.ts");
+/** The single source of truth: the committed library document. */
+export const LIBRARY_JSON = join(LANDING_ROOT, "lib", "library-v2", "library.json");
 const SHOWCASE_ROOT = join(LANDING_ROOT, "public", "showcase");
+/** Bunny object key for the library document (CLI fetches it from the CDN). */
+const LIBRARY_OBJECT_KEY = "library/library.json";
 
 // ── Args ─────────────────────────────────────────────────────────────────────
 
@@ -104,9 +108,9 @@ function parseArgs(argv: string[]): Args {
 //
 // Publishing must NEVER leak an absolute local filesystem path
 // (`/Users/...`, `/home/...`, `/var/...`, `/tmp/...`, `/private/...`) or a
-// `workspace/projects/` segment into the DB jsonb, the Storage object key, or the
-// committed published.ts mirror. Those strings expose the maintainer's machine
-// and never resolve for any other user.
+// `workspace/projects/` segment into the committed library.json or a Bunny
+// Storage object key. Those strings expose the maintainer's machine and never
+// resolve for any other user.
 //
 // `LOCAL_PATH_RE` is the single regex both the per-field sanitizer AND the final
 // backstop assertion use, so "what we strip" and "what we refuse" can never drift.
@@ -125,10 +129,6 @@ export function looksLocal(value: string): boolean {
  *   • If a `storageUrl` (or any safe replacement) is available -> use that.
  *   • Otherwise strip to the basename and LOUD-warn (the page degrades to a
  *     by-ref asset, but we NEVER emit the maintainer's absolute path).
- *
- * `safe` is the preferred replacement (a Storage public URL, or a curated
- * `assets/<basename>` form). When absent / itself local, we fall back to the
- * bare basename. `field` is a human label for the warning.
  */
 function sanitizeForPublish(value: string, opts: { safe?: string; field: string }): string {
   if (typeof value !== "string" || value.length === 0) return value;
@@ -144,8 +144,8 @@ function sanitizeForPublish(value: string, opts: { safe?: string; field: string 
 
 /**
  * The final backstop. Serialize the EXACT object that is about to be written to
- * published.ts / upserted into the DB jsonb, and refuse loudly if any local path
- * survived the per-field sanitizer. Fail-closed: never publish a leak.
+ * library.json, and refuse loudly if any local path survived the per-field
+ * sanitizer. Fail-closed: never publish a leak.
  */
 export function assertNoLocalPaths(payload: unknown, field: string): void {
   const serialized = JSON.stringify(payload);
@@ -182,102 +182,78 @@ function blueprintObjectKey(unitId: string, relpath: string): string {
  *  never a silent drop. */
 const BLUEPRINT_MAX_BYTES = 50 * 1024 * 1024; // 50 MiB
 
-// ── published.ts read / write (sentinel-bounded, idempotent by id) ─────────────
+// ── library.json read / write (append/replace by id, idempotent) ───────────────
 
-const UNITS_START = "// ralphy:published-units:start";
-const UNITS_END = "// ralphy:published-units:end";
-const BLOCKS_START = "// ralphy:published-blocks:start";
-const BLOCKS_END = "// ralphy:published-blocks:end";
-const BLUEPRINTS_START = "// ralphy:published-blueprints:start";
-const BLUEPRINTS_END = "// ralphy:published-blueprints:end";
-
-/** Slice the published.ts source into the head / units-literal / mid1 /
- *  blocks-literal / mid2 / blueprints-literal / tail regions, so we can rewrite
- *  each of the THREE arrays between its sentinels in place. The literal order on
- *  disk is units → blocks → blueprints. */
-export function readPublishedRegions(): {
-  head: string;
-  mid1: string;
-  mid2: string;
-  tail: string;
-} {
-  const src = readFileSync(PUBLISHED_TS, "utf8");
-  const us = src.indexOf(UNITS_START);
-  const ue = src.indexOf(UNITS_END);
-  const bs = src.indexOf(BLOCKS_START);
-  const be = src.indexOf(BLOCKS_END);
-  const ps = src.indexOf(BLUEPRINTS_START);
-  const pe = src.indexOf(BLUEPRINTS_END);
-  if (us < 0 || ue < 0 || bs < 0 || be < 0 || ps < 0 || pe < 0) {
-    throw new Error("published.ts is missing one of the sentinel markers");
-  }
-  return {
-    head: src.slice(0, us),
-    mid1: src.slice(ue + UNITS_END.length, bs),
-    mid2: src.slice(be + BLOCKS_END.length, ps),
-    tail: src.slice(pe + BLUEPRINTS_END.length),
-  };
-}
-
-/** Load the current PUBLISHED_UNITS / PUBLISHED_BLOCKS / PUBLISHED_BLUEPRINTS
- *  arrays at runtime. */
-async function loadPublished(): Promise<{
+/** The committed library document shape (mirrors lib/library-v2/index.ts). */
+interface LibraryDoc {
+  schemaVersion: number;
+  formats: Format[];
+  /** Stored newest-first (the feed order). */
   units: Unit[];
+  /** Flat block list; each block carries its `kind`. */
   blocks: Block[];
   blueprints: Blueprint[];
-}> {
-  const mod = await import(PUBLISHED_TS);
-  return {
-    units: (mod.PUBLISHED_UNITS as Unit[]) ?? [],
-    blocks: (mod.PUBLISHED_BLOCKS as Block[]) ?? [],
-    blueprints: (mod.PUBLISHED_BLUEPRINTS as Blueprint[]) ?? [],
-  };
 }
 
-/** Append-or-replace by id (idempotent re-publish): the new entity supersedes an
- *  existing entry with the same id; all others are preserved. */
-function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
-  const next = list.filter((x) => x.id !== item.id);
-  next.push(item);
-  return next;
+/** Load the committed library.json. Fails loudly if absent / malformed — never
+ *  silently invents an empty store (that would drop the whole library on write). */
+export function loadLibrary(): LibraryDoc {
+  if (!existsSync(LIBRARY_JSON)) {
+    throw new Error(`library.json not found at ${LIBRARY_JSON}`);
+  }
+  const doc = JSON.parse(readFileSync(LIBRARY_JSON, "utf8")) as LibraryDoc;
+  if (!doc || !Array.isArray(doc.units) || !Array.isArray(doc.blocks)) {
+    throw new Error("library.json is malformed (expected { formats, units, blocks, blueprints })");
+  }
+  doc.blueprints = doc.blueprints ?? [];
+  return doc;
 }
 
-/** Append-or-replace a Blueprint by its `unitId` (1:1 with the unit). Append-only:
- *  a re-publish replaces that one entry in place; all others are preserved. */
+/** Write the library document back with stable 2-space indent + trailing newline. */
+export function writeLibrary(doc: LibraryDoc): void {
+  writeFileSync(LIBRARY_JSON, JSON.stringify(doc, null, 2) + "\n", "utf8");
+}
+
+/** Replace an existing entry by id in place; a NEW unit is prepended (the store
+ *  is newest-first, so a fresh publish leads the feed). */
+function upsertUnit(list: Unit[], item: Unit): Unit[] {
+  const idx = list.findIndex((x) => x.id === item.id);
+  if (idx >= 0) {
+    const next = list.slice();
+    next[idx] = item;
+    return next;
+  }
+  return [item, ...list];
+}
+
+/** Append-or-replace a Block by id (idempotent re-publish). */
+function upsertBlock(list: Block[], item: Block): Block[] {
+  const idx = list.findIndex((x) => x.id === item.id);
+  if (idx >= 0) {
+    const next = list.slice();
+    next[idx] = item;
+    return next;
+  }
+  return [...list, item];
+}
+
+/** Append-or-replace a Blueprint by its `unitId` (1:1 with the unit). */
 function upsertBlueprint(list: Blueprint[], item: Blueprint): Blueprint[] {
-  const next = list.filter((x) => x.unitId !== item.unitId);
-  next.push(item);
-  return next;
+  const idx = list.findIndex((x) => x.unitId === item.unitId);
+  if (idx >= 0) {
+    const next = list.slice();
+    next[idx] = item;
+    return next;
+  }
+  return [...list, item];
 }
 
-/** Re-emit published.ts with the THREE arrays rewritten between their sentinels. */
-export function renderPublished(
-  units: Unit[],
-  blocks: Block[],
-  blueprints: Blueprint[],
-): string {
-  const { head, mid1, mid2, tail } = readPublishedRegions();
-  const unitsLit = `export const PUBLISHED_UNITS: Unit[] = ${JSON.stringify(units, null, 2)};\n`;
-  const blocksLit = `export const PUBLISHED_BLOCKS: Block[] = ${JSON.stringify(blocks, null, 2)};\n`;
-  const blueprintsLit = `export const PUBLISHED_BLUEPRINTS: Blueprint[] = ${JSON.stringify(blueprints, null, 2)};\n`;
-  return (
-    head +
-    UNITS_START +
-    "\n" +
-    unitsLit +
-    UNITS_END +
-    mid1 +
-    BLOCKS_START +
-    "\n" +
-    blocksLit +
-    BLOCKS_END +
-    mid2 +
-    BLUEPRINTS_START +
-    "\n" +
-    blueprintsLit +
-    BLUEPRINTS_END +
-    tail
-  );
+/** Upload the freshly-edited library.json to Bunny so the CDN-served copy the CLI
+ *  reads reflects the publish. Runs on --push only. */
+async function uploadLibrary(uploader: ReturnType<typeof makeUploader>): Promise<void> {
+  const body = readFileSync(LIBRARY_JSON);
+  await putObject(uploader, LIBRARY_OBJECT_KEY, body, LIBRARY_JSON);
+  console.log(`  UPLOADED ${LIBRARY_OBJECT_KEY} (${body.byteLength} bytes)`);
 }
 
 // ── Unit manifest (mirror of cli/lib/schemas/unit.ts shape) ─────────────────────
@@ -305,7 +281,7 @@ interface UnitManifest {
   created: string;
   title?: string;
   blurb?: string;
-  /** Tags (#082): filter-only unit labels carried into the units row + published Unit. */
+  /** Tags (#082): filter-only unit labels carried into the published Unit. */
   tags?: string[];
 }
 
@@ -432,22 +408,6 @@ function validateBlockSpec(raw: unknown): BlockSpec {
   return spec;
 }
 
-// ── pg client (live --push DB upsert over SUPABASE_DB_URL) ──────────────────────
-
-async function withDb<T>(fn: (q: (sql: string, params: unknown[]) => Promise<unknown>) => Promise<T>): Promise<T> {
-  const dsn = env("SUPABASE_DB_URL");
-  if (!dsn) throw new Error("--push DB upsert requires SUPABASE_DB_URL");
-  // Lazy import so dry-run never needs pg present at runtime.
-  const { Client } = await import("pg");
-  const client = new Client({ connectionString: dsn });
-  await client.connect();
-  try {
-    return await fn((sql, params) => client.query(sql, params));
-  } finally {
-    await client.end();
-  }
-}
-
 // ── Planning records (printed verbatim in dry-run) ──────────────────────────────
 
 interface PlannedUpload {
@@ -456,28 +416,23 @@ interface PlannedUpload {
   exists: boolean;
 }
 
-interface UpsertRow {
-  table: string;
-  conflict: string;
-  values: Record<string, unknown>;
-}
-
 function printPlan(
   label: string,
   uploads: PlannedUpload[],
-  upserts: UpsertRow[],
-  publishedEdit: string,
+  libraryEdit: string,
+  preview?: unknown,
 ): void {
   console.log(`\n=== ${label} ===`);
   console.log(`\nStorage objects (${uploads.length}):`);
   for (const u of uploads) {
     console.log(`  ${u.exists ? "" : "[missing local!] "}${u.objectKey}  <-  ${u.localPath}`);
   }
-  console.log(`\nDB upserts (${upserts.length}):`);
-  for (const r of upserts) {
-    console.log(`  ${r.table} (on conflict ${r.conflict}) <- ${JSON.stringify(r.values)}`);
+  console.log(`\nlibrary.json edit: ${libraryEdit}`);
+  // The EXACT object that would be written (compact, one line) — so the dry-run
+  // shows the sanitized published value, never just the operation name.
+  if (preview !== undefined) {
+    console.log(`\nlibrary.json value: ${JSON.stringify(preview)}`);
   }
-  console.log(`\npublished.ts edit: ${publishedEdit}`);
 }
 
 // ── Mode: publish a Unit ────────────────────────────────────────────────────────
@@ -528,7 +483,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
 
   // Plan the open-source static copies into landing/public/showcase/<id>/<file>
   // (committed so the `/showcase/...` src resolves from the repo, not only via
-  // the Supabase storageUrl). Performed on --push only.
+  // the Bunny storageUrl). Performed on --push only.
   const showcaseCopies = manifest.media.map((file) => ({
     from: join(dir, file),
     to: join(SHOWCASE_ROOT, unitId, basename(file)),
@@ -542,7 +497,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   // Tags (#082): filter-only unit labels. Absent in older units -> [].
   // The look / register is a TAG now (the `style` block kind was removed). If a
   // unit.json still carries a `provenance.style` slug, fold it into the tags
-  // (deduped, lead position) instead of writing a style block-role or units.style.
+  // (deduped, lead position) instead of writing a style block-role.
   const baseTags = Array.isArray(manifest.tags)
     ? manifest.tags.filter((t) => typeof t === "string")
     : [];
@@ -550,41 +505,7 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
   const tags =
     lookTag && !baseTags.includes(lookTag) ? [lookTag, ...baseTags] : baseTags;
 
-  // unit row + unit_blocks provenance rows.
-  const unitUpsert: UpsertRow = {
-    table: "units",
-    conflict: "(id)",
-    values: {
-      id: unitId,
-      format: manifest.format,
-      title: manifest.title ?? manifest.slug,
-      blurb: manifest.blurb ?? null,
-      date: null,
-      media: buildMedia(false),
-      media_count: manifest.media.length,
-      hero: false,
-      tags,
-    },
-  };
-
-  const links: Array<{ blockId: string; role: Block["kind"]; position: number }> = [];
-  if (templateId) links.push({ blockId: templateId, role: "template", position: 0 });
-  recipeIds.forEach((id, i) => links.push({ blockId: id, role: "recipe", position: i }));
-  assetIds.forEach((id, i) => links.push({ blockId: id, role: "asset", position: i }));
-
-  const linkUpserts: UpsertRow[] = links.map((l) => ({
-    table: "unit_blocks",
-    conflict: "(unit_id, block_id, role)",
-    values: {
-      unit_id: unitId,
-      block_id: l.blockId,
-      role: l.role,
-      link_kind: "provenance",
-      position: l.position,
-    },
-  }));
-
-  // The published Unit object that lands in published.ts.
+  // The published Unit object that lands in library.json.
   const publishedUnit: Unit = {
     id: unitId,
     format: manifest.format as Unit["format"],
@@ -598,27 +519,24 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
     ...(tags.length > 0 ? { tags } : {}),
   };
 
-  // Backstop: the unit row jsonb + the published mirror Unit must carry no local
-  // path. The media src is `/showcase/<id>/<basename>` and storageUrl is a public
-  // URL (both safe by construction); this assertion locks that against regressions.
-  assertNoLocalPaths(unitUpsert.values, `unit:${unitId} DB upsert`);
-  assertNoLocalPaths({ ...publishedUnit, media: buildMedia(true) }, `unit:${unitId} published.ts`);
+  // Backstop: the published Unit must carry no local path. The media src is
+  // `/showcase/<id>/<basename>` and storageUrl is a public URL (both safe by
+  // construction); this assertion locks that against regressions.
+  assertNoLocalPaths({ ...publishedUnit, media: buildMedia(true) }, `unit:${unitId} library.json`);
 
   if (!push) {
     printPlan(
       `DRY-RUN publish-unit ${unitId}`,
       uploads,
-      [unitUpsert, ...linkUpserts],
-      `append/replace PUBLISHED_UNITS[id=${unitId}] (idempotent)`,
+      `append/replace units[id=${unitId}] (idempotent)`,
+      publishedUnit,
     );
     const missing = uploads.filter((u) => !u.exists);
     if (missing.length > 0) {
       console.warn(`\n  WARNING: ${missing.length} media file(s) have no local copy.`);
     }
     console.log(
-      `\n  NOTE: provenance links reference ${links.length} block(s): ${links
-        .map((l) => `${l.role}:${l.blockId}`)
-        .join(", ") || "(none)"}. On --push, any block id absent from Supabase is WARN-and-skipped (never fabricated).`,
+      `\n  NOTE: provenance references template:${templateId || "(none)"}, recipes:[${recipeIds.join(", ")}], assets:[${assetIds.join(", ")}]. These are recorded on the unit verbatim; a referenced block missing from library.json simply has no detail page yet.`,
     );
     console.log(`\n  Unit media (real aspect/kind, source: ${manifest.media_meta ? "media_meta" : "format-default"}):`);
     for (const m of buildMedia(false)) {
@@ -633,14 +551,12 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
 
   // ── live push ──
   const uploader = makeUploader();
-  const uploadedStorage = new Set<string>();
   for (const u of uploads) {
     if (!u.exists) {
       console.warn(`  SKIP (missing local file): ${u.localPath}`);
       continue;
     }
     await putObject(uploader, u.objectKey, readFileSync(u.localPath), u.localPath);
-    uploadedStorage.add(u.objectKey);
     console.log(`  UPLOADED ${u.objectKey}`);
   }
 
@@ -657,54 +573,13 @@ async function publishUnit(unitDir: string, push: boolean): Promise<void> {
     console.log(`  COPIED ${c.rel}`);
   }
 
-  // media with storageUrl for the rows + the snapshot.
-  const mediaWithStorage = buildMedia(true);
-  await withDb(async (q) => {
-    await q(
-      `insert into units (id, format, title, blurb, date, media, media_count, hero, tags)
-       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9::jsonb)
-       on conflict (id) do update set
-         format = excluded.format, title = excluded.title, blurb = excluded.blurb,
-         date = excluded.date, media = excluded.media,
-         media_count = excluded.media_count, hero = excluded.hero,
-         tags = excluded.tags`,
-      [
-        unitId,
-        manifest.format,
-        manifest.title ?? manifest.slug,
-        manifest.blurb ?? null,
-        null,
-        JSON.stringify(mediaWithStorage),
-        manifest.media.length,
-        false,
-        JSON.stringify(tags),
-      ],
-    );
-    for (const l of links) {
-      // Only link to a block that already exists in Supabase; never fabricate.
-      const exists = (await q(`select 1 from blocks where id = $1`, [l.blockId])) as {
-        rowCount: number;
-      };
-      if (!exists.rowCount) {
-        console.warn(`  WARN: block "${l.blockId}" not in Supabase — skipping ${l.role} link`);
-        continue;
-      }
-      await q(
-        `insert into unit_blocks (unit_id, block_id, role, link_kind, position)
-         values ($1, $2, $3, 'provenance', $4)
-         on conflict (unit_id, block_id, role) do update set
-           link_kind = excluded.link_kind, position = excluded.position`,
-        [unitId, l.blockId, l.role, l.position],
-      );
-    }
-  });
-
-  // Snapshot edit (media carries storageUrl when a base URL is set).
-  const snapshotUnit: Unit = { ...publishedUnit, media: mediaWithStorage };
-  const cur = await loadPublished();
-  const nextUnits = upsertById(cur.units, snapshotUnit);
-  writeFileSync(PUBLISHED_TS, renderPublished(nextUnits, cur.blocks, cur.blueprints), "utf8");
-  console.log(`  published.ts: upserted unit ${unitId} (${nextUnits.length} published unit(s))`);
+  // Edit library.json (media carries storageUrl when a base URL is set).
+  const snapshotUnit: Unit = { ...publishedUnit, media: buildMedia(true) };
+  const doc = loadLibrary();
+  doc.units = upsertUnit(doc.units, snapshotUnit);
+  writeLibrary(doc);
+  console.log(`  library.json: upserted unit ${unitId} (${doc.units.length} unit(s))`);
+  await uploadLibrary(uploader);
 }
 
 // ── Mode: publish a Block ───────────────────────────────────────────────────────
@@ -725,28 +600,10 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     };
   });
 
-  // The enriched-recipe payload (#082) packs into the `data` jsonb column. Only
-  // populated for recipe blocks that actually carry any of the fields; otherwise
-  // `data` stays null so non-recipe / bare-recipe blocks are unchanged.
-  const recipeData: Record<string, unknown> = {};
-  if (spec.body !== undefined) recipeData.body = spec.body;
-  if (spec.artifact !== undefined) recipeData.artifact = spec.artifact;
-  if (spec.params !== undefined) recipeData.params = spec.params;
-  if (spec.demo !== undefined) recipeData.demo = spec.demo;
-  const hasRecipeData = Object.keys(recipeData).length > 0;
-
-  // Refs that go to BOTH the DB jsonb AND the published.ts mirror. Previously the
-  // DB stored the raw local `spec.refs` while the mirror stored the storageUrl-
-  // rewritten copy — the #056 publishBlock divergence that leaked a local path
-  // into the DB. Compute ONE sanitized list and feed it to both sinks.
-  //
-  // Any non-remote ref is a local file destined for Storage, so its PUBLISHED
-  // form is the Storage public URL — keyed on "is this already a remote URL",
-  // NOT on whether the path matches the leak regex. This is the fix for the
-  // earlier bug where a local file under a relative path the leak regex did not
-  // match (e.g. workspace/.ralph/...) passed through verbatim. When no Storage
-  // URL is resolvable (dry-run with no env), strip to the basename — never the
-  // raw local path. Already-remote (http/https) refs pass through unchanged.
+  // Refs that go into library.json. Any non-remote ref is a local file destined
+  // for Storage, so its PUBLISHED form is the Bunny public URL. When no Storage
+  // URL is resolvable (dry-run with no env), strip to the basename — never the raw
+  // local path. Already-remote (http/https) refs pass through unchanged.
   const publishedRefs = (spec.refs ?? []).map((ref) => {
     if (/^https?:\/\//i.test(ref)) return ref;
     const url = publicUrlFor(blockObjectKey(spec.kind, spec.id, ref));
@@ -754,22 +611,7 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     return sanitizeForPublish(ref, { field: `block:${spec.id} refs[]` });
   });
 
-  const blockUpsert: UpsertRow = {
-    table: "blocks",
-    conflict: "(id)",
-    values: {
-      id: spec.id,
-      kind: spec.kind,
-      name: spec.name,
-      blurb: spec.blurb ?? null,
-      sub: spec.sub ?? null,
-      refs: publishedRefs,
-      recipe_kind: spec.recipeKind ?? null,
-      data: hasRecipeData ? recipeData : null,
-    },
-  };
-
-  // The published Block object — refs are the SAME sanitized list as the DB row.
+  // The published Block object — refs are the sanitized list above.
   const publishedBlock: Block = {
     kind: spec.kind,
     id: spec.id,
@@ -784,17 +626,16 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     ...(spec.demo !== undefined ? { demo: spec.demo } : {}),
   };
 
-  // Backstop: neither the DB upsert payload nor the published mirror may carry a
-  // local path. Runs in dry-run too so a leak is caught BEFORE anyone passes --push.
-  assertNoLocalPaths(blockUpsert.values, `block:${spec.id} DB upsert`);
-  assertNoLocalPaths(publishedBlock, `block:${spec.id} published.ts`);
+  // Backstop: the published mirror block may carry no local path. Runs in dry-run
+  // too so a leak is caught BEFORE anyone passes --push.
+  assertNoLocalPaths(publishedBlock, `block:${spec.id} library.json`);
 
   if (!push) {
     printPlan(
       `DRY-RUN publish-block ${spec.kind}:${spec.id}`,
       refUploads,
-      [blockUpsert],
-      `append/replace PUBLISHED_BLOCKS[id=${spec.id}] (idempotent)`,
+      `append/replace blocks[id=${spec.id}] (idempotent)`,
+      publishedBlock,
     );
     const missing = refUploads.filter((u) => !u.exists);
     if (missing.length > 0) {
@@ -814,31 +655,11 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
     console.log(`  UPLOADED ${u.objectKey}`);
   }
 
-  await withDb(async (q) => {
-    await q(
-      `insert into blocks (id, kind, name, blurb, sub, refs, recipe_kind, data)
-       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::jsonb)
-       on conflict (id) do update set
-         kind = excluded.kind, name = excluded.name, blurb = excluded.blurb,
-         sub = excluded.sub, refs = excluded.refs,
-         recipe_kind = excluded.recipe_kind, data = excluded.data`,
-      [
-        spec.id,
-        spec.kind,
-        spec.name,
-        spec.blurb ?? null,
-        spec.sub ?? null,
-        JSON.stringify(publishedRefs),
-        spec.recipeKind ?? null,
-        hasRecipeData ? JSON.stringify(recipeData) : null,
-      ],
-    );
-  });
-
-  const cur = await loadPublished();
-  const nextBlocks = upsertById(cur.blocks, publishedBlock);
-  writeFileSync(PUBLISHED_TS, renderPublished(cur.units, nextBlocks, cur.blueprints), "utf8");
-  console.log(`  published.ts: upserted block ${spec.id} (${nextBlocks.length} published block(s))`);
+  const doc = loadLibrary();
+  doc.blocks = upsertBlock(doc.blocks, publishedBlock);
+  writeLibrary(doc);
+  console.log(`  library.json: upserted block ${spec.id} (${doc.blocks.length} block(s))`);
+  await uploadLibrary(uploader);
 }
 
 // ── Mode: publish a Blueprint (#077) ────────────────────────────────────────────
@@ -850,14 +671,12 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
 //   prompts/**          the verbatim prompt files
 //   assets/**           the hard-asset files (asset.path is posix-relative)
 //
-// We upload the payload to Storage under blueprints/<unitId>/..., set each
-// uploaded file's public storageUrl back into the blueprint object (so the
-// committed mirror resolves remotely), upsert a 1:1 `blueprints` DB row keyed by
-// unitId, and append/replace in PUBLISHED_BLUEPRINTS (idempotent by unitId).
+// We upload the payload to Bunny under blueprints/<unitId>/..., set each uploaded
+// file's public storageUrl back into the blueprint object (so the committed
+// mirror resolves remotely), and append/replace it in library.json (idempotent by
+// unitId).
 
-/** A minimal structural guard for the #074 Blueprint shape. We do NOT cross-import
- *  the CLI Zod schema (separate package); a field-presence check is enough, and
- *  it fails loudly if `unitId` is missing. */
+/** A minimal structural guard for the #074 Blueprint shape. */
 function validateBlueprint(raw: unknown, file: string): Blueprint {
   if (!raw || typeof raw !== "object") {
     throw new Error(`${file} is not an object`);
@@ -894,8 +713,7 @@ function walkRel(root: string, sub = ""): string[] {
   return out;
 }
 
-/** A planned blueprint payload upload, carrying the file size + an oversize flag
- *  so the dry-run can list it and the live push can loud-warn-and-skip it. */
+/** A planned blueprint payload upload, carrying the file size + an oversize flag. */
 interface PlannedBlueprintUpload {
   objectKey: string;
   localPath: string;
@@ -918,10 +736,7 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
   );
   const unitId = blueprint.unitId;
 
-  // Enumerate the payload files RELATIVE to the blueprint dir:
-  //   - the composition file (index.html, from composition.file)
-  //   - every file under prompts/**
-  //   - every hard-asset file referenced by assets[].path (posix-relative)
+  // Enumerate the payload files RELATIVE to the blueprint dir.
   const payloadRels = new Set<string>();
   const compFile = blueprint.composition?.file;
   if (compFile) payloadRels.add(compFile.replace(/\\/g, "/").replace(/^\.\//, ""));
@@ -963,12 +778,7 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
   const compPlan = compRel ? uploads.find((u) => u.rel === compRel) : undefined;
 
   // Build the published Blueprint object. Set storageUrl on each asset whose file
-  // is uploadable; record oversize files in `oversizeSkipped` (kept on disk, the
-  // local `path` preserved so they can still be fetched from the repo / project).
-  // Also feed the composition reproduction path #079 consumes: set
-  // composition.storageUrl to the uploaded index.html, and inline composition.html
-  // when the file is small enough to commit (so the offline mirror reproduces a
-  // real composition without a network fetch).
+  // is uploadable; record oversize files in `oversizeSkipped` (kept on disk).
   const buildPublished = (withStorage: boolean): Blueprint => {
     const bp: Blueprint = {
       ...blueprint,
@@ -1007,24 +817,18 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
           compStorageUrl = url;
         }
       }
-      // SECURITY: composition.file must stay relative. With a storageUrl, drop to
-      // the bare `<basename>`; without one, strip to `<basename>` + LOUD-warn.
       if (typeof composition.file === "string" && looksLocal(composition.file)) {
         composition.file = sanitizeForPublish(composition.file, {
           safe: compStorageUrl ? basename(composition.file) : undefined,
           field: `blueprint:${unitId} composition.file`,
         });
       }
-      // Inline the composition HTML into the committed mirror when small. This
-      // path runs in dry-run too (it reads a local file, touches nothing remote)
-      // so the offline reproduce works even when nothing was pushed.
+      // Inline the composition HTML into the committed mirror when small.
       if (compPlan.bytes <= COMPOSITION_INLINE_MAX_BYTES) {
         composition.html = readFileSync(compPlan.localPath, "utf8");
       }
       bp.composition = composition;
     } else if (bp.composition && typeof bp.composition.file === "string" && looksLocal(bp.composition.file)) {
-      // No uploadable composition plan (missing / oversize) — still sanitize the
-      // recorded file path so an absolute path never reaches the mirror / DB.
       bp.composition = {
         ...bp.composition,
         file: sanitizeForPublish(bp.composition.file, {
@@ -1036,26 +840,12 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
     return bp;
   };
 
-  const blueprintUpsert: UpsertRow = {
-    table: "blueprints",
-    conflict: "(unit_id)",
-    values: {
-      unit_id: unitId,
-      data: "<blueprint jsonb>",
-    },
-  };
-
-  // Backstop: build the object that WOULD be written/upserted and refuse loudly
-  // if any local path survived the per-field sanitizer. The `withStorage:false`
-  // form is the one used in dry-run + the published mirror's local-fallback; the
-  // `withStorage:true` form is the DB jsonb. Both must be clean. Runs in dry-run
-  // so a leak is caught before --push.
-  assertNoLocalPaths(buildPublished(false), `blueprint:${unitId} published.ts`);
-  assertNoLocalPaths(buildPublished(true), `blueprint:${unitId} DB upsert`);
+  // Backstop: build the object that WOULD be written and refuse loudly if any
+  // local path survived the per-field sanitizer. Runs in dry-run too.
+  assertNoLocalPaths(buildPublished(false), `blueprint:${unitId} library.json`);
+  assertNoLocalPaths(buildPublished(true), `blueprint:${unitId} library.json (storage)`);
 
   if (!push) {
-    // Dry-run: print exactly what WOULD upload + the DB upsert + the published.ts
-    // edit, touching NOTHING. Mirrors publishUnit / publishBlock.
     const planned: PlannedUpload[] = uploadable.map((u) => ({
       objectKey: u.objectKey,
       localPath: u.localPath,
@@ -1064,8 +854,7 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
     printPlan(
       `DRY-RUN publish-blueprint ${unitId}`,
       planned,
-      [blueprintUpsert],
-      `append/replace PUBLISHED_BLUEPRINTS[unitId=${unitId}] (idempotent)`,
+      `append/replace blueprints[unitId=${unitId}] (idempotent)`,
     );
     const missing = uploads.filter((u) => !u.exists);
     if (missing.length > 0) {
@@ -1073,14 +862,13 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
       for (const m of missing) console.warn(`    ${m.rel}`);
     }
     if (oversize.length > 0) {
-      console.warn(`\n  OVERSIZE (> ${BLUEPRINT_MAX_BYTES} bytes / ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap) — NOT uploaded, kept on disk:`);
+      console.warn(`\n  OVERSIZE (> ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap) — NOT uploaded, kept on disk:`);
       for (const o of oversize) {
-        console.warn(`    ${o.rel}  (${o.bytes} bytes / ${(o.bytes / 1024 / 1024).toFixed(1)} MiB) exceeds the ${(BLUEPRINT_MAX_BYTES / 1024 / 1024).toFixed(0)} MiB cap`);
+        console.warn(`    ${o.rel}  (${(o.bytes / 1024 / 1024).toFixed(1)} MiB)`);
       }
       console.warn(`  These ${oversize.length} file(s) WOULD be recorded in the blueprint's oversizeSkipped[] (storageUrl absent, local path kept).`);
     }
     console.log(`\n  Blueprint payload: ${uploadable.length} file(s) WOULD upload under blueprints/${unitId}/`);
-    console.log(`  DB: blueprints row (unit_id=${unitId}) WOULD upsert on conflict (unit_id), data = full blueprint jsonb.`);
     return;
   }
 
@@ -1100,21 +888,11 @@ async function publishBlueprint(blueprintDir: string, push: boolean): Promise<vo
   }
 
   const publishedBlueprint = buildPublished(true);
-
-  await withDb(async (q) => {
-    await q(
-      `insert into blueprints (unit_id, data)
-       values ($1, $2::jsonb)
-       on conflict (unit_id) do update set
-         data = excluded.data`,
-      [unitId, JSON.stringify(publishedBlueprint)],
-    );
-  });
-
-  const cur = await loadPublished();
-  const nextBlueprints = upsertBlueprint(cur.blueprints, publishedBlueprint);
-  writeFileSync(PUBLISHED_TS, renderPublished(cur.units, cur.blocks, nextBlueprints), "utf8");
-  console.log(`  published.ts: upserted blueprint ${unitId} (${nextBlueprints.length} published blueprint(s))`);
+  const doc = loadLibrary();
+  doc.blueprints = upsertBlueprint(doc.blueprints, publishedBlueprint);
+  writeLibrary(doc);
+  console.log(`  library.json: upserted blueprint ${unitId} (${doc.blueprints.length} blueprint(s))`);
+  await uploadLibrary(uploader);
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -1140,13 +918,12 @@ async function main(): Promise<void> {
 
   if (!args.push) {
     console.log(
-      "\ndry-run: nothing uploaded, no DB writes, published.ts untouched. Re-run with --push to apply.",
+      "\ndry-run: nothing uploaded, library.json untouched. Re-run with --push to apply.",
     );
   }
 }
 
-// Only run the CLI when invoked directly (not when imported for its exported
-// helpers, e.g. by scripts/sync-published-mirror.ts).
+// Only run the CLI when invoked directly (not when imported for its exported helpers).
 if (import.meta.main) {
   main().catch((err) => {
     console.error(err instanceof Error ? err.message : String(err));

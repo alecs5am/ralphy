@@ -24,6 +24,7 @@ import {
   resolveAuthors,
 } from "@/lib/blog";
 import { loadModelsDoc } from "@/lib/models-loader";
+import { siteUrl } from "@/lib/site";
 
 /**
  * Some blog posts inject content from elsewhere in the repo (MODELS.md,
@@ -112,15 +113,6 @@ export async function generateStaticParams() {
     .map((f) => ({ slug: f.replace(/\.mdx$/, "") }));
 }
 
-/* Canonical site origin. Override per-env with NEXT_PUBLIC_SITE_URL
- * (Vercel sets that automatically for preview builds via
- * VERCEL_URL — wired through next.config). Falls back to the
- * production domain so the og:url tag is always populated. */
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ??
-  "https://www.alecs5am.com";
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -129,7 +121,7 @@ export async function generateMetadata({
   if (!post) return { title: "Not found · Ralphy" };
   const title = post.frontmatter.title ?? slug;
   const description = post.frontmatter.description;
-  const url = `${SITE_URL.replace(/\/+$/, "")}/blog/${slug}`;
+  const url = siteUrl(`blog/${slug}`);
   return {
     title: `${title} · Ralphy`,
     description,

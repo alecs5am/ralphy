@@ -29,6 +29,7 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { getBlock, getBlocks, getFormats, unitsUsing } from "@/lib/library-v2/source";
 import type { Block, BlockKind } from "@/lib/library-v2/types";
+import { siteUrl } from "@/lib/site";
 import { KIND_META, RECIPE_KIND_META, SUB_META } from "../../../_shared/blockMeta";
 import { AssetMedia, hasRefMedia } from "./AssetMedia";
 import { BlockUnits } from "./BlockUnits";
@@ -67,9 +68,22 @@ export async function generateMetadata({
   if (!isBlockKind(kind)) return { title: "Block not found · Ralphy Library" };
   const block = await getBlock(kind, id);
   if (!block) return { title: "Block not found · Ralphy Library" };
+  const url = siteUrl(`library/b/${block.kind}/${block.id}`);
   return {
-    title: `${block.name} · ${kindMeta(block).label} · Ralphy Library`,
+    title: { absolute: `${block.name} · ${kindMeta(block).label} · Ralphy Library` },
     description: block.blurb,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${block.name} · ${kindMeta(block).label}`,
+      description: block.blurb,
+      url,
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${block.name} · ${kindMeta(block).label}`,
+      description: block.blurb,
+    },
   };
 }
 

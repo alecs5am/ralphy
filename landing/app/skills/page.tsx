@@ -10,11 +10,26 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { loadSkills } from "@/lib/skills-loader";
 import { SkillsListing } from "@/components/SkillsListing";
+import { siteUrl } from "@/lib/site";
+
+const SKILLS_DESCRIPTION =
+  "The Ralphy skill marketplace — generalized niche know-how (unboxing, UGC ads, GTA-style) plus workflow and render-engine skills. Tag-able from chat, all open source.";
 
 export const metadata: Metadata = {
-  title: "Skills · Ralphy",
-  description:
-    "The Ralphy skill marketplace — generalized niche know-how (unboxing, UGC ads, GTA-style) plus workflow and render-engine skills. Tag-able from chat, all open source.",
+  title: "Skills",
+  description: SKILLS_DESCRIPTION,
+  alternates: { canonical: "/skills" },
+  openGraph: {
+    title: "Ralphy Skills · The skill marketplace",
+    description: SKILLS_DESCRIPTION,
+    url: siteUrl("skills"),
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ralphy Skills · The skill marketplace",
+    description: SKILLS_DESCRIPTION,
+  },
 };
 
 export default async function SkillsPage() {

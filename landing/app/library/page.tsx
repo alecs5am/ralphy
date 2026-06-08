@@ -16,6 +16,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { JsonLd } from "@/components/JsonLd";
+import { SITE_URL, siteUrl } from "@/lib/site";
 import { getDisplayStars } from "@/lib/data";
 import {
   counts,
@@ -28,10 +30,24 @@ import type { BlockKind } from "@/lib/library-v2/types";
 import { LibraryListing } from "./LibraryListing";
 import type { FeedViewModel } from "./LibraryListing";
 
+const LIBRARY_DESCRIPTION =
+  "Everything Ralphy made — a feed of finished units (videos, carousels, sticker packs, podcast cuts, ad sets, posters). Open any one to see the ingredients that built it — a template, a style, its recipes and assets — and swap any single block to remix it. Deep-linkable, searchable, infinite-scroll.";
+
 export const metadata: Metadata = {
-  title: "Library · Ralphy",
-  description:
-    "Everything Ralphy made — a feed of finished units (videos, carousels, sticker packs, podcast cuts, ad sets, posters). Open any one to see the ingredients that built it — a template, a style, its recipes and assets — and swap any single block to remix it. Deep-linkable, searchable, infinite-scroll.",
+  title: "Library",
+  description: LIBRARY_DESCRIPTION,
+  alternates: { canonical: "/library" },
+  openGraph: {
+    title: "Ralphy Library · Everything Ralphy made",
+    description: LIBRARY_DESCRIPTION,
+    url: siteUrl("library"),
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ralphy Library · Everything Ralphy made",
+    description: LIBRARY_DESCRIPTION,
+  },
 };
 
 const BLOCK_KINDS: BlockKind[] = ["template", "recipe", "asset"];
@@ -81,8 +97,49 @@ export default async function LibraryPage() {
     tags,
   };
 
+  // ItemList of the feed (capped) so search engines understand /library as a
+  // curated collection of named items pointing at their detail pages — the
+  // structured-data signal that helps the flagship page rank for the units it
+  // hosts. BreadcrumbList gives the Home › Library trail in the SERP.
+  const itemListElements = units.slice(0, 60).map((u, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    url: siteUrl(`library/u/${u.id}`),
+    name: u.title,
+  }));
+
   return (
     <>
+      <JsonLd
+        data={[
+          {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: "Ralphy Library",
+            description: LIBRARY_DESCRIPTION,
+            url: siteUrl("library"),
+            isPartOf: { "@type": "WebSite", url: SITE_URL, name: "Ralphy" },
+            mainEntity: {
+              "@type": "ItemList",
+              numberOfItems: units.length,
+              itemListElement: itemListElements,
+            },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Library",
+                item: siteUrl("library"),
+              },
+            ],
+          },
+        ]}
+      />
       <div className="dot-bg" aria-hidden />
       <Nav stars={stars} variant="subpage" />
 
