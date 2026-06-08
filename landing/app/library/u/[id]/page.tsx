@@ -25,7 +25,8 @@ import {
   getUnits,
 } from "@/lib/library-v2/source";
 import type { AssetSub, Block, Format, Unit } from "@/lib/library-v2/types";
-import { siteUrl } from "@/lib/site";
+import { siteUrl, SITE_URL } from "@/lib/site";
+import { JsonLd } from "@/components/JsonLd";
 import { fhue, KIND_META, SUB_META } from "../../_shared/blockMeta";
 import { UnitViewer } from "./UnitViewer";
 import { IngredientPanel } from "./IngredientPanel";
@@ -252,8 +253,60 @@ export default async function UnitDetailPage({
 
   const hue = format ? fhue(format.id) : "var(--mute)";
 
+  // Structured data — VideoObject / ImageObject so Google can index the unit's
+  // media (video rich results) + a BreadcrumbList matching the visible
+  // Library / format / title trail. Media URLs prefer the absolute storageUrl
+  // (CDN), falling back to the local path made absolute via metadataBase.
+  const abs = (u?: string) =>
+    !u ? undefined : /^https?:\/\//.test(u) ? u : siteUrl(u.replace(/^\/+/, ""));
+  const unitUrl = siteUrl(`library/u/${unit.id}`);
+  const primary = unit.media?.find((m) => m.kind === "video") ?? unit.media?.[0];
+  const thumb =
+    abs(primary?.posterStorageUrl ?? primary?.poster ?? primary?.storageUrl ?? primary?.src) ??
+    siteUrl("opengraph-image");
+  const mediaLd =
+    primary?.kind === "video"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          name: unit.title,
+          description: unit.blurb,
+          thumbnailUrl: [thumb],
+          contentUrl: abs(primary.storageUrl ?? primary.src),
+          ...(unit.date ? { uploadDate: unit.date } : {}),
+        }
+      : primary
+        ? {
+            "@context": "https://schema.org",
+            "@type": "ImageObject",
+            name: unit.title,
+            description: unit.blurb,
+            contentUrl: abs(primary.storageUrl ?? primary.src),
+          }
+        : null;
+
   return (
     <>
+      <JsonLd
+        data={[
+          ...(mediaLd ? [mediaLd] : []),
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+              { "@type": "ListItem", position: 2, name: "Library", item: siteUrl("library") },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: format?.label ?? unit.format,
+                item: siteUrl(`library?format=${unit.format}`),
+              },
+              { "@type": "ListItem", position: 4, name: unit.title, item: unitUrl },
+            ],
+          },
+        ]}
+      />
       <div className="dot-bg" aria-hidden />
       <Nav stars={stars} variant="subpage" />
 
