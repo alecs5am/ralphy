@@ -66,11 +66,26 @@ export const metadata: Metadata = {
     title: "Ralphy · Open-source content factory CLI",
     description: SITE_DESCRIPTION,
     locale: "en_US",
+    // Default social card, set EXPLICITLY (not via the file convention). The
+    // root app/opengraph-image.tsx only attaches to "/" — which permanently
+    // redirects to /ralphy — so the home page never inherited it. Declaring
+    // images on the layout openGraph propagates the card to every page that
+    // doesn't override it (home, etc.); metadataBase makes the path absolute.
+    // The bytes are still served by the app/opengraph-image.tsx route.
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Ralphy — open-source content factory CLI",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Ralphy · Open-source content factory CLI",
     description: SITE_DESCRIPTION,
+    images: ["/opengraph-image"],
   },
   icons: {
     icon: "/icon.svg",
