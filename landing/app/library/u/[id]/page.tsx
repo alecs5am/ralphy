@@ -189,11 +189,17 @@ export async function generateMetadata({
       description: unit.blurb,
       url,
       type: "article",
+      // A page that defines its own openGraph replaces the layout's entirely
+      // (incl. its default images), so reference the branded site-default card
+      // explicitly. Points at the prebuilt root /opengraph-image route — no
+      // per-unit build-time render. metadataBase makes the path absolute.
+      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: unit.title,
       description: unit.blurb,
+      images: ["/opengraph-image"],
     },
   };
 }
