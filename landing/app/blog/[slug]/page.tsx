@@ -24,7 +24,8 @@ import {
   resolveAuthors,
 } from "@/lib/blog";
 import { loadModelsDoc } from "@/lib/models-loader";
-import { siteUrl } from "@/lib/site";
+import { siteUrl, SITE_NAME } from "@/lib/site";
+import { JsonLd } from "@/components/JsonLd";
 
 /**
  * Some blog posts inject content from elsewhere in the repo (MODELS.md,
@@ -152,8 +153,36 @@ export default async function BlogPostPage({ params }: PageProps) {
   const date = formatDate(post.frontmatter.date);
   const expandedSource = expandInjections(post.source);
 
+  const url = siteUrl(`blog/${slug}`);
+  const authors = resolveAuthors(post.frontmatter);
+
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: post.frontmatter.title ?? slug,
+          description: post.frontmatter.description,
+          url,
+          mainEntityOfPage: { "@type": "WebPage", "@id": url },
+          image: [siteUrl(`blog/${slug}/opengraph-image`)],
+          datePublished: post.frontmatter.date,
+          dateModified: post.frontmatter.date,
+          articleSection: post.frontmatter.category,
+          keywords: post.frontmatter.tags?.join(", "),
+          author: authors.map((a) => ({
+            "@type": "Person",
+            name: a.name,
+            ...(a.handle ? { url: `https://github.com/${a.handle}` } : {}),
+          })),
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            logo: { "@type": "ImageObject", url: siteUrl("icon.svg") },
+          },
+        }}
+      />
       <div className="dot-bg" aria-hidden />
       <Nav stars={stars} variant="subpage" />
 

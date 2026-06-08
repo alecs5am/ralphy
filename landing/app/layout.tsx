@@ -83,6 +83,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: "@alecs5am",
+    creator: "@alecs5am",
     title: "Ralphy · Open-source content factory CLI",
     description: SITE_DESCRIPTION,
     images: ["/opengraph-image"],

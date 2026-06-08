@@ -18,7 +18,12 @@ const BLOG_DESCRIPTION =
 export const metadata: Metadata = {
   title: "Blog",
   description: BLOG_DESCRIPTION,
-  alternates: { canonical: "/blog" },
+  alternates: {
+    canonical: "/blog",
+    types: {
+      "application/rss+xml": [{ url: siteUrl("blog/feed.xml"), title: "Ralphy Blog" }],
+    },
+  },
   openGraph: {
     title: "Ralphy Blog · Field notes",
     description: BLOG_DESCRIPTION,
