@@ -940,8 +940,8 @@ ____        __      __
 
 Usage: ralphy library [options] [command]
 
-Read the public content library (units, blocks, blueprints, formats) from
-Supabase (read-only)
+Read the public content library (units, blocks, blueprints, formats) from the
+static library.json on Bunny CDN (read-only)
 
 Options:
   -h, --help      display help for command
@@ -964,7 +964,7 @@ Examples:
   ralphy library blueprints show choose-magicschool
   ralphy library formats list
 
-Source: Supabase PostgREST (override with RALPHY_LIBRARY_URL / RALPHY_LIBRARY_KEY).
+Source: static library.json on Bunny CDN (override the URL with RALPHY_LIBRARY_URL).
 ```
 
 ### `ralphy template`

@@ -78,7 +78,7 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 
 ## Template discipline
 
-- The repo-public `templates/<category>/<slug>/` folder was retired in #084. Public templates now live in the hosted content library (Supabase), read by the CLI via `cli/lib/library/client.ts`. Author user-local templates into `workspace/templates/<slug>/`; publish onward via the `templater` / `dev-publish-template` path.
+- The repo-public `templates/<category>/<slug>/` folder was retired in #084. Public templates now live in the content library — a static `library.json` (committed at `landing/lib/library-v2/library.json`, served on Bunny CDN), read by the CLI via `cli/lib/library/client.ts`. The Supabase Postgres backend was retired (June 2026): `library.json` is the single source of truth. Author user-local templates into `workspace/templates/<slug>/`; publish onward via the `templater` / `dev-publish-template` path.
 - Category ∈ `{b2b-saas, dtc-commerce, creator-lifestyle, entertainment-viral, cinematic-narrative}`.
 - Workspace overrides the public tier on id collision (`workspace/templates/<slug>/` wins).
 - `template.yaml` schema is in `cli/lib/schemas/template.ts` (Zod). The version gate is `E_TEMPLATE_VERSION_UNSUPPORTED`.

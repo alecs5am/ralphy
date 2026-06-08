@@ -89,7 +89,7 @@ const sample: Blueprint = {
       path: "assets/choosepath-soundtrack.mp3",
       kind: "music",
       storageUrl:
-        "https://example.supabase.co/storage/v1/object/public/library/units/choose-silenthill/soundtrack.mp3",
+        "https://ralphy.b-cdn.net/units/choose-silenthill/soundtrack.mp3",
     },
   ],
   // axis 5 — model stack + params + cost

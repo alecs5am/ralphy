@@ -1,16 +1,15 @@
 // publish-entity.ts --blueprint dry-run smoke (#077).
 //
-// Exercises the new third mode of landing/scripts/publish-entity.ts by spawning
+// Exercises the third mode of landing/scripts/publish-entity.ts by spawning
 // the script the way it is actually invoked (from the `landing/` dir) against a
-// throwaway blueprint fixture dir, with NO --push and NO Supabase / S3 creds.
+// throwaway blueprint fixture dir, with NO --push and NO Bunny creds.
 //
 // Locks the load-bearing dry-run behavior:
 //   1. The output names the blueprints/<unitId>/... Storage object keys for the
 //      composition file, the prompt file, and the hard-asset file.
-//   2. The output describes the blueprints DB upsert + the PUBLISHED_BLUEPRINTS
-//      published.ts edit plan.
-//   3. NOTHING is written: published.ts is byte-for-byte unchanged, and no remote
-//      call is attempted (no creds set → a --push would have thrown on makeS3Client).
+//   2. The output describes the library.json blueprints edit plan.
+//   3. NOTHING is written: library.json is byte-for-byte unchanged, and no remote
+//      call is attempted (no creds set → a --push would have thrown on makeUploader).
 //
 // English-only-on-disk discipline: every fixture slug / filename / prompt /
 // scenario line is plain English.
@@ -24,7 +23,7 @@ import os from "node:os";
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const LANDING = path.join(REPO, "landing");
 const SCRIPT = path.join(LANDING, "scripts", "publish-entity.ts");
-const PUBLISHED_TS = path.join(LANDING, "lib", "library-v2", "published.ts");
+const LIBRARY_JSON = path.join(LANDING, "lib", "library-v2", "library.json");
 const UNIT_ID = "test-fog-blueprint";
 
 let tmpDir: string;
@@ -32,10 +31,14 @@ let blueprintDir: string;
 
 function run(args: string[]): { exitCode: number; stdout: string; stderr: string } {
   // Run from the landing/ dir, exactly how the script is invoked. Scrub every
-  // Supabase/S3 secret so a stray --push could not touch anything remote.
+  // Supabase/Bunny secret so a stray --push could not touch anything remote.
   const env = { ...process.env };
   for (const k of Object.keys(env)) {
-    if (k.startsWith("SUPABASE_") || k.startsWith("NEXT_PUBLIC_SUPABASE_")) {
+    if (
+      k.startsWith("SUPABASE_") ||
+      k.startsWith("NEXT_PUBLIC_SUPABASE_") ||
+      k.startsWith("BUNNY_")
+    ) {
       delete env[k];
     }
   }
@@ -102,8 +105,8 @@ afterEach(() => {
 });
 
 describe("publish-entity --blueprint dry-run (#077)", () => {
-  test("names the blueprints/<unitId>/... object keys + the published.ts edit plan, writes nothing", () => {
-    const before = fs.readFileSync(PUBLISHED_TS, "utf8");
+  test("names the blueprints/<unitId>/... object keys + the library.json edit plan, writes nothing", () => {
+    const before = fs.readFileSync(LIBRARY_JSON, "utf8");
 
     const r = run(["--blueprint", blueprintDir]);
     expect(r.exitCode).toBe(0);
@@ -118,13 +121,13 @@ describe("publish-entity --blueprint dry-run (#077)", () => {
     expect(out).toContain(`blueprints/${UNIT_ID}/prompts/char-guide.txt`);
     expect(out).toContain(`blueprints/${UNIT_ID}/assets/char-guide.png`);
 
-    // DB upsert + published.ts edit plan.
+    // library.json edit plan.
     expect(out).toContain("blueprints");
-    expect(out).toContain(`PUBLISHED_BLUEPRINTS[unitId=${UNIT_ID}]`);
-    expect(out).toContain("nothing uploaded, no DB writes, published.ts untouched");
+    expect(out).toContain(`blueprints[unitId=${UNIT_ID}]`);
+    expect(out).toContain("nothing uploaded, library.json untouched");
 
-    // NOTHING written: published.ts is byte-for-byte unchanged.
-    const after = fs.readFileSync(PUBLISHED_TS, "utf8");
+    // NOTHING written: library.json is byte-for-byte unchanged.
+    const after = fs.readFileSync(LIBRARY_JSON, "utf8");
     expect(after).toBe(before);
   });
 

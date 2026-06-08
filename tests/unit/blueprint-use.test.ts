@@ -1,15 +1,18 @@
 // `ralphy blueprint use` smoke + invariant tests (#079).
 //
 // Exercises the OFFLINE scaffold path: `blueprint use <unit-id> --project <id>`
-// resolves a PUBLISHED Blueprint from the committed mirror
-// (landing/lib/library-v2/published.ts), then lays down a ready-to-run project.
+// resolves a PUBLISHED Blueprint from the committed library.json
+// (landing/lib/library-v2/library.json), then lays down a ready-to-run project.
 //
 // Offline-without-network strategy: the loader resolves the mirror relative to
-// root() (== the --cwd we pass). So each test writes a FIXTURE published.ts
-// inside the temp root's landing/lib/library-v2/ dir. The fixture blueprint uses
-// NO storageUrl on its asset (→ recorded for manual fetch, no download) and an
+// root() (== the --cwd we pass). So each test writes a FIXTURE library.json
+// inside the temp root's landing/lib/library-v2/ dir. When that local mirror is
+// absent OR the unitId isn't in it, the resolver falls back to the public library
+// client — which we point at a local EMPTY library.json via RALPHY_LIBRARY_URL
+// (a file:// URL) so that path stays offline too. The fixture blueprint uses NO
+// storageUrl on its asset (→ recorded for manual fetch, no download) and an
 // INLINE composition (→ index.html written from memory, no download). Nothing
-// hits the network, and the REAL repo published.ts is never touched.
+// hits the network, and the REAL repo library.json is never touched.
 //
 // English-only-on-disk discipline: every fixture slug / filename / prompt /
 // scenario line is plain English.
@@ -25,12 +28,15 @@ const CLI = path.join(REPO, "cli", "index.ts");
 const UNIT_ID = "fog-horror-repro";
 
 let tmpRoot: string;
+/** file:// URL of an EMPTY library.json — the offline fallback the public library
+ *  client reads (so the Bunny fallback never hits the network in tests). */
+let fallbackUrl: string;
 
 function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: string; json: any } {
   const r = spawnSync("bun", ["run", CLI, "--cwd", tmpRoot, "--json", ...args], {
     cwd: tmpRoot,
     encoding: "utf8",
-    env: { ...process.env },
+    env: { ...process.env, RALPHY_LIBRARY_URL: fallbackUrl },
   });
   let json: any = null;
   try {
@@ -41,15 +47,17 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
   return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr, json };
 }
 
-/** Write a fixture committed-mirror published.ts into the temp root. */
+/** Write a fixture committed-mirror library.json into the temp root. */
 function writeFixtureMirror(blueprints: unknown[]): void {
   const dir = path.join(tmpRoot, "landing", "lib", "library-v2");
   fs.mkdirSync(dir, { recursive: true });
-  // A self-contained mirror: declares + exports PUBLISHED_BLUEPRINTS. We avoid
-  // importing ./types so the fixture needs no sibling files (Bun runs the TS).
   fs.writeFileSync(
-    path.join(dir, "published.ts"),
-    `export const PUBLISHED_BLUEPRINTS = ${JSON.stringify(blueprints, null, 2)};\n`,
+    path.join(dir, "library.json"),
+    JSON.stringify(
+      { schemaVersion: 1, formats: [], units: [], blocks: [], blueprints },
+      null,
+      2,
+    ) + "\n",
   );
 }
 
@@ -102,6 +110,13 @@ function projDir(projectId: string): string {
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-blueprint-use-079-"));
+  // An EMPTY library the public client reads as the offline fallback (file://).
+  const fb = path.join(tmpRoot, "fallback-library.json");
+  fs.writeFileSync(
+    fb,
+    JSON.stringify({ schemaVersion: 1, formats: [], units: [], blocks: [], blueprints: [] }) + "\n",
+  );
+  fallbackUrl = `file://${fb}`;
 });
 
 afterEach(() => {
@@ -187,17 +202,21 @@ describe("ralphy blueprint use (#079)", () => {
 
   test("graceful error when the unitId is not in the mirror", () => {
     writeFixtureMirror([fixtureBlueprint()]);
+    // Present locally under a different unitId; the empty fallback library has it
+    // neither → resolves to a clean "no published blueprint" error.
     const r = ralphy(["blueprint", "use", "no-such-unit", "--project", "x-001"]);
     expect(r.exitCode).not.toBe(0);
     expect(r.stderr).toContain("not found");
     expect(r.stderr.toLowerCase()).toContain("no published blueprint");
   });
 
-  test("graceful error when the committed mirror is absent (global binary)", () => {
-    // No writeFixtureMirror() call → no landing/lib/library-v2/published.ts.
+  test("graceful error when the committed mirror is absent (falls back to the public library)", () => {
+    // No writeFixtureMirror() call → no landing/lib/library-v2/library.json. The
+    // resolver falls back to the public library client (here the empty fallback),
+    // which has no such unit → a clean, network-free "not found".
     const r = ralphy(["blueprint", "use", UNIT_ID, "--project", "x-001"]);
     expect(r.exitCode).not.toBe(0);
     expect(r.stderr).toContain("not found");
-    expect(r.stderr).toContain("committed mirror");
+    expect(r.stderr.toLowerCase()).toContain("no published blueprint");
   });
 });
