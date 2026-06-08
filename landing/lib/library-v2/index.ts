@@ -2,22 +2,22 @@
 //
 // Library v2 loader — the pure, build-time graph the v2 screens import.
 //
-// It takes the migrated catalog (./catalog.ts: FORMATS, BLOCKS, UNITS) and
-// builds the lookup maps + relation functions the three surfaces need:
+// Source of truth: the committed `./library.json` (the single local content
+// store, served to the CLI from Bunny CDN). The old Supabase Postgres backend +
+// the hand-curated `catalog.ts` / append-only `published.ts` TS mirrors were
+// retired in favour of this one JSON file — no DB, no env, no vendor limits. The
+// publish path (`scripts/publish-entity.ts`) edits `library.json` in place.
+//
+// This module builds the lookup maps + relation functions the three surfaces need:
 //   /library            — the Units feed (FORMATS, fmtCounts, UNITS).
 //   /library/u/[id]      — Unit detail (U_BY, BLOCK_BY, applicable).
 //   /library/b/[kind]/[id] — block page (unitsUsing, counts).
 //
 // Pure (no fs, no side effects) — safe to import from a client island or a
-// server component alike. The catalog is a static module, so all the maps are
+// server component alike. The JSON is a static module, so all the maps are
 // computed once at module-eval time.
 
-import {
-  BLOCKS as BASE_BLOCKS,
-  FORMATS,
-  UNITS as BASE_UNITS,
-} from "./catalog";
-import { PUBLISHED_BLOCKS, PUBLISHED_BLUEPRINTS, PUBLISHED_UNITS } from "./published";
+import libraryData from "./library.json";
 import type {
   ApplicableFn,
   Block,
@@ -47,59 +47,43 @@ export type {
   UnitMedia,
   UnitsUsingFn,
 } from "./types";
-export { FORMATS } from "./catalog";
 
-// ── Merge: base catalog + published entities ─────────────────────────────────
-// The committed catalog (catalog.ts) is the hand-curated migration output; the
-// publish script (issue #056) appends to published.ts instead of editing the
-// catalog. The loader concatenates both and dedupes by id, with the PUBLISHED
-// entry winning on an id clash (a re-publish supersedes a stale catalog entry).
-// Everything downstream (the lookup maps below, source.ts's static fallback, and
-// the feed) reads the merged result, so published entities surface automatically.
+// ── The committed library.json graph ─────────────────────────────────────────
+// One flat store: { schemaVersion, formats, units, blocks (flat, each carries
+// `kind`), blueprints }. We narrow the JSON-inferred types back to the canonical
+// entity shapes from ./types — the file is generated/edited only via the publish
+// path, so the cast is safe and keeps the inferred union types from leaking out.
 
-/** Concat two arrays, dedupe by `id`, last-writer-wins. `overrides` win on clash. */
-function mergeById<T extends { id: string }>(base: T[], overrides: T[]): T[] {
-  const byId = new Map<string, T>();
-  for (const item of base) byId.set(item.id, item);
-  for (const item of overrides) byId.set(item.id, item); // published wins
-  return Array.from(byId.values());
+interface LibraryFile {
+  schemaVersion: number;
+  formats: Format[];
+  units: Unit[];
+  blocks: Block[];
+  blueprints: Blueprint[];
 }
 
-/** All Units: base catalog merged with published units (published wins by id). */
-export const UNITS: Unit[] = mergeById(BASE_UNITS, PUBLISHED_UNITS);
+const DATA = libraryData as unknown as LibraryFile;
 
-/** Published per-unit Blueprints (#077), deduped by `unitId` (published wins on a
- *  clash). The base catalog ships none today, so this is just the published set;
- *  the dedupe keeps a re-publish idempotent (latest entry replaces the prior one).
- *  Keyed on `unitId` (1:1 with `Unit.id`), not the `id` field `mergeById` expects. */
-function mergeByUnitId(...lists: Blueprint[][]): Blueprint[] {
-  const byUnit = new Map<string, Blueprint>();
-  for (const list of lists) for (const bp of list) byUnit.set(bp.unitId, bp);
-  return Array.from(byUnit.values());
-}
+/** The eight media formats (fixed taxonomy, shipped in library.json). */
+export const FORMATS: Format[] = DATA.formats;
 
-export const BLUEPRINTS: Blueprint[] = mergeByUnitId(PUBLISHED_BLUEPRINTS);
+/** All Units. */
+export const UNITS: Unit[] = DATA.units;
+
+/** All Blueprints (#077), 1:1 with a Unit via `unitId`. */
+export const BLUEPRINTS: Blueprint[] = DATA.blueprints;
 
 /** Blueprint lookup by the unit id it reproduces (1:1 with `Unit.id`). */
 export const BLUEPRINT_BY: Record<string, Blueprint> = Object.fromEntries(
   BLUEPRINTS.map((bp) => [bp.unitId, bp]),
 );
 
-/** All Blocks by kind: base catalog merged with published blocks of each kind.
- *  (The former `style` kind is gone — the look is now a unit Tag.) */
+/** All Blocks grouped by kind. (The former `style` kind is gone — the look is
+ *  now a unit Tag.) The store holds a single flat Block[]; we partition it here. */
 export const BLOCKS: BlocksByKind = {
-  template: mergeById(
-    BASE_BLOCKS.template,
-    PUBLISHED_BLOCKS.filter((b) => b.kind === "template"),
-  ),
-  recipe: mergeById(
-    BASE_BLOCKS.recipe,
-    PUBLISHED_BLOCKS.filter((b) => b.kind === "recipe"),
-  ),
-  asset: mergeById(
-    BASE_BLOCKS.asset,
-    PUBLISHED_BLOCKS.filter((b) => b.kind === "asset"),
-  ),
+  template: DATA.blocks.filter((b) => b.kind === "template"),
+  recipe: DATA.blocks.filter((b) => b.kind === "recipe"),
+  asset: DATA.blocks.filter((b) => b.kind === "asset"),
 };
 
 /** Format lookup by id. */

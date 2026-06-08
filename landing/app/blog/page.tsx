@@ -10,11 +10,26 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { collectTags, listPosts } from "@/lib/blog";
 import { BlogListing } from "@/components/BlogListing";
+import { siteUrl } from "@/lib/site";
+
+const BLOG_DESCRIPTION =
+  "Articles, comparisons, and design notes from the Ralphy team. Open-source UGC pipeline, AI agents, and the model picks behind the renders.";
 
 export const metadata: Metadata = {
-  title: "Blog · Ralphy",
-  description:
-    "Articles, comparisons, and design notes from the Ralphy team. Open-source UGC pipeline, AI agents, and the model picks behind the renders.",
+  title: "Blog",
+  description: BLOG_DESCRIPTION,
+  alternates: { canonical: "/blog" },
+  openGraph: {
+    title: "Ralphy Blog · Field notes",
+    description: BLOG_DESCRIPTION,
+    url: siteUrl("blog"),
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ralphy Blog · Field notes",
+    description: BLOG_DESCRIPTION,
+  },
 };
 
 export default async function BlogIndexPage() {
