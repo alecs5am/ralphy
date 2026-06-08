@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack -p 4173",
     "build": "next build",
     "start": "next start -p 4173",
-    "lint": "next lint"
+    "lint": "next lint",
+    "share-links": "bun run scripts/share-links.ts"
   },
   "dependencies": {
     "@next/third-parties": "^16.2.7",

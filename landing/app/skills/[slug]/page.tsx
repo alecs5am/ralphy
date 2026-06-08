@@ -14,7 +14,8 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { loadSkill, listSkillSlugs } from "@/lib/skills-loader";
 import { SkillDetailView } from "@/components/SkillDetailView";
-import { siteUrl } from "@/lib/site";
+import { siteUrl, SITE_URL } from "@/lib/site";
+import { JsonLd } from "@/components/JsonLd";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -60,6 +61,17 @@ export default async function SkillPage({ params }: PageProps) {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+            { "@type": "ListItem", position: 2, name: "Skills", item: siteUrl("skills") },
+            { "@type": "ListItem", position: 3, name: s.name, item: siteUrl(`skills/${slug}`) },
+          ],
+        }}
+      />
       <div className="dot-bg" aria-hidden />
       <Nav stars={stars} variant="subpage" />
 

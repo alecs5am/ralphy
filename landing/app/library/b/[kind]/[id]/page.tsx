@@ -29,7 +29,8 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { getBlock, getBlocks, getFormats, unitsUsing } from "@/lib/library-v2/source";
 import type { Block, BlockKind } from "@/lib/library-v2/types";
-import { siteUrl } from "@/lib/site";
+import { siteUrl, SITE_URL } from "@/lib/site";
+import { JsonLd } from "@/components/JsonLd";
 import { KIND_META, RECIPE_KIND_META, SUB_META } from "../../../_shared/blockMeta";
 import { AssetMedia, hasRefMedia } from "./AssetMedia";
 import { BlockUnits } from "./BlockUnits";
@@ -161,6 +162,22 @@ export default async function BlockPage({
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+            { "@type": "ListItem", position: 2, name: "Library", item: siteUrl("library") },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: `${block.name} · ${meta.label}`,
+              item: siteUrl(`library/b/${block.kind}/${block.id}`),
+            },
+          ],
+        }}
+      />
       <div className="dot-bg" aria-hidden />
       <Nav stars={stars} variant="subpage" />
 
