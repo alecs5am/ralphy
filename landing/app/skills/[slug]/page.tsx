@@ -14,6 +14,7 @@ import { Footer } from "@/components/Footer";
 import { getDisplayStars } from "@/lib/data";
 import { loadSkill, listSkillSlugs } from "@/lib/skills-loader";
 import { SkillDetailView } from "@/components/SkillDetailView";
+import { siteUrl } from "@/lib/site";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -27,9 +28,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const s = loadSkill(slug);
   if (!s) return { title: "Skills · Ralphy" };
+  const description = s.blurb || `Ralphy skill · ${s.category}.`;
+  const url = siteUrl(`skills/${slug}`);
   return {
-    title: `${s.name} · Ralphy skill`,
-    description: s.blurb || `Ralphy skill · ${s.category}.`,
+    title: { absolute: `${s.name} · Ralphy skill` },
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `${s.name} · Ralphy skill`,
+      description,
+      url,
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${s.name} · Ralphy skill`,
+      description,
+    },
   };
 }
 

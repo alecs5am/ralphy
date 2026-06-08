@@ -1,12 +1,80 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./reset.css";
 import "./globals.css";
 import "./shadcn-tokens.css";
 import { PostHogProvider } from "./providers";
+import { JsonLd } from "@/components/JsonLd";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_REPO,
+  SITE_URL,
+  siteUrl,
+} from "@/lib/site";
+
+// GA4 measurement ID. Public by design (ships in the client bundle), so we
+// hard-code the production id as the default — exactly like the PostHog key in
+// instrumentation-client.ts — and let an env var win for a different property.
+// Set NEXT_PUBLIC_GA_ID="" to disable GA entirely (clean no-op, no script).
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-RW66JP59SS";
 
 export const metadata: Metadata = {
-  title: "Ralphy · Open-source content factory CLI",
-  description: "Turn your coding agent into a one-prompt video marketer. Open-source CLI for TikTok, Reels & YouTube Shorts.",
+  // metadataBase makes every relative og:image / canonical resolve to an
+  // absolute URL. Without it Next warns and emits relative social URLs that
+  // most crawlers and link-unfurlers reject.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Ralphy · Open-source content factory CLI",
+    // Per-page `title: "Library"` renders as "Library · Ralphy". Pages that
+    // need a fully custom title set `title: { absolute: "…" }`.
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "AI video generator",
+    "UGC video",
+    "open source CLI",
+    "TikTok video maker",
+    "Reels generator",
+    "YouTube Shorts",
+    "coding agent",
+    "AI content factory",
+    "faceless video",
+    "Claude Code",
+  ],
+  authors: [{ name: "Ralphy", url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    url: SITE_URL,
+    title: "Ralphy · Open-source content factory CLI",
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ralphy · Open-source content factory CLI",
+    description: SITE_DESCRIPTION,
+  },
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 const BRAND_PRELOADS = [
@@ -46,10 +114,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ))}
       </head>
       <body suppressHydrationWarning>
+        <JsonLd
+          data={[
+            {
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: SITE_NAME,
+              url: SITE_URL,
+              logo: siteUrl("icon.svg"),
+              sameAs: [SITE_REPO],
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: SITE_NAME,
+              url: SITE_URL,
+              description: SITE_DESCRIPTION,
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: `${SITE_URL}/library?q={search_term_string}`,
+                },
+                "query-input": "required name=search_term_string",
+              },
+            },
+          ]}
+        />
         <PostHogProvider>
           <div id="root">{children}</div>
         </PostHogProvider>
       </body>
+      {GA_ID ? <GoogleAnalytics gaId={GA_ID} /> : null}
     </html>
   );
 }

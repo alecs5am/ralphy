@@ -25,6 +25,7 @@ import {
   getUnits,
 } from "@/lib/library-v2/source";
 import type { AssetSub, Block, Format, Unit } from "@/lib/library-v2/types";
+import { siteUrl } from "@/lib/site";
 import { fhue, KIND_META, SUB_META } from "../../_shared/blockMeta";
 import { UnitViewer } from "./UnitViewer";
 import { IngredientPanel } from "./IngredientPanel";
@@ -178,9 +179,22 @@ export async function generateMetadata({
   const { id } = await params;
   const unit = await getUnit(id);
   if (!unit) return { title: "Unit not found · Ralphy Library" };
+  const url = siteUrl(`library/u/${unit.id}`);
   return {
-    title: `${unit.title} · Ralphy Library`,
+    title: { absolute: `${unit.title} · Ralphy Library` },
     description: unit.blurb,
+    alternates: { canonical: url },
+    openGraph: {
+      title: unit.title,
+      description: unit.blurb,
+      url,
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: unit.title,
+      description: unit.blurb,
+    },
   };
 }
 
