@@ -39,11 +39,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url,
       type: "article",
+      // Branded site-default card (prebuilt root route, no per-skill render).
+      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${s.name} · Ralphy skill`,
       description,
+      images: ["/opengraph-image"],
     },
   };
 }
