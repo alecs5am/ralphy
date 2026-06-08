@@ -17,7 +17,7 @@ import {
 // hard-code the production id as the default — exactly like the PostHog key in
 // instrumentation-client.ts — and let an env var win for a different property.
 // Set NEXT_PUBLIC_GA_ID="" to disable GA entirely (clean no-op, no script).
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-RW66JP59SS";
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-W7RLMKEYRJ";
 
 export const metadata: Metadata = {
   // metadataBase makes every relative og:image / canonical resolve to an
