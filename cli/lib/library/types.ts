@@ -2,10 +2,10 @@
 //
 // The PUBLIC content-library entity model, mirrored from
 // `landing/lib/library-v2/types.ts` (the canonical contract). The CLI reads the
-// library straight from Supabase PostgREST (see ./client.ts), so it needs the
-// same entity shapes — but it MUST NOT import across the landing/ boundary (the
-// CLI ships as a standalone binary with no landing/ dir). These interfaces are
-// therefore a deliberate, self-contained COPY of the relevant landing types.
+// library from the static `library.json` on Bunny CDN (see ./client.ts), so it
+// needs the same entity shapes — but it MUST NOT import across the landing/
+// boundary (the CLI ships as a standalone binary with no landing/ dir). These
+// interfaces are therefore a deliberate, self-contained COPY of the landing types.
 //
 // Post Style-removal (#082): the entity model is Unit + Block (kind ∈
 // `template | recipe | asset` — the former `style` kind was demoted to a unit

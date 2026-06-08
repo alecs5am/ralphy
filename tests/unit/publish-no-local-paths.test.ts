@@ -2,19 +2,19 @@
 // into a published entity (#056 leak root-cause).
 //
 // The fixed bug: publishing leaked absolute local paths
-// (`/Users/<user>/.../workspace/projects/...`) into the live library via
+// (`/Users/<user>/.../workspace/projects/...`) into the published library via
 // blueprint `assets[].path` / `composition.file` (no Storage upload) and via
-// publishBlock writing raw local `refs` to the DB. These expose the maintainer's
-// filesystem and never resolve for other users.
+// publishBlock writing raw local `refs`. These expose the maintainer's filesystem
+// and never resolve for other users.
 //
 // This test spawns the script the way it is actually invoked (from `landing/`)
-// in DRY-RUN with NO --push and NO Supabase / S3 creds, against fixtures whose
-// path-like fields carry an absolute `/Users/.../workspace/projects/...` path.
-// It locks:
-//   1. Blueprint, no storageUrl  -> the planned published object + DB upsert
-//      carry NO absolute-path / `workspace/projects` substring; the value is
-//      reduced to a basename.
-//   2. Block refs, no storageUrl -> same: no local path reaches the DB or mirror.
+// in DRY-RUN with NO --push and NO Bunny creds, against fixtures whose path-like
+// fields carry an absolute `/Users/.../workspace/projects/...` path. It locks:
+//   1. Blueprint, no storageUrl  -> the planned published object carries NO
+//      absolute-path / `workspace/projects` substring; the value is reduced to a
+//      basename.
+//   2. Block refs, no storageUrl -> same: no local path reaches the library.json
+//      value.
 //   3. Positive case: an absolute path WITH a storageUrl publishes the storageUrl
 //      (or a curated relative form), never the local path.
 //
@@ -29,7 +29,7 @@ import os from "node:os";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const LANDING = path.join(REPO, "landing");
-const PUBLISHED_TS = path.join(LANDING, "lib", "library-v2", "published.ts");
+const LIBRARY_JSON = path.join(LANDING, "lib", "library-v2", "library.json");
 
 // An absolute local path that mimics the leaked shape: an absolute /Users path
 // AND a workspace/projects segment. Either alone must be refused.
@@ -39,24 +39,24 @@ const LEAKY_ABS =
 let tmpDir: string;
 
 /**
- * Extract the `DB upserts (...)` section of the dry-run plan — the lines that
- * describe the EXACT jsonb that would be upserted. The sanitizer guarantee is
- * about PUBLISHED values (the DB row + the published.ts mirror), NOT the
- * operator-facing diagnostics (the WARN that echoes the offending path so the
- * maintainer can locate it, and the "[missing local!]" upload-source lines that
- * legitimately name the local file an upload would read FROM).
+ * Extract the `library.json value: <json>` line of the dry-run plan — the EXACT
+ * compact-JSON object that WOULD be written to library.json. The sanitizer
+ * guarantee is about that PUBLISHED value, NOT the operator-facing diagnostics
+ * (the WARN that echoes the offending path so the maintainer can locate it, and
+ * the "[missing local!]" upload-source lines that legitimately name the local
+ * file an upload would read FROM).
  */
-function dbUpsertSection(stdout: string): string {
-  const start = stdout.indexOf("DB upserts (");
+function libraryValue(stdout: string): string {
+  const marker = "library.json value: ";
+  const start = stdout.indexOf(marker);
   if (start < 0) return "";
-  const after = stdout.slice(start);
-  // The section runs until the next blank-line-separated heading.
-  const end = after.indexOf("\n\npublished.ts edit:");
-  return end < 0 ? after : after.slice(0, end);
+  const after = stdout.slice(start + marker.length);
+  const nl = after.indexOf("\n");
+  return nl < 0 ? after : after.slice(0, nl);
 }
 
-/** Run publish-entity.ts from landing/, scrubbing every Supabase/S3/Bunny secret
- *  so a stray --push could not touch anything remote. Optionally inject a fake
+/** Run publish-entity.ts from landing/, scrubbing every Supabase/Bunny secret so
+ *  a stray --push could not touch anything remote. Optionally inject a fake
  *  BUNNY_CDN_BASE so publicUrlFor() returns a CDN URL (positive case). */
 function run(
   args: string[],
@@ -121,14 +121,14 @@ function writeLeakyBlueprint(unitId: string): string {
 }
 
 describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () => {
-  test("blueprint with leaky asset.path / composition.file (no storageUrl): no abs path in plan, reduced to basename, published.ts untouched", () => {
-    const before = fs.readFileSync(PUBLISHED_TS, "utf8");
+  test("blueprint with leaky asset.path / composition.file (no storageUrl): no abs path in plan, reduced to basename, library.json untouched", () => {
+    const before = fs.readFileSync(LIBRARY_JSON, "utf8");
     const dir = writeLeakyBlueprint("test-leak-blueprint");
 
     const r = run(["--blueprint", dir]);
     // Exit 0 proves the backstop assertion PASSED — i.e. the serialized published
-    // Blueprint + DB jsonb (built via buildPublished, asserted before the dry-run
-    // print) carried no local path. A surviving leak would have thrown -> exit 1.
+    // Blueprint (built via buildPublished, asserted before the dry-run print)
+    // carried no local path. A surviving leak would have thrown -> exit 1.
     expect(r.exitCode).toBe(0);
 
     const combined = `${r.stdout}\n${r.stderr}`;
@@ -140,12 +140,12 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
     expect(combined).toContain('-> "char-guide.png"');
 
     // Nothing written.
-    expect(fs.readFileSync(PUBLISHED_TS, "utf8")).toBe(before);
-    expect(r.stdout).toContain("nothing uploaded, no DB writes, published.ts untouched");
+    expect(fs.readFileSync(LIBRARY_JSON, "utf8")).toBe(before);
+    expect(r.stdout).toContain("nothing uploaded, library.json untouched");
   });
 
-  test("block refs with a leaky local path (no storageUrl): refs reduced to basename, no abs path, published.ts untouched", () => {
-    const before = fs.readFileSync(PUBLISHED_TS, "utf8");
+  test("block refs with a leaky local path (no storageUrl): refs reduced to basename, no abs path, library.json untouched", () => {
+    const before = fs.readFileSync(LIBRARY_JSON, "utf8");
     const block = {
       kind: "asset",
       id: "test-leak-block",
@@ -157,20 +157,20 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
     fs.writeFileSync(blockFile, JSON.stringify(block));
 
     const r = run(["--block-file", blockFile]);
-    // Exit 0 proves the backstop passed (the DB upsert values + published Block
-    // were asserted clean before the dry-run print).
+    // Exit 0 proves the backstop passed (the published Block value was asserted
+    // clean before the dry-run print).
     expect(r.exitCode).toBe(0);
 
-    // The DB upsert row (the EXACT jsonb that would be written) must carry the
-    // sanitized refs — basename only, NO absolute path, NO workspace/projects.
-    const db = dbUpsertSection(r.stdout);
-    expect(db).toContain('"refs":["char-guide.png"]');
-    expect(db).not.toContain("/Users/");
-    expect(db).not.toContain("workspace/projects");
+    // The library.json value (the EXACT object that would be written) must carry
+    // the sanitized refs — basename only, NO absolute path, NO workspace/projects.
+    const value = libraryValue(r.stdout);
+    expect(value).toContain('"refs":["char-guide.png"]');
+    expect(value).not.toContain("/Users/");
+    expect(value).not.toContain("workspace/projects");
     // And the sanitizer announced the rewrite.
     expect(`${r.stdout}\n${r.stderr}`.toLowerCase()).toContain("sanitized local path");
 
-    expect(fs.readFileSync(PUBLISHED_TS, "utf8")).toBe(before);
+    expect(fs.readFileSync(LIBRARY_JSON, "utf8")).toBe(before);
   });
 
   test("positive: an absolute asset.path WITH a resolvable storageUrl publishes the storageUrl form, not the local path", () => {
@@ -213,14 +213,15 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
     expect(r.stdout).toContain(`blueprints/${unitId}/assets/char-guide.png`);
     // No sanitize-WARN here: nothing was a local path to begin with.
     expect(`${r.stdout}\n${r.stderr}`.toLowerCase()).not.toContain("sanitized local path");
-    // The published.ts edit-plan line names the unit, not a local path.
-    expect(r.stdout).toContain(`PUBLISHED_BLUEPRINTS[unitId=${unitId}]`);
+    // The library.json edit-plan line names the unit, not a local path.
+    expect(r.stdout).toContain(`blueprints[unitId=${unitId}]`);
   });
 
   test("positive: a block ref that is an ABSOLUTE local path WITH a resolvable storageUrl publishes the storageUrl, not the local path", () => {
     // The ref is an absolute local path; with BUNNY_CDN_BASE set,
     // publicUrlFor() resolves to a CDN public URL. The sanitizer must prefer
-    // that URL over the basename — and the absolute path must never reach the DB.
+    // that URL over the basename — and the absolute path must never reach the
+    // published library value.
     const id = "test-leak-block-storage";
     const block = {
       kind: "asset",
@@ -237,12 +238,12 @@ describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () =>
     });
     expect(r.exitCode).toBe(0);
 
-    const db = dbUpsertSection(r.stdout);
+    const value = libraryValue(r.stdout);
     // The published ref is the CDN public URL, NOT the local path.
-    expect(db).toContain(
+    expect(value).toContain(
       `https://ralphy.b-cdn.net/blocks/asset/${id}/char-guide.png`,
     );
-    expect(db).not.toContain("/Users/");
-    expect(db).not.toContain("workspace/projects");
+    expect(value).not.toContain("/Users/");
+    expect(value).not.toContain("workspace/projects");
   });
 });
