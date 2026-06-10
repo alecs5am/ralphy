@@ -9,7 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { artifactKindDir, projectsDir } from "../lib/paths.js";
+import { artifactKindDir, projectDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
@@ -147,7 +147,7 @@ type Manifest = {
 };
 
 async function readManifest(projectId: string): Promise<Manifest> {
-  const manifestPath = path.join(projectsDir(), projectId, "asset-manifest.json");
+  const manifestPath = path.join(projectDir(projectId), "asset-manifest.json");
   if (!existsSync(manifestPath)) return { slots: {} };
   const raw = await fs.readFile(manifestPath, "utf8").catch(() => "");
   if (!raw) return { slots: {} };
@@ -161,7 +161,7 @@ async function readManifest(projectId: string): Promise<Manifest> {
 }
 
 async function writeManifest(projectId: string, m: Manifest): Promise<void> {
-  const dir = path.join(projectsDir(), projectId);
+  const dir = projectDir(projectId);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(
     path.join(dir, "asset-manifest.json"),
@@ -171,7 +171,7 @@ async function writeManifest(projectId: string, m: Manifest): Promise<void> {
 }
 
 async function ensureProject(projectId: string): Promise<void> {
-  const dir = path.join(projectsDir(), projectId);
+  const dir = projectDir(projectId);
   if (!existsSync(dir)) {
     raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
   }
@@ -385,7 +385,7 @@ export function generateCmd() {
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image. See `ralphy provider list`.")
     .option(
       "--ref <ref...>",
-      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI. Path-only refs resolve cwd-first, then `workspace/projects/<id>/` and `workspace/projects/<id>/artifacts/refs/` (#025). NBSP / zero-width whitespace in macOS screenshot paths is auto-normalized with a stderr warning.",
+      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI. Path-only refs resolve cwd-first, then `<project>/` and `<project>/artifacts/refs/` (#025), then the project's workspace `shared/` tier — `--ref shared/cast/nurse.png` targets `workspaces/<ws>/shared/cast/nurse.png` (#108). NBSP / zero-width whitespace in macOS screenshot paths is auto-normalized with a stderr warning.",
     )
     .option(
       "--ref-file <path>",
@@ -1344,7 +1344,7 @@ export function generateCmd() {
       const outPath = explicitOut
         ? path.resolve(explicitOut)
         : opts.legacyOutput
-          ? path.join(projectsDir(), opts.project, "captions.json")
+          ? path.join(projectDir(opts.project), "captions.json")
           : path.join(artifactKindDir(opts.project, "captions"), `${slot}.json`);
       await fs.mkdir(path.dirname(outPath), { recursive: true });
 
@@ -1359,7 +1359,7 @@ export function generateCmd() {
       // on top of the built-in floor.
       const brandSpellingPath =
         (opts.brandSpelling as string | undefined) ??
-        path.join(projectsDir(), opts.project, "brand-spelling.json");
+        path.join(projectDir(opts.project), "brand-spelling.json");
       let projectDict: BrandSpellingDict | null = null;
       try {
         const raw = await fs.readFile(brandSpellingPath, "utf8");

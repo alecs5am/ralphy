@@ -202,13 +202,12 @@ program.action(async () => {
   const { root } = await import("./lib/paths.js");
   const { isPrettyMode, banner, section, kv, bar, skillPath, c, icons } = await import("./lib/ui.js");
   const { saveUserProfile } = await import("./lib/user-profile.js");
-  const path = await import("node:path");
 
   let profile = await loadUserProfile();
   if (profile.signals.projects_done === 0 && profile.signals.renders_shipped === 0) {
     try {
-      const workspaceRoot = path.join(root(), "workspace");
-      const fromDisk = await backfillFromWorkspace({ workspaceRoot });
+      const { projectsDir } = await import("./lib/paths.js");
+      const fromDisk = await backfillFromWorkspace({ projectsDir: projectsDir() });
       profile.signals = { ...profile.signals, ...fromDisk };
       if (profile.skill.user_override === null) {
         profile.skill.score = computeSkillScore(profile.signals);

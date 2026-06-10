@@ -12,9 +12,8 @@
 //   ralphy whoami --bump-session        → increment sessions_count (called by index.ts on first invocation per day)
 
 import { Command } from "commander";
-import path from "node:path";
 import { out, err } from "../lib/output.js";
-import { root } from "../lib/paths.js";
+import { projectsDir } from "../lib/paths.js";
 import {
   loadUserProfile,
   saveUserProfile,
@@ -89,8 +88,7 @@ export function whoamiCmd(): Command {
 
       if (opts.backfill || (profile.signals.projects_done === 0 && profile.signals.renders_shipped === 0)) {
         // First-run OR explicit --backfill → scan workspace.
-        const workspaceRoot = path.join(root(), "workspace");
-        const fromDisk = await backfillFromWorkspace({ workspaceRoot });
+        const fromDisk = await backfillFromWorkspace({ projectsDir: projectsDir() });
         profile.signals = { ...profile.signals, ...fromDisk };
         if (profile.signals.first_template_used_at === null && fromDisk.projects_done > 0) {
           profile.signals.first_template_used_at = new Date().toISOString();

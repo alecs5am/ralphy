@@ -31,7 +31,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { ensureFfmpeg } from "./ffmpeg-recipes.js";
 import { logGeneration } from "./gen-log.js";
-import { projectsDir, resolveArtifactKindDirs } from "./paths.js";
+import { resolveArtifactKindDirs, projectDir } from "./paths.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -170,7 +170,7 @@ async function listDir(dirs: string | string[], exts: string[]): Promise<string[
  * Timeline before calling renderTimeline().
  */
 export async function buildTimelineFromProject(projectId: string): Promise<Timeline> {
-  const dir = path.join(projectsDir(), projectId);
+  const dir = projectDir(projectId);
   // #105 legacy fallback (removed by #106): scan artifacts/<kind>/ plus the
   // legacy assets/<kind>/ tree so mid-migration projects see all clips.
   const videosDirs = resolveArtifactKindDirs(projectId, "videos");

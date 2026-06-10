@@ -66,7 +66,17 @@ describe("#105 artifact layout — write-side helpers", () => {
     expect(legacyArtifactKindDir(PROJECT, "refs")).toBe(path.join(base, "refs"));
   });
 
-  test("global registry refsDir() is NOT per-project and stays under workspace/.ralph/", () => {
+  test("global registry refsDir() is NOT per-project — new scheme: active workspace shared/refs (#108)", () => {
+    // Empty tmp root → "ralphy" layout mode → registry entity refs live in
+    // the active workspace's shared/ tree.
+    expect(refsDir()).toBe(
+      path.join(tmp, ".ralphy", "workspaces", "default", "shared", "refs"),
+    );
+  });
+
+  test("global registry refsDir() — legacy roots keep workspace/.ralph/refs (#108 legacy fallback)", () => {
+    fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
+    setRoot(tmp); // re-detect layout mode against the legacy fixture tree
     expect(refsDir()).toBe(path.join(tmp, "workspace", ".ralph", "refs"));
   });
 });

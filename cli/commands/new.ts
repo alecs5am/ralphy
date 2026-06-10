@@ -21,7 +21,7 @@ import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { c, isPrettyMode } from "../lib/ui.js";
 import { addEntity } from "../lib/registry.js";
-import { ARTIFACT_KINDS, artifactKindDir, projectsDir } from "../lib/paths.js";
+import { ARTIFACT_KINDS, artifactKindDir, projectDir } from "../lib/paths.js";
 
 function legacyRalphyHome(): string {
   return process.env.RALPHY_HOME || path.join(os.homedir(), ".ralphy");
@@ -100,26 +100,26 @@ export function newCmd(): Command {
       const brief = briefTokens.join(" ").trim();
       const id = (opts.id as string | undefined) ?? (brief ? slugify(brief) : autoId());
       const name = (opts.name as string | undefined) ?? titleCaseFromId(id);
-      const projectDir = path.join(projectsDir(), id);
-      if (fs.existsSync(projectDir)) {
+      const projDir = projectDir(id);
+      if (fs.existsSync(projDir)) {
         raiseError("E_ALREADY_EXISTS", { kind: "Project", id });
       }
 
       // Canonical layout (mirrors `project create`). #105: one
       // artifacts/<kind>/ tree per project (refs is a kind).
-      await fsp.mkdir(projectDir, { recursive: true });
+      await fsp.mkdir(projDir, { recursive: true });
       for (const k of ARTIFACT_KINDS) {
         await fsp.mkdir(artifactKindDir(id, k), { recursive: true });
       }
-      await fsp.mkdir(path.join(projectDir, "render"), { recursive: true });
-      await fsp.mkdir(path.join(projectDir, "logs"), { recursive: true });
+      await fsp.mkdir(path.join(projDir, "render"), { recursive: true });
+      await fsp.mkdir(path.join(projDir, "logs"), { recursive: true });
 
       if (brief) {
-        await fsp.writeFile(path.join(projectDir, "BRIEF.md"), brief + "\n");
+        await fsp.writeFile(path.join(projDir, "BRIEF.md"), brief + "\n");
       }
       // Touch the append-only logs so downstream tools can stat them.
       for (const f of ["generations.jsonl", "user-prompts.jsonl", "user-assets.jsonl"]) {
-        await fsp.writeFile(path.join(projectDir, "logs", f), "");
+        await fsp.writeFile(path.join(projDir, "logs", f), "");
       }
 
       const data: Record<string, unknown> = {
@@ -141,7 +141,7 @@ export function newCmd(): Command {
 
       const payload = {
         project_id: id,
-        path: projectDir,
+        path: projDir,
         name,
         ...(brief ? { brief } : {}),
         ...project,

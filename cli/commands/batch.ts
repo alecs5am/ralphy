@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { addEntity, listEntities, deleteEntity } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { batchesDir, projectsDir } from "../lib/paths.js";
+import { batchesDir, projectDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
@@ -171,7 +171,7 @@ export function batchCmd() {
       if (!isVaryAxis(axis)) {
         raiseError("E_FLAG_UNKNOWN", { flag: "axis", value: axis, allowed: VARY_AXES.join(" | "), verb: "batch vary" });
       }
-      const baseDir = path.join(projectsDir(), opts.base);
+      const baseDir = projectDir(opts.base);
       let baseScenario: Record<string, unknown>;
       try {
         baseScenario = JSON.parse(await fs.readFile(path.join(baseDir, "scenario.json"), "utf-8"));
@@ -198,7 +198,7 @@ export function batchCmd() {
       const planned: Array<{ id: string; dir: string; swap: Record<string, unknown> }> = [];
       for (let i = 0; i < n; i++) {
         const id = `${opts.base}-${suffix}${i + 1}`;
-        const dir = path.join(projectsDir(), id);
+        const dir = projectDir(id);
         const swap = swaps[i] ?? {};
         planned.push({ id, dir, swap });
       }

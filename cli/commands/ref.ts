@@ -7,7 +7,7 @@ import { slugify, generateId } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { scoreTikTok } from "../lib/score.js";
-import { root } from "../lib/paths.js";
+import { root, projectDir, referencesDir } from "../lib/paths.js";
 import {
   pullReference,
   sampleFrames,
@@ -25,7 +25,7 @@ import { intakePath } from "../lib/path-resolution.js";
 import { rasterizeSvg } from "../lib/image/cutout.js";
 import { bulkFetch, readUrlList } from "../lib/bulk-fetch.js";
 import { logGeneration } from "../lib/gen-log.js";
-import { projectsDir, projectRefsDir } from "../lib/paths.js";
+import { projectRefsDir } from "../lib/paths.js";
 import { extractSite } from "../lib/playwright/site-extract.js";
 
 export function refCmd() {
@@ -217,7 +217,7 @@ export function refCmd() {
       });
       return;
     }
-    const projDir = path.join(projectsDir(), projectId);
+    const projDir = projectDir(projectId);
     const refsLocalDir = projectRefsDir(projectId);
     const results = await bulkFetch({
       urls,
@@ -318,7 +318,7 @@ export function refCmd() {
       // workspace-level references/<slug>/ scratch dir.
       const outDir = projectId
         ? projectRefsDir(projectId)
-        : path.join(root(), "workspace", "references", new URL(url).hostname.replace(/^www\./, ""));
+        : path.join(referencesDir(), new URL(url).hostname.replace(/^www\./, ""));
       if (projectId) {
         const project = await getEntity("projects", projectId);
         if (!project) {
@@ -350,7 +350,7 @@ export function refCmd() {
                 kind_hint: "reference-website",
               },
               output: {
-                local: path.relative(path.join(projectsDir(), projectId), page.screenshotPath),
+                local: path.relative(projectDir(projectId), page.screenshotPath),
               },
               status: "ok",
               cost_usd: 0,
@@ -360,7 +360,7 @@ export function refCmd() {
           }
         }
         ok(`Crawled ${result.pages.length} page${result.pages.length === 1 ? "" : "s"} → ${path.relative(root(), outDir)}`);
-        const projRoot = projectId ? path.join(projectsDir(), projectId) : root();
+        const projRoot = projectId ? projectDir(projectId) : root();
         out({
           url,
           slug: result.slug,
@@ -629,7 +629,7 @@ export function refCmd() {
       const date = new Date().toISOString().slice(0, 10);
       const outPath = path.resolve(
         opts.out ??
-          path.join(root(), "workspace", "references", `trends-${date}`, "results.json")
+          path.join(referencesDir(), `trends-${date}`, "results.json")
       );
       const scriptPath = path.resolve(
         root(),
@@ -701,10 +701,10 @@ export function refCmd() {
       // Branch 2 — read project scenario.json + attached refs.
       const project = await getEntity("projects", projectId);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-      const projectDir = path.join(root(), "workspace", "projects", projectId);
+      const projDir = projectDir(projectId);
       let scenario: any = null;
       try {
-        const raw = await fs.readFile(path.join(projectDir, "scenario.json"), "utf-8");
+        const raw = await fs.readFile(path.join(projDir, "scenario.json"), "utf-8");
         scenario = JSON.parse(raw);
       } catch {
         // No scenario yet — fall back to project.brief / name / description.

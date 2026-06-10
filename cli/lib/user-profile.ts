@@ -165,7 +165,10 @@ export function bandForScore(score: number): SkillBand {
 // ─── Backfill from workspace ─────────────────────────────────────────────────
 
 export type BackfillOptions = {
-  workspaceRoot: string;
+  /** Legacy form: scans <workspaceRoot>/projects. */
+  workspaceRoot?: string;
+  /** Preferred (#108): the layout-aware projects dir (paths.projectsDir()). */
+  projectsDir?: string;
 };
 
 export type BackfillSignals = Pick<
@@ -174,7 +177,7 @@ export type BackfillSignals = Pick<
 >;
 
 export async function backfillFromWorkspace(opts: BackfillOptions): Promise<BackfillSignals> {
-  const projectsDir = path.join(opts.workspaceRoot, "projects");
+  const projectsDir = opts.projectsDir ?? path.join(opts.workspaceRoot ?? "", "projects");
   let entries: import("fs").Dirent[] = [];
   try {
     entries = await fs.readdir(projectsDir, { withFileTypes: true });
