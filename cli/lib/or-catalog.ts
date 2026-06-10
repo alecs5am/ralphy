@@ -12,7 +12,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
-import { root } from "./paths.js";
+import { ralphDir } from "./paths.js";
 
 export type VideoModel = {
   id: string;
@@ -34,7 +34,7 @@ export type Catalog = {
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 function catalogPath(): string {
-  return path.join(root(), "workspace", ".ralph", "or-catalog.json");
+  return path.join(ralphDir(), "or-catalog.json");
 }
 
 export async function getOrCatalog(

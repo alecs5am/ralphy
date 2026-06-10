@@ -7,7 +7,7 @@ import {
   resolveDownloadUrl,
   downloadVerified,
 } from "../lib/assets-repo.js";
-import { assetCacheDir, projectsDir } from "../lib/paths.js";
+import { assetCacheDir, projectDir } from "../lib/paths.js";
 import { addEntity } from "../lib/registry.js";
 import { out, ok, err } from "../lib/output.js";
 
@@ -50,7 +50,7 @@ export function exampleCmd() {
       if (!entry) err(`Example not in manifest: ${exampleId}`);
 
       const localId = opts.as;
-      const projDir = path.join(projectsDir(), localId);
+      const projDir = projectDir(localId);
       try {
         await fs.access(projDir);
         err(`Project already exists: ${localId} (pick a different --as)`);

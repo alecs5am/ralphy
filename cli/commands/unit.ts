@@ -20,7 +20,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { imageSize } from "image-size";
-import { projectsDir } from "../lib/paths.js";
+import { projectDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
@@ -134,7 +134,7 @@ function buildMediaMeta(unitDir: string, basenames: string[]): Record<string, Un
 
 /** Resolve `<project>` to its on-disk dir, refusing if it does not exist. */
 function resolveProjectDir(projectId: string): string {
-  const dir = path.join(projectsDir(), projectId);
+  const dir = projectDir(projectId);
   if (!existsSync(dir)) {
     raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
   }

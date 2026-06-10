@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { addEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { templatesDir, projectsDir, ARTIFACT_KINDS, artifactKindDir, resolveArtifactKindDirs } from "../lib/paths.js";
+import { templatesDir, ARTIFACT_KINDS, artifactKindDir, resolveArtifactKindDirs, projectDir } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
@@ -270,7 +270,7 @@ export function templateCmd() {
       let data: any = { name: opts.name };
 
       if (opts.fromProject) {
-        const scenarioPath = path.join(projectsDir(), opts.fromProject, "scenario.json");
+        const scenarioPath = path.join(projectDir(opts.fromProject), "scenario.json");
         try {
           data.scenario = JSON.parse(await fs.readFile(scenarioPath, "utf-8"));
         } catch {
@@ -530,7 +530,7 @@ export function templateCmd() {
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
 
       const projectId = opts.project;
-      const projDir = path.join(projectsDir(), projectId);
+      const projDir = projectDir(projectId);
       try {
         await fs.access(projDir);
         raiseError("E_ALREADY_EXISTS", { kind: "Project", id: projectId });
@@ -748,7 +748,7 @@ export function templateCmd() {
       const ex = await import("../lib/templater/extract.js");
       const { logGeneration } = await import("../lib/gen-log.js");
 
-      const projDir = path.join(projectsDir(), projectId);
+      const projDir = projectDir(projectId);
       try { await fs.access(projDir); } catch {
         raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
       }

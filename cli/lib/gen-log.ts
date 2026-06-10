@@ -18,7 +18,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { projectsDir } from "./paths.js";
+import { projectDir } from "./paths.js";
 
 // Open enum: the listed ids are the known/bundled providers (kept for
 // autocomplete + grep), but any connector id is accepted now that providers are
@@ -191,7 +191,7 @@ export type UserPromptEntry = {
 };
 
 function logsDir(projectId: string) {
-  return path.join(projectsDir(), projectId, "logs");
+  return path.join(projectDir(projectId), "logs");
 }
 
 async function appendJsonl(file: string, entry: unknown) {

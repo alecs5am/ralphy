@@ -5,15 +5,8 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
-import {
-  ARTIFACT_KINDS,
-  artifactKindDir,
-  artifactsDir,
-  legacyAssetsRootDir,
-  projectRefsDir,
-  projectsDir,
-  resolveArtifactKindDirs,
-} from "../lib/paths.js";
+import { ARTIFACT_KINDS, artifactKindDir, artifactsDir, legacyAssetsRootDir, projectRefsDir, resolveArtifactKindDirs, projectDir, layoutMode, workspaceDir } from "../lib/paths.js";
+import { existsSync } from "node:fs";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
@@ -38,7 +31,7 @@ function titleCaseFromId(id: string): string {
 }
 
 async function getProjectStatus(id: string) {
-  const dir = path.join(projectsDir(), id);
+  const dir = projectDir(id);
   const hasScenario = !!(await safeJson(path.join(dir, "scenario.json")));
   const hasPrompts = !!(await safeJson(path.join(dir, "prompts.json")));
   const hasManifest = !!(await safeJson(path.join(dir, "asset-manifest.json")));
@@ -89,7 +82,7 @@ export function projectCmd() {
       }
       const id = opts.id || slugify(opts.name) || generateId("proj");
       const name: string = opts.name || titleCaseFromId(id);
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       await fs.mkdir(dir, { recursive: true });
       // #105: one artifacts/<kind>/ tree per project (refs is a kind).
       for (const k of ARTIFACT_KINDS) {
@@ -190,7 +183,7 @@ export function projectCmd() {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
 
       if (opts.tree) {
         // Walk the project tree up to depth 4, emit { path, size_bytes } per file.
@@ -282,7 +275,7 @@ export function projectCmd() {
     .description("Delete a project")
     .option("--keep-render", "Keep the final rendered video")
     .action(async (id: string, opts: any) => {
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       try {
         if (opts.keepRender) {
           // Delete everything except render/
@@ -550,7 +543,7 @@ export function projectCmd() {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       const scenario = (await safeJson(
-        path.join(projectsDir(), id, "scenario.json")
+        path.join(projectDir(id), "scenario.json")
       )) as Scenario | null;
       if (!scenario) err(`No scenario.json found for ${id}`);
 
@@ -579,10 +572,10 @@ export function projectCmd() {
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
       const audioPath = path.resolve(opts.audio);
-      const projectDir = path.join(projectsDir(), id);
+      const projDir = projectDir(id);
       const outPath = opts.out
         ? path.resolve(opts.out)
-        : path.join(projectDir, "captions.json");
+        : path.join(projDir, "captions.json");
 
       const language = (opts.language || "ru") as TranscribeLanguage;
       const backend = (opts.backend || "elevenlabs") as TranscribeBackend;
@@ -643,15 +636,53 @@ export function projectCmd() {
     .description("Clone a project")
     .requiredOption("--name <name>", "New project name")
     .action(async (id: string, opts: any) => {
-      const src = path.join(projectsDir(), id);
+      const src = projectDir(id);
       const newId = slugify(opts.name) || generateId("proj");
-      const dst = path.join(projectsDir(), newId);
+      const dst = projectDir(newId);
       await fs.cp(src, dst, { recursive: true });
 
       const project = await getEntity("projects", id);
       await addEntity("projects", newId, { ...(project || {}), name: opts.name, id: newId, createdAt: new Date().toISOString() });
       ok(`Project cloned: ${id} → ${newId}`);
       out({ id: newId, clonedFrom: id });
+    });
+
+  // ── move (#108) ────────────────────────────────────────────────────────
+  cmd
+    .command("move <id> <workspace>")
+    .description(
+      "Move a project into another workspace's projects/ and update its registry entry. Precondition: no background job (ralphy generate / render) may be mid-flight on the project — its file paths go stale on move.",
+    )
+    .action(async (id: string, targetWs: string) => {
+      if (layoutMode() === "legacy") {
+        // #108 legacy fallback (removed by #106)
+        raiseError("E_LEGACY_LAYOUT", { verb: "project move" });
+      }
+      const project = await getEntity("projects", id);
+      const src = projectDir(id);
+      if (!project && !existsSync(src)) {
+        raiseError("E_NOT_FOUND", { kind: "Project", id });
+      }
+      if (!existsSync(workspaceDir(targetWs))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: targetWs });
+      }
+      const dst = path.join(workspaceDir(targetWs), "projects", id);
+      if (src === dst) {
+        out({ id, workspace: targetWs, moved: false, note: "already in target workspace" });
+        return;
+      }
+      if (existsSync(dst)) {
+        raiseError("E_ALREADY_EXISTS", { kind: "Project", id: path.join(targetWs, "projects", id) });
+      }
+      if (existsSync(src)) {
+        await fs.mkdir(path.dirname(dst), { recursive: true });
+        await fs.rename(src, dst);
+      }
+      if (project) {
+        await updateEntity("projects", id, { workspace: targetWs });
+      }
+      ok(`Project moved: ${id} → ${targetWs}`);
+      out({ id, workspace: targetWs, from: src, to: dst, moved: true });
     });
 
   // ── assets ─────────────────────────────────────────────────────────────
@@ -669,7 +700,7 @@ export function projectCmd() {
     .action(async (id: string, opts: { kind?: string }) => {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
 
       try {
         ensureFfprobe();
@@ -761,7 +792,7 @@ export function projectCmd() {
     )
     .option("--strict", "Treat warnings (missing optional metadata) as errors too", false)
     .action(async (id: string, opts: { strict?: boolean }) => {
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       try { await fs.access(dir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id }); }
 
       try {
@@ -913,7 +944,7 @@ export function projectCmd() {
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       const src = opts.src
         ? (path.isAbsolute(opts.src) ? opts.src : path.join(dir, opts.src))
         : path.join(dir, "render", "final.mp4");
@@ -964,7 +995,7 @@ export function projectCmd() {
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       let files: string[];
       if (opts.src) {
         const p = path.isAbsolute(opts.src) ? opts.src : path.join(dir, opts.src);
@@ -1016,7 +1047,7 @@ export function projectCmd() {
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       // #105 legacy fallback (removed by #106): scan artifacts/images/ + legacy assets/images/.
       const imagesDirs = resolveArtifactKindDirs(id, "images");
       const entryToDir = new Map<string, string>();
@@ -1086,7 +1117,7 @@ export function projectCmd() {
           detail: "pass --selected (cherry-picked deliverables) or --all (full project minus logs/cache)",
         });
       }
-      const dir = path.join(projectsDir(), id);
+      const dir = projectDir(id);
       const t0 = Date.now();
       const dst = opts.out
         ? path.resolve(opts.out)

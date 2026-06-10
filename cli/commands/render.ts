@@ -10,7 +10,7 @@ import { Command } from "commander";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { projectsDir, resolveArtifactKindDirs } from "../lib/paths.js";
+import { resolveArtifactKindDirs, projectDir } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -239,7 +239,7 @@ render/final.mp4 (append-only).
       const emitSocial = opts.compress !== false;
 
       if (opts.dryRun) {
-        const renderDir = path.join(projectsDir(), projectId, "render");
+        const renderDir = path.join(projectDir(projectId), "render");
         const renderFinal = opts.output ? path.resolve(opts.output) : path.join(renderDir, "final.mp4");
         // The social sibling sits next to the master: <basename>-social.mp4.
         const socialFinal = path.join(
@@ -296,7 +296,7 @@ render/final.mp4 (append-only).
       }
 
       const cs = new CommandStream();
-      const renderDir = path.join(projectsDir(), projectId, "render");
+      const renderDir = path.join(projectDir(projectId), "render");
       await fs.mkdir(renderDir, { recursive: true });
       const renderRaw = path.join(renderDir, "final.raw.mp4");
       const renderFinal = opts.output
@@ -304,7 +304,7 @@ render/final.mp4 (append-only).
         : path.join(renderDir, "final.mp4");
       const ui = await import("../lib/ui.js");
 
-      const projectDir = path.join(projectsDir(), projectId);
+      const projDir = projectDir(projectId);
 
       // --from-clip mode (#009): pure-clip deliverable — no HF engine run.
       // Faststart-wrap the source clip into renderFinal, then run the same
@@ -487,9 +487,9 @@ render/final.mp4 (append-only).
         return;
       }
 
-      if (!looksLikeHyperframesProject(projectDir)) {
+      if (!looksLikeHyperframesProject(projDir)) {
         raiseError("E_FILE_UNREADABLE", {
-          path: path.join(projectDir, "index.html"),
+          path: path.join(projDir, "index.html"),
         });
       }
       const compositionLabel = opts.composition ?? "index.html";
@@ -502,7 +502,7 @@ render/final.mp4 (append-only).
       // through and let upstream surface the clearer error.
       let lintResult;
       try {
-        lintResult = await lintHyperframesProject(projectDir, opts.composition);
+        lintResult = await lintHyperframesProject(projDir, opts.composition);
       } catch (err) {
         if ((err as { code?: string } | undefined)?.code !== "ENOENT") {
           throw err;
@@ -535,7 +535,7 @@ render/final.mp4 (append-only).
         `Rendering ${compositionLabel} (hyperframes) → ${path.basename(renderOut)}`,
         () =>
           runHyperframesRender({
-            projectDir,
+            projectDir: projDir,
             outputPath: renderOut,
             composition: opts.composition,
             fps: opts.fps !== undefined ? Number(opts.fps) : undefined,
@@ -556,7 +556,7 @@ render/final.mp4 (append-only).
           model: "hyperframes-render",
           endpoint: "hyperframes-render",
           kind: "video",
-          input: { project: projectId, engine, projectDir, composition: opts.composition },
+          input: { project: projectId, engine, projectDir: projDir, composition: opts.composition },
           status: "error",
           error: rr.stderr.slice(-500),
           latency_ms: Date.now() - t0,
@@ -645,7 +645,7 @@ render/final.mp4 (append-only).
         input: {
           project: projectId,
           engine,
-          projectDir,
+          projectDir: projDir,
           composition: opts.composition,
           loudnorm: Boolean(opts.loudnorm),
           grade: gradePreset ?? null,

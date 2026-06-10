@@ -24,7 +24,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 
-import { projectsDir } from "../lib/paths.js";
+import { projectDir } from "../lib/paths.js";
 import { out, err, isPretty } from "../lib/output.js";
 import { c, icons, section, kv } from "../lib/ui.js";
 import { logGeneration } from "../lib/gen-log.js";
@@ -63,7 +63,7 @@ export function composeCmd(): Command {
         projectId: string,
         opts: { removeSegment?: string[]; out?: string; dryRun?: boolean },
       ) => {
-        const dir = path.join(projectsDir(), projectId);
+        const dir = projectDir(projectId);
         try {
           await fs.access(dir);
         } catch {

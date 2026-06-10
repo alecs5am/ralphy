@@ -10,7 +10,7 @@
 
 import { mkdir, writeFile, appendFile } from "node:fs/promises";
 import path from "node:path";
-import { workspace } from "../paths.js";
+import { researchJobsDir } from "../paths.js";
 import { planResearch, type ResearchPlan } from "./planner.js";
 import { searchDuckDuckGo, type SearchHit } from "./retrievers/ddg-search.js";
 import { fetchPage } from "./retrievers/web-fetch.js";
@@ -118,7 +118,7 @@ function nowJobId(): string {
 }
 
 export function jobDirFor(jobId: string): string {
-  return path.join(workspace(), ".ralph", "research", jobId);
+  return path.join(researchJobsDir(), jobId);
 }
 
 async function appendEvent(jobDir: string, event: unknown): Promise<void> {

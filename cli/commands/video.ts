@@ -25,7 +25,7 @@ import {
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
-import { projectsDir, projectRefsDir } from "../lib/paths.js";
+import { projectRefsDir, projectDir } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
@@ -125,7 +125,7 @@ export function videoCmd() {
       if (opts.out) {
         dst = path.resolve(opts.out);
       } else if (opts.project) {
-        const dir = path.join(projectsDir(), opts.project);
+        const dir = projectDir(opts.project);
         if (!existsSync(dir)) {
           raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
           return;
@@ -234,8 +234,8 @@ export function videoCmd() {
         raiseError("E_FILE_UNREADABLE", { path: src });
         return;
       }
-      const projectDir = path.join(projectsDir(), opts.project);
-      if (!existsSync(projectDir)) {
+      const projDir = projectDir(opts.project);
+      if (!existsSync(projDir)) {
         raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
         return;
       }

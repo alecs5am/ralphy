@@ -53,7 +53,7 @@ beforeAll(() => {
   // Create the project via the CLI so it lands in the registry properly.
   const r = ralphy(["project", "create", "--name", "captions test", "--id", PROJECT_ID]);
   if (r.exitCode !== 0) throw new Error(`project create failed: ${r.stderr}\n${r.stdout}`);
-  projectDir = path.join(tmpHome, "workspace", "projects", PROJECT_ID);
+  projectDir = path.join(tmpHome, ".ralphy", "workspaces", "default", "projects", PROJECT_ID);
 
   // Stub audio file (4 bytes — transcribe() only checks existence + ≤25MB).
   audioPath = path.join(projectDir, "vo.mp3");

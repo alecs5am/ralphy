@@ -1,6 +1,6 @@
 # Workspaces grouping layer + rename root `workspace/` → `.ralphy/`
 
-> **Status:** todo
+> **Status:** done — 2026-06-10
 > **Filed:** 2026-06-10
 > **Folder:** issues
 

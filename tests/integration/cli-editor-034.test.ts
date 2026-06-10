@@ -75,7 +75,7 @@ beforeAll(() => {
 
   const r = ralphy(["project", "create", "--name", "editor 034", "--id", PROJECT_ID]);
   if (r.exitCode !== 0) throw new Error(`project create failed: ${r.stderr}\n${r.stdout}`);
-  projectDir = path.join(tmpHome, "workspace", "projects", PROJECT_ID);
+  projectDir = path.join(tmpHome, ".ralphy", "workspaces", "default", "projects", PROJECT_ID);
   if (!fs.existsSync(projectDir)) throw new Error(`project dir not found at ${projectDir}`);
 
   // Two 2-second clips (matching scenario scenes) + one 4-second music bed.

@@ -55,7 +55,7 @@ describe("ralphy project create --kind image-pack (#049)", () => {
   test("scaffolds images + selected + refs; no scenes / scenario", () => {
     const r = ralphy(["project", "create", "--id", "ip-001", "--kind", "image-pack"]);
     expect(r.exitCode).toBe(0);
-    const dir = path.join(tmpRoot, "workspace", "projects", "ip-001");
+    const dir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "ip-001");
     expect(fs.existsSync(dir)).toBe(true);
     expect(fs.existsSync(path.join(dir, "artifacts", "images"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "selected"))).toBe(true);
@@ -73,7 +73,7 @@ describe("ralphy project create --kind image-pack (#049)", () => {
   test("default --kind=video keeps the existing scaffold", () => {
     const r = ralphy(["project", "create", "--id", "v-001"]);
     expect(r.exitCode).toBe(0);
-    const dir = path.join(tmpRoot, "workspace", "projects", "v-001");
+    const dir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "v-001");
     expect(fs.existsSync(path.join(dir, "artifacts", "videos"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "artifacts", "voiceover"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "render"))).toBe(true);
@@ -113,7 +113,7 @@ describe("ralphy project zip --selected (#049)", () => {
   test("zips the <project>/selected/ dir into <cwd>/<id>.zip", () => {
     const cr = ralphy(["project", "create", "--id", "zip-001", "--kind", "image-pack"]);
     expect(cr.exitCode).toBe(0);
-    const selDir = path.join(tmpRoot, "workspace", "projects", "zip-001", "selected");
+    const selDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "zip-001", "selected");
     fs.writeFileSync(path.join(selDir, "a.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
     fs.writeFileSync(path.join(selDir, "b.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 

@@ -96,15 +96,16 @@ function lastErrorPayload(stderr: string): { code: string; message: string; hint
 }
 
 describe("user journey · ralphy new → ralphy skill install --agent claude", () => {
-  test("creates project under <root>/workspace/projects/<id>/ with the canonical layout (#031)", () => {
+  test("creates project under <root>/.ralphy/workspaces/default/projects/<id>/ with the canonical layout (#031, #108)", () => {
     const r = ralphy(["new", "test brief about a coffee shop"]);
     expect(r.exitCode).toBe(0);
     expect(r.json).toBeTruthy();
     const payload = r.json as { project_id: string; path: string; brief: string };
     expect(payload.project_id).toMatch(/^[a-z0-9-]+$/);
-    // #031: project now lives under the workspace, NOT $RALPHY_HOME, so
-    // generate / render can see it.
-    expect(payload.path).toContain(path.join("workspace", "projects"));
+    // #031: project now lives under the project root's data tree, NOT
+    // $RALPHY_HOME, so generate / render can see it. #108: that tree is
+    // .ralphy/workspaces/<ws>/projects/.
+    expect(payload.path).toContain(path.join(".ralphy", "workspaces", "default", "projects"));
     expect(payload.path).not.toContain(path.join(".ralphy", "projects"));
     expect(payload.brief).toBe("test brief about a coffee shop");
 

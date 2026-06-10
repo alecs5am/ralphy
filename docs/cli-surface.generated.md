@@ -846,6 +846,11 @@ Commands:
                                 (Caption[]). Default backend: ElevenLabs Scribe
                                 v1 (word-level).
   clone [options] <id>          Clone a project
+  move <id> <workspace>         Move a project into another workspace's
+                                projects/ and update its registry entry.
+                                Precondition: no background job (ralphy generate
+                                / render) may be mid-flight on the project — its
+                                file paths go stale on move.
   assets [options] <id>         ffprobe-truth every media file under
                                 <project>/artifacts/ (legacy assets/ included)
                                 and emit a flat array. Honors --kind
@@ -1141,15 +1146,23 @@ ____        __      __
 
 Usage: ralphy workspace [options] [command]
 
-Manage workspace
+Manage workspaces (studio / universe groupings of projects with a shared/ asset
+tier)
 
 Options:
-  -h, --help       display help for command
+  -h, --help               display help for command
 
 Commands:
-  stats            Show workspace statistics
-  clean [options]  Clean workspace contents
-  help [command]   display help for command
+  create [options] <slug>  Create a workspace:
+                           .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
+  list                     List workspaces (slug, name, project count); legacy
+                           roots report the implicit default workspace
+  show <slug>              Show a workspace: workspace.json + project list
+  use <slug>               Set the active workspace (the default home for new
+                           projects)
+  stats                    Show workspace statistics
+  clean [options]          Clean workspace contents
+  help [command]           display help for command
 ```
 
 ### `ralphy assets`

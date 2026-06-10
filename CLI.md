@@ -49,7 +49,9 @@ Each follows `ralphy <resource> {create\|list\|show <id>\|update <id>\|delete <i
 `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `profile`.
 
 Notable extensions:
-- `project log <id>` / `project timeline <id>` / `project log-prompt` / `project log-asset` — append-only project memory at `workspace/projects/<id>/logs/`.
+- `workspace create <slug> [--name --description]` / `workspace list` / `workspace show <slug>` / `workspace use <slug>` — #108 workspace layer (`.ralphy/workspaces/<slug>/` with a `shared/` asset tier; `use` sets the default home for new projects). On a legacy `workspace/` root, `list`/`show` report the implicit `default`; `create`/`use` refuse with `E_LEGACY_LAYOUT` until `ralphy migrate` (#106).
+- `project move <id> <ws>` — move a project into another workspace + update its registry entry (refuses on legacy roots; don't move while a background job is mid-flight on the project).
+- `project log <id>` / `project timeline <id>` / `project log-prompt` / `project log-asset` — append-only project memory at `<project>/logs/`.
 - `project score <id>` — run virality rubric over `scenario.json` (no LLM).
 - `project transcribe <id>` — Scribe v1 → `captions.json` (Caption[]).
 - `project clone <id>` — duplicate.

@@ -1,6 +1,15 @@
 import fs from "fs/promises";
 import path from "path";
-import { registryPath, ralphDir, brandsDir, personasDir, refsDir } from "./paths.js";
+import {
+  registryPath,
+  ralphDir,
+  brandsDir,
+  personasDir,
+  refsDir,
+  currentWorkspace,
+  DEFAULT_WORKSPACE,
+} from "./paths.js";
+import { loadConfig, saveConfig } from "./config.js";
 
 export type RegistryData = {
   brands: Record<string, any>;
@@ -41,6 +50,11 @@ export async function addEntity(
   data: Record<string, unknown>
 ) {
   const reg = await loadRegistry();
+  // #108: project entries carry their workspace (registry maps id → workspace
+  // so projectDir(id) resolves without a workspace arg). Absent → "default".
+  if (collection === "projects" && !data.workspace) {
+    data = { ...data, workspace: currentWorkspace() };
+  }
   reg[collection][id] = { id, ...data };
   await saveRegistry(reg);
 
@@ -112,4 +126,21 @@ export async function deleteEntity(collection: keyof RegistryData, id: string) {
 export async function listEntities(collection: keyof RegistryData) {
   const reg = await loadRegistry();
   return Object.values(reg[collection]);
+}
+
+// ─── Active workspace pointer (#108) ─────────────────────────────────────────
+// Stored as the `activeWorkspace` key in config.json (the free-form settings
+// store) — registry.json stays a pure entity map. The sync read used for path
+// resolution is `currentWorkspace()` in paths.ts; these are the async CRUD.
+
+export async function getActiveWorkspace(): Promise<string> {
+  const cfg = await loadConfig();
+  const ws = cfg.activeWorkspace;
+  return typeof ws === "string" && ws.length > 0 ? ws : DEFAULT_WORKSPACE;
+}
+
+export async function setActiveWorkspace(slug: string): Promise<void> {
+  const cfg = await loadConfig();
+  cfg.activeWorkspace = slug;
+  await saveConfig(cfg);
 }

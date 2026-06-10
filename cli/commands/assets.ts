@@ -11,7 +11,7 @@ import {
   wipeCache,
   type Manifest,
 } from "../lib/assets-repo.js";
-import { assetCacheDir, projectsDir, root } from "../lib/paths.js";
+import { assetCacheDir, root, projectDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { unpackBrandZip } from "../lib/unpack-zip.js";
@@ -125,7 +125,7 @@ export function assetsCmd() {
         cs.summary({ project: projectId, template: templateSlug, installed: [] });
         return;
       }
-      const projDir = path.join(projectsDir(), projectId);
+      const projDir = projectDir(projectId);
       try { await fs.access(projDir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id: projectId }); }
 
       cs.event("assets-install-started", {
@@ -162,7 +162,7 @@ export function assetsCmd() {
 
       let installedDest: string | undefined;
       if (opts.install) {
-        const projDir = path.join(projectsDir(), opts.install);
+        const projDir = projectDir(opts.install);
         try { await fs.access(projDir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id: opts.install }); }
         const sub = item.destSubdir || category.defaultDestSubdir || "artifacts";
         const destDir = path.join(projDir, sub);
@@ -233,7 +233,7 @@ export function assetsCmd() {
         });
         return;
       }
-      const projDir = path.join(projectsDir(), opts.project);
+      const projDir = projectDir(opts.project);
       const destDir = path.join(projDir, opts.dest);
       let result;
       try {

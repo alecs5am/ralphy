@@ -104,6 +104,13 @@ export const ERROR_CODES = {
     hint: "Adjust the input to match the schema; see `ralphy models show {target}` for valid values.",
     relatedDocs: "docs/cli-spec.md#validation",
   },
+  E_LEGACY_LAYOUT: {
+    class: "user",
+    httpAnalog: 409,
+    message: "{verb} requires the .ralphy/ workspace layout; this root still uses the legacy workspace/ tree",
+    hint: "Run `ralphy migrate` (#106) to move to the .ralphy/ layout first. Read-side verbs keep working against the legacy tree.",
+    relatedDocs: "notes/issues/108-workspaces-layer-and-ralphy-root.md",
+  },
   E_AGENT_UNSUPPORTED: {
     class: "user",
     httpAnalog: 400,

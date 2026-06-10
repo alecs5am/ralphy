@@ -633,7 +633,7 @@ export async function ps1Crunch(input: Ps1CrunchOptions): Promise<string> {
 // `workspace/.ralph/svg-cache/<basename>-<size>.png` so the same logo isn't
 // re-rasterized on every gen.
 
-import { root } from "../paths.js";
+import { svgCacheDir } from "../paths.js";
 
 export function isSvgPath(p: string): boolean {
   return p.toLowerCase().endsWith(".svg");
@@ -641,7 +641,7 @@ export function isSvgPath(p: string): boolean {
 
 export async function ensureSvgRasterized(svgPath: string, size = 1024): Promise<string> {
   const abs = path.resolve(svgPath);
-  const cacheDir = path.join(root(), "workspace", ".ralph", "svg-cache");
+  const cacheDir = svgCacheDir();
   await fs.mkdir(cacheDir, { recursive: true });
   const key = `${path.basename(abs, ".svg")}-${size}.png`;
   const out = path.join(cacheDir, key);

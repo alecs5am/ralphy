@@ -10,7 +10,7 @@
 
 import { mkdir, writeFile, appendFile, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { workspace } from "../paths.js";
+import { researchJobsDir } from "../paths.js";
 import {
   listProfileVideos,
   type ProfileVideoRef,
@@ -142,7 +142,7 @@ export async function scrapeProfile(
   opts: ScrapeProfileOptions,
 ): Promise<ScrapeProfileResult> {
   const jobId = opts.jobId ?? `profile-${nowJobId()}`;
-  const jobDir = path.join(workspace(), ".ralph", "research", jobId);
+  const jobDir = path.join(researchJobsDir(), jobId);
   await mkdir(jobDir, { recursive: true });
 
   const max = opts.max ?? 50;
@@ -168,7 +168,7 @@ export async function scrapeProfile(
 
   if (opts.reanalyzeFrom) {
     // ── Re-analyze path: skip listing + pull, read existing job dir ─────
-    const srcDir = path.join(workspace(), ".ralph", "research", opts.reanalyzeFrom);
+    const srcDir = path.join(researchJobsDir(), opts.reanalyzeFrom);
     const listingRaw = await readFile(path.join(srcDir, "profile-listing.json"), "utf8");
     const listing = JSON.parse(listingRaw) as {
       profileUrl: string;

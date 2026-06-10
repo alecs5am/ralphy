@@ -3,7 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { projectsDir } from "../paths.js";
+import { projectDir } from "../paths.js";
 import { probeVideo } from "./probe.js";
 import { detectScenes } from "./scenes.js";
 import { analyzeAudio } from "./audio.js";
@@ -57,7 +57,7 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
   if (!existsSync(videoPath)) throw new Error(`video not found: ${videoPath}`);
 
   const projectId = input.projectId === undefined ? autoDetectProjectId(videoPath) : input.projectId;
-  const projectRoot = projectId ? path.join(projectsDir(), projectId) : null;
+  const projectRoot = projectId ? projectDir(projectId) : null;
   const outDir = input.outDir ?? (projectRoot ?? path.dirname(videoPath));
 
   const probe = probeVideo(videoPath);
