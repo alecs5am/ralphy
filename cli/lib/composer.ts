@@ -31,7 +31,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { ensureFfmpeg } from "./ffmpeg-recipes.js";
 import { logGeneration } from "./gen-log.js";
-import { projectsDir } from "./paths.js";
+import { projectsDir, resolveArtifactKindDirs } from "./paths.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -134,24 +134,36 @@ function ffprobeDurationSec(src: string): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-async function listDir(dir: string, exts: string[]): Promise<string[]> {
-  try {
-    const items = await fs.readdir(dir);
-    return items
-      .filter((f) => exts.includes(path.extname(f).toLowerCase()))
-      .map((f) => path.join(dir, f))
-      .sort();
-  } catch {
-    return [];
+async function listDir(dirs: string | string[], exts: string[]): Promise<string[]> {
+  const dirList = Array.isArray(dirs) ? dirs : [dirs];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const dir of dirList) {
+    try {
+      const items = await fs.readdir(dir);
+      for (const f of items) {
+        if (!exts.includes(path.extname(f).toLowerCase())) continue;
+        // Mid-migration a file can exist in both artifacts/ and the legacy
+        // tree; first dir (artifacts/) wins on basename collision.
+        if (seen.has(f)) continue;
+        seen.add(f);
+        out.push(path.join(dir, f));
+      }
+    } catch {
+      /* missing dir → contributes nothing */
+    }
   }
+  // Sort by basename so scene order is stable regardless of which tree a
+  // file came from.
+  return out.sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
 }
 
 /**
  * Build a Timeline from the on-disk project layout. Looks for:
- *   assets/videos/*.mp4          → segments (sorted)
- *   assets/voiceover/*.mp3       → VO clips (sorted, packed back-to-back)
- *   assets/music/*.mp3 (first)   → music bed
- *   assets/captions/*.json       → caption phrases (Scribe-shape)
+ *   artifacts/videos/*.mp4          → segments (sorted)
+ *   artifacts/voiceover/*.mp3       → VO clips (sorted, packed back-to-back)
+ *   artifacts/music/*.mp3 (first)   → music bed
+ *   artifacts/captions/*.json       → caption phrases (Scribe-shape)
  *   scenario.json                → optional trim-in/trim-out per scene
  *
  * The defaults are intentionally simple — caller can post-process the
@@ -159,14 +171,16 @@ async function listDir(dir: string, exts: string[]): Promise<string[]> {
  */
 export async function buildTimelineFromProject(projectId: string): Promise<Timeline> {
   const dir = path.join(projectsDir(), projectId);
-  const videosDir = path.join(dir, "assets", "videos");
-  const voDir = path.join(dir, "assets", "voiceover");
-  const musicDir = path.join(dir, "assets", "music");
-  const captionsDir = path.join(dir, "assets", "captions");
+  // #105 legacy fallback (removed by #106): scan artifacts/<kind>/ plus the
+  // legacy assets/<kind>/ tree so mid-migration projects see all clips.
+  const videosDirs = resolveArtifactKindDirs(projectId, "videos");
+  const voDirs = resolveArtifactKindDirs(projectId, "voiceover");
+  const musicDirs = resolveArtifactKindDirs(projectId, "music");
+  const captionsDirs = resolveArtifactKindDirs(projectId, "captions");
 
-  const videoFiles = await listDir(videosDir, [".mp4", ".mov", ".webm", ".mkv", ".m4v"]);
-  const voFiles = await listDir(voDir, [".mp3", ".wav", ".m4a", ".ogg", ".flac"]);
-  const musicFiles = await listDir(musicDir, [".mp3", ".wav", ".m4a", ".ogg", ".flac"]);
+  const videoFiles = await listDir(videosDirs, [".mp4", ".mov", ".webm", ".mkv", ".m4v"]);
+  const voFiles = await listDir(voDirs, [".mp3", ".wav", ".m4a", ".ogg", ".flac"]);
+  const musicFiles = await listDir(musicDirs, [".mp3", ".wav", ".m4a", ".ogg", ".flac"]);
 
   const scenario = await readJsonSafe<{ scenes?: Record<string, { trim_in_s?: number; trim_out_s?: number }> | Array<{ id?: string; slot?: string; trim_in_s?: number; trim_out_s?: number }> }>(
     path.join(dir, "scenario.json"),
@@ -224,7 +238,7 @@ export async function buildTimelineFromProject(projectId: string): Promise<Timel
 
   // Captions: read all *.json caption files, concat phrases in start-order.
   // Tolerant of multiple shapes — scribe-words, Caption[], {captions:[]}.
-  const captionFiles = await listDir(captionsDir, [".json"]);
+  const captionFiles = await listDir(captionsDirs, [".json"]);
   const captions: CaptionTrack[] = [];
   for (const cf of captionFiles) {
     const parsed = await readJsonSafe<unknown>(cf);

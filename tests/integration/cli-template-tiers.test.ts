@@ -119,7 +119,7 @@ describe("ralphy template — two-tier sourcing (no network)", () => {
     expect(r.exitCode).toBe(0);
 
     const projDir = path.join(tmp, "workspace", "projects", "tiers-demo-001");
-    expect(fs.existsSync(path.join(projDir, "assets", "images"))).toBe(true);
+    expect(fs.existsSync(path.join(projDir, "artifacts", "images"))).toBe(true);
     expect(fs.existsSync(path.join(projDir, "render"))).toBe(true);
     expect(fs.existsSync(path.join(projDir, "TEMPLATE_ORIGIN.md"))).toBe(true);
     expect(fs.existsSync(path.join(projDir, "BRIEF.md"))).toBe(true);

@@ -25,7 +25,7 @@ import {
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
-import { projectsDir } from "../lib/paths.js";
+import { projectsDir, projectRefsDir } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
@@ -78,7 +78,7 @@ export function videoCmd() {
   //       --slot scene-02-anchor
   //
   // When `--project` is passed and `--out` is omitted, the frame is written
-  // into `<project>/refs/<clip-basename>-frame-<t>.png` and logged to the
+  // into `<project>/artifacts/refs/<clip-basename>-frame-<t>.png` and logged to the
   // project gen-log with `input.source_clip` + `input.frame_at` so postmortems
   // can rollup extend chains.
   cmd
@@ -94,7 +94,7 @@ export function videoCmd() {
     )
     .option(
       "--out <path>",
-      "Output PNG. Optional when `--project` is set — defaults to <project>/refs/<clip>-frame-<t>.png.",
+      "Output PNG. Optional when `--project` is set — defaults to <project>/artifacts/refs/<clip>-frame-<t>.png.",
     )
     .option("--project <id>", "Project ID — logs the extract to gen-log and resolves default --out.")
     .option(
@@ -120,7 +120,7 @@ export function videoCmd() {
         return;
       }
 
-      // Resolve --out: explicit wins; otherwise project's refs/ if --project given.
+      // Resolve --out: explicit wins; otherwise project's artifacts/refs/ if --project given.
       let dst: string;
       if (opts.out) {
         dst = path.resolve(opts.out);
@@ -132,7 +132,7 @@ export function videoCmd() {
         }
         const base = path.basename(src, path.extname(src));
         const tag = isLast ? "last" : String(atSec).replace(/\./g, "p");
-        dst = path.join(dir, "refs", `${base}-frame-${tag}.png`);
+        dst = path.join(projectRefsDir(opts.project), `${base}-frame-${tag}.png`);
       } else {
         raiseError("E_INPUT_INVALID", {
           field: "--out",
@@ -240,11 +240,11 @@ export function videoCmd() {
         return;
       }
 
-      // Step 1: extract the last frame into the project's refs/ so the i2v
+      // Step 1: extract the last frame into the project's artifacts/refs/ so the i2v
       // call has a stable anchor file under the project tree (manifest can
       // point at it).
       const base = path.basename(src, path.extname(src));
-      const anchorPath = path.join(projectDir, "refs", `${base}-last-frame.png`);
+      const anchorPath = path.join(projectRefsDir(opts.project), `${base}-last-frame.png`);
       try {
         await extractLastFrame({
           src,

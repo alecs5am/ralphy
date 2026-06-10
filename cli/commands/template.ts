@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { addEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
-import { templatesDir, projectsDir } from "../lib/paths.js";
+import { templatesDir, projectsDir, ARTIFACT_KINDS, artifactKindDir, resolveArtifactKindDirs } from "../lib/paths.js";
 import { out, ok, err, isPretty } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
@@ -574,11 +574,10 @@ export function templateCmd() {
       }
 
       await fs.mkdir(projDir, { recursive: true });
-      await fs.mkdir(path.join(projDir, "assets", "images"), { recursive: true });
-      await fs.mkdir(path.join(projDir, "assets", "videos"), { recursive: true });
-      await fs.mkdir(path.join(projDir, "assets", "voiceover"), { recursive: true });
-      await fs.mkdir(path.join(projDir, "assets", "music"), { recursive: true });
-      await fs.mkdir(path.join(projDir, "assets", "captions"), { recursive: true });
+      // #105: one artifacts/<kind>/ tree per project (refs is a kind).
+      for (const k of ARTIFACT_KINDS) {
+        await fs.mkdir(artifactKindDir(projectId, k), { recursive: true });
+      }
       await fs.mkdir(path.join(projDir, "render"), { recursive: true });
       await fs.mkdir(path.join(projDir, "logs"), { recursive: true });
       await fs.mkdir(path.join(projDir, "scripts"), { recursive: true });
@@ -648,7 +647,7 @@ export function templateCmd() {
       await fs.writeFile(path.join(projDir, "TEMPLATE_ORIGIN.md"), originLines.join("\n") + "\n");
 
       // Copy required assets from the template (e.g. trend music tracks, brand
-      // sound signatures) into the project's assets/ tree. template.json
+      // sound signatures) into the project's artifacts/ tree. template.json
       // declares these under `assets: { <key>: { path?, remote?, required, destSubdir?, manifestKey? } }`:
       //   - `path` (relative to template dir) → file already in the repo, copy directly.
       //   - `remote` truthy + `manifestKey` → file lives in ralphy-assets, fetch via ensureRequired and copy from cache.
@@ -665,10 +664,10 @@ export function templateCmd() {
           const baseName = path.basename(raw.path ?? raw.manifestKey ?? key);
           const ext = path.extname(baseName).toLowerCase();
           const defaultSub =
-            [".mp3", ".wav", ".m4a", ".ogg"].includes(ext) ? "assets/music" :
-            [".png", ".jpg", ".jpeg", ".webp"].includes(ext) ? "assets/images" :
-            [".mp4", ".mov", ".webm"].includes(ext) ? "assets/videos" :
-            "assets";
+            [".mp3", ".wav", ".m4a", ".ogg"].includes(ext) ? "artifacts/music" :
+            [".png", ".jpg", ".jpeg", ".webp"].includes(ext) ? "artifacts/images" :
+            [".mp4", ".mov", ".webm"].includes(ext) ? "artifacts/videos" :
+            "artifacts";
           const sub = raw.destSubdir || defaultSub;
           const destDir = path.join(projDir, sub);
           await fs.mkdir(destDir, { recursive: true });
@@ -836,9 +835,11 @@ export function templateCmd() {
       } catch { /* no prompts/ dir in source */ }
 
       // Refs: by default COPY; --lift-heavy MOVES files ≥1MB to ralphy-assets/pool/<slug>/.
+      // #105 legacy fallback (removed by #106): read artifacts/refs/ plus the
+      // legacy <project>/refs/ so pre-migration projects still extract.
       const refsCopied: Array<{ name: string; dest: string; sizeBytes: number }> = [];
       const refsLifted: Array<{ name: string; pooledTo: string; sizeBytes: number }> = [];
-      const srcRefs = path.join(projDir, "refs");
+      const srcRefsDirs = resolveArtifactKindDirs(projectId, "refs");
       let assetsRoot = opts.assetsRepo as string | undefined;
       if (opts.liftHeavy && !assetsRoot) {
         // Best-effort default: ~/github/ralphy-assets if it looks like a repo,
@@ -854,24 +855,30 @@ export function templateCmd() {
           });
         }
       }
-      try {
-        const entries = await fs.readdir(srcRefs, { withFileTypes: true });
-        for (const e of entries) {
-          if (!e.isFile()) continue;
-          const srcPath = path.join(srcRefs, e.name);
-          const stat = await fs.stat(srcPath);
-          if (opts.liftHeavy && ex.isHeavyRef(stat.size) && assetsRoot) {
-            const destPath = ex.poolDestForSlug(assetsRoot, opts.slug, e.name);
-            await fs.mkdir(path.dirname(destPath), { recursive: true });
-            await fs.copyFile(srcPath, destPath);
-            refsLifted.push({ name: e.name, pooledTo: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
-          } else {
-            const destPath = path.join(targetDir, "refs", e.name);
-            await fs.copyFile(srcPath, destPath);
-            refsCopied.push({ name: e.name, dest: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
+      const refNamesSeen = new Set<string>();
+      for (const srcRefs of srcRefsDirs) {
+        try {
+          const entries = await fs.readdir(srcRefs, { withFileTypes: true });
+          for (const e of entries) {
+            if (!e.isFile()) continue;
+            // artifacts/refs/ wins on basename collision with legacy refs/.
+            if (refNamesSeen.has(e.name)) continue;
+            refNamesSeen.add(e.name);
+            const srcPath = path.join(srcRefs, e.name);
+            const stat = await fs.stat(srcPath);
+            if (opts.liftHeavy && ex.isHeavyRef(stat.size) && assetsRoot) {
+              const destPath = ex.poolDestForSlug(assetsRoot, opts.slug, e.name);
+              await fs.mkdir(path.dirname(destPath), { recursive: true });
+              await fs.copyFile(srcPath, destPath);
+              refsLifted.push({ name: e.name, pooledTo: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
+            } else {
+              const destPath = path.join(targetDir, "refs", e.name);
+              await fs.copyFile(srcPath, destPath);
+              refsCopied.push({ name: e.name, dest: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
+            }
           }
-        }
-      } catch { /* no refs/ dir */ }
+        } catch { /* no refs/ dir */ }
+      }
 
       // Composition variables — captured as a sidecar JSON when present so the
       // consumer of the template can wire them into a new HyperFrames composition.

@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
-import { projectsDir } from "../lib/paths.js";
+import { artifactKindDir, artifactsDir, legacyArtifactKindDir, legacyAssetsRootDir, projectsDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { chromakey } from "../lib/image/cutout.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -38,8 +38,11 @@ export function assetCmd() {
     .option("--type <type>", "Filter: image | video | audio | caption")
     .option("--missing", "Show only missing/pending assets")
     .action(async (opts) => {
-      const dir = path.join(projectsDir(), opts.project, "assets");
-      const files = await listFilesRecursive(dir);
+      // #105 legacy fallback (removed by #106): list artifacts/ + legacy assets/.
+      const files = [
+        ...(await listFilesRecursive(artifactsDir(opts.project))),
+        ...(await listFilesRecursive(legacyAssetsRootDir(opts.project))),
+      ];
 
       let items = files.map((f) => {
         const rel = path.relative(projectsDir(), f);
@@ -78,15 +81,20 @@ export function assetCmd() {
     .requiredOption("--project <id>", "Project ID")
     .option("--type <type>", "Only remove specific type: images | videos | voiceover | music")
     .action(async (opts) => {
-      const base = path.join(projectsDir(), opts.project, "assets");
+      // Explicit destructive verb: clean both the artifacts/<kind>/ tree and
+      // the legacy assets/<kind>/ tree (#105 legacy fallback, removed by #106).
+      // refs (input references) are NOT touched — they are user-supplied.
+      const cleanKind = async (sub: string) => {
+        await fs.rm(artifactKindDir(opts.project, sub), { recursive: true, force: true });
+        await fs.rm(legacyArtifactKindDir(opts.project, sub), { recursive: true, force: true }); // #105 legacy fallback (removed by #106)
+        await fs.mkdir(artifactKindDir(opts.project, sub), { recursive: true });
+      };
       if (opts.type) {
-        await fs.rm(path.join(base, opts.type), { recursive: true, force: true });
-        await fs.mkdir(path.join(base, opts.type), { recursive: true });
+        await cleanKind(opts.type);
         out({ cleaned: opts.type, project: opts.project });
       } else {
         for (const sub of ["images", "videos", "voiceover", "music", "captions"]) {
-          await fs.rm(path.join(base, sub), { recursive: true, force: true });
-          await fs.mkdir(path.join(base, sub), { recursive: true });
+          await cleanKind(sub);
         }
         // Also remove manifest
         await fs.rm(path.join(projectsDir(), opts.project, "asset-manifest.json"), { force: true });

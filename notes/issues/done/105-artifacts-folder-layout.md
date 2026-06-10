@@ -1,6 +1,6 @@
 # Consolidate `assets/` + `refs/` into a single `artifacts/` folder per project
 
-> **Status:** todo
+> **Status:** done — 2026-06-10
 > **Filed:** 2026-06-10
 > **Folder:** issues
 

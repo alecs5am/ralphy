@@ -134,7 +134,18 @@ describe("resolveProjectPath — cwd-first, project-relative fallback", () => {
     expect(got).toBe(path.join(projectDir, "scene-01-master.png"));
   });
 
-  test("cwd-miss → workspace/projects/<id>/refs/<p> fallback (the issue's canonical case)", () => {
+  test("cwd-miss → workspace/projects/<id>/artifacts/refs/<p> fallback (#105 canonical location)", () => {
+    const projectId = "test-002a";
+    const refsDir = path.join(tmp.dir, "workspace", "projects", projectId, "artifacts", "refs");
+    fs.mkdirSync(refsDir, { recursive: true });
+    fs.writeFileSync(path.join(refsDir, "scene-01-master.png"), "x");
+
+    const got = resolveProjectPath("scene-01-master.png", projectId);
+    expect(got).toBe(path.join(refsDir, "scene-01-master.png"));
+  });
+
+  // #105 legacy fallback (removed by #106)
+  test("cwd-miss → legacy workspace/projects/<id>/refs/<p> fallback (pre-#105 projects)", () => {
     const projectId = "test-002";
     const refsDir = path.join(tmp.dir, "workspace", "projects", projectId, "refs");
     fs.mkdirSync(refsDir, { recursive: true });
@@ -142,6 +153,19 @@ describe("resolveProjectPath — cwd-first, project-relative fallback", () => {
 
     const got = resolveProjectPath("scene-01-master.png", projectId);
     expect(got).toBe(path.join(refsDir, "scene-01-master.png"));
+  });
+
+  test("artifacts/refs/ wins over legacy refs/ when the file exists in both (#105)", () => {
+    const projectId = "test-002b";
+    const newDir = path.join(tmp.dir, "workspace", "projects", projectId, "artifacts", "refs");
+    const legacyDir = path.join(tmp.dir, "workspace", "projects", projectId, "refs");
+    fs.mkdirSync(newDir, { recursive: true });
+    fs.mkdirSync(legacyDir, { recursive: true });
+    fs.writeFileSync(path.join(newDir, "dup.png"), "new");
+    fs.writeFileSync(path.join(legacyDir, "dup.png"), "old");
+
+    const got = resolveProjectPath("dup.png", projectId);
+    expect(got).toBe(path.join(newDir, "dup.png"));
   });
 
   test("everything misses → returns the cwd-anchored absolute (lets downstream ENOENT name what the user typed)", () => {

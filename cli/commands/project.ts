@@ -5,7 +5,15 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
-import { projectsDir } from "../lib/paths.js";
+import {
+  ARTIFACT_KINDS,
+  artifactKindDir,
+  artifactsDir,
+  legacyAssetsRootDir,
+  projectRefsDir,
+  projectsDir,
+  resolveArtifactKindDirs,
+} from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
@@ -59,7 +67,7 @@ export function projectCmd() {
     .option("--id <id>", "Custom project ID")
     .option(
       "--kind <kind>",
-      "Project shape: video (default — scenes + scenario) | image-pack (just assets/images + selected + refs, no scenario.json)",
+      "Project shape: video (default — scenes + scenario) | image-pack (just artifacts/images + selected + artifacts/refs, no scenario.json)",
       "video",
     )
     .action(async (opts) => {
@@ -83,19 +91,15 @@ export function projectCmd() {
       const name: string = opts.name || titleCaseFromId(id);
       const dir = path.join(projectsDir(), id);
       await fs.mkdir(dir, { recursive: true });
+      // #105: one artifacts/<kind>/ tree per project (refs is a kind).
+      for (const k of ARTIFACT_KINDS) {
+        await fs.mkdir(artifactKindDir(id, k), { recursive: true });
+      }
       if (kind === "image-pack") {
-        // #049: image-pack shape — no scenes / scenario scaffold. Just the
-        // dirs the appstore postmortem actually used: images, selected (the
-        // cherry-picked subset for handoff), and refs (input references).
-        await fs.mkdir(path.join(dir, "assets", "images"), { recursive: true });
+        // #049: image-pack shape — no scenes / scenario scaffold. `selected/`
+        // (the cherry-picked subset for handoff) stays a project-root sibling.
         await fs.mkdir(path.join(dir, "selected"), { recursive: true });
-        await fs.mkdir(path.join(dir, "refs"), { recursive: true });
       } else {
-        await fs.mkdir(path.join(dir, "assets", "images"), { recursive: true });
-        await fs.mkdir(path.join(dir, "assets", "videos"), { recursive: true });
-        await fs.mkdir(path.join(dir, "assets", "voiceover"), { recursive: true });
-        await fs.mkdir(path.join(dir, "assets", "music"), { recursive: true });
-        await fs.mkdir(path.join(dir, "assets", "captions"), { recursive: true });
         await fs.mkdir(path.join(dir, "render"), { recursive: true });
       }
 
@@ -372,7 +376,7 @@ export function projectCmd() {
   cmd
     .command("log-asset [id]")
     .description(
-      "Append a user-asset entry to project logs. Accept project id positionally OR via --project (#031). With --copy-from <src>, copies the file into <project>/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames.",
+      "Append a user-asset entry to project logs. Accept project id positionally OR via --project (#031). With --copy-from <src>, copies the file into <project>/artifacts/refs/ first (auto-detects disposable macOS NSIRD / /tmp paths and rescues them before they evaporate). Sanitizes U+202F NARROW NO-BREAK SPACE in filenames.",
     )
     .option("--project <id>", "Project id (alternative to the positional <id>)")
     .requiredOption("--kind <kind>", "screenshot | photo | video | audio | doc | ref-url | other")
@@ -380,7 +384,7 @@ export function projectCmd() {
     .option("--dest <dest>", "Stored path inside project (used as-is if no --copy-from)")
     .option(
       "--copy-from <src>",
-      "Local file to copy into <project>/refs/ before logging. NSIRD / NSTemporaryDirectory paths get rescued before macOS auto-deletes them (skater + appstore postmortems).",
+      "Local file to copy into <project>/artifacts/refs/ before logging. NSIRD / NSTemporaryDirectory paths get rescued before macOS auto-deletes them (skater + appstore postmortems).",
     )
     .option("--purpose <purpose>", "character-ref | product-ref | brand-screenshot | ...")
     .option("--note <note>", "Free-form note")
@@ -420,7 +424,7 @@ export function projectCmd() {
         const sanitized = rawBase
           .replace(/[   ​]/g, "-")
           .replace(/\s+/g, "-");
-        const refsDir = path.join(projectsDir(), id, "refs");
+        const refsDir = projectRefsDir(id);
         await fs.mkdir(refsDir, { recursive: true });
 
         // Idempotency: if a file with the same name already exists in refs/
@@ -514,7 +518,7 @@ export function projectCmd() {
         // (issue #038)
         // eslint-disable-next-line no-console
         console.error(
-          `ralphy: warning — "${opts.source}" looks like a disposable / temp path (macOS NSIRD, /tmp, or "Screenshot ...png"). Pass --copy-from <src> to stash it in <project>/refs/ before it auto-deletes. (issue #038)`,
+          `ralphy: warning — "${opts.source}" looks like a disposable / temp path (macOS NSIRD, /tmp, or "Screenshot ...png"). Pass --copy-from <src> to stash it in <project>/artifacts/refs/ before it auto-deletes. (issue #038)`,
         );
       }
 
@@ -651,7 +655,7 @@ export function projectCmd() {
     });
 
   // ── assets ─────────────────────────────────────────────────────────────
-  // Issue #029. Walks <project>/assets/, ffprobe-truths every media file,
+  // Issue #029. Walks <project>/artifacts/ (+ legacy assets/), ffprobe-truths every media file,
   // emits a flat array of {slot, path, kind, duration_s, width, height, fps,
   // codecs, size_bytes}. The point: stop every multi-clip project from
   // re-inventing an ad-hoc `ffprobe -show_entries` loop and inheriting wrong
@@ -659,7 +663,7 @@ export function projectCmd() {
   cmd
     .command("assets <id>")
     .description(
-      "ffprobe-truth every media file under <project>/assets/ and emit a flat array. Honors --kind video|image|audio.",
+      "ffprobe-truth every media file under <project>/artifacts/ (legacy assets/ included) and emit a flat array. Honors --kind video|image|audio.",
     )
     .option("--kind <kind>", "Filter by classified kind: video | image | audio")
     .action(async (id: string, opts: { kind?: string }) => {
@@ -673,8 +677,12 @@ export function projectCmd() {
         err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg + ffprobe are installed.`);
       }
 
-      const assetsDir = path.join(dir, "assets");
-      const files = await walkMediaFiles(assetsDir);
+      // #105 legacy fallback (removed by #106): walk artifacts/ plus the
+      // legacy assets/ tree so mid-migration projects report all media.
+      const files = [
+        ...(await walkMediaFiles(artifactsDir(id))),
+        ...(await walkMediaFiles(legacyAssetsRootDir(id))),
+      ];
 
       // Build a slot lookup from asset-manifest.json (if present) so each row
       // carries the canonical slot name when we have one. We resolve real
@@ -735,7 +743,7 @@ export function projectCmd() {
         input: { project: id, filter_kind: opts.kind ?? null, count: rows.length },
         status: "ok",
         cost_usd: 0,
-        note: `ffprobe ${rows.length} media files under assets/`,
+        note: `ffprobe ${rows.length} media files under artifacts/`,
       });
 
       out(rows);
@@ -944,15 +952,15 @@ export function projectCmd() {
 
   // ── audio-stats (#049) ─────────────────────────────────────────────────
   // `ralphy project audio-stats <id>` — LUFS / peak / mean per audio file
-  // under <project>/assets/. Replaces venom-bodywash's 10 raw
+  // under <project>/artifacts/. Replaces venom-bodywash's 10 raw
   // `ffmpeg -af volumedetect` invocations. JSON output, gen-log row per
   // file.
   cmd
     .command("audio-stats <id>")
     .description(
-      "Loudness table (mean/peak dBFS + integrated LUFS + true peak + LRA) for every audio file under <project>/assets/.",
+      "Loudness table (mean/peak dBFS + integrated LUFS + true peak + LRA) for every audio file under <project>/artifacts/.",
     )
-    .option("--src <path>", "Single file to probe instead of the assets/ walk")
+    .option("--src <path>", "Single file to probe instead of the artifacts/ walk")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
@@ -967,7 +975,11 @@ export function projectCmd() {
         } catch (e) {
           err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg is installed.`);
         }
-        const all = await walkMediaFiles(path.join(dir, "assets"));
+        // #105 legacy fallback (removed by #106): walk artifacts/ + legacy assets/.
+        const all = [
+          ...(await walkMediaFiles(artifactsDir(id))),
+          ...(await walkMediaFiles(legacyAssetsRootDir(id))),
+        ];
         files = all.filter((f) => classifyFile(f) === "audio");
       }
       const rows: Array<Record<string, unknown>> = [];
@@ -989,11 +1001,11 @@ export function projectCmd() {
   cmd
     .command("contact-sheet <id>")
     .description(
-      "Grid montage of images. --slots accepts a glob over <project>/assets/images/ (e.g. 'zine-*'). Default cols=5.",
+      "Grid montage of images. --slots accepts a glob over <project>/artifacts/images/ (e.g. 'zine-*'). Default cols=5.",
     )
     .option(
       "--slots <pattern>",
-      "Glob pattern matched against filenames under <project>/assets/images/ (default: '*' = all images)",
+      "Glob pattern matched against filenames under <project>/artifacts/images/ (default: '*' = all images)",
       "*",
     )
     .option("--cols <n>", "Grid columns (default 5)", (v) => parseInt(v, 10), 5)
@@ -1005,13 +1017,21 @@ export function projectCmd() {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       const dir = path.join(projectsDir(), id);
-      const imagesDir = path.join(dir, "assets", "images");
-      let entries: string[] = [];
-      try {
-        entries = await fs.readdir(imagesDir);
-      } catch {
-        raiseError("E_FILE_UNREADABLE", { path: imagesDir });
+      // #105 legacy fallback (removed by #106): scan artifacts/images/ + legacy assets/images/.
+      const imagesDirs = resolveArtifactKindDirs(id, "images");
+      const entryToDir = new Map<string, string>();
+      for (const d of imagesDirs) {
+        try {
+          for (const f of await fs.readdir(d)) {
+            // artifacts/ wins on basename collision.
+            if (!entryToDir.has(f)) entryToDir.set(f, d);
+          }
+        } catch { /* missing dir contributes nothing */ }
       }
+      if (entryToDir.size === 0) {
+        raiseError("E_FILE_UNREADABLE", { path: imagesDirs[0] });
+      }
+      const entries: string[] = [...entryToDir.keys()];
       // Tiny inline glob — only `*` and `?` are honored, keeps the surface small.
       const pattern = String(opts.slots || "*");
       const rx = new RegExp(
@@ -1025,12 +1045,12 @@ export function projectCmd() {
       const srcs = entries
         .filter((f) => /\.(png|jpg|jpeg|webp)$/i.test(f))
         .filter((f) => rx.test(f) || rx.test(path.basename(f, path.extname(f))))
-        .map((f) => path.join(imagesDir, f))
-        .sort();
+        .map((f) => path.join(entryToDir.get(f)!, f))
+        .sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
       if (srcs.length === 0) {
         raiseError("E_VALIDATION_FAILED", {
           target: "--slots",
-          detail: `no images matched '${pattern}' under ${imagesDir}`,
+          detail: `no images matched '${pattern}' under ${imagesDirs.join(" / ")}`,
         });
       }
       const cols = Number(opts.cols) > 0 ? Number(opts.cols) : 5;

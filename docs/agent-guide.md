@@ -153,12 +153,15 @@ ralph project delete <id> --keep-render   # Keep the final video
 workspace/projects/<id>/
   scenario.json           — master scenario (output of /ralph-ugc:create-scenario)
   prompts.json            — generation prompts (output of /ralph-ugc:generate-prompts)
-  assets/
+  artifacts/              — all media the project consumes or produces (#105)
+    refs/                 — input references
     images/               — generated images
     videos/               — generated video clips
     voiceover/            — voiceover (ElevenLabs)
     music/                — background music
-    captions/             — subtitles (.srt)
+    sfx/                  — sound effects
+    captions/             — subtitles (.json / .srt)
+    fonts/                — fonts used by the composition
   asset-manifest.json     — asset registry (output of /ralph-ugc:generate-assets)
   index.html              — HyperFrames composition (output of /ralph-ugc:compose-video)
   render/
@@ -339,7 +342,7 @@ ralph template use soviet-nostalgic \
   --name "Client Spring Ad" \
   --brief "..."
 # → workspace/projects/client-spring-001/ with TEMPLATE_ORIGIN.md (pointer to template docs)
-#   and standard subdirectories (assets/, logs/, scripts/, render/).
+#   and standard subdirectories (artifacts/, logs/, scripts/, render/).
 # The scenario is written fresh through /ralph-ugc:create-scenario, using TEMPLATE.md as a vibe-reference.
 ```
 
@@ -362,7 +365,7 @@ ralph project log-asset <id> --kind ref-url --source https://instagram.com/... -
 ```
 /ralph-ugc:create-scenario   → scenario.json
 /ralph-ugc:generate-prompts  → prompts.json
-/ralph-ugc:generate-assets   → assets/ + asset-manifest.json
+/ralph-ugc:generate-assets   → artifacts/ + asset-manifest.json
 /ralph-ugc:compose-video     → render/final.mp4
 ```
 
@@ -481,7 +484,7 @@ ugc-cli/
 1. **Always use the ralph CLI** for CRUD operations. Don't write to registry.json directly.
 2. **Parse the JSON output** of CLI commands inside skills to get data.
 3. **Generated content** lives in `workspace/projects/<id>/` only.
-4. **HyperFrames assets** — reference `workspace/projects/{id}/assets/` via relative paths from inside `index.html`. No symlinks.
+4. **HyperFrames assets** — reference `workspace/projects/{id}/artifacts/` via relative paths from inside `index.html`. No symlinks.
 5. **Check status** via `ralph project show <id> --status` before launching the next pipeline step.
 6. **Batch mode** — don't run more projects in parallel than `config.render.concurrency`.
 7. **This documentation can be updated** — if you add a new command or change behavior, refresh this file.

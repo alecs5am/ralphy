@@ -144,7 +144,7 @@ describe("generateVoiceover — per-slot file lock (#039)", () => {
       "workspace",
       "projects",
       projectId,
-      "assets",
+      "artifacts",
       "voiceover",
     );
     const onDisk = fs.readdirSync(voDir).sort();

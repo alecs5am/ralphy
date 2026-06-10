@@ -195,7 +195,7 @@ export function buildBatchDryRun(args: {
       slot: it.slot,
       model: m,
       est_usd: imageCostUsd(m),
-      would_write: `workspace/projects/${args.projectId}/assets/${it.slot}.${ext}`,
+      would_write: `workspace/projects/${args.projectId}/artifacts/images/${it.slot}.${ext}`,
     };
   });
   const cost = items.reduce((s, it) => s + it.est_usd, 0);

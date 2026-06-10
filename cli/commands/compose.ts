@@ -5,7 +5,7 @@
 //
 // MVP CLI surface:
 //   ralphy compose <project-id>
-//       Build a Timeline from assets/ + scenario.json + scribe captions, then
+//       Build a Timeline from artifacts/ + scenario.json + scribe captions, then
 //       render a single mp4 to render/compose.mp4 (or compose-v2.mp4, ...
 //       per AGENTS.md invariant #14 — append-only).
 //
@@ -41,7 +41,7 @@ import {
 export function composeCmd(): Command {
   return new Command("compose")
     .description(
-      "Timeline-aware composer. Reads assets/ + scenario.json + scribe captions, builds a Timeline, optionally re-flows after structural edits, and renders a single mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle (#013).",
+      "Timeline-aware composer. Reads artifacts/ + scenario.json + scribe captions, builds a Timeline, optionally re-flows after structural edits, and renders a single mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle (#013).",
     )
     .argument("<projectId>", "Project id under workspace/projects/")
     .option(

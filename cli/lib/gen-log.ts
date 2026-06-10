@@ -172,7 +172,7 @@ export type UserAssetEntry = {
    */
   originalPath?: string;
   /**
-   * Project-local copy of the file (under `<project>/refs/`), written by
+   * Project-local copy of the file (under `<project>/artifacts/refs/`), written by
    * `log-asset --copy-from`. Set when the CLI actually copied bytes — distinct
    * from `dest`, which can be a user-supplied "I already put it here" path.
    * Same value as `dest` when both are present; logging both leaves room for

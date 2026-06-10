@@ -1,13 +1,13 @@
 // `ralphy unit` — project-local curated deliverables (#069).
 //
 // A *unit* is a finished deliverable assembled from COPIES of selected
-// `assets/` files, living at `workspace/projects/<id>/units/<slug>/` with a
+// `artifacts/` files, living at `workspace/projects/<id>/units/<slug>/` with a
 // `unit.json` manifest that mirrors the library-v2 Unit entity. This is the
 // project-side half of the Unit model (the library half is #063); publish
 // (#056) reads `units/*/unit.json` directly.
 //
 // Hard rules (AGENTS.md invariant #14 — append-only):
-//   • COPY, never move. The source `assets/` files are left untouched.
+//   • COPY, never move. The source `artifacts/` files are left untouched.
 //   • `units/` is append-only. A new slug = a new dir. A re-`create` on an
 //     existing slug writes `units/<slug>.v2/` (then `.v3`…), never overwrites.
 //   • `add` appends to `media`; it never drops or rewrites existing entries.
@@ -317,7 +317,7 @@ export function unitCmd() {
     .description("Form a unit by copying matched assets into units/<slug>/ + writing unit.json")
     .requiredOption("--slug <slug>", "Unit slug (kebab-case)")
     .requiredOption("--format <format>", `Media format. One of: ${UNIT_FORMATS.join(", ")}`)
-    .requiredOption("--from <glob>", "Glob, relative to the project dir, of source media to copy (e.g. 'assets/images/outline-*.png')")
+    .requiredOption("--from <glob>", "Glob, relative to the project dir, of source media to copy (e.g. 'artifacts/images/outline-*.png')")
     .option("--title <text>", "Human-readable unit title")
     .option("--blurb <text>", "Short unit description")
     .option("--template <slug>", "Provenance: the structure template slug")

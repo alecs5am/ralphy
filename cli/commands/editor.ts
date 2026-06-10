@@ -7,7 +7,7 @@
 //                  codec / audio-track mismatches before render
 //   - `trim-analyze`: per-clip gemini-vision dead-time / hot-moment analysis,
 //                     run in parallel (#007 gemini-3.1-pro-preview cap = 2-4),
-//                     aggregated into assets/analysis/summary.json with mtime
+//                     aggregated into artifacts/analysis/summary.json with mtime
 //                     idempotency (#034)
 //
 // These verbs make the agent's editor-stage workflow CLI-native and keep
@@ -18,7 +18,7 @@
 import { Command } from "commander";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { projectsDir } from "../lib/paths.js";
+import { artifactKindDir, projectsDir, resolveArtifactKindDirs, resolveArtifactPath } from "../lib/paths.js";
 import { out, err, ok, isPretty } from "../lib/output.js";
 import { c, icons, section, kv } from "../lib/ui.js";
 import { probeFile, ensureFfprobe } from "../lib/ffprobe.js";
@@ -43,16 +43,25 @@ import {
 const VIDEO_EXTS = [".mp4", ".mov", ".webm", ".mkv", ".m4v"];
 const AUDIO_EXTS = [".mp3", ".wav", ".m4a", ".ogg", ".flac"];
 
-async function listDirByExts(dir: string, exts: string[]): Promise<string[]> {
-  try {
-    const items = await fs.readdir(dir);
-    return items
-      .filter((f) => exts.includes(path.extname(f).toLowerCase()))
-      .map((f) => path.join(dir, f))
-      .sort();
-  } catch {
-    return [];
+async function listDirByExts(dirs: string | string[], exts: string[]): Promise<string[]> {
+  const dirList = Array.isArray(dirs) ? dirs : [dirs];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const dir of dirList) {
+    try {
+      const items = await fs.readdir(dir);
+      for (const f of items) {
+        if (!exts.includes(path.extname(f).toLowerCase())) continue;
+        // First dir (artifacts/) wins on basename collision mid-migration.
+        if (seen.has(f)) continue;
+        seen.add(f);
+        out.push(path.join(dir, f));
+      }
+    } catch {
+      /* missing dir -> contributes nothing */
+    }
   }
+  return out.sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
 }
 
 async function readScenario(projectDir: string): Promise<ScenarioLike | null> {
@@ -73,7 +82,7 @@ export function editorCmd(): Command {
   cmd
     .command("preflight <projectId>")
     .description(
-      "ffprobe every clip + music in workspace/projects/<id>/assets/, surface durations / fps / codec / audio / aspect, run a music-gap check, and verify every scenario scene has a corresponding clip on disk. Exit 1 on red. Run BEFORE `ralphy render`.",
+      "ffprobe every clip + music in workspace/projects/<id>/artifacts/, surface durations / fps / codec / audio / aspect, run a music-gap check, and verify every scenario scene has a corresponding clip on disk. Exit 1 on red. Run BEFORE `ralphy render`.",
     )
     .option(
       "--expected-aspect <ratio>",
@@ -107,11 +116,12 @@ export function editorCmd(): Command {
           err((e as Error).message);
         }
 
-        const videosDir = path.join(dir, "assets", "videos");
-        const musicDir = path.join(dir, "assets", "music");
+        // #105 legacy fallback (removed by #106): scan artifacts/ + legacy assets/.
+        const videosDirs = resolveArtifactKindDirs(projectId, "videos");
+        const musicDirs = resolveArtifactKindDirs(projectId, "music");
 
-        const videoFiles = await listDirByExts(videosDir, VIDEO_EXTS);
-        const musicFiles = await listDirByExts(musicDir, AUDIO_EXTS);
+        const videoFiles = await listDirByExts(videosDirs, VIDEO_EXTS);
+        const musicFiles = await listDirByExts(musicDirs, AUDIO_EXTS);
 
         const clipProbes: ProbeResult[] = await Promise.all(videoFiles.map(probeFile));
         const musicProbes: ProbeResult[] = await Promise.all(musicFiles.map(probeFile));
@@ -180,7 +190,7 @@ export function editorCmd(): Command {
           red += 1;
         }
         for (const missing of completeness.missingScenes) {
-          issues.push(`SCENE-MISSING: scenario scene "${missing}" has no clip in assets/videos/`);
+          issues.push(`SCENE-MISSING: scenario scene "${missing}" has no clip in artifacts/videos/`);
           red += 1;
         }
 
@@ -266,12 +276,12 @@ export function editorCmd(): Command {
   // ── trim-analyze ─────────────────────────────────────────────────────────
   // Wraps the existing per-clip gemini-vision analysis (cli/lib/research.ts:
   // analyzeVideo) for editor-stage use. Aggregates results to
-  // `<project>/assets/analysis/summary.json`. Idempotent via per-clip mtime:
+  // `<project>/artifacts/analysis/summary.json`. Idempotent via per-clip mtime:
   // a clip whose mtime is <= the summary row's clipMtimeMs is skipped.
   cmd
     .command("trim-analyze <projectId>")
     .description(
-      "Run gemini-3.1-pro-preview vision over every clip in assets/videos/, write per-clip JSON to assets/analysis/<clip>.json, and aggregate to assets/analysis/summary.json. Idempotent: clips with mtime <= prior summary row are skipped. Parallelism is capped (default 3) to respect the gemini-3.1-pro-preview concurrency floor.",
+      "Run gemini-3.1-pro-preview vision over every clip in artifacts/videos/, write per-clip JSON to artifacts/analysis/<clip>.json, and aggregate to artifacts/analysis/summary.json. Idempotent: clips with mtime <= prior summary row are skipped. Parallelism is capped (default 3) to respect the gemini-3.1-pro-preview concurrency floor.",
     )
     .option(
       "--model <id>",
@@ -297,11 +307,15 @@ export function editorCmd(): Command {
         } catch {
           err(`Project not found: ${projectId}`);
         }
-        const videosDir = path.join(dir, "assets", "videos");
-        const analysisDir = path.join(dir, "assets", "analysis");
+        // Writes go to artifacts/analysis/; the prior summary is read from the
+        // legacy assets/analysis/ location when only that exists, so the
+        // idempotency cache survives migration.
+        const videosDirs = resolveArtifactKindDirs(projectId, "videos"); // #105 legacy fallback (removed by #106)
+        const analysisDir = artifactKindDir(projectId, "analysis");
         const summaryPath = path.join(analysisDir, "summary.json");
+        const priorSummaryPath = resolveArtifactPath(projectId, "analysis", "summary.json"); // #105 legacy fallback (removed by #106)
 
-        const videoFiles = await listDirByExts(videosDir, VIDEO_EXTS);
+        const videoFiles = await listDirByExts(videosDirs, VIDEO_EXTS);
         if (videoFiles.length === 0) {
           ok("No clips to analyze.");
           out({ project: projectId, clipCount: 0, summaryPath, plan: [], results: [] });
@@ -321,8 +335,9 @@ export function editorCmd(): Command {
           }
         }
 
-        // Existing summary
-        const summary = await loadOrSeedSummary(summaryPath, projectId, opts.model);
+        // Existing summary (falls back to the legacy assets/analysis/ copy
+        // for the idempotency cache; new summary writes go to artifacts/).
+        const summary = await loadOrSeedSummary(priorSummaryPath, projectId, opts.model);
         const priorBySlot = new Map<string, TrimAnalysisRow>();
         for (const r of summary.clips) priorBySlot.set(r.slot, r);
 
