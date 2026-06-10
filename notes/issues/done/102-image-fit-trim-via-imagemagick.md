@@ -1,6 +1,6 @@
 # `image fit` alpha-trim: use ImageMagick `-trim` over the cropdetect hack
 
-> **Status:** todo
+> **Status:** done — 2026-06-10
 > **Filed:** 2026-06-08
 > **Folder:** issues
 > **Severity:** low
