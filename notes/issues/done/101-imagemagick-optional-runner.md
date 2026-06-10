@@ -1,6 +1,6 @@
 # ImageMagick optional runner + doctor wiring
 
-> **Status:** todo
+> **Status:** done — 2026-06-10
 > **Filed:** 2026-06-08
 > **Folder:** issues
 > **Severity:** medium

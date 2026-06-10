@@ -39,6 +39,8 @@ type DoctorReport = {
   deps: {
     bun: boolean;
     ffmpeg: boolean;
+    /** Optional dependency (#101) — info-level only, never a blocker. */
+    imagemagick: boolean;
   };
   keys: Record<string, boolean>;
   daemon?: {
@@ -115,7 +117,7 @@ export function doctorCmd() {
           repoRoot: installInfo.repoRoot,
           templatesSource: installInfo.mode === "developer" ? "repo" : "bundled",
         },
-        deps: { bun: false, ffmpeg: false },
+        deps: { bun: false, ffmpeg: false, imagemagick: false },
         keys: {},
         blockers: [],
         warnings: [],
@@ -136,13 +138,17 @@ export function doctorCmd() {
       }
 
       // Dependencies
-      // ffmpeg uses single-dash `-version`, bun uses `--version`.
+      // ffmpeg + imagemagick use single-dash `-version`, bun uses `--version`.
       [report.deps.bun, report.deps.ffmpeg] = await Promise.all([
         bin("bun"),
         bin("ffmpeg", "-version"),
       ]);
       if (!report.deps.bun) report.blockers.push("bun is not installed — `brew install bun`.");
       if (!report.deps.ffmpeg) report.blockers.push("ffmpeg is not installed — `brew install ffmpeg`.");
+      // ImageMagick (#101): OPTIONAL — info-level only, never a blocker and
+      // never a warning. IM7 ships `magick`, IM6 ships `convert`.
+      report.deps.imagemagick =
+        (await bin("magick", "-version")) || (await bin("convert", "-version"));
 
       // Keys
       for (const cap of CAPABILITIES) {
@@ -223,6 +229,12 @@ export function doctorCmd() {
         section("Dependencies");
         console.log(`  ${report.deps.bun ? icons.ok : icons.fail} bun`);
         console.log(`  ${report.deps.ffmpeg ? icons.ok : icons.fail} ffmpeg`);
+        // Optional dep — absence is neutral (muted bullet), never the fail icon.
+        if (report.deps.imagemagick) {
+          console.log(`  ${icons.ok} imagemagick`);
+        } else {
+          console.log(`  ${c.muted("·")} ${c.muted("imagemagick (optional — enables faster still ops)")}`);
+        }
 
         section("API keys");
         for (const cap of CAPABILITIES) {
