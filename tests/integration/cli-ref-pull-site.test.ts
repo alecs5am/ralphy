@@ -176,7 +176,7 @@ afterEach(() => {
 
 describe("`ralphy ref pull-site` (#014)", () => {
   test.skipIf(!HAS_CHROMIUM)(
-    "writes hero PNG + per-page PNG + tokens.json + apis.md into <project>/refs/",
+    "writes hero PNG + per-page PNG + tokens.json + apis.md into <project>/artifacts/refs/",
     () => {
       // Playwright cold-start under full-suite load can exceed the bun default
       // 5s per-test timeout; pre-push hook does not pass --timeout. Bump.
@@ -197,7 +197,7 @@ describe("`ralphy ref pull-site` (#014)", () => {
       expect(r.json).not.toBeNull();
       expect(r.json.pages.length).toBeGreaterThanOrEqual(1);
 
-      const refsDir = path.join(tmpRoot, "workspace", "projects", "test-site-001", "refs");
+      const refsDir = path.join(tmpRoot, "workspace", "projects", "test-site-001", "artifacts", "refs");
       const files = fs.readdirSync(refsDir);
 
       // Home screenshot.

@@ -13,7 +13,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { logGeneration } from "../gen-log.js";
-import { projectsDir } from "../paths.js";
+import { artifactKindDir } from "../paths.js";
 import { raiseError } from "../errors/index.js";
 import type { CommonInput } from "./types.js";
 
@@ -73,8 +73,10 @@ export function rewriteUpstreamError(model: string, status: number, rawText: str
   return `${status}: ${rawText.slice(0, 500)}`;
 }
 
+// Write-side destination for a generated asset. #105: writes go ONLY to the
+// `artifacts/<kind>/` tree (reads elsewhere fall back to the legacy layout).
 export function assetPath(projectId: string, kind: string, filename: string): string {
-  return path.join(projectsDir(), projectId, "assets", kind, filename);
+  return path.join(artifactKindDir(projectId, kind), filename);
 }
 
 /**

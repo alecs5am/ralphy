@@ -24,7 +24,7 @@
 
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { projectsDir } from "./paths.js";
+import { legacyArtifactKindDir, projectRefsDir, projectsDir } from "./paths.js";
 
 /**
  * Set of unicode whitespace / invisible code-points known to slip into shell
@@ -80,8 +80,10 @@ export function normalizePathCharsWithWarn(p: string, label = "path"): string {
  *   1. http(s):// or data: URI → return verbatim
  *   2. cwd/p (the legacy behavior) → return absolute
  *   3. workspace/projects/<id>/p → return absolute (the new fallback)
- *   4. workspace/projects/<id>/refs/p → return absolute (convenience for
- *      `--ref scene-01-master.png` when refs live in the project's refs/)
+ *   4. workspace/projects/<id>/artifacts/refs/p → return absolute (convenience
+ *      for `--ref scene-01-master.png` when refs live in the project's
+ *      artifacts/refs/); the legacy <id>/refs/ location is checked after it
+ *      (#105 legacy fallback, removed by #106)
  *   5. give up and return the cwd-relative absolute path (existing ENOENT
  *      behavior downstream — we don't silently invent a path that doesn't
  *      exist)
@@ -106,8 +108,13 @@ export function resolveProjectPath(p: string, projectId?: string): string {
     const projectAbs = path.join(projectsDir(), projectId, cleaned);
     if (existsSync(projectAbs)) return projectAbs;
 
-    const refsAbs = path.join(projectsDir(), projectId, "refs", cleaned);
+    const refsAbs = path.join(projectRefsDir(projectId), cleaned);
     if (existsSync(refsAbs)) return refsAbs;
+
+    // #105 legacy fallback (removed by #106): pre-artifacts projects keep
+    // their input references at <project>/refs/.
+    const legacyRefsAbs = path.join(legacyArtifactKindDir(projectId, "refs"), cleaned);
+    if (existsSync(legacyRefsAbs)) return legacyRefsAbs;
   }
 
   // Nothing matched — return the cwd-relative absolute so the existing ENOENT

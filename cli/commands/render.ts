@@ -10,7 +10,7 @@ import { Command } from "commander";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { projectsDir } from "../lib/paths.js";
+import { projectsDir, resolveArtifactKindDirs } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -174,7 +174,7 @@ render/final.mp4 (append-only).
     )
     .option(
       "--music-variants",
-      "After the base render, mix one variant per <project>/assets/music/*.mp3 onto the final mp4. Writes render/final.<music-basename>.mp4 per bed. #049",
+      "After the base render, mix one variant per <project>/artifacts/music/*.mp3 onto the final mp4. Writes render/final.<music-basename>.mp4 per bed. #049",
       false,
     )
     .option(
@@ -664,19 +664,26 @@ render/final.mp4 (append-only).
           .filter(Boolean)
           .join(" + "),
       });
-      // --music-variants (#049): auto-discover <project>/assets/music/*.mp3
+      // --music-variants (#049): auto-discover <project>/artifacts/music/*.mp3
       // and render one variant per file. Final mp4 untouched — each variant
       // is a sibling final.<music-basename>.mp4 next to it.
       const musicVariants: Array<{ music: string; out: string; bytes: number }> = [];
       if (opts.musicVariants) {
-        const musicDir = path.join(projectsDir(), projectId, "assets", "music");
+        // #105 legacy fallback (removed by #106): scan artifacts/music/ + legacy assets/music/.
+        const musicDirs = resolveArtifactKindDirs(projectId, "music");
         let beds: string[] = [];
         try {
-          const entries = await fs.readdir(musicDir);
-          beds = entries
-            .filter((e) => /\.(mp3|m4a|wav|aac|ogg)$/i.test(e))
-            .sort()
-            .map((e) => path.join(musicDir, e));
+          const seen = new Set<string>();
+          for (const musicDir of musicDirs) {
+            const entries = await fs.readdir(musicDir).catch(() => [] as string[]);
+            for (const e of entries) {
+              if (!/\.(mp3|m4a|wav|aac|ogg)$/i.test(e)) continue;
+              if (seen.has(e)) continue;
+              seen.add(e);
+              beds.push(path.join(musicDir, e));
+            }
+          }
+          beds.sort((a, b) => path.basename(a).localeCompare(path.basename(b)));
         } catch {
           /* no music dir — emit empty variants */
         }

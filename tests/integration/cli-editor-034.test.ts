@@ -173,11 +173,11 @@ describe("ralphy editor trim-analyze --dry-run (#034)", () => {
         expect(typeof p.clipMtimeMs).toBe("number");
         expect(p.cached).toBe(false);
       }
-      expect(j.summaryPath).toMatch(/assets[\\/]+analysis[\\/]+summary\.json$/);
+      expect(j.summaryPath).toMatch(/artifacts[\\/]+analysis[\\/]+summary\.json$/);
 
       // No actual call: the analysis dir is created lazily on real run, and
-      // no per-clip JSON exists yet.
-      const analysisDir = path.join(projectDir, "assets", "analysis");
+      // no per-clip JSON exists yet. #105: writes go to artifacts/analysis/.
+      const analysisDir = path.join(projectDir, "artifacts", "analysis");
       if (fs.existsSync(analysisDir)) {
         const files = fs.readdirSync(analysisDir);
         expect(files).not.toContain("scene-01-vid.json");
@@ -188,7 +188,9 @@ describe("ralphy editor trim-analyze --dry-run (#034)", () => {
   test.skipIf(!ffmpegPresent || !ffprobePresent)(
     "dry-run with a seeded summary marks matching mtimes as cached",
     () => {
-      // Seed summary.json with rows whose mtimes >= clip mtimes.
+      // Seed summary.json with rows whose mtimes >= clip mtimes. Seeding the
+      // LEGACY assets/analysis/ location is deliberate — it exercises the #105
+      // legacy read fallback (removed by #106).
       const analysisDir = path.join(projectDir, "assets", "analysis");
       fs.mkdirSync(analysisDir, { recursive: true });
       const clip1 = path.join(projectDir, "assets", "videos", "scene-01-vid.mp4");

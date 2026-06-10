@@ -41,7 +41,7 @@ export type TrimAnalysisRow = {
   observedDurationSec?: number;
 };
 
-/** Shape of `assets/analysis/summary.json`. */
+/** Shape of `artifacts/analysis/summary.json`. */
 export type TrimAnalysisSummary = {
   /** Schema version — bump on breaking shape changes. */
   schemaVersion: 1;

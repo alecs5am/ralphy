@@ -1,6 +1,6 @@
 // Unit manifest Zod schema (#069). A `unit.json` is the project-side mirror of
 // the library-v2 Unit entity (`landing/lib/library-v2/types.ts`): a finished,
-// curated deliverable assembled from copies of selected `assets/` files. It
+// curated deliverable assembled from copies of selected `artifacts/` files. It
 // lives at `workspace/projects/<id>/units/<slug>/unit.json` and feeds the
 // publish path (#056) without re-deriving provenance.
 //

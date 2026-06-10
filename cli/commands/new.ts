@@ -21,7 +21,7 @@ import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { c, isPrettyMode } from "../lib/ui.js";
 import { addEntity } from "../lib/registry.js";
-import { projectsDir } from "../lib/paths.js";
+import { ARTIFACT_KINDS, artifactKindDir, projectsDir } from "../lib/paths.js";
 
 function legacyRalphyHome(): string {
   return process.env.RALPHY_HOME || path.join(os.homedir(), ".ralphy");
@@ -105,13 +105,12 @@ export function newCmd(): Command {
         raiseError("E_ALREADY_EXISTS", { kind: "Project", id });
       }
 
-      // Canonical layout (mirrors `project create`).
+      // Canonical layout (mirrors `project create`). #105: one
+      // artifacts/<kind>/ tree per project (refs is a kind).
       await fsp.mkdir(projectDir, { recursive: true });
-      await fsp.mkdir(path.join(projectDir, "assets", "images"), { recursive: true });
-      await fsp.mkdir(path.join(projectDir, "assets", "videos"), { recursive: true });
-      await fsp.mkdir(path.join(projectDir, "assets", "voiceover"), { recursive: true });
-      await fsp.mkdir(path.join(projectDir, "assets", "music"), { recursive: true });
-      await fsp.mkdir(path.join(projectDir, "assets", "captions"), { recursive: true });
+      for (const k of ARTIFACT_KINDS) {
+        await fsp.mkdir(artifactKindDir(id, k), { recursive: true });
+      }
       await fsp.mkdir(path.join(projectDir, "render"), { recursive: true });
       await fsp.mkdir(path.join(projectDir, "logs"), { recursive: true });
 

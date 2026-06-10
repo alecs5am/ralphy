@@ -9,7 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { projectsDir } from "../lib/paths.js";
+import { artifactKindDir, projectsDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
@@ -385,7 +385,7 @@ export function generateCmd() {
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports image. See `ralphy provider list`.")
     .option(
       "--ref <ref...>",
-      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI. Path-only refs resolve cwd-first, then `workspace/projects/<id>/` and `workspace/projects/<id>/refs/` (#025). NBSP / zero-width whitespace in macOS screenshot paths is auto-normalized with a stderr warning.",
+      "Reference image(s) for multi-ref consistency. URL / local path / data: URI; local paths auto-converted to data: URI. Path-only refs resolve cwd-first, then `workspace/projects/<id>/` and `workspace/projects/<id>/artifacts/refs/` (#025). NBSP / zero-width whitespace in macOS screenshot paths is auto-normalized with a stderr warning.",
     )
     .option(
       "--ref-file <path>",
@@ -561,7 +561,7 @@ export function generateCmd() {
           ],
           cost_estimate_usd: estPerCall * variants,
           would_write: [
-            `workspace/projects/${opts.project}/assets/${opts.slot}.png`,
+            `workspace/projects/${opts.project}/artifacts/images/${opts.slot}.png`,
           ],
         });
         return;
@@ -717,7 +717,7 @@ export function generateCmd() {
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports video. See `ralphy provider list`.")
     .option(
       "--first-frame <ref>",
-      "First-frame anchor for i2v (URL / local path / data: URI). Path-only refs resolve cwd-first, then workspace/projects/<id>/ + refs/ (#025).",
+      "First-frame anchor for i2v (URL / local path / data: URI). Path-only refs resolve cwd-first, then workspace/projects/<id>/ + artifacts/refs/ (#025).",
     )
     .option(
       "--last-frame <ref>",
@@ -975,7 +975,7 @@ export function generateCmd() {
             { stage: "voiceover", model_id: opts.model, slot: opts.slot, voice: opts.voice, characters: chars, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
-          would_write: [`workspace/projects/${opts.project}/assets/${opts.slot}.mp3`],
+          would_write: [`workspace/projects/${opts.project}/artifacts/voiceover/${opts.slot}.mp3`],
         });
         return;
       }
@@ -1097,7 +1097,7 @@ export function generateCmd() {
             { stage: "music", slot: opts.slot, durationSec: opts.duration, instrumental: !opts.withVocals, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
-          would_write: [`workspace/projects/${opts.project}/assets/${opts.slot}.mp3`],
+          would_write: [`workspace/projects/${opts.project}/artifacts/music/${opts.slot}.mp3`],
         });
         return;
       }
@@ -1283,9 +1283,9 @@ export function generateCmd() {
       0.6,
     )
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
-    .option("--output <path>", "Custom output path. Default: workspace/projects/<id>/assets/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
+    .option("--output <path>", "Custom output path. Default: workspace/projects/<id>/artifacts/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
     .option("--out <path>", "Alias for --output (kept because the 'Did you mean ...' hint used to advertise this spelling). #010")
-    .option("--legacy-output", "Write to the legacy shared captions.json instead of assets/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path. Emits a deprecation warning. #010")
+    .option("--legacy-output", "Write to the legacy shared captions.json instead of artifacts/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path. Emits a deprecation warning. #010")
     .option(
       "--max-width-pct <n>",
       "Caption wrap: max width of the text box as a percentage of frame width (0..100). Default: safe-zone preset or 90. #010",
@@ -1333,19 +1333,19 @@ export function generateCmd() {
       //   mean ..." error used to advertise).
       // --legacy-output: opt-in to the pre-2026-05 shared-file path; emits
       //   a deprecation warning so the user knows it's a legacy escape hatch.
-      // Default: workspace/projects/<id>/assets/captions/<slot>.json
+      // Default: workspace/projects/<id>/artifacts/captions/<slot>.json
       const explicitOut = opts.output ?? opts.out;
       if (opts.legacyOutput) {
         // eslint-disable-next-line no-console
         console.error(
-          "ralphy: --legacy-output is deprecated. Shared captions.json clobbers on concurrent / batch calls; use the per-slot default (assets/captions/<slot>.json) or --output. #010",
+          "ralphy: --legacy-output is deprecated. Shared captions.json clobbers on concurrent / batch calls; use the per-slot default (artifacts/captions/<slot>.json) or --output. #010",
         );
       }
       const outPath = explicitOut
         ? path.resolve(explicitOut)
         : opts.legacyOutput
           ? path.join(projectsDir(), opts.project, "captions.json")
-          : path.join(projectsDir(), opts.project, "assets", "captions", `${slot}.json`);
+          : path.join(artifactKindDir(opts.project, "captions"), `${slot}.json`);
       await fs.mkdir(path.dirname(outPath), { recursive: true });
 
       // AGENTS invariant #14: never overwrite an existing per-slot caption

@@ -57,12 +57,13 @@ describe("ralphy project create --kind image-pack (#049)", () => {
     expect(r.exitCode).toBe(0);
     const dir = path.join(tmpRoot, "workspace", "projects", "ip-001");
     expect(fs.existsSync(dir)).toBe(true);
-    expect(fs.existsSync(path.join(dir, "assets", "images"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "artifacts", "images"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "selected"))).toBe(true);
-    expect(fs.existsSync(path.join(dir, "refs"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "artifacts", "refs"))).toBe(true);
     // image-pack does NOT pre-create the video-shaped scaffold.
-    expect(fs.existsSync(path.join(dir, "assets", "videos"))).toBe(false);
-    expect(fs.existsSync(path.join(dir, "assets", "voiceover"))).toBe(false);
+    // #105: the artifacts/<kind>/ scaffold is uniform across project kinds.
+    expect(fs.existsSync(path.join(dir, "artifacts", "videos"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "artifacts", "voiceover"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "render"))).toBe(false);
     // The kind field is persisted on the registry entry.
     const j = r.json as { kind?: string };
@@ -73,8 +74,8 @@ describe("ralphy project create --kind image-pack (#049)", () => {
     const r = ralphy(["project", "create", "--id", "v-001"]);
     expect(r.exitCode).toBe(0);
     const dir = path.join(tmpRoot, "workspace", "projects", "v-001");
-    expect(fs.existsSync(path.join(dir, "assets", "videos"))).toBe(true);
-    expect(fs.existsSync(path.join(dir, "assets", "voiceover"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "artifacts", "videos"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "artifacts", "voiceover"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "render"))).toBe(true);
     const j = r.json as { kind?: string };
     expect(j.kind).toBe("video");

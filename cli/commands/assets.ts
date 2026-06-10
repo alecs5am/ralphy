@@ -164,7 +164,7 @@ export function assetsCmd() {
       if (opts.install) {
         const projDir = path.join(projectsDir(), opts.install);
         try { await fs.access(projDir); } catch { raiseError("E_NOT_FOUND", { kind: "Project", id: opts.install }); }
-        const sub = item.destSubdir || category.defaultDestSubdir || "assets";
+        const sub = item.destSubdir || category.defaultDestSubdir || "artifacts";
         const destDir = path.join(projDir, sub);
         await fs.mkdir(destDir, { recursive: true });
         const dest = path.join(destDir, item.destFilename || path.basename(item.path));

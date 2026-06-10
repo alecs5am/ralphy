@@ -5,7 +5,7 @@
 //     reports as a 1x1+ image (proves the extract actually decoded a frame).
 //   * `video extend <clip> --project <id> --slot scene-02 --duration 5
 //      --prompt "..." --dry-run` prints the planned chain announcing
-//      `extends: <clip>` and writes the anchor PNG into the project's refs/.
+//      `extends: <clip>` and writes the anchor PNG into the project's artifacts/refs/.
 //
 // Hosts without ffmpeg / ffprobe skip with a warning so CI lanes that don't
 // pre-install ffmpeg don't go red.
@@ -178,8 +178,8 @@ describe("ralphy video extend --dry-run (#012)", () => {
     );
     expect(r.status).toBe(0);
 
-    // Anchor PNG landed under the project's refs/.
-    const anchor = path.join(projectDir, "refs", "scene-01-last-frame.png");
+    // Anchor PNG landed under the project's artifacts/refs/.
+    const anchor = path.join(projectDir, "artifacts", "refs", "scene-01-last-frame.png");
     expect(fs.existsSync(anchor)).toBe(true);
 
     // dry-run output announces the extends lineage + tags itself.

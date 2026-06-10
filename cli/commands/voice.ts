@@ -84,9 +84,9 @@ export function voiceCmd(): Command {
       "after",
       `
 Examples:
-  ralphy voice clone --from refs/narrator.mp3 --name "Alerter"
-  ralphy voice clone --from refs/podcast-rip.mp3 --name "Host" --isolate
-  ralphy voice clone --from refs/clean.wav --name "PSA" --project analog-horror-001
+  ralphy voice clone --from artifacts/refs/narrator.mp3 --name "Alerter"
+  ralphy voice clone --from artifacts/refs/podcast-rip.mp3 --name "Host" --isolate
+  ralphy voice clone --from artifacts/refs/clean.wav --name "PSA" --project analog-horror-001
 `,
     );
 
