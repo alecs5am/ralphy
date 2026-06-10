@@ -193,6 +193,10 @@ render/final.mp4 (append-only).
       (v) => parseInt(v, 10),
       20,
     )
+    .option(
+      "--workers <n>",
+      "Parallel capture workers (number or 'auto'). Lower to 1 for heavy compositions (many embedded videos / large GSAP timelines) that hit 'Runtime.callFunctionOn timed out' under the default auto fan-out.",
+    )
     .option("--dry-run", "Print the resolved render plan; no engine run", false)
     .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
     .action(async (projectId: string, opts) => {
@@ -538,6 +542,7 @@ render/final.mp4 (append-only).
             quality: engineQuality,
             format: opts.format,
             resolution: opts.resolution,
+            workers: opts.workers,
           }),
         {
           successText: () =>

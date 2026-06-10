@@ -9,6 +9,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   extractSegment,
+  boomerang,
   burnSubtitles,
   tonemapHDR,
   concatLossless,
@@ -649,6 +650,35 @@ export function videoCmd() {
         out({ srcs, dst });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `concat: ` });
+      }
+    });
+
+  // ── boomerang ───────────────────────────────────────────────────────────
+  cmd
+    .command("boomerang")
+    .description(
+      "Boomerang / ping-pong loop: forward playback + the clip reversed, concatenated into a seamless back-and-forth loop (classic Instagram boomerang). Drops audio (add a music bed in the compose/render step). Output is ~2x the source length.",
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--out <path>", "Output video")
+    .option("--passes <n>", "Number of passes (2 = fwd+rev default, 3 = fwd+rev+fwd, …)", (v) => parseInt(v, 10), 2)
+    .option("--seconds <n>", "Trim source to first N seconds per pass (total ≈ passes × seconds)", (v) => Number(v))
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await boomerang({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          passes: opts.passes,
+          seconds: opts.seconds,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Boomerang → ${dst}`);
+        out({ src: opts.in, dst, passes: opts.passes, seconds: opts.seconds ?? null });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `boomerang: ${e?.message ?? e}` });
       }
     });
 
