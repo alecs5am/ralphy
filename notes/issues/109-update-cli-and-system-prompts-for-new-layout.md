@@ -15,7 +15,7 @@ A single pass that updates the entire on-disk instruction + CLI-surface layer to
 - **System prompt / routing**: `AGENTS.md` (the `workspace/projects/<id>/` references throughout the routing table and Project-memory section; the path enumerations in invariants **#14** and **#17**; add workspace-awareness to the discipline section), `CLAUDE.md` (the "Project layout" section — `assets/` "raw working dump" bullet, `refs/`, the whole tree), `MEMORY.md` is auto so leave it.
 - **CLI docs**: `CLI.md`, `docs/agent-guide.md`, `docs/cli-spec.md` — document the new `ralphy workspace {create|list|show|use}` + `ralphy project move` verbs, the `--workspace` flag, the `shared/` resolution order, and the migration verb (#106); rewrite every `assets/`/`refs/`/`workspace/projects/` path reference.
 - **Playbooks**: `docs/playbooks/*.md` (core, art-director, editor, producer, hyperframes, intake, …) — any path reference to `assets/<kind>/`, `refs/`, `workspace/projects/<id>/`.
-- **Skills**: `.agents/skills/*/SKILL.md` that name project paths (poster, fb-creatives, carousel, audio-explainer, evaluator, templater, etc.).
+- **Skills (re-check EVERY one, not just the obvious path-referencing ones)**: walk all of `.agents/skills/*/SKILL.md` (+ any `references/` sub-docs) — the content-niche craft overlays (poster, fb-creatives, carousel, audio-explainer, analog-horror-psa, ugc-*, json-prompt-engine), the operational skills (researcher, evaluator, templater, postmortem, install), the maintainer skills (dev-release, dev-tasks, dev-issues, dev-loop, dev-publish-template), and the HyperFrames render-engine skills. Any reference to `assets/<kind>/`, `refs/`, `workspace/projects/<id>/`, or an assumed flat-project model gets rewritten; skills that *write* to project dirs (templater, unit-forming flows) must use the new `artifacts/` + workspace paths. `.claude/skills/` is a symlink to `.agents/skills/` — fixing the source fixes both. Also sweep `notes/skills/*/SKILL.md` if any name project paths.
 - **CLI help strings**: command descriptions / examples in `cli/commands/*.ts` that print old paths; the no-subcommand profile output if it references layout.
 - **Tests**: `tests/unit/agents-md-invariants.test.ts` likely asserts on path strings / invariant wording — update to match, do not weaken the invariant intent.
 
@@ -25,7 +25,8 @@ The agent routes off `AGENTS.md` + playbooks on every request. If they still say
 
 ## Scope / acceptance
 
-- `rg -n 'workspace/projects/|/assets/|/refs/' AGENTS.md CLAUDE.md CLI.md docs/ .agents/` returns only intentional/historical references (e.g. postmortem citations) — no live instruction still tells the agent to use the old layout.
+- `rg -n 'workspace/projects/|/assets/|/refs/' AGENTS.md CLAUDE.md CLI.md docs/ .agents/ notes/skills/` returns only intentional/historical references (e.g. postmortem citations) — no live instruction still tells the agent to use the old layout.
+- Every `.agents/skills/*/SKILL.md` has been individually opened and confirmed clean (path references + any project-write logic updated) — tracked as a checklist in the PR/commit so no skill is silently skipped.
 - New verbs (`ralphy workspace …`, `ralphy project move`, the migration verb) are documented in `CLI.md` + `docs/cli-spec.md` with examples.
 - The `shared/` resolution order and the `--ref shared/...` form are documented where refs are explained (art-director playbook + `docs/agent-guide.md`).
 - `AGENTS.md` invariants #14 and #17 enumerate the new paths (`.ralphy/workspaces/<ws>/projects/<id>/artifacts/...`).
