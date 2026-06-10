@@ -20,6 +20,7 @@ import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { logGeneration } from "../gen-log.js";
+import { hasMagick, runMagick } from "./magick.js";
 
 export type ImagePostOptions = {
   projectId?: string;
@@ -432,10 +433,14 @@ export async function floodFillCutout(input: FloodCutoutOptions): Promise<string
 }
 
 // ── Image fit (alpha-trim + scale) ──────────────────────────────────────────
-// `--trim-alpha` removes transparent margins via ffmpeg `cropdetect` with an
-// alpha-aware threshold. `--long N` scales the long edge to N preserving
-// aspect. `--telegram` is shorthand for `--trim-alpha --long 512` + PNG output
-// (Telegram sticker spec: 512×512 max, transparent PNG, ≤512KB).
+// `--trim-alpha` removes transparent margins. Preferred path (#102): when
+// ImageMagick is installed, trim + scale run as ONE native invocation
+// (`-fuzz N% -trim +repage -resize LxL`) — `-trim` is the canonical tool for
+// finding a still's transparent margin. Fallback: ffmpeg `cropdetect` with an
+// alpha-aware threshold (a video-letterbox hack, kept as the no-IM path).
+// `--long N` scales the long edge to N preserving aspect. `--telegram` is
+// shorthand for `--trim-alpha --long 512` + PNG output (Telegram sticker
+// spec: 512×512 max, transparent PNG, ≤512KB).
 
 export type FitImageOptions = {
   src: string;
@@ -448,6 +453,39 @@ export type FitImageOptions = {
   telegram?: boolean;
 } & ImagePostOptions;
 
+/** Default `-fuzz` percentage for the ImageMagick trim — absorbs near-
+ * transparent anti-aliased edge pixels so the box isn't left 1px loose. */
+const MAGICK_TRIM_FUZZ_PERCENT = 2;
+
+/**
+ * Build the ImageMagick arg array for the trim + scale fit (#102). Exported
+ * for unit testing (same pattern as `buildChromakeyFilter`).
+ *
+ * `-resize <long>x<long>` is fit-inside preserving aspect — the longer axis
+ * lands on `long`, replicating the ffmpeg `if(gt(iw,ih),long,-1)` long-edge
+ * semantics. PNG output preserves alpha natively, no extra flag needed.
+ */
+export function buildMagickFitArgs(opts: {
+  src: string;
+  dst: string;
+  /** Long-edge target. Omitted → trim only, no resize. */
+  long?: number;
+  /** Trim transparent margins (default false). */
+  trimAlpha?: boolean;
+  /** Fuzz percentage for the trim (default 2). */
+  fuzz?: number;
+}): string[] {
+  const args = [opts.src];
+  if (opts.trimAlpha) {
+    args.push("-fuzz", `${opts.fuzz ?? MAGICK_TRIM_FUZZ_PERCENT}%`, "-trim", "+repage");
+  }
+  if (opts.long && opts.long > 0) {
+    args.push("-resize", `${opts.long}x${opts.long}`);
+  }
+  args.push(opts.dst);
+  return args;
+}
+
 export async function fitImage(input: FitImageOptions): Promise<string> {
   const { src, dst, telegram, ...rest } = input;
   const long = telegram ? 512 : rest.long;
@@ -457,7 +495,22 @@ export async function fitImage(input: FitImageOptions): Promise<string> {
   }
   await fs.mkdir(path.dirname(dst), { recursive: true });
 
-  // Two-pass when trimAlpha is on:
+  // Preferred path (#102): trim requested + ImageMagick present → native
+  // `-trim` does the alpha bbox correctly in one invocation, no stderr-regex
+  // probe. Plain scale (no trim) stays on ffmpeg either way.
+  if (trimAlpha && hasMagick()) {
+    await runMagick(
+      buildMagickFitArgs({ src, dst, long, trimAlpha }),
+      {
+        endpoint: "imagemagick/fit",
+        input: { src, dst, long, trimAlpha, telegram: Boolean(telegram) },
+        opts: { projectId: input.projectId, note: input.note },
+      },
+    );
+    return dst;
+  }
+
+  // Fallback: two-pass ffmpeg when trimAlpha is on:
   //   1) `cropdetect` on the alpha plane to find the tight bbox.
   //   2) `crop=W:H:X:Y,scale=…` for the final emit.
   // When trimAlpha is off, just scale.
