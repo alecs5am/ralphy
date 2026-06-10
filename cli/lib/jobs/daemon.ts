@@ -8,16 +8,16 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { root } from "../paths.js";
+import { root, ralphDir } from "../paths.js";
 
 const DEFAULT_CONCURRENCY = 4;
 
 export function pidFilePath(): string {
-  return path.join(root(), "workspace", ".ralph", "daemon.pid");
+  return path.join(ralphDir(), "daemon.pid");
 }
 
 export function daemonLogPath(): string {
-  return path.join(root(), "workspace", ".ralph", "daemon.log");
+  return path.join(ralphDir(), "daemon.log");
 }
 
 export function readPid(): number | null {

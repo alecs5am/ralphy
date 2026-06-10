@@ -51,13 +51,15 @@ function ralphyNew(args: string[]): { exitCode: number; stdout: string; stderr: 
 }
 
 describe("ralphy new (unified with project create, #031)", () => {
-  test("with a brief — creates workspace/projects/<id>/ with BRIEF.md", () => {
+  test("with a brief — creates the default-workspace projects/<id>/ with BRIEF.md (#108 layout)", () => {
     const r = ralphyNew(["new", "Spring 2026 ad for Acme dental floss", "--id", "spring-test-001"]);
     expect(r.exitCode).toBe(0);
     const j = r.json as { project_id: string; path: string; brief?: string; name: string };
     expect(j.project_id).toBe("spring-test-001");
-    // Lives under the workspace, not under ~/.ralphy/ — that's the whole #031 fix.
-    expect(j.path).toContain(path.join("workspace", "projects", "spring-test-001"));
+    // Lives under the data root's workspace tree, not under ~/.ralphy (the
+    // HOME-level orphan dir) — that's the whole #031 fix. #108: the data root
+    // is <cwd>/.ralphy/ and projects nest under workspaces/default/.
+    expect(j.path).toContain(path.join(".ralphy", "workspaces", "default", "projects", "spring-test-001"));
     expect(j.path).not.toContain(path.join(".ralphy", "projects"));
     expect(fs.existsSync(j.path)).toBe(true);
     expect(fs.existsSync(path.join(j.path, "BRIEF.md"))).toBe(true);
@@ -71,13 +73,13 @@ describe("ralphy new (unified with project create, #031)", () => {
     expect(r.exitCode).toBe(0);
     const j = r.json as { project_id: string; path: string; name: string };
     expect(j.project_id).toBe("no-brief-test");
-    expect(j.path).toContain(path.join("workspace", "projects", "no-brief-test"));
+    expect(j.path).toContain(path.join(".ralphy", "workspaces", "default", "projects", "no-brief-test"));
     expect(fs.existsSync(j.path)).toBe(true);
     expect(j.name).toBe("No Brief Test");
 
-    // Registry pointer landed under workspace/.ralph/registry.json — that's
+    // Registry pointer landed at .ralphy/registry.json (#108) — that's
     // what `ralphy generate` / `ralphy render` walk to find the project.
-    const registryPath = path.join(tmpRoot, "workspace", ".ralph", "registry.json");
+    const registryPath = path.join(tmpRoot, ".ralphy", "registry.json");
     expect(fs.existsSync(registryPath)).toBe(true);
     const reg = JSON.parse(fs.readFileSync(registryPath, "utf8"));
     expect(reg.projects["no-brief-test"]).toBeTruthy();
@@ -198,7 +200,9 @@ describe("`ralphy project log-*` accept --project alias (#031)", () => {
     expect(r.exitCode).toBe(0);
     const logFile = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "p-alias-001",
       "logs",
@@ -225,7 +229,9 @@ describe("`ralphy project log-*` accept --project alias (#031)", () => {
     expect(r.exitCode).toBe(0);
     const logFile = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "p-alias-002",
       "logs",

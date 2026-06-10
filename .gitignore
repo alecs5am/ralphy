@@ -9,6 +9,8 @@ out
 
 # Generated content (assets, renders, references)
 workspace/
+# #108: the new data root (.ralphy/ replaces workspace/ after the #106 migration)
+.ralphy/
 
 # Dashboard build
 dashboard/dist

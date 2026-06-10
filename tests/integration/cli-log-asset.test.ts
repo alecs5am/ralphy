@@ -49,7 +49,7 @@ function createProject(id: string): void {
 }
 
 function readAssetLog(id: string): any[] {
-  const fp = path.join(tmpRoot, "workspace", "projects", id, "logs", "user-assets.jsonl");
+  const fp = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", id, "logs", "user-assets.jsonl");
   if (!fs.existsSync(fp)) return [];
   return fs
     .readFileSync(fp, "utf8")
@@ -87,7 +87,7 @@ describe("`ralphy project log-asset --copy-from` (#038)", () => {
     ]);
     expect(r.exitCode).toBe(0);
 
-    const dest = path.join(tmpRoot, "workspace", "projects", "p1", "artifacts", "refs", "ref.png");
+    const dest = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "p1", "artifacts", "refs", "ref.png");
     expect(fs.existsSync(dest)).toBe(true);
     expect(fs.readFileSync(dest, "utf8")).toBe("hello-bytes");
 
@@ -153,7 +153,7 @@ describe("`ralphy project log-asset --copy-from` (#038)", () => {
     expect(r2.exitCode).toBe(0);
 
     // Only one physical file in refs/ — same name, same sha → skip.
-    const refsDir = path.join(tmpRoot, "workspace", "projects", "p3", "artifacts", "refs");
+    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "p3", "artifacts", "refs");
     const refs = fs.readdirSync(refsDir);
     expect(refs).toEqual(["idem.png"]);
 
@@ -207,7 +207,7 @@ describe("`ralphy project log-asset --copy-from` (#038)", () => {
     ]);
     expect(r2.exitCode).toBe(0);
 
-    const refsDir = path.join(tmpRoot, "workspace", "projects", "p4", "artifacts", "refs");
+    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "p4", "artifacts", "refs");
     const files = fs.readdirSync(refsDir).sort();
     expect(files).toContain("collide.png");
     expect(files).toContain("collide-2.png");

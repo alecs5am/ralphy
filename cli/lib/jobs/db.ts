@@ -14,7 +14,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { Database } from "bun:sqlite";
-import { root } from "../paths.js";
+import { ralphDir } from "../paths.js";
 import type {
   JobRow,
   JobLogRow,
@@ -28,11 +28,11 @@ const SCHEMA_VERSION = 1;
 let _db: Database | null = null;
 
 export function dbPath(): string {
-  return path.join(root(), "workspace", ".ralph", "jobs.db");
+  return path.join(ralphDir(), "jobs.db");
 }
 
 export function jobLogsDir(): string {
-  return path.join(root(), "workspace", ".ralph", "job-logs");
+  return path.join(ralphDir(), "job-logs");
 }
 
 /**

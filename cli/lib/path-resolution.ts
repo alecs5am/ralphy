@@ -24,7 +24,13 @@
 
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { legacyArtifactKindDir, projectRefsDir, projectsDir } from "./paths.js";
+import {
+  legacyArtifactKindDir,
+  projectRefsDir,
+  projectDir,
+  projectWorkspace,
+  sharedDir,
+} from "./paths.js";
 
 /**
  * Set of unicode whitespace / invisible code-points known to slip into shell
@@ -80,11 +86,16 @@ export function normalizePathCharsWithWarn(p: string, label = "path"): string {
  *   1. http(s):// or data: URI → return verbatim
  *   2. cwd/p (the legacy behavior) → return absolute
  *   3. workspace/projects/<id>/p → return absolute (the new fallback)
- *   4. workspace/projects/<id>/artifacts/refs/p → return absolute (convenience
- *      for `--ref scene-01-master.png` when refs live in the project's
+ *   4. <project>/artifacts/refs/p → return absolute (convenience for
+ *      `--ref scene-01-master.png` when refs live in the project's
  *      artifacts/refs/); the legacy <id>/refs/ location is checked after it
  *      (#105 legacy fallback, removed by #106)
- *   5. give up and return the cwd-relative absolute path (existing ENOENT
+ *   5. the project's workspace `shared/` tree (#108): an explicit
+ *      `--ref shared/cast/nurse.png` form resolves against
+ *      `workspaces/<ws>/shared/cast/nurse.png`, and bare paths fall back to
+ *      `shared/<p>` after the project-local chain — the
+ *      project artifacts/ → workspace shared/ resolution order
+ *   6. give up and return the cwd-relative absolute path (existing ENOENT
  *      behavior downstream — we don't silently invent a path that doesn't
  *      exist)
  *
@@ -105,7 +116,7 @@ export function resolveProjectPath(p: string, projectId?: string): string {
   if (existsSync(cwdAbs)) return cwdAbs;
 
   if (projectId) {
-    const projectAbs = path.join(projectsDir(), projectId, cleaned);
+    const projectAbs = path.join(projectDir(projectId), cleaned);
     if (existsSync(projectAbs)) return projectAbs;
 
     const refsAbs = path.join(projectRefsDir(projectId), cleaned);
@@ -115,6 +126,15 @@ export function resolveProjectPath(p: string, projectId?: string): string {
     // their input references at <project>/refs/.
     const legacyRefsAbs = path.join(legacyArtifactKindDir(projectId, "refs"), cleaned);
     if (existsSync(legacyRefsAbs)) return legacyRefsAbs;
+
+    // #108: workspace shared/ tier — after the project-local chain. The
+    // explicit `shared/<path>` form maps onto the shared root itself; bare
+    // paths are also tried under shared/ as a final workspace-level hit.
+    const sharedRoot = sharedDir(projectWorkspace(projectId));
+    const sharedAbs = cleaned.startsWith("shared/")
+      ? path.join(sharedRoot, cleaned.slice("shared/".length))
+      : path.join(sharedRoot, cleaned);
+    if (existsSync(sharedAbs)) return sharedAbs;
   }
 
   // Nothing matched — return the cwd-relative absolute so the existing ENOENT

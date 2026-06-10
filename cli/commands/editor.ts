@@ -18,7 +18,7 @@
 import { Command } from "commander";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { artifactKindDir, projectsDir, resolveArtifactKindDirs, resolveArtifactPath } from "../lib/paths.js";
+import { artifactKindDir, resolveArtifactKindDirs, resolveArtifactPath, projectDir } from "../lib/paths.js";
 import { out, err, ok, isPretty } from "../lib/output.js";
 import { c, icons, section, kv } from "../lib/ui.js";
 import { probeFile, ensureFfprobe } from "../lib/ffprobe.js";
@@ -104,7 +104,7 @@ export function editorCmd(): Command {
         projectId: string,
         opts: { expectedAspect?: string; expectedFps?: number; musicToleranceSec: number },
       ) => {
-        const dir = path.join(projectsDir(), projectId);
+        const dir = projectDir(projectId);
         try {
           await fs.access(dir);
         } catch {
@@ -301,7 +301,7 @@ export function editorCmd(): Command {
         projectId: string,
         opts: { model: string; concurrency: number; force?: boolean; dryRun?: boolean },
       ) => {
-        const dir = path.join(projectsDir(), projectId);
+        const dir = projectDir(projectId);
         try {
           await fs.access(dir);
         } catch {

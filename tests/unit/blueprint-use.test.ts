@@ -105,7 +105,9 @@ function fixtureBlueprint(): Record<string, unknown> {
 }
 
 function projDir(projectId: string): string {
-  return path.join(tmpRoot, "workspace", "projects", projectId);
+  // #108: empty temp roots run in the new ".ralphy" layout mode — projects
+  // land in the default workspace.
+  return path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
 }
 
 beforeEach(() => {

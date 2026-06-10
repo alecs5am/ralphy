@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
-import { artifactKindDir, artifactsDir, legacyArtifactKindDir, legacyAssetsRootDir, projectsDir } from "../lib/paths.js";
+import { artifactKindDir, artifactsDir, legacyArtifactKindDir, legacyAssetsRootDir, projectsDir, projectDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { chromakey } from "../lib/image/cutout.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -60,7 +60,7 @@ export function assetCmd() {
         // Check asset manifest for pending items
         try {
           const manifest = JSON.parse(
-            await fs.readFile(path.join(projectsDir(), opts.project, "asset-manifest.json"), "utf-8")
+            await fs.readFile(path.join(projectDir(opts.project), "asset-manifest.json"), "utf-8")
           );
           const pending = (manifest.assets || [])
             .filter((a: any) => a.status === "pending" || !a.file)
@@ -97,7 +97,7 @@ export function assetCmd() {
           await cleanKind(sub);
         }
         // Also remove manifest
-        await fs.rm(path.join(projectsDir(), opts.project, "asset-manifest.json"), { force: true });
+        await fs.rm(path.join(projectDir(opts.project), "asset-manifest.json"), { force: true });
         out({ cleaned: "all", project: opts.project });
       }
     });

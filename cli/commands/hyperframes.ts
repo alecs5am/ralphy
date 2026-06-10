@@ -21,7 +21,7 @@ import { Command } from "commander";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { projectsDir } from "../lib/paths.js";
+import { projectDir } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -37,7 +37,7 @@ import { resolveSnapshotTimestamps } from "../lib/render/storyboard-beats.js";
 // ──────────────────────────────────────────────────────────────────────────
 
 async function projectDirOrThrow(projectId: string): Promise<string> {
-  const dir = path.join(projectsDir(), projectId);
+  const dir = projectDir(projectId);
   try {
     const st = await fs.stat(dir);
     if (!st.isDirectory()) {
