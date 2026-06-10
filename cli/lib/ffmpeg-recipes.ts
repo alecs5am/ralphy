@@ -140,6 +140,69 @@ export async function concatLossless(input: ConcatLosslessInput): Promise<string
   return dst;
 }
 
+// --- Recipe 2b: boomerang (ping-pong loop) -----------------------------
+// Forward playback + the same clip reversed, concatenated → a seamless
+// back-and-forth loop (the classic Instagram "boomerang"). Output is the
+// video stream only (audio is dropped — boomeranged audio sounds wrong;
+// a music bed is added later in the compose/render step). Output duration
+// is ~2× the source.
+
+export type BoomerangInput = {
+  src: string;
+  dst: string;
+  /** Number of passes (traversals). 2 = forward+reverse (default). 3 = fwd+rev+fwd, etc. */
+  passes?: number;
+  /** Trim the source to its first N seconds per pass before ping-ponging. */
+  seconds?: number;
+} & FFmpegOptions;
+
+/**
+ * Build the boomerang filtergraph. Splits the (optionally trimmed) source into
+ * `passes` copies, reverses every other one (odd index), and concatenates them
+ * → forward, reverse, forward, … Total duration ≈ passes × seconds.
+ * Exported for unit testing.
+ */
+export function buildBoomerangFilter(passes: number, seconds?: number): string {
+  const n = Math.max(2, Math.floor(passes));
+  const trim = seconds && seconds > 0 ? `trim=0:${seconds},setpts=PTS-STARTPTS,` : "";
+  const labels = Array.from({ length: n }, (_, i) => `s${i}`);
+  const parts = [`[0:v]${trim}split=${n}${labels.map((l) => `[${l}]`).join("")}`];
+  const concatIns: string[] = [];
+  labels.forEach((l, i) => {
+    if (i % 2 === 1) {
+      parts.push(`[${l}]reverse[r${i}]`);
+      concatIns.push(`[r${i}]`);
+    } else {
+      concatIns.push(`[${l}]`);
+    }
+  });
+  parts.push(`${concatIns.join("")}concat=n=${n}:v=1:a=0[v]`);
+  return parts.join(";");
+}
+
+export async function boomerang(input: BoomerangInput): Promise<string> {
+  const { src, dst, passes = 2, seconds, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  // reverse buffers each pass in memory — fine for short (≤15s) segments.
+  const filter = buildBoomerangFilter(passes, seconds);
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-filter_complex", filter,
+      "-map", "[v]", "-an",
+      "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/boomerang",
+      input: { src, dst, passes, seconds: seconds ?? null },
+      opts,
+    }
+  );
+  return dst;
+}
+
 // --- Recipe 3: EBU R128 loudnorm ---------------------------------------
 
 export type LoudnormInput = {

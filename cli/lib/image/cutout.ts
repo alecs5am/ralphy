@@ -509,6 +509,71 @@ async function detectAlphaBbox(src: string): Promise<string | undefined> {
   });
 }
 
+// ── PS1 crunch (authentic low-fi downsample) ────────────────────────────────
+// Kills the "clean / cartoonish" feel of a modern render and forces a genuine
+// PlayStation-1 screenshot look. Three stages, all in one ffmpeg pass:
+//   1) bilinear downscale by `scale` (default 4×) → throws away polygon &
+//      texture detail, the source of the "too high-poly" complaint.
+//   2) `format=rgb565` → crushes to a 16-bit framebuffer (the PS1 used 15/16-bit
+//      colour), producing the characteristic colour banding.
+//   3) nearest-neighbour upscale back to the original dimensions → big crunchy
+//      aliased pixels instead of smooth interpolation.
+// Optional `noise` adds static grain for extra VHS bite.
+
+export type Ps1CrunchOptions = {
+  src: string;
+  dst: string;
+  /** Downscale factor for the internal render resolution (default 4). Higher = harsher. */
+  scale?: number;
+  /** Add static film grain (0..100, default 0 = off). */
+  noise?: number;
+} & ImagePostOptions;
+
+/** Probe a still's pixel dimensions via ffprobe. Returns [w, h]. */
+function probeDimensions(src: string): [number, number] {
+  const r = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", src],
+    { encoding: "utf-8" },
+  );
+  const m = (r.stdout ?? "").trim().match(/^(\d+)x(\d+)$/);
+  if (!m) throw new Error(`could not probe dimensions of "${src}"`);
+  return [parseInt(m[1], 10), parseInt(m[2], 10)];
+}
+
+/** Build the PS1-crunch filter chain. Exported for unit testing. */
+export function buildPs1CrunchFilter(opts: { w: number; h: number; scale?: number; noise?: number }): string {
+  const scale = Math.max(2, opts.scale ?? 4);
+  const lowW = Math.max(2, Math.round(opts.w / scale));
+  const lowH = Math.max(2, Math.round(opts.h / scale));
+  const parts = [
+    `scale=${lowW}:${lowH}:flags=bilinear`,
+    "format=rgb565",
+    "format=rgb24",
+    `scale=${opts.w}:${opts.h}:flags=neighbor`,
+  ];
+  if (opts.noise && opts.noise > 0) {
+    parts.push(`noise=alls=${Math.round(opts.noise)}:allf=t`);
+  }
+  return parts.join(",");
+}
+
+export async function ps1Crunch(input: Ps1CrunchOptions): Promise<string> {
+  const { src, dst, scale, noise, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  const [w, h] = probeDimensions(src);
+  const filter = buildPs1CrunchFilter({ w, h, scale, noise });
+  await runFfmpeg(
+    ["-i", src, "-vf", filter, "-frames:v", "1", dst],
+    {
+      endpoint: "ffmpeg/ps1-crunch",
+      input: { src, dst, scale: scale ?? 4, noise: noise ?? 0, w, h },
+      opts,
+    },
+  );
+  return dst;
+}
+
 // ── SVG passthrough for `--ref` ─────────────────────────────────────────────
 // Used by the generate-image path (and any other --ref consumer) to coerce a
 // .svg ref into a PNG on the fly. Cached under
