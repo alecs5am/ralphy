@@ -17,6 +17,7 @@ import {
   fitImage,
   ps1Crunch,
 } from "../lib/image/cutout.js";
+import { convertImage, type MaxBox } from "../lib/image/convert.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 
@@ -137,6 +138,67 @@ export function imageCmd() {
         out({ src: opts.in, dst, scale: opts.scale, noise: opts.noise });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `image crunch: ${e?.message ?? e}` });
+      }
+    });
+
+  // ── convert ──────────────────────────────────────────────────────────────
+  cmd
+    .command("convert")
+    .description(
+      "Format + resize + quality on a still (issue #103): PNG → JPG, WebP → PNG, downscale-to-fit (`--max WxH`, never upscales), metadata strip (`--strip` drops EXIF / C2PA / colour profiles — the #021 anchor-prep recipe as a reusable verb). Target format inferred from the --out extension. ImageMagick one-invocation when installed, ffmpeg fallback otherwise.",
+    )
+    .requiredOption("--in <path>", "Input image (PNG/JPG/WebP)")
+    .requiredOption("--out <path>", "Output image (extension picks the target format)")
+    .option("--max <WxH>", "Downscale to fit inside WxH preserving aspect; never upscale (e.g. 720x1280)")
+    .option("--quality <n>", "JPG/WebP quality 1-100 (default 85)", (v) => parseInt(v, 10), 85)
+    .option("--strip", "Drop EXIF / C2PA / colour-profile metadata", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  ralphy image convert --in poster.png --out poster.jpg --max 720x1280
+  ralphy image convert --in ref.webp --out ref.png
+  ralphy image convert --in anchor.png --out anchor.jpg --max 720x1280 --quality 85 --strip
+`,
+    )
+    .action(async (opts: any) => {
+      try {
+        let max: MaxBox | undefined;
+        if (opts.max !== undefined) {
+          const m = String(opts.max).trim().match(/^(\d+)[xX](\d+)$/);
+          if (!m || parseInt(m[1], 10) <= 0 || parseInt(m[2], 10) <= 0) {
+            raiseError("E_INPUT_INVALID", {
+              field: "max",
+              detail: `malformed --max "${opts.max}" — expected <W>x<H> with positive integers (e.g. 720x1280)`,
+              verb: "image convert",
+            });
+            return;
+          }
+          max = { w: parseInt(m[1], 10), h: parseInt(m[2], 10) };
+        }
+        if (!Number.isFinite(opts.quality) || opts.quality < 1 || opts.quality > 100) {
+          raiseError("E_INPUT_INVALID", {
+            field: "quality",
+            detail: `invalid --quality "${opts.quality}" — expected an integer 1-100`,
+            verb: "image convert",
+          });
+          return;
+        }
+        const dst = await convertImage({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          max,
+          quality: opts.quality,
+          strip: Boolean(opts.strip),
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Convert → ${dst}`);
+        out({ src: opts.in, dst, max: max ? `${max.w}x${max.h}` : null, quality: opts.quality, strip: Boolean(opts.strip) });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `image convert: ${e?.message ?? e}` });
       }
     });
 

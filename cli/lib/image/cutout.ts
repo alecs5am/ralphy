@@ -34,7 +34,7 @@ function ensureFfmpeg(): void {
   }
 }
 
-async function runFfmpeg(
+export async function runFfmpeg(
   args: string[],
   meta: { endpoint: string; input: Record<string, unknown>; opts?: ImagePostOptions },
 ): Promise<{ stderr: string; durationMs: number }> {

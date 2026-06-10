@@ -1320,26 +1320,34 @@ Usage: ralphy image [options] [command]
 Image post-processing recipes (cutout, fit, …). Wraps cli/lib/image/cutout.ts.
 
 Options:
-  -h, --help        display help for command
+  -h, --help         display help for command
 
 Commands:
-  cutout [options]  Background removal for stickers / mascots. `--bg chroma`
-                    uses ffmpeg `colorkey` (single-color match, fast). `--bg
-                    flood` walks the canvas in headless Chromium from the four
-                    corners and clears only the connected background — preserves
-                    the die-cut outline + interior white islands (per the
-                    free-air-vpn-stickerpack lessons; u2net cuts them off).
-  fit [options]     Alpha-trim + scale. `--long N` sets the long-edge target
-                    preserving aspect; `--trim-alpha` removes transparent
-                    margins first (essential for stickers); `--telegram` is
-                    shorthand for `--trim-alpha --long 512` (TG sticker spec).
-  crunch [options]  Authentic PS1 / PlayStation-1 crunch: bilinear downscale
-                    (kills high-poly/texture detail) → 16-bit rgb565 framebuffer
-                    (colour banding) → nearest-neighbour upscale (crunchy
-                    aliased pixels). Removes the 'clean / cartoonish' feel of a
-                    modern render so a generated still reads as a real PS1
-                    screenshot. `--scale` controls harshness (higher = harsher).
-  help [command]    display help for command
+  cutout [options]   Background removal for stickers / mascots. `--bg chroma`
+                     uses ffmpeg `colorkey` (single-color match, fast). `--bg
+                     flood` walks the canvas in headless Chromium from the four
+                     corners and clears only the connected background —
+                     preserves the die-cut outline + interior white islands (per
+                     the free-air-vpn-stickerpack lessons; u2net cuts them off).
+  fit [options]      Alpha-trim + scale. `--long N` sets the long-edge target
+                     preserving aspect; `--trim-alpha` removes transparent
+                     margins first (essential for stickers); `--telegram` is
+                     shorthand for `--trim-alpha --long 512` (TG sticker spec).
+  crunch [options]   Authentic PS1 / PlayStation-1 crunch: bilinear downscale
+                     (kills high-poly/texture detail) → 16-bit rgb565
+                     framebuffer (colour banding) → nearest-neighbour upscale
+                     (crunchy aliased pixels). Removes the 'clean / cartoonish'
+                     feel of a modern render so a generated still reads as a
+                     real PS1 screenshot. `--scale` controls harshness (higher =
+                     harsher).
+  convert [options]  Format + resize + quality on a still (issue #103): PNG →
+                     JPG, WebP → PNG, downscale-to-fit (`--max WxH`, never
+                     upscales), metadata strip (`--strip` drops EXIF / C2PA /
+                     colour profiles — the #021 anchor-prep recipe as a reusable
+                     verb). Target format inferred from the --out extension.
+                     ImageMagick one-invocation when installed, ffmpeg fallback
+                     otherwise.
+  help [command]     display help for command
 ```
 
 ### `ralphy banner`
