@@ -16,7 +16,7 @@ A folder (proposed `studio/`) holding a two-part local app:
 
 - **Server** (`studio/server/`): a tiny local HTTP + WebSocket service that (a) lists projects from `workspace/projects/`, (b) lists a selected project's artifacts (walk `artifacts/**` per #105, with legacy `assets/`+`refs/` fallback until #106 lands), returning kind + path + mtime + size, (c) serves the media bytes, (d) watches the selected project dir (chokidar or `fs.watch`) and pushes create/change/unlink events over WS for real-time grid updates. Read-only — it never mutates the project (honors append-only invariant #14).
 - **UI** (`studio/src/`): Vite + a small framework (or vanilla), brand tokens copied from `landing/`. Layout per the brief:
-  - **top-left project selector** (dropdown of project ids),
+  - **top-left selector**: workspace picker (#108) above the project picker — choose workspace → its projects populate; choose project → its grid loads,
   - **artifact grid** (dense, thumbnailed, grouped/filterable by kind — images/videos/voiceover/music/...),
   - **preview modal** on click (image zoom, `<video>` player, `<audio>` player for VO/music, text for prompts/captions),
   - **live updates**: WS events add/replace/remove grid tiles without reload.
@@ -40,8 +40,8 @@ Visual review is the one thing the CLI can't give: scanning 40 re-rolls, compari
 
 ## Notes
 
-- **Sequence after #105** (so it reads the `artifacts/` layout natively); works against legacy layout in the meantime via the same fallback the CLI uses.
-- Cross-links: **#009** (Ralphy Desktop — same panel shape; this is the standalone web precursor, keep the server/UI cleanly liftable into the Electron renderer), **#105**/**#106** (the layout it browses).
+- **Sequence after #105 + #108** (so it reads the `artifacts/` layout + workspaces natively); works against legacy layout in the meantime via the same fallback the CLI uses.
+- Cross-links: **#009** (Ralphy Desktop — same panel shape; this is the standalone web precursor, keep the server/UI cleanly liftable into the Electron renderer), **#105** (artifacts layout) / **#108** (workspaces + `.ralphy/` root — adds the workspace selector) / **#106** (migration to the layout it browses).
 - Stack: lean over heavy — Vite + Bun server (`Bun.serve` gives HTTP+WS in one) is the natural fit given the repo is all-`bun`. No Next, no Electron here.
 - Thumbnails: generate on the fly server-side (sharp/ffmpeg) or lazy-load originals with CSS sizing for the MVP — decide during build; originals-with-lazy-load is the simpler MVP.
 - Out of scope: editing/generating from the UI, auth, remote hosting. Local read-only viewer only.

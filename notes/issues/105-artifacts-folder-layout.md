@@ -8,7 +8,7 @@
 
 Surfaced 2026-06-10 while scoping the local artifact-browser web app (#107). Today a project's media is split across two sibling trees: `assets/{images,videos,music,voiceover,captions,sfx,fonts}` (the raw generation dump) and `refs/` (input references). For a human and for an agent doing `ls`, "everything this project consumes or produces" lives in two places with no obvious relationship. The user wants one top-level `artifacts/` folder, with the inner layout optimized for **agent navigation** (the stated priority: the agent should be able to orient itself easily). Inner sub-organization is deliberately left open to refine later.
 
-This is the foundational, code-side half. The one-pass data migration of the ~80 existing projects is split out into **#106** (user chose full migration over additive back-compat). The viewer (#107) reads this layout.
+This is the foundational, code-side half. The one-pass data migration of the ~80 existing projects is split out into **#106** (user chose full migration over additive back-compat). The viewer (#107) reads this layout. Note: the project dir itself moves under the new workspaces layout in **#108** (`.ralphy/workspaces/<ws>/projects/<id>/`) — `artifacts/` is the inner per-project subtree and is orthogonal to where the project dir lives, so these two layout changes compose cleanly.
 
 ## What
 
@@ -56,6 +56,6 @@ One-glance orientation for both the agent and the viewer (#107): a single `artif
 ## Notes
 
 - Inner layout is a soft decision — the by-kind default above is the recommendation; an alternative (e.g. `artifacts/inputs/` vs `artifacts/generated/` top split) is welcome if it reads better for the agent. Decide before #106 runs, since the migration target depends on it.
-- Cross-links: **#106** (data migration, sequence immediately after this), **#107** (viewer reads this), **#012** (old-version archive subfolder — gains a home at `artifacts/<kind>/old/`; fold its layout choice into this decision), **#069** (`units/` unaffected).
+- Cross-links: **#108** (workspaces layer + `.ralphy/` root — composes with this; the project dir moves, the inner `artifacts/` subtree is defined here), **#106** (unified data migration, sequence after both #105 and #108), **#107** (viewer reads this), **#012** (old-version archive subfolder — gains a home at `artifacts/<kind>/old/`; fold its layout choice into this decision), **#069** (`units/` unaffected).
 - Watch AGENTS.md invariant #17 (background-job file hygiene): read-side back-compat must stay live until #106 completes so an in-flight job launched against `assets/` still resolves.
 - `asset-manifest.json` path entries are rewritten by #106, not here — but the manifest writer must emit `artifacts/...` paths from this issue onward.
