@@ -108,8 +108,8 @@ describe("user journey · ralphy new → ralphy skill install --agent claude", (
     expect(payload.path).not.toContain(path.join(".ralphy", "projects"));
     expect(payload.brief).toBe("test brief about a coffee shop");
 
-    // Canonical layout: assets/, render/, logs/ + BRIEF.md + empty logs.
-    expect(fs.existsSync(path.join(payload.path, "assets"))).toBe(true);
+    // Canonical layout: artifacts/, render/, logs/ + BRIEF.md + empty logs.
+    expect(fs.existsSync(path.join(payload.path, "artifacts"))).toBe(true);
     expect(fs.existsSync(path.join(payload.path, "render"))).toBe(true);
     expect(fs.existsSync(path.join(payload.path, "logs"))).toBe(true);
     expect(fs.readFileSync(path.join(payload.path, "BRIEF.md"), "utf8")).toContain("coffee shop");

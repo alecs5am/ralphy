@@ -81,7 +81,7 @@ afterAll(() => {
 });
 
 describe("`ralphy generate captions` per-slot output (#010)", () => {
-  test("--slot scene-01 writes to assets/captions/scene-01.json, NOT shared captions.json", () => {
+  test("--slot scene-01 writes to artifacts/captions/scene-01.json, NOT shared captions.json", () => {
     const r = ralphy(
       [
         "generate", "captions",
@@ -93,7 +93,7 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
       { RALPHY_FAKE_TRANSCRIBE_JSON: fakeRespPath },
     );
     expect(r.exitCode).toBe(0);
-    const expected = path.join(projectDir, "assets", "captions", "scene-01.json");
+    const expected = path.join(projectDir, "artifacts", "captions", "scene-01.json");
     expect(fs.existsSync(expected)).toBe(true);
     expect(r.json?.path).toBe(expected);
     // Shared legacy file must NOT exist on the default per-slot path.
@@ -101,7 +101,7 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
   });
 
   test("SRT + drawtext.filter sidecars emitted next to JSON", () => {
-    const jsonPath = path.join(projectDir, "assets", "captions", "scene-01.json");
+    const jsonPath = path.join(projectDir, "artifacts", "captions", "scene-01.json");
     const srtPath = jsonPath.replace(/\.json$/, ".srt");
     const filterPath = jsonPath.replace(/\.json$/, ".drawtext.filter");
     expect(fs.existsSync(srtPath)).toBe(true);
@@ -128,7 +128,7 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
     );
     expect(r.exitCode).toBe(0);
     expect(r.json?.captions).toBe(0);
-    const jsonPath = path.join(projectDir, "assets", "captions", "scene-silent.json");
+    const jsonPath = path.join(projectDir, "artifacts", "captions", "scene-silent.json");
     const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
     expect(parsed.captions).toEqual([]);
     expect(parsed.low_confidence_words).toEqual([]);
@@ -150,7 +150,7 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
       { RALPHY_FAKE_TRANSCRIBE_JSON: fakeRespPath },
     );
     expect(r.exitCode).toBe(0);
-    const jsonPath = path.join(projectDir, "assets", "captions", "scene-02-brand.json");
+    const jsonPath = path.join(projectDir, "artifacts", "captions", "scene-02-brand.json");
     const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
     const tokens = parsed.captions.map((c: { text: string }) => c.text);
     // "Ralfy" → "Ralphy" via built-in.
@@ -191,8 +191,8 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
     const [a, b] = await Promise.all([callOne, callTwo]);
     expect(a.exitCode).toBe(0);
     expect(b.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(projectDir, "assets", "captions", "parallel-a.json"))).toBe(true);
-    expect(fs.existsSync(path.join(projectDir, "assets", "captions", "parallel-b.json"))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, "artifacts", "captions", "parallel-a.json"))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, "artifacts", "captions", "parallel-b.json"))).toBe(true);
     // No shared captions.json clobber.
     expect(fs.existsSync(path.join(projectDir, "captions.json"))).toBe(false);
   });

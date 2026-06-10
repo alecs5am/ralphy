@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
-import { workspace, projectsDir, batchesDir, referencesDir } from "../lib/paths.js";
+import { workspace, projectsDir, batchesDir, referencesDir, artifactsDir, legacyAssetsRootDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 
 async function dirSize(dir: string): Promise<number> {
@@ -69,8 +69,9 @@ export function workspaceCmd() {
       } else if (opts.assets) {
         const projects = await fs.readdir(projectsDir()).catch(() => [] as string[]);
         for (const p of projects) {
-          await fs.rm(path.join(projectsDir(), p, "assets"), { recursive: true, force: true });
-          await fs.mkdir(path.join(projectsDir(), p, "assets"), { recursive: true });
+          await fs.rm(artifactsDir(p), { recursive: true, force: true });
+          await fs.rm(legacyAssetsRootDir(p), { recursive: true, force: true }); // #105 legacy fallback (removed by #106)
+          await fs.mkdir(artifactsDir(p), { recursive: true });
         }
         ok("Assets cleaned");
         out({ cleaned: "assets" });

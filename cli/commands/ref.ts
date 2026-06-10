@@ -25,7 +25,7 @@ import { intakePath } from "../lib/path-resolution.js";
 import { rasterizeSvg } from "../lib/image/cutout.js";
 import { bulkFetch, readUrlList } from "../lib/bulk-fetch.js";
 import { logGeneration } from "../lib/gen-log.js";
-import { projectsDir } from "../lib/paths.js";
+import { projectsDir, projectRefsDir } from "../lib/paths.js";
 import { extractSite } from "../lib/playwright/site-extract.js";
 
 export function refCmd() {
@@ -119,7 +119,7 @@ export function refCmd() {
   cmd
     .command("pull [urls...]")
     .description(
-      "Pull a video via yt-dlp (single URL, default), OR bulk-download images when --kind reference-image / --from-file is set (#048). Bulk mode dedupes by sha256 and writes into <project>/refs/.",
+      "Pull a video via yt-dlp (single URL, default), OR bulk-download images when --kind reference-image / --from-file is set (#048). Bulk mode dedupes by sha256 and writes into <project>/artifacts/refs/.",
     )
     .option("--slug <name>", "Custom slug (default: derived from URL or filename) — video mode only")
     .option("--local <path>", "Use a local mp4 file instead of yt-dlp. <url> becomes a label.")
@@ -128,8 +128,8 @@ export function refCmd() {
     .option("--no-audio-extract", "Skip auto-extraction of mono 64k mp3 from mp4")
     .option("--register", "Also call `ref add --type social <url>`", false)
     // Bulk-image-pull flags (#048):
-    .option("--kind <kind>", "Bulk mode: 'reference-image' triggers bulk-fetch into <project>/refs/")
-    .option("--project <id>", "Bulk mode: target project id (refs/ lives under workspace/projects/<id>/)")
+    .option("--kind <kind>", "Bulk mode: 'reference-image' triggers bulk-fetch into <project>/artifacts/refs/")
+    .option("--project <id>", "Bulk mode: target project id (artifacts/refs/ lives under workspace/projects/<id>/)")
     .option("--from-file <path>", "Bulk mode: read URLs from a file (one per line, # comments OK)")
     .option("--concurrency <n>", "Bulk mode: parallel downloads (default 4)", (v) => parseInt(v, 10), 4)
     .option("--timeout <ms>", "Bulk mode: per-URL timeout in ms (default 30000)", (v) => parseInt(v, 10), 30_000)
@@ -194,7 +194,7 @@ export function refCmd() {
     if (!projectId) {
       raiseError("E_INPUT_INVALID", {
         field: "--project",
-        detail: "bulk image pull requires --project <id> (target for refs/)",
+        detail: "bulk image pull requires --project <id> (target for artifacts/refs/)",
         verb: "ref pull",
       });
       return;
@@ -218,7 +218,7 @@ export function refCmd() {
       return;
     }
     const projDir = path.join(projectsDir(), projectId);
-    const refsLocalDir = path.join(projDir, "refs");
+    const refsLocalDir = projectRefsDir(projectId);
     const results = await bulkFetch({
       urls,
       destDir: refsLocalDir,
@@ -307,17 +307,17 @@ export function refCmd() {
     .description(
       "Fan-out Playwright crawl of a brand site → screenshots + tokens.json + apis.md (AGENTS invariant #15). Run BEFORE drafting brand-DNA or any code-on-screen creative.",
     )
-    .option("--project <id>", "Project ID — refs/ lives under workspace/projects/<id>/refs/")
+    .option("--project <id>", "Project ID — refs live under workspace/projects/<id>/artifacts/refs/")
     .option("--slug <name>", "Custom slug (default: derived from URL host)")
     .option("--depth <n>", "Max additional pages beyond home (default 6)", (v) => parseInt(v, 10), 6)
     .option("--page-timeout <ms>", "Per-page timeout in ms (default 20000)", (v) => parseInt(v, 10), 20_000)
     .action(async (url: string, opts: any) => {
       const t0 = Date.now();
       const projectId: string | undefined = opts.project;
-      // Compute outDir: per-project refs/ when --project given, else a
+      // Compute outDir: per-project artifacts/refs/ when --project given, else a
       // workspace-level references/<slug>/ scratch dir.
       const outDir = projectId
-        ? path.join(projectsDir(), projectId, "refs")
+        ? projectRefsDir(projectId)
         : path.join(root(), "workspace", "references", new URL(url).hostname.replace(/^www\./, ""));
       if (projectId) {
         const project = await getEntity("projects", projectId);

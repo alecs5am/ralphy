@@ -94,7 +94,7 @@ export function buildPreflightRow(slot: string, probe: ProbeResult): PreflightCl
 /**
  * Music-gap math: total clip duration vs longest music track. We use the max
  * music length (not sum) because the editor typically picks ONE bed; multiple
- * tracks in `assets/music/` are alternates, not stems to be concatenated.
+ * tracks in `artifacts/music/` are alternates, not stems to be concatenated.
  */
 export function computeMusicGap(
   clipDurationsSec: number[],

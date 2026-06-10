@@ -33,7 +33,7 @@ export type ImageSize = Size9x16 | (string & {});
 export type GenerateResult = {
   /** Remote URL returned by the provider, if any (may expire). */
   url?: string;
-  /** Path under workspace/projects/<id>/assets/... where we saved the file. */
+  /** Path under workspace/projects/<id>/artifacts/... where we saved the file. */
   localPath: string;
   /** Best-effort estimate; pulled from `MODELS.md` ratios when provider doesn't return it. */
   costUsd: number;

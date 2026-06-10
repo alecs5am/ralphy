@@ -323,7 +323,7 @@ ralph template use <id> \
   --name "My Video" \
   --brief "One-line brief"
 # → creates workspace/projects/<new-project-id>/ with:
-#   - standard subdirectories (assets/, logs/, scripts/, render/)
+#   - standard subdirectories (artifacts/, logs/, scripts/, render/)
 #   - TEMPLATE_ORIGIN.md (pointer to the template with a reading list)
 #   - BRIEF.md (if --brief was passed)
 # Intentionally does NOT create scenario.json — the scenario is written fresh through scenarist playbook
