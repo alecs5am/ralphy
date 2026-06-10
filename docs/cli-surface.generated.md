@@ -427,6 +427,10 @@ Options:
                          (render/final-social.mp4)
   --social-crf <n>       x264 CRF for the auto social cut (default 20; raise for
                          smaller files, lower for cleaner grain) (default: 20)
+  --workers <n>          Parallel capture workers (number or 'auto'). Lower to 1
+                         for heavy compositions (many embedded videos / large
+                         GSAP timelines) that hit 'Runtime.callFunctionOn timed
+                         out' under the default auto fan-out.
   --dry-run              Print the resolved render plan; no engine run (default:
                          false)
   --summary              Collapse the dry-run plan to a per-stage rollup
@@ -1292,6 +1296,11 @@ Commands:
                              (tv-commercial-soft|tv-commercial-strong|cinematic-teal-orange|analog-horror).
   concat [options]           Lossless concat of video segments (must share
                              codec/resolution)
+  boomerang [options]        Boomerang / ping-pong loop: forward playback + the
+                             clip reversed, concatenated into a seamless
+                             back-and-forth loop (classic Instagram boomerang).
+                             Drops audio (add a music bed in the compose/render
+                             step). Output is ~2x the source length.
   help [command]             display help for command
 ```
 
@@ -1324,6 +1333,12 @@ Commands:
                     preserving aspect; `--trim-alpha` removes transparent
                     margins first (essential for stickers); `--telegram` is
                     shorthand for `--trim-alpha --long 512` (TG sticker spec).
+  crunch [options]  Authentic PS1 / PlayStation-1 crunch: bilinear downscale
+                    (kills high-poly/texture detail) → 16-bit rgb565 framebuffer
+                    (colour banding) → nearest-neighbour upscale (crunchy
+                    aliased pixels). Removes the 'clean / cartoonish' feel of a
+                    modern render so a generated still reads as a real PS1
+                    screenshot. `--scale` controls harshness (higher = harsher).
   help [command]    display help for command
 ```
 

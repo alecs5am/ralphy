@@ -44,6 +44,7 @@ ralphy render spring-001
 | `--music-volume <n>` | Music gain for --music-variants (default 0.18, background bed under VO) (default: 0.18) |
 | `--no-compress` | Skip the auto social-compressed deliverable (render/final-social.mp4) |
 | `--social-crf <n>` | x264 CRF for the auto social cut (default 20; raise for smaller files, lower for cleaner grain) (default: 20) |
+| `--workers <n>` | Parallel capture workers (number or 'auto'). Lower to 1 for heavy compositions (many embedded videos / large GSAP timelines) that hit 'Runtime.callFunctionOn timed out' under the default auto fan-out. |
 | `--dry-run` | Print the resolved render plan; no engine run (default: false) |
 | `--summary` | Collapse the dry-run plan to a per-stage rollup (default: false) |
 | `-h, --help` | display help for command |

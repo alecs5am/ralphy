@@ -15,6 +15,7 @@ import {
   chromakey,
   floodFillCutout,
   fitImage,
+  ps1Crunch,
 } from "../lib/image/cutout.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -107,6 +108,35 @@ export function imageCmd() {
         out({ src: opts.in, dst, long: opts.telegram ? 512 : opts.long, trimAlpha: Boolean(opts.trimAlpha || opts.telegram) });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `image fit: ${e?.message ?? e}` });
+      }
+    });
+
+  // ── crunch ────────────────────────────────────────────────────────────────
+  cmd
+    .command("crunch")
+    .description(
+      "Authentic PS1 / PlayStation-1 crunch: bilinear downscale (kills high-poly/texture detail) → 16-bit rgb565 framebuffer (colour banding) → nearest-neighbour upscale (crunchy aliased pixels). Removes the 'clean / cartoonish' feel of a modern render so a generated still reads as a real PS1 screenshot. `--scale` controls harshness (higher = harsher).",
+    )
+    .requiredOption("--in <path>", "Input image (PNG/JPG/WebP)")
+    .requiredOption("--out <path>", "Output PNG")
+    .option("--scale <n>", "Internal-resolution downscale factor (default 4; try 3-6)", (v) => parseInt(v, 10), 4)
+    .option("--noise <n>", "Add static film grain 0..100 (default 0 = off)", (v) => parseInt(v, 10), 0)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await ps1Crunch({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          scale: opts.scale,
+          noise: opts.noise,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`PS1 crunch → ${dst}`);
+        out({ src: opts.in, dst, scale: opts.scale, noise: opts.noise });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `image crunch: ${e?.message ?? e}` });
       }
     });
 

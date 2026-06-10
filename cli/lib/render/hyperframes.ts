@@ -34,6 +34,8 @@ export type HyperframesRenderArgs = {
   variables?: Record<string, unknown>;
   /** Suppress noisy hyperframes log lines. */
   quiet?: boolean;
+  /** Parallel capture workers (number or 'auto'). Lower to 1 for heavy compositions. */
+  workers?: string | number;
 };
 
 export type HyperframesRenderResult = {
@@ -71,6 +73,9 @@ export async function runHyperframesRender(
   }
   if (args.quiet) {
     argv.push("--quiet");
+  }
+  if (args.workers !== undefined && String(args.workers).length > 0) {
+    argv.push("--workers", String(args.workers));
   }
 
   return new Promise((resolve) => {
