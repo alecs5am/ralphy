@@ -280,6 +280,22 @@ export const ERROR_CODES = {
     hint: "Re-run the command to resume; append-only state was preserved.",
     relatedDocs: "docs/cli-spec.md#cancellation",
   },
+
+  // ── Memory (#112) ─────────────────────────────────────────────────────────
+  E_MEMORY_NOT_FOUND: {
+    class: "user",
+    httpAnalog: 404,
+    message: "Memory entry not found: {slug}",
+    hint: "Run `ralphy memory list` to see active entries (add --proposed for staged candidates).",
+    relatedDocs: "notes/issues/112-memory-core-tiers-and-verbs.md",
+  },
+  E_MEMORY_CAP_EXCEEDED: {
+    class: "user",
+    httpAnalog: 422,
+    message: "Memory tier at capacity ({count}/{cap} active entries)",
+    hint: "Consolidate first: merge overlapping entries (re-note the survivor slug), reject stale ones, then retry. The cap is the curation forcing-function.",
+    relatedDocs: "notes/issues/112-memory-core-tiers-and-verbs.md",
+  },
 } as const satisfies Record<string, ErrorEntry>;
 
 export type ErrorCode = keyof typeof ERROR_CODES;

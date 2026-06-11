@@ -71,6 +71,7 @@ import { cloneCmd } from "./commands/clone.js";
 import { skillCmd } from "./commands/skill.js";
 import { promptsCmd } from "./commands/prompts.js";
 import { guidelineCmd } from "./commands/guideline.js";
+import { memoryCmd } from "./commands/memory.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -166,6 +167,7 @@ program.addCommand(blueprintCmd());
 program.addCommand(libraryCmd());
 program.addCommand(templateCmd());
 program.addCommand(guidelineCmd());
+program.addCommand(memoryCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
