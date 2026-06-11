@@ -175,8 +175,25 @@ export function workspaceCmd() {
         raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
       }
       await setActiveWorkspace(slug);
+      // #117 auto-recall: switching workspaces mid-session must surface that
+      // workspace's memory without a separate call — fresh client facts ride
+      // along on the switch itself. Best-effort; never breaks the switch.
+      let memory: unknown = null;
+      try {
+        const { recall } = await import("../lib/memory/store.js");
+        const r = await recall({ ws: slug });
+        memory = {
+          workspace: r.workspace,
+          count: r.count,
+          truncated: r.truncated,
+          note: r.note,
+          entries: r.entries.map((e) => ({ slug: e.slug, tier: e.tier, description: e.description })),
+        };
+      } catch {
+        /* no memory yet — omit */
+      }
       ok(`Active workspace: ${slug}`);
-      out({ activeWorkspace: slug });
+      out({ activeWorkspace: slug, memory });
     });
 
   // ── stats (pre-#108) ───────────────────────────────────────────────────
