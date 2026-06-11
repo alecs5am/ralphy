@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ralphy Studio</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <div class="brand"><span class="dot"></span>Studio<span class="live" id="live">offline</span></div>
+      <div class="ws-pick">
+        <label for="ws">Workspace</label>
+        <select id="ws"></select>
+      </div>
+      <nav class="proj-list" id="projects"></nav>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <h1 id="title">—</h1>
+        <span class="count" id="count"></span>
+        <div class="kind-chips" id="chips"></div>
+      </div>
+      <div class="grid-scroll" id="scroll">
+        <div class="placeholder" id="placeholder">pick a project</div>
+        <div id="sections"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <button class="close" id="modalClose" aria-label="Close">✕</button>
+    <div class="stage" id="stage"></div>
+  </div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

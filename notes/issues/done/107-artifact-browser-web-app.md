@@ -1,6 +1,6 @@
 # Local web app: project artifact browser with live file-watch
 
-> **Status:** todo
+> **Status:** done — 2026-06-11
 > **Filed:** 2026-06-10
 > **Folder:** issues
 
