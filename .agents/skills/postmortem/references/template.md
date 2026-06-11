@@ -151,7 +151,7 @@ Two parts: itemized table + bottom-line summary.
 **Minimum-viable run** if I followed the rules above from start: ~$Y (saved on <specific phase to skip>).
 ```
 
-Compute from `workspace/projects/<id>/logs/generations.jsonl`. If gen-log is incomplete, note that and estimate.
+Compute from `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl`. If gen-log is incomplete, note that and estimate.
 
 ---
 
@@ -161,18 +161,18 @@ A tree showing what shipped. Brief annotations on each.
 
 ```markdown
 \`\`\`
-workspace/projects/<id>/
+.ralphy/workspaces/<ws>/projects/<id>/
 ├── render/
 │   ├── final.mp4                 (1080×1920, 15s, music-X — WINNER)
 │   ├── final-music-a.mp4         (...)
 │   └── ...
 ├── STORYBOARD.md                 (locked v1)
 ├── POSTMORTEM.md                 (this file)
-├── assets/
-│   ├── images/                   (N stills)
-│   ├── videos/                   (M clips)
-│   └── music/                    (K variants)
-└── refs/                         (canonical + user-supplied)
+└── artifacts/
+    ├── images/                   (N stills)
+    ├── videos/                   (M clips)
+    ├── music/                    (K variants)
+    └── refs/                     (canonical + user-supplied)
 \`\`\`
 
 Composition at `src/videos/<id>/{scenes.ts, index.tsx}`, registered as `<CompId>` in `src/Root.tsx`.

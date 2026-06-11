@@ -1,6 +1,6 @@
 // Template extraction (issue #033).
 //
-// Promotes a finished `workspace/projects/<id>/` into a reusable template at
+// Promotes a finished `<project>/` into a reusable template at
 // `templates/<category>/<slug>/`. Pure helpers live here so the unit tests
 // can exercise them without touching disk; the CLI wiring in
 // `cli/commands/template.ts → template extract` orchestrates these against
@@ -211,7 +211,7 @@ export function readmeFromPostmortem(args: {
     `# ${args.slug}`,
     ``,
     `> Extracted template — \`templates/${args.category}/${args.slug}/\`.`,
-    `${args.projectId ? `> Source project: \`workspace/projects/${args.projectId}/\`.` : ""}`,
+    `${args.projectId ? `> Source project: \`${args.projectId}\`.` : ""}`,
     ``,
     `## Usage`,
     ``,

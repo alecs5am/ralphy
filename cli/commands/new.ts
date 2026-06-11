@@ -2,7 +2,7 @@
 // (01.09.01).
 //
 // Unified path with `ralphy project create` (issue #031). Both verbs write to
-// the SAME canonical location (`workspace/projects/<id>/`) and register the
+// the SAME canonical location (`.ralphy/workspaces/<ws>/projects/<id>/`) and register the
 // project in the workspace registry so `ralphy generate` / `ralphy render`
 // can find it. `ralphy new` keeps its lightweight ergonomics (positional
 // brief, no required flags); `project create` keeps the fuller flag surface.
@@ -75,7 +75,7 @@ function legacyOrphanHint(): void {
   console.error(
     `ralphy: note — ${entries.length} legacy project${entries.length === 1 ? "" : "s"} found under ${legacyProjects} ` +
       `(from a pre-v0.3 ralphy build). They are NOT auto-migrated and are invisible to generate / render. ` +
-      `Either ignore them or copy the bits you still need into workspace/projects/<id>/. ` +
+      `Either ignore them or copy the bits you still need into a project under .ralphy/workspaces/<ws>/projects/. ` +
       `Set RALPHY_SKIP_LEGACY_HINT=1 to silence this notice. (issue #031)`,
   );
 }

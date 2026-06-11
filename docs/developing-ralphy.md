@@ -33,7 +33,7 @@ Before every commit, run `rg '\p{Cyrillic}' --hidden -g '!.git' -g '!node_module
 
 `AGENTS.md` invariant #13 is wider than it looks. **You don't delete or overwrite user/agent-produced artifacts without explicit consent.** That applies to:
 
-- `workspace/projects/<id>/` — every file. Regen writes `.v2`, never overwrites.
+- `.ralphy/workspaces/<ws>/projects/<id>/` — every file. Regen writes `.v2`, never overwrites.
 - `cli/lib/errors/catalog.ts` — codes are **append-only post-v1.0** (decision `01-D-07`). Don't rename, don't remove, don't repurpose a code. Cap is `< 40` (raised from `< 30` when category 02 landed). The test in `tests/unit/errors-catalog.test.ts` enforces this.
 - `MODELS.md` "Tried-and-dropped" section — once a model is in there, leave it. The next person trying the same swap reads that section first.
 - `generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl` — never truncate, never rewrite in-place.
@@ -78,9 +78,9 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 
 ## Template discipline
 
-- The repo-public `templates/<category>/<slug>/` folder was retired in #084. Public templates now live in the content library — a static `library.json` (committed at `landing/lib/library-v2/library.json`, served on Bunny CDN), read by the CLI via `cli/lib/library/client.ts`. The Supabase Postgres backend was retired (June 2026): `library.json` is the single source of truth. Author user-local templates into `workspace/templates/<slug>/`; publish onward via the `templater` / `dev-publish-template` path.
+- The repo-public `templates/<category>/<slug>/` folder was retired in #084. Public templates now live in the content library — a static `library.json` (committed at `landing/lib/library-v2/library.json`, served on Bunny CDN), read by the CLI via `cli/lib/library/client.ts`. The Supabase Postgres backend was retired (June 2026): `library.json` is the single source of truth. Author user-local templates into `.ralphy/workspaces/<ws>/templates/<slug>/`; publish onward via the `templater` / `dev-publish-template` path.
 - Category ∈ `{b2b-saas, dtc-commerce, creator-lifestyle, entertainment-viral, cinematic-narrative}`.
-- Workspace overrides the public tier on id collision (`workspace/templates/<slug>/` wins).
+- Workspace overrides the public tier on id collision (`.ralphy/workspaces/<ws>/templates/<slug>/` wins).
 - `template.yaml` schema is in `cli/lib/schemas/template.ts` (Zod). The version gate is `E_TEMPLATE_VERSION_UNSUPPORTED`.
 
 ## Model discipline
@@ -93,7 +93,7 @@ If you add a new lint, wire it into `package.json` AND into the CI workflow (`.g
 ## Test discipline
 
 - `bun test` runs everything (`tests/unit/`, `tests/integration/`). No jest/vitest/mocha.
-- TDD-leaning: new CLI verb → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion in `tests/unit/`. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint workspace/projects/<id>` + `bunx hyperframes snapshot` for keyframe PNGs.
+- TDD-leaning: new CLI verb → smoke via `bun run cli/index.ts <cmd>` (NOT `bunx tsx` — breaks on `bun:sqlite`) + JSON assertion in `tests/unit/`. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint .ralphy/workspaces/<ws>/projects/<id>` + `bunx hyperframes snapshot` for keyframe PNGs.
 - Errors-catalog test is the gatekeeper for the append-only contract — never bypass it.
 
 ## Tools
@@ -115,7 +115,7 @@ If you need any of these, read the actual source — they're discoverable:
 
 - The CLI verb surface — read `cli/index.ts` and `cli/commands/<verb>.ts`, or use `ralphy --help`.
 - The provider layer — read `cli/lib/providers/media.ts` and `cli/lib/providers/llm.ts`.
-- The HyperFrames composition layer — read `workspace/projects/<id>/index.html` examples and the `.agents/skills/hyperframes/` skill body.
+- The HyperFrames composition layer — read `.ralphy/workspaces/<ws>/projects/<id>/index.html` examples and the `.agents/skills/hyperframes/` skill body.
 - The role playbooks — read `docs/playbooks/<role>.md` per-task; routing is in `AGENTS.md`.
 - Architecture diagram — `docs-mintlify/concepts/architecture.mdx`.
 

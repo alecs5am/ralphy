@@ -24,7 +24,7 @@ description: >-
 ## Hard invariants
 
 1. **`ralphy` is the only entry-point.** No direct `ffmpeg`, `yt-dlp`, `curl`, or `bunx tsx` against provider SDKs. Every step in the workflow below is either a `ralphy` verb (already shipped) or an LLM call routed through `cli/lib/providers/llm.ts → callLLM()`. AGENTS invariant #2.
-2. **Append-only on the project dir.** Per AGENTS invariant #14, every regeneration writes `.v2` / `.v3` files. Never overwrite `overlay-plan.json`, `captions.json`, or any asset in `assets/`. The skill writes a new version; the user picks which to promote.
+2. **Append-only on the project dir.** Per AGENTS invariant #14, every regeneration writes `.v2` / `.v3` files. Never overwrite `overlay-plan.json`, `captions.json`, or any asset in `artifacts/`. The skill writes a new version; the user picks which to promote.
 3. **English-only on disk.** Every file the skill writes lands in English. If the source audio is Russian / Spanish / etc., the on-disk `overlay-plan.json` keeps `vo_text` in the source language (it's transcript content) but every comment, log line, file name, and skill-generated annotation is English. Chat with the user matches their language.
 4. **No raw API code.** Browser screenshots run through a Playwright helper script the skill calls via `bunx playwright`, not via raw `puppeteer.launch()` in inline code. Image generation goes through `ralphy generate image`. Music + SFX through `ralphy generate music` + `ralphy generate sfx`. No direct ElevenLabs HTTP calls.
 5. **Composition must be deterministic.** The HyperFrames `index.html` the skill emits has no `Date.now()` / unseeded `Math.random()` / `fetch()` at render time. Per `docs/playbooks/hyperframes.md` hard invariants.
@@ -41,7 +41,7 @@ The skill is the editorial brain that the routing table in `AGENTS.md` points "a
 
 - **Not a short-form cutter.** Use the `podcast-clip` template for ≤ 60s viral cuts.
 - **Not a translator / dubber.** If the user wants to re-narrate the audio in another language, that is a separate `podcast-dub` workflow (different pipeline, voice cloning).
-- **Not a publisher / uploader.** Output is `workspace/projects/<id>/render/final.mp4`. The user uploads it themselves.
+- **Not a publisher / uploader.** Output is `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4`. The user uploads it themselves.
 
 ## The workflow
 
@@ -91,7 +91,7 @@ The skill is the editorial brain that the routing table in `AGENTS.md` points "a
    step 12 — `ralphy editor preflight` && `ralphy render`
 ```
 
-Each step writes to `workspace/projects/<id>/`. Re-running the skill detects existing artifacts and skips them (idempotent), matching the `researcher` resume pattern.
+Each step writes to `.ralphy/workspaces/<ws>/projects/<id>/`. Re-running the skill detects existing artifacts and skips them (idempotent), matching the `researcher` resume pattern.
 
 ## Step-by-step
 
@@ -100,15 +100,15 @@ Each step writes to `workspace/projects/<id>/`. Re-running the skill detects exi
 ```bash
 # Create the project from the topic gloss
 ralphy new "long-form faceless explainer from audio about <topic>"
-# → workspace/projects/<id>/
+# → .ralphy/workspaces/<ws>/projects/<id>/
 
 # If the source is a URL:
 ralphy ref pull "<url>" --slug <ref-slug> --audio-only
-cp workspace/references/<ref-slug>/source.mp3 \
-   workspace/projects/<id>/refs/source.mp3
+cp .ralphy/references/<ref-slug>/source.mp3 \
+   .ralphy/workspaces/<ws>/projects/<id>/artifacts/refs/source.mp3
 
 # If the source is a local file:
-cp /path/to/podcast.mp3 workspace/projects/<id>/refs/source.mp3
+cp /path/to/podcast.mp3 .ralphy/workspaces/<ws>/projects/<id>/artifacts/refs/source.mp3
 ```
 
 ### Step 2 — remove dead air
@@ -118,8 +118,8 @@ cp /path/to/podcast.mp3 workspace/projects/<id>/refs/source.mp3
 # the skill calls the ffmpeg recipe directly via:
 bunx tsx -e 'import { removeSilence } from "./cli/lib/ffmpeg-recipes"; …'
 # Threshold: -40 dBFS, min silence 0.6s.
-# Output: workspace/projects/<id>/assets/audio/vo.mp3 (silence-removed)
-#         workspace/projects/<id>/cut-map.json (original_t → trimmed_t)
+# Output: .ralphy/workspaces/<ws>/projects/<id>/artifacts/audio/vo.mp3 (silence-removed)
+#         .ralphy/workspaces/<ws>/projects/<id>/cut-map.json (original_t → trimmed_t)
 ```
 
 The `cut-map.json` is informational; transcript timestamps are recomputed from the trimmed audio in step 3, not via remapping.
@@ -128,8 +128,8 @@ The `cut-map.json` is informational; transcript timestamps are recomputed from t
 
 ```bash
 ralphy generate captions \
-  --audio workspace/projects/<id>/assets/audio/vo.mp3 \
-  --out  workspace/projects/<id>/captions.json
+  --audio .ralphy/workspaces/<ws>/projects/<id>/artifacts/audio/vo.mp3 \
+  --out  .ralphy/workspaces/<ws>/projects/<id>/captions.json
 ```
 
 Verify the output has per-word `start` / `end`. ElevenLabs Scribe v1 returns word-level for all supported languages — if the JSON is sentence-level only, surface a hard error.
@@ -170,13 +170,13 @@ Prompt instructions:
 
 ### Step 7 — emit `overlay-plan.json`
 
-Write to `workspace/projects/<id>/overlay-plan.json`. If the file already exists, write `overlay-plan.v2.json` and show the user a diff summary. Never overwrite.
+Write to `.ralphy/workspaces/<ws>/projects/<id>/overlay-plan.json`. If the file already exists, write `overlay-plan.v2.json` and show the user a diff summary. Never overwrite.
 
 ### Step 8 — asset prep
 
 Iterate `overlay-plan.json`. For each entry:
 - `code-block` / `terminal` / `tweet-card` / `quote-card-kinetic` / `chapter-card` / `diagram` → composition-time render, no asset prep needed.
-- `browser-frame` → run a Playwright capture helper: `bunx tsx scripts/capture-screenshot.ts --url <url> --out assets/screenshots/<slug>.png`. (Helper script lives in the skill's `scripts/` folder.)
+- `browser-frame` → run a Playwright capture helper: `bunx tsx scripts/capture-screenshot.ts --url <url> --out artifacts/screenshots/<slug>.png`. (Helper script lives in the skill's `scripts/` folder.)
 - `screenshot` / `meme` / `logo-pop` (when not in the curated set) → `ralphy generate image --project <id> --slot <id> --prompt "<content.image_prompt>"`.
 
 Failed generations: do not retry blindly. Log the failure, mark the overlay slot with `status: "failed"`, surface the count to the user with a one-line summary at the end.
@@ -189,7 +189,7 @@ ralphy generate music --project <id> \
   --duration <total> \
   --style "lo-fi ambient electronic instrumental, 75-85 BPM, ..." \
   --instrumental \
-  --out assets/audio/music.mp3
+  --out artifacts/audio/music.mp3
 ```
 
 The full prompt template is in the cookbook. Style override (`lo-fi` / `ambient` / `cinematic`) comes from the user or, if absent, from `audio-analysis.json` (high-energy VO → cinematic; calm VO → lo-fi).
@@ -205,7 +205,7 @@ ralphy generate sfx --project <id> --label hit \
   --prompt "deep sub-bass hit, 0.6s, cinematic punchline"
 ```
 
-Three files at `assets/audio/whoosh.mp3` / `pop.mp3` / `hit.mp3`.
+Three files at `artifacts/audio/whoosh.mp3` / `pop.mp3` / `hit.mp3`.
 
 ### Step 11 — compose HTML
 
@@ -220,7 +220,7 @@ ralphy editor preflight <id>
 ralphy render <id> --aspect 16:9 --loudnorm
 ```
 
-Final output: `workspace/projects/<id>/render/final.mp4`. Show the user the path and the file size. Suggest `ralphy eval video <path>` for a quality gate before publishing.
+Final output: `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4`. Show the user the path and the file size. Suggest `ralphy eval video <path>` for a quality gate before publishing.
 
 ## Inputs / outputs contract
 
@@ -230,13 +230,13 @@ Final output: `workspace/projects/<id>/render/final.mp4`. Show the user the path
 3. Optional flags: `--aspect`, `--theme`, `--music-style`, `--opener`.
 
 **Outputs the skill leaves on disk:**
-- `workspace/projects/<id>/captions.json`
-- `workspace/projects/<id>/overlay-plan.json` (the editorial decision record — preserve forever)
-- `workspace/projects/<id>/assets/audio/{vo,music,whoosh,pop,hit}.mp3`
-- `workspace/projects/<id>/assets/{screenshots,memes,images,logos}/*`
-- `workspace/projects/<id>/index.html` + `compositions/chapter-NN.html`
-- `workspace/projects/<id>/render/final.mp4`
-- All generations logged to `workspace/projects/<id>/logs/generations.jsonl`.
+- `.ralphy/workspaces/<ws>/projects/<id>/captions.json`
+- `.ralphy/workspaces/<ws>/projects/<id>/overlay-plan.json` (the editorial decision record — preserve forever)
+- `.ralphy/workspaces/<ws>/projects/<id>/artifacts/audio/{vo,music,whoosh,pop,hit}.mp3`
+- `.ralphy/workspaces/<ws>/projects/<id>/artifacts/{screenshots,memes,images,logos}/*`
+- `.ralphy/workspaces/<ws>/projects/<id>/index.html` + `compositions/chapter-NN.html`
+- `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4`
+- All generations logged to `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl`.
 
 ## Handoff
 

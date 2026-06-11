@@ -13,7 +13,7 @@
 //
 // Three INDEPENDENT modes (Unit / Block / Blueprint publishes are each first-class):
 //
-//   --unit <path>        path to a project unit dir: workspace/projects/<id>/units/<slug>/
+//   --unit <path>        path to a project unit dir: .ralphy/workspaces/<ws>/projects/<id>/units/<slug>/
 //                        (has unit.json + the copied media). Validates the unit
 //                        shape, uploads media to Bunny at units/<id>/<filename>,
 //                        copies media into landing/public/showcase/<id>/ (so the
@@ -29,7 +29,7 @@
 //                        blocks/<kind>/<id>/<file>, appends/replaces in library.json.
 //
 //   --blueprint <dir>    a project unit's blueprint dir (#076):
-//                        workspace/projects/<id>/units/<slug>/blueprint/ — has
+//                        .ralphy/workspaces/<ws>/projects/<id>/units/<slug>/blueprint/ — has
 //                        blueprint.json (#074) + a copied payload. Uploads the
 //                        payload to Bunny at blueprints/<unitId>/<relpath> (files
 //                        over a 50 MiB cap are LOUD-warned + recorded in
@@ -107,17 +107,18 @@ function parseArgs(argv: string[]): Args {
 // ── Local-filesystem-path sanitizer (security guard, #056 leak root-cause) ──────
 //
 // Publishing must NEVER leak an absolute local filesystem path
-// (`/Users/...`, `/home/...`, `/var/...`, `/tmp/...`, `/private/...`) or a
-// `workspace/projects/` segment into the committed library.json or a Bunny
-// Storage object key. Those strings expose the maintainer's machine and never
-// resolve for any other user.
+// (`/Users/...`, `/home/...`, `/var/...`, `/tmp/...`, `/private/...`), a
+// legacy `workspace/projects/` segment, or a `.ralphy/` data-root segment
+// (#108 layout) into the committed library.json or a Bunny Storage object
+// key. Those strings expose the maintainer's machine and never resolve for
+// any other user.
 //
 // `LOCAL_PATH_RE` is the single regex both the per-field sanitizer AND the final
 // backstop assertion use, so "what we strip" and "what we refuse" can never drift.
 
-export const LOCAL_PATH_RE = /(\/Users\/|\/home\/|\/var\/|\/tmp\/|\/private\/|workspace\/projects)/;
+export const LOCAL_PATH_RE = /(\/Users\/|\/home\/|\/var\/|\/tmp\/|\/private\/|workspace\/projects|\.ralphy\/)/;
 
-/** True when `value` carries an absolute local FS path or a workspace/projects segment. */
+/** True when `value` carries an absolute local FS path or a workspace/projects / .ralphy/ segment. */
 export function looksLocal(value: string): boolean {
   return LOCAL_PATH_RE.test(value);
 }
@@ -664,7 +665,7 @@ async function publishBlock(args: Args, push: boolean): Promise<void> {
 
 // ── Mode: publish a Blueprint (#077) ────────────────────────────────────────────
 //
-// A blueprint dir is `workspace/projects/<id>/units/<slug>/blueprint/` (or a
+// A blueprint dir is `.ralphy/workspaces/<ws>/projects/<id>/units/<slug>/blueprint/` (or a
 // `.vN` variant), produced by `ralphy blueprint create` (#076). It holds:
 //   blueprint.json      the #074 Blueprint object (the six axes + unitId)
 //   index.html          the copied composition skeleton (composition.file)

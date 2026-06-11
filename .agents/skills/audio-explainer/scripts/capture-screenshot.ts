@@ -3,7 +3,7 @@
 // Usage:
 //   bunx tsx .agents/skills/audio-explainer/scripts/capture-screenshot.ts \
 //     --url https://docs.anthropic.com/... \
-//     --out workspace/projects/<id>/assets/screenshots/anthropic-docs.png \
+//     --out .ralphy/workspaces/<ws>/projects/<id>/artifacts/screenshots/anthropic-docs.png \
 //     [--width 1440] [--height 900] [--wait 1500]
 //
 // Why this script exists, not a `ralphy` verb: browser-frame overlays are

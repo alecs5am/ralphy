@@ -5,7 +5,7 @@
 // `supported_aspect_ratios`, `supported_frame_images` — the per-model
 // constraints we have to honor or OR rejects the submit.
 //
-// Cached at `workspace/.ralph/or-catalog.json` for `TTL_MS`. On a stale
+// Cached at `.ralphy/or-catalog.json` for `TTL_MS`. On a stale
 // cache we refetch; on a network failure we fall back to the stale copy
 // rather than block the user.
 

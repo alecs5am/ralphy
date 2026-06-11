@@ -1,6 +1,6 @@
 // Lightweight project event logging.
 //
-// All logs are per-project JSONL under workspace/projects/{id}/logs/:
+// All logs are per-project JSONL under <project>/logs/:
 //   generations.jsonl  — every model call (fal.ai / ElevenLabs / Lyria2 / OpenAI)
 //   user-prompts.jsonl — chronological list of user-facing prompts/requests
 //   user-assets.jsonl  — user-uploaded references (screenshots, product photos, docs)
@@ -12,7 +12,7 @@
 // - All three functions are safe to call with non-existent project dirs — they mkdir -p.
 //
 // Consumers:
-// - Scripts under workspace/projects/{id}/scripts/*.ts import and wrap fal/elevenlabs calls.
+// - Scripts under <project>/scripts/*.ts import and wrap fal/elevenlabs calls.
 // - `ralph project log <id>` reads these files.
 // - Dashboard /projects/:id/logs serves them.
 

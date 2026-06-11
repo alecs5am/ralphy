@@ -3,7 +3,7 @@ title: "Asset manifest"
 description: "asset-manifest.json — per-project slot pointer table, slot-id convention, and the auto-versioning archive flow."
 ---
 
-`workspace/projects/<id>/asset-manifest.json` is the single pointer table for everything a project has generated. One key per asset slot, one record per pointer. The runtime shape is defined in `cli/commands/generate.ts` (`Manifest` type, `readManifest` / `writeManifest`). This page documents the schema, the slot-id convention, and how auto-versioning interacts with the pointer.
+`.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json` is the single pointer table for everything a project has generated. One key per asset slot, one record per pointer. The runtime shape is defined in `cli/commands/generate.ts` (`Manifest` type, `readManifest` / `writeManifest`). This page documents the schema, the slot-id convention, and how auto-versioning interacts with the pointer.
 
 ## Full example
 
@@ -12,7 +12,7 @@ description: "asset-manifest.json — per-project slot pointer table, slot-id co
   "slots": {
     "scene-01-bg-image": {
       "kind": "image",
-      "path": "assets/images/scene-01-bg-image.png",
+      "path": "artifacts/images/scene-01-bg-image.png",
       "model": "google/gemini-3-pro-image-preview",
       "costUsd": 0.15,
       "url": "https://orcdn.example/...",
@@ -20,21 +20,21 @@ description: "asset-manifest.json — per-project slot pointer table, slot-id co
     },
     "scene-01-vid": {
       "kind": "video",
-      "path": "assets/videos/scene-01-vid.mp4",
+      "path": "artifacts/videos/scene-01-vid.mp4",
       "model": "kwaivgi/kling-v3.0-pro",
       "costUsd": 0.70,
       "generatedAt": "2026-05-19T08:18:01.501Z"
     },
     "scene-01-vo": {
       "kind": "voiceover",
-      "path": "assets/voiceover/scene-01-vo.mp3",
+      "path": "artifacts/voiceover/scene-01-vo.mp3",
       "model": "eleven_multilingual_v2",
       "costUsd": 0,
       "generatedAt": "2026-05-19T08:19:14.700Z"
     },
     "bg-music": {
       "kind": "music",
-      "path": "assets/music/bg-music.mp3",
+      "path": "artifacts/music/bg-music.mp3",
       "model": "music_v1",
       "costUsd": 0,
       "generatedAt": "2026-05-19T08:20:33.900Z"
@@ -68,7 +68,7 @@ type Manifest = {
 |---|---|---|---|
 | `slots` | object | required | Map from slot id to slot record. Empty object on a fresh project. |
 | `slots[id].kind` | enum | required | `image`, `video`, `voiceover`, `music`, `captions`. |
-| `slots[id].path` | string | required | Project-relative path to the current version of the asset (e.g. `assets/images/scene-01-bg-image.png`). |
+| `slots[id].path` | string | required | Project-relative path to the current version of the asset (e.g. `artifacts/images/scene-01-bg-image.png`). |
 | `slots[id].model` | string | optional | Full provider model id (e.g. `google/gemini-3-pro-image-preview`). |
 | `slots[id].costUsd` | number | optional | Cost in USD for the *latest* generation, not lifetime. Lifetime cost comes from `generations.jsonl`. |
 | `slots[id].url` | string | optional | Provider URL when the asset was downloaded from a remote source. Useful for re-fetching. |
@@ -107,17 +107,17 @@ The auto-normalization exists because six of ten project postmortems flagged the
 When you regenerate a slot that already has a file, `cli/lib/providers/media.ts → protectExistingAsset()` archives the existing file before the new one lands:
 
 ```
-assets/images/scene-01-bg-image.png        # before regen
-assets/images/scene-01-bg-image.png        # after regen — new file
-assets/images/scene-01-bg-image.v1.png     # archived original
+artifacts/images/scene-01-bg-image.png        # before regen
+artifacts/images/scene-01-bg-image.png        # after regen — new file
+artifacts/images/scene-01-bg-image.v1.png     # archived original
 ```
 
 A second regen archives v1 → v2:
 
 ```
-assets/images/scene-01-bg-image.png        # latest
-assets/images/scene-01-bg-image.v2.png     # second-latest
-assets/images/scene-01-bg-image.v1.png     # original
+artifacts/images/scene-01-bg-image.png        # latest
+artifacts/images/scene-01-bg-image.v2.png     # second-latest
+artifacts/images/scene-01-bg-image.v1.png     # original
 ```
 
 The pattern is `<base>.v{N}<ext>` where `N` is the next free version number. The archiver scans siblings, finds the highest existing `N`, and uses `N+1`.
@@ -136,13 +136,13 @@ If the user prefers v1 over the latest, the promote flow is **manual and user-dr
 
 ```bash
 # inspect the versions
-ls workspace/projects/<id>/assets/images/scene-01-bg-image*
+ls .ralphy/workspaces/<ws>/projects/<id>/artifacts/images/scene-01-bg-image*
 
 # promote v2 → latest
-mv workspace/projects/<id>/assets/images/scene-01-bg-image.png \
-   workspace/projects/<id>/assets/images/scene-01-bg-image.v3.png
-mv workspace/projects/<id>/assets/images/scene-01-bg-image.v2.png \
-   workspace/projects/<id>/assets/images/scene-01-bg-image.png
+mv .ralphy/workspaces/<ws>/projects/<id>/artifacts/images/scene-01-bg-image.png \
+   .ralphy/workspaces/<ws>/projects/<id>/artifacts/images/scene-01-bg-image.v3.png
+mv .ralphy/workspaces/<ws>/projects/<id>/artifacts/images/scene-01-bg-image.v2.png \
+   .ralphy/workspaces/<ws>/projects/<id>/artifacts/images/scene-01-bg-image.png
 ```
 
 The manifest's `path` does not change (the unversioned filename is the same). The new file *is* the new latest. A future `ralphy project doctor` verb may automate this, but until then the swap is by hand.

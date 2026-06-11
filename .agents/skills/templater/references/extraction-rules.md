@@ -37,7 +37,7 @@ Shape: `{ assets: { <slot>: { type, path, slot?, locked?, refRole?, ... } } }`.
 
 Extract:
 - For each entry where `locked === true` OR `refRole` ∈ {`character-master`, `location-plate`, `music-bed`, `brand-master`}: this is a candidate for pool migration. See `pool-migration.md`.
-- For each entry where `type ∈ {trim-from, render-output}` or path lives under `assets/captions/` / `render/`: skip — these are project-specific outputs, not template inputs.
+- For each entry where `type ∈ {trim-from, render-output}` or path lives under `artifacts/captions/` / `render/`: skip — these are project-specific outputs, not template inputs.
 - Image / video ref files that are NOT locked but still reusable (e.g. master frames from research): include in template `assets:` map with `required: false` so consumers can opt-in.
 
 Output target: `template.json:assets` map. See `pool-migration.md` for the exact entry shape.
@@ -150,7 +150,7 @@ So templater just invokes `blueprint create` per Unit and records the path + sta
 
 The canonical "what this template produces" pointer.
 
-- Source project: `workspace/projects/<source-id>/`
+- Source project: `.ralphy/workspaces/<ws>/projects/<source-id>/`
 - Final render: [link to mp4 in ralphy-assets/examples/showcase/<source-id>.mp4]
 - One-paragraph description of what's notable about this specific instance
 ```
@@ -159,7 +159,7 @@ The canonical "what this template produces" pointer.
 
 ## Edge cases
 
-- **Missing `assets/` subdir** (vibe-style refs only) → OK, no pool migration needed. Just emit `prompts.json` extraction.
+- **Missing `artifacts/` subdir** (vibe-style refs only) → OK, no pool migration needed. Just emit `prompts.json` extraction.
 - **`prompts.json` has prompts in mixed languages (non-English + English)** → slot detection still works on any language (regex + LLM-based proper-noun extraction), BUT the extracted prose that lands on disk must be **English** (the `docs/developing-ralphy.md` hard rule). Translate any non-English prompt / VO / storyboard line before writing it into a block body, a tag, a description, or a local template artifact — the swamp lesson (the Russian word *nechist* → "the unclean"). The on-disk artifact is always English; the source project's gitignored files keep their original language.
 - **Gen-log has stage `add-music` entries** → these are ffmpeg recipes, not model calls. Skip them for `model-stack.md`; surface in `composition.md` "Audio mix" section instead.
 - **Very long gen-log (>500 entries)** → cap at last 200 entries for the model-mode analysis. Older entries are typically failed early iterations.

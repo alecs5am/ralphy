@@ -1,7 +1,7 @@
 // `ralphy unit` — project-local curated deliverables (#069).
 //
 // A *unit* is a finished deliverable assembled from COPIES of selected
-// `artifacts/` files, living at `workspace/projects/<id>/units/<slug>/` with a
+// `artifacts/` files, living at `<project>/units/<slug>/` with a
 // `unit.json` manifest that mirrors the library-v2 Unit entity. This is the
 // project-side half of the Unit model (the library half is #063); publish
 // (#056) reads `units/*/unit.json` directly.

@@ -1,11 +1,11 @@
 // `ralphy clone <url-or-ref>` — front-stage style-clone verb (01.01.03).
 //
 // Thin wrapper that chains four existing back-stage verbs:
-//   1. ref pull           — yt-dlp into workspace/references/<slug>/
+//   1. ref pull           — yt-dlp into .ralphy/references/<slug>/
 //   2. ref frames         — sample keyframes
 //   3. ref analyze        — vision LLM over frames → analysis.json
 //   4. ref blueprint      — synthesize blueprint.md
-// then writes a new vibe-style template under workspace/templates/<id>/.
+// then writes a new vibe-style template under .ralphy/workspaces/<ws>/templates/<id>/.
 //
 // Acceptance (01.01.03):
 //   • URL or registered ref slug both work; slug skips the pull step.

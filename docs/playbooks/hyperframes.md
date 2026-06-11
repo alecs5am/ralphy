@@ -48,12 +48,12 @@ The skill table above lists *where* knowledge lives. These five files are *what*
 A Ralphy workspace project that renders via HyperFrames has at least:
 
 ```
-workspace/projects/<id>/
+.ralphy/workspaces/<ws>/projects/<id>/
 ├── index.html                ← root composition (REQUIRED — this is what `ralphy render` looks for)
 ├── design.md                 ← brand/style source-of-truth (colors, fonts, mood, ratios)
 ├── meta.json                 ← optional HyperFrames project metadata
 ├── compositions/             ← optional sub-compositions loaded via data-composition-src
-├── assets/                   ← images, audio, video, fonts (referenced from index.html)
+├── artifacts/                ← media by kind: images/ videos/ voiceover/ music/ sfx/ captions/ fonts/ refs/ (referenced from index.html)
 ├── render/                   ← final.mp4 lands here
 └── logs/                     ← generations.jsonl, user-prompts.jsonl (ralphy convention)
 ```
@@ -98,7 +98,7 @@ These break the render *without erroring loudly*. Each one is a real footgun the
 | 3 | Composition shorter than the source video | Video cuts off when the timeline ends | Verify with `bunx hyperframes compositions`. Extend with `tl.set({}, {}, DURATION)` (no animation, just timeline length). |
 | 4 | Missing `class="clip"` on timed elements | Elements render *always* (never hide) | Lint catches this — run `bunx hyperframes lint` before preview. Every element with `data-start` / `data-duration` needs `class="clip"`. |
 | 5 | `window.__timelines["key"]` doesn't match `data-composition-id` | Animations silently never play; static frames render | The key on the timeline registration MUST be byte-equal to the root's `data-composition-id`. Case- and whitespace-sensitive. |
-| 6 | Oversized source images (e.g. 7000×5000 JPEG) | Chrome decodes to RGBA (`w × h × 4` bytes) — a 2 MB JPEG balloons to ~140 MB RAM and renders crash on OOM | Resize sources to **≤ 2× canvas dimensions** (for 1920×1080, max 3840×2160). Use `sharp` / `ffmpeg -vf scale` before `assets/`. |
+| 6 | Oversized source images (e.g. 7000×5000 JPEG) | Chrome decodes to RGBA (`w × h × 4` bytes) — a 2 MB JPEG balloons to ~140 MB RAM and renders crash on OOM | Resize sources to **≤ 2× canvas dimensions** (for 1920×1080, max 3840×2160). Use `sharp` / `ffmpeg -vf scale` before `artifacts/`. |
 | 7 | Heavy `backdrop-filter: blur()` stacks | Compositor cost compounds per layer; render slows to a crawl or fails | Cap at 2–3 layers per region, radius ≤ 64px over large areas. For static blur, pre-render to a PNG and use it as a regular `<img>`. |
 | 8 | `<video>` timed via a wrapper `<div>` (`data-start` / `data-track-index` on the wrapper, not on the `<video>`) — #047 | Capture engine reads timing from the media element directly; wrapper attrs are invisible. Silent freeze + only-first-frame at render. | `id` + `data-start` + `data-track-index` + `data-duration` go on the `<video>` itself. Use a non-timed wrapper for layout only. Enforced by `ralphy render`'s pre-render lint (`cli/lib/render/hyperframes-lint.ts`) — blocks before upstream render. |
 | 9 | Many short (`< 3s`) same-track `<video>` clips back-to-back (e.g. 6×2s on `data-track-index=0`) — #047 | Runtime cannot reliably switch between same-track video sources during capture. Typically only the first plays; the rest render as static frames. No upstream lint catches it. | Concat the clips into a single video with `ffmpeg -f concat -i list.txt -c copy out.mp4` and reference it with one `<video>`. Or put each clip on its own `data-track-index`. Override (with caution): `data-allow-short-stack="true"` on any of the affected `<video>` tags. Warned at author time by `ralphy render`'s pre-render lint. |
@@ -123,17 +123,17 @@ ralphy render <project-id> --resolution portrait        # 1080×1920 portrait vi
 ralphy render <project-id> --loudnorm                   # +EBU R128 -16 LUFS post-pass
 
 # Iterate
-bunx hyperframes preview workspace/projects/<id>        # live-reload browser preview (foreground)
-bunx hyperframes lint     workspace/projects/<id>       # validate composition shape
-bunx hyperframes inspect  workspace/projects/<id>       # visual layout across the timeline
-bunx hyperframes snapshot workspace/projects/<id>       # keyframe PNGs for QA
+bunx hyperframes preview .ralphy/workspaces/<ws>/projects/<id>        # live-reload browser preview (foreground)
+bunx hyperframes lint     .ralphy/workspaces/<ws>/projects/<id>       # validate composition shape
+bunx hyperframes inspect  .ralphy/workspaces/<ws>/projects/<id>       # visual layout across the timeline
+bunx hyperframes snapshot .ralphy/workspaces/<ws>/projects/<id>       # keyframe PNGs for QA
 bunx hyperframes doctor                                 # env check (node, ffmpeg, chrome)
 
 # Install registry blocks (catalog has 70+ items — see Catalog section below)
-bunx hyperframes add <block-slug> workspace/projects/<id>
+bunx hyperframes add <block-slug> .ralphy/workspaces/<ws>/projects/<id>
 
 # Asset preprocessing
-bunx hyperframes tts        --text "..."  -o assets/vo.wav
+bunx hyperframes tts        --text "..."  -o artifacts/voiceover/vo.wav
 bunx hyperframes transcribe --in vo.wav   -o captions.json
 bunx hyperframes remove-background --in shot.mp4 -o shot-alpha.webm
 ```
@@ -218,7 +218,7 @@ Coarse taxonomy (read the SKILL.md body for exact slugs):
 # Discover
 bunx hyperframes catalog                         # browse the registry
 # Install one into your project
-bunx hyperframes add kinetic-slam workspace/projects/<id>
+bunx hyperframes add kinetic-slam .ralphy/workspaces/<ws>/projects/<id>
 # Wire it into index.html (the skill walks you through it)
 ```
 
@@ -249,9 +249,9 @@ Example: *"22s, 1920×1080, tech-broadcast slam, brand pink #E87BA1, AWS Diatype
 - **`AGENTS.md`** — invariants (no auto-Studio, ralphy render, no ad-hoc ffmpeg).
 - **`.agents/skills/hyperframes/SKILL.md`** — composition rules, layout-before-animation, design.md gate.
 - **`.agents/skills/gsap/SKILL.md`** — timeline grammar.
-- **`workspace/projects/<id>/design.md`** — brand/style source-of-truth (if absent, ask the user before writing CSS).
-- **`workspace/projects/<id>/scenario.json`** — beat structure, timings.
-- **`workspace/projects/<id>/asset-manifest.json`** — asset paths.
+- **`.ralphy/workspaces/<ws>/projects/<id>/design.md`** — brand/style source-of-truth (if absent, ask the user before writing CSS).
+- **`.ralphy/workspaces/<ws>/projects/<id>/scenario.json`** — beat structure, timings.
+- **`.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json`** — asset paths.
 - **`docs/green-zone.md`** — text positioning safe zone for 1080×1920.
 
 ## Pixels vs code — motion-graphics decision tree

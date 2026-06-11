@@ -35,7 +35,7 @@ Pull prices from the `MODELS.md` references. Real totals — from `generations.j
 
 ## Inheritance from template
 
-If the project was scaffolded from a template — **read `workspace/templates/<slug>/model-stack.md` first**. The template fixes a proven combo + failure modes. Don't deviate without reason.
+If the project was scaffolded from a template — **read `.ralphy/workspaces/<ws>/templates/<slug>/model-stack.md` first**. The template fixes a proven combo + failure modes. Don't deviate without reason.
 
 ## Switching models mid-project
 

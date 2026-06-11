@@ -3,11 +3,11 @@ title: "Template format"
 description: "template.yaml Zod schema, vibe-reference vs vibe-style, segment categories, slug rules, and version gating."
 ---
 
-A Ralphy template is a `template.yaml` manifest plus supporting prose (`TEMPLATE.md`, `composition.md`, `hooks.md`, `prompt-cookbook.md`). Public templates are served from the hosted content library (Supabase); your own author into `workspace/templates/<slug>/` (user-local). The old repo-public `templates/<category>/<slug>/` folder was retired in #084. This page is the wire-format spec: the manifest Zod schema, the two `kind`s, the segment categories, the slug discipline, and the version gate.
+A Ralphy template is a `template.yaml` manifest plus supporting prose (`TEMPLATE.md`, `composition.md`, `hooks.md`, `prompt-cookbook.md`). Public templates are served from the hosted content library (Supabase); your own author into `.ralphy/workspaces/<ws>/templates/<slug>/` (user-local). The old repo-public `templates/<category>/<slug>/` folder was retired in #084. This page is the wire-format spec: the manifest Zod schema, the two `kind`s, the segment categories, the slug discipline, and the version gate.
 
 ## Full example
 
-A minimal `vibe-style` template at `workspace/templates/brand-story/template.yaml`:
+A minimal `vibe-style` template at `.ralphy/workspaces/<ws>/templates/brand-story/template.yaml`:
 
 ```yaml
 version: 1
@@ -52,13 +52,13 @@ templates/
   creator-lifestyle/
   entertainment-viral/
   cinematic-narrative/
-workspace/
+.ralphy/workspaces/<ws>/
   templates/                 # user-local; flat layout (no category folder)
     my-template/
       template.yaml
 ```
 
-The five category folders are fixed. `workspace/templates/` is flat (no category subdir). When a slug exists in both, **workspace overrides repo** — per AGENTS invariant #10.
+The five category folders are fixed. `.ralphy/workspaces/<ws>/templates/` is flat (no category subdir). When a slug exists in both, **workspace overrides repo** — per AGENTS invariant #10.
 
 ## Zod schema
 
@@ -220,7 +220,7 @@ When `scenes[]` eventually gains a required field, the loader keeps a v1 reader 
 
 `ralphy template use <slug>` resolves a slug across both tiers:
 
-1. Search `workspace/templates/<slug>/template.yaml`.
+1. Search `.ralphy/workspaces/<ws>/templates/<slug>/template.yaml`.
 2. If not found, look the slug up in the public content library (Supabase).
 3. If still not found, search aliases (`aliases: [old-slug]`).
 
@@ -241,7 +241,7 @@ The manifest parses through the v1 Zod loader (`cli/lib/templater/loader.ts`) on
 1. **Pick a category.** One of `b2b-saas`, `dtc-commerce`, `creator-lifestyle`, `entertainment-viral`, `cinematic-narrative`.
 2. **Pick a slug.** Kebab-case, no creator names.
 3. **Decide the kind.** `vibe-reference` if you're shipping a full production with refs; `vibe-style` if you're shipping a prompt cookbook.
-4. **Write `template.yaml`** at `workspace/templates/<slug>/`. Start with `version: 1`, fill required fields, default the rest.
+4. **Write `template.yaml`** at `.ralphy/workspaces/<ws>/templates/<slug>/`. Start with `version: 1`, fill required fields, default the rest.
 5. **Write `TEMPLATE.md`.** Human-readable overview. Creator references go here, not in the slug.
 6. **For `vibe-reference`:** add `composition.md` (the narrated walkthrough) and `reference/` (worked artifacts).
 7. **For `vibe-style`:** add `hooks.md` (hook library) and `prompt-cookbook.md` (per-modality fragments).

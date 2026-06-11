@@ -123,7 +123,7 @@ describe("buildBatchDryRun", () => {
     expect(dr.cost_estimate_usd).toBeGreaterThan(0);
     expect(dr.eta_seconds).toBeGreaterThan(0);
     expect(dr.items).toHaveLength(3);
-    expect(dr.items[0]?.would_write).toContain("workspace/projects/test-001/artifacts/images/scene-01-v1.png");
+    expect(dr.items[0]?.would_write).toContain("workspaces/default/projects/test-001/artifacts/images/scene-01-v1.png");
   });
 
   test("respects per-item model override when summing cost", () => {

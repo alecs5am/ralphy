@@ -18,7 +18,7 @@ import { templateCloneCmd } from "./clone.js";
 // Templates source from two tiers (both readable transparently):
 //   - public                      → Supabase content library (template blocks),
 //                                    read via cli/lib/library/client.ts
-//   - workspace/templates/        → user-local, gitignored (lives under workspace/)
+//   - <workspace>/templates/      → user-local, gitignored (.ralphy/workspaces/<ws>/templates/)
 // Workspace overrides public if both define the same id (so a user can locally
 // edit / shadow a published template without touching the library).
 //
@@ -26,8 +26,8 @@ import { templateCloneCmd } from "./clone.js";
 // templates now live in the library. This file no longer reads it.
 //
 // A workspace template supports two layouts:
-//   Flat:   workspace/templates/<id>.json
-//   Dir:    workspace/templates/<id>/template.json + TEMPLATE.md + *.md
+//   Flat:   <workspace>/templates/<id>.json
+//   Dir:    <workspace>/templates/<id>/template.json + TEMPLATE.md + *.md
 //
 // Dir-based templates are preferred for reusable video blueprints because the
 // LLM-consumable doc (TEMPLATE.md) lives next to metadata, and the template
@@ -274,7 +274,7 @@ export function templateCmd() {
         try {
           data.scenario = JSON.parse(await fs.readFile(scenarioPath, "utf-8"));
         } catch {
-          raiseError("E_FILE_UNREADABLE", { path: `workspace/projects/${opts.fromProject}/scenario.json` });
+          raiseError("E_FILE_UNREADABLE", { path: scenarioPath });
         }
       } else if (opts.fromFile) {
         try {
@@ -327,7 +327,7 @@ export function templateCmd() {
 
   cmd
     .command("list")
-    .description("List all templates (public library templates + local workspace/templates/)")
+    .description("List all templates (public library templates + the active workspace's templates/)")
     .option("--format <f>", "Filter to a single media format (video|image|carousel|fb-creative|motion-design|poster|sticker-pack)")
     .action(async (opts: { format?: string }) => {
       type Row = {
@@ -726,7 +726,7 @@ export function templateCmd() {
   cmd
     .command("extract <project-id>")
     .description(
-      "Promote a finished workspace project into a reusable user-local template at workspace/templates/<slug>/. Copies prompts/, scenario, composition variables, and refs; substitutes brand/persona/VO with {{slots}}; drafts a README from POSTMORTEM 'Lessons learned'. To publish it to the public library, use the templater / dev-publish-template path.",
+      "Promote a finished workspace project into a reusable user-local template at the active workspace's templates/<slug>/ (.ralphy/workspaces/<ws>/templates/). Copies prompts/, scenario, composition variables, and refs; substitutes brand/persona/VO with {{slots}}; drafts a README from POSTMORTEM 'Lessons learned'. To publish it to the public library, use the templater / dev-publish-template path.",
     )
     .requiredOption("--category <c>", "Template category (b2b-saas|dtc-commerce|creator-lifestyle|entertainment-viral|cinematic-narrative)")
     .requiredOption("--slug <s>", "Target template slug (kebab-case)")
@@ -760,7 +760,7 @@ export function templateCmd() {
         raiseError("E_INPUT_INVALID", { field: "--category", detail: `expected one of ${allowedCats.join("|")}, got '${opts.category}'`, verb: "template extract" });
       }
 
-      // Write to the user-local workspace tier (flat layout: workspace/templates/<slug>/).
+      // Write to the user-local workspace tier (.ralphy/workspaces/<ws>/templates/<slug>/).
       // `--category` is retained for the manifest (it still records the segment
       // persona), but no longer determines the on-disk path now that the
       // repo-public templates/ folder is retired.
@@ -777,7 +777,7 @@ export function templateCmd() {
       try {
         scenario = JSON.parse(await fs.readFile(scenarioPath, "utf-8"));
       } catch {
-        raiseError("E_FILE_UNREADABLE", { path: `workspace/projects/${projectId}/scenario.json` });
+        raiseError("E_FILE_UNREADABLE", { path: scenarioPath });
       }
 
       // Read POSTMORTEM (preferring postmortem/02-lessons.md, then POSTMORTEM.md).
@@ -914,7 +914,7 @@ export function templateCmd() {
         ``,
         manifest!.description,
         ``,
-        `> Extracted from \`workspace/projects/${projectId}/\` on ${new Date().toISOString().slice(0, 10)}.`,
+        `> Extracted from project \`${projectId}\` on ${new Date().toISOString().slice(0, 10)}.`,
         ``,
         `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts; \`scenario-template.json\` for the slot-substituted scenario.`,
         ``,
@@ -950,7 +950,7 @@ export function templateCmd() {
         });
       } catch { /* logging is best-effort */ }
 
-      ok(`Extracted ${projectId} → workspace/templates/${opts.slug}/`);
+      ok(`Extracted ${projectId} → ${path.relative(process.cwd(), targetDir)}/`);
       out({
         project_id: projectId,
         template_dir: path.relative(process.cwd(), targetDir),
@@ -967,12 +967,12 @@ export function templateCmd() {
 
   cmd
     .command("delete <id>")
-    .description("Delete a workspace template (flat file or whole dir). Public library templates are read-only — they live in Supabase, not on disk.")
+    .description("Delete a workspace template (flat file or whole dir). Public library templates are read-only — they live in the published library.json (Bunny CDN), not on disk.")
     .action(async (id: string) => {
       const ref = await resolveTemplate(id);
       if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
       if (ref!.kind === "public") {
-        err(`Refusing to delete public library template '${id}' — it is read-only here. Shadow it by creating workspace/templates/${id}/.`);
+        err(`Refusing to delete public library template '${id}' — it is read-only here. Shadow it by creating templates/${id}/ in your active workspace (.ralphy/workspaces/<ws>/templates/).`);
         return;
       }
       if (ref.kind === "dir") {

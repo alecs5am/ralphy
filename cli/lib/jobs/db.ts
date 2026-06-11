@@ -1,7 +1,7 @@
 // SQLite-backed jobs store, used by the ralphy daemon + queue commands.
 //
 // Bun ships `bun:sqlite` natively — no native deps. The DB file lives at
-// workspace/.ralph/jobs.db and is created lazily on first open.
+// .ralphy/jobs.db and is created lazily on first open.
 //
 // Concurrency model:
 // - Single writer (the daemon) + many readers (queue commands) is safe with

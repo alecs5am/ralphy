@@ -3,12 +3,12 @@ title: "Memory schemas"
 description: "The three JSONL logs under a project's logs directory — append-only fields, lifecycle, and read patterns."
 ---
 
-Every project has an append-only memory at `workspace/projects/<id>/logs/`. Three JSONL files: every model call, every user prompt, every uploaded reference. The writers live in `cli/lib/gen-log.ts`. This page is the schema reference: field-by-field shape, nullability, examples, and the append-only contract.
+Every project has an append-only memory at `.ralphy/workspaces/<ws>/projects/<id>/logs/`. Three JSONL files: every model call, every user prompt, every uploaded reference. The writers live in `cli/lib/gen-log.ts`. This page is the schema reference: field-by-field shape, nullability, examples, and the append-only contract.
 
 ## File layout
 
 ```
-workspace/projects/<id>/logs/
+.ralphy/workspaces/<ws>/projects/<id>/logs/
   generations.jsonl   # every model call (one line per call)
   user-prompts.jsonl  # chronological user prompts and overrides
   user-assets.jsonl   # uploaded references (screenshots, photos, ref-urls)
@@ -42,7 +42,7 @@ One line per model call. Written by `cli/lib/gen-log.ts → logGeneration()`. Re
   "kind": "image",
   "slot": "scene-01-bg-image",
   "input": { "prompt": "...", "size": "1080x1920", "refs": [] },
-  "output": { "url": "https://...", "local": "assets/images/scene-01-bg-image.png" },
+  "output": { "url": "https://...", "local": "artifacts/images/scene-01-bg-image.png" },
   "status": "ok",
   "latency_ms": 8430,
   "cost_usd": 0.15,
@@ -136,7 +136,7 @@ References the user supplied — local files, screenshots, ref URLs. Written by 
 ### Example lines
 
 ```json
-{"timestamp":"2026-05-12T10:18:01.741Z","kind":"photo","source":"/Users/me/books/headphone-01.webp","dest":"assets/refs/headphones/headphone-01.webp","purpose":"product-ref","note":"Nothing Headphone (1) reference pack — angle 01"}
+{"timestamp":"2026-05-12T10:18:01.741Z","kind":"photo","source":"/Users/me/books/headphone-01.webp","dest":"artifacts/refs/headphones/headphone-01.webp","purpose":"product-ref","note":"Nothing Headphone (1) reference pack — angle 01"}
 {"timestamp":"2026-05-18T12:18:10.041Z","kind":"photo","source":"/Users/me/Downloads/photo.jpeg","purpose":"character-ref","note":"User selfie — DO NOT view content; pass-through only."}
 {"timestamp":"2026-04-22T08:09:02.846Z","kind":"screenshot","source":"screenshot-cap-front.png","purpose":"product-ref","note":"nobody.solutions METAL bucket hat"}
 ```
@@ -148,7 +148,7 @@ References the user supplied — local files, screenshots, ref URLs. Written by 
 | `timestamp` | ISO 8601 string | required | Set at write. |
 | `kind` | enum | required | `screenshot`, `photo`, `video`, `audio`, `doc`, `ref-url`, `other`. |
 | `source` | string | required | Original path or URL from the user. Absolute paths are common — `~/Downloads/...`. |
-| `dest` | string | optional | Stored path inside the project (relative to `workspace/projects/<id>/`) when the file was copied in. Empty for refs the user kept in-place. |
+| `dest` | string | optional | Stored path inside the project (relative to `.ralphy/workspaces/<ws>/projects/<id>/`) when the file was copied in. Empty for refs the user kept in-place. |
 | `purpose` | string | optional | Free-form role label. Conventions: `character-ref`, `product-ref`, `brand-screenshot`, `style-ref`, `voice-ref`. |
 | `note` | string | optional | Author's note. Privacy reminders, version tags, source attribution. |
 
@@ -173,11 +173,11 @@ For ad-hoc work, raw `jq` is fine:
 ```bash
 # total spend on a project
 jq -s '[.[] | select(.status=="ok") | .cost_usd // 0] | add' \
-  workspace/projects/fruit-drama-001/logs/generations.jsonl
+  .ralphy/workspaces/<ws>/projects/fruit-drama-001/logs/generations.jsonl
 
 # every model call that failed
 jq -c 'select(.status=="error") | {endpoint, error, ts: .timestamp}' \
-  workspace/projects/fruit-drama-001/logs/generations.jsonl
+  .ralphy/workspaces/<ws>/projects/fruit-drama-001/logs/generations.jsonl
 ```
 
 The CLI verbs are the preferred path:

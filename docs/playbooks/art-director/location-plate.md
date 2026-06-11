@@ -52,15 +52,15 @@ ralphy generate image \
   --project <id> \
   --slot persona-master-anya \
   --prompt "<character description>" \
-  --ref workspace/projects/<id>/assets/location-master-plate.png
+  --ref .ralphy/workspaces/<ws>/projects/<id>/assets/location-master-plate.png
 
 # Step 2 — scene anchor, anchored against BOTH plate AND character.
 ralphy generate image \
   --project <id> \
   --slot scene-01-anchor \
   --prompt "<scene-specific composition>" \
-  --ref workspace/projects/<id>/assets/location-master-plate.png \
-  --ref workspace/projects/<id>/assets/persona-master-anya.png
+  --ref .ralphy/workspaces/<ws>/projects/<id>/assets/location-master-plate.png \
+  --ref .ralphy/workspaces/<ws>/projects/<id>/assets/persona-master-anya.png
 ```
 
 The slot name `location-master-plate` is canonical — use it verbatim so downstream tooling (manifest checks, pre-render snapshot review, future lint) can recognize the anchor.
@@ -101,5 +101,5 @@ The plate also feeds the **pre-render self-review** (see [pre-render-checklist.m
 - [pre-render-checklist.md](pre-render-checklist.md) — location-continuity eyeball happens against the plate.
 - [regeneration.md](regeneration.md) — if a scene anchor drifts off the plate, regen that single scene against the plate; don't regen the plate.
 - [intake.md](../intake.md) — step 3 of intake names the plate as anchor #1 in the step-by-step generation loop; this sub-doc is what that step links to.
-- `workspace/projects/noski-people-001/postmortem/02-lessons.md` (Rule 1) and `05-workflow-fixes.md` (#2, P0) — origin postmortem.
+- `.ralphy/workspaces/<ws>/projects/noski-people-001/postmortem/02-lessons.md` (Rule 1) and `05-workflow-fixes.md` (#2, P0) — origin postmortem.
 - MEMORY: `feedback_super_original_refs` — the broader "lock refs to prevent identity drift" pattern. Location plates are the room-shaped instance of it.

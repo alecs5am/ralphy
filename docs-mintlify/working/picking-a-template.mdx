@@ -54,7 +54,7 @@ You can short-circuit the suggest step at any time by naming the slug yourself: 
 
 ## The five categories
 
-Public templates live in the hosted content library (browse on [`/library`](https://www.alecs5am.com/library)); your own live under `workspace/templates/`. Categories are organized by **who's watching** the content, not by visual style. The full roster is on the Library; a quick map:
+Public templates live in the hosted content library (browse on [`/library`](https://www.alecs5am.com/library)); your own live under `.ralphy/workspaces/default/templates/`. Categories are organized by **who's watching** the content, not by visual style. The full roster is on the Library; a quick map:
 
 | Category | Audience | Tone | Count |
 |---|---|---|---|
@@ -64,7 +64,7 @@ Public templates live in the hosted content library (browse on [`/library`](http
 | `entertainment-viral/` | Pure scroll-stop / meme / brainrot | Punchy, surreal, often AI-native | 15 |
 | `cinematic-narrative/` | Aesthetics-first, premium look | Directorial, deliberate, film grammar | 11 |
 
-You don't pick a category by hand — `template suggest` does it for you. The folder structure is navigation aid. Slug resolution is global: `ralphy template use <slug>` works regardless of which category folder the slug lives in, and workspace-local templates ([`workspace/templates/`](/concepts/templates)) override repo templates on id collision.
+You don't pick a category by hand — `template suggest` does it for you. The folder structure is navigation aid. Slug resolution is global: `ralphy template use <slug>` works regardless of which category folder the slug lives in, and workspace-local templates ([`.ralphy/workspaces/default/templates/`](/concepts/templates)) override repo templates on id collision.
 
 ## The two kinds
 
@@ -96,13 +96,13 @@ ralphy template use ugc-selfie-product-review \
   --brief "selfie review of my coffee syrup, autumn cozy"
 ```
 
-What lands in `workspace/projects/syrup-001/`:
+What lands in `.ralphy/workspaces/default/projects/syrup-001/`:
 
 - **`TEMPLATE_ORIGIN.md`** — which template was used and when. Read by downstream playbooks.
 - **`BRIEF.md`** — your `--brief` text, formatted.
 - **`scenario.json` skeleton** — pre-filled with the template's beat structure (for `vibe-reference`) or empty for the scenarist to fill (for `vibe-style`).
 - **`composition.md`** if the template ships one (vibe-reference only).
-- **A pulled asset cache** — if the template declares heavy required assets (gameplay loops, trend music), Ralphy auto-pulls them from the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo into `workspace/.ralph/asset-cache/`. SHA-256 verified, no auth needed.
+- **A pulled asset cache** — if the template declares heavy required assets (gameplay loops, trend music), Ralphy auto-pulls them from the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo into `.ralphy/cache/assets/`. SHA-256 verified, no auth needed.
 
 The `--brand`, `--persona`, and `--ref` flags pre-satisfy the template's requirements if it declares any in `template.json.requires`.
 

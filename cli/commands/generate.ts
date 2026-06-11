@@ -1,7 +1,7 @@
 // `ralphy generate <kind>` — single CLI gate for every model call.
 //
 // Per AGENTS.md hard rule #2: skill code MUST go through this command, not
-// runtime TS scripts under workspace/projects/<id>/scripts/. Each subcommand
+// runtime TS scripts under <project>/scripts/. Each subcommand
 // validates inputs, calls cli/lib/providers/media.ts (or transcribe.ts for
 // captions), updates asset-manifest.json, returns parse-friendly JSON.
 
@@ -9,7 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { artifactKindDir, projectDir } from "../lib/paths.js";
+import { artifactKindDir, projectDir, resolveArtifactPath, root } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
@@ -561,7 +561,7 @@ export function generateCmd() {
           ],
           cost_estimate_usd: estPerCall * variants,
           would_write: [
-            `workspace/projects/${opts.project}/artifacts/images/${opts.slot}.png`,
+            path.relative(root(), resolveArtifactPath(opts.project, "images", `${opts.slot}.png`)),
           ],
         });
         return;
@@ -717,7 +717,7 @@ export function generateCmd() {
     .option("--provider <id>", "Provider connector to use (e.g. openrouter). Default: first available provider that supports video. See `ralphy provider list`.")
     .option(
       "--first-frame <ref>",
-      "First-frame anchor for i2v (URL / local path / data: URI). Path-only refs resolve cwd-first, then workspace/projects/<id>/ + artifacts/refs/ (#025).",
+      "First-frame anchor for i2v (URL / local path / data: URI). Path-only refs resolve cwd-first, then <project>/ + <project>/artifacts/refs/ (#025).",
     )
     .option(
       "--last-frame <ref>",
@@ -975,7 +975,7 @@ export function generateCmd() {
             { stage: "voiceover", model_id: opts.model, slot: opts.slot, voice: opts.voice, characters: chars, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
-          would_write: [`workspace/projects/${opts.project}/artifacts/voiceover/${opts.slot}.mp3`],
+          would_write: [path.relative(root(), resolveArtifactPath(opts.project, "voiceover", `${opts.slot}.mp3`))],
         });
         return;
       }
@@ -1097,7 +1097,7 @@ export function generateCmd() {
             { stage: "music", slot: opts.slot, durationSec: opts.duration, instrumental: !opts.withVocals, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
-          would_write: [`workspace/projects/${opts.project}/artifacts/music/${opts.slot}.mp3`],
+          would_write: [path.relative(root(), resolveArtifactPath(opts.project, "music", `${opts.slot}.mp3`))],
         });
         return;
       }
@@ -1283,7 +1283,7 @@ export function generateCmd() {
       0.6,
     )
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
-    .option("--output <path>", "Custom output path. Default: workspace/projects/<id>/artifacts/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
+    .option("--output <path>", "Custom output path. Default: <project>/artifacts/captions/<slot>.json. Legacy default (captions.json at project root) is still written when --legacy-output is passed for back-compat.")
     .option("--out <path>", "Alias for --output (kept because the 'Did you mean ...' hint used to advertise this spelling). #010")
     .option("--legacy-output", "Write to the legacy shared captions.json instead of artifacts/captions/<slot>.json. Pre-2026-05 behavior; only use for scripts that grep the old path. Emits a deprecation warning. #010")
     .option(
@@ -1333,7 +1333,7 @@ export function generateCmd() {
       //   mean ..." error used to advertise).
       // --legacy-output: opt-in to the pre-2026-05 shared-file path; emits
       //   a deprecation warning so the user knows it's a legacy escape hatch.
-      // Default: workspace/projects/<id>/artifacts/captions/<slot>.json
+      // Default: <project>/artifacts/captions/<slot>.json
       const explicitOut = opts.output ?? opts.out;
       if (opts.legacyOutput) {
         // eslint-disable-next-line no-console

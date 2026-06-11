@@ -21,14 +21,14 @@ Default to mp4 with audio at the highest reasonable resolution:
 yt-dlp \
   -f 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b' \
   --merge-output-format mp4 \
-  -o 'workspace/research/<slug>/video.mp4' \
+  -o '.ralphy/research/<slug>/video.mp4' \
   '<url>'
 ```
 
 For TikTok specifically, the format selector usually doesn't matter — TikTok serves a single mp4 — so the simpler form is fine:
 
 ```bash
-yt-dlp -o 'workspace/research/<slug>/video.mp4' '<url>'
+yt-dlp -o '.ralphy/research/<slug>/video.mp4' '<url>'
 ```
 
 ## Metadata + description first (cheap recon)
@@ -42,8 +42,8 @@ yt-dlp --dump-json --no-download '<url>' | jq '{ title, description, duration, v
 Save it next to the video:
 
 ```bash
-yt-dlp --write-info-json --skip-download -o 'workspace/research/<slug>/meta' '<url>'
-# → workspace/research/<slug>/meta.info.json
+yt-dlp --write-info-json --skip-download -o '.ralphy/research/<slug>/meta' '<url>'
+# → .ralphy/research/<slug>/meta.info.json
 ```
 
 ## Audio only (for transcript)
@@ -53,7 +53,7 @@ If you only need the words, skip the video stream — much smaller:
 ```bash
 yt-dlp \
   -x --audio-format mp3 --audio-quality 0 \
-  -o 'workspace/research/<slug>/audio.%(ext)s' \
+  -o '.ralphy/research/<slug>/audio.%(ext)s' \
   '<url>'
 ```
 
@@ -68,7 +68,7 @@ yt-dlp \
   --skip-download \
   --write-auto-subs --sub-lang ru,en \
   --convert-subs srt \
-  -o 'workspace/research/<slug>/subs' \
+  -o '.ralphy/research/<slug>/subs' \
   '<url>'
 ```
 
@@ -80,7 +80,7 @@ Falling back to whisper-1 transcription is normal for TikTok / IG / Reels.
 # whole TikTok profile
 yt-dlp \
   --max-downloads 20 \
-  -o 'workspace/research/<handle>/%(upload_date)s-%(id)s.%(ext)s' \
+  -o '.ralphy/research/<handle>/%(upload_date)s-%(id)s.%(ext)s' \
   'https://www.tiktok.com/@<handle>'
 ```
 
@@ -98,12 +98,12 @@ Be polite — `--max-downloads 20` is usually enough to map a creator's style.
 - **Don't fall back to `WebFetch`** thinking it'll get you the description — TikTok / IG / YT all return JS shells without auth. That's the bug pattern this doc exists to prevent.
 - **Don't ask the user to `send the file`** before trying yt-dlp. Asking is a last resort, not the first move.
 - **Don't shell out to `youtube-dl`** — its release branch is dead since 2021. yt-dlp is the maintained fork.
-- **Don't pipe the file straight to a model** — save it under `workspace/research/<slug>/` so subsequent sessions can resume.
+- **Don't pipe the file straight to a model** — save it under `.ralphy/research/<slug>/` so subsequent sessions can resume.
 
 ## Standard layout after download
 
 ```
-workspace/research/<slug>/
+.ralphy/research/<slug>/
 ├── video.mp4              # main file
 ├── meta.info.json         # description, hashtags, counts
 ├── audio.mp3              # optional, only if transcribing

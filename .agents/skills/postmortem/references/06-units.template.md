@@ -4,7 +4,7 @@ The deliverables doc. What finished **Units** did this project ship, and which
 **blocks** (Template / Style / Recipe / Asset) made each one? This is a **record**,
 not an extraction or a publish — it freezes the entity facts while they are fresh,
 so `templater` (extract + classify) and the `publish-entity.ts` path (#056) can
-consume them later without re-deriving anything from the raw `assets/` dump.
+consume them later without re-deriving anything from the raw `artifacts/` dump.
 
 ## What lives here vs. the other docs
 
@@ -14,18 +14,18 @@ consume them later without re-deriving anything from the raw `assets/` dump.
   in a Format).
 
 A Unit is the project-side mirror of the library-v2 Unit entity. It lives at
-`workspace/projects/<id>/units/<slug>/unit.json` (formed by `ralphy unit create`,
+`.ralphy/workspaces/<ws>/projects/<id>/units/<slug>/unit.json` (formed by `ralphy unit create`,
 issue #069). If the project formed no units, say so plainly — do NOT invent them
-from the `assets/` dump. This doc records reality; forming units is a separate,
+from the `artifacts/` dump. This doc records reality; forming units is a separate,
 explicit, user-driven step.
 
 ## Source material to read
 
-1. **`workspace/projects/<id>/units/*/unit.json`** — the source of truth. Each file
+1. **`.ralphy/workspaces/<ws>/projects/<id>/units/*/unit.json`** — the source of truth. Each file
    carries `slug`, `format`, ordered `media`, optional `provenance` (`template` /
    `style` / `recipes[]` / `assets[]` block slugs), and `source_assets[]`.
-   Run: `for u in workspace/projects/<id>/units/*/unit.json; do jq -c '{slug, format, media: (.media|length), provenance, source_assets: (.source_assets|length)}' "$u"; done`
-2. **`workspace/projects/<id>/asset-manifest.json`** — to confirm which slots became
+   Run: `for u in .ralphy/workspaces/<ws>/projects/<id>/units/*/unit.json; do jq -c '{slug, format, media: (.media|length), provenance, source_assets: (.source_assets|length)}' "$u"; done`
+2. **`.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json`** — to confirm which slots became
    final deliverables vs. stayed working scratch.
 3. **The session conversation** — to mark each provenance block as **NEW** (created /
    discovered in this session) vs. **REUSED** (an existing library block the project
@@ -49,7 +49,7 @@ happens here.
 - **NEW (publish candidates) vs. REUSED (already in library):** <X> new / <Y> reused
 
 > If no units were formed: state "No units formed this session. Final deliverables
-> remain in `assets/`; run `ralphy unit create <project-id> --slug <s> --format <f>
+> remain in `artifacts/`; run `ralphy unit create <project-id> --slug <s> --format <f>
 > --from '<glob>'` to curate them before publish." Then stop — the rest of this doc
 > is the empty case.
 

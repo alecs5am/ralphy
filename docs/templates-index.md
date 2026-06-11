@@ -1,6 +1,6 @@
 # Templates index
 
-Single-doc snapshot of the public template catalog. The live source of truth is the **public content library** (Supabase template blocks — the same library the [`/library`](https://www.alecs5am.com/library) landing serves, read by the CLI via `cli/lib/library/client.ts`), plus your user-local `workspace/templates/` tier. The old repo-public `templates/<category>/<slug>/` folder was retired (#084); templates are no longer shipped on disk in this repo.
+Single-doc snapshot of the public template catalog. The live source of truth is the **public content library** (static `library.json` template blocks on Bunny CDN — the same library the [`/library`](https://www.alecs5am.com/library) landing serves, read by the CLI via `cli/lib/library/client.ts`), plus your user-local `.ralphy/workspaces/<ws>/templates/` tier. The old repo-public `templates/<category>/<slug>/` folder was retired (#084); templates are no longer shipped on disk in this repo.
 
 > The authoritative discovery mechanism is `ralphy template suggest "<brief>"` / `ralphy template list -p` — this index is a static snapshot for fast grep / agent context loading. If you suspect drift, run the CLI or browse [`/library`](https://www.alecs5am.com/library).
 

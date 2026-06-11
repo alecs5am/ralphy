@@ -2,7 +2,7 @@
 name: templater
 namespace: user
 description: >-
-  The full maximal-detail extract → classify → blueprint → de-dup → publish pipeline for a finished `workspace/projects/<id>/`. Read its `units/*/unit.json` (#069) as the Unit source of truth, then factor the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (concrete reusable media). Apply the recipe-vs-tag split (#082/#083): a candidate is a Recipe ONLY if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / bake/encode recipe / prompt technique) — author its `recipeKind`+`body`+`artifact`+`params`+`demo`; otherwise it is a Tag (a `tags[]` descriptor on the Unit, no block). Capture a per-unit Blueprint (#080). De-dup every block against the live library FIRST; never publish a duplicate or an empty recipe. Then print the exact ordered `publish-entity.ts` commands (dry-run → --push) for units, blocks, and blueprints. Publishing itself is the #056 path (`landing/scripts/publish-entity.ts`).
+  The full maximal-detail extract → classify → blueprint → de-dup → publish pipeline for a finished `.ralphy/workspaces/<ws>/projects/<id>/`. Read its `units/*/unit.json` (#069) as the Unit source of truth, then factor the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (concrete reusable media). Apply the recipe-vs-tag split (#082/#083): a candidate is a Recipe ONLY if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / bake/encode recipe / prompt technique) — author its `recipeKind`+`body`+`artifact`+`params`+`demo`; otherwise it is a Tag (a `tags[]` descriptor on the Unit, no block). Capture a per-unit Blueprint (#080). De-dup every block against the live library FIRST; never publish a duplicate or an empty recipe. Then print the exact ordered `publish-entity.ts` commands (dry-run → --push) for units, blocks, and blueprints. Publishing itself is the #056 path (`landing/scripts/publish-entity.ts`).
 
   USE WHEN the user says any of: "save this as a template", "turn the project into a template", "templatify <project-id>", "extract a template from <project>", "decompose this project into blocks", "what units/blocks did this project produce", "I want others to reproduce this", "make a reusable version of <project>", "extract the entities from <project>", "classify this project", "freeze this project". ALSO FIRE proactively after a successful render + postmortem the user rates 8+/10 — the experience is most reusable while still fresh.
 
@@ -11,7 +11,7 @@ description: >-
 
 # templater
 
-You decompose a finished project into the **content-entity model** (#063) and classify its pieces into reusable blocks. The contract is: **a future agent should be able to reproduce the work — same units, same blocks (Template / Style / Recipe / Asset) — without re-deriving any of it from the raw `assets/` dump.**
+You decompose a finished project into the **content-entity model** (#063) and classify its pieces into reusable blocks. The contract is: **a future agent should be able to reproduce the work — same units, same blocks (Template / Style / Recipe / Asset) — without re-deriving any of it from the raw `artifacts/` dump.**
 
 This skill is the **full maximal-detail pipeline**: one invocation, followed end-to-end, reproduces what a careful maintainer does by hand. The six stages are **EXTRACT** (read the finished deliverables) → **CLASSIFY** (factor into the five entities, incl. the recipe-vs-tag split) → **BLUEPRINT** (capture a per-unit reproduction payload) → **DE-DUP** (match every candidate against the live library first) → **EMIT** the entity bundle → **PRINT the publish runbook** (the exact ordered `publish-entity.ts` commands).
 
@@ -27,7 +27,7 @@ The library model (`landing/lib/library-v2/types.ts`) has five entities. Every p
 - **Recipe** (block, multi-per-unit) — a composable effect / treatment. A VFX layer, an encode recipe, an overlay pass, a caption style.
 - **Asset** (block, multi-per-unit, has a `sub`: `character` / `location` / `prop` / `music`) — concrete reusable media: a locked character master, a location plate, a prop, a music bed.
 
-The **Unit source of truth is `workspace/projects/<id>/units/*/unit.json`** (formed by `ralphy unit create`, #069). Each `unit.json` already carries `format`, ordered `media`, and a `provenance` block (`template` / `style` / `recipes[]` / `assets[]` slugs) — so much of the decomposition is reading, not inventing. The `postmortem/06-units.md` record (if the project has one) is the second-highest-signal input: it already marks each provenance block NEW vs. REUSED.
+The **Unit source of truth is `.ralphy/workspaces/<ws>/projects/<id>/units/*/unit.json`** (formed by `ralphy unit create`, #069). Each `unit.json` already carries `format`, ordered `media`, and a `provenance` block (`template` / `style` / `recipes[]` / `assets[]` slugs) — so much of the decomposition is reading, not inventing. The `postmortem/06-units.md` record (if the project has one) is the second-highest-signal input: it already marks each provenance block NEW vs. REUSED.
 
 ## What this skill is NOT
 
@@ -40,7 +40,7 @@ The **Unit source of truth is `workspace/projects/<id>/units/*/unit.json`** (for
 
 Every extraction is keyed to a known file. If a file is missing, the skill degrades gracefully (it derives what it can, never invents). **`scenario.json` is PREFERRED, not required** — scenario-less still / HyperFrames projects (sticker packs, FB packs, poster sets) are valid; derive structure from `asset-manifest.json` + `units/` + `index.html` and skip the scene table (the #062 fix).
 
-| Source file in `workspace/projects/<id>/` | Required? | What gets pulled | Maps to entity |
+| Source file in `.ralphy/workspaces/<ws>/projects/<id>/` | Required? | What gets pulled | Maps to entity |
 |---|---|---|---|
 | `units/*/unit.json` | **REQUIRED** | Finished deliverables + ordered media + provenance block slugs (#069) | **Unit** (+ seeds all four block axes via `provenance`) |
 | `asset-manifest.json` | **REQUIRED** | Locked refs, music beds, character masters, location plates; final slot list | **Asset** blocks; backstop for Units when `units/` is thin |
@@ -59,7 +59,7 @@ See `references/extraction-rules.md` for the per-file extraction details and edg
 
 ## The workflow
 
-1. **Resolve the project + read its Units.** `ralphy unit list <project-id>` and read each `units/<slug>/unit.json`. These are the Units. Read `postmortem/06-units.md` if present — it pre-classifies the provenance blocks (NEW vs REUSED). NEVER fabricate units from the raw `assets/` dump.
+1. **Resolve the project + read its Units.** `ralphy unit list <project-id>` and read each `units/<slug>/unit.json`. These are the Units. Read `postmortem/06-units.md` if present — it pre-classifies the provenance blocks (NEW vs REUSED). NEVER fabricate units from the raw `artifacts/` dump.
 
 2. **Read `BRIEF.md` + (if present) `scenario.json` headers** for the elevator pitch. This grounds the classification passes.
 
@@ -112,10 +112,10 @@ JSON, pipe-friendly:
       "tags": ["white die-cut outline", "jelly mascot"],
       "blueprint": {
         "status": "NEW",
-        "path": "workspace/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint",
-        "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint"
+        "path": ".ralphy/workspaces/<ws>/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint",
+        "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --blueprint .ralphy/workspaces/<ws>/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint"
       },
-      "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/free-air-vpn-stickerpack/units/stickers-outline"
+      "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --unit .ralphy/workspaces/<ws>/projects/free-air-vpn-stickerpack/units/stickers-outline"
     }
   ],
   "new_blocks": [
@@ -160,8 +160,8 @@ cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json> -
 ### 2. Units next (carrying unit.json.tags + provenance links)
 
 ```bash
-cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug>          # dry-run (per Unit)
-cd landing && bun run scripts/publish-entity.ts --unit workspace/projects/<id>/units/<slug> --push    # push
+cd landing && bun run scripts/publish-entity.ts --unit .ralphy/workspaces/<ws>/projects/<id>/units/<slug>          # dry-run (per Unit)
+cd landing && bun run scripts/publish-entity.ts --unit .ralphy/workspaces/<ws>/projects/<id>/units/<slug> --push    # push
 ```
 
 The unit's media uploads to Storage; the `units` row + `unit_blocks` provenance rows upsert; the `tags[]` from `unit.json` land in the `units.tags` column → the feed's `TAGS` filter facet. A provenance block id absent from Supabase is WARN-and-skipped (never fabricated) — which is why blocks publish FIRST.
@@ -169,8 +169,8 @@ The unit's media uploads to Storage; the `units` row + `unit_blocks` provenance 
 ### 3. Blueprints last (the per-unit reproduction payload, one per Unit)
 
 ```bash
-cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint          # dry-run (per Unit)
-cd landing && bun run scripts/publish-entity.ts --blueprint workspace/projects/<id>/units/<slug>/blueprint --push    # push
+cd landing && bun run scripts/publish-entity.ts --blueprint .ralphy/workspaces/<ws>/projects/<id>/units/<slug>/blueprint          # dry-run (per Unit)
+cd landing && bun run scripts/publish-entity.ts --blueprint .ralphy/workspaces/<ws>/projects/<id>/units/<slug>/blueprint --push    # push
 ```
 
 The `--blueprint` dir is the `units/<slug>/blueprint/` payload step 7 captured (`blueprint.json` + copied `index.html` / prompts / hard assets). It uploads the payload to Storage under `blueprints/<unitId>/`, upserts the 1:1 `blueprints` row, and appends to `PUBLISHED_BLUEPRINTS`.

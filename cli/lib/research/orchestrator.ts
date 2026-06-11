@@ -1,6 +1,6 @@
 // Stage-1 orchestrator: planner → fan-out search → fan-out fetch →
 // per-source summarize → synthesis → citation verify. Writes everything to
-// a job dir under workspace/.ralph/research/<job-id>/.
+// a job dir under .ralphy/research/jobs/<job-id>/.
 //
 // This is the "planner + parallel workers" topology (see
 // docs/research/deep-research-architecture-foundations.md §1). It's the only

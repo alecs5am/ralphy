@@ -42,7 +42,7 @@ Report template for the user:
 
 > "Can't produce a quality image for slot `<id>` (attempts: 2, latest avg score: <n>/10).
 > Options:
-> a) drop a better reference — there's no matching photo for this scene in `assets/uploaded/`;
+> a) drop a better reference — there's no matching photo for this scene in `artifacts/refs/`;
 > b) switch model (current `<m>`, we can try `<premium>`);
 > c) change the shot — e.g. close-up to medium, or a different angle.
 > What do we do?"

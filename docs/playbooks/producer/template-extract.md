@@ -6,7 +6,7 @@ Project landed well, user wants to reuse the format. Optional arg: source projec
 
 ## Guardrails
 
-- **Template = vibe reference, not Mad Libs.** Read `workspace/templates/soviet-nostalgic/TEMPLATE.md` as the canonical example before writing a new one.
+- **Template = vibe reference, not Mad Libs.** Read `.ralphy/workspaces/<ws>/templates/soviet-nostalgic/TEMPLATE.md` as the canonical example before writing a new one.
 - Avoid `{VAR}` placeholder skeletons. Avoid locking VO lines / exact clip tables / timings into the template. Those go into `reference-example.md` as ONE concrete instance, not as a required shape.
 - **Don't extract** from projects that only have one result or didn't render successfully.
 
@@ -15,7 +15,7 @@ Project landed well, user wants to reuse the format. Optional arg: source projec
 ### 1. Read source project fully
 
 ```
-workspace/projects/<id>/
+.ralphy/workspaces/<ws>/projects/<id>/
   BRIEF.md
   TEMPLATE_ORIGIN.md (if scaffolded)
   scenario.json
@@ -24,7 +24,7 @@ workspace/projects/<id>/
   composition-props.json
   logs/generations.jsonl    ← gold for cost + model-stack
   logs/user-prompts.jsonl   ← what the user iterated on
-  assets/
+  artifacts/
   render/final.mp4
 ```
 
@@ -46,7 +46,7 @@ ralphy project timeline <id>   # merged chronology
 ralphy template create --slug <kebab> --name "<Human>" --from-project <project-id>
 ```
 
-→ `workspace/templates/<slug>/` with `template.json`, stub `TEMPLATE.md`, `fragments.md`, `model-stack.md`, `composition.md`, `reference-example.md`.
+→ `.ralphy/workspaces/<ws>/templates/<slug>/` with `template.json`, stub `TEMPLATE.md`, `fragments.md`, `model-stack.md`, `composition.md`, `reference-example.md`.
 
 ### 4. Fill docs in order (each builds on previous)
 
@@ -90,7 +90,7 @@ ralphy template create --slug <kebab> --name "<Human>" --from-project <project-i
 
 ### 5. Copy required assets
 
-Trend music, brand fonts, recurring reference images from source project to `workspace/templates/<slug>/assets/`. Declare in `template.json.assets`.
+Trend music, brand fonts, recurring reference images from source project to `.ralphy/workspaces/<ws>/templates/<slug>/assets/`. Declare in `template.json.assets`.
 
 ### 6. Register
 
@@ -109,7 +109,7 @@ Confirm `TEMPLATE_ORIGIN.md` points to the new docs, required assets land in the
 
 ```bash
 ralphy project delete test-<slug>-001
-rm -rf workspace/projects/test-<slug>-001
+rm -rf .ralphy/workspaces/<ws>/projects/test-<slug>-001
 ```
 
 ### 8. Report

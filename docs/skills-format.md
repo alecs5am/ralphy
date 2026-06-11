@@ -44,7 +44,7 @@ allowed-tools:               # optional, allowlist of tools the skill needs
   - Bash
 disable-model-invocation: false  # optional, skip the model on dry runs
 paths:                       # optional, files the skill commonly touches
-  - workspace/projects/<id>/render/
+  - .ralphy/workspaces/<ws>/projects/<id>/render/
 context: render-review       # optional, used by suggestion surfaces
 argument-hint: <mp4-path>    # optional, shown in slash-command menus
 arguments: [path]            # optional, schema for positional args

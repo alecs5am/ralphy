@@ -49,12 +49,12 @@ Content shapes (REQUIRED per chosen type):
 code-block:           { "lang": "ts|py|js|...", "code": "...", "theme": "dracula" }
 terminal:             { "lines": ["$ ...", "..."], "theme": "vscode-dark", "typing_animation": false }
 tweet-card:           { "author": "@handle", "handle": "handle", "text": "...", "likes": "12k", "timestamp": "YYYY-MM-DD" }
-browser-frame:        { "url": "https://...", "screenshot_path": "assets/screenshots/<slug>.png" }
-screenshot:           { "image_prompt": "describe what should be in the image", "asset_path": "assets/images/<slug>.png" }
-meme:                 { "image_prompt": "describe the meme", "asset_path": "assets/memes/<slug>.png" }
+browser-frame:        { "url": "https://...", "screenshot_path": "artifacts/screenshots/<slug>.png" }
+screenshot:           { "image_prompt": "describe what should be in the image", "asset_path": "artifacts/images/<slug>.png" }
+meme:                 { "image_prompt": "describe the meme", "asset_path": "artifacts/memes/<slug>.png" }
 diagram:              { "layout": "flow|compare|arch", "nodes": [...], "edges": [...] }   // or mermaid source
 quote-card-kinetic:   { "text": "the line", "emphasis_word": "the load-bearing word" }
-logo-pop:             { "brand": "name", "asset_path": "assets/logos/<slug>.svg" }
+logo-pop:             { "brand": "name", "asset_path": "artifacts/logos/<slug>.svg" }
 
 For each claim block, output strict JSON:
 

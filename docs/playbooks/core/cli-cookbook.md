@@ -120,7 +120,7 @@ ralphy workspace stats         # entity counts + disk
 
 ## Don't do
 
-- ❌ Edit `workspace/projects/<id>/scenario.json` directly — use `ralphy project update <id>` or hand off to scenarist.
-- ❌ Edit `workspace/templates/<slug>/template.json` directly — `ralphy template delete <id>` then `ralphy template create --from-project <id>` to re-extract from a working project.
-- ❌ Delete `workspace/projects/<id>/` via `rm -rf` — use `ralphy project delete <id>` (cleans up the registry).
+- ❌ Edit `.ralphy/workspaces/<ws>/projects/<id>/scenario.json` directly — use `ralphy project update <id>` or hand off to scenarist.
+- ❌ Edit `.ralphy/workspaces/<ws>/templates/<slug>/template.json` directly — `ralphy template delete <id>` then `ralphy template create --from-project <id>` to re-extract from a working project.
+- ❌ Delete `.ralphy/workspaces/<ws>/projects/<id>/` via `rm -rf` — use `ralphy project delete <id>` (cleans up the registry).
 - ❌ Run `bunx hyperframes render` directly — use `ralphy render <id>`.

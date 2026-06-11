@@ -9,7 +9,7 @@ description: >-
 
 # normalize-skills — skill-health audit + landing icon backfill
 
-This is a **maintainer** skill. It does not touch `workspace/projects/` for content work. It keeps the skill bundle internally consistent and the landing skills marketplace visually complete as skills are renamed or added.
+This is a **maintainer** skill. It does not touch `.ralphy/workspaces/<ws>/projects/` for content work. It keeps the skill bundle internally consistent and the landing skills marketplace visually complete as skills are renamed or added.
 
 Two layers it operates on:
 

@@ -63,4 +63,4 @@ Hard fails (not warnings):
 
 ## Special: podcast clips / repurpose
 
-`workspace/projects/lyadov-podcast-001/` — real case. 16:9 source → 9:16 cuts on viral moments. Each clip duration 15-60s (`find-viral-moments` enforces this). This is an **exception** to the 15s rule — explicit podcast-mode flag in the scenario.
+`.ralphy/workspaces/<ws>/projects/lyadov-podcast-001/` — real case. 16:9 source → 9:16 cuts on viral moments. Each clip duration 15-60s (`find-viral-moments` enforces this). This is an **exception** to the 15s rule — explicit podcast-mode flag in the scenario.

@@ -12,11 +12,11 @@ Tool: `ralphy generate captions` (under the hood `cli/lib/transcribe.ts` → Ope
 
 ```bash
 ralphy generate captions --project <id> \
-  --audio workspace/projects/<id>/assets/voiceover/master.mp3 \
+  --audio .ralphy/workspaces/<ws>/projects/<id>/artifacts/voiceover/master.mp3 \
   --language ru
 ```
 
-Output: `workspace/projects/<id>/captions.json` — `Caption[]`:
+Output: `.ralphy/workspaces/<ws>/projects/<id>/captions.json` — `Caption[]`:
 ```ts
 { text: string; startMs: number; endMs: number; timestampMs: number; confidence: number }
 ```
@@ -40,7 +40,7 @@ Scenes with separate VOs → transcribe each one:
 ```bash
 for n in 01 02 03; do
   ralphy generate captions --project <id> \
-    --audio assets/voiceover/scene-$n.mp3 \
+    --audio artifacts/voiceover/scene-$n.mp3 \
     --output captions-$n.json
 done
 ```
@@ -49,7 +49,7 @@ The composition imports them all and stitches per scene with offset.
 
 ## Consume in composition
 
-Install a caption-style block from the HyperFrames registry — `bunx hyperframes add <caption-slug> workspace/projects/<id>` — and point it at `captions.json`. Browse `bunx hyperframes catalog` for the full list (`kinetic-slam`, `karaoke-warm`, `matrix-decode`, `neon-accent`, etc.).
+Install a caption-style block from the HyperFrames registry — `bunx hyperframes add <caption-slug> .ralphy/workspaces/<ws>/projects/<id>` — and point it at `captions.json`. Browse `bunx hyperframes catalog` for the full list (`kinetic-slam`, `karaoke-warm`, `matrix-decode`, `neon-accent`, etc.).
 
 Style choice is a function of the template / scenario vibe. Default for UGC — a kinetic-slam or karaoke variant. See `.agents/skills/hyperframes/references/dynamic-techniques.md` for the caption-animation energy table.
 
