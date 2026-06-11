@@ -39,5 +39,10 @@ Wire `ralphy memory recall` into the operating discipline:
 
 - Sequence after #112. Independent of #113 (recall reads active entries
   regardless of how they were ingested).
+- Injection hygiene (hermes-agent pattern, 2026-06-11): the AGENTS.md /
+  intake wording must frame recalled entries as background reference data,
+  NOT instructions — entries reflect what was true when written; verify a
+  named file/verb/model still exists before acting on it. Hermes wraps
+  recalled context in a fenced block with exactly this system note.
 - Cross-cutting file (AGENTS.md) — single coordinated edit, never parallel
   with another agent touching it.
