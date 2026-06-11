@@ -2,7 +2,7 @@
 name: memory-review
 namespace: user
 description: >-
-  Lightweight end-of-session memory review — scan the conversation just had for durable lessons and stage them into Ralphy's tiered memory (`ralphy memory note` / `propose`), so the next session starts already knowing. The chat-native analog of hermes-agent's background self-review: signals are user corrections, frustration ("stop doing X", "I told you already"), durable preferences, model/provider facts discovered the hard way, and non-trivial fixes a future session would re-derive. Lighter than /postmortem — no 7-file set, no LLM call; the agent reads its own conversation and writes 0-5 entries.
+  Lightweight end-of-session memory review — scan the conversation just had for durable lessons and save them into Ralphy's tiered memory (`ralphy memory note`, write-and-tell: every save surfaced in chat, "forget <slug>" honored instantly), so the next session starts already knowing. The chat-native analog of hermes-agent's background self-review: signals are user corrections, frustration ("stop doing X", "I told you already"), durable preferences, model/provider facts discovered the hard way, and non-trivial fixes a future session would re-derive. Lighter than /postmortem — no 7-file set, no LLM call; the agent reads its own conversation and writes 0-5 entries.
   USE WHEN the user types "/memory-review", asks "what should we remember from this", "save the lessons", "update your memory", or a work session is wrapping up after >=1 user correction / re-roll / model swap (fire proactively then). DO NOT FIRE when a full postmortem is warranted (>=2 corrections or >=1 CLI gap — that is /postmortem, which ends with `ralphy memory distill`); for capturing ONE remark mid-flight (that is invariant #18 — note it immediately, no review pass needed); for dev-mode sessions on the Ralphy repo itself (lessons go to notes/, not memory).
   See body for the signal list, the do-not-capture list, and HARD INVARIANTS.
 ---
@@ -46,20 +46,18 @@ full postmortem.
    up); no overlap → new slug, class-level name (no project ids, no error
    strings).
 
-4. **Write, tiered:**
-   - Explicit user statements from this session → `ralphy memory note ...`
-     directly (their words = consent). Client/universe facts get
+4. **Write directly, tiered (#117 — write-and-tell, no approve ceremony):**
+   - Every survivor → `ralphy memory note ...`. Client/universe facts get
      `--workspace`; cross-project craft/model/tooling stays global.
-   - Agent-inferred lessons → `ralphy memory propose ...`, then list the
-     proposals (slug + description + tier) and let the user
-     `approve <slug>` / `reject <slug>` / `approve --all`.
    - Every body carries the rule + `**Why:**` + `**How to apply:**` +
      `**Does NOT apply to:**` — a vague negative scope is grounds to keep
      drafting (#045 over-application lesson).
 
-5. **Report one tight block in chat:** noted (active) entries, staged
-   proposals awaiting approve, and anything deliberately skipped with the
-   one-word reason (covered / transient / narrative).
+5. **Report one tight block in chat:** `saved to memory:` + one line per
+   slug (description + tier), plus anything deliberately skipped with the
+   one-word reason (covered / transient / narrative). End with the undo
+   hint: "say 'forget <slug>' to retire any of these" — and execute
+   `ralphy memory retire <slug>` the moment the user says so.
 
 ## Health check hand-off
 
@@ -72,9 +70,10 @@ job, not this skill's.
 
 - **0-5 entries per session.** More means you are logging, not curating —
   cut to the ones that change a future decision.
-- **Never silently promote an inference.** Agent-derived lessons go through
-  `propose` → user `approve`. Only the user's own explicit statements go
-  straight to `note`.
+- **Write-and-tell, never write-and-hide (#117).** Saves are automatic but
+  ALWAYS surfaced in chat (`saved to memory: <slug>`), and "forget" is
+  honored instantly with `ralphy memory retire`. Transparency is the consent
+  mechanism — a save the user never saw is a defect.
 - **Update over new.** Search first; an overlapping slug is re-noted, never
   cloned into a sibling.
 - **"Nothing to save" is a valid outcome** — say it in one line and stop.

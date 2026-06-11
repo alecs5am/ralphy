@@ -239,6 +239,24 @@ program.action(async () => {
     }
   }
 
+  // Memory digest (#117) — auto-recall: the agent loads memory by virtue of
+  // making this step-0 call, no separate discipline needed. Best-effort: a
+  // store/layout error must never break the status call.
+  let memoryDigest: unknown = null;
+  try {
+    const { recall } = await import("./lib/memory/store.js");
+    const r = await recall({});
+    memoryDigest = {
+      workspace: r.workspace,
+      count: r.count,
+      truncated: r.truncated,
+      note: r.note,
+      entries: r.entries.map((e) => ({ slug: e.slug, tier: e.tier, description: e.description })),
+    };
+  } catch {
+    /* no memory yet / legacy layout — omit */
+  }
+
   // JSON branch — agent / pipe-friendly
   if (!isPrettyMode()) {
     console.log(
@@ -257,6 +275,7 @@ program.action(async () => {
             elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
           },
           project_root: root(),
+          memory: memoryDigest,
         },
         null,
         2,
