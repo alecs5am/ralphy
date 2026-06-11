@@ -50,9 +50,37 @@ Verbs (kebab nouns follow existing CLI conventions, JSON default, `-p` pretty):
    collision).
 5. Regen `cli:surface:build` + `docs:cli`; lints green; English-only.
 
+## Design refinements (from the hermes-agent study, 2026-06-11)
+
+Patterns lifted from `nousresearch/hermes-agent` (its builtin store is
+`tools/memory_tool.py`; orchestration `agent/memory_manager.py`):
+
+- **Bounded store, consolidate-on-overflow.** Hermes caps MEMORY.md at ~2200
+  chars total — the cap is the curation forcing-function. Adopt a softer
+  variant: cap ACTIVE entries per tier (default 100); when `note`/`approve`
+  would exceed it, refuse with the current index + "consolidate first"
+  guidance (merge overlapping entries / reject stale ones). No silent drops.
+- **Atomic writes.** All file writes go temp-file + rename (Bun `write` then
+  `fs.renameSync`) so a concurrent reader never sees a half-written entry or
+  index. MEMORY.md index is regenerated, so atomicity matters most there.
+- **Don't store task progress.** The store module's verb help and the entry
+  schema docs must say: memory is durable rules and facts — task progress,
+  session outcomes, and per-project work logs live in project `logs/` +
+  `postmortem/`, not in memory entries.
+- **Recall is fenced reference data.** `recall` JSON output carries a
+  `note: "recalled background reference — verify entries still apply before
+  acting on them"` field; the agent-side discipline (#114) repeats it.
+- **Drift tolerance.** Memory files are user-editable markdown by design
+  (unlike hermes' parser-owned format) — the store must tolerate hand-edited
+  bodies; only frontmatter keys it owns are validated, unknown keys pass
+  through untouched.
+
 ## Notes
 
 - Foundational — #113 and #114 sequence after this.
 - Seeding global memory from the maintainer's private Claude memory is a
   local data step after this lands (relates to #060, which stays open for the
   public-repo port).
+- Future (separate issues, do NOT build now): FTS index over tiers; a
+  curator-style maintenance verb (consolidate/archive stale entries —
+  hermes archives, never deletes); a mid-session nudge cadence.
