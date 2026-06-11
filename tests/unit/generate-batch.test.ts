@@ -8,16 +8,33 @@
 //   - buildBatchDryRun: shape contract for the --dry-run JSON output across
 //     batch / variants / image-batch.
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import {
   parseBatchJsonl,
   buildVariantItems,
   buildBatchDryRun,
   readPromptsDir,
 } from "../../cli/lib/generate-batch.js";
+import { setRoot } from "../../cli/lib/paths.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+
+// buildBatchDryRun resolves would_write paths through the data root — pin it
+// to a fresh tmp root so the assertions don't inherit the developer machine's
+// active workspace (`.ralphy/config.json` activeWorkspace leaks otherwise).
+let isolatedRoot: string;
+const originalCwd = process.cwd();
+
+beforeAll(() => {
+  isolatedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-batch-"));
+  setRoot(isolatedRoot);
+});
+
+afterAll(() => {
+  setRoot(originalCwd);
+  fs.rmSync(isolatedRoot, { recursive: true, force: true });
+});
 
 describe("parseBatchJsonl", () => {
   test("parses one object per non-blank, non-comment line", () => {
