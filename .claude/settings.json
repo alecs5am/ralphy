@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run cli/index.ts memory recall 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
