@@ -10,14 +10,14 @@ Templates are the reusable shape behind a video — a vibe-reference (full-stack
 | Tier | `source` | Audience | Storage |
 |---|---|---|---|
 | Public content library | `public` | shipped to everyone | Supabase (hosted; the same library `/library` serves, read via `cli/lib/library/client.ts`) |
-| `workspace/templates/` | `workspace` | user-local, gitignored | per-checkout |
+| `.ralphy/workspaces/<ws>/templates/` | `workspace` | user-local, gitignored | per-checkout |
 
 The loader resolves slugs across both tiers. Workspace overrides the public tier on collision — letting you edit a published template locally. The public tier degrades gracefully when the library is unreachable (workspace-only + a warning). The old repo-public `templates/<category>/<slug>/` folder was retired in #084.
 
 The workspace tier supports two on-disk layouts:
 
-- **Flat:** `workspace/templates/<id>.json`
-- **Dir:** `workspace/templates/<id>/template.json` + `TEMPLATE.md` + `composition.md` and friends
+- **Flat:** `.ralphy/workspaces/<ws>/templates/<id>.json`
+- **Dir:** `.ralphy/workspaces/<ws>/templates/<id>/template.json` + `TEMPLATE.md` + `composition.md` and friends
 
 Dir-based templates are preferred — the LLM-readable doc (`TEMPLATE.md`) lives next to metadata.
 
@@ -83,20 +83,20 @@ ralphy template create \
   --summary "..."
 
 # Register an existing dir as a template
-ralphy template register my-format --dir ./workspace/templates/my-format
+ralphy template register my-format --dir ./.ralphy/workspaces/<ws>/templates/my-format
 
 # Remove
 ralphy template delete my-new-format
 ```
 
-`create` writes a flat `workspace/templates/<id>.json`; for richer templates, scaffold a dir under `workspace/templates/<id>/` manually and use `register` to add it to the registry. See [Template format](/advanced/template-format).
+`create` writes a flat `.ralphy/workspaces/<ws>/templates/<id>.json`; for richer templates, scaffold a dir under `.ralphy/workspaces/<ws>/templates/<id>/` manually and use `register` to add it to the registry. See [Template format](/advanced/template-format).
 
 ## Slug resolution
 
 Given a slug, the resolver walks in this order:
 
-1. `workspace/templates/<id>/template.json` (dir, workspace)
-2. `workspace/templates/<id>.json` (flat, workspace)
+1. `.ralphy/workspaces/<ws>/templates/<id>/template.json` (dir, workspace)
+2. `.ralphy/workspaces/<ws>/templates/<id>.json` (flat, workspace)
 3. Public content library lookup by slug (Supabase, via `cli/lib/library/client.ts`)
 
 The first hit wins — the workspace tier shadows a public template of the same slug. The library lookup degrades gracefully when Supabase is unreachable (workspace-only).

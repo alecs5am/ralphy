@@ -6,7 +6,7 @@
 // the $0.70 round-trip + 2-min timeout when a value is rejected.
 //
 // Catalog data comes from `cli/lib/or-catalog.ts` which caches it for 24h
-// at workspace/.ralph/or-catalog.json (auto-refreshed; falls back to stale
+// at .ralphy/or-catalog.json (auto-refreshed; falls back to stale
 // cache if OR is unreachable).
 
 import { Command } from "commander";

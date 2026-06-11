@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
-import { artifactKindDir, artifactsDir, projectsDir, projectDir } from "../lib/paths.js";
+import { artifactKindDir, artifactsDir, projectDir, root } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { chromakey } from "../lib/image/cutout.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -41,10 +41,9 @@ export function assetCmd() {
       const files = await listFilesRecursive(artifactsDir(opts.project));
 
       let items = files.map((f) => {
-        const rel = path.relative(projectsDir(), f);
         const cat = categorize(f);
         return {
-          path: `workspace/projects/${rel}`,
+          path: path.relative(root(), f),
           name: path.basename(f),
           type: cat,
         };

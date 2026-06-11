@@ -89,4 +89,4 @@ warmth + vintage screen-print feel.
 
 The three examples here (BOOM / DANG / YIKES) are the same scaffold with three
 hard palette / hero / product swaps — read one alongside the source prompt in
-`workspace/projects/loud-kids-poster-001/` before drafting a new one.
+`.ralphy/workspaces/<ws>/projects/loud-kids-poster-001/` before drafting a new one.

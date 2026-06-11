@@ -14,11 +14,11 @@
 //
 // Usage:
 //   bunx tsx .agents/skills/ralph-researcher/scripts/find-viral-moments.ts \
-//     --video workspace/references/<handle>/long-video.mp4 \
-//     --output workspace/references/<handle>/moments.json \
+//     --video .ralphy/references/<handle>/long-video.mp4 \
+//     --output .ralphy/references/<handle>/moments.json \
 //     --language ru
 //   # or, with caching:
-//   --transcript-cache workspace/references/<handle>/captions.json
+//   --transcript-cache .ralphy/references/<handle>/captions.json
 
 import fs from "node:fs/promises";
 import path from "node:path";

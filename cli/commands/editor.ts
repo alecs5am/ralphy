@@ -82,7 +82,7 @@ export function editorCmd(): Command {
   cmd
     .command("preflight <projectId>")
     .description(
-      "ffprobe every clip + music in workspace/projects/<id>/artifacts/, surface durations / fps / codec / audio / aspect, run a music-gap check, and verify every scenario scene has a corresponding clip on disk. Exit 1 on red. Run BEFORE `ralphy render`.",
+      "ffprobe every clip + music in <project>/artifacts/, surface durations / fps / codec / audio / aspect, run a music-gap check, and verify every scenario scene has a corresponding clip on disk. Exit 1 on red. Run BEFORE `ralphy render`.",
     )
     .option(
       "--expected-aspect <ratio>",

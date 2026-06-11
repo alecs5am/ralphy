@@ -41,7 +41,7 @@ export function exampleCmd() {
 
   cmd
     .command("pull <example-id>")
-    .description("Download an example project tarball and extract it into workspace/projects/<as>")
+    .description("Download an example project tarball and extract it into the active workspace's projects/<as>/")
     .requiredOption("--as <project-id>", "Local project ID to extract into")
     .option("--refresh", "Force refresh the manifest cache")
     .action(async (exampleId: string, opts) => {
@@ -84,7 +84,7 @@ export function exampleCmd() {
         from_example: exampleId,
       });
 
-      ok(`Extracted ${exampleId} → workspace/projects/${localId}/`);
+      ok(`Extracted ${exampleId} → ${projDir}`);
       out({ exampleId, localId, projDir, source: url });
     });
 

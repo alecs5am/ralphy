@@ -28,7 +28,7 @@ A prompt consists of four layers in strict order:
 ### Image
 
 - Size always `1080x1920` (9:16). No square_hd / landscape — our pipeline is vertical.
-- If there's a persona/brand reference in `assets/uploaded/` — push the URL into `image_urls` (multi-ref for gemini-3-pro-image-preview).
+- If there's a persona/brand reference in `artifacts/refs/` — push the URL into `image_urls` (multi-ref for gemini-3-pro-image-preview).
 - Negative ALWAYS contains "no text overlays, no watermarks" — captions are done in the HyperFrames composition separately.
 
 ### Video (i2v)
@@ -52,7 +52,7 @@ A prompt consists of four layers in strict order:
 
 ## Style fragments
 
-If the project was incarnated from a template — **read `workspace/templates/<slug>/fragments.md` first** and reuse blocks from there. Don't write stylistic tokens from scratch when the template has already standardized them.
+If the project was incarnated from a template — **read `.ralphy/workspaces/<ws>/templates/<slug>/fragments.md` first** and reuse blocks from there. Don't write stylistic tokens from scratch when the template has already standardized them.
 
 ## Concrete over generic
 

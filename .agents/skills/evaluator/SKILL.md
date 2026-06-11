@@ -12,7 +12,7 @@ description: >-
 
 ## Trigger refinements
 
-**ALSO FIRE** when the user just dropped a path that ends in `.mp4` from `workspace/projects/<id>/render/` with no other instructions, or when an editor handed off and the user asks "and now?" (any language).
+**ALSO FIRE** when the user just dropped a path that ends in `.mp4` from `.ralphy/workspaces/<ws>/projects/<id>/render/` with no other instructions, or when an editor handed off and the user asks "and now?" (any language).
 
 **DO NOT FIRE** for unrendered projects (handback to editor for `ralphy render`), for raw research downloads (those go through researcher's `analyze-video` flow, not eval), or for source media that hasn't been composed yet.
 
@@ -37,7 +37,7 @@ You evaluate rendered UGC videos and produce a report that another agent (the fi
 ralphy eval video <path-to-mp4>
 ```
 
-Auto-detects the project ID when the mp4 lives at `workspace/projects/<id>/render/...`. If detected, the report incorporates `scenario.json`, `captions.json`, `BRIEF.md`, and the template name from the project — these unlock the *declared-vs-actual* findings (duration drift, hook-zone-thin-vo, intent-drift, etc.) that are otherwise unavailable.
+Auto-detects the project ID when the mp4 lives at `.ralphy/workspaces/<ws>/projects/<id>/render/...`. If detected, the report incorporates `scenario.json`, `captions.json`, `BRIEF.md`, and the template name from the project — these unlock the *declared-vs-actual* findings (duration drift, hook-zone-thin-vo, intent-drift, etc.) that are otherwise unavailable.
 
 ### Deep-vision pass (project-specific, anti-generic findings)
 
@@ -63,8 +63,8 @@ Each rule violation also flows into the main `findings[]` array under `style.reg
 **When to fire the deep pass automatically:**
 1. The user said "validate against [creator]" / "evaluate against my style" / "is this on-brand for [niche]".
 2. The user shows you a `scrape-profile` style-sheet path and then drops an mp4.
-3. You're running an eval on an mp4 in a project that has a sibling style-sheet (search `workspace/.ralph/research/*/style-sheet.md` and ask the user to confirm which one applies if multiple).
-4. The project has its own `style-sheet.md` at `workspace/projects/<id>/style-sheet.md` (auto-detected — wired in a follow-up; for now, pass `--style-sheet` explicitly).
+3. You're running an eval on an mp4 in a project that has a sibling style-sheet (search `.ralphy/research/jobs/*/style-sheet.md` and ask the user to confirm which one applies if multiple).
+4. The project has its own `style-sheet.md` at `.ralphy/workspaces/<ws>/projects/<id>/style-sheet.md` (auto-detected — wired in a follow-up; for now, pass `--style-sheet` explicitly).
 
 **When NOT to fire the deep pass:**
 - Generic UGC quality check (no creator-style reference, just "is this video good"). The standard per-scene flash pass handles this — cheaper and faster.
@@ -101,7 +101,7 @@ The shape that matters: `report.findings[]` is the actionable list. Each finding
 
 ## Workflow
 
-1. **Confirm the path.** If the user gave a project id instead of an mp4 path, resolve to `workspace/projects/<id>/render/final.mp4` (or whatever the project's render output is — check `composition-props.json` if the path isn't obvious).
+1. **Confirm the path.** If the user gave a project id instead of an mp4 path, resolve to `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4` (or whatever the project's render output is — check `composition-props.json` if the path isn't obvious).
 2. **Run** `ralphy eval video <path>`. Default to full vision unless the user says otherwise; the cost is small and the vision findings are usually the most useful ones.
 3. **Show** the markdown report to the user, highlighting the verdict and the top 3-5 findings by severity.
 4. **Hand off** if the user wants fixes. The fixer agent reads `eval.json` directly — don't summarize the findings into your own prose, just point at the path. Suggested handoffs by finding category:

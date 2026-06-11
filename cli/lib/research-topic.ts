@@ -54,7 +54,7 @@ export interface TopicSource {
   /** Footnote id used in report.md (`[^1]`, `[^2]`, …) */
   id: string;
   url: string;
-  /** Slug under workspace/references/<slug>/ — points at the raw artifacts. */
+  /** Slug under .ralphy/references/<slug>/ — points at the raw artifacts. */
   refSlug: string;
   /** Title pulled from yt-dlp meta (or hostname for plain pages). */
   title: string;

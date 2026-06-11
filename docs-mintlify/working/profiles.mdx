@@ -7,7 +7,7 @@ A profile is a committed dump of your workspace — your brands, personas, refer
 
 ## What lives in a profile
 
-`profiles/<nickname>/` mirrors the layout of `workspace/` but selectively. The export defaults skip renders and intermediate video clips because those are heavy and rarely useful to a recipient. You can include them with a flag if you want a fully-reproducible PR.
+`profiles/<nickname>/` mirrors the layout of `.ralphy/` but selectively. The export defaults skip renders and intermediate video clips because those are heavy and rarely useful to a recipient. You can include them with a flag if you want a fully-reproducible PR.
 
 | Folder | In default export? | Notes |
 |---|---|---|
@@ -30,7 +30,7 @@ ralphy profile export alex \
   --dry-run
 ```
 
-The dry-run prints exactly what would be copied without writing. Drop `--dry-run` to actually copy `workspace/` → `profiles/alex/` and commit the result to git. The export is non-destructive — your workspace stays as it is.
+The dry-run prints exactly what would be copied without writing. Drop `--dry-run` to actually copy `.ralphy/` → `profiles/alex/` and commit the result to git. The export is non-destructive — your data root stays as it is.
 
 <ParamField path="<nickname>" type="string" required>
   Your nick. Becomes the folder name under `profiles/`.
@@ -56,7 +56,7 @@ The exported folder also gets a `PROFILE.md` summarizing what's inside — brand
 ralphy profile import alex
 ```
 
-The import is **additive by default**. It merges `profiles/alex/` into your local `workspace/`, but it will not overwrite files that already exist locally. Collisions get skipped with a stderr warning so you can resolve them by hand. The registry (the central index of brands, personas, projects) gets merged too — every entity in the imported profile shows up in your `ralphy brand list`, `ralphy persona list`, and so on.
+The import is **additive by default**. It merges `profiles/alex/` into your local `.ralphy/`, but it will not overwrite files that already exist locally. Collisions get skipped with a stderr warning so you can resolve them by hand. The registry (the central index of brands, personas, projects) gets merged too — every entity in the imported profile shows up in your `ralphy brand list`, `ralphy persona list`, and so on.
 
 <ParamField path="<nickname>" type="string" required>
   The nick under `profiles/` to import from.
@@ -102,7 +102,7 @@ The whole point of `profiles/` being a committed folder is that it travels throu
 4. Push and open a PR on the [`ugc-cli`](https://github.com/alecs5am/ralphy) repo.
 5. Once merged, other users can `git pull` and `ralphy profile import <your-nick>` to grab your setup.
 
-Profiles intentionally do not vendor heavy assets — those live in the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo, which Ralphy auto-pulls on import via the SHA-256-verified asset cache at `workspace/.ralph/asset-cache/`. Your PR stays small; the heavy assets stay where they belong.
+Profiles intentionally do not vendor heavy assets — those live in the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo, which Ralphy auto-pulls on import via the SHA-256-verified asset cache at `.ralphy/cache/assets/`. Your PR stays small; the heavy assets stay where they belong.
 
 ## Why profiles exist
 
@@ -110,7 +110,7 @@ Three reasons, in order of how often each one bites:
 
 - **Portability between machines.** You set up Ralphy on your laptop, you tuned a persona for three months, the laptop dies. Without a profile, you'd start from scratch. With a profile committed to your fork of `ugc-cli`, you `git pull` and `ralphy profile import <your-nick>` on the new machine and you're back.
 - **Team sharing.** Two creators on the same team share a brand and a persona. One exports a profile; the other imports it. Both teammates' projects pick up the brand's palette and tone without retyping.
-- **Community templates with provenance.** When you extract a template from a successful project (`ralphy template create --from-project <id>`), the template lives under `workspace/templates/`. Bundle it into your profile and the community can `import` your workflow with the master shots intact — not just the template definition. That's why the showcase projects under [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) ship as profiles, not just templates.
+- **Community templates with provenance.** When you extract a template from a successful project (`ralphy template create --from-project <id>`), the template lives under `.ralphy/workspaces/default/templates/`. Bundle it into your profile and the community can `import` your workflow with the master shots intact — not just the template definition. That's why the showcase projects under [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) ship as profiles, not just templates.
 
 ## What profiles are not
 

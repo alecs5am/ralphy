@@ -10,7 +10,7 @@
 //   audioDescribeRef() — Gemini-audio LLM (non-speech / tonal description)
 //   synthesizeBlueprint() — builds blueprint.md from {meta, transcript, analysis}
 //
-// All operations are scoped to `workspace/references/<slug>/`. Each step
+// All operations are scoped to `.ralphy/references/<slug>/`. Each step
 // updates a small `state.json` so subsequent runs can detect what's already
 // done and skip work. Logs go to gen-log when a `projectId` is supplied;
 // research-only invocations are logged to a synthetic "research" project for
@@ -607,7 +607,7 @@ export async function analyzeFrames(opts: AnalyzeFramesOptions): Promise<Analyze
 // `workspace/projects/nothing-hp1-001/WORKFLOW.md` Lesson 1.
 
 export type AnalyzeVideoOptions = {
-  /** Either a slug (workspace/references/<slug>/source.mp4) or an explicit path/URL. */
+  /** Either a slug (.ralphy/references/<slug>/source.mp4) or an explicit path/URL. */
   slug?: string;
   videoPath?: string;
   /** Override prompt. Defaults to the shot-cut-detector below. */
@@ -756,7 +756,7 @@ export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVi
   const model = opts.model ?? "google/gemini-3.1-pro-preview";
   // Infer the destination project for the log entry (#032):
   //  - explicit slug → `_research` synthetic project (preserves existing behaviour)
-  //  - videoPath under `workspace/projects/<id>/...` → that project
+  //  - videoPath under `workspaces/<ws>/projects/<id>/...` → that project
   //  - otherwise → null (skip the row; the callLLM internal log still fires)
   const logProjectId =
     opts.slug != null

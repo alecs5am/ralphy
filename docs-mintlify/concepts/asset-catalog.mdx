@@ -48,7 +48,7 @@ ralphy assets list --template italian-brainrot           # required + matching p
 # Pull one pool item to the cache.
 ralphy assets pull-pool italian-brainrot-characters/tralalero-tralala
 
-# Pull and copy into a project's assets/uploaded/ directory.
+# Pull and copy into a project's artifacts/refs/ directory.
 ralphy assets pull-pool italian-brainrot-characters/tralalero-tralala \
   --install coffee-with-tralalero-001
 
@@ -60,14 +60,14 @@ ralphy assets cache-info                  # cache size, last-pulled
 ralphy assets clean                       # wipe the cache (safe — re-pull on demand)
 ```
 
-`--install <project>` is the form the agent uses most. It pulls the asset to the cache (or no-ops if already cached), then copies it into `workspace/projects/<project>/assets/uploaded/`, then logs a `user-assets.jsonl` entry. The downstream generate verbs see the asset at the conventional path and use it as a ref.
+`--install <project>` is the form the agent uses most. It pulls the asset to the cache (or no-ops if already cached), then copies it into `.ralphy/workspaces/<ws>/projects/<project>/artifacts/refs/`, then logs a `user-assets.jsonl` entry. The downstream generate verbs see the asset at the conventional path and use it as a ref.
 
 ## The cache
 
-`workspace/.ralph/asset-cache/` is the local cache of the companion repo. Layout:
+`.ralphy/cache/assets/` is the local cache of the companion repo. Layout:
 
 ```
-workspace/.ralph/asset-cache/
+.ralphy/cache/assets/
 ├── pool/
 │   ├── italian-brainrot-characters/
 │   │   ├── tralalero-tralala/
@@ -119,11 +119,11 @@ Always read each asset's `ref.json` before publishing. The companion repo will f
 
 ## Example projects in the companion repo
 
-The `ralphy-assets` companion repo also ships complete example projects under `examples/<project-id>/` — the full `workspace/projects/<id>/` tree as a tarball, including the rendered mp4, the prompts, and the logs. These are the source artifacts behind the eleven shipped-project-derived templates listed in [`/concepts/templates`](/concepts/templates). Pull one with:
+The `ralphy-assets` companion repo also ships complete example projects under `examples/<project-id>/` — the full `.ralphy/workspaces/<ws>/projects/<id>/` tree as a tarball, including the rendered mp4, the prompts, and the logs. These are the source artifacts behind the eleven shipped-project-derived templates listed in [`/concepts/templates`](/concepts/templates). Pull one with:
 
 ```bash
 ralphy example list                            # list available example projects
-ralphy example pull noski-people-001           # pull into workspace/projects/
+ralphy example pull noski-people-001           # pull into .ralphy/workspaces/<ws>/projects/
 ```
 
 This is the fastest way to see *exactly* what a finished project looks like — including the postmortem, the gen-log, and the asset versioning history.
@@ -134,4 +134,4 @@ This is the fastest way to see *exactly* what a finished project looks like — 
 - [`ralphy-assets` companion repo](https://github.com/alecs5am/ralphy-assets) — the source of truth
 - [Templates](/concepts/templates) — required assets auto-pull on `ralphy template use`
 - [References](/concepts/references) — for IP characters in the pool, the pool entry is the ref
-- [Workspace](/concepts/workspace) — the cache lives under `workspace/.ralph/asset-cache/`
+- [Workspace](/concepts/workspace) — the cache lives under `.ralphy/cache/assets/`

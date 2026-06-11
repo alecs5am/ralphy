@@ -66,7 +66,7 @@ If you use [direnv](https://direnv.net), a `.envrc` at the project root will aut
 Two files matter:
 
 - **`~/.config/ralphy/config.json`** — global. Holds `default_project_dir` (the link from `ralphy setup --link <path>`) and `imports[]` (profiles you've imported).
-- **`<project>/workspace/.ralph/config.json`** — per-workspace. Free-form key/value, managed by `ralphy config`.
+- **`<project>/.ralphy/config.json`** — per-workspace. Free-form key/value, managed by `ralphy config`.
 
 The two are separate by design: global config is about *which* project ralphy points at; workspace config is about *how* that project behaves.
 

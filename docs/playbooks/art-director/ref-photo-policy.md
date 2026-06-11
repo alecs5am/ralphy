@@ -14,7 +14,7 @@ A scenario.json slot contains:
 
 ## What we do
 
-1. Check `workspace/projects/<id>/assets/uploaded/` for a matching ref:
+1. Check `.ralphy/workspaces/<ws>/projects/<id>/artifacts/refs/` for a matching ref:
    - persona-ref → face photo, ideally 2-3 angles
    - brand-ref → logo, website screenshot, packaging
    - style-ref → 3-5 screenshots of the target aesthetic
@@ -27,13 +27,13 @@ A scenario.json slot contains:
 
    The user's utterance: "generate without a reference, I know quality will be worse".
 
-   On the failing `ralphy generate ...` call, pass `--no-ref-consent "<utterance>"`. The CLI itself appends a `stage: "no-ref-consent"` entry to `workspace/projects/<id>/logs/user-prompts.jsonl` (with `note: "slot=<slot>"`) — no manual `logUserPrompt` call needed. The override is **per generate call**, not project-global, so each consciously consented gen leaves its own audit trail.
+   On the failing `ralphy generate ...` call, pass `--no-ref-consent "<utterance>"`. The CLI itself appends a `stage: "no-ref-consent"` entry to `.ralphy/workspaces/<ws>/projects/<id>/logs/user-prompts.jsonl` (with `note: "slot=<slot>"`) — no manual `logUserPrompt` call needed. The override is **per generate call**, not project-global, so each consciously consented gen leaves its own audit trail.
 
 ## Using a reference in the prompt
 
 When a reference exists:
 
-- Copy the file to `assets/uploaded/<purpose>-<NN>.<ext>` (if it isn't there already).
+- Copy the file to `artifacts/refs/<purpose>-<NN>.<ext>` (if it isn't there already).
 - Log it via `logUserAsset(id, { kind: "photo", source, purpose: "persona-ref" })`.
 - In `prompts.json` for each slot that should use the ref, set `image_urls: [...]`.
 - During generation (gemini-3-pro-image-preview) — multi-ref is passed in `image_urls`.

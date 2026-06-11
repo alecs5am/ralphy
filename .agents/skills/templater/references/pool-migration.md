@@ -1,6 +1,6 @@
 # pool-migration
 
-Heavy-asset migration from a source project's `assets/` tree into the companion `ralphy-assets/pool/` repo.
+Heavy-asset migration from a source project's `artifacts/` tree into the companion `ralphy-assets/pool/` repo.
 
 This is ON by default; `--no-push-assets` skips it (the template then references local paths inside the template dir, which is fine for small refs but bloats the repo if you have multi-MB images or audio).
 
@@ -17,8 +17,8 @@ Only the durable, reusable inputs. Not the project's outputs.
 | `locked: true` (any type) | Yes | Explicit user-lock signal |
 | `type: "trim-from"` | No | Derived from a parent ref — copy the parent instead |
 | `type: "render-output"` | No | Project-specific final |
-| Path under `assets/captions/` or `render/` | No | Captions + finals are project outputs |
-| Path under `refs/` (research input) | Maybe | If `locked: true` migrate; otherwise it's research material, skip |
+| Path under `artifacts/captions/` or `render/` | No | Captions + finals are project outputs |
+| Path under `artifacts/refs/` (research input) | Maybe | If `locked: true` migrate; otherwise it's research material, skip |
 
 ## The migration algorithm
 
@@ -41,7 +41,7 @@ For each candidate manifest entry:
      "sha256": "<hex>",
      "sizeBytes": 829344,
      "addedAt": "2026-05-19T12:00:00Z",
-     "source": "workspace/projects/tokyo-y2k-001/assets/images/master-night-alley.png"
+     "source": ".ralphy/workspaces/<ws>/projects/tokyo-y2k-001/artifacts/images/master-night-alley.png"
    }
    ```
    The `source` field is informational only — for traceability back to which project crystallized this asset.
@@ -62,7 +62,7 @@ For each candidate manifest entry:
          "remote": true,
          "manifestKey": "tokyo-y2k-cinematic/master-night-alley.png",
          "required": true,
-         "destSubdir": "assets/images",
+         "destSubdir": "artifacts/images",
          "note": "Pass as --ref on every scene anchor generation. Location lock."
        }
      }
@@ -91,6 +91,6 @@ Heavy lifts:
 
 Templates in `ugc-cli/templates/` live in the main repo and ship with every clone. Heavy refs would balloon the clone size for everyone — every new project clones the templates whether or not it uses each one.
 
-Pool assets in `ralphy-assets/` are pulled on-demand by `ralphy template use` via `ensureRequired()`, cached locally at `workspace/.ralph/asset-cache/`. Consumers only download the refs they need, when they need them. SHA-checked, GitHub raw-streamed, no auth.
+Pool assets in `ralphy-assets/` are pulled on-demand by `ralphy template use` via `ensureRequired()`, cached locally at `.ralphy/cache/assets/`. Consumers only download the refs they need, when they need them. SHA-checked, GitHub raw-streamed, no auth.
 
 The exception: small (<200 KB) refs that benefit from being inline (e.g. a tiny brand-mark PNG) can stay in the template dir under `templates/<category>/<slug>/assets/`. The `--no-push-assets` flag bypasses pool migration entirely for cases where the user wants this; the manifestKey is replaced with a local `path` and the consume-side picks it up directly.

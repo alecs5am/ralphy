@@ -38,14 +38,14 @@ Always surface the redesign to the user before generating: "Kling rendered the j
 3. Confirm with the user:
    - Updated prompt (or "same prompt, new seed/model").
    - Estimated cost (one line from MODELS.md).
-4. Run **`ralphy generate <kind>`** for this slot only. **Append-only**: the new file lands at `assets/<kind>/<slot>.v<N+1>.<ext>` (auto-incremented), the previous version is left on disk and stays referenced in `generations.jsonl`. Never pass `--overwrite` or hand-delete the old file — even if the user says "regenerate it", that is not consent to delete the previous artifact. Cleanup is a separate, explicit request (`ralphy project clean <id> --slot <slot>` once that verb exists, or user-typed `rm`).
+4. Run **`ralphy generate <kind>`** for this slot only. **Append-only**: the new file lands at `artifacts/<kind>/<slot>.v<N+1>.<ext>` (auto-incremented), the previous version is left on disk and stays referenced in `generations.jsonl`. Never pass `--overwrite` or hand-delete the old file — even if the user says "regenerate it", that is not consent to delete the previous artifact. Cleanup is a separate, explicit request (`ralphy project clean <id> --slot <slot>` once that verb exists, or user-typed `rm`).
    ```
    ralphy generate image --project <id> --slot <slot> --model <m> --prompt <p> [--ref <url>]
    ```
 5. `asset-manifest.json` updates automatically (new entry or new version).
 6. Chat: what changed, cost, path.
 
-**Hard rule:** don't write a runtime TS script under `workspace/projects/<id>/scripts/regen-XX.ts`. If `ralphy generate` doesn't cover the case — stop, extend `cli/commands/generate.ts`, don't copy code into the project.
+**Hard rule:** don't write a runtime TS script under `.ralphy/workspaces/<ws>/projects/<id>/scripts/regen-XX.ts`. If `ralphy generate` doesn't cover the case — stop, extend `cli/commands/generate.ts`, don't copy code into the project.
 
 ## A/B variants (compare-variants sub-task)
 
@@ -54,7 +54,7 @@ Always surface the redesign to the user before generating: "Kling rendered the j
 **Steps:**
 
 1. Generate N assets with **distinctly different** inputs (not identical seed). The variation axis — one at a time: prompt wording / seed / model / voice_id.
-2. `ralphy generate <kind>` with the `--variant <N>` flag — written as `assets/<kind>/<slot>.v<N>.<ext>`.
+2. `ralphy generate <kind>` with the `--variant <N>` flag — written as `artifacts/<kind>/<slot>.v<N>.<ext>`.
 3. Each call is logged with `note: "variant <N> - <axis>: <value>"` (automatically via ralphy).
 4. **Don't update `asset-manifest.json` immediately.** First show the variants to the user, wait for the choice, then promote the chosen one → canonical path in the manifest.
 

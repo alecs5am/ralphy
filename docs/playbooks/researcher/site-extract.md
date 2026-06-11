@@ -2,7 +2,7 @@
 
 ## When to use which
 
-- **Generic landing, plain DOM** → pre-built `bunx tsx scripts/extract-design.ts --url <URL> --output workspace/references/<slug>`.
+- **Generic landing, plain DOM** → pre-built `bunx tsx scripts/extract-design.ts --url <URL> --output .ralphy/references/<slug>`.
 - **SPA / gated content / non-standard design / WebGL / canvas / data-URLs / brand-critical detail matters** → bespoke Playwright session inline. Don't force it through the canned script.
 
 ## Bespoke Playwright recipe
@@ -26,7 +26,7 @@ Adapt per target — that's the whole point of bespoke.
 
 ## What to capture (website-extraction)
 
-Working dir: `workspace/references/<site-slug>/`.
+Working dir: `.ralphy/references/<site-slug>/`.
 
 1. **Design tokens** — `:root` CSS custom properties + computed styles of representative elements (h1, primary button, body) → `design-tokens.json`.
 2. **Color palette** — sample `color` + `background-color` across the first ~500 visible elements, rank by frequency → into `design-tokens.json`.
@@ -41,7 +41,7 @@ Working dir: `workspace/references/<site-slug>/`.
 ralphy brand create --name "<Brand Name>" --url <URL>
 ralphy ref create --url <URL> --type design --brand <brand-id>
 ralphy project log-asset <project-id> --kind reference \
-  --source workspace/references/<site-slug> --purpose design-ref
+  --source .ralphy/references/<site-slug> --purpose design-ref
 ```
 
 ## Limitations
@@ -52,7 +52,7 @@ ralphy project log-asset <project-id> --kind reference \
 
 ## Topic-research method (open-ended question)
 
-Working dir: `workspace/research/<topic-slug>/`.
+Working dir: `.ralphy/research/<topic-slug>/`.
 
 ### Iterate, don't march
 
@@ -60,7 +60,7 @@ Working dir: `workspace/research/<topic-slug>/`.
 2. **Log candidates** to `sources.jsonl`: `{url, title, platform, relevance: "high|medium|low|skip", note}`. Shortlist 5-12 typical.
 3. **Classify** — social URL → `social-analysis`. Dense tutorial → Playwright dig. Pure text → `WebFetch`. Low-value → `skip`.
 4. **Deep-browse dense pages** via bespoke Playwright (see recipe above).
-5. **Download guide videos** — `yt-dlp -f "best[ext=mp4]/best" --no-playlist -o "workspace/research/<slug>/videos/<name>.mp4" "<URL>"`.
+5. **Download guide videos** — `yt-dlp -f "best[ext=mp4]/best" --no-playlist -o ".ralphy/research/<slug>/videos/<name>.mp4" "<URL>"`.
 6. **Analyze each guide video** — for tutorial content call Gemini directly via `callLLM()` with a method-extraction prompt (NOT the default `analyze-video.ts`, which is for reproduction blueprints). Write the result to `videos/<name>-analysis.json`.
 7. **Synthesize** in `notes.md`:
    - one-line topic statement

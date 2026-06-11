@@ -24,7 +24,7 @@ Applies when using `cli/lib/ffmpeg-recipes.ts` (see `docs/ffmpeg-recipes.md`) �
 
 11. **Strategy confirm before render.** If the pipeline is non-trivial (multi-segment, ducking, tonemap) — re-check the plan with the user in chat before launch. Renders are expensive in human-time.
 
-12. **Output dir isolation.** Every ffmpeg-recipe writes to its own `dst` under `workspace/projects/<id>/render/` or `assets/`. **Never overwrite source files.**
+12. **Output dir isolation.** Every ffmpeg-recipe writes to its own `dst` under `<project>/render/` or `<project>/artifacts/`. **Never overwrite source files.**
 
 13. **50ms afade in/out on every clip before concat.** `-c copy` AAC concat produces audible clicks at each clip boundary because DTS is non-monotonic across joins. Re-encode each clip with `afade=t=in:st=0:d=0.05,afade=t=out:st=<dur-0.05>:d=0.05 -c:a aac` before concat. Costs 5-10s of CPU per clip; saves the "annoying audio glitch" the user catches mid-render (noski rule #8).
 
@@ -42,4 +42,4 @@ See `docs/green-zone.md` to validate.
 
 ## We don't write runtime ffmpeg scripts
 
-Hard rule from AGENTS.md — no `workspace/projects/<id>/scripts/*.ts`. All ffmpeg operations go through `cli/lib/ffmpeg-recipes.ts` (created in Sprint 4.1) or via `ralphy render` flags. If the recipe you need doesn't exist — add it to `ffmpeg-recipes.ts`, don't write inline.
+Hard rule from AGENTS.md — no `.ralphy/workspaces/<ws>/projects/<id>/scripts/*.ts`. All ffmpeg operations go through `cli/lib/ffmpeg-recipes.ts` (created in Sprint 4.1) or via `ralphy render` flags. If the recipe you need doesn't exist — add it to `ffmpeg-recipes.ts`, don't write inline.

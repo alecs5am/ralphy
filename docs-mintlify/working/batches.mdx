@@ -7,9 +7,9 @@ The rule from [AGENTS invariant](https://github.com/alecs5am/ralphy/blob/main/AG
 
 ## What a batch is
 
-A batch is a set of projects spawned from a single template plus a list of per-variant tweaks. Each project is a real project — own ID, own folder under `workspace/projects/`, own logs, own manifest, own final render. The batch is the wrapper that creates them, runs them, and reports on them.
+A batch is a set of projects spawned from a single template plus a list of per-variant tweaks. Each project is a real project — own ID, own folder under `.ralphy/workspaces/default/projects/`, own logs, own manifest, own final render. The batch is the wrapper that creates them, runs them, and reports on them.
 
-The `workspace/batches/<batch-id>/state.json` file tracks the in-flight state across the projects in the batch. The batch ID format is the standard `{context}-{NNN}`, same as project IDs.
+The `.ralphy/workspaces/default/batches/<batch-id>/state.json` file tracks the in-flight state across the projects in the batch. The batch ID format is the standard `{context}-{NNN}`, same as project IDs.
 
 ## The two entry points
 
@@ -81,7 +81,7 @@ ralphy batch status syrup-launch-batch-001
 
 ## The cost rollup
 
-When the batch finishes, the rollup lands as part of the status output and as a markdown file at `workspace/batches/<batch-id>/COST_ROLLUP.md`. It breaks down by project and by modality (image, video, voiceover, music, render) so you can see where the spend went:
+When the batch finishes, the rollup lands as part of the status output and as a markdown file at `.ralphy/workspaces/default/batches/<batch-id>/COST_ROLLUP.md`. It breaks down by project and by modality (image, video, voiceover, music, render) so you can see where the spend went:
 
 ```text
 syrup-launch-batch-001 — cost rollup
@@ -107,9 +107,9 @@ The same numbers are available structured via `ralphy batch show <id> --json | j
 
 ## The post-batch postmortem
 
-When a batch completes, the producer playbook auto-generates a `POSTMORTEM.md` at `workspace/batches/<batch-id>/POSTMORTEM.md` (or invokes the [`/postmortem`](https://github.com/alecs5am/ralphy/blob/main/.claude/skills/postmortem) skill on a long batch). The postmortem captures lessons learned, model picks that worked or didn't, the cost rollup, and any CLI gaps the agent had to work around. The next batch starts at a higher skill level — that's the design.
+When a batch completes, the producer playbook auto-generates a `POSTMORTEM.md` at `.ralphy/workspaces/default/batches/<batch-id>/POSTMORTEM.md` (or invokes the [`/postmortem`](https://github.com/alecs5am/ralphy/blob/main/.claude/skills/postmortem) skill on a long batch). The postmortem captures lessons learned, model picks that worked or didn't, the cost rollup, and any CLI gaps the agent had to work around. The next batch starts at a higher skill level — that's the design.
 
-You can trigger a postmortem manually any time after a batch with `/postmortem` in chat. The skill writes six structured files under `workspace/batches/<batch-id>/postmortem/` covering chronological history, lessons, bugs, cost rollup, and workflow fixes. Detail in the [`/postmortem` skill](https://github.com/alecs5am/ralphy/blob/main/.claude/skills/postmortem).
+You can trigger a postmortem manually any time after a batch with `/postmortem` in chat. The skill writes six structured files under `.ralphy/workspaces/default/batches/<batch-id>/postmortem/` covering chronological history, lessons, bugs, cost rollup, and workflow fixes. Detail in the [`/postmortem` skill](https://github.com/alecs5am/ralphy/blob/main/.claude/skills/postmortem).
 
 ## Perf target
 

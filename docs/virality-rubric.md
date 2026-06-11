@@ -108,7 +108,7 @@ Detailed hook library with examples — `docs/creative-library/hooks/HOOK_LIBRAR
 ### Music
 - Volume under VO: **0.6–0.8** ducked.
 - Fade-in: **0.5s**, fade-out: **1s**.
-- If a template references a trend track (`assets/trend-*.mp3`) — copy it, **don't generate** a replacement via Lyria2. Track recognizability is part of the algorithmic push.
+- If a template references a trend track (`artifacts/music/trend-*.mp3`) — copy it, **don't generate** a replacement via Lyria2. Track recognizability is part of the algorithmic push.
 
 ## Part 6. Replicating winners
 

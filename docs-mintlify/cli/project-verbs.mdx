@@ -17,7 +17,7 @@ ralphy new --id summer-launch-001         # empty shell
 ralphy new "office walkthrough" --id office-walk-001
 ```
 
-`ralphy project create` is the structured form for when you have a brand, persona, and template already picked. It writes to `workspace/projects/<id>/` inside the active project root and registers the entity in `workspace/.ralph/registry.json`.
+`ralphy project create` is the structured form for when you have a brand, persona, and template already picked. It writes to `.ralphy/workspaces/<ws>/projects/<id>/` inside the active project root and registers the entity in `.ralphy/registry.json`.
 
 ```bash
 ralphy project create \
@@ -33,7 +33,7 @@ Use `ralphy new` when starting from a brief; use `ralphy project create` when sc
 
 ## ralphy clone &lt;url-or-ref&gt;
 
-`clone` is a meta-verb. Given a public URL (TikTok / Reels / Shorts / X) or an existing ref slug, it chains four back-stage verbs — `ref pull` → `ref frames` → `ref analyze` → `ref blueprint` — then writes a new `vibe-style` template under `workspace/templates/clone-<slug>/`.
+`clone` is a meta-verb. Given a public URL (TikTok / Reels / Shorts / X) or an existing ref slug, it chains four back-stage verbs — `ref pull` → `ref frames` → `ref analyze` → `ref blueprint` — then writes a new `vibe-style` template under `.ralphy/workspaces/<ws>/templates/clone-<slug>/`.
 
 ```bash
 ralphy clone https://tiktok.com/@x/video/72939...
@@ -77,7 +77,7 @@ ralphy project update demo-001 --status review --duration 20
 ralphy project delete demo-001
 ```
 
-`delete` is registry-aware: it removes the entry from `registry.json` and the on-disk dir together. Per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), this is the only blessed cleanup path. Don't `rm -rf workspace/projects/<id>` by hand — you'll desync the registry.
+`delete` is registry-aware: it removes the entry from `registry.json` and the on-disk dir together. Per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), this is the only blessed cleanup path. Don't `rm -rf .ralphy/workspaces/<ws>/projects/<id>` by hand — you'll desync the registry.
 
 ## ralphy project log + timeline
 

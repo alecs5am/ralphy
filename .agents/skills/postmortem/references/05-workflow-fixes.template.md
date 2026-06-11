@@ -73,7 +73,7 @@ A table linking back to `01-chat-history.md`'s end-of-session audit. Each row is
 
 | Artifact deleted/overwritten | Turn | What triggered it | How to prevent | Linked fix |
 |---|---|---|---|---|
-| `assets/videos/scene-03.mp4` | 14 | "regenerate scene-03" — agent overwrote instead of writing `.v2.` | Change `art-director/regeneration.md` L14 to mandate `.vN.ext` (already done in this PR? mark ✅) | #<n> above |
+| `artifacts/videos/scene-03.mp4` | 14 | "regenerate scene-03" — agent overwrote instead of writing `.v2.` | Change `art-director/regeneration.md` L14 to mandate `.vN.ext` (already done in this PR? mark ✅) | #<n> above |
 | ... | ... | ... | ... | ... |
 
 ## Suggested doc PRs (extracted from fix rows)

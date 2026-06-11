@@ -3,14 +3,14 @@ title: "Generations log and manifest"
 description: "Every model call is appended to generations.jsonl. Every produced file is a versioned slot in asset-manifest.json."
 ---
 
-Every project keeps three append-only JSONL logs under `workspace/projects/<id>/logs/` and one pointer table at `workspace/projects/<id>/asset-manifest.json`. The logs are the audit trail — every model call, every user prompt, every uploaded ref. The manifest is the slot pointer table — which file is the current version of `scene-01-bg`, which is the previous. Together they enforce AGENTS.md invariant #13: append-only on generations, never delete or overwrite user / agent-produced artifacts without explicit user request.
+Every project keeps three append-only JSONL logs under `.ralphy/workspaces/<ws>/projects/<id>/logs/` and one pointer table at `.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json`. The logs are the audit trail — every model call, every user prompt, every uploaded ref. The manifest is the slot pointer table — which file is the current version of `scene-01-bg`, which is the previous. Together they enforce AGENTS.md invariant #13: append-only on generations, never delete or overwrite user / agent-produced artifacts without explicit user request.
 
 The schemas and the writer live in [`cli/lib/gen-log.ts`](https://github.com/alecs5am/ralphy/blob/main/cli/lib/gen-log.ts).
 
 ## The three logs
 
 ```
-workspace/projects/<id>/logs/
+.ralphy/workspaces/<ws>/projects/<id>/logs/
 ├── generations.jsonl     # every model call (fal / ElevenLabs / OpenRouter / ffmpeg)
 ├── user-prompts.jsonl    # every user-facing prompt or request
 └── user-assets.jsonl     # every user-uploaded reference (screenshot, photo, doc, URL)
@@ -57,13 +57,13 @@ A typical entry:
   "slot": "scene-03-clip",
   "input": {
     "prompt": "Megan turns to camera, slight smile, raises mug.",
-    "image_url": "workspace/projects/coffee-shop-001/assets/scene-03-bg.png",
+    "image_url": ".ralphy/workspaces/<ws>/projects/coffee-shop-001/assets/scene-03-bg.png",
     "duration": 5,
     "audio": true
   },
   "output": {
     "url": "https://v3.fal.media/files/.../output.mp4",
-    "local": "workspace/projects/coffee-shop-001/assets/scene-03-clip.mp4",
+    "local": ".ralphy/workspaces/<ws>/projects/coffee-shop-001/assets/scene-03-clip.mp4",
     "bytes": 4218492
   },
   "status": "ok",
@@ -126,7 +126,7 @@ A typical entry:
   "timestamp": "2026-05-20T10:15:42.500Z",
   "kind": "ref-url",
   "source": "https://www.tiktok.com/@user/video/7321...",
-  "dest": "workspace/.ralph/refs/tiktok-7321/source.mp4",
+  "dest": ".ralphy/references/tiktok-7321/source.mp4",
   "purpose": "style-ref",
   "note": "the user said 'I want it like this' and dropped this URL"
 }
@@ -156,26 +156,26 @@ The manifest is *not* a log. It is a pointer table: which file on disk is the cu
   "slots": {
     "scene-01-bg": {
       "kind": "image",
-      "current": "assets/scene-01-bg.png",
+      "current": "artifacts/images/scene-01-bg.png",
       "versions": [
-        { "version": 1, "file": "assets/scene-01-bg.v1.png", "created": "2026-05-20T10:32:00Z" },
-        { "version": 2, "file": "assets/scene-01-bg.png",    "created": "2026-05-20T10:45:30Z" }
+        { "version": 1, "file": "artifacts/images/scene-01-bg.v1.png", "created": "2026-05-20T10:32:00Z" },
+        { "version": 2, "file": "artifacts/images/scene-01-bg.png",    "created": "2026-05-20T10:45:30Z" }
       ],
       "promoted": null
     },
     "scene-01-clip": {
       "kind": "video",
-      "current": "assets/scene-01-clip.mp4",
+      "current": "artifacts/videos/scene-01-clip.mp4",
       "versions": [
-        { "version": 1, "file": "assets/scene-01-clip.mp4", "created": "2026-05-20T10:48:12Z" }
+        { "version": 1, "file": "artifacts/videos/scene-01-clip.mp4", "created": "2026-05-20T10:48:12Z" }
       ],
       "promoted": null
     },
     "voiceover-en": {
       "kind": "voiceover",
-      "current": "assets/voiceover-en.mp3",
+      "current": "artifacts/voiceover/voiceover-en.mp3",
       "versions": [
-        { "version": 1, "file": "assets/voiceover-en.mp3", "created": "2026-05-20T10:52:00Z" }
+        { "version": 1, "file": "artifacts/voiceover/voiceover-en.mp3", "created": "2026-05-20T10:52:00Z" }
       ],
       "promoted": null
     }

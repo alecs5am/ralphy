@@ -2,7 +2,7 @@
 
 Canonical user-utterance → expected-flow → expected-output triples. The skills and the chat itself should respond according to this table. If a user's request matches a row here, the flow is deterministic. If it doesn't, fall back to `producer playbook` with a clarifying question.
 
-> **Definition of "good":** a finished mp4 at `workspace/projects/<id>/render/final.mp4`, or an explicit refusal with a concrete suggestion (not "I'll give it a shot"). Intermediate steps log to `generations.jsonl`.
+> **Definition of "good":** a finished mp4 at `<project>/render/final.mp4` (`<project>` = `.ralphy/workspaces/<ws>/projects/<id>`), or an explicit refusal with a concrete suggestion (not "I'll give it a shot"). Intermediate steps log to `generations.jsonl`.
 
 User utterances below are shown in English.
 
@@ -55,7 +55,7 @@ Format-first flow: the chat matches the brief to a media format / template (`ral
 
 **Flow:**
 1. **Gate:** wait for the reference (see section D). Without it — refuse.
-2. Match the video format / template, `ralphy project create --project <id>`, load the before/after craft-overlay skill on top (or freeform), reference in `assets/uploaded/`. *Remix variant: user named the `before-after-product` style template → `ralphy template use before-after-product`.*
+2. Match the video format / template, `ralphy project create --project <id>`, load the before/after craft-overlay skill on top (or freeform), reference in `artifacts/refs/`. *Remix variant: user named the `before-after-product` style template → `ralphy template use before-after-product`.*
 3. `scenarist playbook` → 5s problem + 10s demo.
 4. `art-director playbook` → 2 keyframes → 2 i2v clips.
 5. `editor playbook` → captions + transition → render.
@@ -85,7 +85,7 @@ Format-first flow: the chat matches the brief to a media format / template (`ral
 > Launching `/researcher` — pulling design tokens and screenshots from <site>. ~2 min.
 
 **Flow:**
-1. `/researcher` → `extract-design.ts` → `workspace/references/<site-slug>/`.
+1. `/researcher` → `extract-design.ts` → `.ralphy/references/<site-slug>/`.
 2. The chat shows the extracted palette + typography + 3 screenshots → user confirms.
 3. `scenarist playbook` → scenario referencing the design.
 4. `art-director playbook` → prompts that pass the reference screenshots into `image_urls`.
@@ -116,7 +116,7 @@ Format-first flow: the chat matches the brief to a media format / template (`ral
 > "To do `<name>` well, I need a reference image (face photo, ideally 2-3 angles). Drop one in here, or switch to a generic archetype (`it-remote / courier / student`) — I won't generate without a reference, it'll come out worse than cheap AI slop."
 
 **After the reference arrives:**
-- `assets/uploaded/<name>-ref.jpg` is saved.
+- `artifacts/refs/<name>-ref.jpg` is saved.
 - `logUserAsset(id, { kind: "photo", source: ..., purpose: "persona-ref" })`.
 - `art-director playbook` uses the reference in `image_urls` for every keyframe.
 
@@ -208,7 +208,7 @@ After two failed regenerations (`scoreImage < 7` twice in a row):
 **Utterance:**
 - "make a template from <project>", "save this format for later"
 
-**Flow:** `producer playbook` sub-task `template-extract` → `workspace/templates/<slug>/` with all five files + `reference-example.md` populated from the source project.
+**Flow:** `producer playbook` sub-task `template-extract` → `.ralphy/workspaces/<ws>/templates/<slug>/` with all five files + `reference-example.md` populated from the source project.
 
 ### F2. "What templates do we have"
 

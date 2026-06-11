@@ -17,7 +17,7 @@ ralphy brand create \
   --tone "warm, conversational, autumn-cozy"
 ```
 
-The brand object lives in `workspace/brands/<slug>/` and carries the logo, palette, tone, and optional default persona. Reference it on any project create:
+The brand object lives in the workspace `shared/brands/` tier (`.ralphy/workspaces/<ws>/shared/brands/<slug>.json`) and carries the logo, palette, tone, and optional default persona. Reference it on any project create:
 
 ```bash
 ralphy project create --name "Syrup launch hero" --brand cinnamon-cold-brew --id syrup-001
@@ -73,8 +73,8 @@ ralphy generate image \
   --project syrup-001 \
   --slot scene-02-bg \
   --prompt "Anna pours syrup into iced coffee, kitchen counter, autumn morning light" \
-  --ref workspace/projects/syrup-001/assets/product-master.png \
-  --ref workspace/projects/syrup-001/assets/persona-master.png
+  --ref .ralphy/workspaces/default/projects/syrup-001/assets/product-master.png \
+  --ref .ralphy/workspaces/default/projects/syrup-001/assets/persona-master.png
 ```
 
 **Multi-ref.** Most image models accept multiple `--ref` flags. `gemini-3-pro-image-preview` is the default and the canonical multi-ref model — it holds face / wardrobe / product identity across 2-3 refs and tolerates ≥4 concurrent calls. Switch to `gpt-5.4-image-2` only when label typography on a hero product shot must read crisp (it caps at 1 concurrent). See [Generating assets](/working/generating-assets) for the per-modality model picks.
@@ -133,7 +133,7 @@ ralphy project log-asset syrup-001 \
   --note "official packshot from the client"
 ```
 
-This appends to `user-assets.jsonl` — append-only, never overwrites, like every other log under `workspace/projects/<id>/logs/` ([AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)).
+This appends to `user-assets.jsonl` — append-only, never overwrites, like every other log under `.ralphy/workspaces/default/projects/<id>/logs/` ([AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)).
 
 ## Editing a brand or persona
 

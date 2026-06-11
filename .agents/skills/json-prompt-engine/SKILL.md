@@ -19,7 +19,7 @@ description: >-
 
 ## What this skill is
 
-The inverse of `docs/prompts/image/` (the mode-by-mode prompt cookbook). The cookbook takes a *brief* and fills slots; this skill takes a *finished image* and recovers the dense prompt that would regenerate it. The output is one valid JSON object per reference, written to `workspace/projects/<id>/prompts/<slot>.json` and fed to `ralphy generate image --prompt-file`. It is a craft overlay on the art-director step, not a replacement for it.
+The inverse of `docs/prompts/image/` (the mode-by-mode prompt cookbook). The cookbook takes a *brief* and fills slots; this skill takes a *finished image* and recovers the dense prompt that would regenerate it. The output is one valid JSON object per reference, written to `.ralphy/workspaces/<ws>/projects/<id>/prompts/<slot>.json` and fed to `ralphy generate image --prompt-file`. It is a craft overlay on the art-director step, not a replacement for it.
 
 ## Hard invariants
 
@@ -35,7 +35,7 @@ The inverse of `docs/prompts/image/` (the mode-by-mode prompt cookbook). The coo
 1. **Look at the reference.** For an uploaded / local image, read it with the `Read` tool. For a video, pull a frame first (`ralphy ref pull <slug>` -> frames, memory: `feedback_ralphy_ref_analyze_video`) and read that. Identify every visual element: subject, style, lighting, materials, textures, environment, composition, camera angle, colour palette, mood, and ALL visible typography / UI text.
 2. **Categorize** each observation into the schema sections below.
 3. **Emit one valid JSON object** per reference (the section "Response Format" defines the chat layout).
-4. **If the user wants generation**, write the JSON to `workspace/projects/<id>/prompts/<slot>.json`, pick the model per the Cookbook, fold in any guideline, then call `ralphy generate image --prompt-file <path> --model <id> [--ref <source-image>]`. Auto-versioning protects any existing slot file (AGENTS.md invariant #14).
+4. **If the user wants generation**, write the JSON to `.ralphy/workspaces/<ws>/projects/<id>/prompts/<slot>.json`, pick the model per the Cookbook, fold in any guideline, then call `ralphy generate image --prompt-file <path> --model <id> [--ref <source-image>]`. Auto-versioning protects any existing slot file (AGENTS.md invariant #14).
 5. **Provide a 3-5 sentence plain-English breakdown** of the key creative decisions so the user can tweak.
 6. **Suggest 1-3 concrete tweaks** (a lighting swap, a focal-length change, a palette shift).
 
@@ -152,7 +152,7 @@ When the output feeds `ralphy generate video` (image-to-video off this still), a
 ## Outputs
 
 - Chat: Analysis -> JSON Prompt -> Tweaks (the Response Format).
-- On disk (only when generating): `workspace/projects/<id>/prompts/<slot>.json` written via the agent, then the generated image under `workspace/projects/<id>/assets/` by `ralphy generate image`. Both are append-only / auto-versioned (AGENTS.md invariant #14).
+- On disk (only when generating): `.ralphy/workspaces/<ws>/projects/<id>/prompts/<slot>.json` written via the agent, then the generated image under `.ralphy/workspaces/<ws>/projects/<id>/assets/` by `ralphy generate image`. Both are append-only / auto-versioned (AGENTS.md invariant #14).
 
 ## Cookbook
 
@@ -164,14 +164,14 @@ ralphy ref pull <slug>                          # then Read the extracted frame
 #    typography / legible-label reference -> gpt-5.4-image-2
 ralphy generate image \
   --project <id> \
-  --prompt-file workspace/projects/<id>/prompts/<slot>.json \
+  --prompt-file .ralphy/workspaces/<ws>/projects/<id>/prompts/<slot>.json \
   --model openai/gpt-5.4-image-2 \
   --ref <source-image>            # ref required only for a named real entity
 
 #    multi-ref / character-consistency reference (default) -> gemini-3-pro-image-preview
 ralphy generate image \
   --project <id> \
-  --prompt-file workspace/projects/<id>/prompts/<slot>.json \
+  --prompt-file .ralphy/workspaces/<ws>/projects/<id>/prompts/<slot>.json \
   --model google/gemini-3-pro-image-preview
 
 # 3. fold a guideline into the quality block before generating, when one applies

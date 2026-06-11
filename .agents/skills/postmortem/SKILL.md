@@ -1,7 +1,7 @@
 ---
 name: postmortem
 namespace: user
-description: Distil the conversation we just had into a structured 7-file postmortem set under `workspace/projects/<id>/postmortem/` for the active ralphy project. Splits the record into chronological chat history, lessons learned, ralphy-CLI bug list (with the raw `bunx` / `ffmpeg` / `curl` workarounds the agent had to reach for), model-and-cost rollup, workflow / playbook fixes, and a units-produced + provenance record (the shipped Units + their template/style/recipe/asset blocks, for the extract/publish path). Use this skill whenever the user types `/postmortem`, asks for a "retro" / "lessons learned" / "what did we learn" / "write up the lessons", or says things like "write best practices", "debrief", "record what didn't work" after a non-trivial multi-iteration ralphy session. Also use proactively at the end of any ralphy session that had ≥2 user-driven course corrections (re-rolls, model swaps, scope pivots) or ≥1 CLI gap the agent worked around with raw tooling — the iteration history fades from chat memory, and a checked-in `postmortem/` set is the only durable record. Don't skip this even if the project shipped successfully — successful projects with painful iteration history are the most valuable to document.
+description: Distil the conversation we just had into a structured 7-file postmortem set under `.ralphy/workspaces/<ws>/projects/<id>/postmortem/` for the active ralphy project. Splits the record into chronological chat history, lessons learned, ralphy-CLI bug list (with the raw `bunx` / `ffmpeg` / `curl` workarounds the agent had to reach for), model-and-cost rollup, workflow / playbook fixes, and a units-produced + provenance record (the shipped Units + their template/style/recipe/asset blocks, for the extract/publish path). Use this skill whenever the user types `/postmortem`, asks for a "retro" / "lessons learned" / "what did we learn" / "write up the lessons", or says things like "write best practices", "debrief", "record what didn't work" after a non-trivial multi-iteration ralphy session. Also use proactively at the end of any ralphy session that had ≥2 user-driven course corrections (re-rolls, model swaps, scope pivots) or ≥1 CLI gap the agent worked around with raw tooling — the iteration history fades from chat memory, and a checked-in `postmortem/` set is the only durable record. Don't skip this even if the project shipped successfully — successful projects with painful iteration history are the most valuable to document.
 ---
 
 # Postmortem skill — ralphy pipeline
@@ -32,10 +32,10 @@ Proactive triggers (offer to do it, don't auto-execute):
 
 ## What I produce
 
-A directory at `workspace/projects/<id>/postmortem/` with **7 files**:
+A directory at `.ralphy/workspaces/<ws>/projects/<id>/postmortem/` with **7 files**:
 
 ```
-workspace/projects/<id>/postmortem/
+.ralphy/workspaces/<ws>/projects/<id>/postmortem/
 ├── 00-INDEX.md            map + 3-bullet TL;DR linking to the 6 substantive docs
 ├── 01-chat-history.md     chronological: user prompt → agent steps → outcome
 ├── 02-lessons.md          rules learned the hard way (TL;DR, pipeline-from-scratch, pitfalls, prompt patterns)
@@ -65,28 +65,28 @@ Don't write from memory — pull from the actual session artifacts. Different do
    - Every user turn that drove a phase change (scenario lock, asset gen, render, regen, postmortem). One row per user turn in 01.
    - User-feedback moments ("don't like it", "bad", "2/10", "redo it", "too static", "doesn't match") and what the agent did in response.
    - Model swaps you made (started with X → switched to Y after Z failed).
-   - **Every time the agent reached past ralphy** — raw `bunx tsx`, raw `ffmpeg`, raw `curl`, raw `yt-dlp`, hand-written TS in `workspace/projects/<id>/scripts/`. Each instance is a row in 03-cli-issues.md.
+   - **Every time the agent reached past ralphy** — raw `bunx tsx`, raw `ffmpeg`, raw `curl`, raw `yt-dlp`, hand-written TS in `.ralphy/workspaces/<ws>/projects/<id>/scripts/`. Each instance is a row in 03-cli-issues.md.
    - Failed CLI runs (exit code 1, content moderation refusals, "no job.id", "File is not in a valid base64 format"). Each is a row in 03.
    - Successful pivots (split scene into micro-shots, stripped C2PA, switched vendor).
    - Cost spikes (multiple retries on same slot).
-   - **Append-only violations** — any moment the agent deleted, overwrote, or rewrote an artifact under `workspace/projects/<id>/` instead of versioning. Each is a row in 05.
+   - **Append-only violations** — any moment the agent deleted, overwrote, or rewrote an artifact under `.ralphy/workspaces/<ws>/projects/<id>/` instead of versioning. Each is a row in 05.
 
-2. **`workspace/projects/<id>/logs/generations.jsonl`** (drives 04-models-and-cost.md) — the structured truth of every model call.
-   Run: `jq -c 'select(.kind != null) | {kind, slot, ep: .endpoint, status, cost: (.cost_usd // .costUsd // 0), err: .error}' workspace/projects/<id>/logs/generations.jsonl`
+2. **`.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl`** (drives 04-models-and-cost.md) — the structured truth of every model call.
+   Run: `jq -c 'select(.kind != null) | {kind, slot, ep: .endpoint, status, cost: (.cost_usd // .costUsd // 0), err: .error}' .ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl`
    - Sum cost by `kind` (image / video / music / voiceover / captions) → total $ per phase
    - Count `status == "error"` entries → sunk-cost retries
    - Group by `endpoint` → which model won which task (success count + total $)
 
-3. **`workspace/projects/<id>/logs/user-prompts.jsonl`** (drives 01-chat-history.md) — chronological user prompts as the CLI saw them. Cross-reference with the in-chat turns.
+3. **`.ralphy/workspaces/<ws>/projects/<id>/logs/user-prompts.jsonl`** (drives 01-chat-history.md) — chronological user prompts as the CLI saw them. Cross-reference with the in-chat turns.
 
-4. **`workspace/projects/<id>/STORYBOARD.md`** if it exists — the locked plan vs what shipped (drives 02-lessons.md).
+4. **`.ralphy/workspaces/<ws>/projects/<id>/STORYBOARD.md`** if it exists — the locked plan vs what shipped (drives 02-lessons.md).
 
 5. **`src/videos/<id>/scenes.ts`** — final composition (scene count, durations, startFrom values, MUSIC_FILE pick) (drives 02-lessons.md "Composition tricks").
 
-6. **`workspace/projects/<id>/asset-manifest.json` or `assets/` dir listing** — what actually ended up in the render. **Pay attention to `.v2.`, `.v3.` files** — they are evidence of regen iterations and feed the cost-vs-minimum estimate.
+6. **`.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json` or `artifacts/` dir listing** — what actually ended up in the render. **Pay attention to `.v2.`, `.v3.` files** — they are evidence of regen iterations and feed the cost-vs-minimum estimate.
 
-7. **`workspace/projects/<id>/units/*/unit.json`** (drives 06-units.md) — the finished, curated **Units** the project shipped (formed by `ralphy unit create`, issue #069). Each carries `slug`, `format`, ordered `media`, and a `provenance` block (`template` / `style` / `recipes[]` / `assets[]` slugs). 06-units.md records each Unit and marks every provenance block NEW vs. REUSED. If there is no `units/` dir, 06 uses its empty case — do NOT fabricate units from `assets/`.
-   Run: `for u in workspace/projects/<id>/units/*/unit.json; do jq -c '{slug, format, provenance}' "$u"; done`
+7. **`.ralphy/workspaces/<ws>/projects/<id>/units/*/unit.json`** (drives 06-units.md) — the finished, curated **Units** the project shipped (formed by `ralphy unit create`, issue #069). Each carries `slug`, `format`, ordered `media`, and a `provenance` block (`template` / `style` / `recipes[]` / `assets[]` slugs). 06-units.md records each Unit and marks every provenance block NEW vs. REUSED. If there is no `units/` dir, 06 uses its empty case — do NOT fabricate units from `artifacts/`.
+   Run: `for u in .ralphy/workspaces/<ws>/projects/<id>/units/*/unit.json; do jq -c '{slug, format, provenance}' "$u"; done`
 
 8. **`git log --oneline -20`** — commits made during the session reveal phase boundaries.
 
@@ -95,11 +95,11 @@ Don't write from memory — pull from the actual session artifacts. Different do
 ```
 1. Detect active ralphy project:
    - Last `--project <id>` flag in recent bash calls, OR
-   - cwd is workspace/projects/<id>/, OR
+   - cwd is .ralphy/workspaces/<ws>/projects/<id>/, OR
    - User explicitly named a project in the conversation
 
 2. Target directory:
-   - workspace/projects/<id>/postmortem/
+   - .ralphy/workspaces/<ws>/projects/<id>/postmortem/
 
 3. If the dir exists already (previous session ran the skill):
    - For each of the 7 files, APPEND an "Iteration N addendum" section (numbered).
@@ -173,14 +173,14 @@ If you can't answer all six with specifics from this session, you don't have eno
 - Don't write rules you can't tie to a specific moment ("always use refs" — too generic; "always pull canonical product PNGs in step 1 because I generated wrong-color shots before user dropped reference screenshots" — useful).
 - Don't quote AGENTS.md / playbooks back at the user — they wrote those. Postmortem captures the layer *between* the playbook and the project — what the playbook didn't yet cover.
 - Don't run `bunx tsc` / heavy tooling. This is a synthesis task, not a code-fix task.
-- Don't `rm` or `mv` anything in `workspace/projects/<id>/` — see append-only invariant above and the project-wide invariant in AGENTS.md.
+- Don't `rm` or `mv` anything in `.ralphy/workspaces/<ws>/projects/<id>/` — see append-only invariant above and the project-wide invariant in AGENTS.md.
 - Don't squash 03-cli-issues.md down to "summary" — every gap row is the seed of a GitHub issue. Keep them granular even if the doc gets long.
 
 ## Final step
 
 After writing all 7 files, give the user this summary in chat:
 
-1. **Where it's saved**: `workspace/projects/<id>/postmortem/` (list the 7 filenames).
+1. **Where it's saved**: `.ralphy/workspaces/<ws>/projects/<id>/postmortem/` (list the 7 filenames).
 2. **N rules captured**: brief one-line list of the headline rules from 02-lessons.md.
 3. **$ accounted**: total spend + avoidable-vs-genuine breakdown (from 04).
 4. **CLI gaps to file**: count + one-line list of suggested new ralphy verbs (from 03).

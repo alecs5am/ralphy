@@ -37,7 +37,7 @@ ffmpeg -f concat -safe 0 -i concat-list.txt -c copy vo-track.mp3
 
 # 3. Scribe the stitched track. Word-level timestamps are the default.
 ralphy ref transcribe <slug> --language en
-# → workspace/references/<slug>/transcript.json with word-level startMs / endMs.
+# → .ralphy/references/<slug>/transcript.json with word-level startMs / endMs.
 
 # 4. Read transcript.json. Drive scene-cut boundaries AND caption SRT from the
 #    SAME word timestamps. Snap every timing constant in index.html / Remotion
@@ -63,8 +63,8 @@ When iterating on VO post-FX (radio filter, compression, fade-out tail), **versi
 
 ## Brand-name spell fixes
 
-ElevenLabs Scribe mis-hears proper nouns. Apply a `s/RALFY/RALPHY/`, `s/HIGGS FIELD/HIGGSFIELD/`, `s/.DEVE/.DEV/`, `s/.DIV/.DEV/` post-process before emitting the caption SRT. Keep the corrections table in `workspace/projects/<id>/captions-fixups.json` so iterations re-apply it.
+ElevenLabs Scribe mis-hears proper nouns. Apply a `s/RALFY/RALPHY/`, `s/HIGGS FIELD/HIGGSFIELD/`, `s/.DEVE/.DEV/`, `s/.DIV/.DEV/` post-process before emitting the caption SRT. Keep the corrections table in `.ralphy/workspaces/<ws>/projects/<id>/captions-fixups.json` so iterations re-apply it.
 
 ## Follow-up
 
-`ralphy ref transcribe` currently requires a reference slug — to scribe an arbitrary mp3, you have to fake a slug under `workspace/references/<slug>/source.mp3` (the `choose-your-guide-001` GAP-2 workaround). Tracked as a CLI gap; a future `ralphy ref transcribe --file <path>` (or a top-level `ralphy audio transcribe`) will accept arbitrary inputs. Don't add the verb here — file the request, keep using the slug workaround in the meantime.
+`ralphy ref transcribe` currently requires a reference slug — to scribe an arbitrary mp3, you have to fake a slug under `.ralphy/references/<slug>/source.mp3` (the `choose-your-guide-001` GAP-2 workaround). Tracked as a CLI gap; a future `ralphy ref transcribe --file <path>` (or a top-level `ralphy audio transcribe`) will accept arbitrary inputs. Don't add the verb here — file the request, keep using the slug workaround in the meantime.

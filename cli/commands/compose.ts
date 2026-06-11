@@ -43,7 +43,7 @@ export function composeCmd(): Command {
     .description(
       "Timeline-aware composer. Reads artifacts/ + scenario.json + scribe captions, builds a Timeline, optionally re-flows after structural edits, and renders a single mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle (#013).",
     )
-    .argument("<projectId>", "Project id under workspace/projects/")
+    .argument("<projectId>", "Project id (resolved via the registry to .ralphy/workspaces/<ws>/projects/<id>/)")
     .option(
       "--remove-segment <slot>",
       "Drop the segment with this slot id and re-flow VO + captions + music. Repeatable.",
@@ -55,7 +55,7 @@ export function composeCmd(): Command {
     )
     .option(
       "--out <path>",
-      "Output path (default: workspace/projects/<id>/render/compose.mp4). Collisions auto-bump to -v2, -v3, ...",
+      "Output path (default: <project>/render/compose.mp4). Collisions auto-bump to -v2, -v3, ...",
     )
     .option("--dry-run", "Print the resolved timeline + filter graph; do not spawn ffmpeg.")
     .action(

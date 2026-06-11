@@ -8,7 +8,7 @@ Composer + renderer. I take `scenario.json` + `asset-manifest.json`, assemble an
 
 ## Engine
 
-HyperFrames is the only render engine. Every project must ship `workspace/projects/<id>/index.html`. See [`hyperframes.md`](hyperframes.md) for composition rules, GSAP timelines, registry blocks, captions, transitions, audio mixing.
+HyperFrames is the only render engine. Every project must ship `.ralphy/workspaces/<ws>/projects/<id>/index.html`. See [`hyperframes.md`](hyperframes.md) for composition rules, GSAP timelines, registry blocks, captions, transitions, audio mixing.
 
 ## CLI cookbook
 
@@ -36,10 +36,10 @@ ralphy video tonemap-hdr     --in <hdr.mp4> --out <sdr.mp4>                     
 ralphy video concat          --files a.mp4,b.mp4 --out concat.mp4
 
 # HyperFrames iteration loop (foreground only — no auto-Studio)
-bunx hyperframes preview workspace/projects/<id>
-bunx hyperframes lint    workspace/projects/<id>
-bunx hyperframes inspect workspace/projects/<id>
-bunx hyperframes add <block-slug> workspace/projects/<id>
+bunx hyperframes preview .ralphy/workspaces/<ws>/projects/<id>
+bunx hyperframes lint    .ralphy/workspaces/<ws>/projects/<id>
+bunx hyperframes inspect .ralphy/workspaces/<ws>/projects/<id>
+bunx hyperframes add <block-slug> .ralphy/workspaces/<ws>/projects/<id>
 
 # Inspect inputs / outputs
 ralphy project show <id> --assets        # asset-manifest before composing
@@ -85,14 +85,14 @@ When the user asks to "extend" / lengthen an existing stylized clip (toon, paint
 ## What I read on start
 
 1. **Run `ralphy editor preflight <id>` first.** Single canonical check for durations, fps, codec, audio tracks, music-gap vs total clip length, and scenario-to-disk completeness. Exits 1 on red — fix before composing. Replaces every project's ad-hoc `ffprobe` loop. (#034)
-2. **Then `ralphy editor trim-analyze <id>`.** Batch gemini-3.1-pro-preview vision pass over `assets/videos/` for dead-time / hot-moments / suggested `trim_in_s` / `trim_out_s` per clip. Aggregates to `assets/analysis/summary.json` (idempotent via mtime — re-runs only re-analyze changed clips). Use `--dry-run` to preview the plan + cache state. Canonical solver for kling/seedance ~1s overshoot (#042). (#034)
+2. **Then `ralphy editor trim-analyze <id>`.** Batch gemini-3.1-pro-preview vision pass over `artifacts/videos/` for dead-time / hot-moments / suggested `trim_in_s` / `trim_out_s` per clip. Aggregates to `artifacts/analysis/summary.json` (idempotent via mtime — re-runs only re-analyze changed clips). Use `--dry-run` to preview the plan + cache state. Canonical solver for kling/seedance ~1s overshoot (#042). (#034)
 3. **`AGENTS.md`** — invariants (no auto-Studio, no scripts, ralphy render).
 4. **[hyperframes playbook](hyperframes.md)** — reference manual for HyperFrames composition / captions / transitions / GSAP / registry.
 5. **[art-director/pre-render-checklist.md](art-director/pre-render-checklist.md)** — HARD snapshot-review gate the art-director must clear before handing off. If you arrived here without snapshots on disk, bounce back to art-director.
-6. `workspace/projects/<id>/scenario.json` — structure and timings.
-7. `workspace/projects/<id>/asset-manifest.json` — asset paths.
-- `workspace/projects/<id>/index.html` — the composition.
-- `workspace/projects/<id>/design.md` — brand source-of-truth (HyperFrames skill gate).
+6. `.ralphy/workspaces/<ws>/projects/<id>/scenario.json` — structure and timings.
+7. `.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json` — asset paths.
+- `.ralphy/workspaces/<ws>/projects/<id>/index.html` — the composition.
+- `.ralphy/workspaces/<ws>/projects/<id>/design.md` — brand source-of-truth (HyperFrames skill gate).
 - `docs/green-zone.md` for text positioning.
 
 ## Hard rules (inherited from AGENTS.md)

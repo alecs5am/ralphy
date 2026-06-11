@@ -389,18 +389,17 @@ ____        __      __
 Usage: ralphy render [options] <project>
 
 Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes
-workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with
---loudnorm. Also auto-emits a compressed social sibling render/final-social.mp4
-(CRF 20 default, x264 faststart) so 'render → upload' is one command; pass
---no-compress to skip it.
+<project>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. Also
+auto-emits a compressed social sibling render/final-social.mp4 (CRF 20 default,
+x264 faststart) so 'render → upload' is one command; pass --no-compress to skip
+it.
 
 Arguments:
   project                Project ID
 
 Options:
   --composition <id>     Composition id (default: index.html)
-  --output <path>        Output mp4 path (default:
-                         workspace/projects/<id>/render/final.mp4)
+  --output <path>        Output mp4 path (default: <project>/render/final.mp4)
   --from-clip <path>     Pure-clip deliverable mode: faststart-wrap (and
                          optionally loudnorm) an existing mp4 instead of running
                          the HyperFrames engine. Logs to the project's gen-log
@@ -535,12 +534,11 @@ Options:
 
 Commands:
   preflight [options] <projectId>     ffprobe every clip + music in
-                                      workspace/projects/<id>/artifacts/,
-                                      surface durations / fps / codec / audio /
-                                      aspect, run a music-gap check, and verify
-                                      every scenario scene has a corresponding
-                                      clip on disk. Exit 1 on red. Run BEFORE
-                                      `ralphy render`.
+                                      <project>/artifacts/, surface durations /
+                                      fps / codec / audio / aspect, run a
+                                      music-gap check, and verify every scenario
+                                      scene has a corresponding clip on disk.
+                                      Exit 1 on red. Run BEFORE `ralphy render`.
   trim-analyze [options] <projectId>  Run gemini-3.1-pro-preview vision over
                                       every clip in artifacts/videos/, write
                                       per-clip JSON to
@@ -573,13 +571,13 @@ single mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle
 (#013).
 
 Arguments:
-  projectId                Project id under workspace/projects/
+  projectId                Project id (resolved via the registry to
+                           .ralphy/workspaces/<ws>/projects/<id>/)
 
 Options:
   --remove-segment <slot>  Drop the segment with this slot id and re-flow VO +
                            captions + music. Repeatable.
-  --out <path>             Output path (default:
-                           workspace/projects/<id>/render/compose.mp4).
+  --out <path>             Output path (default: <project>/render/compose.mp4).
                            Collisions auto-bump to -v2, -v3, ...
   --dry-run                Print the resolved timeline + filter graph; do not
                            spawn ffmpeg.
@@ -630,12 +628,13 @@ ____        __      __
 Usage: ralphy whoami [options]
 
 Show the per-user profile (skill score 0-10, developer badge, signals,
-recommendation for adaptive intake). On first call, auto-backfills from
-workspace/projects.
+recommendation for adaptive intake). On first call, auto-backfills from on-disk
+projects.
 
 Options:
-  --backfill         Scan workspace/projects/* and recompute signals from
-                     on-disk state (renders, postmortems) (default: false)
+  --backfill         Scan every workspace (.ralphy/workspaces/*/projects/*) and
+                     recompute signals from on-disk state (renders, postmortems)
+                     (default: false)
   --set-level <n>    Pin skill score to <n> (0-10). Overrides auto-assessment.
   --set-developer    Mark this user as a developer — unlocks raw CLI suggestions
                      + ship-fast default (default: false)
@@ -1007,7 +1006,7 @@ Commands:
   register <id>                     Register an existing workspace dir template
                                     in the local registry
   list [options]                    List all templates (public library templates
-                                    + local workspace/templates/)
+                                    + the active workspace's templates/)
   show [options] <id>               Show template — prints TEMPLATE.md (the
                                     prompt-cookbook) for dir templates, JSON for
                                     flat. `--meta` prints the structured
@@ -1015,8 +1014,9 @@ Commands:
   use [options] <id>                Create a new project scaffolded from a
                                     template
   extract [options] <project-id>    Promote a finished workspace project into a
-                                    reusable user-local template at
-                                    workspace/templates/<slug>/. Copies
+                                    reusable user-local template at the active
+                                    workspace's templates/<slug>/
+                                    (.ralphy/workspaces/<ws>/templates/). Copies
                                     prompts/, scenario, composition variables,
                                     and refs; substitutes brand/persona/VO with
                                     {{slots}}; drafts a README from POSTMORTEM
@@ -1025,8 +1025,8 @@ Commands:
                                     dev-publish-template path.
   delete <id>                       Delete a workspace template (flat file or
                                     whole dir). Public library templates are
-                                    read-only — they live in Supabase, not on
-                                    disk.
+                                    read-only — they live in the published
+                                    library.json (Bunny CDN), not on disk.
   suggest [options] <utterance...>  Rank templates for a user utterance. Hybrid:
                                     substring scorer first (fast, free); if
                                     top-1 score is below threshold (default
@@ -1215,7 +1215,7 @@ Commands:
   pull-pool [options] <ref>                       Download a single pool item by '<kind>/<slug>' (e.g. italian-brainrot-characters/tung-tung-tung-sahur)
   catalog [options]                               Print or regenerate docs/assets-catalog.md from the live manifest (single source of truth)
   unpack [options] <zip>                          Unpack a brand zip into <project>/brand/, flatten nested dirs into kebab-case filenames, drop __MACOSX/ and .DS_Store, suffix collisions with -N. Idempotent on re-run.
-  clean                                           Wipe the local asset cache (workspace/.ralph/asset-cache)
+  clean                                           Wipe the local asset cache (.ralphy/cache/assets/)
   cache-info                                      Show the asset cache location and what's currently in it
   help [command]                                  display help for command
 
@@ -1248,7 +1248,7 @@ Options:
 Commands:
   list [options]               List available example projects
   pull [options] <example-id>  Download an example project tarball and extract
-                               it into workspace/projects/<as>
+                               it into the active workspace's projects/<as>/
   help [command]               display help for command
 ```
 

@@ -1,12 +1,12 @@
 # `04-models-and-cost.template.md` — $ rollup & model picks
 
-The financial + technical truth. All numbers derive from `workspace/projects/<id>/logs/generations.jsonl` — if you can't derive a number from the gen-log, mark it `~estimate` and note the basis.
+The financial + technical truth. All numbers derive from `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl` — if you can't derive a number from the gen-log, mark it `~estimate` and note the basis.
 
 ## How to compute (run before writing)
 
 ```bash
 PROJECT=<id>
-LOG=workspace/projects/$PROJECT/logs/generations.jsonl
+LOG=.ralphy/workspaces/<ws>/projects/$PROJECT/logs/generations.jsonl
 
 # Per-kind cost totals
 jq -s 'map(select(.kind != null) | {kind, cost: (.cost_usd // .costUsd // 0)}) | group_by(.kind) | map({kind: .[0].kind, total: (map(.cost) | add)})' $LOG
@@ -25,7 +25,7 @@ Paste the raw output into a scratch comment, then summarize into the template be
 ```markdown
 # Models & cost — <project-id>
 
-Derived from `workspace/projects/<id>/logs/generations.jsonl`. Every $ figure traces to a `cost_usd` field in the log. Estimates are flagged `~est`.
+Derived from `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl`. Every $ figure traces to a `cost_usd` field in the log. Estimates are flagged `~est`.
 
 ## Bottom line
 

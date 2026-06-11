@@ -5,7 +5,7 @@
 // - Use system `ffmpeg` (Homebrew on macOS). Verify with ensureFfmpeg().
 // - Are async + return the output path.
 // - Throw on non-zero exit code with stderr.
-// - Optional projectId logs to workspace/projects/<id>/logs/generations.jsonl
+// - Optional projectId logs to <project>/logs/generations.jsonl
 //   via gen-log.ts (provider: "ffmpeg", cost_usd: 0).
 //
 // Hard rules (from editor playbook SKILL.md):

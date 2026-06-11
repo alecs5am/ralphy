@@ -25,7 +25,7 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 
 - **Playbooks (here, `docs/playbooks/`)** — role / domain instruction docs. The agent reads them on demand. Loaded via `Read` after `AGENTS.md` routing matches an intent. No frontmatter, no slash-command. They cover roles like *scenarist* / *art-director* / *editor* / *producer* / *core* (env / debug / CLI).
 - **Skills (`.agents/skills/<name>/SKILL.md`)** — narrow workflows with a deterministic input → output contract and a single CLI command. They are slash-invocable (`/<name>`). Examples:
-  - `researcher` — URLs / handles / topic → `report.md` + `sources.json` (workspace/research/<slug>/)
+  - `researcher` — URLs / handles / topic → `report.md` + `sources.json` (.ralphy/research/<slug>/)
   - `evaluator` — rendered mp4 → `eval-report.md` + `eval.json`
   - `hyperframes` — reference rules for HyperFrames composition code
 

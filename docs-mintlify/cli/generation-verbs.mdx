@@ -54,7 +54,7 @@ Run `ralphy models list` to see the live video catalog with per-model duration /
 ralphy generate image \
   --project demo-001 --slot scene-02-bg \
   --prompt "golden hour rooftop, 35mm portrait" \
-  --ref ./refs/lookbook-page-4.jpg \
+  --ref ./artifacts/refs/lookbook-page-4.jpg \
   --ref https://example.com/secondary.jpg
 # Default model is google/gemini-3-pro-image-preview; pass --model openai/gpt-5.4-image-2 if the shot has a wordmark that must read crisp.
 ```
@@ -81,7 +81,7 @@ When you regenerate a slot that already has a file, the CLI archives the existin
 
 ```bash
 ralphy generate image --project demo-001 --slot scene-01-bg --prompt "..."
-# writes assets/scene-01-bg.png
+# writes artifacts/images/scene-01-bg.png
 
 ralphy generate image --project demo-001 --slot scene-01-bg --prompt "warmer"
 # moves scene-01-bg.png → scene-01-bg.v2.png
@@ -144,7 +144,7 @@ Required: `--voice <voiceId>` and `--text <text>`. ElevenLabs voice settings exp
 
 ### generate captions
 
-Wraps the transcription pipeline. Default backend: ElevenLabs Scribe v1 (word-level). `--language ru | en | auto`. Output lands at `workspace/projects/<id>/assets/captions/<slot>.json`; pass `--legacy-output` for the pre-2026-05 shared `captions.json` path. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
+Wraps the transcription pipeline. Default backend: ElevenLabs Scribe v1 (word-level). `--language ru | en | auto`. Output lands at `.ralphy/workspaces/<ws>/projects/<id>/artifacts/captions/<slot>.json`; pass `--legacy-output` for the pre-2026-05 shared `captions.json` path. Full surface: [`/reference/cli/generate`](/reference/cli/generate).
 
 ## Queueing (background jobs)
 
@@ -157,7 +157,7 @@ ralphy generate image --queue --project demo-001 --slot scene-01-bg --prompt "..
 
 ## Logging
 
-Every successful call appends to `workspace/projects/<id>/logs/generations.jsonl` with provider, model, slot, input, output path, status, latency, cost, and any `--note`. The append-only contract is non-negotiable: never truncate, never rewrite, never filter in place ([AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)).
+Every successful call appends to `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl` with provider, model, slot, input, output path, status, latency, cost, and any `--note`. The append-only contract is non-negotiable: never truncate, never rewrite, never filter in place ([AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md)).
 
 ## Related
 

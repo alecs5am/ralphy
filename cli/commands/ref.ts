@@ -129,7 +129,7 @@ export function refCmd() {
     .option("--register", "Also call `ref add --type social <url>`", false)
     // Bulk-image-pull flags (#048):
     .option("--kind <kind>", "Bulk mode: 'reference-image' triggers bulk-fetch into <project>/artifacts/refs/")
-    .option("--project <id>", "Bulk mode: target project id (artifacts/refs/ lives under workspace/projects/<id>/)")
+    .option("--project <id>", "Bulk mode: target project id (artifacts/refs/ lives under <project>/ = .ralphy/workspaces/<ws>/projects/<id>/)")
     .option("--from-file <path>", "Bulk mode: read URLs from a file (one per line, # comments OK)")
     .option("--concurrency <n>", "Bulk mode: parallel downloads (default 4)", (v) => parseInt(v, 10), 4)
     .option("--timeout <ms>", "Bulk mode: per-URL timeout in ms (default 30000)", (v) => parseInt(v, 10), 30_000)
@@ -307,7 +307,7 @@ export function refCmd() {
     .description(
       "Fan-out Playwright crawl of a brand site → screenshots + tokens.json + apis.md (AGENTS invariant #15). Run BEFORE drafting brand-DNA or any code-on-screen creative.",
     )
-    .option("--project <id>", "Project ID — refs live under workspace/projects/<id>/artifacts/refs/")
+    .option("--project <id>", "Project ID — refs live under <project>/artifacts/refs/")
     .option("--slug <name>", "Custom slug (default: derived from URL host)")
     .option("--depth <n>", "Max additional pages beyond home (default 6)", (v) => parseInt(v, 10), 6)
     .option("--page-timeout <ms>", "Per-page timeout in ms (default 20000)", (v) => parseInt(v, 10), 20_000)

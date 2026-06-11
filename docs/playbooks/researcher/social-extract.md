@@ -1,6 +1,6 @@
 # Social analysis & trends
 
-> **Canonical-refs-first rule (every brief that names a brand / show / specific entity):** before drafting any prompt, pull the canonical reference into `refs/`. Specifically:
+> **Canonical-refs-first rule (every brief that names a brand / show / specific entity):** before drafting any prompt, pull the canonical reference into the global `.ralphy/references/<slug>/` tier via `ralphy ref pull`. Specifically:
 > - Named brand → `ralphy ref pull <brand-site-or-youtube-spot>` → `ralphy ref analyze-video <slug>` (gemini-3.1-pro full-mp4 visual analysis). Don't improvise the brand's visual DNA from training-data memory; flipper-hypermotion-001 wasted $2.80 on wrong-palette product gens because Claude's "memory" of the Flipper Zero was stale.
 > - Named show / movie / aesthetic (Spider-Verse, Arcane, Tom-Ford editorial) → `ralphy ref pull` + analyze; the named-corpus refs anchor downstream image gens far better than text descriptions.
 > - **Re-fire researcher mid-session if a new brand is named.** If the scenarist or art-director introduces a brand the researcher never analyzed, route BACK to researcher before generating. Venom-bodywash-001 traced its $3 register-mismatch burn to skipping this re-fire.
@@ -9,7 +9,7 @@
 
 ## social-analysis (single video / handle)
 
-Working dir: `workspace/references/<slug>/` (slug derived from URL by `ref pull`, or pass `--slug <name>`).
+Working dir: `.ralphy/references/<slug>/` (slug derived from URL by `ref pull`, or pass `--slug <name>`).
 
 ### Method — the standard chain is six `ralphy` verbs, no scripts
 
@@ -29,7 +29,7 @@ ralphy ref analyze <slug>
 # 5. Audio LLM (tone, music, VO style) — optional but cheap
 ralphy ref audio-describe <slug>
 
-# 6. Synthesize → workspace/references/<slug>/blueprint.md
+# 6. Synthesize → .ralphy/references/<slug>/blueprint.md
 ralphy ref blueprint <slug>
 
 # Register the URL in the registry so it's attachable to projects
@@ -48,7 +48,7 @@ duration / resolution / aspect, category, language, format type, subtitle style,
 ### Outputs
 
 ```
-workspace/references/<slug>/
+.ralphy/references/<slug>/
 ├── source.mp4              # main file (yt-dlp)
 ├── meta.info.json          # title, uploader, view/like/comment counts, hashtags
 ├── source.mp3              # mono 64k for transcribe (≤25MB)
@@ -64,13 +64,13 @@ workspace/references/<slug>/
 
 ```bash
 ralphy project log-asset <project-id> --kind doc \
-  --source workspace/references/<slug>/blueprint.md \
+  --source .ralphy/references/<slug>/blueprint.md \
   --purpose social-ref
 ```
 
 ## discover-trends
 
-Working dir: `workspace/references/trends-<date>/`.
+Working dir: `.ralphy/references/trends-<date>/`.
 
 ### Method
 
@@ -106,7 +106,7 @@ Top videos (`tier: viral` / `great`) → run `social-analysis` on each → `anal
 ## Outputs
 
 ```
-workspace/references/trends-<date>/
+.ralphy/references/trends-<date>/
   results.json              # Apify-shape array, scored
   blueprints/<name>/        # per-video deep analysis (top-N only)
 ```

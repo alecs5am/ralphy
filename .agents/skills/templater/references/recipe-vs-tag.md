@@ -23,7 +23,7 @@ When you keep a candidate as a recipe, author the enriched-recipe payload (`Bloc
 - **`body`** — markdown how-to: what it is + how to use it standalone ("## What it is", "## When to use it", "## Knobs"). The `ffmpeg-xfade-master` block in `published.ts` is the model to imitate.
 - **`artifact`** — the REAL copyable code, sourced — never invented — from one of:
   - `cli/lib/ffmpeg-recipes.ts` (the canonical builders: `buildVhsFilter`, `buildColorGradeFilter`, `buildSidechainFilter`, `buildMixMusicFilter`, `buildContactSheetFilter`, the CRF/encode helpers) — for ffmpeg / encode / overlay recipes.
-  - the project's own bake / stitch scripts under `workspace/projects/<id>/scripts/` (the `tmp-bake-*.sh` / `tmp-i2v-*.sh` family) and the captured `blueprint.json`'s `recipes[].command` — for bake recipes.
+  - the project's own bake / stitch scripts under `.ralphy/workspaces/<ws>/projects/<id>/scripts/` (the `tmp-bake-*.sh` / `tmp-i2v-*.sh` family) and the captured `blueprint.json`'s `recipes[].command` — for bake recipes.
   - the project's `index.html` (the GSAP overlay fn, the registry block, the CSS keyframes) — for HyperFrames recipes.
   - the verbatim prompt + technique from the gen-log / `prompts/**` — for `prompt` recipes (e.g. a "PS1 Harry Potter look" prompt spine).
 - **`params`** — the named knobs/values for the artifact (e.g. `{ "D": 0.5, "fps": 24, "crf": 30 }`).
