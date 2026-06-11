@@ -4,11 +4,11 @@
 // No live network calls — everything stays on 127.0.0.1.
 
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createServer, type Server } from "node:http";
+import { spawnCli, type CliResult } from "../helpers/spawn-cli.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -123,22 +123,16 @@ afterAll(() => {
   return new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: string; json: any } {
-  const r = spawnSync("bun", [CLI, "--cwd", tmpRoot, ...args], {
+// Async spawn (not spawnSync): on bun 1.3.x spawnSync blocks the parent event
+// loop, so the in-process fixture server above can never serve the child's
+// Playwright navigations (#072).
+function ralphy(args: string[]): Promise<CliResult> {
+  return spawnCli([CLI, "--cwd", tmpRoot, ...args], {
     cwd: tmpRoot,
-    encoding: "utf8",
-    env: { ...process.env },
     // Give the crawl a generous wall-clock — Chromium startup is ~1-2s on macOS,
     // plus the per-page navigations.
-    timeout: 60_000,
+    timeoutMs: 60_000,
   });
-  let json: any = null;
-  try {
-    json = JSON.parse(r.stdout);
-  } catch {
-    /* not json */
-  }
-  return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr, json };
 }
 
 beforeEach(() => {
@@ -177,10 +171,10 @@ afterEach(() => {
 describe("`ralphy ref pull-site` (#014)", () => {
   test.skipIf(!HAS_CHROMIUM)(
     "writes hero PNG + per-page PNG + tokens.json + apis.md into <project>/artifacts/refs/",
-    () => {
+    async () => {
       // Playwright cold-start under full-suite load can exceed the bun default
       // 5s per-test timeout; pre-push hook does not pass --timeout. Bump.
-      const r = ralphy([
+      const r = await ralphy([
         "ref",
         "pull-site",
         `http://127.0.0.1:${port}/`,
@@ -223,8 +217,8 @@ describe("`ralphy ref pull-site` (#014)", () => {
     30_000,
   );
 
-  test.skipIf(!HAS_CHROMIUM)("appends a gen-log row with provider='playwright' for each page", () => {
-    ralphy([
+  test.skipIf(!HAS_CHROMIUM)("appends a gen-log row with provider='playwright' for each page", async () => {
+    await ralphy([
       "ref",
       "pull-site",
       `http://127.0.0.1:${port}/`,
@@ -260,8 +254,8 @@ describe("`ralphy ref pull-site` (#014)", () => {
     expect(last.input.kind_hint).toBe("reference-website");
   }, 30_000);
 
-  test("missing project raises E_NOT_FOUND with a clean exit code", () => {
-    const r = ralphy([
+  test("missing project raises E_NOT_FOUND with a clean exit code", async () => {
+    const r = await ralphy([
       "ref",
       "pull-site",
       `http://127.0.0.1:${port}/`,
