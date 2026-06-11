@@ -85,6 +85,14 @@ export type GenerateVideoInput = CommonInput & {
   firstFrame?: string;
   /** Last-frame anchor (URL / local path / data: URI). Some models only support first_frame — see catalog. */
   lastFrame?: string;
+  /**
+   * Reference images for multimodal reference-to-video (OpenRouter `input_references`).
+   * Unlike frame anchors these guide subject / identity / style without pinning an exact
+   * frame. Order maps to `Image 1` / `@Image1`, `Image 2`, … in the prompt (the seedance
+   * @-reference convention). Honored by `bytedance/seedance-2.0` (≤9 images); models
+   * without reference-to-video support reject the field round-trip at OR.
+   */
+  refs?: string[];
   prompt: string;
   durationSec: number;
   /** Enable model-native audio (Veo 3.x only). Default false. */
