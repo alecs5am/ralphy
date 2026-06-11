@@ -73,7 +73,8 @@ arguments: [path]            # optional, schema for positional args
 
 > **Namespace split.** Skills marked `namespace: user` are user-facing
 > (`/postmortem`, `/researcher`). Skills marked `namespace: maintainer` are
-> maintainer-only (`/dev-release`, `/dev-tasks`). Slugs carry no `ralphy-`
+> maintainer-only (`/dev-issues`, `/dev-loop`, `/dev-publish-template`,
+> `/dev-release`, `/dev-tasks`, `/normalize-skills`). Slugs carry no `ralphy-`
 > prefix — the namespace field marks audience. `ralphy skill install` installs
 > only the `user` set by default; `--dev` opts into the maintainer set.
 
@@ -183,7 +184,7 @@ Ralphy ships skills in two namespaces (per
 | Namespace     | Audience                   | Examples                                       |
 | ------------- | -------------------------- | ---------------------------------------------- |
 | `user`        | end users                  | `postmortem`, `evaluator`, `researcher`, `templater`, `install` |
-| `maintainer`  | maintainers / contributors | `dev-release`, `dev-tasks` |
+| `maintainer`  | maintainers / contributors | `dev-issues`, `dev-loop`, `dev-publish-template`, `dev-release`, `dev-tasks`, `normalize-skills` |
 
 A `maintainer` skill ships through the same lint + installer plumbing as a
 `user` skill. The install wizard hides them by default so a tester running
