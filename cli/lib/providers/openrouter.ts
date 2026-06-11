@@ -543,6 +543,21 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     preprocess.last_frame = info;
   }
   if (frameImages.length > 0) body.frame_images = frameImages;
+  // Reference-to-video (`input_references`): style / subject / identity guidance
+  // without exact-frame pinning. Seedance-2.0 accepts ≤9 image refs; prompt
+  // references them as `Image 1`, `Image 2`, … in --ref order. See
+  // https://openrouter.ai/docs/cookbook/video-generation/reference-to-video
+  if (input.refs && input.refs.length > 0) {
+    const inputReferences: Array<Record<string, unknown>> = [];
+    const refInfos: unknown[] = [];
+    for (const ref of input.refs) {
+      const { url, info } = await resolveImageRefForVideo(ref);
+      inputReferences.push({ type: "image_url", image_url: { url } });
+      refInfos.push(info);
+    }
+    body.input_references = inputReferences;
+    preprocess.input_references = refInfos;
+  }
 
   type VideoJob = {
     id: string;
@@ -691,6 +706,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
       aspect_ratio: aspectRatio,
       resolution,
       image: input.image ? "[ref-supplied]" : undefined,
+      refs: input.refs && input.refs.length > 0 ? input.refs : undefined,
       preprocess: Object.keys(preprocess).length > 0 ? preprocess : undefined,
     },
     output: { url: downloadUrl, local: dest, job_id: job.id },
