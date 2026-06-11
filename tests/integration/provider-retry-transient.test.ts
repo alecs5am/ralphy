@@ -38,7 +38,7 @@ beforeEach(() => {
   // Zero out the backoff schedule so the test runs in <100ms instead of ~5s.
   process.env.RALPHY_TEST_RETRY_BACKOFF_MS = "0,0,0";
   projectId = "retry-test-001";
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", projectId, "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId, "logs"), {
     recursive: true,
   });
   _resetVoiceExistsCache();
@@ -195,7 +195,9 @@ describe("retry loop — openrouter.generateImage", () => {
     // No stub asset must have been written on terminal failure (AGENTS #14).
     const expectedAsset = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       projectId,
       "assets",

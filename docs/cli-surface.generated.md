@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **41**
+Verbs registered: **42**
 
 ## Top-level verbs
 
@@ -852,9 +852,8 @@ Commands:
                                 / render) may be mid-flight on the project — its
                                 file paths go stale on move.
   assets [options] <id>         ffprobe-truth every media file under
-                                <project>/artifacts/ (legacy assets/ included)
-                                and emit a flat array. Honors --kind
-                                video|image|audio.
+                                <project>/artifacts/ and emit a flat array.
+                                Honors --kind video|image|audio.
   verify [options] <id>         ffprobe every slot in asset-manifest.json and
                                 flag divergences from claimed duration /
                                 dimensions / size (tolerance: 100ms on
@@ -1155,14 +1154,39 @@ Options:
 Commands:
   create [options] <slug>  Create a workspace:
                            .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
-  list                     List workspaces (slug, name, project count); legacy
-                           roots report the implicit default workspace
+  list                     List workspaces (slug, name, project count)
   show <slug>              Show a workspace: workspace.json + project list
   use <slug>               Set the active workspace (the default home for new
                            projects)
   stats                    Show workspace statistics
   clean [options]          Clean workspace contents
   help [command]           display help for command
+```
+
+### `ralphy migrate`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy migrate [options]
+
+One-pass migration of this root to the final layout: workspace/ tree → .ralphy/
+root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105).
+Idempotent; refuses while generation jobs are in flight. Structural relocation:
+path strings in manifests/logs/HTML follow their files (NOT a log edit —
+invariant #14).
+
+Options:
+  --dry-run       Print the full move + rewrite plan without touching disk
+  --project <id>  Scope to one project's inner artifacts/ move only (requires
+                  the root move to be done already)
+  -h, --help      display help for command
 ```
 
 ### `ralphy assets`

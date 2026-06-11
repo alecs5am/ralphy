@@ -40,15 +40,15 @@ function ralphy(args: string[], opts: { env?: Record<string, string> } = {}): {
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-cli-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
   // Pre-populate the OR catalog cache from the frozen fixture so commands
   // don't reach the network.
   fs.copyFileSync(
     FIXTURE_CATALOG,
-    path.join(tmpRoot, "workspace", ".ralph", "or-catalog.json"),
+    path.join(tmpRoot, ".ralphy", "or-catalog.json"),
   );
   // A minimal project so `--project <id>` checks pass.
-  const projDir = path.join(tmpRoot, "workspace", "projects", "test-001");
+  const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-001");
   fs.mkdirSync(projDir, { recursive: true });
   fs.writeFileSync(
     path.join(projDir, "BRIEF.md"),

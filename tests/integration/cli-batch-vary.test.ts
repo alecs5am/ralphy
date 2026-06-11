@@ -27,7 +27,7 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 }
 
 function makeBaseProject(): void {
-  const projDir = path.join(tmpRoot, "workspace", "projects", "demo-001");
+  const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "demo-001");
   fs.mkdirSync(projDir, { recursive: true });
   fs.writeFileSync(
     path.join(projDir, "scenario.json"),
@@ -41,7 +41,7 @@ function makeBaseProject(): void {
     }) + "\n",
   );
   // Register the project so registry-aware tooling doesn't trip.
-  fs.mkdirSync(path.join(tmpRoot, "workspace"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
 }
 
 beforeEach(() => {
@@ -62,7 +62,7 @@ describe("batch vary (02.08.02)", () => {
     expect(r.json?.would_create).toHaveLength(3);
     expect(r.json?.would_create?.[0]?.id).toBe("demo-001-h1");
     // No project dirs should be created.
-    expect(fs.existsSync(path.join(tmpRoot, "workspace", "projects", "demo-001-h1"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "demo-001-h1"))).toBe(false);
   });
 
   test("unknown axis errors with E_FLAG_UNKNOWN", () => {
@@ -98,7 +98,7 @@ describe("batch vary (02.08.02)", () => {
     expect(r.exitCode).toBe(0);
     expect(r.json?.created).toEqual(["demo-001-h1", "demo-001-h2"]);
     const variantScenario = JSON.parse(
-      fs.readFileSync(path.join(tmpRoot, "workspace", "projects", "demo-001-h1", "scenario.json"), "utf-8"),
+      fs.readFileSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "demo-001-h1", "scenario.json"), "utf-8"),
     );
     expect(variantScenario.variant_of).toBe("demo-001");
     expect(variantScenario.variant_axis).toBe("hook");

@@ -50,7 +50,7 @@ let origRoot: string;
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-convert-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", PROJECT_ID, "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", PROJECT_ID, "logs"), {
     recursive: true,
   });
   origRoot = process.cwd();

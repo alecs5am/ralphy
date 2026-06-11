@@ -19,9 +19,9 @@ let tmp: string;
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-dry-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
-  fs.copyFileSync(FIXTURE, path.join(tmp, "workspace", ".ralph", "or-catalog.json"));
-  const proj = path.join(tmp, "workspace", "projects", "dryrun-001");
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
+  fs.copyFileSync(FIXTURE, path.join(tmp, ".ralphy", "or-catalog.json"));
+  const proj = path.join(tmp, ".ralphy", "workspaces", "default", "projects", "dryrun-001");
   fs.mkdirSync(proj, { recursive: true });
   fs.writeFileSync(path.join(proj, "BRIEF.md"), "dry-run test project\n");
 });

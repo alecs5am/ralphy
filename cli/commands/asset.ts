@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import path from "path";
-import { artifactKindDir, artifactsDir, legacyArtifactKindDir, legacyAssetsRootDir, projectsDir, projectDir } from "../lib/paths.js";
+import { artifactKindDir, artifactsDir, projectsDir, projectDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { chromakey } from "../lib/image/cutout.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -38,11 +38,7 @@ export function assetCmd() {
     .option("--type <type>", "Filter: image | video | audio | caption")
     .option("--missing", "Show only missing/pending assets")
     .action(async (opts) => {
-      // #105 legacy fallback (removed by #106): list artifacts/ + legacy assets/.
-      const files = [
-        ...(await listFilesRecursive(artifactsDir(opts.project))),
-        ...(await listFilesRecursive(legacyAssetsRootDir(opts.project))),
-      ];
+      const files = await listFilesRecursive(artifactsDir(opts.project));
 
       let items = files.map((f) => {
         const rel = path.relative(projectsDir(), f);
@@ -81,12 +77,10 @@ export function assetCmd() {
     .requiredOption("--project <id>", "Project ID")
     .option("--type <type>", "Only remove specific type: images | videos | voiceover | music")
     .action(async (opts) => {
-      // Explicit destructive verb: clean both the artifacts/<kind>/ tree and
-      // the legacy assets/<kind>/ tree (#105 legacy fallback, removed by #106).
+      // Explicit destructive verb: clean the artifacts/<kind>/ tree.
       // refs (input references) are NOT touched — they are user-supplied.
       const cleanKind = async (sub: string) => {
         await fs.rm(artifactKindDir(opts.project, sub), { recursive: true, force: true });
-        await fs.rm(legacyArtifactKindDir(opts.project, sub), { recursive: true, force: true }); // #105 legacy fallback (removed by #106)
         await fs.mkdir(artifactKindDir(opts.project, sub), { recursive: true });
       };
       if (opts.type) {

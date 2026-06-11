@@ -63,7 +63,7 @@ function makeFixtureClip(dst: string): void {
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-render-fromclip-"));
   projectId = "fromclip-fixture-001";
-  const projDir = path.join(tmpRoot, "workspace", "projects", projectId);
+  const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
   fs.mkdirSync(projDir, { recursive: true });
   clipPath = path.join(tmpRoot, "source.mp4");
 });
@@ -119,7 +119,9 @@ describe("ralphy render --from-clip (#009)", () => {
 
       const finalMp4 = path.join(
         tmpRoot,
-        "workspace",
+        ".ralphy",
+        "workspaces",
+        "default",
         "projects",
         projectId,
         "render",
@@ -131,7 +133,9 @@ describe("ralphy render --from-clip (#009)", () => {
       // gen-log row written, schema-conformant.
       const genLog = path.join(
         tmpRoot,
-        "workspace",
+        ".ralphy",
+        "workspaces",
+        "default",
         "projects",
         projectId,
         "logs",
@@ -161,7 +165,9 @@ describe("ralphy render --from-clip (#009)", () => {
       // And the social sibling deliverable exists alongside the master.
       const socialMp4 = path.join(
         tmpRoot,
-        "workspace",
+        ".ralphy",
+        "workspaces",
+        "default",
         "projects",
         projectId,
         "render",
@@ -182,7 +188,9 @@ describe("ralphy render --from-clip (#009)", () => {
 
       const finalMp4 = path.join(
         tmpRoot,
-        "workspace",
+        ".ralphy",
+        "workspaces",
+        "default",
         "projects",
         projectId,
         "render",
@@ -203,7 +211,9 @@ describe("ralphy render --from-clip (#009)", () => {
 
       const genLog = path.join(
         tmpRoot,
-        "workspace",
+        ".ralphy",
+        "workspaces",
+        "default",
         "projects",
         projectId,
         "logs",

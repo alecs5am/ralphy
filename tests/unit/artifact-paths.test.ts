@@ -1,13 +1,12 @@
 // Unit tests for the #105 per-project artifact layout helpers in
-// cli/lib/paths.ts. The contract:
+// cli/lib/paths.ts. The contract (single-path since #106):
 //
-//   - WRITE targets always live under `artifacts/<kind>/` (artifactKindDir).
-//   - READ resolution prefers `artifacts/<kind>/` and falls back to the legacy
-//     `assets/<kind>/` (or sibling `refs/`) location until #106 migrates the
-//     existing projects. The legacy branch is tagged
-//     `#105 legacy fallback (removed by #106)` in source.
-//   - Directory SCANS see BOTH trees (mid-migration projects hold files in
-//     each), artifacts/ first.
+//   - ALL targets live under `artifacts/<kind>/` (artifactKindDir).
+//   - resolveArtifactPath / resolveArtifactKindDir / resolveArtifactKindDirs
+//     survive from the dual-scan era so call sites stay stable, but they
+//     resolve artifacts/ ONLY — the legacy `assets/<kind>/` (+ sibling
+//     `refs/`) tree was migrated by `ralphy migrate` and is never read.
+//   - A legacy root fails fast with LegacyLayoutError (#106).
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
@@ -17,8 +16,7 @@ import {
   ARTIFACT_KINDS,
   artifactKindDir,
   artifactsDir,
-  legacyArtifactKindDir,
-  legacyAssetsRootDir,
+  LegacyLayoutError,
   projectDir,
   projectRefsDir,
   refsDir,
@@ -45,7 +43,7 @@ afterEach(() => {
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
-describe("#105 artifact layout — write-side helpers", () => {
+describe("#105 artifact layout — single-path helpers", () => {
   test("ARTIFACT_KINDS covers the 8 kinds incl. refs", () => {
     expect([...ARTIFACT_KINDS].sort()).toEqual(
       ["captions", "fonts", "images", "music", "refs", "sfx", "videos", "voiceover"].sort(),
@@ -59,80 +57,74 @@ describe("#105 artifact layout — write-side helpers", () => {
     expect(projectRefsDir(PROJECT)).toBe(path.join(base, "artifacts", "refs"));
   });
 
-  test("legacy mapping: refs is a project-root sibling, other kinds live under assets/", () => {
-    const base = projectDir(PROJECT);
-    expect(legacyAssetsRootDir(PROJECT)).toBe(path.join(base, "assets"));
-    expect(legacyArtifactKindDir(PROJECT, "videos")).toBe(path.join(base, "assets", "videos"));
-    expect(legacyArtifactKindDir(PROJECT, "refs")).toBe(path.join(base, "refs"));
-  });
-
-  test("global registry refsDir() is NOT per-project — new scheme: active workspace shared/refs (#108)", () => {
-    // Empty tmp root → "ralphy" layout mode → registry entity refs live in
-    // the active workspace's shared/ tree.
+  test("global registry refsDir() is NOT per-project — active workspace shared/refs (#108)", () => {
     expect(refsDir()).toBe(
       path.join(tmp, ".ralphy", "workspaces", "default", "shared", "refs"),
     );
   });
-
-  test("global registry refsDir() — legacy roots keep workspace/.ralph/refs (#108 legacy fallback)", () => {
-    fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
-    setRoot(tmp); // re-detect layout mode against the legacy fixture tree
-    expect(refsDir()).toBe(path.join(tmp, "workspace", ".ralph", "refs"));
-  });
 });
 
-describe("#105 artifact layout — read-side resolution (legacy fallback, removed by #106)", () => {
-  test("resolveArtifactPath prefers artifacts/, falls back to legacy, defaults to artifacts/", () => {
+describe("#106 resolution is single-path (artifacts/ only, no legacy fallback)", () => {
+  test("resolveArtifactPath always returns artifacts/<kind>/<file>, existing or not", () => {
     const newPath = path.join(artifactKindDir(PROJECT, "images"), "a.png");
-    const legacyPath = path.join(legacyArtifactKindDir(PROJECT, "images"), "a.png");
+    const legacyPath = path.join(projectDir(PROJECT), "assets", "images", "a.png");
 
-    // Neither exists → write target (artifacts/).
+    // Doesn't exist → still the artifacts/ path (it is the write target).
     expect(resolveArtifactPath(PROJECT, "images", "a.png")).toBe(newPath);
 
-    // Only legacy exists → legacy.
+    // A stale legacy copy is invisible to resolution.
     fs.mkdirSync(path.dirname(legacyPath), { recursive: true });
     fs.writeFileSync(legacyPath, "old");
-    expect(resolveArtifactPath(PROJECT, "images", "a.png")).toBe(legacyPath);
+    expect(resolveArtifactPath(PROJECT, "images", "a.png")).toBe(newPath);
 
-    // Both exist → artifacts/ wins.
     fs.mkdirSync(path.dirname(newPath), { recursive: true });
     fs.writeFileSync(newPath, "new");
     expect(resolveArtifactPath(PROJECT, "images", "a.png")).toBe(newPath);
   });
 
-  test("resolveArtifactKindDir prefers artifacts/, then legacy, then artifacts/ as default", () => {
+  test("resolveArtifactKindDir always returns artifacts/<kind>", () => {
     const newDir = artifactKindDir(PROJECT, "music");
-    const legacyDir = legacyArtifactKindDir(PROJECT, "music");
+    const legacyDir = path.join(projectDir(PROJECT), "assets", "music");
 
     expect(resolveArtifactKindDir(PROJECT, "music")).toBe(newDir);
-
     fs.mkdirSync(legacyDir, { recursive: true });
-    expect(resolveArtifactKindDir(PROJECT, "music")).toBe(legacyDir);
-
-    fs.mkdirSync(newDir, { recursive: true });
     expect(resolveArtifactKindDir(PROJECT, "music")).toBe(newDir);
   });
 
-  test("resolveArtifactKindDirs returns every existing tree (artifacts/ first) for scans", () => {
+  test("resolveArtifactKindDirs returns exactly [artifacts/<kind>] for scans", () => {
     const newDir = artifactKindDir(PROJECT, "videos");
-    const legacyDir = legacyArtifactKindDir(PROJECT, "videos");
+    const legacyDir = path.join(projectDir(PROJECT), "assets", "videos");
 
-    // Neither exists → the write target only.
     expect(resolveArtifactKindDirs(PROJECT, "videos")).toEqual([newDir]);
-
     fs.mkdirSync(legacyDir, { recursive: true });
-    expect(resolveArtifactKindDirs(PROJECT, "videos")).toEqual([legacyDir]);
-
+    expect(resolveArtifactKindDirs(PROJECT, "videos")).toEqual([newDir]);
     fs.mkdirSync(newDir, { recursive: true });
-    expect(resolveArtifactKindDirs(PROJECT, "videos")).toEqual([newDir, legacyDir]);
+    expect(resolveArtifactKindDirs(PROJECT, "videos")).toEqual([newDir]);
   });
 
-  test("refs kind resolves against the legacy project-root refs/ sibling", () => {
+  test("refs kind resolves ONLY against artifacts/refs/ — never the project-root refs/ sibling", () => {
     const legacyRefs = path.join(projectDir(PROJECT), "refs");
     fs.mkdirSync(legacyRefs, { recursive: true });
     fs.writeFileSync(path.join(legacyRefs, "hero.png"), "x");
     expect(resolveArtifactPath(PROJECT, "refs", "hero.png")).toBe(
-      path.join(legacyRefs, "hero.png"),
+      path.join(projectRefsDir(PROJECT), "hero.png"),
     );
+  });
+});
+
+describe("#106 legacy root fail-fast", () => {
+  test("a workspace/-only root throws LegacyLayoutError from every artifact helper", () => {
+    const legacyTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-artifact-legacy-"));
+    try {
+      fs.mkdirSync(path.join(legacyTmp, "workspace", ".ralph"), { recursive: true });
+      setRoot(legacyTmp);
+      expect(() => refsDir()).toThrow(LegacyLayoutError);
+      expect(() => projectDir(PROJECT)).toThrow(LegacyLayoutError);
+      expect(() => artifactsDir(PROJECT)).toThrow(LegacyLayoutError);
+      expect(() => resolveArtifactPath(PROJECT, "images", "a.png")).toThrow(LegacyLayoutError);
+    } finally {
+      setRoot(prevRoot);
+      fs.rmSync(legacyTmp, { recursive: true, force: true });
+    }
   });
 });

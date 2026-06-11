@@ -116,7 +116,6 @@ export function editorCmd(): Command {
           err((e as Error).message);
         }
 
-        // #105 legacy fallback (removed by #106): scan artifacts/ + legacy assets/.
         const videosDirs = resolveArtifactKindDirs(projectId, "videos");
         const musicDirs = resolveArtifactKindDirs(projectId, "music");
 
@@ -307,13 +306,10 @@ export function editorCmd(): Command {
         } catch {
           err(`Project not found: ${projectId}`);
         }
-        // Writes go to artifacts/analysis/; the prior summary is read from the
-        // legacy assets/analysis/ location when only that exists, so the
-        // idempotency cache survives migration.
-        const videosDirs = resolveArtifactKindDirs(projectId, "videos"); // #105 legacy fallback (removed by #106)
+        const videosDirs = resolveArtifactKindDirs(projectId, "videos");
         const analysisDir = artifactKindDir(projectId, "analysis");
         const summaryPath = path.join(analysisDir, "summary.json");
-        const priorSummaryPath = resolveArtifactPath(projectId, "analysis", "summary.json"); // #105 legacy fallback (removed by #106)
+        const priorSummaryPath = resolveArtifactPath(projectId, "analysis", "summary.json");
 
         const videoFiles = await listDirByExts(videosDirs, VIDEO_EXTS);
         if (videoFiles.length === 0) {
@@ -335,8 +331,7 @@ export function editorCmd(): Command {
           }
         }
 
-        // Existing summary (falls back to the legacy assets/analysis/ copy
-        // for the idempotency cache; new summary writes go to artifacts/).
+        // Existing summary at artifacts/analysis/ (the idempotency cache).
         const summary = await loadOrSeedSummary(priorSummaryPath, projectId, opts.model);
         const priorBySlot = new Map<string, TrimAnalysisRow>();
         for (const r of summary.clips) priorBySlot.set(r.slot, r);
