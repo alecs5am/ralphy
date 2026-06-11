@@ -35,10 +35,10 @@ ralphy persona create \
   --slug anna-barista \
   --archetype "creator-friend" \
   --voice-id elevenlabs-voice-xyz \
-  --master-shot workspace/personas/anna-barista/master.png
+  --master-shot shared/personas/anna-barista/master.png
 ```
 
-The `master-shot` is the canonical reference image — the locked face Ralphy passes as `--ref` on every scene gen so identity doesn't drift between scene-01 and scene-04. The eight named archetypes live in [`workspace/personas/ARCHETYPES.md`](https://github.com/alecs5am/ralphy/blob/main/workspace/personas/ARCHETYPES.md).
+The `master-shot` is the canonical reference image — the locked face Ralphy passes as `--ref` on every scene gen so identity doesn't drift between scene-01 and scene-04. The eight named archetypes live in [`docs/creative-library/personas/ARCHETYPES.md`](https://github.com/alecs5am/ralphy/blob/main/docs/creative-library/personas/ARCHETYPES.md).
 
 Attach a persona to a project at create time, or pass `--persona <slug>` on a `template use` call:
 
@@ -66,7 +66,7 @@ ralphy generate image \
   --project syrup-001 \
   --slot persona-master \
   --prompt "Anna the barista, 30s, warm smile, kitchen lighting" \
-  --ref workspace/personas/anna-barista/master.png
+  --ref shared/personas/anna-barista/master.png
 
 # 3. Every downstream scene passes BOTH as --ref.
 ralphy generate image \

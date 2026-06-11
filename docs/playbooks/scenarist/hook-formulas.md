@@ -1,6 +1,6 @@
 # Hook formulas
 
-Hook = the first 1-3 seconds. If the viewer doesn't stop, nothing else matters. Source of truth: `workspace/hooks/HOOK_LIBRARY.md` (created in Sprint 2.2).
+Hook = the first 1-3 seconds. If the viewer doesn't stop, nothing else matters. Source of truth: `docs/creative-library/hooks/HOOK_LIBRARY.md` (created in Sprint 2.2).
 
 ## 5 formats (angle)
 

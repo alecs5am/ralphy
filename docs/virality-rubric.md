@@ -91,7 +91,7 @@ Each hook line should be ≤ 10 words and follow one of these structures:
 | `[Shock number]` | "I made 12M in 9 months" | Visual shock |
 | `Here's why [unexpected fact]` | "Here's why you can't keep up…" | Curiosity gap |
 
-Detailed hook library with examples — `workspace/hooks/HOOK_LIBRARY.md` (see Sprint 2.2).
+Detailed hook library with examples — `docs/creative-library/hooks/HOOK_LIBRARY.md` (see Sprint 2.2).
 
 ## Part 5. Caption / hashtags / music rules
 
