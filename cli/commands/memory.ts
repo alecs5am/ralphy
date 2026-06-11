@@ -20,6 +20,7 @@ import {
   memoryDir,
   SLUG_RE,
 } from "../lib/memory/store.js";
+import { distillPostmortem, DISTILL_SOURCES } from "../lib/memory/distill.js";
 
 // `ralphy memory` (#112) — tiered markdown memory: global `.ralphy/memory/`
 // + workspace `.ralphy/workspaces/<ws>/memory/`. Plain `<slug>.md` entries
@@ -300,6 +301,49 @@ Examples:
 Examples:
   $ ralphy memory reject stale-candidate
   $ ralphy memory reject off-brand-rule --workspace acme
+`,
+    );
+
+  // ── distill (#113) ───────────────────────────────────────────────────────
+  cmd
+    .command("distill <project-id>")
+    .description(
+      `Distill a project's postmortem (${DISTILL_SOURCES.join(", ")}) into memory PROPOSALS — review with \`ralphy memory approve\``,
+    )
+    .option("--dry-run", "Print the candidates without staging anything")
+    .action(async (projectId: string, opts) => {
+      let r;
+      try {
+        r = await distillPostmortem({ projectId, dryRun: Boolean(opts.dryRun) });
+      } catch (e) {
+        const err = e as { code?: string; project?: string; lookedIn?: string } | null;
+        if (err?.code === "E_NOT_FOUND") {
+          raiseError("E_NOT_FOUND", { kind: "Postmortem", id: `${projectId} (${err.lookedIn ?? "postmortem/"})` });
+        }
+        throw e;
+      }
+      if (!r.dryRun && r.staged.length > 0) {
+        ok(
+          `Staged ${r.staged.length} memory proposal${r.staged.length === 1 ? "" : "s"} — review with \`ralphy memory list --proposed\` then \`ralphy memory approve <slug>\``,
+        );
+      }
+      out({
+        project: r.project,
+        workspace: r.workspace,
+        model: r.model,
+        sources: r.sources,
+        dry_run: r.dryRun,
+        candidates: r.candidates,
+        routed_to_guideline: r.routedToGuideline,
+        staged: r.staged,
+      });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ ralphy memory distill choose-path-001 --dry-run
+  $ ralphy memory distill choose-path-001
 `,
     );
 

@@ -189,3 +189,27 @@ After writing all 7 files, give the user this summary in chat:
 7. **Next-time win**: the single biggest "if I knew this at the start I'd have saved $X" insight.
 
 Ask if they want any section expanded or any rule re-phrased. Don't auto-iterate — let them drive.
+
+## Distill into memory proposals (#113)
+
+After the summary, close the learning loop — turn the postmortem into staged
+memory candidates:
+
+```bash
+ralphy memory distill <project-id> --dry-run   # preview candidates first
+ralphy memory distill <project-id>             # stage into proposed/
+```
+
+Then surface the proposals to the user (slug + description + tier per line)
+and let THEM decide: `ralphy memory approve <slug>` / `ralphy memory reject
+<slug>` / `ralphy memory approve --all`. Hard rules:
+
+- **Never auto-approve.** Distillation stages into `proposed/`; promotion to
+  active memory is the user's explicit call (user-approved ingestion, idea
+  013 decision).
+- Candidates the verb routes to `routed_to_guideline` are NOT memory material
+  — they carry an extractable artifact. Offer to file them toward
+  `guidelines/` / a skill instead.
+- A candidate whose `**Does NOT apply to:**` line is missing or vague should
+  be tightened before approval — over-application is the known failure mode
+  (#045).
