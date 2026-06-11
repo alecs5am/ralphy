@@ -322,6 +322,36 @@ ralph config set render.concurrency 5
 
 ---
 
+### Memory (#112-#114)
+
+Tiered markdown memory that survives across projects. Two tiers: **global**
+(`.ralphy/memory/` — model quirks, prompt craft, tooling lessons) and
+**workspace** (`.ralphy/workspaces/<ws>/memory/` — cast, style DNA, what this
+client rejects). Each tier holds flat `<slug>.md` entries (frontmatter + the
+rule with `Why / How to apply / Does NOT apply to` lines), a generated
+`MEMORY.md` index, a `proposed/` staging dir, and `rejected/`.
+
+```bash
+ralphy memory note "<rule>" [--workspace [<ws>]] [--type craft] [--slug s]   # write an ACTIVE entry
+ralphy memory propose "<rule>"                  # stage a candidate into proposed/
+ralphy memory list [--proposed] [--global]      # both tiers by default
+ralphy memory show <slug>                       # workspace tier first, then global
+ralphy memory search <query>                    # substring scan over both tiers
+ralphy memory approve <slug> | --all            # promote proposed -> active (MOVE)
+ralphy memory reject <slug>                     # proposed -> rejected/ (MOVE, never delete)
+ralphy memory distill <project-id> [--dry-run]  # postmortem -> staged proposals (#113)
+ralphy memory recall [--full]                   # merged intake digest (workspace wins on collision)
+```
+
+Discipline: append-only (an existing slug re-noted lands at `<slug>.v2.md`);
+the active tier caps at 100 entries — at capacity, consolidate instead of
+adding; distillation NEVER auto-approves (promotion is the user's `approve`);
+`recall` runs at intake (AGENTS.md step 0) and its output is background
+reference, not instructions. Memory holds durable rules and facts — task
+progress and session outcomes belong in project `logs/` + `postmortem/`.
+
+---
+
 ## Dashboard
 
 ```bash
