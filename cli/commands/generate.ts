@@ -725,6 +725,14 @@ export function generateCmd() {
     )
     .option("--image <ref>", "Alias for --first-frame (back-compat). Same path resolution (#025).")
     .option(
+      "--ref <ref...>",
+      "Reference image(s) for multimodal reference-to-video (OpenRouter `input_references`). Guides subject / identity / style WITHOUT pinning an exact frame — distinct from --first-frame/--last-frame. Order maps to `Image 1`, `Image 2`, … in the prompt (seedance @-reference convention). Supported by bytedance/seedance-2.0 (≤9 refs); unsupported models reject round-trip. Same path resolution as --first-frame (#025).",
+    )
+    .option(
+      "--ref-file <path>",
+      "Read newline-separated ref paths from a file. Concatenated with inline --ref entries. Blank lines + `#` comments ignored. Symmetric with --ref (#025).",
+    )
+    .option(
       "--aspect-ratio <ratio>",
       "Aspect ratio. Per-model whitelist: kling 9:16/16:9/1:1, veo 9:16/16:9, hailuo 16:9 only, seedance/wan up to 7 ratios. See `ralphy models show <id>`",
       "9:16"
@@ -775,6 +783,12 @@ export function generateCmd() {
       if (opts.firstFrame) opts.firstFrame = intakePath(opts.firstFrame, opts.project, "first-frame");
       if (opts.lastFrame) opts.lastFrame = intakePath(opts.lastFrame, opts.project, "last-frame");
       if (opts.image) opts.image = intakePath(opts.image, opts.project, "image");
+      // #025-style intake for reference-to-video refs (`input_references`).
+      opts.ref = await readRefsOrFile({
+        refs: opts.ref,
+        refFile: opts.refFile,
+        projectId: opts.project,
+      });
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
       const lastFrameRef = opts.lastFrame;
@@ -815,6 +829,7 @@ export function generateCmd() {
           resolution: opts.resolution,
           firstFrame: firstFrameRef ? "[ref-supplied]" : null,
           lastFrame: lastFrameRef ? "[ref-supplied]" : null,
+          refs: opts.ref && opts.ref.length > 0 ? opts.ref : null,
           generateAudio: opts.audio,
           estimatedCostUsd: estimateVideoCostUsd(opts.model, opts.duration),
         });
@@ -844,6 +859,7 @@ export function generateCmd() {
             firstFrame: opts.firstFrame,
             lastFrame: opts.lastFrame,
             image: opts.image,
+            refs: opts.ref,
             aspectRatio: opts.aspectRatio,
             resolution: opts.resolution,
             generateAudio: opts.audio,
