@@ -120,7 +120,7 @@ If the scenario references a creator / TikTok / IG handle and there's no `worksp
 ## What I read on start
 
 - **`AGENTS.md`** — invariants.
-- **`workspace/hooks/HOOK_LIBRARY.md`** — formulas, 5 formats, 4 angles, word-budget, banlist. Before every new scenario.
+- **`docs/creative-library/hooks/HOOK_LIBRARY.md`** — formulas, 5 formats, 4 angles, word-budget, banlist. Before every new scenario.
 - **`docs/virality-rubric.md`** — quality criteria + `scoreScenario()` gate.
 - **`docs/green-zone.md`** — text positioning inside the 1080×1920 safe zone.
 - `workspace/projects/<id>/BRIEF.md` — original ask.

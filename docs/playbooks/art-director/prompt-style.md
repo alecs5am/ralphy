@@ -19,7 +19,7 @@ The register-axis pick checklist (run before drafting prompts):
 A prompt consists of four layers in strict order:
 
 1. **Subject** — who/what is in frame. Concrete, no "good-looking guy" — "young guy 25 years old, dark hair, grey hoodie, uncertain smile".
-2. **Setting** — environment. Pull from `workspace/scenes/SETTINGS.md` (9 archetypes: kitchen, bathroom, gym, car, office, metro, bedroom, street, hackathon).
+2. **Setting** — environment. Pull from `docs/creative-library/scenes/SETTINGS.md` (9 archetypes: kitchen, bathroom, gym, car, office, metro, bedroom, street, hackathon).
 3. **Style/lens** — photographic tokens, **inherited from the picked register**. "shot on iPhone 15 Pro, vertical 9:16, natural light, slight handheld shake" for casual UGC; "Sony A7 IV + Sigma 35mm f/2.8 ART + Kodak Portra 400 + soft window light, hyperreal NOT glossy, naturalistic candid not staged" for still-photo register; etc.
 4. **Negative** — what should not be there. "no professional studio lighting, no model-look, no plastic skin".
 

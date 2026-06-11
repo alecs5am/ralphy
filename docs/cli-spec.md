@@ -122,7 +122,7 @@ Storage: `workspace/.ralph/brands/{id}.json` + `workspace/references/{slug}/`
 
 ### `ralph persona`
 
-Personas — reusable video profiles (voice, visual style, tone, archetype, shooting context). Full schema: `workspace/personas/SCHEMA.md`. Archetypes (vibe-anchor): `workspace/personas/ARCHETYPES.md`.
+Personas — reusable video profiles (voice, visual style, tone, archetype, shooting context). Full schema: `docs/creative-library/personas/SCHEMA.md`. Archetypes (vibe-anchor): `docs/creative-library/personas/ARCHETYPES.md`.
 
 ```bash
 # Create — minimum

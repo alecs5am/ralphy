@@ -86,8 +86,8 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 - **`AGENTS.md`** — invariants (no FAL, no scripts, ref-required, quality gates).
 - **`MODELS.md`** — every model call. Don't hardcode from memory.
 - **`.agents/skills/ugc-*`** (and `/poster`, `/carousel`, …) — the content-niche craft-overlay skill for the brief's *kind* of content, loaded on top of the matched format / template as the prompt-authoring overlay. The format / template is the primary route (`docs/templates-index.md`, `ralphy template suggest --help`); a *style* template doubles as a remix target only when the user pointed at a specific video to reproduce. See [`docs/skills-vs-templates.md`](../skills-vs-templates.md).
-- **`workspace/personas/ARCHETYPES.md`** — 8 archetypes (when there's a persona slot).
-- **`workspace/scenes/SETTINGS.md`** — 9 scene settings (when you need to pick a setting).
+- **`docs/creative-library/personas/ARCHETYPES.md`** — 8 archetypes (when there's a persona slot).
+- **`docs/creative-library/scenes/SETTINGS.md`** — 9 scene settings (when you need to pick a setting).
 - `workspace/projects/<id>/scenario.json` — slots + VO text.
 - `workspace/projects/<id>/prompts.json` — what already exists.
 - `workspace/projects/<id>/asset-manifest.json` — what's already on disk (skip).
