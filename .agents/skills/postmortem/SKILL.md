@@ -213,3 +213,7 @@ and let THEM decide: `ralphy memory approve <slug>` / `ralphy memory reject
 - A candidate whose `**Does NOT apply to:**` line is missing or vague should
   be tightened before approval — over-application is the known failure mode
   (#045).
+- For sessions too light for a full postmortem, the cheap path is the
+  [`memory-review`](../memory-review/SKILL.md) skill (agent reads its own
+  conversation, 0-5 entries, no LLM call) — this distill step is the deep
+  path on top of a written postmortem set.
