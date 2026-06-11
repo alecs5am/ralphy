@@ -11,6 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { CAPABILITIES, hasCapability } from "../lib/capabilities.js";
+import { layoutMode, setLegacyAllowed } from "../lib/paths.js";
 import { findProjectRootSafe, readGlobalConfig } from "../lib/project-root.js";
 import { out, isPretty } from "../lib/output.js";
 import { readGlobalConfig as readHomeConfig } from "../lib/global-config.js";
@@ -105,6 +106,10 @@ export function doctorCmd() {
   return new Command("doctor")
     .description("Env health check — keys, dependencies, project link. JSON for scripts; -p for human view.")
     .action(async () => {
+      // Doctor must keep working on an unmigrated legacy root (it is how the
+      // user finds out they need `ralphy migrate`) — opt out of the #106
+      // fail-fast guard. Only `migrate` and `doctor` do this.
+      setLegacyAllowed(true);
       const installInfo = detectInstallMode();
       const report: DoctorReport = {
         ralphy: {
@@ -161,11 +166,23 @@ export function doctorCmd() {
         }
       }
 
+      // Unmigrated legacy root (#106): every other verb fails fast with
+      // E_LEGACY_LAYOUT — surface the fix here.
+      const legacyRoot = layoutMode() === "legacy";
+      if (legacyRoot) {
+        report.warnings.push(
+          "unmigrated legacy workspace/ tree — run `ralphy migrate` (preview with `ralphy migrate --dry-run`).",
+        );
+      }
+
       // Daemon health (issue #027) — if the queue has pending work but the
       // daemon isn't running (or is up with zero workers active), warn loudly
       // so the user knows their fan-out is stuck. We open the jobs DB lazily;
       // if it doesn't exist yet (no project / no jobs ever queued) we skip.
+      // Skipped on a legacy root: openDb() would CREATE .ralphy/jobs.db and
+      // flip layout detection on an unmigrated tree.
       try {
+        if (legacyRoot) throw new Error("legacy root — skip jobs DB");
         const ds = daemonStatus();
         const counts = countByStatus();
         const idleWithPending = counts.pending > 0 && counts.running === 0;

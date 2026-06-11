@@ -33,7 +33,7 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; json: any }
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-render-social-"));
-  const projDir = path.join(tmpRoot, "workspace", "projects", "social-001");
+  const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "social-001");
   fs.mkdirSync(projDir, { recursive: true });
   fs.writeFileSync(path.join(projDir, "BRIEF.md"), "fixture project for the social-compress test\n");
 });

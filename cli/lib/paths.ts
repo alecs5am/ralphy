@@ -1,8 +1,8 @@
 // Layout single source of truth (#105 artifacts/, #108 workspaces + .ralphy root).
 //
-// Two layout schemes coexist until the one-pass data migration (#106) lands:
+// There is exactly ONE layout scheme since the one-pass data migration (#106):
 //
-//   • "ralphy" (the new scheme, default for fresh installs):
+//   • "ralphy" (the only resolvable scheme):
 //       .ralphy/                          ← data root (gitignored, engine-managed)
 //         registry.json  config.json      ← engine state at top level
 //         cache/{assets,library,svg}/     ← caches
@@ -13,13 +13,12 @@
 //           projects/<id>/                ← project trees (#105 artifacts/ inside)
 //           templates/  batches/
 //
-//   • "legacy" (#108 legacy fallback, removed by #106): the pre-workspaces tree —
-//       workspace/.ralph/{registry.json,config.json,asset-cache,library-cache,...}
-//       workspace/{projects,batches,templates,references,research}/
-//
-// `layoutMode()` picks the scheme per root: `.ralphy/` present → "ralphy";
-// only `workspace/` present → "legacy"; neither → "ralphy" (fresh install).
-// Every legacy branch is tagged `// #108 legacy fallback (removed by #106)`.
+// `layoutMode()` still DETECTS the pre-#106 "legacy" tree (a `workspace/` dir
+// with no `.ralphy/`) so `ralphy migrate` and `ralphy doctor` can recognize an
+// unmigrated root — but path helpers no longer resolve legacy paths. On a
+// legacy root every helper fails fast with `LegacyLayoutError` (mapped to
+// E_LEGACY_LAYOUT at the command boundary) unless the verb explicitly opted in
+// via `setLegacyAllowed(true)` (only `migrate` and `doctor` do).
 
 import path from "path";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
@@ -41,48 +40,82 @@ export function root() {
 export type LayoutMode = "ralphy" | "legacy";
 
 let _modeCache: { root: string; mode: LayoutMode } | null = null;
-let _modeOverride: LayoutMode | null = null;
 
 /**
  * Which layout scheme the current root uses. Cached once a marker directory
  * exists; re-evaluated while the root is still empty (fresh install) so a
  * fixture tree created after setRoot() is still honored.
+ *
+ * "legacy" is detection-only since #106 — path helpers refuse to resolve on a
+ * legacy root (see `workspace()`); the mode exists so `ralphy migrate` can
+ * find the unmigrated tree and `ralphy doctor` can warn about it. Detection
+ * keys on the ENGINE markers (`workspace/.ralph/` or `workspace/projects/`),
+ * not the bare `workspace/` dir — a checkout can carry doc files under
+ * `workspace/` without being an unmigrated data root.
  */
 export function layoutMode(): LayoutMode {
-  if (_modeOverride) return _modeOverride;
   if (_modeCache && _modeCache.root === _root) return _modeCache.mode;
   if (existsSync(path.join(_root, ".ralphy"))) {
     _modeCache = { root: _root, mode: "ralphy" };
     return "ralphy";
   }
-  if (existsSync(path.join(_root, "workspace"))) {
-    // #108 legacy fallback (removed by #106)
+  if (
+    existsSync(path.join(_root, "workspace", ".ralph")) ||
+    existsSync(path.join(_root, "workspace", "projects"))
+  ) {
+    // Pre-#106 unmigrated tree. Detection only — helpers fail fast on it.
     _modeCache = { root: _root, mode: "legacy" };
     return "legacy";
   }
-  // Neither exists yet — fresh install → new scheme. Not cached: a legacy
-  // fixture tree may still be created before the first write.
+  // No engine markers yet — fresh install → new scheme. Not cached: a fixture
+  // tree may still be created before the first write.
   return "ralphy";
 }
 
-/** Test hook: force a layout mode (pass null to restore detection). */
-export function setLayoutModeForTests(mode: LayoutMode | null) {
-  _modeOverride = mode;
-  _modeCache = null;
+// ─── Legacy fail-fast guard (#106) ───────────────────────────────────────────
+
+let _legacyAllowed = false;
+
+/**
+ * Opt a verb out of the legacy fail-fast guard. Only `ralphy migrate` (which
+ * must read/move the legacy tree) and `ralphy doctor` (which must diagnose an
+ * unmigrated root) call this. Everything else fails fast so the user migrates
+ * instead of silently writing into a half-empty `.ralphy/`.
+ */
+export function setLegacyAllowed(allowed: boolean) {
+  _legacyAllowed = allowed;
 }
 
 /**
- * The data root: `.ralphy/` in the new scheme. Named `workspace` for
- * historical reasons (the legacy root dir was literally `workspace/`).
+ * Thrown by `workspace()` on an unmigrated legacy root. Lib code can't call
+ * `raiseError()` (it process.exit()s — wrong for library callers and tests),
+ * so this Error carries `code = "E_LEGACY_LAYOUT"`; the command boundary in
+ * cli/index.ts maps it onto the catalog payload.
+ */
+export class LegacyLayoutError extends Error {
+  readonly code = "E_LEGACY_LAYOUT" as const;
+  constructor() {
+    super(
+      "E_LEGACY_LAYOUT: this root still uses the legacy workspace/ tree — run `ralphy migrate` to move it to the .ralphy/ layout",
+    );
+    this.name = "LegacyLayoutError";
+  }
+}
+
+/**
+ * The data root: `.ralphy/`. Named `workspace` for historical reasons (the
+ * pre-#106 root dir was literally `workspace/`). Fails fast on an unmigrated
+ * legacy root unless `setLegacyAllowed(true)` was called (migrate / doctor).
  */
 export function workspace() {
-  if (layoutMode() === "legacy") return path.join(_root, "workspace"); // #108 legacy fallback (removed by #106)
+  if (layoutMode() === "legacy" && !_legacyAllowed) {
+    throw new LegacyLayoutError();
+  }
   return path.join(_root, ".ralphy");
 }
 
-/** Engine-state dir: `.ralphy/` top level (legacy: `workspace/.ralph/`). */
+/** Engine-state dir: `.ralphy/` top level. */
 export function ralphDir() {
-  if (layoutMode() === "legacy") return path.join(workspace(), ".ralph"); // #108 legacy fallback (removed by #106)
   return workspace();
 }
 
@@ -98,7 +131,7 @@ export function configPath() {
 
 export const DEFAULT_WORKSPACE = "default";
 
-/** `.ralphy/workspaces/` — only meaningful in the "ralphy" scheme. */
+/** `.ralphy/workspaces/` */
 export function workspacesDir() {
   return path.join(workspace(), "workspaces");
 }
@@ -121,10 +154,8 @@ export function workspaceManifestPath(slug: string) {
 /**
  * The active workspace slug — the default home for new projects. Stored as
  * the `activeWorkspace` key in config.json (`ralphy workspace use <slug>`).
- * Legacy mode has exactly one implicit workspace: "default".
  */
 export function currentWorkspace(): string {
-  if (layoutMode() === "legacy") return DEFAULT_WORKSPACE; // #108 legacy fallback (removed by #106)
   try {
     const cfg = JSON.parse(readFileSync(configPath(), "utf-8"));
     const ws = cfg?.activeWorkspace;
@@ -164,7 +195,6 @@ function readRegistryProjectsSync(): Record<string, any> {
  *   3. the active workspace (the creation path: dir + entry don't exist yet)
  */
 export function projectWorkspace(projectId: string): string {
-  if (layoutMode() === "legacy") return DEFAULT_WORKSPACE; // #108 legacy fallback (removed by #106)
   const entry = readRegistryProjectsSync()[projectId];
   if (entry) {
     const ws = entry.workspace;
@@ -184,39 +214,33 @@ export function projectWorkspace(projectId: string): string {
 }
 
 // ─── Registry entity dirs ────────────────────────────────────────────────────
-// In the new scheme, brand / persona / global-ref entity files live in the
-// active workspace's shared/ tree (issue #108; #106 migrates legacy data there).
+// Brand / persona / global-ref entity files live in the active workspace's
+// shared/ tree (issue #108; #106 migrated legacy data there).
 
 export function brandsDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "brands"); // #108 legacy fallback (removed by #106)
   return path.join(sharedDir(currentWorkspace()), "brands");
 }
 
 export function personasDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "personas"); // #108 legacy fallback (removed by #106)
   return path.join(sharedDir(currentWorkspace()), "personas");
 }
 
 export function refsDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "refs"); // #108 legacy fallback (removed by #106)
   return path.join(sharedDir(currentWorkspace()), "refs");
 }
 
 // ─── Workspace-scoped data dirs ──────────────────────────────────────────────
 
-/** Projects of the ACTIVE workspace (legacy: the single flat `workspace/projects/`). */
+/** Projects of the ACTIVE workspace. */
 export function projectsDir() {
-  if (layoutMode() === "legacy") return path.join(workspace(), "projects"); // #108 legacy fallback (removed by #106)
   return path.join(workspaceDir(currentWorkspace()), "projects");
 }
 
 export function batchesDir() {
-  if (layoutMode() === "legacy") return path.join(workspace(), "batches"); // #108 legacy fallback (removed by #106)
   return path.join(workspaceDir(currentWorkspace()), "batches");
 }
 
 export function templatesDir() {
-  if (layoutMode() === "legacy") return path.join(workspace(), "templates"); // #108 legacy fallback (removed by #106)
   return path.join(workspaceDir(currentWorkspace()), "templates");
 }
 
@@ -236,10 +260,9 @@ export function researchDir() {
 
 /**
  * Deep-research JOB state (`ralphy research run` job dirs) — distinct from the
- * topic-level researchDir() above. Legacy: `workspace/.ralph/research/`.
+ * topic-level researchDir() above.
  */
 export function researchJobsDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "research"); // #108 legacy fallback (removed by #106)
   return path.join(researchDir(), "jobs");
 }
 
@@ -248,7 +271,6 @@ export function researchJobsDir() {
 // Cache of assets pulled from ralphy-assets (gitignored).
 // Layout: <cache>/manifest.json + <cache>/required/<template>/<file>
 export function assetCacheDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "asset-cache"); // #108 legacy fallback (removed by #106)
   return path.join(workspace(), "cache", "assets");
 }
 
@@ -256,14 +278,12 @@ export function assetCacheDir() {
 // keyed by request, written by cli/lib/library/client.ts. Safe to wipe; a
 // miss/parse error just refetches.
 export function libraryCacheDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "library-cache"); // #108 legacy fallback (removed by #106)
   return path.join(workspace(), "cache", "library");
 }
 
 // Rasterized-SVG cache (cli/lib/image/cutout.ts) — same logo isn't re-rendered
 // per generation.
 export function svgCacheDir() {
-  if (layoutMode() === "legacy") return path.join(ralphDir(), "svg-cache"); // #108 legacy fallback (removed by #106)
   return path.join(workspace(), "cache", "svg");
 }
 
@@ -271,9 +291,9 @@ export function svgCacheDir() {
 //
 // A project's media lives in ONE tree: `<project>/artifacts/<kind>/`. `refs`
 // (input references) is just another kind, so "everything this project
-// consumes or produces" is a single `ls artifacts/` away. The legacy layout
-// (`assets/<kind>/` + a sibling `refs/`) is still READ as a fallback until the
-// one-pass data migration (#106) lands; WRITES go only to `artifacts/`.
+// consumes or produces" is a single `ls artifacts/` away. Since #106 the
+// resolution is single-path: the legacy layout (`assets/<kind>/` + a sibling
+// `refs/`) is migrated by `ralphy migrate` and no longer read.
 //
 // NOTE: this is the per-PROJECT refs dir. The global registry refs for brand /
 // persona entities live at `refsDir()` above and are a separate concern.
@@ -292,12 +312,10 @@ export const ARTIFACT_KINDS = [
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
 /**
- * The project root. New scheme: resolved through the registry —
- * `.ralphy/workspaces/<ws>/projects/<id>/`, no workspace arg needed. Legacy:
- * `workspace/projects/<id>/`.
+ * The project root, resolved through the registry —
+ * `.ralphy/workspaces/<ws>/projects/<id>/`, no workspace arg needed.
  */
 export function projectDir(projectId: string) {
-  if (layoutMode() === "legacy") return path.join(projectsDir(), projectId); // #108 legacy fallback (removed by #106)
   return path.join(workspaceDir(projectWorkspace(projectId)), "projects", projectId);
 }
 
@@ -320,59 +338,30 @@ export function projectRefsDir(projectId: string) {
   return artifactKindDir(projectId, "refs");
 }
 
-// #105 legacy fallback (removed by #106): pre-artifacts layout, `assets/<kind>/`
-// with `refs/` as a sibling of `assets/`.
-export function legacyAssetsRootDir(projectId: string) {
-  return path.join(projectDir(projectId), "assets");
-}
-
-// #105 legacy fallback (removed by #106)
-export function legacyArtifactKindDir(projectId: string, kind: ArtifactKind | (string & {})) {
-  if (kind === "refs") return path.join(projectDir(projectId), "refs");
-  return path.join(legacyAssetsRootDir(projectId), kind);
-}
-
 /**
- * Read-side resolution of a kind dir: prefer `artifacts/<kind>/`, fall back to
- * the legacy location when only that exists. Returns the artifacts/ path when
- * neither exists (the write target).
+ * Resolution of a kind dir. Single-path since #106 (`artifacts/<kind>/` only);
+ * the name survives from the dual-scan era so call sites stay stable.
  */
 export function resolveArtifactKindDir(projectId: string, kind: ArtifactKind | (string & {})) {
-  const next = artifactKindDir(projectId, kind);
-  if (existsSync(next)) return next;
-  const legacy = legacyArtifactKindDir(projectId, kind); // #105 legacy fallback (removed by #106)
-  if (existsSync(legacy)) return legacy;
-  return next;
+  return artifactKindDir(projectId, kind);
 }
 
 /**
- * Read-side resolution for directory SCANS: every existing location for the
- * kind, artifacts/ first. A project mid-migration can hold old clips in
- * `assets/videos/` and new ones in `artifacts/videos/` — scanners must see
- * both. Returns `[artifacts path]` when neither exists.
+ * Resolution for directory SCANS. Single-path since #106 — always exactly
+ * `[artifacts/<kind>/]`. Kept array-shaped so scan call sites stay stable.
  */
 export function resolveArtifactKindDirs(projectId: string, kind: ArtifactKind | (string & {})): string[] {
-  const next = artifactKindDir(projectId, kind);
-  const legacy = legacyArtifactKindDir(projectId, kind); // #105 legacy fallback (removed by #106)
-  const found: string[] = [];
-  if (existsSync(next)) found.push(next);
-  if (existsSync(legacy)) found.push(legacy);
-  return found.length > 0 ? found : [next];
+  return [artifactKindDir(projectId, kind)];
 }
 
 /**
- * Read-side resolution of a single file: `artifacts/<kind>/<file>` when it
- * exists, else the legacy `assets/<kind>/<file>` (or `refs/<file>`) when that
- * exists. Returns the artifacts/ path when neither exists.
+ * Resolution of a single file: `artifacts/<kind>/<file>`. Single-path since
+ * #106; the name survives from the dual-scan era so call sites stay stable.
  */
 export function resolveArtifactPath(
   projectId: string,
   kind: ArtifactKind | (string & {}),
   filename: string,
 ) {
-  const next = path.join(artifactKindDir(projectId, kind), filename);
-  if (existsSync(next)) return next;
-  const legacy = path.join(legacyArtifactKindDir(projectId, kind), filename); // #105 legacy fallback (removed by #106)
-  if (existsSync(legacy)) return legacy;
-  return next;
+  return path.join(artifactKindDir(projectId, kind), filename);
 }

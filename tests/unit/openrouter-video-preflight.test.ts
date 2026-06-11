@@ -36,7 +36,7 @@ beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-preflight-"));
   setRoot(tmpRoot);
   process.env.OPENROUTER_API_KEY = "test-or-key";
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", projectId, "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId, "logs"), {
     recursive: true,
   });
 });

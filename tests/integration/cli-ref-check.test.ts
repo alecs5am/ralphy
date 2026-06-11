@@ -30,8 +30,8 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-cli-refcheck-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
-  fs.copyFileSync(FIXTURE_CATALOG, path.join(tmpRoot, "workspace", ".ralph", "or-catalog.json"));
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
+  fs.copyFileSync(FIXTURE_CATALOG, path.join(tmpRoot, ".ralphy", "or-catalog.json"));
   // A registry with one project (so `ref check` can find it).
   const registry = {
     projects: {
@@ -55,12 +55,12 @@ beforeEach(() => {
     batches: {},
   };
   fs.writeFileSync(
-    path.join(tmpRoot, "workspace", ".ralph", "registry.json"),
+    path.join(tmpRoot, ".ralphy", "registry.json"),
     JSON.stringify(registry, null, 2),
   );
   // Project dirs for both.
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "test-brand-001"), { recursive: true });
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "test-generic-001"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-brand-001"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-generic-001"), { recursive: true });
 });
 
 afterEach(() => {
@@ -127,7 +127,9 @@ describe("ralphy generate --no-ref-consent (04.02.03)", () => {
     expect(r.exitCode).toBe(0);
     const log = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-brand-001",
       "logs",
@@ -157,7 +159,9 @@ describe("ralphy generate --no-ref-consent (04.02.03)", () => {
     expect(r.exitCode).toBe(0);
     const log = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-brand-001",
       "logs",

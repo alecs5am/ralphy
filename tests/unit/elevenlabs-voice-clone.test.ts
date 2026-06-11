@@ -29,7 +29,7 @@ beforeEach(() => {
   setRoot(tmpRoot);
   process.env.ELEVENLABS_API_KEY = "test-el-key";
   projectId = "voice-clone-001";
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", projectId, "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId, "logs"), {
     recursive: true,
   });
   // Source audio sample — just needs to exist + be non-empty. cloneVoice

@@ -147,7 +147,7 @@ describe("ralphy video extend --dry-run (#012)", () => {
     // Scaffold a project under <tmpRoot>/workspace/projects/<id>/ to match the
     // `--cwd <tmpRoot>` env scoping used by the rest of the integration suite.
     const projectId = "extend-012-test";
-    const projectDir = path.join(tmpRoot, "workspace", "projects", projectId);
+    const projectDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
     fs.mkdirSync(path.join(projectDir, "refs"), { recursive: true });
 
     // Move the fixture into the project so the resolution is unambiguous.

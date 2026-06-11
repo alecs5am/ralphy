@@ -21,7 +21,7 @@ let tmp: string;
 
 // A workspace dir template the ranker can score on tags alone.
 function setupWorkspaceTemplate(): void {
-  const dir = path.join(tmp, "workspace", "templates", "deadpan-couch-rant");
+  const dir = path.join(tmp, ".ralphy", "workspaces", "default", "templates", "deadpan-couch-rant");
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, "template.json"),
@@ -45,7 +45,7 @@ function setupWorkspaceTemplate(): void {
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-tmpl-tiers-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
   setupWorkspaceTemplate();
 });
 
@@ -118,7 +118,7 @@ describe("ralphy template — two-tier sourcing (no network)", () => {
     }
     expect(r.exitCode).toBe(0);
 
-    const projDir = path.join(tmp, "workspace", "projects", "tiers-demo-001");
+    const projDir = path.join(tmp, ".ralphy", "workspaces", "default", "projects", "tiers-demo-001");
     expect(fs.existsSync(path.join(projDir, "artifacts", "images"))).toBe(true);
     expect(fs.existsSync(path.join(projDir, "render"))).toBe(true);
     expect(fs.existsSync(path.join(projDir, "TEMPLATE_ORIGIN.md"))).toBe(true);

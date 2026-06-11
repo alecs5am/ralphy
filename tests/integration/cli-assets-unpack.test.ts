@@ -38,8 +38,8 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-assets-unpack-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "test-zip-001"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-zip-001"), { recursive: true });
   const registry = {
     projects: {
       "test-zip-001": {
@@ -56,7 +56,7 @@ beforeEach(() => {
     batches: {},
   };
   fs.writeFileSync(
-    path.join(tmpRoot, "workspace", ".ralph", "registry.json"),
+    path.join(tmpRoot, ".ralphy", "registry.json"),
     JSON.stringify(registry, null, 2),
   );
 });
@@ -111,7 +111,7 @@ describe("`ralphy assets unpack` (#048)", () => {
     expect(r.json).not.toBeNull();
     expect(r.json.unpacked).toBe(3);
 
-    const brandDir = path.join(tmpRoot, "workspace", "projects", "test-zip-001", "brand");
+    const brandDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-zip-001", "brand");
     const landed = fs.readdirSync(brandDir).sort();
     // .DS_Store and ._Primary.svg must be absent.
     expect(landed).not.toContain(".DS_Store");
@@ -130,7 +130,9 @@ describe("`ralphy assets unpack` (#048)", () => {
     ralphy(["assets", "unpack", zipPath, "--project", "test-zip-001"]);
     const log = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-zip-001",
       "logs",
@@ -155,7 +157,7 @@ describe("`ralphy assets unpack` (#048)", () => {
     if (!HAS_ZIP) return;
     const zipPath = makeFixtureZip();
     ralphy(["assets", "unpack", zipPath, "--project", "test-zip-001"]);
-    const brandDir = path.join(tmpRoot, "workspace", "projects", "test-zip-001", "brand");
+    const brandDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-zip-001", "brand");
     const before = fs.readdirSync(brandDir).sort();
     ralphy(["assets", "unpack", zipPath, "--project", "test-zip-001"]);
     const after = fs.readdirSync(brandDir).sort();

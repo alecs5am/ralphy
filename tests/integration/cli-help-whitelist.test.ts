@@ -18,8 +18,8 @@ const FIXTURE = path.join(REPO, "tests", "fixtures", "or-catalog.json");
 
 function withTmpCatalog(): { tmp: string; cleanup: () => void } {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-help-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
-  fs.copyFileSync(FIXTURE, path.join(tmp, "workspace", ".ralph", "or-catalog.json"));
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
+  fs.copyFileSync(FIXTURE, path.join(tmp, ".ralphy", "or-catalog.json"));
   return {
     tmp,
     cleanup: () => {

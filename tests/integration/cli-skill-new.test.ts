@@ -52,7 +52,10 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
   const r = spawnSync("bun", ["run", CLI, ...args], {
     cwd: tmpRepo,
     encoding: "utf8",
-    env: { ...process.env, RALPHY_REPO_ROOT: tmpRepo },
+    // HOME isolation: without it, ~/.config/ralphy/config.json can link the
+    // developer's real (possibly unmigrated) data root and trip the #106
+    // legacy fail-fast for a verb that never touches the data root.
+    env: { ...process.env, RALPHY_REPO_ROOT: tmpRepo, HOME: tmpRepo },
   });
   return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }

@@ -25,7 +25,6 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import {
-  legacyArtifactKindDir,
   projectRefsDir,
   projectDir,
   projectWorkspace,
@@ -84,12 +83,11 @@ export function normalizePathCharsWithWarn(p: string, label = "path"): string {
  *
  * Resolution order (first hit wins):
  *   1. http(s):// or data: URI → return verbatim
- *   2. cwd/p (the legacy behavior) → return absolute
- *   3. workspace/projects/<id>/p → return absolute (the new fallback)
+ *   2. cwd/p (the original behavior) → return absolute
+ *   3. <project>/p → return absolute (the project-relative fallback)
  *   4. <project>/artifacts/refs/p → return absolute (convenience for
  *      `--ref scene-01-master.png` when refs live in the project's
- *      artifacts/refs/); the legacy <id>/refs/ location is checked after it
- *      (#105 legacy fallback, removed by #106)
+ *      artifacts/refs/)
  *   5. the project's workspace `shared/` tree (#108): an explicit
  *      `--ref shared/cast/nurse.png` form resolves against
  *      `workspaces/<ws>/shared/cast/nurse.png`, and bare paths fall back to
@@ -121,11 +119,6 @@ export function resolveProjectPath(p: string, projectId?: string): string {
 
     const refsAbs = path.join(projectRefsDir(projectId), cleaned);
     if (existsSync(refsAbs)) return refsAbs;
-
-    // #105 legacy fallback (removed by #106): pre-artifacts projects keep
-    // their input references at <project>/refs/.
-    const legacyRefsAbs = path.join(legacyArtifactKindDir(projectId, "refs"), cleaned);
-    if (existsSync(legacyRefsAbs)) return legacyRefsAbs;
 
     // #108: workspace shared/ tier — after the project-local chain. The
     // explicit `shared/<path>` form maps onto the shared root itself; bare

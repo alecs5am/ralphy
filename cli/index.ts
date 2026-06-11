@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { setPretty } from "./lib/output.js";
-import { setRoot } from "./lib/paths.js";
+import { setRoot, layoutMode } from "./lib/paths.js";
 import { findProjectRootSafe, loadProjectEnv } from "./lib/project-root.js";
 import { installSigintHandler, CancelledError } from "./lib/cancel.js";
 import { raiseError } from "./lib/errors/index.js";
@@ -13,14 +13,18 @@ installSigintHandler();
 
 // Uncaught CancelledError (thrown by token.throwIfCancelled() inside a verb)
 // becomes the structured E_CANCELLED payload + exit 130 per 01.07.02.
+// LegacyLayoutError (the #106 fail-fast guard in cli/lib/paths.ts — lib code
+// can't process.exit, so it throws a coded Error) maps to E_LEGACY_LAYOUT.
 // All other uncaught exceptions become E_INTERNAL — never silent.
 process.on("uncaughtException", (e: unknown) => {
   if (e instanceof CancelledError) raiseError("E_CANCELLED");
+  if ((e as { code?: string } | null)?.code === "E_LEGACY_LAYOUT") raiseError("E_LEGACY_LAYOUT");
   const detail = e instanceof Error ? e.message : String(e);
   raiseError("E_INTERNAL", { detail });
 });
 process.on("unhandledRejection", (reason: unknown) => {
   if (reason instanceof CancelledError) raiseError("E_CANCELLED");
+  if ((reason as { code?: string } | null)?.code === "E_LEGACY_LAYOUT") raiseError("E_LEGACY_LAYOUT");
   const detail = reason instanceof Error ? reason.message : String(reason);
   raiseError("E_INTERNAL", { detail });
 });
@@ -38,6 +42,7 @@ import { templateCmd } from "./commands/template.js";
 import { batchCmd } from "./commands/batch.js";
 import { assetCmd } from "./commands/asset.js";
 import { workspaceCmd } from "./commands/workspace.js";
+import { migrateCmd } from "./commands/migrate.js";
 import { setupCmd } from "./commands/setup.js";
 import { statusCmd } from "./commands/status.js";
 import { generateCmd } from "./commands/generate.js";
@@ -105,19 +110,31 @@ program
       setPretty(Boolean(process.stdout.isTTY));
     }
     setQuiet(Boolean(opts.quiet));
+    // #106 fail-fast: an unmigrated legacy workspace/ root refuses every verb
+    // except `migrate` (which performs the move) and `doctor` (which diagnoses
+    // it). Enforced here at the command boundary — the deeper guard in
+    // paths.ts (workspace() throws LegacyLayoutError) is defense-in-depth for
+    // lib callers, but defensive try/catch around registry/config reads would
+    // otherwise swallow it into empty results.
+    const sub = thisCommand.args[0];
+    const guardLegacyLayout = () => {
+      if (sub === "migrate" || sub === "doctor") return;
+      if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT");
+    };
     if (opts.cwd) {
       setRoot(opts.cwd);
       await loadProjectEnv(opts.cwd);
+      guardLegacyLayout();
       return;
     }
     // Skip project auto-detection for setup — it has its own logic for first-run.
-    const sub = thisCommand.args[0];
     if (sub === "setup") return;
     const detected = await findProjectRootSafe();
     if (detected) {
       setRoot(detected);
       await loadProjectEnv(detected);
     }
+    guardLegacyLayout();
   });
 
 program.addCommand(versionCmd());
@@ -152,6 +169,7 @@ program.addCommand(guidelineCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
+program.addCommand(migrateCmd());
 program.addCommand(assetsCmd());
 program.addCommand(exampleCmd());
 program.addCommand(audioCmd());

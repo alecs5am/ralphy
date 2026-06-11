@@ -134,6 +134,7 @@
                 "pages": [
                   "reference/cli/setup",
                   "reference/cli/doctor",
+                  "reference/cli/migrate",
                   "reference/cli/status",
                   "reference/cli/new",
                   "reference/cli/clone",

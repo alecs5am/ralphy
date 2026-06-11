@@ -682,13 +682,17 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 /**
- * Infer the project id from a path under `workspace/projects/<id>/...`. Returns null
- * for paths outside the workspace tree (e.g. `workspace/references/<slug>/...`, or
- * user-supplied absolute paths). #032 — used to attach `analyzeVideo` log entries to
- * the right project when the caller didn't pass `slug`.
+ * Infer the project id from a project-tree path — the new scheme
+ * `.ralphy/workspaces/<ws>/projects/<id>/...` (#108) or the legacy
+ * `workspace/projects/<id>/...`. Returns null for paths outside a project
+ * tree (e.g. `references/<slug>/...`, or user-supplied absolute paths).
+ * #032 — used to attach `analyzeVideo` log entries to the right project when
+ * the caller didn't pass `slug`.
  */
 function inferProjectIdFromVideoPath(videoPath: string): string | null {
-  const m = videoPath.match(/[\\/]workspace[\\/]projects[\\/]([^\\/]+)[\\/]/);
+  const m = videoPath.match(
+    /[\\/](?:workspaces[\\/][^\\/]+|workspace)[\\/]projects[\\/]([^\\/]+)[\\/]/,
+  );
   return m ? m[1]! : null;
 }
 

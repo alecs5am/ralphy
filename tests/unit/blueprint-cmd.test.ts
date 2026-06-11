@@ -44,7 +44,7 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 }
 
 function projDir(): string {
-  return path.join(tmpRoot, "workspace", "projects", PROJECT);
+  return path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", PROJECT);
 }
 
 function unitDir(): string {

@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
-import { ARTIFACT_KINDS, artifactKindDir, artifactsDir, legacyAssetsRootDir, projectRefsDir, resolveArtifactKindDirs, projectDir, layoutMode, workspaceDir } from "../lib/paths.js";
+import { ARTIFACT_KINDS, artifactKindDir, artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, layoutMode, workspaceDir } from "../lib/paths.js";
 import { existsSync } from "node:fs";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -655,7 +655,8 @@ export function projectCmd() {
     )
     .action(async (id: string, targetWs: string) => {
       if (layoutMode() === "legacy") {
-        // #108 legacy fallback (removed by #106)
+        // #106 fail-fast: explicit guard so the refusal is immediate and
+        // carries the catalog payload (path helpers would throw anyway).
         raiseError("E_LEGACY_LAYOUT", { verb: "project move" });
       }
       const project = await getEntity("projects", id);
@@ -686,7 +687,7 @@ export function projectCmd() {
     });
 
   // ── assets ─────────────────────────────────────────────────────────────
-  // Issue #029. Walks <project>/artifacts/ (+ legacy assets/), ffprobe-truths every media file,
+  // Issue #029. Walks <project>/artifacts/, ffprobe-truths every media file,
   // emits a flat array of {slot, path, kind, duration_s, width, height, fps,
   // codecs, size_bytes}. The point: stop every multi-clip project from
   // re-inventing an ad-hoc `ffprobe -show_entries` loop and inheriting wrong
@@ -694,7 +695,7 @@ export function projectCmd() {
   cmd
     .command("assets <id>")
     .description(
-      "ffprobe-truth every media file under <project>/artifacts/ (legacy assets/ included) and emit a flat array. Honors --kind video|image|audio.",
+      "ffprobe-truth every media file under <project>/artifacts/ and emit a flat array. Honors --kind video|image|audio.",
     )
     .option("--kind <kind>", "Filter by classified kind: video | image | audio")
     .action(async (id: string, opts: { kind?: string }) => {
@@ -708,12 +709,7 @@ export function projectCmd() {
         err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg + ffprobe are installed.`);
       }
 
-      // #105 legacy fallback (removed by #106): walk artifacts/ plus the
-      // legacy assets/ tree so mid-migration projects report all media.
-      const files = [
-        ...(await walkMediaFiles(artifactsDir(id))),
-        ...(await walkMediaFiles(legacyAssetsRootDir(id))),
-      ];
+      const files = await walkMediaFiles(artifactsDir(id));
 
       // Build a slot lookup from asset-manifest.json (if present) so each row
       // carries the canonical slot name when we have one. We resolve real
@@ -1006,11 +1002,7 @@ export function projectCmd() {
         } catch (e) {
           err(`${(e as Error).message}\n  → Try \`ralphy doctor\` to verify ffmpeg is installed.`);
         }
-        // #105 legacy fallback (removed by #106): walk artifacts/ + legacy assets/.
-        const all = [
-          ...(await walkMediaFiles(artifactsDir(id))),
-          ...(await walkMediaFiles(legacyAssetsRootDir(id))),
-        ];
+        const all = await walkMediaFiles(artifactsDir(id));
         files = all.filter((f) => classifyFile(f) === "audio");
       }
       const rows: Array<Record<string, unknown>> = [];
@@ -1048,13 +1040,11 @@ export function projectCmd() {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
       const dir = projectDir(id);
-      // #105 legacy fallback (removed by #106): scan artifacts/images/ + legacy assets/images/.
       const imagesDirs = resolveArtifactKindDirs(id, "images");
       const entryToDir = new Map<string, string>();
       for (const d of imagesDirs) {
         try {
           for (const f of await fs.readdir(d)) {
-            // artifacts/ wins on basename collision.
             if (!entryToDir.has(f)) entryToDir.set(f, d);
           }
         } catch { /* missing dir contributes nothing */ }

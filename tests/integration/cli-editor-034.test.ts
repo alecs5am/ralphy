@@ -79,9 +79,9 @@ beforeAll(() => {
   if (!fs.existsSync(projectDir)) throw new Error(`project dir not found at ${projectDir}`);
 
   // Two 2-second clips (matching scenario scenes) + one 4-second music bed.
-  synthMp4(path.join(projectDir, "assets", "videos", "scene-01-vid.mp4"), 2.0);
-  synthMp4(path.join(projectDir, "assets", "videos", "scene-02-vid.mp4"), 2.0);
-  synthMp3(path.join(projectDir, "assets", "music", "bed.mp3"), 4.0);
+  synthMp4(path.join(projectDir, "artifacts", "videos", "scene-01-vid.mp4"), 2.0);
+  synthMp4(path.join(projectDir, "artifacts", "videos", "scene-02-vid.mp4"), 2.0);
+  synthMp3(path.join(projectDir, "artifacts", "music", "bed.mp3"), 4.0);
 
   // Scenario covers scene-01 + scene-02 + scene-03. scene-03 has NO clip on
   // disk → completeness check must flag it as missing.
@@ -188,13 +188,13 @@ describe("ralphy editor trim-analyze --dry-run (#034)", () => {
   test.skipIf(!ffmpegPresent || !ffprobePresent)(
     "dry-run with a seeded summary marks matching mtimes as cached",
     () => {
-      // Seed summary.json with rows whose mtimes >= clip mtimes. Seeding the
-      // LEGACY assets/analysis/ location is deliberate — it exercises the #105
-      // legacy read fallback (removed by #106).
-      const analysisDir = path.join(projectDir, "assets", "analysis");
+      // Seed summary.json with rows whose mtimes >= clip mtimes at the
+      // canonical artifacts/analysis/ location (#106: single-path — the old
+      // assets/analysis/ fallback is gone, migrated trees only).
+      const analysisDir = path.join(projectDir, "artifacts", "analysis");
       fs.mkdirSync(analysisDir, { recursive: true });
-      const clip1 = path.join(projectDir, "assets", "videos", "scene-01-vid.mp4");
-      const clip2 = path.join(projectDir, "assets", "videos", "scene-02-vid.mp4");
+      const clip1 = path.join(projectDir, "artifacts", "videos", "scene-01-vid.mp4");
+      const clip2 = path.join(projectDir, "artifacts", "videos", "scene-02-vid.mp4");
       const m1 = fs.statSync(clip1).mtimeMs;
       const m2 = fs.statSync(clip2).mtimeMs;
       const seeded = {

@@ -143,8 +143,7 @@ async function listDir(dirs: string | string[], exts: string[]): Promise<string[
       const items = await fs.readdir(dir);
       for (const f of items) {
         if (!exts.includes(path.extname(f).toLowerCase())) continue;
-        // Mid-migration a file can exist in both artifacts/ and the legacy
-        // tree; first dir (artifacts/) wins on basename collision.
+        // First dir wins on basename collision.
         if (seen.has(f)) continue;
         seen.add(f);
         out.push(path.join(dir, f));
@@ -171,8 +170,6 @@ async function listDir(dirs: string | string[], exts: string[]): Promise<string[
  */
 export async function buildTimelineFromProject(projectId: string): Promise<Timeline> {
   const dir = projectDir(projectId);
-  // #105 legacy fallback (removed by #106): scan artifacts/<kind>/ plus the
-  // legacy assets/<kind>/ tree so mid-migration projects see all clips.
   const videosDirs = resolveArtifactKindDirs(projectId, "videos");
   const voDirs = resolveArtifactKindDirs(projectId, "voiceover");
   const musicDirs = resolveArtifactKindDirs(projectId, "music");

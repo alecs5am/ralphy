@@ -2,8 +2,8 @@
 //
 // Same fixture pattern as cli-editor-034.test.ts:
 //   1. mkdtemp HOME + create project via CLI
-//   2. synth 3 short test clips (testsrc + sine) into assets/videos/
-//   3. one short music bed into assets/music/
+//   2. synth 3 short test clips (testsrc + sine) into artifacts/videos/
+//   3. one short music bed into artifacts/music/
 //   4. `ralphy compose <id>` → exits 0, produces a single mp4
 //   5. duration ≈ sum of segment durations (within ffmpeg rounding)
 //   6. `ralphy compose <id> --remove-segment scene-02-vid` → produces a
@@ -92,12 +92,12 @@ beforeAll(() => {
   if (!fs.existsSync(projectDir)) throw new Error(`project dir not found at ${projectDir}`);
 
   // 3 clips: 2s / 2s / 2s = 6s total.
-  synthMp4(path.join(projectDir, "assets", "videos", "scene-01-vid.mp4"), 2.0);
-  synthMp4(path.join(projectDir, "assets", "videos", "scene-02-vid.mp4"), 2.0);
-  synthMp4(path.join(projectDir, "assets", "videos", "scene-03-vid.mp4"), 2.0);
+  synthMp4(path.join(projectDir, "artifacts", "videos", "scene-01-vid.mp4"), 2.0);
+  synthMp4(path.join(projectDir, "artifacts", "videos", "scene-02-vid.mp4"), 2.0);
+  synthMp4(path.join(projectDir, "artifacts", "videos", "scene-03-vid.mp4"), 2.0);
   // 8s music bed (longer than clips — confirms fade-out anchors against
   // timeline duration, not music duration).
-  synthMp3(path.join(projectDir, "assets", "music", "bed.mp3"), 8.0);
+  synthMp3(path.join(projectDir, "artifacts", "music", "bed.mp3"), 8.0);
 });
 
 afterAll(() => {

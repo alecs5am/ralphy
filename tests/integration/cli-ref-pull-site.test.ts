@@ -143,8 +143,8 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-pull-site-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "test-site-001"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-site-001"), { recursive: true });
   const registry = {
     projects: {
       "test-site-001": {
@@ -161,7 +161,7 @@ beforeEach(() => {
     batches: {},
   };
   fs.writeFileSync(
-    path.join(tmpRoot, "workspace", ".ralph", "registry.json"),
+    path.join(tmpRoot, ".ralphy", "registry.json"),
     JSON.stringify(registry, null, 2),
   );
 });
@@ -197,7 +197,7 @@ describe("`ralphy ref pull-site` (#014)", () => {
       expect(r.json).not.toBeNull();
       expect(r.json.pages.length).toBeGreaterThanOrEqual(1);
 
-      const refsDir = path.join(tmpRoot, "workspace", "projects", "test-site-001", "artifacts", "refs");
+      const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-site-001", "artifacts", "refs");
       const files = fs.readdirSync(refsDir);
 
       // Home screenshot.
@@ -235,7 +235,9 @@ describe("`ralphy ref pull-site` (#014)", () => {
     ]);
     const log = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-site-001",
       "logs",

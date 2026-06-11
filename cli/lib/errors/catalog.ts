@@ -107,9 +107,16 @@ export const ERROR_CODES = {
   E_LEGACY_LAYOUT: {
     class: "user",
     httpAnalog: 409,
-    message: "{verb} requires the .ralphy/ workspace layout; this root still uses the legacy workspace/ tree",
-    hint: "Run `ralphy migrate` (#106) to move to the .ralphy/ layout first. Read-side verbs keep working against the legacy tree.",
-    relatedDocs: "notes/issues/108-workspaces-layer-and-ralphy-root.md",
+    message: "This root still uses the legacy workspace/ tree; the .ralphy/ layout is required",
+    hint: "Run `ralphy migrate` to move this root to the .ralphy/ layout in one pass (preview with `ralphy migrate --dry-run`). `ralphy doctor` still works on a legacy root.",
+    relatedDocs: "notes/issues/106-migrate-projects-to-artifacts.md",
+  },
+  E_JOBS_IN_FLIGHT: {
+    class: "user",
+    httpAnalog: 409,
+    message: "Refusing {verb}: {count} generation job(s) in flight (daemon pid {pid})",
+    hint: "Wait for the queue to drain or stop it (`ralphy queue list`, `ralphy daemon stop`), then re-run.",
+    relatedDocs: "notes/issues/106-migrate-projects-to-artifacts.md",
   },
   E_AGENT_UNSUPPORTED: {
     class: "user",

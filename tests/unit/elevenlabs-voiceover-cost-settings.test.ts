@@ -45,7 +45,7 @@ beforeEach(() => {
   process.env.ELEVENLABS_API_KEY = "test-el-key";
   process.env.RALPHY_TEST_RETRY_BACKOFF_MS = "0,0,0";
   projectId = "vo-cost-001";
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", projectId, "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId, "logs"), {
     recursive: true,
   });
   _resetVoiceExistsCache();

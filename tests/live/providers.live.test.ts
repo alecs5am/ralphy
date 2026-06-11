@@ -31,7 +31,7 @@ beforeAll(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-live-"));
   setRoot(tmpRoot);
   // Minimal project so the providers' assetPath helper has somewhere to write.
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "live-test"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "live-test"), {
     recursive: true,
   });
 });

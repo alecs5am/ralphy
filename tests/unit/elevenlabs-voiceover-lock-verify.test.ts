@@ -59,7 +59,7 @@ beforeEach(() => {
   process.env.ELEVENLABS_API_KEY = "test-el-key";
   process.env.RALPHY_TEST_RETRY_BACKOFF_MS = "0,0,0";
   projectId = "vo-lock-001";
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", projectId, "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId, "logs"), {
     recursive: true,
   });
   _resetVoiceExistsCache();
@@ -141,7 +141,9 @@ describe("generateVoiceover — per-slot file lock (#039)", () => {
     // protectExistingAsset pass — that path stays load-bearing).
     const voDir = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       projectId,
       "artifacts",

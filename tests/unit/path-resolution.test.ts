@@ -124,9 +124,13 @@ describe("resolveProjectPath — cwd-first, project-relative fallback", () => {
     expect(got).toBe(path.join(cwdSandbox, fileName));
   });
 
-  test("cwd-miss → workspace/projects/<id>/<p> fallback", () => {
+  function newSchemeProjectDir(projectId: string): string {
+    return path.join(tmp.dir, ".ralphy", "workspaces", "default", "projects", projectId);
+  }
+
+  test("cwd-miss → <project>/<p> fallback", () => {
     const projectId = "test-001";
-    const projectDir = path.join(tmp.dir, "workspace", "projects", projectId);
+    const projectDir = newSchemeProjectDir(projectId);
     fs.mkdirSync(projectDir, { recursive: true });
     fs.writeFileSync(path.join(projectDir, "scene-01-master.png"), "x");
 
@@ -134,9 +138,9 @@ describe("resolveProjectPath — cwd-first, project-relative fallback", () => {
     expect(got).toBe(path.join(projectDir, "scene-01-master.png"));
   });
 
-  test("cwd-miss → workspace/projects/<id>/artifacts/refs/<p> fallback (#105 canonical location)", () => {
+  test("cwd-miss → <project>/artifacts/refs/<p> fallback (#105 canonical location)", () => {
     const projectId = "test-002a";
-    const refsDir = path.join(tmp.dir, "workspace", "projects", projectId, "artifacts", "refs");
+    const refsDir = path.join(newSchemeProjectDir(projectId), "artifacts", "refs");
     fs.mkdirSync(refsDir, { recursive: true });
     fs.writeFileSync(path.join(refsDir, "scene-01-master.png"), "x");
 
@@ -144,21 +148,23 @@ describe("resolveProjectPath — cwd-first, project-relative fallback", () => {
     expect(got).toBe(path.join(refsDir, "scene-01-master.png"));
   });
 
-  // #105 legacy fallback (removed by #106)
-  test("cwd-miss → legacy workspace/projects/<id>/refs/<p> fallback (pre-#105 projects)", () => {
+  // #106: the pre-#105 <project>/refs/ sibling is NEVER consulted anymore —
+  // a file that exists only there is invisible (the migration moved it).
+  test("a file only in the legacy <project>/refs/ location does NOT resolve (#106 single-path)", () => {
     const projectId = "test-002";
-    const refsDir = path.join(tmp.dir, "workspace", "projects", projectId, "refs");
+    const refsDir = path.join(newSchemeProjectDir(projectId), "refs");
     fs.mkdirSync(refsDir, { recursive: true });
     fs.writeFileSync(path.join(refsDir, "scene-01-master.png"), "x");
 
     const got = resolveProjectPath("scene-01-master.png", projectId);
-    expect(got).toBe(path.join(refsDir, "scene-01-master.png"));
+    // Falls through the whole chain → cwd-anchored absolute (ENOENT contract).
+    expect(got).toBe(path.join(cwdSandbox, "scene-01-master.png"));
   });
 
-  test("artifacts/refs/ wins over legacy refs/ when the file exists in both (#105)", () => {
+  test("artifacts/refs/ resolves; a stale legacy refs/ duplicate is ignored (#106)", () => {
     const projectId = "test-002b";
-    const newDir = path.join(tmp.dir, "workspace", "projects", projectId, "artifacts", "refs");
-    const legacyDir = path.join(tmp.dir, "workspace", "projects", projectId, "refs");
+    const newDir = path.join(newSchemeProjectDir(projectId), "artifacts", "refs");
+    const legacyDir = path.join(newSchemeProjectDir(projectId), "refs");
     fs.mkdirSync(newDir, { recursive: true });
     fs.mkdirSync(legacyDir, { recursive: true });
     fs.writeFileSync(path.join(newDir, "dup.png"), "new");
@@ -234,7 +240,7 @@ describe("readPromptOrFile — symmetric --prompt / --prompt-file", () => {
 
   test("--prompt-file resolves project-relative when --project is set", async () => {
     const projectId = "proj-101";
-    const projectDir = path.join(tmp.dir, "workspace", "projects", projectId);
+    const projectDir = path.join(tmp.dir, ".ralphy", "workspaces", "default", "projects", projectId);
     fs.mkdirSync(projectDir, { recursive: true });
     fs.writeFileSync(path.join(projectDir, "prompt.txt"), "proj-relative-body");
 

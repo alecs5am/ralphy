@@ -18,7 +18,7 @@ let tmp: string;
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-voice-clone-help-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
 });
 
 afterEach(() => {

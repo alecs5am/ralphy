@@ -18,7 +18,7 @@ let tmp: string;
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-vo-flags-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
 });
 
 afterEach(() => {
@@ -51,7 +51,7 @@ describe("ralphy generate voiceover — new flags (#030)", () => {
   test("--dry-run with --speed and --stability prints the est cost (now non-zero)", () => {
     // Project doesn't need to exist for dry-run — it short-circuits before
     // any project state is required.
-    fs.mkdirSync(path.join(tmp, "workspace", "projects", "vo-flag-test-001"), {
+    fs.mkdirSync(path.join(tmp, ".ralphy", "workspaces", "default", "projects", "vo-flag-test-001"), {
       recursive: true,
     });
     const r = ralphy([

@@ -669,7 +669,6 @@ render/final.mp4 (append-only).
       // is a sibling final.<music-basename>.mp4 next to it.
       const musicVariants: Array<{ music: string; out: string; bytes: number }> = [];
       if (opts.musicVariants) {
-        // #105 legacy fallback (removed by #106): scan artifacts/music/ + legacy assets/music/.
         const musicDirs = resolveArtifactKindDirs(projectId, "music");
         let beds: string[] = [];
         try {
