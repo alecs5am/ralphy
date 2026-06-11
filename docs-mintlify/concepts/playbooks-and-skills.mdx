@@ -66,7 +66,11 @@ The seven skills today, in the order they appear under `.agents/skills/`:
 | [`install`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/install/SKILL.md) | `user` | fresh machine → installed binary, configured keys, working `ralphy doctor` |
 | [`hyperframes`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/hyperframes/SKILL.md) | `user` | HyperFrames composition question → topic-specific sub-doc |
 | [`postmortem`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/postmortem/SKILL.md) | `user` | iteration session → 6-file postmortem set under `.ralphy/workspaces/<ws>/projects/<id>/postmortem/` |
+| [`dev-issues`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/dev-issues/SKILL.md) | `maintainer` | maintainer brain-dump → ordered `notes/issues/*.md` work items |
+| [`dev-loop`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/dev-loop/SKILL.md) | `maintainer` | open `notes/issues/` backlog → sequential issue execution loop |
 | [`dev-release`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/dev-release/SKILL.md) | `maintainer` | main-branch HEAD → new GitHub Release + brew + npm publication |
+| [`dev-tasks`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/dev-tasks/SKILL.md) | `maintainer` | maintainer inbox capture for `notes/ideas/`, `notes/issues/`, and decisions |
+| [`normalize-skills`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/normalize-skills/SKILL.md) | `maintainer` | skill bundle audit + landing icon backfill |
 
 The skill body follows a conventional section order — `## Trigger`, `## Hard invariants`, `## Workflow`, `## Outputs`, `## Cookbook` — see [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) for the authoring guide.
 
@@ -77,9 +81,9 @@ Skills ship in two namespaces:
 | Namespace | Audience | Examples |
 |---|---|---|
 | `user` | end users | `evaluator`, `researcher`, `templater`, `install` |
-| `maintainer` | maintainers / contributors | `dev-release`, `dev-tasks` |
+| `maintainer` | maintainers / contributors | `dev-issues`, `dev-loop`, `dev-publish-template`, `dev-release`, `dev-tasks`, `normalize-skills` |
 
-The install wizard (`ralphy skill install`) installs the `user` set by default. `ralphy skill install --dev` opts into the maintainer set. The split exists so a tester running `/<TAB>` on a fresh install does not see `/dev-release` (which ships the binary, not the user's project) or `/dev-tasks` (a maintainer authoring tool).
+The install wizard (`ralphy skill install`) installs the `user` set by default. `ralphy skill install --dev` opts into the maintainer set. The split exists so a tester running `/<TAB>` on a fresh install does not see release, backlog, and maintainer authoring tools.
 
 A skill in the `maintainer` namespace ships through the same lint and installer plumbing as a `user` skill — it is the same format, just gated behind the `--dev` flag in the installer.
 

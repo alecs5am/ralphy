@@ -22,6 +22,12 @@ dashboard/test-dashboard.ts
 # Claude Code scheduler state
 .claude/scheduled_tasks.lock
 
+# Codex local config may contain MCP credentials and machine-specific state.
+.codex/config.toml
+.codex/*.local.toml
+.codex/logs/
+.codex/sessions/
+
 # Skill-creator eval results — local only, too big to commit
 .skill-creator-workspace/
 docs/runtime-context.md

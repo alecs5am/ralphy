@@ -117,7 +117,7 @@ Any other value is rejected. The split:
 | Namespace | Audience | Examples |
 |---|---|---|
 | `user` | end users | `evaluator`, `researcher`, `templater`, `install` |
-| `maintainer` | maintainers / contributors | `dev-release`, `dev-tasks` |
+| `maintainer` | maintainers / contributors | `dev-issues`, `dev-loop`, `dev-publish-template`, `dev-release`, `dev-tasks`, `normalize-skills` |
 
 `ralphy skill install` installs only `user` skills by default. `--dev` opts into the maintainer set. The agents-md lint (`scripts/lint-agents-md.ts`) reads `namespace:` and skips the "is this skill referenced from the routing table" check for `maintainer` skills — maintainer skills are explicit-invocation-only.
 
