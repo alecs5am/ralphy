@@ -83,8 +83,8 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-bulk-pull-"));
   // Minimal workspace + project registry.
-  fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "test-bulk-001"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001"), { recursive: true });
   const registry = {
     projects: {
       "test-bulk-001": {
@@ -101,7 +101,7 @@ beforeEach(() => {
     batches: {},
   };
   fs.writeFileSync(
-    path.join(tmpRoot, "workspace", ".ralph", "registry.json"),
+    path.join(tmpRoot, ".ralphy", "registry.json"),
     JSON.stringify(registry, null, 2),
   );
 });
@@ -147,7 +147,7 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
     expect(r.json.downloaded).toBe(2);
     expect(r.json.errored).toBe(0);
 
-    const refsDir = path.join(tmpRoot, "workspace", "projects", "test-bulk-001", "artifacts", "refs");
+    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
     const files = fs.readdirSync(refsDir).sort();
     expect(files).toContain("127.0.0.1-foo.png");
     expect(files).toContain("127.0.0.1-bar.jpg");
@@ -169,7 +169,7 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
     // One downloaded, the duplicate sha256 → skipped.
     expect(r.json.downloaded).toBe(1);
     expect(r.json.skipped).toBe(1);
-    const refsDir = path.join(tmpRoot, "workspace", "projects", "test-bulk-001", "artifacts", "refs");
+    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
     const files = fs.readdirSync(refsDir);
     expect(files.length).toBe(1);
   });
@@ -181,7 +181,7 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
     expect(r2.exitCode).toBe(0);
     expect(r2.json.downloaded).toBe(0);
     expect(r2.json.skipped).toBe(1);
-    const refsDir = path.join(tmpRoot, "workspace", "projects", "test-bulk-001", "artifacts", "refs");
+    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
     expect(fs.readdirSync(refsDir).length).toBe(1);
   });
 
@@ -197,7 +197,9 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
     ]);
     const log = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-bulk-001",
       "logs",
@@ -225,7 +227,7 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
       "test-bulk-001",
     ]);
     expect(r.exitCode).toBe(0);
-    const refsDir = path.join(tmpRoot, "workspace", "projects", "test-bulk-001", "artifacts", "refs");
+    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
     const files = fs.readdirSync(refsDir);
     expect(files.some((f) => f.endsWith(".png"))).toBe(true);
   });

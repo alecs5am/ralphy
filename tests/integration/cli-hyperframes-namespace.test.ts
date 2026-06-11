@@ -18,8 +18,8 @@ let projectDir: string;
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-hf-ns-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
-  projectDir = path.join(tmp, "workspace", "projects", "hf-001");
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
+  projectDir = path.join(tmp, ".ralphy", "workspaces", "default", "projects", "hf-001");
   fs.mkdirSync(projectDir, { recursive: true });
 });
 

@@ -8,7 +8,6 @@ import {
   batchesDir,
   referencesDir,
   artifactsDir,
-  legacyAssetsRootDir,
   projectDir,
   layoutMode,
   workspacesDir,
@@ -50,8 +49,9 @@ async function countDirs(dir: string): Promise<number> {
 
 function requireRalphyLayout(verb: string) {
   if (layoutMode() === "legacy") {
-    // #108 legacy fallback (removed by #106): multi-workspace verbs need the
-    // .ralphy/ root; the legacy workspace/ tree has one implicit workspace.
+    // #106 fail-fast: every workspace verb requires the .ralphy/ root. This
+    // explicit guard short-circuits before any path helper throws so the
+    // refusal is immediate and carries the catalog payload.
     raiseError("E_LEGACY_LAYOUT", { verb });
   }
 }
@@ -115,21 +115,9 @@ export function workspaceCmd() {
   // ── list (#108) ────────────────────────────────────────────────────────
   cmd
     .command("list")
-    .description("List workspaces (slug, name, project count); legacy roots report the implicit default workspace")
+    .description("List workspaces (slug, name, project count)")
     .action(async () => {
-      if (layoutMode() === "legacy") {
-        // #108 legacy fallback (removed by #106): one implicit workspace.
-        out([
-          {
-            slug: DEFAULT_WORKSPACE,
-            name: DEFAULT_WORKSPACE,
-            projects: await countDirs(projectsDir()),
-            active: true,
-            implicit: true,
-          },
-        ]);
-        return;
-      }
+      requireRalphyLayout("workspace list");
       const active = await getActiveWorkspace();
       const slugs = await listWorkspaceSlugs();
       if (slugs.length === 0) {
@@ -163,19 +151,7 @@ export function workspaceCmd() {
     .command("show <slug>")
     .description("Show a workspace: workspace.json + project list")
     .action(async (slug: string) => {
-      if (layoutMode() === "legacy") {
-        // #108 legacy fallback (removed by #106): only the implicit default exists.
-        if (slug !== DEFAULT_WORKSPACE) {
-          raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
-        }
-        const entries = await fs.readdir(projectsDir(), { withFileTypes: true }).catch(() => []);
-        const projects = entries
-          .filter((e) => e.isDirectory())
-          .map((e) => e.name)
-          .sort();
-        out({ slug, name: slug, implicit: true, path: workspace(), projects });
-        return;
-      }
+      requireRalphyLayout("workspace show");
       const dir = workspaceDir(slug);
       if (!existsSync(dir)) {
         raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
@@ -242,7 +218,6 @@ export function workspaceCmd() {
         const projects = await fs.readdir(projectsDir()).catch(() => [] as string[]);
         for (const p of projects) {
           await fs.rm(artifactsDir(p), { recursive: true, force: true });
-          await fs.rm(legacyAssetsRootDir(p), { recursive: true, force: true }); // #105 legacy fallback (removed by #106)
           await fs.mkdir(artifactsDir(p), { recursive: true });
         }
         ok("Assets cleaned");

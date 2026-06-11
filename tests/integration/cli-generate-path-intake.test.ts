@@ -50,13 +50,13 @@ function ralphy(
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-cli-025-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
   fs.copyFileSync(
     FIXTURE_CATALOG,
-    path.join(tmpRoot, "workspace", ".ralph", "or-catalog.json"),
+    path.join(tmpRoot, ".ralphy", "or-catalog.json"),
   );
   // Minimal project with a refs/ dir + one master image file.
-  const projDir = path.join(tmpRoot, "workspace", "projects", "test-001");
+  const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-001");
   fs.mkdirSync(path.join(projDir, "refs"), { recursive: true });
   fs.writeFileSync(path.join(projDir, "refs", "scene-01-master.png"), "x");
   fs.writeFileSync(path.join(projDir, "BRIEF.md"), "test\n");
@@ -155,7 +155,9 @@ describe("ralphy generate image — issue #025 path intake", () => {
     // normalize before the (eventual) lookup.
     const projRefs = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-001",
       "refs",

@@ -835,8 +835,6 @@ export function templateCmd() {
       } catch { /* no prompts/ dir in source */ }
 
       // Refs: by default COPY; --lift-heavy MOVES files ≥1MB to ralphy-assets/pool/<slug>/.
-      // #105 legacy fallback (removed by #106): read artifacts/refs/ plus the
-      // legacy <project>/refs/ so pre-migration projects still extract.
       const refsCopied: Array<{ name: string; dest: string; sizeBytes: number }> = [];
       const refsLifted: Array<{ name: string; pooledTo: string; sizeBytes: number }> = [];
       const srcRefsDirs = resolveArtifactKindDirs(projectId, "refs");

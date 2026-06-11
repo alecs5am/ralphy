@@ -73,8 +73,8 @@ describe("analyzeVideo logging (#032)", () => {
     // Stand up a fake project + a tiny "video" file. analyzeVideo only checks
     // existsSync + reads bytes for inputBytes, so any non-empty file is fine.
     const projectId = "test-vlog-001";
-    const projDir = path.join(tmpRoot, "workspace", "projects", projectId);
-    const assetsDir = path.join(projDir, "assets");
+    const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
+    const assetsDir = path.join(projDir, "artifacts", "videos");
     fs.mkdirSync(assetsDir, { recursive: true });
     fs.mkdirSync(path.join(projDir, "logs"), { recursive: true });
     const mp4Path = path.join(assetsDir, "scene-01.mp4");
@@ -105,8 +105,8 @@ describe("analyzeVideo logging (#032)", () => {
 
   test("logs an error row when the provider call fails", async () => {
     const projectId = "test-vlog-002";
-    const projDir = path.join(tmpRoot, "workspace", "projects", projectId);
-    const assetsDir = path.join(projDir, "assets");
+    const projDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
+    const assetsDir = path.join(projDir, "artifacts", "videos");
     fs.mkdirSync(assetsDir, { recursive: true });
     fs.mkdirSync(path.join(projDir, "logs"), { recursive: true });
     const mp4Path = path.join(assetsDir, "scene-01.mp4");

@@ -26,7 +26,7 @@ let origRoot: string;
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-gen-log-"));
-  fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "test-001", "logs"), {
+  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-001", "logs"), {
     recursive: true,
   });
   origRoot = process.cwd();
@@ -174,7 +174,9 @@ describe("logGeneration (writer)", () => {
 
     const logFile = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-001",
       "logs",
@@ -211,7 +213,9 @@ describe("logGeneration (writer)", () => {
 
     const logFile = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-001",
       "logs",
@@ -227,7 +231,9 @@ describe("readGenerations (read-side normalization)", () => {
   test("normalizes a hand-written legacy row (costUsd, top-level slot, no model)", async () => {
     const logFile = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-001",
       "logs",
@@ -259,7 +265,9 @@ describe("readGenerations (read-side normalization)", () => {
   test("a mixed file (legacy + canonical) reads as 100% canonical", async () => {
     const logFile = path.join(
       tmpRoot,
-      "workspace",
+      ".ralphy",
+      "workspaces",
+      "default",
       "projects",
       "test-001",
       "logs",

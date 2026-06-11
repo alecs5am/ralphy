@@ -31,7 +31,8 @@ If you don't remember a flag, **run `--help` first**. Don't invent flags from tr
 |---|---|
 | `setup` | First-time wizard — API keys, profiles, dev services. **Non-interactive** flags (`-y`, `--openrouter-key`, `--elevenlabs-key`, `--keys-from-env`, `--project-dir`, `--import-profile`, `--no-verify`, `--allow-unverified`) bypass the TUI and emit a JSON summary — use these when driving from an agent / CI. |
 | `status` | Show enabled capabilities + linked project. |
-| `doctor` | Env health check (keys, deps, project link). JSON for scripts; `-p` for human view. |
+| `doctor` | Env health check (keys, deps, project link). JSON for scripts; `-p` for human view. Works on an unmigrated legacy root and tells you to run `migrate`. |
+| `migrate` | One-pass migration of the current root to the final layout (#106): `workspace/` → `.ralphy/` + workspaces (#108), per-project `assets/`+`refs/` → `artifacts/` (#105) with path-string rewrites in manifests/logs/HTML. `--dry-run` plans without touching disk; `--project <id>` scopes to one project's inner move; idempotent; refuses while generation jobs are in flight. |
 | `generate {image\|video\|voiceover\|music\|captions}` | Single asset gen. Logs cost+path automatically. |
 | `models {list\|show <id>}` | Inspect OR video models + their per-model param whitelists. **Read before any video gen.** |
 | `daemon {start\|stop\|status}` | Manage the background job worker. |
@@ -49,7 +50,7 @@ Each follows `ralphy <resource> {create\|list\|show <id>\|update <id>\|delete <i
 `brand`, `persona`, `ref`, `project`, `template`, `batch`, `asset`, `workspace`, `profile`.
 
 Notable extensions:
-- `workspace create <slug> [--name --description]` / `workspace list` / `workspace show <slug>` / `workspace use <slug>` — #108 workspace layer (`.ralphy/workspaces/<slug>/` with a `shared/` asset tier; `use` sets the default home for new projects). On a legacy `workspace/` root, `list`/`show` report the implicit `default`; `create`/`use` refuse with `E_LEGACY_LAYOUT` until `ralphy migrate` (#106).
+- `workspace create <slug> [--name --description]` / `workspace list` / `workspace show <slug>` / `workspace use <slug>` — #108 workspace layer (`.ralphy/workspaces/<slug>/` with a `shared/` asset tier; `use` sets the default home for new projects). On an unmigrated legacy `workspace/` root, every verb except `migrate`/`doctor` refuses with `E_LEGACY_LAYOUT` — run `ralphy migrate` first (#106).
 - `project move <id> <ws>` — move a project into another workspace + update its registry entry (refuses on legacy roots; don't move while a background job is mid-flight on the project).
 - `project log <id>` / `project timeline <id>` / `project log-prompt` / `project log-asset` — append-only project memory at `<project>/logs/`.
 - `project score <id>` — run virality rubric over `scenario.json` (no LLM).

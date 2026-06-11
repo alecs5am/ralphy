@@ -7,7 +7,8 @@
 //     level, caches under `.ralphy/cache/{assets,library,svg}`, workspaces
 //     under `.ralphy/workspaces/<slug>/{shared,projects,templates,batches}`.
 //   - `projectDir(id)` resolves through the registry (`workspace` field on the
-//     project entry); legacy roots resolve exactly as before #108.
+//     project entry); legacy roots FAIL FAST with LegacyLayoutError (#106 —
+//     run `ralphy migrate`), they no longer resolve.
 //   - Ref intake resolves project artifacts/ first, then the project's
 //     workspace shared/ tier (explicit `shared/<path>` form + bare fallback).
 
@@ -23,6 +24,7 @@ import {
   currentWorkspace,
   DEFAULT_WORKSPACE,
   layoutMode,
+  LegacyLayoutError,
   libraryCacheDir,
   projectDir,
   projectsDir,
@@ -34,6 +36,7 @@ import {
   researchDir,
   researchJobsDir,
   root,
+  setLegacyAllowed,
   setRoot,
   sharedDir,
   svgCacheDir,
@@ -70,14 +73,20 @@ describe("#108 layout mode detection", () => {
     expect(layoutMode()).toBe("ralphy");
   });
 
-  test("only legacy workspace/ present → legacy mode", () => {
-    fs.mkdirSync(path.join(tmp, "workspace"), { recursive: true });
+  test("legacy engine markers (workspace/.ralph or workspace/projects) → legacy mode", () => {
+    fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
     setRoot(tmp); // reset detection cache
     expect(layoutMode()).toBe("legacy");
   });
 
-  test(".ralphy/ wins even when workspace/ also exists", () => {
-    fs.mkdirSync(path.join(tmp, "workspace"), { recursive: true });
+  test("a bare workspace/ dir WITHOUT engine markers is NOT legacy (repo doc folders)", () => {
+    fs.mkdirSync(path.join(tmp, "workspace", "scenes"), { recursive: true });
+    setRoot(tmp);
+    expect(layoutMode()).toBe("ralphy");
+  });
+
+  test(".ralphy/ wins even when a legacy workspace/ tree also exists", () => {
+    fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
     fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
     setRoot(tmp);
     expect(layoutMode()).toBe("ralphy");
@@ -180,35 +189,56 @@ describe("#108 active-workspace pointer (config.json)", () => {
   });
 });
 
-describe("#108 legacy fallback (removed by #106)", () => {
+describe("#106 legacy root fail-fast (the back-compat window is closed)", () => {
   beforeEach(() => {
     fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
     setRoot(tmp); // reset detection cache against the legacy fixture
   });
 
-  test("all paths resolve exactly as before #108", () => {
-    expect(layoutMode()).toBe("legacy");
-    expect(workspace()).toBe(path.join(tmp, "workspace"));
-    expect(ralphDir()).toBe(path.join(tmp, "workspace", ".ralph"));
-    expect(registryPath()).toBe(path.join(tmp, "workspace", ".ralph", "registry.json"));
-    expect(configPath()).toBe(path.join(tmp, "workspace", ".ralph", "config.json"));
-    expect(brandsDir()).toBe(path.join(tmp, "workspace", ".ralph", "brands"));
-    expect(refsDir()).toBe(path.join(tmp, "workspace", ".ralph", "refs"));
-    expect(assetCacheDir()).toBe(path.join(tmp, "workspace", ".ralph", "asset-cache"));
-    expect(libraryCacheDir()).toBe(path.join(tmp, "workspace", ".ralph", "library-cache"));
-    expect(svgCacheDir()).toBe(path.join(tmp, "workspace", ".ralph", "svg-cache"));
-    expect(researchJobsDir()).toBe(path.join(tmp, "workspace", ".ralph", "research"));
-    expect(projectsDir()).toBe(path.join(tmp, "workspace", "projects"));
-    expect(batchesDir()).toBe(path.join(tmp, "workspace", "batches"));
-    expect(templatesDir()).toBe(path.join(tmp, "workspace", "templates"));
-    expect(referencesDir()).toBe(path.join(tmp, "workspace", "references"));
-    expect(researchDir()).toBe(path.join(tmp, "workspace", "research"));
-    expect(projectDir("p-001")).toBe(path.join(tmp, "workspace", "projects", "p-001"));
+  afterEach(() => {
+    setLegacyAllowed(false);
   });
 
-  test("currentWorkspace is the implicit default", () => {
-    expect(currentWorkspace()).toBe(DEFAULT_WORKSPACE);
-    expect(projectWorkspace("anything")).toBe(DEFAULT_WORKSPACE);
+  test("layoutMode still DETECTS the legacy tree (migrate/doctor need it)", () => {
+    expect(layoutMode()).toBe("legacy");
+  });
+
+  test("path helpers throw LegacyLayoutError instead of resolving legacy paths", () => {
+    expect(() => workspace()).toThrow(LegacyLayoutError);
+    expect(() => ralphDir()).toThrow(LegacyLayoutError);
+    expect(() => registryPath()).toThrow(LegacyLayoutError);
+    expect(() => configPath()).toThrow(LegacyLayoutError);
+    expect(() => brandsDir()).toThrow(LegacyLayoutError);
+    expect(() => refsDir()).toThrow(LegacyLayoutError);
+    expect(() => assetCacheDir()).toThrow(LegacyLayoutError);
+    expect(() => libraryCacheDir()).toThrow(LegacyLayoutError);
+    expect(() => svgCacheDir()).toThrow(LegacyLayoutError);
+    expect(() => researchJobsDir()).toThrow(LegacyLayoutError);
+    expect(() => projectsDir()).toThrow(LegacyLayoutError);
+    expect(() => batchesDir()).toThrow(LegacyLayoutError);
+    expect(() => templatesDir()).toThrow(LegacyLayoutError);
+    expect(() => referencesDir()).toThrow(LegacyLayoutError);
+    expect(() => researchDir()).toThrow(LegacyLayoutError);
+    expect(() => projectDir("p-001")).toThrow(LegacyLayoutError);
+  });
+
+  test("the error carries the E_LEGACY_LAYOUT code for the command boundary", () => {
+    try {
+      workspace();
+      throw new Error("expected LegacyLayoutError");
+    } catch (e) {
+      expect((e as { code?: string }).code).toBe("E_LEGACY_LAYOUT");
+      expect((e as Error).message).toContain("ralphy migrate");
+    }
+  });
+
+  test("setLegacyAllowed(true) (migrate/doctor opt-out) resolves to the NEW scheme paths", () => {
+    setLegacyAllowed(true);
+    // Helpers never resolve legacy paths anymore — even opted-in callers get
+    // the .ralphy/ targets; `ralphy migrate` does its own legacy path math.
+    expect(workspace()).toBe(path.join(tmp, ".ralphy"));
+    expect(ralphDir()).toBe(path.join(tmp, ".ralphy"));
+    expect(registryPath()).toBe(path.join(tmp, ".ralphy", "registry.json"));
   });
 });
 

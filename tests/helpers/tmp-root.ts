@@ -1,6 +1,7 @@
 // Test helper: create an isolated temp directory and bind the ralphy
 // `root()` to it for the duration of one test. Avoids touching real
-// workspace/.ralph/jobs.db.
+// .ralphy/jobs.db (#106: a legacy workspace/ tree would fail fast everywhere
+// except `migrate`/`doctor`, so fixtures seed the .ralphy marker).
 
 import fs from "node:fs";
 import os from "node:os";
@@ -14,7 +15,7 @@ export type TmpRoot = {
 
 export function makeTmpRoot(prefix = "ralphy-test"): TmpRoot {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
-  fs.mkdirSync(path.join(dir, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(dir, ".ralphy"), { recursive: true });
   setRoot(dir);
   return {
     dir,

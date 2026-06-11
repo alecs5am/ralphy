@@ -3,8 +3,8 @@
 //   ralphy project move <id> <ws>
 //
 // Round-trip on a fresh temp root (→ the new ".ralphy" layout) plus the
-// legacy-mode behavior: list/show report the implicit default workspace,
-// create/use/move refuse with E_LEGACY_LAYOUT until `ralphy migrate` (#106).
+// #106 fail-fast contract: EVERY workspace verb (and project move) refuses a
+// legacy workspace/ root with E_LEGACY_LAYOUT until `ralphy migrate` runs.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -143,31 +143,16 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
   });
 });
 
-describe("workspace verbs on a legacy root (#108 legacy fallback, removed by #106)", () => {
+describe("workspace verbs on a legacy root fail fast (#106)", () => {
   beforeEach(() => {
     fs.mkdirSync(path.join(tmpRoot, "workspace", ".ralph"), { recursive: true });
     fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "legacy-001"), { recursive: true });
   });
 
-  test("list reports the implicit default workspace", () => {
-    const l = ralphy(["workspace", "list"]);
-    expect(l.exitCode).toBe(0);
-    expect(l.json).toEqual([
-      { slug: "default", name: "default", projects: 1, active: true, implicit: true },
-    ]);
-  });
-
-  test("show default lists legacy projects; other slugs are E_NOT_FOUND", () => {
-    const s = ralphy(["workspace", "show", "default"]);
-    expect(s.exitCode).toBe(0);
-    expect(s.json.implicit).toBe(true);
-    expect(s.json.projects).toEqual(["legacy-001"]);
-    const nf = ralphy(["workspace", "show", "other"]);
-    expect(stderrErrorCode(nf.stderr)).toBe("E_NOT_FOUND");
-  });
-
-  test("create / use / project move refuse with E_LEGACY_LAYOUT", () => {
+  test("every workspace verb (and project move) refuses with E_LEGACY_LAYOUT", () => {
     for (const args of [
+      ["workspace", "list"],
+      ["workspace", "show", "default"],
       ["workspace", "create", "foo"],
       ["workspace", "use", "default"],
       ["project", "move", "legacy-001", "foo"],

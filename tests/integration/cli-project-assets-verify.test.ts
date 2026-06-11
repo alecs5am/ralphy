@@ -85,8 +85,8 @@ beforeAll(() => {
   }
 
   // Synthesize one 2-second mp4 and one PNG.
-  const mp4 = path.join(projectDir, "assets", "videos", "scene-01-vid.mp4");
-  const png = path.join(projectDir, "assets", "images", "scene-01-bg.png");
+  const mp4 = path.join(projectDir, "artifacts", "videos", "scene-01-vid.mp4");
+  const png = path.join(projectDir, "artifacts", "images", "scene-01-bg.png");
   synthMp4(mp4, 2.0, 320, 240, 30);
   synthPng(png, 200, 100);
 
@@ -109,7 +109,7 @@ beforeAll(() => {
       },
       "scene-missing": {
         kind: "video",
-        path: path.join(projectDir, "assets", "videos", "ghost.mp4"),
+        path: path.join(projectDir, "artifacts", "videos", "ghost.mp4"),
       },
     },
   };

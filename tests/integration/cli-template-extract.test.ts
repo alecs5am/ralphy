@@ -17,9 +17,9 @@ let tmp: string;
 
 function setupProject(): void {
   const projectId = "extract-demo-001";
-  const projDir = path.join(tmp, "workspace", "projects", projectId);
+  const projDir = path.join(tmp, ".ralphy", "workspaces", "default", "projects", projectId);
   fs.mkdirSync(path.join(projDir, "prompts"), { recursive: true });
-  fs.mkdirSync(path.join(projDir, "refs"), { recursive: true });
+  fs.mkdirSync(path.join(projDir, "artifacts", "refs"), { recursive: true });
   fs.mkdirSync(path.join(projDir, "logs"), { recursive: true });
   fs.mkdirSync(path.join(projDir, "postmortem"), { recursive: true });
 
@@ -41,7 +41,7 @@ function setupProject(): void {
   fs.writeFileSync(path.join(projDir, "prompts", "scene-02.txt"), "A second prompt.");
 
   // Light ref — should be copied, not lifted.
-  fs.writeFileSync(path.join(projDir, "refs", "hero.png"), Buffer.alloc(2048, 1));
+  fs.writeFileSync(path.join(projDir, "artifacts", "refs", "hero.png"), Buffer.alloc(2048, 1));
 
   // index.html with data-composition-variables.
   fs.writeFileSync(
@@ -70,7 +70,7 @@ irrelevant
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-tmpl-extract-"));
-  fs.mkdirSync(path.join(tmp, "workspace", ".ralph"), { recursive: true });
+  fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
   // `template extract` now writes to the user-local workspace tier
   // (`workspace/templates/<slug>/`, flat) — the repo-public templates/ folder
   // is retired. `--cwd <tmp>` reroutes the workspace dir to the tmp, so writes
@@ -115,7 +115,7 @@ describe("ralphy template extract", () => {
     }
     expect(r.exitCode).toBe(0);
 
-    const target = path.join(tmp, "workspace", "templates", "extracted-demo");
+    const target = path.join(tmp, ".ralphy", "workspaces", "default", "templates", "extracted-demo");
     expect(fs.existsSync(path.join(target, "template.json"))).toBe(true);
     expect(fs.existsSync(path.join(target, "TEMPLATE.md"))).toBe(true);
     expect(fs.existsSync(path.join(target, "README.md"))).toBe(true);
@@ -149,12 +149,12 @@ describe("ralphy template extract", () => {
     expect(readme).not.toContain("Other section");
 
     // Gen-log was appended.
-    const genlog = fs.readFileSync(path.join(tmp, "workspace", "projects", "extract-demo-001", "logs", "generations.jsonl"), "utf-8");
+    const genlog = fs.readFileSync(path.join(tmp, ".ralphy", "workspaces", "default", "projects", "extract-demo-001", "logs", "generations.jsonl"), "utf-8");
     expect(genlog).toContain("template.extract");
     expect(genlog).toContain("extracted-demo");
 
     // SOURCE PROJECT IS UNMODIFIED (AGENTS.md invariant #14) — refs/ still there.
-    expect(fs.existsSync(path.join(tmp, "workspace", "projects", "extract-demo-001", "refs", "hero.png"))).toBe(true);
+    expect(fs.existsSync(path.join(tmp, ".ralphy", "workspaces", "default", "projects", "extract-demo-001", "artifacts", "refs", "hero.png"))).toBe(true);
   });
 
   test("refuses on unknown project id with E_NOT_FOUND", () => {

@@ -185,7 +185,7 @@ describe("queue CLI · cancel / retry filter mode (subprocess smoke)", () => {
     // already up — we don't want the test to actually spawn one.
     const fs = await import("node:fs");
     const path = await import("node:path");
-    fs.writeFileSync(path.join(tmp.dir, "workspace", ".ralph", "daemon.pid"), String(process.pid));
+    fs.writeFileSync(path.join(tmp.dir, ".ralphy", "daemon.pid"), String(process.pid));
 
     const proc = Bun.spawn({
       cmd: [
