@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **42**
+Verbs registered: **43**
 
 ## Top-level verbs
 
@@ -1067,6 +1067,54 @@ Commands:
   use [options] <slug>   Resolve a guideline tag — prints the body + the agent
                          tag for the next prompt
   help [command]         display help for command
+```
+
+### `ralphy memory`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy memory [options] [command]
+
+Tiered memory store — global .ralphy/memory/ + per-workspace memory/ (markdown
+entries, append-only)
+
+Options:
+  -h, --help                display help for command
+
+Commands:
+  note [options] <text>     Write an ACTIVE memory entry directly (an explicit
+                            user remark is its own consent)
+  propose [options] <text>  Stage a candidate entry into proposed/ (promoted via
+                            `ralphy memory approve`)
+  list [options]            List memory entries (default: active entries of BOTH
+                            tiers)
+  show [options] <slug>     Print one entry (no tier flag: workspace tier first,
+                            then global)
+  search [options] <query>  Case-insensitive substring scan over frontmatter +
+                            body across both tiers
+  approve [options] [slug]  Promote a proposed/ entry to active (+ index line).
+                            MOVE, never copy-and-delete
+  reject [options] <slug>   Move a proposed/ entry to rejected/ (MOVE — the file
+                            is never unlinked)
+  recall [options]          Merged digest for intake context: global + workspace
+                            active entries (workspace wins on slug collision)
+  help [command]            display help for command
+
+Layout:
+  global tier     .ralphy/memory/                    cross-workspace lessons (model quirks, craft, tooling)
+  workspace tier  .ralphy/workspaces/<ws>/memory/    client / universe facts (cast, style DNA, rejections)
+  per tier        <slug>.md + MEMORY.md index + proposed/ staging + rejected/
+
+Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
+index points at the newest version; pass --force-overwrite for in-place replace.
+Current dirs: /Users/maximovchinnikov/github/ugc-cli/.ralphy/memory
 ```
 
 ### `ralphy batch`
