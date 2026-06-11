@@ -201,3 +201,22 @@ describe("AGENTS.md invariant #13 — prompt-library guidelines exist", () => {
     }
   });
 });
+
+describe("AGENTS.md slash-command surface", () => {
+  test("lists every maintainer skill so Codex can route absent tool-surface discovery", () => {
+    const agentsMd = fs.readFileSync(path.join(REPO, "AGENTS.md"), "utf8");
+    const skillsDir = path.join(REPO, ".agents", "skills");
+    const missing: string[] = [];
+    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillPath = path.join(skillsDir, entry.name, "SKILL.md");
+      if (!fs.existsSync(skillPath)) continue;
+      const src = fs.readFileSync(skillPath, "utf8");
+      if (!/^namespace:\s*maintainer\s*$/m.test(src)) continue;
+      if (!agentsMd.includes(`/${entry.name}`)) {
+        missing.push(entry.name);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});

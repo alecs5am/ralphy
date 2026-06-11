@@ -9,7 +9,7 @@
 //   • Optional `namespace` field is `user` or `maintainer` (03.01.04 / 053)
 //
 // Slugs carry no `ralphy-` prefix. Audience is marked by the `namespace` field
-// (`user` default, `maintainer` for the two `dev-*` skills), not by the slug.
+// (`user` default, `maintainer` for maintainer-only workflows), not by the slug.
 
 import fs from "node:fs";
 import path from "node:path";
