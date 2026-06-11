@@ -1086,26 +1086,30 @@ Tiered memory store — global .ralphy/memory/ + per-workspace memory/ (markdown
 entries, append-only)
 
 Options:
-  -h, --help                display help for command
+  -h, --help                      display help for command
 
 Commands:
-  note [options] <text>     Write an ACTIVE memory entry directly (an explicit
-                            user remark is its own consent)
-  propose [options] <text>  Stage a candidate entry into proposed/ (promoted via
-                            `ralphy memory approve`)
-  list [options]            List memory entries (default: active entries of BOTH
-                            tiers)
-  show [options] <slug>     Print one entry (no tier flag: workspace tier first,
-                            then global)
-  search [options] <query>  Case-insensitive substring scan over frontmatter +
-                            body across both tiers
-  approve [options] [slug]  Promote a proposed/ entry to active (+ index line).
-                            MOVE, never copy-and-delete
-  reject [options] <slug>   Move a proposed/ entry to rejected/ (MOVE — the file
-                            is never unlinked)
-  recall [options]          Merged digest for intake context: global + workspace
-                            active entries (workspace wins on slug collision)
-  help [command]            display help for command
+  note [options] <text>           Write an ACTIVE memory entry directly (an
+                                  explicit user remark is its own consent)
+  propose [options] <text>        Stage a candidate entry into proposed/
+                                  (promoted via `ralphy memory approve`)
+  list [options]                  List memory entries (default: active entries
+                                  of BOTH tiers)
+  show [options] <slug>           Print one entry (no tier flag: workspace tier
+                                  first, then global)
+  search [options] <query>        Case-insensitive substring scan over
+                                  frontmatter + body across both tiers
+  approve [options] [slug]        Promote a proposed/ entry to active (+ index
+                                  line). MOVE, never copy-and-delete
+  reject [options] <slug>         Move a proposed/ entry to rejected/ (MOVE —
+                                  the file is never unlinked)
+  distill [options] <project-id>  Distill a project's postmortem (02-lessons.md,
+                                  05-workflow-fixes.md) into memory PROPOSALS —
+                                  review with `ralphy memory approve`
+  recall [options]                Merged digest for intake context: global +
+                                  workspace active entries (workspace wins on
+                                  slug collision)
+  help [command]                  display help for command
 
 Layout:
   global tier     .ralphy/memory/                    cross-workspace lessons (model quirks, craft, tooling)

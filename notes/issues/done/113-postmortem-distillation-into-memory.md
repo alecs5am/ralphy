@@ -1,6 +1,6 @@
 # Postmortem distillation into memory proposals
 
-> **Status:** todo
+> **Status:** done — 2026-06-11
 > **Filed:** 2026-06-11
 > **Folder:** issues
 
