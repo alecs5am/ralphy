@@ -12,7 +12,7 @@ After `generate-assets` completes (every slot in the manifest has a file) AND be
 
 Walk every item. Each one is a MUST, not a SHOULD. A single fail aborts the render — fix at art-director layer (regenerate the offending slot per `regeneration.md`) and re-snapshot.
 
-1. **MUST snapshot every beat in `STORYBOARD.md` before render.** Use `bunx hyperframes snapshot workspace/projects/<id>` to write per-keyframe PNGs into `compositions/snapshots/` (or the equivalent path the CLI surfaces). One PNG per scene at minimum; one per beat for multi-beat scenes.
+1. **MUST snapshot every beat in `STORYBOARD.md` before render.** Use `bunx hyperframes snapshot .ralphy/workspaces/<ws>/projects/<id>` to write per-keyframe PNGs into `compositions/snapshots/` (or the equivalent path the CLI surfaces). One PNG per scene at minimum; one per beat for multi-beat scenes.
 2. **MUST eyeball every snapshot for anatomy.** Hands (count fingers, no fusion, no extra digit), eyes (gaze direction matches the beat, no third eye, no asymmetric pupils), limb articulation (no torso/joint clipping through other geometry, no impossible bend). This is the bug class that killed `noski-people-001`.
 3. **MUST eyeball every snapshot for location continuity.** Same couch, same wall, same window light direction across all scenes that share a setting. If a location plate was generated as anchor #1 per the anchor-order discipline, every scene snapshot must read as the same room.
 4. **MUST eyeball every snapshot for pivot / camera-axis sanity.** Subject is on the same side of the 180° line across cuts in a single scene. Camera height matches the beat's intent (low-angle for power, eye-level for confession, etc — per scenario). No accidental mirror-flip between v1 and a regenerated v2.

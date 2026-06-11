@@ -9,7 +9,7 @@ description: >-
 
 # dev-publish-template — one-shot extract + publish to the library
 
-This is a **maintainer** skill. It commits + pushes a template to the public `origin` repo, exactly like `dev-release` commits + pushes a binary. The job: from the **active project context**, turn `workspace/projects/<id>/` into a published template under `templates/<category>/<slug>/`, discoverable at `/library`, with one user confirmation and one push.
+This is a **maintainer** skill. It commits + pushes a template to the public `origin` repo, exactly like `dev-release` commits + pushes a binary. The job: from the **active project context**, turn `.ralphy/workspaces/<ws>/projects/<id>/` into a published template under `templates/<category>/<slug>/`, discoverable at `/library`, with one user confirmation and one push.
 
 The mechanical extraction is owned by the `ralphy template extract` verb (issue 033) + the `templater` skill (the human how-to). This skill is the `dev-release`-style automation layer on top: it infers the media format, confirms slug/category/format with the user, runs extract, enriches the manifest, seeds a showcase entry, migrates heavy assets, and ships it.
 
@@ -58,7 +58,7 @@ Proactive triggers (offer it, don't auto-execute):
 
 ## Source-of-truth files (read before extracting)
 
-These live in `workspace/projects/<project-id>/`. The extract verb consumes them; you read them to infer the format and enrich the manifest afterward.
+These live in `.ralphy/workspaces/<ws>/projects/<project-id>/`. The extract verb consumes them; you read them to infer the format and enrich the manifest afterward.
 
 | File | What it tells you |
 |---|---|
@@ -79,9 +79,9 @@ Confirm the project id from the active context. Verify the required artifacts ex
 
 ```bash
 PROJ=<project-id>
-ls workspace/projects/$PROJ/scenario.json \
-   workspace/projects/$PROJ/asset-manifest.json \
-   workspace/projects/$PROJ/render/ 2>&1
+ls .ralphy/workspaces/<ws>/projects/$PROJ/scenario.json \
+   .ralphy/workspaces/<ws>/projects/$PROJ/asset-manifest.json \
+   .ralphy/workspaces/<ws>/projects/$PROJ/render/ 2>&1
 ```
 
 Missing any of these → **refuse** with the DO-NOT-FIRE ask. Do not improvise content for a half-finished project.
@@ -136,7 +136,7 @@ Heavy-asset migration (step 6) is a **separate flag on the same verb** — do no
 - `--assets-repo <path>` — path to the ralphy-assets checkout; **required when `--lift-heavy` is set**.
 - `--force` — overwrite the target template dir if it already exists. **Only with explicit user consent** (invariant #2).
 
-The verb writes `templates/<category>/<slug>/`: `template.json` (loader manifest), `scenario-template.json` (slot-substituted scenario), `TEMPLATE.md`, `README.md` (drafted from POSTMORTEM lessons), `prompts/`, `refs/`, `sample-remix.md`, and `composition-variables.json` when the project is a HyperFrames composition.
+The verb writes `.ralphy/workspaces/<ws>/templates/<slug>/`: `template.json` (loader manifest), `scenario-template.json` (slot-substituted scenario), `TEMPLATE.md`, `README.md` (drafted from POSTMORTEM lessons), `prompts/`, `refs/`, `sample-remix.md`, and `composition-variables.json` when the project is a HyperFrames composition.
 
 > Note: the verb writes a `template.json` manifest. The typed `template.yaml` (issue 052) carries `format` + `style_of` for the format-aware surfaces (`list --format`, `suggest --format`). If extraction wrote `format`/`style_of` only into `template.json`, mirror them into a `template.yaml` conforming to `cli/lib/schemas/template.ts` so `ralphy template list --format <f>` finds the new slug — verify with the gate in step 7.
 

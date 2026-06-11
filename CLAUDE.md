@@ -18,10 +18,11 @@ Four companion files the agent should also keep in mind:
 
 - `cli/` — ralphy CLI (TypeScript, tsx). Commands `cli/commands/`, libs `cli/lib/`.
 - `cli/lib/render/hyperframes.ts` — HyperFrames render adapter (the render engine).
-- `templates/` — repo-public template pack, committed to git, shipped on every clone. Read by `ralphy template list` / `suggest` / `use`.
-- `.ralphy/` — the gitignored data root (#108; replaces the legacy `workspace/`, which is still read as a fallback until #106 migrates). Engine state at top level (`registry.json`, `config.json`), caches under `cache/{assets,library}/`, global `research/` + `references/`, and **workspaces** under `workspaces/<ws>/{workspace.json,shared/,projects/,templates/,batches/}`. A workspace = a studio / universe / client owning `shared/` assets reused across its projects; `ralphy workspace {create|list|show|use}` manages them, `ralphy project move <id> <ws>` relocates a project, and the registry maps `id → workspace` so existing verbs keep taking a bare `<id>`. NOTE: `.ralphy/` is hidden — use `fd -H` / the CLI, not a blind `ls`. Below, `<project>` = `.ralphy/workspaces/<ws>/projects/<id>` (legacy: `workspace/projects/<id>`).
-- `.ralphy/cache/assets/` — local cache of files pulled from the `ralphy-assets` companion repo (legacy: `workspace/.ralph/asset-cache/`).
-- `<project>/artifacts/` — the **raw working dump**, one `<kind>/` subdir per media kind (`images|videos|voiceover|music|sfx|captions|fonts|refs` — input references are the `refs` kind): every `ralphy generate` output, every `.v2`/`.v3` re-roll, rejects, scratch. Append-only, versioned, never the deliverable. (#105; the legacy `assets/` + sibling `refs/` layout is still read as a fallback until #106 migrates existing projects.)
+- Templates — two tiers, read by `ralphy template list` / `suggest` / `use`: the **public content library** (static `library.json` on Bunny CDN) and the active workspace's `.ralphy/workspaces/<ws>/templates/` (user-local, gitignored). The old repo-public `templates/` folder is retired.
+- `.ralphy/` — the gitignored data root (#108; replaced the legacy `workspace/` tree, fully migrated by #106 — a leftover legacy root fails fast with `E_LEGACY_LAYOUT` on every verb except `ralphy migrate` / `ralphy doctor`; `ralphy migrate [--dry-run]` is the only path back). Engine state at top level (`registry.json`, `config.json`), caches under `cache/{assets,library,svg}/`, global `research/` + `references/`, and **workspaces** under `workspaces/<ws>/{workspace.json,shared/,projects/,templates/,batches/}`. A workspace = a studio / universe / client owning `shared/` assets reused across its projects; `ralphy workspace {create|list|show|use}` manages them, `ralphy project move <id> <ws>` relocates a project, and the registry maps `id → workspace` so existing verbs keep taking a bare `<id>`. Ref resolution: project `artifacts/refs/` → workspace `shared/` (`--ref shared/<path>` targets it explicitly). NOTE: `.ralphy/` is hidden — use `fd -H` / the CLI / the `studio/` viewer (#107), not a blind `ls`. Below, `<project>` = `.ralphy/workspaces/<ws>/projects/<id>`.
+- `.ralphy/cache/assets/` — local cache of files pulled from the `ralphy-assets` companion repo.
+- `<project>/artifacts/` — the **raw working dump**, one `<kind>/` subdir per media kind (`images|videos|voiceover|music|sfx|captions|fonts|refs` — input references are the `refs` kind, #105): every `ralphy generate` output, every `.v2`/`.v3` re-roll, rejects, scratch. Append-only, versioned, never the deliverable.
+- `studio/` — Ralphy Studio (#107), the local read-only artifact browser (`cd studio && bun run dev`): workspace + project selectors, live artifact grid over `<project>/artifacts/<kind>/`, preview modal. The visual alternative to `fd -H` into `.ralphy/`.
 - `<project>/units/` — **curated deliverables** (#069). Each `units/<slug>/` holds COPIES of selected `artifacts/` files (ordered) + a `unit.json` manifest (format + ordered media + provenance), mirroring the library-v2 Unit entity so publish (#056) is mechanical. COPY-not-move (the source `artifacts/` stay untouched) and **append-only** (a new slug = a new dir; re-`create` on an existing slug = a `<slug>.v2/` dir, never an overwrite; `unit add` appends). Formed explicitly via `ralphy unit`; `ralphy generate` never writes here.
 - `docs/playbooks/` — role / domain instruction docs. The agent reads these on demand based on `AGENTS.md` routing.
 - `.agents/skills/` — thin slash-command shims (`/researcher`, etc.) that redirect to the playbooks. `.claude/skills/` symlinks.
@@ -35,13 +36,13 @@ Four companion files the agent should also keep in mind:
 
 Resources: `brand`, `persona`, `ref`, `project`, `unit`, `template`, `batch`, `asset`, `workspace`, `config`. Each: `create | list | show <id> | update <id> | delete <id>` (`unit` adds `add`, scoped per-project: `unit <verb> <project> [<slug>]`).
 
-Top-level: `setup`, `status`, `doctor`, `generate {image|video|voiceover|music}`, `render <project>`, `assets {list|pull|install|clean|cache-info}`, `example {list|pull}`.
+Top-level: `setup`, `status`, `doctor`, `generate {image|video|voiceover|music}`, `render <project>`, `assets {list|pull|install|clean|cache-info}`, `example {list|pull}`, `migrate [--dry-run] [--project <id>]` (legacy `workspace/` tree → `.ralphy/` layout).
 
 Defaults to JSON. `-p` for pretty tables. Full reference: `docs/agent-guide.md`. Spec: `docs/cli-spec.md`.
 
 ## Project memory
 
-Every project keeps append-only logs at `workspace/projects/<id>/logs/`:
+Every project keeps append-only logs at `<project>/logs/` (`.ralphy/workspaces/<ws>/projects/<id>/logs/`):
 - `generations.jsonl` — every model call with input/output/cost (auto-written by `ralphy generate`)
 - `user-prompts.jsonl` — chronological user prompts (`logUserPrompt`)
 - `user-assets.jsonl` — uploaded references (`logUserAsset`)
@@ -52,11 +53,11 @@ CLI: `ralphy project log <id>` / `ralphy project timeline <id>` / `ralphy projec
 
 - Project ID: `{context}-{NNN}` (e.g. `spring-2026-001`).
 - Scene ID: `scene-{NN}`. Asset slot: `{scene-id}-{type}-{descriptor}`.
-- HyperFrames: authored as `workspace/projects/<id>/index.html` with `data-*` timing attributes and a paused GSAP timeline registered on `window.__timelines`. See [`docs/playbooks/hyperframes.md`](docs/playbooks/hyperframes.md).
+- HyperFrames: authored as `<project>/index.html` with `data-*` timing attributes and a paused GSAP timeline registered on `window.__timelines`. See [`docs/playbooks/hyperframes.md`](docs/playbooks/hyperframes.md).
 
 ## Testing
 
-TDD-leaning. New CLI command → smoke via `bunx tsx cli/index.ts <cmd>` + JSON assertion. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint workspace/projects/<id>` + `bunx hyperframes snapshot` for key-frame PNGs.
+TDD-leaning. New CLI command → smoke via `bun run cli/index.ts <cmd>` (NOT `bunx tsx` — it breaks on `bun:sqlite`) + JSON assertion. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint .ralphy/workspaces/<ws>/projects/<id>` + `bunx hyperframes snapshot` for key-frame PNGs.
 
 ## Help & feedback
 

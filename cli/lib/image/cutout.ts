@@ -9,7 +9,7 @@
 // Hard rules:
 //  - All functions are async and return the output path.
 //  - All functions accept an optional `projectId` and log to
-//    `workspace/projects/<id>/logs/generations.jsonl` via gen-log.ts. Provider
+//    `<project>/logs/generations.jsonl` via gen-log.ts. Provider
 //    is `"ffmpeg"` for chromakey/fit, `"playwright"` for rasterize + flood-fill.
 //  - cost_usd is 0 (all local).
 //  - Output PNGs always preserve alpha; callers picking the right mode is on
@@ -630,7 +630,7 @@ export async function ps1Crunch(input: Ps1CrunchOptions): Promise<string> {
 // ── SVG passthrough for `--ref` ─────────────────────────────────────────────
 // Used by the generate-image path (and any other --ref consumer) to coerce a
 // .svg ref into a PNG on the fly. Cached under
-// `workspace/.ralph/svg-cache/<basename>-<size>.png` so the same logo isn't
+// `.ralphy/cache/svg/<basename>-<size>.png` so the same logo isn't
 // re-rasterized on every gen.
 
 import { svgCacheDir } from "../paths.js";

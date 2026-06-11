@@ -4,14 +4,14 @@ A guide for Claude Code agents and skills. Covers how to work with the project, 
 
 ## The golden rule
 
-**Use the ralph CLI for every workspace operation.** Don't create or edit files in `workspace/` directly — go through the CLI. This guarantees that registry.json, entity files, and directories stay in sync.
+**Use the ralph CLI for every data-root operation.** Don't create or edit files in `.ralphy/` directly — go through the CLI. This guarantees that registry.json, entity files, and directories stay in sync. (`.ralphy/` is hidden: use `fd -H` or CLI verbs to inspect it, never conclude from a blind `ls`.)
 
 ```bash
 # Run the CLI
-npx tsx cli/index.ts <command>
+bun run cli/index.ts <command>
 
-# Or via npm script
-npm run ralph -- <command>
+# Or via the package script
+bun run ralph -- <command>
 ```
 
 All commands return JSON by default — parse the output. For human-readable output add `-p`.
@@ -19,6 +19,26 @@ All commands return JSON by default — parse the output. For human-readable out
 ---
 
 ## Project entities
+
+### Workspace (studio / universe grouping, #108)
+
+A workspace groups related projects and owns a `shared/` asset tier (cast masters, brand logos, music) reused across them. Everything lives under the hidden `.ralphy/` data root; the registry maps `id → workspace`, so every other verb keeps taking a bare project `<id>`.
+
+```bash
+ralph workspace create fogtown --name "Fog Town" --description "choose-* horror universe"
+ralph workspace list                 # slug, name, project count, active flag
+ralph workspace show fogtown         # workspace.json + project list
+ralph workspace use fogtown          # set as the default home for new projects
+ralph project move choose-swamp-001 fogtown   # relocate a project (updates registry)
+```
+
+**Storage:** `.ralphy/workspaces/<ws>/{workspace.json,shared/,projects/,templates/,batches/}`.
+
+**`shared/` resolution:** `--ref` / `--first-frame` / `--audio` paths resolve project-first, then workspace: cwd → `<project>/` → `<project>/artifacts/refs/` → `workspaces/<ws>/shared/`. The explicit `--ref shared/cast/nurse.png` form targets the shared tier directly — promote a reusable master into `shared/` once, reference it from every project in the workspace.
+
+**Legacy roots:** a pre-#106 `workspace/` tree fails fast with `E_LEGACY_LAYOUT` on every verb except `ralphy migrate` / `ralphy doctor`. Run `ralphy migrate --dry-run`, review the plan, then `ralphy migrate`.
+
+---
 
 ### Brand (brand / design system)
 
@@ -40,9 +60,9 @@ ralph brand delete <id>
 ```
 
 **Storage:**
-- Registry: `workspace/.ralph/registry.json` → `brands.<id>`
-- Details: `workspace/.ralph/brands/<id>.json`
-- Design tokens (if extracted): `workspace/references/<slug>/design-tokens.json`
+- Registry: `.ralphy/registry.json` → `brands.<id>`
+- Details: `.ralphy/workspaces/<ws>/shared/brands/<id>.json` (the active workspace's `shared/` tier)
+- Design tokens (if extracted): `.ralphy/references/<slug>/design-tokens.json`
 
 ---
 
@@ -71,7 +91,7 @@ ralph persona update <id> --tone "energetic, bold"
 ralph persona delete <id>
 ```
 
-**Storage:** `workspace/.ralph/personas/<id>.json`
+**Storage:** `.ralphy/workspaces/<ws>/shared/personas/<id>.json`
 
 ---
 
@@ -95,8 +115,8 @@ ralph ref delete <id>
 **Types:** `design` (for /ralph-ugc:extract-design), `social` (for /ralph-ugc:extract-social), `media` (local file)
 
 **Storage:**
-- Registry + `workspace/.ralph/refs/<id>.json`
-- Downloaded data: `workspace/references/<slug>/`
+- Registry + `.ralphy/workspaces/<ws>/shared/refs/<id>.json`
+- Downloaded data: `.ralphy/references/<slug>/` (global, cross-workspace)
 
 ---
 
@@ -150,7 +170,7 @@ ralph project delete <id> --keep-render   # Keep the final video
 
 **Storage:**
 ```
-workspace/projects/<id>/
+.ralphy/workspaces/<ws>/projects/<id>/
   scenario.json           — master scenario (output of /ralph-ugc:create-scenario)
   prompts.json            — generation prompts (output of /ralph-ugc:generate-prompts)
   artifacts/              — all media the project consumes or produces (#105)
@@ -174,11 +194,11 @@ workspace/projects/<id>/
 
 A reusable blueprint for a video. Two formats: **flat** (`<id>.json`, scenario only) and **dir** (`<id>/` with full LLM-doc, preferred for video formats).
 
-Templates live in two roots and the CLI reads both:
-- **Repo-public** `templates/<id>/` — committed to git, ships with every clone. The canonical pack: `ai-vegetables`, `before-after-product`, `soviet-nostalgic`, `talking-character`, `talking-head-rant`.
-- **User-local** `workspace/templates/<id>/` — gitignored. Same id as a repo template wins (override semantics).
+Templates live in two tiers and the CLI reads both:
+- **Public content library** — the static `library.json` served on Bunny CDN (same library the `/library` landing serves). The old repo-public `templates/` folder is retired.
+- **User-local** `.ralphy/workspaces/<ws>/templates/<id>/` — gitignored, scoped to the active workspace. Same id as a public template wins (override semantics).
 
-`template list` and `template suggest` tag each row with `source: "workspace" | "repo"` so you can tell which one was matched.
+`template list` and `template suggest` tag each row with its source so you can tell which tier was matched.
 
 **When to grab a dir-template:** at the start of a new project that resembles a successful one in format. Example: every soviet-nostalgic TikTok clip → `soviet-nostalgic` template with ready prompt fragments, scene-skeleton, and model-stack.
 
@@ -191,7 +211,7 @@ ralph template use soviet-nostalgic \
   --project my-spring-ad-001 \
   --name "My Spring Ad" \
   --brief "One-line brief"
-# → workspace/projects/my-spring-ad-001/ with TEMPLATE_ORIGIN.md, standard subdirectories.
+# → .ralphy/workspaces/<ws>/projects/my-spring-ad-001/ with TEMPLATE_ORIGIN.md, standard subdirectories.
 # scenario.json is intentionally NOT created — author it through scenarist playbook.
 
 # Create a flat template from an existing project (lands in workspace)
@@ -206,7 +226,7 @@ ralph template delete <id>
 
 **Dir-template structure:**
 ```
-templates/<id>/  (repo)   ─OR─   workspace/templates/<id>/  (local)
+.ralphy/workspaces/<ws>/templates/<id>/
   template.json           — metadata (name, description, tags, stackSummary)
   TEMPLATE.md             — main LLM-doc: vibe, when to use, what varies, workflow
   reference-example.md    — concrete example from the source project with annotations (optional but recommended)
@@ -217,9 +237,9 @@ templates/<id>/  (repo)   ─OR─   workspace/templates/<id>/  (local)
 
 **Principle:** a template is a vibe-reference. The scenario is written fresh through `scenarist playbook` for every new project; the previous scenario lives in `reference-example.md` as a concrete vibe example, not as Mad Libs for substituting variables.
 
-**Canonical example:** `templates/entertainment-viral/soviet-nostalgic/` (repo).
+**Canonical example:** the `soviet-nostalgic` template in the public library (`ralphy template show soviet-nostalgic`).
 
-**Storage:** flat — `<root>/<id>.json`; dir — `<root>/<id>/`. `<root>` is `templates/` (repo, read-only via CLI) or `workspace/templates/` (local, mutable).
+**Storage:** flat — `<root>/<id>.json`; dir — `<root>/<id>/`. `<root>` is the active workspace's `.ralphy/workspaces/<ws>/templates/` (the public library tier lives on the CDN, read-only via CLI).
 
 ---
 
@@ -252,7 +272,7 @@ name,product,color,testimonial
 "Ad 2","Widget B","#33FF57","Amazing quality!"
 ```
 
-**Storage:** `workspace/batches/<id>/batch-config.json` + `state.json`
+**Storage:** `.ralphy/workspaces/<ws>/batches/<id>/batch-config.json` + `state.json`
 
 ---
 
@@ -341,7 +361,7 @@ ralph template use soviet-nostalgic \
   --project client-spring-001 \
   --name "Client Spring Ad" \
   --brief "..."
-# → workspace/projects/client-spring-001/ with TEMPLATE_ORIGIN.md (pointer to template docs)
+# → .ralphy/workspaces/<ws>/projects/client-spring-001/ with TEMPLATE_ORIGIN.md (pointer to template docs)
 #   and standard subdirectories (artifacts/, logs/, scripts/, render/).
 # The scenario is written fresh through /ralph-ugc:create-scenario, using TEMPLATE.md as a vibe-reference.
 ```
@@ -394,7 +414,7 @@ If the format is reproducible — extract it into a template so the next chat ca
 ralph template create --name "Product Ad" --from-project working-example
 
 # Dir variant (preferred for video formats) — built manually:
-# 1. mkdir workspace/templates/<slug>/
+# 1. mkdir .ralphy/workspaces/<ws>/templates/<slug>/
 # 2. Create template.json (metadata), TEMPLATE.md (vibe, workflow),
 #    reference-example.md (concrete example from the source project),
 #    fragments.md (prompt library), model-stack.md (what/why),
@@ -405,7 +425,7 @@ ralph template create --name "Product Ad" --from-project working-example
 # Scenarios for each new project are written fresh through /ralph-ugc:create-scenario.
 ```
 
-See `workspace/templates/entertainment-viral/soviet-nostalgic/` as a model.
+See the `soviet-nostalgic` dir-template (`ralphy template show soviet-nostalgic`) as a model.
 
 ### Bulk generation
 
@@ -418,13 +438,13 @@ ralph batch create --name "100 Ads" --template product-ad --variations ./data.cs
 
 ## Project memory — required logging
 
-Every project keeps an append-only history under `workspace/projects/{id}/logs/`. This is critical: in the next chat, handing over a project path is enough to recover full context.
+Every project keeps an append-only history under `<project>/logs/` (`<project>` = `.ralphy/workspaces/<ws>/projects/<id>`). This is critical: in the next chat, handing over a project path is enough to recover full context.
 
 **What to log:**
 1. **The user's brief** — as soon as the user writes it: `ralph project log-prompt <id> --text "..." --stage brief`
 2. **Any feedback** — `--stage feedback` (e.g. "clip-03 is boring")
 3. **Every user-uploaded asset** — screenshots, character photos, product refs, brand documents: `ralph project log-asset <id> --kind photo --source <path> --purpose character-ref`
-4. **Every model call** is auto-logged by `ralphy generate <kind>`. CLI commands wrap `cli/lib/providers/media.ts` which calls `logGeneration()` internally with provider/endpoint/cost. **Do not write runtime TS scripts under `workspace/projects/<id>/scripts/` to call APIs** — see AGENTS.md hard rule #2. If an operation isn't covered by `ralphy generate`: add a helper to ralphy first.
+4. **Every model call** is auto-logged by `ralphy generate <kind>`. CLI commands wrap `cli/lib/providers/media.ts` which calls `logGeneration()` internally with provider/endpoint/cost. **Do not write runtime TS scripts under `<project>/scripts/` to call APIs** — see AGENTS.md hard rule #2. If an operation isn't covered by `ralphy generate`: add a helper to ralphy first.
 
 ```bash
 # Each of these auto-logs to generations.jsonl:
@@ -457,17 +477,18 @@ ugc-cli/
 ├── dashboard/               # React SPA dashboard (retired)
 │   ├── server/              # Hono API + chokidar + WebSocket
 │   └── src/                 # React + Zustand + Vite
-├── workspace/               # ALL GENERATED FILES (gitignored)
-│   ├── .ralph/              # CLI config and registry
-│   │   ├── registry.json    # Central registry of all entities
-│   │   ├── config.json      # CLI settings
-│   │   ├── brands/          # Detailed brand JSON
-│   │   ├── personas/        # Detailed persona JSON
-│   │   └── refs/            # Detailed reference JSON
-│   ├── projects/            # Video projects
-│   ├── references/          # Downloaded extracts (design, social)
-│   ├── batches/             # Batch operations
-│   └── templates/           # Scenario templates
+├── .ralphy/                 # ALL GENERATED FILES (gitignored, hidden — fd -H)
+│   ├── registry.json        # Central registry of all entities (id → workspace)
+│   ├── config.json          # CLI settings (incl. activeWorkspace)
+│   ├── cache/               # assets / library / svg caches
+│   ├── research/            # Global research output (+ research/jobs/)
+│   ├── references/          # Downloaded extracts (design, social) — global
+│   └── workspaces/<ws>/     # Workspace layer (#108)
+│       ├── workspace.json   # { name, slug, created, description }
+│       ├── shared/          # Workspace-shared assets (brands/ personas/ refs/ cast/ ...)
+│       ├── projects/        # Video projects (#105 artifacts/ inside)
+│       ├── templates/       # User-local templates
+│       └── batches/         # Batch operations
 ├── .agents/skills/          # Skills (source of truth)
 ├── .claude/skills/          # Skill symlinks
 ├── docs/                    # Specifications
@@ -483,8 +504,8 @@ ugc-cli/
 
 1. **Always use the ralph CLI** for CRUD operations. Don't write to registry.json directly.
 2. **Parse the JSON output** of CLI commands inside skills to get data.
-3. **Generated content** lives in `workspace/projects/<id>/` only.
-4. **HyperFrames assets** — reference `workspace/projects/{id}/artifacts/` via relative paths from inside `index.html`. No symlinks.
+3. **Generated content** lives in `<project>/` (`.ralphy/workspaces/<ws>/projects/<id>/`) only.
+4. **HyperFrames assets** — reference `<project>/artifacts/` via relative paths from inside `index.html`. No symlinks.
 5. **Check status** via `ralph project show <id> --status` before launching the next pipeline step.
 6. **Batch mode** — don't run more projects in parallel than `config.render.concurrency`.
 7. **This documentation can be updated** — if you add a new command or change behavior, refresh this file.

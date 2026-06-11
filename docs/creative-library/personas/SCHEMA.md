@@ -83,8 +83,8 @@ bun run ralph -- persona list                # все, краткая колон
 
 ## Storage
 
-- Registry: `workspace/.ralph/registry.json` (под ключом `personas`)
-- Individual file: `workspace/.ralph/personas/<id>.json`
+- Registry: `.ralphy/registry.json` (under the `personas` key)
+- Individual file: `.ralphy/workspaces/<ws>/shared/personas/<id>.json`
   (dual-write через `cli/lib/registry.ts`)
 
 ## Backward compatibility

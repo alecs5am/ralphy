@@ -10,7 +10,7 @@ Two verbs sit at the bookends of a project. `ralphy research` is the pre-product
 Runs the full eval pipeline on a single mp4. Output: `eval-report.md` (human) + `eval.json` (machine).
 
 ```bash
-ralphy eval video workspace/projects/demo-001/render/final.mp4
+ralphy eval video .ralphy/workspaces/<ws>/projects/demo-001/render/final.mp4
 ralphy eval video ./some-other.mp4 --no-project    # standalone, no project context
 ralphy eval video ./clip.mp4 --no-vision           # skip the per-scene LLM pass (cheaper)
 ralphy eval video ./clip.mp4 --out-dir ./eval-out  # custom output dir
@@ -60,10 +60,10 @@ ralphy research show italian-brainrot
 ralphy research list
 ```
 
-Output lands under `workspace/research/<topic>/`:
+Output lands under `.ralphy/research/<topic>/`:
 
 ```text
-workspace/research/italian-brainrot/
+.ralphy/research/italian-brainrot/
 ├── report.md          # final synthesis
 ├── sources.json       # every source + per-source analysis
 └── state.json         # topic state (question, sources, last synth)

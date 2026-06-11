@@ -25,27 +25,27 @@ The prompt to the sub-agent should be (template):
 
 ```
 Run a fan-out crawl of <URL> and produce a structured digest at
-workspace/projects/<id>/refs/research.md.
+.ralphy/workspaces/<ws>/projects/<id>/artifacts/refs/research.md.
 
 Use Playwright (bun /tmp/playwright-script.js with chromium.launch()).
 Visit at minimum these pages (auto-detect from the sitemap / nav menu if a
 path doesn't exist):
 
-  1. Home / landing                          (refs/home.png)
-  2. /docs or /documentation or /api         (refs/docs.png + extract API surface)
-  3. /pricing                                (refs/pricing.png + extract price points)
-  4. /features or /product                   (refs/features.png)
-  5. /examples or /showcase or /customers    (refs/examples.png)
-  6. /blog or /changelog                     (refs/blog.png — recent claims)
+  1. Home / landing                          (artifacts/refs/home.png)
+  2. /docs or /documentation or /api         (artifacts/refs/docs.png + extract API surface)
+  3. /pricing                                (artifacts/refs/pricing.png + extract price points)
+  4. /features or /product                   (artifacts/refs/features.png)
+  5. /examples or /showcase or /customers    (artifacts/refs/examples.png)
+  6. /blog or /changelog                     (artifacts/refs/blog.png — recent claims)
   7. /about (optional — team, location)
 
 For EACH page, capture:
-  - A 1440×900 deviceScaleFactor=2 hero screenshot → refs/<slug>.png
-  - The visible body copy (text content of <main>, dump as refs/<slug>.txt)
-  - Computed CSS custom properties + hex colors used → refs/tokens.json
+  - A 1440×900 deviceScaleFactor=2 hero screenshot → artifacts/refs/<slug>.png
+  - The visible body copy (text content of <main>, dump as artifacts/refs/<slug>.txt)
+  - Computed CSS custom properties + hex colors used → artifacts/refs/tokens.json
   - Page title + meta description
 
-Then write refs/research.md with these sections:
+Then write artifacts/refs/research.md with these sections:
 
   ## Brand DNA
   - Background color(s) + hex
@@ -79,19 +79,19 @@ Do NOT generate creatives. Do NOT write prompts. Just return the digest.
 Estimated cost: 0 (Playwright is local), wall-clock ~3-5 min.
 ```
 
-### Step 2 — Read `refs/research.md` BEFORE writing brand-dna.md
+### Step 2 — Read `artifacts/refs/research.md` BEFORE writing brand-dna.md
 
-The digest is the single source of truth for the brand-DNA file. Every hex value in `brand-dna.md` must trace to a token in `refs/tokens.json` or a screenshot in `refs/`. No invented colors. No invented API symbols. No invented claims.
+The digest is the single source of truth for the brand-DNA file. Every hex value in `brand-dna.md` must trace to a token in `artifacts/refs/tokens.json` or a screenshot in `artifacts/refs/`. No invented colors. No invented API symbols. No invented claims.
 
-### Step 3 — Pass `refs/home.png` (or the most representative page) as `--ref` on every gen
+### Step 3 — Pass `artifacts/refs/home.png` (or the most representative page) as `--ref` on every gen
 
-For visual consistency across N creatives, every `ralphy generate image` call gets `--ref refs/home.png` (or whichever page best represents the brand at-a-glance). This was the discipline that made 32 distinct sotaocr-fb-001 creatives feel cross-consistent.
+For visual consistency across N creatives, every `ralphy generate image` call gets `--ref artifacts/refs/home.png` (or whichever page best represents the brand at-a-glance). This was the discipline that made 32 distinct sotaocr-fb-001 creatives feel cross-consistent.
 
 ## Hard rules
 
-1. **No prompt without research.md.** If `refs/research.md` doesn't exist for a brand-derived project, the next paid `ralphy generate` is forbidden. Period.
+1. **No prompt without research.md.** If `artifacts/refs/research.md` doesn't exist for a brand-derived project, the next paid `ralphy generate` is forbidden. Period.
 2. **Code creatives must cite the documented surface.** If `research.md` "Documented API surfaces" lists ONLY `curl`, code-on-screen creatives must show curl. Never invent an SDK on top of a curl-only API. See [[feedback_verify_sdk_before_code_creative]].
-3. **Brand-DNA hex values must match `refs/tokens.json`.** No memory-sourced palette guesses. See [[feedback_site_grounding_before_brand_dna]].
+3. **Brand-DNA hex values must match `artifacts/refs/tokens.json`.** No memory-sourced palette guesses. See [[feedback_site_grounding_before_brand_dna]].
 4. **The sub-agent crawls — the main agent doesn't.** Keep the crawl out of the main context. The digest is the deliverable.
 
 ## What "good research.md" looks like
@@ -146,7 +146,7 @@ For visual consistency across N creatives, every `ralphy generate image` call ge
 - `.agents/skills/researcher/SKILL.md` — for video-style research (TikToks, Reels). This playbook is its sibling for brand-site research.
 - AGENTS.md hard invariant #15 — the route-level enforcement
 - Memory: [[feedback_site_grounding_before_brand_dna]], [[feedback_verify_sdk_before_code_creative]]
-- Postmortem of origin: `workspace/projects/sotaocr-fb-001/postmortem/02-lessons.md` rule #1 + Iteration 2 rule #8
+- Postmortem of origin: `.ralphy/workspaces/<ws>/projects/sotaocr-fb-001/postmortem/02-lessons.md` rule #1 + Iteration 2 rule #8
 
 ---
 

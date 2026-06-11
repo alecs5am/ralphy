@@ -7,9 +7,9 @@
 ## Phase 1 — Brainstorm ideas
 
 1. Read template fully:
-   - `workspace/templates/<id>/TEMPLATE.md` (vibe, constants, axes)
-   - `workspace/templates/<id>/reference-example.md`
-   - `workspace/templates/<id>/template.json` (metadata, required assets, cost ballpark)
+   - `.ralphy/workspaces/<ws>/templates/<id>/TEMPLATE.md` (vibe, constants, axes)
+   - `.ralphy/workspaces/<ws>/templates/<id>/reference-example.md`
+   - `.ralphy/workspaces/<ws>/templates/<id>/template.json` (metadata, required assets, cost ballpark)
 
 2. Generate N ideas varying along documented axes. Each idea:
    - `id` (kebab-slug)
@@ -28,7 +28,7 @@
 ralphy batch create --template <id> --ideas <approved-list>
 ```
 
-→ `workspace/batches/<batch-id>/ideas-approved.json`:
+→ `.ralphy/workspaces/<ws>/batches/<batch-id>/ideas-approved.json`:
 
 ```json
 {
@@ -54,7 +54,7 @@ ralphy batch status <batch-id>
 
 `ralphy batch create` (Phase 2) already scaffolds projects: for each variation it does `template use` → copy required assets → `BRIEF.md` → log-prompt → marks status `pending`. Output:
 
-`workspace/batches/<batch-id>/state.json` with per-project `pending` status.
+`.ralphy/workspaces/<ws>/batches/<batch-id>/state.json` with per-project `pending` status.
 
 ## Phase 4 — Run pipeline parallel
 

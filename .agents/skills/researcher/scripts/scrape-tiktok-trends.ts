@@ -14,7 +14,7 @@
 //   bunx tsx .agents/skills/ralph-researcher/scripts/scrape-tiktok-trends.ts \
 //     --hashtags trending,fyp \
 //     --limit 10 \
-//     --out workspace/references/trends-2026-04-30/results.json
+//     --out .ralphy/references/trends-2026-04-30/results.json
 //
 // Caveats:
 // - TikTok rotates anti-bot tokens and rate-limits without login. Treat output
@@ -54,7 +54,7 @@ function parseArgs(): { hashtags: string[]; limit: number; out: string } {
   }
   const hashtags = hashtagsArg.split(",").map((h) => h.trim().replace(/^#/, ""));
   const limit = Number(get("--limit") ?? 10);
-  const out = get("--out") ?? `workspace/references/trends-${new Date().toISOString().slice(0, 10)}/results.json`;
+  const out = get("--out") ?? `.ralphy/references/trends-${new Date().toISOString().slice(0, 10)}/results.json`;
   return { hashtags, limit, out };
 }
 

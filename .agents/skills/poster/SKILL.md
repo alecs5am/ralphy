@@ -25,7 +25,7 @@ A generalized layout overlay, not a finished poster. It does not name a brand, a
 - All generation routes through `ralphy generate image` (no raw API). Read `MODELS.md` before naming any model id — the stack below is a default, not a hardcode.
 - The reference-required gate still fires for a **named real entity** in the hero or product slot (a real person, a recognizable branded product, an IP). A fictional brand + an original glyph + a generic product proceeds **without** a ref. Make the brand glyph explicitly ORIGINAL in the prompt ("NOT any existing brand") so the model does not drift toward a trademarked mark.
 - The quality gate refuses, not warns — two failed `scoreImage` in a row → stop and report options.
-- **Real-brand pre-flight: site-grounding before any prompt.** If the poster targets a real brand (user's own startup, a customer's site, any URL given), **dispatch a Playwright sub-agent** to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting the brand-DNA or prompt. Read `refs/research.md` (the sub-agent's digest), not just a WebFetch of the home page. Every `{{palette}}` hex must trace to `refs/tokens.json`; every named API symbol in body copy or code-creative slots must trace to "Documented API surfaces" in `research.md`. Full discipline + sub-agent prompt template: [`docs/playbooks/site-grounding.md`](../../../docs/playbooks/site-grounding.md). Skipping this cost `sotaocr-fb-001` $1.20 + 5/32 hallucinated-SDK creatives.
+- **Real-brand pre-flight: site-grounding before any prompt.** If the poster targets a real brand (user's own startup, a customer's site, any URL given), **dispatch a Playwright sub-agent** to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting the brand-DNA or prompt. Read `artifacts/refs/research.md` (the sub-agent's digest), not just a WebFetch of the home page. Every `{{palette}}` hex must trace to `artifacts/refs/tokens.json`; every named API symbol in body copy or code-creative slots must trace to "Documented API surfaces" in `research.md`. Full discipline + sub-agent prompt template: [`docs/playbooks/site-grounding.md`](../../../docs/playbooks/site-grounding.md). Skipping this cost `sotaocr-fb-001` $1.20 + 5/32 hallucinated-SDK creatives.
 
 ## The niche, in one paragraph
 
@@ -75,7 +75,7 @@ Finish layer (always on): subtle film grain + slight vignette + faint CRT warmth
 
 ## Worked example (validated 2026-05-27)
 
-`workspace/projects/loud-kids-poster-001/` holds three palette/hero/product variants built on this exact scaffold (BOOM/royal-blue+lollipop, DANG/coral-plum+popsicle, YIKES/lime-forest+soda) plus a 9:16 A/B (gpt-image vs gemini). The three prompt files (`prompt-v1-boom.txt` …) are the canonical filled-slot reference — read one before drafting a new poster prompt.
+`.ralphy/workspaces/<ws>/projects/loud-kids-poster-001/` holds three palette/hero/product variants built on this exact scaffold (BOOM/royal-blue+lollipop, DANG/coral-plum+popsicle, YIKES/lime-forest+soda) plus a 9:16 A/B (gpt-image vs gemini). The three prompt files (`prompt-v1-boom.txt` …) are the canonical filled-slot reference — read one before drafting a new poster prompt.
 
 ## CLI cookbook
 

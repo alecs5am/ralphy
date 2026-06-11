@@ -3,7 +3,7 @@ title: "Assets"
 description: "ralphy assets list, pull, install, clean — the companion-repo pool, required template assets, and example projects."
 ---
 
-Heavy template assets and example projects live in the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo, not the main checkout. `ralphy assets` is the verb group that pulls them on demand, SHA-256 verifies the download, caches under `workspace/.ralph/asset-cache/`, and optionally copies into a project's tree. Per [AGENTS.md invariant #12](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), agents should consult the catalog before improvising a reference for a real-world IP / character / track.
+Heavy template assets and example projects live in the [`ralphy-assets`](https://github.com/alecs5am/ralphy-assets) companion repo, not the main checkout. `ralphy assets` is the verb group that pulls them on demand, SHA-256 verifies the download, caches under `.ralphy/cache/assets/`, and optionally copies into a project's tree. Per [AGENTS.md invariant #12](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md), agents should consult the catalog before improvising a reference for a real-world IP / character / track.
 
 ## Three layers
 
@@ -71,7 +71,7 @@ Per [AGENTS.md invariant #12](https://github.com/alecs5am/ralphy/blob/main/AGENT
 ## ralphy assets clean / cache-info
 
 ```bash
-ralphy assets clean       # wipe workspace/.ralph/asset-cache
+ralphy assets clean       # wipe .ralphy/cache/assets
 ralphy assets cache-info  # list what's currently cached
 ```
 
@@ -92,14 +92,14 @@ ralphy-assets (companion)
 
   ↓ pull (HTTPS, SHA-256 verified)
 
-workspace/.ralph/asset-cache/  # local cache, gitignored
+.ralphy/cache/assets/  # local cache, gitignored
   ├── manifest.json
   ├── required/...
   └── pool/...
 
   ↓ install (copy)
 
-workspace/projects/<id>/assets/
+.ralphy/workspaces/<ws>/projects/<id>/assets/
 ```
 
 Override the manifest URL via the `RALPHY_ASSETS_MANIFEST_URL` env var; see [Env + config](/cli/env-config).
@@ -113,13 +113,13 @@ ralphy assets list --kind italian-brainrot-characters
 # Pull one item into a project
 ralphy assets pull-pool italian-brainrot-characters/tung-tung-tung-sahur \
   --install demo-001
-# → workspace/projects/demo-001/assets/refs/tung-tung-tung-sahur.png
+# → .ralphy/workspaces/<ws>/projects/demo-001/artifacts/refs/tung-tung-tung-sahur.png
 
 # Reference it in a generate call
 ralphy generate image \
   --project demo-001 --slot scene-02-bg \
   --prompt "..." \
-  --ref workspace/projects/demo-001/assets/refs/tung-tung-tung-sahur.png
+  --ref .ralphy/workspaces/<ws>/projects/demo-001/artifacts/refs/tung-tung-tung-sahur.png
 ```
 
 ## Related

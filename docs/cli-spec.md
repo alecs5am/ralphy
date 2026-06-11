@@ -62,9 +62,9 @@ ralph init --openrouter-key <key> --elevenlabs-key <key>
 ```
 
 Creates:
-- `workspace/` directories
-- `workspace/.ralph/config.json` — CLI config
-- `workspace/.ralph/registry.json` — entity registry
+- the `.ralphy/` data root (hidden, gitignored) with `workspaces/default/`
+- `.ralphy/config.json` — CLI config
+- `.ralphy/registry.json` — entity registry
 - `.env` if it doesn't exist
 
 ---
@@ -96,7 +96,7 @@ Brands — design systems extracted from sites or created manually.
 ```bash
 # Create
 ralph brand create --name "Acme Corp" --url https://acme.com
-ralph brand create --name "Acme Corp" --from-tokens workspace/references/acme/design-tokens.json
+ralph brand create --name "Acme Corp" --from-tokens .ralphy/references/acme/design-tokens.json
 ralph brand create --name "Acme Corp" \
   --primary "#FF5733" --secondary "#333" --accent "#00BFFF" \
   --font "Inter" --logo ./path/to/logo.svg
@@ -113,10 +113,10 @@ ralph brand update <id> --refresh           # Re-extract from the site
 
 # Delete
 ralph brand delete <id>
-ralph brand delete <id> --with-references   # + remove workspace/references/
+ralph brand delete <id> --with-references   # + remove .ralphy/references/
 ```
 
-Storage: `workspace/.ralph/brands/{id}.json` + `workspace/references/{slug}/`
+Storage: `.ralphy/workspaces/<ws>/shared/brands/{id}.json` + `.ralphy/references/{slug}/`
 
 ---
 
@@ -164,8 +164,8 @@ ralph persona delete <id>
 Archetypes (`--archetype`): `student-grind`, `it-remote`, `courier-driver`, `mom-blogger`, `gen-z-energy`, `startup-founder`, `marketer-perf`, `wfh-worker`.
 
 Storage:
-- Registry: `workspace/.ralph/registry.json` (under `personas`)
-- Individual file: `workspace/.ralph/personas/{id}.json` (dual-write)
+- Registry: `.ralphy/registry.json` (under `personas`)
+- Individual file: `.ralphy/workspaces/<ws>/shared/personas/{id}.json` (dual-write)
 
 ---
 
@@ -204,7 +204,7 @@ ralph ref delete <id>
 ralph ref delete <id> --with-data          # + remove downloaded files
 ```
 
-Storage: `workspace/.ralph/refs/{id}.json` + `workspace/references/{slug}/`
+Storage: `.ralphy/workspaces/<ws>/shared/refs/{id}.json` + `.ralphy/references/{slug}/`
 
 ---
 
@@ -270,7 +270,7 @@ ralph project reset <id> --step assets     # Reset a step (delete its results)
 ralph project delete <id>
 ralph project delete <id> --keep-render    # Delete everything except the final video
 
-# Project memory / logs (append-only JSONL in workspace/projects/{id}/logs/)
+# Project memory / logs (append-only JSONL in <project>/logs/)
 ralph project log <id>                     # last 50 generation entries
 ralph project log <id> --type user-prompts
 ralph project log <id> --type user-assets
@@ -284,9 +284,9 @@ ralph project log-asset <id> --kind photo --source /path/to/photo.png --purpose 
 ralph project log-asset <id> --kind ref-url --source https://example.com --purpose video-ref
 ```
 
-Storage: `workspace/projects/{id}/` + entry in the registry
+Storage: `.ralphy/workspaces/<ws>/projects/{id}/` + entry in the registry (`id → workspace`)
 
-Logs: `workspace/projects/{id}/logs/{generations,user-prompts,user-assets}.jsonl` (append-only). For programmatic logging from scripts use `cli/lib/gen-log.ts` (`logGeneration`, `logUserAsset`, `logUserPrompt`, `loggedFetch`).
+Logs: `<project>/logs/{generations,user-prompts,user-assets}.jsonl` (append-only). For programmatic logging from scripts use `cli/lib/gen-log.ts` (`logGeneration`, `logUserAsset`, `logUserPrompt`, `loggedFetch`).
 
 **Project statuses**: `draft` → `scenario` → `prompts` → `assets` → `rendering` → `done` → `exported`
 
@@ -296,7 +296,7 @@ Logs: `workspace/projects/{id}/logs/{generations,user-prompts,user-assets}.jsonl
 
 Templates — reusable blueprints for videos. They live in two roots:
 - **Repo-public:** `templates/<id>/` at the repo root — committed to git, shipped on every clone (the canonical pack: `ai-vegetables`, `before-after-product`, `soviet-nostalgic`, `talking-character`, `talking-head-rant`). Read-only via the CLI; edit by changing files in the repo.
-- **User-local:** `workspace/templates/<id>/` — gitignored, per-machine. Use this for templates you don't want to commit, or to shadow a repo template with a local override (same id wins from workspace).
+- **User-local:** `.ralphy/workspaces/<ws>/templates/<id>/` — gitignored, scoped to the active workspace. Use this for templates you don't want to publish, or to shadow a public-library template with a local override (same id wins from workspace).
 
 Both roots support two layouts:
 - **Flat:** `<root>/<id>.json` — scenario-only, usually created from an existing project.
@@ -322,7 +322,7 @@ ralph template use <id> \
   --project <new-project-id> \
   --name "My Video" \
   --brief "One-line brief"
-# → creates workspace/projects/<new-project-id>/ with:
+# → creates .ralphy/workspaces/<ws>/projects/<new-project-id>/ with:
 #   - standard subdirectories (artifacts/, logs/, scripts/, render/)
 #   - TEMPLATE_ORIGIN.md (pointer to the template with a reading list)
 #   - BRIEF.md (if --brief was passed)
@@ -383,7 +383,7 @@ ralph batch delete <id>
 ralph batch delete <id> --with-projects    # + delete every project in the batch
 ```
 
-Storage: `workspace/batches/{id}/`
+Storage: `.ralphy/workspaces/<ws>/batches/{id}/`
 
 variations.csv format:
 ```csv
@@ -426,25 +426,45 @@ ralph asset clean --project <id> --type videos  # One type only
 
 ### `ralph workspace`
 
-Workspace management.
+Workspace layer (#108): a workspace is a studio / universe / client grouping that owns a `shared/` asset tier reused across its projects. All data lives under the hidden `.ralphy/` root: `.ralphy/workspaces/<ws>/{workspace.json,shared/,projects/,templates/,batches/}`. Project ids are globally unique; the registry maps `id → workspace`, so every other verb keeps taking a bare `<id>` — no workspace argument needed.
 
 ```bash
+# Workspace CRUD (#108)
+ralph workspace create fogtown --name "Fog Town" --description "choose-* horror universe"
+ralph workspace list                        # slug, name, project count, active flag
+ralph workspace show fogtown                # workspace.json + project list
+ralph workspace use fogtown                 # set the active workspace (default home for new projects)
+
+# Move a project between workspaces (updates its registry entry).
+# Refuses on legacy roots; never move while a background job is mid-flight on the project.
+ralph project move choose-swamp-001 fogtown
+
+# Maintenance
 ralph workspace stats                       # Size, project count, asset count
 ralph workspace clean                       # Remove everything in workspace
 ralph workspace clean --renders             # Renders only
 ralph workspace clean --assets              # Assets only (keep scenarios)
-ralph workspace clean --stale               # Remove projects older than 30 days
-ralph workspace clean --stale --days 7
+```
 
-ralph workspace doctor                      # Integrity check (broken links, etc.)
-ralph workspace du                          # Disk usage by category
+**`shared/` resolution order:** ref-style paths (`--ref`, `--first-frame`, `--audio`, `--prompt-file`) resolve cwd → `<project>/` → `<project>/artifacts/refs/` → `workspaces/<ws>/shared/`. The explicit `--ref shared/cast/nurse.png` form targets `.ralphy/workspaces/<ws>/shared/cast/nurse.png` directly.
+
+---
+
+### `ralph migrate`
+
+One-pass migration of a legacy `workspace/` root to the final layout (#106): `workspace/` → `.ralphy/` + workspaces (#108), per-project `assets/` + `refs/` → `artifacts/` (#105), with path-string rewrites in manifests / logs / HTML (a structural relocation — JSONL logs are rewritten line-by-line, never truncated or filtered). Idempotent; refuses while generation jobs are in flight. On an unmigrated root every other verb fails fast with `E_LEGACY_LAYOUT` (only `migrate` and `doctor` run).
+
+```bash
+ralph migrate --dry-run                     # print the full move + rewrite plan, touch nothing
+ralph migrate                               # run the migration
+ralph migrate --project <id>                # scope to one project's inner artifacts/ move
 ```
 
 ---
 
 ## Entity registry
 
-`workspace/.ralph/registry.json`:
+`.ralphy/registry.json`:
 
 ```json
 {
@@ -453,7 +473,7 @@ ralph workspace du                          # Disk usage by category
       "id": "acme",
       "name": "Acme Corp",
       "url": "https://acme.com",
-      "tokensPath": "workspace/references/acme/design-tokens.json",
+      "tokensPath": ".ralphy/references/acme/design-tokens.json",
       "createdAt": "2026-03-29T10:00:00Z"
     }
   },

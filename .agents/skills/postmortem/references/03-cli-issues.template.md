@@ -4,7 +4,7 @@ The highest-leverage doc in the set. Every row is the seed of a GitHub issue aga
 
 ## Why this doc matters
 
-The ralphy pipeline only works if the agent stays inside `ralphy <verb>`. Every time the agent reaches past it — raw `bunx tsx`, raw `ffmpeg`, raw `curl`, hand-written TS in `workspace/projects/<id>/scripts/` — that's a CLI gap. If the gap is not logged, it gets re-hit by the next agent on the next project, and the workaround drift grows. This file is the antidote.
+The ralphy pipeline only works if the agent stays inside `ralphy <verb>`. Every time the agent reaches past it — raw `bunx tsx`, raw `ffmpeg`, raw `curl`, hand-written TS in `.ralphy/workspaces/<ws>/projects/<id>/scripts/` — that's a CLI gap. If the gap is not logged, it gets re-hit by the next agent on the next project, and the workaround drift grows. This file is the antidote.
 
 ## Template
 
@@ -53,7 +53,7 @@ Separate table for `ralphy <verb>` calls that exited non-zero. Each row links to
 
 ## Workaround inventory — raw tools reached for
 
-Quick scan: every line where the agent typed `bunx tsx`, `ffmpeg`, `curl`, `yt-dlp`, `python -c`, or hand-edited TS under `workspace/projects/<id>/scripts/`. Each line should also have a matching issue row above. If it doesn't, add the row.
+Quick scan: every line where the agent typed `bunx tsx`, `ffmpeg`, `curl`, `yt-dlp`, `python -c`, or hand-edited TS under `.ralphy/workspaces/<ws>/projects/<id>/scripts/`. Each line should also have a matching issue row above. If it doesn't, add the row.
 
 | Raw tool | Turn | What it was doing | Should have been |
 |---|---|---|---|

@@ -23,7 +23,7 @@ The rest of the docs cover *how to use* Ralphy. This section covers *how to exte
     `docs/playbooks/<role>.md` structure, sub-doc convention, routing into `AGENTS.md`, and the agents-md lint.
   </Card>
   <Card title="Memory schemas" href="/advanced/memory-schemas">
-    The three JSONL logs under `workspace/projects/<id>/logs/`. Append-only contract, field-by-field schema, and read patterns.
+    The three JSONL logs under `.ralphy/workspaces/<ws>/projects/<id>/logs/`. Append-only contract, field-by-field schema, and read patterns.
   </Card>
   <Card title="Asset manifest" href="/advanced/asset-manifest">
     `asset-manifest.json` slot pointer table, slot-id convention, and how the auto-versioning archive interacts with manifest pointers.
@@ -36,9 +36,9 @@ The Ralphy stack has one routing surface (`AGENTS.md`) and four format contracts
 
 1. **A request comes in.** `AGENTS.md` routes it to a playbook (`docs/playbooks/<role>.md`). See [Playbook format](/advanced/playbook-format).
 2. **The playbook may invoke a skill.** Skills live under `.agents/skills/<name>/SKILL.md` and are slash-invocable. See [Skill format](/advanced/skill-format).
-3. **The skill or playbook picks a template.** Templates live in the hosted content library (and your `workspace/templates/`) and declare a `template.yaml`. See [Template format](/advanced/template-format).
+3. **The skill or playbook picks a template.** Templates live in the hosted content library (and your `.ralphy/workspaces/<ws>/templates/`) and declare a `template.yaml`. See [Template format](/advanced/template-format).
 4. **The template names model IDs.** All available models are in `MODELS.md`. See [Models registry](/advanced/models-registry).
-5. **Every generation writes to project memory.** Append-only logs land in `workspace/projects/<id>/logs/`; per-slot pointers land in `asset-manifest.json`. See [Memory schemas](/advanced/memory-schemas) and [Asset manifest](/advanced/asset-manifest).
+5. **Every generation writes to project memory.** Append-only logs land in `.ralphy/workspaces/<ws>/projects/<id>/logs/`; per-slot pointers land in `asset-manifest.json`. See [Memory schemas](/advanced/memory-schemas) and [Asset manifest](/advanced/asset-manifest).
 
 If you change any one format, the others depend on it. The CI lints in `scripts/lint-*.ts` are the contract between layers — they're the first thing to read when adding a field.
 

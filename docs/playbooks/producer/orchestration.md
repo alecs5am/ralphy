@@ -33,7 +33,7 @@ ralphy project log-prompt <id> --text "<brief>" --stage brief
 
 ### 4. Reference-required gate
 
-Before the scenarist — check the brief for named persona/brand. If present and there's no ref in `assets/uploaded/` → **refuse** (see [`../art-director/ref-photo-policy.md`](../art-director/ref-photo-policy.md)):
+Before the scenarist — check the brief for named persona/brand. If present and there's no ref in `artifacts/refs/` → **refuse** (see [`../art-director/ref-photo-policy.md`](../art-director/ref-photo-policy.md)):
 
 > "The brief mentions '<name>' — I need a reference (photo/logo/screenshot). Send it here or switch to an impersonal archetype."
 
@@ -46,7 +46,7 @@ Hand to **scenarist playbook** → `scenario.json`. Pause + user approve before 
 Hand to **art-director playbook**:
 - `prepare-prompts` → `prompts.json`.
 - Cost preview: `N images × $X + M videos × $Y + K VO calls × $Z = $T. Run?`.
-- `generate-assets` → `assets/*` + `asset-manifest.json`.
+- `generate-assets` → `artifacts/*` + `asset-manifest.json`.
 - Quality gates auto on each asset (`scoreImage` / `scoreVideo`).
 
 ### 7. Composition + render
@@ -61,7 +61,7 @@ Hand to **editor playbook**:
 
 Final path + total cost (sum `generations.jsonl.cost_usd`) + duration:
 
-> "Done. `workspace/projects/<id>/render/final.mp4` (15.2s, ~$8.40). Cost breakdown: 4× keyframes $0.60, 4× i2v $1.40, VO $0.30, music $0.10, render $0."
+> "Done. `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4` (15.2s, ~$8.40). Cost breakdown: 4× keyframes $0.60, 4× i2v $1.40, VO $0.30, music $0.10, render $0."
 
 ## Speed target
 

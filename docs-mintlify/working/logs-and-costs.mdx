@@ -3,7 +3,7 @@ title: "Logs and costs"
 description: "Three append-only JSONL logs. ralphy project log, timeline, jq rollups, and the auto-generated postmortem."
 ---
 
-Every project keeps three append-only logs under `workspace/projects/<id>/logs/`. Together they tell you what the model did, what you asked for, and what you uploaded — chronological, structured, never overwritten. The logs are how Ralphy reasons across sessions ("we tried this prompt three times and it kept missing the same way"), how the cost rollup gets built, and how the auto-generated postmortem knows what happened. They are also your audit trail when something looks wrong.
+Every project keeps three append-only logs under `.ralphy/workspaces/default/projects/<id>/logs/`. Together they tell you what the model did, what you asked for, and what you uploaded — chronological, structured, never overwritten. The logs are how Ralphy reasons across sessions ("we tried this prompt three times and it kept missing the same way"), how the cost rollup gets built, and how the auto-generated postmortem knows what happened. They are also your audit trail when something looks wrong.
 
 The contract is [AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md): append-only. No "tidy up" passes, no in-place rewrites, no silent truncation. Reading or filtering is fine; mutating is not.
 
@@ -115,7 +115,7 @@ For batch-level rollups, `ralphy batch show <id> --json` aggregates the same num
 
 ## The auto-generated postmortem
 
-A `POSTMORTEM.md` lands at the root of any project that the [`/postmortem`](https://github.com/alecs5am/ralphy/blob/main/.claude/skills/postmortem) skill has been run on. The skill triggers automatically on batch completion and on demand any time the user types `/postmortem` or asks for a "retro" / "lessons learned" / "debrief". For non-trivial multi-iteration sessions, the skill writes six structured files under `workspace/projects/<id>/postmortem/`:
+A `POSTMORTEM.md` lands at the root of any project that the [`/postmortem`](https://github.com/alecs5am/ralphy/blob/main/.claude/skills/postmortem) skill has been run on. The skill triggers automatically on batch completion and on demand any time the user types `/postmortem` or asks for a "retro" / "lessons learned" / "debrief". For non-trivial multi-iteration sessions, the skill writes six structured files under `.ralphy/workspaces/default/projects/<id>/postmortem/`:
 
 - Chronological chat history extracted from the log files.
 - Lessons learned (with project-specific receipts).

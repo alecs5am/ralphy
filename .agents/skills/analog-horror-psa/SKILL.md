@@ -160,7 +160,7 @@ Validated on `analog-horror-fridge-001`:
 ## Failure modes
 
 - **Iterating prototypes without `--ref`** → 4-5 wrong styles burned ($0.80-$1.00). Prevention: pass a genre reference frame as `--ref` from the FIRST prototype.
-- **Forgetting the chroma-key step** → visible rectangle around every icon on the dark Remotion bg. Prevention: two-pass `colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05` to `assets/images-keyed/` before composition.
+- **Forgetting the chroma-key step** → visible rectangle around every icon on the dark Remotion bg. Prevention: two-pass `colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05` to `artifacts/images-keyed/` before composition.
 - **Single-growl climax** → reads as "chihuahua yipping". Prevention: 4 variants layered at staggered offsets.
 - **Confetti-dot climax** → CSS-generated, not analog. Prevention: SMPTE bars + `filter: blur(2.5px)` (non-negotiable).
 - **Loudnorm inside the gen loop** → double-norms if any regen fails. Prevention: gen all → verify durations → loudnorm pass as a separate step.
@@ -175,7 +175,7 @@ Validated on `analog-horror-fridge-001`:
 3. **Scenario lock.** Write `scenario.json` with 10 scenes × ~3s, IF / DO-NOT / BUT / AND structure, angle `"storytime"` (passes the virality rubric — `"analog-horror-psa"` doesn't). `ralphy project score <id> --strict`. Get explicit user "go" on the VO lines BEFORE any generation.
 4. **Style lock.** ONE prototype icon on `gpt-5.4-image-2 --ref <genre-frame>`. Show user; get yes/no; iterate ONLY this slot until yes.
 5. **Batch the 9 sibling icons** via sequential bash for-loop on `gemini-3-pro-image-preview --ref <approved-prototype>`.
-6. **Chroma-key** the 10 icons to `assets/images-keyed/`.
+6. **Chroma-key** the 10 icons to `artifacts/images-keyed/`.
 7. **Voiceover.** Verify voice exists. Sequential generation. ALL CAPS input. Loudnorm pass AFTER.
 8. **SFX.** Sequential. 4 climax-growl variants for layering.
 9. **Music.** yt-dlp pull from user-supplied YouTube synth-tension reference.
@@ -189,24 +189,24 @@ Validated on `analog-horror-fridge-001`:
 # 4. Prototype the locked style — gpt-image with genre-ref
 ralphy generate image --project <id> --slot scene-02-PROTO \
   --model openai/gpt-5.4-image-2 --size 1080x1920 \
-  --ref refs/genre-frame.jpg \
+  --ref artifacts/refs/genre-frame.jpg \
   --prompt "$(cat prompts/style-lock.txt)"
-# User says "go". Save winner as refs/icon-master.png.
+# User says "go". Save winner as artifacts/refs/icon-master.png.
 
 # 5. Batch 9 siblings — sequential, nano-banana, ref the approved master
 for slot in scene-01 scene-03 scene-04 scene-05 scene-06 scene-07 scene-08 scene-09 scene-10; do
   ralphy generate image --project <id> --slot "$slot" \
     --model google/gemini-3-pro-image-preview --size 1080x1920 \
-    --ref refs/icon-master.png \
+    --ref artifacts/refs/icon-master.png \
     --prompt "$(cat prompts/$slot.txt)"
   sleep 2
 done
 
 # 6. Chroma-key to alpha
-mkdir -p assets/images-keyed
-for f in assets/images/*.png; do
+mkdir -p artifacts/images-keyed
+for f in artifacts/images/*.png; do
   ffmpeg -y -i "$f" -vf "colorkey=0x000000:0.20:0.08,colorkey=0xFFFFFF:0.20:0.05,format=rgba" \
-    "assets/images-keyed/$(basename "$f")"
+    "artifacts/images-keyed/$(basename "$f")"
 done
 
 # 7. Voice pre-flight + sequential VO
@@ -217,7 +217,7 @@ for slot in scene-01 scene-02 ... scene-09; do
     --voice <voice-id> --text "$(cat prompts/vo-$slot.txt)"
 done
 # AFTER all VO files exist, separate loudnorm pass:
-for f in assets/voiceover/*.mp3; do
+for f in artifacts/voiceover/*.mp3; do
   ralphy audio loudnorm --target -16 "$f"
 done
 
@@ -242,5 +242,5 @@ ralphy video optimize --project <id> --crf 30 --tune grain --preset veryslow
 - [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — model picks + ref-anchor flow.
 - [`docs/playbooks/editor.md`](../../../docs/playbooks/editor.md) — HyperFrames composition for noise stacks.
 - `MEMORY.md` — append-only-on-generations, Kling no-music post-mix, 11labs geoblock fallback.
-- Reference postmortem: `workspace/projects/analog-horror-fridge-001/POSTMORTEM.md` — the 12 rules and full $ accounting this skill codifies.
+- Reference postmortem: `.ralphy/workspaces/<ws>/projects/analog-horror-fridge-001/POSTMORTEM.md` — the 12 rules and full $ accounting this skill codifies.
 - Follow-up: scaffold `templates/entertainment-viral/analog-horror-psa/` via `ralphy template extract` once the format is run end-to-end again. Move the noise-overlay components to `src/lib/components/overlays/AnalogTV.tsx`.

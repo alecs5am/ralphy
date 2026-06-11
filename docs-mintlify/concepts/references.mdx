@@ -122,14 +122,14 @@ ralphy generate image coffee-with-elon-001 \
 The override:
 
 1. Bypasses the gate for *this single generate call only*. The next call (without the flag) refuses again.
-2. Appends an entry to `workspace/projects/<id>/logs/user-prompts.jsonl` with `stage: "no-ref-consent"` and `text: "<reason>"`. The audit trail is permanent.
+2. Appends an entry to `.ralphy/workspaces/<ws>/projects/<id>/logs/user-prompts.jsonl` with `stage: "no-ref-consent"` and `text: "<reason>"`. The audit trail is permanent.
 3. Does not affect the offline classifier or the manifest — the project's scenario still has the named entity in it.
 
 The reason field is not optional. If the user says "just generate," the agent asks for an actual reason ("the user is making a parody," "this is internal testing for an Old Spice client we have a contract with," etc.) before passing the flag.
 
 ## Attaching a reference
 
-Refs are folders under `workspace/.ralph/refs/<id>/`. Each ref has a `ref.json` (the metadata), the source media, and any derived artifacts (frames, transcript, vision tags, blueprint).
+Refs are folders under `.ralphy/refs/<id>/`. Each ref has a `ref.json` (the metadata), the source media, and any derived artifacts (frames, transcript, vision tags, blueprint).
 
 ```bash
 # Create a ref from a URL (TikTok, YouTube, Reels — uses yt-dlp inside).

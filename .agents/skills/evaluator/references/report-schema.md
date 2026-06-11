@@ -1,6 +1,6 @@
 # `eval.json` schema (v1.0)
 
-The eval pipeline writes this file to either `workspace/projects/<id>/eval.json` (when the mp4 is under a project) or alongside the mp4. It's the contract a fixer agent reads.
+The eval pipeline writes this file to either `.ralphy/workspaces/<ws>/projects/<id>/eval.json` (when the mp4 is under a project) or alongside the mp4. It's the contract a fixer agent reads.
 
 ## Top-level
 

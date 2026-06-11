@@ -209,7 +209,7 @@ export function assetsCmd() {
     .description(
       "Unpack a brand zip into <project>/brand/, flatten nested dirs into kebab-case filenames, drop __MACOSX/ and .DS_Store, suffix collisions with -N. Idempotent on re-run.",
     )
-    .requiredOption("--project <id>", "Target project id (zip is flattened into workspace/projects/<id>/brand/)")
+    .requiredOption("--project <id>", "Target project id (zip is flattened into <project>/brand/)")
     .option("--dest <subdir>", "Subdir under <project>/ for output (default: 'brand')", "brand")
     .action(async (zipArg: string, opts: { project: string; dest: string }) => {
       const project = await getEntity("projects", opts.project);
@@ -320,7 +320,7 @@ export function assetsCmd() {
 
   cmd
     .command("clean")
-    .description("Wipe the local asset cache (workspace/.ralph/asset-cache)")
+    .description("Wipe the local asset cache (.ralphy/cache/assets/)")
     .action(async () => {
       const result = await wipeCache();
       ok(`Cache cleared: ${result.removed}`);

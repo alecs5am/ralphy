@@ -1,7 +1,7 @@
 // Append-only `sources.jsonl` store for a deep-research job.
 //
 // Layout (per job-id):
-//   workspace/.ralph/research/<job-id>/sources.jsonl
+//   .ralphy/research/jobs/<job-id>/sources.jsonl
 //
 // One JSON object per line. Order is insertion order. Dedup is by
 // `normalizeUrl(url)` from citation-verifier — two writes of the same

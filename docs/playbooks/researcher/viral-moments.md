@@ -4,14 +4,14 @@
 
 Source — long video (podcast, stream, webinar, talk). Goal — find 3-15 viral clips, each 15-60 seconds long.
 
-Real-world case: `workspace/projects/lyadov-podcast-001/` — 16:9 podcast → 9:16 short-form clips.
+Real-world case: `.ralphy/workspaces/<ws>/projects/lyadov-podcast-001/` — 16:9 podcast → 9:16 short-form clips.
 
 ## Method
 
 ```bash
 bunx tsx scripts/find-viral-moments.ts \
-  --video workspace/references/<handle>/source.mp4 \
-  --output workspace/references/<handle>/moments.json \
+  --video .ralphy/references/<handle>/source.mp4 \
+  --output .ralphy/references/<handle>/moments.json \
   --language ru
 ```
 
@@ -48,12 +48,12 @@ bunx tsx scripts/find-viral-moments.ts \
 `moments.json` feeds straight into `ralphy video extract-segment` — one call per moment:
 
 ```bash
-jq -c '.[]' workspace/references/<slug>/moments.json | while read -r m; do
+jq -c '.[]' .ralphy/references/<slug>/moments.json | while read -r m; do
   start=$(echo "$m" | jq -r .start)
   end=$(echo   "$m" | jq -r .end)
   out=$(echo   "$m" | jq -r .out)
   ralphy video extract-segment \
-    --in workspace/references/<slug>/source.mp4 \
+    --in .ralphy/references/<slug>/source.mp4 \
     --start "$start" --end "$end" --out "$out"
 done
 ```

@@ -4,7 +4,7 @@
 // doesn't ship: required template assets (e.g. trend music) and complete
 // example projects. This module fetches via plain HTTPS (raw.githubusercontent
 // for small files, GitHub Releases for large bundles), verifies sha256, and
-// caches per-workspace under workspace/.ralph/asset-cache/.
+// caches per-root under .ralphy/cache/assets/.
 //
 // No auth needed for public assets. No FAL_KEY / OPENROUTER_API_KEY here —
 // this is just CDN-style asset delivery.

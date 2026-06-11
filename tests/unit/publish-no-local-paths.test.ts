@@ -121,6 +121,13 @@ function writeLeakyBlueprint(unitId: string): string {
 }
 
 describe("publish-entity SECURITY: no local filesystem path leaks (#056)", () => {
+  test("LOCAL_PATH_RE catches the new .ralphy/ data-root segment as well as the legacy workspace/projects one (#108/#109)", async () => {
+    const { looksLocal } = await import("../../landing/scripts/publish-entity.ts");
+    expect(looksLocal(".ralphy/workspaces/default/projects/p-001/artifacts/images/x.png")).toBe(true);
+    expect(looksLocal("workspace/projects/p-001/assets/images/x.png")).toBe(true);
+    expect(looksLocal("https://ralphy.b-cdn.net/library/units/x.png")).toBe(false);
+  });
+
   test("blueprint with leaky asset.path / composition.file (no storageUrl): no abs path in plan, reduced to basename, library.json untouched", () => {
     const before = fs.readFileSync(LIBRARY_JSON, "utf8");
     const dir = writeLeakyBlueprint("test-leak-blueprint");

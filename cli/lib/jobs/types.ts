@@ -2,7 +2,7 @@
 //
 // A "job" is a single CLI invocation that the ralphy daemon will execute
 // asynchronously: a video gen, an image gen, a render, an ffmpeg recipe, a
-// custom shell command. State + logs persist in workspace/.ralph/jobs.db.
+// custom shell command. State + logs persist in .ralphy/jobs.db.
 
 export type JobStatus =
   | "pending"      // awaiting dispatch (deps may still be unmet)
@@ -49,7 +49,7 @@ export type JobRow = {
   exit_code: number | null;
   error_message: string | null;
   retry_count: number;
-  /** Per-job stdout+stderr file path (workspace/.ralph/job-logs/<id>.log). */
+  /** Per-job stdout+stderr file path (.ralphy/job-logs/<id>.log). */
   log_path: string | null;
   /** User tag for filtering in `queue list`. Default null. */
   tag: string | null;

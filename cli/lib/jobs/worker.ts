@@ -5,7 +5,7 @@
 //   1. Polls the SQLite store for pending jobs whose deps are met.
 //   2. Up to `concurrency` slots can run at once. When a slot is free, claim
 //      the next eligible job and spawn its child process.
-//   3. Stream child stdout+stderr both to workspace/.ralph/job-logs/<id>.log
+//   3. Stream child stdout+stderr both to .ralphy/job-logs/<id>.log
 //      (file) and to job_logs (table) so `queue watch` can tail via SQL.
 //   4. On child exit, finalize the row.
 //   5. On SIGTERM (from `ralphy daemon stop`), stop accepting new work,

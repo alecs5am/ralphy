@@ -10,7 +10,7 @@ ralphy ref pull-site <URL> --project <id>
 
 Example: `ralphy ref pull-site https://stripe.com --project stripe-launch-001`
 
-Writes into `workspace/projects/<id>/refs/`:
+Writes into `.ralphy/workspaces/<ws>/projects/<id>/refs/`:
 
 - `<slug>-hero.png` — full-page screenshot of the landing
 - `<slug>-<page>.png` — one per crawled page (home, docs, pricing, features, examples, blog)

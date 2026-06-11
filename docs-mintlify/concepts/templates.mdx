@@ -41,14 +41,14 @@ Two tiers, both read by the same loader.
 public content library            # Supabase template blocks (hosted)
                                    # served by /library + read via cli/lib/library/client.ts
 
-workspace/templates/              # user-local, gitignored
+.ralphy/workspaces/<ws>/templates/              # user-local, gitignored
 ├── my-internal-template/
 └── ...
 ```
 
-The **public content library** holds the shipped catalog (the same library the `/library` landing serves). The user-local `workspace/templates/` stays flat. The repo-public `templates/<category>/<slug>/` folder was retired in #084 — templates are no longer committed to git here. **The loader resolves by slug across both tiers** — `ralphy template use before-after-product --project <id>` works whether the slug is a public-library template or lives at `workspace/templates/before-after-product/`.
+The **public content library** holds the shipped catalog (the same library the `/library` landing serves). The user-local `.ralphy/workspaces/<ws>/templates/` stays flat. The repo-public `templates/<category>/<slug>/` folder was retired in #084 — templates are no longer committed to git here. **The loader resolves by slug across both tiers** — `ralphy template use before-after-product --project <id>` works whether the slug is a public-library template or lives at `.ralphy/workspaces/<ws>/templates/before-after-product/`.
 
-**Workspace overrides the public tier on id collision.** If you `ralphy template extract` a project into `workspace/templates/<slug>/` and edit it, the local version wins. The public tier degrades gracefully when the library is unreachable — the CLI lists workspace templates only and prints a warning.
+**Workspace overrides the public tier on id collision.** If you `ralphy template extract` a project into `.ralphy/workspaces/<ws>/templates/<slug>/` and edit it, the local version wins. The public tier degrades gracefully when the library is unreachable — the CLI lists workspace templates only and prints a warning.
 
 ## The slug system
 
@@ -130,7 +130,7 @@ Eleven templates in the catalog were extracted from shipped projects — the age
 | `ugc-selfie-product-review` | `glitter-cream-001` |
 | `multi-scene-product-launch` | `nothing-hp1-001` |
 
-The `sourceProject` pointer means the agent can re-read the original project's postmortem (`workspace/projects/<source>/postmortem/02-lessons.md`) before scaffolding a new project from the template. Per [`meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) rule 1, this is the "highest-leverage 10 minutes" of a session.
+The `sourceProject` pointer means the agent can re-read the original project's postmortem (`.ralphy/workspaces/<ws>/projects/<source>/postmortem/02-lessons.md`) before scaffolding a new project from the template. Per [`meta.md`](https://github.com/alecs5am/ralphy/blob/main/docs/playbooks/meta.md) rule 1, this is the "highest-leverage 10 minutes" of a session.
 
 ## The scaffold flow
 
@@ -160,7 +160,7 @@ After `template use`, the project has a `BRIEF.md`, a draft `STORYBOARD.md`, and
 Author a template into your user-local workspace tier, then publish it onward to the public library.
 
 ```bash
-# 1. Extract a finished project into workspace/templates/<slug>/ (or hand-author the folder there).
+# 1. Extract a finished project into .ralphy/workspaces/<ws>/templates/<slug>/ (or hand-author the folder there).
 ralphy template extract <project-id> --slug <slug> --category <category>
 
 # 2. Register.

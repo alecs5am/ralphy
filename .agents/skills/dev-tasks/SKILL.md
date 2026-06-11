@@ -9,7 +9,7 @@ description: >-
 
 # dev-tasks — the capture-inbox manager for Ralphy dev work
 
-This is a **maintainer** skill. It does not touch `workspace/projects/` or call media models. It curates the `notes/` capture inbox that tracks Ralphy's own development. **`notes/` is the only tracker — there is no separate roadmap board.**
+This is a **maintainer** skill. It does not touch `.ralphy/workspaces/<ws>/projects/` or call media models. It curates the `notes/` capture inbox that tracks Ralphy's own development. **`notes/` is the only tracker — there is no separate roadmap board.**
 
 - **Inbox** — `notes/ideas/`, `notes/issues/`, `notes/decisions/`. Free-form, monotonic-numbered (`NNN-slug.md`). The landing zone for any dev thought.
 - **`notes/issues/` is the live backlog**, status-by-folder: flat top level = active, `done/` = resolved/landed, `deprecated/` = superseded/won't-do.
@@ -39,7 +39,7 @@ Hard triggers (always act):
 
 ### DO NOT FIRE
 - User is in **user mode** (making a video / operating the CLI on their behalf). This skill is dev-only.
-- The thought is about a `workspace/projects/<id>` artifact → that's a project log / postmortem, not the inbox.
+- The thought is about a `.ralphy/workspaces/<ws>/projects/<id>` artifact → that's a project log / postmortem, not the inbox.
 - A long unstructured brain-dump the user wants decomposed into many issues → that's `dev-issues`.
 - Execute an open issue → that's `dev-loop`.
 

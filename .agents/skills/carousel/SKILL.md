@@ -40,10 +40,10 @@ A multi-style carousel lives or dies on **per-style cohesion + cross-style ident
 | Step | What it does | Output |
 |---|---|---|
 | 1. Concept + copy | Lock the Visual System (palette, type stack, accent, mood) per style + per-slide headline/body | `STORYBOARD.md` + user "go" |
-| 2. Mascot ref | Rasterize mascot SVG → `refs/mascot-ref.png`. For gritty styles, ALSO make a pre-distressed character ref | `refs/mascot-ref.png` (+ `refs/mascot-gritty-ref.png` if applicable) |
+| 2. Mascot ref | Rasterize mascot SVG → `artifacts/refs/mascot-ref.png`. For gritty styles, ALSO make a pre-distressed character ref | `artifacts/refs/mascot-ref.png` (+ `artifacts/refs/mascot-gritty-ref.png` if applicable) |
 | 3. JSON prompts | One STYLE+QUALITY block per aesthetic. Only `scene` + `composition.ui_elements` (per-slide bake text) varies per slide | `prompts/<style>-NN.json` × N |
-| 4. **Cover-first checkpoint** | Generate ONE cover per style, in parallel across styles. Show all covers in chat. User approves / re-rolls. | `assets/images/<style>-01.png` × N styles |
-| 5. Fill slides 02-05 | For each approved style, fill 02-05 serialized (`gpt-5.4-image-2` = 1 concurrent per style). Pass BOTH refs: `--ref mascot --ref <style>-01.png` | `assets/images/<style>-{02..05}.png` × N styles |
+| 4. **Cover-first checkpoint** | Generate ONE cover per style, in parallel across styles. Show all covers in chat. User approves / re-rolls. | `artifacts/images/<style>-01.png` × N styles |
+| 5. Fill slides 02-05 | For each approved style, fill 02-05 serialized (`gpt-5.4-image-2` = 1 concurrent per style). Pass BOTH refs: `--ref mascot --ref <style>-01.png` | `artifacts/images/<style>-{02..05}.png` × N styles |
 | 6. Contact sheets | One horizontal row per style (ffmpeg hstack) for review-as-a-unit | `contact/<style>-row.png` × N styles |
 
 The cover-first checkpoint is the hard gate. Catching a mascot-fit failure here costs 1 cover ($0.20); catching it after the full set burns ~$1.60 of blind gens.
@@ -55,8 +55,8 @@ Every fill-slide gen passes BOTH refs:
 ```bash
 ralphy generate image --project <id> --slot <style>-NN \
   --model openai/gpt-5.4-image-2 --size 1080x1350 \
-  --ref refs/mascot-ref.png \
-  --ref assets/images/<style>-01.png \
+  --ref artifacts/refs/mascot-ref.png \
+  --ref artifacts/images/<style>-01.png \
   --prompt "$(cat prompts/<style>-NN.json)"
 ```
 
@@ -71,7 +71,7 @@ A clean / cute / friendly brand mascot **does not survive** gritty registers (xe
 
 Two valid moves:
 1. **Reinterpret in the medium** (passable). Prompt-token verbatim: *"the <mascot> REDRAWN ENTIRELY IN THE POSTER'S OWN MEDIUM — a 1-bit photocopied duotone screen-print … rough torn edges … NOT a clean 3D object, NOT a glossy sticker cut-out — it must look printed and distressed, fully part of the page"*.
-2. **Dedicated distressed character variant** (better). Build `refs/mascot-gritty-ref.png` once; pass it instead of the clean ref on punk / acid / xerox slides.
+2. **Dedicated distressed character variant** (better). Build `artifacts/refs/mascot-gritty-ref.png` once; pass it instead of the clean ref on punk / acid / xerox slides.
 
 Decide at the cover-first checkpoint, not after the full set.
 
@@ -123,13 +123,13 @@ In every prompt body, name the ONE accent color in hex AND add the source hue to
 
 ```bash
 # Step 2 — rasterize mascot SVG into a ref PNG (use playwright or a designed render).
-# Output: refs/mascot-ref.png (and refs/mascot-gritty-ref.png for distressed styles).
+# Output: artifacts/refs/mascot-ref.png (and artifacts/refs/mascot-gritty-ref.png for distressed styles).
 
 # Step 4 — cover-first checkpoint — fan out one cover per style in parallel.
 for style in zine club swiss riso punk acid; do
   ralphy generate image --project <id> --slot "${style}-01" \
     --model openai/gpt-5.4-image-2 --size 1080x1350 \
-    --ref refs/mascot-ref.png \
+    --ref artifacts/refs/mascot-ref.png \
     --prompt "$(cat prompts/${style}-01.json)" &
 done
 wait
@@ -141,8 +141,8 @@ for style in zine club swiss riso; do
     for slide in 02 03 04 05; do
       ralphy generate image --project <id> --slot "${style}-${slide}" \
         --model openai/gpt-5.4-image-2 --size 1080x1350 \
-        --ref refs/mascot-ref.png \
-        --ref "assets/images/${style}-01.png" \
+        --ref artifacts/refs/mascot-ref.png \
+        --ref "artifacts/images/${style}-01.png" \
         --prompt "$(cat prompts/${style}-${slide}.json)"
     done
   ) &
@@ -151,16 +151,16 @@ wait
 
 # Step 6 — contact sheet per style (one row of 5 slides)
 for style in zine club swiss riso punk acid; do
-  ffmpeg -i "assets/images/${style}-01.png" -i "assets/images/${style}-02.png" \
-         -i "assets/images/${style}-03.png" -i "assets/images/${style}-04.png" \
-         -i "assets/images/${style}-05.png" \
+  ffmpeg -i "artifacts/images/${style}-01.png" -i "artifacts/images/${style}-02.png" \
+         -i "artifacts/images/${style}-03.png" -i "artifacts/images/${style}-04.png" \
+         -i "artifacts/images/${style}-05.png" \
          -filter_complex "hstack=inputs=5" "contact/${style}-row.png"
 done
 
 # Re-roll a single transient-network failure
 ralphy generate image --project <id> --slot riso-01 \
   --model openai/gpt-5.4-image-2 --size 1080x1350 \
-  --ref refs/mascot-ref.png \
+  --ref artifacts/refs/mascot-ref.png \
   --prompt "$(cat prompts/riso-01.json)"
 ```
 
@@ -172,4 +172,4 @@ At ~$0.20 / slide on gpt-image, a **6-style × 5-slide carousel = ~$6.00 minimum
 - [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — ref-anchor flow and model picks.
 - [`docs/playbooks/intake.md`](../../../docs/playbooks/intake.md) — the multi-slide branch.
 - `MEMORY.md` — append-only-on-generations, anti-ai-slop image prompts.
-- Reference postmortem: `workspace/projects/ralphy-carousel-001/postmortem/` — the cover-first / dual-ref / mascot-fit rules this skill codifies.
+- Reference postmortem: `.ralphy/workspaces/<ws>/projects/ralphy-carousel-001/postmortem/` — the cover-first / dual-ref / mascot-fit rules this skill codifies.

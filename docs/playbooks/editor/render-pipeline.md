@@ -6,15 +6,15 @@
 
 ### Decide composition target
 
-Every project ships `workspace/projects/<id>/index.html` — a HyperFrames composition with `data-*` timing attributes and a paused GSAP timeline. See [`hyperframes.md`](../hyperframes.md) for the authoring rules.
+Every project ships `.ralphy/workspaces/<ws>/projects/<id>/index.html` — a HyperFrames composition with `data-*` timing attributes and a paused GSAP timeline. See [`hyperframes.md`](../hyperframes.md) for the authoring rules.
 
 ### Wire assets
 
-Reference assets from `workspace/projects/<id>/assets/` directly via relative paths in the HTML composition (`<img src="assets/scene-01.png">`, `<video src="assets/scene-02.mp4" data-start="0" data-volume="0">`, `<audio src="assets/vo.mp3" data-start="0">`).
+Reference media from `<project>/artifacts/` directly via relative paths in the HTML composition (`<img src="artifacts/images/scene-01.png">`, `<video src="artifacts/videos/scene-02.mp4" data-start="0" data-volume="0">`, `<audio src="artifacts/voiceover/vo.mp3" data-start="0">`).
 
 ### Implement transitions / captions
 
-- Inter-scene transitions via registry blocks — `bunx hyperframes add <transition-slug> workspace/projects/<id>`.
+- Inter-scene transitions via registry blocks — `bunx hyperframes add <transition-slug> .ralphy/workspaces/<ws>/projects/<id>`.
 - Captions from `captions.json` via a caption-style block from the registry (`bunx hyperframes add kinetic-slam` etc.) or hand-rolled GSAP keyframes.
 - Dual audio (VO + music) — `<audio>` elements with `data-volume`, and an optional sidechain ducking pass post-render (see [`audio-mixing.md`](audio-mixing.md)).
 
@@ -22,7 +22,7 @@ Reference assets from `workspace/projects/<id>/assets/` directly via relative pa
 
 **We don't auto-launch preview.** If the user wants one:
 
-> "Run `bunx hyperframes preview workspace/projects/<id>` foreground in a separate terminal."
+> "Run `bunx hyperframes preview .ralphy/workspaces/<ws>/projects/<id>` foreground in a separate terminal."
 
 ## Final-render
 
@@ -72,7 +72,7 @@ Across the full tokyo-y2k-001 cut, planned 75s of clips landed as 90.7s of raw m
 1. **(a) Pre-shorten at art-director stage.** Request `--duration` 1s shorter than the storyboard target on every kling / seedance call. Storyboard says 5s? Pass `--duration 4` to `ralphy generate video`. The returned clip will land at ~5.04s — i.e., the storyboard target. Net win: zero trim debt, zero extra cost (per-clip flat billing means a shorter `--duration` doesn't save money on these two models — see MODELS.md §"Pricing reality check"). Cleanest path when the storyboard is locked.
 2. **(b) Budget a per-clip vision-trim pass.** Accept the overshoot, then run a vision pass to find the cleanest `trim_in_s` / `trim_out_s` per clip (drop dead-time, low-motion tails, identity drift in the last 0.5s, etc.) and trim with `ralphy video extract-segment`. Slower but it lets the model breathe — sometimes the "extra" 1s contains the best gesture beat, and a smart trim keeps it.
 
-**The structural solution: `ralphy editor trim-analyze`.** Issue [034](../../../notes/issues/done/034-no-editor-preflight-and-trim-analyze.md) tracks the verb. When it lands, it will batch a `gemini analyze-video` pass over every clip and write `assets/analysis/summary.json` with `{slot, dead_time_s, hot_moments[], suggested_trim_in_s, suggested_trim_out_s}` per clip — i.e., it automates strategy (b). Until the verb exists, pick (a) by default and only fall back to (b) when the storyboard explicitly wants the trim discretion (e.g., gesture-heavy UGC where the model's exact gesture timing matters more than the storyboard's nominal duration).
+**The structural solution: `ralphy editor trim-analyze`.** Issue [034](../../../notes/issues/done/034-no-editor-preflight-and-trim-analyze.md) tracks the verb. When it lands, it will batch a `gemini analyze-video` pass over every clip and write `artifacts/analysis/summary.json` with `{slot, dead_time_s, hot_moments[], suggested_trim_in_s, suggested_trim_out_s}` per clip — i.e., it automates strategy (b). Until the verb exists, pick (a) by default and only fall back to (b) when the storyboard explicitly wants the trim discretion (e.g., gesture-heavy UGC where the model's exact gesture timing matters more than the storyboard's nominal duration).
 
 **Cross-link.** The model-level fact is also in MODELS.md (rows for `kwaivgi/kling-v3.0-pro` and `bytedance/seedance-2.0`); this section is the playbook recipe.
 
@@ -133,18 +133,18 @@ const STATIC_ROOT = "playdate-pixel-001";          // ← missing "project-" pre
 src={staticFile(`${STATIC_ROOT}/assets/videos/${scene.videoFile}`)}   // ← spurious "assets/"
 ```
 
-This pattern only happened to render on legacy projects where someone had manually created a `public/<id>` → `<project>/` symlink long ago. For any *new* project under the Remotion path, the bare-id pattern produced 404s on every asset slot. `tokyo-y2k-001` hit exactly this — it copied `STATIC_ROOT = "tokyo-y2k-001"` from `playdate-pixel-001/index.tsx` and the first render 404'd every clip with `http://localhost:3002/public/tokyo-y2k-001/assets/videos/scene-00-video-shot.mp4`. Cross-ref: `workspace/projects/tokyo-y2k-001/postmortem/03-cli-issues.md` (#2) and `05-workflow-fixes.md` (#1).
+This pattern only happened to render on legacy projects where someone had manually created a `public/<id>` → `<project>/` symlink long ago. For any *new* project under the Remotion path, the bare-id pattern produced 404s on every asset slot. `tokyo-y2k-001` hit exactly this — it copied `STATIC_ROOT = "tokyo-y2k-001"` from `playdate-pixel-001/index.tsx` and the first render 404'd every clip with `http://localhost:3002/public/tokyo-y2k-001/assets/videos/scene-00-video-shot.mp4`. Cross-ref: `.ralphy/workspaces/<ws>/projects/tokyo-y2k-001/postmortem/03-cli-issues.md` (#2) and `05-workflow-fixes.md` (#1).
 
 **The contradictory state was never fixed at the code level** — the Remotion path was removed wholesale in `92ef823` before the legacy compositions could be migrated. If you ever resurrect Remotion, migrate every `src/videos/*/index.tsx` to the `project-<id>` convention in the same PR; **don't ship both conventions side-by-side**.
 
 ### `composition-props.json` is required, even when empty
 
-Under the Remotion path, `ralphy render <id>` read `workspace/projects/<id>/composition-props.json` to forward props to the Remotion bundle. The guard fired even for prop-less compositions — `analog-horror-fridge-001` and `glitter-cream-001` both hit `composition-props.json not found …` on first render despite their `React.FC` having zero props.
+Under the Remotion path, `ralphy render <id>` read `.ralphy/workspaces/<ws>/projects/<id>/composition-props.json` to forward props to the Remotion bundle. The guard fired even for prop-less compositions — `analog-horror-fridge-001` and `glitter-cream-001` both hit `composition-props.json not found …` on first render despite their `React.FC` having zero props.
 
 Workaround for any project under the legacy path: stub a one-line file by hand,
 
 ```bash
-echo '{"compositionId":"<CompositionName>"}' > workspace/projects/<id>/composition-props.json
+echo '{"compositionId":"<CompositionName>"}' > .ralphy/workspaces/<ws>/projects/<id>/composition-props.json
 ```
 
 — and re-run `ralphy render <id>`. The stub is a no-op; the file just has to exist.
@@ -153,7 +153,7 @@ Auto-generation from `src/Root.tsx` registration and a `--composition <id>` flag
 
 ## Per-clip captions variant
 
-If scenes have separate VO files — transcribe each one separately. `ralphy generate captions` writes to `<project>/assets/captions/<slot>.json` by default — no manual `cp` needed. The composition wires them per-scene with a caption block.
+If scenes have separate VO files — transcribe each one separately. `ralphy generate captions` writes to `<project>/artifacts/captions/<slot>.json` by default — no manual `cp` needed. The composition wires them per-scene with a caption block.
 
 ## Post-render evaluator handback (always)
 

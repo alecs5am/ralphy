@@ -37,10 +37,10 @@ You'll run `ralphy generate` yourself in these cases:
 Every generated file lands in a slot, and the slot id is the file name's prefix. The convention is `{scene-id}-{type}-{descriptor}`:
 
 ```text
-scene-01-bg-image      → workspace/projects/<id>/assets/scene-01-bg-image.png
-scene-01-vid           → workspace/projects/<id>/assets/scene-01-vid.mp4
-scene-01-vo-primary    → workspace/projects/<id>/assets/scene-01-vo-primary.mp3
-bed-01                 → workspace/projects/<id>/assets/bed-01.mp3
+scene-01-bg-image      → .ralphy/workspaces/default/projects/<id>/assets/scene-01-bg-image.png
+scene-01-vid           → .ralphy/workspaces/default/projects/<id>/assets/scene-01-vid.mp4
+scene-01-vo-primary    → .ralphy/workspaces/default/projects/<id>/assets/scene-01-vo-primary.mp3
+bed-01                 → .ralphy/workspaces/default/projects/<id>/assets/bed-01.mp3
 ```
 
 The slot id is canonical kebab-case. Pass anything close (uppercase, underscores) and Ralphy auto-normalizes with a stderr warning so you learn the canonical form for next time. The `asset-manifest.json` at the project root tracks every slot:
@@ -50,7 +50,7 @@ The slot id is canonical kebab-case. Pass anything close (uppercase, underscores
   "slots": {
     "scene-01-bg-image": {
       "kind": "image",
-      "path": "workspace/projects/syrup-001/assets/scene-01-bg-image.png",
+      "path": ".ralphy/workspaces/default/projects/syrup-001/assets/scene-01-bg-image.png",
       "model": "google/gemini-3-pro-image-preview",
       "costUsd": 0.04,
       "generatedAt": "2026-05-19T14:32:11.483Z"
@@ -82,8 +82,8 @@ ralphy generate image \
   --project syrup-001 \
   --slot scene-02-bg \
   --prompt "Anna pours syrup into iced coffee, kitchen counter, autumn light" \
-  --ref workspace/projects/syrup-001/assets/product-master.png \
-  --ref workspace/projects/syrup-001/assets/persona-master.png \
+  --ref .ralphy/workspaces/default/projects/syrup-001/assets/product-master.png \
+  --ref .ralphy/workspaces/default/projects/syrup-001/assets/persona-master.png \
   --size 1080x1920
 ```
 
@@ -121,7 +121,7 @@ ralphy generate video \
   --slot scene-02-vid \
   --prompt "Anna pours syrup, slow tilt-up to her smile, 35mm naturalistic" \
   --duration 5 \
-  --first-frame workspace/projects/syrup-001/assets/scene-02-bg.png \
+  --first-frame .ralphy/workspaces/default/projects/syrup-001/assets/scene-02-bg.png \
   --aspect-ratio 9:16 \
   --resolution 720p
 ```
@@ -193,11 +193,11 @@ Instrumental is the default. Pass `--with-vocals` if you actually want vocals �
 ```bash
 ralphy generate captions \
   --project syrup-001 \
-  --audio workspace/projects/syrup-001/assets/scene-01-vo.mp3 \
+  --audio .ralphy/workspaces/default/projects/syrup-001/assets/scene-01-vo.mp3 \
   --language ru
 ```
 
-Output lands at `workspace/projects/<id>/assets/captions/<slot>.json` (default) — per-slot captions, not the legacy shared `captions.json` (which clobbered between calls in the noski and venom postmortems). Pass `--legacy-output` if you have scripts that grep the old path.
+Output lands at `.ralphy/workspaces/default/projects/<id>/artifacts/captions/<slot>.json` (default) — per-slot captions, not the legacy shared `captions.json` (which clobbered between calls in the noski and venom postmortems). Pass `--legacy-output` if you have scripts that grep the old path.
 
 ## Cost preview with `--dry-run`
 

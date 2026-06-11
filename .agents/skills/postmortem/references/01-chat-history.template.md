@@ -36,7 +36,7 @@ Chronological replay of the <YYYY-MM-DD> session. One row per user turn (or per 
 3. <step — what was the outcome (success / failure / partial)>
 
 **Artifacts touched:**
-- `workspace/projects/<id>/<path>` (created / appended / new version `vN`)
+- `.ralphy/workspaces/<ws>/projects/<id>/<path>` (created / appended / new version `vN`)
 - ...
 
 **Outcome:** <one line: success / blocked / pivoted to turn N+1>
@@ -53,13 +53,13 @@ Chronological replay of the <YYYY-MM-DD> session. One row per user turn (or per 
 
 ## Append-only check (end of session)
 
-A self-audit: list every artifact under `workspace/projects/<id>/` and confirm it was either created fresh or versioned (`.vN.ext`), never overwritten or deleted without explicit user consent.
+A self-audit: list every artifact under `.ralphy/workspaces/<ws>/projects/<id>/` and confirm it was either created fresh or versioned (`.vN.ext`), never overwritten or deleted without explicit user consent.
 
 | Path | Created at turn | Status | Notes |
 |---|---|---|---|
-| `assets/images/scene-01.png` | 4 | original, kept | — |
-| `assets/images/scene-01.v2.png` | 7 | regen, append | user asked "don't like 01" |
-| `assets/videos/scene-03.mp4` | 5 | DELETED | ⚠️ violation — agent overwrote on regen; flag in 03-cli-issues.md |
+| `artifacts/images/scene-01.png` | 4 | original, kept | — |
+| `artifacts/images/scene-01.v2.png` | 7 | regen, append | user asked "don't like 01" |
+| `artifacts/videos/scene-03.mp4` | 5 | DELETED | ⚠️ violation — agent overwrote on regen; flag in 03-cli-issues.md |
 
 If any row shows DELETED / OVERWRITTEN without a user-typed delete command in the matching turn — that's an append-only violation. Cross-reference into `05-workflow-fixes.md`.
 ```
@@ -77,8 +77,8 @@ If any row shows DELETED / OVERWRITTEN without a user-typed delete command in th
 ## How to recover timestamps
 
 If chat doesn't carry visible timestamps, infer turn order from:
-1. `workspace/projects/<id>/logs/user-prompts.jsonl` (has `ts` per turn)
-2. `workspace/projects/<id>/logs/generations.jsonl` (has `ts` per call, brackets turn boundaries)
+1. `.ralphy/workspaces/<ws>/projects/<id>/logs/user-prompts.jsonl` (has `ts` per turn)
+2. `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl` (has `ts` per call, brackets turn boundaries)
 3. `git log --oneline -20` (commit times = phase boundaries)
 
 If none of these is available, drop the timestamp and just number the turns.

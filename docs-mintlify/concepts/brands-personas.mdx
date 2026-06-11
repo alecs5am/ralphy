@@ -3,7 +3,7 @@ title: "Brands and personas"
 description: "Reusable identity entities: who the video is from, and who is in it."
 ---
 
-A **brand** is who the video is from. A **persona** is who is *in* the video. Both are reusable JSON entities that attach to projects — you define them once, then refer to them by ID across every project you make for the same client, the same product line, or the same recurring character. They live under `workspace/.ralph/brands/` and `workspace/.ralph/personas/`, and the same generation pipelines read them.
+A **brand** is who the video is from. A **persona** is who is *in* the video. Both are reusable JSON entities that attach to projects — you define them once, then refer to them by ID across every project you make for the same client, the same product line, or the same recurring character. They live under `.ralphy/brands/` and `.ralphy/personas/`, and the same generation pipelines read them.
 
 ## Brand vs. persona
 
@@ -16,7 +16,7 @@ When the user says "I want a video for my coffee shop," the *coffee shop* is the
 
 ## The brand JSON
 
-`workspace/.ralph/brands/<id>.json`:
+`.ralphy/brands/<id>.json`:
 
 ```json
 {
@@ -29,13 +29,13 @@ When the user says "I want a video for my coffee shop," the *coffee shop* is the
     "accent": "#D4A574",
     "background": "#F5EDE0"
   },
-  "logo": "workspace/.ralph/brands/my-coffee-shop/logo.svg",
+  "logo": ".ralphy/brands/my-coffee-shop/logo.svg",
   "do_not": [
     "no stock-coffee-bean macro shots",
     "no oversaturated yellow latte art",
     "do not call the espresso 'rich and bold'"
   ],
-  "voice_refs": ["workspace/.ralph/refs/founder-megan-vo/megan-sample.mp3"],
+  "voice_refs": [".ralphy/workspaces/<ws>/shared/refs/founder-megan-vo/megan-sample.mp3"],
   "notes": "Founder is the narrator. Real shop in Brooklyn — locations are real."
 }
 ```
@@ -48,7 +48,7 @@ Three fields do most of the work:
 
 ## The persona JSON
 
-`workspace/.ralph/personas/<id>.json`:
+`.ralphy/personas/<id>.json`:
 
 ```json
 {
@@ -57,8 +57,8 @@ Three fields do most of the work:
   "role": "founder",
   "description": "Late-30s, warm-but-direct CEO. Reading-glasses on a chain, denim shirt, no makeup.",
   "master_shots": [
-    "workspace/.ralph/refs/persona-founder-megan/master-01.png",
-    "workspace/.ralph/refs/persona-founder-megan/master-02.png"
+    ".ralphy/workspaces/<ws>/shared/refs/persona-founder-megan/master-01.png",
+    ".ralphy/workspaces/<ws>/shared/refs/persona-founder-megan/master-02.png"
   ],
   "voice": {
     "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",
@@ -129,7 +129,7 @@ ralphy persona update <id> --voice-id "..." --master-shot path/to/file.png
 ralphy persona delete <id>
 ```
 
-The CRUD verbs use the same JSON files — `ralphy brand create` writes `workspace/.ralph/brands/<id>.json` and `ralphy brand update` mutates it. Editing the JSON by hand is allowed; the CLI re-reads on every project attach.
+The CRUD verbs use the same JSON files — `ralphy brand create` writes `.ralphy/brands/<id>.json` and `ralphy brand update` mutates it. Editing the JSON by hand is allowed; the CLI re-reads on every project attach.
 
 ## Brand voice vs. persona voice
 

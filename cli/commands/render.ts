@@ -1,7 +1,7 @@
 // `ralphy render <project>` — direct render pipeline.
 //
 // Engine: HyperFrames (HTML + GSAP, deterministic Puppeteer + FFmpeg).
-// Project shape: workspace/projects/<id>/index.html.
+// Project shape: .ralphy/workspaces/<ws>/projects/<id>/index.html.
 //
 // AGENTS.md hard rule #5 — no auto-launched Studio. Iterations happen via
 // regenerate-slot + re-render, not Studio scrubbing.
@@ -122,7 +122,7 @@ export function renderCmd() {
     .argument("<project>", "Project ID")
     .description(
       "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). " +
-        "Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. " +
+        "Writes <project>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. " +
         "Also auto-emits a compressed social sibling render/final-social.mp4 (CRF 20 default, x264 faststart) " +
         "so 'render → upload' is one command; pass --no-compress to skip it.",
     );
@@ -149,7 +149,7 @@ render/final.mp4 (append-only).
   );
   return cmd
     .option("--composition <id>", "Composition id (default: index.html)")
-    .option("--output <path>", "Output mp4 path (default: workspace/projects/<id>/render/final.mp4)")
+    .option("--output <path>", "Output mp4 path (default: <project>/render/final.mp4)")
     .option(
       "--from-clip <path>",
       "Pure-clip deliverable mode: faststart-wrap (and optionally loudnorm) an existing mp4 instead of running the HyperFrames engine. Logs to the project's gen-log so the single-entry-point invariant (AGENTS.md #2) holds. #009",

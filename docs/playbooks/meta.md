@@ -4,15 +4,15 @@ Rules about how to start a ralphy session, not what to do in any specific role. 
 
 ## Rule 1 — Re-read the closest sibling postmortem before the first ralphy call
 
-Every finished project under `workspace/projects/<id>/` ships a postmortem (either a 6-file split under `postmortem/` or a legacy single `POSTMORTEM.md`). Those documents are the highest-density distillation of what's worked, what's failed, and what burned money on a similar brief.
+Every finished project under `.ralphy/workspaces/<ws>/projects/<id>/` ships a postmortem (either a 6-file split under `postmortem/` or a legacy single `POSTMORTEM.md`). Those documents are the highest-density distillation of what's worked, what's failed, and what burned money on a similar brief.
 
 **Concrete: when a new project request lands, before running `ralphy generate`, identify the closest sibling project and re-read its `02-lessons.md` / lessons section.** "Closest" = same template kind, same category (per `ralphy template list -p` / the public Library), same aesthetic register. The 10 minutes you spend reading saves $5-20 of regen burn.
 
 Examples of the closest-sibling pattern:
-- New analog-horror PSA brief → re-read `workspace/projects/analog-horror-fridge-001/POSTMORTEM.md`
-- New deadpan 2-hander → re-read `workspace/projects/noski-people-001/postmortem/02-lessons.md`
-- New Tokyo / cinematic neon project → re-read `workspace/projects/tokyo-y2k-001/postmortem/02-lessons.md`
-- New broadcast-realism trend → re-read `workspace/projects/kbo-broadcast-001/postmortem/02-lessons.md`
+- New analog-horror PSA brief → re-read `.ralphy/workspaces/<ws>/projects/analog-horror-fridge-001/POSTMORTEM.md`
+- New deadpan 2-hander → re-read `.ralphy/workspaces/<ws>/projects/noski-people-001/postmortem/02-lessons.md`
+- New Tokyo / cinematic neon project → re-read `.ralphy/workspaces/<ws>/projects/tokyo-y2k-001/postmortem/02-lessons.md`
+- New broadcast-realism trend → re-read `.ralphy/workspaces/<ws>/projects/kbo-broadcast-001/postmortem/02-lessons.md`
 
 playdate-pixel-001 explicitly identified this as "the single highest-leverage 10 minutes" of the session — rules 5, 6, 7 from the flipper postmortem applied verbatim and would have saved 4 turns of relearning.
 

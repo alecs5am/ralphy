@@ -63,7 +63,7 @@ ralphy generate image \
   --project my-brand-2026 \
   --slot hero-warm \
   --model openai/gpt-5.4-image-2 \
-  --ref workspace/projects/my-brand-2026/assets/images/hero-white.png \
+  --ref .ralphy/workspaces/<ws>/projects/my-brand-2026/artifacts/images/hero-white.png \
   --prompt "Use the previous image as the base. Keep the product identity exactly the same: same shape, proportions, color, material, logo placement, and camera angle. Keep lighting unchanged. Change only: background colour from pure white (#FFFFFF) to warm cream (#F4F1EA). Do not add props. Do not change framing. Do not change the product. Hard exclusions: no style change, no text, no watermark, no extra objects."
 ```
 

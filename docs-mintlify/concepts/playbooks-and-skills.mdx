@@ -62,10 +62,10 @@ The seven skills today, in the order they appear under `.agents/skills/`:
 |---|---|---|
 | [`evaluator`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/evaluator/SKILL.md) | `user` | rendered mp4 → `eval.json` + `eval-report.md` |
 | [`researcher`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/researcher/SKILL.md) | `user` | URLs / handles / topic → `report.md` + `sources.json` |
-| [`templater`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/templater/SKILL.md) | `user` | shipped project → vibe-reference template in `workspace/templates/` (publish onward to the hosted library) |
+| [`templater`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/templater/SKILL.md) | `user` | shipped project → vibe-reference template in `.ralphy/workspaces/<ws>/templates/` (publish onward to the hosted library) |
 | [`install`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/install/SKILL.md) | `user` | fresh machine → installed binary, configured keys, working `ralphy doctor` |
 | [`hyperframes`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/hyperframes/SKILL.md) | `user` | HyperFrames composition question → topic-specific sub-doc |
-| [`postmortem`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/postmortem/SKILL.md) | `user` | iteration session → 6-file postmortem set under `workspace/projects/<id>/postmortem/` |
+| [`postmortem`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/postmortem/SKILL.md) | `user` | iteration session → 6-file postmortem set under `.ralphy/workspaces/<ws>/projects/<id>/postmortem/` |
 | [`dev-release`](https://github.com/alecs5am/ralphy/blob/main/.agents/skills/dev-release/SKILL.md) | `maintainer` | main-branch HEAD → new GitHub Release + brew + npm publication |
 
 The skill body follows a conventional section order — `## Trigger`, `## Hard invariants`, `## Workflow`, `## Outputs`, `## Cookbook` — see [`docs/skills-format.md`](https://github.com/alecs5am/ralphy/blob/main/docs/skills-format.md) for the authoring guide.
@@ -109,7 +109,7 @@ From [`docs/playbooks/meta.md`](https://github.com/alecs5am/ralphy/blob/main/doc
 1. `AGENTS.md` — auto-loaded by `CLAUDE.md`.
 2. `MODELS.md` — checked before every model call.
 3. `CLI.md` — verb / flag reference cheatsheet.
-4. The closest sibling postmortem under `workspace/projects/<id>/postmortem/02-lessons.md`.
+4. The closest sibling postmortem under `.ralphy/workspaces/<ws>/projects/<id>/postmortem/02-lessons.md`.
 5. The matched playbook from `AGENTS.md` routing — read fully before acting.
 
 The closest-sibling postmortem rule is the highest-leverage 10 minutes of a session. Sibling = same template kind, same category, same aesthetic register. Reading the lessons file from the closest prior project saves $5-20 of regen burn that would otherwise rediscover the same lessons.

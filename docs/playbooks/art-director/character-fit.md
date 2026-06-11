@@ -61,6 +61,6 @@ This string is then prepended to the FIRST line of every subsequent image prompt
 
 ## Sources
 
-- `workspace/projects/ralphy-carousel-001/postmortem/05-workflow-fixes.md` — #2 (mascot/character fit), Finding A (cover-first checkpoint)
-- `workspace/projects/ralphy-vs-higgsfield-001/postmortem/02-lessons.md` — Lesson #7 (hold one aesthetic end-to-end)
+- `.ralphy/workspaces/<ws>/projects/ralphy-carousel-001/postmortem/05-workflow-fixes.md` — #2 (mascot/character fit), Finding A (cover-first checkpoint)
+- `.ralphy/workspaces/<ws>/projects/ralphy-vs-higgsfield-001/postmortem/02-lessons.md` — Lesson #7 (hold one aesthetic end-to-end)
 - MEMORY: `feedback_meme_header_tiktok_format`, `feedback_deliberate_prop_vfx_old_spice` — adjacent register-vs-character collisions in already-shipped work

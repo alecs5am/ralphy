@@ -30,7 +30,7 @@ A code-block showing the corrected phase order with CLI commands and time budget
    └─ ralphy ref analyze <slug>
 
 2. Storyboard    (10 min)
-   ├─ Write workspace/projects/<id>/STORYBOARD.md
+   ├─ Write .ralphy/workspaces/<ws>/projects/<id>/STORYBOARD.md
    └─ Get explicit user "go" before phase 3.
 
 3. Stills        (10 min, parallel)
@@ -84,18 +84,18 @@ Bullet list of HyperFrames / ffmpeg / editing patterns that worked. Skip this se
 A tree showing what shipped. Brief annotations on each.
 
 \`\`\`
-workspace/projects/<id>/
+.ralphy/workspaces/<ws>/projects/<id>/
 ├── render/
 │   ├── final.mp4                 (1080×1920, 15s, music-X — WINNER)
 │   ├── final-music-a.mp4         (variant, rejected at turn N)
 │   └── ...
 ├── STORYBOARD.md                 (locked v1, turn 2)
 ├── postmortem/                   (this doc set)
-├── assets/
-│   ├── images/                   (N stills, M versions across regens)
-│   ├── videos/                   (M clips)
-│   └── music/                    (K variants)
-└── refs/                         (canonical + user-supplied)
+└── artifacts/
+    ├── images/                   (N stills, M versions across regens)
+    ├── videos/                   (M clips)
+    ├── music/                    (K variants)
+    └── refs/                     (canonical + user-supplied)
 \`\`\`
 
 Composition at `src/videos/<id>/{scenes.ts, index.tsx}`, registered as `<CompId>` in `src/Root.tsx`.

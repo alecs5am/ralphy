@@ -4,7 +4,7 @@
 // from any directory without a repo clone. Persisted with 0600 permissions
 // so the keys don't leak via shared umask.
 //
-// Migration plan from the workspace-scoped `workspace/.ralph/config.json`
+// Migration plan from the workspace-scoped `.ralphy/config.json`
 // (cli/lib/config.ts):
 //   • New code reads/writes the global file via this module.
 //   • Workspace config still loads in dev mode (presence of package.json

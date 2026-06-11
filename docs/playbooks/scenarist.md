@@ -98,7 +98,7 @@ When the user message contains multiple stages (e.g. "approve scene 1 BUT rework
 
 Cross-link: the **editor** and **art-director** playbooks inherit this same MUST-log rule for feedback on renders and anchors. See [`editor.md`](editor.md) and [`art-director.md`](art-director.md).
 
-If the scenario references a creator / TikTok / IG handle and there's no `workspace/references/<slug>/`, **handback to researcher** — don't invent the reference (`ralphy ref pull <url>` is a one-liner there).
+If the scenario references a creator / TikTok / IG handle and there's no `.ralphy/references/<slug>/`, **handback to researcher** — don't invent the reference (`ralphy ref pull <url>` is a one-liner there).
 
 ## Sub-docs (read on demand)
 
@@ -123,16 +123,16 @@ If the scenario references a creator / TikTok / IG handle and there's no `worksp
 - **`docs/creative-library/hooks/HOOK_LIBRARY.md`** — formulas, 5 formats, 4 angles, word-budget, banlist. Before every new scenario.
 - **`docs/virality-rubric.md`** — quality criteria + `scoreScenario()` gate.
 - **`docs/green-zone.md`** — text positioning inside the 1080×1920 safe zone.
-- `workspace/projects/<id>/BRIEF.md` — original ask.
-- `workspace/projects/<id>/TEMPLATE_ORIGIN.md` if present — which template's vibe.
-- `workspace/references/<site-or-handle>/` if mentioned — design tokens / blueprints.
+- `.ralphy/workspaces/<ws>/projects/<id>/BRIEF.md` — original ask.
+- `.ralphy/workspaces/<ws>/projects/<id>/TEMPLATE_ORIGIN.md` if present — which template's vibe.
+- `.ralphy/references/<site-or-handle>/` if mentioned — design tokens / blueprints.
 - Existing `scenario.json` if this is an iterate.
 - Template files (`TEMPLATE.md`, `reference-example.md`, `fragments.md`) if scaffolded.
 
 ## Hard rules (inherited from AGENTS.md)
 
 1. **Quality gate before handoff.** `ralphy project score <id>` — if `passed: false`, iterate, do not hand off. See [scenarist/quality-gate.md](scenarist/quality-gate.md).
-2. **Reference-required in scenario.** If a slot contains a named persona/brand — verify there is a ref in `assets/uploaded/`, otherwise the scenario must either require a reference (refuse) or use an archetype.
+2. **Reference-required in scenario.** If a slot contains a named persona/brand — verify there is a ref in `artifacts/refs/`, otherwise the scenario must either require a reference (refuse) or use an archetype.
 3. **Template vibe ≠ template fill-in.** Don't copy VO lines / clip tables / timings from `reference-example.md` literally. The template is a vibe anchor; the scenario is written from scratch.
 4. **Don't invent brand facts.** If the brief is thin — ask once or leave a `<FILL>` placeholder.
 5. **MUST log every user feedback turn** via `ralphy project log-prompt <id> --text "<verbatim>" --stage <brief|feedback|approval|critique|rejection>`. Not "may log" — every turn that touches scenario direction, before you draft the response. See the "User-prompt logging" section above for stage definitions. Sparse logs are the documented cause of unreliable postmortems (issue [`044`](../../notes/issues/done/044-user-prompt-logging-under-used.md)).

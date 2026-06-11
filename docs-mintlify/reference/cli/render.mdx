@@ -1,6 +1,6 @@
 ---
 title: "ralphy render"
-description: "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes workspace/projects/<id>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. Also auto-e"
+description: "Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes <project>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. Also auto-emits a compres"
 ---
 
 {/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
@@ -16,7 +16,7 @@ ralphy render [options] <project>
 | Flag | Description |
 |---|---|
 | `--composition <id>` | Composition id (default: index.html) |
-| `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
+| `--output <path>` | Output mp4 path (default: &lt;project&gt;/render/final.mp4) |
 | `--from-clip <path>` | Pure-clip deliverable mode: faststart-wrap (and optionally loudnorm) an existing mp4 instead of running the HyperFrames engine. Logs to the project's gen-log so the single-entry-point invariant (AGENTS.md #2) holds. #009 |
 
 **Example**
@@ -32,7 +32,7 @@ ralphy render spring-001
 | Flag | Description |
 |---|---|
 | `--composition <id>` | Composition id (default: index.html) |
-| `--output <path>` | Output mp4 path (default: workspace/projects/&lt;id&gt;/render/final.mp4) |
+| `--output <path>` | Output mp4 path (default: &lt;project&gt;/render/final.mp4) |
 | `--from-clip <path>` | Pure-clip deliverable mode: faststart-wrap (and optionally loudnorm) an existing mp4 instead of running the HyperFrames engine. Logs to the project's gen-log so the single-entry-point invariant (AGENTS.md #2) holds. #009 |
 | `--loudnorm` | Apply EBU R128 loudnorm (-16 LUFS) post-render via ffmpeg |
 | `--fps <fps>` | Frame rate (default 30) |

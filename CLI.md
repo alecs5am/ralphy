@@ -12,7 +12,7 @@ Read this before running any `ralphy` command you haven't used recently. The CLI
 
 - Default: JSON to stdout (parse it).
 - `-p` / `--pretty`: human tables (use only when reporting to the user).
-- `--cwd <path>`: pin the workspace root (overrides project auto-detection).
+- `--cwd <path>`: pin the data root (the dir containing `.ralphy/`; overrides auto-detection).
 - Exit non-zero on validation/runtime failure; error message in stderr.
 
 ## Discovery
@@ -37,7 +37,7 @@ If you don't remember a flag, **run `--help` first**. Don't invent flags from tr
 | `models {list\|show <id>}` | Inspect OR video models + their per-model param whitelists. **Read before any video gen.** |
 | `daemon {start\|stop\|status}` | Manage the background job worker. |
 | `queue {add\|list\|show\|cancel\|retry\|logs\|watch}` | Manage queued jobs. |
-| `render <project>` | Render project → `workspace/projects/<id>/render/final.mp4`. `--loudnorm` for EBU R128. |
+| `render <project>` | Render project → `<project>/render/final.mp4` (`<project>` = `.ralphy/workspaces/<ws>/projects/<id>`). `--loudnorm` for EBU R128. |
 | `assets {list\|pull\|pull-key\|install\|clean\|cache-info}` | Pull assets from the `ralphy-assets` companion repo. |
 | `example {list\|pull}` | Pull complete reference projects. |
 | `audio` / `video` | FFmpeg recipes (loudnorm, sidechain duck, concat, extract-segment, burn-subs, tonemap-hdr). |
@@ -61,7 +61,7 @@ Notable extensions:
 - `ref blueprint <slug>` / `ref scrape-trends` — research helpers.
 - `batch submit --from <file>` — topo-sorted batch insert with symbolic dependencies. Use this for "N generations + 1 render".
 
-Templates live in **two roots**: `templates/` (repo-public, committed) and `workspace/templates/` (user-local, gitignored). Workspace overrides repo on id collision.
+Templates live in **two tiers**: the public content library (static `library.json` on Bunny CDN) and the active workspace's `.ralphy/workspaces/<ws>/templates/` (user-local, gitignored). Workspace overrides public on id collision.
 
 ## `generate` — the only gate to provider APIs
 
@@ -89,14 +89,15 @@ Same `--queue / --depends-on / --queue-tag / --queue-priority` flags exist on ev
 ### `generate image` / `voiceover` / `music` / `captions`
 
 - `image` — default `gemini-3-pro-image-preview`. Returns PNG or JPEG (gemini sometimes returns JPEG even for `.png` slots).
+- `--ref` / `--first-frame` / `--audio` path resolution (#025/#108): cwd → `<project>/` → `<project>/artifacts/refs/` → the project's workspace `shared/` tier. `--ref shared/cast/nurse.png` targets `.ralphy/workspaces/<ws>/shared/cast/nurse.png` explicitly — the way to reuse workspace-level assets without copying.
 - `voiceover` — ElevenLabs, default `eleven_multilingual_v2` (RU). Use `eleven_v3` for premium English only.
 - `music` — ElevenLabs `music_v1`, instrumental by default.
 - `captions` — Scribe v1 word-level, ≤25MB audio.
 
 ## Queue / daemon mental model
 
-- Single SQLite file at `workspace/.ralph/jobs.sqlite`. WAL mode; concurrent readers + single writer.
-- Daemon = detached `bun.spawn` process; pidfile `workspace/.ralph/daemon.pid`. Auto-started on `--queue` / `batch submit`.
+- Single SQLite file at `.ralphy/jobs.db`. WAL mode; concurrent readers + single writer.
+- Daemon = detached `bun.spawn` process; pidfile `.ralphy/daemon.pid`. Auto-started on `--queue` / `batch submit`.
 - States: `pending → running → completed | failed | cancelled | blocked`. Cascade-block: a candidate with a failed/cancelled dep moves to `blocked`.
 - `queue add` takes a positional `<argv...>` after `--`. For ralphy gens prefer `generate ... --queue` (cleaner — strips queue flags before re-exec).
 - `queue watch` (no id) → ANSI dashboard of all active jobs. `queue watch <id>` → tail one job's logs. `queue logs <id> --follow` → stream stdout/stderr.
@@ -108,7 +109,7 @@ Same `--queue / --depends-on / --queue-tag / --queue-priority` flags exist on ev
 3. **Reference-required gate.** Named real entity → require user-supplied reference before any generation.
 4. **Quality gates refuse, not warn.** `scoreScenario` / `scoreImage` / `scoreVideo` failing twice → stop and report options.
 5. **Always check `MODELS.md` before any model call.** Then `ralphy models show <id>` for the live param matrix.
-6. **`ralphy` for CRUD**, never hand-edit `workspace/`.
+6. **`ralphy` for CRUD**, never hand-edit `.ralphy/`.
 
 ## Common patterns
 

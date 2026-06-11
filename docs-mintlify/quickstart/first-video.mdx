@@ -56,13 +56,13 @@ You'll type one sentence in chat, answer 3-5 clarifying questions, watch Ralphy 
   <Step title="Agent generates scenes one beat at a time">
     The agent creates the project (`espresso-001`) and starts generating scene by scene. For each scene it:
 
-    1. Writes the prompt to `workspace/projects/espresso-001/prompts.json`.
+    1. Writes the prompt to `.ralphy/workspaces/default/projects/espresso-001/prompts.json`.
     2. Calls `ralphy generate image --scene scene-01 ...` to make the background plate.
     3. Shows you the image, asks for OK or a variant.
     4. Calls `ralphy generate video --scene scene-01 ...` to animate it.
     5. Calls `ralphy generate voiceover --scene scene-01 ...` for the VO line.
 
-    Files land in `workspace/projects/espresso-001/assets/`. Every model call writes an entry to `logs/generations.jsonl` with the input, output, and cost.
+    Files land in `.ralphy/workspaces/default/projects/espresso-001/assets/`. Every model call writes an entry to `logs/generations.jsonl` with the input, output, and cost.
 
     <Note>
     You can reject a scene at any time. Say "ask for a variant" or "make scene-02 brighter" and the agent regenerates. The old version is preserved on disk as `.scene-02-bg-image.v1.png` — Ralphy never overwrites a generation per [AGENTS.md invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md).
@@ -95,13 +95,13 @@ You'll type one sentence in chat, answer 3-5 clarifying questions, watch Ralphy 
     ralphy render espresso-001
     ```
 
-    HyperFrames rasterizes the composition headlessly, ffmpeg encodes the final mp4, and `final.mp4` lands in `workspace/projects/espresso-001/render/`. The agent reports back with the file path, duration, file size, and total spend pulled from `generations.jsonl`.
+    HyperFrames rasterizes the composition headlessly, ffmpeg encodes the final mp4, and `final.mp4` lands in `.ralphy/workspaces/default/projects/espresso-001/render/`. The agent reports back with the file path, duration, file size, and total spend pulled from `generations.jsonl`.
 
     Sample output:
 
     ```text
     ✓ Rendered espresso-001
-      → workspace/projects/espresso-001/render/final.mp4
+      → .ralphy/workspaces/default/projects/espresso-001/render/final.mp4
       duration   15.0s
       size       4.2 MB
       spend      $0.87
@@ -113,7 +113,7 @@ You'll type one sentence in chat, answer 3-5 clarifying questions, watch Ralphy 
     Open the file:
 
     ```bash
-    open workspace/projects/espresso-001/render/final.mp4
+    open .ralphy/workspaces/default/projects/espresso-001/render/final.mp4
     ```
 
     Or drag it into QuickTime / VLC / your browser. That's your first ralphy video.

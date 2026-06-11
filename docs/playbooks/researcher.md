@@ -41,7 +41,7 @@ ralphy ref show <id>
 ralphy ref paths <slug>      # print every file path for the ref's research dir
 ```
 
-The standard chain is `pull → frames → transcribe → analyze → audio-describe → blueprint`. Each step is idempotent and writes to `workspace/references/<slug>/state.json` so re-runs skip what's already done.
+The standard chain is `pull → frames → transcribe → analyze → audio-describe → blueprint`. Each step is idempotent and writes to `.ralphy/references/<slug>/state.json` so re-runs skip what's already done.
 
 ## Sub-docs (read on demand)
 
@@ -67,7 +67,7 @@ The standard chain is `pull → frames → transcribe → analyze → audio-desc
 
 - **`AGENTS.md`** — invariants.
 - **`MODELS.md`** — vision models via OpenRouter (gemini-2.5-flash default).
-- Existing `workspace/research/<slug>/` or `workspace/references/<slug>/` — resume, don't duplicate.
+- Existing `.ralphy/research/<slug>/` or `.ralphy/references/<slug>/` — resume, don't duplicate.
 - `.env` — `OPENROUTER_API_KEY` for vision.
 
 ## Tooling inventory

@@ -44,7 +44,7 @@ ralphy new "your one-line brief here" --id tester-001
 
 # 7. Render and report back
 ralphy render tester-001
-ls workspace/projects/tester-001/render/   # expect final.mp4
+ls .ralphy/workspaces/default/projects/tester-001/render/   # expect final.mp4
 ```
 
 Then drop a report in Discussions — even if it shipped cleanly. Especially if it shipped cleanly.

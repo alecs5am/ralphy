@@ -56,11 +56,11 @@ function nextMilestone(profile: UserProfile): string | null {
 
 export function whoamiCmd(): Command {
   const cmd = new Command("whoami").description(
-    "Show the per-user profile (skill score 0-10, developer badge, signals, recommendation for adaptive intake). On first call, auto-backfills from workspace/projects.",
+    "Show the per-user profile (skill score 0-10, developer badge, signals, recommendation for adaptive intake). On first call, auto-backfills from on-disk projects.",
   );
 
   cmd
-    .option("--backfill", "Scan workspace/projects/* and recompute signals from on-disk state (renders, postmortems)", false)
+    .option("--backfill", "Scan every workspace (.ralphy/workspaces/*/projects/*) and recompute signals from on-disk state (renders, postmortems)", false)
     .option("--set-level <n>", "Pin skill score to <n> (0-10). Overrides auto-assessment.", (v) => parseFloat(v))
     .option("--set-developer", "Mark this user as a developer — unlocks raw CLI suggestions + ship-fast default", false)
     .option("--unset-developer", "Remove the developer badge", false)

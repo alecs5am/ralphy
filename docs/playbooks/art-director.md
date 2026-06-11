@@ -88,11 +88,11 @@ If you reach for a backend that isn't covered (e.g. lipsync, image editing, talk
 - **`.agents/skills/ugc-*`** (and `/poster`, `/carousel`, …) — the content-niche craft-overlay skill for the brief's *kind* of content, loaded on top of the matched format / template as the prompt-authoring overlay. The format / template is the primary route (`docs/templates-index.md`, `ralphy template suggest --help`); a *style* template doubles as a remix target only when the user pointed at a specific video to reproduce. See [`docs/skills-vs-templates.md`](../skills-vs-templates.md).
 - **`docs/creative-library/personas/ARCHETYPES.md`** — 8 archetypes (when there's a persona slot).
 - **`docs/creative-library/scenes/SETTINGS.md`** — 9 scene settings (when you need to pick a setting).
-- `workspace/projects/<id>/scenario.json` — slots + VO text.
-- `workspace/projects/<id>/prompts.json` — what already exists.
-- `workspace/projects/<id>/asset-manifest.json` — what's already on disk (skip).
-- `workspace/projects/<id>/logs/generations.jsonl` — on regeneration, to avoid repeating a failure.
-- `templates/<slug>/{TEMPLATE,hooks,prompt-cookbook}.md` (or `workspace/templates/<slug>/`) — if the project was scaffolded from a template, the cookbook is your prompt-writing reference.
+- `.ralphy/workspaces/<ws>/projects/<id>/scenario.json` — slots + VO text.
+- `.ralphy/workspaces/<ws>/projects/<id>/prompts.json` — what already exists.
+- `.ralphy/workspaces/<ws>/projects/<id>/asset-manifest.json` — what's already on disk (skip).
+- `.ralphy/workspaces/<ws>/projects/<id>/logs/generations.jsonl` — on regeneration, to avoid repeating a failure.
+- `templates/<slug>/{TEMPLATE,hooks,prompt-cookbook}.md` (or `.ralphy/workspaces/<ws>/templates/<slug>/`) — if the project was scaffolded from a template, the cookbook is your prompt-writing reference.
 
 ## Step 1 of every gen — read the library (02.0L.03)
 
@@ -102,7 +102,7 @@ Before writing a prompt for any slot, run `ralphy prompts library lookup --goal 
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **All calls go through `ralphy generate {image|video|voiceover|music}`.** No runtime TS scripts in `workspace/projects/<id>/scripts/`. If an operation isn't covered — stop and extend `cli/commands/generate.ts`, don't copy code into the project.
+1. **All calls go through `ralphy generate {image|video|voiceover|music}`.** No runtime TS scripts in `.ralphy/workspaces/<ws>/projects/<id>/scripts/`. If an operation isn't covered — stop and extend `cli/commands/generate.ts`, don't copy code into the project.
 2. **Reference-required gate (named real entities only).** See [art-director/ref-photo-policy.md](art-director/ref-photo-policy.md). The gate fires for a named person / recognizable brand product / IP. Generic briefs do not trigger. Override path: `ralphy generate ... --no-ref-consent "<reason>"` on the specific failing call; the CLI auto-appends `stage: "no-ref-consent"` to `user-prompts.jsonl`.
 3. **Quality gate.** See [art-director/quality-gate.md](art-director/quality-gate.md). Two failures in a row → stop, report concrete options to the user. Refuse, do not warn (AGENTS invariant #4).
 4. **MODELS.md is the only source.** See [art-director/model-choice.md](art-director/model-choice.md). Always pick the best model per kind — there is no "cheaper draft" path. Budget caps (`docs/playbooks/producer.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
@@ -144,7 +144,7 @@ showing <concrete scene description with named in-app content>. Soft
 behind in 3D depth.
 ```
 
-Naming actual in-app content (real series titles, real card text, the brand's real palette) makes nano-banana populate the mockup with plausible on-brand artwork instead of generic placeholders. Source: `workspace/projects/appstore-takeaminute-001/POSTMORTEM.md` § "Prompt patterns that worked (verbatim)".
+Naming actual in-app content (real series titles, real card text, the brand's real palette) makes nano-banana populate the mockup with plausible on-brand artwork instead of generic placeholders. Source: `.ralphy/workspaces/<ws>/projects/appstore-takeaminute-001/POSTMORTEM.md` § "Prompt patterns that worked (verbatim)".
 
 ### 2. Markdown punctuation in quoted strings
 
@@ -179,7 +179,7 @@ The default agent instinct is re-prompt-on-fail (tweak verbs, try a different mo
 
 Before handing the project to the editor for `ralphy render <id>` — every project, no exceptions — walk the pre-render checklist. This is not a soft "should snapshot key beats"; it is a refuse-not-warn gate.
 
-- **MUST snapshot every beat** in `STORYBOARD.md` via `bunx hyperframes snapshot workspace/projects/<id>` before render.
+- **MUST snapshot every beat** in `STORYBOARD.md` via `bunx hyperframes snapshot .ralphy/workspaces/<ws>/projects/<id>` before render.
 - **MUST eyeball every snapshot for anatomy** (hands, eyes, limb clipping — the `noski-people-001` failure class).
 - **MUST eyeball every snapshot for location continuity** (same couch / wall / light across scenes that share a setting).
 - **MUST eyeball every snapshot for pivot / camera-axis sanity** (180° line, camera height, no v1→v2 mirror flip).

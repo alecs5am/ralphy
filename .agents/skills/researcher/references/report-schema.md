@@ -1,6 +1,6 @@
 # Research report schema (v1.0)
 
-The `ralphy research synthesize` pipeline writes two files to `workspace/research/<topic>/`:
+The `ralphy research synthesize` pipeline writes two files to `.ralphy/research/<topic>/`:
 
 - `report.md` — narrative document for humans + downstream chat consumers
 - `sources.json` — machine contract for fixer / scenarist agents
@@ -21,11 +21,11 @@ The `ralphy research synthesize` pipeline writes two files to `workspace/researc
 interface Source {
   id: string,                       // footnote id used in report.md — "1", "2", …
   url: string,                      // canonical URL passed to add-source
-  refSlug: string,                  // slug under workspace/references/<refSlug>/
+  refSlug: string,                  // slug under .ralphy/references/<refSlug>/
   title: string,                    // pulled from yt-dlp meta (or hostname fallback)
   addedAt: string,
   status: "pending" | "pulled" | "analyzed" | "failed",
-  blueprintPath?: string,           // workspace/references/<refSlug>/blueprint.md
+  blueprintPath?: string,           // .ralphy/references/<refSlug>/blueprint.md
   keyFindings?: string[],           // 3–8 short bullets distilled by synthesize
   error?: string                    // present when status = "failed"
 }
@@ -77,7 +77,7 @@ The synthesis prompt instructs the model to use `[^N]` markers tied to the `id` 
 
 ### Per-source notes
 
-The synthesis prompt does *not* produce a per-source Notes section in `report.md` — that would duplicate `blueprint.md` and bloat the file. The `keyFindings` array on each source in `sources.json` carries the per-source takeaway in compact form, and the original `blueprint.md` is always reachable at `workspace/references/<refSlug>/blueprint.md` if a reader needs the raw description.
+The synthesis prompt does *not* produce a per-source Notes section in `report.md` — that would duplicate `blueprint.md` and bloat the file. The `keyFindings` array on each source in `sources.json` carries the per-source takeaway in compact form, and the original `blueprint.md` is always reachable at `.ralphy/references/<refSlug>/blueprint.md` if a reader needs the raw description.
 
 ## Per-source artifacts (read-only from the report's perspective)
 
@@ -85,13 +85,13 @@ These are written by the per-URL `ralphy ref` chain, not by `research synthesize
 
 | File | Source command | Used by synthesize |
 |---|---|---|
-| `workspace/references/<refSlug>/meta.info.json` | `ralphy ref pull` | yes — title, uploader, duration |
-| `workspace/references/<refSlug>/source.mp4` | `ralphy ref pull` | indirectly (frames + audio derive from it) |
-| `workspace/references/<refSlug>/source.mp3` | `ralphy ref pull` | indirectly (transcript + audio-describe) |
-| `workspace/references/<refSlug>/frames/*.jpg` | `ralphy ref frames` | indirectly (analyze.json derives from frames) |
-| `workspace/references/<refSlug>/transcript.json` | `ralphy ref transcribe` | yes — verbatim text |
-| `workspace/references/<refSlug>/analysis.json` | `ralphy ref analyze` | yes — per-scene vision JSON |
-| `workspace/references/<refSlug>/audio-analysis.json` | `ralphy ref audio-describe` | yes — tone / music / VO style |
-| `workspace/references/<refSlug>/blueprint.md` | `ralphy ref blueprint` | yes — per-source narrative summary |
+| `.ralphy/references/<refSlug>/meta.info.json` | `ralphy ref pull` | yes — title, uploader, duration |
+| `.ralphy/references/<refSlug>/source.mp4` | `ralphy ref pull` | indirectly (frames + audio derive from it) |
+| `.ralphy/references/<refSlug>/source.mp3` | `ralphy ref pull` | indirectly (transcript + audio-describe) |
+| `.ralphy/references/<refSlug>/frames/*.jpg` | `ralphy ref frames` | indirectly (analyze.json derives from frames) |
+| `.ralphy/references/<refSlug>/transcript.json` | `ralphy ref transcribe` | yes — verbatim text |
+| `.ralphy/references/<refSlug>/analysis.json` | `ralphy ref analyze` | yes — per-scene vision JSON |
+| `.ralphy/references/<refSlug>/audio-analysis.json` | `ralphy ref audio-describe` | yes — tone / music / VO style |
+| `.ralphy/references/<refSlug>/blueprint.md` | `ralphy ref blueprint` | yes — per-source narrative summary |
 
 The synthesis step truncates each block before sending to the LLM (transcript ~4000 chars, analysis ~2500, audio ~1200, blueprint ~3000) to keep the prompt under context limits. If a source has unusually long material that needs full treatment, fall back to the per-source `ralphy ref blueprint` flow for that specific URL.

@@ -36,7 +36,7 @@ You take open-ended reference material — URLs, handles, trend queries — and 
 Four CLI verbs cover the loop. Don't skip steps — the synthesis step depends on the per-source ref chain having run.
 
 ```bash
-# 1. Start a topic (creates workspace/research/<slug>/state.json)
+# 1. Start a topic (creates .ralphy/research/<slug>/state.json)
 ralphy research start <topic-slug> --question "<the research question>"
 
 # 2. Add each source (full ref chain: pull → frames → transcribe → analyze → audio-describe → blueprint)
@@ -50,7 +50,7 @@ ralphy research show <slug>
 ralphy research list
 ```
 
-`add-source` is idempotent: if a URL was already pulled into `workspace/references/<refSlug>/`, the chain detects the existing artifacts and skips them. Re-running `synthesize` after adding more sources updates `report.md` in place.
+`add-source` is idempotent: if a URL was already pulled into `.ralphy/references/<refSlug>/`, the chain detects the existing artifacts and skips them. Re-running `synthesize` after adding more sources updates `report.md` in place.
 
 Useful flags:
 - `--meta-only` on `add-source` — only record the URL + yt-dlp metadata, skip the heavy chain (use when the source is text-only or you only need title / author).
@@ -59,10 +59,10 @@ Useful flags:
 
 ## How to read the report
 
-Two files written to `workspace/research/<slug>/`:
+Two files written to `.ralphy/research/<slug>/`:
 
 - **`report.md`** — narrative deep-research doc. Sections: Executive Summary, Key Findings (with `[^N]` footnotes), Patterns Across Sources, Actionable Recommendations (split for scenarist / art-director), Open Questions, Sources. Show this one to the user.
-- **`sources.json`** — machine contract for downstream skills. Each source has `id` (footnote), `url`, `title`, `refSlug` (pointing at raw artifacts in `workspace/references/<refSlug>/`), `blueprintPath`, and `keyFindings[]` (3–8 short bullets distilled by the synthesis step). Schema: `references/report-schema.md`.
+- **`sources.json`** — machine contract for downstream skills. Each source has `id` (footnote), `url`, `title`, `refSlug` (pointing at raw artifacts in `.ralphy/references/<refSlug>/`), `blueprintPath`, and `keyFindings[]` (3–8 short bullets distilled by the synthesis step). Schema: `references/report-schema.md`.
 
 The report cites every claim. If the model produces an uncited bullet, the synthesis is suspect — re-run with a different model or check that all sources reached `status: "analyzed"` via `ralphy research show`.
 

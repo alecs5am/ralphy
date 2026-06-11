@@ -10,7 +10,7 @@ description: >-
 
 # dev-loop — autonomous issue-driven dev cycle
 
-A **maintainer** skill. It executes the open work in `notes/issues/` (the inbox `/dev-issues` fills), one issue at a time, committing after each. It does not touch `workspace/projects/` or call media models except where an issue explicitly requires it (and then only behind the paid-generation gate below).
+A **maintainer** skill. It executes the open work in `notes/issues/` (the inbox `/dev-issues` fills), one issue at a time, committing after each. It does not touch `.ralphy/workspaces/<ws>/projects/` or call media models except where an issue explicitly requires it (and then only behind the paid-generation gate below).
 
 ## Scope + limit
 
@@ -56,4 +56,4 @@ The husky hooks run the full `bun test` suite, which contains a load-dependent f
 - **English-only on disk.** Run the Cyrillic gate before every commit.
 - **Respect the paid-generation and irreversible-action gates above** — the loop is autonomous, not unsupervised.
 - **Resolve = move, never delete.** A landed issue is `git mv`'d into `notes/issues/done/` (obsolete → `deprecated/`) with its `> **Status:**` line synced — never `rm`'d. The archive is the record of what was already tried. Only the flat top level is ever in scope.
-- **Append-only on `workspace/projects/` and the JSONL logs** (AGENTS.md #14).
+- **Append-only on `.ralphy/workspaces/<ws>/projects/` and the JSONL logs** (AGENTS.md #14).

@@ -2,7 +2,7 @@
 
 ## Default — registry blocks
 
-Install a transition via `bunx hyperframes add <transition-slug> workspace/projects/<id>` and wire it between two scene `<div class="clip">` elements. UGC defaults:
+Install a transition via `bunx hyperframes add <transition-slug> .ralphy/workspaces/<ws>/projects/<id>` and wire it between two scene `<div class="clip">` elements. UGC defaults:
 
 - `fade` for smooth scene change (~200ms)
 - `push` (slide left / right) for narrative transitions

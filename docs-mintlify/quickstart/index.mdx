@@ -30,7 +30,7 @@ Then in chat: **"set me up"** → keys, deps, doctor. Then: **"make a 15-second 
     Using Cursor, Copilot, or Codex instead of Claude Code? One command wires the routing in.
   </Card>
   <Card title="What just happened" icon="map" href="/quickstart/what-happened">
-    Walk through every file Ralphy wrote — `BRIEF.md`, `prompts.json`, `assets/`, `generations.jsonl`, `final.mp4`.
+    Walk through every file Ralphy wrote — `BRIEF.md`, `prompts.json`, `artifacts/`, `generations.jsonl`, `final.mp4`.
   </Card>
 </CardGroup>
 
@@ -45,7 +45,7 @@ You don't need Vercel, FAL, OpenAI direct, or any other provider. Two keys, one 
 
 ## How Ralphy works in one paragraph
 
-You clone `ugc-cli` and open it in Claude Code. The repo ships `AGENTS.md`, a routing table the agent reads on every turn. You write a brief like `"15-second TikTok about my espresso bar, morning vibe, selfie POV"` in chat. Claude matches the brief to a [playbook](/concepts/architecture), asks 3-5 clarifying questions, then calls `ralphy` for every model invocation and render step. Each project lives under `workspace/projects/<id>/` with an append-only [generation log](/concepts/generation-log), so you can replay, branch, and audit costs after the fact. The agent reviews scenes with you before paid generation; nothing burns budget without consent.
+You clone `ugc-cli` and open it in Claude Code. The repo ships `AGENTS.md`, a routing table the agent reads on every turn. You write a brief like `"15-second TikTok about my espresso bar, morning vibe, selfie POV"` in chat. Claude matches the brief to a [playbook](/concepts/architecture), asks 3-5 clarifying questions, then calls `ralphy` for every model invocation and render step. Each project lives under `.ralphy/workspaces/default/projects/<id>/` with an append-only [generation log](/concepts/generation-log), so you can replay, branch, and audit costs after the fact. The agent reviews scenes with you before paid generation; nothing burns budget without consent.
 
 ## Pick your path
 

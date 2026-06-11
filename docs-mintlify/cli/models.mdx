@@ -76,7 +76,7 @@ The agent doesn't typically run these — `ralphy generate video` validates agai
 
 ## Cache + offline behavior
 
-The catalog caches for 24h at `workspace/.ralph/or-catalog.json`. The fetcher in `cli/lib/or-catalog.ts` falls back to the stale cache when OpenRouter is unreachable — generation verbs still validate against the last-known catalog rather than failing closed.
+The catalog caches for 24h at `.ralphy/or-catalog.json`. The fetcher in `cli/lib/or-catalog.ts` falls back to the stale cache when OpenRouter is unreachable — generation verbs still validate against the last-known catalog rather than failing closed.
 
 `--refresh` on any of the verbs forces a fresh fetch. Wipe the cache by deleting the file (or wait 24h).
 

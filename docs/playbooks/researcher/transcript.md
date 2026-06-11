@@ -4,7 +4,7 @@ Researcher transcribes when needed for analysis (find-viral-moments, deep social
 
 ## Tool
 
-For project context (output goes into `workspace/projects/<id>/captions.json` + manifest + gen-log):
+For project context (output goes into `.ralphy/workspaces/<ws>/projects/<id>/captions.json` + manifest + gen-log):
 
 ```bash
 ralphy project transcribe <id> --audio <path> [--language ru|en|auto] [--backend elevenlabs|openrouter|gemini]
@@ -14,7 +14,7 @@ For research context (no project, just dump captions next to the ref):
 
 ```bash
 ralphy ref transcribe <slug> [--language ru] [--backend elevenlabs]
-# → workspace/references/<slug>/transcript.json (Caption[])
+# → .ralphy/references/<slug>/transcript.json (Caption[])
 ```
 
 `ref transcribe` reads `<slug>/source.mp3`, which `ref pull` already extracts. **Don't shell out to `bunx tsx` against `cli/lib/transcribe.ts` directly** — the CLI verb logs to gen-log and updates `state.json`.

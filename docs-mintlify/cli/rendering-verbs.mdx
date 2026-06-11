@@ -7,7 +7,7 @@ description: "ralphy render plus the audio, video, voice, editor utility verbs t
 
 ## ralphy render
 
-Reads `scenario.json` + `asset-manifest.json`, drives HyperFrames (Puppeteer rasterizer + FFmpeg muxer) against `workspace/projects/<id>/index.html`, optionally post-processes with EBU R128 loudnorm.
+Reads `scenario.json` + `asset-manifest.json`, drives HyperFrames (Puppeteer rasterizer + FFmpeg muxer) against `.ralphy/workspaces/<ws>/projects/<id>/index.html`, optionally post-processes with EBU R128 loudnorm.
 
 ```bash
 ralphy render demo-001
@@ -16,10 +16,10 @@ ralphy render demo-001 --output ./out.mp4
 ralphy render demo-001 --fps 60 --quality high
 ```
 
-Output lands at `workspace/projects/<id>/render/final.mp4`. With `--loudnorm`, the raw render writes to `final.raw.mp4` and the ffmpeg pass produces `final.mp4` at `-16 LUFS` (TikTok/Reels target).
+Output lands at `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4`. With `--loudnorm`, the raw render writes to `final.raw.mp4` and the ffmpeg pass produces `final.mp4` at `-16 LUFS` (TikTok/Reels target).
 
 <ParamField path="--output <path>" type="string">
-  Custom output path. Default: `workspace/projects/<id>/render/final.mp4`.
+  Custom output path. Default: `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4`.
 </ParamField>
 
 <ParamField path="--loudnorm" type="boolean">
@@ -108,7 +108,7 @@ Full surface: [`/reference/cli/voice`](/reference/cli/voice).
 ```bash
 ralphy editor preflight demo-001
 ralphy render demo-001 --loudnorm
-ralphy eval video workspace/projects/demo-001/render/final.mp4
+ralphy eval video .ralphy/workspaces/<ws>/projects/demo-001/render/final.mp4
 ```
 
 `eval` is the quality gate after the render; see [Eval and research](/cli/eval-research). When eval flags issues, the agent regenerates the offending slots and re-runs `render` — iterations are CLI-native.

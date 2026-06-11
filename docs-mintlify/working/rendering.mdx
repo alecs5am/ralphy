@@ -3,16 +3,16 @@ title: "Rendering the final mp4"
 description: "ralphy render reads the manifest, runs HyperFrames, writes final.mp4. The loudnorm pass, render history, perf targets."
 ---
 
-`ralphy render <project-id>` is the only render path. It reads `scenario.json` and `asset-manifest.json`, drives HyperFrames (Puppeteer + FFmpeg), and writes the result to `workspace/projects/<id>/render/final.mp4`. No direct `bunx hyperframes render` calls, no ad-hoc `ffmpeg` shells — every recipe lives behind a `ralphy` verb so the cost rollup, the gen-log, and the asset manifest all stay consistent. That's [AGENTS invariant #2](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md).
+`ralphy render <project-id>` is the only render path. It reads `scenario.json` and `asset-manifest.json`, drives HyperFrames (Puppeteer + FFmpeg), and writes the result to `.ralphy/workspaces/default/projects/<id>/render/final.mp4`. No direct `bunx hyperframes render` calls, no ad-hoc `ffmpeg` shells — every recipe lives behind a `ralphy` verb so the cost rollup, the gen-log, and the asset manifest all stay consistent. That's [AGENTS invariant #2](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md).
 
 ## What `render` does
 
 A render call walks through the project in order:
 
-1. **Reads** `workspace/projects/<id>/scenario.json` and `asset-manifest.json` to know which slots exist and where their files live.
-2. **Resolves** the composition. `workspace/projects/<id>/index.html` is the root composition HyperFrames seeks deterministically via its paused GSAP timeline.
+1. **Reads** `.ralphy/workspaces/default/projects/<id>/scenario.json` and `asset-manifest.json` to know which slots exist and where their files live.
+2. **Resolves** the composition. `.ralphy/workspaces/default/projects/<id>/index.html` is the root composition HyperFrames seeks deterministically via its paused GSAP timeline.
 3. **Calls** HyperFrames headlessly. Puppeteer rasterizes each frame, FFmpeg muxes the mp4.
-4. **Writes** the result to `workspace/projects/<id>/render/final.mp4` (or wherever you pointed `--output`).
+4. **Writes** the result to `.ralphy/workspaces/default/projects/<id>/render/final.mp4` (or wherever you pointed `--output`).
 5. **Optionally post-processes** with ffmpeg if `--loudnorm` is set — EBU R128 two-pass normalization to -16 LUFS.
 6. **Appends** an entry to `generations.jsonl` with the model `hyperframes`, the latency, and the output path. Renders are first-class citizens in the gen-log.
 
@@ -25,7 +25,7 @@ ralphy render syrup-001
 ```json
 {
   "projectId": "syrup-001",
-  "output": "workspace/projects/syrup-001/render/final.mp4",
+  "output": ".ralphy/workspaces/default/projects/syrup-001/render/final.mp4",
   "durationSec": 15.0,
   "fileSizeBytes": 4321987,
   "latencyMs": 287443
@@ -35,7 +35,7 @@ ralphy render syrup-001
 ## The flags that matter
 
 <ParamField path="--output" type="string">
-  Output mp4 path. Default `workspace/projects/<id>/render/final.mp4`.
+  Output mp4 path. Default `.ralphy/workspaces/default/projects/<id>/render/final.mp4`.
 </ParamField>
 
 <ParamField path="--fps" type="number">
@@ -74,8 +74,8 @@ If you forgot `--loudnorm` and want to normalize an existing render:
 
 ```bash
 ralphy audio loudnorm \
-  --in workspace/projects/syrup-001/render/final.mp4 \
-  --out workspace/projects/syrup-001/render/final.loudnorm.mp4
+  --in .ralphy/workspaces/default/projects/syrup-001/render/final.mp4 \
+  --out .ralphy/workspaces/default/projects/syrup-001/render/final.loudnorm.mp4
 ```
 
 ## The iteration loop
@@ -91,7 +91,7 @@ The normal cadence:
 The render history pattern parallels asset versioning: every new render writes a new file, never overwrites. Pattern on disk:
 
 ```text
-workspace/projects/syrup-001/render/
+.ralphy/workspaces/default/projects/syrup-001/render/
   final.mp4         ← first render
   final.2.mp4       ← second render, after fixing scene-03 timing
   final.3.mp4       ← third render, after loudnorm pass
@@ -104,7 +104,7 @@ workspace/projects/syrup-001/render/
 There's no auto-launched preview in Ralphy. [AGENTS invariant #5](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md): no background processes, chat is the interface. If you want to preview frames live, run it foreground in a separate terminal:
 
 ```bash
-bunx hyperframes preview workspace/projects/syrup-001
+bunx hyperframes preview .ralphy/workspaces/default/projects/syrup-001
 ```
 
 Don't ask Ralphy to launch it for you — it won't. Preview is a developer tool; the production path is `ralphy render`.

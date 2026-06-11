@@ -26,10 +26,10 @@ Lossless or re-encoded cut by timecode.
 import { extractSegment } from "./cli/lib/ffmpeg-recipes.js";
 
 await extractSegment({
-  src: "workspace/projects/<id>/source/long-podcast.mp4",
+  src: ".ralphy/workspaces/<ws>/projects/<id>/source/long-podcast.mp4",
   startSec: 142.5,
   endSec: 167.2,
-  dst: "workspace/projects/<id>/clips/clip-01.mp4",
+  dst: ".ralphy/workspaces/<ws>/projects/<id>/clips/clip-01.mp4",
   reencode: true,                // exact frame, default
   projectId: "<id>",
   note: "viral moment 1",
@@ -104,7 +104,7 @@ await tonemapHDR({
 });
 ```
 
-**When:** on ANY user-uploaded iPhone footage in `assets/uploaded/`. Before that footage hits the HyperFrames composition.
+**When:** on ANY user-uploaded iPhone footage in `artifacts/refs/`. Before that footage hits the HyperFrames composition.
 
 ## Recipe 6: `burnSubtitles`
 

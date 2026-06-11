@@ -10,7 +10,7 @@ description: >-
 
 # dev-issues — brain-dump → distributed issues
 
-A **maintainer** skill. It does not touch `workspace/projects/` or call media models. It converts an unstructured stream of thoughts into a set of correctly-shaped `notes/issues/*.md` work items. Pairs with `/dev-loop`, which executes the issues this skill files.
+A **maintainer** skill. It does not touch `.ralphy/workspaces/<ws>/projects/` or call media models. It converts an unstructured stream of thoughts into a set of correctly-shaped `notes/issues/*.md` work items. Pairs with `/dev-loop`, which executes the issues this skill files.
 
 ## When it fires
 

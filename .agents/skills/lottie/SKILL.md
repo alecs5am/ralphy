@@ -9,7 +9,7 @@ HyperFrames can seek both `lottie-web` and dotLottie players through its `lottie
 
 ## Contract
 
-- Load assets from local project files, usually under `assets/`.
+- Load assets from local project files (for ralphy projects: the `artifacts/` tree).
 - Set `autoplay: false`.
 - Prefer `loop: false` unless the user explicitly wants a loop.
 - Register every returned animation or player on `window.__hfLottie`.

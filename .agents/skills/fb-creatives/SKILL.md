@@ -24,8 +24,8 @@ A generalized matrix overlay, not a finished ad pack. It does not name a brand, 
 ## Hard invariants
 
 - All generation routes through `ralphy generate image` (no raw API). Read `MODELS.md` before naming any model id — the stack below is a default, not a hardcode.
-- **Real-brand pre-flight: site-grounding before ANY prompt.** When the brief names a real brand URL, **dispatch a Playwright sub-agent** to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting brand-DNA. Read `refs/research.md` (the sub-agent's digest), not a single `WebFetch` of the home page. Every palette hex in a prompt must trace to `refs/tokens.json`; every named API symbol in code-creative slots must trace to "Documented API surfaces" in `research.md`. Skipping this cost `sotaocr-fb-001` $1.20 (wrong-palette v1 burn) + 5/32 hallucinated-Python-SDK creatives. Full discipline: [`docs/playbooks/site-grounding.md`](../../../docs/playbooks/site-grounding.md).
-- **`--ref refs/hero.png` on EVERY gen.** Once captured, pass the live-site hero screenshot as `--ref` on all N creatives. Brand-palette + type drift across the pack drops to near zero. Without it, each prompt re-interprets "blue CTA" slightly differently — at 32 concepts the drift compounds.
+- **Real-brand pre-flight: site-grounding before ANY prompt.** When the brief names a real brand URL, **dispatch a Playwright sub-agent** to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting brand-DNA. Read `artifacts/refs/research.md` (the sub-agent's digest), not a single `WebFetch` of the home page. Every palette hex in a prompt must trace to `artifacts/refs/tokens.json`; every named API symbol in code-creative slots must trace to "Documented API surfaces" in `research.md`. Skipping this cost `sotaocr-fb-001` $1.20 (wrong-palette v1 burn) + 5/32 hallucinated-Python-SDK creatives. Full discipline: [`docs/playbooks/site-grounding.md`](../../../docs/playbooks/site-grounding.md).
+- **`--ref artifacts/refs/hero.png` on EVERY gen.** Once captured, pass the live-site hero screenshot as `--ref` on all N creatives. Brand-palette + type drift across the pack drops to near zero. Without it, each prompt re-interprets "blue CTA" slightly differently — at 32 concepts the drift compounds.
 - **Verify SDK / API surface before any code-creative.** If the C / E sets render code on screen, the named API symbol (`import foo`, `foo.parse()`) must exist on the brand's docs. If the landing only documents curl, the ad shows curl — not an invented Python wrapper. Curl is the strictly-safe fallback for HTTP APIs.
 - **Append-only on regen.** Re-rolling a slot writes `.v2.png`, never overwrites. Failed / dark-bg v1 generations stay on disk as A/B reference.
 - The reference-required gate still fires for **named real persons / IPs** in the A or D set — refuse without a ref or logged `--no-ref-consent`.
@@ -51,18 +51,18 @@ The matrix scales: 8-12 starter A/B pack → 24-32 full matrix → 40+ broad-spe
 
 Before writing any prompt:
 
-1. **Dispatch sub-agent** (via `Agent` tool, `subagent_type: "general-purpose"`) to crawl home + `/docs` + `/pricing` + `/features` + `/examples` + `/blog`. Sub-agent returns `refs/research.md` (the digest), `refs/tokens.json` (CSS hex), `refs/hero.png` (Playwright screenshot), and an enumerated "Documented API surfaces" list (curl / Python / TS / GUI).
-2. **Read `refs/research.md`** — never sketch brand-DNA from memory.
-3. **Write `brand-dna.md`** with REAL hex values from `refs/tokens.json`, the real type stack, the real CTA color, the real hero claims.
+1. **Dispatch sub-agent** (via `Agent` tool, `subagent_type: "general-purpose"`) to crawl home + `/docs` + `/pricing` + `/features` + `/examples` + `/blog`. Sub-agent returns `artifacts/refs/research.md` (the digest), `artifacts/refs/tokens.json` (CSS hex), `artifacts/refs/hero.png` (Playwright screenshot), and an enumerated "Documented API surfaces" list (curl / Python / TS / GUI).
+2. **Read `artifacts/refs/research.md`** — never sketch brand-DNA from memory.
+3. **Write `brand-dna.md`** with REAL hex values from `artifacts/refs/tokens.json`, the real type stack, the real CTA color, the real hero claims.
 4. **Lock the voice register** at intake (dev-honest / marketing-punchy / mix). Anchor every prompt on a *specific number* from the lander.
 
 ## Workflow
 
 1. **Intake.** Run the creative-pack branch of intake (aspect for placements: 4:5 FB feed / 1:1 IG feed / 9:16 Stories / mix; pack size; sets to cover; brand site URL — REQUIRED; voice register; hard no's).
-2. **Site-grounding.** Dispatch the Playwright sub-agent (see above). Read `refs/research.md`. Write `brand-dna.md`.
+2. **Site-grounding.** Dispatch the Playwright sub-agent (see above). Read `artifacts/refs/research.md`. Write `brand-dna.md`.
 3. **Concept matrix.** Draft the 5-set scaffold; pick the N concepts the user wants. Surface the matrix in chat; get explicit "go".
 4. **Prompt scaffold.** One `prompts/<slot>.txt` per concept. Each cites brand-DNA hex verbatim, names a specific photographic spec (camera/lens/grain for A-set, syntax-color spec for code-cards in B/C), includes a ban-negative for known failure modes (beauty filter, plastic skin, missing strikethrough, dark background when site is light).
-5. **Generate — TRUE PARALLEL via bash `&`.** `gpt-5.4-image-2` validated for 23-concurrent (sotaocr-fb-001, 2026-05-29). NOT `ralphy queue` — the daemon was idle on 13 jobs that session. Each gen passes `--ref refs/hero.png`.
+5. **Generate — TRUE PARALLEL via bash `&`.** `gpt-5.4-image-2` validated for 23-concurrent (sotaocr-fb-001, 2026-05-29). NOT `ralphy queue` — the daemon was idle on 13 jobs that session. Each gen passes `--ref artifacts/refs/hero.png`.
 6. **Review + iterate.** Read all PNGs inline. Re-roll only mis-rendered slots (not the whole batch). Auto-versioning preserves v1.
 7. **Deliverable.** `final/` with numbered prefix, `ads-copy.md` (primary text · headline · description · CTA × N), `README.md` with the concept-by-concept table + Ads-Manager ad-set grouping (real-people / diverse-personas / numbers / editorial-graphic / proof-dashboard / code / meme).
 8. **Hand off** to `/evaluator` if the user wants a quality gate before delivery.
@@ -74,10 +74,10 @@ Before writing any prompt:
 
 ## Failure modes
 
-- **Brand-DNA invented from memory** (dark-bg + orange when site is white + blue). Cost on sotaocr-fb-001: $1.20 + 12 min. Prevention: site-grounding sub-agent + `refs/hero.png` on T1.
+- **Brand-DNA invented from memory** (dark-bg + orange when site is white + blue). Cost on sotaocr-fb-001: $1.20 + 12 min. Prevention: site-grounding sub-agent + `artifacts/refs/hero.png` on T1.
 - **Believing stale "cap=1 concurrent" memory on gpt-image** → 25 min wasted on a serial loop. Prevention: 2× parallel probe before architecting any batch shape; gpt-5.4-image-2 is production-grade parallel as of 2026-05-29.
 - **`ralphy queue` daemon idle on pending jobs.** Use bash `&` fan-out, not `--queue`, for ad-hoc N-image batches until the daemon is reliable.
-- **Hallucinated SDK in code-creatives.** Model auto-completes Python ergonomics from training prior even when brand only ships curl. Verify every named symbol against `refs/research.md` "Documented API surfaces"; fall back to curl when SDK unverified.
+- **Hallucinated SDK in code-creatives.** Model auto-completes Python ergonomics from training prior even when brand only ships curl. Verify every named symbol against `artifacts/refs/research.md` "Documented API surfaces"; fall back to curl when SDK unverified.
 - **Generic "Better X for Y" copy.** Cold-traffic FB copy lands when anchored on a specific lander number. Always anchor each headline on one verifiable claim from `brand-dna.md`.
 - **A-set portraits going beauty-filter editorial.** Without "naturalistic, NOT glossy" + camera/lens spec + named imperfection in the body, gpt-image defaults to fashion-magazine glaze. See the A-set cookbook below.
 - **Missing strikethrough policy in price stack.** Without an explicit anti-token, gpt-image sometimes applies the strikethrough uniformly across rows. Always state row-by-row policy + negative "strikethrough on the brand row".
@@ -151,7 +151,7 @@ Line 2: <curl OR import — must match the brand's documented surface>
 ...
 ```
 
-Key tokens: **macOS chrome description verbatim** + **explicit syntax-color-per-token mapping** + **line numbers gutter spec**. Verify the named API surface against `refs/research.md`.
+Key tokens: **macOS chrome description verbatim** + **explicit syntax-color-per-token mapping** + **line numbers gutter spec**. Verify the named API surface against `artifacts/refs/research.md`.
 
 ### C-set — horizontal bar chart (validated on B2)
 
@@ -174,13 +174,13 @@ Key tokens: explicit three-column spec per row + named track + fill colors + nam
 
 ```bash
 # Site-grounding sub-agent (dispatched via Agent tool — see site-grounding.md
-# for the full prompt template). Output lands at refs/research.md + refs/hero.png.
+# for the full prompt template). Output lands at artifacts/refs/research.md + artifacts/refs/hero.png.
 
 # Per-creative generation — TRUE parallel via bash & fan-out
 for slot in a1 a2 a3 b1 b2 b3 c1 c2 c3 d1 d2 e1 e2; do
   ralphy generate image --project <id> --slot "$slot" \
     --model openai/gpt-5.4-image-2 --size 1080x1350 \
-    --ref refs/hero.png \
+    --ref artifacts/refs/hero.png \
     --prompt "$(cat prompts/$slot.txt)" &
 done
 wait
@@ -188,7 +188,7 @@ wait
 # Re-roll a single mis-rendered slot (writes .v2.png — append-only)
 ralphy generate image --project <id> --slot a5 \
   --model openai/gpt-5.4-image-2 --size 1080x1350 \
-  --ref refs/hero.png \
+  --ref artifacts/refs/hero.png \
   --prompt "$(cat prompts/a5.txt)"
 
 # Quality gate
@@ -204,4 +204,4 @@ At ~$0.20/creative on gpt-image, a 32-pack ≈ **$6.40 / ~25 min** (with site-gr
 - [`docs/playbooks/intake.md`](../../../docs/playbooks/intake.md) — the creative-pack branch of intake.
 - [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — model picks + ref-anchor flow.
 - `MEMORY.md` — anti-ai-slop image prompts, OR parallel gpt-image OK, verify SDK before code-creative, site-grounding before brand-DNA.
-- Reference postmortem: `workspace/projects/sotaocr-fb-001/postmortem/` — the lessons + matrix this skill codifies.
+- Reference postmortem: `.ralphy/workspaces/<ws>/projects/sotaocr-fb-001/postmortem/` — the lessons + matrix this skill codifies.

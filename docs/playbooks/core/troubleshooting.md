@@ -2,7 +2,7 @@
 
 ## Three log files per project
 
-`workspace/projects/<id>/logs/`:
+`.ralphy/workspaces/<ws>/projects/<id>/logs/`:
 
 - **`generations.jsonl`** — every model call (input, output URL + local path, status, `cost_usd`, `note`).
 - **`user-prompts.jsonl`** — chronological user prompts with a `stage` label (`brief`, `scenario-feedback`, `regeneration-request`, `no-ref-consent`, `gate-bypass-consent`, ...).
@@ -25,7 +25,7 @@ ralphy project log-asset <id> --kind <kind> --source <path> --purpose <purpose>
 
 - All `ralphy generate <kind>` commands call `logGeneration()` or `loggedFetch()` automatically. **No raw fetches.**
 - User brief = `BRIEF.md` + auto `logUserPrompt(id, { text, stage: "brief" })` at project creation.
-- User reference photos are copied into `assets/uploaded/` + auto `logUserAsset(id, ...)`.
+- User reference photos are copied into `artifacts/refs/` + auto `logUserAsset(id, ...)`.
 - Regeneration carries an explicit `note` ("clip-03 v2 hand crumples sample").
 
 ## Debug flow for a failed generation
@@ -46,7 +46,7 @@ ralphy project log-asset <id> --kind <kind> --source <path> --purpose <purpose>
 | Captions clip mid-word | No word-level timestamps | Confirm `transcribe.ts` sends `timestamp_granularities[]=word` |
 | Render fails "lint error" | `index.html` missing `data-composition-id` / `class="clip"` | `bunx hyperframes lint <project>` |
 | Render fails "timeline not registered" | `window.__timelines[<id>]` key mismatch | Confirm the key on registration matches `data-composition-id` byte-for-byte |
-| Asset 404 in render | Relative path broken in `index.html` | Verify `assets/` paths from inside the composition |
+| Asset 404 in render | Relative path broken in `index.html` | Verify `artifacts/` paths from inside the composition |
 | `ralphy setup` silently hangs | terminal without TTY | Use `--link <path>` non-TUI mode |
 
 ## Cost-tracking issues

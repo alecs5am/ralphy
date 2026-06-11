@@ -7,7 +7,7 @@ The hardest thing about iterating on AI media used to be losing the take you act
 
 ## The append-only contract
 
-[AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) says it plainly: Ralphy never deletes or overwrites user- or agent-produced artifacts without your explicit request. The rule covers everything under `workspace/projects/<id>/` — assets, renders, logs, prompts, manifests, postmortems, and any reference image you uploaded. Concretely:
+[AGENTS invariant #13](https://github.com/alecs5am/ralphy/blob/main/AGENTS.md) says it plainly: Ralphy never deletes or overwrites user- or agent-produced artifacts without your explicit request. The rule covers everything under `.ralphy/workspaces/default/projects/<id>/` — assets, renders, logs, prompts, manifests, postmortems, and any reference image you uploaded. Concretely:
 
 - **Regen creates a new version, never overwrites.** A second `ralphy generate` on a slot that already has a file writes `<slot>.v2.<ext>`; a third writes `<slot>.v3.<ext>`, and so on.
 - **`generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl` are append-only by definition.** No "tidy this up" pass ever rewrites them in place.
@@ -23,13 +23,13 @@ For the [Generation log](/concepts/generation-log) detail (JSONL schemas, retent
 Run `ralphy generate` on a slot that already exists, and three things happen:
 
 1. The new file lands at `<slot>.v<N>.<ext>` where `N` is the next free version number. The previous file stays exactly where it was.
-2. A new entry appends to `workspace/projects/<id>/logs/generations.jsonl` with the new path, the model, the cost, the latency, and any `--note` you passed.
+2. A new entry appends to `.ralphy/workspaces/default/projects/<id>/logs/generations.jsonl` with the new path, the model, the cost, the latency, and any `--note` you passed.
 3. `asset-manifest.json` updates so the slot's `path` field points at the new file. The old version still exists on disk; it's just no longer the active pointer.
 
 The shape on disk after three regens of `scene-03-vid`:
 
 ```text
-workspace/projects/syrup-001/assets/
+.ralphy/workspaces/default/projects/syrup-001/assets/
   scene-03-vid.mp4       ← original, generated 2026-05-19T14:32
   scene-03-vid.v2.mp4    ← first regen, 2026-05-19T15:01
   scene-03-vid.v3.mp4    ← second regen, 2026-05-19T15:14
@@ -73,7 +73,7 @@ ralphy project show syrup-001 --assets
 The manifest only shows the active pointer. To see every version of a slot on disk, list the assets directory:
 
 ```bash
-ls workspace/projects/syrup-001/assets/scene-03-vid*
+ls .ralphy/workspaces/default/projects/syrup-001/assets/scene-03-vid*
 # → scene-03-vid.mp4
 # → scene-03-vid.v2.mp4
 # → scene-03-vid.v3.mp4
@@ -153,12 +153,12 @@ Switch the model, switch the framing, switch the camera vocabulary — or hand b
 The only path to delete an old variant is to ask for it by name with explicit "delete" / "remove" / "wipe" language. The CLI doesn't have a `ralphy asset clean` verb because it would be too easy to lose work by accident. If you want to remove `scene-03-vid.v2.mp4` and keep `v1` and `v3`, run an explicit `rm`:
 
 ```bash
-rm workspace/projects/syrup-001/assets/scene-03-vid.v2.mp4
+rm .ralphy/workspaces/default/projects/syrup-001/assets/scene-03-vid.v2.mp4
 ```
 
 The manifest still tracks the v3 pointer; the gen-log still has the entry for the v2 call. The file is gone but the history is intact. That's by design — the cost rollup and the reasoning chain don't depend on the file existing, just on the log entry.
 
-For a clean slate on a whole project, `ralphy project delete <id>` is registry-aware: it removes the project from `workspace/projects/`, drops it from the registry, and (optionally) preserves the final render via `--keep-render`.
+For a clean slate on a whole project, `ralphy project delete <id>` is registry-aware: it removes the project from `.ralphy/workspaces/default/projects/`, drops it from the registry, and (optionally) preserves the final render via `--keep-render`.
 
 ## Related
 
