@@ -33,7 +33,7 @@ export const MEMORY_TYPES = ["model", "craft", "tooling", "client", "style", "us
 export type MemoryType = (typeof MEMORY_TYPES)[number];
 
 export type MemoryTier = "global" | "workspace";
-export type MemoryStatus = "active" | "proposed" | "rejected";
+export type MemoryStatus = "active" | "proposed" | "rejected" | "archived";
 
 export interface MemoryFrontmatter {
   name: string;
@@ -526,6 +526,36 @@ export async function rejectEntry(slug: string, ref: TierRef): Promise<MoveResul
   const to = path.join(rejectedDir, dest.file);
   await fs.rename(from, to);
   return { slug, from, to, versioned: dest.versioned };
+}
+
+/**
+ * retire: MOVE every version file of an ACTIVE slug → archived/ and drop the
+ * slug from the index (hermes curator rule: archive, never delete — the
+ * record survives, recoverable by hand). Returns null when the slug has no
+ * active files. Fires only on explicit user intent; `curate` only SUGGESTS
+ * retires.
+ */
+export async function retireEntry(slug: string, ref: TierRef): Promise<MoveResult[] | null> {
+  const activeDir = statusDir(ref, "active");
+  const versions = (await scanDir(activeDir)).filter((vf) => vf.slug === slug);
+  if (versions.length === 0) return null;
+  const archivedDir = statusDir(ref, "archived");
+  await fs.mkdir(archivedDir, { recursive: true });
+  const moves: MoveResult[] = [];
+  // Oldest first so version order is preserved on name collisions in archived/.
+  versions.sort((a, b) => a.version - b.version);
+  for (const vf of versions) {
+    const from = path.join(activeDir, vf.file);
+    let to = path.join(archivedDir, vf.file);
+    if (existsSync(to)) {
+      const dest = await nextVersionPath(archivedDir, vf.slug);
+      to = path.join(archivedDir, dest.file);
+    }
+    await fs.rename(from, to);
+    moves.push({ slug, from, to, versioned: path.basename(to) !== vf.file });
+  }
+  await rebuildIndex(ref);
+  return moves;
 }
 
 // ─── Recall (merged digest) ──────────────────────────────────────────────────

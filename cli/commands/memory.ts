@@ -14,6 +14,7 @@ import {
   approveEntry,
   approveAll,
   rejectEntry,
+  retireEntry,
   recall,
   isMemoryType,
   workspaceExists,
@@ -21,6 +22,7 @@ import {
   SLUG_RE,
 } from "../lib/memory/store.js";
 import { distillPostmortem, DISTILL_SOURCES } from "../lib/memory/distill.js";
+import { curateMemory } from "../lib/memory/curate.js";
 
 // `ralphy memory` (#112) — tiered markdown memory: global `.ralphy/memory/`
 // + workspace `.ralphy/workspaces/<ws>/memory/`. Plain `<slug>.md` entries
@@ -301,6 +303,67 @@ Examples:
 Examples:
   $ ralphy memory reject stale-candidate
   $ ralphy memory reject off-brand-rule --workspace acme
+`,
+    );
+
+  // ── retire (#116) ────────────────────────────────────────────────────────
+  cmd
+    .command("retire <slug>")
+    .description("Move an ACTIVE entry (all its versions) to archived/ and drop its index line. MOVE, never delete")
+    .option("--workspace [ws]", "Target the workspace tier (bare flag = active workspace; default tier = global)")
+    .action(async (slug: string, opts) => {
+      const ref = tierFromOpts(opts);
+      const moves = await retireEntry(slug, ref);
+      if (!moves) raiseError("E_MEMORY_NOT_FOUND", { slug });
+      ok(`Retired ${slug} (${moves!.length} version file${moves!.length === 1 ? "" : "s"} -> archived/)`);
+      out(moves);
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ ralphy memory retire stale-rule
+  $ ralphy memory retire old-client-fact --workspace acme
+`,
+    );
+
+  // ── curate (#116) ────────────────────────────────────────────────────────
+  cmd
+    .command("curate")
+    .description("LLM health pass over active entries: stage overlap-merges into proposed/, flag missing negative scope + stale references. Never mutates active entries")
+    .option("--workspace <ws>", "Workspace tier to include (default: the active workspace)")
+    .option("--dry-run", "Print merges/flags without staging anything")
+    .action(async (opts) => {
+      const ws = typeof opts.workspace === "string" ? opts.workspace : currentWorkspace();
+      if (ws !== DEFAULT_WORKSPACE && !workspaceExists(ws)) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: ws });
+      }
+      const r = await curateMemory({ ws, dryRun: Boolean(opts.dryRun) });
+      if (!r.dryRun && r.staged.length > 0) {
+        ok(
+          `Staged ${r.staged.length} merge proposal${r.staged.length === 1 ? "" : "s"} — \`ralphy memory approve <slug>\`, then run the suggested \`ralphy memory retire\` commands`,
+        );
+      }
+      out({
+        workspace: r.workspace,
+        model: r.model,
+        scanned: r.scanned,
+        dry_run: r.dryRun,
+        merges: r.merges,
+        flags: r.flags,
+        staged: r.staged,
+        next_steps: r.merges.flatMap((m) => [
+          `ralphy memory approve ${m.survivor_slug}${m.tier === "workspace" ? " --workspace" : ""}`,
+          ...m.retire_after_approve.map((s) => `ralphy memory retire ${s}${m.tier === "workspace" ? " --workspace" : ""}`),
+        ]),
+      });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ ralphy memory curate --dry-run
+  $ ralphy memory curate --workspace acme
 `,
     );
 

@@ -1,6 +1,6 @@
 # `ralphy memory curate` + `retire`: keep the memory healthy
 
-> **Status:** todo
+> **Status:** done — 2026-06-11
 > **Filed:** 2026-06-11
 > **Folder:** issues
 
@@ -14,7 +14,7 @@ reference; ours is on-demand, user-driven.
 ## What
 
 1. **`ralphy memory retire <slug> [--workspace [<ws>]]`** — move an ACTIVE
-   entry (all versions stay put; the newest moves) to `archived/` and drop
+   entry (every version file — else an older version resurfaces as newest) to `archived/` and drop
    its index line. MOVE, never unlink (the hermes never-delete rule). The
    explicit destructive-ish verb fires only on user intent — curate suggests,
    the user runs it.

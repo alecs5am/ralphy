@@ -1103,6 +1103,13 @@ Commands:
                                   line). MOVE, never copy-and-delete
   reject [options] <slug>         Move a proposed/ entry to rejected/ (MOVE —
                                   the file is never unlinked)
+  retire [options] <slug>         Move an ACTIVE entry (all its versions) to
+                                  archived/ and drop its index line. MOVE, never
+                                  delete
+  curate [options]                LLM health pass over active entries: stage
+                                  overlap-merges into proposed/, flag missing
+                                  negative scope + stale references. Never
+                                  mutates active entries
   distill [options] <project-id>  Distill a project's postmortem (02-lessons.md,
                                   05-workflow-fixes.md) into memory PROPOSALS —
                                   review with `ralphy memory approve`
