@@ -28,6 +28,7 @@ import type {
   RepairSeverity,
   RepairSource,
 } from "./schemas/repair-plan.js";
+import type { CouncilAction } from "./schemas/council.js";
 
 // ─── Owner classification ─────────────────────────────────────────────────────
 //
@@ -208,13 +209,20 @@ function severityFromDeepPriority(priority: number | undefined): Severity {
  * before info, and deep-vision priority-1 redos float to the very top. Every
  * item is born `approvalState: "pending"` — there is no auto-approve path.
  *
+ * COUNCIL INTEGRATION (#415): when `opts.councilActions` is supplied (the polish
+ * council's `prioritizedActions`, already in this module's owner/category/
+ * severity vocabulary), they are converted to RepairItems with the council's
+ * owner PRESERVED VERBATIM (no free-form parsing, no re-classification) and
+ * MERGED with the findings/deep-vision items. When the option is absent the
+ * behavior is byte-for-byte the existing #409 flow.
+ *
  * PURE: no LLM, no disk, no clock except the `generatedAt` default the schema
  * supplies. Callers that need a stable timestamp pass `now`.
  */
 export function buildRepairPlan(
   evalReport: EvalReport,
   deepVision?: DeepVisionFile | null,
-  opts: { now?: string } = {},
+  opts: { now?: string; councilActions?: CouncilAction[] } = {},
 ): RepairPlan {
   const now = opts.now ?? new Date().toISOString();
   const verdict: Verdict | null = evalReport?.scoring?.verdict ?? null;
@@ -224,11 +232,20 @@ export function buildRepairPlan(
     Array.isArray(deepVision.parsed.what_to_redo) &&
     deepVision.parsed.what_to_redo.length > 0;
 
-  const sourcePreferred: RepairSource = hasDeepRedos ? "deep-vision" : "findings";
+  const councilActions = opts.councilActions ?? [];
+  const hasCouncil = councilActions.length > 0;
 
-  const items: RepairItem[] = hasDeepRedos
-    ? itemsFromDeepVision(deepVision!.parsed!.what_to_redo!)
-    : itemsFromFindings(evalReport?.findings ?? []);
+  const baseSource: RepairSource = hasDeepRedos ? "deep-vision" : "findings";
+  // When council actions drive the merge, mark the plan as council-sourced so
+  // the artifact records the richer provenance; otherwise keep the #409 source.
+  const sourcePreferred: RepairSource = hasCouncil ? "council" : baseSource;
+
+  const items: RepairItem[] = [
+    ...(hasDeepRedos
+      ? itemsFromDeepVision(deepVision!.parsed!.what_to_redo!)
+      : itemsFromFindings(evalReport?.findings ?? [])),
+    ...(hasCouncil ? itemsFromCouncilActions(councilActions) : []),
+  ];
 
   // Deterministic ordering: severity rank (fail<warn<info) is the primary key;
   // a deep-vision priority (1<2<3) refines within source; the finding id is the
@@ -335,6 +352,37 @@ function itemsFromDeepVision(redos: DeepVisionWhatToRedoItem[]): RepairItem[] {
       approvalState: "pending" as const,
       priority: 1,
       message: action,
+    };
+  });
+}
+
+/**
+ * Map a polish council's prioritizedActions → RepairItems (#415). The council
+ * owner is PRESERVED VERBATIM — unlike the deep-vision path, which re-derives
+ * the owner from `target`, this trusts the council's owner classification
+ * directly (it already speaks the #409 vocabulary). This is the structural
+ * seam: council priorities flow into the repair plan with zero prose parsing.
+ */
+function itemsFromCouncilActions(actions: CouncilAction[]): RepairItem[] {
+  return actions.map((a, i) => {
+    const severity = a.severity as RepairSeverity;
+    return {
+      findingId: `C${i + 1}`,
+      category: a.category,
+      severity,
+      owner: a.owner,
+      source: "council" as RepairSource,
+      // Council actions are not slot-indexed; the action text carries the target.
+      targetSlotOrFile: null,
+      proposedCommandOrEdit:
+        a.action && a.action.trim().length > 0
+          ? a.action
+          : "Apply the council action.",
+      costEstimate: costFor(a.owner, null),
+      risk: riskFor(a.owner, severity),
+      approvalState: "pending" as const,
+      priority: 1,
+      message: a.action,
     };
   });
 }
