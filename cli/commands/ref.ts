@@ -126,6 +126,7 @@ export function refCmd() {
     .option("--audio-only", "Skip the video stream — only fetch mp3 (URL mode only)")
     .option("--meta-only", "Skip download — only write meta.info.json (URL mode only)")
     .option("--no-audio-extract", "Skip auto-extraction of mono 64k mp3 from mp4")
+    .option("--global", "Write to the global .ralphy/references/<slug>/ tree, bypassing the active workspace (#401)", false)
     .option("--register", "Also call `ref add --type social <url>`", false)
     // Bulk-image-pull flags (#048):
     .option("--kind <kind>", "Bulk mode: 'reference-image' triggers bulk-fetch into <project>/artifacts/refs/")
@@ -168,6 +169,7 @@ export function refCmd() {
           audioOnly: opts.audioOnly,
           metaOnly: opts.metaOnly,
           noAudioExtract: !opts.audioExtract && opts.noAudioExtract === true,
+          global: opts.global === true,
         });
         if (opts.register) {
           await addAction(url, { type: "social", name: result.slug });
@@ -397,6 +399,7 @@ export function refCmd() {
     .option("--fps <n>", "Frames-per-second (default 1/6 ≈ one every 6s)", (v) => Number(v))
     .option("--max <n>", "Max frames", (v) => parseInt(v, 10), 24)
     .option("--width <px>", "Scale width (default 540)", (v) => parseInt(v, 10), 540)
+    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
     .action(async (slug: string, opts: any) => {
       try {
         const r = await sampleFrames({
@@ -404,6 +407,7 @@ export function refCmd() {
           fps: opts.fps,
           max: opts.max,
           width: opts.width,
+          global: opts.global === true,
         });
         ok(`Sampled ${r.count} frames → ${r.dir}`);
         out({ slug: r.slug, dir: r.dir, count: r.count });
@@ -418,12 +422,14 @@ export function refCmd() {
     .description("Transcribe <slug>/source.mp3 → <slug>/transcript.json (Caption[]). Default backend: ElevenLabs Scribe v1.")
     .option("--language <lang>", "ru | en | auto", "ru")
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
+    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
     .action(async (slug: string, opts: any) => {
       try {
         const r = await transcribeRef({
           slug,
           language: opts.language as TranscribeLanguage,
           backend: opts.backend as TranscribeBackend,
+          global: opts.global === true,
         });
         ok(`Transcribed ${r.count} captions → ${r.path}`);
         out({
@@ -447,6 +453,7 @@ export function refCmd() {
     .option("--prompt <text>", "Custom prompt (overrides default JSON-blueprint extractor)")
     .option("--prompt-file <path>", "Read custom prompt from a file")
     .option("--model <id>", "Vision model id (default google/gemini-2.5-flash)")
+    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
     .action(async (slug: string, opts: any) => {
       try {
         let prompt = opts.prompt as string | undefined;
@@ -454,7 +461,7 @@ export function refCmd() {
           // #025: NBSP-safe path intake; no project context here (ref is global).
           prompt = await fs.readFile(intakePath(opts.promptFile, undefined, "prompt-file"), "utf8");
         }
-        const r = await analyzeFrames({ slug, prompt, model: opts.model });
+        const r = await analyzeFrames({ slug, prompt, model: opts.model, global: opts.global === true });
         ok(`Analyzed → ${r.path}`);
         out({
           slug: r.slug,
@@ -481,6 +488,7 @@ export function refCmd() {
     .option("--model <id>", "Model id (default google/gemini-3.1-pro-preview — natively understands video)")
     .option("--out <path>", "Output path. Defaults to <slug>/video-analysis.json for slug input, stdout for path/URL input.")
     .option("--max-tokens <n>", "Max output tokens (default 16384)", (v) => parseInt(v, 10))
+    .option("--global", "Slug mode only: resolve the slug in the global .ralphy/references/ tree only (#401)", false)
     .action(async (arg: string, opts: any) => {
       try {
         let prompt = opts.prompt as string | undefined;
@@ -500,6 +508,7 @@ export function refCmd() {
               model: opts.model,
               outPath: opts.out,
               maxTokens: opts.maxTokens,
+              global: opts.global === true,
             })
           : await analyzeVideo({
               videoPath: arg,
@@ -533,6 +542,7 @@ export function refCmd() {
     .option("--prompt <text>", "Custom prompt (overrides default tonal-analysis prompt)")
     .option("--prompt-file <path>", "Read custom prompt from a file")
     .option("--model <id>", "Model id (default google/gemini-2.5-flash)")
+    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
     .action(async (slug: string, opts: any) => {
       try {
         let prompt = opts.prompt as string | undefined;
@@ -540,7 +550,7 @@ export function refCmd() {
           // #025: NBSP-safe path intake; no project context here (ref is global).
           prompt = await fs.readFile(intakePath(opts.promptFile, undefined, "prompt-file"), "utf8");
         }
-        const r = await audioDescribeRef({ slug, prompt, model: opts.model });
+        const r = await audioDescribeRef({ slug, prompt, model: opts.model, global: opts.global === true });
         ok(`Audio described → ${r.path}`);
         out({
           slug: r.slug,
@@ -558,9 +568,10 @@ export function refCmd() {
   cmd
     .command("blueprint <slug>")
     .description("Synthesize <slug>/blueprint.md from {meta + analysis + audio-analysis + transcript}")
-    .action(async (slug: string) => {
+    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
+    .action(async (slug: string, opts: any) => {
       try {
-        const r = await synthesizeBlueprint(slug);
+        const r = await synthesizeBlueprint(slug, { global: opts.global === true });
         ok(`Blueprint written → ${r.path} (${r.bytes} bytes)`);
         out({ slug, path: r.path, bytes: r.bytes });
       } catch (e: any) {
@@ -615,8 +626,9 @@ export function refCmd() {
   cmd
     .command("paths <slug>")
     .description("Print every research path for <slug> (helpful when scripting follow-ups)")
-    .action(async (slug: string) => {
-      out({ slug, derivedFromUrl: slugFromUrl(slug), ...refPaths(slug) });
+    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
+    .action(async (slug: string, opts: any) => {
+      out({ slug, derivedFromUrl: slugFromUrl(slug), ...refPaths(slug, { global: opts.global === true }) });
     });
 
   cmd
