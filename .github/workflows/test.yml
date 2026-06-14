@@ -13,17 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned to the version developers run locally (`bun --version`). On
-      # 1.3.14, spawnSync blocks the parent event loop so tests that spawn the
-      # CLI against an in-process http fixture server (cli-ref-pull-bulk #048)
-      # deadlock until the per-test timeout; the full suite then wedges at
-      # analyze-frames-language until the job timeout. Repro + details:
-      # notes/issues/072-bun-1.3-test-incompatibilities.md. Bump deliberately,
-      # together with a local upgrade — never via `latest`.
+      # Pinned to the version developers run locally (`bun --version`). CI must
+      # run what developers run, so bump this deliberately together with a local
+      # upgrade — never via `latest`. The two bun-1.3 blockers that forced the
+      # earlier 1.2.22 pin are fixed (#072): the mock.module leak in
+      # analyze-video-logging (now fetch-stubbed) and the spawnSync+in-process
+      # fixture-server deadlock in cli-ref-pull-bulk #048 (now async spawn via
+      # tests/helpers/spawn-cli.ts). Suite is green on 1.3.14. History:
+      # notes/issues/done/072-bun-1.3-test-incompatibilities.md.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.2.22
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
