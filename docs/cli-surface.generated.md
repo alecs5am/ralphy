@@ -830,6 +830,16 @@ Commands:
                                 stage + per-step booleans. --contract: full
                                 production-contract ledger (per-phase
                                 satisfied/missing + nextRecommendedAction).
+  repair-plan [options] <id>    Build a deterministic eval-to-repair plan
+                                (#409). Reads eval.json (+
+                                eval-deep-vision.json's what_to_redo when
+                                present), classifies each finding by owner
+                                (art-director / scenarist / editor), orders by
+                                severity, and writes repair-plan.json +
+                                REPAIR_PLAN.md (append-only, auto-versions).
+                                Makes ZERO model calls — the fixer gates paid
+                                regeneration on user approval (every item starts
+                                approvalState=pending). JSON output.
   plan [options] <id>           Draft a structured production plan from a brief
                                 (contract phase 7, #407). Deterministic
                                 content-mode + template match + cost estimate;

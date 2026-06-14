@@ -133,6 +133,7 @@ describe("evaluateContract — phase ledger", () => {
     writeArtifact("render/final.mp4");
     writeArtifact("eval.json", "{}");
     writeArtifact("STYLE_LOCK.md");
+    writeArtifact("repair-plan.json", "{}");
     writeArtifact("units/main/unit.json", "{}");
     writeArtifact("postmortem/lessons.md");
     const r = evaluateContract(PROJECT);

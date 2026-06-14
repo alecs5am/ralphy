@@ -160,10 +160,10 @@ export const CONTRACT_PHASES: ContractPhase[] = [
   {
     id: "repair",
     label: "Repair loop (#409)",
-    artifact: null,
+    artifact: "repair-plan.json",
     required: false,
     rationale:
-      "If eval flags issues the user wants fixed, the fixer agent reads eval.json and re-rolls. Agent-driven; fixes re-touch existing artifacts (auto-versioned).",
+      "If eval flags issues the user wants fixed, the fixer agent runs `ralphy project repair-plan <id>` (deterministic, zero model calls) → repair-plan.json, presents it, and re-rolls only on approval. Optional — present only when a repair pass ran; fixes re-touch existing artifacts (auto-versioned).",
   },
   {
     id: "unit",

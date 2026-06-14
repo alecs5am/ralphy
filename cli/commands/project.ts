@@ -13,6 +13,8 @@ import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, t
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 import { evaluateContract } from "../lib/contract.js";
+import { buildRepairPlan, renderRepairPlanMarkdown, type DeepVisionFile } from "../lib/repair.js";
+import type { EvalReport } from "../lib/eval/types.js";
 import { buildProductionPlan, renderPlanMarkdown } from "../lib/plan/build.js";
 import { loadTemplateCandidates } from "../lib/plan/catalog.js";
 import { llmEnrich } from "../lib/plan/enrich.js";
@@ -299,6 +301,61 @@ export function projectCmd() {
         .then(() => true)
         .catch(() => false);
       out({ id, status, steps: { scenario, prompts, assets: manifest, render } });
+    });
+
+  // ── repair-plan (#409) ─────────────────────────────────────────────────────
+  // Deterministic eval-to-repair core: read the project's eval output
+  // (eval.json, + eval-deep-vision.json when present) and emit an ordered,
+  // owner-classified RepairPlan the fixer agent presents to the user BEFORE any
+  // paid regeneration. Pure parsing/state — makes ZERO model calls. The fixer's
+  // hard "no paid call before approval" gate is structural: every item is born
+  // approvalState=pending. Writes repair-plan.json + REPAIR_PLAN.md (append-only,
+  // auto-versions via protectExistingAsset; never overwrites). JSON output.
+  cmd
+    .command("repair-plan <id>")
+    .description(
+      "Build a deterministic eval-to-repair plan (#409). Reads eval.json (+ eval-deep-vision.json's what_to_redo when present), classifies each finding by owner (art-director / scenarist / editor), orders by severity, and writes repair-plan.json + REPAIR_PLAN.md (append-only, auto-versions). Makes ZERO model calls — the fixer gates paid regeneration on user approval (every item starts approvalState=pending). JSON output.",
+    )
+    .option("--out-dir <path>", "Override where eval.json / eval-deep-vision.json are read and the plan is written (default: project dir)")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const dir = opts.outDir ? path.resolve(String(opts.outDir)) : projectDir(id);
+      const evalReport = (await safeJson(path.join(dir, "eval.json"))) as EvalReport | null;
+      if (!evalReport) {
+        raiseError("E_NOT_FOUND", {
+          kind: "eval.json",
+          id: path.join(dir, "eval.json"),
+        });
+      }
+      const deepVision = (await safeJson(
+        path.join(dir, "eval-deep-vision.json"),
+      )) as DeepVisionFile | null;
+
+      const plan = buildRepairPlan(evalReport as EvalReport, deepVision);
+
+      // Append-only: auto-version both artifacts when they already exist
+      // (protectExistingAsset renames the existing file to .v{N}). AGENTS.md #14.
+      await fs.mkdir(dir, { recursive: true });
+      const jsonPath = path.join(dir, "repair-plan.json");
+      const mdPath = path.join(dir, "REPAIR_PLAN.md");
+      const archivedJson = await protectExistingAsset(jsonPath, false);
+      const archivedMd = await protectExistingAsset(mdPath, false);
+      await fs.writeFile(jsonPath, JSON.stringify(plan, null, 2) + "\n");
+      await fs.writeFile(mdPath, renderRepairPlanMarkdown(plan));
+
+      ok(`Repair plan written for ${id} (${plan.items.length} item(s), source: ${plan.sourcePreferred})`);
+      out({
+        project: id,
+        plan,
+        artifacts: {
+          json: jsonPath,
+          markdown: mdPath,
+          ...(archivedJson ? { archivedJson } : {}),
+          ...(archivedMd ? { archivedMarkdown: archivedMd } : {}),
+        },
+      });
     });
 
   // ── plan (#407) ──────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ Low-quality projects come from agents improvising the workflow: weak brief captu
 | 10 | Asset generation | `asset-manifest.json` + `artifacts/<kind>/` | yes | per-slot checkpoints; auto-version on regen |
 | 11 | Render preflight + render | `render/final.mp4` | yes | `ralphy editor preflight <id>` → `ralphy render <id>` |
 | 12 | Eval (#411) | `eval.json` (+ `eval-report.md`) | yes | `/evaluator`; don't ship over a failed eval |
-| 13 | Repair (#409) | — (re-touches existing artifacts) | — | fixer reads `eval.json`; auto-versioned re-rolls |
+| 13 | Repair (#409) | `repair-plan.json` (optional) | — | fixer runs `ralphy project repair-plan <id>` (deterministic, zero model calls), gets approval, then auto-versioned re-rolls |
 | 14 | Unit formation (#069) | `units/<slug>/` + `unit.json` | optional | `ralphy unit create`; COPY-not-move, append-only |
 | 15 | Postmortem + memory capture (#117) | `postmortem/` | optional | `/postmortem` → `ralphy memory distill` |
 
@@ -122,7 +122,8 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 
 ### 13 — Repair (#409)
 
-- **Produces:** no new artifact class — re-rolls existing slots (auto-versioned). The fixer agent reads `eval.json` directly.
+- **Produces:** `repair-plan.json` + `REPAIR_PLAN.md` (optional) — the deterministic eval-to-repair ledger. The fixer agent (`.agents/skills/fixer/SKILL.md`) reads the eval output (deep-vision `what_to_redo` first, else `eval.json` `findings[]`), runs `ralphy project repair-plan <id>` to classify each finding by owner (art-director / scenarist / editor) and order it by severity, then re-rolls existing slots (auto-versioned).
+- **Hard gate:** `ralphy project repair-plan` makes ZERO model calls — but **no paid regeneration runs until the user approves the plan** (every item is born `approvalState: pending`).
 - **Allowed skip:** eval is clean / the user accepts the render as-is.
 - **Loop discipline:** one retry on the same approach, then redesign the failing scene (intake step 4). Return to eval (phase 12) after a repair wave.
 
