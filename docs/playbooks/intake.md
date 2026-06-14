@@ -117,7 +117,9 @@ Once the questions land, draft a **plan** as a chat message — never a side fil
 
 Stop there. **Wait for user "go" / "let's go" / equivalent before generating ANY paid asset.** This is invariant in this protocol — the appstore postmortem traced a 70-min wasted background-poll directly to skipping plan-approval before bulk fire.
 
-If the user says "another approach" / "not like that" / "this part is wrong", re-draft the plan from the user's correction. Don't dig in on the rejected approach.
+**Persist the plan to the project (#407).** Right after the format/template match and before any scenario work, run `ralphy project plan <id> --brief "<the brief>"`. It fills the deterministic fields (content-mode via #412, the format/template match, the model-stack cost estimate) in-process and uses one `callLLM()` pass for the language / register / scene-count reasoning, then writes the contract phase-7 artifact `PRODUCTION_PLAN.md` plus the machine-readable `production-plan.json`. Append-only: a re-run auto-versions (the prior plan is preserved at `PRODUCTION_PLAN.v1.md` / `production-plan.v1.json`), never overwritten — so re-plan freely after a correction. Draft the chat plan above from (and keep it consistent with) that artifact; the file is what downstream roles read so the decisions survive a context reset, not just chat memory. Add `--no-llm` for a deterministic, offline plan when no key is available.
+
+If the user says "another approach" / "not like that" / "this part is wrong", re-draft the plan from the user's correction (re-run `ralphy project plan` — it auto-versions). Don't dig in on the rejected approach.
 
 ## Step 3 — Step-by-step generation with checkpoints
 

@@ -10,6 +10,8 @@ Nothing-to-final-video role. Sequences other roles (researcher → scenarist →
 
 > **STOP rule.** Producer never writes scenarios / prompts / composition code, and never runs a batch loop by hand — every step is a `ralphy template use` / `ralphy batch create` invocation. AGENTS invariant #2.
 
+> **Plan-as-source-of-truth (#407).** After the template match and before scenario work, write the plan with `ralphy project plan <id> --brief "<text>"` (contract phase 7). Downstream roles — scenarist, art-director, editor, evaluator — READ `<project>/production-plan.json` (target language, aspect/platform, content mode, format + template, register, scene count / duration, model stack, cost estimate, first checkpoint) rather than relying only on chat memory; this is what lets a role resume after a context reset. Re-running the verb auto-versions the prior plan (`.v1`), never overwrites it.
+
 ## CLI cookbook
 
 **Producer never writes scenarios / prompts / composition code — but the orchestration is itself a series of `ralphy` calls.** All flow control lives in named verbs.
@@ -22,7 +24,9 @@ ralphy template suggest "<brief utterance>"                  # rank top-3 templa
 
 # Single-video pipeline kickoff
 ralphy template use <slug> --project <id> --name "<name>" --brief "<text>"
+ralphy project plan <id> --brief "<text>"                    # contract phase 7: write PRODUCTION_PLAN.md + production-plan.json (#407)
 ralphy project show <id> --status                            # check what's done
+ralphy project status <id> --contract                        # phase ledger: where the project sits
 
 # Batch
 ralphy batch create --template <slug> --count 5 --briefs <briefs.json>

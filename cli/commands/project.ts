@@ -13,6 +13,10 @@ import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, t
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 import { evaluateContract } from "../lib/contract.js";
+import { buildProductionPlan, renderPlanMarkdown } from "../lib/plan/build.js";
+import { loadTemplateCandidates } from "../lib/plan/catalog.js";
+import { llmEnrich } from "../lib/plan/enrich.js";
+import { protectExistingAsset } from "../lib/providers/shared.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
 import { extractFrame, audioStats, contactSheet } from "../lib/ffmpeg-recipes.js";
 
@@ -284,6 +288,74 @@ export function projectCmd() {
         .then(() => true)
         .catch(() => false);
       out({ id, status, steps: { scenario, prompts, assets: manifest, render } });
+    });
+
+  // ── plan (#407) ──────────────────────────────────────────────────────────
+  // Agent-facing planning step: turn a chat brief into a structured production
+  // plan BEFORE any paid generation. Created/updated AFTER the format/template
+  // match (phase 3) and BEFORE scenario generation (phase 8) — it is the
+  // contract phase-7 artifact (`PRODUCTION_PLAN.md`, see
+  // docs/playbooks/agent-production-contract.md + cli/lib/contract.ts).
+  //
+  // Deterministic in-process: classifyContentMode + suggestTemplates (format/
+  // template match) + model-stack→cost estimate. The LLM enrichment
+  // (audience-language, register, scene-count/duration, first checkpoint,
+  // vibe) runs through callLLM() jsonMode (logs a generations.jsonl row) and is
+  // validated against ProductionPlanSchema. Writes PRODUCTION_PLAN.md (human)
+  // and production-plan.json (the validated object); append-only — a second
+  // plan auto-versions (.v2) and never overwrites. JSON output via out().
+  cmd
+    .command("plan <id>")
+    .description(
+      "Draft a structured production plan from a brief (contract phase 7, #407). Deterministic content-mode + template match + cost estimate; callLLM() enrichment for language/register/scene-count. Writes PRODUCTION_PLAN.md + production-plan.json (append-only, auto-versions). JSON output.",
+    )
+    .requiredOption("--brief <text>", "The creative brief to plan from")
+    .option("--aspect <ratio>", "Aspect ratio override (default: derived from format)")
+    .option("--platform <platform>", "Target platform override (default: tiktok)")
+    .option("--no-llm", "Skip the LLM enrichment pass — deterministic fields only")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const warnings: string[] = [];
+      const candidates = await loadTemplateCandidates((m) => warnings.push(m));
+
+      const { plan } = await buildProductionPlan(
+        { projectId: id, brief: opts.brief, aspect: opts.aspect, platform: opts.platform },
+        {
+          candidates,
+          // `--no-llm` → opts.llm === false (commander negates). Skip enrichment.
+          enrich: opts.llm === false ? undefined : (ctx) => llmEnrich(ctx),
+        },
+      );
+
+      // Append-only: auto-version both artifacts if they already exist
+      // (protectExistingAsset renames the existing file to .v{N}). AGENTS.md #14.
+      const dir = projectDir(id);
+      await fs.mkdir(dir, { recursive: true });
+      const mdPath = path.join(dir, "PRODUCTION_PLAN.md");
+      const jsonPath = path.join(dir, "production-plan.json");
+      const archivedMd = await protectExistingAsset(mdPath, false);
+      const archivedJson = await protectExistingAsset(jsonPath, false);
+      await fs.writeFile(mdPath, renderPlanMarkdown(plan));
+      await fs.writeFile(jsonPath, JSON.stringify(plan, null, 2) + "\n");
+
+      // Mirror the brief into user-prompts.jsonl (the contract's brief-capture
+      // intent) so the plan's provenance is in the project's append-only log.
+      await logUserPrompt(id, { text: opts.brief, stage: "plan", note: "production plan brief" });
+
+      ok(`Production plan written for ${id}`);
+      out({
+        project: id,
+        plan,
+        artifacts: {
+          markdown: mdPath,
+          json: jsonPath,
+          ...(archivedMd ? { archivedMarkdown: archivedMd } : {}),
+          ...(archivedJson ? { archivedJson } : {}),
+        },
+        ...(warnings.length ? { warnings } : {}),
+      });
     });
 
   cmd
