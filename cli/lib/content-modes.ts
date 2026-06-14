@@ -92,11 +92,59 @@ export interface GuidelineOrStyleLock {
   note: string;
 }
 
+/** Which kind of artifact a mode's implementation unit is. */
+export type ImplementationUnitKind =
+  | "skill" // a craft-overlay SKILL.md under .agents/skills/
+  | "guideline-route" // a `ralphy generate` route locked by an existing guideline + the art-director playbook
+  | "render-engine" // the HyperFrames render engine + editor playbook (motion / typography)
+  | "none"; // no concrete unit yet — a deferred gap
+
+/**
+ * How a mode is implemented today: the concrete artifact the agent reaches for
+ * (a craft-overlay skill, a guideline-locked generate route, the render engine),
+ * or `none` when the mode is a deferred gap. This is the "default route" half of
+ * the #413 supported bar — `supported` is derived from `kind !== "none"`.
+ *
+ * #058 (content-niche → format-template conversion) will replace the `skill`
+ * units with published format templates; the matrix in
+ * `docs/content-mode-coverage.md` tracks that migration.
+ */
+export interface ImplementationUnit {
+  /** What kind of artifact backs this mode. */
+  kind: ImplementationUnitKind;
+  /** Craft-overlay skill slugs that supply the know-how (`.agents/skills/<slug>/`). */
+  skills: string[];
+  /** Guideline slugs the route locks (subset of the live `guidelines/` set). */
+  guidelines: string[];
+  /** The `ralphy` verb(s) the route runs through. */
+  cliVerbs: string[];
+  /** One-line citation of the existing artifact this maps onto. */
+  note: string;
+  /** For a deferred gap: the recommended unit to author (per #058). Empty when not a gap. */
+  recommendedUnit?: string;
+}
+
 export interface ContentModeEntry {
   /** Canonical mode id. */
   mode: ContentMode;
   /** One-line, agent-facing summary of the production intent. */
   summary: string;
+  /**
+   * Whether this mode is a FIRST-CLASS route (#413). A mode is `supported` iff
+   * it has a concrete implementation unit (`implementationUnit.kind !== "none"`)
+   * AND quality gates AND a Unit shape — the latter two are present for every
+   * mode, so in practice `supported === (implementationUnit.kind !== "none")`.
+   * The invariant is asserted in `tests/unit/mode-coverage.test.ts`.
+   *
+   * `classifyContentMode` still returns UNSUPPORTED modes (the agent must be
+   * able to recognize the intent); `supported` gates what the agent may PROMISE
+   * and what #417 checks guideline coverage for. Never expose an unsupported
+   * mode name to the user as a deliverable — route to the closest supported
+   * mode or say it is not yet a first-class route (see `docs/content-modes.md`).
+   */
+  supported: boolean;
+  /** The concrete artifact backing this mode today (or a deferred gap). */
+  implementationUnit: ImplementationUnit;
   /** Formats this mode can ship as. First = the default. All ∈ format taxonomy. */
   supportedFormats: TemplateFormat[];
   /** Inputs the agent MUST have before generation (else ask / refuse). */
@@ -128,6 +176,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "product-shot": {
     mode: "product-shot",
     summary: "A clean studio still of a product on a controlled background — e-commerce hero / catalog still.",
+    supported: true,
+    implementationUnit: {
+      kind: "guideline-route",
+      skills: ["json-prompt-engine"],
+      guidelines: ["cgi-product-renders"],
+      cliVerbs: ["generate image"],
+      note: "art-director image route locked by the cgi-product-renders guideline; json-prompt-engine overlay for the structured prompt.",
+    },
     supportedFormats: ["image", "poster"],
     requiredInputs: ["product reference image"],
     optionalInputs: ["brand palette", "background spec", "lighting register", "aspect ratio"],
@@ -143,6 +199,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "lifestyle-scene": {
     mode: "lifestyle-scene",
     summary: "A product placed in a real-world lifestyle context with people / environment around it.",
+    supported: true,
+    implementationUnit: {
+      kind: "guideline-route",
+      skills: ["json-prompt-engine"],
+      guidelines: ["photoreal-studio-portraits"],
+      cliVerbs: ["generate image"],
+      note: "art-director image route; photoreal-studio-portraits guideline applies when people are in frame.",
+    },
     supportedFormats: ["image", "video"],
     requiredInputs: ["product reference image"],
     optionalInputs: ["scene description", "model / persona", "location", "mood"],
@@ -158,6 +222,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "closeup-product-with-person": {
     mode: "closeup-product-with-person",
     summary: "A tight shot of a person holding / using / wearing the product — hand-in-frame UGC-flavored still.",
+    supported: true,
+    implementationUnit: {
+      kind: "guideline-route",
+      skills: ["json-prompt-engine"],
+      guidelines: ["photoreal-studio-portraits"],
+      cliVerbs: ["generate image"],
+      note: "art-director image route; photoreal-studio-portraits guideline locks the hand/skin realism near the product.",
+    },
     supportedFormats: ["image", "video"],
     requiredInputs: ["product reference image"],
     optionalInputs: ["model / persona", "hand or face framing", "skin register"],
@@ -173,6 +245,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "pinterest-pin": {
     mode: "pinterest-pin",
     summary: "A tall 2:3 Pinterest pin with baked overlay text — discovery-feed still.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["poster"],
+      guidelines: [],
+      cliVerbs: ["generate image"],
+      note: "the poster skill's baked-overlay-text still architecture covers the pin; route through generate image at a 2:3 aspect.",
+    },
     supportedFormats: ["image", "poster"],
     requiredInputs: ["topic or product"],
     optionalInputs: ["headline copy", "brand palette", "reference style"],
@@ -188,6 +268,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "hero-banner": {
     mode: "hero-banner",
     summary: "A wide website / ad hero banner with headline + product / hero subject.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["poster"],
+      guidelines: [],
+      cliVerbs: ["generate image"],
+      note: "the poster skill's wordmark→hero→copy architecture covers the banner; route through generate image at a wide aspect.",
+    },
     supportedFormats: ["image", "poster"],
     requiredInputs: ["headline or value prop"],
     optionalInputs: ["product / hero reference", "brand palette", "banner dimensions", "CTA copy"],
@@ -203,6 +291,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "social-carousel": {
     mode: "social-carousel",
     summary: "A 5-10 slide swipe-through deck with baked text — IG / LinkedIn / TikTok carousel.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["carousel"],
+      guidelines: [],
+      cliVerbs: ["generate image"],
+      note: "the carousel skill (cover-first checkpoint + dual-ref cohesion + per-style STYLE blocks) is the direct route.",
+    },
     supportedFormats: ["carousel"],
     requiredInputs: ["topic or narrative"],
     optionalInputs: ["mascot / brand", "slide count", "aesthetic / style set", "copy outline"],
@@ -218,6 +314,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "ad-creative-pack": {
     mode: "ad-creative-pack",
     summary: "A batch of N≥4 static performance creatives for a single brand — FB / Meta ad pack / creative matrix.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["fb-creatives", "researcher"],
+      guidelines: [],
+      cliVerbs: ["generate image"],
+      note: "the fb-creatives skill (5-set scaffold + site-grounding pre-flight); researcher overlay supplies the deep crawl (#15).",
+    },
     supportedFormats: ["fb-creative", "image"],
     requiredInputs: ["brand site or brand reference", "hero / product reference"],
     optionalInputs: ["target audience", "offer / copy angles", "creative count"],
@@ -233,6 +337,15 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "virtual-model-tryout": {
     mode: "virtual-model-tryout",
     summary: "A product (apparel / accessory) shown worn by a generated virtual model — try-on still / video.",
+    supported: false,
+    implementationUnit: {
+      kind: "none",
+      skills: [],
+      guidelines: ["photoreal-studio-portraits"],
+      cliVerbs: ["generate image"],
+      note: "no dedicated try-on unit; ugc-model-swap is video person-swap, not apparel fitting. Generic generate image + photoreal guideline is a fallback, not a first-class route.",
+      recommendedUnit: "an `image` format style template `virtual-model-tryout` (garment-on-model fitting prompt cookbook + the worn-product realism rules), #058.",
+    },
     supportedFormats: ["image", "video"],
     requiredInputs: ["product / garment reference image"],
     optionalInputs: ["model spec (look, pose)", "background", "aspect ratio"],
@@ -248,6 +361,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "conceptual-product": {
     mode: "conceptual-product",
     summary: "A surreal / artistic product concept image — campaign key-visual, not a literal catalog shot.",
+    supported: true,
+    implementationUnit: {
+      kind: "guideline-route",
+      skills: ["json-prompt-engine"],
+      guidelines: [],
+      cliVerbs: ["generate image"],
+      note: "art-director image route; json-prompt-engine builds the dense surreal/concept prompt. Style is brief-driven (no mandatory lock).",
+    },
     supportedFormats: ["image", "poster"],
     requiredInputs: ["product reference image", "concept direction"],
     optionalInputs: ["mood board", "color story", "surreal devices"],
@@ -263,6 +384,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   restyle: {
     mode: "restyle",
     summary: "Re-skin an existing image into a new aesthetic while keeping the subject — style transfer of a supplied reference.",
+    supported: true,
+    implementationUnit: {
+      kind: "guideline-route",
+      skills: ["json-prompt-engine"],
+      guidelines: [],
+      cliVerbs: ["generate image"],
+      note: "art-director image route with the source as --ref; json-prompt-engine captures the target aesthetic. The target style is the locked register.",
+    },
     supportedFormats: ["image"],
     requiredInputs: ["source image to restyle", "target style description"],
     optionalInputs: ["style reference image", "strength / fidelity"],
@@ -278,6 +407,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "ugc-review": {
     mode: "ugc-review",
     summary: "A talking-head creator review / testimonial of a product — authentic UGC ad.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["ugc-ad"],
+      guidelines: ["photoreal-studio-portraits"],
+      cliVerbs: ["generate image", "generate video", "generate voiceover", "render"],
+      note: "the ugc-ad skill (shooting-script shape + creator-persona + problem-mirror hook + 9:16 ~15s UGC defaults) is the direct route.",
+    },
     supportedFormats: ["video"],
     requiredInputs: ["product reference"],
     optionalInputs: ["persona / archetype", "hook angle", "target language", "duration"],
@@ -293,6 +430,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "tutorial-ugc": {
     mode: "tutorial-ugc",
     summary: "A how-to / step-by-step UGC video showing a product or task in use.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["ugc-ad"],
+      guidelines: [],
+      cliVerbs: ["generate image", "generate video", "generate voiceover", "render"],
+      note: "the ugc-ad skill carries the UGC craft (creator persona + shot/mannerism script); the step-by-step beat list specializes its scenario. A dedicated tutorial template is the #058 follow-up.",
+    },
     supportedFormats: ["video"],
     requiredInputs: ["product or task to demo"],
     optionalInputs: ["persona", "step list", "duration", "captions language"],
@@ -308,6 +453,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "unboxing-ugc": {
     mode: "unboxing-ugc",
     summary: "An unboxing / first-impressions UGC video revealing a product from packaging.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["ugc-unboxing"],
+      guidelines: [],
+      cliVerbs: ["generate image", "generate video", "generate voiceover", "render"],
+      note: "the ugc-unboxing skill (reveal beats + first-impressions UGC craft) is the direct route.",
+    },
     supportedFormats: ["video"],
     requiredInputs: ["product reference", "packaging reference"],
     optionalInputs: ["persona", "reveal beats", "duration"],
@@ -323,6 +476,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "tv-ad": {
     mode: "tv-ad",
     summary: "A polished, broadcast-grade commercial spot — multi-scene cinematic ad.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["ugc-rockstar", "researcher"],
+      guidelines: ["broadcast-realism-aspect", "cinematic-90s-film", "oldspice-absurd-spokesman"],
+      cliVerbs: ["generate image", "generate video", "generate voiceover", "generate music", "render"],
+      note: "cinematic register via the ugc-rockstar style overlay + one of the broadcast/cinematic/spokesman guidelines as the hard look-lock.",
+    },
     supportedFormats: ["video"],
     requiredInputs: ["brand / product reference", "ad concept"],
     optionalInputs: ["script direction", "voiceover language", "music brief", "duration"],
@@ -338,6 +499,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "cartoon-animation": {
     mode: "cartoon-animation",
     summary: "A stylized 2D / 3D cartoon-animated short — character-driven illustrated motion.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["ugc-toon-action", "seedance-prompts"],
+      guidelines: [],
+      cliVerbs: ["generate image", "generate video", "render"],
+      note: "the ugc-toon-action skill (painterly t2v style block + GPT character-design discipline); seedance-prompts overlay for the t2v prompt craft.",
+    },
     supportedFormats: ["video", "motion-design"],
     requiredInputs: ["story or concept"],
     optionalInputs: ["character designs", "art style", "duration", "voiceover"],
@@ -353,6 +522,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "motion-design": {
     mode: "motion-design",
     summary: "An abstract / graphic motion-design piece — animated shapes, logo motion, kinetic graphics.",
+    supported: true,
+    implementationUnit: {
+      kind: "render-engine",
+      skills: ["hyperframes", "gsap"],
+      guidelines: [],
+      cliVerbs: ["render"],
+      note: "the HyperFrames render engine + editor playbook author the motion-design format directly (GSAP/WAAPI timelines → ralphy render).",
+    },
     supportedFormats: ["motion-design", "video"],
     requiredInputs: ["concept or message"],
     optionalInputs: ["brand assets / logo", "palette", "duration", "music brief"],
@@ -368,6 +545,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "typography-animation": {
     mode: "typography-animation",
     summary: "A kinetic-typography piece where animated text IS the visual — lyric / quote / hook animation.",
+    supported: true,
+    implementationUnit: {
+      kind: "render-engine",
+      skills: ["hyperframes", "gsap", "waapi"],
+      guidelines: [],
+      cliVerbs: ["render"],
+      note: "the HyperFrames render engine + editor playbook author kinetic type directly (GSAP SplitText / WAAPI per-char timelines → ralphy render).",
+    },
     supportedFormats: ["motion-design", "video"],
     requiredInputs: ["the text / copy to animate"],
     optionalInputs: ["font / type system", "music or VO to sync to", "palette", "duration"],
@@ -383,6 +568,14 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "podcast-video": {
     mode: "podcast-video",
     summary: "A long-form audio-driven faceless video built on top of an audio file / podcast — overlay-driven explainer.",
+    supported: true,
+    implementationUnit: {
+      kind: "skill",
+      skills: ["audio-explainer"],
+      guidelines: [],
+      cliVerbs: ["ref transcribe", "generate image", "generate music", "render"],
+      note: "the audio-explainer skill (yt-dlp → silence-remove → Scribe → claim segmentation → per-claim overlay planner → HyperFrames) is the direct route.",
+    },
     supportedFormats: ["video"],
     requiredInputs: ["audio file or long-form URL"],
     optionalInputs: ["overlay style", "chapter outline", "captions", "music bed"],
@@ -398,6 +591,15 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "personal-clipper": {
     mode: "personal-clipper",
     summary: "Cut a long-form video / stream into short vertical clips — highlight / clip extraction.",
+    supported: false,
+    implementationUnit: {
+      kind: "none",
+      skills: [],
+      guidelines: [],
+      cliVerbs: [],
+      note: "no clipper skill and no clip-extraction CLI verb exist yet; ref pull + ad-hoc ffmpeg is NOT a first-class route (AGENTS #2 bans ad-hoc ffmpeg).",
+      recommendedUnit: "a `ralphy clip` verb (transcript-driven highlight detection → vertical crop + caption bake) plus a `personal-clipper` skill, #058.",
+    },
     supportedFormats: ["video"],
     requiredInputs: ["source long-form video or URL"],
     optionalInputs: ["clip count", "target duration", "captions style", "platform"],
@@ -413,6 +615,15 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
   "amazon-listing": {
     mode: "amazon-listing",
     summary: "A set of marketplace listing images — main + infographic + lifestyle slots for Amazon / e-commerce.",
+    supported: false,
+    implementationUnit: {
+      kind: "none",
+      skills: [],
+      guidelines: ["cgi-product-renders"],
+      cliVerbs: ["generate image"],
+      note: "no listing-slot unit; the carousel skill is cover-first social slides, not a main+infographic+lifestyle marketplace slot plan. Generic generate image is a fallback, not a first-class route.",
+      recommendedUnit: "an `image`/`carousel` format template `amazon-listing` (the main + infographic + lifestyle slot plan + the cgi-product-renders lock), #058.",
+    },
     supportedFormats: ["image", "carousel"],
     requiredInputs: ["product reference image", "key features / specs"],
     optionalInputs: ["brand palette", "competitor listings", "slot plan"],
@@ -437,6 +648,33 @@ export function getContentMode(mode: string): ContentModeEntry | undefined {
 
 export function isContentMode(value: unknown): value is ContentMode {
   return typeof value === "string" && (CONTENT_MODES_LIST as readonly string[]).includes(value);
+}
+
+// ─── Supported-mode helpers (#413) ───────────────────────────────────────────
+//
+// A mode is SUPPORTED iff it has a concrete implementation unit (a default
+// route) AND quality gates AND a Unit shape. Gates + Unit shape are present for
+// every #412 entry, so the load-bearing condition is the implementation unit —
+// `supported === (implementationUnit.kind !== "none")`. The two are kept
+// consistent here at module scope (the invariant is asserted in
+// `tests/unit/mode-coverage.test.ts`); `#417` consumes `isModeSupported()` /
+// `supportedContentModes()` so it only checks guideline coverage for modes that
+// are first-class routes, and docs warn against promising unsupported modes.
+
+/** True when the mode is a first-class route the agent may promise (#413). */
+export function isModeSupported(mode: string): boolean {
+  const entry = getContentMode(mode);
+  return !!entry && entry.supported && entry.implementationUnit.kind !== "none";
+}
+
+/** All SUPPORTED modes (stable order = `CONTENT_MODES_LIST`). */
+export function supportedContentModes(): ContentModeEntry[] {
+  return allContentModes().filter((e) => e.supported);
+}
+
+/** All UNSUPPORTED (deferred-gap) modes (stable order = `CONTENT_MODES_LIST`). */
+export function unsupportedContentModes(): ContentModeEntry[] {
+  return allContentModes().filter((e) => !e.supported);
 }
 
 // ─── Classifier ────────────────────────────────────────────────────────────
