@@ -840,6 +840,20 @@ Commands:
                                 Makes ZERO model calls — the fixer gates paid
                                 regeneration on user approval (every item starts
                                 approvalState=pending). JSON output.
+  council [options] <id>        Convene a seven-role production council (#415).
+                                --phase preflight reviews production-plan.json
+                                BEFORE paid generation; --phase polish reviews
+                                eval.json (+ eval-deep-vision.json) AFTER eval
+                                and BEFORE Unit formation. Each role is a single
+                                callLLM() pass (NO media generation, NO
+                                browsing). Writes council-preflight.json /
+                                council-polish.json + a readable .md
+                                (append-only, auto-versions). The polish
+                                verdict's prioritizedActions use the #409 repair
+                                vocabulary so they feed `ralphy project
+                                repair-plan`. JSON output. Use --no-llm for the
+                                deterministic fixture (offline / abstaining
+                                roles).
   plan [options] <id>           Draft a structured production plan from a brief
                                 (contract phase 7, #407). Deterministic
                                 content-mode + template match + cost estimate;

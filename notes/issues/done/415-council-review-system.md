@@ -1,6 +1,8 @@
 # 415 - Introduce council reviews for plans and polished Units
 
-Status: active
+> **Status:** done — 2026-06-14 (7-role council in cli/lib/council.ts; councilPreflight(plan) + councilPolish(eval); `ralphy project council --phase preflight|polish`; bounded to callLLM, no media/browsing; prioritizedActions use the #409 repair vocabulary so buildRepairPlan ingests them structurally)
+
+Status: done
 
 ## Problem
 

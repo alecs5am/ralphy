@@ -38,8 +38,12 @@ export type RepairSeverity = z.infer<typeof RepairSeveritySchema>;
 export const RepairApprovalStateSchema = z.enum(["pending", "approved", "skipped"]);
 export type RepairApprovalState = z.infer<typeof RepairApprovalStateSchema>;
 
-/** Provenance of the repair item: a deterministic finding or a deep-vision redo. */
-export const RepairSourceSchema = z.enum(["findings", "deep-vision"]);
+/**
+ * Provenance of the repair item: a deterministic finding, a deep-vision redo,
+ * or a polish-council prioritized action (#415 — council owners are preserved
+ * verbatim, no re-classification).
+ */
+export const RepairSourceSchema = z.enum(["findings", "deep-vision", "council"]);
 export type RepairSource = z.infer<typeof RepairSourceSchema>;
 
 /** Coarse risk of applying the fix — drives the order in which the user reviews. */
