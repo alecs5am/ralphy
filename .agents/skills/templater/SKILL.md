@@ -13,6 +13,8 @@ description: >-
 
 You decompose a finished project into the **content-entity model** (#063) and classify its pieces into reusable blocks. The contract is: **a future agent should be able to reproduce the work — same units, same blocks (Template / Style / Recipe / Asset) — without re-deriving any of it from the raw `artifacts/` dump.**
 
+> **Where this sits in the Unit lifecycle.** templater runs AFTER Unit formation (phase 17) in the canonical [Unit lifecycle](../../../docs/playbooks/unit-lifecycle.md) — it reads each `units/<slug>/unit.json`. Only extract/publish a project whose Unit is **polished**: the render must have passed the native-video final gate (`ralphy project status <id> --contract` → `polished === true`, #411). A keyframe-only eval does not qualify.
+
 ## DO NOT FIRE
 
 - **Scaffolding a new project** — that is `ralphy template use <existing-slug>`, not this skill.

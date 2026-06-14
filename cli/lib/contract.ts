@@ -26,8 +26,9 @@
 //    the filesystem.
 
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { projectDir } from "./paths.js";
+import { isModeSupported } from "./content-modes.js";
 
 /** A single phase of the production contract. */
 export interface ContractPhase {
@@ -102,6 +103,14 @@ export const CONTRACT_PHASES: ContractPhase[] = [
       "Named real entities (specific person / brand product / IP) require a ref or a logged --no-ref-consent. Floor: `ralphy ref check <id>`. Decision is agent-driven; refs land in artifacts/refs/.",
   },
   {
+    id: "research",
+    label: "Research bootstrap (#416)",
+    artifact: "artifacts/refs/research-facts.json",
+    required: false,
+    rationale:
+      "Deterministic depth decision (chooseResearchDepth) routes to the EXISTING surface (quick: site-grounding / a few `ralphy ref pull`; deep: `ralphy research run` + `scrape-profile`); the distillate lands as ProductBrandFacts in artifacts/refs/research-facts.json (or research/report.md for the deep engine). Optional — fires per the bootstrap's depth (`none` writes nothing). Runs BEFORE the style lock so the register/plan ground in findings.",
+  },
+  {
     id: "style-lock",
     label: "Benchmark / style grounding (#408)",
     artifact: "STYLE_LOCK.md",
@@ -116,6 +125,14 @@ export const CONTRACT_PHASES: ContractPhase[] = [
     required: true,
     rationale:
       "The user-approved plan (vibe, beats, stack, cost/wall-clock estimate, first checkpoint). Wait for user 'go' before any paid generation — AGENTS.md.",
+  },
+  {
+    id: "council-preflight",
+    label: "Preflight council (#415)",
+    artifact: "council-preflight.json",
+    required: false,
+    rationale:
+      "`ralphy project council <id> --phase preflight` — seven bounded roles review production-plan.json BEFORE any paid generation (NO media, NO browsing). A `block` verdict must be resolved before spending; fold prioritizedActions into the plan. Optional + advisory — the user 'go' (phase production-plan) stays the spend gate.",
   },
   {
     id: "scenario",
@@ -166,6 +183,14 @@ export const CONTRACT_PHASES: ContractPhase[] = [
       "If eval flags issues the user wants fixed, the fixer agent runs `ralphy project repair-plan <id>` (deterministic, zero model calls) → repair-plan.json, presents it, and re-rolls only on approval. Optional — present only when a repair pass ran; fixes re-touch existing artifacts (auto-versioned).",
   },
   {
+    id: "council-polish",
+    label: "Polish council (#415)",
+    artifact: "council-polish.json",
+    required: false,
+    rationale:
+      "`ralphy project council <id> --phase polish` — the seven roles review eval.json (+ eval-deep-vision.json) AFTER eval and BEFORE Unit formation (NO media, NO browsing). Its prioritizedActions speak the #409 repair vocabulary so they flow into `ralphy project repair-plan` structurally. Optional — use when a single-agent eval feels thin on market-fit / pacing / CTA judgment.",
+  },
+  {
     id: "unit",
     label: "Unit formation (#069)",
     artifact: "units",
@@ -201,6 +226,29 @@ export interface ContractPhaseResult {
   rationale: string;
 }
 
+/**
+ * A blocking condition the agent must clear before advancing past where it
+ * currently sits in the lifecycle (#414). Stop conditions are derived from
+ * project state, never from chat memory. Each names the phase it gates and a
+ * one-line `detail` the agent can act on or surface verbatim.
+ */
+export interface StopCondition {
+  /** Stable stop-condition id (kebab-case). Append, never repurpose. */
+  id:
+    | "reference-required"
+    | "quality-gate-failed"
+    | "mode-unsupported"
+    | "estimate-exceeds-target"
+    | "user-approval-needed"
+    | "native-gate-required";
+  /** The phase id this stop gates (matches a `CONTRACT_PHASES[].id`). */
+  phase: string;
+  /** Severity: `block` halts progress; `warn` is advisory the agent should surface. */
+  severity: "block" | "warn";
+  /** One-line, agent-actionable explanation. English-on-disk. */
+  detail: string;
+}
+
 /** The full contract evaluation for one project. */
 export interface ContractEvaluation {
   project: string;
@@ -220,20 +268,63 @@ export interface ContractEvaluation {
   nextRecommendedAction: string;
   /** True when no required artifact is missing. */
   complete: boolean;
+
+  // ── Resume model (#414) ──────────────────────────────────────────────────
+  // So an agent can RESUME a project mid-flight without guessing the phase.
+
+  /**
+   * The id of the FURTHEST satisfied phase (the deepest phase in order whose
+   * artifact is present / which is agent-driven), or `null` when nothing has
+   * landed yet. Agent-driven phases (`artifact: null`) count as satisfied, so
+   * `currentPhase` reflects "how far the on-disk trail reaches".
+   */
+  currentPhase: string | null;
+  /**
+   * The id of the first UNSATISFIED phase to do next (the first phase whose
+   * artifact is required-or-optional and absent), or `null` when every phase is
+   * satisfied. This is the resume cursor — pair it with `nextStep`.
+   */
+  nextPhase: string | null;
+  /** A one-line, agent-actionable instruction for `nextPhase` (or a complete marker). */
+  nextStep: string;
+  /**
+   * Blocking / advisory conditions derived from project state (#414): a missing
+   * required reference, a failed quality gate after the retry budget, an
+   * unsupported content mode, a cost/time estimate over target, a pending
+   * user-approval-before-spend, and the native-video gate requirement for a
+   * "polished" Unit. Empty when nothing blocks.
+   */
+  stopConditions: StopCondition[];
+  /**
+   * True only when the render has passed the #411 native-video final gate
+   * (`eval.json` → `gate.shipReady === true` under a native-video / deep-style
+   * mode) OR an explicit user-approved bypass was logged. A keyframe / structure
+   * eval can NEVER make this true. A Unit may not be considered polished /
+   * publishable while this is false. `null` when no eval has landed yet.
+   */
+  polished: boolean | null;
 }
 
 /** Project-relative recommended next step per phase id. */
 const NEXT_STEP: Record<string, string> = {
   intake:
     "Run intake (3-5 clarifying questions) and capture the brief to BRIEF.md (`ralphy project log-prompt --stage brief`).",
+  research:
+    "Run the research bootstrap (chooseResearchDepth) and route the depth to the existing surface; distill into artifacts/refs/research-facts.json. Skip-clean when the depth is `none`.",
   "production-plan":
     "Draft the production plan (PRODUCTION_PLAN.md) and wait for the user's 'go' before any paid generation.",
+  "council-preflight":
+    "Optional: convene the preflight council (`ralphy project council <id> --phase preflight`) on the plan BEFORE any paid generation; resolve a `block` verdict first.",
   scenario:
     "Write the scenario (scenario.json) and pass scoreScenario before handing off to the art-director.",
   prompts: "Draft per-slot prompts (prompts.json); apply scoreImage/scoreVideo gates.",
   assets: "Generate assets via `ralphy generate ...`; the manifest (asset-manifest.json) tracks each slot.",
   render: "Run `ralphy editor preflight <id>` then `ralphy render <id>` → render/final.mp4.",
-  eval: "Run the /evaluator post-render gate → eval.json + eval-report.md.",
+  eval: "Run the /evaluator post-render gate → eval.json + eval-report.md (native-video mode is the ship gate).",
+  "council-polish":
+    "Optional: convene the polish council (`ralphy project council <id> --phase polish`) on eval.json before forming the Unit; its actions feed `ralphy project repair-plan`.",
+  unit: "Form the deliverable Unit (`ralphy unit create <id> --slug <s> --format <f> --from \"<glob>\"`) once the native-video gate is ship-ready.",
+  postmortem: "Run /postmortem and `ralphy memory distill` to capture durable lessons.",
 };
 
 function safeExists(p: string): boolean {
@@ -322,6 +413,33 @@ export function evaluateContract(projectId: string): ContractEvaluation {
       : "Contract complete — all required artifacts present.";
   }
 
+  // ── Resume model (#414): currentPhase / nextPhase / nextStep ────────────────
+  // currentPhase = the deepest ARTIFACT-BEARING satisfied phase (the real
+  //                on-disk progress signal). Agent-driven phases (artifact:null)
+  //                are always satisfied and carry no progress, so they never
+  //                stand in as the cursor — otherwise BRIEF.md alone would jump
+  //                currentPhase past the intake to reference-gate.
+  // nextPhase    = the first ARTIFACT-BEARING phase that is unsatisfied (the
+  //                resume cursor); agent-driven phases never become the cursor
+  //                because they are always satisfied.
+  let currentPhase: string | null = null;
+  for (const p of phases) {
+    if (p.artifact !== null && p.satisfied) currentPhase = p.id;
+  }
+  const nextPhaseResult = phases.find((p) => p.artifact !== null && !p.satisfied);
+  const nextPhase = nextPhaseResult ? nextPhaseResult.id : null;
+  const nextStep = nextPhaseResult
+    ? NEXT_STEP[nextPhaseResult.id] ??
+      `Satisfy phase "${nextPhaseResult.label}" (${nextPhaseResult.artifact}).`
+    : "Lifecycle complete — every phase artifact is present.";
+
+  // ── Polished determination (#411 native-gate gated) ─────────────────────────
+  const renderPresent = phases.find((p) => p.id === "render")?.present === true;
+  const polished = derivePolished(dir, renderPresent);
+
+  // ── Stop conditions derived from project state (#414) ───────────────────────
+  const stopConditions = deriveStopConditions(dir, phases, polished);
+
   return {
     project: projectId,
     kind,
@@ -329,5 +447,189 @@ export function evaluateContract(projectId: string): ContractEvaluation {
     missingRequired,
     nextRecommendedAction,
     complete: missingRequired.length === 0,
+    currentPhase,
+    nextPhase,
+    nextStep,
+    stopConditions,
+    polished,
   };
+}
+
+/**
+ * `lifecycleStatus` — the canonical name for the full Unit-lifecycle ledger
+ * (#414). It is `evaluateContract` (the contract IS the lifecycle backbone, not
+ * a fork), re-exported under the lifecycle vocabulary so callers and docs can
+ * speak one name. Surfaced as `ralphy project status <id> --lifecycle`.
+ */
+export function lifecycleStatus(projectId: string): ContractEvaluation {
+  return evaluateContract(projectId);
+}
+
+// ─── Resume-model helpers (#414) ───────────────────────────────────────────────
+
+/** Read + JSON.parse a project-relative file, or null on any failure. */
+function safeReadJson(abs: string): unknown {
+  try {
+    if (!existsSync(abs)) return null;
+    return JSON.parse(readFileSync(abs, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The native-video-gated "polished" determination (#411 + #414 Acceptance #3).
+ * A Unit is polished ONLY when the render passed the native-video final gate OR
+ * an explicit user-approved bypass was logged:
+ *   • `eval.json` present with `gate.shipReady === true` (a structure/keyframe
+ *     report forces `shipReady` false, so this can only be true under a
+ *     native-video / deep-style pass) → polished (`true`).
+ *   • a `gate-bypass:<reason>` entry in the plan's `bypasses[]` → an explicit
+ *     user-approved bypass → polished (`true`).
+ *   • a render exists but neither of the above holds → NOT polished (`false`)
+ *     — the agent needs the false to know the native gate still blocks.
+ *   • no render and no bypass yet → `null` (the question is N/A; nothing to ship).
+ */
+function derivePolished(dir: string, renderPresent: boolean): boolean | null {
+  const planBypasses = readPlanBypasses(dir);
+  const userBypass = planBypasses.some((b) => /^gate-bypass[:\s]/i.test(b));
+  if (userBypass) return true;
+
+  const evalRaw = safeReadJson(path.join(dir, "eval.json")) as
+    | { gate?: { shipReady?: unknown } }
+    | null;
+  if (evalRaw) {
+    return evalRaw.gate?.shipReady === true;
+  }
+  // No eval. If a render exists, the native gate has not passed → not polished.
+  // Before any render, the question is N/A.
+  return renderPresent ? false : null;
+}
+
+/** Read the production plan's `bypasses[]` (the logged phase-skip ledger), or []. */
+function readPlanBypasses(dir: string): string[] {
+  const planRaw = safeReadJson(path.join(dir, "production-plan.json")) as
+    | { bypasses?: unknown }
+    | null;
+  const b = planRaw?.bypasses;
+  return Array.isArray(b) ? b.filter((x): x is string => typeof x === "string") : [];
+}
+
+/**
+ * The per-video wall-clock target (minutes) the estimate is checked against
+ * (`docs/perf-targets.md` — ≤8 min cold-start / ≤20 min custom single video).
+ * We use the custom-from-brief ceiling as the conservative single-video target
+ * and fire the stop only when the plan's own estimate runs >50% over it.
+ */
+const SINGLE_VIDEO_TARGET_MIN = 20;
+const OVER_TARGET_FACTOR = 1.5;
+
+/**
+ * Derive the lifecycle stop conditions from project state (#414). Each is a
+ * pure read of an artifact already on disk — no model call, no chat memory.
+ */
+function deriveStopConditions(
+  dir: string,
+  phases: ContractPhaseResult[],
+  polished: boolean | null,
+): StopCondition[] {
+  const stops: StopCondition[] = [];
+  const planRaw = safeReadJson(path.join(dir, "production-plan.json")) as
+    | {
+        contentMode?: { mode?: unknown };
+        estimate?: { wallClockMin?: unknown };
+        requiredRefs?: unknown;
+        bypasses?: unknown;
+      }
+    | null;
+  const bypasses = readPlanBypasses(dir);
+  const evalRaw = safeReadJson(path.join(dir, "eval.json")) as
+    | { gate?: { shipReady?: unknown; nativeVideo?: unknown }; scoring?: { verdict?: unknown } }
+    | null;
+
+  const present = (id: string) => phases.find((p) => p.id === id)?.present === true;
+
+  // ── mode-unsupported (#412/#413) ──
+  const mode = typeof planRaw?.contentMode?.mode === "string" ? planRaw.contentMode.mode : null;
+  if (mode && !isModeSupported(mode)) {
+    stops.push({
+      id: "mode-unsupported",
+      phase: "content-mode",
+      severity: "block",
+      detail: `content mode "${mode}" is not a first-class route (isModeSupported=false). Route to the closest supported mode or tell the user it is not yet supported — do not promise it as a deliverable.`,
+    });
+  }
+
+  // ── reference-required (AGENTS.md #3) ──
+  // The plan declares requiredRefs; if it does and no ref landed in
+  // artifacts/refs/ and no --no-ref-consent bypass was logged, the gate blocks.
+  const requiredRefs = Array.isArray(planRaw?.requiredRefs) ? planRaw!.requiredRefs : [];
+  const hasRefs = safeExists(path.join(dir, "artifacts", "refs"));
+  const refConsent = bypasses.some((b) => /^no-ref-consent[:\s]/i.test(b));
+  if (requiredRefs.length > 0 && !hasRefs && !refConsent) {
+    stops.push({
+      id: "reference-required",
+      phase: "reference-gate",
+      severity: "block",
+      detail: `plan declares required references (${requiredRefs
+        .map((r) => String(r))
+        .join(", ")}) but artifacts/refs/ is empty and no --no-ref-consent is logged. Attach a ref or log consent before any generation.`,
+    });
+  }
+
+  // ── estimate-exceeds-target (#407 estimate vs docs/perf-targets.md) ──
+  const wallClock =
+    typeof planRaw?.estimate?.wallClockMin === "number" ? planRaw.estimate.wallClockMin : null;
+  if (wallClock !== null && wallClock > SINGLE_VIDEO_TARGET_MIN * OVER_TARGET_FACTOR) {
+    stops.push({
+      id: "estimate-exceeds-target",
+      phase: "production-plan",
+      severity: "warn",
+      detail: `plan wall-clock estimate (${wallClock} min) exceeds 50% over the ${SINGLE_VIDEO_TARGET_MIN}-min single-video target (docs/perf-targets.md). Report to the user before starting.`,
+    });
+  }
+
+  // ── user-approval-needed (wait-for-go before paid generation) ──
+  // The plan is written but nothing paid has run yet (no asset manifest) and the
+  // user has not waived the gate — surface that the spend gate is still open.
+  const planPresent = present("production-plan");
+  const assetsStarted = present("assets") || present("render");
+  const goWaived = bypasses.some((b) => /^skip:production-plan[:\s]/i.test(b));
+  if (planPresent && !assetsStarted && !goWaived) {
+    stops.push({
+      id: "user-approval-needed",
+      phase: "production-plan",
+      severity: "block",
+      detail:
+        "production plan is written but no paid asset has been generated. Wait for the user's explicit 'go' before any paid generation (AGENTS.md). Logged skip:production-plan waives this.",
+    });
+  }
+
+  // ── quality-gate-failed (eval landed with a non-pass verdict) ──
+  if (evalRaw && evalRaw.scoring?.verdict === "fail") {
+    stops.push({
+      id: "quality-gate-failed",
+      phase: "eval",
+      severity: "block",
+      detail:
+        "eval.json verdict is `fail`. Run `ralphy project repair-plan <id>`, get approval, and re-roll the failing slots (auto-versioned) before re-evaluating. Do not form/publish a Unit over a failed gate.",
+    });
+  }
+
+  // ── native-gate-required (#411 — polished requires the native final gate) ──
+  // Once a render exists, a Unit may not be considered polished/publishable
+  // until the native-video gate is ship-ready (or a user bypass is logged). A
+  // cheap (keyframe/structure) eval is a diagnostic, not the ship gate.
+  if (present("render") && polished === false) {
+    const evalLanded = !!evalRaw;
+    const nativeRan = evalRaw?.gate?.nativeVideo === true;
+    const detail = !evalLanded
+      ? "render exists but no eval has run. The native-video final gate (#411) must pass before the Unit is polished — run `ralphy evaluate <id>` (defaults to native-video) or log an explicit user-approved bypass."
+      : nativeRan
+        ? "the native-video gate ran but did not return shipReady — block forming/publishing until the priority fixes land (or log an explicit user-approved bypass)."
+        : "eval ran in a cheap (keyframe/structure) mode — that can never approve a polished Unit (#411). Re-run in native-video / deep-style before forming/publishing, or log an explicit user-approved bypass.";
+    stops.push({ id: "native-gate-required", phase: "unit", severity: "block", detail });
+  }
+
+  return stops;
 }

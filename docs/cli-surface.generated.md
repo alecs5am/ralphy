@@ -827,9 +827,12 @@ Commands:
   list [options]                List all projects
   show [options] <id>           Show project details
   status [options] <id>         Machine-readable pipeline status. Bare: coarse
-                                stage + per-step booleans. --contract: full
-                                production-contract ledger (per-phase
-                                satisfied/missing + nextRecommendedAction).
+                                stage + per-step booleans. --contract (alias
+                                --lifecycle): full Unit-lifecycle ledger
+                                (per-phase satisfied/missing +
+                                currentPhase/nextPhase/nextStep + stopConditions
+                                + polished). See
+                                docs/playbooks/unit-lifecycle.md.
   repair-plan [options] <id>    Build a deterministic eval-to-repair plan
                                 (#409). Reads eval.json (+
                                 eval-deep-vision.json's what_to_redo when
