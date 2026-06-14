@@ -10,18 +10,25 @@
 //   audioDescribeRef() — Gemini-audio LLM (non-speech / tonal description)
 //   synthesizeBlueprint() — builds blueprint.md from {meta, transcript, analysis}
 //
-// All operations are scoped to `.ralphy/references/<slug>/`. Each step
-// updates a small `state.json` so subsequent runs can detect what's already
-// done and skip work. Logs go to gen-log when a `projectId` is supplied;
-// research-only invocations are logged to a synthetic "research" project for
-// observability.
+// A ref's artifacts are scoped to a single slug dir. Where that dir lives
+// depends on the active workspace (#401):
+//   • a non-default active workspace → `.ralphy/workspaces/<ws>/shared/refs/<slug>/`
+//     (the shared/ tier, consistent with `--ref shared/<path>` resolution)
+//   • the implicit DEFAULT_WORKSPACE → the global `.ralphy/references/<slug>/`
+//   • `--global` (RefDirOptions.global) → always the global tree
+// READS resolve workspace-local FIRST, then fall back to global, so existing
+// global refs keep working and a workspace-local ref shadows a same-slug global
+// one. See `refDir()` / `resolveRefDir()` below. Each step updates a small
+// `state.json` so subsequent runs can skip work. Logs go to gen-log when a
+// `projectId` is supplied; research-only invocations are logged to a synthetic
+// "research" project for observability.
 
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import type { Caption } from "./captions/types.js";
-import { referencesDir } from "./paths.js";
+import { referencesDir, sharedDir, currentWorkspace, DEFAULT_WORKSPACE } from "./paths.js";
 import { transcribe, type TranscribeBackend, type TranscribeLanguage } from "./transcribe.js";
 import { callLLM } from "./providers/llm.js";
 import { logGeneration } from "./gen-log.js";
@@ -30,12 +37,70 @@ import { logGeneration } from "./gen-log.js";
 // Slug + paths
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function refDir(slug: string): string {
+/** Tier resolution knobs threaded from the `ref` subcommands (#401). */
+export type RefDirOptions = {
+  /** Force the global `.ralphy/references/<slug>/` tree regardless of active workspace. */
+  global?: boolean;
+  /**
+   * Use the WRITE location (`writeRefDir`) instead of READ resolution. `ref
+   * pull` sets this so it always lands the slug in the active workspace's
+   * shared tier — never silently appending into a same-slug global ref that
+   * read-resolution would otherwise surface.
+   */
+  write?: boolean;
+};
+
+/** The global ref dir: `.ralphy/references/<slug>/`. */
+function globalRefDir(slug: string): string {
   return path.join(referencesDir(), slug);
 }
 
-export function refPaths(slug: string) {
-  const dir = refDir(slug);
+/** The active-workspace shared ref dir: `.ralphy/workspaces/<ws>/shared/refs/<slug>/`. */
+function workspaceRefDir(slug: string): string {
+  return path.join(sharedDir(currentWorkspace()), "refs", slug);
+}
+
+/**
+ * The WRITE location for a ref's slug dir (#401). Workspace-local when a
+ * non-default workspace is active; global when the active workspace is
+ * DEFAULT_WORKSPACE or `--global` is set.
+ */
+export function writeRefDir(slug: string, opts: RefDirOptions = {}): string {
+  if (opts.global) return globalRefDir(slug);
+  if (currentWorkspace() === DEFAULT_WORKSPACE) return globalRefDir(slug);
+  return workspaceRefDir(slug);
+}
+
+/**
+ * The READ location for a ref's slug dir (#401): the first of
+ * [workspace-local, global] that already exists. `--global` forces global-only.
+ * Falls back to the WRITE location when neither exists yet (so a freshly-named
+ * slug still resolves to a sensible create target).
+ */
+export function resolveRefDir(slug: string, opts: RefDirOptions = {}): string {
+  if (opts.global) return globalRefDir(slug);
+  if (currentWorkspace() !== DEFAULT_WORKSPACE) {
+    const local = workspaceRefDir(slug);
+    if (existsSync(local)) return local;
+    const global = globalRefDir(slug);
+    if (existsSync(global)) return global;
+    return local;
+  }
+  return globalRefDir(slug);
+}
+
+/**
+ * The ref dir for a slug. Defaults to READ resolution (workspace-local first,
+ * then global). Pass `{ write: true }` for the WRITE location (`ref pull`) or
+ * `{ global: true }` to force the global tree.
+ */
+export function refDir(slug: string, opts: RefDirOptions = {}): string {
+  if (opts.write) return writeRefDir(slug, opts);
+  return resolveRefDir(slug, opts);
+}
+
+export function refPaths(slug: string, opts: RefDirOptions = {}) {
+  const dir = refDir(slug, opts);
   return {
     dir,
     sourceMp4: path.join(dir, "source.mp4"),
@@ -85,8 +150,8 @@ export type RefState = {
   blueprintAt?: string;
 };
 
-async function readState(slug: string): Promise<RefState> {
-  const p = refPaths(slug).state;
+async function readState(slug: string, opts: RefDirOptions = {}): Promise<RefState> {
+  const p = refPaths(slug, opts).state;
   try {
     return JSON.parse(await fs.readFile(p, "utf8")) as RefState;
   } catch {
@@ -94,11 +159,11 @@ async function readState(slug: string): Promise<RefState> {
   }
 }
 
-async function writeState(slug: string, patch: Partial<RefState>): Promise<RefState> {
-  const cur = await readState(slug);
+async function writeState(slug: string, patch: Partial<RefState>, opts: RefDirOptions = {}): Promise<RefState> {
+  const cur = await readState(slug, opts);
   const next = { ...cur, ...patch, slug };
-  await fs.mkdir(path.dirname(refPaths(slug).state), { recursive: true });
-  await fs.writeFile(refPaths(slug).state, JSON.stringify(next, null, 2) + "\n");
+  await fs.mkdir(path.dirname(refPaths(slug, opts).state), { recursive: true });
+  await fs.writeFile(refPaths(slug, opts).state, JSON.stringify(next, null, 2) + "\n");
   return next;
 }
 
@@ -159,6 +224,8 @@ export type PullOptions = {
   noAudioExtract?: boolean;
   /** Use a local file on disk instead of yt-dlp. When set, `url` is treated as the original identifier/label and the file at `localPath` is copied to source.mp4. */
   localPath?: string;
+  /** Force the global `.ralphy/references/<slug>/` tree, bypassing the active workspace (#401). */
+  global?: boolean;
 };
 
 export type PullResult = {
@@ -178,7 +245,8 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
 
   ensureBin("yt-dlp", "brew install yt-dlp");
   const slug = opts.slug ?? slugFromUrl(opts.url);
-  const paths = refPaths(slug);
+  const dirOpts: RefDirOptions = { write: true, global: opts.global };
+  const paths = refPaths(slug, dirOpts);
   await fs.mkdir(paths.dir, { recursive: true });
 
   // 1. metadata (cheap, always)
@@ -259,7 +327,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
   await writeState(slug, {
     url: opts.url,
     pulledAt: new Date().toISOString(),
-  });
+  }, dirOpts);
 
   return {
     slug,
@@ -278,7 +346,8 @@ async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
 
   const baseName = path.basename(src).replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const slug = opts.slug ?? baseName ?? `local-${Date.now().toString(36)}`;
-  const paths = refPaths(slug);
+  const dirOpts: RefDirOptions = { write: true, global: opts.global };
+  const paths = refPaths(slug, dirOpts);
   await fs.mkdir(paths.dir, { recursive: true });
 
   // Probe metadata via ffprobe — analog of yt-dlp's --dump-single-json for local files.
@@ -337,7 +406,7 @@ async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
   await writeState(slug, {
     url: opts.url || src,
     pulledAt: new Date().toISOString(),
-  });
+  }, dirOpts);
 
   return {
     slug,
@@ -361,6 +430,8 @@ export type FramesOptions = {
   max?: number;
   /** Width to scale to (height auto). Default 540. */
   width?: number;
+  /** Force the global ref tree, bypassing workspace-local resolution (#401). */
+  global?: boolean;
 };
 
 export type FramesResult = {
@@ -372,7 +443,8 @@ export type FramesResult = {
 
 export async function sampleFrames(opts: FramesOptions): Promise<FramesResult> {
   ensureBin("ffmpeg", "brew install ffmpeg");
-  const paths = refPaths(opts.slug);
+  const dirOpts: RefDirOptions = { global: opts.global };
+  const paths = refPaths(opts.slug, dirOpts);
   if (!existsSync(paths.sourceMp4)) {
     throw new Error(
       `No source.mp4 in ${paths.dir} — run \`ralphy ref pull <url> --slug ${opts.slug}\` first.`,
@@ -408,7 +480,7 @@ export async function sampleFrames(opts: FramesOptions): Promise<FramesResult> {
   await writeState(opts.slug, {
     framesAt: new Date().toISOString(),
     framesCount: files.length,
-  });
+  }, dirOpts);
 
   return { slug: opts.slug, dir: paths.framesDir, count: files.length, paths: files };
 }
@@ -421,6 +493,8 @@ export type TranscribeRefOptions = {
   slug: string;
   language?: TranscribeLanguage;
   backend?: TranscribeBackend;
+  /** Force the global ref tree, bypassing workspace-local resolution (#401). */
+  global?: boolean;
 };
 
 export type TranscribeRefResult = {
@@ -434,7 +508,8 @@ export type TranscribeRefResult = {
 };
 
 export async function transcribeRef(opts: TranscribeRefOptions): Promise<TranscribeRefResult> {
-  const paths = refPaths(opts.slug);
+  const dirOpts: RefDirOptions = { global: opts.global };
+  const paths = refPaths(opts.slug, dirOpts);
   if (!existsSync(paths.audio)) {
     throw new Error(
       `No source.mp3 in ${paths.dir} — run \`ralphy ref pull <url> --slug ${opts.slug}\` first.`,
@@ -464,7 +539,7 @@ export async function transcribeRef(opts: TranscribeRefOptions): Promise<Transcr
     note: `ref:${opts.slug}`,
   });
 
-  await writeState(opts.slug, { transcribedAt: new Date().toISOString() });
+  await writeState(opts.slug, { transcribedAt: new Date().toISOString() }, dirOpts);
 
   return {
     slug: opts.slug,
@@ -487,6 +562,8 @@ export type AnalyzeFramesOptions = {
   prompt?: string;
   /** Vision model. Default `google/gemini-2.5-flash` (cheap, fast). */
   model?: string;
+  /** Force the global ref tree, bypassing workspace-local resolution (#401). */
+  global?: boolean;
 };
 
 export type AnalyzeFramesResult = {
@@ -532,7 +609,8 @@ For language_detected_in_text / script_detected / region_hints: be precise — d
 Output ONLY the JSON. No prose, no preface, no code fences.`;
 
 export async function analyzeFrames(opts: AnalyzeFramesOptions): Promise<AnalyzeFramesResult> {
-  const paths = refPaths(opts.slug);
+  const dirOpts: RefDirOptions = { global: opts.global };
+  const paths = refPaths(opts.slug, dirOpts);
   let frames: string[];
   try {
     frames = (await fs.readdir(paths.framesDir))
@@ -595,7 +673,7 @@ export async function analyzeFrames(opts: AnalyzeFramesOptions): Promise<Analyze
     parsed !== undefined ? JSON.stringify(parsed, null, 2) + "\n" : text + "\n",
   );
 
-  await writeState(opts.slug, { analyzedAt: new Date().toISOString() });
+  await writeState(opts.slug, { analyzedAt: new Date().toISOString() }, dirOpts);
 
   return {
     slug: opts.slug,
@@ -637,6 +715,8 @@ export type AnalyzeVideoOptions = {
   maxTokens?: number;
   /** Pass-through for the OpenRouter `temperature` knob. */
   temperature?: number;
+  /** Slug mode only: force the global ref tree, bypassing workspace-local resolution (#401). */
+  global?: boolean;
 };
 
 export type AnalyzeVideoResult = {
@@ -716,7 +796,7 @@ export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVi
   if (opts.videoPath) {
     videoPath = opts.videoPath;
   } else if (opts.slug) {
-    const paths = refPaths(opts.slug);
+    const paths = refPaths(opts.slug, { global: opts.global });
     if (!existsSync(paths.sourceMp4)) {
       throw new Error(
         `No source.mp4 at ${paths.sourceMp4} — run \`ralphy ref pull <url>\` first.`,
@@ -833,7 +913,7 @@ export async function analyzeVideo(opts: AnalyzeVideoOptions): Promise<AnalyzeVi
   }
 
   if (opts.slug) {
-    await writeState(opts.slug, { videoAnalyzedAt: new Date().toISOString() });
+    await writeState(opts.slug, { videoAnalyzedAt: new Date().toISOString() }, { global: opts.global });
   }
 
   // Issue #032 §4: log a dedicated `video-analysis` row.
@@ -881,6 +961,8 @@ export type AudioDescribeOptions = {
   slug: string;
   prompt?: string;
   model?: string;
+  /** Force the global ref tree, bypassing workspace-local resolution (#401). */
+  global?: boolean;
 };
 
 export type AudioDescribeResult = {
@@ -907,7 +989,8 @@ const DEFAULT_AUDIO_PROMPT = `Analyze this clip's AUDIO (not the transcript word
 Output ONLY the JSON.`;
 
 export async function audioDescribeRef(opts: AudioDescribeOptions): Promise<AudioDescribeResult> {
-  const paths = refPaths(opts.slug);
+  const dirOpts: RefDirOptions = { global: opts.global };
+  const paths = refPaths(opts.slug, dirOpts);
   if (!existsSync(paths.audio)) {
     throw new Error(
       `No source.mp3 in ${paths.dir} — run \`ralphy ref pull <url> --slug ${opts.slug}\` first.`,
@@ -988,7 +1071,7 @@ export async function audioDescribeRef(opts: AudioDescribeOptions): Promise<Audi
     latency_ms: latency,
     note: `ref:${opts.slug}`,
   });
-  await writeState(opts.slug, { audioDescribedAt: new Date().toISOString() });
+  await writeState(opts.slug, { audioDescribedAt: new Date().toISOString() }, dirOpts);
 
   return { slug: opts.slug, path: paths.audioAnalysis, text, json: parsed, model };
 }
@@ -998,8 +1081,8 @@ export async function audioDescribeRef(opts: AudioDescribeOptions): Promise<Audi
 // into one human-readable markdown.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function synthesizeBlueprint(slug: string): Promise<{ path: string; bytes: number }> {
-  const paths = refPaths(slug);
+export async function synthesizeBlueprint(slug: string, opts: RefDirOptions = {}): Promise<{ path: string; bytes: number }> {
+  const paths = refPaths(slug, opts);
   const meta = (await safeJson(paths.meta)) as Record<string, unknown> | null;
   const transcript = (await safeJson(paths.transcript)) as Caption[] | null;
   const analysis = (await safeJson(paths.analysis)) as Record<string, unknown> | null;
@@ -1053,7 +1136,7 @@ export async function synthesizeBlueprint(slug: string): Promise<{ path: string;
 
   const text = lines.join("\n");
   await fs.writeFile(paths.blueprint, text);
-  await writeState(slug, { blueprintAt: new Date().toISOString() });
+  await writeState(slug, { blueprintAt: new Date().toISOString() }, opts);
   return { path: paths.blueprint, bytes: text.length };
 }
 
