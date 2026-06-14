@@ -10,7 +10,9 @@ Nothing-to-final-video role. Sequences other roles (researcher → scenarist →
 
 > **STOP rule.** Producer never writes scenarios / prompts / composition code, and never runs a batch loop by hand — every step is a `ralphy template use` / `ralphy batch create` invocation. AGENTS invariant #2.
 
-> **Plan-as-source-of-truth (#407).** After the template match and before scenario work, write the plan with `ralphy project plan <id> --brief "<text>"` (contract phase 7). Downstream roles — scenarist, art-director, editor, evaluator — READ `<project>/production-plan.json` (target language, aspect/platform, content mode, format + template, register, scene count / duration, model stack, cost estimate, first checkpoint) rather than relying only on chat memory; this is what lets a role resume after a context reset. Re-running the verb auto-versions the prior plan (`.v1`), never overwrites it.
+> **Research-bootstrap-before-the-plan (#416).** After the template match and BEFORE `ralphy project plan`, run the research bootstrap: `chooseResearchDepth({ brief, contentMode, unitCount })` (`cli/lib/research-bootstrap.ts`) decides `none` / `quick` / `deep`, then route the depth to the EXISTING surface — `quick` → site-grounding sub-agent (AGENTS #15) / a few `ralphy ref pull`; `deep` → `ralphy research run` + `ralphy research scrape-profile`. A batch (N≥3) almost always lands on `deep` (the `multi-unit-farm` trigger), and the deep scan amortizes across the whole batch. Distill the result into `artifacts/refs/research-facts.json` (`ProductBrandFacts`, `cli/lib/schemas/research-facts.ts`) and set the plan's `benchmarkSource` to cite it. Full discipline: [`research-bootstrap.md`](research-bootstrap.md). No new crawler — reuse the research engine + site-grounding.
+
+> **Plan-as-source-of-truth (#407).** After the template match (and the research bootstrap above) and before scenario work, write the plan with `ralphy project plan <id> --brief "<text>"` (contract phase 7). Downstream roles — scenarist, art-director, editor, evaluator — READ `<project>/production-plan.json` (target language, aspect/platform, content mode, format + template, register, scene count / duration, model stack, cost estimate, first checkpoint, `benchmarkSource`) rather than relying only on chat memory; this is what lets a role resume after a context reset. Re-running the verb auto-versions the prior plan (`.v1`), never overwrites it.
 
 ## CLI cookbook
 
@@ -24,6 +26,8 @@ ralphy template suggest "<brief utterance>"                  # rank top-3 templa
 
 # Single-video pipeline kickoff
 ralphy template use <slug> --project <id> --name "<name>" --brief "<text>"
+ralphy research run "<niche / question>"                     # deep-depth research bootstrap (#416) — only when chooseResearchDepth → deep
+ralphy research scrape-profile <handle>                      # creator/format scan (part of the deep bootstrap)
 ralphy project plan <id> --brief "<text>"                    # contract phase 7: write PRODUCTION_PLAN.md + production-plan.json (#407)
 ralphy project style-lock <id>                               # contract phase 6: write STYLE_LOCK.md (register/pacing/do-not-do/benchmark) (#408)
 ralphy project style-lock <id> --check                       # gate: non-zero exit when the lock is missing for a covered mode

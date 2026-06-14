@@ -92,6 +92,16 @@ Keep the question set tight — 3-5 questions max in a single turn. Use `AskUser
 >  4. Duration ballpark? (5-10s test render / 15-30s standard / 60s+ long-form)
 >  5. Any hard "no"s? (no music, no captions, specific banned vocabulary)"
 
+## Step 1.7 — Research bootstrap (BEFORE the plan, #416)
+
+After the format/template match and before drafting the plan, run the **research bootstrap** — research is an opinionated default, not an afterthought. Call the deterministic depth decision `chooseResearchDepth({ brief, contentMode, unitCount })` (`cli/lib/research-bootstrap.ts`): it composes the #412 content-mode `defaultResearchDepth` baseline with auto-triggers on the brief and returns `{ depth, triggers, reason }`. Then route the depth to the EXISTING surface — never build a new crawl:
+
+- **`quick`** (brand/product/site grounding + 3-5 benchmark refs) → the site-grounding sub-agent (AGENTS #15, [`site-grounding.md`](site-grounding.md)) → `artifacts/refs/research.md`, or a few `ralphy ref pull <url>` for benchmarks.
+- **`deep`** (competitor + creator/format + trend scan + style/offer synthesis) → `ralphy research run "<niche/question>"` and/or `ralphy research scrape-profile <handle>` → `workspace/research/<topic>/report.md` + `sources.json`.
+- **`none`** → skip; plan from the brief.
+
+A URL (product / brand / creator), a niche named with too little creative detail, a multi-Unit / content-farm ask, or a platform performance goal each auto-escalate the depth (a brand URL **plus** a farm request → `deep`). Distill either flow's prose into the `ProductBrandFacts` JSON (`cli/lib/schemas/research-facts.ts`) at `<project>/artifacts/refs/research-facts.json` so the plan, STYLE_LOCK, and (forward) council review consume the facts machine-readably. Full discipline: [`research-bootstrap.md`](research-bootstrap.md). **Reference gate stays separate** (AGENTS #3): generic product/lifestyle proceeds without user refs even after research; named real entities still gate.
+
 ## Step 2 — Plan + user approval
 
 Once the questions land, draft a **plan** as a chat message — never a side file. Format:
@@ -117,7 +127,7 @@ Once the questions land, draft a **plan** as a chat message — never a side fil
 
 Stop there. **Wait for user "go" / "let's go" / equivalent before generating ANY paid asset.** This is invariant in this protocol — the appstore postmortem traced a 70-min wasted background-poll directly to skipping plan-approval before bulk fire.
 
-**Persist the plan to the project (#407).** Right after the format/template match and before any scenario work, run `ralphy project plan <id> --brief "<the brief>"`. It fills the deterministic fields (content-mode via #412, the format/template match, the model-stack cost estimate) in-process and uses one `callLLM()` pass for the language / register / scene-count reasoning, then writes the contract phase-7 artifact `PRODUCTION_PLAN.md` plus the machine-readable `production-plan.json`. Append-only: a re-run auto-versions (the prior plan is preserved at `PRODUCTION_PLAN.v1.md` / `production-plan.v1.json`), never overwritten — so re-plan freely after a correction. Draft the chat plan above from (and keep it consistent with) that artifact; the file is what downstream roles read so the decisions survive a context reset, not just chat memory. Add `--no-llm` for a deterministic, offline plan when no key is available.
+**Persist the plan to the project (#407).** Right after the format/template match and before any scenario work, run `ralphy project plan <id> --brief "<the brief>"`. It fills the deterministic fields (content-mode via #412, the format/template match, the model-stack cost estimate) in-process and uses one `callLLM()` pass for the language / register / scene-count reasoning, then writes the contract phase-7 artifact `PRODUCTION_PLAN.md` plus the machine-readable `production-plan.json`. Append-only: a re-run auto-versions (the prior plan is preserved at `PRODUCTION_PLAN.v1.md` / `production-plan.v1.json`), never overwritten — so re-plan freely after a correction. Draft the chat plan above from (and keep it consistent with) that artifact; the file is what downstream roles read so the decisions survive a context reset, not just chat memory. Add `--no-llm` for a deterministic, offline plan when no key is available. **Cite the research (#416):** when Step 1.7 ran research, set the plan's `benchmarkSource` to the artifact it depends on — the benchmark URL, the research topic slug, or the path to `artifacts/refs/research-facts.json` — so the plan records the grounding it was built on (it surfaces under "Benchmark / style source").
 
 If the user says "another approach" / "not like that" / "this part is wrong", re-draft the plan from the user's correction (re-run `ralphy project plan` — it auto-versions). Don't dig in on the rejected approach.
 
