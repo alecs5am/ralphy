@@ -1,6 +1,6 @@
 # Define an agent production contract for chat-to-render projects
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (docs/playbooks/agent-production-contract.md 15-phase contract; ralphy project status --contract via pure evaluateContract() in cli/lib/contract.ts; intake/producer/AGENTS defer to it)
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** high

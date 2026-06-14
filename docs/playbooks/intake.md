@@ -1,5 +1,7 @@
 # Intake protocol — clarifying questions + step-by-step gates
 
+> **Canonical flow lives in the contract.** This playbook is the *craft* of phases 1-7 of the [agent production contract](agent-production-contract.md) (intake → content-mode → format/template match → memory recall → reference gate → style lock → production plan). The contract owns the phase SEQUENCE, the per-phase artifacts (`BRIEF.md`, `STYLE_LOCK.md`, `PRODUCTION_PLAN.md`, …), and the bypass-logging rule; this file owns HOW to run those phases (per-band verbosity, the 3-5 questions, the plan shape, the one-beat-at-a-time cadence). If this file and the contract disagree on order, the contract wins.
+
 > **Positioning.** Chat is the user interface; the Ralphy CLI is the agent runtime. The user describes what they want in plain language — YOU run the `ralphy` verbs. Intake is a conversation, never a command the user types.
 
 > **Adaptive verbosity.** The intake's depth scales with the user's skill score (0-10) and developer badge from `ralphy whoami` (read on session start per AGENTS.md step 0). The same protocol runs at every level, but novice gets explanations after each step, expert gets one-line confirmations. See the band table below.
@@ -239,6 +241,7 @@ For **template-driven** projects (`ralphy template use <slug>`), the template's 
 
 ## Cross-references
 
+- [`agent-production-contract.md`](agent-production-contract.md) — the canonical phase sequence this playbook executes phases 1-7 of; the source of truth for order, artifacts, and bypass logging.
 - AGENTS.md routing — intake.md is the first row in the table for "new project" intent.
 - `docs/playbooks/scenarist.md` — picks up after intake; receives the user-confirmed plan.
 - `docs/playbooks/art-director.md` — receives the locked scenario + per-scene generation cadence.

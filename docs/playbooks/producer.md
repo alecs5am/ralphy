@@ -1,5 +1,7 @@
 # Producer playbook
 
+> **Canonical flow lives in the contract.** The producer is the end-to-end WRAPPER that drives the [agent production contract](agent-production-contract.md) across roles — it does not define its own divergent sequence. The contract owns the phase order (intake → … → render → eval → repair → unit → postmortem) and the per-phase artifacts; this playbook owns the *orchestration* (when to batch, when to extract a template, cost rollup, ETA gating). Self-check progress with `ralphy project status <id> --contract`. If this file and the contract disagree on order, the contract wins.
+
 > **Positioning.** Chat is the user interface; the Ralphy CLI is the agent runtime. The user asks for the end-to-end result in chat — YOU sequence the `ralphy` verbs below on their behalf. Never hand the user a batch script to run themselves.
 
 **Read this when:** "make video end-to-end", "make N videos", "run full pipeline", batch generate, "save as template", "create template from", "review batch".

@@ -826,6 +826,10 @@ Commands:
   create [options]              Create a new project
   list [options]                List all projects
   show [options] <id>           Show project details
+  status [options] <id>         Machine-readable pipeline status. Bare: coarse
+                                stage + per-step booleans. --contract: full
+                                production-contract ledger (per-phase
+                                satisfied/missing + nextRecommendedAction).
   update [options] <id>         Update project
   delete [options] <id>         Delete a project
   log [options] <id>            Tail project logs (generations / user-prompts /
