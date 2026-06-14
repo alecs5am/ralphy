@@ -1,6 +1,6 @@
 # Flaky cli-dryrun integration timeout blocks pre-commit/pre-push hooks
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (raised the per-test budget 15000 → 45000 across the hooks, package.json scripts, and CI; the spawnSync dry-run tests run ~1s in isolation, so 45s is ample headroom under load while a real hang still surfaces. The "don't re-run the full suite on pre-push" lever was left untaken as a separate optimization.)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** medium (dev-loop friction)
