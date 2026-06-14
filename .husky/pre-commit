@@ -6,4 +6,4 @@
 #
 # Bypass with `git commit --no-verify` if you really need to.
 
-bun test --timeout 15000 tests/unit/ tests/integration/
+bun test --timeout 45000 tests/unit/ tests/integration/

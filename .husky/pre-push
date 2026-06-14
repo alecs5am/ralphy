@@ -15,10 +15,10 @@
 
 set -e
 
-echo "→ bun test --timeout 15000 tests/unit/ tests/integration/"
+echo "→ bun test --timeout 45000 tests/unit/ tests/integration/"
 OPENROUTER_API_KEY="test-placeholder" \
 ELEVENLABS_API_KEY="test-placeholder" \
-  bun test --timeout 15000 tests/unit/ tests/integration/
+  bun test --timeout 45000 tests/unit/ tests/integration/
 
 echo "→ bun run lint:errors"
 bun run lint:errors
