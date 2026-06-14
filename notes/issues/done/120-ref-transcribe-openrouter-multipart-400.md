@@ -1,6 +1,6 @@
 # `ref transcribe --backend openrouter` fails with HTTP 400 (malformed multipart)
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (live smoke pending: needs one paid OpenRouter transcribe call to confirm end-to-end)
 
 **Found:** 2026-06-11, dianatolks-celebdecode wave 2 (word-level RU transcripts for the voice-clone QA loop and scene-boundary derivation).
 
