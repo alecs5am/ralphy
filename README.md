@@ -1,11 +1,10 @@
 <div align="center">
 
-<img src="docs/branding/banner.png" alt="RALPHY — UGC video pipeline CLI" width="100%" />
+<img src="docs/branding/banner.png" alt="RALPHY — turn your coding agent into a content farm" width="100%" />
 
-# Your AI video pipeline as code.
+# Turn your coding agent into a content farm.
 
-**Open-source, agent-native CLI for AI video.** Fork-able, observable, reproducible.
-Drive it from Claude Code / Cursor / Codex. Get an mp4 in ~8 minutes.
+**Open-source runtime for agent-driven AI video.** You chat with Claude Code / Cursor / Codex; the agent drives Ralphy. Fork-able, observable, reproducible. From a brief to an mp4 in ~8 minutes.
 
 [![Tests](https://github.com/alecs5am/ralphy/actions/workflows/test.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/test.yml)
 [![Release](https://github.com/alecs5am/ralphy/actions/workflows/release.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/release.yml)
@@ -19,7 +18,9 @@ Drive it from Claude Code / Cursor / Codex. Get an mp4 in ~8 minutes.
 
 ## What it is
 
-Two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`), one CLI, a video pipeline you can ship to prod. Ralphy wires up image / video / vision / LLM (OpenRouter), voice + music (ElevenLabs), HTML+GSAP composition (HyperFrames), and a local async-job queue (bun + SQLite). Your agent drives it.
+**Ralphy is a tool for agents, not a CLI you operate by hand.** You stay in chat — Claude Code, Cursor, Codex, or a future desktop surface — and describe what you want; the agent runs Ralphy for you. The CLI is the runtime that gives the agent what it needs to produce content at farm cadence: reproducible model calls, project state, quality gates, renders, logs, and memory.
+
+Under the hood, two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`) wire up image / video / vision / LLM (OpenRouter), voice + music (ElevenLabs), HTML+GSAP composition (HyperFrames), and a local async-job queue (bun + SQLite). Direct `ralphy <verb>` commands stay available for setup, debugging, and power users — but driving them yourself is not the primary workflow.
 
 ## Demo
 
@@ -38,9 +39,11 @@ Two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`), one CLI, a video pip
 
 All four ship the same binary.
 
+Setup is a one-time step you run once so your agent can take over from there. These two commands are agent enablement + diagnostics, not the everyday workflow:
+
 ```bash
 ralphy setup          # interactive wizard — paste the two API keys + install agent skill
-ralphy doctor         # verify env is green
+ralphy doctor         # verify env is green (run this when the agent reports a problem)
 ```
 
 Expected output:
@@ -57,6 +60,8 @@ Expected output:
 > **Verify your install:** every Release includes a `SHA256SUMS` file. `shasum -a 256 -c SHA256SUMS` (macOS / Linux) or `Get-FileHash` (Windows) confirms the binary matches.
 
 ## 60-second tour
+
+In practice you say "make a spring espresso ad" in chat and the agent runs these verbs for you. Here's the surface it drives, so you can see what's happening under the hood:
 
 ```bash
 # 1. Create a project
@@ -86,11 +91,12 @@ That's it. Full CLI surface in [`docs/cli-surface.md`](docs/cli-surface.md).
 
 ## Why Ralphy
 
-What you actually get vs other ways to do this:
+What you actually get vs other ways to do this. The operator is your agent; you stay in chat.
 
 |  | Closed SaaS (Higgsfield, HeyGen, Captions) | Other OSS (ShortGPT, MoneyPrinterTurbo) | **Ralphy** |
 |---|---|---|---|
 | Source | Closed | OSS (script-shaped) | **Apache 2.0, fork-able** |
+| Who operates it | You, in their web UI | You, hand-running a script | **Your agent — you stay in chat** |
 | Agent surface | Their cloud agent | None | **Local skills + playbooks; works in any agent** |
 | Models | Vendor lock-in | One model, hardcoded | **Any OpenRouter model — Kling / Seedance / Veo / Sora / Nano-Banana** |
 | Cost transparency | Subscription black box | Free-but-you-DIY | **`--dry-run` shows the bill before you spend** |

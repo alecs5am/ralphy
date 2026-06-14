@@ -1,5 +1,7 @@
 # Producer playbook
 
+> **Positioning.** Chat is the user interface; the Ralphy CLI is the agent runtime. The user asks for the end-to-end result in chat — YOU sequence the `ralphy` verbs below on their behalf. Never hand the user a batch script to run themselves.
+
 **Read this when:** "make video end-to-end", "make N videos", "run full pipeline", batch generate, "save as template", "create template from", "review batch".
 
 Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review and cost rollup.
