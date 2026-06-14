@@ -1,5 +1,7 @@
 # `ralphy render` archives `final-social.mp4` but overwrites the master `final.mp4`
 
+> **Status:** done — 2026-06-14
+
 **Found:** 2026-06-11, sotaocr-ref3-001 (second render of the same project).
 
 ## Symptom

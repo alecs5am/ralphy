@@ -30,6 +30,7 @@ import path from "node:path";
 import { promises as fsp } from "node:fs";
 
 import { protectExistingAsset } from "../../cli/lib/providers/shared.js";
+import { archiveExistingMaster } from "../../cli/commands/render.js";
 
 // ─── 1. Behavioral: per-kind extension matrix ─────────────────────────────────
 
@@ -133,6 +134,80 @@ describe("auto-version invariant (#004): --force-overwrite escape hatch", () => 
       expect(fs.readFileSync(dest, "utf8")).toBe(payloads[1]);
     });
   }
+});
+
+// ─── 1b. Render master: `ralphy render` archives final.mp4 too (#118) ─────────
+//
+// The HyperFrames master (`render/final.mp4`) was written by the hyperframes
+// subprocess (or a forceOverwrite:true post-render stage) directly, bypassing
+// the versioning wrapper that protected the social sibling. A re-render then
+// SILENTLY OVERWROTE the prior master while still archiving final-social.mp4 —
+// asymmetric, append-only violation (AGENTS.md #14). `render.ts` now archives
+// the existing master up front via `archiveExistingMaster` (a thin wrapper over
+// the same `protectExistingAsset` helper). This case asserts the file-move +
+// naming + force-overwrite bypass on a `render/final.mp4` layout, so a future
+// refactor that drops the call fails here, not in a postmortem. The real
+// subprocess + ffmpeg run is exercised by the integration/dry-run render tests.
+
+describe("auto-version invariant (#118): render master archive", () => {
+  let tmp: string;
+  let renderDir: string;
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-render-master-"));
+    renderDir = path.join(tmp, "render");
+    fs.mkdirSync(renderDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  test("re-render archives final.mp4 → final.v1.mp4, then final.v2.mp4", async () => {
+    const master = path.join(renderDir, "final.mp4");
+
+    // First render — clean slate.
+    fs.writeFileSync(master, "MASTER-v1-bytes");
+
+    // Re-render: archive existing master, then a fresh master is written.
+    const archived1 = await archiveExistingMaster(master, false);
+    expect(archived1).toBe(path.join(renderDir, "final.v1.mp4"));
+    fs.writeFileSync(master, "MASTER-v2-bytes");
+
+    // Prior master survives at v1; the social sibling is unaffected.
+    expect(fs.existsSync(archived1!)).toBe(true);
+    expect(fs.readFileSync(archived1!, "utf8")).toBe("MASTER-v1-bytes");
+    expect(fs.readFileSync(master, "utf8")).toBe("MASTER-v2-bytes");
+
+    // Third render: archive becomes v2, v1 still on disk.
+    const archived2 = await archiveExistingMaster(master, false);
+    expect(archived2).toBe(path.join(renderDir, "final.v2.mp4"));
+    fs.writeFileSync(master, "MASTER-v3-bytes");
+
+    expect(fs.readFileSync(path.join(renderDir, "final.v1.mp4"), "utf8")).toBe("MASTER-v1-bytes");
+    expect(fs.readFileSync(path.join(renderDir, "final.v2.mp4"), "utf8")).toBe("MASTER-v2-bytes");
+    expect(fs.readFileSync(master, "utf8")).toBe("MASTER-v3-bytes");
+  });
+
+  test("--force-overwrite (forceOverwrite=true) skips the archive — no final.v1.mp4", async () => {
+    const master = path.join(renderDir, "final.mp4");
+    fs.writeFileSync(master, "MASTER-v1-bytes");
+
+    const archived = await archiveExistingMaster(master, true);
+    expect(archived).toBeNull();
+    // Caller overwrites the master in place (mirrors the subprocess writing it).
+    fs.writeFileSync(master, "MASTER-v2-bytes");
+
+    expect(fs.existsSync(path.join(renderDir, "final.v1.mp4"))).toBe(false);
+    expect(fs.readFileSync(master, "utf8")).toBe("MASTER-v2-bytes");
+  });
+
+  test("no-op when no master exists yet (first render)", async () => {
+    const master = path.join(renderDir, "final.mp4");
+    const archived = await archiveExistingMaster(master, false);
+    expect(archived).toBeNull();
+    expect(fs.existsSync(path.join(renderDir, "final.v1.mp4"))).toBe(false);
+  });
 });
 
 // ─── 2. Static audit: every generator function routes through the helper ────

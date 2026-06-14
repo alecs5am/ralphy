@@ -15,6 +15,7 @@ import { logGeneration } from "../lib/gen-log.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { CommandStream } from "../lib/stream/command.js";
+import { protectExistingAsset } from "../lib/providers/shared.js";
 import { runHyperframesRender, looksLikeHyperframesProject } from "../lib/render/hyperframes.js";
 import {
   lintHyperframesProject,
@@ -79,6 +80,23 @@ async function fileSize(p: string): Promise<number> {
   }
 }
 
+// Archive an existing render master before a fresh render overwrites it (#118).
+// The HyperFrames master (`render/final.mp4`) is written either by the
+// hyperframes subprocess directly (`--output render/final.mp4`) or by the final
+// post-render ffmpeg stage with forceOverwrite:true — both bypass the
+// append-only versioning wrapper that protects the social sibling. We therefore
+// archive the existing master here, BEFORE the render runs, using the same
+// `protectExistingAsset` helper the social/compress recipes use (move to
+// `final.v{N}.mp4`, print the standard auto-archive line). `--force-overwrite`
+// (forceOverwrite=true) disables it symmetrically with the social cut. Returns
+// the archived path, or null if nothing existed / overwrite was opted in.
+export async function archiveExistingMaster(
+  masterPath: string,
+  forceOverwrite: boolean | undefined,
+): Promise<string | null> {
+  return protectExistingAsset(masterPath, forceOverwrite);
+}
+
 // Emit the auto social-compressed sibling deliverable (#073). Derives the
 // social path next to the finalized master (<basename>-social.mp4), re-encodes
 // it via the shared compress recipe with forceOverwrite:false so an existing
@@ -90,9 +108,10 @@ async function emitSocialDeliverable(args: {
   renderFinal: string;
   socialCrf: number;
   projectId: string;
+  forceOverwrite?: boolean;
   ui: typeof import("../lib/ui.js");
 }): Promise<{ path: string; bytes: number }> {
-  const { renderFinal, socialCrf, projectId, ui } = args;
+  const { renderFinal, socialCrf, projectId, forceOverwrite = false, ui } = args;
   const socialDst = path.join(
     path.dirname(renderFinal),
     path.basename(renderFinal, ".mp4") + "-social.mp4",
@@ -104,7 +123,7 @@ async function emitSocialDeliverable(args: {
         src: renderFinal,
         dst: socialDst,
         crf: socialCrf,
-        forceOverwrite: false,
+        forceOverwrite,
         projectId,
         note: "render --social",
       }),
@@ -196,6 +215,11 @@ render/final.mp4 (append-only).
     .option(
       "--workers <n>",
       "Parallel capture workers (number or 'auto'). Lower to 1 for heavy compositions (many embedded videos / large GSAP timelines) that hit 'Runtime.callFunctionOn timed out' under the default auto fan-out.",
+    )
+    .option(
+      "--force-overwrite",
+      "Disable append-only auto-archiving — overwrite render/final.mp4 and render/final-social.mp4 in place instead of archiving the prior copies to final.v{N}.mp4 / final-social.v{N}.mp4 (#118)",
+      false,
     )
     .option("--dry-run", "Print the resolved render plan; no engine run", false)
     .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
@@ -319,6 +343,10 @@ render/final.mp4 (append-only).
           raiseError("E_FILE_UNREADABLE", { path: src });
         }
         cs.event("render-started", { project: projectId, engine: "ffmpeg", source: src });
+        // Archive the existing master before the wrap overwrites it (#118) —
+        // same append-only protection as the HyperFrames path. --force-overwrite
+        // disables it.
+        await archiveExistingMaster(renderFinal, Boolean(opts.forceOverwrite));
         const hasPostRender =
           Boolean(opts.loudnorm) || Boolean(gradePreset) || Boolean(deliverableQuality);
         const wrapOut = hasPostRender ? renderRaw : renderFinal;
@@ -468,6 +496,7 @@ render/final.mp4 (append-only).
               renderFinal: outputPath,
               socialCrf,
               projectId,
+              forceOverwrite: Boolean(opts.forceOverwrite),
               ui,
             })
           : null;
@@ -523,6 +552,16 @@ render/final.mp4 (append-only).
         }
       }
 
+
+      // Archive the existing master BEFORE the render runs (#118). The master
+      // (`render/final.mp4`, or the --output target) is written either by the
+      // hyperframes subprocess directly or by the final forceOverwrite:true
+      // post-render stage — both bypass the append-only versioning wrapper that
+      // protects the social sibling, so a re-render used to silently overwrite
+      // the prior master. Archive it here to `final.v{N}.mp4` (same helper,
+      // same log line). --force-overwrite disables it, symmetrically with the
+      // social cut below.
+      await archiveExistingMaster(renderFinal, Boolean(opts.forceOverwrite));
 
       cs.event("render-started", { project: projectId, engine, composition: compositionLabel });
       // We need to land the raw render in a temp slot whenever ANY post-render
@@ -724,6 +763,7 @@ render/final.mp4 (append-only).
             renderFinal: outputPath,
             socialCrf,
             projectId,
+            forceOverwrite: Boolean(opts.forceOverwrite),
             ui,
           })
         : null;
