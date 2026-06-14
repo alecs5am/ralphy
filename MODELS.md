@@ -88,6 +88,48 @@ Always recheck via `ralphy models list`. These arrays change.
 | **3:4 / 4:3 portrait magazine** | `alibaba/wan-2.7` (only model with these in stock) |
 | **Cheapest viable** | `bytedance/seedance-2.0-fast` |
 
+### fal connector — omni / reference-to-video models (`--provider fal`, #402)
+
+Two reference-to-video models that do **not** exist on OpenRouter live behind the
+registered `fal` connector (`cli/lib/providers/fal.ts`, env `FAL_KEY`). This is
+the **only** sanctioned path to fal — never raw curl (AGENTS.md invariant #1).
+Reach them with `ralphy generate video --provider fal --model <id>`. The
+connector handles the queue submit → poll → result lifecycle, uploads local refs
+to the fal CDN (`storage/upload/initiate` → PUT → `file_url`), downloads the mp4
+into `artifacts/videos/` (auto-versioned), and writes a `generations.jsonl` row
+with `cost_usd`.
+
+| Model | Durations (s) | Resolutions | Aspects | Ref inputs | $/sec |
+|---|---|---|---|---|---|
+| `bytedance/seedance-2.0/reference-to-video` | 4-15 | 480p, 720p, 1080p | auto, 21:9, 16:9, 4:3, 1:1, 3:4, 9:16 | `--ref-video` (≤3, 2-15s combined, ≤50MB, 640x640..834x1112) + `--ref` images (`@Image1`) + first/last frame | $0.3034/s @720p, **×0.6 with video refs = $0.1814/s**, $0.682/s @1080p |
+| `fal-ai/kling-video/o3/pro/reference-to-video` (Kling O3 omni) | 3-15 | 720p, 1080p | 16:9, 9:16, 1:1 | `elements` (`@Element1`) + `--ref` images (`@Image1`); **NO video input** | $0.112/s audio-off, $0.14/s audio-on |
+
+Key facts:
+
+- **`bytedance/seedance-2.0/reference-to-video` accepts a real-human-face
+  reference VIDEO with no privacy block** — the capability the off-stack
+  `trafalgar-aura-001` collab depended on. Unlike OR seedance image inputs
+  (which 400 on `InputImageSensitiveContentDetected.PrivacyInformation`), the
+  video-ref path produces a true 1-in-1 restyle (shot structure + camera + comedic
+  timing replicated). Reference videos as `@Video1`/`@Video2` in the prompt, image
+  refs as `@Image1` (the seedance @-convention — see `.agents/skills/seedance-prompts/SKILL.md`).
+- **`--ref-video` constraint auto-fix:** sources over the 834x1112 ceiling (e.g.
+  1080x1920 phone captures) are auto-downscaled preserving aspect (→ ~624x1108)
+  into `artifacts/refs/` with a stderr note; >3 files, combined duration outside
+  2-15s, or >50MB total refuse with an actionable message (the source is never
+  mutated — #105/#401). Pure dimension math lives in `cli/lib/providers/ref-video.ts`.
+- **`generate_audio` defaults TRUE upstream on seedance r2v but ralphy forces it
+  FALSE** unless `--audio` is passed — post-mix discipline (music / VO is a
+  separate ElevenLabs pass; memory `feedback_kling_no_music_eleven_music_postmix`).
+  The cost is identical regardless of `generate_audio` on seedance.
+- **Kling O3 omni takes NO video input** — `--ref-video` on it refuses
+  (`TerminalProviderError`). It is the character-consistency tier (`elements` /
+  `@Element1`) + style refs (`@Image1`); use seedance r2v for video-anchored restyles.
+- Pricing sourced from the fal docs / model schema fetched 2026-06-12, re-verified
+  against the live schema at implementation time. Cost computation lives in
+  `falVideoPricePerSec()` in `cli/lib/providers/fal.ts`. Live end-to-end mp4 smoke
+  is pending a maintainer go-ahead (one paid call) — see `notes/issues/402-*`.
+
 ### Lessons from this session (2026-05-08)
 
 1. **`kwaivgi/kling-v3.0-pro` rotates "wide" prompts inside the 9:16 container.** Phrases like *"wide overhead cityscape"*, *"massive crowd in town square"*, *"dancers under starlit sky"* bias the model toward landscape composition; OR returns a 1080×1920 file but the *content* is laid out for 16:9. **Fix:** anchor with `--first-frame <portrait-image>` and rewrite the prompt with explicit vertical wording (*"tall vertical portrait shot, low camera angle looking up, narrow alley framing, subjects centered vertically, half-timbered houses tower vertically on both sides"*). The first-frame image overrides the model's compositional bias.
