@@ -116,6 +116,36 @@ npx hyperframes remove-background --info                           # detected pr
 
 Uses `u2net_human_seg` (MIT). First run downloads ~168 MB of weights to `~/.cache/hyperframes/background-removal/models/`.
 
+### Do NOT use u2net for die-cut stickers with a white outline
+
+`remove-background` (u2net) is salient-object segmentation — it segments the
+subject body and **cuts off a white die-cut outline**, because the white stroke
+around the figure is not "the object". For transparent Telegram / messaging
+stickers rendered with a white outline on a flat known-colour background, key the
+**background** instead of segmenting the subject:
+
+- **Flood-fill the flat bg.** PIL `ImageDraw.floodfill` seeded from points along
+  all four edges (step ~24px), mark filled pixels → alpha 0, everything else
+  opaque. This preserves the white outline AND interior same-colour props AND
+  disconnected islands (a flying cup separate from the body keeps its own
+  outline). Requires the gen prompt to put the subject on a **flat uniform bg**
+  and ask for the **white die-cut outline** explicitly.
+- **No-outline variant (cleaner than stripping a baked outline):** re-run each
+  image image-to-image — pass the finished render as `--ref` and prompt
+  "recreate identical pose/props but REMOVE the white outline and put it on a
+  flat pure chroma-key green (#00b140)", then key the green with a **soft chroma
+  key, never a binary mask** (`alpha = clip((HIGH-(G-max(R,B)))/(HIGH-LOW),0,1)`,
+  LOW≈30 HIGH≈95, plus global despill `G = min(G, max(R,B))`). A binary
+  flood-fill + erosion produces staircase / aliased edges — blur the binary alpha
+  (`GaussianBlur(0.8)`) for a smooth edge instead of eroding.
+- **Sizing for messaging stickers:** crop to the solid alpha bbox and scale the
+  **long side to exactly the target (e.g. 512)** — do not pad to a 512² square
+  (it leaves the subject small with empty space around it).
+
+Does NOT apply to: human cutouts for video overlays (u2net is correct there); art
+without a die-cut outline; subjects on a non-uniform / busy background (flood-fill
+needs a flat key colour).
+
 ### Layer separation (`--background-output`)
 
 Pass `--background-output` (or `-b`) to emit a **second** transparent video alongside the cutout: same source RGB, alpha is `255 − mask` instead of `mask`. The cutout is the subject with a transparent background; the plate is the original surroundings with a transparent hole where the subject was.
