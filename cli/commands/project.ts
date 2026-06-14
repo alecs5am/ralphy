@@ -15,6 +15,13 @@ import { scoreScenario, type Scenario } from "../lib/score.js";
 import { evaluateContract } from "../lib/contract.js";
 import { buildRepairPlan, renderRepairPlanMarkdown, type DeepVisionFile } from "../lib/repair.js";
 import type { EvalReport } from "../lib/eval/types.js";
+import {
+  councilPreflight,
+  councilPolish,
+  makeLlmCallRole,
+  renderCouncilMarkdown,
+} from "../lib/council.js";
+import { parseProductionPlan } from "../lib/schemas/production-plan.js";
 import { buildProductionPlan, renderPlanMarkdown } from "../lib/plan/build.js";
 import { loadTemplateCandidates } from "../lib/plan/catalog.js";
 import { llmEnrich } from "../lib/plan/enrich.js";
@@ -349,6 +356,98 @@ export function projectCmd() {
       out({
         project: id,
         plan,
+        artifacts: {
+          json: jsonPath,
+          markdown: mdPath,
+          ...(archivedJson ? { archivedJson } : {}),
+          ...(archivedMd ? { archivedMarkdown: archivedMd } : {}),
+        },
+      });
+    });
+
+  // ── council (#415) ─────────────────────────────────────────────────────────
+  // Convene a seven-role specialist council at one of the two expensive
+  // decision points and persist a structured CouncilVerdict:
+  //   --phase preflight → review production-plan.json BEFORE any paid generation.
+  //   --phase polish    → review eval.json (+ eval-deep-vision.json) AFTER eval,
+  //                       BEFORE Unit formation.
+  // BOUNDED: text-only via callLLM() per role; NO media generation, NO browsing.
+  // Writes council-preflight.json / council-polish.json (+ a readable .md),
+  // append-only (auto-versions via protectExistingAsset). The polish verdict's
+  // prioritizedActions speak the #409 repair vocabulary so they flow into
+  // `ralphy project repair-plan` structurally. JSON output.
+  cmd
+    .command("council <id>")
+    .description(
+      "Convene a seven-role production council (#415). --phase preflight reviews production-plan.json BEFORE paid generation; --phase polish reviews eval.json (+ eval-deep-vision.json) AFTER eval and BEFORE Unit formation. Each role is a single callLLM() pass (NO media generation, NO browsing). Writes council-preflight.json / council-polish.json + a readable .md (append-only, auto-versions). The polish verdict's prioritizedActions use the #409 repair vocabulary so they feed `ralphy project repair-plan`. JSON output. Use --no-llm for the deterministic fixture (offline / abstaining roles).",
+    )
+    .requiredOption("--phase <phase>", "Council phase: preflight | polish")
+    .option("--no-llm", "Skip the per-role LLM passes — deterministic abstaining roster (offline)")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const phase = String(opts.phase);
+      if (phase !== "preflight" && phase !== "polish") {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--phase",
+          detail: `expected "preflight" | "polish", got "${phase}"`,
+        });
+      }
+
+      const dir = projectDir(id);
+      // `--no-llm` → opts.llm === false (commander negates). Inject the live
+      // per-role callLLM seam unless the user opted out.
+      const deps = opts.llm === false ? {} : { callRole: makeLlmCallRole() };
+
+      let verdict;
+      if (phase === "preflight") {
+        const planRaw = await safeJson(path.join(dir, "production-plan.json"));
+        if (!planRaw) {
+          raiseError("E_NOT_FOUND", {
+            kind: "production-plan.json",
+            id: path.join(dir, "production-plan.json"),
+          });
+        }
+        let plan;
+        try {
+          plan = parseProductionPlan(planRaw);
+        } catch (e) {
+          raiseError("E_VALIDATION_FAILED", {
+            target: "production-plan.json",
+            detail: (e as Error).message,
+          });
+        }
+        verdict = await councilPreflight(plan!, deps);
+      } else {
+        const evalReport = (await safeJson(path.join(dir, "eval.json"))) as EvalReport | null;
+        if (!evalReport) {
+          raiseError("E_NOT_FOUND", {
+            kind: "eval.json",
+            id: path.join(dir, "eval.json"),
+          });
+        }
+        const deepVision = (await safeJson(
+          path.join(dir, "eval-deep-vision.json"),
+        )) as DeepVisionFile | null;
+        verdict = await councilPolish(evalReport as EvalReport, deepVision, deps);
+      }
+
+      // Append-only: auto-version both artifacts when they already exist
+      // (protectExistingAsset renames the existing file to .v{N}). AGENTS.md #14.
+      await fs.mkdir(dir, { recursive: true });
+      const jsonPath = path.join(dir, `council-${phase}.json`);
+      const mdPath = path.join(dir, `council-${phase}.md`);
+      const archivedJson = await protectExistingAsset(jsonPath, false);
+      const archivedMd = await protectExistingAsset(mdPath, false);
+      await fs.writeFile(jsonPath, JSON.stringify(verdict, null, 2) + "\n");
+      await fs.writeFile(mdPath, renderCouncilMarkdown(verdict!));
+
+      ok(`Council ${phase} review written for ${id} — verdict: ${verdict!.verdict}`);
+      out({
+        project: id,
+        phase,
+        verdict,
         artifacts: {
           json: jsonPath,
           markdown: mdPath,

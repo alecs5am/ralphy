@@ -86,6 +86,7 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 - **Checkpoint — HARD:** **wait for the user's "go" / "let's go" / equivalent before generating ANY paid asset.** This is the single most-cited postmortem lever (the appstore 70-min wasted background-poll). No "go" → no spend.
 - **Allowed skip:** the user said "fire the whole batch / don't gate me" — honor it for THAT project, note the preference, still write the plan.
 - **Stop condition:** the user rejects the approach → re-draft from the correction; don't dig in on the rejected plan.
+- **Optional — preflight council (#415):** for a high-stakes or expensive plan, convene the seven-role council on the plan BEFORE any paid generation: `ralphy project council <id> --phase preflight`. It fans one bounded `callLLM()` pass per role (strategist, niche-researcher, creative-director, art-director, editor, performance-marketer, qa-evaluator) over `production-plan.json` — NO media generation, NO browsing — and writes `council-preflight.json` + `.md` with a `ship | revise | block` verdict, role scores, blocking issues, and `prioritizedActions`. Surface a `block` verdict before spending; fold the actions into the plan. Advisory, not a hard gate — the user "go" above is still the spend gate.
 
 ### 8 — Scenario quality → `scenario.json`
 
@@ -126,6 +127,7 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 - **Hard gate:** `ralphy project repair-plan` makes ZERO model calls — but **no paid regeneration runs until the user approves the plan** (every item is born `approvalState: pending`).
 - **Allowed skip:** eval is clean / the user accepts the render as-is.
 - **Loop discipline:** one retry on the same approach, then redesign the failing scene (intake step 4). Return to eval (phase 12) after a repair wave.
+- **Optional — polish council (#415):** after eval and BEFORE Unit formation (phase 14), convene the council on the eval report: `ralphy project council <id> --phase polish`. Same seven bounded roles, reasoning over `eval.json` (+ `eval-deep-vision.json` when present) — NO media, NO browsing. Its `prioritizedActions` already speak the #409 repair vocabulary (owner art-director / scenarist / editor + category + severity), so they flow straight into the repair loop: pass them to `buildRepairPlan` via the `councilActions` option (the verb's JSON `verdict.prioritizedActions` is the structural input — no free-form parsing). Use it when a single-agent eval feels thin on market-fit / pacing / CTA judgment.
 
 ### 14 — Unit formation → `units/<slug>/` (#069)
 
