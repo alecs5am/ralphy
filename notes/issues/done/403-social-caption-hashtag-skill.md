@@ -1,6 +1,6 @@
 # Skill for fast, bulk social captions + trending hashtags
 
-> **Status:** todo
+> **Status:** done — 2026-06-15 (social-copy skill + per-niche hashtag bank in cli/lib/social/ + `ralphy unit caption <project> [slug]` persisting platform-shaped copy into unit.json caption field, --bulk/--language/--force, callLLM-drafted + bank-merged, append-only; AGENTS routing row)
 > **Filed:** 2026-06-13
 > **Folder:** issues
 
