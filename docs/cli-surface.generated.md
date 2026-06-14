@@ -1526,9 +1526,11 @@ Options:
   -h, --help              display help for command
 
 Commands:
-  video [options] <path>  Run the full eval pipeline on a single mp4 (structure
-                          / audio / captions / vision) and write eval-report.md
-                          + eval.json
+  video [options] <path>  Run the eval pipeline on a single mp4 and write
+                          eval-report.md + eval.json. Defaults to the
+                          native-video final gate (full-mp4 model pass) when a
+                          model provider is configured; without one it falls
+                          back to structure-only (not a ship gate).
   help [command]          display help for command
 ```
 

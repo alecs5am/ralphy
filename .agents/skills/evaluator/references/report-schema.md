@@ -7,6 +7,7 @@ The eval pipeline writes this file to either `.ralphy/workspaces/<ws>/projects/<
 ```ts
 {
   schemaVersion: "1.0",
+  gate: GateInfo,                   // which validation mode ran + the ship-ready gate (#411)
   meta: VideoMeta,
   declared: DeclaredMeta | null,    // null if no scenario.json
   structure: StructureBlock,
@@ -17,6 +18,22 @@ The eval pipeline writes this file to either `.ralphy/workspaces/<ws>/projects/<
   scoring: ScoringBreakdown
 }
 ```
+
+## GateInfo (#411)
+
+Which validation mode produced the report and whether it may approve a polished Unit. **`shipReady` is the authoritative readiness boolean** — false on any non-native report.
+
+```ts
+{
+  mode: "structure" | "keyframe" | "native-video" | "deep-style",
+  nativeVideo: boolean,             // true for native-video | deep-style (a full-mp4 model pass)
+  explicitCheapMode: boolean,       // true when the user explicitly chose a non-native mode
+  shipReady: boolean,               // false unless a native gate passed; ALWAYS false for keyframe/structure
+  reason: string                    // human-readable explanation of the shipReady decision
+}
+```
+
+Rule: a keyframe-only / structure-only report can never be `shipReady: true`. The native-video (or deep-style) full-mp4 pass is the gate before forming/publishing a Unit.
 
 ## VideoMeta
 
@@ -148,6 +165,9 @@ The unit a fixer agent acts on.
 | `audio.*` | `audio.loudness`, `audio.true-peak`, `audio.dead-air` | editor |
 | `captions.*` | `captions.thin`, `captions.dense`, `captions.missing` | editor |
 | `vision.*` | `vision.ai-artifacts`, `vision.text`, `vision.composition`, `vision.brand`, `vision.quality` | art-director (regen) |
+| `style.*` | `style.register-mismatch`, `style.rule-violation`, `style.aesthetic-mechanism-missing`, `style.timing-*` (from the native-video / deep-style full-mp4 pass) | art-director / editor |
+| `brief.*` | `brief.intent-drift` (deep-style only) | art-director |
+| `eval.*` | `eval.mode-downgrade` (info — requested mode downgraded for missing credentials), `eval.deep-vision-error` | — |
 
 Severity ladders are deterministic — see `cli/lib/eval/findings.ts` for thresholds. The fixer can assume:
 - `info` is a note, no action required by default
