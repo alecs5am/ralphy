@@ -430,6 +430,10 @@ Options:
                          for heavy compositions (many embedded videos / large
                          GSAP timelines) that hit 'Runtime.callFunctionOn timed
                          out' under the default auto fan-out.
+  --force-overwrite      Disable append-only auto-archiving — overwrite
+                         render/final.mp4 and render/final-social.mp4 in place
+                         instead of archiving the prior copies to final.v{N}.mp4
+                         / final-social.v{N}.mp4 (#118) (default: false)
   --dry-run              Print the resolved render plan; no engine run (default:
                          false)
   --summary              Collapse the dry-run plan to a per-stage rollup
