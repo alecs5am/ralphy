@@ -68,6 +68,42 @@ irrelevant
   );
 }
 
+// #062: a scenario-less project — an asset-based still-set / HyperFrames ad
+// (e.g. free-air-vpn-stickerpack, odindoma-fb-ad-001). No scenario.json. Has an
+// asset-manifest.json + index.html + refs/ instead. extract must tolerate it.
+function setupScenarioLessProject(): void {
+  const projectId = "stillset-demo-001";
+  const projDir = path.join(tmp, ".ralphy", "workspaces", "default", "projects", projectId);
+  fs.mkdirSync(path.join(projDir, "prompts"), { recursive: true });
+  fs.mkdirSync(path.join(projDir, "artifacts", "refs"), { recursive: true });
+  fs.mkdirSync(path.join(projDir, "logs"), { recursive: true });
+
+  // Deliberately NO scenario.json.
+
+  // asset-manifest.json with a slots map (the shape real projects ship).
+  fs.writeFileSync(
+    path.join(projDir, "asset-manifest.json"),
+    JSON.stringify({
+      slots: {
+        "sticker-01": { kind: "image", path: "artifacts/images/sticker-01.png" },
+        "sticker-02": { kind: "image", path: "artifacts/images/sticker-02.png" },
+      },
+    }),
+  );
+
+  fs.writeFileSync(path.join(projDir, "prompts", "sticker-01.txt"), "A sticker prompt.");
+
+  fs.writeFileSync(path.join(projDir, "artifacts", "refs", "mascot.png"), Buffer.alloc(2048, 1));
+
+  // HyperFrames index.html with data-composition-variables.
+  fs.writeFileSync(
+    path.join(projDir, "index.html"),
+    `<!doctype html>
+<html data-composition-variables='[{"id":"headline","type":"string","default":"FREE AIR"}]'>
+<head><title>x</title></head><body></body></html>`,
+  );
+}
+
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-tmpl-extract-"));
   fs.mkdirSync(path.join(tmp, ".ralphy"), { recursive: true });
@@ -202,5 +238,82 @@ describe("ralphy template extract", () => {
       "x",
     ]);
     expect(r.exitCode).not.toBe(0);
+  });
+
+  // ─── #062: scenario-less projects (still-sets / HyperFrames ads) ────────────
+  test("tolerates a project with NO scenario.json (still-set / HyperFrames ad)", () => {
+    setupScenarioLessProject();
+    const r = ralphy([
+      "template",
+      "extract",
+      "stillset-demo-001",
+      "--category",
+      "dtc-commerce",
+      "--slug",
+      "stillset-template",
+      "--format",
+      "sticker-pack",
+      "--name",
+      "Sticker Pack Template",
+      "--description",
+      "Scenario-less still-set extracted template.",
+    ]);
+    if (r.exitCode !== 0) {
+      console.error("STDOUT", r.stdout);
+      console.error("STDERR", r.stderr);
+    }
+    expect(r.exitCode).toBe(0);
+
+    const target = path.join(tmp, ".ralphy", "workspaces", "default", "templates", "stillset-template");
+    // Produced a valid template dir.
+    expect(fs.existsSync(path.join(target, "template.json"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "TEMPLATE.md"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "README.md"))).toBe(true);
+    // Derived from index.html + refs.
+    expect(fs.existsSync(path.join(target, "composition-variables.json"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "refs", "mascot.png"))).toBe(true);
+    expect(fs.existsSync(path.join(target, "prompts", "sticker-01.txt"))).toBe(true);
+    // Scenario-derived sidecar is SKIPPED — no scenario.json upstream.
+    expect(fs.existsSync(path.join(target, "scenario-template.json"))).toBe(false);
+
+    // Manifest is valid v1 with an empty scene table.
+    const manifest = JSON.parse(fs.readFileSync(path.join(target, "template.json"), "utf-8"));
+    expect(manifest.version).toBe(1);
+    expect(manifest.id).toBe("stillset-template");
+    expect(manifest.format).toBe("sticker-pack");
+    expect(Array.isArray(manifest.scenes)).toBe(true);
+    expect(manifest.scenes.length).toBe(0);
+
+    // Output payload reports scenario-less mode + the derived asset slots.
+    // `out()` pretty-prints the object (multi-line) after an `ok()` line, so
+    // slice from the first `{` to end and parse that block.
+    const firstBrace = r.stdout.indexOf("{");
+    expect(firstBrace).toBeGreaterThanOrEqual(0);
+    const payload = JSON.parse(r.stdout.slice(firstBrace));
+    expect(payload.has_scenario).toBe(false);
+    expect(payload.asset_slots).toEqual(["sticker-01", "sticker-02"]);
+
+    // SOURCE PROJECT UNMODIFIED — no scenario.json was conjured.
+    expect(fs.existsSync(path.join(tmp, ".ralphy", "workspaces", "default", "projects", "stillset-demo-001", "scenario.json"))).toBe(false);
+  });
+
+  test("still refuses a present-but-malformed scenario.json", () => {
+    setupScenarioLessProject();
+    const projDir = path.join(tmp, ".ralphy", "workspaces", "default", "projects", "stillset-demo-001");
+    fs.writeFileSync(path.join(projDir, "scenario.json"), "{ not valid json,,,");
+    const r = ralphy([
+      "template",
+      "extract",
+      "stillset-demo-001",
+      "--category",
+      "dtc-commerce",
+      "--slug",
+      "malformed-scenario-template",
+    ]);
+    expect(r.exitCode).not.toBe(0);
+    const last = r.stderr.trim().split("\n").filter((l) => l.startsWith("{")).pop();
+    expect(last).toBeTruthy();
+    const payload = JSON.parse(last!) as { error: { code: string } };
+    expect(payload.error.code).toBe("E_FILE_MALFORMED");
   });
 });

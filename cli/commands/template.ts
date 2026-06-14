@@ -86,6 +86,19 @@ async function pathExists(p: string): Promise<boolean> {
   try { await fs.access(p); return true; } catch { return false; }
 }
 
+// #062: a dir is a recognized template when it carries EITHER manifest —
+// `template.yaml` (the #052 schema, now the single source of truth) OR the
+// legacy `template.json` (auto-migrated form). Discovery used to require
+// `template.json`, so a yaml-only template lint-passed yet stayed invisible to
+// list / show / suggest / use. We no longer require template.json — yaml-only
+// is a first-class template.
+async function hasTemplateManifest(dir: string): Promise<boolean> {
+  return (
+    (await pathExists(path.join(dir, "template.yaml"))) ||
+    (await pathExists(path.join(dir, "template.json")))
+  );
+}
+
 // Walk one root and yield { id, ref } for every template found, supporting
 // both layouts simultaneously:
 //   - templates/<id>/template.json                   (flat — legacy + workspace)
@@ -105,8 +118,8 @@ async function* walkTemplateRoot(
 
   for (const e of topLevel) {
     if (e.isDir) {
-      // Self-template at top level?
-      if (await pathExists(path.join(base, e.name, "template.json"))) {
+      // Self-template at top level? (template.yaml or legacy template.json)
+      if (await hasTemplateManifest(path.join(base, e.name))) {
         yield { id: e.name, ref: dirRef(base, e.name, source) };
         continue;
       }
@@ -118,7 +131,7 @@ async function* walkTemplateRoot(
       } catch { continue; }
       for (const c of children) {
         if (!c.isDir) continue;
-        if (await pathExists(path.join(base, e.name, c.name, "template.json"))) {
+        if (await hasTemplateManifest(path.join(base, e.name, c.name))) {
           yield { id: c.name, ref: dirRef(base, c.name, source, e.name) };
         }
       }
@@ -131,8 +144,10 @@ async function* walkTemplateRoot(
 
 async function resolveInDir(id: string, baseDir: string, source: TemplateSource): Promise<ResolvedTemplate | null> {
   // Fast path: flat layout (workspace) — <base>/<id>/ or <base>/<id>.json.
+  // A dir is a template when it carries EITHER manifest (template.yaml or the
+  // legacy template.json) — #062.
   const flatDir = path.join(baseDir, id);
-  if (await pathExists(path.join(flatDir, "template.json"))) {
+  if (await hasTemplateManifest(flatDir)) {
     return dirRef(baseDir, id, source);
   }
   const flatFile = path.join(baseDir, `${id}.json`);
@@ -180,11 +195,40 @@ async function readTemplateMeta(ref: ResolvedTemplate) {
     try {
       return JSON.parse(await fs.readFile(ref.metaPath, "utf-8"));
     } catch {
-      return null;
+      // #062: template.json is no longer required. When it's absent (a
+      // template.yaml-only dir), derive the loader `meta` from the yaml so
+      // readers that assume template.json exists (list / show / suggest /
+      // register) still see name/description/tags rather than treating the
+      // template as malformed. Reuse the defensive yaml read used by
+      // readTemplateTaxonomy/readTemplateFacets — no parallel parser.
+      return await readMetaFromYaml(ref.dir);
     }
   }
   try {
     return JSON.parse(await fs.readFile(ref.file, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+// #062: derive the loader `meta` ({ name, description, tags, kind, createdAt? })
+// from a template.yaml when no template.json is present. Same graceful-degrade
+// contract as readTemplateTaxonomy/readTemplateFacets — returns null on a
+// missing / unparseable yaml so callers fall back to their own defaults.
+async function readMetaFromYaml(dir: string): Promise<Record<string, unknown> | null> {
+  const yamlPath = path.join(dir, "template.yaml");
+  try {
+    const raw = await fs.readFile(yamlPath, "utf-8");
+    const YAML = (await import("yaml")).default;
+    const value = YAML.parse(raw);
+    if (!value || typeof value !== "object") return null;
+    const v = value as Record<string, unknown>;
+    const meta: Record<string, unknown> = {};
+    if (typeof v.name === "string") meta.name = v.name;
+    if (typeof v.description === "string") meta.description = v.description;
+    if (Array.isArray(v.tags)) meta.tags = (v.tags as unknown[]).map(String);
+    if (typeof v.kind === "string") meta.kind = v.kind;
+    return meta;
   } catch {
     return null;
   }
@@ -771,13 +815,25 @@ export function templateCmd() {
         }
       }
 
-      // Read scenario.json (required) and POSTMORTEM.md (optional).
+      // Read scenario.json if present. #062: scenario.json is NO LONGER
+      // required — asset-based still-sets (e.g. free-air-vpn-stickerpack) and
+      // HyperFrames ad projects (e.g. odindoma-fb-ad-001) carry no scenario.
+      // When it's absent we derive what we can from asset-manifest.json +
+      // index.html and skip the scene-derived fields (the manifest ships an
+      // empty scenes[]). When it IS present, behavior is unchanged.
       const scenarioPath = path.join(projDir, "scenario.json");
       let scenario: unknown = null;
-      try {
-        scenario = JSON.parse(await fs.readFile(scenarioPath, "utf-8"));
-      } catch {
-        raiseError("E_FILE_UNREADABLE", { path: scenarioPath });
+      let hasScenario = false;
+      const rawScenario = await fs.readFile(scenarioPath, "utf-8").catch(() => null);
+      if (rawScenario !== null) {
+        try {
+          scenario = JSON.parse(rawScenario);
+          hasScenario = true;
+        } catch {
+          // The file exists but isn't valid JSON — that's a real error the
+          // user should fix, not a scenario-less project. Keep the old gate.
+          raiseError("E_FILE_MALFORMED", { format: "JSON", path: scenarioPath, detail: "scenario.json is present but not valid JSON" });
+        }
       }
 
       // Read POSTMORTEM (preferring postmortem/02-lessons.md, then POSTMORTEM.md).
@@ -890,12 +946,31 @@ export function templateCmd() {
       // template.json (the manifest the loader reads).
       await fs.writeFile(path.join(targetDir, "template.json"), ex.manifestToJson(manifest!));
 
+      // #062: derive an asset-slot summary from asset-manifest.json for
+      // scenario-less projects (still-sets, HyperFrames ads). The manifest's
+      // `slots` map records every generated asset slot; we surface its keys so
+      // the extracted template still documents what assets the project used,
+      // even with no scene table. Best-effort — a missing/unreadable manifest
+      // just yields an empty list.
+      let assetSlots: string[] = [];
+      try {
+        const am = JSON.parse(await fs.readFile(path.join(projDir, "asset-manifest.json"), "utf-8"));
+        if (am && typeof am === "object" && am.slots && typeof am.slots === "object") {
+          assetSlots = Object.keys(am.slots as Record<string, unknown>);
+        }
+      } catch { /* no asset-manifest.json — scenario-derived or sparse project */ }
+
       // scenario-template.json: the patched scenario with {{slots}}. Distinct
       // from template.json (the manifest) to keep the loader's expected shape.
-      await fs.writeFile(
-        path.join(targetDir, "scenario-template.json"),
-        JSON.stringify({ scenario: patchedScenario, slots }, null, 2) + "\n",
-      );
+      // #062: only written when the source project actually has a scenario.json
+      // — a scenario-less still-set / HyperFrames ad has nothing to slot-fill,
+      // so writing `{ scenario: null }` would be misleading.
+      if (hasScenario) {
+        await fs.writeFile(
+          path.join(targetDir, "scenario-template.json"),
+          JSON.stringify({ scenario: patchedScenario, slots }, null, 2) + "\n",
+        );
+      }
 
       // README.md from POSTMORTEM lessons (or stub).
       const readme = ex.readmeFromPostmortem({
@@ -916,7 +991,9 @@ export function templateCmd() {
         ``,
         `> Extracted from project \`${projectId}\` on ${new Date().toISOString().slice(0, 10)}.`,
         ``,
-        `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts; \`scenario-template.json\` for the slot-substituted scenario.`,
+        hasScenario
+          ? `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts; \`scenario-template.json\` for the slot-substituted scenario.`
+          : `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts. This template was extracted from a scenario-less project (asset-based still-set / HyperFrames ad), so there is no scene table or \`scenario-template.json\`.`,
         ``,
       ].join("\n");
       await fs.writeFile(path.join(targetDir, "TEMPLATE.md"), templateMd);
@@ -941,9 +1018,11 @@ export function templateCmd() {
             slug: opts.slug,
             target_dir: path.relative(process.cwd(), targetDir),
             lift_heavy: !!opts.liftHeavy,
+            has_scenario: hasScenario,
             prompts_copied: promptsCopied.length,
             refs_copied: refsCopied.length,
             refs_lifted: refsLifted.length,
+            asset_slots: assetSlots.length,
           },
           status: "ok",
           note: `templatized as ${opts.category}/${opts.slug}`,
@@ -957,10 +1036,12 @@ export function templateCmd() {
         slug: opts.slug,
         category: opts.category,
         kind: manifest!.kind,
+        has_scenario: hasScenario,
         prompts_copied: promptsCopied,
         refs_copied: refsCopied,
         refs_lifted: refsLifted,
         slots: Object.keys(slots),
+        asset_slots: assetSlots,
         composition_variables: compositionVars?.length ?? 0,
       });
     });
