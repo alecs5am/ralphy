@@ -5,6 +5,10 @@
 <!-- ralphy-version-line: do not edit by hand. The `/release` skill bumps this line. -->
 > **Current ralphy CLI: `v0.3.0`** (released 2026-06-02). Verify the user's binary via `ralphy --version`. If it lags this version, suggest `brew upgrade ralphy` (macOS) or `npm update -g @alecs5am/ralphy` (cross-platform) so they pick up the fixes documented in this routing table.
 
+## Positioning (who operates Ralphy)
+
+**Chat is the user interface; the Ralphy CLI is the agent runtime.** The user does not operate `ralphy` by hand — they talk to you (Claude Code / Cursor / Codex / a future desktop surface) in plain language, and you drive the CLI on their behalf. The product promise is "turn your coding agent into a content farm": the CLI exists to give YOU reproducible model calls, project state, quality gates, renders, logs, and memory. Direct CLI use is for setup, debugging, and power users — not the default workflow. Practically: surface what you ran when it helps the user follow along, but never tell the user to go run a `ralphy` verb themselves when you can run it for them. (Memory: `agent-facing-ralphy-positioning`.)
+
 ## The discipline (read this first, every time)
 
 **Before responding to any user request, do these four steps in order:**
