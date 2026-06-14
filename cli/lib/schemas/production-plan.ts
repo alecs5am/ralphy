@@ -150,6 +150,15 @@ export const ProductionPlanSchema = z.object({
    * `poster`). Empty when no overlay applies.
    */
   craftOverlay: z.array(z.string()).default([]),
+  /**
+   * The quality guidance the agent loads for the chosen mode BEFORE drafting
+   * prompts (#417): the register-guideline slugs the mode declares (resolvable
+   * via `ralphy guideline show <slug>`) PLUS its mode-level quality-playbook doc
+   * path when one exists (`docs/playbooks/modes/<mode>.md`). Populated from
+   * `modeGuidelineCoverage(mode)`; empty only when the mode is unclassified.
+   * This is the plan's record of "which guidelines it used".
+   */
+  guidelinesUsed: z.array(z.string()).default([]),
 
   // ── Inputs the agent must have ──
   /** References the brief requires (named real entities, products, IP). */

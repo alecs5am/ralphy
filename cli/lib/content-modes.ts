@@ -677,6 +677,53 @@ export function unsupportedContentModes(): ContentModeEntry[] {
   return allContentModes().filter((e) => !e.supported);
 }
 
+// ─── Guideline-coverage resolver (#417) ──────────────────────────────────────
+//
+// #417 requires every SUPPORTED mode to carry mode-specific quality guidance —
+// a linked `guidelines/<slug>/` register guideline OR a mode-level quality
+// playbook at `docs/playbooks/modes/<mode>.md`. This resolver returns what a
+// mode DECLARES it uses (the guideline slugs from its implementation unit +
+// style lock, deduped, plus the conventional mode-playbook doc path), so the
+// production plan (#407) can LIST it and the coverage lint
+// (`scripts/lint-mode-guidelines.ts`) can verify the on-disk artifacts exist.
+//
+// This is PURE registry data — it does NOT touch the filesystem (the lint owns
+// the existence check). The mode-playbook path is the convention every #417
+// playbook follows; an empty `guidelineSlugs` array means the mode is covered
+// by a mode-level playbook rather than a register guideline.
+
+/** Conventional on-disk home for a mode-level quality playbook (#417). */
+export function modePlaybookPath(mode: string): string {
+  return `docs/playbooks/modes/${mode}.md`;
+}
+
+export interface ModeGuidelineCoverage {
+  /** The mode this coverage describes. */
+  mode: ContentMode;
+  /** Register-guideline slugs the mode references (impl unit + style lock, deduped). */
+  guidelineSlugs: string[];
+  /** Conventional mode-level quality-playbook doc path (#417). */
+  modePlaybook: string;
+}
+
+/**
+ * Resolve the quality-guidance a mode declares it uses: the deduped set of
+ * register-guideline slugs (from `implementationUnit.guidelines` +
+ * `guidelineOrStyleLock.guidelineSlugs`) and the conventional mode-playbook doc
+ * path. Returns `null` for an unknown mode. Pure — no filesystem access.
+ */
+export function modeGuidelineCoverage(mode: string): ModeGuidelineCoverage | null {
+  const entry = getContentMode(mode);
+  if (!entry) return null;
+  const guidelineSlugs = [
+    ...new Set([
+      ...entry.implementationUnit.guidelines,
+      ...entry.guidelineOrStyleLock.guidelineSlugs,
+    ]),
+  ];
+  return { mode: entry.mode, guidelineSlugs, modePlaybook: modePlaybookPath(entry.mode) };
+}
+
 // ─── Classifier ────────────────────────────────────────────────────────────
 //
 // Deterministic keyword/phrase pre-classifier. NO LLM — this is the fast first
