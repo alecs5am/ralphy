@@ -245,6 +245,8 @@ export async function pullVideoMeta(
   const r = await run(
     "yt-dlp",
     [
+      "--js-runtimes",
+      "node",
       ...(cookiesFromBrowser ? ["--cookies-from-browser", cookiesFromBrowser] : []),
       "--print",
       `%(.{${META_FIELDS}})j`,
@@ -277,6 +279,8 @@ export async function pullVideoMeta(
     const r2 = await run(
       "yt-dlp",
       [
+        "--js-runtimes",
+        "node",
         "--print",
         `%(.{${META_FIELDS}})j`,
         "--no-download",
@@ -328,6 +332,11 @@ export type FullPullOptions = {
 };
 
 const COMMON_YTDLP_ARGS = [
+  // YouTube requires a JS runtime for signature deciphering; without it yt-dlp
+  // returns a 403 "no JS runtime available". Node is a hard repo prerequisite,
+  // so pinning it is safe (issue #119).
+  "--js-runtimes",
+  "node",
   "--no-playlist",
   "--no-warnings",
   "--socket-timeout",

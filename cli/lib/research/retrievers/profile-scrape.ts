@@ -149,6 +149,9 @@ export async function listProfileVideos(
   }
 
   const args = [
+    // YouTube needs a JS runtime for signature deciphering (issue #119).
+    "--js-runtimes",
+    "node",
     ...(cookies ? ["--cookies-from-browser", cookies] : []),
     "--flat-playlist",
     "--print",
@@ -201,6 +204,8 @@ export async function listProfileVideos(
     const r2 = await run(
       "yt-dlp",
       [
+        "--js-runtimes",
+        "node",
         "--flat-playlist",
         "--print",
         PRINT_FIELDS,

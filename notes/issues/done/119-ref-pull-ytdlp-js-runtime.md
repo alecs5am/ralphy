@@ -1,6 +1,6 @@
 # `ref pull` fails on YouTube with yt-dlp 403 "no JS runtime" — pass `--js-runtimes node` by default
 
-> **Status:** todo
+> **Status:** done — 2026-06-14
 
 **Found:** 2026-06-11, dianatolks-celebdecode wave 2 (viral source-clip pulls for projects 007–009). Recurrence — the same failure and workaround are already captured in agent memory (`ytdlp-js-runtime-node`) from an earlier session; the CLI still doesn't apply the fix.
 
