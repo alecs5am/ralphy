@@ -40,6 +40,42 @@ description: >-
     expect(parseFrontmatter("# Just a body\n")).toBeNull();
   });
 
+  test("folded description spans blank-line-separated paragraphs (#405)", () => {
+    // Before the #405 fix, a blank line inside a `>-` folded scalar terminated
+    // the value early, silently truncating multi-paragraph descriptions to the
+    // first paragraph (dropping USE WHEN / DO NOT FIRE blocks).
+    const src = `---
+name: foo
+description: >-
+  The pipeline summary paragraph.
+
+  USE WHEN the user asks for X.
+
+  DO NOT FIRE for Y.
+---
+# Body`;
+    const fm = parseFrontmatter(src);
+    expect(fm!.description).toContain("pipeline summary");
+    expect(fm!.description).toContain("USE WHEN");
+    expect(fm!.description).toContain("DO NOT FIRE");
+  });
+
+  test("folded description does not absorb the next frontmatter key", () => {
+    const src = `---
+name: foo
+description: >-
+  Paragraph one.
+
+  Paragraph two.
+namespace: user
+---
+# Body`;
+    const fm = parseFrontmatter(src);
+    expect(fm!.namespace).toBe("user");
+    expect(fm!.description).toContain("Paragraph two");
+    expect(fm!.description).not.toContain("namespace");
+  });
+
   test("handles namespace field", () => {
     const fm = parseFrontmatter(`---\nname: foo\ndescription: bar\nnamespace: maintainer\n---\n`);
     expect(fm!.namespace).toBe("maintainer");

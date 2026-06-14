@@ -2,16 +2,23 @@
 name: templater
 namespace: user
 description: >-
-  The full maximal-detail extract → classify → blueprint → de-dup → publish pipeline for a finished `.ralphy/workspaces/<ws>/projects/<id>/`. Read its `units/*/unit.json` (#069) as the Unit source of truth, then factor the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (concrete reusable media). Apply the recipe-vs-tag split (#082/#083): a candidate is a Recipe ONLY if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / bake/encode recipe / prompt technique) — author its `recipeKind`+`body`+`artifact`+`params`+`demo`; otherwise it is a Tag (a `tags[]` descriptor on the Unit, no block). Capture a per-unit Blueprint (#080). De-dup every block against the live library FIRST; never publish a duplicate or an empty recipe. Then print the exact ordered `publish-entity.ts` commands (dry-run → --push) for units, blocks, and blueprints. Publishing itself is the #056 path (`landing/scripts/publish-entity.ts`).
+  The full extract → classify → blueprint → de-dup → publish pipeline for a finished `.ralphy/workspaces/<ws>/projects/<id>/`. Reads its `units/*/unit.json` (#069) as the Unit source of truth, then factors the project into ALL FIVE entities — Unit + the four typed blocks Template (structure), Style (look), Recipe (effect/treatment), Asset (reusable media). Applies the recipe-vs-tag split (#082/#083): a candidate is a Recipe only if it carries an extractable artifact (ffmpeg filtergraph / HyperFrames snippet / encode recipe / prompt technique); otherwise it is a Tag on the Unit. Captures a per-unit Blueprint (#080), de-dups every block against the live library FIRST, then prints the exact ordered `publish-entity.ts` commands (dry-run → --push). Publishing itself is the #056 path.
 
   USE WHEN the user says any of: "save this as a template", "turn the project into a template", "templatify <project-id>", "extract a template from <project>", "decompose this project into blocks", "what units/blocks did this project produce", "I want others to reproduce this", "make a reusable version of <project>", "extract the entities from <project>", "classify this project", "freeze this project". ALSO FIRE proactively after a successful render + postmortem the user rates 8+/10 — the experience is most reusable while still fresh.
 
-  DO NOT FIRE for: scaffolding a new project (that is `ralphy template use <existing-slug>`), one-off renders (producer), quality evaluation (evaluator), or pushing to the live Supabase library (that is the #056 publish path / `publish-entity.ts`). See body for HARD INVARIANTS.
+  DO NOT FIRE for scaffolding a new project, one-off renders, or quality evaluation — see the DO NOT FIRE section in the body.
 ---
 
 # templater
 
 You decompose a finished project into the **content-entity model** (#063) and classify its pieces into reusable blocks. The contract is: **a future agent should be able to reproduce the work — same units, same blocks (Template / Style / Recipe / Asset) — without re-deriving any of it from the raw `artifacts/` dump.**
+
+## DO NOT FIRE
+
+- **Scaffolding a new project** — that is `ralphy template use <existing-slug>`, not this skill.
+- **One-off renders** — that is the producer playbook.
+- **Quality evaluation** — that is `/evaluator`.
+- **Pushing to the live library** — that is the #056 publish path (`landing/scripts/publish-entity.ts`); templater stops at printing the ordered commands. See HARD INVARIANTS below.
 
 This skill is the **full maximal-detail pipeline**: one invocation, followed end-to-end, reproduces what a careful maintainer does by hand. The six stages are **EXTRACT** (read the finished deliverables) → **CLASSIFY** (factor into the five entities, incl. the recipe-vs-tag split) → **BLUEPRINT** (capture a per-unit reproduction payload) → **DE-DUP** (match every candidate against the live library first) → **EMIT** the entity bundle → **PRINT the publish runbook** (the exact ordered `publish-entity.ts` commands).
 
