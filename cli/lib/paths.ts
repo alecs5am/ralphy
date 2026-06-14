@@ -325,6 +325,52 @@ export function artifactsDir(projectId: string) {
 }
 
 /**
+ * Reverse-lookup a project id from an arbitrary file/dir path (#411). Used by
+ * `ralphy eval` to auto-detect the project a rendered mp4 belongs to.
+ *
+ * Resolution order (most → least authoritative):
+ *   1. Registry: the longest registered project id whose resolved `projectDir`
+ *      is an ancestor of (or equal to) the path. Authoritative because it
+ *      respects `ralphy project move` (a project not under its id's default
+ *      workspace still resolves correctly).
+ *   2. Layout regex on the CURRENT `.ralphy/workspaces/<ws>/projects/<id>/`
+ *      shape (extract `<id>`), so a render outside the registry (a stray mp4 in
+ *      a project tree, or a test fixture without a registry) still resolves.
+ *   3. Legacy fallback regex on the pre-#106 `workspace/projects/<id>/` shape.
+ *
+ * Returns null when the path is not inside any recognizable project tree.
+ */
+export function projectIdFromPath(p: string): string | null {
+  const abs = path.resolve(p);
+
+  // 1. Registry-backed: pick the registered project whose dir contains `abs`.
+  //    Longest dir match wins (handles nested-looking ids defensively).
+  try {
+    const projects = readRegistryProjectsSync();
+    let best: { id: string; len: number } | null = null;
+    for (const id of Object.keys(projects)) {
+      const dir = projectDir(id);
+      if (abs === dir || abs.startsWith(dir + path.sep)) {
+        if (!best || dir.length > best.len) best = { id, len: dir.length };
+      }
+    }
+    if (best) return best.id;
+  } catch {
+    /* no registry / unreadable — fall through to the layout regexes */
+  }
+
+  // 2. Current `.ralphy/` layout: .../workspaces/<ws>/projects/<id>/...
+  const current = abs.match(/[\\/]workspaces[\\/][^\\/]+[\\/]projects[\\/]([^\\/]+)(?:[\\/]|$)/);
+  if (current) return current[1];
+
+  // 3. Legacy fallback: .../workspace/projects/<id>/...
+  const legacy = abs.match(/[\\/]workspace[\\/]projects[\\/]([^\\/]+)(?:[\\/]|$)/);
+  if (legacy) return legacy[1];
+
+  return null;
+}
+
+/**
  * `<project>/artifacts/<kind>/`. `kind` is normally one of ARTIFACT_KINDS but
  * the signature stays open for auxiliary subtrees (e.g. "analysis") that live
  * alongside the media kinds.

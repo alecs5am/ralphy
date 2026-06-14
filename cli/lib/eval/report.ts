@@ -25,6 +25,11 @@ function renderMarkdown(r: EvalReport): string {
   lines.push("");
   lines.push(`**Verdict: ${v} · score ${r.scoring.score}/100** — ${r.findings.length} findings (${r.scoring.penalties.fail} fail, ${r.scoring.penalties.warn / 6 | 0} warn, ${r.scoring.penalties.info} info)`);
   lines.push("");
+  lines.push(
+    `**Gate: \`${r.gate.mode}\`${r.gate.nativeVideo ? " (native full-mp4)" : " (cheap diagnostic — not a ship gate)"} · ship-ready: ${r.gate.shipReady ? "YES" : "NO"}**`,
+  );
+  lines.push(`> ${r.gate.reason}`);
+  lines.push("");
   lines.push(`Video: \`${r.meta.video}\``);
   lines.push(`Evaluated: ${r.meta.evaluatedAt}`);
   lines.push("");

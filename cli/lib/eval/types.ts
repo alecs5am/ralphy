@@ -8,6 +8,48 @@
 export type Severity = "info" | "warn" | "fail";
 export type Verdict = "pass" | "warn" | "fail";
 
+/**
+ * Explicit validation modes (#411). Ordered cheapest → most thorough:
+ *   • `structure`    — deterministic only (ffprobe, scene durations, loudness,
+ *                      silence, caption density). NO model calls.
+ *   • `keyframe`     — structure + the cheap per-scene keyframe vision pass. A
+ *                      smoke check; one still per scene, model is gemini-flash.
+ *   • `native-video` — structure + a full-mp4 model pass (gemini-3.1-pro-preview)
+ *                      for temporal continuity, audio-picture alignment, pacing,
+ *                      caption sync, and format fit. No style sheet required.
+ *   • `deep-style`   — native-video PLUS style-lock / brief / reference
+ *                      comparison (the harsher style-conformance prompt).
+ */
+export type EvalMode = "structure" | "keyframe" | "native-video" | "deep-style";
+
+export const EVAL_MODES: readonly EvalMode[] = [
+  "structure",
+  "keyframe",
+  "native-video",
+  "deep-style",
+] as const;
+
+/**
+ * The strength of the gate the report was produced under (#411). Only a report
+ * produced by a full-mp4 native pass (`native-video` / `deep-style`) is allowed
+ * to mark a Unit ship-ready. A `structure` / `keyframe` report is a cheap
+ * diagnostic — `shipReady` is forced false on it unless the user explicitly
+ * asked for that cheap mode (`explicitCheapMode`).
+ */
+export interface GateInfo {
+  mode: EvalMode;
+  /** True when `mode` ran a full-mp4 native model pass (native-video|deep-style). */
+  nativeVideo: boolean;
+  /** True when the user explicitly selected a non-native mode (so a non-ship
+   *  verdict off keyframes is intended, not an accidental cheap gate). */
+  explicitCheapMode: boolean;
+  /** The single allow/deny on Unit readiness. False whenever the gate is
+   *  non-native (keyframe / structure) regardless of score. */
+  shipReady: boolean;
+  /** Human-readable reason for the shipReady decision. */
+  reason: string;
+}
+
 export interface VideoMeta {
   video: string;
   projectId: string | null;
@@ -92,6 +134,8 @@ export interface ScoringBreakdown {
 
 export interface EvalReport {
   schemaVersion: "1.0";
+  /** Which validation mode produced this report + the ship-ready gate (#411). */
+  gate: GateInfo;
   meta: VideoMeta;
   declared: DeclaredMeta | null;
   structure: {

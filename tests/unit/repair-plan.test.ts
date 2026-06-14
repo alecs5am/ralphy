@@ -54,6 +54,13 @@ function finding(partial: Partial<Finding> & { category: string; severity: Findi
 function evalReport(findings: Finding[], verdict: Verdict): EvalReport {
   return {
     schemaVersion: "1.0",
+    gate: {
+      mode: "native-video",
+      nativeVideo: true,
+      explicitCheapMode: false,
+      shipReady: verdict === "pass",
+      reason: "test fixture",
+    },
     meta: {
       video: "render/final.mp4",
       projectId: PROJECT,

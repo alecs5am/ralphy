@@ -27,7 +27,6 @@ import { projectDir } from "./paths.js";
 import {
   getContentMode,
   isContentMode,
-  type ContentMode,
 } from "./content-modes.js";
 
 /** `<project>/STYLE_LOCK.md` — the phase-6 grounding artifact. */
