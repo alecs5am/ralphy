@@ -70,6 +70,12 @@ jobs:
       - name: Lint AGENTS.md routing table (03.05.01)
         run: bun run lint:agents-md
 
+      # Every supported content mode (#413) must carry mode-specific quality
+      # guidance: a linked guidelines/<slug>/ OR a docs/playbooks/modes/<mode>.md
+      # playbook. Fails when a first-class route has zero coverage (#417).
+      - name: Lint content-mode guideline coverage (#417)
+        run: bun run lint:mode-guidelines
+
       - name: Check CLI surface doc is current (01.10.01)
         run: bun run cli:surface:check
 
