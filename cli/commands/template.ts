@@ -7,6 +7,7 @@ import { templatesDir, ARTIFACT_KINDS, artifactKindDir, resolveArtifactKindDirs,
 import { out, ok, err, isPretty } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { suggestTemplates, type Candidate } from "../lib/templater/suggest.js";
+import { classifyContentMode } from "../lib/content-modes.js";
 import {
   loadTemplateManifest,
   diagnoseRequiredInputs,
@@ -1151,9 +1152,20 @@ export function templateCmd() {
             llmModel: opts.llmModel,
           });
 
+      // Surface the deterministic content-mode pre-classification (#412) so an
+      // agent reads the production-intent label alongside the template ranking.
+      // No LLM — `classifyContentMode` is keyword-only.
+      const modeClass = classifyContentMode(utterance);
+
       const payload = {
         utterance: result.utterance,
         source: result.source,
+        content_mode: {
+          mode: modeClass.mode,
+          confidence: modeClass.confidence,
+          ambiguous: modeClass.ambiguous,
+          alternatives: modeClass.alternatives,
+        },
         llmNote: result.llmNote,
         results: result.results.map((r) => ({
           id: r.slug,
@@ -1183,6 +1195,12 @@ export function templateCmd() {
         "keyword-fallback": c.warn("keyword fallback — LLM failed"),
       };
       console.log(`  ${c.label("matched via")}  ${sourceColors[result.source]}`);
+      if (modeClass.mode) {
+        const modeLabel = modeClass.ambiguous
+          ? `${c.warn(modeClass.mode)} ${c.muted(`(ambiguous — confirm with user${modeClass.alternatives.length ? `; also: ${modeClass.alternatives.slice(0, 2).join(", ")}` : ""})`)}`
+          : `${c.brand(modeClass.mode)} ${c.muted(`(${modeClass.confidence.toFixed(2)})`)}`;
+        console.log(`  ${c.label("content mode")}  ${modeLabel}`);
+      }
       console.log();
 
       if (payload.results.length === 0) {
