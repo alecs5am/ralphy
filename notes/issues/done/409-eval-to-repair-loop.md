@@ -1,6 +1,6 @@
 # Build an eval-to-repair loop for rendered projects
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (fixer skill + deterministic buildRepairPlan/classifyFindingOwner in cli/lib/repair.ts + `ralphy project repair-plan`; owner map style/ai-artifacts→art-director, structure/hook→scenarist, audio/captions→editor; deep-vision what_to_redo preferred; no paid call before user approval)
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** high
