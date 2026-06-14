@@ -102,6 +102,9 @@ These break the render *without erroring loudly*. Each one is a real footgun the
 | 7 | Heavy `backdrop-filter: blur()` stacks | Compositor cost compounds per layer; render slows to a crawl or fails | Cap at 2–3 layers per region, radius ≤ 64px over large areas. For static blur, pre-render to a PNG and use it as a regular `<img>`. |
 | 8 | `<video>` timed via a wrapper `<div>` (`data-start` / `data-track-index` on the wrapper, not on the `<video>`) — #047 | Capture engine reads timing from the media element directly; wrapper attrs are invisible. Silent freeze + only-first-frame at render. | `id` + `data-start` + `data-track-index` + `data-duration` go on the `<video>` itself. Use a non-timed wrapper for layout only. Enforced by `ralphy render`'s pre-render lint (`cli/lib/render/hyperframes-lint.ts`) — blocks before upstream render. |
 | 9 | Many short (`< 3s`) same-track `<video>` clips back-to-back (e.g. 6×2s on `data-track-index=0`) — #047 | Runtime cannot reliably switch between same-track video sources during capture. Typically only the first plays; the rest render as static frames. No upstream lint catches it. | Concat the clips into a single video with `ffmpeg -f concat -i list.txt -c copy out.mp4` and reference it with one `<video>`. Or put each clip on its own `data-track-index`. Override (with caution): `data-allow-short-stack="true"` on any of the affected `<video>` tags. Warned at author time by `ralphy render`'s pre-render lint. |
+| 10 | Multi-scene video built as a root that mounts per-scene files via `data-composition-src` + per-scene `data-composition-id` hosts | In runtime `0.6.31` those src-mounted sub-compositions are **not time-gated** — every scene renders simultaneously stacked from t=0, regardless of `class="clip"` or host `data-start`. (A trivial 2-comp test gates fine; complex scenes do not.) | Build it as ONE standalone `index.html`, all scenes inlined as full-frame `<div class="scene clip" data-scene="beat-N" data-start data-duration>`, ONE master timeline on `window.__timelines["root"]`. Gate each scene explicitly with opacity: CSS `#s2..#sN{opacity:0}` + `.scene{isolation:isolate}` (stops per-scene `z-index` leaking), then `tl.set(scene,{opacity:1},start); tl.set(scene,{opacity:0},end)` so exactly one scene is visible at a time (opacity is the reliable gate — the runtime's own `visibility:hidden` is bypassed by children with `will-change`/`filter` composited layers). Scope selectors per scene by **string concat, not template literals** (`` `${}` `` in querySelector crashes the bundler CSS parser → `template_literal_selector` lint error). |
+| 11 | Caption / title text injected at runtime via JS (`el.textContent = …`) instead of static HTML | The HF font subsetter never sees those glyphs and ships a near-empty woff2 subset for the named Google font → the text silently renders in the Courier fallback ("the font didn't load", monospace instead of the intended pixel/CRT font). A hidden static charset `<div>` and clearing the font cache do NOT fix it. | Embed the full font directly, bypassing the subsetter — base64 the full woff2 and inject `@font-face{font-family:'PixCRT';src:url(data:font/woff2;base64,…) format('woff2')}` into the comp `<style>`, switch the caption `font-family` to it. **Use a NON-Google family name** (e.g. `PixCRT`, not `VT323`) so HF leaves the inline `@font-face` untouched instead of re-fetching/subsetting it. Adds ~24k of base64; renders deterministically. |
+| 12 | Flicker / noise / grain motion authored as CSS `@keyframes` / `animation` | CSS animations are **not seek-deterministic** in the HF renderer (the harness seeks the paused GSAP timeline frame-by-frame); a CSS animation freezes at frame 0 and never appears in the mp4. | Drive every animated property through the GSAP timeline — `tl.set`/`tl.to` keyed across time (e.g. step a `--shadow` var or `backgroundPosition` every ~2 frames for grain churn). Seed any randomness with a deterministic LCG, not `Math.random`. Exception: motion routed through the `css-animations` HF adapter IS captured. |
 
 When in doubt, run before sharing logs:
 ```bash
@@ -112,6 +115,32 @@ bunx hyperframes snapshot <project>  # frame capture at beat midpoints
 ```
 
 `lint` before `preview`. `validate` + `snapshot` before `ralphy render`.
+
+## Authoring discipline — modular source, single gated output
+
+For any HyperFrames composition driven by a **build script** (the faceless-essay
+/ guide-deck kits, anything more than a one-shot card), author the source
+**modular from the start** — never a monolithic `build-index.mjs`:
+
+- `build-index.mjs` = thin orchestrator (import components + plan → assemble → write).
+- `build/components.mjs` = shared form builders, motifs, caption engine.
+- `build/styles.css` = a REAL `.css` file (bake any dynamic value so there is no template literal).
+- `build/timeline.js` = a REAL `.js` file for the GSAP timeline (reads injected `window.__HF_DATA`).
+- `build/scenes/sNN.mjs` = ONE file per scene.
+
+**Why:** a monolith scatters each scene's markup / CSS / motion / dispatch across
+4 places, and putting GSAP inside a template literal forces double-escaping
+(`\\w`, backticks, `${}`) that silently breaks animations. After the split,
+editing a scene is one file and motion code needs no escaping. The user's
+standing rule for build-script comps is: always author modular.
+
+Does **NOT** change the OUTPUT: the rendered artifact stays ONE composition with
+opacity-gated scene divs (hard-kill #10) — the split is SOURCE-only. Trivial
+single-scene comps (a poster, a ship-style card, a short PSA) are genuinely
+clearer as one small file; this is about build-script comps specifically. Note
+`bunx hyperframes snapshot` is unreliable on grain/glitch-heavy comps in 0.6.31
+(CDN GSAP not loaded in time) — QA those via `ralphy render` + `ffmpeg -ss`
+frame-grabs instead of snapshot.
 
 ## CLI cookbook
 

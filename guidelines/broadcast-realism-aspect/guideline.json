@@ -1,0 +1,18 @@
+{
+  "slug": "broadcast-realism-aspect",
+  "name": "Broadcast-realism aspect + palette",
+  "tag": "@guideline:broadcast-realism-aspect",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "For \"caught on TV\" trend recreations, 1:1 square reads more real than strict 9:16 — real broadcast cameras shoot 16:9, so a tall portrait crop triggers the AI-detector eye. Plus a cross-cutting default toward natural / muted color over neon.",
+  "description": "How to choose aspect ratio and color grade for trend-recreation content whose premise is 'this was caught on a real broadcast camera' (sports cam, news cam, audience cam, talk-show cam). Square 1:1 splits the difference between TV-native 16:9 and feed-native 9:16 and reads as a believable capture; strict portrait reads as AI-generated. Also codifies a general palette default: reach for natural / muted / film grades, not magenta-cyan neon.",
+  "cover": "broadcast-square",
+  "scope": ["image", "video", "trend", "broadcast", "aspect-ratio", "palette"],
+  "models": [
+    "openai/gpt-5.4-image-2",
+    "google/gemini-3-pro-image-preview",
+    "kwaivgi/kling-v3.0-pro"
+  ],
+  "tags": ["broadcast", "trend", "aspect-ratio", "square", "palette", "no-neon", "realism"],
+  "patterns": ["broadcast-square", "natural-palette-default"]
+}
