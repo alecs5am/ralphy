@@ -1,6 +1,8 @@
 # 414 - Specify the ideal Unit production pipeline
 
-Status: active
+> **Status:** done — 2026-06-15 (docs/playbooks/unit-lifecycle.md canonical 18-phase lifecycle extending the #406 contract with research/#416 + council preflight+polish/#415; evaluateContract gains currentPhase/nextPhase/stopConditions/polished resume model; "polished" requires the #411 native-video gate or a logged bypass; producer/templater/evaluator defer to it)
+
+Status: done
 
 ## Problem
 

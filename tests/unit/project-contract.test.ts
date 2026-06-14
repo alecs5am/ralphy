@@ -119,11 +119,11 @@ describe("evaluateContract — phase ledger", () => {
     expect(r.missingRequired).toEqual([]);
     expect(r.complete).toBe(true);
     // All REQUIRED satisfied (complete=true), but optional artifact-bearing
-    // phases (STYLE_LOCK.md, units/, postmortem/) are still absent → next
-    // action points at the first optional gap, which is the earliest such
-    // phase in order (benchmark/style lock).
+    // phases are still absent → next action points at the first optional gap,
+    // which is the earliest such phase in order. After #414 that is the research
+    // bootstrap (research-facts.json), which precedes the style lock.
     expect(r.nextRecommendedAction).toContain("Optional next");
-    expect(r.nextRecommendedAction).toContain("STYLE_LOCK.md");
+    expect(r.nextRecommendedAction).toContain("research-facts.json");
   });
 
   test("fully complete incl. optional unit + postmortem → 'Contract complete'", () => {
@@ -132,8 +132,13 @@ describe("evaluateContract — phase ledger", () => {
     }
     writeArtifact("render/final.mp4");
     writeArtifact("eval.json", "{}");
+    // Every optional artifact-bearing phase present too (incl. the #414/#416/#415
+    // additions: research bootstrap + the preflight/polish councils).
+    writeArtifact("artifacts/refs/research-facts.json", "{}");
     writeArtifact("STYLE_LOCK.md");
+    writeArtifact("council-preflight.json", "{}");
     writeArtifact("repair-plan.json", "{}");
+    writeArtifact("council-polish.json", "{}");
     writeArtifact("units/main/unit.json", "{}");
     writeArtifact("postmortem/lessons.md");
     const r = evaluateContract(PROJECT);

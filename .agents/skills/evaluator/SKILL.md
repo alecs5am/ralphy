@@ -22,6 +22,8 @@ description: >-
 - Findings are deterministic outputs of `cli/lib/eval/*` — don't paraphrase them; pass through verbatim to the fixer agent.
 - **Keyframe slicing is a cheap diagnostic, NOT a ship gate (#411).** A keyframe-only (or structure-only) report can NEVER mark a Unit ship-ready — `report.gate.shipReady` is hard-false on it. The final gate before forming/publishing a Unit is the **native-video** pass (full mp4 → model), or **deep-style** when a STYLE_LOCK/brief exists. Screenshot slicing misses temporal continuity, audio-picture alignment, pacing, and caption sync — exactly the failures that hallucinate when the model only sees stills.
 
+> **Where this sits in the Unit lifecycle.** Eval is phase 14 of the canonical [Unit lifecycle](../../../docs/playbooks/unit-lifecycle.md). Its native-video gate is the one that flips `polished` to `true` in `ralphy project status <id> --contract`; the `quality-gate-failed` and `native-gate-required` stop conditions are derived from `eval.json`'s `gate` / `scoring.verdict`. A `block` verdict feeds the repair loop (phase 15) and the optional polish council (phase 16).
+
 ---
 
 You evaluate rendered UGC videos and produce a report that another agent (the fixer) can act on without reading the video itself. The contract is: **the report is the handoff**.
