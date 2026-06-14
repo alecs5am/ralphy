@@ -1,0 +1,18 @@
+{
+  "slug": "oldspice-absurd-spokesman",
+  "name": "Old-Spice absurd spokesman",
+  "tag": "@guideline:oldspice-absurd-spokesman",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "The high-key, oiled-chest, mouth-open, impossible-match-cut spokesman register — bright pastel commercial light, deliberate-prop fake creatures, and a distinct physical beat between every start and end frame.",
+  "description": "How to prompt image and i2v models for an Old-Spice / absurd-swagger spokesman ad (Terry-Crews / Isaiah-Mustafa vibe). Covers the bright high-key pastel commercial register (the OPPOSITE of moody luxury-fragrance chiaroscuro), the oiled-chest + mouth-open + direct-camera-wide-eyes actor language, the five tells that make a comedic prop read as an intentional fake rather than an AI failure, and the start-vs-end-frame motion-delta rule that keeps i2v clips from rendering as static stills.",
+  "cover": "spokesman-hero",
+  "scope": ["image", "video", "ugc", "ad", "comedy", "i2v"],
+  "models": [
+    "openai/gpt-5.4-image-2",
+    "google/gemini-3-pro-image-preview",
+    "kwaivgi/kling-v3.0-pro"
+  ],
+  "tags": ["oldspice", "spokesman", "comedy", "ad", "high-key", "absurd", "i2v", "motion-delta"],
+  "patterns": ["spokesman-hero", "deliberate-prop", "start-end-motion-delta"]
+}

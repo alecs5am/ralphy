@@ -92,6 +92,7 @@ Be polite — `--max-downloads 20` is usually enough to map a creator's style.
 2. **Region lock** — try `--geo-bypass-country US` or `--geo-bypass-country RU`.
 3. **Truly unavailable** (private / deleted) — the metadata fetch will say so. Tell the user; don't silently fail.
 4. **Live stream** — `yt-dlp` can record live, but for our format (short-form clips) this almost never applies. Decline and ask the user for a recorded URL.
+5. **"No supported JavaScript runtime could be found. Only deno is enabled by default" / "n challenge solving failed" / "Signature solving failed"** — this is NOT a block. yt-dlp only auto-enables `deno` (usually absent); `node` and `bun` are installed. Pass `--js-runtimes node` (or `bun`) and retry: `yt-dlp --js-runtimes node -f 'bv*[height<=1080]+ba/b' -o video.mp4 '<url>'`. Only ask the user to run it manually if that ALSO fails. Do not conclude "YouTube blocks download" from this error.
 
 ## What NOT to do
 
@@ -99,6 +100,7 @@ Be polite — `--max-downloads 20` is usually enough to map a creator's style.
 - **Don't ask the user to `send the file`** before trying yt-dlp. Asking is a last resort, not the first move.
 - **Don't shell out to `youtube-dl`** — its release branch is dead since 2021. yt-dlp is the maintained fork.
 - **Don't pipe the file straight to a model** — save it under `.ralphy/research/<slug>/` so subsequent sessions can resume.
+- **Don't design off the thumbnail.** When a task hinges on a reference video (style match, remix, "make one like this `<url>`"), download the real mp4 and extract a frame grid FIRST (`ffmpeg -ss <t> -i video.mp4 -frames:v 1` across the duration → contact sheet → read it). Designing from a single thumbnail misses the cuts and pose deltas that live between frames, and the result has to be thrown away.
 
 ## Standard layout after download
 

@@ -1,6 +1,6 @@
 # Mine local agent memories into the public repo
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (full 86-entry coverage matrix in notes/research/; 14 PORTed to MODELS.md + 3 new guidelines + playbook/skill notes; 12 niche rules deferred to the #058 niche-skill templatization)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** low-medium
