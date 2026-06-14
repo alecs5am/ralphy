@@ -72,6 +72,9 @@ export async function ytSearch(
   const r = await run(
     "yt-dlp",
     [
+      // YouTube needs a JS runtime for signature deciphering (issue #119).
+      "--js-runtimes",
+      "node",
       `ytsearch${limit}:${query}`,
       "--flat-playlist",
       "--dump-single-json",
