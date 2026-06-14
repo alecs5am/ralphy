@@ -53,11 +53,39 @@ export function parseFrontmatter(src: string): SkillFrontmatter | null {
       const key = folded[1]!;
       i++;
       const collected: string[] = [];
-      while (i < lines.length && /^(\s{2,}|\t)/.test(lines[i]!)) {
+      // A folded scalar continues across indented lines AND blank lines (a
+      // blank line is a paragraph break inside the value, not a terminator).
+      // It ends at the first non-blank, non-indented line — the next top-level
+      // key or the closing `---`. Without the blank-line clause, multi-paragraph
+      // descriptions (USE WHEN / DO NOT FIRE blocks separated by a blank line)
+      // got silently truncated to the first paragraph.
+      while (
+        i < lines.length &&
+        (/^(\s{2,}|\t)/.test(lines[i]!) || lines[i]!.trim() === "")
+      ) {
+        // Look ahead: a trailing blank line right before the close/next key
+        // should not pull the loop past the block. Stop if the blank line is
+        // the last content (no further indented line follows).
+        if (lines[i]!.trim() === "") {
+          let j = i + 1;
+          let nextIsIndented = false;
+          while (j < lines.length) {
+            if (lines[j]!.trim() === "") {
+              j++;
+              continue;
+            }
+            nextIsIndented = /^(\s{2,}|\t)/.test(lines[j]!);
+            break;
+          }
+          if (!nextIsIndented) break; // blank line trails the block — stop
+          collected.push(""); // paragraph break
+          i++;
+          continue;
+        }
         collected.push(lines[i]!.trim());
         i++;
       }
-      (fm as Record<string, unknown>)[key] = collected.join(" ").trim();
+      (fm as Record<string, unknown>)[key] = collected.join(" ").replace(/\s+/g, " ").trim();
       continue;
     }
     // Inline `key: value`

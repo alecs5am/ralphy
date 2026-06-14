@@ -1,6 +1,6 @@
 # Harden agent routing and skill activation
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (shipped the enforceable H3 pieces: lint:skill-routing flagging trigger-less/conflated descriptions, routing-coverage fixtures for the key utterances, both wired into CI; the rules/ body-decomposition is deferred to the #058 niche-skill templatization)
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** high
