@@ -1,6 +1,6 @@
 # `template extract` scenario gate + json/yaml discovery divergence
 
-> **Status:** todo
+> **Status:** done — 2026-06-14
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** medium
