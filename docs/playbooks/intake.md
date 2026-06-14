@@ -121,6 +121,8 @@ Stop there. **Wait for user "go" / "let's go" / equivalent before generating ANY
 
 If the user says "another approach" / "not like that" / "this part is wrong", re-draft the plan from the user's correction (re-run `ralphy project plan` — it auto-versions). Don't dig in on the rejected approach.
 
+**Lock the style/benchmark BEFORE art-direction (#408, contract phase 6).** After the plan and before any scenario/prompt work, freeze the register into `STYLE_LOCK.md` with `ralphy project style-lock <id>` (reads `production-plan.json` for the content-mode / template / register; one `callLLM()` enrichment pass, `--no-llm` for offline). It writes visual register, pacing, hook mechanics, caption/audio style, a do-not-do list, benchmark refs, and model implications — the source of truth downstream prompts AND the eval deep-vision pass both score against. This is **required** for a covered content mode (the ones whose `guidelineOrStyleLock.required` is true in `cli/lib/content-modes.ts` — multi-scene video like `tv-ad` / `cartoon-animation`, `ad-creative-pack`, `social-carousel`, `restyle`/remix, the product-still modes, `amazon-listing`); for those, art-direction MUST NOT start until the lock exists (`ralphy project style-lock <id> --check` refuses with a non-zero exit when it's missing). Derivation: a URL/handle in the brief → route through the [`researcher`](../../.agents/skills/researcher/SKILL.md) skill / site-grounding (AGENTS #15) and fold the digest in; otherwise derive from the matched template, applicable guideline slugs, and memory. Append-only: a re-run auto-versions (`STYLE_LOCK.v1.md`).
+
 ## Step 3 — Step-by-step generation with checkpoints
 
 After plan approval, generate **one beat at a time**, surfacing each to the user before the next:

@@ -269,7 +269,7 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     defaultResearchDepth: "none",
     roleChain: ["intake", "art-director"],
     templateLookup: { primaryFormat: "image", tagQuery: ["restyle", "style-transfer", "re-skin", "reimagine", "remix-style"] },
-    guidelineOrStyleLock: { required: false, guidelineSlugs: [], note: "Target style is supplied in the brief; lock it if it maps to a known guideline." },
+    guidelineOrStyleLock: { required: true, guidelineSlugs: [], note: "Restyle/remix is target-style-driven — the style IS the deliverable, so lock the register (target aesthetic, fidelity, do-not-do) up front (#408 covered set)." },
     qualityGates: ["scoreImage"],
     expectedUnitShape: { format: "image", minMedia: 1, maxMedia: 4, note: "Restyled variants of the source image." },
     keywords: ["restyle", "re-style", "re style", "style transfer", "reimagine", "re-skin", "reskin", "make this look like", "convert this to", "in the style of this image"],
