@@ -37,6 +37,7 @@ import type { JobKind } from "../lib/jobs/types.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { naturalSizeFor } from "../lib/providers/openrouter.js";
+import { isFalVideoModel, falVideoPricePerSec } from "../lib/providers/fal.js";
 import { TerminalProviderError } from "../lib/providers/shared.js";
 import {
   lintMusicPrompt,
@@ -733,6 +734,10 @@ export function generateCmd() {
       "Read newline-separated ref paths from a file. Concatenated with inline --ref entries. Blank lines + `#` comments ignored. Symmetric with --ref (#025).",
     )
     .option(
+      "--ref-video <ref...>",
+      "Reference VIDEO(s) for video-anchored reference-to-video (fal `--provider fal --model bytedance/seedance-2.0/reference-to-video` only, #402). Maps to seedance `video_urls`; order → `Video 1`, `Video 2`, … in the prompt. Constraints (auto-fixed where possible): <=3 files, combined 2-15s, <=50MB, each 640x640..834x1112 — 1080x1920 sources are auto-downscaled into artifacts/refs/ with a stderr note. Same path resolution as --first-frame (#025).",
+    )
+    .option(
       "--aspect-ratio <ratio>",
       "Aspect ratio. Per-model whitelist: kling 9:16/16:9/1:1, veo 9:16/16:9, hailuo 16:9 only, seedance/wan up to 7 ratios. See `ralphy models show <id>`",
       "9:16"
@@ -789,6 +794,11 @@ export function generateCmd() {
         refFile: opts.refFile,
         projectId: opts.project,
       });
+      // #402: ref-VIDEO intake (fal seedance r2v `video_urls`). Path-only refs
+      // resolve the same way as --first-frame; URLs pass through.
+      if (opts.refVideo && opts.refVideo.length > 0) {
+        opts.refVideo = (opts.refVideo as string[]).map((r) => intakePath(r, opts.project, "ref-video"));
+      }
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
       const lastFrameRef = opts.lastFrame;
@@ -830,8 +840,23 @@ export function generateCmd() {
           firstFrame: firstFrameRef ? "[ref-supplied]" : null,
           lastFrame: lastFrameRef ? "[ref-supplied]" : null,
           refs: opts.ref && opts.ref.length > 0 ? opts.ref : null,
+          refVideos: opts.refVideo && opts.refVideo.length > 0 ? opts.refVideo : null,
           generateAudio: opts.audio,
-          estimatedCostUsd: estimateVideoCostUsd(opts.model, opts.duration),
+          // fal models aren't in the OR catalog — price them via the fal
+          // connector's pricing helper (#402); everything else via the OR
+          // catalog estimate.
+          estimatedCostUsd: isFalVideoModel(opts.model)
+            ? Number(
+                (
+                  falVideoPricePerSec({
+                    model: opts.model,
+                    resolution: opts.resolution ?? "720p",
+                    generateAudio: Boolean(opts.audio),
+                    hasVideoRefs: Boolean(opts.refVideo && opts.refVideo.length > 0),
+                  }) * (opts.duration ?? 0)
+                ).toFixed(4),
+              )
+            : estimateVideoCostUsd(opts.model, opts.duration),
         });
         return;
       }
@@ -860,6 +885,7 @@ export function generateCmd() {
             lastFrame: opts.lastFrame,
             image: opts.image,
             refs: opts.ref,
+            refVideos: opts.refVideo,
             aspectRatio: opts.aspectRatio,
             resolution: opts.resolution,
             generateAudio: opts.audio,

@@ -1,6 +1,6 @@
 # Add a fal.ai provider connector + the omni / reference-to-video models
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (connector + models + --ref-video + invariant #1 amendment landed with unit coverage; ONE paid live smoke still pending maintainer go-ahead — see the gated command in the commit/issue)
 > **Filed:** 2026-06-12
 > **Folder:** issues
 

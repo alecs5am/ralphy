@@ -14,7 +14,9 @@
 //
 // Coverage map (see AGENTS.md `Tested by:` annotations for the inverse view):
 //
-//   #1  no FAL_KEY / Vercel / OpenAI direct       — TESTED (this file)
+//   #1  only registered connectors hold keys      — TESTED (this file;
+//       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; Vercel /
+//        OpenAI-direct forbidden everywhere)
 //   #2  ralphy is the only entry-point            — partially TESTED
 //                                                   (this file + tests/integration/cli-render-from-clip.test.ts)
 //   #3  reference-required gate                   — TESTED (tests/unit/eval-refs.test.ts)
@@ -72,18 +74,28 @@ function sourceFiles(): string[] {
   return out;
 }
 
-describe("AGENTS.md invariant #1 — no FAL_KEY / Vercel / OpenAI direct", () => {
-  // Only OPENROUTER_API_KEY + ELEVENLABS_API_KEY are valid env-var reads.
-  // Forbidden providers may appear in doc comments stating *that they're
-  // forbidden*; the test only flags actual `process.env.<X>` reads.
-  const forbidden = ["FAL_KEY", "VERCEL_KEY", "VERCEL_API_KEY", "OPENAI_API_KEY"];
+describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit provider hosts", () => {
+  // Post-#402 the invariant is "only registered provider connectors may hold
+  // keys / hit provider hosts; no ad-hoc curl". FAL_KEY + the fal.run/fal.ai
+  // hosts are now SANCTIONED — but ONLY inside the registered fal connector
+  // file. Every other source file must still be forbidden, so the guard still
+  // catches a stray FAL_KEY read or fal host anywhere outside the connector.
+  //
+  // The allowlist is file-scoped (path-exact), not a substring: a sibling file
+  // that merely imports the connector is NOT allowlisted. Vercel + OpenAI-direct
+  // stay forbidden everywhere with no allowlist.
+  const FAL_CONNECTOR = path.join("cli", "lib", "providers", "fal.ts");
+  // Files permitted to read FAL_KEY / hit fal hosts (the sanctioned connector only).
+  const falAllowlist = new Set<string>([FAL_CONNECTOR]);
 
-  test("no source file reads process.env.<forbidden-provider>", () => {
+  // Vercel + OpenAI-direct: forbidden everywhere, no allowlist.
+  const forbiddenEverywhere = ["VERCEL_KEY", "VERCEL_API_KEY", "OPENAI_API_KEY"];
+
+  test("no source file reads process.env.VERCEL/OPENAI keys (no allowlist)", () => {
     const offenders: string[] = [];
     for (const f of sourceFiles()) {
       const src = fs.readFileSync(f, "utf8");
-      for (const key of forbidden) {
-        // Match `process.env.FAL_KEY` and `process.env["FAL_KEY"]`.
+      for (const key of forbiddenEverywhere) {
         const re = new RegExp(`process\\.env(?:\\.${key}\\b|\\[["']${key}["']\\])`);
         if (re.test(src)) offenders.push(`${path.relative(REPO, f)} → ${key}`);
       }
@@ -91,13 +103,37 @@ describe("AGENTS.md invariant #1 — no FAL_KEY / Vercel / OpenAI direct", () =>
     expect(offenders).toEqual([]);
   });
 
-  test("no direct fal.ai host appears in any source request", () => {
+  test("FAL_KEY is read ONLY by the sanctioned fal connector file", () => {
     const offenders: string[] = [];
     for (const f of sourceFiles()) {
+      const rel = path.relative(REPO, f);
+      if (falAllowlist.has(rel)) continue; // sanctioned connector — allowed
       const src = fs.readFileSync(f, "utf8");
-      // Anything fetching fal.ai or fal.run is a violation.
+      // Match `process.env.FAL_KEY` and `process.env["FAL_KEY"]`.
+      if (/process\.env(?:\.FAL_KEY\b|\[["']FAL_KEY["']\])/.test(src)) {
+        offenders.push(`${rel} → FAL_KEY`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test("the sanctioned fal connector DOES read FAL_KEY (allowlist is not vacuous)", () => {
+    // Guards against the allowlist drifting onto a file that no longer reads the
+    // key — if fal.ts stops reading FAL_KEY this should fail so the allowlist is
+    // re-pointed rather than left granting an unused exemption.
+    const src = fs.readFileSync(path.join(REPO, FAL_CONNECTOR), "utf8");
+    expect(/process\.env(?:\.FAL_KEY\b|\[["']FAL_KEY["']\])/.test(src)).toBe(true);
+  });
+
+  test("fal.ai / fal.run hosts appear ONLY in the sanctioned fal connector file", () => {
+    const offenders: string[] = [];
+    for (const f of sourceFiles()) {
+      const rel = path.relative(REPO, f);
+      if (falAllowlist.has(rel)) continue; // sanctioned connector — allowed
+      const src = fs.readFileSync(f, "utf8");
+      // Anything fetching fal.ai or fal.run outside the connector is a violation.
       if (/https?:\/\/[a-z0-9.-]*fal\.(?:ai|run)\b/i.test(src)) {
-        offenders.push(path.relative(REPO, f));
+        offenders.push(rel);
       }
     }
     expect(offenders).toEqual([]);

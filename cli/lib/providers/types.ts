@@ -93,6 +93,15 @@ export type GenerateVideoInput = CommonInput & {
    * without reference-to-video support reject the field round-trip at OR.
    */
   refs?: string[];
+  /**
+   * Reference VIDEOS for video-anchored reference-to-video (fal seedance r2v
+   * `video_urls`). Order maps to `Video 1` / `@Video1`, … in the prompt (the
+   * seedance @-reference convention). Honored ONLY by the fal connector's
+   * `bytedance/seedance-2.0/reference-to-video` (≤3 files, combined 2-15s,
+   * ≤50MB, each 640x640..834x1112 — over-resolution sources auto-downscaled
+   * into `artifacts/refs/`, #402). Models without video-ref support reject it.
+   */
+  refVideos?: string[];
   prompt: string;
   durationSec: number;
   /** Enable model-native audio (Veo 3.x only). Default false. */
