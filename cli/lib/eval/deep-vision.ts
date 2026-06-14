@@ -17,7 +17,22 @@ import path from "node:path";
 import { callLLM, type LLMContent } from "../providers/llm.js";
 import type { Finding, Severity } from "./types.js";
 
+/**
+ * Which prompt the deep-vision pass runs (#411):
+ *   • `native-video` — general temporal-continuity / audio-picture / pacing /
+ *     caption-sync / format-fit critique. NO style sheet required.
+ *   • `deep-style`   — the harsher style-conformance critique, scored against a
+ *     loaded STYLE_LOCK / style-sheet / brief / reference benchmark.
+ * Both emit the SAME output schema (so the #409 repair loop reads `what_to_redo`
+ * the same way regardless of which prompt ran).
+ */
+export type DeepVisionMode = "native-video" | "deep-style";
+
 export type DeepVisionContext = {
+  /** Which prompt to run. Default `deep-style` (the historical behavior) when a
+   *  style sheet / brief is present; the orchestrator passes `native-video` for
+   *  the no-style full-mp4 gate. */
+  mode?: DeepVisionMode;
   /** Path to style-sheet.md (creator stylesheet output from scrape-profile).
    *  When set, the model evaluates the rendered video against every rule in
    *  the "What this creator NEVER does" + "Vibe & visual register" sections. */
@@ -44,7 +59,7 @@ const MIME_BY_EXT: Record<string, string> = {
   ".webm": "video/webm",
 };
 
-const SYSTEM = `You are a senior creative director running a hard-base quality gate on a rendered short-form vertical video. You will be given:
+const STYLE_SYSTEM = `You are a senior creative director running a hard-base quality gate on a rendered short-form vertical video. You will be given:
 
 1. The full rendered mp4 (native video input — you see every frame at native temporal resolution, not sampled keyframes).
 2. The project's STYLE SHEET — the formal rules the render is supposed to honor. This is the source of truth.
@@ -53,7 +68,7 @@ const SYSTEM = `You are a senior creative director running a hard-base quality g
 
 Your job: produce HARD, SPECIFIC, ACTIONABLE findings. Generic UGC platitudes ("hook could be stronger") are forbidden. Every finding must (a) cite a specific rule from the style sheet OR a specific brief intent, (b) cite a specific timestamp / window in the rendered video where the violation occurs, (c) explain WHY the render misses the rule in concrete terms, (d) give a concrete fix that names the slot / scene / parameter that needs to change.
 
-CRITICAL: You are encouraged to be harsh. The user explicitly said "не дженерик ответы, навалить жесткой базы". If the render is mediocre, say so. If a rule is half-honored, mark it warn. If the register is wrong, mark it fail. Do not soften your assessment to be polite.
+CRITICAL: You are encouraged to be harsh. The user explicitly asked for a hard base of specific critique, not generic answers. If the render is mediocre, say so. If a rule is half-honored, mark it warn. If the register is wrong, mark it fail. Do not soften your assessment to be polite.
 
 Output STRICT JSON only. No prose around the JSON, no markdown fences. Schema:
 
@@ -110,6 +125,84 @@ Rules of engagement:
 - "what_to_redo" must be a ranked list. Priority 1 = the single thing that would most improve the render. Maximum 6 items.
 - If the rendered video is a meaningful improvement over what most AI-generated UGC achieves, say so in what_works — but do not pad. Empty arrays are fine.
 - Length: terse and dense. No filler.
+`;
+
+// Native-video gate (#411): the default final pass when NO style sheet/brief is
+// in play. Same output schema as STYLE_SYSTEM (so the #409 repair loop reads
+// `what_to_redo` identically), but the critique is GENERAL short-form quality —
+// temporal continuity, audio-picture alignment, pacing, caption sync, format fit
+// — rather than conformance to a creator's specific style rules. This is what
+// keyframe slicing cannot see: a still never reveals a continuity jump, an
+// out-of-sync caption, or a draggy hold.
+const NATIVE_SYSTEM = `You are a senior short-form video editor running the FINAL quality gate on a rendered vertical (9:16) UGC video before it ships. You are given the full rendered mp4 as native video input — you see EVERY frame at native temporal resolution, not sampled keyframes. This is exactly the temporal information a keyframe pass cannot give you, so spend it: judge motion, continuity, and timing, not just isolated stills.
+
+Your job: produce HARD, SPECIFIC, ACTIONABLE findings on the video AS A MOVING, SOUNDED ARTIFACT. Generic platitudes ("hook could be stronger", "nice pacing") are forbidden. Every finding must cite a specific timestamp / window where the problem occurs, explain WHY it hurts the video in concrete terms, and give a concrete fix naming the scene / slot / parameter to change.
+
+Evaluate these dimensions (NO creator style sheet is provided — judge against general best-in-class short-form craft, not a specific creator's rules):
+
+1. TEMPORAL CONTINUITY — does the subject/identity/lighting/wardrobe stay consistent across cuts? Flag morphs, identity drift between scenes, jarring jump cuts, mismatched motion direction, flicker.
+2. AUDIO-PICTURE ALIGNMENT — does the VO/SFX/music land on the right picture? Flag VO that describes something not on screen, lip-sync drift, a music hit on the wrong frame, dead air over a held visual, two VO lines overlapping.
+3. PACING & EDIT RHYTHM — are shots held too long (draggy) or cut too fast to read? Flag static holds with no motion, a hook that doesn't earn the first 3s, a saggy middle, a closer that fizzles.
+4. CAPTION SYNC & READABILITY — do captions appear in time with the words, stay on screen long enough to read, sit in the safe zone, and not collide with each other or the subject? Flag captions that lag/lead the VO, flash too fast, or run off-frame.
+5. FORMAT FIT — is it truly 9:16, framed for vertical, with the subject in the safe zone? Flag letterboxing, mis-crops, important content outside Y 210-1480 / X 60-960 of 1080x1920.
+6. AI ARTIFACTS IN MOTION — warped hands/faces, clipping geometry, texture-crawl, flicker — but only the ones a MOVING frame reveals (a still-only artifact is the keyframe pass's job; here flag motion artifacts).
+
+CRITICAL: be harsh. If the render is mediocre, say so. A keyframe pass would have passed this video on its stills alone — your job is to catch what only the full timeline shows. Do not soften to be polite.
+
+Output STRICT JSON only. No prose around the JSON, no markdown fences. Use the SAME schema as the style gate:
+
+type DeepFindings = {
+  overall_verdict: "pass" | "warn" | "fail";        // Holistic ship/block call across all dimensions.
+  register_match: {
+    declared: string;                                // "(none — no style sheet; general short-form craft)"
+    observed: string;                                // The register you actually saw (e.g. "photoreal handheld UGC", "PS1-horror screen-capture")
+    match: "tight" | "loose" | "miss";               // tight = coherent & intentional; loose = drifts but readable; miss = incoherent register across the cut.
+    note: string;                                    // 1-2 sentences with frame references.
+  };
+  rule_conformance: Array<{                           // Use this for TEMPORAL CONTINUITY + FORMAT FIT findings.
+    rule_id: string;                                 // e.g. "continuity-identity", "continuity-lighting", "format-9x16", "no-flicker"
+    rule_text: string;                               // The general craft rule (e.g. "subject identity must stay consistent across cuts")
+    status: "pass" | "warn" | "fail";
+    evidence: string;                                // What you saw at specific timestamps.
+    fix: string;                                     // Concrete next step naming the scene / slot.
+  }>;
+  brief_conformance: Array<{                          // Leave EMPTY ([]) — no brief is scored in native-video mode.
+    brief_clause: string;
+    status: "pass" | "warn" | "fail";
+    evidence: string;
+    fix: string;
+  }>;
+  uncanny_mechanism_check: {                           // Repurposed for AUDIO-PICTURE ALIGNMENT.
+    described_in_style_sheet: string;                // "audio-picture alignment"
+    present_in_render: "tight" | "loose" | "miss";   // tight = audio lands on the right picture throughout; miss = VO/music repeatedly off.
+    evidence: string;                                 // 2-3 sentences with timestamps.
+    fix: string;
+  };
+  pacing_and_timing: {
+    hook_first_3s: { status: "pass" | "warn" | "fail"; evidence: string; fix: string };
+    body_arc: { status: "pass" | "warn" | "fail"; evidence: string; fix: string };
+    closer: { status: "pass" | "warn" | "fail"; evidence: string; fix: string };
+  };
+  ai_artifacts: Array<{                               // Motion artifacts only — what a moving frame reveals.
+    timestamp_sec: number;
+    description: string;
+    severity: "info" | "warn" | "fail";
+    fix: string;
+  }>;
+  what_works: string[];                               // Honest — 2-5 things the render got right. Empty is fine.
+  what_to_redo: Array<{                               // Prioritized fix list. Priority 1 = highest impact. Max 6.
+    priority: 1 | 2 | 3;
+    target: "start-frame" | "end-frame" | "i2v" | "audio" | "scene-prompt" | "model-swap" | "regen-entire";
+    action: string;
+    rationale: string;
+  }>;
+}
+
+Rules of engagement:
+- Use specific timestamps in seconds (e.g. "at 2.3s", "between 5.0 and 6.5s"). Vague "near the end" is forbidden.
+- "what_to_redo" must be a ranked list. Priority 1 = the single thing that would most improve the render. Maximum 6 items.
+- Caption-sync findings: use the "audio" target in what_to_redo (the editor owns caption timing) or "scene-prompt" if the caption text itself is wrong.
+- Be honest in what_works. Empty arrays are fine. No filler.
 `;
 
 export type DeepVisionResult = {
@@ -172,6 +265,12 @@ export async function deepVisionEvaluate(
 ): Promise<DeepVisionResult> {
   const model = ctx.model ?? "google/gemini-3.1-pro-preview";
   const maxBytes = ctx.maxMp4Bytes ?? 40 * 1024 * 1024;
+  // Default to deep-style only when a style sheet / brief / reference is
+  // actually in play; otherwise the no-style native gate. The orchestrator
+  // sets this explicitly per #411, but a direct caller still gets the sensible
+  // default.
+  const mode: DeepVisionMode =
+    ctx.mode ?? (ctx.styleSheetPath || ctx.briefPath || (ctx.referenceUrls ?? []).length > 0 ? "deep-style" : "native-video");
 
   const stats = await stat(videoPath);
   if (stats.size > maxBytes) {
@@ -190,16 +289,18 @@ export async function deepVisionEvaluate(
   const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
 
   const userParts: string[] = [];
-  if (styleSheet) {
-    userParts.push("## STYLE SHEET (source of truth — every rule below must be honored)\n\n" + styleSheet.slice(0, 24_000));
-  } else {
-    userParts.push("## STYLE SHEET\n(none provided — fall back to generic short-form vertical viral-quality heuristics; flag this absence in `note` of register_match.)");
-  }
-  if (brief) {
-    userParts.push("## BRIEF (user's specific intent for THIS render)\n\n" + brief.slice(0, 4_000));
-  }
-  if (refLines) {
-    userParts.push("## REFERENCE VIDEOS (the creator's target benchmark)\n\n" + refLines);
+  if (mode === "deep-style") {
+    if (styleSheet) {
+      userParts.push("## STYLE SHEET (source of truth — every rule below must be honored)\n\n" + styleSheet.slice(0, 24_000));
+    } else {
+      userParts.push("## STYLE SHEET\n(none provided — fall back to generic short-form vertical viral-quality heuristics; flag this absence in `note` of register_match.)");
+    }
+    if (brief) {
+      userParts.push("## BRIEF (user's specific intent for THIS render)\n\n" + brief.slice(0, 4_000));
+    }
+    if (refLines) {
+      userParts.push("## REFERENCE VIDEOS (the creator's target benchmark)\n\n" + refLines);
+    }
   }
   userParts.push("## RENDERED VIDEO\n(attached as file content block — evaluate the full mp4 at native temporal resolution)");
   userParts.push("Return the strict JSON findings now. Be harsh and specific.");
@@ -212,6 +313,8 @@ export async function deepVisionEvaluate(
     { type: "text", text: userParts.join("\n\n") },
   ];
 
+  const system = mode === "deep-style" ? STYLE_SYSTEM : NATIVE_SYSTEM;
+
   // NOTE: jsonMode=false intentional. gemini-3.1-pro-preview with a video
   // file content block + jsonMode returns an empty text body — confirmed
   // bug pattern. Same workaround as cli/lib/research.ts → analyzeVideo:
@@ -219,7 +322,7 @@ export async function deepVisionEvaluate(
   // post-hoc.
   const { text } = await callLLM({
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: system },
       { role: "user", content },
     ],
     model,
@@ -227,7 +330,7 @@ export async function deepVisionEvaluate(
     temperature: 0.2,
     maxTokens: 16000,
     projectId: ctx.projectId ?? undefined,
-    endpoint: "eval/deep-vision",
+    endpoint: `eval/deep-vision/${mode}`,
   });
 
   const parsed = safeParseJson(text);

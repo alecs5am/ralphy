@@ -3,7 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { projectDir } from "../paths.js";
+import { projectDir, projectIdFromPath } from "../paths.js";
 import { probeVideo } from "./probe.js";
 import { detectScenes } from "./scenes.js";
 import { analyzeAudio } from "./audio.js";
@@ -12,38 +12,64 @@ import { analyzeScenes } from "./vision.js";
 import { buildFindings, score } from "./findings.js";
 import { writeReport } from "./report.js";
 import { deepVisionEvaluate, type DeepVisionResult } from "./deep-vision.js";
+import { resolveGate, resolveMode, hasModelCredentials } from "./gate.js";
 import type {
   CaptionStats,
   DeclaredMeta,
+  EvalMode,
   EvalReport,
   Scene,
   SceneVision,
 } from "./types.js";
 
+/**
+ * Injectable pipeline steps (#411). Tests substitute these to drive the
+ * orchestrator's mode-selection + gate logic WITHOUT ffmpeg or a model call —
+ * no `mock.module` on a shared lib (forbidden per #072). Production leaves them
+ * unset and the real implementations run.
+ */
+export interface EvaluateDeps {
+  probeVideo?: typeof probeVideo;
+  detectScenes?: typeof detectScenes;
+  analyzeAudio?: typeof analyzeAudio;
+  extractKeyframes?: typeof extractKeyframes;
+  analyzeScenes?: typeof analyzeScenes;
+  deepVisionEvaluate?: typeof deepVisionEvaluate;
+  /** Override the model-credentials probe (default reads the provider registry). */
+  hasModelCredentials?: () => boolean;
+}
+
 export interface EvaluateInput {
   videoPath: string;
+  /** Explicit validation mode (#411): structure | keyframe | native-video | deep-style.
+   *  When omitted, the orchestrator resolves the default final gate (native-video,
+   *  or deep-style if a style lock / brief is discoverable) — see `resolveMode`. */
+  mode?: EvalMode | null;
   /** Override auto-detected project (or pass null to skip context). */
   projectId?: string | null;
-  /** Skip the standard per-scene vision pass — useful for fast smoke tests. */
+  /** Legacy alias for `--mode structure` — skip every model pass. Mapped to
+   *  `mode: "structure"` when no explicit `mode` is given. */
   noVision?: boolean;
   /** Where to write eval.json + eval-report.md. Defaults to project dir or alongside the video. */
   outDir?: string;
   /** Per-scene vision concurrency (default 3). */
   visionConcurrency?: number;
   /** Path to a style-sheet.md (e.g. from `ralphy research scrape-profile`).
-   *  When set, runs the deep-vision pass against the full mp4 using
-   *  google/gemini-3.1-pro-preview and appends style-conformance findings. */
+   *  Presence implies the deep-style mode (full-mp4 style-conformance pass). */
   styleSheetPath?: string | null;
   /** Path to a BRIEF.md (or the project's own BRIEF.md). Sent to the
-   *  deep-vision pass to score intent conformance. */
+   *  deep-style pass to score intent conformance. */
   briefPath?: string | null;
-  /** Reference video URLs the creator's catalog used — for deep-vision
+  /** Reference video URLs the creator's catalog used — for deep-style
    *  benchmark context. */
   referenceUrls?: string[];
   /** Override deep-vision model. */
   deepVisionModel?: string;
-  /** Skip the deep-vision pass even when context is available. */
+  /** Legacy alias: when true, never run the full-mp4 pass even if a style
+   *  sheet/brief is present. Caps the effective mode at `keyframe`. */
   noDeepVision?: boolean;
+  /** Test seam — injectable pipeline steps. Unset in production. */
+  deps?: EvaluateDeps;
 }
 
 export interface EvaluateResult {
@@ -56,34 +82,72 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
   const videoPath = path.resolve(input.videoPath);
   if (!existsSync(videoPath)) throw new Error(`video not found: ${videoPath}`);
 
+  // Resolve injectable steps (production uses the real implementations).
+  const d = input.deps ?? {};
+  const _probeVideo = d.probeVideo ?? probeVideo;
+  const _detectScenes = d.detectScenes ?? detectScenes;
+  const _analyzeAudio = d.analyzeAudio ?? analyzeAudio;
+  const _extractKeyframes = d.extractKeyframes ?? extractKeyframes;
+  const _analyzeScenes = d.analyzeScenes ?? analyzeScenes;
+  const _deepVisionEvaluate = d.deepVisionEvaluate ?? deepVisionEvaluate;
+  const _hasModelCredentials = d.hasModelCredentials ?? hasModelCredentials;
+
   const projectId = input.projectId === undefined ? autoDetectProjectId(videoPath) : input.projectId;
   const projectRoot = projectId ? projectDir(projectId) : null;
   const outDir = input.outDir ?? (projectRoot ?? path.dirname(videoPath));
 
-  const probe = probeVideo(videoPath);
+  // — Resolve the effective validation mode + ship-ready gate (#411).
+  const briefDefault = projectRoot ? path.join(projectRoot, "BRIEF.md") : null;
+  const briefResolved = input.briefPath ?? (briefDefault && existsSync(briefDefault) ? briefDefault : null);
+  const styleContextAvailable = !!(input.styleSheetPath || briefResolved || (input.referenceUrls ?? []).length > 0);
+
+  // Map the explicit mode + the legacy flags to a single requested mode.
+  //   --mode wins. Else: --no-vision ⇒ structure; a style sheet/brief ⇒
+  //   deep-style; --no-deep-vision caps native off (⇒ keyframe). When none of
+  //   these are set, `requested` stays null and the default final gate fires.
+  let requested: EvalMode | null = input.mode ?? null;
+  if (!requested) {
+    if (input.noVision) {
+      requested = "structure";
+    } else if (input.noDeepVision) {
+      // Legacy: keep the cheap keyframe pass, never escalate to native.
+      requested = "keyframe";
+    } else if (styleContextAvailable) {
+      requested = "deep-style";
+    }
+  }
+
+  const resolved = resolveMode({
+    requested,
+    modelCredentials: _hasModelCredentials(),
+    styleContextAvailable,
+  });
+  const mode = resolved.mode;
+  const runKeyframe = mode === "keyframe" || mode === "native-video" || mode === "deep-style";
+  const runFullMp4 = mode === "native-video" || mode === "deep-style";
+
+  const probe = _probeVideo(videoPath);
   const evaluatedAt = new Date().toISOString();
 
   const declared = projectRoot ? await readDeclared(projectRoot) : null;
   const captionsRaw = projectRoot ? await readCaptions(projectRoot) : null;
 
-  const rawScenes = await detectScenes(videoPath, probe.durationSec);
+  const rawScenes = await _detectScenes(videoPath, probe.durationSec);
   const framesDir = path.join(outDir, "eval-frames");
-  let scenes: Scene[];
-  if (input.noVision) {
-    scenes = rawScenes;
-  } else {
-    scenes = await extractKeyframes(videoPath, rawScenes, framesDir);
-  }
+  // Keyframe extraction only matters for the per-scene vision pass.
+  const scenes: Scene[] = runKeyframe
+    ? await _extractKeyframes(videoPath, rawScenes, framesDir)
+    : rawScenes;
 
-  const audio = await analyzeAudio(videoPath, probe.durationSec);
+  const audio = await _analyzeAudio(videoPath, probe.durationSec);
 
-  const vision: SceneVision[] = input.noVision
-    ? []
-    : await analyzeScenes(scenes, {
+  const vision: SceneVision[] = runKeyframe
+    ? await _analyzeScenes(scenes, {
         template: declared?.template ?? null,
         totalDurationSec: probe.durationSec,
         projectId,
-      }, input.visionConcurrency ?? 3);
+      }, input.visionConcurrency ?? 3)
+    : [];
 
   const captions = buildCaptionStats(captionsRaw, probe.durationSec);
   const hookTranscript = captionsToHookTranscript(captionsRaw, 3);
@@ -106,20 +170,34 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
     hookTranscript,
   });
 
-  // Deep-vision pass: project-aware, full-mp4, gemini-3.1-pro-preview.
-  // Runs in addition to the standard per-scene vision pass when a style
-  // sheet or brief is available. Adds style-conformance findings to the
-  // findings[] array — same shape as everything else, but harsher and
-  // tied to specific rules from the project's source-of-truth style sheet.
+  // Surface a mode-downgrade (e.g. requested native but no credentials) as a
+  // finding so the report is honest about what actually ran.
+  if (resolved.downgradeNote) {
+    findings.push({
+      id: "MODE-DOWNGRADE",
+      category: "eval.mode-downgrade",
+      severity: "info",
+      sceneIndex: null,
+      timestampSec: null,
+      message: resolved.downgradeNote,
+      fixHint: "Configure a model provider (OPENROUTER_API_KEY) and re-run for the native-video final gate.",
+      fixCommand: null,
+    });
+  }
+
+  // Full-mp4 deep-vision pass (#411): native-video (no style sheet required) or
+  // deep-style (style lock / brief / reference comparison). Both send the WHOLE
+  // mp4 to gemini-3.1-pro-preview and emit the SAME schema, so the #409 repair
+  // loop reads `what_to_redo` identically. native-video is the default final
+  // gate; deep-style adds the style-conformance critique on top.
   let deepVision: DeepVisionResult | null = null;
-  const briefDefault = projectRoot ? path.join(projectRoot, "BRIEF.md") : null;
-  const briefResolved = input.briefPath ?? (briefDefault && existsSync(briefDefault) ? briefDefault : null);
-  if (!input.noDeepVision && (input.styleSheetPath || briefResolved)) {
+  if (runFullMp4) {
     try {
-      deepVision = await deepVisionEvaluate(videoPath, {
-        styleSheetPath: input.styleSheetPath ?? null,
-        briefPath: briefResolved,
-        referenceUrls: input.referenceUrls ?? [],
+      deepVision = await _deepVisionEvaluate(videoPath, {
+        mode: mode === "deep-style" ? "deep-style" : "native-video",
+        styleSheetPath: mode === "deep-style" ? (input.styleSheetPath ?? null) : null,
+        briefPath: mode === "deep-style" ? briefResolved : null,
+        referenceUrls: mode === "deep-style" ? (input.referenceUrls ?? []) : [],
         projectId,
         model: input.deepVisionModel,
       });
@@ -132,17 +210,19 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
         sceneIndex: null,
         timestampSec: null,
         message: `deep-vision pass failed: ${(e as Error).message}`,
-        fixHint: "Inspect deep-vision.ts logs; re-run with --no-deep-vision to skip.",
+        fixHint: "Inspect deep-vision.ts logs; re-run with --mode keyframe to skip the full-mp4 pass.",
         fixCommand: null,
       });
     }
   }
 
   const scoring = score(findings);
+  const gate = resolveGate({ mode, explicit: resolved.explicit, verdict: scoring.verdict });
 
   const sceneDurations = scenes.map((s) => s.durationSec);
   const report: EvalReport = {
     schemaVersion: "1.0",
+    gate,
     meta,
     declared,
     structure: {
@@ -178,6 +258,10 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
       JSON.stringify(
         {
           model: deepVision.modelUsed,
+          // The validation mode that produced this report (#411). Additive —
+          // #409's repair loop reads `parsed.what_to_redo` / `parsed.overall_verdict`,
+          // both unchanged.
+          mode,
           parsed: deepVision.parsed,
           raw: deepVision.raw,
         },
@@ -190,9 +274,18 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
   return { report, jsonPath, mdPath };
 }
 
+/**
+ * Auto-detect the project a video belongs to (#411). Delegates to the
+ * registry-backed `projectIdFromPath`, which:
+ *   1. prefers a registered project whose resolved dir contains the path
+ *      (respects `ralphy project move`);
+ *   2. falls back to the CURRENT `.ralphy/workspaces/<ws>/projects/<id>/` layout
+ *      regex (the old `/workspace/projects/<id>/` regex was stale — #411);
+ *   3. then the legacy `workspace/projects/<id>/` shape.
+ * Returns null for a path outside any recognizable project tree.
+ */
 function autoDetectProjectId(videoPath: string): string | null {
-  const m = videoPath.match(/[\\/]workspace[\\/]projects[\\/]([^\\/]+)[\\/]/);
-  return m ? m[1] : null;
+  return projectIdFromPath(videoPath);
 }
 
 interface DeclaredScenarioFile {

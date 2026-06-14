@@ -1,6 +1,8 @@
 # 411 - Make native video validation the final quality engine
 
-Status: active
+> **Status:** done — 2026-06-14 (explicit --mode structure|keyframe|native-video|deep-style; native-video is the default final gate when creds present; keyframe-only can't be ship-ready via report.gate; fixed autoDetectProjectId for the .ralphy/workspaces/<ws>/projects/<id>/ layout via registry-first projectIdFromPath)
+
+Status: done
 
 ## Problem
 

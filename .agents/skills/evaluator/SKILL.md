@@ -20,6 +20,7 @@ description: >-
 
 - Every model call (vision pass) routes through `cli/lib/providers/llm.ts → callLLM()` via the CLI. No direct OpenAI / fal calls.
 - Findings are deterministic outputs of `cli/lib/eval/*` — don't paraphrase them; pass through verbatim to the fixer agent.
+- **Keyframe slicing is a cheap diagnostic, NOT a ship gate (#411).** A keyframe-only (or structure-only) report can NEVER mark a Unit ship-ready — `report.gate.shipReady` is hard-false on it. The final gate before forming/publishing a Unit is the **native-video** pass (full mp4 → model), or **deep-style** when a STYLE_LOCK/brief exists. Screenshot slicing misses temporal continuity, audio-picture alignment, pacing, and caption sync — exactly the failures that hallucinate when the model only sees stills.
 
 ---
 
@@ -37,17 +38,42 @@ You evaluate rendered UGC videos and produce a report that another agent (the fi
 ralphy eval video <path-to-mp4>
 ```
 
-Auto-detects the project ID when the mp4 lives at `.ralphy/workspaces/<ws>/projects/<id>/render/...`. If detected, the report incorporates `scenario.json`, `captions.json`, `BRIEF.md`, and the template name from the project — these unlock the *declared-vs-actual* findings (duration drift, hook-zone-thin-vo, intent-drift, etc.) that are otherwise unavailable.
+Auto-detects the project ID when the mp4 lives at `.ralphy/workspaces/<ws>/projects/<id>/render/...` (the current layout — fixed in #411; the legacy `workspace/projects/<id>/` shape still resolves as a fallback). If detected, the report incorporates `scenario.json`, `captions.json`, `BRIEF.md`, `STYLE_LOCK.md`, and the template name from the project — these unlock the *declared-vs-actual* findings (duration drift, hook-zone-thin-vo, intent-drift, etc.) that are otherwise unavailable.
 
-### Deep-vision pass (project-specific, anti-generic findings)
+### Validation modes (`--mode`, #411)
 
-When the user asks "validate against my niche / style / creator reference" — or you observe that the project has a style-sheet (typically from `ralphy research scrape-profile`) — pass `--style-sheet <path>` to enable the **deep-vision pass**: gemini-3.1-pro-preview ingests the full mp4 natively (millisecond-precision scene understanding, not sampled keyframes) and scores it against every rule in the style sheet's "Vibe & visual register" and "What this creator NEVER does" sections.
+Eval has four explicit modes, cheapest → most thorough. **Choose by what you're doing: a quick smoke check vs. the final gate before a Unit ships.**
+
+| Mode | What it runs | Model spend | Can mark a Unit ship-ready? |
+|---|---|---|---|
+| `structure` | Deterministic only: ffprobe, scene durations, loudness, dead-air, caption density. No model call. | $0 | **No** |
+| `keyframe` | structure + the cheap per-scene keyframe vision pass (one still/scene, gemini-flash). A smoke check for blank/garbled frames. | ~$0.01 | **No** |
+| `native-video` | structure + a **full-mp4 model pass** (gemini-3.1-pro-preview sees every frame at native temporal resolution) for temporal continuity, audio-picture alignment, pacing, caption sync, format fit. No style sheet required. | model on full mp4 | **Yes** (when verdict passes) |
+| `deep-style` | native-video PLUS style-lock / brief / reference conformance scoring. | model on full mp4 | **Yes** (when verdict passes) |
+
+```bash
+ralphy eval video <mp4> --mode native-video      # the final gate before forming/publishing a Unit
+ralphy eval video <mp4> --mode keyframe           # cheap diagnostic only — does NOT approve a polished Unit
+```
+
+**Default (no `--mode`) = the final gate.** When you omit `--mode`, eval runs the **native-video** gate automatically if a model provider is configured (`OPENROUTER_API_KEY`), and upgrades to **deep-style** when a project `STYLE_LOCK.md` / `BRIEF.md` is discoverable. With NO credentials it falls back to `structure` and explicitly marks the report **not ship-ready** (a `eval.mode-downgrade` info finding records why).
+
+**Why keyframe is not enough for a polished Unit:** a still never reveals a continuity jump between cuts, a caption that lags the VO, a music hit on the wrong frame, or a draggy hold. Those are exactly the failures the native-video pass catches and the keyframe pass hallucinates around. Use `keyframe` to triage fast and free; use `native-video` (or `deep-style`) as the gate before `ralphy unit` / publish. The report's `gate.shipReady` boolean is the authoritative signal — it is hard-false on any non-native report.
+
+**Legacy flags (still work, mapped to modes):**
+- `--no-vision` ⇒ `--mode structure`.
+- `--no-deep-vision` ⇒ caps at `--mode keyframe` (never escalates to the full-mp4 pass).
+- `--style-sheet` / `--brief` ⇒ implies `--mode deep-style`.
+
+### Deep-style pass (project-specific, anti-generic findings)
+
+When the user asks "validate against my niche / style / creator reference" — or the project carries a style-sheet (typically from `ralphy research scrape-profile` or `ralphy project style-lock`) — the **deep-style** mode scores the full mp4 against every rule in the style sheet's "Vibe & visual register" and "What this creator NEVER does" sections. Trigger it explicitly with `--mode deep-style`, or just pass `--style-sheet` (which implies it):
 
 ```bash
 ralphy eval video <mp4> --style-sheet <style-sheet.md> [--brief <BRIEF.md>] [--reference-urls <url> <url> ...]
 ```
 
-The deep-vision pass produces a separate structured JSON output at `<out-dir>/eval-deep-vision.json` with:
+Both native-video and deep-style produce a structured JSON output at `<out-dir>/eval-deep-vision.json` (the repair loop, #409, consumes its `what_to_redo`). It carries:
 - `overall_verdict` — holistic pass/warn/fail
 - `register_match` — declared vs observed cinematographic register, with severity if mismatched
 - `rule_conformance[]` — per-rule pass/warn/fail with **verbatim style-sheet quotes** and **specific timestamp evidence** from the rendered video
@@ -60,27 +86,28 @@ The deep-vision pass produces a separate structured JSON output at `<out-dir>/ev
 
 Each rule violation also flows into the main `findings[]` array under `style.register-mismatch`, `style.rule-violation`, `brief.intent-drift`, `style.aesthetic-mechanism-missing`, or `style.timing-*` categories so the unified scoring + downstream fixer pipeline pick them up.
 
-**When to fire the deep pass automatically:**
+**When to use deep-style over native-video:**
 1. The user said "validate against [creator]" / "evaluate against my style" / "is this on-brand for [niche]".
 2. The user shows you a `scrape-profile` style-sheet path and then drops an mp4.
-3. You're running an eval on an mp4 in a project that has a sibling style-sheet (search `.ralphy/research/jobs/*/style-sheet.md` and ask the user to confirm which one applies if multiple).
-4. The project has its own `style-sheet.md` at `.ralphy/workspaces/<ws>/projects/<id>/style-sheet.md` (auto-detected — wired in a follow-up; for now, pass `--style-sheet` explicitly).
+3. The project has a discoverable `STYLE_LOCK.md` / `style-sheet.md` (auto-discovered by walking up from the mp4 path). Eval auto-upgrades the default gate to deep-style in that case.
 
-**When NOT to fire the deep pass:**
-- Generic UGC quality check (no creator-style reference, just "is this video good"). The standard per-scene flash pass handles this — cheaper and faster.
-- The user said `--no-deep-vision`.
+**When native-video is the right gate (no style scoring):** a generic Unit-readiness check with no creator-style reference — "is this ready to ship", "QA the final cut". This is the default. It still catches temporal/audio/pacing/caption/format failures; it just doesn't score against a specific creator's rules.
+
+**When NOT to run the full-mp4 pass at all:**
+- A fast triage pass mid-iteration — use `--mode keyframe` (cheap, free-ish) but remember it can't approve a Unit.
 - The mp4 is over 40 MB — the model rejects on body size. Re-encode at lower bitrate first.
 
 ### Standard flags
 
-- `--no-vision` — skip the per-scene Gemini pass. Faster (~3s vs ~30s on a 1-min video) and free. Use it for quick structure / audio sanity, then re-run without the flag for the full check.
-- `--no-deep-vision` — skip the deep-vision pass even if `--style-sheet` / `--brief` / project `BRIEF.md` is present. Useful when you want only the structural findings.
-- `--deep-vision-model <id>` — override the deep-vision model. Default `google/gemini-3.1-pro-preview`. For cheaper smoke tests, swap to `google/gemini-2.5-pro`.
+- `--mode <structure|keyframe|native-video|deep-style>` — the explicit validation mode (see the table above). Omit for the default final gate (native-video, or deep-style when a STYLE_LOCK/brief is discoverable).
+- `--no-vision` — legacy alias for `--mode structure` (deterministic only, $0). Use for a quick structure/audio sanity pass; not a ship gate.
+- `--no-deep-vision` — legacy: cap the mode at `keyframe` (never run the full-mp4 native pass even if a `--style-sheet` / `--brief` / project `BRIEF.md` is present).
+- `--deep-vision-model <id>` — override the full-mp4 model. Default `google/gemini-3.1-pro-preview`. For cheaper smoke tests, swap to `google/gemini-2.5-pro`.
 - `--project <id>` — force project context when the mp4 was moved out of the project tree.
 - `--no-project` — explicitly evaluate as a standalone video (skips `scenario.json`-derived findings).
 - `--out-dir <path>` — override where `eval.json` + `eval-report.md` + `eval-deep-vision.json` land. Default: project dir, or the mp4's parent for standalone.
 
-The command returns JSON with `verdict`, `score`, `findings` (count), and the output paths.
+The command returns JSON with `verdict`, `score`, `mode`, `shipReady`, `gateReason`, `findings` (count), and the output paths. **`shipReady` is the gate to honor before forming/publishing a Unit** — never form a Unit off a `shipReady: false` report unless the user explicitly accepted a cheap-mode result.
 
 ## How to read the report
 
@@ -97,13 +124,13 @@ The shape that matters: `report.findings[]` is the actionable list. Each finding
 - `fixHint` — what kind of fix, conceptually
 - `fixCommand` — a copy-pasteable `ralphy` / `ffmpeg` command if one applies
 
-`scoring.verdict` is `pass`, `warn`, or `fail`. It's a summary, not an enforcement gate — the user decides whether to ship.
+`scoring.verdict` is `pass`, `warn`, or `fail` — a quality summary. `report.gate` is the **readiness** signal: `gate.mode` (which mode ran), `gate.nativeVideo` (was it a full-mp4 pass), and `gate.shipReady` (the single boolean a Unit-forming step gates on). A `pass` verdict from a `keyframe` gate still has `shipReady: false` — keyframe slicing cannot approve a polished Unit. The user always decides whether to ship, but do not present a non-native report as ship-ready approval.
 
 ## Workflow
 
 1. **Confirm the path.** If the user gave a project id instead of an mp4 path, resolve to `.ralphy/workspaces/<ws>/projects/<id>/render/final.mp4` (or whatever the project's render output is — check `composition-props.json` if the path isn't obvious).
-2. **Run** `ralphy eval video <path>`. Default to full vision unless the user says otherwise; the cost is small and the vision findings are usually the most useful ones.
-3. **Show** the markdown report to the user, highlighting the verdict and the top 3-5 findings by severity.
+2. **Run** `ralphy eval video <path>`. Omit `--mode` for the final gate — it runs native-video automatically (or deep-style when a STYLE_LOCK/brief is discoverable). Use `--mode keyframe` only when the user explicitly wants a fast/cheap triage and accepts it isn't a ship gate.
+3. **Show** the markdown report to the user, highlighting `gate.shipReady`, the verdict, and the top 3-5 findings by severity. If `shipReady` is false because the run was a cheap mode, say so and offer to re-run native-video.
 4. **Hand off** if the user wants fixes. The fixer agent reads `eval.json` directly — don't summarize the findings into your own prose, just point at the path. Suggested handoffs by finding category:
    - `vision.text`, `vision.composition`, `vision.ai-artifacts`, `vision.quality` → `/ralph-art-director` (regen affected keyframes / tweak prompts).
    - `structure.duration-drift`, `structure.hook-zone-*` → `/ralph-scenarist` (re-time / re-script).
