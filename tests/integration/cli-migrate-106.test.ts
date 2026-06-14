@@ -259,6 +259,76 @@ describe("ralphy migrate (#106) — fixture round-trip", () => {
   });
 });
 
+describe("ralphy migrate (#110) — loose files + cruft directly under projects/", () => {
+  test("a loose file moves + is reported; .DS_Store is pruned; second run is a no-op", () => {
+    // Legacy root whose only contents are a loose file and OS cruft sitting
+    // DIRECTLY under projects/ (no project directories at all).
+    write("workspace/.ralph/config.json", "{}\n");
+    write("workspace/projects/analog-horror-social-captions.md", "# captions");
+    write("workspace/projects/.DS_Store", "junk");
+
+    // ── run ────────────────────────────────────────────────────────────────
+    const run = ralphy(["migrate"]);
+    expect(run.exitCode).toBe(0);
+    expect(run.json.mode).toBe("run");
+
+    // The loose file followed its path into the default workspace's projects/
+    // dir, keeping its basename.
+    const landed = path.join(
+      tmpRoot,
+      ".ralphy",
+      "workspaces",
+      "default",
+      "projects",
+      "analog-horror-social-captions.md",
+    );
+    expect(fs.readFileSync(landed, "utf8")).toBe("# captions");
+    // ...and it is surfaced in the report under unclassified.
+    expect(run.json.unclassified).toContain(
+      path.join("workspace", "projects", "analog-horror-social-captions.md"),
+    );
+    // .DS_Store was pruned — never moved, never reported.
+    expect(
+      fs.existsSync(
+        path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", ".DS_Store"),
+      ),
+    ).toBe(false);
+    expect(run.json.unclassified).not.toContain(path.join("workspace", "projects", ".DS_Store"));
+    // The otherwise-empty legacy tree collapsed.
+    expect(fs.existsSync(path.join(tmpRoot, "workspace"))).toBe(false);
+
+    // ── re-run: idempotent no-op ─────────────────────────────────────────────
+    const again = ralphy(["migrate"]);
+    expect(again.exitCode).toBe(0);
+    expect(again.json.already_migrated).toBe(true);
+    expect(again.json.root_moves).toEqual([]);
+    expect(again.json.projects).toEqual([]);
+  });
+
+  test("a loose file whose target already exists keeps the destination copy (collision)", () => {
+    // Pre-seed the destination, then migrate a same-named loose file.
+    write("workspace/.ralph/config.json", "{}\n");
+    write("workspace/projects/notes.md", "legacy body");
+    write(".ralphy/workspaces/default/projects/notes.md", "destination body");
+
+    const run = ralphy(["migrate"]);
+    expect(run.exitCode).toBe(0);
+    // Destination copy preserved (never clobbered).
+    expect(
+      fs.readFileSync(
+        path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "notes.md"),
+        "utf8",
+      ),
+    ).toBe("destination body");
+    // The collision is surfaced in skipped.
+    const skip = run.json.skipped.find((s: any) =>
+      s.path.endsWith(path.join("workspace", "projects", "notes.md")),
+    );
+    expect(skip).toBeTruthy();
+    expect(skip.reason).toContain("destination exists");
+  });
+});
+
 describe("legacy root fail-fast (#106)", () => {
   test("a normal verb on a legacy root → E_LEGACY_LAYOUT error JSON", () => {
     buildLegacyFixture();

@@ -20,6 +20,11 @@ import path from "node:path";
 
 export const DEFAULT_WS = "default";
 
+// OS-cruft basenames that are pruned (never moved, never reported as
+// unclassified) so an otherwise-empty legacy tree still collapses on migrate.
+// Mirrors `cli/lib/unpack-zip.ts → NOISE_BASENAMES`.
+const NOISE_BASENAMES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
+
 // ─── Report shapes ───────────────────────────────────────────────────────────
 
 export interface RootMove {
@@ -607,12 +612,23 @@ export async function runMigration(opts: MigrateOptions): Promise<MigrateReport>
 
   // ── Root move: workspace/* top-level entries ───────────────────────────
   const projectIds: string[] = [];
+  // Loose (non-directory) entries living DIRECTLY under workspace/projects/
+  // (e.g. a stray `*.md` or `*.zip`). They are not projects, so they follow
+  // their paths to .ralphy/workspaces/default/projects/<basename> and are
+  // reported as unclassified — never silently skipped (#110).
+  const looseProjectFiles: string[] = [];
+  // OS cruft under workspace/projects/ that gets pruned (not moved).
+  const looseProjectNoise: string[] = [];
   for (const entry of (await fs.readdir(legacyRoot)).sort()) {
     if (entry === ".ralph") continue; // handled above
     if (entry === "projects") {
       try {
         const ids = await fs.readdir(path.join(legacyRoot, "projects"), { withFileTypes: true });
-        for (const p of ids) if (p.isDirectory()) projectIds.push(p.name);
+        for (const p of ids) {
+          if (p.isDirectory()) projectIds.push(p.name);
+          else if (NOISE_BASENAMES.has(p.name)) looseProjectNoise.push(p.name);
+          else looseProjectFiles.push(p.name);
+        }
       } catch {
         /* unreadable projects dir */
       }
@@ -638,6 +654,23 @@ export async function runMigration(opts: MigrateOptions): Promise<MigrateReport>
     if (mv.status === "skipped" && !existsSync(src)) continue;
     report.projects.push(await migrateProjectInner(projAbs, id, dryRun));
   }
+
+  // ── Loose files under workspace/projects/ → default workspace projects/ ──
+  // (#110) They are not project dirs, so they keep their basename and follow
+  // their path; collision behavior is shared with every other root move.
+  for (const name of looseProjectFiles.sort()) {
+    const src = path.join(legacyRoot, "projects", name);
+    const dst = path.join(newRoot, "workspaces", DEFAULT_WS, "projects", name);
+    report.unclassified.push(path.join("workspace", "projects", name));
+    report.root_moves.push(await executeMove(src, dst, rootDir, dryRun, report.skipped));
+  }
+  // Prune OS cruft so an otherwise-empty projects/ tree still collapses.
+  if (!dryRun) {
+    for (const name of looseProjectNoise) {
+      await fs.rm(path.join(legacyRoot, "projects", name), { force: true }).catch(() => {});
+    }
+  }
+
   if (!dryRun) {
     await removeIfEmpty(path.join(legacyRoot, "projects")).catch(() => false);
     await removeIfEmpty(legacyRoot).catch(() => false);
