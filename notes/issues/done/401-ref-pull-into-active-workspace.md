@@ -1,6 +1,6 @@
 # `ref pull` should store references inside the active workspace, not the global tree
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (canonical location: workspaces/<ws>/shared/refs/; default workspace stays global)
 > **Filed:** 2026-06-12
 > **Folder:** issues
 

@@ -783,9 +783,9 @@ Commands:
   analyze [options] <slug>                       Run vision LLM over <slug>/frames/* → <slug>/analysis.json. Default prompt = UGC blueprint extractor.
   analyze-video [options] <slug-or-path-or-url>  Send the full mp4 to Gemini for precise shot-cut detection (better than `analyze` for fast-cut commercials). Arg can be a ref slug, a local file path, or an http(s) URL.
   audio-describe [options] <slug>                Send <slug>/source.mp3 to Gemini-audio → <slug>/audio-analysis.json (tone, music, VO style)
-  blueprint <slug>                               Synthesize <slug>/blueprint.md from {meta + analysis + audio-analysis + transcript}
+  blueprint [options] <slug>                     Synthesize <slug>/blueprint.md from {meta + analysis + audio-analysis + transcript}
   rasterize [options] <file>                     Rasterize a vector reference (SVG) to a crisp PNG at the requested long-edge size. Preserves intrinsic aspect ratio. `--bg <hex>` adds a solid background (default: transparent).
-  paths <slug>                                   Print every research path for <slug> (helpful when scripting follow-ups)
+  paths [options] <slug>                         Print every research path for <slug> (helpful when scripting follow-ups)
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
   check [options] <project-id>                   Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.
   delete <id>                                    Delete a reference
