@@ -1,6 +1,8 @@
 # 416 - Add automatic trend and niche research bootstrap
 
-Status: active
+> **Status:** done — 2026-06-14 (deterministic chooseResearchDepth() composing #412 defaultResearchDepth with auto-triggers; ProductBrandFacts schema at artifacts/refs/research-facts.json; routes to existing research engine + site-grounding, no new crawler; AGENTS invariant #19 + research-bootstrap playbook)
+
+Status: done
 
 ## Problem
 
