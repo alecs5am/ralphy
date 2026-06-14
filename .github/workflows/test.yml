@@ -39,11 +39,14 @@ jobs:
       - name: Install Playwright Chromium
         run: bunx playwright install chromium --with-deps
 
-      # --timeout 15000 matches package.json test scripts + the pre-commit hook.
+      # --timeout 45000 matches package.json test scripts + the pre-commit hook.
       # bunfig.toml's [test] timeout is NOT honored by `bun test` (verified on
       # 1.2.22), and the 5s default kills cold CLI spawnSync tests on CI runners.
+      # Raised 15000 -> 45000 (#061): the cli-dryrun*.test.ts spawnSync tests pass
+      # in isolation (~1s) but get CPU/IO-starved past 15s under full-suite load,
+      # intermittently failing the hooks. A real hang still surfaces at 45s.
       - name: Run unit + integration tests
-        run: bun test --timeout 15000 tests/unit/ tests/integration/
+        run: bun test --timeout 45000 tests/unit/ tests/integration/
         env:
           # Tests use a fixture catalog and never hit the network.
           # Set placeholder env vars so any code path that reads them
