@@ -1,6 +1,6 @@
 # `ralphy migrate` skips loose FILES directly under `workspace/projects/`
 
-> **Status:** issue
+> **Status:** done — 2026-06-14
 > **Filed:** 2026-06-11
 > **Folder:** issues
 
