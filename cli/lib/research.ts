@@ -106,6 +106,15 @@ async function writeState(slug: string, patch: Partial<RefState>): Promise<RefSt
 // Process helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Base args prepended to every yt-dlp invocation. YouTube now requires a JS
+// runtime for signature deciphering; without it yt-dlp returns a 403
+// "no JS runtime available". Node is a hard prerequisite of this repo, so
+// pinning `--js-runtimes node` unconditionally is safe (issue #119). Exported
+// so the arg-list is unit-testable.
+export function ytDlpBaseArgs(): string[] {
+  return ["--js-runtimes", "node"];
+}
+
 function ensureBin(bin: string, brewHint?: string): void {
   // Use `which` so we don't depend on the bin's specific --version / -version
   // flag (ffmpeg uses single-dash, yt-dlp uses double-dash).
@@ -174,6 +183,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
 
   // 1. metadata (cheap, always)
   const metaR = await run("yt-dlp", [
+    ...ytDlpBaseArgs(),
     "--dump-single-json",
     "--no-download",
     opts.url,
@@ -191,6 +201,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
     if (opts.audioOnly) {
       // download audio-only as mp3
       const r = await run("yt-dlp", [
+        ...ytDlpBaseArgs(),
         "-x",
         "--audio-format",
         "mp3",
@@ -207,6 +218,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
     } else {
       // download mp4
       const r = await run("yt-dlp", [
+        ...ytDlpBaseArgs(),
         "-f",
         "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
         "--merge-output-format",
