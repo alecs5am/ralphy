@@ -286,14 +286,15 @@ export function projectCmd() {
   cmd
     .command("status <id>")
     .description(
-      "Machine-readable pipeline status. Bare: coarse stage + per-step booleans. --contract: full production-contract ledger (per-phase satisfied/missing + nextRecommendedAction).",
+      "Machine-readable pipeline status. Bare: coarse stage + per-step booleans. --contract (alias --lifecycle): full Unit-lifecycle ledger (per-phase satisfied/missing + currentPhase/nextPhase/nextStep + stopConditions + polished). See docs/playbooks/unit-lifecycle.md.",
     )
-    .option("--contract", "Emit the production-contract phase ledger (#406)")
+    .option("--contract", "Emit the Unit-lifecycle phase ledger (#406/#414)")
+    .option("--lifecycle", "Alias of --contract — emit the full Unit-lifecycle ledger (#414)")
     .action(async (id: string, opts: any) => {
       const project = await getEntity("projects", id);
       if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
 
-      if (opts.contract) {
+      if (opts.contract || opts.lifecycle) {
         out(evaluateContract(id));
         return;
       }
