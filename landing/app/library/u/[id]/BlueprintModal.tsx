@@ -56,7 +56,7 @@ async function copyToClipboard(value: string) {
 
 /** Blue "Use in Ralphy" button (#096). The button does NOT print the raw command
  *  — clicking COPIES `ralphy blueprint use …` to the clipboard and flashes a
- *  "Copied — paste in your terminal" confirmation. The full command stays
+ *  "Copied — hand it to your agent" confirmation. The full command stays
  *  discoverable in the `title` tooltip for anyone who wants to see/edit it. */
 function UseInRalphyButton({ cli, className }: { cli: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -75,7 +75,7 @@ function UseInRalphyButton({ cli, className }: { cli: string; className?: string
     >
       {copied ? (
         <>
-          <CheckIcon /> Copied — paste in your terminal
+          <CheckIcon /> Copied — hand it to your agent
         </>
       ) : (
         <>

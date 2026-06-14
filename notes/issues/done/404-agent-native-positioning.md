@@ -1,6 +1,6 @@
 # Agent-native positioning is not explicit enough
 
-> **Status:** todo
+> **Status:** done — 2026-06-14
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** medium
