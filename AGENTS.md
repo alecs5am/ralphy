@@ -122,6 +122,8 @@ All engine data lives under the gitignored, **hidden** `.ralphy/` root (#108) �
 
 ## Routing failure mode
 
+**Missed routing is a defect.** Under-routing — skipping the matching playbook / skill and improvising from prompt context — is the failure mode this file exists to prevent, on par with skipping the playbook read.
+
 If no row matches: **don't improvise**. Either ask one clarifying question that maps the request to a row, or refuse with the closest in-scope alternative. See `docs/use-cases.md` for canonical utterances.
 
 ## On slash-commands

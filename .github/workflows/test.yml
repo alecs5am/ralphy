@@ -61,6 +61,15 @@ jobs:
       - name: Lint landing examples vs --help (01.03.02)
         run: bun run lint:help-examples
 
+      # Skill frontmatter shape (name/desc/namespace) + routing signal (#405):
+      # every user-facing skill must carry an actionable trigger cue so the
+      # router can bind an utterance to it. `lint:skills` chains both.
+      - name: Lint skill frontmatter + routing signal (03.01 / #405)
+        run: bun run lint:skills
+
+      - name: Lint AGENTS.md routing table (03.05.01)
+        run: bun run lint:agents-md
+
       - name: Check CLI surface doc is current (01.10.01)
         run: bun run cli:surface:check
 
