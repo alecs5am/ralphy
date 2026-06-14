@@ -16,15 +16,25 @@ installSigintHandler();
 // LegacyLayoutError (the #106 fail-fast guard in cli/lib/paths.ts — lib code
 // can't process.exit, so it throws a coded Error) maps to E_LEGACY_LAYOUT.
 // All other uncaught exceptions become E_INTERNAL — never silent.
+function geoblockCtx(e: unknown): { provider: string; reason: string } | null {
+  const g = e as { code?: string; provider?: string; reason?: string } | null;
+  if (g?.code !== "E_GEOBLOCK") return null;
+  return { provider: g.provider ?? "ElevenLabs", reason: g.reason ?? "non-audio body" };
+}
+
 process.on("uncaughtException", (e: unknown) => {
   if (e instanceof CancelledError) raiseError("E_CANCELLED");
   if ((e as { code?: string } | null)?.code === "E_LEGACY_LAYOUT") raiseError("E_LEGACY_LAYOUT");
+  const geo = geoblockCtx(e);
+  if (geo) raiseError("E_GEOBLOCK", geo);
   const detail = e instanceof Error ? e.message : String(e);
   raiseError("E_INTERNAL", { detail });
 });
 process.on("unhandledRejection", (reason: unknown) => {
   if (reason instanceof CancelledError) raiseError("E_CANCELLED");
   if ((reason as { code?: string } | null)?.code === "E_LEGACY_LAYOUT") raiseError("E_LEGACY_LAYOUT");
+  const geo = geoblockCtx(reason);
+  if (geo) raiseError("E_GEOBLOCK", geo);
   const detail = reason instanceof Error ? reason.message : String(reason);
   raiseError("E_INTERNAL", { detail });
 });

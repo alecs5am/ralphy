@@ -211,6 +211,13 @@ export const ERROR_CODES = {
     hint: "Raise the cap via `ralphy config set budgets.{scope} <usd>` or trim the plan.",
     relatedDocs: "docs/playbooks/producer.md#budget",
   },
+  E_GEOBLOCK: {
+    class: "provider",
+    httpAnalog: 451,
+    message: "{provider} returned a non-audio body ({reason}) — likely a geo-block serving HTML/JSON in place of audio",
+    hint: "Route through a non-blocked proxy: set RALPHY_ELEVENLABS_BASE_URL (or config key `elevenlabsBaseUrl` via `ralphy config set`) to the proxy base, then re-run. Nothing was written to disk.",
+    relatedDocs: "notes/issues/121-elevenlabs-geoblock-no-guard-no-proxy-fallback.md",
+  },
 
   // ── Environment errors (exit 4) ───────────────────────────────────────────
   E_ENV_KEY_MISSING: {
