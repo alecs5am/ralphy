@@ -9,6 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import { out, err } from "../lib/output.js";
 import { evaluateVideo } from "../lib/eval/orchestrator.js";
+import { discoverStyleLock } from "../lib/style-lock.js";
 
 export function evalCmd() {
   const cmd = new Command("eval").description("Evaluate the quality of a rendered video");
@@ -21,20 +22,37 @@ export function evalCmd() {
     .option("--no-vision", "Skip the per-scene vision pass (faster, no model spend)")
     .option("--out-dir <path>", "Override output directory (default: project dir or video's parent)")
     .option("--vision-concurrency <n>", "Parallel scene-vision requests (default 3)", (v) => parseInt(v, 10))
-    .option("--style-sheet <path>", "Path to a style-sheet.md (e.g. from `ralphy research scrape-profile`). Triggers deep-vision pass with project-specific style-conformance findings.")
+    .option("--style-sheet <path>", "Path to a style-sheet.md or STYLE_LOCK.md (e.g. from `ralphy research scrape-profile` or `ralphy project style-lock`). Triggers deep-vision pass with project-specific style-conformance findings. When omitted, auto-discovers the project-local STYLE_LOCK.md (#408) by walking up from the video path.")
     .option("--brief <path>", "Path to a BRIEF.md. Sent to deep-vision pass to score intent conformance.")
     .option("--reference-urls <urls...>", "Reference video URLs (the creator's target benchmark) — fed into deep-vision context")
     .option("--deep-vision-model <id>", "Override deep-vision model (default google/gemini-3.1-pro-preview)")
     .option("--no-deep-vision", "Skip the deep-vision pass even when style-sheet or BRIEF.md is available")
     .action(async (videoPath: string, opts) => {
       try {
+        const resolvedVideo = path.resolve(videoPath);
+
+        // #408: when no explicit --style-sheet override is passed, auto-discover
+        // the project-local STYLE_LOCK.md by walking up from the video path. The
+        // explicit --style-sheet flag stays the override; --no-deep-vision still
+        // wins (the orchestrator skips the pass regardless of context).
+        let styleSheetPath: string | null = opts.styleSheet ?? null;
+        if (!styleSheetPath && opts.deepVision !== false) {
+          const discovered = discoverStyleLock(resolvedVideo);
+          if (discovered) {
+            styleSheetPath = discovered;
+            process.stderr.write(
+              `ralphy: auto-discovered project style lock for deep-vision → ${discovered} (pass --no-deep-vision to skip, --style-sheet to override)\n`,
+            );
+          }
+        }
+
         const result = await evaluateVideo({
-          videoPath: path.resolve(videoPath),
+          videoPath: resolvedVideo,
           projectId: opts.project === false ? null : opts.project,
           noVision: opts.vision === false,
           outDir: opts.outDir,
           visionConcurrency: opts.visionConcurrency,
-          styleSheetPath: opts.styleSheet ?? null,
+          styleSheetPath,
           briefPath: opts.brief ?? null,
           referenceUrls: opts.referenceUrls ?? [],
           deepVisionModel: opts.deepVisionModel,

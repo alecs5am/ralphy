@@ -16,6 +16,17 @@ import { evaluateContract } from "../lib/contract.js";
 import { buildProductionPlan, renderPlanMarkdown } from "../lib/plan/build.js";
 import { loadTemplateCandidates } from "../lib/plan/catalog.js";
 import { llmEnrich } from "../lib/plan/enrich.js";
+import {
+  styleLockPath,
+  hasStyleLock,
+  requiresStyleLock,
+  deterministicStyleLock,
+  mergeStyleLockContent,
+  renderStyleLockScaffold,
+  type StyleLockContext,
+} from "../lib/style-lock.js";
+import { llmEnrichStyleLock } from "../lib/style-lock-enrich.js";
+import { getContentMode } from "../lib/content-modes.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
 import { extractFrame, audioStats, contactSheet } from "../lib/ffmpeg-recipes.js";
@@ -355,6 +366,121 @@ export function projectCmd() {
           ...(archivedJson ? { archivedJson } : {}),
         },
         ...(warnings.length ? { warnings } : {}),
+      });
+    });
+
+  cmd
+    .command("style-lock <id>")
+    .description(
+      "Scaffold/write the STYLE_LOCK.md benchmark/style grounding artifact (contract phase 6, #408). Deterministic scaffold (visual register / pacing / hook / caption+audio / do-not-do / benchmark refs / model implications) seeded from the project's production-plan.json (content_mode, template, register, guidelines), plus one callLLM() jsonMode enrichment pass (skip with --no-llm). Append-only — auto-versions to STYLE_LOCK.v{N}.md, never overwrites. Use --check [--mode <m>] to gate: exits non-zero when the lock is missing for a covered content mode. JSON output.",
+    )
+    .option("--brief <text>", "Brief override (default: read from production-plan.json)")
+    .option("--mode <mode>", "Content-mode override (default: read from production-plan.json; required for --check on a plan-less project)")
+    .option("--no-llm", "Skip the LLM enrichment pass — deterministic scaffold only")
+    .option(
+      "--check",
+      "Gate mode: report { ok, hasLock, required, refuse } and exit non-zero when the lock is missing for a covered mode. Writes nothing.",
+    )
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      // Resolve content_mode: explicit --mode wins, else the production plan's
+      // recorded mode. The plan also seeds the deterministic scaffold context.
+      const plan = await safeJson(path.join(projectDir(id), "production-plan.json"));
+      const planMode: string | null = plan?.contentMode?.mode ?? null;
+      const mode: string | null = opts.mode ?? planMode;
+      const required = requiresStyleLock(mode);
+      const modeEntry = mode ? getContentMode(mode) : undefined;
+
+      // ── --check: gate, never write ──
+      if (opts.check) {
+        const lockPresent = hasStyleLock(id);
+        const refuse = required && !lockPresent;
+        out({
+          project: id,
+          mode: mode ?? null,
+          hasLock: lockPresent,
+          required,
+          ok: !refuse,
+          refuse,
+          ...(refuse
+            ? {
+                reason: `Content mode "${mode}" requires a locked STYLE_LOCK.md before art-direction (#408). Run \`ralphy project style-lock ${id}\` to scaffold it.`,
+              }
+            : {}),
+          path: styleLockPath(id),
+        });
+        if (refuse) process.exit(1);
+        return;
+      }
+
+      // ── scaffold/write path ──
+      const ctx: StyleLockContext = {
+        projectId: id,
+        brief: opts.brief ?? plan?.brief ?? project.brief ?? null,
+        contentMode: mode,
+        required,
+        guidelineSlugs: modeEntry?.guidelineOrStyleLock.guidelineSlugs ?? [],
+        templateSlug: plan?.formatTemplate?.templateSlug ?? null,
+        register: plan?.register ?? null,
+        vibe: plan?.vibe ?? null,
+        aspect: plan?.aspect ?? null,
+        platform: plan?.platform ?? null,
+        benchmarkSource: plan?.benchmarkSource ?? null,
+      };
+
+      const fallback = deterministicStyleLock(ctx);
+      let enriched: Partial<typeof fallback> | null = null;
+      let llmUsed = false;
+      // `--no-llm` → opts.llm === false (commander negates).
+      if (opts.llm !== false) {
+        try {
+          enriched = await llmEnrichStyleLock(ctx);
+          llmUsed = true;
+        } catch {
+          // Network / malformed JSON / no key → deterministic scaffold only.
+          enriched = null;
+          llmUsed = false;
+        }
+      }
+      const content = mergeStyleLockContent(fallback, enriched);
+      const body = renderStyleLockScaffold(ctx, content);
+
+      // Append-only: auto-version if STYLE_LOCK.md already exists (#14).
+      const dir = projectDir(id);
+      await fs.mkdir(dir, { recursive: true });
+      const lockPath = styleLockPath(id);
+      const archived = await protectExistingAsset(lockPath, false);
+      await fs.writeFile(lockPath, body);
+
+      // A URL/handle benchmark must be crawled via researcher / site-grounding,
+      // not by this verb — surface that as guidance (AGENTS #15).
+      const benchmarkIsUrl = !!ctx.benchmarkSource && /^https?:\/\//i.test(ctx.benchmarkSource);
+      const guidance: string[] = [];
+      if (benchmarkIsUrl) {
+        guidance.push(
+          `Benchmark source is a URL (${ctx.benchmarkSource}) — route it through the researcher / site-grounding sub-agent (AGENTS #15) and fold the digest into STYLE_LOCK.md; this verb does NOT crawl it.`,
+        );
+      }
+      if (!llmUsed && opts.llm !== false) {
+        guidance.push("LLM enrichment unavailable (no key / network / malformed) — wrote the deterministic scaffold; fill the TODO sections by hand.");
+      }
+      if (modeEntry?.guidelineOrStyleLock.guidelineSlugs.length) {
+        guidance.push(
+          `Applicable guidelines: ${modeEntry.guidelineOrStyleLock.guidelineSlugs.join(", ")} — run \`ralphy guideline show <slug>\` and fold the rules in.`,
+        );
+      }
+
+      ok(`Style lock written for ${id}`);
+      out({
+        project: id,
+        mode: mode ?? null,
+        required,
+        llmEnriched: llmUsed,
+        path: lockPath,
+        ...(archived ? { archived } : {}),
+        ...(guidance.length ? { guidance } : {}),
       });
     });
 

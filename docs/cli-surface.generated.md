@@ -837,6 +837,19 @@ Commands:
                                 language/register/scene-count. Writes
                                 PRODUCTION_PLAN.md + production-plan.json
                                 (append-only, auto-versions). JSON output.
+  style-lock [options] <id>     Scaffold/write the STYLE_LOCK.md benchmark/style
+                                grounding artifact (contract phase 6, #408).
+                                Deterministic scaffold (visual register / pacing
+                                / hook / caption+audio / do-not-do / benchmark
+                                refs / model implications) seeded from the
+                                project's production-plan.json (content_mode,
+                                template, register, guidelines), plus one
+                                callLLM() jsonMode enrichment pass (skip with
+                                --no-llm). Append-only — auto-versions to
+                                STYLE_LOCK.v{N}.md, never overwrites. Use
+                                --check [--mode <m>] to gate: exits non-zero
+                                when the lock is missing for a covered content
+                                mode. JSON output.
   update [options] <id>         Update project
   delete [options] <id>         Delete a project
   log [options] <id>            Tail project logs (generations / user-prompts /

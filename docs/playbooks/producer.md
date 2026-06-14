@@ -25,6 +25,8 @@ ralphy template suggest "<brief utterance>"                  # rank top-3 templa
 # Single-video pipeline kickoff
 ralphy template use <slug> --project <id> --name "<name>" --brief "<text>"
 ralphy project plan <id> --brief "<text>"                    # contract phase 7: write PRODUCTION_PLAN.md + production-plan.json (#407)
+ralphy project style-lock <id>                               # contract phase 6: write STYLE_LOCK.md (register/pacing/do-not-do/benchmark) (#408)
+ralphy project style-lock <id> --check                       # gate: non-zero exit when the lock is missing for a covered mode
 ralphy project show <id> --status                            # check what's done
 ralphy project status <id> --contract                        # phase ledger: where the project sits
 
@@ -82,6 +84,7 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 5. **Format / template first; niche skills are craft overlays.** For a new project request, match the media format / template library to the brief (`ralphy template suggest "<brief>" --format <f>`), then load any matching content-niche craft-overlay skill (`ugc-*`, `poster`, …) on top as a supplement. A *style* template enters as a remix target only on an explicit pointer (`@template:<slug>`, "remix this", named slug), via `ralphy template use <slug>`. Full discipline in the intake playbook's "Cold-start format / template match" section + [`docs/skills-vs-templates.md`](../skills-vs-templates.md). (Batch is the exception — it fans N variations off ONE base the user already chose; see batch.md.)
 6. **Reference-required gate (named real entities only).** The gate fires for a specific person / recognizable brand product / IP — not for generic product or lifestyle work (`04.02.01`). Floor: `ralphy ref check <project-id>`. Per-call override: `ralphy generate ... --no-ref-consent "<reason>"` which logs `stage: "no-ref-consent"` to `user-prompts.jsonl`. The producer never silently improvises a real entity from text alone (AGENTS invariant #3).
 7. **Always-best-models.** Producer never proposes a "cheaper draft model" path. Quality is constant across the iteration loop; budget caps (cross-link `docs/playbooks/producer.md#budget`) are the lever to control cost, not model downgrade (`04.0A.03`).
+8. **Style-lock before art-direction (#408, contract phase 6).** After the plan and before delegating to the art-director, the project must carry a `STYLE_LOCK.md` for any **covered content mode** (the ones whose `guidelineOrStyleLock.required` is true in `cli/lib/content-modes.ts` — multi-scene video, `ad-creative-pack`, `social-carousel`, `restyle`/remix, the product-still modes, `amazon-listing`). Write it with `ralphy project style-lock <id>`; gate it with `ralphy project style-lock <id> --check` (non-zero exit + `refuse:true` when missing for a covered mode). Don't hand off to art-direction over a refused gate. Derivation routes (URL/handle → researcher/site-grounding; else template/guidelines/memory) are in the intake playbook's style-lock step. For a batch, the base template's style lock is locked once and reused across the N variations.
 
 ## Handoff
 

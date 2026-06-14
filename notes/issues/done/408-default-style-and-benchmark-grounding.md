@@ -1,6 +1,6 @@
 # Default every project into style and benchmark grounding
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (STYLE_LOCK.md via `ralphy project style-lock`, required for covered modes via #412 guidelineOrStyleLock.required, --check refusal gate, eval auto-discovery; restyle flipped to required)
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** high
