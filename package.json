@@ -33,7 +33,7 @@
   "scripts": {
     "build:bin": "tsx scripts/build-binaries.ts --no-bytecode",
     "build:bin:current": "tsx scripts/build-binaries.ts --current --no-bytecode",
-    "lint": "tsc && bun run lint:errors && bun run lint:help-examples && bun run lint:skills && bun run lint:agents-md && bun run lint:gen-log && bun run cli:surface:check",
+    "lint": "tsc && bun run lint:errors && bun run lint:help-examples && bun run lint:skills && bun run lint:agents-md && bun run lint:mode-guidelines && bun run lint:gen-log && bun run cli:surface:check",
     "ralph": "bun cli/index.ts",
     "ralphy": "bun cli/index.ts",
     "setup": "bun cli/index.ts setup",
@@ -54,6 +54,7 @@
     "lint:skills": "bun run scripts/lint-skills.ts && bun run lint:skill-routing",
     "lint:skill-routing": "bun run scripts/lint-skill-routing.ts",
     "lint:agents-md": "bun run scripts/lint-agents-md.ts",
+    "lint:mode-guidelines": "bun run scripts/lint-mode-guidelines.ts",
     "lint:confirmation-shape": "bun run scripts/lint-confirmation-shape.ts",
     "lint:motion-graphics": "bun run scripts/lint-motion-graphics.ts",
     "lint:gen-log": "bun run scripts/lint-gen-log-schema.ts",

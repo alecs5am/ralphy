@@ -1,6 +1,8 @@
 # 417 - Expand prompt guidelines into mode-level quality playbooks
 
-Status: active
+> **Status:** done — 2026-06-14 (lint:mode-guidelines fails when a supported mode lacks coverage, wired into CI; 12 mode-level quality playbooks under docs/playbooks/modes/ each with the 9 sections + negative scope; production plan now lists guidelinesUsed[])
+
+Status: done
 
 ## Problem
 

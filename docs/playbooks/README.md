@@ -13,6 +13,7 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 | [core.md](core.md) | "set up", "ralphy doctor", "nothing works", "read logs", any ralphy CLI usage question |
 | [ralphy-install.md](ralphy-install.md) | Fresh machine, `which ralphy` empty, "install ralphy" |
 | [hyperframes.md](hyperframes.md) | Writing or editing HyperFrames compositions (HTML + GSAP, captions, transitions, ffmpeg post) |
+| [modes/README.md](modes/README.md) | **Mode-level quality playbooks (#417).** Read the matching `modes/<mode>.md` BEFORE drafting prompts for a supported content mode that has no register guideline — sets the quality floor (objective · inputs · refs · prompt spine · model picks · failure modes · eval · negative scope). |
 
 ## How they fit together
 

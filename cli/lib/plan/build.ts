@@ -23,6 +23,8 @@
 import {
   classifyContentMode,
   getContentMode,
+  isModeSupported,
+  modeGuidelineCoverage,
   type ContentModeEntry,
 } from "../content-modes.js";
 import { suggestTemplates, type Candidate, type SuggestResult } from "../templater/suggest.js";
@@ -71,6 +73,26 @@ const CRAFT_OVERLAY_BY_MODE: Partial<Record<string, string[]>> = {
   "hero-banner": ["poster"],
   "podcast-video": ["audio-explainer"],
 };
+
+/**
+ * The quality guidance the plan records for the chosen mode (#417). For a
+ * SUPPORTED mode: the register-guideline slugs it declares, plus its mode-level
+ * quality-playbook doc path when the mode has no linked register guideline
+ * (then the playbook is its coverage). Returns `[]` for an unclassified or
+ * unsupported mode (the agent shouldn't promise an unsupported route, so no
+ * guidance is listed). The coverage lint guarantees a supported mode resolves
+ * to at least one entry that exists on disk.
+ */
+function resolveGuidelinesUsed(mode: string | null): string[] {
+  if (!mode || !isModeSupported(mode)) return [];
+  const coverage = modeGuidelineCoverage(mode);
+  if (!coverage) return [];
+  const used = [...coverage.guidelineSlugs];
+  // A mode with no linked register guideline is covered by its mode playbook —
+  // list that doc so the plan still points at the guidance the agent loaded.
+  if (used.length === 0) used.push(coverage.modePlaybook);
+  return used;
+}
 
 /** Default aspect ratio for a format — videos/carousels are 9:16, banners wide. */
 function defaultAspectForFormat(format: TemplateFormat): string {
@@ -316,6 +338,13 @@ export async function buildProductionPlan(
   const craftOverlay = (modeClass.mode && CRAFT_OVERLAY_BY_MODE[modeClass.mode]) ?? [];
   const requiredRefs = modeEntry ? [...modeEntry.requiredInputs] : [];
 
+  // ── Quality guidance the mode loads before prompting (#417) ──
+  // For a SUPPORTED mode: the register-guideline slugs it declares, PLUS its
+  // mode-level quality-playbook doc path when the mode is covered by a playbook
+  // rather than a register guideline (the coverage lint guarantees one of the
+  // two exists on disk). Empty for an unclassified / unsupported mode.
+  const guidelinesUsed = resolveGuidelinesUsed(modeClass.mode);
+
   const plan = ProductionPlanSchema.parse({
     version: 1,
     projectId: input.projectId,
@@ -347,6 +376,7 @@ export async function buildProductionPlan(
       reasoning: hasMatch ? top!.reasoning : undefined,
     },
     craftOverlay,
+    guidelinesUsed,
 
     requiredRefs,
     benchmarkSource: null,
@@ -370,6 +400,7 @@ export function renderPlanMarkdown(plan: ProductionPlan): string {
     ? `\`${ft.format}\` / \`${ft.templateSlug}\`${ft.templateName ? ` (${ft.templateName})` : ""} — match ${ft.confidence.toFixed(2)} via ${ft.source}`
     : `\`${ft.format}\` — freeform (no template matched)`;
   const overlay = plan.craftOverlay.length ? plan.craftOverlay.map((s) => `\`/${s}\``).join(", ") : "none";
+  const guidelines = plan.guidelinesUsed.length ? plan.guidelinesUsed.map((g) => `\`${g}\``).join(", ") : "none";
   const refs = plan.requiredRefs.length ? plan.requiredRefs.map((r) => `- ${r}`).join("\n") : "- (none — generic work, no named entity)";
   const stack = plan.modelStack
     .map((m) => `- **${m.role}:** \`${m.model}\` — $${m.unitCostUsd.toFixed(3)}/unit${m.note ? ` (${m.note})` : ""}`)
@@ -395,6 +426,7 @@ ${plan.brief || "_(no brief text supplied)_"}
 - **Format / template:** ${templateLine}
 - **Content mode (#412):** ${modeLine}
 - **Craft overlay:** ${overlay}
+- **Guidelines used (#417):** ${guidelines}
 - **Aspect / platform:** ${plan.aspect} / ${plan.platform}
 - **Scene count / duration:** ${plan.sceneCount} scene(s) / ${plan.durationSec}s
 - **Audio:** ${plan.audioPath ?? "(decided at the editor stage)"}

@@ -54,6 +54,35 @@ Status legend: **supported** = first-class route the agent may promise; **gap (d
 
 **Summary: 17 supported, 3 gaps (deferred).** Gaps: `virtual-model-tryout`, `personal-clipper`, `amazon-listing`.
 
+## Quality-guidance coverage (#417)
+
+Every SUPPORTED mode must carry mode-specific quality guidance — a linked register guideline OR a mode-level quality playbook — so the agent never improvises art direction, negative scope, or model picks for a first-class route. The [coverage lint](../scripts/lint-mode-guidelines.ts) (`bun run lint:mode-guidelines`, wired into CI) FAILS when a supported mode has neither. The two homes:
+
+- **Linked register guideline** — the mode references an existing [`guidelines/<slug>/`](../guidelines/) via `implementationUnit.guidelines` / `guidelineOrStyleLock.guidelineSlugs`. The `guidelines/` gallery codifies a **look / register** (how to prompt a model family) and ships to the public `/library`.
+- **Mode-level quality playbook** — a [`docs/playbooks/modes/<mode>.md`](playbooks/modes/) doc covering the production-intent floor (creative objective · required inputs · reference requirements · prompt spine · model recommendations · style/visual constraints · common failure modes · evaluation criteria · negative scope). This is the home for guidance that does NOT fit the `guideline.json` look schema. See [`docs/playbooks/modes/README.md`](playbooks/modes/README.md) for why the two homes are split.
+
+| mode | quality guidance | home |
+|---|---|---|
+| `product-shot` | `cgi-product-renders` | guideline |
+| `lifestyle-scene` | `photoreal-studio-portraits` | guideline |
+| `closeup-product-with-person` | `photoreal-studio-portraits` | guideline |
+| `ugc-review` | `photoreal-studio-portraits` | guideline |
+| `tv-ad` | `broadcast-realism-aspect` / `cinematic-90s-film` / `oldspice-absurd-spokesman` | guideline |
+| `pinterest-pin` | [modes/pinterest-pin.md](playbooks/modes/pinterest-pin.md) | playbook |
+| `hero-banner` | [modes/hero-banner.md](playbooks/modes/hero-banner.md) | playbook |
+| `social-carousel` | [modes/social-carousel.md](playbooks/modes/social-carousel.md) | playbook |
+| `ad-creative-pack` | [modes/ad-creative-pack.md](playbooks/modes/ad-creative-pack.md) | playbook |
+| `conceptual-product` | [modes/conceptual-product.md](playbooks/modes/conceptual-product.md) | playbook |
+| `restyle` | [modes/restyle.md](playbooks/modes/restyle.md) | playbook |
+| `tutorial-ugc` | [modes/tutorial-ugc.md](playbooks/modes/tutorial-ugc.md) | playbook |
+| `unboxing-ugc` | [modes/unboxing-ugc.md](playbooks/modes/unboxing-ugc.md) | playbook |
+| `cartoon-animation` | [modes/cartoon-animation.md](playbooks/modes/cartoon-animation.md) | playbook |
+| `motion-design` | [modes/motion-design.md](playbooks/modes/motion-design.md) | playbook |
+| `typography-animation` | [modes/typography-animation.md](playbooks/modes/typography-animation.md) | playbook |
+| `podcast-video` | [modes/podcast-video.md](playbooks/modes/podcast-video.md) | playbook |
+
+The 3 deferred-gap modes are exempt from the coverage bar (they carry a `recommendedUnit` instead); promoting one to supported (#058) makes the lint require its coverage automatically. The production plan (#407) lists the guidance it loaded for the chosen mode in its `guidelinesUsed[]` field (populated from `modeGuidelineCoverage()`).
+
 ## Skills classified against modes
 
 Every user-facing skill is either **attached to a mode** (a content craft-overlay a mode's implementation unit names) or **technical / maintainer-only** (an operation around content, the render engine, or a dev workflow — never a content-routing default). This is the audit #413 asks for.
