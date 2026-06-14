@@ -1,6 +1,8 @@
 # 412 - Add a content mode taxonomy for agent routing
 
-Status: active
+> **Status:** done — 2026-06-14 (20-mode registry + deterministic classifier in cli/lib/content-modes.ts, docs/content-modes.md, AGENTS.md routing note, template suggest emits content_mode; happy + ambiguous fixtures per mode)
+
+Status: done
 
 ## Problem
 
