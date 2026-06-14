@@ -830,6 +830,13 @@ Commands:
                                 stage + per-step booleans. --contract: full
                                 production-contract ledger (per-phase
                                 satisfied/missing + nextRecommendedAction).
+  plan [options] <id>           Draft a structured production plan from a brief
+                                (contract phase 7, #407). Deterministic
+                                content-mode + template match + cost estimate;
+                                callLLM() enrichment for
+                                language/register/scene-count. Writes
+                                PRODUCTION_PLAN.md + production-plan.json
+                                (append-only, auto-versions). JSON output.
   update [options] <id>         Update project
   delete [options] <id>         Delete a project
   log [options] <id>            Tail project logs (generations / user-prompts /

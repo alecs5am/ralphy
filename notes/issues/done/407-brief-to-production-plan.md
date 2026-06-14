@@ -1,6 +1,6 @@
 # Add a brief-to-production-plan step for agents
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (ProductionPlan schema + pure buildProductionPlan() + `ralphy project plan <id> --brief` writing PRODUCTION_PLAN.md/.json, auto-versioned; deterministic mode/template/cost + one callLLM enrichment pass; satisfies the #406 contract phase-7 check)
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** high
