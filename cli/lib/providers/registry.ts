@@ -16,6 +16,7 @@
 import { raiseError } from "../errors/index.js";
 import { openrouterConnector } from "./openrouter.js";
 import { elevenlabsConnector } from "./elevenlabs.js";
+import { falConnector } from "./fal.js";
 import type {
   Capability,
   RalphyConnector,
@@ -27,7 +28,10 @@ export type { Capability, RalphyConnector } from "./types.js";
 
 // Registration order = priority for "first available wins". OpenRouter first
 // because it fills the most cells; ElevenLabs owns the audio cells OR doesn't.
-const CONNECTORS: RalphyConnector[] = [openrouterConnector, elevenlabsConnector];
+// fal is a video-only third-party connector (#402) and sits LAST so it never
+// pre-empts OpenRouter as the default video provider — it's reached only via
+// an explicit `--provider fal` (or a fal-only model id).
+const CONNECTORS: RalphyConnector[] = [openrouterConnector, elevenlabsConnector, falConnector];
 
 /** All registered connectors, in priority order. */
 export function listConnectors(): RalphyConnector[] {
