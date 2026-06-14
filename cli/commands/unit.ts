@@ -31,6 +31,8 @@ import {
   type UnitMediaMeta,
   type UnitProvenance,
 } from "../lib/schemas/unit.js";
+import { buildUnitCaption, type CaptionContext } from "../lib/social/caption.js";
+import { isBankStale, LAST_REVIEWED } from "../lib/social/hashtag-bank.js";
 
 const UNITS_DIRNAME = "units";
 
@@ -465,6 +467,123 @@ export function unitCmd() {
         added,
         media_count: parsed.media.length,
         manifest: parsed,
+      });
+    });
+
+  // ── caption (draft platform-shaped social copy + hashtags, #403) ──────────
+  cmd
+    .command("caption <project> [slug]")
+    .description(
+      "Draft platform-shaped social copy (TikTok/Reels/Shorts) + a trending-hashtag set into unit.json. Append-only: --force to re-draft (prior caption archived). --bulk captions every unit.",
+    )
+    .option("--language <lang>", "Target-audience language for the copy", "English")
+    .option("--niche <hint>", "Niche / register hint (picks the voice + hashtag spine; defaults to the unit's tags/provenance)")
+    .option("--brief <text>", "Extra grounding text (on-screen text / source-reel caption / brief)")
+    .option("--bulk", "Caption every unit in the project (slug arg ignored)")
+    .option("--force", "Re-draft even if a caption exists (archives the prior into caption_versions)")
+    .action(async (project: string, slug: string | undefined, opts: any) => {
+      const projectDir = resolveProjectDir(project);
+      const unitsDir = unitsRoot(projectDir);
+
+      // Resolve the target unit dir names: one (slug) or all (--bulk).
+      let targetDirs: string[];
+      if (opts.bulk) {
+        targetDirs = existsSync(unitsDir)
+          ? readdirSync(unitsDir, { withFileTypes: true })
+              .filter((e) => e.isDirectory())
+              .map((e) => e.name)
+              .sort((a, b) => a.localeCompare(b))
+          : [];
+        if (targetDirs.length === 0) {
+          raiseError("E_NOT_FOUND", { kind: "Unit", id: `${project} (no units to caption)` });
+        }
+      } else {
+        if (!slug) {
+          raiseError("E_VALIDATION_FAILED", {
+            target: "<slug>",
+            detail: "a unit slug is required unless --bulk is passed",
+          });
+        }
+        targetDirs = [slug!];
+      }
+
+      const results: Array<Record<string, unknown>> = [];
+      for (const dirName of targetDirs) {
+        const unitDir = path.join(unitsDir, dirName);
+        const manifest = await readUnitManifest(unitDir);
+        if (!manifest) {
+          // In bulk mode, skip non-unit dirs silently; single-slug → hard error.
+          if (opts.bulk) continue;
+          raiseError("E_NOT_FOUND", { kind: "Unit", id: dirName });
+        }
+
+        // Append-only: refuse to clobber an existing caption without --force.
+        if (manifest!.caption && !opts.force) {
+          results.push({
+            slug: manifest!.slug,
+            dir: dirName,
+            skipped: "caption exists — pass --force to re-draft (the prior caption is archived)",
+          });
+          continue;
+        }
+
+        const nicheHint =
+          opts.niche != null
+            ? String(opts.niche)
+            : [manifest!.provenance?.style, manifest!.provenance?.template, ...(manifest!.tags ?? [])]
+                .filter(Boolean)
+                .join(" ");
+
+        const ctx: CaptionContext = {
+          projectId: project,
+          slug: manifest!.slug,
+          format: manifest!.format,
+          language: String(opts.language),
+          niche: nicheHint || undefined,
+          title: manifest!.title,
+          blurb: manifest!.blurb,
+          tags: manifest!.tags,
+          brief: opts.brief != null ? String(opts.brief) : manifest!.blurb,
+        };
+
+        const caption = await buildUnitCaption({ ctx });
+
+        // Archive the prior caption (append-only) when re-drafting with --force.
+        const priorVersions = manifest!.caption_versions ?? [];
+        const caption_versions = manifest!.caption
+          ? [...priorVersions, manifest!.caption]
+          : priorVersions.length
+            ? priorVersions
+            : undefined;
+
+        const updated: UnitManifest = {
+          ...manifest!,
+          caption,
+          ...(caption_versions && { caption_versions }),
+        };
+        const parsed = UnitManifestSchema.parse(updated);
+        await writeUnitManifest(unitDir, parsed);
+
+        results.push({
+          slug: manifest!.slug,
+          dir: dirName,
+          language: caption.language,
+          niche: caption.niche,
+          hashtags: caption.hashtags,
+          caption: caption.platform,
+          re_drafted: Boolean(manifest!.caption),
+        });
+      }
+
+      const captioned = results.filter((r) => !("skipped" in r)).length;
+      ok(`Captioned ${captioned} unit(s)`);
+      out({
+        project,
+        bulk: Boolean(opts.bulk),
+        captioned,
+        bank_last_reviewed: LAST_REVIEWED,
+        bank_stale: isBankStale(),
+        results,
       });
     });
 

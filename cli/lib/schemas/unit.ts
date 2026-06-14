@@ -61,6 +61,39 @@ export const UnitMediaMetaSchema = z.object({
 
 export type UnitMediaMeta = z.infer<typeof UnitMediaMetaSchema>;
 
+/**
+ * Platform-shaped social post copy + a trending-hashtag set (#403). Written by
+ * `ralphy unit caption`. The LLM drafts the per-platform copy (source-grounded
+ * from the unit's media / provenance / brief, in the target-audience language);
+ * the per-niche hashtag bank (`cli/lib/social/hashtag-bank.ts`) supplies the
+ * `hashtags` spine. One invocation shapes all three platforms:
+ *   • tiktok  — one hook line + 3-5 tags inline.
+ *   • reels   — a fuller caption + 10-15 tags.
+ *   • shorts  — a ≤40-char title.
+ * Optional/additive — older `unit.json` files predate it and must still validate.
+ */
+export const UnitCaptionSchema = z.object({
+  /** Per-platform shaped copy. */
+  platform: z.object({
+    /** TikTok: one hook line (+ a few tags appended at render time). */
+    tiktok: z.string(),
+    /** Reels: a fuller caption body. */
+    reels: z.string(),
+    /** Shorts: a ≤40-char title. */
+    shorts: z.string(),
+  }),
+  /** The merged, deduped, ordered hashtag set (niche + format + broad-reach). */
+  hashtags: z.array(z.string()),
+  /** Target-audience language the copy was authored in (e.g. "English"). */
+  language: z.string(),
+  /** Resolved niche key (from the hashtag bank) used to pick the tag spine. */
+  niche: z.string().optional(),
+  /** ISO timestamp the caption was drafted. */
+  created: z.string().optional(),
+});
+
+export type UnitCaption = z.infer<typeof UnitCaptionSchema>;
+
 export const UnitManifestSchema = z.object({
   slug: z.string().regex(SLUG_RE, "unit slug must be kebab-case"),
   format: z.enum(UNIT_FORMATS),
@@ -79,6 +112,10 @@ export const UnitManifestSchema = z.object({
   created: z.string(),
   title: z.string().optional(),
   blurb: z.string().optional(),
+  /** Platform-shaped social copy + hashtags (#403). Optional/additive. */
+  caption: UnitCaptionSchema.optional(),
+  /** Prior captions, archived append-only when `unit caption --force` re-drafts. */
+  caption_versions: z.array(UnitCaptionSchema).optional(),
 });
 
 export type UnitManifest = z.infer<typeof UnitManifestSchema>;

@@ -943,18 +943,24 @@ Manage project-local curated deliverables (units = copies of selected assets +
 provenance)
 
 Options:
-  -h, --help                      display help for command
+  -h, --help                          display help for command
 
 Commands:
-  create [options] <project>      Form a unit by copying matched assets into
-                                  units/<slug>/ + writing unit.json
-  list <project>                  List units in a project
-  show <project> <slug>           Show a unit's manifest + resolved media paths
-  add [options] <project> <slug>  Copy more media into an existing unit (appends
-                                  to media, never drops existing)
-  delete <project> <slug>         Delete a unit directory (destructive — only
-                                  run on explicit user intent)
-  help [command]                  display help for command
+  create [options] <project>          Form a unit by copying matched assets into
+                                      units/<slug>/ + writing unit.json
+  list <project>                      List units in a project
+  show <project> <slug>               Show a unit's manifest + resolved media
+                                      paths
+  add [options] <project> <slug>      Copy more media into an existing unit
+                                      (appends to media, never drops existing)
+  caption [options] <project> [slug]  Draft platform-shaped social copy
+                                      (TikTok/Reels/Shorts) + a trending-hashtag
+                                      set into unit.json. Append-only: --force
+                                      to re-draft (prior caption archived).
+                                      --bulk captions every unit.
+  delete <project> <slug>             Delete a unit directory (destructive —
+                                      only run on explicit user intent)
+  help [command]                      display help for command
 ```
 
 ### `ralphy blueprint`
