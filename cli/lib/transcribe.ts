@@ -184,6 +184,35 @@ function pickBackend(): TranscribeBackend {
   );
 }
 
+// Map an audio file extension to a concrete MIME type. The OpenAI-compatible
+// `/audio/transcriptions` endpoint OpenRouter proxies validates the multipart
+// file part's Content-Type against an audio allowlist and rejects a typeless
+// `application/octet-stream` blob with HTTP 400 (notes/issues/120). A bare
+// `new Blob([bytes])` has an empty `type`, so we must set it explicitly.
+// Default to `audio/mpeg` (mp3) — the documented re-encode target.
+export function audioMimeType(filePath: string): string {
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  switch (ext) {
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "m4a":
+    case "mp4":
+      return "audio/mp4";
+    case "aac":
+      return "audio/aac";
+    case "ogg":
+      return "audio/ogg";
+    case "flac":
+      return "audio/flac";
+    case "webm":
+      return "audio/webm";
+    default:
+      return "audio/mpeg";
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Backend: ElevenLabs Scribe v1 (default)
 //
@@ -220,7 +249,14 @@ async function viaElevenLabs(
   }
   const bytes = await fs.readFile(abs);
   const form = new FormData();
-  form.append("file", new Blob([bytes]), path.basename(abs));
+  // Explicit audio Content-Type on the file part (notes/issues/120) — a typeless
+  // blob is the documented 400 trigger on the OpenAI-compatible endpoints, and
+  // there's no upside to leaving Scribe's file part typeless either.
+  form.append(
+    "file",
+    new Blob([bytes], { type: audioMimeType(abs) }),
+    path.basename(abs),
+  );
   form.append("model_id", "scribe_v1");
   form.append("timestamps_granularity", "word");
   form.append("diarize", "false");
@@ -334,7 +370,15 @@ async function viaOpenRouter(
 
   const bytes = await fs.readFile(abs);
   const form = new FormData();
-  form.append("file", new Blob([bytes]), path.basename(abs));
+  // The file part MUST carry a real audio Content-Type + a filename. A typeless
+  // `new Blob([bytes])` ships as application/octet-stream and the endpoint
+  // rejects it with HTTP 400 (notes/issues/120). Do NOT set a Content-Type
+  // header on the request — fetch must own the multipart boundary.
+  form.append(
+    "file",
+    new Blob([bytes], { type: audioMimeType(abs) }),
+    path.basename(abs),
+  );
   form.append("model", WHISPER_MODEL);
   if (language !== "auto") form.append("language", language);
   form.append("response_format", "verbose_json");
