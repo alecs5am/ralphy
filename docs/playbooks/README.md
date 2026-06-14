@@ -4,6 +4,7 @@ These are the role / domain instruction docs the agent reads on demand. The rout
 
 | Playbook | When the agent should read it |
 |---|---|
+| [agent-production-contract.md](agent-production-contract.md) | **The canonical chat-to-render phase sequence.** Read for ANY "make content" request — it is the source of truth the role playbooks below execute slices of (intake → mode → match → memory → ref gate → style lock → plan → scenario → prompts → assets → render → eval → repair → unit → postmortem). |
 | [researcher.md](researcher.md) | Open research, URL drops, "style from <site>", "analyze @handle", "break down TikTok / Reel", "what's trending in", competitor analysis, video downloads |
 | [scenarist.md](scenarist.md) | "write a script", "make a video about X", "rework scene 3", "rewrite hook", "shorten / lengthen", scenario feedback |
 | [art-director.md](art-director.md) | "generate prompts / assets", "make images / video / VO / music", "regenerate scene-XX", model swap, A/B variants, cost preview |

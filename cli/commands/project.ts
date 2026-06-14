@@ -12,6 +12,7 @@ import { raiseError } from "../lib/errors/index.js";
 import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
+import { evaluateContract } from "../lib/contract.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
 import { extractFrame, audioStats, contactSheet } from "../lib/ffmpeg-recipes.js";
 
@@ -249,6 +250,40 @@ export function projectCmd() {
       }
 
       out({ ...project, status });
+    });
+
+  // ── status (#406) ────────────────────────────────────────────────────────
+  // Machine-readable pipeline-status surface for agents. Bare form mirrors
+  // `show <id> --status` (coarse stage + per-step booleans). `--contract`
+  // returns the full production-contract ledger (per-phase satisfied/missing +
+  // nextRecommendedAction) so an agent can self-check where a project sits in
+  // the contract from `docs/playbooks/agent-production-contract.md`. NOT a
+  // human wizard — JSON guidance only.
+  cmd
+    .command("status <id>")
+    .description(
+      "Machine-readable pipeline status. Bare: coarse stage + per-step booleans. --contract: full production-contract ledger (per-phase satisfied/missing + nextRecommendedAction).",
+    )
+    .option("--contract", "Emit the production-contract phase ledger (#406)")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      if (opts.contract) {
+        out(evaluateContract(id));
+        return;
+      }
+
+      const dir = projectDir(id);
+      const status = await getProjectStatus(id);
+      const scenario = !!(await safeJson(path.join(dir, "scenario.json")));
+      const prompts = !!(await safeJson(path.join(dir, "prompts.json")));
+      const manifest = !!(await safeJson(path.join(dir, "asset-manifest.json")));
+      const render = await fs
+        .access(path.join(dir, "render", "final.mp4"))
+        .then(() => true)
+        .catch(() => false);
+      out({ id, status, steps: { scenario, prompts, assets: manifest, render } });
     });
 
   cmd
