@@ -39,6 +39,15 @@ const SILENT_MP3_B64 =
 
 const SILENT_MP3 = Buffer.from(SILENT_MP3_B64, "base64");
 
+// A buffer that PASSES the #121 audio magic-byte guard (leading "ID3") but is
+// NOT a decodable audio file — ffprobe rejects it as 0-duration / no stream.
+// Used to exercise the #039 ffprobe-verify retry path WITHOUT tripping the
+// geo-block guard, which fires before ffprobe on a truly empty/HTML body.
+const CORRUPT_BUT_AUDIO_MAGIC = Buffer.concat([
+  Buffer.from("ID3"),
+  Buffer.alloc(32, 0),
+]);
+
 function ffprobeAvailable(): boolean {
   const result = spawnSync("ffprobe", ["-version"], { encoding: "utf8" });
   return !result.error && result.status === 0;
@@ -191,10 +200,11 @@ describe("generateVoiceover — ffprobe verify after write (#039)", () => {
         return new Response(JSON.stringify({ voice_id: "v1" }), { status: 200 });
       }
       ttsCalls += 1;
-      // Always return an empty buffer — ffprobe will reject it as
-      // 0-duration / no audio stream and the retry helper should retry once
-      // before bubbling the final TransientPayloadError.
-      return new Response(new Uint8Array(0).buffer, {
+      // Return an audio-magic-but-undecodable buffer — it clears the #121
+      // geo-block guard (leading "ID3") but ffprobe rejects it as 0-duration /
+      // no audio stream, so the retry helper retries once before bubbling the
+      // final TransientPayloadError.
+      return new Response(CORRUPT_BUT_AUDIO_MAGIC, {
         status: 200,
         headers: { "Content-Type": "audio/mpeg" },
       });
@@ -228,8 +238,9 @@ describe("generateVoiceover — ffprobe verify after write (#039)", () => {
         return new Response(JSON.stringify({ voice_id: "v1" }), { status: 200 });
       }
       ttsCalls += 1;
-      // First call: empty buffer (corrupt). Second+: valid silent mp3.
-      const buf = ttsCalls === 1 ? new Uint8Array(0).buffer : SILENT_MP3;
+      // First call: audio-magic-but-undecodable (clears the #121 guard, fails
+      // ffprobe). Second+: valid silent mp3.
+      const buf = ttsCalls === 1 ? CORRUPT_BUT_AUDIO_MAGIC : SILENT_MP3;
       return new Response(buf, {
         status: 200,
         headers: { "Content-Type": "audio/mpeg" },

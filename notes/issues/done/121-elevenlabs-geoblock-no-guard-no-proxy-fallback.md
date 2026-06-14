@@ -1,6 +1,6 @@
 # ElevenLabs geo-block: HTML bodies written as .mp3 (no Content-Type guard), no proxy fallback, proxy calls invisible to gen-log
 
-> **Status:** todo
+> **Status:** done — 2026-06-14 (guard + base-URL proxy seam; real SSH proxy VPS remains user infra via the elevenlabs-proxy skill)
 
 **Found:** 2026-06-11, dianatolks-celebdecode wave 2 (voice clone v2 + full re-voice of projects 007–009). The HTML-in-mp3 symptom was first captured in agent memory in an earlier session; this session showed the block is **progressing per-endpoint** and the CLI still has no guard or fallback.
 
