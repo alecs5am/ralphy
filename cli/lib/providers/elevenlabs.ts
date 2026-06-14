@@ -9,6 +9,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { logGeneration } from "../gen-log.js";
+import { loadConfig, getNestedValue } from "../config.js";
 import {
   assetPath,
   protectExistingAsset,
@@ -32,11 +33,130 @@ const ID = "elevenlabs";
 const LABEL = "ElevenLabs";
 const ENV_VAR = "ELEVENLABS_API_KEY";
 const SIGNUP_URL = "https://elevenlabs.io/app/settings/api-keys";
-const BASE_URL = "https://api.elevenlabs.io/v1";
+const DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
 const UA = "Mozilla/5.0 (compatible; ralphy/1.0)";
 
 function requireKey(): void {
   requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
+}
+
+// ─── base-URL resolver (#121) ─────────────────────────────────────────────────
+//
+// From a geo-blocked region the ElevenLabs API returns HTTP 200 with an HTML
+// body (no 403). The fix has two halves: a guard that refuses to write a
+// non-audio body (assertAudioResponse below), and a transport swap so a user in
+// a blocked region can route every call through a non-blocked proxy WITHOUT a
+// new code path — same verbs, same artifact paths, same gen-log rows.
+//
+// Resolution order mirrors the repo's existing override convention
+// (`RALPHY_LIBRARY_URL` in library/client.ts, `RALPHY_ASSETS_MANIFEST_URL` in
+// assets-repo.ts — env override → default), extended with a persisted
+// config.json key so `ralphy config set elevenlabsBaseUrl <url>` sticks:
+//   1. RALPHY_ELEVENLABS_BASE_URL env var  (per-session / CI override)
+//   2. config.json `elevenlabsBaseUrl`     (persisted user setting)
+//   3. https://api.elevenlabs.io/v1        (default)
+//
+// The proxy host / credentials live ONLY in user config — never committed.
+// Trailing slashes are trimmed so callers can append `/text-to-speech/...` etc.
+export async function elevenLabsBaseUrl(): Promise<string> {
+  const fromEnv = process.env.RALPHY_ELEVENLABS_BASE_URL;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim().replace(/\/+$/, "");
+  try {
+    const cfg = await loadConfig();
+    const fromCfg = getNestedValue(cfg, "elevenlabsBaseUrl");
+    if (typeof fromCfg === "string" && fromCfg.trim()) {
+      return fromCfg.trim().replace(/\/+$/, "");
+    }
+  } catch {
+    /* config unreadable — fall through to default */
+  }
+  return DEFAULT_BASE_URL;
+}
+
+/** True when a non-default (proxy) base URL is configured — used to tailor the geoblock message. */
+async function proxyConfigured(): Promise<boolean> {
+  return (await elevenLabsBaseUrl()) !== DEFAULT_BASE_URL;
+}
+
+// ─── geo-block guard (#121) ───────────────────────────────────────────────────
+//
+// Error thrown when an audio endpoint returns a non-audio body. Carries
+// `code: "E_GEOBLOCK"` so the top-level handler in cli/index.ts maps it to the
+// catalog error (cf. the E_LEGACY_LAYOUT pattern). Extends TerminalProviderError
+// so `retryTransient()` does NOT retry — a geo-block won't resolve on retry, and
+// retrying would only burn time and re-trigger the guard.
+export class GeoblockError extends TerminalProviderError {
+  readonly code = "E_GEOBLOCK" as const;
+  /** Provider label, surfaced into the catalog message. */
+  readonly provider: string;
+  /** Short reason string (content-type / magic-byte mismatch), surfaced into the message. */
+  readonly reason: string;
+  constructor(provider: string, reason: string, message: string) {
+    super(message);
+    this.name = "GeoblockError";
+    this.provider = provider;
+    this.reason = reason;
+  }
+}
+
+/** Audio container magic bytes we accept: ID3 / mp3 frame-sync / RIFF (wav) / OggS / fLaC. */
+function looksLikeAudio(buf: Buffer): boolean {
+  if (buf.length < 2) return false;
+  // ID3v2 tag ("ID3") — typical for ElevenLabs mp3 output.
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true;
+  // Raw MPEG audio frame sync: 0xFF followed by 0xE_/0xF_ (11 sync bits set).
+  if (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) return true;
+  // "RIFF" (wav).
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return true;
+  // "OggS".
+  if (buf[0] === 0x4f && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return true;
+  // "fLaC".
+  if (buf[0] === 0x66 && buf[1] === 0x4c && buf[2] === 0x61 && buf[3] === 0x43) return true;
+  return false;
+}
+
+/**
+ * Guard EVERY audio response BEFORE it touches disk (#121). From a geo-blocked
+ * region ElevenLabs answers 200 with an HTML/JSON body; the old code wrote that
+ * to a corrupt `.mp3` and reported success. This refuses any response whose
+ * `Content-Type` is non-audio OR whose leading bytes are not a known audio
+ * container, throwing GeoblockError (→ E_GEOBLOCK) so NOTHING is written.
+ *
+ * One helper, called at all four audio-write sites (TTS, audio-isolation,
+ * music, sfx) — do not inline the check per site.
+ */
+export async function assertAudioResponse(resp: Response, buf: Buffer): Promise<void> {
+  const ctype = (resp.headers.get("content-type") ?? "").toLowerCase();
+  const nonAudioCtype =
+    ctype !== "" &&
+    !ctype.startsWith("audio/") &&
+    !ctype.startsWith("application/octet-stream") &&
+    (ctype.includes("html") ||
+      ctype.includes("text/") ||
+      ctype.includes("json") ||
+      ctype.includes("xml"));
+  const badMagic = !looksLikeAudio(buf);
+
+  if (!nonAudioCtype && !badMagic) return;
+
+  const reasonParts: string[] = [];
+  if (nonAudioCtype) reasonParts.push(`content-type ${ctype || "(empty)"}`);
+  if (badMagic) {
+    const head = buf.subarray(0, 4).toString("hex");
+    reasonParts.push(`leading bytes 0x${head || "(empty)"} not an audio container`);
+  }
+  const reason = reasonParts.join("; ");
+
+  const usingProxy = await proxyConfigured();
+  const nextStep = usingProxy
+    ? `The configured proxy (RALPHY_ELEVENLABS_BASE_URL / config key elevenlabsBaseUrl) itself returned a non-audio body — check that the proxy is reachable and forwarding to ElevenLabs.`
+    : `This is the geo-block failure mode. Route through a non-blocked proxy by setting RALPHY_ELEVENLABS_BASE_URL=<proxy-base-url> (or persist it with \`ralphy config set elevenlabsBaseUrl <proxy-base-url>\`), then re-run. Proxy host / credentials live in your config only.`;
+
+  throw new GeoblockError(
+    LABEL,
+    reason,
+    `${LABEL} returned a non-audio response (${reason}); refusing to write a corrupt audio file. ${nextStep}`,
+  );
 }
 
 // ─── voice-exists pre-flight (#051) ───────────────────────────────────────────
@@ -58,7 +178,8 @@ export function _resetVoiceExistsCache(): void {
 export async function ensureVoiceExists(voiceId: string, signal?: AbortSignal): Promise<void> {
   if (voiceExistsCache.get(voiceId) === true) return;
   const apiKey = process.env.ELEVENLABS_API_KEY!;
-  const resp = await fetch(`${BASE_URL}/voices/${encodeURIComponent(voiceId)}`, {
+  const baseUrl = await elevenLabsBaseUrl();
+  const resp = await fetch(`${baseUrl}/voices/${encodeURIComponent(voiceId)}`, {
     method: "GET",
     headers: { "xi-api-key": apiKey, "User-Agent": UA },
     signal,
@@ -219,6 +340,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     output_format: "mp3_44100_128",
   };
 
+  const baseUrl = await elevenLabsBaseUrl();
   const localPath = assetPath(input.projectId, "voiceover", `${input.slot}.mp3`);
 
   // #039: per-slot file lock — two parallel calls targeting the same dest path
@@ -249,7 +371,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
             // hard-failed 429s with 9 parallel calls. Semaphore key is "tts" so
             // every voice / model on the TTS endpoint shares one cap.
             resp = await withConcurrency(ID, "tts", "voice", () =>
-              fetch(`${BASE_URL}/text-to-speech/${input.voiceId}`, {
+              fetch(`${baseUrl}/text-to-speech/${input.voiceId}`, {
                 method: "POST",
                 headers: {
                   "xi-api-key": apiKey,
@@ -273,6 +395,11 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
             throw new Error(message);
           }
           const buf = Buffer.from(await resp.arrayBuffer());
+
+          // #121: geo-block guard BEFORE any disk write — a non-audio body
+          // (HTML/JSON from a geo-blocked region answering 200) throws
+          // GeoblockError (→ E_GEOBLOCK) and writes nothing.
+          await assertAudioResponse(resp, buf);
 
           // Write to disk THEN verify. Write-then-verify (vs. verify-buf-in-memory)
           // catches partial-flush / filesystem-truncation classes too — the
@@ -399,6 +526,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
     throw new Error(`voice clone: source audio at ${input.fromPath} is 0 bytes`);
   }
 
+  const baseUrl = await elevenLabsBaseUrl();
   let uploadPath = input.fromPath;
   let isolatedPath: string | undefined;
 
@@ -413,7 +541,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
       path.basename(input.fromPath),
     );
     const isoResp = await withConcurrency(ID, "voice-clone", "voice", () =>
-      fetch(`${BASE_URL}/audio-isolation`, {
+      fetch(`${baseUrl}/audio-isolation`, {
         method: "POST",
         headers: {
           "xi-api-key": apiKey,
@@ -428,6 +556,8 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
       throw new Error(`ElevenLabs audio-isolation ${isoResp.status}: ${text.slice(0, 400)}`);
     }
     const isoBuf = Buffer.from(await isoResp.arrayBuffer());
+    // #121: guard the isolated audio body before writing it to disk.
+    await assertAudioResponse(isoResp, isoBuf);
     const ext = path.extname(input.fromPath) || ".mp3";
     const base = path.basename(input.fromPath, ext);
     isolatedPath = path.join(path.dirname(input.fromPath), `${base}.isolated${ext}`);
@@ -451,7 +581,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
   );
 
   const resp = await withConcurrency(ID, "voice-clone", "voice", () =>
-    fetch(`${BASE_URL}/voices/add`, {
+    fetch(`${baseUrl}/voices/add`, {
       method: "POST",
       headers: {
         "xi-api-key": apiKey,
@@ -528,6 +658,8 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     model_id: modelId,
   };
 
+  const baseUrl = await elevenLabsBaseUrl();
+
   // #005: wrap the Music POST in transient-error retry. 4xx (including 422
   // `bad_prompt` ToS — #006 owns the auto-resubmit) → terminal. 5xx / TLS /
   // socket → 2-retry backoff. The `promptSuggestion` rewrite stays on the
@@ -541,7 +673,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
         // `concurrent_limit_exceeded`). Semaphore key is the modelId so a
         // future `music_v2` gets its own cap entry in MODELS.md.
         resp = await withConcurrency(ID, modelId, "music", () =>
-          fetch(`${BASE_URL}/music`, {
+          fetch(`${baseUrl}/music`, {
             method: "POST",
             headers: {
               "xi-api-key": apiKey,
@@ -585,7 +717,10 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
         }
         throw err;
       }
-      return { buf: Buffer.from(await resp.arrayBuffer()), attempt };
+      const buf = Buffer.from(await resp.arrayBuffer());
+      // #121: geo-block guard before the buffer escapes the response context.
+      await assertAudioResponse(resp, buf);
+      return { buf, attempt };
     },
     {
       noRetry: input.noRetry,
@@ -639,9 +774,10 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
     output_format: "mp3_44100_128",
   };
 
+  const baseUrl = await elevenLabsBaseUrl();
   let resp: Response;
   try {
-    resp = await fetch(`${BASE_URL}/sound-generation`, {
+    resp = await fetch(`${baseUrl}/sound-generation`, {
       method: "POST",
       headers: {
         "xi-api-key": apiKey,
@@ -664,6 +800,14 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
   }
 
   const buf = Buffer.from(await resp.arrayBuffer());
+  // #121: geo-block guard BEFORE any disk write. Log the failure row (matching
+  // the other sfx error paths) then rethrow so nothing is written.
+  try {
+    await assertAudioResponse(resp, buf);
+  } catch (err) {
+    await logFailure(input, ID, modelId, "sfx", body, err, t0);
+    throw err;
+  }
   const localPath = assetPath(input.projectId, "sfx", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
   await protectExistingAsset(localPath, input.overwrite);

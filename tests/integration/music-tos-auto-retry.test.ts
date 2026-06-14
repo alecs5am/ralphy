@@ -74,8 +74,9 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
           { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
-      // Successful music response — binary mp3-ish blob.
-      return new Response(new Uint8Array([0, 1, 2, 3]).buffer, {
+      // Successful music response — mp3-ish blob with a valid "ID3" header so
+      // it clears the #121 geo-block magic-byte guard.
+      return new Response(new Uint8Array([0x49, 0x44, 0x33, 0, 1, 2, 3]).buffer, {
         status: 200,
         headers: { "Content-Type": "audio/mpeg" },
       });
@@ -171,7 +172,8 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
     let calls = 0;
     globalThis.fetch = (async () => {
       calls += 1;
-      return new Response(new Uint8Array([0, 1, 2, 3]).buffer, {
+      // "ID3" header so the body clears the #121 geo-block magic-byte guard.
+      return new Response(new Uint8Array([0x49, 0x44, 0x33, 0, 1, 2, 3]).buffer, {
         status: 200,
         headers: { "Content-Type": "audio/mpeg" },
       });
