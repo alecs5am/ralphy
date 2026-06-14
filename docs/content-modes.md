@@ -36,6 +36,16 @@ The flow reads top-to-bottom:
 
 This composes with — it does not replace — the existing routing table in [`AGENTS.md`](../AGENTS.md) and the template/skill/Unit model in [`docs/skills-vs-templates.md`](skills-vs-templates.md). The mode is the bridge from a plain chat brief into that machinery.
 
+## Supported vs unsupported modes (do NOT over-promise)
+
+Every entry carries a `supported: boolean` and an `implementationUnit` (#413). A mode is **supported** iff it has a concrete implementation unit (a default route — a craft skill, a guideline-locked `generate` route, or the render engine) plus quality gates and a Unit shape. The full audit + the mode→unit mapping is [`docs/content-mode-coverage.md`](content-mode-coverage.md); the machine-readable flags live on the registry (`supported`, `implementationUnit`, `isModeSupported()`).
+
+`classifyContentMode()` still returns **all 20 modes**, including the unsupported ones — the agent must be able to recognize the intent. But:
+
+> **Agent rule: never expose an UNSUPPORTED mode name to the user as a deliverable you will produce.** When a brief classifies to a `gap (deferred)` mode (currently `virtual-model-tryout`, `personal-clipper`, `amazon-listing`), either route to the closest SUPPORTED mode and say so, or tell the user it is not yet a first-class route and point at the recommended unit — then proceed only on explicit go. Promising a tuned pipeline that does not exist falls back to weak generic prompts; that is the failure #413 exists to prevent. Gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
+
+#417 reads the same `supported` flag to check guideline coverage only for first-class routes.
+
 ## The classifier
 
 ```ts

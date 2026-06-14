@@ -1,6 +1,8 @@
 # 413 - Backfill skills, templates, and tests for content modes
 
-Status: active
+> **Status:** done — 2026-06-14 (docs/content-mode-coverage.md maps all 20 #412 modes to existing units: 17 supported, 3 deferred gaps; supported:boolean + implementationUnit on the registry + isModeSupported(); per-supported-mode routing + plan fixtures; do-not-promise-unsupported rule. Heavy new skills/templates for the 3 gaps deferred to #058.)
+
+Status: done
 
 ## Problem
 
