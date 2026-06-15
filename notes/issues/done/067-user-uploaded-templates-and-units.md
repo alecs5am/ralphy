@@ -1,6 +1,6 @@
 # User-uploaded templates & units (community contributions)
 
-> **Status:** exploring (design-first — depends on #064)
+> **Status:** done — 2026-06-15 (design round only — docs/architecture/community-uploads-design.md: auth/ownership, upload pipeline, layered classifier-first+manual moderation, draft→review→public state machine, quotas/abuse, farm wiring, the trust-boundary contrast with #056, and a reframed backend prerequisite — #064 + its Supabase successor are BOTH retired, so the doc frames community uploads as the capability that forces a real write backend back into existence. No code/auth/DB built.)
 > **Filed:** 2026-05-31
 > **Folder:** issues
 > **Severity:** high (new capability)
