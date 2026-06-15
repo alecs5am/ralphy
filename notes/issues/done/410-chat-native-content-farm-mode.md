@@ -1,6 +1,6 @@
 # Chat-native content farm mode
 
-> **Status:** exploring
+> **Status:** done — 2026-06-15 (farm-mode workflow in producer.md composing shared style-lock/#408 + modes/#412 + variation matrix + eval triage/#411 + repair/#409 + unit + bulk caption/#403; `ralphy batch review <id>` pure aggregator — winners/failures/cost/style-drift/repeated-model-failures/recommended-repairs; routing fixtures for "make N X" → farm via the #416 multi-unit-farm trigger)
 > **Filed:** 2026-06-14
 > **Folder:** issues
 > **Severity:** high
