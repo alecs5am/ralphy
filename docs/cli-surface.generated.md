@@ -1628,15 +1628,25 @@ Usage: ralphy eval [options] [command]
 Evaluate the quality of a rendered video
 
 Options:
-  -h, --help              display help for command
+  -h, --help                    display help for command
 
 Commands:
-  video [options] <path>  Run the eval pipeline on a single mp4 and write
-                          eval-report.md + eval.json. Defaults to the
-                          native-video final gate (full-mp4 model pass) when a
-                          model provider is configured; without one it falls
-                          back to structure-only (not a ship gate).
-  help [command]          display help for command
+  video [options] <path>        Run the eval pipeline on a single mp4 and write
+                                eval-report.md + eval.json. Defaults to the
+                                native-video final gate (full-mp4 model pass)
+                                when a model provider is configured; without one
+                                it falls back to structure-only (not a ship
+                                gate).
+  fidelity [options] <project>  Run the product/brand fidelity gate (#422):
+                                compare the project's generated stills against
+                                the LOCKED product/brand refs +
+                                research-facts.json (productFacts /
+                                claimsToAvoid). Commercial modes only — a
+                                non-commercial project returns a not-applicable
+                                pass. Writes fidelity.json (append-only) and
+                                prints the verdict + blocksShip. Example: ralphy
+                                eval fidelity glitter-cream-001
+  help [command]                display help for command
 ```
 
 ### `ralphy research`

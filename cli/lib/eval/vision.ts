@@ -106,9 +106,11 @@ export async function analyzeScenes(
   return out.sort((a, b) => a.sceneIndex - b.sceneIndex);
 }
 
-async function fileToDataUri(file: string): Promise<string> {
+/** Read an image file into a base64 `data:` URI for multimodal `image_url` parts. */
+export async function fileToDataUri(file: string): Promise<string> {
   const buf = await fs.readFile(file);
-  const ext = file.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+  const lower = file.toLowerCase();
+  const ext = lower.endsWith(".png") ? "png" : lower.endsWith(".webp") ? "webp" : "jpeg";
   return `data:image/${ext};base64,${buf.toString("base64")}`;
 }
 
