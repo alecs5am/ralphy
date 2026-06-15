@@ -319,6 +319,37 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     },
     { label: "project.status", shape: { id: "demo-001", status: "assets", steps: { scenario: true, prompts: true, assets: false, render: false } } },
     { label: "project.deleted", shape: { deleted: "demo-001" } },
+    {
+      label: "project.image-pack.scaffold",
+      shape: {
+        project: "take-a-minute-001",
+        kind: "app-store",
+        aspect: "9:16",
+        slotCount: 10,
+        slots: [
+          { id: "hero", role: "hero", compositionClass: "device-frame-headline" },
+          { id: "cta", role: "cta", compositionClass: "text-card-cta" },
+        ],
+        packJson: "pack.json",
+        promptsJsonl: "prompts/pack.jsonl",
+        batchCommand: "ralphy generate image --project take-a-minute-001 --batch prompts/pack.jsonl --aspect 9:16",
+      },
+    },
+    {
+      label: "project.image-pack.score",
+      shape: {
+        project: "take-a-minute-001",
+        kind: "app-store",
+        expectedSlots: 10,
+        coveredSlots: 0,
+        selectedCount: 0,
+        verdict: "fail",
+        score: 75,
+        findings: [
+          { id: "IP1", category: "image-pack.role-coverage", severity: "fail", sceneIndex: null, timestampSec: null, message: "missing slots", fixHint: "generate them", fixCommand: "ralphy generate image ..." },
+        ],
+      },
+    },
   ],
   prompts: [
     {

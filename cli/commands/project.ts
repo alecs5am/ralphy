@@ -39,6 +39,8 @@ import {
 } from "../lib/style-lock.js";
 import { llmEnrichStyleLock } from "../lib/style-lock-enrich.js";
 import { getContentMode } from "../lib/content-modes.js";
+import { scaffoldImagePack, scoreImagePack } from "../lib/image-pack.js";
+import { isImagePackKind, IMAGE_PACK_KINDS } from "../lib/schemas/image-pack.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
 import { extractFrame, audioStats, contactSheet } from "../lib/ffmpeg-recipes.js";
@@ -962,6 +964,74 @@ export function projectCmd() {
       if (opts.strict && !result.passed) {
         process.exit(1);
       }
+    });
+
+  // ── image-pack (#429) ─────────────────────────────────────────────────────────
+  // First-class image-pack workflow scaffold + eval rubric. The NEW glue around
+  // pieces that already exist: it EMITS a batch-ready prompts/pack.jsonl for
+  // `generate image --batch` (#024), creates the `selected/` sibling so the
+  // contract probe (cli/lib/contract.ts) types the project as `image-pack`, and
+  // writes pack.json (the ImagePackSpec + provenance). Append-only (#14) — a
+  // prior pack.json auto-versions unless --force. `--score` runs the deterministic
+  // image-pack rubric (role coverage / aspect / selected-set cohesion; model-
+  // dependent checks are seams to #439/#422). JSON output. Run AFTER
+  // `ralphy project create --id <id> --kind image-pack`.
+  cmd
+    .command("image-pack <id>")
+    .description(
+      "Scaffold a first-class image-pack workflow (#429): writes pack.json (slot roles + composition classes per kind) + a batch-ready prompts/pack.jsonl for `generate image --batch` (#024), and creates artifacts/images/, artifacts/refs/, selected/, prompts/, logs/. Default slot sets per --kind: app-store / play-store (hero → feature-callouts → lifestyle → dimensions → comparison → usage → cta), ad-creative (the fb-creatives A-E 5-set), social (cover + N feed). --count tunes the repeatable middle of the set. Append-only — a prior pack.json auto-versions unless --force. --score runs the deterministic eval rubric (role coverage / aspect / selected-set cohesion) instead of scaffolding. JSON output. Example: ralphy project image-pack take-a-minute-001 --kind app-store --count 4",
+    )
+    .option("--kind <kind>", `Pack kind: ${IMAGE_PACK_KINDS.join(" | ")}`, "app-store")
+    .option("--count <n>", "Tune the repeatable middle of the slot set (feature callouts / feed stills / concepts-per-set)", (v) => parseInt(v, 10))
+    .option("--force", "Bypass append-only auto-versioning and overwrite an existing pack.json / prompts/pack.jsonl in place")
+    .option("--score", "Run the deterministic image-pack eval rubric (role coverage / aspect / selected-set cohesion) instead of scaffolding")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      // ── --score: run the rubric, write nothing ──
+      if (opts.score) {
+        const result = scoreImagePack({ projectId: id });
+        out({
+          project: result.project,
+          kind: result.kind ?? null,
+          expectedSlots: result.expectedSlots,
+          coveredSlots: result.coveredSlots,
+          selectedCount: result.selectedCount,
+          verdict: result.scoring.verdict,
+          score: result.scoring.score,
+          findings: result.findings,
+        });
+        return;
+      }
+
+      // ── scaffold path ──
+      const kind = String(opts.kind || "app-store");
+      if (!isImagePackKind(kind)) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--kind",
+          detail: `unknown image-pack kind '${kind}'. Allowed: ${IMAGE_PACK_KINDS.join(" | ")}`,
+        });
+      }
+      const result = await scaffoldImagePack({
+        projectId: id,
+        kind: kind as any,
+        count: typeof opts.count === "number" && !Number.isNaN(opts.count) ? opts.count : undefined,
+        force: opts.force === true,
+      });
+
+      ok(`Image pack scaffolded for ${id} (${result.kind}, ${result.slotCount} slot(s))`);
+      out({
+        project: result.projectId,
+        kind: result.kind,
+        aspect: result.spec.aspect,
+        slotCount: result.slotCount,
+        slots: result.spec.slots.map((s) => ({ id: s.id, role: s.role, compositionClass: s.compositionClass })),
+        packJson: result.packJson,
+        promptsJsonl: result.promptsJsonl,
+        batchCommand: result.batchCommand,
+        ...(result.archivedPackJson ? { archivedPackJson: result.archivedPackJson } : {}),
+      });
     });
 
   // ── scorecard (#427) ────────────────────────────────────────────────────────
