@@ -13,6 +13,8 @@ import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, t
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
 import { evaluateContract } from "../lib/contract.js";
+import { buildScorecard } from "../lib/scorecard.js";
+import { SCORECARD_ARTIFACT } from "../lib/schemas/scorecard.js";
 import { buildRepairPlan, renderRepairPlanMarkdown, type DeepVisionFile } from "../lib/repair.js";
 import type { EvalReport } from "../lib/eval/types.js";
 import {
@@ -960,6 +962,47 @@ export function projectCmd() {
       if (opts.strict && !result.passed) {
         process.exit(1);
       }
+    });
+
+  // ── scorecard (#427) ────────────────────────────────────────────────────────
+  // Deterministic release-readiness AGGREGATOR. It INGESTS the reports the other
+  // gates already produced (eval.json, fidelity.json, council-polish.json,
+  // STYLE_LOCK.md, distribution-pack.json) + the contract's `polished` and merges
+  // them into ONE mode-aware verdict. It re-runs NOTHING and makes ZERO model
+  // calls. Writes scorecard.json (append-only, auto-versions via
+  // protectExistingAsset; never overwrites — AGENTS.md #14). JSON output.
+  cmd
+    .command("scorecard <id>")
+    .description(
+      "Release-readiness scorecard (#427). Deterministic AGGREGATOR — INGESTS the persisted gate reports (eval.json, fidelity.json, council-polish.json, STYLE_LOCK.md, distribution-pack.json) + the contract's native-video-gated `polished` and merges them into ONE mode-aware verdict (ship | repair | needs-user-decision | blocked) with twelve per-dimension readings. Re-runs no gate, makes ZERO model calls, never mutates the project. A missing source artifact makes that dimension `na`. Writes scorecard.json (append-only, auto-versions). JSON output. Example: ralphy project scorecard spring-001 --mode ugc-review",
+    )
+    .option("--mode <mode>", "Content-mode override for the thresholds (default: production-plan.json contentMode)")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const card = buildScorecard({ projectId: id, mode: opts.mode ? String(opts.mode) : null });
+
+      // Append-only: auto-version a prior scorecard.json (protectExistingAsset
+      // renames the existing file to .v{N}). AGENTS.md #14.
+      const dir = projectDir(id);
+      await fs.mkdir(dir, { recursive: true });
+      const jsonPath = path.join(dir, SCORECARD_ARTIFACT);
+      const archivedJson = await protectExistingAsset(jsonPath, false);
+      await fs.writeFile(jsonPath, JSON.stringify(card, null, 2) + "\n");
+
+      ok(`Scorecard for ${id} — verdict: ${card.verdict}${card.polished === null ? "" : ` (polished: ${card.polished})`}`);
+      out({
+        project: id,
+        verdict: card.verdict,
+        polished: card.polished,
+        reason: card.reason,
+        mode: card.mode,
+        requiredDimensions: card.requiredDimensions,
+        dimensions: card.dimensions,
+        artifact: jsonPath,
+        ...(archivedJson ? { archivedJson } : {}),
+      });
     });
 
   cmd

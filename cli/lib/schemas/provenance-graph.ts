@@ -50,6 +50,7 @@ export const PROVENANCE_NODE_KINDS = [
   "generated-asset",
   "render",
   "eval-report",
+  "scorecard",
   "council-report",
   "repair-plan",
   "final-media",

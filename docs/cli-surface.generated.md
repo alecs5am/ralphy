@@ -917,6 +917,20 @@ Commands:
                                 filenames.
   score [options] <id>          Run virality rubric over scenario.json (Hard
                                 fails + warnings, no LLM)
+  scorecard [options] <id>      Release-readiness scorecard (#427).
+                                Deterministic AGGREGATOR — INGESTS the persisted
+                                gate reports (eval.json, fidelity.json,
+                                council-polish.json, STYLE_LOCK.md,
+                                distribution-pack.json) + the contract's
+                                native-video-gated `polished` and merges them
+                                into ONE mode-aware verdict (ship | repair |
+                                needs-user-decision | blocked) with twelve
+                                per-dimension readings. Re-runs no gate, makes
+                                ZERO model calls, never mutates the project. A
+                                missing source artifact makes that dimension
+                                `na`. Writes scorecard.json (append-only,
+                                auto-versions). JSON output. Example: ralphy
+                                project scorecard spring-001 --mode ugc-review
   transcribe [options] <id>     Transcribe an audio file → captions.json
                                 (Caption[]). Default backend: ElevenLabs Scribe
                                 v1 (word-level).

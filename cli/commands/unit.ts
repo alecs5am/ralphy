@@ -35,6 +35,8 @@ import { buildUnitCaption, type CaptionContext } from "../lib/social/caption.js"
 import { isBankStale, LAST_REVIEWED } from "../lib/social/hashtag-bank.js";
 import { buildProvenanceGraph } from "../lib/provenance.js";
 import { PROVENANCE_GRAPH_FILENAME } from "../lib/schemas/provenance-graph.js";
+import { buildScorecard } from "../lib/scorecard.js";
+import { logUserPrompt } from "../lib/gen-log.js";
 import { buildDistributionPack } from "../lib/distribution.js";
 import {
   DISTRIBUTION_PACK_FILE,
@@ -376,6 +378,14 @@ export function unitCmd() {
     .option("--style <slug>", "Provenance: the visual style slug")
     .option("--recipe <slug>", "Provenance: a recipe slug (repeatable)", collect, [])
     .option("--asset <slug>", "Provenance: a reusable asset slug (repeatable)", collect, [])
+    .option(
+      "--polished",
+      "Mark this Unit polished — consults the readiness scorecard (#427) and REFUSES when the verdict is `blocked` (a hard gate failed)",
+    )
+    .option(
+      "--force-polished <reason>",
+      "Bypass the scorecard gate on --polished with an explicit user reason (logged)",
+    )
     .action(async (project: string, opts: any) => {
       const slug = String(opts.slug);
       if (!isValidUnitSlug(slug)) {
@@ -399,6 +409,31 @@ export function unitCmd() {
           target: "--from",
           detail: `no files matched '${opts.from}' relative to ${projectDir}`,
         });
+      }
+
+      // ── polished-gate (#427) ────────────────────────────────────────────────
+      // Opt-in only: the existing happy path (no --polished) is untouched. When
+      // the user asks for polished status, consult the readiness scorecard (which
+      // itself reuses the contract's native-video gate) and REFUSE if the verdict
+      // is `blocked` — a hard gate failed (fidelity blocksShip / council block /
+      // failed eval / a failed required dimension). --force-polished <reason>
+      // bypasses with an explicit, logged user reason (AGENTS.md #4 — gates
+      // refuse, not warn; the bypass is the user's explicit override).
+      if (opts.polished) {
+        const card = buildScorecard({ projectId: project });
+        if (card.verdict === "blocked") {
+          if (opts.forcePolished) {
+            await logUserPrompt(project, {
+              stage: "force-polished",
+              text: `Polished-unit gate bypassed for slug "${slug}" (scorecard blocked): ${String(opts.forcePolished)}`,
+            });
+          } else {
+            raiseError("E_GATE_VIDEO", {
+              slot: `unit:${slug}`,
+              detail: `readiness scorecard verdict is "blocked" — ${card.reason} Run \`ralphy project scorecard ${project}\`, fix the blocker, or pass --force-polished "<reason>" to override.`,
+            });
+          }
+        }
       }
 
       const unitsDir = unitsRoot(projectDir);
