@@ -54,6 +54,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       ],
     },
     { label: "batch.review", shape: { batch: "spring-batch-001", total: 5, passed: 4, failed: 1, mean_score: 7.8 } },
+    {
+      label: "batch.tournament",
+      shape: {
+        baseId: "musicbed-001",
+        scorer: "manual",
+        champion: { variantId: "bed-a-001", score: 88, axis: "music-bed", rank: 1 },
+        ranked: [
+          { variantId: "bed-a-001", score: 88, axis: "music-bed", rank: 1 },
+          { variantId: "bed-b-001", score: 70, axis: "music-bed", rank: 2 },
+        ],
+        losers: [{ variantId: "bed-b-001", score: 70, rationale: "Lost to bed-a-001 (score 70 vs 88)." }],
+        cost: { totalUsd: 1.2, byVariant: [{ variantId: "bed-a-001", cost: 0.6 }, { variantId: "bed-b-001", cost: 0.6 }] },
+      },
+    },
   ],
   blueprint: [
     {

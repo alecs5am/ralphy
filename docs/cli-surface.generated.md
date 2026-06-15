@@ -1285,31 +1285,39 @@ Usage: ralphy batch [options] [command]
 Manage batch operations
 
 Options:
-  -h, --help             display help for command
+  -h, --help                 display help for command
 
 Commands:
-  create [options]       Create a batch
-  list                   List all batches
-  show <id>              Show batch details
-  status <id>            Show batch status
-  review <id>            Deterministic farm-mode triage over a batch's member
-                         projects (#410). Rolls up winners (ship-ready, #411),
-                         failures (failed eval), a cost roll-up (sum of
-                         per-project generations.jsonl cost_usd), style drift
-                         (eval style.*/brief.* findings vs the shared style
-                         lock), repeated model failures (the same model/error
-                         recurring across ≥2 items), and recommended repairs
-                         (the #409 owner buckets). Makes ZERO model calls — pure
-                         aggregation over existing artifacts. JSON output.
-  delete [options] <id>  Delete a batch
-  submit [options]       Submit a batch of jobs to the local daemon with
-                         symbolic dependencies. Use this for the 'N generations
-                         + 1 render' pattern.
-  vary [options]         Create N project variants from a base project differing
-                         on one axis (hook / body / cta / persona). Use this for
-                         A/B testing the hook without re-running the rest of the
-                         pipeline.
-  help [command]         display help for command
+  create [options]           Create a batch
+  list                       List all batches
+  show <id>                  Show batch details
+  status <id>                Show batch status
+  review <id>                Deterministic farm-mode triage over a batch's
+                             member projects (#410). Rolls up winners
+                             (ship-ready, #411), failures (failed eval), a cost
+                             roll-up (sum of per-project generations.jsonl
+                             cost_usd), style drift (eval style.*/brief.*
+                             findings vs the shared style lock), repeated model
+                             failures (the same model/error recurring across ≥2
+                             items), and recommended repairs (the #409 owner
+                             buckets). Makes ZERO model calls — pure aggregation
+                             over existing artifacts. JSON output.
+  tournament [options] <id>  Rank a batch's variant projects, pick a champion,
+                             and preserve the losers with rationale (#421).
+                             Model-assisted by default (scoreImage for still
+                             variants, scoreVideo for clip variants); --manual
+                             <scores.json> for the cheap no-model mode. Writes
+                             tournament.json. NEVER deletes a losing variant
+                             (append-only #14).
+  delete [options] <id>      Delete a batch
+  submit [options]           Submit a batch of jobs to the local daemon with
+                             symbolic dependencies. Use this for the 'N
+                             generations + 1 render' pattern.
+  vary [options]             Create N project variants from a base project
+                             differing on one axis (hook / body / cta /
+                             persona). Use this for A/B testing the hook without
+                             re-running the rest of the pipeline.
+  help [command]             display help for command
 ```
 
 ### `ralphy asset`
