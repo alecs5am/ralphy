@@ -161,6 +161,18 @@ export async function buildProvenanceGraph(
     });
   }
 
+  // ── readiness scorecard (#427) — a citable artifact that aggregates eval +
+  //    fidelity + council + style-lock + distribution into the final verdict ──
+  if (present(dir, "scorecard.json")) {
+    add({
+      id: "scorecard",
+      kind: "scorecard",
+      label: "Readiness scorecard",
+      ref: "scorecard.json",
+      parents: present(dir, "eval.json") ? ["eval"] : [],
+    });
+  }
+
   // ── council reports (preflight + polish, append-only auto-versions ignored) ──
   for (const phase of ["preflight", "polish"] as const) {
     const ref = `council-${phase}.json`;
