@@ -9,8 +9,13 @@
 //   bun run build:bin                # all targets, dist/binaries/
 //   bun run build:bin -- --current   # current platform only (faster)
 //   bun run build:bin -- --no-bytecode  # skip bytecode (smaller, slower start)
+//   bun run build:bin -- --smoke     # after build, exec the current-platform binary's
+//                                    # --version and fail (non-zero exit) if it crashes
+//                                    # or prints no version. Guards against the #002
+//                                    # class of bug: a "successful" build of a binary
+//                                    # that crashes at startup (e.g. broken bytecode).
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
@@ -74,10 +79,64 @@ async function shasum(file: string): Promise<string> {
   return crypto.createHash("sha256").update(buf).digest("hex");
 }
 
+/** Outcome of inspecting a `--version` spawn result. */
+export type SmokeOutcome = { ok: true; version: string } | { ok: false; reason: string };
+
+/**
+ * Pure verdict over a `spawnSync(--version)` result. Separated from the spawn so
+ * the pass/fail logic is unit-testable without compiling a real binary. A binary
+ * passes only when it exits 0 AND prints a semver-ish version to stdout — a
+ * crashed binary (the #002 bytecode class) exits non-zero or prints its error to
+ * stderr, leaving stdout empty, so both modes are caught here.
+ */
+export function evaluateSmokeResult(res: {
+  error?: Error | null;
+  status: number | null;
+  stdout?: string | null;
+  stderr?: string | null;
+}): SmokeOutcome {
+  if (res.error) {
+    return { ok: false, reason: `failed to exec: ${res.error.message}` };
+  }
+  if (res.status !== 0) {
+    const detail = (res.stderr || res.stdout || "").trim();
+    return { ok: false, reason: `--version exited ${res.status}${detail ? `\n${detail}` : ""}` };
+  }
+  const version = (res.stdout || "").trim();
+  if (!/\d+\.\d+\.\d+/.test(version)) {
+    return { ok: false, reason: `--version printed no version (stdout=${JSON.stringify(version)})` };
+  }
+  return { ok: true, version };
+}
+
+/**
+ * Post-build smoke test: exec the just-built current-platform binary's `--version`
+ * and throw if it crashes or prints no version. The build step reports success
+ * even when `bun build --compile` emits a broken binary (the #002 bytecode-crash
+ * class), so a "✓ Built" log is NOT proof the binary runs. This closes that gap.
+ *
+ * Only the current-platform binary is exec-able on this host, so cross-target
+ * builds are smoke-tested for the host's target only.
+ */
+function smoke(distDir: string): void {
+  const cur = currentTarget();
+  const binPath = path.join(distDir, cur.out);
+  console.log(`\n▸ smoke: ${cur.out} --version`);
+
+  const res = spawnSync(binPath, ["--version"], { encoding: "utf8", timeout: 60_000 });
+  const outcome = evaluateSmokeResult(res);
+
+  if (!outcome.ok) {
+    throw new Error(`smoke: ${cur.out} ${outcome.reason}`);
+  }
+  console.log(`  ✓ ${outcome.version}`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const onlyCurrent = args.includes("--current");
   const noBytecode = args.includes("--no-bytecode");
+  const withSmoke = args.includes("--smoke");
 
   const distDir = path.resolve("dist/binaries");
   await fs.rm(distDir, { recursive: true, force: true });
@@ -107,9 +166,17 @@ async function main() {
 
   console.log(`\n✓ Built ${targets.length} binar${targets.length === 1 ? "y" : "ies"} in ${elapsed}s`);
   console.log(`  → ${distDir}`);
+
+  if (withSmoke) smoke(distDir);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+const isDirect =
+  typeof process !== "undefined" &&
+  process.argv[1] &&
+  (process.argv[1].endsWith("build-binaries.ts") || process.argv[1].endsWith("build-binaries.js"));
+if (isDirect) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
