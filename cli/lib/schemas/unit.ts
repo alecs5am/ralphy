@@ -102,6 +102,23 @@ export const UnitManifestSchema = z.object({
   /** Per-file intrinsic aspect + kind, keyed by filename. Optional/additive. */
   media_meta: z.record(z.string(), UnitMediaMetaSchema).optional(),
   provenance: UnitProvenanceSchema.optional(),
+  /**
+   * Provenance GRAPH (#420) — the filename of the sibling `provenance.json` that
+   * holds the rich reproduction chain (brief → research → style lock → prompts →
+   * refs → generated assets → render → eval → council → repair → final media).
+   * Stored as a SIBLING file (not inlined) to keep `unit.json` compact; this
+   * field is just the pointer. Optional/additive — old units omit it and still
+   * validate. See `cli/lib/schemas/provenance-graph.ts` for the storage rationale.
+   *
+   * ponytail: the publish path (landing/scripts/publish-entity.ts → UnitManifest)
+   * does not yet read `provenance_graph` / the sibling provenance.json when
+   * building public library entities (#420 scope item). It is deliberately
+   * deferred: publish-entity lives in the landing app (out of scope for this CLI
+   * change) and currently passes unknown fields through untouched, so nothing
+   * breaks. To wire it: add `provenance_graph?: string` to that interface and
+   * upload the sibling provenance.json alongside the unit's media + JSON.
+   */
+  provenance_graph: z.string().optional(),
   /** Tags (#082): textual descriptors for finding similar videos. Filter-only —
    *  carried into the published Unit + the units `tags` column. Optional/additive,
    *  kept in lockstep with `Unit.tags` in landing/lib/library-v2/types.ts. */
