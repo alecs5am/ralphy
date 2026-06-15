@@ -979,6 +979,13 @@ Commands:
                                       set into unit.json. Append-only: --force
                                       to re-draft (prior caption archived).
                                       --bulk captions every unit.
+  package [options] <project> <slug>  Package a unit for publication:
+                                      per-platform captions/titles/hashtags +
+                                      Meta ad text + thumbnail pick + a copied
+                                      deliverables bundle. Reuses the unit's
+                                      caption (#403) when present, else drafts
+                                      one. Append-only: re-package archives the
+                                      prior (--force).
   delete <project> <slug>             Delete a unit directory (destructive —
                                       only run on explicit user intent)
   help [command]                      display help for command
