@@ -585,6 +585,7 @@ export function projectCmd() {
         aspect: plan?.aspect ?? null,
         platform: plan?.platform ?? null,
         benchmarkSource: plan?.benchmarkSource ?? null,
+        benchmarkSet: modeEntry?.benchmarkSet ?? null,
       };
 
       const fallback = deterministicStyleLock(ctx);

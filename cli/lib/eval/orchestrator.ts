@@ -2,8 +2,9 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { projectDir, projectIdFromPath } from "../paths.js";
+import { benchmarkSetForMode } from "../benchmarks.js";
 import { probeVideo } from "./probe.js";
 import { detectScenes } from "./scenes.js";
 import { analyzeAudio } from "./audio.js";
@@ -190,6 +191,14 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
   // mp4 to gemini-3.1-pro-preview and emit the SAME schema, so the #409 repair
   // loop reads `what_to_redo` identically. native-video is the default final
   // gate; deep-style adds the style-conformance critique on top.
+  // #419 seam: resolve the project mode's golden benchmark set so the eval can
+  // reference a documented mode standard when judging format fit. Light wiring
+  // only — we record the set slug in the deep-vision context block below.
+  // ponytail: feed `benchmarkSet.examples[].features` into the deep-vision prompt
+  // and score the observed output against them; #457 (quality flywheel) / #427
+  // (readiness scorecard) own that deeper integration.
+  const benchmarkSet = projectRoot ? benchmarkSetForMode(planModeFor(projectRoot)) : null;
+
   let deepVision: DeepVisionResult | null = null;
   if (runFullMp4) {
     try {
@@ -262,6 +271,9 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
           // #409's repair loop reads `parsed.what_to_redo` / `parsed.overall_verdict`,
           // both unchanged.
           mode,
+          // #419: the golden benchmark set the mode is measured against, when one
+          // is mapped. Additive context for downstream readers (#457/#427).
+          benchmarkSet: benchmarkSet?.slug ?? null,
           parsed: deepVision.parsed,
           raw: deepVision.raw,
         },
@@ -286,6 +298,16 @@ export async function evaluateVideo(input: EvaluateInput): Promise<EvaluateResul
  */
 function autoDetectProjectId(videoPath: string): string | null {
   return projectIdFromPath(videoPath);
+}
+
+/** Best-effort read of a project's recorded content mode from production-plan.json. */
+function planModeFor(projectRoot: string): string | null {
+  try {
+    const plan = JSON.parse(readFileSync(path.join(projectRoot, "production-plan.json"), "utf8"));
+    return plan?.contentMode?.mode ?? null;
+  } catch {
+    return null;
+  }
 }
 
 interface DeclaredScenarioFile {

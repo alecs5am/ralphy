@@ -210,6 +210,9 @@ export interface StyleLockContext {
   platform?: string | null;
   /** A benchmark source URL / slug the plan recorded (a URL routes to researcher). */
   benchmarkSource?: string | null;
+  /** Golden-benchmark-set slug the mode declares (#419), if any — cited in the
+   *  benchmark-references section so generation + eval score against the same set. */
+  benchmarkSet?: string | null;
 }
 
 /**
@@ -231,6 +234,9 @@ export function deterministicStyleLock(ctx: StyleLockContext): StyleLockContent 
   const benchmarkLine = ctx.benchmarkSource
     ? `Plan benchmark source: \`${ctx.benchmarkSource}\`.${/^https?:\/\//i.test(ctx.benchmarkSource) ? " This is a URL — route it through the researcher / site-grounding sub-agent (AGENTS #15) and store the digest before finalizing this lock." : ""}`
     : "No benchmark source recorded in the plan yet.";
+  const benchmarkSetLine = ctx.benchmarkSet
+    ? `Golden benchmark set: \`${ctx.benchmarkSet}\` (#419) — run \`ralphy benchmark show ${ctx.benchmarkSet}\` and lock the register against its good/acceptable/bad features.`
+    : "No golden benchmark set mapped to this mode yet.";
   const templateLine = ctx.templateSlug
     ? `Matched template: \`${ctx.templateSlug}\` — its style block is the starting register.`
     : "No template matched (freeform) — derive the register from the brief + memory.";
@@ -252,7 +258,7 @@ export function deterministicStyleLock(ctx: StyleLockContext): StyleLockContent 
       "TODO: caption treatment (font/color/chunking/timing), VO register + language, music + SFX policy. Honor the audio invariants (Kling --audio EN-only; music is a separate ElevenLabs pass post-mixed in the editor stage).",
     doNotDo:
       "TODO: list the anti-patterns — AI-slop tells, register breakers, banned colors/effects. This negative-scope list is the load-bearing one.",
-    benchmarkRefs: [benchmarkLine, guidelineLine].join(" "),
+    benchmarkRefs: [benchmarkSetLine, benchmarkLine, guidelineLine].join(" "),
     modelImplications:
       "TODO: what the locked register implies for the model stack (read MODELS.md before naming a model). Note any provider filter to route around and the prompt-spine cues.",
   };

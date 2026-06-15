@@ -169,6 +169,14 @@ export interface ContentModeEntry {
   templateLookup: TemplateLookup;
   /** Style/guideline lock requirement. */
   guidelineOrStyleLock: GuidelineOrStyleLock;
+  /**
+   * OPTIONAL golden-benchmark-set slug (#419) this mode is measured against — a
+   * `benchmarks/<slug>/` set of good/acceptable/bad examples + pass/fail
+   * features. Populated for modes with a curated set; absent = none authored yet.
+   * Resolved via `benchmarkSetForMode()`; cited in the STYLE_LOCK scaffold + the
+   * eval/council scoring context.
+   */
+  benchmarkSet?: string;
   /** Quality gates that must pass before the Unit is formed (AGENTS #4). */
   qualityGates: string[];
   /** What the finished Unit looks like. */
@@ -341,6 +349,7 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     roleChain: ["intake", "researcher", "art-director", "producer"],
     templateLookup: { primaryFormat: "fb-creative", tagQuery: ["fb-creative", "meta-ads", "performance", "creative-matrix", "ad-pack"] },
     guidelineOrStyleLock: { required: true, guidelineSlugs: [], note: "Site-grounding (AGENTS #15) locks the real palette + copy before any creative." },
+    benchmarkSet: "app-store-image-pack",
     qualityGates: ["scoreImage"],
     expectedUnitShape: { format: "fb-creative", minMedia: 4, maxMedia: null, note: "N≥4 numbered static creatives + copy doc." },
     keywords: ["ad pack", "fb creatives", "facebook creatives", "meta ads", "creative matrix", "performance creatives", "ad creatives", "set of ads", "cold traffic creatives"],
@@ -435,6 +444,7 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     roleChain: ["intake", "scenarist", "art-director", "editor"],
     templateLookup: { primaryFormat: "video", tagQuery: ["ugc", "review", "testimonial", "talking-head", "creator"] },
     guidelineOrStyleLock: { required: false, guidelineSlugs: ["photoreal-studio-portraits"], note: "Talking-head realism benefits from the portrait guideline; not blocking." },
+    benchmarkSet: "product-ugc-review",
     qualityGates: ["scoreScenario", "scoreImage", "scoreVideo"],
     expectedUnitShape: { format: "video", minMedia: 1, maxMedia: 1, note: "One short review video." },
     keywords: ["ugc review", "review video", "testimonial", "creator review", "talking head", "talking-head", "product review", "honest review", "creator talking about"],
@@ -504,6 +514,10 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     roleChain: ["intake", "researcher", "scenarist", "art-director", "editor", "producer"],
     templateLookup: { primaryFormat: "video", tagQuery: ["tv-ad", "commercial", "broadcast", "cinematic", "spot"] },
     guidelineOrStyleLock: { required: true, guidelineSlugs: ["broadcast-realism-aspect", "cinematic-90s-film", "oldspice-absurd-spokesman"], note: "Broadcast register is a hard look-lock; pick the matching guideline." },
+    // ponytail: closest-match — there is no `analog-horror` registry mode; the
+    // analog-horror-psa benchmark set is hung on `tv-ad` (the nearest video-ad
+    // mode with a hard look-lock). Re-point if a dedicated PSA mode lands (#058).
+    benchmarkSet: "analog-horror-psa",
     qualityGates: ["scoreScenario", "scoreImage", "scoreVideo"],
     expectedUnitShape: { format: "video", minMedia: 1, maxMedia: 1, note: "One multi-scene commercial spot." },
     keywords: ["tv ad", "tv commercial", "commercial spot", "broadcast ad", "tv spot", "advertising commercial", "30 second spot", "brand commercial"],

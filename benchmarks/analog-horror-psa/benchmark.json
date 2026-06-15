@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "slug": "analog-horror-psa",
+  "name": "Analog-horror PSA short",
+  "mode": "tv-ad",
+  "format": "video",
+  "summary": "Golden set for a stenciled-pictogram / robo-broadcast / VHS-aesthetic PSA short: locked yellow-on-black civil-defense look, keyed transparent icons, robo-PSA voice, and a grain stack that keeps blacks black vs. the milky-floor, boxed-icon, and reused-code failures.",
+  "examples": [
+    {
+      "label": "good",
+      "features": [
+        "Locked 1970s civil-defense look: yellow-on-black stenciled pictograms, IF / DO-NOT / BUT / AND scenario structure",
+        "Icons are keyed to true transparency (luma alpha) before compositing, so screen-blend layers show no residual box",
+        "Blacks stay black: grain applied as low-opacity overlay-blend, not screen-blend that washes the floor milky",
+        "Robo-PSA voice: ALL-CAPS input, Alerter-style voice, stability ~0.5, style 0 — flat broadcast-bulletin cadence",
+        "A NEW unique bulletin/alert code for this PSA (never a reused code from a sibling in the series)",
+        "Layered VHS-noise + chromatic-split + a SMPTE colour-bars climax; final encode -tune grain at CRF 30"
+      ],
+      "notes": "Validated on analog-horror-mirror-001. The analog-horror-psa skill owns the full recipe."
+    },
+    {
+      "label": "acceptable",
+      "features": [
+        "Look and voice on-register and blacks held, but the chromatic-split is faint enough to read as a clean caption",
+        "Unique alert code present but the VHS-tracking bands are static rather than wandering",
+        "Climax present but the colour-bars blur is slightly under the mandated amount"
+      ],
+      "notes": "Ships; the flat-caption flicker + static tracking are the cheap next-pass wins."
+    },
+    {
+      "label": "bad",
+      "features": [
+        "Milky grey floor: grain applied via screen-blend overexposes the blacks (the #1 register breaker)",
+        "Keyed icons show a lighter rectangle box because colorkey was used instead of luma-alpha under screen-blend layers",
+        "Reused the SAME alert/bulletin code as another PSA in the series (breaks the in-universe continuity)",
+        "Friendly / conversational VO instead of the flat robo-bulletin cadence (kills the dread)",
+        "CSS @keyframes used for caption flicker — not seek-captured by the HF renderer, so it renders static / wrong"
+      ],
+      "notes": "Each failure maps to a logged postmortem fix: keep-blacks-black (overlay grain), luma-key icons, unique code per PSA, GSAP-driven flicker (not CSS @keyframes)."
+    }
+  ]
+}
