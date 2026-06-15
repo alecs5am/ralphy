@@ -704,6 +704,39 @@ export function unsupportedContentModes(): ContentModeEntry[] {
   return allContentModes().filter((e) => !e.supported);
 }
 
+// ─── Commercial-mode gate (#422) ──────────────────────────────────────────────
+//
+// The product/brand fidelity gate (#422) only runs its strict checks for
+// COMMERCIAL modes — ones whose deliverable is anchored to a real named product
+// / brand / packaging. Rather than hardcode a list that drifts from the registry,
+// we DERIVE it: a mode is commercial iff it declares a real-entity ref type
+// (`product`/`brand` in `requiredRefTypes`) OR any `requiredInputs` string names
+// a product / brand / packaging. This captures product-shot, lifestyle-scene,
+// closeup, ad-creative-pack, ugc-review, tutorial-ugc, unboxing-ugc, tv-ad,
+// conceptual-product, virtual-model-tryout, amazon-listing — and excludes the
+// generic / craft modes (carousel, motion-design, typography, podcast, etc.).
+
+// A requiredInput names a product/brand as a real anchor the gen MUST match —
+// "product reference image", "brand / product reference", "packaging reference",
+// "product or task to demo". The `(?<!or )` exclusion drops the "topic OR
+// product" alternative phrasing (pinterest-pin) where the product is one
+// optional subject choice, not a fidelity anchor.
+const COMMERCIAL_INPUT_RE = /(?<!or )\b(product|brand|packaging|packshot)\b/i;
+
+/**
+ * True when a mode's deliverable is anchored to a real named product/brand and
+ * therefore must clear the product/brand fidelity gate (#422) before a Unit
+ * ships. Derived from the registry (`requiredRefTypes` + `requiredInputs`), so
+ * adding a commercial mode auto-opts it in. Unknown mode → false (not gated).
+ */
+export function requiresFidelityGate(mode: string): boolean {
+  const entry = getContentMode(mode);
+  if (!entry) return false;
+  const realEntityRef = (entry.requiredRefTypes ?? []).some((t) => t === "product" || t === "brand");
+  const namesProduct = entry.requiredInputs.some((i) => COMMERCIAL_INPUT_RE.test(i));
+  return realEntityRef || namesProduct;
+}
+
 // ─── Guideline-coverage resolver (#417) ──────────────────────────────────────
 //
 // #417 requires every SUPPORTED mode to carry mode-specific quality guidance —
