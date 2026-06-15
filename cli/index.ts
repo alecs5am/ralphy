@@ -83,6 +83,7 @@ import { promptsCmd } from "./commands/prompts.js";
 import { guidelineCmd } from "./commands/guideline.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
+import { lessonsCmd } from "./commands/lessons.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -200,6 +201,7 @@ program.addCommand(templateCmd());
 program.addCommand(guidelineCmd());
 program.addCommand(benchmarkCmd());
 program.addCommand(memoryCmd());
+program.addCommand(lessonsCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
