@@ -1,13 +1,30 @@
 # `bun build --compile --bytecode` produces a binary that crashes at startup
 
-> **Status:** worked-around for v0.2.0 release (bytecode disabled in `build:bin` + `build:bin:current`)
+> **Status:** RESOLVED 2026-06-15 — fixed by the bun upgrade (1.2.22 → 1.3.14) + a release-time smoke gate.
 > **Filed:** 2026-05-20
 > **Folder:** issues
 >
-> **Re-checked 2026-05-27:** still open. `package.json` keeps `--no-bytecode` on both
-> `build:bin` and `build:bin:current`; the `201c38e` bisect was never done; and
-> `.github/workflows/release.yml` still has no post-build `ralphy --version` smoke step
-> (follow-up #4). All four follow-ups below remain outstanding.
+> **Resolution 2026-06-15 (bun 1.3.14):** the bytecode interop bug is GONE on 1.3.14.
+> Built the current-platform binary WITH bytecode (`tsx scripts/build-binaries.ts --current`,
+> bytecode on) — no "Failed to generate bytecode" warning, and the binary ran
+> `--version` (→ `0.3.0`), `--help`, and `models list` all exit 0, no `function wrapper`
+> crash. So the crash was a Bun bug fixed somewhere between 1.2.22 and 1.3.14, not a
+> Ralphy module issue — the `201c38e` bisect (follow-up #1) is moot and was not run.
+>
+> Changes landed this session:
+> - **Re-enabled bytecode** (follow-up #3): dropped `--no-bytecode` from `build:bin`
+>   and `build:bin:current` in `package.json`.
+> - **Added the release-time smoke test** (follow-up #4): `scripts/build-binaries.ts`
+>   now takes `--smoke`, which execs the just-built current-platform binary's
+>   `--version` after the build and exits non-zero if it crashes or prints no
+>   semver — closing the "build reports success on a binary that doesn't run" gap
+>   that let this regression sit on `main`. Both `build:bin*` scripts pass `--smoke`,
+>   so it protects local AND CI builds. `release.yml` also carries an explicit
+>   defense-in-depth `Smoke-test built binary` step. Pure verdict
+>   (`evaluateSmokeResult`) is unit-tested in `tests/unit/build-binaries-smoke.test.ts`.
+>
+> Follow-ups #1 and #2 (bisect + upstream-file the broken module) are obsolete —
+> there was no broken Ralphy module; the fix came from upstream Bun.
 
 ## Context
 
