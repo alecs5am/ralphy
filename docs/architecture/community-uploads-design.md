@@ -1,7 +1,7 @@
 # Community uploads — design
 
 > **Status:** design only. Nothing in this doc has been built. No auth, no database, no blob-storage write path, no upload service, no schema change exists yet. This doc is the plan a future implementation session executes.
-> **Tracks:** [`../../notes/issues/067-user-uploaded-templates-and-units.md`](../../notes/issues/067-user-uploaded-templates-and-units.md)
+> **Tracks:** [`../../notes/issues/done/067-user-uploaded-templates-and-units.md`](../../notes/issues/done/067-user-uploaded-templates-and-units.md)
 > **Grounded as of:** 2026-06-15 against the live repo. Every code/path citation below was verified to exist (or noted as absent) at that time.
 > **Depends on:** the infra `#067` calls "#064" (database + blob + auth). **`#064` is deprecated and the Supabase backend that briefly superseded it was itself retired** — see §2. This doc re-states what that prerequisite must now provide, because the architecture moved out from under the original issue.
 
@@ -229,7 +229,7 @@ Because #064 is dead (§2), the new backend issue this design unblocks must prov
 
 ## See also
 
-- [`../../notes/issues/067-user-uploaded-templates-and-units.md`](../../notes/issues/067-user-uploaded-templates-and-units.md) — the tracking issue (this doc's spec).
+- [`../../notes/issues/done/067-user-uploaded-templates-and-units.md`](../../notes/issues/done/067-user-uploaded-templates-and-units.md) — the tracking issue (this doc's spec).
 - [`../skills-vs-templates.md`](../skills-vs-templates.md) — the five-entity content model.
 - [`../../landing/scripts/publish-entity.ts`](../../landing/scripts/publish-entity.ts) — the `#056` maintainer publish flow (the trusted contrast point).
 - [`../../.agents/skills/templater/SKILL.md`](../../.agents/skills/templater/SKILL.md) + [`../../.agents/skills/dev-publish-template/SKILL.md`](../../.agents/skills/dev-publish-template/SKILL.md) — the extract→classify→publish path to reuse.

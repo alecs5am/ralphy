@@ -26,6 +26,7 @@ afterEach(() => {
 });
 
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+const rendered = () => captured.map(stripAnsi).join("\n");
 
 describe("pretty mode rendering — arrays of objects", () => {
   test("array-of-objects under a key does not render as [object Object] (regression)", () => {
@@ -106,6 +107,78 @@ describe("pretty mode rendering — arrays of objects", () => {
     expect(joined).toContain("version");
     expect(joined).toContain("0.1.0");
     expect(joined).not.toContain("[object Object]");
+  });
+});
+
+describe("null / undefined rendering policy (#001 §C)", () => {
+  // POLICY: null / undefined renders as the em-dash `—`, NEVER the literal
+  // "null" / "undefined" — at every level (standalone cell, nested value, and
+  // each element of an array value). Encoded in formatGenericCell()/output.ts
+  // + renderValue()/ui.ts, documented in docs/developing-ralphy.md.
+  const EM_DASH = "—";
+
+  test("top-level null value renders as em-dash, not the literal 'null'", () => {
+    setPretty(true);
+    setMode("pretty");
+
+    out({ error: null, status: "ok" });
+
+    const joined = rendered();
+    expect(joined).toContain(EM_DASH);
+    expect(joined).not.toMatch(/[\s,││|]null[\s,││|]/);
+    expect(joined).not.toMatch(/[\s,││|]undefined[\s,││|]/);
+  });
+
+  test("top-level undefined value renders as em-dash", () => {
+    setPretty(true);
+    setMode("pretty");
+
+    out({ note: undefined, project: "demo-001" });
+
+    const joined = rendered();
+    expect(joined).toContain(EM_DASH);
+    expect(joined).not.toMatch(/[\s,││|]undefined[\s,││|]/);
+  });
+
+  test("null inside an array cell renders as em-dash, not literal 'null'", () => {
+    setPretty(true);
+    setMode("pretty");
+
+    out({ tags: ["a", null, "b"], project: "demo-001" });
+
+    const joined = rendered();
+    // The array should render `a, —, b` — never `a, null, b`.
+    expect(joined).toMatch(/a,\s*—,\s*b/);
+    expect(joined).not.toContain("null");
+  });
+
+  test("null in a deeply-nested array renders as em-dash", () => {
+    setPretty(true);
+    setMode("pretty");
+
+    out({ root: { mid: { leaf_arr: ["x", null, undefined] } } });
+
+    const joined = rendered();
+    expect(joined).toMatch(/x,\s*—,\s*—/);
+    expect(joined).not.toContain("null");
+    expect(joined).not.toMatch(/[\s,││|]undefined[\s,││|]/);
+  });
+
+  test("null in a table cell (array-of-objects) renders as em-dash", () => {
+    setPretty(true);
+    setMode("pretty");
+
+    out({
+      results: [
+        { id: "a", error: null },
+        { id: "b", error: "boom" },
+      ],
+    });
+
+    const joined = rendered();
+    expect(joined).toContain(EM_DASH);
+    // The `error` column for row `a` is null -> em-dash, never literal null.
+    expect(joined).not.toMatch(/[\s,││|]null[\s,││|]/);
   });
 });
 

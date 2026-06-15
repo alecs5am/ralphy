@@ -1,6 +1,6 @@
 # CLI pretty-mode pipeline had zero test coverage
 
-> **Status:** partially mitigated — only structural follow-ups remain
+> **Status:** done — 2026-06-15 (all 5 structural follow-ups closed: scripts/lint-out-coverage.ts wired into CI — 37 structured emitters covered; per-verb pretty snapshot tests via tests/fixtures/verb-shapes.ts; null/undefined→— policy fixed in output.ts/ui.ts array branches + asserted; a real FORCE_COLOR+NO_COLOR ANSI leak found + fixed (disableColor() rebuilds the chalk palette); --pretty force-render covered. Only the raw-PTY auto-detect branch is the documented optional gap — node-pty deliberately not added.)
 > **Filed:** 2026-05-20
 > **Folder:** issues
 >
