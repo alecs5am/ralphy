@@ -197,6 +197,20 @@ export async function buildProvenanceGraph(
     });
   }
 
+  // ponytail: variant-tournament champion/loser provenance (#421). When a
+  // project is the CHAMPION of a `ralphy batch tournament` run, the durable
+  // record is the batch's `<batch>/tournament.json` (TournamentResult — ranked
+  // entries + champion + preserved losers with rationale). The natural #420 seam
+  // is to populate `final-media.selectedVariants` with the champion id and
+  // `final-media.rejectedVariants` with the loser ids. We DON'T wire it here
+  // because a project does not durably record which batch it belongs to (the
+  // batch→projects map lives in `<batch>/state.json`, with no reverse index), so
+  // resolving the tournament would require scanning every batch dir — the kind
+  // of cross-cutting rewrite the issue warns off. The per-asset selected/rejected
+  // split below ALREADY captures slot-level variant decisions; the batch-level
+  // tournament decision lives in `tournament.json`. Wire this when the registry
+  // grows a project→batch back-reference (then read tournament.json once here).
+
   const totalCostUsd = Number(
     nodes.reduce((sum, n) => sum + (n.modelCall?.costUsd ?? 0), 0).toFixed(4),
   );
