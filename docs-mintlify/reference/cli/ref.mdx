@@ -36,6 +36,10 @@ ralphy ref analyze my-reference-slug
 ralphy ref blueprint my-reference-slug
 ralphy ref check my-project-001                  # gate classifier on scenario.json
 ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
+ralphy ref pack my-project-001                    # build/update the typed reference pack
+ralphy ref pack my-project-001 --show             # print the pack without rebuilding
+ralphy ref pack my-project-001 --add artifacts/refs/hero.png --type product --lock
+ralphy ref pack my-project-001 --mode product-shot  # report missing required ref types
 ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
 ```
 
