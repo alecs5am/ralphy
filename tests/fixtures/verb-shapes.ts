@@ -191,6 +191,43 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       ],
     },
   ],
+  lessons: [
+    {
+      label: "lessons.route",
+      shape: {
+        project: "choose-path-001",
+        workspace: "default",
+        model: "anthropic/claude-sonnet-4.6",
+        sources: ["postmortem/02-lessons.md", "eval.json", "generations.jsonl (error rows)"],
+        dry_run: false,
+        routes: {
+          memory: [
+            {
+              route: "memory",
+              title: "Ban music in Kling prompts",
+              detail: "Always ban music explicitly in kling-v3.0-pro prompts.",
+              provenance: "choose-path-001 / 02-lessons.md",
+              confidence: "high",
+              does_not_apply_to: "Models without native audio.",
+              tier: "global",
+              slug: "kling-no-music",
+              existingSlug: "kling-music-ban",
+            },
+          ],
+          "MODELS.md": [
+            {
+              route: "MODELS.md",
+              title: "Seedance blocks photoreal human anchors",
+              detail: "Route human i2v to kling.",
+              provenance: "choose-path-001 / generations.jsonl error rows",
+              confidence: "high",
+            },
+          ],
+        },
+        staged: [{ slug: "kling-no-music", tier: "global", file: "kling-no-music.md", path: "memory/proposed/kling-no-music.md" }],
+      },
+    },
+  ],
   migrate: [
     {
       label: "migrate.report",

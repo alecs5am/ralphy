@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **44**
+Verbs registered: **45**
 
 ## Top-level verbs
 
@@ -1233,6 +1233,33 @@ Layout:
 Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
 index points at the newest version; pass --force-overwrite for in-place replace.
 Current dirs: /Users/maximovchinnikov/github/ugc-cli/.ralphy/memory
+```
+
+### `ralphy lessons`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy lessons [options] [command]
+
+Route durable failure lessons (postmortem + eval + repair + council + gen-log)
+to the right knowledge surface
+
+Options:
+  -h, --help                 display help for command
+
+Commands:
+  route [options] <project>  Classify a project's lessons into proposals
+                             (memory|guideline|MODELS.md|content-mode|template|skill|cli-issue|drop).
+                             Stages ONLY memory proposals into proposed/; every
+                             other route is report-only
+  help [command]             display help for command
 ```
 
 ### `ralphy batch`
