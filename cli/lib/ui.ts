@@ -8,7 +8,7 @@
 // agent can still read pretty output fine (it's just text), but explicit
 // `--json` forces machine output for shell pipelines.
 
-import chalk from "chalk";
+import chalk, { Chalk } from "chalk";
 import ora, { type Ora, type Options as OraOptions } from "ora";
 // cli-table3 ships CJS — TS default-import complains under esModuleInterop strict.
 // `require` works at runtime via bun's CJS shim; types are loaded via `Table.HorizontalTable` pattern below.
@@ -17,7 +17,27 @@ const Table = require("cli-table3") as typeof import("cli-table3");
 
 // ─── Color palette ───────────────────────────────────────────────────────────
 
-export const c = {
+/** A color function: wraps text in ANSI (or returns it plain when color is
+ * disabled). Chalk builders satisfy this; so do the level-0 rebuilds in
+ * disableColor(). Typed loosely so the palette can be swapped at runtime. */
+type Colorizer = (text: string) => string;
+
+export const c: Record<
+  | "brand"
+  | "accent"
+  | "ok"
+  | "warn"
+  | "err"
+  | "info"
+  | "muted"
+  | "bold"
+  | "underline"
+  | "label"
+  | "value"
+  | "cmd"
+  | "path",
+  Colorizer
+> = {
   brand: chalk.hex("#FF7A1A"),
   accent: chalk.hex("#E87BA1"),
 
@@ -37,18 +57,73 @@ export const c = {
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-export const icons = {
-  ok: c.ok("✓"),
-  fail: c.err("✖"),
-  warn: c.warn("⚠"),
-  info: c.info("ℹ"),
-  bullet: c.muted("•"),
-  arrow: c.muted("▸"),
-  star: c.brand("★"),
-  spark: c.accent("✦"),
-  empty: c.muted("◯"),
-  pending: c.muted("⠿"),
-  diamond: c.brand("◆"),
+const ICON_GLYPHS = {
+  ok: ["ok", "✓"],
+  fail: ["err", "✖"],
+  warn: ["warn", "⚠"],
+  info: ["info", "ℹ"],
+  bullet: ["muted", "•"],
+  arrow: ["muted", "▸"],
+  star: ["brand", "★"],
+  spark: ["accent", "✦"],
+  empty: ["muted", "◯"],
+  pending: ["muted", "⠿"],
+  diamond: ["brand", "◆"],
+} as const;
+
+function buildIcons(): Record<keyof typeof ICON_GLYPHS, string> {
+  const out = {} as Record<keyof typeof ICON_GLYPHS, string>;
+  for (const [name, [color, glyph]] of Object.entries(ICON_GLYPHS)) {
+    out[name as keyof typeof ICON_GLYPHS] = c[color as keyof typeof c](glyph);
+  }
+  return out;
+}
+
+export const icons = buildIcons();
+
+/**
+ * Force all color OFF at runtime, regardless of chalk's import-time level
+ * resolution (issue #001 §D). chalk v5 binds each `c.green` / `c.dim` builder
+ * to the level snapshot at the time the property was first accessed — so if
+ * the palette was built while FORCE_COLOR resolved level 3, a later
+ * `chalk.level = 0` does NOT recolor those cached builders. This rebuilds the
+ * `c` palette (and the baked `icons` strings) on a fresh level-0 Chalk
+ * instance so NO_COLOR / --no-color is authoritative even when FORCE_COLOR was
+ * also set. Called from the preAction hook in cli/index.ts. Idempotent.
+ */
+export function disableColor(): void {
+  const plain = new Chalk({ level: 0 });
+  for (const key of Object.keys(c) as Array<keyof typeof c>) {
+    // c.brand / c.accent were chalk.hex(...) builders; reproduce them on the
+    // level-0 instance. All other keys map to a named chalk style.
+    if (key === "brand") c[key] = plain.hex("#FF7A1A");
+    else if (key === "accent") c[key] = plain.hex("#E87BA1");
+    else c[key] = plain[C_STYLE_NAMES[key]];
+  }
+  // Re-bake the icon strings with the now-uncolored palette.
+  const fresh = buildIcons();
+  for (const key of Object.keys(fresh) as Array<keyof typeof fresh>) {
+    icons[key] = fresh[key];
+  }
+}
+
+// Maps each `c` palette key (other than the two hex brand colors) to its chalk
+// style name, so disableColor() can rebuild it on a level-0 instance.
+const C_STYLE_NAMES: Record<
+  Exclude<keyof typeof c, "brand" | "accent">,
+  "green" | "yellow" | "red" | "cyan" | "dim" | "bold" | "underline" | "white"
+> = {
+  ok: "green",
+  warn: "yellow",
+  err: "red",
+  info: "cyan",
+  muted: "dim",
+  bold: "bold",
+  underline: "underline",
+  label: "dim",
+  value: "white",
+  cmd: "cyan",
+  path: "dim",
 };
 
 // ─── TTY + format-mode plumbing ──────────────────────────────────────────────
@@ -107,12 +182,18 @@ export function kv(
   }
 }
 
+// NULL POLICY (issue #001 §C): null / undefined renders as the em-dash `—`,
+// NEVER the literal "null" / "undefined" — both for a standalone value AND for
+// each element of an array value. Mirror of formatGenericCell() in
+// cli/lib/output.ts; keep the two in lockstep.
 function renderValue(v: unknown): string {
   if (v === null || v === undefined) return c.muted("—");
   if (typeof v === "boolean") return v ? icons.ok : icons.fail;
   if (Array.isArray(v)) {
     if (v.length === 0) return c.muted("[]");
-    return v.map((x) => c.value(String(x))).join(c.muted(", "));
+    return v
+      .map((x) => (x === null || x === undefined ? c.muted("—") : c.value(String(x))))
+      .join(c.muted(", "));
   }
   if (typeof v === "object") return c.muted(JSON.stringify(v));
   return c.value(String(v));
