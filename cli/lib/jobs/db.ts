@@ -21,6 +21,7 @@ import type {
   JobArtifactRow,
   JobInsertInput,
   JobStatus,
+  JobKind,
 } from "./types.js";
 
 const SCHEMA_VERSION = 1;
@@ -230,13 +231,19 @@ export function listJobs(filter: {
  * - all jobs in depends_on have status = 'completed'
  * - no dep is failed/cancelled (those would mark this job 'blocked' first)
  */
-export function claimNextPending(): JobRow | null {
+export function claimNextPending(kinds?: JobKind[]): JobRow | null {
   const db = openDb();
   // Materialize candidates first, then check deps in JS (cheaper than recursive
-  // SQL for our tiny scale).
+  // SQL for our tiny scale). When `kinds` is given (#428 endpoint-aware
+  // scheduling), the claim is restricted to those kinds — the per-kind atomic
+  // UPDATE…WHERE status='pending' is unchanged, so the claim stays race-safe.
+  const kindFilter =
+    kinds && kinds.length > 0 ? ` AND kind IN (${kinds.map(() => "?").join(",")})` : "";
   const candidates = db
-    .query("SELECT * FROM jobs WHERE status = 'pending' ORDER BY priority DESC, id ASC")
-    .all() as any[];
+    .query(
+      `SELECT * FROM jobs WHERE status = 'pending'${kindFilter} ORDER BY priority DESC, id ASC`,
+    )
+    .all(...(kinds && kinds.length > 0 ? kinds : [])) as any[];
   for (const r of candidates) {
     const deps: number[] = JSON.parse(r.depends_on ?? "[]");
     if (deps.length === 0) {
@@ -487,6 +494,28 @@ export function countByStatus(): Record<JobStatus, number> {
     cancelled: 0,
   };
   for (const r of rows) out[r.status] = r.n;
+  return out;
+}
+
+/** Distinct kinds among currently-pending jobs. Used by the worker (#428) to
+ *  ask the scheduler only about kinds that have work waiting. */
+export function pendingKinds(): JobKind[] {
+  const db = openDb();
+  const rows = db
+    .query("SELECT DISTINCT kind FROM jobs WHERE status = 'pending'")
+    .all() as Array<{ kind: JobKind }>;
+  return rows.map((r) => r.kind);
+}
+
+/** Live count of running jobs grouped by kind. Behaviorally redundant with the
+ *  worker's in-memory slots map, but exposed for tests + introspection. */
+export function runningCountByKind(): Partial<Record<JobKind, number>> {
+  const db = openDb();
+  const rows = db
+    .query("SELECT kind, COUNT(*) as n FROM jobs WHERE status = 'running' GROUP BY kind")
+    .all() as Array<{ kind: JobKind; n: number }>;
+  const out: Partial<Record<JobKind, number>> = {};
+  for (const r of rows) out[r.kind] = r.n;
   return out;
 }
 

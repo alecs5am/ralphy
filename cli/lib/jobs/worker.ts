@@ -21,12 +21,16 @@ import {
   appendLog,
   jobLogsDir,
   getJob,
+  pendingKinds,
 } from "./db.js";
-import type { JobRow } from "./types.js";
+import { dispatchableKinds, type ScheduleConfig } from "./schedule.js";
+import { burstCapHint } from "./error-hints.js";
+import type { JobRow, JobKind } from "./types.js";
 
 type Slot = {
   jobId: number;
   pid: number;
+  kind: JobKind;
   child: ReturnType<typeof spawn>;
   startedAt: number;
   signaled: boolean;
@@ -39,12 +43,21 @@ export function runWorkerLoop(opts: {
   ralphyBin: string;
   cwd: string;
   pidFile: string;
+  /** Endpoint-aware scheduling overrides (#428). Omitted → behavior-preserving
+   *  defaults (per-kind cap = global concurrency, no min-interval). */
+  schedule?: ScheduleConfig["perKind"];
 }): void {
   // Touch the DB and pid file early so smoke tests can see we started.
   openDb();
   fs.writeFileSync(opts.pidFile, String(process.pid));
 
   const slots: Map<number, Slot> = new Map();
+  // ms-epoch of the last dispatch per kind — drives the schedule min-interval.
+  const lastDispatchByKind: Partial<Record<JobKind, number>> = {};
+  const scheduleConfig: ScheduleConfig = {
+    globalConcurrency: opts.concurrency,
+    perKind: opts.schedule,
+  };
   let stopping = false;
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -136,13 +149,18 @@ export function runWorkerLoop(opts: {
     const slot: Slot = {
       jobId: job.id,
       pid: child.pid ?? -1,
+      kind: job.kind,
       child,
       startedAt: Date.now(),
       signaled: false,
     };
     slots.set(job.id, slot);
+    lastDispatchByKind[job.kind] = slot.startedAt;
     log(`job ${job.id} started pid=${child.pid}`);
 
+    // Keep the last non-empty stderr line so a failed job can carry an
+    // actionable error_message + burst-cap hint (#428 part C).
+    let lastStderr = "";
     const pump = (stream: NodeJS.ReadableStream, kind: "stdout" | "stderr") => {
       let buf = "";
       stream.setEncoding("utf8");
@@ -154,6 +172,7 @@ export function runWorkerLoop(opts: {
           buf = buf.slice(idx + 1);
           fileStream.write(`${line}\n`);
           appendLog(job.id, kind, line);
+          if (kind === "stderr" && line.trim()) lastStderr = line;
           idx = buf.indexOf("\n");
         }
       });
@@ -184,8 +203,15 @@ export function runWorkerLoop(opts: {
         appendLog(job.id, "system", "[completed] exit 0");
         log(`job ${job.id} completed`);
       } else {
-        finalizeJob(job.id, "failed", { exitCode });
+        const hint = burstCapHint(lastStderr);
+        const errorMessage = lastStderr
+          ? hint
+            ? `${lastStderr} — ${hint}`
+            : lastStderr
+          : null;
+        finalizeJob(job.id, "failed", { exitCode, errorMessage });
         appendLog(job.id, "system", `[failed] exit ${exitCode}`);
+        if (hint) appendLog(job.id, "system", `[hint] ${hint}`);
         log(`job ${job.id} failed exit=${exitCode}`);
       }
     });
@@ -211,11 +237,30 @@ export function runWorkerLoop(opts: {
     }
   };
 
+  const runningByKind = (): Partial<Record<JobKind, number>> => {
+    const out: Partial<Record<JobKind, number>> = {};
+    for (const s of slots.values()) out[s.kind] = (out[s.kind] ?? 0) + 1;
+    return out;
+  };
+
   const tick = () => {
     if (stopping) return;
     reapCancelled();
     while (slots.size < opts.concurrency) {
-      const job = claimNextPending();
+      // Endpoint-aware scheduling (#428): narrow the claim to kinds that are
+      // both under their per-kind cap and past their min-interval. With default
+      // config this is every pending kind, so the claim is unchanged.
+      const candidates = pendingKinds();
+      if (candidates.length === 0) break;
+      const eligible = dispatchableKinds(
+        candidates,
+        runningByKind(),
+        lastDispatchByKind,
+        Date.now(),
+        scheduleConfig,
+      );
+      if (eligible.length === 0) break;
+      const job = claimNextPending(eligible);
       if (!job) break;
       runJob(job);
     }
