@@ -89,6 +89,17 @@ export type GenerationEntry = {
   attempt?: number;              // 1-indexed retry attempt counter (default 1)
   request_id?: string;           // fal queue id, elevenlabs id, etc.
   note?: string;                 // free-form human tag, e.g. "clip-03 v2 hand crumples sample"
+
+  // ── Model-router telemetry (issue #424) — all ADDITIVE + OPTIONAL ──
+  // Structured outcome fields the summarizer (`cli/lib/models/telemetry.ts`)
+  // aggregates by (model, mode, kind/task). Old rows lack them and still
+  // normalize/validate; the per-project content mode + eval verdict are JOINED
+  // read-only from production-plan.json / eval.json (NOT written back here).
+  mode?: string;                 // content mode (#412), e.g. "ugc-review"
+  task?: string;                 // finer task tag, e.g. "scene-anchor", "i2v", "vo"
+  promptClass?: string;          // coarse prompt label, e.g. "photoreal", "typography"
+  refsCount?: number;            // how many --ref images this call carried
+  failureClass?: string;         // "moderation" | "constraint" | "transient" | "provider-semantic"
 };
 
 /**
@@ -115,6 +126,12 @@ export type RawGenerationEntry = Partial<GenerationEntry> & {
   attempt?: number;
   request_id?: string;
   note?: string;
+  // #424 outcome fields (optional on disk; passed through unchanged).
+  mode?: string;
+  task?: string;
+  promptClass?: string;
+  refsCount?: number;
+  failureClass?: string;
 };
 
 /**
@@ -155,6 +172,11 @@ export function normalizeGenerationEntry(row: RawGenerationEntry): GenerationEnt
     attempt: row.attempt ?? 1,
     request_id: row.request_id,
     note: row.note,
+    mode: row.mode,
+    task: row.task,
+    promptClass: row.promptClass,
+    refsCount: row.refsCount,
+    failureClass: row.failureClass,
   };
 }
 
@@ -232,6 +254,11 @@ export async function logGeneration(
     attempt: entry.attempt ?? 1,
     request_id: entry.request_id,
     note: entry.note,
+    mode: entry.mode,
+    task: entry.task,
+    promptClass: entry.promptClass,
+    refsCount: entry.refsCount,
+    failureClass: entry.failureClass,
   };
   await appendJsonl(path.join(logsDir(projectId), "generations.jsonl"), full);
 }

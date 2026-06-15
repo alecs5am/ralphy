@@ -18,6 +18,11 @@ import {
   estimateVideoCostUsd,
 } from "../lib/or-catalog.js";
 import { lookupAlias, aliasesFor, canonicalSlugs } from "../lib/model-aliases.js";
+import {
+  summarizeModelOutcomes,
+  recommendModel,
+  logModelOverride,
+} from "../lib/models/telemetry.js";
 
 export function modelsCmd() {
   const cmd = new Command("models").description(
@@ -109,6 +114,45 @@ export function modelsCmd() {
         matched,
         siblings: canonical && matched ? aliasesFor(canonical) : [],
       });
+    });
+
+  // `models recommend --mode <m> [--task <t>] [--kind <k>]` — model-router
+  // telemetry (#424). Ranks the observed-outcome summary for the query and
+  // recommends a model; falls back to the MODELS.md/registry default (and says
+  // so) when telemetry is thin. PURE LOG READING — no provider calls, no
+  // network. `--chose <model> --reason <why>` logs a manual override against the
+  // recommendation so the choice stays auditable.
+  cmd
+    .command("recommend")
+    .description(
+      "Recommend a model for a content mode from observed generation telemetry (#424). Ranks the (model, mode, task) outcome summary by ok-rate + eval signal; falls back to the MODELS.md/registry default (and says the basis is the default) when telemetry is thin. PURE log reading — no provider calls. Use --chose <model> --reason <why> to log a manual override against the recommendation (auditable JSONL at .ralphy/model-overrides.jsonl).",
+    )
+    .requiredOption("--mode <mode>", "Content mode to recommend for (e.g. ugc-review)")
+    .option("--task <task>", "Finer task tag to filter by (e.g. scene-anchor, i2v, vo)")
+    .option("--kind <kind>", "Media kind to scope the default fallback (image|video|voiceover|music|sfx|text)")
+    .option("--project <id>", "Limit telemetry to a single project (default: all registered projects)")
+    .option("--chose <model>", "Log a manual override: the model you chose instead of the recommendation")
+    .option("--reason <why>", "Reason for the override (required with --chose)")
+    .action(async (opts) => {
+      const summary = await summarizeModelOutcomes({ projectId: opts.project });
+      const query = { mode: opts.mode, task: opts.task, kind: opts.kind };
+      const recommendation = recommendModel(summary, query);
+
+      let override = undefined;
+      if (opts.chose) {
+        if (!opts.reason) {
+          raiseError("E_VALIDATION_FAILED", { target: "models recommend", detail: "--chose requires --reason" });
+        }
+        override = await logModelOverride({
+          recommended: recommendation.model,
+          chosen: opts.chose,
+          reason: opts.reason,
+          query,
+          projectId: opts.project,
+        });
+      }
+
+      out({ query, recommendation, override, scanned: { projects: summary.projectCount, rows: summary.rowCount } });
     });
 
   return cmd;

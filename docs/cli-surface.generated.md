@@ -304,6 +304,14 @@ Commands:
   alias [shorthand]    Resolve a model shorthand (`kling`, `nano banana pro`,
                        `gpt image 2`, ...) to its canonical OpenRouter slug.
                        With no argument, prints the full alias map.
+  recommend [options]  Recommend a model for a content mode from observed
+                       generation telemetry (#424). Ranks the (model, mode,
+                       task) outcome summary by ok-rate + eval signal; falls
+                       back to the MODELS.md/registry default (and says the
+                       basis is the default) when telemetry is thin. PURE log
+                       reading — no provider calls. Use --chose <model> --reason
+                       <why> to log a manual override against the recommendation
+                       (auditable JSONL at .ralphy/model-overrides.jsonl).
   help [command]       display help for command
 ```
 
