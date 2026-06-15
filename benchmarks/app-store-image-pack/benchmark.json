@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "slug": "app-store-image-pack",
+  "name": "App Store / static image-pack creatives",
+  "mode": "ad-creative-pack",
+  "format": "fb-creative",
+  "summary": "Golden set for a pack of static app-store-style / performance creatives: real-surface grounding, legible value prop, and a true scroll-stop frame vs. the generic-stock, hallucinated-UI, and palette-drift failures.",
+  "examples": [
+    {
+      "label": "good",
+      "features": [
+        "Hero frame shows the ACTUAL product UI/screenshot grounded from a site crawl, not a generic stock dashboard",
+        "One value prop per creative, legible at thumbnail scale (large weight, high contrast, safe margins)",
+        "Palette matches the real brand tokens (computed CSS hex), not an invented neon scheme",
+        "Set covers distinct angles across creatives (proof, feature, social) so the matrix is testable, not 1 idea x N",
+        "Any product claim is grounded in real copy/features, no invented SDK or fabricated metric"
+      ],
+      "notes": "Site-grounded, single-message, brand-true. This is the bar the fb-creatives skill + AGENTS #15 site-grounding enforce."
+    },
+    {
+      "label": "acceptable",
+      "features": [
+        "Brand palette correct and value prop legible, but the hero leans on a clean mockup rather than a real screenshot",
+        "Message is single and clear but the angle overlaps another creative in the pack (limited variation)",
+        "Type hierarchy readable but slightly tight in the safe zone"
+      ],
+      "notes": "Ships, but flag the weak variation + mockup-over-real-surface for the next pass."
+    },
+    {
+      "label": "bad",
+      "features": [
+        "Generic stock dashboard / invented UI that does not match the real product surface",
+        "Wrong palette (e.g. magenta-cyan neon) drifting from the brand's actual tokens",
+        "Multiple competing messages crammed into one frame, none legible at thumbnail scale",
+        "Hallucinated proof: a fake `import <brand>` SDK snippet or an unverified metric the brand never claims",
+        "Tiny low-contrast text that disappears at feed scale"
+      ],
+      "notes": "Caught on sotaocr-fb-001: a $1.20 wrong-palette burn + 5/32 creatives with a hallucinated Python SDK. Both preventable by site-grounding (AGENTS #15) + verifying the SDK before code-creative."
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "slug": "product-ugc-review",
+  "name": "Product UGC review / testimonial",
+  "mode": "ugc-review",
+  "format": "video",
+  "summary": "Golden set for an authentic talking-head creator review: a problem-mirror hook, photoreal handheld realism, consistent product identity, and natural VO vs. the AI-slop face, drifting product, and ad-vibe failures.",
+  "examples": [
+    {
+      "label": "good",
+      "features": [
+        "Hook in the first 0-3s mirrors the viewer's problem before naming the product (scroll-stop earned)",
+        "Photoreal handheld realism: skin pores, flyaways, slight asymmetry, natural single-source light — not a beauty-filtered AI face",
+        "Product identity is consistent across every shot (locked master ref passed on each generation)",
+        "VO register is natural and on-language for the target audience; lip-sync lands",
+        "Reads as a real creator capture, not a branded ad: no designed motion-graphics overlay on the b-roll"
+      ],
+      "notes": "Photoreal-still register + super-original product lock + anti-ad-vibe. The ugc-ad skill carries the shooting-script shape."
+    },
+    {
+      "label": "acceptable",
+      "features": [
+        "Authentic delivery and a clear hook, but one mid-clip shows mild product drift (label/shape slightly off)",
+        "Realism mostly holds with one slightly glossy close-up",
+        "VO natural but pacing sags briefly in the middle third"
+      ],
+      "notes": "Ships for testing; flag the product-drift shot for a re-roll against the locked ref."
+    },
+    {
+      "label": "bad",
+      "features": [
+        "Beauty-filtered AI face: enlarged eyes, reshaped jawline, plastic skin — the classic AI-slop tells",
+        "Product morphs between shots (different label / shape / color) because no master ref was locked",
+        "Hook opens on the product/logo instead of the viewer's problem, so it reads as an ad and gets scrolled",
+        "Robotic or accent-slipped VO (e.g. Kling --audio used for a non-English target, which drifts)",
+        "Designed brand motion-graphics slapped over handheld b-roll, killing the UGC authenticity"
+      ],
+      "notes": "AI-slop image tells + identity drift + ad-vibe are the recurring failure cluster. Kling --audio is EN-only; confirm target language before defaulting."
+    }
+  ]
+}

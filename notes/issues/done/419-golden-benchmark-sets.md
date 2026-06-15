@@ -1,6 +1,6 @@
 # Golden benchmark sets for content modes
 
-> **Status:** issue
+> **Status:** done — 2026-06-15
 > **Filed:** 2026-06-14
 > **Folder:** issues
 

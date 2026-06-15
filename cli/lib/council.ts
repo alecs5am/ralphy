@@ -32,6 +32,7 @@
 // any free-form parsing.
 
 import { callLLM } from "./providers/llm.js";
+import { benchmarkSetForMode } from "./benchmarks.js";
 import type { ProductionPlan } from "./schemas/production-plan.js";
 import type { EvalReport } from "./eval/types.js";
 import type { DeepVisionFile } from "./repair.js";
@@ -172,9 +173,27 @@ export function buildRoleSystemPrompt(role: CouncilRole, phase: CouncilPhase): s
 
 /** Compact projection of the production plan for the preflight council. */
 export function preflightPayload(plan: ProductionPlan): string {
+  // #419 seam: surface the mode's golden benchmark set (good/acceptable/bad
+  // example features) so roles can judge FORMAT FIT against a documented mode
+  // standard, not just generic taste. Light reference only.
+  // ponytail: summary slug + per-label feature lists; #457/#427 own scoring an
+  // output's observed features against this set (and weighting the verdict).
+  const benchmark = benchmarkSetForMode(plan.contentMode.mode);
   return JSON.stringify(
     {
       projectId: plan.projectId,
+      benchmarkSet: benchmark
+        ? {
+            slug: benchmark.slug,
+            summary: benchmark.summary,
+            features: Object.fromEntries(
+              (["good", "acceptable", "bad"] as const).map((label) => [
+                label,
+                benchmark.examples.filter((e) => e.label === label).flatMap((e) => e.features),
+              ]),
+            ),
+          }
+        : null,
       brief: plan.brief,
       vibe: plan.vibe,
       register: plan.register,
