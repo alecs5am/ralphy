@@ -95,6 +95,7 @@ your plan" promise that turns into surprise API charges.
 
 ## Notes
 
+- **Strategic update 2026-06-15:** user approved this as one of the two launchable tracks next to the agent-substrate track. The desktop/chat product is not a replacement for the CLI; it is the non-technical user's primary surface over the same agent-native production engine. The first valuable version should expose chat, project state, artifact gallery, cost/approval prompts, eval/repair status, and Unit packaging, while the local Claude/Codex-style agent still drives `ralphy` underneath.
 - Scaffold lives in `desktop/`. Renderer runs standalone in a browser (`bun run dev`)
   with a mock IPC so the design is checkable without Electron or a `claude` install.
 - Open question: bundle the renderer with the existing Next `landing/` design system,
