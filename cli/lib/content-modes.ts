@@ -21,6 +21,7 @@
 // build on this registry.
 
 import { TEMPLATE_FORMATS, type TemplateFormat } from "./schemas/template.js";
+import { type RefType } from "./schemas/ref-pack.js";
 
 /** Production-intent labels. New modes are additive — append, never repurpose. */
 export const CONTENT_MODES_LIST = [
@@ -149,6 +150,15 @@ export interface ContentModeEntry {
   supportedFormats: TemplateFormat[];
   /** Inputs the agent MUST have before generation (else ask / refuse). */
   requiredInputs: string[];
+  /**
+   * OPTIONAL ref-pack types (#426) the mode's reference pack should carry before
+   * prompt fan-out — the typed counterpart to the free-text `requiredInputs`.
+   * Populated only for high-frequency commercial modes where a missing ref type
+   * is a known quality risk. The fidelity gate (#422) + plan grader own
+   * ENFORCEMENT; this field is just the declaration `missingRequiredRefTypes()`
+   * reports against. Absent = the mode declares no required pack types.
+   */
+  requiredRefTypes?: RefType[];
   /** Inputs that improve the result but are not blocking. */
   optionalInputs: string[];
   /** Default research depth before drafting prompts. */
@@ -186,6 +196,7 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     },
     supportedFormats: ["image", "poster"],
     requiredInputs: ["product reference image"],
+    requiredRefTypes: ["product"],
     optionalInputs: ["brand palette", "background spec", "lighting register", "aspect ratio"],
     defaultResearchDepth: "none",
     roleChain: ["intake", "art-director"],
@@ -324,6 +335,7 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     },
     supportedFormats: ["fb-creative", "image"],
     requiredInputs: ["brand site or brand reference", "hero / product reference"],
+    requiredRefTypes: ["brand", "product"],
     optionalInputs: ["target audience", "offer / copy angles", "creative count"],
     defaultResearchDepth: "deep",
     roleChain: ["intake", "researcher", "art-director", "producer"],
@@ -417,6 +429,7 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     },
     supportedFormats: ["video"],
     requiredInputs: ["product reference"],
+    requiredRefTypes: ["product"],
     optionalInputs: ["persona / archetype", "hook angle", "target language", "duration"],
     defaultResearchDepth: "quick",
     roleChain: ["intake", "scenarist", "art-director", "editor"],

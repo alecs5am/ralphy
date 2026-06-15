@@ -741,6 +741,107 @@ export function refCmd() {
       });
     });
 
+  // ── pack (#426 — reference-pack builder) ───────────────────────────────
+  // Gather/classify the refs a project will generate against into a typed,
+  // lockable ref-pack.json + REF_PACK.md. Append-only: a re-run MERGES entries
+  // by path and never deletes a ref or a file on disk.
+  cmd
+    .command("pack <project-id>")
+    .description(
+      "Build/update the project's reference pack — gathers + classifies refs from artifacts/refs/ (and workspace shared/refs/ + research-facts hints) into a typed, lockable ref-pack.json + REF_PACK.md. Append-only: a re-run merges by path. `--add` registers a ref manually; `--show` prints without rebuilding; `--mode` reports missing required ref types.",
+    )
+    .option("--add <path>", "Manually add/update a ref entry at <path> (project-relative)")
+    .option("--type <type>", "Ref type for --add: brand | product | model-person | style | benchmark | source-video | music | generated-master | selected-prototype")
+    .option("--lock", "Mark the --add'ed ref as locked (reused verbatim downstream)", false)
+    .option("--note <text>", "Optional note for the --add'ed ref")
+    .option("--show", "Print the existing pack without rebuilding", false)
+    .option("--mode <mode>", "Also report missing required ref types for this content mode (#426)")
+    .action(async (projectId: string, opts: any) => {
+      const {
+        buildRefPack,
+        mergeRefPack,
+        addManualEntry,
+        readRefPack,
+        renderRefPackMd,
+        reportMissingForMode,
+        REF_PACK_MD_ARTIFACT,
+      } = await import("../lib/ref-pack.js");
+      const { REF_PACK_ARTIFACT, lockedRefs } = await import("../lib/schemas/ref-pack.js");
+
+      const project = await getEntity("projects", projectId);
+      if (!project) {
+        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+        return;
+      }
+      const projDir = projectDir(projectId);
+      const packPath = path.join(projDir, REF_PACK_ARTIFACT);
+      const mdPath = path.join(projDir, REF_PACK_MD_ARTIFACT);
+
+      let pack = readRefPack(projectId);
+
+      if (opts.show) {
+        if (!pack) {
+          raiseError("E_NOT_FOUND", { kind: "Reference pack", id: `${projectId}/${REF_PACK_ARTIFACT}` });
+          return;
+        }
+        // fall through to emit (no write)
+      } else if (opts.add) {
+        if (!opts.type) {
+          raiseError("E_INPUT_INVALID", { field: "--type", detail: "--add requires --type <ref-type>", verb: "ref pack" });
+          return;
+        }
+        // Start from existing (or a fresh build) so --add composes with the auto-gathered set.
+        const base = pack ?? buildRefPack(projectId);
+        try {
+          pack = addManualEntry(base, { path: opts.add, type: opts.type, lock: opts.lock === true, note: opts.note });
+        } catch (e: any) {
+          raiseError("E_INPUT_INVALID", { field: "--type", detail: e?.message ?? String(e), verb: "ref pack" });
+          return;
+        }
+      } else {
+        // Default: (re)build from disk and merge with any existing pack (append-only).
+        pack = mergeRefPack(pack, buildRefPack(projectId));
+      }
+
+      if (!pack) {
+        // Defensive — show branch already raised; build branches always set it.
+        raiseError("E_INTERNAL", { detail: "ref pack: no pack to emit" });
+        return;
+      }
+
+      // Persist on any non-show invocation.
+      if (!opts.show) {
+        await fs.writeFile(packPath, JSON.stringify(pack, null, 2) + "\n");
+        await fs.writeFile(mdPath, renderRefPackMd(pack));
+        ok(`Reference pack ${opts.add ? "updated" : "built"}: ${pack.entries.length} ref${pack.entries.length === 1 ? "" : "s"} → ${path.relative(root(), packPath)}`);
+      }
+
+      const locked = lockedRefs(pack);
+      const modeReport = opts.mode ? reportMissingForMode(pack, opts.mode) : null;
+
+      out({
+        project: projectId,
+        path: path.relative(projDir, packPath),
+        md: path.relative(projDir, mdPath),
+        total: pack.entries.length,
+        byType: pack.entries.reduce((acc: Record<string, number>, e) => {
+          acc[e.type] = (acc[e.type] ?? 0) + 1;
+          return acc;
+        }, {}),
+        locked: locked.map((e) => e.path),
+        entries: pack.entries.map((e) => ({
+          type: e.type,
+          path: e.path,
+          locked: e.locked,
+          source: e.source || null,
+          ...(e.note ? { note: e.note } : {}),
+        })),
+        ...(modeReport
+          ? { modeReport: { mode: modeReport.mode, required: modeReport.required, missing: modeReport.missing, satisfied: modeReport.satisfied } }
+          : {}),
+      });
+    });
+
   cmd
     .command("delete <id>")
     .description("Delete a reference")
@@ -842,6 +943,10 @@ Examples:
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
   ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
+  ralphy ref pack my-project-001                    # build/update the typed reference pack
+  ralphy ref pack my-project-001 --show             # print the pack without rebuilding
+  ralphy ref pack my-project-001 --add artifacts/refs/hero.png --type product --lock
+  ralphy ref pack my-project-001 --mode product-shot  # report missing required ref types
   ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
 `,
   );
