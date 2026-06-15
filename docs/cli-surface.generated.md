@@ -917,6 +917,24 @@ Commands:
                                 filenames.
   score [options] <id>          Run virality rubric over scenario.json (Hard
                                 fails + warnings, no LLM)
+  image-pack [options] <id>     Scaffold a first-class image-pack workflow
+                                (#429): writes pack.json (slot roles +
+                                composition classes per kind) + a batch-ready
+                                prompts/pack.jsonl for `generate image --batch`
+                                (#024), and creates artifacts/images/,
+                                artifacts/refs/, selected/, prompts/, logs/.
+                                Default slot sets per --kind: app-store /
+                                play-store (hero → feature-callouts → lifestyle
+                                → dimensions → comparison → usage → cta),
+                                ad-creative (the fb-creatives A-E 5-set), social
+                                (cover + N feed). --count tunes the repeatable
+                                middle of the set. Append-only — a prior
+                                pack.json auto-versions unless --force. --score
+                                runs the deterministic eval rubric (role
+                                coverage / aspect / selected-set cohesion)
+                                instead of scaffolding. JSON output. Example:
+                                ralphy project image-pack take-a-minute-001
+                                --kind app-store --count 4
   scorecard [options] <id>      Release-readiness scorecard (#427).
                                 Deterministic AGGREGATOR — INGESTS the persisted
                                 gate reports (eval.json, fidelity.json,
