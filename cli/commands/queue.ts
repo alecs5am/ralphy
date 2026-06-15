@@ -19,6 +19,8 @@ import {
   countByStatus,
 } from "../lib/jobs/db.js";
 import { ensureDaemonRunning, daemonStatus } from "../lib/jobs/daemon.js";
+import { burstCapHint } from "../lib/jobs/error-hints.js";
+import { deriveJobArgvFields } from "../lib/jobs/argv-fields.js";
 import type { JobStatus, JobLogRow } from "../lib/jobs/types.js";
 
 const VALID_STATES: JobStatus[] = [
@@ -132,18 +134,28 @@ export function queueCmd() {
         projectId: opts.project,
         limit: opts.limit,
       });
-      const slim = rows.map((j) => ({
-        id: j.id,
-        status: j.status,
-        kind: j.kind,
-        priority: j.priority,
-        deps: j.depends_on.join(",") || "-",
-        argv: j.command.argv.slice(0, 3).join(" ") + (j.command.argv.length > 3 ? " …" : ""),
-        runtimeMs: j.started_at && j.ended_at ? j.ended_at - j.started_at : null,
-        exit: j.exit_code,
-        tag: j.tag,
-        project: j.project_id,
-      }));
+      const slim = rows.map((j) => {
+        const f = deriveJobArgvFields(j.command.argv);
+        return {
+          id: j.id,
+          status: j.status,
+          kind: j.kind,
+          priority: j.priority,
+          deps: j.depends_on.join(",") || "-",
+          argv: j.command.argv.slice(0, 3).join(" ") + (j.command.argv.length > 3 ? " …" : ""),
+          slot: f.slot,
+          model: f.model,
+          refCount: f.refCount,
+          promptPreview: f.promptPreview,
+          attempts: j.retry_count,
+          runtimeMs: j.started_at && j.ended_at ? j.ended_at - j.started_at : null,
+          exit: j.exit_code,
+          lastError: j.error_message,
+          hint: burstCapHint(j.error_message),
+          tag: j.tag,
+          project: j.project_id,
+        };
+      });
       const counts = countByStatus();
       out({ counts, jobs: slim });
     });
@@ -155,7 +167,8 @@ export function queueCmd() {
     .action((id) => {
       const job = getJob(Number(id));
       if (!job) raiseError("E_NOT_FOUND", { kind: "Job", id });
-      out(job);
+      const hint = burstCapHint(job!.error_message);
+      out(hint ? { ...job, hint } : job);
     });
 
   // ── cancel ─────────────────────────────────────────────────────────────

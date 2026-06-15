@@ -322,7 +322,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   ],
   queue: [
     { label: "queue.add", shape: { id: 42, kind: "shell", argv: ["ralphy", "render", "demo-001"], depends_on: [41] } },
-    { label: "queue.list", shape: { counts: { pending: 2, running: 1, done: 5 }, jobs: [{ id: 42, kind: "shell", status: "pending" }] } },
+    { label: "queue.list", shape: { counts: { pending: 2, running: 1, done: 5 }, jobs: [{ id: 42, status: "pending", kind: "generate.image", priority: 0, deps: "-", argv: "generate image --slot …", slot: "scene-01-image-hero", model: "openai/gpt-5.4-image-2", refCount: 2, promptPreview: "a hero shot", attempts: 0, runtimeMs: null, exit: null, lastError: null, hint: null, tag: "batch-1", project: "demo-001" }] } },
   ],
   ref: [
     { label: "ref.show", shape: { id: "old-spice-bottle", kind: "refs", path: "artifacts/refs/old-spice.png", bytes: 442100 } },
