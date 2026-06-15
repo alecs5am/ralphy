@@ -35,6 +35,13 @@ import { buildUnitCaption, type CaptionContext } from "../lib/social/caption.js"
 import { isBankStale, LAST_REVIEWED } from "../lib/social/hashtag-bank.js";
 import { buildProvenanceGraph } from "../lib/provenance.js";
 import { PROVENANCE_GRAPH_FILENAME } from "../lib/schemas/provenance-graph.js";
+import { buildDistributionPack } from "../lib/distribution.js";
+import {
+  DISTRIBUTION_PACK_FILE,
+  DISTRIBUTION_HANDOFF_FILE,
+  DISTRIBUTION_COPY_DIR,
+  type DistributionPack,
+} from "../lib/schemas/distribution-pack.js";
 
 const UNITS_DIRNAME = "units";
 
@@ -308,6 +315,47 @@ async function copyMedia(
     written.push(base);
   }
   return written;
+}
+
+/**
+ * Resolve the append-only filename for a pack artifact. If `<base>` is free,
+ * returns it; else mirrors the asset auto-version rule — `<stem>.v2<ext>`
+ * (then v3…), so the prior pack survives untouched. Never overwrites.
+ */
+function resolveNewVersionedName(dir: string, base: string): string {
+  if (!existsSync(path.join(dir, base))) return base;
+  const ext = path.extname(base);
+  const stem = path.basename(base, ext);
+  let n = 2;
+  while (existsSync(path.join(dir, `${stem}.v${n}${ext}`))) n++;
+  return `${stem}.v${n}${ext}`;
+}
+
+/** Render the human-readable DISTRIBUTION.md handoff from a pack. English-on-disk. */
+function renderDistributionHandoff(pack: DistributionPack): string {
+  const lines: string[] = [];
+  lines.push(`# Distribution pack — ${pack.slug}`);
+  lines.push("");
+  lines.push(`- Project: ${pack.projectId}`);
+  lines.push(`- Format: ${pack.format}`);
+  lines.push(`- Generated: ${pack.generatedAt}`);
+  lines.push(`- Thumbnail: ${pack.thumbnail ?? "(none — see note)"}`);
+  lines.push("");
+  lines.push(`> ${pack.publishNote}`);
+  lines.push("");
+  for (const [platform, section] of Object.entries(pack.platforms)) {
+    lines.push(`## ${platform}`);
+    if (section.title) lines.push(`**Title:** ${section.title}`);
+    if (section.caption) lines.push(`**Caption:** ${section.caption}`);
+    if (section.primaryText) lines.push(`**Primary text:** ${section.primaryText}`);
+    if (section.ctaVariants?.length) lines.push(`**CTA variants:** ${section.ctaVariants.join(" / ")}`);
+    if (section.hashtags?.length) lines.push(`**Hashtags:** ${section.hashtags.join(" ")}`);
+    lines.push("");
+  }
+  lines.push("## Selected media");
+  for (const m of pack.selectedMedia) lines.push(`- ${DISTRIBUTION_COPY_DIR}/${m}`);
+  lines.push("");
+  return lines.join("\n");
 }
 
 export function unitCmd() {
@@ -607,6 +655,78 @@ export function unitCmd() {
         bank_last_reviewed: LAST_REVIEWED,
         bank_stale: isBankStale(),
         results,
+      });
+    });
+
+  // ── package (distribution pack — platform-ready handoff, #423) ─────────────
+  cmd
+    .command("package <project> <slug>")
+    .description(
+      "Package a unit for publication: per-platform captions/titles/hashtags + Meta ad text + thumbnail pick + a copied deliverables bundle. Reuses the unit's caption (#403) when present, else drafts one. Append-only: re-package archives the prior (--force).",
+    )
+    .option("--thumbnail <path>", "Override the thumbnail (unit-relative path)")
+    .option("--language <lang>", "Language for the caption draft fallback", "English")
+    .option("--brief <text>", "Extra grounding text for the caption draft fallback")
+    .option("--force", "Re-package even if a pack exists (auto-versions the prior, never overwrites)")
+    .action(async (project: string, slug: string, opts: any) => {
+      const projectDir = resolveProjectDir(project);
+      const unitDir = path.join(unitsRoot(projectDir), slug);
+      if (!existsSync(path.join(unitDir, "unit.json"))) {
+        raiseError("E_NOT_FOUND", { kind: "Unit", id: slug });
+      }
+
+      // Append-only: refuse a silent overwrite. Without --force, stop if a pack
+      // already exists; with --force the writer auto-versions the prior away.
+      const packExists = existsSync(path.join(unitDir, DISTRIBUTION_PACK_FILE));
+      if (packExists && !opts.force) {
+        ok(`Distribution pack already exists for ${slug} — pass --force to re-package (the prior is archived)`);
+        out({
+          slug,
+          skipped: "distribution pack exists — pass --force to re-package (prior auto-versioned)",
+        });
+        return;
+      }
+
+      const { pack, manifest, draftedCaption } = await buildDistributionPack({
+        projectId: project,
+        slug,
+        thumbnail: opts.thumbnail != null ? String(opts.thumbnail) : undefined,
+        language: String(opts.language),
+        brief: opts.brief != null ? String(opts.brief) : undefined,
+      });
+
+      // COPY (never move) the selected deliverables into units/<slug>/distribution/.
+      // copyMedia auto-suffixes on basename collision (append-only) — sources in
+      // units/<slug>/ and artifacts/ stay untouched.
+      const copyDir = path.join(unitDir, DISTRIBUTION_COPY_DIR);
+      const copied = await copyMedia(unitDir, copyDir, manifest.media);
+
+      // Write the pack JSON + handoff, auto-versioning a prior on --force.
+      const packName = resolveNewVersionedName(unitDir, DISTRIBUTION_PACK_FILE);
+      const handoffName = resolveNewVersionedName(unitDir, DISTRIBUTION_HANDOFF_FILE);
+      await fs.writeFile(
+        path.join(unitDir, packName),
+        JSON.stringify(pack, null, 2) + "\n",
+        "utf8",
+      );
+      await fs.writeFile(path.join(unitDir, handoffName), renderDistributionHandoff(pack), "utf8");
+
+      // ponytail: #458 (distribution/publishing factory) would zip the bundle +
+      // push to the platforms here. Out of scope for #423; a zip needs no new dep
+      // only if we shell out — deferred, the COPY into distribution/ is the seam.
+      ok(`Distribution pack written for ${slug} (${copied.length} media, ${Object.keys(pack.platforms).length} platforms)`);
+      out({
+        slug,
+        format: pack.format,
+        pack_file: packName,
+        handoff_file: handoffName,
+        copy_dir: path.relative(projectDir, copyDir),
+        copied,
+        platforms: Object.keys(pack.platforms),
+        thumbnail: pack.thumbnail,
+        drafted_caption: draftedCaption,
+        versioned: packName !== DISTRIBUTION_PACK_FILE,
+        pack,
       });
     });
 
