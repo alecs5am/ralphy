@@ -14,6 +14,15 @@ import { buildBatchReview, type BatchInput, type ProjectStateInput } from "../li
 import { readGenerations } from "../lib/gen-log.js";
 import type { EvalReport } from "../lib/eval/types.js";
 import type { RepairPlan } from "../lib/schemas/repair-plan.js";
+import {
+  runTournament,
+  manualScorer,
+  modelAssistedScorer,
+  kindForMedia,
+  type TournamentCandidate,
+} from "../lib/variant-tournament.js";
+import { TOURNAMENT_RESULT_FILENAME } from "../lib/schemas/variant-matrix.js";
+import { scoreImage, scoreVideo } from "../lib/quality.js";
 
 /** Read + JSON.parse a file, or null on any failure. */
 async function safeReadJson<T = unknown>(fp: string): Promise<T | null> {
@@ -35,6 +44,43 @@ function projectIdOf(entry: unknown): string | null {
     for (const k of ["id", "projectId", "project"]) {
       if (typeof o[k] === "string") return o[k] as string;
     }
+  }
+  return null;
+}
+
+/**
+ * Resolve a variant project's candidate media for the tournament (#421). The
+ * canonical deliverable is `render/final.mp4`; an image-pack variant with no
+ * render falls back to the first promoted asset-manifest slot. Returns null when
+ * neither exists (the verb then skips it from the model-assisted pool). The
+ * `cost` is summed from the project's gen-log so the result's roll-up matches
+ * the #410 review's cost contract.
+ */
+async function resolveCandidate(pid: string): Promise<TournamentCandidate | null> {
+  const pdir = projectDir(pid);
+  let cost = 0;
+  let prompt = "";
+  try {
+    for (const row of await readGenerations(pid)) {
+      if (typeof row.cost_usd === "number" && Number.isFinite(row.cost_usd)) cost += row.cost_usd;
+    }
+  } catch {
+    /* unreadable gen-log → 0 cost */
+  }
+
+  const renderRel = path.join("render", "final.mp4");
+  if (existsSync(path.join(pdir, renderRel))) {
+    return { variantId: pid, mediaPath: path.join(pdir, renderRel), kind: "video", cost: Number(cost.toFixed(2)), prompt };
+  }
+
+  // Image-pack fallback: the first promoted asset-manifest slot path.
+  const manifest = await safeReadJson<{ slots?: Record<string, { path?: string }> }>(
+    path.join(pdir, "asset-manifest.json"),
+  );
+  const firstSlot = manifest?.slots ? Object.values(manifest.slots).find((s) => s.path) : undefined;
+  if (firstSlot?.path) {
+    const abs = path.isAbsolute(firstSlot.path) ? firstSlot.path : path.join(pdir, firstSlot.path);
+    return { variantId: pid, mediaPath: abs, kind: kindForMedia(abs), cost: Number(cost.toFixed(2)), prompt };
   }
   return null;
 }
@@ -180,6 +226,85 @@ export function batchCmd() {
       );
       out(review);
     });
+
+  // ── tournament (#421 — the decision layer on variants) ──────────────────────
+  // `ralphy batch tournament <id>` is the DECISION step on top of `batch vary`
+  // (#024, which CREATES the variants) and `batch review` (#410, which
+  // aggregates winners/failures/cost). It RANKS the batch's variant projects,
+  // picks a CHAMPION, and PRESERVES the losers with a rationale (AGENTS.md #14 —
+  // losers are training data, NEVER deleted). Two scorer modes:
+  //   • model-assisted (default): `scoreVideo` for clip variants, `scoreImage`
+  //     for still variants (cli/lib/quality.ts).
+  //   • --manual <scores.json>: a `variantId → score` map for cheap manual
+  //     visual review — ZERO model calls.
+  // Writes `<batch>/tournament.json` (the durable champion + loser record) and
+  // prints the ranked result + champion + cost rollup. Never deletes a loser.
+  cmd
+    .command("tournament <id>")
+    .description(
+      "Rank a batch's variant projects, pick a champion, and preserve the losers with rationale (#421). Model-assisted by default (scoreImage for still variants, scoreVideo for clip variants); --manual <scores.json> for the cheap no-model mode. Writes tournament.json. NEVER deletes a losing variant (append-only #14).",
+    )
+    .option("--manual <file>", "JSON map of variantId → score (or { score, reasons }) for the cheap no-model mode")
+    .action(async (id: string, opts: { manual?: string }) => {
+      const dir = path.join(batchesDir(), id);
+      const state = await safeReadJson<{ projects?: unknown[] }>(path.join(dir, "state.json"));
+      const config = await safeReadJson<{ name?: string }>(path.join(dir, "batch-config.json"));
+      if (!state && !config) {
+        raiseError("E_NOT_FOUND", { kind: "Batch", id });
+      }
+
+      const projectIds = Array.from(
+        new Set((state?.projects ?? []).map(projectIdOf).filter((p): p is string => !!p)),
+      ).sort((a, b) => a.localeCompare(b, "en"));
+
+      // Resolve a scorable candidate per variant project (render/final.mp4 →
+      // image-pack fallback). Variants with neither are skipped from the pool.
+      const candidates: TournamentCandidate[] = [];
+      for (const pid of projectIds) {
+        if (!existsSync(projectDir(pid))) continue;
+        const cand = await resolveCandidate(pid);
+        if (cand) candidates.push(cand);
+      }
+
+      // Wire the scorer: --manual → caller-supplied map (no model call); else
+      // model-assisted (scoreImage / scoreVideo). Both are injected so the
+      // runner stays mode-agnostic.
+      let scorer: "manual" | "model-assisted";
+      let scoreFn;
+      if (opts.manual) {
+        const scores = await safeReadJson<Record<string, number | { score: number; reasons?: string[] }>>(opts.manual);
+        if (!scores || typeof scores !== "object") {
+          raiseError("E_FILE_MALFORMED", { format: "JSON", path: opts.manual, detail: "expected a variantId → score map" });
+        }
+        scorer = "manual";
+        scoreFn = manualScorer(scores!);
+      } else {
+        scorer = "model-assisted";
+        scoreFn = modelAssistedScorer({
+          scoreImageFn: (i) => scoreImage({ imagePath: i.imagePath, prompt: i.prompt }),
+          scoreVideoFn: (i) => scoreVideo({ videoPath: i.videoPath, prompt: i.prompt }),
+        });
+      }
+
+      const result = await runTournament({ baseId: id, candidates, scoreFn, scorer });
+
+      // Persist the durable champion + loser record. Fresh write — append-only
+      // re-runs land in tournament.v2.json is out of scope; this is the latest
+      // verdict, the per-variant artifacts stay untouched on disk.
+      await fs.writeFile(path.join(dir, TOURNAMENT_RESULT_FILENAME), JSON.stringify(result, null, 2) + "\n");
+
+      ok(
+        result.champion
+          ? `Champion: ${result.champion.variantId} (score ${result.champion.score}); ${result.losers.length} loser(s) preserved on disk ($${result.cost.totalUsd.toFixed(2)} spent)`
+          : `No scorable variants found for ${id}`,
+      );
+      out(result);
+    })
+    .addHelpText("after", `
+Examples:
+  $ ralphy batch tournament farm-001
+  $ ralphy batch tournament farm-001 --manual scores.json
+`);
 
   cmd
     .command("delete <id>")
