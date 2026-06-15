@@ -1,7 +1,7 @@
 # Monorepo → multi-repo split plan
 
 > **Status:** design only. Nothing in this doc has been executed. No files moved, no repos created, no install/CI/code changed. Execution is a separate, dedicated session.
-> **Tracks:** [`notes/issues/059-monorepo-split-design-plan-only.md`](../../notes/issues/059-monorepo-split-design-plan-only.md)
+> **Tracks:** [`notes/issues/done/059-monorepo-split-design-plan-only.md`](../../notes/issues/done/059-monorepo-split-design-plan-only.md)
 > **Target repos:** **core** · **landing** · **docs** · **assets**.
 > **Grounded as of:** 2026-06-15 against the live repo. Every path/script citation below was verified to exist (or noted as absent) at that time.
 
