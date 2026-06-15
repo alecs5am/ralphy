@@ -1,6 +1,6 @@
 # Monorepo → multi-repo split (DESIGN DOC ONLY, do not execute)
 
-> **Status:** todo (plan-only this round — user decision 2026-05-30)
+> **Status:** done — 2026-06-15 (design doc only — docs/architecture/repo-split-plan.md re-grounded against the live repo: 4-way core/landing/docs/assets mapping, per-repo git-history strategy, install/asset-cache/CI impact, runtime-vs-build coupling, staged cutover + rollback, open questions. NO files moved, NO repos created — execution stays deferred.)
 > **Filed:** 2026-05-30
 > **Folder:** issues
 > **Severity:** high (risk) / deferred execution
