@@ -862,12 +862,20 @@ Commands:
                                 repair-plan`. JSON output. Use --no-llm for the
                                 deterministic fixture (offline / abstaining
                                 roles).
-  plan [options] <id>           Draft a structured production plan from a brief
-                                (contract phase 7, #407). Deterministic
-                                content-mode + template match + cost estimate;
-                                callLLM() enrichment for
-                                language/register/scene-count. Writes
-                                PRODUCTION_PLAN.md + production-plan.json
+  plan [options] <id>           Draft a structured production plan + compiled
+                                production contract from a brief (contract phase
+                                7, #407/#418). Deterministic content-mode +
+                                template match + cost estimate; callLLM()
+                                enrichment for language/register/scene-count.
+                                The compiled production-contract.json adds the
+                                forward-looking execution contract — content
+                                mode, support classification (the #413
+                                unsupported-mode refusal with the closest
+                                supported mode), required artifacts,
+                                eval/council gates, and Unit shape (distinct
+                                from the on-disk ledger `project status
+                                --contract`). Writes PRODUCTION_PLAN.md +
+                                production-plan.json + production-contract.json
                                 (append-only, auto-versions). JSON output.
   style-lock [options] <id>     Scaffold/write the STYLE_LOCK.md benchmark/style
                                 grounding artifact (contract phase 6, #408).

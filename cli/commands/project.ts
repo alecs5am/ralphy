@@ -22,7 +22,8 @@ import {
   renderCouncilMarkdown,
 } from "../lib/council.js";
 import { parseProductionPlan } from "../lib/schemas/production-plan.js";
-import { buildProductionPlan, renderPlanMarkdown } from "../lib/plan/build.js";
+import { renderPlanMarkdown } from "../lib/plan/build.js";
+import { compileProductionContract } from "../lib/production/compiler.js";
 import { loadTemplateCandidates } from "../lib/plan/catalog.js";
 import { llmEnrich } from "../lib/plan/enrich.js";
 import {
@@ -475,7 +476,7 @@ export function projectCmd() {
   cmd
     .command("plan <id>")
     .description(
-      "Draft a structured production plan from a brief (contract phase 7, #407). Deterministic content-mode + template match + cost estimate; callLLM() enrichment for language/register/scene-count. Writes PRODUCTION_PLAN.md + production-plan.json (append-only, auto-versions). JSON output.",
+      "Draft a structured production plan + compiled production contract from a brief (contract phase 7, #407/#418). Deterministic content-mode + template match + cost estimate; callLLM() enrichment for language/register/scene-count. The compiled production-contract.json adds the forward-looking execution contract — content mode, support classification (the #413 unsupported-mode refusal with the closest supported mode), required artifacts, eval/council gates, and Unit shape (distinct from the on-disk ledger `project status --contract`). Writes PRODUCTION_PLAN.md + production-plan.json + production-contract.json (append-only, auto-versions). JSON output.",
     )
     .requiredOption("--brief <text>", "The creative brief to plan from")
     .option("--aspect <ratio>", "Aspect ratio override (default: derived from format)")
@@ -488,7 +489,12 @@ export function projectCmd() {
       const warnings: string[] = [];
       const candidates = await loadTemplateCandidates((m) => warnings.push(m));
 
-      const { plan } = await buildProductionPlan(
+      // Compile the production contract (#418): it builds the plan internally
+      // (forwarding candidates + enrich) and folds it + the content-mode registry
+      // into one forward-looking execution contract — content mode, support
+      // classification (the #413 unsupported-mode refusal), required artifacts,
+      // gates, Unit shape. NOT the on-disk ledger (`project status --contract`).
+      const { plan, contract } = await compileProductionContract(
         { projectId: id, brief: opts.brief, aspect: opts.aspect, platform: opts.platform },
         {
           candidates,
@@ -497,16 +503,19 @@ export function projectCmd() {
         },
       );
 
-      // Append-only: auto-version both artifacts if they already exist
+      // Append-only: auto-version all artifacts if they already exist
       // (protectExistingAsset renames the existing file to .v{N}). AGENTS.md #14.
       const dir = projectDir(id);
       await fs.mkdir(dir, { recursive: true });
       const mdPath = path.join(dir, "PRODUCTION_PLAN.md");
       const jsonPath = path.join(dir, "production-plan.json");
+      const contractPath = path.join(dir, "production-contract.json");
       const archivedMd = await protectExistingAsset(mdPath, false);
       const archivedJson = await protectExistingAsset(jsonPath, false);
+      const archivedContract = await protectExistingAsset(contractPath, false);
       await fs.writeFile(mdPath, renderPlanMarkdown(plan));
       await fs.writeFile(jsonPath, JSON.stringify(plan, null, 2) + "\n");
+      await fs.writeFile(contractPath, JSON.stringify(contract, null, 2) + "\n");
 
       // Mirror the brief into user-prompts.jsonl (the contract's brief-capture
       // intent) so the plan's provenance is in the project's append-only log.
@@ -516,11 +525,14 @@ export function projectCmd() {
       out({
         project: id,
         plan,
+        contract,
         artifacts: {
           markdown: mdPath,
           json: jsonPath,
+          contract: contractPath,
           ...(archivedMd ? { archivedMarkdown: archivedMd } : {}),
           ...(archivedJson ? { archivedJson } : {}),
+          ...(archivedContract ? { archivedContract } : {}),
         },
         ...(warnings.length ? { warnings } : {}),
       });
