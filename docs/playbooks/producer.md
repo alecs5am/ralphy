@@ -4,7 +4,7 @@
 
 > **Positioning.** Chat is the user interface; the Ralphy CLI is the agent runtime. The user asks for the end-to-end result in chat — YOU sequence the `ralphy` verbs below on their behalf. Never hand the user a batch script to run themselves.
 
-**Read this when:** "make video end-to-end", "make N videos", "run full pipeline", batch generate, "save as template", "create template from", "review batch".
+**Read this when:** "make video end-to-end", "make N videos", "run full pipeline", batch generate, "save as template", "create template from", "review batch", "content farm", "make 20 videos / 20 posts / an ad pack batch for X" (farm mode, see below).
 
 Nothing-to-final-video role. Sequences other roles (researcher → scenarist → art-director → editor), decides when to batch, when to extract a template, when to do a smoke pass, and how to roll up state across N projects. Also handles batch review and cost rollup.
 
@@ -50,6 +50,30 @@ ralphy project log <id> --type all --limit 200               # one project's ful
 
 I do not invent templates on the fly. New format → `extract-template` from a successful project first.
 
+## Content-farm mode (#410)
+
+> **Read this for "make 20 videos / 20 posts / an ad-pack batch / a content farm for X".** Farm mode is the N-item ORCHESTRATION layer on top of the per-item [Unit lifecycle](unit-lifecycle.md) — it does NOT define a divergent flow. Each item still runs the canonical contract (intake → … → render → eval → repair → unit → postmortem); farm mode adds shared grounding, controlled variation, batch eval triage, and repeatable packaging across all N. A "content farm" is **not** parallel generation — it is **shared grounding + controlled variation + measurable quality + repeatable packaging**. Every phase below composes an already-landed primitive; do not reinvent them.
+
+**Positioning.** Chat is the interface; you drive the `ralphy` verbs. The user gives ONE strategic brief in chat; you sequence the farm below on their behalf and check in at the defined gates. Never hand the user a batch script to run themselves.
+
+### The farm workflow (one strategic brief → N packaged Units)
+
+1. **One strategic brief + content-mode classification (#412).** Emit a `content_mode` FIRST with `classifyContentMode()` (surfaced in `ralphy template suggest` JSON, no LLM). It drives the role chain, required inputs, research depth, template lookup, and the expected Unit shape for EVERY item in the batch. If `ambiguous: true`, ask ONE disambiguating question. Gate any "I'll make you N `<mode>`s" promise on `isModeSupported(mode)` — never promise an unsupported mode (#413).
+2. **Research bootstrap once, amortized (#416).** Run `chooseResearchDepth({ brief, contentMode, unitCount: N })` (`cli/lib/research-bootstrap.ts`). A farm brief fires the `multi-unit-farm` trigger and lands on `deep` — the deep scan (`ralphy research run` / `scrape-profile`) runs ONCE and amortizes across all N. Distill into `<base>/artifacts/refs/research-facts.json`. This is the shared grounding half of "farm".
+3. **Shared style lock — ONE `STYLE_LOCK.md`, reused across the batch (#408).** Lock the register (palette, framing, realism axis, pacing, do-not-do) ONCE on the base, with `ralphy project style-lock <base>`; gate with `--check`. Every variation inherits this lock — it is what makes N outputs read as ONE consistent farm, not N unrelated one-offs. Do NOT re-derive the style per item.
+4. **Format + template selection (#412).** Match the mode's `templateLookup` against the library (`ralphy template suggest "<brief>" --format <f>`). One base template/format for the whole batch; load any matching content-niche craft-overlay skill on top.
+5. **Variation matrix (controlled variation).** Define the SINGLE axis (or small axis set) each item varies on — hook / persona / offer angle / CTA — holding everything else (style lock, template, register) constant. This is the controlled-variation half of "farm". Use `ralphy batch vary --base <base> --axis <axis> --variants N --variants-file <swaps.json>` for hook/body/cta/persona swaps off a proven base, or `ralphy batch create --template <slug> --variations <matrix.json>` to fan a fresh matrix. Present the matrix as a numbered table in chat and wait for approval before any paid generation.
+6. **Batch create + per-item checkpoints.** `ralphy batch create` scaffolds the N member projects (each registered, each with its own `BRIEF.md` + `logs/`). Run the per-item pipelines (sub-agents per project, concurrency ≤ `batch.concurrency`; see [batch.md](producer/batch.md)). Append-only is preserved per item: every `ralphy generate` auto-versions, failed gens stay on disk, each project logs to its own `generations.jsonl` / `user-prompts.jsonl` (AGENTS.md #14). For the first 1-2 batches, checkpoint after item 1 before fanning the rest.
+7. **Batch eval triage (#411 native-video).** After the per-item renders, run `ralphy eval video <id>` per item (native-video is the ship gate — a keyframe/structure eval can NEVER mark a Unit ship-ready), then roll the whole batch up with **`ralphy batch review <id>`** — the deterministic farm-triage primitive (ZERO model calls). It returns winners (ship-ready), failures (failed eval), the cost roll-up (sum of per-project `generations.jsonl` cost_usd), style drift (items whose eval flags `style.*`/`brief.*` findings — the shared-lock guard), repeated model failures (the same model/error recurring across ≥2 items — the signal to fix the shared route before re-rolling individuals), and recommended repairs (the #409 owner buckets per item). This is the measurable-quality half of "farm". Surface the review JSON's `recommendation` to the user.
+8. **Repair loop (#409), batch-aware.** For each failed/warn item, `ralphy project repair-plan <id>` (deterministic, zero model calls) → present the owner-grouped plan → **HARD GATE: no paid regeneration until the user approves** → apply targeted fixes through the existing role verbs → re-render → re-eval. If `batch review` flagged a **repeated model failure**, fix the shared model/route FIRST (one decision) before re-rolling individual items — that is the farm-level efficiency the review buys you.
+9. **Unit formation per winner (#069).** For each ship-ready winner, `ralphy unit create <id> --slug <s> --format <f> --from "<glob>"` COPIES the curated artifacts into `units/<slug>/` + writes `unit.json` (append-only). Units are gated on `polished === true` (the native-video gate). This is the repeatable-packaging half of "farm".
+10. **Publish-copy handoff — `ralphy unit caption --bulk` (#403).** The farm last-mile: draft platform-shaped social copy + trending hashtags for ALL the batch's finished Units in one pass with `ralphy unit caption <id> --bulk` (per-niche voice + the hashtag bank `cli/lib/social/hashtag-bank.ts`; `--language <lang>` for the target audience; append-only `--force` to re-draft). Each Unit's `unit.json` gains a `caption`. Run it per project that produced winners; the bulk flag captions every Unit in that project. (This is post COPY, NOT the video-subtitle SRT — that is `ralphy generate captions`.)
+11. **Postmortem + memory (#117).** After an iteration-heavy farm, `/postmortem` + `ralphy memory distill` capture the durable lessons (model picks, register corrections, route fixes) so the next farm starts grounded.
+
+### Self-check + resume
+
+Drive the farm's next action from state, never chat memory: `ralphy project status <id> --contract` per item for the phase ledger + stop conditions, and `ralphy batch review <id>` for the batch roll-up. Both are deterministic and free.
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |
@@ -65,7 +89,8 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 | `single-video-pipeline` | one video end-to-end | orchestration |
 | `template-suggest` | "which template fits my brief" | orchestration (suggest section) |
 | `batch-from-template` | ≥3 videos from one template | batch |
-| `batch-review` | "how's the batch", "what failed" | batch (review section) |
+| `content-farm` | "make 20 X", "content farm", one brief → N consistent Units | content-farm mode (above) + batch |
+| `batch-review` | "how's the batch", "what failed", "review batch" | `ralphy batch review <id>` + batch (review section) |
 | `extract-template` | project landed → template | template-extract |
 
 ## What I read on start

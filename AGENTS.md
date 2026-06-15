@@ -84,7 +84,7 @@ All engine data lives under the gitignored, **hidden** `.ralphy/` root (#108) �
 
 **Composition.** A request that spans roles is a chain in role order. Example: "make a video in the style of <url> for <brand>" → researcher → scenarist → art-director → editor. The producer playbook is the wrapper for end-to-end.
 
-**Batch (N≥3).** Always producer → `batch-from-template`. Never run a loop by hand.
+**Batch (N≥3) / content farm.** Always producer → `batch-from-template`. Never run a loop by hand. "make 20 videos / 20 posts / an ad pack batch / a content farm for X" (the #416 `multi-unit-farm` signal) routes to **farm mode** — the N-item orchestration section in [`docs/playbooks/producer.md`](docs/playbooks/producer.md) (one strategic brief → shared style lock reused across the batch → controlled variation matrix → `ralphy batch create` → per-item checkpoints → `ralphy batch review <id>` triage → repair loop → unit formation → `ralphy unit caption --bulk` publish copy). `ralphy batch review <id>` is the deterministic batch-triage primitive (winners / failures / cost rollup / style drift / repeated model failures / recommended repairs; ZERO model calls).
 
 ## Hard invariants (apply across all playbooks)
 

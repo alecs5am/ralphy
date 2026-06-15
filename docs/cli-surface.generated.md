@@ -1212,6 +1212,15 @@ Commands:
   list                   List all batches
   show <id>              Show batch details
   status <id>            Show batch status
+  review <id>            Deterministic farm-mode triage over a batch's member
+                         projects (#410). Rolls up winners (ship-ready, #411),
+                         failures (failed eval), a cost roll-up (sum of
+                         per-project generations.jsonl cost_usd), style drift
+                         (eval style.*/brief.* findings vs the shared style
+                         lock), repeated model failures (the same model/error
+                         recurring across ≥2 items), and recommended repairs
+                         (the #409 owner buckets). Makes ZERO model calls — pure
+                         aggregation over existing artifacts. JSON output.
   delete [options] <id>  Delete a batch
   submit [options]       Submit a batch of jobs to the local daemon with
                          symbolic dependencies. Use this for the 'N generations

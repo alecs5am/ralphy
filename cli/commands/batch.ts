@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import fs from "fs/promises";
+import { existsSync } from "fs";
 import path from "path";
 import { addEntity, listEntities, deleteEntity } from "../lib/registry.js";
 import { slugify } from "../lib/ids.js";
@@ -9,6 +10,34 @@ import { raiseError } from "../lib/errors/index.js";
 import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
 import { ensureDaemonRunning } from "../lib/jobs/daemon.js";
 import { isVaryAxis, VARY_AXES } from "../lib/schemas/hook-body-cta.js";
+import { buildBatchReview, type BatchInput, type ProjectStateInput } from "../lib/batch-review.js";
+import { readGenerations } from "../lib/gen-log.js";
+import type { EvalReport } from "../lib/eval/types.js";
+import type { RepairPlan } from "../lib/schemas/repair-plan.js";
+
+/** Read + JSON.parse a file, or null on any failure. */
+async function safeReadJson<T = unknown>(fp: string): Promise<T | null> {
+  try {
+    return JSON.parse(await fs.readFile(fp, "utf-8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Normalize a batch state.json `projects[]` entry to a project id. Entries may
+ * be a bare id string, or an object carrying `{ id | projectId | project }`.
+ */
+function projectIdOf(entry: unknown): string | null {
+  if (typeof entry === "string") return entry;
+  if (entry && typeof entry === "object") {
+    const o = entry as Record<string, unknown>;
+    for (const k of ["id", "projectId", "project"]) {
+      if (typeof o[k] === "string") return o[k] as string;
+    }
+  }
+  return null;
+}
 
 export function batchCmd() {
   const cmd = new Command("batch").description("Manage batch operations");
@@ -95,6 +124,61 @@ export function batchCmd() {
       } catch {
         raiseError("E_NOT_FOUND", { kind: "Batch", id });
       }
+    });
+
+  // ── review (#410 — content-farm triage) ─────────────────────────────────────
+  // Deterministic aggregation over the batch's member projects. ZERO model
+  // calls — it only reads artifacts the per-project pipeline already wrote
+  // (eval.json, repair-plan.json, generations.jsonl) and rolls them up into the
+  // farm-mode triage view: winners (ship-ready, #411), failures (failed eval),
+  // a cost roll-up (sum per-project generations.jsonl cost_usd), style drift
+  // (eval style.*/brief.* findings), repeated model failures (the same
+  // model/error recurring across ≥2 items), and recommended repairs (the #409
+  // owner buckets). The pure builder is `buildBatchReview` so it is unit-tested
+  // without shelling out. JSON output.
+  cmd
+    .command("review <id>")
+    .description(
+      "Deterministic farm-mode triage over a batch's member projects (#410). Rolls up winners (ship-ready, #411), failures (failed eval), a cost roll-up (sum of per-project generations.jsonl cost_usd), style drift (eval style.*/brief.* findings vs the shared style lock), repeated model failures (the same model/error recurring across ≥2 items), and recommended repairs (the #409 owner buckets). Makes ZERO model calls — pure aggregation over existing artifacts. JSON output.",
+    )
+    .action(async (id: string) => {
+      const dir = path.join(batchesDir(), id);
+      const state = await safeReadJson<{ projects?: unknown[] }>(path.join(dir, "state.json"));
+      const config = await safeReadJson<{ name?: string; template?: string | null }>(
+        path.join(dir, "batch-config.json"),
+      );
+      if (!state && !config) {
+        raiseError("E_NOT_FOUND", { kind: "Batch", id });
+      }
+
+      const projectIds = Array.from(
+        new Set((state?.projects ?? []).map(projectIdOf).filter((p): p is string => !!p)),
+      ).sort((a, b) => a.localeCompare(b, "en"));
+
+      const projectStates: ProjectStateInput[] = [];
+      for (const pid of projectIds) {
+        const pdir = projectDir(pid);
+        // Skip ids that don't resolve to a project dir on disk (registry drift).
+        if (!existsSync(pdir)) {
+          projectStates.push({ id: pid, generations: [] });
+          continue;
+        }
+        const evalReport = await safeReadJson<EvalReport>(path.join(pdir, "eval.json"));
+        const repairPlan = await safeReadJson<RepairPlan>(path.join(pdir, "repair-plan.json"));
+        const generations = await readGenerations(pid);
+        projectStates.push({ id: pid, evalReport, repairPlan, generations });
+      }
+
+      const batch: BatchInput = {
+        batchId: id,
+        name: config?.name,
+        template: config?.template ?? null,
+      };
+      const review = buildBatchReview(batch, projectStates);
+      ok(
+        `Batch review: ${review.winners.length}/${review.total} ship-ready, ${review.failures.length} failed ($${review.cost.totalUsd.toFixed(2)} spent)`,
+      );
+      out(review);
     });
 
   cmd

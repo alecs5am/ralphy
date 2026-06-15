@@ -78,25 +78,27 @@ ralphy batch status <batch-id> --update <project-id> \
   --status completed --render-path <path>
 ```
 
-## Phase 5 — Report (batch-review)
+## Phase 5 — Report (batch-review, #410)
 
 ```bash
-ralphy batch status <batch-id>
+ralphy batch status <batch-id>     # in-flight progress (raw state.json)
+ralphy batch review <batch-id>     # deterministic farm-triage roll-up (ZERO model calls)
 ```
 
-Summary table from `state.json`:
+`ralphy batch review` is the canonical Phase-5 primitive (#410). It reads each member project's already-written artifacts (`eval.json`, `repair-plan.json`, `generations.jsonl`) and returns:
 
-| project-id | status | step | cost | render |
-|---|---|---|---|---|
-| matte-lipstick-001 | completed | render | $8.40 | ✓ |
-| eye-cream-002 | failed | art-director | $1.20 | ✗ scene-03 fail |
-| ... | ... | ... | ... | ... |
+- **winners** — ship-ready items (#411 native-video `gate.shipReady === true`, non-fail verdict).
+- **failures** — items whose eval verdict is `fail`.
+- **inProgress** — no eval yet, or a warn/cheap-gate eval not yet promoted.
+- **cost** — per-project + batch-total `cost_usd` summed from `generations.jsonl` (the #032 gen-log contract).
+- **styleDrift** — items whose eval flagged `style.*` / `brief.*` findings (the shared-style-lock guard).
+- **repeatedModelFailures** — the same (model, error) recurring across ≥2 items — fix the shared route once before re-rolling individuals.
+- **recommendedRepairs** — the #409 repair-plan owner buckets per item (art-director / scenarist / editor), summed batch-wide.
+- **recommendation** — a one-line agent-actionable next step. Surface it to the user.
 
-Sum costs across all completed = total.
+Per failed: run `ralphy project repair-plan <id>`, present the owner-grouped plan, re-roll only on approval (#409).
 
-Per failed: which step, last log line, suggested action (retry / manual fix / drop).
-
-Per completed: render path + duration + per-project cost.
+Per completed/winner: form the Unit (`ralphy unit create`) then bulk publish copy — `ralphy unit caption <id> --bulk` (#403).
 
 Follow-ups:
 > "Retry failed (eye-cream-002)? Review renders in dashboard? Export as profile?"
