@@ -25,7 +25,19 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build binaries
+        # build:bin runs --smoke: it execs the just-built current-platform binary's
+        # --version and exits non-zero if it crashes or prints no version (#002).
         run: bun run build:bin
+
+      - name: Smoke-test built binary
+        # Defense-in-depth over build:bin --smoke: assert the published macOS binary
+        # actually runs before we attach it to a release. Fails the job on a crash.
+        run: |
+          BIN=dist/binaries/ralphy-darwin-arm64
+          test -x "$BIN" || { echo "missing $BIN"; exit 1; }
+          VERSION="$("$BIN" --version)"
+          echo "ralphy --version → $VERSION"
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+' || { echo "no version printed"; exit 1; }
 
       - name: Generate release notes
         id: notes

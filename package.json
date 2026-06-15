@@ -31,8 +31,8 @@
     "typescript": "5.9.3"
   },
   "scripts": {
-    "build:bin": "tsx scripts/build-binaries.ts --no-bytecode",
-    "build:bin:current": "tsx scripts/build-binaries.ts --current --no-bytecode",
+    "build:bin": "tsx scripts/build-binaries.ts --smoke",
+    "build:bin:current": "tsx scripts/build-binaries.ts --current --smoke",
     "lint": "tsc && bun run lint:errors && bun run lint:help-examples && bun run lint:skills && bun run lint:agents-md && bun run lint:mode-guidelines && bun run lint:gen-log && bun run lint:out-coverage && bun run cli:surface:check",
     "ralph": "bun cli/index.ts",
     "ralphy": "bun cli/index.ts",
