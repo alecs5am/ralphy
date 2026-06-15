@@ -788,6 +788,7 @@ Commands:
   paths [options] <slug>                         Print every research path for <slug> (helpful when scripting follow-ups)
   scrape-trends [options]                        Scrape TikTok hashtag pages via Playwright (Apify-compatible JSON shape) and rank with scoreTikTok()
   check [options] <project-id>                   Run the reference-required gate classifier on <project-id>'s scenario.json. Reports whether a real-entity name (person / brand-product / IP) was detected and, if so, whether at least one ref is attached. Exit 5 (gate) when the gate fires AND no ref is attached.
+  pack [options] <project-id>                    Build/update the project's reference pack — gathers + classifies refs from artifacts/refs/ (and workspace shared/refs/ + research-facts hints) into a typed, lockable ref-pack.json + REF_PACK.md. Append-only: a re-run merges by path. `--add` registers a ref manually; `--show` prints without rebuilding; `--mode` reports missing required ref types.
   delete <id>                                    Delete a reference
   locate [options]                               Locate an object in an image — returns pixel bbox(es) via Gemini vision
   help [command]                                 display help for command
@@ -801,6 +802,10 @@ Examples:
   ralphy ref blueprint my-reference-slug
   ralphy ref check my-project-001                  # gate classifier on scenario.json
   ralphy ref check --text "Old Spice style hero"   # gate classifier on a raw brief
+  ralphy ref pack my-project-001                    # build/update the typed reference pack
+  ralphy ref pack my-project-001 --show             # print the pack without rebuilding
+  ralphy ref pack my-project-001 --add artifacts/refs/hero.png --type product --lock
+  ralphy ref pack my-project-001 --mode product-shot  # report missing required ref types
   ralphy ref locate --image shot.jpg --object "label tab on the bottle" --top-k 3
 ```
 

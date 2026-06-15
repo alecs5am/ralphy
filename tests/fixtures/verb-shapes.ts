@@ -263,6 +263,22 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "ref.show", shape: { id: "old-spice-bottle", kind: "refs", path: "artifacts/refs/old-spice.png", bytes: 442100 } },
     { label: "ref.check", shape: { project: "demo-001", result: { needs_ref: true, matched: ["Old Spice"], category: "brand-product" }, examples_in_prompts: 2 } },
     { label: "ref.frames", shape: { slug: "tiktok-ref", dir: "artifacts/refs/tiktok-ref/frames", count: 24 } },
+    {
+      label: "ref.pack",
+      shape: {
+        project: "demo-001",
+        path: "ref-pack.json",
+        md: "REF_PACK.md",
+        total: 2,
+        byType: { product: 1, style: 1 },
+        locked: ["artifacts/refs/hero.png"],
+        entries: [
+          { type: "product", path: "artifacts/refs/hero.png", locked: true, source: "manual --add" },
+          { type: "style", path: "artifacts/refs/mood.png", locked: false, source: "project artifacts/refs" },
+        ],
+        modeReport: { mode: "product-shot", required: ["product"], missing: [], satisfied: true },
+      },
+    },
   ],
   render: [
     { label: "render.done", shape: { project: "demo-001", out: "render/final.mp4", durationSec: 32, bytes: 8421000 } },
