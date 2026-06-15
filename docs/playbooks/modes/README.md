@@ -31,6 +31,10 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 
 The remaining supported modes are covered by a register guideline instead: `product-shot` (cgi-product-renders), `lifestyle-scene` / `closeup-product-with-person` / `ugc-review` (photoreal-studio-portraits), `tv-ad` (broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman). The 3 deferred-gap modes (`virtual-model-tryout`, `personal-clipper`, `amazon-listing`) are exempt from the coverage bar until they are promoted to supported (#058).
 
+## Adjacent — multi-still deliverables
+
+[`image-pack.md`](image-pack.md) is the workflow playbook for a SET of stills (App Store / Play Store screenshots, social image packs, ad-creative packs) — #429. It is not a content-mode entry of its own: it routes against the existing [`ad-creative-pack`](ad-creative-pack.md) mode + the `image-pack` project kind, and documents the scaffold → ref pack → `generate image --batch` → variant tournament → select → fidelity + rubric → Unit + `unit package` chain. Driven by `ralphy project image-pack <id>`.
+
 ## See also
 
 - [`docs/content-mode-coverage.md`](../../content-mode-coverage.md) — the supported/gap matrix + the per-mode coverage column.
