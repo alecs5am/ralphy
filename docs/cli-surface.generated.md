@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **43**
+Verbs registered: **44**
 
 ## Top-level verbs
 
@@ -1133,6 +1133,31 @@ Commands:
   use [options] <slug>   Resolve a guideline tag — prints the body + the agent
                          tag for the next prompt
   help [command]         display help for command
+```
+
+### `ralphy benchmark`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy benchmark [options] [command]
+
+Golden benchmark sets — good/acceptable/bad examples per content mode
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  list            List every benchmark set shipped in the repo
+  show <slug>     Print a benchmark set: its examples, labels, and pass/fail
+                  features
+  help [command]  display help for command
 ```
 
 ### `ralphy memory`
