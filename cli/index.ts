@@ -104,10 +104,30 @@ program
     const { setMode, setQuiet } = await import("./lib/ui.js");
     // Commander turns --no-color into opts.color === false. Force chalk off
     // so the rest of the run produces ANSI-free output regardless of TTY.
-    if (opts.color === false) {
+    //
+    // We ALSO honor the NO_COLOR env var explicitly here (no-color.org: any
+    // non-empty value disables color, and it MUST win). chalk's own
+    // auto-detection respects NO_COLOR on its own, but FORCE_COLOR has higher
+    // precedence in supports-color — so `FORCE_COLOR=3 NO_COLOR=1 --pretty`
+    // would otherwise leak ANSI into a pipe. Pinning chalk.level=0 here makes
+    // NO_COLOR authoritative regardless of FORCE_COLOR (issue #001 ANSI-in-pipe
+    // audit). Tested by tests/integration/cli-no-color.test.ts.
+    const noColorEnv = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
+    if (opts.color === false || noColorEnv) {
       const { default: chalk } = await import("chalk");
       chalk.level = 0;
       process.env.NO_COLOR = "1";
+      // Transitive color libs (cli-table3 borders → yoctocolors, ora) read
+      // FORCE_COLOR with HIGHER precedence than NO_COLOR. If both are set we
+      // must clear FORCE_COLOR so those libs also disable — otherwise table
+      // borders + spinners leak ANSI into a NO_COLOR pipe. NO_COLOR wins.
+      delete process.env.FORCE_COLOR;
+      // chalk v5 binds each c.green/c.dim builder to the level at first access,
+      // so `chalk.level = 0` alone does NOT recolor the palette ui.ts baked at
+      // import time (when FORCE_COLOR may have forced level 3). Rebuild the
+      // palette + icons on a fresh level-0 instance. (#001 §D)
+      const { disableColor } = await import("./lib/ui.js");
+      disableColor();
     }
     if (opts.json) {
       setMode("json");

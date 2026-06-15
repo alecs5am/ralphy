@@ -76,6 +76,12 @@ jobs:
       - name: Lint content-mode guideline coverage (#417)
         run: bun run lint:mode-guidelines
 
+      # Every command verb that prints a structured shape via out({...}) must
+      # have a canonical pretty-mode render assertion (issue #001 §A). Catches
+      # the regression front that shipped `installed  [object Object]`.
+      - name: Lint pretty-mode out() coverage (#001)
+        run: bun run lint:out-coverage
+
       - name: Check CLI surface doc is current (01.10.01)
         run: bun run cli:surface:check
 

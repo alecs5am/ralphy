@@ -63,11 +63,22 @@ bun run lint:agents-md        # AGENTS.md routing table + claude-isms
 bun run lint:confirmation-shape  # English/Russian confirmation phrases in prompts.json
 bun run lint:motion-graphics  # motion-graphics misroutes in prompts.json
 bun run lint:docs-links:fast  # internal links resolve (use lint:docs-links for external probe)
+bun run lint:out-coverage     # every out()-emitting command verb has a pretty-mode render assertion
 bun run cli:surface:check     # cli-surface.generated.md is fresh
 bun run docs:cli:check        # docs-mintlify/reference/cli/*.mdx are fresh
 ```
 
-If you add a new lint, wire it into `package.json` AND into the CI workflow (`.github/workflows/ci.yml`).
+If you add a new lint, wire it into `package.json` AND into the CI workflow (`.github/workflows/test.yml`).
+
+## Pretty-mode output policy (the `out()` render contract)
+
+Every `out(...)` call in `cli/commands/` renders two ways: JSON when piped / `--json` / no-TTY, and a styled table / key-value tree when `--pretty` / on a TTY. The printer lives in `cli/lib/output.ts` (`printObject`, `formatGenericCell`, `printArray`) on top of the primitives in `cli/lib/ui.ts` (`kv → renderValue`, `table`). The pretty path is enforced by `tests/unit/output-pretty*.test.ts`, `tests/integration/cli-pretty-smoke.test.ts`, `tests/integration/cli-no-color.test.ts`, and the `lint:out-coverage` lint. The hard rules a render must satisfy:
+
+- **No `[object Object]`.** Object cells/elements go through `JSON.stringify`, never `String(obj)`. This is the original bug class (`installed  [object Object]`).
+- **null / undefined renders as the em-dash `—`, never the literal `"null"` / `"undefined"`.** This holds at *every* level — a standalone cell, a nested value, AND each element of an array value (`["x", null]` → `x, —`). The policy is encoded in `formatGenericCell()` (`output.ts`) and `renderValue()` (`ui.ts`) — keep the two in lockstep when you touch either.
+- **No standalone `undefined` cell.** A bare `undefined` token in the output means an uncovered null path.
+- **`--pretty` must respect `NO_COLOR`.** When `NO_COLOR` is set (any non-empty value) or `--no-color` is passed, the run emits zero ANSI even with `--pretty` — the `preAction` hook in `cli/index.ts` forces `chalk.level = 0`, sets `NO_COLOR=1`, and clears `FORCE_COLOR` so transitive color libs (cli-table3 borders, ora) also disable. NO_COLOR wins over FORCE_COLOR.
+- **New `out()` shape → a covered shape.** Any command file whose `out()` emits a structured (object / array-of-objects) shape must have at least one named shape exercised through `out()` in pretty mode (the `SHAPES` list in `tests/unit/output-pretty-fuzz.test.ts`), OR be on the documented exempt list in `scripts/lint-out-coverage.ts` (scalar-only emitters, delegated renderers). `bun run lint:out-coverage` enforces this and fails CI on an uncovered verb.
 
 ## Skill discipline
 

@@ -90,6 +90,13 @@ function printArray(rows: unknown[]) {
 /**
  * Heuristic formatter for arbitrary cell values. Status-like strings get colored,
  * booleans get checks, nulls get dashes, long strings get truncated.
+ *
+ * NULL POLICY (issue #001 §C): a null / undefined value renders as an em-dash
+ * `—`, NEVER the literal string "null" / "undefined". This holds at every
+ * level — a standalone cell, AND each element of an array cell (so
+ * `["x", null]` renders `x, —`, not `x, null`). Keep this in lockstep with
+ * `renderValue()` in cli/lib/ui.ts, which encodes the same policy for the
+ * `kv` / `table` paths.
  */
 function formatGenericCell(value: unknown): string {
   if (value === null || value === undefined) return c.muted("—");
@@ -98,9 +105,10 @@ function formatGenericCell(value: unknown): string {
     if (value.length === 0) return c.muted("[]");
     // Objects in cells must use JSON.stringify, not String() — otherwise the
     // cell prints `[object Object], [object Object], …` (the bug class that
-    // shipped before c94960d).
+    // shipped before c94960d). null/undefined elements render as the em-dash
+    // per the null policy, never the literal "null"/"undefined".
     const joined = value
-      .map((v) => (v && typeof v === "object" ? JSON.stringify(v) : String(v)))
+      .map((v) => (v === null || v === undefined ? "—" : v && typeof v === "object" ? JSON.stringify(v) : String(v)))
       .join(", ");
     return joined.length > 60 ? c.value(joined.slice(0, 57)) + c.muted("…") : c.value(joined);
   }
@@ -152,7 +160,7 @@ function printObject(obj: Record<string, unknown>, indent = 2) {
         console.log(`${pad}${c.label(k + ":")} ${c.muted("—")}`);
       } else if (Array.isArray(v)) {
         const joined = v
-          .map((x) => (x && typeof x === "object" ? JSON.stringify(x) : String(x)))
+          .map((x) => (x === null || x === undefined ? "—" : x && typeof x === "object" ? JSON.stringify(x) : String(x)))
           .join(", ");
         console.log(`${pad}${c.label(k + ":")} ${c.value(joined)}`);
       } else if (typeof v === "object") {
