@@ -33,6 +33,8 @@ import {
 } from "../lib/schemas/unit.js";
 import { buildUnitCaption, type CaptionContext } from "../lib/social/caption.js";
 import { isBankStale, LAST_REVIEWED } from "../lib/social/hashtag-bank.js";
+import { buildProvenanceGraph } from "../lib/provenance.js";
+import { PROVENANCE_GRAPH_FILENAME } from "../lib/schemas/provenance-graph.js";
 
 const UNITS_DIRNAME = "units";
 
@@ -359,12 +361,32 @@ export function unitCmd() {
       const media = await copyMedia(projectDir, unitDir, sources);
       const mediaMeta = buildMediaMeta(unitDir, media);
 
+      // Provenance graph (#420) — best-effort capture of the reproduction chain
+      // from the project's logs/manifests. Built read-only, written as a sibling
+      // `provenance.json` (append-only: this is a fresh dir, never an overwrite).
+      // A capture failure must never block unit formation — fall back to no graph.
+      let provenanceGraphFile: string | undefined;
+      try {
+        const graph = await buildProvenanceGraph(project, slug);
+        if (graph.nodes.length > 0) {
+          await fs.writeFile(
+            path.join(unitDir, PROVENANCE_GRAPH_FILENAME),
+            JSON.stringify(graph, null, 2) + "\n",
+            "utf8",
+          );
+          provenanceGraphFile = PROVENANCE_GRAPH_FILENAME;
+        }
+      } catch {
+        /* best-effort — a graph capture failure never blocks the deliverable */
+      }
+
       const manifest: UnitManifest = {
         slug,
         format: format as UnitManifest["format"],
         media,
         ...(Object.keys(mediaMeta).length && { media_meta: mediaMeta }),
         ...(buildProvenance(opts) && { provenance: buildProvenance(opts) }),
+        ...(provenanceGraphFile && { provenance_graph: provenanceGraphFile }),
         source_assets: sources,
         created: new Date().toISOString(),
         ...(opts.title && { title: String(opts.title) }),
@@ -381,6 +403,7 @@ export function unitCmd() {
         media_count: media.length,
         path: path.relative(projectDir, unitDir),
         versioned: dirName !== slug,
+        provenance_graph: provenanceGraphFile ?? null,
         manifest: parsed,
       });
     });
