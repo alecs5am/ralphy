@@ -1,6 +1,6 @@
 # Agent error taxonomy and next-action hints
 
-> **Status:** issue
+> **Status:** done — 2026-06-16
 > **Filed:** 2026-06-15
 > **Folder:** issues
 

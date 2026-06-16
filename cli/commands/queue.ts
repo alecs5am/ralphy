@@ -20,6 +20,7 @@ import {
 } from "../lib/jobs/db.js";
 import { ensureDaemonRunning, daemonStatus } from "../lib/jobs/daemon.js";
 import { burstCapHint } from "../lib/jobs/error-hints.js";
+import { classifyError } from "../lib/errors/taxonomy.js";
 import { deriveJobArgvFields } from "../lib/jobs/argv-fields.js";
 import type { JobStatus, JobLogRow } from "../lib/jobs/types.js";
 
@@ -136,6 +137,12 @@ export function queueCmd() {
       });
       const slim = rows.map((j) => {
         const f = deriveJobArgvFields(j.command.argv);
+        // #450: classify the failure into an agent-facing class + next action.
+        // Null on non-failed jobs so the existing JSON shape (lastError/hint
+        // null) is preserved bit-for-bit.
+        const taxon = j.error_message
+          ? classifyError({ message: j.error_message, modelId: f.model ?? undefined })
+          : null;
         return {
           id: j.id,
           status: j.status,
@@ -152,6 +159,9 @@ export function queueCmd() {
           exit: j.exit_code,
           lastError: j.error_message,
           hint: burstCapHint(j.error_message),
+          errorClass: taxon ? taxon.class : null,
+          retryPolicy: taxon ? taxon.retryPolicy : null,
+          nextAction: taxon ? taxon.nextActions[0] ?? null : null,
           tag: j.tag,
           project: j.project_id,
         };
@@ -168,7 +178,23 @@ export function queueCmd() {
       const job = getJob(Number(id));
       if (!job) raiseError("E_NOT_FOUND", { kind: "Job", id });
       const hint = burstCapHint(job!.error_message);
-      out(hint ? { ...job, hint } : job);
+      // #450: attach the agent-facing classification on a failed job.
+      const f = deriveJobArgvFields(job!.command.argv);
+      const taxon = job!.error_message
+        ? classifyError({ message: job!.error_message, modelId: f.model ?? undefined })
+        : null;
+      const extra = {
+        ...(hint ? { hint } : {}),
+        ...(taxon
+          ? {
+              errorClass: taxon.class,
+              retryPolicy: taxon.retryPolicy,
+              nextAction: taxon.nextActions[0] ?? null,
+              ...(taxon.fallbackModels ? { fallbackModels: taxon.fallbackModels } : {}),
+            }
+          : {}),
+      };
+      out(Object.keys(extra).length ? { ...job, ...extra } : job);
     });
 
   // ── cancel ─────────────────────────────────────────────────────────────
