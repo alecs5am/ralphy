@@ -23,6 +23,10 @@ import {
   recommendModel,
   logModelOverride,
 } from "../lib/models/telemetry.js";
+import {
+  preflightModelCall,
+  type GenerateKind,
+} from "../lib/models/constraints.js";
 
 export function modelsCmd() {
   const cmd = new Command("models").description(
@@ -153,6 +157,46 @@ export function modelsCmd() {
       }
 
       out({ query, recommendation, override, scanned: { projects: summary.projectCount, rows: summary.rowCount } });
+    });
+
+  // `models preflight` — agent-facing dry constraint check (#445). Validates a
+  // PLANNED generate call against the per-model constraint table (max prompt
+  // chars, kling multiframe base64, ref-count cap, --audio support, ElevenLabs
+  // duration range) BEFORE spending. Catalog-backed video limits (durations /
+  // resolutions / aspect / frame anchors) are validated by the live `generate
+  // video --dry-run` path / `ralphy models show <id>`; this verb is PURE — no
+  // network, no provider calls. `ok: false` means a guaranteed provider 400.
+  cmd
+    .command("preflight")
+    .description(
+      "Dry-check a planned generation call against known per-model constraints the OR catalog does NOT carry (max prompt chars, kling multiframe base64 bug, ref-count cap, --audio support, ElevenLabs duration range) — #445. PURE: no network, no provider calls, no spend. Returns { ok, violations[], hints[], recommendedFallbacks[] }; ok=false means a guaranteed provider 400.",
+    )
+    .requiredOption("--kind <kind>", "Generation kind: image | video | voiceover | music | sfx | eval")
+    .requiredOption("--model <id>", "Model id (canonical OR slug, or elevenlabs-tts | elevenlabs-music | elevenlabs-sfx)")
+    .option("--prompt-chars <n>", "Planned prompt length in characters", (v) => parseInt(v, 10))
+    .option("--refs <n>", "Planned reference-image count", (v) => parseInt(v, 10))
+    .option("--first-frame", "A first-frame anchor will be supplied", false)
+    .option("--last-frame", "A last-frame anchor will be supplied", false)
+    .option("--aspect <aspect>", "Planned aspect ratio (e.g. 9:16)")
+    .option("--size <size>", "Planned --size (WxH); flagged when the model ignores it in favor of --aspect")
+    .option("--audio", "The --audio flag will be passed", false)
+    .option("--duration <seconds>", "Planned duration in seconds", parseFloat)
+    .option("--concurrency <n>", "Planned in-flight concurrency", (v) => parseInt(v, 10))
+    .action((opts) => {
+      const result = preflightModelCall({
+        kind: opts.kind as GenerateKind,
+        modelId: opts.model,
+        promptChars: opts.promptChars,
+        refCount: opts.refs,
+        hasFirstFrame: Boolean(opts.firstFrame),
+        hasLastFrame: Boolean(opts.lastFrame),
+        aspect: opts.aspect,
+        size: opts.size,
+        audio: Boolean(opts.audio),
+        durationSec: opts.duration,
+        concurrency: opts.concurrency,
+      });
+      out({ kind: opts.kind, model: opts.model, ...result });
     });
 
   return cmd;
