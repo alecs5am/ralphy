@@ -972,6 +972,29 @@ Commands:
                                 calls. Writes plan-grade.json + PLAN_GRADE.md
                                 (append-only, auto-versions). JSON output.
                                 Example: ralphy project grade-plan spring-001
+  approve [options] <id>        Record a spend approval into the project-local
+                                spend ledger (#444). Sets a hard USD budget cap,
+                                optionally the allowed content modes, an expiry,
+                                and a user-facing reason. OPT-IN: with no
+                                approval recorded, generation is unchanged; once
+                                recorded, `ralphy generate` checks the active
+                                approval BEFORE every paid call and hard-stops
+                                when it would breach (expired / mode not allowed
+                                / spent+estimated > cap). Append-only — a new
+                                approval appends, never overwrites
+                                (spend-ledger.json). JSON output. Example:
+                                ralphy project approve spring-001 --cap 10
+                                --modes ugc-review,unboxing-ugc --expiry 24h
+                                --reason "approved batch run"
+  budget <id>                   Show the project's spend ledger state (#444):
+                                the active budget cap, actual spend (sum of
+                                generations.jsonl cost_usd), remaining budget,
+                                an over-budget flag, expiry status, and the full
+                                append-only approval history. With no ledger,
+                                reports hasLedger:false and the actual spend so
+                                far (generation is unenforced). Makes ZERO model
+                                calls, never mutates the project. JSON output.
+                                Example: ralphy project budget spring-001
   transcribe [options] <id>     Transcribe an audio file → captions.json
                                 (Caption[]). Default backend: ElevenLabs Scribe
                                 v1 (word-level).

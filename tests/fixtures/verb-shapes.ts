@@ -443,6 +443,50 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "project.approve",
+      shape: {
+        project: "spring-001",
+        scope: "project",
+        capUsd: 10,
+        allowedModes: ["ugc-review", "unboxing-ugc"],
+        expiry: "2026-06-17T00:00:00.000Z",
+        reason: "approved batch run",
+        approvedAt: "2026-06-16T00:00:00.000Z",
+        approvals: 1,
+        artifact: "spend-ledger.json",
+      },
+    },
+    {
+      label: "project.budget",
+      shape: {
+        project: "spring-001",
+        hasLedger: true,
+        capUsd: 10,
+        spentUsd: 6.4,
+        remainingUsd: 3.6,
+        overBudget: false,
+        expired: false,
+        activeApproval: {
+          scope: "project",
+          budgetCapUsd: 10,
+          allowedModes: ["ugc-review"],
+          expiry: "2026-06-17T00:00:00.000Z",
+          reason: "approved batch run",
+          approvedAt: "2026-06-16T00:00:00.000Z",
+        },
+        approvals: [
+          {
+            scope: "project",
+            budgetCapUsd: 10,
+            allowedModes: ["ugc-review"],
+            expiry: "2026-06-17T00:00:00.000Z",
+            reason: "approved batch run",
+            approvedAt: "2026-06-16T00:00:00.000Z",
+          },
+        ],
+      },
+    },
+    {
       label: "project.grade-plan",
       shape: {
         project: "spring-001",
