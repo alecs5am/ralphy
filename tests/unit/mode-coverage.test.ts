@@ -108,6 +108,11 @@ const FIXTURES: Record<string, ModeFixture> = {
     brief: "a meta ads creative matrix / ad pack for acme.example.com cold traffic",
     expectedFormat: "fb-creative",
   },
+  "virtual-model-tryout": {
+    utterance: "show my jacket on a virtual model, a try-on render",
+    brief: "show my jacket on a virtual model, a try-on render",
+    expectedFormat: "image",
+  },
   "conceptual-product": {
     utterance: "a surreal product concept, an artistic key visual",
     brief: "a surreal conceptual product key visual for the campaign",
@@ -195,11 +200,11 @@ describe("content-mode supported flag (#413)", () => {
     }
   });
 
-  test("the supported set matches the documented 18/3 split", () => {
-    expect(supportedContentModes().length).toBe(18);
-    expect(unsupportedContentModes().length).toBe(3);
+  test("the supported set matches the documented 19/2 split", () => {
+    expect(supportedContentModes().length).toBe(19);
+    expect(unsupportedContentModes().length).toBe(2);
     const gaps = unsupportedContentModes().map((e) => e.mode).sort();
-    expect(gaps).toEqual(["amazon-listing", "personal-clipper", "virtual-model-tryout"]);
+    expect(gaps).toEqual(["amazon-listing", "personal-clipper"]);
   });
 
   test("isModeSupported is false for an unknown mode string", () => {
@@ -213,9 +218,6 @@ describe("content-mode supported flag (#413)", () => {
     );
     expect(classifyContentMode("design my amazon listing images with an infographic listing").mode).toBe(
       "amazon-listing",
-    );
-    expect(classifyContentMode("show my jacket on a virtual model, a try-on render").mode).toBe(
-      "virtual-model-tryout",
     );
   });
 });
@@ -300,7 +302,7 @@ describe("coverage matrix doc completeness (#413)", () => {
   });
 
   test("the doc states the supported/gap split that the registry carries", () => {
-    expect(doc).toContain("18 supported");
+    expect(doc).toContain("19 supported");
     // Each gap mode is named in the doc.
     for (const e of unsupportedContentModes()) {
       expect(doc).toContain(`\`${e.mode}\``);

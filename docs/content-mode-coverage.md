@@ -38,7 +38,7 @@ Status legend: **supported** = first-class route the agent may promise; **gap (d
 | `hero-banner` | skill | `.agents/skills/poster` (wordmark → hero → copy) | supported | route + plan (poster) | Poster skill covers the wide banner; brand DNA locks a style when named. |
 | `social-carousel` | skill | `.agents/skills/carousel` (cover-first + dual-ref cohesion) | supported | route + plan (carousel) | Direct route; cover-first checkpoint per the skill. |
 | `ad-creative-pack` | skill | `.agents/skills/fb-creatives` (5-set scaffold) + `/researcher` (deep crawl, AGENTS #15) | supported | route + plan (fb-creative) | Site-grounding locks the real palette + copy before any creative. |
-| `virtual-model-tryout` | none | — (`ugc-model-swap` is video person-swap, NOT apparel fitting) | gap (deferred) | — | Recommend an `image` format style template `virtual-model-tryout` (garment-on-model fitting cookbook + worn-product realism), #058. `photoreal-studio-portraits` is a fallback only. |
+| `virtual-model-tryout` | guideline-route | `guidelines/photoreal-studio-portraits` + `/json-prompt-engine` overlay → `ralphy generate image` ([modes/virtual-model-tryout.md](playbooks/modes/virtual-model-tryout.md)) | supported | route + plan (image) | Highest-hallucination-risk image mode; the photoreal lock + the mode playbook's try-on craft + product/model refs (#426) + fidelity gate (#422) apply. Real-person try-on gates on the reference-required gate (#3). |
 | `conceptual-product` | guideline-route | `/json-prompt-engine` overlay → art-director image route | supported | route + plan (image) | Style is brief-driven; no mandatory lock. |
 | `restyle` | guideline-route | `/json-prompt-engine` (target aesthetic) → `ralphy generate image` with source as `--ref` | supported | route + plan (image) | The target style IS the locked register (#408 covered set). |
 | `ugc-review` | skill | `.agents/skills/ugc-ad` (shooting-script + creator-persona + problem-mirror hook) | supported | route + plan (video) | `photoreal-studio-portraits` benefits talking-head realism; not blocking. |
@@ -53,7 +53,7 @@ Status legend: **supported** = first-class route the agent may promise; **gap (d
 | `personal-clipper` | none | — (no clipper skill, no clip-extraction CLI verb; ad-hoc ffmpeg is banned by AGENTS #2) | gap (deferred) | — | Recommend a `ralphy clip` verb (transcript-driven highlight detection → vertical crop + caption bake) + a `personal-clipper` skill, #058. |
 | `amazon-listing` | none | — (`carousel` is cover-first social slides, NOT a marketplace slot plan) | gap (deferred) | — | Recommend an `image`/`carousel` format template `amazon-listing` (main + infographic + lifestyle slot plan + `cgi-product-renders` lock), #058. `generate image` is a fallback only. |
 
-**Summary: 18 supported, 3 gaps (deferred).** Gaps: `virtual-model-tryout`, `personal-clipper`, `amazon-listing`.
+**Summary: 19 supported, 2 gaps (deferred).** Gaps: `personal-clipper`, `amazon-listing`.
 
 ## Quality-guidance coverage (#417)
 
@@ -67,6 +67,7 @@ Every SUPPORTED mode must carry mode-specific quality guidance — a linked regi
 | `product-shot` | `cgi-product-renders` | guideline |
 | `lifestyle-scene` | `photoreal-studio-portraits` | guideline |
 | `closeup-product-with-person` | `photoreal-studio-portraits` | guideline |
+| `virtual-model-tryout` | `photoreal-studio-portraits` | guideline |
 | `ugc-review` | `photoreal-studio-portraits` | guideline |
 | `tv-ad` | `broadcast-realism-aspect` / `cinematic-90s-film` / `oldspice-absurd-spokesman` | guideline |
 | `pinterest-pin` | [modes/pinterest-pin.md](playbooks/modes/pinterest-pin.md) | playbook |
@@ -83,7 +84,7 @@ Every SUPPORTED mode must carry mode-specific quality guidance — a linked regi
 | `podcast-video` | [modes/podcast-video.md](playbooks/modes/podcast-video.md) | playbook |
 | `infographic-animation` | [modes/infographic-animation.md](playbooks/modes/infographic-animation.md) | playbook |
 
-The 3 deferred-gap modes are exempt from the coverage bar (they carry a `recommendedUnit` instead); promoting one to supported (#058) makes the lint require its coverage automatically. The production plan (#407) lists the guidance it loaded for the chosen mode in its `guidelinesUsed[]` field (populated from `modeGuidelineCoverage()`).
+The 2 deferred-gap modes are exempt from the coverage bar (they carry a `recommendedUnit` instead); promoting one to supported (#058) makes the lint require its coverage automatically. The production plan (#407) lists the guidance it loaded for the chosen mode in its `guidelinesUsed[]` field (populated from `modeGuidelineCoverage()`).
 
 ## Skills classified against modes
 
@@ -134,9 +135,9 @@ Notes:
 
 ## Do NOT promise unsupported modes (agent rule)
 
-`classifyContentMode()` returns ALL 21 modes — including the 3 gaps — because the agent must be able to recognize the intent. **But the agent must NOT expose an unsupported mode name to the user as a deliverable it will produce.** When a brief classifies to a `gap (deferred)` mode:
+`classifyContentMode()` returns ALL 21 modes — including the 2 gaps — because the agent must be able to recognize the intent. **But the agent must NOT expose an unsupported mode name to the user as a deliverable it will produce.** When a brief classifies to a `gap (deferred)` mode:
 
-- route to the **closest supported mode** when one fits (e.g. an apparel try-on → run it as `lifestyle-scene` / `closeup-product-with-person` with the `photoreal-studio-portraits` lock, and say it is not a dedicated try-on route), OR
+- route to the **closest supported mode** when one fits (e.g. a marketplace listing image set → run the literal stills as `product-shot` with the `cgi-product-renders` lock, and say it is not a dedicated listing-slot route), OR
 - tell the user plainly it is **not yet a first-class route** and point at the recommended unit (the `recommendedUnit` field on the gap entry / the matrix above), then proceed only on explicit user go.
 
 This is the same defect class as skipping a playbook read: promising `personal-clipper` or `amazon-listing` as if a tuned pipeline existed would fall back to weak generic prompts and agent taste — the exact failure #413 exists to prevent. Programmatically, gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
