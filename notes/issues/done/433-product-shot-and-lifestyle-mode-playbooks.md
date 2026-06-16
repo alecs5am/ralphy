@@ -1,6 +1,6 @@
 # Product-shot and lifestyle-scene mode playbooks
 
-> **Status:** issue
+> **Status:** done — 2026-06-16
 > **Filed:** 2026-06-15
 > **Folder:** issues
 

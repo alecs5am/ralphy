@@ -21,6 +21,8 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 | `social-carousel` | [social-carousel.md](social-carousel.md) | `/carousel` |
 | `ad-creative-pack` | [ad-creative-pack.md](ad-creative-pack.md) | `/fb-creatives` + `/researcher` |
 | `conceptual-product` | [conceptual-product.md](conceptual-product.md) | `/json-prompt-engine` |
+| `product-shot` | [product-shot.md](product-shot.md) | cgi-product-renders guideline + `/json-prompt-engine` |
+| `lifestyle-scene` | [lifestyle-scene.md](lifestyle-scene.md) | photoreal-studio-portraits guideline + `/json-prompt-engine` |
 | `restyle` | [restyle.md](restyle.md) | `/json-prompt-engine` |
 | `tutorial-ugc` | [tutorial-ugc.md](tutorial-ugc.md) | `/ugc-ad` |
 | `unboxing-ugc` | [unboxing-ugc.md](unboxing-ugc.md) | `/ugc-unboxing` |
@@ -29,7 +31,7 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 | `typography-animation` | [typography-animation.md](typography-animation.md) | `/hyperframes` + `/gsap` + `/waapi` |
 | `podcast-video` | [podcast-video.md](podcast-video.md) | `/audio-explainer` |
 
-The remaining supported modes are covered by a register guideline instead: `product-shot` (cgi-product-renders), `lifestyle-scene` / `closeup-product-with-person` / `ugc-review` (photoreal-studio-portraits), `tv-ad` (broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman). The 3 deferred-gap modes (`virtual-model-tryout`, `personal-clipper`, `amazon-listing`) are exempt from the coverage bar until they are promoted to supported (#058).
+`product-shot` and `lifestyle-scene` now carry BOTH a production playbook (above) AND their backing register guideline (cgi-product-renders / photoreal-studio-portraits) — the playbook is the production-intent floor, the guideline is the look floor; both apply. The remaining supported modes are still covered by a register guideline alone: `closeup-product-with-person` / `ugc-review` (photoreal-studio-portraits), `tv-ad` (broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman) — their mode playbooks land in later issues. The 3 deferred-gap modes (`virtual-model-tryout`, `personal-clipper`, `amazon-listing`) are exempt from the coverage bar until they are promoted to supported (#058).
 
 ## Adjacent — multi-still deliverables
 
