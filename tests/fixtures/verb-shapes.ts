@@ -442,6 +442,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         ],
       },
     },
+    {
+      label: "project.grade-plan",
+      shape: {
+        project: "spring-001",
+        verdict: "weak",
+        reason: "Plan is executable but has fixable gap(s): researchGrounding. Tighten before locking the contract.",
+        mode: "unboxing-ugc",
+        dimensions: [
+          { dimension: "modeFit", status: "pass", score: 95, note: "Confident mode \"unboxing-ugc\" (confidence 0.90)." },
+          { dimension: "researchGrounding", status: "warn", score: 70, note: "Mode expects \"quick\" research but the plan cites no benchmarkSource." },
+        ],
+        artifacts: { json: "plan-grade.json", markdown: "PLAN_GRADE.md" },
+      },
+    },
   ],
   prompts: [
     {

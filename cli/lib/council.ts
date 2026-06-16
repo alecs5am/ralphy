@@ -33,6 +33,7 @@
 
 import { callLLM } from "./providers/llm.js";
 import { benchmarkSetForMode } from "./benchmarks.js";
+import { gradePlanDeterministic } from "./plan/grade.js";
 import type { ProductionPlan } from "./schemas/production-plan.js";
 import type { EvalReport } from "./eval/types.js";
 import type { DeepVisionFile } from "./repair.js";
@@ -179,9 +180,21 @@ export function preflightPayload(plan: ProductionPlan): string {
   // ponytail: summary slug + per-label feature lists; #457/#427 own scoring an
   // output's observed features against this set (and weighting the verdict).
   const benchmark = benchmarkSetForMode(plan.contentMode.mode);
+  // #432 seam: fold the deterministic plan grade (verdict + per-dimension
+  // status/note) into the payload so the preflight roles reason over the
+  // structural quality signal, not just the raw plan. Bounded — verdict + a
+  // compact {dimension: {status, note}} map, no scores. ZERO model calls.
+  const grade = gradePlanDeterministic(plan);
   return JSON.stringify(
     {
       projectId: plan.projectId,
+      planGrade: {
+        verdict: grade.verdict,
+        reason: grade.reason,
+        dimensions: Object.fromEntries(
+          grade.dimensions.map((d) => [d.dimension, { status: d.status, note: d.note }]),
+        ),
+      },
       benchmarkSet: benchmark
         ? {
             slug: benchmark.slug,
