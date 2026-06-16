@@ -15,6 +15,8 @@ import { scoreScenario, type Scenario } from "../lib/score.js";
 import { evaluateContract } from "../lib/contract.js";
 import { buildScorecard } from "../lib/scorecard.js";
 import { SCORECARD_ARTIFACT } from "../lib/schemas/scorecard.js";
+import { gradeProductionPlan, renderPlanGradeMarkdown } from "../lib/plan/grade.js";
+import { PLAN_GRADE_ARTIFACT } from "../lib/schemas/plan-grade.js";
 import { buildRepairPlan, renderRepairPlanMarkdown, type DeepVisionFile } from "../lib/repair.js";
 import type { EvalReport } from "../lib/eval/types.js";
 import {
@@ -1072,6 +1074,64 @@ export function projectCmd() {
         dimensions: card.dimensions,
         artifact: jsonPath,
         ...(archivedJson ? { archivedJson } : {}),
+      });
+    });
+
+  // ── grade-plan (#432) ─────────────────────────────────────────────────────
+  // Deterministic PRODUCTION-PLAN quality grader. Reads production-plan.json and
+  // grades it AGAINST the content-mode registry expectations (requiredInputs /
+  // requiredRefTypes / defaultResearchDepth / guidelineOrStyleLock / qualityGates)
+  // plus the plan's own model stack, cost estimate, and first checkpoint — BEFORE
+  // the plan becomes the contract for expensive work. The plan-stage analog of
+  // `project scorecard`. Makes ZERO model calls. Writes plan-grade.json +
+  // PLAN_GRADE.md (append-only, auto-versions via protectExistingAsset; never
+  // overwrites — AGENTS.md #14). JSON output.
+  cmd
+    .command("grade-plan <id>")
+    .description(
+      "Grade a production plan BEFORE it becomes the contract for expensive work (#432). Deterministic CRITIC — reads production-plan.json and grades it against the content-mode registry expectations (mode fit, missing inputs, research grounding, style lock, model stack, cost/ETA, gates, first checkpoint) into ONE verdict (strong | weak | blocked). BLOCKED when the plan lacks a required artifact for its mode (a required ref type / input missing, a lock-required mode with no style lock, an empty stack, an unsupported/unclassified mode). Makes ZERO model calls. Writes plan-grade.json + PLAN_GRADE.md (append-only, auto-versions). JSON output. Example: ralphy project grade-plan spring-001",
+    )
+    .action(async (id: string) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const dir = projectDir(id);
+      const planRaw = await safeJson(path.join(dir, "production-plan.json"));
+      if (!planRaw) {
+        raiseError("E_NOT_FOUND", { kind: "production-plan.json", id: path.join(dir, "production-plan.json") });
+      }
+      let plan;
+      try {
+        plan = parseProductionPlan(planRaw);
+      } catch (e) {
+        raiseError("E_VALIDATION_FAILED", { target: "production-plan.json", detail: (e as Error).message });
+      }
+
+      const grade = await gradeProductionPlan(plan!);
+
+      // Append-only: auto-version a prior plan-grade.json / PLAN_GRADE.md
+      // (protectExistingAsset renames the existing file to .v{N}). AGENTS.md #14.
+      await fs.mkdir(dir, { recursive: true });
+      const jsonPath = path.join(dir, PLAN_GRADE_ARTIFACT);
+      const mdPath = path.join(dir, "PLAN_GRADE.md");
+      const archivedJson = await protectExistingAsset(jsonPath, false);
+      const archivedMd = await protectExistingAsset(mdPath, false);
+      await fs.writeFile(jsonPath, JSON.stringify(grade, null, 2) + "\n");
+      await fs.writeFile(mdPath, renderPlanGradeMarkdown(grade));
+
+      ok(`Plan grade for ${id} — verdict: ${grade.verdict}`);
+      out({
+        project: id,
+        verdict: grade.verdict,
+        reason: grade.reason,
+        mode: grade.mode,
+        dimensions: grade.dimensions,
+        artifacts: {
+          json: jsonPath,
+          markdown: mdPath,
+          ...(archivedJson ? { archivedJson } : {}),
+          ...(archivedMd ? { archivedMarkdown: archivedMd } : {}),
+        },
       });
     });
 
