@@ -76,6 +76,14 @@ jobs:
       - name: Lint content-mode guideline coverage (#417)
         run: bun run lint:mode-guidelines
 
+      # Consolidating completeness smoke (#446): every supported content mode is
+      # run through a no-paid-generation fixture path (registry-derived brief →
+      # routing → #418 contract → required artifacts + gates + Unit shape +
+      # doc/guideline). Fails when a supported mode lacks any piece of the
+      # contract. Run before changing mode routing.
+      - name: Smoke supported content modes (#446)
+        run: bun run smoke:modes
+
       # Every command verb that prints a structured shape via out({...}) must
       # have a canonical pretty-mode render assertion (issue #001 §A). Catches
       # the regression front that shipped `installed  [object Object]`.

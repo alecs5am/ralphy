@@ -59,6 +59,7 @@
     "lint:motion-graphics": "bun run scripts/lint-motion-graphics.ts",
     "lint:gen-log": "bun run scripts/lint-gen-log-schema.ts",
     "lint:out-coverage": "bun run scripts/lint-out-coverage.ts",
+    "smoke:modes": "bun run scripts/smoke-modes.ts",
     "prepare": "husky"
   }
 }
