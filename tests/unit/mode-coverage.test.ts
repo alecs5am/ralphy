@@ -168,6 +168,11 @@ const FIXTURES: Record<string, ModeFixture> = {
     brief: "make an animated infographic data visualization video of these stats",
     expectedFormat: "motion-design",
   },
+  "amazon-listing": {
+    utterance: "design my amazon listing images with an infographic listing",
+    brief: "design my amazon listing images with an infographic listing",
+    expectedFormat: "image",
+  },
 };
 
 // ─── (1) Registry supported/gap call is internally consistent ────────────────
@@ -200,11 +205,11 @@ describe("content-mode supported flag (#413)", () => {
     }
   });
 
-  test("the supported set matches the documented 19/2 split", () => {
-    expect(supportedContentModes().length).toBe(19);
-    expect(unsupportedContentModes().length).toBe(2);
+  test("the supported set matches the documented 20/1 split", () => {
+    expect(supportedContentModes().length).toBe(20);
+    expect(unsupportedContentModes().length).toBe(1);
     const gaps = unsupportedContentModes().map((e) => e.mode).sort();
-    expect(gaps).toEqual(["amazon-listing", "personal-clipper"]);
+    expect(gaps).toEqual(["personal-clipper"]);
   });
 
   test("isModeSupported is false for an unknown mode string", () => {
@@ -215,9 +220,6 @@ describe("content-mode supported flag (#413)", () => {
     // The classifier must NAME the intent even when it is a deferred gap.
     expect(classifyContentMode("cut my stream into shorts, extract the best moments clips").mode).toBe(
       "personal-clipper",
-    );
-    expect(classifyContentMode("design my amazon listing images with an infographic listing").mode).toBe(
-      "amazon-listing",
     );
   });
 });
@@ -302,7 +304,7 @@ describe("coverage matrix doc completeness (#413)", () => {
   });
 
   test("the doc states the supported/gap split that the registry carries", () => {
-    expect(doc).toContain("19 supported");
+    expect(doc).toContain("20 supported");
     // Each gap mode is named in the doc.
     for (const e of unsupportedContentModes()) {
       expect(doc).toContain(`\`${e.mode}\``);

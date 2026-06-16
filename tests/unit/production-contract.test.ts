@@ -223,12 +223,12 @@ describe("compileProductionContract — unsupported-mode refusal", () => {
     }
   });
 
-  test("amazon-listing (deferred gap) refuses with a closest supported image mode", async () => {
+  test("amazon-listing (promoted to supported, #437) compiles a supported contract", async () => {
     const c = await compile("c-amazon", "amazon listing images with main and infographic slots");
     expect(c.mode).toBe("amazon-listing");
-    expect(c.support.supported).toBe(false);
-    expect(c.support.closestSupportedMode).not.toBeNull();
-    expect(isModeSupported(c.support.closestSupportedMode!)).toBe(true);
+    expect(isModeSupported("amazon-listing")).toBe(true);
+    expect(c.support.supported).toBe(true);
+    expect(c.support.closestSupportedMode).toBeNull();
   });
 });
 
