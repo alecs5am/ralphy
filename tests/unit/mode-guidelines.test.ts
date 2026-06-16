@@ -79,6 +79,7 @@ const MODE_BRIEFS: Record<string, string> = {
   "hero-banner": "a wide website hero banner with a headline and our product",
   "social-carousel": "a 10 slide instagram carousel swipe-through deck about our launch",
   "ad-creative-pack": "a meta ads creative matrix / ad pack for acme.example.com cold traffic",
+  "virtual-model-tryout": "show my jacket on a virtual model, a try-on render",
   "conceptual-product": "a surreal conceptual product key visual for the campaign",
   restyle: "restyle this image as a watercolor, style transfer the look",
   "ugc-review": "a ugc review talking head testimonial of my serum",
