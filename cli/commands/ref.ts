@@ -842,6 +842,133 @@ export function refCmd() {
       });
     });
 
+  // ── lint (#449 — reference-pack lint) ──────────────────────────────────
+  // Deterministic structural lint over the project's ref-pack: missing files,
+  // unsupported formats, tiny resolutions, duplicate hashes, suspicious temp
+  // paths, missing provenance, and (with --mode) missing required ref types.
+  // Catches bad refs BEFORE paid generation. NO model calls, NO network.
+  cmd
+    .command("lint <project-id>")
+    .description(
+      "Lint the project's reference pack — flags missing files, unsupported formats, tiny resolutions, duplicate hashes, suspicious temp paths, missing provenance, and (with --mode) required ref types absent for the mode. Deterministic, no model calls. `--contact-sheet` also renders the grouped-by-type montage.",
+    )
+    .option("--mode <mode>", "Also flag required ref types absent for this content mode (#426)")
+    .option("--contact-sheet", "Also render the grouped-by-type contact sheet to artifacts/refs/contact-sheet.png", false)
+    .option("--force-overwrite", "Overwrite an existing contact sheet instead of auto-versioning", false)
+    .action(async (projectId: string, opts: { mode?: string; contactSheet?: boolean; forceOverwrite?: boolean }) => {
+      const project = await getEntity("projects", projectId);
+      if (!project) {
+        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+        return;
+      }
+      const { readRefPack } = await import("../lib/ref-pack.js");
+      const { lintRefPack, buildRefPackContactSheet, defaultRefProbe, REF_PACK_CONTACT_SHEET_ARTIFACT } =
+        await import("../lib/ref-pack-lint.js");
+
+      const pack = readRefPack(projectId);
+      if (!pack) {
+        raiseError("E_NOT_FOUND", { kind: "Reference pack", id: `${projectId}/ref-pack.json` });
+        return;
+      }
+
+      const report = lintRefPack({ pack, mode: opts.mode ?? null, probe: defaultRefProbe(projectId) });
+
+      let contactSheetPath: string | null = null;
+      if (opts.contactSheet) {
+        const { resolveProjectPath } = await import("../lib/path-resolution.js");
+        const dst = path.join(projectDir(projectId), REF_PACK_CONTACT_SHEET_ARTIFACT);
+        try {
+          const r = await buildRefPackContactSheet({
+            pack,
+            dst,
+            resolve: (e) => resolveProjectPath(e.path, projectId),
+            forceOverwrite: opts.forceOverwrite === true,
+            projectId,
+          });
+          contactSheetPath = r.path ? path.relative(projectDir(projectId), r.path) : null;
+        } catch (e: any) {
+          err(`Contact sheet render failed: ${e?.message ?? String(e)}`);
+        }
+      }
+
+      if (report.ok) ok(`Reference pack lint: ${report.verdict} — ${report.reason}`);
+      else err(`Reference pack lint: ${report.verdict} — ${report.reason}`);
+
+      out({
+        project: projectId,
+        verdict: report.verdict,
+        ok: report.ok,
+        total: report.total,
+        ...(report.mode ? { mode: report.mode } : {}),
+        reason: report.reason,
+        findings: report.findings.map((f) => ({
+          id: f.id,
+          category: f.category,
+          severity: f.severity,
+          message: f.message,
+          fixHint: f.fixHint,
+        })),
+        ...(opts.contactSheet ? { contactSheet: contactSheetPath } : {}),
+      });
+    });
+
+  // ── contact-sheet (#449 — grouped-by-type ref montage) ──────────────────
+  // Render a compact visual summary of the project's image refs, one row per
+  // ref type, via the existing #049 ffmpeg contact-sheet recipe. Append-only
+  // (the recipe auto-versions an existing sheet). Video / audio refs are
+  // excluded — xstack only stacks stills.
+  cmd
+    .command("contact-sheet <project-id>")
+    .description(
+      "Render a grouped-by-type contact sheet of the project's image refs to artifacts/refs/contact-sheet.png (one row per ref type). Uses the existing ffmpeg contact-sheet recipe; append-only (auto-versions an existing sheet). Video/audio refs are excluded.",
+    )
+    .option("--force-overwrite", "Overwrite an existing contact sheet instead of auto-versioning", false)
+    .action(async (projectId: string, opts: { forceOverwrite?: boolean }) => {
+      const project = await getEntity("projects", projectId);
+      if (!project) {
+        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+        return;
+      }
+      const { readRefPack } = await import("../lib/ref-pack.js");
+      const { buildRefPackContactSheet, REF_PACK_CONTACT_SHEET_ARTIFACT } = await import("../lib/ref-pack-lint.js");
+      const { resolveProjectPath } = await import("../lib/path-resolution.js");
+
+      const pack = readRefPack(projectId);
+      if (!pack) {
+        raiseError("E_NOT_FOUND", { kind: "Reference pack", id: `${projectId}/ref-pack.json` });
+        return;
+      }
+
+      const dst = path.join(projectDir(projectId), REF_PACK_CONTACT_SHEET_ARTIFACT);
+      let result: { path: string | null; groups: Array<{ type: string; srcs: string[] }>; cols: number };
+      try {
+        result = await buildRefPackContactSheet({
+          pack,
+          dst,
+          resolve: (e) => resolveProjectPath(e.path, projectId),
+          forceOverwrite: opts.forceOverwrite === true,
+          projectId,
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `contact-sheet render failed: ${e?.message ?? String(e)}` });
+        return;
+      }
+
+      if (!result.path) {
+        ok(`No image refs to render — contact sheet skipped.`);
+        out({ project: projectId, contactSheet: null, groups: [], reason: "no image refs in the pack" });
+        return;
+      }
+
+      ok(`Contact sheet rendered → ${path.relative(root(), result.path)}`);
+      out({
+        project: projectId,
+        contactSheet: path.relative(projectDir(projectId), result.path),
+        cols: result.cols,
+        groups: result.groups.map((g) => ({ type: g.type, count: g.srcs.length })),
+      });
+    });
+
   cmd
     .command("delete <id>")
     .description("Delete a reference")

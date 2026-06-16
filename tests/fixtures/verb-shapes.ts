@@ -539,6 +539,34 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         modeReport: { mode: "product-shot", required: ["product"], missing: [], satisfied: true },
       },
     },
+    {
+      label: "ref.lint",
+      shape: {
+        project: "demo-001",
+        verdict: "warn",
+        ok: true,
+        total: 3,
+        mode: "ad-creative-pack",
+        reason: "2 ref warning(s) — tiny resolution / duplicate / temp path / missing provenance. Review before generating.",
+        findings: [
+          { id: "REF1", category: "ref.tiny-resolution", severity: "warn", message: "benchmark ref `artifacts/refs/thumb.png`: 64x64 — shorter side 64px is below the 256px floor.", fixHint: "Replace it with a full-resolution version (>= 256px on the short side)." },
+          { id: "REF2", category: "ref.missing-provenance", severity: "warn", message: "style ref `artifacts/refs/orphan.png`: no provenance (neither source nor note set).", fixHint: "Record where it came from via `ralphy ref pack demo-001 --add ... --note`." },
+        ],
+        contactSheet: "artifacts/refs/contact-sheet.png",
+      },
+    },
+    {
+      label: "ref.contact-sheet",
+      shape: {
+        project: "demo-001",
+        contactSheet: "artifacts/refs/contact-sheet.png",
+        cols: 2,
+        groups: [
+          { type: "product", count: 2 },
+          { type: "style", count: 1 },
+        ],
+      },
+    },
   ],
   render: [
     { label: "render.done", shape: { project: "demo-001", out: "render/final.mp4", durationSec: 32, bytes: 8421000 } },
