@@ -8,47 +8,33 @@
 // and returns a short, actionable hint WITHOUT swallowing the original error —
 // the caller surfaces `{ lastError, hint }` so the raw text always survives.
 //
-// Pure + dependency-free: takes a string, returns a string | null. Fully unit
-// testable. Unknown strings pass through as `null` (no hint).
+// #450: the canonical classifier now lives in cli/lib/errors/taxonomy.ts.
+// `burstCapHint` DELEGATES to it instead of running a parallel string-match
+// table — it keeps its narrow, stable contract (a hint string ONLY for the
+// rate / burst-cap family, `null` for everything else, including paths /
+// moderation / constraints) by gating on the matched taxonomy rule id. The
+// hint TEXT is the rule's first nextAction, so the two never drift.
+//
+// Pure + dependency-light: takes a string, returns a string | null. Fully unit
+// testable. Strings outside the rate/burst-cap family pass through as `null`.
+
+import { classifyError } from "../errors/taxonomy.js";
+
+/** Taxonomy rule ids whose hint `burstCapHint` is responsible for surfacing. */
+const RATE_RULE_IDS = new Set(["burst-cap", "rate-limit"]);
 
 /**
  * Classify a failed-job error message and return an actionable hint, or null
- * when nothing is recognized. The hint is additive — never a replacement for
- * the original `error_message`.
+ * when the message is not in the rate / burst-cap family. The hint is additive
+ * — never a replacement for the original `error_message`. Delegates to the
+ * #450 taxonomy classifier (single source of truth) and only surfaces a hint
+ * for the rate / concurrency-limit rules, preserving the original #428 scope.
  */
 export function burstCapHint(errorMessage: string | null | undefined): string | null {
   if (!errorMessage) return null;
-  const lower = errorMessage.toLowerCase();
-
-  // OpenRouter per-key concurrent-call cap. Surfaces as a 403 with "Key limit
-  // exceeded" / "total limit", OR our own rewritten "concurrent-call limit"
-  // message from rewriteUpstreamError.
-  if (
-    lower.includes("key limit exceeded") ||
-    lower.includes("total limit") ||
-    lower.includes("concurrent-call limit")
-  ) {
-    return (
-      "OpenRouter burst-cap hit (per-key concurrent-call limit, NOT a $ balance issue). " +
-      "Reduce image concurrency (queue retry --tag <tag> --state failed after lowering it) " +
-      "or add a per-kind min-interval throttle. Check credits with `ralphy doctor`."
-    );
+  const c = classifyError({ message: errorMessage });
+  if (c.matched && RATE_RULE_IDS.has(c.matched)) {
+    return c.nextActions[0] ?? null;
   }
-
-  // Generic 429 / rate-limit / concurrent-limit family (ElevenLabs Music,
-  // upstream gateway throttles). HTTP 429 or the literal phrases.
-  if (
-    lower.includes("concurrent_limit_exceeded") ||
-    lower.includes("rate limit") ||
-    lower.includes("rate-limit") ||
-    lower.includes("too many requests") ||
-    /\b429\b/.test(errorMessage)
-  ) {
-    return (
-      "Rate/concurrent-limit hit (HTTP 429). Serialize this endpoint or reduce concurrency, " +
-      "then retry the failed set (`ralphy queue retry --tag <tag> --state failed`)."
-    );
-  }
-
   return null;
 }
