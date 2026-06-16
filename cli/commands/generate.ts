@@ -26,6 +26,7 @@ import {
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { logUserPrompt } from "../lib/gen-log.js";
+import { checkSpend, estimatedCallCostUsd } from "../lib/spend.js";
 import {
   findVideoModel,
   validateVideoParams,
@@ -113,6 +114,23 @@ const QUEUE_FLAGS = (cmd: Command): Command =>
       "--queue-priority <n>",
       "Priority bumped by the daemon when picking among same-state pending jobs",
       (v) => parseInt(v, 10),
+    );
+
+/**
+ * #444: shared spend-governor flags. `--no-budget <reason>` is the explicit
+ * user override of the spend cap (mirrors `--no-ref-consent`); `--mode <mode>`
+ * declares the call's content mode so a mode-restricted approval can match it.
+ * Both are OPT-IN aids — when no spend ledger exists they have no effect.
+ */
+const BUDGET_FLAGS = (cmd: Command): Command =>
+  cmd
+    .option(
+      "--no-budget <reason>",
+      "Explicit user override of the spend-cap gate (#444). Bypasses the hard-stop for this call and logs `stage: \"no-budget\"` with the reason to user-prompts.jsonl.",
+    )
+    .option(
+      "--mode <mode>",
+      "Content mode for this call (#412), used by a mode-restricted spend approval to decide if the call is permitted (#444).",
     );
 
 function maybeEnqueue(opts: any, kind: JobKind, project: string | undefined): boolean {
@@ -259,6 +277,72 @@ async function maybeLogNoRefConsent(opts: { project?: string; refConsent?: unkno
     text: reason,
     note: opts.slot ? `slot=${opts.slot}` : undefined,
   });
+}
+
+/**
+ * #444: spend-governor pre-submit gate. Mirrors the `--no-ref-consent` shape.
+ *
+ * OPT-IN by design: `checkSpend()` returns `{ allowed: true }` when NO spend
+ * ledger / active approval exists for the project, so a project that never ran
+ * `ralphy project approve` behaves exactly as before — no enforcement, no
+ * `[warn]` line. Enforcement fires ONLY when the user recorded an approval and
+ * THIS call would breach it (expired / mode not allowed / spent+estimated >
+ * cap), in which case we hard-stop via `raiseError("E_BUDGET_EXCEEDED")`.
+ *
+ * `--no-budget "<reason>"` is the explicit user override: it bypasses the
+ * hard-stop and logs `stage: "no-budget"` to user-prompts.jsonl (auditable),
+ * the same way `--no-ref-consent` records a deliberate gate skip.
+ *
+ * When allowed but within ~20% of the cap, prints a `[warn] near budget` line
+ * (advisory only — matches the rest of this file's stderr convention).
+ */
+function readNoBudgetReason(opts: { budget?: unknown }): string | null {
+  // Commander `--no-budget <val>` → opts.budget = <val> (string) when passed,
+  // opts.budget = true (default-inverted boolean) when omitted.
+  const v = opts.budget;
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return s.length > 0 ? s : null;
+}
+
+async function maybeCheckSpend(
+  opts: { project?: string; budget?: unknown; slot?: string },
+  call: { kind: "image" | "video" | "voiceover" | "music" | "sfx"; model?: string; durationSec?: number; variants?: number; mode?: string },
+): Promise<void> {
+  if (!opts.project) return;
+  const estimatedUsd = estimatedCallCostUsd({
+    kind: call.kind,
+    model: call.model,
+    durationSec: call.durationSec,
+    variants: call.variants,
+  });
+  const verdict = await checkSpend(opts.project, { estimatedUsd, mode: call.mode });
+
+  const bypass = readNoBudgetReason(opts);
+  if (!verdict.allowed) {
+    if (bypass) {
+      // Explicit user override — log it (auditable) and proceed.
+      await logUserPrompt(opts.project, {
+        stage: "no-budget",
+        text: bypass,
+        note: `${call.kind}${opts.slot ? ` slot=${opts.slot}` : ""} | ${verdict.reason ?? "budget breach"}`,
+      });
+      // eslint-disable-next-line no-console
+      console.error(`[warn] budget gate bypassed (--no-budget): ${verdict.reason ?? "budget breach"}`);
+      return;
+    }
+    raiseError("E_BUDGET_EXCEEDED", {
+      estimate: estimatedUsd.toFixed(2),
+      cap: (verdict.capUsd ?? 0).toFixed(2),
+      detail: verdict.reason ?? "budget breach",
+    });
+  }
+
+  // Allowed: advisory near-budget warning when remaining < 20% of the cap.
+  if (verdict.capUsd != null && verdict.remainingUsd != null && verdict.remainingUsd < verdict.capUsd * 0.2) {
+    // eslint-disable-next-line no-console
+    console.error(`[warn] near budget: $${verdict.remainingUsd.toFixed(2)} left of the $${verdict.capUsd.toFixed(2)} cap after this call.`);
+  }
 }
 
 /**
@@ -620,6 +704,8 @@ export function generateCmd() {
         aspect: opts.aspect,
         size: opts.aspect ? undefined : opts.size,
       });
+      // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
+      await maybeCheckSpend(opts, { kind: "image", model: resolvedDefaultModel, variants, mode: opts.mode });
       const conn = resolveConnector("image", opts.provider);
 
       const ui = await import("../lib/ui.js");
@@ -663,6 +749,7 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(imageCmd);
+  BUDGET_FLAGS(imageCmd);
 
   // ── image-batch (#024) ─────────────────────────────────────────────────
   // Directory-driven fan-out: glob `<dir>/*.txt`, each file is one slot named
@@ -928,6 +1015,8 @@ export function generateCmd() {
         audio: opts.audio,
         durationSec: opts.duration,
       });
+      // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
+      await maybeCheckSpend(opts, { kind: "video", model: resolveModelAlias(opts.model) ?? opts.model, durationSec: opts.duration, mode: opts.mode });
       const connV = resolveConnector("video", opts.provider);
       const uiv = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
@@ -993,6 +1082,7 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(videoCmd);
+  BUDGET_FLAGS(videoCmd);
 
   // Per-model whitelist appended to `--help` output (01.03.03). Reads the
   // cached OR catalog synchronously. `--model <id>` narrows to a single row.
@@ -1111,6 +1201,8 @@ export function generateCmd() {
       if (opts.speakerBoost === false) voiceSettings.use_speaker_boost = false;
       // #445: constraint preflight (voiceover is advisory-only today).
       runPreflight("voiceover", { modelId: opts.model, promptChars: (opts.text as string | undefined)?.length });
+      // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
+      await maybeCheckSpend(opts, { kind: "voiceover", model: opts.model, mode: opts.mode });
       const connVo = resolveConnector("voice", opts.provider);
       const uivo = await import("../lib/ui.js");
       const result = await uivo.withSpinner(
@@ -1150,6 +1242,7 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(voCmd);
+  BUDGET_FLAGS(voCmd);
 
   // ── music ───────────────────────────────────────────────────────────────
   const musicCmd = cmd
@@ -1220,6 +1313,8 @@ export function generateCmd() {
         promptChars: (opts.prompt as string | undefined)?.length,
         durationSec: opts.duration,
       });
+      // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
+      await maybeCheckSpend(opts, { kind: "music", model: "elevenlabs-music", durationSec: opts.duration, mode: opts.mode });
       const connM = resolveConnector("music", opts.provider);
       const uim = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
@@ -1305,6 +1400,7 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(musicCmd);
+  BUDGET_FLAGS(musicCmd);
 
   // ── sfx ─────────────────────────────────────────────────────────────────
   const sfxCmd = cmd
@@ -1349,6 +1445,8 @@ export function generateCmd() {
         promptChars: (opts.prompt as string | undefined)?.length,
         durationSec: opts.duration,
       });
+      // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
+      await maybeCheckSpend(opts, { kind: "sfx", model: "elevenlabs-sfx", durationSec: opts.duration, mode: opts.mode });
       const connSfx = resolveConnector("sfx", opts.provider);
       const uisfx = await import("../lib/ui.js");
       const result = await uisfx.withSpinner(
@@ -1388,6 +1486,7 @@ export function generateCmd() {
     });
 
   QUEUE_FLAGS(sfxCmd);
+  BUDGET_FLAGS(sfxCmd);
 
   // ── captions ────────────────────────────────────────────────────────────
   cmd

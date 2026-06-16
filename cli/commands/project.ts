@@ -18,6 +18,7 @@ import { SCORECARD_ARTIFACT } from "../lib/schemas/scorecard.js";
 import { gradeProductionPlan, renderPlanGradeMarkdown } from "../lib/plan/grade.js";
 import { PLAN_GRADE_ARTIFACT } from "../lib/schemas/plan-grade.js";
 import { buildRepairPlan, renderRepairPlanMarkdown, type DeepVisionFile } from "../lib/repair.js";
+import { recordApproval, budgetSummary, resolveExpiry } from "../lib/spend.js";
 import type { EvalReport } from "../lib/eval/types.js";
 import {
   councilPreflight,
@@ -1132,6 +1133,101 @@ export function projectCmd() {
           ...(archivedJson ? { archivedJson } : {}),
           ...(archivedMd ? { archivedMarkdown: archivedMd } : {}),
         },
+      });
+    });
+
+  // ── approve (#444) ─────────────────────────────────────────────────────────
+  // Record a spend approval into the project-local spend ledger (#444). The
+  // ledger is OPT-IN: with no approval recorded, generation proceeds exactly as
+  // today. Once recorded, `ralphy generate` checks the active approval BEFORE
+  // any paid call and hard-stops when the call would breach it (expired, mode
+  // not allowed, or spent+estimated > cap). The `approvals[]` list is
+  // append-only — a new approval appends; prior approvals are never rewritten
+  // (AGENTS.md #14). JSON output.
+  cmd
+    .command("approve <id>")
+    .description(
+      "Record a spend approval into the project-local spend ledger (#444). Sets a hard USD budget cap, optionally the allowed content modes, an expiry, and a user-facing reason. OPT-IN: with no approval recorded, generation is unchanged; once recorded, `ralphy generate` checks the active approval BEFORE every paid call and hard-stops when it would breach (expired / mode not allowed / spent+estimated > cap). Append-only — a new approval appends, never overwrites (spend-ledger.json). JSON output. Example: ralphy project approve spring-001 --cap 10 --modes ugc-review,unboxing-ugc --expiry 24h --reason \"approved batch run\"",
+    )
+    .requiredOption("--cap <usd>", "Hard USD cap on cumulative actual spend for the scope", parseFloat)
+    .requiredOption("--reason <text>", "User-facing reason the budget was approved (auditable)")
+    .option("--modes <list>", "Comma-separated content modes this approval permits (default: any mode)")
+    .option("--expiry <iso|duration>", "Expiry as an ISO timestamp or a duration (e.g. 24h, 7d, 30m, 2w). Default: never expires")
+    .option("--scope <scope>", "project | batch", "project")
+    .action(async (id: string, opts: any) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const cap = Number(opts.cap);
+      if (!Number.isFinite(cap) || cap < 0) {
+        raiseError("E_INPUT_INVALID", { field: "cap", detail: "must be a non-negative number", verb: "project approve" });
+      }
+      const scope = String(opts.scope) === "batch" ? "batch" : "project";
+      const allowedModes = opts.modes
+        ? String(opts.modes).split(",").map((m: string) => m.trim()).filter(Boolean)
+        : undefined;
+      let expiry: string | undefined;
+      if (opts.expiry) {
+        const resolved = resolveExpiry(String(opts.expiry));
+        if (!resolved) {
+          raiseError("E_INPUT_INVALID", { field: "expiry", detail: `cannot parse "${opts.expiry}" as an ISO timestamp or a duration (e.g. 24h, 7d)`, verb: "project approve" });
+        }
+        expiry = resolved!;
+      }
+
+      const ledger = await recordApproval(id, {
+        scope,
+        budgetCapUsd: cap,
+        allowedModes,
+        expiry,
+        reason: String(opts.reason),
+      });
+      const approval = ledger.approvals[ledger.approvals.length - 1]!;
+
+      ok(`Spend approval recorded for ${id} — cap $${cap.toFixed(2)}${expiry ? ` (expires ${expiry})` : ""}`);
+      out({
+        project: id,
+        scope: approval.scope,
+        capUsd: approval.budgetCapUsd,
+        allowedModes: approval.allowedModes ?? null,
+        expiry: approval.expiry ?? null,
+        reason: approval.reason,
+        approvedAt: approval.approvedAt,
+        approvals: ledger.approvals.length,
+        artifact: path.join(projectDir(id), "spend-ledger.json"),
+      });
+    });
+
+  // ── budget (#444) ──────────────────────────────────────────────────────────
+  // Show the spend ledger state: the active cap, actual spend (sum of gen-log
+  // cost_usd), remaining budget, over-budget flag, and the full append-only
+  // approval history. Makes ZERO model calls, never mutates the project. JSON
+  // output.
+  cmd
+    .command("budget <id>")
+    .description(
+      "Show the project's spend ledger state (#444): the active budget cap, actual spend (sum of generations.jsonl cost_usd), remaining budget, an over-budget flag, expiry status, and the full append-only approval history. With no ledger, reports hasLedger:false and the actual spend so far (generation is unenforced). Makes ZERO model calls, never mutates the project. JSON output. Example: ralphy project budget spring-001",
+    )
+    .action(async (id: string) => {
+      const project = await getEntity("projects", id);
+      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
+
+      const s = await budgetSummary(id);
+      ok(
+        s.hasLedger
+          ? `Budget for ${id} — spent $${s.spentUsd.toFixed(2)} / cap $${(s.capUsd ?? 0).toFixed(2)}${s.overBudget ? " (OVER BUDGET)" : ""}${s.expired ? " (expired)" : ""}`
+          : `No spend ledger for ${id} — generation unenforced; spent $${s.spentUsd.toFixed(2)} so far`,
+      );
+      out({
+        project: id,
+        hasLedger: s.hasLedger,
+        capUsd: s.capUsd,
+        spentUsd: s.spentUsd,
+        remainingUsd: s.remainingUsd,
+        overBudget: s.overBudget,
+        expired: s.expired,
+        activeApproval: s.activeApproval,
+        approvals: s.approvals,
       });
     });
 
