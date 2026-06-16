@@ -128,9 +128,10 @@ function listGeneratedAssets(projectId: string): string[] {
   } catch {
     return [];
   }
-  // ponytail: stills only. Sampled-video-frame fidelity (product-in-frame /
-  // action continuity, issue #422 native-video note) rides on the #411 native
-  // eval keyframe extractor — not re-implemented here.
+  // ponytail: stills only. Sampled-video-frame PRODUCT fidelity (product-in-frame
+  // / action continuity, issue #422 native-video note) rides on the #411 native
+  // eval keyframe extractor — not re-implemented here. (Text legibility on sampled
+  // frames is now covered by the #439 OCR gate, `cli/lib/eval/ocr.ts`.)
 }
 
 /**

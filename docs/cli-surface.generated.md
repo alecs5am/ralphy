@@ -1700,6 +1700,17 @@ Commands:
                                 pass. Writes fidelity.json (append-only) and
                                 prints the verdict + blocksShip. Example: ralphy
                                 eval fidelity glitter-cream-001
+  ocr [options] <project>       Run the text-legibility / OCR gate (#439): read
+                                the baked copy in the project's stills + sampled
+                                video frames and flag unreadable small text,
+                                clipped copy, garbled text / typos, wrong
+                                emphasis, and literal markdown artifacts.
+                                Compares against expected copy when --expected
+                                is given. Baked-text modes only — a text-free
+                                mode returns a not-applicable pass. Writes
+                                text-legibility.json (append-only). Example:
+                                ralphy eval ocr glitter-cream-001 --expected
+                                copy.txt
   help [command]                display help for command
 ```
 
