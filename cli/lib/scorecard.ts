@@ -146,6 +146,9 @@ export function buildScorecard(input: {
   const hookGate = safeReadJson(dir, "hook.json") as
     | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown; hookScore?: unknown }
     | null;
+  const captionsGate = safeReadJson(dir, "captions-gate.json") as
+    | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
+    | null;
   const council = safeReadJson(dir, "council-polish.json") as
     | { verdict?: unknown; recommendation?: unknown }
     | null;
@@ -216,6 +219,32 @@ export function buildScorecard(input: {
       note: existing && existing.status !== "na"
         ? `${existing.note} First-frame hook gate: ${reasonNote}`
         : reasonNote,
+    });
+  }
+
+  // ── captions-gate.json → ENRICH the existing `captions` dimension (#441). The
+  //    caption sync/readability gate is the DEEP critic (drift / too-short /
+  //    overcrowded / occluding / unsafe-placement) of the same track the eval
+  //    DENSITY findings (captions.thin/dense/missing) cover. It does NOT create a
+  //    parallel caption concept — it MERGES with the eval-derived caption reading,
+  //    worst status wins. So a track the eval passed on density that this gate
+  //    flags as desynced / occluding still surfaces here.
+  if (captionsGate && captionsGate.applicable === true) {
+    const existing = byDim.get("captions");
+    const blocksShip = captionsGate.blocksShip === true;
+    const verdict = String(captionsGate.verdict ?? "pass");
+    const capStatus: DimensionStatus = blocksShip ? "fail" : verdict === "warn" ? "warn" : "pass";
+    const merged = worseStatus(existing?.status ?? "pass", capStatus);
+    const reasonNote = typeof captionsGate.reason === "string" ? captionsGate.reason : `Caption sync gate verdict: ${verdict}.`;
+    set({
+      dimension: "captions",
+      score: merged === "fail" ? 35 : merged === "warn" ? 70 : existing?.score ?? 95,
+      status: merged,
+      source: existing?.source ? `${existing.source} + captions-gate.json` : "captions-gate.json",
+      note:
+        existing && existing.status !== "na"
+          ? `${existing.note} Caption sync gate: ${reasonNote}`
+          : reasonNote,
     });
   }
 

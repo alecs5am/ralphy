@@ -1723,6 +1723,19 @@ Commands:
                                 the verdict + blocksShip + the 0-100 hook score
                                 the variant tournament (#421) can weight.
                                 Example: ralphy eval hook glitter-cream-001
+  captions [options] <project>  Run the caption sync/readability gate (#441):
+                                read the project's caption track + sampled
+                                render frames and flag timing drift vs the
+                                word-level startMs, captions on screen too
+                                briefly to read, overcrowded windows (too many
+                                words), captions overlapping a face/product/CTA,
+                                and unsafe placement in the platform UI chrome.
+                                ENRICHES (does not duplicate) the eval density
+                                findings (captions.thin/dense/missing). A
+                                project with no caption track returns a
+                                not-applicable pass. Writes captions-gate.json
+                                (append-only). Example: ralphy eval captions
+                                choose-silenthill-001
   help [command]                display help for command
 ```
 
