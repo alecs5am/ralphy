@@ -12,6 +12,15 @@
 // the repair plan must be reproducible and free so the fixer can gate cost on
 // the user's approval, not on a paid classification pass.
 //
+// Spend governor (#444) seam: the repair loop is a paid-gen consumer, but it
+// spends ONLY by dispatching the same `ralphy generate` verbs (art-director
+// regen / editor recut / scenarist rewrite) the fresh-production flow uses.
+// The spend-cap gate (`checkSpend` in cli/lib/spend.ts) is wired into
+// generate.ts at that single chokepoint, so every repair re-roll is gated
+// transitively — there is deliberately NO duplicate ledger check here (this
+// module never spends). A budget-exceeded repair re-roll surfaces the same
+// `E_BUDGET_EXCEEDED` hard-stop, bypassable with `--no-budget "<reason>"`.
+//
 // Two inputs, one preferred:
 //   • eval-deep-vision.json.parsed.what_to_redo — when present, this is the
 //     model's own prioritized, project-specific redo list. Prefer it.

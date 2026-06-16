@@ -208,8 +208,8 @@ export const ERROR_CODES = {
     class: "provider",
     httpAnalog: 402,
     message: "Estimated cost ${estimate} exceeds budget cap ${cap}",
-    hint: "Raise the cap via `ralphy config set budgets.{scope} <usd>` or trim the plan.",
-    relatedDocs: "docs/playbooks/producer.md#budget",
+    hint: "Raise the cap with `ralphy project approve <id> --cap <usd> --reason <text>`, trim the plan, or bypass this call with `--no-budget \"<reason>\"`.",
+    relatedDocs: "notes/issues/444-spend-governor-and-approval-ledger.md",
   },
   E_GEOBLOCK: {
     class: "provider",
