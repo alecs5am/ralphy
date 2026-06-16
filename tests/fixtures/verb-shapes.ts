@@ -189,6 +189,19 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         jsonPath: ".ralphy/workspaces/default/projects/demo-001/claims.json",
       },
     },
+    {
+      label: "eval.platform",
+      shape: {
+        verdict: "fail",
+        blocksShip: true,
+        applicable: true,
+        platforms: ["tiktok", "reels"],
+        reason: "2 platform spec violation(s) — wrong aspect / resolution / duration / codec / file-size. Blocks ship-ready until the media is conformed to the target platform.",
+        mediaChecked: 1,
+        findings: 2,
+        jsonPath: ".ralphy/workspaces/default/projects/demo-001/platform-spec.json",
+      },
+    },
   ],
   example: [
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },

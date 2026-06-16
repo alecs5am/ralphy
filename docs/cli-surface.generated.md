@@ -1754,6 +1754,20 @@ Commands:
                                 claims.json (append-only). Example: ralphy eval
                                 claims glitter-cream-001 --proof
                                 substantiation.txt
+  platform [options] <project>  Run the platform spec validator (#443): probe
+                                the project's final media (render/final.mp4 +
+                                artifacts/{images,videos}) and check each
+                                against the declared target platforms — aspect
+                                ratio, resolution, duration, file size, codecs,
+                                safe areas, required metadata. Reports CONCRETE
+                                fixes (e.g. 'H.264 required; got vp9 —
+                                re-encode'). A hard spec violation (wrong aspect
+                                / over-duration / unsupported codec /
+                                over-filesize) blocks ship. Defaults --platform
+                                to the project's distribution-pack platforms
+                                when present. Writes platform-spec.json
+                                (append-only). Example: ralphy eval platform
+                                glitter-cream-001 --platform tiktok,reels
   help [command]                display help for command
 ```
 
