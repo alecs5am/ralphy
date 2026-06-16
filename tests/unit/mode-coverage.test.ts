@@ -158,6 +158,11 @@ const FIXTURES: Record<string, ModeFixture> = {
     brief: "turn this podcast into a long form faceless video, audio to video",
     expectedFormat: "video",
   },
+  "infographic-animation": {
+    utterance: "make an animated infographic data visualization video of these stats",
+    brief: "make an animated infographic data visualization video of these stats",
+    expectedFormat: "motion-design",
+  },
 };
 
 // ─── (1) Registry supported/gap call is internally consistent ────────────────
@@ -190,8 +195,8 @@ describe("content-mode supported flag (#413)", () => {
     }
   });
 
-  test("the supported set matches the documented 17/3 split", () => {
-    expect(supportedContentModes().length).toBe(17);
+  test("the supported set matches the documented 18/3 split", () => {
+    expect(supportedContentModes().length).toBe(18);
     expect(unsupportedContentModes().length).toBe(3);
     const gaps = unsupportedContentModes().map((e) => e.mode).sort();
     expect(gaps).toEqual(["amazon-listing", "personal-clipper", "virtual-model-tryout"]);
@@ -295,7 +300,7 @@ describe("coverage matrix doc completeness (#413)", () => {
   });
 
   test("the doc states the supported/gap split that the registry carries", () => {
-    expect(doc).toContain("17 supported");
+    expect(doc).toContain("18 supported");
     // Each gap mode is named in the doc.
     for (const e of unsupportedContentModes()) {
       expect(doc).toContain(`\`${e.mode}\``);

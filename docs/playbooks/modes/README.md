@@ -32,6 +32,7 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 | `motion-design` | [motion-design.md](motion-design.md) | `/hyperframes` + `/gsap` |
 | `typography-animation` | [typography-animation.md](typography-animation.md) | `/hyperframes` + `/gsap` + `/waapi` |
 | `podcast-video` | [podcast-video.md](podcast-video.md) | `/audio-explainer` |
+| `infographic-animation` | [infographic-animation.md](infographic-animation.md) | `/hyperframes` + `/gsap` |
 
 `product-shot`, `lifestyle-scene`, `ugc-review`, and `tv-ad` now carry BOTH a production playbook (above) AND their backing register guideline(s) (cgi-product-renders / photoreal-studio-portraits / broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman) — the playbook is the production-intent floor, the guideline is the look floor; both apply. The remaining supported mode is still covered by a register guideline alone: `closeup-product-with-person` (photoreal-studio-portraits) — its mode playbook lands in a later issue (#434). The 3 deferred-gap modes (`virtual-model-tryout`, `personal-clipper`, `amazon-listing`) are exempt from the coverage bar until they are promoted to supported (#058).
 
