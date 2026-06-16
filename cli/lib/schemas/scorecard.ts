@@ -19,9 +19,9 @@ import { z } from "zod";
 // ─── Dimensions ────────────────────────────────────────────────────────────────
 
 /**
- * The twelve readiness dimensions (issue #427 Scope). Each is scored from a
- * SPECIFIC source artifact — the comment names which gate produces it. Append,
- * never repurpose.
+ * The readiness dimensions (issue #427 Scope; #439 appended `textLegibility`).
+ * Each is scored from a SPECIFIC source artifact — the comment names which gate
+ * produces it. Append, never repurpose.
  */
 export const SCORECARD_DIMENSIONS = [
   "hook", // eval.json structure.hookZone + findings (structure.hook-zone-*)
@@ -35,6 +35,7 @@ export const SCORECARD_DIMENSIONS = [
   "originality", // council-polish.json verdict (block | revise | ship)
   "technicalPolish", // contract polished (native-video final gate) + eval gate.shipReady
   "distributionReadiness", // distribution-pack.json presence
+  "textLegibility", // text-legibility.json blocksShip / verdict (#439, baked-text modes)
   "residualRisk", // any remaining warn/fail signal not owned by a named dimension
 ] as const;
 export type ScorecardDimension = (typeof SCORECARD_DIMENSIONS)[number];

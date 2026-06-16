@@ -134,6 +134,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         ],
       },
     },
+    {
+      label: "eval.ocr",
+      shape: {
+        verdict: "fail",
+        blocksShip: true,
+        applicable: true,
+        mode: "social-carousel",
+        reason: "2 text-legibility failure(s) — unreadable / clipped / garbled copy or markdown artifacts. Blocks ship-ready until fixed.",
+        assets: 5,
+        findings: 2,
+        expectedCopyProvided: false,
+        jsonPath: ".ralphy/workspaces/default/projects/demo-001/text-legibility.json",
+      },
+    },
   ],
   example: [
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },

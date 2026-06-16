@@ -13,6 +13,7 @@ import { evaluateVideo } from "../lib/eval/orchestrator.js";
 import { discoverStyleLock } from "../lib/style-lock.js";
 import { EVAL_MODES, type EvalMode } from "../lib/eval/types.js";
 import { checkFidelity, FIDELITY_ARTIFACT } from "../lib/eval/fidelity.js";
+import { checkTextLegibility, TEXT_LEGIBILITY_ARTIFACT } from "../lib/eval/ocr.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 
@@ -137,6 +138,55 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval fidelity failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("ocr <project>")
+    .description("Run the text-legibility / OCR gate (#439): read the baked copy in the project's stills + sampled video frames and flag unreadable small text, clipped copy, garbled text / typos, wrong emphasis, and literal markdown artifacts. Compares against expected copy when --expected is given. Baked-text modes only — a text-free mode returns a not-applicable pass. Writes text-legibility.json (append-only). Example: ralphy eval ocr glitter-cream-001 --expected copy.txt")
+    .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json)")
+    .option("--expected <file>", "Path to a file containing the expected copy to compare detected text against")
+    .option("--no-text", "Skip the gate (use for an unclassified mode you know bakes no text)")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        const mode = (opts.mode as string | undefined) ?? readProjectMode(project);
+        let expectedCopy: string | null = null;
+        if (opts.expected) {
+          const abs = path.resolve(opts.expected as string);
+          if (!existsSync(abs)) {
+            err(`--expected file not found: ${abs}`);
+            return;
+          }
+          expectedCopy = readFileSync(abs, "utf8");
+        }
+        const report = await checkTextLegibility({
+          projectId: project,
+          mode,
+          expectedCopy,
+          noText: opts.text === false,
+        });
+
+        // Append-only persistence: archive any existing report to .vN first.
+        const dest = path.join(projectDir(project), TEXT_LEGIBILITY_ARTIFACT);
+        const fs = await import("node:fs/promises");
+        await protectExistingAsset(dest, false);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, JSON.stringify(report, null, 2));
+
+        out({
+          verdict: report.verdict,
+          blocksShip: report.blocksShip,
+          applicable: report.applicable,
+          mode: report.mode,
+          reason: report.reason,
+          assets: report.assets.length,
+          findings: report.findings.length,
+          expectedCopyProvided: report.expectedCopyProvided,
+          jsonPath: dest,
+        });
+      } catch (e) {
+        err(`eval ocr failed: ${(e as Error).message}`);
       }
     });
 

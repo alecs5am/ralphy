@@ -761,6 +761,42 @@ export function requiresFidelityGate(mode: string): boolean {
   return realEntityRef || namesProduct;
 }
 
+// ─── Baked-text gate (#439) ──────────────────────────────────────────────────
+//
+// The text-legibility / OCR gate (#439) only runs for modes whose deliverable
+// BAKES copy into the image / frame (headlines, slide text, listing callouts,
+// kinetic type, overlay cards). A mode that ships clean stills with no rendered
+// copy — a plain product shot, a lifestyle scene, a restyle — must NOT be
+// penalized for "no text found". Rather than re-derive this from prose, we keep
+// an explicit, append-only set of the baked-text modes (the #439 Scope names
+// image-pack / carousel / poster / Amazon-listing / motion-design; the rest are
+// the modes whose Unit shape note or required input names overlay/headline copy).
+// Unknown mode → false (not gated).
+
+const BAKED_TEXT_MODES: ReadonlySet<ContentMode> = new Set([
+  "pinterest-pin",        // overlay text on the pin
+  "hero-banner",          // headline + CTA copy
+  "social-carousel",      // baked slide text
+  "ad-creative-pack",     // copy on every static creative
+  "amazon-listing",       // infographic callouts + feature copy
+  "motion-design",        // kinetic graphic copy
+  "typography-animation", // animated text IS the visual
+  "infographic-animation",// labels / metrics / callouts
+  "podcast-video",        // overlay cards / chapter titles
+]);
+
+/**
+ * True when a mode's deliverable bakes readable copy into the image / frame and
+ * therefore should clear the text-legibility / OCR gate (#439). Modes that ship
+ * text-free stills (product-shot, lifestyle-scene, closeup, conceptual-product,
+ * restyle, virtual-model-tryout) and the talking-head UGC video modes (text is a
+ * separate caption track, not baked into the still) are NOT gated. Unknown mode
+ * → false.
+ */
+export function hasBakedText(mode: string): boolean {
+  return BAKED_TEXT_MODES.has(mode as ContentMode);
+}
+
 // ─── Guideline-coverage resolver (#417) ──────────────────────────────────────
 //
 // #417 requires every SUPPORTED mode to carry mode-specific quality guidance —
