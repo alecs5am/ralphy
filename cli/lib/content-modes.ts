@@ -45,6 +45,7 @@ export const CONTENT_MODES_LIST = [
   "podcast-video",
   "personal-clipper",
   "amazon-listing",
+  "infographic-animation",
 ] as const;
 
 export type ContentMode = (typeof CONTENT_MODES_LIST)[number];
@@ -661,6 +662,29 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     qualityGates: ["scoreImage"],
     expectedUnitShape: { format: "image", minMedia: 5, maxMedia: 9, note: "A slot set of listing images (main + infographics + lifestyle)." },
     keywords: ["amazon listing", "amazon images", "listing images", "marketplace listing", "product listing", "amazon photos", "listing design", "infographic listing", "amazon a+ content"],
+  },
+
+  "infographic-animation": {
+    mode: "infographic-animation",
+    summary: "An animated infographic — data, metrics, comparisons, and callouts turned into narrated chart / overlay motion.",
+    supported: true,
+    implementationUnit: {
+      kind: "render-engine",
+      skills: ["hyperframes", "gsap"],
+      guidelines: [],
+      cliVerbs: ["render"],
+      note: "the HyperFrames render engine + editor playbook author the animated charts / callouts directly (GSAP-driven bars / counters / comparison overlays on a single timeline → ralphy render). Data-in-motion craft via /hyperframes + /gsap.",
+    },
+    supportedFormats: ["motion-design", "video"],
+    requiredInputs: ["structured data or a brief stating the stats / metrics to visualize"],
+    optionalInputs: ["brand palette", "source URL for the stats", "narration / voiceover", "chapter outline", "duration"],
+    defaultResearchDepth: "quick",
+    roleChain: ["intake", "art-director", "editor"],
+    templateLookup: { primaryFormat: "motion-design", tagQuery: ["infographic", "data-viz", "animated-chart", "data-in-motion", "explainer"] },
+    guidelineOrStyleLock: { required: false, guidelineSlugs: [], note: "No register guideline; the data-in-motion craft floor lives in the mode playbook (no model-prompt look to lock — authored in HyperFrames)." },
+    qualityGates: ["scoreVideo"],
+    expectedUnitShape: { format: "motion-design", minMedia: 1, maxMedia: 1, note: "One animated-infographic piece." },
+    keywords: ["infographic animation", "animated infographic", "animated chart", "data visualization video", "chart animation", "animated explainer", "data in motion", "animated stats", "animated data"],
   },
 };
 
