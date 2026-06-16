@@ -245,9 +245,12 @@ export async function checkFidelity(input: {
   const { verdict } = score(findings);
   const blocksShip = verdict === "fail";
 
-  // ponytail: claims/policy gate is #442's job — this gate only checks
-  // claimsToAvoid (the brand's own guardrail). Broad regulatory / platform-policy
-  // claim checking is NOT in scope here. #442 owns it.
+  // This gate's claim scope is PRODUCT IDENTITY only — does the OUTPUT MATCH the
+  // product (incl. the brand's own `claimsToAvoid` guardrail). The DISTINCT axis
+  // — does the COPY make SAFE/SUPPORTED claims (health/financial/performance/
+  // warranty/pricing/platform-policy/testimonial/comparative, checked against the
+  // product facts) — is owned by the claims/policy gate, `cli/lib/eval/claims.ts`
+  // (#442). Keep these separate: fidelity = fidelity, claims = claims.
   // ponytail: the readiness scorecard (#427) consumes `verdict` + `blocksShip`
   // verbatim — do NOT aggregate other gates here.
 

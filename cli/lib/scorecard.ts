@@ -149,6 +149,9 @@ export function buildScorecard(input: {
   const captionsGate = safeReadJson(dir, "captions-gate.json") as
     | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
     | null;
+  const claims = safeReadJson(dir, "claims.json") as
+    | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
+    | null;
   const council = safeReadJson(dir, "council-polish.json") as
     | { verdict?: unknown; recommendation?: unknown }
     | null;
@@ -303,6 +306,32 @@ export function buildScorecard(input: {
     set(na("textLegibility", "No text-legibility.json — run the OCR gate for baked-text modes (`ralphy eval ocr <id>`)."));
   }
 
+  // ── claims.json → claimsCompliance (#442, commercial modes only) ──
+  let claimsGated = false;
+  if (claims && claims.applicable === true) {
+    claimsGated = true;
+    const blocksShip = claims.blocksShip === true;
+    const verdict = String(claims.verdict ?? "pass");
+    const status: DimensionStatus = blocksShip ? "fail" : verdict === "warn" ? "warn" : "pass";
+    set({
+      dimension: "claimsCompliance",
+      score: status === "fail" ? 30 : status === "warn" ? 70 : 95,
+      status,
+      source: "claims.json",
+      note: typeof claims.reason === "string" ? claims.reason : `Claims/policy verdict: ${verdict}.`,
+    });
+  } else if (claims) {
+    set({
+      dimension: "claimsCompliance",
+      score: null,
+      status: "na",
+      source: "claims.json",
+      note: "Claims/policy gate not applicable (non-commercial mode) — no product claims to police.",
+    });
+  } else {
+    set(na("claimsCompliance", "No claims.json — run the claims/policy gate for commercial modes (`ralphy eval claims <id>`)."));
+  }
+
   // ── council-polish.json → originality / market-fit ──
   if (council && typeof council.verdict === "string") {
     const v = council.verdict;
@@ -348,8 +377,9 @@ export function buildScorecard(input: {
   const required = requiredDimensionsForMode(mode);
   if (fidelityGated && !required.includes("productFidelity")) required.push("productFidelity");
   if (textGated && !required.includes("textLegibility")) required.push("textLegibility");
+  if (claimsGated && !required.includes("claimsCompliance")) required.push("claimsCompliance");
 
-  const { verdict, reason } = decide(entries, required, { polished, renderPresent, fidelity, council, textLegibility });
+  const { verdict, reason } = decide(entries, required, { polished, renderPresent, fidelity, council, textLegibility, claims });
 
   return {
     version: 1,
@@ -519,6 +549,7 @@ function decide(
     fidelity: { blocksShip?: unknown } | null;
     council: { verdict?: unknown } | null;
     textLegibility: { blocksShip?: unknown } | null;
+    claims: { blocksShip?: unknown } | null;
   },
 ): { verdict: ScorecardVerdict; reason: string } {
   const byDim = new Map(entries.map((e) => [e.dimension, e] as const));
@@ -530,6 +561,9 @@ function decide(
   }
   if (ctx.textLegibility?.blocksShip === true) {
     return { verdict: "blocked", reason: "Text-legibility gate blocks ship (text-legibility.json blocksShip=true) — unreadable / clipped / garbled copy or markdown artifacts in the baked text." };
+  }
+  if (ctx.claims?.blocksShip === true) {
+    return { verdict: "blocked", reason: "Claims/policy gate blocks ship (claims.json blocksShip=true) — a high-risk unsupported claim (health/financial/absolute) in the commercial copy. Supply proof or remove the claim." };
   }
   if (ctx.council?.verdict === "block") {
     return { verdict: "blocked", reason: "Polish council returned a `block` verdict (council-polish.json) — resolve the blocking issues before shipping." };

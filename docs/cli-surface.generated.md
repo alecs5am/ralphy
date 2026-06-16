@@ -1736,6 +1736,24 @@ Commands:
                                 not-applicable pass. Writes captions-gate.json
                                 (append-only). Example: ralphy eval captions
                                 choose-silenthill-001
+  claims [options] <project>    Run the claims & policy gate (#442): extract the
+                                factual claims in the project's commercial copy
+                                (script VO/hook + prompts + on-screen OCR text +
+                                captions + distribution/social copy) and
+                                classify each against product facts +
+                                mode/platform restrictions. Categories:
+                                health-medical, financial-earnings,
+                                performance-efficacy, warranty-guarantee,
+                                pricing, platform-policy, testimonial,
+                                prohibited-comparative. HIGH-RISK unsupported
+                                claims (health/financial/absolute) BLOCK ship
+                                unless proof is supplied (--proof or a
+                                research-facts.json productFacts/proofPoints
+                                entry). Commercial modes only — a non-commercial
+                                project returns a not-applicable pass. Writes
+                                claims.json (append-only). Example: ralphy eval
+                                claims glitter-cream-001 --proof
+                                substantiation.txt
   help [command]                display help for command
 ```
 

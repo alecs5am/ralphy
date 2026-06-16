@@ -175,6 +175,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         jsonPath: ".ralphy/workspaces/default/projects/demo-001/captions-gate.json",
       },
     },
+    {
+      label: "eval.claims",
+      shape: {
+        verdict: "fail",
+        blocksShip: true,
+        applicable: true,
+        mode: "ugc-review",
+        reason: "2 high-risk unsupported claim(s) — health/financial/absolute claims with no substantiation. Blocks ship-ready until proof is supplied or the claim is removed.",
+        claims: 7,
+        findings: 2,
+        proofProvided: false,
+        jsonPath: ".ralphy/workspaces/default/projects/demo-001/claims.json",
+      },
+    },
   ],
   example: [
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },
