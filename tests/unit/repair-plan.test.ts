@@ -125,6 +125,21 @@ describe("classifyFindingOwner — deterministic category → owner map", () => 
     expect(classifyFindingOwner("structure.hook-zone-thin-vo")).toBe("scenarist");
   });
 
+  test("first-frame hook gate findings (hook.*) → scenarist (#440), not unknown", () => {
+    for (const c of [
+      "hook.unclear-subject",
+      "hook.low-contrast",
+      "hook.subject-not-visible",
+      "hook.weak-text-hook",
+      "hook.no-curiosity-gap",
+      "hook.weak-scroll-stop",
+      "hook.misleading",
+    ]) {
+      expect(classifyFindingOwner(c)).toBe("scenarist");
+      expect(isUnknownCategory(c)).toBe(false);
+    }
+  });
+
   test("audio / captions / format → editor", () => {
     expect(classifyFindingOwner("audio.loudness")).toBe("editor");
     expect(classifyFindingOwner("audio.true-peak")).toBe("editor");

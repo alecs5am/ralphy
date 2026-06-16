@@ -148,6 +148,19 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         jsonPath: ".ralphy/workspaces/default/projects/demo-001/text-legibility.json",
       },
     },
+    {
+      label: "eval.hook",
+      shape: {
+        verdict: "fail",
+        blocksShip: true,
+        applicable: true,
+        mode: "ad-creative-pack",
+        reason: '3 first-frame hook failure(s) — the opener is too weak / misleading to scroll-stop for mode "ad-creative-pack". Blocks ship-ready until fixed.',
+        hookScore: 42,
+        findings: 3,
+        jsonPath: ".ralphy/workspaces/default/projects/demo-001/hook.json",
+      },
+    },
   ],
   example: [
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },
