@@ -98,3 +98,10 @@ jobs:
 
       - name: Lint docs internal links (07.09.01)
         run: bun run lint:docs-links:fast
+
+      # Library QA (#448): schema completeness + referential integrity for every
+      # Unit/Block/Blueprint in landing/lib/library-v2/library.json. Fast path
+      # (no media probe) so a broken record fails CI; the slow path
+      # (lint:library) probes media URLs.
+      - name: Lint content library QA (#448)
+        run: bun run lint:library:fast
