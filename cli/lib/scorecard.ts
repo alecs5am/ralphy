@@ -129,6 +129,9 @@ export function buildScorecard(input: {
   const fidelity = safeReadJson(dir, "fidelity.json") as
     | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
     | null;
+  const textLegibility = safeReadJson(dir, "text-legibility.json") as
+    | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
+    | null;
   const council = safeReadJson(dir, "council-polish.json") as
     | { verdict?: unknown; recommendation?: unknown }
     | null;
@@ -207,6 +210,32 @@ export function buildScorecard(input: {
     set(na("productFidelity", "No fidelity.json — run the fidelity gate for commercial modes (`ralphy evaluate <id> --fidelity`)."));
   }
 
+  // ── text-legibility.json → textLegibility (#439, baked-text modes only) ──
+  let textGated = false;
+  if (textLegibility && textLegibility.applicable === true) {
+    textGated = true;
+    const blocksShip = textLegibility.blocksShip === true;
+    const verdict = String(textLegibility.verdict ?? "pass");
+    const status: DimensionStatus = blocksShip ? "fail" : verdict === "warn" ? "warn" : "pass";
+    set({
+      dimension: "textLegibility",
+      score: status === "fail" ? 30 : status === "warn" ? 70 : 95,
+      status,
+      source: "text-legibility.json",
+      note: typeof textLegibility.reason === "string" ? textLegibility.reason : `Text-legibility verdict: ${verdict}.`,
+    });
+  } else if (textLegibility) {
+    set({
+      dimension: "textLegibility",
+      score: null,
+      status: "na",
+      source: "text-legibility.json",
+      note: "Text-legibility gate not applicable (mode bakes no copy) — no text to verify.",
+    });
+  } else {
+    set(na("textLegibility", "No text-legibility.json — run the OCR gate for baked-text modes (`ralphy eval ocr <id>`)."));
+  }
+
   // ── council-polish.json → originality / market-fit ──
   if (council && typeof council.verdict === "string") {
     const v = council.verdict;
@@ -251,8 +280,9 @@ export function buildScorecard(input: {
   // ── mode-aware required set + the deterministic verdict ──
   const required = requiredDimensionsForMode(mode);
   if (fidelityGated && !required.includes("productFidelity")) required.push("productFidelity");
+  if (textGated && !required.includes("textLegibility")) required.push("textLegibility");
 
-  const { verdict, reason } = decide(entries, required, { polished, renderPresent, fidelity, council });
+  const { verdict, reason } = decide(entries, required, { polished, renderPresent, fidelity, council, textLegibility });
 
   return {
     version: 1,
@@ -421,6 +451,7 @@ function decide(
     renderPresent: boolean;
     fidelity: { blocksShip?: unknown } | null;
     council: { verdict?: unknown } | null;
+    textLegibility: { blocksShip?: unknown } | null;
   },
 ): { verdict: ScorecardVerdict; reason: string } {
   const byDim = new Map(entries.map((e) => [e.dimension, e] as const));
@@ -429,6 +460,9 @@ function decide(
   // ── 1. blocked — hard blockers ──
   if (ctx.fidelity?.blocksShip === true) {
     return { verdict: "blocked", reason: "Product/brand fidelity gate blocks ship (fidelity.json blocksShip=true) — a named product/brand is materially wrong." };
+  }
+  if (ctx.textLegibility?.blocksShip === true) {
+    return { verdict: "blocked", reason: "Text-legibility gate blocks ship (text-legibility.json blocksShip=true) — unreadable / clipped / garbled copy or markdown artifacts in the baked text." };
   }
   if (ctx.council?.verdict === "block") {
     return { verdict: "blocked", reason: "Polish council returned a `block` verdict (council-polish.json) — resolve the blocking issues before shipping." };
