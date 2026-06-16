@@ -42,7 +42,7 @@ Every entry carries a `supported: boolean` and an `implementationUnit` (#413). A
 
 `classifyContentMode()` still returns **all 21 modes**, including the unsupported ones — the agent must be able to recognize the intent. But:
 
-> **Agent rule: never expose an UNSUPPORTED mode name to the user as a deliverable you will produce.** When a brief classifies to a `gap (deferred)` mode (currently `personal-clipper`, `amazon-listing`), either route to the closest SUPPORTED mode and say so, or tell the user it is not yet a first-class route and point at the recommended unit — then proceed only on explicit go. Promising a tuned pipeline that does not exist falls back to weak generic prompts; that is the failure #413 exists to prevent. Gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
+> **Agent rule: never expose an UNSUPPORTED mode name to the user as a deliverable you will produce.** When a brief classifies to a `gap (deferred)` mode (currently `personal-clipper`), either route to the closest SUPPORTED mode and say so, or tell the user it is not yet a first-class route and point at the recommended unit — then proceed only on explicit go. Promising a tuned pipeline that does not exist falls back to weak generic prompts; that is the failure #413 exists to prevent. Gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
 
 #417 reads the same `supported` flag to check guideline coverage only for first-class routes.
 

@@ -91,6 +91,7 @@ const MODE_BRIEFS: Record<string, string> = {
   "typography-animation": "a kinetic typography animated text lyric piece",
   "podcast-video": "turn this podcast into a long form faceless video, audio to video",
   "infographic-animation": "make an animated infographic data visualization video of these stats",
+  "amazon-listing": "design my amazon listing images with an infographic listing",
 };
 
 // ─── (1) The coverage lint passes — every supported mode is covered ──────────

@@ -22,6 +22,7 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 | `ad-creative-pack` | [ad-creative-pack.md](ad-creative-pack.md) | `/fb-creatives` + `/researcher` |
 | `conceptual-product` | [conceptual-product.md](conceptual-product.md) | `/json-prompt-engine` |
 | `product-shot` | [product-shot.md](product-shot.md) | cgi-product-renders guideline + `/json-prompt-engine` |
+| `amazon-listing` | [amazon-listing.md](amazon-listing.md) | cgi-product-renders guideline + `/json-prompt-engine` |
 | `lifestyle-scene` | [lifestyle-scene.md](lifestyle-scene.md) | photoreal-studio-portraits guideline + `/json-prompt-engine` |
 | `closeup-product-with-person` | [closeup-product-with-person.md](closeup-product-with-person.md) | photoreal-studio-portraits guideline + `/json-prompt-engine` |
 | `virtual-model-tryout` | [virtual-model-tryout.md](virtual-model-tryout.md) | photoreal-studio-portraits guideline + `/json-prompt-engine` |
@@ -36,7 +37,7 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 | `podcast-video` | [podcast-video.md](podcast-video.md) | `/audio-explainer` |
 | `infographic-animation` | [infographic-animation.md](infographic-animation.md) | `/hyperframes` + `/gsap` |
 
-`product-shot`, `lifestyle-scene`, `closeup-product-with-person`, `virtual-model-tryout`, `ugc-review`, and `tv-ad` now carry BOTH a production playbook (above) AND their backing register guideline(s) (cgi-product-renders / photoreal-studio-portraits / broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman) — the playbook is the production-intent floor, the guideline is the look floor; both apply. Every supported mode now ships a mode playbook. The 2 deferred-gap modes (`personal-clipper`, `amazon-listing`) are exempt from the coverage bar until they are promoted to supported (#058).
+`product-shot`, `amazon-listing`, `lifestyle-scene`, `closeup-product-with-person`, `virtual-model-tryout`, `ugc-review`, and `tv-ad` now carry BOTH a production playbook (above) AND their backing register guideline(s) (cgi-product-renders / photoreal-studio-portraits / broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman) — the playbook is the production-intent floor, the guideline is the look floor; both apply. Every supported mode now ships a mode playbook. The 1 deferred-gap mode (`personal-clipper`) is exempt from the coverage bar until it is promoted to supported (#058).
 
 ## Adjacent — multi-still deliverables
 
