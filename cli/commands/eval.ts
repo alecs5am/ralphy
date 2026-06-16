@@ -16,6 +16,7 @@ import { checkFidelity, FIDELITY_ARTIFACT } from "../lib/eval/fidelity.js";
 import { checkTextLegibility, TEXT_LEGIBILITY_ARTIFACT } from "../lib/eval/ocr.js";
 import { checkFirstFrameHook, HOOK_ARTIFACT } from "../lib/eval/hook.js";
 import { checkCaptions, CAPTIONS_GATE_ARTIFACT } from "../lib/eval/captions-gate.js";
+import { checkClaims, CLAIMS_ARTIFACT } from "../lib/eval/claims.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 
@@ -266,6 +267,50 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval captions failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("claims <project>")
+    .description("Run the claims & policy gate (#442): extract the factual claims in the project's commercial copy (script VO/hook + prompts + on-screen OCR text + captions + distribution/social copy) and classify each against product facts + mode/platform restrictions. Categories: health-medical, financial-earnings, performance-efficacy, warranty-guarantee, pricing, platform-policy, testimonial, prohibited-comparative. HIGH-RISK unsupported claims (health/financial/absolute) BLOCK ship unless proof is supplied (--proof or a research-facts.json productFacts/proofPoints entry). Commercial modes only — a non-commercial project returns a not-applicable pass. Writes claims.json (append-only). Example: ralphy eval claims glitter-cream-001 --proof substantiation.txt")
+    .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json)")
+    .option("--proof <file>", "Path to a substantiation document whose lines back high-risk claims (downgrades a blocking claim to a pass)")
+    .option("--no-claims", "Skip the gate (use for a commercial mode you know makes no provable claims)")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        const mode = (opts.mode as string | undefined) ?? readProjectMode(project);
+        if (opts.proof && !existsSync(path.resolve(opts.proof as string))) {
+          err(`--proof file not found: ${path.resolve(opts.proof as string)}`);
+          return;
+        }
+        const report = await checkClaims({
+          projectId: project,
+          mode,
+          proof: (opts.proof as string | undefined) ?? null,
+          noClaims: opts.claims === false,
+        });
+
+        // Append-only persistence: archive any existing report to .vN first.
+        const dest = path.join(projectDir(project), CLAIMS_ARTIFACT);
+        const fs = await import("node:fs/promises");
+        await protectExistingAsset(dest, false);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, JSON.stringify(report, null, 2));
+
+        out({
+          verdict: report.verdict,
+          blocksShip: report.blocksShip,
+          applicable: report.applicable,
+          mode: report.mode,
+          reason: report.reason,
+          claims: report.claims.length,
+          findings: report.findings.length,
+          proofProvided: report.proofProvided,
+          jsonPath: dest,
+        });
+      } catch (e) {
+        err(`eval claims failed: ${(e as Error).message}`);
       }
     });
 
