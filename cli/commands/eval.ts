@@ -7,7 +7,7 @@
 
 import { Command } from "commander";
 import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { out, err } from "../lib/output.js";
 import { evaluateVideo } from "../lib/eval/orchestrator.js";
 import { discoverStyleLock } from "../lib/style-lock.js";
@@ -17,6 +17,11 @@ import { checkTextLegibility, TEXT_LEGIBILITY_ARTIFACT } from "../lib/eval/ocr.j
 import { checkFirstFrameHook, HOOK_ARTIFACT } from "../lib/eval/hook.js";
 import { checkCaptions, CAPTIONS_GATE_ARTIFACT } from "../lib/eval/captions-gate.js";
 import { checkClaims, CLAIMS_ARTIFACT } from "../lib/eval/claims.js";
+import {
+  validatePlatformSpec,
+  PLATFORM_SPEC_ARTIFACT,
+  PLATFORM_KEYS,
+} from "../lib/eval/platform.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 
@@ -314,5 +319,76 @@ export function evalCmd() {
       }
     });
 
+  cmd
+    .command("platform <project>")
+    .description("Run the platform spec validator (#443): probe the project's final media (render/final.mp4 + artifacts/{images,videos}) and check each against the declared target platforms — aspect ratio, resolution, duration, file size, codecs, safe areas, required metadata. Reports CONCRETE fixes (e.g. 'H.264 required; got vp9 — re-encode'). A hard spec violation (wrong aspect / over-duration / unsupported codec / over-filesize) blocks ship. Defaults --platform to the project's distribution-pack platforms when present. Writes platform-spec.json (append-only). Example: ralphy eval platform glitter-cream-001 --platform tiktok,reels")
+    .option("--platform <list>", `Comma-separated target platforms to validate against (${PLATFORM_KEYS.join(", ")}). Default: the project's distribution-pack platforms, else all video platforms.`)
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        const platforms = resolvePlatformList(project, opts.platform as string | undefined);
+        const report = validatePlatformSpec({ projectId: project, platforms });
+
+        // Append-only persistence: archive any existing report to .vN first.
+        const dest = path.join(projectDir(project), PLATFORM_SPEC_ARTIFACT);
+        const fs = await import("node:fs/promises");
+        await protectExistingAsset(dest, false);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, JSON.stringify(report, null, 2));
+
+        out({
+          verdict: report.verdict,
+          blocksShip: report.blocksShip,
+          applicable: report.applicable,
+          platforms: report.platforms,
+          reason: report.reason,
+          mediaChecked: new Set(report.results.map((r) => r.media)).size,
+          findings: report.findings.length,
+          jsonPath: dest,
+        });
+      } catch (e) {
+        err(`eval platform failed: ${(e as Error).message}`);
+      }
+    });
+
   return cmd;
+}
+
+/**
+ * Resolve the target-platform list for `eval platform`. Explicit --platform wins
+ * (comma-split). Else read the project's distribution-pack platforms and map the
+ * pack taxonomy (tiktok/reels/shorts/meta/app-store) onto the spec-profile keys
+ * (meta → meta-ad, app-store → app-store-screenshot). Falls back to the three
+ * video platforms when neither is available.
+ */
+function resolvePlatformList(projectId: string, explicit: string | undefined): string[] {
+  if (explicit) return explicit.split(",").map((s) => s.trim()).filter(Boolean);
+  const packPlatforms = readPackPlatforms(projectId);
+  if (packPlatforms.length) {
+    const MAP: Record<string, string> = { meta: "meta-ad", "app-store": "app-store-screenshot" };
+    return [...new Set(packPlatforms.map((p) => MAP[p] ?? p))];
+  }
+  return ["tiktok", "reels", "shorts"];
+}
+
+/** Collect the distinct platform keys across every units/<slug>/distribution-pack.json. */
+function readPackPlatforms(projectId: string): string[] {
+  const found = new Set<string>();
+  try {
+    const unitsDir = path.join(projectDir(projectId), "units");
+    if (!existsSync(unitsDir)) return [];
+    for (const slug of readdirSync(unitsDir)) {
+      const fp = path.join(unitsDir, slug, "distribution-pack.json");
+      if (!existsSync(fp)) continue;
+      try {
+        const pack = JSON.parse(readFileSync(fp, "utf8")) as { platforms?: Record<string, unknown> };
+        for (const k of Object.keys(pack.platforms ?? {})) found.add(k);
+      } catch {
+        // skip malformed pack
+      }
+    }
+  } catch {
+    // no units
+  }
+  return [...found];
 }
