@@ -295,6 +295,30 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         scanned: { projects: 2, rows: 4 },
       },
     },
+    {
+      label: "models.preflight",
+      shape: {
+        kind: "video",
+        model: "kwaivgi/kling-v3.0-pro",
+        ok: false,
+        violations: [
+          {
+            field: "frames",
+            severity: "fail",
+            message: "kwaivgi/kling-v3.0-pro first_frame AND last_frame together return 400 (#008)",
+            hint: "use bytedance/seedance-2.0 for first+last frame anchoring",
+          },
+          {
+            field: "audio",
+            severity: "warn",
+            message: "kwaivgi/kling-v3.0-pro --audio renders speech EN only",
+            hint: "confirm the audience language is English",
+          },
+        ],
+        hints: ["kwaivgi/kling-v3.0-pro --audio renders speech in EN only"],
+        recommendedFallbacks: ["bytedance/seedance-2.0"],
+      },
+    },
   ],
   new: [
     { label: "new.created", shape: { id: "spring-2026-001", root: ".ralphy/workspaces/default/projects/spring-2026-001", brief: "elly coffee spring drop" } },

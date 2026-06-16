@@ -312,6 +312,13 @@ Commands:
                        reading — no provider calls. Use --chose <model> --reason
                        <why> to log a manual override against the recommendation
                        (auditable JSONL at .ralphy/model-overrides.jsonl).
+  preflight [options]  Dry-check a planned generation call against known
+                       per-model constraints the OR catalog does NOT carry (max
+                       prompt chars, kling multiframe base64 bug, ref-count cap,
+                       --audio support, ElevenLabs duration range) — #445. PURE:
+                       no network, no provider calls, no spend. Returns { ok,
+                       violations[], hints[], recommendedFallbacks[] }; ok=false
+                       means a guaranteed provider 400.
   help [command]       display help for command
 ```
 

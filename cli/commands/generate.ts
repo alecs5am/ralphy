@@ -35,6 +35,11 @@ import {
 import { enqueueGenerate } from "../lib/jobs/enqueue.js";
 import type { JobKind } from "../lib/jobs/types.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
+import {
+  preflightModelCall,
+  type GenerateKind,
+  type ModelPreflightInput,
+} from "../lib/models/constraints.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { naturalSizeFor } from "../lib/providers/openrouter.js";
 import { isFalVideoModel, falVideoPricePerSec } from "../lib/providers/fal.js";
@@ -124,6 +129,46 @@ function maybeEnqueue(opts: any, kind: JobKind, project: string | undefined): bo
   if (id == null) return false;
   out({ queued: true, id, kind, project: project ?? null });
   return true;
+}
+
+/**
+ * #445: shared model-constraint preflight. Runs `preflightModelCall` for a
+ * planned generation, prints every `warn`-severity violation as a `[warn] ...`
+ * stderr line (the same convention the rest of this file uses for advisory
+ * notes), and HARD-REFUSES via `raiseError` only on a `fail`-severity violation
+ * (a guaranteed provider 400 / garbage — e.g. prompt-char overflow, kling
+ * multiframe base64, ref-count over cap, unsupported --audio).
+ *
+ * Non-blocking by design: valid calls pass through untouched (no warn, no
+ * refuse), so existing happy-path generate tests are unaffected. The fail set
+ * mirrors the connector-side TerminalProviderError refusals (kling cap /
+ * multiframe) so the agent gets the same answer pre-submit, without a network
+ * round-trip. Catalog-backed video limits stay on the existing
+ * validateVideoParams path — pass NO `videoModel` here to avoid double-checking.
+ */
+function runPreflight(kind: GenerateKind, input: Omit<ModelPreflightInput, "kind">): void {
+  const result = preflightModelCall({ kind, ...input });
+  for (const v of result.violations) {
+    if (v.severity === "warn") {
+      // eslint-disable-next-line no-console
+      console.error(`[warn] ${v.field}: ${v.message} -> ${v.hint}`);
+    }
+  }
+  for (const h of result.hints) {
+    // eslint-disable-next-line no-console
+    console.error(`[warn] ${h}`);
+  }
+  if (!result.ok) {
+    const fails = result.violations.filter((v) => v.severity === "fail");
+    const lines = fails.map((v) => `  - ${v.field}: ${v.message}\n    -> ${v.hint}`);
+    const fallback = result.recommendedFallbacks.length
+      ? ` | recommended fallback: ${result.recommendedFallbacks.join(", ")}`
+      : "";
+    raiseError("E_VALIDATION_FAILED", {
+      target: input.modelId,
+      detail: lines.join(" | ") + fallback,
+    });
+  }
 }
 
 // Strict canonical form is lowercase-kebab. Relaxed input regex accepts uppercase
@@ -567,6 +612,14 @@ export function generateCmd() {
         });
         return;
       }
+      // #445: constraint preflight (non-blocking warns + hard-refuse on fail).
+      runPreflight("image", {
+        modelId: resolvedDefaultModel,
+        promptChars: (opts.prompt as string | undefined)?.length,
+        refCount: opts.ref?.length,
+        aspect: opts.aspect,
+        size: opts.aspect ? undefined : opts.size,
+      });
       const conn = resolveConnector("image", opts.provider);
 
       const ui = await import("../lib/ui.js");
@@ -861,6 +914,20 @@ export function generateCmd() {
         return;
       }
 
+      // #445: table-backed constraint preflight (prompt cap, kling multiframe
+      // base64, ref-count, --audio support). Catalog-backed limits (durations /
+      // resolutions / aspect / frame anchors) stay on the validateVideoParams
+      // path above — pass NO videoModel so they aren't double-checked.
+      runPreflight("video", {
+        modelId: resolveModelAlias(opts.model) ?? opts.model,
+        promptChars: (opts.prompt as string | undefined)?.length,
+        refCount: opts.ref?.length,
+        hasFirstFrame: !!firstFrameRef,
+        hasLastFrame: !!lastFrameRef,
+        aspect: opts.aspectRatio,
+        audio: opts.audio,
+        durationSec: opts.duration,
+      });
       const connV = resolveConnector("video", opts.provider);
       const uiv = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
@@ -1042,6 +1109,8 @@ export function generateCmd() {
       if (opts.style !== undefined) voiceSettings.style = opts.style;
       if (opts.speed !== undefined) voiceSettings.speed = opts.speed;
       if (opts.speakerBoost === false) voiceSettings.use_speaker_boost = false;
+      // #445: constraint preflight (voiceover is advisory-only today).
+      runPreflight("voiceover", { modelId: opts.model, promptChars: (opts.text as string | undefined)?.length });
       const connVo = resolveConnector("voice", opts.provider);
       const uivo = await import("../lib/ui.js");
       const result = await uivo.withSpinner(
@@ -1144,6 +1213,13 @@ export function generateCmd() {
         return;
       }
 
+      // #445: constraint preflight (music has no --model flag; key the table
+      // on the canonical ElevenLabs Music provider-model id).
+      runPreflight("music", {
+        modelId: "elevenlabs-music",
+        promptChars: (opts.prompt as string | undefined)?.length,
+        durationSec: opts.duration,
+      });
       const connM = resolveConnector("music", opts.provider);
       const uim = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
@@ -1266,6 +1342,13 @@ export function generateCmd() {
       }
       opts.prompt = sfxPrompt!;
 
+      // #445: constraint preflight (sfx has no --model flag; key the table on
+      // the canonical ElevenLabs Sound Generation provider-model id).
+      runPreflight("sfx", {
+        modelId: "elevenlabs-sfx",
+        promptChars: (opts.prompt as string | undefined)?.length,
+        durationSec: opts.duration,
+      });
       const connSfx = resolveConnector("sfx", opts.provider);
       const uisfx = await import("../lib/ui.js");
       const result = await uisfx.withSpinner(
