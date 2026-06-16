@@ -51,6 +51,8 @@
     "docs:cli:check": "bun run scripts/build-cli-docs.ts --check",
     "lint:docs-links": "bun run scripts/lint-docs-links.ts",
     "lint:docs-links:fast": "bun run scripts/lint-docs-links.ts --no-net",
+    "lint:library": "bun run scripts/lint-library.ts",
+    "lint:library:fast": "bun run scripts/lint-library.ts --no-net",
     "lint:skills": "bun run scripts/lint-skills.ts && bun run lint:skill-routing",
     "lint:skill-routing": "bun run scripts/lint-skill-routing.ts",
     "lint:agents-md": "bun run scripts/lint-agents-md.ts",
