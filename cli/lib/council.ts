@@ -34,6 +34,7 @@
 import { callLLM } from "./providers/llm.js";
 import { benchmarkSetForMode } from "./benchmarks.js";
 import { gradePlanDeterministic } from "./plan/grade.js";
+import { lintRefPack } from "./ref-pack-lint.js";
 import type { ProductionPlan } from "./schemas/production-plan.js";
 import type { EvalReport } from "./eval/types.js";
 import type { DeepVisionFile } from "./repair.js";
@@ -185,9 +186,22 @@ export function preflightPayload(plan: ProductionPlan): string {
   // structural quality signal, not just the raw plan. Bounded — verdict + a
   // compact {dimension: {status, note}} map, no scores. ZERO model calls.
   const grade = gradePlanDeterministic(plan);
+  // #449 seam: a one-line ref-pack health note so the preflight roles can flag a
+  // poisoned reference set BEFORE paid generation. Deterministic, ZERO model
+  // calls — `lintRefPack` reads the on-disk pack via `readRefPack` and probes
+  // files only. Best-effort: a missing/empty pack yields a non-fail verdict.
+  const refLint = lintRefPack({ projectId: plan.projectId, mode: plan.contentMode.mode });
   return JSON.stringify(
     {
       projectId: plan.projectId,
+      refPackHealth: {
+        verdict: refLint.verdict,
+        ok: refLint.ok,
+        reason: refLint.reason,
+        blockingFindings: refLint.findings
+          .filter((f) => f.severity === "fail")
+          .map((f) => f.category),
+      },
       planGrade: {
         verdict: grade.verdict,
         reason: grade.reason,
