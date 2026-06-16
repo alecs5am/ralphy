@@ -161,6 +161,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         jsonPath: ".ralphy/workspaces/default/projects/demo-001/hook.json",
       },
     },
+    {
+      label: "eval.captions",
+      shape: {
+        verdict: "fail",
+        blocksShip: true,
+        applicable: true,
+        mode: "ugc-review",
+        reason: "2 caption sync/readability failure(s) — desync / too-short / overcrowded / occluding captions. Blocks ship-ready until fixed.",
+        captionCount: 24,
+        wordTimingsProvided: true,
+        findings: 2,
+        jsonPath: ".ralphy/workspaces/default/projects/demo-001/captions-gate.json",
+      },
+    },
   ],
   example: [
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },
