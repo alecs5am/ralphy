@@ -60,6 +60,14 @@ export interface ScoreOutcome {
 /** A scorer is any fn candidate → outcome. Injected by the verb; mode-agnostic. */
 export type ScoreFn = (candidate: TournamentCandidate) => Promise<ScoreOutcome>;
 
+// HOOK-SCORE WEIGHTING (#440): for VIDEO candidates the first-frame hook gate
+// (`checkFirstFrameHook`, cli/lib/eval/hook.ts) exposes a single 0-100 `hookScore`
+// on the same scale as the scores below. A scroll-stop-weighted scorer can read
+// it (run the gate per candidate, blend its `hookScore` with the model-assisted
+// asset score) so the tournament champion is the strongest OPENER, not just the
+// best whole-clip render. Left as a documented seam — the default
+// `modelAssistedScorer` stays whole-asset; wire a custom ScoreFn to weight it.
+
 // ─── buildVariantMatrix (the plan) ─────────────────────────────────────────────
 
 /** A spec axis the matrix is built from (the cost is estimated, not supplied). */

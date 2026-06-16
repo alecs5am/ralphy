@@ -248,3 +248,53 @@ describe("buildScorecard — na / missing artifacts + mode-awareness (#427)", ()
     expect(card.dimensions.find((d) => d.dimension === "distributionReadiness")!.status).toBe("pass");
   });
 });
+
+describe("buildScorecard — first-frame hook gate enriches the hook dimension (#440)", () => {
+  test("hook.json blocksShip → hook dimension fails, even with a clean eval hook zone", () => {
+    const id = "hook-blocked-001";
+    seedRender(id);
+    // Clean eval (no structure.hook-zone findings → eval-derived hook is pass).
+    seedJson(id, "eval.json", evalReport({ verdict: "pass", shipReady: true }));
+    seedJson(id, "hook.json", {
+      applicable: true,
+      verdict: "fail",
+      blocksShip: true,
+      hookScore: 28,
+      reason: "weak opener for ad-creative-pack",
+    });
+    seedJson(id, "production-plan.json", { contentMode: { mode: "ad-creative-pack" } });
+
+    const card = buildScorecard({ projectId: id });
+    const hook = card.dimensions.find((d) => d.dimension === "hook")!;
+    expect(hook.status).toBe("fail");
+    expect(hook.source).toBe("eval.json + hook.json");
+    // hook is in the required base set → a fail there blocks ship.
+    expect(card.verdict).toBe("blocked");
+  });
+
+  test("hook.json warn merges to a hook warn (not a parallel dimension)", () => {
+    const id = "hook-warn-001";
+    seedRender(id);
+    seedJson(id, "eval.json", evalReport({ verdict: "pass", shipReady: true }));
+    seedJson(id, "hook.json", { applicable: true, verdict: "warn", blocksShip: false, hookScore: 58, reason: "soft opener" });
+    seedJson(id, "production-plan.json", { contentMode: { mode: "motion-design" } });
+
+    const card = buildScorecard({ projectId: id });
+    const hook = card.dimensions.find((d) => d.dimension === "hook")!;
+    expect(hook.status).toBe("warn");
+    expect(card.verdict).toBe("repair");
+  });
+
+  test("a non-applicable hook.json (stills-only) leaves the eval hook reading untouched", () => {
+    const id = "hook-na-001";
+    seedRender(id);
+    seedJson(id, "eval.json", evalReport({ verdict: "pass", shipReady: true }));
+    seedJson(id, "hook.json", { applicable: false, verdict: "pass", blocksShip: false, hookScore: null, reason: "no video" });
+    seedJson(id, "production-plan.json", { contentMode: { mode: "motion-design" } });
+
+    const card = buildScorecard({ projectId: id });
+    const hook = card.dimensions.find((d) => d.dimension === "hook")!;
+    expect(hook.status).toBe("pass");
+    expect(hook.source).toBe("eval.json"); // not "+ hook.json"
+  });
+});

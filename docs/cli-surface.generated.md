@@ -1711,6 +1711,18 @@ Commands:
                                 text-legibility.json (append-only). Example:
                                 ralphy eval ocr glitter-cream-001 --expected
                                 copy.txt
+  hook [options] <project>      Run the first-frame hook gate (#440): extract
+                                the FIRST FRAME + the ~1s preview from the
+                                project's render and score the opener on subject
+                                clarity, visual contrast, subject/product
+                                visibility, text-hook legibility, curiosity gap,
+                                and scroll-stop pull (mode-thresholded). Flags a
+                                MISLEADING opener that over-promises. A
+                                stills-only project returns a not-applicable
+                                pass. Writes hook.json (append-only) and prints
+                                the verdict + blocksShip + the 0-100 hook score
+                                the variant tournament (#421) can weight.
+                                Example: ralphy eval hook glitter-cream-001
   help [command]                display help for command
 ```
 

@@ -72,6 +72,17 @@ function worstSeverity(sevs: Severity[]): Severity | null {
   return null;
 }
 
+/**
+ * Merge two dimension statuses, worst wins (fail > warn > pass). `na` (no signal)
+ * never lowers the other reading — it yields to a concrete pass/warn/fail. Used
+ * to fold the focused first-frame hook gate (#440) into the eval-derived hook
+ * reading without creating a parallel hook dimension.
+ */
+function worseStatus(a: DimensionStatus, b: DimensionStatus): DimensionStatus {
+  const rank: Record<DimensionStatus, number> = { fail: 3, warn: 2, pass: 1, na: 0 };
+  return rank[a] >= rank[b] ? a : b;
+}
+
 /** Filter eval findings whose category starts with one of `prefixes`. */
 function findingsFor(report: EvalReport, prefixes: string[]): Finding[] {
   return report.findings.filter((f) => prefixes.some((p) => f.category.startsWith(p)));
@@ -132,6 +143,9 @@ export function buildScorecard(input: {
   const textLegibility = safeReadJson(dir, "text-legibility.json") as
     | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
     | null;
+  const hookGate = safeReadJson(dir, "hook.json") as
+    | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown; hookScore?: unknown }
+    | null;
   const council = safeReadJson(dir, "council-polish.json") as
     | { verdict?: unknown; recommendation?: unknown }
     | null;
@@ -179,6 +193,30 @@ export function buildScorecard(input: {
     for (const d of ["hook", "clarity", "pacing", "audio", "captions", "platformFit"] as const) {
       set(na(d, "No eval.json yet — run the post-render eval (`ralphy evaluate <id>`)."));
     }
+  }
+
+  // ── hook.json → ENRICH the existing `hook` dimension (#440). The first-frame
+  //    hook gate is a FOCUSED scroll-stop critic of the opener; it does NOT create
+  //    a parallel hook concept — it MERGES with the eval-derived hook reading
+  //    (structure.hook-zone findings), worst status wins. So a clean eval hook
+  //    zone that the dedicated gate flags as a weak opener still surfaces here.
+  if (hookGate && hookGate.applicable === true) {
+    const existing = byDim.get("hook");
+    const blocksShip = hookGate.blocksShip === true;
+    const verdict = String(hookGate.verdict ?? "pass");
+    const hookStatus: DimensionStatus = blocksShip ? "fail" : verdict === "warn" ? "warn" : "pass";
+    const merged = worseStatus(existing?.status ?? "pass", hookStatus);
+    const hookScore = typeof hookGate.hookScore === "number" ? hookGate.hookScore : null;
+    const reasonNote = typeof hookGate.reason === "string" ? hookGate.reason : `First-frame hook verdict: ${verdict}.`;
+    set({
+      dimension: "hook",
+      score: merged === "fail" ? 30 : merged === "warn" ? 70 : hookScore ?? existing?.score ?? 95,
+      status: merged,
+      source: existing?.source ? `${existing.source} + hook.json` : "hook.json",
+      note: existing && existing.status !== "na"
+        ? `${existing.note} First-frame hook gate: ${reasonNote}`
+        : reasonNote,
+    });
   }
 
   // ── technicalPolish: the contract's native-video-gated `polished` + eval gate ──
