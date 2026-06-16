@@ -15,6 +15,7 @@ import { EVAL_MODES, type EvalMode } from "../lib/eval/types.js";
 import { checkFidelity, FIDELITY_ARTIFACT } from "../lib/eval/fidelity.js";
 import { checkTextLegibility, TEXT_LEGIBILITY_ARTIFACT } from "../lib/eval/ocr.js";
 import { checkFirstFrameHook, HOOK_ARTIFACT } from "../lib/eval/hook.js";
+import { checkCaptions, CAPTIONS_GATE_ARTIFACT } from "../lib/eval/captions-gate.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 
@@ -225,6 +226,46 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval hook failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("captions <project>")
+    .description("Run the caption sync/readability gate (#441): read the project's caption track + sampled render frames and flag timing drift vs the word-level startMs, captions on screen too briefly to read, overcrowded windows (too many words), captions overlapping a face/product/CTA, and unsafe placement in the platform UI chrome. ENRICHES (does not duplicate) the eval density findings (captions.thin/dense/missing). A project with no caption track returns a not-applicable pass. Writes captions-gate.json (append-only). Example: ralphy eval captions choose-silenthill-001")
+    .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json)")
+    .option("--video <path>", "Override the auto-detected video (default: render/final.mp4 then artifacts/videos)")
+    .option("--no-placement", "Skip the vision placement/occlusion pass (run the deterministic timing/duration/crowding checks only)")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        const mode = (opts.mode as string | undefined) ?? readProjectMode(project);
+        const report = await checkCaptions({
+          projectId: project,
+          mode,
+          videoPath: opts.video as string | undefined,
+          noPlacement: opts.placement === false,
+        });
+
+        // Append-only persistence: archive any existing report to .vN first.
+        const dest = path.join(projectDir(project), CAPTIONS_GATE_ARTIFACT);
+        const fs = await import("node:fs/promises");
+        await protectExistingAsset(dest, false);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, JSON.stringify(report, null, 2));
+
+        out({
+          verdict: report.verdict,
+          blocksShip: report.blocksShip,
+          applicable: report.applicable,
+          mode: report.mode,
+          reason: report.reason,
+          captionCount: report.captionCount,
+          wordTimingsProvided: report.wordTimingsProvided,
+          findings: report.findings.length,
+          jsonPath: dest,
+        });
+      } catch (e) {
+        err(`eval captions failed: ${(e as Error).message}`);
       }
     });
 
