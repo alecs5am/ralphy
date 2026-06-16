@@ -152,6 +152,9 @@ export function buildScorecard(input: {
   const claims = safeReadJson(dir, "claims.json") as
     | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
     | null;
+  const platformSpec = safeReadJson(dir, "platform-spec.json") as
+    | { applicable?: unknown; verdict?: unknown; blocksShip?: unknown; reason?: unknown }
+    | null;
   const council = safeReadJson(dir, "council-polish.json") as
     | { verdict?: unknown; recommendation?: unknown }
     | null;
@@ -247,6 +250,32 @@ export function buildScorecard(input: {
       note:
         existing && existing.status !== "na"
           ? `${existing.note} Caption sync gate: ${reasonNote}`
+          : reasonNote,
+    });
+  }
+
+  // ── platform-spec.json → ENRICH the existing `platformFit` dimension (#443).
+  //    The platform spec validator probes the final media vs the declared target
+  //    platforms' upload specs (aspect / resolution / duration / codec / file-size /
+  //    safe-area / metadata). It does NOT create a parallel platform concept — it
+  //    MERGES with the eval-derived platformFit reading (the `format.*` findings),
+  //    worst status wins. So a render the eval passed on resolution that this gate
+  //    flags as over-duration / wrong-codec for a target platform still surfaces.
+  if (platformSpec && platformSpec.applicable === true) {
+    const existing = byDim.get("platformFit");
+    const blocksShip = platformSpec.blocksShip === true;
+    const verdict = String(platformSpec.verdict ?? "pass");
+    const psStatus: DimensionStatus = blocksShip ? "fail" : verdict === "warn" ? "warn" : "pass";
+    const merged = worseStatus(existing?.status ?? "pass", psStatus);
+    const reasonNote = typeof platformSpec.reason === "string" ? platformSpec.reason : `Platform spec verdict: ${verdict}.`;
+    set({
+      dimension: "platformFit",
+      score: merged === "fail" ? 35 : merged === "warn" ? 70 : existing?.score ?? 95,
+      status: merged,
+      source: existing?.source ? `${existing.source} + platform-spec.json` : "platform-spec.json",
+      note:
+        existing && existing.status !== "na"
+          ? `${existing.note} Platform spec: ${reasonNote}`
           : reasonNote,
     });
   }
