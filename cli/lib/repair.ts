@@ -63,7 +63,10 @@ import type { CouncilAction } from "./schemas/council.js";
 // and never spends on a re-roll).
 
 const ART_DIRECTOR_PREFIXES = ["style.", "brief.", "vision."] as const;
-const SCENARIST_PREFIXES = ["structure."] as const;
+// `structure.*` (script/plan problems) AND `hook.*` (first-frame hook gate, #440)
+// both go to the scenarist: a weak/misleading OPENER is fixed by re-scripting the
+// opening beat, the same canonical fix as an empty/static hook zone.
+const SCENARIST_PREFIXES = ["structure.", "hook."] as const;
 const EDITOR_PREFIXES = ["audio.", "captions.", "format."] as const;
 
 /**

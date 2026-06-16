@@ -14,6 +14,7 @@ import { discoverStyleLock } from "../lib/style-lock.js";
 import { EVAL_MODES, type EvalMode } from "../lib/eval/types.js";
 import { checkFidelity, FIDELITY_ARTIFACT } from "../lib/eval/fidelity.js";
 import { checkTextLegibility, TEXT_LEGIBILITY_ARTIFACT } from "../lib/eval/ocr.js";
+import { checkFirstFrameHook, HOOK_ARTIFACT } from "../lib/eval/hook.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 
@@ -187,6 +188,43 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval ocr failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("hook <project>")
+    .description("Run the first-frame hook gate (#440): extract the FIRST FRAME + the ~1s preview from the project's render and score the opener on subject clarity, visual contrast, subject/product visibility, text-hook legibility, curiosity gap, and scroll-stop pull (mode-thresholded). Flags a MISLEADING opener that over-promises. A stills-only project returns a not-applicable pass. Writes hook.json (append-only) and prints the verdict + blocksShip + the 0-100 hook score the variant tournament (#421) can weight. Example: ralphy eval hook glitter-cream-001")
+    .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json) — drives the pass thresholds")
+    .option("--video <path>", "Override the auto-detected video (default: render/final.mp4 then artifacts/videos)")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        const mode = (opts.mode as string | undefined) ?? readProjectMode(project);
+        const report = await checkFirstFrameHook({
+          projectId: project,
+          mode,
+          videoPath: opts.video as string | undefined,
+        });
+
+        // Append-only persistence: archive any existing report to .vN first.
+        const dest = path.join(projectDir(project), HOOK_ARTIFACT);
+        const fs = await import("node:fs/promises");
+        await protectExistingAsset(dest, false);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, JSON.stringify(report, null, 2));
+
+        out({
+          verdict: report.verdict,
+          blocksShip: report.blocksShip,
+          applicable: report.applicable,
+          mode: report.mode,
+          reason: report.reason,
+          hookScore: report.hookScore,
+          findings: report.findings.length,
+          jsonPath: dest,
+        });
+      } catch (e) {
+        err(`eval hook failed: ${(e as Error).message}`);
       }
     });
 
