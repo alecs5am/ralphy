@@ -9,6 +9,7 @@ The split:
 | `notes/ideas/` | Proposed features, refactors, dependency swaps. One file per idea, numbered prefix. | Mature → promote into a tracked issue at the flat top level of `notes/issues/`, then drop the idea note. |
 | `notes/issues/` | The live backlog: known bugs, gaps, surprises, and scoped actionable work. Stuff a downstream agent (or `/dev-loop`) can pick up. | Resolved or landed → move to `notes/issues/done/`. Superseded / won't-do → move to `notes/issues/deprecated/`. (See [Issues folder layout](#issues-folder-layout).) |
 | `notes/decisions/` | Informal design discussions before they harden into a recorded decision. | Once a decision is settled, fold it into the relevant issue / doc as a `D-NN` entry → delete here. |
+| `notes/workboards/` | Tactical, disposable groupings of active issues into ordered lanes for one `/dev-loop` session. NOT a source of truth — `notes/issues/` is. | Open a dated board → run → close with completion notes → a new session opens a fresh board. See [`workboards/README.md`](workboards/README.md). |
 
 ## Issues folder layout
 
