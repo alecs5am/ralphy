@@ -956,6 +956,22 @@ Commands:
                                 `na`. Writes scorecard.json (append-only,
                                 auto-versions). JSON output. Example: ralphy
                                 project scorecard spring-001 --mode ugc-review
+  grade-plan <id>               Grade a production plan BEFORE it becomes the
+                                contract for expensive work (#432).
+                                Deterministic CRITIC — reads
+                                production-plan.json and grades it against the
+                                content-mode registry expectations (mode fit,
+                                missing inputs, research grounding, style lock,
+                                model stack, cost/ETA, gates, first checkpoint)
+                                into ONE verdict (strong | weak | blocked).
+                                BLOCKED when the plan lacks a required artifact
+                                for its mode (a required ref type / input
+                                missing, a lock-required mode with no style
+                                lock, an empty stack, an
+                                unsupported/unclassified mode). Makes ZERO model
+                                calls. Writes plan-grade.json + PLAN_GRADE.md
+                                (append-only, auto-versions). JSON output.
+                                Example: ralphy project grade-plan spring-001
   transcribe [options] <id>     Transcribe an audio file → captions.json
                                 (Caption[]). Default backend: ElevenLabs Scribe
                                 v1 (word-level).

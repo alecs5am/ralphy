@@ -19,6 +19,7 @@
 // test injects `enrich` (no live network) exactly as the plan tests do.
 
 import { buildProductionPlan, type BuildPlanInput, type BuildPlanOptions } from "../plan/build.js";
+import { gradePlanDeterministic } from "../plan/grade.js";
 import {
   getContentMode,
   isModeSupported,
@@ -27,6 +28,7 @@ import {
 } from "../content-modes.js";
 import { CONTRACT_PHASES } from "../contract.js";
 import type { ProductionPlan } from "../schemas/production-plan.js";
+import type { PlanGrade } from "../schemas/plan-grade.js";
 import { ProductionContractSchema, type ProductionContract } from "../schemas/production-contract.js";
 import type { TemplateFormat } from "../schemas/template.js";
 
@@ -94,6 +96,13 @@ export interface CompileContractResult {
   contract: ProductionContract;
   /** The plan the contract was composed from (so the verb can write it too). */
   plan: ProductionPlan;
+  /**
+   * The deterministic plan-quality grade (#432) of `plan` — the same grade
+   * `ralphy project grade-plan` writes. Surfaced here so a caller compiling the
+   * contract sees whether the underlying plan is `strong | weak | blocked`
+   * BEFORE acting on the contract. ZERO model calls (deterministic core only).
+   */
+  grade: PlanGrade;
 }
 
 /**
@@ -164,5 +173,5 @@ export async function compileProductionContract(
     guidelinesUsed: plan.guidelinesUsed,
   });
 
-  return { contract, plan };
+  return { contract, plan, grade: gradePlanDeterministic(plan) };
 }
