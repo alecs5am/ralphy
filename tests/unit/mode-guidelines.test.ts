@@ -154,19 +154,32 @@ describe("coverage check has teeth (#417)", () => {
   });
 
   test("a mode covered ONLY by a (real) guideline link still passes; dropping it would fail", () => {
-    // product-shot is covered by a real guideline (cgi-product-renders) and has
-    // NO mode playbook — confirm that path passes, then prove that removing the
-    // guideline reference (synthetic) flips it to a failure.
-    const productShot = supportedContentModes().find((e) => e.mode === "product-shot")!;
-    const covered = scoreModeCoverage(REPO, productShot);
+    // A guideline-backed mode with NO mode playbook on disk must pass coverage,
+    // and removing the guideline reference must flip it to a failure. Use a
+    // SYNTHETIC mode (a name with no playbook file) that references a real
+    // guideline slug — robust to real modes gaining a playbook (#433/#434/#435
+    // add production playbooks to the guideline-backed commercial modes too).
+    const guidelineOnly = {
+      mode: "synthetic-guideline-only-mode" as never,
+      implementationUnit: {
+        kind: "guideline-route",
+        skills: [],
+        guidelines: ["cgi-product-renders"],
+        cliVerbs: ["generate image"],
+        note: "",
+      },
+      guidelineOrStyleLock: { required: true, guidelineSlugs: ["cgi-product-renders"], note: "" },
+    } as Parameters<typeof scoreModeCoverage>[1];
+
+    const covered = scoreModeCoverage(REPO, guidelineOnly);
     expect(covered.linkedGuidelines.length).toBeGreaterThan(0);
     expect(covered.hasModePlaybook).toBe(false);
     expect(covered.ok).toBe(true);
 
     const stripped = {
-      ...productShot,
-      implementationUnit: { ...productShot.implementationUnit, guidelines: [] },
-      guidelineOrStyleLock: { ...productShot.guidelineOrStyleLock, guidelineSlugs: [] },
+      ...guidelineOnly,
+      implementationUnit: { ...guidelineOnly.implementationUnit, guidelines: [] },
+      guidelineOrStyleLock: { ...guidelineOnly.guidelineOrStyleLock, guidelineSlugs: [] },
     };
     const cov = scoreModeCoverage(REPO, stripped);
     expect(cov.ok).toBe(false); // no guideline, no playbook → uncovered.
@@ -176,9 +189,12 @@ describe("coverage check has teeth (#417)", () => {
 // ─── (3) Every #417 mode-level playbook has the required sections ────────────
 
 describe("mode-level quality playbooks have the required sections (#417)", () => {
-  // The modes covered by a mode-level playbook (no linked register guideline).
+  // Every supported mode that ships a mode-level playbook on disk must carry the
+  // required sections — whether or not it ALSO has a register guideline. #433+
+  // added production playbooks to guideline-backed commercial modes too, and the
+  // structural bar must hold for those docs as well.
   const playbookModes = supportedContentModes()
-    .filter((e) => scoreModeCoverage(REPO, e).linkedGuidelines.length === 0)
+    .filter((e) => modePlaybookExists(REPO, e.mode))
     .map((e) => e.mode);
 
   test("there is at least one mode-level playbook (the #417 gaps were closed here)", () => {
