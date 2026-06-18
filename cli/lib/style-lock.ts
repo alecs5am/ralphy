@@ -84,15 +84,42 @@ function looksLikeProjectRoot(dir: string): boolean {
 }
 
 /**
- * Auto-discover a project-local `STYLE_LOCK.md` from a video (or any file/dir)
- * path, for the eval deep-vision pass. Walks UP from the path's directory to the
- * nearest ancestor that looks like a project root (carries one of
- * `PROJECT_ROOT_MARKERS`) and returns its STYLE_LOCK.md if present, else null.
+ * Walk UP from `dir` to the filesystem root, returning the first ancestor's
+ * `STYLE_LOCK.md` for which `match(ancestorDir)` is true and the file exists.
+ * `path.dirname("/") === "/"`, so the loop terminates when the dir stops
+ * changing. Exception-safe — an unreadable dir is skipped.
+ */
+function walkUpForStyleLock(
+  dir: string,
+  match: (d: string) => boolean,
+): string | null {
+  let prev = "";
+  while (dir && dir !== prev) {
+    const candidate = path.join(dir, "STYLE_LOCK.md");
+    try {
+      if (match(dir) && existsSync(candidate)) return candidate;
+    } catch {
+      /* unreadable dir — keep walking */
+    }
+    prev = dir;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+/**
+ * Auto-discover a `STYLE_LOCK.md` from a video (or any file/dir) path, for the
+ * eval deep-vision pass. Two passes from the path's directory:
+ *   1. The nearest ancestor that looks like a PROJECT root (carries one of
+ *      `PROJECT_ROOT_MARKERS`) → its STYLE_LOCK.md (project-local wins).
+ *   2. Failing that, the nearest ancestor WORKSPACE root (the dir directly
+ *      containing `workspace.json`, written by `workspace create`) → its
+ *      STYLE_LOCK.md, so a universe rubric auto-applies to every episode (#468).
+ * Returns null when neither is found.
  *
  * Best-effort by design (no registry lookup): a render usually lives at
- * `<project>/render/final.mp4`, so the walk-up finds `<project>/` within a hop
- * or two. Returns null when no STYLE_LOCK.md is found on the way to the
- * filesystem root.
+ * `<project>/render/final.mp4`, so pass 1 finds `<project>/` within a hop or
+ * two, and pass 2 then reaches `<workspace>/` a few hops further up.
  *
  * NOTE (#411): registry-backed project-id resolution will replace this heuristic
  * once it lands. The walk-up is the floor that keeps eval auto-discovery working
@@ -107,20 +134,19 @@ export function discoverStyleLock(videoOrProjectPath: string): string | null {
     return null;
   }
 
-  let prev = "";
-  // Walk up to the filesystem root. `path.dirname("/") === "/"`, so the loop
-  // terminates when the directory stops changing.
-  while (dir && dir !== prev) {
-    const candidate = path.join(dir, "STYLE_LOCK.md");
-    try {
-      if (looksLikeProjectRoot(dir) && existsSync(candidate)) return candidate;
-    } catch {
-      /* unreadable dir — keep walking */
-    }
-    prev = dir;
-    dir = path.dirname(dir);
+  return (
+    walkUpForStyleLock(dir, looksLikeProjectRoot) ??
+    walkUpForStyleLock(dir, looksLikeWorkspaceRoot)
+  );
+}
+
+/** A workspace root is the dir directly containing `workspace.json` (#108). */
+function looksLikeWorkspaceRoot(dir: string): boolean {
+  try {
+    return existsSync(path.join(dir, "workspace.json"));
+  } catch {
+    return false;
   }
-  return null;
 }
 
 function isDirectory(p: string): boolean {
