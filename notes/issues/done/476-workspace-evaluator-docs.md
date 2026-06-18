@@ -1,6 +1,6 @@
 # Concept doc + "author a universe rubric" guide
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** low
