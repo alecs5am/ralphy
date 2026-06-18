@@ -1446,18 +1446,30 @@ Manage workspaces (studio / universe groupings of projects with a shared/ asset
 tier)
 
 Options:
-  -h, --help               display help for command
+  -h, --help                display help for command
 
 Commands:
-  create [options] <slug>  Create a workspace:
-                           .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
-  list                     List workspaces (slug, name, project count)
-  show <slug>              Show a workspace: workspace.json + project list
-  use <slug>               Set the active workspace (the default home for new
-                           projects)
-  stats                    Show workspace statistics
-  clean [options]          Clean workspace contents
-  help [command]           display help for command
+  create [options] <slug>   Create a workspace:
+                            .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
+  list                      List workspaces (slug, name, project count)
+  show <slug>               Show a workspace: workspace.json + project list
+  use <slug>                Set the active workspace (the default home for new
+                            projects)
+  eval [options] <project>  Score a project against its workspace's custom
+                            evaluator rubric (#468 config) and write
+                            workspace-eval.json + workspace-eval-report.md
+                            (append-only). Deterministic criteria run in code
+                            (via their validatorId — #470 wires the builtins; an
+                            unregistered id is reported as na, never an error);
+                            vision criteria run ONE deep-vision pass keyed per
+                            criterion id, folding in the workspace STYLE_LOCK.md
+                            + config benchmarks. The overall verdict uses the
+                            #427 readiness vocab (ship | repair |
+                            needs-user-decision | blocked). Example: ralphy
+                            workspace eval choose-silenthill-001
+  stats                     Show workspace statistics
+  clean [options]           Clean workspace contents
+  help [command]            display help for command
 ```
 
 ### `ralphy migrate`
