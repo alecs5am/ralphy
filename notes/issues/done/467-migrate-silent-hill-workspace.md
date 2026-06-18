@@ -1,6 +1,6 @@
 # Migrate the Silent Hill universe into a dedicated `silent-hill` workspace
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** medium
@@ -34,3 +34,11 @@ Isolation is the prerequisite for the per-workspace rubric/evaluator work. The h
 
 - Both 003 and fogtown-cast-001 move together so the cross-project ref paths stay valid after rewrite.
 - Follow-up to consider: promote fogtown-cast-001 from a project into the workspace `shared/` cast library (out of scope here).
+
+## Resolution (2026-06-18)
+
+Migrated all four projects into a new `silent-hill` workspace via `ralphy workspace create silent-hill` + `ralphy project move <id> silent-hill` (registry-aware, non-destructive). `workspace show silent-hill` lists all four; the old `choose-path/projects/` no longer holds them; all files (003 `index.html`, fogtown master images, the 24 SFX clips) are intact at the new location.
+
+**Key divergence from the assumption above:** 003's build scripts (`build-index-v2.mjs`, `rebake-master.mjs`, `rederive-timeline.mjs`) carry **no hardcoded `workspaces/choose-path` paths** — they use `import.meta.url`-relative reads (`new URL("./render/...", import.meta.url)`) and `artifacts/...`-relative media srcs. The only absolute `choose-path` references live in append-only `.jsonl` generation logs (e.g. `fixes-nyx.jsonl`), which are historical records of past `ralphy generate --ref` calls, are NOT read at build/render time, and are left untouched per the append-only contract. So **no script rewrite was required**.
+
+**Verification:** `node build-index-v2.mjs` run from the new project dir produced a **byte-identical `index.html`** (md5 `0b3a091fc639c2fa67b278d5fe4407cc`) with **0 missing-file warnings**, and `bunx hyperframes lint` reported **0 errors** (181 pre-existing craft warnings — audio-track overlaps / GSAP tweens, unrelated to the move; all `artifacts/...` media resolved). Render-readiness is therefore confirmed. The full `ralphy render` (a ~101s composition → mp4, minutes) was intentionally NOT re-run: it would overwrite the existing `render/final.mp4` deliverable for a redundant confirmation — render-readiness is fully established by the deterministic build + zero lint errors.
