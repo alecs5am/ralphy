@@ -674,6 +674,19 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       ],
     },
     { label: "workspace.show", shape: { slug: "ellycoffee", projects: 2, shared: { refs: 5, music: 3 }, memory: { entries: 8 } } },
+    {
+      label: "workspace.eval",
+      shape: {
+        verdict: "needs-user-decision",
+        score: null,
+        workspace: "fog",
+        projectId: "choose-silenthill-001",
+        criteria: 3,
+        summary: 'Workspace "fog" rubric → needs-user-decision: 0 fail, 0 warn, 3 na across 3 criteria (vision skipped).',
+        jsonPath: ".ralphy/workspaces/fog/projects/choose-silenthill-001/workspace-eval.json",
+        mdPath: ".ralphy/workspaces/fog/projects/choose-silenthill-001/workspace-eval-report.md",
+      },
+    },
   ],
 };
 

@@ -59,6 +59,34 @@ const MIME_BY_EXT: Record<string, string> = {
   ".webm": "video/webm",
 };
 
+/** Default cap on mp4 bytes sent in-band to the deep-vision model (gemini-3.1-pro
+ *  rejects mp4s over ~40 MB — MODELS.md video-analysis failure mode). */
+export const DEEP_VISION_MAX_MP4_BYTES = 40 * 1024 * 1024;
+
+/**
+ * Build the `file` LLMContent block for a video, applying the SAME size cap +
+ * MIME resolution + base64 data-URL packing `deepVisionEvaluate` uses. Exported
+ * so other eval passes (e.g. the per-workspace custom evaluators, #469) reuse the
+ * one video-send mechanism instead of re-deriving the cap / MIME / encoding.
+ * Throws the same too-large error when the file exceeds `maxBytes`.
+ */
+export async function buildVideoContentBlock(
+  videoPath: string,
+  maxBytes: number = DEEP_VISION_MAX_MP4_BYTES,
+): Promise<LLMContent> {
+  const stats = await stat(videoPath);
+  if (stats.size > maxBytes) {
+    throw new Error(
+      `mp4 too large for deep-vision (${(stats.size / 1024 / 1024).toFixed(1)} MB > ${maxBytes / 1024 / 1024} MB cap). Re-encode at lower bitrate before running the deep pass.`,
+    );
+  }
+  const buf = await readFile(videoPath);
+  const ext = path.extname(videoPath).toLowerCase();
+  const mime = MIME_BY_EXT[ext] ?? "video/mp4";
+  const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+  return { type: "file", file: { filename: path.basename(videoPath), file_data: dataUrl } };
+}
+
 const STYLE_SYSTEM = `You are a senior creative director running a hard-base quality gate on a rendered short-form vertical video. You will be given:
 
 1. The full rendered mp4 (native video input — you see every frame at native temporal resolution, not sampled keyframes).
@@ -264,7 +292,7 @@ export async function deepVisionEvaluate(
   ctx: DeepVisionContext,
 ): Promise<DeepVisionResult> {
   const model = ctx.model ?? "google/gemini-3.1-pro-preview";
-  const maxBytes = ctx.maxMp4Bytes ?? 40 * 1024 * 1024;
+  const maxBytes = ctx.maxMp4Bytes ?? DEEP_VISION_MAX_MP4_BYTES;
   // Default to deep-style only when a style sheet / brief / reference is
   // actually in play; otherwise the no-style native gate. The orchestrator
   // sets this explicitly per #411, but a direct caller still gets the sensible
@@ -272,21 +300,11 @@ export async function deepVisionEvaluate(
   const mode: DeepVisionMode =
     ctx.mode ?? (ctx.styleSheetPath || ctx.briefPath || (ctx.referenceUrls ?? []).length > 0 ? "deep-style" : "native-video");
 
-  const stats = await stat(videoPath);
-  if (stats.size > maxBytes) {
-    throw new Error(
-      `mp4 too large for deep-vision (${(stats.size / 1024 / 1024).toFixed(1)} MB > ${maxBytes / 1024 / 1024} MB cap). Re-encode at lower bitrate before running the deep pass.`,
-    );
-  }
+  const videoBlock = await buildVideoContentBlock(videoPath, maxBytes);
 
   const styleSheet = ctx.styleSheetPath ? await readSafe(ctx.styleSheetPath) : "";
   const brief = ctx.briefPath ? await readSafe(ctx.briefPath) : "";
   const refLines = (ctx.referenceUrls ?? []).slice(0, 20).map((u) => `- ${u}`).join("\n");
-
-  const buf = await readFile(videoPath);
-  const ext = path.extname(videoPath).toLowerCase();
-  const mime = MIME_BY_EXT[ext] ?? "video/mp4";
-  const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
 
   const userParts: string[] = [];
   if (mode === "deep-style") {
@@ -306,10 +324,7 @@ export async function deepVisionEvaluate(
   userParts.push("Return the strict JSON findings now. Be harsh and specific.");
 
   const content: LLMContent[] = [
-    {
-      type: "file",
-      file: { filename: path.basename(videoPath), file_data: dataUrl },
-    },
+    videoBlock,
     { type: "text", text: userParts.join("\n\n") },
   ];
 

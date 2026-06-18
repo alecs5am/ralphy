@@ -50,6 +50,20 @@ function assertCleanRender(label: string) {
 // ─── Realistic shapes from cli/commands/ ──────────────────────────────────
 
 const SHAPES: Array<[string, unknown]> = [
+  // workspace eval (#469) — a null `score` must render as the em-dash, not "null"
+  [
+    "workspace.eval",
+    {
+      verdict: "needs-user-decision",
+      score: null,
+      workspace: "fog",
+      projectId: "choose-silenthill-001",
+      criteria: 3,
+      summary: "Workspace fog rubric → needs-user-decision: 0 fail, 0 warn, 3 na across 3 criteria.",
+      jsonPath: ".ralphy/workspaces/fog/projects/choose-silenthill-001/workspace-eval.json",
+      mdPath: ".ralphy/workspaces/fog/projects/choose-silenthill-001/workspace-eval-report.md",
+    },
+  ],
   // skill install — the original bug
   [
     "skill.install",
