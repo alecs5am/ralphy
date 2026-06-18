@@ -1,6 +1,6 @@
 # `/<universe>-studio` orchestrator skill (idea → tag → 4 staged gates)
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** medium
