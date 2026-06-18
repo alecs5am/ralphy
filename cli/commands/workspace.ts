@@ -17,8 +17,15 @@ import {
   DEFAULT_WORKSPACE,
 } from "../lib/paths.js";
 import { setActiveWorkspace, getActiveWorkspace } from "../lib/registry.js";
-import { out, ok } from "../lib/output.js";
+import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import {
+  runWorkspaceEval,
+  renderWorkspaceEvalMarkdown,
+  WORKSPACE_EVAL_ARTIFACT,
+  WORKSPACE_EVAL_REPORT,
+} from "../lib/eval/workspace-evaluators.js";
+import { protectExistingAsset } from "../lib/providers/shared.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -194,6 +201,51 @@ export function workspaceCmd() {
       }
       ok(`Active workspace: ${slug}`);
       out({ activeWorkspace: slug, memory });
+    });
+
+  // ── eval (#469) ────────────────────────────────────────────────────────
+  cmd
+    .command("eval <project>")
+    .description(
+      "Score a project against its workspace's custom evaluator rubric (#468 config) and write workspace-eval.json + workspace-eval-report.md (append-only). Deterministic criteria run in code (via their validatorId — #470 wires the builtins; an unregistered id is reported as na, never an error); vision criteria run ONE deep-vision pass keyed per criterion id, folding in the workspace STYLE_LOCK.md + config benchmarks. The overall verdict uses the #427 readiness vocab (ship | repair | needs-user-decision | blocked). Example: ralphy workspace eval choose-silenthill-001",
+    )
+    .option("--no-vision", "Skip the vision pass entirely (deterministic criteria only — no model call)")
+    .option("--model <id>", "Override the deep-vision model (default google/gemini-3.1-pro-preview)")
+    .option("--workspace <slug>", "Override the rubric workspace (default: the project's registered workspace)")
+    .option("--video <path>", "Override the scored video (default: <project>/render/final.mp4)")
+    .action(async (project: string, opts) => {
+      requireRalphyLayout("workspace eval");
+      try {
+        const result = await runWorkspaceEval(project, {
+          noVision: opts.vision === false,
+          model: opts.model as string | undefined,
+          workspace: opts.workspace as string | undefined,
+          video: opts.video as string | undefined,
+        });
+
+        // Append-only persistence: archive any existing report to .vN first.
+        const dest = path.join(projectDir(project), WORKSPACE_EVAL_ARTIFACT);
+        await protectExistingAsset(dest, false);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.writeFile(dest, JSON.stringify(result, null, 2));
+
+        const mdDest = path.join(projectDir(project), WORKSPACE_EVAL_REPORT);
+        await protectExistingAsset(mdDest, false);
+        await fs.writeFile(mdDest, renderWorkspaceEvalMarkdown(result));
+
+        out({
+          verdict: result.overall.verdict,
+          score: result.overall.score,
+          workspace: result.workspace,
+          projectId: result.projectId,
+          criteria: result.criteria.length,
+          summary: result.overall.summary,
+          jsonPath: dest,
+          mdPath: mdDest,
+        });
+      } catch (e) {
+        err(`workspace eval failed: ${(e as Error).message}`);
+      }
     });
 
   // ── stats (pre-#108) ───────────────────────────────────────────────────
