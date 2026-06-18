@@ -1,6 +1,6 @@
 # Stage-gate mapping — wire the 4 production stages into the contract with per-criterion gates
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** high
