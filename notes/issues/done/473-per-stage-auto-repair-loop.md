@@ -1,6 +1,6 @@
 # Per-stage auto-assemble → eval → auto-repair loop
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** high
