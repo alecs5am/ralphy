@@ -12,6 +12,7 @@
 // warning so the workspace owner can fix it.
 
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { workspaceDir, workspaceManifestPath } from "./paths.js";
 import {
@@ -44,6 +45,51 @@ export async function loadWorkspaceEvaluators(
   const manifest =
     sibling === undefined
       ? ((await readJson(workspaceManifestPath(workspaceSlug))) as
+          | Record<string, unknown>
+          | undefined)
+      : undefined;
+  const raw = sibling ?? manifest?.evaluators;
+  if (raw === undefined) return null;
+
+  try {
+    return parseWorkspaceEvaluators(raw);
+  } catch (err) {
+    console.warn(
+      `[workspace-evaluators] malformed evaluator config for workspace "${workspaceSlug}": ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  }
+}
+
+/** Read + JSON-parse a file synchronously, or undefined when missing / unreadable. */
+function readJsonSync(file: string): unknown | undefined {
+  try {
+    return JSON.parse(readFileSync(file, "utf-8"));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Synchronous sibling of `loadWorkspaceEvaluators` (#472). Same resolution —
+ * sibling `evaluators.json` first, else `workspace.json.evaluators`, else null;
+ * a malformed config returns null + the SAME warning. Exists because the
+ * production contract (`cli/lib/contract.ts`) is synchronous (`existsSync` /
+ * `readFileSync`) and reads this config from inside `deriveStopConditions`.
+ */
+export function loadWorkspaceEvaluatorsSync(
+  workspaceSlug: string,
+): WorkspaceEvaluatorsConfig | null {
+  // 1. Sibling evaluators.json wins.
+  const sibling = readJsonSync(
+    path.join(workspaceDir(workspaceSlug), "evaluators.json"),
+  );
+  // 2. Else the `evaluators` key inside workspace.json.
+  const manifest =
+    sibling === undefined
+      ? (readJsonSync(workspaceManifestPath(workspaceSlug)) as
           | Record<string, unknown>
           | undefined)
       : undefined;

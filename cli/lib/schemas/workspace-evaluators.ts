@@ -17,6 +17,7 @@
 // fields, NO hardcoded criterion ids.
 
 import { z } from "zod";
+import { CONTRACT_PHASE_IDS } from "../contract.js";
 
 // ─── Criterion ──────────────────────────────────────────────────────────────
 
@@ -75,6 +76,54 @@ export const WorkspaceCriterionSchema = z.object({
 });
 export type WorkspaceCriterion = z.infer<typeof WorkspaceCriterionSchema>;
 
+// ─── Stage gate (#472) ──────────────────────────────────────────────────────────
+
+/**
+ * One stage gate: it maps a production STAGE (the user-facing approval decision)
+ * onto a production-contract PHASE and the workspace criterion(s) whose
+ * `workspace-eval.json` verdict gates advancing past that phase (#472). The
+ * stage cannot advance until every owned criterion's latest verdict clears
+ * (`fail` blocks, `warn` advises). The map is config-driven: each universe
+ * authors its own gates in its `evaluators.json` — there are NO hardcoded
+ * stages here.
+ *
+ * The four CANONICAL stages a universe typically wires (the #472 spec map —
+ * documented, NOT defaulted, so other universes choose their own):
+ *   1. location/cast → phase `style-lock` → criteria
+ *      `character-design-cohesion` + `location-consistency` (candidate pre-screen).
+ *   2. scenario      → phase `scenario`   → criterion `scenario-fidelity`.
+ *   3. anchors       → phase `assets`     → criteria
+ *      `character-design-cohesion` + `location-consistency`.
+ *   4. montage       → phase `eval`       → criteria
+ *      `material-density` + `edit-correctness` + `insta-metric-fit`.
+ */
+export const StageGateSchema = z.object({
+  /** Free-form stage label (e.g. "location/cast", "scenario", "anchors", "montage"). */
+  stage: z.string(),
+  /**
+   * The contract phase this stage gates — MUST be a real `CONTRACT_PHASES[].id`.
+   * Validated LAZILY against `CONTRACT_PHASE_IDS` via `.refine()` (read at PARSE
+   * time, not module-eval time): `contract.ts` and this schema form a circular
+   * import (the schema loader is reached from inside `deriveStopConditions`), so
+   * referencing the const eagerly in a `z.enum(...)` hits a
+   * "Cannot access before initialization" load-order trap. The refine keeps the
+   * validation against the single source of truth without the trap.
+   */
+  phase: z
+    .string()
+    .refine((p) => CONTRACT_PHASE_IDS.includes(p), {
+      message: "phase must be a CONTRACT_PHASES id (see cli/lib/contract.ts)",
+    }),
+  /** Criterion ids (from this config's `criteria[]`) whose verdict gates the stage. */
+  criteria: z.array(z.string()),
+  /**
+   * `block` halts the stage until the owned criteria clear; `warn` is advisory.
+   * Defaults to `block` — a stage gate is a hard bar unless opted down.
+   */
+  severity: z.enum(["block", "warn"]).default("block"),
+});
+export type StageGate = z.infer<typeof StageGateSchema>;
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 export const WorkspaceEvaluatorsConfigSchema = z.object({
@@ -88,6 +137,14 @@ export const WorkspaceEvaluatorsConfigSchema = z.object({
    * — the criteria implementations (#470) define what each benchmark means.
    */
   benchmarks: z.record(z.unknown()).optional(),
+  /**
+   * Optional stage→phase→criteria gates (#472). When present, the production
+   * contract (`deriveStopConditions` in `cli/lib/contract.ts`) emits a
+   * `stage-gate-unmet` stop at the gated phase whenever an owned criterion's
+   * latest `workspace-eval.json` verdict is `fail` (or `warn` → advisory).
+   * Absent → zero behavior change for the contract.
+   */
+  stageGates: z.array(StageGateSchema).optional(),
 });
 export type WorkspaceEvaluatorsConfig = z.infer<
   typeof WorkspaceEvaluatorsConfigSchema
