@@ -1,6 +1,6 @@
 # `ralphy workspace eval <project>` runner + engine + scorecard
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** high

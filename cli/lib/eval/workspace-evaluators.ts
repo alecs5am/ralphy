@@ -76,6 +76,26 @@ export function hasWorkspaceValidator(id: string): boolean {
   return VALIDATORS.has(id);
 }
 
+// ─── Vision-rubric registry (#470) ──────────────────────────────────────────────
+//
+// Parallel to the deterministic VALIDATORS map: a vision criterion can carry an
+// inline `rubricPrompt` (wins), OR reference a canonical rubric fragment by its
+// `validatorId` against this registry. #470 registers the 3 builtin fragments
+// (scenario-fidelity, character-design-cohesion, location-consistency) so a
+// workspace config only needs `{ check: "vision", validatorId: "<id>" }`.
+
+const VISION_RUBRICS = new Map<string, string>();
+
+/** Register a canonical vision-rubric fragment by id. #470 calls this per builtin. */
+export function registerWorkspaceVisionRubric(id: string, text: string): void {
+  VISION_RUBRICS.set(id, text);
+}
+
+/** Test seam: whether a vision rubric id is registered. */
+export function hasWorkspaceVisionRubric(id: string): boolean {
+  return VISION_RUBRICS.has(id);
+}
+
 // ─── Result shape (mirrors eval.json v1.0) ──────────────────────────────────────
 
 export interface WorkspaceCriterionResult {
@@ -388,10 +408,13 @@ async function runVisionPass(args: {
   const styleLock = styleLockPath ? await readSafe(styleLockPath) : "";
 
   const rubricBlock = visionCriteria
-    .map(
-      (c) =>
-        `- id "${c.id}" (${c.category}, severity ${c.severity}${c.benchmarkRef ? `, benchmark "${c.benchmarkRef}"` : ""}): ${c.rubricPrompt ?? "(no rubric prompt — judge by the label)"}${c.rubricPrompt ? "" : ` label: ${c.label}`}`,
-    )
+    .map((c) => {
+      // Inline rubricPrompt wins; else fall back to a registered canonical
+      // rubric fragment by validatorId (#470); else judge by the label.
+      const resolved =
+        c.rubricPrompt ?? VISION_RUBRICS.get(c.validatorId ?? "") ?? null;
+      return `- id "${c.id}" (${c.category}, severity ${c.severity}${c.benchmarkRef ? `, benchmark "${c.benchmarkRef}"` : ""}): ${resolved ?? "(no rubric prompt — judge by the label)"}${resolved ? "" : ` label: ${c.label}`}`;
+    })
     .join("\n");
 
   const benchmarkBlock =
