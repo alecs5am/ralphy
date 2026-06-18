@@ -1,6 +1,6 @@
 # Implement the 6 pluggable evaluator criteria (generic check types)
 
-> **Status:** issue
+> **Status:** done — 2026-06-18
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** high
