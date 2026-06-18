@@ -109,6 +109,57 @@ describe("parseWorkspaceEvaluators — schema", () => {
     expect(cfg.version).toBe("1.0");
     expect(cfg.criteria).toEqual([]);
   });
+
+  // ─── stageGates (#472) ──────────────────────────────────────────────────────
+
+  test("a config with stageGates parses; severity defaults to block", () => {
+    const cfg = parseWorkspaceEvaluators({
+      criteria: [
+        { id: "scenario-fidelity", label: "SF", category: "narrative", check: "vision" },
+        { id: "material-density", label: "MD", category: "pacing", check: "deterministic" },
+      ],
+      stageGates: [
+        { stage: "scenario", phase: "scenario", criteria: ["scenario-fidelity"] },
+        {
+          stage: "montage",
+          phase: "eval",
+          criteria: ["material-density"],
+          severity: "warn",
+        },
+      ],
+    });
+    expect(cfg.stageGates).toHaveLength(2);
+    // Default severity is block.
+    expect(cfg.stageGates![0].severity).toBe("block");
+    expect(cfg.stageGates![0].phase).toBe("scenario");
+    // Explicit severity honored.
+    expect(cfg.stageGates![1].severity).toBe("warn");
+  });
+
+  test("stageGates is optional — a config without it parses (undefined)", () => {
+    const cfg = parseWorkspaceEvaluators({ criteria: [] });
+    expect(cfg.stageGates).toBeUndefined();
+  });
+
+  test("a stageGate with a phase that is not a CONTRACT_PHASES id rejects", () => {
+    expect(() =>
+      parseWorkspaceEvaluators({
+        criteria: [],
+        stageGates: [
+          { stage: "bad", phase: "not-a-real-phase", criteria: ["x"] },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  test("a malformed stageGate shape rejects (criteria must be an array)", () => {
+    expect(() =>
+      parseWorkspaceEvaluators({
+        criteria: [],
+        stageGates: [{ stage: "s", phase: "scenario", criteria: "scenario-fidelity" }],
+      }),
+    ).toThrow();
+  });
 });
 
 // ─── (b) loader ─────────────────────────────────────────────────────────────

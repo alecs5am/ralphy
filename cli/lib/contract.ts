@@ -29,6 +29,7 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { projectDir } from "./paths.js";
 import { isModeSupported } from "./content-modes.js";
+import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
 
 /** A single phase of the production contract. */
 export interface ContractPhase {
@@ -208,6 +209,15 @@ export const CONTRACT_PHASES: ContractPhase[] = [
   },
 ];
 
+/**
+ * The set of valid contract phase ids, derived from `CONTRACT_PHASES`. The
+ * workspace stage-gate config (#472, `cli/lib/schemas/workspace-evaluators.ts`)
+ * validates each `StageGate.phase` against this set, so a gate can only target a
+ * real phase. Keep it derived (never a hand-maintained literal) so it stays in
+ * lockstep with the phase list above.
+ */
+export const CONTRACT_PHASE_IDS: readonly string[] = CONTRACT_PHASES.map((p) => p.id);
+
 /** Per-phase evaluation result. */
 export interface ContractPhaseResult {
   id: string;
@@ -240,7 +250,8 @@ export interface StopCondition {
     | "mode-unsupported"
     | "estimate-exceeds-target"
     | "user-approval-needed"
-    | "native-gate-required";
+    | "native-gate-required"
+    | "stage-gate-unmet";
   /** The phase id this stop gates (matches a `CONTRACT_PHASES[].id`). */
   phase: string;
   /** Severity: `block` halts progress; `warn` is advisory the agent should surface. */
@@ -631,5 +642,79 @@ function deriveStopConditions(
     stops.push({ id: "native-gate-required", phase: "unit", severity: "block", detail });
   }
 
+  // ── stage-gate-unmet (#472 — workspace-rubric stage gates) ──
+  stops.push(...deriveStageGateStops(dir));
+
   return stops;
+}
+
+/**
+ * Derive `stage-gate-unmet` stops from the workspace rubric's `stageGates` (#472).
+ *
+ * ZERO behavior change for every workspace WITHOUT a rubric or `stageGates`: a
+ * null config or an empty/absent `stageGates` returns `[]` immediately (the early
+ * returns below). This keeps every existing contract test green.
+ *
+ * The gate reads the latest `<dir>/workspace-eval.json` (#469). When that eval has
+ * not run yet (file absent) we emit NO stop — you cannot gate on an eval that does
+ * not exist, and fabricating a block would be wrong.
+ *
+ * Verdict → severity rule (per owned criterion in a gate):
+ *   • `fail` → a stop at `stageGate.severity` (default `block`).
+ *   • `warn` → a `warn`-severity stop (advisory), regardless of `stageGate.severity`.
+ *   • `pass` / `na` / unknown → nothing.
+ * A single gate emits at most ONE stop: a `fail` on any owned criterion wins
+ * (block at the gate's severity); else a `warn` on any owned criterion (advisory).
+ */
+function deriveStageGateStops(dir: string): StopCondition[] {
+  const slug = resolveWorkspaceSlug(dir);
+  const config = loadWorkspaceEvaluatorsSync(slug);
+  const gates = config?.stageGates;
+  if (!config || !gates || gates.length === 0) return []; // no rubric → no stop.
+
+  // The latest workspace-eval scorecard — absent ⇒ cannot gate, emit nothing.
+  const evalRaw = safeReadJson(path.join(dir, "workspace-eval.json")) as
+    | { criteria?: Array<{ id?: unknown; verdict?: unknown }> }
+    | null;
+  if (!evalRaw || !Array.isArray(evalRaw.criteria)) return [];
+
+  const verdicts = new Map<string, string>();
+  for (const c of evalRaw.criteria) {
+    if (typeof c?.id === "string" && typeof c?.verdict === "string") {
+      verdicts.set(c.id, c.verdict);
+    }
+  }
+
+  const stops: StopCondition[] = [];
+  for (const gate of gates) {
+    const failing = gate.criteria.filter((id) => verdicts.get(id) === "fail");
+    const warning = gate.criteria.filter((id) => verdicts.get(id) === "warn");
+    if (failing.length === 0 && warning.length === 0) continue;
+
+    // fail wins (block at the gate's severity); else warn → advisory warn.
+    const blocked = failing.length > 0;
+    const offenders = blocked ? failing : warning;
+    const severity: StopCondition["severity"] = blocked ? gate.severity : "warn";
+    stops.push({
+      id: "stage-gate-unmet",
+      phase: gate.phase,
+      severity,
+      detail: `stage "${gate.stage}" (phase ${gate.phase}) cannot advance: criterion(s) ${offenders
+        .map((id) => `"${id}"`)
+        .join(", ")} ${blocked ? "FAILED" : "WARNED"} in the latest workspace-eval.json. Clear the eval (\`ralphy workspace eval <id>\`) and run the repair loop before advancing this stage.`,
+    });
+  }
+  return stops;
+}
+
+/**
+ * Resolve a project's workspace slug from its dir layout
+ * (`.ralphy/workspaces/<ws>/projects/<id>`). Mirrors
+ * `cli/lib/eval/workspace-criteria.ts → resolveWorkspaceSlug`. Falls back to
+ * "default".
+ */
+function resolveWorkspaceSlug(dir: string): string {
+  const parts = dir.split(path.sep);
+  const wi = parts.lastIndexOf("workspaces");
+  return wi >= 0 && parts[wi + 1] ? parts[wi + 1] : "default";
 }
