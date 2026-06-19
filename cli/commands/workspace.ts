@@ -300,11 +300,12 @@ export function workspaceCmd() {
   cmd
     .command("ideate <slug>")
     .description(
-      "Brainstorm the next episode(s) for a universe: feeds the workspace bible (STYLE_LOCK.md + rubrics/*.md + metrics-benchmarks.json + evaluators.json) to a Gemini text model via callLLM() and asks it to pitch concrete, rubric-passing next episodes. Saves the pitch to <workspace>/ideas/idea-<timestamp>.md (new file, append-only) and prints metadata. Example: ralphy workspace ideate silent-hill --brief 'lean into the space-bar vibe' --count 3",
+      "Feed the workspace bible (STYLE_LOCK.md + rubrics/*.md + metrics-benchmarks.json + evaluators.json) to a Gemini text model via callLLM() and ask it to produce a grounded, rubric-passing draft. Default task: pitch N next-episode concepts. Pass --task to override with any instruction (e.g. write the full scenario for an already-chosen episode) — still grounded in the bible. Saves to <workspace>/ideas/idea-<timestamp>.md (new file, append-only) and prints metadata. Example: ralphy workspace ideate silent-hill --brief 'lean into the space-bar vibe' --count 3",
     )
     .option("--brief <text>", "Extra creative steer folded into the ask (optional)")
-    .option("--count <n>", "How many distinct episode concepts to pitch (default 3)", (v) => parseInt(v, 10), 3)
+    .option("--count <n>", "How many concepts to pitch in the default task (default 3; ignored when --task is set)", (v) => parseInt(v, 10), 3)
     .option("--model <id>", "Override the text model (default google/gemini-3.1-pro-preview)")
+    .option("--task <text>", "Custom instruction that REPLACES the default 'pitch N concepts' task (still grounded in the bible) — e.g. write a full episode scenario")
     .action(async (slug: string, opts) => {
       requireRalphyLayout("workspace ideate");
       if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
@@ -324,25 +325,29 @@ export function workspaceCmd() {
         `You are the showrunner and creative director of the "${name}" short-form video universe ` +
         `(first-person POV choose-your-path shorts for TikTok/Reels). You are handed the universe BIBLE: ` +
         `the style lock, the per-domain quality rubrics the renders are graded against, and the recorded ` +
-        `platform metrics of the shipped episodes. Your job is to pitch the NEXT episode(s) — concepts that ` +
-        `would PASS every rubric below and beat the benchmark episode on retention. Be concrete and ` +
+        `platform metrics of the shipped episodes. Your job is the TASK described at the end of the message — ` +
+        `and whatever you produce must PASS every rubric below and honour the style lock. Be concrete and ` +
         `production-ready, never generic. Honour the rubrics exactly; do not invent constraints they do not state.`;
+
+      const defaultTask =
+        `Pitch ${count} DISTINCT next-episode concept${count === 1 ? "" : "s"}. ` +
+        "Each must be a fresh, vivid LOCATION + 2 sexy NPC characters who interact with the POV hero, " +
+        "with real consequences. For EACH concept give, as markdown:\n" +
+        "- **Title** + one-line logline\n" +
+        "- **Location** (vivid, detail-rich, crude-PS1 register; a new world, not a repeat)\n" +
+        "- **Cast** — the 2 sexy NPCs (look + role + what makes each tempting/dangerous)\n" +
+        "- **Cold-open hook** (the <3s scroll-stop beat)\n" +
+        "- **The binary choice funnel** — every fork as `CHOICE A / CHOICE B`, each with its win AND loss/game-over consequence; show why each fork is a genuine ~50/50 with no telegraphed trap\n" +
+        "- **Punchline ending** (a tight twist, 003-style)\n" +
+        "- **Why it passes the rubric** — 2-3 lines mapping the concept to the scenario/character/location bars + the 1:00-2:00 duration band\n\n" +
+        "Lead with the single concept you'd green-light first and say why in one line. Use the mandatory " +
+        "`sabre-draw` opener assumption. Markdown only.";
+      const taskBlock = opts.task ? String(opts.task) : defaultTask;
 
       const userText = [
         "## THE UNIVERSE BIBLE\n\n" + blocks,
         opts.brief ? `## EXTRA STEER FROM THE SHOWRUNNER\n\n${opts.brief}` : "",
-        `## YOUR TASK\n\nPitch ${count} DISTINCT next-episode concept${count === 1 ? "" : "s"}. ` +
-          "Each must be a fresh, vivid LOCATION + 2 sexy NPC characters who interact with the POV hero, " +
-          "with real consequences. For EACH concept give, as markdown:\n" +
-          "- **Title** + one-line logline\n" +
-          "- **Location** (vivid, detail-rich, crude-PS1 register; a new world, not a repeat)\n" +
-          "- **Cast** — the 2 sexy NPCs (look + role + what makes each tempting/dangerous)\n" +
-          "- **Cold-open hook** (the <3s scroll-stop beat)\n" +
-          "- **The binary choice funnel** — every fork as `CHOICE A / CHOICE B`, each with its win AND loss/game-over consequence; show why each fork is a genuine ~50/50 with no telegraphed trap\n" +
-          "- **Punchline ending** (a tight twist, 003-style)\n" +
-          "- **Why it passes the rubric** — 2-3 lines mapping the concept to the scenario/character/location bars + the 1:00-2:00 duration band\n\n" +
-          "Lead with the single concept you'd green-light first and say why in one line. Use the mandatory " +
-          "`sabre-draw` opener assumption. Markdown only.",
+        "## YOUR TASK\n\n" + taskBlock,
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -367,25 +372,33 @@ export function workspaceCmd() {
         return;
       }
       if (!text) {
-        err(`ideate returned an empty pitch (model ${model}) — retry or try a different --model`);
+        err(`ideate returned an empty draft (model ${model}) — retry or try a different --model`);
         return;
       }
 
-      // Persist the pitch as a NEW file (append-only contract — never overwrite).
+      // Persist the draft as a NEW file (append-only contract — never overwrite).
       const ideasDir = path.join(workspaceDir(slug), "ideas");
       await fs.mkdir(ideasDir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const savedTo = path.join(ideasDir, `idea-${stamp}.md`);
       const header =
-        `# ${name} — next-episode pitch\n\n` +
+        `# ${name} — ${opts.task ? "ideate (custom task)" : "next-episode pitch"}\n\n` +
         `> Generated by \`ralphy workspace ideate ${slug}\` via ${usedModel}. ` +
         `Grounded in: ${used.join(", ")}.` +
+        (opts.task ? ` Task: "${opts.task}".` : "") +
         (opts.brief ? ` Steer: "${opts.brief}".` : "") +
         `\n\n`;
       await fs.writeFile(savedTo, header + text + "\n");
 
-      ok(`Pitched ${count} concept${count === 1 ? "" : "s"} for ${slug}`);
-      out({ workspace: slug, model: usedModel, count, groundedIn: used, chars: text.length, savedTo });
+      ok(`Ideate complete for ${slug}`);
+      out({
+        workspace: slug,
+        model: usedModel,
+        task: opts.task ? "custom" : `pitch:${count}`,
+        groundedIn: used,
+        chars: text.length,
+        savedTo,
+      });
     });
 
   // ── stats (pre-#108) ───────────────────────────────────────────────────
