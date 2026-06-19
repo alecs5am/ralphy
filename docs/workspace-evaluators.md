@@ -27,7 +27,8 @@ No config → `null`, **zero behavior change** for workspaces without a rubric. 
       "severity": "warn",              // info | warn | fail  (default warn)
       "threshold": {},                 // number | string | boolean | object — per criterion
       "validatorId": "string",         // deterministic: the validator that runs the check
-      "rubricPrompt": "string",        // vision: the prompt the model scores against (optional)
+      "rubricPrompt": "string",        // vision: inline rubric (optional; wins over rubricFile)
+      "rubricFile": "rubrics/x.md",    // vision: path (workspace-relative) to a dedicated prose rubric (#477)
       "benchmarkRef": "string"         // optional ref into `benchmarks`
     }
   ],
@@ -40,7 +41,7 @@ No config → `null`, **zero behavior change** for workspaces without a rubric. 
 
 Notes that matter when authoring:
 
-- **`check` is the fork.** `deterministic` criteria run in code (no model) — resolved by `validatorId` against the validator registry. `vision` criteria are folded into ONE deep-vision model pass; an inline `rubricPrompt` wins, else a canonical rubric fragment is resolved by `validatorId`.
+- **`check` is the fork.** `deterministic` criteria run in code (no model) — resolved by `validatorId` against the validator registry. Each `vision` criterion runs as its OWN isolated deep-vision pass (#477) so the context stays focused — the mp4 is loaded once and reused across criteria. Its rubric resolves in order: inline `rubricPrompt` → the content of `rubricFile` (workspace-relative prose `.md`) → a canonical builtin fragment by `validatorId` → the label. The shared `STYLE_LOCK.md` is **not** folded into per-criterion eval passes — keep each domain's prose in its own `rubricFile` (a `rubrics/` dir per workspace is the convention).
 - **Thresholds are config, never hardcoded.** Each criterion's `threshold` shape is whatever that criterion reads (a number, a string like `"9:16"`, a boolean, or an object of keys). The defaults below are the fallback when a key is absent — the workspace overrides them. NO universe-specific numbers live in the code.
 - **`severity` controls the verdict weight.** A criterion left at the default `warn` is advisory; opt it up to `fail` to make it a hard bar. An unscored (`na`) criterion only forces a `needs-user-decision` verdict when its severity is `fail`.
 - **The schema is fully generic.** No Silent-Hill (or any universe) fields. The instance lives in the workspace config (see the how-to below).
@@ -114,8 +115,11 @@ Flags ([`cli/commands/workspace.ts`](../cli/commands/workspace.ts)):
 | `--model <id>` | override the deep-vision model (default `google/gemini-3.1-pro-preview`) |
 | `--workspace <slug>` | override the rubric workspace (default: the project's registered workspace) |
 | `--video <path>` | override the scored video (default `<project>/render/final.mp4`) |
+| `--criterion <id>` | run ONLY this criterion (repeatable). Re-runs **merge** over the prior `workspace-eval.json` so the others aren't re-run / re-spent (#477) |
 
-The vision pass is **one** `callLLM()` call: every vision criterion's rubric is folded into a single deep-vision prompt (plus the discovered `STYLE_LOCK.md` and `benchmarks`), the mp4 is sent as native video input, and the model returns strict per-criterion JSON keyed by id. It is skipped when there are no vision criteria, `--no-vision` is passed, or no video is found. A vision failure surfaces as a `warn` per vision criterion — it never crashes the eval.
+Each vision criterion runs as its **own** isolated `callLLM()` deep-vision pass against ONLY its own rubric (#477) — focused context, no shared `STYLE_LOCK.md` blob. The mp4 is loaded once and reused across criteria; the model returns strict JSON for that one criterion. The vision pass is skipped when there are no vision criteria, `--no-vision` is passed, or no video is found. A vision failure surfaces as a `warn` on that one criterion — the others still run, and it never crashes the eval.
+
+`--criterion` is the iteration lever: when one rubric fails, re-run just it (`ralphy workspace eval <id> --criterion scenario-fidelity`) — the fresh result is merged over the prior scorecard (other criteria kept, overall verdict recomputed), so you don't re-spend on the passing domains.
 
 Scorecard shape (`workspace-eval.json`):
 
@@ -201,6 +205,8 @@ A prose document that freezes the universe's visual register, pacing, hook mecha
 ## 2. `evaluators.json` — criteria + thresholds + stage gates
 
 Wires the six built-in validator ids to Silent Hill's thresholds, plus a `stageGates` block mapping the four stages. Note `validatorId` reuses the built-in id, and the deterministic thresholds are objects of the keys documented above.
+
+**Separated prose rubrics (recommended, #477):** keep each vision domain's prose in its own file under `<workspace>/rubrics/` (e.g. `rubrics/scenario.md`, `rubrics/characters.md`, `rubrics/locations.md`) and point each vision criterion at it with `"rubricFile": "rubrics/<domain>.md"`. Each gets its own isolated deep-vision pass with that file as the only context — sharper than one shared blob, and you can re-run a single failing domain with `ralphy workspace eval <id> --criterion <id>`. (`rubricPrompt` inline still works and wins over `rubricFile`.) The Silent Hill instance uses this layout.
 
 ```json
 {

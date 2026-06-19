@@ -1461,12 +1461,17 @@ Commands:
                             (append-only). Deterministic criteria run in code
                             (via their validatorId — #470 wires the builtins; an
                             unregistered id is reported as na, never an error);
-                            vision criteria run ONE deep-vision pass keyed per
-                            criterion id, folding in the workspace STYLE_LOCK.md
-                            + config benchmarks. The overall verdict uses the
-                            #427 readiness vocab (ship | repair |
-                            needs-user-decision | blocked). Example: ralphy
-                            workspace eval choose-silenthill-001
+                            vision criteria run ONE ISOLATED deep-vision pass
+                            PER criterion (#477), each loading only its own
+                            rubric (inline rubricPrompt > rubricFile > builtin
+                            fragment > label) for focused, non-diluted context.
+                            The overall verdict uses the #427 readiness vocab
+                            (ship | repair | needs-user-decision | blocked). Use
+                            --criterion to re-run a single rubric in isolation:
+                            the fresh result merges over the prior
+                            workspace-eval.json so the other criteria are not
+                            re-spent. Example: ralphy workspace eval
+                            choose-silenthill-001 --criterion scenario-fidelity
   stats                     Show workspace statistics
   clean [options]           Clean workspace contents
   help [command]            display help for command

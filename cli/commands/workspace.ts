@@ -29,6 +29,11 @@ import { protectExistingAsset } from "../lib/providers/shared.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
+/** commander reducer to collect repeatable options into an array. */
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
 async function dirSize(dir: string): Promise<number> {
   let total = 0;
   try {
@@ -207,20 +212,28 @@ export function workspaceCmd() {
   cmd
     .command("eval <project>")
     .description(
-      "Score a project against its workspace's custom evaluator rubric (#468 config) and write workspace-eval.json + workspace-eval-report.md (append-only). Deterministic criteria run in code (via their validatorId — #470 wires the builtins; an unregistered id is reported as na, never an error); vision criteria run ONE deep-vision pass keyed per criterion id, folding in the workspace STYLE_LOCK.md + config benchmarks. The overall verdict uses the #427 readiness vocab (ship | repair | needs-user-decision | blocked). Example: ralphy workspace eval choose-silenthill-001",
+      "Score a project against its workspace's custom evaluator rubric (#468 config) and write workspace-eval.json + workspace-eval-report.md (append-only). Deterministic criteria run in code (via their validatorId — #470 wires the builtins; an unregistered id is reported as na, never an error); vision criteria run ONE ISOLATED deep-vision pass PER criterion (#477), each loading only its own rubric (inline rubricPrompt > rubricFile > builtin fragment > label) for focused, non-diluted context. The overall verdict uses the #427 readiness vocab (ship | repair | needs-user-decision | blocked). Use --criterion to re-run a single rubric in isolation: the fresh result merges over the prior workspace-eval.json so the other criteria are not re-spent. Example: ralphy workspace eval choose-silenthill-001 --criterion scenario-fidelity",
     )
     .option("--no-vision", "Skip the vision pass entirely (deterministic criteria only — no model call)")
     .option("--model <id>", "Override the deep-vision model (default google/gemini-3.1-pro-preview)")
     .option("--workspace <slug>", "Override the rubric workspace (default: the project's registered workspace)")
     .option("--video <path>", "Override the scored video (default: <project>/render/final.mp4)")
+    .option(
+      "--criterion <id>",
+      "Run ONLY this criterion (repeatable; re-runs merge over the prior workspace-eval.json so other criteria aren't re-spent)",
+      collect,
+      [],
+    )
     .action(async (project: string, opts) => {
       requireRalphyLayout("workspace eval");
       try {
+        const criteria = (opts.criterion as string[]) ?? [];
         const result = await runWorkspaceEval(project, {
           noVision: opts.vision === false,
           model: opts.model as string | undefined,
           workspace: opts.workspace as string | undefined,
           video: opts.video as string | undefined,
+          criteria: criteria.length > 0 ? criteria : undefined,
         });
 
         // Append-only persistence: archive any existing report to .vN first.
