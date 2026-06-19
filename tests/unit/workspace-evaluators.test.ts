@@ -84,6 +84,27 @@ describe("parseWorkspaceEvaluators — schema", () => {
     expect(cfg.criteria[0].threshold).toEqual({});
   });
 
+  test("rubricFile is optional and parses (#477)", () => {
+    // Without it.
+    const without = parseWorkspaceEvaluators({
+      criteria: [{ id: "v", label: "V", category: "style", check: "vision" }],
+    });
+    expect(without.criteria[0].rubricFile).toBeUndefined();
+    // With it.
+    const withFile = parseWorkspaceEvaluators({
+      criteria: [
+        {
+          id: "scenario",
+          label: "Scenario",
+          category: "narrative",
+          check: "vision",
+          rubricFile: "rubrics/scenario.md",
+        },
+      ],
+    });
+    expect(withFile.criteria[0].rubricFile).toBe("rubrics/scenario.md");
+  });
+
   test("threshold accepts number | string | boolean | object", () => {
     const variants = [1.7, "9:16", true, { min: 3 }];
     for (const threshold of variants) {

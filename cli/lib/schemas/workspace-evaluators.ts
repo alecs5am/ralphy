@@ -71,6 +71,15 @@ export const WorkspaceCriterionSchema = z.object({
   validatorId: z.string().optional(),
   /** For `vision`: the rubric prompt the model scores against. */
   rubricPrompt: z.string().optional(),
+  /**
+   * For `vision`: a path (relative to the workspace dir) to a dedicated prose
+   * `.md` rubric for THIS criterion (#477). Lets each domain (scenario /
+   * characters / locations / editing) carry its own self-contained, focused
+   * rubric file instead of an inline string. Resolution precedence in the
+   * engine's per-criterion vision pass: inline `rubricPrompt` → `rubricFile`
+   * content → registered builtin fragment (#470, by `validatorId`) → the label.
+   */
+  rubricFile: z.string().optional(),
   /** Optional reference into `benchmarks` this criterion measures against. */
   benchmarkRef: z.string().optional(),
 });

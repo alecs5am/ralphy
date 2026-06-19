@@ -23,8 +23,10 @@ import {
   deriveOverallVerdict,
   runWorkspaceEval,
   registerWorkspaceValidator,
+  resolveCriterionRubric,
   type WorkspaceValidator,
 } from "../../cli/lib/eval/workspace-evaluators";
+import { registerBuiltinWorkspaceValidators } from "../../cli/lib/eval/workspace-criteria";
 import { workspaceDir } from "../../cli/lib/paths";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
@@ -241,6 +243,126 @@ describe("runWorkspaceEval — engine (no LLM)", () => {
   });
 });
 
+// ─── (b2) resolveCriterionRubric — precedence inline > file > builtin > label (#477) ──
+
+describe("resolveCriterionRubric — rubric resolution precedence (#477)", () => {
+  test("inline rubricPrompt wins over a file and a builtin", () => {
+    registerBuiltinWorkspaceValidators();
+    const wsDir = workspaceDir("rb-ws");
+    fs.mkdirSync(path.join(wsDir, "rubrics"), { recursive: true });
+    fs.writeFileSync(path.join(wsDir, "rubrics", "scenario.md"), "# FILE RUBRIC\n");
+    const r = resolveCriterionRubric(
+      {
+        rubricPrompt: "INLINE RUBRIC",
+        rubricFile: "rubrics/scenario.md",
+        validatorId: "scenario-fidelity",
+      },
+      "rb-ws",
+    );
+    expect(r).toBe("INLINE RUBRIC");
+  });
+
+  test("rubricFile content wins over a builtin when there is no inline prompt", () => {
+    registerBuiltinWorkspaceValidators();
+    const wsDir = workspaceDir("rb-ws2");
+    fs.mkdirSync(path.join(wsDir, "rubrics"), { recursive: true });
+    fs.writeFileSync(path.join(wsDir, "rubrics", "characters.md"), "# FROM FILE: characters\n");
+    const r = resolveCriterionRubric(
+      { rubricFile: "rubrics/characters.md", validatorId: "character-design-cohesion" },
+      "rb-ws2",
+    );
+    expect(r).toBe("# FROM FILE: characters\n");
+  });
+
+  test("a missing/empty rubricFile falls through to the registered builtin (#470)", () => {
+    registerBuiltinWorkspaceValidators();
+    // No file written; the builtin fragment should win.
+    const r = resolveCriterionRubric(
+      { rubricFile: "rubrics/does-not-exist.md", validatorId: "location-consistency" },
+      "rb-ws3",
+    );
+    expect(r).toContain("LOCATION CONSISTENCY");
+  });
+
+  test("nothing matches → null (caller judges by the label)", () => {
+    const r = resolveCriterionRubric(
+      { validatorId: "no-such-builtin" },
+      "rb-ws4",
+    );
+    expect(r).toBeNull();
+  });
+});
+
+// ─── (b3) criteria subset filter + merge over prior (#477) ──────────────────────
+
+describe("runWorkspaceEval — criteria subset filter + merge (#477)", () => {
+  const failing: WorkspaceValidator = () => [
+    {
+      id: "F1",
+      category: "workspace.test",
+      severity: "fail",
+      sceneIndex: null,
+      timestampSec: null,
+      message: "deliberate failure",
+      fixHint: "fix it",
+      fixCommand: null,
+    },
+  ];
+  const passing: WorkspaceValidator = () => [];
+
+  function seedTwoCriteria(workspace: string, projectId: string) {
+    registerWorkspaceValidator("ws477-failing", failing);
+    registerWorkspaceValidator("ws477-passing", passing);
+    seedProject({
+      workspace,
+      projectId,
+      evaluators: {
+        criteria: [
+          { id: "a", label: "A", category: "x", check: "deterministic", severity: "warn", validatorId: "ws477-failing" },
+          { id: "b", label: "B", category: "y", check: "deterministic", severity: "warn", validatorId: "ws477-passing" },
+        ],
+      },
+    });
+  }
+
+  test("a subset run with NO prior scorecard returns ONLY the named criterion", async () => {
+    seedTwoCriteria("sub1", "sub1-001");
+    const result = await runWorkspaceEval("sub1-001", { criteria: ["a"] });
+    expect(result.criteria.map((c) => c.id)).toEqual(["a"]);
+    expect(result.overall.summary).toContain("not run");
+  });
+
+  test("an unknown criterion id is ignored + noted, never throws", async () => {
+    seedTwoCriteria("sub2", "sub2-001");
+    const result = await runWorkspaceEval("sub2-001", { criteria: ["a", "ghost"] });
+    expect(result.criteria.map((c) => c.id)).toEqual(["a"]);
+    expect(result.overall.summary).toContain("ghost");
+  });
+
+  test("a subset run merges fresh results over the prior scorecard + recomputes overall", async () => {
+    const { projDir } = (() => {
+      seedTwoCriteria("sub3", "sub3-001");
+      return { projDir: path.join(workspaceDir("sub3"), "projects", "sub3-001") };
+    })();
+
+    // Full run first: "a" fails → blocked.
+    const full = await runWorkspaceEval("sub3-001");
+    expect(full.criteria.map((c) => c.id).sort()).toEqual(["a", "b"]);
+    expect(full.overall.verdict).toBe("blocked");
+    // Persist it as the prior scorecard (the CLI normally does this).
+    fs.writeFileSync(path.join(projDir, "workspace-eval.json"), JSON.stringify(full));
+
+    // Now swap "a" to passing and re-run ONLY "a". The merge must keep "b" and
+    // recompute overall over both → ship (both now pass).
+    registerWorkspaceValidator("ws477-failing", passing);
+    const merged = await runWorkspaceEval("sub3-001", { criteria: ["a"] });
+    expect(merged.criteria.map((c) => c.id).sort()).toEqual(["a", "b"]);
+    expect(merged.criteria.find((c) => c.id === "a")!.verdict).not.toBe("fail");
+    expect(merged.overall.verdict).toBe("ship");
+    expect(merged.overall.summary).toContain("merged");
+  });
+});
+
 // ─── (c) CLI subprocess smoke — writes workspace-eval.json, no LLM ──────────────
 
 describe("ralphy workspace eval <project> — CLI smoke", () => {
@@ -303,6 +425,61 @@ describe("ralphy workspace eval <project> — CLI smoke", () => {
       expect(scorecard.criteria[0].verdict).toBe("na");
       expect(scorecard.overall.verdict).toBe(json.verdict);
       expect(fs.existsSync(path.join(wsDir, "workspace-eval-report.md"))).toBe(true);
+    } finally {
+      fs.rmSync(childRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("--criterion runs ONLY the named criterion and merges over the prior scorecard (#477)", () => {
+    const childRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-ws-eval-crit-"));
+    try {
+      const projDir = path.join(childRoot, ".ralphy", "workspaces", "fog", "projects", "fog-crit-001");
+      fs.mkdirSync(path.join(projDir, "artifacts"), { recursive: true });
+      const wsRoot = path.join(childRoot, ".ralphy", "workspaces", "fog");
+      fs.writeFileSync(path.join(wsRoot, "workspace.json"), JSON.stringify({ slug: "fog" }));
+      // Two registered deterministic builtins → no LLM call.
+      fs.writeFileSync(
+        path.join(wsRoot, "evaluators.json"),
+        JSON.stringify({
+          criteria: [
+            { id: "md", label: "Material density", category: "density", check: "deterministic", severity: "warn", validatorId: "material-density" },
+            { id: "ec", label: "Edit correctness", category: "edit", check: "deterministic", severity: "warn", validatorId: "edit-correctness" },
+          ],
+        }),
+      );
+      fs.writeFileSync(path.join(projDir, "BRIEF.md"), "# brief\n");
+      // A minimal composition so the deterministic checks have a file to parse.
+      fs.writeFileSync(path.join(projDir, "index.html"), "<!doctype html><html><body></body></html>");
+      fs.writeFileSync(
+        path.join(childRoot, ".ralphy", "registry.json"),
+        JSON.stringify({
+          brands: {}, personas: {}, refs: {}, templates: {}, batches: {},
+          projects: { "fog-crit-001": { id: "fog-crit-001", workspace: "fog" } },
+        }),
+      );
+
+      const run = (extra: string[]) =>
+        spawnSync(
+          "bun",
+          ["run", CLI, "--cwd", childRoot, "workspace", "eval", "fog-crit-001", "--no-vision", ...extra],
+          { cwd: childRoot, encoding: "utf8", env: { ...process.env } },
+        );
+
+      // Full run first → 2 criteria on disk.
+      const full = run([]);
+      expect(full.status).toBe(0);
+      expect(JSON.parse(full.stdout).criteria).toBe(2);
+
+      // Now re-run ONLY "ec". The merge must keep "md" too (full set persisted).
+      const subset = run(["--criterion", "ec"]);
+      expect(subset.status).toBe(0);
+      const json = JSON.parse(subset.stdout);
+      expect(json.criteria).toBe(2); // merged over the prior 2-criterion scorecard
+      expect(json.summary).toContain("ec");
+      expect(json.summary).toContain("merged");
+
+      const scorecard = JSON.parse(fs.readFileSync(path.join(projDir, "workspace-eval.json"), "utf8"));
+      expect(scorecard.criteria.map((c: { id: string }) => c.id).sort()).toEqual(["ec", "md"]);
     } finally {
       fs.rmSync(childRoot, { recursive: true, force: true });
     }
