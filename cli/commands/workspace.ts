@@ -26,8 +26,38 @@ import {
   WORKSPACE_EVAL_REPORT,
 } from "../lib/eval/workspace-evaluators.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
+import { callLLM } from "../lib/providers/llm.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+/** The workspace "bible" files an ideation pass grounds itself in (#469 rubric instance). */
+const BIBLE_FILES = [
+  "STYLE_LOCK.md",
+  "rubrics/scenario.md",
+  "rubrics/characters.md",
+  "rubrics/locations.md",
+  "metrics-benchmarks.json",
+  "evaluators.json",
+];
+
+/** Read each bible file that exists under <workspace>/, labeled for the LLM context. */
+async function gatherWorkspaceBible(slug: string): Promise<{ blocks: string; used: string[] }> {
+  const dir = workspaceDir(slug);
+  const parts: string[] = [];
+  const used: string[] = [];
+  for (const rel of BIBLE_FILES) {
+    try {
+      const body = await fs.readFile(path.join(dir, rel), "utf-8");
+      if (body.trim()) {
+        parts.push(`### FILE: ${rel}\n\n${body.trim()}`);
+        used.push(rel);
+      }
+    } catch {
+      /* missing file — skip silently, this is best-effort grounding */
+    }
+  }
+  return { blocks: parts.join("\n\n---\n\n"), used };
+}
 
 /** commander reducer to collect repeatable options into an array. */
 function collect(value: string, previous: string[]): string[] {
@@ -259,6 +289,103 @@ export function workspaceCmd() {
       } catch (e) {
         err(`workspace eval failed: ${(e as Error).message}`);
       }
+    });
+
+  // ── ideate ───────────────────────────────────────────────────────────────
+  // Feed the whole workspace bible (STYLE_LOCK + rubrics + metrics) to a strong
+  // Gemini text model and ask it to pitch the next episode(s) — grounded so the
+  // pitch is written to PASS this universe's own rubric. Goes through callLLM()
+  // (AGENTS.md invariant #1/#2 — never an ad-hoc provider call). Workspace-level,
+  // so no per-project gen-log row; the pitch is saved as a new file (append-only).
+  cmd
+    .command("ideate <slug>")
+    .description(
+      "Brainstorm the next episode(s) for a universe: feeds the workspace bible (STYLE_LOCK.md + rubrics/*.md + metrics-benchmarks.json + evaluators.json) to a Gemini text model via callLLM() and asks it to pitch concrete, rubric-passing next episodes. Saves the pitch to <workspace>/ideas/idea-<timestamp>.md (new file, append-only) and prints metadata. Example: ralphy workspace ideate silent-hill --brief 'lean into the space-bar vibe' --count 3",
+    )
+    .option("--brief <text>", "Extra creative steer folded into the ask (optional)")
+    .option("--count <n>", "How many distinct episode concepts to pitch (default 3)", (v) => parseInt(v, 10), 3)
+    .option("--model <id>", "Override the text model (default google/gemini-3.1-pro-preview)")
+    .action(async (slug: string, opts) => {
+      requireRalphyLayout("workspace ideate");
+      if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+      }
+      const { blocks, used } = await gatherWorkspaceBible(slug);
+      if (!blocks) {
+        err(`No bible files found under ${workspaceDir(slug)} (need at least one of: ${BIBLE_FILES.join(", ")})`);
+        return;
+      }
+      const manifest = await readWorkspaceManifest(slug);
+      const name = (manifest?.name as string) || slug;
+      const count = Number.isFinite(opts.count) && opts.count > 0 ? opts.count : 3;
+      const model = (opts.model as string) || "google/gemini-3.1-pro-preview";
+
+      const system =
+        `You are the showrunner and creative director of the "${name}" short-form video universe ` +
+        `(first-person POV choose-your-path shorts for TikTok/Reels). You are handed the universe BIBLE: ` +
+        `the style lock, the per-domain quality rubrics the renders are graded against, and the recorded ` +
+        `platform metrics of the shipped episodes. Your job is to pitch the NEXT episode(s) — concepts that ` +
+        `would PASS every rubric below and beat the benchmark episode on retention. Be concrete and ` +
+        `production-ready, never generic. Honour the rubrics exactly; do not invent constraints they do not state.`;
+
+      const userText = [
+        "## THE UNIVERSE BIBLE\n\n" + blocks,
+        opts.brief ? `## EXTRA STEER FROM THE SHOWRUNNER\n\n${opts.brief}` : "",
+        `## YOUR TASK\n\nPitch ${count} DISTINCT next-episode concept${count === 1 ? "" : "s"}. ` +
+          "Each must be a fresh, vivid LOCATION + 2 sexy NPC characters who interact with the POV hero, " +
+          "with real consequences. For EACH concept give, as markdown:\n" +
+          "- **Title** + one-line logline\n" +
+          "- **Location** (vivid, detail-rich, crude-PS1 register; a new world, not a repeat)\n" +
+          "- **Cast** — the 2 sexy NPCs (look + role + what makes each tempting/dangerous)\n" +
+          "- **Cold-open hook** (the <3s scroll-stop beat)\n" +
+          "- **The binary choice funnel** — every fork as `CHOICE A / CHOICE B`, each with its win AND loss/game-over consequence; show why each fork is a genuine ~50/50 with no telegraphed trap\n" +
+          "- **Punchline ending** (a tight twist, 003-style)\n" +
+          "- **Why it passes the rubric** — 2-3 lines mapping the concept to the scenario/character/location bars + the 1:00-2:00 duration band\n\n" +
+          "Lead with the single concept you'd green-light first and say why in one line. Use the mandatory " +
+          "`sabre-draw` opener assumption. Markdown only.",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      let text: string;
+      let usedModel: string;
+      try {
+        const res = await callLLM({
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: userText },
+          ],
+          model,
+          temperature: 0.9,
+          maxTokens: 6000,
+          endpoint: "workspace-ideate",
+        });
+        text = res.text?.trim() ?? "";
+        usedModel = res.model;
+      } catch (e) {
+        err(`ideate failed: ${(e as Error).message}`);
+        return;
+      }
+      if (!text) {
+        err(`ideate returned an empty pitch (model ${model}) — retry or try a different --model`);
+        return;
+      }
+
+      // Persist the pitch as a NEW file (append-only contract — never overwrite).
+      const ideasDir = path.join(workspaceDir(slug), "ideas");
+      await fs.mkdir(ideasDir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const savedTo = path.join(ideasDir, `idea-${stamp}.md`);
+      const header =
+        `# ${name} — next-episode pitch\n\n` +
+        `> Generated by \`ralphy workspace ideate ${slug}\` via ${usedModel}. ` +
+        `Grounded in: ${used.join(", ")}.` +
+        (opts.brief ? ` Steer: "${opts.brief}".` : "") +
+        `\n\n`;
+      await fs.writeFile(savedTo, header + text + "\n");
+
+      ok(`Pitched ${count} concept${count === 1 ? "" : "s"} for ${slug}`);
+      out({ workspace: slug, model: usedModel, count, groundedIn: used, chars: text.length, savedTo });
     });
 
   // ── stats (pre-#108) ───────────────────────────────────────────────────
