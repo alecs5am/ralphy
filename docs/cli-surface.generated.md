@@ -1472,6 +1472,15 @@ Commands:
                             workspace-eval.json so the other criteria are not
                             re-spent. Example: ralphy workspace eval
                             choose-silenthill-001 --criterion scenario-fidelity
+  ideate [options] <slug>   Brainstorm the next episode(s) for a universe: feeds
+                            the workspace bible (STYLE_LOCK.md + rubrics/*.md +
+                            metrics-benchmarks.json + evaluators.json) to a
+                            Gemini text model via callLLM() and asks it to pitch
+                            concrete, rubric-passing next episodes. Saves the
+                            pitch to <workspace>/ideas/idea-<timestamp>.md (new
+                            file, append-only) and prints metadata. Example:
+                            ralphy workspace ideate silent-hill --brief 'lean
+                            into the space-bar vibe' --count 3
   stats                     Show workspace statistics
   clean [options]           Clean workspace contents
   help [command]            display help for command
