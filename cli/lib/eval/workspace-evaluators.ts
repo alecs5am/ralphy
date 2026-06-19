@@ -7,29 +7,33 @@
 //     `registerWorkspaceValidator`; an UNREGISTERED id is surfaced as one `info`
 //     finding + the criterion verdict `na` (never throws), so #469 ships with
 //     NO real validators.
-//   • `vision` — every vision criterion's `rubricPrompt` is folded into ONE
-//     deep-vision-style prompt (plus the discovered workspace STYLE_LOCK.md +
-//     the config `benchmarks`); the mp4 is sent through deep-vision's existing
-//     video-send mechanism (`buildVideoContentBlock`), and the model returns
-//     STRICT per-criterion JSON. Skipped entirely when there are zero vision
-//     criteria or `--no-vision` is passed (so the smoke test never calls the LLM).
+//   • `vision` — ONE ISOLATED deep-vision call PER vision criterion (#477), each
+//     loading ONLY that criterion's own rubric (focused, non-diluted context).
+//     Rubric resolution per criterion: inline `rubricPrompt` → `rubricFile`
+//     content (relative to the workspace dir) → registered builtin fragment
+//     (#470, by `validatorId`) → the label. The shared STYLE_LOCK.md is NO LONGER
+//     folded into these passes (#477) — each rubric file is self-contained. The
+//     mp4 is loaded ONCE (`buildVideoContentBlock`) and reused across the
+//     per-criterion calls; each returns STRICT per-criterion JSON. A single
+//     criterion's call throwing → that one criterion gets a warn finding; the
+//     others still run. Skipped entirely when there are zero vision criteria or
+//     `--no-vision` is passed (so the smoke test never calls the LLM).
 //
 // REUSE, do not reinvent: `Finding`/`Severity`/`Verdict` (./types), the penalty
 // `score()` (./findings), the video-input mechanism (./deep-vision), `callLLM()`
-// (../providers/llm), the #468 config loader (../workspace-evaluators), and the
-// #468 workspace STYLE_LOCK fallback (../style-lock). The overall verdict uses
-// the #427 readiness vocab so it feeds the repair loop (#409).
+// (../providers/llm), and the #468 config loader (../workspace-evaluators). The
+// overall verdict uses the #427 readiness vocab so it feeds the repair loop (#409).
 //
 // English-only-on-disk.
 
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { projectDir } from "../paths.js";
+import { projectDir, workspaceDir } from "../paths.js";
 import { getEntity } from "../registry.js";
 import { getActiveWorkspace } from "../registry.js";
 import { loadWorkspaceEvaluators } from "../workspace-evaluators.js";
-import { discoverStyleLock } from "../style-lock.js";
 import { callLLM } from "../providers/llm.js";
 import { buildVideoContentBlock, DEEP_VISION_MAX_MP4_BYTES } from "./deep-vision.js";
 import { score } from "./findings.js";
@@ -137,6 +141,14 @@ export interface RunWorkspaceEvalOptions {
   workspace?: string;
   /** Override the video path (default: <project>/render/final.mp4). */
   video?: string;
+  /**
+   * Run ONLY the criteria whose `id` is in this list (#477). When set AND a
+   * prior `<project>/workspace-eval.json` exists, the fresh subset results are
+   * MERGED over the prior scorecard (untouched criteria kept, overall verdict +
+   * mean score recomputed over the full merged set). Unknown ids are ignored +
+   * noted in the summary. Omitted / empty → a full run (today's behavior).
+   */
+  criteria?: string[];
 }
 
 /** The project-relative artifact names. */
@@ -208,10 +220,20 @@ export async function runWorkspaceEval(
   const evaluatedAt = new Date().toISOString();
 
   const config = await loadWorkspaceEvaluators(workspace);
-  const criteria = config?.criteria ?? [];
+  const allCriteria = config?.criteria ?? [];
+
+  // — #477 subset filter: when `opts.criteria` is set, run ONLY the named ids.
+  //   Unknown ids are ignored + noted (never throw).
+  const subset = opts.criteria && opts.criteria.length > 0 ? opts.criteria : null;
+  const unknownIds = subset
+    ? subset.filter((id) => !allCriteria.some((c) => c.id === id))
+    : [];
+  const criteria = subset
+    ? allCriteria.filter((c) => subset.includes(c.id))
+    : allCriteria;
 
   // Resolve the video once — used by both the deterministic validators (so a
-  // #470 freeze/aspect check can probe it) and the vision pass.
+  // #470 freeze/aspect check can probe it) and the per-criterion vision passes.
   const videoOverride = opts.video ? path.resolve(opts.video) : null;
   const candidate = videoOverride ?? defaultVideoPath(projectId);
   const videoPath = existsSync(candidate) ? candidate : null;
@@ -220,23 +242,26 @@ export async function runWorkspaceEval(
   const runVision =
     !opts.noVision && visionCriteria.length > 0 && videoPath !== null;
 
-  // — Vision pass: ONE model call, STRICT per-criterion JSON keyed by id.
-  let visionScores: Map<string, VisionCriterionScore> = new Map();
+  // — Vision pass: ONE ISOLATED model call PER vision criterion (#477). The mp4
+  //   is loaded ONCE and reused; a single criterion throwing → that one gets a
+  //   warn finding, the rest still run.
+  const visionScores = new Map<string, VisionCriterionScore>();
   if (runVision) {
-    try {
-      visionScores = await runVisionPass({
-        videoPath: videoPath!,
-        visionCriteria,
-        workspace,
-        benchmarks: config?.benchmarks,
-        model: opts.model,
-        projectId,
-      });
-    } catch (e) {
-      // A vision failure must not crash the whole eval — surface it on every
-      // vision criterion as a warn so the report is honest about what ran.
-      const msg = (e as Error).message;
-      for (const c of visionCriteria) {
+    const videoBlock = await buildVideoContentBlock(videoPath!, DEEP_VISION_MAX_MP4_BYTES);
+    for (const c of visionCriteria) {
+      try {
+        visionScores.set(
+          c.id,
+          await runCriterionVisionPass({
+            videoBlock,
+            criterion: c,
+            workspace,
+            benchmarks: config?.benchmarks,
+            model: opts.model,
+            projectId,
+          }),
+        );
+      } catch (e) {
         visionScores.set(c.id, {
           score: null,
           verdict: "warn",
@@ -247,7 +272,7 @@ export async function runWorkspaceEval(
               severity: "warn",
               sceneIndex: null,
               timestampSec: null,
-              message: `vision pass failed for "${c.id}": ${msg}`,
+              message: `vision pass failed for "${c.id}": ${(e as Error).message}`,
               fixHint:
                 "Re-encode the mp4 under the deep-vision size cap, or re-run with --no-vision to skip the model pass.",
               fixCommand: null,
@@ -258,13 +283,13 @@ export async function runWorkspaceEval(
     }
   }
 
-  // — Per-criterion results.
-  const results: WorkspaceCriterionResult[] = [];
+  // — Per-criterion results (only the criteria in scope this run).
+  const freshResults: WorkspaceCriterionResult[] = [];
   for (const c of criteria) {
     if (c.check === "deterministic") {
-      results.push(await runDeterministicCriterion(c, { projectId, dir, videoPath, config: config! }));
+      freshResults.push(await runDeterministicCriterion(c, { projectId, dir, videoPath, config: config! }));
     } else {
-      results.push(
+      freshResults.push(
         buildVisionCriterionResult(c, visionScores.get(c.id), {
           ran: runVision,
           skippedReason:
@@ -278,12 +303,22 @@ export async function runWorkspaceEval(
     }
   }
 
-  // — Overall verdict (#427 vocab) + mean score.
+  // — #477 merge: a subset run overlays its fresh results over the prior
+  //   scorecard (others kept), then recomputes overall over the FULL set. No
+  //   prior scorecard → the subset stands alone (others simply not run).
+  const prior = subset ? await readPriorResults(projectId) : null;
+  const results = prior
+    ? mergeResults(prior, freshResults)
+    : freshResults;
+
+  // — Overall verdict (#427 vocab) + mean score, over the full (merged) set.
+  //   Each result's gate severity is its configured severity from the loaded
+  //   config (a prior-kept criterion still resolves against the same config).
   const overallVerdict = deriveOverallVerdict(
     results.map((r) => ({
       verdict: r.verdict,
       severity:
-        criteria.find((c) => c.id === r.id)?.severity ?? ("warn" as Severity),
+        allCriteria.find((c) => c.id === r.id)?.severity ?? ("warn" as Severity),
     })),
   );
   const scored = results.map((r) => r.score).filter((s): s is number => s !== null);
@@ -302,9 +337,45 @@ export async function runWorkspaceEval(
     overall: {
       verdict: overallVerdict,
       score: meanScore,
-      summary: buildSummary(workspace, criteria.length, results, overallVerdict, runVision, videoPath),
+      summary: buildSummary(workspace, allCriteria.length, results, overallVerdict, runVision, videoPath, {
+        subset,
+        unknownIds,
+        merged: prior !== null,
+      }),
     },
   };
+}
+
+/**
+ * Read the prior `<project>/workspace-eval.json` results for a merge (#477).
+ * Returns null when there is no readable prior scorecard.
+ */
+async function readPriorResults(projectId: string): Promise<WorkspaceCriterionResult[] | null> {
+  const p = path.join(projectDir(projectId), WORKSPACE_EVAL_ARTIFACT);
+  if (!existsSync(p)) return null;
+  try {
+    const parsed = JSON.parse(await fs.readFile(p, "utf8")) as Partial<WorkspaceEvalResult>;
+    return Array.isArray(parsed.criteria) ? parsed.criteria : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Merge fresh subset results over prior results by criterion id (#477): keep
+ * prior criteria not in the fresh set, overlay the freshly-run ones, preserving
+ * the prior ordering and appending any fresh-only ids.
+ */
+function mergeResults(
+  prior: WorkspaceCriterionResult[],
+  fresh: WorkspaceCriterionResult[],
+): WorkspaceCriterionResult[] {
+  const freshById = new Map(fresh.map((r) => [r.id, r]));
+  const merged = prior.map((p) => freshById.get(p.id) ?? p);
+  for (const f of fresh) {
+    if (!prior.some((p) => p.id === f.id)) merged.push(f);
+  }
+  return merged;
 }
 
 function buildSummary(
@@ -314,6 +385,7 @@ function buildSummary(
   verdict: ScorecardVerdict,
   ranVision: boolean,
   videoPath: string | null,
+  subsetInfo?: { subset: string[] | null; unknownIds: string[]; merged: boolean },
 ): string {
   if (criteriaCount === 0) {
     return `Workspace "${workspace}" has no custom evaluator rubric configured — nothing to score.`;
@@ -326,7 +398,17 @@ function buildSummary(
     : videoPath === null
       ? " (vision criteria unscored — no video)"
       : " (vision skipped)";
-  return `Workspace "${workspace}" rubric → ${verdict}: ${fails} fail, ${warns} warn, ${nas} na across ${criteriaCount} criteria${visionNote}.`;
+  // #477 subset / merge note.
+  let subsetNote = "";
+  if (subsetInfo?.subset) {
+    subsetNote = subsetInfo.merged
+      ? ` (re-ran only [${subsetInfo.subset.join(", ")}], merged over the prior scorecard)`
+      : ` (ran only [${subsetInfo.subset.join(", ")}]; no prior scorecard — the other criteria were not run)`;
+    if (subsetInfo.unknownIds.length > 0) {
+      subsetNote += ` (ignored unknown criterion id(s): ${subsetInfo.unknownIds.join(", ")})`;
+    }
+  }
+  return `Workspace "${workspace}" rubric → ${verdict}: ${fails} fail, ${warns} warn, ${nas} na across ${results.length} criteria${visionNote}${subsetNote}.`;
 }
 
 // ─── Deterministic criterion ────────────────────────────────────────────────────
@@ -393,68 +475,84 @@ interface RawVisionEntry {
   findings?: Array<{ message?: string; severity?: string; fixHint?: string }>;
 }
 
-async function runVisionPass(args: {
-  videoPath: string;
-  visionCriteria: WorkspaceCriterion[];
+/** A video content block (the shape `buildVideoContentBlock` returns). */
+type VideoBlock = Awaited<ReturnType<typeof buildVideoContentBlock>>;
+
+/**
+ * Resolve the prose rubric a vision criterion is scored against (#477). The
+ * precedence is, in order:
+ *   1. inline `rubricPrompt` on the criterion,
+ *   2. the content of `<workspaceDir(workspace)>/<rubricFile>` (a missing or
+ *      unreadable file falls through),
+ *   3. the registered builtin fragment for `validatorId` (#470),
+ *   4. `null` (the caller then judges by the label).
+ *
+ * Exported as a pure function so the precedence is unit-testable without an LLM.
+ * NOTE: the builtin fragments are registered by `registerBuiltinWorkspaceValidators()`
+ * — `runWorkspaceEval` calls it; a standalone caller must call it first.
+ */
+export function resolveCriterionRubric(
+  criterion: Pick<WorkspaceCriterion, "rubricPrompt" | "rubricFile" | "validatorId">,
+  workspaceSlug: string,
+): string | null {
+  if (criterion.rubricPrompt) return criterion.rubricPrompt;
+  if (criterion.rubricFile) {
+    const p = path.resolve(workspaceDir(workspaceSlug), criterion.rubricFile);
+    try {
+      const text = readFileSync(p, "utf8");
+      if (text.trim().length > 0) return text;
+    } catch {
+      /* missing / unreadable → fall through */
+    }
+  }
+  return VISION_RUBRICS.get(criterion.validatorId ?? "") ?? null;
+}
+
+/**
+ * Score ONE vision criterion with its OWN rubric only (#477) — focused,
+ * non-diluted context. The shared STYLE_LOCK is intentionally NOT folded in;
+ * each rubric file is self-contained. The video block is built once by the
+ * caller and reused across criteria.
+ */
+async function runCriterionVisionPass(args: {
+  videoBlock: VideoBlock;
+  criterion: WorkspaceCriterion;
   workspace: string;
   benchmarks?: Record<string, unknown>;
   model?: string;
   projectId: string;
-}): Promise<Map<string, VisionCriterionScore>> {
-  const { videoPath, visionCriteria, workspace, benchmarks, model, projectId } = args;
+}): Promise<VisionCriterionScore> {
+  const { videoBlock, criterion: c, workspace, benchmarks, model, projectId } = args;
 
-  // Reuse the #468 workspace STYLE_LOCK fallback for register grounding.
-  const styleLockPath = discoverStyleLock(videoPath);
-  const styleLock = styleLockPath ? await readSafe(styleLockPath) : "";
+  const rubric = resolveCriterionRubric(c, workspace) ?? `Judge by the label: ${c.label}`;
 
-  const rubricBlock = visionCriteria
-    .map((c) => {
-      // Inline rubricPrompt wins; else fall back to a registered canonical
-      // rubric fragment by validatorId (#470); else judge by the label.
-      const resolved =
-        c.rubricPrompt ?? VISION_RUBRICS.get(c.validatorId ?? "") ?? null;
-      return `- id "${c.id}" (${c.category}, severity ${c.severity}${c.benchmarkRef ? `, benchmark "${c.benchmarkRef}"` : ""}): ${resolved ?? "(no rubric prompt — judge by the label)"}${resolved ? "" : ` label: ${c.label}`}`;
-    })
-    .join("\n");
+  // Only the benchmark THIS criterion references — keep the context focused.
+  const refBench =
+    c.benchmarkRef && benchmarks && benchmarks[c.benchmarkRef] !== undefined
+      ? "## BENCHMARK (this criterion measures against it)\n\n" +
+        "```json\n" +
+        JSON.stringify({ [c.benchmarkRef]: benchmarks[c.benchmarkRef] }, null, 2).slice(0, 8_000) +
+        "\n```"
+      : "";
 
-  const benchmarkBlock =
-    benchmarks && Object.keys(benchmarks).length > 0
-      ? "## BENCHMARKS (referenced by `benchmark` above)\n\n" +
-        "```json\n" + JSON.stringify(benchmarks, null, 2).slice(0, 8_000) + "\n```"
-      : "## BENCHMARKS\n(none configured)";
+  const system = `You are a senior creative director running ONE focused quality check on a rendered short-form video for the workspace "${workspace}". You will be given the full rendered mp4 as native video input (every frame at native temporal resolution) and a SINGLE criterion's rubric. Judge ONLY that criterion against ONLY this rubric — do not invent other concerns.
 
-  const styleBlock = styleLock
-    ? "## WORKSPACE STYLE LOCK (the universe register — score conformance against it)\n\n" +
-      styleLock.slice(0, 16_000)
-    : "## WORKSPACE STYLE LOCK\n(none discoverable — judge each criterion on its rubric alone)";
+Return STRICT JSON only. No prose, no markdown fences. Exactly this object:
 
-  const idList = visionCriteria.map((c) => c.id);
+{ "score": 0-100, "verdict": "pass"|"warn"|"fail", "findings": [ { "message": string, "severity": "info"|"warn"|"fail", "fixHint": string } ] }
 
-  const system = `You are a senior creative director running a workspace-specific quality gate on a rendered short-form video. The workspace ("${workspace}") encodes its own hard quality bar as a set of vision criteria. You will be given the full rendered mp4 as native video input (every frame at native temporal resolution), the workspace's STYLE LOCK, optional named benchmarks, and a list of criteria — each with an id and a rubric. Score EACH criterion independently.
-
-For every criterion id, return:
-  • score: an integer 0-100 (how well the render satisfies the rubric)
-  • verdict: "pass" | "warn" | "fail"
-  • findings: an array of { message, severity ("info"|"warn"|"fail"), fixHint } — be SPECIFIC, cite timestamps, give a concrete fix. An empty array is fine for a clean pass.
-
-Output STRICT JSON only. No prose, no markdown fences. The TOP-LEVEL object is keyed by criterion id, exactly these ids and no others: ${JSON.stringify(idList)}. Schema:
-
-{
-  "<criterionId>": { "score": 0-100, "verdict": "pass"|"warn"|"fail", "findings": [ { "message": string, "severity": "info"|"warn"|"fail", "fixHint": string } ] }
-}
-
-Be harsh and specific — generic platitudes are forbidden. Judge against the rubric and the STYLE LOCK, not generic UGC defaults.`;
+Be harsh and specific — cite timestamps, give concrete fixes. An empty findings array is fine for a clean pass. Generic platitudes are forbidden.`;
 
   const userText = [
-    "## CRITERIA (score each independently, return one entry per id)",
-    rubricBlock,
-    styleBlock,
-    benchmarkBlock,
+    `## CRITERION "${c.id}" (${c.category}, severity ${c.severity})`,
+    "## RUBRIC (score against THIS, and only this)",
+    rubric,
+    refBench,
     "## RENDERED VIDEO\n(attached as a file content block — evaluate the full mp4 at native temporal resolution)",
-    `Return the strict per-criterion JSON now, keyed by exactly: ${JSON.stringify(idList)}.`,
-  ].join("\n\n");
-
-  const videoBlock = await buildVideoContentBlock(videoPath, DEEP_VISION_MAX_MP4_BYTES);
+    "Return the strict JSON object now.",
+  ]
+    .filter((s) => s.length > 0)
+    .join("\n\n");
 
   // NOTE: jsonMode=false intentional — gemini-3.1-pro-preview with a video file
   // content block + jsonMode returns an empty text body (the same documented bug
@@ -467,18 +565,13 @@ Be harsh and specific — generic platitudes are forbidden. Judge against the ru
     model: model ?? "google/gemini-3.1-pro-preview",
     jsonMode: false,
     temperature: 0.2,
-    maxTokens: 8000,
+    maxTokens: 4000,
     projectId,
     endpoint: "eval/workspace-vision",
   });
 
-  const parsed = safeParseJson(text);
-  const out = new Map<string, VisionCriterionScore>();
-  for (const c of visionCriteria) {
-    const entry = parsed?.[c.id];
-    out.set(c.id, normalizeVisionEntry(c, entry));
-  }
-  return out;
+  // The per-criterion response is a bare entry object (not keyed by id).
+  return normalizeVisionEntry(c, safeParseEntry(text));
 }
 
 function normalizeVisionEntry(
@@ -569,33 +662,28 @@ function coerceSeverity(s: string | undefined): Severity {
   return s === "fail" ? "fail" : s === "info" ? "info" : s === "warn" ? "warn" : "warn";
 }
 
-async function readSafe(p: string): Promise<string> {
-  try {
-    return await fs.readFile(p, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function safeParseJson(text: string): Record<string, RawVisionEntry> | null {
+/** Parse a single per-criterion entry object from the model text (#477). A
+ *  malformed / empty body → undefined, which `normalizeVisionEntry` turns into a
+ *  warn finding (never a crash). */
+function safeParseEntry(text: string): RawVisionEntry | undefined {
   const cleaned = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/i, "")
     .trim();
-  try {
-    return JSON.parse(cleaned) as Record<string, RawVisionEntry>;
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, RawVisionEntry>;
-      } catch {
-        return null;
-      }
+  const tryParse = (s: string): RawVisionEntry | undefined => {
+    try {
+      const v = JSON.parse(s);
+      return v && typeof v === "object" ? (v as RawVisionEntry) : undefined;
+    } catch {
+      return undefined;
     }
-    return null;
-  }
+  };
+  const direct = tryParse(cleaned);
+  if (direct) return direct;
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) return tryParse(cleaned.slice(start, end + 1));
+  return undefined;
 }
 
 /**
