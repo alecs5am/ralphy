@@ -1,6 +1,6 @@
 # Distribution and publishing factory
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (delta on #423: zip bundle + #443 platform/safe-area validation + readiness gate + fixtures + doc)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** high
