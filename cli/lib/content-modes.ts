@@ -932,6 +932,189 @@ export function classifyContentMode(utterance: string): ContentModeClassificatio
   };
 }
 
+// ─── Open-world mode compiler (#454) ─────────────────────────────────────────
+//
+// The classifier above answers "which KNOWN mode is this?" — but the content-mode
+// taxonomy must NOT be a ceiling (#454). A brief for a content category Ralphy has
+// never seen (a novel format, an off-domain ask) scores nothing and comes back
+// `ambiguous: true` with `mode: null` — which the agent currently can't tell apart
+// from "two known modes tied". The compiler ADDS that distinction on top of the
+// (unchanged) classifier:
+//
+//   • known      — a known mode cleared the confidence floor, non-ambiguous.
+//   • ambiguous  — known modes scored but the agent must ask (a tie, or a single
+//                  weak hit at/just-above the floor with a contender behind it).
+//   • unknown    — nothing meaningful scored (genuinely novel / off-domain). The
+//                  open-world path: infer the closest MEDIA FORMAT (NOT a content
+//                  mode), research the niche, draft a provisional profile, run with
+//                  stricter checkpoints (see cli/lib/schemas/provisional-mode.ts).
+//
+// `compileMode()` is a PURE WRAPPER around `classifyContentMode()` — it does not
+// change the classifier's signature or behavior (additive only, per #454). It is
+// deterministic: no LLM, no network.
+
+/**
+ * Media-format union for the open-world FALLBACK (#454, acceptance #2). This is a
+ * SUPERSET of the template `TemplateFormat` taxonomy: it adds `audio` (a podcast /
+ * music / VO deliverable that ships as audio, with no image/video container) and
+ * `unknown` (nothing in the brief hints at a container). For an `unknown` content
+ * mode the compiler returns the closest media format here WITHOUT claiming a
+ * supported content mode — the agent knows the rough container to discover into,
+ * not a route it can promise.
+ */
+export const MEDIA_FORMATS = [
+  "video",
+  "image",
+  "carousel",
+  "motion-design",
+  "audio",
+  "poster",
+  "unknown",
+] as const;
+export type MediaFormat = (typeof MEDIA_FORMATS)[number];
+
+export type ModeStatus = "known" | "ambiguous" | "unknown";
+
+/**
+ * Deterministic media-format cues for the open-world fallback. Ordered by
+ * SPECIFICITY (most specific first): the first group whose phrase hits wins, so a
+ * "carousel" beats the generic "image", and "motion graphics" beats "video". A
+ * multi-word phrase is a stronger signal than a single token but here we only need
+ * presence (the winner is the first matching group, not a score). English-only.
+ */
+const FORMAT_CUES: Array<{ format: MediaFormat; cues: string[] }> = [
+  { format: "carousel", cues: ["carousel", "swipe", "slides", "slide deck", "multi-slide", "swipe-through"] },
+  { format: "motion-design", cues: ["motion graphics", "motion design", "kinetic", "animated graphics", "logo animation", "visualizer", "data viz", "data-viz", "infographic"] },
+  { format: "audio", cues: ["audio", "podcast", "soundscape", "voiceover", "voice over", "song", "track", "music", "jingle", "narration", "asmr"] },
+  { format: "poster", cues: ["poster", "key art", "flyer", "banner", "wordmark", "album cover"] },
+  { format: "video", cues: ["video", "reel", "short", "clip", "tiktok", "loop", "footage", "film", "spot", "ad", "vlog", "stream", "montage", "trailer"] },
+  { format: "image", cues: ["image", "photo", "picture", "still", "render", "graphic", "illustration", "emblem", "logo", "sticker", "wallpaper", "pin"] },
+];
+
+/**
+ * Infer the closest MEDIA FORMAT from a free-text brief (#454, acceptance #2).
+ * Deterministic, no network. Returns `"unknown"` when no container cue is present
+ * (the agent then asks / researches the container too). This is used ONLY for the
+ * open-world `unknown` path — for a known mode the agent uses the mode's
+ * `supportedFormats`. It deliberately does NOT claim a content mode.
+ */
+export function inferClosestFormat(utterance: string): MediaFormat {
+  const normalized = normalize(utterance ?? "");
+  for (const { format, cues } of FORMAT_CUES) {
+    for (const cue of cues) {
+      if (normalized.includes(` ${cue} `)) return format;
+    }
+  }
+  return "unknown";
+}
+
+/**
+ * Below this top-confidence the best known mode is too weak to be a `known`
+ * classification under the open-world lens — even when the classifier did not flag
+ * it ambiguous (a lone weak hit). The compiler treats that as `unknown` so the
+ * open-world discovery path fires instead of silently routing a novel brief to a
+ * barely-matched mode. Set EQUAL to `CONFIDENCE_FLOOR`: the classifier already
+ * flags `< CONFIDENCE_FLOOR` as ambiguous, so a score AT the floor is the lowest a
+ * non-ambiguous `known` can be — anything the classifier returns non-ambiguous is
+ * already `>= CONFIDENCE_FLOOR`. Kept as its own named constant so the open-world
+ * floor can be tightened later without touching the classifier.
+ */
+const KNOWN_FLOOR = CONFIDENCE_FLOOR;
+
+export interface ModeCompilation {
+  /** Open-world status: a known mode, an ambiguous match, or genuinely unknown. */
+  status: ModeStatus;
+  /** Best known mode (or null when nothing scored). Mirrors the classifier. */
+  mode: ContentMode | null;
+  /** Whether that mode is a first-class SUPPORTED route the agent may promise (#413). */
+  supported: boolean;
+  /** 0..1 confidence in the best known mode. */
+  confidence: number;
+  /**
+   * Closest MEDIA FORMAT for the open-world fallback (#454 #2). For `unknown`
+   * status this is the inferred container to discover into (never a content-mode
+   * claim). For `known`/`ambiguous` it is the best mode's primary format (the
+   * container the agent would ship), or the inferred format when no mode scored.
+   */
+  closestFormat: MediaFormat;
+  /** Human-readable reasons the compiler landed on this status (for the agent + tests). */
+  reasons: string[];
+  /** Runner-up known modes (descending score), excluding the winner. */
+  alternatives: ContentMode[];
+  /** The raw classifier result, untouched — for callers that want the scores. */
+  classification: ContentModeClassification;
+}
+
+/** Map a known mode's primary (default) supported format onto the media-format union. */
+function modePrimaryFormat(mode: ContentMode): MediaFormat {
+  const f = CONTENT_MODES[mode].supportedFormats[0];
+  // `fb-creative` / `sticker-pack` are template formats with no distinct
+  // open-world container — the closest media bucket is `image`.
+  if (f === "fb-creative" || f === "sticker-pack") return "image";
+  return f as MediaFormat;
+}
+
+/**
+ * Compile a free-text brief into an OPEN-WORLD mode result (#454). A pure,
+ * deterministic wrapper over `classifyContentMode()` (whose signature it does NOT
+ * change). It adds the `known | ambiguous | unknown` status, the supported flag,
+ * and — for the `unknown` open-world path — the closest media format to discover
+ * into, WITHOUT claiming a supported content mode.
+ *
+ * Status decision:
+ *   - nothing scored OR top confidence below `KNOWN_FLOOR` → `unknown`
+ *     (the open-world discovery path; `closestFormat` = inferred container).
+ *   - the classifier flagged it ambiguous (a tie / weak top with a contender)
+ *     → `ambiguous` (ask one disambiguating question).
+ *   - otherwise → `known` (route the known mode).
+ *
+ * @example
+ *   compileMode("a clean studio product shot")  // → status "known", mode "product-shot"
+ *   compileMode("an ASMR slime mixing loop")     // → status "unknown", closestFormat "video"
+ */
+export function compileMode(utterance: string): ModeCompilation {
+  const classification = classifyContentMode(utterance ?? "");
+  const { mode, confidence, ambiguous, alternatives } = classification;
+  const reasons: string[] = [];
+
+  const nothingScored = classification.scores.length === 0;
+  const belowKnownFloor = confidence < KNOWN_FLOOR;
+
+  let status: ModeStatus;
+  if (nothingScored || belowKnownFloor) {
+    status = "unknown";
+    reasons.push(
+      nothingScored
+        ? "no known mode keyword scored — the brief is off-domain / a novel content category."
+        : `the best known mode (${mode}) scored ${confidence} < the known floor ${KNOWN_FLOOR} — too weak to route as a known mode.`,
+    );
+  } else if (ambiguous) {
+    status = "ambiguous";
+    reasons.push(
+      alternatives.length > 0
+        ? `known modes scored but the agent must disambiguate: ${mode} vs ${alternatives.slice(0, 2).join(", ")}.`
+        : `the top known mode (${mode}) is at the confidence boundary — ask one disambiguating question.`,
+    );
+  } else {
+    status = "known";
+    reasons.push(`known mode ${mode} cleared the confidence floor at ${confidence}.`);
+  }
+
+  // closestFormat: for unknown (or nothing-scored) infer the container from the
+  // brief; for a scored mode use that mode's primary format.
+  let closestFormat: MediaFormat;
+  if (status === "unknown" || mode === null) {
+    closestFormat = inferClosestFormat(utterance);
+    reasons.push(`closest media format inferred from the brief: ${closestFormat}.`);
+  } else {
+    closestFormat = modePrimaryFormat(mode);
+  }
+
+  const supported = mode !== null && status !== "unknown" && isModeSupported(mode);
+
+  return { status, mode, supported, confidence, closestFormat, reasons, alternatives, classification };
+}
+
 // Re-export the format taxonomy reference so downstream code can validate
 // `supportedFormats` against it without a second import.
 export { TEMPLATE_FORMATS };
