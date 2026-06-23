@@ -168,6 +168,11 @@ const FIXTURES: Record<string, ModeFixture> = {
     brief: "make an animated infographic data visualization video of these stats",
     expectedFormat: "motion-design",
   },
+  "personal-clipper": {
+    utterance: "cut my stream into shorts and extract the best moments clips",
+    brief: "cut my stream into shorts and extract the best moments clips",
+    expectedFormat: "video",
+  },
   "amazon-listing": {
     utterance: "design my amazon listing images with an infographic listing",
     brief: "design my amazon listing images with an infographic listing",
@@ -199,25 +204,27 @@ describe("content-mode supported flag (#413)", () => {
   });
 
   test("every GAP mode names a recommended unit and ships kind 'none'", () => {
+    // As of #436 there are no gap modes; the contract still holds for any future
+    // mode added at supported: false (the loop is vacuous when the set is empty).
     for (const e of unsupportedContentModes()) {
       expect(e.implementationUnit.kind).toBe("none");
       expect((e.implementationUnit.recommendedUnit ?? "").length).toBeGreaterThan(0);
     }
   });
 
-  test("the supported set matches the documented 20/1 split", () => {
-    expect(supportedContentModes().length).toBe(20);
-    expect(unsupportedContentModes().length).toBe(1);
-    const gaps = unsupportedContentModes().map((e) => e.mode).sort();
-    expect(gaps).toEqual(["personal-clipper"]);
+  test("the supported set matches the documented 21/0 split (#436)", () => {
+    expect(supportedContentModes().length).toBe(21);
+    expect(unsupportedContentModes().length).toBe(0);
+    expect(unsupportedContentModes().map((e) => e.mode)).toEqual([]);
   });
 
   test("isModeSupported is false for an unknown mode string", () => {
     expect(isModeSupported("not-a-real-mode")).toBe(false);
   });
 
-  test("classifyContentMode still recognizes UNSUPPORTED modes (recognize, don't promise)", () => {
-    // The classifier must NAME the intent even when it is a deferred gap.
+  test("personal-clipper is now a supported first-class route (#436)", () => {
+    expect(isModeSupported("personal-clipper")).toBe(true);
+    // The classifier still NAMES the clip-extraction intent.
     expect(classifyContentMode("cut my stream into shorts, extract the best moments clips").mode).toBe(
       "personal-clipper",
     );
@@ -304,8 +311,8 @@ describe("coverage matrix doc completeness (#413)", () => {
   });
 
   test("the doc states the supported/gap split that the registry carries", () => {
-    expect(doc).toContain("20 supported");
-    // Each gap mode is named in the doc.
+    expect(doc).toContain("21 supported");
+    // Each gap mode (if any) is named in the doc.
     for (const e of unsupportedContentModes()) {
       expect(doc).toContain(`\`${e.mode}\``);
     }

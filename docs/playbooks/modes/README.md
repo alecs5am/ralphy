@@ -36,8 +36,9 @@ Each playbook paraphrases the durable craft already carried in the matching `.ag
 | `typography-animation` | [typography-animation.md](typography-animation.md) | `/hyperframes` + `/gsap` + `/waapi` |
 | `podcast-video` | [podcast-video.md](podcast-video.md) | `/audio-explainer` |
 | `infographic-animation` | [infographic-animation.md](infographic-animation.md) | `/hyperframes` + `/gsap` |
+| `personal-clipper` | [personal-clipper.md](personal-clipper.md) | `ralphy clip` + `/evaluator` |
 
-`product-shot`, `amazon-listing`, `lifestyle-scene`, `closeup-product-with-person`, `virtual-model-tryout`, `ugc-review`, and `tv-ad` now carry BOTH a production playbook (above) AND their backing register guideline(s) (cgi-product-renders / photoreal-studio-portraits / broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman) — the playbook is the production-intent floor, the guideline is the look floor; both apply. Every supported mode now ships a mode playbook. The 1 deferred-gap mode (`personal-clipper`) is exempt from the coverage bar until it is promoted to supported (#058).
+`product-shot`, `amazon-listing`, `lifestyle-scene`, `closeup-product-with-person`, `virtual-model-tryout`, `ugc-review`, and `tv-ad` now carry BOTH a production playbook (above) AND their backing register guideline(s) (cgi-product-renders / photoreal-studio-portraits / broadcast-realism-aspect / cinematic-90s-film / oldspice-absurd-spokesman) — the playbook is the production-intent floor, the guideline is the look floor; both apply. Every supported mode now ships a mode playbook. As of #436 all 21 modes are supported (`personal-clipper` promoted), so there is no deferred-gap mode left exempt from the coverage bar.
 
 ## Adjacent — multi-still deliverables
 

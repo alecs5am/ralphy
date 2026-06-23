@@ -40,9 +40,9 @@ This composes with — it does not replace — the existing routing table in [`A
 
 Every entry carries a `supported: boolean` and an `implementationUnit` (#413). A mode is **supported** iff it has a concrete implementation unit (a default route — a craft skill, a guideline-locked `generate` route, or the render engine) plus quality gates and a Unit shape. The full audit + the mode→unit mapping is [`docs/content-mode-coverage.md`](content-mode-coverage.md); the machine-readable flags live on the registry (`supported`, `implementationUnit`, `isModeSupported()`).
 
-`classifyContentMode()` still returns **all 21 modes**, including the unsupported ones — the agent must be able to recognize the intent. But:
+`classifyContentMode()` returns **all 21 modes**, and as of #436 every one is supported — there is currently no deferred-gap mode. The rule below still stands for any future mode added at `supported: false`:
 
-> **Agent rule: never expose an UNSUPPORTED mode name to the user as a deliverable you will produce.** When a brief classifies to a `gap (deferred)` mode (currently `personal-clipper`), either route to the closest SUPPORTED mode and say so, or tell the user it is not yet a first-class route and point at the recommended unit — then proceed only on explicit go. Promising a tuned pipeline that does not exist falls back to weak generic prompts; that is the failure #413 exists to prevent. Gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
+> **Agent rule: never expose an UNSUPPORTED mode name to the user as a deliverable you will produce.** When a brief classifies to a `gap (deferred)` mode, either route to the closest SUPPORTED mode and say so, or tell the user it is not yet a first-class route and point at the recommended unit — then proceed only on explicit go. Promising a tuned pipeline that does not exist falls back to weak generic prompts; that is the failure #413 exists to prevent. Gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
 
 #417 reads the same `supported` flag to check guideline coverage only for first-class routes.
 
