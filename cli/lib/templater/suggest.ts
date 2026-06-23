@@ -73,7 +73,7 @@ const TOKEN_SPLIT = /[\s,.;:!?]+/;
 function tokenize(utterance: string): string[] {
   return utterance
     .split(TOKEN_SPLIT)
-    .map((t) => t.replace(/[^a-z0-9\-Ѐ-ӿ]/gi, "").toLowerCase())
+    .map((t) => t.replace(/[^a-z0-9\-\u0400-\u04FF]/gi, "").toLowerCase()) // keep Cyrillic block U+0400-04FF; ASCII-escaped (#465)
     .filter((t) => t.length >= 2);
 }
 
