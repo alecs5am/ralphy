@@ -31,7 +31,7 @@ describe("scanRepo", () => {
     expect(hits).toEqual([]);
   });
 
-  test("allowlist holds only pre-existing debt paths", () => {
-    expect(ALLOWLIST.size).toBeGreaterThan(0);
+  test("allowlist is a Set (empty after #479 translated the original debt)", () => {
+    expect(ALLOWLIST).toBeInstanceOf(Set);
   });
 });

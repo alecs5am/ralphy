@@ -26,19 +26,13 @@ const BINARY_EXT =
   /\.(webp|png|jpe?g|gif|ico|bmp|tiff?|woff2?|ttf|otf|eot|mp3|mp4|m4a|wav|ogg|zip|gz|tgz|pdf|avif|heic|lockb)$/i;
 
 /**
- * Pre-existing all-Russian content/audit docs (#465). New Cyrillic in a CLEAN
- * file fails the gate; these are tracked translation debt (#479). DELETE a path
- * here once it is translated to English so the gate tightens over time.
+ * Translation-debt escape hatch (#465): paths whose Cyrillic is tracked debt
+ * rather than a fresh violation. The original seven all-Russian content/audit
+ * docs were translated to English in #479, so this is now EMPTY — the gate scans
+ * the whole tree. Add a path here ONLY for genuine pre-existing debt, and delete
+ * it the moment the file is translated.
  */
-export const ALLOWLIST = new Set<string>([
-  "docs/creative-library/hooks/HOOK_LIBRARY.md",
-  "docs/creative-library/personas/ARCHETYPES.md",
-  "docs/creative-library/personas/SCHEMA.md",
-  "docs/creative-library/scenes/SETTINGS.md",
-  "notes/audit-2026-05/audit.md",
-  "notes/audit-2026-05/chatgpt-research-rejected.md",
-  "notes/audit-2026-05/action-items.md",
-]);
+export const ALLOWLIST = new Set<string>([]);
 
 export interface CyrillicHit {
   file: string;
