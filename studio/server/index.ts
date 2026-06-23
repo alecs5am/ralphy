@@ -1,8 +1,11 @@
 // Studio — local artifact browser server (#107).
 //
 // One Bun.serve process: static UI (studio/src/) + JSON API + WebSocket
-// live-watch. READ-ONLY over the data root (AGENTS.md invariant #14) — no
-// code path here writes, renames, or deletes inside `.ralphy/`.
+// live-watch. READ-ONLY over MEDIA (AGENTS.md invariant #14): no code path here
+// writes, renames, or deletes any artifact. The SOLE write is the board-choice
+// endpoint (#478) — POST /api/projects/:id/board/choose persists the chosen
+// variant per scene to a project-local board.json, never touching media. Every
+// other non-GET stays 405.
 //
 // Run by the USER in their own shell (`bun run dev` inside studio/) — never
 // auto-launched by the agent (AGENTS.md invariant #5).
@@ -18,6 +21,10 @@ import {
   projectDir,
   kindOfRelPath,
   mediaType,
+  readWorkflowLane,
+  readBoard,
+  writeBoardChoice,
+  writeBoardLayout,
   MIME,
 } from "./lib.js";
 
@@ -123,8 +130,36 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
       },
       message() { /* one-way push; client messages ignored */ },
     },
-    fetch(req, srv) {
+    async fetch(req, srv) {
       const url = new URL(req.url);
+
+      // ── The ONE sanctioned write (AGENTS.md #14): persist a board choice ──
+      // Read-only over media; writing the per-scene chosen variant to board.json
+      // is the sole mutation. Every other non-GET stays 405.
+      if (req.method === "POST" && url.pathname.match(/^\/api\/projects\/([^/]+)\/board\/choose$/)) {
+        const m2 = url.pathname.match(/^\/api\/projects\/([^/]+)\/board\/choose$/)!;
+        const id = decodeURIComponent(m2[1]);
+        let body: { workspace?: string; scene?: string; path?: string };
+        try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+        const ws = body.workspace ?? "default";
+        if (!body.scene || !body.path) return json({ error: "scene + path required" }, 400);
+        if (!fs.existsSync(projectDir(dataRoot!, ws, id))) return json({ error: "unknown project" }, 404);
+        const result = writeBoardChoice(dataRoot!, ws, id, body.scene, body.path);
+        if (result && "error" in result) return json(result, 400);
+        return json(result);
+      }
+      if (req.method === "POST" && url.pathname.match(/^\/api\/projects\/([^/]+)\/board\/layout$/)) {
+        const m2 = url.pathname.match(/^\/api\/projects\/([^/]+)\/board\/layout$/)!;
+        const id = decodeURIComponent(m2[1]);
+        let body: { workspace?: string; node?: string; x?: number; y?: number };
+        try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+        const ws = body.workspace ?? "default";
+        if (!body.node || typeof body.x !== "number" || typeof body.y !== "number") return json({ error: "node + x + y required" }, 400);
+        const result = writeBoardLayout(dataRoot!, ws, id, body.node, body.x, body.y);
+        if ("error" in result) return json(result, 400);
+        return json(result);
+      }
+
       if (req.method !== "GET") return json({ error: "read-only" }, 405);
 
       // ── WS upgrade ────────────────────────────────────────────────────
@@ -151,6 +186,20 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         const id = decodeURIComponent(m[1]);
         if (!fs.existsSync(projectDir(dataRoot!, ws, id))) return json({ error: "unknown project" }, 404);
         return json(listArtifacts(dataRoot!, ws, id));
+      }
+      m = url.pathname.match(/^\/api\/projects\/([^/]+)\/workflow$/);
+      if (m) {
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const id = decodeURIComponent(m[1]);
+        if (!fs.existsSync(projectDir(dataRoot!, ws, id))) return json({ error: "unknown project" }, 404);
+        return json(readWorkflowLane(dataRoot!, ws, id));
+      }
+      m = url.pathname.match(/^\/api\/projects\/([^/]+)\/board$/);
+      if (m) {
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const id = decodeURIComponent(m[1]);
+        if (!fs.existsSync(projectDir(dataRoot!, ws, id))) return json({ error: "unknown project" }, 404);
+        return json(readBoard(dataRoot!, ws, id));
       }
       m = url.pathname.match(/^\/api\/projects\/([^/]+)\/file$/);
       if (m) {
