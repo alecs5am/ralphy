@@ -194,19 +194,18 @@ describe("compileProductionContract — fixture modes", () => {
 // ─── The unsupported / unclassified refusal (#413 hard requirement) ─────────────
 
 describe("compileProductionContract — unsupported-mode refusal", () => {
-  test("an unsupported mode → supported:false + closest supported mode (NOT a fake-support contract)", async () => {
-    // "personal-clipper" is a deferred gap (supported:false). A clear clipper
-    // brief classifies into it.
+  test("a clip-extraction brief now compiles a SUPPORTED personal-clipper contract (#436)", async () => {
+    // #436 promoted `personal-clipper` to a first-class route, so a clear clipper
+    // brief now yields a real supported contract — NOT a refusal. (The
+    // classified-but-unsupported refusal branch is still exercised by the
+    // unclassified-brief test below, which drives `support.supported === false`
+    // with a concrete `closestSupportedMode`.)
     const c = await compile("c-clip", "cut my long stream into vertical shorts / clips");
     expect(c.mode).toBe("personal-clipper");
-    expect(isModeSupported("personal-clipper")).toBe(false);
-    expect(c.support.supported).toBe(false);
-    // The refusal carries a CONCRETE closest supported mode, not a silent fallback.
-    expect(c.support.closestSupportedMode).not.toBeNull();
-    expect(isModeSupported(c.support.closestSupportedMode!)).toBe(true);
-    expect(c.support.reason).toContain("not a first-class route");
-    // The closest suggestion is a real supported mode, never the unsupported one.
-    expect(c.support.closestSupportedMode).not.toBe("personal-clipper");
+    expect(isModeSupported("personal-clipper")).toBe(true);
+    expect(c.support.supported).toBe(true);
+    expect(c.support.closestSupportedMode).toBeNull();
+    expect(c.support.reason).toContain("first-class route");
   });
 
   test("an unclassified brief → supported:false + disambiguation reason + closest mode", async () => {

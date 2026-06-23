@@ -447,6 +447,109 @@ export async function optimizeReencode(input: OptimizeInput): Promise<string> {
   return dst;
 }
 
+// --- Recipe 7b: clip cut (+ optional 9:16 vertical crop) (#436) ---------
+//
+// The deterministic primitive behind `ralphy clip` (personal-clipper mode).
+// Cuts the [from, to) window out of a long-form source and optionally
+// centre-crops it to a 9:16 vertical frame. This verb does NOT do "viral
+// moment detection" — that is the agent's job (read the `ref transcribe`
+// word-level transcript, pick the windows). The recipe only executes the cut,
+// so AGENTS.md invariant #2 holds (no ad-hoc ffmpeg outside a verb's recipe).
+//
+// The window is re-encoded (not stream-copied) so the cut is frame-accurate at
+// the requested timestamps rather than snapping to the nearest keyframe — clip
+// boundaries chosen from a transcript must land on the spoken word.
+
+/**
+ * Parse a timestamp into seconds. Accepts a bare float (`"12.5"`), `MM:SS`
+ * (`"1:30"`), or `HH:MM:SS` (`"1:02:03"`); fractional seconds allowed in the
+ * last field (`"1:30.5"`). Returns NaN for anything unparseable so the caller
+ * can reject it. Exported for unit testing.
+ */
+export function parseTimestampSec(ts: string): number {
+  const raw = String(ts).trim();
+  if (raw === "") return NaN;
+  if (!raw.includes(":")) {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  const parts = raw.split(":");
+  if (parts.length > 3) return NaN;
+  let total = 0;
+  for (const part of parts) {
+    const n = Number(part);
+    if (!Number.isFinite(n) || n < 0) return NaN;
+    total = total * 60 + n;
+  }
+  return total;
+}
+
+/**
+ * The centre-crop vf chain for a 9:16 vertical frame from any-aspect source:
+ * crop the largest centred 9:16 rectangle, then scale to a 1080x1920 canvas.
+ * `min(iw,ih*9/16)` keeps the crop inside the frame for both landscape and
+ * already-portrait inputs. Exported for unit testing.
+ */
+export const VERTICAL_916_VF =
+  "crop='min(iw,ih*9/16)':'min(ih,iw*16/9)':(iw-ow)/2:(ih-oh)/2," +
+  "scale=1080:1920:force_original_aspect_ratio=increase," +
+  "crop=1080:1920,setsar=1";
+
+/**
+ * Build the ffmpeg argv for a clip cut. Pre-seek (`-ss`/`-to` before `-i`) for
+ * speed, re-encoded for frame-accurate boundaries. When `vertical` is set, the
+ * 9:16 centre-crop vf chain is applied. Exported so unit tests can pin the
+ * exact argv without spawning ffmpeg.
+ */
+export function buildClipArgs(opts: {
+  src: string;
+  startSec: number;
+  endSec: number;
+  dst: string;
+  vertical: boolean;
+}): string[] {
+  const { src, startSec, endSec, dst, vertical } = opts;
+  const args = [
+    "-ss", String(startSec),
+    "-to", String(endSec),
+    "-i", src,
+  ];
+  if (vertical) args.push("-vf", VERTICAL_916_VF);
+  args.push(
+    "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+    "-c:a", "aac", "-b:a", "192k",
+    "-movflags", "+faststart",
+    dst,
+  );
+  return args;
+}
+
+export type ClipInput = {
+  src: string;
+  startSec: number;
+  endSec: number;
+  dst: string;
+  /** Centre-crop to a 9:16 vertical frame. Default false (keep source aspect). */
+  vertical?: boolean;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+export async function clip(input: ClipInput): Promise<string> {
+  const { src, startSec, endSec, dst, vertical = false, forceOverwrite = false, ...opts } = input;
+  if (!(endSec > startSec)) {
+    throw new Error(`clip: --to (${endSec}s) must be greater than --from (${startSec}s)`);
+  }
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  await runFfmpeg(buildClipArgs({ src, startSec, endSec, dst, vertical }), {
+    endpoint: "ffmpeg/clip",
+    input: { src, startSec, endSec, dst, vertical },
+    opts,
+  });
+  return dst;
+}
+
 function probeDurationSec(src: string): number {
   const r = spawnSync(
     "ffprobe",

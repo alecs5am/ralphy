@@ -23,7 +23,7 @@ Because gates + Unit shape exist for all 21 #412 modes, the load-bearing conditi
 | `skill` | a craft-overlay SKILL.md under `.agents/skills/` | `carousel`, `fb-creatives`, `ugc-ad`, `audio-explainer` |
 | `guideline-route` | an art-director `ralphy generate image` route locked by an existing `guidelines/` slug + `json-prompt-engine` for the structured prompt | `product-shot` → `cgi-product-renders` |
 | `render-engine` | the HyperFrames render engine + editor playbook authoring the format directly | `motion-design`, `typography-animation` |
-| `none` | no concrete unit yet — a deferred gap | `personal-clipper` |
+| `none` | no concrete unit yet — a deferred gap | (none — all 21 modes are supported) |
 
 ## The matrix
 
@@ -50,10 +50,10 @@ Status legend: **supported** = first-class route the agent may promise; **gap (d
 | `typography-animation` | render-engine | `.agents/skills/hyperframes` + `/gsap` + `/waapi` (per-char timelines) → `ralphy render` | supported | route + plan (motion-design) | Kinetic type authored directly in HyperFrames. |
 | `podcast-video` | skill | `.agents/skills/audio-explainer` (yt-dlp → Scribe → claim segmentation → overlay planner → HyperFrames) | supported | route + plan (video) | Direct route. |
 | `infographic-animation` | render-engine | `.agents/skills/hyperframes` + `/gsap` (data-in-motion: animated charts / counters / comparison overlays) → `ralphy render` | supported | route + plan (motion-design) | The render engine authors the animated infographic directly; factual claims require source-cited / user-provided data. |
-| `personal-clipper` | none | — (no clipper skill, no clip-extraction CLI verb; ad-hoc ffmpeg is banned by AGENTS #2) | gap (deferred) | — | Recommend a `ralphy clip` verb (transcript-driven highlight detection → vertical crop + caption bake) + a `personal-clipper` skill, #058. |
+| `personal-clipper` | render-engine | `ralphy ref transcribe` → agent-picked highlight windows → `ralphy clip --from --to [--vertical]` → `ralphy generate captions` → `ralphy render` ([modes/personal-clipper.md](playbooks/modes/personal-clipper.md)) | supported | route + plan (video) | Transcript-driven clip extraction (#436). `ralphy clip` only executes the cut — the agent selects windows from the `ref transcribe` transcript; a no-good-clips-found brief STOPS rather than forcing weak clips. |
 | `amazon-listing` | guideline-route | `guidelines/cgi-product-renders` + `/json-prompt-engine` overlay → `ralphy project image-pack` + `ralphy generate image` ([modes/amazon-listing.md](playbooks/modes/amazon-listing.md)) | supported | route + plan (image) | Marketplace listing slot set (main + infographic + lifestyle); the cgi-product-renders lock + the image-pack scaffold (#429) + claim-safe copy (#442) + the text-legibility gate (#439) + product fidelity (#422) apply. |
 
-**Summary: 20 supported, 1 gap (deferred).** Gap: `personal-clipper`.
+**Summary: 21 supported, 0 gaps.** As of #436 (`personal-clipper` promoted), all 21 modes are first-class routes.
 
 ## Quality-guidance coverage (#417)
 
@@ -84,8 +84,9 @@ Every SUPPORTED mode must carry mode-specific quality guidance — a linked regi
 | `typography-animation` | [modes/typography-animation.md](playbooks/modes/typography-animation.md) | playbook |
 | `podcast-video` | [modes/podcast-video.md](playbooks/modes/podcast-video.md) | playbook |
 | `infographic-animation` | [modes/infographic-animation.md](playbooks/modes/infographic-animation.md) | playbook |
+| `personal-clipper` | [modes/personal-clipper.md](playbooks/modes/personal-clipper.md) | playbook |
 
-The 1 deferred-gap mode is exempt from the coverage bar (it carries a `recommendedUnit` instead); promoting it to supported (#058) makes the lint require its coverage automatically. The production plan (#407) lists the guidance it loaded for the chosen mode in its `guidelinesUsed[]` field (populated from `modeGuidelineCoverage()`).
+Every supported mode carries quality guidance; there are no deferred-gap modes left to exempt. The production plan (#407) lists the guidance it loaded for the chosen mode in its `guidelinesUsed[]` field (populated from `modeGuidelineCoverage()`).
 
 ## Skills classified against modes
 
@@ -136,12 +137,12 @@ Notes:
 
 ## Do NOT promise unsupported modes (agent rule)
 
-`classifyContentMode()` returns ALL 21 modes — including the 1 gap — because the agent must be able to recognize the intent. **But the agent must NOT expose an unsupported mode name to the user as a deliverable it will produce.** When a brief classifies to a `gap (deferred)` mode:
+`classifyContentMode()` returns ALL 21 modes because the agent must be able to recognize the intent. As of #436 every mode is supported, so there is currently no deferred-gap mode to refuse — but the rule stands for any future mode added at `supported: false`: **the agent must NOT expose an unsupported mode name to the user as a deliverable it will produce.** When a brief classifies to a `gap (deferred)` mode:
 
-- route to the **closest supported mode** when one fits (e.g. a stream-to-shorts ask → cut down the source manually with the `editor` and say it is not a dedicated clip-extraction route), OR
+- route to the **closest supported mode** when one fits, and say so, OR
 - tell the user plainly it is **not yet a first-class route** and point at the recommended unit (the `recommendedUnit` field on the gap entry / the matrix above), then proceed only on explicit user go.
 
-This is the same defect class as skipping a playbook read: promising `personal-clipper` as if a tuned pipeline existed would fall back to weak generic prompts and agent taste — the exact failure #413 exists to prevent. Programmatically, gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
+This is the same defect class as skipping a playbook read: promising a mode as if a tuned pipeline existed when none does would fall back to weak generic prompts and agent taste — the exact failure #413 exists to prevent. Programmatically, gate any "I'll make you a `<mode>`" promise on `isModeSupported(mode)`.
 
 ## See also
 

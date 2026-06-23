@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **46**
+Verbs registered: **47**
 
 ## Top-level verbs
 
@@ -1719,6 +1719,42 @@ Commands:
                              Drops audio (add a music bed in the compose/render
                              step). Output is ~2x the source length.
   help [command]             display help for command
+```
+
+### `ralphy clip`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy clip [options] <source>
+
+Cut a [from, to) window out of a long-form video and (optionally) centre-crop it
+to 9:16 vertical. The clip-cut primitive for the personal-clipper mode.
+Highlight selection is the agent's job (read the `ralphy ref transcribe`
+transcript, pick the windows); this verb only executes the cut.
+
+Arguments:
+  source             Source video (absolute path, or relative to cwd)
+
+Options:
+  --from <ts>        Window start — seconds (`12.5`), MM:SS (`1:30`), or
+                     HH:MM:SS (`1:02:03`)
+  --to <ts>          Window end — same formats as --from
+  --vertical         Centre-crop the clip to a 9:16 vertical frame (1080x1920)
+                     (default: false)
+  --out <path>       Output path. Optional when --project is set — defaults to
+                     <project>/artifacts/videos/<source>-clip-<from>-<to>.mp4.
+  --project <id>     Project ID — logs the cut to the gen-log and resolves the
+                     default --out.
+  --force-overwrite  Skip the .v2 collision archive (default: false)
+  --note <note>      Free-form note recorded in the gen-log row
+  -h, --help         display help for command
 ```
 
 ### `ralphy image`

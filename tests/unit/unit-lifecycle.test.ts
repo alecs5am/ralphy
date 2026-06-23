@@ -276,14 +276,17 @@ describe("unsupported-mode stop (#412/#413)", () => {
   test("a plan recording an unsupported content mode fires mode-unsupported", () => {
     writeArtifact("BRIEF.md");
     writeArtifact("PRODUCTION_PLAN.md");
-    // `personal-clipper` is an unsupported (deferred-gap) mode in the registry.
-    writePlan({ contentMode: { mode: "personal-clipper" }, estimate: { wallClockMin: 5 }, requiredRefs: [], bypasses: [] });
+    // As of #436 every registry mode is supported, so the unsupported path is
+    // driven by a mode string that is NOT in the registry (isModeSupported
+    // returns false for any unknown mode) — the same block the guard fires for a
+    // future mode added at supported: false.
+    writePlan({ contentMode: { mode: "not-a-real-mode" }, estimate: { wallClockMin: 5 }, requiredRefs: [], bypasses: [] });
     const r = evaluateContract(PROJECT);
     const stop = r.stopConditions.find((s) => s.id === "mode-unsupported")!;
     expect(stop).toBeDefined();
     expect(stop.phase).toBe("content-mode");
     expect(stop.severity).toBe("block");
-    expect(stop.detail).toContain("personal-clipper");
+    expect(stop.detail).toContain("not-a-real-mode");
   });
 
   test("a supported content mode does NOT fire mode-unsupported", () => {

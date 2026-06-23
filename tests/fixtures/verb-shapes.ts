@@ -93,6 +93,12 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     },
     { label: "brand.delete", shape: { deleted: "noski" } },
   ],
+  clip: [
+    {
+      label: "clip.cut",
+      shape: { src: "/tmp/stream.mp4", dst: ".ralphy/workspaces/default/projects/demo-001/artifacts/videos/stream-clip-12-45.mp4", startSec: 12, endSec: 45, durationSec: 33, vertical: true, project: "demo-001" },
+    },
+  ],
   clone: [
     { label: "clone.created", shape: { id: "spring-2026-002", clonedFrom: "spring-2026-001", root: ".ralphy/workspaces/default/projects/spring-2026-002" } },
   ],
