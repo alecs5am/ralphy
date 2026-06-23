@@ -360,7 +360,7 @@ function suggestSlot(slot: string): string | null {
   const ascii = slot
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, ""); // drop combining accents
+    .replace(/[\u0300-\u036F]/g, ""); // drop combining accents (ASCII-escaped, #465)
   const collapsed = ascii
     .replace(/[\s._/\\]+/g, "-")
     .replace(/[^a-z0-9-]/g, "")

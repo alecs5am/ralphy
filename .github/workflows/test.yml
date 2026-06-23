@@ -90,6 +90,11 @@ jobs:
       - name: Lint pretty-mode out() coverage (#001)
         run: bun run lint:out-coverage
 
+      # English-only-on-disk gate (#465): fails on any Cyrillic in a tracked
+      # text file outside the documented translation-debt allowlist.
+      - name: Lint no-Cyrillic (#465)
+        run: bun run lint:no-cyrillic
+
       - name: Check CLI surface doc is current (01.10.01)
         run: bun run cli:surface:check
 
