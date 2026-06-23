@@ -30,10 +30,20 @@ import {
 import {
   DistributionPackSchema,
   platformsForFormat,
+  profileKeyFor,
   type DistributionPack,
   type DistributionPlatform,
+  type DistributionReadiness,
   type PlatformSection,
+  type PlatformSpecStatus,
 } from "./schemas/distribution-pack.js";
+import {
+  PLATFORM_PROFILES,
+  validatePlatformSpec,
+  type MediaProbe,
+  type PlatformSpecReport,
+} from "./eval/platform.js";
+import { buildScorecard } from "./scorecard.js";
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"]);
 
@@ -52,6 +62,17 @@ export interface BuildDistributionPackInput {
   language?: string;
   /** Extra grounding text forwarded to the caption draft fallback. */
   brief?: string;
+  /**
+   * #458 #2: injectable media probe forwarded to the #443 platform validator
+   * (default = ffprobe + image-size). Fixtures pass a fake so no ffprobe runs.
+   */
+  probe?: MediaProbe;
+  /**
+   * #458 #5: an explicit user reason to bypass a non-`ship` readiness verdict.
+   * When set, the pack is marked shippable despite a `repair`/`needs-user-
+   * decision`/`blocked` verdict, and the reason is recorded on the pack.
+   */
+  bypassReadiness?: string;
 }
 
 export interface BuildDistributionPackResult {
@@ -61,6 +82,8 @@ export interface BuildDistributionPackResult {
   unitDir: string;
   /** True when the caption was drafted here (unit had none); false = reused. */
   draftedCaption: boolean;
+  /** #458 #2: the full #443 platform-spec report the per-section status was derived from. */
+  specReport: PlatformSpecReport;
 }
 
 /** Read + validate `units/<slug>/unit.json`, or null if absent/malformed. */
@@ -156,17 +179,40 @@ export async function buildDistributionPack(
   }
 
   // Per-platform sections, driven by the unit format.
+  const targets = platformsForFormat(manifest.format);
   const platforms: Partial<Record<DistributionPlatform, PlatformSection>> = {};
-  for (const platform of platformsForFormat(manifest.format)) {
+  for (const platform of targets) {
     platforms[platform] = sectionFor(platform, caption);
   }
 
   const { thumbnail, note } = pickThumbnail(unitDir, manifest.media, input.thumbnail);
 
-  // ponytail: #443 (platform-spec validator — safe-area / aspect / filesize)
-  // would validate `pack` here before it ships. Out of scope for #423; the seam
-  // is this assembled, schema-valid pack — wire the validator in and surface its
-  // findings on the pack / handoff.
+  // #458 #2 — channel profiles. Validate the unit's media against the #443
+  // platform-spec table, ONE platform at a time and only against the media whose
+  // KIND the platform posts (a still cover in a video bundle is not a Shorts
+  // upload, so it must not fail the video spec). Pure read; the probe is
+  // injectable so fixtures never spawn ffprobe.
+  const specReport = validatePerPlatform(input.projectId, unitDir, targets, manifest.media, input.probe);
+
+  // Fold the per-platform spec verdict + export requirements onto each section.
+  for (const platform of targets) {
+    const profileKey = profileKeyFor(platform);
+    const status = specStatusForPlatform(specReport, profileKey);
+    const notes = specNotesForPlatform(specReport, profileKey);
+    platforms[platform] = {
+      ...platforms[platform]!,
+      specStatus: status,
+      ...(notes.length && { specNotes: notes }),
+      outputFilenames: mediaForProfile(manifest.media, profileKey),
+      exportRequirements: exportRequirementsFor(profileKey),
+    };
+  }
+
+  // #458 #5 — readiness dependency. The #427 scorecard is a pure best-effort
+  // file read (zero model calls). A non-`ship` verdict leaves the pack
+  // not-shippable unless the user explicitly bypasses it.
+  const readiness = readReadiness(input.projectId, input.bypassReadiness);
+
   const pack = DistributionPackSchema.parse({
     projectId: input.projectId,
     slug: manifest.slug,
@@ -175,7 +221,135 @@ export async function buildDistributionPack(
     thumbnail,
     selectedMedia: manifest.media,
     publishNote: note,
+    readiness,
+    shippable: readiness.verdict === "ship" || readiness.bypassed,
+    archive: null, // the command fills this after it writes the zip.
   });
 
-  return { pack, manifest, unitDir, draftedCaption };
+  return { pack, manifest, unitDir, draftedCaption, specReport };
+}
+
+/** Project-relative media basenames whose kind matches the platform profile's kind. */
+function mediaForProfile(media: string[], profileKey: string): string[] {
+  const kind = PLATFORM_PROFILES[profileKey]?.kind;
+  if (!kind) return media;
+  const isImage = (m: string) => IMAGE_EXTS.has(path.extname(m).toLowerCase());
+  return media.filter((m) => (kind === "image" ? isImage(m) : !isImage(m)));
+}
+
+/**
+ * Validate each target platform against ONLY its kind-matching media, and merge
+ * the per-platform reports into one. A platform with no media of its kind yields
+ * an `na` section (no posted asset to check). Mirrors `validatePlatformSpec`'s
+ * own report shape so the scorecard/handoff consume it unchanged.
+ */
+function validatePerPlatform(
+  projectId: string,
+  unitDir: string,
+  targets: DistributionPlatform[],
+  media: string[],
+  probe?: MediaProbe,
+): PlatformSpecReport {
+  const merged: PlatformSpecReport = {
+    schemaVersion: "1.0",
+    projectId,
+    platforms: [],
+    applicable: false,
+    verdict: "pass",
+    blocksShip: false,
+    reason: "",
+    results: [],
+    findings: [],
+  };
+  let worst: PlatformSpecStatus = "pass";
+  for (const platform of targets) {
+    const profileKey = profileKeyFor(platform);
+    merged.platforms.push(profileKey);
+    const kindMedia = mediaForProfile(media, profileKey);
+    if (kindMedia.length === 0) continue; // na — no posted asset of this kind
+    const r = validatePlatformSpec({
+      projectId,
+      platforms: [profileKey],
+      media: kindMedia.map((m) => path.join(unitDir, m)),
+      probe,
+    });
+    if (!r.applicable) continue;
+    merged.applicable = true;
+    merged.results.push(...r.results);
+    merged.findings.push(...r.findings);
+    if (r.verdict === "fail") worst = "fail";
+    else if (r.verdict === "warn" && worst !== "fail") worst = "warn";
+  }
+  merged.verdict = worst === "fail" ? "fail" : worst === "warn" ? "warn" : "pass";
+  merged.blocksShip = merged.verdict === "fail";
+  merged.reason = !merged.applicable
+    ? "no posted media of any target-platform kind — platform-spec gate not applicable."
+    : merged.verdict === "fail"
+      ? "one or more channels failed the upload spec (aspect / resolution / duration / codec / file-size)."
+      : merged.verdict === "warn"
+        ? "platform spec warnings (safe-area / resolution recommendation) — review before publishing."
+        : `media conforms to the target channel spec(s): ${merged.platforms.join(", ")}.`;
+  return merged;
+}
+
+/** The worst per-platform spec status from the #443 report (pass<warn<fail; na = no media). */
+function specStatusForPlatform(report: PlatformSpecReport, profileKey: string): PlatformSpecStatus {
+  if (!report.applicable) return "na";
+  const findings = report.results
+    .filter((r) => r.platform === profileKey)
+    .flatMap((r) => r.findings);
+  if (findings.some((f) => f.severity === "fail")) return "fail";
+  if (findings.some((f) => f.severity === "warn")) return "warn";
+  return report.results.some((r) => r.platform === profileKey) ? "pass" : "na";
+}
+
+/** Concrete spec fix hints for one platform, from the #443 report. */
+function specNotesForPlatform(report: PlatformSpecReport, profileKey: string): string[] {
+  return report.results
+    .filter((r) => r.platform === profileKey)
+    .flatMap((r) => r.findings)
+    .map((f) => `${f.message} (${f.fixHint})`);
+}
+
+/** Readable hard export requirements for a channel, from the #443 profile table. */
+function exportRequirementsFor(profileKey: string): string[] {
+  const p = PLATFORM_PROFILES[profileKey];
+  if (!p) return [];
+  const reqs: string[] = [];
+  reqs.push(`aspect ${p.aspects.map(([w, h]) => `${w}:${h}`).join(" or ")}`);
+  if (p.minResolution) reqs.push(`min ${p.minResolution[0]}x${p.minResolution[1]}`);
+  if (p.durationSec && (p.durationSec.min !== null || p.durationSec.max !== null)) {
+    reqs.push(`duration ${p.durationSec.min ?? 0}-${p.durationSec.max ?? "∞"}s`);
+  }
+  if (p.videoCodecs.length) reqs.push(`codec ${p.videoCodecs.join("/")}`);
+  if (p.maxFileSizeMb !== null) reqs.push(`max ${p.maxFileSizeMb}MB`);
+  return reqs;
+}
+
+/**
+ * Read the #427 readiness scorecard (pure file read, zero model calls) into the
+ * pack's readiness block. A scorecard read failure degrades to a
+ * `needs-user-decision` verdict — never throws. A `bypass` reason marks the pack
+ * shippable despite a non-`ship` verdict.
+ */
+function readReadiness(projectId: string, bypass?: string): DistributionReadiness {
+  let verdict = "needs-user-decision";
+  let reason = "Could not read the readiness scorecard.";
+  let polished: boolean | null = null;
+  try {
+    const card = buildScorecard({ projectId });
+    verdict = card.verdict;
+    reason = card.reason;
+    polished = card.polished;
+  } catch {
+    /* best-effort — a scorecard read failure leaves the default non-ship verdict */
+  }
+  const bypassed = verdict !== "ship" && typeof bypass === "string" && bypass.length > 0;
+  return {
+    verdict,
+    reason,
+    polished,
+    bypassed,
+    bypassReason: bypassed ? bypass! : null,
+  };
 }

@@ -46,6 +46,15 @@ export function isDistributionPlatform(value: unknown): value is DistributionPla
 // ─── A per-platform section ───────────────────────────────────────────────────
 
 /**
+ * The spec/safe-area validation verdict a platform section carries (#458 #2).
+ * Sourced from the #443 platform-spec validator (`cli/lib/eval/platform.ts`) —
+ * never re-derived here. `na` = the validator had no media to check this
+ * platform against; the section still ships its copy.
+ */
+export const PlatformSpecStatusSchema = z.enum(["pass", "warn", "fail", "na"]);
+export type PlatformSpecStatus = z.infer<typeof PlatformSpecStatusSchema>;
+
+/**
  * One platform's publish-ready fields. All optional/additive: a platform only
  * fills the fields that make sense for it (TikTok = a hook caption + tags;
  * Shorts = a ≤40-char title; Meta = ad primary text + CTA variants). Sourced
@@ -62,8 +71,44 @@ export const PlatformSectionSchema = z.object({
   primaryText: z.string().optional(),
   /** Meta-ad-only: CTA button-text variants to A/B. */
   ctaVariants: z.array(z.string()).optional(),
+
+  // ─── #458 additive: channel-profile validation + export shape ───────────────
+
+  /**
+   * #458 #2: the #443 platform-spec verdict for THIS platform's media — does the
+   * bundle meet the channel's aspect / resolution / duration / codec / file-size
+   * / safe-area spec. `na` when there was no media to validate.
+   */
+  specStatus: PlatformSpecStatusSchema.optional(),
+  /** #458 #2: concrete spec-violation / safe-area fix hints for this platform. */
+  specNotes: z.array(z.string()).optional(),
+  /** #458 #1: the deliverable filenames (in the copied bundle) this platform posts. */
+  outputFilenames: z.array(z.string()).optional(),
+  /** #458 #1: the channel's hard export requirements (aspect, codec, max size, …) as readable strings. */
+  exportRequirements: z.array(z.string()).optional(),
 });
 export type PlatformSection = z.infer<typeof PlatformSectionSchema>;
+
+// ─── Readiness block (#458 #5) ────────────────────────────────────────────────
+
+/**
+ * The pack's readiness verdict, sourced verbatim from the #427 scorecard
+ * (`buildScorecard`) — never re-derived here. Gates the top-level `shippable`
+ * flag. `verdict` is the scorecard's own four-value verdict.
+ */
+export const DistributionReadinessSchema = z.object({
+  /** The scorecard verdict: ship | repair | needs-user-decision | blocked. */
+  verdict: z.string().default("needs-user-decision"),
+  /** One-line reason for the verdict (the scorecard's own reason string). */
+  reason: z.string().default(""),
+  /** The scorecard's `polished` boolean (null = nothing rendered/evaluated yet). */
+  polished: z.boolean().nullable().default(null),
+  /** True when the user explicitly bypassed a non-ship readiness verdict. */
+  bypassed: z.boolean().default(false),
+  /** The user-supplied bypass reason, when `bypassed`. */
+  bypassReason: z.string().nullable().default(null),
+});
+export type DistributionReadiness = z.infer<typeof DistributionReadinessSchema>;
 
 // ─── The top-level pack object ─────────────────────────────────────────────────
 
@@ -86,13 +131,52 @@ export const DistributionPackSchema = z.object({
   selectedMedia: z.array(z.string()).default([]),
   /** A short human publish note (English-on-disk). */
   publishNote: z.string().default(""),
+
+  // ─── #458 additive: readiness gate + packaged archive ───────────────────────
+
+  /**
+   * #458 #5: the readiness verdict (from the #427 scorecard), or null when the
+   * scorecard could not be read. Gates `shippable`.
+   */
+  readiness: DistributionReadinessSchema.nullable().default(null),
+  /**
+   * #458 #5: the pack is ship-ready only when the readiness verdict is `ship`
+   * OR the user explicitly bypassed it. A `repair` / `blocked` / `needs-user-
+   * decision` verdict with no bypass leaves this false — the copy + bundle still
+   * assemble, but the pack is flagged not-yet-shippable.
+   */
+  shippable: z.boolean().default(false),
+  /**
+   * #458 #3: the unit-relative path of the packaged ZIP of the copied bundle,
+   * or null when the JSON was assembled without the command-side zip step.
+   */
+  archive: z.string().nullable().default(null),
 });
 export type DistributionPack = z.infer<typeof DistributionPackSchema>;
 
-/** The unit-relative basename the pack JSON / handoff / copy dir use. */
+/** The unit-relative basename the pack JSON / handoff / copy dir / zip use. */
 export const DISTRIBUTION_PACK_FILE = "distribution-pack.json" as const;
 export const DISTRIBUTION_HANDOFF_FILE = "DISTRIBUTION.md" as const;
 export const DISTRIBUTION_COPY_DIR = "distribution" as const;
+/** The unit-relative basename of the packaged ZIP (#458 #3). `<slug>` is filled per-unit. */
+export const distributionZipName = (slug: string): string => `${slug}-distribution.zip`;
+
+/**
+ * Map a distribution-pack platform key to its #443 platform-profile key
+ * (`cli/lib/eval/platform.ts`). The pack taxonomy (`meta`, `app-store`) is the
+ * publish-copy view; the validator owns the richer spec taxonomy. Append, never
+ * repurpose.
+ */
+export function profileKeyFor(platform: DistributionPlatform): string {
+  switch (platform) {
+    case "meta":
+      return "meta-ad";
+    case "app-store":
+      return "app-store-screenshot";
+    default:
+      return platform; // tiktok / reels / shorts share the key
+  }
+}
 
 /**
  * Which platforms a unit format distributes to. The mapping is intentionally
