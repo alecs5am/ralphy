@@ -1,6 +1,6 @@
 # Ralphy Desktop chat product MVP
 
-> **Status:** issue
+> **Status:** dropped (standalone Electron desktop MVP not pursued; the human-facing surface is studio/, expanded into a board UI in #478; dropped by the user 2026-06-23)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** strategic

@@ -1,6 +1,6 @@
 # Companion-repo manifest still names `assets/uploaded/` destSubdirs
 
-> **Status:** issue
+> **Status:** dropped (legacy — external ralphy-assets dependency; the CLI destSubdir fallback already lands installs correctly, and the #105/#106 layout migration is long done; flagged legacy by the user 2026-06-23)
 > **Filed:** 2026-06-11
 > **Folder:** issues
 
