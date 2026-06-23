@@ -1,6 +1,6 @@
 # Quality flywheel orchestrator
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (verified existing #427/#411/#425 flywheel; added named gate registry + fixtures + doc)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** high

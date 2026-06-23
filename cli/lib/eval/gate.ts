@@ -14,6 +14,10 @@
 //      slicing is a diagnostic, not a final gate.
 
 import { connectorsFor } from "../providers/registry.js";
+import { requiresStyleLock } from "../style-lock.js";
+import { requiresFidelityGate, hasBakedText } from "../content-modes.js";
+import { isPlatformKey } from "./platform.js";
+import type { TemplateFormat } from "../schemas/template.js";
 import type { EvalMode, GateInfo, Verdict } from "./types.js";
 
 /** Modes that run a full-mp4 native model pass — the only gates strong enough
@@ -151,4 +155,181 @@ export function hasModelCredentials(): boolean {
   } catch {
     return false;
   }
+}
+
+// ─── Gate registry (#457 acceptance #1) ─────────────────────────────────────────
+//
+// The quality flywheel (#457) runs the gates RELEVANT to a Unit, then merges
+// their persisted reports through `buildScorecard()` (cli/lib/scorecard.ts). Which
+// gates are relevant has always been DERIVABLE — from the content mode, the media
+// format, and the target platforms — but the derivation lived implicitly across
+// `requiresStyleLock` (style-lock.ts), `requiresFidelityGate` / `hasBakedText`
+// (content-modes.ts), the per-gate `applicable` flags, and `PLATFORM_PROFILES`
+// (platform.ts). `gatesForContext` is the SINGLE named source of truth that names
+// the applicable set up front. It DOES NOT re-decide ship/repair/blocked (that is
+// the scorecard's verdict precedence) and DOES NOT re-implement any predicate — it
+// composes the existing ones, so adding a commercial / baked-text / lock-required
+// mode auto-updates the registry through those helpers.
+
+/** The gate identifiers the flywheel can run (issue #457 acceptance #1). */
+export const QUALITY_GATES = [
+  "native-video", // #411 full-mp4 final gate → scorecard technicalPolish
+  "structure", // #411 deterministic structure pass → hook / pacing
+  "ocr", // #439 text-legibility → scorecard textLegibility
+  "first-frame-hook", // #440 scroll-stop opener critic → enriches hook
+  "captions", // #441 caption sync/readability → enriches captions
+  "product-fidelity", // #422 product/brand fidelity → scorecard productFidelity
+  "claims", // #442 claims/policy → scorecard claimsCompliance
+  "platform-spec", // #443 upload-spec validator → enriches platformFit
+  "distribution-pack", // #423 publish-copy pack → scorecard distributionReadiness
+  "council", // #415 polish council → scorecard originality
+] as const;
+export type QualityGate = (typeof QUALITY_GATES)[number];
+
+/** Why a gate is in / out of the applicable set — surfaced so the agent can
+ *  explain the registry decision, not just the membership. */
+export interface GateApplicability {
+  gate: QualityGate;
+  applicable: boolean;
+  /** One-line, English-on-disk reason composed from the existing predicates. */
+  reason: string;
+}
+
+export interface GatesForContextInput {
+  /** The content mode (production-plan.json contentMode). null = unclassified. */
+  mode?: string | null;
+  /** The media format the Unit ships as (template taxonomy). null = unknown. */
+  format?: TemplateFormat | null;
+  /** Declared target platforms (platform.ts keys). Empty = none declared. */
+  platforms?: string[];
+}
+
+export interface GatesForContextResult {
+  mode: string | null;
+  format: TemplateFormat | null;
+  platforms: string[];
+  /** Every gate with its applicability + reason (stable QUALITY_GATES order). */
+  gates: GateApplicability[];
+  /** Convenience: just the applicable gate ids, in stable order. */
+  applicable: QualityGate[];
+}
+
+/** Formats whose deliverable is a moving image — the temporal gates only apply here. */
+const VIDEO_FORMATS: ReadonlySet<TemplateFormat> = new Set([
+  "video",
+  "motion-design",
+]);
+
+/**
+ * Name which quality gates apply for a (mode, format, platform) context — the
+ * #457 gate registry. PURE: composes the existing predicates, makes ZERO model
+ * calls, never re-decides the verdict. Membership rules:
+ *
+ *   • native-video / structure — every render gets the #411 final gate.
+ *   • first-frame-hook / captions — VIDEO formats only (a still has no opener
+ *     scroll-stop arc or caption track); `null`/unknown format is treated as
+ *     video (the conservative default — a moving Unit shouldn't skip its gates).
+ *   • product-fidelity / claims — commercial modes only (`requiresFidelityGate`).
+ *   • ocr — baked-text modes only (`hasBakedText`).
+ *   • platform-spec — only when a known target platform is declared; a video on
+ *     an image-only platform (or vice-versa) is still caught by the validator.
+ *   • distribution-pack / council — advisory, always considered (their reports
+ *     are `na` until produced; the scorecard treats them as non-gating signal).
+ */
+export function gatesForContext(input: GatesForContextInput): GatesForContextResult {
+  const mode = input.mode ?? null;
+  const format = input.format ?? null;
+  const knownPlatforms = (input.platforms ?? []).filter(isPlatformKey);
+  const isVideo = format === null || VIDEO_FORMATS.has(format);
+
+  const fidelity = !!mode && requiresFidelityGate(mode);
+  const baked = !!mode && hasBakedText(mode);
+  const locked = requiresStyleLock(mode); // surfaced via styleFit, not its own gate
+
+  const gates: GateApplicability[] = [
+    {
+      gate: "native-video",
+      applicable: true,
+      reason: "every render runs the #411 native-video final gate (the only gate that can mark a Unit polished).",
+    },
+    {
+      gate: "structure",
+      applicable: true,
+      reason: "the deterministic structure pass (scene count / durations / hook zone) runs on every render.",
+    },
+    {
+      gate: "first-frame-hook",
+      applicable: isVideo,
+      reason: isVideo
+        ? `video format${format ? ` (${format})` : " (default)"} → the #440 scroll-stop opener critic applies.`
+        : `still format (${format}) has no temporal opener → the first-frame hook gate does not apply.`,
+    },
+    {
+      gate: "captions",
+      applicable: isVideo,
+      reason: isVideo
+        ? `video format${format ? ` (${format})` : " (default)"} → the #441 caption sync/readability gate applies.`
+        : `still format (${format}) carries no caption track → the caption-sync gate does not apply.`,
+    },
+    {
+      gate: "product-fidelity",
+      applicable: fidelity,
+      reason: fidelity
+        ? `mode "${mode}" is commercial (requiresFidelityGate) → the #422 product/brand fidelity gate applies.`
+        : mode
+          ? `mode "${mode}" is non-commercial → no named product/brand to verify, fidelity gate skipped.`
+          : "no mode resolved → commercial fidelity gate not selected.",
+    },
+    {
+      gate: "claims",
+      applicable: fidelity,
+      reason: fidelity
+        ? `mode "${mode}" is commercial → the #442 claims/policy gate applies to the commercial copy.`
+        : mode
+          ? `mode "${mode}" is non-commercial → no product claims to police, claims gate skipped.`
+          : "no mode resolved → claims gate not selected.",
+    },
+    {
+      gate: "ocr",
+      applicable: baked,
+      reason: baked
+        ? `mode "${mode}" bakes copy into the frame (hasBakedText) → the #439 OCR/text-legibility gate applies.`
+        : mode
+          ? `mode "${mode}" ships no baked copy → text-legibility gate skipped (no text to read).`
+          : "no mode resolved → OCR gate not selected.",
+    },
+    {
+      gate: "platform-spec",
+      applicable: knownPlatforms.length > 0,
+      reason: knownPlatforms.length > 0
+        ? `target platform(s) declared (${knownPlatforms.join(", ")}) → the #443 upload-spec validator applies.`
+        : "no known target platform declared → platform-spec gate not selected (pass --platform <list>).",
+    },
+    {
+      gate: "distribution-pack",
+      applicable: true,
+      reason: "the #423 distribution pack is advisory readiness — always considered; its report is `na` until packaged.",
+    },
+    {
+      gate: "council",
+      applicable: true,
+      reason: "the #415 polish council is an advisory market-fit second opinion — always considered; `na` until convened.",
+    },
+  ];
+
+  // styleFit is not a runnable GATE — it is a scorecard dimension keyed off
+  // STYLE_LOCK.md presence. We thread the `locked` decision into the native-video
+  // gate's reason so the registry result still tells the agent a lock is required.
+  if (locked) {
+    const nv = gates[0]!;
+    nv.reason = `${nv.reason} Mode "${mode}" requires a style lock (requiresStyleLock) — STYLE_LOCK.md must be present for the styleFit scorecard dimension to pass.`;
+  }
+
+  return {
+    mode,
+    format,
+    platforms: knownPlatforms,
+    gates,
+    applicable: gates.filter((g) => g.applicable).map((g) => g.gate),
+  };
 }
