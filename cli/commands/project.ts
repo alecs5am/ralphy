@@ -808,7 +808,9 @@ export function projectCmd() {
           p.includes("/TemporaryItems/") ||
           p.startsWith("/tmp/") ||
           /\/Screenshot[^/]*\.png$/i.test(p) ||
-          /\/Снимок экрана[^/]*\.png$/i.test(p)
+          // macOS localized screenshot prefix (Russian for "Screenshot") —
+          // ASCII-escaped so no raw Cyrillic lands on disk (lint:no-cyrillic, #465).
+          /\/\u0421\u043D\u0438\u043C\u043E\u043A \u044D\u043A\u0440\u0430\u043D\u0430[^/]*\.png$/i.test(p)
         );
       };
 

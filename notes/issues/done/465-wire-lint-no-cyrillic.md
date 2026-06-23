@@ -1,6 +1,6 @@
 # Wire lint:no-cyrillic into CI + fix the literal-Cyrillic sites
 
-> **Status:** issue
+> **Status:** done — 2026-06-23
 > **Filed:** 2026-06-16
 > **Folder:** issues
 
