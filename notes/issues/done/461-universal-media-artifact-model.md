@@ -1,6 +1,6 @@
 # Universal media artifact model
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (schema + builder + test + design doc landed)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** high
