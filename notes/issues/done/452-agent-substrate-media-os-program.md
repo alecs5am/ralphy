@@ -1,6 +1,6 @@
 # Agent substrate media OS program
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (design doc landed; program tracked as architecture note)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** strategic
