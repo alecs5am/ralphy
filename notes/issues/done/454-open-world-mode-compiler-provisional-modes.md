@@ -1,6 +1,6 @@
 # Open-world mode compiler and provisional modes
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (compileMode known|ambiguous|unknown + closest-format fallback + ProvisionalMode schema + builder + fixtures + doc)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** high
