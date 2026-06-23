@@ -151,6 +151,11 @@ export function workspaceManifestPath(slug: string) {
   return path.join(workspaceDir(slug), "workspace.json");
 }
 
+/** `.ralphy/workspaces/<slug>/workflows/` — declarative staged pipelines (#478). */
+export function workflowsDir(slug: string) {
+  return path.join(workspaceDir(slug), "workflows");
+}
+
 /**
  * The active workspace slug — the default home for new projects. Stored as
  * the `activeWorkspace` key in config.json (`ralphy workspace use <slug>`).

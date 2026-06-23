@@ -665,6 +665,25 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  workflow: [
+    {
+      label: "workflow.list",
+      shape: [{ name: "episode", path: ".ralphy/workspaces/silent-hill/workflows/episode.json" }],
+    },
+    {
+      label: "workflow.show",
+      shape: {
+        workspace: "silent-hill",
+        name: "episode",
+        version: "1.0",
+        steps: [
+          { id: "scenario", label: "Scenario", phase: "scenario", engine: "llm", model: "google/gemini-3.1-pro-preview", variants: 1, gate: ["scenario-fidelity"], mode: "approve" },
+          { id: "assets", label: "Scene generation", phase: "assets", engine: "generate.video", model: null, variants: 2, gate: ["character-design-cohesion", "location-consistency"], mode: "approve" },
+          { id: "render", label: "Render", phase: "render", engine: "render", model: null, variants: 1, gate: [], mode: "auto" },
+        ],
+      },
+    },
+  ],
   workspace: [
     {
       label: "workspace.list",

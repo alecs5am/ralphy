@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **45**
+Verbs registered: **46**
 
 ## Top-level verbs
 
@@ -1488,6 +1488,52 @@ Commands:
   stats                     Show workspace statistics
   clean [options]           Clean workspace contents
   help [command]            display help for command
+```
+
+### `ralphy workflow`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy workflow [options] [command]
+
+Author + inspect a workspace's declarative staged pipeline
+(workflows/<name>.json) — the configurable idea→video flow (#478)
+
+Options:
+  -h, --help                  display help for command
+
+Commands:
+  init [options] <slug>       Scaffold a default workflow.json for a workspace,
+                              derived from the contract spine + the workspace
+                              stageGates. A STARTING POINT to edit — sets
+                              phases, gates, and auto|approve; leaves models
+                              unset. Example: ralphy workflow init silent-hill
+                              --mode tutorial-ugc
+  list <slug>                 List the workflows authored in a workspace
+  show <slug> [name]          Show a workflow's ordered steps. Omit name when
+                              the workspace has exactly one workflow.
+  status [options] <project>  Per-step run status of a project's workflow (done
+                              | running | waiting | blocked | queued), derived
+                              from the contract ledger + workspace-eval.json +
+                              the job queue. Surfaces the current step + the
+                              next action. ZERO model calls. Example: ralphy
+                              workflow status choose-silenthill-005
+  run [options] <project>     Start / advance a project's workflow: log the idea
+                              and surface the current step + next action (same
+                              ledger as `status`). Drives the pipeline WITHOUT
+                              spending — the agent (or a future headless driver)
+                              executes the surfaced step, then re-runs to
+                              advance. Example: ralphy workflow run
+                              choose-silenthill-005 --idea 'foggy hospital, the
+                              nurse offers a deal'
+  help [command]              display help for command
 ```
 
 ### `ralphy migrate`
