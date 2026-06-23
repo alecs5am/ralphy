@@ -59,6 +59,6 @@ Don't start without explicit scope alignment.
 
 Flagging for record so future-me doesn't blindly act on them:
 
-- **«Rename `package.json.name` to bare `ralphy`»** — bare `ralphy` is **not yours on npm** (taken by `kivlor`). Audit didn't check. Use `@alecs5am/ralphy`, which is already correct in `npm/package.json`.
-- **«Bun-зависимость отрезает Python-аудиторию»** — for an end-user installing via brew/install.sh/npm, bun is invisible. The audit overstates this risk.
-- **«AGENTS.md+CLAUDE.md+MODELS.md = 45KB per turn»** — true cost, but Claude Code caches system prompts across turns (5-min TTL). Real cost is one cache-fill per session, not per turn. Less urgent than audit frames it.
+- **"Rename `package.json.name` to bare `ralphy`"** — bare `ralphy` is **not yours on npm** (taken by `kivlor`). Audit didn't check. Use `@alecs5am/ralphy`, which is already correct in `npm/package.json`.
+- **"The bun dependency cuts off the Python audience"** — for an end-user installing via brew/install.sh/npm, bun is invisible. The audit overstates this risk.
+- **"AGENTS.md+CLAUDE.md+MODELS.md = 45KB per turn"** — true cost, but Claude Code caches system prompts across turns (5-min TTL). Real cost is one cache-fill per session, not per turn. Less urgent than audit frames it.

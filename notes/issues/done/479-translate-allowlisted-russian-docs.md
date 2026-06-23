@@ -1,6 +1,6 @@
 # Translate the allowlisted Russian content-library + audit docs to English
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (all 7 docs translated to English; lint:no-cyrillic allowlist emptied, gate scans the whole tree)
 > **Filed:** 2026-06-23
 > **Folder:** issues
 

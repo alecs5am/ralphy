@@ -1,167 +1,167 @@
-# Прожарка Ralphy: полный аудит, стратегический разбор, таргет-архитектура и роадмап
+# Ralphy roast: full audit, strategic breakdown, target architecture, and roadmap
 
-> Аудит репозитория `alecs5am/ralphy` по состоянию на 25 мая 2026 (v0.2.0, 282 коммита, 6 звёзд, 1 форк, license `UNLICENSED`). Документ написан для владельца, без хеджей и вежливости. Если что-то названо мусором — это мусор, и ниже сказано, что с этим делать.
+> Audit of the `alecs5am/ralphy` repository as of May 25, 2026 (v0.2.0, 282 commits, 6 stars, 1 fork, license `UNLICENSED`). The document is written for the owner, without hedges or politeness. If something is called garbage, it's garbage, and below is what to do about it.
 
 ---
 
-## TL;DR — три вещи, которые надо услышать первыми
+## TL;DR — three things you need to hear first
 
-- **У тебя в репо лежит ОЧЕНЬ хороший «второй слой» (playbook discipline, MODELS.md как живой knowledge base, append-only генлоги, intake-гейты, `--dry-run`, асинхронная очередь jobs.sqlite, install.sh уровня production) — это редкий, серьёзный, production-grade инжиниринг.** Но «первый слой» (позиционирование, README, install-narrative, демо, дистрибуция, лицензия) на уровне хорошего pet-проекта. Ты строишь Boeing и продаёшь его как самокат — отсюда 6 звёзд против 52.5k у MoneyPrinterTurbo. Это **не дефект продукта** — это дефект упаковки и моушна.
-- **Главный конкурент — НЕ Higgsfield Supercomputer.** Higgsfield играет в SaaS-агента с собственными моделями и influencer-distribution на $300M ARR-роуте, его в лоб не догнать. Реальная конкуренция Ralphy — слой OSS agent-native CLI (aider 45.2k, Cline 58-62k, claude-code-router 26.4k, Continue 32-33k, OpenInterpreter ~58k) и framework-уровень (Remotion 47.3k, HyperFrames от HeyGen, MoneyPrinterTurbo 52.5k). Higgsfield — это твоё **«anti-pattern poster»**: они закрытый SaaS-агент идут в Marketing Studio + Hermes Agent + MCP; именно от их закрытости ты должен оттолкнуться позиционированием. Открытый, форкабельный, agent-native CLI = единственная защитимая ниша.
-- **Дорожная карта на 10k+ звёзд за 12 месяцев существует, но требует жестокого сокращения**: сменить лицензию на Apache 2.0 сегодня, переписать README по схеме aider/OpenInterpreter (60-секундный MP4 + однострочный install + benchmark/leaderboard), удалить Remotion и `dashboard/`, ship `ralphy mcp serve` к v0.3.0, переименовать `package.json.name`, вытащить MODELS.md как публичную SEO-страницу, запустить публичный «Ralphy Quality Score» leaderboard (как aider сделал на SWE-Bench Lite), и закрыть дистрибуционный гэп еженедельным Friday Ship.
+- **You've got a VERY good "second layer" sitting in the repo (playbook discipline, MODELS.md as a living knowledge base, append-only genlogs, intake gates, `--dry-run`, an async jobs.sqlite queue, a production-grade install.sh) — this is rare, serious, production-grade engineering.** But the "first layer" (positioning, README, install narrative, demo, distribution, license) is at the level of a decent pet project. You're building a Boeing and selling it as a kick-scooter — hence 6 stars against MoneyPrinterTurbo's 52.5k. This is **not a product defect** — it's a defect of packaging and momentum.
+- **The main competitor is NOT Higgsfield Supercomputer.** Higgsfield is playing the SaaS-agent game with its own models and influencer distribution on a $300M ARR trajectory; you can't catch it head-on. Ralphy's real competition is the OSS agent-native CLI layer (aider 45.2k, Cline 58-62k, claude-code-router 26.4k, Continue 32-33k, OpenInterpreter ~58k) and the framework level (Remotion 47.3k, HyperFrames by HeyGen, MoneyPrinterTurbo 52.5k). Higgsfield is your **"anti-pattern poster"**: they're a closed SaaS agent going for Marketing Studio + Hermes Agent + MCP; it's precisely their closedness you should push off of for positioning. An open, forkable, agent-native CLI = the only defensible niche.
+- **A roadmap to 10k+ stars in 12 months exists, but it requires brutal cutting**: switch the license to Apache 2.0 today, rewrite the README on the aider/OpenInterpreter pattern (60-second MP4 + one-line install + benchmark/leaderboard), delete Remotion and `dashboard/`, ship `ralphy mcp serve` by v0.3.0, rename `package.json.name`, pull MODELS.md out as a public SEO page, launch a public "Ralphy Quality Score" leaderboard (the way aider did on SWE-Bench Lite), and close the distribution gap with a weekly Friday Ship.
 
 ---
 
 ## Key Findings
 
-1. **Архитектурно Ralphy уже опережает OSS-конкурентов.** Single-key setup, hard invariant «`ralphy` — единственная точка входа», JSON-default CLI, async-job queue с topo-sort и symbolic deps, append-only генлоги с regen→.v2 правилом, refuse-not-warn quality gates, intake playbook, MODELS.md с per-model param matrix и lessons-секцией — этого набора нет ни у ShortGPT, ни у MoneyPrinterTurbo, ни у Hyperframes без обвязки. Это твой реальный moat.
-2. **Дистрибуционно Ralphy сейчас — нулевой.** 6 звёзд после 282 коммитов и публичной landing-страницы (ralphy.dev) — это сигнал, что инженерная работа делается, а медиа-работа не делается вообще. Higgsfield для сравнения шипит, по их собственному CEO Алексу Машрабову, «*We release product updates almost every day. This rhythm keeps us learning faster than anyone else in the space, and that's unlikely to change.*» Без сопоставимой *cadence публичных артефактов*, не CLI-апдейтов, ты не наберёшь и 1k звёзд.
-3. **Лицензия `UNLICENSED` — однострочный stop-flag для любой корпоративной адопции.** Это самая дешёвая правка в этом отчёте и самая высоко-leverage. Apache 2.0 PR — 5 минут, +x% к скорости роста звёзд бесплатно.
-4. **Имя пакета `package.json.name: "ugc-cli"` + description «My Remotion video» + бинарь `ralphy` + npm `@alecs5am/ralphy` — фрагментация identity.** Forker открывает package.json и видит четыре разных названия одного и того же продукта. Это маленькая, но *первая* трещина в доверии.
-5. **Remotion как «legacy» — продолжает быть прописан в зависимостях (4.0.441), в `remotion.config.ts` в корне репо, в `"dev": "remotion studio"` в scripts.** Хуже того, Remotion имеет коммерческую лицензию: согласно их LICENSE.md и remotion.dev/docs/license, *«Remotion is free to use for individuals and companies up to three people»* — Company License требуется с **четырёх сотрудников и выше**. То есть юридически Ralphy сейчас не open-source для любого forker'а с командой 4+. Удалять Remotion из default'а — yesterday.
-6. **HyperFrames — это правильный выбор composer'а, но Ralphy сейчас — thin wrapper над `hyperframes^0.6.31` npm-пакетом.** HyperFrames — open-source от HeyGen под Apache 2.0, прямой конкурент Remotion с лучшей лицензией и AI-first DX. Их позиционирование: *«Remotion's bet is React components; Hyperframes' bet is HTML.»* Это плюс — но если HeyGen завтра форсирует свой `hyperframes` CLI и swallowed orchestration наверх, у тебя нет защиты без явного Composer Adapter слоя (см. §4).
-7. **MODELS.md (21.2 KB) — лучший контент в репо и одновременно скрытый файл.** Постмортем-знания (kling rotation bias на 9:16, seedance privacy filter на photoreal humans с ошибкой `InputImageSensitiveContentDetected.PrivacyInformation`, gpt-5.4-image-2 concurrent cap of 1, elevenlabs music_v1 cap of 2, gemini IMAGE_SAFETY на body-horror) — это unique SEO/content moat, который сейчас спрятан. Вытащить его как ralphy.dev/models — бесплатный evergreen content.
-8. **Сегмент «casual users» правильно отброшен.** Это не приоритет. Higgsfield Marketing Studio (paste URL → 9 UGC formats), HeyGen, Captions, Submagic, OpusClip — они заберут эту аудиторию через UX и influencer-distribution. У Ralphy там нет шансов, и хорошо что владелец это уже понимает.
-9. **`dashboard/` папка + invariant «no auto-launched processes, chat is the interface» — внутреннее противоречие**, которое сигналит, что владелец сам не определился. Решить нужно вчера: CLI-only или CLI+UI. Если CLI-only — удалить папку.
-10. **MCP-server отсутствует.** В 2026 это must-have. Higgsfield выкатил `mcp.higgsfield.ai/mcp` 28 апреля 2026, который exposes 30+ моделей (Sora 2, Veo 3.1, Kling 3.0, Seedance 2.0, Nano Banana Pro, Soul 2.0, Flux 2) как agent tools в Claude/Cursor/OpenClaw. Если Ralphy позиционируется как «Claude Code + Ralphy», `ralphy mcp serve` обязан быть в v0.3.0.
+1. **Architecturally Ralphy is already ahead of its OSS competitors.** Single-key setup, the hard invariant "`ralphy` is the only entry point," a JSON-default CLI, an async job queue with topo-sort and symbolic deps, append-only genlogs with a regen→.v2 rule, refuse-not-warn quality gates, an intake playbook, MODELS.md with a per-model param matrix and a lessons section — none of ShortGPT, MoneyPrinterTurbo, or Hyperframes-without-scaffolding has this set. This is your real moat.
+2. **In distribution terms, Ralphy is currently a zero.** 6 stars after 282 commits and a public landing page (ralphy.dev) is a signal that the engineering work is being done while the media work isn't being done at all. For comparison, Higgsfield ships, per their own CEO Alex Mashrabov, "*We release product updates almost every day. This rhythm keeps us learning faster than anyone else in the space, and that's unlikely to change.*" Without a comparable *cadence of public artifacts*, not CLI updates, you won't hit even 1k stars.
+3. **The `UNLICENSED` license is a one-line stop flag for any corporate adoption.** It's the cheapest fix in this report and the highest-leverage. An Apache 2.0 PR is 5 minutes, +x% to star-growth speed for free.
+4. **The package name `package.json.name: "ugc-cli"` + description "My Remotion video" + binary `ralphy` + npm `@alecs5am/ralphy` — fragmented identity.** A forker opens package.json and sees four different names for one and the same product. It's a small but *first* crack in trust.
+5. **Remotion as "legacy" — still written into the dependencies (4.0.441), into `remotion.config.ts` at the repo root, into `"dev": "remotion studio"` in scripts.** Worse, Remotion has a commercial license: per their LICENSE.md and remotion.dev/docs/license, *"Remotion is free to use for individuals and companies up to three people"* — a Company License is required from **four employees and up**. That means legally Ralphy right now is not open-source for any forker with a team of 4+. Removing Remotion from the default is yesterday's work.
+6. **HyperFrames is the right composer choice, but Ralphy is currently a thin wrapper over the `hyperframes^0.6.31` npm package.** HyperFrames is open-source from HeyGen under Apache 2.0, a direct competitor to Remotion with a better license and an AI-first DX. Their positioning: *"Remotion's bet is React components; Hyperframes' bet is HTML."* That's a plus — but if HeyGen forces its own `hyperframes` CLI tomorrow and swallows orchestration upward, you have no protection without an explicit Composer Adapter layer (see §4).
+7. **MODELS.md (21.2 KB) is the best content in the repo and at the same time a hidden file.** Postmortem knowledge (kling rotation bias on 9:16, the seedance privacy filter on photoreal humans with the error `InputImageSensitiveContentDetected.PrivacyInformation`, gpt-5.4-image-2 concurrent cap of 1, elevenlabs music_v1 cap of 2, gemini IMAGE_SAFETY on body-horror) — this is a unique SEO/content moat that is currently hidden. Pulling it out as ralphy.dev/models is free evergreen content.
+8. **The "casual users" segment is correctly discarded.** It's not a priority. Higgsfield Marketing Studio (paste URL → 9 UGC formats), HeyGen, Captions, Submagic, OpusClip — they'll take that audience through UX and influencer distribution. Ralphy has no chance there, and it's good that the owner already understands this.
+9. **The `dashboard/` folder + the invariant "no auto-launched processes, chat is the interface" — an internal contradiction** that signals the owner hasn't decided. It needs deciding yesterday: CLI-only or CLI+UI. If CLI-only — delete the folder.
+10. **The MCP server is missing.** In 2026 this is a must-have. Higgsfield rolled out `mcp.higgsfield.ai/mcp` on April 28, 2026, which exposes 30+ models (Sora 2, Veo 3.1, Kling 3.0, Seedance 2.0, Nano Banana Pro, Soul 2.0, Flux 2) as agent tools in Claude/Cursor/OpenClaw. If Ralphy is positioned as "Claude Code + Ralphy," `ralphy mcp serve` has to be in v0.3.0.
 
 ---
 
 ## Details
 
-### 1. Послойный разбор подсистем
+### 1. Subsystem-by-subsystem breakdown
 
-| Слой | Что есть | Сильные стороны | Слабые стороны / антипаттерны |
+| Layer | What's there | Strengths | Weaknesses / antipatterns |
 |---|---|---|---|
-| **CLI (`cli/index.ts`, Commander)** | Resource-based CRUD: brand/persona/ref/project/template/batch/asset/workspace/profile + generate/render/queue/daemon/doctor/setup. JSON-default, `-p` pretty. `--dry-run` на video. | Контракт «JSON по умолчанию + `-p` для человека» — это серьёзно. `--dry-run` с cost estimate. Lint suite (`lint:errors`, `lint:help-examples`, `lint:skills`, `lint:agents-md`). | `package.json.name === "ugc-cli"` при бинаре `ralphy` и npm `@alecs5am/ralphy`. Description `"My Remotion video"` — артефакт. `license: UNLICENSED` для OSS-проекта — смерть звёзд. |
-| **Agent / Playbook (`AGENTS.md`, `docs/playbooks/`, `.agents/skills/`)** | Routing-таблица user→playbook, дисциплина «прочитал playbook → действуй», dev-mode/user-mode, hard invariants (no FAL_KEY, ralphy = only entry-point, ref-required gate, quality gates refuse-not-warn). | **Самая сильная часть проекта.** Никто в OSS этого уровня playbook-дисциплины не делает. Идея «AGENTS.md = роутинг-контракт для Claude Code» — это прямой плагин в Claude Code skills ecosystem и в новый MCP-мир. | 16.6 KB одного файла системного промпта — дорого по токенам на каждом вызове. Нужна сегментация: тонкий router (`AGENTS.md`, 2-3 KB) + lazy-loaded playbook-блоки. Сейчас агент ест AGENTS.md+CLAUDE.md+MODELS.md (21 KB) на каждый turn. |
-| **Intake / Quality Gates (`docs/playbooks/intake.md`, `scoreScenario`, `scoreImage`, `scoreVideo`)** | Brand/audience/aesthetic clarification, refuse-on-double-fail логика, refs-required-gate для real entities. | Концептуально уникально в OSS. Близкий аналог только у Higgsfield (Approval Gates), но они закрытые. | Не очевидно из README, что эти гейты есть. Это твоя главная фича — а ты её прячешь. |
-| **Research (`ralphy research`, `ralphy ref`, `.agents/skills/ralphy-researcher`)** | Deep-research, scrape-trends, blueprint, guideline library, `template suggest`. | Тоже уникально: ни ShortGPT, ни MPT, ни Hyperframes этого не делают. | Названия размазаны: `ref`, `research`, `guideline`, `template suggest`, `clone <url>`. Для нового пользователя — пять команд про «найди вдохновение», и непонятно когда какую. Нужен зонтик: `ralphy research` с поддоменами. |
-| **Generation routing (OpenRouter + ElevenLabs через `cli/lib/providers/media.ts`, `llm.ts → callLLM()`)** | Чистая абстракция: одна точка входа на media, одна на LLM. Hard invariant запрещает прямые fetch к fal.ai/openai.com. Async-job pattern для OpenRouter video (15s × 80 = 20 min poll). Per-model whitelists. Auto-strip C2PA/EXIF на фреймах (фикс 2026-05-19). | Production-уровень. MODELS.md ведётся как живой knowledge-base. Зафиксированные lesson'ы — kling rotation bias на 9:16, seedance privacy filter (`InputImageSensitiveContentDetected.PrivacyInformation`), gpt-5.4-image-2 concurrent cap = 1 (returns misleading 403 «Key limit exceeded»), elevenlabs music_v1 cap = 2 (429 `concurrent_limit_exceeded`), gemini IMAGE_SAFETY на body-horror. | Нет публичного TS-interface `Provider { capabilities, generate, estimateCost, healthCheck }`. Это главный архитектурный долг для future «custom connectors» — без формального Provider interface ты не сможешь принять PR с «добавить Fal/Replicate/Suno». |
-| **HyperFrames composer (default, `hyperframes^0.6.31`)** | HTML+GSAP+data-attrs, seek-driven render через headless Chromium, deterministic. CLI auto-detects engine (HTML → HyperFrames, composition-props.json → Remotion). | Стратегически правильный выбор: HyperFrames это open-source от HeyGen под Apache 2.0, прямой конкурент Remotion с лучшей лицензией и AI-first DX. Skills `/hyperframes`, `/hyperframes-cli` уже встроены в Claude Code. | Ralphy сейчас — thin wrapper над npm-пакетом + кучка skills. Если HeyGen форсирует свой `hyperframes` CLI наверх в orchestration — у тебя нет защиты без явного Composer Adapter слоя. |
-| **Remotion (legacy, 4.0.441)** | Поддерживается для совместимости. | — | Чистый tech-debt. Remotion имеет коммерческую лицензию — *«Remotion is free to use for individuals and companies up to three people»* (LICENSE.md, remotion.dev/docs/license). Company License требуется с 4+ сотрудников. Юридически Ralphy сейчас не OSS для любого forker'а с командой 4+. Удалять. |
-| **Genlogs / Memory (append-only `generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl`, `postmortem/`)** | Hard invariant №14: «append-only on generations, NEVER delete». Regen → `.<slot>.v2.<ext>`. Project-scoped memory. | Архитектура уровня DVC/W&B. Базис для воспроизводимости агентских сессий. | Формат не специфицирован публично (нет `docs/genlog-schema.md` или JSON Schema). Сообщество не может построить tooling поверх. |
-| **Templates (`templates/` repo + `workspace/templates/` user-local)** | 5 категорий, 2 kind'а (`vibe-reference` × 5, `vibe-style` × 38), `template suggest <utterance>` ранжирует, `template use` скаффолдит и auto-pulls assets из `ralphy-assets`. | Двух-уровневый namespace с workspace-override — правильно. | Templates — это markdown + JSON, не код. У сообщества нет SDK для написания тестируемого template'а. Сравни с Remotion'овскими TS-template'ами или Hyperframes skill-форматом. |
-| **Doctor (`ralphy doctor`)** | Env health (keys, deps, project link), JSON / pretty. | Один из главных «wow» моментов первых 5 минут. | Не рекламируется в README первой строкой. Не показано что именно doctor проверяет. |
-| **Batch / Daemon / Queue (`workspace/.ralph/jobs.sqlite`, WAL, topo-sort, symbolic deps)** | SQLite + WAL + auto-detached daemon + ANSI dashboard через `queue watch`. Cascade-block. | Production-grade. Главное преимущество над MPT (там — скрипт + Streamlit). | Daemon не рекламируется. README не показывает «вот как ты ставишь батч из 100 видео ночью» — а это buy-it-now для content-farm сегмента. |
-| **Install (`install.sh`, 172 строки)** | Detect OS/arch, latest-release resolve через GitHub API, xattr-strip Gatekeeper на macOS, rc-file PATH update (zsh/bash/fish), SHA256SUMS documented. | Один из самых аккуратных install.sh, что я видел в OSS. Лучше aider'овского `pip install aider-install`. | Бинарь — это `bun build` artifact, завязан на bun-runtime. README пишет «statically-linked binary», что технически неверно. Не критично, но коммуницировать честнее. |
-| **Tests (`tests/unit/`, `tests/integration/`, `tests/live/`)** | Husky pre-commit, CI на push/PR, error-code catalog drift check, help-examples vs landing parity. | Уровень дисциплины, которого нет у MPT/ShortGPT. | Coverage не публикуется. Test/CI badge мог бы быть в README. |
-| **Docs (`docs/`, `docs-mintlify/`, ralphy.dev на Mintlify)** | Mintlify, auto-generated CLI reference из help (`docs:cli` script). | Mintlify — правильный выбор. Auto-gen CLI ref — отличная дисциплина. | docs-mintlify папка отдельно от docs — потенциально две правды. ralphy.dev разделён между `/showcase`, `/docs`, `/library` — пользователю непонятна навигация. |
-| **`dashboard/` папка** | Legacy React/Vite, помечен `_dashboard:legacy`. | — | Удалить. Противоречит invariant'у №5. |
-| **`landing/`, `BRAND_DESIGN.md` в корне** | Брендинг развит. | — | `BRAND_DESIGN.md` в корне рядом с `MODELS.md` — шум для contributor'а. |
+| **CLI (`cli/index.ts`, Commander)** | Resource-based CRUD: brand/persona/ref/project/template/batch/asset/workspace/profile + generate/render/queue/daemon/doctor/setup. JSON-default, `-p` pretty. `--dry-run` on video. | The contract "JSON by default + `-p` for humans" is serious. `--dry-run` with a cost estimate. Lint suite (`lint:errors`, `lint:help-examples`, `lint:skills`, `lint:agents-md`). | `package.json.name === "ugc-cli"` while the binary is `ralphy` and npm is `@alecs5am/ralphy`. Description `"My Remotion video"` — an artifact. `license: UNLICENSED` for an OSS project — death of stars. |
+| **Agent / Playbook (`AGENTS.md`, `docs/playbooks/`, `.agents/skills/`)** | Routing table user→playbook, the "read the playbook → act" discipline, dev-mode/user-mode, hard invariants (no FAL_KEY, ralphy = only entry-point, ref-required gate, quality gates refuse-not-warn). | **The strongest part of the project.** Nobody in OSS does playbook discipline at this level. The idea "AGENTS.md = a routing contract for Claude Code" is a direct plug into the Claude Code skills ecosystem and the new MCP world. | 16.6 KB of one system-prompt file — expensive in tokens on every call. It needs segmentation: a thin router (`AGENTS.md`, 2-3 KB) + lazy-loaded playbook blocks. Right now the agent eats AGENTS.md+CLAUDE.md+MODELS.md (21 KB) on every turn. |
+| **Intake / Quality Gates (`docs/playbooks/intake.md`, `scoreScenario`, `scoreImage`, `scoreVideo`)** | Brand/audience/aesthetic clarification, refuse-on-double-fail logic, refs-required-gate for real entities. | Conceptually unique in OSS. The closest analog is only at Higgsfield (Approval Gates), but theirs is closed. | It's not obvious from the README that these gates exist. This is your headline feature — and you're hiding it. |
+| **Research (`ralphy research`, `ralphy ref`, `.agents/skills/ralphy-researcher`)** | Deep-research, scrape-trends, blueprint, guideline library, `template suggest`. | Also unique: neither ShortGPT, MPT, nor Hyperframes does this. | The naming is smeared: `ref`, `research`, `guideline`, `template suggest`, `clone <url>`. For a new user — five commands about "find inspiration," and it's unclear when to use which. You need an umbrella: `ralphy research` with subdomains. |
+| **Generation routing (OpenRouter + ElevenLabs via `cli/lib/providers/media.ts`, `llm.ts → callLLM()`)** | A clean abstraction: one entry point for media, one for LLM. A hard invariant forbids direct fetches to fal.ai/openai.com. An async-job pattern for OpenRouter video (15s × 80 = 20 min poll). Per-model whitelists. Auto-strip C2PA/EXIF on frames (fix 2026-05-19). | Production-level. MODELS.md is maintained as a living knowledge base. Recorded lessons — kling rotation bias on 9:16, the seedance privacy filter (`InputImageSensitiveContentDetected.PrivacyInformation`), gpt-5.4-image-2 concurrent cap = 1 (returns a misleading 403 "Key limit exceeded"), elevenlabs music_v1 cap = 2 (429 `concurrent_limit_exceeded`), gemini IMAGE_SAFETY on body-horror. | There's no public TS interface `Provider { capabilities, generate, estimateCost, healthCheck }`. This is the main architectural debt for future "custom connectors" — without a formal Provider interface you won't be able to accept a PR to "add Fal/Replicate/Suno." |
+| **HyperFrames composer (default, `hyperframes^0.6.31`)** | HTML+GSAP+data-attrs, seek-driven render via headless Chromium, deterministic. The CLI auto-detects the engine (HTML → HyperFrames, composition-props.json → Remotion). | A strategically correct choice: HyperFrames is open-source from HeyGen under Apache 2.0, a direct competitor to Remotion with a better license and an AI-first DX. The skills `/hyperframes`, `/hyperframes-cli` are already built into Claude Code. | Ralphy is currently a thin wrapper over the npm package + a handful of skills. If HeyGen pushes its own `hyperframes` CLI upward into orchestration — you have no protection without an explicit Composer Adapter layer. |
+| **Remotion (legacy, 4.0.441)** | Kept for compatibility. | — | Pure tech debt. Remotion has a commercial license — *"Remotion is free to use for individuals and companies up to three people"* (LICENSE.md, remotion.dev/docs/license). A Company License is required from 4+ employees. Legally Ralphy right now is not OSS for any forker with a team of 4+. Remove it. |
+| **Genlogs / Memory (append-only `generations.jsonl`, `user-prompts.jsonl`, `user-assets.jsonl`, `postmortem/`)** | Hard invariant #14: "append-only on generations, NEVER delete." Regen → `.<slot>.v2.<ext>`. Project-scoped memory. | DVC/W&B-level architecture. A basis for reproducibility of agent sessions. | The format isn't specified publicly (no `docs/genlog-schema.md` or JSON Schema). The community can't build tooling on top of it. |
+| **Templates (`templates/` repo + `workspace/templates/` user-local)** | 5 categories, 2 kinds (`vibe-reference` × 5, `vibe-style` × 38), `template suggest <utterance>` ranks, `template use` scaffolds and auto-pulls assets from `ralphy-assets`. | A two-level namespace with workspace-override — correct. | Templates are markdown + JSON, not code. The community has no SDK for writing a testable template. Compare with Remotion's TS templates or the Hyperframes skill format. |
+| **Doctor (`ralphy doctor`)** | Env health (keys, deps, project link), JSON / pretty. | One of the main "wow" moments of the first 5 minutes. | Not advertised in the README's first line. Not shown exactly what doctor checks. |
+| **Batch / Daemon / Queue (`workspace/.ralph/jobs.sqlite`, WAL, topo-sort, symbolic deps)** | SQLite + WAL + auto-detached daemon + ANSI dashboard via `queue watch`. Cascade-block. | Production-grade. The key advantage over MPT (there it's a script + Streamlit). | The daemon isn't advertised. The README doesn't show "here's how you queue 100 videos overnight" — and that's a buy-it-now for the content-farm segment. |
+| **Install (`install.sh`, 172 lines)** | Detect OS/arch, latest-release resolve via the GitHub API, xattr-strip Gatekeeper on macOS, rc-file PATH update (zsh/bash/fish), SHA256SUMS documented. | One of the cleanest install.sh files I've seen in OSS. Better than aider's `pip install aider-install`. | The binary is a `bun build` artifact, tied to the bun runtime. The README writes "statically-linked binary," which is technically incorrect. Not critical, but communicate more honestly. |
+| **Tests (`tests/unit/`, `tests/integration/`, `tests/live/`)** | Husky pre-commit, CI on push/PR, error-code catalog drift check, help-examples vs landing parity. | A level of discipline that MPT/ShortGPT don't have. | Coverage isn't published. A test/CI badge could be in the README. |
+| **Docs (`docs/`, `docs-mintlify/`, ralphy.dev on Mintlify)** | Mintlify, auto-generated CLI reference from help (`docs:cli` script). | Mintlify — the right choice. Auto-gen CLI ref — excellent discipline. | The docs-mintlify folder is separate from docs — potentially two truths. ralphy.dev is split across `/showcase`, `/docs`, `/library` — the navigation is unclear to the user. |
+| **`dashboard/` folder** | Legacy React/Vite, marked `_dashboard:legacy`. | — | Delete. Contradicts invariant #5. |
+| **`landing/`, `BRAND_DESIGN.md` in the root** | Branding is developed. | — | `BRAND_DESIGN.md` in the root next to `MODELS.md` — noise for a contributor. |
 
-### 2. Сборная корзина антипаттернов
+### 2. Grab-bag of antipatterns
 
-1. `package.json.name === "ugc-cli"` при бинаре `ralphy` и npm `@alecs5am/ralphy`. **Замени на `ralphy` или `@ralphy/cli`.**
-2. `license: UNLICENSED`. **Apache 2.0 PR — 5 минут, наибольший ROI.**
-3. Remotion в default deps + `remotion.config.ts` в корне + `"dev": "remotion studio"`. **Удалить.**
-4. `bun` как hard-requirement в scripts — барьер для Python/энтерпрайз-аудитории. **Ship reality (binary), убрать `bun` из user-facing docs.**
-5. AGENTS.md+CLAUDE.md+MODELS.md = ~45 KB системного промпта на каждом ходе. **Segmentation: thin router + lazy-loaded playbook'и.**
-6. Daemon/queue/batch — ниндзя-фича в `--help`, нет в README. **README-блок «batch 100 videos overnight».**
-7. `ralphy-assets` companion repo упоминается, но без живого primary-link в README.
-8. «5 things to try first» без gif/asciinema/expected output.
-9. MODELS.md — лучший контент, спрятан в `.md` файле. **Вытащить как ralphy.dev/models с SEO под `kling pricing`, `seedance privacy filter`, `veo 3.1 4k`.**
-10. ralphy.dev/#showcase обещает 11 rendered outputs — нет ни одного embedded autoplay-MP4 в hero.
-11. Skills дублируются между `.agents/skills/` и `.claude/skills/`. **Один источник + scripted sync.**
-12. **Нет MCP server.**
-13. «UNLICENSED for now. Drop a note in Discussions if you want a permissive license» — никто не напишет. Они закроют вкладку.
+1. `package.json.name === "ugc-cli"` while the binary is `ralphy` and npm is `@alecs5am/ralphy`. **Replace with `ralphy` or `@ralphy/cli`.**
+2. `license: UNLICENSED`. **An Apache 2.0 PR is 5 minutes, the highest ROI.**
+3. Remotion in default deps + `remotion.config.ts` in the root + `"dev": "remotion studio"`. **Delete.**
+4. `bun` as a hard requirement in scripts — a barrier for the Python/enterprise audience. **Ship reality (the binary), drop `bun` from user-facing docs.**
+5. AGENTS.md+CLAUDE.md+MODELS.md = ~45 KB of system prompt on every turn. **Segmentation: a thin router + lazy-loaded playbooks.**
+6. Daemon/queue/batch — a ninja feature in `--help`, absent from the README. **A README block "batch 100 videos overnight."**
+7. The `ralphy-assets` companion repo is mentioned, but without a live primary link in the README.
+8. "5 things to try first" without a gif/asciinema/expected output.
+9. MODELS.md — the best content, hidden in a `.md` file. **Pull it out as ralphy.dev/models with SEO for `kling pricing`, `seedance privacy filter`, `veo 3.1 4k`.**
+10. ralphy.dev/#showcase promises 11 rendered outputs — there isn't a single embedded autoplay MP4 in the hero.
+11. Skills are duplicated between `.agents/skills/` and `.claude/skills/`. **One source + a scripted sync.**
+12. **No MCP server.**
+13. "UNLICENSED for now. Drop a note in Discussions if you want a permissive license" — nobody will write. They'll close the tab.
 
-### 3. Конкурентная карта (25.05.2026)
+### 3. Competitive map (2026-05-25)
 
-| Игрок | Слой | Звёзды | Лицензия | Custom models | Agent layer | Composer | Что забирает у Ralphy |
+| Player | Layer | Stars | License | Custom models | Agent layer | Composer | What it takes from Ralphy |
 |---|---|---|---|---|---|---|---|
-| **Higgsfield Supercomputer** | Closed SaaS | n/a | Закрытый | Свои (DoP, Soul 2.0, Steal) + 30+ orchestrated (Sora 2, Veo 3.1, Kling, Seedance, Nano Banana) | Hermes Agent + Skills Marketplace + Memory + Approval Gates + MCP | Web canvas + Cinema Studio 3.5 (1,296 виртуальных линз) | Всё кроме открытости. $300M ARR run rate в 11 мес. |
-| **Higgsfield Marketing Studio + Hermes Agent** (launched ~April 23, 2026) | Closed SaaS | n/a | Закрытый | См. выше | Hermes | См. выше | Прямой конкурент твоему UGC-pipeline. MCP с 28 апреля 2026. |
-| **HyperFrames (HeyGen)** | OSS framework | (новый) | Apache 2.0 | — | — | **Это твой composer.** | Если HeyGen двинется наверх в orchestration — пожрёт твою верхушку. |
-| **Remotion** | Source-available framework | 47.3k | Free для 1-3 employees, Company License с 4+ | — | Промпт-to-video templates | Их слой | Конкурирует за «video composer для девелоперов». |
-| **MoneyPrinterTurbo (harry0703)** | OSS app | 52.5k (v1.2.6, May 2026) | MIT | Нет | Нет — это скрипт | MoviePy (Python) | Огромная аудитория брейнрот faceless shorts. Не пересекается с тобой по target, но крадёт *внимание* в категории «AI short video OSS». |
-| **ShortGPT (RayVentura)** | OSS framework | 6.6k | — | Нет | Нет | Custom EditingEngine | Затормозил (v0.3.0 — Feb 10, 2025). Поучительный кейс «framework без агента → плато». |
-| **aider (Paul Gauthier)** | OSS CLI (coding) | 45.2k | Apache 2.0 | model-agnostic | Pair-programming | — | Шаблон по дисциплине README + benchmark-leaderboard. |
-| **Cline / Roo Code / Kilo Code** | VS Code extension | 58k / 24k / 16k | Apache 2.0 | model-agnostic | Yes | — | Шаблон по skills/playbooks UX. |
-| **claude-code-router (musistudio)** | OSS proxy | 26.4k (Jan 23, 2026 snapshot) | MIT | Routes Claude Code → any model | — | — | Шаблон по «building on a hot closed CLI». |
-| **OpenInterpreter (KillianLucas)** | OSS CLI | ~58k | AGPL-3 | Любые | Yes | — | Шаблон по launch tweet + MP4 demo. |
-| **Continue.dev (Ty Dunn + Nate Sesti, YC S23)** | OSS IDE extension | 32-33k | Apache 2.0 | Любые | Yes | — | $5M total seed (Heavybit-led, Y Combinator, angels including Hugging Face co-founder Julien Chaumond), объявлен с v1.0 26 февраля 2025. |
-| **n8n (Jan Oberhauser)** | OSS workflow | 108k+ | Fair-code (Sustainable Use License) | LangChain + any API | Workflow-level | — | Шаблон по «coin your own license category». $180M Series C 9 октября 2025 at $2.5B valuation, led by Accel with Meritech, Redpoint, Evantic, Visionaries Club, NVentures (NVIDIA's VC arm), T.Capital, follow-on Sequoia/HV/Highland Europe/Felicis. |
+| **Higgsfield Supercomputer** | Closed SaaS | n/a | Closed | Own (DoP, Soul 2.0, Steal) + 30+ orchestrated (Sora 2, Veo 3.1, Kling, Seedance, Nano Banana) | Hermes Agent + Skills Marketplace + Memory + Approval Gates + MCP | Web canvas + Cinema Studio 3.5 (1,296 virtual lenses) | Everything except openness. $300M ARR run rate in 11 months. |
+| **Higgsfield Marketing Studio + Hermes Agent** (launched ~April 23, 2026) | Closed SaaS | n/a | Closed | See above | Hermes | See above | A direct competitor to your UGC pipeline. MCP since April 28, 2026. |
+| **HyperFrames (HeyGen)** | OSS framework | (new) | Apache 2.0 | — | — | **This is your composer.** | If HeyGen moves upward into orchestration — it eats your top. |
+| **Remotion** | Source-available framework | 47.3k | Free for 1-3 employees, Company License from 4+ | — | Prompt-to-video templates | Their layer | Competes for "video composer for developers." |
+| **MoneyPrinterTurbo (harry0703)** | OSS app | 52.5k (v1.2.6, May 2026) | MIT | No | No — it's a script | MoviePy (Python) | A huge audience of brainrot faceless shorts. Doesn't overlap with you by target, but steals *attention* in the "AI short video OSS" category. |
+| **ShortGPT (RayVentura)** | OSS framework | 6.6k | — | No | No | Custom EditingEngine | Stalled (v0.3.0 — Feb 10, 2025). An instructive case of "framework without an agent → plateau." |
+| **aider (Paul Gauthier)** | OSS CLI (coding) | 45.2k | Apache 2.0 | model-agnostic | Pair-programming | — | The template for README discipline + a benchmark leaderboard. |
+| **Cline / Roo Code / Kilo Code** | VS Code extension | 58k / 24k / 16k | Apache 2.0 | model-agnostic | Yes | — | The template for skills/playbooks UX. |
+| **claude-code-router (musistudio)** | OSS proxy | 26.4k (Jan 23, 2026 snapshot) | MIT | Routes Claude Code → any model | — | — | The template for "building on a hot closed CLI." |
+| **OpenInterpreter (KillianLucas)** | OSS CLI | ~58k | AGPL-3 | Any | Yes | — | The template for the launch tweet + MP4 demo. |
+| **Continue.dev (Ty Dunn + Nate Sesti, YC S23)** | OSS IDE extension | 32-33k | Apache 2.0 | Any | Yes | — | $5M total seed (Heavybit-led, Y Combinator, angels including Hugging Face co-founder Julien Chaumond), announced with v1.0 on February 26, 2025. |
+| **n8n (Jan Oberhauser)** | OSS workflow | 108k+ | Fair-code (Sustainable Use License) | LangChain + any API | Workflow-level | — | The template for "coin your own license category." $180M Series C on October 9, 2025 at a $2.5B valuation, led by Accel with Meritech, Redpoint, Evantic, Visionaries Club, NVentures (NVIDIA's VC arm), T.Capital, follow-on Sequoia/HV/Highland Europe/Felicis. |
 
-### 4. Где Ralphy реально стоит
+### 4. Where Ralphy actually stands
 
-**Реальный moat (узкий, защитимый):**
-- Playbook discipline + intake + quality gates + append-only genlogs + postmortem flow + research engine — этого нет ни у кого в OSS.
-- MODELS.md как живой knowledge-base — бесплатный SEO/content moat.
-- Single-key setup (OPENROUTER + ELEVENLABS) + transparent cost (`--dry-run`) — философия + фича.
+**Real moat (narrow, defensible):**
+- Playbook discipline + intake + quality gates + append-only genlogs + postmortem flow + research engine — nobody in OSS has this.
+- MODELS.md as a living knowledge base — a free SEO/content moat.
+- Single-key setup (OPENROUTER + ELEVENLABS) + transparent cost (`--dry-run`) — a philosophy plus a feature.
 
-**Фейковый/слабый moat:**
-- HyperFrames как «proprietary composer» — нет, это HeyGen Apache 2.0. Ты пользователь, не владелец.
-- «Hybrid agent core» — стандарт. Все «hybrid».
-- «No GPU required» — у Higgsfield тоже не нужен, у MPT тоже не нужен.
-- «OpenRouter only» — операционный choice, не moat. Будущий moat — custom-connector ecosystem, которого Higgsfield не построит никогда (они закрытый SaaS).
+**Fake/weak moat:**
+- HyperFrames as a "proprietary composer" — no, it's HeyGen's Apache 2.0. You're a user, not an owner.
+- "Hybrid agent core" — standard. Everyone is "hybrid."
+- "No GPU required" — Higgsfield doesn't need one either, neither does MPT.
+- "OpenRouter only" — an operational choice, not a moat. The future moat is the custom-connector ecosystem, which Higgsfield will never build (they're a closed SaaS).
 
-### 5. Тезис «developer-first agent for video»
+### 5. The "developer-first agent for video" thesis
 
-Держится частично. Слово «developer» в 2026 растянутое. Сильное переименование тезиса:
+It holds partially. The word "developer" in 2026 is stretched. A strong rephrasing of the thesis:
 
-> **«*Your AI video pipeline as code — fork-able, observable, reproducible.*»**
-> Подзаголовок: *«Claude Code + Ralphy = video as your build artifact.»*
+> **"*Your AI video pipeline as code — fork-able, observable, reproducible.*"**
+> Subtitle: *"Claude Code + Ralphy = video as your build artifact."*
 
-Слова `as code`, `fork-able`, `observable`, `reproducible` — конкретные технические свойства, которые Higgsfield не может скопировать (закрытый SaaS) и которые Ralphy воплощает (genlogs, postmortems, templates as git, MODELS.md).
+The words `as code`, `fork-able`, `observable`, `reproducible` are concrete technical properties that Higgsfield can't copy (a closed SaaS) and that Ralphy embodies (genlogs, postmortems, templates as git, MODELS.md).
 
-### 6. Паттерны OSS-роста (что копировать)
+### 6. OSS-growth patterns (what to copy)
 
-| Источник | Паттерн | Применить к Ralphy |
+| Source | Pattern | Apply to Ralphy |
 |---|---|---|
-| **aider (Paul Gauthier)** | Свой публичный benchmark/leaderboard. По публикации aider.chat/2024/05/22/swe-bench-lite.html: *«Aider scored 26.3% on the SWE Bench Lite benchmark, achieving a state-of-the-art result. The previous top leaderboard entry was 20.3% from Amazon Q Developer Agent.»* README — wall цитат из HN/Discord/X/GitHub. | Запустить «**Ralphy Quality Score**» — public leaderboard рендеренных видео с auto-scoring (vision LLM на hook frame × VO длина × scene count). Submit-form для сообщества. Это и benchmark, и witnessable distribution. |
-| **Cline (Saoud Rizwan)** | Запустился через X (sdrzn) в день релиза Claude 3.5 Sonnet, ~10 дней после Anthropic hackathon. Original tweet: *«Excited to share Claude Dev 🤖 an autonomous software engineer right in your IDE! Made possible thanks to breakthroughs in agentic coding by Anthropic's new Claude 3.5 Sonnet.»* Distributed via VS Code Marketplace, renamed Claude Dev → Cline 9 октября 2024 с v2.0 (XML tool-calling, ~40% token reduction). | Большой релиз Ralphy 0.3.0 в день следующего frontier-model launch (Sora 3, Veo 4, Kling V4). Distribute через Claude Code skills registry, HyperFrames skills, и в первую неделю — Show HN. |
-| **OpenInterpreter (KillianLucas / @hellokillian)** | Launch tweet 6 сентября 2023 с MP4 demo: *«Today I'm launching Open Interpreter, an open-source Code Interpreter that runs locally.»* Позиционирование как «open-source clone of a hyped closed product» в день когда закрытый продукт горяч. | 30-секундный screen-record `ralphy new` → `template suggest` → `render` → готовый mp4. Закрепи tweet в день следующего Higgsfield-анонса как «*open-source, fork-able alternative to Higgsfield Marketing Studio*». |
-| **claude-code-router (musistudio)** | DeepSeek pricing arbitrage ($0.14/M tokens) + GLM/Zhipu sponsorship. README — config-as-pitch. 26.4k звёзд, 2.1k forks. | У тебя уже single-key setup. Усиль narrative «*you pay OpenRouter directly, we take 0% margin*». Спонсорство от OpenRouter — реально достижимо. |
-| **n8n (Jan Oberhauser)** | Coined own license category «fair-code». Docker one-liner. Community-first hire. $180M Series C at $2.5B valuation (Accel + Meritech + Redpoint + Evantic + Visionaries Club + NVIDIA NVentures + T.Capital, 9 октября 2025). | Решись на лицензию (Apache 2.0). Один issue, один PR — сегодня. |
-| **Continue (Ty Dunn)** | $5M total seed (Heavybit + YC + angels) объявлен с v1.0 26 февраля 2025 + Continue Hub launch. EZNewswire/BigTechnology: *«Backed by Heavybit and Y Combinator, Continue has raised a total of $5 million in seed funding»* (angels including Hugging Face co-founder Julien Chaumond). | Когда v1.0 — упакуй его с одним новым артефактом (Ralphy Hub / Plugin Registry) и сделай день анонса. |
-| **Remotion (Jonny Burger)** | Партнёрство с GitHub Unwrapped (Dec 2022) + cite от Fireship. 47.3k звёзд при source-available лицензии. | Найди один большой инфлюэнсер-чан (Fireship, Theo, Cassidy Williams). Один shoutout = +3-5k звёзд за неделю. |
-| **Higgsfield (anti-pattern по тактике, шаблон по cadence)** | 4-7 шипов в неделю, 200+ релизов за год. Прямая цитата Mashrabov (productgrowth.blog teardown): *«We release product updates almost every day. This rhythm keeps us learning faster than anyone else in the space, and that's unlikely to change.»* Его же признание после suspension'а 9 февраля 2026 (Mashrabov X post Feb 11, цит. piunikaweb.com): *«Rapid scaling brings real challenges. We acknowledge that our internal processes and external communications haven't always kept pace with our core values, and we have made mistakes.»* | Скопировать cadence, отвергнуть метод (никакого payola-influencer'а, никаких «Unlimited Kling» false claims). Один публичный Friday Ship в неделю. Контр-нарратив: «*we ship weekly, we ship in public, we ship under Apache 2.0.*» |
+| **aider (Paul Gauthier)** | Its own public benchmark/leaderboard. Per the post aider.chat/2024/05/22/swe-bench-lite.html: *"Aider scored 26.3% on the SWE Bench Lite benchmark, achieving a state-of-the-art result. The previous top leaderboard entry was 20.3% from Amazon Q Developer Agent."* The README is a wall of quotes from HN/Discord/X/GitHub. | Launch a "**Ralphy Quality Score**" — a public leaderboard of rendered videos with auto-scoring (a vision LLM on the hook frame × VO length × scene count). A submit form for the community. It's both a benchmark and witnessable distribution. |
+| **Cline (Saoud Rizwan)** | Launched via X (sdrzn) on the day Claude 3.5 Sonnet released, ~10 days after the Anthropic hackathon. Original tweet: *"Excited to share Claude Dev 🤖 an autonomous software engineer right in your IDE! Made possible thanks to breakthroughs in agentic coding by Anthropic's new Claude 3.5 Sonnet."* Distributed via the VS Code Marketplace, renamed Claude Dev → Cline on October 9, 2024 with v2.0 (XML tool-calling, ~40% token reduction). | A big Ralphy 0.3.0 release on the day of the next frontier-model launch (Sora 3, Veo 4, Kling V4). Distribute via the Claude Code skills registry, HyperFrames skills, and in the first week — Show HN. |
+| **OpenInterpreter (KillianLucas / @hellokillian)** | Launch tweet on September 6, 2023 with an MP4 demo: *"Today I'm launching Open Interpreter, an open-source Code Interpreter that runs locally."* Positioned as an "open-source clone of a hyped closed product" on the day the closed product is hot. | A 30-second screen recording of `ralphy new` → `template suggest` → `render` → a finished mp4. Pin a tweet on the day of the next Higgsfield announcement as "*open-source, fork-able alternative to Higgsfield Marketing Studio*." |
+| **claude-code-router (musistudio)** | DeepSeek pricing arbitrage ($0.14/M tokens) + GLM/Zhipu sponsorship. The README is a config-as-pitch. 26.4k stars, 2.1k forks. | You already have single-key setup. Strengthen the narrative "*you pay OpenRouter directly, we take 0% margin*." Sponsorship from OpenRouter is realistically achievable. |
+| **n8n (Jan Oberhauser)** | Coined its own license category, "fair-code." Docker one-liner. Community-first hire. $180M Series C at a $2.5B valuation (Accel + Meritech + Redpoint + Evantic + Visionaries Club + NVIDIA NVentures + T.Capital, October 9, 2025). | Decide on a license (Apache 2.0). One issue, one PR — today. |
+| **Continue (Ty Dunn)** | $5M total seed (Heavybit + YC + angels) announced with v1.0 on February 26, 2025 + the Continue Hub launch. EZNewswire/BigTechnology: *"Backed by Heavybit and Y Combinator, Continue has raised a total of $5 million in seed funding"* (angels including Hugging Face co-founder Julien Chaumond). | When v1.0 lands — package it with one new artifact (Ralphy Hub / Plugin Registry) and make it an announcement day. |
+| **Remotion (Jonny Burger)** | Partnership with GitHub Unwrapped (Dec 2022) + a cite from Fireship. 47.3k stars under a source-available license. | Find one big influencer channel (Fireship, Theo, Cassidy Williams). One shoutout = +3-5k stars in a week. |
+| **Higgsfield (anti-pattern in tactics, template in cadence)** | 4-7 ships a week, 200+ releases in a year. Direct quote from Mashrabov (productgrowth.blog teardown): *"We release product updates almost every day. This rhythm keeps us learning faster than anyone else in the space, and that's unlikely to change."* His own admission after the suspension on February 9, 2026 (Mashrabov X post Feb 11, quoted by piunikaweb.com): *"Rapid scaling brings real challenges. We acknowledge that our internal processes and external communications haven't always kept pace with our core values, and we have made mistakes."* | Copy the cadence, reject the method (no payola influencers, no "Unlimited Kling" false claims). One public Friday Ship per week. Counter-narrative: "*we ship weekly, we ship in public, we ship under Apache 2.0.*" |
 
-### 7. Differentiation от Higgsfield
+### 7. Differentiation from Higgsfield
 
-**Higgsfield strengths и контр-ходы:**
+**Higgsfield strengths and counter-moves:**
 
-| Higgsfield | Контр-позиция Ralphy |
+| Higgsfield | Ralphy counter-position |
 |---|---|
-| Custom foundation models (DoP image-to-video с camera controls, Soul 2.0 photoreal, Steal browser extension launched July 2025) | *«We orchestrate the best models in the world via OpenRouter — Kling, Seedance, Veo, Sora 2, Nano Banana — and you swap them in a config line. No vendor lock-in.»* Усилитель: раз в неделю добавляй запись в `MODELS.md` через CI, показывай в Friday Ship. |
-| Director presets (Cinema Studio 3.5 с 1,296 virtual lenses + Mr. Higgs co-director) | Переведи их «director presets» в три твоих примитива: `ralphy template` (composition+storyboard+brand), `ralphy guideline` (prompt cookbook + register rules: `@guideline:photoreal-skin`, `@guideline:broadcast-realism`), HyperFrames registry-blocks. Каждый — *версионируется в git*, *тестируется CI*, *публикуется через PR*. |
-| «Agentic Super Computer» narrative + Hermes Agent (closed SaaS) | *«Higgsfield = a closed agent that runs in their cloud. Ralphy = an open agent that runs on YOUR machine, that you can fork, audit, and ship to prod.»* Технически подкрепляется append-only genlogs + postmortem schema = «auditable AI video» (важный фрейм в свете EU AI Act). |
-| Distribution через X/influencers/weekly demos. 4-7 шипов/неделю. $300M ARR run rate (Sacra estimate, Feb 2026). $1.3B valuation после Series A extension 15 января 2026 (TechCrunch/PRNewswire): *«Investors in the Series A extension include Accel, AI Capital Partners (Alpha Intelligence Capital's US-based fund), Menlo Ventures, and GFT Ventures.»* | Скопировать cadence (Friday Ship). Отвергнуть метод. Public PR-driven examples, не paid astroturf. |
+| Custom foundation models (DoP image-to-video with camera controls, Soul 2.0 photoreal, the Steal browser extension launched July 2025) | *"We orchestrate the best models in the world via OpenRouter — Kling, Seedance, Veo, Sora 2, Nano Banana — and you swap them in a config line. No vendor lock-in."* Amplifier: once a week add an entry to `MODELS.md` via CI, show it in the Friday Ship. |
+| Director presets (Cinema Studio 3.5 with 1,296 virtual lenses + Mr. Higgs co-director) | Translate their "director presets" into your three primitives: `ralphy template` (composition+storyboard+brand), `ralphy guideline` (prompt cookbook + register rules: `@guideline:photoreal-skin`, `@guideline:broadcast-realism`), HyperFrames registry-blocks. Each one — *versioned in git*, *tested by CI*, *published via PR*. |
+| "Agentic Super Computer" narrative + Hermes Agent (closed SaaS) | *"Higgsfield = a closed agent that runs in their cloud. Ralphy = an open agent that runs on YOUR machine, that you can fork, audit, and ship to prod."* Technically backed by append-only genlogs + a postmortem schema = "auditable AI video" (an important frame in light of the EU AI Act). |
+| Distribution via X/influencers/weekly demos. 4-7 ships/week. $300M ARR run rate (Sacra estimate, Feb 2026). $1.3B valuation after the Series A extension on January 15, 2026 (TechCrunch/PRNewswire): *"Investors in the Series A extension include Accel, AI Capital Partners (Alpha Intelligence Capital's US-based fund), Menlo Ventures, and GFT Ventures."* | Copy the cadence (Friday Ship). Reject the method. Public PR-driven examples, not paid astroturf. |
 
-**Director presets → registry-blocks: конкретный mapping:**
+**Director presets → registry-blocks: the concrete mapping:**
 
 ```
 templates/cinematic-narrative/dolly-in-golden-hour/
 ├── meta.yaml              # name, kind: vibe-reference, registers: [photoreal, cinematic]
 ├── composition.md         # 1 scene, 8s, 9:16, kling-v3.0-pro with --first-frame anchor + dolly prompt vocab
-├── reference/             # 3 reference frames (с цитированием)
+├── reference/             # 3 reference frames (with citation)
 ├── guideline-bind.yaml    # uses @guideline:photoreal-skin + @guideline:cinematic-camera
 └── hyperframes/
     └── grade-golden-hour.html  # GSAP timeline + colour-grading CSS overlay
 ```
 
-Этот формат — *код в репо, PR-able, тестируемый* (lint:templates уже есть). Маркетинговая фраза:
+This format is *code in the repo, PR-able, testable* (lint:templates already exists). The marketing line:
 
-> «*Higgsfield's Cinematic Studio has 50 presets. Ralphy has 50 templates. The difference: ours live in git.*»
+> "*Higgsfield's Cinematic Studio has 50 presets. Ralphy has 50 templates. The difference: ours live in git.*"
 
-**Anti-narrative твиты:**
-- *«Higgsfield's Hermes Agent runs in their cloud, eats their credits, follows their rules. Ralphy runs in your terminal, eats your OpenRouter credits, follows your playbook. Both are agents. Only one is yours.»*
-- *«Your agent suspended? Your skills marketplace deplatformed? Ralphy is in your `~/.local/bin/`. Fork it, mirror it, ship it.»*
+**Anti-narrative tweets:**
+- *"Higgsfield's Hermes Agent runs in their cloud, eats their credits, follows their rules. Ralphy runs in your terminal, eats your OpenRouter credits, follows your playbook. Both are agents. Only one is yours."*
+- *"Your agent suspended? Your skills marketplace deplatformed? Ralphy is in your `~/.local/bin/`. Fork it, mirror it, ship it."*
 
 ---
 
-## Таргет-архитектура
+## Target architecture
 
-### Принципы
-1. Один публичный SDK, чётко layered: `core/`, `adapters/`, `composer/`, `agent/`, `cli/`.
-2. Composer — plug-in, не hardcoded HyperFrames. HyperFrames = first-class default; `ComposerAdapter` interface разрешает Remotion, Motion Canvas, Manim, custom HTML.
-3. Provider — plug-in. `Provider` interface с `capabilities`, `generate`, `estimateCost`, `healthCheck`, `pricePerCall`.
-4. Memory/Genlog — публичный JSON Schema, не приватная структура.
-5. Agent — отдельный слой, который HTTP/MCP-говорит с CLI. Не приклеен к Claude Code (хотя default).
-6. CLI = тонкая обёртка над Core SDK.
+### Principles
+1. One public SDK, clearly layered: `core/`, `adapters/`, `composer/`, `agent/`, `cli/`.
+2. The composer is a plug-in, not hardcoded HyperFrames. HyperFrames = first-class default; a `ComposerAdapter` interface allows Remotion, Motion Canvas, Manim, custom HTML.
+3. The provider is a plug-in. A `Provider` interface with `capabilities`, `generate`, `estimateCost`, `healthCheck`, `pricePerCall`.
+4. Memory/Genlog — a public JSON Schema, not a private structure.
+5. The agent is a separate layer that talks to the CLI over HTTP/MCP. Not glued to Claude Code (though it's the default).
+6. The CLI = a thin wrapper over the Core SDK.
 
-### Слойная диаграмма
+### Layer diagram
 
 ```mermaid
 graph TB
@@ -220,7 +220,7 @@ graph TB
     PLUG --> MOT
 ```
 
-### Provider interface (TS-spec)
+### Provider interface (TS spec)
 
 ```ts
 // core/src/provider.ts
@@ -243,7 +243,7 @@ export interface ModelDescriptor {
 }
 ```
 
-Custom connector — pip-style: пользователь публикует npm-пакет с default-export `Provider`, регистрирует через `ralphy plugin install @org/fal-provider`, добавляет ключ через `ralphy config set FAL_KEY=...`. Router включает в pool, и `ralphy generate video --provider fal --model wan-25` работает.
+A custom connector — pip-style: the user publishes an npm package with a default-export `Provider`, registers it via `ralphy plugin install @org/fal-provider`, adds a key via `ralphy config set FAL_KEY=...`. The router brings it into the pool, and `ralphy generate video --provider fal --model wan-25` works.
 
 ### Composer adapter
 
@@ -257,7 +257,7 @@ export interface ComposerAdapter {
 }
 ```
 
-HyperFrames-адаптер first-class. Remotion-адаптер spin out в `@ralphy/composer-remotion`, помечен «deprecated, frozen at 4.0.x».
+The HyperFrames adapter is first-class. The Remotion adapter is spun out into `@ralphy/composer-remotion`, marked "deprecated, frozen at 4.0.x."
 
 ### Plugin publishing flow
 
@@ -269,12 +269,12 @@ HyperFrames-адаптер first-class. Remotion-адаптер spin out в `@ra
    └── reference/
 2. npm publish
 3. User: ralphy plugin install @my-org/ralphy-template-cinematic-dolly
-   → парсит ralphy-plugin manifest, валидирует через lint:templates,
-     SHA-256 проверяет, заносит в ~/.ralphy/plugins/
-4. ralphy template suggest "cinematic dolly" — возвращает plugin'ный template
+   → parses the ralphy-plugin manifest, validates via lint:templates,
+     verifies SHA-256, places it in ~/.ralphy/plugins/
+4. ralphy template suggest "cinematic dolly" — returns the plugin's template
 ```
 
-### Genlog schema (JSON Schema v1, публичный)
+### Genlog schema (JSON Schema v1, public)
 
 ```yaml
 $schema: https://json-schema.org/draft/2020-12/schema
@@ -331,13 +331,13 @@ properties:
   related_genlogs: { type: array, items: { type: string } }
 ```
 
-### Doctor checks (target состояние)
+### Doctor checks (target state)
 
 ```
 ralphy doctor → JSON:
 - env.bun (>= 1.x)
 - env.ffmpeg (path + version >= 6.x)
-- env.chromium (puppeteer cache, для HyperFrames)
+- env.chromium (puppeteer cache, for HyperFrames)
 - env.openrouter_key + key.balance + key.concurrent_limit_estimate
 - env.elevenlabs_key + key.subscription_tier
 - providers.openrouter.health
@@ -351,108 +351,108 @@ ralphy doctor → JSON:
 
 ---
 
-## Roadmap до 10k+ звёзд
+## Roadmap to 10k+ stars
 
-### Phase 0 — июнь 2026: stop the bleeding, ship 0.3.0
-
-**Build:**
-1. Сменить license `UNLICENSED` → **Apache 2.0**. Один PR, сегодня.
-2. Переименовать `package.json.name` в `ralphy` или `@ralphy/cli`. Description — одна рабочая фраза.
-3. Удалить Remotion из default deps. Перенести в `@ralphy/composer-remotion` (peerDep). Удалить `remotion.config.ts` из корня.
-4. Удалить `dashboard/` полностью.
-5. Переписать README по схеме aider + OpenInterpreter: MP4 hero, 60-секундный pitch, однострочный install, 5 things to try first с реальными ASCII outputs, testimonials wall, link на showcase.
-6. Записать 30s hero MP4: screencast `ralphy new "spring espresso ad" → ralphy template suggest → ralphy render espresso-001 → played mp4`.
-7. Ship `ralphy doctor` 2.0 — все checks из §Doctor.
-8. Ship `ralphy mcp serve` — 5-10 ключевых verbs (generate image/video/voiceover, render, template suggest, ref check, doctor) для Claude/Cursor/OpenClaw. **Критично для anti-Higgsfield narrative.**
-
-**Kill:** упоминания «Remotion (default)» в docs; двойная `.agents/skills/` vs `.claude/skills/`; `BRAND_DESIGN.md` в корне.
-
-**Rename:** Tagline = «*Your AI video pipeline as code — fork-able, observable, reproducible.*» README hero = «*Claude Code + Ralphy. Two API keys. One CLI. A video pipeline you can ship to prod.*»
-
-**Content:** W1 Show HN с 0.3.0. W2-4: Twitter ramp-up, 3 поста/неделя, минимум один embedded MP4.
-
-### Phase 1 — июль–август 2026: refactor + первые wow
+### Phase 0 — June 2026: stop the bleeding, ship 0.3.0
 
 **Build:**
-1. Архитектурный refactor по §Таргет-архитектура: monorepo (bun workspaces), `core/`, `adapters/`, `composer/`, `agent/`, `cli/`.
-2. `Provider` interface + `ComposerAdapter` interface опубликованы как `@ralphy/core` на npm.
-3. Ship `ralphy plugin install` + первый community provider (Fal.ai adapter или Suno music fallback).
-4. Ship genlog schema v1 + visualizer `ralphy logs serve` (read-only веб-страничка на localhost).
-5. **«Ralphy Quality Score» public leaderboard** на ralphy.dev с auto-scoring через vision LLM (gemini-2.5-flash). Submit-форма.
-6. Tutorial-content cycle: один в неделю на ralphy.dev/docs.
+1. Switch the license `UNLICENSED` → **Apache 2.0**. One PR, today.
+2. Rename `package.json.name` to `ralphy` or `@ralphy/cli`. The description — one working sentence.
+3. Remove Remotion from default deps. Move it to `@ralphy/composer-remotion` (peerDep). Delete `remotion.config.ts` from the root.
+4. Delete `dashboard/` entirely.
+5. Rewrite the README on the aider + OpenInterpreter pattern: MP4 hero, a 60-second pitch, a one-line install, 5 things to try first with real ASCII outputs, a testimonials wall, a link to the showcase.
+6. Record a 30s hero MP4: a screencast of `ralphy new "spring espresso ad" → ralphy template suggest → ralphy render espresso-001 → played mp4`.
+7. Ship `ralphy doctor` 2.0 — all checks from §Doctor.
+8. Ship `ralphy mcp serve` — 5-10 key verbs (generate image/video/voiceover, render, template suggest, ref check, doctor) for Claude/Cursor/OpenClaw. **Critical for the anti-Higgsfield narrative.**
 
-**Kill:** legacy paths/scripts (`_dashboard:legacy`), `remotion` из dependencies.
+**Kill:** mentions of "Remotion (default)" in docs; the dual `.agents/skills/` vs `.claude/skills/`; `BRAND_DESIGN.md` in the root.
 
-**Rename:** «Templates» → «Pipelines as templates»; «Guidelines» → «Prompt guidelines».
+**Rename:** Tagline = "*Your AI video pipeline as code — fork-able, observable, reproducible.*" README hero = "*Claude Code + Ralphy. Two API keys. One CLI. A video pipeline you can ship to prod.*"
 
-**Content:** Friday Ship rhythm. `#ralphyFridayShip` hashtag. Hit r/LocalLLaMA, r/ClaudeAI, r/AIvideo. Найти 1 виральный креатор-инфлюэнсер для tailored demo (открытый bounty, не secret payment).
+**Content:** W1 Show HN with 0.3.0. W2-4: Twitter ramp-up, 3 posts/week, at least one embedded MP4.
 
-### Phase 2 — сентябрь 2026 — февраль 2027: plugin ecosystem + demo flywheel
+### Phase 1 — July–August 2026: refactor + first wows
 
 **Build:**
-1. Plugin registry на ralphy.dev/plugins (как npm-search).
-2. 3-5 community provider adapters: Fal, Replicate, Suno, Higgsfield (если откроют API), Comfy local.
-3. `ralphy hub` — github-style repo discovery для templates/guidelines/blocks.
-4. `@ralphy/sdk` programmatic API для embedded use-cases.
+1. The architectural refactor per §Target architecture: a monorepo (bun workspaces), `core/`, `adapters/`, `composer/`, `agent/`, `cli/`.
+2. The `Provider` interface + `ComposerAdapter` interface published as `@ralphy/core` on npm.
+3. Ship `ralphy plugin install` + the first community provider (a Fal.ai adapter or a Suno music fallback).
+4. Ship genlog schema v1 + a visualizer `ralphy logs serve` (a read-only web page on localhost).
+5. **A "Ralphy Quality Score" public leaderboard** on ralphy.dev with auto-scoring via a vision LLM (gemini-2.5-flash). A submit form.
+6. A tutorial-content cycle: one a week on ralphy.dev/docs.
+
+**Kill:** legacy paths/scripts (`_dashboard:legacy`), `remotion` from dependencies.
+
+**Rename:** "Templates" → "Pipelines as templates"; "Guidelines" → "Prompt guidelines."
+
+**Content:** Friday Ship rhythm. A `#ralphyFridayShip` hashtag. Hit r/LocalLLaMA, r/ClaudeAI, r/AIvideo. Find 1 viral creator-influencer for a tailored demo (an open bounty, not a secret payment).
+
+### Phase 2 — September 2026 — February 2027: plugin ecosystem + demo flywheel
+
+**Build:**
+1. A plugin registry on ralphy.dev/plugins (like npm-search).
+2. 3-5 community provider adapters: Fal, Replicate, Suno, Higgsfield (if they open an API), Comfy local.
+3. `ralphy hub` — github-style repo discovery for templates/guidelines/blocks.
+4. `@ralphy/sdk` — a programmatic API for embedded use cases.
 5. Cost rollup dashboards (`ralphy cost summary --since 30d --by-project` + CSV export).
-6. `ralphy postmortem auto` — после неудачи генерации автогенерация postmortem с reference на genlog.
+6. `ralphy postmortem auto` — auto-generation of a postmortem with a reference to the genlog after a generation failure.
 
-**Rename:** возможный renaming перед 1.0. «Ralphy» нерейтингабельно SEO (Ralphy Wiggum, Ralph Lauren) и есть как минимум один конкурирующий `ralphy` npm-пакет (michaelshimeles/ralphy — autonomous bash loop в той же agent-tools нише). Альтернативы: `ralpha`, `claphy` (Claude + Ralphy), или scope npm: `@ralphy-video/cli`. **Решение принять до 1.0.**
+**Rename:** a possible renaming before 1.0. "Ralphy" is un-rankable for SEO (Ralphy Wiggum, Ralph Lauren) and there's at least one competing `ralphy` npm package (michaelshimeles/ralphy — an autonomous bash loop in the same agent-tools niche). Alternatives: `ralpha`, `claphy` (Claude + Ralphy), or scope the npm: `@ralphy-video/cli`. **Make the decision before 1.0.**
 
-**Content:** ежемесячный community show-and-tell live в Discord. Friday Ship еженедельно. Deep-dive blog post раз в месяц на ralphy.dev/blog.
+**Content:** a monthly community show-and-tell live in Discord. Friday Ship weekly. A deep-dive blog post once a month on ralphy.dev/blog.
 
-### Phase 3 — март–октябрь 2027: community, content-farm vertical, paid extensions
+### Phase 3 — March–October 2027: community, content-farm vertical, paid extensions
 
 **Build:**
-1. Content-farm vertical — preset profile для batch (100 videos/day, brand consistency, postmortem automation).
-2. Опциональные paid extensions / Ralphy Cloud — managed daemon + asset CDN для команд. **НО core всегда OSS** (Vercel vs Next.js model).
-3. Education channel: курс «Build your AI video pipeline with Claude Code + Ralphy» free на ralphy.dev/learn.
-4. Enterprise hardening: SSO config для providers, audit log как separate stream, GDPR data-export tool для postmortems.
+1. A content-farm vertical — a preset profile for batch (100 videos/day, brand consistency, postmortem automation).
+2. Optional paid extensions / Ralphy Cloud — a managed daemon + asset CDN for teams. **BUT the core is always OSS** (the Vercel vs Next.js model).
+3. An education channel: a course "Build your AI video pipeline with Claude Code + Ralphy" free on ralphy.dev/learn.
+4. Enterprise hardening: SSO config for providers, an audit log as a separate stream, a GDPR data-export tool for postmortems.
 
-**Content:** Conference talks (StrangeLoop, JSConf, AIDev). Sponsorship partnership с OpenRouter. При 5k+ звёзд — appearance на Fireship/Theo.
+**Content:** Conference talks (StrangeLoop, JSConf, AIDev). A sponsorship partnership with OpenRouter. At 5k+ stars — an appearance on Fireship/Theo.
 
 ---
 
 ## Recommendations
 
-### Top 10 «что я сделаю завтра утром, если бы это был мой репо» (impact × effort)
+### Top 10 "what I'd do tomorrow morning if this were my repo" (impact × effort)
 
-| # | Действие | Impact | Effort | Когда |
+| # | Action | Impact | Effort | When |
 |---|---|---|---|---|
-| 1 | **Поменять license `UNLICENSED` → Apache 2.0** (один PR, 5 минут) | 10 | 1 | Сегодня |
-| 2 | **Переписать README:** MP4 hero, однострочный install, 5-step quickstart с реальными outputs, testimonials wall (даже на 3 цитаты). Образец — aider + OpenInterpreter. | 9 | 4 | На неделю |
-| 3 | **Записать 30s screencast MP4** «ralphy new → render → mp4», embed в README + ralphy.dev hero. | 9 | 2 | На неделю |
-| 4 | **Ship `ralphy mcp serve`** (даже минимальный, 5 verbs). Самая высоко-leverage фича для distribution через Claude Code/Cursor/OpenClaw. | 9 | 5 | На две недели |
-| 5 | **Удалить `dashboard/`, удалить Remotion из дефолта, переименовать `package.json.name` в `ralphy`.** | 6 | 1 | Сегодня |
-| 6 | **Вытащить MODELS.md в публичную страницу `ralphy.dev/models`** с автообновлением и SEO под `kling pricing`, `seedance privacy filter`, `veo 3.1 4k`. | 8 | 3 | На неделю |
-| 7 | **Запустить `ralphy.dev/leaderboard`** с auto-scoring (vision LLM). Первые submitted videos — собственные 11 showcase clips. | 8 | 6 | На месяц |
-| 8 | **Извлечь `Provider` и `ComposerAdapter` interfaces в `@ralphy/core` npm.** Опубликовать первый «good-first-issue»: «Looking for Fal/Replicate connector contributors». | 7 | 6 | На две-три недели |
-| 9 | **Friday Ship rhythm:** один публичный ship на X каждую пятницу, embedded video. Восемь пятниц подряд = 8 шансов на RT от Theo/Fireship/AIDev-tier. | 8 | 4/each | Continuous |
-| 10 | **Blog post «How we tried to reproduce Higgsfield Marketing Studio in an OSS CLI»** на ralphy.dev/blog + dev.to + HN. Honest, technical, с конкретными `--dry-run` cost numbers. | 7 | 3 | На две недели |
+| 1 | **Change the license `UNLICENSED` → Apache 2.0** (one PR, 5 minutes) | 10 | 1 | Today |
+| 2 | **Rewrite the README:** MP4 hero, a one-line install, a 5-step quickstart with real outputs, a testimonials wall (even just 3 quotes). The model — aider + OpenInterpreter. | 9 | 4 | This week |
+| 3 | **Record a 30s screencast MP4** "ralphy new → render → mp4," embed in the README + the ralphy.dev hero. | 9 | 2 | This week |
+| 4 | **Ship `ralphy mcp serve`** (even a minimal one, 5 verbs). The highest-leverage feature for distribution via Claude Code/Cursor/OpenClaw. | 9 | 5 | In two weeks |
+| 5 | **Delete `dashboard/`, remove Remotion from the default, rename `package.json.name` to `ralphy`.** | 6 | 1 | Today |
+| 6 | **Pull MODELS.md out into a public page `ralphy.dev/models`** with auto-update and SEO for `kling pricing`, `seedance privacy filter`, `veo 3.1 4k`. | 8 | 3 | This week |
+| 7 | **Launch `ralphy.dev/leaderboard`** with auto-scoring (a vision LLM). The first submitted videos — your own 11 showcase clips. | 8 | 6 | This month |
+| 8 | **Extract the `Provider` and `ComposerAdapter` interfaces into `@ralphy/core` npm.** Publish the first "good-first-issue": "Looking for Fal/Replicate connector contributors." | 7 | 6 | In two-three weeks |
+| 9 | **Friday Ship rhythm:** one public ship on X every Friday, an embedded video. Eight Fridays in a row = 8 chances at an RT from Theo/Fireship/AIDev-tier. | 8 | 4/each | Continuous |
+| 10 | **A blog post "How we tried to reproduce Higgsfield Marketing Studio in an OSS CLI"** on ralphy.dev/blog + dev.to + HN. Honest, technical, with concrete `--dry-run` cost numbers. | 7 | 3 | In two weeks |
 
-### Конкретные «delete / simplify»
-- **Delete:** `dashboard/`, `_dashboard:legacy` scripts, `BRAND_DESIGN.md` в корне (move to `landing/`), `remotion.config.ts` в корне.
-- **Simplify:** AGENTS.md → router-only 2-3KB + lazy-loaded `docs/playbooks/*.md`. CLAUDE.md → пустой `@`-import AGENTS.md.
-- **Consolidate:** `.agents/skills/` + `.claude/skills/` → одна `skills/` + sync script.
-- **Hide as legacy:** Remotion playbook, `--engine remotion` флаг.
+### Concrete "delete / simplify"
+- **Delete:** `dashboard/`, `_dashboard:legacy` scripts, `BRAND_DESIGN.md` in the root (move to `landing/`), `remotion.config.ts` in the root.
+- **Simplify:** AGENTS.md → router-only 2-3KB + lazy-loaded `docs/playbooks/*.md`. CLAUDE.md → an empty `@`-import of AGENTS.md.
+- **Consolidate:** `.agents/skills/` + `.claude/skills/` → one `skills/` + a sync script.
+- **Hide as legacy:** the Remotion playbook, the `--engine remotion` flag.
 
-### Конкретные «naming / positioning fixes»
-- README headline: **«*Your AI video pipeline as code.*»**
-- README subheadline: **«*Claude Code + Ralphy. Two API keys. One CLI. Forkable, observable, reproducible.*»**
-- Pull-quote (X bio, ralphy.dev hero): **«*OSS, agent-native CLI for AI video — built for developers who fork and ship to prod.*»**
-- GitHub topics: добавить `agent`, `mcp`, `cli`, `developer-tools`, `openrouter`, `elevenlabs`, `hyperframes` (4 новых высокотрафиковых).
+### Concrete "naming / positioning fixes"
+- README headline: **"*Your AI video pipeline as code.*"**
+- README subheadline: **"*Claude Code + Ralphy. Two API keys. One CLI. Forkable, observable, reproducible.*"**
+- Pull-quote (X bio, ralphy.dev hero): **"*OSS, agent-native CLI for AI video — built for developers who fork and ship to prod.*"**
+- GitHub topics: add `agent`, `mcp`, `cli`, `developer-tools`, `openrouter`, `elevenlabs`, `hyperframes` (4 new high-traffic ones).
 
-### Конкретные «README rewrite directions»
+### Concrete "README rewrite directions"
 
-| Repo | Звёзды | README hero | У тебя |
+| Repo | Stars | README hero | Yours |
 |---|---|---|---|
-| aider | 45.2k | Animated terminal GIF + однострочный pip install + testimonials wall с цитатами из HN/Discord/X/GitHub | Banner.png + 4-platform install table |
-| OpenInterpreter | ~58k | Embedded MP4 video + tagline в одну строку + 2-line install | Banner + bullets |
-| Continue | 32-33k | Embedded GIFs четырёх режимов (Chat/Autocomplete/Edit/Agent) | — |
-| Remotion | 47.3k | Tagline + 2 showcase links (Fireship video, GitHub Unwrapped) + capabilities bullets | — |
-| MoneyPrinterTurbo | 52.5k | Демо-видео + bilingual + Streamlit screenshot | — |
+| aider | 45.2k | Animated terminal GIF + a one-line pip install + a testimonials wall with quotes from HN/Discord/X/GitHub | Banner.png + a 4-platform install table |
+| OpenInterpreter | ~58k | Embedded MP4 video + a one-line tagline + a 2-line install | Banner + bullets |
+| Continue | 32-33k | Embedded GIFs of four modes (Chat/Autocomplete/Edit/Agent) | — |
+| Remotion | 47.3k | Tagline + 2 showcase links (a Fireship video, GitHub Unwrapped) + capabilities bullets | — |
+| MoneyPrinterTurbo | 52.5k | A demo video + bilingual + a Streamlit screenshot | — |
 
-**Schema для Ralphy README:**
+**Schema for the Ralphy README:**
 
 ```
 [hero MP4 30s autoplay muted]
@@ -491,7 +491,7 @@ npm install -g @ralphy/cli
 [testimonials from Discord/X/HN]
 
 ## Architecture
-[mermaid диаграмма из target arch]
+[mermaid diagram from the target arch]
 
 ## Docs / Community
 [Mintlify links + Discussions]
@@ -501,18 +501,18 @@ npm install -g @ralphy/cli
 
 ## Caveats
 
-1. **Higgsfield-narrative волатилен.** Их main account @higgsfield_ai был suspended 9 февраля 2026 (около 200k подписчиков) за platform manipulation, paid influencer flood, и «Unlimited Kling» claims которые Kling AI публично denied. CEO Машрабов признал постом 11 февраля 2026 (per piunikaweb.com): *«Rapid scaling brings real challenges. We acknowledge that our internal processes and external communications haven't always kept pace with our core values, and we have made mistakes.»* К маю 2026 один из двух handle'ов (@higgsfield_ai/@higgsfield) работает. Это даёт тебе сильный *anti-narrative*, но требует аккуратности — привязывай Ralphy не к «anti-Higgsfield», а к универсальному принципу «*open-source > closed SaaS for production video pipelines*».
-2. **HyperFrames принадлежит HeyGen.** Они могут поменять лицензию или прекратить maintenance. Митигейшн: composer-adapter layer делает тебя композер-агностиком, fork на Apache 2.0 всегда возможен.
-3. **Bun-зависимость отрезает Python-аудиторию.** Это сознательный выбор, стоит ~20-40% potential star pool. Митигейшн: ship статичные бинарники честно, не упоминай `bun` в user-facing docs.
-4. **Скорость моделей в OpenRouter растёт быстро.** Kling V4, Seedance 3, Sora 3 могут зайти через 1-3 месяца, lessons learned в MODELS.md устареют. Это **фича, не баг** — лог обновляемый, делай из этого weekly shipping ритуал.
-5. **Custom connectors — крупный engineering effort.** Хороший Provider interface — 1-2 недели работы. Первый community PR от внешнего разраба — 2-3 месяца после публикации interface. Не отодвигай Phase 1.
-6. **Owner может перегореть** на content cadence. Friday Ship + tutorial-в-неделю — серьёзная нагрузка. Решение: либо 0.2 FTE Developer Advocate, либо contributor-friendly issues + community demos считаются.
-7. **MCP-спецификация меняется.** Не делай glue-код жёстким — оставь возможность мигрировать на A2A или ACP без переписи core.
-8. **Юридические риски UGC.** Append-only genlogs + quality gates + refs-required-gate — твой brand-safety story (важный после Higgsfield racist-content controversy и в свете EU AI Act, который начнёт требовать audit trails в 2026-2027). Усиль это в `docs/legal/` и сделай видимым в README.
-9. **Источники, использованные в этом аудите:** репо `alecs5am/ralphy` (README, AGENTS.md, MODELS.md, CLI.md, package.json, install.sh), Higgsfield official pages (higgsfield.ai/supercomputer-intro, /marketing-studio-intro), TechCrunch + PRNewswire (Higgsfield Series A extension 15 января 2026), productgrowth.blog teardown Higgsfield, piunikaweb.com (Mashrabov Feb 11 statement), caimera.ai (account suspension case study), explainx.ai (Hermes Agent technical deep dive), aider.chat/2024/05/22/swe-bench-lite.html, EZNewswire (Continue v1.0/seed announcement), blog.n8n.io (Series C announcement), bestofjs.org/projects/hyperframes (Apache 2.0 + Remotion comparison), remotion.dev/docs/license (Company License threshold), github.com/harry0703/MoneyPrinterTurbo, github.com/RayVentura/ShortGPT, github.com/musistudio/claude-code-router, github.com/cline/cline, github.com/openinterpreter/open-interpreter, github.com/Aider-AI/aider, github.com/continuedev/continue, github.com/n8n-io/n8n, github.com/heygen-com/hyperframes.
+1. **The Higgsfield narrative is volatile.** Their main account @higgsfield_ai was suspended on February 9, 2026 (around 200k followers) for platform manipulation, a paid-influencer flood, and "Unlimited Kling" claims that Kling AI publicly denied. CEO Mashrabov admitted in a post on February 11, 2026 (per piunikaweb.com): *"Rapid scaling brings real challenges. We acknowledge that our internal processes and external communications haven't always kept pace with our core values, and we have made mistakes."* By May 2026 one of the two handles (@higgsfield_ai/@higgsfield) works. This gives you a strong *anti-narrative*, but it requires care — tie Ralphy not to "anti-Higgsfield" but to the universal principle "*open-source > closed SaaS for production video pipelines*."
+2. **HyperFrames belongs to HeyGen.** They can change the license or stop maintenance. Mitigation: the composer-adapter layer makes you composer-agnostic, a fork on Apache 2.0 is always possible.
+3. **The bun dependency cuts off the Python audience.** It's a deliberate choice, costing ~20-40% of the potential star pool. Mitigation: ship static binaries honestly, don't mention `bun` in user-facing docs.
+4. **Model speed in OpenRouter grows fast.** Kling V4, Seedance 3, Sora 3 may land in 1-3 months, and the lessons learned in MODELS.md will go stale. This is a **feature, not a bug** — the log is updatable, turn it into a weekly shipping ritual.
+5. **Custom connectors are a large engineering effort.** A good Provider interface is 1-2 weeks of work. The first community PR from an external dev — 2-3 months after publishing the interface. Don't push out Phase 1.
+6. **The owner may burn out** on content cadence. Friday Ship + a tutorial-a-week is a serious load. Solution: either a 0.2 FTE Developer Advocate, or contributor-friendly issues + community demos count.
+7. **The MCP spec is changing.** Don't make the glue code rigid — leave the option to migrate to A2A or ACP without rewriting the core.
+8. **Legal risks of UGC.** Append-only genlogs + quality gates + a refs-required-gate are your brand-safety story (important after the Higgsfield racist-content controversy and in light of the EU AI Act, which will start requiring audit trails in 2026-2027). Strengthen this in `docs/legal/` and make it visible in the README.
+9. **Sources used in this audit:** the `alecs5am/ralphy` repo (README, AGENTS.md, MODELS.md, CLI.md, package.json, install.sh), Higgsfield official pages (higgsfield.ai/supercomputer-intro, /marketing-studio-intro), TechCrunch + PRNewswire (Higgsfield Series A extension January 15, 2026), the productgrowth.blog Higgsfield teardown, piunikaweb.com (Mashrabov's Feb 11 statement), caimera.ai (the account-suspension case study), explainx.ai (a Hermes Agent technical deep dive), aider.chat/2024/05/22/swe-bench-lite.html, EZNewswire (the Continue v1.0/seed announcement), blog.n8n.io (the Series C announcement), bestofjs.org/projects/hyperframes (Apache 2.0 + Remotion comparison), remotion.dev/docs/license (the Company License threshold), github.com/harry0703/MoneyPrinterTurbo, github.com/RayVentura/ShortGPT, github.com/musistudio/claude-code-router, github.com/cline/cline, github.com/openinterpreter/open-interpreter, github.com/Aider-AI/aider, github.com/continuedev/continue, github.com/n8n-io/n8n, github.com/heygen-com/hyperframes.
 
 ---
 
-> *«Лучший OSS dev-tool 2026 не выигрывает на foundation models. Он выигрывает на дисциплине, разборе и пятничном демо. У тебя дисциплина уже есть. Не хватает только пятничного демо.»*
+> *"The best OSS dev-tool of 2026 doesn't win on foundation models. It wins on discipline, breakdown, and a Friday demo. You already have the discipline. The only thing missing is the Friday demo."*
 >
-> — конец прожарки.
+> — end of the roast.
