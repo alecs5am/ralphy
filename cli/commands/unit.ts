@@ -42,8 +42,13 @@ import {
   DISTRIBUTION_PACK_FILE,
   DISTRIBUTION_HANDOFF_FILE,
   DISTRIBUTION_COPY_DIR,
+  distributionZipName,
   type DistributionPack,
 } from "../lib/schemas/distribution-pack.js";
+// Reuse the archive dependency already in the tree (`adm-zip`, pulled in via
+// `hyperframes`; the only read/write zip lib present) to CREATE the bundle zip
+// (#458 #3). No new dependency, no shelling to a system `zip` binary.
+import AdmZip from "adm-zip";
 
 const UNITS_DIRNAME = "units";
 
@@ -342,6 +347,13 @@ function renderDistributionHandoff(pack: DistributionPack): string {
   lines.push(`- Format: ${pack.format}`);
   lines.push(`- Generated: ${pack.generatedAt}`);
   lines.push(`- Thumbnail: ${pack.thumbnail ?? "(none — see note)"}`);
+  lines.push(`- Shippable: ${pack.shippable ? "yes" : "no"}`);
+  if (pack.readiness) {
+    lines.push(
+      `- Readiness: ${pack.readiness.verdict}${pack.readiness.bypassed ? " (user-bypassed)" : ""} — ${pack.readiness.reason}`,
+    );
+  }
+  if (pack.archive) lines.push(`- Archive: ${pack.archive}`);
   lines.push("");
   lines.push(`> ${pack.publishNote}`);
   lines.push("");
@@ -352,6 +364,11 @@ function renderDistributionHandoff(pack: DistributionPack): string {
     if (section.primaryText) lines.push(`**Primary text:** ${section.primaryText}`);
     if (section.ctaVariants?.length) lines.push(`**CTA variants:** ${section.ctaVariants.join(" / ")}`);
     if (section.hashtags?.length) lines.push(`**Hashtags:** ${section.hashtags.join(" ")}`);
+    if (section.specStatus) lines.push(`**Spec:** ${section.specStatus}`);
+    if (section.exportRequirements?.length) lines.push(`**Export:** ${section.exportRequirements.join(", ")}`);
+    if (section.specNotes?.length) {
+      for (const n of section.specNotes) lines.push(`- ${n}`);
+    }
     lines.push("");
   }
   lines.push("## Selected media");
@@ -693,16 +710,20 @@ export function unitCmd() {
       });
     });
 
-  // ── package (distribution pack — platform-ready handoff, #423) ─────────────
+  // ── package (distribution pack — platform-ready handoff, #423 + #458) ──────
   cmd
     .command("package <project> <slug>")
     .description(
-      "Package a unit for publication: per-platform captions/titles/hashtags + Meta ad text + thumbnail pick + a copied deliverables bundle. Reuses the unit's caption (#403) when present, else drafts one. Append-only: re-package archives the prior (--force).",
+      "Package a unit for publication: per-platform captions/titles/hashtags + Meta ad text + thumbnail pick + per-channel spec/safe-area validation (#443) + a copied deliverables bundle ZIPPED for handoff (#458). Gated on the readiness scorecard (#427). Reuses the unit's caption (#403) when present, else drafts one. Append-only: re-package archives the prior (--force).",
     )
     .option("--thumbnail <path>", "Override the thumbnail (unit-relative path)")
     .option("--language <lang>", "Language for the caption draft fallback", "English")
     .option("--brief <text>", "Extra grounding text for the caption draft fallback")
     .option("--force", "Re-package even if a pack exists (auto-versions the prior, never overwrites)")
+    .option(
+      "--bypass-readiness <reason>",
+      "Mark the pack shippable despite a non-`ship` readiness verdict, with an explicit logged user reason (#458 #5)",
+    )
     .action(async (project: string, slug: string, opts: any) => {
       const projectDir = resolveProjectDir(project);
       const unitDir = path.join(unitsRoot(projectDir), slug);
@@ -722,12 +743,14 @@ export function unitCmd() {
         return;
       }
 
-      const { pack, manifest, draftedCaption } = await buildDistributionPack({
+      const bypassReadiness = opts.bypassReadiness != null ? String(opts.bypassReadiness) : undefined;
+      const { pack, manifest, draftedCaption, specReport } = await buildDistributionPack({
         projectId: project,
         slug,
         thumbnail: opts.thumbnail != null ? String(opts.thumbnail) : undefined,
         language: String(opts.language),
         brief: opts.brief != null ? String(opts.brief) : undefined,
+        bypassReadiness,
       });
 
       // COPY (never move) the selected deliverables into units/<slug>/distribution/.
@@ -736,29 +759,55 @@ export function unitCmd() {
       const copyDir = path.join(unitDir, DISTRIBUTION_COPY_DIR);
       const copied = await copyMedia(unitDir, copyDir, manifest.media);
 
+      // #458 #3 — ZIP the copied bundle (+ the pack JSON + handoff inside it) for a
+      // single-file handoff, using the existing `adm-zip` dependency (no new dep,
+      // no shelling to `zip`). Append-only: auto-version a prior, never overwrite.
+      const zipName = resolveNewVersionedName(unitDir, distributionZipName(slug));
+      pack.archive = zipName; // unit-relative path of the packaged ZIP.
+
       // Write the pack JSON + handoff, auto-versioning a prior on --force.
       const packName = resolveNewVersionedName(unitDir, DISTRIBUTION_PACK_FILE);
       const handoffName = resolveNewVersionedName(unitDir, DISTRIBUTION_HANDOFF_FILE);
-      await fs.writeFile(
-        path.join(unitDir, packName),
-        JSON.stringify(pack, null, 2) + "\n",
-        "utf8",
-      );
-      await fs.writeFile(path.join(unitDir, handoffName), renderDistributionHandoff(pack), "utf8");
+      const packJson = JSON.stringify(pack, null, 2) + "\n";
+      const handoffMd = renderDistributionHandoff(pack);
+      await fs.writeFile(path.join(unitDir, packName), packJson, "utf8");
+      await fs.writeFile(path.join(unitDir, handoffName), handoffMd, "utf8");
 
-      // ponytail: #458 (distribution/publishing factory) would zip the bundle +
-      // push to the platforms here. Out of scope for #423; a zip needs no new dep
-      // only if we shell out — deferred, the COPY into distribution/ is the seam.
-      ok(`Distribution pack written for ${slug} (${copied.length} media, ${Object.keys(pack.platforms).length} platforms)`);
+      // Assemble the zip from the just-copied bundle + the metadata files. Add the
+      // copied deliverables under distribution/, and the pack JSON + handoff at the
+      // root so the archive is self-describing.
+      const zip = new AdmZip();
+      for (const m of copied) {
+        zip.addLocalFile(path.join(copyDir, m), DISTRIBUTION_COPY_DIR);
+      }
+      zip.addFile(DISTRIBUTION_PACK_FILE, Buffer.from(packJson, "utf8"));
+      zip.addFile(DISTRIBUTION_HANDOFF_FILE, Buffer.from(handoffMd, "utf8"));
+      await fs.writeFile(path.join(unitDir, zipName), zip.toBuffer());
+
+      // #458 #5 — record an explicit readiness bypass to the append-only prompt log.
+      if (pack.readiness?.bypassed && pack.readiness.bypassReason) {
+        await logUserPrompt(project, {
+          stage: "bypass-readiness",
+          text: `Distribution pack for slug "${slug}" marked shippable despite readiness verdict "${pack.readiness.verdict}": ${pack.readiness.bypassReason}`,
+        });
+      }
+
+      ok(
+        `Distribution pack written for ${slug} (${copied.length} media, ${Object.keys(pack.platforms).length} platforms, ${pack.shippable ? "shippable" : `NOT shippable: ${pack.readiness?.verdict ?? "unknown"}`})`,
+      );
       out({
         slug,
         format: pack.format,
         pack_file: packName,
         handoff_file: handoffName,
+        zip_file: zipName,
         copy_dir: path.relative(projectDir, copyDir),
         copied,
         platforms: Object.keys(pack.platforms),
         thumbnail: pack.thumbnail,
+        shippable: pack.shippable,
+        readiness_verdict: pack.readiness?.verdict ?? null,
+        spec_verdict: specReport.verdict,
         drafted_caption: draftedCaption,
         versioned: packName !== DISTRIBUTION_PACK_FILE,
         pack,

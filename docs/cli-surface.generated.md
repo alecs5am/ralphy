@@ -1061,11 +1061,14 @@ Commands:
                                       --bulk captions every unit.
   package [options] <project> <slug>  Package a unit for publication:
                                       per-platform captions/titles/hashtags +
-                                      Meta ad text + thumbnail pick + a copied
-                                      deliverables bundle. Reuses the unit's
-                                      caption (#403) when present, else drafts
-                                      one. Append-only: re-package archives the
-                                      prior (--force).
+                                      Meta ad text + thumbnail pick +
+                                      per-channel spec/safe-area validation
+                                      (#443) + a copied deliverables bundle
+                                      ZIPPED for handoff (#458). Gated on the
+                                      readiness scorecard (#427). Reuses the
+                                      unit's caption (#403) when present, else
+                                      drafts one. Append-only: re-package
+                                      archives the prior (--force).
   delete <project> <slug>             Delete a unit directory (destructive —
                                       only run on explicit user intent)
   help [command]                      display help for command
