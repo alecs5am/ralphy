@@ -1,6 +1,6 @@
 # Managed cloud factory design seam
 
-> **Status:** issue
+> **Status:** done — 2026-06-23
 > **Filed:** 2026-06-15
 > **Folder:** issues
 > **Severity:** medium
