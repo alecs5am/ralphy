@@ -144,7 +144,11 @@ describe("generateVoiceover — per-slot file lock (#039)", () => {
 
     // Lock invariant: at most one in-flight network write per dest path.
     expect(maxActive).toBe(1);
-    expect(writeOrder).toEqual(["first call", "second call"]);
+    // The lock guarantees mutual exclusion, NOT FIFO acquisition order — under
+    // scheduler jitter the two promises can acquire in either order. Assert the
+    // SET (both writes happened), not the sequence, so a green run can't flip
+    // red on order alone (#463).
+    expect([...writeOrder].sort()).toEqual(["first call", "second call"]);
 
     // The second write archives the first to scene-01-vo.v1.mp3 (the
     // protectExistingAsset pass — that path stays load-bearing).

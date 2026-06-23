@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "studio",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "studio", "dev"],
+      "port": 4860,
+      "autoPort": false
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "landing", "dev"],
+      "port": 4173
+    },
+    {
+      "name": "desktop-renderer",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "desktop", "dev"],
+      "port": 4180
+    },
+    {
+      "name": "docs-mintlify",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": ["mintlify", "dev"],
+      "cwd": "docs-mintlify",
+      "port": 3000
+    }
+  ]
+}
