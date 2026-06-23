@@ -1,9 +1,10 @@
 // Studio server library (#107) — pure functions for root resolution and
 // artifact listing, separated from the HTTP layer so they are unit-testable.
 //
-// READ-ONLY by contract (AGENTS.md invariant #14): nothing in studio/ ever
-// writes, renames, or deletes inside the data root. Every export here only
-// reads the filesystem.
+// READ-ONLY over media (AGENTS.md invariant #14): nothing here writes, renames,
+// or deletes any artifact. The ONE exception is `writeBoardChoice` (#478), which
+// persists the chosen scene variant to a project-local board.json and never
+// touches media. Every other export only reads the filesystem.
 
 import path from "node:path";
 import fs from "node:fs";
@@ -195,4 +196,309 @@ export function kindOfRelPath(rel: string): string | null {
   if (parts[0] === "artifacts" && parts.length >= 3) return parts[1];
   if (parts[0] === "render" && parts.length >= 2) return "render";
   return null;
+}
+
+// ─── Workflow lane (#478 Phase 3, read-only) ─────────────────────────────────
+//
+// Studio renders a workspace's declarative workflow (workspaces/<ws>/workflows/
+// <name>.json) as a node chain with per-step status. The status derivation
+// mirrors `evaluateWorkflow` (cli/lib/workflow.ts) but is re-implemented here so
+// studio/ stays self-contained (it never imports cli/ — same reason ARTIFACT_KINDS
+// is hand-copied). Derived from artifact presence + the project's
+// workspace-eval.json gate verdicts. No jobs.db read → no transient "running"
+// state in Studio (the live WS file-watch flips steps to done as artifacts land).
+
+type GateVerdict = "pass" | "warn" | "fail" | "na";
+const VERDICT_RANK: Record<GateVerdict, number> = { fail: 3, warn: 2, na: 1, pass: 0 };
+
+/** Project-relative artifact each contract phase produces — a hand-copy of the
+ *  core CONTRACT_PHASES entries (cli/lib/contract.ts). Only the phases a default
+ *  workflow surfaces need entries; an unmapped phase reads as not-yet-present. */
+const PHASE_ARTIFACT: Record<string, string> = {
+  intake: "BRIEF.md",
+  research: "artifacts/refs/research-facts.json",
+  "style-lock": "STYLE_LOCK.md",
+  "production-plan": "PRODUCTION_PLAN.md",
+  scenario: "scenario.json",
+  prompts: "prompts.json",
+  assets: "asset-manifest.json",
+  render: "render/final.mp4",
+  eval: "eval.json",
+};
+
+export type WorkflowLaneStep = {
+  id: string;
+  label: string;
+  phase: string;
+  engine: string;
+  model: string | null;
+  variants: number;
+  gate: string[];
+  mode: string;
+  status: "done" | "waiting" | "blocked" | "queued";
+  gateVerdict: GateVerdict | null;
+};
+
+export type WorkflowLane = {
+  workspace: string;
+  project: string;
+  workflow: string;
+  steps: WorkflowLaneStep[];
+  currentStep: string | null;
+  complete: boolean;
+} | null;
+
+/**
+ * Read the workspace's workflow + derive its per-step status for a project, or
+ * null when the workspace has no workflow / the file is unreadable.
+ */
+export function readWorkflowLane(dataRoot: string, workspace: string, id: string): WorkflowLane {
+  const wfDir = path.join(dataRoot, "workspaces", workspace, "workflows");
+  let names: string[];
+  try {
+    names = fs.readdirSync(wfDir).filter((f) => f.endsWith(".json")).sort();
+  } catch {
+    return null;
+  }
+  if (names.length === 0) return null;
+  const file = names.includes("episode.json") ? "episode.json" : names[0];
+  let wf: { steps?: unknown[] };
+  try {
+    wf = JSON.parse(fs.readFileSync(path.join(wfDir, file), "utf-8"));
+  } catch {
+    return null;
+  }
+  const rawSteps = Array.isArray(wf.steps) ? wf.steps : [];
+  const proj = projectDir(dataRoot, workspace, id);
+
+  // Gate verdicts from the project's workspace-eval.json (if any).
+  const verdicts: Record<string, GateVerdict> = {};
+  try {
+    const sc = JSON.parse(fs.readFileSync(path.join(proj, "workspace-eval.json"), "utf-8"));
+    for (const c of sc?.criteria ?? []) {
+      if (c && typeof c.id === "string") verdicts[c.id] = c.verdict;
+    }
+  } catch { /* no scorecard yet */ }
+
+  const base = rawSteps.map((raw) => {
+    const s = raw as Record<string, any>;
+    const gate: string[] = Array.isArray(s.gate) ? s.gate : [];
+    const artifact = PHASE_ARTIFACT[s.phase as string];
+    const phaseSatisfied = artifact ? fs.existsSync(path.join(proj, artifact)) : false;
+    const gateVerdict =
+      gate.length === 0
+        ? null
+        : gate
+            .map((g) => verdicts[g] ?? "na")
+            .reduce<GateVerdict>((w, v) => (VERDICT_RANK[v] > VERDICT_RANK[w] ? v : w), "pass");
+    const done =
+      phaseSatisfied && (gate.length === 0 || gateVerdict === "pass" || gateVerdict === "warn");
+    return { s, gate, gateVerdict, done };
+  });
+
+  const cursor = base.findIndex((b) => !b.done);
+  const complete = cursor === -1;
+
+  const steps: WorkflowLaneStep[] = base.map((b, i) => {
+    let status: WorkflowLaneStep["status"];
+    if (b.done) status = "done";
+    else if (i !== cursor) status = "queued";
+    else if (b.gateVerdict === "fail") status = "blocked";
+    else if ((b.s.mode ?? "approve") === "approve") status = "waiting";
+    else status = "queued";
+    const models: string[] = Array.isArray(b.s.models) ? b.s.models : [];
+    return {
+      id: String(b.s.id),
+      label: String(b.s.label || b.s.id),
+      phase: String(b.s.phase),
+      engine: String(b.s.engine ?? ""),
+      model: b.s.model ?? (models.length ? models.join(", ") : null),
+      variants: typeof b.s.variants === "number" ? b.s.variants : 1,
+      gate: b.gate,
+      mode: String(b.s.mode ?? "approve"),
+      status,
+      gateVerdict: b.gateVerdict,
+    };
+  });
+
+  return {
+    workspace,
+    project: id,
+    workflow: file.replace(/\.json$/, ""),
+    steps,
+    currentStep: complete ? null : steps[cursor].id,
+    complete,
+  };
+}
+
+// ─── Scene board / anchor variants (#478) ────────────────────────────────────
+//
+// The variant picker that lives INSIDE the workflow's anchor-generation node:
+// scene anchors derived live from artifacts/images/ by the `scene-NN` convention
+// (cli/lib paths "{scene-id}-{type}-{descriptor}", re-rolls .vN/.prev), each
+// scene's variants side by side, the chosen one highlighted. This is ONE node's
+// content on the workflow canvas — not the whole project UI (the canvas is the
+// workflow graph; see readWorkflowLane). board.json (project-local) persists the
+// two board mutations Studio makes — the chosen variant per scene + the workflow
+// node positions — and never touches media (AGENTS.md invariant #14).
+
+const BOARD_FILE = "board.json";
+const SCENE_RE = /^(scene-\d+)/;
+const VERSION_RE = /\.(v\d+|prev\d*)\.[^.]+$/i;
+
+export type BoardVariant = { path: string; name: string; mtime: number; chosen: boolean };
+export type BoardScene = { id: string; label: string; order: number; chosen: string | null; variants: BoardVariant[] };
+export type NodePos = { x: number; y: number };
+export type Board = {
+  workspace: string;
+  project: string;
+  scenes: BoardScene[];
+  /** Non-scene images (props / fx / portraits) — shown as a trailing lane. */
+  other: BoardVariant[];
+  /** Saved workflow-node positions (node id → {x,y}); empty = auto-layout. */
+  layout: Record<string, NodePos>;
+} | null;
+
+type BoardFile = { version: number; chosen: Record<string, string>; layout: Record<string, NodePos> };
+
+/** Read the project's board.json (chosen variants + node layout), defaulted. */
+function readBoardJson(proj: string): BoardFile {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(proj, BOARD_FILE), "utf-8"));
+    return {
+      version: 1,
+      chosen: raw?.chosen && typeof raw.chosen === "object" ? raw.chosen : {},
+      layout: raw?.layout && typeof raw.layout === "object" ? raw.layout : {},
+    };
+  } catch {
+    return { version: 1, chosen: {}, layout: {} };
+  }
+}
+
+function writeBoardJson(proj: string, data: BoardFile): void {
+  fs.writeFileSync(path.join(proj, BOARD_FILE), JSON.stringify(data, null, 2) + "\n");
+}
+
+/**
+ * Derive the scene board for a project, or null when it has no images at all.
+ * Scenes group `artifacts/images/scene-NN-*` by the scene-NN prefix; the chosen
+ * variant is the board.json override (when its file still exists) else the
+ * latest canonical (non-.vN/.prev) image, else the latest image.
+ */
+export function readBoard(dataRoot: string, workspace: string, id: string): Board {
+  const proj = projectDir(dataRoot, workspace, id);
+  const imagesDir = path.join(proj, "artifacts", "images");
+  let files: string[];
+  try {
+    files = fs.readdirSync(imagesDir).filter((f) => mediaType(f) === "image" && !f.startsWith("."));
+  } catch {
+    return null;
+  }
+  if (files.length === 0) return null;
+
+  const boardJson = readBoardJson(proj);
+  const choices = boardJson.chosen;
+  const bySceneOrder = new Map<string, { order: number; files: string[] }>();
+  const other: string[] = [];
+  for (const f of files) {
+    const m = f.match(SCENE_RE);
+    if (!m) { other.push(f); continue; }
+    const sceneId = m[1];
+    const order = parseInt(sceneId.slice("scene-".length), 10);
+    const g = bySceneOrder.get(sceneId) ?? { order, files: [] };
+    g.files.push(f);
+    bySceneOrder.set(sceneId, g);
+  }
+
+  const rel = (f: string) => `artifacts/images/${f}`;
+  const toVariant = (f: string, chosenName: string | null): BoardVariant => {
+    let mtime = 0;
+    try { mtime = fs.statSync(path.join(imagesDir, f)).mtimeMs; } catch { /* race */ }
+    return { path: rel(f), name: f, mtime, chosen: f === chosenName };
+  };
+
+  const scenes: BoardScene[] = [...bySceneOrder.entries()]
+    .map(([sceneId, g]) => {
+      const sorted = g.files.slice().sort();
+      // Default chosen: the override (if its file is still here), else the latest
+      // canonical (non-version/preview) image, else the latest image overall.
+      const overrideRel = choices[sceneId];
+      const overrideName = overrideRel && sorted.includes(path.basename(overrideRel)) ? path.basename(overrideRel) : null;
+      let chosenName = overrideName;
+      if (!chosenName) {
+        const canonical = sorted.filter((f) => !VERSION_RE.test(f));
+        const pool = canonical.length ? canonical : sorted;
+        chosenName = pool.reduce((best, f) => {
+          const bt = fs.statSync(path.join(imagesDir, best)).mtimeMs;
+          const ft = (() => { try { return fs.statSync(path.join(imagesDir, f)).mtimeMs; } catch { return 0; } })();
+          return ft > bt ? f : best;
+        }, pool[0]);
+      }
+      // A descriptive label: the longest shared descriptor (strip the scene prefix + ext).
+      const label = sorted[0].replace(/\.[^.]+$/, "");
+      return {
+        id: sceneId,
+        label,
+        order: g.order,
+        chosen: chosenName ? rel(chosenName) : null,
+        variants: sorted.map((f) => toVariant(f, chosenName)),
+      };
+    })
+    .sort((a, b) => a.order - b.order);
+
+  return {
+    workspace,
+    project: id,
+    scenes,
+    other: other.sort().map((f) => toVariant(f, null)),
+    layout: boardJson.layout,
+  };
+}
+
+/**
+ * Persist a chosen variant for a scene to board.json (preserving node layout).
+ * One of the two board writes Studio makes (AGENTS.md invariant #14 — read-only
+ * over media; board.json is metadata). Validates the path is an existing image
+ * inside the project; NEVER touches or deletes media. Returns the updated board.
+ */
+export function writeBoardChoice(
+  dataRoot: string,
+  workspace: string,
+  id: string,
+  scene: string,
+  relPath: string,
+): Board | { error: string } {
+  if (!/^scene-\d+$/.test(scene)) return { error: "bad scene id" };
+  const abs = safeProjectFile(dataRoot, workspace, id, relPath);
+  if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) return { error: "unknown variant path" };
+  if (mediaType(relPath) !== "image") return { error: "not an image" };
+
+  const proj = projectDir(dataRoot, workspace, id);
+  const board = readBoardJson(proj);
+  board.chosen[scene] = relPath;
+  writeBoardJson(proj, board);
+  return readBoard(dataRoot, workspace, id);
+}
+
+/**
+ * Persist a workflow node's canvas position to board.json (preserving choices).
+ * The second board write — metadata only, never touches media. `node` is a
+ * workflow step id; coordinates are finite numbers in canvas space.
+ */
+export function writeBoardLayout(
+  dataRoot: string,
+  workspace: string,
+  id: string,
+  node: string,
+  x: number,
+  y: number,
+): { ok: true } | { error: string } {
+  if (!node || typeof node !== "string") return { error: "bad node id" };
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: "bad coordinates" };
+  if (!fs.existsSync(projectDir(dataRoot, workspace, id))) return { error: "unknown project" };
+  const proj = projectDir(dataRoot, workspace, id);
+  const board = readBoardJson(proj);
+  board.layout[node] = { x, y };
+  writeBoardJson(proj, board);
+  return { ok: true };
 }
