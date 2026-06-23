@@ -8,7 +8,8 @@ import { describe, test, expect } from "bun:test";
 import path from "node:path";
 import { cyrillicLines, scanRepo, ALLOWLIST } from "../../scripts/lint-no-cyrillic.js";
 
-// "привет" — Cyrillic, assembled at runtime, never a raw glyph on disk.
+// A Cyrillic word, assembled from char codes at runtime (so this comment + file
+// stay ASCII — a raw glyph here would, correctly, trip the very lint under test).
 const CYR = String.fromCharCode(0x43f, 0x440, 0x438, 0x432, 0x435, 0x442);
 
 describe("cyrillicLines", () => {
