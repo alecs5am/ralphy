@@ -1,12 +1,12 @@
 // Unit tests for the URL → filename derivation + dedupe-path helpers used by
 // `ralphy ref pull <url-list>` (#048).
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, afterEach } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { urlToFilename, resolveDestPath, readUrlList } from "../../cli/lib/bulk-fetch.js";
+import { urlToFilename, resolveDestPath, readUrlList, bulkFetch } from "../../cli/lib/bulk-fetch.js";
 
 function sha(buf: Buffer): string {
   return createHash("sha256").update(buf).digest("hex");
@@ -91,6 +91,38 @@ describe("resolveDestPath", () => {
       const { dest, existed } = await resolveDestPath(tmp, "x.png", sha(Buffer.from("d")));
       expect(dest).toBe(path.join(tmp, "x-4.png"));
       expect(existed).toBe(false);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("bulkFetch idempotency (#464, offline)", () => {
+  // The live integration variant (cli-ref-pull-bulk) spawns the CLI at an
+  // in-process HTTP fixture; under full-suite parallel load the fixture server
+  // starved and the double-spawn idempotent case stalled past the 45s timeout.
+  // The skipped-existing no-op contract needs no live network — assert it here
+  // with a stubbed fetch: zero sockets, zero subprocess, deterministic.
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("re-running on the same URL is a skipped-existing no-op", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bulk-fetch-"));
+    const png = Buffer.from("png-bytes-fixture-".repeat(8));
+    globalThis.fetch = (async () =>
+      new Response(png, { status: 200, headers: { "content-type": "image/png" } })) as typeof fetch;
+    try {
+      const url = "http://example.com/a/b/foo.png";
+
+      const first = await bulkFetch({ urls: [url], destDir: tmp });
+      expect(first[0].status).toBe("downloaded");
+      expect(fs.readdirSync(tmp).length).toBe(1);
+
+      const second = await bulkFetch({ urls: [url], destDir: tmp });
+      expect(second[0].status).toBe("skipped-existing");
+      expect(fs.readdirSync(tmp).length).toBe(1); // no new file, no overwrite
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
