@@ -1,6 +1,6 @@
 # Personal clipper mode
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (personal-clipper promoted to first-class via the new `ralphy clip` verb + playbook; all 21 modes supported)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 

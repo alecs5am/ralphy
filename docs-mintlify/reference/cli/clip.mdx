@@ -1,0 +1,37 @@
+---
+title: "ralphy clip"
+description: "Cut a [from, to) window out of a long-form video and (optionally) centre-crop it to 9:16 vertical. The clip-cut primitive for the personal-clipper mode. Highlig"
+---
+
+{/* Auto-generated — edit `cli/commands/<verb>.ts` instead. Regenerate via `bun run docs:cli`. */}
+
+## Summary
+
+```bash
+ralphy clip [options] <source>
+```
+
+**Common flags**
+
+| Flag | Description |
+|---|---|
+| `--from <ts>` | Window start — seconds (`12.5`), MM:SS (`1:30`), or HH:MM:SS (`1:02:03`) |
+| `--to <ts>` | Window end — same formats as --from |
+| `--vertical` | Centre-crop the clip to a 9:16 vertical frame (1080x1920) (default: false) |
+
+<Expandable title="Full reference">
+
+**Flags**
+
+| Flag | Description |
+|---|---|
+| `--from <ts>` | Window start — seconds (`12.5`), MM:SS (`1:30`), or HH:MM:SS (`1:02:03`) |
+| `--to <ts>` | Window end — same formats as --from |
+| `--vertical` | Centre-crop the clip to a 9:16 vertical frame (1080x1920) (default: false) |
+| `--out <path>` | Output path. Optional when --project is set — defaults to &lt;project&gt;/artifacts/videos/&lt;source&gt;-clip-&lt;from&gt;-&lt;to&gt;.mp4. |
+| `--project <id>` | Project ID — logs the cut to the gen-log and resolves the default --out. |
+| `--force-overwrite` | Skip the .v2 collision archive (default: false) |
+| `--note <note>` | Free-form note recorded in the gen-log row |
+| `-h, --help` | display help for command |
+
+</Expandable>

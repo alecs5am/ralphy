@@ -54,7 +54,7 @@ Verify against `MODELS.md` every run.
 
 ## Does NOT apply to:
 
-- A short-form cut (< 4 min) from a long-form source → that is the `personal-clipper` intent (a deferred gap) / a podcast-clip template, not this mode.
+- A short-form cut (< 4 min) from a long-form source → that is the `personal-clipper` mode ([modes/personal-clipper.md](personal-clipper.md)) / a podcast-clip template, not this mode.
 - A talking-head essay where the user wants their face on screen → a talking-head video mode.
 - A multi-speaker debate / interview → a split-screen interview format.
 - Music videos / non-speech audio → match a music-video format.

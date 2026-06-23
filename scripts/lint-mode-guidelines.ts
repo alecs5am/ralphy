@@ -22,12 +22,12 @@
 // with a JSON `{ ok, scanned, exempt, offenders }` report (mirrors
 // lint-skill-routing.ts) so CI and the test suite can consume it.
 //
-// SCOPE — only SUPPORTED modes are checked. Deferred-gap modes (kind "none":
-// virtual-model-tryout, personal-clipper, amazon-listing) are EXEMPT — they are
-// recognized intents with no first-class route yet, so #417 does not hold them
-// to a coverage bar (they carry a `recommendedUnit` instead). When such a gap is
-// promoted to supported (#058), this lint starts requiring its coverage
-// automatically.
+// SCOPE — only SUPPORTED modes are checked. Deferred-gap modes (kind "none")
+// are EXEMPT — they are recognized intents with no first-class route yet, so
+// #417 does not hold them to a coverage bar (they carry a `recommendedUnit`
+// instead). As of #436 there are no gap modes left (personal-clipper promoted);
+// any future mode added at `supported: false` is exempt until it is promoted,
+// at which point this lint starts requiring its coverage automatically.
 
 import fs from "node:fs";
 import path from "node:path";

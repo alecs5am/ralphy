@@ -91,6 +91,7 @@ const MODE_BRIEFS: Record<string, string> = {
   "typography-animation": "a kinetic typography animated text lyric piece",
   "podcast-video": "turn this podcast into a long form faceless video, audio to video",
   "infographic-animation": "make an animated infographic data visualization video of these stats",
+  "personal-clipper": "cut my stream into shorts and extract the best moments clips",
   "amazon-listing": "design my amazon listing images with an infographic listing",
 };
 
