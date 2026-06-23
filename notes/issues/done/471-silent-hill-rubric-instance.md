@@ -1,6 +1,6 @@
 # Author the Silent Hill rubric instance (first instance + test target)
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (rubric authored in the silent-hill workspace; deterministic eval verified: 002 passes, 003 flags repair. Full vision pass is paid — left to the user)
 > **Filed:** 2026-06-18
 > **Folder:** issues
 > **Severity:** medium
