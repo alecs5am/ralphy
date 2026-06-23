@@ -1,6 +1,6 @@
 # Library seed Units pack
 
-> **Status:** issue
+> **Status:** done — 2026-06-23 (library already carries 42 seed units across all formats; shipped a committable coverage audit + curation shortlist; new-media publishing is the gated Bunny step, left to a maintainer)
 > **Filed:** 2026-06-15
 > **Folder:** issues
 
