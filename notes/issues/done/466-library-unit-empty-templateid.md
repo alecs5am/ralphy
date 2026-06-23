@@ -1,6 +1,6 @@
 # Library data gap: nyastics-emotes-final has empty templateId
 
-> **Status:** issue
+> **Status:** done — 2026-06-23
 > **Filed:** 2026-06-16
 > **Folder:** issues
 
