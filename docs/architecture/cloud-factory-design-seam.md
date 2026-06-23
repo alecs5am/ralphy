@@ -18,7 +18,7 @@ Name the one boundary a future managed Ralphy ("any amount of media, run for you
 
 - **Not building cloud anything.** No remote workers, no hosted queue, no accounts, no billing, no shared object store, no library sync service, no direct platform publishing this round (per the issue's design-only acceptance).
 - **Not a rewrite mandate.** The point is the opposite: identify the few seams worth keeping clean so the local system stays portable, and leave everything else local-first.
-- **Not a schedule.** Cloud is a later milestone gated on the local + desktop tracks ([`452`](../../notes/issues/452-agent-substrate-media-os-program.md), [`453`](../../notes/issues/453-ralphy-desktop-chat-product-mvp.md)) proving the workflow. This is insurance, not a roadmap item.
+- **Not a schedule.** Cloud is a later milestone gated on the local + desktop tracks (#452, #453) proving the workflow. This is insurance, not a roadmap item.
 
 ---
 
@@ -64,7 +64,7 @@ The shapes a hosted substrate would expose. These mirror primitives that already
 - **Cost control** — generation is real money. A hosted queue MUST enforce the spend ledger (#444) as a hard ceiling per account/workspace, with approval gates as queue states (§3), not advisory. A runaway fan-out is the headline failure mode.
 - **Abuse** — open generation invites spam/NSFW/CSAM/deepfake attempts. Needs rate limits, content policy at submit time, and an audit trail. Shares the validation surface with community uploads ([`community-uploads-design.md`](community-uploads-design.md) §7).
 - **Copyright / likeness** — the reference-required gate (invariant #3) and named-entity handling become a liability surface when strangers drive it; provenance on every artifact is the mitigation.
-- **Platform publishing** — direct upload to TikTok/Meta/etc. carries each platform's ToS, token custody, and takedown risk. Keep publishing manual-package-first (see [`458` distribution factory](../../notes/issues/458-distribution-and-publishing-factory.md)); direct API upload is the last thing to add, behind explicit per-account consent.
+- **Platform publishing** — direct upload to TikTok/Meta/etc. carries each platform's ToS, token custody, and takedown risk. Keep publishing manual-package-first (see #458); direct API upload is the last thing to add, behind explicit per-account consent.
 
 ---
 
@@ -72,10 +72,10 @@ The shapes a hosted substrate would expose. These mirror primitives that already
 
 This seam exists to keep the following tracks portable; revisit it when any of them makes a path/identity/secret decision:
 
-- **Agent substrate** ([`452`](../../notes/issues/452-agent-substrate-media-os-program.md)) — the agent-substrate contract IS the local half of §2's boundary. Keep its state inspectable + resumable from artifacts, not chat.
-- **Desktop MVP** ([`453`](../../notes/issues/453-ralphy-desktop-chat-product-mvp.md)) — local-agent-first; its agent bridge + approval UX is the same driver/substrate split, just both halves local. Don't hardcode "the agent is in this process."
-- **Scale operations** ([`460`](../../notes/issues/460-scale-operations-and-spend-control-program.md)) — the spend ledger, queue hardening, and approval scopes built there are the exact primitives §4 would expose; build them queue-shaped, not inline.
-- **Universal media artifact model** ([`461`](../../notes/issues/461-universal-media-artifact-model.md)) — the artifact metadata contract is the §4 Artifact shape; keep it storage-agnostic (uri, not local path).
+- **Agent substrate** (#452) — the agent-substrate contract IS the local half of §2's boundary. Keep its state inspectable + resumable from artifacts, not chat.
+- **Desktop MVP** (#453) — local-agent-first; its agent bridge + approval UX is the same driver/substrate split, just both halves local. Don't hardcode "the agent is in this process."
+- **Scale operations** (#460) — the spend ledger, queue hardening, and approval scopes built there are the exact primitives §4 would expose; build them queue-shaped, not inline.
+- **Universal media artifact model** (#461) — the artifact metadata contract is the §4 Artifact shape; keep it storage-agnostic (uri, not local path).
 
 ---
 
