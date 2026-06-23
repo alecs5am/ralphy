@@ -1,145 +1,145 @@
 # Hook library — UGC short-form (RU)
 
-Источник: адаптация из `TheMattBerman/ugc-factory-skill/MODULE_A_CREATIVE_DIRECTOR.md`
-+ `dansugc/reelclaw/references/virality.md` под русскую аудиторию.
+Source: adapted from `TheMattBerman/ugc-factory-skill/MODULE_A_CREATIVE_DIRECTOR.md`
++ `dansugc/reelclaw/references/virality.md` for a Russian audience.
 
-Используется автоматически:
-- `/ralph-scenarist` читает этот файл при `new-scenario` и `iterate-scenario`.
-- `scenario.json` обязан иметь `hook.primary` (≤10 слов) — `scoreScenario()` проверяет.
-- `scenario.json` обязан иметь `angle` ∈ {testimonial, unboxing, problem-solution, comparison, demo}.
+Used automatically:
+- `/ralph-scenarist` reads this file on `new-scenario` and `iterate-scenario`.
+- `scenario.json` must have `hook.primary` (≤10 words) — `scoreScenario()` checks this.
+- `scenario.json` must have `angle` ∈ {testimonial, unboxing, problem-solution, comparison, demo}.
 
-## Часть 1. Пять форматов (angles)
+## Part 1. The five formats (angles)
 
-Каждый сценарий выбирает один доминирующий формат. Это решает структуру
-тела видео (что после хука).
+Each scenario picks one dominant format. It decides the structure
+of the video body (what comes after the hook).
 
-### `testimonial` — отзыв / личная история
-- **Структура:** Я → Проблема → Решение нашёл → Результат
-- **Voice:** разговорный, "я как ты"
-- **Лучше всего для:** SaaS, продуктовые ad'ы, EdTech
-- **Пример хука RU:** "Я 6 месяцев пробовал X пока не понял что..."
+### `testimonial` — review / personal story
+- **Structure:** Me → Problem → Found a solution → Result
+- **Voice:** conversational, "me like you"
+- **Best for:** SaaS, product ads, EdTech
+- **Example hook RU:** "I spent 6 months trying X until I realized that..."
 
-### `unboxing` — распаковка / первый раз
-- **Структура:** Что это → Открываю → Пробую → Реакция
-- **Voice:** искренний, реактивный
-- **Лучше всего для:** физические товары, beauty, food, tech-аксессуары
-- **Пример хука RU:** "Заказал штуку с TikTok и сейчас покажу что получил"
+### `unboxing` — unboxing / first time
+- **Structure:** What it is → I open it → I try it → Reaction
+- **Voice:** sincere, reactive
+- **Best for:** physical goods, beauty, food, tech accessories
+- **Example hook RU:** "I ordered this thing off TikTok and I'll show you what I got"
 
-### `problem-solution` — болевая точка → решение
-- **Структура:** Pain → "знаете это чувство?" → Решение → Демо
-- **Voice:** сопереживающий, потом уверенный
-- **Лучше всего для:** productivity tools, life hacks, life-improvement apps
-- **Пример хука RU:** "Когда нужно записать звонок но всё забыл"
+### `problem-solution` — pain point → solution
+- **Structure:** Pain → "know that feeling?" → Solution → Demo
+- **Voice:** empathetic, then confident
+- **Best for:** productivity tools, life hacks, life-improvement apps
+- **Example hook RU:** "When you need to record a call but forgot everything"
 
 ### `comparison` — A vs B
-- **Структура:** Раньше делал X → Теперь делаю Y → Разница
-- **Voice:** аналитический, sober
-- **Лучше всего для:** software comparisons, "old way vs new way" контент
-- **Пример хука RU:** "Перешёл с Notion на Linear — что изменилось"
+- **Structure:** Used to do X → Now I do Y → The difference
+- **Voice:** analytical, sober
+- **Best for:** software comparisons, "old way vs new way" content
+- **Example hook RU:** "Switched from Notion to Linear — here's what changed"
 
-### `demo` — показ возможностей
-- **Структура:** Смотрите что я могу → шаги → результат
-- **Voice:** уверенный, ведущий
-- **Лучше всего для:** AI products, dev tools, creative software
-- **Пример хука RU:** "За 15 секунд сделаю презентацию из идеи"
+### `demo` — showing off capabilities
+- **Structure:** Watch what I can do → steps → result
+- **Voice:** confident, hosting
+- **Best for:** AI products, dev tools, creative software
+- **Example hook RU:** "In 15 seconds I'll turn an idea into a presentation"
 
-## Часть 2. Hook angle — четыре эмоциональные углы
+## Part 2. Hook angle — four emotional angles
 
-Поверх формата выбирается угол — что за эмоцию вызывает первая секунда:
+On top of the format you pick an angle — the emotion the first second triggers:
 
-### `gatekeep` — секрет / инсайдерское знание
-- "Никто тебе не скажет что..."
-- "Вот чего не пишут на курсах по X"
-- "Если бы мне сказали это в 22..."
-- **Триггер:** FOMO + любопытство
+### `gatekeep` — secret / insider knowledge
+- "Nobody will tell you that..."
+- "Here's what they don't teach you in the X courses"
+- "If only someone had told me this at 22..."
+- **Trigger:** FOMO + curiosity
 
-### `skeptic` — переворот популярного мнения
-- "Все думают X но на самом деле Y"
-- "Перестал делать X — стало лучше"
-- "Все эти курсы — лажа, правда такая..."
-- **Триггер:** контр-нарратив, разрыв шаблона
+### `skeptic` — flipping a popular belief
+- "Everyone thinks X but really it's Y"
+- "I stopped doing X — and things got better"
+- "All those courses are garbage, the truth is..."
+- **Trigger:** counter-narrative, pattern break
 
-### `fail` — публичная неудача
-- "Я облажался: попытался X и вот что вышло"
-- "Не делайте как я в 2025"
-- "Потерял 200К пытаясь сделать X"
-- **Триггер:** социальное доказательство через relatability
+### `fail` — public failure
+- "I screwed up: tried X and here's what happened"
+- "Don't do what I did in 2025"
+- "Lost 200K trying to do X"
+- **Trigger:** social proof through relatability
 
-### `visual-shock` — резкая визуальная аномалия
-- Цифра в кадре первая ("12М за 9 месяцев")
-- Объект который не должен быть на экране
-- Лицо в дикой эмоции (но не cringe)
-- **Триггер:** scroll-stop рефлекс
+### `visual-shock` — a sharp visual anomaly
+- A number on screen first ("12M in 9 months")
+- An object that shouldn't be on screen
+- A face in a wild emotion (but not cringe)
+- **Trigger:** scroll-stop reflex
 
-## Часть 3. Hook formulas (RU, ≤ 10 слов)
+## Part 3. Hook formulas (RU, ≤ 10 words)
 
-Для каждого angle подходят разные формулы. A/B вариант → `hook.variant_b`.
+Different formulas fit different angles. A/B variant → `hook.variant_b`.
 
-| Формула | Пример A | Пример B (для теста) |
+| Formula | Example A | Example B (for testing) |
 |---|---|---|
-| `Когда [триггер]…` | Когда заказчик пишет "небольшая правка" | Когда нужно что-то срочное в выходные |
-| `POV: [ситуация]` | POV: ты ML-инженер в 2026 | POV: первый день в новой компании |
-| `Никто тебе не скажет…` | Никто тебе не скажет почему джуны не растут | Никто не говорит про темную сторону SaaS |
-| `Жаль я не знал…` | Жаль я не узнал это в 22 | Если бы кто-то сказал это раньше |
-| `Все думают X — но Y` | Все думают доллар сильный — а вот цифра | Все думают надо стажироваться — но... |
-| `[Шок-цифра]` | Я заработал 12М за 9 месяцев | 200К пользователей за 30 дней |
-| `Вот почему…` | Вот почему ты не успеваешь к концу дня | Вот почему все переходят на Linear |
-| `Я облажался…` | Я облажался в первый же месяц | Потерял продукт из-за этой ошибки |
+| `When [trigger]…` | When the client writes "just a small fix" | When you need something urgent on the weekend |
+| `POV: [situation]` | POV: you're an ML engineer in 2026 | POV: first day at a new company |
+| `Nobody will tell you…` | Nobody will tell you why juniors don't grow | No one talks about the dark side of SaaS |
+| `I wish I'd known…` | I wish I'd learned this at 22 | If only someone had said this sooner |
+| `Everyone thinks X — but Y` | Everyone thinks the dollar is strong — but look at this number | Everyone thinks you need an internship — but... |
+| `[Shock number]` | I made 12M in 9 months | 200K users in 30 days |
+| `Here's why…` | Here's why you run out of time by end of day | Here's why everyone is switching to Linear |
+| `I screwed up…` | I screwed up in the very first month | Lost the product because of this mistake |
 
-## Часть 4. Word budget — голос → текст
+## Part 4. Word budget — voice → text
 
-Дефолт: **2.5 слова в секунду** для разговорного русского VO.
+Default: **2.5 words per second** for conversational Russian VO.
 
-| Длина видео | Total VO words | Hook (3s) | Body (10s) | CTA (2s) |
+| Video length | Total VO words | Hook (3s) | Body (10s) | CTA (2s) |
 |---|---|---|---|---|
 | 10s short | ~25 | ≤10 | ~13 | ~5 |
 | 15s short (default) | ~37 | ≤10 | ~22 | ~5 |
 | 30s short | ~75 | ≤10 | ~55 | ~10 |
 | 60s | ~150 | ≤10 | ~120 | ~20 |
 
-VO-text не должен быть длиннее этого budget'a — иначе TTS звучит неестественно
-быстро или сценарий не влезает.
+VO text must not be longer than this budget — otherwise the TTS sounds unnaturally
+fast or the scenario doesn't fit.
 
-## Часть 5. Banlist — слова и фразы которые НЕЛЬЗЯ
+## Part 5. Banlist — words and phrases you MUST NOT use
 
-Эти фразы выдают "ad-speak" и убивают доверие:
+These phrases give off "ad-speak" and kill trust:
 
 - "game-changer" / "amazing" / "incredible" / "must-have"
-- "удивительный" / "невероятный" / "потрясающий" (когда без конкретики)
-- "очень" / "крайне" / "максимально" (intensifiers)
-- "купите сейчас" / "только сегодня" (corporate-direct)
-- "наша команда" / "наши специалисты" (когда говорит "обычный человек")
-- "уникальный" / "единственный" / "лучший на рынке"
-- "lifehack" если на самом деле не lifehack а просто tip
+- "astonishing" / "unbelievable" / "stunning" (when used without specifics)
+- "very" / "extremely" / "maximally" (intensifiers)
+- "buy now" / "today only" (corporate-direct)
+- "our team" / "our specialists" (when an "ordinary person" is speaking)
+- "unique" / "the only one" / "best on the market"
+- "lifehack" if it isn't actually a lifehack but just a tip
 
-Заменяй на конкретику: вместо "потрясающий результат" → "сделал за 4 минуты
-вместо часа", вместо "удивительная функция" → "X нажал — Y произошло".
+Replace with specifics: instead of "stunning result" → "did it in 4 minutes
+instead of an hour", instead of "amazing feature" → "I pressed X — Y happened".
 
-## Часть 6. Caption / hashtags / music — sanity defaults
+## Part 6. Caption / hashtags / music — sanity defaults
 
-- **Captions:** word-by-word pop через `HormoziCaptions` или `TikTokCaptions`
-  (`src/lib/components/captions/`). ≤7 слов на карточку. Все в Green Zone
-  (см. `docs/green-zone.md`).
-- **Hashtags:** 5-8 шт. Микс: 2-3 broad (`#ai`, `#productivity`) +
-  2-3 niche (`#promptengineering`, `#aiagents`) + 1-2 brand. Обязательно
-  `#fyp` (TikTok) или `#reels` (IG).
-- **Music:** volume 0.6-0.8, fade-in 0.5s, fade-out 1s. Если темплейт ссылается
-  на trend-music — копируй файл, **не** генерируй замену через Lyria2.
+- **Captions:** word-by-word pop via `HormoziCaptions` or `TikTokCaptions`
+  (`src/lib/components/captions/`). ≤7 words per card. All in the Green Zone
+  (see `docs/green-zone.md`).
+- **Hashtags:** 5-8 of them. Mix: 2-3 broad (`#ai`, `#productivity`) +
+  2-3 niche (`#promptengineering`, `#aiagents`) + 1-2 brand. Always
+  `#fyp` (TikTok) or `#reels` (IG).
+- **Music:** volume 0.6-0.8, fade-in 0.5s, fade-out 1s. If the template references
+  trend music — copy the file, do **not** generate a replacement via Lyria2.
 
-## Часть 7. Replicating winners
+## Part 7. Replicating winners
 
-Если виральное видео найдено через `scoreTikTok()` ≥ 9 — реплицируй
-**структуру**, не контент:
+If a viral video is found via `scoreTikTok()` ≥ 9 — replicate the
+**structure**, not the content:
 
-| Что копировать | Что менять |
+| What to copy | What to change |
 |---|---|
-| Hook angle (gatekeep / skeptic / fail / visual-shock) | Конкретный subject |
-| Формат (testimonial / unboxing / …) | Тема |
-| Pacing (cuts/sec) | Сцены |
-| Caption style | Текст |
+| Hook angle (gatekeep / skeptic / fail / visual-shock) | The specific subject |
+| Format (testimonial / unboxing / …) | Topic |
+| Pacing (cuts/sec) | Scenes |
+| Caption style | Text |
 | Music genre/mood | Track |
 | Aspect / framing | Persona |
 
-Не копируй: дословный hook текст, конкретный визуал, узнаваемую музыку,
-композиционные ходы один-в-один. Это читается как cheap copycat и убивает
-алгоритм.
+Don't copy: the verbatim hook text, the specific visual, recognizable music,
+compositional moves one-for-one. That reads as a cheap copycat and kills
+the algorithm.

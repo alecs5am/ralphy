@@ -1,141 +1,141 @@
-# Personas — архетипы (RU UGC)
+# Personas — archetypes (RU UGC)
 
-8 базовых архетипов, адаптированных из `TheMattBerman/ugc-factory-skill/CHARACTER_LIBRARY.md`
-для русскоязычной UGC-аудитории. Используются как vibe-anchor при создании
-конкретной персоны через `bun run ralph -- persona create --archetype <key> ...`.
+8 base archetypes, adapted from `TheMattBerman/ugc-factory-skill/CHARACTER_LIBRARY.md`
+for a Russian-speaking UGC audience. Used as a vibe-anchor when creating
+a concrete persona via `bun run ralph -- persona create --archetype <key> ...`.
 
-Архетип — это **vibe + контекст**, не конкретный человек. Конкретная persona
-наследует от архетипа и переопределяет: имя, voice clone (ElevenLabs), точную
-внешность, конкретные props.
+An archetype is a **vibe + context**, not a specific person. A concrete persona
+inherits from the archetype and overrides: name, voice clone (ElevenLabs), exact
+appearance, specific props.
 
-## Сводная таблица
+## Summary table
 
-| Key | Архетип | Demo | Setting | Energy | Best for |
+| Key | Archetype | Demo | Setting | Energy | Best for |
 |---|---|---|---|---|---|
-| `student-grind` | Студент-работяга | 19-23, M/F | Общага, кафешка, ноут на коленях | Чуть нервный, энергичный | EdTech, financial apps, productivity |
-| `it-remote` | IT-шник на удалёнке | 26-34, M | Дома за столом, кухня, кофейня | Усталый-ироничный | Dev tools, AI products, SaaS |
-| `courier-driver` | Курьер / таксист | 22-35, M | Машина, улица, подъезд | Прагматичный, прямой | Gig work apps, financial, mobile |
-| `mom-blogger` | Мамочка-блогер | 28-38, F | Кухня, гостиная, детская | Тёплая, искренняя | Beauty, household, kids, food |
-| `gen-z-energy` | Энергичный Z-зумер | 18-24, M/F | Спальня, улица, метро | Громкая, быстрая, мемная | Fashion, music, social platforms |
-| `startup-founder` | Стартап-фаундер | 28-38, M/F | Коворкинг, домашний офис, café | Уверенно-усталая | B2B SaaS, dev tools, AI agents |
-| `marketer-perf` | Маркетолог-перформер | 26-34, M/F | Офис, монитор с дашбордом | Сухо-данные, пунктирно | Ad tech, analytics, performance |
-| `wfh-worker` | Удалённый сотрудник | 24-40, M/F | Хоум-офис, гостиная | Спокойная, "как у всех" | Productivity, comms, hardware |
+| `student-grind` | Hustling student | 19-23, M/F | Dorm, café, laptop on lap | Slightly nervous, energetic | EdTech, financial apps, productivity |
+| `it-remote` | Remote IT worker | 26-34, M | At a desk at home, kitchen, coffee shop | Tired-ironic | Dev tools, AI products, SaaS |
+| `courier-driver` | Courier / taxi driver | 22-35, M | Car, street, building entrance | Pragmatic, direct | Gig work apps, financial, mobile |
+| `mom-blogger` | Mom blogger | 28-38, F | Kitchen, living room, nursery | Warm, sincere | Beauty, household, kids, food |
+| `gen-z-energy` | Energetic Gen-Z | 18-24, M/F | Bedroom, street, subway | Loud, fast, meme-y | Fashion, music, social platforms |
+| `startup-founder` | Startup founder | 28-38, M/F | Coworking, home office, café | Confident-tired | B2B SaaS, dev tools, AI agents |
+| `marketer-perf` | Performance marketer | 26-34, M/F | Office, monitor with a dashboard | Dry-data, staccato | Ad tech, analytics, performance |
+| `wfh-worker` | Remote employee | 24-40, M/F | Home office, living room | Calm, "just like everyone" | Productivity, comms, hardware |
 
-## Детально
+## Detail
 
-### `student-grind` — Студент-работяга
+### `student-grind` — Hustling student
 
-- **Demo:** 19-23, парень или девушка, регион/Москва.
-- **Appearance:** простая толстовка/рубашка, волосы как удобно, взгляд
-  чуть невыспавшийся, очки если IT/мат специальность.
-- **Setting:** общежитие, тесная съёмная, кофейня с открытым ноутом, парта
-  в библиотеке. Фон с книгами / постером / банкой энергетика.
-- **Personality:** энергичный, чуть нервный, говорит быстро на одной волне.
-  Frame: "только что разобрался" → "кстати, сейчас покажу".
-- **Speaking style:** разговорный, междометия ("ну в общем", "короче",
-  "слушайте"), без бизнес-терминов.
-- **Best for:** EdTech, финансовые приложения для студентов,
-  productivity, summary-tools, AI tutoring.
+- **Demo:** 19-23, guy or girl, region/Moscow.
+- **Appearance:** simple hoodie/shirt, hair however is comfortable, a slightly
+  sleep-deprived look, glasses if IT/math major.
+- **Setting:** dorm, cramped rental, coffee shop with an open laptop, library
+  desk. Background with books / a poster / an energy-drink can.
+- **Personality:** energetic, slightly nervous, talks fast on the same wavelength.
+  Frame: "just figured it out" → "by the way, let me show you now".
+- **Speaking style:** colloquial, interjections ("well, basically", "in short",
+  "listen"), no business terms.
+- **Best for:** EdTech, financial apps for students,
+  productivity, summary tools, AI tutoring.
 
-### `it-remote` — IT-шник на удалёнке
+### `it-remote` — Remote IT worker
 
-- **Demo:** 26-34, мужчина (есть ж-вариант, не дефолт), Мск/Питер/удалёнка.
-- **Appearance:** толстовка / oversized тшка, чёрный/тёмный, борода 1-2 недели,
-  средние волосы, AirPods могут торчать. Очки опционально.
-- **Setting:** домашний кабинет с механической клавиатурой, кухня с
-  пуровером, пустая кофейня в нерабочий час. Тёмный/тёплый свет.
-- **Personality:** усталый-ироничный, deadpan. "Я делал это 5 раз и
-  каждый раз всё ломалось". Не пафосный, не motivational.
-- **Speaking style:** короткие фразы, технический жаргон без объяснений
-  (имеется ввиду что зритель свой), pауза после bombshell.
-- **Best for:** dev tools, AI products для разработчиков, SaaS, infra,
+- **Demo:** 26-34, male (a female variant exists, not the default), Moscow/St. Petersburg/remote.
+- **Appearance:** hoodie / oversized tee, black/dark, 1-2 week beard,
+  medium-length hair, AirPods may be sticking out. Glasses optional.
+- **Setting:** home study with a mechanical keyboard, kitchen with a
+  pour-over, an empty coffee shop during off-hours. Dark/warm light.
+- **Personality:** tired-ironic, deadpan. "I did this 5 times and
+  every time everything broke." Not pompous, not motivational.
+- **Speaking style:** short phrases, technical jargon without explanation
+  (assumes the viewer is one of us), a pause after a bombshell.
+- **Best for:** dev tools, AI products for developers, SaaS, infra,
   productivity, code editors, terminal apps.
 
-### `courier-driver` — Курьер / таксист
+### `courier-driver` — Courier / taxi driver
 
-- **Demo:** 22-35, мужчина, любой регион, frequently не-московский акцент.
-- **Appearance:** куртка курьерской службы / просто тёплая куртка, шапка,
-  телефон в подставке.
-- **Setting:** машина (POV из салона), подъезд, лифт, тротуар возле
-  ресторана.
-- **Personality:** прагматичный, прямой, без лишних эмоций. "Не работает —
-  не работает." Без romanticизма.
-- **Speaking style:** простые предложения, факты, конкретные цифры
-  (заработал X, проехал Y, потратил Z).
-- **Best for:** gig-work приложения, финансы для самозанятых, навигация,
-  мобильные сервисы, банковские карты.
+- **Demo:** 22-35, male, any region, frequently a non-Moscow accent.
+- **Appearance:** a delivery-service jacket / just a warm coat, a beanie,
+  phone in a mount.
+- **Setting:** car (POV from the cabin), building entrance, elevator, sidewalk near a
+  restaurant.
+- **Personality:** pragmatic, direct, no extra emotion. "Doesn't work —
+  doesn't work." No romanticism.
+- **Speaking style:** simple sentences, facts, concrete numbers
+  (earned X, drove Y, spent Z).
+- **Best for:** gig-work apps, finance for the self-employed, navigation,
+  mobile services, bank cards.
 
-### `mom-blogger` — Мамочка-блогер
+### `mom-blogger` — Mom blogger
 
-- **Demo:** 28-38, женщина, регион/средний.
-- **Appearance:** удобная домашняя одежда (свитер, лонгслив), минимум
-  макияжа, естественные волосы, иногда с малышом на руках в кадре.
-- **Setting:** кухня (counter), гостиная (диван), детская (на полу с
-  игрушкой), реже street/store.
-- **Personality:** тёплая, искренняя, разговорно-доверительная. "Я тебе
-  как подруге расскажу." Может смеяться над собой.
-- **Speaking style:** мягкая интонация, обращение на "ты", уменьшительные
-  ("творожок", "малышка").
-- **Best for:** beauty, household, детское, готовая еда, food delivery,
-  семейные банковские продукты.
+- **Demo:** 28-38, female, region/average.
+- **Appearance:** comfortable home clothes (sweater, long-sleeve), minimal
+  makeup, natural hair, sometimes holding a baby in frame.
+- **Setting:** kitchen (counter), living room (couch), nursery (on the
+  floor with a toy), less often street/store.
+- **Personality:** warm, sincere, conversational and trusting. "I'll tell you
+  like a friend." Can laugh at herself.
+- **Speaking style:** soft intonation, addressing the viewer informally,
+  diminutives ("little curds", "little one").
+- **Best for:** beauty, household, kids' products, ready meals, food delivery,
+  family banking products.
 
-### `gen-z-energy` — Энергичный Z-зумер
+### `gen-z-energy` — Energetic Gen-Z
 
-- **Demo:** 18-24, M/F, городской.
-- **Appearance:** яркие цвета, аксессуары (цепи, рюкзак, наушники Pop-art),
-  крашеные волосы могут быть, активный макияж/без.
-- **Setting:** спальня с лампой/постерами, улица/метро, primark-fitting-style,
+- **Demo:** 18-24, M/F, urban.
+- **Appearance:** bright colors, accessories (chains, backpack, pop-art headphones),
+  may have dyed hair, bold makeup/none.
+- **Setting:** bedroom with a lamp/posters, street/subway, primark-fitting-style,
   TikTok house vibes.
-- **Personality:** громкая, быстрая, мемная. Смена интонации каждые 2s.
-  Reference-heavy (другие тренды, мемы, аниме).
-- **Speaking style:** zoomer-сленг (но без перебора — токсично), сокращения,
+- **Personality:** loud, fast, meme-y. Intonation shifts every 2s.
+  Reference-heavy (other trends, memes, anime).
+- **Speaking style:** Gen-Z slang (but not overdone — that reads as toxic), abbreviations,
   filler words.
 - **Best for:** fashion, music apps, social platforms, dating, snack/energy
   brands, gaming.
 
-### `startup-founder` — Стартап-фаундер
+### `startup-founder` — Startup founder
 
-- **Demo:** 28-38, M или F, городской, Mск/EU/SF.
-- **Appearance:** simple-tshirt or henley, минимум, watch может быть,
-  волосы аккуратно но без пафоса.
-- **Setting:** коворкинг (видны другие столы за блюром), домашний офис
-  с whiteboard'ом, café с ноутом.
-- **Personality:** уверенная-усталая. "Мы пытались X, не вышло, теперь Y."
-  Опытная, без bullshit'а.
-- **Speaking style:** конкретные числа (MRR, retention), названия продуктов,
-  никаких "game-changing" / "amazing".
-- **Best for:** B2B SaaS, dev tools, AI agents, productivity для команд,
-  fintech для бизнеса.
+- **Demo:** 28-38, M or F, urban, Moscow/EU/SF.
+- **Appearance:** simple t-shirt or henley, minimal, may have a watch,
+  hair neat but not pretentious.
+- **Setting:** coworking (other desks visible behind a blur), home office
+  with a whiteboard, café with a laptop.
+- **Personality:** confident-tired. "We tried X, it didn't work, now Y."
+  Experienced, no bullshit.
+- **Speaking style:** concrete numbers (MRR, retention), product names,
+  no "game-changing" / "amazing".
+- **Best for:** B2B SaaS, dev tools, AI agents, productivity for teams,
+  fintech for business.
 
-### `marketer-perf` — Маркетолог-перформер
+### `marketer-perf` — Performance marketer
 
-- **Demo:** 26-34, M/F, городской.
-- **Appearance:** business casual, рубашка/блузка, аккуратные волосы,
-  очки часто.
-- **Setting:** open-space офис с мониторами, видны графики/дашборды на фоне.
-- **Personality:** сухо-данные, пунктирно. "За 2 недели CTR вырос с 1.2%
-  до 3.8%." Никакой лирики.
-- **Speaking style:** числовые факты, abbreviations (CTR, CPA, ROAS), пауза
-  для эффекта после bombshell-цифры.
+- **Demo:** 26-34, M/F, urban.
+- **Appearance:** business casual, shirt/blouse, neat hair,
+  glasses often.
+- **Setting:** open-space office with monitors, charts/dashboards visible in the background.
+- **Personality:** dry-data, staccato. "In 2 weeks CTR rose from 1.2%
+  to 3.8%." No lyricism.
+- **Speaking style:** numeric facts, abbreviations (CTR, CPA, ROAS), a pause
+  for effect after a bombshell number.
 - **Best for:** ad tech, analytics, performance-marketing tools, growth tools,
   attribution.
 
-### `wfh-worker` — Удалённый сотрудник
+### `wfh-worker` — Remote employee
 
-- **Demo:** 24-40, M/F, средний.
-- **Appearance:** обычная домашняя одежда (футболка, толстовка), без
-  претензий, "как любой из нас".
-- **Setting:** домашний офис (книжная полка / простой фон), гостиная
-  (диван), кухня в обед.
-- **Personality:** спокойная, нейтральная, "одна из нас". Без drama,
-  без motivational tone.
-- **Speaking style:** обычная разговорная речь, без сленга и без жаргона.
-- **Best for:** productivity, comms (Slack/чаты), hardware (камеры,
-  микрофоны), эргономика, time-management.
+- **Demo:** 24-40, M/F, average.
+- **Appearance:** ordinary home clothes (t-shirt, hoodie), no
+  pretensions, "just like any of us".
+- **Setting:** home office (bookshelf / plain background), living room
+  (couch), kitchen at lunch.
+- **Personality:** calm, neutral, "one of us". No drama,
+  no motivational tone.
+- **Speaking style:** ordinary conversational speech, no slang and no jargon.
+- **Best for:** productivity, comms (Slack/chats), hardware (cameras,
+  microphones), ergonomics, time-management.
 
-## Использование
+## Usage
 
-Создать конкретную персону на основе архетипа:
+Create a concrete persona based on an archetype:
 
 ```bash
 bun run ralph -- persona create \
@@ -146,4 +146,4 @@ bun run ralph -- persona create \
   --energy "deadpan, ironic"
 ```
 
-Архетип — vibe-anchor, persona — конкретный человек с лицом и голосом.
+An archetype is a vibe-anchor, a persona is a concrete person with a face and a voice.

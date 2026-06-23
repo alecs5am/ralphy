@@ -1,101 +1,101 @@
-# Архитектура Ralphy (текущее состояние)
+# Ralphy architecture (current state)
 
-Ralphy – это **единственный репозиторий**, который объединяет агент-пайплайн для создания UGC-видео из одного текстового брифа. Как описано в README, он реализует CLI-пайплайн с использованием Remotion для компоновки и рендеринга, а также набора AI-агентов («skill bundle»). Архитектура склеивает несколько внешних сервисов: OpenRouter (универсальный API для LLM, генерации изображений, видео, распознавания), ElevenLabs (для генерации голосовых дорожек и музыки), и локальную очередь заданий на базе Bun и SQLite【7†L265-L273】. Простейший сценарий: пользователь вызывает `ralphy new`, затем шаблон/клонирование стиля, генерирует ассеты (изображения, аудио) и запускает `ralphy render`, получая MP4. Внутри Ralphy задействовано **пять последовательных «суб-агентов»** (Idea, Prompt, Board, Render, Refine), каждый из которых выполняет свою задачу (идея → преобразование в кадровые промпты → сториборд → генерация ассетов → доработка)【32†L268-L277】. Все агенты записывают данные в единую рабочую область, что упрощает обмен информацией.
+Ralphy is **a single repository** that combines an agent pipeline for creating UGC videos from one text brief. As described in the README, it implements a CLI pipeline using Remotion for composition and rendering, plus a set of AI agents (a "skill bundle"). The architecture glues together several external services: OpenRouter (a universal API for LLMs, image generation, video, recognition), ElevenLabs (for generating voice tracks and music), and a local job queue built on Bun and SQLite【7†L265-L273】. The simplest scenario: the user calls `ralphy new`, then a template/style clone, generates assets (images, audio), and runs `ralphy render`, getting an MP4. Inside Ralphy, **five sequential "sub-agents"** are involved (Idea, Prompt, Board, Render, Refine), each performing its own task (idea → conversion into frame prompts → storyboard → asset generation → refinement)【32†L268-L277】. All agents write data into a single workspace, which simplifies information exchange.
 
-**Особенности текущей архитектуры:** 
-- *Многокомпонентность:* CLI-утилита управляет сложным графом задач (исследование ниши, генерация сценария, создание графики и видео, монтаж), «склеивая» их через агенты и очередь.  
-- *Интеграции:* используется OpenRouter для обращения к разным моделям (LLM, текст-видео, распознавание), ElevenLabs для TTS/музыки, Remotion для видео. Плюс локальные утилиты (ffmpeg и др.) для вспомогательных задач.  
-- *Очередь задач:* Bun + SQLite служат простой очередью/хранилищем состояния между шагами. Это хорошо для локального сценария, но при масштабировании (контент-ферма) может потребоваться более мощный брокер (например, Redis или Temporal).  
-- *Конфигурируемые правила:* Ralphy уже включает «model-aware fallback» – правила маршрутизации, которые подбирают модель генерации по типу контента (например, модель Kling для UGC/selfie и Seedance для horror) на основе конфигурации (файл MODELS.md)【32†L330-L339】.  
-- *Установка:* готовые статически скомпилированные бинарники (для macOS, Linux, Windows) в одном репозитории. Директор `install.sh` / Brew / npm упрощают развёртывание. Согласно дорожной карте, Ralphy v1.0 должен установить новую систему и сделать первое видео за **<15 минут на «чистой» машине**【45†L1-L4】.  
+**Features of the current architecture:**
+- *Multi-component:* the CLI utility manages a complex task graph (niche research, scenario generation, graphics and video creation, editing), "gluing" them together through agents and the queue.
+- *Integrations:* OpenRouter is used to call various models (LLM, text-to-video, recognition), ElevenLabs for TTS/music, Remotion for video. Plus local utilities (ffmpeg and others) for auxiliary tasks.
+- *Job queue:* Bun + SQLite serve as a simple queue/state store between steps. This is good for the local scenario, but at scale (a content farm) a more powerful broker may be required (e.g., Redis or Temporal).
+- *Configurable rules:* Ralphy already includes "model-aware fallback" — routing rules that pick the generation model by content type (for example, the Kling model for UGC/selfie and Seedance for horror) based on a configuration (the MODELS.md file)【32†L330-L339】.
+- *Installation:* prebuilt statically compiled binaries (for macOS, Linux, Windows) in one repository. The `install.sh` script / Brew / npm simplify deployment. According to the roadmap, Ralphy v1.0 should install a new system and produce a first video in **<15 minutes on a "clean" machine**【45†L1-L4】.
 
-# Пользовательские сценарии и требования
+# User scenarios and requirements
 
-Сообщается два основных сценария использования: 
+Two main usage scenarios are reported:
 
-- **Казуальные пользователи:** хотят быстро создать трендовое или рекламное видео («UGC-style», TikTok/Reels) по одному брифу. Их приоритет – **простота**: минимум ввода и правок, предзагруженные шаблоны, понятные CLI-команды или GUI. Задачи: быстрое исследование трендов, готовый сценарий, генерация стильных визуалов и голоса, автоматический монтаж. Установка и работа на локальном компьютере – обязательны, без сложной настройки.  
-- **Контент-ферма (команда):** индустриальные пользователи, генерирующие десятки/сотни роликов. Им нужны **масштабируемость** и автоматизация: возможность параллельно запускать проекты, переиспользовать шаблоны, настраивать брендинг (логотипы, фирменные цвета, голоса), интегрировать аналитику и расписание публикаций. Также важен мониторинг затрат API и качество (ретроспективный анализ лучших варинтов).  
+- **Casual users:** want to quickly create a trending or advertising video ("UGC-style," TikTok/Reels) from a single brief. Their priority is **simplicity**: minimal input and edits, preloaded templates, clear CLI commands or a GUI. Tasks: fast trend research, a ready-made scenario, generation of stylish visuals and voice, automatic editing. Installation and operation on a local machine are mandatory, without complex setup.
+- **Content farm (team):** industrial users generating dozens/hundreds of clips. They need **scalability** and automation: the ability to run projects in parallel, reuse templates, configure branding (logos, brand colors, voices), integrate analytics and a publishing schedule. Also important is monitoring API costs and quality (retrospective analysis of the best variants).
 
-**Ключевые функции (как их сформулировал заказчик):** 
-- Глубокое исследование ниши и форматов: Ralphy должен парсить TikTok/Reels/Shorts, выявлять актуальные форматы и крючки (hooks) перед тем, как генерировать видео【32†L144-L153】.  
-- Автоматическое написание сценариев и плана контента: LLM-агенты генерируют скрипты, сториборды и распределяют кадры по сценам (5-кадровый storyboard по умолчанию【32†L285-L294】).  
-- Генерация ассетов высокого качества: ИИ-дизайнер создаёт фоны/персонажей/анимации (keyframes) и видеоклипы (через текст-видео), звуковое сопровождение (голос, музыка). Для качества важны механизмы постоянства образа (например, контроль консистентности персонажа) и возможность сменять модели.  
-- Умеет монтировать: автоматический монтаж сцен через Remotion, плюс субтитры, эффекты, color grading. Роадмап предусматривает «ffmpeg-скрипты, smart-crop, извлечение кадров» и даже локальные модели для захвата голоса (whisper.cpp)【52†L1-L4】.  
-- Простая установка/среда: один бинарник/скрипт (`curl | sh`), переносимый на любую машину, без ручной настройки. Возможно, Docker-образ для сервера (контент-ферма).  
+**Key features (as the customer formulated them):**
+- Deep research of the niche and formats: Ralphy should parse TikTok/Reels/Shorts, identify current formats and hooks before generating video【32†L144-L153】.
+- Automatic scriptwriting and content planning: LLM agents generate scripts, storyboards, and distribute frames across scenes (a 5-frame storyboard by default【32†L285-L294】).
+- High-quality asset generation: an AI designer creates backgrounds/characters/animations (keyframes) and video clips (via text-to-video), audio accompaniment (voice, music). For quality, image-consistency mechanisms matter (e.g., character-consistency control) and the ability to swap models.
+- Can edit: automatic scene editing via Remotion, plus subtitles, effects, color grading. The roadmap calls for "ffmpeg scripts, smart-crop, frame extraction" and even local models for voice capture (whisper.cpp)【52†L1-L4】.
+- Simple installation/environment: one binary/script (`curl | sh`), portable to any machine, without manual setup. Possibly a Docker image for a server (content farm).
 
-# Сравнение с похожими решениями и лучшие практики
+# Comparison with similar solutions and best practices
 
-**Модульная архитектура:** Современные AI-пайплайны видео и контента стремятся к плагинной структуре. Пример – открытый проект Modular AI Video Generation (redditor *ExtremeKangaroo5437*)【20†L1-L4】【21†L1-L4】. Там каждый этап (LLM, TTS, Text-to-Image, Image-to-Video, Text-to-Video) реализован через абстрактные базовые классы (BaseLLM, BaseTTS и пр.), что позволяет **легко добавлять новые модели**: достаточно имплементировать интерфейс, и система автоматически подхватит модуль【21†L1-L4】. Такая архитектура облегчает расширение Ralphy: например, переключение между разными движками (Stable Diffusion, Sora, локальные модели) или добавление новых голосовых провайдеров.  
+**Modular architecture:** Modern AI video and content pipelines strive for a plugin structure. An example is the open-source project Modular AI Video Generation (redditor *ExtremeKangaroo5437*)【20†L1-L4】【21†L1-L4】. There each stage (LLM, TTS, Text-to-Image, Image-to-Video, Text-to-Video) is implemented via abstract base classes (BaseLLM, BaseTTS, etc.), which makes it **easy to add new models**: it's enough to implement the interface, and the system automatically picks up the module【21†L1-L4】. Such an architecture eases extending Ralphy: for example, switching between different engines (Stable Diffusion, Sora, local models) or adding new voice providers.
 
-**Состояние и оркестрация:** В идеале поток задач можно представить как DAG (Directed Acyclic Graph), где узлы – операции (исследование, генерация текста, генерация медиа, компоновка). Система управления очередью (TaskExecutor) отслеживает состояние проекта через JSON или БД, чтобы можно было *остановить/возобновить* выполнение. В вышеупомянутом примере реализован *stateful pipeline*: «ProjectManager» хранит прогресс, а «TaskExecutor» запускает модули【20†L1-L4】. Ralphy сейчас использует SQLite, но для масштабирования подойдет брокер типа Kafka/Redis или workflow-движок (например, Temporal).  
+**State and orchestration:** Ideally, the task flow can be represented as a DAG (Directed Acyclic Graph), where the nodes are operations (research, text generation, media generation, composition). A queue-management system (TaskExecutor) tracks project state via JSON or a DB, so that execution can be *stopped/resumed*. The aforementioned example implements a *stateful pipeline*: a "ProjectManager" stores progress, and a "TaskExecutor" runs the modules【20†L1-L4】. Ralphy currently uses SQLite, but for scaling a broker like Kafka/Redis or a workflow engine (e.g., Temporal) would fit.
 
-**Задания и модели:** Агенты Ralphy уже разделены на роли (researcher, scenarist, director, editor, producer). В идеальном варианте можно формализовать эти роли в **плагины-ска.skills**, как указано в `AGENTS.md` и `docs/playbooks` (маршрутизация запросов к конкретным playbook’ам). Также полезно обеспечить *динамическое обнаружение новых моделей*, как в примере с базовыми классами: чтобы при добавлении нового AI-модуля его не нужно было руками регистрировать – система сама его подхватит.  
+**Jobs and models:** Ralphy's agents are already split into roles (researcher, scenarist, director, editor, producer). In the ideal variant these roles can be formalized into **plugin skills**, as indicated in `AGENTS.md` and `docs/playbooks` (routing requests to specific playbooks). It's also useful to provide *dynamic discovery of new models*, as in the example with the base classes: so that when a new AI module is added it doesn't need to be registered by hand — the system picks it up itself.
 
-**Оценка качества:** В высококачественных пайплайнах реализуют авто-проверки и возврат на доработку. В Ralphy уже есть идея «выкидывать неудачные кадры до рендеринга» (scoreScenario/scoreImage блокируют плохие сцены【46†L1-L4】). В идеале добавить несколько уровней проверок: сегментация по объектам, уровень резкости, плотность субтитров и т.п., как это указано в роадмапе (multi-pass evaluation)【32†L323-L332】. После рендера – автокритик или A/B тестирование, чтобы «самостоятельно исключать» худшие варианты (Multi-variant + Best-Pick в роадмапе【32†L342-L350】).  
+**Quality evaluation:** High-quality pipelines implement auto-checks and a return for rework. Ralphy already has the idea of "discarding failed frames before rendering" (scoreScenario/scoreImage block bad scenes【46†L1-L4】). Ideally, add several levels of checks: object segmentation, sharpness level, subtitle density, etc., as indicated in the roadmap (multi-pass evaluation)【32†L323-L332】. After rendering — an auto-critic or A/B testing, to "self-exclude" the worst variants (Multi-variant + Best-Pick in the roadmap【32†L342-L350】).
 
-# Идеальная архитектура Ralphy
+# The ideal Ralphy architecture
 
-1. **Модульность и расширяемость:** Каждое звено (исследование трендов, генерация текста, генерация изображения/видео, озвучка, монтаж) оформлено как отдельный **плагин/модуль** с чётко определёнными входом и выходом. Интерфейсы для генерации текста (LLM), аудио (TTS), изображений и видео (T2I, T2V), обработки видео и аудио позволяют добавлять новые модели «на лету». Например, используя `BaseModel`-классы и автозагрузку, любой пользователь может внедрить локальные модели (Stable Diffusion, Sora, Whisper и др.) без изменений ядра.  
+1. **Modularity and extensibility:** Each link (trend research, text generation, image/video generation, voiceover, editing) is designed as a separate **plugin/module** with a clearly defined input and output. Interfaces for text generation (LLM), audio (TTS), images and video (T2I, T2V), video and audio processing allow adding new models "on the fly." For example, using `BaseModel` classes and autoloading, any user can plug in local models (Stable Diffusion, Sora, Whisper, etc.) without changing the core.
 
-2. **Оркестратор и менеджер состояния:** Вместо ad-hoc очереди SQLite можно развивать компонент-оркестратор (наподобие CrewAI или Bento4), который отслеживает выполнение задач проекта. Такой **менеджер задач** может хранить состояние (DB или JSON) и управлять зависимостями: например, сначала завершение исследования → потом генерация сценария и т.д. Это позволит «горячую перезагрузку» и параллелизм (несколько проектов одновременно). Возможно внедрение серверной части с REST API (чтобы команды могли интегрировать Ralphy в свои системы).  
+2. **Orchestrator and state manager:** Instead of an ad-hoc SQLite queue, one can develop an orchestrator component (something like CrewAI or Bento4) that tracks the execution of project tasks. Such a **task manager** can store state (DB or JSON) and manage dependencies: for example, first finishing research → then scenario generation, and so on. This will allow "hot reload" and parallelism (several projects at once). It's possible to introduce a server-side part with a REST API (so teams can integrate Ralphy into their systems).
 
-3. **Поток от идеи до видео:** В идеале архитектуру можно представить как **цепочку агентов**: 
-   - *Исследователь:* парсит тренды (TikTok API, Reddit, Google Trends и т.д.) и обновляет базу референсов.  
-   - *Планировщик:* генерирует контент-план (сколько сцен, какие стилистические приемы) на основе трендов.  
-   - *Сценарист:* строит подробный сценарий и storyboard (рассказывает модель картинки и действия в кадре).  
-   - *Дирижер генерации:* последовательно вызывает генерацию ключевых кадров (T2I) и анимации/видео-клипав (I2V/T2V) по сценам.  
-   - *Озвучка:* делает текстовые подсказки актёрам речи (ElevenLabs и др.), генерирует голоса, музыку, эффекты.  
-   - *Монтажёр:* компонуёт видео, накладывает субтитры/эффекты через Remotion или ffmpeg.  
-   - *Критик:* оценивает результат (реклама живо ли, CG, читабельность субтитров) и при необходимости петляет назад (авто-рендер повторов).  
+3. **Flow from idea to video:** Ideally the architecture can be represented as a **chain of agents:**
+   - *Researcher:* parses trends (TikTok API, Reddit, Google Trends, etc.) and updates the reference base.
+   - *Planner:* generates a content plan (how many scenes, which stylistic techniques) based on the trends.
+   - *Scenarist:* builds a detailed scenario and storyboard (describes the image model and the on-screen actions).
+   - *Generation conductor:* sequentially calls keyframe generation (T2I) and animation/video clips (I2V/T2V) by scene.
+   - *Voiceover:* makes text prompts for the speech actors (ElevenLabs and others), generates voices, music, effects.
+   - *Editor:* composes the video, overlays subtitles/effects via Remotion or ffmpeg.
+   - *Critic:* evaluates the result (whether the ad is lively, the CG, subtitle readability) and loops back if necessary (auto-rendering retries).
 
-   Все эти роли обмениваются данными через общую файловую структуру (workspace) или базу. Такой микросервисный подход позволяет людям в сообществе добавлять свои модули (например, новый способ генерации фона) без изменения остального кода.  
+   All these roles exchange data through a shared file structure (workspace) or a database. Such a microservice approach lets people in the community add their own modules (for example, a new way to generate a background) without changing the rest of the code.
 
-4. **Качество и безопасность:**  
-   - *Строгие фильтры:* «quality gates refuse, not warn»【46†L1-L4】 – не пускать мертвые (no sound) или искаженные кадры дальше.  
-   - *Версионирование и откат:* сохранять «эталонные рендеры» для regression-тестов (как запланировано в роадмапе【46†L7-L10】).  
-   - *Идентичность:* «Identity lock» – возможность фиксировать ключевые образы (product logo, фирменные цвета) между сценами【32†L330-L339】.  
-   - *Телеметрия:* логировать время, стоимость каждого шага (категория «Cost & Telemetry» в роадмапе).  
+4. **Quality and safety:**
+   - *Strict filters:* "quality gates refuse, not warn"【46†L1-L4】 — don't let dead (no sound) or distorted frames through.
+   - *Versioning and rollback:* save "reference renders" for regression tests (as planned in the roadmap【46†L7-L10】).
+   - *Identity:* "Identity lock" — the ability to fix key images (product logo, brand colors) across scenes【32†L330-L339】.
+   - *Telemetry:* log the time and cost of each step (the "Cost & Telemetry" category in the roadmap).
 
-5. **Инфраструктура и масштабирование:**  
-   - *Контейнеризация:* выпускать Docker-образ для серверного использования (в локальной сети команды) и cloud-версию для больших нагрузок.  
-   - *Гибкость провайдеров:* уметь переключаться между облачными (OpenAI/GCP/Azure) и локальными (Sora, HuggingFace) моделями по настройкам. Это снимает зависимость от одного провайдера и позволяет использовать бесплатные модели.  
-   - *Шкала:* если речь о «контент-ферме», предусмотреть оркестрацию (Kubernetes, Celery, н8н и т.п.), чтобы параллельно обрабатывать много проектов.  
+5. **Infrastructure and scaling:**
+   - *Containerization:* release a Docker image for server use (on a team's local network) and a cloud version for heavy loads.
+   - *Provider flexibility:* be able to switch between cloud (OpenAI/GCP/Azure) and local (Sora, HuggingFace) models per settings. This removes dependence on one provider and lets you use free models.
+   - *Scale:* if it's about a "content farm," provide for orchestration (Kubernetes, Celery, n8n, etc.) to process many projects in parallel.
 
-# CI/CD и надежная поставка
+# CI/CD and reliable delivery
 
-Для привлекательности проекта с десятками тысяч звёзд критически важно **надежный CI/CD** и простота сборки:  
+For a project with tens of thousands of stars to be attractive, **reliable CI/CD** and ease of building are critically important:
 
-- **Автоматизированная сборка и тестирование:** Каждый коммит проходит через GitHub Actions (или другой CI). Запуск юнит- и интеграционных тестов (`bun test`), линтеров (`bun run lint`, ESLint, TypeScript), а также smoke-тестов CLI на различных ОС (Linux, macOS, Windows). Для проверки функционала можно добавить тесты, которые запускают `ralphy render` на небольшом шаблоне и сравнивают хеши выходного видео или выдачу опций (как планируется в роадмапе «smoke tests per template»【46†L6-L10】).  
+- **Automated build and testing:** Every commit goes through GitHub Actions (or another CI). Running unit and integration tests (`bun test`), linters (`bun run lint`, ESLint, TypeScript), and CLI smoke tests on various OSes (Linux, macOS, Windows). To check functionality, one can add tests that run `ralphy render` on a small template and compare the hashes of the output video or the option output (as planned in the roadmap "smoke tests per template"【46†L6-L10】).
 
-- **Автовыпуск релизов:** При создании тега/релиза CI автоматически упаковывает и публикует бинарники на GitHub Releases (с SHA256SUMS) и в Homebrew Tap и npm, как было задумано: «npm, brew, GitHub Releases публикуются из CI одним нажатием»【43†L1-L4】. Это исключает ручную работу и гарантирует, что любой участник может установить Ralphy «чистой машиной» (критерий 7 v1.0【43†L1-L4】).  
+- **Auto-release of releases:** When a tag/release is created, CI automatically packages and publishes the binaries to GitHub Releases (with SHA256SUMS) and to the Homebrew Tap and npm, as intended: "npm, brew, GitHub Releases are published from CI with one press"【43†L1-L4】. This eliminates manual work and guarantees that any participant can install Ralphy on a "clean machine" (criterion 7 of v1.0【43†L1-L4】).
 
-- **Документация и помощь:** CI может генерировать документацию (Mintlify или jsdoc) при коммитах и выкладывать сайт. Также нужно перевести важные разделы (CLAUDE.md, AGENTS.md, playbooks) на русский/английский (минимум английский), чтобы новая аудитория была продуктивна за 30 минут: «README → CLAUDE → AGENTS → playbook»【43†L1-L4】.  
+- **Documentation and help:** CI can generate documentation (Mintlify or jsdoc) on commits and publish the site. It's also necessary to translate the important sections (CLAUDE.md, AGENTS.md, playbooks) into Russian/English (English at minimum), so that the new audience is productive within 30 minutes: "README → CLAUDE → AGENTS → playbook"【43†L1-L4】.
 
-- **Контроль версий и лицензия:** Обязательно выбрать открытую лицензию (Apache/MIT) как только функционал стабилен. В текущем коде стоит UNLICENSED【50†L1-L3】, что может отпугивать вкладчиков. Переход на популярную лицензию — одно из условий выпуска v1.0.  
+- **Version control and license:** It's essential to choose an open license (Apache/MIT) as soon as the functionality is stable. The current code has UNLICENSED【50†L1-L3】, which may scare off contributors. Switching to a popular license is one of the conditions for releasing v1.0.
 
-# Дорожная карта и сообщество
+# Roadmap and community
 
-Для роста популярности и звезд важно чётко артикулировать следующую веху (Roadmap) и активно развивать сообщество: 
+For growing popularity and stars it's important to clearly articulate the next milestone (Roadmap) and actively develop the community:
 
-- **Чёткие цели (v1.0 и далее):** Уже есть требования к версии 1.0 (быстрый старт, воспроизводимые шаблоны, предсказуемость затрат, отсутствие «ручных хаков»【45†L1-L4】【44†L1-L4】). На их основе стоит строить публичный PRD: например, к 1.0 иметь несколько готовых примеров «New Project → template → render = работающее видео» без правок.  
+- **Clear goals (v1.0 and beyond):** There are already requirements for version 1.0 (fast start, reproducible templates, cost predictability, no "manual hacks"【45†L1-L4】【44†L1-L4】). On their basis it's worth building a public PRD: for example, by 1.0 to have several ready examples of "New Project → template → render = a working video" without edits.
 
-- **Технический прогресс:** Из роадмапа видно, что есть заделы по улучшению UX, подсказок, глубокому исследованию, качеству и масштабируемости. Нужно завершить (или хотя бы начать) категории «Prompts & Templates», «Skills», «Testing & Reliability» и «Deep research»【35†L382-L391】. Открытые issue, обсуждения и проекты GitHub должны отражать эти задачи.  
+- **Technical progress:** It's clear from the roadmap that there are groundwork items for improving UX, prompts, deep research, quality, and scalability. The categories "Prompts & Templates," "Skills," "Testing & Reliability," and "Deep research" need to be finished (or at least started)【35†L382-L391】. Open issues, discussions, and GitHub projects should reflect these tasks.
 
-- **Сообщество и вкладчики:** Создать удобные площадки (GitHub Discussions для Q&A и идей, оформить CONTRIBUTING.md). Поощрять пулл-реквесты: особенно шаблоны (`templates/`), новые модели (`MODELS.md`) и багфиксы. Регулярно выкладывать обновления и примеры, чтобы люди могли **скопировать и модифицировать** готовые проекты (в духе “fork & tweak start”).  
+- **Community and contributors:** Create convenient venues (GitHub Discussions for Q&A and ideas, set up a CONTRIBUTING.md). Encourage pull requests: especially templates (`templates/`), new models (`MODELS.md`), and bugfixes. Regularly publish updates and examples so people can **copy and modify** ready projects (in the spirit of "fork & tweak start").
 
-- **Примеры и демо:** Публиковать опубликованные видео-примеры (как сейчас несколько готовых рендеров на ralphy.dev) и объяснять, как их достичь. Быстрый успех – залог звёзд: когда разработчики видят «написал одно предложение – получил трендовое видео – Уау!», они охотно звездуют.  
+- **Examples and demos:** Publish released video examples (as there are now several ready renders on ralphy.dev) and explain how to achieve them. Quick success is the key to stars: when developers see "wrote one sentence — got a trending video — wow!" they happily star it.
 
-- **Сводка успеха:** Критерии v1.0 и дальше формализуют доверие: «автозапуск без правок», «фиксированные результаты шаблонов»【45†L1-L4】【43†L1-L4】, «полный цикл из чата»【44†L1-L4】, «качественные выходы». После 1.0 можно ставить амбициозные фичи (мультиязычность, GUI, офлайн-режим).  
+- **Success summary:** The v1.0 criteria and beyond formalize trust: "auto-run without edits," "fixed template results"【45†L1-L4】【43†L1-L4】, "a full cycle from chat"【44†L1-L4】, "quality outputs." After 1.0, one can set ambitious features (multilingualism, GUI, offline mode).
 
-# Вывод
+# Conclusion
 
-**Идеальный Ralphy** – это платформа с **модульной архитектурой AI-агентов и плагинов**, автоматическим пайплайном от идеи до MP4 и продуманной инфраструктурой CI/CD. Он должен быть таким же лёгким в установке и использовании, как популярные open-source CLI-инструменты, но при этом масштабироваться от одиночного фрилансера до команды контент-фермы. Проект привлечёт звёзды и вкладчиков, если будут доступны:
-- **Полноценная автоматизация.** Без ручной доводки: агент «сам решает», что и как генерировать【44†L1-L4】. Автообновление лучших вариантов («итерации по метрикам»).  
-- **Простота и прозрачность.** Чистая документация, готовые примеры, шаблоны и удобный CLI, точно соответствующий описанию【45†L1-L4】【43†L1-L4】.  
-- **Сообщество.** Открытая лицензия, активные дискуссии, гайды и готовность принимать PR от сообщества (новые стили видео, модели, сценарии).  
-- **Качество.** Строгие проверки видео/аудио («score gates»【46†L1-L4】), стабильные повторяемые результаты.  
-- **Надёжная поставка.** Авто-релизы через CI (brew, npm) с проверкой хэшей【43†L1-L4】, кроссплатформенные билды, тестирование на «чистой» системе.  
+**The ideal Ralphy** is a platform with **a modular architecture of AI agents and plugins**, an automatic pipeline from idea to MP4, and a well-thought-out CI/CD infrastructure. It should be as easy to install and use as popular open-source CLI tools, while scaling from a single freelancer to a content-farm team. The project will attract stars and contributors if the following are available:
+- **Full automation.** Without manual touch-up: the agent "decides itself" what and how to generate【44†L1-L4】. Auto-update of the best variants ("iterations by metrics").
+- **Simplicity and transparency.** Clean documentation, ready examples, templates, and a convenient CLI that exactly matches the description【45†L1-L4】【43†L1-L4】.
+- **Community.** An open license, active discussions, guides, and a readiness to accept PRs from the community (new video styles, models, scenarios).
+- **Quality.** Strict video/audio checks ("score gates"【46†L1-L4】), stable repeatable results.
+- **Reliable delivery.** Auto-releases via CI (brew, npm) with hash verification【43†L1-L4】, cross-platform builds, testing on a "clean" system.
 
-Следуя этим принципам (модульность, автоматизация, прозрачность, надёжность) Ralphy сможет превратиться в **открытый движок для создания видео-контента**, который будет востребован и любим сообществом, а также привлечёт десятки тысяч звёзд GitHub.  
+By following these principles (modularity, automation, transparency, reliability) Ralphy can turn into **an open engine for creating video content** that will be in demand and loved by the community, and will also attract tens of thousands of GitHub stars.
 
-**Источники:** Описание архитектуры Ralphy и цели v1.0 взяты из официального репозитория【7†L265-L273】【35†L343-L352】【44†L1-L4】【45†L1-L4】. Параллельные решения проиллюстрированы примерами из открытых проектов【20†L1-L4】【21†L1-L4】【32†L268-L277】【43†L1-L4】【46†L1-L4】【52†L1-L4】. Эти цитаты показывают текущее устройство Ralphy и лучшие практики проектирования AI-пайплайнов.
+**Sources:** The description of Ralphy's architecture and the v1.0 goals are taken from the official repository【7†L265-L273】【35†L343-L352】【44†L1-L4】【45†L1-L4】. Parallel solutions are illustrated by examples from open-source projects【20†L1-L4】【21†L1-L4】【32†L268-L277】【43†L1-L4】【46†L1-L4】【52†L1-L4】. These quotes show the current arrangement of Ralphy and best practices for designing AI pipelines.
