@@ -1,6 +1,6 @@
 # Promote pluggable provider connector roadmap
 
-> **Status:** todo
+> **Status:** done — 2026-06-24
 > **Filed:** 2026-06-24
 > **Folder:** issues
 > **Severity:** high

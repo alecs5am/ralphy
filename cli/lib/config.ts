@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { readFileSync } from "fs";
 import { configPath, ralphDir } from "./paths.js";
 
 export type Config = Record<string, unknown>;
@@ -7,6 +8,15 @@ export async function loadConfig(): Promise<Config> {
   try {
     const data = await fs.readFile(configPath(), "utf-8");
     return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+/** Synchronous config read — for the sync provider-resolution path (paths.ts uses the same pattern). */
+export function loadConfigSync(): Config {
+  try {
+    return JSON.parse(readFileSync(configPath(), "utf-8"));
   } catch {
     return {};
   }
