@@ -1906,6 +1906,22 @@ Commands:
                                 when a model provider is configured; without one
                                 it falls back to structure-only (not a ship
                                 gate).
+  run [options] <project>       Run the quality flywheel (#484): orchestrate the
+                                gates RELEVANT to a project (via gatesForContext
+                                over mode/format/platform), cheap-deterministic
+                                before model-graded, persist each gate's
+                                existing report (eval.json / hook.json /
+                                captions-gate.json / text-legibility.json /
+                                fidelity.json / claims.json /
+                                platform-spec.json), then call buildScorecard
+                                for the final verdict. Advisory gates
+                                (distribution-pack / council) are noted, never
+                                run. Recommends `ralphy project repair-plan` on
+                                a repair/blocked verdict — never spends or
+                                repairs. --dry-run prints the plan and makes
+                                ZERO model calls. Example: ralphy eval run
+                                glitter-cream-001 --platform tiktok,reels
+                                --dry-run
   fidelity [options] <project>  Run the product/brand fidelity gate (#422):
                                 compare the project's generated stills against
                                 the LOCKED product/brand refs +
