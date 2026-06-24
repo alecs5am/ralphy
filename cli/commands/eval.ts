@@ -29,6 +29,15 @@ import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { parseCalibrationDataset } from "../lib/schemas/calibration.js";
 import { runCalibration, isKnownGate, type RunCalibrationOptions } from "../lib/eval/calibration.js";
+import {
+  runPromptOptimization,
+  writeProposal,
+  readPromptFile,
+  splitDataset,
+  DEFAULT_TRAIN_FRACTION,
+  type OptimizeKind,
+  type RunPromptOptimizationOptions,
+} from "../lib/eval/prompt-optimize.js";
 import { raiseError } from "../lib/errors/index.js";
 import type { ExpectedLabel } from "../lib/schemas/calibration.js";
 
@@ -571,6 +580,183 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval metrics failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("optimize-prompt")
+    .description("EXPERIMENTAL (#486): improve a judge/generator prompt against a #483 calibration dataset and emit a REVIEWABLE proposal. Splits the dataset into train/held-out (deterministic by id-hash), evaluates the BASELINE prompt on held-out, asks the LLM to improve it from the train-split failures, evaluates the CANDIDATE on held-out, then compares baseline-vs-candidate Cohen's kappa. NEVER overwrites the source prompt / templates / guidelines / MODELS.md — a `propose` recommendation writes an append-only `proposal-vN/` dir for a maintainer to apply by hand. DSPy/MIPRO is the inspiration, not a hard dep. Offline (the CI seam, NO model calls): --baseline-predictions + --candidate-predictions ({ exampleId: pass|fail } maps) + --candidate (a candidate prompt file). --dry-run prints the plan only. Example: ralphy eval optimize-prompt --prompt judge.txt --dataset hooks.json --baseline-predictions base.json --candidate-predictions cand.json --candidate cand.txt")
+    .requiredOption("--prompt <path>", "Path to the source prompt being optimized (read-only — NEVER written)")
+    .requiredOption("--dataset <path>", "Path to the calibration dataset JSON (version, gate, examples[])")
+    .option("--kind <kind>", "judge (default — #483 binary metrics) or generator", "judge")
+    .option("--gate <id>", "Override the gate id (default: the dataset's gate) — must be a known QUALITY_GATES id")
+    .option("--train-split <frac>", `Train-split fraction in (0,1) (default ${DEFAULT_TRAIN_FRACTION})`, (v) => parseFloat(v))
+    .option("--budget <n>", "Max candidate-generation attempts on the live path (default 1)", (v) => parseInt(v, 10))
+    .option("--seed <n>", "Deterministic split seed (default 0)", (v) => parseInt(v, 10))
+    .option("--out <dir>", "Proposals dir to write a `propose` candidate into (default: <dataset-dir>/prompt-proposals/)")
+    .option("--baseline-predictions <path>", "OFFLINE seam: JSON map { exampleId: \"pass\"|\"fail\" } of BASELINE judge predictions on the held-out split (no model calls)")
+    .option("--candidate-predictions <path>", "OFFLINE seam: JSON map { exampleId: \"pass\"|\"fail\" } of CANDIDATE judge predictions on the held-out split (no model calls)")
+    .option("--candidate <path>", "OFFLINE seam: a candidate prompt file — skips the live LLM candidate generation")
+    .option("--model <id>", "Judge/optimizer model id (used on the live path)")
+    .option("--no-vision", "On the live path, skip the gate's vision pass where supported (free deterministic-only judge)")
+    .option("--dry-run", "Print the plan (train/held-out sizes, what would run, cost-bearing) and make ZERO model calls")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (opts) => {
+      try {
+        // — Read + validate the prompt file.
+        const promptPath = path.resolve(opts.prompt as string);
+        if (!existsSync(promptPath)) {
+          raiseError("E_NOT_FOUND", { kind: "prompt file", id: promptPath });
+        }
+        const baselinePrompt = readPromptFile(promptPath);
+
+        // — Read + parse the dataset.
+        const datasetPath = path.resolve(opts.dataset as string);
+        if (!existsSync(datasetPath)) {
+          raiseError("E_NOT_FOUND", { kind: "calibration dataset", id: datasetPath });
+        }
+        let dataset;
+        try {
+          dataset = parseCalibrationDataset(JSON.parse(readFileSync(datasetPath, "utf8")));
+        } catch (e) {
+          raiseError("E_FILE_MALFORMED", {
+            format: "calibration dataset",
+            path: datasetPath,
+            detail: (e as Error).message,
+          });
+        }
+
+        // — Validate --kind.
+        const kind = opts.kind as string;
+        if (kind !== "judge" && kind !== "generator") {
+          raiseError("E_INPUT_INVALID", {
+            field: "--kind",
+            detail: `unknown kind "${kind}" — expected "judge" or "generator"`,
+          });
+        }
+
+        // — Validate --gate (defaults to the dataset's gate) against the known registry.
+        const gate = (opts.gate as string | undefined) ?? dataset.gate;
+        if (!isKnownGate(gate)) {
+          raiseError("E_INPUT_INVALID", {
+            field: "--gate",
+            detail: `unknown quality gate "${gate}" — see QUALITY_GATES (e.g. first-frame-hook, ocr, captions)`,
+          });
+        }
+
+        // — Validate --train-split.
+        const trainFraction = opts.trainSplit !== undefined ? Number(opts.trainSplit) : DEFAULT_TRAIN_FRACTION;
+        if (!Number.isFinite(trainFraction) || trainFraction <= 0 || trainFraction >= 1) {
+          raiseError("E_INPUT_INVALID", {
+            field: "--train-split",
+            detail: `train-split must be a number in (0,1); got "${opts.trainSplit}"`,
+          });
+        }
+        const seed = opts.seed !== undefined ? Number(opts.seed) : 0;
+
+        // — Read the optional offline seams.
+        const readPredMap = (flag: string, p: string): Record<string, ExpectedLabel> => {
+          const abs = path.resolve(p);
+          if (!existsSync(abs)) {
+            raiseError("E_NOT_FOUND", { kind: `${flag} map`, id: abs });
+          }
+          try {
+            return JSON.parse(readFileSync(abs, "utf8")) as Record<string, ExpectedLabel>;
+          } catch (e) {
+            raiseError("E_FILE_MALFORMED", { format: `${flag} map`, path: abs, detail: (e as Error).message });
+          }
+        };
+
+        // — --dry-run: print the deterministic plan, ZERO model calls.
+        if (opts.dryRun) {
+          const { train, heldOut } = splitDataset(dataset, trainFraction, seed);
+          const offline = !!(opts.baselinePredictions && opts.candidatePredictions && opts.candidate);
+          out({
+            kind,
+            gate,
+            promptSource: promptPath,
+            datasetSource: datasetPath,
+            trainFraction,
+            seed,
+            trainSize: train.examples.length,
+            heldOutSize: heldOut.examples.length,
+            dryRun: true,
+            offline,
+            costBearing: !offline,
+            note: offline
+              ? "dry-run — offline seams supplied; the real run would make ZERO model calls."
+              : "dry-run — no offline seams; the real run would call the live judge (held-out x2) + the LLM optimizer (paid).",
+          });
+          return;
+        }
+
+        // — Assemble the run options (offline when all three seams are present).
+        const runOpts: RunPromptOptimizationOptions = {
+          trainFraction,
+          seed,
+          model: opts.model as string | undefined,
+          noVision: opts.vision === false,
+        };
+        if (opts.budget !== undefined) runOpts.optimizerBudget = Number(opts.budget);
+        if (opts.baselinePredictions) {
+          runOpts.baselinePredictions = readPredMap("baseline-predictions", opts.baselinePredictions as string);
+        }
+        if (opts.candidatePredictions) {
+          runOpts.candidatePredictions = readPredMap("candidate-predictions", opts.candidatePredictions as string);
+        }
+        if (opts.candidate) {
+          const candPath = path.resolve(opts.candidate as string);
+          if (!existsSync(candPath)) {
+            raiseError("E_NOT_FOUND", { kind: "candidate prompt file", id: candPath });
+          }
+          runOpts.candidateOverride = readPromptFile(candPath);
+        }
+
+        const report = await runPromptOptimization(
+          {
+            promptSource: promptPath,
+            baselinePrompt,
+            dataset,
+            datasetSource: datasetPath,
+            kind: kind as OptimizeKind,
+          },
+          runOpts,
+        );
+
+        // — Write a proposal ONLY on a "propose" recommendation (append-only, no-overwrite).
+        let proposalPath: string | null = null;
+        if (report.recommendation === "propose") {
+          const outDir = (opts.out as string | undefined) ?? path.join(path.dirname(datasetPath), "prompt-proposals");
+          proposalPath = writeProposal(outDir, report);
+        }
+
+        out({
+          kind: report.kind,
+          gate: report.gate,
+          promptSource: report.promptSource,
+          datasetSource: report.datasetSource,
+          trainFraction: report.trainFraction,
+          seed: report.seed,
+          baseline: {
+            n: report.baseline.metrics.n,
+            cohensKappa: report.baseline.metrics.cohensKappa,
+            accuracy: report.baseline.metrics.accuracy,
+            tpr: report.baseline.metrics.tpr,
+            tnr: report.baseline.metrics.tnr,
+          },
+          candidate: {
+            n: report.candidate.metrics.n,
+            cohensKappa: report.candidate.metrics.cohensKappa,
+            accuracy: report.candidate.metrics.accuracy,
+            tpr: report.candidate.metrics.tpr,
+            tnr: report.candidate.metrics.tnr,
+          },
+          comparison: report.comparison,
+          recommendation: report.recommendation,
+          proposalPath,
+        });
+      } catch (e) {
+        err(`eval optimize-prompt failed: ${(e as Error).message}`);
       }
     });
 
