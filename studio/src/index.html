@@ -15,6 +15,11 @@
         <label for="ws">Workspace</label>
         <select id="ws"></select>
       </div>
+      <div class="run-pick" id="runPick" hidden>
+        <label>Runs</label>
+        <nav class="run-list" id="runs"></nav>
+      </div>
+      <div class="proj-label">Projects</div>
       <nav class="proj-list" id="projects"></nav>
     </aside>
     <main class="main">
@@ -26,6 +31,7 @@
       </div>
       <div class="grid-scroll" id="scroll">
         <div class="placeholder" id="placeholder">pick a project</div>
+        <div class="runboard" id="runboard" hidden></div>
         <div class="board" id="board" hidden></div>
         <div id="sections"></div>
       </div>

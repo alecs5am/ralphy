@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   ws: $("ws"), projects: $("projects"), title: $("title"), count: $("count"),
   views: $("views"), chips: $("chips"), sections: $("sections"), placeholder: $("placeholder"),
-  board: $("board"),
+  board: $("board"), runboard: $("runboard"), runs: $("runs"), runPick: $("runPick"),
   modal: $("modal"), stage: $("stage"), modalClose: $("modalClose"), live: $("live"),
 };
 
@@ -34,7 +34,19 @@ const state = {
   expanded: new Set(),    // expanded node ids (assets node opens the anchors)
   filter: null,
   socket: null,
+  runId: null,            // selected run id (run dashboard mode) — clears on project pick
+  run: null,              // loaded RunSummary for the dashboard
 };
+
+// Run dashboard status dot styling, keyed off scorecard verdict (#427 vocab).
+const VERDICT_DOT = {
+  ship: { glyph: "✓", cls: "v-ship" },
+  repair: { glyph: "◐", cls: "v-repair" },
+  "needs-user-decision": { glyph: "?", cls: "v-needs" },
+  blocked: { glyph: "✕", cls: "v-blocked" },
+};
+const RUN_STATUS_CLS = { active: "rs-active", complete: "rs-complete", archived: "rs-archived" };
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // Canvas transform (pan/zoom). Not persisted; node positions are.
 let cvX = 0, cvY = 0, cvScale = 1;
@@ -79,22 +91,52 @@ window.addEventListener("hashchange", () => { if (!_applyingHash) applyHash(); }
 async function selectWorkspace(slug, fromHash) {
   state.workspace = slug;
   state.project = null;
+  state.runId = null; state.run = null;
   state.board = null; state.workflow = null;
-  const projects = await api(`/api/projects?workspace=${encodeURIComponent(slug)}`);
+  const [projects, runs] = await Promise.all([
+    api(`/api/projects?workspace=${encodeURIComponent(slug)}`),
+    api(`/api/runs?workspace=${encodeURIComponent(slug)}`).catch(() => []),
+  ]);
   els.projects.innerHTML = projects.length
     ? projects.map((p) => `<button class="proj" data-id="${p.id}">${p.id}</button>`).join("")
     : `<div class="empty">no projects</div>`;
   for (const btn of els.projects.querySelectorAll(".proj")) btn.onclick = () => selectProject(btn.dataset.id);
+  renderRuns(runs);
   if (!fromHash) writeHash();
+  render();
+}
+
+// ── Runs (#482) — content-farm campaign dashboard above the project list ──
+function renderRuns(runs) {
+  els.runPick.hidden = !runs || runs.length === 0;
+  if (!runs || runs.length === 0) { els.runs.innerHTML = ""; return; }
+  els.runs.innerHTML = runs.map((r) => {
+    const cls = RUN_STATUS_CLS[r.status] || "rs-active";
+    return `<button class="run ${cls}${r.id === state.runId ? " active" : ""}" data-id="${esc(r.id)}" title="${esc(r.title)}">
+      <span class="run-dot"></span><span class="run-name">${esc(r.title)}</span><span class="run-n">${r.projects}</span>
+    </button>`;
+  }).join("");
+  for (const btn of els.runs.querySelectorAll(".run")) btn.onclick = () => selectRun(btn.dataset.id);
+}
+
+async function selectRun(runId) {
+  state.runId = runId;
+  state.project = null;
+  state.run = await api(`/api/runs/${encodeURIComponent(runId)}?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null);
+  for (const btn of els.runs.querySelectorAll(".run")) btn.classList.toggle("active", btn.dataset.id === runId);
+  for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.remove("active");
+  if (state.socket) { state.socket.close(); state.socket = null; }
   render();
 }
 
 async function selectProject(id, fromHash) {
   state.project = id;
+  state.runId = null; state.run = null;
   state.filter = null;
   state.nodePos = {};
   state.expanded = new Set();
   cvX = 0; cvY = 0; cvScale = 1; _cvInit = false;
+  for (const btn of els.runs.querySelectorAll(".run")) btn.classList.remove("active");
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.toggle("active", btn.dataset.id === id);
   const [artifacts, board, workflow] = await Promise.all([
     api(`/api/projects/${encodeURIComponent(id)}/artifacts?workspace=${encodeURIComponent(state.workspace)}`),
@@ -139,8 +181,19 @@ function connectWs() {
 
 // ── Top-level render dispatch ─────────────────────────────────────────
 function render() {
+  // Run dashboard mode (#482) — takes precedence over the per-project views.
+  if (state.runId) {
+    els.placeholder.hidden = true;
+    els.board.hidden = true; els.board.innerHTML = "";
+    els.sections.hidden = true; els.sections.innerHTML = "";
+    els.views.innerHTML = ""; els.chips.innerHTML = "";
+    els.runboard.hidden = false;
+    renderRunDashboard();
+    return;
+  }
+  els.runboard.hidden = true; els.runboard.innerHTML = "";
   if (!state.project) {
-    els.placeholder.hidden = false; els.placeholder.textContent = "pick a project";
+    els.placeholder.hidden = false; els.placeholder.textContent = "pick a project or run";
     els.board.hidden = true; els.board.innerHTML = "";
     els.sections.hidden = true; els.sections.innerHTML = "";
     els.views.innerHTML = ""; els.chips.innerHTML = "";
@@ -161,6 +214,93 @@ function render() {
   } else {
     els.count.textContent = `${state.artifacts.length} files`;
     renderFiles();
+  }
+}
+
+// ── Run dashboard (#482) — read-only operator board + approval inbox ──────
+function renderRunDashboard() {
+  const r = state.run;
+  if (!r) {
+    els.title.textContent = state.runId;
+    els.count.textContent = "";
+    els.runboard.innerHTML = `<div class="placeholder">run not found — it may have been removed</div>`;
+    return;
+  }
+  els.title.textContent = r.title;
+  els.count.textContent = `run · ${r.projectCount} project${r.projectCount === 1 ? "" : "s"}`;
+  const b = r.budget;
+  const money = (n) => (n == null ? "—" : `$${Number(n).toFixed(2)}`);
+  const pct = b.capUsd && b.capUsd > 0 ? Math.min(100, Math.round((b.spentUsd / b.capUsd) * 100)) : null;
+
+  // Approval inbox: blockers first (hard), then awaiting decisions.
+  const inboxItems = [
+    ...r.blockers.map((x) => ({ kind: "block", project: x.project, detail: x.detail })),
+    ...r.awaitingApprovals.map((x) => ({ kind: "wait", project: x.project, detail: x.detail })),
+  ];
+  const inbox = inboxItems.length
+    ? inboxItems.map((x) => `
+        <div class="inbox-item ${x.kind === "block" ? "ib-block" : "ib-wait"}">
+          <span class="ib-glyph">${x.kind === "block" ? "✕" : "▮"}</span>
+          <div class="ib-body">
+            <div class="ib-detail">${esc(x.detail)}</div>
+            ${x.project ? `<button class="ib-link" data-proj="${esc(x.project)}">open ${esc(x.project)} board →</button>` : ""}
+          </div>
+        </div>`).join("")
+    : `<div class="inbox-empty">Nothing needs you — no blockers or pending approvals.</div>`;
+
+  // Quality roll-up: a verdict chip + board link per member project.
+  const verdictByProj = new Map(r.quality.map((q) => [q.project, q.verdict]));
+  const phaseByProj = new Map(r.progress.byProject.map((p) => [p.project, p.phase]));
+  const spendByProj = new Map(b.byProject.map((p) => [p.project, p.spentUsd]));
+  const unitsByProj = new Map(r.units.byProject.map((u) => [u.project, u.slugs]));
+  const resolvedProjects = r.progress.byProject.map((p) => p.project);
+  const qualityRows = resolvedProjects.length
+    ? resolvedProjects.map((pid) => {
+        const v = verdictByProj.get(pid) ?? null;
+        const dot = (v && VERDICT_DOT[v]) || { glyph: "·", cls: "v-na" };
+        const slugs = unitsByProj.get(pid) ?? [];
+        return `<button class="qrow" data-proj="${esc(pid)}">
+          <span class="qdot ${dot.cls}">${dot.glyph}</span>
+          <span class="qname">${esc(pid)}</span>
+          <span class="qphase">${esc(phaseByProj.get(pid) ?? "—")}</span>
+          <span class="qverdict">${esc(v ?? "na")}</span>
+          <span class="qspend">${money(spendByProj.get(pid) ?? 0)}</span>
+          <span class="qunits">${slugs.length ? `${slugs.length} unit${slugs.length === 1 ? "" : "s"}` : "—"}</span>
+        </button>`;
+      }).join("")
+    : `<div class="inbox-empty">No resolved member projects.</div>`;
+
+  const missing = r.missingProjects.length
+    ? `<div class="run-warn">⚠ ${r.missingProjects.length} member project(s) do not resolve on disk: ${esc(r.missingProjects.join(", "))}</div>`
+    : "";
+
+  els.runboard.innerHTML = `
+    <div class="run-head">
+      <span class="run-status ${RUN_STATUS_CLS[r.status] || "rs-active"}">${esc(r.status)}</span>
+      ${r.brief ? `<p class="run-brief">${esc(r.brief)}</p>` : ""}
+      <div class="run-next">${esc(r.nextAction)}</div>
+    </div>
+    ${missing}
+    <div class="run-stats">
+      <div class="stat"><span class="stat-k">phase</span><span class="stat-v">${esc(r.progress.phase ?? "—")}</span></div>
+      <div class="stat"><span class="stat-k">spent</span><span class="stat-v">${money(b.spentUsd)}${b.capUsd != null ? ` / ${money(b.capUsd)}` : ""}</span></div>
+      <div class="stat"><span class="stat-k">winners</span><span class="stat-v">${r.winners.length}/${resolvedProjects.length}</span></div>
+      <div class="stat ${r.failures.length ? "stat-bad" : ""}"><span class="stat-k">failed</span><span class="stat-v">${r.failures.length}</span></div>
+      <div class="stat"><span class="stat-k">units</span><span class="stat-v">${r.units.count}</span></div>
+    </div>
+    ${pct != null ? `<div class="budget-bar ${b.overBudget ? "over" : ""}"><div class="budget-fill" style="width:${pct}%"></div><span class="budget-cap">${pct}% of ${money(b.capUsd)}${b.expired ? " · approval expired" : ""}</span></div>` : ""}
+    <section class="run-card">
+      <h2 class="run-card-head">Approval inbox<span class="n">${inboxItems.length}</span></h2>
+      <div class="inbox">${inbox}</div>
+    </section>
+    <section class="run-card">
+      <h2 class="run-card-head">Projects<span class="n">${resolvedProjects.length}</span></h2>
+      <div class="qhead"><span></span><span>project</span><span>phase</span><span>verdict</span><span>spent</span><span>units</span></div>
+      <div class="qtable">${qualityRows}</div>
+    </section>`;
+
+  for (const el of els.runboard.querySelectorAll("[data-proj]")) {
+    el.onclick = () => selectProject(el.dataset.proj);
   }
 }
 
