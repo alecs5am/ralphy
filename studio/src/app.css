@@ -81,6 +81,33 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
 .proj-list .proj.active { background: var(--bg-3); color: var(--ink); }
 .proj-list .empty { color: var(--mute-2); padding: 10px; font-size: 12.5px; }
 
+/* ── Run list (#482) — campaigns above projects ─────────────────── */
+.run-pick { padding: 2px 8px 6px; }
+.run-pick > label, .proj-label {
+  display: block;
+  font-family: var(--font-mono); font-size: 10.5px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--mute-2);
+  margin: 8px 8px 6px;
+}
+.proj-label { margin-top: 4px; }
+.run-list { display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow-y: auto; scrollbar-color: var(--bg-3) transparent; }
+.run-list .run {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: 8px;
+  color: var(--ink-3);
+  font-family: var(--font-mono); font-size: 12px;
+  transition: background 140ms ease, color 140ms ease;
+}
+.run-list .run:hover { background: var(--bg-2); color: var(--ink); }
+.run-list .run.active { background: var(--bg-3); color: var(--ink); }
+.run-list .run .run-dot { flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--mute-2); }
+.run-list .run.rs-active .run-dot { background: var(--acc); }
+.run-list .run.rs-complete .run-dot { background: #5b9a6f; }
+.run-list .run.rs-archived .run-dot { background: var(--mute-2); }
+.run-list .run .run-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-list .run .run-n { color: var(--mute-2); }
+
 /* ── Main column ────────────────────────────────────────────────── */
 .main { display: flex; flex-direction: column; min-height: 0; }
 
@@ -282,6 +309,95 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
 
 /* (the old vertical workflow-lane CSS was removed — workflow steps are now
    nodes on the canvas above; see .cv-node / .cv-edge.) */
+
+/* ── Run dashboard (#482) — operator board + approval inbox ──────── */
+.runboard { padding: 6px 2px 40px; max-width: 1100px; }
+.runboard[hidden] { display: none; }
+
+.run-head { margin-bottom: 16px; }
+.run-status {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 6px; background: var(--bg-3); color: var(--ink-3);
+}
+.run-status.rs-active { background: rgb(255 166 48 / 0.16); color: var(--acc-2); }
+.run-status.rs-complete { background: rgb(91 154 111 / 0.18); color: #7fb893; }
+.run-brief { margin: 10px 0 0; color: var(--ink-2); font-size: 13.5px; max-width: 70ch; }
+.run-next { margin-top: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--mute); }
+
+.run-warn {
+  margin: 0 0 14px; padding: 9px 12px; border-radius: 9px;
+  background: rgb(194 85 78 / 0.12); color: #d68a84;
+  font-family: var(--font-mono); font-size: 11.5px;
+}
+
+.run-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.run-stats .stat {
+  flex: 1; min-width: 110px;
+  background: var(--bg-1); border-radius: 11px; padding: 12px 14px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+.run-stats .stat-k { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute-2); }
+.run-stats .stat-v { display: block; margin-top: 5px; font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--ink); }
+.run-stats .stat-bad .stat-v { color: #c2554e; }
+
+.budget-bar {
+  position: relative; height: 24px; border-radius: 8px; overflow: hidden;
+  background: var(--bg-2); margin-bottom: 18px;
+}
+.budget-fill { height: 100%; background: rgb(91 154 111 / 0.5); transition: width 200ms ease; }
+.budget-bar.over .budget-fill { background: rgb(194 85 78 / 0.55); }
+.budget-cap {
+  position: absolute; inset: 0; display: flex; align-items: center; padding: 0 10px;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-2);
+}
+
+.run-card { margin-top: 18px; }
+.run-card-head {
+  display: flex; align-items: baseline; gap: 9px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--mute); margin: 0 2px 10px;
+}
+.run-card-head .n { color: var(--mute-2); }
+
+.inbox { display: flex; flex-direction: column; gap: 8px; }
+.inbox-empty { color: var(--mute-2); font-family: var(--font-mono); font-size: 12px; padding: 6px 2px; }
+.inbox-item {
+  display: flex; gap: 11px; align-items: flex-start;
+  background: var(--bg-1); border-radius: 10px; padding: 11px 13px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+.inbox-item .ib-glyph { flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; }
+.inbox-item.ib-block .ib-glyph { background: rgb(194 85 78 / 0.2); color: #c2554e; }
+.inbox-item.ib-wait .ib-glyph { background: rgb(255 166 48 / 0.2); color: var(--acc); }
+.inbox-item .ib-body { min-width: 0; }
+.inbox-item .ib-detail { color: var(--ink-2); font-size: 12.5px; word-break: break-word; }
+.inbox-item .ib-link {
+  margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--acc);
+}
+.inbox-item .ib-link:hover { color: var(--acc-2); }
+
+.qhead, .qrow {
+  display: grid; grid-template-columns: 26px 1.6fr 1fr 1fr 0.8fr 0.8fr; gap: 10px; align-items: center;
+}
+.qhead {
+  padding: 0 13px 6px; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--mute-2);
+}
+.qtable { display: flex; flex-direction: column; gap: 4px; }
+.qrow {
+  width: 100%; text-align: left; background: var(--bg-1); border-radius: 9px; padding: 10px 13px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3); transition: background 140ms ease;
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+}
+.qrow:hover { background: var(--bg-2); color: var(--ink); }
+.qrow .qdot { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; background: var(--bg-3); color: var(--mute); }
+.qrow .qdot.v-ship { background: rgb(91 154 111 / 0.22); color: #7fb893; }
+.qrow .qdot.v-repair { background: rgb(255 166 48 / 0.2); color: var(--acc); }
+.qrow .qdot.v-needs { background: rgb(255 166 48 / 0.16); color: var(--acc-2); }
+.qrow .qdot.v-blocked { background: rgb(194 85 78 / 0.2); color: #c2554e; }
+.qrow .qname { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qrow .qphase, .qrow .qverdict, .qrow .qspend, .qrow .qunits { color: var(--mute); }
 
 /* ── Modal ──────────────────────────────────────────────────────── */
 .modal {

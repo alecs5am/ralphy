@@ -502,3 +502,324 @@ export function writeBoardLayout(
   writeBoardJson(proj, board);
   return { ok: true };
 }
+
+// ─── Runs (#480/#481 control plane → #482 operator dashboard, READ-ONLY) ──────
+//
+// Studio re-derives a run's operator view from on-disk artifacts WITHOUT importing
+// cli/ (the same self-containment rule that makes readWorkflowLane a hand-copy of
+// evaluateWorkflow). It reads the run manifest (runs/<id>/run.json), the run spend
+// ledger (runs/<id>/spend-ledger.json), and per-member-project artifacts —
+// scorecard.json (verdict), logs/generations.jsonl (actual spend), the contract
+// phase artifacts (progress), units/*/ (packaged deliverables) — and rolls them
+// into progress / quality / budget / awaiting-approvals / winners / failures.
+// Nothing here writes: the dashboard is read-only, and the approval inbox surfaces
+// the exact `ralphy run approve` / `ralphy project approve` command the user runs
+// in their own shell (Studio never mutates a spend ledger).
+
+/** Contract phase order — a hand-copy of cli/lib/contract.ts CONTRACT_PHASES ids,
+ *  used to pick the laggard phase across member projects. */
+const CONTRACT_PHASE_ORDER = [
+  "intake",
+  "research",
+  "style-lock",
+  "production-plan",
+  "scenario",
+  "prompts",
+  "assets",
+  "render",
+  "eval",
+  "repair",
+  "unit",
+  "postmortem",
+] as const;
+
+function runsRoot(dataRoot: string, workspace: string): string {
+  return path.join(dataRoot, "workspaces", workspace, "runs");
+}
+
+function runDir(dataRoot: string, workspace: string, runId: string): string {
+  return path.join(runsRoot(dataRoot, workspace), runId);
+}
+
+type RunManifest = {
+  id: string;
+  workspace: string;
+  title: string;
+  brief?: string;
+  status: "active" | "complete" | "archived";
+  workflow?: string;
+  projectIds: string[];
+  batchId?: string;
+  unitIds?: string[];
+};
+
+function readRunManifest(dataRoot: string, workspace: string, runId: string): RunManifest | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(runDir(dataRoot, workspace, runId), "run.json"), "utf-8"));
+    if (!raw || typeof raw.id !== "string") return null;
+    return {
+      id: String(raw.id),
+      workspace: String(raw.workspace ?? workspace),
+      title: String(raw.title ?? raw.id),
+      brief: typeof raw.brief === "string" ? raw.brief : undefined,
+      status: raw.status === "complete" || raw.status === "archived" ? raw.status : "active",
+      workflow: typeof raw.workflow === "string" ? raw.workflow : undefined,
+      projectIds: Array.isArray(raw.projectIds) ? raw.projectIds.map(String) : [],
+      batchId: typeof raw.batchId === "string" ? raw.batchId : undefined,
+      unitIds: Array.isArray(raw.unitIds) ? raw.unitIds.map(String) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type RunRow = {
+  id: string;
+  title: string;
+  status: RunManifest["status"];
+  workspace: string;
+  projects: number;
+  workflow: string | null;
+};
+
+/** List the runs in a workspace (newest run.json mtime first). */
+export function listRuns(dataRoot: string, workspace: string): RunRow[] {
+  const dir = runsRoot(dataRoot, workspace);
+  let ids: string[];
+  try {
+    ids = fs.readdirSync(dir).filter((d) => {
+      try { return fs.statSync(path.join(dir, d)).isDirectory(); } catch { return false; }
+    });
+  } catch {
+    return [];
+  }
+  const rows: Array<RunRow & { _mtime: number }> = [];
+  for (const id of ids) {
+    const m = readRunManifest(dataRoot, workspace, id);
+    if (!m) continue;
+    let mtime = 0;
+    try { mtime = fs.statSync(path.join(runDir(dataRoot, workspace, id), "run.json")).mtimeMs; } catch { /* race */ }
+    rows.push({ id: m.id, title: m.title, status: m.status, workspace, projects: m.projectIds.length, workflow: m.workflow ?? null, _mtime: mtime });
+  }
+  rows.sort((a, b) => b._mtime - a._mtime);
+  return rows.map(({ _mtime, ...r }) => r);
+}
+
+/** Active run spend cap (the most recent run approval), with expiry awareness. */
+function readRunCap(dataRoot: string, workspace: string, runId: string): { capUsd: number | null; expired: boolean } {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(runDir(dataRoot, workspace, runId), "spend-ledger.json"), "utf-8"));
+    const approvals = Array.isArray(raw?.approvals) ? raw.approvals : [];
+    const active = approvals[approvals.length - 1];
+    if (!active || typeof active.budgetCapUsd !== "number") return { capUsd: null, expired: false };
+    const expired = active.expiry ? Number.isFinite(Date.parse(active.expiry)) && Date.now() > Date.parse(active.expiry) : false;
+    return { capUsd: active.budgetCapUsd, expired };
+  } catch {
+    return { capUsd: null, expired: false };
+  }
+}
+
+/** Sum of cost_usd over a member project's logs/generations.jsonl (actual spend). */
+function projectActualSpend(proj: string): number {
+  let total = 0;
+  try {
+    const raw = fs.readFileSync(path.join(proj, "logs", "generations.jsonl"), "utf-8");
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      try { const row = JSON.parse(t); if (typeof row.cost_usd === "number") total += row.cost_usd; } catch { /* skip bad line */ }
+    }
+  } catch { /* no gen-log → 0 */ }
+  return Number(total.toFixed(6));
+}
+
+/** Best-effort scorecard verdict for a member project: scorecard.json, else the
+ *  workspace-eval overall verdict, else null. Both share the #427 vocab. */
+function projectVerdict(proj: string): string | null {
+  try {
+    const sc = JSON.parse(fs.readFileSync(path.join(proj, "scorecard.json"), "utf-8"));
+    if (typeof sc?.verdict === "string") return sc.verdict;
+  } catch { /* no scorecard.json */ }
+  try {
+    const we = JSON.parse(fs.readFileSync(path.join(proj, "workspace-eval.json"), "utf-8"));
+    if (typeof we?.overall?.verdict === "string") return we.overall.verdict;
+  } catch { /* no workspace-eval.json */ }
+  return null;
+}
+
+/** Furthest contract phase a member project has reached (artifact presence). */
+function projectPhase(proj: string): string | null {
+  let furthest: string | null = null;
+  for (const phase of CONTRACT_PHASE_ORDER) {
+    const artifact = PHASE_ARTIFACT[phase];
+    if (artifact && fs.existsSync(path.join(proj, artifact))) furthest = phase;
+  }
+  return furthest;
+}
+
+/** Packaged unit slugs for a member project (units/<slug>/ dirs). */
+function projectUnits(proj: string): string[] {
+  try {
+    return fs
+      .readdirSync(path.join(proj, "units"), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+export type RunSummary = {
+  id: string;
+  workspace: string;
+  title: string;
+  brief: string | null;
+  status: RunManifest["status"];
+  projectCount: number;
+  missingProjects: string[];
+  progress: { phase: string | null; byProject: Array<{ project: string; phase: string | null }> };
+  blockers: Array<{ project: string | null; detail: string }>;
+  awaitingApprovals: Array<{ project: string | null; detail: string }>;
+  budget: {
+    spentUsd: number;
+    capUsd: number | null;
+    remainingUsd: number | null;
+    overBudget: boolean;
+    expired: boolean;
+    byProject: Array<{ project: string; spentUsd: number }>;
+  };
+  quality: Array<{ project: string; verdict: string | null }>;
+  winners: string[];
+  failures: string[];
+  units: { count: number; byProject: Array<{ project: string; slugs: string[] }> };
+  nextAction: string;
+} | null;
+
+/**
+ * Roll a run up into the operator dashboard view. PURE read over on-disk state,
+ * ZERO model calls. A member project that doesn't resolve on disk lands in
+ * `missingProjects` and is skipped — never a throw. Returns null when the run
+ * does not exist.
+ */
+export function summarizeRun(dataRoot: string, workspace: string, runId: string): RunSummary {
+  const run = readRunManifest(dataRoot, workspace, runId);
+  if (!run) return null;
+
+  const missingProjects: string[] = [];
+  const resolved: string[] = [];
+  for (const pid of run.projectIds) {
+    if (fs.existsSync(projectDir(dataRoot, workspace, pid))) resolved.push(pid);
+    else missingProjects.push(pid);
+  }
+
+  const byPhase: Array<{ project: string; phase: string | null }> = [];
+  const blockers: Array<{ project: string | null; detail: string }> = [];
+  const awaitingApprovals: Array<{ project: string | null; detail: string }> = [];
+  const quality: Array<{ project: string; verdict: string | null }> = [];
+  const winners: string[] = [];
+  const failures: string[] = [];
+  const byProjectSpend: Array<{ project: string; spentUsd: number }> = [];
+  const unitsByProject: Array<{ project: string; slugs: string[] }> = [];
+  let spentUsd = 0;
+  let unitCount = 0;
+
+  for (const pid of resolved) {
+    const proj = projectDir(dataRoot, workspace, pid);
+
+    // Progress — furthest contract phase reached.
+    byPhase.push({ project: pid, phase: projectPhase(proj) });
+
+    // Quality verdict → winners / failures.
+    const verdict = projectVerdict(proj);
+    quality.push({ project: pid, verdict });
+    if (verdict === "ship") winners.push(pid);
+    if (verdict === "blocked") failures.push(pid);
+
+    // Cost.
+    const s = projectActualSpend(proj);
+    byProjectSpend.push({ project: pid, spentUsd: s });
+    spentUsd += s;
+
+    // Units.
+    const slugs = projectUnits(proj);
+    unitsByProject.push({ project: pid, slugs });
+    unitCount += slugs.length;
+
+    // Awaiting-approval / blocked — derive from the workflow lane (if the
+    // workspace has a workflow); its currentStep status encodes the gate state.
+    const lane = readWorkflowLane(dataRoot, workspace, pid);
+    if (lane && lane.currentStep) {
+      const cur = lane.steps.find((s2) => s2.id === lane.currentStep);
+      if (cur?.status === "waiting") {
+        awaitingApprovals.push({ project: pid, detail: `${pid}: step "${cur.label}" (${cur.phase}) awaits approval.` });
+      } else if (cur?.status === "blocked") {
+        blockers.push({ project: pid, detail: `${pid}: step "${cur.label}" (${cur.phase}) is blocked — gate ${cur.gate.join(", ") || "failed"}.` });
+      }
+    }
+    if (verdict === "blocked") {
+      blockers.push({ project: pid, detail: `${pid}: readiness scorecard verdict is "blocked".` });
+    }
+  }
+
+  spentUsd = Number(spentUsd.toFixed(6));
+  const { capUsd, expired } = readRunCap(dataRoot, workspace, runId);
+  const overBudget = capUsd != null && spentUsd > capUsd;
+
+  // Run-level budget inbox: no cap on an active run, or the cap is breached/expired.
+  if (run.status === "active" && capUsd == null) {
+    awaitingApprovals.push({ project: null, detail: `No run budget approved — approve one with: ralphy run approve ${run.id} --cap <usd> --reason "<why>"` });
+  }
+  if (overBudget) {
+    blockers.push({ project: null, detail: `Run is over budget: spent $${spentUsd.toFixed(2)} of $${capUsd!.toFixed(2)} cap.` });
+  }
+  if (expired) {
+    awaitingApprovals.push({ project: null, detail: `Run budget approval expired — re-approve with: ralphy run approve ${run.id} --cap <usd> --reason "<why>"` });
+  }
+
+  // Laggard phase across resolved members.
+  let phase: string | null = null;
+  if (byPhase.length > 0) {
+    let minRank = Number.POSITIVE_INFINITY;
+    for (const { phase: p } of byPhase) {
+      const rank = p == null ? -1 : CONTRACT_PHASE_ORDER.indexOf(p as (typeof CONTRACT_PHASE_ORDER)[number]);
+      if (rank < minRank) { minRank = rank; phase = p; }
+    }
+  }
+
+  return {
+    id: run.id,
+    workspace,
+    title: run.title,
+    brief: run.brief ?? null,
+    status: run.status,
+    projectCount: run.projectIds.length,
+    missingProjects,
+    progress: { phase, byProject: byPhase },
+    blockers,
+    awaitingApprovals,
+    budget: { spentUsd, capUsd, remainingUsd: capUsd == null ? null : Number((capUsd - spentUsd).toFixed(6)), overBudget, expired, byProject: byProjectSpend },
+    quality,
+    winners,
+    failures,
+    units: { count: unitCount, byProject: unitsByProject },
+    nextAction: deriveRunNextAction({ status: run.status, resolved: resolved.length, total: run.projectIds.length, missing: missingProjects.length, blockers: blockers.length, awaiting: awaitingApprovals.length, winners: winners.length }),
+  };
+}
+
+function deriveRunNextAction(s: {
+  status: string;
+  resolved: number;
+  total: number;
+  missing: number;
+  blockers: number;
+  awaiting: number;
+  winners: number;
+}): string {
+  if (s.total === 0) return "No member projects yet — add one with `ralphy run add-project <id> <project>`.";
+  if (s.resolved === 0) return `None of the ${s.total} member project(s) resolve on disk. Re-link or recreate them.`;
+  if (s.blockers > 0) return `Clear ${s.blockers} blocker(s) — see the approval inbox.`;
+  if (s.awaiting > 0) return `${s.awaiting} item(s) awaiting your decision — see the approval inbox.`;
+  if (s.winners === s.resolved) return `All ${s.resolved} resolved project(s) are ship-ready — form Units and package the campaign.`;
+  return `Continue the pipeline on the ${s.resolved - s.winners} project(s) not yet ship-ready.`;
+}

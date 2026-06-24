@@ -25,6 +25,8 @@ import {
   readBoard,
   writeBoardChoice,
   writeBoardLayout,
+  listRuns,
+  summarizeRun,
   MIME,
 } from "./lib.js";
 
@@ -179,6 +181,19 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
       if (url.pathname === "/api/projects") {
         const ws = url.searchParams.get("workspace") ?? "default";
         return json(listProjects(dataRoot!, ws));
+      }
+      // ── Runs (#482, read-only operator dashboard over the #480/#481 plane) ──
+      if (url.pathname === "/api/runs") {
+        const ws = url.searchParams.get("workspace") ?? "default";
+        return json(listRuns(dataRoot!, ws));
+      }
+      const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+)$/);
+      if (runMatch) {
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const runId = decodeURIComponent(runMatch[1]);
+        const summary = summarizeRun(dataRoot!, ws, runId);
+        if (!summary) return json({ error: "unknown run" }, 404);
+        return json(summary);
       }
       let m = url.pathname.match(/^\/api\/projects\/([^/]+)\/artifacts$/);
       if (m) {
