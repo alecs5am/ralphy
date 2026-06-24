@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "gate": "first-frame-hook",
+  "judgePromptVersion": "hook-v1",
+  "examples": [
+    {
+      "id": "strong-product-opener",
+      "artifact": "fixtures/hook/strong-product-opener.mp4",
+      "expectedLabel": "pass",
+      "mode": "ugc-review",
+      "rationale": "Product is large, centered, high-contrast in frame one; the curiosity-gap caption reads instantly on a thumbnail."
+    },
+    {
+      "id": "clear-talking-head",
+      "artifact": "fixtures/hook/clear-talking-head.mp4",
+      "expectedLabel": "pass",
+      "mode": "ugc-review",
+      "rationale": "Subject framed tight with a bold hook line; the opener scroll-stops for an already-engaged review format."
+    },
+    {
+      "id": "empty-establishing-shot",
+      "artifact": "fixtures/hook/empty-establishing-shot.mp4",
+      "expectedLabel": "fail",
+      "mode": "ad-creative-pack",
+      "rationale": "Opens on a slow empty room with no subject and no hook line — nothing stops the scroll for a cold-traffic ad."
+    },
+    {
+      "id": "tiny-buried-subject",
+      "artifact": "fixtures/hook/tiny-buried-subject.mp4",
+      "expectedLabel": "fail",
+      "mode": "ad-creative-pack",
+      "rationale": "The product is tiny and buried behind a logo card; subject visibility fails at thumbnail size."
+    },
+    {
+      "id": "misleading-overpromise",
+      "artifact": "fixtures/hook/misleading-overpromise.mp4",
+      "expectedLabel": "fail",
+      "mode": "ugc-review",
+      "rationale": "A flashy opener that over-promises versus what the clip delivers — a misleading hook that tanks retention and trust."
+    },
+    {
+      "id": "low-contrast-text-hook",
+      "artifact": "fixtures/hook/low-contrast-text-hook.mp4",
+      "expectedLabel": "fail",
+      "mode": "social-carousel",
+      "rationale": "The baked hook line is grey-on-grey and illegible on autoplay; a hook you cannot read is no hook."
+    }
+  ]
+}
