@@ -629,6 +629,8 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
           spentUsd: 2.4,
           capUsd: 20,
           remainingUsd: 17.6,
+          overBudget: false,
+          queuedEstimateUsd: 0.6,
           byProject: [
             { project: "spring-001", spentUsd: 1.6, capUsd: 10 },
             { project: "spring-002", spentUsd: 0.8, capUsd: 10 },
@@ -644,6 +646,55 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     { label: "run.add-project", shape: { run: "spring-drop-farm-a1b2", workspace: "default", projectIds: ["spring-001", "spring-002", "spring-003"] } },
+    {
+      label: "run.approve",
+      shape: {
+        run: "spring-drop-farm-a1b2",
+        scope: "run",
+        capUsd: 50,
+        allowedModes: ["ugc-review", "unboxing-ugc"],
+        expiry: "2026-06-25T00:00:00.000Z",
+        reason: "approved farm run",
+        approvedAt: "2026-06-24T00:00:00.000Z",
+        approvals: 1,
+        artifact: "runs/spring-drop-farm-a1b2/spend-ledger.json",
+      },
+    },
+    {
+      label: "run.budget",
+      shape: {
+        run: "spring-drop-farm-a1b2",
+        hasLedger: true,
+        capUsd: 50,
+        spentUsd: 12.4,
+        remainingUsd: 37.6,
+        overBudget: false,
+        queuedEstimateUsd: 3.2,
+        expired: false,
+        activeApproval: {
+          scope: "run",
+          budgetCapUsd: 50,
+          allowedModes: ["ugc-review"],
+          expiry: "2026-06-25T00:00:00.000Z",
+          reason: "approved farm run",
+          approvedAt: "2026-06-24T00:00:00.000Z",
+        },
+        byProject: [
+          { project: "spring-001", spentUsd: 8.4 },
+          { project: "spring-002", spentUsd: 4.0 },
+        ],
+        approvals: [
+          {
+            scope: "run",
+            budgetCapUsd: 50,
+            allowedModes: ["ugc-review"],
+            expiry: "2026-06-25T00:00:00.000Z",
+            reason: "approved farm run",
+            approvedAt: "2026-06-24T00:00:00.000Z",
+          },
+        ],
+      },
+    },
   ],
   setup: [
     {
