@@ -249,6 +249,47 @@ export function templatesDir() {
   return path.join(workspaceDir(currentWorkspace()), "templates");
 }
 
+// ─── Runs (#480) ─────────────────────────────────────────────────────────────
+// A run = one content-farm campaign that binds many member projects across a
+// workspace. It lives under the workspace (like batches), discovered file-on-disk
+// — runs are NOT a registry collection. `runWorkspace` resolves which workspace a
+// run lives in, mirroring `projectWorkspace`.
+
+/** `.ralphy/workspaces/<slug>/runs/` */
+export function runsDir(slug: string = currentWorkspace()) {
+  return path.join(workspaceDir(slug), "runs");
+}
+
+/** `.ralphy/workspaces/<slug>/runs/<runId>/` */
+export function runDir(slug: string, runId: string) {
+  return path.join(runsDir(slug), runId);
+}
+
+/** `.ralphy/workspaces/<slug>/runs/<runId>/run.json` */
+export function runManifestPath(slug: string, runId: string) {
+  return path.join(runDir(slug, runId), "run.json");
+}
+
+/**
+ * Which workspace a run belongs to. Resolution order (mirrors `projectWorkspace`):
+ *   1. an existing `workspaces/<ws>/runs/<runId>/` dir, active workspace first
+ *      (covers a run created under a non-active workspace).
+ *   2. the active workspace (the creation path: dir doesn't exist yet).
+ */
+export function runWorkspace(runId: string): string {
+  const active = currentWorkspace();
+  if (existsSync(path.join(workspaceDir(active), "runs", runId))) return active;
+  try {
+    for (const slug of readdirSync(workspacesDir())) {
+      if (slug === active) continue;
+      if (existsSync(path.join(workspaceDir(slug), "runs", runId))) return slug;
+    }
+  } catch {
+    /* no workspaces dir yet */
+  }
+  return active;
+}
+
 // ─── Global (cross-workspace) dirs ───────────────────────────────────────────
 
 export function referencesDir() {
