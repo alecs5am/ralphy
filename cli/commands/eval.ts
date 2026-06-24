@@ -22,6 +22,7 @@ import {
   PLATFORM_SPEC_ARTIFACT,
   PLATFORM_KEYS,
 } from "../lib/eval/platform.js";
+import { runQualityFlywheel } from "../lib/eval/flywheel.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { parseCalibrationDataset } from "../lib/schemas/calibration.js";
@@ -117,6 +118,52 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("run <project>")
+    .description("Run the quality flywheel (#484): orchestrate the gates RELEVANT to a project (via gatesForContext over mode/format/platform), cheap-deterministic before model-graded, persist each gate's existing report (eval.json / hook.json / captions-gate.json / text-legibility.json / fidelity.json / claims.json / platform-spec.json), then call buildScorecard for the final verdict. Advisory gates (distribution-pack / council) are noted, never run. Recommends `ralphy project repair-plan` on a repair/blocked verdict — never spends or repairs. --dry-run prints the plan and makes ZERO model calls. Example: ralphy eval run glitter-cream-001 --platform tiktok,reels --dry-run")
+    .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json)")
+    .option("--format <format>", "Override the media format (default: the mode's expected Unit format) — drives which temporal gates apply")
+    .option("--platform <list>", `Comma-separated target platforms to validate against (${PLATFORM_KEYS.join(", ")}). Drives the platform-spec gate.`)
+    .option("--dry-run", "Print the gate plan (which gates would run, the report each writes, cost-bearing flag, skipped-with-reason) and make ZERO model calls")
+    .option("--no-vision", "Skip every vision/model pass where the gate supports it (deterministic-only, free)")
+    .option("--cheap", "Run only the deterministic gates (structure + platform-spec) and skip every model-graded gate (implies --no-vision)")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        if (!existsSync(projectDir(project))) {
+          raiseError("E_NOT_FOUND", { kind: "Project", id: project });
+        }
+        const platforms = opts.platform
+          ? String(opts.platform).split(",").map((s) => s.trim()).filter(Boolean)
+          : [];
+        const result = await runQualityFlywheel(project, {
+          mode: opts.mode as string | undefined,
+          format: opts.format as never,
+          platforms,
+          dryRun: !!opts.dryRun,
+          noVision: opts.vision === false,
+          cheap: !!opts.cheap,
+        });
+        out({
+          projectId: result.projectId,
+          mode: result.mode,
+          format: result.format,
+          platforms: result.platforms,
+          dryRun: result.dryRun,
+          plan: result.plan,
+          gatesAttempted: result.gatesAttempted,
+          gatesSkipped: result.gatesSkipped,
+          costBearingGates: result.costBearingGates,
+          failures: result.failures.map((f) => f.gate),
+          scorecardVerdict: result.scorecardVerdict,
+          scorecardReason: result.scorecardReason,
+          nextAction: result.nextAction,
+        });
+      } catch (e) {
+        err(`eval run failed: ${(e as Error).message}`);
       }
     });
 
