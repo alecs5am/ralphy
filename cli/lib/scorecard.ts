@@ -433,7 +433,16 @@ function hookNote(report: EvalReport): string {
 function audioNote(report: EvalReport): string {
   const a = report.audio;
   const lufs = a.integratedLufs === null ? "—" : `${a.integratedLufs.toFixed(1)} LUFS`;
-  return `${lufs}, ${a.deadAirSegments.length} dead-air segment(s), voice ${a.voicePresentPct}%.`;
+  let note = `${lufs}, ${a.deadAirSegments.length} dead-air segment(s), voice ${a.voicePresentPct}%.`;
+  // #485: NOTE-ONLY enrichment. When the metric adapters have written a tts-wer
+  // result into eval.json.metrics, surface it on the audio note. This NEVER
+  // changes the audio dimension's status/score (those still come purely from the
+  // `audio.*` findings) — it is a readout the agent can act on.
+  const wer = (report.metrics ?? []).find((m) => m.adapter === "tts-wer");
+  if (wer && wer.status !== "na" && wer.score !== null) {
+    note += ` Speech WER ${(wer.score * 100).toFixed(1)}% (${wer.status}).`;
+  }
+  return note;
 }
 
 function captionNote(report: EvalReport): string {

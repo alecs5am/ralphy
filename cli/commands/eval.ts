@@ -23,6 +23,8 @@ import {
   PLATFORM_KEYS,
 } from "../lib/eval/platform.js";
 import { runQualityFlywheel } from "../lib/eval/flywheel.js";
+import { planMetrics, runMetrics, enrichEvalWithMetrics } from "../lib/eval/metrics/run.js";
+import { getMetricAdapter } from "../lib/eval/metrics/registry.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { parseCalibrationDataset } from "../lib/schemas/calibration.js";
@@ -499,6 +501,76 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval calibrate failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("metrics <project>")
+    .description("Run the OPTIONAL specialized media metric adapters (#485) and ENRICH the project's eval.json under `metrics` (read → merge → write back, append-only). Adapters degrade to `na` + an actionable hint when their tool/model/expected-input is missing — they never crash and never change the eval verdict. Initial adapters: tts-wer (speech intelligibility = Word Error Rate of the transcribed VO vs the expected script; needs --expected + a transcribe provider) and image-aesthetic (a pluggable seam, `na` until a scorer is configured). --dry-run lists the applicable adapters + availability + thresholds with ZERO model calls. Example: ralphy eval metrics glitter-cream-001 --adapter tts-wer --expected script.txt --dry-run")
+    .option("--adapter <id>", "Run only this adapter id (tts-wer | image-aesthetic). Default: all registered adapters.")
+    .option("--expected <path>", "Path to a file with the expected text (the script the VO speaks) — required for the tts-wer adapter to score")
+    .option("--mode <mode>", "Override the content mode (default: read from the project's production-plan.json) — drives per-mode threshold overrides")
+    .option("--dry-run", "List the applicable adapters + their availability (ok / na+hint) + thresholds, make ZERO model calls")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (project: string, opts) => {
+      try {
+        if (!existsSync(projectDir(project))) {
+          raiseError("E_NOT_FOUND", { kind: "Project", id: project });
+        }
+        const adapterId = opts.adapter as string | undefined;
+        if (adapterId && !getMetricAdapter(adapterId)) {
+          raiseError("E_INPUT_INVALID", {
+            field: "--adapter",
+            detail: `unknown metric adapter "${adapterId}" — known: tts-wer, image-aesthetic`,
+            verb: "eval",
+          });
+        }
+
+        let expectedText: string | null = null;
+        if (opts.expected) {
+          const abs = path.resolve(opts.expected as string);
+          if (!existsSync(abs)) {
+            err(`--expected file not found: ${abs}`);
+            return;
+          }
+          expectedText = readFileSync(abs, "utf8");
+        }
+
+        const mode = (opts.mode as string | undefined) ?? readProjectMode(project);
+        const runOpts = {
+          projectId: project,
+          adapterId: adapterId ?? null,
+          mode,
+          expectedText,
+        };
+
+        if (opts.dryRun) {
+          const plan = await planMetrics(runOpts);
+          out({
+            project,
+            mode,
+            dryRun: true,
+            adapters: plan,
+            note: "dry-run — availability + thresholds only, no adapters executed (ZERO model calls).",
+          });
+          return;
+        }
+
+        const metrics = await runMetrics(runOpts);
+        const { enriched, evalPath } = await enrichEvalWithMetrics(project, metrics);
+        out({
+          project,
+          mode,
+          dryRun: false,
+          metrics,
+          enrichedEvalJson: enriched,
+          evalPath: enriched ? evalPath : null,
+          note: enriched
+            ? "metric results merged into eval.json under `metrics` (prior version archived)."
+            : "no eval.json to enrich — run `ralphy eval video <project>` first; the metrics above were computed but not persisted.",
+        });
+      } catch (e) {
+        err(`eval metrics failed: ${(e as Error).message}`);
       }
     });
 

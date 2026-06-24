@@ -5,6 +5,8 @@
 // category, severity, optional scene/timestamp, and a copy-pasteable fix
 // command when one exists.
 
+import type { MetricResult } from "./metrics/types.js";
+
 export type Severity = "info" | "warn" | "fail";
 export type Verdict = "pass" | "warn" | "fail";
 
@@ -156,4 +158,11 @@ export interface EvalReport {
   vision: { sceneFindings: SceneVision[] };
   findings: Finding[];
   scoring: ScoringBreakdown;
+  /**
+   * OPTIONAL specialized media metric-adapter results (#485). Absent on every
+   * report produced before the metrics enrichment ran — consumers MUST tolerate
+   * its absence. These ENRICH the report (note-only); they never change the
+   * `scoring.verdict` or the `gate`.
+   */
+  metrics?: MetricResult[];
 }
