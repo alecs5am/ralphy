@@ -19,7 +19,7 @@
 //     run-level METADATA. Member-project artifacts are NEVER touched.
 
 import fs from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   runsDir,
@@ -28,6 +28,7 @@ import {
   runWorkspace,
   currentWorkspace,
   projectDir,
+  projectWorkspace,
 } from "./paths.js";
 import {
   parseRun,
@@ -141,6 +142,34 @@ export async function listRuns(ws: string = currentWorkspace()): Promise<RunSumm
   return rows;
 }
 
+/**
+ * Which run (if any) a project is a member of (#481). Scans the project's
+ * workspace runs for the first manifest listing this project id. Returns null
+ * when the project belongs to no run. SYNC + best-effort (a dir without a
+ * parseable run.json is skipped) — the spend gate calls this on the hot path.
+ */
+export function projectRun(projectId: string): { runId: string; workspace: string } | null {
+  const ws = projectWorkspace(projectId);
+  let ids: string[];
+  try {
+    ids = readdirSync(runsDir(ws), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return null;
+  }
+  for (const id of ids) {
+    try {
+      const raw = JSON.parse(readFileSync(runManifestPath(ws, id), "utf-8"));
+      const m = parseRun(raw);
+      if (m.projectIds.includes(projectId)) return { runId: m.id, workspace: ws };
+    } catch {
+      /* unparseable run dir — skip */
+    }
+  }
+  return null;
+}
+
 // ─── Append-only event log ────────────────────────────────────────────────────
 
 export interface RunEvent {
@@ -203,10 +232,17 @@ export interface RunQualityEntry {
 export interface RunCostSummary {
   /** Sum of actual spend (generations.jsonl cost_usd) across member projects. */
   spentUsd: number;
-  /** Sum of the per-project approved budget caps, when any exist (else null). */
+  /**
+   * The effective run cap: the RUN-WIDE approval cap (#481) when a run ledger
+   * exists, else the sum of the per-project approved caps, else null.
+   */
   capUsd: number | null;
-  /** cap - spent (null when no caps). */
+  /** cap - spent (null when no cap). */
   remainingUsd: number | null;
+  /** true when a cap exists and run-wide spent ≥ cap (#481). */
+  overBudget: boolean;
+  /** Estimated remaining QUEUED spend — pending generate.* jobs on run members (#481). */
+  queuedEstimateUsd: number;
   /** Per-project spend breakdown. */
   byProject: Array<{ project: string; spentUsd: number; capUsd: number | null }>;
 }
@@ -343,13 +379,37 @@ export async function summarizeRun(runId: string): Promise<RunStatus | null> {
     }
   }
 
-  const capUsd = anyCap ? Number(capTotal.toFixed(6)) : null;
+  // Effective cap: the RUN-WIDE approval cap (#481) when a run ledger exists,
+  // else the sum of per-project caps (legacy behavior). The run cap is the spend
+  // ceiling the queue dispatch gate enforces, so it's the authoritative figure.
+  const { readRunLedger, activeApproval } = await import("./spend.js");
+  const runApproval = activeApproval(await readRunLedger(run.id));
+  const spentRounded = Number(spentUsd.toFixed(6));
+  const capUsd = runApproval ? runApproval.budgetCapUsd : anyCap ? Number(capTotal.toFixed(6)) : null;
+  const overBudget = capUsd != null && spentRounded >= capUsd;
+
+  const { estimateRunQueuedSpendUsd } = await import("./jobs/queued-spend.js");
+  const queuedEstimateUsd = estimateRunQueuedSpendUsd(run.projectIds);
+
   const costSummary: RunCostSummary = {
-    spentUsd: Number(spentUsd.toFixed(6)),
+    spentUsd: spentRounded,
     capUsd,
-    remainingUsd: capUsd == null ? null : Number((capUsd - spentUsd).toFixed(6)),
+    remainingUsd: capUsd == null ? null : Number((capUsd - spentRounded).toFixed(6)),
+    overBudget,
+    queuedEstimateUsd,
     byProject,
   };
+
+  // A run that is at/over its run-wide cap is a hard blocker — paid generation
+  // (direct + queued) will refuse until the cap is raised (#481).
+  if (overBudget) {
+    blockers.push({
+      project: run.id,
+      id: "run-over-budget",
+      phase: "assets",
+      detail: `Run-wide spend $${spentRounded.toFixed(2)} ≥ cap $${(capUsd ?? 0).toFixed(2)} — raise it with \`ralphy run approve ${run.id} --cap <usd> --reason <text>\` or paid generation will refuse.`,
+    });
+  }
 
   return {
     id: run.id,

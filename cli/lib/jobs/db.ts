@@ -286,7 +286,7 @@ function markRunning(id: number): boolean {
 
 export function finalizeJob(
   id: number,
-  status: "completed" | "failed" | "cancelled",
+  status: "completed" | "failed" | "cancelled" | "blocked",
   opts: { exitCode?: number | null; errorMessage?: string | null } = {},
 ): void {
   const db = openDb();
