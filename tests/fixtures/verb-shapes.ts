@@ -588,6 +588,63 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  run: [
+    {
+      label: "run.list",
+      shape: [
+        { id: "spring-drop-farm-a1b2", title: "Spring drop farm", status: "active", workspace: "default", projects: 3, workflow: "episode" },
+        { id: "q3-ads-c3d4", title: "Q3 ads", status: "complete", workspace: "default", projects: 8, workflow: null },
+      ],
+    },
+    {
+      label: "run.show",
+      shape: {
+        version: 1,
+        id: "spring-drop-farm-a1b2",
+        workspace: "default",
+        title: "Spring drop farm",
+        brief: "30 cold-traffic creatives",
+        status: "active",
+        createdAt: "2026-06-24T00:00:00.000Z",
+        workflow: "episode",
+        projectIds: ["spring-001", "spring-002"],
+        batchId: "spring-batch-001",
+      },
+    },
+    {
+      label: "run.status",
+      shape: {
+        id: "spring-drop-farm-a1b2",
+        workspace: "default",
+        title: "Spring drop farm",
+        status: "active",
+        projectCount: 2,
+        missingProjects: ["spring-003"],
+        currentPhase: "assets",
+        blockers: [
+          { project: "spring-001", id: "user-approval-needed", phase: "production-plan", detail: "production plan written; wait for the user's go." },
+        ],
+        awaitingApprovals: [{ project: "spring-001", detail: "spring-001: approve to advance the scenario step." }],
+        costSummary: {
+          spentUsd: 2.4,
+          capUsd: 20,
+          remainingUsd: 17.6,
+          byProject: [
+            { project: "spring-001", spentUsd: 1.6, capUsd: 10 },
+            { project: "spring-002", spentUsd: 0.8, capUsd: 10 },
+          ],
+        },
+        qualitySummary: [
+          { project: "spring-001", verdict: "repair", polished: false, reason: "caption density warn" },
+          { project: "spring-002", verdict: "ship", polished: true, reason: "all required dimensions pass" },
+        ],
+        winners: ["spring-002"],
+        failures: [],
+        nextAction: "Clear the blocker on \"spring-001\" (user-approval-needed at phase production-plan).",
+      },
+    },
+    { label: "run.add-project", shape: { run: "spring-drop-farm-a1b2", workspace: "default", projectIds: ["spring-001", "spring-002", "spring-003"] } },
+  ],
   setup: [
     {
       label: "setup.report",

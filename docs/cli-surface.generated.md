@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **47**
+Verbs registered: **48**
 
 ## Top-level verbs
 
@@ -1536,6 +1536,41 @@ Commands:
                               advance. Example: ralphy workflow run
                               choose-silenthill-005 --idea 'foggy hospital, the
                               nurse offers a deal'
+  help [command]              display help for command
+```
+
+### `ralphy run`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy run [options] [command]
+
+Manage content-farm campaign runs — a workspace-scoped object that binds one
+brief across its member projects (#480)
+
+Options:
+  -h, --help                  display help for command
+
+Commands:
+  create [options]            Create a campaign run that binds member projects
+                              under one brief
+  list [options]              List runs in the active (or --workspace) workspace
+  show <id>                   Show a run's manifest + member project list
+  status <id>                 Roll up the run's operator view: current phase,
+                              blockers, awaiting approvals, cost, quality,
+                              winners, failures, next action. Pure aggregation
+                              over member projects — ZERO model calls. Missing
+                              member projects degrade into missingProjects,
+                              never an error.
+  add-project <id> <project>  Add a member project to the run (run.json metadata
+                              update; member artifacts untouched)
   help [command]              display help for command
 ```
 
