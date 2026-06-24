@@ -25,6 +25,7 @@ import {
 } from "./db.js";
 import { dispatchableKinds, type ScheduleConfig } from "./schedule.js";
 import { burstCapHint } from "./error-hints.js";
+import { checkQueuedJobSpend } from "./spend-gate.js";
 import type { JobRow, JobKind } from "./types.js";
 
 type Slot = {
@@ -52,6 +53,10 @@ export function runWorkerLoop(opts: {
   fs.writeFileSync(opts.pidFile, String(process.pid));
 
   const slots: Map<number, Slot> = new Map();
+  // Jobs claimed and awaiting the async spend gate (#481) — counted against
+  // concurrency so the gate's async window can't let `tick` over-claim.
+  const reserving: Set<number> = new Set();
+  const activeCount = () => slots.size + reserving.size;
   // ms-epoch of the last dispatch per kind — drives the schedule min-interval.
   const lastDispatchByKind: Partial<Record<JobKind, number>> = {};
   const scheduleConfig: ScheduleConfig = {
@@ -95,6 +100,11 @@ export function runWorkerLoop(opts: {
 
   log(`up; concurrency=${opts.concurrency} pid=${process.pid}`);
 
+  // Pre-dispatch spend gate (#481): before spawning a paid generate.* job with
+  // a project_id, resolve its effective approval (project → run) and BLOCK when
+  // expired / mode-not-allowed / over the (run-wide) cap. Pass-through (no
+  // ledger in the chain, or no project_id) spawns as today. The job is already
+  // claimed 'running' by claimNextPending; on a block we finalize it 'blocked'.
   const runJob = (job: JobRow) => {
     const argv = job.command.argv;
     if (!argv || argv.length === 0) {
@@ -103,6 +113,31 @@ export function runWorkerLoop(opts: {
       return;
     }
 
+    reserving.add(job.id);
+    checkQueuedJobSpend(job)
+      .then((gate) => {
+        reserving.delete(job.id);
+        if (stopping) return;
+        if (!gate.allowed) {
+          const errorMessage = `budget gate blocked dispatch: ${gate.reason ?? "budget breach"}`;
+          finalizeJob(job.id, "blocked", { errorMessage });
+          appendLog(job.id, "system", `[blocked] ${errorMessage}`);
+          log(`job ${job.id} blocked by spend gate: ${gate.reason ?? "budget breach"}`);
+          return;
+        }
+        spawnJob(job, argv);
+      })
+      .catch((e) => {
+        reserving.delete(job.id);
+        // A gate failure must NOT silently spawn a paid job; fail closed.
+        const msg = `spend gate errored: ${(e as Error).message}`;
+        finalizeJob(job.id, "failed", { errorMessage: msg });
+        appendLog(job.id, "system", `[failed] ${msg}`);
+        log(`job ${job.id} ${msg}`);
+      });
+  };
+
+  const spawnJob = (job: JobRow, argv: string[]) => {
     // For ralphy.* kinds we run via the ralphy binary; for "shell" we exec
     // the argv as-is (caller supplies the program in argv[0]).
     let program: string;
@@ -246,7 +281,7 @@ export function runWorkerLoop(opts: {
   const tick = () => {
     if (stopping) return;
     reapCancelled();
-    while (slots.size < opts.concurrency) {
+    while (activeCount() < opts.concurrency) {
       // Endpoint-aware scheduling (#428): narrow the claim to kinds that are
       // both under their per-kind cap and past their min-interval. With default
       // config this is every pending kind, so the claim is unchanged.

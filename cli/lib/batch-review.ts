@@ -121,8 +121,19 @@ export interface BatchReview {
   inProgress: string[];
   /** Batch-wide spend roll-up. */
   cost: {
-    /** Sum of every member project's generations.jsonl cost_usd. */
+    /** Sum of every member project's generations.jsonl cost_usd (actual spend). */
     totalUsd: number;
+    /**
+     * Estimated remaining QUEUED spend — pending generate.* jobs on the batch's
+     * member projects (#481). 0 when the daemon has no pending work for them.
+     */
+    queuedEstimateUsd: number;
+    /** The effective budget cap covering this batch's members, or null (#481). */
+    capUsd: number | null;
+    /** cap - actual spent (null when no cap) (#481). */
+    remainingUsd: number | null;
+    /** true when a cap exists and actual spent ≥ cap (#481). */
+    overBudget: boolean;
     /** Per-project { id, costUsd }, sorted by id. */
     byProject: Array<{ id: string; costUsd: number }>;
   };
@@ -287,14 +298,31 @@ function detectRepeatedModelFailures(
 // ─── The builder ────────────────────────────────────────────────────────────
 
 /**
+ * Optional budget context for the review (#481). The command resolves these
+ * off disk (run ledger cap + jobs DB queued estimate); the builder stays PURE
+ * and just folds them into the cost roll-up. Omitted → no cap, 0 queued.
+ */
+export interface BatchBudgetInput {
+  /** The effective cap covering the batch's members (run cap, etc.), or null. */
+  capUsd?: number | null;
+  /** Estimated remaining queued spend over the batch's members. */
+  queuedEstimateUsd?: number;
+}
+
+/**
  * Build a deterministic batch review from a batch + its member project states.
  * PURE: no LLM, no network, no disk. Every figure is derived from the inputs
  * (which the command reads off disk; tests pass inline).
  *
  * @param batch          the batch's id / name / base template.
  * @param projectStates  each member project's eval / repair-plan / gen-log.
+ * @param budget         optional budget context (cap + queued estimate, #481).
  */
-export function buildBatchReview(batch: BatchInput, projectStates: ProjectStateInput[]): BatchReview {
+export function buildBatchReview(
+  batch: BatchInput,
+  projectStates: ProjectStateInput[],
+  budget: BatchBudgetInput = {},
+): BatchReview {
   const items: BatchReviewItem[] = [];
   const perProjectRows: Array<{ id: string; rows: GenerationEntry[] }> = [];
   const byOwnerTotal: Partial<Record<RepairOwner, number>> = {};
@@ -340,6 +368,10 @@ export function buildBatchReview(batch: BatchInput, projectStates: ProjectStateI
 
   const byProject = items.map((i) => ({ id: i.id, costUsd: i.costUsd }));
   const totalUsd = Number(byProject.reduce((s, p) => s + p.costUsd, 0).toFixed(2));
+  const capUsd = budget.capUsd ?? null;
+  const queuedEstimateUsd = Number((budget.queuedEstimateUsd ?? 0).toFixed(2));
+  const remainingUsd = capUsd == null ? null : Number((capUsd - totalUsd).toFixed(2));
+  const overBudget = capUsd != null && totalUsd >= capUsd;
 
   const repeatedModelFailures = detectRepeatedModelFailures(perProjectRows);
 
@@ -361,7 +393,7 @@ export function buildBatchReview(batch: BatchInput, projectStates: ProjectStateI
     winners,
     failures,
     inProgress,
-    cost: { totalUsd, byProject },
+    cost: { totalUsd, queuedEstimateUsd, capUsd, remainingUsd, overBudget, byProject },
     styleDrift,
     repeatedModelFailures,
     recommendedRepairs: { byOwner: byOwnerTotal, total: repairTotal },

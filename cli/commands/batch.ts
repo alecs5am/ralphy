@@ -10,8 +10,11 @@ import { raiseError } from "../lib/errors/index.js";
 import { submitBatchFromFile } from "../lib/jobs/enqueue.js";
 import { ensureDaemonRunning } from "../lib/jobs/daemon.js";
 import { isVaryAxis, VARY_AXES } from "../lib/schemas/hook-body-cta.js";
-import { buildBatchReview, type BatchInput, type ProjectStateInput } from "../lib/batch-review.js";
+import { buildBatchReview, type BatchInput, type BatchBudgetInput, type ProjectStateInput } from "../lib/batch-review.js";
 import { readGenerations } from "../lib/gen-log.js";
+import { projectRun } from "../lib/run.js";
+import { readRunLedger, activeApproval } from "../lib/spend.js";
+import { estimateRunQueuedSpendUsd } from "../lib/jobs/queued-spend.js";
 import type { EvalReport } from "../lib/eval/types.js";
 import type { RepairPlan } from "../lib/schemas/repair-plan.js";
 import {
@@ -220,9 +223,25 @@ export function batchCmd() {
         name: config?.name,
         template: config?.template ?? null,
       };
-      const review = buildBatchReview(batch, projectStates);
+
+      // Budget context (#481): if the batch's members belong to a run with a
+      // run-wide cap, surface that cap + remaining; always estimate remaining
+      // queued spend over the members. Best-effort — no run/cap → just queued.
+      let capUsd: number | null = null;
+      for (const pid of projectIds) {
+        const run = projectRun(pid);
+        if (!run) continue;
+        const approval = activeApproval(await readRunLedger(run.runId));
+        if (approval) { capUsd = approval.budgetCapUsd; break; }
+      }
+      const budget: BatchBudgetInput = {
+        capUsd,
+        queuedEstimateUsd: estimateRunQueuedSpendUsd(projectIds),
+      };
+
+      const review = buildBatchReview(batch, projectStates, budget);
       ok(
-        `Batch review: ${review.winners.length}/${review.total} ship-ready, ${review.failures.length} failed ($${review.cost.totalUsd.toFixed(2)} spent)`,
+        `Batch review: ${review.winners.length}/${review.total} ship-ready, ${review.failures.length} failed ($${review.cost.totalUsd.toFixed(2)} spent${review.cost.overBudget ? ", OVER BUDGET" : ""})`,
       );
       out(review);
     });

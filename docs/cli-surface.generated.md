@@ -1571,6 +1571,30 @@ Commands:
                               never an error.
   add-project <id> <project>  Add a member project to the run (run.json metadata
                               update; member artifacts untouched)
+  approve [options] <id>      Record a RUN-WIDE spend approval into the run
+                              ledger (#481). Sets a hard USD cap on TOTAL spend
+                              across ALL member projects, optionally the allowed
+                              content modes, an expiry, and a user-facing
+                              reason. Enforced at BOTH the per-call layer
+                              (`ralphy generate`) and the queue dispatch layer
+                              (the daemon blocks a paid generate.* job before
+                              spawning) for any member project with no
+                              project-local approval. Append-only — a new
+                              approval appends, never overwrites
+                              (runs/<id>/spend-ledger.json). JSON output.
+                              Example: ralphy run approve spring-drop-farm-a1b2
+                              --cap 50 --modes ugc-review,unboxing-ugc --expiry
+                              24h --reason "approved farm run"
+  budget <id>                 Show the run's spend ledger state (#481): the
+                              run-wide budget cap, run-wide actual spend (summed
+                              across all member projects), remaining budget, an
+                              over-budget flag, the estimated remaining QUEUED
+                              spend (sum of estimated cost over pending
+                              generate.* jobs whose project_id is a run member),
+                              the per-project spend breakdown, expiry status,
+                              and the full append-only approval history. Makes
+                              ZERO model calls. JSON output. Example: ralphy run
+                              budget spring-drop-farm-a1b2
   help [command]              display help for command
 ```
 
