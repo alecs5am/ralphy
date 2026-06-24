@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "gate": "captions",
+  "judgePromptVersion": "captions-v1",
+  "examples": [
+    {
+      "id": "on-time-glanceable",
+      "artifact": "fixtures/captions/on-time-glanceable.mp4",
+      "expectedLabel": "pass",
+      "mode": "ugc-review",
+      "rationale": "Captions snap to the word-level startMs, sit in the lower-third safe band, and chunk to 1-3 words punching with the voice."
+    },
+    {
+      "id": "clean-two-word-chunks",
+      "artifact": "fixtures/captions/clean-two-word-chunks.mp4",
+      "expectedLabel": "pass",
+      "mode": "tutorial-ugc",
+      "rationale": "Short readable windows held long enough to land, clear of the speaker's face and the platform UI chrome."
+    },
+    {
+      "id": "wall-of-text-window",
+      "artifact": "fixtures/captions/wall-of-text-window.mp4",
+      "expectedLabel": "fail",
+      "mode": "ugc-review",
+      "rationale": "A single caption packs fourteen words into one window — a wall of text no viewer reads in the time it is on screen."
+    },
+    {
+      "id": "captions-lag-voice",
+      "artifact": "fixtures/captions/captions-lag-voice.mp4",
+      "expectedLabel": "fail",
+      "mode": "ugc-review",
+      "rationale": "Captions fire roughly 700ms after the words are spoken — the track visibly desyncs from the voice."
+    },
+    {
+      "id": "caption-covers-face",
+      "artifact": "fixtures/captions/caption-covers-face.mp4",
+      "expectedLabel": "fail",
+      "mode": "ugc-review",
+      "rationale": "The caption box sits over the speaker's face the whole clip, blocking the one thing the viewer needs to see."
+    }
+  ]
+}

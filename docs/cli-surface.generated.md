@@ -1983,6 +1983,21 @@ Commands:
                                 when present. Writes platform-spec.json
                                 (append-only). Example: ralphy eval platform
                                 glitter-cream-001 --platform tiktok,reels
+  calibrate [options]           Measure a binary eval JUDGE's agreement with
+                                human labels (#483). Reads a calibration dataset
+                                (human-labeled pass/fail examples for ONE gate)
+                                and runs the gate's judge over each example,
+                                then reports the confusion matrix +
+                                TPR/TNR/precision/recall/accuracy + Cohen's
+                                kappa + a promote-vs-advisory recommendation
+                                (default bar kappa >= 0.6). Binary convention:
+                                positive class = the gate should BLOCK (verdict
+                                fail). Offline with --predictions (a {
+                                exampleId: pass|fail } map → NO model calls, the
+                                CI seam); without it the LIVE judge runs (paid,
+                                honors --no-vision). Example: ralphy eval
+                                calibrate --gate first-frame-hook --dataset
+                                hooks.json --predictions preds.json
   help [command]                display help for command
 ```
 
