@@ -2031,6 +2031,28 @@ Commands:
                                 with ZERO model calls. Example: ralphy eval
                                 metrics glitter-cream-001 --adapter tts-wer
                                 --expected script.txt --dry-run
+  optimize-prompt [options]     EXPERIMENTAL (#486): improve a judge/generator
+                                prompt against a #483 calibration dataset and
+                                emit a REVIEWABLE proposal. Splits the dataset
+                                into train/held-out (deterministic by id-hash),
+                                evaluates the BASELINE prompt on held-out, asks
+                                the LLM to improve it from the train-split
+                                failures, evaluates the CANDIDATE on held-out,
+                                then compares baseline-vs-candidate Cohen's
+                                kappa. NEVER overwrites the source prompt /
+                                templates / guidelines / MODELS.md — a `propose`
+                                recommendation writes an append-only
+                                `proposal-vN/` dir for a maintainer to apply by
+                                hand. DSPy/MIPRO is the inspiration, not a hard
+                                dep. Offline (the CI seam, NO model calls):
+                                --baseline-predictions + --candidate-predictions
+                                ({ exampleId: pass|fail } maps) + --candidate (a
+                                candidate prompt file). --dry-run prints the
+                                plan only. Example: ralphy eval optimize-prompt
+                                --prompt judge.txt --dataset hooks.json
+                                --baseline-predictions base.json
+                                --candidate-predictions cand.json --candidate
+                                cand.txt
   help [command]                display help for command
 ```
 
