@@ -2014,6 +2014,23 @@ Commands:
                                 honors --no-vision). Example: ralphy eval
                                 calibrate --gate first-frame-hook --dataset
                                 hooks.json --predictions preds.json
+  metrics [options] <project>   Run the OPTIONAL specialized media metric
+                                adapters (#485) and ENRICH the project's
+                                eval.json under `metrics` (read → merge → write
+                                back, append-only). Adapters degrade to `na` +
+                                an actionable hint when their
+                                tool/model/expected-input is missing — they
+                                never crash and never change the eval verdict.
+                                Initial adapters: tts-wer (speech
+                                intelligibility = Word Error Rate of the
+                                transcribed VO vs the expected script; needs
+                                --expected + a transcribe provider) and
+                                image-aesthetic (a pluggable seam, `na` until a
+                                scorer is configured). --dry-run lists the
+                                applicable adapters + availability + thresholds
+                                with ZERO model calls. Example: ralphy eval
+                                metrics glitter-cream-001 --adapter tts-wer
+                                --expected script.txt --dry-run
   help [command]                display help for command
 ```
 

@@ -233,6 +233,34 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "eval.metrics.dryRun",
+      shape: {
+        project: "demo-001",
+        mode: "ugc-review",
+        dryRun: true,
+        adapters: [
+          { adapter: "tts-wer", label: "TTS Word Error Rate", capability: "voice", available: true, threshold: 0.15, hint: null },
+          { adapter: "image-aesthetic", label: "Image aesthetic / prompt-alignment", capability: "image", available: false, threshold: 0.5, hint: "no aesthetic scorer configured — set metrics.imageAesthetic.scorer (a registered connector) or install a local scorer" },
+        ],
+        note: "dry-run — availability + thresholds only, no adapters executed (ZERO model calls).",
+      },
+    },
+    {
+      label: "eval.metrics.run",
+      shape: {
+        project: "demo-001",
+        mode: "ugc-review",
+        dryRun: false,
+        metrics: [
+          { adapter: "tts-wer", capability: "voice", status: "pass", score: 0.08, threshold: 0.15, reason: "WER 8.0% ≤ 15% — the VO transcribes back to the script intelligibly." },
+          { adapter: "image-aesthetic", capability: "image", status: "na", score: null, threshold: 0.5, reason: "no aesthetic scorer configured — set metrics.imageAesthetic.scorer (a registered connector) or install a local scorer" },
+        ],
+        enrichedEvalJson: true,
+        evalPath: ".ralphy/workspaces/default/projects/demo-001/eval.json",
+        note: "metric results merged into eval.json under `metrics` (prior version archived).",
+      },
+    },
+    {
       label: "eval.run",
       shape: {
         projectId: "demo-001",
