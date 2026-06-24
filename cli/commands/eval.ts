@@ -24,6 +24,10 @@ import {
 } from "../lib/eval/platform.js";
 import { projectDir } from "../lib/paths.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
+import { parseCalibrationDataset } from "../lib/schemas/calibration.js";
+import { runCalibration, isKnownGate, type RunCalibrationOptions } from "../lib/eval/calibration.js";
+import { raiseError } from "../lib/errors/index.js";
+import type { ExpectedLabel } from "../lib/schemas/calibration.js";
 
 /** Read the project's resolved content mode from production-plan.json, or null. */
 function readProjectMode(projectId: string): string | null {
@@ -348,6 +352,106 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval platform failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("calibrate")
+    .description("Measure a binary eval JUDGE's agreement with human labels (#483). Reads a calibration dataset (human-labeled pass/fail examples for ONE gate) and runs the gate's judge over each example, then reports the confusion matrix + TPR/TNR/precision/recall/accuracy + Cohen's kappa + a promote-vs-advisory recommendation (default bar kappa >= 0.6). Binary convention: positive class = the gate should BLOCK (verdict fail). Offline with --predictions (a { exampleId: pass|fail } map → NO model calls, the CI seam); without it the LIVE judge runs (paid, honors --no-vision). Example: ralphy eval calibrate --gate first-frame-hook --dataset hooks.json --predictions preds.json")
+    .requiredOption("--gate <id>", "The QUALITY_GATES id to calibrate (e.g. first-frame-hook, ocr, captions) — must match the dataset's gate")
+    .requiredOption("--dataset <path>", "Path to the calibration dataset JSON (version, gate, examples[])")
+    .option("--predictions <path>", "Path to a JSON map { exampleId: \"pass\"|\"fail\" } of pre-recorded judge predictions — runs OFFLINE (no model calls)")
+    .option("--model <id>", "Judge-model id to record in the report (and use on the live path)")
+    .option("--no-vision", "On the live path, skip the gate's vision pass where supported (free deterministic-only judge)")
+    .option("--out <path>", "Persist the report JSON to this path (append-only / auto-versioned). Omit to print only.")
+    .option("--pretty", "Render a table instead of JSON")
+    .action(async (opts) => {
+      try {
+        // — Read + parse the dataset.
+        const datasetPath = path.resolve(opts.dataset as string);
+        if (!existsSync(datasetPath)) {
+          raiseError("E_NOT_FOUND", { kind: "calibration dataset", id: datasetPath });
+        }
+        let dataset;
+        try {
+          dataset = parseCalibrationDataset(JSON.parse(readFileSync(datasetPath, "utf8")));
+        } catch (e) {
+          raiseError("E_FILE_MALFORMED", {
+            format: "calibration dataset",
+            path: datasetPath,
+            detail: (e as Error).message,
+          });
+        }
+
+        // — Validate --gate against the dataset + the known gate registry.
+        const gate = opts.gate as string;
+        if (!isKnownGate(gate)) {
+          raiseError("E_INPUT_INVALID", {
+            field: "--gate",
+            detail: `unknown quality gate "${gate}" — see QUALITY_GATES (e.g. first-frame-hook, ocr, captions)`,
+          });
+        }
+        if (gate !== dataset.gate) {
+          raiseError("E_INPUT_INVALID", {
+            field: "--gate",
+            detail: `--gate "${gate}" does not match the dataset's gate "${dataset.gate}"`,
+          });
+        }
+
+        // — Optional offline predictions map.
+        const runOpts: RunCalibrationOptions = {
+          model: opts.model as string | undefined,
+          noVision: opts.vision === false,
+        };
+        if (opts.predictions) {
+          const predPath = path.resolve(opts.predictions as string);
+          if (!existsSync(predPath)) {
+            raiseError("E_NOT_FOUND", { kind: "predictions map", id: predPath });
+          }
+          try {
+            runOpts.predictions = JSON.parse(readFileSync(predPath, "utf8")) as Record<string, ExpectedLabel>;
+          } catch (e) {
+            raiseError("E_FILE_MALFORMED", {
+              format: "predictions map",
+              path: predPath,
+              detail: (e as Error).message,
+            });
+          }
+        }
+
+        const report = await runCalibration(dataset, runOpts);
+
+        // — Append-only persistence ONLY when --out is given (default: print only).
+        let jsonPath: string | null = null;
+        if (opts.out) {
+          const dest = path.resolve(opts.out as string);
+          const fs = await import("node:fs/promises");
+          await protectExistingAsset(dest, false);
+          await fs.mkdir(path.dirname(dest), { recursive: true });
+          await fs.writeFile(dest, JSON.stringify(report, null, 2));
+          jsonPath = dest;
+        }
+
+        out({
+          gate: report.gate,
+          offline: report.offline,
+          judgeModel: report.judgeModel,
+          judgePromptVersion: report.judgePromptVersion,
+          n: report.metrics.n,
+          confusion: report.metrics.confusion,
+          tpr: report.metrics.tpr,
+          tnr: report.metrics.tnr,
+          precision: report.metrics.precision,
+          recall: report.metrics.recall,
+          accuracy: report.metrics.accuracy,
+          cohensKappa: report.metrics.cohensKappa,
+          promotionKappaBar: report.promotionKappaBar,
+          recommendation: report.recommendation,
+          examples: report.examples,
+          jsonPath,
+        });
+      } catch (e) {
+        err(`eval calibrate failed: ${(e as Error).message}`);
       }
     });
 
