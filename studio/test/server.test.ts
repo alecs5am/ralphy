@@ -6,7 +6,7 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { startStudio } from "../server/index.js";
-import { listArtifacts, listWorkspaces, safeProjectFile, mediaType, readWorkflowLane, readBoard, writeBoardChoice, writeBoardLayout } from "../server/lib.js";
+import { listArtifacts, listWorkspaces, safeProjectFile, mediaType, readWorkflowLane, readBoard, writeBoardChoice, writeBoardLayout, listRuns, summarizeRun } from "../server/lib.js";
 
 let tmpRoot: string;
 let studio: ReturnType<typeof startStudio>;
@@ -61,6 +61,39 @@ function seed(root: string) {
   for (const f of ["scene-01-hub.png", "scene-02-casey.png", "scene-02-casey.v2.png", "frost-portrait.png"]) {
     fs.writeFileSync(path.join(bproj, "artifacts", "images", f), png);
   }
+
+  // #482 run fixture: a ship-ready member project (scorecard + units + spend).
+  const sproj = path.join(root, ".ralphy", "workspaces", "default", "projects", "ship-001");
+  fs.mkdirSync(path.join(sproj, "logs"), { recursive: true });
+  fs.mkdirSync(path.join(sproj, "units", "hero-cut"), { recursive: true });
+  fs.mkdirSync(path.join(sproj, "render"), { recursive: true });
+  fs.writeFileSync(path.join(sproj, "scorecard.json"), JSON.stringify({ verdict: "ship", polished: true }));
+  fs.writeFileSync(path.join(sproj, "units", "hero-cut", "unit.json"), JSON.stringify({ slug: "hero-cut" }));
+  fs.writeFileSync(path.join(sproj, "render", "final.mp4"), "x");
+  fs.writeFileSync(path.join(sproj, "BRIEF.md"), "# brief\n");
+  fs.writeFileSync(path.join(sproj, "scenario.json"), "{}");
+  fs.writeFileSync(path.join(sproj, "eval.json"), "{}");
+  fs.writeFileSync(
+    path.join(sproj, "logs", "generations.jsonl"),
+    JSON.stringify({ cost_usd: 1.25 }) + "\n" + JSON.stringify({ cost_usd: 0.75 }) + "\n",
+  );
+
+  // The runs: empty, running (member fixture-001 → blocked), complete (ship-001),
+  // and one referencing a missing project. Plus a run spend ledger with a cap.
+  const runsDir = path.join(root, ".ralphy", "workspaces", "default", "runs");
+  const mkRun = (id: string, manifest: Record<string, unknown>) => {
+    fs.mkdirSync(path.join(runsDir, id), { recursive: true });
+    fs.writeFileSync(path.join(runsDir, id, "run.json"), JSON.stringify({ version: 1, id, workspace: "default", ...manifest }));
+  };
+  mkRun("run-empty", { title: "Empty Farm", status: "active", projectIds: [] });
+  mkRun("run-running", { title: "Running Farm", status: "active", workflow: "episode", projectIds: ["fixture-001"] });
+  mkRun("run-complete", { title: "Shipped Farm", status: "complete", projectIds: ["ship-001"] });
+  mkRun("run-missing", { title: "Drifted Farm", status: "active", projectIds: ["ship-001", "ghost-999"] });
+  // A run cap on run-running: $5 cap, member fixture-001 has $0 spend → under budget.
+  fs.writeFileSync(
+    path.join(runsDir, "run-running", "spend-ledger.json"),
+    JSON.stringify({ version: 1, projectId: "run-running", approvals: [{ scope: "run", budgetCapUsd: 5, reason: "test", approvedAt: "2026-06-24T00:00:00.000Z" }] }),
+  );
 }
 
 beforeAll(() => {
@@ -80,7 +113,7 @@ afterAll(() => {
 describe("lib", () => {
   test("listWorkspaces reads manifest name + project count", () => {
     const ws = listWorkspaces(path.join(tmpRoot, ".ralphy"));
-    expect(ws).toEqual([{ slug: "default", name: "Default", projects: 2 }]);
+    expect(ws).toEqual([{ slug: "default", name: "Default", projects: 3 }]);
   });
 
   test("listArtifacts groups by kind incl. render pseudo-kind, versions intact", () => {
@@ -170,6 +203,59 @@ describe("lib", () => {
   });
 });
 
+describe("runs (#482)", () => {
+  const dr = () => path.join(tmpRoot, ".ralphy");
+
+  test("listRuns returns every run with project counts", () => {
+    const rows = listRuns(dr(), "default");
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+    expect(Object.keys(byId).sort()).toEqual(["run-complete", "run-empty", "run-missing", "run-running"]);
+    expect(byId["run-running"].projects).toBe(1);
+    expect(byId["run-empty"].projects).toBe(0);
+    expect(byId["run-complete"].status).toBe("complete");
+  });
+
+  test("summarizeRun: empty run → no members, budget inbox item, zero spend", () => {
+    const s = summarizeRun(dr(), "default", "run-empty")!;
+    expect(s.projectCount).toBe(0);
+    expect(s.budget.spentUsd).toBe(0);
+    expect(s.winners).toEqual([]);
+    // Active run with no cap → an approval-inbox prompt to approve a budget.
+    expect(s.awaitingApprovals.some((a) => a.detail.includes("No run budget approved"))).toBe(true);
+  });
+
+  test("summarizeRun: running run → blocked member surfaces as a blocker, under-budget", () => {
+    const s = summarizeRun(dr(), "default", "run-running")!;
+    expect(s.projectCount).toBe(1);
+    expect(s.budget.capUsd).toBe(5);
+    expect(s.budget.spentUsd).toBe(0);
+    expect(s.budget.overBudget).toBe(false);
+    // fixture-001's workflow lane is blocked at scenario → a run blocker.
+    expect(s.blockers.some((b) => b.project === "fixture-001")).toBe(true);
+    // A cap exists → no "no budget approved" inbox item.
+    expect(s.awaitingApprovals.some((a) => a.detail.includes("No run budget approved"))).toBe(false);
+  });
+
+  test("summarizeRun: complete run → winner, spend summed, units counted", () => {
+    const s = summarizeRun(dr(), "default", "run-complete")!;
+    expect(s.winners).toEqual(["ship-001"]);
+    expect(s.failures).toEqual([]);
+    expect(s.budget.spentUsd).toBe(2); // 1.25 + 0.75
+    expect(s.units.count).toBe(1);
+    expect(s.quality.find((q) => q.project === "ship-001")!.verdict).toBe("ship");
+  });
+
+  test("summarizeRun: missing member project degrades, never throws", () => {
+    const s = summarizeRun(dr(), "default", "run-missing")!;
+    expect(s.missingProjects).toEqual(["ghost-999"]);
+    expect(s.quality.map((q) => q.project)).toEqual(["ship-001"]);
+  });
+
+  test("summarizeRun: unknown run → null", () => {
+    expect(summarizeRun(dr(), "default", "nope")).toBeNull();
+  });
+});
+
 describe("http api", () => {
   test("GET /api/workspaces", async () => {
     const ws = await fetch(`${base}/api/workspaces`).then((r) => r.json());
@@ -251,6 +337,28 @@ describe("http api", () => {
     expect(await r.json()).toEqual({ ok: true });
     const board = await fetch(`${base}/api/projects/board-001/board?workspace=default`).then((r) => r.json());
     expect(board.layout.scenario).toEqual({ x: 640, y: 90 });
+  });
+
+  test("GET /api/runs lists the workspace runs", async () => {
+    const runs = await fetch(`${base}/api/runs?workspace=default`).then((r) => r.json());
+    expect(runs.map((r: { id: string }) => r.id).sort()).toEqual(["run-complete", "run-empty", "run-missing", "run-running"]);
+  });
+
+  test("GET /api/runs/:id returns the rolled-up summary", async () => {
+    const s = await fetch(`${base}/api/runs/run-complete?workspace=default`).then((r) => r.json());
+    expect(s.winners).toEqual(["ship-001"]);
+    expect(s.budget.spentUsd).toBe(2);
+    expect(s.units.count).toBe(1);
+  });
+
+  test("GET /api/runs/:id unknown → 404", async () => {
+    const r = await fetch(`${base}/api/runs/nope?workspace=default`);
+    expect(r.status).toBe(404);
+  });
+
+  test("non-GET refused on the runs endpoint (read-only)", async () => {
+    const r = await fetch(`${base}/api/runs/run-complete?workspace=default`, { method: "POST" });
+    expect(r.status).toBe(405);
   });
 
   test("non-GET refused on non-board endpoints (read-only server)", async () => {
