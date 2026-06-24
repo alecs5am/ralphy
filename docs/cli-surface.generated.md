@@ -268,12 +268,15 @@ Inspect provider connectors and their capability matrix (image / video / voice /
 music / sfx / text / transcribe).
 
 Options:
-  -h, --help      display help for command
+  -h, --help           display help for command
 
 Commands:
-  list            List registered provider connectors, their capabilities, and
-                  whether each is configured (key present).
-  help [command]  display help for command
+  list [options]       List registered provider connectors, their capabilities,
+                       and whether each is configured (key present).
+  test [options] [id]  Report each connector's availability + config validity.
+                       Offline by default (no network); --ping hits the
+                       endpoint.
+  help [command]       display help for command
 ```
 
 ### `ralphy models`
