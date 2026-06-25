@@ -914,6 +914,48 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  studio: [
+    {
+      label: "studio.inbox.list",
+      shape: [
+        {
+          id: "2026-06-25T07-48-26-123Z-abc-repair",
+          scope: "project",
+          scopeId: "spring-001",
+          workspace: "default",
+          action: "repair",
+          createdAt: "2026-06-25T07:48:26.123Z",
+          selectedCount: 2,
+          requestedOutcome: "regenerate scene-01 with a stronger cold open",
+          jsonPath: ".ralphy/workspaces/default/projects/spring-001/agent-inbox/2026-06-25T07-48-26-123Z-abc-repair.json",
+          mdPath: ".ralphy/workspaces/default/projects/spring-001/agent-inbox/2026-06-25T07-48-26-123Z-abc-repair.md",
+        },
+      ],
+    },
+    {
+      label: "studio.inbox.show",
+      shape: {
+        scope: "project",
+        scopeId: "spring-001",
+        jsonPath: ".ralphy/workspaces/default/projects/spring-001/agent-inbox/x-repair.json",
+        mdPath: ".ralphy/workspaces/default/projects/spring-001/agent-inbox/x-repair.md",
+        version: 1,
+        kind: "agent-inbox",
+        id: "2026-06-25T07-48-26-123Z-abc-repair",
+        action: "repair",
+        createdAt: "2026-06-25T07:48:26.123Z",
+        workspace: "default",
+        run: null,
+        project: "spring-001",
+        selected: [
+          { type: "artifact", ref: "artifacts/images/scene-01-hub.png", path: ".ralphy/workspaces/default/projects/spring-001/artifacts/images/scene-01-hub.png", tags: ["weak-hook"], note: "soft open" },
+        ],
+        tags: ["weak-hook"],
+        note: "the hook isn't landing",
+        requestedOutcome: "regenerate scene-01 with a stronger cold open",
+      },
+    },
+  ],
   workflow: [
     {
       label: "workflow.list",

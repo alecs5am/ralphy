@@ -1,6 +1,6 @@
 # Studio agent context inbox
 
-> **Status:** todo
+> **Status:** done — 2026-06-25
 > **Filed:** 2026-06-25
 > **Folder:** issues
 > **Severity:** high

@@ -8,6 +8,7 @@ import os from "node:os";
 import { startStudio } from "../server/index.js";
 import { listArtifacts, listWorkspaces, safeProjectFile, mediaType, readWorkflowLane, readBoard, writeBoardChoice, writeBoardLayout, listRuns, summarizeRun } from "../server/lib.js";
 import { readAnnotations, addAnnotation, removeAnnotation, ANNOTATION_TAGS, type AnnotationScope } from "../server/annotations.js";
+import { writeInboxPack, listInboxPacks, renderInboxMarkdown, type InboxScope } from "../server/inbox.js";
 
 let tmpRoot: string;
 let studio: ReturnType<typeof startStudio>;
@@ -312,6 +313,66 @@ describe("annotations (#488)", () => {
   });
 });
 
+describe("agent inbox (#489)", () => {
+  const dr = () => path.join(tmpRoot, ".ralphy");
+  const projScope = (id = "board-001"): InboxScope => ({ kind: "project", dataRoot: dr(), workspace: "default", id });
+  const runScope = (id = "run-complete"): InboxScope => ({ kind: "run", dataRoot: dr(), workspace: "default", id });
+
+  test("writeInboxPack writes JSON + MD, computes a repo-relative artifact path", () => {
+    const r = writeInboxPack(projScope(), {
+      action: "repair",
+      selected: [{ type: "artifact", ref: "artifacts/images/scene-01-hub.png", tags: ["weak-hook"], note: "soft open" }],
+      note: "the hook is soft",
+      requestedOutcome: "regenerate scene-01 with a stronger cold open",
+    });
+    expect("error" in r).toBe(false);
+    const ok = r as Extract<typeof r, { id: string }>;
+    expect(fs.existsSync(ok.jsonPath)).toBe(true);
+    expect(fs.existsSync(ok.mdPath)).toBe(true);
+    expect(ok.pack.action).toBe("repair");
+    expect(ok.pack.project).toBe("board-001");
+    expect(ok.pack.run).toBeNull();
+    // The `@`-pastable path is repo-root-relative.
+    expect(ok.pack.selected[0].path).toBe(".ralphy/workspaces/default/projects/board-001/artifacts/images/scene-01-hub.png");
+    expect(ok.pack.tags).toContain("weak-hook");
+  });
+
+  test("renderInboxMarkdown is readable and includes the @-pastable path + the not-spend note", () => {
+    const md = renderInboxMarkdown({
+      version: 1, kind: "agent-inbox", id: "x-repair", action: "repair", createdAt: "2026-06-25T00:00:00.000Z",
+      workspace: "default", run: null, project: "board-001",
+      selected: [{ type: "artifact", ref: "a.png", path: ".ralphy/x/a.png", tags: ["winner"] }],
+      tags: ["winner"], note: "", requestedOutcome: "ship it",
+    });
+    expect(md).toContain("# Studio context pack — repair");
+    expect(md).toContain("`@.ralphy/x/a.png`");
+    expect(md.toLowerCase()).toContain("not an instruction to spend money");
+  });
+
+  test("rejects a bad action and an empty selection", () => {
+    expect("error" in writeInboxPack(projScope(), { action: "nuke", selected: [{ type: "artifact", ref: "a.png" }] })).toBe(true);
+    expect("error" in writeInboxPack(projScope(), { action: "repair", selected: [] })).toBe(true);
+  });
+
+  test("artifact traversal is rejected; run scope refuses artifact selections", () => {
+    expect("error" in writeInboxPack(projScope(), { action: "repair", selected: [{ type: "artifact", ref: "../../../registry.json" }] })).toBe(true);
+    expect("error" in writeInboxPack(runScope(), { action: "approve", selected: [{ type: "artifact", ref: "artifacts/images/x.png" }] })).toBe(true);
+  });
+
+  test("run-scoped pack writes under the run dir and lists back", () => {
+    const r = writeInboxPack(runScope(), { action: "approve", selected: [{ type: "project", ref: "ship-001" }, { type: "unit", ref: "hero-cut" }], requestedOutcome: "approve the winner" });
+    expect("error" in r).toBe(false);
+    const rows = listInboxPacks(runScope());
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].action).toBe("approve");
+    expect(rows[0].selectedCount).toBe(2);
+  });
+
+  test("unknown scope errors", () => {
+    expect("error" in writeInboxPack(projScope("ghost-999"), { action: "repair", selected: [{ type: "artifact", ref: "a.png" }] })).toBe(true);
+  });
+});
+
 describe("http api", () => {
   test("GET /api/workspaces", async () => {
     const ws = await fetch(`${base}/api/workspaces`).then((r) => r.json());
@@ -467,5 +528,31 @@ describe("http api", () => {
       body: JSON.stringify({ workspace: "default", target: { type: "project", ref: "ghost-999" }, tags: ["winner"] }),
     });
     expect(r.status).toBe(404);
+  });
+
+  // #489 — the send-to-agent UI path over HTTP: POST a pack → GET the inbox list.
+  test("inbox: POST a context pack, then GET the inbox list", async () => {
+    const post = await fetch(`${base}/api/projects/board-001/inbox`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", action: "repair", selected: [{ type: "artifact", ref: "artifacts/images/scene-01-hub.png" }], note: "fix it", requestedOutcome: "stronger hook" }),
+    });
+    expect(post.status).toBe(200);
+    const id = (await post.json()).id as string;
+    const list = await fetch(`${base}/api/projects/board-001/inbox?workspace=default`).then((r) => r.json());
+    expect(list.inbox.some((p: { id: string }) => p.id === id)).toBe(true);
+  });
+
+  test("inbox: POST with a bad action → 400, missing project → 404", async () => {
+    const bad = await fetch(`${base}/api/projects/board-001/inbox`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", action: "nuke", selected: [{ type: "artifact", ref: "artifacts/images/scene-01-hub.png" }] }),
+    });
+    expect(bad.status).toBe(400);
+    const miss = await fetch(`${base}/api/projects/ghost-999/inbox`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", action: "repair", selected: [{ type: "artifact", ref: "a.png" }] }),
+    });
+    expect(miss.status).toBe(404);
   });
 });

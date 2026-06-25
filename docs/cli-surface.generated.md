@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **48**
+Verbs registered: **49**
 
 ## Top-level verbs
 
@@ -1599,6 +1599,31 @@ Commands:
                               ZERO model calls. JSON output. Example: ralphy run
                               budget spring-drop-farm-a1b2
   help [command]              display help for command
+```
+
+### `ralphy studio`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy studio [options] [command]
+
+Read what the user prepared in Ralphy Studio (the local browser app). Today: the
+agent context inbox (#489) — context packs, NOT spend approvals.
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  inbox           Read Studio → agent context-inbox packs (a pack is CONTEXT,
+                  not an instruction to spend money)
+  help [command]  display help for command
 ```
 
 ### `ralphy migrate`
