@@ -32,6 +32,7 @@ import {
 import { readAnnotations, addAnnotation, removeAnnotation, type AnnotationScope } from "./annotations.js";
 import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
 import { buildRunGraph, writeRunCanvasLayout } from "./graph.js";
+import { proposePatch, listPatches, type PatchScope } from "./patches.js";
 
 const SRC_DIR = path.join(import.meta.dir, "..", "src");
 
@@ -187,6 +188,21 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         }
       }
 
+      // ── Safe config patches (#491) — propose only; never applies/runs ───
+      {
+        const pm = url.pathname.match(/^\/api\/runs\/([^/]+)\/config-patches$/);
+        if (pm && req.method === "POST") {
+          const id = decodeURIComponent(pm[1]);
+          let body: any;
+          try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+          const ws = (body.workspace as string) ?? "default";
+          const scope = { dataRoot: dataRoot!, workspace: ws, runId: id } as PatchScope;
+          const result = proposePatch(scope, { field: body.field, value: body.value, target: body.target, note: body.note });
+          if ("error" in result) return json(result, result.error === "unknown run" ? 404 : 400);
+          return json(result);
+        }
+      }
+
       // ── Run canvas node layout (#490) — run-scoped metadata, never media ─
       {
         const cl = url.pathname.match(/^\/api\/runs\/([^/]+)\/canvas\/layout$/);
@@ -266,6 +282,13 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         const graph = buildRunGraph(dataRoot!, ws, runId);
         if (!graph) return json({ error: "unknown run" }, 404);
         return json(graph);
+      }
+      // ── Config patches read (#491) ───────────────────────────────────────
+      const patchMatch = url.pathname.match(/^\/api\/runs\/([^/]+)\/config-patches$/);
+      if (patchMatch) {
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const id = decodeURIComponent(patchMatch[1]);
+        return json(listPatches({ dataRoot: dataRoot!, workspace: ws, runId: id }));
       }
       // ── Annotations read (#488) ──────────────────────────────────────────
       const annMatch = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/annotations$/);

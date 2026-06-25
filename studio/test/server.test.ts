@@ -10,6 +10,7 @@ import { listArtifacts, listWorkspaces, safeProjectFile, mediaType, readWorkflow
 import { readAnnotations, addAnnotation, removeAnnotation, ANNOTATION_TAGS, type AnnotationScope } from "../server/annotations.js";
 import { writeInboxPack, listInboxPacks, renderInboxMarkdown, type InboxScope } from "../server/inbox.js";
 import { buildRunGraph, writeRunCanvasLayout } from "../server/graph.js";
+import { proposePatch, listPatches, validatePatch, type PatchScope } from "../server/patches.js";
 
 let tmpRoot: string;
 let studio: ReturnType<typeof startStudio>;
@@ -469,6 +470,53 @@ describe("run graph (#490)", () => {
   });
 });
 
+describe("config patches (#491)", () => {
+  const dr = () => path.join(tmpRoot, ".ralphy");
+  const scope = (runId = "run-complete"): PatchScope => ({ dataRoot: dr(), workspace: "default", runId });
+
+  test("validatePatch enforces the allowlist + per-field rules", () => {
+    expect(validatePatch("variantCount", 3).ok).toBe(true);
+    expect(validatePatch("variantCount", 0).ok).toBe(false);
+    expect(validatePatch("variantCount", 99).ok).toBe(false);
+    expect(validatePatch("budgetCapUsd", -5).ok).toBe(false);
+    expect(validatePatch("gateStrictness", "strict").ok).toBe(true);
+    expect(validatePatch("gateStrictness", "bogus").ok).toBe(false);
+    expect(validatePatch("destinationEnabled", true).ok).toBe(false); // needs a target
+    expect(validatePatch("destinationEnabled", true, "tiktok").ok).toBe(true);
+    expect(validatePatch("not-a-field", 1).ok).toBe(false);
+  });
+
+  test("propose appends a pending patch; an invalid value is rejected", () => {
+    const ok = proposePatch(scope(), { field: "variantCount", value: 3, note: "bump" });
+    expect("error" in ok).toBe(false);
+    expect(listPatches(scope()).patches.some((p) => p.field === "variantCount" && p.state === "pending")).toBe(true);
+    expect("error" in proposePatch(scope(), { field: "variantCount", value: 0 })).toBe(true);
+    expect("error" in proposePatch(scope(), { field: "bogus", value: 1 })).toBe(true);
+  });
+
+  test("propose to an unknown run errors", () => {
+    expect("error" in proposePatch(scope("ghost-run"), { field: "variantCount", value: 2 })).toBe(true);
+  });
+
+  test("a manually-applied event folds into the effective config", () => {
+    const r = proposePatch(scope(), { field: "approvalMode", value: "approve" });
+    const id = (r as { patch: { id: string } }).patch.id;
+    // Studio never applies — simulate the agent's `ralphy studio patch apply`.
+    const events = path.join(dr(), "workspaces", "default", "runs", "run-complete", "config-events.jsonl");
+    fs.appendFileSync(events, JSON.stringify({ op: "apply", id, ts: "2026-06-25T09:00:00.000Z" }) + "\n");
+    const fold = listPatches(scope());
+    expect(fold.patches.find((p) => p.id === id)!.state).toBe("applied");
+    expect(fold.effectiveConfig.approvalMode).toEqual({ value: "approve", target: null });
+  });
+
+  test("proposing a patch never mutates media", () => {
+    const renderPath = path.join(dr(), "workspaces", "default", "projects", "ship-001", "render", "final.mp4");
+    const before = fs.readFileSync(renderPath, "utf-8");
+    proposePatch(scope(), { field: "publishTarget", value: "tiktok" });
+    expect(fs.readFileSync(renderPath, "utf-8")).toBe(before);
+  });
+});
+
 describe("http api", () => {
   test("GET /api/workspaces", async () => {
     const ws = await fetch(`${base}/api/workspaces`).then((r) => r.json());
@@ -646,6 +694,31 @@ describe("http api", () => {
     expect(await r.json()).toEqual({ ok: true });
     const g = await fetch(`${base}/api/runs/run-complete/graph?workspace=default`).then((r) => r.json());
     expect(g.layout["project:ship-001"]).toEqual({ x: 320, y: 90 });
+  });
+
+  // #491 — propose a config patch over HTTP, then GET the patch list.
+  test("config-patches: POST a valid patch, then GET the list", async () => {
+    const post = await fetch(`${base}/api/runs/run-complete/config-patches`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", field: "batchSize", value: 12, note: "scale up" }),
+    });
+    expect(post.status).toBe(200);
+    const id = (await post.json()).patch.id as string;
+    const list = await fetch(`${base}/api/runs/run-complete/config-patches?workspace=default`).then((r) => r.json());
+    expect(list.patches.some((p: { id: string; state: string }) => p.id === id && p.state === "pending")).toBe(true);
+  });
+
+  test("config-patches: invalid value → 400, unknown run → 404", async () => {
+    const bad = await fetch(`${base}/api/runs/run-complete/config-patches`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", field: "variantCount", value: 0 }),
+    });
+    expect(bad.status).toBe(400);
+    const miss = await fetch(`${base}/api/runs/ghost-run/config-patches`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", field: "batchSize", value: 5 }),
+    });
+    expect(miss.status).toBe(404);
   });
 
   // #489 — the send-to-agent UI path over HTTP: POST a pack → GET the inbox list.

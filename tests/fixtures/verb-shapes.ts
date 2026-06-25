@@ -955,6 +955,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         requestedOutcome: "regenerate scene-01 with a stronger cold open",
       },
     },
+    {
+      label: "studio.patch.list",
+      shape: {
+        patches: [
+          { id: "kx12-ab34", field: "variantCount", value: 3, target: null, state: "pending", note: "bump variants", proposedAt: "2026-06-25T08:00:00.000Z" },
+          { id: "kx12-cd56", field: "destinationEnabled", value: false, target: "tiktok-main", state: "applied", note: "", proposedAt: "2026-06-25T07:50:00.000Z", decidedAt: "2026-06-25T07:55:00.000Z", reason: "paused while we fix the hook" },
+        ],
+        effectiveConfig: { destinationEnabled: { value: false, target: "tiktok-main" } },
+      },
+    },
+    {
+      label: "studio.patch.show",
+      shape: { id: "kx12-ab34", field: "variantCount", value: 3, target: null, state: "pending", note: "bump variants", proposedAt: "2026-06-25T08:00:00.000Z" },
+    },
   ],
   workflow: [
     {
