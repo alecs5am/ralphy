@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { startStudio } from "../server/index.js";
 import { listArtifacts, listWorkspaces, safeProjectFile, mediaType, readWorkflowLane, readBoard, writeBoardChoice, writeBoardLayout, listRuns, summarizeRun } from "../server/lib.js";
+import { readAnnotations, addAnnotation, removeAnnotation, ANNOTATION_TAGS, type AnnotationScope } from "../server/annotations.js";
 
 let tmpRoot: string;
 let studio: ReturnType<typeof startStudio>;
@@ -256,6 +257,61 @@ describe("runs (#482)", () => {
   });
 });
 
+describe("annotations (#488)", () => {
+  const dr = () => path.join(tmpRoot, ".ralphy");
+  const projScope = (id = "board-001"): AnnotationScope => ({ kind: "project", dataRoot: dr(), workspace: "default", id });
+  const runScope = (id = "run-complete"): AnnotationScope => ({ kind: "run", dataRoot: dr(), workspace: "default", id });
+
+  test("add + read folds the append-only log (artifact target)", () => {
+    const r = addAnnotation(projScope(), {
+      target: { type: "artifact", ref: "artifacts/images/scene-01-hub.png" },
+      tags: ["winner", "use-as-reference"],
+      note: "strongest hook",
+    });
+    expect("error" in r).toBe(false);
+    const list = readAnnotations(projScope());
+    const found = list.find((a) => a.target.ref === "artifacts/images/scene-01-hub.png")!;
+    expect(found.tags.sort()).toEqual(["use-as-reference", "winner"]);
+    expect(found.note).toBe("strongest hook");
+  });
+
+  test("remove tombstones a prior annotation by id", () => {
+    const added = addAnnotation(projScope(), { target: { type: "workflow_node", ref: "scenario" }, tags: ["reject"] });
+    const id = (added as { annotation: { id: string } }).annotation.id;
+    expect(readAnnotations(projScope()).some((a) => a.id === id)).toBe(true);
+    removeAnnotation(projScope(), id);
+    expect(readAnnotations(projScope()).some((a) => a.id === id)).toBe(false);
+  });
+
+  test("rejects an unknown tag and an unknown target type", () => {
+    expect("error" in addAnnotation(projScope(), { target: { type: "artifact", ref: "artifacts/images/scene-01-hub.png" }, tags: ["not-a-tag"] })).toBe(true);
+    expect("error" in addAnnotation(projScope(), { target: { type: "frobnicate", ref: "x" }, tags: ["winner"] })).toBe(true);
+  });
+
+  test("artifact ref traversal is rejected; run scope refuses artifact targets", () => {
+    expect("error" in addAnnotation(projScope(), { target: { type: "artifact", ref: "../../../registry.json" }, tags: ["winner"] })).toBe(true);
+    expect("error" in addAnnotation(runScope(), { target: { type: "artifact", ref: "artifacts/images/x.png" }, tags: ["winner"] })).toBe(true);
+  });
+
+  test("run-scoped annotation lands in the run dir", () => {
+    const r = addAnnotation(runScope(), { target: { type: "destination", ref: "tiktok-main" }, tags: ["publish-ready"], note: "queue it" });
+    expect("error" in r).toBe(false);
+    expect(readAnnotations(runScope()).some((a) => a.target.ref === "tiktok-main")).toBe(true);
+    // The run annotation must NOT leak into a project file.
+    expect(readAnnotations(projScope("ship-001")).some((a) => a.target.ref === "tiktok-main")).toBe(false);
+  });
+
+  test("an empty annotation (no tags, no note) is rejected; unknown scope errors", () => {
+    expect("error" in addAnnotation(projScope(), { target: { type: "project", ref: "board-001" }, tags: [], note: "" })).toBe(true);
+    expect("error" in addAnnotation(projScope("ghost-999"), { target: { type: "project", ref: "ghost-999" }, tags: ["winner"] })).toBe(true);
+  });
+
+  test("the tag vocabulary is the documented set", () => {
+    expect(ANNOTATION_TAGS).toContain("winner");
+    expect(ANNOTATION_TAGS).toContain("template-candidate");
+  });
+});
+
 describe("http api", () => {
   test("GET /api/workspaces", async () => {
     const ws = await fetch(`${base}/api/workspaces`).then((r) => r.json());
@@ -370,5 +426,46 @@ describe("http api", () => {
     const r = await fetch(`${base}/`);
     expect(r.status).toBe(200);
     expect(await r.text()).toContain("Ralphy Studio");
+  });
+
+  // #488 — the tag-an-artifact UI smoke path, exercised over the exact HTTP
+  // endpoints the Studio UI calls: POST add → GET list → POST remove.
+  test("annotations: POST add an artifact tag, GET it back, POST remove", async () => {
+    const post = (suffix: string, body: unknown) =>
+      fetch(`${base}/api/projects/board-001/annotations${suffix}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    const add = await post("", { workspace: "default", target: { type: "artifact", ref: "artifacts/images/scene-02-casey.png" }, tags: ["winner"], note: "ship this" });
+    expect(add.status).toBe(200);
+    const addBody = await add.json();
+    const newId = addBody.annotation.id as string;
+
+    const list = await fetch(`${base}/api/projects/board-001/annotations?workspace=default`).then((r) => r.json());
+    expect(list.annotations.some((a: { id: string }) => a.id === newId)).toBe(true);
+
+    const rm = await post("/remove", { workspace: "default", id: newId });
+    expect(rm.status).toBe(200);
+    const after = await fetch(`${base}/api/projects/board-001/annotations?workspace=default`).then((r) => r.json());
+    expect(after.annotations.some((a: { id: string }) => a.id === newId)).toBe(false);
+  });
+
+  test("annotations: POST with an unknown tag → 400", async () => {
+    const r = await fetch(`${base}/api/projects/board-001/annotations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", target: { type: "artifact", ref: "artifacts/images/scene-02-casey.png" }, tags: ["bogus"] }),
+    });
+    expect(r.status).toBe(400);
+  });
+
+  test("annotations: POST to a missing project → 404", async () => {
+    const r = await fetch(`${base}/api/projects/ghost-999/annotations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", target: { type: "project", ref: "ghost-999" }, tags: ["winner"] }),
+    });
+    expect(r.status).toBe(404);
   });
 });
