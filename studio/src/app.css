@@ -399,6 +399,75 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
 .qrow .qname { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qrow .qphase, .qrow .qverdict, .qrow .qspend, .qrow .qunits { color: var(--mute); }
 
+/* ── Object annotations (#488) — tag chips, tag button, popover ───── */
+/* House rules: no 1px borders; separation via bg-tint + shadow. */
+.obj-tag { display: inline-flex; align-items: center; gap: 6px; }
+.run-objtag { margin-left: 10px; vertical-align: middle; }
+
+.tagbtn {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--bg-3); color: var(--mute);
+  font-size: 11px; line-height: 1;
+  transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+.tagbtn:hover { background: var(--bg-4); color: var(--ink-2); }
+.tagbtn.on { background: rgb(255 166 48 / 0.2); color: var(--acc); }
+
+/* Tag button overlaid on a tile / variant — appears on hover, stays if tagged. */
+.tile .tagbtn, .board .vtile .tagbtn {
+  position: absolute; top: 7px; right: 7px; z-index: 4;
+  background: rgb(0 0 0 / 0.55); color: rgb(255 255 255 / 0.85);
+  opacity: 0; backdrop-filter: blur(4px);
+}
+.tile:hover .tagbtn, .board .vtile:hover .tagbtn, .tile .tagbtn.on, .board .vtile .tagbtn.on { opacity: 1; }
+.board .vtile .tagbtn { top: 6px; right: 6px; width: 20px; height: 20px; }
+
+.atags, .vtags, .tile-atags, .cv-atags { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.cv-atags { padding: 0 13px 12px; }
+.tile-atags { position: absolute; left: 7px; bottom: 26px; z-index: 3; max-width: calc(100% - 14px); }
+.vtags { position: absolute; left: 6px; bottom: 20px; z-index: 3; max-width: calc(100% - 12px); }
+.atag {
+  font-family: var(--font-mono); font-size: 9px; line-height: 1.4;
+  padding: 1px 6px; border-radius: 5px;
+  background: var(--bg-4); color: var(--ink-3);
+}
+/* Sentiment colors for the load-bearing tags; the rest stay neutral. */
+.atag.at-winner, .atag.at-approved, .atag.at-publish-ready { background: rgb(91 154 111 / 0.22); color: #7fb893; }
+.atag.at-reject, .atag.at-weak-hook, .atag.at-style-drift { background: rgb(194 85 78 / 0.2); color: #d68a84; }
+.atag.at-needs-regeneration { background: rgb(255 166 48 / 0.18); color: var(--acc-2); }
+.atag.at-use-as-reference, .atag.at-template-candidate { background: rgb(255 166 48 / 0.12); color: var(--acc-2); }
+.anote { color: var(--mute); font-size: 9px; }
+
+.tagpop {
+  position: fixed; z-index: 200; width: 280px;
+  background: var(--bg-1); border-radius: 12px;
+  box-shadow: 0 20px 50px -18px rgb(0 0 0 / 0.85);
+  padding: 12px; display: flex; flex-direction: column; gap: 9px;
+}
+.tagpop .tp-head { font-family: var(--font-mono); font-size: 10.5px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.05em; }
+.tagpop .tp-head .tp-ref { color: var(--ink-3); text-transform: none; letter-spacing: 0; }
+.tagpop .tp-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tagpop .tp-tag {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 4px 8px; border-radius: 6px;
+  background: var(--bg-3); color: var(--ink-3);
+  transition: background 140ms ease, color 140ms ease;
+}
+.tagpop .tp-tag:hover { background: var(--bg-4); }
+.tagpop .tp-tag.sel { background: rgb(255 166 48 / 0.22); color: var(--acc); }
+.tagpop .tp-note {
+  background: var(--bg-3); color: var(--ink-2); border: none; border-radius: 8px;
+  padding: 8px 10px; font: inherit; font-size: 12px; resize: vertical;
+}
+.tagpop .tp-note:focus { outline: none; background: var(--bg-4); }
+.tagpop .tp-actions { display: flex; align-items: center; justify-content: space-between; }
+.tagpop .tp-save { background: var(--ink); color: var(--bg); padding: 6px 16px; border-radius: 7px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; }
+.tagpop .tp-save:hover { background: var(--acc); }
+.tagpop .tp-save:disabled { opacity: 0.5; }
+.tagpop .tp-clear { color: var(--mute); font-family: var(--font-mono); font-size: 11px; }
+.tagpop .tp-clear:hover { color: #d68a84; }
+
 /* ── Modal ──────────────────────────────────────────────────────── */
 .modal {
   position: fixed; inset: 0; z-index: 100;
