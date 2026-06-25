@@ -8,7 +8,7 @@
 const $ = (id) => document.getElementById(id);
 const els = {
   ws: $("ws"), projects: $("projects"), title: $("title"), count: $("count"),
-  views: $("views"), chips: $("chips"), sections: $("sections"), placeholder: $("placeholder"),
+  views: $("views"), chips: $("chips"), sections: $("sections"), placeholder: $("placeholder"), objTag: $("objTag"),
   board: $("board"), runboard: $("runboard"), runs: $("runs"), runPick: $("runPick"),
   modal: $("modal"), stage: $("stage"), modalClose: $("modalClose"), live: $("live"),
 };
@@ -36,7 +36,20 @@ const state = {
   socket: null,
   runId: null,            // selected run id (run dashboard mode) — clears on project pick
   run: null,              // loaded RunSummary for the dashboard
+  annotations: [],        // annotation records for the current scope (#488)
+  annIndex: {},           // `${type}:${ref}` → latest annotation record
 };
+
+// Annotation tag vocabulary (#488) — mirrors studio/server/annotations.ts.
+const ANNOTATION_TAGS = ["winner", "reject", "needs-regeneration", "weak-hook", "style-drift", "use-as-reference", "approved", "publish-ready", "template-candidate"];
+const annKey = (type, ref) => `${type}:${ref}`;
+function indexAnnotations(list) {
+  const idx = {};
+  // List is newest-first; keep the newest annotation per target key.
+  for (const a of list || []) { const k = annKey(a.target.type, a.target.ref); if (!idx[k]) idx[k] = a; }
+  state.annotations = list || [];
+  state.annIndex = idx;
+}
 
 // Run dashboard status dot styling, keyed off scorecard verdict (#427 vocab).
 const VERDICT_DOT = {
@@ -57,6 +70,13 @@ const fileUrl = (path) =>
   `/api/projects/${encodeURIComponent(state.project)}/file?workspace=${encodeURIComponent(state.workspace)}&path=${encodeURIComponent(path)}`;
 const boardUrl = () => `/api/projects/${encodeURIComponent(state.project)}/board?workspace=${encodeURIComponent(state.workspace)}`;
 const workflowUrl = () => `/api/projects/${encodeURIComponent(state.project)}/workflow?workspace=${encodeURIComponent(state.workspace)}`;
+// Annotations (#488): project scope when a project is open, run scope otherwise.
+const annScopeUrl = () => state.project
+  ? `/api/projects/${encodeURIComponent(state.project)}/annotations?workspace=${encodeURIComponent(state.workspace)}`
+  : `/api/runs/${encodeURIComponent(state.runId)}/annotations?workspace=${encodeURIComponent(state.workspace)}`;
+const annPostBase = () => state.project
+  ? `/api/projects/${encodeURIComponent(state.project)}/annotations`
+  : `/api/runs/${encodeURIComponent(state.runId)}/annotations`;
 
 // ── Routing (#<ws>/<project>) ────────────────────────────────────────
 let _applyingHash = false;
@@ -122,7 +142,12 @@ function renderRuns(runs) {
 async function selectRun(runId) {
   state.runId = runId;
   state.project = null;
-  state.run = await api(`/api/runs/${encodeURIComponent(runId)}?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null);
+  const [run, ann] = await Promise.all([
+    api(`/api/runs/${encodeURIComponent(runId)}?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null),
+    api(`/api/runs/${encodeURIComponent(runId)}/annotations?workspace=${encodeURIComponent(state.workspace)}`).catch(() => ({ annotations: [] })),
+  ]);
+  state.run = run;
+  indexAnnotations(ann.annotations);
   for (const btn of els.runs.querySelectorAll(".run")) btn.classList.toggle("active", btn.dataset.id === runId);
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.remove("active");
   if (state.socket) { state.socket.close(); state.socket = null; }
@@ -138,14 +163,16 @@ async function selectProject(id, fromHash) {
   cvX = 0; cvY = 0; cvScale = 1; _cvInit = false;
   for (const btn of els.runs.querySelectorAll(".run")) btn.classList.remove("active");
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.toggle("active", btn.dataset.id === id);
-  const [artifacts, board, workflow] = await Promise.all([
+  const [artifacts, board, workflow, ann] = await Promise.all([
     api(`/api/projects/${encodeURIComponent(id)}/artifacts?workspace=${encodeURIComponent(state.workspace)}`),
     api(boardUrl()).catch(() => null),
     api(workflowUrl()).catch(() => null),
+    api(annScopeUrl()).catch(() => ({ annotations: [] })),
   ]);
   state.artifacts = artifacts;
   state.board = board;
   state.workflow = workflow;
+  indexAnnotations(ann.annotations);
   state.view = workflow && workflow.steps && workflow.steps.length ? "board" : "files";
   // Land on the material: open the anchor node by default so variants are
   // visible without a click (the board's job is to review material).
@@ -188,6 +215,7 @@ function render() {
     els.sections.hidden = true; els.sections.innerHTML = "";
     els.views.innerHTML = ""; els.chips.innerHTML = "";
     els.runboard.hidden = false;
+    els.objTag.innerHTML = "";
     renderRunDashboard();
     return;
   }
@@ -196,11 +224,14 @@ function render() {
     els.placeholder.hidden = false; els.placeholder.textContent = "pick a project or run";
     els.board.hidden = true; els.board.innerHTML = "";
     els.sections.hidden = true; els.sections.innerHTML = "";
-    els.views.innerHTML = ""; els.chips.innerHTML = "";
+    els.views.innerHTML = ""; els.chips.innerHTML = ""; els.objTag.innerHTML = "";
     els.title.textContent = "—"; els.count.textContent = "";
     return;
   }
   els.title.textContent = state.project;
+  // Project-level tag affordance (#488) in the topbar.
+  els.objTag.innerHTML = tagBtnHtml("project", state.project, state.project) + tagChipsHtml("project", state.project);
+  wireTagButtons(els.objTag);
   renderViews();
   const showBoard = state.view === "board";
   els.board.hidden = !showBoard;
@@ -277,6 +308,7 @@ function renderRunDashboard() {
   els.runboard.innerHTML = `
     <div class="run-head">
       <span class="run-status ${RUN_STATUS_CLS[r.status] || "rs-active"}">${esc(r.status)}</span>
+      <span class="obj-tag run-objtag">${tagBtnHtml("run", state.runId, r.title)}${tagChipsHtml("run", state.runId)}</span>
       ${r.brief ? `<p class="run-brief">${esc(r.brief)}</p>` : ""}
       <div class="run-next">${esc(r.nextAction)}</div>
     </div>
@@ -302,6 +334,7 @@ function renderRunDashboard() {
   for (const el of els.runboard.querySelectorAll("[data-proj]")) {
     el.onclick = () => selectProject(el.dataset.proj);
   }
+  wireTagButtons(els.runboard);
 }
 
 function renderViews() {
@@ -326,6 +359,8 @@ function vtile(v, sceneId) {
       <img loading="lazy" src="${fileUrl(v.path)}" alt="" />
       ${versionBadge(v.name)}
       ${v.chosen ? '<span class="chosen-badge">✓</span>' : ""}
+      ${tagBtnHtml("artifact", v.path, v.name)}
+      ${tagChipsHtml("artifact", v.path) ? `<span class="vtags">${tagChipsHtml("artifact", v.path)}</span>` : ""}
       <button class="zoom" data-zoom="${v.path}" title="preview" aria-label="preview">⤢</button>
       <div class="vcap">${v.name}</div>
     </div>`;
@@ -354,7 +389,8 @@ function nodeHtml(s) {
   const expanded = state.expanded.has(s.id);
   let body = `
     <div class="cv-meta">${meta}</div>
-    <div class="cv-tags">${gate}${verdict}<span class="mode mode-${s.mode}">${s.mode}</span></div>`;
+    <div class="cv-tags">${gate}${verdict}<span class="mode mode-${s.mode}">${s.mode}</span>${tagBtnHtml("workflow_node", s.id, s.label)}</div>
+    ${tagChipsHtml("workflow_node", s.id) ? `<div class="cv-atags">${tagChipsHtml("workflow_node", s.id)}</div>` : ""}`;
   if (isAssets) {
     const b = state.board;
     const nScenes = b ? b.scenes.length : 0;
@@ -501,6 +537,7 @@ function wireNodes() {
   for (const v of inner.querySelectorAll(".scene.other .vtile")) {
     v.onclick = (e) => { e.stopPropagation(); openModal({ path: v.dataset.path, type: "image", name: v.dataset.path.split("/").pop() }); };
   }
+  wireTagButtons(inner);
 }
 
 async function chooseVariant(scene, path) {
@@ -554,7 +591,7 @@ function renderFiles() {
       <div class="grid">
         ${items.map((a) => `
           <div class="tile ${a.fresh ? "fresh" : ""}" data-path="${a.path}" title="${a.path}">
-            ${tileMedia(a)}${versionBadge(a.name)}<div class="cap">${a.name}</div>
+            ${tileMedia(a)}${versionBadge(a.name)}${tagBtnHtml("artifact", a.path, a.name)}${tagChipsHtml("artifact", a.path) ? `<span class="tile-atags">${tagChipsHtml("artifact", a.path)}</span>` : ""}<div class="cap">${a.name}</div>
           </div>`).join("")}
       </div>
     </section>`).join("");
@@ -562,6 +599,100 @@ function renderFiles() {
   for (const tile of els.sections.querySelectorAll(".tile")) {
     tile.onclick = () => { const entry = state.artifacts.find((x) => x.path === tile.dataset.path); if (entry) openModal(entry); };
   }
+  wireTagButtons(els.sections);
+}
+
+// ── Object annotations (#488) — tag chips + a tag popover ─────────────
+// Read-only display of an object's tags, plus a 🏷 button that opens a popover
+// to set the controlled-vocab tags + a free note. Writes go to the append-only
+// annotations.jsonl via the annotations API (metadata only, never media).
+function annFor(type, ref) { return state.annIndex[annKey(type, ref)] || null; }
+
+function tagChipsHtml(type, ref) {
+  const a = annFor(type, ref);
+  if (!a || (!a.tags.length && !a.note)) return "";
+  const chips = a.tags.map((t) => `<span class="atag at-${t}">${t}</span>`).join("");
+  return `<span class="atags" title="${esc(a.note || "")}">${chips}${a.note ? '<span class="anote">✎</span>' : ""}</span>`;
+}
+
+function tagBtnHtml(type, ref, label) {
+  const on = annFor(type, ref) ? " on" : "";
+  return `<button class="tagbtn${on}" data-atype="${esc(type)}" data-aref="${esc(ref)}" data-alabel="${esc(label || ref)}" title="tag this ${type}" aria-label="tag">🏷</button>`;
+}
+
+function wireTagButtons(container) {
+  for (const b of container.querySelectorAll(".tagbtn")) {
+    b.onclick = (e) => {
+      e.stopPropagation(); e.preventDefault();
+      openTagPopover(b, { type: b.dataset.atype, ref: b.dataset.aref, label: b.dataset.alabel });
+    };
+  }
+}
+
+let _pop = null;
+function closeTagPopover() { if (_pop) { _pop.remove(); _pop = null; document.removeEventListener("mousedown", _popOutside, true); } }
+function _popOutside(e) { if (_pop && !_pop.contains(e.target) && !e.target.classList.contains("tagbtn")) closeTagPopover(); }
+
+function openTagPopover(anchor, target) {
+  closeTagPopover();
+  const cur = annFor(target.type, target.ref);
+  const selected = new Set(cur ? cur.tags : []);
+  const pop = document.createElement("div");
+  pop.className = "tagpop";
+  pop.innerHTML = `
+    <div class="tp-head">${esc(target.type)} · <span class="tp-ref">${esc(target.label)}</span></div>
+    <div class="tp-tags">${ANNOTATION_TAGS.map((t) => `<button class="tp-tag${selected.has(t) ? " sel" : ""}" data-t="${t}">${t}</button>`).join("")}</div>
+    <textarea class="tp-note" placeholder="note (optional)" rows="2">${esc(cur ? cur.note : "")}</textarea>
+    <div class="tp-actions">
+      ${cur ? '<button class="tp-clear">remove</button>' : "<span></span>"}
+      <button class="tp-save">save</button>
+    </div>`;
+  document.body.appendChild(pop);
+  // Position under the anchor, clamped to the viewport.
+  const r = anchor.getBoundingClientRect();
+  pop.style.top = `${Math.min(window.innerHeight - pop.offsetHeight - 12, r.bottom + 6)}px`;
+  pop.style.left = `${Math.min(window.innerWidth - pop.offsetWidth - 12, r.left)}px`;
+  _pop = pop;
+  setTimeout(() => document.addEventListener("mousedown", _popOutside, true), 0);
+
+  for (const t of pop.querySelectorAll(".tp-tag")) {
+    t.onclick = () => { const k = t.dataset.t; selected.has(k) ? selected.delete(k) : selected.add(k); t.classList.toggle("sel"); };
+  }
+  const saveBtn = pop.querySelector(".tp-save");
+  saveBtn.onclick = async () => {
+    saveBtn.disabled = true;
+    await saveAnnotation(target.type, target.ref, [...selected], pop.querySelector(".tp-note").value.trim());
+    closeTagPopover();
+  };
+  const clear = pop.querySelector(".tp-clear");
+  if (clear) clear.onclick = async () => { await removeAnnotationFor(target.type, target.ref); closeTagPopover(); };
+}
+
+// Replace-on-save: drop the prior annotation for this target (if any), then add
+// the new one. Both go through the append-only API (the server tombstones).
+async function saveAnnotation(type, ref, tags, note) {
+  if (!tags.length && !note) { await removeAnnotationFor(type, ref); return; }
+  const prior = annFor(type, ref);
+  try {
+    if (prior) await fetch(`${annPostBase()}/remove`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace: state.workspace, id: prior.id }) });
+    await fetch(annPostBase(), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace: state.workspace, target: { type, ref }, tags, note }) });
+  } catch { /* keep prior on failure */ }
+  await reloadAnnotations();
+}
+
+async function removeAnnotationFor(type, ref) {
+  const prior = annFor(type, ref);
+  if (!prior) return;
+  try { await fetch(`${annPostBase()}/remove`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace: state.workspace, id: prior.id }) }); } catch { /* noop */ }
+  await reloadAnnotations();
+}
+
+async function reloadAnnotations() {
+  try { const ann = await api(annScopeUrl()); indexAnnotations(ann.annotations); } catch { /* keep */ }
+  // Re-render the active surface so chips refresh.
+  if (state.runId) renderRunDashboard();
+  else if (state.view === "board") renderCanvas();
+  else renderFiles();
 }
 
 // ── Modal preview ────────────────────────────────────────────────────

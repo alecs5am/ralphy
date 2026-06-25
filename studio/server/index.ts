@@ -2,10 +2,10 @@
 //
 // One Bun.serve process: static UI (studio/src/) + JSON API + WebSocket
 // live-watch. READ-ONLY over MEDIA (AGENTS.md invariant #14): no code path here
-// writes, renames, or deletes any artifact. The SOLE write is the board-choice
-// endpoint (#478) — POST /api/projects/:id/board/choose persists the chosen
-// variant per scene to a project-local board.json, never touching media. Every
-// other non-GET stays 405.
+// writes, renames, or deletes any artifact. The only writes are sidecar
+// METADATA, never media: the board choice + node layout (#478, board.json), the
+// object annotations (#488, annotations.jsonl), and the agent context inbox
+// (#489, agent-inbox/). Every other non-GET stays 405.
 //
 // Run by the USER in their own shell (`bun run dev` inside studio/) — never
 // auto-launched by the agent (AGENTS.md invariant #5).
@@ -29,6 +29,7 @@ import {
   summarizeRun,
   MIME,
 } from "./lib.js";
+import { readAnnotations, addAnnotation, removeAnnotation, type AnnotationScope } from "./annotations.js";
 
 const SRC_DIR = path.join(import.meta.dir, "..", "src");
 
@@ -162,6 +163,28 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         return json(result);
       }
 
+      // ── Object annotations (#488) — append-only metadata sidecar ─────────
+      // Tag / note Studio-selected objects. Project scope writes to
+      // <project>/annotations.jsonl; run scope to runs/<id>/annotations.jsonl.
+      // Never touches media. Add / remove only; the live set is the fold.
+      {
+        const am = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/annotations(\/remove)?$/);
+        if (am && req.method === "POST") {
+          const kind = am[1] === "runs" ? "run" : "project";
+          const id = decodeURIComponent(am[2]);
+          const isRemove = !!am[3];
+          let body: any;
+          try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+          const ws = (body.workspace as string) ?? "default";
+          const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as AnnotationScope;
+          const result = isRemove
+            ? removeAnnotation(scope, body.id)
+            : addAnnotation(scope, { target: body.target, tags: body.tags, note: body.note });
+          if ("error" in result) return json(result, result.error === "unknown scope" ? 404 : 400);
+          return json(result);
+        }
+      }
+
       if (req.method !== "GET") return json({ error: "read-only" }, 405);
 
       // ── WS upgrade ────────────────────────────────────────────────────
@@ -194,6 +217,15 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         const summary = summarizeRun(dataRoot!, ws, runId);
         if (!summary) return json({ error: "unknown run" }, 404);
         return json(summary);
+      }
+      // ── Annotations read (#488) ──────────────────────────────────────────
+      const annMatch = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/annotations$/);
+      if (annMatch) {
+        const kind = annMatch[1] === "runs" ? "run" : "project";
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const id = decodeURIComponent(annMatch[2]);
+        const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as AnnotationScope;
+        return json({ annotations: readAnnotations(scope) });
       }
       let m = url.pathname.match(/^\/api\/projects\/([^/]+)\/artifacts$/);
       if (m) {
