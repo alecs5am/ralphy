@@ -37,6 +37,9 @@ const state = {
   socket: null,
   runId: null,            // selected run id (run dashboard mode) — clears on project pick
   run: null,              // loaded RunSummary for the dashboard
+  runView: "graph",       // run mode view: "graph" (canvas) | "dashboard" (#490)
+  runGraph: null,         // loaded RunGraph for the canvas
+  graphPos: {},           // working run-graph node positions (canvas space)
   annotations: [],        // annotation records for the current scope (#488)
   annIndex: {},           // `${type}:${ref}` → latest annotation record
   selection: [],          // objects selected for the agent inbox (#489)
@@ -66,10 +69,11 @@ const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").
 // Canvas transform (pan/zoom). Not persisted; node positions are.
 let cvX = 0, cvY = 0, cvScale = 1;
 let _cvInit = false; // pan-to-anchors once per project load
+let _graphInit = false; // center the run graph once per run load (#490)
 
 const api = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
-const fileUrl = (path) =>
-  `/api/projects/${encodeURIComponent(state.project)}/file?workspace=${encodeURIComponent(state.workspace)}&path=${encodeURIComponent(path)}`;
+const fileUrl = (path, proj) =>
+  `/api/projects/${encodeURIComponent(proj || state.project)}/file?workspace=${encodeURIComponent(state.workspace)}&path=${encodeURIComponent(path)}`;
 const boardUrl = () => `/api/projects/${encodeURIComponent(state.project)}/board?workspace=${encodeURIComponent(state.workspace)}`;
 const workflowUrl = () => `/api/projects/${encodeURIComponent(state.project)}/workflow?workspace=${encodeURIComponent(state.workspace)}`;
 // Annotations (#488): project scope when a project is open, run scope otherwise.
@@ -115,7 +119,7 @@ async function selectWorkspace(slug, fromHash) {
   state.project = null;
   state.runId = null; state.run = null;
   state.board = null; state.workflow = null;
-  state.selection = []; renderSelTray();
+  state.selection = []; renderSelTray(); closeDrawer();
   const [projects, runs] = await Promise.all([
     api(`/api/projects?workspace=${encodeURIComponent(slug)}`),
     api(`/api/runs?workspace=${encodeURIComponent(slug)}`).catch(() => []),
@@ -145,12 +149,15 @@ function renderRuns(runs) {
 async function selectRun(runId) {
   state.runId = runId;
   state.project = null;
-  state.selection = []; renderSelTray();
-  const [run, ann] = await Promise.all([
+  state.selection = []; renderSelTray(); closeDrawer();
+  state.graphPos = {}; _graphInit = false; cvX = 0; cvY = 0; cvScale = 1;
+  const [run, ann, graph] = await Promise.all([
     api(`/api/runs/${encodeURIComponent(runId)}?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null),
     api(`/api/runs/${encodeURIComponent(runId)}/annotations?workspace=${encodeURIComponent(state.workspace)}`).catch(() => ({ annotations: [] })),
+    api(`/api/runs/${encodeURIComponent(runId)}/graph?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null),
   ]);
   state.run = run;
+  state.runGraph = graph;
   indexAnnotations(ann.annotations);
   for (const btn of els.runs.querySelectorAll(".run")) btn.classList.toggle("active", btn.dataset.id === runId);
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.remove("active");
@@ -164,7 +171,7 @@ async function selectProject(id, fromHash) {
   state.filter = null;
   state.nodePos = {};
   state.expanded = new Set();
-  state.selection = []; renderSelTray();
+  state.selection = []; renderSelTray(); closeDrawer();
   cvX = 0; cvY = 0; cvScale = 1; _cvInit = false;
   for (const btn of els.runs.querySelectorAll(".run")) btn.classList.remove("active");
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.toggle("active", btn.dataset.id === id);
@@ -218,10 +225,12 @@ function render() {
     els.placeholder.hidden = true;
     els.board.hidden = true; els.board.innerHTML = "";
     els.sections.hidden = true; els.sections.innerHTML = "";
-    els.views.innerHTML = ""; els.chips.innerHTML = "";
+    els.chips.innerHTML = "";
     els.runboard.hidden = false;
     els.objTag.innerHTML = "";
-    renderRunDashboard();
+    renderRunViews();
+    if (state.runView === "graph") renderRunGraph();
+    else renderRunDashboard();
     return;
   }
   els.runboard.hidden = true; els.runboard.innerHTML = "";
@@ -340,6 +349,205 @@ function renderRunDashboard() {
     el.onclick = () => selectProject(el.dataset.proj);
   }
   wireTagButtons(els.runboard);
+}
+
+// ── Run canvas graph (#490) — the content-farm graph as a control room ────
+function renderRunViews() {
+  els.views.innerHTML = ["graph", "dashboard"]
+    .map((v) => `<button class="vtab ${state.runView === v ? "active" : ""}" data-rv="${v}">${v}</button>`)
+    .join("");
+  for (const t of els.views.querySelectorAll(".vtab")) {
+    t.onclick = () => { state.runView = t.dataset.rv; render(); };
+  }
+}
+
+const GNODE_W = { default: 180, project: 200 };
+const GCOL = 230, GROW = 104;
+function gnodeWidth(n) { return GNODE_W[n.type] || GNODE_W.default; }
+
+// Layered auto-layout: x by node.layer column, y stacked within the layer.
+// A saved position (canvas.json) overrides. Pure over state.runGraph.
+function layoutGraph() {
+  const g = state.runGraph;
+  const saved = g.layout || {};
+  const perLayer = {};
+  for (const n of g.nodes) {
+    if (saved[n.id]) { state.graphPos[n.id] = { x: saved[n.id].x, y: saved[n.id].y }; continue; }
+    const row = perLayer[n.layer] = (perLayer[n.layer] ?? 0);
+    state.graphPos[n.id] = { x: 40 + n.layer * GCOL, y: 40 + row * GROW };
+    perLayer[n.layer] = row + 1;
+  }
+}
+
+const GVERDICT = { ship: "v-ship", repair: "v-repair", "needs-user-decision": "v-needs", blocked: "v-blocked" };
+const GSTATUS = { pass: "gs-pass", blocked: "gs-blocked", waiting: "gs-waiting", ready: "gs-ready", pending: "gs-pending", running: "gs-running" };
+function graphNodeHtml(n) {
+  const money = (v) => (v == null ? "" : `$${Number(v).toFixed(2)}`);
+  const badges = [];
+  if (n.verdict) badges.push(`<span class="gb ${GVERDICT[n.verdict] || ""}">${esc(n.verdict)}</span>`);
+  if (n.count != null && n.type === "project") badges.push(`<span class="gb">${n.count} files</span>`);
+  if (n.cost != null && n.type === "project") badges.push(`<span class="gb">${money(n.cost)}</span>`);
+  if (n.approvalNeeded) badges.push(`<span class="gb gb-approve">approve</span>`);
+  const statusCls = GSTATUS[n.status] || "";
+  return `
+    <div class="gnode gt-${n.type} ${statusCls}" data-id="${esc(n.id)}" style="width:${gnodeWidth(n)}px">
+      <div class="gn-head"><span class="gn-type">${esc(n.type)}</span><span class="gn-title">${esc(n.label)}</span></div>
+      ${n.detail ? `<div class="gn-detail">${esc(n.detail)}</div>` : ""}
+      ${badges.length ? `<div class="gn-badges">${badges.join("")}</div>` : ""}
+    </div>`;
+}
+
+function renderRunGraph() {
+  const g = state.runGraph;
+  els.title.textContent = g ? g.title : state.runId;
+  els.objTag.innerHTML = objBtnsHtml("run", state.runId, g ? g.title : state.runId) + tagChipsHtml("run", state.runId);
+  wireTagButtons(els.objTag);
+  els.runboard.innerHTML = "";
+  els.count.textContent = g ? `${g.nodes.length} node${g.nodes.length === 1 ? "" : "s"}` : "";
+  if (!g) { els.runboard.innerHTML = `<div class="placeholder">run graph unavailable</div>`; return; }
+  if (!g.nodes.length) { els.runboard.innerHTML = `<div class="placeholder">empty run — no sources, projects, or units yet</div>`; return; }
+  layoutGraph();
+  els.runboard.innerHTML = `<div class="cv-viewport" id="gvVp"><div class="cv-inner" id="gvInner"><svg class="cv-edges" id="gvEdges"></svg>${g.nodes.map(graphNodeHtml).join("")}</div><div class="cv-hint">drag canvas to pan · scroll to zoom · click a node for details</div></div>`;
+  const inner = $("gvInner");
+  for (const n of g.nodes) {
+    const el = inner.querySelector(`.gnode[data-id="${cssEsc(n.id)}"]`);
+    const p = state.graphPos[n.id];
+    el.style.left = p.x + "px"; el.style.top = p.y + "px";
+  }
+  if (!_graphInit) { cvX = 20; cvY = 20; cvScale = 1; _graphInit = true; }
+  applyGraphTransform();
+  drawGraphEdges();
+  wireGraphCanvas();
+  wireGraphNodes();
+}
+
+// CSS.escape fallback for attribute selectors (node ids carry ":" and "/").
+function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
+
+function applyGraphTransform() {
+  const inner = $("gvInner");
+  if (inner) inner.style.transform = `translate(${cvX}px, ${cvY}px) scale(${cvScale})`;
+}
+
+function drawGraphEdges() {
+  const inner = $("gvInner"); const svg = $("gvEdges");
+  if (!inner || !svg) return;
+  const g = state.runGraph;
+  let maxX = 0, maxY = 0, lines = "";
+  const elOf = {};
+  for (const n of g.nodes) { elOf[n.id] = inner.querySelector(`.gnode[data-id="${cssEsc(n.id)}"]`); const p = state.graphPos[n.id]; if (elOf[n.id]) { maxX = Math.max(maxX, p.x + elOf[n.id].offsetWidth); maxY = Math.max(maxY, p.y + elOf[n.id].offsetHeight); } }
+  svg.setAttribute("width", maxX + 240); svg.setAttribute("height", maxY + 240);
+  for (const e of g.edges) {
+    const a = elOf[e.from], b = elOf[e.to]; const pa = state.graphPos[e.from], pb = state.graphPos[e.to];
+    if (!a || !b || !pa || !pb) continue;
+    const ax = pa.x + a.offsetWidth, ay = pa.y + a.offsetHeight / 2;
+    const bx = pb.x, by = pb.y + b.offsetHeight / 2;
+    const mx = (ax + bx) / 2;
+    lines += `<path d="M ${ax} ${ay} C ${mx} ${ay}, ${mx} ${by}, ${bx} ${by}" class="cv-edge" />`;
+  }
+  svg.innerHTML = lines;
+}
+
+function wireGraphCanvas() {
+  const vp = $("gvVp");
+  vp.onwheel = (e) => {
+    e.preventDefault();
+    const next = Math.min(2, Math.max(0.25, cvScale * (e.deltaY < 0 ? 1.1 : 0.9)));
+    if (next === cvScale) return;
+    const rect = vp.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    cvX = mx - (mx - cvX) * (next / cvScale);
+    cvY = my - (my - cvY) * (next / cvScale);
+    cvScale = next;
+    applyGraphTransform();
+  };
+  vp.onmousedown = (e) => {
+    if (e.target.closest(".gnode")) return;
+    const sx = e.clientX - cvX, sy = e.clientY - cvY;
+    const mv = (ev) => { cvX = ev.clientX - sx; cvY = ev.clientY - sy; applyGraphTransform(); };
+    const up = () => { window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up);
+  };
+}
+
+let _gLayoutTimer = null;
+function saveGraphLayout(node, x, y) {
+  clearTimeout(_gLayoutTimer);
+  _gLayoutTimer = setTimeout(() => {
+    fetch(`/api/runs/${encodeURIComponent(state.runId)}/canvas/layout`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: state.workspace, node, x: Math.round(x), y: Math.round(y) }),
+    }).catch(() => {});
+  }, 300);
+}
+
+function wireGraphNodes() {
+  const inner = $("gvInner");
+  for (const el of inner.querySelectorAll(".gnode")) {
+    const id = el.dataset.id;
+    let moved = false;
+    el.querySelector(".gn-head").onmousedown = (e) => {
+      e.stopPropagation(); e.preventDefault();
+      moved = false;
+      const p = state.graphPos[id]; const sx = e.clientX, sy = e.clientY; const ox = p.x, oy = p.y;
+      el.classList.add("dragging");
+      const mv = (ev) => { moved = true; p.x = ox + (ev.clientX - sx) / cvScale; p.y = oy + (ev.clientY - sy) / cvScale; el.style.left = p.x + "px"; el.style.top = p.y + "px"; drawGraphEdges(); };
+      const up = () => {
+        window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up);
+        el.classList.remove("dragging");
+        if (moved) {
+          if (state.runGraph) { state.runGraph.layout = state.runGraph.layout || {}; state.runGraph.layout[id] = { x: Math.round(p.x), y: Math.round(p.y) }; }
+          saveGraphLayout(id, p.x, p.y);
+        } else {
+          openNodeDrawer(state.runGraph.nodes.find((n) => n.id === id));
+        }
+      };
+      window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up);
+    };
+  }
+}
+
+// ── Node drawer (#490) — files / annotations / logs / findings + actions ──
+let _drawer = null;
+function closeDrawer() { if (_drawer) { _drawer.remove(); _drawer = null; } }
+const INBOX_SELECTABLE = new Set(["project", "unit", "destination", "artifact", "eval_finding", "run", "workflow_node"]);
+
+function openNodeDrawer(n) {
+  if (!n) return;
+  closeDrawer();
+  const d = document.createElement("div");
+  d.className = "drawer";
+  const projFileUrl = (rel) => n.project ? `/api/projects/${encodeURIComponent(n.project)}/file?workspace=${encodeURIComponent(state.workspace)}&path=${encodeURIComponent(rel)}` : null;
+  const stats = [];
+  if (n.verdict) stats.push(["verdict", n.verdict]);
+  if (n.status) stats.push(["status", n.status]);
+  if (n.cost != null && n.type === "project") stats.push(["spent", `$${Number(n.cost).toFixed(2)}`]);
+  if (n.count != null && n.type === "project") stats.push(["artifacts", n.count]);
+  const ann = annFor(n.type, n.ref || n.id);
+  d.innerHTML = `
+    <div class="dr-head"><span class="dr-type gt-${n.type}">${esc(n.type)}</span><span class="dr-title">${esc(n.label)}</span><button class="dr-close" aria-label="close">✕</button></div>
+    ${n.detail ? `<div class="dr-detail">${esc(n.detail)}</div>` : ""}
+    ${stats.length ? `<div class="dr-stats">${stats.map(([k, v]) => `<div class="dr-stat"><span>${k}</span><b>${esc(String(v))}</b></div>`).join("")}</div>` : ""}
+    <div class="dr-section"><h4>annotations</h4><div class="dr-ann">${ann ? `${ann.tags.map((t) => `<span class="atag at-${t}">${t}</span>`).join("")} ${ann.note ? `<span class="dr-note">${esc(ann.note)}</span>` : ""}` : `<span class="dr-muted">none</span>`} ${tagBtnHtml(n.type, n.ref || n.id, n.label)}</div></div>
+    <div class="dr-actions">
+      ${n.project ? `<button class="dr-btn" data-act="board">open project board →</button>` : ""}
+      ${n.project ? `<button class="dr-btn" data-act="eval">view eval.json</button>` : ""}
+      ${n.project ? `<button class="dr-btn" data-act="logs">view gen log</button>` : ""}
+      ${INBOX_SELECTABLE.has(n.type) ? `<button class="dr-btn dr-sel" data-act="select">${isSelected(n.type, n.ref || (n.project ?? n.id)) ? "✓ selected for inbox" : "select for inbox"}</button>` : ""}
+    </div>`;
+  document.body.appendChild(d);
+  _drawer = d;
+  d.querySelector(".dr-close").onclick = closeDrawer;
+  wireTagButtons(d);
+  for (const b of d.querySelectorAll(".dr-btn")) {
+    b.onclick = () => {
+      const act = b.dataset.act;
+      if (act === "board") { closeDrawer(); selectProject(n.project); }
+      else if (act === "eval") openModal({ path: "eval.json", type: "text", name: "eval.json", _proj: n.project });
+      else if (act === "logs") openModal({ path: "logs/generations.jsonl", type: "text", name: "generations.jsonl", _proj: n.project });
+      else if (act === "select") { toggleSelect(n.type, n.ref || (n.project ?? n.id), n.label); closeDrawer(); }
+    };
+  }
 }
 
 function renderViews() {
@@ -699,7 +907,7 @@ async function removeAnnotationFor(type, ref) {
 async function reloadAnnotations() {
   try { const ann = await api(annScopeUrl()); indexAnnotations(ann.annotations); } catch { /* keep */ }
   // Re-render the active surface so chips refresh.
-  if (state.runId) renderRunDashboard();
+  if (state.runId) { if (state.runView === "graph") renderRunGraph(); else renderRunDashboard(); }
   else if (state.view === "board") renderCanvas();
   else renderFiles();
 }
@@ -778,14 +986,15 @@ async function sendInbox(action, note, requestedOutcome) {
       els.seltray.innerHTML = `<div class="st-bar st-sent">✓ sent context pack <code>${esc(res.id)}</code> — read it with <code>ralphy studio inbox show ${esc(res.id)}</code></div>`;
       setTimeout(() => { els.seltray.hidden = true; els.seltray.innerHTML = ""; }, 6000);
       // Refresh button states so the ＋ toggles reset.
-      if (state.runId) renderRunDashboard(); else if (state.view === "board") renderCanvas(); else renderFiles();
+      if (state.runId) { if (state.runView === "graph") renderRunGraph(); else renderRunDashboard(); }
+      else if (state.view === "board") renderCanvas(); else renderFiles();
     } else { renderSelTray(); }
   } catch { renderSelTray(); }
 }
 
 // ── Modal preview ────────────────────────────────────────────────────
 async function openModal(a) {
-  const url = fileUrl(a.path);
+  const url = fileUrl(a.path, a._proj);
   let media;
   if (a.type === "image") media = `<img src="${url}" alt="" />`;
   else if (a.type === "video") media = `<video src="${url}" controls autoplay loop></video>`;
