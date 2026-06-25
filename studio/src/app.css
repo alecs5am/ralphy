@@ -468,6 +468,57 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
 .tagpop .tp-clear { color: var(--mute); font-family: var(--font-mono); font-size: 11px; }
 .tagpop .tp-clear:hover { color: #d68a84; }
 
+/* ── Agent inbox selection (#489) — select button + tray ──────────── */
+.selbtn {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--bg-3); color: var(--mute);
+  font-size: 13px; line-height: 1;
+  transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+.selbtn:hover { background: var(--bg-4); color: var(--ink-2); }
+.selbtn.on { background: var(--acc); color: var(--bg); }
+.tile .selbtn, .board .vtile .selbtn {
+  position: absolute; top: 7px; left: 7px; z-index: 4;
+  background: rgb(0 0 0 / 0.55); color: rgb(255 255 255 / 0.85);
+  opacity: 0; backdrop-filter: blur(4px);
+}
+.tile:hover .selbtn, .board .vtile:hover .selbtn, .tile .selbtn.on, .board .vtile .selbtn.on { opacity: 1; }
+.tile .selbtn.on, .board .vtile .selbtn.on { background: var(--acc); color: var(--bg); }
+.board .vtile .selbtn { top: 6px; left: 6px; width: 20px; height: 20px; }
+
+.seltray {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 90;
+  max-width: min(96vw, 1100px);
+  background: var(--bg-1); border-radius: 12px;
+  box-shadow: 0 18px 50px -16px rgb(0 0 0 / 0.85);
+  padding: 10px 12px;
+}
+.seltray[hidden] { display: none; }
+.seltray .st-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.seltray .st-count { font-family: var(--font-mono); font-size: 11px; color: var(--acc); white-space: nowrap; }
+.seltray .st-chips { display: flex; gap: 4px; flex-wrap: wrap; max-width: 40ch; }
+.seltray .st-chip {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 7px; border-radius: 5px;
+  background: var(--bg-3); color: var(--ink-3);
+}
+.seltray .st-chip:hover { background: var(--bg-4); color: #d68a84; }
+.seltray .st-action, .seltray .st-note, .seltray .st-outcome {
+  background: var(--bg-3); color: var(--ink-2); border: none; border-radius: 8px;
+  padding: 7px 10px; font: inherit; font-size: 12px;
+}
+.seltray .st-action { appearance: none; font-family: var(--font-mono); }
+.seltray .st-note, .seltray .st-outcome { min-width: 150px; }
+.seltray .st-action:focus, .seltray .st-note:focus, .seltray .st-outcome:focus { outline: none; background: var(--bg-4); }
+.seltray .st-send { background: var(--acc); color: var(--bg); padding: 7px 16px; border-radius: 8px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; white-space: nowrap; }
+.seltray .st-send:hover { background: var(--acc-2); }
+.seltray .st-send:disabled { opacity: 0.5; }
+.seltray .st-clear { color: var(--mute); font-family: var(--font-mono); font-size: 11px; }
+.seltray .st-clear:hover { color: var(--ink-2); }
+.seltray .st-sent { font-family: var(--font-mono); font-size: 12px; color: #7fb893; }
+.seltray .st-sent code { background: var(--bg-3); padding: 1px 6px; border-radius: 5px; color: var(--ink-2); }
+
 /* ── Modal ──────────────────────────────────────────────────────── */
 .modal {
   position: fixed; inset: 0; z-index: 100;
