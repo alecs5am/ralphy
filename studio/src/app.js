@@ -11,6 +11,7 @@ const els = {
   views: $("views"), chips: $("chips"), sections: $("sections"), placeholder: $("placeholder"), objTag: $("objTag"),
   board: $("board"), runboard: $("runboard"), runs: $("runs"), runPick: $("runPick"),
   modal: $("modal"), stage: $("stage"), modalClose: $("modalClose"), live: $("live"),
+  seltray: $("seltray"),
 };
 
 const KIND_ORDER = ["images", "videos", "voiceover", "music", "sfx", "captions", "fonts", "refs", "render"];
@@ -38,6 +39,7 @@ const state = {
   run: null,              // loaded RunSummary for the dashboard
   annotations: [],        // annotation records for the current scope (#488)
   annIndex: {},           // `${type}:${ref}` → latest annotation record
+  selection: [],          // objects selected for the agent inbox (#489)
 };
 
 // Annotation tag vocabulary (#488) — mirrors studio/server/annotations.ts.
@@ -113,6 +115,7 @@ async function selectWorkspace(slug, fromHash) {
   state.project = null;
   state.runId = null; state.run = null;
   state.board = null; state.workflow = null;
+  state.selection = []; renderSelTray();
   const [projects, runs] = await Promise.all([
     api(`/api/projects?workspace=${encodeURIComponent(slug)}`),
     api(`/api/runs?workspace=${encodeURIComponent(slug)}`).catch(() => []),
@@ -142,6 +145,7 @@ function renderRuns(runs) {
 async function selectRun(runId) {
   state.runId = runId;
   state.project = null;
+  state.selection = []; renderSelTray();
   const [run, ann] = await Promise.all([
     api(`/api/runs/${encodeURIComponent(runId)}?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null),
     api(`/api/runs/${encodeURIComponent(runId)}/annotations?workspace=${encodeURIComponent(state.workspace)}`).catch(() => ({ annotations: [] })),
@@ -160,6 +164,7 @@ async function selectProject(id, fromHash) {
   state.filter = null;
   state.nodePos = {};
   state.expanded = new Set();
+  state.selection = []; renderSelTray();
   cvX = 0; cvY = 0; cvScale = 1; _cvInit = false;
   for (const btn of els.runs.querySelectorAll(".run")) btn.classList.remove("active");
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.toggle("active", btn.dataset.id === id);
@@ -230,7 +235,7 @@ function render() {
   }
   els.title.textContent = state.project;
   // Project-level tag affordance (#488) in the topbar.
-  els.objTag.innerHTML = tagBtnHtml("project", state.project, state.project) + tagChipsHtml("project", state.project);
+  els.objTag.innerHTML = objBtnsHtml("project", state.project, state.project) + tagChipsHtml("project", state.project);
   wireTagButtons(els.objTag);
   renderViews();
   const showBoard = state.view === "board";
@@ -308,7 +313,7 @@ function renderRunDashboard() {
   els.runboard.innerHTML = `
     <div class="run-head">
       <span class="run-status ${RUN_STATUS_CLS[r.status] || "rs-active"}">${esc(r.status)}</span>
-      <span class="obj-tag run-objtag">${tagBtnHtml("run", state.runId, r.title)}${tagChipsHtml("run", state.runId)}</span>
+      <span class="obj-tag run-objtag">${objBtnsHtml("run", state.runId, r.title)}${tagChipsHtml("run", state.runId)}</span>
       ${r.brief ? `<p class="run-brief">${esc(r.brief)}</p>` : ""}
       <div class="run-next">${esc(r.nextAction)}</div>
     </div>
@@ -359,7 +364,7 @@ function vtile(v, sceneId) {
       <img loading="lazy" src="${fileUrl(v.path)}" alt="" />
       ${versionBadge(v.name)}
       ${v.chosen ? '<span class="chosen-badge">✓</span>' : ""}
-      ${tagBtnHtml("artifact", v.path, v.name)}
+      ${objBtnsHtml("artifact", v.path, v.name)}
       ${tagChipsHtml("artifact", v.path) ? `<span class="vtags">${tagChipsHtml("artifact", v.path)}</span>` : ""}
       <button class="zoom" data-zoom="${v.path}" title="preview" aria-label="preview">⤢</button>
       <div class="vcap">${v.name}</div>
@@ -389,7 +394,7 @@ function nodeHtml(s) {
   const expanded = state.expanded.has(s.id);
   let body = `
     <div class="cv-meta">${meta}</div>
-    <div class="cv-tags">${gate}${verdict}<span class="mode mode-${s.mode}">${s.mode}</span>${tagBtnHtml("workflow_node", s.id, s.label)}</div>
+    <div class="cv-tags">${gate}${verdict}<span class="mode mode-${s.mode}">${s.mode}</span>${objBtnsHtml("workflow_node", s.id, s.label)}</div>
     ${tagChipsHtml("workflow_node", s.id) ? `<div class="cv-atags">${tagChipsHtml("workflow_node", s.id)}</div>` : ""}`;
   if (isAssets) {
     const b = state.board;
@@ -591,7 +596,7 @@ function renderFiles() {
       <div class="grid">
         ${items.map((a) => `
           <div class="tile ${a.fresh ? "fresh" : ""}" data-path="${a.path}" title="${a.path}">
-            ${tileMedia(a)}${versionBadge(a.name)}${tagBtnHtml("artifact", a.path, a.name)}${tagChipsHtml("artifact", a.path) ? `<span class="tile-atags">${tagChipsHtml("artifact", a.path)}</span>` : ""}<div class="cap">${a.name}</div>
+            ${tileMedia(a)}${versionBadge(a.name)}${objBtnsHtml("artifact", a.path, a.name)}${tagChipsHtml("artifact", a.path) ? `<span class="tile-atags">${tagChipsHtml("artifact", a.path)}</span>` : ""}<div class="cap">${a.name}</div>
           </div>`).join("")}
       </div>
     </section>`).join("");
@@ -626,6 +631,10 @@ function wireTagButtons(container) {
       e.stopPropagation(); e.preventDefault();
       openTagPopover(b, { type: b.dataset.atype, ref: b.dataset.aref, label: b.dataset.alabel });
     };
+  }
+  // Selection toggles (#489) ride alongside the tag buttons.
+  for (const b of container.querySelectorAll(".selbtn")) {
+    b.onclick = (e) => { e.stopPropagation(); e.preventDefault(); toggleSelect(b.dataset.stype, b.dataset.sref, b.dataset.slabel); };
   }
 }
 
@@ -693,6 +702,85 @@ async function reloadAnnotations() {
   if (state.runId) renderRunDashboard();
   else if (state.view === "board") renderCanvas();
   else renderFiles();
+}
+
+// ── Agent context inbox (#489) — select objects, send a context pack ──
+// A select toggle (＋) on each object accumulates a selection; the tray lets the
+// user pick an action + note + outcome and POSTs a MD+JSON context pack. Studio
+// only prepares the selection — it never runs a ralphy verb.
+const INBOX_ACTIONS = ["repair", "approve", "compare", "use-as-reference", "publish"];
+const selKey = (type, ref) => `${type}:${ref}`;
+function isSelected(type, ref) { return state.selection.some((s) => selKey(s.type, s.ref) === selKey(type, ref)); }
+function toggleSelect(type, ref, label) {
+  const k = selKey(type, ref);
+  const i = state.selection.findIndex((s) => selKey(s.type, s.ref) === k);
+  if (i === -1) state.selection.push({ type, ref, label: label || ref });
+  else state.selection.splice(i, 1);
+  renderSelTray();
+}
+
+function selBtnHtml(type, ref, label) {
+  const on = isSelected(type, ref) ? " on" : "";
+  return `<button class="selbtn${on}" data-stype="${esc(type)}" data-sref="${esc(ref)}" data-slabel="${esc(label || ref)}" title="select for the agent inbox" aria-label="select">＋</button>`;
+}
+
+// Tag + select buttons for an object, rendered together.
+function objBtnsHtml(type, ref, label) { return selBtnHtml(type, ref, label) + tagBtnHtml(type, ref, label); }
+
+function renderSelTray() {
+  const sel = state.selection;
+  els.seltray.hidden = sel.length === 0;
+  if (!sel.length) { els.seltray.innerHTML = ""; return; }
+  const chips = sel.map((s) => `<button class="st-chip" data-rm="${esc(selKey(s.type, s.ref))}" title="remove">${esc(s.type)}:${esc(s.label)} ✕</button>`).join("");
+  els.seltray.innerHTML = `
+    <div class="st-bar">
+      <span class="st-count">${sel.length} selected</span>
+      <div class="st-chips">${chips}</div>
+      <select class="st-action" title="action">${INBOX_ACTIONS.map((a) => `<option value="${a}">${a}</option>`).join("")}</select>
+      <input class="st-outcome" placeholder="requested outcome (optional)" />
+      <input class="st-note" placeholder="note (optional)" />
+      <button class="st-send">send to agent ▸</button>
+      <button class="st-clear" title="clear selection">clear</button>
+    </div>`;
+  for (const c of els.seltray.querySelectorAll(".st-chip")) {
+    c.onclick = () => { const [type, ref] = c.dataset.rm.split(/:(.+)/); toggleSelect(type, ref); };
+  }
+  els.seltray.querySelector(".st-clear").onclick = () => { state.selection = []; renderSelTray(); };
+  const send = els.seltray.querySelector(".st-send");
+  send.onclick = async () => {
+    send.disabled = true;
+    const action = els.seltray.querySelector(".st-action").value;
+    const note = els.seltray.querySelector(".st-note").value.trim();
+    const requestedOutcome = els.seltray.querySelector(".st-outcome").value.trim();
+    await sendInbox(action, note, requestedOutcome);
+  };
+}
+
+function inboxPostBase() {
+  return state.project
+    ? `/api/projects/${encodeURIComponent(state.project)}/inbox`
+    : `/api/runs/${encodeURIComponent(state.runId)}/inbox`;
+}
+
+async function sendInbox(action, note, requestedOutcome) {
+  // Carry over each selected object's current tags/note from the annotation index.
+  const selected = state.selection.map((s) => {
+    const a = annFor(s.type, s.ref);
+    return { type: s.type, ref: s.ref, tags: a ? a.tags : [], note: a ? a.note : undefined };
+  });
+  try {
+    const res = await fetch(inboxPostBase(), {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: state.workspace, action, selected, note, requestedOutcome }),
+    }).then((r) => r.json());
+    if (res && res.id) {
+      state.selection = [];
+      els.seltray.innerHTML = `<div class="st-bar st-sent">✓ sent context pack <code>${esc(res.id)}</code> — read it with <code>ralphy studio inbox show ${esc(res.id)}</code></div>`;
+      setTimeout(() => { els.seltray.hidden = true; els.seltray.innerHTML = ""; }, 6000);
+      // Refresh button states so the ＋ toggles reset.
+      if (state.runId) renderRunDashboard(); else if (state.view === "board") renderCanvas(); else renderFiles();
+    } else { renderSelTray(); }
+  } catch { renderSelTray(); }
 }
 
 // ── Modal preview ────────────────────────────────────────────────────

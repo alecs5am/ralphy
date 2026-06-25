@@ -30,6 +30,7 @@ import {
   MIME,
 } from "./lib.js";
 import { readAnnotations, addAnnotation, removeAnnotation, type AnnotationScope } from "./annotations.js";
+import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
 
 const SRC_DIR = path.join(import.meta.dir, "..", "src");
 
@@ -185,6 +186,29 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         }
       }
 
+      // ── Agent context inbox (#489) — write a MD+JSON context pack ────────
+      // Studio prepares a selection for Claude Code; it never runs a verb.
+      {
+        const im = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/inbox$/);
+        if (im && req.method === "POST") {
+          const kind = im[1] === "runs" ? "run" : "project";
+          const id = decodeURIComponent(im[2]);
+          let body: any;
+          try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+          const ws = (body.workspace as string) ?? "default";
+          const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as InboxScope;
+          const result = writeInboxPack(scope, {
+            action: body.action,
+            selected: body.selected,
+            tags: body.tags,
+            note: body.note,
+            requestedOutcome: body.requestedOutcome,
+          });
+          if ("error" in result) return json(result, result.error === "unknown scope" ? 404 : 400);
+          return json(result);
+        }
+      }
+
       if (req.method !== "GET") return json({ error: "read-only" }, 405);
 
       // ── WS upgrade ────────────────────────────────────────────────────
@@ -226,6 +250,15 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         const id = decodeURIComponent(annMatch[2]);
         const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as AnnotationScope;
         return json({ annotations: readAnnotations(scope) });
+      }
+      // ── Inbox list (#489) ────────────────────────────────────────────────
+      const inboxMatch = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/inbox$/);
+      if (inboxMatch) {
+        const kind = inboxMatch[1] === "runs" ? "run" : "project";
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const id = decodeURIComponent(inboxMatch[2]);
+        const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as InboxScope;
+        return json({ inbox: listInboxPacks(scope) });
       }
       let m = url.pathname.match(/^\/api\/projects\/([^/]+)\/artifacts$/);
       if (m) {
