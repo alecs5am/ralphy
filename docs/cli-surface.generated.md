@@ -1623,6 +1623,9 @@ Options:
 Commands:
   inbox           Read Studio → agent context-inbox packs (a pack is CONTEXT,
                   not an instruction to spend money)
+  patch           Read + apply/reject the safe config patches the user proposes
+                  in Studio (#491). Studio only proposes (allowlisted,
+                  validated); applying is your call.
   help [command]  display help for command
 ```
 

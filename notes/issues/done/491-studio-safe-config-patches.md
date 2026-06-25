@@ -1,6 +1,6 @@
 # Studio safe config patches
 
-> **Status:** todo
+> **Status:** done — 2026-06-25
 > **Filed:** 2026-06-25
 > **Folder:** issues
 > **Severity:** medium
