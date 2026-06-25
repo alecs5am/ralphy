@@ -40,6 +40,7 @@ const state = {
   runView: "graph",       // run mode view: "graph" (canvas) | "dashboard" (#490)
   runGraph: null,         // loaded RunGraph for the canvas
   graphPos: {},           // working run-graph node positions (canvas space)
+  runPatches: { patches: [], effectiveConfig: {} }, // safe config patches (#491)
   annotations: [],        // annotation records for the current scope (#488)
   annIndex: {},           // `${type}:${ref}` → latest annotation record
   selection: [],          // objects selected for the agent inbox (#489)
@@ -151,13 +152,15 @@ async function selectRun(runId) {
   state.project = null;
   state.selection = []; renderSelTray(); closeDrawer();
   state.graphPos = {}; _graphInit = false; cvX = 0; cvY = 0; cvScale = 1;
-  const [run, ann, graph] = await Promise.all([
+  const [run, ann, graph, patches] = await Promise.all([
     api(`/api/runs/${encodeURIComponent(runId)}?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null),
     api(`/api/runs/${encodeURIComponent(runId)}/annotations?workspace=${encodeURIComponent(state.workspace)}`).catch(() => ({ annotations: [] })),
     api(`/api/runs/${encodeURIComponent(runId)}/graph?workspace=${encodeURIComponent(state.workspace)}`).catch(() => null),
+    api(`/api/runs/${encodeURIComponent(runId)}/config-patches?workspace=${encodeURIComponent(state.workspace)}`).catch(() => ({ patches: [], effectiveConfig: {} })),
   ]);
   state.run = run;
   state.runGraph = graph;
+  state.runPatches = patches;
   indexAnnotations(ann.annotations);
   for (const btn of els.runs.querySelectorAll(".run")) btn.classList.toggle("active", btn.dataset.id === runId);
   for (const btn of els.projects.querySelectorAll(".proj")) btn.classList.remove("active");
@@ -343,12 +346,14 @@ function renderRunDashboard() {
       <h2 class="run-card-head">Projects<span class="n">${resolvedProjects.length}</span></h2>
       <div class="qhead"><span></span><span>project</span><span>phase</span><span>verdict</span><span>spent</span><span>units</span></div>
       <div class="qtable">${qualityRows}</div>
-    </section>`;
+    </section>
+    ${renderConfigCard()}`;
 
   for (const el of els.runboard.querySelectorAll("[data-proj]")) {
     el.onclick = () => selectProject(el.dataset.proj);
   }
   wireTagButtons(els.runboard);
+  wireConfigCard();
 }
 
 // ── Run canvas graph (#490) — the content-farm graph as a control room ────
@@ -990,6 +995,91 @@ async function sendInbox(action, note, requestedOutcome) {
       else if (state.view === "board") renderCanvas(); else renderFiles();
     } else { renderSelTray(); }
   } catch { renderSelTray(); }
+}
+
+// ── Safe config patches (#491) — propose + show state ────────────────
+// Studio only PROPOSES allowlisted, validated changes; applying/rejecting is the
+// agent's path (`ralphy studio patch apply|reject`). The card shows pending /
+// applied / rejected state + the resulting effective config.
+const CONFIG_PATCH_FIELDS = {
+  batchSize: { label: "Batch size", kind: "number" },
+  variantCount: { label: "Variant count", kind: "number" },
+  budgetCapUsd: { label: "Budget cap (USD)", kind: "number" },
+  destinationEnabled: { label: "Destination enabled", kind: "bool", requiresTarget: true },
+  templateChoice: { label: "Template choice", kind: "text" },
+  modelPreference: { label: "Model preference", kind: "text" },
+  gateStrictness: { label: "Gate strictness", kind: "enum", options: ["strict", "normal", "lenient", "off"] },
+  approvalMode: { label: "Approval mode", kind: "enum", options: ["auto", "approve"] },
+  publishTarget: { label: "Publish target", kind: "text" },
+};
+const PATCH_STATE_CLS = { pending: "ps-pending", applied: "ps-applied", rejected: "ps-rejected" };
+
+function patchValueInputHtml(field) {
+  const def = CONFIG_PATCH_FIELDS[field];
+  if (!def) return "";
+  if (def.kind === "number") return `<input class="cp-value" type="number" step="any" placeholder="value" />`;
+  if (def.kind === "bool") return `<select class="cp-value"><option value="true">true</option><option value="false">false</option></select>`;
+  if (def.kind === "enum") return `<select class="cp-value">${def.options.map((o) => `<option value="${o}">${o}</option>`).join("")}</select>`;
+  return `<input class="cp-value" type="text" placeholder="value" />`;
+}
+
+function renderConfigCard() {
+  const { patches, effectiveConfig } = state.runPatches || { patches: [], effectiveConfig: {} };
+  const eff = Object.entries(effectiveConfig || {});
+  const fieldOpts = Object.entries(CONFIG_PATCH_FIELDS).map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`).join("");
+  const firstField = Object.keys(CONFIG_PATCH_FIELDS)[0];
+  const rows = patches.length
+    ? patches.map((p) => `
+        <div class="cp-row">
+          <span class="cp-state ${PATCH_STATE_CLS[p.state] || ""}">${esc(p.state)}</span>
+          <span class="cp-field">${esc(p.field)}${p.target ? ` · ${esc(p.target)}` : ""}</span>
+          <span class="cp-val">${esc(JSON.stringify(p.value))}</span>
+          <code class="cp-id">${esc(p.id)}</code>
+        </div>`).join("")
+    : `<div class="inbox-empty">No proposed patches yet.</div>`;
+  return `
+    <section class="run-card">
+      <h2 class="run-card-head">Config patches<span class="n">${patches.length}</span></h2>
+      ${eff.length ? `<div class="cp-eff">effective: ${eff.map(([k, v]) => `<span class="cp-effk">${esc(k)}=${esc(JSON.stringify(v.value))}${v.target ? `@${esc(v.target)}` : ""}</span>`).join("")}</div>` : ""}
+      <div class="cp-form">
+        <select class="cp-field-pick">${fieldOpts}</select>
+        <span class="cp-value-host">${patchValueInputHtml(firstField)}</span>
+        <input class="cp-target" placeholder="target (destination)" hidden />
+        <input class="cp-note" placeholder="note (optional)" />
+        <button class="cp-propose">propose</button>
+      </div>
+      <div class="cp-hint">Studio proposes only — apply with <code>ralphy studio patch apply ${esc(state.runId)} &lt;id&gt;</code></div>
+      <div class="cp-list">${rows}</div>
+    </section>`;
+}
+
+function wireConfigCard() {
+  const card = els.runboard.querySelector(".cp-form");
+  if (!card) return;
+  const pick = card.querySelector(".cp-field-pick");
+  const host = card.querySelector(".cp-value-host");
+  const target = card.querySelector(".cp-target");
+  const syncField = () => {
+    host.innerHTML = patchValueInputHtml(pick.value);
+    target.hidden = !CONFIG_PATCH_FIELDS[pick.value]?.requiresTarget;
+  };
+  pick.onchange = syncField;
+  syncField();
+  card.querySelector(".cp-propose").onclick = async () => {
+    const field = pick.value;
+    const def = CONFIG_PATCH_FIELDS[field];
+    let raw = host.querySelector(".cp-value").value;
+    let value = def.kind === "number" ? Number(raw) : def.kind === "bool" ? raw === "true" : raw;
+    const body = { workspace: state.workspace, field, value, note: card.querySelector(".cp-note").value.trim() };
+    if (def.requiresTarget) body.target = target.value.trim();
+    try {
+      const res = await fetch(`/api/runs/${encodeURIComponent(state.runId)}/config-patches`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      }).then((r) => r.json());
+      if (res && res.patches) { state.runPatches = res; renderRunDashboard(); }
+      else if (res && res.error) { card.querySelector(".cp-propose").textContent = res.error.slice(0, 40); }
+    } catch { /* keep */ }
+  };
 }
 
 // ── Modal preview ────────────────────────────────────────────────────
