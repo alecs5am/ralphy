@@ -31,6 +31,7 @@ import {
 } from "./lib.js";
 import { readAnnotations, addAnnotation, removeAnnotation, type AnnotationScope } from "./annotations.js";
 import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
+import { buildRunGraph, writeRunCanvasLayout } from "./graph.js";
 
 const SRC_DIR = path.join(import.meta.dir, "..", "src");
 
@@ -186,6 +187,21 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         }
       }
 
+      // ── Run canvas node layout (#490) — run-scoped metadata, never media ─
+      {
+        const cl = url.pathname.match(/^\/api\/runs\/([^/]+)\/canvas\/layout$/);
+        if (cl && req.method === "POST") {
+          const id = decodeURIComponent(cl[1]);
+          let body: { workspace?: string; node?: string; x?: number; y?: number };
+          try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+          const ws = body.workspace ?? "default";
+          if (!body.node || typeof body.x !== "number" || typeof body.y !== "number") return json({ error: "node + x + y required" }, 400);
+          const result = writeRunCanvasLayout(dataRoot!, ws, id, body.node, body.x, body.y);
+          if ("error" in result) return json(result, result.error === "unknown run" ? 404 : 400);
+          return json(result);
+        }
+      }
+
       // ── Agent context inbox (#489) — write a MD+JSON context pack ────────
       // Studio prepares a selection for Claude Code; it never runs a verb.
       {
@@ -241,6 +257,15 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
         const summary = summarizeRun(dataRoot!, ws, runId);
         if (!summary) return json({ error: "unknown run" }, 404);
         return json(summary);
+      }
+      // ── Run graph (#490) — derived source-to-unit canvas model ───────────
+      const graphMatch = url.pathname.match(/^\/api\/runs\/([^/]+)\/graph$/);
+      if (graphMatch) {
+        const ws = url.searchParams.get("workspace") ?? "default";
+        const runId = decodeURIComponent(graphMatch[1]);
+        const graph = buildRunGraph(dataRoot!, ws, runId);
+        if (!graph) return json({ error: "unknown run" }, 404);
+        return json(graph);
       }
       // ── Annotations read (#488) ──────────────────────────────────────────
       const annMatch = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/annotations$/);

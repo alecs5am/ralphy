@@ -9,6 +9,7 @@ import { startStudio } from "../server/index.js";
 import { listArtifacts, listWorkspaces, safeProjectFile, mediaType, readWorkflowLane, readBoard, writeBoardChoice, writeBoardLayout, listRuns, summarizeRun } from "../server/lib.js";
 import { readAnnotations, addAnnotation, removeAnnotation, ANNOTATION_TAGS, type AnnotationScope } from "../server/annotations.js";
 import { writeInboxPack, listInboxPacks, renderInboxMarkdown, type InboxScope } from "../server/inbox.js";
+import { buildRunGraph, writeRunCanvasLayout } from "../server/graph.js";
 
 let tmpRoot: string;
 let studio: ReturnType<typeof startStudio>;
@@ -87,10 +88,23 @@ function seed(root: string) {
     fs.mkdirSync(path.join(runsDir, id), { recursive: true });
     fs.writeFileSync(path.join(runsDir, id, "run.json"), JSON.stringify({ version: 1, id, workspace: "default", ...manifest }));
   };
+  // #490 failed-member fixture: a project whose scorecard verdict is "blocked".
+  const fproj = path.join(root, ".ralphy", "workspaces", "default", "projects", "fail-001");
+  fs.mkdirSync(path.join(fproj, "logs"), { recursive: true });
+  fs.mkdirSync(path.join(fproj, "render"), { recursive: true });
+  fs.writeFileSync(path.join(fproj, "scorecard.json"), JSON.stringify({ verdict: "blocked", polished: false }));
+  fs.writeFileSync(path.join(fproj, "BRIEF.md"), "# brief\n");
+  fs.writeFileSync(path.join(fproj, "scenario.json"), "{}");
+  fs.writeFileSync(path.join(fproj, "render", "final.mp4"), "x");
+  fs.writeFileSync(path.join(fproj, "logs", "generations.jsonl"), JSON.stringify({ cost_usd: 0.5 }) + "\n");
+
   mkRun("run-empty", { title: "Empty Farm", status: "active", projectIds: [] });
   mkRun("run-running", { title: "Running Farm", status: "active", workflow: "episode", projectIds: ["fixture-001"] });
   mkRun("run-complete", { title: "Shipped Farm", status: "complete", projectIds: ["ship-001"] });
+  mkRun("run-failed", { title: "Failed Farm", status: "active", projectIds: ["fail-001"] });
   mkRun("run-missing", { title: "Drifted Farm", status: "active", projectIds: ["ship-001", "ghost-999"] });
+  // #490 spine-rich run: exercises source/research/strategy/template/batch.
+  mkRun("run-rich", { title: "Rich Farm", status: "active", brief: "30 cold-traffic creatives", workflow: "episode", batchId: "b1", strategyPath: "strategy.md", intelligencePackPath: "intel.md", projectIds: ["ship-001"] });
   // A run cap on run-running: $5 cap, member fixture-001 has $0 spend → under budget.
   fs.writeFileSync(
     path.join(runsDir, "run-running", "spend-ledger.json"),
@@ -115,7 +129,7 @@ afterAll(() => {
 describe("lib", () => {
   test("listWorkspaces reads manifest name + project count", () => {
     const ws = listWorkspaces(path.join(tmpRoot, ".ralphy"));
-    expect(ws).toEqual([{ slug: "default", name: "Default", projects: 3 }]);
+    expect(ws).toEqual([{ slug: "default", name: "Default", projects: 4 }]);
   });
 
   test("listArtifacts groups by kind incl. render pseudo-kind, versions intact", () => {
@@ -211,7 +225,7 @@ describe("runs (#482)", () => {
   test("listRuns returns every run with project counts", () => {
     const rows = listRuns(dr(), "default");
     const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
-    expect(Object.keys(byId).sort()).toEqual(["run-complete", "run-empty", "run-missing", "run-running"]);
+    expect(Object.keys(byId).sort()).toEqual(["run-complete", "run-empty", "run-failed", "run-missing", "run-rich", "run-running"]);
     expect(byId["run-running"].projects).toBe(1);
     expect(byId["run-empty"].projects).toBe(0);
     expect(byId["run-complete"].status).toBe("complete");
@@ -373,6 +387,88 @@ describe("agent inbox (#489)", () => {
   });
 });
 
+describe("run graph (#490)", () => {
+  const dr = () => path.join(tmpRoot, ".ralphy");
+  const nodesByType = (g: NonNullable<ReturnType<typeof buildRunGraph>>) => {
+    const m: Record<string, number> = {};
+    for (const n of g.nodes) m[n.type] = (m[n.type] ?? 0) + 1;
+    return m;
+  };
+
+  test("empty run → no nodes", () => {
+    const g = buildRunGraph(dr(), "default", "run-empty")!;
+    expect(g.nodes.length).toBe(0);
+    expect(g.edges.length).toBe(0);
+  });
+
+  test("running run → template + project + blocked gate + repair", () => {
+    const g = buildRunGraph(dr(), "default", "run-running")!;
+    const by = nodesByType(g);
+    expect(by.template).toBe(1); // workflow "episode"
+    expect(by.project).toBe(1);
+    const gate = g.nodes.find((n) => n.type === "gate")!;
+    expect(gate.status).toBe("blocked"); // fixture-001 lane is blocked at scenario
+    expect(by.repair).toBe(1);
+    // Spine→project + project→gate + gate→repair edges exist.
+    expect(g.edges.some((e) => e.from === "template" && e.to === "project:fixture-001")).toBe(true);
+    expect(g.edges.some((e) => e.from === "project:fixture-001" && e.to === "gate:fixture-001")).toBe(true);
+  });
+
+  test("complete run → ship project, passing gate, unit node", () => {
+    const g = buildRunGraph(dr(), "default", "run-complete")!;
+    const proj = g.nodes.find((n) => n.id === "project:ship-001")!;
+    expect(proj.verdict).toBe("ship");
+    expect(proj.cost).toBe(2);
+    expect(g.nodes.find((n) => n.type === "gate")!.status).toBe("pass");
+    expect(g.nodes.some((n) => n.id === "unit:ship-001/hero-cut")).toBe(true);
+    expect(g.edges.some((e) => e.to === "unit:ship-001/hero-cut")).toBe(true);
+  });
+
+  test("failed run → blocked verdict drives a repair node", () => {
+    const g = buildRunGraph(dr(), "default", "run-failed")!;
+    const proj = g.nodes.find((n) => n.id === "project:fail-001")!;
+    expect(proj.verdict).toBe("blocked");
+    expect(g.nodes.find((n) => n.type === "gate")!.status).toBe("blocked");
+    expect(g.nodes.some((n) => n.id === "repair:fail-001")).toBe(true);
+  });
+
+  test("missing member project is skipped, never throws", () => {
+    const g = buildRunGraph(dr(), "default", "run-missing")!;
+    expect(g.nodes.some((n) => n.id === "project:ship-001")).toBe(true);
+    expect(g.nodes.some((n) => n.id === "project:ghost-999")).toBe(false);
+  });
+
+  test("spine-rich run → source/research/strategy/template/batch chained", () => {
+    const g = buildRunGraph(dr(), "default", "run-rich")!;
+    for (const id of ["source", "research", "strategy", "template", "batch"]) {
+      expect(g.nodes.some((n) => n.id === id)).toBe(true);
+    }
+    expect(g.edges.some((e) => e.from === "source" && e.to === "research")).toBe(true);
+    expect(g.edges.some((e) => e.from === "batch" && e.to === "project:ship-001")).toBe(true);
+  });
+
+  test("destinations come from run annotations and edge from units", () => {
+    addAnnotation({ kind: "run", dataRoot: dr(), workspace: "default", id: "run-complete" }, { target: { type: "destination", ref: "tiktok-main" }, tags: ["publish-ready"] });
+    const g = buildRunGraph(dr(), "default", "run-complete")!;
+    expect(g.nodes.some((n) => n.id === "destination:tiktok-main")).toBe(true);
+    expect(g.edges.some((e) => e.from === "unit:ship-001/hero-cut" && e.to === "destination:tiktok-main")).toBe(true);
+  });
+
+  test("unknown run → null", () => {
+    expect(buildRunGraph(dr(), "default", "nope")).toBeNull();
+  });
+
+  test("writeRunCanvasLayout persists a node position; graph returns it", () => {
+    expect(writeRunCanvasLayout(dr(), "default", "run-complete", "project:ship-001", 240, 120)).toEqual({ ok: true });
+    expect(buildRunGraph(dr(), "default", "run-complete")!.layout["project:ship-001"]).toEqual({ x: 240, y: 120 });
+  });
+
+  test("writeRunCanvasLayout rejects bad coords and an unknown run", () => {
+    expect("error" in writeRunCanvasLayout(dr(), "default", "run-complete", "x", NaN, 0)).toBe(true);
+    expect("error" in writeRunCanvasLayout(dr(), "default", "nope", "x", 1, 1)).toBe(true);
+  });
+});
+
 describe("http api", () => {
   test("GET /api/workspaces", async () => {
     const ws = await fetch(`${base}/api/workspaces`).then((r) => r.json());
@@ -458,7 +554,7 @@ describe("http api", () => {
 
   test("GET /api/runs lists the workspace runs", async () => {
     const runs = await fetch(`${base}/api/runs?workspace=default`).then((r) => r.json());
-    expect(runs.map((r: { id: string }) => r.id).sort()).toEqual(["run-complete", "run-empty", "run-missing", "run-running"]);
+    expect(runs.map((r: { id: string }) => r.id).sort()).toEqual(["run-complete", "run-empty", "run-failed", "run-missing", "run-rich", "run-running"]);
   });
 
   test("GET /api/runs/:id returns the rolled-up summary", async () => {
@@ -528,6 +624,28 @@ describe("http api", () => {
       body: JSON.stringify({ workspace: "default", target: { type: "project", ref: "ghost-999" }, tags: ["winner"] }),
     });
     expect(r.status).toBe(404);
+  });
+
+  // #490 — run canvas graph + node layout over HTTP.
+  test("GET /api/runs/:id/graph returns the derived graph", async () => {
+    const g = await fetch(`${base}/api/runs/run-complete/graph?workspace=default`).then((r) => r.json());
+    expect(g.nodes.some((n: { id: string }) => n.id === "project:ship-001")).toBe(true);
+    expect(g.run).toBe("run-complete");
+  });
+
+  test("GET /api/runs/:id/graph unknown → 404", async () => {
+    expect((await fetch(`${base}/api/runs/nope/graph?workspace=default`)).status).toBe(404);
+  });
+
+  test("POST /api/runs/:id/canvas/layout persists a node position", async () => {
+    const r = await fetch(`${base}/api/runs/run-complete/canvas/layout`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ workspace: "default", node: "project:ship-001", x: 320, y: 90 }),
+    });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true });
+    const g = await fetch(`${base}/api/runs/run-complete/graph?workspace=default`).then((r) => r.json());
+    expect(g.layout["project:ship-001"]).toEqual({ x: 320, y: 90 });
   });
 
   // #489 — the send-to-agent UI path over HTTP: POST a pack → GET the inbox list.
