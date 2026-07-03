@@ -813,7 +813,7 @@ export function Figure({
                 <img
                   src={it.src}
                   alt={it.alt ?? ""}
-                  className="w-full h-full object-cover block"
+                  className="w-full h-full object-contain block"
                 />
               )}
               {it.label && (
@@ -825,11 +825,11 @@ export function Figure({
           ))}
         </div>
       ) : src ? (
-        <span className={`${FIG_CELL} aspect-video`}>
+        <span className={FIG_CELL}>
           <img
             src={src}
             alt={alt ?? ""}
-            className="w-full h-full object-cover block"
+            className="w-full h-auto block"
           />
         </span>
       ) : (
@@ -975,7 +975,7 @@ export const mdxComponents = {
 
 function ScrollTable(props: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="my-8 overflow-x-auto rounded-[14px]">
+    <div className="my-8 overflow-x-auto rounded-[14px] bg-bg-1 p-2">
       <table {...props} />
     </div>
   );

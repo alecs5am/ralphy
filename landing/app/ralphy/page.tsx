@@ -10,6 +10,7 @@ import {
 } from "@/lib/site";
 import { StickyBar } from "@/components/StickyBar";
 import { Hero } from "@/components/Hero";
+import { CaseStudies } from "@/components/sections/CaseStudies";
 import { HowItWorks } from "@/components/sections/HowItWorks";
 import { Showcase } from "@/components/sections/Showcase";
 import { Templates } from "@/components/sections/Templates";
@@ -57,6 +58,7 @@ export default async function Page() {
       <main>
         <Hero />
         <Showcase />
+        <CaseStudies />
         <HowItWorks />
         <Templates />
         <Pipeline />
