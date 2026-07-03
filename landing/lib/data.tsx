@@ -8,11 +8,6 @@ export const site = {
   discord: "https://discord.gg/hXDGcNRhdS",
   x: "https://x.com/alecs5am",
   install: "curl -fsSL https://raw.githubusercontent.com/alecs5am/ralphy/main/install.sh | sh",
-  /**
-   * Fallback star count, shown only if the live GitHub fetch fails
-   * (network error / rate-limit). The real {@link getDisplayStars} count
-   * is preferred whenever it can be fetched.
-   */
   fallbackStars: 1337,
 };
 
@@ -45,7 +40,7 @@ async function fetchRealStars(): Promise<number | null> {
 
 /**
  * Returns the live GitHub star count, formatted as e.g. "57" or "2.4k".
- * Falls back to {@link site.fallbackStars} only when the live fetch fails.
+ * Falls back to a branded placeholder when the live fetch fails.
  */
 export async function getDisplayStars(): Promise<string> {
   const real = await fetchRealStars();
@@ -58,6 +53,7 @@ export type NavItem = { label: string; href: string };
  * live here but read as redundant on the home view (the page already
  * scrolls past every section) and as broken on subpages. */
 export const navItems: NavItem[] = [
+  { label: "Cases", href: "/blog/instagram-027-cpm-first-two-weeks" },
   { label: "Library", href: "/library" },
   { label: "Blog",    href: "/blog" },
   { label: "Skills",  href: "/skills" },
