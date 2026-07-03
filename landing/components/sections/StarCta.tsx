@@ -53,7 +53,9 @@ export function StarCta({ stars }: { stars: string }) {
               rel="noopener"
             >
               <I.star /> Star on GitHub
-              <span className="font-mono bg-[rgb(0_0_0/0.08)] px-[7px] py-px rounded-full text-[11.5px] text-[#0A0A0B]">{stars}</span>
+              <span className="font-mono bg-[rgb(0_0_0/0.08)] px-[7px] py-px rounded-full text-[11.5px] text-[#0A0A0B]">
+                {stars}
+              </span>
             </a>
 
             <button

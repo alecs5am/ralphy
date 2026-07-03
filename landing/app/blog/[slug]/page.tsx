@@ -89,6 +89,9 @@ const proseClass = [
   // Inline links — mono chip with vio arrow (variant 02-D). Scope away
   // from the component-level anchors (mdx-cta, mdx-linklist-row).
   "[&_a:not(.mdx-cta):not(.mdx-linklist-row)]:text-ink [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:bg-bg-2 [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:font-mono [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:text-[0.92em] [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:leading-[1.4] [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:no-underline [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:font-normal [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:whitespace-nowrap [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:rounded [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:px-2 [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:py-px hover:[&_a:not(.mdx-cta):not(.mdx-linklist-row)]:bg-bg-3 [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:before:content-['→'] [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:before:text-vio [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:before:mr-1.5 [&_a:not(.mdx-cta):not(.mdx-linklist-row)]:after:content-none",
+  // Plain proof images — direct MDX <img> blocks. Keep them unframed,
+  // but give them air and center them on wide screens.
+  "[&>img]:block [&>img]:w-auto [&>img]:max-w-full [&>img]:mx-auto [&>img]:my-8 [&>img]:rounded-[8px]",
   // highlight.js token palette (was .blog-body .hljs-*)
   "[&_.hljs]:text-ink [&_.hljs]:bg-transparent",
   "[&_.hljs-comment]:text-mute [&_.hljs-comment]:italic [&_.hljs-quote]:text-mute [&_.hljs-quote]:italic",
