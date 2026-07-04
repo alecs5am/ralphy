@@ -43,7 +43,7 @@ export function StarCta({ stars }: { stars: string }) {
             <br />
             in minutes
           </h2>
-          <p className="mt-[18px] mb-7 mx-auto text-[rgb(10_10_11/0.7)] text-[15.5px] leading-[1.5]">Get started for free</p>
+          <p className="mt-[18px] mb-7 mx-auto text-bg text-[15.5px] leading-[1.5]">Get started for free</p>
 
           <div className="flex flex-wrap gap-3 justify-center items-center mb-16 relative z-[3]">
             <a
