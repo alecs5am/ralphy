@@ -141,7 +141,7 @@ export function Cta({
 }) {
   return (
     <a
-      className="mdx-cta group grid grid-cols-[minmax(0,1fr)_auto] gap-7 items-center bg-vio text-bg rounded-[22px] px-9 py-8 my-10 no-underline transition-transform duration-200 hover:-translate-y-0.5"
+      className="not-prose mdx-cta group grid grid-cols-[minmax(0,1fr)_auto] gap-7 items-center bg-vio text-bg rounded-[22px] px-9 py-8 my-10 no-underline transition-transform duration-200 hover:-translate-y-0.5"
       href={href}
       target="_blank"
       rel="noopener"
@@ -151,7 +151,7 @@ export function Cta({
           {title}
         </p>
         {caption && (
-          <p className="m-0 text-[rgb(10_10_11/0.7)] text-[15px] max-w-[44ch] leading-[1.5] [&_code]:bg-[rgb(10_10_11/0.16)] [&_code]:text-bg">
+          <p className="m-0 text-bg text-[15px] max-w-[44ch] leading-[1.5] [&_code]:bg-[rgb(10_10_11/0.16)] [&_code]:text-bg">
             {caption}
           </p>
         )}

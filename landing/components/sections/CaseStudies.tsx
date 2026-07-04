@@ -18,16 +18,16 @@ export function CaseStudies() {
         <div className="mx-auto max-w-[980px]">
           <a
             href="/blog/instagram-027-cpm-first-two-weeks"
-            className="group relative block overflow-hidden rounded-[8px] border border-line bg-bg-1 no-underline"
+            className="group relative block overflow-hidden rounded-[22px] bg-bg-1 no-underline"
           >
             <img
               src="/assets/cases/june-proof/grid.webp"
               alt="Anonymized grid of short-form posts from the case study"
-              className="absolute inset-0 h-full w-full scale-[1.03] object-cover opacity-30 blur-[1px] saturate-[0.68] transition-transform duration-500 group-hover:scale-[1.06]"
+              className="absolute inset-0 h-full w-full scale-[1.03] object-cover opacity-20 saturate-[0.68] transition-transform duration-500 group-hover:scale-[1.06]"
             />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(10_10_11/.97),rgb(10_10_11/.86)_58%,rgb(10_10_11/.66))]" />
+            <div className="absolute inset-0 bg-[rgb(10_10_11/0.88)]" />
             <div className="relative z-10 p-7 max-[640px]:p-5">
-              <div className="inline-flex w-fit items-center gap-2 rounded-[6px] border border-line-2 bg-bg/70 px-3 py-2 font-mono text-[11px] uppercase text-vio">
+              <div className="inline-flex w-fit items-center gap-2 rounded-[4px] bg-bg-2 px-3 py-2 font-mono text-[11px] uppercase text-vio">
                 June Instagram proof
               </div>
               <div className="mt-6 max-w-[720px]">

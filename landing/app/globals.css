@@ -1520,7 +1520,7 @@ section { position: relative; padding-top: 80px; }
 }
 .blog-body .mdx-cta-caption {
   margin: 0;
-  color: rgb(10 10 11 / 0.7);
+  color: var(--bg);
   font-size: 15px;
   max-width: 44ch;
   line-height: 1.5;
