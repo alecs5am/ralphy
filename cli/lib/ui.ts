@@ -216,7 +216,7 @@ export function table<T>(rows: T[], cols: TableColumn<T>[]): void {
   const t = new Table({
     head: cols.map((col) => c.bold(c.info(col.header))),
     colWidths: cols.map((col) => col.width ?? null) as number[],
-    style: { head: [], border: ["grey"] },
+    style: { head: [], border: tableBorderStyle() },
     wordWrap: true,
   });
   for (const row of rows) {
@@ -234,7 +234,7 @@ export function table<T>(rows: T[], cols: TableColumn<T>[]): void {
 
 export function box(content: string, opts: { title?: string; width?: number } = {}): void {
   const t = new Table({
-    style: { border: ["grey"] },
+    style: { border: tableBorderStyle() },
     colWidths: opts.width ? [opts.width] : undefined,
     wordWrap: false,
   });
@@ -244,6 +244,10 @@ export function box(content: string, opts: { title?: string; width?: number } = 
   }
   t.push([content]);
   console.log(t.toString());
+}
+
+function tableBorderStyle(): string[] {
+  return chalk.level > 0 ? ["grey"] : [];
 }
 
 // ─── Progress bars ───────────────────────────────────────────────────────────
