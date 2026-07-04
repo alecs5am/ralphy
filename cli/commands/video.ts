@@ -349,6 +349,8 @@ export function videoCmd() {
     .option("--preset <name>", "x264 preset (faster=bigger, slower=smaller)", "slow")
     .option("--tune <name>", "x264 tune: grain | film | animation | stillimage", "grain")
     .option("--audio-bitrate <rate>", "AAC bitrate", "128k")
+    .option("--fps <n>", "Output frame rate (use 30 with --gop 30 for HyperFrames-safe seeking)", (v) => parseInt(v, 10))
+    .option("--gop <n>", "Keyframe interval / GOP size (e.g. 30 = one keyframe per second at 30fps)", (v) => parseInt(v, 10))
     .option("--project <id>", "Project ID for log line")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
@@ -360,6 +362,8 @@ export function videoCmd() {
           preset: opts.preset,
           tune: opts.tune,
           audioBitrate: opts.audioBitrate,
+          fps: opts.fps,
+          gop: opts.gop,
           projectId: opts.project,
           note: opts.note,
         });
@@ -372,6 +376,8 @@ export function videoCmd() {
           crf: opts.crf,
           preset: opts.preset,
           tune: opts.tune,
+          fps: opts.fps ?? null,
+          gop: opts.gop ?? null,
           bytesBefore: before,
           bytesAfter: after,
           ratio: Number((before / after).toFixed(2)),

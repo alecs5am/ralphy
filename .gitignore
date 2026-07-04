@@ -12,6 +12,11 @@ workspace/
 # #108: the new data root (.ralphy/ replaces workspace/ after the #106 migration)
 .ralphy/
 
+# Local research / QA scratch outputs
+.firecrawl/
+render/
+voice_example*.mp3
+
 # Dashboard build
 dashboard/dist
 dashboard/node_modules

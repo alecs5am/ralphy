@@ -65,6 +65,14 @@ function seed(root: string) {
   for (const f of ["scene-01-hub.png", "scene-02-casey.png", "scene-02-casey.v2.png", "frost-portrait.png"]) {
     fs.writeFileSync(path.join(bproj, "artifacts", "images", f), png);
   }
+  const wsRoot = path.join(root, ".ralphy", "workspaces", "default");
+  fs.mkdirSync(path.join(wsRoot, "shared"), { recursive: true });
+  fs.writeFileSync(path.join(wsRoot, "shared", "hero.png"), png);
+  fs.writeFileSync(path.join(wsRoot, "shared", "story.css"), ".demo{color:white;background:url('hero.png')}");
+  fs.writeFileSync(
+    path.join(wsRoot, "component-stories.mjs"),
+    `export const cssPaths = [{ path: "shared/story.css", assetBase: "shared" }];\nexport const stories = [{ id: "badge/red", component: "badge", title: "Red badge", variant: "red", params: { label: "Primary", tone: "red" }, controls: { label: { type: "text" }, tone: { type: "select", options: ["red", "blue"] } }, variants: [{ id: "blue", label: "Blue", params: { tone: "blue" } }], animated: true, render: (p) => '<div class="demo ' + p.tone + '"><img src="shared/hero.png">' + p.label + '</div>', note: "primary" }];\n`,
+  );
 
   // #482 run fixture: a ship-ready member project (scorecard + units + spend).
   const sproj = path.join(root, ".ralphy", "workspaces", "default", "projects", "ship-001");
@@ -566,6 +574,44 @@ describe("http api", () => {
   test("GET /api/projects/:id/board returns the derived scene board", async () => {
     const board = await fetch(`${base}/api/projects/board-001/board?workspace=default`).then((r) => r.json());
     expect(board.scenes.map((s: { id: string }) => s.id)).toEqual(["scene-01", "scene-02"]);
+  });
+
+  test("GET /api/workspaces/:ws/components returns workspace component stories with asset URLs", async () => {
+    const r = await fetch(`${base}/api/workspaces/default/components`);
+    expect(r.status).toBe(200);
+    const book = await r.json();
+    expect(book.sourcePath).toBe("component-stories.mjs");
+    expect(book.stories[0].id).toBe("badge/red");
+    expect(book.stories[0].component).toBe("badge");
+    expect(book.stories[0].params).toEqual({ label: "Primary", tone: "red" });
+    expect(book.stories[0].controls.tone.options).toEqual(["red", "blue"]);
+    expect(book.stories[0].variants[0].params).toEqual({ tone: "blue" });
+    expect(book.stories[0].animated).toBe(true);
+    expect(book.css).toContain("/api/workspaces/default/file");
+    expect(book.stories[0].html).toContain("/api/workspaces/default/file");
+  });
+
+  test("GET /api/workspaces/:ws/components/render renders one story with params", async () => {
+    const params = encodeURIComponent(JSON.stringify({ label: "Changed", tone: "blue" }));
+    const r = await fetch(`${base}/api/workspaces/default/components/render?id=${encodeURIComponent("badge/red")}&params=${params}`);
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.html).toContain("Changed");
+    expect(body.html).toContain("demo blue");
+    expect(body.html).toContain("/api/workspaces/default/file");
+  });
+
+  test("GET /api/workspaces/:ws/file serves workspace files and blocks traversal", async () => {
+    const ok = await fetch(`${base}/api/workspaces/default/file?path=${encodeURIComponent("shared/hero.png")}`);
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("content-type")).toBe("image/png");
+    const bad = await fetch(`${base}/api/workspaces/default/file?path=${encodeURIComponent("../registry.json")}`);
+    expect(bad.status).toBe(404);
+  });
+
+  test("project-level component stories are not exposed", async () => {
+    const r = await fetch(`${base}/api/projects/board-001/components?workspace=default`);
+    expect(r.status).toBe(404);
   });
 
   test("POST /api/projects/:id/board/choose persists a choice (the one allowed write)", async () => {
