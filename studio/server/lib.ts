@@ -8,6 +8,7 @@
 
 import path from "node:path";
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 /** Artifact kinds, mirroring cli/lib/paths.ts ARTIFACT_KINDS (#105). */
 export const ARTIFACT_KINDS = [
@@ -132,6 +133,21 @@ export function listProjects(dataRoot: string, workspace: string): ProjectInfo[]
 
 export function projectDir(dataRoot: string, workspace: string, id: string): string {
   return path.join(dataRoot, "workspaces", workspace, "projects", id);
+}
+
+export function workspaceDir(dataRoot: string, workspace: string): string {
+  return path.join(dataRoot, "workspaces", workspace);
+}
+
+export function safeWorkspaceFile(dataRoot: string, workspace: string, rel: string): string | null {
+  const ws = workspaceDir(dataRoot, workspace);
+  const abs = path.resolve(ws, rel);
+  if (abs !== ws && !abs.startsWith(ws + path.sep)) return null;
+  let real: string;
+  try { real = fs.realpathSync(abs); } catch { return null; }
+  const realWs = fs.realpathSync(ws);
+  if (real !== realWs && !real.startsWith(realWs + path.sep)) return null;
+  return real;
 }
 
 function walkFiles(dir: string, baseRel: string, kind: string, out: ArtifactEntry[]): void {
@@ -501,6 +517,217 @@ export function writeBoardLayout(
   board.layout[node] = { x, y };
   writeBoardJson(proj, board);
   return { ok: true };
+}
+
+// ─── Component stories — workspace-local Storybook preview data ──────────────
+//
+// A workspace can opt into Studio component previews with component-stories.mjs:
+//
+//   export const stories = [
+//     { id, component, title, params, controls, render, variants, animated }
+//   ];
+//
+// Studio imports that local module and rewrites workspace-relative URLs to the
+// safe workspace file endpoint.
+// Read-only: no media mutation, no build step, no framework runtime.
+
+export type ComponentStory = {
+  id: string;
+  component: string;
+  title: string;
+  variant: string | null;
+  params: Record<string, unknown>;
+  controls: Record<string, unknown>;
+  variants: Array<{ id: string; label: string; params: Record<string, unknown> }>;
+  animated: boolean;
+  html: string;
+  note: string | null;
+  source: string;
+};
+
+export type ComponentStories = {
+  workspace: string;
+  sourcePath: string | null;
+  css: string;
+  components: Array<{ name: string; stories: number; source: string | null }>;
+  stories: ComponentStory[];
+} | null;
+
+const COMPONENT_STORIES_FILE = "component-stories.mjs";
+
+function workspaceFileApi(workspace: string, rel: string): string {
+  return `/api/workspaces/${encodeURIComponent(workspace)}/file?path=${encodeURIComponent(rel)}`;
+}
+
+function isExternalUrl(raw: string): boolean {
+  const s = raw.trim();
+  return !s || s.startsWith("/") || s.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(s);
+}
+
+function normalizeWorkspaceRel(raw: string): string | null {
+  const rel = path.posix.normalize(raw.replaceAll("\\", "/"));
+  if (!rel || rel === "." || rel.startsWith("../") || rel === ".." || path.posix.isAbsolute(rel)) return null;
+  return rel;
+}
+
+function rewriteCssUrls(css: string, workspace: string, baseRel: string): string {
+  return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, (m, _q, raw) => {
+    if (isExternalUrl(raw)) return m;
+    const rel = normalizeWorkspaceRel(path.posix.join(baseRel, raw));
+    return rel ? `url("${workspaceFileApi(workspace, rel)}")` : m;
+  });
+}
+
+function rewriteHtmlUrls(html: string, workspace: string): string {
+  return html.replace(/\b(src|href)=(["'])(.*?)\2/gi, (m, attr, q, raw) => {
+    if (isExternalUrl(raw)) return m;
+    const rel = normalizeWorkspaceRel(raw);
+    return rel ? `${attr}=${q}${workspaceFileApi(workspace, rel)}${q}` : m;
+  });
+}
+
+function cleanText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  return s ? s : null;
+}
+
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function normalizeControls(value: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(recordOf(value))) {
+    const row = recordOf(v);
+    const type = cleanText(row.type) ?? "text";
+    out[k] = {
+      type,
+      label: cleanText(row.label),
+      options: Array.isArray(row.options) ? row.options.map(String) : undefined,
+    };
+  }
+  return out;
+}
+
+function normalizeVariants(value: unknown): ComponentStory["variants"] {
+  if (!Array.isArray(value)) return [];
+  return value.map((raw, i) => {
+    const row = recordOf(raw);
+    return {
+      id: cleanText(row.id) ?? `variant-${i + 1}`,
+      label: cleanText(row.label) ?? cleanText(row.id) ?? `Variant ${i + 1}`,
+      params: recordOf(row.params),
+    };
+  });
+}
+
+function interpolate(html: string, params: Record<string, unknown>): string {
+  return html.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_m, key) => String(params[key] ?? ""));
+}
+
+function renderStoryHtml(raw: Record<string, unknown>, params: Record<string, unknown>): string | null {
+  if (typeof raw.render === "function") {
+    const html = raw.render(params);
+    return typeof html === "string" ? html : String(html ?? "");
+  }
+  const html = cleanText(raw.html);
+  return html ? interpolate(html, params) : null;
+}
+
+function normalizeStory(raw: unknown, i: number, workspace: string): ComponentStory | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const params = recordOf(row.params);
+  const html = renderStoryHtml(row, params);
+  if (!html) return null;
+  const component = cleanText(row.component) ?? "component";
+  return {
+    id: cleanText(row.id) ?? `${component}-${i + 1}`,
+    component,
+    title: cleanText(row.title) ?? cleanText(row.id) ?? `${component} ${i + 1}`,
+    variant: cleanText(row.variant),
+    params,
+    controls: normalizeControls(row.controls),
+    variants: normalizeVariants(row.variants),
+    animated: row.animated === true,
+    html: rewriteHtmlUrls(html, workspace),
+    note: cleanText(row.note),
+    source: cleanText(row.source) ?? COMPONENT_STORIES_FILE,
+  };
+}
+
+function componentSummary(stories: ComponentStory[]): ComponentStories["components"] {
+  const by = new Map<string, { name: string; stories: number; source: string | null }>();
+  for (const s of stories) {
+    const cur = by.get(s.component) ?? { name: s.component, stories: 0, source: s.source };
+    cur.stories += 1;
+    by.set(s.component, cur);
+  }
+  return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function loadWorkspaceComponentModule(dataRoot: string, workspace: string): Promise<Record<string, unknown> | null> {
+  const storyPath = path.join(workspaceDir(dataRoot, workspace), COMPONENT_STORIES_FILE);
+  if (!fs.existsSync(storyPath)) return null;
+  const mtime = fs.statSync(storyPath).mtimeMs;
+  return await import(`${pathToFileURL(storyPath).href}?mtime=${mtime}`);
+}
+
+function readStoryCss(dataRoot: string, workspace: string, mod: Record<string, unknown> | null): string {
+  let css = "";
+  if (typeof mod?.css === "string") css += mod.css + "\n";
+  const paths = Array.isArray(mod?.cssPaths) ? mod.cssPaths : [];
+  for (const raw of paths) {
+    const row = typeof raw === "string" ? { path: raw } : recordOf(raw);
+    const rel = cleanText(row.path);
+    if (!rel) continue;
+    const safe = normalizeWorkspaceRel(rel);
+    if (!safe) continue;
+    const base = normalizeWorkspaceRel(cleanText(row.assetBase) ?? path.posix.dirname(safe)) ?? ".";
+    const abs = safeWorkspaceFile(dataRoot, workspace, safe);
+    if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
+    css += rewriteCssUrls(fs.readFileSync(abs, "utf-8"), workspace, base) + "\n";
+  }
+  return css;
+}
+
+export async function readWorkspaceComponentStories(dataRoot: string, workspace: string): Promise<ComponentStories> {
+  const ws = workspaceDir(dataRoot, workspace);
+  if (!fs.existsSync(ws)) return null;
+
+  let mod: Record<string, unknown> | null;
+  try { mod = await loadWorkspaceComponentModule(dataRoot, workspace); }
+  catch { mod = null; }
+
+  const css = readStoryCss(dataRoot, workspace, mod);
+  if (!mod) return { workspace, sourcePath: null, css, components: [], stories: [] };
+
+  const rawStories = Array.isArray(mod.stories) ? mod.stories : [];
+  const stories = rawStories
+    .slice(0, 200)
+    .map((s, i) => normalizeStory(s, i, workspace))
+    .filter((s): s is ComponentStory => !!s);
+
+  return { workspace, sourcePath: COMPONENT_STORIES_FILE, css, components: componentSummary(stories), stories };
+}
+
+export async function renderWorkspaceComponentStory(
+  dataRoot: string,
+  workspace: string,
+  storyId: string,
+  params: Record<string, unknown>,
+): Promise<{ html: string } | { error: string }> {
+  const mod = await loadWorkspaceComponentModule(dataRoot, workspace);
+  if (!mod) return { error: "no component stories" };
+  const rawStories = Array.isArray(mod.stories) ? mod.stories : [];
+  const raw = rawStories.find((s) => recordOf(s).id === storyId);
+  if (!raw) return { error: "unknown story" };
+  const row = recordOf(raw);
+  const merged = { ...recordOf(row.params), ...params };
+  const html = renderStoryHtml(row, merged);
+  if (!html) return { error: "story has no html" };
+  return { html: rewriteHtmlUrls(html, workspace) };
 }
 
 // ─── Runs (#480/#481 control plane → #482 operator dashboard, READ-ONLY) ──────

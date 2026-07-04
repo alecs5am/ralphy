@@ -416,6 +416,8 @@ export type OptimizeInput = {
     | "veryslow";
   tune?: "grain" | "film" | "animation" | "stillimage" | "fastdecode";
   audioBitrate?: string; // e.g. "128k"
+  fps?: number;
+  gop?: number;
 } & FFmpegOptions;
 
 export async function optimizeReencode(input: OptimizeInput): Promise<string> {
@@ -426,13 +428,20 @@ export async function optimizeReencode(input: OptimizeInput): Promise<string> {
     preset = "slow",
     tune = "grain",
     audioBitrate = "128k",
+    fps,
+    gop,
     ...opts
   } = input;
   await fs.mkdir(path.dirname(dst), { recursive: true });
+  const cadenceArgs = [
+    ...(fps ? ["-r", String(fps)] : []),
+    ...(gop ? ["-g", String(gop), "-keyint_min", String(gop), "-sc_threshold", "0"] : []),
+  ];
   await runFfmpeg(
     [
       "-i", src,
       "-c:v", "libx264", "-preset", preset, "-crf", String(crf), "-tune", tune,
+      ...cadenceArgs,
       "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-b:a", audioBitrate,
       "-movflags", "+faststart",
@@ -440,7 +449,7 @@ export async function optimizeReencode(input: OptimizeInput): Promise<string> {
     ],
     {
       endpoint: "ffmpeg/optimize",
-      input: { src, dst, crf, preset, tune, audioBitrate },
+      input: { src, dst, crf, preset, tune, audioBitrate, fps, gop },
       opts,
     }
   );

@@ -9,12 +9,15 @@ no reload.
 
 ```bash
 cd studio
-bun run dev          # http://127.0.0.1:4860
+bun run dev          # builds the Preact/Vite UI, then serves http://127.0.0.1:4860
 ```
 
 - `STUDIO_PORT=5000 bun run dev` — pick a port.
 - `RALPHY_STUDIO_ROOT=/path/to/dir-containing-.ralphy bun run dev` — browse a
   different data root (default: walks up from `studio/` to find `.ralphy/`).
+- `bun run dev:api` — API/static server only; useful after a UI build.
+- `bun run dev:vite` — Vite UI dev server on `127.0.0.1:4861` with API/WS
+  proxied to a separately running `dev:api`.
 
 ## What it shows
 
@@ -29,18 +32,37 @@ bun run dev          # http://127.0.0.1:4860
   prompts/captions, "open raw" link.
 - **Live updates** — a WebSocket per selected project (`fs.watch` recursive)
   pushes add/change/unlink; new tiles flash with an accent ring.
+- **Large directories** — big file groups are virtualized in the Preact grid,
+  so render folders with tens of thousands of frames do not create tens of
+  thousands of DOM nodes.
+
+## Workspace Storybook
+
+`/storybook.html` is a workspace-level component browser, not project-level
+state. It reads `.ralphy/workspaces/<workspace>/component-stories.mjs`, renders
+stories in an iframe, exposes variants + controls, supports replaying animated
+stories, and copies agent-friendly refs like:
+
+```text
+@component:short-guides/caption/default {"params":{"text":"..."}}
+```
 
 ## Architecture
 
 ```
 studio/
+  client/src/        Preact/Vite UI source
+  dist/              generated Vite build (gitignored)
   server/lib.ts      pure listing/guard helpers (unit-tested)
   server/index.ts    Bun.serve: static UI + JSON API + WS watch (127.0.0.1 only)
-  src/               vanilla UI, no build step
+  src/               shared CSS + build-missing fallback HTML
   test/              fixture-backed API smoke tests (bun test)
 ```
 
-- **No dependencies** — Bun built-ins only (`Bun.serve` does HTTP + WS).
+- **Frontend** — Preact + Vite builds the browser UI into `dist/`; the Bun
+  server serves `dist/` first, then falls back to `src/` only for shared CSS
+  and a build-missing HTML page.
+- **Backend** — Bun built-ins only (`Bun.serve` does HTTP + WS).
 - **Read-only guarantee** — no code path under `studio/` writes, renames, or
   deletes inside the data root (AGENTS.md invariant #14). The file endpoint is
   path-traversal- and symlink-escape-guarded, scoped to the project dir.
