@@ -23,9 +23,9 @@ export function CaseStudies() {
             <img
               src="/assets/cases/june-proof/grid.webp"
               alt="Anonymized grid of short-form posts from the case study"
-              className="absolute inset-0 h-full w-full scale-[1.03] object-cover opacity-20 saturate-[0.68] transition-transform duration-500 group-hover:scale-[1.06]"
+              className="absolute inset-0 h-full w-full scale-[1.03] object-cover opacity-30 saturate-[0.68] transition-transform duration-500 group-hover:scale-[1.06]"
             />
-            <div className="absolute inset-0 bg-[rgb(10_10_11/0.88)]" />
+            <div className="absolute inset-0 bg-[rgb(10_10_11/0.8)]" />
             <div className="relative z-10 p-7 max-[640px]:p-5">
               <div className="inline-flex w-fit items-center gap-2 rounded-[4px] bg-bg-2 px-3 py-2 font-mono text-[11px] uppercase text-vio">
                 June Instagram proof
