@@ -43,6 +43,15 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
   color: var(--mute-2); letter-spacing: 0;
 }
 .side .brand .live.on { color: var(--acc); }
+.side .brand .story-nav {
+  margin-left: 4px;
+  color: var(--mute);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.side .brand .story-nav:hover { color: var(--ink-2); }
 
 .ws-pick { padding: 6px 14px 10px; }
 .ws-pick select {
@@ -178,7 +187,10 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   transition: transform 140ms ease, box-shadow 140ms ease;
   isolation: isolate;
+  contain: layout paint style;
 }
+.vgrid { position: relative; }
+.vgrid .tile { position: absolute; }
 .tile:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -12px rgb(0 0 0 / 0.7); }
 .tile.gone { opacity: 0.25; pointer-events: none; }
 .tile img, .tile video {

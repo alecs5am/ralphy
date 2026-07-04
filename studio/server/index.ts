@@ -1,6 +1,6 @@
 // Studio — local artifact browser server (#107).
 //
-// One Bun.serve process: static UI (studio/src/) + JSON API + WebSocket
+// One Bun.serve process: built Vite UI (studio/dist/) + JSON API + WebSocket
 // live-watch. READ-ONLY over MEDIA (AGENTS.md invariant #14): no code path here
 // writes, renames, or deletes any artifact. The only writes are sidecar
 // METADATA, never media: the board choice + node layout (#478, board.json), the
@@ -18,11 +18,14 @@ import {
   listProjects,
   listArtifacts,
   safeProjectFile,
+  safeWorkspaceFile,
   projectDir,
   kindOfRelPath,
   mediaType,
   readWorkflowLane,
   readBoard,
+  readWorkspaceComponentStories,
+  renderWorkspaceComponentStory,
   writeBoardChoice,
   writeBoardLayout,
   listRuns,
@@ -34,7 +37,12 @@ import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
 import { buildRunGraph, writeRunCanvasLayout } from "./graph.js";
 import { proposePatch, listPatches, type PatchScope } from "./patches.js";
 
-const SRC_DIR = path.join(import.meta.dir, "..", "src");
+const STATIC_DIRS = [
+  path.join(import.meta.dir, "..", "dist"),
+  // Build-missing HTML + shared CSS. The actual app lives in client/src and is
+  // served from dist after `bun run build`.
+  path.join(import.meta.dir, "..", "src"),
+];
 
 export type StudioServer = ReturnType<typeof startStudio>;
 
@@ -257,6 +265,38 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
       if (url.pathname === "/api/workspaces") {
         return json(listWorkspaces(dataRoot!));
       }
+      let wm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/components$/);
+      if (wm) {
+        const ws = decodeURIComponent(wm[1]);
+        const stories = await readWorkspaceComponentStories(dataRoot!, ws);
+        if (!stories) return json({ error: "unknown workspace" }, 404);
+        return json(stories);
+      }
+      wm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/components\/render$/);
+      if (wm) {
+        const ws = decodeURIComponent(wm[1]);
+        const id = url.searchParams.get("id") ?? "";
+        let params: Record<string, unknown> = {};
+        try {
+          const raw = url.searchParams.get("params");
+          params = raw ? JSON.parse(raw) : {};
+        } catch {
+          return json({ error: "bad params" }, 400);
+        }
+        const result = await renderWorkspaceComponentStory(dataRoot!, ws, id, params);
+        if ("error" in result) return json(result, result.error === "unknown story" || result.error === "no component stories" ? 404 : 400);
+        return json(result);
+      }
+      wm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/file$/);
+      if (wm) {
+        const ws = decodeURIComponent(wm[1]);
+        const rel = url.searchParams.get("path") ?? "";
+        const abs = safeWorkspaceFile(dataRoot!, ws, rel);
+        if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+          return json({ error: "not found" }, 404);
+        }
+        return fileResponse(abs, req.headers.get("range"));
+      }
       if (url.pathname === "/api/projects") {
         const ws = url.searchParams.get("workspace") ?? "default";
         return json(listProjects(dataRoot!, ws));
@@ -343,12 +383,14 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
 
       // ── Static UI ─────────────────────────────────────────────────────
       const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-      const abs = path.resolve(SRC_DIR, rel);
-      if ((abs === SRC_DIR || abs.startsWith(SRC_DIR + path.sep)) && fs.existsSync(abs) && fs.statSync(abs).isFile()) {
-        const ext = path.extname(abs).toLowerCase();
-        return new Response(Bun.file(abs), {
-          headers: { "content-type": MIME[ext] ?? "application/octet-stream" },
-        });
+      for (const root of STATIC_DIRS) {
+        const abs = path.resolve(root, rel);
+        if ((abs === root || abs.startsWith(root + path.sep)) && fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+          const ext = path.extname(abs).toLowerCase();
+          return new Response(Bun.file(abs), {
+            headers: { "content-type": MIME[ext] ?? "application/octet-stream" },
+          });
+        }
       }
       return json({ error: "not found" }, 404);
     },
