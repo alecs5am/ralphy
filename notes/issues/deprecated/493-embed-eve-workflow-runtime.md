@@ -1,6 +1,6 @@
 # Embed Eve as the workflow app's agent runtime
 
-> **Status:** todo
+> **Status:** SUPERSEDED by #496/#499/#503 (2026-07-05) — foundation decision went to the Vercel AI SDK (`ai` npm package, open-source, self-hosted); Eve is a hosted Vercel platform and conflicts with invariant #1 and the self-hosted farm positioning. The durable-runtime goals (sessions, HITL pauses, schedules, resume) carry over into the farm scheduler/runner (#503) on the AI SDK LLM layer (#499). See `docs/architecture/farm-node-graph.md`.
 > **Filed:** 2026-06-25
 > **Folder:** issues
 > **Severity:** high

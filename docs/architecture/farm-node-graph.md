@@ -1,8 +1,8 @@
 # Farm mode — two-path architecture + node-graph pipeline design
 
-> **Status:** idea (design draft — needs decision records before promotion to issues)
-> **Filed:** 2026-07-05
-> **Folder:** ideas
+> Design doc (filed 2026-07-05). Decomposed into tracked issues #496-#509 under
+> `notes/issues/` — the issues own scope and status; this doc is the shared
+> design reference they cite.
 
 ## Product thesis
 
@@ -68,7 +68,7 @@ connectors only (OpenRouter / fal / ElevenLabs keys).
 - **Eve (vercel.com/eve)** — hosted platform on Vercel infra; conflicts with
   self-hosted positioning and invariant #1. Its shape (markdown instructions +
   skills + TS tools + schedules + HITL gates) independently validates ralphy's
-  existing architecture. Supersedes part of [493-embed-eve-workflow-runtime.md](../issues/493-embed-eve-workflow-runtime.md):
+  existing architecture. Supersedes part of [493-embed-eve-workflow-runtime.md](../../notes/issues/deprecated/493-embed-eve-workflow-runtime.md):
   the spike may still probe Eve's *session model* for ideas, but the foundation
   is the AI SDK, and nothing hosted-Vercel ships in production.
 - **CrewAI / autogen-class frameworks (Python)** — wrong task shape. Template
@@ -90,7 +90,7 @@ state. A drag-drop editor is explicitly out of scope for v1 — the spec is
 edited in the training path (Claude Code), which keeps the two-path split
 clean.
 
-Executor placement builds on [492-workflow-app-api-orchestrator-boundary.md](../issues/492-workflow-app-api-orchestrator-boundary.md):
+Executor placement builds on [492-workflow-app-api-orchestrator-boundary.md](../../notes/issues/492-workflow-app-api-orchestrator-boundary.md):
 the workflow app owns runs and exposes the API; `.ralphy/` files stay the
 durable state behind it.
 
@@ -273,7 +273,7 @@ capability matrix before accepting.
 
 Best-case stress test: high frequency, short relevance window (forces real
 automation), and one research pass fans out to four unit types — X thread,
-short, long-form video, IG carousel (relates: [013-newsroom-carousel-format.md](013-newsroom-carousel-format.md)).
+short, long-form video, IG carousel (relates: [013-newsroom-carousel-format.md](../../notes/ideas/013-newsroom-carousel-format.md)).
 
 Phasing:
 
