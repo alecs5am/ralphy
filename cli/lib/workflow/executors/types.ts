@@ -53,6 +53,19 @@ export interface ExecutorContext {
   /** Test seam: replaces the OpenRouter model factory (zero-network tests). */
   modelFactory?: ModelFactory;
   /**
+   * The #480 Run this node executes under (set by the farm runner, #503).
+   * Control-flow executors (approval / budget-guard) read the run's spend
+   * ledger and write inbox packs against it. Absent outside a farm run.
+   */
+  runId?: string;
+  /** Absolute run dir (`runs/<runId>/`) — inbox packs + run-scoped files. */
+  runDir?: string;
+  /**
+   * Realized run-wide spend so far (USD), accumulated by the runner from the
+   * run journal + this run's reportCost calls. budget-guard's spent basis.
+   */
+  runSpendUsd?: number;
+  /**
    * Test seam for ingestion nodes (#500): fetch implementation the connectors
    * (firecrawl / apify) and rss feed pulls go through. Default: global fetch.
    */
@@ -70,6 +83,14 @@ export interface ExecutorResult {
   output: unknown;
   /** Absolute path of the artifact written (append-only versioned). */
   artifactPath?: string;
+  /**
+   * Node ids the runner should mark skipped (branch pruning, #503): a
+   * `switch` deactivates its unselected route targets, a `gate` verdict
+   * "ship" deactivates its repair branch. The skip cascades to nodes whose
+   * inputs depend on a skipped producer. Additive — non-control-flow
+   * executors never set it.
+   */
+  deactivate?: string[];
 }
 
 export type NodeExecutor = (node: WorkflowNode, ctx: ExecutorContext) => Promise<ExecutorResult>;

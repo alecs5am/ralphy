@@ -1,6 +1,6 @@
 # Farm scheduler and headless graph runner
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** high
@@ -56,3 +56,28 @@ downstream (dashboard, trust ladder) observes what this process does.
 - Executor placement (open decision 3): this issue picks the standalone
   `ralphy farm` process; the workflow-app API (#492) observes it. Record the
   decision.
+
+## Landed (2026-07-06)
+
+- `ralphy farm start|status|stop` (`cli/commands/farm.ts`), runner + cron at
+  `cli/lib/farm/{runner,cron}.ts`, control-flow/data executors at
+  `cli/lib/workflow/executors/control-flow.ts` (approval, budget-guard, gate,
+  join, switch, transform, template-string, artifact-write).
+- **Tick → Run compilation is in-process, not jobs.db** (documented in the
+  runner module header + D-06 in `docs/architecture/farm-node-graph.md`): the
+  #481 queue executes argv-shaped CLI invocations through a detached worker;
+  graph nodes are in-process `NodeExecutor` functions whose outputs feed
+  downstream in-ports, so compiling them into queue jobs would mean a second
+  execution engine. Durability comes from the run journal instead.
+- Cron subset: standard 5-field, `*` `,` `-` `/` steps, numeric only (no
+  month/day names, no macros); dom+dow both restricted = OR (standard).
+- **Follow-up — `fan-out` subgraph mapping:** v1 does NOT execute a subgraph
+  per item; the runner skips a `fan-out` node with a structured
+  `fan-out-not-supported` journal event (on_fail does not fire). Mapping a
+  downstream branch per item (with a `concurrency` cap, per the design doc)
+  needs per-branch scoped node records and belongs in a follow-up issue.
+- Approval state model = the run spend ledger (`ralphy run approve`, #482);
+  the park drops an #489-shaped inbox pack under `runs/<id>/agent-inbox/`.
+- `switch` is declarative branch pruning (unselected route targets are
+  deactivated; skips cascade); `transform` is pick/map dot-paths only — no
+  arbitrary JS by design.
