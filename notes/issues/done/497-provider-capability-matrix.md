@@ -1,6 +1,6 @@
 # Per-(model, capability, provider) parameter coverage matrix
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** high

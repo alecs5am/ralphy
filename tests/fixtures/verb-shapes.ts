@@ -636,6 +636,35 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   ],
   provider: [
     { label: "provider.show", shape: { provider: "openrouter", envVar: "OPENROUTER_API_KEY", configured: true, capabilities: ["image", "video", "llm"] } },
+    {
+      label: "provider.matrix",
+      shape: {
+        filter: { model: "bytedance/seedance-2.0", capability: null },
+        count: 2,
+        entries: [
+          {
+            provider: "openrouter",
+            model: "bytedance/seedance-2.0",
+            capability: "video",
+            family: "seedance-2.0",
+            supportedParams: ["prompt", "durationSec", "firstFrame", "lastFrame", "refs"],
+            unsupportedParams: ["refVideos"],
+            source: "hand-curated",
+            notes: "~40% of the native seedance surface: image input_references only.",
+          },
+          {
+            provider: "fal",
+            model: "bytedance/seedance-2.0/reference-to-video",
+            capability: "video",
+            family: "seedance-2.0",
+            supportedParams: ["prompt", "durationSec", "firstFrame", "lastFrame", "refs", "refVideos"],
+            unsupportedParams: [],
+            source: "hand-curated",
+            notes: null,
+          },
+        ],
+      },
+    },
   ],
   queue: [
     { label: "queue.add", shape: { id: 42, kind: "shell", argv: ["ralphy", "render", "demo-001"], depends_on: [41] } },

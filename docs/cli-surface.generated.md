@@ -276,6 +276,13 @@ Commands:
   test [options] [id]  Report each connector's availability + config validity.
                        Offline by default (no network); --ping hits the
                        endpoint.
+  matrix [options]     Per-(model, capability, provider) parameter-coverage
+                       matrix (#497): which connector-input params each provider
+                       actually honors for a model, notable unsupported ones,
+                       and the provider that covers them. Hand-curated registry
+                       data (decision D-02) — an unknown model has no entry (no
+                       entry = no warning at generate time). Example: ralphy
+                       provider matrix --model bytedance/seedance-2.0
   help [command]       display help for command
 ```
 
