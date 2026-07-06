@@ -19,6 +19,26 @@ type RunGraphNode = { id: string; type: string; label: string; detail?: string; 
 type RunGraph = { title: string; nodes: RunGraphNode[]; edges: Array<{ from: string; to: string }>; layout: Record<string, Pos> } | null;
 type RunSummary = any;
 type PatchState = { patches: any[]; effectiveConfig: Record<string, any> };
+// ── Farm dashboard (#506) — shapes mirror studio/server/control.ts views ──
+type FarmStatus = {
+  workspace: string;
+  daemon: { running: boolean; pid: number | null };
+  counts: Record<string, number>;
+  runs: Array<{ id: string; workflow: string; status: string; completedNodes: number; skippedNodes: number; totalNodes: number | null; spendUsd: number; updatedAt: string; detail: string | null }>;
+};
+type TrustStatus = {
+  workspace: string;
+  level: string;
+  autoPublishScore: number;
+  promotionStreak: number;
+  demoteOnReject: boolean;
+  agreement: { samples: number; matches: number; rate: number | null; streak: number };
+  promotion: { suggested: boolean; nextLevel: string | null; rule: string };
+  autoPasses: number;
+};
+type CalendarDoc = { workspace: string; slots: any[]; entries: any[] };
+type WorkflowRow = { name: string; kind: string; nodes: number; steps: number };
+const FARM_RUN_CLS: Record<string, string> = { running: "rs-active", complete: "rs-complete", "parked-approval": "rs-archived", "halted-budget": "rs-archived", "halted-failure": "rs-archived" };
 type ModalEntry = Artifact | null;
 type TagTarget = { type: string; ref: string; label: string } | null;
 
@@ -64,6 +84,17 @@ async function api<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(String(res.status));
   return await res.json();
+}
+
+async function postJson<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw Object.assign(new Error(String(res.status)), { data });
+  return data as T;
 }
 
 function money(n: number | null | undefined) {
@@ -145,6 +176,7 @@ function StudioApp() {
   const [tagTarget, setTagTarget] = useState<TagTarget>(null);
   const [sentInbox, setSentInbox] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [authNeeded, setAuthNeeded] = useState(false);
 
   const annIndex = useMemo(() => buildAnnotationIndex(annotations), [annotations]);
   const annFor = (type: string, ref: string) => annIndex[annKey(type, ref)] || null;
@@ -230,7 +262,7 @@ function StudioApp() {
       const hash = parseHash();
       const initial = hash.workspace && rows.some((w) => w.slug === hash.workspace) ? hash.workspace : rows[0]?.slug;
       if (initial) await openWorkspace(initial, !!hash.workspace, hash.project);
-    }).catch(() => {});
+    }).catch((e) => { if ((e as Error).message === "401") setAuthNeeded(true); });
   }, []);
 
   useEffect(() => {
@@ -327,6 +359,8 @@ function StudioApp() {
   const hasRun = !!runId;
   const hasBoard = !!workflow?.steps?.length;
 
+  if (authNeeded) return <LoginGate />;
+
   return (
     <div class="layout" data-preact-studio>
       <aside class="side">
@@ -357,7 +391,7 @@ function StudioApp() {
 
       <main class="main">
         <div class="topbar">
-          <h1 id="title">{hasRun ? (run?.title || runId) : hasProject ? project : "-"}</h1>
+          <h1 id="title">{hasRun ? (run?.title || runId) : hasProject ? project : workspace ? `${workspace} — farm` : "-"}</h1>
           <div class="views" id="views">
             {hasRun ? <>
               <button class={`vtab${runView === "graph" ? " active" : ""}`} onClick={() => setRunView("graph")}>graph</button>
@@ -375,7 +409,9 @@ function StudioApp() {
         </div>
 
         <div class="grid-scroll" id="scroll">
-          {!hasProject && !hasRun ? <div class="placeholder" id="placeholder">pick a project or run</div> : null}
+          {!hasProject && !hasRun ? (workspace
+            ? <FarmPanel workspace={workspace} onNode={setDrawer} annFor={annFor} chips={chips} objectButtons={objectButtons} />
+            : <div class="placeholder" id="placeholder">pick a project or run</div>) : null}
           {hasRun ? runView === "graph"
             ? <RunGraphView graph={runGraph} workspace={workspace} runId={runId} annFor={annFor} chips={chips} objectButtons={objectButtons} onNode={setDrawer} />
             : <RunDashboard run={run} runId={runId} runPatches={runPatches} setRunPatches={setRunPatches} workspace={workspace} onProject={(id) => void openProject(id)} />
@@ -422,6 +458,222 @@ function StudioApp() {
       />
     </div>
   );
+}
+
+// ── Auth gate (#506): STUDIO_AUTH_TOKEN mode — POST /api/auth sets the cookie ──
+function LoginGate() {
+  const [token, setToken] = useState("");
+  const [err, setErr] = useState("");
+  const login = async () => {
+    setErr("");
+    try {
+      await postJson("/api/auth", { token });
+      location.reload();
+    } catch {
+      setErr("wrong token");
+    }
+  };
+  return <div class="layout" data-preact-studio>
+    <div class="login-gate">
+      <div class="brand"><span class="dot"></span>Studio</div>
+      <p class="login-hint">This dashboard is protected. Paste the admin token (STUDIO_AUTH_TOKEN).</p>
+      <div class="cp-form">
+        <input class="cp-value" type="password" value={token} placeholder="admin token"
+          onInput={(e) => setToken((e.currentTarget as HTMLInputElement).value)}
+          onKeyDown={(e) => { if (e.key === "Enter") void login(); }} />
+        <button class="cp-propose" onClick={() => void login()}>log in</button>
+      </div>
+      {err ? <div class="login-err">{err}</div> : null}
+    </div>
+  </div>;
+}
+
+// ── Farm dashboard (#506) — workspace-level view over the #503 farm plane ──
+function FarmPanel({ workspace, onNode, annFor, chips, objectButtons }: {
+  workspace: string;
+  onNode: (node: RunGraphNode) => void;
+  annFor: (type: string, ref: string) => Annotation | null;
+  chips: (type: string, ref: string) => any;
+  objectButtons: (type: string, ref: string, label: string) => any;
+}) {
+  const [farm, setFarm] = useState<FarmStatus | null>(null);
+  const [trust, setTrust] = useState<TrustStatus | null>(null);
+  const [calendar, setCalendar] = useState<CalendarDoc | null>(null);
+  const [flows, setFlows] = useState<WorkflowRow[]>([]);
+  const [spec, setSpec] = useState<{ name: string; graph: RunGraph; issues: Array<{ level: string; message: string }> } | null>(null);
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState("");
+
+  const ws = encodeURIComponent(workspace);
+  const loadFarm = () => api<FarmStatus>(`/api/farm/status?workspace=${ws}`).then(setFarm).catch(() => setFarm(null));
+  const loadAll = () => {
+    void loadFarm();
+    void api<TrustStatus>(`/api/workspaces/${ws}/trust`).then(setTrust).catch(() => setTrust(null));
+    void api<CalendarDoc>(`/api/workspaces/${ws}/calendar`).then(setCalendar).catch(() => setCalendar(null));
+    void api<{ workflows: WorkflowRow[] } | WorkflowRow[]>(`/api/workspaces/${ws}/workflows`)
+      .then((d: any) => setFlows(Array.isArray(d) ? d : d.workflows || [])).catch(() => setFlows([]));
+  };
+  useEffect(() => { setSpec(null); setNote(""); loadAll(); }, [workspace]);
+  useEffect(() => {
+    const t = setInterval(() => void loadFarm(), 8000);
+    return () => clearInterval(t);
+  }, [workspace]);
+
+  const farmAction = async (action: "start" | "stop" | "tick-now") => {
+    setBusy(action);
+    setNote("");
+    try {
+      await postJson(`/api/farm/${action}`, { workspace });
+      setNote(action === "stop" ? "farm stopped" : action === "start" ? "farm started" : "tick fired");
+    } catch (e: any) {
+      setNote(e?.data?.error || (e?.message === "409" ? "farm already running" : `failed: ${e?.message}`));
+    }
+    setBusy("");
+    void loadFarm();
+  };
+
+  const setTrustLevel = async (level: string) => {
+    try {
+      await postJson(`/api/workspaces/${ws}/trust`, { level });
+      void api<TrustStatus>(`/api/workspaces/${ws}/trust`).then(setTrust).catch(() => {});
+    } catch (e: any) {
+      setNote(e?.data?.error || "trust update failed");
+    }
+  };
+
+  if (spec) {
+    return <>
+      <div class="farm-spec-head">
+        <button class="ib-link" onClick={() => setSpec(null)}>&larr; back to farm</button>
+        <span class="run-status rs-active">spec: {spec.name}</span>
+        {spec.issues.length ? <span class="farm-issues">{spec.issues.map((i) => <span class={`gb ${i.level === "error" ? "v-blocked" : "v-repair"}`}>{i.message}</span>)}</span> : null}
+      </div>
+      <RunGraphView graph={spec.graph} workspace={workspace} runId={""} annFor={annFor} chips={chips} objectButtons={objectButtons} onNode={onNode} />
+    </>;
+  }
+
+  const counts = farm?.counts || {};
+  const daemon = farm?.daemon;
+  return <div class="runboard" id="farmboard">
+    {note ? <div class="run-warn">{note}</div> : null}
+    <div class="run-stats">
+      <div class="stat"><span class="stat-k">daemon</span><span class="stat-v">{daemon ? (daemon.running ? `pid ${daemon.pid}` : "stopped") : "-"}</span></div>
+      <div class="stat"><span class="stat-k">running</span><span class="stat-v">{counts["running"] || 0}</span></div>
+      <div class="stat"><span class="stat-k">parked</span><span class="stat-v">{counts["parked-approval"] || 0}</span></div>
+      <div class={`stat${(counts["halted-budget"] || 0) + (counts["halted-failure"] || 0) ? " stat-bad" : ""}`}><span class="stat-k">halted</span><span class="stat-v">{(counts["halted-budget"] || 0) + (counts["halted-failure"] || 0)}</span></div>
+      <div class="stat"><span class="stat-k">complete</span><span class="stat-v">{counts["complete"] || 0}</span></div>
+    </div>
+    <div class="cp-form">
+      <button class="cp-propose" disabled={!!busy || !!daemon?.running} onClick={() => void farmAction("start")}>{busy === "start" ? "starting..." : "start farm"}</button>
+      <button class="cp-propose" disabled={!!busy || !daemon?.running} onClick={() => void farmAction("stop")}>{busy === "stop" ? "stopping..." : "stop"}</button>
+      <button class="cp-propose" disabled={!!busy} onClick={() => void farmAction("tick-now")}>{busy === "tick-now" ? "firing..." : "tick now"}</button>
+      <button class="ib-link" onClick={loadAll}>refresh</button>
+    </div>
+
+    <section class="run-card">
+      <h2 class="run-card-head">Farm runs<span class="n">{farm?.runs?.length || 0}</span></h2>
+      <div class="farm-rows">{farm?.runs?.length ? farm.runs.map((r) => <div class="farm-row">
+        <span class={`run-status ${FARM_RUN_CLS[r.status] || "rs-active"}`}>{r.status}</span>
+        <span class="farm-cell farm-grow" title={r.detail || ""}>{r.workflow} <code class="cp-id">{r.id}</code></span>
+        <span class="farm-cell">{r.completedNodes}{r.totalNodes != null ? `/${r.totalNodes}` : ""} nodes</span>
+        <span class="farm-cell">{money(r.spendUsd)}</span>
+      </div>) : <div class="inbox-empty">No farm runs yet - start the farm or fire a tick.</div>}</div>
+    </section>
+
+    <section class="run-card">
+      <h2 class="run-card-head">Trust ladder{trust?.promotion?.suggested ? <span class="gb gb-approve">promotion suggested</span> : null}</h2>
+      {trust ? <>
+        <div class="cp-form">
+          <select class="cp-value" value={trust.level} onChange={(e) => void setTrustLevel((e.currentTarget as HTMLSelectElement).value)}>
+            <option value="L0">L0 — every publish needs approval</option>
+            <option value="L1">L1 — auto-publish at score &ge; {trust.autoPublishScore}</option>
+            <option value="L2">L2 — autopilot (ship verdicts)</option>
+          </select>
+        </div>
+        <div class="cp-eff">
+          <span class="cp-effk">agreement {trust.agreement.rate == null ? "—" : `${Math.round(trust.agreement.rate * 100)}%`} ({trust.agreement.samples} samples)</span>
+          <span class="cp-effk">streak {trust.agreement.streak}</span>
+          <span class="cp-effk">auto-passes {trust.autoPasses}</span>
+        </div>
+        <div class="cp-hint">{trust.promotion.rule}</div>
+      </> : <div class="inbox-empty">No trust data - unknown workspace.</div>}
+    </section>
+
+    <section class="run-card">
+      <h2 class="run-card-head">Calendar<span class="n">{calendar?.entries?.length || 0}</span></h2>
+      {calendar?.slots?.length ? <div class="farm-rows">{calendar.slots.map((s: any) => <div class="farm-row">
+        <span class="farm-cell farm-mono">{s.weekday} {s.time} {s.timezone}</span>
+        <span class="farm-cell farm-grow">{s.unitType}</span>
+        <span class="farm-cell">{(s.targetPlatforms || []).join(", ") || "-"}</span>
+      </div>)}</div> : <div class="inbox-empty">No recurring slots - add them with `ralphy calendar add`.</div>}
+      {calendar?.entries?.length ? <div class="farm-rows farm-entries">{calendar.entries.slice(0, 10).map((e: any) => <div class="farm-row">
+        <span class={`run-status ${e.status === "published" ? "rs-complete" : "rs-active"}`}>{e.status}</span>
+        <span class="farm-cell farm-mono">{e.at ? e.at.slice(0, 16).replace("T", " ") : "queued"}</span>
+        <span class="farm-cell farm-grow">{e.unitType}</span>
+        <span class="farm-cell">{(e.platforms || []).join(", ")}</span>
+      </div>)}</div> : null}
+    </section>
+
+    <section class="run-card">
+      <h2 class="run-card-head">Workflows<span class="n">{flows.length}</span></h2>
+      <div class="farm-rows">{flows.length ? flows.map((f) => <div class="farm-row">
+        <span class="farm-cell farm-grow">{f.name}</span>
+        <span class="farm-cell">{f.kind === "graph" ? `${f.nodes} nodes` : `${f.steps} steps (linear)`}</span>
+        {f.kind === "graph" ? <button class="ib-link" onClick={() => void api<any>(`/api/workspaces/${ws}/workflows/${encodeURIComponent(f.name)}/graph`)
+          .then((g) => setSpec({ name: f.name, graph: { title: f.name, nodes: g.nodes, edges: g.edges, layout: g.layout || {} }, issues: g.issues || [] }))
+          .catch(() => setNote("could not load the workflow graph"))}>view graph</button> : <span class="farm-cell">-</span>}
+      </div>) : <div class="inbox-empty">No workflows in this workspace.</div>}</div>
+    </section>
+
+    <ImportBundleCard workspace={workspace} onImported={() => location.reload()} />
+  </div>;
+}
+
+function ImportBundleCard({ workspace, onImported }: { workspace: string; onImported: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [asSlug, setAsSlug] = useState("");
+  const [allowKeys, setAllowKeys] = useState(false);
+  const [allowCov, setAllowCov] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; lines: string[] } | null>(null);
+
+  const upload = async () => {
+    if (!file) return;
+    setBusy(true);
+    setResult(null);
+    const qs = new URLSearchParams();
+    if (asSlug) qs.set("as", asSlug);
+    if (allowKeys) qs.set("allowMissingKeys", "1");
+    if (allowCov) qs.set("allowCoverageGaps", "1");
+    try {
+      const res = await fetch(`/api/workspaces/import-bundle?${qs}`, { method: "POST", body: await file.arrayBuffer() });
+      const data: any = await res.json().catch(() => null);
+      if (res.ok && data?.imported !== false) {
+        setResult({ ok: true, lines: [`imported as "${data?.workspace || asSlug || "(bundle name)"}"`] });
+        setTimeout(onImported, 1200);
+      } else {
+        // Surface #502 validation refusals verbatim.
+        const refusals = data?.refusals || data?.gaps || [];
+        setResult({ ok: false, lines: refusals.length ? refusals.map((r: any) => r.detail || r.message || JSON.stringify(r)) : [data?.error || `import failed (${res.status})`] });
+      }
+    } catch (e: any) {
+      setResult({ ok: false, lines: [`upload failed: ${e?.message || e}`] });
+    }
+    setBusy(false);
+  };
+
+  return <section class="run-card">
+    <h2 class="run-card-head">Import bundle</h2>
+    <div class="cp-form">
+      <input class="cp-value" type="file" accept=".zip" onChange={(e) => setFile((e.currentTarget as HTMLInputElement).files?.[0] || null)} />
+      <input class="cp-target" value={asSlug} placeholder="as slug (optional)" onInput={(e) => setAsSlug((e.currentTarget as HTMLInputElement).value)} />
+      <label class="farm-check"><input type="checkbox" checked={allowKeys} onChange={(e) => setAllowKeys((e.currentTarget as HTMLInputElement).checked)} /> allow missing keys</label>
+      <label class="farm-check"><input type="checkbox" checked={allowCov} onChange={(e) => setAllowCov((e.currentTarget as HTMLInputElement).checked)} /> allow coverage gaps</label>
+      <button class="cp-propose" disabled={!file || busy} onClick={() => void upload()}>{busy ? "importing..." : "import"}</button>
+    </div>
+    <div class="cp-hint">Upload a #502 workspace bundle zip. Validation runs before anything is written; refusals appear verbatim below.</div>
+    {result ? <div class={`farm-import ${result.ok ? "ok" : "bad"}`}>{result.lines.map((l) => <div>{l}</div>)}</div> : null}
+  </section>;
 }
 
 function KindChips({ artifacts, filter, visible, onFilter }: { artifacts: Artifact[]; filter: string | null; visible: boolean; onFilter: (value: string | null) => void }) {
@@ -891,7 +1143,9 @@ function RunGraphView({ graph, workspace, runId, annFor, chips, objectButtons, o
   }, [graph]);
   if (!graph) return <div class="runboard" id="runboard"><div class="placeholder">run graph unavailable</div></div>;
   if (!graph.nodes.length) return <div class="runboard" id="runboard"><div class="placeholder">empty run - no sources, projects, or units yet</div></div>;
-  const save = (node: string, p: Pos) => void fetch(`/api/runs/${encodeURIComponent(runId)}/canvas/layout`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace, node, x: Math.round(p.x), y: Math.round(p.y) }) }).catch(() => {});
+  // Spec-graph reuse (#506): FarmPanel renders workflow SPECS through this
+  // same canvas with runId="" — no persisted layout there, so save is a no-op.
+  const save = (node: string, p: Pos) => { if (!runId) return; void fetch(`/api/runs/${encodeURIComponent(runId)}/canvas/layout`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace, node, x: Math.round(p.x), y: Math.round(p.y) }) }).catch(() => {}); };
   const drag = (event: MouseEvent, id: string) => {
     event.preventDefault();
     event.stopPropagation();
