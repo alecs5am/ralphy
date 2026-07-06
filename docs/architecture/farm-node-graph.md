@@ -274,6 +274,22 @@ source, engagement signals) so downstream nodes are source-agnostic.
 | `x-post` | X API | text units (threads) don't need Postiz |
 | `analytics-pull` | platform analytics APIs | closes the loop: per-unit retention/views -> performance postmortem -> `ralphy memory note --workspace`. The self-improving-farm differentiator |
 
+**D-05 — Postiz integration depth: external-by-default, optionally bundled
+(decided 2026-07-06, #501, coordinated with #506):** Postiz is an EXTERNAL
+service the farm calls, not a hard runtime dependency. The connector
+(`cli/lib/providers/postiz.ts`) is configured by `POSTIZ_BASE_URL` +
+`POSTIZ_API_KEY`; because self-hosted Postiz has no canonical SaaS host, the
+base URL is REQUIRED config (the connector reports unavailable with a clear
+message when either var is unset). That makes the connector
+deployment-agnostic by construction: the #506 docker-compose MAY bundle Postiz
+as an OPTIONAL service — the compose file then points `POSTIZ_BASE_URL` at the
+bundled container — and pointing at an already-running external instance is
+the same single env var. Invariant-#1 consequence: with no fixed host to scan
+for, the connector guard in `tests/unit/agents-md-invariants.test.ts` is
+env-var-scoped only (both vars file-scoped to the connector). `x-post` runs
+through Postiz too (an `x` integration); a direct X API connector and the
+`youtube-upload` direct-API fallback are named follow-ups.
+
 ### F. Control-flow nodes
 
 | Node | Behavior |
@@ -354,8 +370,10 @@ Phasing:
    import/lint time by `ralphy workflow lint`).
 3. **Executor placement** — inside the workflow app (per #492/#493 direction)
    vs a standalone `ralphy farm` process that the app observes.
-4. **Postiz integration depth** — external service the farm calls vs bundled in
-   the docker-compose.
+4. **Postiz integration depth** — **decided** as D-05 (see "E. Publish nodes"
+   above; landed via #501: external-by-default via `POSTIZ_BASE_URL` +
+   `POSTIZ_API_KEY`, the #506 compose file MAY bundle Postiz as an optional
+   service pointing that same env var at the bundled container).
 5. **Capability-matrix source of truth** — **decided** as D-02 (see
    "B. Media nodes" above; landed via #497, hand-curated typed const at
    `cli/lib/providers/coverage.ts`, manual refresh informed by fal model

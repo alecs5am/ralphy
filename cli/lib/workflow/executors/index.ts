@@ -9,9 +9,10 @@
 //
 // Registered here: the four A-category LLM node types — generate-text,
 // generate-object, agent-loop (via the AI SDK layer, D-01/D-04), coding-agent
-// (headless external binary, NO SDK) — and the D-category ingestion nodes +
-// dedup (#500). The generic `http` node is deliberately unregistered (see
-// ingestion.ts / issue #500 notes).
+// (headless external binary, NO SDK) — the D-category ingestion nodes +
+// dedup (#500), the calendar-slot control-flow node (#504), and the E-category
+// publish + x-post nodes via Postiz (#501). The generic `http` node is
+// deliberately unregistered (see ingestion.ts / issue #500 notes).
 
 import type { WorkflowNodeType } from "../../schemas/workflow.js";
 import type { NodeExecutor } from "./types.js";
@@ -25,6 +26,7 @@ import {
   dedupExecutor,
 } from "./ingestion.js";
 import { calendarSlotExecutor } from "./calendar.js";
+import { publishExecutor, xPostExecutor } from "./publish.js";
 
 export {
   NodeExecutionError,
@@ -69,3 +71,8 @@ registerExecutor("dedup", dedupExecutor);
 
 // F. Control flow: calendar-slot — the workspace content calendar (#504).
 registerExecutor("calendar-slot", calendarSlotExecutor);
+
+// E. Publish nodes via Postiz (#501). youtube-upload (direct API) and
+// analytics-pull are named follow-ups (#501 notes / #507).
+registerExecutor("publish", publishExecutor);
+registerExecutor("x-post", xPostExecutor);

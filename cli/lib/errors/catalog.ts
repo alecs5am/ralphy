@@ -270,6 +270,12 @@ export const ERROR_CODES = {
     hint: "Attach a reference image via `ralphy ref add` or pass --no-ref-consent to override.",
     relatedDocs: "AGENTS.md#hard-invariants-apply-across-all-playbooks",
   },
+  E_PUBLISH_NOT_READY: {
+    class: "gate",
+    message: "Publish gate refused for {project}/{slug}: readiness verdict is {verdict} — {reason}",
+    hint: "Repair the project until the readiness scorecard says `ship`, or bypass explicitly with `--force \"<reason>\"` (the bypass is logged to user-prompts.jsonl).",
+    relatedDocs: "notes/issues/501-postiz-publish-connector.md",
+  },
 
   // ── Runtime / catch-all (exit 1) ──────────────────────────────────────────
   E_INTERNAL: {
