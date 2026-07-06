@@ -19,8 +19,8 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 | nodes | [#504](../issues/done/504-content-calendar-entity.md) | #498 | `bun test` · `lint:out-coverage` | landed `9c337205` |
 | nodes | [#501](../issues/done/501-postiz-publish-connector.md) | #498, #504 | `bun test` (mocked Postiz) | landed `b110497f` |
 | runtime | [#503](../issues/done/503-farm-scheduler-runner.md) | #498, #499 | `bun test` (fixture graph e2e, park/resume) | landed `a65c322c` |
-| runtime | [#502](../issues/done/502-workspace-export-import-bundle.md) | #497, #498 | round-trip test · `workflow lint` green | landed |
-| runtime | [#505](../issues/505-trust-ladder-auto-publish.md) | #501, #503 | `bun test` (gating, agreement math) | todo |
+| runtime | [#502](../issues/done/502-workspace-export-import-bundle.md) | #497, #498 | round-trip test · `workflow lint` green | landed `ca263760` |
+| runtime | [#505](../issues/done/505-trust-ladder-auto-publish.md) | #501, #503 | `bun test` (gating, agreement math) | landed |
 | deploy | [#506](../issues/506-farm-server-deploy-dashboard-auth.md) | #502, #503, #504, #505 | compose smoke · auth block test | todo |
 | loop | [#507](../issues/507-analytics-feedback-loop.md) | #501 | `bun test` (mocked API pull) | todo |
 | skills | [#508](../issues/508-skills-refresh-farm-era.md) | #496-#507 | `lint:skills` · `lint:agents-md` | todo |

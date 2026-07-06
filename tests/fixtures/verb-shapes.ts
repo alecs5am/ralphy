@@ -1179,6 +1179,47 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     },
     { label: "workspace.show", shape: { slug: "ellycoffee", projects: 2, shared: { refs: 5, music: 3 }, memory: { entries: 8 } } },
     {
+      label: "workspace.update",
+      shape: {
+        workspace: "silent-hill",
+        trust: { level: "L1", autoPublishScore: 85, promotionStreak: 10, demoteOnReject: true },
+      },
+    },
+    {
+      label: "workspace.trust",
+      shape: {
+        workspace: "silent-hill",
+        level: "L1",
+        autoPublishScore: 85,
+        promotionStreak: 10,
+        demoteOnReject: true,
+        agreement: { samples: 12, matches: 11, rate: 0.9167, streak: 7 },
+        promotion: {
+          suggested: false,
+          nextLevel: "L2",
+          rule: "promotion is suggested when the streak of consecutive verdict-matching human decisions reaches 10 (current: 7) AND the overall agreement rate is >= 0.9 (current: 0.9167). Promotion is ALWAYS explicit: ralphy workspace update <ws> --trust-level L2",
+        },
+        autoPasses: 4,
+        agreementLog: ".ralphy/workspaces/silent-hill/trust-agreement.jsonl",
+        auditLog: ".ralphy/workspaces/silent-hill/trust-audit.jsonl",
+      },
+    },
+    {
+      label: "workspace.trust.empty",
+      shape: {
+        workspace: "fresh",
+        level: "L0",
+        autoPublishScore: 80,
+        promotionStreak: 10,
+        demoteOnReject: true,
+        agreement: { samples: 0, matches: 0, rate: null, streak: 0 },
+        promotion: { suggested: false, nextLevel: "L1", rule: "promotion is suggested when the streak reaches 10 (current: 0) AND the agreement rate is >= 0.9 (current: n/a)." },
+        autoPasses: 0,
+        agreementLog: ".ralphy/workspaces/fresh/trust-agreement.jsonl",
+        auditLog: ".ralphy/workspaces/fresh/trust-audit.jsonl",
+      },
+    },
+    {
       label: "workspace.export",
       shape: {
         workspace: "tech-news",

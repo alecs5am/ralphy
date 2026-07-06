@@ -34,6 +34,13 @@ import {
   type BundleGap,
   type ImportRefusal,
 } from "../lib/bundle.js";
+import {
+  TRUST_LEVELS,
+  writeTrustConfig,
+  trustStatus,
+  type TrustConfig,
+  type TrustLevel,
+} from "../lib/trust.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -243,6 +250,100 @@ export function workspaceCmd() {
       }
       ok(`Active workspace: ${slug}`);
       out({ activeWorkspace: slug, memory });
+    });
+
+  // ── update (#505 trust-ladder settings) ────────────────────────────────
+  cmd
+    .command("update <slug>")
+    .description(
+      "Update workspace settings — the #505 trust-ladder fields in workspace.json's `trust` key: --trust-level L0|L1|L2 (L0 = publish always parks for approval, L1 = auto-pass when the workspace-eval score clears --auto-publish-score, L2 = auto-pass any ship-verdict unit; a fail/warn gate never auto-passes at any level), --auto-publish-score 0-100 (the L1 threshold on the workspace-eval overall score, default 80), --promotion-streak (consecutive verdict-matching decisions before `workspace trust` suggests promotion, default 10), --demote-on-reject true|false (a reject of an auto-published unit drops L2 to L1, default true). Promotion/demotion of the level is always THIS explicit verb — never automatic. Example: ralphy workspace update silent-hill --trust-level L1 --auto-publish-score 85",
+    )
+    .option("--trust-level <level>", "Trust-ladder level: L0 | L1 | L2")
+    .option("--auto-publish-score <n>", "L1 auto-publish threshold on the workspace-eval overall score (0-100)", parseFloat)
+    .option("--promotion-streak <n>", "Consecutive verdict-matching decisions before promotion is suggested", (v) => parseInt(v, 10))
+    .option("--demote-on-reject <bool>", "true | false — reject of an auto-published unit drops L2 to L1")
+    .action(async (slug: string, opts) => {
+      requireRalphyLayout("workspace update");
+      if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+      }
+      const patch: Partial<TrustConfig> = {};
+      if (opts.trustLevel !== undefined) {
+        if (!(TRUST_LEVELS as readonly string[]).includes(String(opts.trustLevel))) {
+          raiseError("E_INPUT_INVALID", {
+            field: "trust-level",
+            detail: `must be one of ${TRUST_LEVELS.join(" | ")}`,
+            verb: "workspace update",
+          });
+        }
+        patch.level = opts.trustLevel as TrustLevel;
+      }
+      if (opts.autoPublishScore !== undefined) {
+        const n = Number(opts.autoPublishScore);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          raiseError("E_INPUT_INVALID", {
+            field: "auto-publish-score",
+            detail: "must be a number in 0-100 (the workspace-eval overall score scale)",
+            verb: "workspace update",
+          });
+        }
+        patch.autoPublishScore = n;
+      }
+      if (opts.promotionStreak !== undefined) {
+        const n = Number(opts.promotionStreak);
+        if (!Number.isInteger(n) || n < 1) {
+          raiseError("E_INPUT_INVALID", {
+            field: "promotion-streak",
+            detail: "must be a positive integer",
+            verb: "workspace update",
+          });
+        }
+        patch.promotionStreak = n;
+      }
+      if (opts.demoteOnReject !== undefined) {
+        const v = String(opts.demoteOnReject).toLowerCase();
+        if (v !== "true" && v !== "false") {
+          raiseError("E_INPUT_INVALID", {
+            field: "demote-on-reject",
+            detail: "must be true or false",
+            verb: "workspace update",
+          });
+        }
+        patch.demoteOnReject = v === "true";
+      }
+      if (Object.keys(patch).length === 0) {
+        raiseError("E_INPUT_INVALID", {
+          field: "flags",
+          detail:
+            "nothing to update — pass --trust-level, --auto-publish-score, --promotion-streak, or --demote-on-reject",
+          verb: "workspace update",
+        });
+      }
+      const trust = writeTrustConfig(slug, patch);
+      ok(`Workspace ${slug} updated — trust level ${trust.level}`);
+      out({ workspace: slug, trust });
+    });
+
+  // ── trust (#505) ────────────────────────────────────────────────────────
+  cmd
+    .command("trust <slug>")
+    .description(
+      "Show the workspace's trust-ladder state (#505): the level (L0 park-everything | L1 score-thresholded auto-publish | L2 autopilot on ship-verdict units), the thresholds, the verdict-vs-human agreement (rate, streak, sample count from trust-agreement.jsonl), the auto-pass audit count, and whether promotion is SUGGESTED (streak >= promotion-streak AND agreement rate >= 0.9). Promotion is never applied here — it is always the explicit `ralphy workspace update <ws> --trust-level <L>`. Pure file reads, ZERO model calls. Example: ralphy workspace trust silent-hill",
+    )
+    .action(async (slug: string) => {
+      requireRalphyLayout("workspace trust");
+      if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+      }
+      const status = trustStatus(slug);
+      ok(
+        `Workspace ${slug} — trust ${status.level}, agreement ${
+          status.agreement.rate === null ? "n/a" : `${Math.round(status.agreement.rate * 100)}%`
+        } over ${status.agreement.samples} sample(s), streak ${status.agreement.streak}${
+          status.promotion.suggested ? ` — promotion to ${status.promotion.nextLevel} suggested` : ""
+        }`,
+      );
+      out(status);
     });
 
   // ── eval (#469) ────────────────────────────────────────────────────────

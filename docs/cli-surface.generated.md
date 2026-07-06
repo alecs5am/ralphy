@@ -1468,6 +1468,35 @@ Commands:
   show <slug>               Show a workspace: workspace.json + project list
   use <slug>                Set the active workspace (the default home for new
                             projects)
+  update [options] <slug>   Update workspace settings — the #505 trust-ladder
+                            fields in workspace.json's `trust` key:
+                            --trust-level L0|L1|L2 (L0 = publish always parks
+                            for approval, L1 = auto-pass when the workspace-eval
+                            score clears --auto-publish-score, L2 = auto-pass
+                            any ship-verdict unit; a fail/warn gate never
+                            auto-passes at any level), --auto-publish-score
+                            0-100 (the L1 threshold on the workspace-eval
+                            overall score, default 80), --promotion-streak
+                            (consecutive verdict-matching decisions before
+                            `workspace trust` suggests promotion, default 10),
+                            --demote-on-reject true|false (a reject of an
+                            auto-published unit drops L2 to L1, default true).
+                            Promotion/demotion of the level is always THIS
+                            explicit verb — never automatic. Example: ralphy
+                            workspace update silent-hill --trust-level L1
+                            --auto-publish-score 85
+  trust <slug>              Show the workspace's trust-ladder state (#505): the
+                            level (L0 park-everything | L1 score-thresholded
+                            auto-publish | L2 autopilot on ship-verdict units),
+                            the thresholds, the verdict-vs-human agreement
+                            (rate, streak, sample count from
+                            trust-agreement.jsonl), the auto-pass audit count,
+                            and whether promotion is SUGGESTED (streak >=
+                            promotion-streak AND agreement rate >= 0.9).
+                            Promotion is never applied here — it is always the
+                            explicit `ralphy workspace update <ws> --trust-level
+                            <L>`. Pure file reads, ZERO model calls. Example:
+                            ralphy workspace trust silent-hill
   eval [options] <project>  Score a project against its workspace's custom
                             evaluator rubric (#468 config) and write
                             workspace-eval.json + workspace-eval-report.md
