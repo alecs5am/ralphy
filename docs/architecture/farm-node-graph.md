@@ -156,6 +156,23 @@ Model-per-node binding is the point: research on `anthropic/claude-opus-4-8`,
 scripts on `anthropic/claude-fable-5`, cheap classification on a small model —
 all routed via the OpenRouter key through the AI SDK's provider adapter.
 
+**D-04 — callLLM() / AI-SDK boundary (decided 2026-07-06, #499):** the two LLM
+paths coexist permanently, split by caller class. Every existing verb — and any
+future verb-shaped feature (council, templater, style-lock enrich, social copy,
+…) — stays on `callLLM()` (`cli/lib/providers/registry.ts`), which owns
+connector selection, gen-log rows, and the single-completion call shape those
+call sites need. Workflow-graph LLM nodes (`generate-text`, `generate-object`,
+`agent-loop`) run on the AI SDK path instead: `cli/lib/providers/ai-sdk.ts`
+(the D-01 allowlisted file) wraps `generateText` / `generateObject` /
+`stopWhen(stepCountIs())` behind the same OpenRouter key, and
+`cli/lib/workflow/executors/` binds the node types to it. There is NO migration
+of `callLLM()` call sites — the SDK buys structured output, loop primitives,
+and provider adapters for the graph's multi-step cases, not a rewrite of
+working single-shot plumbing. `coding-agent` sits on neither path (headless
+external binary, no SDK import). Both paths land rows in the same
+generations.jsonl schema (model, tokens, cost_usd), so spend rollups stay
+uniform.
+
 ### B. Media nodes — typed by I/O signature, not by model
 
 Core insight (owner): **the same model exposes different capability surfaces
