@@ -71,6 +71,12 @@ For each stage, in order:
 
 After stage 4 clears and the user approves, hand off to Unit formation (`ralphy unit` / `/templater`) per the production contract — the studio flow ends at an eval-cleared, user-approved render.
 
+## Farm mode (#503/#505) — the same gates, headless
+
+The four-stage gate discipline you drive interactively is exactly what `ralphy farm start --workspace <ws>` (#503) replays without you: the scheduler fires the workspace's graph workflows on cron ticks, each tick runs as one durable Run, the workspace-eval gates and the #473 free/paid repair split apply unchanged — and instead of waiting in chat, an approval need PARKS the run (`parked-approval`; inspect with `ralphy farm status --workspace <ws>`).
+
+What changes when the workspace's `trustLevel` is above L0 (#505): parked approvals may auto-pass. The single decision point is `decideAutoPass` (`cli/lib/trust.ts`) — **L1** auto-passes a unit whose workspace-eval verdict is `ship` AND overall score clears `autoPublishScore` (default 80; borderline parks); **L2** auto-passes any `ship`-verdict unit. **The floor never moves: a non-`ship` verdict or ANY fail/warn criterion NEVER auto-passes, at any level.** Every auto-pass (and demotion) is audited append-only to `<workspace>/trust-audit.jsonl`; a human reject of an auto-published unit resets the agreement streak and demotes L2 → L1 (`demoteOnReject`, default on). Promotion is never applied automatically — `ralphy workspace trust <ws>` shows the suggestion; `ralphy workspace update <ws> --trust-level <L>` is the explicit act. Practical takeaway for this skill: the rubric you gate stages on interactively IS the farm's publish policy — tighten the criteria before recommending a trust promotion.
+
 ## How this sits with the production contract
 
 The four stages are a user-facing VIEW of the canonical production contract (`docs/playbooks/agent-production-contract.md`): stage 1 ≈ phases reference-gate → style-lock, stage 2 ≈ scenario, stage 3 ≈ assets, stage 4 ≈ render → eval. The contract still owns the full phase order and per-phase artifacts; this skill collapses them into four approval checkpoints and adds the per-stage workspace-eval gate. Use `ralphy project status <id> --contract` as the source of truth for where the project actually is — never guess the phase from chat memory.

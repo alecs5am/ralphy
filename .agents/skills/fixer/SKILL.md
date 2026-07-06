@@ -97,6 +97,10 @@ The old `eval.json` was auto-versioned by the re-eval (or lives alongside) — c
 - Re-rolled artifacts under `<project>/artifacts/<kind>/` (auto-versioned).
 - A fresh `eval.json` / `eval-report.md` after the re-eval.
 
+## Farm mode (#503/#505) — the headless twin of the paid gate
+
+Under `ralphy farm start` (#503) the eval-to-repair loop runs headless via the #473 stage-loop discipline: FREE fixes (`costEstimate === 0`) auto-loop; a PAID regeneration PARKS the run for approval (`parked-approval` in `ralphy farm status --workspace <ws>`) — the same hard gate as step 3, enforced structurally instead of in chat. When the workspace's `trustLevel` is L1/L2 (#505), a repair that lands a clean `ship` verdict can auto-pass publish approval (`decideAutoPass`, `cli/lib/trust.ts`; every auto-pass audited append-only to `<workspace>/trust-audit.jsonl`) — which raises the stakes on a sloppy fix: never talk a gate into passing. The floor holds at every level (a non-`ship` verdict or ANY fail/warn criterion never auto-passes), and a human reject of an auto-published unit demotes L2 → L1 (`demoteOnReject`). Trust state: `ralphy workspace trust <ws>`; promotion is only ever the explicit `ralphy workspace update <ws> --trust-level <L>`.
+
 ## References
 
 - `cli/lib/repair.ts` — the deterministic plan builder + owner map (source of truth for category → owner + priority).
