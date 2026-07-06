@@ -17,8 +17,8 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 | nodes | [#499](../issues/done/499-ai-sdk-llm-nodes.md) | #496, #498 | `bun test` (mocked SDK) · invariant test | landed `1342fd80` |
 | nodes | [#500](../issues/done/500-ingestion-trend-watch-nodes.md) | #498 | `bun test` (fixtures, cursor, dedup) | landed `42f08323` |
 | nodes | [#504](../issues/done/504-content-calendar-entity.md) | #498 | `bun test` · `lint:out-coverage` | landed `9c337205` |
-| nodes | [#501](../issues/done/501-postiz-publish-connector.md) | #498, #504 | `bun test` (mocked Postiz) | landed |
-| runtime | [#503](../issues/503-farm-scheduler-runner.md) | #498, #499 | `bun test` (fixture graph e2e, park/resume) | todo |
+| nodes | [#501](../issues/done/501-postiz-publish-connector.md) | #498, #504 | `bun test` (mocked Postiz) | landed `b110497f` |
+| runtime | [#503](../issues/done/503-farm-scheduler-runner.md) | #498, #499 | `bun test` (fixture graph e2e, park/resume) | landed |
 | runtime | [#502](../issues/502-workspace-export-import-bundle.md) | #497, #498 | round-trip test · `workflow lint` green | todo |
 | runtime | [#505](../issues/505-trust-ladder-auto-publish.md) | #501, #503 | `bun test` (gating, agreement math) | todo |
 | deploy | [#506](../issues/506-farm-server-deploy-dashboard-auth.md) | #502, #503, #504, #505 | compose smoke · auth block test | todo |

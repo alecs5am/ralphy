@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **51**
+Verbs registered: **52**
 
 ## Top-level verbs
 
@@ -1544,6 +1544,49 @@ Commands:
                        (idempotent — a second run creates nothing). Example:
                        ralphy calendar fill my-studio --weeks 2
   help [command]       display help for command
+```
+
+### `ralphy farm`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy farm [options] [command]
+
+Farm scheduler + headless graph runner (#503): fires cron ticks from the
+workspace's node-graph workflows (schedule nodes), executes each tick as a #480
+Run with an append-only journal, parks durably on approval nodes, halts on
+budget-guard breaches, and resumes incomplete runs after a restart.
+
+Options:
+  -h, --help        display help for command
+
+Commands:
+  start [options]   Start the farm scheduler for a workspace (FOREGROUND —
+                    background it yourself or docker run it). Reads schedule
+                    nodes (params.cron: standard 5-field cron; * , - / steps;
+                    numeric only) from the workspace's graph workflows, sleeps
+                    until the next fire, executes each tick as one Run, and
+                    resumes incomplete/parked runs on boot and on every tick.
+                    Refuses when a live farm process already holds the workspace
+                    pidfile. Example: ralphy farm start --workspace my-studio
+                    --once --tick-now
+  status [options]  Farm status for a workspace: whether a farm process is live
+                    (pidfile), run counts by state (running / parked-approval /
+                    halted-budget / halted-failure / complete), and per-run node
+                    progress + realized spend from each run journal. Example:
+                    ralphy farm status --workspace my-studio
+  stop [options]    Stop the workspace's running farm process: SIGTERM to the
+                    pidfile's pid (the loop finishes the node in flight and
+                    exits; incomplete runs resume on the next start). Example:
+                    ralphy farm stop --workspace my-studio
+  help [command]    display help for command
 ```
 
 ### `ralphy publish`
