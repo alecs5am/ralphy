@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example Tech Feed</title>
+    <link>https://example.com/blog</link>
+    <item>
+      <title><![CDATA[GPU prices drop & supply recovers]]></title>
+      <link>https://example.com/blog/gpu-prices</link>
+      <guid>https://example.com/blog/gpu-prices</guid>
+      <pubDate>Wed, 01 Jul 2026 09:30:00 GMT</pubDate>
+      <description>Wholesale GPU prices fell 18% quarter-over-quarter.</description>
+    </item>
+    <item>
+      <title>New open-weights model beats the benchmark</title>
+      <link>https://example.com/blog/open-weights</link>
+      <pubDate>Thu, 02 Jul 2026 14:00:00 GMT</pubDate>
+      <description><![CDATA[The 7B release tops the &quot;hard&quot; eval suite.]]></description>
+    </item>
+  </channel>
+</rss>

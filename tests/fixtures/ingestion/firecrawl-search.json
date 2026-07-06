@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "data": {
+    "web": [
+      {
+        "url": "https://news.example.com/ai-video-tools",
+        "title": "Five AI video tools compared",
+        "description": "A hands-on comparison of the current AI video generators."
+      },
+      {
+        "url": "https://blog.example.net/render-pipelines",
+        "title": "Render pipelines in 2026",
+        "description": "How headless render farms schedule GPU work."
+      },
+      {
+        "title": "Row without a url is dropped",
+        "description": "This row must not survive normalization."
+      }
+    ]
+  }
+}

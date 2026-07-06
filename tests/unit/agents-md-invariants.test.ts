@@ -15,8 +15,10 @@
 // Coverage map (see AGENTS.md `Tested by:` annotations for the inverse view):
 //
 //   #1  only registered connectors hold keys      — TESTED (this file;
-//       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; hosted Vercel /
-//        OpenAI-direct forbidden everywhere; `ai` npm package imports
+//       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; FIRECRAWL_API_KEY
+//        in cli/lib/providers/firecrawl.ts only + APIFY_TOKEN in
+//        cli/lib/providers/apify.ts only — #500 ingestion connectors; hosted
+//        Vercel / OpenAI-direct forbidden everywhere; `ai` npm package imports
 //        sanctioned in cli/lib/providers/ai-sdk.ts only — D-01,
 //        docs/architecture/farm-node-graph.md, #496)
 //   #2  ralphy is the only entry-point            — partially TESTED
@@ -199,6 +201,52 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     const src = fs.readFileSync(abs, "utf8");
     expect(AI_SDK_IMPORT_RE.test(src)).toBe(true);
   });
+
+  // #500 ingestion connectors — the same file-scoped discipline as fal:
+  // each connector's env var + host are sanctioned ONLY inside its own file,
+  // and the allowlist must not be vacuous.
+  const INGESTION_CONNECTORS: Array<{ file: string; envVar: string; hostRe: RegExp; hostLabel: string }> = [
+    {
+      file: path.join("cli", "lib", "providers", "firecrawl.ts"),
+      envVar: "FIRECRAWL_API_KEY",
+      hostRe: /https?:\/\/[a-z0-9.-]*firecrawl\.dev\b/i,
+      hostLabel: "firecrawl.dev",
+    },
+    {
+      file: path.join("cli", "lib", "providers", "apify.ts"),
+      envVar: "APIFY_TOKEN",
+      hostRe: /https?:\/\/[a-z0-9.-]*apify\.com\b/i,
+      hostLabel: "apify.com",
+    },
+  ];
+
+  for (const { file, envVar, hostRe, hostLabel } of INGESTION_CONNECTORS) {
+    const keyRe = new RegExp(`process\\.env(?:\\.${envVar}\\b|\\[["']${envVar}["']\\])`);
+
+    test(`${envVar} is read ONLY by the sanctioned connector file (${file})`, () => {
+      const offenders: string[] = [];
+      for (const f of sourceFiles()) {
+        const rel = path.relative(REPO, f);
+        if (rel === file) continue; // sanctioned connector — allowed
+        if (keyRe.test(fs.readFileSync(f, "utf8"))) offenders.push(`${rel} → ${envVar}`);
+      }
+      expect(offenders).toEqual([]);
+    });
+
+    test(`the sanctioned connector DOES read ${envVar} (allowlist is not vacuous)`, () => {
+      expect(keyRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
+    });
+
+    test(`${hostLabel} hosts appear ONLY in the sanctioned connector file`, () => {
+      const offenders: string[] = [];
+      for (const f of sourceFiles()) {
+        const rel = path.relative(REPO, f);
+        if (rel === file) continue;
+        if (hostRe.test(fs.readFileSync(f, "utf8"))) offenders.push(rel);
+      }
+      expect(offenders).toEqual([]);
+    });
+  }
 });
 
 describe("AGENTS.md invariant #2 — render entry-point is ralphy render", () => {

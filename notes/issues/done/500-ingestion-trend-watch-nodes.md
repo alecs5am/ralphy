@@ -1,6 +1,6 @@
 # Ingestion nodes and scheduled trend-watch
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** medium
@@ -48,3 +48,14 @@ source-agnostic so a workspace can swap X for RSS without touching the graph.
 - Sequence after #498. Consumed by #503 (scheduler ticks) and #509 (pilot).
 - `http` generic node: include only with an allowlisted-hosts param, or defer —
   implementer's call, note the choice.
+- **`http` node DEFERRED (implementer's call, 2026-07-06):** no executor is
+  registered for the `http` type — an executor that can hit arbitrary hosts
+  undermines invariant #1's registered-connector discipline. The node TYPE
+  stays in the schema taxonomy (`cli/lib/schemas/workflow.ts`); revisit with
+  an allowlisted-hosts param when a real graph needs it.
+- Connector-registry choice (2026-07-06): firecrawl/apify are standalone
+  connector modules under `cli/lib/providers/` following the `fal.ts` shape
+  (own envVar, typed request/response, file-scoped host allowlist) but are
+  NOT added to `registry.ts` BUNDLED — ingestion is not a generation
+  `Capability`, and widening that union would ripple through
+  `resolveConnector` / `ralphy provider list` for no benefit.

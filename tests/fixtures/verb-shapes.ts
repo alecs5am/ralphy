@@ -1018,6 +1018,35 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "workflow.run-node",
+      shape: {
+        workspace: "tech-news",
+        workflow: "pipeline",
+        node: "watch",
+        type: "trend-watch",
+        items: 2,
+        artifactPath: ".ralphy/workspaces/tech-news/runs/run-node/pipeline/watch.json",
+        costUsd: 0,
+        output: [
+          {
+            url: "https://example.com/posts/a",
+            title: "Post A",
+            text: "summary of post A",
+            ts: "2026-07-01T00:00:00.000Z",
+            source: { backend: "rss", feed: "https://example.com/feed.xml" },
+          },
+          {
+            url: "https://example.com/posts/b",
+            title: "Post B",
+            text: "",
+            ts: "2026-07-02T00:00:00.000Z",
+            source: { backend: "firecrawl", query: "ai video news" },
+            engagement: { views: 1200, likes: 40, shares: null, comments: 3 },
+          },
+        ],
+      },
+    },
+    {
       label: "workflow.lint",
       shape: {
         workspace: "silent-hill",

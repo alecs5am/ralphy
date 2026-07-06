@@ -8,13 +8,22 @@
 // registerExecutor()).
 //
 // Registered here: the four A-category LLM node types — generate-text,
-// generate-object, agent-loop (via the AI SDK layer, D-01/D-04) and
-// coding-agent (headless external binary, NO SDK).
+// generate-object, agent-loop (via the AI SDK layer, D-01/D-04), coding-agent
+// (headless external binary, NO SDK) — and the D-category ingestion nodes +
+// dedup (#500). The generic `http` node is deliberately unregistered (see
+// ingestion.ts / issue #500 notes).
 
 import type { WorkflowNodeType } from "../../schemas/workflow.js";
 import type { NodeExecutor } from "./types.js";
 import { generateTextExecutor, generateObjectExecutor, agentLoopExecutor } from "./llm.js";
 import { codingAgentExecutor } from "./coding-agent.js";
+import {
+  webScrapeExecutor,
+  actorExecutor,
+  rssExecutor,
+  trendWatchExecutor,
+  dedupExecutor,
+} from "./ingestion.js";
 
 export {
   NodeExecutionError,
@@ -49,3 +58,10 @@ registerExecutor("generate-text", generateTextExecutor);
 registerExecutor("generate-object", generateObjectExecutor);
 registerExecutor("agent-loop", agentLoopExecutor);
 registerExecutor("coding-agent", codingAgentExecutor);
+
+// D. Ingestion nodes + the seen-store-backed dedup (#500).
+registerExecutor("web-scrape", webScrapeExecutor);
+registerExecutor("actor", actorExecutor);
+registerExecutor("rss", rssExecutor);
+registerExecutor("trend-watch", trendWatchExecutor);
+registerExecutor("dedup", dedupExecutor);

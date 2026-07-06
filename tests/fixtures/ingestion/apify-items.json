@@ -1,0 +1,24 @@
+[
+  {
+    "url": "https://x.example.com/user/status/123",
+    "fullText": "Shipping day: the agent farm renders its first batch.",
+    "createdAt": "2026-07-01T18:30:00.000Z",
+    "viewCount": 15400,
+    "likeCount": 320,
+    "retweetCount": 41,
+    "replyCount": 12
+  },
+  {
+    "webVideoUrl": "https://video.example.com/@creator/video/999",
+    "title": "POV: your build finally passes",
+    "caption": "POV: your build finally passes #devlife",
+    "timestamp": "2026-07-02T09:00:00.000Z",
+    "playCount": 98000,
+    "diggCount": 8700,
+    "shareCount": 450,
+    "commentCount": 210
+  },
+  {
+    "note": "row without any url-ish field is dropped"
+  }
+]
