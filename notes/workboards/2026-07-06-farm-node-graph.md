@@ -1,6 +1,6 @@
 # Workboard — farm node-graph batch
 
-> **Status:** active
+> **Status:** closed — 2026-07-06
 > **Opened:** 2026-07-06
 > **Driver:** /dev-loop
 > **Slice:** land the farm-mode two-path architecture (#496-#509): invariant carve-out, capability matrix, node-graph schema, node executors (LLM / ingestion / publish), calendar, scheduler-runner, workspace bundle, trust ladder, server deploy, analytics loop, skills refresh, and the tech-news pilot harness.
@@ -23,8 +23,8 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 | runtime | [#505](../issues/done/505-trust-ladder-auto-publish.md) | #501, #503 | `bun test` (gating, agreement math) | landed `c37a6288` |
 | deploy | [#506](../issues/done/506-farm-server-deploy-dashboard-auth.md) | #502, #503, #504, #505 | compose smoke · auth block test | landed `fb4da804` |
 | loop | [#507](../issues/done/507-analytics-feedback-loop.md) | #501 | `bun test` (mocked API pull) | landed `df4334dd` |
-| skills | [#508](../issues/done/508-skills-refresh-farm-era.md) | #496-#507 | `lint:skills` · `lint:agents-md` | landed |
-| pilot | [#509](../issues/509-tech-news-pilot.md) | all above | end-to-end acceptance (user-gated) | todo |
+| skills | [#508](../issues/done/508-skills-refresh-farm-era.md) | #496-#507 | `lint:skills` · `lint:agents-md` | landed `0721402a` |
+| pilot | [#509](../issues/509-tech-news-pilot.md) | all above | end-to-end acceptance (user-gated) | deferred (owner-gated training + paid gen; also needs #510) |
 
 ## Dependency order
 
@@ -32,4 +32,7 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 
 ## Completion notes
 
-_Filled on close._
+- **Landed:** #496 `2ff87ea7` (D-01 AI SDK carve-out) · #497 `250a0253` (coverage matrix, D-02) · #498 `ecf02ad9` (node-graph schema + `workflow lint`, D-03) · #499 `1342fd80` (AI SDK LLM executors + registry seam, D-04) · #500 `42f08323` (ingestion + trend-watch + dedup store) · #504 `9c337205` (calendar entity + `calendar-slot`) · #501 `b110497f` (Postiz publish, D-05, E_PUBLISH_NOT_READY) · #503 `a65c322c` (farm runner, D-06, park/resume) · #502 `ca263760` (workspace bundle export/import) · #505 `c37a6288` (trust ladder L0-L2) · #506 `fb4da804` (docker deploy + auth + farm dashboard; UI built inline per the webapp-inline rule) · #507 `df4334dd` (analytics loop + performance postmortem) · #508 `0721402a` (skills refresh + workspace-export skill). Unit suite grew 2476 → 2999 (0 fail throughout); studio suite 77 → 106.
+- **Deferred / carried over:** #509 — every dependency landed, but the training path (style lock, evaluators, four parametrized compositions, paid generation) is owner-gated, and the headless acceptance needs #510. Re-select into the next board alongside #510.
+- **New issues filed mid-run:** #510 fan-out subgraph execution (the #503 structured-skip deferral turned out to be a hard dependency of #509's four-branch graph).
+- **Gotchas for the next session:** the pre-push hook runs the full unit+integration suite (~2.5 min) — give pushes a long timeout. #492 (workflow-app API contract) is still open; #506 extended the de-facto studio server API without closing it. The generic `http` ingestion node was deliberately deferred inside #500 (allowlisted-hosts design needed). Postiz per-post analytics endpoint verified real (`GET /api/public/v1/analytics/post/{id}`); YouTube retention curves need the OAuth follow-up named in `cli/lib/providers/youtube-analytics.ts`. `recordTrustDecision` has no CLI verb yet (dashboard calls the studio server's hand-copy) — flagged in #506's issue notes.
