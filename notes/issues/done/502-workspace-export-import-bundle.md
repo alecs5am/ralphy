@@ -1,6 +1,6 @@
 # Workspace export/import bundle (the deployable template zip)
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** high

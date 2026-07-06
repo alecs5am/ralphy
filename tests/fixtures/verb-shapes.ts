@@ -1179,6 +1179,57 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     },
     { label: "workspace.show", shape: { slug: "ellycoffee", projects: 2, shared: { refs: 5, music: 3 }, memory: { entries: 8 } } },
     {
+      label: "workspace.export",
+      shape: {
+        workspace: "tech-news",
+        out: "/work/tech-news-bundle-v1.0.0.zip",
+        sizeBytes: 20480,
+        contents: ["calendar.yaml", "evaluators/evaluators.json", "manifest.yaml", "pipeline.json", "refs/"],
+        requiredConnectorKeys: ["ELEVENLABS_API_KEY", "OPENROUTER_API_KEY"],
+        requiredCoverage: [{ model: "kwaivgi/kling-v3.0-pro", capability: "video", provider: "openrouter" }],
+        version: "1.0.0",
+        ralphyVersionFloor: "0.3.0",
+        trustDefault: "L0",
+      },
+    },
+    {
+      label: "workspace.export.refused",
+      shape: {
+        workspace: "tech-news",
+        exportable: false,
+        gaps: [
+          {
+            id: "missing-evaluators",
+            detail: 'no evaluators.json in workspace "tech-news" — the bundle must carry the workspace quality bar',
+            fix: "author .ralphy/workspaces/tech-news/evaluators.json (see docs/workspace-evaluators.md)",
+          },
+        ],
+      },
+    },
+    {
+      label: "workspace.import",
+      shape: {
+        workspace: "my-channel",
+        path: ".ralphy/workspaces/my-channel",
+        bundle: { name: "tech-news", version: "1.0.0", trustDefault: "L0" },
+        workflows: ["pipeline"],
+        warnings: [],
+      },
+    },
+    {
+      label: "workspace.import.refused",
+      shape: {
+        imported: false,
+        refusals: [
+          {
+            id: "version-floor",
+            detail: "bundle requires ralphy >= 9.0.0, current is 0.3.0",
+            fix: "upgrade ralphy (`brew upgrade ralphy` / `npm update -g @alecs5am/ralphy`) and re-run the import",
+          },
+        ],
+      },
+    },
+    {
       label: "workspace.eval",
       shape: {
         verdict: "needs-user-decision",

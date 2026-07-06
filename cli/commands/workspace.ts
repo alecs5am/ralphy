@@ -27,6 +27,13 @@ import {
 } from "../lib/eval/workspace-evaluators.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { callLLM } from "../lib/providers/llm.js";
+import {
+  exportWorkspaceBundle,
+  importWorkspaceBundle,
+  BundleError,
+  type BundleGap,
+  type ImportRefusal,
+} from "../lib/bundle.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -399,6 +406,108 @@ export function workspaceCmd() {
         chars: text.length,
         savedTo,
       });
+    });
+
+  // ── export (#502) ──────────────────────────────────────────────────────
+  cmd
+    .command("export <slug>")
+    .description(
+      "Export a trained workspace as a deployable bundle zip (#502): manifest.yaml (name, version, ralphy-version floor, required connector keys, required (model, capability, provider) coverage, trust default — requirements auto-derived from the graph's nodes), pipeline.json (the #498 graph workflow, JSON per D-03), prompts/, compositions/, evaluators/ (STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json), calendar.yaml (recurring slots ONLY — dated entries are never bundled), refs/ (shared/refs as-is). Project artifacts and logs are NEVER bundled. Refuses with the concrete gap list when the workspace is not export-ready (no evaluators.json, no graph workflow, workflow lint errors). Read-only over the source workspace. Uses the system `zip` binary. Format doc: docs/workspace-bundle.md. Example: ralphy workspace export tech-news --out tech-news-v1.zip",
+    )
+    .option("--out <path>", "Output zip path (default: ./<slug>-bundle-v<version>.zip; never overwrites)")
+    .option("--bundle-version <v>", "Bundle version written to the manifest (default 1.0.0)")
+    .action(async (slug: string, opts) => {
+      requireRalphyLayout("workspace export");
+      const version = (opts.bundleVersion as string) || "1.0.0";
+      const outPath = (opts.out as string) || `${slug}-bundle-v${version}.zip`;
+      try {
+        const result = exportWorkspaceBundle(slug, outPath, { version });
+        ok(`Bundle exported: ${result.out}`);
+        out({
+          workspace: result.workspace,
+          out: result.out,
+          sizeBytes: result.sizeBytes,
+          contents: result.contents,
+          requiredConnectorKeys: result.manifest.requiredConnectorKeys,
+          requiredCoverage: result.manifest.requiredCoverage,
+          version: result.manifest.version,
+          ralphyVersionFloor: result.manifest.ralphyVersionFloor,
+          trustDefault: result.manifest.trustDefault,
+        });
+      } catch (e) {
+        if (!(e instanceof BundleError)) throw e;
+        switch (e.code) {
+          case "not-found":
+            raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+            break;
+          case "dep-missing":
+            raiseError("E_DEP_MISSING", { dep: String(e.details[0] ?? "zip") });
+            break;
+          case "already-exists":
+            raiseError("E_ALREADY_EXISTS", { kind: "Bundle", id: String(e.details[0] ?? outPath) });
+            break;
+          case "not-ready":
+            // Structured refusal: name every gap, then exit non-zero.
+            out({ workspace: slug, exportable: false, gaps: e.details as BundleGap[] });
+            raiseError("E_VALIDATION_FAILED", { target: "workspace-bundle", detail: e.message });
+            break;
+          default:
+            raiseError("E_VALIDATION_FAILED", { target: "workspace-bundle", detail: e.message });
+        }
+      }
+    });
+
+  // ── import (#502) ──────────────────────────────────────────────────────
+  cmd
+    .command("import <zip>")
+    .description(
+      "Import a workspace bundle zip (#502) as a NEW workspace. Validates BEFORE materializing anything: manifest.yaml parses, ralphyVersionFloor <= the current ralphy version, every required connector key is configured (missing keys are NAMED — refuse, or proceed with warnings via --allow-missing-keys), every required (model, capability, provider) coverage triple is known to the #497 matrix (gaps NAMED — refuse, or --allow-coverage-gaps), and the bundled pipeline lints green (#498 graph checks). Collision-safe: an existing workspace slug refuses unless --as <new-slug> is passed — import NEVER overwrites an existing workspace. Materializes workspace.json, workflows/, evaluator files, calendar.json (slots only), shared/refs/, prompts/, compositions/. Uses the system `unzip` binary. Format doc: docs/workspace-bundle.md. Example: ralphy workspace import tech-news-v1.zip --as my-channel",
+    )
+    .option("--as <slug>", "Import under this workspace slug (default: the manifest name)")
+    .option("--allow-missing-keys", "Proceed with warnings when required connector keys are not set")
+    .option("--allow-coverage-gaps", "Proceed with warnings when required coverage triples are unknown to the matrix")
+    .action(async (zip: string, opts) => {
+      requireRalphyLayout("workspace import");
+      try {
+        const result = importWorkspaceBundle(zip, {
+          as: opts.as as string | undefined,
+          allowMissingKeys: Boolean(opts.allowMissingKeys),
+          allowCoverageGaps: Boolean(opts.allowCoverageGaps),
+        });
+        ok(`Workspace imported: ${result.workspace}`);
+        out({
+          workspace: result.workspace,
+          path: result.path,
+          bundle: result.bundle,
+          workflows: result.workflows,
+          warnings: result.warnings,
+        });
+      } catch (e) {
+        if (!(e instanceof BundleError)) throw e;
+        switch (e.code) {
+          case "not-found":
+            raiseError("E_FILE_UNREADABLE", { path: zip });
+            break;
+          case "dep-missing":
+            raiseError("E_DEP_MISSING", { dep: String(e.details[0] ?? "unzip") });
+            break;
+          case "already-exists":
+            raiseError("E_ALREADY_EXISTS", { kind: "Workspace", id: String(e.details[0] ?? "") });
+            break;
+          case "missing-keys":
+            out({ imported: false, refusals: e.details as ImportRefusal[] });
+            raiseError("E_ENV_KEY_MISSING", {
+              key: (e.details as ImportRefusal[])
+                .map((r) => r.detail.replace(/^required connector keys not set: /, ""))
+                .join(", "),
+            });
+            break;
+          default:
+            // Structured refusal list (version floor, coverage gaps, pipeline lint).
+            out({ imported: false, refusals: e.details as ImportRefusal[] });
+            raiseError("E_VALIDATION_FAILED", { target: "workspace-bundle", detail: e.message });
+        }
+      }
     });
 
   // ── stats (pre-#108) ───────────────────────────────────────────────────
