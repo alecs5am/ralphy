@@ -1,6 +1,6 @@
 # Tech-news farm pilot (fireship-style, multi-unit)
 
-> **Status:** todo
+> **Status:** todo — waiting on the owner (training path + paid generation); headless acceptance also needs #510 (fan-out execution)
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** high
@@ -57,3 +57,9 @@ reality — and it produces the star-magnet demo.
   training path routes correctly.
 - Training-phase work happens in user mode with the owner; this issue tracks
   the dev-side harness + the end-to-end acceptance, not the creative content.
+- 2026-07-06 (dev-loop): every dependency (#496-#508) landed this session.
+  Remaining work is the owner-gated training path (style lock, evaluators,
+  four parametrized compositions, paid generation under the normal approval
+  gates) plus the headless acceptance run. The pilot's graph shape
+  (research -> fan-out into four unit branches) additionally needs #510 —
+  the runner currently skips `fan-out` as not-supported (#503 deferral).
