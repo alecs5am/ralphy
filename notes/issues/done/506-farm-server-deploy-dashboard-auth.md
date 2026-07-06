@@ -1,6 +1,6 @@
 # Server deployment and authenticated farm dashboard
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** high
@@ -54,3 +54,23 @@ power over paid generation and account publishing.
 - Builds on #492 (API boundary) — extend it, don't bypass it.
 - Cloud seam (`docs/architecture/cloud-factory-design-seam.md`) stays design-
   only; this is self-hosted single-tenant.
+- **Auth choice (recorded, server half landed 2026-07-06):** single admin
+  token via `STUDIO_AUTH_TOKEN` + a cookie session for the browser
+  (`POST /api/auth` sets `studio_auth`, httpOnly + SameSite=Strict). Token set
+  → every route gated (GET + mutating + WS + static; login-free:
+  `GET /api/health`, `POST /api/auth`) and the server binds 0.0.0.0; unset →
+  historical no-auth localhost dev, bound 127.0.0.1 only. Full rationale:
+  `docker/README.md` "Authentication"; implementation `studio/server/auth.ts`.
+- **Server half shipped:** `docker/` (compose: farm + studio from one image,
+  optional `--profile postiz` per D-05, `.ralphy/` named volume), auth, and
+  the control endpoints in `studio/server/{auth,control}.ts` + routes in
+  `studio/server/index.ts` (import-bundle → `workspace import`; farm
+  start/stop/tick-now/status; trust get/set/decision; calendar; workflow
+  graph shaped for the #490 canvas). Smoke tests:
+  `studio/test/farm-api.test.ts`. Per-endpoint CLI-shell-out vs hand-copy
+  rationale documented in `studio/server/control.ts` header. Remaining for
+  this issue: the dashboard UI half (login form, import/upload, start button,
+  trust controls, calendar view, spec-graph canvas rendering).
+- Gap flagged while wiring: `recordTrustDecision` (cli/lib/trust.ts) has no
+  CLI verb — the studio server re-implements it (`recordTrustDecisionView`);
+  a `ralphy workspace trust-decision` verb would let the API delegate.

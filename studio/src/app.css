@@ -668,3 +668,32 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
 }
 .modal .close:hover { background: var(--bg-3); }
+
+/* ── Farm dashboard (#506) ─────────────────────────────────────────────── */
+.login-gate {
+  grid-column: 1 / -1;
+  align-self: center; justify-self: center;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 34px 38px; max-width: 420px;
+  background: var(--bg-1); border-radius: 14px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.45);
+}
+.login-hint { color: var(--mute-1); font-size: 13px; margin: 0; }
+.login-err { color: #c2554e; font-family: var(--font-mono); font-size: 12px; }
+.farm-rows { display: flex; flex-direction: column; gap: 6px; }
+.farm-entries { margin-top: 10px; }
+.farm-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-1); border-radius: 8px; padding: 8px 11px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  font-size: 12.5px;
+}
+.farm-cell { color: var(--mute-1); white-space: nowrap; }
+.farm-grow { flex: 1; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.farm-mono { font-family: var(--font-mono); font-size: 11.5px; }
+.farm-check { display: inline-flex; align-items: center; gap: 5px; color: var(--mute-1); font-size: 12px; white-space: nowrap; }
+.farm-import { margin-top: 10px; border-radius: 8px; padding: 9px 12px; font-family: var(--font-mono); font-size: 11.5px; }
+.farm-import.ok { background: rgb(74 222 128 / 0.08); color: #7fbf7f; }
+.farm-import.bad { background: rgb(194 85 78 / 0.1); color: #c2554e; }
+.farm-spec-head { display: flex; align-items: center; gap: 12px; padding: 10px 4px; }
+.farm-issues { display: inline-flex; gap: 6px; flex-wrap: wrap; }

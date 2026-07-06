@@ -1,14 +1,25 @@
-// Studio — local artifact browser server (#107).
+// Studio — local artifact browser server (#107) + farm control plane (#506).
 //
 // One Bun.serve process: built Vite UI (studio/dist/) + JSON API + WebSocket
 // live-watch. READ-ONLY over MEDIA (AGENTS.md invariant #14): no code path here
 // writes, renames, or deletes any artifact. The only writes are sidecar
-// METADATA, never media: the board choice + node layout (#478, board.json), the
-// object annotations (#488, annotations.jsonl), and the agent context inbox
-// (#489, agent-inbox/). Every other non-GET stays 405.
+// METADATA or engine STATE, never media: the board choice + node layout (#478,
+// board.json), the object annotations (#488, annotations.jsonl), the agent
+// context inbox (#489, agent-inbox/), the config-patch proposals (#491), and
+// the #506 control endpoints (bundle import = a NEW workspace via `ralphy
+// workspace import`; farm start/stop/tick = pidfile + detached daemon + log;
+// trust = workspace.json `trust` key + append-only jsonl). Every other non-GET
+// stays 405. Per-endpoint import-vs-shell-out rationale: server/control.ts.
 //
-// Run by the USER in their own shell (`bun run dev` inside studio/) — never
-// auto-launched by the agent (AGENTS.md invariant #5).
+// AUTH (#506): env STUDIO_AUTH_TOKEN gates EVERY route (GET + POST + WS +
+// static) except GET /api/health and POST /api/auth — Bearer header or the
+// `studio_auth` cookie (set by POST /api/auth). Token set → binds 0.0.0.0
+// (deployment; override with STUDIO_HOST); unset → localhost dev, 127.0.0.1
+// only, no auth. See server/auth.ts.
+//
+// Run by the USER in their own shell (`bun run dev` inside studio/, or the
+// docker/ compose stack) — never auto-launched by the agent (AGENTS.md
+// invariant #5).
 
 import path from "node:path";
 import fs from "node:fs";
@@ -36,6 +47,19 @@ import { readAnnotations, addAnnotation, removeAnnotation, type AnnotationScope 
 import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
 import { buildRunGraph, writeRunCanvasLayout } from "./graph.js";
 import { proposePatch, listPatches, type PatchScope } from "./patches.js";
+import { isAuthorized, authCookieHeader, safeEqual } from "./auth.js";
+import {
+  importBundle,
+  startFarm,
+  stopFarm,
+  farmStatusView,
+  trustStatusView,
+  updateTrustConfig,
+  recordTrustDecisionView,
+  readCalendarView,
+  listWorkspaceWorkflows,
+  workflowGraphView,
+} from "./control.js";
 
 const STATIC_DIRS = [
   path.join(import.meta.dir, "..", "dist"),
@@ -46,7 +70,14 @@ const STATIC_DIRS = [
 
 export type StudioServer = ReturnType<typeof startStudio>;
 
-export function startStudio(opts: { port?: number; rootStartDir?: string } = {}) {
+export function startStudio(
+  opts: { port?: number; rootStartDir?: string; authToken?: string | null; hostname?: string } = {},
+) {
+  // Auth (#506): a set token turns on the gate on every route and opens the
+  // bind to 0.0.0.0 (deployment); no token = historical localhost-only dev.
+  const authToken =
+    opts.authToken !== undefined ? opts.authToken : process.env.STUDIO_AUTH_TOKEN || null;
+  const hostname = opts.hostname ?? (authToken ? process.env.STUDIO_HOST || "0.0.0.0" : "127.0.0.1");
   const dataRoot = resolveDataRoot(opts.rootStartDir ?? import.meta.dir);
   if (!dataRoot) {
     console.error(
@@ -95,7 +126,7 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
   }
 
   const server = Bun.serve({
-    hostname: "127.0.0.1",
+    hostname,
     port: opts.port ?? 4860,
     websocket: {
       open(ws) {
@@ -146,6 +177,79 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
     },
     async fetch(req, srv) {
       const url = new URL(req.url);
+
+      // ── Health (login-free — compose healthcheck / login page probe) ─────
+      if (url.pathname === "/api/health" && req.method === "GET") {
+        return json({ ok: true, auth: !!authToken });
+      }
+
+      // ── Auth gate (#506) — EVERY other route when a token is configured ──
+      if (url.pathname === "/api/auth" && req.method === "POST") {
+        if (!authToken) return json({ ok: true, auth: false }); // no token configured — nothing to log into
+        let body: { token?: string };
+        try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+        if (typeof body.token !== "string" || !safeEqual(body.token, authToken)) {
+          return json({ error: "unauthorized" }, 401);
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "no-store",
+            "set-cookie": authCookieHeader(authToken),
+          },
+        });
+      }
+      if (authToken && !isAuthorized(req, authToken)) {
+        return json({ error: "unauthorized — send Authorization: Bearer <token> or log in via POST /api/auth" }, 401);
+      }
+
+      // ── Farm control plane (#506) — see server/control.ts for the
+      //    per-endpoint CLI-shell-out vs hand-copy rationale. ─────────────────
+      if (req.method === "POST" && url.pathname === "/api/workspaces/import-bundle") {
+        const bytes = new Uint8Array(await req.arrayBuffer());
+        const outcome = importBundle(dataRoot!, bytes, {
+          as: url.searchParams.get("as") ?? undefined,
+          allowMissingKeys: url.searchParams.get("allowMissingKeys") === "1",
+          allowCoverageGaps: url.searchParams.get("allowCoverageGaps") === "1",
+        });
+        return json(outcome.body, outcome.status);
+      }
+      if (req.method === "POST" && (url.pathname === "/api/farm/start" || url.pathname === "/api/farm/tick-now")) {
+        let body: { workspace?: string };
+        try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+        const ws = body.workspace ?? "default";
+        const result = startFarm(dataRoot!, ws, { tickNow: url.pathname.endsWith("tick-now") });
+        if ("error" in result) return json(result, 409);
+        return json({ workspace: ws, ...result });
+      }
+      if (req.method === "POST" && url.pathname === "/api/farm/stop") {
+        let body: { workspace?: string };
+        try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+        const result = stopFarm(dataRoot!, body.workspace ?? "default");
+        if (result && typeof result === "object" && "error" in (result as object)) return json(result, 500);
+        return json(result);
+      }
+      {
+        const tm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/trust(\/decision)?$/);
+        if (tm && req.method === "POST") {
+          const ws = decodeURIComponent(tm[1]);
+          if (!fs.existsSync(path.join(dataRoot!, "workspaces", ws))) return json({ error: "unknown workspace" }, 404);
+          let body: any;
+          try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+          if (tm[2]) {
+            const result = recordTrustDecisionView(dataRoot!, ws, {
+              project: body.project,
+              unitSlug: body.unitSlug ?? null,
+              decision: body.decision,
+              run: body.run ?? null,
+            });
+            if ("error" in result) return json(result, result.error === "unknown project" ? 404 : 400);
+            return json(result);
+          }
+          const r = updateTrustConfig(dataRoot!, ws, body);
+          return json(r.body, r.status);
+        }
+      }
 
       // ── The ONE sanctioned write (AGENTS.md #14): persist a board choice ──
       // Read-only over media; writing the per-scene chosen variant to board.json
@@ -264,6 +368,30 @@ export function startStudio(opts: { port?: number; rootStartDir?: string } = {})
       // ── API ───────────────────────────────────────────────────────────
       if (url.pathname === "/api/workspaces") {
         return json(listWorkspaces(dataRoot!));
+      }
+      // ── Farm control plane reads (#506) ─────────────────────────────────
+      if (url.pathname === "/api/farm/status") {
+        return json(farmStatusView(dataRoot!, url.searchParams.get("workspace") ?? "default"));
+      }
+      let cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/trust$/);
+      if (cm) {
+        const status = trustStatusView(dataRoot!, decodeURIComponent(cm[1]));
+        return status ? json(status) : json({ error: "unknown workspace" }, 404);
+      }
+      cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/calendar$/);
+      if (cm) {
+        const cal = readCalendarView(dataRoot!, decodeURIComponent(cm[1]));
+        return cal ? json(cal) : json({ error: "unknown workspace" }, 404);
+      }
+      cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/workflows$/);
+      if (cm) {
+        const rows = listWorkspaceWorkflows(dataRoot!, decodeURIComponent(cm[1]));
+        return rows ? json({ workflows: rows }) : json({ error: "unknown workspace" }, 404);
+      }
+      cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/workflows\/([^/]+)\/graph$/);
+      if (cm) {
+        const graph = workflowGraphView(dataRoot!, decodeURIComponent(cm[1]), decodeURIComponent(cm[2]));
+        return graph ? json(graph) : json({ error: "unknown workflow graph" }, 404);
       }
       let wm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/components$/);
       if (wm) {
@@ -404,5 +532,10 @@ if (import.meta.main) {
     port: process.env.STUDIO_PORT ? parseInt(process.env.STUDIO_PORT, 10) : undefined,
   });
   console.log(`studio: browsing ${dataRoot}`);
-  console.log(`studio: http://127.0.0.1:${server.port}`);
+  console.log(`studio: http://${server.hostname === "0.0.0.0" ? "0.0.0.0" : "127.0.0.1"}:${server.port}`);
+  console.log(
+    process.env.STUDIO_AUTH_TOKEN
+      ? "studio: auth ON (STUDIO_AUTH_TOKEN) — Bearer header or POST /api/auth"
+      : "studio: auth OFF — localhost dev mode (set STUDIO_AUTH_TOKEN before exposing a port)",
+  );
 }
