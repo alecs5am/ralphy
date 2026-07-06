@@ -24,6 +24,7 @@ import {
   trendWatchExecutor,
   dedupExecutor,
 } from "./ingestion.js";
+import { calendarSlotExecutor } from "./calendar.js";
 
 export {
   NodeExecutionError,
@@ -65,3 +66,6 @@ registerExecutor("actor", actorExecutor);
 registerExecutor("rss", rssExecutor);
 registerExecutor("trend-watch", trendWatchExecutor);
 registerExecutor("dedup", dedupExecutor);
+
+// F. Control flow: calendar-slot — the workspace content calendar (#504).
+registerExecutor("calendar-slot", calendarSlotExecutor);

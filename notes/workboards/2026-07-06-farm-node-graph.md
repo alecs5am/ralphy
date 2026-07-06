@@ -15,8 +15,8 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 | foundation | [#497](../issues/done/497-provider-capability-matrix.md) | — | `bun test` (registry + coverage) | landed `250a0253` |
 | foundation | [#498](../issues/done/498-workflow-node-graph-schema.md) | #497 | `bun test` (workflow schema) · `cli:surface:check` | landed `ecf02ad9` |
 | nodes | [#499](../issues/done/499-ai-sdk-llm-nodes.md) | #496, #498 | `bun test` (mocked SDK) · invariant test | landed `1342fd80` |
-| nodes | [#500](../issues/done/500-ingestion-trend-watch-nodes.md) | #498 | `bun test` (fixtures, cursor, dedup) | landed |
-| nodes | [#504](../issues/504-content-calendar-entity.md) | #498 | `bun test` · `lint:out-coverage` | todo |
+| nodes | [#500](../issues/done/500-ingestion-trend-watch-nodes.md) | #498 | `bun test` (fixtures, cursor, dedup) | landed `42f08323` |
+| nodes | [#504](../issues/done/504-content-calendar-entity.md) | #498 | `bun test` · `lint:out-coverage` | landed |
 | nodes | [#501](../issues/501-postiz-publish-connector.md) | #498, #504 | `bun test` (mocked Postiz) | todo |
 | runtime | [#503](../issues/503-farm-scheduler-runner.md) | #498, #499 | `bun test` (fixture graph e2e, park/resume) | todo |
 | runtime | [#502](../issues/502-workspace-export-import-bundle.md) | #497, #498 | round-trip test · `workflow lint` green | todo |

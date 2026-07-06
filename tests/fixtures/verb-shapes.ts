@@ -93,6 +93,39 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     },
     { label: "brand.delete", shape: { deleted: "noski" } },
   ],
+  calendar: [
+    {
+      label: "calendar.show",
+      shape: {
+        workspace: "my-studio",
+        path: ".ralphy/workspaces/my-studio/calendar.json",
+        slots: [
+          { id: "slot-mon-0900", weekday: "mon", time: "09:00", timezone: "America/New_York", unitType: "ugc-review", targetPlatforms: ["tiktok", "youtube"] },
+        ],
+        entries: [
+          { id: "e-1a2b3c4d", at: "2026-07-13T13:00:00.000Z", slotId: "slot-mon-0900", unitType: "ugc-review", platforms: ["tiktok"], status: "queued", projectId: null },
+        ],
+        totalEntries: 3,
+      },
+    },
+    {
+      label: "calendar.add.slot",
+      shape: { workspace: "my-studio", kind: "slot", id: "slot-mon-0900", weekday: "mon", time: "09:00", timezone: "America/New_York", unitType: "ugc-review", targetPlatforms: ["tiktok"] },
+    },
+    {
+      label: "calendar.fill",
+      shape: {
+        workspace: "my-studio",
+        weeks: 2,
+        created: 2,
+        skipped: 1,
+        entries: [
+          { id: "e-1a2b3c4d", at: "2026-07-13T13:00:00.000Z", slotId: "slot-mon-0900", unitType: "ugc-review", platforms: ["tiktok"], status: "queued" },
+        ],
+        eventsLog: ".ralphy/workspaces/my-studio/calendar-events.jsonl",
+      },
+    },
+  ],
   clip: [
     {
       label: "clip.cut",
