@@ -87,12 +87,27 @@ the dependency). Model traffic still flows through registered connectors only
 
 ## Graph spec, not visual editor (v1)
 
-The pipeline is a declarative spec file in the bundle (`pipeline.yaml` or
-`.json` — format is an open decision). Studio's run-graph canvas (#490) already
-renders graphs read-only; the dashboard renders the spec and its live run
-state. A drag-drop editor is explicitly out of scope for v1 — the spec is
-edited in the training path (Claude Code), which keeps the two-path split
-clean.
+The pipeline is a declarative spec file in the bundle. Studio's run-graph
+canvas (#490) already renders graphs read-only; the dashboard renders the spec
+and its live run state. A drag-drop editor is explicitly out of scope for v1 —
+the spec is edited in the training path (Claude Code), which keeps the
+two-path split clean.
+
+**D-03 — spec format: JSON storage, YAML accepted at import/lint (decided
+2026-07-06, #498):** JSON is the storage format — the graph lives beside the
+#478 linear workflows as `workflows/<name>.json` (schema:
+`cli/lib/schemas/workflow.ts`, a linear workflow is a degenerate graph and
+keeps parsing), matching the existing `workflow.json` convention and Studio's
+native JSON parsing. YAML is accepted at import/lint time only (`ralphy
+workflow lint` reads `.yaml`/`.yml` via the already-present `yaml` dependency
+— no new package) because agents author it comfortably; a YAML file is an
+authoring convenience, not a storage tier — `workflow list|show|status` and
+the bundle read JSON. The bundle file is therefore `pipeline.json` (earlier
+sketches said `pipeline.yaml`; an import step may down-convert an authored
+YAML spec to JSON at bundle build). Validation at import is
+`validateWorkflowGraph()` (`cli/lib/workflow-graph.ts`): DAG, edge
+resolution, port typing, and the D-02 coverage matrix — a declared-unsupported
+media param is a HARD import error (unlike the #497 warn-only generate path).
 
 Executor placement builds on [492-workflow-app-api-orchestrator-boundary.md](../../notes/issues/492-workflow-app-api-orchestrator-boundary.md):
 the workflow app owns runs and exposes the API; `.ralphy/` files stay the
@@ -270,7 +285,7 @@ source, engagement signals) so downstream nodes are source-agnostic.
 bundle/
   manifest.yaml        # name, version, ralphy-version floor, required connector keys,
                        # required capabilities matrix (model+provider pairs), trust-ladder default
-  pipeline.yaml        # the graph spec
+  pipeline.json        # the graph spec (JSON storage per D-03; YAML accepted at import/lint)
   prompts/             # slot-templated prompt files per node
   compositions/        # parametrized HyperFrames engines (+ schedule.json contract)
   evaluators/          # STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json
@@ -317,8 +332,9 @@ Phasing:
 1. **Invariant #1 carve-out** for the `ai` npm package — **decided** as D-01
    (see "Foundation decision" above; landed via #496, allowlisted path
    `cli/lib/providers/ai-sdk.ts`).
-2. **Spec format** — YAML vs JSON for `pipeline.yaml` (Studio must parse it;
-   agents author it).
+2. **Spec format** — **decided** as D-03 (see "Graph spec, not visual editor"
+   above; landed via #498: JSON is the storage format, YAML accepted at
+   import/lint time by `ralphy workflow lint`).
 3. **Executor placement** — inside the workflow app (per #492/#493 direction)
    vs a standalone `ralphy farm` process that the app observes.
 4. **Postiz integration depth** — external service the farm calls vs bundled in

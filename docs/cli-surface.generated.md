@@ -1532,6 +1532,16 @@ Commands:
   list <slug>                 List the workflows authored in a workspace
   show <slug> [name]          Show a workflow's ordered steps. Omit name when
                               the workspace has exactly one workflow.
+  lint <slug> [name]          Offline validation of a workspace's workflows:
+                              schema parse for legacy linear workflows (#478),
+                              and for node-graph workflows (#498) the full graph
+                              checks — DAG (no cycles), edge resolution, port
+                              typing, and the #497 provider-coverage matrix (a
+                              declared-unsupported media param is a HARD error
+                              naming the fix). Reads .json (storage format) and
+                              .yaml (accepted at lint/import per D-03). Omit
+                              name to lint every workflow. ZERO model calls.
+                              Example: ralphy workflow lint silent-hill episode
   status [options] <project>  Per-step run status of a project's workflow (done
                               | running | waiting | blocked | queued), derived
                               from the contract ledger + workspace-eval.json +

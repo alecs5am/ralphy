@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import fs from "fs/promises";
 import { existsSync } from "fs";
+import path from "path";
 import {
   layoutMode,
   workspaceDir,
@@ -19,6 +20,7 @@ import {
   deriveDefaultWorkflow,
   evaluateWorkflow,
 } from "../lib/workflow.js";
+import { lintWorkflowFile } from "../lib/workflow-graph.js";
 import type { Workflow } from "../lib/schemas/workflow.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -131,6 +133,46 @@ export function workflowCmd() {
       } catch (e) {
         err(`workflow show failed: ${(e as Error).message}`);
       }
+    });
+
+  // ── lint ───────────────────────────────────────────────────────────────────
+  cmd
+    .command("lint <slug> [name]")
+    .description(
+      "Offline validation of a workspace's workflows: schema parse for legacy linear workflows (#478), and for node-graph workflows (#498) the full graph checks — DAG (no cycles), edge resolution, port typing, and the #497 provider-coverage matrix (a declared-unsupported media param is a HARD error naming the fix). Reads .json (storage format) and .yaml (accepted at lint/import per D-03). Omit name to lint every workflow. ZERO model calls. Example: ralphy workflow lint silent-hill episode",
+    )
+    .action(async (slug: string, name?: string) => {
+      requireRalphyLayout("workflow lint");
+      ensureWorkspaceExists(slug);
+      const dir = workflowsDir(slug);
+      const files = existsSync(dir)
+        ? (await fs.readdir(dir)).filter((f) => /\.(json|ya?ml)$/.test(f)).sort()
+        : [];
+      let targets = files;
+      if (name) {
+        targets = files.filter((f) => f.replace(/\.(json|ya?ml)$/, "") === name);
+        if (targets.length === 0) {
+          raiseError("E_NOT_FOUND", { kind: "Workflow", id: `${slug}/${name}` });
+        }
+      }
+      if (targets.length === 0) {
+        // Graceful no-op: nothing to lint is not a failure.
+        out({
+          workspace: slug,
+          ok: true,
+          errorCount: 0,
+          warningCount: 0,
+          workflows: [],
+          note: `no workflows in ${slug} — scaffold one with: ralphy workflow init ${slug}`,
+        });
+        return;
+      }
+      const results = targets.map((f) => lintWorkflowFile(path.join(dir, f), slug));
+      const ok = results.every((r) => r.ok);
+      const errorCount = results.reduce((n, r) => n + r.errors.length, 0);
+      const warningCount = results.reduce((n, r) => n + r.warnings.length, 0);
+      if (!ok) process.exitCode = 1;
+      out({ workspace: slug, ok, errorCount, warningCount, workflows: results });
     });
 
   // ── status ───────────────────────────────────────────────────────────────
