@@ -26,6 +26,49 @@ export interface VerbShape {
 // Keyed by command file basename (cli/commands/<key>.ts). Each verb lists one
 // or more canonical shapes. Mirrors the real `out(...)` payloads.
 export const VERB_SHAPES: Record<string, VerbShape[]> = {
+  analytics: [
+    {
+      label: "analytics.pull",
+      shape: {
+        project: "spring-2026-001",
+        fetched: 1,
+        skipped: 1,
+        units: [
+          {
+            slug: "hero-cut",
+            appended: 1,
+            analyticsPath: ".ralphy/workspaces/default/projects/spring-2026-001/units/hero-cut/analytics.jsonl",
+            records: [
+              { target: "youtube", postId: "dQw4w9WgXcQ", status: "fetched", source: "youtube-analytics", metrics: { views: 4200, likes: 310, comments: 12 } },
+              { target: "tiktok", postId: "post-tt-1", status: "skipped", note: "postiz not configured (POSTIZ_API_KEY + POSTIZ_BASE_URL)" },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      label: "analytics.postmortem",
+      shape: {
+        project: "spring-2026-001",
+        workspace: "default",
+        model: "anthropic/claude-sonnet-4.6",
+        units: ["hero-cut", "b-roll-cut"],
+        findings: [
+          {
+            slug: "pov-hook-outperforms",
+            finding: "POV hooks retain: hero-cut pulled 13x the views of b-roll-cut at +7d.",
+            evidence: { units: ["hero-cut", "b-roll-cut"], metrics: "hero-cut 4200 views vs b-roll-cut 310 at +7d" },
+            recommendation: "Default the next batch's caption hooks to the POV register.",
+            type: "client",
+          },
+        ],
+        dropped: 1,
+        findingsPath: ".ralphy/workspaces/default/projects/spring-2026-001/postmortem/analytics-findings.json",
+        staged: [{ slug: "pov-hook-outperforms", tier: "workspace", file: "pov-hook-outperforms.md", path: "memory/proposed/pov-hook-outperforms.md" }],
+        dryRun: false,
+      },
+    },
+  ],
   asset: [
     {
       label: "asset.list",

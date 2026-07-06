@@ -1,6 +1,6 @@
 # Analytics pull and performance feedback loop
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** medium

@@ -20,7 +20,9 @@
 //        cli/lib/providers/apify.ts only — #500 ingestion connectors;
 //        POSTIZ_API_KEY + POSTIZ_BASE_URL in cli/lib/providers/postiz.ts only —
 //        #501 publish connector, env-var-scoped since the host is
-//        user-supplied/self-hosted per D-05; hosted
+//        user-supplied/self-hosted per D-05; YOUTUBE_API_KEY + googleapis.com
+//        in cli/lib/providers/youtube-analytics.ts only — #507 analytics
+//        connector; hosted
 //        Vercel / OpenAI-direct forbidden everywhere; `ai` npm package imports
 //        sanctioned in cli/lib/providers/ai-sdk.ts only — D-01,
 //        docs/architecture/farm-node-graph.md, #496)
@@ -220,6 +222,16 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       envVar: "APIFY_TOKEN",
       hostRe: /https?:\/\/[a-z0-9.-]*apify\.com\b/i,
       hostLabel: "apify.com",
+    },
+    // #507 analytics connector — same file-scoped discipline. The host regex
+    // covers ALL googleapis.com subdomains (www / youtubeanalytics / any
+    // future Google API), so the named OAuth follow-up cannot land a Google
+    // host outside this file either.
+    {
+      file: path.join("cli", "lib", "providers", "youtube-analytics.ts"),
+      envVar: "YOUTUBE_API_KEY",
+      hostRe: /https?:\/\/[a-z0-9.-]*googleapis\.com\b/i,
+      hostLabel: "googleapis.com",
     },
   ];
 

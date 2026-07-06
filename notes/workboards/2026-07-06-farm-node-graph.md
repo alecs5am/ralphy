@@ -21,8 +21,8 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 | runtime | [#503](../issues/done/503-farm-scheduler-runner.md) | #498, #499 | `bun test` (fixture graph e2e, park/resume) | landed `a65c322c` |
 | runtime | [#502](../issues/done/502-workspace-export-import-bundle.md) | #497, #498 | round-trip test · `workflow lint` green | landed `ca263760` |
 | runtime | [#505](../issues/done/505-trust-ladder-auto-publish.md) | #501, #503 | `bun test` (gating, agreement math) | landed `c37a6288` |
-| deploy | [#506](../issues/done/506-farm-server-deploy-dashboard-auth.md) | #502, #503, #504, #505 | compose smoke · auth block test | landed |
-| loop | [#507](../issues/507-analytics-feedback-loop.md) | #501 | `bun test` (mocked API pull) | todo |
+| deploy | [#506](../issues/done/506-farm-server-deploy-dashboard-auth.md) | #502, #503, #504, #505 | compose smoke · auth block test | landed `fb4da804` |
+| loop | [#507](../issues/done/507-analytics-feedback-loop.md) | #501 | `bun test` (mocked API pull) | landed |
 | skills | [#508](../issues/508-skills-refresh-farm-era.md) | #496-#507 | `lint:skills` · `lint:agents-md` | todo |
 | pilot | [#509](../issues/509-tech-news-pilot.md) | all above | end-to-end acceptance (user-gated) | todo |
 
