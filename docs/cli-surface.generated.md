@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **52**
+Verbs registered: **53**
 
 ## Top-level verbs
 
@@ -1686,6 +1686,46 @@ Options:
   --force <reason>  Bypass the readiness gate with an explicit reason (logged to
                     user-prompts.jsonl)
   -h, --help        display help for command
+```
+
+### `ralphy analytics`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy analytics [options] [command]
+
+Per-post performance metrics for published units (#507): append-only
+analytics.jsonl snapshots + an evidence-grounded performance postmortem.
+Example: ralphy analytics pull spring-2026-001
+
+Options:
+  -h, --help                            display help for command
+
+Commands:
+  pull [options] <project> [unit-slug]  Fetch per-post metrics for the project's
+                                        published units and append snapshots to
+                                        each unit's analytics.jsonl
+                                        (append-only; every run adds a new
+                                        timestamped snapshot). Example: ralphy
+                                        analytics pull spring-2026-001 hero-cut
+                                        --target youtube
+  postmortem [options] <project>        Distill the project's analytics
+                                        snapshots + unit metadata into
+                                        evidence-grounded findings (bounded LLM
+                                        pass): writes
+                                        postmortem/analytics-findings.json (.vN
+                                        versioned) and stages workspace-tier
+                                        memory proposals. Example: ralphy
+                                        analytics postmortem spring-2026-001
+                                        --dry-run
+  help [command]                        display help for command
 ```
 
 ### `ralphy workflow`

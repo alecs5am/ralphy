@@ -110,6 +110,20 @@ export type PostizCreatePostRequest = {
 /** Tolerant create-post response row (Postiz returns the created post ids). */
 export type PostizCreatedPost = { id?: string; postId?: string; [k: string]: unknown };
 
+/**
+ * One row of `GET /analytics/post/{postId}` (#507). VERIFIED against the
+ * public-API docs (docs.postiz.com/public-api/analytics/post): the endpoint
+ * returns an array of per-metric series — `label` (metric name, e.g. "Likes"),
+ * `data` (daily `{ total, date }` entries, `total` arrives as a string), and
+ * `percentageChange` over the requested lookback window.
+ */
+export type PostizAnalyticsRow = {
+  label?: string;
+  data?: Array<{ total?: string | number; date?: string }>;
+  percentageChange?: number;
+  [k: string]: unknown;
+};
+
 // ─── public API ──────────────────────────────────────────────────────────────
 
 /** GET /integrations → the connected social accounts. */
@@ -144,4 +158,86 @@ export async function postizCreatePost(
     fetchImpl,
   );
   return Array.isArray(r) ? r : [r];
+}
+
+// ─── per-post analytics passthrough (#507) ───────────────────────────────────
+
+/**
+ * `GET /analytics/post/{postId}?date=<days>` → the per-metric series for one
+ * published post. `date` is the lookback window in days (7 / 30 / 90 per the
+ * docs). Throws like every other call here — `postizMetrics` below is the
+ * degrading wrapper the pull layer consumes.
+ */
+export async function postizPostAnalytics(
+  postId: string,
+  days = 7,
+  fetchImpl: FetchLike = fetch,
+): Promise<PostizAnalyticsRow[]> {
+  const r = await request<PostizAnalyticsRow[] | { data?: PostizAnalyticsRow[] }>(
+    `analytics/post/${encodeURIComponent(postId)}?date=${days}`,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return Array.isArray(r) ? r : r.data ?? [];
+}
+
+/** The metric subset Postiz's labels map onto (retention is YouTube-OAuth-only). */
+export type PostizMappedMetrics = {
+  views?: number;
+  likes?: number;
+  shares?: number;
+  comments?: number;
+  ctr?: number;
+};
+
+/** Case-insensitive label → snapshot-metric field. Unknown labels are dropped. */
+const LABEL_FIELDS: Array<{ re: RegExp; field: keyof PostizMappedMetrics }> = [
+  { re: /^(views|video views|plays|impressions)$/i, field: "views" },
+  { re: /^(likes|reactions|favorites)$/i, field: "likes" },
+  { re: /^(shares|reposts|retweets)$/i, field: "shares" },
+  { re: /^(comments|replies)$/i, field: "comments" },
+  { re: /^(ctr|click-through rate)$/i, field: "ctr" },
+];
+
+/**
+ * Map the label/series rows into snapshot metrics. Each metric takes the LAST
+ * data point's `total` (the newest cumulative value in the lookback window);
+ * unparsable totals and unrecognized labels are skipped, never fatal.
+ */
+export function mapPostizAnalyticsRows(rows: PostizAnalyticsRow[]): PostizMappedMetrics {
+  const out: PostizMappedMetrics = {};
+  for (const row of rows) {
+    const label = typeof row.label === "string" ? row.label.trim() : "";
+    const field = LABEL_FIELDS.find((m) => m.re.test(label))?.field;
+    if (!field || out[field] !== undefined) continue;
+    const last = row.data?.[row.data.length - 1];
+    const n = Number(last?.total);
+    if (Number.isFinite(n)) out[field] = n;
+  }
+  return out;
+}
+
+export type PostizMetricsResult =
+  | { ok: true; metrics: PostizMappedMetrics; raw: PostizAnalyticsRow[] }
+  | { ok: false; note: string };
+
+/**
+ * Degrading per-post metrics read: the documented endpoint exists on current
+ * Postiz, but an older self-hosted instance may predate it (404) and a
+ * provider may report nothing for a post. Any failure → `{ ok: false, note }`
+ * so the pull layer records a skipped row instead of aborting the batch.
+ * Missing config still throws upstream of this (callers check
+ * `postizAvailable()` first).
+ */
+export async function postizMetrics(
+  postId: string,
+  days = 7,
+  fetchImpl: FetchLike = fetch,
+): Promise<PostizMetricsResult> {
+  try {
+    const raw = await postizPostAnalytics(postId, days, fetchImpl);
+    return { ok: true, metrics: mapPostizAnalyticsRows(raw), raw };
+  } catch (e) {
+    return { ok: false, note: `postiz analytics unavailable for post ${postId}: ${(e as Error).message}` };
+  }
 }

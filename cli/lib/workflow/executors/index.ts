@@ -11,9 +11,9 @@
 // generate-object, agent-loop (via the AI SDK layer, D-01/D-04), coding-agent
 // (headless external binary, NO SDK) — the D-category ingestion nodes +
 // dedup (#500), the calendar-slot control-flow node (#504), the E-category
-// publish + x-post nodes via Postiz (#501), and the #503 control-flow/data
-// set (approval, budget-guard, gate, join, switch, transform,
-// template-string, artifact-write). The generic `http` node is deliberately
+// publish + x-post nodes via Postiz (#501), the analytics-pull feedback-loop
+// node (#507), and the #503 control-flow/data set (approval, budget-guard,
+// gate, join, switch, transform, template-string, artifact-write). The generic `http` node is deliberately
 // unregistered (see ingestion.ts / issue #500 notes); `schedule` and
 // `fan-out` are runner built-ins (#503, see control-flow.ts header).
 
@@ -30,6 +30,7 @@ import {
 } from "./ingestion.js";
 import { calendarSlotExecutor } from "./calendar.js";
 import { publishExecutor, xPostExecutor } from "./publish.js";
+import { analyticsPullExecutor } from "./analytics.js";
 import {
   approvalExecutor,
   budgetGuardExecutor,
@@ -85,10 +86,11 @@ registerExecutor("dedup", dedupExecutor);
 // F. Control flow: calendar-slot — the workspace content calendar (#504).
 registerExecutor("calendar-slot", calendarSlotExecutor);
 
-// E. Publish nodes via Postiz (#501). youtube-upload (direct API) and
-// analytics-pull are named follow-ups (#501 notes / #507).
+// E. Publish nodes via Postiz (#501) + the loop-closing analytics-pull
+// (#507). youtube-upload (direct API) stays a named follow-up (#501 notes).
 registerExecutor("publish", publishExecutor);
 registerExecutor("x-post", xPostExecutor);
+registerExecutor("analytics-pull", analyticsPullExecutor);
 
 // F. Control flow + G. data nodes (#503). NOT registered on purpose:
 // `schedule` (the farm runner's trigger built-in, not an executable step) and
