@@ -190,6 +190,22 @@ After writing all 7 files, give the user this summary in chat:
 
 Ask if they want any section expanded or any rule re-phrased. Don't auto-iterate — let them drive.
 
+## Performance postmortem (#507) — when the units carry real metrics
+
+When any of the project's published units has `units/<slug>/analytics.jsonl` (appended by `ralphy analytics pull <project> [unit-slug]` after a `ralphy publish`), do NOT write the lessons set from chat history alone — fold in the metric-grounded findings first:
+
+```bash
+ralphy analytics postmortem <project-id> --dry-run   # preview the findings, writes nothing
+ralphy analytics postmortem <project-id>             # write findings + stage memory proposals
+```
+
+One bounded LLM pass over the snapshots + unit metadata; it writes `postmortem/analytics-findings.json` (`.vN`-versioned, append-only). Two rules the verb enforces that this skill inherits:
+
+- **Evidence rule.** Every finding must cite `evidence.units` (real unit slugs from the batch) + `evidence.metrics` (concrete numbers/deltas, e.g. "unit-a 4200 views vs unit-b 310 at +7d"); a finding that names no known unit slug is DROPPED by the parser. Match that bar in `02-lessons.md`: a performance lesson without unit slugs and numbers doesn't go in.
+- **Workspace-tier memory staging.** The verb stages findings as WORKSPACE-tier memory proposals into `proposed/` (the #117/#118 bulk-ingestion discipline — niche/audience findings are workspace facts, never global memory). Same contract as `ralphy memory distill` below: surface the proposals, never auto-approve — `ralphy memory approve <slug>` is the user's call.
+
+Fold the surviving findings into `02-lessons.md` (a "Performance findings" subsection citing `analytics-findings.json`) and cross-reference them per unit in `06-units.md`. With no `analytics.jsonl` anywhere, skip this section — the chat-history postmortem below is the whole record.
+
 ## Distill into memory proposals (#113)
 
 After the summary, close the learning loop — turn the postmortem into staged
