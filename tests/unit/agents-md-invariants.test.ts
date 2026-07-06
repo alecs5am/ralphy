@@ -15,8 +15,10 @@
 // Coverage map (see AGENTS.md `Tested by:` annotations for the inverse view):
 //
 //   #1  only registered connectors hold keys      — TESTED (this file;
-//       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; Vercel /
-//        OpenAI-direct forbidden everywhere)
+//       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; hosted Vercel /
+//        OpenAI-direct forbidden everywhere; `ai` npm package imports
+//        sanctioned in cli/lib/providers/ai-sdk.ts only — D-01,
+//        docs/architecture/farm-node-graph.md, #496)
 //   #2  ralphy is the only entry-point            — partially TESTED
 //                                                   (this file + tests/integration/cli-render-from-clip.test.ts)
 //   #3  reference-required gate                   — TESTED (tests/unit/eval-refs.test.ts)
@@ -82,14 +84,30 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
   // catches a stray FAL_KEY read or fal host anywhere outside the connector.
   //
   // The allowlist is file-scoped (path-exact), not a substring: a sibling file
-  // that merely imports the connector is NOT allowlisted. Vercel + OpenAI-direct
-  // stay forbidden everywhere with no allowlist.
+  // that merely imports the connector is NOT allowlisted. Hosted Vercel +
+  // OpenAI-direct stay forbidden everywhere with no allowlist.
   const FAL_CONNECTOR = path.join("cli", "lib", "providers", "fal.ts");
   // Files permitted to read FAL_KEY / hit fal hosts (the sanctioned connector only).
   const falAllowlist = new Set<string>([FAL_CONNECTOR]);
 
-  // Vercel + OpenAI-direct: forbidden everywhere, no allowlist.
+  // Hosted Vercel + OpenAI-direct: forbidden everywhere, no allowlist.
   const forbiddenEverywhere = ["VERCEL_KEY", "VERCEL_API_KEY", "OPENAI_API_KEY"];
+
+  // Vercel AI SDK carve-out (D-01, docs/architecture/farm-node-graph.md, #496):
+  // the open-source `ai` npm package + its provider adapter packages are
+  // permitted as LOCAL dependencies — provider-agnostic libraries that never
+  // call Vercel hosts — but their imports are file-scoped to the designated
+  // provider layer, mirroring the fal connector pattern. This guard landed
+  // BEFORE #499 adds the dependency, so the allowlist is a recorded decision,
+  // not an accident. The hosted-Vercel ban above is untouched by the carve-out.
+  const AI_SDK_LAYER = path.join("cli", "lib", "providers", "ai-sdk.ts");
+  const aiSdkAllowlist = new Set<string>([AI_SDK_LAYER]);
+  // Matches real module specifiers only — `from "ai"`, `import "ai"`,
+  // `require("ai")`, dynamic `import("ai")`, subpaths (`ai/...`), and the
+  // OpenRouter adapter package — never `ai` as a bare substring, and never
+  // other packages that merely contain "ai" (`openai`, `fal-ai`, ...).
+  const AI_SDK_IMPORT_RE =
+    /(?:\bfrom\s*|\bimport\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)["'](?:ai|ai\/[^"']+|@openrouter\/ai-sdk-provider(?:\/[^"']+)?)["']/;
 
   test("no source file reads process.env.VERCEL/OPENAI keys (no allowlist)", () => {
     const offenders: string[] = [];
@@ -137,6 +155,49 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  test("no Vercel / OpenAI-direct host URL in any source file (no allowlist)", () => {
+    // The hosted-Vercel ban: vercel.com, vercel.app, vercel.sh (AI Gateway),
+    // sdk.vercel.ai — any vercel.* URL — plus direct openai.com. The D-01
+    // carve-out is a LOCAL library, not a host; it earns no exemption here.
+    const offenders: string[] = [];
+    for (const f of sourceFiles()) {
+      const rel = path.relative(REPO, f);
+      const src = fs.readFileSync(f, "utf8");
+      if (/https?:\/\/[a-z0-9.-]*vercel\.[a-z]+/i.test(src)) {
+        offenders.push(`${rel} → vercel host`);
+      }
+      if (/https?:\/\/[a-z0-9.-]*openai\.com\b/i.test(src)) {
+        offenders.push(`${rel} → openai.com host`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test("ai / @openrouter/ai-sdk-provider are imported ONLY from the sanctioned ai-sdk provider layer", () => {
+    // Passes today (no `ai` dependency, no imports) and fails the moment any
+    // file outside cli/lib/providers/ai-sdk.ts imports the SDK or an adapter.
+    const offenders: string[] = [];
+    for (const f of sourceFiles()) {
+      const rel = path.relative(REPO, f);
+      if (aiSdkAllowlist.has(rel)) continue; // sanctioned provider layer — allowed
+      const src = fs.readFileSync(f, "utf8");
+      if (AI_SDK_IMPORT_RE.test(src)) offenders.push(rel);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test("once the ai-sdk provider layer exists it DOES import the SDK (allowlist is not vacuous)", () => {
+    // Mirror of the FAL_KEY vacuous-allowlist guard. #499 creates
+    // cli/lib/providers/ai-sdk.ts; until then the file is absent and this
+    // guard is a no-op. Once it lands, the allowlist must be earning its
+    // exemption — if ai-sdk.ts stops importing the SDK, re-point or drop the
+    // allowlist rather than leave an unused exemption standing.
+    const abs = path.join(REPO, AI_SDK_LAYER);
+    if (!fs.existsSync(abs)) return;
+    const src = fs.readFileSync(abs, "utf8");
+    expect(AI_SDK_IMPORT_RE.test(src)).toBe(true);
   });
 });
 
