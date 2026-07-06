@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **50**
+Verbs registered: **51**
 
 ## Top-level verbs
 
@@ -1544,6 +1544,39 @@ Commands:
                        (idempotent — a second run creates nothing). Example:
                        ralphy calendar fill my-studio --weeks 2
   help [command]       display help for command
+```
+
+### `ralphy publish`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy publish [options] <project> <unit-slug>
+
+Publish a formed unit to social platforms via Postiz (#501): binds accounts,
+uploads the unit's media, creates one post per target, and appends the results
+to the unit's publish provenance. Gated on the readiness scorecard (`ship`
+verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut
+--targets tiktok,youtube --at 2026-07-13T09:00:00Z
+
+Arguments:
+  project           Project id
+  unit-slug         Unit slug under <project>/units/
+
+Options:
+  --targets <list>  Comma-separated targets (youtube | tiktok | instagram | x)
+  --at <iso>        Schedule datetime (ISO). Omit to post immediately
+  --account <map>   Explicit account bindings, e.g.
+                    "youtube=<integration-id>,x=<id>"
+  --force <reason>  Bypass the readiness gate with an explicit reason (logged to
+                    user-prompts.jsonl)
+  -h, --help        display help for command
 ```
 
 ### `ralphy workflow`

@@ -94,6 +94,33 @@ export const UnitCaptionSchema = z.object({
 
 export type UnitCaption = z.infer<typeof UnitCaptionSchema>;
 
+/**
+ * One publish attempt against one target platform (#501). Written by
+ * `ralphy publish` / the `publish` node executor after pushing the unit to
+ * Postiz. The `publish` array on the manifest is APPEND-ONLY: every attempt
+ * (including failed ones) appends a new record; existing records are never
+ * rewritten or dropped.
+ */
+export const UnitPublishRecordSchema = z.object({
+  /** Target platform ("youtube" | "tiktok" | "instagram" | "x"). */
+  target: z.string(),
+  /** The bound Postiz integration (account) id, when binding succeeded. */
+  integrationId: z.string().nullable(),
+  /** Provider post id (null when the attempt failed before creation). */
+  postId: z.string().nullable(),
+  status: z.enum(["scheduled", "published", "failed"]),
+  /** ISO datetime the post is scheduled for (null = posted immediately). */
+  scheduleAt: z.string().nullable(),
+  /** Failure detail for status "failed". */
+  error: z.string().optional(),
+  /** ISO timestamp of the attempt. */
+  at: z.string(),
+  /** Publishing backend ("postiz" today; a direct connector is a named follow-up). */
+  backend: z.string().default("postiz"),
+});
+
+export type UnitPublishRecord = z.infer<typeof UnitPublishRecordSchema>;
+
 export const UnitManifestSchema = z.object({
   slug: z.string().regex(SLUG_RE, "unit slug must be kebab-case"),
   format: z.enum(UNIT_FORMATS),
@@ -133,6 +160,8 @@ export const UnitManifestSchema = z.object({
   caption: UnitCaptionSchema.optional(),
   /** Prior captions, archived append-only when `unit caption --force` re-drafts. */
   caption_versions: z.array(UnitCaptionSchema).optional(),
+  /** Publish provenance (#501): one record per publish attempt. APPEND-only. */
+  publish: z.array(UnitPublishRecordSchema).optional(),
 });
 
 export type UnitManifest = z.infer<typeof UnitManifestSchema>;

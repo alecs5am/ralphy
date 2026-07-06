@@ -667,6 +667,23 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  publish: [
+    {
+      label: "publish.unit",
+      shape: {
+        project: "spring-2026-001",
+        slug: "hero-cut",
+        type: "schedule",
+        scheduleAt: "2026-07-13T09:00:00.000Z",
+        results: [
+          { target: "tiktok", integrationId: "int-tt-1", status: "scheduled", postId: "p-01", scheduleAt: "2026-07-13T09:00:00.000Z" },
+          { target: "youtube", integrationId: "int-yt-1", status: "failed", postId: null, scheduleAt: "2026-07-13T09:00:00.000Z", error: "postiz POST 500" },
+        ],
+        unitDir: ".ralphy/workspaces/default/projects/spring-2026-001/units/hero-cut",
+        readiness: { verdict: "ship", bypassed: false },
+      },
+    },
+  ],
   provider: [
     { label: "provider.show", shape: { provider: "openrouter", envVar: "OPENROUTER_API_KEY", configured: true, capabilities: ["image", "video", "llm"] } },
     {
