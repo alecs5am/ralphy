@@ -12,8 +12,8 @@ Lanes are ordered by dependency (foundational first). Each row is ONE existing `
 | Lane | Issue | Depends on | Expected gates | Status |
 |---|---|---|---|---|
 | foundation | [#496](../issues/done/496-vercel-ai-sdk-invariant-carveout.md) | — | `bun test agents-md-invariants` · `lint:agents-md` | landed `2ff87ea7` |
-| foundation | [#497](../issues/done/497-provider-capability-matrix.md) | — | `bun test` (registry + coverage) | landed |
-| foundation | [#498](../issues/498-workflow-node-graph-schema.md) | #497 | `bun test` (workflow schema) · `cli:surface:check` | todo |
+| foundation | [#497](../issues/done/497-provider-capability-matrix.md) | — | `bun test` (registry + coverage) | landed `250a0253` |
+| foundation | [#498](../issues/done/498-workflow-node-graph-schema.md) | #497 | `bun test` (workflow schema) · `cli:surface:check` | landed |
 | nodes | [#499](../issues/499-ai-sdk-llm-nodes.md) | #496, #498 | `bun test` (mocked SDK) · invariant test | todo |
 | nodes | [#500](../issues/500-ingestion-trend-watch-nodes.md) | #498 | `bun test` (fixtures, cursor, dedup) | todo |
 | nodes | [#504](../issues/504-content-calendar-entity.md) | #498 | `bun test` · `lint:out-coverage` | todo |

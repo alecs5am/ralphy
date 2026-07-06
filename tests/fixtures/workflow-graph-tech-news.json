@@ -1,0 +1,77 @@
+{
+  "version": "2.0",
+  "name": "tech-news",
+  "nodes": [
+    {
+      "id": "tick",
+      "type": "schedule",
+      "params": { "cron": "0 9 * * *" },
+      "out": "tick"
+    },
+    {
+      "id": "trends",
+      "type": "trend-watch",
+      "params": { "topics": ["ai", "dev-tools"], "dedup_window": "7d" },
+      "out": "items"
+    },
+    {
+      "id": "research",
+      "type": "generate-object",
+      "in": { "sources": "trends.items" },
+      "params": {
+        "model": "anthropic/claude-opus-4-8",
+        "provider": "openrouter",
+        "prompt": "prompts/research.md",
+        "schema": "research-facts"
+      },
+      "out": "research-facts",
+      "retry": { "max": 2, "backoff": "exponential" },
+      "budget": { "max_usd": 0.4 }
+    },
+    {
+      "id": "script",
+      "type": "generate-text",
+      "in": { "facts": "research.research-facts" },
+      "params": {
+        "model": "anthropic/claude-fable-5",
+        "provider": "openrouter",
+        "prompt": "prompts/vo-script.md"
+      },
+      "out": "script",
+      "cache": "content-hash"
+    },
+    {
+      "id": "vo",
+      "type": "tts",
+      "in": { "text": "script.script" },
+      "params": {
+        "provider": "elevenlabs",
+        "model": "eleven_multilingual_v2",
+        "voiceId": "b3M1tF3Y3IEwGRpq7NN3",
+        "stability": 0.5
+      },
+      "out": "vo"
+    },
+    {
+      "id": "clip",
+      "type": "t2v",
+      "in": { "prompt": "script.script" },
+      "params": {
+        "provider": "openrouter",
+        "model": "kwaivgi/kling-v3.0-pro",
+        "durationSec": 10,
+        "aspectRatio": "9:16"
+      },
+      "out": "clip",
+      "retry": { "max": 1, "backoff": "linear" },
+      "on_fail": "route:review",
+      "budget": { "max_usd": 2.5 }
+    },
+    {
+      "id": "review",
+      "type": "approval",
+      "in": { "clip": "clip.clip", "audio": "vo.vo" },
+      "params": { "queue": "review" }
+    }
+  ]
+}

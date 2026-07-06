@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "name": "episode",
+  "steps": [
+    {
+      "id": "intake",
+      "label": "Load context",
+      "phase": "intake",
+      "engine": "agent",
+      "variants": 1,
+      "gate": [],
+      "mode": "auto",
+      "repair": {
+        "retryBudget": 2,
+        "batchApproved": false
+      }
+    },
+    {
+      "id": "style-lock",
+      "label": "Cast + location anchors",
+      "phase": "style-lock",
+      "engine": "generate.image",
+      "variants": 1,
+      "gate": [],
+      "mode": "auto",
+      "repair": {
+        "retryBudget": 2,
+        "batchApproved": false
+      }
+    },
+    {
+      "id": "scenario",
+      "label": "Scenario",
+      "phase": "scenario",
+      "engine": "llm",
+      "variants": 1,
+      "gate": [],
+      "mode": "approve",
+      "repair": {
+        "retryBudget": 2,
+        "batchApproved": false
+      }
+    },
+    {
+      "id": "assets",
+      "label": "Scene generation",
+      "phase": "assets",
+      "engine": "generate.video",
+      "variants": 1,
+      "gate": [],
+      "mode": "approve",
+      "repair": {
+        "retryBudget": 2,
+        "batchApproved": false
+      }
+    },
+    {
+      "id": "render",
+      "label": "Render",
+      "phase": "render",
+      "engine": "render",
+      "variants": 1,
+      "gate": [],
+      "mode": "auto",
+      "repair": {
+        "retryBudget": 2,
+        "batchApproved": false
+      }
+    },
+    {
+      "id": "eval",
+      "label": "Eval",
+      "phase": "eval",
+      "engine": "eval",
+      "variants": 1,
+      "gate": [],
+      "mode": "approve",
+      "repair": {
+        "retryBudget": 2,
+        "batchApproved": false
+      }
+    }
+  ]
+}
