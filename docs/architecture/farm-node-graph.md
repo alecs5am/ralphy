@@ -328,7 +328,9 @@ bundle/
 
 `ralphy workspace export <ws>` produces it from a trained workspace;
 `import` validates manifest against installed connectors/keys and the
-capability matrix before accepting.
+capability matrix before accepting. Shipped as #502 — the concrete format
+(manifest fields, export-readiness criteria, import validation semantics)
+is documented in [`docs/workspace-bundle.md`](../workspace-bundle.md).
 
 ## Runtime & dashboard
 

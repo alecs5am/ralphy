@@ -1498,6 +1498,43 @@ Commands:
                             append-only) and prints metadata. Example: ralphy
                             workspace ideate silent-hill --brief 'lean into the
                             space-bar vibe' --count 3
+  export [options] <slug>   Export a trained workspace as a deployable bundle
+                            zip (#502): manifest.yaml (name, version,
+                            ralphy-version floor, required connector keys,
+                            required (model, capability, provider) coverage,
+                            trust default — requirements auto-derived from the
+                            graph's nodes), pipeline.json (the #498 graph
+                            workflow, JSON per D-03), prompts/, compositions/,
+                            evaluators/ (STYLE_LOCK.md, evaluators.json,
+                            metrics-benchmarks.json), calendar.yaml (recurring
+                            slots ONLY — dated entries are never bundled), refs/
+                            (shared/refs as-is). Project artifacts and logs are
+                            NEVER bundled. Refuses with the concrete gap list
+                            when the workspace is not export-ready (no
+                            evaluators.json, no graph workflow, workflow lint
+                            errors). Read-only over the source workspace. Uses
+                            the system `zip` binary. Format doc:
+                            docs/workspace-bundle.md. Example: ralphy workspace
+                            export tech-news --out tech-news-v1.zip
+  import [options] <zip>    Import a workspace bundle zip (#502) as a NEW
+                            workspace. Validates BEFORE materializing anything:
+                            manifest.yaml parses, ralphyVersionFloor <= the
+                            current ralphy version, every required connector key
+                            is configured (missing keys are NAMED — refuse, or
+                            proceed with warnings via --allow-missing-keys),
+                            every required (model, capability, provider)
+                            coverage triple is known to the #497 matrix (gaps
+                            NAMED — refuse, or --allow-coverage-gaps), and the
+                            bundled pipeline lints green (#498 graph checks).
+                            Collision-safe: an existing workspace slug refuses
+                            unless --as <new-slug> is passed — import NEVER
+                            overwrites an existing workspace. Materializes
+                            workspace.json, workflows/, evaluator files,
+                            calendar.json (slots only), shared/refs/, prompts/,
+                            compositions/. Uses the system `unzip` binary.
+                            Format doc: docs/workspace-bundle.md. Example:
+                            ralphy workspace import tech-news-v1.zip --as
+                            my-channel
   stats                     Show workspace statistics
   clean [options]           Clean workspace contents
   help [command]            display help for command
