@@ -1,0 +1,11 @@
+# BuildKit per-Dockerfile ignore (applies when building with
+# `dockerfile: docker/Dockerfile` against the repo-root context).
+.git
+.ralphy
+node_modules
+**/node_modules
+studio/dist
+desktop
+docs-mintlify
+notes
+**/*.zip

@@ -1,0 +1,124 @@
+# Ralphy farm server deployment (#506) — one command: farm daemon (#503) +
+# authenticated Studio dashboard, with `.ralphy/` as the durable volume.
+#
+#   STUDIO_AUTH_TOKEN=<long-random-string> docker compose -f docker/docker-compose.yml up -d
+#
+# STUDIO_AUTH_TOKEN is REQUIRED (the `:?` below fails the compose fast when it
+# is unset) — the dashboard holds approval power over paid generation and
+# publishing, so it never runs open. Provider keys arrive as env at run time,
+# never baked into the image. Full quickstart + env table: docker/README.md.
+#
+# Postiz (publish backend) is EXTERNAL-BY-DEFAULT per D-05: set
+# POSTIZ_BASE_URL + POSTIZ_API_KEY at an already-running instance, OR bundle
+# one with `--profile postiz` and point POSTIZ_BASE_URL at it.
+
+name: ralphy-farm
+
+x-ralphy: &ralphy
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: ralphy-farm:local
+  restart: unless-stopped
+  environment: &ralphy-env
+    NO_COLOR: "1"
+    # Provider keys (only the ones the imported bundle's manifest requires
+    # need to be set — `ralphy workspace import` names the gaps).
+    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+    FAL_KEY: ${FAL_KEY:-}
+    FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+    APIFY_TOKEN: ${APIFY_TOKEN:-}
+    # Postiz connector (D-05): external instance by default; with
+    # `--profile postiz`, point POSTIZ_BASE_URL at the bundled service, e.g.
+    # POSTIZ_BASE_URL=http://postiz:5000/api
+    POSTIZ_BASE_URL: ${POSTIZ_BASE_URL:-}
+    POSTIZ_API_KEY: ${POSTIZ_API_KEY:-}
+  volumes:
+    - ralphy-data:/app/.ralphy
+
+services:
+  # The farm scheduler (#503): executes the workspace's graph workflows on
+  # cron ticks. Idles (and rescans) until a workspace with schedule nodes
+  # exists — import a bundle through the dashboard, then it picks it up.
+  farm:
+    <<: *ralphy
+    command: ["bun", "cli/index.ts", "farm", "start", "--workspace", "${FARM_WORKSPACE:-default}"]
+
+  # The dashboard (#506): Studio behind the admin token. Binds 0.0.0.0 inside
+  # the container (token set); publish only the ports you mean to expose.
+  studio:
+    <<: *ralphy
+    command: ["bun", "studio/server/index.ts"]
+    environment:
+      <<: *ralphy-env
+      STUDIO_AUTH_TOKEN: ${STUDIO_AUTH_TOKEN:?STUDIO_AUTH_TOKEN must be set - the dashboard holds approval and publish power (see docker/README.md)}
+      STUDIO_PORT: "4860"
+      STUDIO_HOST: "0.0.0.0"
+      # The dir CONTAINING .ralphy/ (studio/server/lib.ts resolveDataRoot).
+      RALPHY_STUDIO_ROOT: /app
+    ports:
+      - "${STUDIO_PORT:-4860}:4860"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://127.0.0.1:4860/api/health'); if (!r.ok) process.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Optional bundled Postiz (D-05: compose MAY bundle it) ──────────────────
+  # Enable with:  docker compose --profile postiz up -d
+  # Then set POSTIZ_BASE_URL=http://postiz:5000/api and POSTIZ_API_KEY (create
+  # the key in the Postiz UI at http://<host>:5000 after first boot). Minimal
+  # single-host config — see https://docs.postiz.com for the full surface.
+  postiz:
+    image: ghcr.io/gitroomhq/postiz-app:latest
+    profiles: ["postiz"]
+    restart: unless-stopped
+    environment:
+      MAIN_URL: ${POSTIZ_MAIN_URL:-http://localhost:5000}
+      FRONTEND_URL: ${POSTIZ_MAIN_URL:-http://localhost:5000}
+      NEXT_PUBLIC_BACKEND_URL: ${POSTIZ_MAIN_URL:-http://localhost:5000}/api
+      # Compose interpolates env for ALL services regardless of profile, so
+      # this cannot be `:?` — override the placeholder when enabling postiz.
+      JWT_SECRET: ${POSTIZ_JWT_SECRET:-change-me-before-enabling-postiz}
+      DATABASE_URL: postgresql://postiz:postiz@postiz-postgres:5432/postiz
+      REDIS_URL: redis://postiz-redis:6379
+      BACKEND_INTERNAL_URL: http://localhost:3000
+      IS_GENERAL: "true"
+      STORAGE_PROVIDER: local
+      UPLOAD_DIRECTORY: /uploads
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: /uploads
+    volumes:
+      - postiz-config:/config
+      - postiz-uploads:/uploads
+    ports:
+      - "${POSTIZ_PORT:-5000}:5000"
+    depends_on:
+      - postiz-postgres
+      - postiz-redis
+
+  postiz-postgres:
+    image: postgres:17-alpine
+    profiles: ["postiz"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postiz
+      POSTGRES_PASSWORD: postiz
+      POSTGRES_DB: postiz
+    volumes:
+      - postiz-db:/var/lib/postgresql/data
+
+  postiz-redis:
+    image: redis:7-alpine
+    profiles: ["postiz"]
+    restart: unless-stopped
+    volumes:
+      - postiz-redis-data:/data
+
+volumes:
+  # The durable data root: workspaces, projects, runs, pidfiles, logs.
+  ralphy-data:
+  postiz-config:
+  postiz-uploads:
+  postiz-db:
+  postiz-redis-data:
