@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **49**
+Verbs registered: **50**
 
 ## Top-level verbs
 
@@ -1501,6 +1501,49 @@ Commands:
   stats                     Show workspace statistics
   clean [options]           Clean workspace contents
   help [command]            display help for command
+```
+
+### `ralphy calendar`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy calendar [options] [command]
+
+Workspace content calendar (#504): recurring posting slots
+(weekday/time/timezone, unit type, platforms) + dated entries with an idea →
+queued → produced → gated → scheduled → published lifecycle. Stored at
+<workspace>/calendar.json with an append-only calendar-events.jsonl history.
+
+Options:
+  -h, --help           display help for command
+
+Commands:
+  show [options] <ws>  Show a workspace's calendar: recurring slots + upcoming
+                       entries (undated queued entries first, then dated ones
+                       from now on; --all includes past entries). Example:
+                       ralphy calendar show my-studio
+  add [options] <ws>   Add a recurring slot (--weekday mon..sun --time HH:MM
+                       --unit-type <format> [--platforms
+                       youtube,tiktok,instagram,x] [--timezone <IANA>, default:
+                       system] [--id <slot-id>]) OR a dated entry (--at <ISO>
+                       --unit-type <format> [--platforms ...] [--slot
+                       <slot-id>]). Examples: ralphy calendar add my-studio
+                       --weekday mon --time 09:00 --unit-type ugc-review
+                       --platforms tiktok,youtube | ralphy calendar add
+                       my-studio --at 2026-07-13T09:00:00Z --unit-type
+                       ugc-review
+  fill [options] <ws>  Auto-fill: create QUEUED entries for every slot
+                       occurrence in the next N weeks that is not already filled
+                       (idempotent — a second run creates nothing). Example:
+                       ralphy calendar fill my-studio --weeks 2
+  help [command]       display help for command
 ```
 
 ### `ralphy workflow`
