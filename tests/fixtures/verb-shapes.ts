@@ -1017,6 +1017,53 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         ],
       },
     },
+    {
+      label: "workflow.lint",
+      shape: {
+        workspace: "silent-hill",
+        ok: false,
+        errorCount: 1,
+        warningCount: 1,
+        workflows: [
+          {
+            name: "tech-news",
+            path: ".ralphy/workspaces/silent-hill/workflows/tech-news.json",
+            format: "json",
+            kind: "graph",
+            size: 7,
+            ok: false,
+            errors: [
+              {
+                level: "error",
+                code: "coverage-unsupported-param",
+                node: "clip",
+                message: 'node "clip" passes param "refs" which provider "openrouter" does NOT support for kwaivgi/kling-v3.0-pro',
+                fix: 'use provider "fal" with model "fal-ai/kling-video/o3/pro/reference-to-video", which supports it',
+              },
+            ],
+            warnings: [
+              {
+                level: "warning",
+                code: "coverage-uncovered-param",
+                node: "clip",
+                message: 'node "clip" param "loop" is outside provider "openrouter" declared coverage for kwaivgi/kling-v3.0-pro',
+                fix: 'drop "loop" or pick a (model, provider) pair that covers it (see `ralphy provider matrix --model kwaivgi/kling-v3.0-pro`)',
+              },
+            ],
+          },
+          {
+            name: "episode",
+            path: ".ralphy/workspaces/silent-hill/workflows/episode.json",
+            format: "json",
+            kind: "linear",
+            size: 6,
+            ok: true,
+            errors: [],
+            warnings: [],
+          },
+        ],
+      },
+    },
   ],
   workspace: [
     {

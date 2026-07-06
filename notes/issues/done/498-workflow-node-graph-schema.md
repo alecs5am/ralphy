@@ -1,6 +1,6 @@
 # Generalize workflow.json into a typed node graph
 
-> **Status:** todo
+> **Status:** done — 2026-07-06
 > **Filed:** 2026-07-05
 > **Folder:** issues
 > **Severity:** high
