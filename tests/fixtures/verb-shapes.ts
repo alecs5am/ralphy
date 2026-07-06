@@ -362,6 +362,31 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },
     { label: "example.pull", shape: { exampleId: "choose-silenthill-001", localId: "choose-silenthill-001", projDir: ".ralphy/workspaces/default/projects/choose-silenthill-001", source: "https://github.com/alecs5am/ralphy-assets" } },
   ],
+  farm: [
+    {
+      label: "farm.status",
+      shape: {
+        workspace: "my-studio",
+        daemon: { running: true, pid: 4242, pidFile: ".ralphy/farm/my-studio.pid" },
+        counts: { running: 1, "parked-approval": 1, "halted-budget": 0, "halted-failure": 0, complete: 3 },
+        runs: [
+          {
+            id: "farm-news-20260706-090000",
+            workflow: "news",
+            status: "parked-approval",
+            completedNodes: 2,
+            skippedNodes: 1,
+            totalNodes: 6,
+            spendUsd: 0.12,
+            updatedAt: "2026-07-06T09:00:12.000Z",
+            detail: "approval node \"ask\": no run approval is recorded yet",
+          },
+        ],
+      },
+    },
+    { label: "farm.stop", shape: { workspace: "my-studio", stopped: true, pid: 4242, detail: "the loop exits after the node in flight; runs resume on the next start" } },
+    { label: "farm.stop.dead", shape: { workspace: "my-studio", stopped: false, pid: null, detail: "no live farm process (stale pidfile cleared if present)" } },
+  ],
   generate: [
     { label: "generate.queued", shape: { queued: true, id: "job-2026-06-15-abc123", kind: "image", project: "demo-001" } },
     {

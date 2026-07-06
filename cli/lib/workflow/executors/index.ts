@@ -10,9 +10,12 @@
 // Registered here: the four A-category LLM node types — generate-text,
 // generate-object, agent-loop (via the AI SDK layer, D-01/D-04), coding-agent
 // (headless external binary, NO SDK) — the D-category ingestion nodes +
-// dedup (#500), the calendar-slot control-flow node (#504), and the E-category
-// publish + x-post nodes via Postiz (#501). The generic `http` node is
-// deliberately unregistered (see ingestion.ts / issue #500 notes).
+// dedup (#500), the calendar-slot control-flow node (#504), the E-category
+// publish + x-post nodes via Postiz (#501), and the #503 control-flow/data
+// set (approval, budget-guard, gate, join, switch, transform,
+// template-string, artifact-write). The generic `http` node is deliberately
+// unregistered (see ingestion.ts / issue #500 notes); `schedule` and
+// `fan-out` are runner built-ins (#503, see control-flow.ts header).
 
 import type { WorkflowNodeType } from "../../schemas/workflow.js";
 import type { NodeExecutor } from "./types.js";
@@ -27,6 +30,16 @@ import {
 } from "./ingestion.js";
 import { calendarSlotExecutor } from "./calendar.js";
 import { publishExecutor, xPostExecutor } from "./publish.js";
+import {
+  approvalExecutor,
+  budgetGuardExecutor,
+  gateExecutor,
+  joinExecutor,
+  switchExecutor,
+  transformExecutor,
+  templateStringExecutor,
+  artifactWriteExecutor,
+} from "./control-flow.js";
 
 export {
   NodeExecutionError,
@@ -76,3 +89,16 @@ registerExecutor("calendar-slot", calendarSlotExecutor);
 // analytics-pull are named follow-ups (#501 notes / #507).
 registerExecutor("publish", publishExecutor);
 registerExecutor("x-post", xPostExecutor);
+
+// F. Control flow + G. data nodes (#503). NOT registered on purpose:
+// `schedule` (the farm runner's trigger built-in, not an executable step) and
+// `fan-out` (v1 does not map a subgraph per item — the runner skips it with a
+// structured "fan-out-not-supported" event; see control-flow.ts header).
+registerExecutor("approval", approvalExecutor);
+registerExecutor("budget-guard", budgetGuardExecutor);
+registerExecutor("gate", gateExecutor);
+registerExecutor("join", joinExecutor);
+registerExecutor("switch", switchExecutor);
+registerExecutor("transform", transformExecutor);
+registerExecutor("template-string", templateStringExecutor);
+registerExecutor("artifact-write", artifactWriteExecutor);

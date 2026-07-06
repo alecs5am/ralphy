@@ -335,6 +335,20 @@ capability matrix before accepting.
 - Runner: bun process (`ralphy farm start`), docker-compose one-command deploy.
   Durable run journal (resume after crash — the approval node depends on
   parking runs for hours/days).
+
+**D-06 — executor placement: the standalone `ralphy farm` process (decided
+2026-07-06, #503):** graph execution lives in the standalone, user-launched
+`ralphy farm start` process (`cli/lib/farm/runner.ts`), NOT inside the
+workflow-app API (#492) — the app/dashboard OBSERVES farm state (run.json,
+run-events.jsonl, farm-state.json under `runs/<run-id>/`) and never executes
+nodes, preserving #492's "the API is not a second media engine" rule.
+Tick → Run compilation is in-process over the topological order (one tick =
+one #480 Run with an append-only journal), not jobs.db compilation: the #481
+queue executes argv-shaped CLI invocations through a detached worker, while
+graph nodes are in-process `NodeExecutor` functions whose outputs feed
+downstream in-ports — see the runner module header for the full rationale.
+AGENTS.md invariant #5 is untouched by the daemon: `farm start` is explicit
+user intent, foregrounded; the user backgrounds or dockerizes it (#506).
 - Dashboard: evolved Studio behind auth — calendar view, review queue
   (approve/reject on top of existing annotations #488), run graph with live
   node states (#490 canvas), logs, spend stats, start/stop + trust-level
@@ -368,8 +382,10 @@ Phasing:
 2. **Spec format** — **decided** as D-03 (see "Graph spec, not visual editor"
    above; landed via #498: JSON is the storage format, YAML accepted at
    import/lint time by `ralphy workflow lint`).
-3. **Executor placement** — inside the workflow app (per #492/#493 direction)
-   vs a standalone `ralphy farm` process that the app observes.
+3. **Executor placement** — **decided** as D-06 (see "Runtime & dashboard"
+   above; landed via #503: the standalone `ralphy farm` process executes,
+   in-process over the topo order with a durable run journal; the workflow-app
+   API (#492) observes state and never executes).
 4. **Postiz integration depth** — **decided** as D-05 (see "E. Publish nodes"
    above; landed via #501: external-by-default via `POSTIZ_BASE_URL` +
    `POSTIZ_API_KEY`, the #506 compose file MAY bundle Postiz as an optional
