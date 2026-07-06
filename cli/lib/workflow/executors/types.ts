@@ -53,6 +53,11 @@ export interface ExecutorContext {
   /** Test seam: replaces the OpenRouter model factory (zero-network tests). */
   modelFactory?: ModelFactory;
   /**
+   * Test seam for ingestion nodes (#500): fetch implementation the connectors
+   * (firecrawl / apify) and rss feed pulls go through. Default: global fetch.
+   */
+  fetchImpl?: typeof fetch;
+  /**
    * Test seam for coding-agent: maps an ALLOWLISTED binary + prompt to the
    * argv to spawn. The allowlist check runs before this — the seam cannot
    * widen the public binary surface.

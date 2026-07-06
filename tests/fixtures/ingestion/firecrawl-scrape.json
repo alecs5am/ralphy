@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "data": {
+    "markdown": "# Launch notes\n\nThe new model ships next week.",
+    "metadata": {
+      "title": "Launch notes",
+      "sourceURL": "https://example.com/launch-notes",
+      "publishedTime": "2026-06-30T08:00:00.000Z"
+    }
+  }
+}
