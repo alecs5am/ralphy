@@ -183,6 +183,27 @@ chosen provider does not support, and names the provider that does — the
 instead of a mid-run surprise. This matrix is also what the dashboard's node
 inspector renders.
 
+**D-02 — capability-matrix source of truth (decided 2026-07-06, #497):**
+hand-curated registry data is the source of truth. The matrix lives as a typed
+const in `cli/lib/providers/coverage.ts` — per-(model, capability, provider)
+entries with `supportedParams` / `unsupportedParams`, a `family` grouping for
+cross-provider siblings, and a `source: "hand-curated" | "derived"` field —
+mirroring the `MODEL_CONSTRAINTS` convention (#445): MODELS.md prose is the
+human source of truth, the table is its machine mirror, and there is
+intentionally NO auto-sync. Rationale: fal model schemas and the OR catalog
+describe *shape*, not *semantics* — the OR catalog carries no param-level data
+at all (whether `input_references` works per model is prose knowledge), and
+fal's schema says `generate_audio` exists but not that seedance speech is
+unvalidated — so an auto-derived matrix would be confidently wrong exactly
+where it matters. Refresh path (documented, manual): when a provider surface
+changes, update MODELS.md and the coverage table in the same change; fal model
+schemas (`https://fal.ai/models/<id>/api`) and the OR catalog (`ralphy models
+list`) are the reference material for that manual update. `source: "derived"`
+is reserved for a future automated seeding pass that may ADD rows but never
+overwrite a hand-curated one. Surfaced via `ralphy provider matrix
+[--model <id>]` and the warn-only gate in `ralphy generate`; #498 consumes the
+same data for hard-fail at graph import.
+
 ### C. Ralphy verb nodes
 
 The farm executes ralphy, it never reimplements it — gates, append-only
@@ -302,5 +323,7 @@ Phasing:
    vs a standalone `ralphy farm` process that the app observes.
 4. **Postiz integration depth** — external service the farm calls vs bundled in
    the docker-compose.
-5. **Capability-matrix source of truth** — hand-curated registry data vs
-   auto-derived from fal model schemas + OR catalog (staleness trade-off).
+5. **Capability-matrix source of truth** — **decided** as D-02 (see
+   "B. Media nodes" above; landed via #497, hand-curated typed const at
+   `cli/lib/providers/coverage.ts`, manual refresh informed by fal model
+   schemas + the OR catalog).
