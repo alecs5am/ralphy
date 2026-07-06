@@ -20,8 +20,10 @@ import {
   deriveDefaultWorkflow,
   evaluateWorkflow,
 } from "../lib/workflow.js";
-import { lintWorkflowFile } from "../lib/workflow-graph.js";
-import type { Workflow } from "../lib/schemas/workflow.js";
+import { lintWorkflowFile, isArtifactRef } from "../lib/workflow-graph.js";
+import { getExecutor, registeredExecutorTypes, type ExecutorContext } from "../lib/workflow/executors/index.js";
+import { parseWorkflowDocument, type Workflow } from "../lib/schemas/workflow.js";
+import { parse as parseYaml } from "yaml";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -191,6 +193,91 @@ export function workflowCmd() {
         out(await evaluateWorkflow(project, opts.workflow as string | undefined));
       } catch (e) {
         err(`workflow status failed: ${(e as Error).message}`);
+      }
+    });
+
+  // ── run-node ───────────────────────────────────────────────────────────────
+  // Debug primitive for #500 ingestion (and any registered executor): execute
+  // ONE node of a node-graph workflow standalone, outside the #503 runner.
+  cmd
+    .command("run-node <slug> <workflow> <node-id>")
+    .description(
+      "DEBUG: execute ONE node of a node-graph workflow (#498) standalone and print its output. In-ports resolve from artifact refs only (a file path or artifact:<path>) — an upstream <node>.<out> ref errors (run the upstream node first and point the port at its artifact). Node artifacts land under the workspace's runs/run-node/<workflow>/ (append-only). Example: ralphy workflow run-node tech-news pipeline trend-watch",
+    )
+    .action(async (slug: string, wfName: string, nodeId: string) => {
+      requireRalphyLayout("workflow run-node");
+      ensureWorkspaceExists(slug);
+      const file = ["json", "yaml", "yml"]
+        .map((ext) => path.join(workflowsDir(slug), `${wfName}.${ext}`))
+        .find(existsSync);
+      if (!file) {
+        raiseError("E_NOT_FOUND", { kind: "Workflow", id: `${slug}/${wfName}` });
+        return;
+      }
+      const src = await fs.readFile(file, "utf-8");
+      const doc = parseWorkflowDocument(/\.ya?ml$/.test(file) ? parseYaml(src) : JSON.parse(src));
+      if (doc.kind !== "graph") {
+        err(`'${slug}/${wfName}' is a linear workflow (steps[]) — run-node executes node-graph workflows (nodes[])`);
+      }
+      const node = doc.graph.nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        raiseError("E_NOT_FOUND", { kind: "Node", id: `${slug}/${wfName}/${nodeId}` });
+        return;
+      }
+      const exec = getExecutor(node.type);
+      if (!exec) {
+        err(
+          `no executor registered for node type "${node.type}" — debug-runnable types: ${registeredExecutorTypes().sort().join(", ")}`,
+        );
+      }
+      // Standalone = no upstream outputs. Only artifact refs resolve.
+      const wsDir = workspaceDir(slug);
+      const inputs: Record<string, unknown> = {};
+      for (const [port, ref] of Object.entries(node.in)) {
+        if (!isArtifactRef(ref)) {
+          err(
+            `in-port "${port}" references upstream node output "${ref}" — run-node executes ONE node standalone; point the port at an artifact ref (artifact:<path> or a file path) instead`,
+          );
+        }
+        const rel = ref.replace(/^artifact:/, "");
+        const abs = [path.resolve(rel), path.resolve(wsDir, rel)].find(existsSync);
+        if (!abs) {
+          raiseError("E_NOT_FOUND", { kind: "Artifact", id: rel });
+          return;
+        }
+        const text = await fs.readFile(abs, "utf-8");
+        inputs[port] = abs.endsWith(".json") ? JSON.parse(text) : text;
+      }
+      const artifactsDir = path.join(wsDir, "runs", "run-node", wfName);
+      const logPath = path.join(artifactsDir, "log.jsonl");
+      let costUsd = 0;
+      const ctx: ExecutorContext = {
+        workspace: slug,
+        workspaceDir: wsDir,
+        artifactsDir,
+        inputs,
+        log: async (entry) => {
+          await fs.mkdir(artifactsDir, { recursive: true });
+          await fs.appendFile(logPath, JSON.stringify({ ts: new Date().toISOString(), node: nodeId, ...entry }) + "\n");
+        },
+        reportCost: (usd) => {
+          costUsd += usd;
+        },
+      };
+      try {
+        const res = await exec!(node, ctx);
+        out({
+          workspace: slug,
+          workflow: wfName,
+          node: nodeId,
+          type: node.type,
+          items: Array.isArray(res.output) ? res.output.length : null,
+          artifactPath: res.artifactPath ?? null,
+          costUsd,
+          output: res.output,
+        });
+      } catch (e) {
+        err(`run-node failed: ${(e as Error).message}`);
       }
     });
 

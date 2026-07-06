@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Atom Feed</title>
+  <id>urn:uuid:60a76c80-d399-11d9-b93C-0003939e0af6</id>
+  <updated>2026-07-03T12:00:00Z</updated>
+  <entry>
+    <title>Browser ships native JSON view</title>
+    <id>urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a</id>
+    <link rel="alternate" href="https://example.org/2026/07/json-view"/>
+    <published>2026-07-03T10:15:00Z</published>
+    <updated>2026-07-03T11:00:00Z</updated>
+    <summary>The stable channel now pretty-prints JSON responses.</summary>
+  </entry>
+  <entry>
+    <title>Edge runtime adds cron triggers</title>
+    <link href="https://example.org/2026/07/cron-triggers"/>
+    <updated>2026-07-04T08:00:00Z</updated>
+    <content type="html">&lt;p&gt;Cron expressions land in the edge runtime.&lt;/p&gt;</content>
+  </entry>
+</feed>

@@ -1520,43 +1520,66 @@ Author + inspect a workspace's declarative staged pipeline
 (workflows/<name>.json) — the configurable idea→video flow (#478)
 
 Options:
-  -h, --help                  display help for command
+  -h, --help                            display help for command
 
 Commands:
-  init [options] <slug>       Scaffold a default workflow.json for a workspace,
-                              derived from the contract spine + the workspace
-                              stageGates. A STARTING POINT to edit — sets
-                              phases, gates, and auto|approve; leaves models
-                              unset. Example: ralphy workflow init silent-hill
-                              --mode tutorial-ugc
-  list <slug>                 List the workflows authored in a workspace
-  show <slug> [name]          Show a workflow's ordered steps. Omit name when
-                              the workspace has exactly one workflow.
-  lint <slug> [name]          Offline validation of a workspace's workflows:
-                              schema parse for legacy linear workflows (#478),
-                              and for node-graph workflows (#498) the full graph
-                              checks — DAG (no cycles), edge resolution, port
-                              typing, and the #497 provider-coverage matrix (a
-                              declared-unsupported media param is a HARD error
-                              naming the fix). Reads .json (storage format) and
-                              .yaml (accepted at lint/import per D-03). Omit
-                              name to lint every workflow. ZERO model calls.
-                              Example: ralphy workflow lint silent-hill episode
-  status [options] <project>  Per-step run status of a project's workflow (done
-                              | running | waiting | blocked | queued), derived
-                              from the contract ledger + workspace-eval.json +
-                              the job queue. Surfaces the current step + the
-                              next action. ZERO model calls. Example: ralphy
-                              workflow status choose-silenthill-005
-  run [options] <project>     Start / advance a project's workflow: log the idea
-                              and surface the current step + next action (same
-                              ledger as `status`). Drives the pipeline WITHOUT
-                              spending — the agent (or a future headless driver)
-                              executes the surfaced step, then re-runs to
-                              advance. Example: ralphy workflow run
-                              choose-silenthill-005 --idea 'foggy hospital, the
-                              nurse offers a deal'
-  help [command]              display help for command
+  init [options] <slug>                 Scaffold a default workflow.json for a
+                                        workspace, derived from the contract
+                                        spine + the workspace stageGates. A
+                                        STARTING POINT to edit — sets phases,
+                                        gates, and auto|approve; leaves models
+                                        unset. Example: ralphy workflow init
+                                        silent-hill --mode tutorial-ugc
+  list <slug>                           List the workflows authored in a
+                                        workspace
+  show <slug> [name]                    Show a workflow's ordered steps. Omit
+                                        name when the workspace has exactly one
+                                        workflow.
+  lint <slug> [name]                    Offline validation of a workspace's
+                                        workflows: schema parse for legacy
+                                        linear workflows (#478), and for
+                                        node-graph workflows (#498) the full
+                                        graph checks — DAG (no cycles), edge
+                                        resolution, port typing, and the #497
+                                        provider-coverage matrix (a
+                                        declared-unsupported media param is a
+                                        HARD error naming the fix). Reads .json
+                                        (storage format) and .yaml (accepted at
+                                        lint/import per D-03). Omit name to lint
+                                        every workflow. ZERO model calls.
+                                        Example: ralphy workflow lint
+                                        silent-hill episode
+  status [options] <project>            Per-step run status of a project's
+                                        workflow (done | running | waiting |
+                                        blocked | queued), derived from the
+                                        contract ledger + workspace-eval.json +
+                                        the job queue. Surfaces the current step
+                                        + the next action. ZERO model calls.
+                                        Example: ralphy workflow status
+                                        choose-silenthill-005
+  run-node <slug> <workflow> <node-id>  DEBUG: execute ONE node of a node-graph
+                                        workflow (#498) standalone and print its
+                                        output. In-ports resolve from artifact
+                                        refs only (a file path or
+                                        artifact:<path>) — an upstream
+                                        <node>.<out> ref errors (run the
+                                        upstream node first and point the port
+                                        at its artifact). Node artifacts land
+                                        under the workspace's
+                                        runs/run-node/<workflow>/ (append-only).
+                                        Example: ralphy workflow run-node
+                                        tech-news pipeline trend-watch
+  run [options] <project>               Start / advance a project's workflow:
+                                        log the idea and surface the current
+                                        step + next action (same ledger as
+                                        `status`). Drives the pipeline WITHOUT
+                                        spending — the agent (or a future
+                                        headless driver) executes the surfaced
+                                        step, then re-runs to advance. Example:
+                                        ralphy workflow run
+                                        choose-silenthill-005 --idea 'foggy
+                                        hospital, the nurse offers a deal'
+  help [command]                        display help for command
 ```
 
 ### `ralphy run`
