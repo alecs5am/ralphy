@@ -15,12 +15,22 @@ You decompose a finished project into the **content-entity model** (#063) and cl
 
 > **Where this sits in the Unit lifecycle.** templater runs AFTER Unit formation (phase 17) in the canonical [Unit lifecycle](../../../docs/playbooks/unit-lifecycle.md) — it reads each `units/<slug>/unit.json`. Only extract/publish a project whose Unit is **polished**: the render must have passed the native-video final gate (`ralphy project status <id> --contract` → `polished === true`, #411). A keyframe-only eval does not qualify.
 
+## Two exits: library entities vs workspace bundle
+
+Reusable know-how leaves the repo through TWO distinct doors. Pick the door before running anything:
+
+- **Project → library entities (THIS skill).** The user wants the work **browsable and reproducible per unit** — "publish this to the library", "others should reproduce this style", "extract the blocks". Scope: ONE finished project, factored into Unit + Template/Style/Recipe/Asset blocks, published via `landing/scripts/publish-entity.ts` (#056). This is the pipeline the rest of this file describes.
+- **Workspace → deployable bundle (#502 — NOT this skill).** The user wants a **RUNNABLE farm template** — "make my workspace deployable", "package the template for the server", "run my channel on a server". Scope: a whole TRAINED workspace (graph workflows, prompts, parametrized compositions, evaluator rubric, calendar slots, shared refs) zipped by `ralphy workspace export <ws>` so a farm host can `ralphy workspace import <zip>` and `ralphy farm start` it. Route to the [`workspace-export`](../workspace-export/SKILL.md) skill.
+
+Rule of thumb: library entities carry the *ingredients* of one deliverable; the bundle carries the *machine* that keeps producing deliverables. A project can take both exits — publish its blocks here, AND have its workspace exported — but never conflate them: templater never zips a workspace, workspace-export never writes `library.json`.
+
 ## DO NOT FIRE
 
 - **Scaffolding a new project** — that is `ralphy template use <existing-slug>`, not this skill.
 - **One-off renders** — that is the producer playbook.
 - **Quality evaluation** — that is `/evaluator`.
 - **Pushing to the live library** — that is the #056 publish path (`landing/scripts/publish-entity.ts`); templater stops at printing the ordered commands. See HARD INVARIANTS below.
+- **Exporting a deployable workspace bundle** — that is the sibling exit (#502): [`workspace-export`](../workspace-export/SKILL.md) / `ralphy workspace export <ws>`. See "Two exits" above.
 
 This skill is the **full maximal-detail pipeline**: one invocation, followed end-to-end, reproduces what a careful maintainer does by hand. The six stages are **EXTRACT** (read the finished deliverables) → **CLASSIFY** (factor into the five entities, incl. the recipe-vs-tag split) → **BLUEPRINT** (capture a per-unit reproduction payload) → **DE-DUP** (match every candidate against the live library first) → **EMIT** the entity bundle → **PRINT the publish runbook** (the exact ordered `publish-entity.ts` commands).
 
