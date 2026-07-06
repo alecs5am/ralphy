@@ -7,12 +7,14 @@
 // `--provider <id>` flag on `ralphy generate <kind>` selects one; when omitted,
 // the first available connector that serves the capability wins.
 //
-//   provider list [--capability <cap>]   — the matrix
+//   provider list [--capability <cap>]   — the connector/capability matrix
 //   provider test [<id>] [--ping]        — availability + config validity (offline by default)
+//   provider matrix [--model <id>]       — per-(model, capability, provider) param coverage (#497)
 
 import { Command } from "commander";
 import { out } from "../lib/output.js";
 import { providerMatrix, type Capability } from "../lib/providers/registry.js";
+import { PROVIDER_COVERAGE, coverageForModel } from "../lib/providers/coverage.js";
 import { loadProviderConfigs } from "../lib/providers/config.js";
 import { raiseError } from "../lib/errors/index.js";
 
@@ -82,6 +84,36 @@ export function providerCmd() {
         // Surface config-parse errors so a malformed providers[] entry is visible.
         configErrors: errors,
         pinged: Boolean(opts.ping),
+      });
+    });
+
+  cmd
+    .command("matrix")
+    .description(
+      "Per-(model, capability, provider) parameter-coverage matrix (#497): which connector-input params each provider actually honors for a model, notable unsupported ones, and the provider that covers them. Hand-curated registry data (decision D-02) — an unknown model has no entry (no entry = no warning at generate time). Example: ralphy provider matrix --model bytedance/seedance-2.0",
+    )
+    .option(
+      "--model <id>",
+      "Only rows for this model id, plus its cross-provider family siblings (e.g. bytedance/seedance-2.0 also shows the fal reference-to-video row).",
+    )
+    .option("--capability <cap>", `Only rows for this capability (${ALL_CAPS.join(" | ")}).`)
+    .action((opts: { model?: string; capability?: string }) => {
+      const cap = assertCapability(opts.capability);
+      let entries = opts.model ? coverageForModel(opts.model) : PROVIDER_COVERAGE;
+      if (cap) entries = entries.filter((e) => e.capability === cap);
+      out({
+        filter: { model: opts.model ?? null, capability: cap ?? null },
+        count: entries.length,
+        entries: entries.map((e) => ({
+          provider: e.provider,
+          model: e.model,
+          capability: e.capability,
+          family: e.family,
+          supportedParams: e.supportedParams,
+          unsupportedParams: e.unsupportedParams,
+          source: e.source,
+          notes: e.notes ?? null,
+        })),
       });
     });
 

@@ -42,6 +42,7 @@ import {
   type ModelPreflightInput,
 } from "../lib/models/constraints.js";
 import { resolveConnector } from "../lib/providers/registry.js";
+import { emitCoverageWarnings } from "../lib/providers/coverage.js";
 import { naturalSizeFor } from "../lib/providers/openrouter.js";
 import { isFalVideoModel, falVideoPricePerSec } from "../lib/providers/fal.js";
 import { TerminalProviderError } from "../lib/providers/shared.js";
@@ -707,6 +708,18 @@ export function generateCmd() {
       // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
       await maybeCheckSpend(opts, { kind: "image", model: resolvedDefaultModel, variants, mode: opts.mode });
       const conn = resolveConnector("image", opts.provider);
+      // #497: non-fatal provider-coverage warning — a passed flag that maps to
+      // a param outside the resolved connector's declared coverage warns to
+      // stderr (naming the provider that covers it) and proceeds.
+      emitCoverageWarnings({
+        provider: conn.id,
+        model: resolvedDefaultModel,
+        capability: "image",
+        params: [
+          ...(opts.ref && opts.ref.length > 0 ? ["refs"] : []),
+          ...(opts.negative ? ["negativePrompt"] : []),
+        ],
+      });
 
       const ui = await import("../lib/ui.js");
       const result = await ui.withSpinner(
@@ -1018,6 +1031,22 @@ export function generateCmd() {
       // #444: spend-governor gate (OPT-IN — no-op unless an approval is recorded).
       await maybeCheckSpend(opts, { kind: "video", model: resolveModelAlias(opts.model) ?? opts.model, durationSec: opts.duration, mode: opts.mode });
       const connV = resolveConnector("video", opts.provider);
+      // #497: non-fatal provider-coverage warning — e.g. --ref-video on the
+      // openrouter connector (fal covers seedance video refs) or --ref on OR
+      // kling (no input_references there). Warn + name the covering provider;
+      // never block (hard-fail semantics belong to graph import, #498).
+      emitCoverageWarnings({
+        provider: connV.id,
+        model: resolveModelAlias(opts.model) ?? opts.model,
+        capability: "video",
+        params: [
+          ...(firstFrameRef ? ["firstFrame"] : []),
+          ...(lastFrameRef ? ["lastFrame"] : []),
+          ...(opts.ref && opts.ref.length > 0 ? ["refs"] : []),
+          ...(opts.refVideo && opts.refVideo.length > 0 ? ["refVideos"] : []),
+          ...(opts.audio ? ["generateAudio"] : []),
+        ],
+      });
       const uiv = await import("../lib/ui.js");
       const { CommandStream } = await import("../lib/stream/command.js");
       const cs = new CommandStream();
