@@ -60,7 +60,7 @@ type ApprovalParams = {
 };
 
 /** Write the park notice through the existing #489 inbox mechanism. */
-async function writeApprovalInboxPack(
+export async function writeApprovalInboxPack(
   ctx: ExecutorContext,
   nodeId: string,
   reason: string,
@@ -95,6 +95,19 @@ async function writeApprovalInboxPack(
   return jsonPath;
 }
 
+/**
+ * The project whose workspace-eval scorecard justifies a trust auto-pass:
+ * ctx.projectId when the run is project-scoped, else the run's SOLE member
+ * project. Ambiguous (0 or 2+ members) → null → the node parks conservatively.
+ */
+async function resolveTrustProject(ctx: ExecutorContext): Promise<string | null> {
+  if (ctx.projectId) return ctx.projectId;
+  if (!ctx.runId) return null;
+  const { loadRun } = await import("../../run.js");
+  const run = await loadRun(ctx.runId);
+  return run && run.projectIds.length === 1 ? run.projectIds[0]! : null;
+}
+
 export const approvalExecutor: NodeExecutor = async (node, ctx) => {
   const p = node.params as ApprovalParams;
   if (p.auto_pass === true) {
@@ -117,9 +130,66 @@ export const approvalExecutor: NodeExecutor = async (node, ctx) => {
       output: { approved: true, approvedAt: approval.approvedAt, capUsd: approval.budgetCapUsd },
     };
   }
+
+  // #505 trust ladder: an L1/L2 workspace may auto-pass this gate when the
+  // run's project carries a gate-clearing workspace-eval scorecard.
+  // decideAutoPass owns the never-over-a-failed/warn-gate rule (invariant #4);
+  // L0 (the default) always falls through to the park below. EVERY auto-pass
+  // is audited: workspace trust-audit.jsonl + a run-journal event.
+  const trust = await import("../../trust.js");
+  const config = trust.readTrustConfig(ctx.workspace);
+  let trustNote = "";
+  if (config.level !== "L0") {
+    const project = await resolveTrustProject(ctx);
+    const decision = trust.decideAutoPass(
+      config,
+      project ? trust.readProjectEval(project) : { found: false, verdict: null, score: null, failOrWarnCriteria: [] },
+      project ?? "(unresolved project)",
+    );
+    if (decision.autoPass) {
+      trust.appendTrustAudit(ctx.workspace, {
+        kind: "auto-pass",
+        level: config.level,
+        surface: "approval-node",
+        run: ctx.runId,
+        node: node.id,
+        project,
+        verdict: decision.verdict,
+        score: decision.score,
+        threshold: config.level === "L1" ? config.autoPublishScore : null,
+        reason: decision.reason,
+      });
+      const { appendRunEvent } = await import("../../run.js");
+      await appendRunEvent(ctx.runId, {
+        kind: "trust-auto-pass",
+        node: node.id,
+        level: config.level,
+        project,
+        verdict: decision.verdict,
+        score: decision.score,
+        message: `approval node "${node.id}" auto-passed at ${config.level}: ${decision.reason}`,
+      });
+      return {
+        output: {
+          approved: true,
+          autoPass: true,
+          trust: {
+            level: config.level,
+            project,
+            verdict: decision.verdict,
+            score: decision.score,
+            reason: decision.reason,
+          },
+        },
+      };
+    }
+    trustNote = ` (trust ${config.level}: ${decision.reason})`;
+  }
+
   const reason =
-    p.reason ??
-    (expired ? "the recorded run approval has expired" : "no run approval is recorded yet");
+    (p.reason ??
+      (expired ? "the recorded run approval has expired" : "no run approval is recorded yet")) +
+    trustNote;
   await writeApprovalInboxPack(ctx, node.id, reason);
   throw new RunControlSignal("park-approval", `approval node "${node.id}": ${reason}`);
 };

@@ -248,6 +248,30 @@ Examples:
         message: `Run-wide spend approval recorded — cap $${cap.toFixed(2)}${expiry ? ` (expires ${expiry})` : ""}.`,
       });
 
+      // #505 agreement tracking: a manual approval of member projects that
+      // already carry a workspace-eval verdict is a labeled (verdict, human
+      // decision) sample for the trust ladder. Best-effort — never fails the
+      // approve. Appends to <workspace>/trust-agreement.jsonl (append-only).
+      let agreementSamples = 0;
+      try {
+        const { recordTrustDecision, readProjectEval } = await import("../lib/trust.js");
+        for (const pid of run!.projectIds) {
+          const ev = readProjectEval(pid);
+          if (!ev.found || !ev.verdict) continue;
+          recordTrustDecision(run!.workspace, {
+            decision: "approve",
+            verdict: ev.verdict,
+            score: ev.score,
+            project: pid,
+            run: id,
+            source: "run-approve",
+          });
+          agreementSamples++;
+        }
+      } catch {
+        /* trust store unavailable — the approval itself already landed */
+      }
+
       ok(`Run-wide spend approval recorded for ${id} — cap $${cap.toFixed(2)}${expiry ? ` (expires ${expiry})` : ""}`);
       out({
         run: id,
@@ -258,6 +282,7 @@ Examples:
         reason: approval.reason,
         approvedAt: approval.approvedAt,
         approvals: ledger.approvals.length,
+        agreementSamples,
         artifact: path.join(runDir(run!.workspace, id), SPEND_LEDGER_ARTIFACT),
       });
     })
