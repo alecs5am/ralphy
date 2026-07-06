@@ -54,14 +54,18 @@ connector ecosystem. Custom implementation only where the SDK does not cover a
 use case. Rationale: dense, well-maintained agent SDK; no reason to rebuild
 provider plumbing.
 
-**Invariant carve-out required (open decision, D-NN candidate):** AGENTS.md
-invariant #1 bans Vercel. The ban's substance is *hosted* Vercel: no
-`VERCEL_API_KEY`, no Vercel hosts (AI Gateway, Eve platform, Workflows). The
-`ai` npm package is a local, provider-agnostic library and does not phone
-Vercel — but `tests/unit/agents-md-invariants.test.ts` and the invariant text
-must be amended explicitly before any code lands, so the allowlist is
-deliberate, not accidental. Model traffic still flows through registered
-connectors only (OpenRouter / fal / ElevenLabs keys).
+**D-01 — invariant #1 carve-out for the AI SDK (decided 2026-07-06, #496):**
+AGENTS.md invariant #1 bans Vercel. The ban's substance is *hosted* Vercel: no
+`VERCEL_API_KEY`, no Vercel hosts (AI Gateway, Eve platform, Workflows) — that
+ban stays fully intact, with no allowlist. The `ai` npm package is a local,
+provider-agnostic library and does not phone Vercel, so it and its provider
+adapter packages (e.g. `@openrouter/ai-sdk-provider`) are permitted as
+dependencies — imported ONLY from the designated provider layer
+`cli/lib/providers/ai-sdk.ts`, mirroring the `fal.ts` file-scoped allowlist.
+Enforced by `tests/unit/agents-md-invariants.test.ts` (guard landed before the
+dependency, so the allowlist is a recorded decision, not an accident; #499 adds
+the dependency). Model traffic still flows through registered connectors only
+(OpenRouter / fal / ElevenLabs keys).
 
 **Rejected alternatives:**
 
@@ -289,7 +293,9 @@ Phasing:
 
 ## Open decisions (blockers before promoting to issues)
 
-1. **Invariant #1 carve-out** for the `ai` npm package (text + test allowlist).
+1. **Invariant #1 carve-out** for the `ai` npm package — **decided** as D-01
+   (see "Foundation decision" above; landed via #496, allowlisted path
+   `cli/lib/providers/ai-sdk.ts`).
 2. **Spec format** — YAML vs JSON for `pipeline.yaml` (Studio must parse it;
    agents author it).
 3. **Executor placement** — inside the workflow app (per #492/#493 direction)
