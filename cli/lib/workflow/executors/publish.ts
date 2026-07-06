@@ -1,0 +1,301 @@
+// `publish` + `x-post` node executors (#501) — the farm's last mile, backed
+// by the Postiz connector (cli/lib/providers/postiz.ts) through the shared
+// orchestrator (cli/lib/publish/publish.ts).
+//
+// FAILURE SEMANTICS (the documented choice): a failed target is included in
+// the result with `status: "failed"` (and appended to the unit's `publish`
+// provenance) — PARTIAL failure does NOT throw, so the runner sees per-target
+// detail on the output port and downstream routing can react per platform.
+// Only when ALL targets failed does the executor throw NodeExecutionError
+// ("publish-all-failed"), which is what the node's on_fail routing consumes.
+//
+// READINESS GATE (L0 trust floor until #505): the unit's project must carry a
+// `ship` readiness-scorecard verdict; the explicit bypass is
+// `params.force_reason`, logged to the project's user-prompts.jsonl the same
+// way `--no-ref-consent` records a deliberate gate skip.
+//
+// CALENDAR: the `schedule_at` in-port is the calendar-slot payload
+// ({ slotId, scheduleAt, entryId }, #504). On a non-all-failed publish the
+// calendar entry transitions to "scheduled" (the move calendar.ts deliberately
+// leaves to this node). A PARKED payload (scheduleAt null — no free slot) is
+// a hard error: publishing immediately would defeat the calendar; route the
+// queued branch around this node instead. No schedule_at port at all = an
+// explicitly immediate post ("now").
+//
+// x-post runs THROUGH Postiz too (an `x` integration) — a direct X API
+// connector is a NAMED FOLLOW-UP, deliberately not built here; likewise the
+// `youtube-upload` direct-API fallback (chapters/thumbnails) stays a named
+// follow-up (#501 notes). Thread support: the text in-port splits on a
+// standalone `---` line into multiple value entries (one tweet each).
+
+import { transitionEntry } from "../../calendar/store.js";
+import { logUserPrompt } from "../../gen-log.js";
+import {
+  postizIntegrations,
+  postizCreatePost,
+  type FetchLike,
+} from "../../providers/postiz.js";
+import { bindIntegrations, isPublishTarget, type PublishTarget } from "../../publish/mapping.js";
+import {
+  checkPublishReadiness,
+  publishUnit,
+  unitDirFor,
+  readUnitManifest,
+  appendPublishRecords,
+} from "../../publish/publish.js";
+import { writeNodeArtifact } from "./llm.js";
+import { NodeExecutionError } from "./types.js";
+import type { ExecutorContext, NodeExecutor } from "./types.js";
+import type { WorkflowNode } from "../../schemas/workflow.js";
+
+// ─── shared helpers ──────────────────────────────────────────────────────────
+
+type UnitRef = { projectId: string; slug: string };
+
+/**
+ * Resolve the `unit` in-port into { projectId, slug }. Accepted shapes:
+ * an object ({ project|projectId, slug|unitSlug }), a "project/slug" string,
+ * or params.project + params.unit_slug (with ctx.projectId as the project
+ * fallback). The ralphy-unit node's output and hand-wired graphs both fit.
+ */
+function resolveUnitRef(node: WorkflowNode, ctx: ExecutorContext): UnitRef | null {
+  const raw = ctx.inputs.unit;
+  if (raw && typeof raw === "object") {
+    const o = raw as Record<string, unknown>;
+    const projectId = (o.projectId ?? o.project) as string | undefined;
+    const slug = (o.slug ?? o.unitSlug) as string | undefined;
+    if (projectId && slug) return { projectId, slug };
+  }
+  if (typeof raw === "string" && raw.includes("/")) {
+    const [projectId, ...rest] = raw.split("/");
+    return { projectId: projectId!, slug: rest.join("/") };
+  }
+  const projectId = (node.params.project as string | undefined) ?? ctx.projectId;
+  const slug = node.params.unit_slug as string | undefined;
+  return projectId && slug ? { projectId, slug } : null;
+}
+
+type CalendarSlotPayload = {
+  slotId?: string | null;
+  scheduleAt?: string | null;
+  entryId?: string;
+  queued?: boolean;
+};
+
+/** The calendar-slot payload on the schedule_at in-port, or null when unwired. */
+function readScheduleAt(node: WorkflowNode, ctx: ExecutorContext): CalendarSlotPayload | null {
+  const raw = ctx.inputs.schedule_at;
+  if (raw && typeof raw === "object") return raw as CalendarSlotPayload;
+  if (typeof raw === "string") return { scheduleAt: raw };
+  const p = node.params.schedule_at;
+  if (typeof p === "string") return { scheduleAt: p };
+  return null;
+}
+
+/**
+ * The L0 gate for a node run: `ship` verdict or an explicit params.force_reason
+ * (logged). Throws NodeExecutionError("publish-not-ready") otherwise.
+ */
+async function gateReadiness(node: WorkflowNode, ref: UnitRef): Promise<void> {
+  const readiness = checkPublishReadiness(ref.projectId);
+  if (readiness.pass) return;
+  const force = node.params.force_reason;
+  if (typeof force !== "string" || force.trim().length === 0) {
+    throw new NodeExecutionError(
+      "publish-not-ready",
+      `publish node "${node.id}" refused: readiness verdict for ${ref.projectId} is "${readiness.verdict}" (${readiness.reason}) — repair to a \`ship\` verdict or set params.force_reason to bypass explicitly`,
+    );
+  }
+  await logUserPrompt(ref.projectId, {
+    stage: "publish-force",
+    text: force.trim(),
+    note: `node=${node.id} unit=${ref.slug} verdict=${readiness.verdict}`,
+  });
+}
+
+function parseNodeTargets(node: WorkflowNode): PublishTarget[] {
+  const raw = node.params.targets;
+  const list = Array.isArray(raw)
+    ? raw.map(String)
+    : typeof raw === "string"
+      ? raw.split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
+  const bad = list.filter((t) => !isPublishTarget(t));
+  if (list.length === 0 || bad.length) {
+    throw new NodeExecutionError(
+      "params-invalid",
+      `publish node "${node.id}" requires params.targets ⊆ youtube|tiktok|instagram|x${bad.length ? ` (unknown: ${bad.join(", ")})` : ""}`,
+    );
+  }
+  return list as PublishTarget[];
+}
+
+// ─── publish ─────────────────────────────────────────────────────────────────
+
+export const publishExecutor: NodeExecutor = async (node, ctx) => {
+  const ref = resolveUnitRef(node, ctx);
+  if (!ref) {
+    throw new NodeExecutionError(
+      "params-invalid",
+      `publish node "${node.id}" needs a unit — wire the \`unit\` in-port or set params.project + params.unit_slug`,
+    );
+  }
+  const targets = parseNodeTargets(node);
+  const slot = readScheduleAt(node, ctx);
+  if (slot && !slot.scheduleAt) {
+    // Parked calendar payload (queued, no free slot): publishing "now" would
+    // defeat the calendar — route the queued branch around this node instead.
+    throw new NodeExecutionError(
+      "schedule-missing",
+      `publish node "${node.id}" got a parked calendar-slot payload (no free slot, entry ${slot.entryId ?? "?"}) — the unit stays queued; route the queued branch to an approval/park node instead of publish`,
+    );
+  }
+
+  await gateReadiness(node, ref);
+
+  const result = await publishUnit({
+    projectId: ref.projectId,
+    slug: ref.slug,
+    targets,
+    accounts: (node.params.accounts as Partial<Record<PublishTarget, string>> | undefined) ?? {},
+    scheduleAt: slot?.scheduleAt ?? null,
+    fetchImpl: ctx.fetchImpl as FetchLike | undefined,
+  });
+
+  await ctx.log({
+    provider: "postiz",
+    model: "postiz",
+    endpoint: "posts",
+    kind: "publish",
+    status: result.allFailed ? "error" : "ok",
+    input: { node: node.id, project: ref.projectId, unit: ref.slug, targets, scheduleAt: result.scheduleAt },
+    output: result.results,
+  });
+
+  if (result.allFailed) {
+    throw new NodeExecutionError(
+      "publish-all-failed",
+      `publish node "${node.id}": every target failed — ${result.results.map((r) => `${r.target}: ${r.error}`).join("; ")}`,
+    );
+  }
+
+  // Move the calendar entry to "scheduled" (the publish node's move, per
+  // #504). Best-effort AFTER the posts exist: a transition error must not
+  // mark a live publish failed (on_fail retry would double-post) — it is
+  // surfaced on the output instead.
+  let calendarTransition: string | null = null;
+  if (slot?.entryId) {
+    try {
+      transitionEntry(ctx.workspaceDir, slot.entryId, "scheduled");
+      calendarTransition = "scheduled";
+    } catch (e) {
+      calendarTransition = `failed: ${(e as Error).message}`;
+    }
+  }
+
+  const payload = { ...result, entryId: slot?.entryId ?? null, calendarTransition };
+  const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
+  return { output: payload, artifactPath };
+};
+
+// ─── x-post ──────────────────────────────────────────────────────────────────
+
+/** Split post text into thread segments on a standalone `---` line. */
+export function splitThread(text: string): string[] {
+  return text
+    .split(/\n\s*---\s*\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export const xPostExecutor: NodeExecutor = async (node, ctx) => {
+  const text = typeof ctx.inputs.text === "string" ? ctx.inputs.text : (node.params.text as string | undefined);
+  if (!text || !text.trim()) {
+    throw new NodeExecutionError(
+      "params-invalid",
+      `x-post node "${node.id}" requires the \`text\` in-port (or params.text)`,
+    );
+  }
+
+  // Optional unit binding: gates on readiness + appends publish provenance.
+  const ref = resolveUnitRef(node, ctx);
+  if (ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug)))) {
+    await gateReadiness(node, ref);
+  }
+
+  const fetchImpl = (ctx.fetchImpl as FetchLike | undefined) ?? fetch;
+  const explicit = node.params.account as string | undefined;
+  const integrationId = explicit
+    ? explicit
+    : bindIntegrations(["x"], await postizIntegrations(fetchImpl))["x"];
+
+  const slot = readScheduleAt(node, ctx);
+  if (slot && !slot.scheduleAt) {
+    throw new NodeExecutionError(
+      "schedule-missing",
+      `x-post node "${node.id}" got a parked calendar-slot payload — route the queued branch around this node`,
+    );
+  }
+  const scheduleAt = slot?.scheduleAt ?? null;
+  const segments = splitThread(text);
+
+  let postId: string | null = null;
+  let error: string | undefined;
+  try {
+    const created = await postizCreatePost(
+      {
+        type: scheduleAt ? "schedule" : "now",
+        ...(scheduleAt && { date: scheduleAt }),
+        posts: [{ integration: { id: integrationId }, value: segments.map((content) => ({ content })) }],
+      },
+      fetchImpl,
+    );
+    postId = created[0]?.postId ?? created[0]?.id ?? null;
+  } catch (e) {
+    error = (e as Error).message;
+  }
+
+  const status = error ? "failed" : scheduleAt ? "scheduled" : "published";
+  const result = { target: "x" as const, integrationId, status, postId, scheduleAt, segments: segments.length, ...(error && { error }) };
+
+  await ctx.log({
+    provider: "postiz",
+    model: "postiz",
+    endpoint: "posts",
+    kind: "publish",
+    status: error ? "error" : "ok",
+    input: { node: node.id, target: "x", segments: segments.length, scheduleAt },
+    output: result,
+  });
+
+  if (ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug)))) {
+    await appendPublishRecords(unitDirFor(ref.projectId, ref.slug), [
+      {
+        target: "x",
+        integrationId,
+        postId,
+        status: status as "scheduled" | "published" | "failed",
+        scheduleAt,
+        ...(error && { error }),
+        at: new Date().toISOString(),
+        backend: "postiz",
+      },
+    ]);
+  }
+
+  // A single-target node: its one failure IS the all-failed case.
+  if (error) {
+    throw new NodeExecutionError("publish-all-failed", `x-post node "${node.id}" failed: ${error}`);
+  }
+
+  if (slot?.entryId) {
+    try {
+      transitionEntry(ctx.workspaceDir, slot.entryId, "scheduled");
+    } catch {
+      /* surfaced pattern as publish: never fail a live post on a calendar move */
+    }
+  }
+
+  const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(result, null, 2));
+  return { output: result, artifactPath };
+};
