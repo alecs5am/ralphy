@@ -612,6 +612,9 @@ export function importWorkspaceBundle(zipPath: string, opts: ImportOptions = {})
             trustDefault: v.manifest.trustDefault,
             importedAt: new Date().toISOString(),
           },
+          // #505: the manifest's trustDefault IS the imported workspace's
+          // starting trust level (readTrustConfig fills the other defaults).
+          trust: { level: v.manifest.trustDefault },
         },
         null,
         2,

@@ -9,10 +9,18 @@
 // Only when ALL targets failed does the executor throw NodeExecutionError
 // ("publish-all-failed"), which is what the node's on_fail routing consumes.
 //
-// READINESS GATE (L0 trust floor until #505): the unit's project must carry a
+// READINESS GATE + TRUST LADDER (#505): the unit's project must carry a
 // `ship` readiness-scorecard verdict; the explicit bypass is
 // `params.force_reason`, logged to the project's user-prompts.jsonl the same
-// way `--no-ref-consent` records a deliberate gate skip.
+// way `--no-ref-consent` records a deliberate gate skip. On top of that
+// floor, INSIDE a farm run (ctx.runId) with no recorded run approval, the
+// workspace's trust level decides: L0 parks the run for approval (publish is
+// never unattended by default), L1 auto-passes when the workspace-eval score
+// clears the configured threshold, L2 auto-passes any gate-clearing unit.
+// Every auto-pass is audited (workspace trust-audit.jsonl + run journal);
+// force_reason stays the explicit bypass at any level. Outside a run context
+// (the chat-driven `ralphy publish` path) the human invoking the verb IS the
+// approval — no park.
 //
 // CALENDAR: the `schedule_at` in-port is the calendar-slot payload
 // ({ slotId, scheduleAt, entryId }, #504). On a non-all-failed publish the
@@ -93,12 +101,14 @@ function readScheduleAt(node: WorkflowNode, ctx: ExecutorContext): CalendarSlotP
 }
 
 /**
- * The L0 gate for a node run: `ship` verdict or an explicit params.force_reason
- * (logged). Throws NodeExecutionError("publish-not-ready") otherwise.
+ * The floor gate for a node run: `ship` verdict or an explicit
+ * params.force_reason (logged). Throws NodeExecutionError("publish-not-ready")
+ * otherwise. Returns whether the gate was force-bypassed (the trust gate
+ * honors the same explicit bypass).
  */
-async function gateReadiness(node: WorkflowNode, ref: UnitRef): Promise<void> {
+async function gateReadiness(node: WorkflowNode, ref: UnitRef): Promise<{ forced: boolean }> {
   const readiness = checkPublishReadiness(ref.projectId);
-  if (readiness.pass) return;
+  if (readiness.pass) return { forced: false };
   const force = node.params.force_reason;
   if (typeof force !== "string" || force.trim().length === 0) {
     throw new NodeExecutionError(
@@ -111,6 +121,71 @@ async function gateReadiness(node: WorkflowNode, ref: UnitRef): Promise<void> {
     text: force.trim(),
     note: `node=${node.id} unit=${ref.slug} verdict=${readiness.verdict}`,
   });
+  return { forced: true };
+}
+
+/**
+ * The #505 trust gate for a node run. Fires ONLY inside a farm run
+ * (ctx.runId) — the chat-driven CLI verb is human-invoked by construction.
+ * Precedence: force_reason (explicit bypass at any level) → a recorded active
+ * run approval (#482 — the human already approved this run) → the ladder
+ * (`decideAutoPass`: L0 never, L1 score >= threshold, L2 any ship-verdict
+ * unit; never over a failed/warn gate). Auto-pass is audited append-only;
+ * anything else parks the run through the same inbox-pack + RunControlSignal
+ * mechanics as the approval node. Exported for tests.
+ */
+export async function gatePublishTrust(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  ref: UnitRef,
+  forced: boolean,
+): Promise<{ mode: "human" | "forced" | "approved" | "auto-pass"; reason?: string }> {
+  if (!ctx.runId) return { mode: "human" };
+  if (forced) return { mode: "forced" };
+
+  const { readRunLedger, activeApproval } = await import("../../spend.js");
+  const approval = activeApproval(await readRunLedger(ctx.runId));
+  const expired =
+    approval?.expiry != null &&
+    Number.isFinite(Date.parse(approval.expiry)) &&
+    Date.now() > Date.parse(approval.expiry);
+  if (approval && !expired) return { mode: "approved" };
+
+  const trust = await import("../../trust.js");
+  const config = trust.readTrustConfig(ctx.workspace);
+  const decision = trust.decideAutoPass(config, trust.readProjectEval(ref.projectId), ref.projectId);
+  if (decision.autoPass) {
+    trust.appendTrustAudit(ctx.workspace, {
+      kind: "auto-pass",
+      level: config.level,
+      surface: `${node.type}-node`,
+      run: ctx.runId,
+      node: node.id,
+      project: ref.projectId,
+      unit: ref.slug,
+      verdict: decision.verdict,
+      score: decision.score,
+      threshold: config.level === "L1" ? config.autoPublishScore : null,
+      reason: decision.reason,
+    });
+    const { appendRunEvent } = await import("../../run.js");
+    await appendRunEvent(ctx.runId, {
+      kind: "trust-auto-pass",
+      node: node.id,
+      level: config.level,
+      project: ref.projectId,
+      unit: ref.slug,
+      verdict: decision.verdict,
+      score: decision.score,
+      message: `publish node "${node.id}" auto-passed at ${config.level}: ${decision.reason}`,
+    });
+    return { mode: "auto-pass", reason: decision.reason };
+  }
+
+  const reason = `unit ${ref.projectId}/${ref.slug} needs a human publish approval (trust ${config.level}: ${decision.reason})`;
+  const { writeApprovalInboxPack, RunControlSignal } = await import("./control-flow.js");
+  await writeApprovalInboxPack(ctx, node.id, reason);
+  throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
 }
 
 function parseNodeTargets(node: WorkflowNode): PublishTarget[] {
@@ -151,7 +226,8 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     );
   }
 
-  await gateReadiness(node, ref);
+  const { forced } = await gateReadiness(node, ref);
+  const trustGate = await gatePublishTrust(node, ctx, ref, forced);
 
   const result = await publishUnit({
     projectId: ref.projectId,
@@ -193,7 +269,12 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     }
   }
 
-  const payload = { ...result, entryId: slot?.entryId ?? null, calendarTransition };
+  const payload = {
+    ...result,
+    entryId: slot?.entryId ?? null,
+    calendarTransition,
+    trustGate: trustGate.mode,
+  };
   const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
   return { output: payload, artifactPath };
 };
@@ -217,10 +298,11 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
     );
   }
 
-  // Optional unit binding: gates on readiness + appends publish provenance.
+  // Optional unit binding: gates on readiness + trust + appends provenance.
   const ref = resolveUnitRef(node, ctx);
   if (ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug)))) {
-    await gateReadiness(node, ref);
+    const { forced } = await gateReadiness(node, ref);
+    await gatePublishTrust(node, ctx, ref, forced);
   }
 
   const fetchImpl = (ctx.fetchImpl as FetchLike | undefined) ?? fetch;

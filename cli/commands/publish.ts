@@ -4,10 +4,12 @@
 // (cli/lib/workflow/executors/publish.ts) — both run through
 // cli/lib/publish/publish.ts.
 //
-// Gated (L0 trust floor until #505): refuses unless the project's #427
+// Gated (the trust-ladder floor, #505): refuses unless the project's #427
 // readiness scorecard says `ship`, or the user passes an explicit
 // `--force "<reason>"` — the bypass is logged to user-prompts.jsonl
-// (stage "publish-force"), mirroring --no-ref-consent.
+// (stage "publish-force"), mirroring --no-ref-consent. The ladder's L1/L2
+// auto-pass only matters for UNATTENDED (farm) publishes — a human typing
+// this verb IS the approval, so no trust park applies here.
 
 import { Command } from "commander";
 import { out, ok } from "../lib/output.js";
