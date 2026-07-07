@@ -556,6 +556,35 @@ describe.skipIf(!hasZip)("bundle round-trip (system zip/unzip)", () => {
     expect(manifest.bundle).toMatchObject({ name: "tech-news", version: "1.2.0", trustDefault: "L0" });
   });
 
+  test("#525 round-trip carries the cadence default (timing only) and lands it ENABLED", () => {
+    tmp = makeTmpRoot();
+    seedWorkspace("tech-news");
+    // Author a cadence block on the source workspace.json.
+    const src = path.join(workspaceDir("tech-news"), "workspace.json");
+    const wsManifest = JSON.parse(fs.readFileSync(src, "utf-8"));
+    wsManifest.cadence = {
+      enabled: true,
+      platforms: {
+        tiktok: { distribution: "uniform", windows: [{ start: "08:40", end: "10:15" }], minGapMinutes: 45, slideProbability: 0.1 },
+      },
+    };
+    fs.writeFileSync(src, JSON.stringify(wsManifest, null, 2) + "\n");
+
+    const out = path.join(scratchDir("ralphy-zip-"), "cad.zip");
+    const exported = exportWorkspaceBundle("tech-news", out);
+    expect(exported.manifest.cadenceDefault?.enabled).toBe(true);
+    expect(exported.manifest.cadenceDefault?.platforms.tiktok?.minGapMinutes).toBe(45);
+
+    tmp.cleanup();
+    tmp = makeTmpRoot();
+    importWorkspaceBundle(out, { as: "cad-channel", allowMissingKeys: true });
+    const dest = JSON.parse(fs.readFileSync(path.join(workspaceDir("cad-channel"), "workspace.json"), "utf-8"));
+    // Cadence landed enabled (unlike notifications — no secrets to strip).
+    expect(dest.cadence.enabled).toBe(true);
+    expect(dest.cadence.platforms.tiktok.minGapMinutes).toBe(45);
+    expect(dest.cadence.platforms.tiktok.windows[0]).toEqual({ start: "08:40", end: "10:15" });
+  });
+
   test("round-trip carries the subgraphs tier; requirements derive through expansion (#517)", () => {
     tmp = makeTmpRoot();
     seedWorkspace("tech-news");

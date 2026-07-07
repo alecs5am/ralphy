@@ -435,6 +435,29 @@ describe("publish node executor", () => {
     });
     await expect(exec(node, ctx)).rejects.toThrow(/parked calendar-slot payload/);
   });
+
+  test("#525 delay_window: event-triggered publish samples a delayed schedule_at (deterministic by run id)", async () => {
+    seedUnit();
+    const exec = getExecutor("publish")!;
+    const base = new Date("2026-07-20T10:00:00.000Z");
+    const node = makeNode("publish", { targets: ["tiktok"], force_reason: "test bypass", delay_window: [20, 40] });
+    const mk = () =>
+      makeCtx({
+        fetchImpl: mockPostiz().fetchImpl,
+        runId: "farm-run-delay-1",
+        now: () => base,
+        inputs: { unit: { projectId: PROJECT, slug: SLUG } },
+      });
+    const res = await exec(node, mk());
+    const at = (res.output as { scheduleAt: string }).scheduleAt;
+    const deltaMin = (Date.parse(at) - base.getTime()) / 60000;
+    // Sampled inside [20, 40] minutes after the tick.
+    expect(deltaMin).toBeGreaterThanOrEqual(20);
+    expect(deltaMin).toBeLessThanOrEqual(40);
+    // Same run id → identical sampled delay (resume-safe).
+    const res2 = await exec(node, mk());
+    expect((res2.output as { scheduleAt: string }).scheduleAt).toBe(at);
+  });
 });
 
 describe("x-post node executor", () => {

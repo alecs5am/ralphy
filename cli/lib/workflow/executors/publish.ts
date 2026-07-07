@@ -37,6 +37,7 @@
 // standalone `---` line into multiple value entries (one tweet each).
 
 import { transitionEntry } from "../../calendar/store.js";
+import { makePrng } from "../../farm/prng.js";
 import { logUserPrompt } from "../../gen-log.js";
 import {
   postizIntegrations,
@@ -90,13 +91,42 @@ type CalendarSlotPayload = {
   queued?: boolean;
 };
 
-/** The calendar-slot payload on the schedule_at in-port, or null when unwired. */
+/**
+ * Parse `params.delay_window` = [minMinutes, maxMinutes] (#525): an
+ * event-triggered publish's SAMPLED delay window replacing a fixed offset.
+ * Tolerant — a missing/malformed value returns null (no delay).
+ */
+function parseDelayWindow(node: WorkflowNode): [number, number] | null {
+  const raw = node.params.delay_window;
+  if (!Array.isArray(raw) || raw.length !== 2) return null;
+  const [lo, hi] = raw.map(Number);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo! < 0 || hi! < lo!) return null;
+  return [lo!, hi!];
+}
+
+/**
+ * The calendar-slot payload on the schedule_at in-port, or null when unwired.
+ * When there is NO calendar payload but the node carries a #525
+ * `delay_window: [min, max]` (minutes), sample a delayed schedule_at off the
+ * runner clock, seeded by the run id so a resume re-derives the same instant.
+ * This is the #520 event-triggered path's humanized delay.
+ */
 function readScheduleAt(node: WorkflowNode, ctx: ExecutorContext): CalendarSlotPayload | null {
   const raw = ctx.inputs.schedule_at;
   if (raw && typeof raw === "object") return raw as CalendarSlotPayload;
   if (typeof raw === "string") return { scheduleAt: raw };
   const p = node.params.schedule_at;
   if (typeof p === "string") return { scheduleAt: p };
+
+  const window = parseDelayWindow(node);
+  if (window) {
+    const [lo, hi] = window;
+    const base = (ctx.now ?? (() => new Date()))().getTime();
+    // Deterministic delay: run id + node id → a stable draw for THIS publish.
+    const prng = makePrng(`${ctx.runId ?? "no-run"}|${node.id}|delay`);
+    const delayMin = prng.float(lo, hi);
+    return { scheduleAt: new Date(base + delayMin * 60000).toISOString() };
+  }
   return null;
 }
 
