@@ -313,6 +313,42 @@ export function startFarm(
   }
 }
 
+// ─── Workflow simulate (#516 via `ralphy workflow simulate`) ─────────────────
+
+export interface SimulateViewOptions {
+  workflow?: string;
+  ticks?: number;
+  week?: boolean;
+  assumeItems?: number;
+}
+
+/**
+ * Relay `ralphy workflow simulate` (#516) — the CLI is the engine (synthetic
+ * executors over the real runner in an ephemeral scratch root), so this is a
+ * shell-out, not a hand-copy. GET-safe: the verb is read-only over the
+ * workspace. A blocking finding exits the CLI non-zero but STILL prints the
+ * full JSON report — relay it as 200 and let the client read `ok`/`blocking`.
+ */
+export function simulateWorkflowView(
+  dataRoot: string,
+  ws: string,
+  opts: SimulateViewOptions = {},
+): { status: number; body: unknown } {
+  if (!fs.existsSync(workspaceDir(dataRoot, ws))) {
+    return { status: 404, body: { error: "unknown workspace" } };
+  }
+  const args = ["workflow", "simulate", ws];
+  if (opts.workflow) args.push(opts.workflow);
+  if (opts.week) args.push("--week");
+  else if (opts.ticks && Number.isInteger(opts.ticks) && opts.ticks >= 1) args.push("--ticks", String(opts.ticks));
+  if (opts.assumeItems && Number.isInteger(opts.assumeItems) && opts.assumeItems >= 1) {
+    args.push("--assume-items", String(opts.assumeItems));
+  }
+  const r = runCli(dataRoot, args);
+  if (r.json && typeof r.json === "object") return { status: 200, body: r.json };
+  return { status: 400, body: { error: r.stderr.trim() || `workflow simulate exited ${r.status}` } };
+}
+
 /** `ralphy farm stop --workspace <ws>` — SIGTERM via the pidfile, relayed verbatim. */
 export function stopFarm(dataRoot: string, ws: string): unknown | { error: string } {
   const r = runCli(dataRoot, ["farm", "stop", "--workspace", ws]);
