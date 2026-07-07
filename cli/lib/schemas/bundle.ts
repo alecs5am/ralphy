@@ -56,6 +56,15 @@ export type CoverageTriple = z.infer<typeof CoverageTripleSchema>;
 export const BundleManifestSchema = z.object({
   /** Bundle name — also the default workspace slug at import (override with --as). */
   name: z.string().min(1),
+  /**
+   * #521 lineage id — a stable identifier shared by every version of the same
+   * bundle. `workspace upgrade` refuses a bundle whose bundleId does not match
+   * the deployed workspace's. Backward compatible: OPTIONAL, so a pre-#521
+   * bundle without it still imports; upgrade treats a missing id on either side
+   * as "unknown lineage" and refuses unless the operator opts in. A workspace
+   * exported for the first time mints one (a random uuid).
+   */
+  bundleId: z.string().min(1).optional(),
   /** Bundle version (semver-ish), bumped by the author on re-export. */
   version: SemverIshSchema,
   /** Minimum ralphy version that can import this bundle (compared to VERSION). */
