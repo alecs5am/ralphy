@@ -48,6 +48,7 @@ import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
 import { buildRunGraph, writeRunCanvasLayout } from "./graph.js";
 import { proposePatch, listPatches, type PatchScope } from "./patches.js";
 import { isAuthorized, authCookieHeader, safeEqual } from "./auth.js";
+import { handleWebhook } from "./hooks.js";
 import {
   importBundle,
   startFarm,
@@ -182,6 +183,20 @@ export function startStudio(
       // ── Health (login-free — compose healthcheck / login page probe) ─────
       if (url.pathname === "/api/health" && req.method === "GET") {
         return json({ ok: true, auth: !!authToken });
+      }
+
+      // ── Inbound webhooks (#520) — login-free BY DESIGN: an external sender
+      //    only holds the per-trigger secret, so this route authenticates with
+      //    x-ralphy-token + x-ralphy-timestamp (replay window) + a per-trigger
+      //    rate limit instead of the studio token gate. Validation + detached
+      //    `ralphy farm fire` spawn live in server/hooks.ts. ──────────────────
+      {
+        const hm = url.pathname.match(/^\/hooks\/([^/]+)\/([^/]+)$/);
+        if (hm) {
+          if (req.method !== "POST") return json({ error: "POST only" }, 405);
+          const r = await handleWebhook(dataRoot!, decodeURIComponent(hm[1]), decodeURIComponent(hm[2]), req);
+          return json(r.body, r.status);
+        }
       }
 
       // ── Auth gate (#506) — EVERY other route when a token is configured ──

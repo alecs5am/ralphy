@@ -399,9 +399,9 @@ describe("structured skips", () => {
     seedWorkspace();
     const graph = graphOf([
       node("tick", "schedule", { params: { cron: "* * * * *" } }),
-      // http has no registered executor (#500 notes; t2i gained one in #512);
-      // on_fail halt MUST NOT fire for a skip.
-      node("img", "http", { params: { url: "https://example.com" }, on_fail: "halt" }),
+      // upscale has no registered executor (schema-only — media.ts header;
+      // http gained one in #520). on_fail halt MUST NOT fire for a skip.
+      node("img", "upscale", { params: {}, on_fail: "halt" }),
       node("uses-img", "template-string", { in: { x: "img.out" }, params: { prompt: "no" } }),
       node("independent", "template-string", { params: { prompt: "yes" } }),
     ]);
@@ -411,6 +411,78 @@ describe("structured skips", () => {
     expect(String(skips.find((e) => e.node === "img")?.reason)).toContain("no-executor");
     expect(String(skips.find((e) => e.node === "uses-img")?.reason)).toContain("upstream-skipped");
     expect(completedOrder(outcome.runId)).toContain("independent");
+  });
+});
+
+// ─── Webhook trigger (#520) ──────────────────────────────────────────────────
+
+describe("webhook trigger (#520)", () => {
+  /** hook(map-normalized) -> work; a mocked executor captures its input. */
+  function hookGraph(params: Record<string, unknown> = {}): WorkflowGraph {
+    return graphOf([
+      node("hook", "webhook-trigger", { params }),
+      node("work", "generate-text", { in: { item: "hook.out" }, params: { prompt: "x" } }),
+    ]);
+  }
+
+  test("a fired webhook tick completes the trigger with the map-normalized payload and runs downstream", async () => {
+    seedWorkspace();
+    const seen: unknown[] = [];
+    const capture: NodeExecutor = async (_node, ctx) => {
+      seen.push(ctx.inputs.item);
+      return { output: "done" };
+    };
+    const outcome = await fireTick(
+      WS,
+      "wf",
+      hookGraph({ map: { title: "episode.title", url: "episode.url" } }),
+      { ...noSleep, executorOverrides: { "generate-text": capture } },
+      { node: "hook", payload: { episode: { title: "E42", url: "https://example.com/e42" } } },
+    );
+    expect(outcome.status).toBe("complete");
+    expect(seen).toEqual([{ title: "E42", url: "https://example.com/e42" }]);
+    const completed = readEvents(outcome.runId).find((e) => e.kind === "node-completed" && e.node === "hook");
+    expect(completed?.output).toEqual({ title: "E42", url: "https://example.com/e42" });
+  });
+
+  test("params.pick extracts one value; no mapping passes the raw payload", async () => {
+    seedWorkspace();
+    const seen: unknown[] = [];
+    const capture: NodeExecutor = async (_node, ctx) => {
+      seen.push(ctx.inputs.item);
+      return { output: "ok" };
+    };
+    await fireTick(
+      WS,
+      "wf",
+      hookGraph({ pick: "items.0" }),
+      { ...noSleep, executorOverrides: { "generate-text": capture } },
+      { node: "hook", payload: { items: ["first", "second"] } },
+    );
+    await fireTick(
+      WS,
+      "wf",
+      hookGraph(),
+      { ...noSleep, executorOverrides: { "generate-text": capture }, now: () => new Date(2026, 6, 7, 10, 1) },
+      { node: "hook", payload: { raw: true } },
+    );
+    expect(seen).toEqual(["first", { raw: true }]);
+  });
+
+  test("a tick NOT fired by the webhook (cron / no trigger) skips the trigger and its downstream", async () => {
+    seedWorkspace();
+    const graph = graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("hook", "webhook-trigger", { params: {} }),
+      node("work", "template-string", { in: { x: "hook.out" }, params: { prompt: "no" } }),
+      node("cron-work", "template-string", { in: { x: "tick.out" }, params: { prompt: "yes" } }),
+    ]);
+    const outcome = await fireTick(WS, "wf", graph, noSleep, { node: "tick", cron: "* * * * *" });
+    expect(outcome.status).toBe("complete");
+    const skips = readEvents(outcome.runId).filter((e) => e.kind === "node-skipped");
+    expect(String(skips.find((e) => e.node === "hook")?.reason)).toContain("trigger-not-fired");
+    expect(String(skips.find((e) => e.node === "work")?.reason)).toContain("upstream-skipped");
+    expect(completedOrder(outcome.runId)).toContain("cron-work");
   });
 });
 

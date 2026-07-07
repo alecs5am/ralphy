@@ -1633,56 +1633,83 @@ Run with an append-only journal, parks durably on approval nodes, halts on
 budget-guard breaches, and resumes incomplete runs after a restart.
 
 Options:
-  -h, --help                    display help for command
+  -h, --help                        display help for command
 
 Commands:
-  start [options]               Start the farm scheduler for a workspace
-                                (FOREGROUND — background it yourself or docker
-                                run it). Reads schedule nodes (params.cron:
-                                standard 5-field cron; * , - / steps; numeric
-                                only) from the workspace's graph workflows,
-                                sleeps until the next fire, executes each tick
-                                as one Run, and resumes incomplete/parked runs
-                                on boot and on every tick. Refuses when a live
-                                farm process already holds the workspace
-                                pidfile. Example: ralphy farm start --workspace
-                                my-studio --once --tick-now
-  status [options]              Farm status for a workspace: whether a farm
-                                process is live (pidfile), run counts by state
-                                (running / parked-approval / halted-budget /
-                                halted-failure / complete), per-run node
-                                progress + realized spend from each run journal,
-                                and #513 content-hash cache hits + cost saved
-                                (per run and aggregate). Example: ralphy farm
-                                status --workspace my-studio
-  failures [options]            List the workspace's dead-letter quarantine
-                                (#519): nodes that exhausted their retry
-                                envelope, or failed a permanent-class error
-                                (safety-* / copyright / tos-content) on the
-                                first attempt. Each entry carries the #450 error
-                                class, attempts, cost spent, an inputs hash, a
-                                truncated provider payload, and a next-action
-                                hint. Default: unresolved only. Re-execute one
-                                with `ralphy farm retry <run> <node>`. Example:
-                                ralphy farm failures --workspace my-studio --run
-                                farm-news-20260706-090000
-  retry [options] <run> <node>  Re-execute ONE failed/quarantined node and its
-                                downstream dependents against the journaled
-                                inputs (#519): appends node-invalidated journal
-                                events for the target + its transitive
-                                consumers, then re-enters the resume machinery —
-                                upstream completed nodes are never re-executed.
-                                Respects the run spend ledger (per-node
-                                pre-flight cap check) and the #513 content-hash
-                                cache; marks the node's quarantine entries
-                                resolved when it completes. Example: ralphy farm
-                                retry farm-news-20260706-090000 gen-image
-  stop [options]                Stop the workspace's running farm process:
-                                SIGTERM to the pidfile's pid (the loop finishes
-                                the node in flight and exits; incomplete runs
-                                resume on the next start). Example: ralphy farm
-                                stop --workspace my-studio
-  help [command]                display help for command
+  start [options]                   Start the farm scheduler for a workspace
+                                    (FOREGROUND — background it yourself or
+                                    docker run it). Reads schedule nodes
+                                    (params.cron: standard 5-field cron; * , - /
+                                    steps; numeric only) from the workspace's
+                                    graph workflows, sleeps until the next fire,
+                                    executes each tick as one Run, and resumes
+                                    incomplete/parked runs on boot and on every
+                                    tick. Refuses when a live farm process
+                                    already holds the workspace pidfile.
+                                    Example: ralphy farm start --workspace
+                                    my-studio --once --tick-now
+  status [options]                  Farm status for a workspace: whether a farm
+                                    process is live (pidfile), run counts by
+                                    state (running / parked-approval /
+                                    halted-budget / halted-failure / complete),
+                                    per-run node progress + realized spend from
+                                    each run journal, and #513 content-hash
+                                    cache hits + cost saved (per run and
+                                    aggregate). Example: ralphy farm status
+                                    --workspace my-studio
+  failures [options]                List the workspace's dead-letter quarantine
+                                    (#519): nodes that exhausted their retry
+                                    envelope, or failed a permanent-class error
+                                    (safety-* / copyright / tos-content) on the
+                                    first attempt. Each entry carries the #450
+                                    error class, attempts, cost spent, an inputs
+                                    hash, a truncated provider payload, and a
+                                    next-action hint. Default: unresolved only.
+                                    Re-execute one with `ralphy farm retry <run>
+                                    <node>`. Example: ralphy farm failures
+                                    --workspace my-studio --run
+                                    farm-news-20260706-090000
+  retry [options] <run> <node>      Re-execute ONE failed/quarantined node and
+                                    its downstream dependents against the
+                                    journaled inputs (#519): appends
+                                    node-invalidated journal events for the
+                                    target + its transitive consumers, then
+                                    re-enters the resume machinery — upstream
+                                    completed nodes are never re-executed.
+                                    Respects the run spend ledger (per-node
+                                    pre-flight cap check) and the #513
+                                    content-hash cache; marks the node's
+                                    quarantine entries resolved when it
+                                    completes. Example: ralphy farm retry
+                                    farm-news-20260706-090000 gen-image
+  trigger                           Webhook-trigger management (#520):
+                                    per-trigger secrets for the POST
+                                    /hooks/<ws>/<trigger-id> app endpoint.
+                                    Secrets live in workspace-local engine state
+                                    (.ralphy/workspaces/<ws>/farm/webhook-tokens.json)
+                                    — never in the graph file, never in a #502
+                                    bundle.
+  fire [options] <ws> <trigger-id>  Fire ONE tick of the graph rooted at a
+                                    webhook-trigger node, exactly like a
+                                    schedule firing (#520): the trigger node
+                                    completes with the payload normalized
+                                    through its pick/map params, downstream
+                                    nodes execute, budget caps (#481) gate the
+                                    spend as usual. This is the execution half
+                                    the app endpoint (POST
+                                    /hooks/<ws>/<trigger-id>) spawns after
+                                    validating the secret + timestamp + rate
+                                    limit — call it directly to test a hook
+                                    without the endpoint. Example: ralphy farm
+                                    fire my-studio on-upload --payload
+                                    '{"episode":{"title":"E42"}}'
+  stop [options]                    Stop the workspace's running farm process:
+                                    SIGTERM to the pidfile's pid (the loop
+                                    finishes the node in flight and exits;
+                                    incomplete runs resume on the next start).
+                                    Example: ralphy farm stop --workspace
+                                    my-studio
+  help [command]                    display help for command
 ```
 
 ### `ralphy publish`
