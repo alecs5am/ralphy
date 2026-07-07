@@ -24,6 +24,10 @@ import { parse as parseYaml } from "yaml";
 import { ZodError } from "zod";
 import {
   NODE_SIGNATURES,
+  MEDIA_PORT_CONTRACTS,
+  MEDIA_COVERAGE_PARAM_ALIASES,
+  MEDIA_META_PARAM_KEYS,
+  nodeCategory,
   nodeOutName,
   nodeOutType,
   portTypesMatch,
@@ -45,6 +49,7 @@ export type GraphIssueCode =
   | "port-type-mismatch"
   | "route-target-missing" // on_fail: route:<id> points at no node
   | "cycle" // graph is not a DAG
+  | "missing-required-port" // #512: a media signature's required in-port is neither wired nor param-fed
   | "coverage-unsupported-param" // HARD: param declared unsupported by the #497 matrix
   | "coverage-uncovered-param"; // warn: param outside declared coverage
 
@@ -196,6 +201,37 @@ export function validateWorkflowGraph(graph: WorkflowGraph): GraphValidation {
       }
     }
 
+    // 2b. #512 media port contracts: a required in-port must be wired or
+    // satisfied by a params key (an inline path / prompt is as good as an
+    // upstream edge). Violations fail at lint, not after a paid call.
+    const contract = MEDIA_PORT_CONTRACTS[node.type];
+    if (contract) {
+      const satisfied = (port: string, fallbacks: string[]): boolean =>
+        node.in[port] !== undefined || fallbacks.some((k) => node.params[k] !== undefined);
+      for (const [port, fallbacks] of Object.entries(contract.required)) {
+        if (satisfied(port, fallbacks)) continue;
+        errors.push({
+          level: "error",
+          code: "missing-required-port",
+          node: node.id,
+          port,
+          message: `node "${node.id}" (${node.type}) is missing its required "${port}" in-port`,
+          fix: `wire "${port}" from an upstream node or set ${fallbacks.map((k) => `params.${k}`).join(" / ")}`,
+        });
+      }
+      for (const group of contract.oneOf ?? []) {
+        const names = Object.keys(group);
+        if (names.some((p) => satisfied(p, group[p]!))) continue;
+        errors.push({
+          level: "error",
+          code: "missing-required-port",
+          node: node.id,
+          message: `node "${node.id}" (${node.type}) needs at least one of the in-ports: ${names.join(", ")}`,
+          fix: `wire one of ${names.map((n) => `"${n}"`).join(", ")} or set the matching param (${names.map((n) => `params.${group[n]![0]}`).join(" / ")})`,
+        });
+      }
+    }
+
     // 3. on_fail route target.
     if (node.on_fail.startsWith("route:")) {
       const target = node.on_fail.slice("route:".length);
@@ -218,17 +254,24 @@ export function validateWorkflowGraph(graph: WorkflowGraph): GraphValidation {
         const entry = coverageFor(model, signature.capability, provider);
         if (entry) {
           // Unknown triple (no entry) is silent by contract — unknown ≠ unsupported.
-          const paramKeys = Object.keys(node.params).filter((k) => !MEDIA_BINDING_KEYS.has(k));
-          for (const key of paramKeys) {
-            if (entry.supportedParams.includes(key)) continue;
-            const alternatives = providersSupporting(key, signature.capability, entry.family)
-              .concat(providersSupporting(key, signature.capability))
+          // #512: media nodes are checked on params AND wired in-ports (a wired
+          // `ref_videos` edge is a passed param), each mapped to its
+          // connector-input spelling; plumbing-only keys are excluded.
+          const paramKeys = Object.keys(node.params).filter(
+            (k) => !MEDIA_BINDING_KEYS.has(k) && !MEDIA_META_PARAM_KEYS.has(k),
+          );
+          const portKeys = nodeCategory(node.type) === "media" ? Object.keys(node.in) : [];
+          for (const key of [...new Set([...paramKeys, ...portKeys])]) {
+            const covKey = MEDIA_COVERAGE_PARAM_ALIASES[key] ?? key;
+            if (entry.supportedParams.includes(covKey)) continue;
+            const alternatives = providersSupporting(covKey, signature.capability, entry.family)
+              .concat(providersSupporting(covKey, signature.capability))
               .filter((e) => e.provider !== provider);
             const alt = alternatives[0];
             const altHint = alt
               ? `use provider "${alt.provider}" with model "${alt.model}", which supports it`
               : `drop "${key}" or pick a (model, provider) pair that covers it (see \`ralphy provider matrix --model ${model}\`)`;
-            if (entry.unsupportedParams.includes(key)) {
+            if (entry.unsupportedParams.includes(covKey)) {
               errors.push({
                 level: "error",
                 code: "coverage-unsupported-param",

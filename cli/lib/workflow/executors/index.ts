@@ -4,8 +4,8 @@
 // The shared contract (ExecutorContext, NodeExecutor, NodeExecutionError)
 // lives in types.ts; per-category executor implementations live in sibling
 // files (llm.ts, coding-agent.ts here; ingestion #500, publish #501,
-// control-flow/data #503, calendar #504, ralphy-verbs #511; raw media nodes
-// remain unregistered).
+// control-flow/data #503, calendar #504, ralphy-verbs #511, media-signature
+// nodes #512 — voice-design and upscale stay unregistered, see media.ts).
 //
 // Registered here: the four A-category LLM node types — generate-text,
 // generate-object, agent-loop (via the AI SDK layer, D-01/D-04), coding-agent
@@ -50,6 +50,22 @@ import {
   ralphyCaptionsExecutor,
   ralphySocialCopyExecutor,
 } from "./ralphy-verbs.js";
+import {
+  t2iExecutor,
+  i2iExecutor,
+  t2vExecutor,
+  i2vExecutor,
+  r2vExecutor,
+  v2vExecutor,
+  lipsyncExecutor,
+  ttsExecutor,
+  musicExecutor,
+  sfxExecutor,
+  transcribeExecutor,
+  removeBgExecutor,
+  reframeExecutor,
+  crunchExecutor,
+} from "./media.js";
 
 export {
   NodeExecutionError,
@@ -125,3 +141,22 @@ registerExecutor("ralphy-repair", ralphyRepairExecutor);
 registerExecutor("ralphy-unit", ralphyUnitExecutor);
 registerExecutor("ralphy-captions", ralphyCaptionsExecutor);
 registerExecutor("ralphy-social-copy", ralphySocialCopyExecutor);
+
+// B. Media-signature nodes (#512) — thin typed fronts over the SAME generate
+// core as ralphy-generate (runMediaGeneration). NOT registered on purpose:
+// `voice-design` (training-path-only — a human picks a voice by ear) and
+// `upscale` (no existing lib implementation to wire yet) — see media.ts header.
+registerExecutor("t2i", t2iExecutor);
+registerExecutor("i2i", i2iExecutor);
+registerExecutor("t2v", t2vExecutor);
+registerExecutor("i2v", i2vExecutor);
+registerExecutor("r2v", r2vExecutor);
+registerExecutor("v2v", v2vExecutor);
+registerExecutor("lipsync", lipsyncExecutor);
+registerExecutor("tts", ttsExecutor);
+registerExecutor("music", musicExecutor);
+registerExecutor("sfx", sfxExecutor);
+registerExecutor("transcribe", transcribeExecutor);
+registerExecutor("remove-bg", removeBgExecutor);
+registerExecutor("reframe", reframeExecutor);
+registerExecutor("crunch", crunchExecutor);

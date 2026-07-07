@@ -397,8 +397,9 @@ describe("structured skips", () => {
     seedWorkspace();
     const graph = graphOf([
       node("tick", "schedule", { params: { cron: "* * * * *" } }),
-      // t2i has no registered executor; on_fail halt MUST NOT fire for a skip.
-      node("img", "t2i", { params: { model: "x", provider: "y" }, on_fail: "halt" }),
+      // http has no registered executor (#500 notes; t2i gained one in #512);
+      // on_fail halt MUST NOT fire for a skip.
+      node("img", "http", { params: { url: "https://example.com" }, on_fail: "halt" }),
       node("uses-img", "template-string", { in: { x: "img.out" }, params: { prompt: "no" } }),
       node("independent", "template-string", { params: { prompt: "yes" } }),
     ]);
