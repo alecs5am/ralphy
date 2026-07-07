@@ -1657,6 +1657,18 @@ Commands:
                                     cache hits + cost saved (per run and
                                     aggregate). Example: ralphy farm status
                                     --workspace my-studio
+  report [options] <ws>             Per-workspace operational metrics DERIVED
+                                    from the run journals on demand (#518, no
+                                    metrics DB): ticks, units
+                                    produced/gated/published, realized spend
+                                    with spend-per-unit and spend-per-tick, node
+                                    failure/reroute/quarantine/cache rates,
+                                    median node duration, and median approval
+                                    latency. Degrades gracefully on partial
+                                    journals (torn lines skipped; a missing
+                                    workflow leaves node types unclassified and
+                                    flags `partial`). Example: ralphy farm
+                                    report my-studio --since 2026-07-01
   failures [options]                List the workspace's dead-letter quarantine
                                     (#519): nodes that exhausted their retry
                                     envelope, or failed a permanent-class error

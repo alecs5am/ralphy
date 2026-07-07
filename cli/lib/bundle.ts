@@ -60,6 +60,7 @@ import { readCalendar, calendarPath } from "./calendar/store.js";
 import { parseCalendar } from "./schemas/calendar.js";
 import { coverageFor } from "./providers/coverage.js";
 import { listConnectors } from "./providers/registry.js";
+import { readNotificationsConfig } from "./notifications.js";
 import { VERSION } from "./version.js";
 import {
   parseBundleManifest,
@@ -440,14 +441,20 @@ export function exportWorkspaceBundle(
       contents.push("compositions/");
     }
 
-    // 7. Manifest — requirements auto-derived from the graphs' nodes.
+    // 7. Manifest — requirements auto-derived from the graphs' nodes. The
+    //    notifications DEFAULT carries only the event→channel mapping +
+    //    digest time (never the secrets — chat id / URL / token stay per
+    //    deployment, invariant #1).
     const requirements = deriveBundleRequirements(graphs);
+    const notify = readNotificationsConfig(ws);
+    const hasMapping = Object.keys(notify.events).length > 0;
     const manifest: BundleManifest = parseBundleManifest({
       name: ws,
       version: opts.version ?? "1.0.0",
       ralphyVersionFloor: VERSION,
       ...requirements,
       trustDefault: "L0",
+      ...(hasMapping ? { notificationsDefault: { events: notify.events, digestTime: notify.digestTime } } : {}),
     });
     fs.writeFileSync(path.join(staging, "manifest.yaml"), stringifyYaml(manifest));
     contents.push("manifest.yaml");
@@ -725,6 +732,20 @@ export function importWorkspaceBundle(zipPath: string, opts: ImportOptions = {})
           // #505: the manifest's trustDefault IS the imported workspace's
           // starting trust level (readTrustConfig fills the other defaults).
           trust: { level: v.manifest.trustDefault },
+          // #518: the bundled notifications mapping lands QUIET (enabled false,
+          // no channel secrets). The operator sets channels + enabled to switch
+          // it on post-import (`ralphy` never bundles chat ids / URLs / tokens).
+          ...(v.manifest.notificationsDefault
+            ? {
+                notifications: {
+                  enabled: false,
+                  events: v.manifest.notificationsDefault.events,
+                  ...(v.manifest.notificationsDefault.digestTime
+                    ? { digestTime: v.manifest.notificationsDefault.digestTime }
+                    : {}),
+                },
+              }
+            : {}),
         },
         null,
         2,

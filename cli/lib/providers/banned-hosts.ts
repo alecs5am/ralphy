@@ -35,6 +35,7 @@ export const BANNED_PROVIDER_HOSTS: BannedHostEntry[] = [
   { label: "firecrawl", suffixes: ["firecrawl.dev"], reason: CONNECTOR },
   { label: "apify", suffixes: ["apify.com"], reason: CONNECTOR },
   { label: "google-apis", suffixes: ["googleapis.com"], reason: CONNECTOR },
+  { label: "telegram", suffixes: ["telegram.org"], reason: CONNECTOR },
   { label: "openai-direct", suffixes: ["openai.com"], reason: FORBIDDEN },
   {
     label: "hosted-vercel",

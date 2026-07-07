@@ -1,6 +1,6 @@
 # Farm observability and operator notifications
 
-> **Status:** todo
+> **Status:** done — 2026-07-08
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** high

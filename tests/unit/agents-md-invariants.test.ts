@@ -234,6 +234,16 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       hostRe: /https?:\/\/[a-z0-9.-]*googleapis\.com\b/i,
       hostLabel: "googleapis.com",
     },
+    // #518 notifier connector — same file-scoped discipline. The Telegram bot
+    // token + api.telegram.org host are sanctioned ONLY inside the notifier
+    // (cli/lib/farm/notify.ts); the generic webhook channel uses a user-supplied
+    // URL (no fixed host), so only the token env var is enforced by scope.
+    {
+      file: path.join("cli", "lib", "farm", "notify.ts"),
+      envVar: "TELEGRAM_BOT_TOKEN",
+      hostRe: /https?:\/\/[a-z0-9.-]*telegram\.org\b/i,
+      hostLabel: "telegram.org",
+    },
   ];
 
   // #501 publish connector — same file-scoped env-var discipline. Postiz is
@@ -284,6 +294,9 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       "api.apify.com",
       "googleapis.com",
       "youtubeanalytics.googleapis.com",
+      // notifier connector host (#518, inline-scanned above)
+      "telegram.org",
+      "api.telegram.org",
       // banned-everywhere hosts (inline-scanned above)
       "openai.com",
       "api.openai.com",

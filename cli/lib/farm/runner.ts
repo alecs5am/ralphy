@@ -107,6 +107,9 @@ import { parseCron, nextFire, cronMatches, type CronSpec } from "./cron.js";
 import { computeNodeCacheHash, lookupNodeCache, appendNodeCacheEntry } from "./node-cache.js";
 import { classifyError, classifyFilterError } from "../errors/taxonomy.js";
 import { appendQuarantine, appendResolution } from "./dead-letter.js";
+import { notifyFarmEvent, approvalDeepLink, type FarmNotification } from "./notify.js";
+import { readNotificationsConfig } from "../notifications.js";
+import type { NotifyEvent } from "../schemas/notifications.js";
 
 // ─── Deps (clock / sleep / stop seams — zero real sleeps in tests) ───────────
 
@@ -122,6 +125,13 @@ export interface FarmDeps {
   ctx?: Partial<ExecutorContext>;
   /** Event sink for the CLI's live log line (in addition to the journal). */
   onEvent?: (runId: string, kind: string, message: string) => void;
+  /**
+   * #518 notification hook: fired (failure-safe, awaited) on the runner's
+   * needs-a-human journal events (run-parked / budget-halt / run-failed /
+   * node-quarantined). Isolated from the journal — a throwing notifier must
+   * never fail the run. Tests inject a mock; production wires notifyFarmEvent.
+   */
+  notify?: (n: FarmNotification) => Promise<void>;
   /** Run option rider (#513): force execution, ignoring the content-hash cache. */
   noCache?: boolean;
 }
@@ -134,6 +144,19 @@ function resolveDeps(deps: FarmDeps = {}) {
     executorOverrides: deps.executorOverrides ?? {},
     ctx: deps.ctx ?? {},
     onEvent: deps.onEvent ?? (() => {}),
+    // #518: default notifier reads the workspace's `notifications` config and
+    // dispatches (quiet when unconfigured). notifyFarmEvent is itself
+    // failure-safe, but we double-guard so no notify path can ever throw into
+    // the run. Tests override with a mock.
+    notify:
+      deps.notify ??
+      (async (n: FarmNotification) => {
+        try {
+          await notifyFarmEvent(n);
+        } catch {
+          /* invariant: a notification never fails the run */
+        }
+      }),
     noCache: deps.noCache ?? false,
   };
 }
@@ -539,6 +562,37 @@ export async function executeGraphRun(
     d.onEvent(runId, kind, event.message);
   };
 
+  // #518 notification side-effect — fired on the needs-a-human journal events.
+  // Failure-safe by construction (d.notify is guarded, notifyFarmEvent never
+  // rejects); a broken/absent notify path leaves the run untouched. The
+  // dashboard deep-link (approval events) resolves from the workspace's
+  // configured base — read once, best-effort.
+  const fireNotify = async (
+    event: NotifyEvent,
+    fields: { title: string; body?: string; node?: string | null; data?: Record<string, unknown> },
+  ): Promise<void> => {
+    try {
+      let url: string | null = null;
+      if (event === "run-parked") {
+        const cfg = readNotificationsConfig(ws);
+        url = approvalDeepLink(cfg, ws, runId);
+      }
+      await d.notify({
+        event,
+        workspace: ws,
+        title: fields.title,
+        body: fields.body,
+        runId,
+        node: fields.node ?? null,
+        url,
+        data: fields.data,
+        ts: d.now().toISOString(),
+      });
+    } catch {
+      /* invariant: a notification never fails the run */
+    }
+  };
+
   const finish = async (status: FarmRunStatus, detail?: string): Promise<RunOutcome> => {
     writeFarmState(ws, runId, { workflow: workflowName, status, updatedAt: d.now().toISOString(), detail });
     if (status === "complete") {
@@ -869,6 +923,12 @@ export async function executeGraphRun(
       ...quarantineFields,
       message: `node "${node.id}"${branchTag(scope)} quarantined after ${attempt} attempt(s) [${classification.filterClass ?? classification.class}] — \`ralphy farm retry ${runId} ${node.id}\` re-executes it`,
     });
+    await fireNotify("node-quarantined", {
+      title: `Farm node "${node.id}" quarantined in run "${runId}"`,
+      body: `[${classification.filterClass ?? classification.class}] after ${attempt} attempt(s): ${lastError}. Retry with \`ralphy farm retry ${runId} ${node.id}\``,
+      node: node.id,
+      data: { errorClass: classification.class, filterClass: classification.filterClass ?? null, attempts: attempt },
+    });
 
     return applyOnFail(node, scope, attempt, lastError);
   };
@@ -1091,15 +1151,33 @@ export async function executeGraphRun(
   }
   if (seqOut.kind === "halt") {
     await emit("run-halted", { node: seqOut.node.id, status: "halted-failure", reason: seqOut.detail, message: seqOut.detail });
+    await fireNotify("run-failed", {
+      title: `Farm run "${runId}" failed`,
+      body: seqOut.detail,
+      node: seqOut.node.id,
+      data: { workflow: workflowName },
+    });
     return finish("halted-failure", seqOut.detail);
   }
   if (seqOut.kind === "signal") {
     const signal = seqOut.signal;
     if (signal.kind === "park-approval") {
       await emit("run-parked", { node: seqOut.node.id, status: "parked-approval", reason: signal.message, message: signal.message });
+      await fireNotify("run-parked", {
+        title: `Farm run "${runId}" is parked for your approval`,
+        body: signal.message,
+        node: seqOut.node.id,
+        data: { workflow: workflowName },
+      });
       return finish("parked-approval", signal.message);
     }
     await emit("run-halted", { node: seqOut.node.id, status: "halted-budget", reason: signal.message, message: signal.message });
+    await fireNotify("budget-halt", {
+      title: `Farm run "${runId}" hit the budget guard`,
+      body: signal.message,
+      node: seqOut.node.id,
+      data: { workflow: workflowName },
+    });
     return finish("halted-budget", signal.message);
   }
   return finish("complete");

@@ -14,6 +14,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { startStudio } from "../server/index.js";
 import {
   farmStatusView,
+  farmReportView,
   readFarmPid,
   isFarmAlive,
   trustStatusView,
@@ -79,10 +80,10 @@ function seed(root: string) {
   fs.writeFileSync(
     path.join(runDir, "run-events.jsonl"),
     [
-      { kind: "node-started", node: "tick", message: "started" },
-      { kind: "node-completed", node: "tick", message: "done" },
-      { kind: "node-started", node: "note", message: "started" },
-      { kind: "node-completed", node: "note", costUsd: 0.12, message: "done" },
+      { ts: "2026-07-06T09:00:00.000Z", kind: "node-started", node: "tick", message: "started" },
+      { ts: "2026-07-06T09:00:01.000Z", kind: "node-completed", node: "tick", message: "done" },
+      { ts: "2026-07-06T09:00:02.000Z", kind: "node-started", node: "note", message: "started" },
+      { ts: "2026-07-06T09:00:03.000Z", kind: "node-completed", node: "note", costUsd: 0.12, message: "done" },
     ]
       .map((e) => JSON.stringify(e))
       .join("\n") + "\n",
@@ -246,6 +247,30 @@ describe("farm endpoints (#503 mapping)", () => {
     },
     CLI_MS,
   );
+
+  test("GET /api/farm/report: metrics rolled up from the journal (#518)", async () => {
+    const r = await fetch(`${openBase}/api/farm/report?workspace=default`).then((x) => x.json());
+    expect(r.workspace).toBe("default");
+    // The fixture run had one node-completed carrying costUsd 0.12.
+    expect(r.totals.spendUsd).toBe(0.12);
+    expect(r.totals.runs).toBe(1);
+    // tick + note are `transform` nodes — not unit/publish, so those tally 0.
+    expect(r.totals.unitsProduced).toBe(0);
+    expect(r.totals.unitsPublished).toBe(0);
+    // Two node-completed events counted as executions; node types classify
+    // from the seeded pipeline graph, so the report is NOT partial.
+    expect(r.rates.nodeExecutions).toBe(2);
+    expect(r.partial).toBe(false);
+    // --since filters out the whole run's events (all seeded in 2026-07).
+    const empty = await fetch(`${openBase}/api/farm/report?workspace=default&since=2030-01-01`).then((x) => x.json());
+    expect(empty.totals.runs).toBe(0);
+    // Unknown workspace -> 404.
+    expect((await fetch(`${openBase}/api/farm/report?workspace=nope`)).status).toBe(404);
+  });
+
+  test("farmReportView never throws on an empty workspace", () => {
+    expect(farmReportView(dataRoot, "no-such-ws")).toBeNull();
+  });
 
   test("live pidfile: status reports running; start refuses 409; stop SIGTERMs via the CLI", async () => {
     // Fixture daemon: a real (harmless) sleep child standing in for the loop.
