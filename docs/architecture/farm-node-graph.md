@@ -296,8 +296,8 @@ through Postiz too (an `x` integration); a direct X API connector and the
 |---|---|
 | `schedule` | cron trigger; graph entry point for production ticks |
 | `calendar-slot` | picks the next free slot from the workspace `calendar.json`; the calendar is a first-class workspace entity (slots, unit-type mix, statuses idea->queued->produced->gated->scheduled->published) |
-| `fan-out` | map a node subgraph over items (one research pass -> N unit branches); `concurrency` cap |
-| `join` | barrier; only where a downstream step genuinely needs all branches |
+| `fan-out` | map a node subgraph over items (one research pass -> N unit branches); `concurrency` cap. Executed by the farm runner (#510): the downstream subgraph up to a `join` runs once per item, branch identity = item index, journal records branch-scoped (`<node-id>@<branch>`), per-branch on_fail isolation + durable per-branch resume. Nested / overlapping fan-out is unsupported (structured halt; #517 subgraphs is the follow-up) |
+| `join` | barrier; only where a downstream step genuinely needs all branches. Executes once, top-level: branch-scoped in-ports resolve to order-stable per-branch arrays (null where a branch skipped the producer) |
 | `switch` | route by a classifier/field value (e.g. content-mode of an idea) |
 | `gate` | consumes an eval verdict; routes ship / repair / needs-human per threshold |
 | `approval` | human-in-the-loop: pushes to the dashboard review queue and parks the run durably; trust-ladder level decides whether it auto-passes |

@@ -103,8 +103,9 @@ registerExecutor("analytics-pull", analyticsPullExecutor);
 
 // F. Control flow + G. data nodes (#503). NOT registered on purpose:
 // `schedule` (the farm runner's trigger built-in, not an executable step) and
-// `fan-out` (v1 does not map a subgraph per item — the runner skips it with a
-// structured "fan-out-not-supported" event; see control-flow.ts header).
+// `fan-out` (the runner itself maps the downstream subgraph once per item,
+// #510 — branch-scoped records, concurrency cap, per-branch on_fail + resume;
+// see control-flow.ts and the runner header).
 registerExecutor("approval", approvalExecutor);
 registerExecutor("budget-guard", budgetGuardExecutor);
 registerExecutor("gate", gateExecutor);

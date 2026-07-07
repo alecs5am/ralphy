@@ -390,7 +390,7 @@ describe("durable resume", () => {
   });
 });
 
-// ─── No-executor + fan-out structured skips ──────────────────────────────────
+// ─── No-executor structured skip ─────────────────────────────────────────────
 
 describe("structured skips", () => {
   test("a node type with no executor skips with reason no-executor; on_fail does NOT fire", async () => {
@@ -409,17 +409,228 @@ describe("structured skips", () => {
     expect(String(skips.find((e) => e.node === "uses-img")?.reason)).toContain("upstream-skipped");
     expect(completedOrder(outcome.runId)).toContain("independent");
   });
+});
 
-  test("fan-out is a structured not-yet-supported skip", async () => {
+// ─── Fan-out subgraph execution (#510) ───────────────────────────────────────
+
+describe("fan-out subgraph execution (#510)", () => {
+  const seedItems: NodeExecutor = async () => ({ output: ["alpha", "beta", "gamma"] });
+
+  /** tick -> seed(items) -> fan -> work (per branch) -> join -> after. */
+  function fanGraph(over: { workOnFail?: string; concurrency?: number } = {}): WorkflowGraph {
+    return graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("seed", "generate-object", { params: { prompt: "x" } }),
+      node("fan", "fan-out", {
+        in: { items: "seed.out" },
+        params: over.concurrency ? { concurrency: over.concurrency } : {},
+      }),
+      node("work", "generate-text", {
+        in: { item: "fan.out" },
+        params: { prompt: "y" },
+        on_fail: over.workOnFail ?? "halt",
+      }),
+      node("collect", "join", { in: { results: "work.out" } }),
+      node("after", "template-string", { in: { x: "collect.out" }, params: { prompt: "done" } }),
+    ]);
+  }
+
+  test("maps the subgraph once per item; join collects order-stable by branch index", async () => {
+    seedWorkspace();
+    const work: NodeExecutor = async (_n, ctx) => ({ output: `made:${ctx.inputs.item}` });
+    const outcome = await fireTick(WS, "wf", fanGraph({ concurrency: 1 }), {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": work },
+    });
+    expect(outcome.status).toBe("complete");
+    const events = readEvents(outcome.runId);
+    // Branch-scoped records: one work completion per branch, tagged with the index.
+    const workEvents = events.filter((e) => e.kind === "node-completed" && e.node === "work");
+    expect(workEvents.map((e) => e.branch)).toEqual([0, 1, 2]);
+    expect(workEvents.map((e) => e.output)).toEqual(["made:alpha", "made:beta", "made:gamma"]);
+    // The fan node completes exactly once, with the item list as its output.
+    const fanEvents = events.filter((e) => e.kind === "node-completed" && e.node === "fan");
+    expect(fanEvents).toHaveLength(1);
+    expect(fanEvents[0]!.branches).toBe(3);
+    expect(fanEvents[0]!.output).toEqual(["alpha", "beta", "gamma"]);
+    // The join received per-branch outputs, order-stable by branch index.
+    const joinEvent = events.find((e) => e.kind === "node-completed" && e.node === "collect");
+    expect((joinEvent?.output as { results: string[] }).results).toEqual([
+      "made:alpha",
+      "made:beta",
+      "made:gamma",
+    ]);
+    expect(completedOrder(outcome.runId)).toContain("after");
+  });
+
+  test("branch failure is isolated: on_fail skip nulls that branch's slot, run completes", async () => {
+    seedWorkspace();
+    const work: NodeExecutor = async (_n, ctx) => {
+      if (ctx.inputs.item === "beta") throw new Error("branch boom");
+      return { output: `made:${ctx.inputs.item}` };
+    };
+    const outcome = await fireTick(WS, "wf", fanGraph({ workOnFail: "skip" }), {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": work },
+    });
+    expect(outcome.status).toBe("complete");
+    const skip = readEvents(outcome.runId).find((e) => e.kind === "node-skipped" && e.node === "work");
+    expect(skip?.branch).toBe(1);
+    expect(String(skip?.reason)).toContain("on-fail-skip");
+    const joinEvent = readEvents(outcome.runId).find((e) => e.kind === "node-completed" && e.node === "collect");
+    expect((joinEvent?.output as { results: unknown[] }).results).toEqual(["made:alpha", null, "made:gamma"]);
+  });
+
+  test("a halted branch surfaces through the fan-out's on_fail after siblings finish", async () => {
+    seedWorkspace();
+    const work: NodeExecutor = async (_n, ctx) => {
+      if (ctx.inputs.item === "beta") throw new Error("branch boom");
+      return { output: `made:${ctx.inputs.item}` };
+    };
+    const outcome = await fireTick(WS, "wf", fanGraph(), {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": work },
+    });
+    // work.on_fail halt + fan.on_fail halt (defaults) → the run halts, but only
+    // AFTER the sibling branches completed (isolation).
+    expect(outcome.status).toBe("halted-failure");
+    expect(String(outcome.detail)).toContain("branch 1");
+    const workDone = readEvents(outcome.runId).filter((e) => e.kind === "node-completed" && e.node === "work");
+    expect(workDone.map((e) => e.branch).sort()).toEqual([0, 2]);
+    // The join never ran over a halted fan.
+    expect(completedOrder(outcome.runId)).not.toContain("collect");
+  });
+
+  test("mid-branch crash resume re-executes only the incomplete branch nodes", async () => {
+    seedWorkspace();
+    const calls: Record<string, number> = {};
+    const counting: NodeExecutor = async (n, ctx) => {
+      const input = String(Object.values(ctx.inputs)[0]);
+      const key = `${n.id}:${input}`;
+      calls[key] = (calls[key] ?? 0) + 1;
+      return { output: `${n.id}(${input})` };
+    };
+    // Two nodes per branch so a crash can land mid-branch. concurrency 1 keeps
+    // the crash point deterministic.
+    const graph = graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("seed", "generate-object", { params: { prompt: "x" } }),
+      node("fan", "fan-out", { in: { items: "seed.out" }, params: { concurrency: 1 } }),
+      node("work", "generate-text", { in: { item: "fan.out" }, params: { prompt: "y" } }),
+      node("polish", "generate-text", { in: { x: "work.out" }, params: { prompt: "z" } }),
+      node("collect", "join", { in: { results: "polish.out" } }),
+    ]);
+    // Session 1: stop after tick + seed + work@0 + polish@0 + work@1 completed
+    // (checked between nodes — same journal a kill -9 leaves behind).
+    let completed = 0;
+    const outcome1 = await fireTick(WS, "wf", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": counting },
+      onEvent: (_r, kind) => {
+        if (kind === "node-completed") completed++;
+      },
+      shouldStop: () => completed >= 5,
+    });
+    expect(outcome1.status).toBe("running");
+    expect(calls).toEqual({
+      "work:alpha": 1,
+      "polish:work(alpha)": 1,
+      "work:beta": 1,
+    });
+
+    // Session 2: fresh runner over the same journal — completed branch-scoped
+    // records are honored; only the incomplete branch nodes execute.
+    const outcome2 = await executeGraphRun(WS, outcome1.runId, "wf", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": counting },
+    });
+    expect(outcome2.status).toBe("complete");
+    expect(calls).toEqual({
+      "work:alpha": 1,
+      "polish:work(alpha)": 1,
+      "work:beta": 1,
+      "polish:work(beta)": 1,
+      "work:gamma": 1,
+      "polish:work(gamma)": 1,
+    });
+    // Each branch-scoped node completed exactly once across both sessions.
+    const events = readEvents(outcome1.runId);
+    for (const b of [0, 1, 2]) {
+      expect(events.filter((e) => e.kind === "node-completed" && e.node === "work" && e.branch === b)).toHaveLength(1);
+      expect(events.filter((e) => e.kind === "node-completed" && e.node === "polish" && e.branch === b)).toHaveLength(1);
+    }
+    const joinEvent = events.find((e) => e.kind === "node-completed" && e.node === "collect");
+    expect((joinEvent?.output as { results: string[] }).results).toEqual([
+      "polish(work(alpha))",
+      "polish(work(beta))",
+      "polish(work(gamma))",
+    ]);
+  });
+
+  test("params.concurrency caps simultaneous branches; join stays order-stable", async () => {
+    seedWorkspace();
+    let inflight = 0;
+    let maxInflight = 0;
+    const slow: NodeExecutor = async (_n, ctx) => {
+      inflight++;
+      maxInflight = Math.max(maxInflight, inflight);
+      await new Promise((r) => setTimeout(r, 20));
+      inflight--;
+      return { output: `made:${ctx.inputs.item}` };
+    };
+    const outcome = await fireTick(WS, "wf", fanGraph({ concurrency: 2 }), {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": slow },
+    });
+    expect(outcome.status).toBe("complete");
+    // Capped below the 3 branches, above sequential: exactly 2 in flight.
+    expect(maxInflight).toBe(2);
+    // Completion interleaving does not reorder the join output.
+    const joinEvent = readEvents(outcome.runId).find((e) => e.kind === "node-completed" && e.node === "collect");
+    expect((joinEvent?.output as { results: string[] }).results).toEqual([
+      "made:alpha",
+      "made:beta",
+      "made:gamma",
+    ]);
+  });
+
+  test("nested fan-out halts with a structured error before executing anything", async () => {
     seedWorkspace();
     const graph = graphOf([
       node("tick", "schedule", { params: { cron: "* * * * *" } }),
-      node("fan", "fan-out", { params: {} }),
+      node("seed", "generate-object", { params: { prompt: "x" } }),
+      node("outer", "fan-out", { in: { items: "seed.out" }, params: {} }),
+      node("inner", "fan-out", { in: { items: "outer.out" }, params: {} }),
+      node("work", "generate-text", { in: { item: "inner.out" }, params: { prompt: "y" } }),
     ]);
-    const outcome = await fireTick(WS, "wf", graph, noSleep);
+    const outcome = await fireTick(WS, "wf", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems },
+    });
+    expect(outcome.status).toBe("halted-failure");
+    expect(String(outcome.detail)).toContain("nested-fan-out-not-supported");
+    // Static check — nothing executed.
+    expect(completedOrder(outcome.runId)).toEqual([]);
+  });
+
+  test("a non-array items input fails the fan-out through its on_fail envelope", async () => {
+    seedWorkspace();
+    const scalar: NodeExecutor = async () => ({ output: "not-an-array" });
+    const graph = graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("seed", "generate-object", { params: { prompt: "x" } }),
+      node("fan", "fan-out", { in: { items: "seed.out" }, params: {}, on_fail: "skip" }),
+      node("work", "generate-text", { in: { item: "fan.out" }, params: { prompt: "y" } }),
+    ]);
+    const outcome = await fireTick(WS, "wf", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": scalar },
+    });
     expect(outcome.status).toBe("complete");
     const skip = readEvents(outcome.runId).find((e) => e.kind === "node-skipped" && e.node === "fan");
-    expect(String(skip?.reason)).toContain("fan-out-not-supported");
+    expect(String(skip?.reason)).toContain("did not resolve to an array");
+    // The branch subgraph never ran (no work events at all).
+    expect(readEvents(outcome.runId).some((e) => e.node === "work")).toBe(false);
   });
 });
 
