@@ -225,6 +225,28 @@ describe("farm endpoints (#503 mapping)", () => {
     expect(s.runs[0].quarantined).toBe(1);
   });
 
+  test(
+    "GET /api/farm/simulate: relays the #516 CLI report (synthetic run, zero spend)",
+    async () => {
+      const r = await fetch(`${openBase}/api/farm/simulate?workspace=default&workflow=pipeline&assumeItems=2`);
+      expect(r.status).toBe(200);
+      const report = (await r.json()) as Record<string, any>;
+      // The fixture GRAPH is schedule + two transforms — free, no keys, no gaps.
+      expect(report.ok).toBe(true);
+      expect(report.workflow).toBe("pipeline");
+      expect(report.assumptions.fanOutItems).toBe(2);
+      expect(report.costs.tickKnownUsd).toBe(0);
+      expect(report.environment.missingKeys).toEqual([]);
+      // The simulation left NO new farm run behind (still just the fixture run).
+      const s = await fetch(`${openBase}/api/farm/status?workspace=default`).then((x) => x.json());
+      expect(s.runs.length).toBe(1);
+
+      // Unknown workspace -> 404.
+      expect((await fetch(`${openBase}/api/farm/simulate?workspace=nope`)).status).toBe(404);
+    },
+    CLI_MS,
+  );
+
   test("live pidfile: status reports running; start refuses 409; stop SIGTERMs via the CLI", async () => {
     // Fixture daemon: a real (harmless) sleep child standing in for the loop.
     sleeper = spawn("sleep", ["300"], { stdio: "ignore" });

@@ -41,6 +41,7 @@ import {
   type TrustConfig,
   type TrustLevel,
 } from "../lib/trust.js";
+import { simulateWorkflow } from "../lib/farm/simulate.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -513,7 +514,7 @@ export function workspaceCmd() {
   cmd
     .command("export <slug>")
     .description(
-      "Export a trained workspace as a deployable bundle zip (#502): manifest.yaml (name, version, ralphy-version floor, required connector keys, required (model, capability, provider) coverage, trust default — requirements auto-derived from the graph's nodes), pipeline.json (the #498 graph workflow, JSON per D-03), prompts/, compositions/, evaluators/ (STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json), calendar.yaml (recurring slots ONLY — dated entries are never bundled), refs/ (shared/refs as-is). Project artifacts and logs are NEVER bundled. Refuses with the concrete gap list when the workspace is not export-ready (no evaluators.json, no graph workflow, workflow lint errors). Read-only over the source workspace. Uses the system `zip` binary. Format doc: docs/workspace-bundle.md. Example: ralphy workspace export tech-news --out tech-news-v1.zip",
+      "Export a trained workspace as a deployable bundle zip (#502): manifest.yaml (name, version, ralphy-version floor, required connector keys, required (model, capability, provider) coverage, trust default — requirements auto-derived from the graph's nodes), pipeline.json (the #498 graph workflow, JSON per D-03), prompts/, compositions/, evaluators/ (STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json), calendar.yaml (recurring slots ONLY — dated entries are never bundled), refs/ (shared/refs as-is). Project artifacts and logs are NEVER bundled. Refuses with the concrete gap list when the workspace is not export-ready (no evaluators.json, no graph workflow, workflow lint errors). Read-only over the source workspace. Uses the system `zip` binary. The summary also prints the #516 one-tick cost estimate of the bundled primary pipeline (via `ralphy workflow simulate`). Format doc: docs/workspace-bundle.md. Example: ralphy workspace export tech-news --out tech-news-v1.zip",
     )
     .option("--out <path>", "Output zip path (default: ./<slug>-bundle-v<version>.zip; never overwrites)")
     .option("--bundle-version <v>", "Bundle version written to the manifest (default 1.0.0)")
@@ -523,7 +524,31 @@ export function workspaceCmd() {
       const outPath = (opts.out as string) || `${slug}-bundle-v${version}.zip`;
       try {
         const result = exportWorkspaceBundle(slug, outPath, { version });
-        ok(`Bundle exported: ${result.out}`);
+        // #516: the export summary prints what one tick of the bundled primary
+        // pipeline costs — advisory (a failed estimate never blocks an export).
+        let oneTickEstimate: {
+          workflow: string;
+          tickKnownUsd: number;
+          unknownPricingNodes: number;
+          assumption: string;
+        } | null = null;
+        try {
+          const sim = await simulateWorkflow(slug, result.primaryWorkflow, {});
+          oneTickEstimate = {
+            workflow: sim.workflow,
+            tickKnownUsd: sim.costs.tickKnownUsd,
+            unknownPricingNodes: sim.costs.unknownPricing.length,
+            assumption: `${sim.assumptions.fanOutItems} fan-out item(s) (${sim.assumptions.fanOutItemsSource})`,
+          };
+        } catch {
+          /* simulate is advisory here — the bundle already exported */
+        }
+        ok(
+          `Bundle exported: ${result.out}` +
+            (oneTickEstimate
+              ? ` — one tick ~$${oneTickEstimate.tickKnownUsd.toFixed(2)}${oneTickEstimate.unknownPricingNodes > 0 ? ` + ${oneTickEstimate.unknownPricingNodes} unknown-priced node(s)` : ""}`
+              : ""),
+        );
         out({
           workspace: result.workspace,
           out: result.out,
@@ -534,6 +559,7 @@ export function workspaceCmd() {
           version: result.manifest.version,
           ralphyVersionFloor: result.manifest.ralphyVersionFloor,
           trustDefault: result.manifest.trustDefault,
+          oneTickEstimate,
         });
       } catch (e) {
         if (!(e instanceof BundleError)) throw e;

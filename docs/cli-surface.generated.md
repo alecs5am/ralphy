@@ -1542,9 +1542,11 @@ Commands:
                             when the workspace is not export-ready (no
                             evaluators.json, no graph workflow, workflow lint
                             errors). Read-only over the source workspace. Uses
-                            the system `zip` binary. Format doc:
-                            docs/workspace-bundle.md. Example: ralphy workspace
-                            export tech-news --out tech-news-v1.zip
+                            the system `zip` binary. The summary also prints the
+                            #516 one-tick cost estimate of the bundled primary
+                            pipeline (via `ralphy workflow simulate`). Format
+                            doc: docs/workspace-bundle.md. Example: ralphy
+                            workspace export tech-news --out tech-news-v1.zip
   import [options] <zip>    Import a workspace bundle zip (#502) as a NEW
                             workspace. Validates BEFORE materializing anything:
                             manifest.yaml parses, ralphyVersionFloor <= the
@@ -1824,6 +1826,37 @@ Commands:
                                         D-03). Omit name to lint every workflow.
                                         ZERO model calls. Example: ralphy
                                         workflow lint silent-hill episode
+  simulate [options] <slug> [name]      Dry-run one tick of a node-graph
+                                        workflow (#516) with SYNTHETIC
+                                        executors: the REAL farm runner executes
+                                        the graph against an ephemeral scratch
+                                        root — ZERO provider calls, ZERO
+                                        artifacts, nothing lands in the
+                                        workspace's runs/ tree or farm state —
+                                        while every node's cost is estimated
+                                        from the existing price tables
+                                        (per-image, per-second video, flat
+                                        VO/music/sfx, LLM token ballparks).
+                                        Unknown pricing is an explicit `unknown`
+                                        line, never a silent $0. Fan-out
+                                        cardinality comes from --assume-items,
+                                        else the trend-watch node's
+                                        params.expected_items / topics count
+                                        (assumption stated in the report). The
+                                        report: cost per node / per tick,
+                                        paid-node inventory, approval stops +
+                                        the workspace trust level, budget-cap
+                                        headroom (#481), projected weekly spend
+                                        (schedule-node crons x #504 calendar
+                                        slots — --week projects over that),
+                                        missing connector keys, and #497
+                                        coverage gaps. Exits non-zero on a
+                                        blocking finding (missing key, coverage
+                                        gap) for CI use. Omit name when the
+                                        workspace has exactly one graph
+                                        workflow. Example: ralphy workflow
+                                        simulate tech-news pipeline --week
+                                        --assume-items 5
   status [options] <project>            Per-step run status of a project's
                                         workflow (done | running | waiting |
                                         blocked | queued), derived from the
