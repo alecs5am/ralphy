@@ -502,6 +502,120 @@ describe("gate node", () => {
   });
 });
 
+// ─── ralphy-verb production middle (#511) ────────────────────────────────────
+
+describe("ralphy-verb production middle (#511)", () => {
+  test("research -> generate -> render -> eval -> unit runs end to end with ZERO paid calls", async () => {
+    seedWorkspace();
+    const projectId = "farm-prod-001";
+    const projDir = path.join(workspaceDir(WS), "projects", projectId);
+    fs.mkdirSync(path.join(projDir, "artifacts"), { recursive: true });
+    // A parametrized composition with every slot filled via node params.
+    fs.writeFileSync(path.join(projDir, "index.html"), "<h1>{{title}}</h1>");
+    // A deterministic-only rubric: zero model calls, overall verdict `ship`.
+    fs.writeFileSync(
+      path.join(workspaceDir(WS), "evaluators.json"),
+      JSON.stringify({
+        version: "1.0",
+        criteria: [
+          {
+            id: "fixture-check",
+            label: "Fixture",
+            category: "style",
+            check: "deterministic",
+            validatorId: "not-a-registered-validator",
+            severity: "warn",
+            threshold: {},
+          },
+        ],
+      }),
+    );
+
+    // Mocked seams: research (ingestion) via executorOverrides; the media
+    // connector + hyperframes engine via the ExecutorContext seams. All other
+    // executors in the chain are the REAL registered ralphy-verb ones.
+    const research: NodeExecutor = async () => ({ output: "a neon fox unboxing, deadpan" });
+    const connectorCalls: string[] = [];
+    const mediaConnector = {
+      id: "mock",
+      label: "Mock",
+      envVar: "MOCK_KEY",
+      signupUrl: "",
+      capabilities: ["image"],
+      available: () => true,
+      generateImage: async (input: { projectId: string; slot: string; prompt: string }) => {
+        connectorCalls.push(input.prompt);
+        const dir = path.join(projDir, "artifacts", "images");
+        fs.mkdirSync(dir, { recursive: true });
+        const localPath = path.join(dir, `${input.slot}.png`);
+        fs.writeFileSync(localPath, "png");
+        return { localPath, costUsd: 0, latencyMs: 3, model: "mock/image" };
+      },
+    };
+    const graph = graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("research", "web-scrape", { in: { seed: "tick.out" }, params: {} }),
+      node("gen", "ralphy-generate", {
+        in: { prompt: "research.out" },
+        params: { project: projectId, kind: "image", slot: "scene-01" },
+      }),
+      node("render", "ralphy-render", {
+        in: { after: "gen.out" },
+        params: { project: projectId, variables: { title: "Neon Fox" } },
+      }),
+      node("eval", "ralphy-eval", {
+        in: { video: "render.out" },
+        params: { project: projectId, gate: ["fixture-check"] },
+      }),
+      node("unit", "ralphy-unit", {
+        in: { media: "gen.out", gated: "eval.out" },
+        params: { project: projectId, slug: "neon-fox-01", format: "video", from: "render/final.mp4" },
+      }),
+    ]);
+
+    const outcome = await fireTick(WS, "prod", graph, {
+      ...noSleep,
+      executorOverrides: { "web-scrape": research },
+      ctx: {
+        resolveMediaConnector: () => mediaConnector as never,
+        hyperframesRender: async (args) => {
+          fs.writeFileSync(args.outputPath, "mp4-bytes");
+          return { exitCode: 0, stderr: "" };
+        },
+      },
+    });
+
+    expect(outcome.status).toBe("complete");
+    expect(completedOrder(outcome.runId)).toEqual([
+      "tick",
+      "research",
+      "gen",
+      "render",
+      "eval",
+      "unit",
+    ]);
+    // The research output flowed into the paid-node prompt port (mocked, $0).
+    expect(connectorCalls).toEqual(["a neon fox unboxing, deadpan"]);
+    // The full production chain landed real artifacts in the project tree.
+    expect(fs.existsSync(path.join(projDir, "artifacts", "images", "scene-01.png"))).toBe(true);
+    expect(fs.existsSync(path.join(projDir, "render", "final.mp4"))).toBe(true);
+    expect(fs.existsSync(path.join(projDir, "workspace-eval.json"))).toBe(true);
+    const unitManifest = JSON.parse(
+      fs.readFileSync(path.join(projDir, "units", "neon-fox-01", "unit.json"), "utf8"),
+    );
+    // The unit packaged the --from render master + the wired generate output.
+    expect(unitManifest.media).toContain("final.mp4");
+    expect(unitManifest.media).toContain("scene-01.png");
+    // Eval verdict rode the journal so a downstream gate could consume it.
+    const evalEvent = readEvents(outcome.runId).find(
+      (e) => e.kind === "node-completed" && e.node === "eval",
+    );
+    expect((evalEvent?.output as { verdict?: string })?.verdict).toBe("ship");
+    // Zero paid calls: the run's realized spend is $0.
+    expect(farmStatus(WS).runs.find((r) => r.id === outcome.runId)?.spendUsd).toBe(0);
+  });
+});
+
 // ─── farm status roll-up ─────────────────────────────────────────────────────
 
 describe("farm status", () => {

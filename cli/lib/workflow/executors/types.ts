@@ -4,6 +4,8 @@
 
 import type { WorkflowNode } from "../../schemas/workflow.js";
 import type { ModelFactory } from "../../providers/ai-sdk.js";
+import type { Capability, RalphyConnector } from "../../providers/types.js";
+import type { runHyperframesRender } from "../../render/hyperframes.js";
 
 /** Structured, throwable failure — the runner's on_fail routing consumes it. */
 export class NodeExecutionError extends Error {
@@ -76,6 +78,17 @@ export interface ExecutorContext {
    * widen the public binary surface.
    */
   resolveBinaryArgv?: (binary: CodingAgentBinary, prompt: string) => string[];
+  /**
+   * Test seam for ralphy-generate (#511): replaces `resolveConnector()` so a
+   * fixture connector serves the media call. The real path stays the provider
+   * registry (AGENTS.md invariant #1 — never an ad-hoc call path).
+   */
+  resolveMediaConnector?: (cap: Capability, explicitId?: string) => RalphyConnector;
+  /**
+   * Test seam for ralphy-render (#511): replaces `runHyperframesRender()` so a
+   * fixture writes the mp4 instead of spawning `bunx hyperframes render`.
+   */
+  hyperframesRender?: typeof runHyperframesRender;
 }
 
 export interface ExecutorResult {
