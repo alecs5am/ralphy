@@ -87,6 +87,18 @@ function seed(root: string) {
       .map((e) => JSON.stringify(e))
       .join("\n") + "\n",
   );
+  // #519 dead-letter fixture: two quarantined entries; one later resolved.
+  fs.mkdirSync(path.join(ws, "farm"), { recursive: true });
+  fs.writeFileSync(
+    path.join(ws, "farm", "dead-letter.jsonl"),
+    [
+      { kind: "quarantined", ts: "2026-07-06T09:00:03.000Z", run: "farm-pipeline-20260706-090000", node: "note", errorClass: "moderation", attempts: 1 },
+      { kind: "quarantined", ts: "2026-07-06T09:00:04.000Z", run: "farm-pipeline-20260706-090000", node: "draft", errorClass: "provider-semantic", attempts: 2 },
+      { kind: "resolved", ts: "2026-07-06T09:10:00.000Z", run: "farm-pipeline-20260706-090000", node: "note" },
+    ]
+      .map((e) => JSON.stringify(e))
+      .join("\n") + "\n",
+  );
 }
 
 /** Build a bundle zip (manifest.yaml + pipeline.json) with the system `zip`. */
@@ -209,6 +221,8 @@ describe("farm endpoints (#503 mapping)", () => {
     expect(s.runs[0].completedNodes).toBe(2);
     expect(s.runs[0].totalNodes).toBe(3);
     expect(s.runs[0].spendUsd).toBe(0.12);
+    // #519: one unresolved quarantine entry (note was resolved, draft is open).
+    expect(s.runs[0].quarantined).toBe(1);
   });
 
   test("live pidfile: status reports running; start refuses 409; stop SIGTERMs via the CLI", async () => {

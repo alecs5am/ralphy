@@ -25,9 +25,13 @@
 //                          node-completed (output + artifactPath + costUsd) /
 //                          node-cached (#513: hash + reused output/artifact +
 //                          costSavedUsd — counts as a completion on resume) /
-//                          node-skipped / node-failed / run-parked /
-//                          run-halted / run-completed. Line-atomic appends →
-//                          kill -9 mid-run is safe.
+//                          node-skipped / node-failed / node-quarantined
+//                          (#519: retries exhausted or permanent-class — the
+//                          #518 notification hook) / node-invalidated (#519
+//                          targeted retry: drops the node's records on the
+//                          next journal fold) / run-parked / run-halted /
+//                          run-completed. Line-atomic appends → kill -9
+//                          mid-run is safe.
 //   • farm-state.json    — the farm's execution status index (running |
 //                          parked-approval | halted-budget | halted-failure |
 //                          complete). Engine STATE (like cursor.json, #500) —
@@ -90,6 +94,8 @@ import type { ExecutorContext, NodeExecutor } from "../workflow/executors/types.
 import type { WorkflowNodeType } from "../schemas/workflow.js";
 import { parseCron, nextFire, cronMatches, type CronSpec } from "./cron.js";
 import { computeNodeCacheHash, lookupNodeCache, appendNodeCacheEntry } from "./node-cache.js";
+import { classifyError, classifyFilterError } from "../errors/taxonomy.js";
+import { appendQuarantine, appendResolution } from "./dead-letter.js";
 
 // ─── Deps (clock / sleep / stop seams — zero real sleeps in tests) ───────────
 
@@ -220,6 +226,12 @@ function readJournal(ws: string, runId: string): JournalState {
     } else if (e.kind === "node-started" || e.kind === "node-failed") {
       // A started-but-not-completed node re-executes on resume.
       if (nodes.get(key)?.state !== "completed") nodes.delete(key);
+    } else if (e.kind === "node-invalidated") {
+      // #519 targeted retry: drop EVERY record for this node (all branches)
+      // so the resume walk re-executes it against the journaled inputs.
+      for (const k of [...nodes.keys()]) {
+        if (k === node || k.startsWith(`${node}@`)) nodes.delete(k);
+      }
     }
   }
   return {
@@ -691,6 +703,8 @@ export async function executeGraphRun(
     let outcome: "completed" | "failed" | "signal" = "failed";
     let signal: RunControlSignal | null = null;
     let lastError = "";
+    let nodeSpentUsd = 0;
+    let permanent: ReturnType<typeof classifyFilterError> = null;
     let result: Awaited<ReturnType<NodeExecutor>> | null = null;
     while (attempt <= node.retry.max) {
       attempt++;
@@ -715,7 +729,19 @@ export async function executeGraphRun(
         });
         // A failed attempt's realized spend still counts toward the run total.
         spend.usd = Number((spend.usd + nodeCost).toFixed(6));
+        nodeSpentUsd = Number((nodeSpentUsd + nodeCost).toFixed(6));
         nodeCost = 0;
+        // #519 class-aware retry: a permanent filter-class failure (safety-* /
+        // copyright / tos-content) never clears on a re-attempt — the
+        // executor's #514 reroute already had its one hop — so skip the
+        // remaining retries and go straight to quarantine. `transient` and
+        // UNRECOGNIZED errors keep the envelope's retry budget (unknown =
+        // treat transient, per the issue).
+        const filtered = classifyFilterError({ message: lastError });
+        if (filtered && filtered.filterClass !== "transient") {
+          permanent = filtered;
+          break;
+        }
       }
     }
 
@@ -761,6 +787,33 @@ export async function executeGraphRun(
       }
       return { kind: "completed" };
     }
+
+    // #519 dead-letter quarantine: retries exhausted (or a permanent-class
+    // failure short-circuited them). Record enough to re-execute (inputsHash →
+    // the journaled inputs) and to explain, then let the run continue per
+    // on_fail — quarantine is a record, not a control-flow change. The
+    // `node-quarantined` journal event is the #518 notification hook.
+    const classification = permanent ?? classifyError({ message: lastError });
+    const quarantineFields = {
+      node: node.id,
+      ...branchField(scope),
+      inputsHash: cacheHash ?? computeNodeCacheHash(node, resolved.inputs),
+      errorClass: classification.class,
+      ...(classification.filterClass ? { filterClass: classification.filterClass } : {}),
+      attempts: attempt,
+      costSpentUsd: nodeSpentUsd,
+      nextActionHint: classification.nextActions[0] ?? "read the raw provider payload",
+    };
+    appendQuarantine(ws, {
+      ts: d.now().toISOString(),
+      run: runId,
+      providerPayloadExcerpt: lastError,
+      ...quarantineFields,
+    });
+    await emit("node-quarantined", {
+      ...quarantineFields,
+      message: `node "${node.id}"${branchTag(scope)} quarantined after ${attempt} attempt(s) [${classification.filterClass ?? classification.class}] — \`ralphy farm retry ${runId} ${node.id}\` re-executes it`,
+    });
 
     return applyOnFail(node, scope, attempt, lastError);
   };
@@ -1062,6 +1115,84 @@ export async function resumeIncompleteRuns(ws: string, deps: FarmDeps = {}): Pro
     outcomes.push(await executeGraphRun(ws, runId, wf.name, wf.graph, deps));
   }
   return outcomes;
+}
+
+// ─── Targeted retry (#519) ───────────────────────────────────────────────────
+
+/** Transitive consumers of a node over the data edges (excluding the node itself). */
+export function downstreamDependents(graph: WorkflowGraph, nodeId: string): string[] {
+  const byId = new Set(graph.nodes.map((n) => n.id));
+  const consumers = new Map<string, string[]>();
+  for (const n of graph.nodes) {
+    for (const ref of Object.values(n.in)) {
+      const p = producerOf(ref);
+      if (!p || !byId.has(p) || p === n.id) continue;
+      consumers.set(p, [...(consumers.get(p) ?? []), n.id]);
+    }
+  }
+  const out = new Set<string>();
+  const queue = [...(consumers.get(nodeId) ?? [])];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (out.has(id)) continue;
+    out.add(id);
+    queue.push(...(consumers.get(id) ?? []));
+  }
+  return [...out];
+}
+
+export interface RetryOutcome extends RunOutcome {
+  /** The retried node. */
+  node: string;
+  /** Every node whose completion records were invalidated (topo order). */
+  invalidated: string[];
+  /** true when the retried node completed and its quarantine entries were marked resolved. */
+  quarantineResolved: boolean;
+}
+
+/**
+ * Targeted re-execution (#519): append `node-invalidated` journal events for
+ * ONE node plus its transitive downstream dependents (append-only — prior
+ * events stay), then re-enter the #503/#510 resume machinery over the same
+ * journal. Upstream completed records are untouched, so the node re-executes
+ * against the journaled inputs. Spend gates apply exactly as on a first run
+ * (the run ledger's cap is pre-flight-checked per node against the journaled
+ * realized spend). The #513 cache applies too — safe by construction: failed
+ * nodes never wrote cache entries, so a hit can only come from a genuinely
+ * successful execution of identical inputs. On completion the node's
+ * dead-letter entries get a resolution line (append-only).
+ */
+export async function retryNode(
+  ws: string,
+  runId: string,
+  workflowName: string,
+  graph: WorkflowGraph,
+  nodeId: string,
+  deps: FarmDeps = {},
+): Promise<RetryOutcome> {
+  const order = topoOrder(graph);
+  const analysis = planFanOuts(graph, order);
+  const targets = new Set<string>([nodeId, ...downstreamDependents(graph, nodeId)]);
+  // A branch-scoped node re-executes THROUGH its fan-out (the top-level walk
+  // skips branch-scoped ids), so the owning fan-out is invalidated too — its
+  // re-run executes only the invalidated branch records (#510 resume).
+  const owner = analysis.ownerOf.get(nodeId);
+  if (owner) targets.add(owner);
+  const invalidated = order.map((n) => n.id).filter((id) => targets.has(id));
+  for (const id of invalidated) {
+    await appendRunEvent(runId, {
+      kind: "node-invalidated",
+      node: id,
+      reason: `farm retry ${nodeId}`,
+      message: `node "${id}" invalidated for targeted retry of "${nodeId}"`,
+    });
+  }
+  const outcome = await executeGraphRun(ws, runId, workflowName, graph, deps);
+  const nowCompleted = [...readJournal(ws, runId).nodes.entries()].some(
+    ([k, rec]) => (k === nodeId || k.startsWith(`${nodeId}@`)) && rec.state === "completed",
+  );
+  const quarantineResolved = nowCompleted && appendResolution(ws, runId, nodeId) > 0;
+  return { ...outcome, node: nodeId, invalidated, quarantineResolved };
 }
 
 // ─── The scheduler loop (`ralphy farm start`) ────────────────────────────────
