@@ -47,7 +47,7 @@ import { artifactKindDir, projectDir } from "../../paths.js";
 import { logGeneration } from "../../gen-log.js";
 import { protectExistingAsset } from "../../providers/shared.js";
 import { resolveConnector } from "../../providers/registry.js";
-import { emitCoverageWarnings } from "../../providers/coverage.js";
+import { emitCoverageWarnings, coverageFor, providersSupporting } from "../../providers/coverage.js";
 import { resolveModelAlias } from "../../model-aliases.js";
 import { checkSpend, estimatedCallCostUsd, readRunLedger, activeApproval } from "../../spend.js";
 import { intakePath, readPromptOrFile } from "../../path-resolution.js";
@@ -65,16 +65,16 @@ import { transcribe, type TranscribeBackend, type TranscribeLanguage } from "../
 import { captionsToSrt } from "../../captions/helpers.js";
 import { createUnit, captionUnit, expandFrom, unitsRoot } from "../../unit.js";
 import { UNIT_FORMATS, isValidUnitSlug, type UnitManifest } from "../../schemas/unit.js";
-import type { Capability, GenerateResult } from "../../providers/types.js";
+import type { Capability, GenerateResult, RalphyConnector } from "../../providers/types.js";
 import { NodeExecutionError } from "./types.js";
 import type { ExecutorContext, NodeExecutor } from "./types.js";
 import { writeApprovalInboxPack, RunControlSignal } from "./control-flow.js";
 import type { WorkflowNode } from "../../schemas/workflow.js";
 
-// ─── Shared helpers ──────────────────────────────────────────────────────────
+// ─── Shared helpers (also the #512 media-signature executors' plumbing) ──────
 
 /** params.project wins, else the run's project scope. Existence-checked. */
-function resolveProject(node: WorkflowNode, ctx: ExecutorContext): string {
+export function resolveProject(node: WorkflowNode, ctx: ExecutorContext): string {
   const id = (node.params.project as string | undefined) ?? ctx.projectId;
   if (!id) {
     throw new NodeExecutionError(
@@ -92,7 +92,7 @@ function resolveProject(node: WorkflowNode, ctx: ExecutorContext): string {
 }
 
 /** Extract a file path from a port value: a string, or an object carrying one. */
-function pathFromValue(v: unknown): string | null {
+export function pathFromValue(v: unknown): string | null {
   if (typeof v === "string" && v.trim().length > 0) return v.trim();
   if (v && typeof v === "object") {
     const o = v as Record<string, unknown>;
@@ -104,7 +104,7 @@ function pathFromValue(v: unknown): string | null {
 }
 
 /** Lowercase-kebab slot id (the canonical `normalizeSlot` UX lives in the CLI). */
-function requireSlot(node: WorkflowNode, raw: unknown): string {
+export function requireSlot(node: WorkflowNode, raw: unknown): string {
   const slot = String(raw ?? "").toLowerCase().replace(/_/g, "-");
   if (!/^[a-z0-9-]+$/.test(slot)) {
     throw new NodeExecutionError(
@@ -115,7 +115,7 @@ function requireSlot(node: WorkflowNode, raw: unknown): string {
   return slot;
 }
 
-function stringList(v: unknown): string[] {
+export function stringList(v: unknown): string[] {
   if (Array.isArray(v)) return v.map(String).filter(Boolean);
   if (typeof v === "string" && v.trim().length > 0) {
     return v.split(",").map((s) => s.trim()).filter(Boolean);
@@ -152,10 +152,10 @@ async function hasActiveRunApproval(runId: string): Promise<boolean> {
 
 // ─── ralphy-generate ─────────────────────────────────────────────────────────
 
-const GENERATE_KINDS = ["image", "video", "voiceover", "music", "sfx"] as const;
-type RalphyGenerateKind = (typeof GENERATE_KINDS)[number];
+export const GENERATE_KINDS = ["image", "video", "voiceover", "music", "sfx"] as const;
+export type RalphyGenerateKind = (typeof GENERATE_KINDS)[number];
 
-const KIND_TO_CAP: Record<RalphyGenerateKind, Capability> = {
+export const KIND_TO_CAP: Record<RalphyGenerateKind, Capability> = {
   image: "image",
   video: "video",
   voiceover: "voice",
@@ -164,7 +164,7 @@ const KIND_TO_CAP: Record<RalphyGenerateKind, Capability> = {
 };
 
 /** The asset-manifest slot update `ralphy generate` performs after a call. */
-async function updateManifestSlot(
+export async function updateManifestSlot(
   projectId: string,
   slot: string,
   entry: { kind: RalphyGenerateKind | "captions"; path: string; model?: string; costUsd?: number; url?: string },
@@ -240,6 +240,129 @@ async function gateSpend(
   return estimatedUsd;
 }
 
+/**
+ * One paid media call through the shared generate plumbing (#511/#512): the
+ * spec's `invoke` runs against the resolved connector; everything around it —
+ * spend gate, connector resolution (with the `resolveMediaConnector` test
+ * seam), #497 coverage check, run + project gen-log rows, cost reporting, and
+ * the asset-manifest slot update — is THIS function. Both `ralphy-generate`
+ * and every media-signature executor (media.ts) go through here, so there is
+ * exactly one call path (AGENTS.md invariant #2).
+ */
+export interface MediaCallSpec {
+  kind: RalphyGenerateKind;
+  /** Alias-resolved model id (undefined → the connector's own default). */
+  model?: string;
+  /** Explicit connector id (`--provider` value), else registry default. */
+  provider?: string;
+  durationSec?: number;
+  /** Spend-gate content mode (approval allowedModes). */
+  mode?: string;
+  note?: string;
+  /** Connector-input param names this call passes (#497 coverage names). */
+  coverageParams: string[];
+  /**
+   * Hard-fail BEFORE spending on a param the #497 matrix declares unsupported
+   * for the bound (model, capability, provider) — the media-signature nodes'
+   * execution-time mirror of the lint check. ralphy-generate keeps the verb's
+   * warn-only semantics (false).
+   */
+  enforceCoverage?: boolean;
+  invoke: (
+    conn: RalphyConnector,
+    common: { projectId: string; slot: string; note: string; overwrite: false },
+  ) => Promise<GenerateResult>;
+}
+
+export async function runMediaGeneration(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  project: string,
+  slot: string,
+  spec: MediaCallSpec,
+): Promise<{ output: Record<string, unknown>; artifactPath: string }> {
+  // Spend gate BEFORE the paid call (#444 + the node envelope budget).
+  await gateSpend(node, project, {
+    kind: spec.kind,
+    model: spec.model,
+    durationSec: spec.durationSec,
+    mode: spec.mode,
+  });
+
+  const resolve = ctx.resolveMediaConnector ?? resolveConnector;
+  const cap = KIND_TO_CAP[spec.kind];
+  const conn = resolve(cap, spec.provider);
+
+  if (spec.model) {
+    if (spec.enforceCoverage) {
+      // #512 execution-time hard gate — the same data the lint check reads,
+      // but against the ACTUALLY resolved connector (a graph may omit
+      // params.provider and land on the registry default).
+      const entry = coverageFor(spec.model, cap, conn.id);
+      for (const param of spec.coverageParams) {
+        if (!entry || !entry.unsupportedParams.includes(param)) continue;
+        const alt = providersSupporting(param, cap, entry.family).find(
+          (e) => e.provider !== conn.id,
+        );
+        throw new NodeExecutionError(
+          "coverage-unsupported-param",
+          `${node.type} node "${node.id}": param "${param}" is NOT supported by provider "${conn.id}" for ${spec.model}${
+            alt ? ` — use provider "${alt.provider}" with model "${alt.model}"` : ""
+          }`,
+        );
+      }
+    }
+    // #497 non-fatal provider-coverage warnings, mirroring the verb.
+    emitCoverageWarnings({
+      provider: conn.id,
+      model: spec.model,
+      capability: cap,
+      params: spec.coverageParams,
+    });
+  }
+
+  const note = spec.note ?? `workflow node ${node.id}`;
+  // overwrite stays FALSE unconditionally: the farm never force-overwrites —
+  // regen is a new .vN version (invariant #14). The connector writes the
+  // project gen-log row itself.
+  const result = await spec.invoke(conn, { projectId: project, slot, note, overwrite: false });
+
+  ctx.reportCost(result.costUsd);
+  // The RUN gen-log row (runs/<id>/generations.jsonl) — the project row is the
+  // connector's own write; both ledgers carry the cost.
+  await ctx.log({
+    provider: conn.id,
+    model: result.model,
+    endpoint: spec.kind,
+    kind: spec.kind,
+    status: "ok",
+    input: { node: node.id, project, slot },
+    output: { local: result.localPath },
+    latency_ms: result.latencyMs,
+    cost_usd: result.costUsd,
+    note,
+  });
+  await updateManifestSlot(project, slot, {
+    kind: spec.kind,
+    path: result.localPath,
+    model: result.model,
+    costUsd: result.costUsd,
+    url: result.url,
+  });
+
+  return {
+    output: {
+      projectId: project,
+      slot,
+      path: result.localPath,
+      model: result.model,
+      costUsd: result.costUsd,
+      latencyMs: result.latencyMs,
+    },
+    artifactPath: result.localPath,
+  };
+}
+
 export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
   const p = node.params as GenerateParams;
   const project = resolveProject(node, ctx);
@@ -305,116 +428,68 @@ export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
     );
   }
 
-  // Spend gate BEFORE the paid call (#444 + the node envelope budget).
-  await gateSpend(node, project, { kind, model, durationSec, mode: p.mode });
-
-  const resolve = ctx.resolveMediaConnector ?? resolveConnector;
-  const conn = resolve(KIND_TO_CAP[kind], p.provider);
-  // #497 non-fatal provider-coverage warnings, mirroring the verb.
-  if (model) {
-    emitCoverageWarnings({
-      provider: conn.id,
-      model,
-      capability: KIND_TO_CAP[kind],
-      params: [
-        ...(refs && refs.length > 0 ? ["refs"] : []),
-        ...(firstFrame ? ["firstFrame"] : []),
-        ...(lastFrame ? ["lastFrame"] : []),
-        ...(p.audio ? ["generateAudio"] : []),
-      ],
-    });
-  }
-
-  const note = p.note ?? `workflow node ${node.id}`;
-  // overwrite stays FALSE unconditionally: the farm never force-overwrites —
-  // regen is a new .vN version (invariant #14). The connector writes the
-  // project gen-log row itself.
-  const common = { projectId: project, slot, note, overwrite: false as const };
-  let result: GenerateResult;
-  switch (kind) {
-    case "image":
-      result = await conn.generateImage!({
-        ...common,
-        prompt: text,
-        model,
-        refs,
-        size: p.size,
-        negativePrompt: p.negative,
-      });
-      break;
-    case "video":
-      result = await conn.generateVideo!({
-        ...common,
-        prompt: text,
-        model,
-        durationSec: durationSec!,
-        firstFrame,
-        lastFrame,
-        refs,
-        aspectRatio: p.aspect_ratio as never,
-        resolution: p.resolution as never,
-        generateAudio: p.audio,
-      });
-      break;
-    case "voiceover":
-      result = await conn.generateVoiceover!({
-        ...common,
-        text,
-        voiceId: String(p.voice),
-        modelId: model,
-      });
-      break;
-    case "music":
-      result = await conn.generateMusic!({
-        ...common,
-        prompt: text,
-        durationSec: durationSec!,
-        forceInstrumental: !p.with_vocals,
-      });
-      break;
-    case "sfx":
-      result = await conn.generateSfx!({
-        ...common,
-        prompt: text,
-        durationSec,
-      });
-      break;
-  }
-
-  ctx.reportCost(result.costUsd);
-  // The RUN gen-log row (runs/<id>/generations.jsonl) — the project row is the
-  // connector's own write; both ledgers carry the cost.
-  await ctx.log({
-    provider: conn.id,
-    model: result.model,
-    endpoint: kind,
+  // The shared generate core (#511/#512): spend gate → connector → coverage →
+  // call → gen-log → manifest. Warn-only coverage — the verb's semantics.
+  return runMediaGeneration(node, ctx, project, slot, {
     kind,
-    status: "ok",
-    input: { node: node.id, project, slot },
-    output: { local: result.localPath },
-    latency_ms: result.latencyMs,
-    cost_usd: result.costUsd,
-    note,
-  });
-  await updateManifestSlot(project, slot, {
-    kind,
-    path: result.localPath,
-    model: result.model,
-    costUsd: result.costUsd,
-    url: result.url,
-  });
-
-  return {
-    output: {
-      projectId: project,
-      slot,
-      path: result.localPath,
-      model: result.model,
-      costUsd: result.costUsd,
-      latencyMs: result.latencyMs,
+    model,
+    provider: p.provider,
+    durationSec,
+    mode: p.mode,
+    note: p.note,
+    coverageParams: [
+      ...(refs && refs.length > 0 ? ["refs"] : []),
+      ...(firstFrame ? ["firstFrame"] : []),
+      ...(lastFrame ? ["lastFrame"] : []),
+      ...(p.audio ? ["generateAudio"] : []),
+    ],
+    invoke: async (conn, common): Promise<GenerateResult> => {
+      switch (kind) {
+        case "image":
+          return conn.generateImage!({
+            ...common,
+            prompt: text,
+            model,
+            refs,
+            size: p.size,
+            negativePrompt: p.negative,
+          });
+        case "video":
+          return conn.generateVideo!({
+            ...common,
+            prompt: text,
+            model,
+            durationSec: durationSec!,
+            firstFrame,
+            lastFrame,
+            refs,
+            aspectRatio: p.aspect_ratio as never,
+            resolution: p.resolution as never,
+            generateAudio: p.audio,
+          });
+        case "voiceover":
+          return conn.generateVoiceover!({
+            ...common,
+            text,
+            voiceId: String(p.voice),
+            modelId: model,
+          });
+        case "music":
+          return conn.generateMusic!({
+            ...common,
+            prompt: text,
+            durationSec: durationSec!,
+            forceInstrumental: !p.with_vocals,
+          });
+        case "sfx":
+          return conn.generateSfx!({
+            ...common,
+            prompt: text,
+            durationSec,
+          });
+      }
     },
-    artifactPath: result.localPath,
-  };
+  });
 };
 
 // ─── ralphy-render ───────────────────────────────────────────────────────────

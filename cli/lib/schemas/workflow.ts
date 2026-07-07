@@ -472,6 +472,73 @@ export const NODE_SIGNATURES: Record<WorkflowNodeType, NodeSignature> = {
   "artifact-write": sig("data", {}, true, "text"),
 };
 
+// ─── Media port contracts (#512) ─────────────────────────────────────────────
+//
+// The static half of "signature typing means you cannot wire an i2v node
+// without an anchor frame": per media node type, which in-ports are REQUIRED,
+// and which params can satisfy a port without a wired edge (an inline path /
+// prompt in params is as good as an upstream producer). Checked at graph
+// import by validateWorkflowGraph (cli/lib/workflow-graph.ts) — a violation
+// is a `workflow lint` ERROR, not a runtime surprise — and re-checked by the
+// media executors at execution time (cli/lib/workflow/executors/media.ts).
+
+export interface MediaPortContract {
+  /** Required in-ports: port name → params keys that satisfy it without a wired edge. */
+  required: Record<string, string[]>;
+  /** Groups where AT LEAST ONE member port must be wired (or param-fed). */
+  oneOf?: Array<Record<string, string[]>>;
+}
+
+export const MEDIA_PORT_CONTRACTS: Partial<Record<WorkflowNodeType, MediaPortContract>> = {
+  t2i: { required: { prompt: ["prompt", "prompt_file"] } },
+  i2i: { required: { images: ["images", "refs"], prompt: ["prompt", "prompt_file"] } },
+  t2v: { required: { prompt: ["prompt", "prompt_file"] } },
+  i2v: { required: { first_frame: ["first_frame"], prompt: ["prompt", "prompt_file"] } },
+  r2v: { required: { refs: ["refs"], prompt: ["prompt", "prompt_file"] } },
+  v2v: { required: { video: ["video"], prompt: ["prompt", "prompt_file"] } },
+  lipsync: { required: { image: ["image"], audio: ["audio"] } },
+  tts: { required: { text: ["text", "text_file"] } },
+  "voice-design": { required: { text: ["text", "text_file"] } },
+  music: { required: { prompt: ["prompt", "prompt_file"] } },
+  sfx: { required: { prompt: ["prompt", "prompt_file"] } },
+  transcribe: { required: {}, oneOf: [{ audio: ["audio"], video: ["video"] }] },
+  upscale: { required: {}, oneOf: [{ image: ["image"], video: ["video"] }] },
+  "remove-bg": { required: { image: ["image"] } },
+  reframe: { required: {}, oneOf: [{ image: ["image"], video: ["video"] }] },
+  crunch: { required: { image: ["image"] } },
+};
+
+/**
+ * Authored media port/param name → connector-input param name (the
+ * coverage.ts convention, #497). Ports and params keep the graph's snake_case
+ * spelling; the coverage matrix speaks GenerateVideoInput / GenerateImageInput
+ * field names. Identity for names not listed.
+ */
+export const MEDIA_COVERAGE_PARAM_ALIASES: Record<string, string> = {
+  first_frame: "firstFrame",
+  last_frame: "lastFrame",
+  ref_videos: "refVideos",
+  images: "refs",
+  video: "refVideos",
+};
+
+/**
+ * Media params that are node plumbing, NOT connector-input params — excluded
+ * from the #497 coverage scan (they would otherwise read as uncovered params
+ * on every bound node).
+ */
+export const MEDIA_META_PARAM_KEYS = new Set([
+  "slot",
+  "note",
+  "prompt_file",
+  "text_file",
+  "project",
+  "method",
+  "aspect",
+  "language",
+  "backend",
+]);
+
 // ─── The node + graph schemas ────────────────────────────────────────────────
 
 /** One graph node — the common envelope + a `type`-discriminated params shape. */
