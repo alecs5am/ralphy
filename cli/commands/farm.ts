@@ -42,6 +42,10 @@ export function farmCmd() {
     .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
     .option("--once", "Exit after the first tick completes (test/CI mode)")
     .option("--tick-now", "Fire every scheduled graph immediately once at startup (debug)")
+    .option(
+      "--no-cache",
+      "Force execution on every node, ignoring the #513 content-hash cache (paid nodes re-bill even on identical inputs)",
+    )
     .action(async (opts) => {
       const ws: string = opts.workspace ?? currentWorkspace();
       requireWorkspace("farm start", ws);
@@ -63,7 +67,7 @@ export function farmCmd() {
       ok(`Farm started for workspace "${ws}" (pid ${process.pid}) — Ctrl-C / ralphy farm stop to end`);
       try {
         await farmLoop(
-          { workspace: ws, once: !!opts.once, tickNow: !!opts.tickNow },
+          { workspace: ws, once: !!opts.once, tickNow: !!opts.tickNow, noCache: opts.cache === false },
           {
             shouldStop: () => stopping,
             onEvent: (runId, kind, message) => {
@@ -81,7 +85,7 @@ export function farmCmd() {
   cmd
     .command("status")
     .description(
-      "Farm status for a workspace: whether a farm process is live (pidfile), run counts by state (running / parked-approval / halted-budget / halted-failure / complete), and per-run node progress + realized spend from each run journal. Example: ralphy farm status --workspace my-studio",
+      "Farm status for a workspace: whether a farm process is live (pidfile), run counts by state (running / parked-approval / halted-budget / halted-failure / complete), per-run node progress + realized spend from each run journal, and #513 content-hash cache hits + cost saved (per run and aggregate). Example: ralphy farm status --workspace my-studio",
     )
     .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
     .action(async (opts) => {
