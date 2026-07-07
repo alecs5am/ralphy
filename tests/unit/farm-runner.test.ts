@@ -18,10 +18,14 @@ import {
   resumeIncompleteRuns,
   readFarmState,
   farmStatus,
+  farmStatusAll,
   farmLoop,
   loadGraphWorkflows,
+  isFarmEnabled,
+  farmEnabledWorkspaces,
 } from "../../cli/lib/farm/runner.js";
 import type { FarmDeps } from "../../cli/lib/farm/runner.js";
+import { _resetConcurrency } from "../../cli/lib/providers/concurrency.js";
 import type { NodeExecutor } from "../../cli/lib/workflow/executors/types.js";
 import { parseWorkflowGraph, parseSubgraph } from "../../cli/lib/schemas/workflow.js";
 import { expandGraphSubgraphs } from "../../cli/lib/subgraph.js";
@@ -1108,5 +1112,261 @@ describe("farm status", () => {
     const parkedRow = report.runs.find((r) => r.id === b.runId)!;
     expect(parkedRow.completedNodes).toBe(1); // just the schedule trigger
     expect(parkedRow.status).toBe("parked-approval");
+  });
+});
+
+// ─── #522 one daemon, N workspaces ───────────────────────────────────────────
+
+describe("multi-workspace scheduling (#522)", () => {
+  /** Seed the tmp root once, then create N named workspaces under it. */
+  function seedMultiRoot(slugs: string[]): void {
+    tmp = makeTmpRoot("ralphy-farm-multi");
+    for (const slug of slugs) {
+      const dir = workspaceDir(slug);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "workspace.json"), JSON.stringify({ slug }));
+    }
+  }
+
+  /** Write a graph workflow onto a workspace's disk (so loadGraphWorkflows sees it). */
+  function writeWorkflow(slug: string, name: string, graph: WorkflowGraph): void {
+    fs.mkdirSync(workflowsDir(slug), { recursive: true });
+    fs.writeFileSync(path.join(workflowsDir(slug), `${name}.json`), JSON.stringify({ ...graph, name }));
+  }
+
+  function scheduledCopyGraph(prompt: string): WorkflowGraph {
+    return graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("copy", "template-string", { params: { prompt } }),
+    ]);
+  }
+
+  test("farm-enabled detection: schedule trigger opts in; flag overrides both ways", () => {
+    seedMultiRoot(["with-sched", "no-sched", "forced-on", "forced-off"]);
+    writeWorkflow("with-sched", "wf", scheduledCopyGraph("a"));
+    // no-sched: a graph workflow WITHOUT a schedule node.
+    writeWorkflow(
+      "no-sched",
+      "wf",
+      graphOf([node("copy", "template-string", { params: { prompt: "b" } })]),
+    );
+    // forced-on: no schedule node, but farm.enabled:true opts in.
+    fs.writeFileSync(
+      path.join(workspaceDir("forced-on"), "workspace.json"),
+      JSON.stringify({ slug: "forced-on", farm: { enabled: true } }),
+    );
+    // forced-off: has a schedule node but farm.enabled:false opts out.
+    writeWorkflow("forced-off", "wf", scheduledCopyGraph("c"));
+    fs.writeFileSync(
+      path.join(workspaceDir("forced-off"), "workspace.json"),
+      JSON.stringify({ slug: "forced-off", farm: { enabled: false } }),
+    );
+
+    expect(isFarmEnabled("with-sched")).toBe(true);
+    expect(isFarmEnabled("no-sched")).toBe(false);
+    expect(isFarmEnabled("forced-on")).toBe(true);
+    expect(isFarmEnabled("forced-off")).toBe(false);
+    expect(farmEnabledWorkspaces().sort()).toEqual(["forced-on", "with-sched"]);
+  });
+
+  test("fairness: one daemon ticks EVERY farm-enabled workspace; both make progress", async () => {
+    seedMultiRoot(["alpha", "beta"]);
+    writeWorkflow("alpha", "wf", scheduledCopyGraph("alpha copy"));
+    writeWorkflow("beta", "wf", scheduledCopyGraph("beta copy"));
+
+    // No --workspace → the daemon drives both. --once fires one scan then exits.
+    await farmLoop({ once: true, tickNow: true }, noSleep);
+
+    const a = farmStatus("alpha");
+    const b = farmStatus("beta");
+    expect(a.counts.complete).toBe(1);
+    expect(b.counts.complete).toBe(1);
+    // Grouped status returns both, farm-enabled flagged.
+    const all = farmStatusAll();
+    expect(all.workspaces.map((w) => w.workspace).sort()).toEqual(["alpha", "beta"]);
+    expect(all.workspaces.every((w) => w.farmEnabled)).toBe(true);
+  });
+
+  test("budget halt is isolated to its workspace; the sibling still completes", async () => {
+    seedMultiRoot(["poor", "rich"]);
+    // `poor` overspends its run-ledger cap and halts; `rich` completes cleanly.
+    const paid: NodeExecutor = async (_n, ctx) => {
+      ctx.reportCost(1.0);
+      return { output: "spent" };
+    };
+    writeWorkflow(
+      "poor",
+      "wf",
+      graphOf([
+        node("tick", "schedule", { params: { cron: "* * * * *" } }),
+        node("gen", "generate-text", { params: { prompt: "x" } }),
+        node("guard", "budget-guard", { in: { x: "gen.out" }, params: { max_usd: 0.5 } }),
+      ]),
+    );
+    writeWorkflow("rich", "wf", scheduledCopyGraph("rich copy"));
+
+    await farmLoop(
+      { once: true, tickNow: true },
+      { ...noSleep, executorOverrides: { "generate-text": paid } },
+    );
+
+    const poor = farmStatus("poor");
+    const rich = farmStatus("rich");
+    expect(poor.counts["halted-budget"]).toBe(1);
+    expect(poor.counts.complete).toBe(0);
+    // Isolation: the sibling is untouched by the neighbor's halt.
+    expect(rich.counts.complete).toBe(1);
+    expect(rich.counts["halted-budget"]).toBe(0);
+  });
+
+  test("a workspace whose runs keep halting does not stop the daemon or starve its sibling", async () => {
+    seedMultiRoot(["broken", "healthy"]);
+    // `broken`'s only node throws → its run halts every scan (never completes).
+    writeWorkflow(
+      "broken",
+      "wf",
+      graphOf([
+        node("tick", "schedule", { params: { cron: "* * * * *" } }),
+        node("boom", "generate-text", { params: { prompt: "x" }, on_fail: "halt" }),
+      ]),
+    );
+    writeWorkflow("healthy", "wf", scheduledCopyGraph("healthy"));
+
+    const boom: NodeExecutor = async () => {
+      throw new Error("node boom");
+    };
+
+    // Drive a bounded number of scans (stop after the 3rd wake). shouldStop is
+    // polled many times per scan, so gate on a scan COUNT incremented once per
+    // wake via a wrapped sleep seam.
+    let wakes = 0;
+    await farmLoop(
+      {},
+      {
+        executorOverrides: { "generate-text": boom },
+        sleep: async () => {
+          wakes++;
+        },
+        shouldStop: () => wakes >= 3,
+      },
+    );
+
+    // The daemon survived a workspace whose runs halt every scan, and `healthy`
+    // completed at least once (was NOT starved by the broken sibling).
+    expect(farmStatus("healthy").counts.complete).toBeGreaterThanOrEqual(1);
+    // `broken`'s runs are recorded as halted, isolated to that workspace.
+    expect(farmStatus("broken").counts["halted-failure"]).toBeGreaterThanOrEqual(1);
+    expect(farmStatus("broken").counts.complete).toBe(0);
+  });
+
+  test("per-workspace backoff: a THROWING tick is retried a bounded number of times, sibling keeps ticking", async () => {
+    seedMultiRoot(["crash", "healthy"]);
+    writeWorkflow("crash", "wf", scheduledCopyGraph("crash"));
+    writeWorkflow("healthy", "wf", scheduledCopyGraph("healthy"));
+
+    // Force `crash`'s fireTick to throw deterministically: a FROZEN clock makes
+    // tickRunId identical every scan, and pre-creating run.json for the base id
+    // + every collision suffix (-2..-9) exhausts createRun's retry → it rethrows
+    // E_ALREADY_EXISTS up through fireTick → tickWorkspaceOnce → the daemon's
+    // per-workspace catch engages the crash-loop backoff.
+    const frozen = new Date(2026, 6, 8, 12, 0, 0);
+    const ts = frozen.toISOString().replace(/[-:]/g, "").replace(/\..+$/, "").replace("T", "-");
+    for (const id of [`farm-wf-${ts}`, ...Array.from({ length: 8 }, (_v, i) => `farm-wf-${ts}-${i + 2}`)]) {
+      const dir = runDir("crash", id);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "run.json"), JSON.stringify({ version: 1, id, workspace: "crash", status: "complete", workflow: "wf" }));
+    }
+
+    let wakes = 0;
+    // Count how many scans `crash` was actually attempted vs skipped by backoff.
+    const crashTicks: string[] = [];
+    await farmLoop(
+      {},
+      {
+        now: () => frozen,
+        sleep: async () => {
+          wakes++;
+        },
+        shouldStop: () => wakes >= 8,
+        onEvent: (idOrWs, kind) => {
+          if (kind === "farm-workspace-error" && idOrWs === "crash") crashTicks.push(kind);
+        },
+      },
+    );
+
+    // The daemon survived and the healthy sibling still completed.
+    expect(farmStatus("healthy").counts.complete).toBeGreaterThanOrEqual(1);
+    // `crash` threw and was backed off: attempted FEWER times than the ~8 scans
+    // (the growing cool-off skips it), proving it can't busy-loop or starve.
+    expect(crashTicks.length).toBeGreaterThanOrEqual(1);
+    expect(crashTicks.length).toBeLessThan(wakes);
+  });
+});
+
+// ─── #522 provider concurrency semaphore under parallel branches ─────────────
+
+describe("dispatch semaphore under parallel fan-out (#522)", () => {
+  test("never more than the connector cap in flight across parallel branches", async () => {
+    seedWorkspace();
+    const projectId = "farm-sem-001";
+    const projDir = path.join(workspaceDir(WS), "projects", projectId);
+    fs.mkdirSync(path.join(projDir, "artifacts"), { recursive: true });
+
+    // A mock image connector that tracks peak in-flight. It resolves through
+    // the SAME runMediaGeneration path, so the #522 semaphore wraps it. The
+    // connector id + a fixed model ("openai/gpt-5.4-image-2", cap 2) key the
+    // semaphore, so 4 parallel branches must never run more than 2 at once.
+    let active = 0;
+    let peak = 0;
+    const gateMs = 20;
+    const mediaConnector = {
+      id: "openrouter",
+      label: "Mock OR",
+      envVar: "MOCK_KEY",
+      signupUrl: "",
+      capabilities: ["image"],
+      available: () => true,
+      generateImage: async (input: { slot: string }) => {
+        active++;
+        peak = Math.max(peak, active);
+        await new Promise((r) => setTimeout(r, gateMs));
+        active--;
+        const dir = path.join(projDir, "artifacts", "images");
+        fs.mkdirSync(dir, { recursive: true });
+        const localPath = path.join(dir, `${input.slot}.png`);
+        fs.writeFileSync(localPath, "png");
+        return { localPath, costUsd: 0, latencyMs: gateMs, model: "openai/gpt-5.4-image-2" };
+      },
+    };
+
+    const seedItems: NodeExecutor = async () => ({ output: ["s1", "s2", "s3", "s4"] });
+    const graph = graphOf([
+      node("tick", "schedule", { params: { cron: "* * * * *" } }),
+      node("seed", "generate-object", { params: {} }),
+      node("fan", "fan-out", { in: { items: "seed.out" }, params: { concurrency: 4 } }),
+      node("gen", "t2i", {
+        in: { item: "fan.out", prompt: "fan.out" },
+        params: {
+          project: projectId,
+          slot: "shot",
+          model: "openai/gpt-5.4-image-2",
+          provider: "openrouter",
+        },
+      }),
+      node("collect", "join", { in: { r: "gen.out" } }),
+    ]);
+
+    _resetConcurrency();
+    const outcome = await fireTick(WS, "sem", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems },
+      ctx: { resolveMediaConnector: () => mediaConnector as never },
+    });
+
+    expect(outcome.status).toBe("complete");
+    // The fan-out allowed 4 branches concurrently, but the semaphore capped the
+    // provider at 2 in flight — the whole point of #522.
+    expect(peak).toBeLessThanOrEqual(2);
+    expect(peak).toBeGreaterThan(1); // proves parallelism WAS happening (not serialized)
   });
 });

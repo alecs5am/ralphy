@@ -48,6 +48,7 @@ import { logGeneration } from "../../gen-log.js";
 import { protectExistingAsset } from "../../providers/shared.js";
 import { resolveConnector } from "../../providers/registry.js";
 import { emitCoverageWarnings, coverageFor, providersSupporting } from "../../providers/coverage.js";
+import { withConcurrency, noteRateLimit, type EndpointKind } from "../../providers/concurrency.js";
 import {
   effectiveRerouteRules,
   extractPromptSuggestion,
@@ -225,6 +226,17 @@ export const KIND_TO_CAP: Record<RalphyGenerateKind, Capability> = {
   voiceover: "voice",
   music: "music",
   sfx: "sfx",
+};
+
+/** Capability → the concurrency module's EndpointKind (for the #522 semaphore). */
+const CAP_TO_ENDPOINT_KIND: Record<Capability, EndpointKind> = {
+  image: "image",
+  video: "video",
+  voice: "voice",
+  music: "music",
+  sfx: "sfx",
+  text: "text",
+  transcribe: "text",
 };
 
 /** The asset-manifest slot update `ralphy generate` performs after a call. */
@@ -493,15 +505,30 @@ export async function runMediaGeneration(
   }
 
   const note = spec.note ?? `workflow node ${node.id}`;
+  // #522 shared dispatch semaphore: THE one seam every paid media node passes
+  // through (t2i/i2v/tts/music/… all land in runMediaGeneration). Gate the
+  // network submit on the per-connector-endpoint in-flight budget so parallel
+  // fan-out branches and concurrent workspaces QUEUE on the same provider
+  // rather than 429. Keyed by the actually-resolved connector id + model, so a
+  // graph that omits params.provider still throttles correctly.
+  const semModel = spec.model ?? "default";
+  const semKind = CAP_TO_ENDPOINT_KIND[cap];
   // overwrite stays FALSE unconditionally: the farm never force-overwrites —
   // regen is a new .vN version (invariant #14). The connector writes the
   // project gen-log row itself.
   const invokeOnce = (overrides?: MediaInvokeOverrides) =>
-    spec.invoke(conn, { projectId: project, slot, note, overwrite: false }, overrides);
+    withConcurrency(conn.id, semModel, semKind, () =>
+      spec.invoke(conn, { projectId: project, slot, note, overwrite: false }, overrides),
+    );
   let result: GenerateResult;
   try {
     result = await invokeOnce();
   } catch (err) {
+    // #522 adaptive backoff: a 429/rate-limit halves this endpoint's in-flight
+    // budget before the recovery hop, so a burst self-throttles instead of
+    // hammering the provider.
+    const filtered = classifyFilterError({ message: (err as Error).message });
+    if (filtered?.filterClass === "transient") noteRateLimit(conn.id, semModel, semKind);
     // #514 filter-aware reroute: one bounded hop per node execution. The
     // spend gate above covered the original call; the single recovery call
     // rides the same approval (its realized cost still lands in both ledgers).

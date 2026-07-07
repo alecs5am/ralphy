@@ -1,6 +1,6 @@
 # Multi-workspace farm: fair scheduling and provider rate limits
 
-> **Status:** todo
+> **Status:** done — 2026-07-08
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** medium

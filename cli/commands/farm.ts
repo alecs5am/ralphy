@@ -14,6 +14,8 @@ import { raiseError } from "../lib/errors/index.js";
 import {
   farmLoop,
   farmStatus,
+  farmStatusAll,
+  farmEnabledWorkspaces,
   farmPidPath,
   readFarmPid,
   isFarmAlive,
@@ -39,6 +41,12 @@ function requireWebhookWorkflow(ws: string, triggerId: string): { name: string; 
   return wf!;
 }
 
+/**
+ * Pidfile slug for the multi-workspace daemon (#522). A real workspace slug is
+ * lowercase kebab-case, so this bracketed name can never collide with one.
+ */
+const MULTI_DAEMON_SLUG = "__all__";
+
 function requireWorkspace(verb: string, slug: string): void {
   if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb });
   if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
@@ -55,9 +63,9 @@ export function farmCmd() {
   cmd
     .command("start")
     .description(
-      "Start the farm scheduler for a workspace (FOREGROUND — background it yourself or docker run it). Reads schedule nodes (params.cron: standard 5-field cron; * , - / steps; numeric only) from the workspace's graph workflows, sleeps until the next fire, executes each tick as one Run, and resumes incomplete/parked runs on boot and on every tick. Refuses when a live farm process already holds the workspace pidfile. Example: ralphy farm start --workspace my-studio --once --tick-now",
+      "Start the farm scheduler (FOREGROUND — background it yourself or docker run it). With NO --workspace it runs EVERY farm-enabled workspace in ONE daemon (#522: round-robin tick queues, per-workspace budget/trust/dedup/cache isolation + crash-loop backoff); a workspace opts in via workspace.json `farm.enabled: true` or by having ≥1 schedule-triggered graph workflow (opt out with `farm.enabled: false`). With --workspace it drives that one workspace (backward compatible). Reads schedule nodes (params.cron: standard 5-field cron), sleeps until the next fire across all workspaces, executes each tick as one Run, resumes incomplete/parked runs on boot and every scan. Refuses when a live farm process already holds the pidfile. Example: ralphy farm start --once --tick-now",
     )
-    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--workspace <ws>", "Drive a SINGLE workspace (default: every farm-enabled workspace)")
     .option("--once", "Exit after the first tick completes (test/CI mode)")
     .option("--tick-now", "Fire every scheduled graph immediately once at startup (debug)")
     .option(
@@ -65,51 +73,71 @@ export function farmCmd() {
       "Force execution on every node, ignoring the #513 content-hash cache (paid nodes re-bill even on identical inputs)",
     )
     .action(async (opts) => {
-      const ws: string = opts.workspace ?? currentWorkspace();
-      requireWorkspace("farm start", ws);
-      const existing = readFarmPid(ws);
+      // Single-workspace mode keeps the per-workspace pidfile; multi-workspace
+      // mode uses the shared daemon pidfile slug so one daemon owns the host.
+      const single: string | undefined = opts.workspace;
+      const pidSlug = single ?? MULTI_DAEMON_SLUG;
+      if (single) requireWorkspace("farm start", single);
+      else if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb: "farm start" });
+
+      const existing = readFarmPid(pidSlug);
       if (isFarmAlive(existing)) {
         raiseError("E_VALIDATION_FAILED", {
           target: "farm",
-          detail: `a farm process for workspace "${ws}" is already running (pid ${existing}, ${farmPidPath(ws)}) — stop it first with \`ralphy farm stop --workspace ${ws}\``,
+          detail: single
+            ? `a farm process for workspace "${single}" is already running (pid ${existing}, ${farmPidPath(single)}) — stop it first with \`ralphy farm stop --workspace ${single}\``
+            : `a farm daemon is already running (pid ${existing}, ${farmPidPath(pidSlug)}) — stop it first with \`ralphy farm stop\``,
         });
       }
-      clearFarmPid(ws); // stale pidfile from a dead process
-      writeFarmPid(ws, process.pid);
+      clearFarmPid(pidSlug); // stale pidfile from a dead process
+      writeFarmPid(pidSlug, process.pid);
       let stopping = false;
       const stop = () => {
         stopping = true;
       };
       process.on("SIGTERM", stop);
       process.on("SIGINT", stop);
-      ok(`Farm started for workspace "${ws}" (pid ${process.pid}) — Ctrl-C / ralphy farm stop to end`);
+      const enabled = single ? [single] : farmEnabledWorkspaces();
+      ok(
+        single
+          ? `Farm started for workspace "${single}" (pid ${process.pid}) — Ctrl-C / ralphy farm stop to end`
+          : `Farm daemon started (pid ${process.pid}) — ${enabled.length} farm-enabled workspace(s): ${enabled.join(", ") || "(none yet)"} — Ctrl-C / ralphy farm stop to end`,
+      );
       try {
         await farmLoop(
-          { workspace: ws, once: !!opts.once, tickNow: !!opts.tickNow, noCache: opts.cache === false },
+          { workspace: single, once: !!opts.once, tickNow: !!opts.tickNow, noCache: opts.cache === false },
           {
             shouldStop: () => stopping,
-            onEvent: (runId, kind, message) => {
-              if (isPretty()) console.log(`[${runId}] ${kind}: ${message}`);
+            onEvent: (idOrWs, kind, message) => {
+              if (isPretty()) console.log(`[${idOrWs}] ${kind}: ${message}`);
             },
           },
         );
       } finally {
-        clearFarmPid(ws);
+        clearFarmPid(pidSlug);
       }
-      out({ workspace: ws, stopped: stopping, status: farmStatus(ws).counts });
+      out(
+        single
+          ? { workspace: single, stopped: stopping, status: farmStatus(single).counts }
+          : { workspaces: enabled, stopped: stopping, status: farmStatusAll(enabled) },
+      );
     });
 
   // ── status ─────────────────────────────────────────────────────────────────
   cmd
     .command("status")
     .description(
-      "Farm status for a workspace: whether a farm process is live (pidfile), run counts by state (running / parked-approval / halted-budget / halted-failure / complete), per-run node progress + realized spend from each run journal, and #513 content-hash cache hits + cost saved (per run and aggregate). Example: ralphy farm status --workspace my-studio",
+      "Farm status. With NO --workspace it groups every farm-enabled workspace (#522) plus a process-wide per-provider concurrency snapshot (in-flight / queued / cumulative queue-wait). With --workspace it reports one workspace: whether a farm process is live (pidfile), run counts by state (running / parked-approval / halted-budget / halted-failure / complete), per-run node progress + realized spend, and #513 content-hash cache hits + cost saved. Example: ralphy farm status --workspace my-studio",
     )
-    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--workspace <ws>", "Report a SINGLE workspace (default: every farm-enabled workspace, grouped)")
     .action(async (opts) => {
-      const ws: string = opts.workspace ?? currentWorkspace();
-      requireWorkspace("farm status", ws);
-      out(farmStatus(ws));
+      if (opts.workspace) {
+        requireWorkspace("farm status", opts.workspace);
+        out(farmStatus(opts.workspace));
+        return;
+      }
+      if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb: "farm status" });
+      out(farmStatusAll());
     });
 
   // ── report (#518 metrics rollup) ─────────────────────────────────────────────
@@ -252,21 +280,24 @@ export function farmCmd() {
   cmd
     .command("stop")
     .description(
-      "Stop the workspace's running farm process: SIGTERM to the pidfile's pid (the loop finishes the node in flight and exits; incomplete runs resume on the next start). Example: ralphy farm stop --workspace my-studio",
+      "Stop a running farm process: SIGTERM to the pidfile's pid (the loop finishes the node in flight and exits; incomplete runs resume on the next start). With NO --workspace it stops the multi-workspace daemon (#522); with --workspace it stops that workspace's single-workspace process. Example: ralphy farm stop",
     )
-    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--workspace <ws>", "Stop a SINGLE-workspace process (default: the multi-workspace daemon)")
     .action(async (opts) => {
-      const ws: string = opts.workspace ?? currentWorkspace();
-      requireWorkspace("farm stop", ws);
-      const pid = readFarmPid(ws);
+      const single: string | undefined = opts.workspace;
+      if (single) requireWorkspace("farm stop", single);
+      else if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb: "farm stop" });
+      const pidSlug = single ?? MULTI_DAEMON_SLUG;
+      const label = single ? { workspace: single } : { daemon: MULTI_DAEMON_SLUG };
+      const pid = readFarmPid(pidSlug);
       if (!isFarmAlive(pid)) {
-        clearFarmPid(ws);
-        out({ workspace: ws, stopped: false, pid: null, detail: "no live farm process (stale pidfile cleared if present)" });
+        clearFarmPid(pidSlug);
+        out({ ...label, stopped: false, pid: null, detail: "no live farm process (stale pidfile cleared if present)" });
         return;
       }
       process.kill(pid!, "SIGTERM");
       ok(`Sent SIGTERM to farm pid ${pid}`);
-      out({ workspace: ws, stopped: true, pid, detail: "the loop exits after the node in flight; runs resume on the next start" });
+      out({ ...label, stopped: true, pid, detail: "the loop exits after the node in flight; runs resume on the next start" });
     });
 
   return cmd;
