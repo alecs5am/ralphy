@@ -94,12 +94,13 @@ const readFixture = (name: string) => fs.readFileSync(path.join(FIXTURES, name),
 const readJsonFixture = (name: string) => JSON.parse(readFixture(name));
 
 describe("executor registry (#500)", () => {
-  test("the five ingestion/dedup node types are registered; http is deliberately NOT", () => {
+  test("the five ingestion/dedup node types are registered; http is registered too (#520)", () => {
     const types = registeredExecutorTypes();
     for (const t of ["web-scrape", "actor", "rss", "trend-watch", "dedup"]) {
       expect(types).toContain(t as WorkflowNodeType);
     }
-    expect(types).not.toContain("http" as WorkflowNodeType);
+    // #520 gave the generic `http` node its allowlisted executor.
+    expect(types).toContain("http" as WorkflowNodeType);
   });
 });
 
