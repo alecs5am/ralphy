@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "slots": [
+    {
+      "id": "slot-mon-0900",
+      "weekday": "mon",
+      "time": "09:00",
+      "timezone": "UTC",
+      "unitType": "ugc-review",
+      "targetPlatforms": ["tiktok"]
+    }
+  ],
+  "entries": []
+}
