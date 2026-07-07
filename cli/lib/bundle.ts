@@ -14,6 +14,9 @@
 //   manifest.yaml        name, version, ralphyVersionFloor,
 //                        requiredConnectorKeys, requiredCoverage, trustDefault
 //   pipeline.json        the graph spec (+ pipeline.<name>.json siblings)
+//   subgraphs/           reusable named subgraphs (#517) — the whole workspace
+//                        tier, verbatim; pipelines ship authored and re-expand
+//                        on the import side
 //   prompts/             slot-templated prompt files the graph references
 //   compositions/        parametrized HyperFrames engines (when present)
 //   evaluators/          STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json
@@ -35,12 +38,20 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { workspaceDir, workspacesDir, sharedDir, workflowsDir } from "./paths.js";
+import { workspaceDir, workspacesDir, sharedDir, workflowsDir, subgraphsDir } from "./paths.js";
 import { listWorkflowNames, workflowPath } from "./workflow.js";
 import { lintWorkflowFile, type GraphIssue } from "./workflow-graph.js";
 import {
+  listSubgraphNames,
+  subgraphPath,
+  validateSubgraphDefinition,
+  expandGraphSubgraphs,
+  dirSubgraphResolver,
+} from "./subgraph.js";
+import {
   isWorkflowGraphDocument,
   parseWorkflowGraph,
+  parseSubgraph,
   NODE_SIGNATURES,
   type WorkflowGraph,
   type WorkflowNode,
@@ -92,7 +103,7 @@ function requireBinary(bin: "zip" | "unzip"): void {
 // ─── Export readiness ────────────────────────────────────────────────────────
 
 export interface BundleGap {
-  /** Stable gap id: missing-evaluators | no-graph-workflow | workflow-lint-error | prompt-lint-error. */
+  /** Stable gap id: missing-evaluators | no-graph-workflow | workflow-lint-error | prompt-lint-error | subgraph-lint-error. */
   id: string;
   /** What the gap is, concretely. */
   detail: string;
@@ -159,6 +170,30 @@ export function exportReadiness(ws: string): ExportReadiness {
       detail: `workspace "${ws}" has no node-graph workflow (workflows/*.json with nodes[]) — a bundle needs at least one`,
       fix: `author a #498 graph workflow under ${workflowsDir(ws)} and lint it with: ralphy workflow lint ${ws}`,
     });
+  }
+
+  // #517: every authored subgraph must parse + pass its definition checks —
+  // the whole subgraphs/ tier ships with the bundle, so a broken (even
+  // unused) subgraph refuses export. Missing-subgraph REFS inside a workflow
+  // already surface through the per-workflow lint above.
+  for (const name of listSubgraphNames(ws)) {
+    const file = subgraphPath(ws, name);
+    try {
+      const sub = parseSubgraph(JSON.parse(fs.readFileSync(file, "utf-8")));
+      for (const issue of validateSubgraphDefinition(sub)) {
+        gaps.push({
+          id: "subgraph-lint-error",
+          detail: `subgraph "${name}": ${issue.message}`,
+          fix: issue.fix,
+        });
+      }
+    } catch (e) {
+      gaps.push({
+        id: "subgraph-lint-error",
+        detail: `subgraph "${name}" is unreadable: ${(e as Error).message}`,
+        fix: `make ${file} valid JSON matching SubgraphSchema (cli/lib/schemas/workflow.ts)`,
+      });
+    }
   }
 
   return { ok: gaps.length === 0, gaps, graphs };
@@ -307,14 +342,27 @@ export function exportWorkspaceBundle(
     const contents: string[] = [];
 
     // 1. Graph workflows → pipeline.json (primary) + pipeline.<name>.json.
+    //    Files ship in AUTHORED form (import re-expands); the in-memory graphs
+    //    are #517-EXPANDED so requirement/prompt derivation below sees the
+    //    subgraphs' inner nodes (models, connector keys, prompt files).
+    const resolveSubgraph = dirSubgraphResolver(subgraphsDir(ws));
     const graphs: WorkflowGraph[] = [];
     readiness.graphs.forEach(({ name, path: file }, i) => {
       const graph = parseWorkflowGraph(JSON.parse(fs.readFileSync(file, "utf-8")));
-      graphs.push(graph);
+      graphs.push(expandGraphSubgraphs(graph, resolveSubgraph).graph);
       const bundleName = i === 0 ? "pipeline.json" : `pipeline.${name}.json`;
       fs.copyFileSync(file, path.join(staging, bundleName));
       contents.push(bundleName);
     });
+
+    // 1b. Subgraphs (#517): the whole subgraphs/ tier ships next to the
+    //     pipelines (readiness already linted every definition). The import
+    //     fall-through lands it verbatim at <workspace>/subgraphs/.
+    const sgSrc = subgraphsDir(ws);
+    if (fs.existsSync(sgSrc)) {
+      fs.cpSync(sgSrc, path.join(staging, "subgraphs"), { recursive: true });
+      contents.push("subgraphs/");
+    }
 
     // 2. Evaluators (evaluators.json guaranteed by the readiness gate).
     fs.mkdirSync(path.join(staging, "evaluators"));
@@ -406,7 +454,7 @@ export function exportWorkspaceBundle(
 // ─── Import validation ───────────────────────────────────────────────────────
 
 export interface ImportRefusal {
-  /** manifest-invalid | version-floor | missing-keys | coverage-gap | pipeline-invalid. */
+  /** manifest-invalid | version-floor | missing-keys | coverage-gap | pipeline-invalid | subgraph-invalid. */
   id: string;
   detail: string;
   fix: string;
@@ -506,7 +554,33 @@ export function validateBundle(extractedDir: string, opts: ImportOptions = {}): 
     }
   }
 
-  // 5. Pipelines: at least one, all graph-shaped, all lint-green.
+  // 5. Bundled subgraphs (#517): each must parse + pass its definition checks
+  //    BEFORE the pipelines lint against them.
+  const bundledSubgraphsDir = path.join(extractedDir, "subgraphs");
+  if (fs.existsSync(bundledSubgraphsDir)) {
+    for (const f of fs
+      .readdirSync(bundledSubgraphsDir)
+      .filter((f) => f.endsWith(".json"))
+      .sort()) {
+      try {
+        const sub = parseSubgraph(
+          JSON.parse(fs.readFileSync(path.join(bundledSubgraphsDir, f), "utf-8")),
+        );
+        for (const issue of validateSubgraphDefinition(sub)) {
+          refusals.push({ id: "subgraph-invalid", detail: `subgraph "${f}": ${issue.message}`, fix: issue.fix });
+        }
+      } catch (e) {
+        refusals.push({
+          id: "subgraph-invalid",
+          detail: `subgraph "${f}" is unreadable: ${(e as Error).message}`,
+          fix: "re-export the bundle — subgraphs/*.json must match SubgraphSchema (cli/lib/schemas/workflow.ts)",
+        });
+      }
+    }
+  }
+
+  // 6. Pipelines: at least one, all graph-shaped, all lint-green (subgraph
+  //    refs resolve against the BUNDLE's subgraphs/ tier, #517).
   const pipelineFiles = fs.existsSync(extractedDir)
     ? fs
         .readdirSync(extractedDir)
@@ -523,7 +597,7 @@ export function validateBundle(extractedDir: string, opts: ImportOptions = {}): 
   }
   for (const f of pipelineFiles) {
     const file = path.join(extractedDir, f);
-    const lint = lintWorkflowFile(file);
+    const lint = lintWorkflowFile(file, undefined, { subgraphsDir: bundledSubgraphsDir });
     if (lint.kind !== "graph") {
       refusals.push({
         id: "pipeline-invalid",

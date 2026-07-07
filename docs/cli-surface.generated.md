@@ -1785,6 +1785,16 @@ Commands:
                                         silent-hill --mode tutorial-ugc
   list <slug>                           List the workflows authored in a
                                         workspace
+  subgraphs <slug>                      List the workspace's reusable named
+                                        subgraphs (#517, subgraphs/<name>.json):
+                                        version, typed entry/exit ports, the
+                                        overridable param surface, and which
+                                        workflows instantiate them. A `subgraph`
+                                        node instantiates one by name with param
+                                        overrides; expansion into the flat graph
+                                        happens at lint/load time, one level of
+                                        nesting only. ZERO model calls. Example:
+                                        ralphy workflow subgraphs tech-news
   show <slug> [name]                    Show a workflow's ordered steps. Omit
                                         name when the workspace has exactly one
                                         workflow.
@@ -1792,7 +1802,12 @@ Commands:
                                         workflows: schema parse for legacy
                                         linear workflows (#478), and for
                                         node-graph workflows (#498) the full
-                                        graph checks — DAG (no cycles), edge
+                                        graph checks — #517 subgraph expansion
+                                        first (missing subgraph refs, unknown
+                                        overrides, boundary port mismatches,
+                                        nested subgraphs are errors; an
+                                        authored-but-unused subgraph is a
+                                        warning), then DAG (no cycles), edge
                                         resolution, port typing, the #497
                                         provider-coverage matrix (a
                                         declared-unsupported media param is a

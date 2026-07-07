@@ -232,6 +232,41 @@ describe("export readiness", () => {
     expect(r.ok).toBe(true);
     expect(r.graphs.map((g) => g.name)).toEqual(["episode"]);
   });
+
+  test("a broken subgraph surfaces a subgraph-lint-error gap (#517)", () => {
+    tmp = makeTmpRoot();
+    seedWorkspace("sg-broken");
+    fs.mkdirSync(path.join(workspaceDir("sg-broken"), "subgraphs"), { recursive: true });
+    fs.writeFileSync(
+      path.join(workspaceDir("sg-broken"), "subgraphs", "short-branch.json"),
+      JSON.stringify({
+        name: "short-branch",
+        exit: { out: { node: "ghost", type: "video" } }, // targets a missing inner node
+        nodes: [{ id: "clip", type: "t2v", params: { prompt: "x" } }],
+      }),
+    );
+    const r = exportReadiness("sg-broken");
+    expect(r.ok).toBe(false);
+    const gap = r.gaps.find((g) => g.id === "subgraph-lint-error")!;
+    expect(gap.detail).toContain("short-branch");
+    expect(gap.detail).toContain("ghost");
+  });
+
+  test("a workflow referencing a missing subgraph is not export-ready (#517)", () => {
+    tmp = makeTmpRoot();
+    seedWorkspace("sg-missing");
+    fs.writeFileSync(
+      path.join(workspaceDir("sg-missing"), "workflows", "episode.json"),
+      JSON.stringify({
+        version: "2.0",
+        name: "episode",
+        nodes: [{ id: "unit", type: "subgraph", params: { name: "ghost-branch" } }],
+      }),
+    );
+    const r = exportReadiness("sg-missing");
+    expect(r.ok).toBe(false);
+    expect(r.gaps.some((g) => g.id === "workflow-lint-error" && g.detail.includes("ghost-branch"))).toBe(true);
+  });
 });
 
 // ─── Requirement derivation ──────────────────────────────────────────────────
@@ -279,6 +314,41 @@ describe("requirement derivation", () => {
     expect(collectPromptRefs([graph])).toEqual(["prompts/script.md"]);
   });
 });
+
+// ─── Subgraph fixtures (#517) ────────────────────────────────────────────────
+
+/** A lint-green subgraph; the video model arrives via the override surface. */
+const SUBGRAPH = {
+  name: "short-branch",
+  version: "1.0",
+  entry: { script: { node: "write", port: "prompt", type: "text" } },
+  exit: { out: { node: "clip", type: "video" } },
+  params: { "video-model": { node: "clip", param: "model" } },
+  nodes: [
+    { id: "write", type: "generate-text", params: { prompt: "tighten the script" } },
+    { id: "clip", type: "t2v", in: { prompt: "write.out" }, params: { provider: "openrouter", prompt: "neon night drive, one take" } },
+  ],
+};
+
+/** A second pipeline that instantiates the subgraph with a model override. */
+const SUBGRAPH_PIPELINE = {
+  version: "2.0",
+  name: "farm",
+  nodes: [
+    {
+      id: "research",
+      type: "generate-text",
+      params: { model: "anthropic/claude-fable-5", provider: "openrouter", prompt: "prompts/script.md" },
+      out: "script",
+    },
+    {
+      id: "short",
+      type: "subgraph",
+      in: { script: "research.script" },
+      params: { name: "short-branch", overrides: { "video-model": "kwaivgi/kling-v3.0-pro" } },
+    },
+  ],
+};
 
 // ─── Import validation (no zip needed — operates on an extracted dir) ────────
 
@@ -328,6 +398,42 @@ describe("import validation", () => {
     const allowed = validateBundle(dir, { allowCoverageGaps: true });
     expect(allowed.ok).toBe(true);
     expect(allowed.warnings.join(" ")).toContain("unknown/model-x");
+  });
+
+  test("pipelines lint against the bundle's own subgraphs tier (#517)", () => {
+    tmp = makeTmpRoot();
+    // Without the subgraphs/ dir the pipeline's ref cannot resolve → refusal.
+    const bare = seedExtracted(BASE_MANIFEST, { pipeline: SUBGRAPH_PIPELINE });
+    const v1 = validateBundle(bare);
+    expect(v1.ok).toBe(false);
+    expect(v1.refusals.some((r) => r.id === "pipeline-invalid" && r.detail.includes("short-branch"))).toBe(true);
+
+    // With subgraphs/short-branch.json in the bundle, the same pipeline is green.
+    const dir = seedExtracted(BASE_MANIFEST, { pipeline: SUBGRAPH_PIPELINE });
+    fs.mkdirSync(path.join(dir, "subgraphs"));
+    fs.writeFileSync(path.join(dir, "subgraphs", "short-branch.json"), JSON.stringify(SUBGRAPH));
+    const v2 = validateBundle(dir);
+    expect(v2.refusals).toEqual([]);
+    expect(v2.ok).toBe(true);
+  });
+
+  test("a malformed bundled subgraph refuses import with subgraph-invalid (#517)", () => {
+    tmp = makeTmpRoot();
+    const dir = seedExtracted(BASE_MANIFEST);
+    fs.mkdirSync(path.join(dir, "subgraphs"));
+    fs.writeFileSync(path.join(dir, "subgraphs", "bad.json"), "{ not json");
+    fs.writeFileSync(
+      path.join(dir, "subgraphs", "nested.json"),
+      JSON.stringify({
+        name: "nested",
+        nodes: [{ id: "inner", type: "subgraph", params: { name: "short-branch" } }],
+      }),
+    );
+    const v = validateBundle(dir);
+    expect(v.ok).toBe(false);
+    const subRefusals = v.refusals.filter((r) => r.id === "subgraph-invalid");
+    expect(subRefusals.some((r) => r.detail.includes("bad.json"))).toBe(true);
+    expect(subRefusals.some((r) => r.detail.includes("one level of nesting"))).toBe(true);
   });
 
   test("refuses a malformed manifest and a lint-broken pipeline", () => {
@@ -448,6 +554,44 @@ describe.skipIf(!hasZip)("bundle round-trip (system zip/unzip)", () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(dest, "workspace.json"), "utf-8"));
     expect(manifest.slug).toBe("my-channel");
     expect(manifest.bundle).toMatchObject({ name: "tech-news", version: "1.2.0", trustDefault: "L0" });
+  });
+
+  test("round-trip carries the subgraphs tier; requirements derive through expansion (#517)", () => {
+    tmp = makeTmpRoot();
+    seedWorkspace("tech-news");
+    fs.mkdirSync(path.join(workspaceDir("tech-news"), "subgraphs"), { recursive: true });
+    fs.writeFileSync(
+      path.join(workspaceDir("tech-news"), "subgraphs", "short-branch.json"),
+      JSON.stringify(SUBGRAPH),
+    );
+    fs.writeFileSync(
+      path.join(workspaceDir("tech-news"), "workflows", "farm.json"),
+      JSON.stringify(SUBGRAPH_PIPELINE),
+    );
+
+    const out = path.join(scratchDir("ralphy-zip-"), "sg.zip");
+    const exported = exportWorkspaceBundle("tech-news", out);
+    expect(exported.contents).toContain("subgraphs/");
+    // The kling binding lives INSIDE the subgraph (model via override) — it
+    // only reaches the manifest because requirements derive from the
+    // EXPANDED graphs.
+    expect(exported.manifest.requiredCoverage).toContainEqual({
+      model: "kwaivgi/kling-v3.0-pro",
+      capability: "video",
+      provider: "openrouter",
+    });
+
+    tmp.cleanup();
+    tmp = makeTmpRoot();
+    const result = importWorkspaceBundle(out, { as: "sg-channel", allowMissingKeys: true });
+    expect(result.workflows).toEqual(["episode", "farm"]);
+    const dest = workspaceDir("sg-channel");
+    // The subgraphs tier landed verbatim and the workflow lints green in place.
+    expect(
+      JSON.parse(fs.readFileSync(path.join(dest, "subgraphs", "short-branch.json"), "utf-8")).name,
+    ).toBe("short-branch");
+    const lint = lintWorkflowFile(path.join(dest, "workflows", "farm.json"), "sg-channel");
+    expect(lint.ok).toBe(true);
   });
 
   test("import refuses an existing slug and never overwrites it", () => {

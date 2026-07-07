@@ -156,6 +156,11 @@ export function workflowsDir(slug: string) {
   return path.join(workspaceDir(slug), "workflows");
 }
 
+/** `.ralphy/workspaces/<slug>/subgraphs/` — reusable named subgraphs (#517). */
+export function subgraphsDir(slug: string) {
+  return path.join(workspaceDir(slug), "subgraphs");
+}
+
 /**
  * The active workspace slug — the default home for new projects. Stored as
  * the `activeWorkspace` key in config.json (`ralphy workspace use <slug>`).
