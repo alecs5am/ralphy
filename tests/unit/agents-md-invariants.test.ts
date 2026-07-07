@@ -53,6 +53,7 @@
 import { describe, test, expect } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
+import { bannedProviderHost } from "../../cli/lib/providers/banned-hosts.js";
 
 const REPO = path.resolve(__dirname, "..", "..");
 
@@ -262,6 +263,45 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       expect(keyRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
     });
   }
+
+  // #520: the generic `http` workflow node must never be an invariant-#1
+  // bypass. Its banned-host list (cli/lib/providers/banned-hosts.ts — the ONE
+  // source of truth `workflow lint` + the http executor consume) must COVER
+  // every provider host this file guards with its own inline source scans
+  // (which stay unweakened above), plus the two primary connector hosts the
+  // invariant names. Dropping a host from the shared module fails here.
+  test("the shared banned-provider-host module covers every guarded provider host (#520)", () => {
+    const guarded = [
+      // fal connector hosts (inline-scanned above)
+      "fal.ai",
+      "api.fal.ai",
+      "fal.run",
+      "queue.fal.run",
+      // ingestion + analytics connector hosts (inline-scanned above)
+      "firecrawl.dev",
+      "api.firecrawl.dev",
+      "apify.com",
+      "api.apify.com",
+      "googleapis.com",
+      "youtubeanalytics.googleapis.com",
+      // banned-everywhere hosts (inline-scanned above)
+      "openai.com",
+      "api.openai.com",
+      "vercel.com",
+      "sdk.vercel.ai",
+      "my-app.vercel.app",
+      "gateway.vercel.sh",
+      // primary connector hosts named by invariant #1 (OpenRouter media/LLM,
+      // ElevenLabs voice/music)
+      "openrouter.ai",
+      "api.elevenlabs.io",
+    ];
+    const uncovered = guarded.filter((h) => bannedProviderHost(h) === null);
+    expect(uncovered).toEqual([]);
+    // And it must not over-ban lookalike suffixes.
+    expect(bannedProviderHost("notfal.run")).toBeNull();
+    expect(bannedProviderHost("example.com")).toBeNull();
+  });
 
   for (const { file, envVar, hostRe, hostLabel } of INGESTION_CONNECTORS) {
     const keyRe = new RegExp(`process\\.env(?:\\.${envVar}\\b|\\[["']${envVar}["']\\])`);

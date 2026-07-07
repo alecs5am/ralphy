@@ -22,8 +22,21 @@ import {
   readFarmState,
   loadGraphWorkflows,
   retryNode,
+  fireTick,
 } from "../lib/farm/runner.js";
+import type { WorkflowGraph } from "../lib/schemas/workflow.js";
 import { listDeadLetters, deadLetterPath } from "../lib/farm/dead-letter.js";
+import { ensureTriggerToken, webhookTokensPath } from "../lib/farm/webhook.js";
+import { readFileSync } from "fs";
+
+/** The graph workflow carrying webhook-trigger node <triggerId>, or raise. */
+function requireWebhookWorkflow(ws: string, triggerId: string): { name: string; graph: WorkflowGraph } {
+  const wf = loadGraphWorkflows(ws).find((g) =>
+    g.graph.nodes.some((n) => n.type === "webhook-trigger" && n.id === triggerId),
+  );
+  if (!wf) raiseError("E_NOT_FOUND", { kind: "Webhook trigger", id: `${ws}/${triggerId}` });
+  return wf!;
+}
 
 function requireWorkspace(verb: string, slug: string): void {
   if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb });
@@ -147,6 +160,79 @@ export function farmCmd() {
         },
       });
       out({ workspace: ws, ...outcome });
+    });
+
+  // ── trigger (webhook secret management, #520) ──────────────────────────────
+  const trigger = new Command("trigger").description(
+    "Webhook-trigger management (#520): per-trigger secrets for the POST /hooks/<ws>/<trigger-id> app endpoint. Secrets live in workspace-local engine state (.ralphy/workspaces/<ws>/farm/webhook-tokens.json) — never in the graph file, never in a #502 bundle.",
+  );
+  trigger
+    .command("token <ws> <trigger-id>")
+    .description(
+      "Generate (first call), show (subsequent calls), or --rotate the secret token for one webhook-trigger node. The inbound hook authenticates with the `x-ralphy-token` header plus a fresh unix-seconds `x-ralphy-timestamp`; the trigger id must exist as a webhook-trigger node in one of the workspace's graph workflows. Example: ralphy farm trigger token my-studio on-upload --rotate",
+    )
+    .option("--rotate", "Replace the existing token (the old one stops working immediately)")
+    .action(async (ws: string, triggerId: string, opts) => {
+      requireWorkspace("farm trigger token", ws);
+      const wf = requireWebhookWorkflow(ws, triggerId);
+      const { record, created, rotated } = ensureTriggerToken(ws, triggerId, { rotate: !!opts.rotate });
+      out({
+        workspace: ws,
+        trigger: triggerId,
+        workflow: wf.name,
+        token: record.token,
+        hookPath: `/hooks/${ws}/${triggerId}`,
+        store: webhookTokensPath(ws),
+        created,
+        rotated,
+        createdAt: record.createdAt,
+        rotatedAt: record.rotatedAt,
+      });
+    });
+  cmd.addCommand(trigger);
+
+  // ── fire (one webhook tick, #520) ───────────────────────────────────────────
+  cmd
+    .command("fire <ws> <trigger-id>")
+    .description(
+      "Fire ONE tick of the graph rooted at a webhook-trigger node, exactly like a schedule firing (#520): the trigger node completes with the payload normalized through its pick/map params, downstream nodes execute, budget caps (#481) gate the spend as usual. This is the execution half the app endpoint (POST /hooks/<ws>/<trigger-id>) spawns after validating the secret + timestamp + rate limit — call it directly to test a hook without the endpoint. Example: ralphy farm fire my-studio on-upload --payload '{\"episode\":{\"title\":\"E42\"}}'",
+    )
+    .option("--payload <json>", "Inline JSON payload (default: {})")
+    .option("--payload-file <path>", "Read the JSON payload from a file (wins over --payload)")
+    .action(async (ws: string, triggerId: string, opts) => {
+      requireWorkspace("farm fire", ws);
+      const wf = requireWebhookWorkflow(ws, triggerId);
+      let raw = "{}";
+      if (opts.payloadFile) {
+        try {
+          raw = readFileSync(opts.payloadFile, "utf8");
+        } catch {
+          raiseError("E_NOT_FOUND", { kind: "Payload file", id: String(opts.payloadFile) });
+        }
+      } else if (opts.payload) {
+        raw = String(opts.payload);
+      }
+      let payload: unknown;
+      try {
+        payload = JSON.parse(raw);
+      } catch (e) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "farm fire",
+          detail: `payload is not valid JSON: ${(e as Error).message}`,
+        });
+      }
+      const outcome = await fireTick(
+        ws,
+        wf.name,
+        wf.graph,
+        {
+          onEvent: (runId, kind, message) => {
+            if (isPretty()) console.log(`[${runId}] ${kind}: ${message}`);
+          },
+        },
+        { node: triggerId, payload },
+      );
+      out({ workspace: ws, trigger: triggerId, workflow: wf.name, ...outcome });
     });
 
   // ── stop ───────────────────────────────────────────────────────────────────

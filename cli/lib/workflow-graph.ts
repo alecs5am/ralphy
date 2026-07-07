@@ -37,6 +37,8 @@ import {
   type WorkflowNode,
 } from "./schemas/workflow.js";
 import { coverageFor, providersSupporting } from "./providers/coverage.js";
+import { bannedProviderHost } from "./providers/banned-hosts.js";
+import { findSecretLiterals } from "./workflow/env-refs.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
 import { lintGraphPrompts } from "./prompt-lint.js";
 import { expandGraphSubgraphs, dirSubgraphResolver } from "./subgraph.js";
@@ -57,6 +59,10 @@ export type GraphIssueCode =
   | "coverage-uncovered-param" // warn: param outside declared coverage
   | "prompt-rule" // #515: a prompt-lint seed rule fired on a node's prompt text
   | "unknown-guideline" // #515: params.guidelines names a slug with no loadable guideline
+  // #520 http / webhook-trigger nodes:
+  | "http-allowed-hosts" // http node without a usable params.allowed_hosts
+  | "http-provider-host" // allowed_hosts names/covers a known provider host (invariant #1)
+  | "secret-literal" // a secret-looking literal in a graph file (use $ENV refs)
   // #517 reusable subgraphs (expansion-time; cli/lib/subgraph.ts):
   | "subgraph-missing" // params.name absent, or no subgraphs/<name>.json to resolve
   | "subgraph-invalid" // the subgraph definition fails schema / boundary declarations
@@ -249,6 +255,56 @@ export function validateWorkflowGraph(graph: WorkflowGraph): GraphValidation {
           node: node.id,
           message: `node "${node.id}" (${node.type}) needs at least one of the in-ports: ${names.join(", ")}`,
           fix: `wire one of ${names.map((n) => `"${n}"`).join(", ")} or set the matching param (${names.map((n) => `params.${group[n]![0]}`).join(" / ")})`,
+        });
+      }
+    }
+
+    // 2c. #520 http node: allowed_hosts is REQUIRED, and no entry may name or
+    // cover a known provider host (cli/lib/providers/banned-hosts.ts — the
+    // same list the AGENTS.md invariant #1 test covers).
+    if (node.type === "http") {
+      const hosts = node.params.allowed_hosts;
+      const usable =
+        Array.isArray(hosts) && hosts.length > 0 && hosts.every((h) => typeof h === "string" && h.length > 0);
+      if (!usable) {
+        errors.push({
+          level: "error",
+          code: "http-allowed-hosts",
+          node: node.id,
+          message: `http node "${node.id}" has no usable params.allowed_hosts — the executor refuses every request without an explicit host allowlist`,
+          fix: `set params.allowed_hosts to the exact hosts (or "*.suffix" wildcards) this node may call, e.g. ["api.example.com"]`,
+        });
+      } else {
+        for (const entry of hosts as string[]) {
+          const banned = bannedProviderHost(entry);
+          if (banned) {
+            errors.push({
+              level: "error",
+              code: "http-provider-host",
+              node: node.id,
+              message: `http node "${node.id}" allowed_hosts entry "${entry}" covers the ${banned.label} provider host — ${banned.reason}`,
+              fix: `remove "${entry}" from allowed_hosts — use the registered connector / the matching node type instead of the generic http node`,
+            });
+          }
+        }
+      }
+    }
+
+    // 2d. #520 secret literals: http headers/params and webhook-trigger params
+    // must reference secrets as $ENV_VAR (resolved at execution) — a literal
+    // would ship in commits and #502 bundles. Webhook-trigger secrets live in
+    // the workspace token store (`ralphy farm trigger token`), never in params.
+    if (node.type === "http" || node.type === "webhook-trigger") {
+      for (const offender of findSecretLiterals(node.params)) {
+        errors.push({
+          level: "error",
+          code: "secret-literal",
+          node: node.id,
+          message: `node "${node.id}" (${node.type}) param "${offender.key}" looks like a literal secret — graph files are committed and bundled`,
+          fix:
+            node.type === "http"
+              ? `replace the value with a $ENV_VAR reference (e.g. "$MY_API_TOKEN") and export the var — the executor resolves it at execution`
+              : `remove the param — webhook-trigger secrets are provisioned into the workspace token store via \`ralphy farm trigger token <ws> ${node.id}\``,
         });
       }
     }

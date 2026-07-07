@@ -8,9 +8,9 @@
 // provider keys stay inside their connector files (invariant #1) — this
 // module only asks the connector whether it is available.
 //
-// The generic `http` node type is deliberately NOT registered — an executor
-// that can hit arbitrary hosts undermines invariant #1; see the deferral note
-// in notes/issues/500-ingestion-trend-watch-nodes.md.
+// The generic `http` node type (once deferred here — see the #500 notes) is
+// now registered from its own guarded executor (http.ts, #520): allowed_hosts
+// required, provider hosts banned, $ENV header refs, timeout + size caps.
 
 import path from "node:path";
 import fs from "node:fs/promises";

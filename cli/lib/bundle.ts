@@ -220,6 +220,9 @@ function providerEnvVar(providerId: string): string | undefined {
 export interface BundleRequirements {
   requiredConnectorKeys: string[];
   requiredCoverage: CoverageTriple[];
+  /** #520: every `http` node's allowed_hosts unioned — declared in the
+   *  manifest so import surfaces the graph's outbound-host surface. */
+  httpAllowedHosts: string[];
 }
 
 /**
@@ -232,6 +235,7 @@ export interface BundleRequirements {
 export function deriveBundleRequirements(graphs: WorkflowGraph[]): BundleRequirements {
   const keys = new Set<string>();
   const triples = new Map<string, CoverageTriple>();
+  const httpHosts = new Set<string>();
 
   const addKey = (v: string | undefined) => {
     if (v) keys.add(v);
@@ -256,6 +260,13 @@ export function deriveBundleRequirements(graphs: WorkflowGraph[]): BundleRequire
       }
 
       for (const v of NODE_TYPE_ENV_VARS[node.type] ?? []) keys.add(v);
+
+      // #520: the http node's outbound-host surface rides the manifest.
+      if (node.type === "http" && Array.isArray(node.params.allowed_hosts)) {
+        for (const h of node.params.allowed_hosts) {
+          if (typeof h === "string" && h.length > 0) httpHosts.add(h);
+        }
+      }
     }
   }
 
@@ -266,6 +277,7 @@ export function deriveBundleRequirements(graphs: WorkflowGraph[]): BundleRequire
         `${b.model}|${b.capability}|${b.provider}`,
       ),
     ),
+    httpAllowedHosts: [...httpHosts].sort(),
   };
 }
 

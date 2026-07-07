@@ -180,6 +180,7 @@ export const PUBLISH_NODE_TYPES = ["publish", "youtube-upload", "x-post", "analy
 /** F. Control-flow nodes (`subgraph` is the #517 named-subgraph instantiation node). */
 export const CONTROL_FLOW_NODE_TYPES = [
   "schedule",
+  "webhook-trigger",
   "calendar-slot",
   "fan-out",
   "join",
@@ -505,6 +506,15 @@ export const NODE_SIGNATURES: Record<WorkflowNodeType, NodeSignature> = {
 
   // F. Control flow — polymorphic plumbing.
   schedule: sig("control-flow", {}, false, "any"),
+  // #520 inbound-event trigger: fires a tick when POST /hooks/<ws>/<node-id>
+  // lands (per-trigger secret via `ralphy farm trigger token`, replay window,
+  // rate limit) — mirrors `schedule` as a runner built-in, never an executor.
+  // Params: `pick` / `map` (the transform node's dot-path vocabulary) normalize
+  // the inbound payload into the declared out-port; `rate_limit` (accepted
+  // hooks per hour, default 12) and `replay_window_s` (timestamp freshness,
+  // default 300) tune the endpoint. Pin the output type via explicit
+  // `out: { name, type }` — the signature default stays the "any" wildcard.
+  "webhook-trigger": sig("control-flow", {}, false, "any"),
   "calendar-slot": sig("control-flow", {}, true, "object:calendar-slot"),
   "fan-out": sig("control-flow", {}, true, "any"),
   join: sig("control-flow", {}, true, "any"),
@@ -611,7 +621,7 @@ export interface WorkflowNode {
   emit: boolean;
 }
 
-// Discriminated union over all 49 node types: the envelope is identical (the
+// Discriminated union over all 50 node types: the envelope is identical (the
 // `cache` default is the only per-type field, #513), the params schema comes
 // from the type's category. Built programmatically so the taxonomy above
 // stays the single source of truth.

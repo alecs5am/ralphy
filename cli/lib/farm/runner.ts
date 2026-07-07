@@ -100,7 +100,7 @@ import {
 } from "../schemas/workflow.js";
 import { isArtifactRef } from "../workflow-graph.js";
 import { getExecutor } from "../workflow/executors/index.js";
-import { RunControlSignal } from "../workflow/executors/control-flow.js";
+import { RunControlSignal, dotGet } from "../workflow/executors/control-flow.js";
 import type { ExecutorContext, NodeExecutor } from "../workflow/executors/types.js";
 import type { WorkflowNodeType } from "../schemas/workflow.js";
 import { parseCron, nextFire, cronMatches, type CronSpec } from "./cron.js";
@@ -329,6 +329,35 @@ export function loadGraphWorkflows(ws: string): Array<{ name: string; graph: Wor
   return out;
 }
 
+/** The trigger that fired a tick (#503 cron / #520 inbound webhook). */
+export interface TickTrigger {
+  /** The firing trigger node id (schedule or webhook-trigger). */
+  node?: string;
+  /** The matched cron expression (schedule triggers). */
+  cron?: string;
+  /** The inbound hook's RAW JSON payload (webhook triggers). */
+  payload?: unknown;
+}
+
+/**
+ * Normalize an inbound webhook payload into the trigger's out-port (#520):
+ * `params.pick` extracts one value by dot-path, `params.map` builds an object
+ * of dot-path extractions — the same declarative vocabulary as the transform
+ * node (dotGet, no code eval). No mapping params → the raw payload passes.
+ */
+export function normalizeWebhookPayload(node: WorkflowNode, payload: unknown): unknown {
+  const p = node.params as { pick?: string; map?: Record<string, string> };
+  if (typeof p.pick === "string" && p.pick.length > 0) return dotGet(payload, p.pick);
+  if (p.map && typeof p.map === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, dp] of Object.entries(p.map)) {
+      if (typeof dp === "string") out[key] = dotGet(payload, dp);
+    }
+    return out;
+  }
+  return payload;
+}
+
 /** The cron triggers of a graph: every schedule node with a params.cron string. */
 export function scheduleTriggers(graph: WorkflowGraph): Array<{ node: string; spec: CronSpec }> {
   const out: Array<{ node: string; spec: CronSpec }> = [];
@@ -493,6 +522,7 @@ export async function executeGraphRun(
   workflowName: string,
   graph: WorkflowGraph,
   deps: FarmDeps = {},
+  trigger: TickTrigger = {},
 ): Promise<RunOutcome> {
   const d = resolveDeps(deps);
   const order = topoOrder(graph);
@@ -873,6 +903,29 @@ export async function executeGraphRun(
         continue;
       }
 
+      // Trigger built-in (#520): the webhook-trigger that FIRED this tick
+      // completes with the normalized inbound payload (pick/map, dotGet);
+      // any other tick (cron, resume) SKIPS it — its downstream depends on a
+      // payload that never arrived. Exception: an injected executorOverride
+      // (the #516 simulate seam) falls through to execNode so a dry-run can
+      // cost the full graph with a synthetic payload.
+      if (node.type === "webhook-trigger" && trigger.node !== node.id) {
+        if (!d.executorOverrides[node.type]) {
+          await skipNode(node, `trigger-not-fired: webhook trigger "${node.id}" received no inbound hook this tick`, scope);
+          continue;
+        }
+      } else if (node.type === "webhook-trigger") {
+        const output = normalizeWebhookPayload(node, trigger.payload ?? {});
+        records.set(recKey(node.id, scope.branch), { state: "completed", output });
+        await emit("node-completed", {
+          node: node.id,
+          ...branchField(scope),
+          output,
+          message: `webhook trigger "${node.id}" fired`,
+        });
+        continue;
+      }
+
       const out: ExecOutcome =
         node.type === "fan-out"
           ? await runFanOut(analysis.plans.get(node.id)!)
@@ -905,7 +958,11 @@ export async function executeGraphRun(
         for (let k = target; k < i - 1; k++) {
           const rec = seq[k]!;
           const key = recKey(rec.id, scope.branch);
-          if (records.get(key)?.state === "completed" && rec.type !== "schedule") records.delete(key);
+          // Triggers keep their completion on a backward jump: a schedule's
+          // timestamp / a webhook's payload cannot be re-produced mid-run.
+          if (records.get(key)?.state === "completed" && rec.type !== "schedule" && rec.type !== "webhook-trigger") {
+            records.delete(key);
+          }
         }
         i = target;
         continue;
@@ -1069,7 +1126,7 @@ export async function fireTick(
   workflowName: string,
   graph: WorkflowGraph,
   deps: FarmDeps = {},
-  trigger: { node?: string; cron?: string } = {},
+  trigger: TickTrigger = {},
 ): Promise<RunOutcome> {
   const d = resolveDeps(deps);
   const now = d.now();
@@ -1101,7 +1158,7 @@ export async function fireTick(
     message: `tick fired for workflow "${workflowName}"`,
   });
   d.onEvent(runId, "farm-tick", `tick fired for workflow "${workflowName}"`);
-  return executeGraphRun(ws, runId, workflowName, graph, deps);
+  return executeGraphRun(ws, runId, workflowName, graph, deps, trigger);
 }
 
 /** Farm-state files across a workspace's runs (id-sorted). */

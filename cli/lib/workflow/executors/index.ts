@@ -13,9 +13,11 @@
 // dedup (#500), the calendar-slot control-flow node (#504), the E-category
 // publish + x-post nodes via Postiz (#501), the analytics-pull feedback-loop
 // node (#507), and the #503 control-flow/data set (approval, budget-guard,
-// gate, join, switch, transform, template-string, artifact-write). The generic `http` node is deliberately
-// unregistered (see ingestion.ts / issue #500 notes); `schedule` and
-// `fan-out` are runner built-ins (#503, see control-flow.ts header).
+// gate, join, switch, transform, template-string, artifact-write), and the
+// generic allowlisted `http` node (#520, http.ts — allowed_hosts required,
+// provider hosts banned via cli/lib/providers/banned-hosts.ts). `schedule`,
+// `webhook-trigger` (#520), and `fan-out` are runner built-ins (#503/#520,
+// see control-flow.ts and the runner header).
 
 import type { WorkflowNodeType } from "../../schemas/workflow.js";
 import type { NodeExecutor } from "./types.js";
@@ -28,6 +30,7 @@ import {
   trendWatchExecutor,
   dedupExecutor,
 } from "./ingestion.js";
+import { httpExecutor } from "./http.js";
 import { calendarSlotExecutor } from "./calendar.js";
 import { publishExecutor, xPostExecutor } from "./publish.js";
 import { analyticsPullExecutor } from "./analytics.js";
@@ -107,6 +110,11 @@ registerExecutor("actor", actorExecutor);
 registerExecutor("rss", rssExecutor);
 registerExecutor("trend-watch", trendWatchExecutor);
 registerExecutor("dedup", dedupExecutor);
+
+// D. The generic allowlisted http node (#520): params.allowed_hosts REQUIRED,
+// provider hosts refused (invariant #1 — connectors own provider traffic),
+// $ENV header references resolved at execution, timeout + size caps.
+registerExecutor("http", httpExecutor);
 
 // F. Control flow: calendar-slot — the workspace content calendar (#504).
 registerExecutor("calendar-slot", calendarSlotExecutor);

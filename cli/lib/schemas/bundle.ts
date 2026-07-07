@@ -63,6 +63,9 @@ export const BundleManifestSchema = z.object({
   requiredConnectorKeys: z.array(z.string().min(1)).default([]),
   /** (model, capability, provider) triples the graph's media nodes bind to. */
   requiredCoverage: z.array(CoverageTripleSchema).default([]),
+  /** #520: the union of the graph's `http` nodes' allowed_hosts — the
+   *  bundle's declared outbound-host surface (import consent surface). */
+  httpAllowedHosts: z.array(z.string().min(1)).default([]),
   /** Trust-ladder starting level for the imported workspace. */
   trustDefault: z.enum(TRUST_LEVELS).default("L0"),
 });
