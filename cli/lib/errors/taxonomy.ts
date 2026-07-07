@@ -30,6 +30,25 @@
 import { MODELS_MD_DEFAULTS } from "../models/telemetry.js";
 import type { GenerateKind } from "../models/constraints.js";
 
+/**
+ * Filter taxonomy (#514) — a REFINEMENT of the #450 classes for provider
+ * content-filter / safety errors, consumed by the reroute-rules table
+ * (cli/lib/providers/reroute-rules.ts). Same rule table, one source of truth:
+ * a RULES entry may carry a `filterClass` that pins its refinement; a plain
+ * "moderation" match defaults to `safety-input` (the prompt/input was
+ * refused), and every provider-transient match maps to `transient` (retry
+ * territory — never rerouted).
+ */
+export const FILTER_CLASSES = [
+  "safety-input",
+  "safety-output",
+  "copyright",
+  "tos-content",
+  "transient",
+] as const;
+
+export type FilterClass = (typeof FILTER_CLASSES)[number];
+
 /** The agent-facing error classes (issue #450 acceptance list). */
 export const ERROR_CLASSES = [
   "provider-transient",
@@ -63,6 +82,8 @@ export interface ErrorClassification {
   nextActions: string[];
   /** Recommended fallback model ids when the class is model-shaped. */
   fallbackModels?: string[];
+  /** The #514 filter refinement when the matched rule declares one. */
+  filterClass?: FilterClass;
   /** The matched rule id (for tests / debugging). null when unmatched. */
   matched: string | null;
 }
@@ -89,6 +110,8 @@ interface Rule {
   nextActions: string[];
   /** Set when the class wants a recommended fallback model. */
   wantsFallback?: boolean;
+  /** #514 filter refinement this rule pins (safety-input/-output, copyright, tos-content). */
+  filterClass?: FilterClass;
 }
 
 // ─── The rule table. Order matters: the FIRST matching rule wins, so the most
@@ -96,14 +119,69 @@ interface Rule {
 const RULES: Rule[] = [
   // ── Moderation / content-policy / safety. Terminal — re-firing the same
   //    prompt or input is a guaranteed no. (gen-log failureClass "moderation".)
+  //    The #514 filter refinements sit ABOVE the generic catch-alls so the
+  //    reroute-rules table can distinguish input vs output vs copyright vs ToS.
+  {
+    id: "input-privacy",
+    // seedance privacy filter on photoreal-human anchors / refs (MODELS.md
+    // video lesson #6; memory feedback_seedance_rejects_realistic_people).
+    any: ["inputimagesensitivecontentdetected", "input image may contain real person"],
+    class: "moderation",
+    severity: "fail",
+    retryPolicy: "ask-user",
+    filterClass: "safety-input",
+    nextActions: [
+      "the provider's input filter rejected the anchor / reference image (photoreal-human privacy class) — swap to a model without that input filter (kwaivgi/kling-v3.0-pro per MODELS.md) or use a stylized anchor",
+    ],
+  },
+  {
+    id: "output-copyright",
+    // seedance OUTPUT-stage copyright filter (memory
+    // feedback_seedance_copyright_filter_anime_lookalike / _i2v_provider_filters).
+    any: ["related to copyright", "copyright restriction"],
+    class: "moderation",
+    severity: "fail",
+    retryPolicy: "ask-user",
+    filterClass: "copyright",
+    nextActions: [
+      "the provider's output filter flagged the result as copyright-adjacent (anchor resembles a known IP / character) — swap to a model with a different output filter (kwaivgi/kling-v3.0-pro per MODELS.md) or redesign the anchor away from the lookalike",
+    ],
+  },
+  {
+    id: "responsible-ai-input",
+    // veo prompt/frame filter (memory feedback_i2v_provider_filters: Google's
+    // filter scans BOTH the prompt and the input frame).
+    any: ["responsible ai", "sensitive words"],
+    class: "moderation",
+    severity: "fail",
+    retryPolicy: "ask-user",
+    filterClass: "safety-input",
+    nextActions: [
+      "Google's Responsible AI filter rejected the prompt or the input frame (it scans both independently) — sanitizing the prompt alone will not clear a flagged anchor; swap to kwaivgi/kling-v3.0-pro (MODELS.md) or replace the anchor",
+    ],
+  },
   {
     id: "image-safety",
     any: ["image_safety", "image safety"],
     class: "moderation",
     severity: "fail",
     retryPolicy: "ask-user",
+    filterClass: "safety-output",
     nextActions: [
       "the model's safety filter blocked this prompt / input frame — rephrase to remove the flagged element, or swap to a model with a different filter (MODELS.md image-safety thresholds)",
+    ],
+  },
+  {
+    id: "music-tos",
+    // ElevenLabs Music artist-name ToS rejection (#006) — the 400 envelope
+    // carries a ready `prompt_suggestion` rewrite.
+    any: ["bad_prompt", "prompt_suggestion"],
+    class: "moderation",
+    severity: "fail",
+    retryPolicy: "ask-user",
+    filterClass: "tos-content",
+    nextActions: [
+      "ElevenLabs Music ToS rejected the prompt (named artist / track) — the error body carries a `prompt_suggestion` sanitized rewrite; resubmit it verbatim (or pass --auto-retry-on-tos-rejection)",
     ],
   },
   {
@@ -118,11 +196,11 @@ const RULES: Rule[] = [
       "nsfw",
       "prohibited content",
       "violates",
-      "bad_prompt",
     ],
     class: "moderation",
     severity: "fail",
     retryPolicy: "ask-user",
+    filterClass: "safety-input",
     nextActions: [
       "provider refused on content policy — rephrase the prompt to drop the flagged element; for ElevenLabs Music a `prompt_suggestion` rewrite is in the error body, resubmit that",
     ],
@@ -417,8 +495,29 @@ export function classifyError(input: ClassifyInput): ErrorClassification {
     retryPolicy: rule.retryPolicy,
     nextActions: rule.nextActions,
     ...(fallbackModels && fallbackModels.length ? { fallbackModels } : {}),
+    ...(rule.filterClass ? { filterClass: rule.filterClass } : {}),
     matched: rule.id,
   };
+}
+
+/**
+ * #514 filter-taxonomy entry point: classify a provider error into the small
+ * filter vocabulary the reroute-rules table matches on, or null when the
+ * error is NOT filter-shaped (constraint / auth / path / eval failures never
+ * reroute). Built ON classifyError — same rule table, one source of truth:
+ *   • provider-transient      → "transient" (retry territory, never rerouted)
+ *   • rule with a filterClass → that refinement
+ *   • plain moderation match  → "safety-input" (conservative input-side default)
+ *   • everything else         → null
+ */
+export function classifyFilterError(
+  input: ClassifyInput,
+): (ErrorClassification & { filterClass: FilterClass }) | null {
+  const c = classifyError(input);
+  if (c.class === "provider-transient") return { ...c, filterClass: "transient" };
+  if (c.filterClass) return { ...c, filterClass: c.filterClass };
+  if (c.class === "moderation") return { ...c, filterClass: "safety-input" };
+  return null;
 }
 
 /**

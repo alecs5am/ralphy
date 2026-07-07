@@ -48,6 +48,13 @@ import { logGeneration } from "../../gen-log.js";
 import { protectExistingAsset } from "../../providers/shared.js";
 import { resolveConnector } from "../../providers/registry.js";
 import { emitCoverageWarnings, coverageFor, providersSupporting } from "../../providers/coverage.js";
+import {
+  effectiveRerouteRules,
+  extractPromptSuggestion,
+  findRerouteRule,
+  parseRerouteAction,
+} from "../../providers/reroute-rules.js";
+import { classifyFilterError } from "../../errors/taxonomy.js";
 import { resolveModelAlias } from "../../model-aliases.js";
 import { checkSpend, estimatedCallCostUsd, readRunLedger, activeApproval } from "../../spend.js";
 import { intakePath, readPromptOrFile } from "../../path-resolution.js";
@@ -271,7 +278,114 @@ export interface MediaCallSpec {
   invoke: (
     conn: RalphyConnector,
     common: { projectId: string; slot: string; note: string; overwrite: false },
+    overrides?: MediaInvokeOverrides,
   ) => Promise<GenerateResult>;
+}
+
+/**
+ * Per-attempt overrides the #514 reroute layer passes back into the spec's
+ * invoke closure: a `reroute:<model>` action swaps the model, a
+ * `resubmit-with:prompt-suggestion` transform swaps the prompt/text.
+ */
+export interface MediaInvokeOverrides {
+  model?: string;
+  prompt?: string;
+}
+
+/**
+ * The #514 filter-aware reroute layer: on a provider content-filter / safety
+ * failure, consult the declarative reroute-rules table (built-in + workspace
+ * `reroute-rules.json`) and apply the FIRST matching rule — bounded to ONE
+ * reroute hop per node execution (a second filter failure propagates into the
+ * runner's normal retry / on_fail routing). `transient` classifications are
+ * NOT rerouted (retryTransient territory, #005). Returns the recovered
+ * GenerateResult, or throws:
+ *   • the ORIGINAL error when the failure isn't filter-shaped / no rule matches,
+ *   • RunControlSignal("park-approval") for `park-for-human` and for a reroute
+ *     target the #497 coverage matrix says can't express the call's params,
+ *   • the SECOND error verbatim when the one permitted hop also fails.
+ */
+async function applyRerouteRules(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  spec: MediaCallSpec,
+  conn: RalphyConnector,
+  err: unknown,
+  invokeOnce: (overrides?: MediaInvokeOverrides) => Promise<GenerateResult>,
+): Promise<GenerateResult> {
+  const message = err instanceof Error ? err.message : String(err);
+  const classified = classifyFilterError({
+    message,
+    modelId: spec.model,
+    kind: spec.kind,
+  });
+  // Not filter-shaped, or transient (retry territory) → not ours to handle.
+  if (!classified || classified.filterClass === "transient") throw err;
+
+  const cap = KIND_TO_CAP[spec.kind];
+  const rule = findRerouteRule(effectiveRerouteRules(ctx.workspace), {
+    model: spec.model,
+    capability: cap,
+    errorClass: classified.filterClass,
+    traits: stringList(node.params.content_traits),
+  });
+  if (!rule) throw err;
+  const action = parseRerouteAction(rule.action);
+  if (!action) throw err; // load-time validation makes this unreachable for workspace rules
+
+  const parkForRule = async (reason: string): Promise<never> => {
+    await writeApprovalInboxPack(ctx, node.id, reason);
+    throw new RunControlSignal(
+      "park-approval",
+      `${node.type} node "${node.id}": ${reason}`,
+    );
+  };
+
+  const journalReroute = async (to: string, extra: Record<string, unknown> = {}) => {
+    if (!ctx.runId) return;
+    const { appendRunEvent } = await import("../../run.js");
+    await appendRunEvent(ctx.runId, {
+      kind: "node-rerouted",
+      node: node.id,
+      from: spec.model ?? conn.id,
+      to,
+      ruleId: rule.id,
+      errorClass: classified.filterClass,
+      source: rule.source,
+      ...extra,
+      message: `node "${node.id}" rerouted by rule "${rule.id}" (${classified.filterClass}): ${rule.explanation}`,
+    });
+  };
+
+  if (action.kind === "park-for-human") {
+    return parkForRule(
+      `filter failure (${classified.filterClass}) parked for a human by rule "${rule.id}" — ${rule.explanation} [source: ${rule.source}]`,
+    );
+  }
+
+  if (action.kind === "resubmit-with") {
+    if (action.transform !== "prompt-suggestion") throw err; // unknown transform → normal failure
+    const suggestion = extractPromptSuggestion(err);
+    if (!suggestion) throw err; // no rewrite in the envelope → nothing to resubmit
+    await journalReroute(spec.model ?? conn.id, { transform: action.transform });
+    return invokeOnce({ prompt: suggestion });
+  }
+
+  // reroute:<model> — same connector, one hop, coverage-gated (#497): a
+  // target that can't express the call's params parks instead of burning a
+  // second call that would 400 / silently drop params.
+  const target = action.model;
+  const entry = coverageFor(target, cap, conn.id);
+  const gaps = entry
+    ? spec.coverageParams.filter((p) => !entry.supportedParams.includes(p))
+    : []; // unknown triple = no data, NOT unsupported (#497 semantics)
+  if (gaps.length > 0) {
+    return parkForRule(
+      `rule "${rule.id}" wants a reroute to ${target}, but provider "${conn.id}" cannot express param(s) ${gaps.join(", ")} for it (#497) — parked for a human instead. ${rule.explanation} [source: ${rule.source}]`,
+    );
+  }
+  await journalReroute(target);
+  return invokeOnce({ model: target });
 }
 
 export async function runMediaGeneration(
@@ -325,7 +439,17 @@ export async function runMediaGeneration(
   // overwrite stays FALSE unconditionally: the farm never force-overwrites —
   // regen is a new .vN version (invariant #14). The connector writes the
   // project gen-log row itself.
-  const result = await spec.invoke(conn, { projectId: project, slot, note, overwrite: false });
+  const invokeOnce = (overrides?: MediaInvokeOverrides) =>
+    spec.invoke(conn, { projectId: project, slot, note, overwrite: false }, overrides);
+  let result: GenerateResult;
+  try {
+    result = await invokeOnce();
+  } catch (err) {
+    // #514 filter-aware reroute: one bounded hop per node execution. The
+    // spend gate above covered the original call; the single recovery call
+    // rides the same approval (its realized cost still lands in both ledgers).
+    result = await applyRerouteRules(node, ctx, spec, conn, err, invokeOnce);
+  }
 
   ctx.reportCost(result.costUsd);
   // The RUN gen-log row (runs/<id>/generations.jsonl) — the project row is the
@@ -443,13 +567,15 @@ export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
       ...(lastFrame ? ["lastFrame"] : []),
       ...(p.audio ? ["generateAudio"] : []),
     ],
-    invoke: async (conn, common): Promise<GenerateResult> => {
+    invoke: async (conn, common, o): Promise<GenerateResult> => {
+      const m = o?.model ?? model;
+      const txt = o?.prompt ?? text;
       switch (kind) {
         case "image":
           return conn.generateImage!({
             ...common,
-            prompt: text,
-            model,
+            prompt: txt,
+            model: m,
             refs,
             size: p.size,
             negativePrompt: p.negative,
@@ -457,8 +583,8 @@ export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
         case "video":
           return conn.generateVideo!({
             ...common,
-            prompt: text,
-            model,
+            prompt: txt,
+            model: m,
             durationSec: durationSec!,
             firstFrame,
             lastFrame,
@@ -470,21 +596,21 @@ export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
         case "voiceover":
           return conn.generateVoiceover!({
             ...common,
-            text,
+            text: txt,
             voiceId: String(p.voice),
-            modelId: model,
+            modelId: m,
           });
         case "music":
           return conn.generateMusic!({
             ...common,
-            prompt: text,
+            prompt: txt,
             durationSec: durationSec!,
             forceInstrumental: !p.with_vocals,
           });
         case "sfx":
           return conn.generateSfx!({
             ...common,
-            prompt: text,
+            prompt: txt,
             durationSec,
           });
       }

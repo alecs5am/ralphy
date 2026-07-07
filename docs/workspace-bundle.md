@@ -18,6 +18,8 @@ bundle.zip
   prompts/               # slot-templated prompt files the graph references
   compositions/          # parametrized HyperFrames engines (when present)
   evaluators/            # STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json
+  reroute-rules.json     # workspace filter-reroute rules (#514, optional) —
+                         # merged OVER the built-in set at runtime, never a replace
   calendar.yaml          # recurring slots ONLY (unit-type mix); dated entries
                          # are per-workspace production state — never bundled
   refs/                  # shared/refs copied as-is (style refs, cast masters)
@@ -88,5 +90,6 @@ plus the mapped error code:
 On a clean pass, import materializes: `workspace.json` (with bundle
 provenance), `workflows/<name>.json` per pipeline, the evaluator files at the
 workspace top level, `calendar.json` (slots from `calendar.yaml`, `entries`
-start empty), `shared/refs/`, and `prompts/` / `compositions/` (plus any other
-bundle dirs) verbatim under the workspace dir.
+start empty), `shared/refs/`, and `prompts/` / `compositions/` /
+`reroute-rules.json` (plus any other bundle dirs) verbatim under the
+workspace dir.

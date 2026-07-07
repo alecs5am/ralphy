@@ -320,6 +320,15 @@ export function exportWorkspaceBundle(
       }
     }
 
+    // 2b. Workspace reroute rules (#514) — top-level, optional. The import
+    //     side lands it verbatim under the workspace dir (the MAPPED_ENTRIES
+    //     fall-through), which is exactly where loadWorkspaceRerouteRules reads.
+    const rerouteSrc = path.join(dir, "reroute-rules.json");
+    if (fs.existsSync(rerouteSrc)) {
+      fs.copyFileSync(rerouteSrc, path.join(staging, "reroute-rules.json"));
+      contents.push("reroute-rules.json");
+    }
+
     // 3. Calendar: recurring slots ONLY — dated entries are production state.
     if (fs.existsSync(calendarPath(dir))) {
       const cal = readCalendar(dir);
