@@ -136,6 +136,17 @@ export type GenerateVoiceoverInput = CommonInput & {
   };
 };
 
+export type GenerateLipsyncInput = CommonInput & {
+  /** Route/model id where the provider exposes more than one avatar route. */
+  model?: string;
+  /** Still portrait / talking-photo anchor (URL, local path, or data: URI). */
+  image: string;
+  /** Driving audio track (URL or local path). */
+  audio: string;
+  /** Optional style / motion prompt where the route supports it. */
+  prompt?: string;
+};
+
 export type GenerateMusicInput = CommonInput & {
   prompt: string;
   durationSec: number;
@@ -213,6 +224,15 @@ export interface RalphyConnector {
   callLLM?(opts: CallLLMOptions): Promise<CallLLMResult>;
   generateImage?(input: GenerateImageInput): Promise<GenerateResult>;
   generateVideo?(input: GenerateVideoInput): Promise<GenerateResult>;
+  /**
+   * Talking-head lipsync (image + audio → video). OPTIONAL EXTENSION SEAM
+   * (#512): no first-party connector implements it yet — the HeyGen
+   * talking-photo flow is raw-API only and the fal avatar routes are not
+   * registered. A `lipsync` workflow node resolves the video-capability
+   * connector and fails with a structured error when this method is absent;
+   * a future connector fills the seam without touching the executor.
+   */
+  generateLipsync?(input: GenerateLipsyncInput): Promise<GenerateResult>;
   generateVoiceover?(input: GenerateVoiceoverInput): Promise<GenerateResult>;
   generateMusic?(input: GenerateMusicInput): Promise<GenerateResult>;
   generateSfx?(input: GenerateSfxInput): Promise<GenerateResult>;

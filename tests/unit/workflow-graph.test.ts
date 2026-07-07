@@ -192,7 +192,9 @@ describe("graph validation", () => {
   test("artifact refs skip edge resolution", () => {
     const g = graph([{ id: "vo", type: "tts", in: { text: "artifact:prompts/vo.txt" } }]);
     expect(validateWorkflowGraph(g).ok).toBe(true);
-    const g2 = graph([{ id: "anchor", type: "i2v", in: { first_frame: "refs/hero.png" } }]);
+    const g2 = graph([
+      { id: "anchor", type: "i2v", in: { first_frame: "refs/hero.png" }, params: { prompt: "x" } },
+    ]);
     expect(validateWorkflowGraph(g2).ok).toBe(true);
   });
 
@@ -252,7 +254,7 @@ describe("#497 coverage matrix at import", () => {
       {
         id: "clip",
         type: "t2v",
-        params: { model: "kwaivgi/kling-v3.0-pro", provider: "openrouter", refs: ["hero.png"] },
+        params: { model: "kwaivgi/kling-v3.0-pro", provider: "openrouter", prompt: "x", refs: ["hero.png"] },
       },
     ]);
     const v = validateWorkflowGraph(g);
@@ -271,7 +273,7 @@ describe("#497 coverage matrix at import", () => {
       {
         id: "clip",
         type: "t2v",
-        params: { model: "kwaivgi/kling-v3.0-pro", provider: "openrouter", loop: true },
+        params: { model: "kwaivgi/kling-v3.0-pro", provider: "openrouter", prompt: "x", loop: true },
       },
     ]);
     const v = validateWorkflowGraph(g);
@@ -284,7 +286,7 @@ describe("#497 coverage matrix at import", () => {
       {
         id: "clip",
         type: "t2v",
-        params: { model: "acme/brand-new-video-9", provider: "openrouter", weirdKnob: 3 },
+        params: { model: "acme/brand-new-video-9", provider: "openrouter", prompt: "x", weirdKnob: 3 },
       },
     ]);
     const v = validateWorkflowGraph(g);
@@ -293,7 +295,7 @@ describe("#497 coverage matrix at import", () => {
   });
 
   test("media node without a resolved binding skips the coverage check", () => {
-    const g = graph([{ id: "clip", type: "t2v", params: { durationSec: 10 } }]);
+    const g = graph([{ id: "clip", type: "t2v", params: { prompt: "x", durationSec: 10 } }]);
     expect(validateWorkflowGraph(g).ok).toBe(true);
   });
 });
