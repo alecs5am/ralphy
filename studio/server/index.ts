@@ -51,6 +51,7 @@ import { isAuthorized, authCookieHeader, safeEqual } from "./auth.js";
 import { handleWebhook } from "./hooks.js";
 import {
   importBundle,
+  upgradeBundle,
   startFarm,
   stopFarm,
   farmStatusView,
@@ -230,6 +231,22 @@ export function startStudio(
           allowCoverageGaps: url.searchParams.get("allowCoverageGaps") === "1",
         });
         return json(outcome.body, outcome.status);
+      }
+      // #521 upload-to-upgrade — sibling of import-bundle. Default is a dry-run
+      // diff; ?apply=1 applies. Refusals relayed verbatim (UI is follow-up).
+      {
+        const um = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/upgrade-bundle$/);
+        if (um && req.method === "POST") {
+          const ws = decodeURIComponent(um[1]);
+          const bytes = new Uint8Array(await req.arrayBuffer());
+          const outcome = upgradeBundle(dataRoot!, ws, bytes, {
+            apply: url.searchParams.get("apply") === "1",
+            allowUnknownLineage: url.searchParams.get("allowUnknownLineage") === "1",
+            allowMissingKeys: url.searchParams.get("allowMissingKeys") === "1",
+            allowCoverageGaps: url.searchParams.get("allowCoverageGaps") === "1",
+          });
+          return json(outcome.body, outcome.status);
+        }
       }
       if (req.method === "POST" && (url.pathname === "/api/farm/start" || url.pathname === "/api/farm/tick-now")) {
         let body: { workspace?: string };

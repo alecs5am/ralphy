@@ -1421,6 +1421,45 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "workspace.upgrade",
+      shape: {
+        workspace: "tech-news",
+        applied: true,
+        fromVersion: "1.0.0",
+        toVersion: "2.0.0",
+        bundleId: "b1a2c3d4-e5f6-7890-abcd-ef1234567890",
+        diff: [
+          { class: "graph", added: [], changed: ["workflows/episode.json"], removed: [] },
+          { class: "evaluators", added: [], changed: ["evaluators.json"], removed: [] },
+        ],
+        evaluatorChanged: true,
+        streakReset: true,
+        rollbackSnapshot: ".ralphy/workspaces/tech-news.prev",
+        warnings: [],
+      },
+    },
+    {
+      label: "workspace.upgrade.dry-run",
+      shape: {
+        applied: false,
+        workspace: "tech-news",
+        fromVersion: "1.0.0",
+        toVersion: "2.0.0",
+        bundleId: "b1a2c3d4-e5f6-7890-abcd-ef1234567890",
+        diff: [{ class: "prompts", added: ["prompts/hook.md"], changed: [], removed: [] }],
+        evaluatorChanged: false,
+      },
+    },
+    {
+      label: "workspace.rollback",
+      shape: {
+        workspace: "tech-news",
+        restoredVersion: "1.0.0",
+        fromVersion: "2.0.0",
+        snapshot: ".ralphy/workspaces/tech-news.prev",
+      },
+    },
+    {
       label: "workspace.eval",
       shape: {
         verdict: "needs-user-decision",

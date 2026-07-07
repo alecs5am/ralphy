@@ -564,3 +564,22 @@ describe.if(hasZip)("bundle import (#502 mapping)", () => {
     expect(bad.status).toBe(400);
   });
 });
+
+// #521 upload-to-upgrade seam — the CLI apply/dry-run paths are covered by the
+// bundle unit tests; here we only assert the endpoint's CLI-free guards.
+describe("bundle upgrade (#521 mapping)", () => {
+  test("unknown workspace is a clean 404 (no CLI spawn)", async () => {
+    const r = await fetch(`${openBase}/api/workspaces/ghost/upgrade-bundle`, {
+      method: "POST",
+      body: new Uint8Array([1, 2, 3]),
+    });
+    expect(r.status).toBe(404);
+    expect((await r.json()).applied).toBe(false);
+  });
+
+  test("empty body against a real workspace is a clean 400", async () => {
+    const r = await fetch(`${openBase}/api/workspaces/default/upgrade-bundle`, { method: "POST" });
+    expect(r.status).toBe(400);
+    expect((await r.json()).applied).toBe(false);
+  });
+});

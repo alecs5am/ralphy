@@ -43,7 +43,8 @@ Schema: `cli/lib/schemas/bundle.ts` (Zod).
 | Field | Type | Meaning |
 |---|---|---|
 | `name` | string | Bundle name; the default workspace slug at import (`--as` overrides). |
-| `version` | semver-ish | Bundle version, bumped by the author on re-export (`--bundle-version`). |
+| `bundleId` | string (uuid) | #521 lineage id — stable across re-exports of the same bundle (minted on first export, stored in the workspace's `workspace.json` `bundle` block). `workspace upgrade` refuses a bundle whose `bundleId` does not match the deployed workspace's. OPTIONAL for backward compat — a pre-#521 bundle without it still imports; upgrade then needs `--allow-unknown-lineage`. |
+| `version` | semver-ish | Bundle version, bumped by the author on re-export (`--bundle-version`). `workspace upgrade` requires it to be strictly greater than the deployed version (monotonic). |
 | `ralphyVersionFloor` | semver-ish | Minimum ralphy version that can import (export stamps the current version). |
 | `requiredConnectorKeys` | string[] | Connector env-var names the graph needs (`OPENROUTER_API_KEY`, …). Auto-derived from the graph's nodes: media/LLM nodes via their provider's connector, ingestion/publish nodes via their backend (`web-scrape` → `FIRECRAWL_API_KEY`, `actor` → `APIFY_TOKEN`, `publish`/`x-post` → `POSTIZ_API_KEY` + `POSTIZ_BASE_URL`). |
 | `requiredCoverage` | {model, capability, provider}[] | The #497 coverage-matrix triples the graph's media nodes bind to. Auto-derived. |
@@ -116,3 +117,36 @@ workspace top level, `calendar.json` (slots from `calendar.yaml`, `entries`
 start empty), `shared/refs/`, and `subgraphs/` / `prompts/` /
 `compositions/` / `reroute-rules.json` (plus any other bundle dirs) verbatim
 under the workspace dir.
+
+## Upgrade + rollback (#521)
+
+`ralphy workspace upgrade <ws> <bundle.zip>` picks up a newer version of the
+SAME bundle lineage on a deployed workspace without losing runtime state.
+Gating (all refuse before touching anything):
+
+1. **Validation** — the full import validation pass runs first (manifest,
+   version floor, keys, coverage, pipeline lint). `--allow-missing-keys` /
+   `--allow-coverage-gaps` downgrade to warnings, same as import.
+2. **Lineage** — the bundle's `bundleId` must match the deployed workspace's.
+   A missing id on either side is "unknown lineage" — refused unless
+   `--allow-unknown-lineage`.
+3. **Monotonic version** — the bundle version must be strictly greater than
+   the deployed version. A regression is refused (rollback is the down-path).
+4. **No active run** — a `running` / `parked-approval` run OR a live farm
+   daemon refuses the upgrade (park or finish first).
+
+`--dry-run` (default OFF) prints the know-how diff only; a non-interactive
+apply requires `--yes`. On apply: know-how is replaced atomically (a
+scratch-clone swap), each changed artifact is versioned append-only
+(`workflows/episode.v2.json`, …), the prior tree is kept as `<ws>.prev`, and an
+evaluator change resets the #505 trust agreement streak (the rubric moved).
+Both upgrade and rollback append an event to `<ws>/lifecycle.jsonl`.
+
+`ralphy workspace rollback <ws>` restores the `<ws>.prev` know-how set; runtime
+state accrued since the upgrade is carried forward untouched.
+
+The **know-how vs runtime-state boundary** (what the upgrade replaces vs. what
+it preserves) is the table in
+[`docs/architecture/farm-node-graph.md`](architecture/farm-node-graph.md)
+"Bundle lineage + upgrade (#521)"; the enforcement is `RUNTIME_STATE_PATHS` +
+`upgradeWorkspace` / `rollbackWorkspace` in `cli/lib/bundle.ts`.

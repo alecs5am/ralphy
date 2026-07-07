@@ -332,6 +332,51 @@ capability matrix before accepting. Shipped as #502 — the concrete format
 (manifest fields, export-readiness criteria, import validation semantics)
 is documented in [`docs/workspace-bundle.md`](../workspace-bundle.md).
 
+### Bundle lineage + upgrade (#521)
+
+The manifest carries a stable `bundleId` (a uuid minted on first export, reused
+across re-exports) and a monotonic `version`. `ralphy workspace upgrade <ws>
+<bundle.zip>` picks up a NEWER version of the SAME lineage on a deployed
+workspace WITHOUT losing accumulated runtime state. It refuses on a lineage
+mismatch (`bundleId` differs) or a version regression (rollback is the
+sanctioned down-path), shows a pre-apply diff of the changed know-how classes,
+applies atomically (a scratch-clone swap; the prior tree is kept as
+`<ws>.prev`), versions every replaced artifact append-only (`workflow.v2.json`
+etc.), refuses while a run is active, and — when the evaluator rubric changes —
+resets the #505 trust agreement streak. `ralphy workspace rollback <ws>`
+restores the prior know-how set; both append to `<ws>/lifecycle.jsonl`.
+
+Backward compatibility: `bundleId` is OPTIONAL, so a pre-#521 bundle still
+imports. Upgrade refuses "unknown lineage" (a missing id on either side) unless
+the operator passes `--allow-unknown-lineage`; re-export both ends from #521 to
+get a stable lineage. `ralphy workspace import` is unchanged (import-as-new
+mints/records the id on the new workspace).
+
+The **know-how vs runtime-state boundary** is what makes the loop safe — the
+upgrade replaces (and versions) know-how while leaving runtime state untouched:
+
+| Class | Artifact | On upgrade |
+|---|---|---|
+| **Know-how** (replaced + versioned) | graph workflows (`workflows/*.json`) | replaced, prior → `<name>.v<N>.json` |
+| | reusable subgraphs (`subgraphs/*.json`, #517) | replaced, prior versioned |
+| | slot-templated prompts (`prompts/**`, #515) | replaced, prior versioned |
+| | parametrized compositions (`compositions/**`) | replaced, prior versioned |
+| | evaluators (`STYLE_LOCK.md`, `evaluators.json`, `metrics-benchmarks.json`) | replaced, prior versioned; triggers streak reset |
+| | reroute/lint rules (`reroute-rules.json`, #514) | replaced, prior versioned |
+| | calendar SLOTS (`calendar.json` `slots`) | replaced |
+| **Runtime state** (never touched) | calendar ENTRIES + `calendar-events.jsonl` (#504) | preserved |
+| | trust config + `trust-audit.jsonl` + `trust-agreement.jsonl` (#505) | preserved (streak resets on evaluator change) |
+| | dedup store (`ingestion/seen.jsonl` + `cursor.json`) | preserved |
+| | node-content cache (`cache/node-cache.jsonl`, #513) | preserved |
+| | quarantine (`farm/dead-letter.jsonl`, #519) | preserved |
+| | webhook tokens (`farm/webhook-tokens.json`, #520) | preserved |
+| | analytics, runs/, projects/, batches/, logs, `shared/` (except `shared/refs`) | preserved |
+
+The enforcement lives in `cli/lib/bundle.ts` (`upgradeWorkspace` /
+`rollbackWorkspace`, the `RUNTIME_STATE_PATHS` list). The dashboard exposes an
+upload-to-upgrade endpoint (`POST /api/workspaces/<ws>/upgrade-bundle`, #506)
+next to import.
+
 ## Runtime & dashboard
 
 - Runner: bun process (`ralphy farm start`), docker-compose one-command deploy.

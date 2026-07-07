@@ -611,6 +611,53 @@ export function importBundle(
   }
 }
 
+// ─── Bundle upgrade (#521 via `ralphy workspace upgrade`) ────────────────────
+
+/**
+ * Upgrade a deployed workspace from an uploaded bundle zip: bytes → temp file →
+ * `ralphy workspace upgrade <ws> <zip> [--dry-run|--yes] [--allow-*]`. Refusals
+ * (lineage mismatch, version regression, active run, validation) come back
+ * VERBATIM from the CLI's structured `{ applied: false, refusals }` payload.
+ * Default is a DRY-RUN diff; pass `apply: true` to actually apply.
+ */
+export function upgradeBundle(
+  dataRoot: string,
+  ws: string,
+  zipBytes: Uint8Array,
+  opts: { apply?: boolean; allowUnknownLineage?: boolean; allowMissingKeys?: boolean; allowCoverageGaps?: boolean } = {},
+): ImportOutcome {
+  if (!fs.existsSync(workspaceDir(dataRoot, ws))) {
+    return { ok: false, status: 404, body: { applied: false, error: "unknown workspace" } };
+  }
+  if (zipBytes.byteLength === 0) {
+    return { ok: false, status: 400, body: { applied: false, error: "empty body — POST the bundle zip bytes" } };
+  }
+  const tmpZip = path.join(os.tmpdir(), `studio-upgrade-${crypto.randomBytes(6).toString("hex")}.zip`);
+  fs.writeFileSync(tmpZip, zipBytes);
+  try {
+    const args = ["workspace", "upgrade", ws, tmpZip];
+    args.push(opts.apply ? "--yes" : "--dry-run");
+    if (opts.allowUnknownLineage) args.push("--allow-unknown-lineage");
+    if (opts.allowMissingKeys) args.push("--allow-missing-keys");
+    if (opts.allowCoverageGaps) args.push("--allow-coverage-gaps");
+    const r = runCli(dataRoot, args);
+    if (r.status === 0 && r.json && typeof r.json === "object") {
+      return { ok: true, status: 200, body: r.json as Record<string, unknown> };
+    }
+    const refusals =
+      r.json && typeof r.json === "object" && Array.isArray((r.json as Record<string, unknown>).refusals)
+        ? ((r.json as Record<string, unknown>).refusals as unknown[])
+        : [];
+    return {
+      ok: false,
+      status: 400,
+      body: { applied: false, refusals, error: r.stderr.trim() || "bundle upgrade refused" },
+    };
+  } finally {
+    fs.rmSync(tmpZip, { force: true });
+  }
+}
+
 // ─── Trust ladder (#505) ─────────────────────────────────────────────────────
 
 const TRUST_LEVELS = ["L0", "L1", "L2"] as const;

@@ -36,9 +36,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { workspaceDir, workspacesDir, sharedDir, workflowsDir, subgraphsDir } from "./paths.js";
+import { listFarmRuns, readFarmPid, isFarmAlive } from "./farm/runner.js";
+import { trustAgreementPath, appendTrustAudit, readTrustConfig } from "./trust.js";
 import { listWorkflowNames, workflowPath } from "./workflow.js";
 import { lintWorkflowFile, type GraphIssue } from "./workflow-graph.js";
 import {
@@ -448,8 +451,12 @@ export function exportWorkspaceBundle(
     const requirements = deriveBundleRequirements(graphs);
     const notify = readNotificationsConfig(ws);
     const hasMapping = Object.keys(notify.events).length > 0;
+    // #521 lineage: reuse the workspace's stored bundleId across re-exports so
+    // every version shares one id; mint + persist one on first export.
+    const bundleId = ensureBundleId(ws);
     const manifest: BundleManifest = parseBundleManifest({
       name: ws,
+      bundleId,
       version: opts.version ?? "1.0.0",
       ralphyVersionFloor: VERSION,
       ...requirements,
@@ -797,4 +804,609 @@ export function importWorkspaceBundle(zipPath: string, opts: ImportOptions = {})
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
+}
+
+// ─── Upgrade / rollback (#521) ───────────────────────────────────────────────
+//
+// The two-path loop: a deployed workspace picks up a NEWER version of the SAME
+// bundle lineage WITHOUT losing accumulated runtime state. Know-how is
+// replaced+versioned (append-only `<file>.v<N>.<ext>`); runtime state is
+// untouched. The boundary is DOCUMENTED as a table in
+// docs/architecture/farm-node-graph.md and enforced here.
+//
+//   KNOW-HOW (replaced, prior copy versioned):
+//     workflows/*.json (graphs) · subgraphs/*.json · prompts/** · compositions/**
+//     · evaluators (STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json)
+//     · reroute-rules.json · calendar SLOTS (calendar.json `slots`)
+//   RUNTIME STATE (never touched):
+//     calendar ENTRIES + calendar-events.jsonl · trust config + trust-audit.jsonl
+//     + trust-agreement.jsonl · ingestion/ (dedup seen.jsonl + cursor.json) ·
+//     cache/node-cache.jsonl · farm/dead-letter.jsonl · farm/webhook-tokens.json
+//     · farm/*.pid · runs/ · projects/ · batches/ · logs · analytics · shared/
+//     (except shared/refs, which the bundle carries as know-how)
+//
+// Atomicity: know-how lands in a scratch clone of the workspace, then the
+// clone is swapped in via one rename (the prior dir is kept as `<ws>.prev` for
+// rollback). Runtime-state paths are copied INTO the clone first so the swap
+// preserves them.
+
+/**
+ * Workspace dirs/files that carry accumulated RUNTIME STATE — preserved across
+ * an upgrade AND carried forward onto the snapshot on rollback. workspace.json
+ * is handled specially (its `trust` block is runtime state but its `bundle`
+ * version pointer must revert) — see rollbackWorkspace.
+ */
+const RUNTIME_STATE_PATHS = [
+  "trust-audit.jsonl",
+  "trust-agreement.jsonl",
+  "calendar-events.jsonl",
+  "ingestion", // seen.jsonl + cursor.json
+  "cache", // node-cache.jsonl
+  "farm", // dead-letter.jsonl, webhook-tokens.json, *.pid
+  "runs",
+  "projects",
+  "batches",
+  "ideas",
+  "lifecycle.jsonl", // #521 upgrade/rollback history — survives a rollback
+] as const;
+
+/** Know-how classes the bundle replaces. `calendar` is special-cased (slots only). */
+export type KnowHowClass =
+  | "graph"
+  | "subgraphs"
+  | "prompts"
+  | "compositions"
+  | "evaluators"
+  | "reroute-rules"
+  | "calendar";
+
+export interface KnowHowDiff {
+  class: KnowHowClass;
+  added: string[];
+  changed: string[];
+  removed: string[];
+}
+
+export interface UpgradePreview {
+  workspace: string;
+  fromVersion: string | null;
+  toVersion: string;
+  bundleId: string;
+  diff: KnowHowDiff[];
+  /** An evaluator change resets the agreement streak (#505 — the rubric changed). */
+  evaluatorChanged: boolean;
+}
+
+/** Read the workspace's persisted bundle lineage id, minting + storing one if absent. */
+export function ensureBundleId(ws: string): string {
+  const p = workspaceManifestFile(ws);
+  let manifest: Record<string, unknown> = {};
+  try {
+    manifest = JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    /* no manifest yet */
+  }
+  const existing = (manifest.bundle as { bundleId?: unknown } | undefined)?.bundleId;
+  if (typeof existing === "string" && existing.length > 0) return existing;
+  const id = randomUUID();
+  const bundle = { ...((manifest.bundle as object) ?? {}), bundleId: id };
+  fs.mkdirSync(workspaceDir(ws), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify({ slug: ws, ...manifest, bundle }, null, 2) + "\n");
+  return id;
+}
+
+function workspaceManifestFile(ws: string): string {
+  return path.join(workspaceDir(ws), "workspace.json");
+}
+
+function readWsManifest(ws: string): Record<string, unknown> {
+  try {
+    const raw = JSON.parse(fs.readFileSync(workspaceManifestFile(ws), "utf8"));
+    return raw && typeof raw === "object" ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The workspace's deployed bundle {bundleId, version}, or nulls when never imported. */
+function deployedLineage(ws: string): { bundleId: string | null; version: string | null } {
+  const b = (readWsManifest(ws).bundle as { bundleId?: unknown; version?: unknown } | undefined) ?? {};
+  return {
+    bundleId: typeof b.bundleId === "string" ? b.bundleId : null,
+    version: typeof b.version === "string" ? b.version : null,
+  };
+}
+
+/** Is a farm run active in this workspace? (a `running`/`parked` run OR a live daemon) */
+export function hasActiveRun(ws: string): { active: boolean; reason: string } {
+  const busy = listFarmRuns(ws).find(
+    (r) => r.state.status === "running" || r.state.status === "parked-approval",
+  );
+  if (busy) {
+    return { active: true, reason: `run "${busy.runId}" is ${busy.state.status} — park or finish it first` };
+  }
+  if (isFarmAlive(readFarmPid(ws))) {
+    return { active: true, reason: `the farm daemon for "${ws}" is running — stop it first (\`ralphy farm stop --workspace ${ws}\`)` };
+  }
+  return { active: false, reason: "" };
+}
+
+/** Recursively list files under `dir`, returned as relative POSIX paths (sorted). */
+function walkRel(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (rel: string) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(path.join(dir, rel), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const child = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(child);
+      else out.push(child);
+    }
+  };
+  walk("");
+  return out.sort();
+}
+
+/** Diff two file trees by relative path + byte content. */
+function diffTrees(current: string, incoming: string): { added: string[]; changed: string[]; removed: string[] } {
+  const cur = new Set(walkRel(current));
+  const inc = walkRel(incoming);
+  const added: string[] = [];
+  const changed: string[] = [];
+  for (const rel of inc) {
+    if (!cur.has(rel)) {
+      added.push(rel);
+    } else if (!fs.readFileSync(path.join(current, rel)).equals(fs.readFileSync(path.join(incoming, rel)))) {
+      changed.push(rel);
+    }
+    cur.delete(rel);
+  }
+  return { added, changed, removed: [...cur].sort() };
+}
+
+/** Map an extracted bundle to the workspace-relative know-how sources it carries. */
+function bundleKnowHow(extractedDir: string): Array<{ cls: KnowHowClass; bundleSub: string; wsSub: string }> {
+  const map: Array<{ cls: KnowHowClass; bundleSub: string; wsSub: string }> = [];
+  const has = (p: string) => fs.existsSync(path.join(extractedDir, p));
+  // Pipelines land as workflows/<name>.json — handled explicitly by the caller.
+  if (has("subgraphs")) map.push({ cls: "subgraphs", bundleSub: "subgraphs", wsSub: "subgraphs" });
+  if (has("prompts")) map.push({ cls: "prompts", bundleSub: "prompts", wsSub: "prompts" });
+  if (has("compositions")) map.push({ cls: "compositions", bundleSub: "compositions", wsSub: "compositions" });
+  if (has("evaluators")) map.push({ cls: "evaluators", bundleSub: "evaluators", wsSub: "" }); // files land at ws top level
+  if (has("reroute-rules.json")) map.push({ cls: "reroute-rules", bundleSub: "reroute-rules.json", wsSub: "reroute-rules.json" });
+  return map;
+}
+
+export interface UpgradeOptions {
+  /** Import the bundle as this workspace even when lineage ids are absent on both sides. */
+  allowUnknownLineage?: boolean;
+  /** Downgrade missing-key / coverage refusals to warnings (same as import). */
+  allowMissingKeys?: boolean;
+  allowCoverageGaps?: boolean;
+}
+
+export interface UpgradeResult {
+  workspace: string;
+  preview: UpgradePreview;
+  applied: boolean;
+  /** Prior versioned know-how kept for rollback (the `<ws>.prev` snapshot dir). */
+  rollbackSnapshot: string;
+  streakReset: boolean;
+  warnings: string[];
+}
+
+/** `<ws>.prev` — the prior-know-how snapshot the rollback restores. */
+export function rollbackSnapshotDir(ws: string): string {
+  return path.join(workspacesDir(), `${ws}.prev`);
+}
+
+/** `<ws>/lifecycle.jsonl` — APPEND-ONLY log of upgrade + rollback events. */
+export function lifecycleLogPath(ws: string): string {
+  return path.join(workspaceDir(ws), "lifecycle.jsonl");
+}
+
+function appendLifecycle(ws: string, event: Record<string, unknown>): void {
+  fs.mkdirSync(workspaceDir(ws), { recursive: true });
+  fs.appendFileSync(lifecycleLogPath(ws), JSON.stringify({ at: new Date().toISOString(), ...event }) + "\n");
+}
+
+/**
+ * Validate lineage + version + build the know-how diff WITHOUT touching the
+ * workspace. Refuses (BundleError) on: missing workspace, unreadable bundle,
+ * lineage mismatch, version regression, or (unless allowed) missing keys /
+ * coverage gaps. The extracted bundle dir is left in place at `.extracted` for
+ * the apply step; the caller owns cleanup.
+ */
+function planUpgrade(
+  ws: string,
+  extractedDir: string,
+  opts: UpgradeOptions,
+): { preview: UpgradePreview; validation: BundleValidation } {
+  const dir = workspaceDir(ws);
+  if (!fs.existsSync(dir)) {
+    throw new BundleError("not-found", `workspace not found: ${ws}`, [ws]);
+  }
+
+  const validation = validateBundle(extractedDir, {
+    allowMissingKeys: opts.allowMissingKeys,
+    allowCoverageGaps: opts.allowCoverageGaps,
+  });
+  if (!validation.ok || !validation.manifest) {
+    throw new BundleError(
+      "invalid",
+      `bundle validation refused: ${validation.refusals.map((r) => r.detail).join("; ")}`,
+      validation.refusals,
+    );
+  }
+  const manifest = validation.manifest;
+
+  // Lineage gate.
+  const deployed = deployedLineage(ws);
+  const incomingId = manifest.bundleId ?? null;
+  if (incomingId && deployed.bundleId) {
+    if (incomingId !== deployed.bundleId) {
+      throw new BundleError(
+        "invalid",
+        `lineage mismatch: bundle "${incomingId}" is not the lineage deployed at "${ws}" ("${deployed.bundleId}") — upgrade only applies a newer version of the SAME bundle`,
+        [{ id: "lineage-mismatch", deployed: deployed.bundleId, incoming: incomingId }],
+      );
+    }
+  } else if (!opts.allowUnknownLineage) {
+    throw new BundleError(
+      "invalid",
+      `lineage unknown: ${!incomingId ? "the bundle has no bundleId (pre-#521 export)" : `workspace "${ws}" has no recorded bundleId`} — re-export both from #521, or pass --allow-unknown-lineage to upgrade in place`,
+      [{ id: "lineage-unknown", deployed: deployed.bundleId, incoming: incomingId }],
+    );
+  }
+
+  // Version gate — monotonic strictly greater.
+  if (deployed.version && compareSemverIsh(manifest.version, deployed.version) <= 0) {
+    throw new BundleError(
+      "invalid",
+      `version regression: bundle v${manifest.version} is not newer than the deployed v${deployed.version} — rollback is the sanctioned down-path`,
+      [{ id: "version-regression", deployed: deployed.version, incoming: manifest.version }],
+    );
+  }
+
+  // Build the diff per know-how class.
+  const diff: KnowHowDiff[] = [];
+  // Graphs (pipelines land as workflows/<name>.json): diff each pipeline against workflows/.
+  const wfDir = path.join(dir, "workflows");
+  const graphDiff: KnowHowDiff = { class: "graph", added: [], changed: [], removed: [] };
+  for (const p of validation.pipelines) {
+    const dest = path.join(wfDir, `${p.name}.json`);
+    const rel = `workflows/${p.name}.json`;
+    if (!fs.existsSync(dest)) graphDiff.added.push(rel);
+    else if (!fs.readFileSync(p.file).equals(fs.readFileSync(dest))) graphDiff.changed.push(rel);
+  }
+  if (graphDiff.added.length || graphDiff.changed.length) diff.push(graphDiff);
+
+  for (const { cls, bundleSub, wsSub } of bundleKnowHow(extractedDir)) {
+    const inc = path.join(extractedDir, bundleSub);
+    if (cls === "reroute-rules") {
+      const dest = path.join(dir, wsSub);
+      const d: KnowHowDiff = { class: cls, added: [], changed: [], removed: [] };
+      if (!fs.existsSync(dest)) d.added.push(wsSub);
+      else if (!fs.readFileSync(inc).equals(fs.readFileSync(dest))) d.changed.push(wsSub);
+      if (d.added.length || d.changed.length) diff.push(d);
+      continue;
+    }
+    const dest = wsSub ? path.join(dir, wsSub) : dir;
+    // For evaluators (wsSub === "") only compare the bundled files, not the whole ws dir.
+    const t = cls === "evaluators" ? diffEvaluators(dir, inc) : diffTrees(dest, inc);
+    if (t.added.length || t.changed.length || t.removed.length) diff.push({ class: cls, ...t });
+  }
+
+  // Calendar slots (know-how) vs the deployed calendar.json's slots.
+  const calDiff = diffCalendarSlots(dir, extractedDir);
+  if (calDiff) diff.push(calDiff);
+
+  const evaluatorChanged = diff.some((d) => d.class === "evaluators");
+  return {
+    preview: {
+      workspace: ws,
+      fromVersion: deployed.version,
+      toVersion: manifest.version,
+      bundleId: incomingId ?? deployed.bundleId ?? "(none)",
+      diff,
+      evaluatorChanged,
+    },
+    validation,
+  };
+}
+
+/** Diff only the evaluator files the bundle carries (they land at the workspace top level). */
+function diffEvaluators(wsDir: string, bundleEvalDir: string): { added: string[]; changed: string[]; removed: string[] } {
+  const added: string[] = [];
+  const changed: string[] = [];
+  for (const f of EVALUATOR_FILES) {
+    const inc = path.join(bundleEvalDir, f);
+    if (!fs.existsSync(inc)) continue;
+    const dest = path.join(wsDir, f);
+    if (!fs.existsSync(dest)) added.push(f);
+    else if (!fs.readFileSync(inc).equals(fs.readFileSync(dest))) changed.push(f);
+  }
+  return { added, changed, removed: [] };
+}
+
+/** Diff the bundle's calendar SLOTS against the deployed calendar.json (slots only). */
+function diffCalendarSlots(wsDir: string, extractedDir: string): KnowHowDiff | null {
+  const calFile = path.join(extractedDir, "calendar.yaml");
+  if (!fs.existsSync(calFile)) return null;
+  const incoming = (parseYaml(fs.readFileSync(calFile, "utf8")) as { slots?: Array<{ id: string }> })?.slots ?? [];
+  let current: Array<{ id: string }> = [];
+  try {
+    current = (JSON.parse(fs.readFileSync(path.join(wsDir, "calendar.json"), "utf8")).slots ?? []) as Array<{ id: string }>;
+  } catch {
+    /* no calendar yet — all incoming slots are additions */
+  }
+  const curById = new Map(current.map((s) => [s.id, s]));
+  const d: KnowHowDiff = { class: "calendar", added: [], changed: [], removed: [] };
+  const incIds = new Set<string>();
+  for (const s of incoming) {
+    incIds.add(s.id);
+    const prev = curById.get(s.id);
+    if (!prev) d.added.push(s.id);
+    else if (JSON.stringify(prev) !== JSON.stringify(s)) d.changed.push(s.id);
+  }
+  for (const s of current) if (!incIds.has(s.id)) d.removed.push(s.id);
+  if (!d.added.length && !d.changed.length && !d.removed.length) return null;
+  d.added.sort();
+  d.changed.sort();
+  d.removed.sort();
+  return d;
+}
+
+/** Preview an upgrade without applying it (`--dry-run`). Extracts, validates, diffs, cleans up. */
+export function previewUpgrade(ws: string, zipPath: string, opts: UpgradeOptions = {}): UpgradePreview {
+  const scratch = extractZip(zipPath);
+  try {
+    return planUpgrade(ws, scratch, opts).preview;
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+/** unzip a bundle into a fresh scratch dir (shared by preview + apply). */
+function extractZip(zipPath: string): string {
+  const zip = path.resolve(zipPath);
+  if (!fs.existsSync(zip)) throw new BundleError("not-found", `bundle zip not found: ${zip}`, [zip]);
+  requireBinary("unzip");
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-upgrade-"));
+  const r = spawnSync("unzip", ["-q", zip, "-d", scratch], { encoding: "utf8" });
+  if (r.status !== 0) {
+    fs.rmSync(scratch, { recursive: true, force: true });
+    throw new BundleError("invalid", `unzip failed (status ${r.status}): ${r.stderr || r.stdout}`);
+  }
+  return scratch;
+}
+
+/**
+ * Upgrade a deployed workspace to a newer version of its bundle lineage.
+ * Atomic: builds a scratch clone with runtime state preserved + know-how
+ * replaced (prior copies versioned append-only), then swaps it in via rename
+ * (keeping the prior tree as `<ws>.prev` for rollback). Refuses while a run is
+ * active. An evaluator change resets the trust agreement streak (#505).
+ */
+export function upgradeWorkspace(ws: string, zipPath: string, opts: UpgradeOptions = {}): UpgradeResult {
+  const active = hasActiveRun(ws);
+  if (active.active) {
+    throw new BundleError("invalid", `cannot upgrade "${ws}" while a run is active: ${active.reason}`, [
+      { id: "run-active", detail: active.reason },
+    ]);
+  }
+
+  const scratch = extractZip(zipPath);
+  try {
+    const { preview, validation } = planUpgrade(ws, scratch, opts);
+    const manifest = validation.manifest!;
+    const dir = workspaceDir(ws);
+
+    // Version the prior know-how in place (append-only `<file>.v<N>.<ext>`) so
+    // history survives even after the next upgrade overwrites `<ws>.prev`.
+    for (const d of preview.diff) {
+      for (const rel of d.changed) versionInPlace(path.join(dir, rel));
+    }
+
+    // Snapshot the current KNOW-HOW for rollback (replaces any older snapshot).
+    // Runtime-state paths are skipped — rollback re-adds them from the live
+    // tree, so the snapshot stays lean (no project media copied twice).
+    const snap = rollbackSnapshotDir(ws);
+    fs.rmSync(snap, { recursive: true, force: true });
+    const skip = new Set<string>(RUNTIME_STATE_PATHS as readonly string[]);
+    fs.cpSync(dir, snap, {
+      recursive: true,
+      filter: (src) => {
+        const rel = path.relative(dir, src);
+        return rel === "" || !skip.has(rel.split(path.sep)[0]!);
+      },
+    });
+
+    // Apply know-how onto the live tree (runtime state stays put — we only
+    // touch the know-how paths).
+    for (const p of validation.pipelines) {
+      const dest = path.join(dir, "workflows", `${p.name}.json`);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(p.file, dest);
+    }
+    for (const { cls, bundleSub, wsSub } of bundleKnowHow(scratch)) {
+      const inc = path.join(scratch, bundleSub);
+      if (cls === "evaluators") {
+        for (const f of EVALUATOR_FILES) {
+          const src = path.join(inc, f);
+          if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dir, f));
+        }
+      } else if (cls === "reroute-rules") {
+        fs.copyFileSync(inc, path.join(dir, wsSub));
+      } else {
+        fs.cpSync(inc, path.join(dir, wsSub), { recursive: true });
+      }
+    }
+    // Calendar: replace SLOTS, keep ENTRIES (runtime state).
+    applyCalendarSlots(dir, scratch);
+
+    // Bump the recorded lineage/version in workspace.json (engine state).
+    const wsm = readWsManifest(ws);
+    const bundle = {
+      ...((wsm.bundle as object) ?? {}),
+      name: manifest.name,
+      version: manifest.version,
+      bundleId: preview.bundleId,
+      trustDefault: manifest.trustDefault,
+      upgradedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(workspaceManifestFile(ws), JSON.stringify({ slug: ws, ...wsm, bundle }, null, 2) + "\n");
+
+    // #505: an evaluator change invalidates the accumulated agreement streak —
+    // the rubric moved, so past verdict↔decision matches no longer vouch for
+    // the new bar. Rename the agreement log aside (append-only preserved) so
+    // the streak recomputes to 0; note it in the trust audit.
+    let streakReset = false;
+    if (preview.evaluatorChanged) {
+      const agreement = trustAgreementPath(ws);
+      if (fs.existsSync(agreement)) {
+        fs.renameSync(agreement, `${agreement}.pre-v${manifest.version}`);
+      }
+      const level = readTrustConfig(ws).level;
+      appendTrustAudit(ws, {
+        kind: "demotion",
+        level,
+        surface: "workspace-upgrade",
+        reason: `evaluator rubric changed on upgrade to v${manifest.version} — agreement streak reset (#505/#521)`,
+      });
+      streakReset = true;
+    }
+
+    appendLifecycle(ws, {
+      event: "upgrade",
+      fromVersion: preview.fromVersion,
+      toVersion: manifest.version,
+      bundleId: preview.bundleId,
+      changedClasses: preview.diff.map((d) => d.class),
+      evaluatorChanged: preview.evaluatorChanged,
+      streakReset,
+      rollbackSnapshot: snap,
+    });
+
+    return { workspace: ws, preview, applied: true, rollbackSnapshot: snap, streakReset, warnings: validation.warnings };
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+/** Append-only version: `foo.json` → keep it, copy to `foo.v2.json` (then v3…). */
+function versionInPlace(file: string): void {
+  if (!fs.existsSync(file)) return;
+  const ext = path.extname(file);
+  const base = file.slice(0, -ext.length || undefined);
+  let n = 2;
+  while (fs.existsSync(`${base}.v${n}${ext}`)) n++;
+  fs.copyFileSync(file, `${base}.v${n}${ext}`);
+}
+
+/** Replace calendar.json's `slots` with the bundle's, KEEPING dated `entries`. */
+function applyCalendarSlots(wsDir: string, extractedDir: string): void {
+  const calFile = path.join(extractedDir, "calendar.yaml");
+  if (!fs.existsSync(calFile)) return;
+  const incoming = (parseYaml(fs.readFileSync(calFile, "utf8")) as { version?: string; slots?: unknown[] }) ?? {};
+  let current: { entries?: unknown[]; version?: string } = {};
+  try {
+    current = JSON.parse(fs.readFileSync(path.join(wsDir, "calendar.json"), "utf8"));
+  } catch {
+    /* no calendar yet */
+  }
+  const merged = parseCalendar({
+    version: incoming.version ?? current.version ?? "1.0",
+    slots: incoming.slots ?? [],
+    entries: current.entries ?? [], // runtime state — preserved verbatim
+  });
+  fs.writeFileSync(path.join(wsDir, "calendar.json"), JSON.stringify(merged, null, 2) + "\n");
+}
+
+export interface RollbackResult {
+  workspace: string;
+  restoredVersion: string | null;
+  fromVersion: string | null;
+  snapshot: string;
+}
+
+/**
+ * Restore the prior versioned know-how set (the `<ws>.prev` snapshot the last
+ * upgrade left). Refuses while a run is active or when there is no snapshot.
+ * Runtime state written SINCE the upgrade is preserved by copying the live
+ * runtime-state paths onto the restored tree before the swap.
+ */
+export function rollbackWorkspace(ws: string): RollbackResult {
+  const active = hasActiveRun(ws);
+  if (active.active) {
+    throw new BundleError("invalid", `cannot roll back "${ws}" while a run is active: ${active.reason}`, [
+      { id: "run-active", detail: active.reason },
+    ]);
+  }
+  const snap = rollbackSnapshotDir(ws);
+  if (!fs.existsSync(snap)) {
+    throw new BundleError("not-found", `no rollback snapshot for "${ws}" — nothing to roll back (upgrade first)`, [ws]);
+  }
+  const dir = workspaceDir(ws);
+  const fromVersion = deployedLineage(ws).version;
+
+  // Carry live runtime state onto the snapshot (state accrued since the
+  // upgrade must survive the rollback — only know-how reverts).
+  for (const rel of RUNTIME_STATE_PATHS) {
+    const live = path.join(dir, rel);
+    if (!fs.existsSync(live)) continue;
+    const dest = path.join(snap, rel);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.cpSync(live, dest, { recursive: true });
+  }
+  // workspace.json: keep the snapshot's `bundle` (the version pointer reverts)
+  // but adopt the live `trust` block (runtime state accrued since upgrade).
+  try {
+    const snapM = JSON.parse(fs.readFileSync(path.join(snap, "workspace.json"), "utf8"));
+    const liveM = readWsManifest(ws);
+    if (liveM.trust) snapM.trust = liveM.trust;
+    fs.writeFileSync(path.join(snap, "workspace.json"), JSON.stringify(snapM, null, 2) + "\n");
+  } catch {
+    /* snapshot has no manifest — leave as-is */
+  }
+  // calendar.json is a mixed file: SLOTS are know-how (revert to the snapshot),
+  // ENTRIES are runtime state (keep the live ones). Merge before the swap.
+  try {
+    const live = JSON.parse(fs.readFileSync(path.join(dir, "calendar.json"), "utf8"));
+    let snapCal: { slots?: unknown[]; version?: string } = {};
+    try {
+      snapCal = JSON.parse(fs.readFileSync(path.join(snap, "calendar.json"), "utf8"));
+    } catch {
+      /* snapshot had no calendar — use the live one's shape */
+    }
+    const merged = parseCalendar({
+      version: snapCal.version ?? live.version ?? "1.0",
+      slots: snapCal.slots ?? [],
+      entries: live.entries ?? [],
+    });
+    fs.writeFileSync(path.join(snap, "calendar.json"), JSON.stringify(merged, null, 2) + "\n");
+  } catch {
+    /* no live calendar — nothing to carry */
+  }
+
+  // Swap: live tree → discard, snapshot → live. Append the lifecycle event to
+  // the RESTORED tree's log (the snapshot's log is the older copy).
+  const restoredVersion = ((): string | null => {
+    try {
+      const b = JSON.parse(fs.readFileSync(path.join(snap, "workspace.json"), "utf8")).bundle;
+      return typeof b?.version === "string" ? b.version : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.renameSync(snap, dir);
+  appendLifecycle(ws, { event: "rollback", fromVersion, restoredVersion, snapshot: snap });
+
+  return { workspace: ws, restoredVersion, fromVersion, snapshot: snap };
 }

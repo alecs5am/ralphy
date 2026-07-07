@@ -1459,116 +1459,166 @@ Manage workspaces (studio / universe groupings of projects with a shared/ asset
 tier)
 
 Options:
-  -h, --help                display help for command
+  -h, --help                      display help for command
 
 Commands:
-  create [options] <slug>   Create a workspace:
-                            .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
-  list                      List workspaces (slug, name, project count)
-  show <slug>               Show a workspace: workspace.json + project list
-  use <slug>                Set the active workspace (the default home for new
-                            projects)
-  update [options] <slug>   Update workspace settings — the #505 trust-ladder
-                            fields in workspace.json's `trust` key:
-                            --trust-level L0|L1|L2 (L0 = publish always parks
-                            for approval, L1 = auto-pass when the workspace-eval
-                            score clears --auto-publish-score, L2 = auto-pass
-                            any ship-verdict unit; a fail/warn gate never
-                            auto-passes at any level), --auto-publish-score
-                            0-100 (the L1 threshold on the workspace-eval
-                            overall score, default 80), --promotion-streak
-                            (consecutive verdict-matching decisions before
-                            `workspace trust` suggests promotion, default 10),
-                            --demote-on-reject true|false (a reject of an
-                            auto-published unit drops L2 to L1, default true).
-                            Promotion/demotion of the level is always THIS
-                            explicit verb — never automatic. Example: ralphy
-                            workspace update silent-hill --trust-level L1
-                            --auto-publish-score 85
-  trust <slug>              Show the workspace's trust-ladder state (#505): the
-                            level (L0 park-everything | L1 score-thresholded
-                            auto-publish | L2 autopilot on ship-verdict units),
-                            the thresholds, the verdict-vs-human agreement
-                            (rate, streak, sample count from
-                            trust-agreement.jsonl), the auto-pass audit count,
-                            and whether promotion is SUGGESTED (streak >=
-                            promotion-streak AND agreement rate >= 0.9).
-                            Promotion is never applied here — it is always the
-                            explicit `ralphy workspace update <ws> --trust-level
-                            <L>`. Pure file reads, ZERO model calls. Example:
-                            ralphy workspace trust silent-hill
-  eval [options] <project>  Score a project against its workspace's custom
-                            evaluator rubric (#468 config) and write
-                            workspace-eval.json + workspace-eval-report.md
-                            (append-only). Deterministic criteria run in code
-                            (via their validatorId — #470 wires the builtins; an
-                            unregistered id is reported as na, never an error);
-                            vision criteria run ONE ISOLATED deep-vision pass
-                            PER criterion (#477), each loading only its own
-                            rubric (inline rubricPrompt > rubricFile > builtin
-                            fragment > label) for focused, non-diluted context.
-                            The overall verdict uses the #427 readiness vocab
-                            (ship | repair | needs-user-decision | blocked). Use
-                            --criterion to re-run a single rubric in isolation:
-                            the fresh result merges over the prior
-                            workspace-eval.json so the other criteria are not
-                            re-spent. Example: ralphy workspace eval
-                            choose-silenthill-001 --criterion scenario-fidelity
-  ideate [options] <slug>   Feed the workspace bible (STYLE_LOCK.md +
-                            rubrics/*.md + metrics-benchmarks.json +
-                            evaluators.json) to a Gemini text model via
-                            callLLM() and ask it to produce a grounded,
-                            rubric-passing draft. Default task: pitch N
-                            next-episode concepts. Pass --task to override with
-                            any instruction (e.g. write the full scenario for an
-                            already-chosen episode) — still grounded in the
-                            bible. Saves to
-                            <workspace>/ideas/idea-<timestamp>.md (new file,
-                            append-only) and prints metadata. Example: ralphy
-                            workspace ideate silent-hill --brief 'lean into the
-                            space-bar vibe' --count 3
-  export [options] <slug>   Export a trained workspace as a deployable bundle
-                            zip (#502): manifest.yaml (name, version,
-                            ralphy-version floor, required connector keys,
-                            required (model, capability, provider) coverage,
-                            trust default — requirements auto-derived from the
-                            graph's nodes), pipeline.json (the #498 graph
-                            workflow, JSON per D-03), prompts/, compositions/,
-                            evaluators/ (STYLE_LOCK.md, evaluators.json,
-                            metrics-benchmarks.json), calendar.yaml (recurring
-                            slots ONLY — dated entries are never bundled), refs/
-                            (shared/refs as-is). Project artifacts and logs are
-                            NEVER bundled. Refuses with the concrete gap list
-                            when the workspace is not export-ready (no
-                            evaluators.json, no graph workflow, workflow lint
-                            errors). Read-only over the source workspace. Uses
-                            the system `zip` binary. The summary also prints the
-                            #516 one-tick cost estimate of the bundled primary
-                            pipeline (via `ralphy workflow simulate`). Format
-                            doc: docs/workspace-bundle.md. Example: ralphy
-                            workspace export tech-news --out tech-news-v1.zip
-  import [options] <zip>    Import a workspace bundle zip (#502) as a NEW
-                            workspace. Validates BEFORE materializing anything:
-                            manifest.yaml parses, ralphyVersionFloor <= the
-                            current ralphy version, every required connector key
-                            is configured (missing keys are NAMED — refuse, or
-                            proceed with warnings via --allow-missing-keys),
-                            every required (model, capability, provider)
-                            coverage triple is known to the #497 matrix (gaps
-                            NAMED — refuse, or --allow-coverage-gaps), and the
-                            bundled pipeline lints green (#498 graph checks).
-                            Collision-safe: an existing workspace slug refuses
-                            unless --as <new-slug> is passed — import NEVER
-                            overwrites an existing workspace. Materializes
-                            workspace.json, workflows/, evaluator files,
-                            calendar.json (slots only), shared/refs/, prompts/,
-                            compositions/. Uses the system `unzip` binary.
-                            Format doc: docs/workspace-bundle.md. Example:
-                            ralphy workspace import tech-news-v1.zip --as
-                            my-channel
-  stats                     Show workspace statistics
-  clean [options]           Clean workspace contents
-  help [command]            display help for command
+  create [options] <slug>         Create a workspace:
+                                  .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
+  list                            List workspaces (slug, name, project count)
+  show <slug>                     Show a workspace: workspace.json + project
+                                  list
+  use <slug>                      Set the active workspace (the default home for
+                                  new projects)
+  update [options] <slug>         Update workspace settings — the #505
+                                  trust-ladder fields in workspace.json's
+                                  `trust` key: --trust-level L0|L1|L2 (L0 =
+                                  publish always parks for approval, L1 =
+                                  auto-pass when the workspace-eval score clears
+                                  --auto-publish-score, L2 = auto-pass any
+                                  ship-verdict unit; a fail/warn gate never
+                                  auto-passes at any level),
+                                  --auto-publish-score 0-100 (the L1 threshold
+                                  on the workspace-eval overall score, default
+                                  80), --promotion-streak (consecutive
+                                  verdict-matching decisions before `workspace
+                                  trust` suggests promotion, default 10),
+                                  --demote-on-reject true|false (a reject of an
+                                  auto-published unit drops L2 to L1, default
+                                  true). Promotion/demotion of the level is
+                                  always THIS explicit verb — never automatic.
+                                  Example: ralphy workspace update silent-hill
+                                  --trust-level L1 --auto-publish-score 85
+  trust <slug>                    Show the workspace's trust-ladder state
+                                  (#505): the level (L0 park-everything | L1
+                                  score-thresholded auto-publish | L2 autopilot
+                                  on ship-verdict units), the thresholds, the
+                                  verdict-vs-human agreement (rate, streak,
+                                  sample count from trust-agreement.jsonl), the
+                                  auto-pass audit count, and whether promotion
+                                  is SUGGESTED (streak >= promotion-streak AND
+                                  agreement rate >= 0.9). Promotion is never
+                                  applied here — it is always the explicit
+                                  `ralphy workspace update <ws> --trust-level
+                                  <L>`. Pure file reads, ZERO model calls.
+                                  Example: ralphy workspace trust silent-hill
+  eval [options] <project>        Score a project against its workspace's custom
+                                  evaluator rubric (#468 config) and write
+                                  workspace-eval.json + workspace-eval-report.md
+                                  (append-only). Deterministic criteria run in
+                                  code (via their validatorId — #470 wires the
+                                  builtins; an unregistered id is reported as
+                                  na, never an error); vision criteria run ONE
+                                  ISOLATED deep-vision pass PER criterion
+                                  (#477), each loading only its own rubric
+                                  (inline rubricPrompt > rubricFile > builtin
+                                  fragment > label) for focused, non-diluted
+                                  context. The overall verdict uses the #427
+                                  readiness vocab (ship | repair |
+                                  needs-user-decision | blocked). Use
+                                  --criterion to re-run a single rubric in
+                                  isolation: the fresh result merges over the
+                                  prior workspace-eval.json so the other
+                                  criteria are not re-spent. Example: ralphy
+                                  workspace eval choose-silenthill-001
+                                  --criterion scenario-fidelity
+  ideate [options] <slug>         Feed the workspace bible (STYLE_LOCK.md +
+                                  rubrics/*.md + metrics-benchmarks.json +
+                                  evaluators.json) to a Gemini text model via
+                                  callLLM() and ask it to produce a grounded,
+                                  rubric-passing draft. Default task: pitch N
+                                  next-episode concepts. Pass --task to override
+                                  with any instruction (e.g. write the full
+                                  scenario for an already-chosen episode) —
+                                  still grounded in the bible. Saves to
+                                  <workspace>/ideas/idea-<timestamp>.md (new
+                                  file, append-only) and prints metadata.
+                                  Example: ralphy workspace ideate silent-hill
+                                  --brief 'lean into the space-bar vibe' --count
+                                  3
+  export [options] <slug>         Export a trained workspace as a deployable
+                                  bundle zip (#502): manifest.yaml (name,
+                                  version, ralphy-version floor, required
+                                  connector keys, required (model, capability,
+                                  provider) coverage, trust default —
+                                  requirements auto-derived from the graph's
+                                  nodes), pipeline.json (the #498 graph
+                                  workflow, JSON per D-03), prompts/,
+                                  compositions/, evaluators/ (STYLE_LOCK.md,
+                                  evaluators.json, metrics-benchmarks.json),
+                                  calendar.yaml (recurring slots ONLY — dated
+                                  entries are never bundled), refs/ (shared/refs
+                                  as-is). Project artifacts and logs are NEVER
+                                  bundled. Refuses with the concrete gap list
+                                  when the workspace is not export-ready (no
+                                  evaluators.json, no graph workflow, workflow
+                                  lint errors). Read-only over the source
+                                  workspace. Uses the system `zip` binary. The
+                                  summary also prints the #516 one-tick cost
+                                  estimate of the bundled primary pipeline (via
+                                  `ralphy workflow simulate`). Format doc:
+                                  docs/workspace-bundle.md. Example: ralphy
+                                  workspace export tech-news --out
+                                  tech-news-v1.zip
+  import [options] <zip>          Import a workspace bundle zip (#502) as a NEW
+                                  workspace. Validates BEFORE materializing
+                                  anything: manifest.yaml parses,
+                                  ralphyVersionFloor <= the current ralphy
+                                  version, every required connector key is
+                                  configured (missing keys are NAMED — refuse,
+                                  or proceed with warnings via
+                                  --allow-missing-keys), every required (model,
+                                  capability, provider) coverage triple is known
+                                  to the #497 matrix (gaps NAMED — refuse, or
+                                  --allow-coverage-gaps), and the bundled
+                                  pipeline lints green (#498 graph checks).
+                                  Collision-safe: an existing workspace slug
+                                  refuses unless --as <new-slug> is passed —
+                                  import NEVER overwrites an existing workspace.
+                                  Materializes workspace.json, workflows/,
+                                  evaluator files, calendar.json (slots only),
+                                  shared/refs/, prompts/, compositions/. Uses
+                                  the system `unzip` binary. Format doc:
+                                  docs/workspace-bundle.md. Example: ralphy
+                                  workspace import tech-news-v1.zip --as
+                                  my-channel
+  upgrade [options] <slug> <zip>  Upgrade a DEPLOYED workspace to a newer
+                                  version of its bundle lineage (#521) WITHOUT
+                                  losing runtime state (calendar entries, trust
+                                  history, dedup store, cache, quarantine).
+                                  Validates the bundle targets the SAME lineage
+                                  (bundleId match) with a monotonically greater
+                                  version — refuses on lineage mismatch or
+                                  version regression (rollback is the sanctioned
+                                  down-path). Shows a pre-apply DIFF of the
+                                  know-how classes (graph, subgraphs, prompts,
+                                  compositions, evaluators, reroute rules,
+                                  calendar SLOTS); runtime state is never
+                                  touched. Know-how is replaced atomically and
+                                  every changed artifact is versioned
+                                  append-only (workflow.v2.json etc.); the prior
+                                  tree is kept for `workspace rollback`. Refuses
+                                  while a run is active. An evaluator change
+                                  resets the #505 agreement streak (the rubric
+                                  moved). --dry-run shows the diff only; --yes
+                                  is required to apply non-interactively.
+                                  Example: ralphy workspace upgrade tech-news
+                                  tech-news-v2.zip --yes
+  rollback <slug>                 Roll a workspace back to the know-how set from
+                                  before the last `workspace upgrade` (#521).
+                                  Restores the prior versioned graph / subgraphs
+                                  / prompts / compositions / evaluators /
+                                  reroute rules / calendar slots from the
+                                  upgrade snapshot; runtime state accrued since
+                                  the upgrade (calendar entries, trust history,
+                                  dedup store, cache, quarantine) is carried
+                                  forward untouched. Refuses while a run is
+                                  active, or when there is no upgrade snapshot
+                                  to restore. Appends to the workspace lifecycle
+                                  log. Example: ralphy workspace rollback
+                                  tech-news
+  stats                           Show workspace statistics
+  clean [options]                 Clean workspace contents
+  help [command]                  display help for command
 ```
 
 ### `ralphy calendar`
