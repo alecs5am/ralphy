@@ -59,6 +59,7 @@ import {
   readCalendarView,
   listWorkspaceWorkflows,
   workflowGraphView,
+  simulateWorkflowView,
 } from "./control.js";
 
 const STATIC_DIRS = [
@@ -372,6 +373,20 @@ export function startStudio(
       // ── Farm control plane reads (#506) ─────────────────────────────────
       if (url.pathname === "/api/farm/status") {
         return json(farmStatusView(dataRoot!, url.searchParams.get("workspace") ?? "default"));
+      }
+      // ── Workflow simulate report (#516, relays `ralphy workflow simulate`) ──
+      if (url.pathname === "/api/farm/simulate") {
+        const num = (k: string) => {
+          const v = url.searchParams.get(k);
+          return v ? Number(v) : undefined;
+        };
+        const r = simulateWorkflowView(dataRoot!, url.searchParams.get("workspace") ?? "default", {
+          workflow: url.searchParams.get("workflow") ?? undefined,
+          ticks: num("ticks"),
+          week: url.searchParams.get("week") === "1" || url.searchParams.get("week") === "true",
+          assumeItems: num("assumeItems"),
+        });
+        return json(r.body, r.status);
       }
       let cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/trust$/);
       if (cm) {

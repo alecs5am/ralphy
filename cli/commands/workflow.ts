@@ -21,6 +21,7 @@ import {
   evaluateWorkflow,
 } from "../lib/workflow.js";
 import { lintWorkflowFile, isArtifactRef } from "../lib/workflow-graph.js";
+import { simulateWorkflow } from "../lib/farm/simulate.js";
 import { listSubgraphSummaries, subgraphUsage } from "../lib/subgraph.js";
 import { getExecutor, registeredExecutorTypes, type ExecutorContext } from "../lib/workflow/executors/index.js";
 import { parseWorkflowDocument, type Workflow } from "../lib/schemas/workflow.js";
@@ -193,6 +194,40 @@ export function workflowCmd() {
         results.reduce((n, r) => n + r.warnings.length, 0) + unusedSubgraphs.length;
       if (!ok) process.exitCode = 1;
       out({ workspace: slug, ok, errorCount, warningCount, unusedSubgraphs, workflows: results });
+    });
+
+  // ── simulate (#516) ────────────────────────────────────────────────────────
+  cmd
+    .command("simulate <slug> [name]")
+    .description(
+      "Dry-run one tick of a node-graph workflow (#516) with SYNTHETIC executors: the REAL farm runner executes the graph against an ephemeral scratch root — ZERO provider calls, ZERO artifacts, nothing lands in the workspace's runs/ tree or farm state — while every node's cost is estimated from the existing price tables (per-image, per-second video, flat VO/music/sfx, LLM token ballparks). Unknown pricing is an explicit `unknown` line, never a silent $0. Fan-out cardinality comes from --assume-items, else the trend-watch node's params.expected_items / topics count (assumption stated in the report). The report: cost per node / per tick, paid-node inventory, approval stops + the workspace trust level, budget-cap headroom (#481), projected weekly spend (schedule-node crons x #504 calendar slots — --week projects over that), missing connector keys, and #497 coverage gaps. Exits non-zero on a blocking finding (missing key, coverage gap) for CI use. Omit name when the workspace has exactly one graph workflow. Example: ralphy workflow simulate tech-news pipeline --week --assume-items 5",
+    )
+    .option("--ticks <n>", "Project total cost over N ticks (default 1)")
+    .option("--week", "Project over a calendar week (ticks = weekly schedule fires, else calendar slots)")
+    .option("--assume-items <n>", "Assumed fan-out cardinality (items per ingestion tick)")
+    .action(async (slug: string, name: string | undefined, opts) => {
+      requireRalphyLayout("workflow simulate");
+      ensureWorkspaceExists(slug);
+      const intOpt = (v: unknown, flag: string): number | undefined => {
+        if (v === undefined) return undefined;
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 1) {
+          raiseError("E_VALIDATION_FAILED", { target: flag, detail: `${flag} must be a positive integer (got '${v}')` });
+        }
+        return n;
+      };
+      try {
+        const report = await simulateWorkflow(slug, name, {
+          ticks: intOpt(opts.ticks, "--ticks"),
+          week: !!opts.week,
+          assumeItems: intOpt(opts.assumeItems, "--assume-items"),
+        });
+        // CI contract: a blocking finding (missing key, coverage gap) exits non-zero.
+        if (!report.ok) process.exitCode = 1;
+        out(report);
+      } catch (e) {
+        err(`workflow simulate failed: ${(e as Error).message}`);
+      }
     });
 
   // ── status ───────────────────────────────────────────────────────────────

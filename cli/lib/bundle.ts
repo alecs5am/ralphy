@@ -298,6 +298,8 @@ export interface ExportResult {
   /** Bundle-relative paths of what landed in the zip (top-level entries). */
   contents: string[];
   sizeBytes: number;
+  /** Workspace name of the graph bundled as pipeline.json (#516 one-tick estimate hook). */
+  primaryWorkflow: string;
 }
 
 export interface ExportOptions {
@@ -445,7 +447,14 @@ export function exportWorkspaceBundle(
       throw new BundleError("invalid", `zip failed (status ${r.status}): ${r.stderr || r.stdout}`);
     }
 
-    return { workspace: ws, out, manifest, contents: contents.sort(), sizeBytes: fs.statSync(out).size };
+    return {
+      workspace: ws,
+      out,
+      manifest,
+      contents: contents.sort(),
+      sizeBytes: fs.statSync(out).size,
+      primaryWorkflow: readiness.graphs[0]!.name,
+    };
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }

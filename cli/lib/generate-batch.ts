@@ -60,6 +60,15 @@ export function imageCostUsd(model: string): number {
   return IMAGE_COST_USD[model] ?? IMAGE_COST_USD_FALLBACK;
 }
 
+/**
+ * Known per-image price, or null when the model has no table entry — the
+ * #516 simulate distinction between "priced" and "unknown pricing" (the
+ * fallback above would silently price an unknown model).
+ */
+export function knownImageCostUsd(model: string): number | null {
+  return IMAGE_COST_USD[model] ?? null;
+}
+
 /** Nominal seconds per image (single call, no fan-out math). */
 export function imageLatencySec(model: string): number {
   return IMAGE_LATENCY_SEC[model] ?? IMAGE_LATENCY_SEC_FALLBACK;

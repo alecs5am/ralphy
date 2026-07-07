@@ -1,6 +1,6 @@
 # Workflow simulate: dry-run with cost forecast
 
-> **Status:** todo
+> **Status:** done — 2026-07-07
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** high
