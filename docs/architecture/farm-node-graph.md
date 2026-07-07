@@ -351,6 +351,26 @@ graph nodes are in-process `NodeExecutor` functions whose outputs feed
 downstream in-ports — see the runner module header for the full rationale.
 AGENTS.md invariant #5 is untouched by the daemon: `farm start` is explicit
 user intent, foregrounded; the user backgrounds or dockerizes it (#506).
+
+**D-07 — one daemon, N workspaces + provider concurrency budgets (decided
+2026-07-08, #522):** `ralphy farm start` with NO `--workspace` runs EVERY
+farm-enabled workspace in ONE in-process daemon (docker-compose stays one
+container). A workspace is farm-enabled when `workspace.json` `farm.enabled` is
+`true`, or (unset) it has ≥1 schedule-triggered graph workflow; `farm.enabled:
+false` opts out. The scheduler keeps per-workspace tick queues, round-robins
+across them each scan, and applies a per-workspace crash-loop backoff so a
+throwing workspace can't starve its siblings. Budget/trust/dedup/cache are
+already workspace-scoped (#481/#505/#513) — the multi-workspace loop keys
+everything by `ws`, so nothing leaks across siblings. Provider pressure is
+gated by ONE process-wide dispatch semaphore keyed by `<provider>:<model>`
+(`cli/lib/providers/concurrency.ts`), wired at the shared `runMediaGeneration`
+seam so every paid media node (#511/#512) queues rather than 429s; the in-
+flight budget is declared in the concurrency registry (`CAPS` +
+`CONNECTOR_DEFAULT_CAPS`, seeded from the sourced memory facts, unknown = a
+conservative default logged once), and a 429/`transient` (#519) failure halves
+the endpoint's effective budget, recovering one slot per successful release.
+`farm status` (no `--workspace`) groups by workspace + shows per-provider
+in-flight/queued; `farm report` (#518) rolls up queue-wait.
 - Dashboard: evolved Studio behind auth — calendar view, review queue
   (approve/reject on top of existing annotations #488), run graph with live
   node states (#490 canvas), logs, spend stats, start/stop + trust-level

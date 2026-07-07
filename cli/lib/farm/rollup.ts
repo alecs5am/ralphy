@@ -22,6 +22,7 @@ import { runsDir, runDir } from "../paths.js";
 import { listWorkflowNames, workflowPath } from "../workflow.js";
 import { parseWorkflowDocument, PUBLISH_NODE_TYPES } from "../schemas/workflow.js";
 import type { WorkflowNodeType } from "../schemas/workflow.js";
+import { providerConcurrency } from "../providers/concurrency.js";
 
 const PUBLISH_TYPES = new Set<string>(PUBLISH_NODE_TYPES);
 
@@ -110,6 +111,14 @@ export interface FarmReportDurations {
   approvalLatencySamples: number;
 }
 
+/** #522 provider queue-wait rollup (process-scoped — the in-process semaphore). */
+export interface FarmReportQueueWait {
+  /** Total time (ms) calls spent blocked waiting for a provider slot this process. */
+  totalQueueWaitMs: number;
+  /** Per-provider breakdown: cumulative queue-wait + current in-flight/queued. */
+  byProvider: Array<{ provider: string; totalWaitMs: number; inFlight: number; queued: number }>;
+}
+
 export interface FarmReport {
   workspace: string;
   /** ISO lower bound applied (null = all history). */
@@ -122,6 +131,14 @@ export interface FarmReport {
   spendPerTick: number | null;
   rates: FarmReportRates;
   durations: FarmReportDurations;
+  /**
+   * #522 provider concurrency queue-wait. PROCESS-scoped: the dispatch
+   * semaphore is in-process, so this is populated only when `farm report` runs
+   * inside the daemon that holds the slots (e.g. the dashboard panel). A
+   * standalone CLI call sees zero — the durable per-node metrics above are the
+   * cross-process record.
+   */
+  queueWait: FarmReportQueueWait;
   /** True when at least one contributing run had no loadable workflow (types unclassified). */
   partial: boolean;
 }
@@ -258,6 +275,17 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
   rates.rerouteRate = rates.nodeExecutions ? Number((rates.nodeReroutes / rates.nodeExecutions).toFixed(4)) : 0;
   rates.cacheHitRate = cacheDenom ? Number((rates.nodeCacheHits / cacheDenom).toFixed(4)) : 0;
 
+  const providers = providerConcurrency();
+  const queueWait: FarmReportQueueWait = {
+    totalQueueWaitMs: providers.reduce((a, p) => a + p.totalWaitMs, 0),
+    byProvider: providers.map((p) => ({
+      provider: p.provider,
+      totalWaitMs: p.totalWaitMs,
+      inFlight: p.inFlight,
+      queued: p.queued,
+    })),
+  };
+
   return {
     workspace: ws,
     since: opts.since ?? null,
@@ -272,6 +300,7 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
       medianApprovalLatencyMs: median(approvalLatencies),
       approvalLatencySamples: approvalLatencies.length,
     },
+    queueWait,
     partial,
   };
 }

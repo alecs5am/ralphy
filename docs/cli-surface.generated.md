@@ -1636,27 +1636,38 @@ Options:
   -h, --help                        display help for command
 
 Commands:
-  start [options]                   Start the farm scheduler for a workspace
-                                    (FOREGROUND — background it yourself or
-                                    docker run it). Reads schedule nodes
-                                    (params.cron: standard 5-field cron; * , - /
-                                    steps; numeric only) from the workspace's
-                                    graph workflows, sleeps until the next fire,
-                                    executes each tick as one Run, and resumes
-                                    incomplete/parked runs on boot and on every
-                                    tick. Refuses when a live farm process
-                                    already holds the workspace pidfile.
-                                    Example: ralphy farm start --workspace
-                                    my-studio --once --tick-now
-  status [options]                  Farm status for a workspace: whether a farm
-                                    process is live (pidfile), run counts by
-                                    state (running / parked-approval /
-                                    halted-budget / halted-failure / complete),
-                                    per-run node progress + realized spend from
-                                    each run journal, and #513 content-hash
-                                    cache hits + cost saved (per run and
-                                    aggregate). Example: ralphy farm status
-                                    --workspace my-studio
+  start [options]                   Start the farm scheduler (FOREGROUND —
+                                    background it yourself or docker run it).
+                                    With NO --workspace it runs EVERY
+                                    farm-enabled workspace in ONE daemon (#522:
+                                    round-robin tick queues, per-workspace
+                                    budget/trust/dedup/cache isolation +
+                                    crash-loop backoff); a workspace opts in via
+                                    workspace.json `farm.enabled: true` or by
+                                    having ≥1 schedule-triggered graph workflow
+                                    (opt out with `farm.enabled: false`). With
+                                    --workspace it drives that one workspace
+                                    (backward compatible). Reads schedule nodes
+                                    (params.cron: standard 5-field cron), sleeps
+                                    until the next fire across all workspaces,
+                                    executes each tick as one Run, resumes
+                                    incomplete/parked runs on boot and every
+                                    scan. Refuses when a live farm process
+                                    already holds the pidfile. Example: ralphy
+                                    farm start --once --tick-now
+  status [options]                  Farm status. With NO --workspace it groups
+                                    every farm-enabled workspace (#522) plus a
+                                    process-wide per-provider concurrency
+                                    snapshot (in-flight / queued / cumulative
+                                    queue-wait). With --workspace it reports one
+                                    workspace: whether a farm process is live
+                                    (pidfile), run counts by state (running /
+                                    parked-approval / halted-budget /
+                                    halted-failure / complete), per-run node
+                                    progress + realized spend, and #513
+                                    content-hash cache hits + cost saved.
+                                    Example: ralphy farm status --workspace
+                                    my-studio
   report [options] <ws>             Per-workspace operational metrics DERIVED
                                     from the run journals on demand (#518, no
                                     metrics DB): ticks, units
@@ -1715,12 +1726,14 @@ Commands:
                                     without the endpoint. Example: ralphy farm
                                     fire my-studio on-upload --payload
                                     '{"episode":{"title":"E42"}}'
-  stop [options]                    Stop the workspace's running farm process:
-                                    SIGTERM to the pidfile's pid (the loop
-                                    finishes the node in flight and exits;
-                                    incomplete runs resume on the next start).
-                                    Example: ralphy farm stop --workspace
-                                    my-studio
+  stop [options]                    Stop a running farm process: SIGTERM to the
+                                    pidfile's pid (the loop finishes the node in
+                                    flight and exits; incomplete runs resume on
+                                    the next start). With NO --workspace it
+                                    stops the multi-workspace daemon (#522);
+                                    with --workspace it stops that workspace's
+                                    single-workspace process. Example: ralphy
+                                    farm stop
   help [command]                    display help for command
 ```
 
