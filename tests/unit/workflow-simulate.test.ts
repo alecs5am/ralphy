@@ -117,6 +117,28 @@ describe("simulate cost math", () => {
     // Isolation: no run landed in the REAL workspace tree, and the root is restored.
     expect(root()).toBe(realRoot);
     expect(fs.existsSync(runsDir(WS))).toBe(false);
+
+    // #525: no cadence block on the workspace → exact times (disabled).
+    expect(report.cadence.enabled).toBe(false);
+    expect(report.cadence.note).toContain("exact slot times");
+  });
+
+  test("#525 cadence section marks sampled times when a cadence block is present", async () => {
+    seedWorkspace();
+    writeWorkflow("pipeline", COST_GRAPH);
+    // Author a cadence block on the real workspace.json.
+    const src = path.join(workspaceDir(WS), "workspace.json");
+    const m = JSON.parse(fs.readFileSync(src, "utf8"));
+    m.cadence = {
+      enabled: true,
+      platforms: { tiktok: { distribution: "uniform", windows: [{ start: "08:40", end: "10:15" }], minGapMinutes: 30, slideProbability: 0.05 } },
+    };
+    fs.writeFileSync(src, JSON.stringify(m));
+
+    const report = await simulateWorkflow(WS, "pipeline", { assumeItems: 2 });
+    expect(report.cadence.enabled).toBe(true);
+    expect(report.cadence.note).toContain("SAMPLED");
+    expect(report.cadence.platforms).toContainEqual({ platform: "tiktok", windows: 1, minGapMinutes: 30, slideProbability: 0.05 });
   });
 
   test("weekly projection: schedule crons win; calendar slots are the fallback basis", async () => {

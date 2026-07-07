@@ -12,6 +12,7 @@
 import { z } from "zod";
 import type { Capability } from "../providers/types.js";
 import { NOTIFY_EVENTS, NOTIFY_CHANNELS } from "./notifications.js";
+import { CadenceConfigSchema } from "./cadence.js";
 
 /** Trust-ladder default the importing farm starts the workspace at. */
 export const TRUST_LEVELS = ["L0", "L1", "L2"] as const;
@@ -94,6 +95,14 @@ export const BundleManifestSchema = z.object({
         .optional(),
     })
     .optional(),
+  /**
+   * #525: the bundled humanized-posting-cadence DEFAULT — per-platform jitter
+   * windows / distribution / min-gap / slide probability the bundle author
+   * ships, landed as the imported workspace's `cadence` block. No secrets to
+   * strip (timing profiles only), so unlike notifications it lands ENABLED —
+   * the whole point is the farm posts on human timing out of the box.
+   */
+  cadenceDefault: CadenceConfigSchema.optional(),
 });
 export type BundleManifest = z.infer<typeof BundleManifestSchema>;
 

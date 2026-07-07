@@ -51,6 +51,7 @@ import { knownImageCostUsd } from "../generate-batch.js";
 import { deriveBundleRequirements } from "../bundle.js";
 import { coverageFor } from "../providers/coverage.js";
 import { readTrustConfig } from "../trust.js";
+import { readCadenceConfig } from "../cadence-config.js";
 import { readCalendar } from "../calendar/store.js";
 import {
   WORKFLOW_NODE_TYPES,
@@ -421,6 +422,23 @@ export interface SimulateReport {
     count: number;
     projectedKnownUsd: number;
   };
+  /**
+   * #525 humanized posting cadence: whether scheduled times will be SAMPLED
+   * (not exact) and the per-platform profile summary. `enabled: false` = the
+   * pre-#525 exact-time behaviour (no `cadence` block on the workspace).
+   */
+  cadence: {
+    enabled: boolean;
+    defaultJitterMinutes: number;
+    distribution: string;
+    platforms: Array<{
+      platform: string;
+      windows: number;
+      minGapMinutes: number;
+      slideProbability: number;
+    }>;
+    note: string;
+  };
   environment: {
     requiredKeys: string[];
     missingKeys: string[];
@@ -500,6 +518,7 @@ export async function simulateWorkflow(
 
   // ── Real-root context: trust, calendar, keys, coverage ─────────────────────
   const trust = readTrustConfig(ws);
+  const cadenceConfig = readCadenceConfig(ws);
   const calendarSlots = readCalendar(workspaceDir(ws)).slots.length;
   const requirements = deriveBundleRequirements([graph]);
   const missingKeys = requirements.requiredConnectorKeys.filter((k) => !process.env[k]);
@@ -649,6 +668,20 @@ export async function simulateWorkflow(
     ticks: {
       count: tickCount,
       projectedKnownUsd: Number((tickCount * tickKnownUsd).toFixed(6)),
+    },
+    cadence: {
+      enabled: cadenceConfig.enabled,
+      defaultJitterMinutes: cadenceConfig.defaultJitterMinutes,
+      distribution: cadenceConfig.distribution,
+      platforms: Object.entries(cadenceConfig.platforms).map(([platform, prof]) => ({
+        platform,
+        windows: prof.windows.length,
+        minGapMinutes: prof.minGapMinutes,
+        slideProbability: prof.slideProbability,
+      })),
+      note: cadenceConfig.enabled
+        ? "calendar-slot scheduled times are SAMPLED inside jitter windows (seeded by run id — deterministic on resume), not exact"
+        : "no cadence block — scheduled times are the exact slot times (pre-#525 behaviour)",
     },
     environment: {
       requiredKeys: requirements.requiredConnectorKeys,
