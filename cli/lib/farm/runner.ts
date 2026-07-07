@@ -23,6 +23,8 @@
 //                          the graph finishes).
 //   • run-events.jsonl   — APPEND-ONLY journal (appendRunEvent): node-started /
 //                          node-completed (output + artifactPath + costUsd) /
+//                          node-cached (#513: hash + reused output/artifact +
+//                          costSavedUsd — counts as a completion on resume) /
 //                          node-skipped / node-failed / run-parked /
 //                          run-halted / run-completed. Line-atomic appends →
 //                          kill -9 mid-run is safe.
@@ -87,6 +89,7 @@ import { RunControlSignal } from "../workflow/executors/control-flow.js";
 import type { ExecutorContext, NodeExecutor } from "../workflow/executors/types.js";
 import type { WorkflowNodeType } from "../schemas/workflow.js";
 import { parseCron, nextFire, cronMatches, type CronSpec } from "./cron.js";
+import { computeNodeCacheHash, lookupNodeCache, appendNodeCacheEntry } from "./node-cache.js";
 
 // ─── Deps (clock / sleep / stop seams — zero real sleeps in tests) ───────────
 
@@ -102,6 +105,8 @@ export interface FarmDeps {
   ctx?: Partial<ExecutorContext>;
   /** Event sink for the CLI's live log line (in addition to the journal). */
   onEvent?: (runId: string, kind: string, message: string) => void;
+  /** Run option rider (#513): force execution, ignoring the content-hash cache. */
+  noCache?: boolean;
 }
 
 function resolveDeps(deps: FarmDeps = {}) {
@@ -112,6 +117,7 @@ function resolveDeps(deps: FarmDeps = {}) {
     executorOverrides: deps.executorOverrides ?? {},
     ctx: deps.ctx ?? {},
     onEvent: deps.onEvent ?? (() => {}),
+    noCache: deps.noCache ?? false,
   };
 }
 
@@ -163,11 +169,17 @@ interface JournalState {
   nodes: Map<string, NodeRecord>;
   /** Realized spend accumulated across node-completed/-failed events. */
   spendUsd: number;
+  /** #513 content-hash cache hits (node-cached events). */
+  cacheHits: number;
+  /** Aggregate estimated cost the cache hits saved. */
+  cacheSavedUsd: number;
 }
 
 function readJournal(ws: string, runId: string): JournalState {
   const nodes = new Map<string, NodeRecord>();
   let spendUsd = 0;
+  let cacheHits = 0;
+  let cacheSavedUsd = 0;
   let lines: string[] = [];
   try {
     lines = fs
@@ -175,7 +187,7 @@ function readJournal(ws: string, runId: string): JournalState {
       .split("\n")
       .filter(Boolean);
   } catch {
-    return { nodes, spendUsd };
+    return { nodes, spendUsd, cacheHits, cacheSavedUsd };
   }
   for (const line of lines) {
     let e: Record<string, unknown>;
@@ -191,12 +203,18 @@ function readJournal(ws: string, runId: string): JournalState {
     // honors completed branch nodes without conflating sibling branches.
     const branch = typeof e.branch === "number" ? e.branch : null;
     const key = branch == null ? node : `${node}@${branch}`;
-    if (e.kind === "node-completed") {
+    if (e.kind === "node-completed" || e.kind === "node-cached") {
+      // A cache hit IS a completion on resume: the reused output/artifact
+      // stands in for the execution (#513) and the node never re-runs.
       nodes.set(key, {
         state: "completed",
         output: e.output,
         artifactPath: typeof e.artifactPath === "string" ? e.artifactPath : undefined,
       });
+      if (e.kind === "node-cached") {
+        cacheHits++;
+        if (typeof e.costSavedUsd === "number") cacheSavedUsd += e.costSavedUsd;
+      }
     } else if (e.kind === "node-skipped") {
       nodes.set(key, { state: "skipped", reason: typeof e.reason === "string" ? e.reason : undefined });
     } else if (e.kind === "node-started" || e.kind === "node-failed") {
@@ -204,7 +222,12 @@ function readJournal(ws: string, runId: string): JournalState {
       if (nodes.get(key)?.state !== "completed") nodes.delete(key);
     }
   }
-  return { nodes, spendUsd: Number(spendUsd.toFixed(6)) };
+  return {
+    nodes,
+    spendUsd: Number(spendUsd.toFixed(6)),
+    cacheHits,
+    cacheSavedUsd: Number(cacheSavedUsd.toFixed(6)),
+  };
 }
 
 // ─── Graph helpers ───────────────────────────────────────────────────────────
@@ -598,6 +621,33 @@ export async function executeGraphRun(
       return { kind: "skipped" };
     }
 
+    // #513 content-hash cache: BEFORE the budget pre-check and the paid call —
+    // identical resolved inputs + params on a cache-enabled node reuse the
+    // prior artifact refs as the node output ($0, no execution). A hit reuses
+    // the EXISTING artifact version, never writes a new one (invariant #14).
+    let cacheHash: string | null = null;
+    if (node.cache === "content-hash" && !d.noCache) {
+      cacheHash = computeNodeCacheHash(node, resolved.inputs);
+      const hit = lookupNodeCache(ws, cacheHash);
+      if (hit) {
+        records.set(recKey(node.id, scope.branch), {
+          state: "completed",
+          output: hit.output,
+          artifactPath: hit.artifactPath,
+        });
+        await emit("node-cached", {
+          node: node.id,
+          ...branchField(scope),
+          hash: hit.hash,
+          output: hit.output,
+          artifactPath: hit.artifactPath,
+          costSavedUsd: hit.costSavedUsd,
+          message: `node "${node.id}"${branchTag(scope)} reused cached artifact (saved ~$${hit.costSavedUsd.toFixed(2)})`,
+        });
+        return { kind: "completed" };
+      }
+    }
+
     // Run-wide budget pre-check (#481 opt-in floor: only when a run ledger
     // with an active approval exists — mirrors checkSpend's pass-through).
     if (node.type !== "budget-guard") {
@@ -689,6 +739,20 @@ export async function executeGraphRun(
         costUsd: nodeCost,
         message: `node "${node.id}"${branchTag(scope)} completed`,
       });
+      // #513 write path: a successful cache-enabled execution that produced an
+      // artifact gets an index entry (hash → artifact REFS + the realized cost
+      // as the future savings). No artifact → nothing verifiable → no entry.
+      if (cacheHash && result.artifactPath) {
+        appendNodeCacheEntry(ws, {
+          hash: cacheHash,
+          nodeType: node.type,
+          output: result.output,
+          artifactPath: result.artifactPath,
+          artifactRefs: [result.artifactPath],
+          costSavedUsd: nodeCost,
+          ts: d.now().toISOString(),
+        });
+      }
       for (const target of result.deactivate ?? []) {
         if (!records.has(recKey(target, scope.branch))) {
           const t = graph.nodes.find((n) => n.id === target);
@@ -1008,6 +1072,8 @@ export interface FarmLoopOptions {
   once?: boolean;
   /** Fire every scheduled graph immediately once at startup (debug). */
   tickNow?: boolean;
+  /** #513: force execution on every node, ignoring the content-hash cache. */
+  noCache?: boolean;
 }
 
 /** Idle re-scan interval when the workspace has no cron triggers yet. */
@@ -1022,6 +1088,7 @@ const SLEEP_CHUNK_MS = 1_000;
  * a restart. Foreground by design (AGENTS.md #5: explicit user intent).
  */
 export async function farmLoop(opts: FarmLoopOptions = {}, deps: FarmDeps = {}): Promise<void> {
+  if (opts.noCache) deps = { ...deps, noCache: true };
   const d = resolveDeps(deps);
   const ws = opts.workspace ?? currentWorkspace();
 
@@ -1125,6 +1192,8 @@ export interface FarmStatusReport {
   workspace: string;
   daemon: { running: boolean; pid: number | null; pidFile: string };
   counts: Record<FarmRunStatus, number>;
+  /** #513 aggregate across all runs: content-hash cache hits + cost saved. */
+  cache: { hits: number; savedUsd: number };
   runs: Array<{
     id: string;
     workflow: string;
@@ -1133,6 +1202,8 @@ export interface FarmStatusReport {
     skippedNodes: number;
     totalNodes: number | null;
     spendUsd: number;
+    cacheHits: number;
+    cacheSavedUsd: number;
     updatedAt: string;
     detail: string | null;
   }>;
@@ -1151,6 +1222,7 @@ export function farmStatus(ws: string): FarmStatusReport {
     complete: 0,
   };
   const runs: FarmStatusReport["runs"] = [];
+  const cache = { hits: 0, savedUsd: 0 };
   for (const { runId, state } of listFarmRuns(ws)) {
     counts[state.status]++;
     const journal = readJournal(ws, runId);
@@ -1160,6 +1232,8 @@ export function farmStatus(ws: string): FarmStatusReport {
       if (rec.state === "completed") completedNodes++;
       else skippedNodes++;
     }
+    cache.hits += journal.cacheHits;
+    cache.savedUsd = Number((cache.savedUsd + journal.cacheSavedUsd).toFixed(6));
     const wf = graphs.find((g) => g.name === state.workflow);
     runs.push({
       id: runId,
@@ -1169,6 +1243,8 @@ export function farmStatus(ws: string): FarmStatusReport {
       skippedNodes,
       totalNodes: wf ? wf.graph.nodes.length : null,
       spendUsd: journal.spendUsd,
+      cacheHits: journal.cacheHits,
+      cacheSavedUsd: journal.cacheSavedUsd,
       updatedAt: state.updatedAt,
       detail: state.detail ?? null,
     });
@@ -1177,6 +1253,7 @@ export function farmStatus(ws: string): FarmStatusReport {
     workspace: ws,
     daemon: { running, pid: running ? pid : null, pidFile: farmPidPath(ws) },
     counts,
+    cache,
     runs,
   };
 }

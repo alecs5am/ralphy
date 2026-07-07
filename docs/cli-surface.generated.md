@@ -1645,9 +1645,11 @@ Commands:
                     --once --tick-now
   status [options]  Farm status for a workspace: whether a farm process is live
                     (pidfile), run counts by state (running / parked-approval /
-                    halted-budget / halted-failure / complete), and per-run node
-                    progress + realized spend from each run journal. Example:
-                    ralphy farm status --workspace my-studio
+                    halted-budget / halted-failure / complete), per-run node
+                    progress + realized spend from each run journal, and #513
+                    content-hash cache hits + cost saved (per run and
+                    aggregate). Example: ralphy farm status --workspace
+                    my-studio
   stop [options]    Stop the workspace's running farm process: SIGTERM to the
                     pidfile's pid (the loop finishes the node in flight and
                     exits; incomplete runs resume on the next start). Example:

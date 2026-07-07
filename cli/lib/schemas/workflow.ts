@@ -284,8 +284,47 @@ export type NodeRetry = z.infer<typeof NodeRetrySchema>;
 /** Per-node spend cap, pre-flight estimated by the runner (#499). */
 export const NodeBudgetSchema = z.object({ max_usd: z.number().nonnegative() });
 
-/** Skip re-run when inputs are unchanged. Default none — caching is opt-in. */
-export const NodeCacheSchema = z.enum(["content-hash", "none"]).default("none");
+/** Cache policy vocabulary (#513). The default is PER NODE TYPE — see defaultCachePolicy(). */
+export const NODE_CACHE_POLICIES = ["content-hash", "none"] as const;
+export type NodeCachePolicy = (typeof NODE_CACHE_POLICIES)[number];
+
+/**
+ * Spend-class node types (#513): executions that bill real money (paid model
+ * calls) or heavy compute (renders) default to `cache: content-hash` so a
+ * re-run with identical inputs reuses the prior artifact instead of
+ * re-billing. Everything else — control flow, data plumbing, ingestion,
+ * publish side effects, and the $0 deterministic media post-ops (upscale /
+ * remove-bg / reframe / crunch) — defaults to `none`. LLM nodes
+ * (generate-text / generate-object / agent-loop / coding-agent) also stay
+ * `none` by DESIGN despite billing: their value is often fresh variation, so
+ * caching them is an explicit per-node opt-in, never a default. An explicit
+ * `cache:` in the graph file is always authoritative over the default.
+ */
+export const CONTENT_HASH_DEFAULT_NODE_TYPES: ReadonlySet<string> = new Set([
+  // B. paid generative media signatures (transcribe bills the scribe pass).
+  "t2i",
+  "i2i",
+  "t2v",
+  "i2v",
+  "r2v",
+  "v2v",
+  "lipsync",
+  "tts",
+  "voice-design",
+  "music",
+  "sfx",
+  "transcribe",
+  // C. ralphy verbs that spend money or heavy render compute.
+  "ralphy-generate",
+  "ralphy-render",
+  "ralphy-captions",
+  "ralphy-social-copy",
+]);
+
+/** The per-type `cache` default (#513): paid spend class → content-hash, else none. */
+export function defaultCachePolicy(type: WorkflowNodeType): NodeCachePolicy {
+  return CONTENT_HASH_DEFAULT_NODE_TYPES.has(type) ? "content-hash" : "none";
+}
 
 /**
  * Named typed output. A bare string names the output artifact (its type comes
@@ -315,7 +354,6 @@ const ENVELOPE_FIELDS = {
   retry: NodeRetrySchema,
   on_fail: NodeOnFailSchema,
   budget: NodeBudgetSchema.optional(),
-  cache: NodeCacheSchema,
   /** Events → run journal → dashboard. */
   emit: z.boolean().default(true),
 } as const;
@@ -555,13 +593,16 @@ export interface WorkflowNode {
   emit: boolean;
 }
 
-// Discriminated union over all 48 node types: the envelope is identical, the
-// params schema comes from the type's category. Built programmatically so the
-// taxonomy above stays the single source of truth.
+// Discriminated union over all 48 node types: the envelope is identical (the
+// `cache` default is the only per-type field, #513), the params schema comes
+// from the type's category. Built programmatically so the taxonomy above
+// stays the single source of truth.
 const nodeMembers = WORKFLOW_NODE_TYPES.map((t) =>
   z.object({
     ...ENVELOPE_FIELDS,
     type: z.literal(t),
+    /** Skip re-run when inputs are unchanged. Paid nodes default content-hash (#513). */
+    cache: z.enum(NODE_CACHE_POLICIES).default(defaultCachePolicy(t)),
     params: PARAMS_BY_CATEGORY[nodeCategory(t)],
   }),
 );

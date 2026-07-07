@@ -47,7 +47,8 @@ describe("node envelope", () => {
     expect(n.retry).toEqual({ max: 0, backoff: "exponential" });
     expect(n.on_fail).toBe("halt");
     expect(n.budget).toBeUndefined();
-    expect(n.cache).toBe("none");
+    // #513: paid nodes (t2i is spend-class) default to content-hash caching.
+    expect(n.cache).toBe("content-hash");
     expect(n.emit).toBe(true);
     expect(nodeOutName(n)).toBe("out");
     expect(nodeOutType(n)).toBe("image[]");
@@ -74,6 +75,23 @@ describe("node envelope", () => {
     expect(nodeOutName(n)).toBe("picked");
     expect(nodeOutType(n)).toBe("object:pick");
     expect(validateWorkflowGraph(g).ok).toBe(true);
+  });
+
+  test("cache default is per spend class; an explicit cache: wins (#513)", () => {
+    const g = graph([
+      { id: "gen", type: "ralphy-generate" },
+      { id: "copy", type: "template-string" },
+      { id: "brain", type: "generate-text" }, // LLM: paid but fresh-variation — default none
+      { id: "crop", type: "reframe" }, // $0 deterministic post-op — default none
+      { id: "pinned", type: "t2v", cache: "none" }, // explicit author choice wins
+    ]);
+    expect(g.nodes.map((n) => n.cache)).toEqual([
+      "content-hash",
+      "none",
+      "none",
+      "none",
+      "none",
+    ]);
   });
 
   test("rejects bad envelope values", () => {
