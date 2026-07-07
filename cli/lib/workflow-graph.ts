@@ -38,6 +38,7 @@ import {
 } from "./schemas/workflow.js";
 import { coverageFor, providersSupporting } from "./providers/coverage.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
+import { lintGraphPrompts } from "./prompt-lint.js";
 
 // ─── Issue shape ─────────────────────────────────────────────────────────────
 
@@ -51,7 +52,9 @@ export type GraphIssueCode =
   | "cycle" // graph is not a DAG
   | "missing-required-port" // #512: a media signature's required in-port is neither wired nor param-fed
   | "coverage-unsupported-param" // HARD: param declared unsupported by the #497 matrix
-  | "coverage-uncovered-param"; // warn: param outside declared coverage
+  | "coverage-uncovered-param" // warn: param outside declared coverage
+  | "prompt-rule" // #515: a prompt-lint seed rule fired on a node's prompt text
+  | "unknown-guideline"; // #515: params.guidelines names a slug with no loadable guideline
 
 export interface GraphIssue {
   level: "error" | "warning";
@@ -60,6 +63,12 @@ export interface GraphIssue {
   node: string | null;
   /** In-port name, when the issue is about a specific port/edge. */
   port?: string;
+  /** #515 prompt lint: the prompt source (workspace-relative file or params key). */
+  file?: string;
+  /** #515 prompt lint: the rule id that fired. */
+  rule?: string;
+  /** #515 prompt lint: the rule's provenance citation. */
+  source?: string;
   message: string;
   /** The concrete fix, phrased for the workflow author. */
   fix: string;
@@ -427,6 +436,23 @@ export function lintWorkflowFile(filePath: string, ws?: string): WorkflowLintRes
 
   if (doc.kind === "graph") {
     const v = validateWorkflowGraph(doc.graph);
+    // #515 prompt-pack lint: model-aware rules over the graph's prompt params
+    // / prompt files + guideline-slug validation. Rides the same errors /
+    // warnings arrays so `workflow lint`, `workspace export` readiness, and
+    // `prompt lint` all surface one issue list.
+    for (const issue of lintGraphPrompts(doc.graph, { workspace: ws })) {
+      (issue.level === "error" ? v.errors : v.warnings).push({
+        level: issue.level,
+        code: issue.code,
+        node: issue.node,
+        file: issue.file,
+        rule: issue.rule,
+        source: issue.source,
+        message: issue.message,
+        fix: issue.fix,
+      });
+    }
+    v.ok = v.errors.length === 0;
     return { ...base, kind: "graph", size: doc.graph.nodes.length, ...v };
   }
 

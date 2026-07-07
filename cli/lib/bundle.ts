@@ -92,7 +92,7 @@ function requireBinary(bin: "zip" | "unzip"): void {
 // ─── Export readiness ────────────────────────────────────────────────────────
 
 export interface BundleGap {
-  /** Stable gap id: missing-evaluators | no-graph-workflow | workflow-lint-error. */
+  /** Stable gap id: missing-evaluators | no-graph-workflow | workflow-lint-error | prompt-lint-error. */
   id: string;
   /** What the gap is, concretely. */
   detail: string;
@@ -138,16 +138,22 @@ export function exportReadiness(ws: string): ExportReadiness {
     }
     const lint = lintWorkflowFile(file, ws);
     for (const issue of lint.errors) {
+      // #515: error-level prompt-lint violations refuse export under their
+      // own gap id (the issue names the file, the rule, and the fix).
+      const isPromptLint = issue.code === "prompt-rule" || issue.code === "unknown-guideline";
       gaps.push({
-        id: "workflow-lint-error",
-        detail: `workflow "${name}": ${issue.message}`,
+        id: isPromptLint ? "prompt-lint-error" : "workflow-lint-error",
+        detail: `workflow "${name}": ${issue.message}${issue.rule ? ` [rule: ${issue.rule}]` : ""}${issue.file ? ` [file: ${issue.file}]` : ""}`,
         fix: issue.fix,
       });
     }
     if (lint.ok) graphs.push({ name, path: file });
   }
 
-  if (graphs.length === 0 && !gaps.some((g) => g.id === "workflow-lint-error")) {
+  if (
+    graphs.length === 0 &&
+    !gaps.some((g) => g.id === "workflow-lint-error" || g.id === "prompt-lint-error")
+  ) {
     gaps.push({
       id: "no-graph-workflow",
       detail: `workspace "${ws}" has no node-graph workflow (workflows/*.json with nodes[]) — a bundle needs at least one`,

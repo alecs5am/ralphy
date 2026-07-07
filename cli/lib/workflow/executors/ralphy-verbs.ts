@@ -146,6 +146,63 @@ async function readJsonFile(fp: string): Promise<unknown | null> {
   }
 }
 
+// ─── #515 guideline folding (the shared prompt-resolution path) ──────────────
+
+/**
+ * Fold the node's `params.guidelines` rule blocks into a resolved prompt —
+ * the headless mirror of the agent's manual `ralphy guideline show <slug>`
+ * read (AGENTS.md invariant #13). Runs AFTER prompt resolution (port value /
+ * inline / prompt_file), so the fold applies post-interpolation; the source
+ * prompt file is NEVER rewritten. An unknown slug is a structured failure
+ * (the #515 lint catches it before any run; this is the runtime backstop).
+ *
+ * The RESOLVED prompt is journaled for reproducibility: inside a farm run it
+ * lands in run-events.jsonl (the same journal the #514 reroutes write);
+ * outside a run it lands in the executor's gen-log via ctx.log.
+ */
+export async function foldNodeGuidelines(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  prompt: string,
+): Promise<string> {
+  const slugs = stringList(node.params.guidelines);
+  if (slugs.length === 0) return prompt;
+  const { loadGuideline, foldGuidelinesIntoPrompt } = await import("../../guidelines.js");
+  const loaded = slugs.map((slug) => {
+    const g = loadGuideline(slug);
+    if (!g) {
+      throw new NodeExecutionError(
+        "guideline-unknown",
+        `${node.type} node "${node.id}" names unknown guideline "${slug}" — see \`ralphy guideline list\` (and \`ralphy workflow lint\` catches this before a run)`,
+      );
+    }
+    return g;
+  });
+  const folded = foldGuidelinesIntoPrompt(prompt, loaded);
+  if (ctx.runId) {
+    const { appendRunEvent } = await import("../../run.js");
+    await appendRunEvent(ctx.runId, {
+      kind: "prompt-resolved",
+      node: node.id,
+      guidelines: slugs,
+      resolvedPrompt: folded,
+      message: `node "${node.id}" prompt folded with guideline(s) ${slugs.join(", ")} (#515)`,
+    });
+  } else {
+    await ctx.log({
+      provider: "other",
+      model: "guideline-fold",
+      endpoint: "guideline-fold",
+      kind: "text",
+      status: "ok",
+      input: { node: node.id, guidelines: slugs },
+      output: { resolvedPrompt: folded },
+      cost_usd: 0,
+    });
+  }
+  return folded;
+}
+
 /** Is the run's recorded approval active (present + not expired)? */
 async function hasActiveRunApproval(runId: string): Promise<boolean> {
   const approval = activeApproval(await readRunLedger(runId));
@@ -522,6 +579,9 @@ export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
       `ralphy-generate node "${node.id}" (${kind}) has no ${kind === "voiceover" ? "text" : "prompt"} — wire the \`prompt\` in-port or set params.${kind === "voiceover" ? "text / text_file" : "prompt / prompt_file"}`,
     );
   }
+  // #515: fold guideline rule blocks into PROMPTS only — voiceover text is the
+  // spoken script; a folded style block would be read aloud.
+  const resolvedText = kind === "voiceover" ? text : await foldNodeGuidelines(node, ctx, text);
 
   // Refs: params + the `refs` in-port, each through the STANDARD resolution
   // order (cwd → <project>/ → artifacts/refs/ → workspace shared/, #025/#108).
@@ -569,7 +629,7 @@ export const ralphyGenerateExecutor: NodeExecutor = async (node, ctx) => {
     ],
     invoke: async (conn, common, o): Promise<GenerateResult> => {
       const m = o?.model ?? model;
-      const txt = o?.prompt ?? text;
+      const txt = o?.prompt ?? resolvedText;
       switch (kind) {
         case "image":
           return conn.generateImage!({

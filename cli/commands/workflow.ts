@@ -141,7 +141,7 @@ export function workflowCmd() {
   cmd
     .command("lint <slug> [name]")
     .description(
-      "Offline validation of a workspace's workflows: schema parse for legacy linear workflows (#478), and for node-graph workflows (#498) the full graph checks — DAG (no cycles), edge resolution, port typing, and the #497 provider-coverage matrix (a declared-unsupported media param is a HARD error naming the fix). Reads .json (storage format) and .yaml (accepted at lint/import per D-03). Omit name to lint every workflow. ZERO model calls. Example: ralphy workflow lint silent-hill episode",
+      "Offline validation of a workspace's workflows: schema parse for legacy linear workflows (#478), and for node-graph workflows (#498) the full graph checks — DAG (no cycles), edge resolution, port typing, the #497 provider-coverage matrix (a declared-unsupported media param is a HARD error naming the fix), and the #515 prompt-pack lint (model-aware rules over each node's prompt text / prompt file — per-model char caps, kling no-music clause, ElevenLabs artist-name detector, photoreal negative cluster — plus params.guidelines slug validation; also standalone as `ralphy prompt lint <ws>`). Reads .json (storage format) and .yaml (accepted at lint/import per D-03). Omit name to lint every workflow. ZERO model calls. Example: ralphy workflow lint silent-hill episode",
     )
     .action(async (slug: string, name?: string) => {
       requireRalphyLayout("workflow lint");
