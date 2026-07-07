@@ -16,10 +16,8 @@
 
 import { Command } from "commander";
 import fs from "node:fs/promises";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { imageSize } from "image-size";
 import { projectDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
@@ -28,13 +26,21 @@ import {
   UNIT_FORMATS,
   isValidUnitSlug,
   type UnitManifest,
-  type UnitMediaMeta,
   type UnitProvenance,
 } from "../lib/schemas/unit.js";
-import { buildUnitCaption, type CaptionContext } from "../lib/social/caption.js";
+// Unit-formation core extracted to cli/lib/unit.ts (#511) — the ralphy-unit /
+// ralphy-social-copy workflow executors call the SAME code path.
+import {
+  buildMediaMeta,
+  captionUnit,
+  copyMedia,
+  createUnit,
+  expandFrom,
+  readUnitManifest,
+  unitsRoot,
+  writeUnitManifest,
+} from "../lib/unit.js";
 import { isBankStale, LAST_REVIEWED } from "../lib/social/hashtag-bank.js";
-import { buildProvenanceGraph } from "../lib/provenance.js";
-import { PROVENANCE_GRAPH_FILENAME } from "../lib/schemas/provenance-graph.js";
 import { buildScorecard } from "../lib/scorecard.js";
 import { logUserPrompt } from "../lib/gen-log.js";
 import { buildDistributionPack } from "../lib/distribution.js";
@@ -50,106 +56,6 @@ import {
 // (#458 #3). No new dependency, no shelling to a system `zip` binary.
 import AdmZip from "adm-zip";
 
-const UNITS_DIRNAME = "units";
-
-const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"]);
-const VIDEO_EXTS = new Set([".mp4", ".mov", ".webm", ".m4v"]);
-
-/**
- * The common aspect ratios we snap a detected w:h to (within a small relative
- * tolerance) so the catalog stores a clean CSS "W / H" string instead of a raw
- * pixel ratio. Order matters only for readability; each is tested independently.
- */
-const COMMON_ASPECTS: Array<[number, number]> = [
-  [1, 1],
-  [4, 5],
-  [9, 16],
-  [16, 9],
-  [3, 2],
-  [2, 3],
-];
-
-/** Reduce w:h to a clean common "W / H" if it maps to one within ~2%; else raw. */
-function aspectString(width: number, height: number): string | undefined {
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return undefined;
-  }
-  const ratio = width / height;
-  const TOL = 0.02; // 2% relative tolerance
-  for (const [w, h] of COMMON_ASPECTS) {
-    const target = w / h;
-    if (Math.abs(ratio - target) / target <= TOL) return `${w} / ${h}`;
-  }
-  return `${width} / ${height}`;
-}
-
-/** Probe an image header for its dimensions. Returns null on any failure. */
-function imageDimensions(absPath: string): { width: number; height: number } | null {
-  try {
-    const { width, height } = imageSize(readFileSync(absPath));
-    if (typeof width === "number" && typeof height === "number") return { width, height };
-  } catch {
-    /* unreadable / unsupported header */
-  }
-  return null;
-}
-
-/** Probe a video stream for its dimensions via ffprobe. Returns null on failure. */
-function videoDimensions(absPath: string): { width: number; height: number } | null {
-  try {
-    const r = spawnSync(
-      "ffprobe",
-      [
-        "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=width,height",
-        "-of", "csv=p=0",
-        absPath,
-      ],
-      { encoding: "utf8" },
-    );
-    if (r.status !== 0 || !r.stdout) return null;
-    const first = r.stdout.trim().split("\n")[0] ?? "";
-    const [w, h] = first.split(",").map((s) => parseInt(s.trim(), 10));
-    if (Number.isFinite(w) && Number.isFinite(h) && w! > 0 && h! > 0) {
-      return { width: w!, height: h! };
-    }
-  } catch {
-    /* ffprobe missing or errored */
-  }
-  return null;
-}
-
-/**
- * Detect a copied media file's intrinsic aspect + kind. Kind is derived from the
- * extension first (so it is always known); aspect comes from a header read for
- * images and ffprobe for videos. On any detection failure aspect is omitted —
- * the create must NEVER crash on undetectable media.
- */
-function detectMediaMeta(absPath: string): UnitMediaMeta {
-  const ext = path.extname(absPath).toLowerCase();
-  const kind: UnitMediaMeta["kind"] = VIDEO_EXTS.has(ext) ? "video" : "image";
-  const dims = kind === "video" ? videoDimensions(absPath) : imageDimensions(absPath);
-  const aspect = dims ? aspectString(dims.width, dims.height) : undefined;
-  return aspect ? { aspect, kind } : { kind };
-}
-
-/**
- * Build the `media_meta` map for an ordered list of unit-relative basenames that
- * live in `unitDir`. Files whose meta could not be detected still get a `kind`
- * entry (extension-derived); aspect is simply absent for those.
- */
-function buildMediaMeta(unitDir: string, basenames: string[]): Record<string, UnitMediaMeta> {
-  const meta: Record<string, UnitMediaMeta> = {};
-  for (const base of basenames) {
-    const ext = path.extname(base).toLowerCase();
-    // Only record meta for media we recognize; skip stray non-media filenames.
-    if (!IMAGE_EXTS.has(ext) && !VIDEO_EXTS.has(ext)) continue;
-    meta[base] = detectMediaMeta(path.join(unitDir, base));
-  }
-  return meta;
-}
-
 /** Resolve `<project>` to its on-disk dir, refusing if it does not exist. */
 function resolveProjectDir(projectId: string): string {
   const dir = projectDir(projectId);
@@ -159,112 +65,6 @@ function resolveProjectDir(projectId: string): string {
   return dir;
 }
 
-function unitsRoot(projectDir: string): string {
-  return path.join(projectDir, UNITS_DIRNAME);
-}
-
-/**
- * Resolve the append-only directory name for a new unit. If `<slug>/` is free,
- * returns `<slug>`. Otherwise mirrors the asset auto-version rule: scans for
- * existing `<slug>.vN` dirs and returns the next free `<slug>.v<max+1>` so the
- * prior unit survives untouched. Never overwrites.
- */
-function resolveNewUnitDirName(unitsDir: string, slug: string): string {
-  if (!existsSync(path.join(unitsDir, slug))) return slug;
-  let max = 1;
-  if (existsSync(unitsDir)) {
-    const re = new RegExp(`^${escapeRe(slug)}\\.v(\\d+)$`);
-    // Synchronous read is fine here — the units dir is small.
-    for (const entry of readdirSync(unitsDir)) {
-      const m = re.exec(entry);
-      if (m) {
-        const n = parseInt(m[1]!, 10);
-        if (n > max) max = n;
-      }
-    }
-  }
-  return `${slug}.v${max + 1}`;
-}
-
-function escapeRe(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Compile a single path-segment glob (`*`, `?`) into an anchored regex. */
-function segRe(seg: string): RegExp {
-  const body = seg
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*/g, ".*")
-    .replace(/\?/g, ".");
-  return new RegExp(`^${body}$`);
-}
-
-/**
- * Expand a glob RELATIVE to the project dir into a stable-sorted list of
- * project-relative file paths. Self-contained (no `bun`/`fast-glob` dep so the
- * `bunx tsx` smoke path resolves): walks the tree segment-by-segment, where a
- * `**` segment matches zero-or-more directory levels. Returns only files.
- * Refuses (caller's E_VALIDATION_FAILED) on zero matches.
- */
-function expandFrom(projectDir: string, glob: string): string[] {
-  const segments = glob.split("/").filter((s) => s.length > 0);
-  const results: string[] = [];
-
-  function walk(absDir: string, relDir: string, segIdx: number): void {
-    if (!existsSync(absDir)) return;
-    // Structural type + cast: @types/node version drift changed the
-    // `withFileTypes:true` overload's Dirent name-type (string → NonSharedBuffer),
-    // so `ReturnType<typeof readdirSync>` no longer matches and `e.name` infers as
-    // a buffer. Pin the shape this helper actually uses. See notes/issues/done/085.
-    let entries: { name: string; isDirectory(): boolean; isFile(): boolean }[];
-    try {
-      entries = readdirSync(absDir, {
-        withFileTypes: true,
-      }) as unknown as typeof entries;
-    } catch {
-      return;
-    }
-    const seg = segments[segIdx]!;
-    const isLast = segIdx === segments.length - 1;
-
-    if (seg === "**") {
-      // `**` matches zero levels (try the rest of the pattern here) …
-      walkAt(absDir, relDir, segIdx + 1);
-      // … and any number of directory levels deeper.
-      for (const e of entries) {
-        if (e.isDirectory()) {
-          walk(path.join(absDir, e.name), path.posix.join(relDir, e.name), segIdx);
-        }
-      }
-      return;
-    }
-
-    const re = segRe(seg);
-    for (const e of entries) {
-      if (!re.test(e.name)) continue;
-      const childAbs = path.join(absDir, e.name);
-      const childRel = relDir ? path.posix.join(relDir, e.name) : e.name;
-      if (isLast) {
-        if (e.isFile()) results.push(childRel);
-      } else if (e.isDirectory()) {
-        walk(childAbs, childRel, segIdx + 1);
-      }
-    }
-  }
-
-  // Helper so a `**` can re-enter the matcher at the same directory.
-  function walkAt(absDir: string, relDir: string, segIdx: number): void {
-    if (segIdx >= segments.length) return;
-    walk(absDir, relDir, segIdx);
-  }
-
-  if (segments.length > 0) walk(projectDir, "", 0);
-  // De-dup (a `**` pattern can reach the same file via multiple paths).
-  const unique = Array.from(new Set(results));
-  unique.sort((a, b) => a.localeCompare(b));
-  return unique;
-}
-
 function buildProvenance(opts: any): UnitProvenance | undefined {
   const p: UnitProvenance = {};
   if (opts.template) p.template = String(opts.template);
@@ -272,56 +72,6 @@ function buildProvenance(opts: any): UnitProvenance | undefined {
   if (Array.isArray(opts.recipe) && opts.recipe.length) p.recipes = opts.recipe.map(String);
   if (Array.isArray(opts.asset) && opts.asset.length) p.assets = opts.asset.map(String);
   return Object.keys(p).length ? p : undefined;
-}
-
-async function readUnitManifest(unitDir: string): Promise<UnitManifest | null> {
-  const fp = path.join(unitDir, "unit.json");
-  if (!existsSync(fp)) return null;
-  try {
-    const raw = await fs.readFile(fp, "utf8");
-    return UnitManifestSchema.parse(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
-async function writeUnitManifest(unitDir: string, manifest: UnitManifest): Promise<void> {
-  await fs.writeFile(
-    path.join(unitDir, "unit.json"),
-    JSON.stringify(manifest, null, 2) + "\n",
-    "utf8",
-  );
-}
-
-/**
- * Copy each project-relative source into `unitDir`, preserving filenames in the
- * given order. Returns the ordered list of destination basenames written.
- * Refuses to clobber an existing media file in the unit (append-only): if a
- * basename collision occurs, the file is suffixed `-2`, `-3`… before its ext.
- */
-async function copyMedia(
-  projectDir: string,
-  unitDir: string,
-  sources: string[],
-): Promise<string[]> {
-  await fs.mkdir(unitDir, { recursive: true });
-  const written: string[] = [];
-  for (const rel of sources) {
-    const src = path.join(projectDir, rel);
-    let base = path.basename(rel);
-    let dest = path.join(unitDir, base);
-    if (existsSync(dest)) {
-      const ext = path.extname(base);
-      const stem = path.basename(base, ext);
-      let n = 2;
-      while (existsSync(path.join(unitDir, `${stem}-${n}${ext}`))) n++;
-      base = `${stem}-${n}${ext}`;
-      dest = path.join(unitDir, base);
-    }
-    await fs.copyFile(src, dest);
-    written.push(base);
-  }
-  return written;
 }
 
 /**
@@ -453,58 +203,28 @@ export function unitCmd() {
         }
       }
 
-      const unitsDir = unitsRoot(projectDir);
-      // Append-only: never overwrite an existing unit slug dir.
-      const dirName = resolveNewUnitDirName(unitsDir, slug);
-      const unitDir = path.join(unitsDir, dirName);
-
-      const media = await copyMedia(projectDir, unitDir, sources);
-      const mediaMeta = buildMediaMeta(unitDir, media);
-
-      // Provenance graph (#420) — best-effort capture of the reproduction chain
-      // from the project's logs/manifests. Built read-only, written as a sibling
-      // `provenance.json` (append-only: this is a fresh dir, never an overwrite).
-      // A capture failure must never block unit formation — fall back to no graph.
-      let provenanceGraphFile: string | undefined;
-      try {
-        const graph = await buildProvenanceGraph(project, slug);
-        if (graph.nodes.length > 0) {
-          await fs.writeFile(
-            path.join(unitDir, PROVENANCE_GRAPH_FILENAME),
-            JSON.stringify(graph, null, 2) + "\n",
-            "utf8",
-          );
-          provenanceGraphFile = PROVENANCE_GRAPH_FILENAME;
-        }
-      } catch {
-        /* best-effort — a graph capture failure never blocks the deliverable */
-      }
-
-      const manifest: UnitManifest = {
+      // Formation core lives in cli/lib/unit.ts (#511) — the same path the
+      // ralphy-unit workflow executor calls. COPY-never-move, append-only dir.
+      const created = await createUnit({
+        projectId: project,
         slug,
         format: format as UnitManifest["format"],
-        media,
-        ...(Object.keys(mediaMeta).length && { media_meta: mediaMeta }),
-        ...(buildProvenance(opts) && { provenance: buildProvenance(opts) }),
-        ...(provenanceGraphFile && { provenance_graph: provenanceGraphFile }),
-        source_assets: sources,
-        created: new Date().toISOString(),
-        ...(opts.title && { title: String(opts.title) }),
-        ...(opts.blurb && { blurb: String(opts.blurb) }),
-      };
-      const parsed = UnitManifestSchema.parse(manifest);
-      await writeUnitManifest(unitDir, parsed);
+        sources,
+        title: opts.title ? String(opts.title) : undefined,
+        blurb: opts.blurb ? String(opts.blurb) : undefined,
+        provenance: buildProvenance(opts),
+      });
 
-      ok(`Unit created: ${dirName} (${media.length} media)`);
+      ok(`Unit created: ${created.dirName} (${created.manifest.media.length} media)`);
       out({
         slug,
-        dir: dirName,
+        dir: created.dirName,
         format,
-        media_count: media.length,
-        path: path.relative(projectDir, unitDir),
-        versioned: dirName !== slug,
-        provenance_graph: provenanceGraphFile ?? null,
-        manifest: parsed,
+        media_count: created.manifest.media.length,
+        path: path.relative(projectDir, created.unitDir),
+        versioned: created.dirName !== slug,
+        provenance_graph: created.provenanceGraphFile,
+        manifest: created.manifest,
       });
     });
 
@@ -632,69 +352,38 @@ export function unitCmd() {
 
       const results: Array<Record<string, unknown>> = [];
       for (const dirName of targetDirs) {
-        const unitDir = path.join(unitsDir, dirName);
-        const manifest = await readUnitManifest(unitDir);
-        if (!manifest) {
+        // Caption core lives in cli/lib/unit.ts (#511) — the same path the
+        // ralphy-social-copy workflow executor calls. Append-only semantics.
+        const result = await captionUnit({
+          projectId: project,
+          dirName,
+          language: String(opts.language),
+          niche: opts.niche != null ? String(opts.niche) : undefined,
+          brief: opts.brief != null ? String(opts.brief) : undefined,
+          force: Boolean(opts.force),
+        });
+        if (!result) {
           // In bulk mode, skip non-unit dirs silently; single-slug → hard error.
           if (opts.bulk) continue;
           raiseError("E_NOT_FOUND", { kind: "Unit", id: dirName });
         }
-
-        // Append-only: refuse to clobber an existing caption without --force.
-        if (manifest!.caption && !opts.force) {
+        if (result!.kind === "skipped") {
           results.push({
-            slug: manifest!.slug,
+            slug: result!.manifest.slug,
             dir: dirName,
             skipped: "caption exists — pass --force to re-draft (the prior caption is archived)",
           });
           continue;
         }
-
-        const nicheHint =
-          opts.niche != null
-            ? String(opts.niche)
-            : [manifest!.provenance?.style, manifest!.provenance?.template, ...(manifest!.tags ?? [])]
-                .filter(Boolean)
-                .join(" ");
-
-        const ctx: CaptionContext = {
-          projectId: project,
-          slug: manifest!.slug,
-          format: manifest!.format,
-          language: String(opts.language),
-          niche: nicheHint || undefined,
-          title: manifest!.title,
-          blurb: manifest!.blurb,
-          tags: manifest!.tags,
-          brief: opts.brief != null ? String(opts.brief) : manifest!.blurb,
-        };
-
-        const caption = await buildUnitCaption({ ctx });
-
-        // Archive the prior caption (append-only) when re-drafting with --force.
-        const priorVersions = manifest!.caption_versions ?? [];
-        const caption_versions = manifest!.caption
-          ? [...priorVersions, manifest!.caption]
-          : priorVersions.length
-            ? priorVersions
-            : undefined;
-
-        const updated: UnitManifest = {
-          ...manifest!,
-          caption,
-          ...(caption_versions && { caption_versions }),
-        };
-        const parsed = UnitManifestSchema.parse(updated);
-        await writeUnitManifest(unitDir, parsed);
-
+        const caption = result!.manifest.caption!;
         results.push({
-          slug: manifest!.slug,
+          slug: result!.manifest.slug,
           dir: dirName,
           language: caption.language,
           niche: caption.niche,
           hashtags: caption.hashtags,
           caption: caption.platform,
-          re_drafted: Boolean(manifest!.caption),
+          re_drafted: result!.reDrafted,
         });
       }
 

@@ -3,9 +3,9 @@
 // An executor turns one WorkflowNode into an output: `(node, ctx) => result`.
 // The shared contract (ExecutorContext, NodeExecutor, NodeExecutionError)
 // lives in types.ts; per-category executor implementations live in sibling
-// files (llm.ts, coding-agent.ts here; media / ralphy-verb / ingestion /
-// publish / control-flow / data land in #500/#501/#503/#504 via
-// registerExecutor()).
+// files (llm.ts, coding-agent.ts here; ingestion #500, publish #501,
+// control-flow/data #503, calendar #504, ralphy-verbs #511; raw media nodes
+// remain unregistered).
 //
 // Registered here: the four A-category LLM node types — generate-text,
 // generate-object, agent-loop (via the AI SDK layer, D-01/D-04), coding-agent
@@ -41,6 +41,15 @@ import {
   templateStringExecutor,
   artifactWriteExecutor,
 } from "./control-flow.js";
+import {
+  ralphyGenerateExecutor,
+  ralphyRenderExecutor,
+  ralphyEvalExecutor,
+  ralphyRepairExecutor,
+  ralphyUnitExecutor,
+  ralphyCaptionsExecutor,
+  ralphySocialCopyExecutor,
+} from "./ralphy-verbs.js";
 
 export {
   NodeExecutionError,
@@ -104,3 +113,14 @@ registerExecutor("switch", switchExecutor);
 registerExecutor("transform", transformExecutor);
 registerExecutor("template-string", templateStringExecutor);
 registerExecutor("artifact-write", artifactWriteExecutor);
+
+// C. Ralphy verb nodes (#511) — the production middle. Each calls the SAME
+// library code its CLI verb uses, in-process (never a child ralphy process,
+// never a new model-call path — AGENTS.md invariants #1/#2).
+registerExecutor("ralphy-generate", ralphyGenerateExecutor);
+registerExecutor("ralphy-render", ralphyRenderExecutor);
+registerExecutor("ralphy-eval", ralphyEvalExecutor);
+registerExecutor("ralphy-repair", ralphyRepairExecutor);
+registerExecutor("ralphy-unit", ralphyUnitExecutor);
+registerExecutor("ralphy-captions", ralphyCaptionsExecutor);
+registerExecutor("ralphy-social-copy", ralphySocialCopyExecutor);
