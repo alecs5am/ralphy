@@ -142,11 +142,48 @@ function foldJournal(runDir: string): { completed: number; skipped: number; spen
     else if (e.kind === "node-skipped") nodes.set(node, "skipped");
     else if ((e.kind === "node-started" || e.kind === "node-failed") && nodes.get(node) !== "completed")
       nodes.delete(node);
+    else if (e.kind === "node-invalidated") nodes.delete(node); // #519 targeted retry
   }
   let completed = 0;
   let skipped = 0;
   for (const s of nodes.values()) (s === "completed" ? completed++ : skipped++);
   return { completed, skipped, spendUsd: Number(spendUsd.toFixed(6)) };
+}
+
+/**
+ * Unresolved dead-letter quarantine count per run (#519) — a read-only fold
+ * of `<workspace>/farm/dead-letter.jsonl` (a "resolved" line clears every
+ * prior entry for the same run + node). Mirrors cli/lib/farm/dead-letter.ts.
+ */
+function quarantineCounts(dataRoot: string, ws: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  let lines: string[] = [];
+  try {
+    lines = fs
+      .readFileSync(path.join(workspaceDir(dataRoot, ws), "farm", "dead-letter.jsonl"), "utf8")
+      .split("\n")
+      .filter(Boolean);
+  } catch {
+    return counts;
+  }
+  const entries: Array<{ run: string; node: string; resolved: boolean }> = [];
+  for (const line of lines) {
+    let e: Record<string, unknown>;
+    try {
+      e = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue; // torn final line
+    }
+    if (typeof e.run !== "string" || typeof e.node !== "string") continue;
+    if (e.kind === "quarantined") entries.push({ run: e.run, node: e.node, resolved: false });
+    else if (e.kind === "resolved") {
+      for (const q of entries) if (!q.resolved && q.run === e.run && q.node === e.node) q.resolved = true;
+    }
+  }
+  for (const q of entries) {
+    if (!q.resolved) counts.set(q.run, (counts.get(q.run) ?? 0) + 1);
+  }
+  return counts;
 }
 
 /** Node count of a workspace graph workflow (null when missing / not a graph). */
@@ -173,6 +210,8 @@ export interface FarmStatusView {
     skippedNodes: number;
     totalNodes: number | null;
     spendUsd: number;
+    /** #519: unresolved dead-letter quarantine entries for this run. */
+    quarantined: number;
     updatedAt: string;
     detail: string | null;
   }>;
@@ -187,6 +226,7 @@ export function farmStatusView(dataRoot: string, ws: string): FarmStatusView {
   const pid = readFarmPid(dataRoot, ws);
   const running = isFarmAlive(pid);
   const counts = Object.fromEntries(FARM_RUN_STATUSES.map((s) => [s, 0])) as Record<FarmRunStatus, number>;
+  const quarantined = quarantineCounts(dataRoot, ws);
   const runs: FarmStatusView["runs"] = [];
   const runsDir = path.join(workspaceDir(dataRoot, ws), "runs");
   let ids: string[] = [];
@@ -220,6 +260,7 @@ export function farmStatusView(dataRoot: string, ws: string): FarmStatusView {
       skippedNodes: j.skipped,
       totalNodes: workflow ? graphNodeCount(dataRoot, ws, workflow) : null,
       spendUsd: j.spendUsd,
+      quarantined: quarantined.get(id) ?? 0,
       updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : "",
       detail: typeof state.detail === "string" ? state.detail : null,
     });

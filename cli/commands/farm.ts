@@ -8,7 +8,7 @@
 
 import { Command } from "commander";
 import { existsSync } from "fs";
-import { workspaceDir, layoutMode, currentWorkspace, DEFAULT_WORKSPACE } from "../lib/paths.js";
+import { workspaceDir, layoutMode, currentWorkspace, runWorkspace, DEFAULT_WORKSPACE } from "../lib/paths.js";
 import { out, ok, isPretty } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
@@ -19,7 +19,11 @@ import {
   isFarmAlive,
   writeFarmPid,
   clearFarmPid,
+  readFarmState,
+  loadGraphWorkflows,
+  retryNode,
 } from "../lib/farm/runner.js";
+import { listDeadLetters, deadLetterPath } from "../lib/farm/dead-letter.js";
 
 function requireWorkspace(verb: string, slug: string): void {
   if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb });
@@ -92,6 +96,57 @@ export function farmCmd() {
       const ws: string = opts.workspace ?? currentWorkspace();
       requireWorkspace("farm status", ws);
       out(farmStatus(ws));
+    });
+
+  // ── failures ───────────────────────────────────────────────────────────────
+  cmd
+    .command("failures")
+    .description(
+      "List the workspace's dead-letter quarantine (#519): nodes that exhausted their retry envelope, or failed a permanent-class error (safety-* / copyright / tos-content) on the first attempt. Each entry carries the #450 error class, attempts, cost spent, an inputs hash, a truncated provider payload, and a next-action hint. Default: unresolved only. Re-execute one with `ralphy farm retry <run> <node>`. Example: ralphy farm failures --workspace my-studio --run farm-news-20260706-090000",
+    )
+    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--run <id>", "Only quarantine entries from this run")
+    .option("--all", "Include entries already resolved by a successful retry")
+    .action(async (opts) => {
+      const ws: string = opts.workspace ?? currentWorkspace();
+      requireWorkspace("farm failures", ws);
+      const failures = listDeadLetters(ws, { run: opts.run, includeResolved: !!opts.all });
+      out({
+        workspace: ws,
+        store: deadLetterPath(ws),
+        total: failures.length,
+        unresolved: failures.filter((f) => !f.resolved).length,
+        failures,
+      });
+    });
+
+  // ── retry ──────────────────────────────────────────────────────────────────
+  cmd
+    .command("retry <run> <node>")
+    .description(
+      "Re-execute ONE failed/quarantined node and its downstream dependents against the journaled inputs (#519): appends node-invalidated journal events for the target + its transitive consumers, then re-enters the resume machinery — upstream completed nodes are never re-executed. Respects the run spend ledger (per-node pre-flight cap check) and the #513 content-hash cache; marks the node's quarantine entries resolved when it completes. Example: ralphy farm retry farm-news-20260706-090000 gen-image",
+    )
+    .option(
+      "--no-cache",
+      "Force execution, ignoring the #513 content-hash cache (identical inputs re-bill)",
+    )
+    .action(async (run: string, nodeId: string, opts) => {
+      const ws = runWorkspace(run);
+      requireWorkspace("farm retry", ws);
+      const state = readFarmState(ws, run);
+      if (!state) raiseError("E_NOT_FOUND", { kind: "Farm run", id: run });
+      const wf = loadGraphWorkflows(ws).find((g) => g.name === state!.workflow);
+      if (!wf) raiseError("E_NOT_FOUND", { kind: "Workflow", id: state!.workflow });
+      if (!wf!.graph.nodes.some((n) => n.id === nodeId)) {
+        raiseError("E_NOT_FOUND", { kind: "Node", id: `${run}/${nodeId}` });
+      }
+      const outcome = await retryNode(ws, run, wf!.name, wf!.graph, nodeId, {
+        noCache: opts.cache === false,
+        onEvent: (runId, kind, message) => {
+          if (isPretty()) console.log(`[${runId}] ${kind}: ${message}`);
+        },
+      });
+      out({ workspace: ws, ...outcome });
     });
 
   // ── stop ───────────────────────────────────────────────────────────────────
