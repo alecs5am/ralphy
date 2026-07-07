@@ -21,6 +21,7 @@ import {
   evaluateWorkflow,
 } from "../lib/workflow.js";
 import { lintWorkflowFile, isArtifactRef } from "../lib/workflow-graph.js";
+import { listSubgraphSummaries, subgraphUsage } from "../lib/subgraph.js";
 import { getExecutor, registeredExecutorTypes, type ExecutorContext } from "../lib/workflow/executors/index.js";
 import { parseWorkflowDocument, type Workflow } from "../lib/schemas/workflow.js";
 import { parse as parseYaml } from "yaml";
@@ -106,6 +107,18 @@ export function workflowCmd() {
       out(listWorkflowNames(slug).map((name) => ({ name, path: workflowPath(slug, name) })));
     });
 
+  // ── subgraphs ──────────────────────────────────────────────────────────────
+  cmd
+    .command("subgraphs <slug>")
+    .description(
+      "List the workspace's reusable named subgraphs (#517, subgraphs/<name>.json): version, typed entry/exit ports, the overridable param surface, and which workflows instantiate them. A `subgraph` node instantiates one by name with param overrides; expansion into the flat graph happens at lint/load time, one level of nesting only. ZERO model calls. Example: ralphy workflow subgraphs tech-news",
+    )
+    .action(async (slug: string) => {
+      requireRalphyLayout("workflow subgraphs");
+      ensureWorkspaceExists(slug);
+      out(listSubgraphSummaries(slug));
+    });
+
   // ── show ───────────────────────────────────────────────────────────────────
   cmd
     .command("show <slug> [name]")
@@ -141,7 +154,7 @@ export function workflowCmd() {
   cmd
     .command("lint <slug> [name]")
     .description(
-      "Offline validation of a workspace's workflows: schema parse for legacy linear workflows (#478), and for node-graph workflows (#498) the full graph checks — DAG (no cycles), edge resolution, port typing, the #497 provider-coverage matrix (a declared-unsupported media param is a HARD error naming the fix), and the #515 prompt-pack lint (model-aware rules over each node's prompt text / prompt file — per-model char caps, kling no-music clause, ElevenLabs artist-name detector, photoreal negative cluster — plus params.guidelines slug validation; also standalone as `ralphy prompt lint <ws>`). Reads .json (storage format) and .yaml (accepted at lint/import per D-03). Omit name to lint every workflow. ZERO model calls. Example: ralphy workflow lint silent-hill episode",
+      "Offline validation of a workspace's workflows: schema parse for legacy linear workflows (#478), and for node-graph workflows (#498) the full graph checks — #517 subgraph expansion first (missing subgraph refs, unknown overrides, boundary port mismatches, nested subgraphs are errors; an authored-but-unused subgraph is a warning), then DAG (no cycles), edge resolution, port typing, the #497 provider-coverage matrix (a declared-unsupported media param is a HARD error naming the fix), and the #515 prompt-pack lint (model-aware rules over each node's prompt text / prompt file — per-model char caps, kling no-music clause, ElevenLabs artist-name detector, photoreal negative cluster — plus params.guidelines slug validation; also standalone as `ralphy prompt lint <ws>`). Reads .json (storage format) and .yaml (accepted at lint/import per D-03). Omit name to lint every workflow. ZERO model calls. Example: ralphy workflow lint silent-hill episode",
     )
     .action(async (slug: string, name?: string) => {
       requireRalphyLayout("workflow lint");
@@ -157,13 +170,17 @@ export function workflowCmd() {
           raiseError("E_NOT_FOUND", { kind: "Workflow", id: `${slug}/${name}` });
         }
       }
+      // #517: an authored subgraph no workflow instantiates is a workspace-level
+      // WARNING (only meaningful when linting the whole workspace).
+      const unusedSubgraphs = name ? [] : subgraphUsage(slug).unused;
       if (targets.length === 0) {
         // Graceful no-op: nothing to lint is not a failure.
         out({
           workspace: slug,
           ok: true,
           errorCount: 0,
-          warningCount: 0,
+          warningCount: unusedSubgraphs.length,
+          unusedSubgraphs,
           workflows: [],
           note: `no workflows in ${slug} — scaffold one with: ralphy workflow init ${slug}`,
         });
@@ -172,9 +189,10 @@ export function workflowCmd() {
       const results = targets.map((f) => lintWorkflowFile(path.join(dir, f), slug));
       const ok = results.every((r) => r.ok);
       const errorCount = results.reduce((n, r) => n + r.errors.length, 0);
-      const warningCount = results.reduce((n, r) => n + r.warnings.length, 0);
+      const warningCount =
+        results.reduce((n, r) => n + r.warnings.length, 0) + unusedSubgraphs.length;
       if (!ok) process.exitCode = 1;
-      out({ workspace: slug, ok, errorCount, warningCount, workflows: results });
+      out({ workspace: slug, ok, errorCount, warningCount, unusedSubgraphs, workflows: results });
     });
 
   // ── status ───────────────────────────────────────────────────────────────

@@ -177,7 +177,7 @@ export const INGESTION_NODE_TYPES = ["web-scrape", "actor", "rss", "trend-watch"
 /** E. Publish nodes. */
 export const PUBLISH_NODE_TYPES = ["publish", "youtube-upload", "x-post", "analytics-pull"] as const;
 
-/** F. Control-flow nodes. */
+/** F. Control-flow nodes (`subgraph` is the #517 named-subgraph instantiation node). */
 export const CONTROL_FLOW_NODE_TYPES = [
   "schedule",
   "calendar-slot",
@@ -188,6 +188,7 @@ export const CONTROL_FLOW_NODE_TYPES = [
   "approval",
   "budget-guard",
   "dedup",
+  "subgraph",
 ] as const;
 
 /** G. Data nodes. */
@@ -512,6 +513,11 @@ export const NODE_SIGNATURES: Record<WorkflowNodeType, NodeSignature> = {
   approval: sig("control-flow", {}, true, "any"),
   "budget-guard": sig("control-flow", {}, true, "any"),
   dedup: sig("control-flow", { items: "source-item[]" }, true, "source-item[]"),
+  // #517: in-ports are the instantiated subgraph's declared entry ports and
+  // the out type its declared exit — both checked at EXPANSION time
+  // (cli/lib/subgraph.ts), so the static signature stays fully polymorphic.
+  // A subgraph node never reaches the runner: expansion replaces it.
+  subgraph: sig("control-flow", {}, true, "any"),
 
   // G. Data.
   transform: sig("data", {}, true, "any"),
@@ -605,7 +611,7 @@ export interface WorkflowNode {
   emit: boolean;
 }
 
-// Discriminated union over all 48 node types: the envelope is identical (the
+// Discriminated union over all 49 node types: the envelope is identical (the
 // `cache` default is the only per-type field, #513), the params schema comes
 // from the type's category. Built programmatically so the taxonomy above
 // stays the single source of truth.
@@ -689,4 +695,81 @@ export function nodeOutType(node: WorkflowNode): string {
     return typeof schema === "string" && schema.length > 0 ? `object:${schema}` : "object:*";
   }
   return NODE_SIGNATURES[node.type].output;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Reusable named subgraphs (#517).
+//
+// A subgraph is a named, versioned fragment of a #498 node graph stored at
+// `.ralphy/workspaces/<ws>/subgraphs/<name>.json` (next to `workflows/`; also
+// bundled by #502 export/import). It declares:
+//   • typed ENTRY ports  — outer in-port name → which inner node/port it feeds,
+//   • typed EXIT ports   — outer out-name → which inner node's output it exposes,
+//   • a PARAM SURFACE    — which inner-node params the instantiation site may
+//                          override (override key → { node, param }).
+//
+// A `subgraph` node instantiates one by name (`params.name`) with
+// `params.overrides`. Expansion happens at parse/lint/load time
+// (cli/lib/subgraph.ts): inner ids are namespaced `<instance-id>:<inner-id>`
+// (":" cannot appear in authored kebab-case ids and composes with the #510
+// `@<branch>` suffix), edges are rewired across the boundary, and cycle /
+// port / coverage checks run on the EXPANDED graph. The farm runner only ever
+// sees the expanded flat graph.
+//
+// ONE LEVEL OF NESTING ONLY: a subgraph may not contain a `subgraph` node —
+// a lint error, mirroring the #510 nested-fan-out constraint.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** One declared entry port: the inner node/port an outer in-port feeds. */
+export const SubgraphEntrySchema = z.object({
+  /** Inner node id that receives this entry port. */
+  node: z.string().regex(NODE_ID_RE, { message: "entry node must be lowercase kebab-case" }),
+  /** The inner node's in-port name fed from the instantiation site. */
+  port: z.string().min(1),
+  /** Declared boundary type — checked against the outer producer at expansion. */
+  type: PortTypeSchema,
+});
+
+/** One declared exit port: the inner node whose output the boundary exposes. */
+export const SubgraphExitSchema = z.object({
+  node: z.string().regex(NODE_ID_RE, { message: "exit node must be lowercase kebab-case" }),
+  /** Declared boundary type — checked against the outer consumer at expansion. */
+  type: PortTypeSchema,
+});
+
+/** One overridable param: override key → which inner node's param it sets. */
+export const SubgraphParamSchema = z.object({
+  node: z.string().regex(NODE_ID_RE, { message: "param node must be lowercase kebab-case" }),
+  param: z.string().min(1),
+});
+
+export const SUBGRAPH_VERSION = "1.0";
+
+export const SubgraphSchema = z.object({
+  /** Subgraph schema version — bump when a field becomes required. */
+  version: z.string().default(SUBGRAPH_VERSION),
+  /** Subgraph name (the file basename under subgraphs/). */
+  name: z.string().regex(NODE_ID_RE, { message: "subgraph name must be lowercase kebab-case" }),
+  /** Typed entry ports: outer in-port name → inner target. */
+  entry: z.record(SubgraphEntrySchema).default({}),
+  /** Typed exit ports: outer out-name (consumers wire `<instance>.<name>`) → inner source. */
+  exit: z.record(SubgraphExitSchema).default({}),
+  /** Param surface: override key → inner param target. Unknown override keys are lint errors. */
+  params: z.record(SubgraphParamSchema).default({}),
+  /** Inner nodes — the same #498 node schema (a `subgraph` inner node is a lint error). */
+  nodes: z.array(WorkflowNodeSchema).default([]),
+});
+
+export interface Subgraph {
+  version: string;
+  name: string;
+  entry: Record<string, { node: string; port: string; type: string }>;
+  exit: Record<string, { node: string; type: string }>;
+  params: Record<string, { node: string; param: string }>;
+  nodes: WorkflowNode[];
+}
+
+/** Parse + validate an unknown value into a Subgraph (throws ZodError when malformed). */
+export function parseSubgraph(raw: unknown): Subgraph {
+  return SubgraphSchema.parse(raw) as Subgraph;
 }

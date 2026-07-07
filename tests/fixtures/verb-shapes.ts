@@ -1242,12 +1242,42 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
     {
+      label: "workflow.subgraphs",
+      shape: [
+        {
+          name: "short-branch",
+          version: "1.0",
+          ok: true,
+          nodes: 4,
+          entry: { script: "text" },
+          exit: { out: "video" },
+          overrides: ["video-model", "gate-criteria"],
+          usedBy: ["pipeline"],
+          path: ".ralphy/workspaces/tech-news/subgraphs/short-branch.json",
+          error: null,
+        },
+        {
+          name: "retired-branch",
+          version: null,
+          ok: false,
+          nodes: 0,
+          entry: {},
+          exit: {},
+          overrides: [],
+          usedBy: [],
+          path: ".ralphy/workspaces/tech-news/subgraphs/retired-branch.json",
+          error: "subgraph \"retired-branch\" exit \"out\" targets missing inner node \"clip\"",
+        },
+      ],
+    },
+    {
       label: "workflow.lint",
       shape: {
         workspace: "silent-hill",
         ok: false,
         errorCount: 1,
-        warningCount: 1,
+        warningCount: 2,
+        unusedSubgraphs: ["retired-branch"],
         workflows: [
           {
             name: "tech-news",

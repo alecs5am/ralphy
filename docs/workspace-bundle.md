@@ -15,6 +15,9 @@ bundle.zip
   manifest.yaml          # see "Manifest fields" below
   pipeline.json          # the #498 graph workflow (JSON storage per D-03)
   pipeline.<name>.json   # additional graph workflows, one file each
+  subgraphs/             # reusable named subgraphs (#517) — the workspace's
+                         # whole subgraphs/ tier, verbatim; pipelines ship in
+                         # AUTHORED form and re-expand on the import side
   prompts/               # slot-templated prompt files the graph references
   compositions/          # parametrized HyperFrames engines (when present)
   evaluators/            # STYLE_LOCK.md, evaluators.json, metrics-benchmarks.json
@@ -59,7 +62,15 @@ when any of these hold:
   under `workflows/*.json`. A linear-only (#478) workspace refuses: a bundle's
   pipeline is the production graph.
 - **`workflow-lint-error`** — one gap per `ralphy workflow lint` error on any
-  graph workflow (DAG, edge resolution, port typing, coverage hard-fails).
+  graph workflow (#517 subgraph expansion — missing refs, unknown overrides,
+  boundary port mismatches, nested subgraphs — then DAG, edge resolution,
+  port typing, coverage hard-fails).
+- **`subgraph-lint-error`** — one gap per broken authored subgraph
+  (`subgraphs/*.json` that fails the schema or its entry/exit/param
+  declarations). The whole tier ships with the bundle, so even an UNUSED
+  broken subgraph refuses export; requirement derivation
+  (`requiredConnectorKeys` / `requiredCoverage`) runs over the EXPANDED
+  graphs, so inner-node models and connectors are counted.
 - **`prompt-lint-error`** — one gap per error-level #515 prompt-lint violation
   on any graph workflow: a per-model prompt-char cap breach (the #445
   constraints table — kling's 2500 included), an ElevenLabs Music artist-name
@@ -88,15 +99,20 @@ plus the mapped error code:
 4. **`coverage-gap`** — every `requiredCoverage` triple unknown to
    `coverageFor()` is NAMED; refuse with `E_VALIDATION_FAILED`.
    `--allow-coverage-gaps` downgrades to a warning.
-5. **`pipeline-invalid`** — no `pipeline*.json`, a non-graph pipeline, or any
+5. **`subgraph-invalid`** — a bundled `subgraphs/*.json` is unreadable, fails
+   the subgraph schema, or breaks a definition rule (a nested `subgraph` node
+   included — one level only) (`E_VALIDATION_FAILED`).
+6. **`pipeline-invalid`** — no `pipeline*.json`, a non-graph pipeline, or any
    `ralphy workflow lint` error on a bundled pipeline (`E_VALIDATION_FAILED`).
-6. **Collision** — the target slug (manifest `name`, or `--as`) already exists
+   Subgraph refs resolve against the BUNDLE's own `subgraphs/` tier (#517), so
+   a pipeline referencing a subgraph the bundle does not carry refuses here.
+7. **Collision** — the target slug (manifest `name`, or `--as`) already exists
    → `E_ALREADY_EXISTS`. Import **never overwrites an existing workspace**;
    `--as <new-slug>` is the only path.
 
 On a clean pass, import materializes: `workspace.json` (with bundle
 provenance), `workflows/<name>.json` per pipeline, the evaluator files at the
 workspace top level, `calendar.json` (slots from `calendar.yaml`, `entries`
-start empty), `shared/refs/`, and `prompts/` / `compositions/` /
-`reroute-rules.json` (plus any other bundle dirs) verbatim under the
-workspace dir.
+start empty), `shared/refs/`, and `subgraphs/` / `prompts/` /
+`compositions/` / `reroute-rules.json` (plus any other bundle dirs) verbatim
+under the workspace dir.

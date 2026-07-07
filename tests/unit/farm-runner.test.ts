@@ -23,6 +23,8 @@ import {
 } from "../../cli/lib/farm/runner.js";
 import type { FarmDeps } from "../../cli/lib/farm/runner.js";
 import type { NodeExecutor } from "../../cli/lib/workflow/executors/types.js";
+import { parseWorkflowGraph, parseSubgraph } from "../../cli/lib/schemas/workflow.js";
+import { expandGraphSubgraphs } from "../../cli/lib/subgraph.js";
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from "../../cli/lib/schemas/workflow.js";
 
 let tmp: TmpRoot;
@@ -632,6 +634,186 @@ describe("fan-out subgraph execution (#510)", () => {
     expect(String(skip?.reason)).toContain("did not resolve to an array");
     // The branch subgraph never ran (no work events at all).
     expect(readEvents(outcome.runId).some((e) => e.node === "work")).toBe(false);
+  });
+});
+
+// ─── Reusable subgraphs in the farm (#517) ───────────────────────────────────
+
+describe("subgraph expansion in the farm (#517)", () => {
+  const seedItems: NodeExecutor = async () => ({ output: ["alpha", "beta", "gamma"] });
+
+  /** unit-branch: item entry → work → polish → exit (two nodes per branch). */
+  const UNIT_BRANCH = {
+    name: "unit-branch",
+    entry: { item: { node: "work", port: "prompt", type: "text" } },
+    exit: { out: { node: "polish", type: "text" } },
+    params: { "polish-prompt": { node: "polish", param: "prompt" } },
+    nodes: [
+      { id: "work", type: "generate-text", params: { prompt: "y" } },
+      { id: "polish", type: "generate-text", in: { x: "work.out" }, params: { prompt: "z" } },
+    ],
+  };
+
+  /** tick → seed(items) → fan → SUBGRAPH INSTANCE (per branch) → join. */
+  function fanOverSubgraph(concurrency = 1): WorkflowGraph {
+    const authored = {
+      version: "2.0",
+      name: "wf",
+      nodes: [
+        { id: "tick", type: "schedule", params: { cron: "* * * * *" } },
+        { id: "seed", type: "generate-object", params: { prompt: "x" } },
+        { id: "fan", type: "fan-out", in: { items: "seed.out" }, params: { concurrency } },
+        {
+          id: "unit",
+          type: "subgraph",
+          in: { item: "fan.out" },
+          params: { name: "unit-branch", overrides: { "polish-prompt": "custom polish" } },
+        },
+        { id: "collect", type: "join", in: { results: "unit.out" } },
+      ],
+    };
+    const expansion = expandGraphSubgraphs(parseWorkflowGraph(authored), (name) =>
+      name === "unit-branch"
+        ? { sub: parseSubgraph(UNIT_BRANCH) }
+        : { error: { code: "subgraph-missing", message: `no ${name}` } },
+    );
+    expect(expansion.issues).toEqual([]);
+    return expansion.graph;
+  }
+
+  test("fan-out over a subgraph instance journals branch-scoped namespaced records", async () => {
+    seedWorkspace();
+    const echo: NodeExecutor = async (n, ctx) => {
+      const input = String(Object.values(ctx.inputs)[0]);
+      return { output: `${n.id.split(":").pop()}(${input})` };
+    };
+    const outcome = await fireTick(WS, "wf", fanOverSubgraph(), {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": echo },
+    });
+    expect(outcome.status).toBe("complete");
+    const events = readEvents(outcome.runId);
+    // The instance node never executed — only its namespaced inner nodes did.
+    expect(events.some((e) => e.node === "unit")).toBe(false);
+    const workDone = events.filter((e) => e.kind === "node-completed" && e.node === "unit:work");
+    expect(workDone.map((e) => e.branch)).toEqual([0, 1, 2]);
+    const polishDone = events.filter((e) => e.kind === "node-completed" && e.node === "unit:polish");
+    expect(polishDone.map((e) => e.branch)).toEqual([0, 1, 2]);
+    // The override flowed to the inner node's params (visible via the journal
+    // output: polish echoed work's output, which echoed the branch item).
+    const joinEvent = events.find((e) => e.kind === "node-completed" && e.node === "collect");
+    expect((joinEvent?.output as { results: string[] }).results).toEqual([
+      "polish(work(alpha))",
+      "polish(work(beta))",
+      "polish(work(gamma))",
+    ]);
+  });
+
+  test("mid-subgraph crash resume re-executes only the incomplete inner nodes", async () => {
+    seedWorkspace();
+    const calls: Record<string, number> = {};
+    const counting: NodeExecutor = async (n, ctx) => {
+      const input = String(Object.values(ctx.inputs)[0]);
+      const key = `${n.id}:${input}`;
+      calls[key] = (calls[key] ?? 0) + 1;
+      return { output: `${n.id.split(":").pop()}(${input})` };
+    };
+    const graph = fanOverSubgraph(1); // concurrency 1 keeps the crash point deterministic
+    // Session 1: stop after tick + seed + unit:work@0 + unit:polish@0 +
+    // unit:work@1 completed — a crash MID-SUBGRAPH on branch 1.
+    let completed = 0;
+    const outcome1 = await fireTick(WS, "wf", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": counting },
+      onEvent: (_r, kind) => {
+        if (kind === "node-completed") completed++;
+      },
+      shouldStop: () => completed >= 5,
+    });
+    expect(outcome1.status).toBe("running");
+    expect(calls).toEqual({
+      "unit:work:alpha": 1,
+      "unit:polish:work(alpha)": 1,
+      "unit:work:beta": 1,
+    });
+
+    // Session 2: fresh runner over the same journal — deterministic expansion
+    // makes the namespaced ids line up, so completed inner nodes never re-run.
+    const outcome2 = await executeGraphRun(WS, outcome1.runId, "wf", graph, {
+      ...noSleep,
+      executorOverrides: { "generate-object": seedItems, "generate-text": counting },
+    });
+    expect(outcome2.status).toBe("complete");
+    expect(calls).toEqual({
+      "unit:work:alpha": 1,
+      "unit:polish:work(alpha)": 1,
+      "unit:work:beta": 1,
+      "unit:polish:work(beta)": 1,
+      "unit:work:gamma": 1,
+      "unit:polish:work(gamma)": 1,
+    });
+    // Each namespaced branch-scoped node completed exactly once across sessions.
+    const events = readEvents(outcome1.runId);
+    for (const b of [0, 1, 2]) {
+      expect(
+        events.filter((e) => e.kind === "node-completed" && e.node === "unit:work" && e.branch === b),
+      ).toHaveLength(1);
+      expect(
+        events.filter((e) => e.kind === "node-completed" && e.node === "unit:polish" && e.branch === b),
+      ).toHaveLength(1);
+    }
+  });
+
+  test("loadGraphWorkflows expands the workspace subgraphs tier from disk", async () => {
+    seedWorkspace();
+    fs.mkdirSync(workflowsDir(WS), { recursive: true });
+    fs.mkdirSync(path.join(workspaceDir(WS), "subgraphs"), { recursive: true });
+    fs.writeFileSync(
+      path.join(workspaceDir(WS), "subgraphs", "unit-branch.json"),
+      JSON.stringify(UNIT_BRANCH),
+    );
+    fs.writeFileSync(
+      path.join(workflowsDir(WS), "farm.json"),
+      JSON.stringify({
+        version: "2.0",
+        name: "farm",
+        nodes: [
+          { id: "tick", type: "schedule", params: { cron: "0 9 * * *" } },
+          { id: "topic", type: "template-string", params: { prompt: "the topic" } },
+          { id: "unit", type: "subgraph", in: { item: "topic.out" }, params: { name: "unit-branch" } },
+        ],
+      }),
+    );
+    const loaded = loadGraphWorkflows(WS);
+    expect(loaded).toHaveLength(1);
+    const ids = loaded[0]!.graph.nodes.map((n) => n.id);
+    expect(ids).toEqual(["tick", "topic", "unit:work", "unit:polish"]);
+    expect(loaded[0]!.graph.nodes.some((n) => n.type === "subgraph")).toBe(false);
+
+    // And it executes end to end through the normal tick path.
+    const echo: NodeExecutor = async (n, ctx) => ({
+      output: `${n.id}<${String(Object.values(ctx.inputs)[0])}>`,
+    });
+    const outcome = await fireTick(WS, "farm", loaded[0]!.graph, {
+      ...noSleep,
+      executorOverrides: { "generate-text": echo },
+    });
+    expect(outcome.status).toBe("complete");
+    expect(completedOrder(outcome.runId)).toEqual(["tick", "topic", "unit:work", "unit:polish"]);
+  });
+
+  test("a workflow whose subgraph ref is missing is skipped at load (lint diagnoses)", async () => {
+    seedWorkspace();
+    fs.mkdirSync(workflowsDir(WS), { recursive: true });
+    fs.writeFileSync(
+      path.join(workflowsDir(WS), "broken.json"),
+      JSON.stringify({
+        version: "2.0",
+        name: "broken",
+        nodes: [{ id: "unit", type: "subgraph", params: { name: "ghost-branch" } }],
+      }),
+    );
+    expect(loadGraphWorkflows(WS)).toEqual([]);
   });
 });
 

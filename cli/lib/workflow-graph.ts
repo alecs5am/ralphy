@@ -39,6 +39,8 @@ import {
 import { coverageFor, providersSupporting } from "./providers/coverage.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
 import { lintGraphPrompts } from "./prompt-lint.js";
+import { expandGraphSubgraphs, dirSubgraphResolver } from "./subgraph.js";
+import { subgraphsDir } from "./paths.js";
 
 // ─── Issue shape ─────────────────────────────────────────────────────────────
 
@@ -54,7 +56,14 @@ export type GraphIssueCode =
   | "coverage-unsupported-param" // HARD: param declared unsupported by the #497 matrix
   | "coverage-uncovered-param" // warn: param outside declared coverage
   | "prompt-rule" // #515: a prompt-lint seed rule fired on a node's prompt text
-  | "unknown-guideline"; // #515: params.guidelines names a slug with no loadable guideline
+  | "unknown-guideline" // #515: params.guidelines names a slug with no loadable guideline
+  // #517 reusable subgraphs (expansion-time; cli/lib/subgraph.ts):
+  | "subgraph-missing" // params.name absent, or no subgraphs/<name>.json to resolve
+  | "subgraph-invalid" // the subgraph definition fails schema / boundary declarations
+  | "subgraph-nested" // a subgraph contains a subgraph node (one level only)
+  | "subgraph-unknown-override" // override key not on the declared param surface
+  | "subgraph-unknown-port" // instance wires an undeclared entry / consumes an undeclared exit
+  | "subgraph-port-mismatch"; // declared entry/exit type clashes at the instantiation boundary
 
 export interface GraphIssue {
   level: "error" | "warning";
@@ -82,8 +91,11 @@ export interface GraphValidation {
 
 // ─── Edge grammar ────────────────────────────────────────────────────────────
 
-// <node-id>.<out-name> — node ids are kebab-case (NODE_ID_RE), out names free-form.
-const EDGE_RE = /^([a-z0-9][a-z0-9-]*)\.([A-Za-z0-9][A-Za-z0-9_-]*)$/;
+// <node-id>.<out-name> — node ids are kebab-case (NODE_ID_RE), out names
+// free-form. The optional `:<inner-id>` segment is the #517 subgraph
+// namespace: only expansion produces it (":" is unauthorable per NODE_ID_RE),
+// so validating an EXPANDED graph resolves `<instance>:<inner>.<out>` edges.
+const EDGE_RE = /^([a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?)\.([A-Za-z0-9][A-Za-z0-9_-]*)$/;
 
 /**
  * An in-port value that references an on-disk artifact instead of an upstream
@@ -382,14 +394,28 @@ function zodIssues(e: ZodError): GraphIssue[] {
   }));
 }
 
+export interface LintWorkflowFileOptions {
+  /**
+   * Where `subgraph` node refs resolve (#517). Defaults to the workspace's
+   * subgraphs/ tier when `ws` is given; bundle validation (#502) points it at
+   * the extracted zip's subgraphs/ dir instead.
+   */
+  subgraphsDir?: string;
+}
+
 /**
  * Lint one workflow file offline: read (JSON or YAML per extension — D-03),
- * parse, and for graphs run the full validateWorkflowGraph() pass; for legacy
- * linear workflows re-check the #478 contract (schema + gate criteria against
- * the workspace evaluators when `ws` is given). Never throws on content
- * problems — they come back as issues.
+ * parse, and for graphs EXPAND #517 subgraph instances (expansion issues are
+ * lint issues) then run the full validateWorkflowGraph() pass over the
+ * expanded graph; for legacy linear workflows re-check the #478 contract
+ * (schema + gate criteria against the workspace evaluators when `ws` is
+ * given). Never throws on content problems — they come back as issues.
  */
-export function lintWorkflowFile(filePath: string, ws?: string): WorkflowLintResult {
+export function lintWorkflowFile(
+  filePath: string,
+  ws?: string,
+  opts: LintWorkflowFileOptions = {},
+): WorkflowLintResult {
   const format: WorkflowFileFormat = /\.ya?ml$/.test(filePath) ? "yaml" : "json";
   const name = path.basename(filePath).replace(/\.(json|ya?ml)$/, "");
   const base = { name, path: filePath, format };
@@ -435,12 +461,19 @@ export function lintWorkflowFile(filePath: string, ws?: string): WorkflowLintRes
   }
 
   if (doc.kind === "graph") {
-    const v = validateWorkflowGraph(doc.graph);
+    // #517: expand subgraph instances first so cycle / port / coverage checks
+    // (and the #515 prompt lint) run over the EXPANDED graph — the same shape
+    // the farm runner executes. `size` stays the AUTHORED node count.
+    const sgDir = opts.subgraphsDir ?? (ws ? subgraphsDir(ws) : null);
+    const expansion = expandGraphSubgraphs(doc.graph, dirSubgraphResolver(sgDir));
+    const v = validateWorkflowGraph(expansion.graph);
+    v.errors.unshift(...expansion.issues.filter((i) => i.level === "error"));
+    v.warnings.unshift(...expansion.issues.filter((i) => i.level === "warning"));
     // #515 prompt-pack lint: model-aware rules over the graph's prompt params
     // / prompt files + guideline-slug validation. Rides the same errors /
     // warnings arrays so `workflow lint`, `workspace export` readiness, and
     // `prompt lint` all surface one issue list.
-    for (const issue of lintGraphPrompts(doc.graph, { workspace: ws })) {
+    for (const issue of lintGraphPrompts(expansion.graph, { workspace: ws })) {
       (issue.level === "error" ? v.errors : v.warnings).push({
         level: issue.level,
         code: issue.code,
