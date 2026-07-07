@@ -88,6 +88,7 @@ import { newCmd } from "./commands/new.js";
 import { cloneCmd } from "./commands/clone.js";
 import { skillCmd } from "./commands/skill.js";
 import { promptsCmd } from "./commands/prompts.js";
+import { promptCmd } from "./commands/prompt.js";
 import { guidelineCmd } from "./commands/guideline.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
@@ -231,6 +232,7 @@ program.addCommand(bannerCmd());
 program.addCommand(evalCmd());
 program.addCommand(researchCmd());
 program.addCommand(promptsCmd());
+program.addCommand(promptCmd());
 
 program.addHelpText("beforeAll", bannerString());
 

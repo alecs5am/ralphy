@@ -155,6 +155,7 @@
                   "reference/cli/profile",
                   "reference/cli/config",
                   "reference/cli/prompts",
+                  "reference/cli/prompt",
                   "reference/cli/research",
                   "reference/cli/editor",
                   "reference/cli/voice",

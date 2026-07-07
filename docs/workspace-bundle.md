@@ -60,6 +60,13 @@ when any of these hold:
   pipeline is the production graph.
 - **`workflow-lint-error`** — one gap per `ralphy workflow lint` error on any
   graph workflow (DAG, edge resolution, port typing, coverage hard-fails).
+- **`prompt-lint-error`** — one gap per error-level #515 prompt-lint violation
+  on any graph workflow: a per-model prompt-char cap breach (the #445
+  constraints table — kling's 2500 included), an ElevenLabs Music artist-name
+  reference, or an unknown `params.guidelines` slug. Each gap names the file,
+  the rule, and the fix. Warn-level findings (kling no-music clause, photoreal
+  negative cluster) do NOT block export. Standalone surface:
+  `ralphy prompt lint <ws>`.
 
 Export also never overwrites an existing `--out` zip (the system `zip` would
 update it in place — refused as `E_ALREADY_EXISTS`).

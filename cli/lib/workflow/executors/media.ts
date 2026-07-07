@@ -66,6 +66,7 @@ import {
   requireSlot,
   stringList,
   updateManifestSlot,
+  foldNodeGuidelines,
 } from "./ralphy-verbs.js";
 import type { WorkflowNode } from "../../schemas/workflow.js";
 
@@ -146,7 +147,13 @@ function optionalPortPathList(
   return [...new Set(raw)].map((r) => intakePath(r, project, port));
 }
 
-/** Prompt / text: the wired in-port wins, else params inline / file ref. */
+/**
+ * Prompt / text: the wired in-port wins, else params inline / file ref.
+ * PROMPTS (not spoken `text`) additionally get the #515 guideline fold —
+ * `params.guidelines` rule blocks appended post-resolution and journaled
+ * (foldNodeGuidelines, ralphy-verbs.ts). The tts `text` port stays verbatim:
+ * a folded style block would be read aloud.
+ */
 async function requireText(
   node: WorkflowNode,
   ctx: ExecutorContext,
@@ -154,19 +161,21 @@ async function requireText(
   port: "prompt" | "text",
 ): Promise<string> {
   const fromPort = ctx.inputs[port];
-  if (typeof fromPort === "string" && fromPort.trim().length > 0) return fromPort;
-  const text = await readPromptOrFile({
-    prompt: node.params[port] as string | undefined,
-    promptFile: node.params[`${port}_file`] as string | undefined,
-    projectId: project,
-  });
-  if (!text) {
+  const resolved =
+    typeof fromPort === "string" && fromPort.trim().length > 0
+      ? fromPort
+      : await readPromptOrFile({
+          prompt: node.params[port] as string | undefined,
+          promptFile: node.params[`${port}_file`] as string | undefined,
+          projectId: project,
+        });
+  if (!resolved) {
     throw new NodeExecutionError(
       "prompt-missing",
       `${node.type} node "${node.id}" has no ${port} — wire the \`${port}\` in-port or set params.${port} / params.${port}_file`,
     );
   }
-  return text;
+  return port === "prompt" ? foldNodeGuidelines(node, ctx, resolved) : resolved;
 }
 
 function aliasedModel(node: WorkflowNode): string | undefined {

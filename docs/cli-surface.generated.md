@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **53**
+Verbs registered: **54**
 
 ## Top-level verbs
 
@@ -1767,15 +1767,22 @@ Commands:
                                         linear workflows (#478), and for
                                         node-graph workflows (#498) the full
                                         graph checks — DAG (no cycles), edge
-                                        resolution, port typing, and the #497
+                                        resolution, port typing, the #497
                                         provider-coverage matrix (a
                                         declared-unsupported media param is a
-                                        HARD error naming the fix). Reads .json
-                                        (storage format) and .yaml (accepted at
-                                        lint/import per D-03). Omit name to lint
-                                        every workflow. ZERO model calls.
-                                        Example: ralphy workflow lint
-                                        silent-hill episode
+                                        HARD error naming the fix), and the #515
+                                        prompt-pack lint (model-aware rules over
+                                        each node's prompt text / prompt file —
+                                        per-model char caps, kling no-music
+                                        clause, ElevenLabs artist-name detector,
+                                        photoreal negative cluster — plus
+                                        params.guidelines slug validation; also
+                                        standalone as `ralphy prompt lint
+                                        <ws>`). Reads .json (storage format) and
+                                        .yaml (accepted at lint/import per
+                                        D-03). Omit name to lint every workflow.
+                                        ZERO model calls. Example: ralphy
+                                        workflow lint silent-hill episode
   status [options] <project>            Per-step run status of a project's
                                         workflow (done | running | waiting |
                                         blocked | queued), derived from the
@@ -2405,4 +2412,41 @@ Commands:
   library          Library by goal/situation
   modes [options]  List cookbook mode files for video / voice / music
   help [command]   display help for command
+```
+
+### `ralphy prompt`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy prompt [options] [command]
+
+Prompt-pack tooling (#515) — deterministic model-aware lint over a workspace's
+prompt files + the workflow nodes that consume them
+
+Options:
+  -h, --help             display help for command
+
+Commands:
+  lint [options] <slug>  Lint a workspace's prompt packs against the model-aware
+                         rule set: per-model prompt-char caps (read from the
+                         #445 model-constraints table — kling's 2500 included),
+                         the kling no-music clause for VO scenes, the ElevenLabs
+                         Music artist-name detector, the photoreal
+                         negative-cluster check, plus params.guidelines slug
+                         validation (unknown slug = error). Every rule carries a
+                         documented source (memory slug / MODELS.md); issues
+                         name the file, the rule, and the fix. Scans every
+                         node-graph workflow's inline prompts and prompt files;
+                         ZERO model calls. The same pass runs in `ralphy
+                         workflow lint` and refuses `ralphy workspace export` on
+                         error-level violations. Example: ralphy prompt lint
+                         silent-hill
+  help [command]         display help for command
 ```

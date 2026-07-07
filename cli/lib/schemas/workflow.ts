@@ -371,6 +371,13 @@ const LlmParamsSchema = z
     provider: z.string().optional(),
     /** Prompt file ref with {{slot}} interpolation, or inline text. */
     prompt: z.string().optional(),
+    /**
+     * #515 guideline folding: prompt-library slugs (guidelines/<slug>/) whose
+     * rules block is appended to the resolved prompt at execution. Unknown
+     * slug = `workflow lint` error; the folded prompt is journaled, the
+     * source prompt file is never rewritten.
+     */
+    guidelines: z.array(z.string()).optional(),
     system: z.string().optional(),
     temperature: z.number().optional(),
     max_tokens: z.number().int().positive().optional(),
@@ -400,6 +407,8 @@ const MediaParamsSchema = z
   .object({
     model: z.string().optional(),
     provider: z.string().optional(),
+    /** #515 guideline folding — see LlmParamsSchema.guidelines. */
+    guidelines: z.array(z.string()).optional(),
   })
   .passthrough()
   .default({});
@@ -575,6 +584,9 @@ export const MEDIA_META_PARAM_KEYS = new Set([
   "aspect",
   "language",
   "backend",
+  "guidelines", // #515 folding — a prompt concern, never a connector input
+  "register", // #515 photoreal tagging for the prompt lint
+  "photoreal", // #515 photoreal tagging for the prompt lint
 ]);
 
 // ─── The node + graph schemas ────────────────────────────────────────────────
