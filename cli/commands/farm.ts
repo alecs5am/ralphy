@@ -25,6 +25,7 @@ import {
   fireTick,
 } from "../lib/farm/runner.js";
 import type { WorkflowGraph } from "../lib/schemas/workflow.js";
+import { buildFarmReport } from "../lib/farm/rollup.js";
 import { listDeadLetters, deadLetterPath } from "../lib/farm/dead-letter.js";
 import { ensureTriggerToken, webhookTokensPath } from "../lib/farm/webhook.js";
 import { readFileSync } from "fs";
@@ -109,6 +110,18 @@ export function farmCmd() {
       const ws: string = opts.workspace ?? currentWorkspace();
       requireWorkspace("farm status", ws);
       out(farmStatus(ws));
+    });
+
+  // ── report (#518 metrics rollup) ─────────────────────────────────────────────
+  cmd
+    .command("report <ws>")
+    .description(
+      "Per-workspace operational metrics DERIVED from the run journals on demand (#518, no metrics DB): ticks, units produced/gated/published, realized spend with spend-per-unit and spend-per-tick, node failure/reroute/quarantine/cache rates, median node duration, and median approval latency. Degrades gracefully on partial journals (torn lines skipped; a missing workflow leaves node types unclassified and flags `partial`). Example: ralphy farm report my-studio --since 2026-07-01",
+    )
+    .option("--since <date>", "Only fold journal events at/after this ISO date (e.g. 2026-07-01)")
+    .action(async (ws: string, opts) => {
+      requireWorkspace("farm report", ws);
+      out(buildFarmReport(ws, { since: opts.since }));
     });
 
   // ── failures ───────────────────────────────────────────────────────────────

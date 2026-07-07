@@ -54,6 +54,7 @@ import {
   startFarm,
   stopFarm,
   farmStatusView,
+  farmReportView,
   trustStatusView,
   updateTrustConfig,
   recordTrustDecisionView,
@@ -388,6 +389,13 @@ export function startStudio(
       // ── Farm control plane reads (#506) ─────────────────────────────────
       if (url.pathname === "/api/farm/status") {
         return json(farmStatusView(dataRoot!, url.searchParams.get("workspace") ?? "default"));
+      }
+      // ── Farm metrics report panel (#518) ────────────────────────────────
+      if (url.pathname === "/api/farm/report") {
+        const report = farmReportView(dataRoot!, url.searchParams.get("workspace") ?? "default", {
+          since: url.searchParams.get("since") ?? undefined,
+        });
+        return report ? json(report) : json({ error: "unknown workspace" }, 404);
       }
       // ── Workflow simulate report (#516, relays `ralphy workflow simulate`) ──
       if (url.pathname === "/api/farm/simulate") {

@@ -273,6 +273,210 @@ export function farmStatusView(dataRoot: string, ws: string): FarmStatusView {
   };
 }
 
+// ─── Farm metrics report (#518, read-only hand-copy of cli/lib/farm/rollup.ts) ─
+
+// Publish node types (mirrors PUBLISH_NODE_TYPES in cli/lib/schemas/workflow.ts).
+const PUBLISH_NODE_TYPES = new Set(["publish", "youtube-upload", "x-post", "analytics-pull"]);
+
+/** Per-node-id → its type across the workspace's graph workflows. */
+function nodeTypesOf(dataRoot: string, ws: string): Map<string, string> {
+  const types = new Map<string, string>();
+  const dir = path.join(workspaceDir(dataRoot, ws), "workflows");
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  } catch {
+    return types;
+  }
+  for (const f of files) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8"));
+      if (!Array.isArray(raw?.nodes)) continue; // linear (#478) — not a graph
+      for (const n of raw.nodes) {
+        if (n && typeof n.id === "string" && typeof n.type === "string" && !types.has(n.id)) {
+          types.set(n.id, n.type);
+        }
+      }
+    } catch {
+      /* malformed workflow — skip */
+    }
+  }
+  return types;
+}
+
+function median(xs: number[]): number | null {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid]! : Math.round((s[mid - 1]! + s[mid]!) / 2);
+}
+
+export interface FarmReportView {
+  workspace: string;
+  since: string | null;
+  runsIncluded: string[];
+  totals: {
+    ticks: number;
+    runs: number;
+    unitsProduced: number;
+    unitsGated: number;
+    unitsPublished: number;
+    spendUsd: number;
+    cacheHits: number;
+    cacheSavedUsd: number;
+  };
+  spendPerUnit: number | null;
+  spendPerTick: number | null;
+  rates: {
+    nodeExecutions: number;
+    nodeFailures: number;
+    nodeReroutes: number;
+    nodeQuarantines: number;
+    nodeCacheHits: number;
+    failureRate: number;
+    rerouteRate: number;
+    cacheHitRate: number;
+  };
+  durations: {
+    medianNodeMs: number | null;
+    nodeDurationSamples: number;
+    medianApprovalLatencyMs: number | null;
+    approvalLatencySamples: number;
+  };
+  partial: boolean;
+}
+
+/**
+ * READ-ONLY farm metrics roll-up — a hand-copy of cli/lib/farm/rollup.ts
+ * buildFarmReport (studio/ never imports cli/). Same fold, same graceful
+ * degrade (torn lines skipped, missing workflow → unclassified + partial).
+ */
+export function farmReportView(
+  dataRoot: string,
+  ws: string,
+  opts: { since?: string } = {},
+): FarmReportView | null {
+  if (!fs.existsSync(workspaceDir(dataRoot, ws))) return null;
+  const sinceMs = opts.since && !Number.isNaN(Date.parse(opts.since)) ? Date.parse(opts.since) : null;
+  const inWindow = (ts: unknown): boolean => {
+    if (sinceMs === null) return true;
+    if (typeof ts !== "string") return true;
+    const t = Date.parse(ts);
+    return Number.isNaN(t) || t >= sinceMs;
+  };
+  const types = nodeTypesOf(dataRoot, ws);
+
+  const runsDir = path.join(workspaceDir(dataRoot, ws), "runs");
+  let runIds: string[] = [];
+  try {
+    runIds = fs.readdirSync(runsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  } catch {
+    /* no runs yet */
+  }
+
+  const totals = { ticks: 0, runs: 0, unitsProduced: 0, unitsGated: 0, unitsPublished: 0, spendUsd: 0, cacheHits: 0, cacheSavedUsd: 0 };
+  const rates = { nodeExecutions: 0, nodeFailures: 0, nodeReroutes: 0, nodeQuarantines: 0, nodeCacheHits: 0, failureRate: 0, rerouteRate: 0, cacheHitRate: 0 };
+  const nodeDurations: number[] = [];
+  const approvalLatencies: number[] = [];
+  const runsIncluded: string[] = [];
+  let partial = false;
+  let completions = 0;
+
+  for (const runId of runIds) {
+    let events: Array<Record<string, unknown>> = [];
+    try {
+      events = fs
+        .readFileSync(path.join(runsDir, runId, "run-events.jsonl"), "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line) as Record<string, unknown>];
+          } catch {
+            return [];
+          }
+        });
+    } catch {
+      continue;
+    }
+    if (events.length === 0) continue;
+    const runHasTypes = events.some((e) => typeof e.node === "string" && types.has(e.node));
+    const startedAt = new Map<string, string>();
+    let contributed = false;
+
+    for (let i = 0; i < events.length; i++) {
+      const e = events[i]!;
+      if (!inWindow(e.ts)) continue;
+      contributed = true;
+      if (typeof e.costUsd === "number") totals.spendUsd += e.costUsd;
+      const node = typeof e.node === "string" ? e.node : null;
+      const ts = typeof e.ts === "string" ? e.ts : null;
+
+      if (e.kind === "farm-tick") totals.ticks++;
+      else if (e.kind === "node-started" && node && ts) startedAt.set(node, ts);
+      else if (e.kind === "node-completed" && node) {
+        completions++;
+        const startTs = startedAt.get(node);
+        if (startTs && ts) {
+          const d = Date.parse(ts) - Date.parse(startTs);
+          if (Number.isFinite(d) && d >= 0) nodeDurations.push(d);
+        }
+        rates.nodeExecutions++;
+        const t = types.get(node);
+        if (t === "ralphy-unit") totals.unitsProduced++;
+        else if (t === "approval") totals.unitsGated++;
+        else if (t && PUBLISH_NODE_TYPES.has(t)) totals.unitsPublished++;
+      } else if (e.kind === "node-cached") {
+        totals.cacheHits++;
+        rates.nodeCacheHits++;
+        if (typeof e.costSavedUsd === "number") totals.cacheSavedUsd += e.costSavedUsd;
+      } else if (e.kind === "node-failed") {
+        rates.nodeFailures++;
+        rates.nodeExecutions++;
+      } else if (e.kind === "node-routed") rates.nodeReroutes++;
+      else if (e.kind === "node-quarantined") {
+        rates.nodeQuarantines++;
+        rates.nodeExecutions++;
+      } else if (e.kind === "run-parked" && ts) {
+        const next = events.slice(i + 1).find((n) => typeof n.ts === "string");
+        if (next && typeof next.ts === "string") {
+          const d = Date.parse(next.ts) - Date.parse(ts);
+          if (Number.isFinite(d) && d >= 0) approvalLatencies.push(d);
+        }
+      }
+    }
+    if (contributed) {
+      runsIncluded.push(runId);
+      totals.runs++;
+      if (!runHasTypes) partial = true;
+    }
+  }
+
+  totals.spendUsd = Number(totals.spendUsd.toFixed(6));
+  totals.cacheSavedUsd = Number(totals.cacheSavedUsd.toFixed(6));
+  const cacheDenom = completions + rates.nodeCacheHits;
+  rates.failureRate = rates.nodeExecutions ? Number((rates.nodeFailures / rates.nodeExecutions).toFixed(4)) : 0;
+  rates.rerouteRate = rates.nodeExecutions ? Number((rates.nodeReroutes / rates.nodeExecutions).toFixed(4)) : 0;
+  rates.cacheHitRate = cacheDenom ? Number((rates.nodeCacheHits / cacheDenom).toFixed(4)) : 0;
+
+  return {
+    workspace: ws,
+    since: opts.since ?? null,
+    runsIncluded,
+    totals,
+    spendPerUnit: totals.unitsProduced > 0 ? Number((totals.spendUsd / totals.unitsProduced).toFixed(4)) : null,
+    spendPerTick: totals.ticks > 0 ? Number((totals.spendUsd / totals.ticks).toFixed(4)) : null,
+    rates,
+    durations: {
+      medianNodeMs: median(nodeDurations),
+      nodeDurationSamples: nodeDurations.length,
+      medianApprovalLatencyMs: median(approvalLatencies),
+      approvalLatencySamples: approvalLatencies.length,
+    },
+    partial,
+  };
+}
+
 export interface FarmSpawn {
   started: boolean;
   pid: number | null;

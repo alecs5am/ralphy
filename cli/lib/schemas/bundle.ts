@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 import type { Capability } from "../providers/types.js";
+import { NOTIFY_EVENTS, NOTIFY_CHANNELS } from "./notifications.js";
 
 /** Trust-ladder default the importing farm starts the workspace at. */
 export const TRUST_LEVELS = ["L0", "L1", "L2"] as const;
@@ -68,6 +69,22 @@ export const BundleManifestSchema = z.object({
   httpAllowedHosts: z.array(z.string().min(1)).default([]),
   /** Trust-ladder starting level for the imported workspace. */
   trustDefault: z.enum(TRUST_LEVELS).default("L0"),
+  /**
+   * #518: the bundled notifications DEFAULT — the event → channel mapping and
+   * digest time a bundle author ships, landed as the imported workspace's
+   * `notifications` block. QUIET (secrets — chat id / webhook URL / bot token —
+   * are NEVER bundled): the operator fills `channels` post-import to switch it
+   * on. Only the mapping + digest time ride the bundle.
+   */
+  notificationsDefault: z
+    .object({
+      events: z.record(z.enum(NOTIFY_EVENTS), z.array(z.enum(NOTIFY_CHANNELS))).default({}),
+      digestTime: z
+        .string()
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+        .optional(),
+    })
+    .optional(),
 });
 export type BundleManifest = z.infer<typeof BundleManifestSchema>;
 
