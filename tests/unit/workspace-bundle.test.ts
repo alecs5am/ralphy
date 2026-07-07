@@ -110,6 +110,21 @@ function seedWorkspace(slug: string): string {
   fs.writeFileSync(path.join(dir, "calendar.json"), JSON.stringify(CALENDAR, null, 2));
   fs.writeFileSync(path.join(dir, "shared", "refs", "cast-master.png"), "png-bytes");
   fs.writeFileSync(path.join(dir, "prompts", "script.md"), "Write the VO for {{topic}}.\n");
+  // Workspace-level #514 reroute rules — bundled top-level, optional.
+  fs.writeFileSync(
+    path.join(dir, "reroute-rules.json"),
+    JSON.stringify([
+      {
+        id: "ws-park-everything",
+        modelPattern: "*",
+        capability: "video",
+        errorClass: "safety-input",
+        action: "park-for-human",
+        source: "workspace fixture",
+        explanation: "fixture rule",
+      },
+    ]),
+  );
   // Project state that must NEVER be bundled.
   const project = path.join(dir, "projects", "ep-001");
   fs.mkdirSync(path.join(project, "artifacts", "videos"), { recursive: true });
@@ -383,6 +398,7 @@ describe.skipIf(!hasZip)("bundle round-trip (system zip/unzip)", () => {
     expect(exported.contents).toContain("pipeline.json");
     expect(exported.contents).toContain("calendar.yaml");
     expect(exported.contents).toContain("evaluators/evaluators.json");
+    expect(exported.contents).toContain("reroute-rules.json");
 
     // Source workspace untouched (read-only export): project + logs still there.
     expect(
@@ -417,6 +433,11 @@ describe.skipIf(!hasZip)("bundle round-trip (system zip/unzip)", () => {
     // Refs + prompts survived.
     expect(fs.readFileSync(path.join(dest, "shared", "refs", "cast-master.png"), "utf-8")).toBe("png-bytes");
     expect(fs.readFileSync(path.join(dest, "prompts", "script.md"), "utf-8")).toContain("{{topic}}");
+
+    // Workspace reroute rules landed at the workspace top level (#514) —
+    // exactly where loadWorkspaceRerouteRules reads them.
+    const rerouteRules = JSON.parse(fs.readFileSync(path.join(dest, "reroute-rules.json"), "utf-8"));
+    expect(rerouteRules[0]).toMatchObject({ id: "ws-park-everything", action: "park-for-human" });
 
     // Project artifacts + logs were NEVER bundled.
     expect(fs.readdirSync(path.join(dest, "projects"))).toEqual([]);

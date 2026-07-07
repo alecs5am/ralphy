@@ -236,11 +236,11 @@ async function runVideoCall(
       ...(extras.refs && extras.refs.length > 0 ? ["refs"] : []),
       ...(extras.refVideos && extras.refVideos.length > 0 ? ["refVideos"] : []),
     ],
-    invoke: (conn, common) =>
+    invoke: (conn, common, o) =>
       conn.generateVideo!({
         ...common,
-        prompt,
-        model,
+        prompt: o?.prompt ?? prompt,
+        model: o?.model ?? model,
         durationSec,
         aspectRatio: p.aspectRatio as never,
         resolution: p.resolution as never,
@@ -271,8 +271,14 @@ export const t2iExecutor: NodeExecutor = async (node, ctx) => {
       ...(p.size ? ["size"] : []),
       ...(p.negativePrompt ? ["negativePrompt"] : []),
     ],
-    invoke: (conn, common) =>
-      conn.generateImage!({ ...common, prompt, model, size: p.size, negativePrompt: p.negativePrompt }),
+    invoke: (conn, common, o) =>
+      conn.generateImage!({
+        ...common,
+        prompt: o?.prompt ?? prompt,
+        model: o?.model ?? model,
+        size: p.size,
+        negativePrompt: p.negativePrompt,
+      }),
   });
 };
 
@@ -297,8 +303,15 @@ export const i2iExecutor: NodeExecutor = async (node, ctx) => {
       ...(p.size ? ["size"] : []),
       ...(p.negativePrompt ? ["negativePrompt"] : []),
     ],
-    invoke: (conn, common) =>
-      conn.generateImage!({ ...common, prompt, model, refs, size: p.size, negativePrompt: p.negativePrompt }),
+    invoke: (conn, common, o) =>
+      conn.generateImage!({
+        ...common,
+        prompt: o?.prompt ?? prompt,
+        model: o?.model ?? model,
+        refs,
+        size: p.size,
+        negativePrompt: p.negativePrompt,
+      }),
   });
 };
 
@@ -349,14 +362,20 @@ export const lipsyncExecutor: NodeExecutor = async (node, ctx) => {
     note: p.note,
     enforceCoverage: true,
     coverageParams: [],
-    invoke: (conn, common) => {
+    invoke: (conn, common, o) => {
       if (!conn.generateLipsync) {
         throw new NodeExecutionError(
           "provider-unsupported",
           `lipsync node "${node.id}": provider "${conn.id}" has no lipsync route — no registered connector implements generateLipsync yet (the HeyGen talking-photo flow is raw-API only; fal avatar routes are unregistered). Bind params.provider to a connector that does.`,
         );
       }
-      return conn.generateLipsync({ ...common, model, image, audio, prompt: p.prompt });
+      return conn.generateLipsync({
+        ...common,
+        model: o?.model ?? model,
+        image,
+        audio,
+        prompt: o?.prompt ?? p.prompt,
+      });
     },
   });
 };
@@ -393,12 +412,12 @@ export const ttsExecutor: NodeExecutor = async (node, ctx) => {
     note: p.note,
     enforceCoverage: true,
     coverageParams: ["text", "voiceId", ...sliders.filter((k) => p[k] !== undefined)],
-    invoke: (conn, common) =>
+    invoke: (conn, common, o) =>
       conn.generateVoiceover!({
         ...common,
-        text,
+        text: o?.prompt ?? text,
         voiceId: String(p.voiceId),
-        modelId: model,
+        modelId: o?.model ?? model,
         voiceSettings: {
           stability: p.stability,
           similarity_boost: p.similarityBoost,
@@ -427,10 +446,10 @@ export const musicExecutor: NodeExecutor = async (node, ctx) => {
     note: p.note,
     enforceCoverage: true,
     coverageParams: ["prompt", "durationSec", "forceInstrumental"],
-    invoke: (conn, common) =>
+    invoke: (conn, common, o) =>
       conn.generateMusic!({
         ...common,
-        prompt,
+        prompt: o?.prompt ?? prompt,
         durationSec,
         forceInstrumental: p.forceInstrumental !== false,
       }),
@@ -457,8 +476,13 @@ export const sfxExecutor: NodeExecutor = async (node, ctx) => {
       ...(p.durationSec !== undefined ? ["durationSec"] : []),
       ...(p.promptInfluence !== undefined ? ["promptInfluence"] : []),
     ],
-    invoke: (conn, common) =>
-      conn.generateSfx!({ ...common, prompt, durationSec: optionalNumber(p.durationSec), promptInfluence: p.promptInfluence }),
+    invoke: (conn, common, o) =>
+      conn.generateSfx!({
+        ...common,
+        prompt: o?.prompt ?? prompt,
+        durationSec: optionalNumber(p.durationSec),
+        promptInfluence: p.promptInfluence,
+      }),
   });
 };
 
