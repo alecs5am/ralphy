@@ -84,12 +84,14 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import {
   workspaceDir,
+  workspacesDir,
+  workspaceManifestPath,
   runsDir,
   runDir,
-  currentWorkspace,
   ralphDir,
   subgraphsDir,
 } from "../paths.js";
+import { providerConcurrency } from "../providers/concurrency.js";
 import { expandGraphSubgraphs, dirSubgraphResolver } from "../subgraph.js";
 import { createRun, appendRunEvent, loadRun } from "../run.js";
 import { listWorkflowNames, workflowPath } from "../workflow.js";
@@ -1355,9 +1357,68 @@ export async function retryNode(
   return { ...outcome, node: nodeId, invalidated, quarantineResolved };
 }
 
+// ─── Farm-enabled workspace detection (#522) ─────────────────────────────────
+
+/**
+ * Read a workspace's `farm` config off workspace.json. Engine state (like the
+ * `trust` / `notifications` blocks) — malformed / missing reads as {}.
+ *   • farm.enabled === false → explicit opt-OUT (never scheduled, even with a
+ *     schedule-triggered workflow).
+ *   • farm.enabled === true  → explicit opt-IN (scheduled even before it has a
+ *     schedule node — the daemon idles on it until one lands).
+ *   • unset                  → IMPLICIT: enabled iff it has ≥1 graph workflow
+ *     with a schedule trigger (the pre-#522 single-workspace behavior, so no
+ *     existing farm needs a config change to keep running).
+ */
+function readFarmEnabledFlag(ws: string): boolean | undefined {
+  try {
+    const raw = JSON.parse(fs.readFileSync(workspaceManifestPath(ws), "utf8")) as {
+      farm?: { enabled?: unknown };
+    };
+    const e = raw?.farm?.enabled;
+    return typeof e === "boolean" ? e : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether a workspace has ≥1 graph workflow carrying a schedule trigger. */
+function hasScheduleTrigger(ws: string): boolean {
+  return loadGraphWorkflows(ws).some(({ graph }) => scheduleTriggers(graph).length > 0);
+}
+
+/** Is this workspace farm-enabled? (explicit flag wins; else has-a-schedule.) */
+export function isFarmEnabled(ws: string): boolean {
+  const flag = readFarmEnabledFlag(ws);
+  if (flag !== undefined) return flag;
+  return hasScheduleTrigger(ws);
+}
+
+/** Every workspace directory slug on disk (sorted). */
+export function listWorkspaceSlugs(): string[] {
+  try {
+    return fs
+      .readdirSync(workspacesDir(), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Every farm-enabled workspace slug (the set `farm start` with no --workspace drives). */
+export function farmEnabledWorkspaces(): string[] {
+  return listWorkspaceSlugs().filter(isFarmEnabled);
+}
+
 // ─── The scheduler loop (`ralphy farm start`) ────────────────────────────────
 
 export interface FarmLoopOptions {
+  /**
+   * A SINGLE workspace to drive (backward compatible). Omit to run EVERY
+   * farm-enabled workspace in one daemon (#522: one daemon, N workspaces).
+   */
   workspace?: string;
   /** Exit after the first tick completes (test / CI mode). */
   once?: boolean;
@@ -1371,62 +1432,131 @@ export interface FarmLoopOptions {
 const IDLE_RESCAN_MS = 60_000;
 /** Sleep chunk so a stop signal wakes the loop promptly. */
 const SLEEP_CHUNK_MS = 1_000;
+/**
+ * Per-workspace crash-loop backoff (#522): when a workspace's tick throws, it
+ * is skipped for a growing cool-off (2/4/8/… tick-scans, capped) so a broken
+ * workspace can't starve its healthy siblings. A successful tick resets it.
+ */
+const MAX_WS_BACKOFF = 16;
+
+/** Per-workspace scheduler state carried across scans (#522). */
+interface WorkspaceSchedulerState {
+  /** Remaining tick-scans to skip after a crash (crash-loop backoff). */
+  cooldown: number;
+  /** The current backoff window length (doubles per consecutive failure, capped). */
+  backoff: number;
+}
+
+/**
+ * One tick-scan for a SINGLE workspace: fire every due schedule trigger (one
+ * Run per workflow), then re-check parked runs. Returns the earliest next-fire
+ * time seen (for the daemon's sleep) and whether it fired anything. A throw
+ * propagates to the caller, which applies the per-workspace backoff. Isolated
+ * by construction — everything is keyed by `ws`, so budget/trust/dedup/cache
+ * (already ws-scoped by #481/#505/#513) never leak across siblings.
+ */
+async function tickWorkspaceOnce(
+  ws: string,
+  deps: FarmDeps,
+  d: ReturnType<typeof resolveDeps>,
+  from: Date,
+): Promise<{ nextAt: Date | null; fired: boolean }> {
+  const triggers: Array<{ name: string; graph: WorkflowGraph; node: string; spec: CronSpec; at: Date }> = [];
+  for (const { name, graph } of loadGraphWorkflows(ws)) {
+    for (const t of scheduleTriggers(graph)) {
+      const at = nextFire(t.spec, from);
+      if (at) triggers.push({ name, graph, node: t.node, spec: t.spec, at });
+    }
+  }
+  const due = triggers.filter((t) => cronMatches(t.spec, from) || t.at.getTime() <= from.getTime());
+  const firedWorkflows = new Set<string>();
+  for (const t of due) {
+    if (d.shouldStop()) break;
+    if (firedWorkflows.has(t.name)) continue; // one Run per workflow per tick
+    firedWorkflows.add(t.name);
+    await fireTick(ws, t.name, t.graph, deps, { node: t.node, cron: t.spec.expr });
+  }
+  await resumeIncompleteRuns(ws, deps); // parked runs re-check every scan
+  const upcoming = triggers.map((t) => t.at.getTime()).filter((ms) => ms > from.getTime());
+  return { nextAt: upcoming.length ? new Date(Math.min(...upcoming)) : null, fired: firedWorkflows.size > 0 };
+}
 
 /**
  * The long-lived scheduler: resume incomplete runs, then sleep until the next
- * cron fire across every schedule trigger in the workspace's graph workflows,
- * tick, repeat. Workflow files are re-read every wake, so edits land without
- * a restart. Foreground by design (AGENTS.md #5: explicit user intent).
+ * cron fire across every schedule trigger, tick, repeat. Workflow files are
+ * re-read every wake, so edits land without a restart. Foreground by design
+ * (AGENTS.md #5: explicit user intent).
+ *
+ * #522 — ONE daemon, N workspaces: with `opts.workspace` set it drives that
+ * single workspace (backward compatible); omitted, it drives EVERY farm-enabled
+ * workspace with ROUND-ROBIN dispatch across per-workspace tick queues and a
+ * per-workspace crash-loop backoff so a broken workspace never starves its
+ * siblings. Every scan re-reads the enabled set, so a workspace opting in mid-
+ * run is picked up without a restart.
  */
 export async function farmLoop(opts: FarmLoopOptions = {}, deps: FarmDeps = {}): Promise<void> {
   if (opts.noCache) deps = { ...deps, noCache: true };
   const d = resolveDeps(deps);
-  const ws = opts.workspace ?? currentWorkspace();
+  const single = opts.workspace;
+  const workspacesFor = (): string[] =>
+    single !== undefined ? [single] : farmEnabledWorkspaces();
+  const state = new Map<string, WorkspaceSchedulerState>();
 
-  await resumeIncompleteRuns(ws, deps);
+  // Resume every enabled workspace's incomplete runs on boot.
+  for (const ws of workspacesFor()) await resumeIncompleteRuns(ws, deps);
 
   if (opts.tickNow) {
-    for (const { name, graph } of loadGraphWorkflows(ws)) {
-      const triggers = scheduleTriggers(graph);
-      if (triggers.length === 0) continue;
-      if (d.shouldStop()) return;
-      await fireTick(ws, name, graph, deps, {
-        node: triggers[0]!.node,
-        cron: `${triggers[0]!.spec.expr} (--tick-now)`,
-      });
+    for (const ws of workspacesFor()) {
+      for (const { name, graph } of loadGraphWorkflows(ws)) {
+        const triggers = scheduleTriggers(graph);
+        if (triggers.length === 0) continue;
+        if (d.shouldStop()) return;
+        await fireTick(ws, name, graph, deps, {
+          node: triggers[0]!.node,
+          cron: `${triggers[0]!.spec.expr} (--tick-now)`,
+        });
+      }
     }
     if (opts.once) return;
   }
 
   while (!d.shouldStop()) {
-    const graphs = loadGraphWorkflows(ws);
-    const triggers: Array<{ name: string; graph: WorkflowGraph; node: string; spec: CronSpec; at: Date }> = [];
+    const enabled = workspacesFor();
     const from = d.now();
-    for (const { name, graph } of graphs) {
-      for (const t of scheduleTriggers(graph)) {
-        const at = nextFire(t.spec, from);
-        if (at) triggers.push({ name, graph, node: t.node, spec: t.spec, at });
+    let anyFired = false;
+    const nextTimes: number[] = [];
+
+    // Round-robin over the workspaces this scan (fixed, sorted order).
+    for (const ws of enabled) {
+      if (d.shouldStop()) return;
+      const st = state.get(ws) ?? { cooldown: 0, backoff: 1 };
+      if (st.cooldown > 0) {
+        st.cooldown -= 1;
+        state.set(ws, st);
+        continue; // crash-looping — skip this scan, keep siblings alive
+      }
+      try {
+        const { nextAt, fired } = await tickWorkspaceOnce(ws, deps, d, from);
+        if (fired) anyFired = true;
+        if (nextAt) nextTimes.push(nextAt.getTime());
+        state.set(ws, { cooldown: 0, backoff: 1 }); // success resets backoff
+      } catch (err) {
+        // Crash-loop backoff: cool this workspace off for a growing window so
+        // it can't starve its siblings. Never rethrows — one broken workspace
+        // must not take the daemon down.
+        const backoff = Math.min(MAX_WS_BACKOFF, st.backoff * 2);
+        state.set(ws, { cooldown: backoff, backoff });
+        d.onEvent(ws, "farm-workspace-error", `workspace "${ws}" tick failed (${(err as Error).message}) — backing off ${backoff} scan(s)`);
       }
     }
-    if (triggers.length === 0) {
-      if (opts.once) return;
-      await chunkedSleep(IDLE_RESCAN_MS, d);
-      continue;
-    }
-    const nextAt = new Date(Math.min(...triggers.map((t) => t.at.getTime())));
-    await chunkedSleep(nextAt.getTime() - d.now().getTime(), d);
-    if (d.shouldStop()) return;
 
-    const nowAtWake = d.now();
-    const due = triggers.filter((t) => cronMatches(t.spec, nowAtWake) || t.at.getTime() <= nowAtWake.getTime());
-    const firedWorkflows = new Set<string>();
-    for (const t of due) {
-      if (firedWorkflows.has(t.name)) continue; // one Run per workflow per tick
-      firedWorkflows.add(t.name);
-      await fireTick(ws, t.name, t.graph, deps, { node: t.node, cron: t.spec.expr });
-    }
-    await resumeIncompleteRuns(ws, deps); // parked runs re-check every tick
-    if (opts.once && firedWorkflows.size > 0) return;
+    if (opts.once) return;
+
+    // Sleep until the earliest next fire across ALL workspaces (or a re-scan
+    // window when nothing is scheduled / everything is cooling off).
+    const nextAt = nextTimes.length ? Math.min(...nextTimes) : d.now().getTime() + IDLE_RESCAN_MS;
+    await chunkedSleep(Math.max(0, nextAt - d.now().getTime()), d);
+    void anyFired;
   }
 }
 
@@ -1481,10 +1611,19 @@ export function clearFarmPid(ws: string): void {
 
 export interface FarmStatusReport {
   workspace: string;
+  /** #522: whether this workspace is farm-enabled (explicit flag or has a schedule). */
+  farmEnabled: boolean;
   daemon: { running: boolean; pid: number | null; pidFile: string };
   counts: Record<FarmRunStatus, number>;
   /** #513 aggregate across all runs: content-hash cache hits + cost saved. */
   cache: { hits: number; savedUsd: number };
+  /**
+   * #522 provider concurrency: per-provider in-flight / queued / cumulative
+   * queue-wait, from the in-process dispatch semaphore. Only populated within
+   * the daemon process that holds the slots (a separate `farm status` call
+   * sees an empty registry — the semaphore is in-process, not on disk).
+   */
+  providers: ReturnType<typeof providerConcurrency>;
   runs: Array<{
     id: string;
     workflow: string;
@@ -1542,9 +1681,26 @@ export function farmStatus(ws: string): FarmStatusReport {
   }
   return {
     workspace: ws,
+    farmEnabled: isFarmEnabled(ws),
     daemon: { running, pid: running ? pid : null, pidFile: farmPidPath(ws) },
     counts,
     cache,
+    providers: providerConcurrency(),
     runs,
   };
+}
+
+/**
+ * #522 grouped status across EVERY farm-enabled workspace — what `farm status`
+ * with no `--workspace` shows. The provider-concurrency snapshot is process-
+ * wide (the in-process semaphore isn't per-workspace), so it's surfaced once at
+ * the top rather than duplicated per workspace.
+ */
+export interface FarmStatusAll {
+  workspaces: FarmStatusReport[];
+  providers: ReturnType<typeof providerConcurrency>;
+}
+
+export function farmStatusAll(slugs: string[] = farmEnabledWorkspaces()): FarmStatusAll {
+  return { workspaces: slugs.map(farmStatus), providers: providerConcurrency() };
 }

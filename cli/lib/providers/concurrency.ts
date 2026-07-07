@@ -63,9 +63,32 @@ const CAPS: Record<string, number> = {
 };
 
 /**
- * Default fallback cap when an endpoint isn't in `CAPS`. Two concurrent is the
- * safe-everywhere default — most OR endpoints tolerate ≥4, but a stale cap on
- * a new model is the failure mode this module exists to prevent.
+ * Per-connector default cap (#522) — the max-in-flight budget for a connector
+ * when the exact `<provider>:<model>` endpoint isn't in `CAPS`. Declared here
+ * (the one place the sourced concurrency facts already live) so the farm's
+ * shared dispatch semaphore and the per-call self-throttle read ONE registry.
+ * Each is seeded from the documented facts with a `source` citation:
+ *   • openrouter — MEMORY feedback_openrouter_parallel_gpt_image: gpt-image is
+ *     NOT hard-capped to 1 (2× parallel validated 2026-05-29). Keep the media
+ *     default at 2 to stay under OR's per-key burst-cap ("total limit" 403).
+ *   • fal        — third-party video connector (#402); conservative 2.
+ *   • elevenlabs — free/starter tier caps concurrency at 3 (voice TTS); use it
+ *     as the connector floor.
+ * source: cli/lib/providers/concurrency.ts CAPS comments + MEMORY
+ * feedback_openrouter_parallel_gpt_image / feedback_seedance_i2v_parallel.
+ */
+export const CONNECTOR_DEFAULT_CAPS: Record<string, number> = {
+  openrouter: 2,
+  fal: 2,
+  elevenlabs: 3,
+};
+
+/**
+ * Default fallback cap when an endpoint isn't in `CAPS` and the connector has
+ * no CONNECTOR_DEFAULT_CAPS entry. Two concurrent is the safe-everywhere
+ * default — most OR endpoints tolerate ≥4, but a stale cap on a new model is
+ * the failure mode this module exists to prevent. Unknown = this conservative
+ * default, logged once (see `logUnknownCapOnce`).
  */
 export const DEFAULT_CONCURRENCY_CAP = 2;
 
@@ -78,9 +101,21 @@ export const DEFAULT_CONCURRENCY_CAP = 2;
 export const DEFAULT_LLM_CONCURRENCY_CAP = 4;
 
 type Semaphore = {
+  /** The hard budget (never exceeded). */
   cap: number;
+  /**
+   * The EFFECTIVE budget in force right now (#522 adaptive rule). Starts at
+   * `cap`; a provider 429/rate-limit temporarily halves it, and it recovers
+   * one slot per successful release back up to `cap`. `active` is gated on
+   * `effectiveCap`, never `cap`.
+   */
+  effectiveCap: number;
   active: number;
   waiters: Array<() => void>;
+  /** Cumulative time (ms) callers spent BLOCKED waiting for a slot — the #518 queue-wait rollup. */
+  totalWaitMs: number;
+  /** How many acquisitions had to wait (denominator for an average). */
+  waitedCount: number;
 };
 
 const SEMAPHORES = new Map<string, Semaphore>();
@@ -95,20 +130,34 @@ function key(provider: string, model: string): string {
  */
 export function _resetConcurrency(): void {
   SEMAPHORES.clear();
+  _loggedUnknown.clear();
 }
 
 /** Capability hint to pick a default cap when the model isn't in the registry. */
 export type EndpointKind = "image" | "video" | "voice" | "music" | "sfx" | "text";
 
+/** Endpoints we've already logged an unknown-cap fallback for (once each). */
+const _loggedUnknown = new Set<string>();
+
 /**
- * Look up the configured cap for a `<provider>:<model>` endpoint. Falls back
- * to the kind-default when the exact endpoint isn't registered. Exposed for
- * tests + the `ralphy provider` introspection surface.
+ * Look up the configured cap for a `<provider>:<model>` endpoint. Resolution
+ * order (#522): the exact endpoint in `CAPS` → the text-kind wide default →
+ * the connector default (CONNECTOR_DEFAULT_CAPS) → the safe-everywhere floor.
+ * An endpoint that resolves to a bare fallback (no CAPS row, no connector
+ * default) is logged ONCE to stderr so a stale cap on a new model surfaces
+ * without spamming — the failure mode this module exists to prevent.
  */
 export function capFor(provider: string, model: string, kind?: EndpointKind): number {
   const k = key(provider, model);
   if (k in CAPS) return CAPS[k]!;
   if (kind === "text") return DEFAULT_LLM_CONCURRENCY_CAP;
+  if (provider in CONNECTOR_DEFAULT_CAPS) return CONNECTOR_DEFAULT_CAPS[provider]!;
+  if (!_loggedUnknown.has(k)) {
+    _loggedUnknown.add(k);
+    console.warn(
+      `[concurrency] no in-flight budget declared for "${k}" — using the conservative default (${DEFAULT_CONCURRENCY_CAP}). Add a CAPS entry in cli/lib/providers/concurrency.ts if this endpoint tolerates more.`,
+    );
+  }
   return DEFAULT_CONCURRENCY_CAP;
 }
 
@@ -116,14 +165,15 @@ function getSemaphore(provider: string, model: string, kind?: EndpointKind): Sem
   const k = key(provider, model);
   let sem = SEMAPHORES.get(k);
   if (!sem) {
-    sem = { cap: capFor(provider, model, kind), active: 0, waiters: [] };
+    const cap = capFor(provider, model, kind);
+    sem = { cap, effectiveCap: cap, active: 0, waiters: [], totalWaitMs: 0, waitedCount: 0 };
     SEMAPHORES.set(k, sem);
   }
   return sem;
 }
 
 async function acquire(sem: Semaphore): Promise<void> {
-  if (sem.active < sem.cap) {
+  if (sem.active < sem.effectiveCap) {
     sem.active += 1;
     return;
   }
@@ -132,13 +182,35 @@ async function acquire(sem: Semaphore): Promise<void> {
 }
 
 function release(sem: Semaphore): void {
-  const next = sem.waiters.shift();
-  if (next) {
-    // Hand the slot directly to the next waiter — `active` stays the same.
-    next();
-    return;
+  // Adaptive recovery (#522): a successful release nudges the effective cap
+  // back one slot toward the hard cap (a rate-limit halved it earlier).
+  if (sem.effectiveCap < sem.cap) sem.effectiveCap = Math.min(sem.cap, sem.effectiveCap + 1);
+  // Only wake a waiter if the effective cap still has room — a mid-run halving
+  // can leave `active` at/above `effectiveCap`, in which case a released slot
+  // simply retires and the waiter waits for the next one.
+  if (sem.active <= sem.effectiveCap) {
+    const next = sem.waiters.shift();
+    if (next) {
+      // Hand the slot directly to the next waiter — `active` stays the same.
+      next();
+      return;
+    }
   }
   sem.active = Math.max(0, sem.active - 1);
+}
+
+/**
+ * Adaptive backoff (#522): a provider 429 / rate-limit halves the endpoint's
+ * EFFECTIVE in-flight budget (floor 1). It recovers one slot per successful
+ * release, so a single 429 briefly narrows the endpoint then it climbs back —
+ * a simple, documented rule that turns a rate-limit into a self-healing
+ * queueing concern instead of a failure. Idempotent-safe: repeated calls keep
+ * halving down to the floor. The runner calls this on a `transient`/429-class
+ * node failure (classifyError → provider-transient).
+ */
+export function noteRateLimit(provider: string, model: string, kind?: EndpointKind): void {
+  const sem = getSemaphore(provider, model, kind);
+  sem.effectiveCap = Math.max(1, Math.floor(sem.effectiveCap / 2));
 }
 
 /**
@@ -162,12 +234,14 @@ export async function withConcurrency<T>(
   const sem = getSemaphore(provider, model, kind);
   // Resolver pattern: when a waiter is woken we want it to wake up already
   // "holding" the slot — otherwise two waiters could race and both increment
-  // active past cap. acquire() therefore returns to the caller with the slot
-  // either freshly acquired (active was < cap) or handed off from release().
-  if (sem.active < sem.cap) {
+  // active past the effective cap. Gate on effectiveCap (#522 adaptive rule).
+  if (sem.active < sem.effectiveCap) {
     sem.active += 1;
   } else {
+    const t0 = Date.now();
+    sem.waitedCount += 1;
     await new Promise<void>((resolve) => sem.waiters.push(resolve));
+    sem.totalWaitMs += Date.now() - t0;
   }
   try {
     return await fn();
@@ -178,15 +252,65 @@ export async function withConcurrency<T>(
 
 void acquire; // keep acquire reachable for future symmetric callers / tests.
 
+/** One endpoint's live in-flight / queue state, for `farm status` + tests. */
+export interface ConcurrencySnapshot {
+  endpoint: string;
+  provider: string;
+  model: string;
+  /** The hard budget. */
+  cap: number;
+  /** The budget in force now (< cap after a 429 halving). */
+  effectiveCap: number;
+  /** Calls in flight. */
+  active: number;
+  /** Calls parked waiting for a slot. */
+  queued: number;
+  /** Cumulative queue-wait across this endpoint (ms) — the #518 rollup input. */
+  totalWaitMs: number;
+  waitedCount: number;
+}
+
 /**
- * Returns a snapshot of the live semaphore state. Useful for tests + an
- * eventual `ralphy provider concurrency` introspection verb. Read-only.
+ * Returns a snapshot of the live semaphore state. `farm status` groups this
+ * per provider (in-flight / queued); the #518 report rolls up `totalWaitMs`.
+ * Read-only.
  */
-export function snapshot(): Array<{ endpoint: string; cap: number; active: number; waiters: number }> {
-  return Array.from(SEMAPHORES.entries()).map(([endpoint, sem]) => ({
-    endpoint,
-    cap: sem.cap,
-    active: sem.active,
-    waiters: sem.waiters.length,
-  }));
+export function snapshot(): ConcurrencySnapshot[] {
+  return Array.from(SEMAPHORES.entries()).map(([endpoint, sem]) => {
+    const i = endpoint.indexOf(":");
+    return {
+      endpoint,
+      provider: i > 0 ? endpoint.slice(0, i) : endpoint,
+      model: i > 0 ? endpoint.slice(i + 1) : "",
+      cap: sem.cap,
+      effectiveCap: sem.effectiveCap,
+      active: sem.active,
+      queued: sem.waiters.length,
+      totalWaitMs: sem.totalWaitMs,
+      waitedCount: sem.waitedCount,
+    };
+  });
+}
+
+/** Per-provider rollup of the endpoint snapshots (for `farm status`). */
+export function providerConcurrency(): Array<{
+  provider: string;
+  inFlight: number;
+  queued: number;
+  totalWaitMs: number;
+  endpoints: ConcurrencySnapshot[];
+}> {
+  const byProvider = new Map<string, ConcurrencySnapshot[]>();
+  for (const s of snapshot()) {
+    byProvider.set(s.provider, [...(byProvider.get(s.provider) ?? []), s]);
+  }
+  return [...byProvider.entries()]
+    .map(([provider, endpoints]) => ({
+      provider,
+      inFlight: endpoints.reduce((a, e) => a + e.active, 0),
+      queued: endpoints.reduce((a, e) => a + e.queued, 0),
+      totalWaitMs: endpoints.reduce((a, e) => a + e.totalWaitMs, 0),
+      endpoints: endpoints.sort((a, b) => a.endpoint.localeCompare(b.endpoint)),
+    }))
+    .sort((a, b) => a.provider.localeCompare(b.provider));
 }
