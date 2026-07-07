@@ -801,6 +801,9 @@ export async function executeGraphRun(
       reportCost: (usd) => {
         nodeCost += usd;
       },
+      // #525: the runner's clock feeds delay_window publishes so a sampled
+      // event-delay is deterministic under the injected test/simulate clock.
+      now: d.now,
       ...d.ctx,
     };
 

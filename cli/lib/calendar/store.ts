@@ -154,6 +154,9 @@ export function transitionEntry(
 // overlap) resolves deterministically to the offset Intl reports for the
 // initial guess (the pre-transition offset in practice).
 
+// Exported for the #525 cadence sampler: it re-samples a slot time inside a
+// jitter window in the slot's LOCAL wall-clock, so it needs the same
+// timezone-aware local-parts / zoned-to-UTC pair (no duplicate tz math).
 const dtfCache = new Map<string, Intl.DateTimeFormat>();
 
 function dtf(timeZone: string): Intl.DateTimeFormat {
@@ -175,10 +178,10 @@ function dtf(timeZone: string): Intl.DateTimeFormat {
   return f;
 }
 
-type LocalParts = { y: number; mo: number; d: number; h: number; mi: number; s: number; weekday: Weekday };
+export type LocalParts = { y: number; mo: number; d: number; h: number; mi: number; s: number; weekday: Weekday };
 
 /** Wall-clock parts of a UTC instant in a timezone (weekday as mon..sun). */
-function localParts(ts: number, timeZone: string): LocalParts {
+export function localParts(ts: number, timeZone: string): LocalParts {
   const p: Record<string, string> = {};
   for (const part of dtf(timeZone).formatToParts(new Date(ts))) p[part.type] = part.value;
   return {
@@ -199,7 +202,7 @@ function tzOffsetMs(ts: number, timeZone: string): number {
 }
 
 /** The UTC instant (ms) of local `y-mo-d hh:mi` in `timeZone`. */
-function zonedTimeToUtc(y: number, mo: number, d: number, h: number, mi: number, timeZone: string): number {
+export function zonedTimeToUtc(y: number, mo: number, d: number, h: number, mi: number, timeZone: string): number {
   const wall = Date.UTC(y, mo - 1, d, h, mi);
   const guess = wall - tzOffsetMs(wall, timeZone);
   return wall - tzOffsetMs(guess, timeZone);

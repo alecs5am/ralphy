@@ -64,6 +64,7 @@ import { parseCalendar } from "./schemas/calendar.js";
 import { coverageFor } from "./providers/coverage.js";
 import { listConnectors } from "./providers/registry.js";
 import { readNotificationsConfig } from "./notifications.js";
+import { readCadenceConfig } from "./cadence-config.js";
 import { VERSION } from "./version.js";
 import {
   parseBundleManifest,
@@ -451,6 +452,10 @@ export function exportWorkspaceBundle(
     const requirements = deriveBundleRequirements(graphs);
     const notify = readNotificationsConfig(ws);
     const hasMapping = Object.keys(notify.events).length > 0;
+    // #525: ship the workspace's cadence profiles (timing only, no secrets) so
+    // the imported farm posts on human timing out of the box. Only when the
+    // workspace actually enabled a cadence block.
+    const cadence = readCadenceConfig(ws);
     // #521 lineage: reuse the workspace's stored bundleId across re-exports so
     // every version shares one id; mint + persist one on first export.
     const bundleId = ensureBundleId(ws);
@@ -462,6 +467,7 @@ export function exportWorkspaceBundle(
       ...requirements,
       trustDefault: "L0",
       ...(hasMapping ? { notificationsDefault: { events: notify.events, digestTime: notify.digestTime } } : {}),
+      ...(cadence.enabled ? { cadenceDefault: cadence } : {}),
     });
     fs.writeFileSync(path.join(staging, "manifest.yaml"), stringifyYaml(manifest));
     contents.push("manifest.yaml");
@@ -753,6 +759,10 @@ export function importWorkspaceBundle(zipPath: string, opts: ImportOptions = {})
                 },
               }
             : {}),
+          // #525: the bundled cadence profiles land as-is (timing only, no
+          // secrets) and stay ENABLED — the imported farm posts on human
+          // timing immediately.
+          ...(v.manifest.cadenceDefault ? { cadence: v.manifest.cadenceDefault } : {}),
         },
         null,
         2,

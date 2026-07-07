@@ -89,6 +89,19 @@ export interface ExecutorContext {
    * fixture writes the mp4 instead of spawning `bunx hyperframes render`.
    */
   hyperframesRender?: typeof runHyperframesRender;
+  /**
+   * The runner's clock (#525): the tick time a `delay_window` publish samples
+   * its delay against. Wired from the runner's `FarmDeps.now` so a simulated /
+   * test tick is deterministic; absent → real `Date.now()`.
+   */
+  now?: () => Date;
+  /**
+   * Postiz-scheduled-instants query hook (#525 min-gap seam): returns the
+   * already-scheduled post instants (ISO) on a platform so the cadence sampler
+   * keeps min-gap from remote posts too. Absent → local pending only (the
+   * enforced floor until a Postiz list-scheduled connector method lands).
+   */
+  postizScheduledAt?: (platform?: string) => Promise<string[]>;
 }
 
 export interface ExecutorResult {

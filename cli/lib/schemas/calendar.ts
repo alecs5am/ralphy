@@ -73,6 +73,12 @@ export const CalendarEntrySchema = z.object({
   runId: z.string().optional(),
   projectId: z.string().optional(),
   unitSlug: z.string().optional(),
+  // #525 cadence provenance: set when the humanizer moved `at` off the exact
+  // slot time. `sampled` is the flag the studio calendar view + `workflow
+  // simulate` mark on; the basis/offset explain the move.
+  sampled: z.boolean().optional(),
+  cadenceBasis: z.string().optional(),
+  cadenceOffsetMinutes: z.number().optional(),
 });
 export type CalendarEntry = z.infer<typeof CalendarEntrySchema>;
 

@@ -9,12 +9,23 @@
 // default "produced"); on a no-free-slot horizon the entry is created UNDATED
 // at status "queued" (queue, don't drop) and the payload carries null
 // slotId/scheduleAt so downstream routing can park the unit.
+//
+// CADENCE (#525): between slot resolution and the stamped `scheduleAt`, the
+// exact slot time is HUMANIZED into a sampled instant inside a jitter window
+// (seeded by the run id → deterministic on resume, different across runs),
+// min-gap-separated from the same platform's already-scheduled posts. A
+// workspace with no `cadence` block (or `enabled: false`) is a NO-OP: the exact
+// slot time passes through exactly as pre-#525. The sampled fields
+// (sampled/cadenceBasis/cadenceOffsetMinutes) ride the payload AND the calendar
+// entry so `workflow simulate` and the studio calendar view mark them.
 
-import { nextFreeSlot, upsertEntry } from "../../calendar/store.js";
+import { nextFreeSlot, upsertEntry, readCalendar } from "../../calendar/store.js";
+import { readCadenceConfig } from "../../cadence-config.js";
+import { sampleCadence } from "../../farm/cadence.js";
 import { ENTRY_STATUSES, type EntryStatus } from "../../schemas/calendar.js";
 import { writeNodeArtifact } from "./llm.js";
 import { NodeExecutionError } from "./types.js";
-import type { NodeExecutor } from "./types.js";
+import type { ExecutorContext, NodeExecutor } from "./types.js";
 
 type CalendarSlotParams = {
   unit_type?: string;
@@ -30,6 +41,35 @@ type CalendarSlotParams = {
 
 /** Statuses a calendar-slot node may stamp — everything BEFORE "scheduled". */
 const STAMPABLE = ENTRY_STATUSES.slice(0, ENTRY_STATUSES.indexOf("scheduled"));
+
+/**
+ * Same-platform already-dated instants the min-gap must clear. LOCAL pending
+ * (the workspace calendar's dated entries on this platform, excluding the one
+ * we are about to stamp) plus the Postiz-scheduled seam. Postiz has no
+ * public list-scheduled endpoint on the connector today, so the query is a
+ * documented HOOK: `ctx.postizScheduledAt` (a test/integration seam) supplies
+ * the extra instants when a future connector method lands. Until then local
+ * pending is the enforced floor (the issue's "define the seam, use local
+ * pending + a documented Postiz-query hook").
+ */
+async function sameplatformNeighbours(
+  ctx: ExecutorContext,
+  platform: string | undefined,
+  slotTime: string,
+): Promise<string[]> {
+  const cal = readCalendar(ctx.workspaceDir);
+  const local = cal.entries
+    .filter(
+      (e) =>
+        e.at &&
+        e.at !== slotTime &&
+        (!platform || (e.platforms ?? []).includes(platform as never)),
+    )
+    .map((e) => e.at!) as string[];
+  const hook = (ctx as { postizScheduledAt?: (platform?: string) => Promise<string[]> }).postizScheduledAt;
+  const remote = hook ? await hook(platform).catch(() => []) : [];
+  return [...local, ...remote];
+}
 
 export const calendarSlotExecutor: NodeExecutor = async (node, ctx) => {
   const p = node.params as CalendarSlotParams;
@@ -61,20 +101,60 @@ export const calendarSlotExecutor: NodeExecutor = async (node, ctx) => {
     projectId: ctx.projectId,
     unitSlug: p.unit_slug,
   };
-  const { entry } = resolution.free
-    ? upsertEntry(ctx.workspaceDir, { ...links, at: resolution.at, slotId: resolution.slotId })
-    : upsertEntry(ctx.workspaceDir, { ...links, status: "queued" });
 
-  const payload = resolution.free
-    ? { slotId: resolution.slotId, scheduleAt: resolution.at, entryId: entry.id }
-    : {
-        slotId: null,
-        scheduleAt: null,
-        entryId: entry.id,
-        queued: true,
-        reason: resolution.reason,
-        horizonWeeks: resolution.horizonWeeks,
-      };
+  if (!resolution.free) {
+    const { entry } = upsertEntry(ctx.workspaceDir, { ...links, status: "queued" });
+    const payload = {
+      slotId: null,
+      scheduleAt: null,
+      entryId: entry.id,
+      queued: true,
+      reason: resolution.reason,
+      horizonWeeks: resolution.horizonWeeks,
+    };
+    const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
+    return { output: payload, artifactPath };
+  }
+
+  // ── Cadence: humanize the exact slot time into a sampled instant (#525). ──
+  const config = readCadenceConfig(ctx.workspace);
+  const slot = readCalendar(ctx.workspaceDir).slots.find((s) => s.id === resolution.slotId);
+  const timezone = slot?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Seed source: the run id (deterministic on resume). Falls back to the
+  // params.run_id / node id when the node runs outside a farm run (chat-driven).
+  const seed = ctx.runId ?? p.run_id ?? node.id;
+  const neighbours = await sameplatformNeighbours(ctx, p.platform, resolution.at);
+  const sample = sampleCadence({
+    exactIso: resolution.at,
+    timezone,
+    platform: p.platform,
+    config,
+    seed,
+    neighbours,
+  });
+
+  const { entry } = upsertEntry(ctx.workspaceDir, {
+    ...links,
+    at: sample.scheduleAt,
+    slotId: resolution.slotId,
+    ...(sample.sampled
+      ? { sampled: true, cadenceBasis: sample.basis, cadenceOffsetMinutes: sample.offsetMinutes }
+      : {}),
+  });
+
+  const payload = {
+    slotId: resolution.slotId,
+    scheduleAt: sample.scheduleAt,
+    entryId: entry.id,
+    ...(sample.sampled
+      ? {
+          sampled: true,
+          slotTime: resolution.at,
+          cadenceBasis: sample.basis,
+          cadenceOffsetMinutes: sample.offsetMinutes,
+        }
+      : {}),
+  };
 
   const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
   return { output: payload, artifactPath };
