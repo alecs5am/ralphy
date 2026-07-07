@@ -30,9 +30,13 @@ import { callLLM } from "../lib/providers/llm.js";
 import {
   exportWorkspaceBundle,
   importWorkspaceBundle,
+  previewUpgrade,
+  upgradeWorkspace,
+  rollbackWorkspace,
   BundleError,
   type BundleGap,
   type ImportRefusal,
+  type UpgradePreview,
 } from "../lib/bundle.js";
 import {
   TRUST_LEVELS,
@@ -634,6 +638,98 @@ export function workspaceCmd() {
             out({ imported: false, refusals: e.details as ImportRefusal[] });
             raiseError("E_VALIDATION_FAILED", { target: "workspace-bundle", detail: e.message });
         }
+      }
+    });
+
+  // ── upgrade (#521) ─────────────────────────────────────────────────────
+  const summarizeDiff = (preview: UpgradePreview) =>
+    preview.diff
+      .map((d) => `${d.class} (+${d.added.length} ~${d.changed.length} -${d.removed.length})`)
+      .join(", ") || "no know-how changes";
+
+  cmd
+    .command("upgrade <slug> <zip>")
+    .description(
+      "Upgrade a DEPLOYED workspace to a newer version of its bundle lineage (#521) WITHOUT losing runtime state (calendar entries, trust history, dedup store, cache, quarantine). Validates the bundle targets the SAME lineage (bundleId match) with a monotonically greater version — refuses on lineage mismatch or version regression (rollback is the sanctioned down-path). Shows a pre-apply DIFF of the know-how classes (graph, subgraphs, prompts, compositions, evaluators, reroute rules, calendar SLOTS); runtime state is never touched. Know-how is replaced atomically and every changed artifact is versioned append-only (workflow.v2.json etc.); the prior tree is kept for `workspace rollback`. Refuses while a run is active. An evaluator change resets the #505 agreement streak (the rubric moved). --dry-run shows the diff only; --yes is required to apply non-interactively. Example: ralphy workspace upgrade tech-news tech-news-v2.zip --yes",
+    )
+    .option("--dry-run", "Show the diff only — never apply (default OFF; apply needs --yes)")
+    .option("--yes", "Apply the upgrade (required for a non-interactive apply)")
+    .option("--allow-unknown-lineage", "Upgrade in place even when a bundleId is absent on either side (pre-#521)")
+    .option("--allow-missing-keys", "Proceed with warnings when required connector keys are not set")
+    .option("--allow-coverage-gaps", "Proceed with warnings when required coverage triples are unknown to the matrix")
+    .action(async (slug: string, zip: string, opts) => {
+      requireRalphyLayout("workspace upgrade");
+      const upgradeOpts = {
+        allowUnknownLineage: Boolean(opts.allowUnknownLineage),
+        allowMissingKeys: Boolean(opts.allowMissingKeys),
+        allowCoverageGaps: Boolean(opts.allowCoverageGaps),
+      };
+      try {
+        if (opts.dryRun || !opts.yes) {
+          const preview = previewUpgrade(slug, zip, upgradeOpts);
+          ok(
+            `Upgrade preview for ${slug}: v${preview.fromVersion ?? "?"} -> v${preview.toVersion} — ${summarizeDiff(preview)}` +
+              (opts.dryRun ? "" : " (pass --yes to apply)"),
+          );
+          out({ applied: false, ...preview });
+          return;
+        }
+        const result = upgradeWorkspace(slug, zip, upgradeOpts);
+        ok(
+          `Workspace ${slug} upgraded: v${result.preview.fromVersion ?? "?"} -> v${result.preview.toVersion}` +
+            (result.streakReset ? " — evaluator changed, trust streak reset" : ""),
+        );
+        out({
+          workspace: slug,
+          applied: true,
+          fromVersion: result.preview.fromVersion,
+          toVersion: result.preview.toVersion,
+          bundleId: result.preview.bundleId,
+          diff: result.preview.diff,
+          evaluatorChanged: result.preview.evaluatorChanged,
+          streakReset: result.streakReset,
+          rollbackSnapshot: result.rollbackSnapshot,
+          warnings: result.warnings,
+        });
+      } catch (e) {
+        if (!(e instanceof BundleError)) throw e;
+        switch (e.code) {
+          case "not-found":
+            raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+            break;
+          case "dep-missing":
+            raiseError("E_DEP_MISSING", { dep: String(e.details[0] ?? "unzip") });
+            break;
+          default:
+            out({ workspace: slug, applied: false, refusals: e.details });
+            raiseError("E_VALIDATION_FAILED", { target: "workspace-upgrade", detail: e.message });
+        }
+      }
+    });
+
+  // ── rollback (#521) ────────────────────────────────────────────────────
+  cmd
+    .command("rollback <slug>")
+    .description(
+      "Roll a workspace back to the know-how set from before the last `workspace upgrade` (#521). Restores the prior versioned graph / subgraphs / prompts / compositions / evaluators / reroute rules / calendar slots from the upgrade snapshot; runtime state accrued since the upgrade (calendar entries, trust history, dedup store, cache, quarantine) is carried forward untouched. Refuses while a run is active, or when there is no upgrade snapshot to restore. Appends to the workspace lifecycle log. Example: ralphy workspace rollback tech-news",
+    )
+    .action(async (slug: string) => {
+      requireRalphyLayout("workspace rollback");
+      try {
+        const result = rollbackWorkspace(slug);
+        ok(`Workspace ${slug} rolled back: v${result.fromVersion ?? "?"} -> v${result.restoredVersion ?? "?"}`);
+        out({
+          workspace: slug,
+          restoredVersion: result.restoredVersion,
+          fromVersion: result.fromVersion,
+          snapshot: result.snapshot,
+        });
+      } catch (e) {
+        if (!(e instanceof BundleError)) throw e;
+        if (e.code === "not-found") {
+          raiseError("E_NOT_FOUND", { kind: "Rollback snapshot", id: slug });
+        }
+        raiseError("E_VALIDATION_FAILED", { target: "workspace-rollback", detail: e.message });
       }
     });
 
