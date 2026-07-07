@@ -68,7 +68,16 @@
 // producer). CONSTRAINT: nested fan-out (a fan-out inside another fan-out's
 // subgraph) and overlapping fan-out subgraphs are unsupported — the run halts
 // with a structured "nested-fan-out-not-supported" / "overlapping-fan-out"
-// detail. #517 reusable subgraphs is the follow-up shape for nesting.
+// detail.
+//
+// ── Reusable named subgraphs (#517) ──────────────────────────────────────────
+// `subgraph` nodes NEVER reach this runner: loadGraphWorkflows expands them
+// (cli/lib/subgraph.ts) into namespaced `<instance>:<inner>` nodes at load
+// time. Expansion is deterministic, so journal records carry the namespaced
+// ids and resume/fan-out compose for free — a fan-out over a subgraph
+// instance journals `<instance>:<inner>@<branch>`. The nested-fan-out
+// constraint above applies to the EXPANDED graph (a subgraph carrying a
+// fan-out, instantiated downstream of another fan-out, still halts).
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -79,7 +88,9 @@ import {
   runDir,
   currentWorkspace,
   ralphDir,
+  subgraphsDir,
 } from "../paths.js";
+import { expandGraphSubgraphs, dirSubgraphResolver } from "../subgraph.js";
 import { createRun, appendRunEvent, loadRun } from "../run.js";
 import { listWorkflowNames, workflowPath } from "../workflow.js";
 import {
@@ -244,7 +255,10 @@ function readJournal(ws: string, runId: string): JournalState {
 
 // ─── Graph helpers ───────────────────────────────────────────────────────────
 
-const EDGE_RE = /^([a-z0-9][a-z0-9-]*)\.([A-Za-z0-9][A-Za-z0-9_-]*)$/;
+// The optional `:<inner-id>` segment is the #517 subgraph namespace — the
+// runner executes EXPANDED graphs, so `<instance>:<inner>.<out>` edges (and
+// the matching `<instance>:<inner>@<branch>` journal keys) are first-class.
+const EDGE_RE = /^([a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?)\.([A-Za-z0-9][A-Za-z0-9_-]*)$/;
 
 /** producer node id of an in-port ref, or null for artifact refs. */
 function producerOf(ref: string): string | null {
@@ -289,14 +303,25 @@ export function topoOrder(graph: WorkflowGraph): WorkflowNode[] {
   return order;
 }
 
-/** Load the workspace's GRAPH workflows (linear #478 workflows are not farm-driven). */
+/**
+ * Load the workspace's GRAPH workflows (linear #478 workflows are not
+ * farm-driven), with #517 subgraph instances EXPANDED — the runner never sees
+ * a `subgraph` node. Expansion is deterministic, so a resume that re-loads
+ * the workflow rebuilds the exact same namespaced ids the journal recorded.
+ * A workflow whose expansion errors (missing/broken subgraph) is skipped —
+ * `ralphy workflow lint` is the diagnosis path.
+ */
 export function loadGraphWorkflows(ws: string): Array<{ name: string; graph: WorkflowGraph }> {
   const out: Array<{ name: string; graph: WorkflowGraph }> = [];
+  const resolve = dirSubgraphResolver(subgraphsDir(ws));
   for (const name of listWorkflowNames(ws)) {
     try {
       const raw = JSON.parse(fs.readFileSync(workflowPath(ws, name), "utf8"));
       const doc = parseWorkflowDocument(raw);
-      if (doc.kind === "graph") out.push({ name, graph: doc.graph });
+      if (doc.kind !== "graph") continue;
+      const expansion = expandGraphSubgraphs(doc.graph, resolve);
+      if (expansion.issues.some((i) => i.level === "error")) continue;
+      out.push({ name, graph: expansion.graph });
     } catch {
       /* malformed workflow file — `ralphy workflow lint` is the diagnosis path */
     }
