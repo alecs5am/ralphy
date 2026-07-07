@@ -21,11 +21,14 @@
 // auto-loop); repair without a route, needs-user-decision, blocked → park
 // like approval (paid regen never auto-fires).
 //
-// fan-out is deliberately NOT here: v1 does not execute a subgraph per item,
-// and faking it (emitting the array and pretending the branch mapped) would
-// be worse than saying so. The runner skips it with a structured
-// "fan-out-not-supported" event; follow-up noted in
-// notes/issues/done/503-farm-scheduler-runner.md.
+// fan-out is deliberately NOT here: mapping the downstream subgraph once per
+// input item is the RUNNER's job (cli/lib/farm/runner.ts, #510) — branch
+// identity = the item index, branch-scoped journal records
+// (`<node-id>@<branch>`), params.concurrency cap, per-branch on_fail
+// isolation, durable per-branch resume. `join` (below) executes once,
+// top-level: the runner resolves its branch-scoped in-ports to order-stable
+// per-branch arrays before this executor runs. Nested fan-out is unsupported
+// (structured halt; #517 reusable subgraphs is the follow-up).
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -278,7 +281,11 @@ function safeParse(s: string): unknown {
 
 // ─── join / switch ───────────────────────────────────────────────────────────
 
-/** Barrier: the sequential runner guarantees all in-ports are resolved. */
+/**
+ * Barrier: the runner guarantees all in-ports are resolved before this fires.
+ * Downstream of a fan-out (#510) each branch-scoped in-port arrives as an
+ * order-stable per-branch array (null where that branch skipped the producer).
+ */
 export const joinExecutor: NodeExecutor = async (_node, ctx) => {
   return { output: { ...ctx.inputs } };
 };

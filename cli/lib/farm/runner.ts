@@ -43,8 +43,26 @@
 // NodeExecutionError (and any other throw) takes the node's on_fail envelope
 // route (halt | skip | route:<id>). A node type with no registered executor
 // is a STRUCTURED SKIP (reason "no-executor") — on_fail does NOT fire; the
-// graph still runs its executable subset. `fan-out` is skipped with reason
-// "fan-out-not-supported" (v1 — see control-flow.ts header).
+// graph still runs its executable subset.
+//
+// ── Fan-out (#510) ───────────────────────────────────────────────────────────
+// A `fan-out` node maps its downstream subgraph (every node reachable from it
+// over the data edges, stopping at — and excluding — `join` nodes) once per
+// input item. Branch identity is the ITEM INDEX (deterministic, never
+// clock-derived): journal events for branch-scoped nodes carry a
+// `branch: <index>` field and the resume index keys them
+// `<node-id>@<branch-index>`, so a crash mid-branch re-executes only that
+// branch's incomplete nodes. `params.concurrency` caps simultaneous branches
+// (default: all items at once). on_fail is branch-isolated: a failing node
+// routes/skips/halts ITS branch while sibling branches finish; halted
+// branches then surface as a failure OF THE FAN-OUT NODE, routed through the
+// fan-out's own retry + on_fail envelope. A `join` node executes ONCE,
+// top-level — its in-ports from branch-scoped producers resolve to
+// order-stable arrays indexed by branch (null where that branch skipped the
+// producer). CONSTRAINT: nested fan-out (a fan-out inside another fan-out's
+// subgraph) and overlapping fan-out subgraphs are unsupported — the run halts
+// with a structured "nested-fan-out-not-supported" / "overlapping-fan-out"
+// detail. #517 reusable subgraphs is the follow-up shape for nesting.
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -169,17 +187,21 @@ function readJournal(ws: string, runId: string): JournalState {
     const node = typeof e.node === "string" ? e.node : null;
     if (typeof e.costUsd === "number") spendUsd += e.costUsd;
     if (!node) continue;
+    // Branch-scoped events (#510) key `<node-id>@<branch-index>` so resume
+    // honors completed branch nodes without conflating sibling branches.
+    const branch = typeof e.branch === "number" ? e.branch : null;
+    const key = branch == null ? node : `${node}@${branch}`;
     if (e.kind === "node-completed") {
-      nodes.set(node, {
+      nodes.set(key, {
         state: "completed",
         output: e.output,
         artifactPath: typeof e.artifactPath === "string" ? e.artifactPath : undefined,
       });
     } else if (e.kind === "node-skipped") {
-      nodes.set(node, { state: "skipped", reason: typeof e.reason === "string" ? e.reason : undefined });
+      nodes.set(key, { state: "skipped", reason: typeof e.reason === "string" ? e.reason : undefined });
     } else if (e.kind === "node-started" || e.kind === "node-failed") {
       // A started-but-not-completed node re-executes on resume.
-      if (nodes.get(node)?.state !== "completed") nodes.delete(node);
+      if (nodes.get(key)?.state !== "completed") nodes.delete(key);
     }
   }
   return { nodes, spendUsd: Number(spendUsd.toFixed(6)) };
@@ -265,13 +287,7 @@ export function scheduleTriggers(graph: WorkflowGraph): Array<{ node: string; sp
 
 // ─── Run execution ───────────────────────────────────────────────────────────
 
-/** Node types the runner handles itself instead of getExecutor(). */
-const NOT_YET_SUPPORTED: Partial<Record<string, string>> = {
-  "fan-out":
-    "fan-out-not-supported: v1 does not execute a subgraph per item (follow-up in notes/issues/done/503-farm-scheduler-runner.md)",
-};
-
-/** Safety valve on route jumps (on_fail route + gate repair loops). */
+/** Safety valve on route jumps (on_fail route + gate repair loops), per sequence. */
 const MAX_ROUTE_JUMPS = 16;
 
 export interface RunOutcome {
@@ -280,43 +296,136 @@ export interface RunOutcome {
   detail?: string;
 }
 
-async function resolveInputs(
-  node: WorkflowNode,
-  records: Map<string, NodeRecord>,
-  ws: string,
-): Promise<{ inputs: Record<string, unknown> } | { skippedBecause: string }> {
-  const inputs: Record<string, unknown> = {};
-  for (const [port, ref] of Object.entries(node.in)) {
-    const producer = producerOf(ref);
-    if (producer) {
-      const rec = records.get(producer);
-      if (!rec || rec.state === "skipped") {
-        return { skippedBecause: `upstream-skipped: producer "${producer}" did not run` };
-      }
-      inputs[port] = rec.output;
-      continue;
+// ─── Fan-out planning (#510) ─────────────────────────────────────────────────
+
+interface FanPlan {
+  fan: WorkflowNode;
+  /** Branch-scoped node ids: reachable from the fan, stopping at (and excluding) joins. */
+  branchNodes: Set<string>;
+  /** The main topo order restricted to branchNodes (still topologically valid). */
+  branchOrder: WorkflowNode[];
+}
+
+interface FanAnalysis {
+  plans: Map<string, FanPlan>;
+  /** Branch-scoped node id → owning fan-out node id. */
+  ownerOf: Map<string, string>;
+  /** Structured constraint violation (nested / overlapping fan-out) — the run halts. */
+  error?: string;
+}
+
+/**
+ * Static branch analysis: each fan-out owns every node reachable downstream
+ * of it over the data edges, stopping at `join` nodes (a join executes ONCE,
+ * top-level, collecting per-branch outputs as order-stable arrays). Nested
+ * fan-out and overlapping fan-out subgraphs are unsupported — structured
+ * error, the run halts before executing anything (#517 subgraphs follow up).
+ */
+function planFanOuts(graph: WorkflowGraph, order: WorkflowNode[]): FanAnalysis {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n] as const));
+  const consumers = new Map<string, string[]>();
+  for (const n of graph.nodes) {
+    for (const ref of Object.values(n.in)) {
+      const p = producerOf(ref);
+      if (!p || !byId.has(p) || p === n.id) continue;
+      consumers.set(p, [...(consumers.get(p) ?? []), n.id]);
     }
-    // Artifact ref: read the file (workspace-relative or absolute) as text;
-    // a missing file passes the raw ref through (the executor validates).
-    const rel = ref.startsWith("artifact:") ? ref.slice("artifact:".length) : ref;
-    let value: unknown = rel;
-    for (const candidate of [rel, path.join(workspaceDir(ws), rel)]) {
-      try {
-        value = await fsp.readFile(candidate, "utf8");
-        break;
-      } catch {
-        /* try next candidate */
-      }
-    }
-    inputs[port] = value;
   }
-  return { inputs };
+  const plans = new Map<string, FanPlan>();
+  const ownerOf = new Map<string, string>();
+  for (const fan of graph.nodes) {
+    if (fan.type !== "fan-out") continue;
+    const branch = new Set<string>();
+    const queue = [...(consumers.get(fan.id) ?? [])];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (branch.has(id)) continue;
+      const n = byId.get(id)!;
+      if (n.type === "join") continue; // barrier — executes once, outside the branch
+      if (n.type === "fan-out") {
+        return {
+          plans,
+          ownerOf,
+          error: `nested-fan-out-not-supported: fan-out "${id}" is inside the subgraph of fan-out "${fan.id}" — join the branches first (reusable-subgraph nesting is the #517 follow-up)`,
+        };
+      }
+      const prior = ownerOf.get(id);
+      if (prior && prior !== fan.id) {
+        return {
+          plans,
+          ownerOf,
+          error: `overlapping-fan-out-not-supported: node "${id}" is downstream of both fan-out "${prior}" and fan-out "${fan.id}" — join each fan's branches before sharing nodes`,
+        };
+      }
+      branch.add(id);
+      ownerOf.set(id, fan.id);
+      queue.push(...(consumers.get(id) ?? []));
+    }
+    plans.set(fan.id, { fan, branchNodes: branch, branchOrder: order.filter((n) => branch.has(n.id)) });
+  }
+  return { plans, ownerOf };
+}
+
+/**
+ * Journal/record key: top-level nodes key by id; branch-scoped nodes key
+ * `<node-id>@<branch-index>`. Branch identity = the input-item index —
+ * deterministic across resumes, never clock-derived.
+ */
+function recKey(id: string, branch: number | null): string {
+  return branch == null ? id : `${id}@${branch}`;
+}
+
+/** Execution scope: TOP for the main walk, or one fan-out branch. */
+interface ExecScope {
+  branch: number | null;
+  plan?: FanPlan;
+  /** The branch's input item (what the fan-out node's out-port resolves to in-branch). */
+  item?: unknown;
+}
+const TOP: ExecScope = { branch: null };
+
+function fanSafeParse(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+/** The fan-out node's items: params.items_port, an in-port named "items", or the sole in-port. */
+function pickFanItems(
+  fan: WorkflowNode,
+  inputs: Record<string, unknown>,
+): unknown[] | { error: string } {
+  const ports = Object.keys(fan.in);
+  const explicit = (fan.params as { items_port?: unknown }).items_port;
+  const port =
+    typeof explicit === "string"
+      ? explicit
+      : ports.includes("items")
+        ? "items"
+        : ports.length === 1
+          ? ports[0]!
+          : null;
+  if (!port || !(port in inputs)) {
+    return {
+      error: `fan-out "${fan.id}" cannot pick an items in-port — wire exactly one in-port, name one "items", or set params.items_port (got: ${ports.join(", ") || "none"})`,
+    };
+  }
+  let value = inputs[port];
+  if (typeof value === "string" && /^\s*\[/.test(value)) value = fanSafeParse(value) ?? value;
+  if (!Array.isArray(value)) {
+    return {
+      error: `fan-out "${fan.id}" in-port "${port}" did not resolve to an array (got ${value === null ? "null" : typeof value})`,
+    };
+  }
+  return value;
 }
 
 /**
  * Execute (or RESUME) one graph run. State is rebuilt from the journal on
  * entry, so calling this on a crashed or parked run continues instead of
- * re-executing completed nodes.
+ * re-executing completed nodes — including branch-scoped fan-out records.
  */
 export async function executeGraphRun(
   ws: string,
@@ -327,10 +436,10 @@ export async function executeGraphRun(
 ): Promise<RunOutcome> {
   const d = resolveDeps(deps);
   const order = topoOrder(graph);
+  const analysis = planFanOuts(graph, order);
   const journal = readJournal(ws, runId);
   const records = journal.nodes;
-  let spendUsd = journal.spendUsd;
-  let routeJumps = 0;
+  const spend = { usd: journal.spendUsd };
   const runDirAbs = runDir(ws, runId);
   const artifactsDir = path.join(runDirAbs, "artifacts");
   fs.mkdirSync(workspaceDir(ws), { recursive: true });
@@ -343,7 +452,8 @@ export async function executeGraphRun(
   const finish = async (status: FarmRunStatus, detail?: string): Promise<RunOutcome> => {
     writeFarmState(ws, runId, { workflow: workflowName, status, updatedAt: d.now().toISOString(), detail });
     if (status === "complete") {
-      await emit("run-completed", { message: `run complete (${records.size}/${order.length} nodes recorded)` });
+      const topRecorded = [...records.keys()].filter((k) => !k.includes("@")).length;
+      await emit("run-completed", { message: `run complete (${topRecorded}/${order.length} nodes recorded)` });
       // run.json status is #480 metadata — flip active → complete.
       const manifest = await loadRun(runId);
       if (manifest && manifest.status === "active") {
@@ -356,43 +466,136 @@ export async function executeGraphRun(
 
   writeFarmState(ws, runId, { workflow: workflowName, status: "running", updatedAt: d.now().toISOString() });
 
-  const skipNode = async (node: WorkflowNode, reason: string) => {
-    records.set(node.id, { state: "skipped", reason });
-    await emit("node-skipped", { node: node.id, reason, message: `node "${node.id}" skipped: ${reason}` });
+  // Unsupported fan-out shapes halt structurally before any node executes.
+  if (analysis.error) {
+    await emit("run-halted", { status: "halted-failure", reason: analysis.error, message: analysis.error });
+    return finish("halted-failure", analysis.error);
+  }
+
+  const branchField = (scope: ExecScope) => (scope.branch == null ? {} : { branch: scope.branch });
+  const branchTag = (scope: ExecScope) => (scope.branch == null ? "" : ` [branch ${scope.branch}]`);
+  const scopeName = (scope: ExecScope) =>
+    scope.branch == null ? "the graph" : `the fan-out "${scope.plan!.fan.id}" branch subgraph`;
+
+  const skipNode = async (node: WorkflowNode, reason: string, scope: ExecScope = TOP) => {
+    records.set(recKey(node.id, scope.branch), { state: "skipped", reason });
+    await emit("node-skipped", {
+      node: node.id,
+      ...branchField(scope),
+      reason,
+      message: `node "${node.id}"${branchTag(scope)} skipped: ${reason}`,
+    });
   };
 
-  let i = 0;
-  while (i < order.length) {
-    if (d.shouldStop()) {
-      return { runId, status: "running", detail: "stopped between nodes (farm-state stays running; resume continues)" };
+  /**
+   * Resolve a node's in-ports. Branch scope: the fan node itself resolves to
+   * the branch ITEM; in-branch producers resolve branch-scoped; everything
+   * else top-level. Top scope: a branch-scoped producer (a join collecting a
+   * fan's results) resolves to the ORDER-STABLE per-branch array indexed by
+   * branch (null where that branch skipped the producer).
+   */
+  const resolveInputs = async (
+    node: WorkflowNode,
+    scope: ExecScope,
+  ): Promise<{ inputs: Record<string, unknown> } | { skippedBecause: string }> => {
+    const inputs: Record<string, unknown> = {};
+    for (const [port, ref] of Object.entries(node.in)) {
+      const producer = producerOf(ref);
+      if (producer) {
+        if (scope.branch != null && scope.plan && producer === scope.plan.fan.id) {
+          inputs[port] = scope.item;
+          continue;
+        }
+        if (scope.branch == null) {
+          const fanId = analysis.ownerOf.get(producer);
+          if (fanId) {
+            const fanRec = records.get(fanId);
+            if (!fanRec || fanRec.state === "skipped") {
+              return { skippedBecause: `upstream-skipped: fan-out "${fanId}" did not run` };
+            }
+            const count = Array.isArray(fanRec.output) ? fanRec.output.length : 0;
+            inputs[port] = Array.from({ length: count }, (_v, b) => {
+              const rec = records.get(recKey(producer, b));
+              return rec?.state === "completed" ? rec.output : null;
+            });
+            continue;
+          }
+        }
+        const branchLocal =
+          scope.branch != null && scope.plan?.branchNodes.has(producer) ? scope.branch : null;
+        const rec = records.get(recKey(producer, branchLocal));
+        if (!rec || rec.state === "skipped") {
+          return { skippedBecause: `upstream-skipped: producer "${producer}" did not run` };
+        }
+        inputs[port] = rec.output;
+        continue;
+      }
+      // Artifact ref: read the file (workspace-relative or absolute) as text;
+      // a missing file passes the raw ref through (the executor validates).
+      const rel = ref.startsWith("artifact:") ? ref.slice("artifact:".length) : ref;
+      let value: unknown = rel;
+      for (const candidate of [rel, path.join(workspaceDir(ws), rel)]) {
+        try {
+          value = await fsp.readFile(candidate, "utf8");
+          break;
+        } catch {
+          /* try next candidate */
+        }
+      }
+      inputs[port] = value;
     }
-    const node = order[i]!;
-    i++;
-    if (records.get(node.id)?.state === "completed") continue;
-    if (records.get(node.id)?.state === "skipped") continue;
+    return { inputs };
+  };
 
-    // Trigger built-in: a schedule node "completes" with the tick timestamp.
-    if (node.type === "schedule") {
-      records.set(node.id, { state: "completed", output: { firedAt: d.now().toISOString() } });
-      await emit("node-completed", { node: node.id, output: records.get(node.id)!.output, message: `schedule "${node.id}" fired` });
-      continue;
-    }
+  type ExecOutcome =
+    | { kind: "completed" }
+    | { kind: "skipped" }
+    | { kind: "stopped" }
+    | { kind: "signal"; signal: RunControlSignal; node?: WorkflowNode }
+    | { kind: "on-fail-route"; target: string }
+    | { kind: "halt"; detail: string };
 
-    const unsupported = NOT_YET_SUPPORTED[node.type];
-    if (unsupported) {
-      await skipNode(node, unsupported);
-      continue;
+  /** The node's on_fail envelope after retries are exhausted. */
+  const applyOnFail = async (
+    node: WorkflowNode,
+    scope: ExecScope,
+    attempts: number,
+    lastError: string,
+  ): Promise<ExecOutcome> => {
+    if (node.on_fail === "skip") {
+      await skipNode(node, `on-fail-skip: ${lastError}`, scope);
+      return { kind: "skipped" };
     }
+    if (node.on_fail.startsWith("route:")) {
+      const targetId = node.on_fail.slice("route:".length);
+      records.set(recKey(node.id, scope.branch), { state: "skipped", reason: `on-fail-route: ${lastError}` });
+      await emit("node-skipped", {
+        node: node.id,
+        ...branchField(scope),
+        reason: `on-fail-route to "${targetId}"`,
+        message: `node "${node.id}"${branchTag(scope)} failed — routing to "${targetId}"`,
+      });
+      return { kind: "on-fail-route", target: targetId };
+    }
+    // halt (default).
+    return {
+      kind: "halt",
+      detail: `node "${node.id}"${branchTag(scope)} failed after ${attempts} attempt(s): ${lastError}`,
+    };
+  };
+
+  /** Execute one regular node: executor lookup, budget pre-flight, retry, on_fail. */
+  const execNode = async (node: WorkflowNode, scope: ExecScope): Promise<ExecOutcome> => {
     const executor = d.executorOverrides[node.type] ?? getExecutor(node.type);
     if (!executor) {
-      await skipNode(node, `no-executor: node type "${node.type}" has no registered executor yet`);
-      continue;
+      await skipNode(node, `no-executor: node type "${node.type}" has no registered executor yet`, scope);
+      return { kind: "skipped" };
     }
 
-    const resolved = await resolveInputs(node, records, ws);
+    const resolved = await resolveInputs(node, scope);
     if ("skippedBecause" in resolved) {
-      await skipNode(node, resolved.skippedBecause);
-      continue;
+      await skipNode(node, resolved.skippedBecause, scope);
+      return { kind: "skipped" };
     }
 
     // Run-wide budget pre-check (#481 opt-in floor: only when a run ledger
@@ -400,10 +603,9 @@ export async function executeGraphRun(
     if (node.type !== "budget-guard") {
       const { readRunLedger, activeApproval } = await import("../spend.js");
       const approval = activeApproval(await readRunLedger(runId));
-      if (approval && spendUsd >= approval.budgetCapUsd) {
-        const detail = `run spend $${spendUsd.toFixed(2)} >= approved cap $${approval.budgetCapUsd.toFixed(2)} before node "${node.id}"`;
-        await emit("run-halted", { node: node.id, status: "halted-budget", reason: detail, message: detail });
-        return finish("halted-budget", detail);
+      if (approval && spend.usd >= approval.budgetCapUsd) {
+        const detail = `run spend $${spend.usd.toFixed(2)} >= approved cap $${approval.budgetCapUsd.toFixed(2)} before node "${node.id}"`;
+        return { kind: "signal", signal: new RunControlSignal("halt-budget", detail) };
       }
     }
 
@@ -415,12 +617,12 @@ export async function executeGraphRun(
       inputs: resolved.inputs,
       runId,
       runDir: runDirAbs,
-      runSpendUsd: spendUsd,
+      runSpendUsd: spend.usd,
       log: async (entry) => {
         await fsp.mkdir(runDirAbs, { recursive: true });
         await fsp.appendFile(
           path.join(runDirAbs, "generations.jsonl"),
-          JSON.stringify({ ts: d.now().toISOString(), node: node.id, ...entry }) + "\n",
+          JSON.stringify({ ts: d.now().toISOString(), node: node.id, ...branchField(scope), ...entry }) + "\n",
         );
       },
       reportCost: (usd) => {
@@ -429,7 +631,11 @@ export async function executeGraphRun(
       ...d.ctx,
     };
 
-    await emit("node-started", { node: node.id, message: `node "${node.id}" (${node.type}) started` });
+    await emit("node-started", {
+      node: node.id,
+      ...branchField(scope),
+      message: `node "${node.id}" (${node.type})${branchTag(scope)} started`,
+    });
 
     let attempt = 0;
     let outcome: "completed" | "failed" | "signal" = "failed";
@@ -451,106 +657,252 @@ export async function executeGraphRun(
         lastError = (e as Error).message;
         await emit("node-failed", {
           node: node.id,
+          ...branchField(scope),
           attempt,
           error: lastError,
           costUsd: nodeCost,
-          message: `node "${node.id}" attempt ${attempt} failed: ${lastError}`,
+          message: `node "${node.id}"${branchTag(scope)} attempt ${attempt} failed: ${lastError}`,
         });
         // A failed attempt's realized spend still counts toward the run total.
-        spendUsd = Number((spendUsd + nodeCost).toFixed(6));
+        spend.usd = Number((spend.usd + nodeCost).toFixed(6));
         nodeCost = 0;
       }
     }
 
     if (outcome === "signal" && signal) {
-      spendUsd = Number((spendUsd + nodeCost).toFixed(6));
-      if (signal.kind === "park-approval") {
-        await emit("run-parked", { node: node.id, status: "parked-approval", reason: signal.message, message: signal.message });
-        return finish("parked-approval", signal.message);
-      }
-      if (signal.kind === "halt-budget") {
-        await emit("run-halted", { node: node.id, status: "halted-budget", reason: signal.message, message: signal.message });
-        return finish("halted-budget", signal.message);
-      }
-      // route: jump to the target node (gate repair loop). Bounded.
-      routeJumps++;
-      if (routeJumps > MAX_ROUTE_JUMPS) {
-        const detail = `route-jump budget exceeded (${MAX_ROUTE_JUMPS}) at node "${node.id}" — likely a repair loop that never converges`;
-        await emit("run-halted", { node: node.id, status: "halted-failure", reason: detail, message: detail });
-        return finish("halted-failure", detail);
-      }
-      const target = order.findIndex((n) => n.id === signal!.target);
-      if (target === -1) {
-        const detail = `route target "${signal.target}" is not in the graph`;
-        await emit("run-halted", { node: node.id, status: "halted-failure", reason: detail, message: detail });
-        return finish("halted-failure", detail);
-      }
-      await emit("node-routed", { node: node.id, target: signal.target, message: signal.message });
-      // A backward jump re-executes the target chain: clear completion records
-      // downstream of (and including) the target so the loop actually re-runs.
-      // The JOURNAL keeps every prior event — this only resets the in-memory cursor.
-      for (let k = target; k < i - 1; k++) {
-        const rec = order[k]!;
-        if (records.get(rec.id)?.state === "completed" && rec.type !== "schedule") records.delete(rec.id);
-      }
-      i = target;
-      continue;
+      spend.usd = Number((spend.usd + nodeCost).toFixed(6));
+      return { kind: "signal", signal };
     }
 
     if (outcome === "completed" && result) {
-      spendUsd = Number((spendUsd + nodeCost).toFixed(6));
-      records.set(node.id, { state: "completed", output: result.output, artifactPath: result.artifactPath });
+      spend.usd = Number((spend.usd + nodeCost).toFixed(6));
+      records.set(recKey(node.id, scope.branch), {
+        state: "completed",
+        output: result.output,
+        artifactPath: result.artifactPath,
+      });
       await emit("node-completed", {
         node: node.id,
+        ...branchField(scope),
         output: result.output,
         artifactPath: result.artifactPath,
         costUsd: nodeCost,
-        message: `node "${node.id}" completed`,
+        message: `node "${node.id}"${branchTag(scope)} completed`,
       });
       for (const target of result.deactivate ?? []) {
-        if (!records.has(target)) {
+        if (!records.has(recKey(target, scope.branch))) {
           const t = graph.nodes.find((n) => n.id === target);
-          if (t) await skipNode(t, `deactivated by "${node.id}"`);
+          if (t) await skipNode(t, `deactivated by "${node.id}"`, scope);
         }
       }
-      continue;
+      return { kind: "completed" };
     }
 
-    // Failure after retries → on_fail envelope routing.
-    if (node.on_fail === "skip") {
-      await skipNode(node, `on-fail-skip: ${lastError}`);
-      continue;
-    }
-    if (node.on_fail.startsWith("route:")) {
+    return applyOnFail(node, scope, attempt, lastError);
+  };
+
+  type SeqOutcome =
+    | { kind: "done" }
+    | { kind: "stopped" }
+    | { kind: "signal"; signal: RunControlSignal; node: WorkflowNode }
+    | { kind: "halt"; detail: string; node: WorkflowNode };
+
+  /**
+   * Walk one node sequence in order — the whole graph (TOP scope, where
+   * branch-scoped nodes are skipped: their fan-out executes them) or one
+   * fan-out branch. Owns the route-jump machinery (gate repair loops + on_fail
+   * route), bounded per sequence by MAX_ROUTE_JUMPS.
+   */
+  const runSequence = async (seq: WorkflowNode[], scope: ExecScope): Promise<SeqOutcome> => {
+    let i = 0;
+    let routeJumps = 0;
+    while (i < seq.length) {
+      if (d.shouldStop()) return { kind: "stopped" };
+      const node = seq[i]!;
+      i++;
+      if (scope.branch == null && analysis.ownerOf.has(node.id)) continue; // branch-scoped — its fan-out executes it
+      if (records.has(recKey(node.id, scope.branch))) continue; // completed or skipped
+
+      // Trigger built-in: a schedule node "completes" with the tick timestamp.
+      if (node.type === "schedule") {
+        const output = { firedAt: d.now().toISOString() };
+        records.set(recKey(node.id, scope.branch), { state: "completed", output });
+        await emit("node-completed", { node: node.id, ...branchField(scope), output, message: `schedule "${node.id}" fired` });
+        continue;
+      }
+
+      const out: ExecOutcome =
+        node.type === "fan-out"
+          ? await runFanOut(analysis.plans.get(node.id)!)
+          : await execNode(node, scope);
+
+      if (out.kind === "completed" || out.kind === "skipped") continue;
+      if (out.kind === "stopped") return { kind: "stopped" };
+      if (out.kind === "halt") return { kind: "halt", detail: out.detail, node };
+
+      if (out.kind === "signal") {
+        const signal = out.signal;
+        if (signal.kind !== "route") return { kind: "signal", signal, node: out.node ?? node };
+        // route: jump to the target node (gate repair loop). Bounded.
+        routeJumps++;
+        if (routeJumps > MAX_ROUTE_JUMPS) {
+          return {
+            kind: "halt",
+            detail: `route-jump budget exceeded (${MAX_ROUTE_JUMPS}) at node "${node.id}" — likely a repair loop that never converges`,
+            node,
+          };
+        }
+        const target = seq.findIndex((n) => n.id === signal.target);
+        if (target === -1) {
+          return { kind: "halt", detail: `route target "${signal.target}" is not in ${scopeName(scope)}`, node };
+        }
+        await emit("node-routed", { node: node.id, ...branchField(scope), target: signal.target, message: signal.message });
+        // A backward jump re-executes the target chain: clear completion records
+        // downstream of (and including) the target so the loop actually re-runs.
+        // The JOURNAL keeps every prior event — this only resets the in-memory cursor.
+        for (let k = target; k < i - 1; k++) {
+          const rec = seq[k]!;
+          const key = recKey(rec.id, scope.branch);
+          if (records.get(key)?.state === "completed" && rec.type !== "schedule") records.delete(key);
+        }
+        i = target;
+        continue;
+      }
+
+      // on-fail-route: forward jump, marking bypassed intermediates skipped.
       routeJumps++;
       if (routeJumps > MAX_ROUTE_JUMPS) {
-        const detail = `route-jump budget exceeded (${MAX_ROUTE_JUMPS}) at node "${node.id}"`;
-        await emit("run-halted", { node: node.id, status: "halted-failure", reason: detail, message: detail });
-        return finish("halted-failure", detail);
+        return { kind: "halt", detail: `route-jump budget exceeded (${MAX_ROUTE_JUMPS}) at node "${node.id}"`, node };
       }
-      const targetId = node.on_fail.slice("route:".length);
-      const target = order.findIndex((n) => n.id === targetId);
+      const target = seq.findIndex((n) => n.id === out.target);
       if (target === -1) {
-        const detail = `on_fail route target "${targetId}" is not in the graph`;
-        await emit("run-halted", { node: node.id, status: "halted-failure", reason: detail, message: detail });
-        return finish("halted-failure", detail);
+        return { kind: "halt", detail: `on_fail route target "${out.target}" is not in ${scopeName(scope)}`, node };
       }
-      records.set(node.id, { state: "skipped", reason: `on-fail-route: ${lastError}` });
-      await emit("node-skipped", { node: node.id, reason: `on-fail-route to "${targetId}"`, message: `node "${node.id}" failed — routing to "${targetId}"` });
-      // Forward jump: mark the intermediates skipped (they are being bypassed).
       for (let k = i; k < target; k++) {
-        const mid = order[k]!;
-        if (!records.has(mid.id)) await skipNode(mid, `route-jump: bypassed by "${node.id}" on_fail`);
+        const mid = seq[k]!;
+        if (scope.branch == null && analysis.ownerOf.has(mid.id)) continue;
+        if (!records.has(recKey(mid.id, scope.branch))) await skipNode(mid, `route-jump: bypassed by "${node.id}" on_fail`, scope);
       }
       i = target;
       continue;
     }
-    // halt (default).
-    const detail = `node "${node.id}" failed after ${attempt} attempt(s): ${lastError}`;
-    await emit("run-halted", { node: node.id, status: "halted-failure", reason: detail, message: detail });
-    return finish("halted-failure", detail);
-  }
+    return { kind: "done" };
+  };
 
+  /**
+   * Run all branches of one fan-out through a bounded worker pool
+   * (params.concurrency). One branch halting does NOT stop siblings; a
+   * park/halt-budget signal or a stop request drains in-flight branches and
+   * propagates (resume re-executes only the incomplete branch nodes).
+   */
+  const runBranches = async (
+    plan: FanPlan,
+    items: unknown[],
+    cap: number,
+  ): Promise<
+    | { kind: "stopped" }
+    | { kind: "signal"; signal: RunControlSignal; node: WorkflowNode }
+    | { kind: "ran"; failures: Array<{ branch: number; detail: string }> }
+  > => {
+    const failures: Array<{ branch: number; detail: string }> = [];
+    let signal: { signal: RunControlSignal; node: WorkflowNode } | null = null;
+    let stopped = false;
+    let next = 0;
+    const worker = async (): Promise<void> => {
+      while (!stopped && !signal && next < items.length) {
+        const b = next++;
+        const out = await runSequence(plan.branchOrder, { branch: b, plan, item: items[b] });
+        if (out.kind === "halt") failures.push({ branch: b, detail: out.detail });
+        else if (out.kind === "signal") signal = { signal: out.signal, node: out.node };
+        else if (out.kind === "stopped") stopped = true;
+      }
+    };
+    const workers = Math.max(1, Math.min(cap, Math.max(items.length, 1)));
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    if (signal) return { kind: "signal", ...(signal as { signal: RunControlSignal; node: WorkflowNode }) };
+    if (stopped) return { kind: "stopped" };
+    return { kind: "ran", failures: failures.sort((a, b) => a.branch - b.branch) };
+  };
+
+  /**
+   * Fan-out (#510): map the downstream subgraph once per input item. Branch
+   * identity = the item index; branch records key `<node-id>@<branch>`. Halted
+   * branches are isolated (siblings finish first) and surface as a failure of
+   * the fan-out node itself, routed through its retry + on_fail envelope — a
+   * retry re-executes only the failed branches' incomplete nodes.
+   */
+  const runFanOut = async (plan: FanPlan): Promise<ExecOutcome> => {
+    const fan = plan.fan;
+    const resolved = await resolveInputs(fan, TOP);
+    if ("skippedBecause" in resolved) {
+      await skipNode(fan, resolved.skippedBecause);
+      return { kind: "skipped" };
+    }
+    const picked = pickFanItems(fan, resolved.inputs);
+    if (!Array.isArray(picked)) {
+      await emit("node-failed", {
+        node: fan.id,
+        attempt: 1,
+        error: picked.error,
+        message: `fan-out "${fan.id}" failed: ${picked.error}`,
+      });
+      return applyOnFail(fan, TOP, 1, picked.error);
+    }
+    const items = picked;
+    const rawCap = Number((fan.params as { concurrency?: unknown }).concurrency);
+    const cap = Number.isInteger(rawCap) && rawCap > 0 ? rawCap : Math.max(1, items.length);
+    await emit("node-started", {
+      node: fan.id,
+      branches: items.length,
+      concurrency: Math.max(1, Math.min(cap, Math.max(items.length, 1))),
+      message: `fan-out "${fan.id}" started: ${items.length} branch(es), concurrency ${Math.max(1, Math.min(cap, Math.max(items.length, 1)))}`,
+    });
+
+    let attempt = 0;
+    let lastError = "";
+    while (attempt <= fan.retry.max) {
+      attempt++;
+      const res = await runBranches(plan, items, cap);
+      if (res.kind === "stopped") return { kind: "stopped" };
+      if (res.kind === "signal") return { kind: "signal", signal: res.signal, node: res.node };
+      if (res.failures.length === 0) {
+        records.set(fan.id, { state: "completed", output: items });
+        await emit("node-completed", {
+          node: fan.id,
+          output: items,
+          branches: items.length,
+          message: `fan-out "${fan.id}" completed ${items.length} branch(es)`,
+        });
+        return { kind: "completed" };
+      }
+      lastError = res.failures.map((f) => `branch ${f.branch}: ${f.detail}`).join("; ");
+      await emit("node-failed", {
+        node: fan.id,
+        attempt,
+        error: lastError,
+        message: `fan-out "${fan.id}" attempt ${attempt}: ${res.failures.length}/${items.length} branch(es) halted — ${lastError}`,
+      });
+    }
+    return applyOnFail(fan, TOP, attempt, lastError);
+  };
+
+  const seqOut = await runSequence(order, TOP);
+  if (seqOut.kind === "stopped") {
+    return { runId, status: "running", detail: "stopped between nodes (farm-state stays running; resume continues)" };
+  }
+  if (seqOut.kind === "halt") {
+    await emit("run-halted", { node: seqOut.node.id, status: "halted-failure", reason: seqOut.detail, message: seqOut.detail });
+    return finish("halted-failure", seqOut.detail);
+  }
+  if (seqOut.kind === "signal") {
+    const signal = seqOut.signal;
+    if (signal.kind === "park-approval") {
+      await emit("run-parked", { node: seqOut.node.id, status: "parked-approval", reason: signal.message, message: signal.message });
+      return finish("parked-approval", signal.message);
+    }
+    await emit("run-halted", { node: seqOut.node.id, status: "halted-budget", reason: signal.message, message: signal.message });
+    return finish("halted-budget", signal.message);
+  }
   return finish("complete");
 }
 
