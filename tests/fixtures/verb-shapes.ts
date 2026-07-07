@@ -724,6 +724,45 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  prompt: [
+    {
+      label: "prompt.lint",
+      shape: {
+        workspace: "silent-hill",
+        ok: false,
+        errorCount: 1,
+        warningCount: 1,
+        workflows: [
+          {
+            workflow: "episode",
+            path: ".ralphy/workspaces/silent-hill/workflows/episode.json",
+            issues: [
+              {
+                level: "error",
+                code: "prompt-rule",
+                node: "clip",
+                file: "prompts/clip.md",
+                rule: "model-prompt-char-cap",
+                source: "#445 model-constraints table; memory project_kling_practical_limits (#008)",
+                message: 'node "clip" (prompts/clip.md): prompt is 2610 chars; kwaivgi/kling-v3.0-pro caps at 2500 (guaranteed provider 400)',
+                fix: "compress the prompt below 2500 chars — trim atmosphere / setting prose first",
+              },
+              {
+                level: "warning",
+                code: "prompt-rule",
+                node: "clip",
+                file: "prompts/clip.md",
+                rule: "kling-vo-music-ban",
+                source: "memory feedback_kling_no_music_eleven_music_postmix",
+                message: 'node "clip" (prompts/clip.md): kling prompt requests speech/VO but carries no explicit no-music clause',
+                fix: 'add an explicit ban, e.g. "no background music, no soundtrack"',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
   prompts: [
     {
       label: "prompts.lookup",
