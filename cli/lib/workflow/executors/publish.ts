@@ -157,12 +157,22 @@ async function gateReadiness(node: WorkflowNode, ref: UnitRef): Promise<{ forced
 /**
  * The #505 trust gate for a node run. Fires ONLY inside a farm run
  * (ctx.runId) — the chat-driven CLI verb is human-invoked by construction.
- * Precedence: force_reason (explicit bypass at any level) → a recorded active
- * run approval (#482 — the human already approved this run) → the ladder
- * (`decideAutoPass`: L0 never, L1 score >= threshold, L2 any ship-verdict
- * unit; never over a failed/warn gate). Auto-pass is audited append-only;
- * anything else parks the run through the same inbox-pack + RunControlSignal
- * mechanics as the approval node. Exported for tests.
+ *
+ * PRECEDENCE (top authority first):
+ *   1. FREEZE (#536) — the publish kill switch at `freeze` parks the run
+ *      UNCONDITIONALLY. An operator freeze outranks EVERYTHING below it,
+ *      including a workflow `force_reason` and a trust auto-pass: the operator
+ *      turned publishing OFF, and a graph-baked bypass must not override that.
+ *   2. force_reason — explicit per-node bypass at any level (below freeze).
+ *   3. SAFE (#536) — the kill switch at `safe` forces the approval park like
+ *      L0 (skips the trust auto-pass), EXCEPT when a human is already in the
+ *      loop: a recorded active run approval (or force_reason, handled above).
+ *   4. a recorded active run approval (#482 — the human already approved this run).
+ *   5. the trust ladder (`decideAutoPass`: L0 never, L1 score >= threshold, L2
+ *      any ship-verdict unit; never over a failed/warn gate).
+ * Auto-pass is audited append-only; anything else parks the run through the
+ * same inbox-pack + RunControlSignal mechanics as the approval node. Exported
+ * for tests.
  */
 export async function gatePublishTrust(
   node: WorkflowNode,
@@ -171,6 +181,20 @@ export async function gatePublishTrust(
   forced: boolean,
 ): Promise<{ mode: "human" | "forced" | "approved" | "auto-pass"; reason?: string }> {
   if (!ctx.runId) return { mode: "human" };
+
+  // #536 publish kill switch — read the effective mode BEFORE the trust logic.
+  const { effectivePublishMode } = await import("../../farm/publish-mode.js");
+  const publishMode = effectivePublishMode(ctx.workspace).mode;
+
+  // freeze: the top authority. Parks unconditionally — over force_reason AND
+  // over any trust auto-pass. Journal the reason and park like the approval node.
+  if (publishMode === "freeze") {
+    const reason = `publishing is FROZEN (#536) for workspace "${ctx.workspace}" — held ${ref.projectId}/${ref.slug}; \`ralphy farm resume --workspace ${ctx.workspace} --reason "<why>"\` to release`;
+    const { writeApprovalInboxPack, RunControlSignal } = await import("./control-flow.js");
+    await writeApprovalInboxPack(ctx, node.id, reason);
+    throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
+  }
+
   if (forced) return { mode: "forced" };
 
   const { readRunLedger, activeApproval } = await import("../../spend.js");
@@ -180,6 +204,16 @@ export async function gatePublishTrust(
     Number.isFinite(Date.parse(approval.expiry)) &&
     Date.now() > Date.parse(approval.expiry);
   if (approval && !expired) return { mode: "approved" };
+
+  // safe (#536): force the approval park regardless of trust level — behave
+  // like L0. A human already in the loop (an active run approval above, or a
+  // force_reason handled earlier) is the exception; here neither holds, so park.
+  if (publishMode === "safe") {
+    const reason = `publishing is in SAFE-MODE (#536) for workspace "${ctx.workspace}" — every publish parks for approval regardless of trust (unit ${ref.projectId}/${ref.slug}); record an approval or \`ralphy farm resume\``;
+    const { writeApprovalInboxPack, RunControlSignal } = await import("./control-flow.js");
+    await writeApprovalInboxPack(ctx, node.id, reason);
+    throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
+  }
 
   const trust = await import("../../trust.js");
   const config = trust.readTrustConfig(ctx.workspace);
@@ -259,12 +293,18 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
   const { forced } = await gateReadiness(node, ref);
   const trustGate = await gatePublishTrust(node, ctx, ref, forced);
 
+  // #536: the gate above already parked on `freeze`, so the effective mode here
+  // is `normal` or `safe` — pass it through so publishUnit does not re-read it.
+  const { effectivePublishMode } = await import("../../farm/publish-mode.js");
+  const publishMode = effectivePublishMode(ctx.workspace).mode;
+
   const result = await publishUnit({
     projectId: ref.projectId,
     slug: ref.slug,
     targets,
     accounts: (node.params.accounts as Partial<Record<PublishTarget, string>> | undefined) ?? {},
     scheduleAt: slot?.scheduleAt ?? null,
+    publishMode,
     // The exactly-once ledger slot (#531): the calendar entryId when this
     // publish targets a calendar slot, else "default". Stable across resume.
     slot: slot?.entryId ?? null,

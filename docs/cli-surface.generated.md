@@ -1806,6 +1806,42 @@ Commands:
                                     with --workspace it stops that workspace's
                                     single-workspace process. Example: ralphy
                                     farm stop
+  safe-mode [options]               Publish kill switch → SAFE (#536): keep
+                                    producing + gating, but route EVERY publish
+                                    to the approval queue regardless of trust
+                                    level (nothing auto-posts). The operator
+                                    safety counterpart to the trust ladder —
+                                    instant, reversible only by `ralphy farm
+                                    resume`. Scoped per-workspace or --global
+                                    (the global override wins everywhere). Actor
+                                    + reason are logged to the append-only
+                                    publish-mode-audit.jsonl. Example: ralphy
+                                    farm safe-mode --workspace my-studio
+                                    --reason "off-policy creative spotted"
+  freeze [options]                  Publish kill switch → FREEZE (#536): halt
+                                    publishing ENTIRELY — the farm node path
+                                    parks the run and the chat-driven `ralphy
+                                    publish` verb refuses; held/scheduled posts
+                                    are NOT re-fired until resume. Freeze is the
+                                    top authority at the publish gate: it
+                                    outranks a trust auto-pass AND a workflow
+                                    force_reason. Scoped per-workspace or
+                                    --global. Actor + reason logged. Resume is
+                                    always explicit (`ralphy farm resume`).
+                                    Example: ralphy farm freeze --global
+                                    --reason "incident — stop all posting"
+  resume [options]                  Publish kill switch → NORMAL (#536): lift
+                                    safe-mode / freeze and restore normal
+                                    publishing (trust ladder back in force).
+                                    Resume is ALWAYS an explicit human action —
+                                    it REQUIRES a --reason "<text>" (or
+                                    --confirm) and refuses without one; the
+                                    actor + reason are logged to the append-only
+                                    audit. Never auto-resumes (an auto-trip only
+                                    ever engages safe-mode). Scoped
+                                    per-workspace or --global. Example: ralphy
+                                    farm resume --workspace my-studio --reason
+                                    "reviewed the queue, all clear"
   help [command]                    display help for command
 ```
 

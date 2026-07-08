@@ -108,7 +108,14 @@ import type { WorkflowNodeType } from "../schemas/workflow.js";
 import { parseCron, nextFire, cronMatches, type CronSpec } from "./cron.js";
 import { computeNodeCacheHash, lookupNodeCache, appendNodeCacheEntry } from "./node-cache.js";
 import { classifyError, classifyFilterError } from "../errors/taxonomy.js";
-import { appendQuarantine, appendResolution } from "./dead-letter.js";
+import { appendQuarantine, appendResolution, listDeadLetters } from "./dead-letter.js";
+import {
+  effectivePublishMode,
+  readAutoTripConfig,
+  evaluateAutoTrip,
+  setPublishMode,
+  type AutoTripSignals,
+} from "./publish-mode.js";
 import { notifyFarmEvent, approvalDeepLink, type FarmNotification } from "./notify.js";
 import { readNotificationsConfig } from "../notifications.js";
 import type { NotifyEvent } from "../schemas/notifications.js";
@@ -1450,6 +1457,101 @@ interface WorkspaceSchedulerState {
   backoff: number;
 }
 
+// ─── Publish kill-switch auto-trip (#536) ────────────────────────────────────
+
+/**
+ * Best-effort gather of the three #536 auto-trip signals for a workspace from
+ * on-disk state (zero model calls, zero network):
+ *   • spend   — the MAX run-wide realized-spend fraction of the approved cap
+ *               across the workspace's runs that carry a run ledger (#481).
+ *   • failure — the unresolved dead-letter count (#519).
+ *   • policy  — the count of projects carrying a blocking #442 claims breach.
+ * A missing/unreadable source contributes nothing (null spend / 0 counts) —
+ * the auto-trip is conservative, so absent evidence never trips.
+ */
+async function gatherAutoTripSignals(ws: string): Promise<AutoTripSignals> {
+  let spendFraction: number | null = null;
+  try {
+    const { runBudgetSummary } = await import("../spend.js");
+    const { listRuns } = await import("../run.js");
+    for (const r of await listRuns(ws)) {
+      const b = await runBudgetSummary(r.id);
+      if (b.hasLedger && b.capUsd && b.capUsd > 0) {
+        const frac = b.spentUsd / b.capUsd;
+        spendFraction = spendFraction == null ? frac : Math.max(spendFraction, frac);
+      }
+    }
+  } catch {
+    /* no run ledgers — no spend signal */
+  }
+
+  let failureCount = 0;
+  try {
+    failureCount = listDeadLetters(ws).length; // unresolved by default
+  } catch {
+    /* no dead-letter store */
+  }
+
+  let policyBreachCount = 0;
+  try {
+    const projectsRoot = path.join(workspaceDir(ws), "projects");
+    for (const ent of fs.readdirSync(projectsRoot, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      try {
+        const raw = JSON.parse(
+          fs.readFileSync(path.join(projectsRoot, ent.name, "claims.json"), "utf8"),
+        ) as { blocksShip?: unknown };
+        if (raw.blocksShip === true) policyBreachCount++;
+      } catch {
+        /* no claims report for this project */
+      }
+    }
+  } catch {
+    /* no projects dir */
+  }
+
+  return { spendFraction, failureCount, policyBreachCount };
+}
+
+/**
+ * The auto-trip seam (#536): evaluate the anomaly signals and, when one crosses
+ * its conservative threshold AND the effective publish mode is `normal`, trip
+ * the workspace to SAFE-MODE (produce-don't-post), fire a #518 notification,
+ * and journal-log the reason. NEVER auto-resumes — resume is always an explicit
+ * human action. Failure-safe: any read error leaves the mode untouched.
+ */
+async function autoTripCheck(
+  ws: string,
+  d: ReturnType<typeof resolveDeps>,
+): Promise<void> {
+  try {
+    const config = readAutoTripConfig(ws);
+    if (!config.enabled) return;
+    if (effectivePublishMode(ws).mode !== "normal") return; // already tripped / operator-set
+    const decision = evaluateAutoTrip(config, await gatherAutoTripSignals(ws));
+    if (!decision.trip) return;
+    setPublishMode(ws, "safe", { actor: "auto-trip", reason: decision.reason, signal: decision.signal });
+    d.onEvent(ws, "publish-auto-trip", `auto-tripped to SAFE-MODE (${decision.signal}): ${decision.reason}`);
+    try {
+      await d.notify({
+        event: "budget-halt",
+        workspace: ws,
+        title: `Publishing auto-tripped to SAFE-MODE for workspace "${ws}"`,
+        body: `${decision.reason}. Nothing auto-posts until you \`ralphy farm resume --workspace ${ws} --reason "<why>"\`.`,
+        runId: null,
+        node: null,
+        url: null,
+        data: { signal: decision.signal, killSwitch: "#536" },
+        ts: d.now().toISOString(),
+      });
+    } catch {
+      /* invariant: a notification never fails the run */
+    }
+  } catch {
+    /* auto-trip is best-effort — a read error must never break a tick */
+  }
+}
+
 /**
  * One tick-scan for a SINGLE workspace: fire every due schedule trigger (one
  * Run per workflow), then re-check parked runs. Returns the earliest next-fire
@@ -1480,6 +1582,7 @@ async function tickWorkspaceOnce(
     await fireTick(ws, t.name, t.graph, deps, { node: t.node, cron: t.spec.expr });
   }
   await resumeIncompleteRuns(ws, deps); // parked runs re-check every scan
+  await autoTripCheck(ws, d); // #536: the single auto-trip seam, once per scan
   const upcoming = triggers.map((t) => t.at.getTime()).filter((ms) => ms > from.getTime());
   return { nextAt: upcoming.length ? new Date(Math.min(...upcoming)) : null, fired: firedWorkflows.size > 0 };
 }

@@ -30,6 +30,13 @@ import type { WorkflowGraph } from "../lib/schemas/workflow.js";
 import { buildFarmReport } from "../lib/farm/rollup.js";
 import { farmDoctor } from "../lib/farm/preflight.js";
 import { listDeadLetters, deadLetterPath } from "../lib/farm/dead-letter.js";
+import {
+  setPublishMode,
+  setGlobalPublishMode,
+  publishModeStatus,
+  type PublishMode,
+} from "../lib/farm/publish-mode.js";
+import os from "os";
 import { ensureTriggerToken, webhookTokensPath } from "../lib/farm/webhook.js";
 import { readFileSync } from "fs";
 
@@ -370,6 +377,77 @@ export function farmCmd() {
       process.kill(pid!, "SIGTERM");
       ok(`Sent SIGTERM to farm pid ${pid}`);
       out({ ...label, stopped: true, pid, detail: "the loop exits after the node in flight; runs resume on the next start" });
+    });
+
+  // ── publish kill switch (#536): safe-mode / freeze / resume ─────────────────
+  //
+  // Two levels above `normal`: `safe-mode` (produce + gate, but route EVERY
+  // publish to the approval queue regardless of trust) and `freeze` (halt
+  // publishing entirely — the node path parks, the chat verb refuses). Scoped
+  // per-workspace (default) or --global (the override that wins everywhere).
+  // Resume is ALWAYS an explicit human action: it requires a --reason (or
+  // --confirm) and logs the actor.
+  const resolveActor = (): string => {
+    try {
+      return os.userInfo().username || process.env.USER || "unknown";
+    } catch {
+      return process.env.USER || "unknown";
+    }
+  };
+
+  const applyMode = (
+    mode: PublishMode,
+    opts: { workspace?: string; global?: boolean; reason?: string },
+  ) => {
+    const ws: string = opts.workspace ?? currentWorkspace();
+    requireWorkspace(`farm ${mode === "safe" ? "safe-mode" : mode}`, ws);
+    const actor = resolveActor();
+    const reason = (opts.reason ?? "").trim() || `set via \`ralphy farm ${mode === "safe" ? "safe-mode" : mode}\``;
+    const entry = opts.global
+      ? setGlobalPublishMode(mode, ws, { actor, reason })
+      : setPublishMode(ws, mode, { actor, reason });
+    out({ ...publishModeStatus(ws), changed: entry });
+  };
+
+  cmd
+    .command("safe-mode")
+    .description(
+      "Publish kill switch → SAFE (#536): keep producing + gating, but route EVERY publish to the approval queue regardless of trust level (nothing auto-posts). The operator safety counterpart to the trust ladder — instant, reversible only by `ralphy farm resume`. Scoped per-workspace or --global (the global override wins everywhere). Actor + reason are logged to the append-only publish-mode-audit.jsonl. Example: ralphy farm safe-mode --workspace my-studio --reason \"off-policy creative spotted\"",
+    )
+    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--global", "Set the GLOBAL override (wins over every workspace's own mode)")
+    .option("--reason <text>", "Why safe-mode was engaged (logged to the audit)")
+    .action((opts) => applyMode("safe", opts));
+
+  cmd
+    .command("freeze")
+    .description(
+      "Publish kill switch → FREEZE (#536): halt publishing ENTIRELY — the farm node path parks the run and the chat-driven `ralphy publish` verb refuses; held/scheduled posts are NOT re-fired until resume. Freeze is the top authority at the publish gate: it outranks a trust auto-pass AND a workflow force_reason. Scoped per-workspace or --global. Actor + reason logged. Resume is always explicit (`ralphy farm resume`). Example: ralphy farm freeze --global --reason \"incident — stop all posting\"",
+    )
+    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--global", "Set the GLOBAL override (freezes every workspace)")
+    .option("--reason <text>", "Why publishing was frozen (logged to the audit)")
+    .action((opts) => applyMode("freeze", opts));
+
+  cmd
+    .command("resume")
+    .description(
+      "Publish kill switch → NORMAL (#536): lift safe-mode / freeze and restore normal publishing (trust ladder back in force). Resume is ALWAYS an explicit human action — it REQUIRES a --reason \"<text>\" (or --confirm) and refuses without one; the actor + reason are logged to the append-only audit. Never auto-resumes (an auto-trip only ever engages safe-mode). Scoped per-workspace or --global. Example: ralphy farm resume --workspace my-studio --reason \"reviewed the queue, all clear\"",
+    )
+    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .option("--global", "Clear the GLOBAL override (back to per-workspace modes)")
+    .option("--reason <text>", "Required: why publishing is safe to resume (logged)")
+    .option("--confirm", "Confirm resume without a --reason (a bare acknowledgement is still logged)")
+    .action((opts) => {
+      const reason = (opts.reason ?? "").trim();
+      if (!reason && !opts.confirm) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "farm resume",
+          detail:
+            "resume is an explicit human action — pass --reason \"<why it is safe to resume>\" (or --confirm to acknowledge without one)",
+        });
+      }
+      applyMode("normal", { ...opts, reason: reason || "resume confirmed (--confirm)" });
     });
 
   return cmd;
