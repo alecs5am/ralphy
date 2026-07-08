@@ -418,7 +418,7 @@ const MediaParamsSchema = z
 /** C–G. Lenient per-type records until the executors exist. */
 const LenientParamsSchema = z.record(z.unknown()).default({});
 
-const PARAMS_BY_CATEGORY: Record<WorkflowNodeCategory, z.ZodTypeAny> = {
+export const PARAMS_BY_CATEGORY: Record<WorkflowNodeCategory, z.ZodTypeAny> = {
   llm: LlmParamsSchema,
   media: MediaParamsSchema,
   "ralphy-verb": LenientParamsSchema,

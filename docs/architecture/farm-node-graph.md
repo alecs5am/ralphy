@@ -139,12 +139,16 @@ fails at import, not mid-run.
 
 ### A. LLM nodes (Vercel AI SDK)
 
-| Node | What | Key params |
-|---|---|---|
-| `generate-text` | single bounded completion | `model` (id), `provider` (openrouter default), `prompt` (file ref with `{{slot}}` interpolation), `system`, `temperature`, `max_tokens`, `fallback_models[]` |
-| `generate-object` | completion with mandatory structured output | all of the above + `schema` (zod/JSON-schema file ref); retries on validation failure — this is the default for anything a downstream node consumes |
-| `agent-loop` | bounded multi-step tool-calling loop (AI SDK agent primitives) | `model`, `tools[]` (whitelist of graph-exposed tools/connectors), `max_steps`, `stop_when` — the "orchestrator node" (e.g. Fable planning a batch, Opus running research synthesis) |
-| `coding-agent` | headless external coding agent for genuinely creative code work | `binary` (`claude` / `codex` / `gemini`), `prompt_file`, `workdir`, `timeout`, `allowed_paths[]` |
+> Per-node params, port types, executor status, and spend class are the
+> auto-generated [LLM node reference](/reference/nodes/llm) (`bun run docs:nodes`,
+> from `cli/lib/schemas/workflow.ts`). This table keeps the rationale only.
+
+| Node | What |
+|---|---|
+| `generate-text` | single bounded completion |
+| `generate-object` | completion with mandatory structured output; retries on validation failure — the default for anything a downstream node consumes |
+| `agent-loop` | bounded multi-step tool-calling loop (AI SDK agent primitives) — the "orchestrator node" (e.g. Fable planning a batch, Opus running research synthesis) |
+| `coding-agent` | headless external coding agent for genuinely creative code work |
 
 `coding-agent` is the vendor-independence valve: the coding agent is a
 pluggable node type, not the system's foundation. A mature template should
@@ -182,19 +186,20 @@ audio tracks). So nodes are typed by I/O signature; the (model, provider) pair
 is a binding *inside* the node, and validation must know what each pair
 supports.
 
-Node taxonomy by signature:
+Node taxonomy by signature (per-node ports, params, and required-port
+contracts are the auto-generated [media node reference](/reference/nodes/media)):
 
-| Node | Signature | Notes / key params |
+| Node | Signature | Notes |
 |---|---|---|
-| `t2i` | text -> image | `model`, `provider`, `aspect`, `n`, `seed`, `negative`; guideline slugs foldable into prompt |
-| `i2i` | image + text -> image | edit / restyle / ref-guided; `refs[]` with role labels (style vs identity vs layout) |
-| `t2v` | text -> video | `duration`, `aspect`, `audio: on/off` (Kling native audio vs banned-music rule) |
-| `i2v` | image (+text) -> video | `first_frame` required, `last_frame` optional (rare-careful per seedance memory), `motion_prompt` |
-| `r2v` | refs[] + text -> video | reference-guided (seedance @Image/@Video role system); fal-only surface today |
+| `t2i` | text -> image | still image; guideline slugs foldable into prompt |
+| `i2i` | image + text -> image | edit / restyle / ref-guided; refs with role labels (style vs identity vs layout) |
+| `t2v` | text -> video | Kling native audio vs banned-music rule |
+| `i2v` | image (+text) -> video | first frame required, last frame optional (rare-careful per seedance memory) |
+| `r2v` | refs + text -> video | reference-guided (seedance @Image/@Video role system); fal-only surface today |
 | `v2v` | video (+text) -> video | extend / restyle / multi-block continuation |
 | `lipsync` | image + audio -> video | talking-head (HeyGen / fal avatar routes) |
-| `tts` | text -> audio | `voice_id`, `stability`, `style`; ElevenLabs connector |
-| `voice-design` | text -> voice_id + previews | preview set for human pick during training; frozen `voice_id` in production |
+| `tts` | text -> audio | ElevenLabs connector |
+| `voice-design` | text -> voice_id + previews | preview set for human pick during training; frozen voice_id in production |
 | `music` | text -> audio | ElevenLabs Music; ToS constraints (no artist names) enforced as a param-level lint |
 | `sfx` | text -> audio | themed-per-video discipline |
 | `transcribe` | audio/video -> word-level transcript | the scribe-first invariant as a node |
@@ -242,6 +247,8 @@ The farm executes ralphy, it never reimplements it — gates, append-only
 semantics, logs, cost rollup, and the repair loop come free, and #492's rule
 ("the API is not a second media engine") is preserved.
 
+> Per-node ports + executor status: the auto-generated [ralphy verb node reference](/reference/nodes/ralphy-verb).
+
 | Node | Wraps |
 |---|---|
 | `ralphy-generate` | `ralphy generate <kind>` (when the step is better expressed as the verb than as a raw media node — keeps gen-log/manifest semantics) |
@@ -254,18 +261,22 @@ semantics, logs, cost rollup, and the repair loop come free, and #492's rule
 
 ### D. Ingestion / connector nodes
 
-| Node | Backend | Key params |
+> Per-node params + ports: the auto-generated [ingestion node reference](/reference/nodes/ingestion).
+
+| Node | Backend | Notes |
 |---|---|---|
-| `web-scrape` | firecrawl | `urls[] / query`, `mode: scrape/crawl/search`, output normalized `source-item[]` |
-| `actor` | apify | `actor_id` (X/Twitter scraper, TikTok trends, etc.), `input`, schedule |
-| `rss` | native | `feeds[]`, since-cursor |
-| `trend-watch` | composition of the above | `topics[]`, `schedule`, `dedup_window` — emits only the delta since last tick |
+| `web-scrape` | firecrawl | scrape / crawl / search a URL or query into normalized `source-item[]` |
+| `actor` | apify | X/Twitter scraper, TikTok trends, etc. |
+| `rss` | native | feed poll with a since-cursor |
+| `trend-watch` | composition of the above | emits only the delta since last tick |
 | `http` | native | generic escape hatch, allowlisted hosts only (invariant #1 discipline extends to the farm) |
 
 All ingestion nodes emit a normalized `source-item` (url, title, text, ts,
 source, engagement signals) so downstream nodes are source-agnostic.
 
 ### E. Publish nodes
+
+> Per-node ports + executor status: the auto-generated [publish node reference](/reference/nodes/publish).
 
 | Node | Backend | Notes |
 |---|---|---|
@@ -292,6 +303,8 @@ through Postiz too (an `x` integration); a direct X API connector and the
 
 ### F. Control-flow nodes
 
+> Per-node ports + executor status: the auto-generated [control-flow node reference](/reference/nodes/control-flow).
+
 | Node | Behavior |
 |---|---|
 | `schedule` | cron trigger; graph entry point for production ticks |
@@ -305,6 +318,8 @@ through Postiz too (an `x` integration); a direct X API connector and the
 | `dedup` | persistent seen-store (don't make two videos about the same news item) |
 
 ### G. Data nodes
+
+> Per-node ports + executor status: the auto-generated [data node reference](/reference/nodes/data).
 
 | Node | Behavior |
 |---|---|

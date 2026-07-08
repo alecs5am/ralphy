@@ -1,0 +1,347 @@
+---
+title: "Control-flow nodes"
+description: "Workflow-graph control-flow nodes: ports, params, executor status, and spend class."
+---
+
+{/* Auto-generated — edit `cli/lib/schemas/workflow.ts` + the executor registry instead. Regenerate via `bun run docs:nodes`. */}
+
+F. Control flow — polymorphic plumbing.
+
+Facts on this page are introspected from `cli/lib/schemas/workflow.ts` and the live executor registry — never hand-edited.
+
+### `schedule`
+
+**Status:** schema-only · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | — | — |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "schedule-example",
+  "nodes": [
+    {
+      "id": "schedule",
+      "type": "schedule"
+    }
+  ]
+}
+```
+
+### `webhook-trigger`
+
+**Status:** schema-only · free
+
+#520 inbound-event trigger: fires a tick when POST /hooks/&lt;ws&gt;/&lt;node-id&gt; lands (per-trigger secret via `ralphy farm trigger token`, replay window, rate limit) — mirrors `schedule` as a runner built-in, never an executor. Params: `pick` / `map` (the transform node's dot-path vocabulary) normalize the inbound payload into the declared out-port; `rate_limit` (accepted hooks per hour, default 12) and `replay_window_s` (timestamp freshness, default 300) tune the endpoint. Pin the output type via explicit `out: { name, type }` — the signature default stays the "any" wildcard.
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | — | — |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "webhook-trigger-example",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "type": "webhook-trigger"
+    }
+  ]
+}
+```
+
+### `calendar-slot`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | object:calendar-slot |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "calendar-slot-example",
+  "nodes": [
+    {
+      "id": "calendar-slot",
+      "type": "calendar-slot"
+    }
+  ]
+}
+```
+
+### `fan-out`
+
+**Status:** schema-only · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "fan-out-example",
+  "nodes": [
+    {
+      "id": "fan-out",
+      "type": "fan-out"
+    }
+  ]
+}
+```
+
+### `join`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "join-example",
+  "nodes": [
+    {
+      "id": "join",
+      "type": "join"
+    }
+  ]
+}
+```
+
+### `switch`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "switch-example",
+  "nodes": [
+    {
+      "id": "switch",
+      "type": "switch"
+    }
+  ]
+}
+```
+
+### `gate`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `verdict` | object:eval |
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "gate-example",
+  "nodes": [
+    {
+      "id": "gate",
+      "type": "gate"
+    }
+  ]
+}
+```
+
+### `approval`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "approval-example",
+  "nodes": [
+    {
+      "id": "approval",
+      "type": "approval"
+    }
+  ]
+}
+```
+
+### `budget-guard`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "budget-guard-example",
+  "nodes": [
+    {
+      "id": "budget-guard",
+      "type": "budget-guard"
+    }
+  ]
+}
+```
+
+### `dedup`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `items` | source-item[] |
+| in | `*` (open) | any |
+| out | `out` | source-item[] |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "dedup-example",
+  "nodes": [
+    {
+      "id": "dedup",
+      "type": "dedup"
+    }
+  ]
+}
+```
+
+### `subgraph`
+
+**Status:** schema-only · free
+
+#517: in-ports are the instantiated subgraph's declared entry ports and the out type its declared exit — both checked at EXPANSION time (cli/lib/subgraph.ts), so the static signature stays fully polymorphic. A subgraph node never reaches the runner: expansion replaces it.
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | any |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "subgraph-example",
+  "nodes": [
+    {
+      "id": "subgraph",
+      "type": "subgraph"
+    }
+  ]
+}
+```
+
+## Related
+
+- [Farm node-graph architecture](https://github.com/alecs5am/ralphy/blob/main/docs/architecture/farm-node-graph.md) — the design rationale behind these node types
+- [`ralphy workflow`](/reference/cli/workflow) — lint and inspect a workspace's graphs

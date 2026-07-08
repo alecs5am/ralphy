@@ -1,6 +1,6 @@
 # Auto-generated node reference docs
 
-> **Status:** todo
+> **Status:** done — 2026-07-08
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** low
