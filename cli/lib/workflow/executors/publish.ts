@@ -270,12 +270,24 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     slot: slot?.entryId ?? null,
     workspace: ctx.workspace,
     fetchImpl: ctx.fetchImpl as FetchLike | undefined,
+    now: ctx.now,
   });
 
   // Idempotent-skips are a SUCCESS, not an error — they flow through
   // result.results (status "idempotent-skip"), and do NOT count toward
   // allFailed. Make the exactly-once skip visible in the journal (#531).
   const skipped = result.results.filter((r) => r.status === "idempotent-skip");
+  // #534: per-target quota pushes (a YT-exhausted target rescheduled to its
+  // next quota window) surfaced on the journal alongside the idempotent-skip.
+  const quotaPushed = result.results.filter((r) => r.quotaRescheduledTo);
+  const notes = [
+    skipped.length
+      ? `publish-idempotent-skip: ${skipped.map((r) => r.target).join(", ")} already published/scheduled (exactly-once ledger)`
+      : null,
+    quotaPushed.length
+      ? `quota-rescheduled: ${quotaPushed.map((r) => `${r.target}→${r.quotaRescheduledTo}`).join(", ")}`
+      : null,
+  ].filter(Boolean);
   await ctx.log({
     provider: "postiz",
     model: "postiz",
@@ -284,9 +296,7 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     status: result.allFailed ? "error" : "ok",
     input: { node: node.id, project: ref.projectId, unit: ref.slug, targets, scheduleAt: result.scheduleAt },
     output: result.results,
-    ...(skipped.length && {
-      note: `publish-idempotent-skip: ${skipped.map((r) => r.target).join(", ")} already published/scheduled (exactly-once ledger)`,
-    }),
+    ...(notes.length && { note: notes.join(" | ") }),
   });
 
   if (result.allFailed) {
