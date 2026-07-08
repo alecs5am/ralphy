@@ -1616,6 +1616,22 @@ Commands:
                                   to restore. Appends to the workspace lifecycle
                                   log. Example: ralphy workspace rollback
                                   tech-news
+  golden [options] <slug>         Inspect or refresh the workspace's golden-set
+                                  quality-regression baseline (#535). The golden
+                                  set is a small frozen collection of
+                                  representative inputs + the incumbent bundle's
+                                  per-criterion scores; `workspace upgrade` runs
+                                  the candidate bundle over it and refuses on a
+                                  regression beyond the tolerance. --show
+                                  (default) prints the set + baseline. --refresh
+                                  recaptures the baseline from the CURRENT
+                                  deployed graph via a DETERMINISTIC golden run
+                                  (ZERO paid spend — synthetic executors +
+                                  noVision scoring; vision criteria are reported
+                                  deferred-needs-real, never auto-spent),
+                                  archiving the prior baseline append-only to
+                                  golden/baseline.vN.json. Example: ralphy
+                                  workspace golden tech-news --refresh
   stats                           Show workspace statistics
   clean [options]                 Clean workspace contents
   help [command]                  display help for command

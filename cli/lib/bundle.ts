@@ -445,6 +445,16 @@ export function exportWorkspaceBundle(
       contents.push("compositions/");
     }
 
+    // #535 golden/ bundle inclusion — DELIBERATELY OUT OF THE BUNDLE (TODO if
+    //   this changes): a workspace's golden/ dir (frozen inputs + the incumbent
+    //   baseline scorecard) is DEPLOYMENT-LOCAL calibration state, not portable
+    //   know-how. The baseline is captured against THIS deployment's bundle
+    //   version and is promoted forward by `workspace upgrade` after a
+    //   regression-checked apply; shipping it inside the bundle would (a) freeze
+    //   one deployment's numbers into every import and (b) cross the upgrade
+    //   know-how/runtime-state boundary (bundle.ts RUNTIME_STATE_PATHS). Each
+    //   deployment refreshes its own via `ralphy workspace golden <ws> --refresh`.
+
     // 7. Manifest — requirements auto-derived from the graphs' nodes. The
     //    notifications DEFAULT carries only the event→channel mapping +
     //    digest time (never the secrets — chat id / URL / token stay per
@@ -1181,6 +1191,38 @@ function diffCalendarSlots(wsDir: string, extractedDir: string): KnowHowDiff | n
   d.changed.sort();
   d.removed.sort();
   return d;
+}
+
+/**
+ * Extract + parse the CANDIDATE pipeline graphs a bundle zip carries, WITHOUT
+ * touching the workspace (#535 golden gate hook). Returns lint-clean graph
+ * workflows only (each `WorkflowGraph`, subgraphs expanded against the bundle's
+ * own subgraphs/ tier); an unvalidatable bundle returns []. Read-only.
+ */
+export function extractCandidateGraphs(zipPath: string): WorkflowGraph[] {
+  const scratch = extractZip(zipPath);
+  try {
+    const bundledSubgraphs = path.join(scratch, "subgraphs");
+    const resolve = fs.existsSync(bundledSubgraphs)
+      ? dirSubgraphResolver(bundledSubgraphs)
+      : dirSubgraphResolver(scratch);
+    const graphs: WorkflowGraph[] = [];
+    const files = fs
+      .readdirSync(scratch)
+      .filter((f) => f === "pipeline.json" || (f.startsWith("pipeline.") && f.endsWith(".json")))
+      .sort();
+    for (const f of files) {
+      try {
+        const graph = parseWorkflowGraph(JSON.parse(fs.readFileSync(path.join(scratch, f), "utf-8")));
+        graphs.push(expandGraphSubgraphs(graph, resolve).graph);
+      } catch {
+        /* malformed pipeline — skip (validateBundle refuses it on the real path) */
+      }
+    }
+    return graphs;
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 /** Preview an upgrade without applying it (`--dry-run`). Extracts, validates, diffs, cleans up. */
