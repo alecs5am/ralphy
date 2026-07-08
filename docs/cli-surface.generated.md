@@ -1880,6 +1880,28 @@ Commands:
                                     per-workspace or --global. Example: ralphy
                                     farm resume --workspace my-studio --reason
                                     "reviewed the queue, all clear"
+  review [options] <run>            Rich approval review card for a parked farm
+                                    run (#533 foundation). Default: LIST every
+                                    parked review card — media proof paths,
+                                    caption/title, targets, the #525 sampled
+                                    schedule time, the gate scorecard
+                                    verdict+score, and realized cost — read-only
+                                    from existing artifacts + the run journal
+                                    (no new media write). Actions map each to an
+                                    EXISTING transition: --approve <node>
+                                    records a run approval (releases the park on
+                                    the next resume), --reject <node> --reason
+                                    <text> appends an append-only unit rejection
+                                    note (NEVER deletes media), --request-change
+                                    <node> --reason <text> enqueues the
+                                    #519/#511 repair loop. --all applies ONE
+                                    action across the whole tick. Every decision
+                                    appends a #505 calibration sample. The
+                                    #492/#506 dashboard renders the SAME card
+                                    output — this CLI is the interim surface.
+                                    Example: ralphy farm review
+                                    farm-news-20260706-090000 --approve publish
+                                    --reason "looks great"
   help [command]                    display help for command
 ```
 
