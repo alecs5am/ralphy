@@ -370,7 +370,12 @@ const RULES: Rule[] = [
     ],
   },
 
-  // ── Generic rate / concurrency limit (429 family). Keep the wording the
+  // ── Generic rate / concurrency limit (429 family) + publishing-platform
+  //    quota exhaustion (#534). A YouTube Data API `quotaExceeded` (a 403 with
+  //    that reason) or an X per-window post cap is a TRANSIENT wall — headroom
+  //    reopens at the next window — NOT a permanent semantic reject. Classify
+  //    it transient so dead-letter/retry backs off against the quota ledger
+  //    instead of quarantining it as a hard failure. Keep the wording the
   //    burstCapHint test asserts: "429", "retry".
   {
     id: "rate-limit",
@@ -379,13 +384,21 @@ const RULES: Rule[] = [
       "rate limit",
       "rate-limit",
       "too many requests",
+      "quota exceeded",
+      "quotaexceeded",
+      "quota_exceeded",
+      "exceeded your quota",
+      "exceeded your daily quota",
+      "daily limit exceeded",
+      "userratelimitexceeded",
+      "ratelimitexceeded",
     ],
     re: /\b429\b/,
     class: "provider-transient",
     severity: "warn",
     retryPolicy: "retry-with-backoff",
     nextActions: [
-      "Rate/concurrent-limit hit (HTTP 429). Serialize this endpoint or reduce concurrency, then retry the failed set (`ralphy queue retry --tag <tag> --state failed`).",
+      "Rate/concurrent-limit or publishing-platform quota hit (HTTP 429, or a platform quotaExceeded). Headroom reopens at the next quota window — back off and retry the failed set (`ralphy queue retry --tag <tag> --state failed`); the #534 quota governor reschedules farm publishes automatically.",
     ],
   },
 

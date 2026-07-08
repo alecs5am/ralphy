@@ -43,6 +43,7 @@ import {
   type UploadedMedia,
 } from "./mapping.js";
 import { publishIdempotencyKey, findLedgerEntry, appendPublishLedger } from "./ledger.js";
+import { rescheduleForQuota, recordQuotaUsage } from "./quota.js";
 
 // ─── readiness gate (the floor) + trust ladder (#505) ────────────────────────
 
@@ -170,6 +171,8 @@ export interface PublishUnitOptions {
   workspace?: string;
   /** Injectable fetch (zero-network tests). */
   fetchImpl?: FetchLike;
+  /** Clock seam for the #534 quota window math (deterministic tests). */
+  now?: () => Date;
 }
 
 export interface TargetPublishResult {
@@ -185,6 +188,14 @@ export interface TargetPublishResult {
   postId: string | null;
   scheduleAt: string | null;
   error?: string;
+  /**
+   * Set (#534) when the target had no publish-quota headroom in the requested
+   * window and its schedule was pushed to the platform's next quota window.
+   * Absent = the requested time had headroom (pass-through, today's behaviour).
+   */
+  quotaRescheduledTo?: string;
+  /** The quota-reschedule reason, when `quotaRescheduledTo` is set. */
+  quotaReason?: string;
 }
 
 export interface PublishUnitResult {
@@ -229,8 +240,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
   }
 
   const requestedScheduleAt = opts.scheduleAt ?? null;
-  const type = requestedScheduleAt ? "schedule" : "now";
-  const okStatus = requestedScheduleAt ? "scheduled" : "published";
+  const now = opts.now ?? (() => new Date());
 
   const results: TargetPublishResult[] = [];
   for (const target of opts.targets) {
@@ -253,10 +263,20 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
       continue;
     }
 
+    // Quota governor (#534): PER-TARGET, so a YT-exhausted + X-OK publish
+    // reschedules only YT. When the platform has no headroom in the requested
+    // window the schedule is pushed to its next quota window (never dropped,
+    // never hard-failed); a platform with no declared quota passes through.
+    const q = rescheduleForQuota(workspace, target, requestedScheduleAt, now());
+    const targetScheduleAt = q.rescheduled ? q.scheduleAt : requestedScheduleAt;
+    const type = targetScheduleAt ? "schedule" : "now";
+    const okStatus = targetScheduleAt ? "scheduled" : "published";
+    const quotaFields = q.rescheduled ? { quotaRescheduledTo: q.scheduleAt, quotaReason: q.reason } : {};
+
     const entry = buildPostEntry(target, integrationId, manifest, media);
     try {
       const created = await postizCreatePost(
-        { type, ...(requestedScheduleAt && { date: requestedScheduleAt }), posts: [entry] },
+        { type, ...(targetScheduleAt && { date: targetScheduleAt }), posts: [entry] },
         fetchImpl,
       );
       const postId = created[0]?.postId ?? created[0]?.id ?? null;
@@ -269,18 +289,22 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
         slug: opts.slug,
         target,
         postId,
-        scheduleAt: requestedScheduleAt,
+        scheduleAt: targetScheduleAt,
         status: okStatus,
       });
-      results.push({ target, integrationId, status: okStatus, postId, scheduleAt: requestedScheduleAt });
+      // Record the quota consumption ONLY on a successful schedule/publish, so
+      // the rolling window counts what actually landed on the platform.
+      recordQuotaUsage(workspace, target, now());
+      results.push({ target, integrationId, status: okStatus, postId, scheduleAt: targetScheduleAt, ...quotaFields });
     } catch (e) {
       results.push({
         target,
         integrationId,
         status: "failed",
         postId: null,
-        scheduleAt: requestedScheduleAt,
+        scheduleAt: targetScheduleAt,
         error: (e as Error).message,
+        ...quotaFields,
       });
     }
   }
@@ -304,7 +328,9 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     project: opts.projectId,
     slug: opts.slug,
     unitDir,
-    type,
+    // The requested intent (a per-target quota push can still move an
+    // individual result's scheduleAt — see TargetPublishResult.quotaRescheduledTo).
+    type: requestedScheduleAt ? "schedule" : "now",
     scheduleAt: requestedScheduleAt,
     results,
     // idempotent-skip is a success — allFailed stays "every target failed".
