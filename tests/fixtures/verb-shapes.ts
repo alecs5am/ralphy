@@ -1472,6 +1472,40 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         mdPath: ".ralphy/workspaces/fog/projects/choose-silenthill-001/workspace-eval-report.md",
       },
     },
+    {
+      label: "workspace.learnings",
+      shape: {
+        workspace: "silent-hill",
+        coldStart: false,
+        units: { scanned: 12, withAnalytics: 8 },
+        halfLifeDays: 45,
+        computedAt: "2026-07-06T12:00:00.000Z",
+        appliedFlags: [{ action: "pin", dimension: "style", value: "sexy-ps1" }],
+        pinned: ["style|sexy-ps1"],
+        retired: ["recipe|hard-cut-only"],
+        performers: [
+          {
+            dimension: "style",
+            top: [{ value: "sexy-ps1", score: 0.82, weight: 0.78, sampleSize: 9, confidence: 1 }],
+            bottom: [{ value: "flat-clean", score: 0.21, weight: 0.34, sampleSize: 6, confidence: 0.9 }],
+          },
+        ],
+      },
+    },
+    {
+      label: "workspace.learnings.cold-start",
+      shape: {
+        workspace: "fresh",
+        coldStart: true,
+        units: { scanned: 0, withAnalytics: 0 },
+        halfLifeDays: 45,
+        computedAt: "2026-07-06T12:00:00.000Z",
+        appliedFlags: [],
+        pinned: [],
+        retired: [],
+        performers: [],
+      },
+    },
   ],
 };
 

@@ -57,6 +57,14 @@ import {
   type TrustLevel,
 } from "../lib/trust.js";
 import { simulateWorkflow } from "../lib/farm/simulate.js";
+import {
+  recomputeSelectionWeights,
+  readSelectionFlags,
+  appendSelectionFlag,
+  SELECTION_DIMENSIONS,
+  DECAY_HALFLIFE_DAYS,
+  type WeightEntry,
+} from "../lib/selection.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -867,6 +875,90 @@ export function workspaceCmd() {
         capturedAt: set.capturedAt,
         hasBaseline: hasGoldenBaseline(slug),
         goldenDir: goldenDir(slug),
+      });
+    });
+
+  // ── learnings (#532) ────────────────────────────────────────────────────
+  cmd
+    .command("learnings <slug>")
+    .description(
+      "Show the workspace's performance-driven selection learnings (#532): recompute the per-(dimension,value) outcome weights from the units' analytics snapshots (#507) and surface the top/bottom performers per dimension WITH evidence (score + sample size + confidence). Attributes MEASURED outcomes only (views/retention/ctr/saves, decayed with a " + DECAY_HALFLIFE_DAYS + "-day half-life, normalized within the workspace) — no analytics anywhere = cold-start, uniform, exactly like today. --retire <dim:value> flags a chronic loser (down-weighted, NOT hard-excluded — human sign-off still needed to fully exclude); --pin <dim:value> pins a winner (weight floored). Both are explicit, reversible (--unretire / --unpin), and logged append-only to the workspace lifecycle. These flags feed the bias-sampling seam (sampleWeighted) the variance planner + campaign picker consult. ZERO model calls. Example: ralphy workspace learnings silent-hill --pin style:sexy-ps1",
+    )
+    .option("--top <n>", "Top/bottom performers to show per dimension (default 3)", (v) => parseInt(v, 10), 3)
+    .option("--pin <dim:value>", "Pin a winner (weight floored); repeatable", collect, [])
+    .option("--unpin <dim:value>", "Reverse a pin; repeatable", collect, [])
+    .option("--retire <dim:value>", "Down-weight a chronic loser (never hard-excludes); repeatable", collect, [])
+    .option("--unretire <dim:value>", "Reverse a retire; repeatable", collect, [])
+    .option("--reason <text>", "Reason logged with the flag actions")
+    .action(async (slug: string, opts) => {
+      requireRalphyLayout("workspace learnings");
+      if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+      }
+
+      // Apply flag actions first (each is an explicit, append-only, reversible edit).
+      const applied: Array<{ action: string; dimension: string; value: string }> = [];
+      const flagActions: Array<["pin" | "unpin" | "retire" | "unretire", string[]]> = [
+        ["pin", opts.pin as string[]],
+        ["unpin", opts.unpin as string[]],
+        ["retire", opts.retire as string[]],
+        ["unretire", opts.unretire as string[]],
+      ];
+      for (const [action, specs] of flagActions) {
+        for (const spec of specs ?? []) {
+          const idx = spec.indexOf(":");
+          if (idx < 1 || idx === spec.length - 1) {
+            raiseError("E_INPUT_INVALID", { field: action, detail: `'${spec}' must be <dimension>:<value>`, verb: "workspace learnings" });
+          }
+          const dimension = spec.slice(0, idx);
+          const value = spec.slice(idx + 1);
+          if (!(SELECTION_DIMENSIONS as readonly string[]).includes(dimension)) {
+            raiseError("E_INPUT_INVALID", {
+              field: action,
+              detail: `dimension '${dimension}' must be one of ${SELECTION_DIMENSIONS.join(" | ")}`,
+              verb: "workspace learnings",
+            });
+          }
+          appendSelectionFlag(slug, action, dimension, value, opts.reason as string | undefined);
+          applied.push({ action, dimension, value });
+        }
+      }
+
+      const top = Number.isFinite(opts.top) && opts.top > 0 ? opts.top : 3;
+      const snap = recomputeSelectionWeights(slug);
+      const flags = readSelectionFlags(slug);
+
+      // Group entries by dimension; top N + bottom N (only when enough to differ).
+      const byDim: Record<string, { top: WeightEntry[]; bottom: WeightEntry[] }> = {};
+      for (const dim of SELECTION_DIMENSIONS) {
+        const es = snap.entries.filter((e) => e.dimension === dim).sort((a, b) => b.weight - a.weight);
+        if (es.length === 0) continue;
+        byDim[dim] = {
+          top: es.slice(0, top),
+          bottom: es.length > top ? es.slice(-Math.min(top, es.length - top)) : [],
+        };
+      }
+
+      ok(
+        snap.coldStart
+          ? `Workspace ${slug} — cold start: no analytics yet, selection is uniform (behaves like today)`
+          : `Workspace ${slug} — ${snap.entries.length} weighted value(s) from ${snap.units.withAnalytics}/${snap.units.scanned} unit(s) with analytics` +
+              (applied.length > 0 ? `; applied ${applied.length} flag action(s)` : ""),
+      );
+      out({
+        workspace: slug,
+        coldStart: snap.coldStart,
+        units: snap.units,
+        halfLifeDays: snap.halfLifeDays,
+        computedAt: snap.computedAt,
+        appliedFlags: applied,
+        pinned: [...flags.pinned],
+        retired: [...flags.retired],
+        performers: Object.entries(byDim).map(([dimension, { top: t, bottom: b }]) => ({
+          dimension,
+          top: t.map((e) => ({ value: e.value, score: e.score, weight: e.weight, sampleSize: e.sampleSize, confidence: e.confidence })),
+          bottom: b.map((e) => ({ value: e.value, score: e.score, weight: e.weight, sampleSize: e.sampleSize, confidence: e.confidence })),
+        })),
       });
     });
 
