@@ -411,11 +411,15 @@ describe("publish node executor", () => {
     expect(statuses.find((r) => r.target === "youtube")!.status).toBe("failed");
     expect(statuses.find((r) => r.target === "tiktok")!.status).toBe("published");
 
+    // The all-failed case targets platforms NOT yet in the #531 ledger (tiktok
+    // above would idempotent-skip, which is a success) — instagram + x are
+    // fresh and both fail, so every target really fails and the node throws.
+    const allFailNode = makeNode("publish", { targets: ["instagram", "x"], force_reason: "test bypass" });
     await expect(
       exec(
-        node,
+        allFailNode,
         makeCtx({
-          fetchImpl: mockPostiz({ failIds: ["int-yt-1", "int-tt-1"] }).fetchImpl,
+          fetchImpl: mockPostiz({ failIds: ["int-ig-1", "int-x-1"] }).fetchImpl,
           inputs: { unit: `${PROJECT}/${SLUG}` },
         }),
       ),

@@ -42,6 +42,7 @@ import {
   type PublishTarget,
   type UploadedMedia,
 } from "./mapping.js";
+import { publishIdempotencyKey, findLedgerEntry, appendPublishLedger } from "./ledger.js";
 
 // ─── readiness gate (the floor) + trust ladder (#505) ────────────────────────
 
@@ -159,6 +160,14 @@ export interface PublishUnitOptions {
   accounts?: Partial<Record<PublishTarget, string>>;
   /** ISO datetime → type "schedule"; absent/null → type "now". */
   scheduleAt?: string | null;
+  /**
+   * The idempotency-key SLOT discriminator (#531): the calendar entryId when
+   * the publish targets a calendar slot, else undefined ("default"). Same key
+   * across resume/retry so the exactly-once ledger check works.
+   */
+  slot?: string | null;
+  /** Workspace for the idempotency ledger. Defaults to the project's workspace. */
+  workspace?: string;
   /** Injectable fetch (zero-network tests). */
   fetchImpl?: FetchLike;
 }
@@ -166,7 +175,13 @@ export interface PublishUnitOptions {
 export interface TargetPublishResult {
   target: PublishTarget;
   integrationId: string;
-  status: "scheduled" | "published" | "failed";
+  /**
+   * `idempotent-skip` (#531): the exactly-once ledger already had a
+   * `published`/`scheduled` record for this (unit, target, slot), so the
+   * platform was NOT called again — the recorded postId/scheduleAt are carried
+   * through. It is a SUCCESS, not a failure (never counts toward `allFailed`).
+   */
+  status: "scheduled" | "published" | "failed" | "idempotent-skip";
   postId: string | null;
   scheduleAt: string | null;
   error?: string;
@@ -200,6 +215,9 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
   if (!manifest) throw new Error(`unit '${opts.slug}' not found in project '${opts.projectId}'`);
   if (opts.targets.length === 0) throw new Error("no publish targets given");
 
+  const workspace = opts.workspace ?? projectWorkspace(opts.projectId);
+  const slot = opts.slot ?? undefined;
+
   const integrations = await postizIntegrations(fetchImpl);
   const bound = bindIntegrations(opts.targets, integrations, opts.accounts);
 
@@ -210,28 +228,58 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     media.push({ id: up.id, path: up.path });
   }
 
-  const scheduleAt = opts.scheduleAt ?? null;
-  const type = scheduleAt ? "schedule" : "now";
-  const okStatus = scheduleAt ? "scheduled" : "published";
+  const requestedScheduleAt = opts.scheduleAt ?? null;
+  const type = requestedScheduleAt ? "schedule" : "now";
+  const okStatus = requestedScheduleAt ? "scheduled" : "published";
 
   const results: TargetPublishResult[] = [];
   for (const target of opts.targets) {
     const integrationId = bound[target];
+
+    // Exactly-once guard (#531): if the ledger already carries a
+    // published/scheduled record for this (unit, target, slot), do NOT fire the
+    // platform again. Reuse the recorded postId AND the recorded scheduleAt (so
+    // a re-run does not resample a new cadence time — #525 interplay).
+    const key = publishIdempotencyKey({ workspace, projectId: opts.projectId, slug: opts.slug, target, slot });
+    const prior = findLedgerEntry(workspace, key, target);
+    if (prior) {
+      results.push({
+        target,
+        integrationId,
+        status: "idempotent-skip",
+        postId: prior.postId,
+        scheduleAt: prior.scheduleAt,
+      });
+      continue;
+    }
+
     const entry = buildPostEntry(target, integrationId, manifest, media);
     try {
       const created = await postizCreatePost(
-        { type, ...(scheduleAt && { date: scheduleAt }), posts: [entry] },
+        { type, ...(requestedScheduleAt && { date: requestedScheduleAt }), posts: [entry] },
         fetchImpl,
       );
       const postId = created[0]?.postId ?? created[0]?.id ?? null;
-      results.push({ target, integrationId, status: okStatus, postId, scheduleAt });
+      // Ledger append is the BELT: it lands right after the platform accepts,
+      // before/independent of the unit-manifest append below, so a crash
+      // between the two is recoverable on the next run via the ledger check.
+      appendPublishLedger(workspace, {
+        key,
+        project: opts.projectId,
+        slug: opts.slug,
+        target,
+        postId,
+        scheduleAt: requestedScheduleAt,
+        status: okStatus,
+      });
+      results.push({ target, integrationId, status: okStatus, postId, scheduleAt: requestedScheduleAt });
     } catch (e) {
       results.push({
         target,
         integrationId,
         status: "failed",
         postId: null,
-        scheduleAt,
+        scheduleAt: requestedScheduleAt,
         error: (e as Error).message,
       });
     }
@@ -257,8 +305,9 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     slug: opts.slug,
     unitDir,
     type,
-    scheduleAt,
+    scheduleAt: requestedScheduleAt,
     results,
+    // idempotent-skip is a success — allFailed stays "every target failed".
     allFailed: results.every((r) => r.status === "failed"),
   };
 }

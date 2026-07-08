@@ -265,9 +265,17 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     targets,
     accounts: (node.params.accounts as Partial<Record<PublishTarget, string>> | undefined) ?? {},
     scheduleAt: slot?.scheduleAt ?? null,
+    // The exactly-once ledger slot (#531): the calendar entryId when this
+    // publish targets a calendar slot, else "default". Stable across resume.
+    slot: slot?.entryId ?? null,
+    workspace: ctx.workspace,
     fetchImpl: ctx.fetchImpl as FetchLike | undefined,
   });
 
+  // Idempotent-skips are a SUCCESS, not an error — they flow through
+  // result.results (status "idempotent-skip"), and do NOT count toward
+  // allFailed. Make the exactly-once skip visible in the journal (#531).
+  const skipped = result.results.filter((r) => r.status === "idempotent-skip");
   await ctx.log({
     provider: "postiz",
     model: "postiz",
@@ -276,6 +284,9 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     status: result.allFailed ? "error" : "ok",
     input: { node: node.id, project: ref.projectId, unit: ref.slug, targets, scheduleAt: result.scheduleAt },
     output: result.results,
+    ...(skipped.length && {
+      note: `publish-idempotent-skip: ${skipped.map((r) => r.target).join(", ")} already published/scheduled (exactly-once ledger)`,
+    }),
   });
 
   if (result.allFailed) {
