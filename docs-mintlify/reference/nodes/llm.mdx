@@ -1,0 +1,247 @@
+---
+title: "LLM nodes"
+description: "Workflow-graph llm nodes: ports, params, executor status, and spend class."
+---
+
+{/* Auto-generated — edit `cli/lib/schemas/workflow.ts` + the executor registry instead. Regenerate via `bun run docs:nodes`. */}
+
+A. LLM — open inputs (any upstream artifact can interpolate into the prompt).
+
+Facts on this page are introspected from `cli/lib/schemas/workflow.ts` and the live executor registry — never hand-edited.
+
+### `generate-text`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `prompt` | text |
+| in | `*` (open) | any |
+| out | `out` | text |
+
+**Params**
+
+| Name | Type | Default | Required |
+|---|---|---|---|
+| `model` | string | — | no |
+| `provider` | string | — | no |
+| `prompt` | string | — | no |
+| `guidelines` | string[] | — | no |
+| `system` | string | — | no |
+| `temperature` | number | — | no |
+| `max_tokens` | number | — | no |
+| `fallback_models` | string[] | — | no |
+| `schema` | string | — | no |
+| `tools` | string[] | — | no |
+| `max_steps` | number | — | no |
+| `stop_when` | string | — | no |
+| `binary` | string | — | no |
+| `prompt_file` | string | — | no |
+| `workdir` | string | — | no |
+| `timeout` | number | — | no |
+| `allowed_paths` | string[] | — | no |
+
+- `prompt` — Prompt file ref with &#123;&#123;slot&#125;&#125; interpolation, or inline text.
+- `guidelines` — #515 guideline folding: prompt-library slugs (guidelines/&lt;slug&gt;/) whose rules block is appended to the resolved prompt at execution. Unknown slug = `workflow lint` error; the folded prompt is journaled, the source prompt file is never rewritten.
+- `schema` — generate-object: zod/JSON-schema file ref — types the output port.
+- `tools` — agent-loop: whitelist of graph-exposed tools/connectors.
+- `binary` — coding-agent.
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "generate-text-example",
+  "nodes": [
+    {
+      "id": "generate-text",
+      "type": "generate-text",
+      "params": {
+        "prompt": "hi"
+      }
+    }
+  ]
+}
+```
+
+### `generate-object`
+
+**Status:** executable · free
+
+Output type is dynamic: object:&lt;params.schema&gt;, or object:* when unset.
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `prompt` | text |
+| in | `*` (open) | any |
+| out | `out` | object:* |
+
+**Params**
+
+| Name | Type | Default | Required |
+|---|---|---|---|
+| `model` | string | — | no |
+| `provider` | string | — | no |
+| `prompt` | string | — | no |
+| `guidelines` | string[] | — | no |
+| `system` | string | — | no |
+| `temperature` | number | — | no |
+| `max_tokens` | number | — | no |
+| `fallback_models` | string[] | — | no |
+| `schema` | string | — | no |
+| `tools` | string[] | — | no |
+| `max_steps` | number | — | no |
+| `stop_when` | string | — | no |
+| `binary` | string | — | no |
+| `prompt_file` | string | — | no |
+| `workdir` | string | — | no |
+| `timeout` | number | — | no |
+| `allowed_paths` | string[] | — | no |
+
+- `prompt` — Prompt file ref with &#123;&#123;slot&#125;&#125; interpolation, or inline text.
+- `guidelines` — #515 guideline folding: prompt-library slugs (guidelines/&lt;slug&gt;/) whose rules block is appended to the resolved prompt at execution. Unknown slug = `workflow lint` error; the folded prompt is journaled, the source prompt file is never rewritten.
+- `schema` — generate-object: zod/JSON-schema file ref — types the output port.
+- `tools` — agent-loop: whitelist of graph-exposed tools/connectors.
+- `binary` — coding-agent.
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "generate-object-example",
+  "nodes": [
+    {
+      "id": "generate-object",
+      "type": "generate-object",
+      "params": {
+        "prompt": "hi"
+      }
+    }
+  ]
+}
+```
+
+### `agent-loop`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | text |
+
+**Params**
+
+| Name | Type | Default | Required |
+|---|---|---|---|
+| `model` | string | — | no |
+| `provider` | string | — | no |
+| `prompt` | string | — | no |
+| `guidelines` | string[] | — | no |
+| `system` | string | — | no |
+| `temperature` | number | — | no |
+| `max_tokens` | number | — | no |
+| `fallback_models` | string[] | — | no |
+| `schema` | string | — | no |
+| `tools` | string[] | — | no |
+| `max_steps` | number | — | no |
+| `stop_when` | string | — | no |
+| `binary` | string | — | no |
+| `prompt_file` | string | — | no |
+| `workdir` | string | — | no |
+| `timeout` | number | — | no |
+| `allowed_paths` | string[] | — | no |
+
+- `prompt` — Prompt file ref with &#123;&#123;slot&#125;&#125; interpolation, or inline text.
+- `guidelines` — #515 guideline folding: prompt-library slugs (guidelines/&lt;slug&gt;/) whose rules block is appended to the resolved prompt at execution. Unknown slug = `workflow lint` error; the folded prompt is journaled, the source prompt file is never rewritten.
+- `schema` — generate-object: zod/JSON-schema file ref — types the output port.
+- `tools` — agent-loop: whitelist of graph-exposed tools/connectors.
+- `binary` — coding-agent.
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "agent-loop-example",
+  "nodes": [
+    {
+      "id": "agent-loop",
+      "type": "agent-loop"
+    }
+  ]
+}
+```
+
+### `coding-agent`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `*` (open) | any |
+| out | `out` | text |
+
+**Params**
+
+| Name | Type | Default | Required |
+|---|---|---|---|
+| `model` | string | — | no |
+| `provider` | string | — | no |
+| `prompt` | string | — | no |
+| `guidelines` | string[] | — | no |
+| `system` | string | — | no |
+| `temperature` | number | — | no |
+| `max_tokens` | number | — | no |
+| `fallback_models` | string[] | — | no |
+| `schema` | string | — | no |
+| `tools` | string[] | — | no |
+| `max_steps` | number | — | no |
+| `stop_when` | string | — | no |
+| `binary` | string | — | no |
+| `prompt_file` | string | — | no |
+| `workdir` | string | — | no |
+| `timeout` | number | — | no |
+| `allowed_paths` | string[] | — | no |
+
+- `prompt` — Prompt file ref with &#123;&#123;slot&#125;&#125; interpolation, or inline text.
+- `guidelines` — #515 guideline folding: prompt-library slugs (guidelines/&lt;slug&gt;/) whose rules block is appended to the resolved prompt at execution. Unknown slug = `workflow lint` error; the folded prompt is journaled, the source prompt file is never rewritten.
+- `schema` — generate-object: zod/JSON-schema file ref — types the output port.
+- `tools` — agent-loop: whitelist of graph-exposed tools/connectors.
+- `binary` — coding-agent.
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "coding-agent-example",
+  "nodes": [
+    {
+      "id": "coding-agent",
+      "type": "coding-agent"
+    }
+  ]
+}
+```
+
+## Related
+
+- [Farm node-graph architecture](https://github.com/alecs5am/ralphy/blob/main/docs/architecture/farm-node-graph.md) — the design rationale behind these node types
+- [`ralphy workflow`](/reference/cli/workflow) — lint and inspect a workspace's graphs

@@ -104,6 +104,9 @@ jobs:
       - name: Check Mintlify CLI ref is current (07.03.02)
         run: bun run docs:cli:check
 
+      - name: Check Mintlify node ref is current (#524)
+        run: bun run docs:nodes:check
+
       - name: Lint docs internal links (07.09.01)
         run: bun run lint:docs-links:fast
 
