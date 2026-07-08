@@ -33,11 +33,22 @@ import {
   previewUpgrade,
   upgradeWorkspace,
   rollbackWorkspace,
+  extractCandidateGraphs,
   BundleError,
   type BundleGap,
   type ImportRefusal,
   type UpgradePreview,
 } from "../lib/bundle.js";
+import {
+  runGoldenGate,
+  readGoldenSet,
+  hasGoldenBaseline,
+  promoteBaseline,
+  goldenDir,
+  DEFAULT_REGRESSION_TOLERANCE,
+  type GoldenGateResult,
+} from "../lib/golden.js";
+import { loadGraphWorkflows } from "../lib/farm/runner.js";
 import {
   TRUST_LEVELS,
   writeTrustConfig,
@@ -123,6 +134,13 @@ async function readWorkspaceManifest(slug: string): Promise<Record<string, unkno
   } catch {
     return null;
   }
+}
+
+/** The workspace's deployed bundle version from workspace.json (null when unset). */
+async function deployedBundleVersion(slug: string): Promise<string | null> {
+  const m = await readWorkspaceManifest(slug);
+  const v = (m?.bundle as { version?: unknown } | undefined)?.version;
+  return typeof v === "string" ? v : null;
 }
 
 async function listWorkspaceSlugs(): Promise<string[]> {
@@ -657,6 +675,14 @@ export function workspaceCmd() {
     .option("--allow-unknown-lineage", "Upgrade in place even when a bundleId is absent on either side (pre-#521)")
     .option("--allow-missing-keys", "Proceed with warnings when required connector keys are not set")
     .option("--allow-coverage-gaps", "Proceed with warnings when required coverage triples are unknown to the matrix")
+    .option(
+      "--accept-regression <reason>",
+      "Apply despite a #535 golden-set regression (logged to the lifecycle log with the reason)",
+    )
+    .option(
+      "--golden-real",
+      "Score golden criteria that need real generation / a vision pass (behind the normal approval gate — costs money)",
+    )
     .action(async (slug: string, zip: string, opts) => {
       requireRalphyLayout("workspace upgrade");
       const upgradeOpts = {
@@ -665,16 +691,66 @@ export function workspaceCmd() {
         allowCoverageGaps: Boolean(opts.allowCoverageGaps),
       };
       try {
+        // #535 golden-set regression gate: when a golden baseline exists, run the
+        // candidate bundle's graphs over it (ZERO paid spend by default) and diff
+        // per criterion vs the baseline. A regression beyond tolerance refuses the
+        // upgrade unless --accept-regression is passed.
+        let golden: GoldenGateResult | null = null;
+        if (hasGoldenBaseline(slug)) {
+          const candidateGraphs = extractCandidateGraphs(zip);
+          golden = await runGoldenGate(slug, candidateGraphs, { goldenReal: Boolean(opts.goldenReal) });
+          if (!golden.ok && !opts.acceptRegression) {
+            out({
+              workspace: slug,
+              applied: false,
+              goldenGate: golden,
+              refusals: golden.regressions.map((r) => ({
+                id: "golden-regression",
+                detail: `criterion "${r.criterionId}" regressed ${r.delta} pt (baseline ${r.baselineScore} -> candidate ${r.candidateScore}), beyond the ${golden!.tolerance}pt tolerance`,
+                fix: "fix the candidate bundle's know-how, refresh the baseline if the drop is intended, or pass --accept-regression \"<reason>\"",
+              })),
+            });
+            raiseError("E_VALIDATION_FAILED", {
+              target: "workspace-upgrade",
+              detail: `golden-set regression: ${golden.summary}`,
+            });
+          }
+        }
+
         if (opts.dryRun || !opts.yes) {
           const preview = previewUpgrade(slug, zip, upgradeOpts);
           ok(
             `Upgrade preview for ${slug}: v${preview.fromVersion ?? "?"} -> v${preview.toVersion} — ${summarizeDiff(preview)}` +
+              (golden ? ` — golden gate ${golden.ok ? "OK" : "REGRESSION"} (${golden.summary})` : "") +
               (opts.dryRun ? "" : " (pass --yes to apply)"),
           );
-          out({ applied: false, ...preview });
+          out({ applied: false, goldenGate: golden, ...preview });
           return;
         }
         const result = upgradeWorkspace(slug, zip, upgradeOpts);
+        // #535: log an accepted regression to the lifecycle log; on an
+        // improvement (or a clean pass), promote the candidate scores to baseline.
+        if (golden) {
+          if (!golden.ok && opts.acceptRegression) {
+            const { appendFileSync, mkdirSync } = await import("fs");
+            const { lifecycleLogPath } = await import("../lib/bundle.js");
+            mkdirSync(workspaceDir(slug), { recursive: true });
+            appendFileSync(
+              lifecycleLogPath(slug),
+              JSON.stringify({
+                at: new Date().toISOString(),
+                event: "golden-regression-accepted",
+                toVersion: result.preview.toVersion,
+                reason: String(opts.acceptRegression),
+                regressions: golden.regressions.map((r) => ({ criterionId: r.criterionId, delta: r.delta })),
+              }) + "\n",
+            );
+          } else if (golden.ok) {
+            // A clean pass or a genuine improvement adopts the candidate scores as
+            // the new baseline (proves each redeploy is regression-checked forward).
+            promoteBaseline(slug, golden.candidateBaseline, result.preview.toVersion);
+          }
+        }
         ok(
           `Workspace ${slug} upgraded: v${result.preview.fromVersion ?? "?"} -> v${result.preview.toVersion}` +
             (result.streakReset ? " — evaluator changed, trust streak reset" : ""),
@@ -690,6 +766,8 @@ export function workspaceCmd() {
           streakReset: result.streakReset,
           rollbackSnapshot: result.rollbackSnapshot,
           warnings: result.warnings,
+          goldenGate: golden,
+          baselinePromoted: golden?.ok ? true : false,
         });
       } catch (e) {
         if (!(e instanceof BundleError)) throw e;
@@ -731,6 +809,65 @@ export function workspaceCmd() {
         }
         raiseError("E_VALIDATION_FAILED", { target: "workspace-rollback", detail: e.message });
       }
+    });
+
+  // ── golden (#535) ──────────────────────────────────────────────────────
+  cmd
+    .command("golden <slug>")
+    .description(
+      "Inspect or refresh the workspace's golden-set quality-regression baseline (#535). The golden set is a small frozen collection of representative inputs + the incumbent bundle's per-criterion scores; `workspace upgrade` runs the candidate bundle over it and refuses on a regression beyond the tolerance. --show (default) prints the set + baseline. --refresh recaptures the baseline from the CURRENT deployed graph via a DETERMINISTIC golden run (ZERO paid spend — synthetic executors + noVision scoring; vision criteria are reported deferred-needs-real, never auto-spent), archiving the prior baseline append-only to golden/baseline.vN.json. Example: ralphy workspace golden tech-news --refresh",
+    )
+    .option("--show", "Inspect the current golden set + baseline (default)")
+    .option("--refresh", "Recapture the baseline from the current deployed graph (deterministic, ZERO paid spend)")
+    .option(
+      "--tolerance <n>",
+      `Regression tolerance in points on the 0-100 scale (default ${DEFAULT_REGRESSION_TOLERANCE})`,
+      (v) => parseInt(v, 10),
+    )
+    .action(async (slug: string, opts) => {
+      requireRalphyLayout("workspace golden");
+      if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+      }
+      if (opts.refresh) {
+        const graphs = loadGraphWorkflows(slug).map((g) => g.graph);
+        const version = await deployedBundleVersion(slug);
+        const result = await runGoldenGate(slug, graphs, {
+          tolerance: typeof opts.tolerance === "number" ? opts.tolerance : undefined,
+        });
+        promoteBaseline(slug, result.candidateBaseline, version);
+        const set = readGoldenSet(slug);
+        ok(
+          `Golden baseline refreshed for ${slug} — ${Object.keys(result.candidateBaseline).length} criterion score(s) captured from the current bundle${version ? ` v${version}` : ""}`,
+        );
+        out({
+          workspace: slug,
+          refreshed: true,
+          items: set.items.length,
+          baseline: set.baseline,
+          bundleVersion: set.bundleVersion,
+          capturedAt: set.capturedAt,
+          deferredCriteria: result.deltas.filter((d) => d.scoring === "deferred-needs-real").map((d) => d.criterionId),
+          goldenDir: goldenDir(slug),
+        });
+        return;
+      }
+      // --show (default).
+      const set = readGoldenSet(slug);
+      ok(
+        `Golden set for ${slug}: ${set.items.length} item(s), baseline ${
+          set.baseline ? `captured on v${set.bundleVersion ?? "?"} (${Object.keys(set.baseline).length} criterion score(s))` : "not captured"
+        }`,
+      );
+      out({
+        workspace: slug,
+        items: set.items,
+        baseline: set.baseline,
+        bundleVersion: set.bundleVersion,
+        capturedAt: set.capturedAt,
+        hasBaseline: hasGoldenBaseline(slug),
+        goldenDir: goldenDir(slug),
+      });
     });
 
   // ── stats (pre-#108) ───────────────────────────────────────────────────
