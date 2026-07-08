@@ -52,6 +52,7 @@ import { deriveBundleRequirements } from "../bundle.js";
 import { coverageFor } from "../providers/coverage.js";
 import { readTrustConfig } from "../trust.js";
 import { readCadenceConfig } from "../cadence-config.js";
+import { effectiveQuota, isQuotaStale, readQuotaOverrides } from "../publish/quota.js";
 import { readCalendar } from "../calendar/store.js";
 import {
   WORKFLOW_NODE_TYPES,
@@ -344,6 +345,49 @@ function countMatchingMinutes(specs: CronSpec[], from: Date): number {
   return fires;
 }
 
+// ─── Publish-quota feasibility (#534) ────────────────────────────────────────
+
+/** Publish-node types that target a platform (params.targets = list | CSV). */
+const PUBLISH_NODE_TYPES = new Set(["publish", "x-post"]);
+
+/** Parse a publish node's target platforms (x-post is implicitly ["x"]). */
+function publishNodeTargets(node: WorkflowNode): string[] {
+  if (node.type === "x-post") return ["x"];
+  const raw = (node.params as { targets?: unknown }).targets;
+  if (Array.isArray(raw)) return raw.map(String);
+  if (typeof raw === "string") return raw.split(",").map((t) => t.trim()).filter(Boolean);
+  return [];
+}
+
+/**
+ * Planned publishes PER PLATFORM over the projection: for each publish node,
+ * its simulated per-tick invocations × the projected tick count, summed across
+ * nodes that target the platform. Returns an empty map when the plan has no
+ * publish nodes OR the tick count is unresolved (no schedule/calendar basis) —
+ * the caller then reports caps-only, never a fabricated volume.
+ */
+function plannedPublishesByPlatform(
+  graph: WorkflowGraph,
+  invocations: Map<string, number>,
+  tickCount: number,
+  weeklyBasis: SimulateReport["weekly"]["basis"],
+): Map<string, number> {
+  const byPlatform = new Map<string, number>();
+  // No weekly basis (no cron, no calendar) → we cannot say how many publishes
+  // the plan issues over time. Report caps-only rather than guess.
+  if (weeklyBasis === "none") return byPlatform;
+  for (const node of graph.nodes) {
+    if (!PUBLISH_NODE_TYPES.has(node.type)) continue;
+    const inv = invocations.get(node.id) ?? 0;
+    if (inv === 0) continue;
+    const planned = inv * tickCount;
+    for (const target of publishNodeTargets(node)) {
+      byPlatform.set(target, (byPlatform.get(target) ?? 0) + planned);
+    }
+  }
+  return byPlatform;
+}
+
 // ─── The report ──────────────────────────────────────────────────────────────
 
 export interface SimulateNodeCost {
@@ -436,6 +480,25 @@ export interface SimulateReport {
       windows: number;
       minGapMinutes: number;
       slideProbability: number;
+    }>;
+    note: string;
+  };
+  /**
+   * #534 publish-quota feasibility: for each platform the plan publishes to,
+   * the declared cap vs the planned publish volume, plus the minimum number of
+   * days the plan takes to clear the quota. `plannedPublishes` is null when the
+   * planned volume was not cleanly derivable (no publish nodes, or no weekly
+   * basis to multiply the per-tick count by) — then only the caps are shown,
+   * NEVER a fabricated volume.
+   */
+  quota: {
+    platforms: Array<{
+      platform: string;
+      plannedPublishes: number | null;
+      dailyCap: number | null;
+      minDaysToClear: number | null;
+      stale: boolean;
+      headroomNote: string;
     }>;
     note: string;
   };
@@ -632,6 +695,34 @@ export async function simulateWorkflow(
 
   const tickCount = opts.week ? ticksPerWeek : Math.max(1, opts.ticks ?? 1);
 
+  // ── Publish-quota feasibility (#534) ───────────────────────────────────────
+  const planned = plannedPublishesByPlatform(graph, invocations, tickCount, weeklyBasis);
+  const quotaOverrides = readQuotaOverrides(ws);
+  const nowDate = now();
+  // Every platform the plan publishes to (union of the planned map keys).
+  const publishPlatforms = [...planned.keys()].sort();
+  const quotaPlatforms = publishPlatforms.map((platform) => {
+    const entry = effectiveQuota(platform, ws, quotaOverrides);
+    const dailyCap = entry?.dailyCap ?? entry?.windowCap ?? null;
+    const plannedN = planned.get(platform) ?? null;
+    const stale = entry ? isQuotaStale(entry, nowDate) : false;
+    let minDaysToClear: number | null = null;
+    let headroomNote: string;
+    if (!entry || dailyCap === null) {
+      headroomNote = `no declared quota for "${platform}" — treated as unlimited (never blocks)`;
+    } else if (plannedN === null) {
+      headroomNote = `cap ${dailyCap}/window; planned volume not resolvable`;
+    } else {
+      minDaysToClear = Math.ceil(plannedN / dailyCap);
+      headroomNote = `plan needs ${plannedN} ${platform} publishes / ${dailyCap}-per-window quota = ${minDaysToClear} window(s) minimum${stale ? " (quota entry STALE — re-verify)" : ""}`;
+    }
+    return { platform, plannedPublishes: plannedN, dailyCap, minDaysToClear, stale, headroomNote };
+  });
+  const quotaNote =
+    publishPlatforms.length === 0
+      ? "no publish nodes with a resolvable schedule basis — publish-quota feasibility not projected"
+      : "planned publishes are per-tick publish-node invocations × projected ticks; a cap is per reset window (daily-utc or rolling-24h)";
+
   return {
     workspace: ws,
     workflow: wf.name,
@@ -683,6 +774,7 @@ export async function simulateWorkflow(
         ? "calendar-slot scheduled times are SAMPLED inside jitter windows (seeded by run id — deterministic on resume), not exact"
         : "no cadence block — scheduled times are the exact slot times (pre-#525 behaviour)",
     },
+    quota: { platforms: quotaPlatforms, note: quotaNote },
     environment: {
       requiredKeys: requirements.requiredConnectorKeys,
       missingKeys,

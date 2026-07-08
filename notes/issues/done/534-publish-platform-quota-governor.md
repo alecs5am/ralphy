@@ -1,6 +1,6 @@
 # Publishing platform quota governor
 
-> **Status:** todo
+> **Status:** done — 2026-07-08
 > **Filed:** 2026-07-07
 > **Folder:** issues
 > **Severity:** medium
