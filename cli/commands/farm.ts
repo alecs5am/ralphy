@@ -28,6 +28,7 @@ import {
 } from "../lib/farm/runner.js";
 import type { WorkflowGraph } from "../lib/schemas/workflow.js";
 import { buildFarmReport } from "../lib/farm/rollup.js";
+import { farmDoctor } from "../lib/farm/preflight.js";
 import { listDeadLetters, deadLetterPath } from "../lib/farm/dead-letter.js";
 import { ensureTriggerToken, webhookTokensPath } from "../lib/farm/webhook.js";
 import { readFileSync } from "fs";
@@ -72,6 +73,10 @@ export function farmCmd() {
       "--no-cache",
       "Force execution on every node, ignoring the #513 content-hash cache (paid nodes re-bill even on identical inputs)",
     )
+    .option(
+      "--skip-preflight <reason>",
+      "Skip the #530 deployment-liveness preflight and start even on a RED verdict (logged). Only for unattended real starts; --once already skips it.",
+    )
     .action(async (opts) => {
       // Single-workspace mode keeps the per-workspace pidfile; multi-workspace
       // mode uses the shared daemon pidfile slug so one daemon owns the host.
@@ -79,6 +84,34 @@ export function farmCmd() {
       const pidSlug = single ?? MULTI_DAEMON_SLUG;
       if (single) requireWorkspace("farm start", single);
       else if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb: "farm start" });
+
+      // #530 preflight: a REAL unattended start runs the deployment-liveness
+      // doctor per enabled workspace and refuses on ANY red verdict unless
+      // --skip-preflight is given. --once is test/CI mode and must stay green,
+      // so it skips the preflight entirely.
+      if (!opts.once) {
+        const enabledForCheck = single ? [single] : farmEnabledWorkspaces();
+        if (opts.skipPreflight) {
+          ok(`Skipping #530 preflight (--skip-preflight): ${opts.skipPreflight}`);
+        } else {
+          const reds: string[] = [];
+          for (const wsSlug of enabledForCheck) {
+            const report = await farmDoctor(wsSlug);
+            if (report.verdict === "red") {
+              const failing = report.checks
+                .filter((c) => c.status === "fail")
+                .map((c) => `${wsSlug}/${c.id}: ${c.detail}`);
+              reds.push(...failing);
+            }
+          }
+          if (reds.length > 0) {
+            raiseError("E_VALIDATION_FAILED", {
+              target: "farm start",
+              detail: `preflight RED — ${reds.join("; ")} — fix them or pass --skip-preflight "<reason>"`,
+            });
+          }
+        }
+      }
 
       const existing = readFarmPid(pidSlug);
       if (isFarmAlive(existing)) {
@@ -150,6 +183,45 @@ export function farmCmd() {
     .action(async (ws: string, opts) => {
       requireWorkspace("farm report", ws);
       out(buildFarmReport(ws, { since: opts.since }));
+    });
+
+  // ── doctor (#530 deployment-liveness preflight) ─────────────────────────────
+  cmd
+    .command("doctor")
+    .description(
+      "Deployment-liveness preflight (#530) — the pre-`farm start` readiness gate, DISTINCT from `workflow simulate` (simulate = cost; doctor = liveness/authorization). Verifies everything an unattended overnight run needs: generation connector keys present (providers), Postiz accounts connected per target platform (publish-targets; dev.to/Hashnode article connectors #527 not built yet → warn), workflows parse + #497 coverage satisfied (bundle/coverage), a budget cap configured (budget), a resolvable calendar slot (calendar), trust level (trust), a notifier channel (notifier), publish-quota headroom + staleness (quota), and bun/ffmpeg (host). Auth pings are cheap + READ-ONLY (no paid generation, no test post). Emits a green/amber/red verdict with per-check {id, group, status, detail, fix}; exits non-zero on any red check for CI/scripted use. Example: ralphy farm doctor --workspace my-studio",
+    )
+    .option("--workspace <ws>", "Workspace slug (default: the active workspace)")
+    .action(async (opts) => {
+      const ws: string = opts.workspace ?? currentWorkspace();
+      requireWorkspace("farm doctor", ws);
+      const report = await farmDoctor(ws);
+
+      if (isPretty()) {
+        const { c, icons, section } = await import("../lib/ui.js");
+        const glyph = (s: string) => (s === "ok" ? icons.ok : s === "warn" ? icons.warn : icons.fail);
+        console.log();
+        const banner =
+          report.verdict === "green"
+            ? c.ok("● GREEN — ready for unattended start")
+            : report.verdict === "amber"
+              ? c.warn("● AMBER — startable, review the warnings")
+              : c.err("● RED — blocked; fix the failures or pass --skip-preflight");
+        console.log(`  ${c.bold("farm doctor")} ${c.value(report.workspace)}  ${banner}`);
+        let lastGroup = "";
+        for (const chk of report.checks) {
+          if (chk.group !== lastGroup) {
+            section(chk.group);
+            lastGroup = chk.group;
+          }
+          const fixSuffix = chk.status !== "ok" && chk.fix ? c.muted(` — fix: ${chk.fix}`) : "";
+          console.log(`  ${glyph(chk.status)} ${c.label(chk.id)} ${c.value(chk.detail)}${fixSuffix}`);
+        }
+        console.log();
+      } else {
+        out(report);
+      }
+      if (report.verdict === "red") process.exitCode = 1;
     });
 
   // ── failures ───────────────────────────────────────────────────────────────
