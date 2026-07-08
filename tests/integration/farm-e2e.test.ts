@@ -489,29 +489,29 @@ describe("farm e2e (#523): upgrade mid-lifecycle (#521)", () => {
       const v2zip = path.join(tmp.dir, "bundle-2.zip");
       exportWorkspaceBundle("fixture-src", v2zip, { version: "1.1.0" });
 
-      // allowUnknownLineage: importWorkspaceBundle does not persist the
-      // bundleId onto the imported workspace.json, so the deployed lineage
-      // reads as unknown — opt in to upgrade in place (a noticed gap; see the
-      // test report). allowMissingKeys downgrades the POSTIZ_* key requirement.
-      const result = upgradeWorkspace(ws, v2zip, {
-        allowUnknownLineage: true,
-        allowMissingKeys: true,
-      });
+      // Same lineage: importWorkspaceBundle persists the bundleId onto the
+      // deployed workspace.json, so the upgrade recognizes the lineage without
+      // any opt-out. allowMissingKeys downgrades the POSTIZ_* key requirement.
+      const result = upgradeWorkspace(ws, v2zip, { allowMissingKeys: true });
       expect(result.applied).toBe(true);
       expect(result.preview.fromVersion).toBe("1.0.0");
       expect(result.preview.toVersion).toBe("1.1.0");
-      // Know-how changed (the prompt); the diff names the prompts class.
-      expect(result.preview.diff.some((d) => d.class === "prompts")).toBe(true);
+      // Know-how changed (the prompt); the diff names the prompts class with a
+      // WORKSPACE-relative path (prompts/script.md, not a bare basename).
+      const promptsDiff = result.preview.diff.find((d) => d.class === "prompts");
+      expect(promptsDiff?.changed).toContain("prompts/script.md");
       // Runtime state survived: the completed run's journal is still there.
       expect(readFarmState(ws, t1.runId)?.status).toBe("complete");
       expect(fs.existsSync(path.join(runDir(ws, t1.runId), "run-events.jsonl"))).toBe(true);
-      // The new know-how is on disk; the prior copy survives in the rollback
-      // snapshot (the <ws>.prev tree the upgrade leaves for rollback).
-      const promptV2 = fs.readFileSync(path.join(workspaceDir(ws), "prompts", "script.md"), "utf8");
-      expect(promptV2).toContain("punchier");
+      // The new know-how is on disk.
+      const promptLive = fs.readFileSync(path.join(workspaceDir(ws), "prompts", "script.md"), "utf8");
+      expect(promptLive).toContain("punchier");
+      // The prior copy is versioned append-only ON THE LIVE TREE (the documented
+      // <file>.v<N> history), not only in the rollback snapshot.
+      const priorPrompt = fs.readFileSync(path.join(workspaceDir(ws), "prompts", "script.v2.md"), "utf8");
+      expect(priorPrompt).not.toContain("punchier");
+      // And the rollback snapshot still carries the prior tree.
       const snap = result.rollbackSnapshot;
-      expect(fs.existsSync(path.join(snap, "prompts", "script.md"))).toBe(true);
-      // The prior prompt is preserved verbatim in the snapshot (append-only history).
       expect(fs.readFileSync(path.join(snap, "prompts", "script.md"), "utf8")).not.toContain("punchier");
     },
   );

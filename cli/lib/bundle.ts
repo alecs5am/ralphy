@@ -739,6 +739,10 @@ export function importWorkspaceBundle(zipPath: string, opts: ImportOptions = {})
           bundle: {
             name: v.manifest.name,
             version: v.manifest.version,
+            // #521 lineage: carry the manifest's bundleId onto the deployed
+            // workspace so a later same-lineage `workspace upgrade` recognizes
+            // it (dropping it forced --allow-unknown-lineage on every upgrade).
+            ...(v.manifest.bundleId ? { bundleId: v.manifest.bundleId } : {}),
             trustDefault: v.manifest.trustDefault,
             importedAt: new Date().toISOString(),
           },
@@ -1108,7 +1112,15 @@ function planUpgrade(
     const dest = wsSub ? path.join(dir, wsSub) : dir;
     // For evaluators (wsSub === "") only compare the bundled files, not the whole ws dir.
     const t = cls === "evaluators" ? diffEvaluators(dir, inc) : diffTrees(dest, inc);
-    if (t.added.length || t.changed.length || t.removed.length) diff.push({ class: cls, ...t });
+    // diffTrees returns paths relative to `dest` (e.g. "script.md"); prefix the
+    // class subdir so every diff path is WORKSPACE-relative. Without this the
+    // apply loop's versionInPlace(path.join(dir, rel)) missed the real file
+    // (dir/script.md vs dir/prompts/script.md) and silently skipped versioning
+    // prompts/compositions/subgraphs. Evaluators (wsSub "") are already top-level.
+    const rerel = (arr: string[]) => (wsSub ? arr.map((r) => `${wsSub}/${r}`) : arr);
+    if (t.added.length || t.changed.length || t.removed.length) {
+      diff.push({ class: cls, added: rerel(t.added), changed: rerel(t.changed), removed: rerel(t.removed) });
+    }
   }
 
   // Calendar slots (know-how) vs the deployed calendar.json's slots.
@@ -1218,7 +1230,10 @@ export function upgradeWorkspace(ws: string, zipPath: string, opts: UpgradeOptio
 
     // Version the prior know-how in place (append-only `<file>.v<N>.<ext>`) so
     // history survives even after the next upgrade overwrites `<ws>.prev`.
+    // The `calendar` class carries slot IDs, not file paths (slots are merged,
+    // not replaced whole), so it is excluded from per-file versioning.
     for (const d of preview.diff) {
+      if (d.class === "calendar") continue;
       for (const rel of d.changed) versionInPlace(path.join(dir, rel));
     }
 
