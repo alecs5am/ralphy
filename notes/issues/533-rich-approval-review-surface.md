@@ -1,6 +1,15 @@
 # Rich approval review surface (one-action human gate)
 
-> **Status:** todo
+> **Status:** partial (2026-07-08) — foundation landed (`cli/lib/review-card.ts`:
+> `assembleReviewCard`/`assembleReviewTick` read-model — media proof + caption/
+> title + targets + #525 sampled time + #427/#469 scorecard + cost, all
+> read-only — and `applyReviewDecision` mapping approve→`recordRunApproval`,
+> reject→append-only rejection record (media untouched, #14),
+> request-change→`buildRepairPlan` enqueue, each emitting the #505/#532
+> calibration sample; surfaced via `ralphy farm review <run>`). STILL OPEN — the
+> remainder is the rendering surface: the #492 app-API endpoint + the #506
+> dashboard card that renders this output, the mobile-legible layout, and the
+> #518 notification deep-link target. Re-open the flat backlog until #492 lands.
 > **Filed:** 2026-07-07
 > **Folder:** issues
 > **Severity:** high

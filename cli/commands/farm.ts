@@ -39,6 +39,13 @@ import {
 import os from "os";
 import { ensureTriggerToken, webhookTokensPath } from "../lib/farm/webhook.js";
 import { readFileSync } from "fs";
+import {
+  assembleReviewTick,
+  assembleReviewCard,
+  applyReviewDecision,
+  type ReviewCard,
+  type ReviewDecision,
+} from "../lib/review-card.js";
 
 /** The graph workflow carrying webhook-trigger node <triggerId>, or raise. */
 function requireWebhookWorkflow(ws: string, triggerId: string): { name: string; graph: WorkflowGraph } {
@@ -60,6 +67,39 @@ function requireWorkspace(verb: string, slug: string): void {
   if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
     raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
   }
+}
+
+/**
+ * Pretty-mode render of the #533 review cards — media proof paths, caption /
+ * title, targets, the #525 sampled schedule time, the gate scorecard, and cost.
+ * The JSON path (`out`) carries the same `ReviewCard[]`; this is the human
+ * readout the dashboard card (#492/#506) will replace.
+ */
+function renderReviewCards(run: string, cards: ReviewCard[]): void {
+  console.log();
+  console.log(`  farm review ${run}  ${cards.length} parked card(s)`);
+  if (cards.length === 0) {
+    console.log("  (nothing parked for review)");
+    console.log();
+    return;
+  }
+  for (const card of cards) {
+    console.log();
+    console.log(`  ● node "${card.node}"  ${card.status}`);
+    console.log(`    unit:      ${card.project ?? "—"}/${card.unit ?? "—"}`);
+    console.log(`    media:     ${card.media ? `${card.media.kind} (${card.media.paths.length} file(s))` : "—"}`);
+    for (const p of card.media?.paths ?? []) console.log(`               ${p}`);
+    console.log(`    title:     ${card.title ?? "—"}`);
+    console.log(`    caption:   ${card.caption ?? "—"}`);
+    console.log(`    targets:   ${card.targets.length ? card.targets.join(", ") : "—"}`);
+    console.log(`    scheduled: ${card.scheduleAt ?? "—"}`);
+    console.log(
+      `    scorecard: ${card.scorecard ? `${card.scorecard.verdict}${card.scorecard.score != null ? ` (${card.scorecard.score})` : ""}` : "—"}`,
+    );
+    console.log(`    cost:      $${card.costUsd.toFixed(2)}`);
+    if (card.reason) console.log(`    parked:    ${card.reason}`);
+  }
+  console.log();
 }
 
 export function farmCmd() {
@@ -449,6 +489,115 @@ export function farmCmd() {
       }
       applyMode("normal", { ...opts, reason: reason || "resume confirmed (--confirm)" });
     });
+
+  // ── review (#533 foundation) ─────────────────────────────────────────────────
+  //
+  // The interim, headless surface for the rich approval review card. The
+  // #492/#506 dashboard renders the SAME `assembleReviewCard` output — this CLI
+  // is the foundation (data + transitions); the mobile-legible dashboard card
+  // (+ the #518 deep-link target) is the remaining #533 work.
+  //
+  // Default (no action flag): LIST the assembled review cards for the run.
+  // --approve/--reject/--request-change <node> apply one decision (reject +
+  // request-change require --reason). --all applies one decision across the
+  // whole tick's cards, composing with the `batch review` concept.
+  cmd
+    .command("review <run>")
+    .description(
+      "Rich approval review card for a parked farm run (#533 foundation). Default: LIST every parked review card — media proof paths, caption/title, targets, the #525 sampled schedule time, the gate scorecard verdict+score, and realized cost — read-only from existing artifacts + the run journal (no new media write). Actions map each to an EXISTING transition: --approve <node> records a run approval (releases the park on the next resume), --reject <node> --reason <text> appends an append-only unit rejection note (NEVER deletes media), --request-change <node> --reason <text> enqueues the #519/#511 repair loop. --all applies ONE action across the whole tick. Every decision appends a #505 calibration sample. The #492/#506 dashboard renders the SAME card output — this CLI is the interim surface. Example: ralphy farm review farm-news-20260706-090000 --approve publish --reason \"looks great\"",
+    )
+    .option("--workspace <ws>", "Workspace slug (default: the run's workspace)")
+    .option("--approve <node>", "Approve the parked node (releases the run on the next resume)")
+    .option("--reject <node>", "Reject the parked node (records a rejection note; media untouched)")
+    .option("--request-change <node>", "Route the parked node into the repair loop (#519/#511)")
+    .option("--reason <text>", "Required for --reject / --request-change: the operator's reason")
+    .option("--cap <usd>", "Approve only: the USD cap the released run runs under (default: realized spend)", parseFloat)
+    .option("--all", "Apply the chosen action across EVERY parked card in the run's tick")
+    .option("--actor <name>", "Who made the decision (logged; default: operator)")
+    .action(async (run: string, opts) => {
+      const ws: string = opts.workspace ?? runWorkspace(run);
+      requireWorkspace("farm review", ws);
+      const state = readFarmState(ws, run);
+      if (!state) raiseError("E_NOT_FOUND", { kind: "Farm run", id: run });
+
+      // Resolve the single chosen action (at most one).
+      const actions: Array<[ReviewDecision, string | undefined]> = [
+        ["approve", opts.approve],
+        ["reject", opts.reject],
+        ["request-change", opts.requestChange],
+      ];
+      const chosen = actions.filter(([, node]) => node);
+      if (chosen.length > 1) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "farm review",
+          detail: "pass at most one of --approve / --reject / --request-change",
+        });
+      }
+
+      // ── LIST (no action) ──
+      if (chosen.length === 0) {
+        const cards = await assembleReviewTick(ws, run);
+        if (isPretty()) renderReviewCards(run, cards);
+        else out({ run, workspace: ws, status: state!.status, parked: cards.length, cards });
+        return;
+      }
+
+      const [decision, node] = chosen[0]!;
+      if (decision !== "approve" && !(opts.reason && String(opts.reason).trim())) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: `farm review --${decision}`,
+          detail: `--${decision} requires --reason "<text>"`,
+        });
+      }
+
+      // ── --all: apply the ONE action across the whole tick ──
+      if (opts.all) {
+        const cards = await assembleReviewTick(ws, run);
+        const applied = [];
+        for (const card of cards) {
+          applied.push(
+            await applyReviewDecision({
+              ws,
+              run,
+              node: card.node,
+              decision,
+              reason: opts.reason,
+              actor: opts.actor,
+              capUsd: opts.cap,
+            }),
+          );
+        }
+        ok(`Applied ${decision} to ${applied.length} parked card(s) in run ${run}`);
+        out({ run, workspace: ws, decision, applied });
+        return;
+      }
+
+      // ── single-node action ──
+      const result = await applyReviewDecision({
+        ws,
+        run,
+        node: node!,
+        decision,
+        reason: opts.reason,
+        actor: opts.actor,
+        capUsd: opts.cap,
+      });
+      ok(
+        `Review ${decision} recorded for ${run} / node "${node}"${result.unit ? ` (unit ${result.project}/${result.unit})` : ""}`,
+      );
+      out({ run, workspace: ws, ...result });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ ralphy farm review farm-news-20260706-090000
+  $ ralphy farm review farm-news-20260706-090000 --approve publish
+  $ ralphy farm review farm-news-20260706-090000 --reject publish --reason "off-brand thumbnail"
+  $ ralphy farm review farm-news-20260706-090000 --request-change publish --reason "tighten the hook"
+  $ ralphy farm review farm-news-20260706-090000 --all --approve publish
+`,
+    );
 
   return cmd;
 }
