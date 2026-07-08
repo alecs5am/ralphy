@@ -170,6 +170,18 @@
                   "reference/cli/dashboard",
                   "reference/cli/version"
                 ]
+              },
+              {
+                "group": "Workflow nodes (auto-generated)",
+                "pages": [
+                  "reference/nodes/ingestion",
+                  "reference/nodes/llm",
+                  "reference/nodes/media",
+                  "reference/nodes/ralphy-verb",
+                  "reference/nodes/control-flow",
+                  "reference/nodes/data",
+                  "reference/nodes/publish"
+                ]
               }
             ]
           }
