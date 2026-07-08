@@ -1632,6 +1632,28 @@ Commands:
                                   archiving the prior baseline append-only to
                                   golden/baseline.vN.json. Example: ralphy
                                   workspace golden tech-news --refresh
+  learnings [options] <slug>      Show the workspace's performance-driven
+                                  selection learnings (#532): recompute the
+                                  per-(dimension,value) outcome weights from the
+                                  units' analytics snapshots (#507) and surface
+                                  the top/bottom performers per dimension WITH
+                                  evidence (score + sample size + confidence).
+                                  Attributes MEASURED outcomes only
+                                  (views/retention/ctr/saves, decayed with a
+                                  45-day half-life, normalized within the
+                                  workspace) — no analytics anywhere =
+                                  cold-start, uniform, exactly like today.
+                                  --retire <dim:value> flags a chronic loser
+                                  (down-weighted, NOT hard-excluded — human
+                                  sign-off still needed to fully exclude); --pin
+                                  <dim:value> pins a winner (weight floored).
+                                  Both are explicit, reversible (--unretire /
+                                  --unpin), and logged append-only to the
+                                  workspace lifecycle. These flags feed the
+                                  bias-sampling seam (sampleWeighted) the
+                                  variance planner + campaign picker consult.
+                                  ZERO model calls. Example: ralphy workspace
+                                  learnings silent-hill --pin style:sexy-ps1
   stats                           Show workspace statistics
   clean [options]                 Clean workspace contents
   help [command]                  display help for command

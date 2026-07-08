@@ -1,6 +1,14 @@
 # Performance-driven selection loop (close the flywheel)
 
-> **Status:** todo
+> **Status:** partial (2026-07-08) — foundation landed (`cli/lib/selection.ts`:
+> attribution over the dimensions recorded today (template/style/recipe/asset/
+> platform/posting-window), append-only `selection-weights.jsonl` with decay +
+> confidence shrinkage, the pure `sampleWeighted` exploration-floor seam, and
+> `ralphy workspace learnings` with reversible pin/retire). STILL OPEN — the
+> headline bias wiring is blocked: #529 variance planner and #528 campaign
+> picker (both unbuilt) must call `sampleWeighted` at their selection points and
+> record the missing dimensions (hook-type/length-band/angle/thesis) on units.
+> Re-open the flat backlog until those consumers exist.
 > **Filed:** 2026-07-07
 > **Folder:** issues
 > **Severity:** high
