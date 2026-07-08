@@ -1730,6 +1730,28 @@ Commands:
                                     workflow leaves node types unclassified and
                                     flags `partial`). Example: ralphy farm
                                     report my-studio --since 2026-07-01
+  doctor [options]                  Deployment-liveness preflight (#530) — the
+                                    pre-`farm start` readiness gate, DISTINCT
+                                    from `workflow simulate` (simulate = cost;
+                                    doctor = liveness/authorization). Verifies
+                                    everything an unattended overnight run
+                                    needs: generation connector keys present
+                                    (providers), Postiz accounts connected per
+                                    target platform (publish-targets;
+                                    dev.to/Hashnode article connectors #527 not
+                                    built yet → warn), workflows parse + #497
+                                    coverage satisfied (bundle/coverage), a
+                                    budget cap configured (budget), a resolvable
+                                    calendar slot (calendar), trust level
+                                    (trust), a notifier channel (notifier),
+                                    publish-quota headroom + staleness (quota),
+                                    and bun/ffmpeg (host). Auth pings are cheap
+                                    + READ-ONLY (no paid generation, no test
+                                    post). Emits a green/amber/red verdict with
+                                    per-check {id, group, status, detail, fix};
+                                    exits non-zero on any red check for
+                                    CI/scripted use. Example: ralphy farm doctor
+                                    --workspace my-studio
   failures [options]                List the workspace's dead-letter quarantine
                                     (#519): nodes that exhausted their retry
                                     envelope, or failed a permanent-class error
