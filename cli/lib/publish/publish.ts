@@ -173,6 +173,14 @@ export interface PublishUnitOptions {
   fetchImpl?: FetchLike;
   /** Clock seam for the #534 quota window math (deterministic tests). */
   now?: () => Date;
+  /**
+   * The #536 publish kill-switch mode. Injected by the node path (which already
+   * read the effective mode at the gate) to avoid a double-read, and by tests.
+   * Default: read the effective mode for the resolved workspace. `freeze`
+   * refuses; `safe` is a no-op here — the human invoking the chat verb IS the
+   * approval.
+   */
+  publishMode?: import("../farm/publish-mode.js").PublishMode;
 }
 
 export interface TargetPublishResult {
@@ -228,6 +236,17 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
 
   const workspace = opts.workspace ?? projectWorkspace(opts.projectId);
   const slot = opts.slot ?? undefined;
+
+  // #536 kill switch: `freeze` refuses the chat-driven publish verb too (the
+  // node path parks the run at the trust gate; here there is no run to park).
+  // `safe` is a no-op — the human invoking `ralphy publish` IS the approval.
+  const { effectivePublishMode } = await import("../farm/publish-mode.js");
+  const mode = opts.publishMode ?? effectivePublishMode(workspace).mode;
+  if (mode === "freeze") {
+    throw new Error(
+      `publishing is frozen for workspace "${workspace}" (#536) — resume with \`ralphy farm resume --workspace ${workspace} --reason "<why>"\``,
+    );
+  }
 
   const integrations = await postizIntegrations(fetchImpl);
   const bound = bindIntegrations(opts.targets, integrations, opts.accounts);
