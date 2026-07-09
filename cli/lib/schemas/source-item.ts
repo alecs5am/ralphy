@@ -30,6 +30,22 @@ export const SourceItemSchema = z.object({
   text: z.string().default(""),
   /** ISO-8601 timestamp — publish time when the backend exposes one, else ingest time. */
   ts: z.string(),
+  /**
+   * Freshness TTL (#542): a shelf-life window (`<n><s|m|h|d|w>`, e.g. "6h")
+   * after which the story is STALE and must not publish as fresh. Optional and
+   * additive: absent = evergreen (no staleness guard). Age is measured from
+   * `ts` above — so an item that only carries an ingest `ts` is aged from
+   * ingest (the honest floor; see cli/lib/farm/freshness.ts). The ingestion
+   * node's `params.freshness_ttl` / `content_class` supplies the default when
+   * the item omits it.
+   */
+  freshness_ttl: z.string().optional(),
+  /**
+   * Content class (#542) — a coarse shelf-life label ("news-short" | "news" |
+   * "trend" | "evergreen" | ...) the guard maps to a default TTL when neither
+   * the item nor the node sets an explicit `freshness_ttl`. Optional/additive.
+   */
+  content_class: z.string().optional(),
   /** Provenance: which backend produced it, and from which feed / query / actor. */
   source: z.object({
     backend: z.enum(SOURCE_BACKENDS),

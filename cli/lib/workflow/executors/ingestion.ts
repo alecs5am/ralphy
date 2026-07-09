@@ -46,6 +46,24 @@ import type { WorkflowNode } from "../../schemas/workflow.js";
 
 const fetchOf = (ctx: ExecutorContext): FetchLike => (ctx.fetchImpl ?? fetch) as FetchLike;
 
+/**
+ * Stamp the node-level freshness default (#542) onto emitted items so the TTL
+ * travels downstream to the publish-time guard. Node `params.freshness_ttl` /
+ * `params.content_class` fill in ONLY where the item did not already carry its
+ * own — the item value always wins (backend-supplied shelf life is authoritative).
+ */
+function applyFreshnessDefaults(node: WorkflowNode, items: SourceItem[]): SourceItem[] {
+  const p = node.params as { freshness_ttl?: unknown; content_class?: unknown };
+  const nodeTtl = typeof p.freshness_ttl === "string" ? p.freshness_ttl : undefined;
+  const nodeClass = typeof p.content_class === "string" ? p.content_class : undefined;
+  if (!nodeTtl && !nodeClass) return items;
+  return items.map((i) => ({
+    ...i,
+    ...(i.freshness_ttl === undefined && nodeTtl !== undefined ? { freshness_ttl: nodeTtl } : {}),
+    ...(i.content_class === undefined && nodeClass !== undefined ? { content_class: nodeClass } : {}),
+  }));
+}
+
 function requireBackendKey(node: WorkflowNode, backend: "firecrawl" | "apify", detail: string): void {
   const available = backend === "firecrawl" ? firecrawlAvailable() : apifyAvailable();
   if (available) return;
@@ -125,6 +143,7 @@ export const webScrapeExecutor: NodeExecutor = async (node, ctx) => {
     throw new NodeExecutionError("params-invalid", `web-scrape node "${node.id}" has unknown mode "${p.mode}" (scrape | crawl | search)`);
   }
 
+  items = applyFreshnessDefaults(node, items);
   const artifactPath = await writeItemsArtifact(ctx, node, items);
   return { output: items, artifactPath };
 };
@@ -151,7 +170,7 @@ export const actorExecutor: NodeExecutor = async (node, ctx) => {
     pollMaxAttempts: p.poll_max_attempts,
     fetchImpl: ctx.fetchImpl as FetchLike | undefined,
   });
-  const items = normalizeApifyItems(raw, { actor: p.actor_id });
+  const items = applyFreshnessDefaults(node, normalizeApifyItems(raw, { actor: p.actor_id }));
   const artifactPath = await writeItemsArtifact(ctx, node, items);
   return { output: items, artifactPath };
 };
@@ -175,7 +194,7 @@ export const rssExecutor: NodeExecutor = async (node, ctx) => {
     items.push(...normalizeRss(parseFeed(await readFeed(feed, ctx)), { feed }));
   }
   const since = p.since;
-  const output = since ? items.filter((i) => i.ts > since) : items;
+  const output = applyFreshnessDefaults(node, since ? items.filter((i) => i.ts > since) : items);
   const artifactPath = await writeItemsArtifact(ctx, node, output);
   return { output, artifactPath };
 };
@@ -249,8 +268,9 @@ export const trendWatchExecutor: NodeExecutor = async (node, ctx) => {
   }
 
   // Empty delta → emit [] and touch NOTHING (no artifact, no store writes).
-  const artifactPath = await writeItemsArtifact(ctx, node, fresh);
-  return { output: fresh, artifactPath };
+  const stamped = applyFreshnessDefaults(node, fresh);
+  const artifactPath = await writeItemsArtifact(ctx, node, stamped);
+  return { output: stamped, artifactPath };
 };
 
 // ─── dedup (control-flow; shares the seen-store) ─────────────────────────────

@@ -1,6 +1,6 @@
 # Source freshness TTL and staleness guard
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (freshness.ts pure layer: resolveFreshnessTtl item→node→content-class→evergreen-optout; classifyFreshness age-from-source-ts fail-open on unparseable; orderByFreshness within-priority-band composing with cadence/quota/trust not overriding. publishExecutor guard BEFORE trust/paid publish: drop (stale-dropped journal event) or downgrade. farm report staleDropped count. #541 seam noted: stale-drop != covered.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** medium
