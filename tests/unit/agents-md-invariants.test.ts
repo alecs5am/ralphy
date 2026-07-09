@@ -254,6 +254,10 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
   const PUBLISH_CONNECTORS: Array<{ file: string; envVar: string; hostRe: null }> = [
     { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_KEY", hostRe: null },
     { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_BASE_URL", hostRe: null },
+    // #527 article connectors — same file-scoped env-var discipline. dev.to +
+    // Hashnode have FIXED hosts (dev.to / gql.hashnode.com), asserted below.
+    { file: path.join("cli", "lib", "providers", "devto.ts"), envVar: "DEVTO_API_KEY", hostRe: null },
+    { file: path.join("cli", "lib", "providers", "hashnode.ts"), envVar: "HASHNODE_TOKEN", hostRe: null },
   ];
 
   for (const { file, envVar } of PUBLISH_CONNECTORS) {

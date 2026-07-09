@@ -281,6 +281,7 @@ source, engagement signals) so downstream nodes are source-agnostic.
 | Node | Backend | Notes |
 |---|---|---|
 | `publish` | Postiz (preferred v1) | `targets[]` (youtube/tiktok/instagram/x), `account`, `schedule_at` (from calendar slot), metadata mapped from `unit.json` + social copy. Postiz solves 4x OAuth + queueing; own connectors only if it disappoints |
+| `article-publish` (#527) | github-pages (git commit-only) + dev.to / Hashnode APIs + medium export-pack | `targets[]` (github-pages/devto/hashnode/medium), `github_pages` (repo/branch/contentDir), `hashnode_publication_id`, `draft` (default ON at L0). Article units (#526) only. Per-target isolation; canonical_url enforced when the workspace sets `canonicalSite` (one canonical, syndicated copies point at it). github-pages NEVER force-pushes/deletes; medium is park-for-human (Medium's write API is closed to new integrations). `DEVTO_API_KEY` / `HASHNODE_TOKEN` file-scoped to their connectors |
 | `youtube-upload` | YouTube Data API direct | fallback / long-form specifics (chapters, thumbnails) |
 | `x-post` | X API | text units (threads) don't need Postiz |
 | `analytics-pull` | platform analytics APIs | closes the loop: per-unit retention/views -> performance postmortem -> `ralphy memory note --workspace`. The self-improving-farm differentiator |

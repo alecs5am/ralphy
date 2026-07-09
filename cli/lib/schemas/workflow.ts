@@ -175,7 +175,7 @@ export const RALPHY_VERB_NODE_TYPES = [
 export const INGESTION_NODE_TYPES = ["web-scrape", "actor", "rss", "trend-watch", "http"] as const;
 
 /** E. Publish nodes. */
-export const PUBLISH_NODE_TYPES = ["publish", "youtube-upload", "x-post", "analytics-pull"] as const;
+export const PUBLISH_NODE_TYPES = ["publish", "article-publish", "youtube-upload", "x-post", "analytics-pull"] as const;
 
 /** F. Control-flow nodes (`subgraph` is the #517 named-subgraph instantiation node). */
 export const CONTROL_FLOW_NODE_TYPES = [
@@ -500,6 +500,7 @@ export const NODE_SIGNATURES: Record<WorkflowNodeType, NodeSignature> = {
 
   // E. Publish.
   publish: sig("publish", { unit: "unit", schedule_at: "object:calendar-slot" }, true, "object:publish-result"),
+  "article-publish": sig("publish", { unit: "unit", schedule_at: "object:calendar-slot" }, true, "object:publish-result"),
   "youtube-upload": sig("publish", { video: "video", unit: "unit" }, true, "object:publish-result"),
   "x-post": sig("publish", { text: "text", unit: "unit" }, true, "object:publish-result"),
   "analytics-pull": sig("publish", {}, true, "object:analytics"),

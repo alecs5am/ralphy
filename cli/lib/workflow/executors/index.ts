@@ -32,7 +32,7 @@ import {
 } from "./ingestion.js";
 import { httpExecutor } from "./http.js";
 import { calendarSlotExecutor } from "./calendar.js";
-import { publishExecutor, xPostExecutor } from "./publish.js";
+import { publishExecutor, xPostExecutor, articlePublishExecutor } from "./publish.js";
 import { analyticsPullExecutor } from "./analytics.js";
 import {
   approvalExecutor,
@@ -122,6 +122,9 @@ registerExecutor("calendar-slot", calendarSlotExecutor);
 // E. Publish nodes via Postiz (#501) + the loop-closing analytics-pull
 // (#507). youtube-upload (direct API) stays a named follow-up (#501 notes).
 registerExecutor("publish", publishExecutor);
+// E. Article rails (#527): github-pages (git-backed) + devto/hashnode APIs +
+// medium export-pack. Per-target isolation, canonical enforcement, ledger.
+registerExecutor("article-publish", articlePublishExecutor);
 registerExecutor("x-post", xPostExecutor);
 registerExecutor("analytics-pull", analyticsPullExecutor);
 

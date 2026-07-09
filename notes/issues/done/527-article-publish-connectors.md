@@ -1,6 +1,6 @@
 # Article publish connectors (GitHub Pages, dev.to, Medium)
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (article-publish verb + node: github-pages commit-only w/ dry-run, devto + hashnode connectors (file-scoped DEVTO_API_KEY/HASHNODE_TOKEN, draft default, canonical_url mandatory when a canonical site is set), medium export-pack fallback (API closed to new integrations, verified 2026). Per-target isolation, trust/calendar/cadence gates, exactly-once ledger. agents-md-invariants strengthened.)
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** high
