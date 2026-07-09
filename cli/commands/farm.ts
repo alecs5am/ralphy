@@ -25,7 +25,14 @@ import {
   loadGraphWorkflows,
   retryNode,
   fireTick,
+  farmHealth,
+  farmHealthAlertPath,
+  shouldAlertOnTransition,
+  type FarmHealthState,
 } from "../lib/farm/runner.js";
+import { notifyFarmEvent } from "../lib/farm/notify.js";
+import { writeFileSync, mkdirSync } from "fs";
+import { dirname } from "path";
 import type { WorkflowGraph } from "../lib/schemas/workflow.js";
 import { buildFarmReport } from "../lib/farm/rollup.js";
 import { farmDoctor } from "../lib/farm/preflight.js";
@@ -270,6 +277,84 @@ export function farmCmd() {
       }
       if (report.verdict === "red") process.exitCode = 1;
     });
+
+  // ── health (#539 liveness signal) ───────────────────────────────────────────
+  //
+  // The runtime probe for a Docker HEALTHCHECK / systemd WatchdogSec / an
+  // external uptime check. Reads the heartbeat + pidfile — no process spawned,
+  // no network. EXIT CODES: 0 = alive OR intentionally-stopped (a #536 freeze /
+  // `farm stop` is NOT unhealthy, so the container does not fight an operator
+  // stop); 1 = stalled (wedged tick, heartbeat stale) OR dead (dead pidfile and
+  // not stopped on purpose). This is a SIGNAL only — ralphy ships no supervisor;
+  // the container runtime (restart: unless-stopped) or systemd owns lifecycle.
+  cmd
+    .command("health")
+    .description(
+      "Farm liveness probe (#539) — the runtime health signal a Docker HEALTHCHECK, systemd WatchdogSec, or an external uptime check calls. Reads the loop's heartbeat file + the pidfile (no process spawned, no network) and reports one of: alive (process live + heartbeat fresh) / stalled (process live but the tick loop is wedged — heartbeat older than the stall threshold) / dead (dead pidfile, should be restarted) / stopped (deliberately down via #536 freeze or `farm stop` — NOT unhealthy). EXIT CODE: 0 for alive|stopped, non-zero for stalled|dead. --notify-on-fail fires the #518 notifier ONCE per healthy→unhealthy transition (a sidecar tracks the last alerted state so a cron probe does not re-alert). With NO --workspace it probes the multi-workspace daemon. Example: ralphy farm health --workspace my-studio --notify-on-fail",
+    )
+    .option("--workspace <ws>", "Probe a SINGLE-workspace process (default: the multi-workspace daemon)")
+    .option(
+      "--stall-multiple <n>",
+      "Stall when the heartbeat is older than N × the shortest tick interval (default: 3)",
+      parseFloat,
+    )
+    .option("--notify-on-fail", "On a healthy→unhealthy transition, fire the #518 notifier ONCE (tracked in a sidecar)")
+    .action(async (opts) => {
+      const single: string | undefined = opts.workspace;
+      if (single) requireWorkspace("farm health", single);
+      else if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb: "farm health" });
+      const slug = single ?? MULTI_DAEMON_SLUG;
+      const report = farmHealth(slug, { stallMultiple: opts.stallMultiple });
+
+      // #518 once-per-transition alert: read the last alerted state from the
+      // sidecar, fire only when crossing healthy→unhealthy, then persist.
+      if (opts.notifyOnFail) {
+        const alertPath = farmHealthAlertPath(slug);
+        let last: FarmHealthState | null = null;
+        try {
+          last = (JSON.parse(readFileSync(alertPath, "utf8")) as { state?: FarmHealthState }).state ?? null;
+        } catch {
+          /* no prior alert */
+        }
+        if (shouldAlertOnTransition(last, report.state)) {
+          const notifyWs = single ?? report.daemon.pidFile;
+          try {
+            await notifyFarmEvent({
+              event: "run-failed",
+              workspace: single ?? MULTI_DAEMON_SLUG,
+              title: `Farm is ${report.state} (${notifyWs})`,
+              body: report.detail,
+              runId: null,
+              node: null,
+              url: null,
+              data: { state: report.state, heartbeatAgeSec: report.heartbeatAgeSec },
+              ts: new Date().toISOString(),
+            });
+          } catch {
+            /* invariant: a notification never fails the probe */
+          }
+        }
+        try {
+          mkdirSync(dirname(alertPath), { recursive: true });
+          writeFileSync(alertPath, JSON.stringify({ state: report.state, at: new Date().toISOString() }) + "\n");
+        } catch {
+          /* best effort — a probe that can't write its sidecar still reports */
+        }
+      }
+
+      out(report);
+      if (report.exitCode !== 0) process.exitCode = report.exitCode;
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ ralphy farm health
+  $ ralphy farm health --workspace my-studio
+  $ ralphy farm health --workspace my-studio --stall-multiple 5
+  $ ralphy farm health --notify-on-fail
+`,
+    );
 
   // ── failures ───────────────────────────────────────────────────────────────
   cmd

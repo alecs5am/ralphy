@@ -1790,6 +1790,26 @@ Commands:
                                     exits non-zero on any red check for
                                     CI/scripted use. Example: ralphy farm doctor
                                     --workspace my-studio
+  health [options]                  Farm liveness probe (#539) — the runtime
+                                    health signal a Docker HEALTHCHECK, systemd
+                                    WatchdogSec, or an external uptime check
+                                    calls. Reads the loop's heartbeat file + the
+                                    pidfile (no process spawned, no network) and
+                                    reports one of: alive (process live +
+                                    heartbeat fresh) / stalled (process live but
+                                    the tick loop is wedged — heartbeat older
+                                    than the stall threshold) / dead (dead
+                                    pidfile, should be restarted) / stopped
+                                    (deliberately down via #536 freeze or `farm
+                                    stop` — NOT unhealthy). EXIT CODE: 0 for
+                                    alive|stopped, non-zero for stalled|dead.
+                                    --notify-on-fail fires the #518 notifier
+                                    ONCE per healthy→unhealthy transition (a
+                                    sidecar tracks the last alerted state so a
+                                    cron probe does not re-alert). With NO
+                                    --workspace it probes the multi-workspace
+                                    daemon. Example: ralphy farm health
+                                    --workspace my-studio --notify-on-fail
   failures [options]                List the workspace's dead-letter quarantine
                                     (#519): nodes that exhausted their retry
                                     envelope, or failed a permanent-class error
