@@ -48,6 +48,7 @@ import {
   DEFAULT_REGRESSION_TOLERANCE,
   type GoldenGateResult,
 } from "../lib/golden.js";
+import { backupWorkspace, restoreWorkspace } from "../lib/workspace-backup.js";
 import { loadGraphWorkflows } from "../lib/farm/runner.js";
 import {
   TRUST_LEVELS,
@@ -816,6 +817,112 @@ export function workspaceCmd() {
           raiseError("E_NOT_FOUND", { kind: "Rollback snapshot", id: slug });
         }
         raiseError("E_VALIDATION_FAILED", { target: "workspace-rollback", detail: e.message });
+      }
+    });
+
+  // ── backup (#540) ──────────────────────────────────────────────────────
+  cmd
+    .command("backup <slug>")
+    .description(
+      "Snapshot a workspace's irreplaceable runtime STATE into a versioned, timestamped zip for disaster recovery (#540): publish ledger (#531 exactly-once), quota usage (#534), calendar entries + event log (#504), trust level + agreement history (#505), selection weights (#532), dedup store (#500), node cache, farm runtime (dead-letter, webhook tokens), run journals (#503), publish-mode audit, lifecycle log, and workspace.json. KNOW-HOW (graphs, prompts, evaluators, refs) is NOT backed up — it lives in the deployable bundle (`ralphy workspace export`). Project/batch MEDIA is EXCLUDED by default; pass --include-media to include it. READ-ONLY over the live workspace (state is snapshot-copied then archived — safe to run on a live farm, no torn reads). Uses the system `zip` binary; never overwrites --out. Recipe (scheduled backup + off-host push): docs/workspace-bundle.md. Example: ralphy workspace backup tech-news --out tech-news-state.zip",
+    )
+    .option("--out <path>", "Output zip path (default: ./<slug>-backup-<timestamp>.zip; never overwrites)")
+    .option("--include-media", "Include project/batch media artifacts (default: state only)")
+    .action(async (slug: string, opts) => {
+      requireRalphyLayout("workspace backup");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const outPath = (opts.out as string) || `${slug}-backup-${stamp}.zip`;
+      try {
+        const result = backupWorkspace(slug, outPath, { includeMedia: Boolean(opts.includeMedia) });
+        ok(
+          `Workspace state backed up: ${result.out} (${result.manifest.contents.length} path(s)${result.manifest.includeMedia ? ", media included" : ""})`,
+        );
+        out({
+          workspace: result.workspace,
+          out: result.out,
+          sizeBytes: result.sizeBytes,
+          includeMedia: result.manifest.includeMedia,
+          createdAt: result.manifest.createdAt,
+          ralphyVersion: result.manifest.ralphyVersion,
+          contents: result.manifest.contents,
+        });
+      } catch (e) {
+        if (!(e instanceof BundleError)) throw e;
+        switch (e.code) {
+          case "not-found":
+            raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+            break;
+          case "dep-missing":
+            raiseError("E_DEP_MISSING", { dep: String(e.details[0] ?? "zip") });
+            break;
+          case "already-exists":
+            raiseError("E_ALREADY_EXISTS", { kind: "Backup", id: String(e.details[0] ?? outPath) });
+            break;
+          default:
+            raiseError("E_VALIDATION_FAILED", { target: "workspace-backup", detail: e.message });
+        }
+      }
+    });
+
+  // ── restore (#540) ─────────────────────────────────────────────────────
+  cmd
+    .command("restore <archive>")
+    .description(
+      "Rehydrate a workspace's runtime STATE from a `workspace backup` archive (#540). Validates the archive schema version, then refuses to clobber a target whose live state is NEWER than the archive unless --force is passed (the override is recorded in the payload). --as <slug> restores into a different or brand-new workspace (host migration, cloning a channel). Restore writes ONLY the STATE paths the archive carried (publish ledger, calendar, trust, quota, weights, dedup, journals, caches) — never know-how, never media the archive did not include; existing state dirs are replaced (clean rehydration, not a merge). Runs a post-restore integrity subset of `farm doctor` (#530): the publish ledger parses and the calendar resolves — restoring the ledger reestablishes #531 exactly-once so a re-publish idempotent-skips. Uses the system `unzip` binary. Example: ralphy workspace restore tech-news-state.zip --as tech-news-recovered",
+    )
+    .option("--as <slug>", "Restore into this workspace slug (default: the archive's workspace)")
+    .option("--force", "Overwrite even when the target's live state is newer than the archive (logged)")
+    .action(async (archive: string, opts) => {
+      requireRalphyLayout("workspace restore");
+      try {
+        const result = restoreWorkspace(archive, {
+          as: opts.as as string | undefined,
+          force: Boolean(opts.force),
+        });
+        ok(
+          `Workspace state restored into ${result.workspace}: ${result.restored.length} path(s)` +
+            (result.forced ? " (--force: newer live state overwritten)" : "") +
+            (result.integrity.ok ? "" : " — integrity check FAILED"),
+        );
+        out({
+          workspace: result.workspace,
+          path: result.path,
+          restored: result.restored,
+          forced: result.forced,
+          fromArchive: {
+            workspace: result.manifest.workspace,
+            createdAt: result.manifest.createdAt,
+            ralphyVersion: result.manifest.ralphyVersion,
+            includeMedia: result.manifest.includeMedia,
+          },
+          integrity: result.integrity,
+        });
+        if (!result.integrity.ok) {
+          raiseError("E_VALIDATION_FAILED", {
+            target: "workspace-restore",
+            detail: result.integrity.checks
+              .filter((c) => c.status === "fail")
+              .map((c) => c.detail)
+              .join("; "),
+          });
+        }
+      } catch (e) {
+        if (!(e instanceof BundleError)) throw e;
+        switch (e.code) {
+          case "not-found":
+            raiseError("E_FILE_UNREADABLE", { path: archive });
+            break;
+          case "dep-missing":
+            raiseError("E_DEP_MISSING", { dep: String(e.details[0] ?? "unzip") });
+            break;
+          case "already-exists":
+            out({ restored: false, refusals: e.details });
+            raiseError("E_ALREADY_EXISTS", { kind: "Workspace state", id: String((e.details[0] as any)?.id ?? "clobber-newer") });
+            break;
+          default:
+            out({ restored: false, refusals: e.details });
+            raiseError("E_VALIDATION_FAILED", { target: "workspace-restore", detail: e.message });
+        }
       }
     });
 

@@ -150,3 +150,90 @@ it preserves) is the table in
 [`docs/architecture/farm-node-graph.md`](architecture/farm-node-graph.md)
 "Bundle lineage + upgrade (#521)"; the enforcement is `RUNTIME_STATE_PATHS` +
 `upgradeWorkspace` / `rollbackWorkspace` in `cli/lib/bundle.ts`.
+
+## State backup + restore (#540) — disaster recovery
+
+The bundle is **know-how**; it is reproducible from the training path and
+re-exportable at any time. What is NOT reproducible is a deployed farm's
+accumulated **runtime state** — the publish ledger, quota usage, calendar
+entries, trust history, selection weights, dedup store, run journals. A disk
+loss or a bad `rm` loses months of learned history, and — via the lost publish
+ledger — reintroduces the #531 double-post risk. `ralphy workspace backup` /
+`restore` is the recovery path for exactly that state.
+
+### The three-way boundary
+
+Every workspace-relative path is exactly one of three classes. The manifest is
+`STATE_PATHS` / `MEDIA_PATHS` / `KNOWHOW_PATHS` in
+[`cli/lib/workspace-backup.ts`](../cli/lib/workspace-backup.ts):
+
+| Class | What | In backup? | In bundle? |
+|---|---|---|---|
+| **STATE** | `publish-ledger.jsonl` (#531), `publish-quota.jsonl` (#534), `calendar.json` entries + `calendar-events.jsonl` (#504), `trust-audit.jsonl` + `trust-agreement.jsonl` (#505), `selection-weights.jsonl` (#532), `ingestion/` dedup (#500), `cache/` node-cache, `farm/` (dead-letter, webhook tokens), `runs/` journals (#503), `publish-mode-audit.jsonl`, `lifecycle.jsonl`, `workspace.json` | **Yes** (always) | No |
+| **MEDIA** | `projects/`, `batches/`, `ideas/` artifacts + logs | Only with `--include-media` | No |
+| **KNOW-HOW** | `workflows/`, `subgraphs/`, `prompts/`, `compositions/`, `evaluators.json`, `STYLE_LOCK.md`, `metrics-benchmarks.json`, `reroute-rules.json`, `golden/`, `shared/` | No — re-export the **bundle** instead | Yes |
+
+The STATE set is a documented subset of the upgrade's `RUNTIME_STATE_PATHS`
+(`cli/lib/bundle.ts`) with the media paths split out to the MEDIA axis, plus
+the top-level ledger/quota/selection files upgrade preserves implicitly.
+`bundle.ts` behavior is unchanged — backup only reads its boundary.
+
+**Extension seam (honest):** the #540 spec names analytics snapshots (#507),
+quarantine (#519), and a topic-index (#541). None yet has a workspace-relative
+store in code — analytics is project-scoped, the review flow reuses
+`publish-mode-audit.jsonl` (already backed up), and #541 is not built. When any
+lands as a workspace-relative file, add it to `STATE_PATHS`.
+
+### backup
+
+`ralphy workspace backup <ws> [--out <path>] [--include-media]` writes a
+versioned, timestamped zip (`backup-manifest.json` carries the schema version,
+the ralphy version, the workspace, the timestamp, and the archived path list).
+It is **safe on a live farm**: each state path is snapshot-**copied** into a
+scratch dir first, then the scratch dir is archived — the live tree is never
+mutated and a concurrent JSONL append (a publish, a calendar event) either
+lands wholly in the point-in-time copy or not at all, so the archive never
+tears. Never overwrites `--out`. Uses the system `zip` binary.
+
+### restore
+
+`ralphy workspace restore <archive> [--as <slug>] [--force]` rehydrates the
+STATE (and MEDIA, when the archive carried it) onto a target workspace. It
+validates the archive schema version, then **refuses to clobber** a target
+whose live state is newer than the archive unless `--force` is passed (the
+override is recorded in the payload). `--as <slug>` restores into a different
+or brand-new workspace — the path for host migration or cloning a channel to a
+second server. Restore writes only STATE — never know-how, never media the
+archive did not include. It then runs a `farm doctor` (#530) subset: the
+publish ledger parses and the calendar resolves. Restoring the ledger
+**re-establishes #531 exactly-once** — a re-publish of an already-posted
+(unit, target) idempotent-skips again.
+
+### Scheduled backup + off-host push
+
+Backup writes a local zip; getting it off the host is your choice (the hook,
+not a hosted service). A cron example that keeps 14 daily snapshots and pushes
+each to object storage:
+
+```bash
+# /etc/cron.daily/ralphy-backup  (or `crontab -e`: 0 4 * * *)
+set -euo pipefail
+WS=tech-news
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+OUT="/var/backups/ralphy/${WS}-${STAMP}.zip"
+
+ralphy workspace backup "$WS" --out "$OUT"
+
+# Off-host push — pick your destination (S3 / B2 / rsync / restic …):
+aws s3 cp "$OUT" "s3://my-bucket/ralphy-backups/"      # or:
+# rclone copy "$OUT" b2:my-bucket/ralphy-backups/
+# rsync -a "$OUT" backup-host:/srv/ralphy-backups/
+
+# Retention: keep the last 14 local snapshots.
+ls -1t /var/backups/ralphy/${WS}-*.zip | tail -n +15 | xargs -r rm --
+```
+
+Inside a running farm you can also drive it from a `schedule`-node tick that
+shells the same `ralphy workspace backup` before the day's run. Recovery on a
+fresh host: `ralphy workspace restore <archive> --as <ws>` after importing the
+bundle (know-how first, then state).
