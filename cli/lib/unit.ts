@@ -254,6 +254,41 @@ export async function writeUnitManifest(unitDir: string, manifest: UnitManifest)
 }
 
 /**
+ * Stamp the #532 performance-selection axes onto a unit's provenance, so the
+ * selection loop (`cli/lib/selection.ts`) can attribute measured analytics back
+ * to the creative choices that produced the unit. Called by the campaign
+ * produced-cell stamp (`campaign stamp`): the cell supplies angle/thesis/format,
+ * and its stamped variance profile supplies hookType + the coarse length band.
+ *
+ * Merge is ADDITIVE (AGENTS.md invariant #14): it reads the existing manifest,
+ * merges the given axes into `provenance.selection` (only writing fields that
+ * are present), and re-writes. It never drops other provenance blocks and never
+ * touches media. A missing manifest is a no-op (returns false).
+ */
+export async function applySelectionProvenance(
+  unitDir: string,
+  sel: {
+    hookType?: string;
+    lengthBand?: string;
+    angle?: string;
+    thesis?: string;
+    format?: string;
+  },
+): Promise<boolean> {
+  const manifest = await readUnitManifest(unitDir);
+  if (!manifest) return false;
+  const clean = Object.fromEntries(
+    Object.entries(sel).filter(([, v]) => typeof v === "string" && v.length > 0),
+  ) as Record<string, string>;
+  if (Object.keys(clean).length === 0) return false;
+  const prov = { ...(manifest.provenance ?? {}) };
+  prov.selection = { ...(prov.selection ?? {}), ...clean };
+  const next = UnitManifestSchema.parse({ ...manifest, provenance: prov });
+  await writeUnitManifest(unitDir, next);
+  return true;
+}
+
+/**
  * Copy each project-relative source into `unitDir`, preserving filenames in the
  * given order. Returns the ordered list of destination basenames written.
  * Refuses to clobber an existing media file in the unit (append-only): if a

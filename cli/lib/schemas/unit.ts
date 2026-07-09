@@ -67,6 +67,31 @@ export const UnitProvenanceSchema = z
         }),
       )
       .optional(),
+    /**
+     * Performance-selection axes (#532) — the creative choices the campaign
+     * picker (#528) + variance planner (#529) made for this unit, stamped at
+     * production time so the selection loop (`cli/lib/selection.ts`) can join
+     * measured analytics back to what was chosen and bias future picks toward
+     * winners. All optional/additive — a unit produced outside a campaign /
+     * variance flow carries none, and older `unit.json` files predate the block
+     * and must still validate. Values are pool labels / cell fields, never
+     * free-form prose.
+     */
+    selection: z
+      .object({
+        /** Opener shape from the variance profile (`VarianceProfile.hookType`). */
+        hookType: z.string().optional(),
+        /** Coarse length bucket (short | medium | long) — `lengthBand()`. */
+        lengthBand: z.string().optional(),
+        /** Campaign cell creative angle. */
+        angle: z.string().optional(),
+        /** Campaign cell thesis id. */
+        thesis: z.string().optional(),
+        /** Media format (mirrors the manifest `format`, carried for attribution). */
+        format: z.string().optional(),
+      })
+      .partial()
+      .optional(),
   })
   .partial();
 

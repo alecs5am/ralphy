@@ -16,6 +16,8 @@
 // English-only-on-disk.
 
 import { UNIT_FORMATS, type UnitFormat } from "../schemas/unit.js";
+import { sampleWeighted, lengthBand, type WeightLookup, type Candidate } from "../selection.js";
+import type { Prng } from "../farm/prng.js";
 
 // ─── The profile shape ─────────────────────────────────────────────────────────
 
@@ -181,6 +183,23 @@ function hashStr(s: string): number {
 }
 
 /**
+ * Performance bias for the variance planner (#532). When present, the two
+ * dimensions the selection loop measures for a profile — `hookType` (a pool
+ * label) and `lengthBand` (the coarse bucket of `targetLength`) — are drawn by
+ * `sampleWeighted` toward proven winners instead of by pure uniform rotation.
+ * ABSENT (the default) → the assignment is byte-for-byte the pre-#532 staggered
+ * rotation, so cold-start behaves exactly like today and the #529 pool-coverage
+ * guarantee holds. The other dimensions (intro / sections / caption / CTA) stay
+ * on the deterministic rotation regardless — the selection loop does not measure
+ * them, so biasing them would be dishonest.
+ */
+export interface VarianceBias {
+  lookup: WeightLookup;
+  /** Deterministic prng the biased picks draw from (seeded by the caller). */
+  prng: Prng;
+}
+
+/**
  * Assign one variance profile for item `index` of a batch of `count`, drawn from
  * `format`'s pools. ROTATION (not pure random) drives the categorical picks so
  * no dimension is starved: with `count >= pool.length` every pool value is used;
@@ -188,22 +207,50 @@ function hashStr(s: string): number {
  * per-dimension rotation offsets are staggered so two dimensions don't move in
  * lockstep. `targetLength` and the section permutation are sampled from a
  * seeded PRNG so they vary without clustering.
+ *
+ * When `bias` is supplied (#532), `hookType` and the length BAND are sampled by
+ * measured weight (exploration floor keeps every value reachable) instead of by
+ * rotation; without it, the rotation is unchanged.
  */
 export function assignVarianceProfile(
   format: UnitFormat,
   index: number,
   count: number,
   salt = "",
+  bias?: VarianceBias,
 ): VarianceProfile {
   const pool = poolFor(format);
   const rng = mulberry32(hashStr(`${format}:${salt}:${index}`) ^ (index + 1));
   // Staggered rotation offsets keep the dimensions out of lockstep.
   const [rMin, rMax] = pool.lengthRange;
   const span = rMax - rMin;
-  const targetLength = span <= 0 ? rMin : rMin + Math.round(rng() * span);
+
+  let hookType = rotate(pool.hookTypes, index, 0);
+  let targetLength = span <= 0 ? rMin : rMin + Math.round(rng() * span);
+
+  if (bias) {
+    // Bias the hook toward measured winners across the format's pool.
+    const hookCands: Candidate[] = pool.hookTypes.map((v) => ({ dimension: "hookType", value: v }));
+    hookType = sampleWeighted(hookCands, bias.lookup, { prng: bias.prng }).value;
+    // Bias which length BAND we sample from, then sample uniformly inside it. A
+    // band with no offered length in the range is skipped (candidates are the
+    // bands the range can actually produce), so coverage is never faked.
+    const bandsInRange = new Map<string, number[]>();
+    for (let v = rMin; v <= rMax; v++) {
+      const b = lengthBand(v, pool.lengthUnit);
+      (bandsInRange.get(b) ?? bandsInRange.set(b, []).get(b)!).push(v);
+    }
+    const bandCands: Candidate[] = [...bandsInRange.keys()].map((v) => ({ dimension: "lengthBand", value: v }));
+    if (bandCands.length > 0) {
+      const chosenBand = sampleWeighted(bandCands, bias.lookup, { prng: bias.prng }).value;
+      const vals = bandsInRange.get(chosenBand)!;
+      targetLength = vals[Math.min(vals.length - 1, Math.floor(bias.prng.next() * vals.length))]!;
+    }
+  }
+
   return {
     format,
-    hookType: rotate(pool.hookTypes, index, 0),
+    hookType,
     introStructure: rotate(pool.introStructures, index, 1),
     sectionOrder: shuffle(pool.sections, rng),
     targetLength,
@@ -215,14 +262,16 @@ export function assignVarianceProfile(
 
 /**
  * Assign profiles for a whole batch in one call (the campaign/batch stamp path).
- * `count` items, `format`, an optional `salt` (the batch/campaign id).
+ * `count` items, `format`, an optional `salt` (the batch/campaign id). `bias`
+ * (#532) threads through to each item unchanged; absent → uniform rotation.
  */
 export function assignBatchProfiles(
   format: UnitFormat,
   count: number,
   salt = "",
+  bias?: VarianceBias,
 ): VarianceProfile[] {
-  return Array.from({ length: count }, (_, i) => assignVarianceProfile(format, i, count, salt));
+  return Array.from({ length: count }, (_, i) => assignVarianceProfile(format, i, count, salt, bias));
 }
 
 // ─── Prompt slot delivery ─────────────────────────────────────────────────────
