@@ -21,6 +21,27 @@ import {
   type KeywordMatrix,
   type PendingLink,
 } from "../schemas/campaign.js";
+import { assignVarianceProfile } from "../eval/variance-pools.js";
+
+/**
+ * Stamp a batch-variance profile (#529) onto every cell that lacks one, drawn
+ * from its FORMAT's rotation pool. Cells are grouped by format so each format's
+ * pool rotation covers its own items (no dimension starved). `salt` (the
+ * campaign id) makes two campaigns of the same size stamp distinctly. Pure —
+ * returns a new inventory array; never mutates the input cells.
+ */
+export function stampVariance(inventory: CampaignCell[], salt: string): CampaignCell[] {
+  const indexByFormat = new Map<string, number>();
+  const countByFormat = new Map<string, number>();
+  for (const c of inventory) countByFormat.set(c.format, (countByFormat.get(c.format) ?? 0) + 1);
+  return inventory.map((cell) => {
+    if (cell.variance) return cell;
+    const i = indexByFormat.get(cell.format) ?? 0;
+    indexByFormat.set(cell.format, i + 1);
+    const variance = assignVarianceProfile(cell.format, i, countByFormat.get(cell.format) ?? 1, salt);
+    return { ...cell, variance };
+  });
+}
 
 /** `<workspace>/campaigns/<id>/campaign.json` */
 export function campaignPath(workspaceDir: string, id: string): string {
@@ -105,7 +126,8 @@ export function commitPlan(
   const next = parseCampaign({
     ...campaign,
     keywords: plan.keywords,
-    inventory: plan.inventory,
+    // #529: stamp a per-format variance profile onto every cell at commit time.
+    inventory: stampVariance(plan.inventory, id),
     planned: true,
   });
   writeCampaign(workspaceDir, next);

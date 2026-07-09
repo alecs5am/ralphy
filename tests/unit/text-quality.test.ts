@@ -228,11 +228,24 @@ describe("resolveArticleBody (#526)", () => {
 });
 
 describe("workspace-validator wrappers (#526)", () => {
-  test("the four text validators register under registerBuiltinWorkspaceValidators()", () => {
+  test("the text validators register under registerBuiltinWorkspaceValidators() (incl. #529 text-ai-tell)", () => {
     registerBuiltinWorkspaceValidators();
-    for (const id of ["text-keyword-coverage", "text-structure", "text-reading-level", "text-length-window"]) {
+    for (const id of ["text-keyword-coverage", "text-structure", "text-reading-level", "text-length-window", "text-ai-tell"]) {
       expect(hasWorkspaceValidator(id)).toBe(true);
     }
+  });
+
+  test("the AI-tell validator (#529) fires on tell-heavy article prose in the project tree", () => {
+    const { projectDir } = seedProject();
+    fs.mkdirSync(path.join(projectDir, "artifacts"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, "artifacts", "draft.md"),
+      "It's not just a tool, it's a testament. Let's dive in. I hope this helps! " +
+        "filler word here to pad the body. ".repeat(15),
+    );
+    const findings = __testHooks.aiTellValidator(criterionCtx(projectDir, {}));
+    expect(findings.some((f) => f.category.startsWith("structure.ai-tell"))).toBe(true);
+    expect(findings.some((f) => f.severity === "fail")).toBe(true);
   });
 
   test("a validator degrades to an info finding when no body is present", () => {
