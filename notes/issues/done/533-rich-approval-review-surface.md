@@ -1,15 +1,16 @@
 # Rich approval review surface (one-action human gate)
 
-> **Status:** partial (2026-07-08) — foundation landed (`cli/lib/review-card.ts`:
-> `assembleReviewCard`/`assembleReviewTick` read-model — media proof + caption/
-> title + targets + #525 sampled time + #427/#469 scorecard + cost, all
-> read-only — and `applyReviewDecision` mapping approve→`recordRunApproval`,
-> reject→append-only rejection record (media untouched, #14),
-> request-change→`buildRepairPlan` enqueue, each emitting the #505/#532
-> calibration sample; surfaced via `ralphy farm review <run>`). STILL OPEN — the
-> remainder is the rendering surface: the #492 app-API endpoint + the #506
-> dashboard card that renders this output, the mobile-legible layout, and the
-> #518 notification deep-link target. Re-open the flat backlog until #492 lands.
+> **Status:** done — 2026-07-09 — foundation (`cli/lib/review-card.ts` +
+> `ralphy farm review`) + the #492 `/api/workspaces/<ws>/approvals` (list) and
+> `.../respond` endpoints landed earlier; this closes the rendering surface:
+> `ApprovalInbox` + `ReviewCard` Preact components in `studio/client/src/studio.tsx`
+> render each parked publish (media proof video/image/article + caption/title +
+> targets + sampled schedule + gate scorecard verdict/score + cost) with three
+> one-click actions (approve / request-change / reject) POSTing to the #492
+> respond endpoint (drives `ralphy farm review`, no new media mutation), a batch
+> approve-all, mobile-legible CSS, and an `id="approvals"` anchor the #518
+> deep-link lands on (also shown filtered in RunDashboard when parked-approval).
+> Cleaned the 3 foundation tsc leftovers → root tsc is 0-error.
 > **Filed:** 2026-07-07
 > **Folder:** issues
 > **Severity:** high

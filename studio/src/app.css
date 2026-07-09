@@ -697,3 +697,59 @@ button { font: inherit; cursor: pointer; background: none; border: none; color: 
 .farm-import.bad { background: rgb(194 85 78 / 0.1); color: #c2554e; }
 .farm-spec-head { display: flex; align-items: center; gap: 12px; padding: 10px 4px; }
 .farm-issues { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Rich approval review surface (#533) — the one-action human gate ────────── */
+.run-card-head .rvc-batch {
+  margin-left: auto; font-size: 11px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+  background: rgb(91 154 111 / 0.22); color: #7fb893; border: none;
+}
+.run-card-head .rvc-batch:hover { background: rgb(91 154 111 / 0.34); }
+.run-card-head .rvc-batch:disabled { opacity: 0.5; cursor: default; }
+.rvc-list { display: flex; flex-direction: column; gap: 12px; }
+.rvc {
+  display: flex; gap: 14px; padding: 12px; border-radius: 12px; background: var(--bg-2);
+}
+.rvc-proof { flex: 0 0 200px; max-width: 200px; }
+.rvc-media {
+  width: 100%; max-height: 260px; border-radius: 8px; background: var(--bg); object-fit: contain; display: block;
+}
+.rvc-doc, .rvc-noproof {
+  display: flex; align-items: center; justify-content: center; min-height: 90px;
+  border-radius: 8px; background: var(--bg-3); color: var(--ink-3); font-size: 12px; text-decoration: none;
+}
+.rvc-doc:hover { color: var(--acc); }
+.rvc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.rvc-head { display: flex; align-items: center; gap: 10px; }
+.rvc .gb {
+  font-family: var(--font-mono); font-size: 9.5px; padding: 2px 7px; border-radius: 5px;
+  background: var(--bg-3); color: var(--ink-3); white-space: nowrap;
+}
+.rvc .gb.v-ship { background: rgb(91 154 111 / 0.22); color: #7fb893; }
+.rvc .gb.v-repair { background: rgb(255 166 48 / 0.2); color: var(--acc); }
+.rvc .gb.v-blocked { background: rgb(194 85 78 / 0.2); color: #c2554e; }
+.rvc-title { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rvc-cost { margin-left: auto; color: var(--mute); font-family: var(--font-mono); font-size: 12px; }
+.rvc-caption { margin: 0; color: var(--ink-3); font-size: 13px; line-height: 1.4; max-height: 5.6em; overflow: hidden; }
+.rvc-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--mute); }
+.rvc-targets { color: var(--ink-3); }
+.rvc-when { font-family: var(--font-mono); }
+.rvc-actions { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+.rvc-actions button {
+  flex: 1; min-width: 96px; padding: 8px 12px; border-radius: 8px; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.rvc-actions button:disabled { opacity: 0.5; cursor: default; }
+.rvc-approve { background: rgb(91 154 111 / 0.22); color: #7fb893; }
+.rvc-approve:hover:not(:disabled) { background: rgb(91 154 111 / 0.36); }
+.rvc-change { background: rgb(255 166 48 / 0.18); color: var(--acc); }
+.rvc-change:hover:not(:disabled) { background: rgb(255 166 48 / 0.32); }
+.rvc-reject { background: rgb(194 85 78 / 0.18); color: #c2554e; }
+.rvc-reject:hover:not(:disabled) { background: rgb(194 85 78 / 0.32); }
+
+/* Mobile-legible: the operator approves from a phone (#518 deep-link lands here). */
+@media (max-width: 620px) {
+  .rvc { flex-direction: column; }
+  .rvc-proof { flex-basis: auto; max-width: 100%; }
+  .rvc-media { max-height: 220px; }
+  .rvc-actions button { min-width: 0; }
+}

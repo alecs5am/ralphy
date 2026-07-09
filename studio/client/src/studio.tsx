@@ -38,6 +38,15 @@ type TrustStatus = {
 };
 type CalendarDoc = { workspace: string; slots: any[]; entries: any[] };
 type WorkflowRow = { name: string; kind: string; nodes: number; steps: number };
+// ── Rich approval review surface (#533) — shape mirrors studio/server/approvals.ts ──
+type ApprovalItem = {
+  id: string; run: string; node: string; project: string | null; unit: string | null;
+  title: string | null; caption: string | null; targets: string[]; scheduleAt: string | null;
+  verdict: string | null; score: number | null; costUsd: number; reason: string | null;
+  media: { kind: string; paths: string[]; thumbnail?: string } | null;
+};
+type ApprovalListView = { workspace: string; count: number; approvals: ApprovalItem[] };
+type ReviewDecision = "approve" | "reject" | "request-change";
 const FARM_RUN_CLS: Record<string, string> = { running: "rs-active", complete: "rs-complete", "parked-approval": "rs-archived", "halted-budget": "rs-archived", "halted-failure": "rs-archived" };
 type ModalEntry = Artifact | null;
 type TagTarget = { type: string; ref: string; label: string } | null;
@@ -488,6 +497,107 @@ function LoginGate() {
   </div>;
 }
 
+// ── Rich approval review surface (#533) — the one-action human gate ──────────
+// Renders the parked-publish review cards from GET /api/workspaces/<ws>/approvals
+// (the #492 boundary, read-only over `ralphy farm review`). Each card shows the
+// media proof + caption/title + targets + sampled schedule + gate scorecard +
+// cost; the three actions POST .../approvals/respond, which drives the existing
+// `ralphy farm review --approve|--reject|--request-change` transition (no new
+// media mutation). The `id="approvals"` anchor is the #518 notification target.
+// `runFilter` scopes the inbox to one run (the deep-link lands on RunDashboard).
+function ApprovalInbox({ workspace, runFilter }: { workspace: string; runFilter?: string }) {
+  const [view, setView] = useState<ApprovalListView | null>(null);
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState("");
+  const ws = encodeURIComponent(workspace);
+  const load = () => api<ApprovalListView>(`/api/workspaces/${ws}/approvals`).then(setView).catch(() => setView(null));
+  useEffect(() => { setNote(""); void load(); }, [workspace]);
+
+  const items = (view?.approvals || []).filter((a) => !runFilter || a.run === runFilter);
+
+  const decide = async (item: ApprovalItem, decision: ReviewDecision) => {
+    let reason: string | undefined;
+    if (decision !== "approve") {
+      reason = (window.prompt(`Reason for ${decision} — ${item.title || item.unit || item.node}:`) || "").trim();
+      if (!reason) return; // reject / request-change require a reason
+    }
+    setBusy(item.id + decision);
+    setNote("");
+    try {
+      await postJson(`/api/workspaces/${ws}/approvals/respond`, { id: item.id, decision, reason });
+      setNote(`${decision === "request-change" ? "sent to repair" : decision + "d"}: ${item.title || item.unit || item.node}`);
+      await load();
+    } catch (e: any) {
+      setNote(e?.data?.error || `failed: ${e?.message}`);
+    }
+    setBusy("");
+  };
+
+  // Batch review (#533): one action across the whole tick, per-item override
+  // stays the individual card buttons. Reject/request-change are per-item only
+  // (each needs its own reason) — batch is approve-all for a clean tick.
+  const approveAll = async () => {
+    if (!items.length || !window.confirm(`Approve all ${items.length} parked item(s)?`)) return;
+    setBusy("all");
+    for (const item of items) {
+      try { await postJson(`/api/workspaces/${ws}/approvals/respond`, { id: item.id, decision: "approve" }); } catch { /* keep going; reload shows what remains */ }
+    }
+    setBusy("");
+    setNote(`approved ${items.length} item(s)`);
+    await load();
+  };
+
+  return <section class="run-card" id="approvals">
+    <h2 class="run-card-head">Approval inbox<span class="n">{items.length}</span>
+      {items.length > 1 && !runFilter ? <button class="rvc-batch" disabled={!!busy} onClick={() => void approveAll()}>{busy === "all" ? "approving…" : "approve all"}</button> : null}
+      <button class="ib-link" onClick={() => void load()}>refresh</button>
+    </h2>
+    {note ? <div class="run-warn">{note}</div> : null}
+    {items.length
+      ? <div class="rvc-list">{items.map((item) => <ReviewCard key={item.id} item={item} workspace={workspace} busy={busy} onDecide={decide} />)}</div>
+      : <div class="inbox-empty">Nothing awaits approval{runFilter ? " for this run" : ""}.</div>}
+  </section>;
+}
+
+function ReviewCard({ item, workspace, busy, onDecide }: {
+  item: ApprovalItem; workspace: string; busy: string; onDecide: (i: ApprovalItem, d: ReviewDecision) => void;
+}) {
+  const ws = encodeURIComponent(workspace);
+  const proofUrl = (path: string) =>
+    item.project ? `/api/projects/${encodeURIComponent(item.project)}/file?workspace=${ws}&path=${encodeURIComponent(path)}` : "";
+  const vcls = item.verdict === "ship" ? "v-ship" : item.verdict === "blocked" ? "v-blocked" : "v-repair";
+  const first = item.media?.paths?.[0];
+  const isVideo = !!first && /\.(mp4|mov|webm)$/i.test(first);
+  const isImage = !!first && /\.(png|jpe?g|webp|gif)$/i.test(first);
+  const isArticle = item.media?.kind === "article" || (!!first && /\.md$/i.test(first));
+  return <div class="rvc">
+    <div class="rvc-proof">
+      {isVideo ? <video class="rvc-media" controls preload="metadata" src={proofUrl(first!)} />
+        : isImage ? <img class="rvc-media" loading="lazy" src={proofUrl(first!)} alt="" />
+        : isArticle ? <a class="rvc-doc" href={proofUrl(first!)} target="_blank" rel="noreferrer">open article ↗</a>
+        : <div class="rvc-noproof">no media proof</div>}
+    </div>
+    <div class="rvc-body">
+      <div class="rvc-head">
+        <span class={`gb ${vcls}`}>{item.verdict || "—"}{item.score != null ? ` ${Math.round(item.score * 100)}` : ""}</span>
+        <span class="rvc-title">{item.title || item.unit || item.node}</span>
+        <span class="rvc-cost">{money(item.costUsd)}</span>
+      </div>
+      {item.caption ? <p class="rvc-caption">{item.caption}</p> : null}
+      <div class="rvc-meta">
+        {item.targets.length ? <span class="rvc-targets">{item.targets.join(", ")}</span> : null}
+        {item.scheduleAt ? <span class="rvc-when">{item.scheduleAt}</span> : <span class="rvc-when">unscheduled</span>}
+        <code class="cp-id">{item.id}</code>
+      </div>
+      <div class="rvc-actions">
+        <button class="rvc-approve" disabled={!!busy} onClick={() => onDecide(item, "approve")}>{busy === item.id + "approve" ? "…" : "approve"}</button>
+        <button class="rvc-change" disabled={!!busy} onClick={() => onDecide(item, "request-change")}>{busy === item.id + "request-change" ? "…" : "request change"}</button>
+        <button class="rvc-reject" disabled={!!busy} onClick={() => onDecide(item, "reject")}>{busy === item.id + "reject" ? "…" : "reject"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
 // ── Farm dashboard (#506) — workspace-level view over the #503 farm plane ──
 function FarmPanel({ workspace, onNode, annFor, chips, objectButtons }: {
   workspace: string;
@@ -569,6 +679,8 @@ function FarmPanel({ workspace, onNode, annFor, chips, objectButtons }: {
       <button class="cp-propose" disabled={!!busy} onClick={() => void farmAction("tick-now")}>{busy === "tick-now" ? "firing..." : "tick now"}</button>
       <button class="ib-link" onClick={loadAll}>refresh</button>
     </div>
+
+    <ApprovalInbox workspace={workspace} />
 
     <section class="run-card">
       <h2 class="run-card-head">Farm runs<span class="n">{farm?.runs?.length || 0}</span></h2>
@@ -1066,6 +1178,7 @@ function RunDashboard({ run, runId, runPatches, setRunPatches, workspace, onProj
         <span class="ib-glyph">{x.kind === "block" ? "x" : "!"}</span><div class="ib-body"><div class="ib-detail">{x.detail}</div>{x.project ? <button class="ib-link" onClick={() => onProject(x.project)}>open {x.project} board</button> : null}</div>
       </div>) : <div class="inbox-empty">Nothing needs you - no blockers or pending approvals.</div>}</div>
     </section>
+    {run.status === "parked-approval" ? <ApprovalInbox workspace={workspace} runFilter={runId} /> : null}
     <section class="run-card">
       <h2 class="run-card-head">Projects<span class="n">{resolved.length}</span></h2>
       <div class="qhead"><span></span><span>project</span><span>phase</span><span>verdict</span><span>spent</span><span>units</span></div>
