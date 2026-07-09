@@ -1,6 +1,6 @@
 # Long-horizon topic dedup against published history
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (lexical-primary long-horizon topic dedup w/ embedding seam, no new provider: topic-index.ts signature (token+shingle Jaccard) + append-only topic-index.jsonl (45d window, 0.5 block / 0.35 follow-up); consulted in dedupExecutor after the #500 same-item filter → topic-duplicate-skip event, suppress default / param-gated follow-up; recordCoveredTopic writes ONLY on publish success (stale-drops record nothing, #542 consistent); surfaced in farm report + campaign status. 23 tests.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** high

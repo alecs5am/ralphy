@@ -223,7 +223,13 @@ export function campaignCmd() {
       const campaign = readCampaign(dir, id);
       if (!campaign) raiseError("E_NOT_FOUND", { kind: "Campaign", id });
       const coverage = await computeCoverage(campaign!);
-      out({ workspace: campaignWorkspace(id), ...coverage });
+      // #541: long-horizon topic suppressions scoped to this campaign's cells
+      // (the campaign-next cells carry `campaign://<id>/<cell>` urls). Surfaced
+      // so a silently-skipped duplicate does not read as a coverage gap.
+      const { countTopicDuplicateSkips } = await import("../lib/farm/rollup.js");
+      const ws = campaignWorkspace(id);
+      const topicDuplicateSkipped = countTopicDuplicateSkips(ws, { urlPrefix: `campaign://${id}/` });
+      out({ workspace: ws, ...coverage, topicDuplicateSkipped });
     });
 
   // ── stamp ─────────────────────────────────────────────────────────────────

@@ -260,6 +260,37 @@ export async function gatePublishTrust(
   throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
 }
 
+// ─── covered-topic record (#541) ─────────────────────────────────────────────
+
+/**
+ * Record the just-published unit's TOPIC in the workspace's published-history
+ * index (#541). Called ONLY on publish success — the topic is genuinely covered
+ * now, so a later fresher source on the same story is suppressed by the dedup
+ * node's topic consult. Best-effort: a manifest read / index write failure must
+ * NOT fail a live publish (the post already exists), so it is swallowed. The
+ * signature is derived from the unit's title + tags + article frontmatter.
+ */
+async function recordCoveredTopic(ctx: ExecutorContext, ref: UnitRef): Promise<void> {
+  try {
+    const manifest = await readUnitManifest(unitDirFor(ref.projectId, ref.slug));
+    if (!manifest) return;
+    const { topicSignature, recordTopic } = await import("../../ingestion/topic-index.js");
+    const signature = topicSignature({
+      title: manifest.title ?? manifest.article?.title ?? ref.slug,
+      claims: manifest.blurb ? [manifest.blurb] : manifest.article?.description ? [manifest.article.description] : [],
+      entities: [...(manifest.tags ?? []), ...(manifest.article?.tags ?? [])],
+    });
+    recordTopic(ctx.workspaceDir, {
+      unitId: `${ref.projectId}/${ref.slug}`,
+      ts: (ctx.now ?? (() => new Date()))().toISOString(),
+      signature,
+      title: manifest.title ?? manifest.article?.title,
+    });
+  } catch {
+    // best-effort: a live publish must not fail on a topic-index write
+  }
+}
+
 // ─── freshness guard (#542) ────────────────────────────────────────────────
 
 type FreshnessGuard =
@@ -412,10 +443,11 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     const message = `publish node "${node.id}": ${ref.projectId}/${ref.slug} stale-dropped — source aged ${ageH}h > TTL ${ttlH}h (source_ts ${freshness.source_ts}); not published`;
     if (ctx.runId) {
       const { appendRunEvent } = await import("../../run.js");
-      // #541: when topic dedup lands, a stale-DROP must NOT mark the topic
-      // "covered" — the unit was never published, so the topic stays OPEN for
-      // a fresher source. dedup's "cover" write consults publish success, not
-      // this drop path. Do NOT record a seen/cover entry here.
+      // #541: a stale-DROP must NOT mark the topic "covered" — the unit was
+      // never published, so the topic stays OPEN for a fresher source. The
+      // topic-index "cover" write lives ONLY on the publish-SUCCESS path below
+      // (see `recordCoveredTopic` after result.allFailed is false); this drop
+      // path deliberately records NOTHING in the topic index.
       await appendRunEvent(ctx.runId, {
         kind: "stale-dropped",
         node: node.id,
@@ -511,6 +543,12 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
       calendarTransition = `failed: ${(e as Error).message}`;
     }
   }
+
+  // #541: the topic is now COVERED — record it in the workspace's published-
+  // history index (gated on publish success; the stale-drop path above never
+  // reaches here). A future fresher source on the same topic is then suppressed
+  // by the dedup node's topic consult.
+  await recordCoveredTopic(ctx, ref);
 
   const crossLink = await resolveCampaignCrossLink(node, ctx);
   const payload = {
@@ -683,6 +721,8 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
         backend: "postiz",
       },
     ]);
+    // #541: topic covered on x-post success (bound unit + no error).
+    if (!error) await recordCoveredTopic(ctx, ref!);
   }
 
   // A single-target node: its one failure IS the all-failed case.
@@ -772,6 +812,9 @@ export const articlePublishExecutor: NodeExecutor = async (node, ctx) => {
       `article-publish node "${node.id}": every target failed — ${result.results.map((r) => `${r.target}: ${r.error}`).join("; ")}`,
     );
   }
+
+  // #541: topic covered on article-publish success (same gate as media).
+  await recordCoveredTopic(ctx, ref);
 
   const crossLink = await resolveCampaignCrossLink(node, ctx);
   const payload = {

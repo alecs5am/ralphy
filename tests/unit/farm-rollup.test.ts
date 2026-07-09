@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { workspaceDir, runDir, workflowsDir } from "../../cli/lib/paths.js";
-import { buildFarmReport, digestSummary } from "../../cli/lib/farm/rollup.js";
+import { buildFarmReport, digestSummary, countTopicDuplicateSkips } from "../../cli/lib/farm/rollup.js";
 
 let tmp: TmpRoot;
 afterEach(() => tmp?.cleanup());
@@ -73,6 +73,23 @@ describe("buildFarmReport — rollup math", () => {
     expect(r.spendPerUnit).toBe(1); // 2 / 2
     expect(r.spendPerTick).toBe(1); // 2 / 2
     expect(r.partial).toBe(false);
+    expect(r.totals.topicDuplicateSkipped).toBe(0);
+  });
+
+  test("#541 topic-duplicate-skip events counted + countTopicDuplicateSkips scoping", () => {
+    seedWorkspace();
+    seedWorkflow("wf", [{ id: "dedup", type: "dedup" }]);
+    seedRun("farm-wf-1", [
+      { kind: "farm-tick", workflow: "wf" },
+      { kind: "topic-duplicate-skip", node: "dedup", url: "campaign://cmp/cell-01", priorUnit: "p/u1" },
+      { kind: "topic-duplicate-skip", node: "dedup", url: "https://news.example/x", priorUnit: "p/u2" },
+    ]);
+    const r = buildFarmReport(WS);
+    expect(r.totals.topicDuplicateSkipped).toBe(2);
+    // Workspace-wide count.
+    expect(countTopicDuplicateSkips(WS)).toBe(2);
+    // Scoped to one campaign's synthetic cell urls.
+    expect(countTopicDuplicateSkips(WS, { urlPrefix: "campaign://cmp/" })).toBe(1);
   });
 
   test("failure / reroute / cache-hit rates + cache saved", () => {

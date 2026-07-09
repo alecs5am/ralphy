@@ -32,6 +32,14 @@ import {
   filterFresh,
 } from "../../ingestion/store.js";
 import {
+  topicSignature,
+  loadTopicIndex,
+  consultTopic,
+  DEFAULT_TOPIC_WINDOW,
+  DEFAULT_TOPIC_THRESHOLD,
+  DEFAULT_FOLLOWUP_THRESHOLD,
+} from "../../ingestion/topic-index.js";
+import {
   firecrawlAvailable,
   firecrawlScrape,
   firecrawlSearch,
@@ -287,11 +295,78 @@ export const dedupExecutor: NodeExecutor = async (node, ctx) => {
       `dedup node "${node.id}" expects source-item[] on in-port "items": ${(e as Error).message}`,
     );
   }
-  const p = node.params as { dedup_window?: string };
+  const p = node.params as {
+    dedup_window?: string;
+    topic_dedup?: boolean;
+    topic_window?: string;
+    topic_threshold?: number;
+    follow_up?: boolean;
+  };
   const windowMs = p.dedup_window ? parseWindow(p.dedup_window) : undefined;
   const seen = loadSeen(ctx.workspaceDir, windowMs);
   const fresh = filterFresh(items, seen);
   appendSeen(ctx.workspaceDir, fresh);
-  const artifactPath = await writeItemsArtifact(ctx, node, fresh);
-  return { output: fresh, artifactPath };
+
+  // #541 long-horizon topic dedup — SEPARATE from the same-item filter above.
+  // A candidate whose topic was already COVERED (published/produced) within the
+  // long window is suppressed even though its url/hash is new. ON by default
+  // (favor suppression); `params.topic_dedup: false` opts out.
+  const kept = p.topic_dedup === false ? fresh : await filterFreshTopics(node, ctx, fresh, p);
+
+  const artifactPath = await writeItemsArtifact(ctx, node, kept);
+  return { output: kept, artifactPath };
 };
+
+/**
+ * Drop candidates whose topic is already covered in the workspace's published-
+ * history index over the long window (#541). A `duplicate` (>= block threshold)
+ * is always suppressed; a `follow-up` (near-match band) is suppressed by DEFAULT
+ * and only kept as a fresh follow-up angle when `params.follow_up: true`. Each
+ * suppression emits a `topic-duplicate-skip` run event naming the prior unit —
+ * so the operator sees WHAT was skipped and WHY (silent suppression reads as a
+ * coverage gap in `farm report` / `campaign status`).
+ */
+async function filterFreshTopics(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  items: SourceItem[],
+  p: { topic_window?: string; topic_threshold?: number; follow_up?: boolean },
+): Promise<SourceItem[]> {
+  if (items.length === 0) return items;
+  const topicWindowMs = parseWindow(p.topic_window ?? DEFAULT_TOPIC_WINDOW);
+  const now = (ctx.now ?? (() => new Date()))().getTime();
+  const index = loadTopicIndex(ctx.workspaceDir, topicWindowMs, now);
+  if (index.length === 0) return items;
+  const block = typeof p.topic_threshold === "number" ? p.topic_threshold : DEFAULT_TOPIC_THRESHOLD;
+
+  const kept: SourceItem[] = [];
+  for (const item of items) {
+    const sig = topicSignature({ title: item.title, digest: item.text });
+    const verdict = consultTopic(sig, index, block, DEFAULT_FOLLOWUP_THRESHOLD);
+    // Follow-up kept only when explicitly opted in; otherwise a near-match is
+    // suppressed like a duplicate (conservative default).
+    if (verdict.decision === "fresh") {
+      kept.push(item);
+      continue;
+    }
+    if (verdict.decision === "follow-up" && p.follow_up) {
+      kept.push(item);
+      continue;
+    }
+    if (ctx.runId) {
+      const { appendRunEvent } = await import("../../run.js");
+      await appendRunEvent(ctx.runId, {
+        kind: "topic-duplicate-skip",
+        node: node.id,
+        url: item.url,
+        title: item.title,
+        priorUnit: verdict.prior.unitId,
+        priorTitle: verdict.prior.title,
+        score: verdict.score,
+        band: verdict.decision, // "duplicate" | "follow-up"
+        message: `topic already covered by ${verdict.prior.unitId} (score ${verdict.score.toFixed(2)}) — "${item.title}" suppressed`,
+      });
+    }
+  }
+  return kept;
+}
