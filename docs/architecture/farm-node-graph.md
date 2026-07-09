@@ -109,7 +109,7 @@ YAML spec to JSON at bundle build). Validation at import is
 resolution, port typing, and the D-02 coverage matrix — a declared-unsupported
 media param is a HARD import error (unlike the #497 warn-only generate path).
 
-Executor placement builds on [492-workflow-app-api-orchestrator-boundary.md](../../notes/issues/492-workflow-app-api-orchestrator-boundary.md):
+Executor placement builds on [492-workflow-app-api-orchestrator-boundary.md](../../notes/issues/done/492-workflow-app-api-orchestrator-boundary.md):
 the workflow app owns runs and exposes the API; `.ralphy/` files stay the
 durable state behind it.
 
