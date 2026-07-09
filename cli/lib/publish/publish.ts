@@ -282,6 +282,13 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
       continue;
     }
 
+    // #537: the remote-confirm SECOND belt would go HERE — after the ledger
+    // miss, before the fire below — closing the single-appendFileSync crash
+    // window (see ledger.ts header). It is BLOCKED: the Postiz public API has
+    // no scheduled-post lookup endpoint to query for an already-scheduled
+    // (unit, target, slot). When Postiz ships one, add a tolerant connector fn
+    // (mirror `postizPostAnalytics`) and skip-as-idempotent on a remote match.
+
     // Quota governor (#534): PER-TARGET, so a YT-exhausted + X-OK publish
     // reschedules only YT. When the platform has no headroom in the requested
     // window the schedule is pushed to its next quota window (never dropped,
