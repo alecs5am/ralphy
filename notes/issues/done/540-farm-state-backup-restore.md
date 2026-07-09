@@ -1,6 +1,6 @@
 # Farm state backup and restore (disaster recovery)
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (`workspace backup`/`restore` in cli/lib/workspace-backup.ts: explicit three-way STATE/KNOW-HOW/MEDIA manifest sharing the #521 boundary without changing bundle.ts; zip archive with embedded schema+ralphy version; live-farm no-torn-read via snapshot-copy-then-archive; media excluded by default (`--include-media`); restore does schema validation + clobber-newer guard (`--force`) + `--as` + a farm-doctor integrity subset; ledger exactly-once re-established after restore is tested. Extension seam noted for analytics/quarantine/topic-index.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** high

@@ -1616,6 +1616,50 @@ Commands:
                                   to restore. Appends to the workspace lifecycle
                                   log. Example: ralphy workspace rollback
                                   tech-news
+  backup [options] <slug>         Snapshot a workspace's irreplaceable runtime
+                                  STATE into a versioned, timestamped zip for
+                                  disaster recovery (#540): publish ledger (#531
+                                  exactly-once), quota usage (#534), calendar
+                                  entries + event log (#504), trust level +
+                                  agreement history (#505), selection weights
+                                  (#532), dedup store (#500), node cache, farm
+                                  runtime (dead-letter, webhook tokens), run
+                                  journals (#503), publish-mode audit, lifecycle
+                                  log, and workspace.json. KNOW-HOW (graphs,
+                                  prompts, evaluators, refs) is NOT backed up —
+                                  it lives in the deployable bundle (`ralphy
+                                  workspace export`). Project/batch MEDIA is
+                                  EXCLUDED by default; pass --include-media to
+                                  include it. READ-ONLY over the live workspace
+                                  (state is snapshot-copied then archived — safe
+                                  to run on a live farm, no torn reads). Uses
+                                  the system `zip` binary; never overwrites
+                                  --out. Recipe (scheduled backup + off-host
+                                  push): docs/workspace-bundle.md. Example:
+                                  ralphy workspace backup tech-news --out
+                                  tech-news-state.zip
+  restore [options] <archive>     Rehydrate a workspace's runtime STATE from a
+                                  `workspace backup` archive (#540). Validates
+                                  the archive schema version, then refuses to
+                                  clobber a target whose live state is NEWER
+                                  than the archive unless --force is passed (the
+                                  override is recorded in the payload). --as
+                                  <slug> restores into a different or brand-new
+                                  workspace (host migration, cloning a channel).
+                                  Restore writes ONLY the STATE paths the
+                                  archive carried (publish ledger, calendar,
+                                  trust, quota, weights, dedup, journals,
+                                  caches) — never know-how, never media the
+                                  archive did not include; existing state dirs
+                                  are replaced (clean rehydration, not a merge).
+                                  Runs a post-restore integrity subset of `farm
+                                  doctor` (#530): the publish ledger parses and
+                                  the calendar resolves — restoring the ledger
+                                  reestablishes #531 exactly-once so a
+                                  re-publish idempotent-skips. Uses the system
+                                  `unzip` binary. Example: ralphy workspace
+                                  restore tech-news-state.zip --as
+                                  tech-news-recovered
   golden [options] <slug>         Inspect or refresh the workspace's golden-set
                                   quality-regression baseline (#535). The golden
                                   set is a small frozen collection of
