@@ -32,6 +32,7 @@ import {
   registerWorkspaceValidator,
   type WorkspaceValidatorContext,
 } from "./workspace-evaluators.js";
+import { lintProse } from "./prose-tells.js";
 import type { Finding, Severity } from "./types.js";
 
 // ─── Finding helper ────────────────────────────────────────────────────────────
@@ -448,6 +449,15 @@ function lengthWindowValidator(ctx: WorkspaceValidatorContext): Finding[] {
   });
 }
 
+// #529: the AI-tell / prose-humanization lint as a workspace criterion. Resolves
+// the article body from the project tree (same graceful-degrade as the others)
+// and runs the rule pack; findings land under `structure.ai-tell.*` (scenarist).
+function aiTellValidator(ctx: WorkspaceValidatorContext): Finding[] {
+  const r = bodyOrNaFinding(ctx);
+  if ("na" in r) return [r.na];
+  return lintProse(r.body, "prose").findings;
+}
+
 let _registered = false;
 
 /**
@@ -456,8 +466,9 @@ let _registered = false;
  * Idempotent. Called by `registerBuiltinWorkspaceValidators()` (#470) so the
  * text criteria are available wherever the media ones are.
  *
- * #529 seam: add `registerWorkspaceValidator("text-ai-tell", …)` here when the
- * prose-humanization / AI-tell lint lands.
+ * #529 seam: the AI-tell / prose-humanization lint (`text-ai-tell`) is wired here
+ * alongside the #526 text validators, so a workspace `evaluators.json` (and the
+ * article gate) can reference it by `validatorId`.
  */
 export function registerBuiltinTextValidators(): void {
   if (_registered) return;
@@ -466,6 +477,7 @@ export function registerBuiltinTextValidators(): void {
   registerWorkspaceValidator("text-structure", structureValidator);
   registerWorkspaceValidator("text-reading-level", readingLevelValidator);
   registerWorkspaceValidator("text-length-window", lengthWindowValidator);
+  registerWorkspaceValidator("text-ai-tell", aiTellValidator);
 }
 
 /** Test-only handles for the deterministic validators (exercised in isolation). */
@@ -474,4 +486,5 @@ export const __testHooks = {
   structureValidator,
   readingLevelValidator,
   lengthWindowValidator,
+  aiTellValidator,
 } as const;
