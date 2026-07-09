@@ -65,6 +65,7 @@ import { coverageFor } from "./providers/coverage.js";
 import { listConnectors } from "./providers/registry.js";
 import { readNotificationsConfig } from "./notifications.js";
 import { readCadenceConfig } from "./cadence-config.js";
+import { readAttributionConfig } from "./publish/attribution.js";
 import { VERSION } from "./version.js";
 import {
   parseBundleManifest,
@@ -466,6 +467,10 @@ export function exportWorkspaceBundle(
     // the imported farm posts on human timing out of the box. Only when the
     // workspace actually enabled a cadence block.
     const cadence = readCadenceConfig(ws);
+    // #543: ship the workspace's attribution + copyright-hygiene policy (a text
+    // policy, no secrets) so the imported news-farm credits its sources + gates
+    // scraped embeds out of the box. Only when the workspace enabled it.
+    const attribution = readAttributionConfig(ws);
     // #521 lineage: reuse the workspace's stored bundleId across re-exports so
     // every version shares one id; mint + persist one on first export.
     const bundleId = ensureBundleId(ws);
@@ -478,6 +483,7 @@ export function exportWorkspaceBundle(
       trustDefault: "L0",
       ...(hasMapping ? { notificationsDefault: { events: notify.events, digestTime: notify.digestTime } } : {}),
       ...(cadence.enabled ? { cadenceDefault: cadence } : {}),
+      ...(attribution.enabled ? { attributionDefault: attribution } : {}),
     });
     fs.writeFileSync(path.join(staging, "manifest.yaml"), stringifyYaml(manifest));
     contents.push("manifest.yaml");
@@ -777,6 +783,10 @@ export function importWorkspaceBundle(zipPath: string, opts: ImportOptions = {})
           // secrets) and stay ENABLED — the imported farm posts on human
           // timing immediately.
           ...(v.manifest.cadenceDefault ? { cadence: v.manifest.cadenceDefault } : {}),
+          // #543: the bundled attribution policy lands as-is (a text policy, no
+          // secrets) so the imported news-farm credits its sources + gates
+          // scraped embeds out of the box.
+          ...(v.manifest.attributionDefault ? { attribution: v.manifest.attributionDefault } : {}),
         },
         null,
         2,
