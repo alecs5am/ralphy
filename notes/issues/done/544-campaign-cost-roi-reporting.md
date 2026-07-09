@@ -1,6 +1,6 @@
 # Campaign cost/ROI reporting
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (analytics/roi.ts read-only join: spend (gen-log actualSpendUsd, shared-project split flagged) x #507 analytics by unit → aggregated by format/angle/channel/thesis/platform; total spend, cost/unit, cost-per-1k-views, best/worst ROI cells; pending-performance handling (spend-counted, ROI-excluded, flagged, null not 0); ralphy campaign roi + workspace roi verbs; costAdjustedScores exposed for #532 (seam noted, bias NOT wired). No synthetic numbers. 9 tests.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** medium

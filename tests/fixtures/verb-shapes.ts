@@ -235,6 +235,26 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         cell: { id: "cell-01", thesisId: "studio", format: "article", angle: "anchor", keyword: "ai video", channel: "github-pages", priority: 10, status: "produced", linkedUnitId: "agent-video-001/post", producedAt: "2026-07-06T00:00:00.000Z" },
       },
     },
+    {
+      label: "campaign.roi",
+      shape: {
+        scope: "campaign",
+        workspace: "my-studio",
+        campaign: "agent-video",
+        totals: { units: 3, unitsWithPerformance: 2, pendingPerformance: 1, spendUsd: 3.2, publishApiUnits: 1600, views: 12000, engagements: 350, spendPerUnit: 1.0667, costPer1kViews: 0.1833 },
+        byFormat: [{ key: "video", units: 2, unitsWithPerformance: 2, pendingPerformance: 0, spendUsd: 2.2, views: 12000, engagements: 350, spendPerUnit: 1.1, costPer1kViews: 0.1833 }],
+        byAngle: [{ key: "pov-hook", units: 1, unitsWithPerformance: 1, pendingPerformance: 0, spendUsd: 1.0, views: 8000, engagements: 200, spendPerUnit: 1.0, costPer1kViews: 0.125 }],
+        byChannel: [{ key: "youtube", units: 2, unitsWithPerformance: 2, pendingPerformance: 0, spendUsd: 2.2, views: 12000, engagements: 350, spendPerUnit: 1.1, costPer1kViews: 0.1833 }],
+        byThesis: [{ key: "studio", units: 2, unitsWithPerformance: 2, pendingPerformance: 0, spendUsd: 2.2, views: 12000, engagements: 350, spendPerUnit: 1.1, costPer1kViews: 0.1833 }],
+        byPlatform: [{ key: "youtube", units: 2, unitsWithPerformance: 2, pendingPerformance: 0, spendUsd: 2.2, views: 12000, engagements: 350, spendPerUnit: 1.1, costPer1kViews: 0.1833 }],
+        rows: [
+          { unitId: "agent-video-001/hero", project: "agent-video-001", slug: "hero", spendUsd: 1.0, sharedProjectSpend: false, views: 8000, engagements: 200, costPer1kViews: 0.125, pendingPerformance: false, format: "video", angle: "pov-hook", channel: "youtube", thesisId: "studio" },
+          { unitId: "agent-video-002/teaser", project: "agent-video-002", slug: "teaser", spendUsd: 1.0, sharedProjectSpend: false, views: null, engagements: null, costPer1kViews: null, pendingPerformance: true, format: "carousel", angle: "proof", channel: "instagram", thesisId: "earns" },
+        ],
+        bestCell: { dimension: "angle", key: "pov-hook", costPer1kViews: 0.125 },
+        worstCell: { dimension: "format", key: "video", costPer1kViews: 0.1833 },
+      },
+    },
   ],
   clip: [
     {
@@ -1479,6 +1499,28 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       ],
     },
     { label: "workspace.show", shape: { slug: "ellycoffee", projects: 2, shared: { refs: 5, music: 3 }, memory: { entries: 8 } } },
+    {
+      label: "workspace.roi",
+      shape: {
+        scope: "workspace",
+        workspace: "tech-news",
+        totals: { units: 5, unitsWithPerformance: 3, pendingPerformance: 2, spendUsd: 6.5, publishApiUnits: 3200, views: 21000, engagements: 640, spendPerUnit: 1.3, costPer1kViews: 0.181 },
+        byFormat: [
+          { key: "video", units: 3, unitsWithPerformance: 2, pendingPerformance: 1, spendUsd: 4.0, views: 18000, engagements: 500, spendPerUnit: 1.3333, costPer1kViews: 0.1444 },
+          { key: "article", units: 2, unitsWithPerformance: 1, pendingPerformance: 1, spendUsd: 2.5, views: 3000, engagements: 140, spendPerUnit: 1.25, costPer1kViews: 0.4167 },
+        ],
+        byAngle: [],
+        byChannel: [],
+        byThesis: [],
+        byPlatform: [{ key: "youtube", units: 2, unitsWithPerformance: 2, pendingPerformance: 0, spendUsd: 3.0, views: 18000, engagements: 500, spendPerUnit: 1.5, costPer1kViews: 0.1667 }],
+        rows: [
+          { unitId: "tech-news-001/clip", project: "tech-news-001", slug: "clip", spendUsd: 1.5, sharedProjectSpend: false, views: 12000, engagements: 320, costPer1kViews: 0.125, pendingPerformance: false, format: "video" },
+          { unitId: "tech-news-004/draft", project: "tech-news-004", slug: "draft", spendUsd: 1.25, sharedProjectSpend: false, views: null, engagements: null, costPer1kViews: null, pendingPerformance: true, format: "article" },
+        ],
+        bestCell: { dimension: "format", key: "video", costPer1kViews: 0.1444 },
+        worstCell: { dimension: "format", key: "article", costPer1kViews: 0.4167 },
+      },
+    },
     {
       label: "workspace.update",
       shape: {
