@@ -18,6 +18,7 @@ import { imageSize } from "image-size";
 import { projectDir } from "./paths.js";
 import {
   UnitManifestSchema,
+  type UnitArticleMeta,
   type UnitManifest,
   type UnitMediaMeta,
   type UnitProvenance,
@@ -296,6 +297,12 @@ export interface CreateUnitArgs {
   title?: string;
   blurb?: string;
   provenance?: UnitProvenance;
+  /**
+   * Article frontmatter (#526) — present only when `format === "article"`. The
+   * `body` field is OPTIONAL here: when omitted, `createUnit` derives it from
+   * the first copied `.md` in `media`. `title` falls back to `args.title`.
+   */
+  article?: Omit<UnitArticleMeta, "body"> & { body?: string };
 }
 
 export interface CreateUnitResult {
@@ -342,6 +349,32 @@ export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult
     /* best-effort — a graph capture failure never blocks the deliverable */
   }
 
+  // Article frontmatter (#526): every `article` unit carries it, so the graph
+  // route (ralphy-unit node, no article flags) still produces a self-contained
+  // article. The `body` resolves to a copied media entry (explicit → first
+  // copied .md); the rest falls back to sensible defaults (title → args.title →
+  // slug, slug → the unit slug, empty description / canonical / tags).
+  let article: UnitArticleMeta | undefined;
+  if (args.format === "article") {
+    const a = args.article;
+    const body =
+      a?.body && media.includes(a.body) ? a.body : media.find((m) => m.toLowerCase().endsWith(".md"));
+    if (!body) {
+      throw new Error(
+        "article unit needs a markdown body: pass an article.body that is one of the copied media, or include a .md file in --from",
+      );
+    }
+    article = {
+      title: a?.title ?? args.title ?? args.slug,
+      description: a?.description ?? "",
+      slug: a?.slug ?? args.slug,
+      tags: a?.tags ?? [],
+      canonicalUrl: a?.canonicalUrl ?? "",
+      ...(a?.hero && media.includes(a.hero) && { hero: a.hero }),
+      body,
+    };
+  }
+
   const hasProvenance = args.provenance && Object.keys(args.provenance).length > 0;
   const manifest: UnitManifest = {
     slug: args.slug,
@@ -354,6 +387,7 @@ export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult
     created: new Date().toISOString(),
     ...(args.title && { title: args.title }),
     ...(args.blurb && { blurb: args.blurb }),
+    ...(article && { article }),
   };
   const parsed = UnitManifestSchema.parse(manifest);
   await writeUnitManifest(unitDir, parsed);

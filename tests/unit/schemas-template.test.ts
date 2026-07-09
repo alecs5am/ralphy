@@ -82,7 +82,7 @@ describe("Template format taxonomy (052)", () => {
     if (res.success) expect(res.data.style_of).toBeUndefined();
   });
 
-  test("TEMPLATE_FORMATS includes the issue-052 enum", () => {
+  test("TEMPLATE_FORMATS includes the issue-052 enum (+ article, #526)", () => {
     expect([...TEMPLATE_FORMATS]).toEqual([
       "video",
       "image",
@@ -91,6 +91,7 @@ describe("Template format taxonomy (052)", () => {
       "motion-design",
       "poster",
       "sticker-pack",
+      "article",
     ]);
   });
 });

@@ -29,7 +29,9 @@ export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
  * plus N `style` templates that specialize it via `style_of`. `kind` and
  * `category` remain secondary facets. This list is intentionally additive:
  * new formats (e.g. `carousel`, `poster`, `sticker-pack`) arrive via issues
- * 053/058 and slot in here without breaking existing templates.
+ * 053/058 and slot in here without breaking existing templates. `article`
+ * (#526) is the first non-media format — a markdown-body deliverable for the
+ * `seo-article` content mode.
  */
 export const TEMPLATE_FORMATS = [
   "video",
@@ -39,6 +41,7 @@ export const TEMPLATE_FORMATS = [
   "motion-design",
   "poster",
   "sticker-pack",
+  "article",
 ] as const;
 export type TemplateFormat = (typeof TEMPLATE_FORMATS)[number];
 

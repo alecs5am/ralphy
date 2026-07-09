@@ -11,10 +11,16 @@
 import { z } from "zod";
 
 /**
- * The eight media formats. Mirrors `FormatId` in
+ * The nine media formats. Mirrors `FormatId` in
  * `landing/lib/library-v2/types.ts` member-for-member so a `unit.json` written
  * here is directly consumable by the library-v2 graph. The CLI keeps its own
  * copy (no cross-package import) but the members must stay in lockstep.
+ *
+ * `article` (#526) is the first NON-media format: the deliverable is a markdown
+ * body file (+ optional hero / inline images produced by the existing image
+ * pipeline), not a still / clip. Its per-format metadata lives on the optional
+ * `article` field below (frontmatter: title, description, slug, tags, canonical
+ * URL, hero ref) — `media[0]` is the body `.md`, any further entries are images.
  */
 export const UNIT_FORMATS = [
   "video",
@@ -25,6 +31,7 @@ export const UNIT_FORMATS = [
   "motion-design",
   "poster",
   "image",
+  "article",
 ] as const;
 export type UnitFormat = (typeof UNIT_FORMATS)[number];
 
@@ -95,6 +102,35 @@ export const UnitCaptionSchema = z.object({
 export type UnitCaption = z.infer<typeof UnitCaptionSchema>;
 
 /**
+ * Article frontmatter metadata (#526) — the SEO/GEO-shaped header a `article`
+ * unit carries alongside its markdown body (`media[0]`). Maps to the Medium /
+ * GitHub-Pages / static-site frontmatter a publisher writes: `title` +
+ * `description` are the search-snippet pair, `slug` the URL stub, `tags` the
+ * topic facets, `canonicalUrl` the canonical-URL slot (filled at publish time,
+ * empty until then), `hero` the optional unit-relative hero image filename.
+ * Optional/additive — only `article`-format units carry it; older `unit.json`
+ * files predate it and must still validate.
+ */
+export const UnitArticleMetaSchema = z.object({
+  /** SEO title / H1 — the search-result headline. */
+  title: z.string(),
+  /** Meta description — the search-snippet body (~150-160 chars). */
+  description: z.string(),
+  /** URL slug (kebab-case), the article's path stub. */
+  slug: z.string().regex(SLUG_RE, "article slug must be kebab-case"),
+  /** Topic tags / keywords the article targets. */
+  tags: z.array(z.string()),
+  /** Canonical URL slot — the published home. Empty string until published. */
+  canonicalUrl: z.string(),
+  /** Optional unit-relative hero image filename (a member of `media`). */
+  hero: z.string().optional(),
+  /** Unit-relative filename of the markdown body (a member of `media`). */
+  body: z.string(),
+});
+
+export type UnitArticleMeta = z.infer<typeof UnitArticleMetaSchema>;
+
+/**
  * One publish attempt against one target platform (#501). Written by
  * `ralphy publish` / the `publish` node executor after pushing the unit to
  * Postiz. The `publish` array on the manifest is APPEND-ONLY: every attempt
@@ -162,6 +198,12 @@ export const UnitManifestSchema = z.object({
   created: z.string(),
   title: z.string().optional(),
   blurb: z.string().optional(),
+  /**
+   * Article frontmatter (#526) — present on `article`-format units, absent on
+   * media units. Optional/additive; the `unit create --format article` path
+   * populates it, `media[0]` is the body `.md` it names via `article.body`.
+   */
+  article: UnitArticleMetaSchema.optional(),
   /** Platform-shaped social copy + hashtags (#403). Optional/additive. */
   caption: UnitCaptionSchema.optional(),
   /** Prior captions, archived append-only when `unit caption --force` re-drafts. */
