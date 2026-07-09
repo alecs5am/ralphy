@@ -53,6 +53,12 @@ import {
   readUnitManifest,
   appendPublishRecords,
 } from "../../publish/publish.js";
+import {
+  publishArticle,
+  isArticleTarget,
+  type ArticleTarget,
+  type GithubPagesConfig,
+} from "../../publish/article.js";
 import { publishIdempotencyKey, findLedgerEntry, appendPublishLedger } from "../../publish/ledger.js";
 import { writeNodeArtifact } from "./llm.js";
 import { NodeExecutionError } from "./types.js";
@@ -635,4 +641,80 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
 
   const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(result, null, 2));
   return { output: result, artifactPath };
+};
+
+// ─── article-publish (#527) ────────────────────────────────────────────────
+
+/** Parse + validate params.targets ⊆ the article targets. */
+function parseArticleNodeTargets(node: WorkflowNode): ArticleTarget[] {
+  const raw = node.params.targets;
+  const list = Array.isArray(raw)
+    ? raw.map(String)
+    : typeof raw === "string"
+      ? raw.split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
+  const bad = list.filter((t) => !isArticleTarget(t));
+  if (list.length === 0 || bad.length) {
+    throw new NodeExecutionError(
+      "params-invalid",
+      `article-publish node "${node.id}" requires params.targets ⊆ github-pages|devto|hashnode|medium${bad.length ? ` (unknown: ${bad.join(", ")})` : ""}`,
+    );
+  }
+  return list as ArticleTarget[];
+}
+
+/**
+ * Publish an ARTICLE unit (#526) to article rails (#527). Reuses the same
+ * readiness floor + #505 trust gate + #536 freeze as the media publish node
+ * (calendar/cadence flow in via the schedule_at port the same way), then hands
+ * off to publishArticle for per-target isolation, canonical enforcement, the
+ * exactly-once ledger, and provenance append. github-pages is COMMIT-ONLY.
+ */
+export const articlePublishExecutor: NodeExecutor = async (node, ctx) => {
+  const ref = resolveUnitRef(node, ctx);
+  if (!ref) {
+    throw new NodeExecutionError(
+      "params-invalid",
+      `article-publish node "${node.id}" needs a unit — wire the \`unit\` in-port or set params.project + params.unit_slug`,
+    );
+  }
+  const targets = parseArticleNodeTargets(node);
+
+  const { forced } = await gateReadiness(node, ref);
+  const trustGate = await gatePublishTrust(node, ctx, ref, forced);
+
+  const gh = node.params.github_pages as GithubPagesConfig | undefined;
+  const result = await publishArticle({
+    projectId: ref.projectId,
+    slug: ref.slug,
+    targets,
+    githubPages: gh,
+    hashnodePublicationId: node.params.hashnode_publication_id as string | undefined,
+    draft: typeof node.params.draft === "boolean" ? node.params.draft : undefined,
+    dryRun: node.params.dry_run === true,
+    slot: readScheduleAt(node, ctx)?.entryId ?? null,
+    workspace: ctx.workspace,
+    fetchImpl: ctx.fetchImpl as Parameters<typeof publishArticle>[0]["fetchImpl"],
+  });
+
+  await ctx.log({
+    provider: "article",
+    model: "article",
+    endpoint: "publish",
+    kind: "publish",
+    status: result.allFailed ? "error" : "ok",
+    input: { node: node.id, project: ref.projectId, unit: ref.slug, targets },
+    output: result.results,
+  });
+
+  if (result.allFailed) {
+    throw new NodeExecutionError(
+      "publish-all-failed",
+      `article-publish node "${node.id}": every target failed — ${result.results.map((r) => `${r.target}: ${r.error}`).join("; ")}`,
+    );
+  }
+
+  const payload = { ...result, trustGate: trustGate.mode };
+  const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
+  return { output: payload, artifactPath };
 };

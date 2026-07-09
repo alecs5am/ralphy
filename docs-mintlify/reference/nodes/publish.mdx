@@ -41,6 +41,38 @@ _No schema description yet._
 }
 ```
 
+### `article-publish`
+
+**Status:** executable · free
+
+_No schema description yet._
+
+**Ports**
+
+| Direction | Port | Type |
+|---|---|---|
+| in | `unit` | unit |
+| in | `schedule_at` | object:calendar-slot |
+| in | `*` (open) | any |
+| out | `out` | object:publish-result |
+
+**Params** — passthrough (typed once the executor lands; any key is accepted).
+
+**Example**
+
+```json
+{
+  "version": "2.0",
+  "name": "article-publish-example",
+  "nodes": [
+    {
+      "id": "article-publish",
+      "type": "article-publish"
+    }
+  ]
+}
+```
+
 ### `youtube-upload`
 
 **Status:** schema-only · free
