@@ -39,6 +39,15 @@ ralphy project show <id> --scenario                          # current scenario.
 
 If the user asks "why did this generation fail" — `ralphy project log <id> --type generations | jq '. | select(.status=="error")'` is the fast move. Don't grep JSONL by hand.
 
+## Farm operability (a workspace running as a farm)
+
+When a workspace is running as a farm (`ralphy farm start`, #503), reach for these on the operability intents — all read-only / state-only, no model calls:
+
+- **"is the farm alive / stalled / stuck"** → `ralphy farm health [--workspace <ws>] [--notify-on-fail]` (#539). Liveness probe a Docker `HEALTHCHECK` / systemd / uptime check calls; reads the heartbeat + pidfile (no process spawned) and reports `alive | stalled | dead | stopped`. Exit 0 for `alive`/`stopped`, non-zero for `stalled`/`dead`; `stopped` (deliberately down) is NOT unhealthy. `--notify-on-fail` fires the notifier once per healthy→unhealthy transition.
+- **"back up the farm state" / "restore / migrate the workspace to another host"** → `ralphy workspace backup <ws>` / `ralphy workspace restore <archive>` (#540). Snapshots and restores the whole workspace (know-how + runtime state).
+
+Farm architecture (the node graph, trust ladder, and the deploy path): [../architecture/farm-node-graph.md](../architecture/farm-node-graph.md).
+
 ## Sub-docs (read on demand)
 
 | File | When to read it |
