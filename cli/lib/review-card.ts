@@ -52,7 +52,6 @@ import { readProjectEval, recordTrustDecision } from "./trust.js";
 import { recordRunApproval } from "./spend.js";
 import { buildRepairPlan } from "./repair.js";
 import type { UnitManifest } from "./schemas/unit.js";
-import type { ScorecardVerdict } from "./schemas/scorecard.js";
 import type { RepairPlan } from "./schemas/repair-plan.js";
 import type { EvalReport } from "./eval/types.js";
 
