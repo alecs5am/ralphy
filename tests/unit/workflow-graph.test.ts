@@ -102,8 +102,8 @@ describe("node envelope", () => {
     expect(() => graph([{ id: "x", type: "t2i", out: { name: "o", type: "not-a-type" } }])).toThrow();
   });
 
-  test("all 50 node types have a signature and parse", () => {
-    expect(WORKFLOW_NODE_TYPES.length).toBe(50);
+  test("all 51 node types have a signature and parse", () => {
+    expect(WORKFLOW_NODE_TYPES.length).toBe(51);
     for (const type of WORKFLOW_NODE_TYPES) {
       expect(NODE_SIGNATURES[type]).toBeDefined();
       const g = graph([{ id: "n", type }]);

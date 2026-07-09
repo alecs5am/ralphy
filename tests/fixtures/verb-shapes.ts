@@ -896,6 +896,23 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  "article-publish": [
+    {
+      label: "article-publish.unit",
+      shape: {
+        project: "ralphy-seo-001",
+        slug: "agent-video-earns",
+        canonicalUrl: "https://ralphy.dev/blog/agent-video-earns",
+        results: [
+          { target: "github-pages", status: "published", url: null, id: "0123456789abcdef0123456789abcdef01234567" },
+          { target: "devto", status: "failed", url: null, id: null, error: "dev.to POST 500" },
+        ],
+        unitDir: ".ralphy/workspaces/default/projects/ralphy-seo-001/units/agent-video-earns",
+        dryRun: false,
+        readiness: { verdict: "ship", bypassed: false },
+      },
+    },
+  ],
   provider: [
     { label: "provider.show", shape: { provider: "openrouter", envVar: "OPENROUTER_API_KEY", configured: true, capabilities: ["image", "video", "llm"] } },
     {
