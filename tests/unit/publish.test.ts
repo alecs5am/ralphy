@@ -31,6 +31,11 @@ import {
 } from "../../cli/lib/publish/publish";
 import { splitThread } from "../../cli/lib/workflow/executors/publish";
 import {
+  publishIdempotencyKey,
+  appendPublishLedger,
+  readPublishLedger,
+} from "../../cli/lib/publish/ledger";
+import {
   getExecutor,
   NodeExecutionError,
   type ExecutorContext,
@@ -43,6 +48,7 @@ const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
 const PROJECT = "publish-fixture-501";
 const SLUG = "hero-cut";
+const WS = "default";
 
 const CAPTION = {
   platform: {
@@ -490,5 +496,97 @@ describe("x-post node executor", () => {
       inputs: { text: "doomed" },
     });
     await expect(exec(node, ctx)).rejects.toThrow(NodeExecutionError);
+  });
+});
+
+// ─── x-post exactly-once ledger (#537 — close the executor bypass) ────────────
+//
+// xPostExecutor fires postizCreatePost directly (not through publishUnit), so
+// before #537 a resumed/retried x-post thread could double-post. These mirror
+// publish-ledger.test.ts (zero-network mock; counting /posts fires) but exercise
+// the x-post path and its PER-THREAD-ITEM key granularity.
+
+describe("x-post exactly-once ledger (#537)", () => {
+  const xNode = (id = "xp-l") =>
+    makeNode("x-post", { account: "int-x-1", force_reason: "test bypass" }, id);
+
+  test("a bound thread already in the ledger idempotent-skips — /posts NOT re-fired", async () => {
+    seedUnit();
+    const exec = getExecutor("x-post")!;
+    const inputs = { text: "tweet one\n---\ntweet two", unit: { projectId: PROJECT, slug: SLUG } };
+
+    const m1 = mockPostiz();
+    const first = await exec(xNode("xp-l1"), makeCtx({ fetchImpl: m1.fetchImpl, inputs }));
+    expect((first.output as { status: string }).status).toBe("published");
+    expect(m1.calls.filter((c) => c.url.includes("/posts")).length).toBe(1);
+
+    // Re-run the same bound thread: the platform is NOT called again.
+    const m2 = mockPostiz();
+    const second = await exec(xNode("xp-l2"), makeCtx({ fetchImpl: m2.fetchImpl, inputs }));
+    expect((second.output as { status: string }).status).toBe("idempotent-skip");
+    expect(m2.calls.filter((c) => c.url.includes("/posts")).length).toBe(0);
+  });
+
+  test("crash-after-accept-before-ledger is reconciled per thread-item; a missing item still fires", async () => {
+    seedUnit();
+    const exec = getExecutor("x-post")!;
+    // Simulate: the platform accepted a 2-item thread and the belt landed the
+    // FIRST item's ledger row, then the process died before the second append.
+    // The re-run must NOT treat this as fully-done (partial set → re-fire).
+    const key = (i: number) =>
+      publishIdempotencyKey({ workspace: WS, projectId: PROJECT, slug: SLUG, target: "x", slot: `default#${i}` });
+    appendPublishLedger(WS, {
+      key: key(0), project: PROJECT, slug: SLUG, target: "x",
+      postId: "post-int-x-1", scheduleAt: null, status: "published",
+    });
+    const partial = mockPostiz();
+    const res = await exec(
+      xNode("xp-partial"),
+      makeCtx({ fetchImpl: partial.fetchImpl, inputs: { text: "one\n---\ntwo", unit: { projectId: PROJECT, slug: SLUG } } }),
+    );
+    // Partial ledger coverage re-fires (belt tolerates the extra row).
+    expect((res.output as { status: string }).status).toBe("published");
+    expect(partial.calls.filter((c) => c.url.includes("/posts")).length).toBe(1);
+
+    // Now BOTH items are recorded → the next re-run skips.
+    const done = mockPostiz();
+    const skip = await exec(
+      xNode("xp-done"),
+      makeCtx({ fetchImpl: done.fetchImpl, inputs: { text: "one\n---\ntwo", unit: { projectId: PROJECT, slug: SLUG } } }),
+    );
+    expect((skip.output as { status: string }).status).toBe("idempotent-skip");
+    expect(done.calls.filter((c) => c.url.includes("/posts")).length).toBe(0);
+  });
+
+  test("per-thread-item key granularity: one row per segment, keyed by index", async () => {
+    seedUnit();
+    const exec = getExecutor("x-post")!;
+    await exec(
+      xNode("xp-gran"),
+      makeCtx({
+        fetchImpl: mockPostiz().fetchImpl,
+        inputs: { text: "a\n---\nb\n---\nc", unit: { projectId: PROJECT, slug: SLUG } },
+      }),
+    );
+    const xRows = readPublishLedger(WS).filter((e) => e.target === "x");
+    expect(xRows.length).toBe(3);
+    expect(xRows.map((e) => e.key).sort()).toEqual(
+      [0, 1, 2]
+        .map((i) => publishIdempotencyKey({ workspace: WS, projectId: PROJECT, slug: SLUG, target: "x", slot: `default#${i}` }))
+        .sort(),
+    );
+  });
+
+  test("an UNBOUND x-post (no unit) keeps fire-always behaviour — no ledger rows", async () => {
+    seedUnit();
+    const exec = getExecutor("x-post")!;
+    const m1 = mockPostiz();
+    await exec(xNode("xp-u1"), makeCtx({ fetchImpl: m1.fetchImpl, inputs: { text: "hi" } }));
+    const m2 = mockPostiz();
+    await exec(xNode("xp-u2"), makeCtx({ fetchImpl: m2.fetchImpl, inputs: { text: "hi" } }));
+    // No stable identity → both fire; nothing recorded in the ledger.
+    expect(m1.calls.filter((c) => c.url.includes("/posts")).length).toBe(1);
+    expect(m2.calls.filter((c) => c.url.includes("/posts")).length).toBe(1);
+    expect(readPublishLedger(WS).filter((e) => e.target === "x").length).toBe(0);
   });
 });
