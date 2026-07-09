@@ -427,6 +427,25 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         ],
       },
     },
+    {
+      label: "farm.health",
+      shape: {
+        slug: "my-studio",
+        state: "alive",
+        exitCode: 0,
+        healthy: true,
+        daemon: { running: true, pid: 4242, pidFile: ".ralphy/farm/my-studio.pid" },
+        heartbeat: {
+          ts: "2026-07-09T09:00:12.000Z",
+          lastTickAt: "2026-07-09T09:00:12.000Z",
+          nextScheduledAt: "2026-07-09T09:05:00.000Z",
+          ticksThisSession: 42,
+        },
+        heartbeatAgeSec: 8,
+        stallThresholdSec: 180,
+        detail: "farm process 4242 is live; last tick 8s ago (42 tick(s) this session)",
+      },
+    },
     { label: "farm.stop", shape: { workspace: "my-studio", stopped: true, pid: 4242, detail: "the loop exits after the node in flight; runs resume on the next start" } },
     { label: "farm.stop.dead", shape: { workspace: "my-studio", stopped: false, pid: null, detail: "no live farm process (stale pidfile cleared if present)" } },
     {

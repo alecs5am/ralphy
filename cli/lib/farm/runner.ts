@@ -115,6 +115,7 @@ import {
   evaluateAutoTrip,
   setPublishMode,
   type AutoTripSignals,
+  type PublishMode,
 } from "./publish-mode.js";
 import { notifyFarmEvent, approvalDeepLink, type FarmNotification } from "./notify.js";
 import { readNotificationsConfig } from "../notifications.js";
@@ -1607,6 +1608,19 @@ export async function farmLoop(opts: FarmLoopOptions = {}, deps: FarmDeps = {}):
   const workspacesFor = (): string[] =>
     single !== undefined ? [single] : farmEnabledWorkspaces();
   const state = new Map<string, WorkspaceSchedulerState>();
+  // #539 liveness heartbeat: keyed by the pidfile slug (single ws, or __all__),
+  // overwritten each scan. The health probe / container HEALTHCHECK reads it.
+  const hbSlug = single ?? "__all__";
+  let ticksThisSession = 0;
+  const beat = (nextAt: number | null): void => {
+    const nowIso = d.now().toISOString();
+    writeFarmHeartbeat(hbSlug, {
+      ts: nowIso,
+      lastTickAt: nowIso,
+      nextScheduledAt: nextAt != null ? new Date(nextAt).toISOString() : null,
+      ticksThisSession,
+    });
+  };
 
   // Resume every enabled workspace's incomplete runs on boot.
   for (const ws of workspacesFor()) await resumeIncompleteRuns(ws, deps);
@@ -1656,11 +1670,15 @@ export async function farmLoop(opts: FarmLoopOptions = {}, deps: FarmDeps = {}):
       }
     }
 
+    // #539: one heartbeat per completed scan (whether or not it fired).
+    ticksThisSession++;
+    const nextAt = nextTimes.length ? Math.min(...nextTimes) : d.now().getTime() + IDLE_RESCAN_MS;
+    beat(nextAt);
+
     if (opts.once) return;
 
     // Sleep until the earliest next fire across ALL workspaces (or a re-scan
     // window when nothing is scheduled / everything is cooling off).
-    const nextAt = nextTimes.length ? Math.min(...nextTimes) : d.now().getTime() + IDLE_RESCAN_MS;
     await chunkedSleep(Math.max(0, nextAt - d.now().getTime()), d);
     void anyFired;
   }
@@ -1703,6 +1721,218 @@ export function isFarmAlive(pid: number | null): boolean {
 export function writeFarmPid(ws: string, pid: number): void {
   fs.mkdirSync(path.dirname(farmPidPath(ws)), { recursive: true });
   fs.writeFileSync(farmPidPath(ws), String(pid) + "\n");
+}
+
+// ─── Heartbeat + liveness signal (#539) ──────────────────────────────────────
+//
+// The farm loop overwrites a heartbeat file each iteration (liveness STATE, not
+// append history). `farm health` reads it + the pidfile and returns a container-
+// healthcheck-shaped verdict. There is NO in-process supervisor — the container
+// runtime (docker restart: unless-stopped + HEALTHCHECK) or systemd owns
+// lifecycle. This is only the signal that feeds them.
+
+/** The heartbeat slug matches the pidfile slug (a single ws, or `__all__`). */
+export function farmHeartbeatPath(slug: string): string {
+  return path.join(ralphDir(), "farm", `${slug}.heartbeat`);
+}
+
+/** The once-per-transition "last alerted health state" sidecar. */
+export function farmHealthAlertPath(slug: string): string {
+  return path.join(ralphDir(), "farm", `${slug}.health-alert`);
+}
+
+export interface FarmHeartbeat {
+  /** When the heartbeat was written (ISO). */
+  ts: string;
+  /** The most recent tick-scan time (ISO). */
+  lastTickAt: string;
+  /** The earliest next scheduled fire across all driven workspaces (ISO), or null. */
+  nextScheduledAt: string | null;
+  /** Ticks the loop has run since this process started. */
+  ticksThisSession: number;
+}
+
+/** Overwrite the heartbeat in place (liveness state, not append history). */
+export function writeFarmHeartbeat(slug: string, hb: FarmHeartbeat): void {
+  const p = farmHeartbeatPath(slug);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(hb, null, 2) + "\n");
+}
+
+export function readFarmHeartbeat(slug: string): FarmHeartbeat | null {
+  try {
+    return JSON.parse(fs.readFileSync(farmHeartbeatPath(slug), "utf8")) as FarmHeartbeat;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Health states, mapped to exit codes for a container HEALTHCHECK / systemd
+ * WatchdogSec / an external uptime probe:
+ *   • alive   (exit 0) — pidfile process is live AND the heartbeat is fresh.
+ *   • stopped (exit 0) — DELIBERATELY down (#536 freeze, or `farm stop` cleared
+ *                        the pidfile). Intentionally-down is NOT unhealthy, so a
+ *                        container healthcheck does not fight an intentional
+ *                        stop (issue #539 kill-switch interplay). Exit 0 keeps
+ *                        `restart: unless-stopped` from restart-looping a farm
+ *                        the operator turned off on purpose.
+ *   • stalled (exit 1) — process alive but the heartbeat is older than the stall
+ *                        threshold (a wedged/deadlocked tick).
+ *   • dead    (exit 1) — pidfile names a dead PID (or no pidfile) and the farm
+ *                        was NOT stopped on purpose.
+ */
+export type FarmHealthState = "alive" | "stalled" | "dead" | "stopped";
+
+export interface FarmHealthReport {
+  slug: string;
+  state: FarmHealthState;
+  /** 0 for alive/stopped, 1 for stalled/dead — the process exit code. */
+  exitCode: 0 | 1;
+  healthy: boolean;
+  daemon: { running: boolean; pid: number | null; pidFile: string };
+  heartbeat: FarmHeartbeat | null;
+  /** Age of the heartbeat in seconds (null when no heartbeat). */
+  heartbeatAgeSec: number | null;
+  /** The stall threshold used, in seconds. */
+  stallThresholdSec: number;
+  /** One-line human explanation. */
+  detail: string;
+  /** The publish mode that made this a deliberate stop, when applicable. */
+  publishMode?: PublishMode;
+}
+
+/**
+ * The shortest tick interval across a slug's driven workspaces, in seconds —
+ * the base unit the stall threshold multiplies. A workspace with cron `* * * * *`
+ * ticks every 60s; the daemon's idle re-scan is 60s. Falls back to the idle
+ * re-scan when nothing is scheduled yet.
+ */
+function shortestTickIntervalSec(slugWorkspaces: string[]): number {
+  let shortestMs = IDLE_RESCAN_MS;
+  const from = new Date();
+  for (const ws of slugWorkspaces) {
+    for (const { graph } of loadGraphWorkflows(ws)) {
+      for (const t of scheduleTriggers(graph)) {
+        const a = nextFire(t.spec, from);
+        if (!a) continue;
+        const b = nextFire(t.spec, a);
+        if (!b) continue;
+        shortestMs = Math.min(shortestMs, b.getTime() - a.getTime());
+      }
+    }
+  }
+  return Math.max(1, Math.round(shortestMs / 1000));
+}
+
+export interface FarmHealthOptions {
+  /**
+   * Stall = heartbeat older than this multiple of the shortest tick interval.
+   * Default 3 — one missed tick is normal jitter; three missed ticks is wedged.
+   */
+  stallMultiple?: number;
+  /** Test seam — the clock (default: real). */
+  now?: () => Date;
+  /** Which workspaces the slug drives (for the tick-interval floor); default: derived. */
+  workspaces?: string[];
+}
+
+/**
+ * Probe the farm's liveness for a pidfile slug (a single workspace, or the
+ * multi-workspace `__all__` daemon). Pure read — no process spawned, no network.
+ * The `stopped` short-circuit: a #536 freeze on the single workspace (or the
+ * global override) means the operator turned publishing off on purpose; a
+ * cleared pidfile with no heartbeat and no live process is a `farm stop`. Both
+ * report `stopped` (exit 0) so the healthcheck does not fight the operator.
+ */
+export function farmHealth(slug: string, opts: FarmHealthOptions = {}): FarmHealthReport {
+  const now = opts.now ?? (() => new Date());
+  const stallMultiple = opts.stallMultiple ?? 3;
+  const pid = readFarmPid(slug);
+  const running = isFarmAlive(pid);
+  const heartbeat = readFarmHeartbeat(slug);
+  const pidFile = farmPidPath(slug);
+  const wss =
+    opts.workspaces ?? (slug === "__all__" ? farmEnabledWorkspaces() : isFarmEnabled(slug) || existsWorkspace(slug) ? [slug] : []);
+  const intervalSec = shortestTickIntervalSec(wss);
+  const stallThresholdSec = intervalSec * stallMultiple;
+  const heartbeatAgeSec = heartbeat
+    ? Math.max(0, Math.round((now().getTime() - Date.parse(heartbeat.ts)) / 1000))
+    : null;
+
+  const base = { slug, daemon: { running, pid: running ? pid : null, pidFile }, heartbeat, heartbeatAgeSec, stallThresholdSec };
+
+  // Deliberate-stop short-circuit (#536 interplay). A frozen workspace, or a
+  // cleared pidfile (no live process) with the workspace explicitly frozen, is
+  // intentionally down — never unhealthy. `farm stop` on a not-frozen farm
+  // reports `dead` (the container SHOULD restart it); freeze reports `stopped`.
+  const frozen = wss.length > 0 && wss.every((ws) => effectivePublishMode(ws).mode === "freeze");
+  if (!running && frozen) {
+    return {
+      ...base,
+      state: "stopped",
+      exitCode: 0,
+      healthy: true,
+      detail: `farm is intentionally down (publish mode frozen for ${wss.join(", ")}) — not restarted`,
+      publishMode: "freeze",
+    };
+  }
+
+  if (!running) {
+    return {
+      ...base,
+      state: "dead",
+      exitCode: 1,
+      healthy: false,
+      detail: pid
+        ? `no live farm process (pidfile ${pid} is dead) — the runtime should restart it`
+        : `no farm process is running (no pidfile at ${pidFile})`,
+    };
+  }
+
+  // Process alive: freshness decides alive vs stalled.
+  if (!heartbeat || heartbeatAgeSec == null) {
+    return { ...base, state: "stalled", exitCode: 1, healthy: false, detail: `farm process ${pid} is alive but has written no heartbeat yet` };
+  }
+  if (heartbeatAgeSec > stallThresholdSec) {
+    return {
+      ...base,
+      state: "stalled",
+      exitCode: 1,
+      healthy: false,
+      detail: `heartbeat is ${heartbeatAgeSec}s old (> ${stallThresholdSec}s = ${stallMultiple}× the ${intervalSec}s shortest tick interval) — the tick loop looks wedged`,
+    };
+  }
+  return {
+    ...base,
+    state: "alive",
+    exitCode: 0,
+    healthy: true,
+    detail: `farm process ${pid} is live; last tick ${heartbeatAgeSec}s ago (${heartbeat.ticksThisSession} tick(s) this session)`,
+  };
+}
+
+/**
+ * Once-per-transition gate for `--notify-on-fail`: fire the #518 notifier only
+ * when crossing healthy→unhealthy. `alive`/`stopped`/no-prior count as healthy,
+ * so a repeat probe on a still-unhealthy farm does NOT re-alert (and a recovery
+ * re-arms the alert). Pure — the CLI persists `state` to the sidecar.
+ */
+export function shouldAlertOnTransition(
+  last: FarmHealthState | null,
+  current: FarmHealthState,
+): boolean {
+  const healthy = (s: FarmHealthState | null) => s == null || s === "alive" || s === "stopped";
+  return !healthy(current) && healthy(last);
+}
+
+/** True when a workspace slug has a directory on disk. */
+function existsWorkspace(ws: string): boolean {
+  try {
+    return fs.statSync(workspaceDir(ws)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 export function clearFarmPid(ws: string): void {

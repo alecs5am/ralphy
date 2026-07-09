@@ -1,6 +1,6 @@
 # Farm liveness signal for container orchestration
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (heartbeat file written each loop scan; `ralphy farm health` probe with alive/stalled/dead/stopped states + 0/1 exit codes; frozen/`farm stop` reports `stopped` (exit 0) so the healthcheck doesn't fight an intentional stop; `--notify-on-fail` fires #518 once per healthy→unhealthy transition via a sidecar; docker `farm` service HEALTHCHECK added; missed-tick coalescing verified already-present. No in-process supervisor — NON-GOALS respected.)
 > **Filed:** 2026-07-08 (rewritten 2026-07-08 — scoped down to a health signal;
 > lifecycle is the container runtime's job, see Notes)
 > **Folder:** issues
