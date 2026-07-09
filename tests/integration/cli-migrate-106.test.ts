@@ -39,7 +39,11 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
   const r = spawnSync("bun", ["run", CLI, "--cwd", tmpRoot, "--json", ...args], {
     cwd: tmpRoot,
     encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
+    // Pin the required keys so `doctor` reports zero missing-key blockers
+    // regardless of whether the runner env carries them — a sibling test that
+    // deletes these from process.env must not flip this suite's doctor exit
+    // code (#545). Values are placeholders; nothing here hits the network.
+    env: { ...process.env, NO_COLOR: "1", OPENROUTER_API_KEY: "test-or-key", ELEVENLABS_API_KEY: "test-el-key" },
   });
   let json: any = null;
   try {

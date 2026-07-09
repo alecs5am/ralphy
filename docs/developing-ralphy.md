@@ -107,6 +107,7 @@ Every `out(...)` call in `cli/commands/` renders two ways: JSON when piped / `--
 - `bun test` runs everything (`tests/unit/`, `tests/integration/`). No jest/vitest/mocha.
 - TDD-leaning: new CLI verb → smoke via `bun run cli/index.ts <cmd>` (NOT `bunx tsx` — breaks on `bun:sqlite`) + JSON assertion in `tests/unit/`. New UI → Playwright. New HyperFrames composition → `bunx hyperframes lint .ralphy/workspaces/<ws>/projects/<id>` + `bunx hyperframes snapshot` for keyframe PNGs.
 - Errors-catalog test is the gatekeeper for the append-only contract — never bypass it.
+- **Never leak process state across tests.** A test that mutates `process.env` or `process.chdir` must snapshot the prior value in `beforeEach`/`beforeAll` and restore-or-delete it in `afterEach` — never blind-`delete` an env var. A real runner env may carry `OPENROUTER_API_KEY` / `ELEVENLABS_API_KEY`, and clearing them leaks into every later test that spawns a subprocess inheriting `process.env`, which then sees missing keys and fails (surfaces as an order-dependent flake). Tests that spawn `ralphy` via `spawnSync` should pin the keys they depend on into the child `env` rather than trusting the inherited env (see #545).
 
 ## Tools
 

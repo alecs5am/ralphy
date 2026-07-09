@@ -33,6 +33,15 @@ function recordingFetch(ok = true, status = 200): { fetch: FetchLike; calls: Arr
   return { fetch, calls };
 }
 
+// This suite sets/clears TELEGRAM_BOT_TOKEN. Snapshot + restore it (not blind
+// delete) so a runner env that carries the token isn't leaked-cleared into
+// later tests (#545 hygiene sweep).
+const savedTelegramToken = process.env.TELEGRAM_BOT_TOKEN;
+afterEach(() => {
+  if (savedTelegramToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+  else process.env.TELEGRAM_BOT_TOKEN = savedTelegramToken;
+});
+
 describe("channelsForEvent — event→channel mapping", () => {
   test("quiet by default: no config = no channels", () => {
     const cfg = parseNotificationsConfig({});
