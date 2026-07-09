@@ -48,7 +48,6 @@ import { ensureTriggerToken, webhookTokensPath } from "../lib/farm/webhook.js";
 import { readFileSync } from "fs";
 import {
   assembleReviewTick,
-  assembleReviewCard,
   applyReviewDecision,
   type ReviewCard,
   type ReviewDecision,
@@ -670,7 +669,7 @@ Examples:
       ok(
         `Review ${decision} recorded for ${run} / node "${node}"${result.unit ? ` (unit ${result.project}/${result.unit})` : ""}`,
       );
-      out({ run, workspace: ws, ...result });
+      out({ ...result, run, workspace: ws });
     })
     .addHelpText(
       "after",
