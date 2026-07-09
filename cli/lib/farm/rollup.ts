@@ -87,6 +87,12 @@ export interface FarmReportTotals {
    * signal — the tick cadence or quota is too slow for the ingest rate.
    */
   staleDropped: number;
+  /**
+   * #541: candidates SUPPRESSED at the dedup node's long-horizon topic consult
+   * (the topic was already covered by a published/produced unit in the window).
+   * Surfaced so silent suppression does not read as a coverage gap.
+   */
+  topicDuplicateSkipped: number;
   /** Realized model spend (sum of node costUsd across the window). */
   spendUsd: number;
   /** #513 content-hash cache hits + estimated spend they saved. */
@@ -191,6 +197,7 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
     unitsGated: 0,
     unitsPublished: 0,
     staleDropped: 0,
+    topicDuplicateSkipped: 0,
     spendUsd: 0,
     cacheHits: 0,
     cacheSavedUsd: 0,
@@ -246,6 +253,8 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
         else if (t && PUBLISH_TYPES.has(t)) totals.unitsPublished++;
       } else if (e.kind === "stale-dropped") {
         totals.staleDropped++;
+      } else if (e.kind === "topic-duplicate-skip") {
+        totals.topicDuplicateSkipped++;
       } else if (e.kind === "node-cached") {
         totals.cacheHits++;
         rates.nodeCacheHits++;
@@ -315,6 +324,34 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
 }
 
 /**
+ * #541: count `topic-duplicate-skip` events across the workspace's run
+ * journals, optionally filtered to those whose suppressed candidate url matches
+ * `urlPrefix` (e.g. `campaign://<id>/` to scope to one campaign). A read-only
+ * fold, mirroring buildFarmReport's journal walk. Used by `campaign status` to
+ * surface long-horizon suppressions so silent dedup does not read as a gap.
+ */
+export function countTopicDuplicateSkips(ws: string, opts: { urlPrefix?: string } = {}): number {
+  let runIds: string[] = [];
+  try {
+    runIds = fs
+      .readdirSync(runsDir(ws), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return 0;
+  }
+  let n = 0;
+  for (const runId of runIds) {
+    for (const e of readJournalEvents(ws, runId) as Array<JournalEvent & { url?: string }>) {
+      if (e.kind !== "topic-duplicate-skip") continue;
+      if (opts.urlPrefix && !(e.url ?? "").startsWith(opts.urlPrefix)) continue;
+      n++;
+    }
+  }
+  return n;
+}
+
+/**
  * The daily-digest one-liner + body, DERIVED from the same report so the
  * digest content mirrors `farm report`'s summary (issue #518). `needsYou` =
  * runs currently parked/halted awaiting a human, surfaced from the live farm
@@ -330,7 +367,8 @@ export function digestSummary(
   const body = [
     `Ticks: ${t.ticks} · runs: ${t.runs}`,
     `Produced ${t.unitsProduced} · gated ${t.unitsGated} · published ${t.unitsPublished}` +
-      (t.staleDropped > 0 ? ` · stale-dropped ${t.staleDropped}` : ""),
+      (t.staleDropped > 0 ? ` · stale-dropped ${t.staleDropped}` : "") +
+      (t.topicDuplicateSkipped > 0 ? ` · topic-dupe-skipped ${t.topicDuplicateSkipped}` : ""),
     `Spend $${t.spendUsd.toFixed(2)}` +
       (report.spendPerUnit !== null ? ` ($${report.spendPerUnit.toFixed(2)}/unit)` : "") +
       (report.spendPerTick !== null ? ` ($${report.spendPerTick.toFixed(2)}/tick)` : ""),
