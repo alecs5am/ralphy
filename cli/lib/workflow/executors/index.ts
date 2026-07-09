@@ -31,6 +31,7 @@ import {
   dedupExecutor,
 } from "./ingestion.js";
 import { httpExecutor } from "./http.js";
+import { campaignNextExecutor } from "./campaign.js";
 import { calendarSlotExecutor } from "./calendar.js";
 import { publishExecutor, xPostExecutor, articlePublishExecutor } from "./publish.js";
 import { analyticsPullExecutor } from "./analytics.js";
@@ -115,6 +116,11 @@ registerExecutor("dedup", dedupExecutor);
 // provider hosts refused (invariant #1 — connectors own provider traffic),
 // $ENV header references resolved at execution, timeout + size caps.
 registerExecutor("http", httpExecutor);
+
+// D. campaign-next (#528): drains the next unproduced campaign plan cell into a
+// source-item[] so ticks walk the plan. Stateful per-workspace — the plan
+// cell's own `status` is the cursor (a produced unit stamps its cell).
+registerExecutor("campaign-next", campaignNextExecutor);
 
 // F. Control flow: calendar-slot — the workspace content calendar (#504).
 registerExecutor("calendar-slot", calendarSlotExecutor);

@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **55**
+Verbs registered: **56**
 
 ## Top-level verbs
 
@@ -1746,6 +1746,57 @@ Commands:
   help [command]       display help for command
 ```
 
+### `ralphy campaign`
+
+```
+____        __      __         
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ / 
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
+             /_/          /____/   
+        UGC video pipeline · ralphy.dev
+
+Usage: ralphy campaign [options] [command]
+
+Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped
+to a planned unit inventory across formats + channels, with cross-linking + a
+coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.
+
+Options:
+  -h, --help                  display help for command
+
+Commands:
+  create [options] <ws> <id>  Scaffold a campaign from theses (+ optional
+                              keyword seeds). Example: ralphy campaign create
+                              my-studio agent-video --thesis "studio=ralphy is a
+                              video studio for AI agents" --thesis
+                              "earns=agent-made video earns money and views"
+                              --head "ai video,agent content"
+  list <ws>                   List a workspace's campaigns. Example: ralphy
+                              campaign list my-studio
+  show <id>                   Show a campaign's full manifest. Example: ralphy
+                              campaign show agent-video
+  plan [options] <id>         Run a bounded research + generate-object pass
+                              proposing the keyword matrix + planned inventory
+                              from the theses. PRINTS the proposal and STOPS —
+                              pass --commit to write it (never auto-queues paid
+                              work). --schedule proposes calendar slot
+                              assignments across the items. Example: ralphy
+                              campaign plan agent-video --commit --schedule
+                              --weeks 8
+  status <id>                 The coverage ledger: planned / produced /
+                              published / indexed-hint (analytics-backed, honest
+                              — never assumes indexing). Example: ralphy
+                              campaign status agent-video
+  stamp <id> <cell> <unit>    Stamp a plan cell PRODUCED: link the unit that
+                              satisfied it ("project/slug"), status → produced.
+                              The campaign-next drain skips produced cells.
+                              Example: ralphy campaign stamp agent-video cell-01
+                              agent-video-001/hero-cut
+  help [command]              display help for command
+```
+
 ### `ralphy farm`
 
 ```
@@ -2063,6 +2114,7 @@ Commands:
   asset                                            Manage and generate assets
   workspace                                        Manage workspaces (studio / universe groupings of projects with a shared/ asset tier)
   calendar                                         Workspace content calendar (#504): recurring posting slots (weekday/time/timezone, unit type, platforms) + dated entries with an idea → queued → produced → gated → scheduled → published lifecycle. Stored at <workspace>/calendar.json with an append-only calendar-events.jsonl history.
+  campaign                                         Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped to a planned unit inventory across formats + channels, with cross-linking + a coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.
   farm                                             Farm scheduler + headless graph runner (#503): fires cron ticks from the workspace's node-graph workflows (schedule nodes), executes each tick as a #480 Run with an append-only journal, parks durably on approval nodes, halts on budget-guard breaches, and resumes incomplete runs after a restart.
   publish [options] <project> <unit-slug>          Publish a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
   article-publish [options] <project> <unit-slug>  Publish an article unit (#526) to article rails (#527): github-pages (git-backed static site, commit-only), devto/hashnode (dev-blog APIs, draft by default), medium (park-for-human export pack). Per-target failure isolates. Canonical URL is enforced when the workspace declares a canonical site. Example: ralphy article-publish ralphy-seo-001 agent-video-earns --targets github-pages,devto --gh-repo ../ralphy-site --gh-content-dir _posts

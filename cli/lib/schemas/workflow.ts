@@ -171,8 +171,14 @@ export const RALPHY_VERB_NODE_TYPES = [
   "ralphy-social-copy",
 ] as const;
 
-/** D. Ingestion / connector nodes — all emit normalized source-item[]. */
-export const INGESTION_NODE_TYPES = ["web-scrape", "actor", "rss", "trend-watch", "http"] as const;
+/**
+ * D. Ingestion / connector nodes — all emit normalized source-item[]. The
+ * `campaign-next` selection source (#528) is here by SIGNATURE (it emits the
+ * same source-item[] port) even though it watches a campaign plan instead of a
+ * live feed: like `trend-watch` it drains the next UNPRODUCED plan cell per
+ * tick and is STATEFUL per-workspace (the plan cell's own status is the cursor).
+ */
+export const INGESTION_NODE_TYPES = ["web-scrape", "actor", "rss", "trend-watch", "http", "campaign-next"] as const;
 
 /** E. Publish nodes. */
 export const PUBLISH_NODE_TYPES = ["publish", "article-publish", "youtube-upload", "x-post", "analytics-pull"] as const;
@@ -497,6 +503,8 @@ export const NODE_SIGNATURES: Record<WorkflowNodeType, NodeSignature> = {
   rss: sig("ingestion", {}, false, "source-item[]"),
   "trend-watch": sig("ingestion", {}, false, "source-item[]"),
   http: sig("ingestion", {}, true, "any"),
+  // #528: drains the next unproduced campaign plan cell into a source-item.
+  "campaign-next": sig("ingestion", {}, false, "source-item[]"),
 
   // E. Publish.
   publish: sig("publish", { unit: "unit", schedule_at: "object:calendar-slot" }, true, "object:publish-result"),

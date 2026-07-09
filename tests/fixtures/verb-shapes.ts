@@ -169,6 +169,73 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  campaign: [
+    {
+      label: "campaign.create",
+      shape: {
+        workspace: "my-studio",
+        version: "1.0",
+        id: "agent-video",
+        title: "Agent Video",
+        theses: [{ id: "studio", statement: "ralphy is a video studio for AI agents" }],
+        keywords: { head: ["ai video"], longTail: [], questions: [] },
+        inventory: [],
+        crossLink: { enabled: true, linkFormats: ["*"], maxLinks: 5 },
+        pendingLinks: [],
+        createdAt: "2026-07-06T00:00:00.000Z",
+        planned: false,
+      },
+    },
+    {
+      label: "campaign.list",
+      shape: [{ id: "agent-video", title: "Agent Video", theses: 2, planned: true, cells: 6 }],
+    },
+    {
+      label: "campaign.plan.proposal",
+      shape: {
+        workspace: "my-studio",
+        campaign: "agent-video",
+        committed: false,
+        model: "anthropic/claude-sonnet-4.6",
+        proposal: {
+          keywords: { head: ["ai video studio"], longTail: ["ai agent video generator"], questions: ["can AI agents edit video?"] },
+          inventory: [
+            { id: "cell-01", thesisId: "studio", format: "article", angle: "anchor essay", keyword: "ai video studio", channel: "github-pages", priority: 10, status: "planned" },
+          ],
+          dropped: 1,
+        },
+        schedule: {
+          filled: 4,
+          skipped: 0,
+          assignments: [{ cellId: "cell-01", format: "article", at: "2026-07-13T13:00:00.000Z" }],
+        },
+        note: "PROPOSAL only — re-run with --commit to write the matrix + inventory to campaign.json",
+      },
+    },
+    {
+      label: "campaign.status",
+      shape: {
+        workspace: "my-studio",
+        campaign: "agent-video",
+        planned: true,
+        counts: { planned: 6, produced: 3, published: 2, indexedHint: 1 },
+        keywordOccupancy: { head: 2, longTail: 3, questions: 1 },
+        pendingLinks: 1,
+        rows: [
+          { cellId: "cell-01", format: "article", channel: "github-pages", keyword: "ai video studio", status: "published", linkedUnitId: "agent-video-001/post", publishedUrl: "https://blog/post", indexedHint: true },
+          { cellId: "cell-02", format: "video", channel: "youtube", keyword: "ai video", status: "planned", linkedUnitId: null, publishedUrl: null, indexedHint: false },
+        ],
+      },
+    },
+    {
+      label: "campaign.stamp",
+      shape: {
+        workspace: "my-studio",
+        campaign: "agent-video",
+        cell: { id: "cell-01", thesisId: "studio", format: "article", angle: "anchor", keyword: "ai video", channel: "github-pages", priority: 10, status: "produced", linkedUnitId: "agent-video-001/post", producedAt: "2026-07-06T00:00:00.000Z" },
+      },
+    },
+  ],
   clip: [
     {
       label: "clip.cut",
