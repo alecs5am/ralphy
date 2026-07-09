@@ -145,6 +145,14 @@ export const UnitPublishRecordSchema = z.object({
   /** Provider post id (null when the attempt failed before creation). */
   postId: z.string().nullable(),
   /**
+   * The public URL of the published post, when the target returns one (#527
+   * article rails — github-pages / devto / hashnode carry a real `url`; media
+   * targets today carry only a `postId`). Optional/additive; consumed by
+   * campaign cross-linking (#528) to resolve sibling URLs honestly. Older
+   * `unit.json` files predate it and must still validate.
+   */
+  url: z.string().nullable().optional(),
+  /**
    * `idempotent-skip` (#531): the exactly-once publish ledger already carried a
    * `published`/`scheduled` record for this (unit, target, slot), so the target
    * was NOT re-fired. Recorded in the provenance (append-only) so a re-run's

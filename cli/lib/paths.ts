@@ -295,6 +295,46 @@ export function runWorkspace(runId: string): string {
   return active;
 }
 
+// ─── Campaigns (#528) ────────────────────────────────────────────────────────
+// A campaign = a workspace-scoped keyword/topic cluster mapped to a planned set
+// of units. It lives under the workspace (like batches / runs), discovered
+// file-on-disk (campaigns are NOT a registry collection). `campaignWorkspace`
+// resolves which workspace a campaign lives in, mirroring `runWorkspace`.
+
+/** `.ralphy/workspaces/<slug>/campaigns/` */
+export function campaignsDir(slug: string = currentWorkspace()) {
+  return path.join(workspaceDir(slug), "campaigns");
+}
+
+/** `.ralphy/workspaces/<slug>/campaigns/<id>/` */
+export function campaignDir(slug: string, id: string) {
+  return path.join(campaignsDir(slug), id);
+}
+
+/** `.ralphy/workspaces/<slug>/campaigns/<id>/campaign.json` */
+export function campaignManifestPath(slug: string, id: string) {
+  return path.join(campaignDir(slug, id), "campaign.json");
+}
+
+/**
+ * Which workspace a campaign belongs to. Resolution order (mirrors `runWorkspace`):
+ *   1. an existing `workspaces/<ws>/campaigns/<id>/` dir, active workspace first.
+ *   2. the active workspace (the creation path: dir doesn't exist yet).
+ */
+export function campaignWorkspace(id: string): string {
+  const active = currentWorkspace();
+  if (existsSync(path.join(workspaceDir(active), "campaigns", id))) return active;
+  try {
+    for (const slug of readdirSync(workspacesDir())) {
+      if (slug === active) continue;
+      if (existsSync(path.join(workspaceDir(slug), "campaigns", id))) return slug;
+    }
+  } catch {
+    /* no workspaces dir yet */
+  }
+  return active;
+}
+
 // ─── Global (cross-workspace) dirs ───────────────────────────────────────────
 
 export function referencesDir() {

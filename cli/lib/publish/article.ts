@@ -383,6 +383,7 @@ export async function publishArticle(opts: ArticlePublishOptions): Promise<Artic
         target: r.target,
         integrationId: null,
         postId: r.id,
+        url: r.url,
         status: r.status,
         scheduleAt: null,
         ...(r.error && { error: r.error }),

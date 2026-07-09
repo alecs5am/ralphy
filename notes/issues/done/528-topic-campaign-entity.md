@@ -1,6 +1,6 @@
 # Topic campaign: keyword matrix across formats
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (workspace-scoped campaign entity: campaign.json (theses + keyword matrix + inventory cells + cross-link policy + pendingLinks) at workspaces/<ws>/campaigns/<id>/; ralphy campaign create/plan/status/list/stamp with plan the sole paid-gated verb (print-then-commit approval); campaign-next selection node drains unproduced cells + stamps (with a #532 bias seam); cross-linking resolves sibling publish URLs + pending-links on late publish; plan --schedule fills the calendar. Node count 51→52. 27 tests.)
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** high

@@ -310,6 +310,59 @@ function guardFreshness(
   return { drop: true, ageMs: verdict.ageMs, ttlMs: verdict.ttlMs!, source_ts: sourceTs };
 }
 
+// ─── campaign cross-linking (#528) ─────────────────────────────────────────
+//
+// When a publish node carries `params.campaign` + `params.cell`, resolve the
+// campaign siblings' published URLs and produce the cross-link block that gets
+// injected into this unit's description (media) / frontmatter (article). A
+// sibling published AFTER this unit has no URL yet → a PENDING-LINK entry
+// (surfaced in `campaign status`, applied on the target's NEXT publish, never a
+// retroactive edit of a live post). Any pending links ALREADY recorded for this
+// cell are resolved now (its next publish) and cleared. This is the injection
+// HOOK the publish path exposes; the block builders are tested standalone.
+
+interface CampaignCrossLink {
+  /** The description link block (media) — empty when no resolvable siblings. */
+  descriptionBlock: string;
+  /** The frontmatter link fragment (article) — empty when no resolvable siblings. */
+  frontmatterBlock: string;
+  /** Resolved sibling links surfaced on the node output. */
+  siblings: Array<{ cellId: string; format: string; url: string }>;
+  /** Pending links recorded this run (siblings not yet published). */
+  recordedPending: number;
+}
+
+async function resolveCampaignCrossLink(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+): Promise<CampaignCrossLink | null> {
+  const campaignId = node.params.campaign;
+  const cellId = node.params.cell;
+  if (typeof campaignId !== "string" || typeof cellId !== "string") return null;
+
+  const { readCampaign, clearPendingLinksFor } = await import("../../campaign/store.js");
+  const { resolveSiblingLinks, buildDescriptionLinkBlock, buildFrontmatterLinkBlock } = await import(
+    "../../campaign/crosslink.js"
+  );
+  const campaign = readCampaign(ctx.workspaceDir, campaignId);
+  if (!campaign) return null;
+  const cell = campaign.inventory.find((c) => c.id === cellId);
+  if (!cell) return null;
+
+  const siblings = await resolveSiblingLinks(campaign, cell);
+  // Applying pending links = this cell's NEXT publish. Clear them so they are
+  // not re-applied; the resolved sibling URLs above already include them.
+  const pendingForCell = campaign.pendingLinks.filter((l) => l.targetCellId === cellId).length;
+  if (pendingForCell > 0) clearPendingLinksFor(ctx.workspaceDir, campaignId, cellId);
+
+  return {
+    descriptionBlock: buildDescriptionLinkBlock(siblings),
+    frontmatterBlock: buildFrontmatterLinkBlock(siblings),
+    siblings,
+    recordedPending: 0,
+  };
+}
+
 function parseNodeTargets(node: WorkflowNode): PublishTarget[] {
   const raw = node.params.targets;
   const list = Array.isArray(raw)
@@ -459,11 +512,17 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     }
   }
 
+  const crossLink = await resolveCampaignCrossLink(node, ctx);
   const payload = {
     ...result,
     entryId: slot?.entryId ?? null,
     calendarTransition,
     trustGate: trustGate.mode,
+    // #528: the cross-link block injected into the description + the resolved
+    // siblings, surfaced so the mesh is visible on the run journal.
+    ...(crossLink && crossLink.siblings.length > 0
+      ? { crossLink: { descriptionBlock: crossLink.descriptionBlock, siblings: crossLink.siblings } }
+      : {}),
     // #542: a past-TTL unit the node chose to DOWNGRADE (not drop) still
     // publishes, flagged so downstream/report can see the evergreen treatment.
     ...(freshness.downgraded ? { staleDowngraded: true, ageMs: freshness.ageMs, ttlMs: freshness.ttlMs } : {}),
@@ -714,7 +773,15 @@ export const articlePublishExecutor: NodeExecutor = async (node, ctx) => {
     );
   }
 
-  const payload = { ...result, trustGate: trustGate.mode };
+  const crossLink = await resolveCampaignCrossLink(node, ctx);
+  const payload = {
+    ...result,
+    trustGate: trustGate.mode,
+    // #528: the cross-link frontmatter fragment + resolved siblings.
+    ...(crossLink && crossLink.siblings.length > 0
+      ? { crossLink: { frontmatterBlock: crossLink.frontmatterBlock, siblings: crossLink.siblings } }
+      : {}),
+  };
   const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
   return { output: payload, artifactPath };
 };
