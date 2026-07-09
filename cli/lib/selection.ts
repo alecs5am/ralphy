@@ -66,7 +66,23 @@ export const PIN_FLOOR = 0.5;
 /** A retired value's weight multiplier — down-weighted, NOT hard-excluded. */
 export const RETIRE_MULTIPLIER = 0.1;
 
-/** The dimensions we can attribute over TODAY (recorded on unit.json / analytics). */
+/**
+ * The dimensions we attribute over. The first block is recorded on unit.json /
+ * analytics from the FOUNDATION layer (template/style/recipe/asset from the
+ * unit's provenance, platform/postingWindow from its publish records). The
+ * second block (#532 wiring) is the four creative-choice axes the campaign
+ * picker (#528) and variance planner (#529) select over — stamped onto a
+ * produced unit's provenance at production time:
+ *   • hookType   — the variance profile's opener shape (from the format's pool).
+ *   • lengthBand — a coarse bucket of the profile's sampled target length
+ *                  (short/medium/long — see `lengthBand()`); the raw seconds/
+ *                  words value is too granular to accrue weight, the band is not.
+ *   • angle      — the campaign cell's creative angle (its hook brief).
+ *   • thesis     — the campaign cell's thesis id (the strategic line it advances).
+ *   • format     — the media format (video | article | carousel | …).
+ * A unit that never went through a campaign/variance flow simply carries none of
+ * the second block — those observations are absent, not fabricated.
+ */
 export const SELECTION_DIMENSIONS = [
   "template",
   "style",
@@ -74,10 +90,46 @@ export const SELECTION_DIMENSIONS = [
   "asset",
   "platform",
   "postingWindow",
+  "hookType",
+  "lengthBand",
+  "angle",
+  "thesis",
+  "format",
 ] as const;
 export type SelectionDimension = (typeof SELECTION_DIMENSIONS)[number];
 
 const DAY_MS = 86_400_000;
+
+// ─── length-band bucketing (pure + deterministic) ────────────────────────────
+
+/** The three coarse length buckets a variance profile's target length maps to. */
+export type LengthBand = "short" | "medium" | "long";
+
+/**
+ * Bucket a variance profile's target length into a coarse band. Pure +
+ * deterministic — the same (length, unit) always yields the same band, so a
+ * produced unit's stamped band and the planner's candidate band agree.
+ *
+ * Thresholds mirror the natural break points of the format pools in
+ * `cli/lib/eval/variance-pools.ts`:
+ *   • seconds (video/short): ≤20s short, ≤40s medium, else long — the SHORT_POOL
+ *     range [8,30] and VIDEO_POOL range [18,55] straddle these breaks.
+ *   • words (article/still): ≤900 short, ≤1600 medium, else long — the
+ *     ARTICLE_POOL range [700,2200] spans all three; the STILL_POOL headline
+ *     budget [1,8] always lands "short", which is correct (a slide headline is
+ *     never "long-form").
+ */
+export function lengthBand(targetLength: number, unit: "words" | "seconds"): LengthBand {
+  if (unit === "seconds") {
+    if (targetLength <= 20) return "short";
+    if (targetLength <= 40) return "medium";
+    return "long";
+  }
+  // words
+  if (targetLength <= 900) return "short";
+  if (targetLength <= 1600) return "medium";
+  return "long";
+}
 
 // ─── outcome score (the honest blend) ────────────────────────────────────────
 
@@ -159,6 +211,19 @@ function unitTags(meta: Record<string, unknown>): Array<{ dimension: SelectionDi
   for (const a of Array.isArray(prov.assets) ? prov.assets : []) {
     if (typeof a === "string") tags.push({ dimension: "asset", value: a });
   }
+  // #532 creative-choice axes — stamped onto provenance.selection at production
+  // time by the campaign picker + variance planner (cli/lib/unit.ts
+  // `applySelectionProvenance`). Emitted exactly like the block above so
+  // analytics join back to what the pickers actually chose. Absent when a unit
+  // never went through those flows — no fabricated observation.
+  const sel = (prov.selection ?? {}) as Record<string, unknown>;
+  for (const dim of ["hookType", "lengthBand", "angle", "thesis", "format"] as const) {
+    const v = sel[dim];
+    if (typeof v === "string" && v.length > 0) tags.push({ dimension: dim, value: v });
+  }
+  // `format` also lives at the manifest top level (unit.json.format); fall back
+  // to it when the selection block did not carry one.
+  if (!sel.format && typeof meta.format === "string") tags.push({ dimension: "format", value: meta.format });
   return tags;
 }
 
@@ -387,11 +452,16 @@ export function recomputeSelectionWeights(ws: string, now: number = Date.now()):
   return snap;
 }
 
-/** The newest recompute snapshot, or null when none has been computed yet. */
-export function readLatestWeights(ws: string): WeightsSnapshot | null {
+/**
+ * Parse a `selection-weights.jsonl` file at an ABSOLUTE path into its newest
+ * snapshot, or null when absent / empty. Factored out so callers that hold the
+ * absolute workspace dir (the campaign store — decoupled from the paths
+ * singleton) share ONE parser with the slug-based `readLatestWeights`.
+ */
+export function parseWeightsFile(absPath: string): WeightsSnapshot | null {
   let raw = "";
   try {
-    raw = fs.readFileSync(selectionWeightsPath(ws), "utf8");
+    raw = fs.readFileSync(absPath, "utf8");
   } catch {
     return null;
   }
@@ -404,6 +474,11 @@ export function readLatestWeights(ws: string): WeightsSnapshot | null {
     }
   }
   return null;
+}
+
+/** The newest recompute snapshot, or null when none has been computed yet. */
+export function readLatestWeights(ws: string): WeightsSnapshot | null {
+  return parseWeightsFile(selectionWeightsPath(ws));
 }
 
 // ─── pin / retire lifecycle (append-only, reversible) ────────────────────────
@@ -426,11 +501,21 @@ export interface SelectionFlagEvent {
  * flag. Last write per (dimension,value) wins.
  */
 export function readSelectionFlags(ws: string): { pinned: Set<string>; retired: Set<string> } {
+  return parseSelectionFlagsFile(lifecycleLogPath(ws));
+}
+
+/**
+ * Parse a `lifecycle.jsonl` file at an ABSOLUTE path into the current pin/retire
+ * flag set. The path-based twin of `readSelectionFlags` (see `parseWeightsFile`
+ * for the rationale). Last write per (dimension,value) wins; unpin/unretire
+ * clear the flag.
+ */
+export function parseSelectionFlagsFile(absPath: string): { pinned: Set<string>; retired: Set<string> } {
   const pinned = new Set<string>();
   const retired = new Set<string>();
   let raw = "";
   try {
-    raw = fs.readFileSync(lifecycleLogPath(ws), "utf8");
+    raw = fs.readFileSync(absPath, "utf8");
   } catch {
     return { pinned, retired };
   }

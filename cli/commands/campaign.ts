@@ -34,6 +34,9 @@ import { proposeCampaignPlan } from "../lib/campaign/plan.js";
 import { computeCoverage } from "../lib/campaign/report.js";
 import { buildCampaignRoi } from "../lib/analytics/roi.js";
 import { isValidCampaignId } from "../lib/schemas/campaign.js";
+import { applySelectionProvenance } from "../lib/unit.js";
+import { unitDirFor } from "../lib/publish/publish.js";
+import { lengthBand } from "../lib/selection.js";
 
 function requireWorkspace(verb: string, slug: string): string {
   if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb });
@@ -259,6 +262,21 @@ export function campaignCmd() {
       try {
         const campaign = stampCellProduced(dir, id, cell, unit);
         const stamped = campaign.inventory.find((c) => c.id === cell)!;
+        // #532: record the creative-choice axes the campaign picker + variance
+        // planner chose onto the produced unit's provenance, so the selection
+        // loop can attribute measured analytics back to them. Additive, never
+        // an overwrite; a missing / malformed unit manifest is a silent no-op
+        // (the cell stamp already succeeded — this is best-effort attribution).
+        const [projectId, slug] = unit.split("/");
+        if (projectId && slug) {
+          const v = stamped.variance;
+          await applySelectionProvenance(unitDirFor(projectId, slug), {
+            angle: stamped.angle,
+            thesis: stamped.thesisId,
+            format: stamped.format,
+            ...(v && { hookType: v.hookType, lengthBand: lengthBand(v.targetLength, v.targetLengthUnit) }),
+          });
+        }
         ok(`Cell stamped produced: ${cell} → ${unit}`);
         out({ workspace: campaignWorkspace(id), campaign: id, cell: stamped });
       } catch (e) {

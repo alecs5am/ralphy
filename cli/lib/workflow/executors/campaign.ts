@@ -24,6 +24,8 @@ import type { ExecutorContext, NodeExecutor } from "./types.js";
 import type { WorkflowNode } from "../../schemas/workflow.js";
 import type { SourceItem } from "../../schemas/source-item.js";
 import type { CampaignCell } from "../../schemas/campaign.js";
+import { readLatestWeights, readSelectionFlags, buildLookup, sampleWeighted, lengthBand, type Candidate } from "../../selection.js";
+import { makePrng } from "../../farm/prng.js";
 
 type CampaignNextParams = {
   campaign?: string;
@@ -64,14 +66,18 @@ export const campaignNextExecutor: NodeExecutor = async (node: WorkflowNode, ctx
   // order (cli/lib/campaign/store.ts → unproducedCells).
   const pool = unproducedCells(campaign);
 
-  // ── #532 SEAM ──────────────────────────────────────────────────────────────
-  // The weight-biased ordering plugs in HERE: #532 will read the workspace's
-  // latest selection weights (readLatestWeights) + flags (readSelectionFlags),
-  // build a WeightLookup, and REORDER `pool` per pick via sampleWeighted
-  // (cli/lib/selection.ts) so proven-winning (format, channel, …) dimensions
-  // drain first. Until then the order is the deterministic priority/plan-order
-  // baseline `unproducedCells` returns — do NOT wire the bias here (#532 owns it).
-  const picked = pool.slice(0, count);
+  // ── #532 bias ────────────────────────────────────────────────────────────
+  // COLD-START (no measured weights yet) → drain in the deterministic
+  // priority/plan-order baseline, byte-for-byte identical to pre-#532. Only
+  // once real weights exist do we bias WITHIN each priority band toward proven
+  // winners (with sampleWeighted's exploration floor, so nothing is starved).
+  // Priority still gates absolutely: a lower-priority band is never drained over
+  // a due higher-priority one — the bias only reorders cells that share a band.
+  const weights = readLatestWeights(ctx.workspace);
+  const picked =
+    weights && !weights.coldStart
+      ? biasedDrain(pool, count, ctx, weights)
+      : pool.slice(0, count);
 
   const now = (ctx.now ?? (() => new Date()))().toISOString();
   const items = picked.map((cell) => cellToSourceItem(campaign.id, cell, now));
@@ -81,3 +87,74 @@ export const campaignNextExecutor: NodeExecutor = async (node: WorkflowNode, ctx
   const artifactPath = items.length > 0 ? await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(items, null, 2)) : undefined;
   return { output: items, artifactPath };
 };
+
+/**
+ * Weight-biased drain of `count` cells from `pool` (already priority-DESC, plan
+ * order). Priority GATES: cells are grouped into priority bands and drained
+ * high→low; the bias only reorders cells that SHARE a band, so a lower-priority
+ * cell is never drained over a due higher-priority one (mirrors #529's
+ * within-band rule). Within a band, each cell's effective weight is the MEAN of
+ * its measured dimension weights (angle / thesis / format / — when the variance
+ * profile is stamped — hookType / lengthBand); `sampleWeighted` then picks
+ * without replacement, so its exploration floor keeps every cell in reach.
+ * Deterministic: the prng is seeded from workspace + campaign so a resume
+ * reproduces the same order.
+ */
+function biasedDrain(
+  pool: CampaignCell[],
+  count: number,
+  ctx: ExecutorContext,
+  weights: NonNullable<ReturnType<typeof readLatestWeights>>,
+): CampaignCell[] {
+  const lookup = buildLookup(weights, readSelectionFlags(ctx.workspace));
+  // A per-cell weight = the mean of its MEASURED dimension weights. Unmeasured
+  // dimensions are SKIPPED (not folded in at the 0.5 baseline) so a strong
+  // signal on one axis is not diluted to neutrality by axes with no data yet; a
+  // cell with no measured dimension at all falls back to the shared baseline.
+  const cellWeight = (cell: CampaignCell): number => {
+    const dims: Candidate[] = [
+      { dimension: "angle", value: cell.angle },
+      { dimension: "thesis", value: cell.thesisId },
+      { dimension: "format", value: cell.format },
+    ];
+    if (cell.variance) {
+      dims.push({ dimension: "hookType", value: cell.variance.hookType });
+      dims.push({ dimension: "lengthBand", value: lengthBand(cell.variance.targetLength, cell.variance.targetLengthUnit) });
+    }
+    const measured = dims.map((d) => lookup.weightOf(d.dimension, d.value)).filter((w): w is number => typeof w === "number");
+    if (measured.length === 0) return 0.5;
+    return measured.reduce((a, b) => a + b, 0) / measured.length;
+  };
+
+  const prng = makePrng(`campaign-next:${ctx.workspace}:${weights.computedAt}`);
+  // Group into priority bands (DESC), preserving plan order within each band.
+  const bands = new Map<number, CampaignCell[]>();
+  for (const cell of pool) {
+    const arr = bands.get(cell.priority) ?? [];
+    arr.push(cell);
+    bands.set(cell.priority, arr);
+  }
+  const priorities = [...bands.keys()].sort((a, b) => b - a);
+
+  const picked: CampaignCell[] = [];
+  for (const prio of priorities) {
+    let remaining = [...bands.get(prio)!];
+    while (remaining.length > 0 && picked.length < count) {
+      // Cell weights map onto a synthetic per-cell lookup so sampleWeighted's
+      // proportional + epsilon machinery works over whole cells.
+      const wByCell = new Map(remaining.map((c) => [c.id, cellWeight(c)]));
+      const cands: Candidate[] = remaining.map((c) => ({ dimension: "angle", value: c.id }));
+      const cellLookup = {
+        weightOf: (_dim: string, id: string) => wByCell.get(id),
+        pinned: new Set<string>(),
+        retired: new Set<string>(),
+      };
+      const chosenId = sampleWeighted(cands, cellLookup, { prng }).value;
+      const idx = remaining.findIndex((c) => c.id === chosenId);
+      picked.push(remaining[idx]!);
+      remaining.splice(idx, 1);
+    }
+    if (picked.length >= count) break;
+  }
+  return picked;
+}
