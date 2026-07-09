@@ -1,5 +1,7 @@
 # Voice Clone Should Compress Isolated Audio Below ElevenLabs Upload Limit
 
+> **Status:** done — 2026-07-09 (added `compressVoiceSample` ffmpeg recipe; `cloneVoice` derives a ≤90s mono 64k MP3 sample when the upload would exceed the 11 MB `voices/add` limit, logged in the gen-log)
+
 ## Problem
 
 `ralphy voice clone --isolate` can fail after a successful audio-isolation pass because the isolated file is larger than the ElevenLabs `voices/add` upload limit.
