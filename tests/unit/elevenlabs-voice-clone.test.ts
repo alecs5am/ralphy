@@ -11,11 +11,17 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 
 import { setRoot } from "../../cli/lib/paths.js";
 import { cloneVoice, _resetVoiceExistsCache } from "../../cli/lib/providers/elevenlabs.js";
 import { readGenerations } from "../../cli/lib/gen-log.js";
 import { ensureVoiceExists } from "../../cli/lib/providers/elevenlabs.js";
+
+function hasFfmpeg(): boolean {
+  return spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0;
+}
+const HAS_FFMPEG = hasFfmpeg();
 
 const originalFetch = globalThis.fetch;
 const originalEl = process.env.ELEVENLABS_API_KEY;
@@ -152,6 +158,69 @@ describe("cloneVoice", () => {
     expect(result.isolatedPath).toBeDefined();
     expect(fs.existsSync(result.isolatedPath!)).toBe(true);
   }, 15_000);
+
+  // #495: an --isolate pass on a long source can produce a file over the
+  // 11 MB voices/add limit. cloneVoice must derive a compact sample and submit
+  // THAT, not the oversized isolated file. Asserts the add step receives the
+  // compressed sample (under limit) and the isolated artifact is untouched.
+  test.skipIf(!HAS_FFMPEG)(
+    "oversized isolated output → compresses before voices/add",
+    async () => {
+      // Build a genuinely oversized (>11 MB) but valid MP3 to stand in for the
+      // isolation response body. Real ffmpeg then compresses it in-branch.
+      const bigPath = path.join(tmpRoot, "big.mp3");
+      const gen = spawnSync("ffmpeg", [
+        "-y", "-loglevel", "error",
+        "-f", "lavfi", "-i", "sine=frequency=200:duration=460",
+        "-b:a", "320k", bigPath,
+      ]);
+      expect(gen.status).toBe(0);
+      const bigBuf = fs.readFileSync(bigPath);
+      expect(bigBuf.byteLength).toBeGreaterThan(11 * 1024 * 1024);
+
+      let addFileSize = -1;
+      let addFileName = "";
+      globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(url);
+        if (u.endsWith("/v1/audio-isolation")) {
+          return new Response(bigBuf, { status: 200 });
+        }
+        if (u.endsWith("/v1/voices/add")) {
+          const file = (init?.body as FormData).get("files") as Blob & { name?: string };
+          addFileSize = file.size;
+          addFileName = file.name ?? "";
+          return new Response(JSON.stringify({ voice_id: "compressed_v1" }), { status: 200 });
+        }
+        throw new Error(`unexpected fetch: ${u}`);
+      }) as typeof fetch;
+
+      const result = await cloneVoice({
+        projectId,
+        fromPath: samplePath,
+        name: "LongPodcast",
+        isolate: true,
+      });
+
+      expect(result.voiceId).toBe("compressed_v1");
+      // The add step received a DIFFERENT, compliant file — not the raw isolated one.
+      expect(addFileSize).toBeGreaterThan(0);
+      expect(addFileSize).toBeLessThanOrEqual(11 * 1024 * 1024);
+      expect(addFileSize).toBeLessThan(bigBuf.byteLength);
+      expect(addFileName).toMatch(/\.clone-sample\.mp3$/);
+
+      // The oversized isolated artifact is preserved on disk (append-only).
+      expect(fs.existsSync(result.isolatedPath!)).toBe(true);
+      expect(fs.statSync(result.isolatedPath!).size).toBe(bigBuf.byteLength);
+
+      // Provenance: the derived sample path is visible in the gen-log.
+      const rows = await readGenerations(projectId);
+      const cloneRow = rows.find((r) => r.endpoint === "voices/add");
+      expect((cloneRow!.output as { compressed?: string }).compressed).toMatch(
+        /\.clone-sample\.mp3$/,
+      );
+    },
+    30_000,
+  );
 
   test("missing source file → throws early before any fetch", async () => {
     let fetchHit = false;
