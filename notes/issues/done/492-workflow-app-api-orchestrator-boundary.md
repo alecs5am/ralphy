@@ -1,6 +1,6 @@
 # Workflow app API boundary for agent orchestrators
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (studio-server API boundary: existing run/graph/annotation/inbox/patch routes confirmed + documented; ADDED GET /api/capabilities (machine-readable action discovery + stable-id conventions), GET /api/workspaces/<ws>/approvals + POST .../respond driving `ralphy farm review` approve/reject/request-change via runCli with no new media mutation, inbox ?id show. Auth-gated. docs/workflow-app-api.md + CLAUDE.md pointer. React client untouched. 129 studio tests green.)
 > **Filed:** 2026-06-25
 > **Folder:** issues
 > **Severity:** high

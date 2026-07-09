@@ -209,3 +209,17 @@ export function listInboxPacks(scope: InboxScope): InboxRow[] {
   }
   return rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
 }
+
+/** One pack by id (the full #489 JSON). Null when the scope or the pack is unknown. */
+export function showInboxPack(scope: InboxScope, id: string): InboxPack | null {
+  const root = scopeRoot(scope);
+  if (!root) return null;
+  // Ids are basenames only — reject anything with a path separator / traversal.
+  if (!id || id.includes("/") || id.includes("\\") || id.includes("..")) return null;
+  try {
+    const pack = JSON.parse(fs.readFileSync(path.join(root, AGENT_INBOX_DIR, `${id}.json`), "utf-8"));
+    return pack && typeof pack === "object" ? (pack as InboxPack) : null;
+  } catch {
+    return null;
+  }
+}

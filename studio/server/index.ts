@@ -44,9 +44,11 @@ import {
   MIME,
 } from "./lib.js";
 import { readAnnotations, addAnnotation, removeAnnotation, type AnnotationScope } from "./annotations.js";
-import { writeInboxPack, listInboxPacks, type InboxScope } from "./inbox.js";
+import { writeInboxPack, listInboxPacks, showInboxPack, type InboxScope } from "./inbox.js";
 import { buildRunGraph, writeRunCanvasLayout } from "./graph.js";
 import { proposePatch, listPatches, type PatchScope } from "./patches.js";
+import { listApprovals, respondApproval, type ReviewDecision } from "./approvals.js";
+import { capabilitiesView } from "./capabilities.js";
 import { isAuthorized, authCookieHeader, safeEqual } from "./auth.js";
 import { handleWebhook } from "./hooks.js";
 import {
@@ -349,6 +351,27 @@ export function startStudio(
         }
       }
 
+      // ── Approval respond (#492/#533) — drives `ralphy farm review`, NO new
+      //    media mutation. approve → recordRunApproval (release the park),
+      //    reject → append-only rejection note, request-change → repair enqueue.
+      {
+        const ar = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/approvals\/respond$/);
+        if (ar && req.method === "POST") {
+          const ws = decodeURIComponent(ar[1]);
+          if (!fs.existsSync(path.join(dataRoot!, "workspaces", ws))) return json({ error: "unknown workspace" }, 404);
+          let body: any;
+          try { body = await req.json(); } catch { return json({ error: "bad body" }, 400); }
+          const outcome = respondApproval(dataRoot!, ws, {
+            id: body.id,
+            decision: body.decision as ReviewDecision,
+            reason: body.reason,
+            actor: body.actor,
+            capUsd: typeof body.capUsd === "number" ? body.capUsd : undefined,
+          });
+          return json(outcome.body, outcome.status);
+        }
+      }
+
       // ── Run canvas node layout (#490) — run-scoped metadata, never media ─
       {
         const cl = url.pathname.match(/^\/api\/runs\/([^/]+)\/canvas\/layout$/);
@@ -400,6 +423,10 @@ export function startStudio(
       }
 
       // ── API ───────────────────────────────────────────────────────────
+      // ── Capability discovery (#492) — the machine-readable action list ──
+      if (url.pathname === "/api/capabilities") {
+        return json(capabilitiesView());
+      }
       if (url.pathname === "/api/workspaces") {
         return json(listWorkspaces(dataRoot!));
       }
@@ -437,6 +464,12 @@ export function startStudio(
       if (cm) {
         const cal = readCalendarView(dataRoot!, decodeURIComponent(cm[1]));
         return cal ? json(cal) : json({ error: "unknown workspace" }, 404);
+      }
+      // ── Approval inbox (#492/#533) — parked items with stable <run>::<node> ids ──
+      cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/approvals$/);
+      if (cm) {
+        const view = listApprovals(dataRoot!, decodeURIComponent(cm[1]));
+        return view ? json(view) : json({ error: "unknown workspace" }, 404);
       }
       cm = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/workflows$/);
       if (cm) {
@@ -522,13 +555,18 @@ export function startStudio(
         const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as AnnotationScope;
         return json({ annotations: readAnnotations(scope) });
       }
-      // ── Inbox list (#489) ────────────────────────────────────────────────
+      // ── Inbox list + show (#489) — `?id=<packId>` returns one pack ────────
       const inboxMatch = url.pathname.match(/^\/api\/(projects|runs)\/([^/]+)\/inbox$/);
       if (inboxMatch) {
         const kind = inboxMatch[1] === "runs" ? "run" : "project";
         const ws = url.searchParams.get("workspace") ?? "default";
         const id = decodeURIComponent(inboxMatch[2]);
         const scope = { kind, dataRoot: dataRoot!, workspace: ws, id } as InboxScope;
+        const packId = url.searchParams.get("id");
+        if (packId) {
+          const pack = showInboxPack(scope, packId);
+          return pack ? json(pack) : json({ error: "unknown pack" }, 404);
+        }
         return json({ inbox: listInboxPacks(scope) });
       }
       let m = url.pathname.match(/^\/api\/projects\/([^/]+)\/artifacts$/);
