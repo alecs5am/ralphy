@@ -20,6 +20,23 @@ import { UNIT_FORMATS } from "./unit.js";
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/u;
 
 /**
+ * Batch-variance profile (#529) — the stamped anti-fingerprint assignment. This
+ * is the Zod mirror of `VarianceProfile` in `cli/lib/eval/variance-pools.ts`
+ * (the schema layer must not import the eval layer); keep the two in lockstep.
+ */
+export const VarianceProfileSchema = z.object({
+  format: z.enum(UNIT_FORMATS),
+  hookType: z.string(),
+  introStructure: z.string(),
+  sectionOrder: z.array(z.string()),
+  targetLength: z.number(),
+  targetLengthUnit: z.enum(["words", "seconds"]),
+  captionFormula: z.string(),
+  ctaPhrasing: z.string(),
+});
+export type VarianceProfileStamp = z.infer<typeof VarianceProfileSchema>;
+
+/**
  * A thesis: the durable statement the campaign occupies. Each thesis carries a
  * stable id (referenced by cells) so a cell can say which thesis it advances.
  */
@@ -87,6 +104,15 @@ export const CampaignCellSchema = z.object({
   priority: z.number().int().default(0),
   /** Lifecycle status. */
   status: z.enum(CAMPAIGN_CELL_STATUSES).default("planned"),
+  /**
+   * Batch-variance profile (#529) — the plan-time anti-fingerprint assignment
+   * (hook type / intro structure / section order / sampled target length /
+   * caption formula / CTA phrasing) drawn from the format's rotation pools. Set
+   * by `campaign plan --commit` (stamped per cell). Optional/additive — older
+   * campaigns predate it and still validate. Its fields flow into the cell's
+   * prompt as template-string slots (`cli/lib/eval/variance-pools.ts`).
+   */
+  variance: VarianceProfileSchema.optional(),
   /**
    * The unit that satisfied this cell, once produced: "project/slug". Set by
    * the produced-cell stamp (`campaign stamp` / the campaign-next producer).

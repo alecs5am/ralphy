@@ -2704,6 +2704,23 @@ Commands:
                                 when a model provider is configured; without one
                                 it falls back to structure-only (not a ship
                                 gate).
+  prose [options] <file>        Run the deterministic AI-tell prose lint (#529)
+                                over a text file: a rule pack (inflated
+                                symbolism, superficial -ing analyses,
+                                promotional language, vague attribution,
+                                'delve'-class AI vocabulary, copula avoidance,
+                                negative parallelisms, rule-of-three, false
+                                ranges, em-dash overuse, persuasive-authority
+                                tropes, signposting, chatbot artifacts, generic
+                                conclusions) plus a paragraph-rhythm-uniformity
+                                check. Each rule cites its source (Wikipedia
+                                'Signs of AI writing'), carries a warn|fail
+                                level, and emits a #409-vocabulary finding.
+                                Makes ZERO model calls. Use --target captions to
+                                route findings to the editor
+                                (captions.ai-tell.*) instead of the scenarist
+                                (structure.ai-tell.*). Example: ralphy eval
+                                prose draft.md
   run [options] <project>       Run the quality flywheel (#484): orchestrate the
                                 gates RELEVANT to a project (via gatesForContext
                                 over mode/format/platform), cheap-deterministic

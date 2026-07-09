@@ -1,6 +1,6 @@
 # Batch variance and AI-tell lint
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (two deterministic layers: variance-pools.ts (per-format rotation pools, staggered coverage + seeded length/section sampling, stamped on campaign cells at commit) + batch-variance.ts similarity gate (n-gram overlap/skeleton hash/length+caption clustering → structure.batch-variance scenarist / captions.batch-variance editor); prose-tells.ts + 14-rule English pack cited to the Signs-of-AI-writing guide + paragraph-rhythm check, ralphy eval prose verb, wired into the #526 article gate as text-ai-tell. Language-extension seam noted. 25 tests.)
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** high

@@ -183,6 +183,19 @@ describe("campaign plan (mocked callLLM)", () => {
     const campaign = seedCampaign();
     await expect(proposeCampaignPlan({ campaign, llmImpl: async () => ({ text: "not json" }) as CallLLMResult })).rejects.toThrow(/valid JSON/);
   });
+
+  test("commit stamps a batch-variance profile on every cell (#529)", async () => {
+    const campaign = seedCampaign();
+    const proposal = await proposeCampaignPlan({ campaign, llmImpl: mockLLM });
+    const committed = commitPlan(wsDir, "agent-video", { keywords: proposal.keywords, inventory: proposal.inventory });
+    for (const cell of committed.inventory) {
+      expect(cell.variance).toBeDefined();
+      expect(cell.variance!.format).toBe(cell.format);
+      expect(typeof cell.variance!.hookType).toBe("string");
+      expect(cell.variance!.sectionOrder.length).toBeGreaterThan(0);
+      expect(cell.variance!.targetLength).toBeGreaterThan(0);
+    }
+  });
 });
 
 // ─── cell lifecycle ──────────────────────────────────────────────────────────

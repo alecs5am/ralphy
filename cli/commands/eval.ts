@@ -23,6 +23,7 @@ import {
   PLATFORM_KEYS,
 } from "../lib/eval/platform.js";
 import { runQualityFlywheel } from "../lib/eval/flywheel.js";
+import { lintProse, type ProseTarget } from "../lib/eval/prose-tells.js";
 import { planMetrics, runMetrics, enrichEvalWithMetrics } from "../lib/eval/metrics/run.js";
 import { getMetricAdapter } from "../lib/eval/metrics/registry.js";
 import { projectDir } from "../lib/paths.js";
@@ -129,6 +130,39 @@ export function evalCmd() {
         });
       } catch (e) {
         err(`eval failed: ${(e as Error).message}`);
+      }
+    });
+
+  cmd
+    .command("prose <file>")
+    .description("Run the deterministic AI-tell prose lint (#529) over a text file: a rule pack (inflated symbolism, superficial -ing analyses, promotional language, vague attribution, 'delve'-class AI vocabulary, copula avoidance, negative parallelisms, rule-of-three, false ranges, em-dash overuse, persuasive-authority tropes, signposting, chatbot artifacts, generic conclusions) plus a paragraph-rhythm-uniformity check. Each rule cites its source (Wikipedia 'Signs of AI writing'), carries a warn|fail level, and emits a #409-vocabulary finding. Makes ZERO model calls. Use --target captions to route findings to the editor (captions.ai-tell.*) instead of the scenarist (structure.ai-tell.*). Example: ralphy eval prose draft.md")
+    .option("--target <target>", "Owner routing: prose (article/script → scenarist, default) | captions (→ editor)", "prose")
+    .option("--pretty", "Render a table instead of JSON")
+    .action((file: string, opts) => {
+      try {
+        const abs = path.resolve(file);
+        if (!existsSync(abs)) {
+          raiseError("E_NOT_FOUND", { kind: "text file", id: abs });
+        }
+        const target = (opts.target as string) === "captions" ? "captions" : "prose";
+        const result = lintProse(readFileSync(abs, "utf8"), target as ProseTarget);
+        const fails = result.findings.filter((f) => f.severity === "fail").length;
+        const warns = result.findings.filter((f) => f.severity === "warn").length;
+        out({
+          file: abs,
+          target,
+          verdict: fails > 0 ? "fail" : warns > 0 ? "warn" : "pass",
+          wordCount: result.wordCount,
+          findings: result.findings.map((f) => ({
+            category: f.category,
+            severity: f.severity,
+            message: f.message,
+            fix: f.fixHint,
+          })),
+          ruleHits: result.ruleHits,
+        });
+      } catch (e) {
+        err(`eval prose failed: ${(e as Error).message}`);
       }
     });
 
