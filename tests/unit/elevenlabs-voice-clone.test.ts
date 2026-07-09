@@ -212,10 +212,11 @@ describe("cloneVoice", () => {
       expect(fs.existsSync(result.isolatedPath!)).toBe(true);
       expect(fs.statSync(result.isolatedPath!).size).toBe(bigBuf.byteLength);
 
-      // Provenance: the derived sample path is visible in the gen-log.
+      // Provenance: the derived sample path is visible in the gen-log input
+      // (the strict `output` shape only carries the uploaded `local` file).
       const rows = await readGenerations(projectId);
       const cloneRow = rows.find((r) => r.endpoint === "voices/add");
-      expect((cloneRow!.output as { compressed?: string }).compressed).toMatch(
+      expect((cloneRow!.input as { compressed_sample?: string }).compressed_sample).toMatch(
         /\.clone-sample\.mp3$/,
       );
     },
