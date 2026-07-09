@@ -241,6 +241,38 @@ export async function loudnorm(input: LoudnormInput): Promise<string> {
   return dst;
 }
 
+// --- Recipe 3b: compress a voice-clone sample --------------------------
+
+export type CompressVoiceSampleInput = {
+  src: string;
+  dst: string;
+  /** Trim to at most this many seconds of speech. Default 90s. */
+  maxSeconds?: number;
+  /** Output MP3 bitrate (kbps). Default 64k — plenty for a voiceprint. */
+  bitrateKbps?: number;
+} & FFmpegOptions;
+
+/**
+ * Derive a compact voice-clone sample: trim to `maxSeconds`, downmix to mono,
+ * re-encode as a low-bitrate MP3. Used to keep a `voices/add` upload under the
+ * provider's file-size limit when an isolation pass balloons the file (#495).
+ * Non-destructive: writes a NEW path, never touches the source.
+ */
+export async function compressVoiceSample(input: CompressVoiceSampleInput): Promise<string> {
+  const { src, dst, maxSeconds = 90, bitrateKbps = 64, ...opts } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await runFfmpeg(
+    ["-t", String(maxSeconds), "-i", src, "-ac", "1", "-b:a", `${bitrateKbps}k`, dst],
+    {
+      endpoint: "ffmpeg/compress-voice-sample",
+      input: { src, dst, maxSeconds, bitrateKbps },
+      opts,
+      kind: "audio",
+    }
+  );
+  return dst;
+}
+
 // --- Recipe 4: sidechain compress (duck music under voice) -------------
 
 export type SidechainCompressInput = {

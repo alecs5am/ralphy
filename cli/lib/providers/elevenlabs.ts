@@ -21,6 +21,7 @@ import {
 } from "./shared.js";
 import { withConcurrency } from "./concurrency.js";
 import { voiceoverCostUsd } from "./voice-pricing.js";
+import { compressVoiceSample } from "../ffmpeg-recipes.js";
 import type {
   RalphyConnector,
   GenerateVoiceoverInput,
@@ -476,6 +477,13 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
 // (it kicks off a server-side fingerprint job) and 3+ in parallel has been
 // observed to 429 occasionally.
 
+/**
+ * ElevenLabs `voices/add` rejects uploads over 11 MB with
+ * `upload_file_size_exceeded`. An `/audio-isolation` pass on a long source can
+ * balloon past this (#495), so we compress before submitting.
+ */
+const VOICE_ADD_MAX_BYTES = 11 * 1024 * 1024;
+
 export type CloneVoiceInput = {
   projectId?: string;
   /** Local path to the source audio sample (mp3 / wav / m4a). */
@@ -565,6 +573,25 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
     uploadPath = isolatedPath;
   }
 
+  // #495: if the file we're about to upload exceeds the voices/add limit,
+  // derive a compliant sample (≤90s of speech, mono, low-bitrate MP3) and
+  // submit THAT. Append-only: the compressed sample is a NEW path, the source
+  // and isolated artifacts are untouched. Under-limit files pass through as-is.
+  let compressedPath: string | undefined;
+  const uploadStat = await fs.stat(uploadPath).catch(() => null);
+  if (uploadStat && uploadStat.size > VOICE_ADD_MAX_BYTES) {
+    const ext = path.extname(uploadPath);
+    const base = path.basename(uploadPath, ext);
+    compressedPath = path.join(path.dirname(uploadPath), `${base}.clone-sample.mp3`);
+    await compressVoiceSample({
+      src: uploadPath,
+      dst: compressedPath,
+      projectId: input.projectId,
+      note: `voice-clone sample compressed under ${VOICE_ADD_MAX_BYTES}-byte voices/add limit (#495)`,
+    });
+    uploadPath = compressedPath;
+  }
+
   // POST /v1/voices/add — multipart form with files[], name, description,
   // labels (JSON), remove_background_noise.
   const removeNoise = input.denoise === false ? false : true;
@@ -628,8 +655,9 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
         name: input.name,
         isolate: !!input.isolate,
         remove_background_noise: removeNoise,
+        compressed_sample: compressedPath,
       },
-      output: { local: isolatedPath ?? uploadPath },
+      output: { local: uploadPath, isolated: isolatedPath, compressed: compressedPath },
       status: "ok",
       latency_ms: result.latencyMs,
       cost_usd: 0,
