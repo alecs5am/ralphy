@@ -81,6 +81,12 @@ export interface FarmReportTotals {
   unitsGated: number;
   /** Completed PUBLISH_NODE_TYPES nodes — units pushed out. */
   unitsPublished: number;
+  /**
+   * #542: units DROPPED at the publish-time freshness guard (aged past their
+   * TTL before they could publish). A non-zero count is a throughput-loss
+   * signal — the tick cadence or quota is too slow for the ingest rate.
+   */
+  staleDropped: number;
   /** Realized model spend (sum of node costUsd across the window). */
   spendUsd: number;
   /** #513 content-hash cache hits + estimated spend they saved. */
@@ -184,6 +190,7 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
     unitsProduced: 0,
     unitsGated: 0,
     unitsPublished: 0,
+    staleDropped: 0,
     spendUsd: 0,
     cacheHits: 0,
     cacheSavedUsd: 0,
@@ -237,6 +244,8 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
         if (t === "ralphy-unit") totals.unitsProduced++;
         else if (t === "approval") totals.unitsGated++;
         else if (t && PUBLISH_TYPES.has(t)) totals.unitsPublished++;
+      } else if (e.kind === "stale-dropped") {
+        totals.staleDropped++;
       } else if (e.kind === "node-cached") {
         totals.cacheHits++;
         rates.nodeCacheHits++;
@@ -320,7 +329,8 @@ export function digestSummary(
   const title = `Farm "${report.workspace}"${since}: ${t.unitsProduced} produced, ${t.unitsPublished} published, $${t.spendUsd.toFixed(2)} spent${needsYou > 0 ? `, ${needsYou} needs you` : ""}`;
   const body = [
     `Ticks: ${t.ticks} · runs: ${t.runs}`,
-    `Produced ${t.unitsProduced} · gated ${t.unitsGated} · published ${t.unitsPublished}`,
+    `Produced ${t.unitsProduced} · gated ${t.unitsGated} · published ${t.unitsPublished}` +
+      (t.staleDropped > 0 ? ` · stale-dropped ${t.staleDropped}` : ""),
     `Spend $${t.spendUsd.toFixed(2)}` +
       (report.spendPerUnit !== null ? ` ($${report.spendPerUnit.toFixed(2)}/unit)` : "") +
       (report.spendPerTick !== null ? ` ($${report.spendPerTick.toFixed(2)}/tick)` : ""),
