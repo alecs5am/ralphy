@@ -32,6 +32,7 @@ import {
 } from "../lib/campaign/store.js";
 import { proposeCampaignPlan } from "../lib/campaign/plan.js";
 import { computeCoverage } from "../lib/campaign/report.js";
+import { buildCampaignRoi } from "../lib/analytics/roi.js";
 import { isValidCampaignId } from "../lib/schemas/campaign.js";
 
 function requireWorkspace(verb: string, slug: string): string {
@@ -230,6 +231,20 @@ export function campaignCmd() {
       const ws = campaignWorkspace(id);
       const topicDuplicateSkipped = countTopicDuplicateSkips(ws, { urlPrefix: `campaign://${id}/` });
       out({ workspace: ws, ...coverage, topicDuplicateSkipped });
+    });
+
+  // ── roi ──────────────────────────────────────────────────────────────────
+  cmd
+    .command("roi <id>")
+    .description(
+      "Cost/ROI report (#544): joins realized model spend (gen-log) to measured performance (analytics #507) per linked unit, aggregated by format / angle / channel / thesis / platform, with cost-per-1k-views + best/worst ROI cells. Units with spend but no analytics yet are counted in spend, excluded from ratios, flagged pending-performance. Read-only, no model calls. Example: ralphy campaign roi agent-video",
+    )
+    .action(async (id: string) => {
+      const dir = resolveCampaignDir("campaign roi", id);
+      const campaign = readCampaign(dir, id);
+      if (!campaign) raiseError("E_NOT_FOUND", { kind: "Campaign", id });
+      const report = await buildCampaignRoi(campaignWorkspace(id), campaign!);
+      out(report);
     });
 
   // ── stamp ─────────────────────────────────────────────────────────────────
