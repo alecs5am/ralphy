@@ -1,6 +1,6 @@
 # Route the article/campaign/farm-ops surfaces into AGENTS.md + playbooks
 
-> **Status:** todo
+> **Status:** done — 2026-07-09
 > **Filed:** 2026-07-09
 > **Folder:** issues
 > **Severity:** medium
