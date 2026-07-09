@@ -16,16 +16,27 @@
 // exactly — the same `workspaceDir(ws)` home, the same tolerant torn-line JSONL
 // read, the same `fs.mkdirSync(..., { recursive: true })` before append.
 //
-// RECONCILE (belt-and-suspenders, #531 scope): the issue asked for a remote
-// confirm against Postiz's already-scheduled state as a second belt. The Postiz
-// public API (cli/lib/providers/postiz.ts) exposes NO scheduled-post LOOKUP
-// endpoint — only GET /integrations, POST /upload, POST /posts, and
-// GET /analytics/post/{postId}. So the reconcile is LEDGER-ONLY: the pre-fire
-// ledger check IS the guard. This leaves a small crash window — if the process
-// dies AFTER Postiz accepts the post but BEFORE `appendPublishLedger` returns,
-// the ledger has no record and a re-run WILL re-fire that one target. The
-// window is the single fs.appendFileSync between the two, and adding the remote
-// confirm is tracked as #537 (notes/issues/537-postiz-scheduled-post-reconcile.md).
+// RECONCILE (belt-and-suspenders, #531/#537 scope): the issue asked for a
+// remote confirm against Postiz's already-scheduled state as a SECOND belt
+// (ledger first, remote confirm second). VERIFIED against the connector
+// (cli/lib/providers/postiz.ts) and the public-API docs it cites: the Postiz
+// public API exposes NO scheduled-post LOOKUP/list endpoint — only
+// GET /integrations, POST /upload, POST /posts, and GET /analytics/post/{postId}
+// (a read keyed by a post id you ALREADY have, not a "find my scheduled posts"
+// query). So the remote-confirm second belt is BLOCKED pending a Postiz API
+// that documents a scheduled-post lookup, and the reconcile stays LEDGER-ONLY:
+// the pre-fire ledger check IS the guard.
+//
+// RESIDUAL CRASH WINDOW (unclosable with today's Postiz API): there is exactly
+// ONE gap — the single `fs.appendFileSync` in `appendPublishLedger` (below)
+// that lands the ledger record. If the process dies AFTER Postiz accepts the
+// post (`postizCreatePost` returned) but BEFORE that `appendFileSync` returns,
+// the ledger has no record for that (key, target) and a re-run WILL re-fire it
+// — a double-post. The remote-confirm belt would close exactly this window (a
+// re-run would see the already-scheduled post and skip even with no ledger
+// row), which is why it stays tracked as #537
+// (notes/issues/537-postiz-scheduled-post-reconcile.md). Until Postiz ships the
+// lookup, this window is the accepted residual risk of the ledger-only guard.
 
 import fs from "node:fs";
 import path from "node:path";

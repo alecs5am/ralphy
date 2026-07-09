@@ -1,6 +1,6 @@
 # Postiz scheduled-post reconcile for the publish ledger
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (Postiz confirmed to expose NO scheduled-post lookup endpoint → remote-confirm second belt stays blocked; documented the residual single-appendFileSync crash window in ledger.ts + a #537 breadcrumb at the wiring point. Closed the real hole: threaded the exactly-once ledger guard through `xPostExecutor`, keyed per thread-item.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** medium

@@ -52,6 +52,7 @@ import {
   readUnitManifest,
   appendPublishRecords,
 } from "../../publish/publish.js";
+import { publishIdempotencyKey, findLedgerEntry, appendPublishLedger } from "../../publish/ledger.js";
 import { writeNodeArtifact } from "./llm.js";
 import { NodeExecutionError } from "./types.js";
 import type { ExecutorContext, NodeExecutor } from "./types.js";
@@ -391,7 +392,8 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
 
   // Optional unit binding: gates on readiness + trust + appends provenance.
   const ref = resolveUnitRef(node, ctx);
-  if (ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug)))) {
+  const hasUnit = Boolean(ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug))));
+  if (ref && hasUnit) {
     const { forced } = await gateReadiness(node, ref);
     await gatePublishTrust(node, ctx, ref, forced);
   }
@@ -412,6 +414,53 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
   const scheduleAt = slot?.scheduleAt ?? null;
   const segments = splitThread(text);
 
+  // Exactly-once guard (#531/#537) — close the ledger-bypass this executor had:
+  // it fires `postizCreatePost` directly (not through publishUnit), so a
+  // resumed/retried x-post thread could double-post. The thread is ONE atomic
+  // Postiz post carrying N `value` entries (one per `---` segment), so there is
+  // a single platform-accept event — but we key the ledger PER THREAD-ITEM
+  // (slot = "<entryId|default>#<index>") so the guard dedups at item
+  // granularity, never collapsing the whole thread to one row. Requires a bound
+  // unit for a stable identity (projectId/slug); an unbound x-post has no stable
+  // key and keeps the pre-#537 fire-always behaviour (nothing to reconcile
+  // against). The recorded postId is the same for every item of one thread.
+  const ledgerWorkspace = ref && hasUnit ? ctx.workspace : null;
+  const itemSlot = (i: number) => `${slot?.entryId ?? "default"}#${i}`;
+  const itemKey = (i: number) =>
+    publishIdempotencyKey({ workspace: ctx.workspace, projectId: ref!.projectId, slug: ref!.slug, target: "x", slot: itemSlot(i) });
+
+  if (ledgerWorkspace) {
+    // A thread fires atomically: if EVERY item already has a blocking ledger
+    // row, the thread already posted — idempotent-skip without re-firing. Reuse
+    // the recorded postId/scheduleAt (a partial set means a prior crash between
+    // accept and the per-item appends; re-fire to be safe, the ledger tolerates
+    // duplicate rows and findLedgerEntry resolves newest-first).
+    const priors = segments.map((_, i) => findLedgerEntry(ledgerWorkspace, itemKey(i), "x"));
+    if (priors.length > 0 && priors.every((p) => p)) {
+      const first = priors[0]!;
+      const result = {
+        target: "x" as const,
+        integrationId,
+        status: "idempotent-skip" as const,
+        postId: first.postId,
+        scheduleAt: first.scheduleAt,
+        segments: segments.length,
+      };
+      await ctx.log({
+        provider: "postiz",
+        model: "postiz",
+        endpoint: "posts",
+        kind: "publish",
+        status: "ok",
+        input: { node: node.id, target: "x", segments: segments.length, scheduleAt },
+        output: result,
+        note: `publish-idempotent-skip: x thread already published/scheduled (exactly-once ledger, ${segments.length} items)`,
+      });
+      const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(result, null, 2));
+      return { output: result, artifactPath };
+    }
+  }
+
   let postId: string | null = null;
   let error: string | undefined;
   try {
@@ -429,6 +478,26 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
   }
 
   const status = error ? "failed" : scheduleAt ? "scheduled" : "published";
+
+  // Ledger BELT: right after the platform accepts, append one row PER
+  // thread-item (before the unit-manifest provenance append below), mirroring
+  // publishUnit's ordering — a crash between the two is recoverable on re-run
+  // via the ledger check above. A failed fire records a non-blocking `failed`
+  // row per item so a retry re-fires (findLedgerEntry ignores `failed`).
+  if (ledgerWorkspace) {
+    for (let i = 0; i < segments.length; i++) {
+      appendPublishLedger(ledgerWorkspace, {
+        key: itemKey(i),
+        project: ref!.projectId,
+        slug: ref!.slug,
+        target: "x",
+        postId,
+        scheduleAt,
+        status: status as "scheduled" | "published" | "failed",
+      });
+    }
+  }
+
   const result = { target: "x" as const, integrationId, status, postId, scheduleAt, segments: segments.length, ...(error && { error }) };
 
   await ctx.log({
@@ -441,7 +510,7 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
     output: result,
   });
 
-  if (ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug)))) {
+  if (ref && hasUnit) {
     await appendPublishRecords(unitDirFor(ref.projectId, ref.slug), [
       {
         target: "x",
