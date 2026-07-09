@@ -1,14 +1,15 @@
 # Performance-driven selection loop (close the flywheel)
 
-> **Status:** partial (2026-07-08) — foundation landed (`cli/lib/selection.ts`:
-> attribution over the dimensions recorded today (template/style/recipe/asset/
-> platform/posting-window), append-only `selection-weights.jsonl` with decay +
-> confidence shrinkage, the pure `sampleWeighted` exploration-floor seam, and
-> `ralphy workspace learnings` with reversible pin/retire). STILL OPEN — the
-> headline bias wiring is blocked: #529 variance planner and #528 campaign
-> picker (both unbuilt) must call `sampleWeighted` at their selection points and
-> record the missing dimensions (hook-type/length-band/angle/thesis) on units.
-> Re-open the flat backlog until those consumers exist.
+> **Status:** done — 2026-07-09 — flywheel closed: SELECTION_DIMENSIONS extended
+> with hookType/lengthBand/angle/thesis/format (+ pure `lengthBand` bucketing);
+> produced units record `provenance.selection` (via `campaign stamp`, cell +
+> variance profile) and `unitTags` emits observations for the new axes; the #528
+> campaign picker (`biasedDrain`) and the #529 variance planner both consult
+> `sampleWeighted` over the live weights WITHIN a priority band (bias, never
+> hard-exclude, exploration floor intact); COLD-START is byte-for-byte the
+> pre-#532 deterministic behavior (priority drain / staggered rotation) —
+> asserted in tests. Foundation (attribution, weights store, learnings pin/retire)
+> was already landed.
 > **Filed:** 2026-07-07
 > **Folder:** issues
 > **Severity:** high

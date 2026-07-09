@@ -21,7 +21,14 @@ import {
   type KeywordMatrix,
   type PendingLink,
 } from "../schemas/campaign.js";
-import { assignVarianceProfile } from "../eval/variance-pools.js";
+import { assignVarianceProfile, type VarianceBias } from "../eval/variance-pools.js";
+import {
+  buildLookup,
+  parseWeightsFile,
+  parseSelectionFlagsFile,
+  type WeightsSnapshot,
+} from "../selection.js";
+import { makePrng } from "../farm/prng.js";
 
 /**
  * Stamp a batch-variance profile (#529) onto every cell that lacks one, drawn
@@ -29,8 +36,13 @@ import { assignVarianceProfile } from "../eval/variance-pools.js";
  * pool rotation covers its own items (no dimension starved). `salt` (the
  * campaign id) makes two campaigns of the same size stamp distinctly. Pure —
  * returns a new inventory array; never mutates the input cells.
+ *
+ * #532: when `bias` is supplied (the workspace has measured selection weights),
+ * the profile's `hookType` + length band are drawn toward proven winners with
+ * the exploration floor. Absent (cold-start) → byte-for-byte the pre-#532
+ * uniform rotation, so the coverage guarantee holds until data exists.
  */
-export function stampVariance(inventory: CampaignCell[], salt: string): CampaignCell[] {
+export function stampVariance(inventory: CampaignCell[], salt: string, bias?: VarianceBias): CampaignCell[] {
   const indexByFormat = new Map<string, number>();
   const countByFormat = new Map<string, number>();
   for (const c of inventory) countByFormat.set(c.format, (countByFormat.get(c.format) ?? 0) + 1);
@@ -38,9 +50,24 @@ export function stampVariance(inventory: CampaignCell[], salt: string): Campaign
     if (cell.variance) return cell;
     const i = indexByFormat.get(cell.format) ?? 0;
     indexByFormat.set(cell.format, i + 1);
-    const variance = assignVarianceProfile(cell.format, i, countByFormat.get(cell.format) ?? 1, salt);
+    const variance = assignVarianceProfile(cell.format, i, countByFormat.get(cell.format) ?? 1, salt, bias);
     return { ...cell, variance };
   });
+}
+
+/**
+ * Build the #532 variance bias from the workspace dir's on-disk weights, or
+ * null at cold-start (no `selection-weights.jsonl`, or its latest snapshot is
+ * cold-start). Reads the JSONL files directly from the absolute dir so the
+ * store stays decoupled from the paths singleton (its module contract). The
+ * prng is seeded from the campaign id + the weights timestamp → deterministic
+ * and reproducible across a re-commit against the same weights.
+ */
+function varianceBiasFor(workspaceDir: string, salt: string): VarianceBias | undefined {
+  const weights: WeightsSnapshot | null = parseWeightsFile(path.join(workspaceDir, "selection-weights.jsonl"));
+  if (!weights || weights.coldStart) return undefined;
+  const flags = parseSelectionFlagsFile(path.join(workspaceDir, "lifecycle.jsonl"));
+  return { lookup: buildLookup(weights, flags), prng: makePrng(`variance:${salt}:${weights.computedAt}`) };
 }
 
 /** `<workspace>/campaigns/<id>/campaign.json` */
@@ -127,7 +154,9 @@ export function commitPlan(
     ...campaign,
     keywords: plan.keywords,
     // #529: stamp a per-format variance profile onto every cell at commit time.
-    inventory: stampVariance(plan.inventory, id),
+    // #532: bias the hook/length picks toward measured winners when the
+    // workspace has selection weights; undefined at cold-start (uniform).
+    inventory: stampVariance(plan.inventory, id, varianceBiasFor(workspaceDir, id)),
     planned: true,
   });
   writeCampaign(workspaceDir, next);
