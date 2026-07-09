@@ -38,6 +38,7 @@
 
 import { transitionEntry } from "../../calendar/store.js";
 import { makePrng } from "../../farm/prng.js";
+import { resolveFreshnessTtl, classifyFreshness, type StaleAction } from "../../farm/freshness.js";
 import { logUserPrompt } from "../../gen-log.js";
 import {
   postizIntegrations,
@@ -253,6 +254,56 @@ export async function gatePublishTrust(
   throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
 }
 
+// ─── freshness guard (#542) ────────────────────────────────────────────────
+
+type FreshnessGuard =
+  | { drop: true; ageMs: number | null; ttlMs: number; source_ts: string }
+  | { drop: false; downgraded: boolean; ageMs?: number | null; ttlMs?: number };
+
+/**
+ * The publish-time staleness guard (#542). Reads the unit's source `ts` +
+ * effective TTL (item/node param/content-class default), classifies age
+ * measured FROM THE SOURCE `ts` (not the tick), and decides: a fresh unit
+ * proceeds; a past-TTL unit is DROPPED (never published as fresh) OR — when the
+ * node sets `params.stale_action: "downgrade"` — flagged for a lower-priority
+ * evergreen treatment while still publishing. A unit with no TTL (evergreen) or
+ * no `source_ts` proceeds unguarded.
+ *
+ * `source_ts` is read from the schedule_at slot payload's `sourceTs`, else
+ * `params.source_ts`; the TTL from `params.freshness_ttl` / `params.content_class`.
+ * Wired via node params so the guard stays free of the unit-manifest coupling.
+ */
+function guardFreshness(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  slot: CalendarSlotPayload | null,
+): FreshnessGuard {
+  const p = node.params as {
+    source_ts?: unknown;
+    freshness_ttl?: unknown;
+    content_class?: unknown;
+    stale_action?: unknown;
+  };
+  const slotSourceTs = slot && typeof (slot as { sourceTs?: unknown }).sourceTs === "string"
+    ? (slot as { sourceTs: string }).sourceTs
+    : undefined;
+  const sourceTs = slotSourceTs ?? (typeof p.source_ts === "string" ? p.source_ts : undefined);
+  if (!sourceTs) return { drop: false, downgraded: false };
+
+  const ttlMs = resolveFreshnessTtl({
+    nodeTtl: typeof p.freshness_ttl === "string" ? p.freshness_ttl : undefined,
+    contentClass: typeof p.content_class === "string" ? p.content_class : undefined,
+  });
+  const action: StaleAction = p.stale_action === "downgrade" ? "downgrade" : "drop";
+  const now = (ctx.now ?? (() => new Date()))().getTime();
+  const verdict = classifyFreshness(sourceTs, ttlMs, now, action);
+  if (!verdict.stale) return { drop: false, downgraded: false };
+  if (verdict.action === "downgrade") {
+    return { drop: false, downgraded: true, ageMs: verdict.ageMs, ttlMs: verdict.ttlMs };
+  }
+  return { drop: true, ageMs: verdict.ageMs, ttlMs: verdict.ttlMs!, source_ts: sourceTs };
+}
+
 function parseNodeTargets(node: WorkflowNode): PublishTarget[] {
   const raw = node.params.targets;
   const list = Array.isArray(raw)
@@ -289,6 +340,47 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
       "schedule-missing",
       `publish node "${node.id}" got a parked calendar-slot payload (no free slot, entry ${slot.entryId ?? "?"}) — the unit stays queued; route the queued branch to an approval/park node instead of publish`,
     );
+  }
+
+  // #542 freshness guard — BEFORE the readiness/trust gates and any paid
+  // publish: a past-TTL unit must never be posted as fresh. A `drop` short-
+  // circuits with a `stale-dropped` journal event (carrying age + TTL) and
+  // publishes NOTHING; a `downgrade` proceeds but flags the evergreen treatment.
+  const freshness = guardFreshness(node, ctx, slot);
+  if (freshness.drop) {
+    const ageH = freshness.ageMs !== null ? (freshness.ageMs / 3_600_000).toFixed(1) : "unknown";
+    const ttlH = (freshness.ttlMs / 3_600_000).toFixed(1);
+    const message = `publish node "${node.id}": ${ref.projectId}/${ref.slug} stale-dropped — source aged ${ageH}h > TTL ${ttlH}h (source_ts ${freshness.source_ts}); not published`;
+    if (ctx.runId) {
+      const { appendRunEvent } = await import("../../run.js");
+      // #541: when topic dedup lands, a stale-DROP must NOT mark the topic
+      // "covered" — the unit was never published, so the topic stays OPEN for
+      // a fresher source. dedup's "cover" write consults publish success, not
+      // this drop path. Do NOT record a seen/cover entry here.
+      await appendRunEvent(ctx.runId, {
+        kind: "stale-dropped",
+        node: node.id,
+        project: ref.projectId,
+        unit: ref.slug,
+        ageMs: freshness.ageMs,
+        ttlMs: freshness.ttlMs,
+        sourceTs: freshness.source_ts,
+        message,
+      });
+    }
+    const payload = { stale_dropped: true, ageMs: freshness.ageMs, ttlMs: freshness.ttlMs, sourceTs: freshness.source_ts };
+    const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
+    await ctx.log({
+      provider: "postiz",
+      model: "postiz",
+      endpoint: "posts",
+      kind: "publish",
+      status: "ok",
+      input: { node: node.id, project: ref.projectId, unit: ref.slug },
+      output: payload,
+      note: message,
+    });
+    return { output: payload, artifactPath };
   }
 
   const { forced } = await gateReadiness(node, ref);
@@ -366,6 +458,9 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
     entryId: slot?.entryId ?? null,
     calendarTransition,
     trustGate: trustGate.mode,
+    // #542: a past-TTL unit the node chose to DOWNGRADE (not drop) still
+    // publishes, flagged so downstream/report can see the evergreen treatment.
+    ...(freshness.downgraded ? { staleDowngraded: true, ageMs: freshness.ageMs, ttlMs: freshness.ttlMs } : {}),
   };
   const artifactPath = await writeNodeArtifact(ctx, `${node.id}.json`, JSON.stringify(payload, null, 2));
   return { output: payload, artifactPath };
