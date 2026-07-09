@@ -24,6 +24,7 @@ import {
   type WorkspaceValidatorContext,
 } from "./workspace-evaluators.js";
 import { workspaceDir } from "../paths.js";
+import { registerBuiltinTextValidators } from "./text-quality.js";
 import type { Finding, Severity } from "./types.js";
 
 // ─── Threshold reading (config-driven, with documented defaults) ─────────────────
@@ -571,6 +572,11 @@ export function registerBuiltinWorkspaceValidators(): void {
   registerWorkspaceValidator("material-density", materialDensity);
   registerWorkspaceValidator("edit-correctness", editCorrectness);
   registerWorkspaceValidator("insta-metric-fit", instaMetricFit);
+
+  // Deterministic TEXT validators for the `seo-article` prose gate (#526):
+  // text-keyword-coverage / text-structure / text-reading-level /
+  // text-length-window (cli/lib/eval/text-quality.ts).
+  registerBuiltinTextValidators();
 
   // Vision rubric fragments (resolved by validatorId in the engine's vision pass;
   // an inline rubricPrompt on the criterion still wins).

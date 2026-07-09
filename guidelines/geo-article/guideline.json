@@ -1,0 +1,16 @@
+{
+  "slug": "geo-article",
+  "name": "GEO-aware SEO article",
+  "tag": "@guideline:geo-article",
+  "version": "1.0",
+  "kind": "text-prompt",
+  "tagline": "Draft a long-form article that ranks in classic search AND gets cited by LLM answer engines — clear standalone claims, quotable definitions, explicit FAQ blocks, one idea per heading.",
+  "description": "How to draft a long-form SEO article that is also GEO-aware (Generative Engine Optimization): structured so both a search-snippet extractor AND an LLM answering a question can lift a clean, self-contained claim from it. Covers the article skeleton (title + meta description pair, scannable H2/H3 sections, a definition paragraph, an FAQ block of real question headings with quotable one-paragraph answers, outbound reference links), the claim-writing discipline (each key sentence stands alone, no anaphora-only reference, no invented facts), the reading-level target, and the length window. Folded into the drafting prompt by the seo-article route (research -> outline -> draft) via the #515 guideline-fold path.",
+  "scope": ["article", "text", "seo", "geo", "blog", "long-form"],
+  "models": [
+    "anthropic/claude-sonnet-4.6",
+    "anthropic/claude-opus-4.6"
+  ],
+  "tags": ["seo", "geo", "article", "blog", "long-form", "faq", "citation"],
+  "patterns": ["title-meta-pair", "definition-paragraph", "scannable-h2-h3", "faq-block", "quotable-claim", "reference-links"]
+}
