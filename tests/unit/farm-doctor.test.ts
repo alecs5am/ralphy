@@ -68,8 +68,21 @@ function byId(checks: Check[], id: string): Check {
   return c;
 }
 
+// Env keys this suite mutates. Snapshot the pre-test values in beforeEach and
+// restore them (not blind-delete) in afterEach — a real runner env may already
+// carry OPENROUTER_API_KEY / ELEVENLABS_API_KEY, and deleting them leaks into
+// every later test that spawns a subprocess inheriting process.env (#545).
+const MUTATED_ENV = [
+  "OPENROUTER_API_KEY",
+  "ELEVENLABS_API_KEY",
+  "POSTIZ_API_KEY",
+  "POSTIZ_BASE_URL",
+] as const;
+let savedEnv: Record<string, string | undefined>;
+
 beforeEach(() => {
   seed();
+  savedEnv = Object.fromEntries(MUTATED_ENV.map((k) => [k, process.env[k]]));
   process.env.OPENROUTER_API_KEY = "sk-test";
   process.env.ELEVENLABS_API_KEY = "el-test";
   process.env.POSTIZ_API_KEY = "pz-test";
@@ -77,10 +90,10 @@ beforeEach(() => {
 });
 afterEach(() => {
   tmp?.cleanup();
-  delete process.env.OPENROUTER_API_KEY;
-  delete process.env.ELEVENLABS_API_KEY;
-  delete process.env.POSTIZ_API_KEY;
-  delete process.env.POSTIZ_BASE_URL;
+  for (const k of MUTATED_ENV) {
+    if (savedEnv[k] === undefined) delete process.env[k];
+    else process.env[k] = savedEnv[k];
+  }
 });
 
 // ─── verdict aggregation ─────────────────────────────────────────────────────

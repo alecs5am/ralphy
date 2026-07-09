@@ -1,6 +1,6 @@
 # Flaky: doctor-on-legacy-root fails only in the full suite (test pollution)
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (root cause: `farm-doctor.test.ts` blind-deleted `OPENROUTER_API_KEY`/`ELEVENLABS_API_KEY` from a shared `process.env`, flipping the spawned `doctor` exit code; fixed at source + hardened the victim + swept `farm-notify.test.ts`)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** medium
