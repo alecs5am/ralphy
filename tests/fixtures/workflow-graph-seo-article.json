@@ -1,0 +1,72 @@
+{
+  "version": "2.0",
+  "name": "seo-article",
+  "nodes": [
+    {
+      "id": "tick",
+      "type": "schedule",
+      "params": { "cron": "0 9 * * *" }
+    },
+    {
+      "id": "research",
+      "type": "generate-object",
+      "in": { "seed": "tick.out" },
+      "params": {
+        "model": "anthropic/claude-sonnet-4.6",
+        "provider": "openrouter",
+        "prompt": "Research the topic and return structured facts.",
+        "schema": "research-facts"
+      },
+      "out": "research-facts"
+    },
+    {
+      "id": "outline",
+      "type": "generate-text",
+      "in": { "facts": "research.research-facts" },
+      "params": {
+        "model": "anthropic/claude-sonnet-4.6",
+        "provider": "openrouter",
+        "prompt": "Draft a GEO-aware outline from {{facts}}.",
+        "guidelines": ["geo-article"]
+      },
+      "out": "outline"
+    },
+    {
+      "id": "draft",
+      "type": "generate-text",
+      "in": { "outline": "outline.out" },
+      "params": {
+        "project": "seo-article-graph-526",
+        "model": "anthropic/claude-sonnet-4.6",
+        "provider": "openrouter",
+        "prompt": "Write the full article body from {{outline}}.",
+        "guidelines": ["geo-article"]
+      },
+      "out": "draft"
+    },
+    {
+      "id": "score",
+      "type": "ralphy-eval",
+      "in": { "body": "draft.out" },
+      "params": { "project": "seo-article-graph-526", "gate": ["article-structure"] },
+      "out": "eval"
+    },
+    {
+      "id": "quality",
+      "type": "gate",
+      "in": { "verdict": "score.out" },
+      "params": { "repair_to": "draft" }
+    },
+    {
+      "id": "unit",
+      "type": "ralphy-unit",
+      "in": { "gated": "quality.out" },
+      "params": {
+        "project": "seo-article-graph-526",
+        "slug": "ralphy-article",
+        "format": "article",
+        "from": "artifacts/article.md"
+      }
+    }
+  ]
+}

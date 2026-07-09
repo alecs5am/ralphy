@@ -145,6 +145,11 @@ export function unitCmd() {
     .option("--style <slug>", "Provenance: the visual style slug")
     .option("--recipe <slug>", "Provenance: a recipe slug (repeatable)", collect, [])
     .option("--asset <slug>", "Provenance: a reusable asset slug (repeatable)", collect, [])
+    .option("--description <text>", "Article (--format article): meta description / search snippet")
+    .option("--tags <csv>", "Article (--format article): comma-separated topic tags")
+    .option("--canonical-url <url>", "Article (--format article): canonical URL slot (default empty)")
+    .option("--hero <file>", "Article (--format article): unit-relative hero image filename")
+    .option("--body <file>", "Article (--format article): unit-relative markdown body filename (default: first .md in --from)")
     .option(
       "--polished",
       "Mark this Unit polished — consults the readiness scorecard (#427) and REFUSES when the verdict is `blocked` (a hard gate failed)",
@@ -203,6 +208,26 @@ export function unitCmd() {
         }
       }
 
+      // Article (#526): assemble the frontmatter from the article flags. Slug +
+      // title default to the unit's slug / --title so a minimal invocation works.
+      const article =
+        format === "article"
+          ? {
+              title: opts.title ? String(opts.title) : slug,
+              description: opts.description ? String(opts.description) : "",
+              slug,
+              tags: opts.tags
+                ? String(opts.tags)
+                    .split(",")
+                    .map((t: string) => t.trim())
+                    .filter(Boolean)
+                : [],
+              canonicalUrl: opts.canonicalUrl ? String(opts.canonicalUrl) : "",
+              ...(opts.hero && { hero: String(opts.hero) }),
+              ...(opts.body && { body: String(opts.body) }),
+            }
+          : undefined;
+
       // Formation core lives in cli/lib/unit.ts (#511) — the same path the
       // ralphy-unit workflow executor calls. COPY-never-move, append-only dir.
       const created = await createUnit({
@@ -213,6 +238,7 @@ export function unitCmd() {
         title: opts.title ? String(opts.title) : undefined,
         blurb: opts.blurb ? String(opts.blurb) : undefined,
         provenance: buildProvenance(opts),
+        article,
       });
 
       ok(`Unit created: ${created.dirName} (${created.manifest.media.length} media)`);

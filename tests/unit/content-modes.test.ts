@@ -61,6 +61,7 @@ describe("content-mode registry completeness (#412)", () => {
       "personal-clipper",
       "amazon-listing",
       "infographic-animation",
+      "seo-article",
     ];
     for (const m of expected) {
       expect(isContentMode(m)).toBe(true);
@@ -169,6 +170,7 @@ const HAPPY_PATH: Record<ContentMode, string> = {
   "personal-clipper": "cut my stream into shorts, extract the best moments clips",
   "amazon-listing": "design my amazon listing images with an infographic listing",
   "infographic-animation": "make an animated infographic data visualization video of these stats",
+  "seo-article": "write an seo article, a long-form blog post for search",
 };
 
 describe("classifyContentMode — happy path resolves to the mode (#412)", () => {

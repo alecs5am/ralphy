@@ -54,6 +54,10 @@ const IMAGE_PRICE_USD: Record<string, number> = {
 
 const DEFAULT_IMAGE_MODEL = "google/gemini-3-pro-image-preview";
 const DEFAULT_VIDEO_MODEL = "kwaivgi/kling-v3.0-pro";
+/** Article drafting LLM (#526) — MODELS.md scenarist/rewrite row. Verify per run. */
+const DEFAULT_TEXT_MODEL = "anthropic/claude-sonnet-4.6";
+/** Ballpark for the research+outline+draft LLM passes of one article. */
+const TEXT_DRAFT_COST_USD = 0.15;
 /** Flat ElevenLabs ballparks — one VO pass / one music bed / one sfx hit. */
 const VOICEOVER_COST_USD = 0.05;
 const MUSIC_COST_USD = 0.1;
@@ -128,6 +132,25 @@ export function deriveModelStack(
   const stack: PlanModel[] = [];
   const isVideo = format === "video" || format === "motion-design";
 
+  // Article (#526): a prose deliverable. The primary model is the text LLM that
+  // drafts the body (through callLLM / the generate-text executor); images are
+  // OPTIONAL (a hero / inline figures), not the anchor of the deliverable.
+  if (format === "article") {
+    stack.push({
+      role: "llm",
+      model: DEFAULT_TEXT_MODEL,
+      unitCostUsd: TEXT_DRAFT_COST_USD,
+      note: "research + outline + draft passes (LLM, through callLLM)",
+    });
+    stack.push({
+      role: "image",
+      model: DEFAULT_IMAGE_MODEL,
+      unitCostUsd: imagePrice(DEFAULT_IMAGE_MODEL),
+      note: "optional hero / inline figures (article carries images only if the brief asks)",
+    });
+    return stack;
+  }
+
   stack.push({
     role: "image",
     model: DEFAULT_IMAGE_MODEL,
@@ -192,6 +215,11 @@ export function estimateCost(
     } else if (m.role === "music") {
       low += m.unitCostUsd;
       parts.push(`1× music @ $${m.unitCostUsd.toFixed(2)}`);
+    } else if (m.role === "llm") {
+      // One article draft (research + outline + draft passes rolled into the
+      // per-article ballpark). #526.
+      low += m.unitCostUsd;
+      parts.push(`1× article draft @ $${m.unitCostUsd.toFixed(2)}`);
     }
   }
 

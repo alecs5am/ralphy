@@ -1,6 +1,6 @@
 # Article/text content pipeline (SEO + GEO)
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (article unit format + seo-article content mode, lockstep 21→22 modes / 8→9 formats; deterministic text-quality evals (keyword/structure/reading-level/length) wired as workspace-eval gate criteria with a #529 seam; geo-article guideline; headless reference graph research→outline→draft→gate→unit with mocked LLM; social-copy reuses captionUnit. smoke:modes + mode-guidelines green at 22.)
 > **Filed:** 2026-07-06
 > **Folder:** issues
 > **Severity:** high

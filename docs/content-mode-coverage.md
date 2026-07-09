@@ -2,7 +2,7 @@
 
 > The audit of which #412 content modes are **first-class supported routes** vs **deferred gaps**, and the mapping of each mode onto an existing implementation unit (a craft-overlay skill, a guideline-locked `ralphy generate` route, the HyperFrames render engine, or — for a gap — the unit we recommend authoring). This is the prerequisite for #417's guideline-coverage check, which only validates SUPPORTED modes.
 >
-> The machine-readable source of truth is the `supported` + `implementationUnit` fields on every entry in [`cli/lib/content-modes.ts`](../cli/lib/content-modes.ts). This doc explains the call per mode and classifies the existing skills against modes. The meta-test in [`tests/unit/mode-coverage.test.ts`](../tests/unit/mode-coverage.test.ts) parses this doc and asserts all 21 modes are listed, so the matrix can't silently drift from the registry.
+> The machine-readable source of truth is the `supported` + `implementationUnit` fields on every entry in [`cli/lib/content-modes.ts`](../cli/lib/content-modes.ts). This doc explains the call per mode and classifies the existing skills against modes. The meta-test in [`tests/unit/mode-coverage.test.ts`](../tests/unit/mode-coverage.test.ts) parses this doc and asserts all 22 modes are listed, so the matrix can't silently drift from the registry.
 
 ## What "supported" means
 
@@ -12,7 +12,7 @@ A mode is **supported** iff it has all three:
 2. **quality gates** — the mode's `qualityGates` (present for every mode);
 3. an **output Unit shape** — the mode's `expectedUnitShape` (present for every mode).
 
-Because gates + Unit shape exist for all 21 #412 modes, the load-bearing condition is the implementation unit. In code: `supported === (implementationUnit.kind !== "none")`, asserted in the mode-coverage test. `classifyContentMode()` still recognizes and returns every mode (the agent must be able to NAME the intent); `supported` gates only what the agent may PROMISE the user and what #417 checks. Consume it via `isModeSupported(mode)` / `supportedContentModes()` / `unsupportedContentModes()`.
+Because gates + Unit shape exist for all 22 #412 modes, the load-bearing condition is the implementation unit. In code: `supported === (implementationUnit.kind !== "none")`, asserted in the mode-coverage test. `classifyContentMode()` still recognizes and returns every mode (the agent must be able to NAME the intent); `supported` gates only what the agent may PROMISE the user and what #417 checks. Consume it via `isModeSupported(mode)` / `supportedContentModes()` / `unsupportedContentModes()`.
 
 **Do NOT author 20 brand-new heavy skills.** Modes are mapped onto units that ALREADY exist. Genuine gaps are marked `gap (deferred)` with the recommended unit — authoring those is #058 (content-niche → format-template conversion) territory, not this round.
 
@@ -23,7 +23,7 @@ Because gates + Unit shape exist for all 21 #412 modes, the load-bearing conditi
 | `skill` | a craft-overlay SKILL.md under `.agents/skills/` | `carousel`, `fb-creatives`, `ugc-ad`, `audio-explainer` |
 | `guideline-route` | an art-director `ralphy generate image` route locked by an existing `guidelines/` slug + `json-prompt-engine` for the structured prompt | `product-shot` → `cgi-product-renders` |
 | `render-engine` | the HyperFrames render engine + editor playbook authoring the format directly | `motion-design`, `typography-animation` |
-| `none` | no concrete unit yet — a deferred gap | (none — all 21 modes are supported) |
+| `none` | no concrete unit yet — a deferred gap | (none — all 22 modes are supported) |
 
 ## The matrix
 
@@ -52,8 +52,9 @@ Status legend: **supported** = first-class route the agent may promise; **gap (d
 | `infographic-animation` | render-engine | `.agents/skills/hyperframes` + `/gsap` (data-in-motion: animated charts / counters / comparison overlays) → `ralphy render` | supported | route + plan (motion-design) | The render engine authors the animated infographic directly; factual claims require source-cited / user-provided data. |
 | `personal-clipper` | render-engine | `ralphy ref transcribe` → agent-picked highlight windows → `ralphy clip --from --to [--vertical]` → `ralphy generate captions` → `ralphy render` ([modes/personal-clipper.md](playbooks/modes/personal-clipper.md)) | supported | route + plan (video) | Transcript-driven clip extraction (#436). `ralphy clip` only executes the cut — the agent selects windows from the `ref transcribe` transcript; a no-good-clips-found brief STOPS rather than forcing weak clips. |
 | `amazon-listing` | guideline-route | `guidelines/cgi-product-renders` + `/json-prompt-engine` overlay → `ralphy project image-pack` + `ralphy generate image` ([modes/amazon-listing.md](playbooks/modes/amazon-listing.md)) | supported | route + plan (image) | Marketplace listing slot set (main + infographic + lifestyle); the cgi-product-renders lock + the image-pack scaffold (#429) + claim-safe copy (#442) + the text-legibility gate (#439) + product fidelity (#422) apply. |
+| `seo-article` | guideline-route | `guidelines/geo-article` folded into the drafting prompt → graph route `research (generate-object) → outline/draft (generate-text) → text-quality gate → ralphy unit create --format article` ([modes/seo-article.md](playbooks/modes/seo-article.md)) | supported | route + plan (article) | First NON-media mode (#526): a long-form GEO-aware article. The geo-article lock + the deterministic text-quality gate (keyword coverage / structure / reading-level / length — `requiresTextQualityGate`, `cli/lib/eval/text-quality.ts`) apply; the classic slot is `scoreScenario`. Promo snippet reuses the social-copy path (#403). |
 
-**Summary: 21 supported, 0 gaps.** As of #436 (`personal-clipper` promoted), all 21 modes are first-class routes.
+**Summary: 22 supported, 0 gaps.** As of #526 (`seo-article` added), all 22 modes are first-class routes.
 
 ## Quality-guidance coverage (#417)
 
@@ -66,6 +67,7 @@ Every SUPPORTED mode must carry mode-specific quality guidance — a linked regi
 |---|---|---|
 | `product-shot` | `cgi-product-renders` | guideline |
 | `amazon-listing` | `cgi-product-renders` | guideline |
+| `seo-article` | `geo-article` (+ [modes/seo-article.md](playbooks/modes/seo-article.md)) | guideline |
 | `lifestyle-scene` | `photoreal-studio-portraits` | guideline |
 | `closeup-product-with-person` | `photoreal-studio-portraits` | guideline |
 | `virtual-model-tryout` | `photoreal-studio-portraits` | guideline |
@@ -137,7 +139,7 @@ Notes:
 
 ## Do NOT promise unsupported modes (agent rule)
 
-`classifyContentMode()` returns ALL 21 modes because the agent must be able to recognize the intent. As of #436 every mode is supported, so there is currently no deferred-gap mode to refuse — but the rule stands for any future mode added at `supported: false`: **the agent must NOT expose an unsupported mode name to the user as a deliverable it will produce.** When a brief classifies to a `gap (deferred)` mode:
+`classifyContentMode()` returns ALL 22 modes because the agent must be able to recognize the intent. As of #436 every mode is supported, so there is currently no deferred-gap mode to refuse — but the rule stands for any future mode added at `supported: false`: **the agent must NOT expose an unsupported mode name to the user as a deliverable it will produce.** When a brief classifies to a `gap (deferred)` mode:
 
 - route to the **closest supported mode** when one fits, and say so, OR
 - tell the user plainly it is **not yet a first-class route** and point at the recommended unit (the `recommendedUnit` field on the gap entry / the matrix above), then proceed only on explicit user go.

@@ -46,6 +46,7 @@ export const CONTENT_MODES_LIST = [
   "personal-clipper",
   "amazon-listing",
   "infographic-animation",
+  "seo-article",
 ] as const;
 
 export type ContentMode = (typeof CONTENT_MODES_LIST)[number];
@@ -685,6 +686,42 @@ export const CONTENT_MODES: Record<ContentMode, ContentModeEntry> = {
     expectedUnitShape: { format: "motion-design", minMedia: 1, maxMedia: 1, note: "One animated-infographic piece." },
     keywords: ["infographic animation", "animated infographic", "animated chart", "data visualization video", "chart animation", "animated explainer", "data in motion", "animated stats", "animated data"],
   },
+
+  "seo-article": {
+    mode: "seo-article",
+    summary: "A long-form GEO-aware SEO article — markdown body shaped for BOTH search snippets and LLM-answer citation (clear claims, quotable definitions, FAQ blocks).",
+    supported: true,
+    implementationUnit: {
+      // A graph route (research -> outline -> draft -> gate -> unit) authored via
+      // the existing generate-object / generate-text executors + the ralphy-unit
+      // node — no bespoke skill. The GEO drafting rules live in the geo-article
+      // guideline the drafting prompt folds in (#515), and the mode playbook
+      // carries the route + the deterministic text-eval gates.
+      kind: "guideline-route",
+      skills: [],
+      guidelines: ["geo-article"],
+      cliVerbs: ["unit create"],
+      note: "text pipeline: generate-object research -> generate-text outline+draft (geo-article guideline folded in) -> deterministic text-quality gate -> ralphy unit create --format article. See docs/playbooks/modes/seo-article.md.",
+    },
+    supportedFormats: ["article"],
+    requiredInputs: ["topic or keyword"],
+    optionalInputs: ["target keywords", "audience", "reference sources", "word-count target", "outline"],
+    defaultResearchDepth: "deep",
+    roleChain: ["intake", "researcher", "scenarist"],
+    templateLookup: { primaryFormat: "article", tagQuery: ["seo", "geo", "article", "blog", "long-form"] },
+    guidelineOrStyleLock: { required: true, guidelineSlugs: ["geo-article"], note: "GEO structure (quotable claims, FAQ blocks, clear definitions) is the hard bar; lock the geo-article guideline before drafting." },
+    // NOTE (#526): the substantive prose gate is the DERIVED deterministic
+    // text-quality eval (`requiresTextQualityGate(mode)` below — keyword
+    // coverage / structure / reading-level / length), wired as workspace-
+    // evaluator criteria usable in graph `gate` nodes, NOT listed here. The
+    // classic refuse-not-warn slot the smoke recognizes is `scoreScenario` (the
+    // text-artifact gate of the trio) — it gates the outline/draft structure
+    // before the article is formed. The #529 AI-tell lint joins as another
+    // derived criterion later.
+    qualityGates: ["scoreScenario"],
+    expectedUnitShape: { format: "article", minMedia: 1, maxMedia: null, note: "One markdown body (+ optional hero / inline images)." },
+    keywords: ["seo article", "geo article", "blog post", "blog article", "write an article", "long form article", "long-form article", "seo blog", "search article", "medium article"],
+  },
 };
 
 /** All registry entries as an array (stable order = `CONTENT_MODES_LIST`). */
@@ -794,6 +831,27 @@ const BAKED_TEXT_MODES: ReadonlySet<ContentMode> = new Set([
  */
 export function hasBakedText(mode: string): boolean {
   return BAKED_TEXT_MODES.has(mode as ContentMode);
+}
+
+// ─── Text-quality gate (#526) ─────────────────────────────────────────────────
+//
+// The deterministic text-quality eval (`cli/lib/eval/text-quality.ts`: keyword
+// coverage vs the brief, structure — headings / FAQ / links, reading-level, and
+// a length window) only runs for modes whose deliverable is PROSE, not media.
+// Derived from the registry (a mode whose primary format is `article`) so a
+// future prose mode auto-opts in — the same DERIVED-predicate pattern as
+// `requiresFidelityGate` / `hasBakedText`, keeping `qualityGates[]` scoped to the
+// classic refuse-not-warn trio. Unknown mode → false (not gated).
+
+/**
+ * True when a mode's deliverable is long-form PROSE and therefore should clear
+ * the deterministic text-quality gate (#526) before a Unit is formed. Derived:
+ * the mode's primary format is `article`. The #529 AI-tell lint joins the same
+ * gate family later as an additional derived criterion.
+ */
+export function requiresTextQualityGate(mode: string): boolean {
+  const entry = getContentMode(mode);
+  return !!entry && entry.templateLookup.primaryFormat === "article";
 }
 
 // ─── Guideline-coverage resolver (#417) ──────────────────────────────────────
@@ -1050,6 +1108,10 @@ function modePrimaryFormat(mode: ContentMode): MediaFormat {
   // `fb-creative` / `sticker-pack` are template formats with no distinct
   // open-world container — the closest media bucket is `image`.
   if (f === "fb-creative" || f === "sticker-pack") return "image";
+  // `article` (#526) is prose, not a media container — no open-world media
+  // bucket fits, so it maps to `unknown` (the compiler never claims a media
+  // format for a text deliverable).
+  if (f === "article") return "unknown";
   return f as MediaFormat;
 }
 

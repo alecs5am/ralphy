@@ -93,6 +93,7 @@ const MODE_BRIEFS: Record<string, string> = {
   "infographic-animation": "make an animated infographic data visualization video of these stats",
   "personal-clipper": "cut my stream into shorts and extract the best moments clips",
   "amazon-listing": "design my amazon listing images with an infographic listing",
+  "seo-article": "write an seo article, a long-form blog post for search",
 };
 
 // ─── (1) The coverage lint passes — every supported mode is covered ──────────

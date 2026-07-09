@@ -60,6 +60,7 @@ export const FORMAT_TAGS: Record<string, string[]> = {
   carousel: ["#carousel", "#swipe", "#carrousel"],
   poster: ["#poster", "#keyart", "#design"],
   image: ["#art", "#aiart"],
+  article: ["#blog", "#seo", "#longform"],
 };
 
 /**
@@ -225,6 +226,7 @@ export function resolveFormatKey(hint: string | undefined | null): FormatKey | n
   if (/tiktok|tt/.test(h)) return "tiktok";
   if (/carousel|swipe|deck/.test(h)) return "carousel";
   if (/poster|flyer|key.?art/.test(h)) return "poster";
+  if (/article|blog|post/.test(h)) return "article";
   if (/image|still|photo|art/.test(h)) return "image";
   if (/video/.test(h)) return "video";
   return null;
