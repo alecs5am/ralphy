@@ -44,6 +44,19 @@ services:
   farm:
     <<: *ralphy
     command: ["bun", "cli/index.ts", "farm", "start", "--workspace", "${FARM_WORKSPACE:-default}"]
+    # #539 liveness signal: `farm health` exits 0 (alive OR deliberately
+    # stopped/frozen) or non-zero (stalled/wedged tick, or dead process).
+    # `restart: unless-stopped` (above) already restarts a DEAD process; this
+    # HEALTHCHECK is what catches a WEDGED-but-alive daemon. A `stopped`/frozen
+    # farm reports exit 0 so an intentional stop is never fought. ralphy ships
+    # NO in-process supervisor — the container runtime owns lifecycle (#539).
+    # start-period covers the first-tick warm-up before a heartbeat exists.
+    healthcheck:
+      test: ["CMD", "bun", "cli/index.ts", "farm", "health", "--workspace", "${FARM_WORKSPACE:-default}"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
 
   # The dashboard (#506): Studio behind the admin token. Binds 0.0.0.0 inside
   # the container (token set); publish only the ports you mean to expose.
