@@ -151,6 +151,56 @@ describe("buildFarmReport — rollup math", () => {
   });
 });
 
+describe("#543 attribution coverage + hygiene flags", () => {
+  test("attribution covered/expected from publish completions + coverage ratio", () => {
+    seedWorkspace();
+    seedWorkflow("wf", [{ id: "pub", type: "publish" }]);
+    seedRun("farm-wf-1", [
+      // A publish carrying an attribution block → covered + expected.
+      { kind: "node-completed", node: "pub", output: { attribution: { sources: [{ url: "https://a" }] }, hygiene: { verdict: "pass" } } },
+      // A publish with no attribution (nothing to cite) → neither.
+      { kind: "node-completed", node: "pub", output: { hygiene: { verdict: "pass" } } },
+      // A publish with a soft hygiene warn → flagged, but still published.
+      { kind: "node-completed", node: "pub", output: { attribution: { sources: [{ url: "https://b" }] }, hygiene: { verdict: "warn" } } },
+    ]);
+    const r = buildFarmReport(WS);
+    expect(r.totals.unitsPublished).toBe(3);
+    expect(r.totals.attributionExpected).toBe(2);
+    expect(r.totals.attributionCovered).toBe(2);
+    expect(r.attributionCoverage).toBe(1); // 2/2
+    expect(r.totals.hygieneFlagged).toBe(1); // the warn completion
+    expect(r.totals.hygieneBlocked).toBe(0);
+  });
+
+  test("hygiene-blocked + hygiene-flagged park events counted; coverage null when nothing to attribute", () => {
+    seedWorkspace();
+    seedWorkflow("wf", [{ id: "pub", type: "publish" }]);
+    seedRun("farm-wf-1", [
+      { kind: "hygiene-blocked", node: "pub", project: "p", unit: "u", flagged: 1 },
+      { kind: "hygiene-flagged", node: "pub", project: "p", unit: "u", flagged: 1 },
+    ]);
+    const r = buildFarmReport(WS);
+    expect(r.totals.hygieneBlocked).toBe(1);
+    expect(r.totals.hygieneFlagged).toBe(2); // blocked (1) + flagged (1)
+    expect(r.totals.attributionExpected).toBe(0);
+    expect(r.attributionCoverage).toBeNull(); // nothing needed attribution
+  });
+
+  test("digestSummary surfaces attribution % + hygiene flags", () => {
+    seedWorkspace();
+    seedWorkflow("wf", [{ id: "pub", type: "publish" }]);
+    seedRun("farm-wf-1", [
+      { kind: "node-completed", node: "pub", output: { attribution: { sources: [{ url: "https://a" }] }, hygiene: { verdict: "pass" } } },
+      { kind: "hygiene-blocked", node: "pub" },
+    ]);
+    const r = buildFarmReport(WS);
+    const d = digestSummary(r);
+    expect(d.body).toContain("Attribution: 100%");
+    expect(d.body).toContain("hygiene flags");
+    expect(d.body).toContain("blocked 1");
+  });
+});
+
 describe("buildFarmReport — graceful degrade on partial journals", () => {
   test("torn final line is skipped, not thrown", () => {
     seedWorkspace();

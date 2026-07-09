@@ -1,6 +1,6 @@
 # Source attribution and copyright hygiene for news content
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (attribution: unit provenance sources[] via unit create --source + research-facts fallback, workspace+bundle-default policy, per-platform Sources block injection (description/frontmatter), default ON when sources exist. Deterministic copyright hygiene reads media origin (artifacts/refs source-only/source-ref → fail scraped-source-embedded), CV watermark is a documented seam; gateCopyrightHygiene runs BEFORE trust and blocks at ANY trust level incl. force_reason (invariant #4), warn/missing-required-attribution routes to review. farm report attribution coverage + hygiene flags. #3 reference gate untouched.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** high
