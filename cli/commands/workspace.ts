@@ -26,6 +26,7 @@ import {
   WORKSPACE_EVAL_REPORT,
 } from "../lib/eval/workspace-evaluators.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
+import { buildWorkspaceRoi } from "../lib/analytics/roi.js";
 import { callLLM } from "../lib/providers/llm.js";
 import {
   exportWorkspaceBundle,
@@ -429,6 +430,21 @@ export function workspaceCmd() {
       } catch (e) {
         err(`workspace eval failed: ${(e as Error).message}`);
       }
+    });
+
+  // ── roi (#544) ─────────────────────────────────────────────────────────
+  cmd
+    .command("roi <slug>")
+    .description(
+      "Cost/ROI report (#544) across the WHOLE workspace: joins realized model spend (gen-log #032) to measured performance (analytics #507) per unit, aggregated by format + platform, with cost-per-1k-views + best/worst ROI cells. Units with spend but no analytics yet are counted in spend, excluded from ratios, flagged pending-performance. Read-only, ZERO model calls. Example: ralphy workspace roi tech-news",
+    )
+    .action(async (slug: string) => {
+      requireRalphyLayout("workspace roi");
+      if (slug !== DEFAULT_WORKSPACE && !existsSync(workspaceDir(slug))) {
+        raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
+      }
+      const report = await buildWorkspaceRoi(slug);
+      out(report);
     });
 
   // ── ideate ───────────────────────────────────────────────────────────────

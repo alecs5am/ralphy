@@ -1521,6 +1521,16 @@ Commands:
                                   criteria are not re-spent. Example: ralphy
                                   workspace eval choose-silenthill-001
                                   --criterion scenario-fidelity
+  roi <slug>                      Cost/ROI report (#544) across the WHOLE
+                                  workspace: joins realized model spend (gen-log
+                                  #032) to measured performance (analytics #507)
+                                  per unit, aggregated by format + platform,
+                                  with cost-per-1k-views + best/worst ROI cells.
+                                  Units with spend but no analytics yet are
+                                  counted in spend, excluded from ratios,
+                                  flagged pending-performance. Read-only, ZERO
+                                  model calls. Example: ralphy workspace roi
+                                  tech-news
   ideate [options] <slug>         Feed the workspace bible (STYLE_LOCK.md +
                                   rubrics/*.md + metrics-benchmarks.json +
                                   evaluators.json) to a Gemini text model via
@@ -1789,6 +1799,15 @@ Commands:
                               published / indexed-hint (analytics-backed, honest
                               — never assumes indexing). Example: ralphy
                               campaign status agent-video
+  roi <id>                    Cost/ROI report (#544): joins realized model spend
+                              (gen-log) to measured performance (analytics #507)
+                              per linked unit, aggregated by format / angle /
+                              channel / thesis / platform, with
+                              cost-per-1k-views + best/worst ROI cells. Units
+                              with spend but no analytics yet are counted in
+                              spend, excluded from ratios, flagged
+                              pending-performance. Read-only, no model calls.
+                              Example: ralphy campaign roi agent-video
   stamp <id> <cell> <unit>    Stamp a plan cell PRODUCED: link the unit that
                               satisfied it ("project/slug"), status → produced.
                               The campaign-next drain skips produced cells.
