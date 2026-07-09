@@ -86,25 +86,29 @@ export const PLATFORM_QUOTAS: Record<QuotaPlatform, PlatformQuota> = {
     verifiedOn: "2026-07-08",
   },
   x: {
-    // X API v2 free/basic write tiers cap posts per rolling 24h. The exact cap
-    // varies by access tier and changes often — pick the conservative floor of
-    // the low tiers rather than a documented single number.
+    // As of 2026-02-06 X removed the free/basic tiers for NEW developers and
+    // defaults to pay-per-use, which meters writes by COST (billed per POST),
+    // not by a fixed daily post cap — so there is no single documented per-day
+    // ceiling to cite (cost is governed by #522, not here). The legacy free
+    // tier was 50 posts/day. We keep a conservative rolling-24h floor so a
+    // campaign paces smoothly regardless of the operator's access tier.
     windowCap: 17,
     windowHours: 24,
     resetBoundary: "rolling-24h",
     source:
-      "unverified — needs confirmation (X API v2 per-app POST /2/tweets limits vary by access tier; docs.x.com/x-api rate limits) — conservative floor",
-    verifiedOn: "2026-07-08",
+      "confirmed: no single documented per-day POST cap under 2026 pay-per-use (cost-metered); legacy free tier was 50/day; conservative floor retained — docs.x.com/x-api/fundamentals/rate-limits + 2026-02 pricing change",
+    verifiedOn: "2026-07-09",
   },
   tiktok: {
-    // TikTok Content Posting API caps posts per user per 24h; the public
-    // number is not stably documented — conservative.
+    // TikTok Content Posting API (Direct Post) caps a creator account at ~15
+    // posts / 24h, shared across all API clients (6 req/min per user token on
+    // top). 15 matches the documented per-creator daily upper limit.
     windowCap: 15,
     windowHours: 24,
     resetBoundary: "rolling-24h",
     source:
-      "unverified — needs confirmation (TikTok Content Posting API daily post limit not stably documented) — conservative",
-    verifiedOn: "2026-07-08",
+      "confirmed: TikTok Content Posting API Direct Post ~15 posts/24h per creator account (shared across clients), 6 req/min per user token — developers.tiktok.com/doc/tiktok-api-v2-rate-limit",
+    verifiedOn: "2026-07-09",
   },
   instagram: {
     // Instagram Graph API content-publishing limit is 25 API-published posts
@@ -117,22 +121,26 @@ export const PLATFORM_QUOTAS: Record<QuotaPlatform, PlatformQuota> = {
     verifiedOn: "2026-07-08",
   },
   devto: {
-    // dev.to caps article creation; the documented figure is ~10 posts / 30s
-    // burst but the practical daily concern is lower — conservative daily cap.
+    // Forem/dev.to documents a general API rate limit of 10 requests / 30s and
+    // publishes NO per-day article-creation cap. This is a confirmed
+    // "no documented daily cap" — we keep a conservative daily floor so a big
+    // campaign paces rather than hammering the 30s burst limit.
     dailyCap: 10,
     resetBoundary: "daily-utc",
     source:
-      "unverified — needs confirmation (Forem/dev.to POST /articles rate limit ~10/30s; daily figure not documented) — conservative",
-    verifiedOn: "2026-07-08",
+      "confirmed: no documented daily article cap; Forem API general limit 10 req/30s — developers.forem.com/api; conservative daily floor retained",
+    verifiedOn: "2026-07-09",
   },
   hashnode: {
-    // Hashnode GraphQL publishPost has no publicly documented daily cap —
-    // conservative daily figure so a big campaign paces rather than 429s.
+    // Hashnode's GraphQL API documents 500 mutations/minute (enforced via the
+    // Stellate edge cache) and NO per-day publishPost cap. Confirmed
+    // "no documented daily cap" — conservative daily floor so a big campaign
+    // paces rather than 429s.
     dailyCap: 20,
     resetBoundary: "daily-utc",
     source:
-      "unverified — needs confirmation (Hashnode GraphQL publishPost has no documented daily cap) — conservative",
-    verifiedOn: "2026-07-08",
+      "confirmed: no documented daily cap; GraphQL API allows 500 mutations/min — apidocs.hashnode.com; conservative daily floor retained",
+    verifiedOn: "2026-07-09",
   },
 };
 

@@ -1,6 +1,6 @@
 # Confirm the unverified publish-platform quota caps
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (all four verified against current docs: tiktok documented ~15/24h per creator; x now pay-per-use with no fixed daily cap (legacy 50/day), conservative floor kept; devto (10 req/30s) + hashnode (500 mutations/min) confirmed to publish no daily cap, conservative floors kept. Sources cited, verifiedOn bumped; no logic change.)
 > **Filed:** 2026-07-08
 > **Folder:** issues
 > **Severity:** low
