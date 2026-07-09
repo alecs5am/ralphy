@@ -1,6 +1,6 @@
 # Studio test suite is not gated by hooks or CI
 
-> **Status:** todo
+> **Status:** done — 2026-07-09 (CI `test.yml` already ran `studio/test/`; added it to both husky hooks and made `pre-commit` executable)
 > **Filed:** 2026-06-25
 > **Folder:** issues
 > **Severity:** medium
