@@ -394,6 +394,181 @@ async function resolveCampaignCrossLink(
   };
 }
 
+// ─── copyright hygiene + attribution (#543) ─────────────────────────────────
+//
+// The hygiene gate is the deterministic copyright guard: a unit distributing a
+// SCRAPED/SOURCE asset (copied out of the `artifacts/refs/` tier) is a `fail`
+// that BLOCKS auto-publish at ANY trust level — it parks the run through the
+// same RunControlSignal("park-approval") mechanics as the trust gate, mirroring
+// invariant #4 (gates refuse, not warn). A `warn` (or a policy-required-but-
+// missing attribution) routes to the approval queue too, but as a softer signal
+// that a human should look before the piece goes out. It sits BEFORE the trust
+// auto-pass: no trust level buys past an embedded source asset.
+//
+// Attribution: the source url/outlet/author reaches the unit via
+// `provenance.sources`, falling back to the project's research-facts sources.
+// A publish-time policy (workspace `attribution` block) injects a "Sources:"
+// block into the description/caption (media) / frontmatter (article). Default
+// ON when sources exist; OFF only by an explicit `{ enabled: false }` opt-out.
+
+interface HygieneGateOutcome {
+  /** The hygiene verdict, surfaced on the node output for the journal. */
+  verdict: "pass" | "warn" | "fail";
+  /** Flag count (0 on a clean pass). */
+  flagged: number;
+  /** True when the policy requires attribution and none was resolvable. */
+  attributionMissing: boolean;
+}
+
+/**
+ * The #543 hygiene + attribution gate. Runs BEFORE the trust auto-pass so a
+ * scraped-source embed can never be bought past by trust. A `fail` OR (a `warn`
+ * / attribution-missing while a human is not already in the loop) parks the run
+ * for approval — same park mechanics as gatePublishTrust. Returns the outcome
+ * for the node payload/journal. Outside a run context (chat-driven `ralphy
+ * publish`) the human IS the approval, so a warn does not park — but a `fail`
+ * still throws a NodeExecutionError so the CLI refuses the embed.
+ */
+async function gateCopyrightHygiene(
+  node: WorkflowNode,
+  ctx: ExecutorContext,
+  ref: UnitRef,
+  forced: boolean,
+): Promise<HygieneGateOutcome> {
+  const manifest = await readUnitManifest(unitDirFor(ref.projectId, ref.slug));
+  if (!manifest) return { verdict: "pass", flagged: 0, attributionMissing: false };
+
+  const { checkCopyrightHygiene } = await import("../../publish/hygiene.js");
+  const { readAttributionConfig, dedupeSources } = await import("../../publish/attribution.js");
+  const hygiene = checkCopyrightHygiene(manifest);
+
+  const policy = readAttributionConfig(ctx.workspace);
+  const sources = await resolveAttributionSources(ref, manifest);
+  const attributionMissing =
+    policy.enabled && policy.requireOnPublish && dedupeSources(sources).length === 0;
+
+  const outcome: HygieneGateOutcome = {
+    verdict: hygiene.verdict,
+    flagged: hygiene.flags.length,
+    attributionMissing,
+  };
+
+  // A hygiene FAIL blocks at any trust level — force_reason does not buy past a
+  // copyright embed (the whole point of the guard). Journal, park (in a run) or
+  // refuse (chat-driven).
+  if (hygiene.verdict === "fail") {
+    const detail = hygiene.flags
+      .filter((f) => f.severity === "fail")
+      .map((f) => f.detail)
+      .join("; ");
+    const reason = `copyright hygiene FAIL (#543) for ${ref.projectId}/${ref.slug}: ${detail} — source media must be referenced, not embedded; re-form the unit with generated media`;
+    if (ctx.runId) {
+      const { appendRunEvent } = await import("../../run.js");
+      await appendRunEvent(ctx.runId, {
+        kind: "hygiene-blocked",
+        node: node.id,
+        project: ref.projectId,
+        unit: ref.slug,
+        flagged: hygiene.flags.length,
+        message: reason,
+      });
+      const { writeApprovalInboxPack, RunControlSignal } = await import("./control-flow.js");
+      await writeApprovalInboxPack(ctx, node.id, reason);
+      throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
+    }
+    throw new NodeExecutionError("publish-hygiene-fail", `publish node "${node.id}": ${reason}`);
+  }
+
+  // A WARN (a soft hygiene flag) or a policy-required-but-missing attribution
+  // routes to review — unless a human is already in the loop (forced bypass, or
+  // outside a run entirely). Never a hard fail: a clean generated video missing
+  // a source link should not be nuked.
+  const needsReview = (hygiene.verdict === "warn" || attributionMissing) && ctx.runId && !forced;
+  if (needsReview) {
+    const { readRunLedger, activeApproval } = await import("../../spend.js");
+    const approval = activeApproval(await readRunLedger(ctx.runId!));
+    if (!approval) {
+      const why = attributionMissing
+        ? `attribution required by policy but no source is resolvable for ${ref.projectId}/${ref.slug}`
+        : hygiene.flags.map((f) => f.detail).join("; ");
+      const reason = `hygiene WARN (#543) — routed to review: ${why}`;
+      const { appendRunEvent } = await import("../../run.js");
+      await appendRunEvent(ctx.runId!, {
+        kind: "hygiene-flagged",
+        node: node.id,
+        project: ref.projectId,
+        unit: ref.slug,
+        flagged: hygiene.flags.length,
+        attributionMissing,
+        message: reason,
+      });
+      const { writeApprovalInboxPack, RunControlSignal } = await import("./control-flow.js");
+      await writeApprovalInboxPack(ctx, node.id, reason);
+      throw new RunControlSignal("park-approval", `publish node "${node.id}": ${reason}`);
+    }
+  }
+
+  return outcome;
+}
+
+/**
+ * Resolve the attribution sources for a unit: the unit's `provenance.sources`
+ * first (the durable carry), falling back to the project's research-facts
+ * `sources[]` (url + title → outlet). Best-effort read — no throw.
+ */
+async function resolveAttributionSources(
+  ref: UnitRef,
+  manifest: { provenance?: { sources?: Array<{ url: string; outlet?: string; author?: string }> } },
+): Promise<Array<{ url: string; outlet?: string; author?: string }>> {
+  const onUnit = manifest.provenance?.sources ?? [];
+  if (onUnit.length > 0) return onUnit;
+  // Fallback: the project's research-facts sources (url + title).
+  try {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { projectDir } = await import("../../paths.js");
+    const { RESEARCH_FACTS_ARTIFACT } = await import("../../schemas/research-facts.js");
+    const p = path.join(projectDir(ref.projectId), RESEARCH_FACTS_ARTIFACT);
+    if (!fs.existsSync(p)) return [];
+    const facts = JSON.parse(fs.readFileSync(p, "utf8")) as {
+      sources?: Array<{ url?: string; title?: string }>;
+    };
+    return (facts.sources ?? [])
+      .filter((s): s is { url: string; title?: string } => typeof s.url === "string" && s.url.length > 0)
+      .map((s) => ({ url: s.url, ...(s.title ? { outlet: s.title } : {}) }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Build the #543 attribution injection blocks for a unit, honoring the
+ * workspace policy. Returns empty blocks when the policy is opted out or no
+ * source resolves. Mirrors resolveCampaignCrossLink's shape.
+ */
+async function resolveAttribution(
+  ctx: ExecutorContext,
+  ref: UnitRef,
+): Promise<{
+  descriptionBlock: string;
+  frontmatterBlock: string;
+  sources: Array<{ url: string; outlet?: string; author?: string }>;
+} | null> {
+  const { readAttributionConfig, buildSourcesBlock, buildSourcesFrontmatterBlock, dedupeSources } =
+    await import("../../publish/attribution.js");
+  const policy = readAttributionConfig(ctx.workspace);
+  if (!policy.enabled) return null;
+  const manifest = await readUnitManifest(unitDirFor(ref.projectId, ref.slug));
+  if (!manifest) return null;
+  const sources = dedupeSources(await resolveAttributionSources(ref, manifest));
+  if (sources.length === 0) return null;
+  return {
+    descriptionBlock: buildSourcesBlock(sources, policy.heading),
+    frontmatterBlock: buildSourcesFrontmatterBlock(sources),
+    sources,
+  };
+}
+
 function parseNodeTargets(node: WorkflowNode): PublishTarget[] {
   const raw = node.params.targets;
   const list = Array.isArray(raw)
@@ -475,6 +650,11 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
   }
 
   const { forced } = await gateReadiness(node, ref);
+  // #543 copyright-hygiene + attribution gate — BEFORE the trust auto-pass so a
+  // scraped-source embed can never be bought past by trust. A `fail` parks/refuses
+  // unconditionally (invariant #4); a `warn` / missing-required attribution routes
+  // to review when no human is already in the loop.
+  const hygieneGate = await gateCopyrightHygiene(node, ctx, ref, forced);
   const trustGate = await gatePublishTrust(node, ctx, ref, forced);
 
   // #536: the gate above already parked on `freeze`, so the effective mode here
@@ -551,11 +731,18 @@ export const publishExecutor: NodeExecutor = async (node, ctx) => {
   await recordCoveredTopic(ctx, ref);
 
   const crossLink = await resolveCampaignCrossLink(node, ctx);
+  const attribution = await resolveAttribution(ctx, ref);
   const payload = {
     ...result,
     entryId: slot?.entryId ?? null,
     calendarTransition,
     trustGate: trustGate.mode,
+    // #543: the hygiene verdict + the attribution "Sources:" block injected into
+    // the description, surfaced so coverage + flags are visible on the journal.
+    hygiene: { verdict: hygieneGate.verdict, flagged: hygieneGate.flagged },
+    ...(attribution
+      ? { attribution: { descriptionBlock: attribution.descriptionBlock, sources: attribution.sources } }
+      : {}),
     // #528: the cross-link block injected into the description + the resolved
     // siblings, surfaced so the mesh is visible on the run journal.
     ...(crossLink && crossLink.siblings.length > 0
@@ -593,6 +780,7 @@ export const xPostExecutor: NodeExecutor = async (node, ctx) => {
   const hasUnit = Boolean(ref && (await readUnitManifest(unitDirFor(ref.projectId, ref.slug))));
   if (ref && hasUnit) {
     const { forced } = await gateReadiness(node, ref);
+    await gateCopyrightHygiene(node, ctx, ref, forced); // #543 (blocks scraped embeds)
     await gatePublishTrust(node, ctx, ref, forced);
   }
 
@@ -780,6 +968,7 @@ export const articlePublishExecutor: NodeExecutor = async (node, ctx) => {
   const targets = parseArticleNodeTargets(node);
 
   const { forced } = await gateReadiness(node, ref);
+  const hygieneGate = await gateCopyrightHygiene(node, ctx, ref, forced); // #543
   const trustGate = await gatePublishTrust(node, ctx, ref, forced);
 
   const gh = node.params.github_pages as GithubPagesConfig | undefined;
@@ -817,9 +1006,15 @@ export const articlePublishExecutor: NodeExecutor = async (node, ctx) => {
   await recordCoveredTopic(ctx, ref);
 
   const crossLink = await resolveCampaignCrossLink(node, ctx);
+  const attribution = await resolveAttribution(ctx, ref);
   const payload = {
     ...result,
     trustGate: trustGate.mode,
+    // #543: the hygiene verdict + the attribution frontmatter fragment.
+    hygiene: { verdict: hygieneGate.verdict, flagged: hygieneGate.flagged },
+    ...(attribution
+      ? { attribution: { frontmatterBlock: attribution.frontmatterBlock, sources: attribution.sources } }
+      : {}),
     // #528: the cross-link frontmatter fragment + resolved siblings.
     ...(crossLink && crossLink.siblings.length > 0
       ? { crossLink: { frontmatterBlock: crossLink.frontmatterBlock, siblings: crossLink.siblings } }

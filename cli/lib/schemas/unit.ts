@@ -49,6 +49,24 @@ export const UnitProvenanceSchema = z
     style: z.string().optional(),
     recipes: z.array(z.string()).optional(),
     assets: z.array(z.string()).optional(),
+    /**
+     * Attribution sources (#543) — the citable source url/outlet/author a
+     * news-farm unit borrows from, carried from the source-facts / research
+     * facts onto the deliverable. The publish-time attribution policy
+     * (workspace `attribution` block) injects these as a "Sources:" block into
+     * the description / caption / frontmatter. Optional/additive — a unit with
+     * no borrowed material carries none, and older `unit.json` files predate it
+     * and must still validate.
+     */
+    sources: z
+      .array(
+        z.object({
+          url: z.string().min(1),
+          outlet: z.string().optional(),
+          author: z.string().optional(),
+        }),
+      )
+      .optional(),
   })
   .partial();
 

@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { Capability } from "../providers/types.js";
 import { NOTIFY_EVENTS, NOTIFY_CHANNELS } from "./notifications.js";
 import { CadenceConfigSchema } from "./cadence.js";
+import { AttributionConfigSchema } from "../publish/attribution.js";
 
 /** Trust-ladder default the importing farm starts the workspace at. */
 export const TRUST_LEVELS = ["L0", "L1", "L2"] as const;
@@ -103,6 +104,14 @@ export const BundleManifestSchema = z.object({
    * the whole point is the farm posts on human timing out of the box.
    */
   cadenceDefault: CadenceConfigSchema.optional(),
+  /**
+   * #543: the bundled attribution-policy DEFAULT — the source-attribution +
+   * copyright-hygiene policy the bundle author ships (enabled / heading /
+   * requireOnPublish), landed as the imported workspace's `attribution` block.
+   * No secrets (a text policy only), so like cadence it lands ENABLED per its
+   * own `enabled` flag — a news-farm bundle credits its sources out of the box.
+   */
+  attributionDefault: AttributionConfigSchema.optional(),
 });
 export type BundleManifest = z.infer<typeof BundleManifestSchema>;
 

@@ -33,6 +33,27 @@ interface JournalEvent {
   ts?: string;
   costUsd?: number;
   costSavedUsd?: number;
+  /** #543: node-completed carries the node output payload (publish hygiene/attribution). */
+  output?: unknown;
+}
+
+/**
+ * #543: read the attribution/hygiene facts a publish node's completion payload
+ * carries. `attribution` present with ≥1 source = covered (and expected);
+ * `hygiene.verdict !== "pass"` = a soft flag surfaced on the completion. Returns
+ * null-ish counters when the payload is not a publish output.
+ */
+function readPublishHygiene(output: unknown): {
+  hasAttribution: boolean;
+  hygieneFlagged: boolean;
+} {
+  const o = output && typeof output === "object" ? (output as Record<string, unknown>) : {};
+  const attr = o.attribution as { sources?: unknown[] } | undefined;
+  const hygiene = o.hygiene as { verdict?: string } | undefined;
+  return {
+    hasAttribution: Array.isArray(attr?.sources) && attr!.sources!.length > 0,
+    hygieneFlagged: Boolean(hygiene && hygiene.verdict && hygiene.verdict !== "pass"),
+  };
 }
 
 /** Per-node-id → its type, unioned across the workspace's graph workflows. */
@@ -93,6 +114,24 @@ export interface FarmReportTotals {
    * Surfaced so silent suppression does not read as a coverage gap.
    */
   topicDuplicateSkipped: number;
+  /**
+   * #543 attribution: of the units that PUBLISHED with sources available, how
+   * many carried a "Sources:" attribution block (`attributionCovered`) out of
+   * those that had sources to cite (`attributionExpected`). The coverage % =
+   * attributionCovered / attributionExpected (surfaced as `attributionCoverage`
+   * on the report). A publish whose node payload had no `attribution` block but
+   * also no sources does NOT count against expectation (nothing to attribute).
+   */
+  attributionExpected: number;
+  attributionCovered: number;
+  /**
+   * #543 copyright hygiene: units the pre-publish hygiene guard FLAGGED (a
+   * scraped/source asset embedded, or a soft warn routed to review) and, of
+   * those, how many were BLOCKED outright (a hard fail that parked/refused).
+   * A non-zero `hygieneBlocked` is a strike-risk signal the operator must clear.
+   */
+  hygieneFlagged: number;
+  hygieneBlocked: number;
   /** Realized model spend (sum of node costUsd across the window). */
   spendUsd: number;
   /** #513 content-hash cache hits + estimated spend they saved. */
@@ -141,6 +180,12 @@ export interface FarmReport {
   /** Cost efficiency — the operator's headline numbers. */
   spendPerUnit: number | null;
   spendPerTick: number | null;
+  /**
+   * #543: attribution coverage = attributionCovered / attributionExpected
+   * (0-1), null when nothing needed attribution in the window. The operator's
+   * "are we crediting our sources?" headline.
+   */
+  attributionCoverage: number | null;
   rates: FarmReportRates;
   durations: FarmReportDurations;
   /**
@@ -198,6 +243,10 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
     unitsPublished: 0,
     staleDropped: 0,
     topicDuplicateSkipped: 0,
+    attributionExpected: 0,
+    attributionCovered: 0,
+    hygieneFlagged: 0,
+    hygieneBlocked: 0,
     spendUsd: 0,
     cacheHits: 0,
     cacheSavedUsd: 0,
@@ -250,11 +299,31 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
         const t = types.get(e.node);
         if (t === "ralphy-unit") totals.unitsProduced++;
         else if (t === "approval") totals.unitsGated++;
-        else if (t && PUBLISH_TYPES.has(t)) totals.unitsPublished++;
+        else if (t && PUBLISH_TYPES.has(t)) {
+          totals.unitsPublished++;
+          // #543: attribution coverage on the publish completion. A unit that
+          // published WITH sources available carries an attribution block —
+          // count it as covered + expected. No attribution block = nothing to
+          // cite (not counted against expectation). A soft hygiene warn that
+          // still completed is folded as flagged.
+          const { hasAttribution, hygieneFlagged } = readPublishHygiene(e.output);
+          if (hasAttribution) {
+            totals.attributionExpected++;
+            totals.attributionCovered++;
+          }
+          if (hygieneFlagged) totals.hygieneFlagged++;
+        }
       } else if (e.kind === "stale-dropped") {
         totals.staleDropped++;
       } else if (e.kind === "topic-duplicate-skip") {
         totals.topicDuplicateSkipped++;
+      } else if (e.kind === "hygiene-blocked") {
+        // #543: a hard hygiene fail that parked the run (never published).
+        totals.hygieneFlagged++;
+        totals.hygieneBlocked++;
+      } else if (e.kind === "hygiene-flagged") {
+        // #543: a soft hygiene warn / missing-required-attribution routed to review.
+        totals.hygieneFlagged++;
       } else if (e.kind === "node-cached") {
         totals.cacheHits++;
         rates.nodeCacheHits++;
@@ -311,6 +380,10 @@ export function buildFarmReport(ws: string, opts: { since?: string } = {}): Farm
     totals,
     spendPerUnit: totals.unitsProduced > 0 ? Number((totals.spendUsd / totals.unitsProduced).toFixed(4)) : null,
     spendPerTick: totals.ticks > 0 ? Number((totals.spendUsd / totals.ticks).toFixed(4)) : null,
+    attributionCoverage:
+      totals.attributionExpected > 0
+        ? Number((totals.attributionCovered / totals.attributionExpected).toFixed(4))
+        : null,
     rates,
     durations: {
       medianNodeMs: median(nodeDurations),
@@ -373,6 +446,11 @@ export function digestSummary(
       (report.spendPerUnit !== null ? ` ($${report.spendPerUnit.toFixed(2)}/unit)` : "") +
       (report.spendPerTick !== null ? ` ($${report.spendPerTick.toFixed(2)}/tick)` : ""),
     `Cache: ${t.cacheHits} hits (saved ~$${t.cacheSavedUsd.toFixed(2)})`,
+    (report.attributionCoverage !== null
+      ? `Attribution: ${(report.attributionCoverage * 100).toFixed(0)}% (${t.attributionCovered}/${t.attributionExpected})`
+      : "Attribution: n/a") +
+      (t.hygieneFlagged > 0 ? ` · hygiene flags ${t.hygieneFlagged}` : "") +
+      (t.hygieneBlocked > 0 ? ` · blocked ${t.hygieneBlocked}` : ""),
     `Failure rate ${(report.rates.failureRate * 100).toFixed(1)}% · reroute rate ${(report.rates.rerouteRate * 100).toFixed(1)}% · quarantined ${report.rates.nodeQuarantines}`,
     needsYou > 0 ? `Needs you: ${needsYou} run(s) parked/halted` : "Nothing needs you",
   ].join("\n");

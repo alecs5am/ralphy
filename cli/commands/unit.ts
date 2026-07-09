@@ -65,12 +65,25 @@ function resolveProjectDir(projectId: string): string {
   return dir;
 }
 
+/** Parse a `--source` value ("url|outlet|author") into an attribution source. */
+function parseSourceOpt(raw: string): { url: string; outlet?: string; author?: string } | null {
+  const [url, outlet, author] = String(raw).split("|").map((s) => s.trim());
+  if (!url) return null;
+  return { url, ...(outlet ? { outlet } : {}), ...(author ? { author } : {}) };
+}
+
 function buildProvenance(opts: any): UnitProvenance | undefined {
   const p: UnitProvenance = {};
   if (opts.template) p.template = String(opts.template);
   if (opts.style) p.style = String(opts.style);
   if (Array.isArray(opts.recipe) && opts.recipe.length) p.recipes = opts.recipe.map(String);
   if (Array.isArray(opts.asset) && opts.asset.length) p.assets = opts.asset.map(String);
+  if (Array.isArray(opts.source) && opts.source.length) {
+    const sources = opts.source
+      .map(parseSourceOpt)
+      .filter((s: unknown): s is { url: string; outlet?: string; author?: string } => s !== null);
+    if (sources.length) p.sources = sources;
+  }
   return Object.keys(p).length ? p : undefined;
 }
 
@@ -145,6 +158,12 @@ export function unitCmd() {
     .option("--style <slug>", "Provenance: the visual style slug")
     .option("--recipe <slug>", "Provenance: a recipe slug (repeatable)", collect, [])
     .option("--asset <slug>", "Provenance: a reusable asset slug (repeatable)", collect, [])
+    .option(
+      "--source <url[|outlet[|author]]>",
+      "Attribution (#543): a borrowed source to credit — 'url', 'url|Outlet', or 'url|Outlet|Author' (repeatable)",
+      collect,
+      [],
+    )
     .option("--description <text>", "Article (--format article): meta description / search snippet")
     .option("--tags <csv>", "Article (--format article): comma-separated topic tags")
     .option("--canonical-url <url>", "Article (--format article): canonical URL slot (default empty)")
