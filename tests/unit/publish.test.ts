@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
-import { projectDir } from "../../cli/lib/paths";
+import { projectDir, workspaceDir, workspaceUnitsDir } from "../../cli/lib/paths";
 import {
   parseTargets,
   formatHashtags,
@@ -29,6 +29,7 @@ import {
   unitDirFor,
   readUnitManifest,
 } from "../../cli/lib/publish/publish";
+import { postizIntegrations } from "../../cli/lib/providers/postiz";
 import type { UnitManifest } from "../../cli/lib/schemas/unit";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
@@ -52,6 +53,7 @@ const INTEGRATIONS = [
   { id: "int-tt-1", identifier: "tiktok", name: "Main tiktok" },
   { id: "int-ig-1", identifier: "instagram-standalone", name: "IG" },
   { id: "int-x-1", identifier: "x", name: "X account" },
+  { id: "int-tg-1", identifier: "telegram", name: "Telegram channel" },
   { id: "int-dead", identifier: "tiktok", disabled: true },
 ];
 
@@ -60,9 +62,10 @@ const savedEnv: Record<string, string | undefined> = {};
 
 beforeEach(() => {
   tmp = makeTmpRoot("ralphy-publish-501");
-  for (const k of ["POSTIZ_API_KEY", "POSTIZ_BASE_URL"]) savedEnv[k] = process.env[k];
+  for (const k of ["POSTIZ_API_KEY", "POSTIZ_API_URL", "POSTIZ_BASE_URL"]) savedEnv[k] = process.env[k];
   process.env.POSTIZ_API_KEY = "test-key";
   process.env.POSTIZ_BASE_URL = "http://localhost:4200";
+  delete process.env.POSTIZ_API_URL;
 });
 
 afterEach(() => {
@@ -93,6 +96,23 @@ function seedUnit(manifest: Partial<UnitManifest> = {}): string {
   };
   fs.writeFileSync(path.join(unitDir, "unit.json"), JSON.stringify(full, null, 2));
   for (const m of full.media as string[]) fs.writeFileSync(path.join(unitDir, m), "media-bytes");
+  return unitDir;
+}
+
+function seedWorkspaceUnit(manifest: Partial<UnitManifest> = {}): string {
+  const unitDir = path.join(workspaceUnitsDir(WS), SLUG);
+  fs.mkdirSync(unitDir, { recursive: true });
+  const full = {
+    slug: SLUG,
+    format: "post",
+    media: ["post.md"],
+    created: new Date().toISOString(),
+    title: "Workspace post",
+    text: { body: "post.md", destinations: ["x", "telegram"] },
+    ...manifest,
+  };
+  fs.writeFileSync(path.join(unitDir, "unit.json"), JSON.stringify(full, null, 2));
+  fs.writeFileSync(path.join(unitDir, "post.md"), "Ralphy turns your coding agent into a content farm.\n\n#buildinpublic");
   return unitDir;
 }
 
@@ -146,7 +166,13 @@ describe("payload mapping per platform", () => {
 
   test("youtube: reels body as content + shorts title in settings", () => {
     expect(captionForTarget("youtube", m)).toBe(CAPTION.platform.reels);
-    expect(settingsForTarget("youtube", m)).toEqual({ title: CAPTION.platform.shorts });
+    expect(settingsForTarget("youtube", m, "youtube")).toEqual({
+      __type: "youtube",
+      title: CAPTION.platform.shorts,
+      type: "public",
+      selfDeclaredMadeForKids: "no",
+      tags: CAPTION.hashtags.map((tag) => ({ value: tag.replace(/^#/, ""), label: tag.replace(/^#/, "") })),
+    });
   });
 
   test("tiktok: hook + capped inline tags", () => {
@@ -167,17 +193,80 @@ describe("payload mapping per platform", () => {
     expect(c).toBe(`${CAPTION.platform.tiktok} #fyp #contentfarm #viral`);
   });
 
+  test("telegram uses the text Unit body and provider settings", () => {
+    const text = "A complete Telegram post\n\n#ralphy";
+    const post = manifestFixture({
+      format: "post",
+      text: { body: "post.md", destinations: ["telegram"] },
+    });
+    expect(captionForTarget("telegram", post, text)).toBe(text);
+    expect(settingsForTarget("telegram", post, "telegram")).toEqual({ __type: "telegram" });
+  });
+
   test("no caption falls back to title/blurb copy", () => {
     const bare = manifestFixture({ caption: undefined });
     expect(captionForTarget("tiktok", bare)).toBe("Hero cut — A demo unit.");
-    expect(settingsForTarget("youtube", bare)).toEqual({ title: "Hero cut" });
+    expect(settingsForTarget("youtube", bare, "youtube")).toMatchObject({
+      __type: "youtube",
+      title: "Hero cut",
+      type: "public",
+    });
   });
 
   test("buildPostEntry attaches media refs + settings", () => {
     const entry = buildPostEntry("youtube", "int-yt-1", m, [{ id: "media-1", path: "/uploads/m.mp4" }]);
     expect(entry.integration.id).toBe("int-yt-1");
     expect(entry.value[0]!.image).toEqual([{ id: "media-1", path: "/uploads/m.mp4" }]);
-    expect(entry.settings).toEqual({ title: CAPTION.platform.shorts });
+    expect(entry.settings).toMatchObject({ __type: "youtube", title: CAPTION.platform.shorts });
+  });
+
+  test("X thread body maps to ordered Postiz value items", () => {
+    const thread = manifestFixture({
+      format: "thread",
+      text: { body: "thread.json", destinations: ["x"] },
+    });
+    const entry = buildPostEntry(
+      "x",
+      "int-x-1",
+      thread,
+      [],
+      "x",
+      JSON.stringify(["First post", "Second post"]),
+    );
+    expect(entry.value.map((value) => value.content)).toEqual(["First post", "Second post"]);
+    expect(entry.settings).toMatchObject({ __type: "x", who_can_reply_post: "everyone" });
+  });
+});
+
+describe("workspace Postiz config", () => {
+  test("Postiz Cloud root and secret resolve from workspace credentials", async () => {
+    delete process.env.POSTIZ_API_KEY;
+    delete process.env.POSTIZ_API_URL;
+    delete process.env.POSTIZ_BASE_URL;
+    fs.mkdirSync(workspaceDir(WS), { recursive: true });
+    fs.writeFileSync(
+      path.join(workspaceDir(WS), "credentials.json"),
+      JSON.stringify({
+        version: 1,
+        connectors: {
+          postiz: { apiKey: "workspace-key", apiUrl: "https://api.postiz.com/public/v1" },
+        },
+      }),
+    );
+    let call: { url: string; authorization: string | null } | null = null;
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      call = {
+        url,
+        authorization: new Headers(init?.headers).get("authorization"),
+      };
+      return json([]);
+    }) as typeof fetch;
+
+    await postizIntegrations(fetchImpl, WS);
+    expect(call).toEqual({
+      url: "https://api.postiz.com/public/v1/integrations",
+      authorization: "workspace-key",
+    });
   });
 });
 
@@ -234,6 +323,27 @@ describe("publishUnit", () => {
     expect(res.type).toBe("now");
     expect(res.results[0]).toMatchObject({ target: "x", status: "published", postId: "post-int-x-1" });
     expect(calls.filter((c) => c.url.includes("/posts"))[0]!.body).toMatchObject({ type: "now" });
+  });
+
+  test("workspace text Unit publishes to X and Telegram", async () => {
+    const unitDir = seedWorkspaceUnit();
+    const { fetchImpl, calls } = mockPostiz();
+    const res = await publishUnit({
+      workspaceId: WS,
+      slug: SLUG,
+      targets: ["x", "telegram"],
+      fetchImpl,
+    });
+    expect(res.workspace).toBe(WS);
+    expect(res.project).toBeNull();
+    expect(res.results.map((result) => result.status)).toEqual(["published", "published"]);
+    const posts = calls.filter((call) => call.url.includes("/posts"));
+    expect(posts.map((call) => (call.body as any).posts[0].value[0].content)).toEqual([
+      "Ralphy turns your coding agent into a content farm.\n\n#buildinpublic",
+      "Ralphy turns your coding agent into a content farm.\n\n#buildinpublic",
+    ]);
+    expect(posts.map((call) => (call.body as any).posts[0].settings.__type)).toEqual(["x", "telegram"]);
+    expect((await readUnitManifest(unitDir))?.publish).toHaveLength(2);
   });
 
   test("partial failure: failed target carried in results, not thrown", async () => {
