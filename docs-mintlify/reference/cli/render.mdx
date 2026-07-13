@@ -46,6 +46,7 @@ ralphy render spring-001
 | `--social-crf <n>` | x264 CRF for the auto social cut (default 20; raise for smaller files, lower for cleaner grain) (default: 20) |
 | `--workers <n>` | Parallel capture workers (number or 'auto'). Lower to 1 for heavy compositions (many embedded videos / large GSAP timelines) that hit 'Runtime.callFunctionOn timed out' under the default auto fan-out. |
 | `--force-overwrite` | Disable append-only auto-archiving — overwrite render/final.mp4 and render/final-social.mp4 in place instead of archiving the prior copies to final.v{N}.mp4 / final-social.v{N}.mp4 (#118) (default: false) |
+| `--no-fix-letterbox` | Skip the post-render letterbox auto-crop. HyperFrames bakes a solid black bar under &lt;video&gt; compositions; the heal runs by default and is a no-op when the frame is already clean. |
 | `--dry-run` | Print the resolved render plan; no engine run (default: false) |
 | `--summary` | Collapse the dry-run plan to a per-stage rollup (default: false) |
 | `-h, --help` | display help for command |
