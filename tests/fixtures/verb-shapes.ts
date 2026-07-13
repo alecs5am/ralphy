@@ -1291,6 +1291,21 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   ],
   voice: [
     {
+      label: "voice.design",
+      shape: {
+        previews: [
+          { generated_voice_id: "6xVzKcYDblCkVCLchLpV", path: "artifacts/voiceover/voice-design-preview-1.mp3", duration_secs: 8.2 },
+          { generated_voice_id: "9aWqRcXDmnFkGCLdhMqW", path: "artifacts/voiceover/voice-design-preview-2.mp3", duration_secs: null },
+        ],
+        text: "The first computer program is older than the light bulb.",
+        next: "Listen, pick one, then: ralphy voice create --preview <generated_voice_id> --name <name>",
+      },
+    },
+    {
+      label: "voice.create",
+      shape: { voice_id: "PGoKnSD4gKn2aS99wOR2", name: "Ada Narrator", latency_ms: 1840 },
+    },
+    {
       label: "voice.list",
       shape: [
         { id: "b3M1tF3Y3IEwGRpq7NN3", name: "ChoosePath narrator", category: "cloned" },

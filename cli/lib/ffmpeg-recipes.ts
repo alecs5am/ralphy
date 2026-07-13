@@ -1174,6 +1174,137 @@ export async function audioStats(input: AudioStatsInput): Promise<AudioStats> {
   return stats;
 }
 
+// --- Recipe 16: letterbox auto-crop (video-composition black-bar heal) --
+//
+// HyperFrames composites each <video> into a sub-region of the frame, baking a
+// solid black margin at an edge (observed: an ~88px black bar under a 1080x1920
+// video montage — cropdetect on the render reports crop=1080:1832:0:0 while the
+// source clip is clean). This recipe detects that letterbox and crops+scales it
+// back to the full frame. It is a NO-OP when the frame is already clean, and it
+// refuses to act when the detected content region is too small to be a mere
+// letterbox (that would be a genuinely dark scene, not HF's bar).
+
+export type CropRegion = { w: number; h: number; x: number; y: number };
+
+/**
+ * Parse the last `crop=W:H:X:Y` suggestion out of ffmpeg cropdetect stderr.
+ * cropdetect accumulates the bounding box of non-black content across the
+ * analyzed frames; the final line is the tightest safe crop. Returns null when
+ * no crop line was emitted. Exported for unit testing.
+ */
+export function parseCropdetect(stderr: string): CropRegion | null {
+  const re = /crop=(\d+):(\d+):(\d+):(\d+)/g;
+  let last: RegExpExecArray | null = null;
+  for (let m = re.exec(stderr); m; m = re.exec(stderr)) last = m;
+  if (!last) return null;
+  return { w: +last[1]!, h: +last[2]!, x: +last[3]!, y: +last[4]! };
+}
+
+export type LetterboxDecision =
+  | { action: "noop"; reason: string }
+  | { action: "crop"; region: CropRegion; barPx: number };
+
+/**
+ * Decide whether a cropdetect result is an HF letterbox bar worth healing:
+ *  - within `epsilon` px of the full frame on both axes → already clean → noop.
+ *  - detected content < `minContentRatio` of the frame on either axis → too
+ *    aggressive to be a letterbox (likely a genuinely dark scene) → refuse.
+ *  - otherwise → a modest full-width/height black margin → crop.
+ * Pure — exported for unit testing (no ffmpeg spawn).
+ */
+export function decideLetterboxCrop(opts: {
+  frameW: number;
+  frameH: number;
+  content: CropRegion | null;
+  epsilon?: number;
+  minContentRatio?: number;
+}): LetterboxDecision {
+  const { frameW, frameH, content, epsilon = 4, minContentRatio = 0.85 } = opts;
+  if (!content) return { action: "noop", reason: "no cropdetect result" };
+  const dW = frameW - content.w;
+  const dH = frameH - content.h;
+  if (dW <= epsilon && dH <= epsilon) {
+    return { action: "noop", reason: "frame already full (no letterbox)" };
+  }
+  const ratio = Math.min(content.w / frameW, content.h / frameH);
+  if (ratio < minContentRatio) {
+    return {
+      action: "noop",
+      reason: `content ${Math.round(ratio * 100)}% < ${Math.round(minContentRatio * 100)}% floor — refusing (likely a dark scene, not a letterbox)`,
+    };
+  }
+  return { action: "crop", region: content, barPx: Math.max(dW, dH) };
+}
+
+/** Probe a video's pixel dimensions via ffprobe. Null when unreadable. */
+export function probeVideoDims(src: string): { w: number; h: number } | null {
+  const r = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", src],
+    { encoding: "utf8" },
+  );
+  const m = (r.stdout || "").trim().match(/(\d+)x(\d+)/);
+  return m ? { w: +m[1]!, h: +m[2]! } : null;
+}
+
+/** Run cropdetect over a mid-clip window and return the raw stderr. */
+async function runCropdetect(src: string): Promise<string> {
+  ensureFfmpeg();
+  const dur = probeDurationSec(src);
+  const ss = dur > 2 ? dur * 0.2 : 0;
+  return new Promise((resolve) => {
+    const args = ["-hide_banner", "-nostats"];
+    if (ss > 0) args.push("-ss", String(ss));
+    // cropdetect=limit:round:reset — round=2 (even crop), reset=0 (accumulate).
+    args.push("-i", src, "-vf", "cropdetect=24:2:0", "-frames:v", "150", "-f", "null", "-");
+    const proc = spawn("ffmpeg", args);
+    let buf = "";
+    proc.stderr.on("data", (d) => (buf += d.toString()));
+    proc.on("close", () => resolve(buf));
+  });
+}
+
+export type FixLetterboxResult = { path: string; healed: boolean; barPx: number; reason: string };
+
+/**
+ * Detect and heal an HF-baked letterbox bar on `src`, IN PLACE. Probes the frame
+ * dims + cropdetect, runs `decideLetterboxCrop`, and on a crop verdict re-encodes
+ * the content region scaled back to the full frame (libx264 crf18 yuv420p, audio
+ * stream-copied) then atomically replaces `src`. A clean or too-dark frame is a
+ * pure no-op (no re-encode, no gen-log row). Returns whether it acted + the bar size.
+ */
+export async function fixLetterboxInPlace(
+  src: string,
+  opts: FFmpegOptions & { epsilon?: number; minContentRatio?: number } = {},
+): Promise<FixLetterboxResult> {
+  const { epsilon, minContentRatio, ...logOpts } = opts;
+  const dims = probeVideoDims(src);
+  if (!dims) return { path: src, healed: false, barPx: 0, reason: "could not probe dims" };
+  const content = parseCropdetect(await runCropdetect(src));
+  const decision = decideLetterboxCrop({ frameW: dims.w, frameH: dims.h, content, epsilon, minContentRatio });
+  if (decision.action === "noop") {
+    return { path: src, healed: false, barPx: 0, reason: decision.reason };
+  }
+  const { w, h, x, y } = decision.region;
+  const tmp = path.join(path.dirname(src), `.letterbox-${Date.now()}.mp4`);
+  const vf =
+    `crop=${w}:${h}:${x}:${y},scale=${dims.w}:${dims.h}:force_original_aspect_ratio=increase,` +
+    `crop=${dims.w}:${dims.h},setsar=1`;
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-vf", vf,
+      "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p",
+      "-c:a", "copy",
+      "-movflags", "+faststart",
+      tmp,
+    ],
+    { endpoint: "ffmpeg/fix-letterbox", input: { src, crop: decision.region, frame: dims, barPx: decision.barPx }, opts: logOpts },
+  );
+  await fs.rename(tmp, src);
+  return { path: src, healed: true, barPx: decision.barPx, reason: `cropped ${decision.barPx}px letterbox bar` };
+}
+
 // --- Recipe 15: contact-sheet grid (#049) ------------------------------
 //
 // Compose a grid of input images via `xstack` (rectangular grid) or `hstack`

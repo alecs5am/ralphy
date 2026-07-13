@@ -670,6 +670,171 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
   return result;
 }
 
+// ─── voice design (text-to-voice) ─────────────────────────────────────────────
+//
+// Wraps POST /v1/text-to-voice/design (generate a preview SET from a text
+// description) + POST /v1/text-to-voice (freeze one preview into a permanent
+// library voice). Training-path-only by design: a HUMAN picks the preview by
+// EAR (memory feedback_character_voice_design_previews_user_pick), so there is
+// deliberately NO workflow executor — only the `ralphy voice design` /
+// `ralphy voice create` verb pair (cf. cli/lib/workflow/executors/media.ts).
+
+export type DesignVoiceInput = {
+  /** Voice description, 20-1000 chars (accent, age, tone, pacing, vibe). */
+  description: string;
+  /** Sample text the previews read, 100-1000 chars. Omitted → auto-generated to match the description. */
+  text?: string;
+  /** TTV model id. */
+  model?: string;
+  /** Directory the preview mp3s are written to. */
+  outDir: string;
+  /** Filename stem for the previews (`<stem>-1.mp3` …). */
+  stem?: string;
+  projectId?: string;
+  signal?: AbortSignal;
+};
+
+export type DesignVoicePreview = {
+  generatedVoiceId: string;
+  path: string;
+  durationSecs?: number;
+};
+
+export type DesignVoiceResult = {
+  previews: DesignVoicePreview[];
+  /** The text the previews actually read (auto-generated when input.text was omitted). */
+  text?: string;
+  latencyMs: number;
+};
+
+export async function designVoice(input: DesignVoiceInput): Promise<DesignVoiceResult> {
+  requireKey();
+  const t0 = Date.now();
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const baseUrl = await elevenLabsBaseUrl();
+
+  const resp = await withConcurrency(ID, "voice-design", "voice", () =>
+    fetch(`${baseUrl}/text-to-voice/design`, {
+      method: "POST",
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json", "User-Agent": UA },
+      body: JSON.stringify({
+        voice_description: input.description,
+        model_id: input.model ?? "eleven_multilingual_ttv_v2",
+        ...(input.text ? { text: input.text } : { auto_generate_text: true }),
+      }),
+      signal: input.signal,
+    }),
+  );
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`ElevenLabs text-to-voice/design ${resp.status}: ${text.slice(0, 400)}`);
+  }
+  const json = (await resp.json()) as {
+    previews?: Array<{ audio_base_64?: string; generated_voice_id?: string; duration_secs?: number }>;
+    text?: string;
+  };
+  if (!json.previews?.length) {
+    throw new Error(`ElevenLabs text-to-voice/design returned no previews: ${JSON.stringify(json).slice(0, 300)}`);
+  }
+
+  await fs.mkdir(input.outDir, { recursive: true });
+  const stem = input.stem ?? "voice-design-preview";
+  const previews: DesignVoicePreview[] = [];
+  for (const [i, p] of json.previews.entries()) {
+    if (!p.audio_base_64 || !p.generated_voice_id) continue;
+    const buf = Buffer.from(p.audio_base_64, "base64");
+    const dst = path.join(input.outDir, `${stem}-${i + 1}.mp3`);
+    await fs.writeFile(dst, buf);
+    previews.push({ generatedVoiceId: p.generated_voice_id, path: dst, durationSecs: p.duration_secs });
+  }
+  if (!previews.length) {
+    throw new Error("ElevenLabs text-to-voice/design previews carried no audio/generated_voice_id");
+  }
+
+  const result: DesignVoiceResult = { previews, text: json.text, latencyMs: Date.now() - t0 };
+  if (input.projectId) {
+    await logGeneration(input.projectId, {
+      slot: `voice-design-${stem}`,
+      provider: ID,
+      model: input.model ?? "eleven_multilingual_ttv_v2",
+      endpoint: "text-to-voice/design",
+      kind: "audio",
+      input: {
+        project: input.projectId,
+        voice_description: input.description,
+        text: input.text,
+        preview_ids: previews.map((p) => p.generatedVoiceId),
+        preview_paths: previews.map((p) => p.path),
+      },
+      output: { local: previews[0].path },
+      status: "ok",
+      latency_ms: result.latencyMs,
+      cost_usd: 0,
+      note: `voice design: ${input.description.slice(0, 120)}`,
+    });
+  }
+  return result;
+}
+
+export type CreateVoiceFromPreviewInput = {
+  /** `generated_voice_id` of the picked preview (from designVoice). */
+  generatedVoiceId: string;
+  /** Display name for the new library voice. */
+  name: string;
+  /** Voice description — required by the ElevenLabs create endpoint. */
+  description: string;
+  projectId?: string;
+  signal?: AbortSignal;
+};
+
+export async function createVoiceFromPreview(
+  input: CreateVoiceFromPreviewInput,
+): Promise<{ voiceId: string; name: string; latencyMs: number }> {
+  requireKey();
+  const t0 = Date.now();
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const baseUrl = await elevenLabsBaseUrl();
+
+  const resp = await withConcurrency(ID, "voice-design", "voice", () =>
+    fetch(`${baseUrl}/text-to-voice`, {
+      method: "POST",
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json", "User-Agent": UA },
+      body: JSON.stringify({
+        voice_name: input.name,
+        voice_description: input.description,
+        generated_voice_id: input.generatedVoiceId,
+      }),
+      signal: input.signal,
+    }),
+  );
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`ElevenLabs text-to-voice (create from preview) ${resp.status}: ${text.slice(0, 400)}`);
+  }
+  const json = (await resp.json()) as { voice_id?: string };
+  if (!json.voice_id) {
+    throw new Error(`ElevenLabs text-to-voice returned no voice_id: ${JSON.stringify(json).slice(0, 300)}`);
+  }
+  voiceExistsCache.set(json.voice_id, true);
+
+  if (input.projectId) {
+    await logGeneration(input.projectId, {
+      slot: `voice-create-${json.voice_id}`,
+      provider: ID,
+      model: "text-to-voice",
+      endpoint: "text-to-voice",
+      kind: "audio",
+      input: { project: input.projectId, generated_voice_id: input.generatedVoiceId, name: input.name },
+      status: "ok",
+      latency_ms: Date.now() - t0,
+      cost_usd: 0,
+      request_id: json.voice_id,
+      note: `voice create from preview: ${input.name}`,
+    });
+  }
+  return { voiceId: json.voice_id, name: input.name, latencyMs: Date.now() - t0 };
+}
+
 // ─── music (ElevenLabs Music) ─────────────────────────────────────────────────
 
 export async function generateMusic(input: GenerateMusicInput): Promise<GenerateResult> {

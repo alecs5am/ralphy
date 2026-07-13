@@ -459,6 +459,10 @@ Options:
                          render/final.mp4 and render/final-social.mp4 in place
                          instead of archiving the prior copies to final.v{N}.mp4
                          / final-social.v{N}.mp4 (#118) (default: false)
+  --no-fix-letterbox     Skip the post-render letterbox auto-crop. HyperFrames
+                         bakes a solid black bar under <video> compositions; the
+                         heal runs by default and is a no-op when the frame is
+                         already clean.
   --dry-run              Print the resolved render plan; no engine run (default:
                          false)
   --summary              Collapse the dry-run plan to a per-stage rollup
@@ -638,6 +642,14 @@ Commands:
   clone [options]   Clone a voice into your ElevenLabs library via Instant Voice
                     Cloning (/v1/voices/add). Optional pre-pass through
                     /v1/audio-isolation strips background music / noise (#030).
+  design [options]  Design a brand-new voice from a text description (POST
+                    /v1/text-to-voice/design). Writes ~3 preview mp3s; a human
+                    picks one BY EAR, then `ralphy voice create` freezes it into
+                    the library. Deliberately not a workflow node — the pick is
+                    human-only.
+  create [options]  Freeze a designed preview into a permanent library voice
+                    (POST /v1/text-to-voice). Takes the generated_voice_id
+                    printed by `ralphy voice design`.
   list              List voices available on the user's ElevenLabs account
                     (custom clones + favorites).
   help [command]    display help for command
