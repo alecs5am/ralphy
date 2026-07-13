@@ -1,7 +1,7 @@
 {
   "name": "ugc-cli",
   "version": "0.3.0",
-  "description": "Ralphy — open-source UGC video factory CLI. Monorepo root. Published binary is `@alecs5am/ralphy` (see npm/).",
+  "description": "Ralphy — open-source agent-facing content production runtime. Published binary: @alecs5am/ralphy.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alecs5am/ralphy.git"
@@ -13,8 +13,6 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.3.0",
-    "@openrouter/ai-sdk-provider": "2.10.0",
-    "ai": "7.0.15",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^14.0.3",
@@ -35,7 +33,7 @@
   "scripts": {
     "build:bin": "tsx scripts/build-binaries.ts --smoke",
     "build:bin:current": "tsx scripts/build-binaries.ts --current --smoke",
-    "lint": "tsc && bun run lint:errors && bun run lint:help-examples && bun run lint:skills && bun run lint:agents-md && bun run lint:mode-guidelines && bun run lint:gen-log && bun run lint:out-coverage && bun run lint:no-cyrillic && bun run cli:surface:check && bun run docs:nodes:check",
+    "lint": "tsc && bun run lint:errors && bun run lint:skills && bun run lint:agents-md && bun run lint:mode-guidelines && bun run lint:gen-log && bun run lint:out-coverage && bun run lint:no-cyrillic && bun run cli:surface:check",
     "ralph": "bun cli/index.ts",
     "ralphy": "bun cli/index.ts",
     "setup": "bun cli/index.ts setup",
@@ -46,17 +44,10 @@
     "test:integration": "bun test --timeout 45000 tests/integration/",
     "test:live": "RUN_LIVE_TESTS=1 bun test --timeout 30000 tests/live/",
     "lint:errors": "bun run scripts/lint-error-codes.ts",
-    "lint:help-examples": "bun run scripts/lint-help-examples.ts",
     "cli:surface:build": "bun run scripts/build-cli-surface.ts",
     "cli:surface:check": "bun run scripts/build-cli-surface.ts --check",
-    "docs:cli": "bun run scripts/build-cli-docs.ts",
-    "docs:cli:check": "bun run scripts/build-cli-docs.ts --check",
-    "docs:nodes": "bun run scripts/build-node-docs.ts",
-    "docs:nodes:check": "bun run scripts/build-node-docs.ts --check",
     "lint:docs-links": "bun run scripts/lint-docs-links.ts",
     "lint:docs-links:fast": "bun run scripts/lint-docs-links.ts --no-net",
-    "lint:library": "bun run scripts/lint-library.ts",
-    "lint:library:fast": "bun run scripts/lint-library.ts --no-net",
     "lint:skills": "bun run scripts/lint-skills.ts && bun run lint:skill-routing",
     "lint:skill-routing": "bun run scripts/lint-skill-routing.ts",
     "lint:agents-md": "bun run scripts/lint-agents-md.ts",

@@ -1,4 +1,4 @@
-// Workspace content calendar (#504) — the posting-cadence entity the farm
+// Workspace content calendar (#504) — the posting-cadence entity the account
 // plans against ("shorts Mon/Wed/Fri, carousel Tue, longform Sunday").
 //
 // Storage: `.ralphy/workspaces/<ws>/calendar.json` (engine STATE like
@@ -8,13 +8,9 @@
 // I/O + slot resolution live in cli/lib/calendar/store.ts; this module owns
 // SHAPE only.
 //
-// Bundle export (#502): `slots` (and the unit-type mix they encode) are the
-// EXPORTABLE defaults that land in the template bundle's calendar.yaml.
-// `entries` are dated per-workspace production state and are NOT exported.
-
 import { z } from "zod";
 
-// ─── Recurring slots (bundle-exported, #502) ─────────────────────────────────
+// ─── Recurring slots ─────────────────────────────────────────────────────────
 
 /** Weekday tokens: lowercase three-letter, `mon`..`sun` (not 0-6 numerics). */
 export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -33,8 +29,7 @@ export const CalendarSlotSchema = z.object({
   time: z.string().regex(TIME_RE, { message: "time must be HH:MM (24h)" }),
   /**
    * IANA timezone the slot's weekday+time are interpreted in. Defaults to the
-   * SYSTEM timezone at parse time (Intl resolvedOptions) — an exported bundle
-   * therefore carries the author's concrete zone, never an implicit one.
+   * SYSTEM timezone at parse time (Intl resolvedOptions).
    */
   timezone: z.string().default(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
   /** Format-taxonomy string (free-form; `ralphy template suggest --help` enumerates). */
@@ -43,7 +38,7 @@ export const CalendarSlotSchema = z.object({
 });
 export type CalendarSlot = z.infer<typeof CalendarSlotSchema>;
 
-// ─── Dated entries (per-workspace state, NOT bundle-exported) ────────────────
+// ─── Dated entries ───────────────────────────────────────────────────────────
 
 /** Lifecycle, strictly ordered. Transitions are FORWARD-ONLY (see canTransition). */
 export const ENTRY_STATUSES = [
@@ -74,8 +69,7 @@ export const CalendarEntrySchema = z.object({
   projectId: z.string().optional(),
   unitSlug: z.string().optional(),
   // #525 cadence provenance: set when the humanizer moved `at` off the exact
-  // slot time. `sampled` is the flag the studio calendar view + `workflow
-  // simulate` mark on; the basis/offset explain the move.
+  // slot time; the basis/offset explain the move.
   sampled: z.boolean().optional(),
   cadenceBasis: z.string().optional(),
   cadenceOffsetMinutes: z.number().optional(),

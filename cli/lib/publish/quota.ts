@@ -1,5 +1,5 @@
-// Per-platform publish-quota governor (#534) — the scheduler consults this
-// BEFORE committing a publish to a slot so a campaign at 30/30/30 volume (#528)
+// Per-platform publish-quota governor (#534) — the publish path consults this
+// BEFORE committing a post so a campaign at 30/30/30 volume (#528)
 // does not silently exhaust a platform's day-1 quota and fail the rest.
 //
 // WHY THIS IS A SEPARATE RESOURCE FROM #522: #522 governs GENERATION provider
@@ -14,12 +14,11 @@
 // PLATFORM_QUOTAS entry carries a `source` + a `verifiedOn` date, and
 // `isQuotaStale` flags an entry the maintainer hasn't re-confirmed. NEVER bake
 // a cap as an inline magic number in the reschedule logic — it lives in the
-// table, overridable per workspace (workspace.json `quotaOverrides`, mirroring
-// how trust.ts reads its `trust` key).
+// table, overridable per workspace through `quotaOverrides`.
 //
 // STORAGE: the rolling usage ledger is `.ralphy/workspaces/<ws>/publish-quota.jsonl`
-// (APPEND-ONLY, one row per publish). Same store shape as trust.ts /
-// publish/ledger.ts — the same `workspaceDir(ws)` home, the same tolerant
+// (APPEND-ONLY, one row per publish). Same store shape as publish/ledger.ts —
+// the same `workspaceDir(ws)` home, the same tolerant
 // torn-line JSONL read, the same `fs.mkdirSync(..., { recursive: true })`
 // before append.
 
@@ -30,7 +29,7 @@ import { workspaceDir, workspaceManifestPath } from "../paths.js";
 
 // ─── The quota table (DATA — dated, sourced) ─────────────────────────────────
 //
-// The set of platforms a farm can publish to. Broader than the #501
+// The set of platforms Ralphy can publish to. Broader than the #501
 // PublishTarget union (youtube|tiktok|instagram|x) because a quota is a
 // property of the PLATFORM, not of the Postiz binding — dev.to / Hashnode
 // publish through separate write paths but still meter writes.
@@ -437,44 +436,7 @@ export function rescheduleForQuota(
   };
 }
 
-// ─── Preflight seam for #530 (`farm doctor`) ─────────────────────────────────
-
-export interface QuotaHeatmapRow {
-  platform: QuotaPlatform;
-  cap: number;
-  used: number;
-  remaining: number;
-  resetsAt: string | null;
-  stale: boolean;
-  /** The declared source string (so the doctor can flag `unverified` entries). */
-  source: string;
-  verifiedOn: string;
-}
-
-/**
- * Per-platform headroom vs declared caps + staleness for a workspace at `now`.
- * The seam #530's `farm doctor` consumes — this issue only EXPORTS it cleanly,
- * it does not build the doctor verb. `now` defaults to the wall clock.
- */
-export function quotaHeatmapReport(ws: string, now: Date = new Date()): QuotaHeatmapRow[] {
-  const overrides = readQuotaOverrides(ws);
-  return QUOTA_PLATFORMS.map((platform) => {
-    const entry = effectiveQuota(platform, ws, overrides)!; // every QUOTA_PLATFORMS has a default
-    const h = quotaHeadroom(ws, platform, now, overrides);
-    return {
-      platform,
-      cap: h.cap,
-      used: h.used,
-      remaining: h.remaining,
-      resetsAt: h.resetsAt,
-      stale: h.stale,
-      source: entry.source,
-      verifiedOn: entry.verifiedOn,
-    };
-  });
-}
-
-// ─── shared (mirrors trust.ts / publish/ledger.ts tolerant torn-line parse) ──
+// ─── shared torn-line-tolerant JSONL parsing ─────────────────────────────────
 
 function readJsonl<T>(file: string): T[] {
   let raw = "";

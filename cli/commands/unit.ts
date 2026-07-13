@@ -29,7 +29,7 @@ import {
   type UnitProvenance,
 } from "../lib/schemas/unit.js";
 // Unit-formation core extracted to cli/lib/unit.ts (#511) — the ralphy-unit /
-// ralphy-social-copy workflow executors call the SAME code path.
+// social-copy helpers call the same code path.
 import {
   buildMediaMeta,
   captionUnit,
@@ -37,8 +37,12 @@ import {
   createUnit,
   expandFrom,
   readUnitManifest,
+  destinationUnitsRoot,
+  unitDestination,
+  unitOwnerDir,
   unitsRoot,
   writeUnitManifest,
+  type UnitDestination,
 } from "../lib/unit.js";
 import { isBankStale, LAST_REVIEWED } from "../lib/social/hashtag-bank.js";
 import { buildScorecard } from "../lib/scorecard.js";
@@ -63,6 +67,45 @@ function resolveProjectDir(projectId: string): string {
     raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
   }
   return dir;
+}
+
+function resolveUnitDestination(projectId?: string, workspaceId?: string): UnitDestination {
+  let destination: UnitDestination;
+  try {
+    destination = unitDestination({ projectId, workspaceId });
+  } catch {
+    raiseError("E_INPUT_INVALID", {
+      field: "destination",
+      detail: "pass exactly one project id or --workspace <slug>",
+      verb: "unit",
+    });
+  }
+  const dir = unitOwnerDir(destination);
+  if (!existsSync(dir)) {
+    raiseError("E_NOT_FOUND", {
+      kind: destination.kind === "project" ? "Project" : "Workspace",
+      id: destination.id,
+    });
+  }
+  return destination;
+}
+
+function destinationCreateFields(destination: UnitDestination):
+  | { projectId: string }
+  | { workspaceId: string } {
+  return destination.kind === "project"
+    ? { projectId: destination.id }
+    : { workspaceId: destination.id };
+}
+
+async function readTextOption(opts: any, ownerDir: string): Promise<string | undefined> {
+  if (opts.text != null) return String(opts.text);
+  if (opts.textFile == null) return undefined;
+  const value = String(opts.textFile);
+  const file = path.isAbsolute(value) || existsSync(path.resolve(value))
+    ? path.resolve(value)
+    : path.join(ownerDir, value);
+  return fs.readFile(file, "utf8");
 }
 
 /** Parse a `--source` value ("url|outlet|author") into an attribution source. */
@@ -142,16 +185,25 @@ function renderDistributionHandoff(pack: DistributionPack): string {
 
 export function unitCmd() {
   const cmd = new Command("unit").description(
-    "Manage project-local curated deliverables (units = copies of selected assets + provenance)",
+    "Manage project or workspace deliverables, including social posts, threads, and articles",
   );
 
   // ── create ────────────────────────────────────────────────────────────────
   cmd
-    .command("create <project>")
-    .description("Form a unit by copying matched assets into units/<slug>/ + writing unit.json")
+    .command("create [project]")
+    .description("Form a project unit or an account-level unit with --workspace")
+    .option("--workspace <slug>", "Create the unit directly in an account workspace")
     .requiredOption("--slug <slug>", "Unit slug (kebab-case)")
     .requiredOption("--format <format>", `Media format. One of: ${UNIT_FORMATS.join(", ")}`)
-    .requiredOption("--from <glob>", "Glob, relative to the project dir, of source media to copy (e.g. 'artifacts/images/outline-*.png')")
+    .option("--from <glob>", "Glob, relative to the project or workspace dir, of source files to copy")
+    .option("--text <text>", "Inline post, thread, or article body")
+    .option("--text-file <path>", "Read the post, thread, or article body from a file")
+    .option(
+      "--destination <platform>",
+      "Publication rail: telegram | x | threads | devto | medium | x-article (repeatable)",
+      collect,
+      [],
+    )
     .option("--title <text>", "Human-readable unit title")
     .option("--blurb <text>", "Short unit description")
     .option("--template <slug>", "Provenance: the structure template slug")
@@ -178,6 +230,8 @@ export function unitCmd() {
       "Bypass the scorecard gate on --polished with an explicit user reason (logged)",
     )
     .action(async (project: string, opts: any) => {
+      const destination = resolveUnitDestination(project, opts.workspace);
+      const ownerDir = unitOwnerDir(destination);
       const slug = String(opts.slug);
       if (!isValidUnitSlug(slug)) {
         raiseError("E_VALIDATION_FAILED", {
@@ -193,12 +247,18 @@ export function unitCmd() {
         });
       }
 
-      const projectDir = resolveProjectDir(project);
-      const sources = expandFrom(projectDir, String(opts.from));
-      if (sources.length === 0) {
+      const sources = opts.from ? expandFrom(ownerDir, String(opts.from)) : [];
+      const textBody = await readTextOption(opts, ownerDir);
+      if (opts.from && sources.length === 0) {
         raiseError("E_VALIDATION_FAILED", {
           target: "--from",
-          detail: `no files matched '${opts.from}' relative to ${projectDir}`,
+          detail: `no files matched '${opts.from}' relative to ${ownerDir}`,
+        });
+      }
+      if (sources.length === 0 && !textBody) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "content",
+          detail: "pass --from, --text, or --text-file",
         });
       }
 
@@ -211,17 +271,24 @@ export function unitCmd() {
       // bypasses with an explicit, logged user reason (AGENTS.md #4 — gates
       // refuse, not warn; the bypass is the user's explicit override).
       if (opts.polished) {
-        const card = buildScorecard({ projectId: project });
+        if (destination.kind !== "project") {
+          raiseError("E_INPUT_INVALID", {
+            field: "--polished",
+            detail: "the readiness scorecard is project-only",
+            verb: "unit create",
+          });
+        }
+        const card = buildScorecard({ projectId: destination.id });
         if (card.verdict === "blocked") {
           if (opts.forcePolished) {
-            await logUserPrompt(project, {
+            await logUserPrompt(destination.id, {
               stage: "force-polished",
               text: `Polished-unit gate bypassed for slug "${slug}" (scorecard blocked): ${String(opts.forcePolished)}`,
             });
           } else {
             raiseError("E_GATE_VIDEO", {
               slot: `unit:${slug}`,
-              detail: `readiness scorecard verdict is "blocked" — ${card.reason} Run \`ralphy project scorecard ${project}\`, fix the blocker, or pass --force-polished "<reason>" to override.`,
+              detail: `readiness scorecard verdict is "blocked" — ${card.reason} Run \`ralphy project scorecard ${destination.id}\`, fix the blocker, or pass --force-polished "<reason>" to override.`,
             });
           }
         }
@@ -248,9 +315,9 @@ export function unitCmd() {
           : undefined;
 
       // Formation core lives in cli/lib/unit.ts (#511) — the same path the
-      // ralphy-unit workflow executor calls. COPY-never-move, append-only dir.
+      // other unit entry points call. COPY-never-move, append-only dir.
       const created = await createUnit({
-        projectId: project,
+        ...destinationCreateFields(destination),
         slug,
         format: format as UnitManifest["format"],
         sources,
@@ -258,6 +325,8 @@ export function unitCmd() {
         blurb: opts.blurb ? String(opts.blurb) : undefined,
         provenance: buildProvenance(opts),
         article,
+        textBody,
+        destinations: opts.destination,
       });
 
       ok(`Unit created: ${created.dirName} (${created.manifest.media.length} media)`);
@@ -266,7 +335,7 @@ export function unitCmd() {
         dir: created.dirName,
         format,
         media_count: created.manifest.media.length,
-        path: path.relative(projectDir, created.unitDir),
+        path: path.relative(ownerDir, created.unitDir),
         versioned: created.dirName !== slug,
         provenance_graph: created.provenanceGraphFile,
         manifest: created.manifest,
@@ -275,11 +344,12 @@ export function unitCmd() {
 
   // ── list ────────────────────────────────────────────────────────────────
   cmd
-    .command("list <project>")
-    .description("List units in a project")
-    .action(async (project: string) => {
-      const projectDir = resolveProjectDir(project);
-      const unitsDir = unitsRoot(projectDir);
+    .command("list [project]")
+    .description("List units in a project or account workspace")
+    .option("--workspace <slug>", "List account-level workspace units")
+    .action(async (project: string | undefined, opts: any) => {
+      const destination = resolveUnitDestination(project, opts.workspace);
+      const unitsDir = destinationUnitsRoot(destination);
       const rows: Array<Record<string, unknown>> = [];
       if (existsSync(unitsDir)) {
         const entries = (await fs.readdir(unitsDir, { withFileTypes: true }))
@@ -303,17 +373,24 @@ export function unitCmd() {
 
   // ── show ────────────────────────────────────────────────────────────────
   cmd
-    .command("show <project> <slug>")
-    .description("Show a unit's manifest + resolved media paths")
-    .action(async (project: string, slug: string) => {
-      const projectDir = resolveProjectDir(project);
-      const unitDir = path.join(unitsRoot(projectDir), slug);
+    .command("show [project] [slug]")
+    .description("Show a project or account-level unit")
+    .option("--workspace <slug>", "Show an account-level workspace unit")
+    .action(async (projectArg: string | undefined, slugArg: string | undefined, opts: any) => {
+      const slug = opts.workspace ? slugArg ?? projectArg : slugArg;
+      const project = opts.workspace ? undefined : projectArg;
+      if (!slug) {
+        raiseError("E_INPUT_INVALID", { field: "slug", detail: "unit slug is required", verb: "unit show" });
+      }
+      const destination = resolveUnitDestination(project, opts.workspace);
+      const ownerDir = unitOwnerDir(destination);
+      const unitDir = path.join(destinationUnitsRoot(destination), slug);
       const manifest = await readUnitManifest(unitDir);
       if (!manifest) raiseError("E_NOT_FOUND", { kind: "Unit", id: slug });
       out({
         ...manifest,
         resolved_media: manifest!.media.map((m) =>
-          path.join(path.relative(projectDir, unitDir), m),
+          path.join(path.relative(ownerDir, unitDir), m),
         ),
       });
     });
@@ -398,7 +475,7 @@ export function unitCmd() {
       const results: Array<Record<string, unknown>> = [];
       for (const dirName of targetDirs) {
         // Caption core lives in cli/lib/unit.ts (#511) — the same path the
-        // ralphy-social-copy workflow executor calls. Append-only semantics.
+        // social-copy entry points call. Append-only semantics.
         const result = await captionUnit({
           projectId: project,
           dirName,
@@ -550,11 +627,17 @@ export function unitCmd() {
 
   // ── delete (destructive — explicit user intent only) ──────────────────────
   cmd
-    .command("delete <project> <slug>")
-    .description("Delete a unit directory (destructive — only run on explicit user intent)")
-    .action(async (project: string, slug: string) => {
-      const projectDir = resolveProjectDir(project);
-      const unitDir = path.join(unitsRoot(projectDir), slug);
+    .command("delete [project] [slug]")
+    .description("Delete a project or account-level unit directory (explicitly destructive)")
+    .option("--workspace <slug>", "Delete an account-level workspace unit")
+    .action(async (projectArg: string | undefined, slugArg: string | undefined, opts: any) => {
+      const slug = opts.workspace ? slugArg ?? projectArg : slugArg;
+      const project = opts.workspace ? undefined : projectArg;
+      if (!slug) {
+        raiseError("E_INPUT_INVALID", { field: "slug", detail: "unit slug is required", verb: "unit delete" });
+      }
+      const destination = resolveUnitDestination(project, opts.workspace);
+      const unitDir = path.join(destinationUnitsRoot(destination), slug);
       if (!existsSync(unitDir)) raiseError("E_NOT_FOUND", { kind: "Unit", id: slug });
       await fs.rm(unitDir, { recursive: true, force: true });
       ok(`Unit deleted: ${slug}`);

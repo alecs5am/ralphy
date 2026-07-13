@@ -1,16 +1,14 @@
 // Workspace-scoped content-calendar state (#504): recurring slots + dated
 // entries under `<workspace>/calendar.json`, with an APPEND-ONLY event log at
-// `<workspace>/calendar-events.jsonl`. Mirrors cli/lib/ingestion/store.ts:
-// every function takes the ABSOLUTE workspace dir (executors pass
-// ctx.workspaceDir, CLI verbs pass workspaceDir(slug)), keeping this module
+// `<workspace>/calendar-events.jsonl`. Every function takes the ABSOLUTE
+// workspace dir, keeping this module
 // decoupled from the paths-root singleton and trivially testable.
 //
 // calendar.json is engine STATE (like cursor.json / registry.json) — rewriting
 // it does not touch invariant #14. calendar-events.jsonl is only ever appended
 // to; it is the durable history behind entry updates and lifecycle moves.
 //
-// Both doors write through here: the CLI verbs (cli/commands/calendar.ts) and
-// the `calendar-slot` node executor (cli/lib/workflow/executors/calendar.ts).
+// The CLI verbs in cli/commands/calendar.ts write through this module.
 
 import path from "node:path";
 import fs from "node:fs";

@@ -44,7 +44,10 @@ export type GenerateResult = {
 };
 
 export type CommonInput = {
-  projectId: string;
+  /** Existing project artifact destination. Exactly one scope is required. */
+  projectId?: string;
+  /** Workspace shared-asset destination. Exactly one scope is required. */
+  workspaceId?: string;
   /** Slot id (e.g. `scene-01-bg-image`) — used in log notes + filenames. */
   slot: string;
   /** Free-form note for `generations.jsonl`. */
@@ -228,7 +231,7 @@ export interface RalphyConnector {
    * Talking-head lipsync (image + audio → video). OPTIONAL EXTENSION SEAM
    * (#512): no first-party connector implements it yet — the HeyGen
    * talking-photo flow is raw-API only and the fal avatar routes are not
-   * registered. A `lipsync` workflow node resolves the video-capability
+   * registered. Lipsync generation resolves the video-capability
    * connector and fails with a structured error when this method is absent;
    * a future connector fills the seam without touching the executor.
    */

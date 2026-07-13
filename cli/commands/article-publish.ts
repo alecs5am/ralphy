@@ -1,11 +1,10 @@
 // `ralphy article-publish` (#527) — push an article unit (#526) to the article
 // rails: github-pages (git-backed static site, COMMIT-ONLY), devto/hashnode
 // (dev-blog APIs), medium (park-for-human export pack — Medium's write API is
-// closed to new integrations). The standalone agent-facing door; the farm door
-// is the `article-publish` node executor. Both run through
+// closed to new integrations). All target implementations run through
 // cli/lib/publish/article.ts.
 //
-// Gated (the trust-ladder floor, #505): refuses unless the project's #427
+// Gated: refuses unless the project's #427
 // readiness scorecard says `ship`, or the user passes an explicit
 // `--force "<reason>"` (logged to user-prompts.jsonl, mirrors --no-ref-consent).
 

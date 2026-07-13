@@ -8,7 +8,7 @@
 //
 // Like firecrawl.ts: NOT registered in the provider registry — ingestion is
 // not a generation Capability — and it throws (never process.exit()s) so the
-// workflow executors surface structured errors. HTTP is injectable
+// agent-facing commands surface structured errors. HTTP is injectable
 // (`fetchImpl`) so tests run with zero network.
 
 import { TerminalProviderError } from "./shared.js";

@@ -1,7 +1,6 @@
 // `ralphy calendar` (#504) — the workspace content calendar: recurring
-// posting slots + dated entries with a lifecycle. The user/agent door onto
-// cli/lib/calendar/store.ts (the farm door is the `calendar-slot` node
-// executor — both write through the same store module).
+// posting slots + dated entries with a lifecycle. State lives in
+// cli/lib/calendar/store.ts.
 
 import { Command } from "commander";
 import { existsSync } from "fs";

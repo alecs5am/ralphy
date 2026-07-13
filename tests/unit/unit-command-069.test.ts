@@ -206,41 +206,39 @@ describe("ralphy unit (#069)", () => {
   });
 
   test("media_meta records detected aspect + kind for a created unit", () => {
-    // Use a real repo image fixture with known intrinsic dimensions (720x900 ->
-    // a clean 4/5 portrait aspect). Copied into the throwaway project's assets so
+    // Use a real repo image fixture with known intrinsic dimensions (3840x1200).
+    // Copied into the throwaway project's assets so
     // the unit-create header-read has a genuine file to probe.
     const REAL_IMG = path.join(
       REPO,
-      "landing",
-      "public",
-      "showcase",
-      "dev-tool-fb-creative-pack",
-      "01-a1-pain-face.webp",
+      "docs",
+      "branding",
+      "banner.png",
     );
     expect(fs.existsSync(REAL_IMG)).toBe(true);
     const destDir = path.join(projDir(), "assets", "images");
-    fs.copyFileSync(REAL_IMG, path.join(destDir, "portrait-01.webp"));
+    fs.copyFileSync(REAL_IMG, path.join(destDir, "banner.png"));
 
     const r = ralphy([
       "unit", "create", PROJECT,
       "--slug", "portrait-pack", "--format", "image",
-      "--from", "assets/images/portrait-01.webp",
+      "--from", "assets/images/banner.png",
     ]);
     expect(r.exitCode).toBe(0);
 
     const m = r.json.manifest;
-    expect(m.media).toEqual(["portrait-01.webp"]);
+    expect(m.media).toEqual(["banner.png"]);
     // media_meta is written, keyed by filename, with the detected ratio + kind.
     expect(m.media_meta).toBeDefined();
-    expect(m.media_meta["portrait-01.webp"]).toEqual({
-      aspect: "4 / 5",
+    expect(m.media_meta["banner.png"]).toEqual({
+      aspect: "3840 / 1200",
       kind: "image",
     });
 
     // Round-trips through `show` (manifest re-parsed from disk).
     const show = ralphy(["unit", "show", PROJECT, "portrait-pack"]);
     expect(show.exitCode).toBe(0);
-    expect(show.json.media_meta["portrait-01.webp"].aspect).toBe("4 / 5");
+    expect(show.json.media_meta["banner.png"].aspect).toBe("3840 / 1200");
   });
 
   test("delete removes the unit dir", () => {

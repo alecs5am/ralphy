@@ -56,7 +56,7 @@ So you don't waste time filing dupes:
 - `ralphy mcp` server is post-launch — agents drive the CLI via `--json` subprocess, not MCP.
 - `ralphy trend` is post-launch — needs real analytics adapter.
 - ~36 legacy `err()` callsites still emit `code: "E_INTERNAL"` instead of a specific catalog code. The error message is still actionable; the code is just generic.
-- `docs:cli` regenerates `docs-mintlify/reference/cli/*.mdx` — those pages may surface curated info that the CLI itself doesn't yet emit (e.g. `commonInRef` flag annotations are TBD; we currently pick the first 3 flags deterministically).
+- Public CLI reference pages live in the sibling [`ralphy-docs`](https://github.com/alecs5am/ralphy-docs) repository and may contain curated guidance beyond the generated in-repo surface.
 
 If you hit something **not** in the list above, it's worth filing.
 

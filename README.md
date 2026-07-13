@@ -4,7 +4,7 @@
 
 # Turn your coding agent into a content farm.
 
-**Open-source runtime for agent-driven AI video.** You chat with Claude Code / Cursor / Codex; the agent drives Ralphy. Fork-able, observable, reproducible. From a brief to an mp4 in ~8 minutes.
+**Open-source runtime for agent-driven content production.** You chat with Hermes, Claude Code, Codex, or another local coding agent; the agent drives Ralphy. Forkable, observable, reproducible.
 
 [![Tests](https://github.com/alecs5am/ralphy/actions/workflows/test.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/test.yml)
 [![Release](https://github.com/alecs5am/ralphy/actions/workflows/release.yml/badge.svg)](https://github.com/alecs5am/ralphy/actions/workflows/release.yml)
@@ -18,7 +18,7 @@
 
 ## What it is
 
-**Ralphy is a tool for agents, not a CLI you operate by hand.** You stay in chat — Claude Code, Cursor, Codex, or a future desktop surface — and describe what you want; the agent runs Ralphy for you. The CLI is the runtime that gives the agent what it needs to produce content at farm cadence: reproducible model calls, project state, quality gates, renders, logs, and memory.
+**Ralphy is a tool for local agents, not a CLI you operate by hand.** You stay in chat — Hermes, Claude Code, Codex, or another coding agent — and describe what you want; the agent runs Ralphy for you. The CLI is the runtime that gives the agent reproducible model calls, account workspaces, shared brand assets, content units, quality gates, renders, logs, and memory.
 
 Under the hood, two API keys (`OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`) wire up image / video / vision / LLM (OpenRouter), voice + music (ElevenLabs), HTML+GSAP composition (HyperFrames), and a local async-job queue (bun + SQLite). Direct `ralphy <verb>` commands stay available for setup, debugging, and power users — but driving them yourself is not the primary workflow.
 
@@ -87,7 +87,7 @@ ralphy generate image --project espresso-001 --slot scene-01-bg \
 ralphy render espresso-001
 ```
 
-That's it. Full CLI surface in [`docs/cli-surface.md`](docs/cli-surface.md).
+That's it. Full CLI surface in [`docs/cli-surface.generated.md`](docs/cli-surface.generated.md).
 
 ## Why Ralphy
 
@@ -141,7 +141,7 @@ cd ralphy && bun install
 
 bun test                       # unit + integration (1,000+ tests)
 bun run lint                   # typecheck + project lints (errors / help-examples / skills / agents-md / cli-surface)
-bun run docs:cli               # regenerate docs-mintlify/reference/cli/
+bun run cli:surface:build      # regenerate docs/cli-surface.generated.md
 bun run build:bin              # build cross-platform binaries
 ```
 

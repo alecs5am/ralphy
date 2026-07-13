@@ -172,15 +172,6 @@ function getSemaphore(provider: string, model: string, kind?: EndpointKind): Sem
   return sem;
 }
 
-async function acquire(sem: Semaphore): Promise<void> {
-  if (sem.active < sem.effectiveCap) {
-    sem.active += 1;
-    return;
-  }
-  await new Promise<void>((resolve) => sem.waiters.push(resolve));
-  // resolver bumps `active` for us so the waiter wakes up holding a slot.
-}
-
 function release(sem: Semaphore): void {
   // Adaptive recovery (#522): a successful release nudges the effective cap
   // back one slot toward the hard cap (a rate-limit halved it earlier).
@@ -250,9 +241,7 @@ export async function withConcurrency<T>(
   }
 }
 
-void acquire; // keep acquire reachable for future symmetric callers / tests.
-
-/** One endpoint's live in-flight / queue state, for `farm status` + tests. */
+/** One endpoint's live in-flight / queue state for diagnostics and tests. */
 export interface ConcurrencySnapshot {
   endpoint: string;
   provider: string;
@@ -271,9 +260,7 @@ export interface ConcurrencySnapshot {
 }
 
 /**
- * Returns a snapshot of the live semaphore state. `farm status` groups this
- * per provider (in-flight / queued); the #518 report rolls up `totalWaitMs`.
- * Read-only.
+ * Returns a read-only snapshot of the live semaphore state.
  */
 export function snapshot(): ConcurrencySnapshot[] {
   return Array.from(SEMAPHORES.entries()).map(([endpoint, sem]) => {
@@ -292,7 +279,7 @@ export function snapshot(): ConcurrencySnapshot[] {
   });
 }
 
-/** Per-provider rollup of the endpoint snapshots (for `farm status`). */
+/** Per-provider rollup of endpoint snapshots. */
 export function providerConcurrency(): Array<{
   provider: string;
   inFlight: number;

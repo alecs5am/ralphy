@@ -18,7 +18,8 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { projectDir } from "./paths.js";
+import { projectDir, workspaceLogsDir } from "./paths.js";
+import type { GenerationDestination } from "./generation-destination.js";
 
 // Open enum: the listed ids are the known/bundled providers (kept for
 // autocomplete + grep), but any connector id is accepted now that providers are
@@ -75,7 +76,7 @@ export type GenerationEntry = {
    * this field into `input.slot` if missing. Will be dropped in a future major.
    */
   slot?: string;
-  input: Record<string, unknown> & { slot?: string; project?: string };
+  input: Record<string, unknown> & { slot?: string; project?: string; workspace?: string };
   output?: {
     url?: string;
     local?: string;
@@ -216,17 +217,24 @@ function logsDir(projectId: string) {
   return path.join(projectDir(projectId), "logs");
 }
 
+function generationLogsDir(target: string | GenerationDestination): string {
+  if (typeof target === "string" || target.kind === "project") {
+    return logsDir(typeof target === "string" ? target : target.id);
+  }
+  return workspaceLogsDir(target.id);
+}
+
 async function appendJsonl(file: string, entry: unknown) {
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.appendFile(file, JSON.stringify(entry) + "\n");
 }
 
 export async function logGeneration(
-  projectId: string,
+  target: string | GenerationDestination,
   entry: Omit<GenerationEntry, "timestamp" | "model" | "input"> & {
     timestamp?: string;
     model?: string;
-    input: Record<string, unknown> & { slot?: string; project?: string };
+    input: Record<string, unknown> & { slot?: string; project?: string; workspace?: string };
   },
 ): Promise<void> {
   // Canonical schema enforcement (issue #032):
@@ -235,9 +243,16 @@ export async function logGeneration(
   //  - `input.project` mirrors the projectId arg so cross-project greps don't need the file path.
   //  - `attempt` defaults to 1.
   const model = entry.model ?? entry.endpoint ?? "unknown";
-  const input: Record<string, unknown> & { slot?: string; project?: string } = { ...entry.input };
+  const destination: GenerationDestination =
+    typeof target === "string" ? { kind: "project", id: target } : target;
+  const input: Record<string, unknown> & {
+    slot?: string;
+    project?: string;
+    workspace?: string;
+  } = { ...entry.input };
   if (entry.slot && input.slot == null) input.slot = entry.slot;
-  if (input.project == null) input.project = projectId;
+  if (destination.kind === "project" && input.project == null) input.project = destination.id;
+  if (destination.kind === "workspace" && input.workspace == null) input.workspace = destination.id;
   const full: GenerationEntry = {
     timestamp: entry.timestamp ?? new Date().toISOString(),
     provider: entry.provider,
@@ -260,7 +275,7 @@ export async function logGeneration(
     refsCount: entry.refsCount,
     failureClass: entry.failureClass,
   };
-  await appendJsonl(path.join(logsDir(projectId), "generations.jsonl"), full);
+  await appendJsonl(path.join(generationLogsDir(destination), "generations.jsonl"), full);
 }
 
 /**

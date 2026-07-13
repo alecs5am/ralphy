@@ -25,6 +25,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { logGeneration } from "../gen-log.js";
+import { generationDestination } from "../generation-destination.js";
 import {
   assetPath,
   protectExistingAsset,
@@ -270,6 +271,11 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     for (const r of remoteRefs) videoUrls.push(r);
 
     if (localRefs.length > 0) {
+      if (!input.projectId) {
+        throw new TerminalProviderError(
+          "local reference-video preprocessing requires a project destination; use hosted reference URLs for workspace generation",
+        );
+      }
       const probes = await Promise.all(localRefs.map((p) => probeRefVideo(p)));
       let plan;
       try {
@@ -419,7 +425,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   }
 
   // ── Download the mp4 to the slot path (auto-versioned) ─────────────────────
-  const dest = assetPath(input.projectId, "videos", `${input.slot}.mp4`);
+  const dest = assetPath(input, "videos", `${input.slot}.mp4`);
   await fs.mkdir(path.dirname(dest), { recursive: true });
   const dl = await fetch(videoUrl, { signal: input.signal });
   if (!dl.ok) {
@@ -445,7 +451,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model,
   };
-  await logGeneration(input.projectId, {
+  await logGeneration(generationDestination(input), {
     slot: input.slot,
     provider: ID,
     model,

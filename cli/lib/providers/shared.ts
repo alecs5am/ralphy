@@ -13,7 +13,12 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { logGeneration } from "../gen-log.js";
-import { artifactKindDir } from "../paths.js";
+import {
+  destinationAssetPath,
+  destinationInputFields,
+  generationDestination,
+  type GenerationDestinationInput,
+} from "../generation-destination.js";
 import { raiseError } from "../errors/index.js";
 import type { CommonInput } from "./types.js";
 
@@ -75,8 +80,16 @@ export function rewriteUpstreamError(model: string, status: number, rawText: str
 
 // Write-side destination for a generated asset. #105: writes go ONLY to the
 // `artifacts/<kind>/` tree (reads elsewhere fall back to the legacy layout).
-export function assetPath(projectId: string, kind: string, filename: string): string {
-  return path.join(artifactKindDir(projectId, kind), filename);
+export function assetPath(
+  scope: string | GenerationDestinationInput,
+  kind: string,
+  filename: string,
+): string {
+  const destination =
+    typeof scope === "string"
+      ? { kind: "project" as const, id: scope }
+      : generationDestination(scope);
+  return destinationAssetPath(destination, kind, filename);
 }
 
 /**
@@ -470,13 +483,14 @@ export async function logFailure(
   t0: number,
   attempt = 1,
 ): Promise<void> {
-  await logGeneration(input.projectId, {
+  const destination = generationDestination(input);
+  await logGeneration(destination, {
     slot: input.slot,
     provider,
     model,
     endpoint: model,
     kind,
-    input: { slot: input.slot, project: input.projectId, ...body },
+    input: { slot: input.slot, ...destinationInputFields(destination), ...body },
     status: "error",
     error: err instanceof Error ? err.message : String(err),
     latency_ms: Date.now() - t0,

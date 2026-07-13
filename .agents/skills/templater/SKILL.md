@@ -19,26 +19,22 @@ You decompose a finished project into the **content-entity model** (#063) and cl
 
 Reusable know-how leaves the repo through TWO distinct doors. Pick the door before running anything:
 
-- **Project → library entities (THIS skill).** The user wants the work **browsable and reproducible per unit** — "publish this to the library", "others should reproduce this style", "extract the blocks". Scope: ONE finished project, factored into Unit + Template/Style/Recipe/Asset blocks, published via `landing/scripts/publish-entity.ts` (#056). This is the pipeline the rest of this file describes.
-- **Workspace → deployable bundle (#502 — NOT this skill).** The user wants a **RUNNABLE farm template** — "make my workspace deployable", "package the template for the server", "run my channel on a server". Scope: a whole TRAINED workspace (graph workflows, prompts, parametrized compositions, evaluator rubric, calendar slots, shared refs) zipped by `ralphy workspace export <ws>` so a farm host can `ralphy workspace import <zip>` and `ralphy farm start` it. Route to the [`workspace-export`](../workspace-export/SKILL.md) skill.
-
-Rule of thumb: library entities carry the *ingredients* of one deliverable; the bundle carries the *machine* that keeps producing deliverables. A project can take both exits — publish its blocks here, AND have its workspace exported — but never conflate them: templater never zips a workspace, workspace-export never writes `library.json`.
+- **Project → library entities (THIS skill).** The user wants the work **browsable and reproducible per unit** — "publish this to the library", "others should reproduce this style", "extract the blocks". Scope: ONE finished project, factored into Unit + Template/Style/Recipe/Asset blocks. The publishing implementation lives in the sibling `ralphy-web` repository.
 
 ## DO NOT FIRE
 
 - **Scaffolding a new project** — that is `ralphy template use <existing-slug>`, not this skill.
 - **One-off renders** — that is the producer playbook.
 - **Quality evaluation** — that is `/evaluator`.
-- **Pushing to the live library** — that is the #056 publish path (`landing/scripts/publish-entity.ts`); templater stops at printing the ordered commands. See HARD INVARIANTS below.
-- **Exporting a deployable workspace bundle** — that is the sibling exit (#502): [`workspace-export`](../workspace-export/SKILL.md) / `ralphy workspace export <ws>`. See "Two exits" above.
+- **Pushing to the live library** — that is the #056 publish path in `../ralphy-web/scripts/publish-entity.ts`; templater stops at printing the ordered commands. See HARD INVARIANTS below.
 
 This skill is the **full maximal-detail pipeline**: one invocation, followed end-to-end, reproduces what a careful maintainer does by hand. The six stages are **EXTRACT** (read the finished deliverables) → **CLASSIFY** (factor into the five entities, incl. the recipe-vs-tag split) → **BLUEPRINT** (capture a per-unit reproduction payload) → **DE-DUP** (match every candidate against the live library first) → **EMIT** the entity bundle → **PRINT the publish runbook** (the exact ordered `publish-entity.ts` commands).
 
-templater does the extraction, classification, blueprint capture, and de-dup itself. It does **not** invoke the live push (`--push`) — that is the user's deliberate step. It prints the full, ordered command set (dry-run first, then `--push`) and hands control back. Publishing to the live library (Supabase DB + Storage + the committed `published.ts`) is the #056 primitive — see [Publish runbook](#publish-runbook-056).
+templater does the extraction, classification, blueprint capture, and de-dup itself. It does **not** invoke the live push (`--push`) — that is the user's deliberate step. It prints the full, ordered command set (dry-run first, then `--push`) and hands control back. Publishing to the live library is owned by the sibling `ralphy-web` repository — see [Publish runbook](#publish-runbook-056).
 
 ## The five entities (read this first)
 
-The library model (`landing/lib/library-v2/types.ts`) has five entities. Every project decomposes into them:
+The library model (`../ralphy-web/lib/library-v2/types.ts`) has five entities. Every project decomposes into them:
 
 - **Unit** — a finished deliverable in a Format (`video`, `carousel`, `sticker-pack`, `podcast-cuts`, `fb-creative`, `motion-design`, `poster`, `image`), holding 1..N ordered media items. A Unit = exactly **1 Template + 1 Style + N Recipes + M Assets**. That ingredient list is the Unit's **provenance**.
 - **Template** (block, single-per-unit) — the STRUCTURE / skeleton only, style-agnostic. The beat structure, the slide count + slot layout, the composition skeleton.
@@ -52,7 +48,7 @@ The **Unit source of truth is `.ralphy/workspaces/<ws>/projects/<id>/units/*/uni
 
 - **Not a project scaffolder.** That is `ralphy template use <slug> --project <new-id>`.
 - **Not a postmortem generator.** That is `/postmortem`. Run it first if the source has none — `postmortem/02-lessons.md` (lessons) and `postmortem/06-units.md` (units + provenance) are the highest-signal inputs here.
-- **Not the library publisher.** It does NOT push to Supabase, does NOT edit `landing/lib/library-v2/published.ts`, does NOT run `seed-supabase.ts`. The publish step is the #056 primitive `landing/scripts/publish-entity.ts` (`--unit` / `--block` modes). templater produces the classified bundle; publish pushes it.
+- **Not the library publisher.** The publish step is the #056 primitive in `../ralphy-web/scripts/publish-entity.ts`. templater produces the classified bundle; the web repository publishes it.
 - **Not a single-template extractor.** The old `create-from-project` "one template per project" framing is retired. A project produces a SET of entities (often several units + several blocks), not one template.
 
 ## Source-of-truth files in the source project
@@ -93,7 +89,7 @@ See `references/extraction-rules.md` for the per-file extraction details and edg
    - **Tag** (NOT a block, no detail page) if it is a pure textual descriptor with NO extractable artifact (e.g. "rain overlay" / "soft bloom" applied only as a vibe). It becomes a `tags[]` entry on the Unit(s) that used it, carried in `unit.json`.
    - **The failure mode to kill: never publish an EMPTY recipe block** (refs:0, no `body`, no `artifact`). That empty chip is the "tag cloud" anti-pattern. If you cannot author a real artifact, it is a tag.
 
-5. **Match existing blocks FIRST (de-dup before you author).** Before proposing ANY new block — and before authoring a kept recipe's `body`/`artifact` — check whether an existing library block already covers it. Read `PUBLISHED_BLOCKS` in `landing/lib/library-v2/published.ts` directly, and use `ralphy template list` / `ralphy template suggest` for template/style candidates and `ralphy assets list --kind <kind>` for asset candidates. If `postmortem/06-units.md` already marked a block REUSED, trust that. Only propose a **NEW** block for a genuine gap. **Worked cautionary example:** `choose-path-xfade-master` was published as a NEW recipe when the canonical `ffmpeg-xfade-master` already carried that exact artifact — a duplicate that #081/#083 had to delete and repoint. Reuse + cite the existing slug; never publish a second copy. Over-creating duplicate blocks is the failure mode this step prevents.
+5. **Match existing blocks FIRST (de-dup before you author).** Before proposing ANY new block — and before authoring a kept recipe's `body`/`artifact` — check whether an existing library block already covers it. Read `../ralphy-web/lib/library-v2/library.json`, and use `ralphy template list` / `ralphy template suggest` for template/style candidates and `ralphy assets list --kind <kind>` for asset candidates. If `postmortem/06-units.md` already marked a block REUSED, trust that. Only propose a **NEW** block for a genuine gap. **Worked cautionary example:** `choose-path-xfade-master` was published as a NEW recipe when the canonical `ffmpeg-xfade-master` already carried that exact artifact — a duplicate that #081/#083 had to delete and repoint. Reuse + cite the existing slug; never publish a second copy. Over-creating duplicate blocks is the failure mode this step prevents.
 
 6. **Classify slots + tags + descriptions (LLM, via `callLLM()`).** Through `cli/lib/providers/llm.ts → callLLM()`:
    - **Slots** — extract `{{slots}}` (brand / product / character names / location keys / target language) from `prompts.json` per `references/slot-detection.md`, so the Style block's prompt cookbook is reusable across subjects.
@@ -132,13 +128,13 @@ JSON, pipe-friendly:
       "blueprint": {
         "status": "NEW",
         "path": ".ralphy/workspaces/<ws>/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint",
-        "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --blueprint .ralphy/workspaces/<ws>/projects/free-air-vpn-stickerpack/units/stickers-outline/blueprint"
+        "publish_cmd": "cd ../ralphy-web && bun run scripts/publish-entity.ts --blueprint <absolute-blueprint-dir>"
       },
-      "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --unit .ralphy/workspaces/<ws>/projects/free-air-vpn-stickerpack/units/stickers-outline"
+      "publish_cmd": "cd ../ralphy-web && bun run scripts/publish-entity.ts --unit <absolute-unit-dir>"
     }
   ],
   "new_blocks": [
-    { "kind": "style", "slug": "free-air-jelly-pure", "blurb": "...", "publish_cmd": "cd landing && bun run scripts/publish-entity.ts --block-file <spec.json>" },
+    { "kind": "style", "slug": "free-air-jelly-pure", "blurb": "...", "publish_cmd": "cd ../ralphy-web && bun run scripts/publish-entity.ts --block-file <spec.json>" },
     {
       "kind": "recipe",
       "slug": "floodfill-diecut-cutout",
@@ -161,40 +157,40 @@ JSON, pipe-friendly:
 
 ## Publish runbook (#056)
 
-templater extracts + classifies + blueprints + de-dups; the **publish to library is the #056 primitive**, `landing/scripts/publish-entity.ts`. It has THREE independent, first-class modes — a Unit, a standalone Block, and a Blueprint each publish on their own. Print the commands below in this **order** (blocks → units → blueprints), each as a dry-run line then the `--push` line. **templater never runs `--push`** — it prints the runbook and stops; the user (or `dev-publish-template`) runs it.
+templater extracts + classifies + blueprints + de-dups; the **publish to library is the #056 primitive** in `../ralphy-web/scripts/publish-entity.ts`. Print commands in the required order (blocks → units → blueprints), each as a dry-run line then the `--push` line. **templater never runs `--push`** — it prints the runbook and stops; the user (or `dev-publish-template`) runs it from the web repository.
 
-### 0. DB prerequisite (once, on a fresh store)
+### 0. Web repository prerequisite
 
-Before ANY `--push`, the Supabase schema must carry the `blueprints` table and the additive columns `blocks.recipe_kind`, `blocks.data`, `units.tags`. They live in `supabase/migrations/0001_init_library_v2.sql`. On a fresh store, apply that migration first (`psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init_library_v2.sql`, or `ralphy`'s seed path). Dry-runs touch nothing remote, so they are always safe to print/run first.
+Before ANY `--push`, verify that `../ralphy-web` is present, clean, on its expected branch, and has its publishing credentials configured. Dry-runs touch nothing remote, so they are always safe to print/run first.
 
 ### 1. NEW blocks first (so unit provenance + tag facets resolve)
 
 Each NEW block is a `--block-file <spec.json>`. A block spec is `{ kind, id, name, blurb, sub?, refs?[] }`; a **recipe** spec ALSO carries the enriched payload `{ recipeKind, body, artifact, params, demo }` (#082) — which pack into the `blocks.recipe_kind` column + the `blocks.data` jsonb. The recipe's `demo` (`demo.html` for HyperFrames, before/after media for ffmpeg) + any `refs` ride along to Storage so the library page is interactive (live recipe demo, audio player for a music asset). Tags are NOT blocks — they carry no `--block-file` line; they ride on the Unit.
 
 ```bash
-cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json>           # dry-run (per NEW block)
-cd landing && bun run scripts/publish-entity.ts --block-file <block-spec.json> --push     # push
+cd ../ralphy-web && bun run scripts/publish-entity.ts --block-file <block-spec.json>           # dry-run (per NEW block)
+cd ../ralphy-web && bun run scripts/publish-entity.ts --block-file <block-spec.json> --push     # push
 ```
 
 ### 2. Units next (carrying unit.json.tags + provenance links)
 
 ```bash
-cd landing && bun run scripts/publish-entity.ts --unit .ralphy/workspaces/<ws>/projects/<id>/units/<slug>          # dry-run (per Unit)
-cd landing && bun run scripts/publish-entity.ts --unit .ralphy/workspaces/<ws>/projects/<id>/units/<slug> --push    # push
+cd ../ralphy-web && bun run scripts/publish-entity.ts --unit <absolute-unit-dir>          # dry-run (per Unit)
+cd ../ralphy-web && bun run scripts/publish-entity.ts --unit <absolute-unit-dir> --push    # push
 ```
 
-The unit's media uploads to Storage; the `units` row + `unit_blocks` provenance rows upsert; the `tags[]` from `unit.json` land in the `units.tags` column → the feed's `TAGS` filter facet. A provenance block id absent from Supabase is WARN-and-skipped (never fabricated) — which is why blocks publish FIRST.
+The unit's media uploads to the configured CDN and the committed library entry receives its provenance and tags. A missing provenance block is warned and skipped, never fabricated — which is why blocks publish FIRST.
 
 ### 3. Blueprints last (the per-unit reproduction payload, one per Unit)
 
 ```bash
-cd landing && bun run scripts/publish-entity.ts --blueprint .ralphy/workspaces/<ws>/projects/<id>/units/<slug>/blueprint          # dry-run (per Unit)
-cd landing && bun run scripts/publish-entity.ts --blueprint .ralphy/workspaces/<ws>/projects/<id>/units/<slug>/blueprint --push    # push
+cd ../ralphy-web && bun run scripts/publish-entity.ts --blueprint <absolute-blueprint-dir>          # dry-run (per Unit)
+cd ../ralphy-web && bun run scripts/publish-entity.ts --blueprint <absolute-blueprint-dir> --push    # push
 ```
 
 The `--blueprint` dir is the `units/<slug>/blueprint/` payload step 7 captured (`blueprint.json` + copied `index.html` / prompts / hard assets). It uploads the payload to Storage under `blueprints/<unitId>/`, upserts the 1:1 `blueprints` row, and appends to `PUBLISHED_BLUEPRINTS`.
 
-Every mode writes to Supabase (DB + Storage) AND appends to the committed open-source `landing/lib/library-v2/published.ts` (idempotent by id / unitId, append-only). Default run is DRY-RUN. The maintainer one-shot that runs the whole runbook for you is `dev-publish-template` (#056).
+Every mode updates the committed library data and uploads media through the web repository's configured storage path (idempotent by id / unitId, append-only). Default run is DRY-RUN. The maintainer one-shot that runs the whole runbook for you is `dev-publish-template` (#056).
 
 ## Edge cases & refusals
 
@@ -223,8 +219,8 @@ A finished project's postmortem captures the expensive lessons; `units/*/unit.js
 - `cli/commands/blueprint.ts` — the `ralphy blueprint create|show|list|use` surface (#076/#079); templater runs `blueprint create` per Unit in step 7.
 - `cli/lib/schemas/blueprint.ts` — the `BlueprintSchema` Zod shape (#074): the six reproduction axes a captured Blueprint carries.
 - `cli/lib/ffmpeg-recipes.ts` — the canonical ffmpeg/encode/overlay builders (`buildVhsFilter`, `buildColorGradeFilter`, `buildSidechainFilter`, `buildMixMusicFilter`, CRF helpers); the source-of-truth for a kept recipe's `artifact`.
-- `landing/lib/library-v2/types.ts` — the five-entity shapes (Format / Unit / Block kinds), the enriched-Recipe fields (#082: `recipeKind`/`body`/`artifact`/`params`/`demo`), and `Unit.tags`.
+- `../ralphy-web/lib/library-v2/types.ts` — the five-entity shapes (Format / Unit / Block kinds), the enriched-Recipe fields (#082: `recipeKind`/`body`/`artifact`/`params`/`demo`), and `Unit.tags`.
 - `supabase/migrations/0001_init_library_v2.sql` — the schema (the `blueprints` table + `blocks.recipe_kind` / `blocks.data` / `units.tags` columns) that must exist before any `--push`.
-- `landing/scripts/publish-entity.ts` — the publish primitive (#056); templater hands off to it.
-- `docs/skills-vs-templates.md` — templater = extract/classify; #056 = the Supabase→library writer.
+- `../ralphy-web/scripts/publish-entity.ts` — the publish primitive (#056); templater hands off to it.
+- `docs/skills-vs-templates.md` — templater = extract/classify; #056 = the web library writer.
 - `.agents/skills/dev-publish-template/SKILL.md` — the maintainer one-shot that runs the publish for you.

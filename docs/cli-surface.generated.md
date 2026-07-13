@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **56**
+Verbs registered: **51**
 
 ## Top-level verbs
 
@@ -16,7 +16,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy version [options]
 
@@ -35,7 +35,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy new [options] [brief...]
 
@@ -74,7 +74,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy clone [options] <url-or-ref>
 
@@ -109,7 +109,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy skill [options] [command]
 
@@ -142,7 +142,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy setup [options]
 
@@ -179,7 +179,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy status [options]
 
@@ -198,7 +198,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy doctor [options]
 
@@ -218,9 +218,9 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
-Usage: ralphy generate [options] [command]
+Usage: ralphy generate|gen [options] [command]
 
 Generate a single asset (image / video / voiceover / music / captions). Logs
 cost + path automatically.
@@ -260,7 +260,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy provider [options] [command]
 
@@ -295,7 +295,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy models [options] [command]
 
@@ -341,7 +341,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy daemon [options] [command]
 
@@ -370,7 +370,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy queue [options] [command]
 
@@ -409,7 +409,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy render [options] <project>
 
@@ -496,7 +496,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy hyperframes|hf [options] [command]
 
@@ -555,7 +555,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy editor [options] [command]
 
@@ -594,7 +594,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy compose [options] <projectId>
 
@@ -626,7 +626,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy voice [options] [command]
 
@@ -645,8 +645,7 @@ Commands:
   design [options]  Design a brand-new voice from a text description (POST
                     /v1/text-to-voice/design). Writes ~3 preview mp3s; a human
                     picks one BY EAR, then `ralphy voice create` freezes it into
-                    the library. Deliberately not a workflow node — the pick is
-                    human-only.
+                    the library. The pick is deliberately human-only.
   create [options]  Freeze a designed preview into a permanent library voice
                     (POST /v1/text-to-voice). Takes the generated_voice_id
                     printed by `ralphy voice design`.
@@ -664,7 +663,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy whoami [options]
 
@@ -696,7 +695,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy init [options]
 
@@ -716,7 +715,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy config [options] [command]
 
@@ -741,7 +740,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy brand [options] [command]
 
@@ -771,7 +770,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy persona [options] [command]
 
@@ -798,7 +797,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy ref [options] [command]
 
@@ -857,7 +856,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy project [options] [command]
 
@@ -1058,22 +1057,22 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy unit [options] [command]
 
-Manage project-local curated deliverables (units = copies of selected assets +
-provenance)
+Manage project or workspace deliverables, including social posts, threads, and
+articles
 
 Options:
   -h, --help                          display help for command
 
 Commands:
-  create [options] <project>          Form a unit by copying matched assets into
-                                      units/<slug>/ + writing unit.json
-  list <project>                      List units in a project
-  show <project> <slug>               Show a unit's manifest + resolved media
-                                      paths
+  create [options] [project]          Form a project unit or an account-level
+                                      unit with --workspace
+  list [options] [project]            List units in a project or account
+                                      workspace
+  show [options] [project] [slug]     Show a project or account-level unit
   add [options] <project> <slug>      Copy more media into an existing unit
                                       (appends to media, never drops existing)
   caption [options] <project> [slug]  Draft platform-shaped social copy
@@ -1091,8 +1090,8 @@ Commands:
                                       unit's caption (#403) when present, else
                                       drafts one. Append-only: re-package
                                       archives the prior (--force).
-  delete <project> <slug>             Delete a unit directory (destructive —
-                                      only run on explicit user intent)
+  delete [options] [project] [slug]   Delete a project or account-level unit
+                                      directory (explicitly destructive)
   help [command]                      display help for command
 ```
 
@@ -1105,7 +1104,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy blueprint [options] [command]
 
@@ -1141,7 +1140,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy library [options] [command]
 
@@ -1181,7 +1180,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy template [options] [command]
 
@@ -1245,7 +1244,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy guideline [options] [command]
 
@@ -1272,7 +1271,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy benchmark [options] [command]
 
@@ -1297,7 +1296,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy memory [options] [command]
 
@@ -1356,7 +1355,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy lessons [options] [command]
 
@@ -1383,7 +1382,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy batch [options] [command]
 
@@ -1397,16 +1396,16 @@ Commands:
   list                       List all batches
   show <id>                  Show batch details
   status <id>                Show batch status
-  review <id>                Deterministic farm-mode triage over a batch's
-                             member projects (#410). Rolls up winners
-                             (ship-ready, #411), failures (failed eval), a cost
-                             roll-up (sum of per-project generations.jsonl
-                             cost_usd), style drift (eval style.*/brief.*
-                             findings vs the shared style lock), repeated model
-                             failures (the same model/error recurring across ≥2
-                             items), and recommended repairs (the #409 owner
-                             buckets). Makes ZERO model calls — pure aggregation
-                             over existing artifacts. JSON output.
+  review <id>                Deterministic triage over a batch's member projects
+                             (#410). Rolls up winners (ship-ready, #411),
+                             failures (failed eval), a cost roll-up (sum of
+                             per-project generations.jsonl cost_usd), style
+                             drift (eval style.*/brief.* findings vs the shared
+                             style lock), repeated model failures (the same
+                             model/error recurring across ≥2 items), and
+                             recommended repairs (the #409 owner buckets). Makes
+                             ZERO model calls — pure aggregation over existing
+                             artifacts. JSON output.
   tournament [options] <id>  Rank a batch's variant projects, pick a champion,
                              and preserve the losers with rationale (#421).
                              Model-assisted by default (scoreImage for still
@@ -1434,7 +1433,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy asset [options] [command]
 
@@ -1463,266 +1462,31 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy workspace [options] [command]
 
-Manage workspaces (studio / universe groupings of projects with a shared/ asset
-tier)
+Manage account workspaces: profile, channels, shared brand assets, projects, and
+units
 
 Options:
-  -h, --help                      display help for command
+  -h, --help                display help for command
 
 Commands:
-  create [options] <slug>         Create a workspace:
-                                  .ralphy/workspaces/<slug>/{workspace.json,shared/,projects/,templates/,batches/}
-  list                            List workspaces (slug, name, project count)
-  show <slug>                     Show a workspace: workspace.json + project
-                                  list
-  use <slug>                      Set the active workspace (the default home for
-                                  new projects)
-  update [options] <slug>         Update workspace settings — the #505
-                                  trust-ladder fields in workspace.json's
-                                  `trust` key: --trust-level L0|L1|L2 (L0 =
-                                  publish always parks for approval, L1 =
-                                  auto-pass when the workspace-eval score clears
-                                  --auto-publish-score, L2 = auto-pass any
-                                  ship-verdict unit; a fail/warn gate never
-                                  auto-passes at any level),
-                                  --auto-publish-score 0-100 (the L1 threshold
-                                  on the workspace-eval overall score, default
-                                  80), --promotion-streak (consecutive
-                                  verdict-matching decisions before `workspace
-                                  trust` suggests promotion, default 10),
-                                  --demote-on-reject true|false (a reject of an
-                                  auto-published unit drops L2 to L1, default
-                                  true). Promotion/demotion of the level is
-                                  always THIS explicit verb — never automatic.
-                                  Example: ralphy workspace update silent-hill
-                                  --trust-level L1 --auto-publish-score 85
-  trust <slug>                    Show the workspace's trust-ladder state
-                                  (#505): the level (L0 park-everything | L1
-                                  score-thresholded auto-publish | L2 autopilot
-                                  on ship-verdict units), the thresholds, the
-                                  verdict-vs-human agreement (rate, streak,
-                                  sample count from trust-agreement.jsonl), the
-                                  auto-pass audit count, and whether promotion
-                                  is SUGGESTED (streak >= promotion-streak AND
-                                  agreement rate >= 0.9). Promotion is never
-                                  applied here — it is always the explicit
-                                  `ralphy workspace update <ws> --trust-level
-                                  <L>`. Pure file reads, ZERO model calls.
-                                  Example: ralphy workspace trust silent-hill
-  eval [options] <project>        Score a project against its workspace's custom
-                                  evaluator rubric (#468 config) and write
-                                  workspace-eval.json + workspace-eval-report.md
-                                  (append-only). Deterministic criteria run in
-                                  code (via their validatorId — #470 wires the
-                                  builtins; an unregistered id is reported as
-                                  na, never an error); vision criteria run ONE
-                                  ISOLATED deep-vision pass PER criterion
-                                  (#477), each loading only its own rubric
-                                  (inline rubricPrompt > rubricFile > builtin
-                                  fragment > label) for focused, non-diluted
-                                  context. The overall verdict uses the #427
-                                  readiness vocab (ship | repair |
-                                  needs-user-decision | blocked). Use
-                                  --criterion to re-run a single rubric in
-                                  isolation: the fresh result merges over the
-                                  prior workspace-eval.json so the other
-                                  criteria are not re-spent. Example: ralphy
-                                  workspace eval choose-silenthill-001
-                                  --criterion scenario-fidelity
-  roi <slug>                      Cost/ROI report (#544) across the WHOLE
-                                  workspace: joins realized model spend (gen-log
-                                  #032) to measured performance (analytics #507)
-                                  per unit, aggregated by format + platform,
-                                  with cost-per-1k-views + best/worst ROI cells.
-                                  Units with spend but no analytics yet are
-                                  counted in spend, excluded from ratios,
-                                  flagged pending-performance. Read-only, ZERO
-                                  model calls. Example: ralphy workspace roi
-                                  tech-news
-  ideate [options] <slug>         Feed the workspace bible (STYLE_LOCK.md +
-                                  rubrics/*.md + metrics-benchmarks.json +
-                                  evaluators.json) to a Gemini text model via
-                                  callLLM() and ask it to produce a grounded,
-                                  rubric-passing draft. Default task: pitch N
-                                  next-episode concepts. Pass --task to override
-                                  with any instruction (e.g. write the full
-                                  scenario for an already-chosen episode) —
-                                  still grounded in the bible. Saves to
-                                  <workspace>/ideas/idea-<timestamp>.md (new
-                                  file, append-only) and prints metadata.
-                                  Example: ralphy workspace ideate silent-hill
-                                  --brief 'lean into the space-bar vibe' --count
-                                  3
-  export [options] <slug>         Export a trained workspace as a deployable
-                                  bundle zip (#502): manifest.yaml (name,
-                                  version, ralphy-version floor, required
-                                  connector keys, required (model, capability,
-                                  provider) coverage, trust default —
-                                  requirements auto-derived from the graph's
-                                  nodes), pipeline.json (the #498 graph
-                                  workflow, JSON per D-03), prompts/,
-                                  compositions/, evaluators/ (STYLE_LOCK.md,
-                                  evaluators.json, metrics-benchmarks.json),
-                                  calendar.yaml (recurring slots ONLY — dated
-                                  entries are never bundled), refs/ (shared/refs
-                                  as-is). Project artifacts and logs are NEVER
-                                  bundled. Refuses with the concrete gap list
-                                  when the workspace is not export-ready (no
-                                  evaluators.json, no graph workflow, workflow
-                                  lint errors). Read-only over the source
-                                  workspace. Uses the system `zip` binary. The
-                                  summary also prints the #516 one-tick cost
-                                  estimate of the bundled primary pipeline (via
-                                  `ralphy workflow simulate`). Format doc:
-                                  docs/workspace-bundle.md. Example: ralphy
-                                  workspace export tech-news --out
-                                  tech-news-v1.zip
-  import [options] <zip>          Import a workspace bundle zip (#502) as a NEW
-                                  workspace. Validates BEFORE materializing
-                                  anything: manifest.yaml parses,
-                                  ralphyVersionFloor <= the current ralphy
-                                  version, every required connector key is
-                                  configured (missing keys are NAMED — refuse,
-                                  or proceed with warnings via
-                                  --allow-missing-keys), every required (model,
-                                  capability, provider) coverage triple is known
-                                  to the #497 matrix (gaps NAMED — refuse, or
-                                  --allow-coverage-gaps), and the bundled
-                                  pipeline lints green (#498 graph checks).
-                                  Collision-safe: an existing workspace slug
-                                  refuses unless --as <new-slug> is passed —
-                                  import NEVER overwrites an existing workspace.
-                                  Materializes workspace.json, workflows/,
-                                  evaluator files, calendar.json (slots only),
-                                  shared/refs/, prompts/, compositions/. Uses
-                                  the system `unzip` binary. Format doc:
-                                  docs/workspace-bundle.md. Example: ralphy
-                                  workspace import tech-news-v1.zip --as
-                                  my-channel
-  upgrade [options] <slug> <zip>  Upgrade a DEPLOYED workspace to a newer
-                                  version of its bundle lineage (#521) WITHOUT
-                                  losing runtime state (calendar entries, trust
-                                  history, dedup store, cache, quarantine).
-                                  Validates the bundle targets the SAME lineage
-                                  (bundleId match) with a monotonically greater
-                                  version — refuses on lineage mismatch or
-                                  version regression (rollback is the sanctioned
-                                  down-path). Shows a pre-apply DIFF of the
-                                  know-how classes (graph, subgraphs, prompts,
-                                  compositions, evaluators, reroute rules,
-                                  calendar SLOTS); runtime state is never
-                                  touched. Know-how is replaced atomically and
-                                  every changed artifact is versioned
-                                  append-only (workflow.v2.json etc.); the prior
-                                  tree is kept for `workspace rollback`. Refuses
-                                  while a run is active. An evaluator change
-                                  resets the #505 agreement streak (the rubric
-                                  moved). --dry-run shows the diff only; --yes
-                                  is required to apply non-interactively.
-                                  Example: ralphy workspace upgrade tech-news
-                                  tech-news-v2.zip --yes
-  rollback <slug>                 Roll a workspace back to the know-how set from
-                                  before the last `workspace upgrade` (#521).
-                                  Restores the prior versioned graph / subgraphs
-                                  / prompts / compositions / evaluators /
-                                  reroute rules / calendar slots from the
-                                  upgrade snapshot; runtime state accrued since
-                                  the upgrade (calendar entries, trust history,
-                                  dedup store, cache, quarantine) is carried
-                                  forward untouched. Refuses while a run is
-                                  active, or when there is no upgrade snapshot
-                                  to restore. Appends to the workspace lifecycle
-                                  log. Example: ralphy workspace rollback
-                                  tech-news
-  backup [options] <slug>         Snapshot a workspace's irreplaceable runtime
-                                  STATE into a versioned, timestamped zip for
-                                  disaster recovery (#540): publish ledger (#531
-                                  exactly-once), quota usage (#534), calendar
-                                  entries + event log (#504), trust level +
-                                  agreement history (#505), selection weights
-                                  (#532), dedup store (#500), node cache, farm
-                                  runtime (dead-letter, webhook tokens), run
-                                  journals (#503), publish-mode audit, lifecycle
-                                  log, and workspace.json. KNOW-HOW (graphs,
-                                  prompts, evaluators, refs) is NOT backed up —
-                                  it lives in the deployable bundle (`ralphy
-                                  workspace export`). Project/batch MEDIA is
-                                  EXCLUDED by default; pass --include-media to
-                                  include it. READ-ONLY over the live workspace
-                                  (state is snapshot-copied then archived — safe
-                                  to run on a live farm, no torn reads). Uses
-                                  the system `zip` binary; never overwrites
-                                  --out. Recipe (scheduled backup + off-host
-                                  push): docs/workspace-bundle.md. Example:
-                                  ralphy workspace backup tech-news --out
-                                  tech-news-state.zip
-  restore [options] <archive>     Rehydrate a workspace's runtime STATE from a
-                                  `workspace backup` archive (#540). Validates
-                                  the archive schema version, then refuses to
-                                  clobber a target whose live state is NEWER
-                                  than the archive unless --force is passed (the
-                                  override is recorded in the payload). --as
-                                  <slug> restores into a different or brand-new
-                                  workspace (host migration, cloning a channel).
-                                  Restore writes ONLY the STATE paths the
-                                  archive carried (publish ledger, calendar,
-                                  trust, quota, weights, dedup, journals,
-                                  caches) — never know-how, never media the
-                                  archive did not include; existing state dirs
-                                  are replaced (clean rehydration, not a merge).
-                                  Runs a post-restore integrity subset of `farm
-                                  doctor` (#530): the publish ledger parses and
-                                  the calendar resolves — restoring the ledger
-                                  reestablishes #531 exactly-once so a
-                                  re-publish idempotent-skips. Uses the system
-                                  `unzip` binary. Example: ralphy workspace
-                                  restore tech-news-state.zip --as
-                                  tech-news-recovered
-  golden [options] <slug>         Inspect or refresh the workspace's golden-set
-                                  quality-regression baseline (#535). The golden
-                                  set is a small frozen collection of
-                                  representative inputs + the incumbent bundle's
-                                  per-criterion scores; `workspace upgrade` runs
-                                  the candidate bundle over it and refuses on a
-                                  regression beyond the tolerance. --show
-                                  (default) prints the set + baseline. --refresh
-                                  recaptures the baseline from the CURRENT
-                                  deployed graph via a DETERMINISTIC golden run
-                                  (ZERO paid spend — synthetic executors +
-                                  noVision scoring; vision criteria are reported
-                                  deferred-needs-real, never auto-spent),
-                                  archiving the prior baseline append-only to
-                                  golden/baseline.vN.json. Example: ralphy
-                                  workspace golden tech-news --refresh
-  learnings [options] <slug>      Show the workspace's performance-driven
-                                  selection learnings (#532): recompute the
-                                  per-(dimension,value) outcome weights from the
-                                  units' analytics snapshots (#507) and surface
-                                  the top/bottom performers per dimension WITH
-                                  evidence (score + sample size + confidence).
-                                  Attributes MEASURED outcomes only
-                                  (views/retention/ctr/saves, decayed with a
-                                  45-day half-life, normalized within the
-                                  workspace) — no analytics anywhere =
-                                  cold-start, uniform, exactly like today.
-                                  --retire <dim:value> flags a chronic loser
-                                  (down-weighted, NOT hard-excluded — human
-                                  sign-off still needed to fully exclude); --pin
-                                  <dim:value> pins a winner (weight floored).
-                                  Both are explicit, reversible (--unretire /
-                                  --unpin), and logged append-only to the
-                                  workspace lifecycle. These flags feed the
-                                  bias-sampling seam (sampleWeighted) the
-                                  variance planner + campaign picker consult.
-                                  ZERO model calls. Example: ralphy workspace
-                                  learnings silent-hill --pin style:sexy-ps1
-  stats                           Show workspace statistics
-  clean [options]                 Clean workspace contents
-  help [command]                  display help for command
+  create [options] <slug>   Create an account workspace with shared assets,
+                            projects, and content units
+  list                      List account workspaces
+  show <slug>               Show account profile, channels, shared assets,
+                            projects, and units
+  use <slug>                Set the active account workspace
+  update [options] <slug>   Update account profile and public channel handles
+  eval [options] <project>  Score a project against its account workspace
+                            evaluator rubric
+  roi <slug>                Show realized generation spend and measured account
+                            performance
+  stats [slug]              Show project, unit, and shared-asset counts for an
+                            account workspace
+  help [command]            display help for command
 ```
 
 ### `ralphy calendar`
@@ -1734,7 +1498,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy calendar [options] [command]
 
@@ -1777,7 +1541,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy campaign [options] [command]
 
@@ -1828,229 +1592,6 @@ Commands:
   help [command]              display help for command
 ```
 
-### `ralphy farm`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy farm [options] [command]
-
-Farm scheduler + headless graph runner (#503): fires cron ticks from the
-workspace's node-graph workflows (schedule nodes), executes each tick as a #480
-Run with an append-only journal, parks durably on approval nodes, halts on
-budget-guard breaches, and resumes incomplete runs after a restart.
-
-Options:
-  -h, --help                        display help for command
-
-Commands:
-  start [options]                   Start the farm scheduler (FOREGROUND —
-                                    background it yourself or docker run it).
-                                    With NO --workspace it runs EVERY
-                                    farm-enabled workspace in ONE daemon (#522:
-                                    round-robin tick queues, per-workspace
-                                    budget/trust/dedup/cache isolation +
-                                    crash-loop backoff); a workspace opts in via
-                                    workspace.json `farm.enabled: true` or by
-                                    having ≥1 schedule-triggered graph workflow
-                                    (opt out with `farm.enabled: false`). With
-                                    --workspace it drives that one workspace
-                                    (backward compatible). Reads schedule nodes
-                                    (params.cron: standard 5-field cron), sleeps
-                                    until the next fire across all workspaces,
-                                    executes each tick as one Run, resumes
-                                    incomplete/parked runs on boot and every
-                                    scan. Refuses when a live farm process
-                                    already holds the pidfile. Example: ralphy
-                                    farm start --once --tick-now
-  status [options]                  Farm status. With NO --workspace it groups
-                                    every farm-enabled workspace (#522) plus a
-                                    process-wide per-provider concurrency
-                                    snapshot (in-flight / queued / cumulative
-                                    queue-wait). With --workspace it reports one
-                                    workspace: whether a farm process is live
-                                    (pidfile), run counts by state (running /
-                                    parked-approval / halted-budget /
-                                    halted-failure / complete), per-run node
-                                    progress + realized spend, and #513
-                                    content-hash cache hits + cost saved.
-                                    Example: ralphy farm status --workspace
-                                    my-studio
-  report [options] <ws>             Per-workspace operational metrics DERIVED
-                                    from the run journals on demand (#518, no
-                                    metrics DB): ticks, units
-                                    produced/gated/published, realized spend
-                                    with spend-per-unit and spend-per-tick, node
-                                    failure/reroute/quarantine/cache rates,
-                                    median node duration, and median approval
-                                    latency. Degrades gracefully on partial
-                                    journals (torn lines skipped; a missing
-                                    workflow leaves node types unclassified and
-                                    flags `partial`). Example: ralphy farm
-                                    report my-studio --since 2026-07-01
-  doctor [options]                  Deployment-liveness preflight (#530) — the
-                                    pre-`farm start` readiness gate, DISTINCT
-                                    from `workflow simulate` (simulate = cost;
-                                    doctor = liveness/authorization). Verifies
-                                    everything an unattended overnight run
-                                    needs: generation connector keys present
-                                    (providers), Postiz accounts connected per
-                                    target platform (publish-targets;
-                                    dev.to/Hashnode article connectors #527 not
-                                    built yet → warn), workflows parse + #497
-                                    coverage satisfied (bundle/coverage), a
-                                    budget cap configured (budget), a resolvable
-                                    calendar slot (calendar), trust level
-                                    (trust), a notifier channel (notifier),
-                                    publish-quota headroom + staleness (quota),
-                                    and bun/ffmpeg (host). Auth pings are cheap
-                                    + READ-ONLY (no paid generation, no test
-                                    post). Emits a green/amber/red verdict with
-                                    per-check {id, group, status, detail, fix};
-                                    exits non-zero on any red check for
-                                    CI/scripted use. Example: ralphy farm doctor
-                                    --workspace my-studio
-  health [options]                  Farm liveness probe (#539) — the runtime
-                                    health signal a Docker HEALTHCHECK, systemd
-                                    WatchdogSec, or an external uptime check
-                                    calls. Reads the loop's heartbeat file + the
-                                    pidfile (no process spawned, no network) and
-                                    reports one of: alive (process live +
-                                    heartbeat fresh) / stalled (process live but
-                                    the tick loop is wedged — heartbeat older
-                                    than the stall threshold) / dead (dead
-                                    pidfile, should be restarted) / stopped
-                                    (deliberately down via #536 freeze or `farm
-                                    stop` — NOT unhealthy). EXIT CODE: 0 for
-                                    alive|stopped, non-zero for stalled|dead.
-                                    --notify-on-fail fires the #518 notifier
-                                    ONCE per healthy→unhealthy transition (a
-                                    sidecar tracks the last alerted state so a
-                                    cron probe does not re-alert). With NO
-                                    --workspace it probes the multi-workspace
-                                    daemon. Example: ralphy farm health
-                                    --workspace my-studio --notify-on-fail
-  failures [options]                List the workspace's dead-letter quarantine
-                                    (#519): nodes that exhausted their retry
-                                    envelope, or failed a permanent-class error
-                                    (safety-* / copyright / tos-content) on the
-                                    first attempt. Each entry carries the #450
-                                    error class, attempts, cost spent, an inputs
-                                    hash, a truncated provider payload, and a
-                                    next-action hint. Default: unresolved only.
-                                    Re-execute one with `ralphy farm retry <run>
-                                    <node>`. Example: ralphy farm failures
-                                    --workspace my-studio --run
-                                    farm-news-20260706-090000
-  retry [options] <run> <node>      Re-execute ONE failed/quarantined node and
-                                    its downstream dependents against the
-                                    journaled inputs (#519): appends
-                                    node-invalidated journal events for the
-                                    target + its transitive consumers, then
-                                    re-enters the resume machinery — upstream
-                                    completed nodes are never re-executed.
-                                    Respects the run spend ledger (per-node
-                                    pre-flight cap check) and the #513
-                                    content-hash cache; marks the node's
-                                    quarantine entries resolved when it
-                                    completes. Example: ralphy farm retry
-                                    farm-news-20260706-090000 gen-image
-  trigger                           Webhook-trigger management (#520):
-                                    per-trigger secrets for the POST
-                                    /hooks/<ws>/<trigger-id> app endpoint.
-                                    Secrets live in workspace-local engine state
-                                    (.ralphy/workspaces/<ws>/farm/webhook-tokens.json)
-                                    — never in the graph file, never in a #502
-                                    bundle.
-  fire [options] <ws> <trigger-id>  Fire ONE tick of the graph rooted at a
-                                    webhook-trigger node, exactly like a
-                                    schedule firing (#520): the trigger node
-                                    completes with the payload normalized
-                                    through its pick/map params, downstream
-                                    nodes execute, budget caps (#481) gate the
-                                    spend as usual. This is the execution half
-                                    the app endpoint (POST
-                                    /hooks/<ws>/<trigger-id>) spawns after
-                                    validating the secret + timestamp + rate
-                                    limit — call it directly to test a hook
-                                    without the endpoint. Example: ralphy farm
-                                    fire my-studio on-upload --payload
-                                    '{"episode":{"title":"E42"}}'
-  stop [options]                    Stop a running farm process: SIGTERM to the
-                                    pidfile's pid (the loop finishes the node in
-                                    flight and exits; incomplete runs resume on
-                                    the next start). With NO --workspace it
-                                    stops the multi-workspace daemon (#522);
-                                    with --workspace it stops that workspace's
-                                    single-workspace process. Example: ralphy
-                                    farm stop
-  safe-mode [options]               Publish kill switch → SAFE (#536): keep
-                                    producing + gating, but route EVERY publish
-                                    to the approval queue regardless of trust
-                                    level (nothing auto-posts). The operator
-                                    safety counterpart to the trust ladder —
-                                    instant, reversible only by `ralphy farm
-                                    resume`. Scoped per-workspace or --global
-                                    (the global override wins everywhere). Actor
-                                    + reason are logged to the append-only
-                                    publish-mode-audit.jsonl. Example: ralphy
-                                    farm safe-mode --workspace my-studio
-                                    --reason "off-policy creative spotted"
-  freeze [options]                  Publish kill switch → FREEZE (#536): halt
-                                    publishing ENTIRELY — the farm node path
-                                    parks the run and the chat-driven `ralphy
-                                    publish` verb refuses; held/scheduled posts
-                                    are NOT re-fired until resume. Freeze is the
-                                    top authority at the publish gate: it
-                                    outranks a trust auto-pass AND a workflow
-                                    force_reason. Scoped per-workspace or
-                                    --global. Actor + reason logged. Resume is
-                                    always explicit (`ralphy farm resume`).
-                                    Example: ralphy farm freeze --global
-                                    --reason "incident — stop all posting"
-  resume [options]                  Publish kill switch → NORMAL (#536): lift
-                                    safe-mode / freeze and restore normal
-                                    publishing (trust ladder back in force).
-                                    Resume is ALWAYS an explicit human action —
-                                    it REQUIRES a --reason "<text>" (or
-                                    --confirm) and refuses without one; the
-                                    actor + reason are logged to the append-only
-                                    audit. Never auto-resumes (an auto-trip only
-                                    ever engages safe-mode). Scoped
-                                    per-workspace or --global. Example: ralphy
-                                    farm resume --workspace my-studio --reason
-                                    "reviewed the queue, all clear"
-  review [options] <run>            Rich approval review card for a parked farm
-                                    run (#533 foundation). Default: LIST every
-                                    parked review card — media proof paths,
-                                    caption/title, targets, the #525 sampled
-                                    schedule time, the gate scorecard
-                                    verdict+score, and realized cost — read-only
-                                    from existing artifacts + the run journal
-                                    (no new media write). Actions map each to an
-                                    EXISTING transition: --approve <node>
-                                    records a run approval (releases the park on
-                                    the next resume), --reject <node> --reason
-                                    <text> appends an append-only unit rejection
-                                    note (NEVER deletes media), --request-change
-                                    <node> --reason <text> enqueues the
-                                    #519/#511 repair loop. --all applies ONE
-                                    action across the whole tick. Every decision
-                                    appends a #505 calibration sample. The
-                                    #492/#506 dashboard renders the SAME card
-                                    output — this CLI is the interim surface.
-                                    Example: ralphy farm review
-                                    farm-news-20260706-090000 --approve publish
-                                    --reason "looks great"
-  help [command]                    display help for command
-```
-
 ### `ralphy publish`
 
 ```
@@ -2060,7 +1601,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy publish [options] <project> <unit-slug>
 
@@ -2093,11 +1634,11 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy [options] [command]
 
-UGC video generation pipeline CLI
+Agent-facing content production runtime
 
 Options:
   -v, --version                                    Print the ralphy version
@@ -2116,7 +1657,7 @@ Commands:
   setup [options]                                  Setup wizard — API keys, dev services
   status                                           Show enabled capabilities + linked project
   doctor                                           Env health check — keys, dependencies, project link. JSON for scripts; -p for human view.
-  generate                                         Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.
+  generate|gen                                     Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.
   provider                                         Inspect provider connectors and their capability matrix (image / video / voice / music / sfx / text / transcribe).
   models                                           Inspect available OpenRouter video models and their per-model parameter constraints
   daemon                                           Manage the local job worker (background process that executes queued ralphy jobs)
@@ -2133,7 +1674,7 @@ Commands:
   persona                                          Manage personas (voice + style)
   ref                                              Manage references (websites, social media)
   project                                          Manage video projects
-  unit                                             Manage project-local curated deliverables (units = copies of selected assets + provenance)
+  unit                                             Manage project or workspace deliverables, including social posts, threads, and articles
   blueprint                                        Assemble / inspect a reproduction-grade Blueprint for a project's unit (#074/#076)
   library                                          Read the public content library (units, blocks, blueprints, formats) from the static library.json on Bunny CDN (read-only)
   template                                         Manage scenario/video templates
@@ -2143,16 +1684,12 @@ Commands:
   lessons                                          Route durable failure lessons (postmortem + eval + repair + council + gen-log) to the right knowledge surface
   batch                                            Manage batch operations
   asset                                            Manage and generate assets
-  workspace                                        Manage workspaces (studio / universe groupings of projects with a shared/ asset tier)
+  workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units
   calendar                                         Workspace content calendar (#504): recurring posting slots (weekday/time/timezone, unit type, platforms) + dated entries with an idea → queued → produced → gated → scheduled → published lifecycle. Stored at <workspace>/calendar.json with an append-only calendar-events.jsonl history.
   campaign                                         Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped to a planned unit inventory across formats + channels, with cross-linking + a coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.
-  farm                                             Farm scheduler + headless graph runner (#503): fires cron ticks from the workspace's node-graph workflows (schedule nodes), executes each tick as a #480 Run with an append-only journal, parks durably on approval nodes, halts on budget-guard breaches, and resumes incomplete runs after a restart.
   publish [options] <project> <unit-slug>          Publish a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
   article-publish [options] <project> <unit-slug>  Publish an article unit (#526) to article rails (#527): github-pages (git-backed static site, commit-only), devto/hashnode (dev-blog APIs, draft by default), medium (park-for-human export pack). Per-target failure isolates. Canonical URL is enforced when the workspace declares a canonical site. Example: ralphy article-publish ralphy-seo-001 agent-video-earns --targets github-pages,devto --gh-repo ../ralphy-site --gh-content-dir _posts
   analytics                                        Per-post performance metrics for published units (#507): append-only analytics.jsonl snapshots + an evidence-grounded performance postmortem. Example: ralphy analytics pull spring-2026-001
-  workflow                                         Author + inspect a workspace's declarative staged pipeline (workflows/<name>.json) — the configurable idea→video flow (#478)
-  run                                              Manage content-farm campaign runs — a workspace-scoped object that binds one brief across its member projects (#480)
-  studio                                           Read what the user prepared in Ralphy Studio (the local browser app). Today: the agent context inbox (#489) — context packs, NOT spend approvals.
   migrate [options]                                One-pass migration of this root to the final layout: workspace/ tree → .ralphy/ root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105). Idempotent; refuses while generation jobs are in flight. Structural relocation: path strings in manifests/logs/HTML follow their files (NOT a log edit — invariant #14).
   assets                                           Pull / list / clean assets from the ralphy-assets companion repo
   example                                          Pull / list complete reference projects from the companion repo
@@ -2164,7 +1701,6 @@ Commands:
   eval                                             Evaluate the quality of a rendered video
   research                                         Topic-level research: aggregate multiple sources into a single report
   prompts                                          Prompt cookbook + library lookup (02.03 / 02.0L)
-  prompt                                           Prompt-pack tooling (#515) — deterministic model-aware lint over a workspace's prompt files + the workflow nodes that consume them
   help [command...]                                Show help for a command (e.g. `ralphy help generate image`)
 ```
 
@@ -2177,7 +1713,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy analytics [options] [command]
 
@@ -2208,225 +1744,6 @@ Commands:
   help [command]                        display help for command
 ```
 
-### `ralphy workflow`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy workflow [options] [command]
-
-Author + inspect a workspace's declarative staged pipeline
-(workflows/<name>.json) — the configurable idea→video flow (#478)
-
-Options:
-  -h, --help                            display help for command
-
-Commands:
-  init [options] <slug>                 Scaffold a default workflow.json for a
-                                        workspace, derived from the contract
-                                        spine + the workspace stageGates. A
-                                        STARTING POINT to edit — sets phases,
-                                        gates, and auto|approve; leaves models
-                                        unset. Example: ralphy workflow init
-                                        silent-hill --mode tutorial-ugc
-  list <slug>                           List the workflows authored in a
-                                        workspace
-  subgraphs <slug>                      List the workspace's reusable named
-                                        subgraphs (#517, subgraphs/<name>.json):
-                                        version, typed entry/exit ports, the
-                                        overridable param surface, and which
-                                        workflows instantiate them. A `subgraph`
-                                        node instantiates one by name with param
-                                        overrides; expansion into the flat graph
-                                        happens at lint/load time, one level of
-                                        nesting only. ZERO model calls. Example:
-                                        ralphy workflow subgraphs tech-news
-  show <slug> [name]                    Show a workflow's ordered steps. Omit
-                                        name when the workspace has exactly one
-                                        workflow.
-  lint <slug> [name]                    Offline validation of a workspace's
-                                        workflows: schema parse for legacy
-                                        linear workflows (#478), and for
-                                        node-graph workflows (#498) the full
-                                        graph checks — #517 subgraph expansion
-                                        first (missing subgraph refs, unknown
-                                        overrides, boundary port mismatches,
-                                        nested subgraphs are errors; an
-                                        authored-but-unused subgraph is a
-                                        warning), then DAG (no cycles), edge
-                                        resolution, port typing, the #497
-                                        provider-coverage matrix (a
-                                        declared-unsupported media param is a
-                                        HARD error naming the fix), and the #515
-                                        prompt-pack lint (model-aware rules over
-                                        each node's prompt text / prompt file —
-                                        per-model char caps, kling no-music
-                                        clause, ElevenLabs artist-name detector,
-                                        photoreal negative cluster — plus
-                                        params.guidelines slug validation; also
-                                        standalone as `ralphy prompt lint
-                                        <ws>`). Reads .json (storage format) and
-                                        .yaml (accepted at lint/import per
-                                        D-03). Omit name to lint every workflow.
-                                        ZERO model calls. Example: ralphy
-                                        workflow lint silent-hill episode
-  simulate [options] <slug> [name]      Dry-run one tick of a node-graph
-                                        workflow (#516) with SYNTHETIC
-                                        executors: the REAL farm runner executes
-                                        the graph against an ephemeral scratch
-                                        root — ZERO provider calls, ZERO
-                                        artifacts, nothing lands in the
-                                        workspace's runs/ tree or farm state —
-                                        while every node's cost is estimated
-                                        from the existing price tables
-                                        (per-image, per-second video, flat
-                                        VO/music/sfx, LLM token ballparks).
-                                        Unknown pricing is an explicit `unknown`
-                                        line, never a silent $0. Fan-out
-                                        cardinality comes from --assume-items,
-                                        else the trend-watch node's
-                                        params.expected_items / topics count
-                                        (assumption stated in the report). The
-                                        report: cost per node / per tick,
-                                        paid-node inventory, approval stops +
-                                        the workspace trust level, budget-cap
-                                        headroom (#481), projected weekly spend
-                                        (schedule-node crons x #504 calendar
-                                        slots — --week projects over that),
-                                        missing connector keys, and #497
-                                        coverage gaps. Exits non-zero on a
-                                        blocking finding (missing key, coverage
-                                        gap) for CI use. Omit name when the
-                                        workspace has exactly one graph
-                                        workflow. Example: ralphy workflow
-                                        simulate tech-news pipeline --week
-                                        --assume-items 5
-  status [options] <project>            Per-step run status of a project's
-                                        workflow (done | running | waiting |
-                                        blocked | queued), derived from the
-                                        contract ledger + workspace-eval.json +
-                                        the job queue. Surfaces the current step
-                                        + the next action. ZERO model calls.
-                                        Example: ralphy workflow status
-                                        choose-silenthill-005
-  run-node <slug> <workflow> <node-id>  DEBUG: execute ONE node of a node-graph
-                                        workflow (#498) standalone and print its
-                                        output. In-ports resolve from artifact
-                                        refs only (a file path or
-                                        artifact:<path>) — an upstream
-                                        <node>.<out> ref errors (run the
-                                        upstream node first and point the port
-                                        at its artifact). Node artifacts land
-                                        under the workspace's
-                                        runs/run-node/<workflow>/ (append-only).
-                                        Example: ralphy workflow run-node
-                                        tech-news pipeline trend-watch
-  run [options] <project>               Start / advance a project's workflow:
-                                        log the idea and surface the current
-                                        step + next action (same ledger as
-                                        `status`). Drives the pipeline WITHOUT
-                                        spending — the agent (or a future
-                                        headless driver) executes the surfaced
-                                        step, then re-runs to advance. Example:
-                                        ralphy workflow run
-                                        choose-silenthill-005 --idea 'foggy
-                                        hospital, the nurse offers a deal'
-  help [command]                        display help for command
-```
-
-### `ralphy run`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy run [options] [command]
-
-Manage content-farm campaign runs — a workspace-scoped object that binds one
-brief across its member projects (#480)
-
-Options:
-  -h, --help                  display help for command
-
-Commands:
-  create [options]            Create a campaign run that binds member projects
-                              under one brief
-  list [options]              List runs in the active (or --workspace) workspace
-  show <id>                   Show a run's manifest + member project list
-  status <id>                 Roll up the run's operator view: current phase,
-                              blockers, awaiting approvals, cost, quality,
-                              winners, failures, next action. Pure aggregation
-                              over member projects — ZERO model calls. Missing
-                              member projects degrade into missingProjects,
-                              never an error.
-  add-project <id> <project>  Add a member project to the run (run.json metadata
-                              update; member artifacts untouched)
-  approve [options] <id>      Record a RUN-WIDE spend approval into the run
-                              ledger (#481). Sets a hard USD cap on TOTAL spend
-                              across ALL member projects, optionally the allowed
-                              content modes, an expiry, and a user-facing
-                              reason. Enforced at BOTH the per-call layer
-                              (`ralphy generate`) and the queue dispatch layer
-                              (the daemon blocks a paid generate.* job before
-                              spawning) for any member project with no
-                              project-local approval. Append-only — a new
-                              approval appends, never overwrites
-                              (runs/<id>/spend-ledger.json). JSON output.
-                              Example: ralphy run approve spring-drop-farm-a1b2
-                              --cap 50 --modes ugc-review,unboxing-ugc --expiry
-                              24h --reason "approved farm run"
-  budget <id>                 Show the run's spend ledger state (#481): the
-                              run-wide budget cap, run-wide actual spend (summed
-                              across all member projects), remaining budget, an
-                              over-budget flag, the estimated remaining QUEUED
-                              spend (sum of estimated cost over pending
-                              generate.* jobs whose project_id is a run member),
-                              the per-project spend breakdown, expiry status,
-                              and the full append-only approval history. Makes
-                              ZERO model calls. JSON output. Example: ralphy run
-                              budget spring-drop-farm-a1b2
-  help [command]              display help for command
-```
-
-### `ralphy studio`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy studio [options] [command]
-
-Read what the user prepared in Ralphy Studio (the local browser app). Today: the
-agent context inbox (#489) — context packs, NOT spend approvals.
-
-Options:
-  -h, --help      display help for command
-
-Commands:
-  inbox           Read Studio → agent context-inbox packs (a pack is CONTEXT,
-                  not an instruction to spend money)
-  patch           Read + apply/reject the safe config patches the user proposes
-                  in Studio (#491). Studio only proposes (allowlisted,
-                  validated); applying is your call.
-  help [command]  display help for command
-```
-
 ### `ralphy migrate`
 
 ```
@@ -2436,7 +1753,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy migrate [options]
 
@@ -2462,7 +1779,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy assets [options] [command]
 
@@ -2500,7 +1817,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy example [options] [command]
 
@@ -2525,7 +1842,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy audio [options] [command]
 
@@ -2556,7 +1873,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy video [options] [command]
 
@@ -2618,7 +1935,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy clip [options] <source>
 
@@ -2654,7 +1971,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy image [options] [command]
 
@@ -2700,7 +2017,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy banner [options]
 
@@ -2719,7 +2036,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy eval [options] [command]
 
@@ -2911,7 +2228,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy research [options] [command]
 
@@ -2940,7 +2257,7 @@ ____        __      __
  / _, _/ /_/ / / /_/ / / / / /_/ / 
 /_/ |_|\__,_/_/ .___/_/ /_/\__, /  
              /_/          /____/   
-        UGC video pipeline · ralphy.dev
+        agent content runtime · ralphy.dev
 
 Usage: ralphy prompts [options] [command]
 
@@ -2953,41 +2270,4 @@ Commands:
   library          Library by goal/situation
   modes [options]  List cookbook mode files for video / voice / music
   help [command]   display help for command
-```
-
-### `ralphy prompt`
-
-```
-____        __      __         
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
-        UGC video pipeline · ralphy.dev
-
-Usage: ralphy prompt [options] [command]
-
-Prompt-pack tooling (#515) — deterministic model-aware lint over a workspace's
-prompt files + the workflow nodes that consume them
-
-Options:
-  -h, --help             display help for command
-
-Commands:
-  lint [options] <slug>  Lint a workspace's prompt packs against the model-aware
-                         rule set: per-model prompt-char caps (read from the
-                         #445 model-constraints table — kling's 2500 included),
-                         the kling no-music clause for VO scenes, the ElevenLabs
-                         Music artist-name detector, the photoreal
-                         negative-cluster check, plus params.guidelines slug
-                         validation (unknown slug = error). Every rule carries a
-                         documented source (memory slug / MODELS.md); issues
-                         name the file, the rule, and the fix. Scans every
-                         node-graph workflow's inline prompts and prompt files;
-                         ZERO model calls. The same pass runs in `ralphy
-                         workflow lint` and refuses `ralphy workspace export` on
-                         error-level violations. Example: ralphy prompt lint
-                         silent-hill
-  help [command]         display help for command
 ```

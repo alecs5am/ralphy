@@ -1,7 +1,5 @@
-// Campaign state store (#528). The single door onto `campaign.json` shared by
-// the CLI verbs (cli/commands/campaign.ts) and the `campaign-next` node
-// executor (cli/lib/workflow/executors/campaign.ts) — mirrors the
-// calendar/store.ts + ingestion/store.ts pattern: every function takes the
+// Campaign state store (#528). The single door onto `campaign.json` used by
+// the CLI verbs in cli/commands/campaign.ts. Every function takes the
 // ABSOLUTE workspace dir so the module is decoupled from the paths-root
 // singleton and trivially testable.
 //
@@ -28,7 +26,7 @@ import {
   parseSelectionFlagsFile,
   type WeightsSnapshot,
 } from "../selection.js";
-import { makePrng } from "../farm/prng.js";
+import { makePrng } from "../prng.js";
 
 /**
  * Stamp a batch-variance profile (#529) onto every cell that lacks one, drawn
