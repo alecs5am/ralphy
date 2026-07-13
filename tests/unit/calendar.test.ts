@@ -16,7 +16,7 @@ import {
   calendarPath,
   calendarEventsPath,
 } from "../../cli/lib/calendar/store.js";
-import { parseCalendar, canTransition, ENTRY_STATUSES } from "../../cli/lib/schemas/calendar.js";
+import { parseCalendar, canTransition, ENTRY_STATUSES, PLATFORMS } from "../../cli/lib/schemas/calendar.js";
 
 // 2026 anchors (verified): Jan 12 / Mar 9 are Mondays; US DST starts Mar 8.
 const NY_SLOT = {
@@ -44,6 +44,14 @@ const eventLines = () =>
 // ─── Schema + lifecycle ──────────────────────────────────────────────────────
 
 describe("calendar schema", () => {
+  test("Telegram is a first-class calendar platform", () => {
+    const cal = parseCalendar({
+      slots: [{ id: "tg", weekday: "tue", time: "18:00", unitType: "post", targetPlatforms: ["telegram"] }],
+    });
+    expect(PLATFORMS).toContain("telegram");
+    expect(cal.slots[0]!.targetPlatforms).toEqual(["telegram"]);
+  });
+
   test("timezone defaults to the system zone; bad time / weekday / platform rejected", () => {
     const cal = parseCalendar({
       slots: [{ id: "s1", weekday: "fri", time: "18:30", unitType: "carousel" }],

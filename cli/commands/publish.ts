@@ -42,14 +42,14 @@ function parseAccounts(raw: string | undefined): Partial<Record<PublishTarget, s
 export function publishCmd() {
   const cmd = new Command("publish")
     .description(
-      "Publish a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z",
+      "Submit or schedule a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z",
     )
     .argument("<owner-or-unit>", "Project id, or the workspace Unit slug when --workspace is set")
     .argument("[unit-slug]", "Unit slug under <project>/units/")
     .option("--workspace <slug>", "Publish a Unit owned directly by this workspace")
     .requiredOption("--targets <list>", "Comma-separated targets (youtube | tiktok | instagram | x | telegram)")
     .option("--at <iso>", "Schedule datetime (ISO). Omit to post immediately")
-    .option("--now", "Post immediately (the default when --at is absent)")
+    .option("--now", "Submit immediately (the default when --at is absent)")
     .option("--account <map>", 'Explicit account bindings, e.g. "youtube=<integration-id>,x=<id>"')
     .option(
       "--force <reason>",
@@ -138,8 +138,9 @@ export function publishCmd() {
           });
         }
         const done = result.results.filter((r) => r.status !== "failed").length;
+        const action = result.type === "schedule" ? "Scheduled" : "Submitted";
         ok(
-          `Published ${done}/${result.results.length} target(s)${result.scheduleAt ? ` for ${result.scheduleAt}` : ""}`,
+          `${action} ${done}/${result.results.length} target(s)${result.scheduleAt ? ` for ${result.scheduleAt}` : ""}`,
         );
         out({
           project,
