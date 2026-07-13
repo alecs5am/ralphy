@@ -1,7 +1,7 @@
 // Performance postmortem (#507) — one bounded callLLM() pass over a project's
 // unit BATCH: analytics.jsonl snapshots + unit metadata in, evidence-grounded
-// findings out. Closes the farm feedback loop (docs/architecture/
-// farm-node-graph.md, phase 3): the audience's numbers, not the user's taste,
+// findings out. Closes the performance feedback loop: the audience's numbers,
+// not the user's taste,
 // calibrate the next production tick.
 //
 // EVIDENCE RULE (the issue's "never vibes" clause), enforced twice:

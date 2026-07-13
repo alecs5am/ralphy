@@ -66,10 +66,6 @@ Show the `overall.verdict` + score, then a one-line-per-criterion summary from `
 
 A `repair` / `blocked` verdict — or ANY `fail` / `warn` criterion — routes to **`/fixer`** / the repair loop (#409). Don't fix here: hand off the `workspace-eval.json` so the fixer reads the findings, builds the deterministic `ralphy project repair-plan <id>`, gates paid regeneration on the user, and re-evals. A `needs-user-decision` verdict means a required criterion is unscored (e.g. no render yet, or `--no-vision` left a hard-bar vision criterion `na`) — surface what's missing and let the user decide, don't auto-spend. A clean `ship` is done.
 
-## Farm mode (#503/#505) — the scorecard is the farm's publish policy
-
-Under `ralphy farm start --workspace <ws>` (#503) this same runner is the headless gate: the `workspace-eval.json` scorecard you surface in chat is exactly what `decideAutoPass` (`cli/lib/trust.ts`) reads when the workspace's `trustLevel` is L1/L2 (#505). **L1** auto-passes `ship` verdict + score ≥ `autoPublishScore` (default 80; borderline parks for approval); **L2** auto-passes any `ship` verdict. The floor: a non-`ship` verdict or ANY fail/warn criterion NEVER auto-passes, at any level. Auto-passes are audited append-only to `<workspace>/trust-audit.jsonl`; a human reject of an auto-published unit demotes L2 → L1. `ralphy workspace trust <ws>` shows the level, agreement stats, and the promotion suggestion — applied only via the explicit `ralphy workspace update <ws> --trust-level <L>`. Consequence: the rubric's thresholds double as the farm's publish policy — tighten criteria BEFORE recommending a trust promotion, never the other way around.
-
 ## References
 
 - `cli/commands/workspace.ts` — the `eval` subcommand (flags + append-only persistence).

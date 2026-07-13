@@ -27,11 +27,7 @@ import {
   type WeightsSnapshot,
 } from "../../cli/lib/selection.js";
 import { assignBatchProfiles } from "../../cli/lib/eval/variance-pools.js";
-import { makePrng } from "../../cli/lib/farm/prng.js";
-import { createCampaign, commitPlan, unproducedCells } from "../../cli/lib/campaign/store.js";
-import { getExecutor } from "../../cli/lib/workflow/executors/index.js";
-import type { ExecutorContext } from "../../cli/lib/workflow/executors/types.js";
-import type { WorkflowNode } from "../../cli/lib/schemas/workflow.js";
+import { makePrng } from "../../cli/lib/prng.js";
 import type { CampaignCell } from "../../cli/lib/schemas/campaign.js";
 
 const WS = "default";
@@ -162,13 +158,6 @@ const EQUAL_CELLS: CampaignCell[] = ["a", "b", "c", "d"].map((angle, i) => ({
   status: "planned" as const,
 }));
 
-function makeCtx(): ExecutorContext {
-  return { workspace: WS, workspaceDir: wsDir, artifactsDir: path.join(wsDir, "artifacts"), inputs: {}, log: async () => {}, reportCost: () => {} };
-}
-function makeNode(params: Record<string, unknown>): WorkflowNode {
-  return { id: "next", type: "campaign-next", in: {}, params, retry: { max: 0, backoff: "exponential" }, on_fail: "halt", cache: "none", emit: true };
-}
-
 /** Write a weights snapshot directly favoring one angle so the picker biases toward it. */
 function writeWeights(entries: Array<{ dimension: string; value: string; weight: number }>): void {
   const snapshot: WeightsSnapshot = {
@@ -181,102 +170,6 @@ function writeWeights(entries: Array<{ dimension: string; value: string; weight:
   };
   fs.writeFileSync(path.join(wsDir, "selection-weights.jsonl"), JSON.stringify(snapshot) + "\n");
 }
-
-describe("campaign-next COLD-START equivalence", () => {
-  test("no weights → drain order is byte-for-byte the priority/plan-order baseline", async () => {
-    createCampaign(wsDir, { id: "cold", title: "c", theses: THESES });
-    commitPlan(wsDir, "cold", { keywords: { head: [], longTail: [], questions: [] }, inventory: EQUAL_CELLS });
-    const c = JSON.parse(fs.readFileSync(path.join(wsDir, "campaigns", "cold", "campaign.json"), "utf8"));
-    const baseline = unproducedCells(c).slice(0, 4).map((x) => x.id);
-
-    const res = await getExecutor("campaign-next")!(makeNode({ campaign: "cold", count: 4 }), makeCtx());
-    const items = res.output as Array<{ url: string }>;
-    const drained = items.map((i) => i.url.split("/").pop());
-    expect(drained).toEqual(baseline); // identical to today's deterministic drain
-  });
-});
-
-describe("campaign-next weight bias", () => {
-  test("a heavily-weighted angle drains first far more often than a losing one", async () => {
-    createCampaign(wsDir, { id: "hot", title: "h", theses: THESES });
-    commitPlan(wsDir, "hot", { keywords: { head: [], longTail: [], questions: [] }, inventory: EQUAL_CELLS });
-    // Favor angle "d" (last in plan order) hard; the biased picker should still
-    // pull it to the front of its priority band far more than the baseline would.
-    writeWeights([
-      { dimension: "angle", value: "d", weight: 0.99 },
-      { dimension: "angle", value: "a", weight: 0.01 },
-      { dimension: "angle", value: "b", weight: 0.01 },
-      { dimension: "angle", value: "c", weight: 0.01 },
-    ]);
-
-    // The executor seeds its prng from computedAt; vary it across runs by
-    // re-writing the snapshot with a fresh timestamp each iteration.
-    let dFirst = 0;
-    const trials = 200;
-    for (let i = 0; i < trials; i++) {
-      const snapshot: WeightsSnapshot = {
-        workspace: WS,
-        computedAt: iso(NOW + i * 1000),
-        units: { scanned: 1, withAnalytics: 1 },
-        halfLifeDays: DECAY_HALFLIFE_DAYS,
-        coldStart: false,
-        entries: [
-          { dimension: "angle", value: "d", weight: 0.99, score: 0.99, sampleSize: 5, confidence: 1, lastUpdated: iso(NOW) },
-          { dimension: "angle", value: "a", weight: 0.02, score: 0.02, sampleSize: 5, confidence: 1, lastUpdated: iso(NOW) },
-          { dimension: "angle", value: "b", weight: 0.02, score: 0.02, sampleSize: 5, confidence: 1, lastUpdated: iso(NOW) },
-          { dimension: "angle", value: "c", weight: 0.02, score: 0.02, sampleSize: 5, confidence: 1, lastUpdated: iso(NOW) },
-        ],
-      };
-      fs.writeFileSync(path.join(wsDir, "selection-weights.jsonl"), JSON.stringify(snapshot) + "\n");
-      const res = await getExecutor("campaign-next")!(makeNode({ campaign: "hot", count: 1 }), makeCtx());
-      const items = res.output as Array<{ url: string }>;
-      if (items[0]!.url.endsWith("cell-d")) dFirst += 1;
-    }
-    // Baseline (plan order) puts "d" first 0% of the time; a uniform picker 25%.
-    // With every loser weighted near zero, the exploration floor still lets them
-    // through sometimes, so the winner lands first the large majority of draws.
-    expect(dFirst).toBeGreaterThan(trials * 0.6);
-  });
-
-  test("priority still gates: a higher-priority cell is never drained after a lower one", async () => {
-    const cells: CampaignCell[] = [
-      { id: "lo1", thesisId: "studio", format: "video", angle: "a", keyword: "k", channel: "youtube", priority: 1, status: "planned" },
-      { id: "hi1", thesisId: "studio", format: "video", angle: "b", keyword: "k", channel: "youtube", priority: 9, status: "planned" },
-    ];
-    createCampaign(wsDir, { id: "gated", title: "g", theses: THESES });
-    commitPlan(wsDir, "gated", { keywords: { head: [], longTail: [], questions: [] }, inventory: cells });
-    // Weight the LOW-priority cell's angle to the moon — priority must still win.
-    writeWeights([
-      { dimension: "angle", value: "a", weight: 0.99 },
-      { dimension: "angle", value: "b", weight: 0.01 },
-    ]);
-    const res = await getExecutor("campaign-next")!(makeNode({ campaign: "gated", count: 1 }), makeCtx());
-    const items = res.output as Array<{ url: string }>;
-    expect(items[0]!.url.endsWith("hi1")).toBe(true); // priority 9 gates over the weighted priority-1 cell
-  });
-
-  test("exploration floor: no cell in the band is fully starved across many draws", async () => {
-    createCampaign(wsDir, { id: "floor", title: "f", theses: THESES });
-    commitPlan(wsDir, "floor", { keywords: { head: [], longTail: [], questions: [] }, inventory: EQUAL_CELLS });
-    const seen = new Set<string>();
-    for (let i = 0; i < 300; i++) {
-      const snapshot: WeightsSnapshot = {
-        workspace: WS,
-        computedAt: iso(NOW + i * 1000),
-        units: { scanned: 1, withAnalytics: 1 },
-        halfLifeDays: DECAY_HALFLIFE_DAYS,
-        coldStart: false,
-        entries: [{ dimension: "angle", value: "a", weight: 0.99, score: 0.99, sampleSize: 5, confidence: 1, lastUpdated: iso(NOW) }],
-      };
-      fs.writeFileSync(path.join(wsDir, "selection-weights.jsonl"), JSON.stringify(snapshot) + "\n");
-      const res = await getExecutor("campaign-next")!(makeNode({ campaign: "floor", count: 1 }), makeCtx());
-      const items = res.output as Array<{ url: string }>;
-      seen.add(items[0]!.url.split("/").pop()!);
-    }
-    // Even the un-weighted losers surface as first-pick sometimes (epsilon floor).
-    expect(seen.size).toBe(4);
-  });
-});
 
 // ─── variance-planner bias ───────────────────────────────────────────────────
 

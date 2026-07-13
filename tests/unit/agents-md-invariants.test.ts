@@ -22,10 +22,7 @@
 //        #501 publish connector, env-var-scoped since the host is
 //        user-supplied/self-hosted per D-05; YOUTUBE_API_KEY + googleapis.com
 //        in cli/lib/providers/youtube-analytics.ts only — #507 analytics
-//        connector; hosted
-//        Vercel / OpenAI-direct forbidden everywhere; `ai` npm package imports
-//        sanctioned in cli/lib/providers/ai-sdk.ts only — D-01,
-//        docs/architecture/farm-node-graph.md, #496)
+//        connector; hosted Vercel / OpenAI-direct forbidden everywhere)
 //   #2  ralphy is the only entry-point            — partially TESTED
 //                                                   (this file + tests/integration/cli-render-from-clip.test.ts)
 //   #3  reference-required gate                   — TESTED (tests/unit/eval-refs.test.ts)
@@ -53,7 +50,6 @@
 import { describe, test, expect } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { bannedProviderHost } from "../../cli/lib/providers/banned-hosts.js";
 
 const REPO = path.resolve(__dirname, "..", "..");
 
@@ -100,22 +96,6 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
 
   // Hosted Vercel + OpenAI-direct: forbidden everywhere, no allowlist.
   const forbiddenEverywhere = ["VERCEL_KEY", "VERCEL_API_KEY", "OPENAI_API_KEY"];
-
-  // Vercel AI SDK carve-out (D-01, docs/architecture/farm-node-graph.md, #496):
-  // the open-source `ai` npm package + its provider adapter packages are
-  // permitted as LOCAL dependencies — provider-agnostic libraries that never
-  // call Vercel hosts — but their imports are file-scoped to the designated
-  // provider layer, mirroring the fal connector pattern. This guard landed
-  // BEFORE #499 adds the dependency, so the allowlist is a recorded decision,
-  // not an accident. The hosted-Vercel ban above is untouched by the carve-out.
-  const AI_SDK_LAYER = path.join("cli", "lib", "providers", "ai-sdk.ts");
-  const aiSdkAllowlist = new Set<string>([AI_SDK_LAYER]);
-  // Matches real module specifiers only — `from "ai"`, `import "ai"`,
-  // `require("ai")`, dynamic `import("ai")`, subpaths (`ai/...`), and the
-  // OpenRouter adapter package — never `ai` as a bare substring, and never
-  // other packages that merely contain "ai" (`openai`, `fal-ai`, ...).
-  const AI_SDK_IMPORT_RE =
-    /(?:\bfrom\s*|\bimport\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)["'](?:ai|ai\/[^"']+|@openrouter\/ai-sdk-provider(?:\/[^"']+)?)["']/;
 
   test("no source file reads process.env.VERCEL/OPENAI keys (no allowlist)", () => {
     const offenders: string[] = [];
@@ -167,8 +147,7 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
 
   test("no Vercel / OpenAI-direct host URL in any source file (no allowlist)", () => {
     // The hosted-Vercel ban: vercel.com, vercel.app, vercel.sh (AI Gateway),
-    // sdk.vercel.ai — any vercel.* URL — plus direct openai.com. The D-01
-    // carve-out is a LOCAL library, not a host; it earns no exemption here.
+    // sdk.vercel.ai — any vercel.* URL — plus direct openai.com.
     const offenders: string[] = [];
     for (const f of sourceFiles()) {
       const rel = path.relative(REPO, f);
@@ -181,31 +160,6 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       }
     }
     expect(offenders).toEqual([]);
-  });
-
-  test("ai / @openrouter/ai-sdk-provider are imported ONLY from the sanctioned ai-sdk provider layer", () => {
-    // Passes today (no `ai` dependency, no imports) and fails the moment any
-    // file outside cli/lib/providers/ai-sdk.ts imports the SDK or an adapter.
-    const offenders: string[] = [];
-    for (const f of sourceFiles()) {
-      const rel = path.relative(REPO, f);
-      if (aiSdkAllowlist.has(rel)) continue; // sanctioned provider layer — allowed
-      const src = fs.readFileSync(f, "utf8");
-      if (AI_SDK_IMPORT_RE.test(src)) offenders.push(rel);
-    }
-    expect(offenders).toEqual([]);
-  });
-
-  test("once the ai-sdk provider layer exists it DOES import the SDK (allowlist is not vacuous)", () => {
-    // Mirror of the FAL_KEY vacuous-allowlist guard. #499 creates
-    // cli/lib/providers/ai-sdk.ts; until then the file is absent and this
-    // guard is a no-op. Once it lands, the allowlist must be earning its
-    // exemption — if ai-sdk.ts stops importing the SDK, re-point or drop the
-    // allowlist rather than leave an unused exemption standing.
-    const abs = path.join(REPO, AI_SDK_LAYER);
-    if (!fs.existsSync(abs)) return;
-    const src = fs.readFileSync(abs, "utf8");
-    expect(AI_SDK_IMPORT_RE.test(src)).toBe(true);
   });
 
   // #500 ingestion connectors — the same file-scoped discipline as fal:
@@ -234,21 +188,11 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       hostRe: /https?:\/\/[a-z0-9.-]*googleapis\.com\b/i,
       hostLabel: "googleapis.com",
     },
-    // #518 notifier connector — same file-scoped discipline. The Telegram bot
-    // token + api.telegram.org host are sanctioned ONLY inside the notifier
-    // (cli/lib/farm/notify.ts); the generic webhook channel uses a user-supplied
-    // URL (no fixed host), so only the token env var is enforced by scope.
-    {
-      file: path.join("cli", "lib", "farm", "notify.ts"),
-      envVar: "TELEGRAM_BOT_TOKEN",
-      hostRe: /https?:\/\/[a-z0-9.-]*telegram\.org\b/i,
-      hostLabel: "telegram.org",
-    },
   ];
 
   // #501 publish connector — same file-scoped env-var discipline. Postiz is
-  // SELF-HOSTED (D-05, docs/architecture/farm-node-graph.md): the base URL is
-  // user-supplied config, so there is NO fixed host to scan for — the env-var
+  // SELF-HOSTED: the base URL is user-supplied config, so there is NO fixed
+  // host to scan for — the env-var
   // allowlist (both the key AND the base URL) is the enforceable half of the
   // invariant, hence hostRe: null.
   const PUBLISH_CONNECTORS: Array<{ file: string; envVar: string; hostRe: null }> = [
@@ -277,48 +221,6 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       expect(keyRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
     });
   }
-
-  // #520: the generic `http` workflow node must never be an invariant-#1
-  // bypass. Its banned-host list (cli/lib/providers/banned-hosts.ts — the ONE
-  // source of truth `workflow lint` + the http executor consume) must COVER
-  // every provider host this file guards with its own inline source scans
-  // (which stay unweakened above), plus the two primary connector hosts the
-  // invariant names. Dropping a host from the shared module fails here.
-  test("the shared banned-provider-host module covers every guarded provider host (#520)", () => {
-    const guarded = [
-      // fal connector hosts (inline-scanned above)
-      "fal.ai",
-      "api.fal.ai",
-      "fal.run",
-      "queue.fal.run",
-      // ingestion + analytics connector hosts (inline-scanned above)
-      "firecrawl.dev",
-      "api.firecrawl.dev",
-      "apify.com",
-      "api.apify.com",
-      "googleapis.com",
-      "youtubeanalytics.googleapis.com",
-      // notifier connector host (#518, inline-scanned above)
-      "telegram.org",
-      "api.telegram.org",
-      // banned-everywhere hosts (inline-scanned above)
-      "openai.com",
-      "api.openai.com",
-      "vercel.com",
-      "sdk.vercel.ai",
-      "my-app.vercel.app",
-      "gateway.vercel.sh",
-      // primary connector hosts named by invariant #1 (OpenRouter media/LLM,
-      // ElevenLabs voice/music)
-      "openrouter.ai",
-      "api.elevenlabs.io",
-    ];
-    const uncovered = guarded.filter((h) => bannedProviderHost(h) === null);
-    expect(uncovered).toEqual([]);
-    // And it must not over-ban lookalike suffixes.
-    expect(bannedProviderHost("notfal.run")).toBeNull();
-    expect(bannedProviderHost("example.com")).toBeNull();
-  });
 
   for (const { file, envVar, hostRe, hostLabel } of INGESTION_CONNECTORS) {
     const keyRe = new RegExp(`process\\.env(?:\\.${envVar}\\b|\\[["']${envVar}["']\\])`);

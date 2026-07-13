@@ -1,5 +1,5 @@
-// Firecrawl connector (#500) — the `web-scrape` ingestion backend
-// (scrape / crawl / search) behind the workflow ingestion executors.
+// Firecrawl connector (#500) — the web research backend for scrape, crawl,
+// and search commands.
 //
 // THIS IS THE ONLY SOURCE FILE PERMITTED TO READ `FIRECRAWL_API_KEY` OR HIT
 // `firecrawl.dev` HOSTS (AGENTS.md invariant #1, extended for #500 the same
@@ -13,7 +13,7 @@
 // would ripple through resolveConnector / `ralphy provider list` for no
 // benefit. This module follows the fal.ts connector shape (own envVar, typed
 // request/response, no other hosts) and throws — never process.exit()s — so
-// executors can surface a structured error.
+// commands can surface a structured error.
 //
 // HTTP is injectable (`fetchImpl`) so tests run with zero network.
 

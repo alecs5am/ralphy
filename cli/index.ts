@@ -54,13 +54,9 @@ import { assetCmd } from "./commands/asset.js";
 import { workspaceCmd } from "./commands/workspace.js";
 import { calendarCmd } from "./commands/calendar.js";
 import { campaignCmd } from "./commands/campaign.js";
-import { farmCmd } from "./commands/farm.js";
 import { publishCmd } from "./commands/publish.js";
 import { articlePublishCmd } from "./commands/article-publish.js";
 import { analyticsCmd } from "./commands/analytics.js";
-import { workflowCmd } from "./commands/workflow.js";
-import { runCmd } from "./commands/run.js";
-import { studioCmd } from "./commands/studio.js";
 import { migrateCmd } from "./commands/migrate.js";
 import { setupCmd } from "./commands/setup.js";
 import { statusCmd } from "./commands/status.js";
@@ -90,7 +86,6 @@ import { newCmd } from "./commands/new.js";
 import { cloneCmd } from "./commands/clone.js";
 import { skillCmd } from "./commands/skill.js";
 import { promptsCmd } from "./commands/prompts.js";
-import { promptCmd } from "./commands/prompt.js";
 import { guidelineCmd } from "./commands/guideline.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
@@ -102,7 +97,7 @@ const program = new Command();
 
 program
   .name("ralphy")
-  .description("UGC video generation pipeline CLI")
+  .description("Agent-facing content production runtime")
   // Commander accepts only one short flag; we use the lowercase -v
   // (npm / docker / kubectl convention) instead of Commander's default -V.
   .version(VERSION, "-v, --version", "Print the ralphy version")
@@ -218,13 +213,9 @@ program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
 program.addCommand(calendarCmd());
 program.addCommand(campaignCmd());
-program.addCommand(farmCmd());
 program.addCommand(publishCmd());
 program.addCommand(articlePublishCmd());
 program.addCommand(analyticsCmd());
-program.addCommand(workflowCmd());
-program.addCommand(runCmd());
-program.addCommand(studioCmd());
 program.addCommand(migrateCmd());
 program.addCommand(assetsCmd());
 program.addCommand(exampleCmd());
@@ -236,7 +227,6 @@ program.addCommand(bannerCmd());
 program.addCommand(evalCmd());
 program.addCommand(researchCmd());
 program.addCommand(promptsCmd());
-program.addCommand(promptCmd());
 
 program.addHelpText("beforeAll", bannerString());
 

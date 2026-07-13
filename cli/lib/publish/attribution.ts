@@ -3,8 +3,7 @@
 // (media) or frontmatter (article). It is the attribution twin of the campaign
 // cross-link module (cli/lib/campaign/crosslink.ts): this module owns the shape
 // + the block builders; the actual injection reuses the publish path's
-// description/frontmatter hook (the publish node passes the built block through,
-// see cli/lib/workflow/executors/publish.ts).
+// description/frontmatter hook.
 //
 // A news farm turns third-party articles into videos/threads/carousels (#500).
 // Reputable content credits its sources: an unattributed farm reads as a
@@ -48,7 +47,7 @@ export type AttributionSource = z.infer<typeof AttributionSourceSchema>;
  * MISSING attribution (policy on, sources absent) a publish-time `warn` that
  * routes to review (never a hard fail — a clean generated video with no source
  * link should not be nuked). Malformed values degrade to defaults (`.catch`) so
- * a hand-edited workspace.json never crashes the farm.
+ * a hand-edited workspace.json never crashes publishing.
  */
 export const AttributionConfigSchema = z.object({
   /** Inject a Sources block when sources exist. Default true; false = opt-out. */
@@ -57,7 +56,7 @@ export const AttributionConfigSchema = z.object({
   heading: z.string().catch("Sources:").default("Sources:"),
   /**
    * When true, a unit published with NO resolvable source (while the policy is
-   * on) is a `warn` routed to review — the farm wants every published piece to
+   * on) is a `warn` routed to review — the account policy wants every piece to
    * carry a credit. Default false: attribution is best-effort, absence is fine.
    */
   requireOnPublish: z.boolean().catch(false).default(false),
@@ -81,8 +80,7 @@ function readManifest(ws: string): Record<string, unknown> {
 /**
  * The workspace's attribution policy. An ABSENT `attribution` block reads back
  * the DEFAULT (enabled: true) — attribution is on out of the box; a present
- * `{ enabled: false }` is the explicit opt-out. Mirrors readCadenceConfig /
- * readNotificationsConfig / readTrustConfig.
+ * `{ enabled: false }` is the explicit opt-out.
  */
 export function readAttributionConfig(ws: string): AttributionConfig {
   const raw = readManifest(ws).attribution;

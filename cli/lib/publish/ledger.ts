@@ -1,9 +1,8 @@
 // Publish idempotency ledger (#531) — exactly-once publishing per workspace.
 //
-// Publishing is the ONLY irreversible, outward-facing node class in the farm
+// Publishing is an irreversible, outward-facing action
 // (a duplicated YouTube upload or X post cannot be undone cleanly and hurts
-// reach via platform dedup/spam heuristics). The runner resumes from the
-// journal (#503) and retries nodes (#519); a crash AFTER the platform accepted
+// reach via platform dedup/spam heuristics). A crash AFTER the platform accepted
 // the post but BEFORE the unit-manifest provenance recorded it, or a targeted
 // retry of a partially-succeeded multi-target publish, can double-post. This
 // ledger is the exactly-once guard: before firing a target we check it, and
@@ -12,9 +11,7 @@
 // because the ledger already carries the record).
 //
 // Storage: `.ralphy/workspaces/<ws>/publish-ledger.jsonl` (APPEND-ONLY, one
-// line per (idempotency key, target)). This mirrors the trust.ts store shape
-// exactly — the same `workspaceDir(ws)` home, the same tolerant torn-line JSONL
-// read, the same `fs.mkdirSync(..., { recursive: true })` before append.
+// line per idempotency key and target).
 //
 // RECONCILE (belt-and-suspenders, #531/#537 scope): the issue asked for a
 // remote confirm against Postiz's already-scheduled state as a SECOND belt

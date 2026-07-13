@@ -93,7 +93,7 @@ Examples:
   cmd
     .command("design")
     .description(
-      "Design a brand-new voice from a text description (POST /v1/text-to-voice/design). Writes ~3 preview mp3s; a human picks one BY EAR, then `ralphy voice create` freezes it into the library. Deliberately not a workflow node — the pick is human-only.",
+      "Design a brand-new voice from a text description (POST /v1/text-to-voice/design). Writes ~3 preview mp3s; a human picks one BY EAR, then `ralphy voice create` freezes it into the library. The pick is deliberately human-only.",
     )
     .requiredOption("--description <text>", "Voice description, 20-1000 chars (accent, age, tone, pacing, vibe)")
     .option("--text <text>", "Sample text the previews read (100-1000 chars). Omitted: auto-generated to match the description.")

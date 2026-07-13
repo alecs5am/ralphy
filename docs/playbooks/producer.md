@@ -56,7 +56,7 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 
 **Positioning.** Chat is the interface; you drive the `ralphy` verbs. The user gives ONE strategic brief in chat; you sequence the farm below on their behalf and check in at the defined gates. Never hand the user a batch script to run themselves.
 
-### The farm workflow (one strategic brief → N packaged Units)
+### The agent-driven batch workflow (one strategic brief → N packaged Units)
 
 1. **One strategic brief + content-mode classification (#412).** Emit a `content_mode` FIRST with `classifyContentMode()` (surfaced in `ralphy template suggest` JSON, no LLM). It drives the role chain, required inputs, research depth, template lookup, and the expected Unit shape for EVERY item in the batch. If `ambiguous: true`, ask ONE disambiguating question. Gate any "I'll make you N `<mode>`s" promise on `isModeSupported(mode)` — never promise an unsupported mode (#413).
 2. **Research bootstrap once, amortized (#416).** Run `chooseResearchDepth({ brief, contentMode, unitCount: N })` (`cli/lib/research-bootstrap.ts`). A farm brief fires the `multi-unit-farm` trigger and lands on `deep` — the deep scan (`ralphy research run` / `scrape-profile`) runs ONCE and amortizes across all N. Distill into `<base>/artifacts/refs/research-facts.json`. This is the shared grounding half of "farm".
@@ -74,15 +74,16 @@ I do not invent templates on the fly. New format → `extract-template` from a s
 
 Drive the farm's next action from state, never chat memory: `ralphy project status <id> --contract` per item for the phase ledger + stop conditions, and `ralphy batch review <id>` for the batch roll-up. Both are deterministic and free.
 
-### Recurring / scheduled farm (#501-#507) — not a hand-driven loop
+### Account cadence and publishing (#501/#504/#507)
 
-The workflow above is the ONE-SHOT batch: one strategic brief → N Units, driven interactively; `batch-from-template` stays the route for it. When the ask is a RECURRING channel — "post every Monday", "run my channel on a server", "keep the farm producing on a schedule", "autopilot my workspace" — do NOT re-drive the batch loop by hand on a timer. Route to the landed farm surfaces:
+The workflow above is a one-shot batch driven by the active coding agent. For an account with a recurring cadence:
 
-- **Bundle the trained workspace (#502).** `ralphy workspace export <ws>` packages the graph workflows, prompts, parametrized compositions, evaluator rubric, calendar slots, and shared refs as a deployable zip; `ralphy workspace import <zip> [--as <slug>]` validates keys + coverage + pipeline lint before materializing on the target host. Readiness gaps + import semantics: the [`workspace-export`](../../.agents/skills/workspace-export/SKILL.md) skill; format doc [workspace-bundle.md](../workspace-bundle.md).
-- **Calendar (#504).** `ralphy calendar add <ws>` (recurring slots: `--weekday --time --unit-type --platforms`, or dated entries via `--at`) + `ralphy calendar fill <ws> --weeks N` (idempotent queued entries) + `ralphy calendar show <ws>`.
-- **Scheduler (#503).** `ralphy farm start --workspace <ws>` (FOREGROUND — the user backgrounds or dockerizes it) fires cron ticks from the graph workflows' schedule nodes, executes each tick as a durable Run, and parks on approval nodes; `ralphy farm status|stop --workspace <ws>` for state + shutdown. Incomplete runs resume on the next start.
-- **Trust ladder (#505).** `ralphy workspace trust <ws>` shows the level + agreement stats: L0 parks every publish for approval, L1 auto-passes `ship`-verdict units above the score threshold, L2 auto-passes any `ship` verdict — never over a failed/warn gate, every auto-pass audited to `<ws>/trust-audit.jsonl`. Promotion is only the explicit `ralphy workspace update <ws> --trust-level <L>`.
-- **Publish + metrics (#501/#507).** `ralphy publish <project> <unit-slug> --targets youtube,tiktok [--at <ISO>]` (gated on the `ship` verdict), then `ralphy analytics pull <project>` snapshots per-post metrics and `ralphy analytics postmortem <project>` distills them into evidence-grounded findings + workspace-tier memory proposals — the loop back into the next brief.
+- **Calendar.** `ralphy calendar add <ws>` stores recurring slots or dated entries; `ralphy calendar fill <ws> --weeks N` creates an idempotent queue the agent can work through; `ralphy calendar show <ws>` exposes the next commitments.
+- **Shared brand assets.** Generate reusable avatars, logos, reference plates, voice samples, and other account media directly with `ralphy gen <kind> --workspace <ws> --slot <name>`.
+- **Account-level social Units.** Use `ralphy unit create --workspace <ws> --format post|thread|article --destination <target>` for Telegram, X, Threads, dev.to, Medium, and X Articles.
+- **Publish + metrics.** `ralphy publish <project> <unit-slug> --targets youtube,tiktok [--at <ISO>]` remains gated on the `ship` verdict; `ralphy analytics pull <project>` and `ralphy analytics postmortem <project>` feed measured results into the next brief.
+
+This repository does not run an unattended scheduler. If the user explicitly wants server-side automation, treat that as a separate product surface owned by [`alecs5am/ralphy-farm`](https://github.com/alecs5am/ralphy-farm), not as a hidden mode of the core CLI.
 
 ## Sub-docs (read on demand)
 

@@ -10,8 +10,8 @@
 //   ralphy library formats    list                (static taxonomy)
 //
 // JSON by default (machine-friendly); `-p` renders a pretty table. There is NO
-// write/insert/publish path here — publishing lives in
-// landing/scripts/publish-entity.ts.
+// write/insert/publish path here — publishing lives in the companion
+// ralphy-web repository.
 
 import { Command } from "commander";
 import { out, err } from "../lib/output.js";

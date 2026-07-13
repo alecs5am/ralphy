@@ -1,1 +1,0 @@
-Every time you debug, you're removing a bug. Here's the first one — a real one. Nineteen forty-seven, Harvard's Mark Two.

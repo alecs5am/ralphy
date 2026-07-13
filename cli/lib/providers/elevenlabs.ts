@@ -9,6 +9,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { logGeneration } from "../gen-log.js";
+import { generationDestination } from "../generation-destination.js";
 import { loadConfig, getNestedValue } from "../config.js";
 import {
   assetPath,
@@ -342,7 +343,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
   };
 
   const baseUrl = await elevenLabsBaseUrl();
-  const localPath = assetPath(input.projectId, "voiceover", `${input.slot}.mp3`);
+  const localPath = assetPath(input, "voiceover", `${input.slot}.mp3`);
 
   // #039: per-slot file lock — two parallel calls targeting the same dest path
   // serialize their write+verify pass. The lock wraps the ENTIRE retryTransient
@@ -439,7 +440,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     latencyMs: Date.now() - t0,
     model: modelId,
   };
-  await logGeneration(input.projectId, {
+  await logGeneration(generationDestination(input), {
     slot: input.slot,
     provider: ID,
     model: modelId,
@@ -643,7 +644,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
   // project the clone is a one-off setup action — still useful in stderr,
   // just not append-only-logged.
   if (input.projectId) {
-    await logGeneration(input.projectId, {
+    await logGeneration(generationDestination(input), {
       slot: `voice-clone-${json.voice_id}`,
       provider: ID,
       model: "voices/add",
@@ -676,8 +677,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
 // description) + POST /v1/text-to-voice (freeze one preview into a permanent
 // library voice). Training-path-only by design: a HUMAN picks the preview by
 // EAR (memory feedback_character_voice_design_previews_user_pick), so there is
-// deliberately NO workflow executor — only the `ralphy voice design` /
-// `ralphy voice create` verb pair (cf. cli/lib/workflow/executors/media.ts).
+// deliberately only the `ralphy voice design` / `ralphy voice create` verb pair.
 
 export type DesignVoiceInput = {
   /** Voice description, 20-1000 chars (accent, age, tone, pacing, vibe). */
@@ -753,7 +753,7 @@ export async function designVoice(input: DesignVoiceInput): Promise<DesignVoiceR
 
   const result: DesignVoiceResult = { previews, text: json.text, latencyMs: Date.now() - t0 };
   if (input.projectId) {
-    await logGeneration(input.projectId, {
+    await logGeneration(generationDestination(input), {
       slot: `voice-design-${stem}`,
       provider: ID,
       model: input.model ?? "eleven_multilingual_ttv_v2",
@@ -818,7 +818,7 @@ export async function createVoiceFromPreview(
   voiceExistsCache.set(json.voice_id, true);
 
   if (input.projectId) {
-    await logGeneration(input.projectId, {
+    await logGeneration(generationDestination(input), {
       slot: `voice-create-${json.voice_id}`,
       provider: ID,
       model: "text-to-voice",
@@ -924,7 +924,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     },
   );
   const buf = music.buf;
-  const localPath = assetPath(input.projectId, "music", `${input.slot}.mp3`);
+  const localPath = assetPath(input, "music", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
   await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
@@ -935,7 +935,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model: modelId,
   };
-  await logGeneration(input.projectId, {
+  await logGeneration(generationDestination(input), {
     slot: input.slot,
     provider: ID,
     model: modelId,
@@ -1002,7 +1002,7 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
     await logFailure(input, ID, modelId, "sfx", body, err, t0);
     throw err;
   }
-  const localPath = assetPath(input.projectId, "sfx", `${input.slot}.mp3`);
+  const localPath = assetPath(input, "sfx", `${input.slot}.mp3`);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
   await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
@@ -1013,7 +1013,7 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
     latencyMs: Date.now() - t0,
     model: modelId,
   };
-  await logGeneration(input.projectId, {
+  await logGeneration(generationDestination(input), {
     slot: input.slot,
     provider: ID,
     model: modelId,

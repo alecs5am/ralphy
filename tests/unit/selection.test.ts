@@ -28,7 +28,7 @@ import {
   type Candidate,
   type WeightsSnapshot,
 } from "../../cli/lib/selection";
-import { makePrng } from "../../cli/lib/farm/prng";
+import { makePrng } from "../../cli/lib/prng";
 
 const WS = "default";
 const NOW = Date.parse("2026-07-06T12:00:00.000Z");

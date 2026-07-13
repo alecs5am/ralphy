@@ -9,7 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { artifactKindDir, projectDir, resolveArtifactPath, root } from "../lib/paths.js";
+import { artifactKindDir, projectDir, root, workspaceDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
@@ -64,6 +64,11 @@ import {
   buildBatchDryRun,
   imageCostUsd,
 } from "../lib/generate-batch.js";
+import {
+  destinationAssetPath,
+  generationDestination,
+  type GenerationDestination,
+} from "../lib/generation-destination.js";
 
 // Re-export for unit tests (single import target).
 export { buildVariantItems } from "../lib/generate-batch.js";
@@ -239,6 +244,70 @@ async function ensureProject(projectId: string): Promise<void> {
   const dir = projectDir(projectId);
   if (!existsSync(dir)) {
     raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+  }
+}
+
+export function resolveGenerateDestination(opts: {
+  project?: string;
+  workspace?: string;
+}): GenerationDestination {
+  try {
+    return generationDestination({ projectId: opts.project, workspaceId: opts.workspace });
+  } catch {
+    raiseError("E_INPUT_INVALID", {
+      field: "destination",
+      detail: "pass exactly one of --project <id> or --workspace <slug>",
+      verb: "generate",
+    });
+  }
+}
+
+async function ensureGenerateDestination(destination: GenerationDestination): Promise<void> {
+  if (destination.kind === "project") return ensureProject(destination.id);
+  if (!existsSync(workspaceDir(destination.id))) {
+    raiseError("E_NOT_FOUND", { kind: "Workspace", id: destination.id });
+  }
+}
+
+function providerDestination(destination: GenerationDestination):
+  | { projectId: string }
+  | { workspaceId: string } {
+  return destination.kind === "project"
+    ? { projectId: destination.id }
+    : { workspaceId: destination.id };
+}
+
+function intakeDestinationPath(
+  value: string,
+  destination: GenerationDestination,
+  label: string,
+): string {
+  return intakePath(
+    value,
+    destination.kind === "project" ? destination.id : undefined,
+    label,
+    destination.kind === "workspace" ? destination.id : undefined,
+  );
+}
+
+async function updateProjectManifest(
+  destination: GenerationDestination,
+  slot: string,
+  value: Manifest["slots"][string],
+): Promise<void> {
+  if (destination.kind !== "project") return;
+  const manifest = await readManifest(destination.id);
+  manifest.slots[slot] = value;
+  await writeManifest(destination.id, manifest);
+}
+
+function rejectProjectOnlyMode(destination: GenerationDestination, mode: string): void {
+  if (destination.kind === "workspace") {
+    raiseError("E_INPUT_INVALID", {
+      field: mode,
+      detail: `${mode} requires --project; workspace shared generation supports one asset per call`,
+      verb: "generate",
+    });
   }
 }
 
@@ -502,13 +571,16 @@ async function runImageBatch(args: {
 }
 
 export function generateCmd() {
-  const cmd = new Command("generate").description("Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.");
+  const cmd = new Command("generate")
+    .alias("gen")
+    .description("Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.");
 
   // ── image ───────────────────────────────────────────────────────────────
   const imageCmd = cmd
     .command("image")
     .description("Generate one image via OpenRouter (default: google/gemini-3-pro-image-preview — nano-banana-pro, multi-ref consistency, ≥4 concurrent). Pass --model openai/gpt-5.4-image-2 when label typography matters more than ref consistency.")
-    .requiredOption("--project <id>", "Project ID")
+    .option("--project <id>", "Project ID")
+    .option("--workspace <slug>", "Workspace shared-asset destination")
     .option("--slot <slot>", "Asset slot id (e.g. scene-01-bg-image). Required unless --batch <jsonl> is passed (the jsonl carries per-line slots).")
     .option("--prompt <prompt>", "Text prompt — see docs/prompts/image/ for mode-specific master templates")
     .option("--prompt-file <path>", "Read the prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed. Path resolves project-relative when --project is set.")
@@ -541,8 +613,10 @@ export function generateCmd() {
     .option("--dry-run", "Print resolved request + cost estimate; do not submit (01.02.05)", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
-      await ensureProject(opts.project);
+      const destination = resolveGenerateDestination(opts);
+      await ensureGenerateDestination(destination);
       await maybeLogNoRefConsent(opts);
+      if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.image", opts.project)) return;
 
       const resolvedDefaultModel = resolveModelAlias(opts.model) ?? "google/gemini-3-pro-image-preview";
@@ -554,7 +628,8 @@ export function generateCmd() {
       // dry-run preview and live fan-out. Slot/prompt comes from each line;
       // global --slot/--prompt/--ref serve as defaults the line can override.
       if (opts.batch) {
-        const batchPath = intakePath(opts.batch, opts.project, "batch");
+        rejectProjectOnlyMode(destination, "--batch");
+        const batchPath = intakeDestinationPath(opts.batch, destination, "batch");
         const items = await readBatchJsonl(batchPath);
         if (items.length === 0) {
           raiseError("E_INPUT_INVALID", {
@@ -619,7 +694,7 @@ export function generateCmd() {
       const promptResolved = await readPromptOrFile({
         prompt: opts.prompt,
         promptFile: opts.promptFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
       if (!promptResolved) {
         raiseError("E_INPUT_INVALID", {
@@ -632,11 +707,12 @@ export function generateCmd() {
       opts.ref = await readRefsOrFile({
         refs: opts.ref,
         refFile: opts.refFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
 
       // ── --variants N mode (#024 dry-run-aware + batch fan-out route) ────
       if (variants > 1) {
+        rejectProjectOnlyMode(destination, "--variants");
         const items = buildVariantItems({
           baseSlot: opts.slot,
           prompt: opts.prompt,
@@ -692,7 +768,7 @@ export function generateCmd() {
           ],
           cost_estimate_usd: estPerCall * variants,
           would_write: [
-            path.relative(root(), resolveArtifactPath(opts.project, "images", `${opts.slot}.png`)),
+            path.relative(root(), destinationAssetPath(destination, "images", `${opts.slot}.png`)),
           ],
         });
         return;
@@ -726,7 +802,7 @@ export function generateCmd() {
         `image (${resolvedDefaultModel}) → ${opts.slot}`,
         () =>
           conn.generateImage!({
-            projectId: opts.project,
+            ...providerDestination(destination),
             slot: opts.slot,
             prompt: opts.prompt,
             model: resolvedDefaultModel,
@@ -742,16 +818,14 @@ export function generateCmd() {
           failText: (e) => `image ${ui.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
         },
       );
-      const manifest = await readManifest(opts.project);
-      manifest.slots[opts.slot] = {
+      await updateProjectManifest(destination, opts.slot, {
         kind: "image",
         path: result.localPath,
         model: result.model,
         costUsd: result.costUsd,
         url: result.url,
         generatedAt: new Date().toISOString(),
-      };
-      await writeManifest(opts.project, manifest);
+      });
       out({
         slot: opts.slot,
         path: result.localPath,
@@ -862,7 +936,8 @@ export function generateCmd() {
   const videoCmd = cmd
     .command("video")
     .description("Generate one video via OpenRouter (default: kling-v3.0-pro)")
-    .requiredOption("--project <id>", "Project ID")
+    .option("--project <id>", "Project ID")
+    .option("--workspace <slug>", "Workspace shared-asset destination")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-vid)")
     .option("--prompt <prompt>", "Motion / camera description")
     .option("--prompt-file <path>", "Read the prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed.")
@@ -918,9 +993,11 @@ export function generateCmd() {
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx / skeleton-null payloads. Wraps the initial videos-submit POST; the poll loop has its own budget.")
     .action(async (opts) => {
-      await ensureProject(opts.project);
+      const destination = resolveGenerateDestination(opts);
+      await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
+      if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.video", opts.project)) return;
 
       // #025: --prompt / --prompt-file symmetry + path intake for the
@@ -928,7 +1005,7 @@ export function generateCmd() {
       const videoPrompt = await readPromptOrFile({
         prompt: opts.prompt,
         promptFile: opts.promptFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
       if (!videoPrompt) {
         raiseError("E_INPUT_INVALID", {
@@ -938,19 +1015,19 @@ export function generateCmd() {
         });
       }
       opts.prompt = videoPrompt!;
-      if (opts.firstFrame) opts.firstFrame = intakePath(opts.firstFrame, opts.project, "first-frame");
-      if (opts.lastFrame) opts.lastFrame = intakePath(opts.lastFrame, opts.project, "last-frame");
-      if (opts.image) opts.image = intakePath(opts.image, opts.project, "image");
+      if (opts.firstFrame) opts.firstFrame = intakeDestinationPath(opts.firstFrame, destination, "first-frame");
+      if (opts.lastFrame) opts.lastFrame = intakeDestinationPath(opts.lastFrame, destination, "last-frame");
+      if (opts.image) opts.image = intakeDestinationPath(opts.image, destination, "image");
       // #025-style intake for reference-to-video refs (`input_references`).
       opts.ref = await readRefsOrFile({
         refs: opts.ref,
         refFile: opts.refFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
       // #402: ref-VIDEO intake (fal seedance r2v `video_urls`). Path-only refs
       // resolve the same way as --first-frame; URLs pass through.
       if (opts.refVideo && opts.refVideo.length > 0) {
-        opts.refVideo = (opts.refVideo as string[]).map((r) => intakePath(r, opts.project, "ref-video"));
+        opts.refVideo = (opts.refVideo as string[]).map((r) => intakeDestinationPath(r, destination, "ref-video"));
       }
 
       const firstFrameRef = opts.firstFrame ?? opts.image;
@@ -1061,7 +1138,7 @@ export function generateCmd() {
         `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
         () =>
           connV.generateVideo!({
-            projectId: opts.project,
+            ...providerDestination(destination),
             slot: opts.slot,
             prompt: opts.prompt,
             durationSec: opts.duration,
@@ -1085,16 +1162,14 @@ export function generateCmd() {
           failText: (e) => `video ${uiv.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
         },
       );
-      const manifest = await readManifest(opts.project);
-      manifest.slots[opts.slot] = {
+      await updateProjectManifest(destination, opts.slot, {
         kind: "video",
         path: result.localPath,
         model: result.model,
         costUsd: result.costUsd,
         url: result.url,
         generatedAt: new Date().toISOString(),
-      };
-      await writeManifest(opts.project, manifest);
+      });
       cs.event("generate-video-finished", {
         slot: opts.slot,
         path: result.localPath,
@@ -1151,7 +1226,8 @@ export function generateCmd() {
   const voCmd = cmd
     .command("voiceover")
     .description("Generate voiceover via ElevenLabs (default: eleven_multilingual_v2)")
-    .requiredOption("--project <id>", "Project ID")
+    .option("--project <id>", "Project ID")
+    .option("--workspace <slug>", "Workspace shared-asset destination")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-vo)")
     .requiredOption("--voice <voiceId>", "ElevenLabs voice id (clone or library)")
     .option("--text <text>", "VO text (RU or EN)")
@@ -1170,9 +1246,11 @@ export function generateCmd() {
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
-      await ensureProject(opts.project);
+      const destination = resolveGenerateDestination(opts);
+      await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
+      if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.voiceover", opts.project)) return;
 
       // #025: --text / --text-file symmetry. readPromptOrFile maps "prompt" →
@@ -1180,7 +1258,7 @@ export function generateCmd() {
       const voText = await readPromptOrFile({
         prompt: opts.text,
         promptFile: opts.textFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
       if (!voText) {
         raiseError("E_INPUT_INVALID", {
@@ -1203,7 +1281,7 @@ export function generateCmd() {
             { stage: "voiceover", model_id: opts.model, slot: opts.slot, voice: opts.voice, characters: chars, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
-          would_write: [path.relative(root(), resolveArtifactPath(opts.project, "voiceover", `${opts.slot}.mp3`))],
+          would_write: [path.relative(root(), destinationAssetPath(destination, "voiceover", `${opts.slot}.mp3`))],
         });
         return;
       }
@@ -1238,7 +1316,7 @@ export function generateCmd() {
         `voiceover (${opts.model}, voice ${opts.voice}) → ${opts.slot}`,
         () =>
           connVo.generateVoiceover!({
-            projectId: opts.project,
+            ...providerDestination(destination),
             slot: opts.slot,
             voiceId: opts.voice,
             text: opts.text,
@@ -1253,15 +1331,13 @@ export function generateCmd() {
           failText: (e) => `voiceover ${uivo.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
         },
       );
-      const manifest = await readManifest(opts.project);
-      manifest.slots[opts.slot] = {
+      await updateProjectManifest(destination, opts.slot, {
         kind: "voiceover",
         path: result.localPath,
         model: result.model,
         costUsd: result.costUsd,
         generatedAt: new Date().toISOString(),
-      };
-      await writeManifest(opts.project, manifest);
+      });
       out({
         slot: opts.slot,
         path: result.localPath,
@@ -1277,7 +1353,8 @@ export function generateCmd() {
   const musicCmd = cmd
     .command("music")
     .description("Generate music bed via ElevenLabs Music (instrumental by default)")
-    .requiredOption("--project <id>", "Project ID")
+    .option("--project <id>", "Project ID")
+    .option("--workspace <slug>", "Workspace shared-asset destination")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. bed-01)")
     .option("--prompt <prompt>", "Music description (genre, tempo, mood)")
     .option("--prompt-file <path>", "Read prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed.")
@@ -1292,16 +1369,21 @@ export function generateCmd() {
     .option("--dry-run", "Print resolved request + cost estimate; do not submit", false)
     .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
     .action(async (opts) => {
-      await ensureProject(opts.project);
+      const destination = resolveGenerateDestination(opts);
+      await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
+      if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.music", opts.project)) return;
+      if (opts.autoRetryOnTosRejection) {
+        rejectProjectOnlyMode(destination, "--auto-retry-on-tos-rejection");
+      }
 
       // #025: --prompt / --prompt-file symmetry.
       const musicPrompt = await readPromptOrFile({
         prompt: opts.prompt,
         promptFile: opts.promptFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
       if (!musicPrompt) {
         raiseError("E_INPUT_INVALID", {
@@ -1330,7 +1412,7 @@ export function generateCmd() {
             { stage: "music", slot: opts.slot, durationSec: opts.duration, instrumental: !opts.withVocals, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
-          would_write: [path.relative(root(), resolveArtifactPath(opts.project, "music", `${opts.slot}.mp3`))],
+          would_write: [path.relative(root(), destinationAssetPath(destination, "music", `${opts.slot}.mp3`))],
         });
         return;
       }
@@ -1359,7 +1441,7 @@ export function generateCmd() {
       // commander.
       const submit = async (prompt: string) =>
         connM.generateMusic!({
-          projectId: opts.project,
+          ...providerDestination(destination),
           slot: opts.slot,
           prompt,
           durationSec: opts.duration,
@@ -1409,15 +1491,13 @@ export function generateCmd() {
           throw err;
         }
       }
-      const manifest = await readManifest(opts.project);
-      manifest.slots[opts.slot] = {
+      await updateProjectManifest(destination, opts.slot, {
         kind: "music",
         path: result.localPath,
         model: result.model,
         costUsd: result.costUsd,
         generatedAt: new Date().toISOString(),
-      };
-      await writeManifest(opts.project, manifest);
+      });
       cs.event("generate-music-finished", { slot: opts.slot, path: result.localPath });
       cs.summary({
         slot: opts.slot,
@@ -1435,7 +1515,8 @@ export function generateCmd() {
   const sfxCmd = cmd
     .command("sfx")
     .description("Generate a sound effect via ElevenLabs Sound Generation (≤22s)")
-    .requiredOption("--project <id>", "Project ID")
+    .option("--project <id>", "Project ID")
+    .option("--workspace <slug>", "Workspace shared-asset destination")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. static-pop-01)")
     .option("--prompt <prompt>", "SFX description (e.g. 'short analog TV static pop')")
     .option("--prompt-file <path>", "Read prompt from a file (#025). Symmetric with --prompt; inline wins when both are passed.")
@@ -1447,16 +1528,18 @@ export function generateCmd() {
     .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
     .option("--no-retry", "Bypass the transient-error retry loop (#005). Default: 2 retries with 1s/4s/16s exponential backoff on TLS / ECONNRESET / 5xx.")
     .action(async (opts) => {
-      await ensureProject(opts.project);
+      const destination = resolveGenerateDestination(opts);
+      await ensureGenerateDestination(destination);
       opts.slot = normalizeSlot(opts.slot);
       await maybeLogNoRefConsent(opts);
+      if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
       if (maybeEnqueue(opts, "generate.sfx", opts.project)) return;
 
       // #025: --prompt / --prompt-file symmetry.
       const sfxPrompt = await readPromptOrFile({
         prompt: opts.prompt,
         promptFile: opts.promptFile,
-        projectId: opts.project,
+        ...providerDestination(destination),
       });
       if (!sfxPrompt) {
         raiseError("E_INPUT_INVALID", {
@@ -1482,7 +1565,7 @@ export function generateCmd() {
         `sfx (${opts.duration}s) → ${opts.slot}`,
         () =>
           connSfx.generateSfx!({
-            projectId: opts.project,
+            ...providerDestination(destination),
             slot: opts.slot,
             prompt: opts.prompt,
             durationSec: opts.duration,
@@ -1496,15 +1579,13 @@ export function generateCmd() {
           failText: (e) => `sfx ${uisfx.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
         },
       );
-      const manifest = await readManifest(opts.project);
-      manifest.slots[opts.slot] = {
+      await updateProjectManifest(destination, opts.slot, {
         kind: "sfx",
         path: result.localPath,
         model: result.model,
         costUsd: result.costUsd,
         generatedAt: new Date().toISOString(),
-      };
-      await writeManifest(opts.project, manifest);
+      });
       out({
         slot: opts.slot,
         path: result.localPath,

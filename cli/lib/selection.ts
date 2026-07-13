@@ -28,12 +28,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { workspaceDir, projectWorkspace } from "./paths.js";
-import { lifecycleLogPath } from "./bundle.js";
 import { listUnitSlugs, readSnapshots } from "./analytics/pull.js";
 import { unitDirFor } from "./publish/publish.js";
 import type { AnalyticsSnapshot } from "./schemas/analytics.js";
-import type { Prng } from "./farm/prng.js";
-import { makePrng } from "./farm/prng.js";
+import type { Prng } from "./prng.js";
+import { makePrng } from "./prng.js";
 
 // ─── tunables (documented, exported so tests + consumers pin the same values) ─
 
@@ -501,7 +500,7 @@ export interface SelectionFlagEvent {
  * flag. Last write per (dimension,value) wins.
  */
 export function readSelectionFlags(ws: string): { pinned: Set<string>; retired: Set<string> } {
-  return parseSelectionFlagsFile(lifecycleLogPath(ws));
+  return parseSelectionFlagsFile(path.join(workspaceDir(ws), "lifecycle.jsonl"));
 }
 
 /**
@@ -557,7 +556,7 @@ export function appendSelectionFlag(
     ...(reason && { reason }),
   };
   fs.mkdirSync(workspaceDir(ws), { recursive: true });
-  fs.appendFileSync(lifecycleLogPath(ws), JSON.stringify(ev) + "\n");
+  fs.appendFileSync(path.join(workspaceDir(ws), "lifecycle.jsonl"), JSON.stringify(ev) + "\n");
   return ev;
 }
 

@@ -146,19 +146,29 @@ export function sharedDir(slug: string) {
   return path.join(workspaceDir(slug), "shared");
 }
 
+/** Workspace-owned reusable media generated without creating a project. */
+export function workspaceSharedAssetsDir(slug: string) {
+  return path.join(sharedDir(slug), "assets");
+}
+
+export function workspaceSharedAssetKindDir(
+  slug: string,
+  kind: ArtifactKind | (string & {}),
+) {
+  return path.join(workspaceSharedAssetsDir(slug), kind);
+}
+
+export function workspaceLogsDir(slug: string) {
+  return path.join(workspaceDir(slug), "logs");
+}
+
+export function workspaceUnitsDir(slug: string) {
+  return path.join(workspaceDir(slug), "units");
+}
+
 /** `.ralphy/workspaces/<slug>/workspace.json` */
 export function workspaceManifestPath(slug: string) {
   return path.join(workspaceDir(slug), "workspace.json");
-}
-
-/** `.ralphy/workspaces/<slug>/workflows/` — declarative staged pipelines (#478). */
-export function workflowsDir(slug: string) {
-  return path.join(workspaceDir(slug), "workflows");
-}
-
-/** `.ralphy/workspaces/<slug>/subgraphs/` — reusable named subgraphs (#517). */
-export function subgraphsDir(slug: string) {
-  return path.join(workspaceDir(slug), "subgraphs");
 }
 
 /**
@@ -254,52 +264,9 @@ export function templatesDir() {
   return path.join(workspaceDir(currentWorkspace()), "templates");
 }
 
-// ─── Runs (#480) ─────────────────────────────────────────────────────────────
-// A run = one content-farm campaign that binds many member projects across a
-// workspace. It lives under the workspace (like batches), discovered file-on-disk
-// — runs are NOT a registry collection. `runWorkspace` resolves which workspace a
-// run lives in, mirroring `projectWorkspace`.
-
-/** `.ralphy/workspaces/<slug>/runs/` */
-export function runsDir(slug: string = currentWorkspace()) {
-  return path.join(workspaceDir(slug), "runs");
-}
-
-/** `.ralphy/workspaces/<slug>/runs/<runId>/` */
-export function runDir(slug: string, runId: string) {
-  return path.join(runsDir(slug), runId);
-}
-
-/** `.ralphy/workspaces/<slug>/runs/<runId>/run.json` */
-export function runManifestPath(slug: string, runId: string) {
-  return path.join(runDir(slug, runId), "run.json");
-}
-
-/**
- * Which workspace a run belongs to. Resolution order (mirrors `projectWorkspace`):
- *   1. an existing `workspaces/<ws>/runs/<runId>/` dir, active workspace first
- *      (covers a run created under a non-active workspace).
- *   2. the active workspace (the creation path: dir doesn't exist yet).
- */
-export function runWorkspace(runId: string): string {
-  const active = currentWorkspace();
-  if (existsSync(path.join(workspaceDir(active), "runs", runId))) return active;
-  try {
-    for (const slug of readdirSync(workspacesDir())) {
-      if (slug === active) continue;
-      if (existsSync(path.join(workspaceDir(slug), "runs", runId))) return slug;
-    }
-  } catch {
-    /* no workspaces dir yet */
-  }
-  return active;
-}
-
 // ─── Campaigns (#528) ────────────────────────────────────────────────────────
 // A campaign = a workspace-scoped keyword/topic cluster mapped to a planned set
-// of units. It lives under the workspace (like batches / runs), discovered
-// file-on-disk (campaigns are NOT a registry collection). `campaignWorkspace`
-// resolves which workspace a campaign lives in, mirroring `runWorkspace`.
+// of units. Campaigns are discovered from the workspace filesystem.
 
 /** `.ralphy/workspaces/<slug>/campaigns/` */
 export function campaignsDir(slug: string = currentWorkspace()) {
@@ -317,7 +284,7 @@ export function campaignManifestPath(slug: string, id: string) {
 }
 
 /**
- * Which workspace a campaign belongs to. Resolution order (mirrors `runWorkspace`):
+ * Which workspace a campaign belongs to. Resolution order:
  *   1. an existing `workspaces/<ws>/campaigns/<id>/` dir, active workspace first.
  *   2. the active workspace (the creation path: dir doesn't exist yet).
  */

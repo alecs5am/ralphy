@@ -12,8 +12,6 @@ import { ensureDaemonRunning } from "../lib/jobs/daemon.js";
 import { isVaryAxis, VARY_AXES } from "../lib/schemas/hook-body-cta.js";
 import { buildBatchReview, type BatchInput, type BatchBudgetInput, type ProjectStateInput } from "../lib/batch-review.js";
 import { readGenerations } from "../lib/gen-log.js";
-import { projectRun } from "../lib/run.js";
-import { readRunLedger, activeApproval } from "../lib/spend.js";
 import { estimateRunQueuedSpendUsd } from "../lib/jobs/queued-spend.js";
 import type { EvalReport } from "../lib/eval/types.js";
 import type { RepairPlan } from "../lib/schemas/repair-plan.js";
@@ -179,7 +177,7 @@ export function batchCmd() {
   // Deterministic aggregation over the batch's member projects. ZERO model
   // calls — it only reads artifacts the per-project pipeline already wrote
   // (eval.json, repair-plan.json, generations.jsonl) and rolls them up into the
-  // farm-mode triage view: winners (ship-ready, #411), failures (failed eval),
+  // batch triage view: winners (ship-ready, #411), failures (failed eval),
   // a cost roll-up (sum per-project generations.jsonl cost_usd), style drift
   // (eval style.*/brief.* findings), repeated model failures (the same
   // model/error recurring across ≥2 items), and recommended repairs (the #409
@@ -188,7 +186,7 @@ export function batchCmd() {
   cmd
     .command("review <id>")
     .description(
-      "Deterministic farm-mode triage over a batch's member projects (#410). Rolls up winners (ship-ready, #411), failures (failed eval), a cost roll-up (sum of per-project generations.jsonl cost_usd), style drift (eval style.*/brief.* findings vs the shared style lock), repeated model failures (the same model/error recurring across ≥2 items), and recommended repairs (the #409 owner buckets). Makes ZERO model calls — pure aggregation over existing artifacts. JSON output.",
+      "Deterministic triage over a batch's member projects (#410). Rolls up winners (ship-ready, #411), failures (failed eval), a cost roll-up (sum of per-project generations.jsonl cost_usd), style drift (eval style.*/brief.* findings vs the shared style lock), repeated model failures (the same model/error recurring across ≥2 items), and recommended repairs (the #409 owner buckets). Makes ZERO model calls — pure aggregation over existing artifacts. JSON output.",
     )
     .action(async (id: string) => {
       const dir = path.join(batchesDir(), id);
@@ -224,18 +222,8 @@ export function batchCmd() {
         template: config?.template ?? null,
       };
 
-      // Budget context (#481): if the batch's members belong to a run with a
-      // run-wide cap, surface that cap + remaining; always estimate remaining
-      // queued spend over the members. Best-effort — no run/cap → just queued.
-      let capUsd: number | null = null;
-      for (const pid of projectIds) {
-        const run = projectRun(pid);
-        if (!run) continue;
-        const approval = activeApproval(await readRunLedger(run.runId));
-        if (approval) { capUsd = approval.budgetCapUsd; break; }
-      }
       const budget: BatchBudgetInput = {
-        capUsd,
+        capUsd: null,
         queuedEstimateUsd: estimateRunQueuedSpendUsd(projectIds),
       };
 

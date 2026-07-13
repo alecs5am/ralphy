@@ -1,7 +1,7 @@
 {
   "name": "@alecs5am/ralphy",
   "version": "0.3.0",
-  "description": "Open-source UGC video factory CLI — one prompt to finished mp4. Wraps the alecs5am/ralphy binary release for npm install on macOS / Linux / Windows.",
+  "description": "Open-source agent-facing content production runtime. Wraps the alecs5am/ralphy binary release for macOS, Linux, and Windows.",
   "homepage": "https://github.com/alecs5am/ralphy",
   "repository": {
     "type": "git",

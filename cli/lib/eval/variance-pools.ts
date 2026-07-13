@@ -17,7 +17,7 @@
 
 import { UNIT_FORMATS, type UnitFormat } from "../schemas/unit.js";
 import { sampleWeighted, lengthBand, type WeightLookup, type Candidate } from "../selection.js";
-import type { Prng } from "../farm/prng.js";
+import type { Prng } from "../prng.js";
 
 // ─── The profile shape ─────────────────────────────────────────────────────────
 

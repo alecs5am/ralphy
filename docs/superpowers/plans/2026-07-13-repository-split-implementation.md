@@ -218,7 +218,7 @@ Expected: PASS.
 
 Use `ast-grep` to locate imports from core command/provider/project/render/eval/unit modules. Replace execution calls with `runRalphy([...args, "--json"])`; keep farm-owned schemas and orchestration local.
 
-Run: `rg 'from ["'"'](\.\./)+.*ralphy/(cli|src)|from ["'"'](\.\./)+cli/' src studio cli`
+Run: `rg 'from .*ralphy/(cli|src)|from .*cli/' src studio cli`
 
 Expected: no matches that cross a repository boundary.
 

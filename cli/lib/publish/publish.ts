@@ -5,26 +5,15 @@
 // the results to the unit's `publish` provenance array (APPEND-only —
 // invariant #14: records are added, never rewritten or dropped).
 //
-// The readiness gate (`checkPublishReadiness`) is the trust-ladder FLOOR: a
-// non-`ship` #427 scorecard verdict refuses at EVERY level (invariant #4),
-// and the explicit bypass is logged to user-prompts.jsonl by the caller
-// (mirrors --no-ref-consent). The ladder itself (#505) layers on top via
-// `checkPublishTrust`: L0 never auto-passes (human approval required), L1
-// auto-passes when the workspace-eval score clears the configured threshold,
-// L2 auto-passes any gate-clearing (verdict `ship`) unit. Pure best-effort
-// reads — zero model calls.
+// The readiness gate (`checkPublishReadiness`) requires a `ship` scorecard.
+// The chat-driven command is always an explicit human action; unattended
+// publish policy belongs to the separate ralphy-farm runtime.
 
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { projectDir, projectWorkspace } from "../paths.js";
 import { buildScorecard } from "../scorecard.js";
-import {
-  readTrustConfig,
-  readProjectEval,
-  decideAutoPass,
-  type TrustLevel,
-} from "../trust.js";
 import {
   UnitManifestSchema,
   type UnitManifest,
@@ -45,7 +34,7 @@ import {
 import { publishIdempotencyKey, findLedgerEntry, appendPublishLedger } from "./ledger.js";
 import { rescheduleForQuota, recordQuotaUsage } from "./quota.js";
 
-// ─── readiness gate (the floor) + trust ladder (#505) ────────────────────────
+// ─── readiness gate ─────────────────────────────────────────────────────────
 
 export interface PublishReadiness {
   pass: boolean;
@@ -69,50 +58,6 @@ export function checkPublishReadiness(projectId: string): PublishReadiness {
       reason: `could not read the readiness scorecard: ${(e as Error).message}`,
     };
   }
-}
-
-export interface PublishTrustCheck {
-  readiness: PublishReadiness;
-  level: TrustLevel;
-  /** True when the trust ladder lets this publish run without a human approval. */
-  autoPass: boolean;
-  reason: string;
-  /** The workspace-eval overall verdict/score the decision was made on. */
-  verdict: string | null;
-  score: number | null;
-}
-
-/**
- * The full #505 publish decision: the readiness floor + the ladder. A failed
- * readiness gate can NEVER auto-pass (invariant #4 — the caller either refuses
- * or takes the explicit --force bypass); a passing one auto-passes only per
- * the workspace's level + the project's workspace-eval scorecard
- * (`decideAutoPass`). `ws` defaults to the project's workspace — the ladder
- * belongs to the workspace whose rubric scored the unit.
- */
-export function checkPublishTrust(projectId: string, ws?: string): PublishTrustCheck {
-  const workspace = ws ?? projectWorkspace(projectId);
-  const readiness = checkPublishReadiness(projectId);
-  const config = readTrustConfig(workspace);
-  if (!readiness.pass) {
-    return {
-      readiness,
-      level: config.level,
-      autoPass: false,
-      reason: `readiness verdict "${readiness.verdict}" is not ship — never auto-pass over a failed gate (invariant #4)`,
-      verdict: null,
-      score: null,
-    };
-  }
-  const decision = decideAutoPass(config, readProjectEval(projectId), projectId);
-  return {
-    readiness,
-    level: config.level,
-    autoPass: decision.autoPass,
-    reason: decision.reason,
-    verdict: decision.verdict,
-    score: decision.score,
-  };
 }
 
 // ─── unit manifest I/O ───────────────────────────────────────────────────────
@@ -173,14 +118,6 @@ export interface PublishUnitOptions {
   fetchImpl?: FetchLike;
   /** Clock seam for the #534 quota window math (deterministic tests). */
   now?: () => Date;
-  /**
-   * The #536 publish kill-switch mode. Injected by the node path (which already
-   * read the effective mode at the gate) to avoid a double-read, and by tests.
-   * Default: read the effective mode for the resolved workspace. `freeze`
-   * refuses; `safe` is a no-op here — the human invoking the chat verb IS the
-   * approval.
-   */
-  publishMode?: import("../farm/publish-mode.js").PublishMode;
 }
 
 export interface TargetPublishResult {
@@ -236,17 +173,6 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
 
   const workspace = opts.workspace ?? projectWorkspace(opts.projectId);
   const slot = opts.slot ?? undefined;
-
-  // #536 kill switch: `freeze` refuses the chat-driven publish verb too (the
-  // node path parks the run at the trust gate; here there is no run to park).
-  // `safe` is a no-op — the human invoking `ralphy publish` IS the approval.
-  const { effectivePublishMode } = await import("../farm/publish-mode.js");
-  const mode = opts.publishMode ?? effectivePublishMode(workspace).mode;
-  if (mode === "freeze") {
-    throw new Error(
-      `publishing is frozen for workspace "${workspace}" (#536) — resume with \`ralphy farm resume --workspace ${workspace} --reason "<why>"\``,
-    );
-  }
 
   const integrations = await postizIntegrations(fetchImpl);
   const bound = bindIntegrations(opts.targets, integrations, opts.accounts);

@@ -22,7 +22,6 @@ import {
   rescheduleForQuota,
   recordQuotaUsage,
   readQuotaUsage,
-  quotaHeatmapReport,
   type QuotaOverrides,
 } from "../../cli/lib/publish/quota";
 import { classifyError } from "../../cli/lib/errors/taxonomy";
@@ -286,22 +285,6 @@ describe("nextQuotaWindow", () => {
     const usage = [{ workspace: WS, platform: "x", apiUnits: 1, at: "2026-07-08T02:00:00.000Z" }];
     // oldest + 24h = 2026-07-09T02:00:00Z
     expect(nextQuotaWindow(PLATFORM_QUOTAS.x, now, usage)).toBe("2026-07-09T02:00:00.000Z");
-  });
-});
-
-// ─── preflight heatmap seam (#530) ───────────────────────────────────────────
-
-describe("quotaHeatmapReport (#530 seam)", () => {
-  test("one row per declared platform, carrying cap/used/source/stale", () => {
-    seedUsage("youtube", ["2026-07-08T01:00:00.000Z"]);
-    const rows = quotaHeatmapReport(WS, new Date("2026-07-08T12:00:00.000Z"));
-    expect(rows.map((r) => r.platform).sort()).toEqual([...QUOTA_PLATFORMS].sort());
-    const yt = rows.find((r) => r.platform === "youtube")!;
-    expect(yt.cap).toBe(6);
-    expect(yt.used).toBe(1);
-    expect(yt.remaining).toBe(5);
-    expect(yt.source).toContain("YouTube");
-    expect(yt.stale).toBe(false);
   });
 });
 

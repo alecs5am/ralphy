@@ -18,7 +18,7 @@ ${c.yellow}/_/ |_|\\__,_/_/ .___/_/ /_/\\__, /  ${c.reset}
 ${c.yellow}             /_/          /____/   ${c.reset}
 `;
 
-const TAGLINE = `${c.dim}        UGC video pipeline · ralphy.dev${c.reset}`;
+const TAGLINE = `${c.dim}        agent content runtime · ralphy.dev${c.reset}`;
 
 export function bannerString(): string {
   return `${LOGO}${TAGLINE}\n`;

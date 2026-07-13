@@ -1,6 +1,6 @@
 # @alecs5am/ralphy
 
-npm wrapper for [`ralphy`](https://github.com/alecs5am/ralphy) — open-source UGC video factory CLI.
+npm wrapper for [`ralphy`](https://github.com/alecs5am/ralphy) — an open-source agent-facing content production runtime.
 
 ## Install
 
