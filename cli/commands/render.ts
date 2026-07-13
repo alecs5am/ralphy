@@ -24,6 +24,7 @@ import {
 import {
   colorGrade,
   compressForSocial,
+  fixLetterboxInPlace,
   mixMusic,
   qualityPresetToCrf,
   type ColorGradePreset,
@@ -220,6 +221,10 @@ render/final.mp4 (append-only).
       "--force-overwrite",
       "Disable append-only auto-archiving — overwrite render/final.mp4 and render/final-social.mp4 in place instead of archiving the prior copies to final.v{N}.mp4 / final-social.v{N}.mp4 (#118)",
       false,
+    )
+    .option(
+      "--no-fix-letterbox",
+      "Skip the post-render letterbox auto-crop. HyperFrames bakes a solid black bar under <video> compositions; the heal runs by default and is a no-op when the frame is already clean.",
     )
     .option("--dry-run", "Print the resolved render plan; no engine run", false)
     .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
@@ -672,6 +677,21 @@ render/final.mp4 (append-only).
           await fs.unlink(t).catch(() => undefined);
         }
         outputPath = renderFinal;
+      }
+
+      // Auto-heal HF's baked video-composition letterbox bar — HyperFrames
+      // composites each <video> into a sub-region of the frame, leaving a solid
+      // black margin at an edge that CSS on the composition cannot remove. Detect
+      // it with cropdetect and crop+scale back to the full frame. No-op (no
+      // re-encode) when the frame is already clean; --no-fix-letterbox opts out.
+      if (opts.fixLetterbox !== false) {
+        const heal = await fixLetterboxInPlace(outputPath, {
+          projectId,
+          note: "render --fix-letterbox",
+        }).catch(() => null);
+        if (heal?.healed) {
+          process.stderr.write(`[render] removed ${heal.barPx}px letterbox bar (video composition)\n`);
+        }
       }
 
       const size = await fileSize(outputPath);
