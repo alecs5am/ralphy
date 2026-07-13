@@ -16,7 +16,7 @@ import { z } from "zod";
 export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-export const PLATFORMS = ["youtube", "tiktok", "instagram", "x"] as const;
+export const PLATFORMS = ["youtube", "tiktok", "instagram", "x", "telegram"] as const;
 export type Platform = (typeof PLATFORMS)[number];
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;

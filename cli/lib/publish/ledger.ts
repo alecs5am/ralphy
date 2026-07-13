@@ -17,12 +17,10 @@
 // remote confirm against Postiz's already-scheduled state as a SECOND belt
 // (ledger first, remote confirm second). VERIFIED against the connector
 // (cli/lib/providers/postiz.ts) and the public-API docs it cites: the Postiz
-// public API exposes NO scheduled-post LOOKUP/list endpoint — only
-// GET /integrations, POST /upload, POST /posts, and GET /analytics/post/{postId}
-// (a read keyed by a post id you ALREADY have, not a "find my scheduled posts"
-// query). So the remote-confirm second belt is BLOCKED pending a Postiz API
-// that documents a scheduled-post lookup, and the reconcile stays LEDGER-ONLY:
-// the pre-fire ledger check IS the guard.
+// public API now exposes GET /posts by date range, but not a client-supplied
+// idempotency key. Matching only content + date + integration would collapse
+// intentional same-copy posts, so reconcile stays LEDGER-ONLY: the pre-fire
+// ledger check IS the guard until Postiz exposes a stable correlation field.
 //
 // RESIDUAL CRASH WINDOW (unclosable with today's Postiz API): there is exactly
 // ONE gap — the single `fs.appendFileSync` in `appendPublishLedger` (below)
@@ -33,7 +31,8 @@
 // re-run would see the already-scheduled post and skip even with no ledger
 // row), which is why it stays tracked as #537
 // (notes/issues/537-postiz-scheduled-post-reconcile.md). Until Postiz ships the
-// lookup, this window is the accepted residual risk of the ledger-only guard.
+// stable correlation field, this window is the accepted residual risk of the
+// ledger-only guard.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -46,7 +45,7 @@ export function publishLedgerPath(ws: string): string {
 
 /**
  * One ledger row — one publish attempt against one target, keyed by its stable
- * idempotency key. A `published` / `scheduled` row blocks a re-fire of the same
+ * idempotency key. A `submitted` / `published` / `scheduled` row blocks a re-fire of the same
  * (key, target); a `failed` row does NOT (a retry is expected to re-fire).
  */
 export interface PublishLedgerEntry {
@@ -61,7 +60,7 @@ export interface PublishLedgerEntry {
   postId: string | null;
   /** ISO datetime the post is scheduled for (null = posted immediately). */
   scheduleAt: string | null;
-  status: "scheduled" | "published" | "failed";
+  status: "scheduled" | "submitted" | "published" | "failed";
   /** ISO timestamp of the attempt (stamped on append when absent). */
   at: string;
 }
@@ -109,7 +108,7 @@ export function appendPublishLedger(
 
 /**
  * The most-recent ledger entry for this (key, target) with a BLOCKING status
- * (`published` | `scheduled`), or null. A prior `failed` entry does NOT block —
+ * (`submitted` | `published` | `scheduled`), or null. A prior `failed` entry does NOT block —
  * it is skipped so a retry can re-fire. Scanning newest-first means a
  * failed-then-succeeded history resolves to the success.
  */
@@ -121,7 +120,11 @@ export function findLedgerEntry(
   const rows = readPublishLedger(ws);
   for (let i = rows.length - 1; i >= 0; i--) {
     const e = rows[i]!;
-    if (e.key === key && e.target === target && (e.status === "published" || e.status === "scheduled")) {
+    if (
+      e.key === key &&
+      e.target === target &&
+      (e.status === "submitted" || e.status === "published" || e.status === "scheduled")
+    ) {
       return e;
     }
   }

@@ -215,11 +215,11 @@ export const UnitPublishRecordSchema = z.object({
   url: z.string().nullable().optional(),
   /**
    * `idempotent-skip` (#531): the exactly-once publish ledger already carried a
-   * `published`/`scheduled` record for this (unit, target, slot), so the target
+   * `submitted`/`published`/`scheduled` record for this (unit, target, slot), so the target
    * was NOT re-fired. Recorded in the provenance (append-only) so a re-run's
    * skip is visible; carries the ledger's postId/scheduleAt.
    */
-  status: z.enum(["scheduled", "published", "failed", "idempotent-skip"]),
+  status: z.enum(["scheduled", "submitted", "published", "failed", "idempotent-skip"]),
   /** ISO datetime the post is scheduled for (null = posted immediately). */
   scheduleAt: z.string().nullable(),
   /** Failure detail for status "failed". */

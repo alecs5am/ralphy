@@ -72,7 +72,7 @@ export function calendarCmd() {
   cmd
     .command("add <ws>")
     .description(
-      "Add a recurring slot (--weekday mon..sun --time HH:MM --unit-type <format> [--platforms youtube,tiktok,instagram,x] [--timezone <IANA>, default: system] [--id <slot-id>]) OR a dated entry (--at <ISO> --unit-type <format> [--platforms ...] [--slot <slot-id>]). Examples: ralphy calendar add my-studio --weekday mon --time 09:00 --unit-type ugc-review --platforms tiktok,youtube | ralphy calendar add my-studio --at 2026-07-13T09:00:00Z --unit-type ugc-review",
+      "Add a recurring slot (--weekday mon..sun --time HH:MM --unit-type <format> [--platforms youtube,tiktok,instagram,x,telegram] [--timezone <IANA>, default: system] [--id <slot-id>]) OR a dated entry (--at <ISO> --unit-type <format> [--platforms ...] [--slot <slot-id>]). Examples: ralphy calendar add my-studio --weekday mon --time 09:00 --unit-type ugc-review --platforms tiktok,youtube | ralphy calendar add my-studio --at 2026-07-13T09:00:00Z --unit-type ugc-review",
     )
     .option("--weekday <d>", `Recurring slot weekday (${WEEKDAYS.join(" | ")})`)
     .option("--time <hh:mm>", "Recurring slot local time, 24h HH:MM")

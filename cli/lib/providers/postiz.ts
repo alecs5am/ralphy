@@ -137,8 +137,8 @@ export type PostizPostEntry = {
 
 export type PostizCreatePostRequest = {
   type: "schedule" | "now" | "draft";
-  /** ISO datetime — required for type "schedule". */
-  date?: string;
+  /** ISO datetime — Postiz requires this field for every create request. */
+  date: string;
   shortLink?: boolean;
   tags?: Array<Record<string, unknown>>;
   posts: PostizPostEntry[];
@@ -147,6 +147,15 @@ export type PostizCreatePostRequest = {
 
 /** Tolerant create-post response row (Postiz returns the created post ids). */
 export type PostizCreatedPost = { id?: string; postId?: string; [k: string]: unknown };
+
+export type PostizListedPost = {
+  id: string;
+  content?: string;
+  publishDate?: string;
+  releaseURL?: string;
+  integration?: PostizIntegration;
+  [k: string]: unknown;
+};
 
 /**
  * One row of `GET /analytics/post/{postId}` (#507). VERIFIED against the
@@ -203,6 +212,37 @@ export async function postizCreatePost(
     workspace,
   );
   return Array.isArray(r) ? r : [r];
+}
+
+/** GET /posts?startDate&endDate → posts in the explicit UTC range. */
+export async function postizListPosts(
+  startDate: string,
+  endDate: string,
+  fetchImpl: FetchLike = fetch,
+  workspace?: string,
+): Promise<PostizListedPost[]> {
+  const query = new URLSearchParams({ startDate, endDate });
+  const r = await request<PostizListedPost[] | { posts?: PostizListedPost[] }>(
+    `posts?${query}`,
+    { method: "GET" },
+    fetchImpl,
+    workspace,
+  );
+  return Array.isArray(r) ? r : r.posts ?? [];
+}
+
+/** DELETE /posts/{id} → remove one Postiz post group. */
+export async function postizDeletePost(
+  postId: string,
+  fetchImpl: FetchLike = fetch,
+  workspace?: string,
+): Promise<{ id: string }> {
+  return request<{ id: string }>(
+    `posts/${encodeURIComponent(postId)}`,
+    { method: "DELETE" },
+    fetchImpl,
+    workspace,
+  );
 }
 
 // ─── per-post analytics passthrough (#507) ───────────────────────────────────

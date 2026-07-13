@@ -124,7 +124,7 @@ describe("exactly-once", () => {
     seedUnit();
     const m1 = mockPostiz();
     const first = await publishUnit({ projectId: PROJECT, slug: SLUG, targets: ["tiktok"], fetchImpl: m1.fetchImpl });
-    expect(first.results[0]!.status).toBe("published");
+    expect(first.results[0]!.status).toBe("submitted");
     expect(m1.posts()).toBe(1);
 
     const m2 = mockPostiz();
@@ -145,7 +145,7 @@ describe("exactly-once", () => {
     await publishUnit({ projectId: PROJECT, slug: SLUG, targets: ["x"], fetchImpl: mockPostiz().fetchImpl });
     const manifest = JSON.parse(fs.readFileSync(path.join(unitDir, "unit.json"), "utf8"));
     const statuses = manifest.publish.map((p: { status: string }) => p.status);
-    expect(statuses).toEqual(["published", "idempotent-skip"]);
+    expect(statuses).toEqual(["submitted", "idempotent-skip"]);
   });
 });
 
@@ -185,9 +185,9 @@ describe("crash between platform-accept and manifest-record", () => {
     });
     const m = mockPostiz();
     const res = await publishUnit({ projectId: PROJECT, slug: SLUG, targets: ["tiktok"], fetchImpl: m.fetchImpl });
-    expect(res.results[0]!.status).toBe("published");
+    expect(res.results[0]!.status).toBe("submitted");
     expect(m.posts()).toBe(1);
-    expect(findLedgerEntry(WS, publishIdempotencyKey({ workspace: WS, projectId: PROJECT, slug: SLUG, target: "tiktok" }), "tiktok")!.status).toBe("published");
+    expect(findLedgerEntry(WS, publishIdempotencyKey({ workspace: WS, projectId: PROJECT, slug: SLUG, target: "tiktok" }), "tiktok")!.status).toBe("submitted");
   });
 });
 
@@ -205,7 +205,7 @@ describe("partial multi-target retry", () => {
       fetchImpl: m1.fetchImpl,
     });
     const byTarget1 = Object.fromEntries(first.results.map((r) => [r.target, r.status]));
-    expect(byTarget1).toEqual({ youtube: "failed", tiktok: "published", x: "published" });
+    expect(byTarget1).toEqual({ youtube: "failed", tiktok: "submitted", x: "submitted" });
     // Only the two successes are in the ledger (a failure never blocks).
     expect(readPublishLedger(WS).filter((e) => e.status !== "failed").map((e) => e.target).sort()).toEqual(["tiktok", "x"]);
 
@@ -218,7 +218,7 @@ describe("partial multi-target retry", () => {
       fetchImpl: m2.fetchImpl,
     });
     const byTarget2 = Object.fromEntries(second.results.map((r) => [r.target, r.status]));
-    expect(byTarget2).toEqual({ youtube: "published", tiktok: "idempotent-skip", x: "idempotent-skip" });
+    expect(byTarget2).toEqual({ youtube: "submitted", tiktok: "idempotent-skip", x: "idempotent-skip" });
     // Only ONE platform call on the retry — youtube.
     expect(m2.posts()).toBe(1);
   });

@@ -82,6 +82,21 @@ export function settingsForTarget(
   integrationIdentifier: string = target,
   defaults: PostizSettingsDefaults = {},
 ): Record<string, unknown> | undefined {
+  if (target === "tiktok") {
+    return {
+      __type: "tiktok",
+      title: manifest.caption?.platform.shorts ?? manifest.title ?? manifest.slug,
+      privacy_level: "PUBLIC_TO_EVERYONE",
+      duet: false,
+      stitch: false,
+      comment: true,
+      autoAddMusic: "no",
+      brand_content_toggle: false,
+      brand_organic_toggle: false,
+      video_made_with_ai: defaults.madeWithAi ?? false,
+      content_posting_method: "DIRECT_POST",
+    };
+  }
   if (target === "youtube") {
     const tags = (manifest.caption?.hashtags ?? manifest.tags ?? []).map((tag) => {
       const value = tag.replace(/^#/u, "");
@@ -183,7 +198,7 @@ export function buildPostEntry(
   }
   const value: PostizPostValue[] = parts.map((part, index) => ({
     content: part,
-    ...(index === 0 && media.length ? { image: media } : {}),
+    image: index === 0 ? media : [],
   }));
   const settings = settingsForTarget(target, manifest, integrationIdentifier, defaults);
   return { integration: { id: integrationId }, value, ...(settings && { settings }) };
