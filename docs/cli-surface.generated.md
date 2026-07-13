@@ -3,19 +3,19 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **51**
+Verbs registered: **52**
 
 ## Top-level verbs
 
 ### `ralphy version`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy version [options]
@@ -29,12 +29,12 @@ Options:
 ### `ralphy new`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy new [options] [brief...]
@@ -68,12 +68,12 @@ Examples:
 ### `ralphy clone`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy clone [options] <url-or-ref>
@@ -103,12 +103,12 @@ Examples:
 ### `ralphy skill`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy skill [options] [command]
@@ -136,12 +136,12 @@ Examples:
 ### `ralphy setup`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy setup [options]
@@ -173,12 +173,12 @@ Options:
 ### `ralphy status`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy status [options]
@@ -192,12 +192,12 @@ Options:
 ### `ralphy doctor`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy doctor [options]
@@ -212,12 +212,12 @@ Options:
 ### `ralphy generate`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy generate|gen [options] [command]
@@ -254,12 +254,12 @@ Commands:
 ### `ralphy provider`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy provider [options] [command]
@@ -289,12 +289,12 @@ Commands:
 ### `ralphy models`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy models [options] [command]
@@ -335,12 +335,12 @@ Commands:
 ### `ralphy daemon`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy daemon [options] [command]
@@ -364,12 +364,12 @@ Commands:
 ### `ralphy queue`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy queue [options] [command]
@@ -403,12 +403,12 @@ Commands:
 ### `ralphy render`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy render [options] <project>
@@ -490,12 +490,12 @@ render/final.mp4 (append-only).
 ### `ralphy hyperframes`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy hyperframes|hf [options] [command]
@@ -549,12 +549,12 @@ Examples:
 ### `ralphy editor`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy editor [options] [command]
@@ -588,12 +588,12 @@ Commands:
 ### `ralphy compose`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy compose [options] <projectId>
@@ -620,12 +620,12 @@ Options:
 ### `ralphy voice`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy voice [options] [command]
@@ -657,12 +657,12 @@ Commands:
 ### `ralphy whoami`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy whoami [options]
@@ -689,12 +689,12 @@ Options:
 ### `ralphy init`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy init [options]
@@ -709,12 +709,12 @@ Options:
 ### `ralphy config`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy config [options] [command]
@@ -734,12 +734,12 @@ Commands:
 ### `ralphy brand`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy brand [options] [command]
@@ -764,12 +764,12 @@ Commands:
 ### `ralphy persona`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy persona [options] [command]
@@ -791,12 +791,12 @@ Commands:
 ### `ralphy ref`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy ref [options] [command]
@@ -850,12 +850,12 @@ Examples:
 ### `ralphy project`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy project [options] [command]
@@ -1051,12 +1051,12 @@ Commands:
 ### `ralphy unit`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy unit [options] [command]
@@ -1098,12 +1098,12 @@ Commands:
 ### `ralphy blueprint`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy blueprint [options] [command]
@@ -1134,12 +1134,12 @@ Examples:
 ### `ralphy library`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy library [options] [command]
@@ -1174,12 +1174,12 @@ Source: static library.json on Bunny CDN (override the URL with RALPHY_LIBRARY_U
 ### `ralphy template`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy template [options] [command]
@@ -1238,12 +1238,12 @@ Examples:
 ### `ralphy guideline`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy guideline [options] [command]
@@ -1265,12 +1265,12 @@ Commands:
 ### `ralphy benchmark`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy benchmark [options] [command]
@@ -1290,12 +1290,12 @@ Commands:
 ### `ralphy memory`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy memory [options] [command]
@@ -1343,18 +1343,18 @@ Layout:
 
 Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
 index points at the newest version; pass --force-overwrite for in-place replace.
-Current dirs: /Users/maximovchinnikov/github/ugc-cli/.ralphy/memory
+Current dirs: /Users/maximovchinnikov/github/ralphy/ralphy/.ralphy/memory
 ```
 
 ### `ralphy lessons`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy lessons [options] [command]
@@ -1376,12 +1376,12 @@ Commands:
 ### `ralphy batch`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy batch [options] [command]
@@ -1427,12 +1427,12 @@ Commands:
 ### `ralphy asset`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy asset [options] [command]
@@ -1456,12 +1456,12 @@ Commands:
 ### `ralphy workspace`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy workspace [options] [command]
@@ -1492,12 +1492,12 @@ Commands:
 ### `ralphy calendar`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy calendar [options] [command]
@@ -1535,12 +1535,12 @@ Commands:
 ### `ralphy campaign`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy campaign [options] [command]
@@ -1595,15 +1595,15 @@ Commands:
 ### `ralphy publish`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
-Usage: ralphy publish [options] <project> <unit-slug>
+Usage: ralphy publish [options] <owner-or-unit> [unit-slug]
 
 Publish a formed unit to social platforms via Postiz (#501): binds accounts,
 uploads the unit's media, creates one post per target, and appends the results
@@ -1612,28 +1612,58 @@ verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut
 --targets tiktok,youtube --at 2026-07-13T09:00:00Z
 
 Arguments:
-  project           Project id
-  unit-slug         Unit slug under <project>/units/
+  owner-or-unit       Project id, or the workspace Unit slug when --workspace is
+                      set
+  unit-slug           Unit slug under <project>/units/
 
 Options:
-  --targets <list>  Comma-separated targets (youtube | tiktok | instagram | x)
-  --at <iso>        Schedule datetime (ISO). Omit to post immediately
-  --account <map>   Explicit account bindings, e.g.
-                    "youtube=<integration-id>,x=<id>"
-  --force <reason>  Bypass the readiness gate with an explicit reason (logged to
-                    user-prompts.jsonl)
-  -h, --help        display help for command
+  --workspace <slug>  Publish a Unit owned directly by this workspace
+  --targets <list>    Comma-separated targets (youtube | tiktok | instagram | x
+                      | telegram)
+  --at <iso>          Schedule datetime (ISO). Omit to post immediately
+  --now               Post immediately (the default when --at is absent)
+  --account <map>     Explicit account bindings, e.g.
+                      "youtube=<integration-id>,x=<id>"
+  --force <reason>    Bypass the readiness gate with an explicit reason (logged
+                      to user-prompts.jsonl)
+  -h, --help          display help for command
+```
+
+### `ralphy postiz`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy postiz [options] [command]
+
+Connect and inspect the active workspace's Postiz publishing account
+
+Options:
+  -h, --help         display help for command
+
+Commands:
+  connect [options]  Save a workspace-local Postiz key and verify it with a
+                     read-only integrations request
+  status [options]   Verify the saved workspace connection and list public
+                     account metadata (read-only)
+  help [command]     display help for command
 ```
 
 ### `ralphy articlePublish`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy [options] [command]
@@ -1687,7 +1717,8 @@ Commands:
   workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units
   calendar                                         Workspace content calendar (#504): recurring posting slots (weekday/time/timezone, unit type, platforms) + dated entries with an idea → queued → produced → gated → scheduled → published lifecycle. Stored at <workspace>/calendar.json with an append-only calendar-events.jsonl history.
   campaign                                         Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped to a planned unit inventory across formats + channels, with cross-linking + a coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.
-  publish [options] <project> <unit-slug>          Publish a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
+  publish [options] <owner-or-unit> [unit-slug]    Publish a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
+  postiz                                           Connect and inspect the active workspace's Postiz publishing account
   article-publish [options] <project> <unit-slug>  Publish an article unit (#526) to article rails (#527): github-pages (git-backed static site, commit-only), devto/hashnode (dev-blog APIs, draft by default), medium (park-for-human export pack). Per-target failure isolates. Canonical URL is enforced when the workspace declares a canonical site. Example: ralphy article-publish ralphy-seo-001 agent-video-earns --targets github-pages,devto --gh-repo ../ralphy-site --gh-content-dir _posts
   analytics                                        Per-post performance metrics for published units (#507): append-only analytics.jsonl snapshots + an evidence-grounded performance postmortem. Example: ralphy analytics pull spring-2026-001
   migrate [options]                                One-pass migration of this root to the final layout: workspace/ tree → .ralphy/ root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105). Idempotent; refuses while generation jobs are in flight. Structural relocation: path strings in manifests/logs/HTML follow their files (NOT a log edit — invariant #14).
@@ -1707,12 +1738,12 @@ Commands:
 ### `ralphy analytics`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy analytics [options] [command]
@@ -1722,37 +1753,23 @@ analytics.jsonl snapshots + an evidence-grounded performance postmortem.
 Example: ralphy analytics pull spring-2026-001
 
 Options:
-  -h, --help                            display help for command
+  -h, --help                                  display help for command
 
 Commands:
-  pull [options] <project> [unit-slug]  Fetch per-post metrics for the project's
-                                        published units and append snapshots to
-                                        each unit's analytics.jsonl
-                                        (append-only; every run adds a new
-                                        timestamped snapshot). Example: ralphy
-                                        analytics pull spring-2026-001 hero-cut
-                                        --target youtube
-  postmortem [options] <project>        Distill the project's analytics
-                                        snapshots + unit metadata into
-                                        evidence-grounded findings (bounded LLM
-                                        pass): writes
-                                        postmortem/analytics-findings.json (.vN
-                                        versioned) and stages workspace-tier
-                                        memory proposals. Example: ralphy
-                                        analytics postmortem spring-2026-001
-                                        --dry-run
-  help [command]                        display help for command
+  pull [options] <owner-or-unit> [unit-slug]  Fetch per-post metrics for the project's published units and append snapshots to each unit's analytics.jsonl (append-only; every run adds a new timestamped snapshot). Example: ralphy analytics pull spring-2026-001 hero-cut --target youtube
+  postmortem [options] <project>              Distill the project's analytics snapshots + unit metadata into evidence-grounded findings (bounded LLM pass): writes postmortem/analytics-findings.json (.vN versioned) and stages workspace-tier memory proposals. Example: ralphy analytics postmortem spring-2026-001 --dry-run
+  help [command]                              display help for command
 ```
 
 ### `ralphy migrate`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy migrate [options]
@@ -1773,12 +1790,12 @@ Options:
 ### `ralphy assets`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy assets [options] [command]
@@ -1811,12 +1828,12 @@ Examples:
 ### `ralphy example`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy example [options] [command]
@@ -1836,12 +1853,12 @@ Commands:
 ### `ralphy audio`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy audio [options] [command]
@@ -1867,12 +1884,12 @@ Commands:
 ### `ralphy video`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy video [options] [command]
@@ -1929,12 +1946,12 @@ Commands:
 ### `ralphy clip`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy clip [options] <source>
@@ -1965,12 +1982,12 @@ Options:
 ### `ralphy image`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy image [options] [command]
@@ -2011,12 +2028,12 @@ Commands:
 ### `ralphy banner`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy banner [options]
@@ -2030,12 +2047,12 @@ Options:
 ### `ralphy eval`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy eval [options] [command]
@@ -2222,12 +2239,12 @@ Commands:
 ### `ralphy research`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy research [options] [command]
@@ -2251,12 +2268,12 @@ Commands:
 ### `ralphy prompts`
 
 ```
-____        __      __         
+____        __      __
    / __ \____ _/ /___  / /_  __  __
   / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ / 
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /  
-             /_/          /____/   
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
         agent content runtime · ralphy.dev
 
 Usage: ralphy prompts [options] [command]

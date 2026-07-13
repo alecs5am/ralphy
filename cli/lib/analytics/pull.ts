@@ -32,8 +32,12 @@ import {
   type AnalyticsSnapshot,
 } from "../schemas/analytics.js";
 import type { UnitPublishRecord } from "../schemas/unit.js";
-import { projectDir } from "../paths.js";
-import { readUnitManifest, unitDirFor } from "../publish/publish.js";
+import { projectDir, projectWorkspace, workspaceUnitsDir } from "../paths.js";
+import {
+  readUnitManifest,
+  unitDirFor,
+  workspaceUnitDirFor,
+} from "../publish/publish.js";
 import {
   youtubeAnalyticsAvailable,
   youtubeVideoStatistics,
@@ -148,7 +152,8 @@ export interface UnitPullResult {
 }
 
 export interface PullUnitOptions {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   slug: string;
   /** Restrict to one target platform. */
   target?: string;
@@ -171,18 +176,19 @@ async function fetchRecordMetrics(
   record: UnitPublishRecord & { postId: string },
   days: number,
   fetchImpl: FetchLike,
+  workspace: string,
 ): Promise<PullRecordResult> {
   const base = { target: record.target, postId: record.postId };
 
   const viaPostiz = async (prefixNote?: string): Promise<PullRecordResult> => {
-    if (!postizAvailable()) {
+    if (!postizAvailable(workspace)) {
       return {
         ...base,
         status: "skipped",
         note: `${prefixNote ? `${prefixNote}; ` : ""}postiz not configured (POSTIZ_API_KEY + POSTIZ_BASE_URL)`,
       };
     }
-    const r = await postizMetrics(record.postId, days, fetchImpl);
+    const r = await postizMetrics(record.postId, days, fetchImpl, workspace);
     if (!r.ok) return { ...base, status: "skipped", note: prefixNote ? `${prefixNote}; ${r.note}` : r.note };
     return {
       ...base,
@@ -226,9 +232,19 @@ async function fetchRecordMetrics(
 export async function pullUnitAnalytics(opts: PullUnitOptions): Promise<UnitPullResult> {
   const fetchImpl = opts.fetchImpl ?? (fetch as FetchLike);
   const days = opts.days ?? 7;
-  const unitDir = unitDirFor(opts.projectId, opts.slug);
+  if (Boolean(opts.projectId) === Boolean(opts.workspaceId)) {
+    throw new Error("analytics pull needs exactly one projectId or workspaceId");
+  }
+  const workspace = opts.workspaceId ?? projectWorkspace(opts.projectId!);
+  const unitDir = opts.workspaceId
+    ? workspaceUnitDirFor(opts.workspaceId, opts.slug)
+    : unitDirFor(opts.projectId!, opts.slug);
   const manifest = await readUnitManifest(unitDir);
-  if (!manifest) throw new Error(`unit '${opts.slug}' not found in project '${opts.projectId}'`);
+  if (!manifest) {
+    throw new Error(
+      `unit '${opts.slug}' not found in ${opts.workspaceId ? `workspace '${opts.workspaceId}'` : `project '${opts.projectId}'`}`,
+    );
+  }
 
   const snapshots = readSnapshots(unitDir);
   const records: PullRecordResult[] = [];
@@ -256,7 +272,12 @@ export async function pullUnitAnalytics(opts: PullUnitOptions): Promise<UnitPull
       }
     }
 
-    const result = await fetchRecordMetrics(record as UnitPublishRecord & { postId: string }, days, fetchImpl);
+    const result = await fetchRecordMetrics(
+      record as UnitPublishRecord & { postId: string },
+      days,
+      fetchImpl,
+      workspace,
+    );
     records.push(result);
     if (result.status === "fetched" && result.source && result.metrics) {
       toAppend.push({
@@ -276,7 +297,14 @@ export async function pullUnitAnalytics(opts: PullUnitOptions): Promise<UnitPull
 
 /** The project's unit slugs (dirs under `<project>/units/` with a unit.json). */
 export function listUnitSlugs(projectId: string): string[] {
-  const unitsDir = path.join(projectDir(projectId), "units");
+  return listUnitSlugsIn(path.join(projectDir(projectId), "units"));
+}
+
+export function listWorkspaceUnitSlugs(workspaceId: string): string[] {
+  return listUnitSlugsIn(workspaceUnitsDir(workspaceId));
+}
+
+function listUnitSlugsIn(unitsDir: string): string[] {
   if (!existsSync(unitsDir)) return [];
   return readdirSync(unitsDir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && existsSync(path.join(unitsDir, e.name, "unit.json")))
@@ -293,7 +321,7 @@ export interface ProjectPullResult {
 
 /** Pull across a whole project (or one unit when `slug` is given). */
 export async function pullProjectAnalytics(
-  opts: Omit<PullUnitOptions, "slug"> & { slug?: string },
+  opts: Omit<PullUnitOptions, "slug" | "workspaceId"> & { projectId: string; slug?: string },
 ): Promise<ProjectPullResult> {
   const slugs = opts.slug ? [opts.slug] : listUnitSlugs(opts.projectId);
   const units: UnitPullResult[] = [];
@@ -306,5 +334,27 @@ export async function pullProjectAnalytics(
     units,
     fetched: all.filter((r) => r.status === "fetched").length,
     skipped: all.filter((r) => r.status === "skipped").length,
+  };
+}
+
+export interface WorkspacePullResult {
+  workspace: string;
+  units: UnitPullResult[];
+  fetched: number;
+  skipped: number;
+}
+
+export async function pullWorkspaceAnalytics(
+  opts: Omit<PullUnitOptions, "slug" | "projectId"> & { workspaceId: string; slug?: string },
+): Promise<WorkspacePullResult> {
+  const slugs = opts.slug ? [opts.slug] : listWorkspaceUnitSlugs(opts.workspaceId);
+  const units: UnitPullResult[] = [];
+  for (const slug of slugs) units.push(await pullUnitAnalytics({ ...opts, slug }));
+  const all = units.flatMap((unit) => unit.records);
+  return {
+    workspace: opts.workspaceId,
+    units,
+    fetched: all.filter((record) => record.status === "fetched").length,
+    skipped: all.filter((record) => record.status === "skipped").length,
   };
 }

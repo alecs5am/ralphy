@@ -36,4 +36,12 @@ describe("renderSurfaceMarkdown", () => {
     expect(md).toContain("Env health check");
     expect(md).toContain("### `ralphy setup`");
   });
+
+  test("removes trailing whitespace from captured help lines", () => {
+    const md = renderSurfaceMarkdown([
+      { name: "postiz", help: "banner   \nUsage: ralphy postiz  \n" },
+    ]);
+
+    expect(md.split("\n").every((line) => !/[ \t]+$/u.test(line))).toBe(true);
+  });
 });

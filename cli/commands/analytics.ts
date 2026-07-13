@@ -18,9 +18,19 @@ import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { postizAvailable } from "../lib/providers/postiz.js";
 import { youtubeAnalyticsAvailable } from "../lib/providers/youtube-analytics.js";
-import { pullProjectAnalytics, listUnitSlugs } from "../lib/analytics/pull.js";
+import {
+  pullProjectAnalytics,
+  pullWorkspaceAnalytics,
+  listUnitSlugs,
+  listWorkspaceUnitSlugs,
+} from "../lib/analytics/pull.js";
 import { runAnalyticsPostmortem, NoAnalyticsError } from "../lib/analytics/postmortem.js";
-import { readUnitManifest, unitDirFor } from "../lib/publish/publish.js";
+import {
+  readUnitManifest,
+  unitDirFor,
+  workspaceUnitDirFor,
+} from "../lib/publish/publish.js";
+import { projectWorkspace } from "../lib/paths.js";
 
 export function analyticsCmd() {
   const cmd = new Command("analytics").description(
@@ -32,36 +42,60 @@ export function analyticsCmd() {
     .description(
       "Fetch per-post metrics for the project's published units and append snapshots to each unit's analytics.jsonl (append-only; every run adds a new timestamped snapshot). Example: ralphy analytics pull spring-2026-001 hero-cut --target youtube",
     )
-    .argument("<project>", "Project id")
+    .argument("<owner-or-unit>", "Project id, or one workspace Unit slug with --workspace")
     .argument("[unit-slug]", "One unit under <project>/units/ (default: every unit)")
+    .option("--workspace <slug>", "Pull analytics for Units owned directly by this workspace")
     .option("--target <t>", "Restrict to one target platform (youtube | tiktok | instagram | x)")
     .option("--days <n>", "Postiz analytics lookback window in days", "7")
-    .action(async (project: string, slug: string | undefined, opts) => {
-      if (!youtubeAnalyticsAvailable() && !postizAvailable()) {
-        raiseError("E_ENV_KEY_MISSING", {
-          key: "YOUTUBE_API_KEY (or POSTIZ_API_KEY + POSTIZ_BASE_URL)",
+    .action(async (ownerOrUnit: string, unitSlug: string | undefined, opts) => {
+      const workspace = typeof opts.workspace === "string" ? opts.workspace.trim() : "";
+      const project = workspace ? null : ownerOrUnit;
+      const slug = workspace ? ownerOrUnit : unitSlug;
+      if (workspace && unitSlug) {
+        raiseError("E_INPUT_INVALID", {
+          field: "unit",
+          detail: "use `ralphy analytics pull <unit-slug> --workspace <slug>`",
+          verb: "analytics pull",
         });
       }
-      if (slug && !(await readUnitManifest(unitDirFor(project, slug)))) {
-        raiseError("E_NOT_FOUND", { kind: "Unit", id: `${project}/${slug}` });
+      const credentialWorkspace = workspace || projectWorkspace(project!);
+      if (!youtubeAnalyticsAvailable() && !postizAvailable(credentialWorkspace)) {
+        raiseError("E_ENV_KEY_MISSING", {
+          key: `YOUTUBE_API_KEY or Postiz credentials for workspace ${credentialWorkspace}`,
+        });
       }
-      if (!slug && listUnitSlugs(project).length === 0) {
-        raiseError("E_NOT_FOUND", { kind: "Units", id: project });
+      const scopedUnitDir = slug
+        ? workspace
+          ? workspaceUnitDirFor(workspace, slug)
+          : unitDirFor(project!, slug)
+        : null;
+      if (scopedUnitDir && !(await readUnitManifest(scopedUnitDir))) {
+        raiseError("E_NOT_FOUND", {
+          kind: "Unit",
+          id: workspace ? `${workspace}/units/${slug}` : `${project}/${slug}`,
+        });
+      }
+      const slugs = workspace ? listWorkspaceUnitSlugs(workspace) : listUnitSlugs(project!);
+      if (!slug && slugs.length === 0) {
+        raiseError("E_NOT_FOUND", { kind: "Units", id: workspace || project! });
       }
 
       const days = Number(opts.days);
-      const result = await pullProjectAnalytics({
-        projectId: project,
+      const common = {
         slug,
         target: opts.target,
         days: Number.isFinite(days) && days > 0 ? days : 7,
-      });
+      };
+      const result = workspace
+        ? await pullWorkspaceAnalytics({ workspaceId: workspace, ...common })
+        : await pullProjectAnalytics({ projectId: project!, ...common });
       ok(
         `Pulled ${result.fetched} snapshot(s) across ${result.units.length} unit(s)` +
           (result.skipped ? ` (${result.skipped} skipped)` : ""),
       );
       out({
-        project: result.project,
+        project,
+        workspace: workspace || projectWorkspace(project!),
         fetched: result.fetched,
         skipped: result.skipped,
         units: result.units.map((u) => ({

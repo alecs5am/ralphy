@@ -7,7 +7,7 @@
 import type { UnitManifest } from "../schemas/unit.js";
 import type { PostizIntegration, PostizPostEntry, PostizPostValue } from "../providers/postiz.js";
 
-export const PUBLISH_TARGETS = ["youtube", "tiktok", "instagram", "x"] as const;
+export const PUBLISH_TARGETS = ["youtube", "tiktok", "instagram", "x", "telegram"] as const;
 export type PublishTarget = (typeof PUBLISH_TARGETS)[number];
 
 export function isPublishTarget(t: string): t is PublishTarget {
@@ -44,7 +44,12 @@ function genericCaption(manifest: UnitManifest): string {
  *   x          — the hook line + up to 3 tags (thread-friendly brevity).
  * A unit with no caption falls back to the generic title/blurb copy.
  */
-export function captionForTarget(target: PublishTarget, manifest: UnitManifest): string {
+export function captionForTarget(
+  target: PublishTarget,
+  manifest: UnitManifest,
+  textBody?: string,
+): string {
+  if (textBody && (target === "x" || target === "telegram")) return textBody;
   const c = manifest.caption;
   if (!c) return genericCaption(manifest);
   switch (target) {
@@ -56,8 +61,16 @@ export function captionForTarget(target: PublishTarget, manifest: UnitManifest):
       return [c.platform.reels, formatHashtags(c.hashtags)].filter(Boolean).join("\n\n");
     case "x":
       return [c.platform.tiktok, formatHashtags(c.hashtags, 3)].filter(Boolean).join(" ");
+    case "telegram":
+      return c.platform.reels;
   }
 }
+
+export type PostizSettingsDefaults = {
+  madeWithAi?: boolean;
+  youtubeVisibility?: "public" | "unlisted" | "private";
+  instagramPostType?: "post" | "story";
+};
 
 /**
  * Minimal per-platform Postiz settings. YouTube needs a title — the #403
@@ -66,10 +79,42 @@ export function captionForTarget(target: PublishTarget, manifest: UnitManifest):
 export function settingsForTarget(
   target: PublishTarget,
   manifest: UnitManifest,
+  integrationIdentifier: string = target,
+  defaults: PostizSettingsDefaults = {},
 ): Record<string, unknown> | undefined {
   if (target === "youtube") {
-    return { title: manifest.caption?.platform.shorts ?? manifest.title ?? manifest.slug };
+    const tags = (manifest.caption?.hashtags ?? manifest.tags ?? []).map((tag) => {
+      const value = tag.replace(/^#/u, "");
+      return { value, label: value };
+    });
+    return {
+      __type: "youtube",
+      title: manifest.caption?.platform.shorts ?? manifest.title ?? manifest.slug,
+      type: defaults.youtubeVisibility ?? "public",
+      selfDeclaredMadeForKids: "no",
+      tags,
+    };
   }
+  if (target === "instagram") {
+    return {
+      __type: integrationIdentifier.startsWith("instagram-standalone")
+        ? "instagram-standalone"
+        : "instagram",
+      post_type: defaults.instagramPostType ?? "post",
+      is_trial_reel: false,
+      collaborators: [],
+    };
+  }
+  if (target === "x") {
+    return {
+      __type: "x",
+      who_can_reply_post: "everyone",
+      community: "",
+      made_with_ai: defaults.madeWithAi ?? false,
+      paid_partnership: false,
+    };
+  }
+  if (target === "telegram") return { __type: "telegram" };
   return undefined;
 }
 
@@ -118,9 +163,28 @@ export function buildPostEntry(
   integrationId: string,
   manifest: UnitManifest,
   media: UploadedMedia[],
+  integrationIdentifier: string = target,
+  textBody?: string,
+  defaults: PostizSettingsDefaults = {},
 ): PostizPostEntry {
-  const value: PostizPostValue = { content: captionForTarget(target, manifest) };
-  if (media.length) value.image = media;
-  const settings = settingsForTarget(target, manifest);
-  return { integration: { id: integrationId }, value: [value], ...(settings && { settings }) };
+  const content = captionForTarget(target, manifest, textBody);
+  let parts = [content];
+  if (target === "x" && manifest.format === "thread" && textBody) {
+    try {
+      const parsed = JSON.parse(textBody) as unknown;
+      if (Array.isArray(parsed)) {
+        const strings = parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+        if (strings.length > 0) parts = strings;
+      }
+    } catch {
+      const split = textBody.split(/\n\s*---\s*\n/u).map((part) => part.trim()).filter(Boolean);
+      if (split.length > 1) parts = split;
+    }
+  }
+  const value: PostizPostValue[] = parts.map((part, index) => ({
+    content: part,
+    ...(index === 0 && media.length ? { image: media } : {}),
+  }));
+  const settings = settingsForTarget(target, manifest, integrationIdentifier, defaults);
+  return { integration: { id: integrationId }, value, ...(settings && { settings }) };
 }

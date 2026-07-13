@@ -12,7 +12,12 @@
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { projectDir, projectWorkspace } from "../paths.js";
+import {
+  projectDir,
+  projectWorkspace,
+  workspaceDir,
+  workspaceUnitsDir,
+} from "../paths.js";
 import { buildScorecard } from "../scorecard.js";
 import {
   UnitManifestSchema,
@@ -29,6 +34,7 @@ import {
   bindIntegrations,
   buildPostEntry,
   type PublishTarget,
+  type PostizSettingsDefaults,
   type UploadedMedia,
 } from "./mapping.js";
 import { publishIdempotencyKey, findLedgerEntry, appendPublishLedger } from "./ledger.js";
@@ -66,6 +72,10 @@ export function unitDirFor(projectId: string, slug: string): string {
   return path.join(projectDir(projectId), "units", slug);
 }
 
+export function workspaceUnitDirFor(workspaceId: string, slug: string): string {
+  return path.join(workspaceUnitsDir(workspaceId), slug);
+}
+
 export async function readUnitManifest(unitDir: string): Promise<UnitManifest | null> {
   const fp = path.join(unitDir, "unit.json");
   if (!existsSync(fp)) return null;
@@ -99,7 +109,8 @@ export async function appendPublishRecords(
 // ─── the publish run ─────────────────────────────────────────────────────────
 
 export interface PublishUnitOptions {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   slug: string;
   targets: PublishTarget[];
   /** Explicit target → Postiz integration-id bindings (win over auto-match). */
@@ -144,7 +155,8 @@ export interface TargetPublishResult {
 }
 
 export interface PublishUnitResult {
-  project: string;
+  project: string | null;
+  workspace: string;
   slug: string;
   unitDir: string;
   type: "schedule" | "now";
@@ -166,21 +178,37 @@ export interface PublishUnitResult {
  */
 export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnitResult> {
   const fetchImpl = opts.fetchImpl ?? fetch;
-  const unitDir = unitDirFor(opts.projectId, opts.slug);
+  if (Boolean(opts.projectId) === Boolean(opts.workspaceId)) {
+    throw new Error("publish needs exactly one projectId or workspaceId");
+  }
+  const workspace = opts.workspaceId ?? opts.workspace ?? projectWorkspace(opts.projectId!);
+  const ownerId = opts.projectId ?? `workspace:${opts.workspaceId}`;
+  const unitDir = opts.workspaceId
+    ? workspaceUnitDirFor(opts.workspaceId, opts.slug)
+    : unitDirFor(opts.projectId!, opts.slug);
   const manifest = await readUnitManifest(unitDir);
-  if (!manifest) throw new Error(`unit '${opts.slug}' not found in project '${opts.projectId}'`);
+  if (!manifest) {
+    throw new Error(
+      `unit '${opts.slug}' not found in ${opts.workspaceId ? `workspace '${opts.workspaceId}'` : `project '${opts.projectId}'`}`,
+    );
+  }
   if (opts.targets.length === 0) throw new Error("no publish targets given");
 
-  const workspace = opts.workspace ?? projectWorkspace(opts.projectId);
   const slot = opts.slot ?? undefined;
 
-  const integrations = await postizIntegrations(fetchImpl);
+  const integrations = await postizIntegrations(fetchImpl, workspace);
   const bound = bindIntegrations(opts.targets, integrations, opts.accounts);
+  const defaults = await readPostizDefaults(workspace);
+
+  let textBody: string | undefined;
+  if (manifest.text?.body) {
+    textBody = await fs.readFile(path.join(unitDir, manifest.text.body), "utf8");
+  }
 
   // Upload the unit's ordered media ONCE; every target references the same set.
   const media: UploadedMedia[] = [];
-  for (const filename of manifest.media) {
-    const up = await postizUpload(path.join(unitDir, filename), fetchImpl);
+  for (const filename of manifest.media.filter((item) => item !== manifest.text?.body)) {
+    const up = await postizUpload(path.join(unitDir, filename), fetchImpl, workspace);
     media.push({ id: up.id, path: up.path });
   }
 
@@ -195,7 +223,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     // published/scheduled record for this (unit, target, slot), do NOT fire the
     // platform again. Reuse the recorded postId AND the recorded scheduleAt (so
     // a re-run does not resample a new cadence time — #525 interplay).
-    const key = publishIdempotencyKey({ workspace, projectId: opts.projectId, slug: opts.slug, target, slot });
+    const key = publishIdempotencyKey({ workspace, projectId: ownerId, slug: opts.slug, target, slot });
     const prior = findLedgerEntry(workspace, key, target);
     if (prior) {
       results.push({
@@ -225,11 +253,27 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     const okStatus = targetScheduleAt ? "scheduled" : "published";
     const quotaFields = q.rescheduled ? { quotaRescheduledTo: q.scheduleAt, quotaReason: q.reason } : {};
 
-    const entry = buildPostEntry(target, integrationId, manifest, media);
+    const identifier = integrations.find((integration) => integration.id === integrationId)?.identifier ?? target;
+    const entry = buildPostEntry(
+      target,
+      integrationId,
+      manifest,
+      media,
+      identifier,
+      textBody,
+      defaults,
+    );
     try {
       const created = await postizCreatePost(
-        { type, ...(targetScheduleAt && { date: targetScheduleAt }), posts: [entry] },
+        {
+          type,
+          ...(targetScheduleAt && { date: targetScheduleAt }),
+          shortLink: false,
+          tags: [],
+          posts: [entry],
+        },
         fetchImpl,
+        workspace,
       );
       const postId = created[0]?.postId ?? created[0]?.id ?? null;
       // Ledger append is the BELT: it lands right after the platform accepts,
@@ -237,7 +281,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
       // between the two is recoverable on the next run via the ledger check.
       appendPublishLedger(workspace, {
         key,
-        project: opts.projectId,
+        project: ownerId,
         slug: opts.slug,
         target,
         postId,
@@ -277,7 +321,8 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
   );
 
   return {
-    project: opts.projectId,
+    project: opts.projectId ?? null,
+    workspace,
     slug: opts.slug,
     unitDir,
     // The requested intent (a per-target quota push can still move an
@@ -288,4 +333,17 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     // idempotent-skip is a success — allFailed stays "every target failed".
     allFailed: results.every((r) => r.status === "failed"),
   };
+}
+
+async function readPostizDefaults(workspace: string): Promise<PostizSettingsDefaults> {
+  try {
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(workspaceDir(workspace), "workspace.json"), "utf8"),
+    ) as {
+      publishing?: { postiz?: { defaults?: PostizSettingsDefaults } };
+    };
+    return manifest.publishing?.postiz?.defaults ?? {};
+  } catch {
+    return {};
+  }
 }

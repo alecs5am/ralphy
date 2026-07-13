@@ -14,7 +14,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
-import { projectDir } from "../../cli/lib/paths";
+import { projectDir, workspaceUnitsDir } from "../../cli/lib/paths";
 import {
   AnalyticsSnapshotSchema,
   type AnalyticsSnapshot,
@@ -28,6 +28,7 @@ import {
   listUnitSlugs,
   pullUnitAnalytics,
   pullProjectAnalytics,
+  pullWorkspaceAnalytics,
   DEFAULT_PULL_OFFSETS,
 } from "../../cli/lib/analytics/pull";
 import {
@@ -51,7 +52,7 @@ import { listEntries } from "../../cli/lib/memory/store";
 
 const PROJECT = "analytics-fixture-507";
 const SLUG = "hero-cut";
-const ENV_KEYS = ["YOUTUBE_API_KEY", "POSTIZ_API_KEY", "POSTIZ_BASE_URL"] as const;
+const ENV_KEYS = ["YOUTUBE_API_KEY", "POSTIZ_API_KEY", "POSTIZ_API_URL", "POSTIZ_BASE_URL"] as const;
 
 let tmp: TmpRoot;
 const savedEnv: Record<string, string | undefined> = {};
@@ -99,6 +100,24 @@ function seedUnit(
       ...extra,
     }),
   );
+  return unitDir;
+}
+
+function seedWorkspaceUnit(slug: string, publish: Array<Record<string, unknown>>): string {
+  const unitDir = path.join(workspaceUnitsDir("default"), slug);
+  fs.mkdirSync(unitDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(unitDir, "unit.json"),
+    JSON.stringify({
+      slug,
+      format: "post",
+      media: ["post.md"],
+      text: { body: "post.md", destinations: ["telegram"] },
+      created: iso(NOW - 10 * DAY),
+      publish,
+    }),
+  );
+  fs.writeFileSync(path.join(unitDir, "post.md"), "Workspace post");
   return unitDir;
 }
 
@@ -320,6 +339,23 @@ describe("pullUnitAnalytics routing", () => {
     expect(r.units[0]!.records).toHaveLength(1);
     expect(r.units[0]!.records[0]!.target).toBe("tiktok");
     expect(r.fetched).toBe(1);
+  });
+
+  test("workspace pull appends analytics beside a workspace-owned Unit", async () => {
+    process.env.POSTIZ_API_KEY = "pz-key";
+    process.env.POSTIZ_API_URL = "https://api.postiz.com/public/v1";
+    const unitDir = seedWorkspaceUnit(SLUG, [
+      ytPublishRecord({ target: "telegram", integrationId: "int-tg-1", postId: "post-tg-1" }),
+    ]);
+    const { fetchImpl } = mockFetch({ postizRows: POSTIZ_ROWS });
+    const result = await pullWorkspaceAnalytics({
+      workspaceId: "default",
+      fetchImpl,
+      now: NOW,
+    });
+    expect(result.workspace).toBe("default");
+    expect(result.fetched).toBe(1);
+    expect(readSnapshots(unitDir)).toHaveLength(1);
   });
 });
 
