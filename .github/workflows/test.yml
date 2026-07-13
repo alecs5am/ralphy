@@ -46,11 +46,8 @@ jobs:
       # Raised 15000 -> 45000 (#061): the cli-dryrun*.test.ts spawnSync tests pass
       # in isolation (~1s) but get CPU/IO-starved past 15s under full-suite load,
       # intermittently failing the hooks. A real hang still surfaces at 45s.
-      # studio/test/ is fast (~4s) + fixture-backed (no network) — gated here so
-      # a Studio server-contract regression turns the badge red (#494, the
-      # CI-wiring half; the husky-hook-executability half stays in #494).
-      - name: Run unit + integration + studio tests
-        run: bun test --timeout 45000 tests/unit/ tests/integration/ studio/test/
+      - name: Run unit + integration tests
+        run: bun test --timeout 45000 tests/unit/ tests/integration/
         env:
           # Tests use a fixture catalog and never hit the network.
           # Set placeholder env vars so any code path that reads them
@@ -60,9 +57,6 @@ jobs:
 
       - name: Lint error codes against catalog (01.06.01)
         run: bun run lint:errors
-
-      - name: Lint landing examples vs --help (01.03.02)
-        run: bun run lint:help-examples
 
       # Skill frontmatter shape (name/desc/namespace) + routing signal (#405):
       # every user-facing skill must carry an actionable trigger cue so the
@@ -101,18 +95,5 @@ jobs:
       - name: Check CLI surface doc is current (01.10.01)
         run: bun run cli:surface:check
 
-      - name: Check Mintlify CLI ref is current (07.03.02)
-        run: bun run docs:cli:check
-
-      - name: Check Mintlify node ref is current (#524)
-        run: bun run docs:nodes:check
-
       - name: Lint docs internal links (07.09.01)
         run: bun run lint:docs-links:fast
-
-      # Library QA (#448): schema completeness + referential integrity for every
-      # Unit/Block/Blueprint in landing/lib/library-v2/library.json. Fast path
-      # (no media probe) so a broken record fails CI; the slow path
-      # (lint:library) probes media URLs.
-      - name: Lint content library QA (#448)
-        run: bun run lint:library:fast

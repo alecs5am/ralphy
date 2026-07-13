@@ -1,15 +1,11 @@
 // `ralphy publish` (#501) — push a formed unit's distribution pack to Postiz
 // (self-hosted social scheduler) across youtube/tiktok/instagram/x. The
-// standalone agent-facing door; the farm door is the `publish` node executor
-// (cli/lib/workflow/executors/publish.ts) — both run through
-// cli/lib/publish/publish.ts.
+// agent-facing publish door. All mechanics run through cli/lib/publish/publish.ts.
 //
-// Gated (the trust-ladder floor, #505): refuses unless the project's #427
+// Gated: refuses unless the project's #427
 // readiness scorecard says `ship`, or the user passes an explicit
 // `--force "<reason>"` — the bypass is logged to user-prompts.jsonl
-// (stage "publish-force"), mirroring --no-ref-consent. The ladder's L1/L2
-// auto-pass only matters for UNATTENDED (farm) publishes — a human typing
-// this verb IS the approval, so no trust park applies here.
+// (stage "publish-force"), mirroring --no-ref-consent.
 
 import { Command } from "commander";
 import { out, ok } from "../lib/output.js";

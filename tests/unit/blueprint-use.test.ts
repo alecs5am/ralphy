@@ -2,11 +2,11 @@
 //
 // Exercises the OFFLINE scaffold path: `blueprint use <unit-id> --project <id>`
 // resolves a PUBLISHED Blueprint from the committed library.json
-// (landing/lib/library-v2/library.json), then lays down a ready-to-run project.
+// (ralphy-web/lib/library-v2/library.json), then lays down a ready-to-run project.
 //
 // Offline-without-network strategy: the loader resolves the mirror relative to
 // root() (== the --cwd we pass). So each test writes a FIXTURE library.json
-// inside the temp root's landing/lib/library-v2/ dir. When that local mirror is
+// inside the temp root's ralphy-web/lib/library-v2/ dir. When that local mirror is
 // absent OR the unitId isn't in it, the resolver falls back to the public library
 // client — which we point at a local EMPTY library.json via RALPHY_LIBRARY_URL
 // (a file:// URL) so that path stays offline too. The fixture blueprint uses NO
@@ -213,7 +213,7 @@ describe("ralphy blueprint use (#079)", () => {
   });
 
   test("graceful error when the committed mirror is absent (falls back to the public library)", () => {
-    // No writeFixtureMirror() call → no landing/lib/library-v2/library.json. The
+    // No writeFixtureMirror() call → no ralphy-web/lib/library-v2/library.json. The
     // resolver falls back to the public library client (here the empty fallback),
     // which has no such unit → a clean, network-free "not found".
     const r = ralphy(["blueprint", "use", UNIT_ID, "--project", "x-001"]);

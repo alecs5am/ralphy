@@ -48,8 +48,6 @@ import {
 } from "../../cli/lib/providers/postiz";
 import { TerminalProviderError } from "../../cli/lib/providers/shared";
 import { listEntries } from "../../cli/lib/memory/store";
-import { getExecutor, type ExecutorContext } from "../../cli/lib/workflow/executors/index";
-import type { WorkflowNode } from "../../cli/lib/schemas/workflow";
 
 const PROJECT = "analytics-fixture-507";
 const SLUG = "hero-cut";
@@ -380,44 +378,6 @@ describe("due-offset logic", () => {
     expect(r.records[0]).toMatchObject({ status: "skipped" });
     expect(r.records[0]!.note).toContain("not due");
     expect(calls).toHaveLength(0);
-  });
-});
-
-// ─── analytics-pull node executor ────────────────────────────────────────────
-
-describe("analytics-pull node executor", () => {
-  function ctxFor(over: Partial<ExecutorContext> = {}): ExecutorContext {
-    return {
-      workspace: "default",
-      workspaceDir: path.join(tmp.dir, ".ralphy", "workspaces", "default"),
-      projectId: PROJECT,
-      artifactsDir: path.join(tmp.dir, "node-artifacts"),
-      inputs: {},
-      log: async () => {},
-      reportCost: () => {},
-      ...over,
-    };
-  }
-  const node = (params: Record<string, unknown> = {}): WorkflowNode =>
-    ({ id: "pull-1", type: "analytics-pull", params }) as unknown as WorkflowNode;
-
-  test("is registered and pulls due records, writing a node artifact", async () => {
-    process.env.POSTIZ_API_KEY = "pz-key";
-    process.env.POSTIZ_BASE_URL = "http://localhost:4200";
-    seedUnit(SLUG, [ytPublishRecord({ target: "tiktok", postId: "post-tt-1" })]);
-    const exec = getExecutor("analytics-pull");
-    expect(exec).toBeDefined();
-    const { fetchImpl } = mockFetch({ postizRows: POSTIZ_ROWS });
-    const res = await exec!(node({ offsets: ["+1d", "+7d"] }), ctxFor({ fetchImpl }));
-    const payload = res.output as { fetched: number; offsets: string[] };
-    expect(payload.fetched).toBe(1);
-    expect(payload.offsets).toEqual(["+1d", "+7d"]);
-    expect(fs.existsSync(res.artifactPath!)).toBe(true);
-  });
-
-  test("no project in params or context → params-invalid", async () => {
-    const exec = getExecutor("analytics-pull")!;
-    await expect(exec(node(), ctxFor({ projectId: undefined }))).rejects.toThrow(/params\.project/);
   });
 });
 

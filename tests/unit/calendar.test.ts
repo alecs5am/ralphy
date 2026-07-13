@@ -17,13 +17,6 @@ import {
   calendarEventsPath,
 } from "../../cli/lib/calendar/store.js";
 import { parseCalendar, canTransition, ENTRY_STATUSES } from "../../cli/lib/schemas/calendar.js";
-import {
-  getExecutor,
-  registeredExecutorTypes,
-  NodeExecutionError,
-  type ExecutorContext,
-} from "../../cli/lib/workflow/executors/index.js";
-import type { WorkflowNode, WorkflowNodeType } from "../../cli/lib/schemas/workflow.js";
 
 // 2026 anchors (verified): Jan 12 / Mar 9 are Mondays; US DST starts Mar 8.
 const NY_SLOT = {
@@ -203,79 +196,5 @@ describe("calendar-events.jsonl", () => {
     expect(calendarPath(dir)).toBe(path.join(dir, "calendar.json"));
     expect(fs.existsSync(calendarPath(dir))).toBe(true);
     expect(fs.existsSync(calendarEventsPath(dir))).toBe(true);
-  });
-});
-
-// ─── calendar-slot executor ──────────────────────────────────────────────────
-
-function makeCtx(over: Partial<ExecutorContext> = {}): ExecutorContext {
-  return {
-    workspace: "test",
-    workspaceDir: dir,
-    projectId: "proj-001",
-    artifactsDir: path.join(dir, "artifacts"),
-    inputs: {},
-    log: async () => {},
-    reportCost: () => {},
-    ...over,
-  };
-}
-
-function makeNode(params: Record<string, unknown>, id = "pick-slot"): WorkflowNode {
-  return {
-    id,
-    type: "calendar-slot",
-    in: {},
-    params,
-    retry: { max: 0, backoff: "exponential" },
-    on_fail: "halt",
-    cache: "none",
-    emit: true,
-  };
-}
-
-describe("calendar-slot executor (#504)", () => {
-  test("is registered via registerExecutor", () => {
-    expect(registeredExecutorTypes()).toContain("calendar-slot" as WorkflowNodeType);
-  });
-
-  test("picks the next free slot, stamps an entry (NOT scheduled), emits {slotId, scheduleAt, entryId}", async () => {
-    addSlot(dir, NY_SLOT);
-    const res = await getExecutor("calendar-slot")!(
-      makeNode({ unit_type: "short", platform: "tiktok", after: "2026-01-06T00:00:00Z", run_id: "run-1", unit_slug: "ep-1" }),
-      makeCtx(),
-    );
-    const output = res.output as { slotId: string; scheduleAt: string; entryId: string };
-    expect(output).toMatchObject({ slotId: "mon-9", scheduleAt: "2026-01-12T14:00:00.000Z" });
-    expect(output.entryId).toMatch(/^e-/);
-
-    const entry = readCalendar(dir).entries.find((e) => e.id === output.entryId)!;
-    expect(entry).toMatchObject({
-      at: "2026-01-12T14:00:00.000Z",
-      slotId: "mon-9",
-      unitType: "short",
-      status: "produced", // the publish node owns "scheduled"
-      runId: "run-1",
-      projectId: "proj-001",
-      unitSlug: "ep-1",
-    });
-    expect(res.artifactPath).toBeDefined();
-    expect(JSON.parse(fs.readFileSync(res.artifactPath!, "utf8"))).toEqual(output);
-  });
-
-  test("no free slot → queued entry (undated), null slotId/scheduleAt payload, nothing dropped", async () => {
-    const res = await getExecutor("calendar-slot")!(makeNode({ unit_type: "short" }), makeCtx());
-    const output = res.output as Record<string, unknown>;
-    expect(output).toMatchObject({ slotId: null, scheduleAt: null, queued: true, reason: "no-matching-slot" });
-    const entry = readCalendar(dir).entries.find((e) => e.id === output.entryId)!;
-    expect(entry.status).toBe("queued");
-    expect(entry.at).toBeUndefined();
-  });
-
-  test("params validation: unit_type required; scheduled/published status rejected", async () => {
-    await expect(getExecutor("calendar-slot")!(makeNode({}), makeCtx())).rejects.toThrow(NodeExecutionError);
-    await expect(
-      getExecutor("calendar-slot")!(makeNode({ unit_type: "short", status: "scheduled" }), makeCtx()),
-    ).rejects.toThrow(/publish node/);
   });
 });

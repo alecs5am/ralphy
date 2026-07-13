@@ -1,6 +1,6 @@
 // YouTube analytics connector (#507) — the `analytics-pull` backend for
 // youtube-target publish records: per-video statistics for the performance
-// feedback loop (docs/architecture/farm-node-graph.md, phase 3).
+// feedback loop.
 //
 // THIS IS THE ONLY SOURCE FILE PERMITTED TO READ `YOUTUBE_API_KEY` OR HIT
 // `googleapis.com` HOSTS (AGENTS.md invariant #1, extended for #507 the same

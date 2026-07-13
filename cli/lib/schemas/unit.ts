@@ -1,5 +1,5 @@
 // Unit manifest Zod schema (#069). A `unit.json` is the project-side mirror of
-// the library-v2 Unit entity (`landing/lib/library-v2/types.ts`): a finished,
+// the library-v2 Unit entity (`ralphy-web/lib/library-v2/types.ts`): a finished,
 // curated deliverable assembled from copies of selected `artifacts/` files. It
 // lives at `<project>/units/<slug>/unit.json` and feeds the
 // publish path (#056) without re-deriving provenance.
@@ -12,7 +12,7 @@ import { z } from "zod";
 
 /**
  * The nine media formats. Mirrors `FormatId` in
- * `landing/lib/library-v2/types.ts` member-for-member so a `unit.json` written
+ * `ralphy-web/lib/library-v2/types.ts` member-for-member so a `unit.json` written
  * here is directly consumable by the library-v2 graph. The CLI keeps its own
  * copy (no cross-package import) but the members must stay in lockstep.
  *
@@ -32,6 +32,8 @@ export const UNIT_FORMATS = [
   "poster",
   "image",
   "article",
+  "post",
+  "thread",
 ] as const;
 export type UnitFormat = (typeof UNIT_FORMATS)[number];
 
@@ -173,6 +175,22 @@ export const UnitArticleMetaSchema = z.object({
 
 export type UnitArticleMeta = z.infer<typeof UnitArticleMetaSchema>;
 
+export const UNIT_TEXT_DESTINATIONS = [
+  "telegram",
+  "x",
+  "threads",
+  "devto",
+  "medium",
+  "x-article",
+] as const;
+
+export const UnitTextSchema = z.object({
+  body: z.string().min(1),
+  destinations: z.array(z.enum(UNIT_TEXT_DESTINATIONS)).min(1),
+});
+
+export type UnitText = z.infer<typeof UnitTextSchema>;
+
 /**
  * One publish attempt against one target platform (#501). Written by
  * `ralphy publish` / the `publish` node executor after pushing the unit to
@@ -230,7 +248,7 @@ export const UnitManifestSchema = z.object({
    * field is just the pointer. Optional/additive — old units omit it and still
    * validate. See `cli/lib/schemas/provenance-graph.ts` for the storage rationale.
    *
-   * ponytail: the publish path (landing/scripts/publish-entity.ts → UnitManifest)
+   * ponytail: the ralphy-web publish path consumes this UnitManifest
    * does not yet read `provenance_graph` / the sibling provenance.json when
    * building public library entities (#420 scope item). It is deliberately
    * deferred: publish-entity lives in the landing app (out of scope for this CLI
@@ -241,7 +259,7 @@ export const UnitManifestSchema = z.object({
   provenance_graph: z.string().optional(),
   /** Tags (#082): textual descriptors for finding similar videos. Filter-only —
    *  carried into the published Unit + the units `tags` column. Optional/additive,
-   *  kept in lockstep with `Unit.tags` in landing/lib/library-v2/types.ts. */
+   *  kept in lockstep with `Unit.tags` in ralphy-web/lib/library-v2/types.ts. */
   tags: z.array(z.string()).optional(),
   /** Original project-relative paths the media was copied from. */
   source_assets: z.array(z.string()).optional(),
@@ -255,12 +273,50 @@ export const UnitManifestSchema = z.object({
    * populates it, `media[0]` is the body `.md` it names via `article.body`.
    */
   article: UnitArticleMetaSchema.optional(),
+  /** Inline written deliverable and its intended publication rails. */
+  text: UnitTextSchema.optional(),
   /** Platform-shaped social copy + hashtags (#403). Optional/additive. */
   caption: UnitCaptionSchema.optional(),
   /** Prior captions, archived append-only when `unit caption --force` re-drafts. */
   caption_versions: z.array(UnitCaptionSchema).optional(),
   /** Publish provenance (#501): one record per publish attempt. APPEND-only. */
   publish: z.array(UnitPublishRecordSchema).optional(),
+}).superRefine((manifest, ctx) => {
+  const allowed =
+    manifest.format === "post"
+      ? new Set(["telegram", "x", "threads"])
+      : manifest.format === "thread"
+        ? new Set(["x", "threads"])
+        : manifest.format === "article"
+          ? new Set(["devto", "medium", "x-article"])
+          : null;
+
+  if ((manifest.format === "post" || manifest.format === "thread") && !manifest.text) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: `${manifest.format} units require text`,
+    });
+    return;
+  }
+  if (!manifest.text) return;
+  if (!allowed) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text", "destinations"],
+      message: `${manifest.format} units do not accept text destinations`,
+    });
+    return;
+  }
+  for (const destination of manifest.text.destinations) {
+    if (!allowed.has(destination)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["text", "destinations"],
+        message: `${destination} is not a destination for ${manifest.format} units`,
+      });
+    }
+  }
 });
 
 export type UnitManifest = z.infer<typeof UnitManifestSchema>;

@@ -11,9 +11,7 @@
 //     `<project>/postmortem/analytics-findings.json` (.vN versioned) and
 //     staged as WORKSPACE-tier memory proposals (promote via
 //     `ralphy memory approve`).
-// The farm door is the `analytics-pull` node executor
-// (cli/lib/workflow/executors/analytics.ts) — both run through
-// cli/lib/analytics/.
+// Both commands run through cli/lib/analytics/.
 
 import { Command } from "commander";
 import { out, ok } from "../lib/output.js";

@@ -17,7 +17,7 @@ Closes/advances:
 - [ ] `bun run lint` passes (eslint + tsc)
 - [ ] `bun run lint:errors` passes (catalog drift)
 - [ ] `bun run lint:help-examples` passes (landing ↔ --help parity)
-- [ ] `bun run docs:cli` regenerated and committed if a verb's `--help` changed
+- [ ] `bun run cli:surface:build` regenerated and committed if CLI help changed
 - [ ] If this is user-facing, [CONTRIBUTING](https://github.com/alecs5am/ralphy/blob/main/README.md#contributing) updated as needed
 
 ## Test plan

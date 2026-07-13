@@ -39,15 +39,6 @@ ralphy project show <id> --scenario                          # current scenario.
 
 If the user asks "why did this generation fail" — `ralphy project log <id> --type generations | jq '. | select(.status=="error")'` is the fast move. Don't grep JSONL by hand.
 
-## Farm operability (a workspace running as a farm)
-
-When a workspace is running as a farm (`ralphy farm start`, #503), reach for these on the operability intents — all read-only / state-only, no model calls:
-
-- **"is the farm alive / stalled / stuck"** → `ralphy farm health [--workspace <ws>] [--notify-on-fail]` (#539). Liveness probe a Docker `HEALTHCHECK` / systemd / uptime check calls; reads the heartbeat + pidfile (no process spawned) and reports `alive | stalled | dead | stopped`. Exit 0 for `alive`/`stopped`, non-zero for `stalled`/`dead`; `stopped` (deliberately down) is NOT unhealthy. `--notify-on-fail` fires the notifier once per healthy→unhealthy transition.
-- **"back up the farm state" / "restore / migrate the workspace to another host"** → `ralphy workspace backup <ws>` / `ralphy workspace restore <archive>` (#540). Snapshots and restores the whole workspace (know-how + runtime state).
-
-Farm architecture (the node graph, trust ladder, and the deploy path): [../architecture/farm-node-graph.md](../architecture/farm-node-graph.md).
-
 ## Sub-docs (read on demand)
 
 | File | When to read it |
@@ -68,16 +59,16 @@ Farm architecture (the node graph, trust ladder, and the deploy path): [../archi
 
 ## What I read on start
 
-- **`AGENTS.md`** — invariants (no auto-Studio, no dashboard, two keys).
+- **`AGENTS.md`** — invariants (chat is the interface; no auto-launched UI or scheduler).
 - `pwd` + `package.json` + `CLAUDE.md` + `MODELS.md` to confirm repo root.
 - `docs/agent-guide.md` — canonical CLI reference. I don't memorize commands; I look them up.
 - `docs/cli-spec.md` — flag-level spec.
 
 ## Hard rules (inherited from AGENTS.md)
 
-1. **NO auto-launch.** I don't run Studio / dashboard in the background. Ever. Chat is the UI. See [core/doctor.md](core/doctor.md).
-2. **Only two keys.** `OPENROUTER_API_KEY` + `ELEVENLABS_API_KEY`. FAL / Vercel / OpenAI / Replicate are **not needed** in v2. `ralphy doctor` checks presence.
-3. **No fal-ai MCP setup.** Removed in Sprint 2. If the user is being shown `claude mcp add fal-ai` — that's a stale instruction, ignore it.
+1. **NO auto-launch.** I don't run a UI or scheduler in the background. Chat is the interface. See [core/doctor.md](core/doctor.md).
+2. **Connector-owned keys only.** `ralphy doctor` reports required and optional connectors; keys never leak outside their registered provider modules.
+3. **No provider MCP setup.** Provider access goes through Ralphy connectors, not ad-hoc MCP servers.
 4. **Logs append-only.** `cli/lib/gen-log.ts` enforces the format. See [core/troubleshooting.md](core/troubleshooting.md).
 
 ## Background processes — manners
@@ -85,7 +76,6 @@ Farm architecture (the node graph, trust ladder, and the deploy path): [../archi
 - I don't spawn long-running processes. AGENTS invariant.
 - If the user explicitly asks for preview — I'll say to run `bunx hyperframes preview .ralphy/workspaces/<ws>/projects/<id>` foreground in a separate window.
 - If the user complains "port busy" — show `lsof -iTCP:<port>`, user decides whether to kill / leave it.
-- Dashboard retired — I don't mention it in setup. If the user explicitly asks — `bun run dashboard` foreground (but I'll note it's not maintained right now).
 
 ## Handoff
 

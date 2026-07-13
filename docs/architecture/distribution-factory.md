@@ -16,7 +16,7 @@ Make distribution a first-class production phase, not a manual last mile. Every 
 
 ### Non-goals
 
-- **No direct platform API upload.** Publishing stays manual-package-first (#458 acceptance #6; echoed in [`cloud-factory-design-seam.md`](cloud-factory-design-seam.md) §5). Token custody, per-platform ToS, and takedown risk make direct upload the last thing to add — behind explicit per-account consent.
+- **No new direct platform integration in this phase.** Token custody, per-platform ToS, and takedown risk remain separate connector concerns.
 - **No new caption/hashtag logic.** Copy is the unit's `UnitCaption` (#403), reused verbatim; the pack never re-derives it.
 - **No new media probing / spec table.** Channel specs are the #443 platform validator's; the pack consumes its verdict, it does not own a parallel spec table.
 - **No scheduler, performance import, or team-review workflow.** Listed as later extensions in the issue; not built.
@@ -85,7 +85,7 @@ The bundle is zipped in-process with **`adm-zip`** — the read/write zip librar
 ## 8. Honest gaps
 
 - **No direct platform upload.** Deliberate (§1). The pack is the upload-ready input; the upload is the user's (or a future, consent-gated, per-account service's).
-- **Generated-docs depth.** The auto-generated CLI reference (`docs-mintlify/reference/cli/unit.mdx`, `docs/cli-surface.generated.md`) captures the `package` subcommand description, not its nested options — a property of the doc generator, not this phase. `--bypass-readiness` / `--force` are discoverable via `ralphy unit package --help`.
+- **Generated-docs depth.** The in-repo `docs/cli-surface.generated.md` captures the `package` subcommand description, not every nested option. `--bypass-readiness` / `--force` remain discoverable through `ralphy unit package --help`; public reference pages are maintained in `ralphy-docs`.
 - **Safe-area is a declared geometric check, not a vision read.** The #443 validator compares a DECLARED safe inset to the platform chrome; it does not look at pixels. A future vision pass would close this.
 - **No scheduler / performance import / team review.** Later extensions per the issue; out of scope.
 
@@ -93,4 +93,4 @@ The bundle is zipped in-process with **`adm-zip`** — the read/write zip librar
 
 ## What this does NOT decide
 
-Direct-upload auth, platform token custody, a publish scheduler, and whether the cloud factory ([`cloud-factory-design-seam.md`](cloud-factory-design-seam.md)) ever ships. All deferred. The commitment of this phase: a correct, validated, readiness-gated, single-file package — the milestone the issue names as first.
+Direct-upload auth, platform token custody, and any unattended scheduler are deferred. The commitment of this phase is a correct, validated, readiness-gated, single-file package.

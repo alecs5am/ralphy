@@ -6,14 +6,13 @@
 // `POSTIZ_BASE_URL` (AGENTS.md invariant #1, extended for #501 the same way
 // firecrawl.ts was for #500). The agents-md invariants test allowlists exactly
 // this file. NOTE on the host guard: unlike fal/firecrawl/apify there is NO
-// fixed-host regex to scan for — Postiz is self-hosted (D-05,
-// docs/architecture/farm-node-graph.md), the base URL is user-supplied config,
+// fixed-host regex to scan for — Postiz is self-hosted, the base URL is user-supplied config,
 // so the env-var allowlist is the enforceable half of the invariant.
 //
 // Deliberately NOT registered in the provider registry (registry.ts BUNDLED):
 // publishing is not a generation Capability. This module follows the
 // firecrawl.ts connector shape (own env vars, narrow tolerant types, throws —
-// never process.exit()s) so the command / executor surface structured errors.
+// never process.exit()s) so commands surface structured errors.
 //
 // HTTP is injectable (`fetchImpl`) so tests run with zero network.
 

@@ -27,7 +27,7 @@ All project state lives under the gitignored `.ralphy/` root — never in chat. 
 | Generation history | `<project>/logs/generations.jsonl` (every model call, input/output/cost) | [`../../cli/lib/gen-log.ts`](../../cli/lib/gen-log.ts) → `ralphy project log <id>` |
 | User intent + skips | `<project>/logs/user-prompts.jsonl` | `ralphy project log-prompt` / `ralphy project timeline <id>` |
 | Queued work | `.ralphy/jobs.db` (status, `depends_on`, retry, cost) | [`../../cli/lib/jobs/db.ts`](../../cli/lib/jobs/db.ts) → `ralphy queue list` |
-| Raw media | `<project>/artifacts/<kind>/` (append-only) | `fd -H`, the [`../../studio/`](../../studio/) viewer, or the manifest |
+| Raw media | `<project>/artifacts/<kind>/` (append-only) | `ralphy project assets <id>`, `fd -H`, or the manifest |
 
 The bar: **every decision an agent needs to resume work is reconstructable from these files, with no chat dependency.**
 
@@ -126,8 +126,8 @@ So this reads as a bar, not a victory lap:
 - **No fused resume verb.** §2 — a fresh agent composes the snapshot from `project status --contract` + `project budget` + `project scorecard` + `eval.json`. The data is all present and cheap; a single `ralphy project resume <id>` payload does not exist yet.
 - **Open-world / provisional mode is unbuilt.** §5 demo #3 — the provisional-mode compiler is the still-open #454. Today an unknown brief gets the "ask one question, route to the closest supported mode" fallback, not an inferred provisional mode.
 - **Golden demos are not asserted fixtures.** §5 — the three flows are runnable-in-principle and documented, but there is no checked-in regression harness that exercises them on a cadence. #452 calls for "maintain at least three local proof workflows"; the maintenance loop is not yet wired.
-- **Spend enforcement is opt-in and project-local.** §1 — `ralphy project approve` records a per-project ceiling that `ralphy generate` checks ([`../../cli/lib/spend.ts`](../../cli/lib/spend.ts)); with no approval recorded, generation is unenforced, and there is no workspace- or account-level ceiling. A cross-project / cross-workspace budget is a [`cloud-factory-design-seam.md`](cloud-factory-design-seam.md) §4 concern, not built here.
-- **No async approval record.** Approvals are a synchronous chat turn the agent relays; the queue does not yet model `awaiting-approval → approved/denied` as job state (named as the seam in [`cloud-factory-design-seam.md`](cloud-factory-design-seam.md) §3). Local pipelines pause in chat, not in `jobs.db`.
+- **Spend enforcement is opt-in and project-local.** §1 — `ralphy project approve` records a per-project ceiling that `ralphy generate` checks ([`../../cli/lib/spend.ts`](../../cli/lib/spend.ts)); with no approval recorded, generation is unenforced, and there is no workspace- or account-level ceiling.
+- **No async approval record.** Approvals are a synchronous chat turn the agent relays; local pipelines pause in chat, not in `jobs.db`.
 
 These are the load-bearing items for the #452 program. The substrate is real and inspectable today; the gaps above are what stand between "a strong set of primitives" and "an agent can resume any project from disk alone with one call."
 
@@ -135,6 +135,5 @@ These are the load-bearing items for the #452 program. The substrate is real and
 
 - [`../playbooks/agent-production-contract.md`](../playbooks/agent-production-contract.md) — the canonical phase sequence (§3).
 - [`../playbooks/unit-lifecycle.md`](../playbooks/unit-lifecycle.md) — the end-to-end Unit lifecycle that reads the contract as its backbone.
-- [`cloud-factory-design-seam.md`](cloud-factory-design-seam.md) — the local→remote boundary this contract's local half is measured against.
 - [`../../cli/lib/contract.ts`](../../cli/lib/contract.ts) · [`../../cli/lib/spend.ts`](../../cli/lib/spend.ts) · [`../../cli/lib/scorecard.ts`](../../cli/lib/scorecard.ts) · [`../../cli/lib/jobs/db.ts`](../../cli/lib/jobs/db.ts) · [`../../cli/lib/gen-log.ts`](../../cli/lib/gen-log.ts) — the primitives this contract describes.
 - #454 — the open-world follow-up (§5 demo #3 / §7).

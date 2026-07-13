@@ -28,7 +28,7 @@ version drift between channels (per `09-D-05`).
           →  semver propose → patch / minor / major
           →  changelog      → grouped by Conventional Commits prefix
           →  bump           → package.json + cli/lib/version.ts + npm/package.json
-          →  docs-sync      → docs-mintlify/ refreshed if CLI changed
+          →  docs-sync      → sibling ralphy-docs refreshed if CLI changed
           →  tag + push     → kicks release.yml
           →  CI watch       → wait for the workflow to finish
           →  brew bump      → CI from the tap repo PRs the new version + sha256

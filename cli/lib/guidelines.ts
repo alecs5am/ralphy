@@ -5,13 +5,9 @@
 //   - guideline.json   metadata (slug, name, kind, models, tags, examples)
 //   - guideline.md     LLM-facing body (the actual prompt-writing rules)
 //
-// This module is the LIB half the headless paths use:
-//   • the #515 prompt lint validates `params.guidelines` slugs at
-//     `workflow lint` / `workspace export` time (unknown slug = lint error),
-//   • the #511/#512 executors FOLD the guideline body into the resolved
-//     prompt at execution time — the same rules the agent loads manually via
-//     `ralphy guideline show <slug>` (AGENTS.md invariant #13), applied when
-//     no agent reads AGENTS.md at 2am.
+// The CLI validates guideline slugs and folds the selected bodies into resolved
+// prompts. Agents can inspect the same rules with `ralphy guideline show <slug>`
+// before generation (AGENTS.md invariant #13).
 //
 // The fold is deterministic: the body is appended as a delimited STYLE RULES
 // block, never merged into the prose — sources stay readable and the fold is

@@ -2,7 +2,7 @@
 // recipe: a self-contained guide to reproduce ONE Unit end-to-end (from an empty
 // project to the final deliverable), leaving zero open questions for a human or
 // an agent. It mirrors the library-v2 `Blueprint` interface
-// (`landing/lib/library-v2/types.ts`) member-for-member.
+// (`ralphy-web/lib/library-v2/types.ts`) member-for-member.
 //
 // SETTLED DECISIONS (do not redesign):
 //   - LAYERS on top of the four block kinds (Template / Style / Recipe / Asset),
@@ -12,7 +12,7 @@
 //   - Cardinality: Unit 1→1 Blueprint. Carries `unitId` (= `Unit.id`).
 //
 // The CLI keeps its own copy of the shared enums (no cross-package import), but
-// the members MUST stay in lockstep with `landing/lib/library-v2/types.ts` — the
+// the members MUST stay in lockstep with `ralphy-web/lib/library-v2/types.ts` — the
 // same discipline `cli/lib/schemas/unit.ts` follows for `UNIT_FORMATS`.
 //
 // The shape is flat / JSON-serializable (no functions / symbols) so it can seed a
@@ -23,7 +23,7 @@ import { z } from "zod";
 
 /**
  * Pipeline stages a prompt or model-stack entry can target. Mirrors
- * `BlueprintStage` in `landing/lib/library-v2/types.ts` member-for-member.
+ * `BlueprintStage` in `ralphy-web/lib/library-v2/types.ts` member-for-member.
  */
 export const BLUEPRINT_STAGES = [
   "image",
@@ -38,7 +38,7 @@ export type BlueprintStage = (typeof BLUEPRINT_STAGES)[number];
 
 /**
  * Hard-asset kinds a Blueprint pins by file ref. Mirrors `BlueprintAssetKind`
- * in `landing/lib/library-v2/types.ts` member-for-member.
+ * in `ralphy-web/lib/library-v2/types.ts` member-for-member.
  */
 export const BLUEPRINT_ASSET_KINDS = [
   "character",
@@ -52,7 +52,7 @@ export type BlueprintAssetKind = (typeof BLUEPRINT_ASSET_KINDS)[number];
 
 /**
  * Concrete recipe / effect kinds. Mirrors `BlueprintRecipeKind` in
- * `landing/lib/library-v2/types.ts` member-for-member.
+ * `ralphy-web/lib/library-v2/types.ts` member-for-member.
  */
 export const BLUEPRINT_RECIPE_KINDS = [
   "ffmpeg",

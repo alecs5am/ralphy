@@ -318,7 +318,7 @@ export function banner(): void {
 / _, _/ /_/ / / /_/ / / / / /_/ /
 /_/ |_|\\__,_/_/\\.___/_/ /_/\\__, /
                           /____/`));
-  console.log(c.muted("            UGC video pipeline · ralphy.dev\n"));
+  console.log(c.muted("            agent content runtime · ralphy.dev\n"));
 }
 
 // ─── Convenience output helpers ──────────────────────────────────────────────

@@ -1,8 +1,7 @@
 // Unit-formation core (#069) — the library half of `ralphy unit`.
 //
-// Extracted from cli/commands/unit.ts (#511) so the CLI verb and the
-// `ralphy-unit` / `ralphy-social-copy` workflow-graph executors call the SAME
-// code path: COPY-never-move media selection, append-only versioned unit dirs
+// Extracted from cli/commands/unit.ts (#511) so every CLI entry point uses the
+// same code path: COPY-never-move media selection, append-only versioned unit dirs
 // (`units/<slug>` → `units/<slug>.v2` …), unit.json manifests, best-effort
 // provenance-graph capture, and the #403 caption write (prior captions
 // archived into caption_versions, never dropped).
@@ -15,19 +14,50 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { imageSize } from "image-size";
-import { projectDir } from "./paths.js";
+import { projectDir, workspaceDir, workspaceUnitsDir } from "./paths.js";
 import {
   UnitManifestSchema,
   type UnitArticleMeta,
   type UnitManifest,
   type UnitMediaMeta,
   type UnitProvenance,
+  type UnitText,
 } from "./schemas/unit.js";
 import { buildUnitCaption, type CaptionContext, type CaptionDraftFn } from "./social/caption.js";
 import { buildProvenanceGraph } from "./provenance.js";
 import { PROVENANCE_GRAPH_FILENAME } from "./schemas/provenance-graph.js";
 
 export const UNITS_DIRNAME = "units";
+
+export type UnitDestination =
+  | { kind: "project"; id: string }
+  | { kind: "workspace"; id: string };
+
+export function unitDestination(input: {
+  projectId?: string;
+  workspaceId?: string;
+}): UnitDestination {
+  const projectId = input.projectId?.trim();
+  const workspaceId = input.workspaceId?.trim();
+  if (Boolean(projectId) === Boolean(workspaceId)) {
+    throw new Error("unit requires exactly one project or workspace destination");
+  }
+  return projectId
+    ? { kind: "project", id: projectId }
+    : { kind: "workspace", id: workspaceId! };
+}
+
+export function unitOwnerDir(destination: UnitDestination): string {
+  return destination.kind === "project"
+    ? projectDir(destination.id)
+    : workspaceDir(destination.id);
+}
+
+export function destinationUnitsRoot(destination: UnitDestination): string {
+  return destination.kind === "project"
+    ? unitsRoot(projectDir(destination.id))
+    : workspaceUnitsDir(destination.id);
+}
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"]);
 const VIDEO_EXTS = new Set([".mp4", ".mov", ".webm", ".m4v"]);
@@ -322,7 +352,8 @@ export async function copyMedia(
 // ─── createUnit ──────────────────────────────────────────────────────────────
 
 export interface CreateUnitArgs {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   /** Kebab-case unit slug (validated by the caller via isValidUnitSlug). */
   slug: string;
   /** One of UNIT_FORMATS (validated by the caller). */
@@ -338,6 +369,9 @@ export interface CreateUnitArgs {
    * the first copied `.md` in `media`. `title` falls back to `args.title`.
    */
   article?: Omit<UnitArticleMeta, "body"> & { body?: string };
+  /** Inline prose for post/thread units, or a markdown article body. */
+  textBody?: string;
+  destinations?: UnitText["destinations"];
 }
 
 export interface CreateUnitResult {
@@ -356,13 +390,19 @@ export interface CreateUnitResult {
  * a schema-valid unit.json. Never moves or mutates the source `artifacts/`.
  */
 export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult> {
-  const projDir = projectDir(args.projectId);
-  const unitsDir = unitsRoot(projDir);
+  const destination = unitDestination(args);
+  const ownerDir = unitOwnerDir(destination);
+  const unitsDir = destinationUnitsRoot(destination);
   // Append-only: never overwrite an existing unit slug dir.
   const dirName = resolveNewUnitDirName(unitsDir, args.slug);
   const unitDir = path.join(unitsDir, dirName);
 
-  const media = await copyMedia(projDir, unitDir, args.sources);
+  const media = await copyMedia(ownerDir, unitDir, args.sources);
+  if (args.format === "article" && args.textBody && media.length === 0) {
+    await fs.mkdir(unitDir, { recursive: true });
+    await fs.writeFile(path.join(unitDir, "body.md"), args.textBody, "utf8");
+    media.push("body.md");
+  }
   const mediaMeta = buildMediaMeta(unitDir, media);
 
   // Provenance graph (#420) — best-effort capture of the reproduction chain
@@ -371,7 +411,8 @@ export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult
   // A capture failure must never block unit formation — fall back to no graph.
   let provenanceGraphFile: string | null = null;
   try {
-    const graph = await buildProvenanceGraph(args.projectId, args.slug);
+    if (destination.kind !== "project") throw new Error("workspace units have no project graph");
+    const graph = await buildProvenanceGraph(destination.id, args.slug);
     if (graph.nodes.length > 0) {
       await fs.writeFile(
         path.join(unitDir, PROVENANCE_GRAPH_FILENAME),
@@ -411,6 +452,9 @@ export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult
   }
 
   const hasProvenance = args.provenance && Object.keys(args.provenance).length > 0;
+  const text = args.textBody
+    ? { body: args.textBody, destinations: args.destinations ?? [] }
+    : undefined;
   const manifest: UnitManifest = {
     slug: args.slug,
     format: args.format,
@@ -423,6 +467,7 @@ export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult
     ...(args.title && { title: args.title }),
     ...(args.blurb && { blurb: args.blurb }),
     ...(article && { article }),
+    ...(text && { text }),
   };
   const parsed = UnitManifestSchema.parse(manifest);
   await writeUnitManifest(unitDir, parsed);

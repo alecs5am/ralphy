@@ -3,7 +3,7 @@
 // Read-only client for the PUBLIC content library. The library is ONE static
 // JSON document (`library.json`) served from Bunny CDN — the Supabase Postgres /
 // PostgREST backend was retired (June 2026). There is intentionally NO insert/
-// update/publish path here (publishing lives in landing/scripts/publish-entity.ts,
+// update/publish path here (publishing lives in the companion ralphy-web repo,
 // which edits the committed library.json and uploads it to Bunny).
 //
 // One fetch pulls the whole graph ({ formats, units, blocks, blueprints }); the

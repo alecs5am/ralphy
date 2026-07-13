@@ -5,8 +5,7 @@
 // whole value of "30+30+30 on two theses" vs 90 independent briefs.
 //
 // This module owns the DATA + the injection TEXT builder; the actual injection
-// reuses the publish path's description/frontmatter hook (the publish node
-// passes the built block through, see cli/lib/workflow/executors/publish.ts).
+// reuses the publish path's description/frontmatter hook.
 //
 // HONEST-URL RULE: a sibling URL is resolved ONLY from a real publish-result
 // record on the sibling's unit.json (#501 media publish[] / #527 article

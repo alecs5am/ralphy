@@ -67,12 +67,26 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
     expect(c.json.name).toBe("Fog Town");
     const wsDir = path.join(tmpRoot, ".ralphy", "workspaces", "fogtown");
     expect(fs.existsSync(path.join(wsDir, "workspace.json"))).toBe(true);
-    for (const sub of ["shared", "projects", "templates", "batches"]) {
+    for (const sub of [
+      "shared",
+      "shared/assets/images",
+      "shared/assets/videos",
+      "shared/assets/voiceover",
+      "shared/assets/music",
+      "shared/assets/sfx",
+      "shared/assets/fonts",
+      "projects",
+      "templates",
+      "batches",
+      "logs",
+      "units",
+    ]) {
       expect(fs.existsSync(path.join(wsDir, sub))).toBe(true);
     }
     const manifest = JSON.parse(fs.readFileSync(path.join(wsDir, "workspace.json"), "utf8"));
     expect(manifest).toMatchObject({ name: "Fog Town", slug: "fogtown", description: "horror universe" });
     expect(typeof manifest.created).toBe("string");
+    expect(manifest.profile.displayName).toBe("Fog Town");
 
     // list
     const l = ralphy(["workspace", "list"]);
@@ -133,6 +147,41 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
     const s = ralphy(["workspace", "show", "nope"]);
     expect(s.exitCode).not.toBe(0);
     expect(stderrErrorCode(s.stderr)).toBe("E_NOT_FOUND");
+  });
+
+  test("updates account profile and public channel identities", () => {
+    expect(ralphy(["workspace", "create", "acme", "--name", "Acme"]).exitCode).toBe(0);
+    const updated = ralphy([
+      "workspace",
+      "update",
+      "acme",
+      "--display-name",
+      "Acme Media",
+      "--bio",
+      "Practical engineering notes",
+      "--language",
+      "English",
+      "--timezone",
+      "Europe/London",
+      "--telegram",
+      "@acme",
+      "--x",
+      "@acme_dev",
+      "--devto",
+      "acme",
+    ]);
+    expect(updated.exitCode).toBe(0);
+    expect(updated.json.profile).toMatchObject({
+      displayName: "Acme Media",
+      bio: "Practical engineering notes",
+      language: "English",
+      timezone: "Europe/London",
+    });
+    expect(updated.json.channels).toMatchObject({
+      telegram: { handle: "@acme" },
+      x: { handle: "@acme_dev" },
+      devto: { handle: "acme" },
+    });
   });
 
   test("move refuses an unknown target workspace", () => {

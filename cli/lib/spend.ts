@@ -30,7 +30,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { projectDir, runDir, runWorkspace as runWorkspaceOf } from "./paths.js";
+import { projectDir } from "./paths.js";
 import { readGenerations } from "./gen-log.js";
 import { estimateVideoCostUsd } from "./or-catalog.js";
 import { imageCostUsd } from "./generate-batch.js";
@@ -46,7 +46,7 @@ const SFX_COST_USD = 0.02;
 /** A single recorded user approval. Append-only — never rewritten. */
 export interface Approval {
   /** What the approval covers: the whole project, a named batch, or a whole run (#481). */
-  scope: "project" | "batch" | "run";
+  scope: "project" | "batch";
   /** Hard USD cap on cumulative actual spend for the scope. */
   budgetCapUsd: number;
   /** Content modes this approval permits. Omitted/empty = any mode allowed. */
@@ -92,17 +92,11 @@ export interface CheckSpendResult {
   /** false when an active approval restricts modes and `mode` is not in them. */
   modeAllowed: boolean;
   /** Which ledger tier the active approval came from (#481). null = pass-through. */
-  scope?: "project" | "run" | null;
-  /** The run id the cap was resolved from, when scope === "run". */
-  runId?: string;
+  scope?: "project" | null;
 }
 
 function ledgerPath(projectId: string): string {
   return path.join(projectDir(projectId), SPEND_LEDGER_ARTIFACT);
-}
-
-function runLedgerPath(runId: string): string {
-  return path.join(runDir(runWorkspaceOf(runId), runId), SPEND_LEDGER_ARTIFACT);
 }
 
 // ── Path-parameterized ledger core ────────────────────────────────────────────
@@ -164,19 +158,6 @@ export async function recordApproval(
   return recordApprovalAt(ledgerPath(projectId), projectId, approval);
 }
 
-/** Read the run ledger, or null when none exists. */
-export async function readRunLedger(runId: string): Promise<SpendLedger | null> {
-  return readLedgerAt(runLedgerPath(runId));
-}
-
-/** Append a run-scoped approval to the run ledger (#481). */
-export async function recordRunApproval(
-  runId: string,
-  approval: Omit<Approval, "approvedAt" | "scope"> & { approvedAt?: string; scope?: Approval["scope"] },
-): Promise<SpendLedger> {
-  return recordApprovalAt(runLedgerPath(runId), runId, { ...approval, scope: "run" });
-}
-
 /** Sum of `cost_usd` over the project's generations.jsonl (actual spend). */
 export async function actualSpendUsd(projectId: string): Promise<number> {
   const rows = await readGenerations(projectId);
@@ -190,12 +171,6 @@ export async function actualSpendUsd(projectId: string): Promise<number> {
  * given member project ids. A run cap is a ceiling on TOTAL spend across ALL
  * members, not per-project, so this is the spent basis for the run tier.
  */
-export async function runActualSpendUsd(memberProjectIds: string[]): Promise<number> {
-  let total = 0;
-  for (const pid of memberProjectIds) total += await actualSpendUsd(pid);
-  return Number(total.toFixed(6));
-}
-
 /**
  * The active approval is the most recent one (last appended) — the latest
  * decision the user recorded. Returns null when the ledger is empty / absent.
@@ -241,8 +216,7 @@ function evaluateApproval(
   approval: Approval,
   spentUsd: number,
   input: CheckSpendInput,
-  scope: "project" | "run",
-  runId?: string,
+  scope: "project",
 ): CheckSpendResult {
   const estimate = Math.max(0, input.estimatedUsd || 0);
   const remainingUsd = Number((approval.budgetCapUsd - spentUsd - estimate).toFixed(6));
@@ -254,7 +228,7 @@ function evaluateApproval(
   const modeAllowed = !restrictsModes || (input.mode != null && approval.allowedModes!.includes(input.mode));
 
   const overBudget = spentUsd + estimate > approval.budgetCapUsd;
-  const reApprove = scope === "run" ? "`ralphy run approve`" : "`ralphy project approve`";
+  const reApprove = "`ralphy project approve`";
 
   let allowed = true;
   let reason: string | null = null;
@@ -265,12 +239,12 @@ function evaluateApproval(
     allowed = false;
     reason = `Mode "${input.mode ?? "(none)"}" is not in the approved modes (${approval.allowedModes!.join(", ")}).`;
   } else if (overBudget) {
-    const basis = scope === "run" ? "Run-wide spent" : "Spent";
+    const basis = "Spent";
     allowed = false;
     reason = `${basis} $${spentUsd.toFixed(2)} + estimated $${estimate.toFixed(2)} exceeds the approved cap $${approval.budgetCapUsd.toFixed(2)}.`;
   }
 
-  return { allowed, reason, capUsd: approval.budgetCapUsd, spentUsd, remainingUsd, expired, modeAllowed, scope, runId };
+  return { allowed, reason, capUsd: approval.budgetCapUsd, spentUsd, remainingUsd, expired, modeAllowed, scope };
 }
 
 /**
@@ -306,20 +280,7 @@ export async function checkSpend(
     return evaluateApproval(projApproval, projectSpent, input, "project");
   }
 
-  // 2. The run this project belongs to, if any, with a run ledger.
-  const { projectRun } = await import("./run.js");
-  const run = projectRun(projectId);
-  if (run) {
-    const runApproval = activeApproval(await readRunLedger(run.runId));
-    if (runApproval) {
-      const members = await runMemberProjectIds(run.runId);
-      const runSpent = await runActualSpendUsd(members);
-      return evaluateApproval(runApproval, runSpent, input, "run", run.runId);
-    }
-  }
-
-  // 3. Workspace default — not yet implemented (#481 §3 tier 3).
-  // 4. Pass-through (opt-in floor preserved).
+  // No project ledger means generation remains unenrolled and passes through.
   return {
     allowed: true,
     reason: null,
@@ -330,13 +291,6 @@ export async function checkSpend(
     modeAllowed: true,
     scope: null,
   };
-}
-
-/** Read a run's member project ids via the manifest (lazy import — see checkSpend). */
-async function runMemberProjectIds(runId: string): Promise<string[]> {
-  const { loadRun } = await import("./run.js");
-  const run = await loadRun(runId);
-  return run?.projectIds ?? [];
 }
 
 /**
@@ -387,58 +341,5 @@ export async function budgetSummary(projectId: string, now: Date = new Date()): 
     activeApproval: approval,
     expired,
     approvals: ledger?.approvals ?? [],
-  };
-}
-
-/** Run-wide budget summary for `ralphy run budget` (#481) — pure data → data. */
-export interface RunBudgetSummary {
-  runId: string;
-  hasLedger: boolean;
-  /** The run-wide cap (active run approval), or null when no run ledger. */
-  capUsd: number | null;
-  /** Run-wide actual spend (sum across all member projects). */
-  spentUsd: number;
-  /** cap - run-wide spent (null when no cap). */
-  remainingUsd: number | null;
-  overBudget: boolean;
-  activeApproval: Approval | null;
-  expired: boolean;
-  approvals: Approval[];
-  /** Per-project actual-spend breakdown across the run's members. */
-  byProject: Array<{ project: string; spentUsd: number }>;
-}
-
-/**
- * Build the run-wide budget summary: the active run cap, run-wide actual spend
- * (summed across ALL member projects), remaining, over-budget, the per-project
- * breakdown, and the full append-only approval history. Reads members via the
- * run manifest (lazy import — see checkSpend). The "estimated remaining queued
- * spend" lives in the command layer (it needs the jobs DB).
- */
-export async function runBudgetSummary(runId: string, now: Date = new Date()): Promise<RunBudgetSummary> {
-  const ledger = await readRunLedger(runId);
-  const approval = activeApproval(ledger);
-  const members = await runMemberProjectIds(runId);
-  const byProject: RunBudgetSummary["byProject"] = [];
-  let spentUsd = 0;
-  for (const pid of members) {
-    const s = await actualSpendUsd(pid);
-    byProject.push({ project: pid, spentUsd: s });
-    spentUsd += s;
-  }
-  spentUsd = Number(spentUsd.toFixed(6));
-  const expired = approval?.expiry ? Number.isFinite(Date.parse(approval.expiry)) && now.getTime() > Date.parse(approval.expiry) : false;
-  const cap = approval ? approval.budgetCapUsd : null;
-  return {
-    runId,
-    hasLedger: !!ledger,
-    capUsd: cap,
-    spentUsd,
-    remainingUsd: cap == null ? null : Number((cap - spentUsd).toFixed(6)),
-    overBudget: cap != null && spentUsd > cap,
-    activeApproval: approval,
-    expired,
-    approvals: ledger?.approvals ?? [],
-    byProject,
   };
 }

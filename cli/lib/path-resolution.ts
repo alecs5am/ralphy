@@ -29,6 +29,7 @@ import {
   projectDir,
   projectWorkspace,
   sharedDir,
+  workspaceDir,
 } from "./paths.js";
 
 /**
@@ -136,6 +137,26 @@ export function resolveProjectPath(p: string, projectId?: string): string {
   return cwdAbs;
 }
 
+/** Resolve a path for workspace-scoped generation: cwd first, then the workspace root and shared tree. */
+export function resolveWorkspacePath(p: string, workspaceId?: string): string {
+  if (!p) return p;
+  if (/^https?:\/\//i.test(p) || p.startsWith("data:")) return p;
+  const cleaned = normalizePathChars(p).path;
+  if (path.isAbsolute(cleaned)) return cleaned;
+
+  const cwdAbs = path.resolve(cleaned);
+  if (existsSync(cwdAbs)) return cwdAbs;
+  if (!workspaceId) return cwdAbs;
+
+  const workspaceAbs = path.join(workspaceDir(workspaceId), cleaned);
+  if (existsSync(workspaceAbs)) return workspaceAbs;
+  const sharedRoot = sharedDir(workspaceId);
+  const sharedAbs = cleaned.startsWith("shared/")
+    ? path.join(sharedRoot, cleaned.slice("shared/".length))
+    : path.join(sharedRoot, cleaned);
+  return existsSync(sharedAbs) ? sharedAbs : cwdAbs;
+}
+
 /**
  * Combined intake: normalize invisible whitespace (with a stderr warn) + run
  * project-relative resolution. Use this on every `--ref` / `--first-frame` /
@@ -148,11 +169,14 @@ export function intakePath(
   p: string,
   projectId: string | undefined,
   label = "path",
+  workspaceId?: string,
 ): string {
   if (!p) return p;
   if (/^https?:\/\//i.test(p) || p.startsWith("data:")) return p;
   const cleaned = normalizePathCharsWithWarn(p, label);
-  return resolveProjectPath(cleaned, projectId);
+  return workspaceId
+    ? resolveWorkspacePath(cleaned, workspaceId)
+    : resolveProjectPath(cleaned, projectId);
 }
 
 /**
@@ -186,11 +210,12 @@ export async function readPromptOrFile(opts: {
   prompt?: string;
   promptFile?: string;
   projectId?: string;
+  workspaceId?: string;
 }): Promise<string | null> {
   if (opts.prompt && opts.prompt.length > 0) return opts.prompt;
   if (opts.promptFile && opts.promptFile.length > 0) {
     const fs = await import("node:fs/promises");
-    const resolved = intakePath(opts.promptFile, opts.projectId, "prompt-file");
+    const resolved = intakePath(opts.promptFile, opts.projectId, "prompt-file", opts.workspaceId);
     return fs.readFile(resolved, "utf-8");
   }
   return null;
@@ -208,12 +233,13 @@ export async function readRefsOrFile(opts: {
   refs?: string[];
   refFile?: string;
   projectId?: string;
+  workspaceId?: string;
 }): Promise<string[] | undefined> {
   const inline = opts.refs && opts.refs.length > 0 ? opts.refs.slice() : [];
   let fileLines: string[] = [];
   if (opts.refFile && opts.refFile.length > 0) {
     const fs = await import("node:fs/promises");
-    const resolved = intakePath(opts.refFile, opts.projectId, "ref-file");
+    const resolved = intakePath(opts.refFile, opts.projectId, "ref-file", opts.workspaceId);
     const raw = await fs.readFile(resolved, "utf-8");
     fileLines = raw
       .split(/\r?\n/)
@@ -222,5 +248,5 @@ export async function readRefsOrFile(opts: {
   }
   const merged = [...inline, ...fileLines];
   if (merged.length === 0) return undefined;
-  return merged.map((r, i) => intakePath(r, opts.projectId, `ref[${i}]`));
+  return merged.map((r, i) => intakePath(r, opts.projectId, `ref[${i}]`, opts.workspaceId));
 }

@@ -39,12 +39,6 @@ import {
   injectDescription,
 } from "../../cli/lib/campaign/crosslink.js";
 import { computeCoverage } from "../../cli/lib/campaign/report.js";
-import {
-  getExecutor,
-  registeredExecutorTypes,
-  type ExecutorContext,
-} from "../../cli/lib/workflow/executors/index.js";
-import { WORKFLOW_NODE_TYPES, type WorkflowNode } from "../../cli/lib/schemas/workflow.js";
 import type { CallLLMResult } from "../../cli/lib/providers/types.js";
 
 let rootDir: string;
@@ -265,70 +259,6 @@ describe("next-cell selection", () => {
     for (const id of ["high", "mid", "low"]) c = stampCellProduced(wsDir, "agent-video", id, `p/${id}`);
     expect(nextUnproducedCell(c)).toBeNull();
     expect(unproducedCells(c)).toEqual([]);
-  });
-});
-
-// ─── campaign-next executor ──────────────────────────────────────────────────
-
-function makeCtx(over: Partial<ExecutorContext> = {}): ExecutorContext {
-  return {
-    workspace: "default",
-    workspaceDir: wsDir,
-    artifactsDir: path.join(wsDir, "artifacts"),
-    inputs: {},
-    log: async () => {},
-    reportCost: () => {},
-    ...over,
-  };
-}
-
-function makeNode(params: Record<string, unknown>, id = "next"): WorkflowNode {
-  return { id, type: "campaign-next", in: {}, params, retry: { max: 0, backoff: "exponential" }, on_fail: "halt", cache: "none", emit: true };
-}
-
-describe("campaign-next executor", () => {
-  const cells = [
-    { id: "high", thesisId: "studio", format: "article" as const, angle: "anchor", keyword: "ai video", channel: "github-pages" as const, priority: 9, status: "planned" as const },
-    { id: "low", thesisId: "earns", format: "video" as const, angle: "demo", keyword: "ai video", channel: "youtube" as const, priority: 1, status: "planned" as const },
-  ];
-  function planned() {
-    seedCampaign();
-    commitPlan(wsDir, "agent-video", { keywords: { head: ["ai video"], longTail: [], questions: [] }, inventory: cells });
-  }
-
-  test("registered as an ingestion node", () => {
-    expect(WORKFLOW_NODE_TYPES).toContain("campaign-next");
-    expect(registeredExecutorTypes()).toContain("campaign-next");
-  });
-
-  test("emits the highest-priority unproduced cell as a source-item", async () => {
-    planned();
-    const res = await getExecutor("campaign-next")!(makeNode({ campaign: "agent-video" }), makeCtx());
-    const items = res.output as Array<{ url: string; title: string; text: string }>;
-    expect(items.length).toBe(1);
-    expect(items[0]!.url).toBe("campaign://agent-video/high");
-    expect(items[0]!.title).toBe("anchor");
-    expect(items[0]!.text).toContain("format: article");
-  });
-
-  test("count drains multiple cells in drain order", async () => {
-    planned();
-    const res = await getExecutor("campaign-next")!(makeNode({ campaign: "agent-video", count: 2 }), makeCtx());
-    const items = res.output as Array<{ url: string }>;
-    expect(items.map((i) => i.url)).toEqual(["campaign://agent-video/high", "campaign://agent-video/low"]);
-  });
-
-  test("exhausted plan emits [] and no artifact", async () => {
-    planned();
-    stampCellProduced(wsDir, "agent-video", "high", "p/h");
-    stampCellProduced(wsDir, "agent-video", "low", "p/l");
-    const res = await getExecutor("campaign-next")!(makeNode({ campaign: "agent-video" }), makeCtx());
-    expect(res.output).toEqual([]);
-    expect(res.artifactPath).toBeUndefined();
-  });
-
-  test("missing params.campaign throws", async () => {
-    await expect(getExecutor("campaign-next")!(makeNode({}), makeCtx())).rejects.toThrow();
   });
 });
 

@@ -4,7 +4,7 @@ The #082/#083 classification discipline. Read this before you emit ANY `kind:"re
 
 ## The split (settled — do not redesign)
 
-`landing/lib/library-v2/types.ts` enshrines two distinct concepts. Every candidate "effect / treatment / look" you find in a project is one of them, never both:
+`../ralphy-web/lib/library-v2/types.ts` enshrines two distinct concepts. Every candidate "effect / treatment / look" you find in a project is one of them, never both:
 
 - **Recipe** = an **EXTRACTABLE, APPLICABLE artifact**. It STAYS a Block (`kind:"recipe"`) and earns a detail page. A recipe is the thing you *reproduce*.
 - **Tag** = a pure **textual descriptor** with NO extractable artifact. It is NOT a block, gets NO detail page, and becomes a `tags[]` entry on the Unit(s) that used it. A tag is the thing you *filter by*.

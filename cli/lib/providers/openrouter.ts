@@ -12,6 +12,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { logGeneration } from "../gen-log.js";
+import { generationDestination } from "../generation-destination.js";
 import {
   assetPath,
   protectExistingAsset,
@@ -396,7 +397,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     },
   );
 
-  const imgDest = assetPath(input.projectId, "images", `${input.slot}.png`);
+  const imgDest = assetPath(input, "images", `${input.slot}.png`);
   await protectExistingAsset(imgDest, input.overwrite);
   const localPath = await writeImageFromUrlOrDataUri(net.url, imgDest);
 
@@ -407,7 +408,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model,
   };
-  await logGeneration(input.projectId, {
+  await logGeneration(generationDestination(input), {
     slot: input.slot,
     provider: ID,
     model,
@@ -663,7 +664,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     throw err;
   }
 
-  const dest = assetPath(input.projectId, "videos", `${input.slot}.mp4`);
+  const dest = assetPath(input, "videos", `${input.slot}.mp4`);
   await fs.mkdir(path.dirname(dest), { recursive: true });
   const downloadUrl =
     job.unsigned_urls?.[0] ??
@@ -692,7 +693,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model,
   };
-  await logGeneration(input.projectId, {
+  await logGeneration(generationDestination(input), {
     slot: input.slot,
     provider: ID,
     model,
