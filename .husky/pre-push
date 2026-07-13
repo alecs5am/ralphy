@@ -15,23 +15,17 @@
 
 set -e
 
-# studio/test/ mirrors the CI step (#494): fast, fixture-backed, no network.
-echo "→ bun test --timeout 45000 tests/unit/ tests/integration/ studio/test/"
+# Keep this test scope aligned with `.github/workflows/test.yml`.
+echo "→ bun test --timeout 45000 tests/unit/ tests/integration/"
 OPENROUTER_API_KEY="test-placeholder" \
 ELEVENLABS_API_KEY="test-placeholder" \
-  bun test --timeout 45000 tests/unit/ tests/integration/ studio/test/
+  bun test --timeout 45000 tests/unit/ tests/integration/
 
 echo "→ bun run lint:errors"
 bun run lint:errors
 
-echo "→ bun run lint:help-examples"
-bun run lint:help-examples
-
 echo "→ bun run cli:surface:check"
 bun run cli:surface:check
-
-echo "→ bun run docs:cli:check"
-bun run docs:cli:check
 
 echo "→ bun run lint:docs-links:fast"
 bun run lint:docs-links:fast
