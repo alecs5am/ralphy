@@ -1,13 +1,12 @@
 // Postiz connector (#501) — the `publish` / `x-post` backend: pushes a Unit's
-// distribution pack to a self-hosted Postiz instance (open-source social
-// scheduler) which owns the per-platform OAuth + post queueing.
+// distribution pack to Postiz Cloud or a self-hosted instance, which owns the
+// per-platform OAuth + post queueing.
 //
 // THIS IS THE ONLY SOURCE FILE PERMITTED TO READ `POSTIZ_API_KEY` /
-// `POSTIZ_BASE_URL` (AGENTS.md invariant #1, extended for #501 the same way
-// firecrawl.ts was for #500). The agents-md invariants test allowlists exactly
-// this file. NOTE on the host guard: unlike fal/firecrawl/apify there is NO
-// fixed-host regex to scan for — Postiz is self-hosted, the base URL is user-supplied config,
-// so the env-var allowlist is the enforceable half of the invariant.
+// `POSTIZ_API_URL` / legacy `POSTIZ_BASE_URL` (AGENTS.md invariant #1,
+// extended for #501 the same way firecrawl.ts was for #500). The agents-md
+// invariants test allowlists exactly this file. A workspace may instead keep
+// the same values in its gitignored credentials.json.
 //
 // Deliberately NOT registered in the provider registry (registry.ts BUNDLED):
 // publishing is not a generation Capability. This module follows the
@@ -17,47 +16,85 @@
 // HTTP is injectable (`fetchImpl`) so tests run with zero network.
 
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { TerminalProviderError } from "./shared.js";
+import { workspaceDir } from "../paths.js";
 
 const LABEL = "Postiz";
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
-/** True iff BOTH the API key and the self-hosted base URL are configured. */
-export function postizAvailable(): boolean {
-  return Boolean(process.env.POSTIZ_API_KEY) && Boolean(process.env.POSTIZ_BASE_URL);
+type PostizConfig = { apiRoot: string; key: string };
+
+type WorkspaceCredentials = {
+  connectors?: {
+    postiz?: { apiKey?: string; apiUrl?: string };
+  };
+};
+
+function workspaceConfig(workspace?: string): { key?: string; apiUrl?: string } {
+  if (!workspace) return {};
+  try {
+    const credentials = JSON.parse(
+      readFileSync(path.join(workspaceDir(workspace), "credentials.json"), "utf8"),
+    ) as WorkspaceCredentials;
+    return {
+      key: credentials.connectors?.postiz?.apiKey,
+      apiUrl: credentials.connectors?.postiz?.apiUrl,
+    };
+  } catch {
+    return {};
+  }
 }
 
-/**
- * Resolve config or throw with a clear message. The base URL is REQUIRED
- * (not defaulted): self-hosted Postiz has no canonical SaaS host, so there is
- * nothing sane to fall back to.
- */
-function requireConfig(): { base: string; key: string } {
-  const key = process.env.POSTIZ_API_KEY;
-  const rawBase = process.env.POSTIZ_BASE_URL;
-  if (!key || !rawBase) {
+function publicApiRoot(raw: string, legacy = false): string {
+  const base = raw.replace(/\/+$/, "");
+  if (/\/public\/v1$/u.test(base)) return base;
+  return legacy ? `${base}/api/public/v1` : `${base}/public/v1`;
+}
+
+/** True when an env override or the requested workspace carries a Postiz key. */
+export function postizAvailable(workspace?: string): boolean {
+  return Boolean(process.env.POSTIZ_API_KEY || workspaceConfig(workspace).key);
+}
+
+/** Resolve env overrides or workspace config, defaulting to Postiz Cloud. */
+function requireConfig(workspace?: string): PostizConfig {
+  const stored = workspaceConfig(workspace);
+  const key = process.env.POSTIZ_API_KEY || stored.key;
+  const apiUrl = process.env.POSTIZ_API_URL || stored.apiUrl;
+  const legacyBase = process.env.POSTIZ_BASE_URL;
+  if (!key) {
     throw new TerminalProviderError(
-      `${LABEL}: POSTIZ_API_KEY and POSTIZ_BASE_URL must both be set. Postiz is self-hosted (no canonical SaaS host) — export POSTIZ_BASE_URL pointing at your instance (external, or the optional docker-compose bundle per D-05/#506) and POSTIZ_API_KEY from its settings page.`,
+      `${LABEL}: no API key configured. Save connectors.postiz.apiKey in the workspace credentials.json or set POSTIZ_API_KEY.`,
     );
   }
-  return { base: rawBase.replace(/\/+$/, ""), key };
+  if (legacyBase) return { apiRoot: publicApiRoot(legacyBase, true), key };
+  return {
+    apiRoot: publicApiRoot(apiUrl || "https://api.postiz.com"),
+    key,
+  };
 }
 
-/** `<base>/api/public/v1/<endpoint>` — the Postiz public API surface. */
-function apiUrl(base: string, endpoint: string): string {
-  return `${base}/api/public/v1/${endpoint}`;
+/** `<api-root>/<endpoint>` — Postiz Cloud or a full self-hosted Public API root. */
+function apiUrl(apiRoot: string, endpoint: string): string {
+  return `${apiRoot}/${endpoint}`;
 }
 
-async function request<T>(endpoint: string, init: RequestInit, fetchImpl: FetchLike): Promise<T> {
-  const { base, key } = requireConfig();
+async function request<T>(
+  endpoint: string,
+  init: RequestInit,
+  fetchImpl: FetchLike,
+  workspace?: string,
+): Promise<T> {
+  const { apiRoot, key } = requireConfig(workspace);
   const headers: Record<string, string> = {
     // Postiz public API auth: the raw key in Authorization (no Bearer prefix).
     Authorization: key,
     ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
   };
-  const url = apiUrl(base, endpoint);
+  const url = apiUrl(apiRoot, endpoint);
   const resp = await fetchImpl(url, { ...init, headers });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
@@ -102,6 +139,8 @@ export type PostizCreatePostRequest = {
   type: "schedule" | "now" | "draft";
   /** ISO datetime — required for type "schedule". */
   date?: string;
+  shortLink?: boolean;
+  tags?: Array<Record<string, unknown>>;
   posts: PostizPostEntry[];
   [k: string]: unknown;
 };
@@ -126,11 +165,15 @@ export type PostizAnalyticsRow = {
 // ─── public API ──────────────────────────────────────────────────────────────
 
 /** GET /integrations → the connected social accounts. */
-export async function postizIntegrations(fetchImpl: FetchLike = fetch): Promise<PostizIntegration[]> {
+export async function postizIntegrations(
+  fetchImpl: FetchLike = fetch,
+  workspace?: string,
+): Promise<PostizIntegration[]> {
   const r = await request<PostizIntegration[] | { integrations?: PostizIntegration[] }>(
     "integrations",
     { method: "GET" },
     fetchImpl,
+    workspace,
   );
   return Array.isArray(r) ? r : r.integrations ?? [];
 }
@@ -139,22 +182,25 @@ export async function postizIntegrations(fetchImpl: FetchLike = fetch): Promise<
 export async function postizUpload(
   filePath: string,
   fetchImpl: FetchLike = fetch,
+  workspace?: string,
 ): Promise<PostizUploadResult> {
   const bytes = await fs.readFile(filePath);
   const form = new FormData();
   form.append("file", new Blob([bytes]), path.basename(filePath));
-  return request<PostizUploadResult>("upload", { method: "POST", body: form }, fetchImpl);
+  return request<PostizUploadResult>("upload", { method: "POST", body: form }, fetchImpl, workspace);
 }
 
 /** POST /posts → create/schedule posts (one request may carry N integrations). */
 export async function postizCreatePost(
   req: PostizCreatePostRequest,
   fetchImpl: FetchLike = fetch,
+  workspace?: string,
 ): Promise<PostizCreatedPost[]> {
   const r = await request<PostizCreatedPost[] | PostizCreatedPost>(
     "posts",
     { method: "POST", body: JSON.stringify(req) },
     fetchImpl,
+    workspace,
   );
   return Array.isArray(r) ? r : [r];
 }
@@ -171,11 +217,13 @@ export async function postizPostAnalytics(
   postId: string,
   days = 7,
   fetchImpl: FetchLike = fetch,
+  workspace?: string,
 ): Promise<PostizAnalyticsRow[]> {
   const r = await request<PostizAnalyticsRow[] | { data?: PostizAnalyticsRow[] }>(
     `analytics/post/${encodeURIComponent(postId)}?date=${days}`,
     { method: "GET" },
     fetchImpl,
+    workspace,
   );
   return Array.isArray(r) ? r : r.data ?? [];
 }
@@ -232,9 +280,10 @@ export async function postizMetrics(
   postId: string,
   days = 7,
   fetchImpl: FetchLike = fetch,
+  workspace?: string,
 ): Promise<PostizMetricsResult> {
   try {
-    const raw = await postizPostAnalytics(postId, days, fetchImpl);
+    const raw = await postizPostAnalytics(postId, days, fetchImpl, workspace);
     return { ok: true, metrics: mapPostizAnalyticsRows(raw), raw };
   } catch (e) {
     return { ok: false, note: `postiz analytics unavailable for post ${postId}: ${(e as Error).message}` };

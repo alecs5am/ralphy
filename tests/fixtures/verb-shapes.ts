@@ -40,7 +40,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
             analyticsPath: ".ralphy/workspaces/default/projects/spring-2026-001/units/hero-cut/analytics.jsonl",
             records: [
               { target: "youtube", postId: "dQw4w9WgXcQ", status: "fetched", source: "youtube-analytics", metrics: { views: 4200, likes: 310, comments: 12 } },
-              { target: "tiktok", postId: "post-tt-1", status: "skipped", note: "postiz not configured (POSTIZ_API_KEY + POSTIZ_BASE_URL)" },
+              { target: "tiktok", postId: "post-tt-1", status: "skipped", note: "postiz not configured for this workspace" },
             ],
           },
         ],
@@ -828,6 +828,25 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
         unitDir: ".ralphy/workspaces/default/projects/ralphy-seo-001/units/agent-video-earns",
         dryRun: false,
         readiness: { verdict: "ship", bypassed: false },
+      },
+    },
+  ],
+  postiz: [
+    {
+      label: "postiz.status",
+      shape: {
+        workspace: "ralphy-automaton",
+        connected: true,
+        integrations: [
+          {
+            id: "integration-id",
+            name: "Ralphy UGC",
+            identifier: "telegram",
+            profile: null,
+            picture: "https://uploads.postiz.com/avatar.jpg",
+            disabled: false,
+          },
+        ],
       },
     },
   ],

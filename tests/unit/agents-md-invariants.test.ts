@@ -18,9 +18,9 @@
 //       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; FIRECRAWL_API_KEY
 //        in cli/lib/providers/firecrawl.ts only + APIFY_TOKEN in
 //        cli/lib/providers/apify.ts only — #500 ingestion connectors;
-//        POSTIZ_API_KEY + POSTIZ_BASE_URL in cli/lib/providers/postiz.ts only —
-//        #501 publish connector, env-var-scoped since the host is
-//        user-supplied/self-hosted per D-05; YOUTUBE_API_KEY + googleapis.com
+//        POSTIZ_API_KEY + POSTIZ_API_URL + legacy POSTIZ_BASE_URL in
+//        cli/lib/providers/postiz.ts only — #501 publish connector;
+//        YOUTUBE_API_KEY + googleapis.com
 //        in cli/lib/providers/youtube-analytics.ts only — #507 analytics
 //        connector; hosted Vercel / OpenAI-direct forbidden everywhere)
 //   #2  ralphy is the only entry-point            — partially TESTED
@@ -190,13 +190,12 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     },
   ];
 
-  // #501 publish connector — same file-scoped env-var discipline. Postiz is
-  // SELF-HOSTED: the base URL is user-supplied config, so there is NO fixed
-  // host to scan for — the env-var
-  // allowlist (both the key AND the base URL) is the enforceable half of the
-  // invariant, hence hostRe: null.
+  // #501 publish connector — same file-scoped env-var discipline. Cloud and
+  // self-hosted API roots are configurable, so the env-var allowlist is the
+  // enforceable half of the invariant, hence hostRe: null.
   const PUBLISH_CONNECTORS: Array<{ file: string; envVar: string; hostRe: null }> = [
     { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_KEY", hostRe: null },
+    { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_URL", hostRe: null },
     { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_BASE_URL", hostRe: null },
     // #527 article connectors — same file-scoped env-var discipline. dev.to +
     // Hashnode have FIXED hosts (dev.to / gql.hashnode.com), asserted below.

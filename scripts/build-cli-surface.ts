@@ -40,6 +40,14 @@ export interface VerbHelp {
   help: string;
 }
 
+function cleanHelp(help: string): string {
+  return help
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
+}
+
 export function renderSurfaceMarkdown(verbs: VerbHelp[]): string {
   const lines: string[] = [];
   lines.push("# Ralphy CLI Surface (generated)");
@@ -55,7 +63,7 @@ export function renderSurfaceMarkdown(verbs: VerbHelp[]): string {
     lines.push(`### \`ralphy ${v.name}\``);
     lines.push("");
     lines.push("```");
-    lines.push(v.help.trim());
+    lines.push(cleanHelp(v.help));
     lines.push("```");
     lines.push("");
   }
