@@ -136,11 +136,11 @@ export interface TargetPublishResult {
   integrationId: string;
   /**
    * `idempotent-skip` (#531): the exactly-once ledger already had a
-   * `published`/`scheduled` record for this (unit, target, slot), so the
+   * `submitted`/`published`/`scheduled` record for this (unit, target, slot), so the
    * platform was NOT called again — the recorded postId/scheduleAt are carried
    * through. It is a SUCCESS, not a failure (never counts toward `allFailed`).
    */
-  status: "scheduled" | "published" | "failed" | "idempotent-skip";
+  status: "scheduled" | "submitted" | "published" | "failed" | "idempotent-skip";
   postId: string | null;
   scheduleAt: string | null;
   error?: string;
@@ -202,7 +202,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
 
   let textBody: string | undefined;
   if (manifest.text?.body) {
-    textBody = await fs.readFile(path.join(unitDir, manifest.text.body), "utf8");
+    textBody = manifest.text.body;
   }
 
   // Upload the unit's ordered media ONCE; every target references the same set.
@@ -220,7 +220,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     const integrationId = bound[target];
 
     // Exactly-once guard (#531): if the ledger already carries a
-    // published/scheduled record for this (unit, target, slot), do NOT fire the
+    // submitted/published/scheduled record for this (unit, target, slot), do NOT fire the
     // platform again. Reuse the recorded postId AND the recorded scheduleAt (so
     // a re-run does not resample a new cadence time — #525 interplay).
     const key = publishIdempotencyKey({ workspace, projectId: ownerId, slug: opts.slug, target, slot });
@@ -236,12 +236,11 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
       continue;
     }
 
-    // #537: the remote-confirm SECOND belt would go HERE — after the ledger
+    // #537: a remote-confirm SECOND belt would go HERE — after the ledger
     // miss, before the fire below — closing the single-appendFileSync crash
-    // window (see ledger.ts header). It is BLOCKED: the Postiz public API has
-    // no scheduled-post lookup endpoint to query for an already-scheduled
-    // (unit, target, slot). When Postiz ships one, add a tolerant connector fn
-    // (mirror `postizPostAnalytics`) and skip-as-idempotent on a remote match.
+    // window (see ledger.ts header). Postiz now lists posts by date range, but
+    // exposes no stable client idempotency key; fuzzy content/date matching
+    // could skip two intentional same-copy posts, so the guard stays ledger-only.
 
     // Quota governor (#534): PER-TARGET, so a YT-exhausted + X-OK publish
     // reschedules only YT. When the platform has no headroom in the requested
@@ -250,7 +249,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     const q = rescheduleForQuota(workspace, target, requestedScheduleAt, now());
     const targetScheduleAt = q.rescheduled ? q.scheduleAt : requestedScheduleAt;
     const type = targetScheduleAt ? "schedule" : "now";
-    const okStatus = targetScheduleAt ? "scheduled" : "published";
+    const okStatus = targetScheduleAt ? "scheduled" : "submitted";
     const quotaFields = q.rescheduled ? { quotaRescheduledTo: q.scheduleAt, quotaReason: q.reason } : {};
 
     const identifier = integrations.find((integration) => integration.id === integrationId)?.identifier ?? target;
@@ -267,7 +266,7 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
       const created = await postizCreatePost(
         {
           type,
-          ...(targetScheduleAt && { date: targetScheduleAt }),
+          date: targetScheduleAt ?? now().toISOString(),
           shortLink: false,
           tags: [],
           posts: [entry],

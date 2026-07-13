@@ -30,6 +30,7 @@ import {
   readUnitManifest,
 } from "../../cli/lib/publish/publish";
 import { postizIntegrations } from "../../cli/lib/providers/postiz";
+import * as postizProvider from "../../cli/lib/providers/postiz";
 import type { UnitManifest } from "../../cli/lib/schemas/unit";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
@@ -105,14 +106,16 @@ function seedWorkspaceUnit(manifest: Partial<UnitManifest> = {}): string {
   const full = {
     slug: SLUG,
     format: "post",
-    media: ["post.md"],
+    media: [],
     created: new Date().toISOString(),
     title: "Workspace post",
-    text: { body: "post.md", destinations: ["x", "telegram"] },
+    text: {
+      body: "Ralphy turns your coding agent into a content farm.\n\n#buildinpublic",
+      destinations: ["x", "telegram"],
+    },
     ...manifest,
   };
   fs.writeFileSync(path.join(unitDir, "unit.json"), JSON.stringify(full, null, 2));
-  fs.writeFileSync(path.join(unitDir, "post.md"), "Ralphy turns your coding agent into a content farm.\n\n#buildinpublic");
   return unitDir;
 }
 
@@ -182,6 +185,22 @@ describe("payload mapping per platform", () => {
     expect(c).not.toContain("#extra");
   });
 
+  test("tiktok: direct-post settings satisfy the Postiz provider schema", () => {
+    expect(settingsForTarget("tiktok", m, "tiktok", { madeWithAi: true })).toEqual({
+      __type: "tiktok",
+      title: CAPTION.platform.shorts,
+      privacy_level: "PUBLIC_TO_EVERYONE",
+      duet: false,
+      stitch: false,
+      comment: true,
+      autoAddMusic: "no",
+      brand_content_toggle: false,
+      brand_organic_toggle: false,
+      video_made_with_ai: true,
+      content_posting_method: "DIRECT_POST",
+    });
+  });
+
   test("instagram: full reels caption + full tag set", () => {
     const c = captionForTarget("instagram", m);
     expect(c).toContain(CAPTION.platform.reels);
@@ -234,6 +253,7 @@ describe("payload mapping per platform", () => {
       JSON.stringify(["First post", "Second post"]),
     );
     expect(entry.value.map((value) => value.content)).toEqual(["First post", "Second post"]);
+    expect(entry.value.map((value) => value.image)).toEqual([[], []]);
     expect(entry.settings).toMatchObject({ __type: "x", who_can_reply_post: "everyone" });
   });
 });
@@ -267,6 +287,38 @@ describe("workspace Postiz config", () => {
       url: "https://api.postiz.com/public/v1/integrations",
       authorization: "workspace-key",
     });
+  });
+
+  test("lists posts in an explicit UTC date range", async () => {
+    const listPosts = (postizProvider as Record<string, unknown>).postizListPosts;
+    expect(typeof listPosts).toBe("function");
+    if (typeof listPosts !== "function") return;
+    let requestedUrl = "";
+    const fetchImpl = (async (url: string) => {
+      requestedUrl = url;
+      return json({ posts: [{ id: "post-1", releaseURL: "https://t.me/channel/1" }] });
+    }) as typeof fetch;
+    const posts = await listPosts(
+      "2026-07-13T00:00:00.000Z",
+      "2026-07-16T00:00:00.000Z",
+      fetchImpl,
+      WS,
+    );
+    expect(requestedUrl).toContain("posts?startDate=2026-07-13T00%3A00%3A00.000Z&endDate=2026-07-16T00%3A00%3A00.000Z");
+    expect(posts).toEqual([{ id: "post-1", releaseURL: "https://t.me/channel/1" }]);
+  });
+
+  test("deletes one Postiz post by id", async () => {
+    const deletePost = (postizProvider as Record<string, unknown>).postizDeletePost;
+    expect(typeof deletePost).toBe("function");
+    if (typeof deletePost !== "function") return;
+    let request: { url: string; method?: string } | null = null;
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      request = { url, method: init?.method };
+      return json({ id: "post-1" });
+    }) as typeof fetch;
+    expect(await deletePost("post-1", fetchImpl, WS)).toEqual({ id: "post-1" });
+    expect(request).toMatchObject({ url: "http://localhost:4200/api/public/v1/posts/post-1", method: "DELETE" });
   });
 });
 
@@ -316,13 +368,23 @@ describe("publishUnit", () => {
     expect(calls.filter((c) => c.url.includes("/upload")).length).toBe(1);
   });
 
-  test("no schedule → type now, status published, post ids captured", async () => {
+  test("no schedule → type now, status submitted until Postiz confirms delivery", async () => {
     seedUnit();
     const { fetchImpl, calls } = mockPostiz();
-    const res = await publishUnit({ projectId: PROJECT, slug: SLUG, targets: ["x"], fetchImpl });
+    const now = new Date("2026-07-13T17:59:00.000Z");
+    const res = await publishUnit({
+      projectId: PROJECT,
+      slug: SLUG,
+      targets: ["x"],
+      fetchImpl,
+      now: () => now,
+    });
     expect(res.type).toBe("now");
-    expect(res.results[0]).toMatchObject({ target: "x", status: "published", postId: "post-int-x-1" });
-    expect(calls.filter((c) => c.url.includes("/posts"))[0]!.body).toMatchObject({ type: "now" });
+    expect(res.results[0]).toMatchObject({ target: "x", status: "submitted", postId: "post-int-x-1" });
+    expect(calls.filter((c) => c.url.includes("/posts"))[0]!.body).toMatchObject({
+      type: "now",
+      date: now.toISOString(),
+    });
   });
 
   test("workspace text Unit publishes to X and Telegram", async () => {
@@ -336,7 +398,7 @@ describe("publishUnit", () => {
     });
     expect(res.workspace).toBe(WS);
     expect(res.project).toBeNull();
-    expect(res.results.map((result) => result.status)).toEqual(["published", "published"]);
+    expect(res.results.map((result) => result.status)).toEqual(["submitted", "submitted"]);
     const posts = calls.filter((call) => call.url.includes("/posts"));
     expect(posts.map((call) => (call.body as any).posts[0].value[0].content)).toEqual([
       "Ralphy turns your coding agent into a content farm.\n\n#buildinpublic",
@@ -359,10 +421,10 @@ describe("publishUnit", () => {
     const byTarget = Object.fromEntries(res.results.map((r) => [r.target, r]));
     expect(byTarget.youtube!.status).toBe("failed");
     expect(byTarget.youtube!.error).toContain("500");
-    expect(byTarget.tiktok!.status).toBe("published");
+    expect(byTarget.tiktok!.status).toBe("submitted");
     // Both attempts — the failure included — land in the provenance.
     const manifest = await readUnitManifest(unitDir);
-    expect(manifest!.publish!.map((p) => p.status).sort()).toEqual(["failed", "published"]);
+    expect(manifest!.publish!.map((p) => p.status).sort()).toEqual(["failed", "submitted"]);
   });
 
   test("all targets failing sets allFailed (callers escalate)", async () => {
@@ -406,6 +468,11 @@ describe("unit.json publish provenance", () => {
 // ─── readiness gate ──────────────────────────────────────────────────────────
 
 describe("readiness gate (L0 trust floor)", () => {
+  test("CLI calls immediate Postiz acceptance submitted, not published", () => {
+    const source = fs.readFileSync(path.join(REPO, "cli", "commands", "publish.ts"), "utf8");
+    expect(source).toContain('result.type === "schedule" ? "Scheduled" : "Submitted"');
+  });
+
   test("a project with no eval state does not pass", () => {
     seedUnit();
     const r = checkPublishReadiness(PROJECT);

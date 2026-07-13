@@ -1517,9 +1517,9 @@ Commands:
                        ralphy calendar show my-studio
   add [options] <ws>   Add a recurring slot (--weekday mon..sun --time HH:MM
                        --unit-type <format> [--platforms
-                       youtube,tiktok,instagram,x] [--timezone <IANA>, default:
-                       system] [--id <slot-id>]) OR a dated entry (--at <ISO>
-                       --unit-type <format> [--platforms ...] [--slot
+                       youtube,tiktok,instagram,x,telegram] [--timezone <IANA>,
+                       default: system] [--id <slot-id>]) OR a dated entry (--at
+                       <ISO> --unit-type <format> [--platforms ...] [--slot
                        <slot-id>]). Examples: ralphy calendar add my-studio
                        --weekday mon --time 09:00 --unit-type ugc-review
                        --platforms tiktok,youtube | ralphy calendar add
@@ -1605,11 +1605,11 @@ ____        __      __
 
 Usage: ralphy publish [options] <owner-or-unit> [unit-slug]
 
-Publish a formed unit to social platforms via Postiz (#501): binds accounts,
-uploads the unit's media, creates one post per target, and appends the results
-to the unit's publish provenance. Gated on the readiness scorecard (`ship`
-verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut
---targets tiktok,youtube --at 2026-07-13T09:00:00Z
+Submit or schedule a formed unit to social platforms via Postiz (#501): binds
+accounts, uploads the unit's media, creates one post per target, and appends the
+results to the unit's publish provenance. Gated on the readiness scorecard
+(`ship` verdict) unless --force. Example: ralphy publish spring-2026-001
+hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
 
 Arguments:
   owner-or-unit       Project id, or the workspace Unit slug when --workspace is
@@ -1621,7 +1621,7 @@ Options:
   --targets <list>    Comma-separated targets (youtube | tiktok | instagram | x
                       | telegram)
   --at <iso>          Schedule datetime (ISO). Omit to post immediately
-  --now               Post immediately (the default when --at is absent)
+  --now               Submit immediately (the default when --at is absent)
   --account <map>     Explicit account bindings, e.g.
                       "youtube=<integration-id>,x=<id>"
   --force <reason>    Bypass the readiness gate with an explicit reason (logged
@@ -1717,7 +1717,7 @@ Commands:
   workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units
   calendar                                         Workspace content calendar (#504): recurring posting slots (weekday/time/timezone, unit type, platforms) + dated entries with an idea → queued → produced → gated → scheduled → published lifecycle. Stored at <workspace>/calendar.json with an append-only calendar-events.jsonl history.
   campaign                                         Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped to a planned unit inventory across formats + channels, with cross-linking + a coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.
-  publish [options] <owner-or-unit> [unit-slug]    Publish a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
+  publish [options] <owner-or-unit> [unit-slug]    Submit or schedule a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
   postiz                                           Connect and inspect the active workspace's Postiz publishing account
   article-publish [options] <project> <unit-slug>  Publish an article unit (#526) to article rails (#527): github-pages (git-backed static site, commit-only), devto/hashnode (dev-blog APIs, draft by default), medium (park-for-human export pack). Per-target failure isolates. Canonical URL is enforced when the workspace declares a canonical site. Example: ralphy article-publish ralphy-seo-001 agent-video-earns --targets github-pages,devto --gh-repo ../ralphy-site --gh-content-dir _posts
   analytics                                        Per-post performance metrics for published units (#507): append-only analytics.jsonl snapshots + an evidence-grounded performance postmortem. Example: ralphy analytics pull spring-2026-001
