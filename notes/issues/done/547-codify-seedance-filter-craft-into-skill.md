@@ -1,8 +1,8 @@
 # Codify the seedance safety/privacy filter field guide into the seedance-prompts skill
 
-> **Status:** todo
+> **Status:** done — 2026-07-21 (Parts A+C landed; Part B moot — `reroute-rules.ts` relocated to the companion automation repo in the #67b26c4d split)
 > **Filed:** 2026-07-13
-> **Folder:** issues
+> **Folder:** issues/done
 > **Severity:** medium
 > **Category:** craft-as-data / skills
 
