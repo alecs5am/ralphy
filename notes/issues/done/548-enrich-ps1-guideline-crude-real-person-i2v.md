@@ -1,8 +1,8 @@
 # Enrich the indie-ps1-ps2-horror guideline with the crude-real-person + i2v-hold tricks
 
-> **Status:** todo
+> **Status:** done — 2026-07-21
 > **Filed:** 2026-07-13
-> **Folder:** issues
+> **Folder:** issues/done
 > **Severity:** low
 > **Category:** guidelines / craft-as-data
 
