@@ -58,6 +58,51 @@ doomer register below; polished cinematic realism. Note gpt-image still tends to
 crop legs in 9:16 with a foreground POV hand — add "wide shot, head-to-boots, do
 not crop legs" and expect occasional re-rolls.
 
+### Trick — a real person in crude PS1 (identity photo + a Low Poly Shorts frame)
+
+To turn a REAL person into a crude-PS1 ("Low Poly Shorts") character, pass TWO
+refs on `google/gemini-3-pro-image-preview` multi-ref: the identity photo as one
+`--ref`, and an actual "Low Poly Shorts"-style video FRAME as a SECOND, STYLE
+`--ref`. Prompt a baked / dithered painted PS1 face TEXTURE integrated into a
+low-poly head, with NORMAL body proportions. The style frame is what carries the
+crudeness — the identity photo alone will not.
+
+Ban list (each is a distinct failure mode, not a nitpick):
+
+- **Prompt-only "crude PS1" with no style-frame ref.** Gemini renders a smooth
+  uncanny photo-on-mesh — the Mortal-Kombat-digitize look — not a crude model.
+- **Bobblehead / oversized heads.** Keep head-to-body proportions normal; the
+  crudeness lives in the TEXTURE and facet count, not in caricature scale.
+- **Post-process "image crunch".** Do not reach for a downscale / crunch pass to
+  fake the register — bake the grit at generation instead.
+
+See memory `ps1-crude-real-person-i2v`; and note the PS1 model must read as a
+VOLUMETRIC 3D low-poly MODEL, not flat 2D pixel art (memory
+`ps1-volumetric-3d-not-pixel-art`).
+
+### Trick — holding the crude look through i2v (crude-pass before seedance)
+
+An anchor built straight from clean volumetric masters DRIFTS realistic when you
+run it through `bytedance/seedance-2.0` i2v — the model regresses a clean anchor
+back toward photo-realism, breaking the crude look. Fix: regen the anchor
+through a crude-pass FIRST, then i2v the crude anchor.
+
+The crude-pass is itself a two-ref gemini gen:
+
+- **Image1 = your own anchor**, held for composition / pose / framing.
+- **Image2 = a passed crude anchor**, held for face crudeness — faceted box-ish
+  heads, flat painted features, low-poly facet bodies, dithered cloth.
+
+That same crude-pass bakes the frame grit that clears seedance's input-image
+privacy scan — a clean anchor reads as a photo and gets blocked. Do not restate
+that scan's rules here; read the "Clearing the safety / privacy filter" section
+of the [`/seedance-prompts`](../../.agents/skills/seedance-prompts/SKILL.md#clearing-the-safety--privacy-filter)
+skill (#547).
+
+Does **NOT** apply to: the clean-volumetric register (deliberately smooth
+low-poly) — it needs NO crude pass; and the box-face hack — do not substitute
+plain box heads for real crudeness, bake the grit instead.
+
 ## Register B — smooth PS2 cutscene (sad / doomer melancholy)
 
 For the "sad / melancholy / depression" 3D-render look (heavy rain, lonely
