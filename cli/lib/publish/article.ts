@@ -104,9 +104,27 @@ export function renderFrontmatter(article: UnitArticleMeta, canonicalUrl: string
   return lines.join("\n");
 }
 
+/**
+ * Child env with the ambient git repo-location vars stripped. Git exports
+ * GIT_DIR / GIT_INDEX_FILE (etc.) to every hook, and those OVERRIDE `cwd` for
+ * repo discovery — so a `ralphy article-publish` invoked from inside a git hook
+ * or a CI wrapper would commit into the WRONG repository. Passing an explicit
+ * `cwd` is not enough; the vars have to go.
+ */
+function gitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const k of [
+    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG",
+  ]) {
+    delete env[k];
+  }
+  return env;
+}
+
 /** Run git in `repoDir`, throwing a TerminalProviderError on non-zero exit. */
 function git(repoDir: string, args: string[]): string {
-  const r = spawnSync("git", args, { cwd: repoDir, encoding: "utf8" });
+  const r = spawnSync("git", args, { cwd: repoDir, encoding: "utf8", env: gitEnv() });
   if (r.status !== 0) {
     throw new TerminalProviderError(`git ${args[0]} failed: ${(r.stderr || r.stdout || "").trim().slice(0, 300)}`);
   }

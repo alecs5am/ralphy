@@ -25,6 +25,24 @@ import {
 import { readUnitManifest, unitDirFor } from "../../cli/lib/publish/publish";
 import type { UnitManifest } from "../../cli/lib/schemas/unit";
 
+/**
+ * Run git against `repo` with the ambient git repo-location vars stripped.
+ * Git exports GIT_DIR / GIT_INDEX_FILE to every hook, and they OVERRIDE `cwd`:
+ * without this scrub, running the suite from the pre-commit hook pointed these
+ * `init` / `config` calls at the developer's REAL repository and wrote
+ * `user.name = T` + `core.bare` into its config (observed 2026-07-27).
+ */
+function gitIn(repo: string, args: string[]) {
+  const env = { ...process.env };
+  for (const k of [
+    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG",
+  ]) {
+    delete env[k];
+  }
+  return spawnSync("git", args, { cwd: repo, encoding: "utf8", env });
+}
+
 const PROJECT = "ralphy-seo-527";
 const SLUG = "agent-video-earns";
 const WS = "default";
@@ -192,7 +210,7 @@ describe("github-pages (git-backed, commit-only)", () => {
   function initRepo(): string {
     const repo = path.join(tmp.dir, "site-repo");
     fs.mkdirSync(repo, { recursive: true });
-    const g = (args: string[]) => spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+    const g = (args: string[]) => gitIn(repo, args);
     g(["init", "-q"]);
     g(["config", "user.email", "t@t.dev"]);
     g(["config", "user.name", "T"]);
@@ -220,18 +238,18 @@ describe("github-pages (git-backed, commit-only)", () => {
 
     // Exactly ONE new commit landed; the repo history was appended to (init +
     // article), never rewritten (no reset / force-push observable in the log).
-    const log = spawnSync("git", ["log", "--oneline"], { cwd: repo, encoding: "utf8" }).stdout.trim().split("\n");
+    const log = gitIn(repo, ["log", "--oneline"]).stdout.trim().split("\n");
     expect(log.length).toBe(2);
     expect(log[0]).toContain("Add article");
     // No files deleted from the tree.
-    const status = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout.trim();
+    const status = gitIn(repo, ["status", "--porcelain"]).stdout.trim();
     expect(status).toBe("");
   });
 
   test("dry-run prints the file(s) without committing", async () => {
     seedArticleUnit();
     const repo = initRepo();
-    const before = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).stdout.trim();
+    const before = gitIn(repo, ["rev-parse", "HEAD"]).stdout.trim();
     const res = await publishArticle({
       projectId: PROJECT,
       slug: SLUG,
@@ -242,7 +260,7 @@ describe("github-pages (git-backed, commit-only)", () => {
     expect(res.results[0]!.status).toBe("published");
     // No file written, no commit.
     expect(fs.existsSync(path.join(repo, "_posts", `${SLUG}.md`))).toBe(false);
-    const after = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).stdout.trim();
+    const after = gitIn(repo, ["rev-parse", "HEAD"]).stdout.trim();
     expect(after).toBe(before);
     // dry-run appends NO provenance record.
     const manifest = await readUnitManifest(unitDirFor(PROJECT, SLUG));
