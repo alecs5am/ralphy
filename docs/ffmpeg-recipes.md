@@ -12,6 +12,7 @@ Implementation: `cli/lib/ffmpeg-recipes.ts`. Uses the system `ffmpeg` (Homebrew)
 | Cut a single clip out of a long source file | `extractSegment` |
 | Concatenate already-rendered MP4s without re-encode | `concatLossless` |
 | Normalize loudness for TikTok | `loudnorm` |
+| Flatten a cue sheet of SFX one-shots into one track | `audioStem` |
 | Music under VO with ducking | `sidechainCompress` |
 | iPhone HDR video into SDR for shorts | `tonemapHDR` |
 | Burn .srt subtitles into a final mp4 (post-render) | `burnSubtitles` |
@@ -129,9 +130,31 @@ await burnSubtitles({
 
 **In our stack:** captions are normally embedded in the HyperFrames composition via registry caption-style blocks (`bunx hyperframes add <slug>`). `burnSubtitles` is needed only for legacy `.srt` flows.
 
+## Recipe 7: `audioStem` (#554)
+
+Flatten N short SFX one-shots into ONE pre-mixed stem on ONE track. HyperFrames cannot overlap clips on the same track, and short same-track media is unreliable during capture (#047) — a sound-design pass with 80+ overlapping cues has to become a stem, not 80 `<audio>` elements.
+
+```bash
+ralphy audio stem --project <id> --cues cues.json --out sfx-stem --duration 30 --target-lufs -20
+```
+
+```ts
+import { resolveCueSheet, audioStem } from "./cli/lib/ffmpeg-recipes.js";
+
+const cues = resolveCueSheet(
+  { fps: 30, cues: [{ frame: 160, slot: "click-01", gainDb: -9 }] },
+  ".ralphy/workspaces/<ws>/projects/<id>/artifacts/sfx",
+);
+await audioStem({ cues, dst: "…/artifacts/sfx/sfx-stem.mp3", durationSec: 30, targetLufs: -20 });
+```
+
+Cue times are authored in **seconds** (`at`) or **frames** (`frame` + a top-level `fps` — the form to use when the composition timeline is in frames). The graph is one `adelay=<ms>|<ms>,volume=<g>dB` chain per cue → `amix=inputs=N:normalize=0` (authored gains survive) → `alimiter` (stacked transients) → `apad,atrim` (exact duration) → the two-pass loudness pass. An empty cue sheet, a cue with no time, or a slot with no file on disk all fail the run instead of emitting a half-silent stem.
+
 ## Anti-patterns
 
 - **Re-encode while concatenating identical files** — wastes time and quality. Use `concatLossless`.
+- **One `<audio>` element per SFX one-shot** — same-track clips can't overlap. Build a stem with `audioStem`.
+- **`loudnorm` single-pass on transient-dense audio** — dynamic mode misses the target by several LU. The recipe measures first by default; only pass `twoPass: false` when the extra analysis pass genuinely doesn't pay.
 - **`extractSegment` without padding** — clips word starts/ends. Add 200ms.
 - **Loudnorm each track independently then mix** — final can come out super-quiet or peak. Mix → then loudnorm.
 - **Subtitles before other filters** — they get rescaled during tonemap and become unreadable. Subtitles **last**.

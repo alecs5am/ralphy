@@ -87,6 +87,17 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   audio: [
     { label: "audio.normalize", shape: { src: "vo.mp3", dst: "vo.norm.mp3", target: -16, truePeak: -1.5, lra: 11 } },
     { label: "audio.concat", shape: { srcs: ["a.mp3", "b.mp3"], dst: "stitched.mp3" } },
+    {
+      label: "audio.stem",
+      shape: {
+        project: "nightmaker-001",
+        dst: "artifacts/sfx/sfx-stem.mp3",
+        cues: 83,
+        duration: null,
+        targetLufs: -20,
+        limit: 0.89,
+      },
+    },
   ],
   batch: [
     {

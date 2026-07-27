@@ -7,12 +7,16 @@
 
 import { Command } from "commander";
 import path from "node:path";
+import fs from "node:fs";
 import {
   loudnorm,
   sidechainCompress,
   concatLossless,
   mixMusic,
+  audioStem,
+  resolveCueSheet,
 } from "../lib/ffmpeg-recipes.js";
+import { artifactKindDir } from "../lib/paths.js";
 import { out, ok, err } from "../lib/output.js";
 
 export function audioCmd() {
@@ -29,6 +33,11 @@ export function audioCmd() {
     .option("--target <lufs>", "Target integrated loudness", (v) => Number(v), -16)
     .option("--true-peak <dbtp>", "True-peak ceiling", (v) => Number(v), -1.5)
     .option("--lra <lu>", "Loudness range", (v) => Number(v), 11)
+    .option(
+      "--single-pass",
+      "Skip the measurement pass (dynamic-mode loudnorm — misses the target on transient-dense audio)",
+      false,
+    )
     .option("--project <id>", "Project ID for log line")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
@@ -39,11 +48,19 @@ export function audioCmd() {
           target: opts.target,
           truePeak: opts.truePeak,
           loudnessRange: opts.lra,
+          twoPass: !opts.singlePass,
           projectId: opts.project,
           note: opts.note,
         });
         ok(`Loudness-normalized → ${dst}`);
-        out({ src: opts.in, dst, target: opts.target, truePeak: opts.truePeak, lra: opts.lra });
+        out({
+          src: opts.in,
+          dst,
+          target: opts.target,
+          truePeak: opts.truePeak,
+          lra: opts.lra,
+          twoPass: !opts.singlePass,
+        });
       } catch (e: any) {
         err(`loudnorm failed: ${e?.message || e}`);
       }
@@ -128,6 +145,63 @@ export function audioCmd() {
         out({ src: opts.in, music: opts.music, dst, volume: opts.volume });
       } catch (e: any) {
         err(`mix-music failed: ${e?.message || e}`);
+      }
+    });
+
+  // ── stem (cue sheet → one pre-mixed SFX track) ─────────────────────────
+  cmd
+    .command("stem")
+    .description(
+      "Flatten a cue sheet of SFX one-shots into ONE pre-mixed stem (delay + gain per cue, amix, limiter). " +
+        "HyperFrames cannot overlap short clips on one track — a stem is the correct shape.",
+    )
+    .requiredOption("--project <id>", "Project ID — slots resolve against artifacts/sfx/")
+    .requiredOption(
+      "--cues <path>",
+      'Cue sheet JSON: [{ "at": 5.333, "slot": "click-01", "gainDb": -9 }] or { "fps": 30, "cues": [{ "frame": 160, ... }] }',
+    )
+    .requiredOption("--out <slot>", "Output slot — written to artifacts/sfx/<slot>.mp3")
+    .option("--duration <sec>", "Pin the stem to exactly N seconds (pad / trim)", (v) => Number(v))
+    .option("--target-lufs <lufs>", "Two-pass loudnorm target for the stem", (v) => Number(v), -20)
+    .option("--no-loudnorm", "Skip the loudness pass — keep the raw authored cue gains")
+    .option("--limit <n>", "alimiter ceiling (linear)", (v) => Number(v), 0.89)
+    .option("--force-overwrite", "Skip the .vN collision archive", false)
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const sfxDir = artifactKindDir(opts.project, "sfx");
+        const sheet = JSON.parse(fs.readFileSync(path.resolve(opts.cues), "utf8"));
+        const cues = resolveCueSheet(sheet, sfxDir);
+        const missing = [...new Set(cues.map((c) => c.src))].filter((s) => !fs.existsSync(s));
+        if (missing.length) {
+          err(
+            `stem failed: ${missing.length} cue slot(s) not found under ${sfxDir}: ` +
+              missing.map((m) => path.basename(m)).join(", "),
+          );
+          return;
+        }
+        const slot = path.basename(opts.out, path.extname(opts.out));
+        const dst = await audioStem({
+          cues,
+          dst: path.join(sfxDir, `${slot}.mp3`),
+          durationSec: opts.duration,
+          targetLufs: opts.loudnorm === false ? undefined : opts.targetLufs,
+          limit: opts.limit,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Stem built from ${cues.length} cues → ${dst}`);
+        out({
+          project: opts.project,
+          dst,
+          cues: cues.length,
+          duration: opts.duration ?? null,
+          targetLufs: opts.loudnorm === false ? null : opts.targetLufs,
+          limit: opts.limit,
+        });
+      } catch (e: any) {
+        err(`stem failed: ${e?.message || e}`);
       }
     });
 

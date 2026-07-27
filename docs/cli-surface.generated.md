@@ -1343,7 +1343,6 @@ Layout:
 
 Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
 index points at the newest version; pass --force-overwrite for in-place replace.
-Current dirs: /Users/maximovchinnikov/github/ralphy/ralphy/.ralphy/memory
 ```
 
 ### `ralphy lessons`
@@ -1877,6 +1876,10 @@ Commands:
   mix-music [options]  Overlay a music bed onto a video at a fixed volume — no
                        ducking, no fades. Single-call surface for A/B preview
                        workflows.
+  stem [options]       Flatten a cue sheet of SFX one-shots into ONE pre-mixed
+                       stem (delay + gain per cue, amix, limiter). HyperFrames
+                       cannot overlap short clips on one track — a stem is the
+                       correct shape.
   concat [options]     Lossless concat of audio segments via the concat demuxer
   help [command]       display help for command
 ```

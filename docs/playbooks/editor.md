@@ -25,9 +25,11 @@ ralphy generate captions --project <id> --audio <vo.mp3>     # → captions.json
 bunx hyperframes transcribe --in <vo.wav> -o captions.json
 
 # Audio recipes — wrap cli/lib/ffmpeg-recipes.ts
-ralphy audio loudnorm  --in <vo.mp3>  --out <vo-norm.mp3>           # -16 LUFS for TikTok / Reels
+ralphy audio loudnorm  --in <vo.mp3>  --out <vo-norm.mp3>           # -16 LUFS for TikTok / Reels (two-pass)
 ralphy audio sidechain --voice <vo>   --music <m> --out <mix.mp3>   # duck music under VO
 ralphy audio concat    --files a.mp3,b.mp3,c.mp3 --out concat.mp3   # lossless concat
+ralphy audio stem --project <id> --cues cues.json --out sfx-stem \
+  --duration 30 --target-lufs -20                                  # N SFX one-shots → ONE pre-mixed stem
 
 # Video recipes
 ralphy video extract-segment --in <src.mp4> --start 1.2 --end 4.5 --out <seg.mp4>

@@ -214,7 +214,60 @@ export type LoudnormInput = {
   truePeak?: number;
   /** Loudness range, default 11 LU */
   loudnessRange?: number;
+  /**
+   * Measure first, then apply the measured values (default true). Single-pass
+   * loudnorm runs in dynamic mode and misses the target on transient-dense
+   * material — an SFX stem asked for -20 LUFS came out at -16.0. Pass false to
+   * force the old one-shot behaviour.
+   */
+  twoPass?: boolean;
 } & FFmpegOptions;
+
+/** The five `measured_*` / offset values loudnorm's `print_format=json` emits. */
+export type LoudnormMeasurement = {
+  input_i: number;
+  input_tp: number;
+  input_lra: number;
+  input_thresh: number;
+  target_offset: number;
+};
+
+/**
+ * Pull the loudnorm JSON summary out of ffmpeg stderr. Returns null when the
+ * block is absent or carries a non-finite value (`-inf` on pure silence), which
+ * is the caller's signal to fall back to a single pass. Exported for tests.
+ */
+export function parseLoudnormMeasurement(stderr: string): LoudnormMeasurement | null {
+  const num = (key: string): number => {
+    const m = stderr.match(new RegExp(`"${key}"\\s*:\\s*"?(-?[\\d.]+|-?inf)"?`));
+    return m ? parseFloat(m[1]!) : NaN;
+  };
+  const out = {
+    input_i: num("input_i"),
+    input_tp: num("input_tp"),
+    input_lra: num("input_lra"),
+    input_thresh: num("input_thresh"),
+    target_offset: num("target_offset"),
+  };
+  return Object.values(out).every((v) => Number.isFinite(v)) ? out : null;
+}
+
+/** First loudnorm pass: analyze only, no output file. */
+async function measureLoudnorm(src: string, filter: string): Promise<LoudnormMeasurement | null> {
+  ensureFfmpeg();
+  const stderr = await new Promise<string>((resolve) => {
+    const proc = spawn("ffmpeg", [
+      "-hide_banner", "-nostats",
+      "-i", src,
+      "-af", `${filter}:print_format=json`,
+      "-f", "null", "-",
+    ]);
+    let buf = "";
+    proc.stderr.on("data", (d) => (buf += d.toString()));
+    proc.on("close", () => resolve(buf));
+  });
+  return parseLoudnormMeasurement(stderr);
+}
 
 export async function loudnorm(input: LoudnormInput): Promise<string> {
   const {
@@ -223,17 +276,27 @@ export async function loudnorm(input: LoudnormInput): Promise<string> {
     target = -16,
     truePeak = -1.5,
     loudnessRange = 11,
+    twoPass = true,
     ...opts
   } = input;
   await fs.mkdir(path.dirname(dst), { recursive: true });
-  const filter = `loudnorm=I=${target}:TP=${truePeak}:LRA=${loudnessRange}`;
+  const base = `loudnorm=I=${target}:TP=${truePeak}:LRA=${loudnessRange}`;
+  // Pass 1 measures; pass 2 applies the measurement in linear mode, which is
+  // what actually pins the integrated loudness to the target. A failed / silent
+  // measurement degrades to the single-pass filter rather than erroring.
+  const measured = twoPass ? await measureLoudnorm(src, base) : null;
+  const filter = measured
+    ? `${base}:measured_I=${measured.input_i}:measured_TP=${measured.input_tp}` +
+      `:measured_LRA=${measured.input_lra}:measured_thresh=${measured.input_thresh}` +
+      `:offset=${measured.target_offset}:linear=true`
+    : base;
   // Codec is auto-picked by ffmpeg from the output extension. Bitrate fixed
   // at 192k — fine for both libmp3lame (.mp3) and aac (.m4a / .aac).
   await runFfmpeg(
     ["-i", src, "-af", filter, "-b:a", "192k", dst],
     {
       endpoint: "ffmpeg/loudnorm",
-      input: { src, dst, target, truePeak, loudnessRange },
+      input: { src, dst, target, truePeak, loudnessRange, two_pass: Boolean(measured) },
       opts,
       kind: "audio",
     }
@@ -1172,6 +1235,143 @@ export async function audioStats(input: AudioStatsInput): Promise<AudioStats> {
     });
   }
   return stats;
+}
+
+// --- Recipe 17: cue-sheet SFX stem (#554) ------------------------------
+//
+// Flatten N short SFX one-shots into ONE pre-mixed stem on a single track.
+// Why a stem and not N <audio> tags: HyperFrames cannot overlap clips on the
+// same track, and short same-track media is unreliable during capture (#047).
+// One stem on one track is the correct shape — and it auditions outside the
+// render.
+//
+// Filtergraph shape, one chain per cue:
+//   [i:a]aformat=…,adelay=<ms>|<ms>,volume=<g>dB[cN]
+// then amix (normalize=0 — cue gains are authored, not averaged), a limiter
+// to catch stacked transients, and apad+atrim to pin the exact duration.
+
+export type StemCue = {
+  /** Cue time in seconds. Either `at` or `frame` is required. */
+  at?: number;
+  /** Cue time in frames — resolved against the sheet's `fps`. */
+  frame?: number;
+  /** SFX slot name, resolved to `<sfxDir>/<slot>.mp3` unless it carries an extension. */
+  slot: string;
+  /** Per-cue gain in dB. Default 0. */
+  gainDb?: number;
+};
+
+/** A cue sheet on disk: a bare cue array, or `{ fps, cues }` for frame-authored timing. */
+export type StemCueSheet = StemCue[] | { fps?: number; cues: StemCue[] };
+
+export type ResolvedStemCue = { src: string; atSec: number; gainDb: number };
+
+/**
+ * Validate a cue sheet and resolve it into absolute-path + seconds cues.
+ * Pure (no fs) so the frame→ms math is unit-testable. Throws on an empty sheet,
+ * a cue with neither `at` nor `frame`, or `frame` without an `fps`.
+ */
+export function resolveCueSheet(sheet: StemCueSheet, sfxDir: string): ResolvedStemCue[] {
+  const cues = Array.isArray(sheet) ? sheet : sheet?.cues;
+  const fps = Array.isArray(sheet) ? undefined : sheet?.fps;
+  if (!Array.isArray(cues) || cues.length === 0) {
+    throw new Error("cue sheet is empty — expected a non-empty cue array or { fps, cues }");
+  }
+  return cues.map((c, i) => {
+    if (!c?.slot) throw new Error(`cue ${i}: missing "slot"`);
+    let atSec: number;
+    if (typeof c.at === "number") atSec = c.at;
+    else if (typeof c.frame === "number") {
+      if (!fps) throw new Error(`cue ${i}: "frame" needs a top-level "fps" in the cue sheet`);
+      atSec = c.frame / fps;
+    } else throw new Error(`cue ${i}: needs "at" (seconds) or "frame" (+ sheet "fps")`);
+    if (!(atSec >= 0)) throw new Error(`cue ${i}: cue time must be >= 0 (got ${atSec})`);
+    const src = path.extname(c.slot)
+      ? path.resolve(sfxDir, c.slot)
+      : path.resolve(sfxDir, `${c.slot}.mp3`);
+    return { src, atSec, gainDb: c.gainDb ?? 0 };
+  });
+}
+
+/**
+ * Build the `-filter_complex` for the stem. Input index == cue index, so the
+ * caller passes one `-i` per cue in the same order. Exported for unit testing.
+ */
+export function buildStemFilter(
+  cues: ResolvedStemCue[],
+  opts: { limit?: number; durationSec?: number } = {},
+): string {
+  if (cues.length === 0) throw new Error("buildStemFilter: cues is empty");
+  const { limit = 0.89, durationSec } = opts;
+  const chain = cues.map((c, i) => {
+    const ms = Math.round(c.atSec * 1000);
+    return (
+      `[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,` +
+      `adelay=${ms}|${ms},volume=${c.gainDb}dB[c${i}]`
+    );
+  });
+  const labels = cues.map((_, i) => `[c${i}]`).join("");
+  chain.push(
+    cues.length === 1
+      ? `[c0]anull[mix]`
+      : `${labels}amix=inputs=${cues.length}:normalize=0:dropout_transition=0[mix]`,
+  );
+  // level=disabled — auto-level would gain the whole stem up to the ceiling and
+  // undo the authored cue gains.
+  chain.push(`[mix]alimiter=limit=${limit}:level=disabled[lim]`);
+  chain.push(
+    durationSec && durationSec > 0
+      ? `[lim]apad,atrim=0:${durationSec}[out]`
+      : `[lim]anull[out]`,
+  );
+  return chain.join(";");
+}
+
+export type AudioStemInput = {
+  cues: ResolvedStemCue[];
+  dst: string;
+  /** Pin the stem to exactly this many seconds (pad with silence / trim). */
+  durationSec?: number;
+  /** Chain a two-pass loudnorm to this integrated target. Omit to keep raw cue gains. */
+  targetLufs?: number;
+  /** alimiter ceiling (linear, not dB). Default 0.89. */
+  limit?: number;
+  /** Pass true to skip the .vN collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+export async function audioStem(input: AudioStemInput): Promise<string> {
+  const {
+    cues, dst, durationSec, targetLufs, limit = 0.89, forceOverwrite = false, ...opts
+  } = input;
+  const filter = buildStemFilter(cues, { limit, durationSec });
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  // Loudness pass needs its own ffmpeg run (measure, then apply), so the mix
+  // lands in a lossless temp first to avoid a double lossy encode.
+  const needsLoudnorm = typeof targetLufs === "number" && Number.isFinite(targetLufs);
+  const mixDst = needsLoudnorm
+    ? path.join(path.dirname(dst), `.stem-mix-${path.basename(dst, path.extname(dst))}.wav`)
+    : dst;
+  const args: string[] = [];
+  for (const c of cues) args.push("-i", c.src);
+  args.push("-filter_complex", filter, "-map", "[out]");
+  if (path.extname(mixDst) !== ".wav") args.push("-b:a", "192k");
+  args.push(mixDst);
+  await runFfmpeg(args, {
+    endpoint: "ffmpeg/audio-stem",
+    input: { dst, cues: cues.length, durationSec: durationSec ?? null, limit, filter },
+    opts,
+    kind: "audio",
+  });
+  if (needsLoudnorm) {
+    try {
+      await loudnorm({ src: mixDst, dst, target: targetLufs, ...opts });
+    } finally {
+      await fs.unlink(mixDst).catch(() => {});
+    }
+  }
+  return dst;
 }
 
 // --- Recipe 16: letterbox auto-crop (video-composition black-bar heal) --
