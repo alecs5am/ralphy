@@ -18,7 +18,6 @@ import {
   recall,
   isMemoryType,
   workspaceExists,
-  memoryDir,
   SLUG_RE,
 } from "../lib/memory/store.js";
 import { distillPostmortem, DISTILL_SOURCES } from "../lib/memory/distill.js";
@@ -467,7 +466,6 @@ Layout:
 
 Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
 index points at the newest version; pass --force-overwrite for in-place replace.
-Current dirs: ${(() => { try { return memoryDir({ tier: "global" }); } catch { return ".ralphy/memory"; } })()}
 `,
   );
 
