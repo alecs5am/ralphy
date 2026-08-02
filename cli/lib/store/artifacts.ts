@@ -4,6 +4,7 @@ import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { resolveObjectPath } from "./objects.js";
+import { assertActiveSessionScope } from "./sessions.js";
 import {
   type ArtifactKind,
   type ArtifactRelationRow,
@@ -199,7 +200,9 @@ export function addArtifactRevision(
     assertObjectVisibleToArtifact(currentObject, artifact);
     assertParent(db, artifact.id, input.parentRevisionId ?? null);
     assertIteration(db, artifact, input.iterationId ?? null);
-    assertSession(db, artifact, input.authoredBySessionId ?? null);
+    if (input.authoredBySessionId != null) {
+      assertActiveSessionScope(db, input.authoredBySessionId, artifact);
+    }
     const revision = insertRevision(db, artifact, {
       objectId: currentObject.id,
       parentRevisionId: input.parentRevisionId ?? null,
@@ -283,7 +286,9 @@ export function setArtifactRevisionState(input: {
     if (!currentSource)
       throw new Error(`Artifact Revision not found: ${input.revisionId}`);
     const artifact = getArtifactRow(db, currentSource.artifactId)!;
-    assertSession(db, artifact, input.authoredBySessionId ?? null);
+    if (input.authoredBySessionId != null) {
+      assertActiveSessionScope(db, input.authoredBySessionId, artifact);
+    }
     const revision = insertRevision(db, artifact, {
       objectId: currentSource.objectId,
       parentRevisionId: currentSource.id,
@@ -544,28 +549,6 @@ function assertIteration(
       : iteration.projectId === artifact.projectId);
   if (!valid)
     throw new Error("Iteration does not belong to the Artifact scope");
-}
-
-function assertSession(
-  db: Database,
-  artifact: ArtifactRow,
-  sessionId: string | null,
-): void {
-  if (!sessionId) return;
-  const session = db
-    .query<
-      { workspaceId: string | null; projectId: string | null },
-      [string]
-    >("SELECT workspace_id AS workspaceId, project_id AS projectId FROM agent_sessions WHERE id = ?")
-    .get(sessionId);
-  const valid =
-    session?.workspaceId === artifact.workspaceId &&
-    (artifact.projectId === null
-      ? session.projectId === null
-      : session.projectId === null || session.projectId === artifact.projectId);
-  if (!valid) {
-    throw new Error("Agent session does not belong to the Artifact scope");
-  }
 }
 
 function insertRevision(

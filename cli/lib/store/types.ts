@@ -105,6 +105,16 @@ export type ActivityEventRow = {
   createdAt: number;
 };
 
+export type AgentSessionRow = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  agent: string;
+  metadata: JsonValue | null;
+  startedAt: number;
+  endedAt: number | null;
+};
+
 export type DocumentKind =
   | "brief"
   | "style-guide"

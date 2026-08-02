@@ -16,6 +16,10 @@ import {
   createWorkspace,
   listActivity,
 } from "../../cli/lib/store/scopes.js";
+import {
+  endAgentSession,
+  startAgentSession,
+} from "../../cli/lib/store/sessions.js";
 import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
@@ -689,6 +693,127 @@ describe("domain document store", () => {
     } finally {
       db.exec("DROP TRIGGER IF EXISTS abort_document_revision_activity");
     }
+  });
+
+  test("contains revision authors in active Workspace and Project sessions", () => {
+    const { workspace, project } = setupProject("authorship");
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const outsideWorkspace = createWorkspace({
+      slug: "authorship-outside",
+      name: "Outside",
+    });
+    const workspaceSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "workspace-agent",
+    });
+    const projectSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "project-agent",
+    });
+    const siblingSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: sibling.id,
+      agent: "sibling-agent",
+    });
+    const outsideSession = startAgentSession({
+      workspaceId: outsideWorkspace.id,
+      agent: "outside-agent",
+    });
+    const endedSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "ended-agent",
+    });
+    endAgentSession(endedSession.id);
+    const projectDocument = createDocument({
+      projectId: project.id,
+      kind: "note",
+      slug: "project-note",
+      title: "Project note",
+    });
+    const workspaceDocument = createDocument({
+      workspaceId: workspace.id,
+      kind: "note",
+      slug: "workspace-note",
+      title: "Workspace note",
+    });
+
+    const projectV1 = reviseDocument({
+      documentId: projectDocument.id,
+      format: "text",
+      body: "Exact Project author",
+      authoredBySessionId: projectSession.id,
+    });
+    const projectV2 = reviseDocument({
+      documentId: projectDocument.id,
+      expectedHeadId: projectV1.id,
+      format: "text",
+      body: "Workspace author",
+      authoredBySessionId: workspaceSession.id,
+    });
+    const workspaceV1 = reviseDocument({
+      documentId: workspaceDocument.id,
+      format: "text",
+      body: "Workspace-only author",
+      authoredBySessionId: workspaceSession.id,
+    });
+    expect(projectV1.authoredBySessionId).toBe(projectSession.id);
+    expect(projectV2.authoredBySessionId).toBe(workspaceSession.id);
+    expect(workspaceV1.authoredBySessionId).toBe(workspaceSession.id);
+
+    const before = {
+      revisions: openDomainDb()
+        .query<{ count: number }, []>(
+          "SELECT COUNT(*) AS count FROM document_revisions",
+        )
+        .get()!.count,
+      activity: listActivity({ workspaceId: workspace.id, limit: 100 }).length,
+    };
+    for (const authoredBySessionId of [
+      siblingSession.id,
+      outsideSession.id,
+      endedSession.id,
+    ]) {
+      expect(() =>
+        reviseDocument({
+          documentId: projectDocument.id,
+          expectedHeadId: projectV2.id,
+          format: "text",
+          body: "Rejected author",
+          authoredBySessionId,
+        }),
+      ).toThrow(/session/i);
+    }
+    expect(() =>
+      reviseDocument({
+        documentId: workspaceDocument.id,
+        expectedHeadId: workspaceV1.id,
+        format: "text",
+        body: "Project Session cannot widen",
+        authoredBySessionId: projectSession.id,
+      }),
+    ).toThrow(/session/i);
+    expect(getDocument(projectDocument.id).currentRevisionId).toBe(
+      projectV2.id,
+    );
+    expect(getDocument(workspaceDocument.id).currentRevisionId).toBe(
+      workspaceV1.id,
+    );
+    expect(
+      openDomainDb()
+        .query<{ count: number }, []>(
+          "SELECT COUNT(*) AS count FROM document_revisions",
+        )
+        .get()!.count,
+    ).toBe(before.revisions);
+    expect(listActivity({ workspaceId: workspace.id, limit: 100 })).toHaveLength(
+      before.activity,
+    );
   });
 });
 
