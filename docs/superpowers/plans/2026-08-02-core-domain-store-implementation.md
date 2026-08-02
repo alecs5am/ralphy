@@ -20,6 +20,7 @@
 - Never insert a row that references bytes until the bytes have been validated, hashed, and atomically placed in their final bucket key.
 - Never hold a SQLite transaction open during a provider call, render, hash, file copy, or media probe.
 - Working, rejected, and superseded Objects remain durable and discoverable while a project is active.
+- `.ralphy/farm/` is a reserved consumer-owned namespace, not core domain state. Startup may validate only its bounded `identity.json` handshake; no core store, verifier, query, overview, media controller, or garbage collector reads or classifies other children.
 - Keep files and commit messages English-only and use Bun for every check.
 
 ---
@@ -742,6 +743,15 @@ walk only `buckets/**/objects/**` for orphan paths; ignore tmp, cache, backups,
 exports, recovery, and staging trees. Record symlink/unreadable/unexpected
 filesystem entries separately and never follow them.
 
+Treat top-level `farm/` as an explicit reserved boundary: if present, `lstat`
+only that root and require a real directory rather than a file or symlink, then
+do not open, recurse, stat, hash, count, or classify any child. Legacy-looking
+filenames, bucket-shaped paths, tmp/cache names, unreadable descendants, and
+arbitrary byte volume under `farm/` cannot become Object, orphan, cache, or
+filesystem findings. Add a poison fixture whose reserved tree contains all of
+those shapes and assert verification touches no descendant while still
+detecting an invalid namespace root itself.
+
 Deduplicate exact findings and sort every string and composite field by UTF-8
 byte order, not locale. Open a second read-only connection to the same WAL
 database and prove it reads while the writer holds `BEGIN IMMEDIATE`; separately
@@ -835,6 +845,13 @@ targets require their exact derived Project.
 - [ ] **Step 3: Add typed overview and media controllers**
 
 Workspace overview returns Workspace Documents, Units, accounts, recent activity, and Project summaries. Project overview returns inherited/project Documents with exact bound revision and newer-head status, Iteration/feedback/stages, Compositions/Build summaries, Units, recent Runs/activity, and media counts.
+
+Every query, overview, media, and activity projection is SQL-backed and may
+resolve only the exact core Object/RunObject selected by an explicit controller
+call. None performs discovery or fallback traversal under reserved `farm/`.
+Extend the query-surface test with a poison Farm tree and an access trap; all
+DTOs, counts, cursors, and activity sequences must remain identical and the trap
+must record zero descendant access.
 
 Overview DTOs are constructed from explicit projections, never row spreads.
 Their field allowlist is stable IDs, slug/name/label, kind/format/role, state/

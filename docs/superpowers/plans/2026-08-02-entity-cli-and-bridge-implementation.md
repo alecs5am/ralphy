@@ -24,6 +24,9 @@
 - New compatibility readers live only under `cli/lib/migration/`; ordinary commands gain no legacy JSON/JSONL/Markdown fallback. Existing read-only registry/current-Workspace adapters may remain only for the measured staged callers removed by Task 9.
 - Keep read-only legacy registry/current-Workspace adapters during staged command conversion, then require zero normal callers and delete them in Task 9. No compatibility writer survives Task 2.
 - A separately planned Farm consumer milestone must remove every direct legacy-file/SQLite read and pass its own tests before end-to-end program completion or live migration cutover; this plan does not edit the sibling repository.
+- Reserve `.ralphy/farm/` for the installed Farm consumer. Core reports the namespace and may validate only the bounded `farm/identity.json` startup handshake; it never writes, inventories, verifies, or otherwise reads/classifies consumer contents as domain Objects, buckets, tmp, or cache.
+- Portable Workspace packages cross installations only through `workspace.export` and `workspace.import`; import returns a complete old-to-new `entityIdMap`, while secrets, operational Runs, Publications, Metrics, and consumer-owned state stay out of the package.
+- `migration.consumer.map` is a maintenance-only handoff surface for the exact migration Run and lock owner. It exposes hashed legacy locators plus stable target entity references without returning raw source paths.
 - Keep files and commit messages English-only and regenerate `docs/cli-surface.generated.md` after command changes.
 
 ---
@@ -492,6 +495,8 @@ git commit -m "refactor(core): move structured state into sqlite"
 **Files:**
 - Modify: `cli/lib/store/schema.ts`
 - Modify: `cli/lib/store/types.ts`
+- Create: `cli/lib/store/portable.ts`
+- Create: `cli/lib/store/migration-consumers.ts`
 - Create: `cli/lib/bridge/protocol.ts`
 - Create: `cli/lib/bridge/methods.ts`
 - Create: `cli/lib/bridge/server.ts`
@@ -543,6 +548,7 @@ Give every method explicit `read`, `mutation`, or `operation-start` metadata. Se
 system.hello
 session.start, session.show, session.list, session.end
 workspace.list, workspace.show, workspace.update, workspace.overview, workspace.account.list, workspace.account.upsert
+workspace.export, workspace.import
 project.list, project.show, project.update, project.status, project.overview, project.iteration.list, project.iteration.create
 feedback.list, feedback.add, feedback.resolve
 document.create, document.list, document.show, document.revisions, document.search, document.revise, document.bind
@@ -560,6 +566,7 @@ agent.providers, agent.credential.status, agent.credential.set, agent.credential
 agent.auth.status, agent.auth.login
 agent.turn.start, agent.turn.resume, agent.turn.status, agent.turn.stop
 migration.secret.import, migration.desktop.import
+migration.consumer.map
 ```
 
 Every scoped method accepts exactly one branch, `{ sessionId }` or explicit
@@ -570,9 +577,35 @@ path-shaped compatibility fields. `system.hello` is an ordinary response, not
 an unsolicited handshake, and returns protocol/core/schema versions, immutable
 `storeId`, opaque filesystem-bound `rootId`, exact capabilities, latest global
 activity sequence, migration/startup state, and all protocol limits.
+It also returns `consumerNamespaces: ["farm"]`. Farm startup requires an exact
+supported protocol/core/schema/contract tuple plus the declared namespace and
+the `workspace.export`, `workspace.import`, and `migration.consumer.map`
+capabilities; a missing or newer unsupported capability/version is a hard
+startup error rather than a best-effort fallback.
 `media.review` delegates unchanged to the core atomic controller: Shortlist is
 `candidate`, Approved `approved`, Reject `rejected`, and Needs Work open
 feedback, with favorite/rating/tags/notes in immutable Evaluation metadata.
+
+`workspace.export` creates a core-owned portable package and returns
+`{ runId, packageObjectId, manifest, entityIds }`; package bytes remain behind
+`locator.resolve`. The canonical manifest contains the selected Workspace,
+Projects, Documents, Objects, Artifacts, Compositions, Builds, Evaluations,
+Units, presentations, and their immutable relations, but excludes secrets,
+operational Runs/RunObjects, Publications, Metrics, and `.ralphy/farm` state.
+`workspace.import` accepts either that package Object ID or bytes first ingested
+through the CLI, requires an idempotency key, validates every hash and relation,
+and returns `{ workspaceId, entityIdMap }`. `entityIdMap` is a complete mapping
+for every imported package entity, including identities that were deduplicated;
+replaying the same key and package returns the same map without duplicate rows.
+
+`migration.consumer.map` accepts `{ migrationRunId, lockNonce, namespace:
+"farm", sourceIdentity, afterSourceLocatorHash?, limit }` and returns bounded
+rows `{ sourceLocatorHash, sourceKind, targetRefs }`. Each hash is SHA-256 over
+`source-kind + NUL + normalized-relative-POSIX-path`; `targetRefs` is a sorted
+list of stable core entity type/ID pairs. The method is available only while the
+matching import-through-ready migration Run owns the maintenance lock, rejects
+absolute or unresolved source paths and a wrong/stale lock nonce, and is
+disabled after cutover. It never returns a raw path or consumer-owned state.
 
 `activity.subscribe` is only the store-wide sequence feed and accepts an
 exclusive numeric sequence, not Workspace/Project filters. The acknowledgment
@@ -644,6 +677,12 @@ secrets or core-injected paths across DTOs/stdout/stderr/activity. Agent text is
 tested as opaque content; structured tool events expose only tool name/call ID/
 state, not raw arguments or output.
 
+Also assert `system.hello` reports the exact Farm namespace and supported
+version/capability tuple; portable export/import produces a complete stable
+`entityIdMap` and is idempotent; and `migration.consumer.map` rejects the wrong
+Run/lock, absolute or unresolved locators, and every post-cutover call while
+returning only deterministic hashes and existing stable target refs.
+
 `tests/unit/bridge-boundaries.test.ts` prohibits bridge imports from `cli/commands/**`, Commander, `output.ts`, and `raiseError()`. Handlers call stores/controllers directly.
 
 Run: `bun test tests/unit/bridge-protocol.test.ts tests/unit/bridge-boundaries.test.ts tests/unit/agent-session.test.ts tests/integration/cli-bridge.test.ts`
@@ -651,7 +690,7 @@ Run: `bun test tests/unit/bridge-protocol.test.ts tests/unit/bridge-boundaries.t
 - [ ] **Step 6: Commit the bridge**
 
 ```bash
-git add cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/bridge cli/lib/agent cli/commands/bridge.ts cli/index.ts tests/unit/bridge-protocol.test.ts tests/unit/bridge-boundaries.test.ts tests/unit/agent-session.test.ts tests/integration/cli-bridge.test.ts
+git add cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/portable.ts cli/lib/store/migration-consumers.ts cli/lib/bridge cli/lib/agent cli/commands/bridge.ts cli/index.ts tests/unit/bridge-protocol.test.ts tests/unit/bridge-boundaries.test.ts tests/unit/agent-session.test.ts tests/integration/cli-bridge.test.ts
 git commit -m "feat(cli): add versioned desktop bridge"
 ```
 
