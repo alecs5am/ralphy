@@ -18,6 +18,8 @@
 - The packaged Desktop and a source watcher were running during audit. Apply one shared redacted quiescence gate before and after every mutating phase for Desktop/Electron helpers, daemon/workers/watchers, generation/render/ffmpeg/HyperFrames/Remotion, publishing, and other source-targeting agents.
 - Never follow symlinks during inventory. Every file, directory, empty entry, symlink, socket, and unknown entry receives exactly one ledger row and disposition.
 - Never mutate or delete the source before verified cutover.
+- Reserve `.ralphy/farm/` in the v2 root for Farm-owned automation state. Core migration inventories legacy Farm paths for coverage, raw evidence, recovery, and stable-ID handoff, but never installs consumer state there or later scans that namespace as domain buckets, tmp, or cache.
+- Before retiring legacy paths, produce a complete stable legacy-locator-to-entity mapping for every Farm-relevant Workspace, Project, control, and media source. Farm migration consumes only the maintenance bridge mapping and must reach its own verified ready state before core cutover.
 - For the live library require `COPYFILE_FICLONE_FORCE`. Unsupported clone, `EXDEV`, or any clone failure stops with the source untouched and performs no ordinary-copy/delete fallback. Copy mode is a separately selected mode only when space already covers all remaining logical bytes, derived bytes/DB overhead, and `max(2 GiB, 10%)` reserve.
 - Malformed JSONL creates an issue plus a raw diagnostic Object containing the exact bytes, byte offset, length, and hash; valid sibling lines remain importable. Preserve CRLF, missing final newline, and invalid UTF-8 evidence.
 - Import every ambiguous revision candidate but do not choose a head without manifest/index evidence.
@@ -97,11 +99,12 @@ migration_sources(
 migration_entries(
   id PRIMARY KEY, migration_run_id REFERENCES migration_runs,
   migration_source_id REFERENCES migration_sources,
-  source_path, entry_kind, source_kind, disposition,
+  source_path, source_locator_hash, entry_kind, source_kind, disposition,
   source_device, source_inode, source_mode, bytes, mtime_ms, sha256,
   target_path, target_refs_json, raw_evidence_object_id,
   state, error_code, terminal_at, created_at, updated_at,
-  UNIQUE(migration_run_id, migration_source_id, source_path)
+  UNIQUE(migration_run_id, migration_source_id, source_path),
+  UNIQUE(migration_run_id, migration_source_id, source_locator_hash)
 )
 
 migration_issues(
@@ -132,6 +135,11 @@ transition to another allowed disposition/state. Account bytes per source path
 even when several paths deduplicate to one Object. Represent zero-byte files and
 empty directories explicitly; decoded data-URL bytes are derived targets rather
 than additional source bytes.
+`source_locator_hash` is immutable and equals SHA-256 over
+`source-kind + NUL + normalized-relative-POSIX-path`; normalization rejects absolute paths, `..`,
+empty segments, platform separators, and Unicode ambiguity before hashing. It
+is the stable join key exposed by maintenance-only `migration.consumer.map` and
+must be populated for every inventory row before import begins.
 
 `source_path` is relative to its `migration_source_id`; `target_path` is null or
 a staged-data-root-relative POSIX locator. Neither column may contain an
@@ -480,10 +488,12 @@ Import carousel and sticker order, article body/cover/attachments, captions, per
 
 - [ ] **Step 4: Mark exact ledger targets**
 
-A source manifest may target dozens of domain rows and decoded Objects; store the sorted stable IDs in `target_refs_json`. Transition only after every referenced row exists in the same transaction.
+A source manifest may target dozens of domain rows and decoded Objects; store the sorted stable IDs in `target_refs_json`. Transition only after every referenced row exists in the same transaction. Every Farm-relevant legacy Workspace, Project, control, media, schedule, workflow, subgraph, run journal, approval, inbox, layout, trust, dead-letter, and cache path receives its immutable `source_locator_hash` plus the complete stable core entity references needed by the Farm consumer. Missing or ambiguous Farm mappings remain blocking issues; slug/path guesses are never accepted.
 
-Apply deterministic observed-root rules: `farm` content becomes Migration
-RunObjects with parsed known dead-letter JSONL plus exact raw evidence;
+Apply deterministic observed-root rules: legacy `farm` content becomes core
+Migration RunObjects with parsed known dead-letter JSONL plus exact raw evidence
+and consumer-handoff refs; it remains migration evidence/recovery and is never
+installed as new `.ralphy/farm` live state;
 `web-videos/<slug>` becomes a default-Workspace physical-only Project;
 `media-library/library.json` becomes a custom catalog Document plus raw evidence
 while its cache is reproducible; root `PROFILE.md`/text and loose Markdown become
@@ -622,7 +632,24 @@ export type MigrationVerification = {
   schemaVersion: number;
   contractVersion: number;
 };
+
+export type ConsumerReadyRecord = {
+  namespace: "farm";
+  migrationId: string;
+  coreMigrationRunId: string;
+  storeId: string;
+  sourceInventoryDigest: string;
+  mappingDigest: string;
+  stageDigest: string;
+  createdAt: number;
+};
 ```
+
+Farm writes the canonical, mode-0600 `ConsumerReadyRecord` outside every
+renamed root after transforming and verifying its staged namespace. Core treats
+it as an opaque digest-bound cutover prerequisite: validate the namespace,
+exact core Run/store identities, mapping/source digests, mode, and canonical
+record digest, but never open the Farm stage or interpret Farm files.
 
 - [ ] **Step 1: Write failing coverage and corruption tests**
 
@@ -646,6 +673,7 @@ Require:
 - the migrated pending-job hold count equals the source pending-job count;
 - source/clone/staged job, log, and artifact IDs/counts reconcile exactly;
 - every source path, including deduplicated paths, contributes its logical bytes exactly once.
+- every Farm-candidate inventory row has the canonical locator hash, an explicit consumer disposition, and complete resolvable target refs; `migration.consumer.map` pages reproduce the same sorted mapping without paths, gaps, or duplicates.
 
 Extend the domain verifier's Object-reference query for schema v3 so
 `migration_entries.raw_evidence_object_id` and non-terminal staged transfer
@@ -712,12 +740,12 @@ ralphy migrate run --source <fixture>/.ralphy --legacy-source <fixture>/workspac
 ralphy migrate status <run-id> --source <fixture>/.ralphy
 ralphy migrate resume <run-id> --source <fixture>/.ralphy
 ralphy migrate verify <run-id> --source <fixture>/.ralphy
-ralphy migrate cutover <run-id> --verification <verification-id> --confirm <run-id> --source <fixture>/.ralphy
+ralphy migrate cutover <run-id> --verification <verification-id> --consumer-ready farm:<consumer-ready-record> --confirm <run-id> --source <fixture>/.ralphy
 ralphy migrate recover <run-id> --confirm <run-id> --source <fixture>/.ralphy
 ralphy migrate rollback <run-id> --confirm <run-id> --source <fixture>/.ralphy
 ```
 
-Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, stale verification refuses cutover, successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Exercise a table-driven crash matrix before/after each temp write, file fsync, journal rename, parent fsync, source rename, recovery mode change, install rename, restore rename, and installed smoke check; `recover` deterministically finishes installation or restores recovery without overwriting either generation.
+Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, stale verification or missing/stale/mismatched Farm readiness refuses cutover, successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Exercise a table-driven crash matrix before/after each temp write, file fsync, journal rename, parent fsync, source rename, recovery mode change, install rename, restore rename, and installed smoke check; `recover` deterministically finishes installation or restores recovery without overwriting either generation. Also exercise crashes before and after Farm's separate namespace install: core recovery preserves the consumer record/stage, startup remains `consumer-pending`, and retrying the Farm install makes the exact identity handshake ready without replacing either generation.
 
 - [ ] **Step 2: Implement phase checkpoints and staged-root binding**
 
@@ -730,6 +758,13 @@ ledger facts and rejects any core/schema/contract version mismatch with the Run
 that created the stage. Poison tests make ambient live-root use fail. Normal
 CLI/Desktop startup checks the external journal before opening SQLite and
 refuses interrupted states.
+
+The Run records Farm as a required consumer once legacy Farm candidates are
+inventoried. `cutover` therefore requires exactly one
+`--consumer-ready farm:<path>` record matching that Run's `storeId`, source inventory digest, and
+mapping digest. The external core journal copies only its namespace, migration
+ID, stage digest, target store ID, and canonical record digest; it never embeds
+Farm content or exposes the record path to ordinary clients.
 
 The first `migrate verify` call performs the one-shot freeze and then read-only
 verification; later verify calls detect the external freeze record and remain
@@ -745,7 +780,8 @@ mutating source/stage/recovery/rollback paths plus device/inode/mode identities,
 and kind/path-hash/device/inode/mode identities for every non-mutating source; immutable
 `storeId`, schema/contract/core versions, database digest, sorted content
 digest, every source inventory digest, verification ID, Run ID, nonce, and
-transition counter. A fingerprint or version mismatch is never auto-repaired.
+transition counter, plus the validated required-consumer readiness facts. A
+fingerprint or version mismatch is never auto-repaired.
 
 After closing/checkpointing staged SQLite:
 
@@ -755,6 +791,16 @@ After closing/checkpointing staged SQLite:
 4. rename exact staged `.ralphy` to source `.ralphy` and fsync parent;
 5. if installation fails, immediately restore recovery; if restoration also fails, retain `source-moved` for explicit recovery and never copy/delete;
 6. open the installed DB read-only, require its database/content/store/schema fingerprints to equal the verification record, and run integrity/foreign-key/domain smoke checks; persist `installed` and retain recovery before any database write. Normal startup then idempotently reconciles that installed journal into `migration_runs.cutover_at` plus one cutover activity keyed by Run/journal nonce; a crash before reconciliation simply retries it and cannot make installation ambiguous.
+
+The core rename never moves, creates, or deletes the prepared Farm namespace.
+After core installation, startup and `system.hello` expose the required `farm`
+consumer as `pending` and allow only read-only inspection plus migration/
+recovery operations until the exact bounded `.ralphy/farm/identity.json`
+matches the journaled `storeId`, Farm migration ID, and stage digest. Farm owns
+the atomic staged-directory rename and parent fsync. Once the identity matches,
+startup reports the namespace `ready`; core recovery only preserves and points
+to the Farm ready record/journal and never traverses, repairs, merges, or removes
+Farm state.
 
 Before `installed`, `recover` identifies actual roots by recorded device/inode/
 store ID plus the frozen digest rather than filename and handles every crash
@@ -823,10 +869,13 @@ one pass reaches 100% coverage, exact raw-control/empty/mode evidence, clean
 SQLite checks, zero missing bytes/absolute paths/data URLs/secrets, reconciled
 held jobs, and representative Denti.AI branches/Builds. Freeze once, run two
 read-only verifications, and prove DB/WAL/SHM bytes and metadata are unchanged.
+Before that freeze, run the released Farm migrator against the staged bridge
+mapping until its separate stage is verified and emits a matching
+`ConsumerReadyRecord`; pass that exact record to rehearsal cutover.
 
 - [ ] **Step 4: Exercise rehearsal cutover and rollback**
 
-Cut over only the rehearsal clone, launch core CLI and packaged Desktop against it, inspect Denti.AI plus one carousel/sticker/article project, then test rollback. Record elapsed time and maximum additional disk use.
+Cut over only the rehearsal clone, confirm core reports Farm pending, install the exact staged Farm namespace, then launch core CLI, Farm, Studio, and packaged Desktop against it. Inspect Denti.AI plus one carousel/sticker/article project, exercise Farm recovery across an interrupted namespace install, then test coordinated rollback. Record elapsed time and maximum additional disk use.
 
 - [ ] **Step 5: Commit the redacted rehearsal evidence**
 
@@ -854,14 +903,14 @@ Stop all writers, acquire the maintenance lock, re-audit current counts/jobs/Des
 - [ ] **Step 2: Migrate and verify the live library without cutover**
 
 Run audit, staged migration, resume as needed, one-shot Desktop secret handoff,
-freeze, and read-only verification. Require 100% coverage and two consecutive
+prepare and verify the released Farm migration stage, freeze, and read-only verification. Require 100% core and Farm coverage and two consecutive
 reports with identical database/content/inventory digests plus unchanged DB/
 WAL/SHM bytes/metadata before requesting cutover. Confirm all migrated pending
-jobs remain held.
+jobs remain held and pass the exact Farm `ConsumerReadyRecord` to core cutover.
 
 - [ ] **Step 3: Cut over and perform representative smoke checks**
 
-Use the exact Run/verification IDs. Exercise CLI reads/writes and packaged Desktop for Denti.AI Composition/Build switching, feedback rounds, a multi-item carousel/sticker Unit, three-platform preview, publications/metrics, Documents, working diagnostics, and activity.
+Use the exact Run/verification/Farm migration IDs. While core reports Farm pending, install the staged `.ralphy/farm` namespace and require its identity handshake before restarting any writer. Then exercise CLI reads/writes, pinned Farm/Studio, and packaged Desktop for Denti.AI Composition/Build switching, feedback rounds, a multi-item carousel/sticker Unit, three-platform preview, publications/metrics, Documents, working diagnostics, and both activity feeds.
 
 - [ ] **Step 4: Remove migration-era normal fallbacks**
 
