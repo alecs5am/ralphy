@@ -333,6 +333,7 @@ git commit -m "feat(store): add versioned searchable documents"
 ### Task 4: Add atomic Objects and versioned Artifacts
 
 **Files:**
+- Modify: `cli/lib/store/types.ts`
 - Create: `cli/lib/store/objects.ts`
 - Create: `cli/lib/store/artifacts.ts`
 - Test: `tests/integration/domain-objects.test.ts`
@@ -340,7 +341,7 @@ git commit -m "feat(store): add versioned searchable documents"
 
 **Interfaces:**
 - Consumes: scope rows, `.ralphy/tmp/`, Node `createHash`, and activity transactions
-- Produces: `prepareObject(input): Promise<PreparedObject>`, `registerPreparedObject(db, prepared): ObjectRow`, `ingestObject(input): Promise<ObjectRow>`, `resolveObjectPath(row): string`, `createArtifact`, `addArtifactRevision`, `selectArtifactRevision`, `setArtifactRevisionState`, `addArtifactRelation`, and `addArtifactUsage`
+- Produces: `prepareObject(input): Promise<PreparedObject>`, `registerPreparedObject(db, prepared): ObjectRow`, `ingestObject(input): Promise<ObjectRow>`, `resolveObjectPath(row): string`, `createArtifact`, `getArtifact`, `getArtifactRevision`, `addArtifactRevision`, `selectArtifactRevision`, `setArtifactRevisionState`, `addArtifactRelation`, and `addArtifactUsage`
 
 - [ ] **Step 1: Write a failing atomic-ingest test**
 
@@ -364,7 +365,7 @@ Also inject a transaction failure after the final rename and assert that the fin
 
 - [ ] **Step 2: Implement safe bucket resolution and promotion**
 
-Validate scope ownership from SQLite. Project Objects resolve below `buckets/<workspace-id>/projects/<project-id>/objects/`; shared Objects resolve below `buckets/<workspace-id>/shared/objects/`. Sanitize `originalName`, write/copy below `.ralphy/tmp/<object-id>/`, hash and measure, fsync, then rename within `.ralphy` to the final unique key.
+Validate exact Workspace/Project ownership from SQLite. Project Objects resolve below `buckets/<workspace-id>/projects/<project-id>/objects/`; shared Objects resolve below `buckets/<workspace-id>/shared/objects/`. Require a positive-size readable regular source, a non-empty MIME, storage class `durable`, `working`, or `diagnostic`, and a basename-only `originalName`; reject URLs/data URLs, absolute/traversing locators, directories, and sources already under immutable buckets. Write/copy below `.ralphy/tmp/<object-id>/`, stream SHA-256 and byte counting, fsync, then promote within `.ralphy` to an ID-derived final key.
 
 Split ingestion so file work never happens in a transaction:
 
@@ -378,7 +379,7 @@ export async function ingestObject(input: ObjectIngestInput & {
 }): Promise<ObjectRow>;
 ```
 
-`ingestObject` defaults to `copy`; generated Run temp callers pass `move`. The migration plan uses `prepareObject` outside a transaction, then calls `registerPreparedObject` and updates its journal inside one short transaction.
+`registerPreparedObject` inserts only the Object row. `ingestObject` defaults to `copy`; generated Run temp callers pass `move`, and the source is removed only after Object registration plus `object.registered` activity commit. The migration plan uses `prepareObject` outside a transaction, then calls `registerPreparedObject` and updates its journal inside one short transaction. If registration fails after final promotion, preserve the unreferenced final bytes for integrity reporting.
 
 - [ ] **Step 3: Write failing Artifact revision tests**
 
@@ -393,18 +394,22 @@ expect(getArtifactRevision(r1.id)?.state).toBe("working");
 
 - [ ] **Step 4: Implement Artifact identity, revisions, relations, and usages**
 
-Use the existing `MEDIA_ARTIFACT_KINDS` as the accepted intrinsic kind vocabulary, mapping legacy `ref` to an Artifact usage role rather than a parallel storage type. Revision states are exactly `working`, `candidate`, `approved`, `rejected`, `superseded`, and `archived`. Selection uses an expected selected revision and appends `artifact.selected`.
+Support Workspace-owned and Project-owned Artifact identities. Use the existing `MEDIA_ARTIFACT_KINDS` as the accepted intrinsic vocabulary except `ref`: reject new `kind: "ref"`, and let migration map a legacy ref to its underlying intrinsic kind (or `custom`) plus Artifact usage role `reference`.
+
+Revision states are exactly `working`, `candidate`, `approved`, `rejected`, `superseded`, and `archived`. Revision rows and their Object bindings remain immutable. `setArtifactRevisionState` therefore creates a new revision backed by the same Object and parented to the source revision; if the source was selected, selection advances atomically to the new revision. Selection uses an expected selected revision and appends `artifact.selected`.
+
+A Workspace Artifact accepts only a shared Object in that Workspace. A Project Artifact accepts its Project-local Objects plus shared Objects in its Workspace. Relations link exact revisions inside one Workspace. Usages assign an exact revision and non-empty role to exactly one validated Workspace, Project, or feedback context; arbitrary unchecked polymorphic contexts remain internal until their owning store exists.
 
 - [ ] **Step 5: Run storage and Artifact checks**
 
 Run: `bun test tests/integration/domain-objects.test.ts tests/integration/domain-artifacts.test.ts`
 
-Expected: PASS, including cross-scope rejection, traversal rejection, same-name non-overwrite, missing-byte rejection, and immutable old revisions.
+Expected: PASS, including cross-scope rejection, traversal/data-URL rejection, copy/move behavior, same-name non-overwrite, post-promotion transaction failure with preserved orphan bytes, missing-byte rejection, immutable old revisions, state-as-new-revision behavior, shared Object reuse, and exact relation/usage ownership.
 
 - [ ] **Step 6: Commit storage and media identity**
 
 ```bash
-git add cli/lib/store/objects.ts cli/lib/store/artifacts.ts tests/integration/domain-objects.test.ts tests/integration/domain-artifacts.test.ts
+git add cli/lib/store/types.ts cli/lib/store/objects.ts cli/lib/store/artifacts.ts tests/integration/domain-objects.test.ts tests/integration/domain-artifacts.test.ts
 git commit -m "feat(store): add immutable objects and artifact revisions"
 ```
 
@@ -412,11 +417,13 @@ git commit -m "feat(store): add immutable objects and artifact revisions"
 
 **Files:**
 - Create: `cli/lib/store/runs.ts`
+- Modify: `cli/lib/store/types.ts`
 - Modify: `cli/lib/jobs/db.ts`
 - Modify: `cli/lib/jobs/types.ts`
 - Modify: `cli/lib/jobs/worker.ts`
 - Test: `tests/integration/domain-runs.test.ts`
 - Modify: `tests/integration/jobs-db.test.ts`
+- Add or modify the smallest direct linked-Run worker test
 
 **Interfaces:**
 - Consumes: Task 1 database, Task 4 Object promotion, and existing jobs query API
@@ -443,29 +450,36 @@ expect(getRun(run.id).objects[0]?.id).toBe(runObject.id);
 
 - [ ] **Step 2: Implement short Run transitions**
 
-Run states are `pending`, `running`, `succeeded`, `failed`, and `cancelled`. Attempt state, provider response metadata, cost, and errors are mutable operational fields, but every transition appends activity. `run_objects.path` is relative to `.ralphy`, and `promoteRunObject` calls `ingestObject` before linking the returned Object ID.
+Run and attempt states are `pending`, `running`, `succeeded`, `failed`, and `cancelled`. New Runs start pending; attempts start running. A Project Run derives its Workspace and rejects a mismatch, Workspace-only Runs use shared storage, and only `kind: "migration"` may be unscoped. One Run survives retries while each execution adds a monotonically numbered attempt; starting a retry moves a terminal Run back to running.
+
+Attempt response metadata, cost, and errors are mutable operational fields, but every transition appends activity. `run_objects.path` is relative to `.ralphy`; reject absolute, drive, traversal, and data-URL locators. `promoteRunObject` validates the recorded byte/hash facts, calls `ingestObject(..., transfer: "move")` before linking the returned Object ID, and resolves promoted bytes through that Object thereafter. A post-promotion link failure may leave only an unreferenced immutable Object.
 
 - [ ] **Step 3: Point the existing jobs API at `ralphy.db`**
 
-Remove the private connection and schema migration from `cli/lib/jobs/db.ts`; call `openDomainDb()` and keep `insertJob`, `claimNextPending`, `finalizeJob`, log, retry, cancel, and count signatures stable. Add `run_id` to `JobInsertInput`, `JobRow`, and inserts. Do not import the old `jobs.db` here; that belongs only to the migration plan.
+Remove the private connection and schema migration from `cli/lib/jobs/db.ts`; make `openDb`, `closeDb`, and `dbPath` compatibility adapters over the domain database and preserve every existing job, bulk filter, log, artifact, scheduling, and count export/signature. Add optional `run_id` to `JobInsertInput`, `JobRow`, and inserts. Keep unconstrained legacy `project_id` behavior and external `.ralphy/job-logs/`; do not create or import old `jobs.db` here.
+
+For a claimed job with `run_id`, the worker creates a local/process attempt and finishes it plus the Run on empty argv, spend-gate block/error, spawn throw/error, success, non-zero exit, SIGTERM/SIGKILL, and external cancellation. Completed maps to succeeded, failed/blocked to failed, and cancelled to cancelled. Pending/blocked cancellation terminalizes an unstarted linked Run; a retried job creates another attempt on the same Run. Do not add separate job activity events.
 
 - [ ] **Step 4: Verify jobs and Runs together**
 
-Run: `bun test tests/integration/domain-runs.test.ts tests/integration/jobs-db.test.ts tests/unit/jobs-*.test.ts`
+Run the Run/jobs/worker suites plus direct queue, scheduling, enqueue, and bulk-filter dependents.
 
 Expected: PASS, and `domainDbPath()` is the only SQLite path created in the fixture.
 
 - [ ] **Step 5: Commit execution state**
 
 ```bash
-git add cli/lib/store/runs.ts cli/lib/jobs/db.ts cli/lib/jobs/types.ts cli/lib/jobs/worker.ts tests/integration/domain-runs.test.ts tests/integration/jobs-db.test.ts
+git add cli/lib/store/runs.ts cli/lib/store/types.ts cli/lib/jobs/db.ts cli/lib/jobs/types.ts cli/lib/jobs/worker.ts tests/integration/domain-runs.test.ts tests/integration/jobs-db.test.ts
 git commit -m "feat(store): consolidate runs and jobs"
 ```
 
 ### Task 6: Add generic Composition revisions and reproducible Builds
 
 **Files:**
+- Modify: `cli/lib/store/schema.ts`
+- Modify: `cli/lib/store/types.ts`
 - Create: `cli/lib/store/compositions.ts`
+- Modify: `tests/integration/domain-db.test.ts`
 - Test: `tests/integration/domain-compositions.test.ts`
 
 **Interfaces:**
@@ -476,14 +490,17 @@ git commit -m "feat(store): consolidate runs and jobs"
 
 ```ts
 const composition = createComposition({ projectId: project.id, slug: "perio-cut", kind: "video" });
-const v1 = reviseComposition({ compositionId: composition.id, engine: "hyperframes", engineConfig: {} });
+const v1 = reviseComposition({ compositionId: composition.id, expectedLatestRevisionId: null, engine: "hyperframes", engineConfig: {} });
 putCompositionSource({ revisionId: v1.id, logicalPath: "index.html", objectId: htmlObject.id });
 bindCompositionInput({ revisionId: v1.id, artifactRevisionId: scene.id, role: "scene", position: 0 });
 const sealed = sealCompositionRevision({ revisionId: v1.id });
 const build = startBuild({ compositionRevisionId: sealed.id, profile: { name: "social", crf: 24 }, runId: run.id });
-completeBuild({ buildId: build.id, outputs: [masterRevision.id, previewRevision.id] });
+completeBuild({ buildId: build.id, outputs: [
+  { artifactRevisionId: masterRevision.id, role: "master", position: 0 },
+  { artifactRevisionId: previewRevision.id, role: "preview", position: 1 },
+] });
 
-const v2 = reviseComposition({ compositionId: composition.id, parentRevisionId: v1.id, engine: "remotion", engineConfig: {} });
+const v2 = reviseComposition({ compositionId: composition.id, expectedLatestRevisionId: v1.id, parentRevisionId: v1.id, engine: "remotion", engineConfig: {} });
 expect(v2.engine).toBe("remotion");
 expect(getComposition(composition.id).revisions[0]?.builds[0]?.outputs).toHaveLength(2);
 expect(() => putCompositionSource({ revisionId: v1.id, logicalPath: "index.html", objectId: other.id })).toThrow(/sealed/i);
@@ -491,13 +508,15 @@ expect(() => putCompositionSource({ revisionId: v1.id, logicalPath: "index.html"
 
 - [ ] **Step 2: Implement draft checkout metadata and sealing**
 
-Composition kinds are `video`, `carousel`, `sticker-pack`, `image`, `audio`, `document`, and `custom`. Engine is a non-empty slug stored per revision. Draft revisions may replace source/input rows; sealing hashes the ordered source/input manifest, sets `sealed_at`, and makes all creative rows immutable.
+Composition kinds are `video`, `carousel`, `sticker-pack`, `image`, `audio`, `document`, and `custom`. Engine is a non-empty slug stored per revision. `reviseComposition` compares `expectedLatestRevisionId` with the greatest revision number, independently from manual selection; parent defaults to latest, and a caller may explicitly branch from an older same-Composition parent only while acknowledging the real latest revision. A new draft clones the parent's ordered sources and inputs, while accepting a new engine/version/config.
 
-`startBuild` requires a sealed revision. It inserts the Build before engine work starts. `failBuild` retains the Build and Run; `completeBuild` links ordered exact Artifact revision outputs. Neither outcome changes the Composition selection automatically.
+Draft source rows upsert by logical path and inputs upsert by ordered position. Source Objects may be Project-local or Workspace-shared; input Artifact revisions may be Project-local or Workspace-owned in the same Workspace. Sealing hashes a canonical manifest containing kind, engine/version/config, ordered source paths/positions/Object IDs/hashes, and ordered exact inputs/roles/config, then sets `sealed_at` and makes all creative rows immutable. Editable checkout materialization and snapshotting remain a later CLI-controller concern.
+
+`startBuild` requires a sealed revision and same-Project Run and inserts a running Build before engine work starts. `failBuild` retains the Build and Run; `completeBuild` atomically links one or more explicitly ordered exact Project Artifact revision outputs. Terminal Builds cannot transition or gain outputs. Add pre-release v1 guards that make Build outputs immutable and insertable only while running, and Build Document bindings immutable and insertable only while pending/running. Neither outcome changes Composition selection automatically; selection accepts sealed revisions only and uses an expected selected revision.
 
 - [ ] **Step 3: Cover conflicts, exact provenance, and failed Builds**
 
-Test expected-head conflict, duplicate logical paths, cross-Project input rejection, engine change between revisions, source manifest digest stability, failed Build reproducibility, exact Document bindings, and selection of an older revision.
+Test expected-latest and expected-selection conflicts separately, parent clone/branch behavior, duplicate logical paths/positions, source and input scope rejection, engine change between revisions, canonical manifest digest stability, raw-SQL sealed-child/output immutability, Build transition/output rollback, failed Build reproducibility, exact Document bindings, and selection of an older sealed revision.
 
 Run: `bun test tests/integration/domain-compositions.test.ts`
 
@@ -506,25 +525,28 @@ Expected: PASS.
 - [ ] **Step 4: Commit production assembly**
 
 ```bash
-git add cli/lib/store/compositions.ts tests/integration/domain-compositions.test.ts
+git add cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/compositions.ts tests/integration/domain-db.test.ts tests/integration/domain-compositions.test.ts
 git commit -m "feat(store): add composition revisions and builds"
 ```
 
 ### Task 7: Add flexible Units, platform presentations, publications, and metrics
 
 **Files:**
+- Modify: `cli/lib/store/schema.ts`
+- Modify: `cli/lib/store/types.ts`
 - Create: `cli/lib/store/units.ts`
+- Modify: `tests/integration/domain-db.test.ts`
 - Test: `tests/integration/domain-units.test.ts`
 
 **Interfaces:**
 - Consumes: Artifact revisions, Build outputs, Workspace social accounts, Runs, and activity
-- Produces: `createUnit`, `reviseUnit`, `setUnitItems`, `upsertUnitPresentation`, `setPresentationItems`, `selectUnitRevision`, `recordPublication`, `updatePublicationState`, `appendMetricSnapshot`, and aggregate `getUnit`
+- Produces: `createUnit`, atomic-graph `reviseUnit`, `selectUnitRevision`, `recordPublication`, `updatePublicationState`, `appendMetricSnapshot`, and aggregate `getUnit`
 
 - [ ] **Step 1: Write failing multi-item and shared-video tests**
 
 ```ts
 const pack = createUnit({ projectId: project.id, slug: "telegram-pack", format: "sticker-pack" });
-const packRevision = reviseUnit({ unitId: pack.id, items: stickerRevisions.map((id, position) => ({
+const packRevision = reviseUnit({ unitId: pack.id, expectedHeadId: null, items: stickerRevisions.map((id, position) => ({
   artifactRevisionId: id,
   role: "sticker",
   position,
@@ -532,23 +554,33 @@ const packRevision = reviseUnit({ unitId: pack.id, items: stickerRevisions.map((
 expect(getUnit(pack.id).currentRevision?.items).toHaveLength(32);
 
 const short = createUnit({ projectId: project.id, slug: "perio-short", format: "video" });
-const shortRevision = reviseUnit({ unitId: short.id, items: [{ artifactRevisionId: video.id, role: "primary", position: 0 }] });
-for (const platform of ["tiktok", "instagram", "youtube"]) {
-  upsertUnitPresentation({ unitRevisionId: shortRevision.id, platform, caption: `${platform} caption`, options: {} });
-}
+const shortRevision = reviseUnit({
+  unitId: short.id,
+  expectedHeadId: null,
+  items: [{ artifactRevisionId: video.id, role: "primary", position: 0 }],
+  presentations: ["tiktok", "instagram", "youtube"].map((platform) => ({
+    platform,
+    caption: `${platform} caption`,
+    options: {},
+  })),
+});
 expect(getUnit(short.id).currentRevision?.presentations).toHaveLength(3);
 expect(new Set(getUnit(short.id).currentRevision?.items.map((item) => item.artifactRevisionId))).toEqual(new Set([video.id]));
 ```
 
 - [ ] **Step 2: Implement immutable ordered bundles**
 
-`reviseUnit` inserts the revision and all ordered heterogeneous items in one transaction. A presentation belongs to one immutable Unit revision and contains caption, cover/crop/safe-area JSON, platform options, and optional ordered item overrides. Validate presentation items against the parent Unit revision.
+Correct pre-release schema v1 so Units have required `workspace_id` and optional `project_id`, with partial unique slug indexes for Workspace and Project scope. Add nullable `sealed_at` to Unit revisions and guards that allow only the store's final seal transition; item, presentation, and presentation-item children may insert only while unsealed and may never change afterward. Support Workspace-owned and Project-owned Units. Workspace Units use Workspace-shared Artifact/Document revisions; Project Units may additionally use revisions owned by that Project.
 
-Publications are append-only attempts with provider identifiers, state, URL, schedule/publish timestamps, error, and Run ID. Allowed operational states are `draft`, `scheduled`, `submitted`, `published`, `failed`, and `cancelled`; state transitions append activity. Metric snapshots are immutable time-series rows with indexed common metrics and validated raw provider JSON.
+`reviseUnit` requires the exact current head (null first) and inserts a complete revision graph in one transaction: ordered heterogeneous items, presentations, optional cover/crop/safe-area/options, and optional ordered item-override subsets addressed by base item position. It then seals the revision, conditionally updates the Unit head/row version, and appends activity. Caption/item/presentation edits create another Unit revision; do not expose post-creation setters that mutate an old graph. Validate exact-one target, contiguous unique positions, cover/override membership, scope, parent, and Project Iteration.
+
+Publications are append-only attempts with provider identifiers, state, URL, schedule/publish timestamps, error, Run ID, and a required globally unique idempotency key. A duplicate key returns the existing attempt and audits an idempotent skip rather than fabricating another Publication. Validate presentation, social account, and Run ownership. Allowed operational states are `draft`, `scheduled`, `submitted`, `published`, `failed`, and `cancelled`; updates require the expected state and the locked forward transition graph. Postiz acceptance is `submitted`; retry after failure creates a new attempt/key.
+
+Metric snapshots are immutable time-series rows with indexed common metrics and validated raw provider JSON. Add no-update/no-delete triggers; require finite non-negative integer metrics and retain provider-specific fields in raw JSON.
 
 - [ ] **Step 3: Cover platform and analytics behavior**
 
-Test an eight-image carousel, a 32-sticker pack, a shared video with three presentations, optimistic Unit head conflicts, Postiz attempt history, failed then successful publication, and two metric snapshots whose first row remains unchanged.
+Test an eight-image carousel, a 32-sticker pack, an article, a Workspace Unit, a shared video with three platform presentations, override ordering, scope rejection, optimistic head/selection conflicts, raw-SQL child immutability, Postiz submitted/scheduled/idempotent/partial-target attempt history, failed then separate successful publication, and two metric snapshots whose first row cannot change.
 
 Run: `bun test tests/integration/domain-units.test.ts`
 
@@ -557,7 +589,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit delivery state**
 
 ```bash
-git add cli/lib/store/units.ts tests/integration/domain-units.test.ts
+git add cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/units.ts tests/integration/domain-db.test.ts tests/integration/domain-units.test.ts
 git commit -m "feat(store): add units presentations and publications"
 ```
 
@@ -569,7 +601,7 @@ git commit -m "feat(store): add units presentations and publications"
 
 **Interfaces:**
 - Consumes: every Task 1-7 table and `resolveObjectPath()`
-- Produces: `verifyDomainStore(options?: { hashObjects?: boolean }): DomainVerificationReport`
+- Produces: synchronous dependency-free `verifyDomainStore(options?: { hashObjects?: boolean }): DomainVerificationReport`
 
 - [ ] **Step 1: Write the failing integrity-report test**
 
@@ -582,8 +614,11 @@ expect(report).toMatchObject({
   hashMismatches: [],
   absolutePathRows: [],
   dataUrlRows: [],
+  invalidJsonRows: [],
   brokenBuildChains: [],
   brokenUnitChains: [],
+  unreferencedObjects: [],
+  orphanedObjectPaths: [],
 });
 ```
 
@@ -591,7 +626,9 @@ Delete one fixture Object after inserting it and assert its ID appears in `missi
 
 - [ ] **Step 2: Implement deterministic verification queries**
 
-Run `PRAGMA integrity_check` and `foreign_key_check`, enumerate every Object and RunObject locator, inspect all text/JSON columns for data URLs and absolute local paths, verify Composition revision to Build to output chains, and verify Unit revision to item to Artifact revision chains. Sort every issue list by stable ID so reports diff cleanly. Open a second connection to the same WAL database and prove concurrent reads succeed while a stale expected-head write returns `StoreConflictError`.
+Run `PRAGMA integrity_check` and `foreign_key_check`. Resolve every Object; optionally stream-hash/measure it without buffering whole files. Validate unpromoted RunObject locators while letting promoted rows resolve through Object ID. Inspect every application text/JSON column and recursively every JSON string for POSIX, drive, UNC, or `file:` absolute local paths and valid data URLs; report parse failures without returning raw values and reject strict base64 only under the locked explicit binary keys.
+
+Verify sealed Composition revision -> Build -> immutable output Artifact revision ownership/state chains and sealed Unit revision -> exact item -> Artifact/Document plus presentation cover/override scope chains. Report Object rows unused by Artifact revisions, Composition files, promoted RunObjects, job artifacts, or active transfers, and scan only `buckets/**/objects/**` for unregistered regular files. Sort all IDs, structured row issues, and normalized relative paths deterministically. `integrity` is `ok` only when every issue list is empty; `hashObjects: false` explicitly means hashes were not checked. Open a second connection to the same WAL database and prove concurrent reads succeed while a stale expected-head write returns `StoreConflictError`.
 
 - [ ] **Step 3: Run the complete foundation suite**
 
