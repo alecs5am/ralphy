@@ -1,7 +1,4 @@
-// SQLite-backed jobs store, used by the ralphy daemon + queue commands.
-//
-// Bun ships `bun:sqlite` natively — no native deps. The DB file lives at
-// .ralphy/jobs.db and is created lazily on first open.
+// SQLite-backed jobs API, used by the ralphy daemon + queue commands.
 //
 // Concurrency model:
 // - Single writer (the daemon) + many readers (queue commands) is safe with
@@ -15,6 +12,13 @@ import path from "node:path";
 import fs from "node:fs";
 import { Database } from "bun:sqlite";
 import { ralphDir } from "../paths.js";
+import { appendActivity } from "../store/activity.js";
+import {
+  closeDomainDb,
+  domainDbPath,
+  openDomainDb,
+  withImmediateTransaction,
+} from "../store/db.js";
 import type {
   JobRow,
   JobLogRow,
@@ -24,12 +28,8 @@ import type {
   JobKind,
 } from "./types.js";
 
-const SCHEMA_VERSION = 1;
-
-let _db: Database | null = null;
-
 export function dbPath(): string {
-  return path.join(ralphDir(), "jobs.db");
+  return domainDbPath();
 }
 
 export function jobLogsDir(): string {
@@ -41,81 +41,12 @@ export function jobLogsDir(): string {
  * between cases when the workspace root is rebound. No-op in production.
  */
 export function closeDb(): void {
-  if (_db) {
-    try {
-      _db.close();
-    } catch {
-      /* already closed */
-    }
-    _db = null;
-  }
+  closeDomainDb();
 }
 
 export function openDb(): Database {
-  if (_db) return _db;
-  const p = dbPath();
-  fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.mkdirSync(jobLogsDir(), { recursive: true });
-  const db = new Database(p, { create: true });
-  db.exec("PRAGMA journal_mode = WAL");
-  db.exec("PRAGMA foreign_keys = ON");
-  db.exec("PRAGMA busy_timeout = 5000");
-  migrate(db);
-  _db = db;
-  return db;
-}
-
-function migrate(db: Database): void {
-  const row = db
-    .query<{ user_version: number }, []>("PRAGMA user_version")
-    .get();
-  const current = row?.user_version ?? 0;
-  if (current >= SCHEMA_VERSION) return;
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS jobs (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      kind          TEXT NOT NULL,
-      status        TEXT NOT NULL CHECK (status IN
-                      ('pending','blocked','running','completed','failed','cancelled')),
-      command       TEXT NOT NULL,
-      depends_on    TEXT NOT NULL DEFAULT '[]',
-      priority      INTEGER NOT NULL DEFAULT 0,
-      created_at    INTEGER NOT NULL,
-      started_at    INTEGER,
-      ended_at      INTEGER,
-      exit_code     INTEGER,
-      error_message TEXT,
-      retry_count   INTEGER NOT NULL DEFAULT 0,
-      log_path      TEXT,
-      tag           TEXT,
-      project_id    TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_jobs_status   ON jobs(status);
-    CREATE INDEX IF NOT EXISTS idx_jobs_tag      ON jobs(tag);
-    CREATE INDEX IF NOT EXISTS idx_jobs_project  ON jobs(project_id);
-
-    CREATE TABLE IF NOT EXISTS job_logs (
-      id      INTEGER PRIMARY KEY AUTOINCREMENT,
-      job_id  INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-      ts      INTEGER NOT NULL,
-      stream  TEXT NOT NULL CHECK (stream IN ('stdout','stderr','system')),
-      line    TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
-    CREATE INDEX IF NOT EXISTS idx_job_logs_ts     ON job_logs(ts);
-
-    CREATE TABLE IF NOT EXISTS job_artifacts (
-      id      INTEGER PRIMARY KEY AUTOINCREMENT,
-      job_id  INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-      kind    TEXT NOT NULL,
-      path    TEXT NOT NULL,
-      bytes   INTEGER,
-      sha256  TEXT
-    );
-    CREATE INDEX IF NOT EXISTS idx_job_artifacts_job_id ON job_artifacts(job_id);
-  `);
-  db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  return openDomainDb();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,10 +57,11 @@ export function insertJob(input: JobInsertInput): number {
   const db = openDb();
   const now = Date.now();
   const stmt = db.prepare(`
-    INSERT INTO jobs (kind, status, command, depends_on, priority, created_at, tag, project_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
+    input.run_id ?? null,
     input.kind,
     "pending",
     JSON.stringify(input.command),
@@ -146,13 +78,14 @@ export function insertJobsAtomic(inputs: JobInsertInput[]): number[] {
   const db = openDb();
   const ids: number[] = [];
   const stmt = db.prepare(`
-    INSERT INTO jobs (kind, status, command, depends_on, priority, created_at, tag, project_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const now = Date.now();
   const txn = db.transaction((items: JobInsertInput[]) => {
     for (const i of items) {
       const r = stmt.run(
+        i.run_id ?? null,
         i.kind,
         "pending",
         JSON.stringify(i.command),
@@ -172,6 +105,7 @@ export function insertJobsAtomic(inputs: JobInsertInput[]): number[] {
 function rowToJob(r: any): JobRow {
   return {
     id: r.id,
+    run_id: r.run_id ?? null,
     kind: r.kind,
     status: r.status,
     command: JSON.parse(r.command),
@@ -289,27 +223,79 @@ export function finalizeJob(
   status: "completed" | "failed" | "cancelled" | "blocked",
   opts: { exitCode?: number | null; errorMessage?: string | null } = {},
 ): void {
-  const db = openDb();
-  db.prepare(
-    "UPDATE jobs SET status=?, ended_at=?, exit_code=?, error_message=? WHERE id=?",
-  ).run(
-    status,
-    Date.now(),
-    opts.exitCode ?? null,
-    opts.errorMessage ?? null,
-    id,
-  );
+  openDb();
+  withImmediateTransaction((db) => {
+    const job = db
+      .query<{ status: JobStatus; runId: string | null }, [number]>(
+        "SELECT status, run_id AS runId FROM jobs WHERE id = ?",
+      )
+      .get(id);
+    if (!job) return;
+    const endedAt = Date.now();
+    let effectiveStatus = status;
+    if (job.status === "running") {
+      const result = db
+        .prepare(
+          "UPDATE jobs SET status=?, ended_at=?, exit_code=?, error_message=? WHERE id=? AND status='running'",
+        )
+        .run(
+          status,
+          endedAt,
+          opts.exitCode ?? null,
+          opts.errorMessage ?? null,
+          id,
+        );
+      if (!result.changes) return;
+    } else if (job.status === "cancelled" && job.runId) {
+      effectiveStatus = "cancelled";
+      const active = db
+        .query<{ id: string }, [string]>(
+          "SELECT id FROM run_attempts WHERE run_id = ? AND state = 'running' LIMIT 1",
+        )
+        .get(job.runId);
+      if (!active) return;
+      db.prepare(
+        `UPDATE jobs SET exit_code = COALESCE(exit_code, ?),
+         error_message = COALESCE(error_message, ?) WHERE id = ? AND status = 'cancelled'`,
+      ).run(opts.exitCode ?? null, opts.errorMessage ?? null, id);
+    } else {
+      return;
+    }
+    if (job.runId) {
+      finishLinkedExecution(
+        db,
+        job.runId,
+        effectiveStatus,
+        opts.errorMessage ?? null,
+        endedAt,
+      );
+    }
+  });
 }
 
 export function cancelJob(id: number): boolean {
-  const db = openDb();
-  // Only cancel if not yet completed/failed.
-  const r = db
-    .prepare(
-      "UPDATE jobs SET status='cancelled', ended_at=? WHERE id=? AND status IN ('pending','running','blocked')",
-    )
-    .run(Date.now(), id);
-  return (r.changes ?? 0) > 0;
+  openDb();
+  return withImmediateTransaction((db) => {
+    const before = db
+      .query<{ status: JobStatus; runId: string | null }, [number]>(
+        "SELECT status, run_id AS runId FROM jobs WHERE id = ?",
+      )
+      .get(id);
+    const endedAt = Date.now();
+    const result = db
+      .prepare(
+        "UPDATE jobs SET status='cancelled', ended_at=? WHERE id=? AND status IN ('pending','running','blocked')",
+      )
+      .run(endedAt, id);
+    if (!result.changes) return false;
+    if (
+      before?.runId &&
+      (before.status === "pending" || before.status === "blocked")
+    ) {
+      cancelUnstartedRun(db, before.runId, endedAt);
+    }
+    return true;
+  });
 }
 
 export function retryJob(id: number): boolean {
@@ -357,8 +343,8 @@ export function cancelJobsByFilter(filter: {
     params.push(...arr);
   }
   const matches = db
-    .query(`SELECT id, status FROM jobs WHERE ${where.join(" AND ")} ORDER BY id ASC`)
-    .all(...params) as Array<{ id: number; status: JobStatus }>;
+    .query(`SELECT id, status, run_id FROM jobs WHERE ${where.join(" AND ")} ORDER BY id ASC`)
+    .all(...params) as Array<{ id: number; status: JobStatus; run_id: string | null }>;
   const CANCELLABLE = new Set<JobStatus>(["pending", "running", "blocked"]);
   const cancelled: number[] = [];
   let matchedButTerminal = 0;
@@ -371,11 +357,20 @@ export function cancelJobsByFilter(filter: {
         matchedButTerminal++;
         continue;
       }
-      const r = stmt.run(Date.now(), m.id);
-      if ((r.changes ?? 0) > 0) cancelled.push(m.id);
+      const endedAt = Date.now();
+      const r = stmt.run(endedAt, m.id);
+      if ((r.changes ?? 0) > 0) {
+        cancelled.push(m.id);
+        if (
+          m.run_id &&
+          (m.status === "pending" || m.status === "blocked")
+        ) {
+          cancelUnstartedRun(db, m.run_id, endedAt);
+        }
+      }
     }
   });
-  txn();
+  txn.immediate();
   return { cancelled, matchedButTerminal };
 }
 
@@ -476,7 +471,9 @@ export function recordArtifact(
 export function listArtifacts(jobId: number): JobArtifactRow[] {
   const db = openDb();
   return db
-    .query("SELECT * FROM job_artifacts WHERE job_id = ? ORDER BY id ASC")
+    .query(
+      "SELECT id, job_id, kind, path, bytes, sha256 FROM job_artifacts WHERE job_id = ? ORDER BY id ASC",
+    )
     .all(jobId) as JobArtifactRow[];
 }
 
@@ -523,4 +520,97 @@ export function countRunning(): number {
   const db = openDb();
   const r = db.query("SELECT COUNT(*) as n FROM jobs WHERE status = 'running'").get() as { n: number };
   return r?.n ?? 0;
+}
+
+function cancelUnstartedRun(
+  db: Database,
+  runId: string,
+  endedAt: number,
+): void {
+  const run = db
+    .query<
+      { workspaceId: string | null; projectId: string | null },
+      [string]
+    >(
+      "SELECT workspace_id AS workspaceId, project_id AS projectId FROM runs WHERE id = ? AND state = 'pending' AND started_at IS NULL",
+    )
+    .get(runId);
+  if (!run) return;
+  const result = db
+    .prepare(
+      "UPDATE runs SET state = 'cancelled', ended_at = ?, error = NULL WHERE id = ? AND state = 'pending' AND started_at IS NULL",
+    )
+    .run(endedAt, runId);
+  if (!result.changes) return;
+  appendActivity(db, {
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    entityType: "run",
+    entityId: runId,
+    action: "run.finished",
+    payload: { state: "cancelled" },
+    createdAt: endedAt,
+  });
+}
+
+function finishLinkedExecution(
+  db: Database,
+  runId: string,
+  jobStatus: "completed" | "failed" | "cancelled" | "blocked",
+  error: string | null,
+  endedAt: number,
+): void {
+  const state =
+    jobStatus === "completed"
+      ? "succeeded"
+      : jobStatus === "cancelled"
+        ? "cancelled"
+        : "failed";
+  const run = db
+    .query<
+      { workspaceId: string | null; projectId: string | null; state: string },
+      [string]
+    >(
+      "SELECT workspace_id AS workspaceId, project_id AS projectId, state FROM runs WHERE id = ?",
+    )
+    .get(runId);
+  if (!run) return;
+  const attempt = db
+    .query<{ id: string }, [string]>(
+      "SELECT id FROM run_attempts WHERE run_id = ? AND state = 'running' ORDER BY attempt_no DESC LIMIT 1",
+    )
+    .get(runId);
+  if (attempt) {
+    const attemptResult = db
+      .prepare(
+        "UPDATE run_attempts SET state = ?, error = ?, ended_at = ? WHERE id = ? AND state = 'running'",
+      )
+      .run(state, error, endedAt, attempt.id);
+    if (attemptResult.changes) {
+      appendActivity(db, {
+        workspaceId: run.workspaceId,
+        projectId: run.projectId,
+        entityType: "run_attempt",
+        entityId: attempt.id,
+        action: "run.attempt_finished",
+        payload: { runId, state },
+        createdAt: endedAt,
+      });
+    }
+  }
+  const runResult = db
+    .prepare(
+      "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",
+    )
+    .run(state, endedAt, error, runId);
+  if (!runResult.changes) return;
+  appendActivity(db, {
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    entityType: "run",
+    entityId: runId,
+    action: "run.finished",
+    payload: { state },
+    createdAt: endedAt,
+  });
 }

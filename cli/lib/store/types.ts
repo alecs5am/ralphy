@@ -336,6 +336,21 @@ export type RunRow = {
   error: string | null;
 };
 
+export type RunAttemptRow = {
+  id: string;
+  runId: string;
+  attemptNo: number;
+  provider: string | null;
+  model: string | null;
+  state: RunRow["state"];
+  request: JsonValue | null;
+  response: JsonValue | null;
+  costUsd: number | null;
+  error: string | null;
+  startedAt: number;
+  endedAt: number | null;
+};
+
 export type RunObjectRow = {
   id: string;
   runId: string;
@@ -348,6 +363,11 @@ export type RunObjectRow = {
   sha256: string | null;
   metadata: JsonValue | null;
   createdAt: number;
+};
+
+export type RunAggregate = RunRow & {
+  attempts: RunAttemptRow[];
+  objects: RunObjectRow[];
 };
 
 export type Page<T> = { items: T[]; nextCursor: string | null };
