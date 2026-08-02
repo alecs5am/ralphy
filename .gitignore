@@ -35,6 +35,8 @@ dashboard/test-dashboard.ts
 
 # Skill-creator eval results — local only, too big to commit
 .skill-creator-workspace/
+.superpowers/
+.worktrees/
 docs/runtime-context.md
 
 # Remotion public/ — fully local. Per-project asset trees are symlinked here
