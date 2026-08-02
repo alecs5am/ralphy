@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
+import * as jobsDb from "../../cli/lib/jobs/db.js";
 import {
   cancelJob,
   cancelJobsByFilter,
@@ -16,7 +17,7 @@ import {
   createJobExecutor,
   type JobExecutor,
 } from "../../cli/lib/jobs/worker.js";
-import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { getRun, startRun } from "../../cli/lib/store/runs.js";
 import {
   createWorkspace,
@@ -74,6 +75,89 @@ describe("job worker linked Run lifecycle", () => {
       state: "failed",
       error: "failure",
       attempts: [{ attemptNo: 1, state: "failed", error: "failure" }],
+    });
+  });
+
+  test("retries a rolled-back finalization before releasing execution ownership", async () => {
+    const linked = linkedJob(["/bin/sh", "-c", "exit 0"]);
+    const db = openDomainDb();
+    db.exec(`
+      CREATE TRIGGER fail_once_attempt_finish_activity
+      BEFORE INSERT ON activity_events
+      WHEN NEW.action = 'run.attempt_finished'
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture one-shot activity failure');
+      END;
+    `);
+    const finalize = jobsDb.finalizeJob;
+    let finalizationCalls = 0;
+    const finalizeSpy = spyOn(jobsDb, "finalizeJob").mockImplementation(
+      (id, status, options) => {
+        try {
+          finalize(id, status, options);
+        } finally {
+          finalizationCalls += 1;
+          if (finalizationCalls === 1) {
+            db.exec("DROP TRIGGER fail_once_attempt_finish_activity");
+          }
+        }
+      },
+    );
+    const executor = makeExecutor();
+
+    try {
+      const execution = executor.execute(claimSpecific(linked.jobId));
+      expect(await settleWithin(execution)).toEqual({ state: "resolved" });
+      expect(finalizationCalls).toBe(2);
+      expect(executor.activeCount()).toBe(0);
+      expect(getJob(linked.jobId)).toMatchObject({ status: "completed" });
+      expect(getRun(linked.runId)).toMatchObject({
+        state: "succeeded",
+        attempts: [{ state: "succeeded" }],
+      });
+      expect(
+        listActivity().filter(
+          (event) =>
+            event.action === "run.attempt_finished" &&
+            event.entityId === getRun(linked.runId).attempts[0]?.id,
+        ),
+      ).toHaveLength(1);
+    } finally {
+      finalizeSpy.mockRestore();
+    }
+  });
+
+  test("rejects persistent finalization failure after stop cleanup", async () => {
+    const linked = linkedJob(["/bin/sh", "-c", "sleep 30"]);
+    openDomainDb().exec(`
+      CREATE TRIGGER reject_attempt_finish_activity
+      BEFORE INSERT ON activity_events
+      WHEN NEW.action = 'run.attempt_finished'
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture persistent activity failure');
+      END;
+    `);
+    const executor = makeExecutor();
+    const execution = executor.execute(claimSpecific(linked.jobId));
+    await waitFor(() => executor.activeCount() === 1);
+    const stopping = executor.stop();
+    const [executionResult, stopResult] = await Promise.all([
+      settleWithin(execution),
+      settleWithin(stopping),
+    ]);
+
+    expect(executionResult.state).toBe("rejected");
+    if (executionResult.state === "rejected") {
+      expect(String(executionResult.error)).toMatch(
+        /fixture persistent activity failure/i,
+      );
+    }
+    expect(stopResult).toEqual({ state: "resolved" });
+    expect(executor.activeCount()).toBe(0);
+    expect(getJob(linked.jobId)).toMatchObject({ status: "running" });
+    expect(getRun(linked.runId)).toMatchObject({
+      state: "running",
+      attempts: [{ state: "running" }],
     });
   });
 
@@ -507,6 +591,22 @@ async function waitFor(predicate: () => boolean): Promise<void> {
     if (Date.now() >= deadline) throw new Error("Timed out waiting for worker");
     await Bun.sleep(10);
   }
+}
+
+async function settleWithin(
+  execution: Promise<void>,
+): Promise<
+  | { state: "resolved" }
+  | { state: "rejected"; error: unknown }
+  | { state: "pending" }
+> {
+  return Promise.race([
+    execution.then(
+      () => ({ state: "resolved" as const }),
+      (error: unknown) => ({ state: "rejected" as const, error }),
+    ),
+    Bun.sleep(500).then(() => ({ state: "pending" as const })),
+  ]);
 }
 
 function processExists(pid: number): boolean {

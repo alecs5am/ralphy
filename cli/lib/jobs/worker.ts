@@ -39,6 +39,7 @@ type Execution = {
   killTimer: ReturnType<typeof setTimeout> | null;
   completion: Promise<void>;
   complete: () => void;
+  fail: (error: unknown) => void;
   cancellation: Promise<void>;
   cancel: () => void;
   lastStderr: string;
@@ -76,13 +77,24 @@ export function createJobExecutor(
     result: { exitCode?: number | null; errorMessage?: string | null } = {},
   ): void => {
     if (execution.done) return;
+    let finalized = false;
+    let finalizationError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        finalizeJob(execution.job.id, status, result);
+        finalized = true;
+        break;
+      } catch (error) {
+        finalizationError = error;
+      }
+    }
     execution.done = true;
     if (execution.killTimer) clearTimeout(execution.killTimer);
     executions.delete(execution.job.id);
-    finalizeJob(execution.job.id, status, result);
     execution.fileStream?.end();
     execution.cancel();
-    execution.complete();
+    if (finalized) execution.complete();
+    else execution.fail(finalizationError);
   };
 
   const completeCancellationIfExited = (execution: Execution): void => {
@@ -300,6 +312,7 @@ export function createJobExecutor(
       }
 
       let completeExecution!: () => void;
+      let failExecution!: (error: unknown) => void;
       let cancelExecution!: () => void;
       const execution: Execution = {
         job,
@@ -313,10 +326,12 @@ export function createJobExecutor(
         cancelRequested: false,
         done: false,
         killTimer: null,
-        completion: new Promise<void>((resolve) => {
+        completion: new Promise<void>((resolve, reject) => {
           completeExecution = resolve;
+          failExecution = reject;
         }),
         complete: () => completeExecution(),
+        fail: (error) => failExecution(error),
         cancellation: new Promise<void>((resolve) => {
           cancelExecution = resolve;
         }),
@@ -345,9 +360,9 @@ export function createJobExecutor(
       for (const execution of active) {
         requestCancellation(execution, "stop");
       }
-      stopPromise = Promise.all(active.map((execution) => execution.completion)).then(
-        () => undefined,
-      );
+      stopPromise = Promise.allSettled(
+        active.map((execution) => execution.completion),
+      ).then(() => undefined);
       return stopPromise;
     },
     activeCount() {
