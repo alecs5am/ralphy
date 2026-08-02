@@ -5,7 +5,6 @@ import {
   createIteration,
   createProject,
   createWorkspace,
-  listActivity,
   listProjects,
   listSocialAccounts,
   listWorkspaces,
@@ -15,6 +14,8 @@ import {
   updateWorkspace,
 } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
+import { listActivity } from "../../cli/lib/store/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -58,7 +59,7 @@ describe("domain scope stores", () => {
       updateWorkspace(workspace.id, { name: "Stale" }, workspace.rowVersion - 1),
     ).toThrow(/conflict/i);
     expect(
-      listActivity({ projectId: project.id, afterId: 0, limit: 20 }).map(
+      scopedActivity({ projectId: project.id,}).map(
         (event) => event.action,
       ),
     ).toEqual(["project.created", "iteration.created", "feedback.created"]);
@@ -117,14 +118,16 @@ describe("domain scope stores", () => {
       }),
     ).toThrow(/credential/i);
     expect(listSocialAccounts(workspaces[0]!.id)).toHaveLength(1);
-    expect(JSON.stringify(listActivity({ workspaceId: workspaces[0]!.id, afterId: 0, limit: 100 }))).not.toContain(
+    expect(JSON.stringify(scopedActivity({ workspaceId: workspaces[0]!.id,}))).not.toContain(
       "must-not-persist",
     );
 
-    const events = listActivity({ workspaceId: workspaces[0]!.id, afterId: 0, limit: 100 });
-    expect(listActivity({ workspaceId: workspaces[0]!.id, afterId: events[0]!.id, limit: 100 })).toEqual(
-      events.slice(1),
-    );
+    const events = scopedActivity({ workspaceId: workspaces[0]!.id });
+    expect(
+      listActivity({ afterSequence: events[0]!.sequence, limit: 100 }).items.filter(
+        (event) => event.workspaceId === workspaces[0]!.id,
+      ),
+    ).toEqual(events.slice(1));
     expect(() => createProject({ workspaceId: "ws_missing", slug: "nope", name: "Nope" })).toThrow();
     expect(() => createIteration({ projectId: "prj_missing", title: "Nope" })).toThrow(/not found/i);
   });
@@ -148,9 +151,11 @@ describe("domain scope stores", () => {
       slug: "moved-pitch",
       rowVersion: project.rowVersion + 1,
     });
-    expect(listActivity({ projectId: project.id, afterId: 0, limit: 20 }).at(-1)).toMatchObject({
+    expect(scopedActivity({ projectId: project.id }).at(-1)).toMatchObject({
       action: "project.transferred",
-      payload: { fromWorkspaceId: source.id, toWorkspaceId: destination.id },
+      entityType: "project",
+      entityId: project.id,
+      workspaceId: destination.id,
     });
   });
 
@@ -170,7 +175,7 @@ describe("domain scope stores", () => {
       target: { type: "document_revision", id: "drev_source" },
     });
     const beforeFailure = openDomainDb().query("SELECT COUNT(*) AS count FROM feedback_items").get() as { count: number };
-    const beforeActivity = listActivity({ projectId: project.id, afterId: 0, limit: 100 });
+    const beforeActivity = scopedActivity({ projectId: project.id,});
     expect(() =>
       addFeedback({
         iterationId: iteration.id,
@@ -179,7 +184,7 @@ describe("domain scope stores", () => {
       }),
     ).toThrow(/different workspace/);
     expect(openDomainDb().query("SELECT COUNT(*) AS count FROM feedback_items").get()).toEqual(beforeFailure);
-    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(beforeActivity);
+    expect(scopedActivity({ projectId: project.id,})).toEqual(beforeActivity);
 
     const resolved = resolveFeedback(feedback.id, {
       note: "Fixed in revision.",
@@ -225,7 +230,7 @@ describe("domain scope stores", () => {
     const otherProject = createProject({ workspaceId: otherWorkspace.id, slug: "other", name: "Other" });
     insertDocumentRevision("drev_resolution_source", "doc_resolution_source", workspace.id, project.id);
     insertDocumentRevision("drev_resolution_other", "doc_resolution_other", otherWorkspace.id, otherProject.id);
-    const beforeValidationActivity = listActivity({ projectId: project.id, afterId: 0, limit: 100 });
+    const beforeValidationActivity = scopedActivity({ projectId: project.id,});
 
     expect(() =>
       resolveFeedback(feedback.id, {
@@ -234,7 +239,7 @@ describe("domain scope stores", () => {
     ).toThrow(/target not found/);
     expect(feedbackState(feedback.id)).toEqual({ status: "open", resolution_note: null });
     expect(resolutionLinks(feedback.id)).toEqual([]);
-    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(
+    expect(scopedActivity({ projectId: project.id,})).toEqual(
       beforeValidationActivity,
     );
 
@@ -245,7 +250,7 @@ describe("domain scope stores", () => {
     ).toThrow(/different workspace/);
     expect(feedbackState(feedback.id)).toEqual({ status: "open", resolution_note: null });
     expect(resolutionLinks(feedback.id)).toEqual([]);
-    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(
+    expect(scopedActivity({ projectId: project.id,})).toEqual(
       beforeValidationActivity,
     );
 
@@ -259,7 +264,7 @@ describe("domain scope stores", () => {
     );
     expect(feedbackState(feedback.id)).toEqual({ status: "open", resolution_note: null });
     expect(resolutionLinks(feedback.id)).toEqual([]);
-    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(
+    expect(scopedActivity({ projectId: project.id,})).toEqual(
       beforeValidationActivity,
     );
   });

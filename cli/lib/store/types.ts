@@ -609,7 +609,18 @@ export type RunAggregate = RunRow & {
   objects: RunObjectRow[];
 };
 
-export type Page<T> = { items: T[]; nextCursor: string | null };
+export type Page<T, C = string> = { items: T[]; nextCursor: C | null };
+
+/** Activity is the one global sequence; `sequence` is `activity_events.id`. */
+export type ActivityDto = {
+  sequence: number;
+  workspaceId: string | null;
+  projectId: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  createdAt: number;
+};
 
 export class StoreConflictError extends Error {
   readonly code = "E_CONFLICT";

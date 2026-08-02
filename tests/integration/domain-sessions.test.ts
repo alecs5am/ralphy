@@ -10,10 +10,10 @@ import {
 import {
   createProject,
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -142,7 +142,7 @@ describe("domain Agent Session store", () => {
     expect(ended.endedAt).toBeNumber();
     expect(() => endAgentSession(projectSession.id)).toThrow(StoreConflictError);
     expect(
-      listActivity({ workspaceId: workspace.id })
+      scopedActivity({ workspaceId: workspace.id })
         .filter((event) => event.entityType === "agent_session")
         .map((event) => event.action),
     ).toEqual([

@@ -342,7 +342,6 @@ export function putCompositionSource(input: {
       ).run(id, scope.revision.id, logicalPath, object.id, nextPosition, now);
     }
     appendRevisionActivity(db, scope, id, "composition.source_put", {
-      logicalPath,
       objectId: object.id,
       position: nextPosition,
     });
@@ -372,7 +371,7 @@ export function removeCompositionSource(input: {
       scope,
       source.id,
       "composition.source_removed",
-      { logicalPath },
+      { position: source.position },
     );
     return toSourceRow(source);
   });
@@ -505,7 +504,7 @@ export function sealCompositionRevision(input: {
       scope,
       scope.revision.id,
       "composition.sealed",
-      { manifestSha256 },
+      { revisionNo: scope.revision.revisionNo },
       sealedAt,
     );
     return getRevisionRow(db, scope.revision.id)!;
@@ -723,7 +722,7 @@ function finishBuild(
       scope.revisionScope,
       scope.build.id,
       state === "failed" ? "build.failed" : "build.cancelled",
-      { error: error ?? null },
+      { state, failed: error !== null },
       endedAt,
     );
     return getBuildRow(db, scope.build.id)!;

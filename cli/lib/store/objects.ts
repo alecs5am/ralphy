@@ -210,7 +210,6 @@ export async function ingestObject(
       payload: {
         bytes: registered.bytes,
         mime: registered.mime,
-        sha256: registered.sha256,
         storageClass: registered.storageClass,
       },
       createdAt: registered.createdAt,

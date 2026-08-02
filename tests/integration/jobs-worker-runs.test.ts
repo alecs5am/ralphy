@@ -21,9 +21,9 @@ import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { getRun, startRun } from "../../cli/lib/store/runs.js";
 import {
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let root: TmpRoot;
 let executors: JobExecutor[];
@@ -116,7 +116,7 @@ describe("job worker linked Run lifecycle", () => {
         attempts: [{ state: "succeeded" }],
       });
       expect(
-        listActivity().filter(
+        scopedActivity().filter(
           (event) =>
             event.action === "run.attempt_finished" &&
             event.entityId === getRun(linked.runId).attempts[0]?.id,
@@ -225,16 +225,12 @@ describe("job worker linked Run lifecycle", () => {
       expect(run.attempts).toHaveLength(1);
       expect(run.attempts[0]?.state).toBe("failed");
       expect(
-        listActivity()
-          .filter(
-            (event) =>
-              event.entityType === "run_attempt" &&
-              event.payload &&
-              typeof event.payload === "object" &&
-              !Array.isArray(event.payload) &&
-              event.payload.runId === linked.runId &&
-              event.action === "run.attempt_finished",
-          ),
+        scopedActivity().filter(
+          (event) =>
+            event.entityType === "run_attempt" &&
+            event.action === "run.attempt_finished" &&
+            event.entityId === run.attempts[0]!.id,
+        ),
       ).toHaveLength(1);
     }
   });
@@ -534,7 +530,7 @@ describe("job worker linked Run lifecycle", () => {
     await executor.execute(claimSpecific(jobId));
 
     expect(getJob(jobId)?.status).toBe("completed");
-    expect(listActivity()).toEqual([]);
+    expect(scopedActivity()).toEqual([]);
   });
 });
 

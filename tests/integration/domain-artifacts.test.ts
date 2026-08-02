@@ -21,7 +21,6 @@ import {
   createIteration,
   createProject,
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import {
   endAgentSession,
@@ -29,6 +28,7 @@ import {
 } from "../../cli/lib/store/sessions.js";
 import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -93,7 +93,7 @@ describe("domain Artifact store", () => {
       }),
     ).toThrow();
     expect(
-      listActivity({ workspaceId: workspace.id })
+      scopedActivity({ workspaceId: workspace.id })
         .filter((event) => event.entityType === "artifact")
         .map((event) => event.action),
     ).toEqual(["artifact.created", "artifact.created"]);
@@ -386,7 +386,7 @@ describe("domain Artifact store", () => {
       revisionId: r2.id,
       expectedRevisionId: null,
     });
-    const activityCount = listActivity({ projectId: project.id }).length;
+    const activityCount = scopedActivity({ projectId: project.id }).length;
     expect(() =>
       selectArtifactRevision({
         artifactId: artifact.id,
@@ -395,7 +395,7 @@ describe("domain Artifact store", () => {
       }),
     ).toThrow(/conflict/i);
     expect(getArtifact(artifact.id).selectedRevisionId).toBe(r2.id);
-    expect(listActivity({ projectId: project.id })).toHaveLength(activityCount);
+    expect(scopedActivity({ projectId: project.id })).toHaveLength(activityCount);
 
     openDomainDb().exec(`
       CREATE TRIGGER fail_artifact_selection_activity
@@ -460,25 +460,18 @@ describe("domain Artifact store", () => {
       state: "rejected",
     });
     expect(getArtifact(artifact.id).selectedRevisionId).toBe(r2.id);
+    // Activity is a safe public projection: it names the Artifact, not the
+    // revision transition detail, which the store getters above already prove.
     expect(
-      listActivity({ projectId: project.id })
+      scopedActivity({ projectId: project.id })
         .filter((event) => event.action === "artifact.state_changed")
-        .map((event) => event.payload),
+        .map((event) => ({
+          entityType: event.entityType,
+          entityId: event.entityId,
+        })),
     ).toEqual([
-      expect.objectContaining({
-        sourceRevisionId: r1.id,
-        revisionId: r2.id,
-        from: "working",
-        to: "approved",
-        selectionAdvanced: true,
-      }),
-      expect.objectContaining({
-        sourceRevisionId: r1.id,
-        revisionId: r3.id,
-        from: "working",
-        to: "rejected",
-        selectionAdvanced: false,
-      }),
+      { entityType: "artifact", entityId: artifact.id },
+      { entityType: "artifact", entityId: artifact.id },
     ]);
   });
 
@@ -611,9 +604,8 @@ describe("domain Artifact store", () => {
         [string]
       >("SELECT COUNT(*) AS count FROM artifact_revisions WHERE artifact_id = ?")
       .get(projectArtifact.id)!.count;
-    const activityBeforeRejectedTransition = listActivity({
+    const activityBeforeRejectedTransition = scopedActivity({
       workspaceId: workspace.id,
-      limit: 100,
     }).length;
     expect(() =>
       setArtifactRevisionState({
@@ -630,7 +622,7 @@ describe("domain Artifact store", () => {
         >("SELECT COUNT(*) AS count FROM artifact_revisions WHERE artifact_id = ?")
         .get(projectArtifact.id)!.count,
     ).toBe(beforeRejectedTransition);
-    expect(listActivity({ workspaceId: workspace.id, limit: 100 })).toHaveLength(
+    expect(scopedActivity({ workspaceId: workspace.id,})).toHaveLength(
       activityBeforeRejectedTransition,
     );
   });

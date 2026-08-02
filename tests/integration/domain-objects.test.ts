@@ -11,10 +11,10 @@ import {
 import {
   createProject,
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import type { ObjectRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -96,7 +96,7 @@ describe("domain Object store", () => {
         .query("SELECT id FROM objects WHERE id = ?")
         .get(prepared.id),
     ).toBeNull();
-    expect(listActivity({ workspaceId: workspace.id })).toEqual([
+    expect(scopedActivity({ workspaceId: workspace.id })).toEqual([
       expect.objectContaining({ action: "workspace.created" }),
       expect.objectContaining({ action: "project.created" }),
     ]);
@@ -120,7 +120,7 @@ describe("domain Object store", () => {
     expect(fs.existsSync(moveSource)).toBe(false);
     expect(fs.readFileSync(resolveObjectPath(moved), "utf8")).toBe("move-me");
     expect(
-      listActivity({ projectId: project.id }).map((event) => event.action),
+      scopedActivity({ projectId: project.id }).map((event) => event.action),
     ).toEqual(["project.created", "object.registered"]);
   });
 
