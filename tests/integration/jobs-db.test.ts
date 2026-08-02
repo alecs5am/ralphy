@@ -332,6 +332,104 @@ describe("jobs DB · logs", () => {
       "sha256",
     ]);
   });
+
+  test("keeps Job identity, logs, and artifacts append-only in raw SQL", () => {
+    const workspace = createWorkspace({ slug: "history", name: "History" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const id = insertJob({
+      run_id: run.id,
+      kind: "shell",
+      command: { argv: ["history"] },
+      depends_on: [],
+      priority: 7,
+      tag: "history",
+      project_id: "legacy-project",
+    });
+    const otherId = insertJob({
+      kind: "shell",
+      command: { argv: ["other"] },
+    });
+    appendLog(id, "stdout", "before");
+    recordArtifact(id, "render", "render/before.mp4", 6, "a".repeat(64));
+    const db = openDb();
+    db.exec("PRAGMA recursive_triggers = OFF");
+
+    for (const mutation of [
+      "run_id = NULL",
+      "kind = 'render'",
+      `command = '{"argv":["changed"]}'`,
+      "depends_on = '[1]'",
+      "priority = 8",
+      "created_at = created_at + 1",
+      "tag = 'changed'",
+      "project_id = 'changed-project'",
+      `id = ${id + 10_000}`,
+    ]) {
+      expect(() =>
+        db.prepare(`UPDATE jobs SET ${mutation} WHERE id = ?`).run(id),
+      ).toThrow(/immutable/i);
+    }
+    expect(() => db.prepare("DELETE FROM jobs WHERE id = ?").run(id)).toThrow(
+      /append-only|immutable/i,
+    );
+    expect(() =>
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO jobs
+           (id, run_id, kind, status, command, depends_on, priority, created_at, retry_count)
+           VALUES (?, NULL, 'shell', 'pending', '{"argv":["replacement"]}', '[]', 0, ?, 0)`,
+        )
+        .run(otherId, Date.now()),
+    ).toThrow(/append-only|immutable/i);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO jobs
+           (id, run_id, kind, status, command, depends_on, priority, created_at, retry_count)
+           VALUES (?, ?, 'shell', 'pending', '{"argv":["replacement"]}', '[]', 0, ?, 0)`,
+        )
+        .run(id + 20_000, run.id, Date.now()),
+    ).toThrow(/append-only|immutable/i);
+
+    const log = tailLogs(id)[0]!;
+    const artifact = listArtifacts(id)[0]!;
+    for (const statement of [
+      ["UPDATE job_logs SET line = 'changed' WHERE id = ?", log.id],
+      ["DELETE FROM job_logs WHERE id = ?", log.id],
+      [
+        "INSERT OR REPLACE INTO job_logs (id, job_id, ts, stream, line) VALUES (?, ?, 0, 'system', 'replacement')",
+        log.id,
+        id,
+      ],
+      ["UPDATE job_artifacts SET path = 'changed' WHERE id = ?", artifact.id],
+      ["DELETE FROM job_artifacts WHERE id = ?", artifact.id],
+      [
+        "INSERT OR REPLACE INTO job_artifacts (id, job_id, kind, path) VALUES (?, ?, 'render', 'replacement')",
+        artifact.id,
+        id,
+      ],
+    ] as const) {
+      const [sql, ...params] = statement;
+      expect(() => db.prepare(sql).run(...params)).toThrow(/append-only/i);
+    }
+
+    expect(tailLogs(id).map((row) => row.line)).toEqual(["before"]);
+    expect(listArtifacts(id).map((row) => row.path)).toEqual([
+      "render/before.mp4",
+    ]);
+    expect(getJob(id)?.run_id).toBe(run.id);
+    expect(getJob(otherId)?.command.argv).toEqual(["other"]);
+
+    expect(claimNextPending()?.id).toBe(id);
+    finalizeJob(id, "completed", { exitCode: 0 });
+    appendLog(id, "system", "after");
+    recordArtifact(id, "preview", "render/after.mp4");
+    expect(tailLogs(id).map((row) => row.line)).toEqual(["before", "after"]);
+    expect(listArtifacts(id).map((row) => row.path)).toEqual([
+      "render/before.mp4",
+      "render/after.mp4",
+    ]);
+  });
 });
 
 describe("jobs DB · bulk insert + list + counts", () => {

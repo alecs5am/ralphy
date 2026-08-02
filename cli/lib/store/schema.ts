@@ -617,6 +617,76 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_activity_project_id ON activity_events(project_id, id);
       CREATE INDEX idx_storage_transfer_entries_transfer ON storage_transfer_entries(transfer_id);
 
+      CREATE TRIGGER jobs_no_conflicting_insert
+      BEFORE INSERT ON jobs
+      WHEN EXISTS (
+        SELECT 1 FROM jobs
+        WHERE id = NEW.id
+          OR (NEW.run_id IS NOT NULL AND run_id = NEW.run_id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Job identity is immutable');
+      END;
+
+      CREATE TRIGGER jobs_identity_update_guard
+      BEFORE UPDATE ON jobs
+      WHEN NEW.id IS NOT OLD.id
+        OR NEW.run_id IS NOT OLD.run_id
+        OR NEW.kind IS NOT OLD.kind
+        OR NEW.command IS NOT OLD.command
+        OR NEW.depends_on IS NOT OLD.depends_on
+        OR NEW.priority IS NOT OLD.priority
+        OR NEW.created_at IS NOT OLD.created_at
+        OR NEW.tag IS NOT OLD.tag
+        OR NEW.project_id IS NOT OLD.project_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Job identity is immutable');
+      END;
+
+      CREATE TRIGGER jobs_no_delete
+      BEFORE DELETE ON jobs
+      BEGIN
+        SELECT RAISE(ABORT, 'Jobs are append-only');
+      END;
+
+      CREATE TRIGGER job_logs_no_update
+      BEFORE UPDATE ON job_logs
+      BEGIN
+        SELECT RAISE(ABORT, 'Job logs are append-only');
+      END;
+
+      CREATE TRIGGER job_logs_no_duplicate_insert
+      BEFORE INSERT ON job_logs
+      WHEN EXISTS (SELECT 1 FROM job_logs WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Job logs are append-only');
+      END;
+
+      CREATE TRIGGER job_logs_no_delete
+      BEFORE DELETE ON job_logs
+      BEGIN
+        SELECT RAISE(ABORT, 'Job logs are append-only');
+      END;
+
+      CREATE TRIGGER job_artifacts_no_update
+      BEFORE UPDATE ON job_artifacts
+      BEGIN
+        SELECT RAISE(ABORT, 'Job artifacts are append-only');
+      END;
+
+      CREATE TRIGGER job_artifacts_no_duplicate_insert
+      BEFORE INSERT ON job_artifacts
+      WHEN EXISTS (SELECT 1 FROM job_artifacts WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Job artifacts are append-only');
+      END;
+
+      CREATE TRIGGER job_artifacts_no_delete
+      BEFORE DELETE ON job_artifacts
+      BEGIN
+        SELECT RAISE(ABORT, 'Job artifacts are append-only');
+      END;
+
       CREATE TRIGGER store_metadata_no_update
       BEFORE UPDATE ON store_metadata
       BEGIN
@@ -988,6 +1058,12 @@ export function applyMigrations(
   options: { beforeVersion?: (version: number) => void } = {},
 ): void {
   const optimisticVersion = readUserVersion(db);
+  if (optimisticVersion > SCHEMA_VERSION) {
+    throw new Error(
+      `Database schema version ${optimisticVersion} is newer than supported version ${SCHEMA_VERSION}`,
+    );
+  }
+  if (optimisticVersion === SCHEMA_VERSION) return;
   if (optimisticVersion < SCHEMA_VERSION && databaseHasUserTables(db)) {
     backupDatabase(db, optimisticVersion);
   }
