@@ -7,6 +7,7 @@ import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import {
   openDb,
   closeDb,
+  dbPath,
   insertJob,
   insertJobsAtomic,
   claimNextPending,
@@ -18,18 +19,30 @@ import {
   countByStatus,
   getJob,
   listJobs,
+  listArtifacts,
+  recordArtifact,
 } from "../../cli/lib/jobs/db.js";
+import {
+  closeDomainDb,
+  domainDbPath,
+} from "../../cli/lib/store/db.js";
+import { getRun, startRun } from "../../cli/lib/store/runs.js";
+import { createWorkspace } from "../../cli/lib/store/scopes.js";
+import fs from "node:fs";
+import path from "node:path";
 
 let tmp: TmpRoot;
 
 beforeEach(() => {
   tmp = makeTmpRoot("ralphy-jobs");
   closeDb();
+  closeDomainDb();
   openDb();
 });
 
 afterEach(() => {
   closeDb();
+  closeDomainDb();
   tmp.cleanup();
 });
 
@@ -42,6 +55,49 @@ describe("jobs DB · insert / claim / finalize", () => {
     expect(j?.command.argv).toEqual(["echo", "hi"]);
     expect(j?.depends_on).toEqual([]);
     expect(j?.priority).toBe(0);
+  });
+
+  test("stores single and atomic-batch Run links in the sole domain database", () => {
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const firstRun = startRun({
+      workspaceId: workspace.id,
+      kind: "generation",
+    });
+    const secondRun = startRun({
+      workspaceId: workspace.id,
+      kind: "evaluation",
+    });
+    const single = insertJob({
+      run_id: firstRun.id,
+      kind: "shell",
+      command: { argv: ["single"] },
+      project_id: "legacy-project-slug",
+    });
+    const batch = insertJobsAtomic([
+      {
+        run_id: firstRun.id,
+        kind: "shell",
+        command: { argv: ["batch-a"] },
+      },
+      {
+        run_id: secondRun.id,
+        kind: "shell",
+        command: { argv: ["batch-b"] },
+      },
+    ]);
+
+    expect(getJob(single)).toMatchObject({
+      id: single,
+      run_id: firstRun.id,
+      project_id: "legacy-project-slug",
+    });
+    expect(batch.map((id) => getJob(id)?.run_id)).toEqual([
+      firstRun.id,
+      secondRun.id,
+    ]);
+    expect(dbPath()).toBe(domainDbPath());
+    expect(fs.existsSync(domainDbPath())).toBe(true);
+    expect(fs.existsSync(path.join(tmp.dir, ".ralphy", "jobs.db"))).toBe(false);
   });
 
   test("claim moves first pending to running and skips dependent", () => {
@@ -147,6 +203,38 @@ describe("jobs DB · cancel + retry", () => {
     finalizeJob(id, "completed", { exitCode: 0 });
     expect(retryJob(id)).toBe(false);
   });
+
+  test("pending linked cancellation terminalizes only an unstarted Run", () => {
+    const workspace = createWorkspace({ slug: "linked", name: "Linked" });
+    const pendingRun = startRun({
+      workspaceId: workspace.id,
+      kind: "generation",
+    });
+    const runningRun = startRun({
+      workspaceId: workspace.id,
+      kind: "generation",
+    });
+    const pendingJob = insertJob({
+      run_id: pendingRun.id,
+      kind: "shell",
+      command: { argv: ["pending"] },
+    });
+    const runningJob = insertJob({
+      run_id: runningRun.id,
+      kind: "shell",
+      command: { argv: ["running"] },
+    });
+    claimNextPending();
+    expect(getJob(pendingJob)?.status).toBe("running");
+    expect(cancelJob(pendingJob)).toBe(true);
+    expect(getRun(pendingRun.id).state).toBe("pending");
+
+    expect(cancelJob(runningJob)).toBe(true);
+    expect(getRun(runningRun.id)).toMatchObject({
+      state: "cancelled",
+      startedAt: null,
+    });
+  });
 });
 
 describe("jobs DB · logs", () => {
@@ -169,6 +257,38 @@ describe("jobs DB · logs", () => {
     const after = tailLogs(id, all[0].id);
     expect(after.length).toBe(1);
     expect(after[0].line).toBe("b");
+  });
+
+  test("preserves DB logs across retry and keeps the legacy artifact row shape", () => {
+    const id = insertJob({ kind: "shell", command: { argv: ["x"] } });
+    appendLog(id, "stdout", "attempt one");
+    claimNextPending();
+    finalizeJob(id, "failed", { exitCode: 1 });
+    expect(retryJob(id)).toBe(true);
+    appendLog(id, "stdout", "attempt two");
+    recordArtifact(id, "render", "render/final.mp4", 42, "0".repeat(64));
+
+    expect(tailLogs(id).map((row) => row.line)).toEqual([
+      "attempt one",
+      "attempt two",
+    ]);
+    const artifact = listArtifacts(id)[0];
+    expect(artifact).toEqual({
+      id: artifact?.id,
+      job_id: id,
+      kind: "render",
+      path: "render/final.mp4",
+      bytes: 42,
+      sha256: "0".repeat(64),
+    });
+    expect(Object.keys(artifact ?? {}).sort()).toEqual([
+      "bytes",
+      "id",
+      "job_id",
+      "kind",
+      "path",
+      "sha256",
+    ]);
   });
 });
 

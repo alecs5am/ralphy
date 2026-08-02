@@ -2,7 +2,7 @@
 //
 // A "job" is a single CLI invocation that the ralphy daemon will execute
 // asynchronously: a video gen, an image gen, a render, an ffmpeg recipe, a
-// custom shell command. State + logs persist in .ralphy/jobs.db.
+// custom shell command. State + logs persist in .ralphy/ralphy.db.
 
 export type JobStatus =
   | "pending"      // awaiting dispatch (deps may still be unmet)
@@ -35,6 +35,8 @@ export type JobCommand = {
 
 export type JobRow = {
   id: number;
+  /** Optional durable execution provenance link. */
+  run_id: string | null;
   kind: JobKind;
   status: JobStatus;
   command: JobCommand;
@@ -75,6 +77,7 @@ export type JobArtifactRow = {
 };
 
 export type JobInsertInput = {
+  run_id?: string;
   kind: JobKind;
   command: JobCommand;
   depends_on?: number[];
