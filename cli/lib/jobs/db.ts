@@ -226,8 +226,11 @@ export function finalizeJob(
   openDb();
   withImmediateTransaction((db) => {
     const job = db
-      .query<{ status: JobStatus; runId: string | null }, [number]>(
-        "SELECT status, run_id AS runId FROM jobs WHERE id = ?",
+      .query<
+        { status: JobStatus; runId: string | null; endedAt: number | null },
+        [number]
+      >(
+        "SELECT status, run_id AS runId, ended_at AS endedAt FROM jobs WHERE id = ?",
       )
       .get(id);
     if (!job) return;
@@ -246,18 +249,14 @@ export function finalizeJob(
           id,
         );
       if (!result.changes) return;
-    } else if (job.status === "cancelled" && job.runId) {
+    } else if (job.status === "cancelled" && job.endedAt === null) {
       effectiveStatus = "cancelled";
-      const active = db
-        .query<{ id: string }, [string]>(
-          "SELECT id FROM run_attempts WHERE run_id = ? AND state = 'running' LIMIT 1",
-        )
-        .get(job.runId);
-      if (!active) return;
-      db.prepare(
-        `UPDATE jobs SET exit_code = COALESCE(exit_code, ?),
-         error_message = COALESCE(error_message, ?) WHERE id = ? AND status = 'cancelled'`,
-      ).run(opts.exitCode ?? null, opts.errorMessage ?? null, id);
+      const result = db.prepare(
+        `UPDATE jobs SET ended_at = ?, exit_code = COALESCE(exit_code, ?),
+         error_message = COALESCE(error_message, ?)
+         WHERE id = ? AND status = 'cancelled' AND ended_at IS NULL`,
+      ).run(endedAt, opts.exitCode ?? null, opts.errorMessage ?? null, id);
+      if (!result.changes) return;
     } else {
       return;
     }
@@ -284,7 +283,9 @@ export function cancelJob(id: number): boolean {
     const endedAt = Date.now();
     const result = db
       .prepare(
-        "UPDATE jobs SET status='cancelled', ended_at=? WHERE id=? AND status IN ('pending','running','blocked')",
+        `UPDATE jobs SET status='cancelled',
+         ended_at=CASE WHEN status='running' THEN NULL ELSE ? END
+         WHERE id=? AND status IN ('pending','running','blocked')`,
       )
       .run(endedAt, id);
     if (!result.changes) return false;
@@ -302,7 +303,10 @@ export function retryJob(id: number): boolean {
   const db = openDb();
   const r = db
     .prepare(
-      "UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL, error_message=NULL, retry_count=retry_count+1 WHERE id=? AND status IN ('failed','cancelled','blocked')",
+      `UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL,
+       error_message=NULL, retry_count=retry_count+1
+       WHERE id=? AND status IN ('failed','cancelled','blocked')
+       AND (status <> 'cancelled' OR ended_at IS NOT NULL)`,
     )
     .run(id);
   return (r.changes ?? 0) > 0;
@@ -349,7 +353,9 @@ export function cancelJobsByFilter(filter: {
   const cancelled: number[] = [];
   let matchedButTerminal = 0;
   const stmt = db.prepare(
-    "UPDATE jobs SET status='cancelled', ended_at=? WHERE id=? AND status IN ('pending','running','blocked')",
+    `UPDATE jobs SET status='cancelled',
+     ended_at=CASE WHEN status='running' THEN NULL ELSE ? END
+     WHERE id=? AND status IN ('pending','running','blocked')`,
   );
   const txn = db.transaction(() => {
     for (const m of matches) {
@@ -406,17 +412,27 @@ export function retryJobsByFilter(filter: {
     params.push(...arr);
   }
   const matches = db
-    .query(`SELECT id, status FROM jobs WHERE ${where.join(" AND ")} ORDER BY id ASC`)
-    .all(...params) as Array<{ id: number; status: JobStatus }>;
+    .query(`SELECT id, status, ended_at FROM jobs WHERE ${where.join(" AND ")} ORDER BY id ASC`)
+    .all(...params) as Array<{
+      id: number;
+      status: JobStatus;
+      ended_at: number | null;
+    }>;
   const RETRYABLE = new Set<JobStatus>(["failed", "cancelled", "blocked"]);
   const retried: number[] = [];
   let matchedButNotRetryable = 0;
   const stmt = db.prepare(
-    "UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL, error_message=NULL, retry_count=retry_count+1 WHERE id=? AND status IN ('failed','cancelled','blocked')",
+    `UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL,
+     error_message=NULL, retry_count=retry_count+1
+     WHERE id=? AND status IN ('failed','cancelled','blocked')
+     AND (status <> 'cancelled' OR ended_at IS NOT NULL)`,
   );
   const txn = db.transaction(() => {
     for (const m of matches) {
-      if (!RETRYABLE.has(m.status)) {
+      if (
+        !RETRYABLE.has(m.status) ||
+        (m.status === "cancelled" && m.ended_at === null)
+      ) {
         matchedButNotRetryable++;
         continue;
       }

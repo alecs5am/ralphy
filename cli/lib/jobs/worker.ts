@@ -19,6 +19,7 @@ import { checkQueuedJobSpend } from "./spend-gate.js";
 import type { JobKind, JobRow } from "./types.js";
 
 const POLL_INTERVAL_MS = 1000;
+const TERMINATION_GRACE_MS = 5_000;
 
 type SpendGate = (
   job: JobRow,
@@ -32,6 +33,7 @@ type Execution = {
   signaled: boolean;
   cancelRequested: boolean;
   done: boolean;
+  killTimer: ReturnType<typeof setTimeout> | null;
   completion: Promise<void>;
   complete: () => void;
   cancellation: Promise<void>;
@@ -42,7 +44,7 @@ type Execution = {
 export type JobExecutor = {
   execute(job: JobRow): Promise<void>;
   reapCancelled(): void;
-  stop(): void;
+  stop(): Promise<void>;
   activeCount(): number;
   runningByKind(): Partial<Record<JobKind, number>>;
   lastDispatchByKind(): Partial<Record<JobKind, number>>;
@@ -54,13 +56,16 @@ export function createJobExecutor(
     cwd: string;
     log?: (line: string) => void;
   },
-  dependencies: { spendGate?: SpendGate } = {},
+  dependencies: { spendGate?: SpendGate; terminationGraceMs?: number } = {},
 ): JobExecutor {
   const executions = new Map<number, Execution>();
   const dispatchedAt: Partial<Record<JobKind, number>> = {};
   const spendGate = dependencies.spendGate ?? checkQueuedJobSpend;
+  const terminationGraceMs =
+    dependencies.terminationGraceMs ?? TERMINATION_GRACE_MS;
   const log = opts.log ?? (() => {});
   let stopping = false;
+  let stopPromise: Promise<void> | null = null;
 
   const complete = (
     execution: Execution,
@@ -69,6 +74,7 @@ export function createJobExecutor(
   ): void => {
     if (execution.done) return;
     execution.done = true;
+    if (execution.killTimer) clearTimeout(execution.killTimer);
     executions.delete(execution.job.id);
     finalizeJob(execution.job.id, status, result);
     execution.fileStream?.end();
@@ -102,8 +108,18 @@ export function createJobExecutor(
         `job ${execution.job.id} ${source === "stop" ? "daemon-stop" : "external-cancel"} -> SIGTERM`,
       );
     } catch {
-      complete(execution, "cancelled", { errorMessage: "cancelled" });
+      // The close/error event remains the exactly-once terminalization point.
     }
+    execution.killTimer = setTimeout(() => {
+      if (execution.done || !execution.child) return;
+      try {
+        execution.child.kill("SIGKILL");
+        appendLog(execution.job.id, "system", "[cancel] SIGKILL");
+        log(`job ${execution.job.id} cancellation grace expired -> SIGKILL`);
+      } catch {
+        // The close/error event will settle an already-exited child.
+      }
+    }, terminationGraceMs);
   };
 
   const spawnJob = (execution: Execution, argv: string[]): void => {
@@ -254,6 +270,7 @@ export function createJobExecutor(
         signaled: false,
         cancelRequested: false,
         done: false,
+        killTimer: null,
         completion: new Promise<void>((resolve) => {
           completeExecution = resolve;
         }),
@@ -280,11 +297,16 @@ export function createJobExecutor(
       }
     },
     stop() {
-      if (stopping) return;
+      if (stopPromise) return stopPromise;
       stopping = true;
-      for (const execution of [...executions.values()]) {
+      const active = [...executions.values()];
+      for (const execution of active) {
         requestCancellation(execution, "stop");
       }
+      stopPromise = Promise.all(active.map((execution) => execution.completion)).then(
+        () => undefined,
+      );
+      return stopPromise;
     },
     activeCount() {
       return executions.size;
@@ -335,9 +357,8 @@ export function runWorkerLoop(opts: {
     if (stopping) return;
     stopping = true;
     log(`received ${signal}, stopping (${executor.activeCount()} active)`);
-    executor.stop();
     if (pollTimer) clearTimeout(pollTimer);
-    setTimeout(() => {
+    void executor.stop().then(() => {
       log(`exit (active=${executor.activeCount()})`);
       try {
         fs.unlinkSync(opts.pidFile);
@@ -345,7 +366,7 @@ export function runWorkerLoop(opts: {
         // Missing pid file is already stopped.
       }
       process.exit(0);
-    }, 5_000).unref();
+    });
   };
 
   process.on("SIGTERM", () => stop("SIGTERM"));

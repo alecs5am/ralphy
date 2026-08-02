@@ -357,6 +357,9 @@ export async function promoteRunObject(input: {
     metadata: runObject.metadata,
     transfer: "move",
   });
+  if (object.bytes !== facts.bytes || object.sha256 !== facts.sha256) {
+    throw new Error("RunObject promotion source changed during ingestion");
+  }
 
   return withImmediateTransaction((db) => {
     const current = getRunObjectRow(db, input.runObjectId);
