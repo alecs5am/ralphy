@@ -12,7 +12,7 @@
 
 - `.ralphy/ralphy.db` is the only authoritative domain store after cutover.
 - Use `bun:sqlite`; add no ORM or database dependency.
-- Store opaque prefixed UUIDs as `TEXT`, timestamps as UTC epoch milliseconds, and booleans as constrained integers.
+- Store opaque prefixed UUIDs as `TEXT`, timestamps as UTC epoch milliseconds, and booleans as constrained integers. The existing queue API deliberately preserves integer autoincrement IDs for `jobs`, `job_logs`, and `job_artifacts`; `activity_events.id` is also an integer autoincrement sequence.
 - Enable WAL, foreign keys, and a 5000 ms busy timeout on every writable connection.
 - Every creative edit creates an immutable revision; mutable heads and operational statuses use optimistic checks and append an activity event.
 - A project belongs to exactly one workspace, and project slugs are unique inside that workspace.
