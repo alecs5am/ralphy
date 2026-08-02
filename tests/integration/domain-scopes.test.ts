@@ -193,6 +193,66 @@ describe("domain scope stores", () => {
     ).toEqual([{ entity_type: "document_revision", entity_id: "drev_source" }]);
   });
 
+  test("rolls back state when activity insertion aborts", () => {
+    makeRoot();
+    const db = openDomainDb();
+    db.exec(`
+      CREATE TRIGGER abort_workspace_activity
+      BEFORE INSERT ON activity_events
+      BEGIN
+        SELECT RAISE(ABORT, 'activity abort');
+      END
+    `);
+
+    try {
+      expect(() => createWorkspace({ slug: "aborted", name: "Aborted" })).toThrow(
+        "activity abort",
+      );
+      expect(db.query("SELECT id FROM workspaces WHERE slug = 'aborted'").get()).toBeNull();
+      expect(db.query("SELECT id FROM activity_events").all()).toEqual([]);
+    } finally {
+      db.exec("DROP TRIGGER IF EXISTS abort_workspace_activity");
+    }
+  });
+
+  test("rolls back feedback resolution links and state when validation or activity fails", () => {
+    makeRoot();
+    const workspace = createWorkspace({ slug: "resolution-source", name: "Source" });
+    const project = createProject({ workspaceId: workspace.id, slug: "source", name: "Source" });
+    const iteration = createIteration({ projectId: project.id, title: "Round" });
+    const feedback = addFeedback({ iterationId: iteration.id, body: "Resolve me." });
+    const otherWorkspace = createWorkspace({ slug: "resolution-other", name: "Other" });
+    const otherProject = createProject({ workspaceId: otherWorkspace.id, slug: "other", name: "Other" });
+    insertDocumentRevision("drev_resolution_source", "doc_resolution_source", workspace.id, project.id);
+    insertDocumentRevision("drev_resolution_other", "doc_resolution_other", otherWorkspace.id, otherProject.id);
+    const beforeValidationActivity = listActivity({ projectId: project.id, afterId: 0, limit: 100 });
+
+    expect(() =>
+      resolveFeedback(feedback.id, {
+        links: [{ entityType: "document_revision", entityId: "drev_resolution_other" }],
+      }),
+    ).toThrow(/different workspace/);
+    expect(feedbackState(feedback.id)).toEqual({ status: "open", resolution_note: null });
+    expect(resolutionLinks(feedback.id)).toEqual([]);
+    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(
+      beforeValidationActivity,
+    );
+
+    dbWithAbortActivity(() =>
+      expect(() =>
+        resolveFeedback(feedback.id, {
+          note: "This must roll back.",
+          links: [{ entityType: "document_revision", entityId: "drev_resolution_source" }],
+        }),
+      ).toThrow("activity abort"),
+    );
+    expect(feedbackState(feedback.id)).toEqual({ status: "open", resolution_note: null });
+    expect(resolutionLinks(feedback.id)).toEqual([]);
+    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(
+      beforeValidationActivity,
+    );
+  });
+
   test("lets an otherwise empty workspace cascade its social accounts", () => {
     makeRoot();
     const db = openDomainDb();
@@ -243,4 +303,35 @@ function insertDocumentRevision(
     "a".repeat(64),
     1,
   );
+}
+
+function feedbackState(feedbackId: string): {
+  status: string;
+  resolution_note: string | null;
+} {
+  return openDomainDb()
+    .query("SELECT status, resolution_note FROM feedback_items WHERE id = ?")
+    .get(feedbackId) as { status: string; resolution_note: string | null };
+}
+
+function resolutionLinks(feedbackId: string): unknown[] {
+  return openDomainDb()
+    .query("SELECT entity_type, entity_id FROM feedback_resolution_links WHERE feedback_id = ?")
+    .all(feedbackId);
+}
+
+function dbWithAbortActivity(run: () => void): void {
+  const db = openDomainDb();
+  db.exec(`
+    CREATE TRIGGER abort_resolution_activity
+    BEFORE INSERT ON activity_events
+    BEGIN
+      SELECT RAISE(ABORT, 'activity abort');
+    END
+  `);
+  try {
+    run();
+  } finally {
+    db.exec("DROP TRIGGER IF EXISTS abort_resolution_activity");
+  }
 }

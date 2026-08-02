@@ -572,12 +572,12 @@ function assertPublicConfig(value: JsonValue | null | undefined): void {
   }
 }
 
-function page<T>(items: T[], limit: number): Page<T> {
+function page<T extends { id: string }>(items: T[], limit: number): Page<T> {
   const hasMore = items.length > limit;
   const pageItems = hasMore ? items.slice(0, limit) : items;
   return {
     items: pageItems,
-    nextCursor: hasMore ? (pageItems.at(-1) as { id: string }).id : null,
+    nextCursor: hasMore ? pageItems.at(-1)?.id ?? null : null,
   };
 }
 
