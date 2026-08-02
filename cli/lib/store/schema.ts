@@ -574,10 +574,14 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_projects_workspace ON projects(workspace_id);
       CREATE INDEX idx_iterations_project ON project_iterations(project_id, number);
       CREATE INDEX idx_feedback_iteration ON feedback_items(iteration_id, status);
+      CREATE UNIQUE INDEX idx_documents_workspace_slug
+        ON documents(workspace_id, slug) WHERE project_id IS NULL;
       CREATE INDEX idx_documents_scope ON documents(workspace_id, project_id, kind);
       CREATE INDEX idx_document_revisions_document ON document_revisions(document_id, revision_no);
       CREATE INDEX idx_objects_scope ON objects(workspace_id, project_id, storage_class);
       CREATE INDEX idx_objects_sha256 ON objects(sha256);
+      CREATE UNIQUE INDEX idx_artifacts_workspace_slug
+        ON artifacts(workspace_id, slug) WHERE project_id IS NULL;
       CREATE INDEX idx_artifacts_scope ON artifacts(workspace_id, project_id, kind);
       CREATE INDEX idx_artifact_revisions_artifact ON artifact_revisions(artifact_id, revision_no);
       CREATE INDEX idx_compositions_project ON compositions(project_id);

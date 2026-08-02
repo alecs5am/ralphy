@@ -365,6 +365,54 @@ describe("schema constraints", () => {
       insertObject(db, "obj_windows", "C:\\tmp\\escape.bin"),
     ).toThrow();
   });
+
+  test("rejects duplicate workspace-scoped Document slugs", () => {
+    makeRoot();
+    const db = openDomainDb();
+    db.prepare(
+      "INSERT INTO workspaces (id, slug, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    ).run("ws_documents", "documents", "Documents", 1, 1);
+    const insert = db.prepare(
+      "INSERT INTO documents (id, workspace_id, kind, slug, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    );
+    insert.run(
+      "doc_workspace_1",
+      "ws_documents",
+      "brief",
+      "brief",
+      "First",
+      1,
+      1,
+    );
+
+    expect(() =>
+      insert.run(
+        "doc_workspace_2",
+        "ws_documents",
+        "brief",
+        "brief",
+        "Second",
+        1,
+        1,
+      ),
+    ).toThrow();
+  });
+
+  test("rejects duplicate workspace-scoped Artifact slugs", () => {
+    makeRoot();
+    const db = openDomainDb();
+    db.prepare(
+      "INSERT INTO workspaces (id, slug, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    ).run("ws_artifacts", "artifacts", "Artifacts", 1, 1);
+    const insert = db.prepare(
+      "INSERT INTO artifacts (id, workspace_id, slug, kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    );
+    insert.run("art_workspace_1", "ws_artifacts", "logo", "image", 1, 1);
+
+    expect(() =>
+      insert.run("art_workspace_2", "ws_artifacts", "logo", "image", 1, 1),
+    ).toThrow();
+  });
 });
 
 function seedRevisionGraph(db: Database): void {
