@@ -229,6 +229,17 @@ describe("domain scope stores", () => {
 
     expect(() =>
       resolveFeedback(feedback.id, {
+        links: [{ entityType: "document_revision", entityId: "drev_resolution_missing" }],
+      }),
+    ).toThrow(/target not found/);
+    expect(feedbackState(feedback.id)).toEqual({ status: "open", resolution_note: null });
+    expect(resolutionLinks(feedback.id)).toEqual([]);
+    expect(listActivity({ projectId: project.id, afterId: 0, limit: 100 })).toEqual(
+      beforeValidationActivity,
+    );
+
+    expect(() =>
+      resolveFeedback(feedback.id, {
         links: [{ entityType: "document_revision", entityId: "drev_resolution_other" }],
       }),
     ).toThrow(/different workspace/);
