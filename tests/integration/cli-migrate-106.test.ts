@@ -14,9 +14,11 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { spawnSync } from "node:child_process";
+import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { detectInFlightJobs } from "../../cli/lib/migrate.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -73,6 +75,93 @@ function write(rel: string, content: string) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, content);
 }
+
+function writeQueueDb(
+  stateDir: string,
+  fileName: "ralphy.db" | "jobs.db",
+  statuses: string[],
+): void {
+  const file = path.join(tmpRoot, stateDir, fileName);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const db = new Database(file, { create: true });
+  db.exec("CREATE TABLE jobs (status TEXT NOT NULL)");
+  const insert = db.prepare("INSERT INTO jobs (status) VALUES (?)");
+  for (const status of statuses) insert.run(status);
+  db.close();
+}
+
+describe("migration in-flight job detection", () => {
+  test("reads a consolidated queue without creating a legacy database", async () => {
+    write(".ralphy/daemon.pid", String(process.pid));
+    writeQueueDb(".ralphy", "ralphy.db", ["pending", "running", "completed"]);
+
+    expect(await detectInFlightJobs(tmpRoot)).toEqual({
+      pid: process.pid,
+      running: 1,
+      pending: 1,
+    });
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "jobs.db"))).toBe(false);
+  });
+
+  test("still reads a legacy queue at the legacy engine-state location", async () => {
+    write("workspace/.ralph/daemon.pid", String(process.pid));
+    writeQueueDb("workspace/.ralph", "jobs.db", ["pending", "failed"]);
+
+    expect(await detectInFlightJobs(tmpRoot)).toEqual({
+      pid: process.pid,
+      running: 0,
+      pending: 1,
+    });
+  });
+
+  test("totals consolidated and legacy queues for one live daemon", async () => {
+    write(".ralphy/daemon.pid", String(process.pid));
+    writeQueueDb(".ralphy", "ralphy.db", ["running", "pending"]);
+    writeQueueDb(".ralphy", "jobs.db", ["running", "pending", "pending"]);
+
+    expect(await detectInFlightJobs(tmpRoot)).toEqual({
+      pid: process.pid,
+      running: 2,
+      pending: 3,
+    });
+  });
+
+  test("ignores missing, unreadable, and stale queue state without writes", async () => {
+    const missingRoot = path.join(tmpRoot, "missing");
+    fs.mkdirSync(path.join(missingRoot, ".ralphy"), { recursive: true });
+    fs.writeFileSync(
+      path.join(missingRoot, ".ralphy", "daemon.pid"),
+      String(process.pid),
+    );
+    expect(await detectInFlightJobs(missingRoot)).toBeNull();
+    expect(fs.readdirSync(path.join(missingRoot, ".ralphy"))).toEqual([
+      "daemon.pid",
+    ]);
+
+    const unreadableRoot = path.join(tmpRoot, "unreadable");
+    fs.mkdirSync(path.join(unreadableRoot, ".ralphy"), { recursive: true });
+    fs.writeFileSync(
+      path.join(unreadableRoot, ".ralphy", "daemon.pid"),
+      String(process.pid),
+    );
+    fs.writeFileSync(path.join(unreadableRoot, ".ralphy", "ralphy.db"), "not sqlite");
+    expect(await detectInFlightJobs(unreadableRoot)).toBeNull();
+    expect(fs.readdirSync(path.join(unreadableRoot, ".ralphy")).sort()).toEqual([
+      "daemon.pid",
+      "ralphy.db",
+    ]);
+
+    const staleRoot = path.join(tmpRoot, "stale");
+    fs.mkdirSync(path.join(staleRoot, ".ralphy"), { recursive: true });
+    fs.writeFileSync(path.join(staleRoot, ".ralphy", "daemon.pid"), "99999999");
+    const staleDb = new Database(path.join(staleRoot, ".ralphy", "ralphy.db"), {
+      create: true,
+    });
+    staleDb.exec("CREATE TABLE jobs (status TEXT NOT NULL); INSERT INTO jobs VALUES ('running')");
+    staleDb.close();
+    expect(await detectInFlightJobs(staleRoot)).toBeNull();
+  });
+});
 
 /** Build the legacy fixture root: 2 projects + .ralph state + templates/references. */
 function buildLegacyFixture() {

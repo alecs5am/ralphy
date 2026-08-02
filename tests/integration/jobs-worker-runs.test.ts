@@ -3,12 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   cancelJob,
+  cancelJobsByFilter,
   claimNextPending,
   closeDb,
   finalizeJob,
   getJob,
   insertJob,
   retryJob,
+  retryJobsByFilter,
 } from "../../cli/lib/jobs/db.js";
 import {
   createJobExecutor,
@@ -282,6 +284,93 @@ describe("job worker linked Run lifecycle", () => {
     );
   });
 
+  test("waits for linked and unlinked cancellation to terminalize before retry", async () => {
+    let releaseGate!: (value: { allowed: boolean; reason: null }) => void;
+    const gate = new Promise<{ allowed: boolean; reason: null }>((resolve) => {
+      releaseGate = resolve;
+    });
+    const linked = linkedJob(["/bin/sh", "-c", "exit 0"]);
+    const unlinkedJobId = insertJob({
+      kind: "shell",
+      command: { argv: ["/bin/sh", "-c", "exit 0"] },
+      tag: "unlinked-running-cancel",
+    });
+    const executor = makeExecutor(() => gate);
+    const linkedExecution = executor.execute(claimSpecific(linked.jobId));
+    const unlinkedExecution = executor.execute(claimSpecific(unlinkedJobId));
+    await waitFor(() => executor.activeCount() === 2);
+
+    expect(cancelJob(linked.jobId)).toBe(true);
+    expect(
+      cancelJobsByFilter({ tag: "unlinked-running-cancel", state: "running" }),
+    ).toEqual({ cancelled: [unlinkedJobId], matchedButTerminal: 0 });
+    expect(getJob(linked.jobId)?.ended_at).toBeNull();
+    expect(getJob(unlinkedJobId)?.ended_at).toBeNull();
+    expect(retryJob(linked.jobId)).toBe(false);
+    expect(
+      retryJobsByFilter({ state: "cancelled" }),
+    ).toEqual({ retried: [], matchedButNotRetryable: 2 });
+
+    executor.reapCancelled();
+    await Promise.all([linkedExecution, unlinkedExecution]);
+    expect(getJob(linked.jobId)?.ended_at).toBeNumber();
+    expect(getJob(unlinkedJobId)?.ended_at).toBeNumber();
+    expect(getRun(linked.runId)).toMatchObject({
+      state: "cancelled",
+      attempts: [{ attemptNo: 1, state: "cancelled" }],
+    });
+
+    expect(retryJob(linked.jobId)).toBe(true);
+    expect(
+      retryJobsByFilter({ tag: "unlinked-running-cancel", state: "cancelled" }),
+    ).toEqual({ retried: [unlinkedJobId], matchedButNotRetryable: 0 });
+    releaseGate({ allowed: true, reason: null });
+    await executor.execute(claimSpecific(linked.jobId));
+    await executor.execute(claimSpecific(unlinkedJobId));
+    expect(getRun(linked.runId)).toMatchObject({
+      state: "succeeded",
+      attempts: [
+        { attemptNo: 1, state: "cancelled" },
+        { attemptNo: 2, state: "succeeded" },
+      ],
+    });
+    expect(getRun(linked.runId).attempts.some((attempt) => attempt.state === "running")).toBe(false);
+  });
+
+  test("stop escalates to SIGKILL and waits for stubborn child finalization", async () => {
+    const pidPath = path.join(root.dir, "stubborn.pid");
+    const script = [
+      'process.on("SIGTERM", () => {});',
+      `require("node:fs").writeFileSync(${JSON.stringify(pidPath)}, String(process.pid));`,
+      "setInterval(() => {}, 1_000);",
+    ].join("");
+    const linked = linkedJob([process.execPath, "-e", script]);
+    const executor = createJobExecutor(
+      { ralphyBin: "ralphy", cwd: root.dir, log: () => {} },
+      {
+        spendGate: async () => ({ allowed: true, reason: null }),
+        terminationGraceMs: 20,
+      },
+    );
+    executors.push(executor);
+    const execution = executor.execute(claimSpecific(linked.jobId));
+    await waitFor(() => fs.existsSync(pidPath));
+    const pid = Number(fs.readFileSync(pidPath, "utf8"));
+
+    await executor.stop();
+    const survived = processExists(pid);
+    if (survived) process.kill(pid, "SIGKILL");
+    await execution;
+
+    expect(survived).toBe(false);
+    expect(executor.activeCount()).toBe(0);
+    expect(getJob(linked.jobId)).toMatchObject({ status: "cancelled" });
+    expect(getRun(linked.runId)).toMatchObject({
+      state: "cancelled",
+      attempts: [{ state: "cancelled" }],
+    });
+  });
+
   test("leaves a dependency-blocked Run pending until explicit cancellation", () => {
     const dependency = insertJob({
       kind: "shell",
@@ -300,6 +389,7 @@ describe("job worker linked Run lifecycle", () => {
       attempts: [],
     });
     expect(cancelJob(linked.jobId)).toBe(true);
+    expect(getJob(linked.jobId)?.ended_at).toBeNumber();
     expect(getRun(linked.runId).state).toBe("cancelled");
   });
 
@@ -369,5 +459,14 @@ async function waitFor(predicate: () => boolean): Promise<void> {
   while (!predicate()) {
     if (Date.now() >= deadline) throw new Error("Timed out waiting for worker");
     await Bun.sleep(10);
+  }
+}
+
+function processExists(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
   }
 }

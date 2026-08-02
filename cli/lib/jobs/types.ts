@@ -36,7 +36,7 @@ export type JobCommand = {
 export type JobRow = {
   id: number;
   /** Optional durable execution provenance link. */
-  run_id: string | null;
+  run_id?: string | null;
   kind: JobKind;
   status: JobStatus;
   command: JobCommand;

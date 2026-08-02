@@ -208,7 +208,9 @@ describe("queue CLI · cancel / retry filter mode (subprocess smoke)", () => {
       stderr: "pipe",
     });
     const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
     await proc.exited;
+    expect(proc.exitCode, stderr).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.retried_count).toBe(1);
     expect(parsed.filter.tag).toBe("rt-001");

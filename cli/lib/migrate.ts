@@ -101,26 +101,30 @@ export async function detectInFlightJobs(
     } catch {
       continue; // stale pidfile → not running
     }
-    const dbFile = path.join(dir, "jobs.db");
-    if (!existsSync(dbFile)) continue;
-    try {
-      const { Database } = await import("bun:sqlite");
-      const db = new Database(dbFile, { readonly: true });
+    let running = 0;
+    let pending = 0;
+    for (const fileName of ["ralphy.db", "jobs.db"]) {
+      const dbFile = path.join(dir, fileName);
+      if (!existsSync(dbFile)) continue;
       try {
-        const row = db
-          .query(
-            "SELECT SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) AS running, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM jobs",
-          )
-          .get() as { running: number | null; pending: number | null } | null;
-        const running = row?.running ?? 0;
-        const pending = row?.pending ?? 0;
-        if (running + pending > 0) return { pid, running, pending };
-      } finally {
-        db.close();
+        const { Database } = await import("bun:sqlite");
+        const db = new Database(dbFile, { readonly: true });
+        try {
+          const row = db
+            .query(
+              "SELECT SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) AS running, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending FROM jobs",
+            )
+            .get() as { running: number | null; pending: number | null } | null;
+          running += row?.running ?? 0;
+          pending += row?.pending ?? 0;
+        } finally {
+          db.close();
+        }
+      } catch {
+        /* unreadable db → count only the queue state we can prove */
       }
-    } catch {
-      /* unreadable db → can't prove jobs are in flight; don't block */
     }
+    if (running + pending > 0) return { pid, running, pending };
   }
   return null;
 }

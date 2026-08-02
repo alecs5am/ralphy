@@ -55,6 +55,7 @@ describe("jobs DB · insert / claim / finalize", () => {
     expect(j?.command.argv).toEqual(["echo", "hi"]);
     expect(j?.depends_on).toEqual([]);
     expect(j?.priority).toBe(0);
+    expect(j?.run_id).toBeNull();
   });
 
   test("stores single and atomic-batch Run links in the sole domain database", () => {
@@ -67,6 +68,10 @@ describe("jobs DB · insert / claim / finalize", () => {
       workspaceId: workspace.id,
       kind: "evaluation",
     });
+    const thirdRun = startRun({
+      workspaceId: workspace.id,
+      kind: "render",
+    });
     const single = insertJob({
       run_id: firstRun.id,
       kind: "shell",
@@ -75,12 +80,12 @@ describe("jobs DB · insert / claim / finalize", () => {
     });
     const batch = insertJobsAtomic([
       {
-        run_id: firstRun.id,
+        run_id: secondRun.id,
         kind: "shell",
         command: { argv: ["batch-a"] },
       },
       {
-        run_id: secondRun.id,
+        run_id: thirdRun.id,
         kind: "shell",
         command: { argv: ["batch-b"] },
       },
@@ -92,12 +97,47 @@ describe("jobs DB · insert / claim / finalize", () => {
       project_id: "legacy-project-slug",
     });
     expect(batch.map((id) => getJob(id)?.run_id)).toEqual([
-      firstRun.id,
       secondRun.id,
+      thirdRun.id,
     ]);
     expect(dbPath()).toBe(domainDbPath());
     expect(fs.existsSync(domainDbPath())).toBe(true);
     expect(fs.existsSync(path.join(tmp.dir, ".ralphy", "jobs.db"))).toBe(false);
+  });
+
+  test("rejects competing single and atomic-batch owners for one Run", () => {
+    const workspace = createWorkspace({ slug: "owners", name: "Owners" });
+    const ownedRun = startRun({ workspaceId: workspace.id, kind: "generation" });
+    insertJob({
+      run_id: ownedRun.id,
+      kind: "shell",
+      command: { argv: ["owner"] },
+    });
+
+    expect(() =>
+      insertJob({
+        run_id: ownedRun.id,
+        kind: "shell",
+        command: { argv: ["competitor"] },
+      }),
+    ).toThrow();
+
+    const batchRun = startRun({ workspaceId: workspace.id, kind: "generation" });
+    expect(() =>
+      insertJobsAtomic([
+        {
+          run_id: batchRun.id,
+          kind: "shell",
+          command: { argv: ["batch-owner"] },
+        },
+        {
+          run_id: batchRun.id,
+          kind: "shell",
+          command: { argv: ["batch-competitor"] },
+        },
+      ]),
+    ).toThrow();
+    expect(listJobs()).toHaveLength(1);
   });
 
   test("claim moves first pending to running and skips dependent", () => {
@@ -227,9 +267,11 @@ describe("jobs DB · cancel + retry", () => {
     claimNextPending();
     expect(getJob(pendingJob)?.status).toBe("running");
     expect(cancelJob(pendingJob)).toBe(true);
+    expect(getJob(pendingJob)?.ended_at).toBeNull();
     expect(getRun(pendingRun.id).state).toBe("pending");
 
     expect(cancelJob(runningJob)).toBe(true);
+    expect(getJob(runningJob)?.ended_at).toBeNumber();
     expect(getRun(runningRun.id)).toMatchObject({
       state: "cancelled",
       startedAt: null,

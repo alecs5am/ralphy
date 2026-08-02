@@ -609,6 +609,7 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_jobs_status ON jobs(status);
       CREATE INDEX idx_jobs_tag ON jobs(tag);
       CREATE INDEX idx_jobs_project ON jobs(project_id);
+      CREATE UNIQUE INDEX idx_jobs_run ON jobs(run_id) WHERE run_id IS NOT NULL;
       CREATE INDEX idx_job_logs_job_id ON job_logs(job_id);
       CREATE INDEX idx_job_logs_ts ON job_logs(ts);
       CREATE INDEX idx_job_artifacts_job_id ON job_artifacts(job_id);

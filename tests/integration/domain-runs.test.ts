@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -541,6 +541,48 @@ describe("domain Run store", () => {
     expect(
       fs.readFileSync(path.join(root.dir, ".ralphy", stored!.bucket, stored!.key), "utf8"),
     ).toBe("orphan");
+  });
+
+  test("does not link bytes that change between inspection and ingestion", async () => {
+    root = makeTmpRoot("ralphy-domain-run-objects-race");
+    const workspace = createWorkspace({ slug: "race", name: "Race" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const sourcePath = writeRunFile("race/output.bin", "before");
+    const runObject = recordRunObject({
+      runId: run.id,
+      path: "tmp/race/output.bin",
+      purpose: "output",
+      state: "working",
+      retention: "keep",
+    });
+    const copyFile = fs.promises.copyFile.bind(fs.promises);
+    const copySpy = spyOn(fs.promises, "copyFile").mockImplementation(
+      async (source, destination, mode) => {
+        fs.writeFileSync(sourcePath, "after!");
+        return copyFile(source, destination, mode);
+      },
+    );
+
+    try {
+      await expect(
+        promoteRunObject({
+          runObjectId: runObject.id,
+          mime: "application/octet-stream",
+          storageClass: "working",
+        }),
+      ).rejects.toThrow(/changed|match/i);
+    } finally {
+      copySpy.mockRestore();
+    }
+
+    expect(getRun(run.id).objects[0]?.objectId).toBeNull();
+    expect(
+      openDomainDb()
+        .query<{ bytes: number; sha256: string }, []>(
+          "SELECT bytes, sha256 FROM objects",
+        )
+        .get(),
+    ).toEqual({ bytes: 6, sha256: sha256("after!") });
   });
 });
 
