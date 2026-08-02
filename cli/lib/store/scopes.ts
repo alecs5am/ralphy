@@ -220,26 +220,42 @@ export function upsertSocialAccount(
   assertPublicConfig(input.config);
   return withImmediateTransaction((db) => {
     const now = Date.now();
-    const id = newDomainId("acct");
-    db.prepare(
-      `INSERT INTO social_accounts (id, workspace_id, platform, external_id, display_name, username, config_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(workspace_id, platform, external_id) DO UPDATE SET
-         display_name = excluded.display_name,
-         username = excluded.username,
-         config_json = excluded.config_json,
-         updated_at = excluded.updated_at`,
-    ).run(
-      id,
-      input.workspaceId,
-      input.platform,
-      input.externalId,
-      input.displayName ?? null,
-      input.username ?? null,
-      serializeJson(input.config),
-      now,
-      now,
-    );
+    const existing = db
+      .query<{ id: string }, [string, string, string]>(
+        `SELECT id FROM social_accounts
+         WHERE workspace_id = ? AND platform = ? AND external_id = ?`,
+      )
+      .get(input.workspaceId, input.platform, input.externalId);
+    if (existing) {
+      db.prepare(
+        `UPDATE social_accounts
+         SET display_name = ?, username = ?, config_json = ?, updated_at = ?
+         WHERE id = ?`,
+      ).run(
+        input.displayName ?? null,
+        input.username ?? null,
+        serializeJson(input.config),
+        now,
+        existing.id,
+      );
+    } else {
+      db.prepare(
+        `INSERT INTO social_accounts
+         (id, workspace_id, platform, external_id, display_name, username,
+          config_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        newDomainId("acct"),
+        input.workspaceId,
+        input.platform,
+        input.externalId,
+        input.displayName ?? null,
+        input.username ?? null,
+        serializeJson(input.config),
+        now,
+        now,
+      );
+    }
     const account = db
       .query<SocialAccountDbRow, [string, string, string]>(
         "SELECT id, workspace_id, platform, external_id, display_name, username, config_json, created_at, updated_at FROM social_accounts WHERE workspace_id = ? AND platform = ? AND external_id = ?",

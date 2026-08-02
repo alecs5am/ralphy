@@ -220,8 +220,8 @@ describe("domain Agent Session store", () => {
       "INSERT INTO compositions (id, project_id, slug, kind, created_at, updated_at) VALUES ('comp_guard', ?, 'guard', 'video', ?, ?)",
     ).run(project.id, now, now);
     db.prepare(
-      "INSERT INTO units (id, project_id, slug, format, created_at, updated_at) VALUES ('unit_guard', ?, 'guard', 'video', ?, ?)",
-    ).run(project.id, now, now);
+      "INSERT INTO units (id, workspace_id, project_id, slug, format, created_at, updated_at) VALUES ('unit_guard', ?, ?, 'guard', 'video', ?, ?)",
+    ).run(workspace.id, project.id, now, now);
 
     const attempts: Array<() => unknown> = [
       () =>
