@@ -20,6 +20,7 @@
 - Never mutate or delete the source before verified cutover.
 - Reserve `.ralphy/farm/` in the v2 root for Farm-owned automation state. Core migration inventories legacy Farm paths for coverage, raw evidence, recovery, and stable-ID handoff, but never installs consumer state there or later scans that namespace as domain buckets, tmp, or cache.
 - Before retiring legacy paths, produce a complete stable legacy-locator-to-entity mapping for every Farm-relevant Workspace, Project, control, and media source. Farm migration consumes only the maintenance bridge mapping and must reach its own verified ready state before core cutover.
+- Farm receives that mapping authority only through an external mode-0600 consumer maintenance grant bound to the exact migration Run, lock nonce, source identities/inventory digests, mapping digest, store ID, and core contract. Neither hello nor a normal bridge method exposes the nonce.
 - For the live library require `COPYFILE_FICLONE_FORCE`. Unsupported clone, `EXDEV`, or any clone failure stops with the source untouched and performs no ordinary-copy/delete fallback. Copy mode is a separately selected mode only when space already covers all remaining logical bytes, derived bytes/DB overhead, and `max(2 GiB, 10%)` reserve.
 - Malformed JSONL creates an issue plus a raw diagnostic Object containing the exact bytes, byte offset, length, and hash; valid sibling lines remain importable. Preserve CRLF, missing final newline, and invalid UTF-8 evidence.
 - Import every ambiguous revision candidate but do not choose a head without manifest/index evidence.
@@ -62,6 +63,28 @@ export type MigrationContext = {
   storeRoot: string;
   sourceRoots: readonly MigrationSourceRoot[];
   runId: string;
+};
+export type MigrationConsumerGrant = {
+  version: 1;
+  namespace: "farm";
+  coreMigrationRunId: string;
+  storeId: string;
+  lockNonce: string;
+  coreVersion: string;
+  schemaVersion: number;
+  contractVersion: number;
+  sourceInventoryDigest: string;
+  mappingDigest: string;
+  sourceIdentities: Array<{
+    id: string;
+    kind: "ralphy" | "legacy-workspace" | "desktop";
+    canonicalPathHash: string;
+    device: string;
+    inode: string;
+    mode: number;
+    inventoryDigest: string;
+  }>;
+  issuedAt: number;
 };
 ```
 
@@ -181,9 +204,17 @@ Add `E_MIGRATION_LOCKED`, `E_MIGRATION_SPACE`, `E_MIGRATION_COVERAGE`, `E_MIGRAT
 - Denti-like R2/R3 feedback, branch-suffixed HTML composition families, master/social/`.vN` render profiles, loose Markdown/ZIP files, and `render/work-*` diagnostics;
 - an absolute-path asset manifest with one data URL;
 - JSONL with valid lines surrounding one malformed line;
-- an eight-image carousel, 32-item sticker pack, article, Workspace Unit, and duplicate Unit media;
+- an eight-image carousel, 32-item sticker pack, 40-item pack with repeated
+  media refs, article, Workspace Unit, duplicate Unit media, text-only
+  post/thread Units with `media: []`, same-slug `.vN` Unit directories, an
+  intentional `foo-v2` identity, multiple `caption_versions`, `revisedFrom`
+  publication links, raw caption states `humanized`/`auto_draft_archived`,
+  Postiz/GitHub Pages/dev.to/Hashnode/Medium/manual article evidence, failures
+  recorded before account resolution, failed-then-success same-slot rows,
+  partial multi-target rows, and both ledger-only and manifest-only attempts;
 - publish ledger, analytics, evaluations, stage state, jobs DB/logs with a non-empty WAL and pending job, cache/temp, semantic and unknown empty files/directories, `.DS_Store`, symlink/socket/FIFO blockers, one unknown file, X/Telegram/Postiz plaintext credentials, a 667,395-byte Instagram cookie jar, Desktop review/safeStorage fixtures, crash-injection points, and ambiguous `.vN`/`-vN`/`rN`/`final*` names;
 - observed unusual roots: `.scratch`, `scratch`, `tmp`, `tmp-scripts`, `farm`, `web-videos`, `media-library`, root `PROFILE.md`/text files, `_research`, `_fx-probe`, references, research, memory, old jobs/logs, and daemon files.
+- Farm/Studio state that legacy readers currently own: ingestion cursor/seen, topic index, selection-weight history, mixed lifecycle upgrade/rollback/selection events, cadence/notifications, workflows/subgraphs with prompt-file refs, project and run annotations, project board choice/layout, and run canvas layout.
 
 Return exact expected entry/file/byte counts and hashes from the builder; tests must not hard-code host paths.
 
@@ -296,11 +327,24 @@ Assert:
 
 `legacy.ts` may read registry/config/workspace manifests, asset manifests, Units, composition indexes, JSONL, old jobs SQLite, and known Markdown filenames. It returns typed records plus parse issues; it never writes source and never appears in normal command imports.
 
+It also has explicit typed parsers for the Farm/Studio files named in the
+fixture: ingestion cursor/seen, topic index, selection weights, each lifecycle
+event variant, cadence/notifications, workflow/subgraph/prompt refs,
+annotations, board, and canvas. Each parser preserves record order, stable
+source locator hash, and malformed sibling evidence; none is reachable from a
+normal runtime import graph.
+
 Run the secret-candidate classifier before parsing or allocating any control bytes;
 secret-tainted entries may flow only to encrypted secret import or untouched
 recovery. Parse JSONL as bytes so invalid UTF-8, CRLF, missing final newline,
 and malformed line boundaries remain recoverable; catch per record, not per
-file. Every non-empty non-secret JSON, JSONL, Markdown, and recognized control
+file. For JSON and each valid JSONL record, first parse the untouched raw bytes
+with `JSON.parse` into `unknown`, retain raw evidence, then apply an explicit
+legacy-shape normalizer before Zod validation. Never feed a legacy record
+straight into the canonical/current schema or let Zod stripping erase unknown
+fields. Malformed records enter the issue/quarantine report with source locator,
+ordinal, byte range, and digest while valid sibling records continue. Every
+non-empty non-secret JSON, JSONL, Markdown, and recognized control
 file gets an exact raw-evidence allocation in addition to normalized rows, even
 when parsing is complete. Preserve byte hash, mode, CRLF, invalid UTF-8, and
 missing final newline. A recognized zero-byte control file uses the semantic
@@ -484,11 +528,87 @@ selects a head.
 
 - [ ] **Step 3: Reconstruct flexible Units and distribution history**
 
-Import carousel and sticker order, article body/cover/attachments, captions, per-platform presentation metadata, append-only publish records, Postiz identifiers, URLs, schedule timestamps, and analytics snapshots. Never copy Unit media into a new bucket key when hash/scope proves an existing Object.
+Import carousel and sticker order, article body/cover/attachments, captions,
+per-platform presentation metadata, append-only publish records, Postiz
+identifiers, URLs, schedule timestamps, and analytics snapshots. A text-only
+post/thread with `media: []` becomes a valid Unit revision with at least one
+Document item; it is never dropped or forced to invent media. Directories with
+the same manifest slug and a proven `.vN` suffix become immutable revisions of
+one Unit; latest and selected pointers are derived separately from explicit
+manifest/index evidence and otherwise remain unset/reviewable. An intentional
+semantic slug such as `foo-v2` remains a separate Unit unless same-slug manifest
+evidence proves otherwise. Preserve up to 40 or more ordered items and repeated
+Artifact/Document targets at distinct positions; deduplication reuses Object
+bytes, never deletes an item occurrence. Article/text body is a Document item.
+
+Map raw caption states `humanized` and `auto_draft_archived` to the canonical
+Presentation caption-state vocabulary while retaining exact raw evidence.
+Import every `caption_versions` entry as ordered immutable caption history,
+choose the effective caption only from explicit source evidence, and bind each
+Publication to the exact effective Presentation revision, caption revision,
+and canonical effective platform options that were used. Map every
+`revisedFrom` link (26 in the latest observed live source) to immutable same-Workspace
+`publications.revised_from_publication_id` edges after both attempts exist.
+Provider rails require a social account except a terminal pre-account failure,
+which imports as provider rail + `failure_stage = "account-resolution"` and no
+claim/provider call. Historical social account is also nullable for validated
+manual/article rails; every other nullable account must match a named
+provider-specific validation rule. GitHub Pages and manual evidence import as
+accountless rails; dev.to and Hashnode require matching provider accounts.
+Legacy Medium export evidence becomes a RunObject plus approval artifact, not a
+Publication or published URL; only a separately confirmed manual post creates
+a `manual` Publication. Ambiguous rails or cross-scope revised links block.
+
+Parse manifests and publish-ledger JSONL independently, then reconcile them by
+stable source identity, locator/row ordinal, target slot, provider ID, and exact
+timestamps rather than lossy caption/filename heuristics. A failed then
+successful record for one slot remains two ordered attempts; partial multi-
+target batches retain each target's independent outcome; ledger-only and
+manifest-only attempts both survive with explicit provenance. A true legacy
+idempotent-skip row produces Activity referencing the original Publication and
+does not create an attempt. Generate every import idempotency key
+deterministically from immutable source identity + locator hash + row ordinal +
+target so resume returns the same IDs and never collides distinct attempts.
+Each imported Publication target receives its own dedicated historical Run;
+reconstruct a terminal RunAttempt only when source evidence proves provider
+execution, and never leave a migrated attempt running. Pre-account failures
+have a terminal failed Run without a fabricated provider RunAttempt; every
+dedicated Run records its Publication result atomically.
+Malformed publish/analytics JSONL rows remain quarantined/reported raw evidence
+while valid siblings import.
+
+Import Metric source plus as-of/window evidence and nullable `ctr`,
+`retentionCurve`, `avgViewDurationSec`, `note`, and raw unknown fields without
+turning missing values into zero. When legacy rows are cumulative, default
+verification chooses the newest snapshot per Publication across all sources;
+an explicit source filter chooses the newest per Publication within that
+source. It never sums historical snapshots or multiple sources for one
+Publication. Never copy Unit media into a new bucket key when hash/scope proves
+an existing Object.
 
 - [ ] **Step 4: Mark exact ledger targets**
 
 A source manifest may target dozens of domain rows and decoded Objects; store the sorted stable IDs in `target_refs_json`. Transition only after every referenced row exists in the same transaction. Every Farm-relevant legacy Workspace, Project, control, media, schedule, workflow, subgraph, run journal, approval, inbox, layout, trust, dead-letter, and cache path receives its immutable `source_locator_hash` plus the complete stable core entity references needed by the Farm consumer. Missing or ambiguous Farm mappings remain blocking issues; slug/path guesses are never accepted.
+
+The Farm handoff inventory explicitly includes `ingestion/cursor.json`,
+`ingestion/seen.jsonl`, `topic-index.jsonl`, `selection-weights.jsonl`, every
+`lifecycle.jsonl` event, cadence and notifications blocks from
+`workspace.json`, workflow/subgraph definitions and referenced prompt files,
+project/run `annotations.jsonl`, Studio `board.json`, and project/run canvas
+state. Cursor/seen/topic/selection/lifecycle/policy/definition/layout rows map to
+their stable Workspace/Project/Farm-run/core-Run IDs for the Farm migrator and
+are not normalized into unrelated core tables. Board choices map to exact
+Artifact revision IDs and become core selection only when the referenced hash
+and Artifact lineage are unambiguous; board layout remains a Farm handoff row.
+Artifact/Document/Build/core-Run annotations become immutable core
+Evaluation/feedback rows; workflow-node/Farm-run annotations remain Farm
+handoff rows. Mixed or path-only targets block rather than being guessed.
+
+Include stable target refs for every non-secret social account descriptor,
+campaign, campaign cell, and dated calendar entry. Credential refs/values are
+handled only by Task 6. These mappings are required so Farm definitions and
+run journals can rewrite `social-account`, `campaign`, and `calendar-entry`
+refs without retaining a slug or source path.
 
 Apply deterministic observed-root rules: legacy `farm` content becomes core
 Migration RunObjects with parsed known dead-letter JSONL plus exact raw evidence
@@ -505,9 +625,28 @@ recovery-only. Directory shape alone never promotes loose files into Projects.
 Any unmatched root, including an unmatched empty entry, remains blocking until
 a fixture-backed rule exists.
 
+After every Farm-candidate row is terminal and its target refs resolve, write
+the canonical `MigrationConsumerGrant` to
+`<source-parent>/.ralphy-consumer-grant-<run-id>-farm.json` through a mode-0600
+sibling temp, file fsync, rename, and parent fsync. `mappingDigest` hashes the
+sorted `(sourceIdentityId, sourceLocatorHash, sourceKind, targetRefs)` rows;
+`sourceInventoryDigest` hashes the ordered source identity/inventory digests.
+Re-emission is byte-identical while the lock and inputs are unchanged. A
+changed lock nonce, source fingerprint, mapping row, store/schema/contract/core
+version, or existing mismatched grant blocks and requires resume/rebuild; the
+grant path/content never enters SQLite, activity, ordinary hello, or reports.
+
 - [ ] **Step 5: Verify and commit production import**
 
 Run: `bun test tests/unit/migration-production.test.ts`
+
+Expected: PASS for text-only Document Units, 40-item/repeated-target order,
+same-slug `.vN` revisions versus intentional `foo-v2`, independent latest and
+selected pointers, immutable caption history, every ledger/manifest merge
+case, deterministic retry keys, idempotent-skip Activity, effective
+presentation/options binding, provider/account/Medium rules, `revisedFrom`
+resolution, nullable/raw Metrics with both aggregation modes, and malformed
+JSONL quarantine with valid siblings preserved.
 
 ```bash
 git add cli/lib/migration/import.ts tests/unit/migration-production.test.ts
@@ -638,6 +777,7 @@ export type ConsumerReadyRecord = {
   migrationId: string;
   coreMigrationRunId: string;
   storeId: string;
+  maintenanceGrantDigest: string;
   sourceInventoryDigest: string;
   mappingDigest: string;
   stageDigest: string;
@@ -649,7 +789,8 @@ Farm writes the canonical, mode-0600 `ConsumerReadyRecord` outside every
 renamed root after transforming and verifying its staged namespace. Core treats
 it as an opaque digest-bound cutover prerequisite: validate the namespace,
 exact core Run/store identities, mapping/source digests, mode, and canonical
-record digest, but never open the Farm stage or interpret Farm files.
+record digest plus the exact maintenance-grant digest, but never open the Farm
+stage or interpret Farm files.
 
 - [ ] **Step 1: Write failing coverage and corruption tests**
 
@@ -667,6 +808,14 @@ Require:
 - `PRAGMA integrity_check = ok` and empty `foreign_key_check`;
 - zero rows resolving to missing bytes;
 - valid Composition revision -> Build -> output and Unit revision -> item -> Artifact revision chains;
+- source-derived Unit accounting reconciles every manifest/directory exactly,
+  including text-only, same-slug `.vN`, intentional `-v2`, 40-item/repeated-
+  target, caption-history, latest, and selected cases;
+- source-derived publication accounting reconciles every manifest/ledger row,
+  merge disposition, idempotent-skip Activity, effective presentation/options,
+  provider/account rule, and `revisedFrom` edge without silent collapse;
+- source-derived Metric accounting preserves source/as-of/window, nullable
+  normalized fields, raw extensions, and default versus explicit-source totals;
 - no data URL, secret, or unresolved absolute path in SQLite;
 - no plaintext secret materialization remains under staged tmp;
 - every Desktop review and credential source resolved to imported encrypted state or an explicit recovery-only disposition;
@@ -674,6 +823,7 @@ Require:
 - source/clone/staged job, log, and artifact IDs/counts reconcile exactly;
 - every source path, including deduplicated paths, contributes its logical bytes exactly once.
 - every Farm-candidate inventory row has the canonical locator hash, an explicit consumer disposition, and complete resolvable target refs; `migration.consumer.map` pages reproduce the same sorted mapping without paths, gaps, or duplicates.
+- the external Farm maintenance grant is mode 0600, matches the active lock nonce/source identities/core contract, and its recomputed source/mapping digests equal both the ledger and the Farm ready record.
 
 Extend the domain verifier's Object-reference query for schema v3 so
 `migration_entries.raw_evidence_object_id` and non-terminal staged transfer
@@ -739,6 +889,7 @@ ralphy migrate audit --source <fixture>/.ralphy --legacy-source <fixture>/worksp
 ralphy migrate run --source <fixture>/.ralphy --legacy-source <fixture>/workspace/.ralph --desktop-source <desktop-data>
 ralphy migrate status <run-id> --source <fixture>/.ralphy
 ralphy migrate resume <run-id> --source <fixture>/.ralphy
+ralphy migrate consumer-grant <run-id> --namespace farm --source <fixture>/.ralphy
 ralphy migrate verify <run-id> --source <fixture>/.ralphy
 ralphy migrate cutover <run-id> --verification <verification-id> --consumer-ready farm:<consumer-ready-record> --confirm <run-id> --source <fixture>/.ralphy
 ralphy migrate recover <run-id> --confirm <run-id> --source <fixture>/.ralphy
@@ -746,6 +897,13 @@ ralphy migrate rollback <run-id> --confirm <run-id> --source <fixture>/.ralphy
 ```
 
 Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, stale verification or missing/stale/mismatched Farm readiness refuses cutover, successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Exercise a table-driven crash matrix before/after each temp write, file fsync, journal rename, parent fsync, source rename, recovery mode change, install rename, restore rename, and installed smoke check; `recover` deterministically finishes installation or restores recovery without overwriting either generation. Also exercise crashes before and after Farm's separate namespace install: core recovery preserves the consumer record/stage, startup remains `consumer-pending`, and retrying the Farm install makes the exact identity handshake ready without replacing either generation.
+
+`consumer-grant` is available only after complete Farm mapping and while the
+matching maintenance lock is live. It returns only `{ namespace, path,
+grantDigest }` through the maintenance CLI; its file contains the exact
+`MigrationConsumerGrant`, is mode 0600, and is byte-identical on retry. Wrong
+namespace/Run/source, stale lock PID/start identity/nonce, changed inventory or
+mapping digest, and post-cutover calls reject.
 
 - [ ] **Step 2: Implement phase checkpoints and staged-root binding**
 
@@ -762,7 +920,7 @@ refuses interrupted states.
 The Run records Farm as a required consumer once legacy Farm candidates are
 inventoried. `cutover` therefore requires exactly one
 `--consumer-ready farm:<path>` record matching that Run's `storeId`, source inventory digest, and
-mapping digest. The external core journal copies only its namespace, migration
+mapping digest plus maintenance-grant digest. The external core journal copies only its namespace, migration
 ID, stage digest, target store ID, and canonical record digest; it never embeds
 Farm content or exposes the record path to ordinary clients.
 
@@ -794,11 +952,14 @@ After closing/checkpointing staged SQLite:
 
 The core rename never moves, creates, or deletes the prepared Farm namespace.
 After core installation, startup and `system.hello` expose the required `farm`
-consumer as `pending` and allow only read-only inspection plus migration/
+consumer as the exact safe DTO `{ namespace: "farm", state: "pending",
+coreMigrationRunId, migrationId, stageDigest, readyRecordDigest,
+identityDigest: null }` and allow only read-only inspection plus migration/
 recovery operations until the exact bounded `.ralphy/farm/identity.json`
 matches the journaled `storeId`, Farm migration ID, and stage digest. Farm owns
 the atomic staged-directory rename and parent fsync. Once the identity matches,
-startup reports the namespace `ready`; core recovery only preserves and points
+startup reports the same DTO with `state: "ready"` and the canonical
+`identityDigest`; core recovery only preserves and points
 to the Farm ready record/journal and never traverses, repairs, merges, or removes
 Farm state.
 
@@ -814,7 +975,7 @@ overwrite, merge, copy, or delete either generation.
 
 - [ ] **Step 4: Replace the old command surface**
 
-Expose `audit|run|resume|status|verify|cutover|recover|rollback`. `audit|run`
+Expose `audit|run|resume|status|consumer-grant|verify|cutover|recover|rollback`. `audit|run`
 accept one exact mutating `--source <.ralphy>` plus optional explicit
 `--legacy-source` and `--desktop-source`; the created Run freezes those source
 identities, and later commands reject attempts to substitute them. Delete the
@@ -867,7 +1028,15 @@ Resolve every blocking unknown/malformed/secret/revision issue by adding
 deterministic migration rules and fixture cases. Re-run from a fresh clone until
 one pass reaches 100% coverage, exact raw-control/empty/mode evidence, clean
 SQLite checks, zero missing bytes/absolute paths/data URLs/secrets, reconciled
-held jobs, and representative Denti.AI branches/Builds. Freeze once, run two
+held jobs, and representative Denti.AI branches/Builds. The real-library report
+must reconcile all 169 observed Units, including all 42 text-only post/thread
+Units with `media: []`, every maximum-size/repeated-item pack, same-slug `.vN`
+revision family, and intentional version-looking identity. It must also
+reconcile all 165 observed publish rows, all 26 resolvable `revisedFrom` links,
+ledger/manifest merge dispositions, rail/account decisions, caption history,
+effective platform options, Metric nullable/raw fields, and every quarantined
+malformed JSONL row; changed source counts require a newly recorded audited
+baseline, never a hard-coded silent waiver. Freeze once, run two
 read-only verifications, and prove DB/WAL/SHM bytes and metadata are unchanged.
 Before that freeze, run the released Farm migrator against the staged bridge
 mapping until its separate stage is verified and emits a matching
@@ -875,7 +1044,18 @@ mapping until its separate stage is verified and emits a matching
 
 - [ ] **Step 4: Exercise rehearsal cutover and rollback**
 
-Cut over only the rehearsal clone, confirm core reports Farm pending, install the exact staged Farm namespace, then launch core CLI, Farm, Studio, and packaged Desktop against it. Inspect Denti.AI plus one carousel/sticker/article project, exercise Farm recovery across an interrupted namespace install, then test coordinated rollback. Record elapsed time and maximum additional disk use.
+Cut over only the rehearsal clone, confirm core reports Farm pending, install
+the exact staged Farm namespace, then launch core CLI, Farm, Studio, and
+packaged Desktop against it. Inspect Denti.AI plus one
+carousel/sticker/article project, exercise Farm recovery across an interrupted
+namespace install, then test coordinated rollback. For delivery smoke checks,
+switch latest and selected Unit revisions independently; preview inherited and
+explicit presentation subsets; inspect a text-only Unit, repeated-item pack,
+caption history, failed/success and partial-target Publication attempts, a
+revised Publication, an accountless article rail, Medium approval export with
+no Publication, and default versus explicit-source Metric totals. Replay one
+migrated operation and prove deterministic IDs. Record elapsed time and maximum
+additional disk use.
 
 - [ ] **Step 5: Commit the redacted rehearsal evidence**
 
@@ -910,7 +1090,16 @@ jobs remain held and pass the exact Farm `ConsumerReadyRecord` to core cutover.
 
 - [ ] **Step 3: Cut over and perform representative smoke checks**
 
-Use the exact Run/verification/Farm migration IDs. While core reports Farm pending, install the staged `.ralphy/farm` namespace and require its identity handshake before restarting any writer. Then exercise CLI reads/writes, pinned Farm/Studio, and packaged Desktop for Denti.AI Composition/Build switching, feedback rounds, a multi-item carousel/sticker Unit, three-platform preview, publications/metrics, Documents, working diagnostics, and both activity feeds.
+Use the exact Run/verification/Farm migration IDs. While core reports Farm
+pending, install the staged `.ralphy/farm` namespace and require its identity
+handshake before restarting any writer. Then exercise CLI reads/writes, pinned
+Farm/Studio, and packaged Desktop for Denti.AI Composition/Build switching,
+feedback rounds, a multi-item carousel/sticker Unit, three-platform preview,
+publications/metrics, Documents, working diagnostics, and both activity feeds.
+Confirm latest/selected Unit switching, effective caption/options, one text-only
+Unit, repeated items, publication reconciliation/lineage/accountless rails,
+Medium export without a Publication, and default versus source-filtered Metric
+totals against the rehearsal evidence before declaring live cutover complete.
 
 - [ ] **Step 4: Remove migration-era normal fallbacks**
 
