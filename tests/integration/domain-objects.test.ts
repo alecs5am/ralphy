@@ -12,9 +12,12 @@ import {
   createProject,
   createWorkspace,
 } from "../../cli/lib/store/scopes.js";
-import type { ObjectRow } from "../../cli/lib/store/types.js";
+
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import type {
+  ObjectRow,
+} from "../../cli/lib/store/internal-types.js";
 
 let roots: TmpRoot[] = [];
 

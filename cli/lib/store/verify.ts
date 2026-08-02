@@ -6,7 +6,10 @@ import { ralphDir } from "../paths.js";
 import { domainDbPath } from "./db.js";
 import { resolveObjectLocator } from "./objects.js";
 import { SCHEMA_VERSION } from "./schema.js";
-import type { ObjectRow } from "./types.js";
+import type {
+  ObjectRow,
+} from "./internal-types.js";
+
 
 export type ForeignKeyViolation = {
   table: string;

@@ -357,3 +357,44 @@ describe("activity payload safety", () => {
     }
   });
 });
+
+describe("internal row boundary", () => {
+  const STORE_OWNED = /^cli\/lib\/(store|migrate)\//;
+
+  test("only store, verifier, and migration modules import internal-types", async () => {
+    const glob = new Bun.Glob("cli/**/*.ts");
+    const offenders: string[] = [];
+    for await (const file of glob.scan(".")) {
+      if (STORE_OWNED.test(file)) continue;
+      const source = await Bun.file(file).text();
+      if (source.includes("store/internal-types")) offenders.push(file);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test("internal-types never becomes a cycle with the public types", async () => {
+    const internal = await Bun.file("cli/lib/store/internal-types.ts").text();
+    const publicTypes = await Bun.file("cli/lib/store/types.ts").text();
+    // One-way: internal may import type-only from public, never the reverse.
+    expect(internal).toContain('from "./types.js"');
+    expect(internal.match(/^import (?!type )/m)).toBeNull();
+    expect(publicTypes).not.toContain("internal-types");
+  });
+
+  test("public types carry no unsafe row shape", async () => {
+    const publicTypes = await Bun.file("cli/lib/store/types.ts").text();
+    for (const name of [
+      "ActivityEventRow",
+      "ObjectRow",
+      "RunObjectRow",
+      "DocumentRevisionRow",
+      "DocumentSearchRow",
+      "DocumentWithCurrentRevision",
+      "RunAggregate",
+      "CompositionAggregate",
+      "UnitAggregate",
+    ]) {
+      expect(publicTypes).not.toContain(`export type ${name} =`);
+    }
+  });
+});

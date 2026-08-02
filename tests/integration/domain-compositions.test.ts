@@ -46,13 +46,15 @@ import {
 } from "../../cli/lib/store/sessions.js";
 import { getRun, startRun } from "../../cli/lib/store/runs.js";
 import type {
-  ObjectRow,
   ProjectRow,
   WorkspaceRow,
 } from "../../cli/lib/store/types.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import type {
+  ObjectRow,
+} from "../../cli/lib/store/internal-types.js";
 
 let roots: TmpRoot[] = [];
 

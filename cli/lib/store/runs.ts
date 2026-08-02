@@ -14,14 +14,16 @@ import { assertActiveSessionScope } from "./sessions.js";
 import type {
   JsonValue,
   ObjectStorageClass,
-  RunAggregate,
   RunAttemptRow,
-  RunObjectRow,
   RunResultEntityType,
   RunResultRow,
   RunRow,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
+import type {
+  RunAggregate,
+  RunObjectRow,
+} from "./internal-types.js";
 
 type RunState = RunRow["state"];
 

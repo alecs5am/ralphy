@@ -7,14 +7,16 @@ import { assertActiveSessionScope } from "./sessions.js";
 import {
   type DocumentFormat,
   type DocumentKind,
-  type DocumentRevisionRow,
   type DocumentRow,
-  type DocumentSearchRow,
-  type DocumentWithCurrentRevision,
   type JsonValue,
   type Page,
   StoreConflictError,
 } from "./types.js";
+import type {
+  DocumentRevisionRow,
+  DocumentSearchRow,
+  DocumentWithCurrentRevision,
+} from "./internal-types.js";
 
 type DocumentScope =
   | { workspaceId: string; projectId?: never }

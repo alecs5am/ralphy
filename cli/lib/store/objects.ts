@@ -6,7 +6,13 @@ import { ralphDir } from "../paths.js";
 import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
-import type { JsonValue, ObjectRow, ObjectStorageClass } from "./types.js";
+import type {
+  JsonValue,
+  ObjectStorageClass,
+} from "./types.js";
+import type {
+  ObjectRow,
+} from "./internal-types.js";
 
 export type ObjectScope = { workspaceId: string; projectId?: string };
 

@@ -13,9 +13,9 @@ import {
   type ArtifactRow,
   type ArtifactUsageRow,
   type JsonValue,
-  type ObjectRow,
   StoreConflictError,
 } from "./types.js";
+import type { ObjectRow } from "./internal-types.js";
 
 type ArtifactScope =
   | { workspaceId: string; projectId?: never }
