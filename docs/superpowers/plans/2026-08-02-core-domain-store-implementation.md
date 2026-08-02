@@ -245,7 +245,7 @@ export class StoreConflictError extends Error {
   readonly code = "E_CONFLICT";
 }
 
-export type Page<T> = { items: T[]; nextCursor: string | null };
+export type Page<T, C = string> = { items: T[]; nextCursor: C | null };
 ```
 
 - [ ] **Step 3: Implement one-transaction mutations with activity**
@@ -648,35 +648,104 @@ git commit -m "feat(store): add units presentations and publications"
 - Consumes: every Task 1-7 table and `resolveObjectPath()`
 - Produces: synchronous dependency-free `verifyDomainStore(options?: { hashObjects?: boolean }): DomainVerificationReport`
 
-- [ ] **Step 1: Write the failing integrity-report test**
+- [ ] **Step 1: Lock the exact redacted report contract in a failing test**
 
 ```ts
-const report = verifyDomainStore({ hashObjects: true });
-expect(report).toMatchObject({
-  integrity: "ok",
-  foreignKeyViolations: [],
-  missingObjects: [],
-  hashMismatches: [],
-  absolutePathRows: [],
-  dataUrlRows: [],
-  invalidJsonRows: [],
-  binaryPayloadRows: [],
-  brokenBuildChains: [],
-  brokenUnitChains: [],
-  unreferencedObjects: [],
-  orphanedObjectPaths: [],
-});
+type ForeignKeyViolation = {
+  table: string;
+  rowId: string;
+  parent: string;
+  foreignKeyIndex: number;
+};
+type RowIssue = {
+  table: string;
+  rowId: string;
+  column: string;
+  jsonPointer?: string;
+  reason: string;
+};
+type ChainIssue = {
+  entityType: string;
+  entityId: string;
+  reason: string;
+  relatedId?: string;
+};
+type ObjectFileIssue = {
+  objectId: string;
+  reason: "invalid-locator" | "outside-root" | "symlink" | "not-regular" | "empty" | "size-mismatch" | "unreadable";
+};
+type FilesystemIssue = {
+  relativePath: string;
+  reason: "symlink" | "unreadable" | "unexpected-type";
+};
+type DomainVerificationReport = {
+  integrity: "ok" | "failed";
+  hashObjects: boolean;
+  integrityCheck: string[];
+  foreignKeyViolations: ForeignKeyViolation[];
+  missingObjects: string[];
+  objectFileIssues: ObjectFileIssue[];
+  hashMismatches: string[];
+  runObjectIssues: RowIssue[];
+  absolutePathRows: RowIssue[];
+  dataUrlRows: RowIssue[];
+  invalidJsonRows: RowIssue[];
+  binaryPayloadRows: RowIssue[];
+  brokenRevisionChains: ChainIssue[];
+  brokenBuildChains: ChainIssue[];
+  brokenUnitChains: ChainIssue[];
+  sessionProvenanceIssues: ChainIssue[];
+  unreferencedObjects: string[];
+  orphanedObjectPaths: string[];
+  filesystemIssues: FilesystemIssue[];
+};
 ```
 
-Delete one fixture Object after inserting it and assert its ID appears in `missingObjects`; inject an absolute key with foreign keys disabled and assert it appears in `absolutePathRows`.
+`hashObjects` defaults to false. `integrity` is `ok` only when
+`integrityCheck` is exactly `["ok"]` and every other issue array is empty;
+`hashObjects: false` records that content hashes were not performed rather than
+pretending they passed. Every report value is an ID, enum, bounded reason, or
+store-relative POSIX path; never return an absolute path, source value, SQLite
+message containing user content, or provider error.
+
+Delete one fixture Object after inserting it and assert its ID appears in
+`missingObjects`; inject each structured issue class with checks temporarily
+disabled and restored in `finally`.
 
 - [ ] **Step 2: Implement deterministic verification queries**
 
-Run `PRAGMA integrity_check` and `foreign_key_check`. Resolve every Object; optionally stream-hash/measure it without buffering whole files. Validate unpromoted RunObject locators while letting promoted rows resolve through Object ID. Inspect every application text/JSON column and recursively every JSON string for POSIX, drive, UNC, or `file:` absolute local paths and valid data URLs; report parse failures without returning raw values and reject strict base64 only under the locked explicit binary keys.
+Run `PRAGMA integrity_check`; expose only `["ok"]` or `["failed"]` and keep the
+raw diagnostic internal so SQLite messages cannot leak. Map every
+`foreign_key_check` row exactly.
+Resolve every Object through the store resolver and distinguish missing rows from
+invalid locator, escape, symlink, non-regular, empty, unreadable, and byte-count
+facts. With `hashObjects: true`, stream SHA-256 and byte counting in chunks;
+never buffer a media file. A promoted RunObject ignores its historical locator
+and resolves through `object_id`; an unpromoted RunObject must have a contained
+regular locator plus byte/hash evidence matching the row.
 
-Verify sealed Composition revision -> Build -> immutable output Artifact revision ownership/state chains and sealed Unit revision -> exact item -> Artifact/Document plus presentation cover/override scope chains. Report Object rows unused by Artifact revisions, Composition files, promoted RunObjects, job artifacts, or active transfers, and scan only `buckets/**/objects/**` for unregistered regular files. Sort all IDs, structured row issues, and normalized relative paths deterministically. `integrity` is `ok` only when every issue list is empty; `hashObjects: false` explicitly means hashes were not checked. Open a second connection to the same WAL database and prove concurrent reads succeed while a stale expected-head write returns `StoreConflictError`.
+Drive text/JSON inspection from an exhaustive descriptor list of every
+application table and eligible column; a schema test fails when a new eligible
+column is not classified. Inspect JSON keys and string values recursively,
+emit RFC 6901 `jsonPointer` values with `~0`/`~1` escaping, and detect POSIX,
+drive, UNC, and `file:` absolute locators plus valid data URLs. Strict base64 is
+an issue only below the locked binary-bearing keys. Every `reason` comes from a
+closed per-array vocabulary; invalid JSON reports its row/column and stable
+reason without parser input or exception text.
 
-Verify every non-null authored/session reference agrees with the owning Workspace/Project across Documents, Artifact revisions, Composition revisions, Unit revisions, and Runs. Report strict base64 beneath the locked binary-bearing keys separately in `binaryPayloadRows` without returning raw content.
+Verify current heads, parents, revision numbers, exact Workspace/Project scope,
+sealed Composition/Build/output/binding chains, sealed Unit/item/presentation/
+Publication/Metric chains, Evaluation target ownership, and active Session
+authorship across Documents, Artifacts, Compositions, Units, Evaluations, and
+Runs. Ended Sessions author no later revision. Report unused Object rows and
+walk only `buckets/**/objects/**` for orphan paths; ignore tmp, cache, backups,
+exports, recovery, and staging trees. Record symlink/unreadable/unexpected
+filesystem entries separately and never follow them.
+
+Deduplicate exact findings and sort every string and composite field by UTF-8
+byte order, not locale. Open a second read-only connection to the same WAL
+database and prove it reads while the writer holds `BEGIN IMMEDIATE`; separately
+prove a stale expected-head write raises `StoreConflictError`.
 
 - [ ] **Step 3: Run the complete foundation suite**
 
@@ -704,6 +773,9 @@ Expected: the Cyrillic search prints nothing, gitleaks reports no leak, and the 
 ### Task 9: Publish bounded query, overview, and media-controller surfaces
 
 **Files:**
+- Modify: `cli/lib/store/schema.ts`
+- Modify: `cli/lib/store/types.ts`
+- Create: `cli/lib/store/pagination.ts`
 - Modify: `cli/lib/store/activity.ts`
 - Modify: `cli/lib/store/scopes.ts`
 - Modify: `cli/lib/store/sessions.ts`
@@ -724,25 +796,81 @@ Expected: the Cyrillic search prints nothing, gitleaks reports no leak, and the 
 
 - [ ] **Step 1: Replace unsafe public pagination before publishing it**
 
-Activity uses its monotonic integer ID as an exclusive `afterSequence`, queries `limit + 1`, and returns `{ items, nextCursor }` with a numeric cursor. Add a 101-event no-gap test. Lists ordered by creation use opaque `(createdAt,id)` cursors rather than `WHERE random_uuid > ?`, so concurrent inserts cannot be skipped. Keep every aggregate history bounded and independently pageable instead of returning an unbounded nested graph.
+Define `Page<T, C = string> = { items: T[]; nextCursor: C | null }` in
+`types.ts`. `pagination.ts` owns creation cursors: literal prefix `c1.` plus
+unpadded base64url of canonical JSON `[createdAt,id]`. Decode only a two-element
+array whose timestamp is a non-negative safe integer and whose ID is bounded
+printable ASCII of 1..128 bytes, reject cursors over 256 bytes, and require decode/re-encode to
+equal the original. Queries use `(created_at, id) > (?, ?)` ascending with
+`LIMIT limit + 1`; this promises stable-set traversal only, not snapshot
+isolation across pages.
+
+Activity is the one global sequence: `listActivity({ afterSequence, limit })`
+uses exclusive integer `activity_events.id`, returns `Page<ActivityEventRow,
+number>`, and `latestActivitySequence()` returns zero for an empty store. Add a
+101-event no-gap/no-duplicate test. Limits are integer `1..100` unless an
+existing public method has a smaller bound.
 
 - [ ] **Step 2: Complete the explicit query surface**
 
-Add public Workspace/Project show/update; paged social accounts; Iteration/feedback/resolution-link/stage queries; Document revision and binding queries with optimistic binding replacement; `getObject(id)`; Artifact revision/usage/relation queries; Run/attempt/RunObject detail and lists; Composition/Build lists/detail; Unit/Publication/Metric lists/detail. Commands and bridge handlers must not issue ad-hoc SQL.
+Add public Workspace/Project show/update; paged social accounts; Iteration/feedback/resolution-link/stage queries; Document revision and binding queries with optimistic binding replacement; `getObject(id)`; Artifact revision/usage/relation queries; Run/attempt/RunObject detail and lists; Composition/Build lists/detail; Unit/Publication/Metric lists/detail; and `createEvaluation`, `getEvaluation`, and paged `listEvaluations`. Commands and bridge handlers must not issue ad-hoc SQL.
+
+Replace the unbounded children returned by `getRun`, `getComposition`, and
+`getUnit`: each identity/detail getter returns only its row and current/head
+summary, while attempts, RunObjects, revisions, sources, inputs, Builds,
+outputs, bindings, Unit items, presentations, Publications, and Metrics use
+independent bounded getters/lists. Delete or make internal the former aggregate
+exports; no alternate public unbounded graph remains.
+
+Correct pre-release `evaluations`: require `workspace_id`, allow nullable
+`project_id`, and require exactly one of the existing target columns
+`artifact_revision_id | composition_revision_id | build_id | run_id`. Derive
+and validate target scope, require active Session authorship for normal writes,
+and add persistent update/delete/same-ID `INSERT OR REPLACE` guards with
+`recursive_triggers=OFF`. Evaluation rows and their target/report facts are
+immutable. Workspace Evaluations use nullable `project_id` and may target only
+a Workspace-owned Artifact revision or Workspace-only Run; Project-owned
+targets require their exact derived Project.
 
 - [ ] **Step 3: Add typed overview and media controllers**
 
 Workspace overview returns Workspace Documents, Units, accounts, recent activity, and Project summaries. Project overview returns inherited/project Documents with exact bound revision and newer-head status, Iteration/feedback/stages, Compositions/Build summaries, Units, recent Runs/activity, and media counts.
 
-Media results are a discriminated union of Artifact cards, RunObject cards, and advanced Object cards. Object storage class remains `durable | working | diagnostic`; cache/temp are RunObject location/retention concepts. `reviewMedia` requires `expectedSelectedRevisionId`, rejects stale cards, creates the Artifact state revision plus append-only evaluation or feedback, advances selection when required, and appends activity atomically.
+Overview DTOs are constructed from explicit projections, never row spreads.
+Their field allowlist is stable IDs, slug/name/label, kind/format/role, state/
+status/verdict, platform/handle/credential-configured status, head/selected/bound
+revision IDs, counts, timestamps, row version, and page cursors. They never include `metadata`, `config`, `payload`, raw report/
+error text, credential refs, bucket/key, original names, hashes, or any path/
+locator. Every nested collection is a caller-supplied bounded page or a count.
+
+Media is exactly this no-locator discriminated union: Artifact cards expose
+identity/scope/slug/kind, selected revision ID/state/MIME/bytes/timestamp, and
+revision count; RunObject cards expose identity/scope/purpose/state/retention,
+MIME/bytes/timestamp, and optional promoted Object ID; Object cards expose
+identity/scope/storage class/MIME/bytes/timestamp/reference count. Object
+storage class remains `durable | working | diagnostic`; cache/temp are
+RunObject location/retention concepts. Only an Artifact card is reviewable.
+
+`reviewMedia` requires an Artifact with a non-null selected revision and the
+exact non-null `expectedSelectedRevisionId`. In one immediate transaction it
+creates the new state revision from that selected revision, advances selection,
+inserts one immutable Evaluation, optionally inserts open feedback, and appends
+activity. Any stale selection, invalid Session/scope, Evaluation, or feedback
+failure rolls back every row; unselected Artifacts must be selected first.
 
 - [ ] **Step 4: Verify and commit the consumer boundary**
 
-Test all list/detail/history/status methods, both Workspace and Project visibility, bounded nested pages, no-gap cursors, stale media review rollback, and zero raw paths/secrets in overview DTOs.
+Test cursor canonicality/malformed/size/limit boundaries, stable-set insertion
+behavior, every list/detail/history/status method, both Workspace and Project
+visibility, split bounded child pages, Workspace/Project Evaluation XOR/scope/immutability,
+store-wide activity sequence, exact media union shapes, non-Artifact review
+rejection, and stale/failed media-review rollback. Recursively assert overview
+and media DTO keys satisfy their allowlists and contain zero paths, locators,
+metadata/config/payload, raw errors, or secrets.
 
 ```bash
 bun test tests/integration/domain-query-surfaces.test.ts tests/integration/domain-*.test.ts
-git add cli/lib/store/activity.ts cli/lib/store/scopes.ts cli/lib/store/sessions.ts cli/lib/store/documents.ts cli/lib/store/objects.ts cli/lib/store/artifacts.ts cli/lib/store/runs.ts cli/lib/store/compositions.ts cli/lib/store/units.ts cli/lib/store/evaluations.ts cli/lib/store/overviews.ts cli/lib/store/media.ts tests/integration/domain-query-surfaces.test.ts docs/superpowers/plans/2026-08-02-core-domain-store-implementation.md
+git add cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/pagination.ts cli/lib/store/activity.ts cli/lib/store/scopes.ts cli/lib/store/sessions.ts cli/lib/store/documents.ts cli/lib/store/objects.ts cli/lib/store/artifacts.ts cli/lib/store/runs.ts cli/lib/store/compositions.ts cli/lib/store/units.ts cli/lib/store/evaluations.ts cli/lib/store/overviews.ts cli/lib/store/media.ts tests/integration/domain-query-surfaces.test.ts docs/superpowers/plans/2026-08-02-core-domain-store-implementation.md
 gitleaks protect --staged --redact
 git commit -m "feat(store): add bounded domain query surfaces"
 ```
