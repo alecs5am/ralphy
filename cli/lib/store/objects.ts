@@ -224,20 +224,12 @@ export async function ingestObject(
 }
 
 export function resolveObjectPath(row: ObjectRow): string {
-  if (row.backend !== "local") throw new Error("Object backend must be local");
-  const scope = resolveScope(openDomainDb(), {
+  resolveScope(openDomainDb(), {
     workspaceId: row.workspaceId,
     ...(row.projectId ? { projectId: row.projectId } : {}),
   });
-  const expectedBucket = scope.projectId
-    ? `buckets/${scope.workspaceId}/projects/${scope.projectId}`
-    : `buckets/${scope.workspaceId}/shared`;
-  if (row.bucket !== expectedBucket)
-    throw new Error("Object bucket is invalid");
-  const expectedKey = `objects/${row.id}${safeExtension(row.originalName ?? row.id)}`;
-  if (row.key !== expectedKey) throw new Error("Object key is invalid");
+  const resolved = resolveObjectLocator(row);
   const root = path.resolve(ralphDir());
-  const resolved = resolveLocator(root, row.bucket, row.key);
   assertNoSymlinkAncestorsSync(root, path.dirname(resolved));
   let stat: fs.Stats;
   try {
@@ -259,6 +251,19 @@ export function resolveObjectPath(row: ObjectRow): string {
     throw new Error("Object locator escapes .ralphy");
   }
   return resolved;
+}
+
+export function resolveObjectLocator(row: ObjectRow): string {
+  if (row.backend !== "local") throw new Error("Object backend must be local");
+  const expectedBucket = row.projectId
+    ? `buckets/${row.workspaceId}/projects/${row.projectId}`
+    : `buckets/${row.workspaceId}/shared`;
+  if (row.bucket !== expectedBucket)
+    throw new Error("Object bucket is invalid");
+  const expectedKey = `objects/${row.id}${safeExtension(row.originalName ?? row.id)}`;
+  if (row.key !== expectedKey) throw new Error("Object key is invalid");
+  const root = path.resolve(ralphDir());
+  return resolveLocator(root, row.bucket, row.key);
 }
 
 function resolveScope(
