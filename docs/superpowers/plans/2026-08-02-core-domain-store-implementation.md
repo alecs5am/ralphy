@@ -462,11 +462,11 @@ git commit -m "feat(store): enforce agent session scope"
 - Modify: `cli/lib/jobs/worker.ts`
 - Test: `tests/integration/domain-runs.test.ts`
 - Modify: `tests/integration/jobs-db.test.ts`
-- Add or modify the smallest direct linked-Run worker test
+- Test: `tests/integration/jobs-worker-runs.test.ts`
 
 **Interfaces:**
 - Consumes: Task 1 database, Task 4 Object promotion, and existing jobs query API
-- Produces: `startRun`, `startRunAttempt`, `finishRunAttempt`, `finishRun`, `recordRunObject`, `promoteRunObject`; existing job exports retain their current signatures and gain an optional `run_id`
+- Produces: `startRun`, `startRunAttempt`, `finishRunAttempt`, `finishRun`, `recordRunObject`, `promoteRunObject`, aggregate `getRun`; existing job exports retain their current signatures and gain an optional `run_id`
 
 - [ ] **Step 1: Write the failing Run lifecycle test**
 
@@ -489,7 +489,7 @@ expect(getRun(run.id).objects[0]?.id).toBe(runObject.id);
 
 - [ ] **Step 2: Implement short Run transitions**
 
-Run and attempt states are `pending`, `running`, `succeeded`, `failed`, and `cancelled`. New Runs start pending; attempts start running. A Project Run derives its Workspace and rejects a mismatch, Workspace-only Runs use shared storage, and only `kind: "migration"` may be unscoped. One Run survives retries while each execution adds a monotonically numbered attempt; starting a retry moves a terminal Run back to running.
+Run and attempt states are `pending`, `running`, `succeeded`, `failed`, and `cancelled`. New Runs start pending; attempts start running. A Project Run derives its Workspace and rejects a mismatch, Workspace-only Runs use shared storage, and only `kind: "migration"` may be unscoped. One Run survives retries while each execution adds a monotonically numbered attempt; starting a retry moves a terminal Run back to running. Reject starting an attempt while the Run is already running. Finish an attempt only from running and a Run only from pending/running. Preserve the Run's first start time across retries while clearing its prior terminal time/error when a new attempt starts.
 
 Attempt response metadata, cost, and errors are mutable operational fields, but every transition appends activity. `run_objects.path` is relative to `.ralphy`; reject absolute, drive, traversal, and data-URL locators. `promoteRunObject` validates the recorded byte/hash facts, calls `ingestObject(..., transfer: "move")` before linking the returned Object ID, and resolves promoted bytes through that Object thereafter. A post-promotion link failure may leave only an unreferenced immutable Object.
 
@@ -497,18 +497,20 @@ Attempt response metadata, cost, and errors are mutable operational fields, but 
 
 Remove the private connection and schema migration from `cli/lib/jobs/db.ts`; make `openDb`, `closeDb`, and `dbPath` compatibility adapters over the domain database and preserve every existing job, bulk filter, log, artifact, scheduling, and count export/signature. Add optional `run_id` to `JobInsertInput`, `JobRow`, and inserts. Keep unconstrained legacy `project_id` behavior and external `.ralphy/job-logs/`; do not create or import old `jobs.db` here.
 
-For a claimed job with `run_id`, the worker creates a local/process attempt and finishes it plus the Run on empty argv, spend-gate block/error, spawn throw/error, success, non-zero exit, SIGTERM/SIGKILL, and external cancellation. Completed maps to succeeded, failed/blocked to failed, and cancelled to cancelled. Pending/blocked cancellation terminalizes an unstarted linked Run; a retried job creates another attempt on the same Run. Do not add separate job activity events.
+For a claimed job with `run_id`, the worker creates a local/process attempt before validation/gating/spawn and finishes it plus the Run on empty argv, spend-gate block/rejection, synchronous spawn throw, asynchronous child error, success, non-zero/null exit, SIGTERM/SIGKILL, external cancellation, and daemon shutdown. Completed maps to succeeded, failed/blocked to failed, and cancelled to cancelled. Dependency-blocked jobs are unclaimed and retain a pending Run until retry or cancellation; spend-gate blocked jobs have an attempt and a failed Run. Pending/blocked cancellation terminalizes only an unstarted pending linked Run. A retried job creates another attempt on the same Run when reclaimed.
+
+Use one shared exactly-once completion path for the Job, attempt, and Run. Cancellation wins over a later child close; an error followed by close cannot produce two transitions; cancellation while awaiting the asynchronous spend gate prevents spawn. Make `finalizeJob` conditional so a completed child cannot overwrite a concurrently cancelled Job. Do not add separate job activity events.
 
 - [ ] **Step 4: Verify jobs and Runs together**
 
 Run the Run/jobs/worker suites plus direct queue, scheduling, enqueue, and bulk-filter dependents.
 
-Expected: PASS, and `domainDbPath()` is the only SQLite path created in the fixture.
+Expected: PASS, and `domainDbPath()` is the only SQLite path created in the fixture. Preserve numeric job IDs, snake-case rows, priority/ID ordering, arbitrary legacy `project_id`, append-mode logs across retry, dependency behavior, and the exact public `JobArtifactRow` shape without exposing `object_id`. Cover synchronous/asynchronous spawn failure, spend-gate rejection, cancellation during the gate, child error/close races, daemon stop, and retry on the same Run.
 
 - [ ] **Step 5: Commit execution state**
 
 ```bash
-git add cli/lib/store/runs.ts cli/lib/store/types.ts cli/lib/jobs/db.ts cli/lib/jobs/types.ts cli/lib/jobs/worker.ts tests/integration/domain-runs.test.ts tests/integration/jobs-db.test.ts
+git add cli/lib/store/runs.ts cli/lib/store/types.ts cli/lib/jobs/db.ts cli/lib/jobs/types.ts cli/lib/jobs/worker.ts tests/integration/domain-runs.test.ts tests/integration/jobs-db.test.ts tests/integration/jobs-worker-runs.test.ts docs/superpowers/plans/2026-08-02-core-domain-store-implementation.md
 git commit -m "feat(store): consolidate runs and jobs"
 ```
 
@@ -654,6 +656,7 @@ expect(report).toMatchObject({
   absolutePathRows: [],
   dataUrlRows: [],
   invalidJsonRows: [],
+  binaryPayloadRows: [],
   brokenBuildChains: [],
   brokenUnitChains: [],
   unreferencedObjects: [],
@@ -668,6 +671,8 @@ Delete one fixture Object after inserting it and assert its ID appears in `missi
 Run `PRAGMA integrity_check` and `foreign_key_check`. Resolve every Object; optionally stream-hash/measure it without buffering whole files. Validate unpromoted RunObject locators while letting promoted rows resolve through Object ID. Inspect every application text/JSON column and recursively every JSON string for POSIX, drive, UNC, or `file:` absolute local paths and valid data URLs; report parse failures without returning raw values and reject strict base64 only under the locked explicit binary keys.
 
 Verify sealed Composition revision -> Build -> immutable output Artifact revision ownership/state chains and sealed Unit revision -> exact item -> Artifact/Document plus presentation cover/override scope chains. Report Object rows unused by Artifact revisions, Composition files, promoted RunObjects, job artifacts, or active transfers, and scan only `buckets/**/objects/**` for unregistered regular files. Sort all IDs, structured row issues, and normalized relative paths deterministically. `integrity` is `ok` only when every issue list is empty; `hashObjects: false` explicitly means hashes were not checked. Open a second connection to the same WAL database and prove concurrent reads succeed while a stale expected-head write returns `StoreConflictError`.
+
+Verify every non-null authored/session reference agrees with the owning Workspace/Project across Documents, Artifact revisions, Composition revisions, Unit revisions, and Runs. Report strict base64 beneath the locked binary-bearing keys separately in `binaryPayloadRows` without returning raw content.
 
 - [ ] **Step 3: Run the complete foundation suite**
 
@@ -691,3 +696,49 @@ git commit -m "feat(store): verify domain integrity"
 ```
 
 Expected: the Cyrillic search prints nothing, gitleaks reports no leak, and the commit contains only the listed files.
+
+### Task 9: Publish bounded query, overview, and media-controller surfaces
+
+**Files:**
+- Modify: `cli/lib/store/activity.ts`
+- Modify: `cli/lib/store/scopes.ts`
+- Modify: `cli/lib/store/sessions.ts`
+- Modify: `cli/lib/store/documents.ts`
+- Modify: `cli/lib/store/objects.ts`
+- Modify: `cli/lib/store/artifacts.ts`
+- Modify: `cli/lib/store/runs.ts`
+- Modify: `cli/lib/store/compositions.ts`
+- Modify: `cli/lib/store/units.ts`
+- Create: `cli/lib/store/evaluations.ts`
+- Create: `cli/lib/store/overviews.ts`
+- Create: `cli/lib/store/media.ts`
+- Test: `tests/integration/domain-query-surfaces.test.ts`
+
+**Interfaces:**
+- Consumes: all verified domain stores
+- Produces: every bounded list/detail/history/status API needed by thin CLI/bridge/Desktop consumers, Workspace/Project overview DTOs, discriminated media cards, and atomic `reviewMedia`
+
+- [ ] **Step 1: Replace unsafe public pagination before publishing it**
+
+Activity uses its monotonic integer ID as an exclusive `afterSequence`, queries `limit + 1`, and returns `{ items, nextCursor }` with a numeric cursor. Add a 101-event no-gap test. Lists ordered by creation use opaque `(createdAt,id)` cursors rather than `WHERE random_uuid > ?`, so concurrent inserts cannot be skipped. Keep every aggregate history bounded and independently pageable instead of returning an unbounded nested graph.
+
+- [ ] **Step 2: Complete the explicit query surface**
+
+Add public Workspace/Project show/update; paged social accounts; Iteration/feedback/resolution-link/stage queries; Document revision and binding queries with optimistic binding replacement; `getObject(id)`; Artifact revision/usage/relation queries; Run/attempt/RunObject detail and lists; Composition/Build lists/detail; Unit/Publication/Metric lists/detail. Commands and bridge handlers must not issue ad-hoc SQL.
+
+- [ ] **Step 3: Add typed overview and media controllers**
+
+Workspace overview returns Workspace Documents, Units, accounts, recent activity, and Project summaries. Project overview returns inherited/project Documents with exact bound revision and newer-head status, Iteration/feedback/stages, Compositions/Build summaries, Units, recent Runs/activity, and media counts.
+
+Media results are a discriminated union of Artifact cards, RunObject cards, and advanced Object cards. Object storage class remains `durable | working | diagnostic`; cache/temp are RunObject location/retention concepts. `reviewMedia` requires `expectedSelectedRevisionId`, rejects stale cards, creates the Artifact state revision plus append-only evaluation or feedback, advances selection when required, and appends activity atomically.
+
+- [ ] **Step 4: Verify and commit the consumer boundary**
+
+Test all list/detail/history/status methods, both Workspace and Project visibility, bounded nested pages, no-gap cursors, stale media review rollback, and zero raw paths/secrets in overview DTOs.
+
+```bash
+bun test tests/integration/domain-query-surfaces.test.ts tests/integration/domain-*.test.ts
+git add cli/lib/store/activity.ts cli/lib/store/scopes.ts cli/lib/store/sessions.ts cli/lib/store/documents.ts cli/lib/store/objects.ts cli/lib/store/artifacts.ts cli/lib/store/runs.ts cli/lib/store/compositions.ts cli/lib/store/units.ts cli/lib/store/evaluations.ts cli/lib/store/overviews.ts cli/lib/store/media.ts tests/integration/domain-query-surfaces.test.ts docs/superpowers/plans/2026-08-02-core-domain-store-implementation.md
+gitleaks protect --staged --redact
+git commit -m "feat(store): add bounded domain query surfaces"
+```

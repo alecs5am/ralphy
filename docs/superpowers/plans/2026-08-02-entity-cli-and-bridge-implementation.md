@@ -6,7 +6,7 @@
 
 **Architecture:** CLI commands remain thin Commander adapters around the store functions from the core-domain plan. A root-bound `ralphy bridge --stdio --root <path>` process dispatches versioned JSONL requests to those same functions, streams monotonic activity events, resolves scoped object locators, and owns encrypted credentials plus any agent process that needs them.
 
-**Tech Stack:** Bun, TypeScript, Commander, `bun:sqlite`, Node streams/readline/crypto/child_process, macOS Keychain `security`, Zod, `bun:test`
+**Tech Stack:** Bun, TypeScript, Commander, `bun:sqlite`, Node streams/crypto/child_process, macOS Keychain `security`, Zod, `bun:test`
 
 ## Global Constraints
 
@@ -16,6 +16,7 @@
 - Preserve existing public command names where their semantics remain valid; deprecated path-shaped commands become entity adapters, not parallel stores.
 - Machine stdout contains JSON or JSONL only; diagnostics go to stderr.
 - Bridge mutations use expected revision/head IDs and return `E_CONFLICT` instead of overwriting newer work.
+- External optimistic names are consistent: row mutations use `expectedRowVersion`, head/selection mutations use `expectedRevisionId`, and operational transitions use `expectedState`.
 - Never return stored secret values through CLI JSON, bridge responses, logs, activity payloads, or errors.
 - Long provider, render, publish, and agent operations use Runs and never keep a database transaction open.
 - Compatibility readers live only under `cli/lib/migration/`; ordinary commands have no legacy JSON/JSONL/Markdown fallback.
@@ -27,24 +28,32 @@
 
 **Files:**
 - Modify: `cli/lib/errors/catalog.ts`
+- Create: `cli/lib/errors/domain.ts`
 - Modify: `tests/unit/errors-catalog.test.ts`
 - Create: `cli/lib/store/secrets.ts`
 - Modify: `cli/commands/provider.ts`
+- Modify: `cli/commands/setup.ts`
+- Modify: `cli/commands/postiz.ts`
+- Modify: `cli/lib/providers/postiz.ts`
+- Modify: `cli/lib/providers/registry.ts`
+- Modify: `cli/lib/providers/shared.ts`
+- Modify: the smallest current connector modules that read provider credentials from `process.env`
 - Test: `tests/unit/secret-store.test.ts`
 
 **Interfaces:**
-- Consumes: `.ralphy/`, Node AES-256-GCM, and `/usr/bin/security` on macOS
-- Produces: `setSecret(ref, value)`, internal-only `readSecret(ref)`, `deleteSecret(ref)`, `hasSecret(ref)`, `provider auth set|clear|status`, and errors `E_CONFLICT`, `E_OBJECT_MISSING`, `E_MIGRATION_INCOMPLETE`, `E_PROTOCOL_UNSUPPORTED`, `E_SECRET_STORE`
+- Consumes: immutable `getStoreIdentity()`, `.ralphy/`, Node AES-256-GCM, and `/usr/bin/security` on macOS
+- Produces: throwable `DomainError`, `setSecret(ref, value)`, internal-only `readSecret(ref)`, `deleteSecret(ref)`, `hasSecret(ref)`, an explicit provider credential resolver, `provider auth set|clear|status`, and errors `E_CONFLICT`, `E_OBJECT_MISSING`, `E_MIGRATION_INCOMPLETE`, `E_PROTOCOL_UNSUPPORTED`, `E_PROTOCOL_INVALID`, `E_SECRET_STORE`
 
 - [ ] **Step 1: Extend the append-only error catalog test first**
 
-Raise the catalog budget from `< 40` to `< 48` and assert the five exact new codes exist with classes and HTTP analogs:
+Raise the catalog budget from `< 40` to `< 48` and assert the six exact new codes exist with classes and HTTP analogs:
 
 ```ts
 expect(ERROR_CODES.E_CONFLICT.httpAnalog).toBe(409);
 expect(ERROR_CODES.E_OBJECT_MISSING.httpAnalog).toBe(424);
 expect(ERROR_CODES.E_MIGRATION_INCOMPLETE.httpAnalog).toBe(409);
 expect(ERROR_CODES.E_PROTOCOL_UNSUPPORTED.httpAnalog).toBe(426);
+expect(ERROR_CODES.E_PROTOCOL_INVALID.httpAnalog).toBe(400);
 expect(ERROR_CODES.E_SECRET_STORE.class).toBe("env");
 ```
 
@@ -52,9 +61,11 @@ Run: `bun test tests/unit/errors-catalog.test.ts`
 
 Expected: FAIL because the codes are absent.
 
-- [ ] **Step 2: Add actionable catalog entries**
+- [ ] **Step 2: Add actionable catalog entries and a throwable domain boundary**
 
 Use conflict hints that tell the agent to reload the exact entity, missing-object hints that name `ralphy doctor --storage`, migration hints that name `ralphy migrate domain verify`, protocol hints that require upgrading Desktop/core, and secret hints that name `ralphy provider auth status`.
+
+`DomainError` carries only a stable code, safe message, and sanitized JSON details. Store/controllers/providers throw; only Commander adapters format and exit. Bridge code never calls or imports `raiseError()` and maps unknown failures to `E_INTERNAL` without stack traces, SQLite text, provider payloads, or secret-bearing exceptions.
 
 - [ ] **Step 3: Write the failing encrypted-store test**
 
@@ -72,14 +83,18 @@ expect(store.has("provider/openrouter")).toBe(false);
 
 - [ ] **Step 4: Implement one encrypted file with a Keychain-backed key**
 
-Store `{ version: 1, entries: Record<string, string> }` as one AES-256-GCM envelope `{ version, iv, tag, ciphertext }` in `.ralphy/secrets.enc`, written through a sibling temp file and atomic rename. On macOS, obtain a random 32-byte key from a generic-password item named `ralphy-domain-store-key:<sha256(root)>`; create it with `/usr/bin/security add-generic-password` when absent. Restrict the encrypted file to mode `0600`.
+Store `{ version: 1, entries: Record<string, string> }` as one AES-256-GCM envelope `{ version, iv, tag, ciphertext }` in `.ralphy/secrets.enc`, written through a mode-0600 sibling temp file, file/directory fsync, and atomic rename while concurrent writers are serialized. On macOS, obtain a random 32-byte key from a generic-password item whose service is `ralphy-domain-store-key:<store_id>` and account is `ralphy`; the identity comes from `getStoreIdentity()`, never from a mutable root path. If ciphertext exists but its Keychain item is absent, return `E_SECRET_STORE` and never generate a replacement key over unreadable data.
 
-`readSecret` is not exported from the public store barrel or any bridge method. Provider/agent runners receive it through direct core imports only. `provider auth set <provider> --stdin` reads one secret value from stdin, `clear` deletes it, and `status` returns configured/unconfigured without a value.
+Invoke `/usr/bin/security` without a shell. For creation, put `-w` last and write the key only to child stdin; never put it in argv or env. Capture lookup output internally and never forward it. Validate typed secret refs and keep only refs in SQLite/activity.
+
+`readSecret` is not exported from the public store barrel or any bridge method. `provider auth set <provider> --stdin` and Postiz import read values only from stdin/bridge memory, never argv or inherited env; `clear` deletes and `status` returns configured/unconfigured without a value. Provider/agent code receives credentials through an explicit internal resolver and constructs child environments from a safe base allowlist plus only the requested credential. The long-lived bridge skips project-env loading, privately captures allowlisted inherited credentials at startup, removes known credential keys from its own `process.env`, and never spreads the full environment to a child.
+
+Test corrupted ciphertext, missing Keychain item, concurrent writes, root rename with unchanged store ID, captured child argv/env/stdin, and zero secret occurrence in output, errors, or activity.
 
 - [ ] **Step 5: Verify and commit security primitives**
 
 ```bash
-git add cli/lib/errors/catalog.ts tests/unit/errors-catalog.test.ts cli/lib/store/secrets.ts cli/commands/provider.ts tests/unit/secret-store.test.ts
+git add cli/lib/errors/catalog.ts cli/lib/errors/domain.ts tests/unit/errors-catalog.test.ts cli/lib/store/secrets.ts cli/commands/provider.ts cli/commands/setup.ts cli/commands/postiz.ts cli/lib/providers/postiz.ts cli/lib/providers/registry.ts cli/lib/providers/shared.ts tests/unit/secret-store.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat(core): add domain errors and encrypted secrets"
 ```
@@ -90,6 +105,7 @@ Expected: both tests pass and gitleaks reports no leak.
 
 **Files:**
 - Create: `cli/lib/context.ts`
+- Create: `cli/commands/session.ts`
 - Modify: `cli/index.ts`
 - Modify: `cli/lib/paths.ts`
 - Modify: `cli/lib/registry.ts`
@@ -98,7 +114,7 @@ Expected: both tests pass and gitleaks reports no leak.
 
 **Interfaces:**
 - Consumes: Workspace/Project/Agent Session rows from the domain store, `--cwd`, and optional legacy positional project IDs
-- Produces: `resolveCommandContext(input): CommandContext` where `CommandContext = { workspaceId: string; projectId?: string; sessionId?: string }`
+- Produces: `resolveCommandContext(input): CommandContext`, `session start|show|list|end`, where `CommandContext = { workspaceId: string; projectId?: string; sessionId?: string }`
 
 - [ ] **Step 1: Write failing parallel-context tests**
 
@@ -112,26 +128,26 @@ expect(JSON.parse(b.stdout).projects.every((p: { workspaceId: string }) => p.wor
 expect(existsSync(`${tmp.dir}/.ralphy/config.json`)).toBe(false);
 ```
 
-- [ ] **Step 2: Implement deterministic context precedence**
+- [ ] **Step 2: Implement deterministic explicit context**
 
-Resolution order is explicit `--project`/positional Project, explicit `--workspace`, `--session`, Project detected from cwd through bucket ownership, then the only Workspace when exactly one exists. More than one possible Workspace without explicit scope raises `E_INPUT_INVALID`; never pick the last-used Workspace.
+Resolve one coherent context from an existing active Session or explicit Workspace/Project IDs. A Session fixes immutable scope; any conflicting `--workspace`, `--project`, positional Project, or cwd-derived Project raises `E_INPUT_INVALID` rather than winning by precedence. Without a Session, an explicit Project derives its Workspace, an explicit Workspace may scope Workspace operations, cwd may identify a Project through bucket ownership, and the only Workspace may be inferred only when exactly one exists. More than one possible Workspace without explicit scope raises `E_INPUT_INVALID`; never pick the last-used Workspace.
 
 Add root options `--workspace <id>`, `--project <id>`, and `--session <id>` in `cli/index.ts`. Keep `--cwd` for root detection.
 
 - [ ] **Step 3: Remove mutable active-Workspace writes**
 
-Delete `getActiveWorkspace`, `setActiveWorkspace`, and `currentWorkspace` use from normal command paths. Keep legacy config parsing only in the migration module created by the migration plan. `workspace use` becomes an Agent Session-scoped command requiring `--session`; without a session it prints the explicit-scope guidance and exits with `E_INPUT_INVALID`.
+Delete `getActiveWorkspace`, `setActiveWorkspace`, and `currentWorkspace` use from normal command paths. Keep legacy config parsing only in the migration module created by the migration plan. Expose `session start|show|list|end` through the landed immutable Session store. `workspace use` never mutates a Session or active pointer; it becomes a deprecation/error with guidance to start a new explicitly scoped Session. A scope change always creates a new Session. Ending a turn never ends its Session.
 
 - [ ] **Step 4: Verify explicit context**
 
 Run: `bun test tests/integration/cli-explicit-context.test.ts tests/integration/cli-workspace-108.test.ts tests/unit/artifact-paths.test.ts`
 
-Expected: PASS after updating old tests to assert IDs/bucket locators rather than active-pointer paths.
+Expected: PASS after updating old tests to assert IDs/bucket locators rather than active-pointer paths, including ended/foreign/sibling Session rejection and explicit-flag/Session mismatch.
 
 - [ ] **Step 5: Commit context resolution**
 
 ```bash
-git add cli/lib/context.ts cli/index.ts cli/lib/paths.ts cli/lib/registry.ts cli/commands/workspace.ts tests/integration/cli-explicit-context.test.ts tests/integration/cli-workspace-108.test.ts tests/unit/artifact-paths.test.ts
+git add cli/lib/context.ts cli/commands/session.ts cli/index.ts cli/lib/paths.ts cli/lib/registry.ts cli/commands/workspace.ts tests/integration/cli-explicit-context.test.ts tests/integration/cli-workspace-108.test.ts tests/unit/artifact-paths.test.ts
 git commit -m "refactor(cli): require explicit workspace context"
 ```
 
@@ -150,7 +166,7 @@ git commit -m "refactor(cli): require explicit workspace context"
 - Modify: `tests/fixtures/verb-shapes.ts`
 
 **Interfaces:**
-- Consumes: Tasks 2-4 of the core-domain plan and `resolveCommandContext()`
+- Consumes: the complete core-domain Task 9 query/overview/media surface and `resolveCommandContext()`
 - Produces: JSON-first CRUD/list/show/revise/promote/select commands with stable IDs and cursor pagination
 
 - [ ] **Step 1: Write one failing end-to-end entity journey**
@@ -171,13 +187,15 @@ Expose:
 ```text
 workspace create|list|show|update|account
 project create|list|show|update|iterate|status|transfer
-document create|list|show|revise|search|bind
-artifact create|list|show|revise|promote|state|usage
+document create|list|show|revisions|revise|search|bind
+artifact create|list|show|revisions|revise|promote|state|usage
 feedback add|list|resolve
 activity list --since <event-id> --limit <n>
 ```
 
 All list responses are `{ items, nextCursor }`. `document revise`, `artifact promote`, and metadata updates require `--expected`; `none` is the explicit empty-head token.
+
+Use the public core stores/controllers only; commands and bridge handlers issue no ad-hoc SQL. Lists ordered by creation use the core opaque cursors; activity uses its monotonic integer sequence.
 
 - [ ] **Step 3: Retire registry and path-derived status behavior**
 
@@ -185,12 +203,15 @@ Reimplement Workspace/Project CRUD through `scopes.ts`. Project status reads `pr
 
 `project transfer` acquires the maintenance lock, creates `storage_transfers` plus one journal entry per Object, moves the exact ID-based Project bucket to the destination Workspace prefix, verifies every byte/hash, then changes `projects.workspace_id` and affected Object buckets in one transaction. `project transfer --resume <transfer-id>` continues from the journal; a failed transfer never leaves DB rows pointing at the new prefix before verification.
 
+The core media controller returns discriminated Artifact, RunObject, and advanced Object cards; `storageClass` remains exactly `durable | working | diagnostic`, while RunObject retention/location are separate fields. Its atomic review operation owns stale-selection checks, Artifact state revision, evaluation/feedback, selection, and activity.
+
 - [ ] **Step 4: Add pretty-output shape coverage and docs**
 
 Add representative list/detail/conflict shapes to `tests/fixtures/verb-shapes.ts`, regenerate CLI docs, then run:
 
 ```bash
 bun test tests/integration/cli-domain-entities.test.ts
+bun test tests/integration/domain-query-surfaces.test.ts
 bun run lint:out-coverage
 bun run cli:surface:build
 bun run cli:surface:check
@@ -408,6 +429,7 @@ git commit -m "refactor(core): move structured state into sqlite"
 - Create: `cli/commands/bridge.ts`
 - Modify: `cli/index.ts`
 - Test: `tests/unit/bridge-protocol.test.ts`
+- Test: `tests/unit/bridge-boundaries.test.ts`
 - Test: `tests/unit/agent-session.test.ts`
 - Test: `tests/integration/cli-bridge.test.ts`
 
@@ -420,46 +442,59 @@ git commit -m "refactor(core): move structured state into sqlite"
 ```ts
 export type BridgeRequest = { v: 1; id: string; method: string; params?: unknown };
 export type BridgeSuccess = { v: 1; id: string; ok: true; result: unknown };
-export type BridgeFailure = { v: 1; id: string; ok: false; error: { code: string; message: string; details?: unknown } };
-export type BridgeEvent = { v: 1; event: "activity" | "agent"; sequence: number; data: unknown };
+export type BridgeFailure = { v: 1; id: string | null; ok: false; error: { code: string; message: string; details?: unknown } };
+export type BridgeEvent =
+  | { v: 1; event: "activity"; subscriptionId: string; sequence: number; data: unknown }
+  | { v: 1; event: "agent"; agentSessionId: string; turnId: string; sequence: number; data: unknown };
 ```
 
-Test malformed JSON, unsupported versions, unknown methods, duplicate request IDs, one response per request, and JSON-only stdout.
+Test malformed JSON, multibyte byte limits, unsupported versions, unknown methods, bounded non-empty IDs, duplicate request IDs both in-flight and after completion, connection seen-ID capacity, one response per valid request, and JSON-only stdout.
 
-- [ ] **Step 2: Implement bounded line parsing and method dispatch**
+- [ ] **Step 2: Implement bounded framing, causal dispatch, and one stdout writer**
 
-Use `node:readline` over stdin, reject lines over 1 MiB, validate each request with Zod, and serialize requests through a small dispatcher only when their operation mutates state. Read-only calls may run concurrently. All caught known domain errors preserve their stable code; unknown errors become `E_INTERNAL` with details only on stderr.
+Use a Buffer-based newline framer that counts bytes before a newline and rejects frames over 1 MiB before buffering the rest; do not use `node:readline`. An oversized frame emits one flushed `E_PROTOCOL_INVALID` failure with `id: null` and terminates the connection. Validate strict request schemas. Keep a lifetime bounded `seenIds` set; never evict IDs for reuse, and require reconnect when the cap is exhausted.
+
+Give every method explicit `read`, `mutation`, or `operation-start` metadata. Serialize short mutations. A read received after a mutation waits for that earlier mutation; independent reads may run concurrently. Long operations return after durable Run/Build/Turn creation and continue outside the mutation lane. Route every response/event through one queued stdout writer, await `drain` after backpressure, and prohibit `console.log` in the bridge subtree. Known `DomainError` codes pass through; unknown errors become sanitized `E_INTERNAL` and raw details stay off the protocol.
 
 - [ ] **Step 3: Register the required method surface**
 
 ```text
 system.hello
-workspace.list, workspace.overview
-project.list, project.overview
-document.list, document.show, document.revise
-media.list, media.review
+session.start, session.show, session.list, session.end
+workspace.list, workspace.show, workspace.update, workspace.overview, workspace.account.list, workspace.account.upsert
+project.list, project.show, project.update, project.status, project.overview, project.iteration.list, project.iteration.create
+feedback.list, feedback.add, feedback.resolve
+document.create, document.list, document.show, document.revisions, document.search, document.revise, document.bind
+media.list, media.show, media.revisions, media.review
+run.list, run.show, run.objects
 composition.list, composition.show, composition.revise, composition.build, composition.select
-unit.list, unit.show, unit.select
-publication.publish, publication.refresh
-activity.list, activity.subscribe
+unit.list, unit.show, unit.revise, unit.select, unit.preview
+publication.list, publication.publish, publication.refresh
+metric.list
+activity.list, activity.subscribe, activity.unsubscribe
 locator.resolve
-agent.providers, agent.credential.set, agent.credential.clear
-agent.turn.start, agent.turn.stop
+agent.providers, agent.credential.status, agent.credential.set, agent.credential.clear
+agent.turn.start, agent.turn.status, agent.turn.stop
+migration.secret.import, migration.desktop.import
 ```
 
-`system.hello` returns protocol version, CLI version, schema version, root ID, and capabilities. `media.review` maps Shortlist to `candidate`, Approved to `approved`, Reject to `rejected`, and Needs Work to open feedback while retaining favorite/rating/tags/notes as evaluation metadata.
+Every method receives an explicit Session or Workspace/Project context; the connection has no mutable active context. `system.hello` is an ordinary request/response, not an unsolicited handshake, and returns protocol/core/schema versions, immutable `storeId`, opaque `rootId`, exact capabilities, latest activity sequence, and migration/startup state. `media.review` maps Shortlist to `candidate`, Approved to `approved`, Reject to `rejected`, and Needs Work to open feedback while retaining favorite/rating/tags/notes as evaluation metadata.
 
 - [ ] **Step 4: Secure locators and agent execution**
 
-`locator.resolve` accepts `{ target: { type: "object" | "run-object", id }, purpose: "preview" | "read-text" | "finder" | "open" | "drag" }`, verifies root/scope ownership, then returns `{ absolutePath, mime, bytes }`. The renderer never supplies a path.
+`locator.resolve` accepts only `{ target: { type: "object" | "run-object", id }, purpose: "preview" | "read-text" | "finder" | "open" | "drag", context }`, fetches the row internally, checks read visibility separately from authorship scope, and then returns `{ absolutePath, mime, bytes }` to trusted Electron main. Project reads may see Workspace-shared Objects. Reject caller paths/keys/buckets, cross-scope IDs, missing/non-regular bytes, symlink escapes, and unsafe unpromoted RunObject paths. Desktop renderer never supplies or persists a path and never receives this raw result directly.
 
-Agent credentials are write-only bridge inputs. `cli/lib/agent/types.ts` defines normalized `started|text-delta|tool-start|tool-end|completed|failed` events. `agent.turn.start` launches the Claude/Codex CLI adapter in core or uses the existing OpenRouter LLM connector, injects decrypted credentials only into the child environment/request, records an Agent Session/Run, and emits normalized `agent` events. Responses and events contain provider status but no secret.
+Agent credentials are write-only bridge inputs. `cli/lib/agent/types.ts` defines normalized `started|text-delta|tool-start|tool-end|completed|failed|cancelled` events. `agent.turn.start` requires an existing active Agent Session, creates one Run per turn, launches the Claude/Codex CLI adapter without a shell or uses the explicit provider credential resolver, and emits events carrying Session/turn/chat/scope identity. Stopping a turn does not end the Session.
+
+Maintain a registry per turn/operation with AbortController, Run ID, Session ID, and child processes registered before awaiting them. Stop process groups with TERM then bounded KILL escalation and terminalize Run/attempt exactly once. On stdin EOF, EPIPE, or bridge exit, cancel all owned children. Never inject secrets into the bridge's own long-lived environment.
 
 - [ ] **Step 5: Test subscriptions, conflicts, locators, and secret redaction**
 
-Spawn `bun run cli/index.ts bridge --stdio --root <fixture>`, send multiple JSONL requests, mutate a Document through a second DB connection, and assert activity resumes after the requested sequence. Test cross-root locator rejection, stale revision conflict, child cancellation, and absence of the fixture secret across stdout/stderr/activity.
+Spawn `bun run cli/index.ts bridge --stdio --root <fixture>`, send multiple JSONL requests, mutate a Document through a second DB connection, and assert activity resumes after the requested sequence without gaps. Subscription acknowledgment is flushed before events begin; each cursor advances only after the event drains; an async polling loop drains ordered pages without overlapping intervals and supports explicit unsubscribe. Test causal mutation/read ordering, concurrent out-of-order reads, stdout backpressure, cross-root/shared locator rules, stale revision conflict, child/grandchild cancellation, EOF/EPIPE cleanup, and absence of fixture secrets across stdout/stderr/activity.
 
-Run: `bun test tests/unit/bridge-protocol.test.ts tests/unit/agent-session.test.ts tests/integration/cli-bridge.test.ts`
+`tests/unit/bridge-boundaries.test.ts` prohibits bridge imports from `cli/commands/**`, Commander, `output.ts`, and `raiseError()`. Handlers call stores/controllers directly.
+
+Run: `bun test tests/unit/bridge-protocol.test.ts tests/unit/bridge-boundaries.test.ts tests/unit/agent-session.test.ts tests/integration/cli-bridge.test.ts`
 
 - [ ] **Step 6: Commit the bridge**
 
