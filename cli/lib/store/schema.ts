@@ -622,6 +622,16 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'store identity is immutable');
       END;
 
+      CREATE TRIGGER store_metadata_no_conflicting_insert
+      BEFORE INSERT ON store_metadata
+      WHEN EXISTS (
+        SELECT 1 FROM store_metadata
+        WHERE singleton = NEW.singleton OR store_id = NEW.store_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'store identity is immutable');
+      END;
+
       CREATE TRIGGER store_metadata_no_delete
       BEFORE DELETE ON store_metadata
       BEGIN
@@ -660,6 +670,19 @@ export const MIGRATIONS: readonly Migration[] = [
       )
       BEGIN
         SELECT RAISE(ABORT, 'Agent Session scope and identity are immutable');
+      END;
+
+      CREATE TRIGGER agent_sessions_no_duplicate_insert
+      BEFORE INSERT ON agent_sessions
+      WHEN EXISTS (SELECT 1 FROM agent_sessions WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent Session identity is immutable');
+      END;
+
+      CREATE TRIGGER agent_sessions_no_delete
+      BEFORE DELETE ON agent_sessions
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent Session identity is immutable');
       END;
 
       CREATE TRIGGER document_revision_session_scope_insert
@@ -782,6 +805,20 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'document revisions are immutable');
       END;
 
+      CREATE TRIGGER document_revisions_no_duplicate_insert
+      BEFORE INSERT ON document_revisions
+      WHEN EXISTS (
+        SELECT 1 FROM document_revisions
+        WHERE id = NEW.id
+          OR (
+            document_id = NEW.document_id
+            AND revision_no = NEW.revision_no
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'document revisions are immutable');
+      END;
+
       CREATE TRIGGER document_revisions_no_delete
       BEFORE DELETE ON document_revisions
       BEGIN
@@ -794,6 +831,20 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'artifact revisions are immutable');
       END;
 
+      CREATE TRIGGER artifact_revisions_no_duplicate_insert
+      BEFORE INSERT ON artifact_revisions
+      WHEN EXISTS (
+        SELECT 1 FROM artifact_revisions
+        WHERE id = NEW.id
+          OR (
+            artifact_id = NEW.artifact_id
+            AND revision_no = NEW.revision_no
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'artifact revisions are immutable');
+      END;
+
       CREATE TRIGGER artifact_revisions_no_delete
       BEFORE DELETE ON artifact_revisions
       BEGIN
@@ -802,6 +853,17 @@ export const MIGRATIONS: readonly Migration[] = [
 
       CREATE TRIGGER unit_revisions_no_update
       BEFORE UPDATE ON unit_revisions
+      BEGIN
+        SELECT RAISE(ABORT, 'unit revisions are immutable');
+      END;
+
+      CREATE TRIGGER unit_revisions_no_duplicate_insert
+      BEFORE INSERT ON unit_revisions
+      WHEN EXISTS (
+        SELECT 1 FROM unit_revisions
+        WHERE id = NEW.id
+          OR (unit_id = NEW.unit_id AND revision_no = NEW.revision_no)
+      )
       BEGIN
         SELECT RAISE(ABORT, 'unit revisions are immutable');
       END;
@@ -832,6 +894,20 @@ export const MIGRATIONS: readonly Migration[] = [
       )
       BEGIN
         SELECT RAISE(ABORT, 'composition revisions allow only draft to sealed');
+      END;
+
+      CREATE TRIGGER composition_revisions_no_duplicate_insert
+      BEFORE INSERT ON composition_revisions
+      WHEN EXISTS (
+        SELECT 1 FROM composition_revisions
+        WHERE id = NEW.id
+          OR (
+            composition_id = NEW.composition_id
+            AND revision_no = NEW.revision_no
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'composition revisions are immutable');
       END;
 
       CREATE TRIGGER composition_revisions_no_delete
@@ -886,6 +962,13 @@ export const MIGRATIONS: readonly Migration[] = [
 
       CREATE TRIGGER activity_events_no_update
       BEFORE UPDATE ON activity_events
+      BEGIN
+        SELECT RAISE(ABORT, 'activity events are append-only');
+      END;
+
+      CREATE TRIGGER activity_events_no_duplicate_insert
+      BEFORE INSERT ON activity_events
+      WHEN EXISTS (SELECT 1 FROM activity_events WHERE id = NEW.id)
       BEGIN
         SELECT RAISE(ABORT, 'activity events are append-only');
       END;
