@@ -1,6 +1,6 @@
 # SQLite Domain Store, Versioned Production, and Desktop Integration Design
 
-> **Status:** approved in conversation; pending written-spec review
+> **Status:** approved by the user on 2026-08-02
 > **Date:** 2026-08-02
 > **Scope:** `ralphy` core, `ralphy-desktop`, and the user's existing `.ralphy` data
 
