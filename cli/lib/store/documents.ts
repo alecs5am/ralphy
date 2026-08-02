@@ -31,6 +31,7 @@ export type ReviseDocumentInput = {
   iterationId?: string | null;
   format: DocumentFormat;
   title?: string | null;
+  /** Parseable strings are serialized JSON; other strings are scalar JSON values. */
   body: string | JsonValue;
   authoredBySessionId?: string | null;
 };
@@ -442,7 +443,7 @@ function canonicalBody(
     try {
       value = JSON.parse(input);
     } catch {
-      throw new Error("JSON Document body must be valid JSON");
+      value = input;
     }
   }
   return JSON.stringify(canonicalJson(value, false, new Set<object>()));
@@ -478,7 +479,7 @@ function canonicalJson(
     const prototype = Object.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null)
       throw new Error("JSON Document body contains a non-JSON object");
-    const result: Record<string, JsonValue> = {};
+    const result = Object.create(null) as Record<string, JsonValue>;
     for (const key of Object.keys(value).sort()) {
       assertNoDataUrl(key);
       result[key] = canonicalJson(

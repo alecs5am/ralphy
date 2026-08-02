@@ -354,6 +354,70 @@ describe("domain document store", () => {
     ).not.toThrow();
   });
 
+  test("round-trips an own __proto__ JSON key without a hash collision", () => {
+    const { project } = setupProject("json-proto-key");
+    const document = createDocument({
+      projectId: project.id,
+      kind: "custom",
+      slug: "proto-key",
+      title: "Proto key",
+    });
+
+    const keyed = reviseDocument({
+      documentId: document.id,
+      format: "json",
+      body: '{"__proto__":"kept"}',
+    });
+    const empty = reviseDocument({
+      documentId: document.id,
+      expectedHeadId: keyed.id,
+      format: "json",
+      body: {},
+    });
+
+    expect(keyed.body).toBe('{"__proto__":"kept"}');
+    expect(empty.body).toBe("{}");
+    expect(keyed.contentSha256).not.toBe(empty.contentSha256);
+  });
+
+  test("accepts parsed scalar strings and serialized JSON string text", () => {
+    const { project } = setupProject("json-string-inputs");
+    const document = createDocument({
+      projectId: project.id,
+      kind: "custom",
+      slug: "string-inputs",
+      title: "String inputs",
+    });
+
+    const parsedScalar = reviseDocument({
+      documentId: document.id,
+      format: "json",
+      body: "plain scalar",
+    });
+    const serializedString = reviseDocument({
+      documentId: document.id,
+      expectedHeadId: parsedScalar.id,
+      format: "json",
+      body: '"serialized scalar"',
+    });
+
+    expect(parsedScalar.body).toBe('"plain scalar"');
+    expect(serializedString.body).toBe('"serialized scalar"');
+    for (const dataUrl of [
+      "data:text/plain,hello",
+      '"data:text/plain,hello"',
+    ]) {
+      expect(() =>
+        reviseDocument({
+          documentId: document.id,
+          expectedHeadId: serializedString.id,
+          format: "json",
+          body: dataUrl,
+        }),
+      ).toThrow(/data URL/i);
+    }
+  });
+
   test("validates revision Iterations against Document scope", () => {
     const { workspace, project } = setupProject("iteration-source");
     const sibling = createProject({
