@@ -343,7 +343,7 @@ export function recordRunObject(input: {
       entityType: "run_object",
       entityId: id,
       action: "run.object_recorded",
-      payload: { runId: run.id, path: locator },
+      payload: { runId: run.id, purpose, state },
       createdAt,
     });
     return getRunObjectRow(db, id)!;

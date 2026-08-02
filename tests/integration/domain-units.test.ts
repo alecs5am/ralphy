@@ -17,7 +17,6 @@ import {
   createIteration,
   createProject,
   createWorkspace,
-  listActivity,
   upsertSocialAccount,
 } from "../../cli/lib/store/scopes.js";
 import {
@@ -51,6 +50,7 @@ import {
   selectUnitRevision,
 } from "../../cli/lib/store/units.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -1032,7 +1032,7 @@ describe("domain Unit store", () => {
         .all(run.id),
     ).toEqual([{ entityId: publication.id }]);
     expect(
-      listActivity({ projectId: project.id, afterId: 0, limit: 100 }).filter(
+      scopedActivity({ projectId: project.id,}).filter(
         (event) => event.entityId === publication.id,
       ).map((event) => event.action),
     ).toEqual([

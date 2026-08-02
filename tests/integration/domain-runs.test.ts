@@ -19,10 +19,10 @@ import {
 import {
   createProject,
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let root: TmpRoot | null = null;
 
@@ -110,7 +110,7 @@ describe("domain Run store", () => {
       StoreConflictError,
     );
     expect(
-      listActivity({ projectId: project.id })
+      scopedActivity({ projectId: project.id })
         .filter((event) => event.entityType.startsWith("run"))
         .map((event) => event.action),
     ).toEqual([

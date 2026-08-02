@@ -39,7 +39,6 @@ import {
   createIteration,
   createProject,
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import {
   endAgentSession,
@@ -53,6 +52,7 @@ import type {
 } from "../../cli/lib/store/types.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -758,7 +758,7 @@ describe("domain Composition store", () => {
       logicalPath: "index.html",
       objectId: source.id,
     });
-    const activityBefore = listActivity({ projectId: project.id, limit: 100 });
+    const activityBefore = scopedActivity({ projectId: project.id,});
     db.exec(`
       CREATE TRIGGER reject_composition_seal_activity
       BEFORE INSERT ON activity_events
@@ -775,7 +775,7 @@ describe("domain Composition store", () => {
       sealedAt: null,
       manifestSha256: null,
     });
-    expect(listActivity({ projectId: project.id, limit: 100 })).toEqual(
+    expect(scopedActivity({ projectId: project.id,})).toEqual(
       activityBefore,
     );
   });
@@ -1260,7 +1260,7 @@ describe("domain Composition store", () => {
     ).toThrow(/missing/i);
 
     const db = openDomainDb();
-    const activityBefore = listActivity({ projectId: project.id, limit: 100 });
+    const activityBefore = scopedActivity({ projectId: project.id,});
     db.exec(`
       CREATE TRIGGER reject_build_complete_activity
       BEFORE INSERT ON activity_events
@@ -1278,7 +1278,7 @@ describe("domain Composition store", () => {
     expect(getComposition(composition.id).revisions[0]?.builds[0]).toMatchObject(
       { state: "running", outputs: [] },
     );
-    expect(listActivity({ projectId: project.id, limit: 100 })).toEqual(
+    expect(scopedActivity({ projectId: project.id,})).toEqual(
       activityBefore,
     );
     db.exec("DROP TRIGGER reject_build_complete_activity");

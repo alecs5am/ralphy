@@ -14,7 +14,6 @@ import {
   createIteration,
   createProject,
   createWorkspace,
-  listActivity,
 } from "../../cli/lib/store/scopes.js";
 import {
   endAgentSession,
@@ -22,6 +21,7 @@ import {
 } from "../../cli/lib/store/sessions.js";
 import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
 
@@ -157,12 +157,12 @@ describe("domain document store", () => {
       searchDocuments({ projectId: project.id, query: "stale" }).items,
     ).toEqual([]);
     expect(
-      listActivity({ projectId: project.id, limit: 100 })
+      scopedActivity({ projectId: project.id,})
         .filter((event) => event.entityId === document.id)
         .map((event) => event.action),
     ).toEqual(["document.created", "document.revised", "document.revised"]);
     expect(
-      JSON.stringify(listActivity({ projectId: project.id, limit: 100 })),
+      JSON.stringify(scopedActivity({ projectId: project.id,})),
     ).not.toContain("Periodontal education");
     expect(() =>
       openDomainDb()
@@ -576,7 +576,7 @@ describe("domain document store", () => {
     expect(buildBinding.documentRevisionId).toBe(projectRevision.id);
     expect(buildWorkspaceBinding.documentRevisionId).toBe(workspaceRevision.id);
     expect(
-      listActivity({ projectId: project.id, limit: 100 }).filter(
+      scopedActivity({ projectId: project.id,}).filter(
         (event) => event.action === "document.bound",
       ),
     ).toHaveLength(3);
@@ -652,7 +652,7 @@ describe("domain document store", () => {
       body: "stable searchable body",
     });
     const db = openDomainDb();
-    const activityBefore = listActivity({ projectId: project.id, limit: 100 });
+    const activityBefore = scopedActivity({ projectId: project.id,});
     db.exec(`
       CREATE TRIGGER abort_document_revision_activity
       BEFORE INSERT ON activity_events
@@ -687,7 +687,7 @@ describe("domain document store", () => {
       expect(
         searchDocuments({ projectId: project.id, query: "roll" }).items,
       ).toEqual([]);
-      expect(listActivity({ projectId: project.id, limit: 100 })).toEqual(
+      expect(scopedActivity({ projectId: project.id,})).toEqual(
         activityBefore,
       );
     } finally {
@@ -772,7 +772,7 @@ describe("domain document store", () => {
           "SELECT COUNT(*) AS count FROM document_revisions",
         )
         .get()!.count,
-      activity: listActivity({ workspaceId: workspace.id, limit: 100 }).length,
+      activity: scopedActivity({ workspaceId: workspace.id,}).length,
     };
     for (const authoredBySessionId of [
       siblingSession.id,
@@ -811,7 +811,7 @@ describe("domain document store", () => {
         )
         .get()!.count,
     ).toBe(before.revisions);
-    expect(listActivity({ workspaceId: workspace.id, limit: 100 })).toHaveLength(
+    expect(scopedActivity({ workspaceId: workspace.id,})).toHaveLength(
       before.activity,
     );
   });
