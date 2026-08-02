@@ -13,13 +13,15 @@
 - Complete and release the core entity CLI/bridge before implementing this plan.
 - Preserve the current dirty Desktop chat, terminal, settings, design-system, and media-viewer work; it is the implementation baseline, not disposable output.
 - Do not open `.ralphy/ralphy.db`, import sibling core source, call Postiz directly, or derive domain identity from paths.
-- Renderer state and IPC inputs contain stable IDs, never absolute paths. Electron main alone may receive a validated locator from core.
+- Renderer state and IPC inputs contain stable IDs, never the `.ralphy` root, bucket keys, locators, terminal cwd as identity, or absolute paths. Electron main alone retains the root and may receive a validated locator from core.
 - IPC errors use explicit `{ ok: false, error: { code, message, details? } }` envelopes because Electron does not preserve custom error fields on rejected invokes.
 - Never automatically retry mutations after `E_CONFLICT`; reload and show the user what changed.
-- Cache/temp/diagnostic files remain visible through filters and Run context.
+- Working/diagnostic Objects and cache/temp RunObjects remain visible through explicit filters and Run context.
 - Reuse the existing virtual grid, image/video/audio viewers, Markdown renderer, chat/terminal shell, layout, and design tokens.
 - Add no client query/state framework; page loaders plus one monotonic activity sequence are sufficient.
 - Desktop never persists or retrieves stored provider secret values after migration.
+- Every IPC handler validates a trusted sender, returns `IpcResult<T>`, and has an explicit preload method; expose no generic renderer-controlled bridge dispatcher.
+- Browser windows use `sandbox: true`, a restrictive CSP, denied permission requests, and navigation limited to the exact packaged/dev origin.
 - Use Bun for package operations and keep repository files/commits English-only.
 
 ---
@@ -44,11 +46,11 @@ git diff --stat
 fd -t f . electron/agent electron/claude electron/terminal src/chat src/terminal tests
 ```
 
-Expected: the inventory includes the current 76 dirty entries, especially `electron/main.ts`, `electron/media/types.ts`, `electron/preload.ts`, `src/App.tsx`, `src/lib/ipc.ts`, `src/styles/workbench.css`, and the untracked chat/terminal modules.
+Expected: branch `feat/electron-media-workbench` at `621568f`, empty index, 76 status entries representing exactly 106 leaf paths (35 modified, 71 untracked), and sorted path-set SHA-256 `40a761ed8288129ff783903c17d615b759b5b8e02190186cade0bf5c062c7521`. The inventory includes `electron/main.ts`, `electron/media/types.ts`, `electron/preload.ts`, `src/App.tsx`, `src/lib/ipc.ts`, `src/styles/workbench.css`, and the untracked chat/terminal modules.
 
 - [ ] **Step 2: Make the current test runner load every suite**
 
-Replace `from "bun:test"` with `from "vitest"` only in Desktop Vitest tests. Do not change runtime code or switch test runners.
+Replace `from "bun:test"` with `from "vitest"` only in the ten Desktop tests for agent models, audio preview, Claude session, agent request, terminal manager, Claude credentials, agent bridge, Codex session, chat state, and AI brand icon. Do not change runtime code or switch test runners.
 
 Run: `bun run typecheck && bun run test`
 
@@ -56,12 +58,12 @@ Expected: typecheck passes and all suites load; zero suite-load errors remain.
 
 - [ ] **Step 3: Review the complete checkpoint diff**
 
-Run `git diff --check`, targeted no-Cyrillic search across changed source/docs, and `gitleaks protect --staged --redact` after staging. Inspect staged filenames against the Step 1 inventory; do not include build/release output or local credentials.
+Run `git diff --check`, targeted no-Cyrillic search across changed source/docs, and `gitleaks protect --staged --redact` after staging. Stage only `package.json bun.lock electron public scripts src tests docs`, then require exactly the same 106 sorted paths and path-set hash, no unstaged/untracked source, and no build/release/userData/credential files.
 
 - [ ] **Step 4: Commit the preserved baseline**
 
 ```bash
-git add AGENTS.md package.json bun.lock electron public scripts src tests docs
+git add package.json bun.lock electron public scripts src tests docs
 git status --short
 git commit -m "feat(desktop): checkpoint agent media workbench"
 ```
@@ -83,7 +85,7 @@ Expected: the commit contains the intended existing WIP, tests are green, and th
 
 ```ts
 export class RalphyBridgeClient {
-  constructor(options: { bin?: string; root: string; env?: NodeJS.ProcessEnv });
+  constructor(options: { bin: string; root: string; env?: Record<string, string> });
   start(): Promise<BridgeHello>;
   request<M extends BridgeMethod>(method: M, params: ParamsFor<M>): Promise<ResultFor<M>>;
   onEvent(listener: (event: BridgeEvent) => void): () => void;
@@ -93,7 +95,7 @@ export class RalphyBridgeClient {
 
 - [ ] **Step 1: Write a fake bridge fixture and failing concurrent-request test**
 
-The fixture reads JSONL stdin and deliberately answers requests out of order. Assert two concurrent calls resolve by request ID, an activity event reaches listeners, stderr is kept out of the JSON parser, and `close()` rejects pending requests with `E_BRIDGE_CLOSED`.
+The fixture reads JSONL stdin and deliberately answers requests out of order. Assert two concurrent calls resolve by request ID, discriminated activity and agent events reach listeners, stderr is kept out of the JSON parser, and `close()` rejects pending requests with `E_BRIDGE_CLOSED`.
 
 - [ ] **Step 2: Implement line parsing and request correlation**
 
@@ -101,11 +103,13 @@ Spawn `[bin, "bridge", "--stdio", "--root", root]` with piped stdio. Assign `cry
 
 - [ ] **Step 3: Enforce handshake compatibility**
 
-`start()` waits for `system.hello`, requires protocol `1`, records core/schema versions and capabilities, and rejects mismatches with a user-actionable upgrade error. Do not send domain requests before hello succeeds.
+`start()` sends an ordinary `system.hello` request, requires protocol `1`, records `storeId`, opaque `rootId`, core/schema versions, capabilities, current activity sequence, and migration/startup state, and rejects mismatches with a user-actionable upgrade error. Do not send domain requests before hello succeeds and do not expect an unsolicited handshake.
 
 - [ ] **Step 4: Add active-root session replacement**
 
-`RalphySession.open(root)` starts the new client and confirms hello before closing the prior client. If the new root fails, retain the prior working session. Serialize root changes so a slower earlier open cannot replace a newer selection.
+`RalphySession.open(root)` starts the new client and confirms hello before closing the prior client. If the new root fails, retain the prior working session. Serialize root changes so a slower earlier open cannot replace a newer selection. A successful switch increments a root epoch used to invalidate every locator/drag token.
+
+Discover the executable without a shell: `RALPHY_BIN` is test/dev override; production checks explicit executable candidates and a sanitized GUI-safe PATH because Finder launches may not inherit Homebrew/Bun paths. Never construct a shell command or pass the full Electron environment.
 
 - [ ] **Step 5: Verify and commit the client**
 
@@ -114,6 +118,47 @@ Run: `bun run test -- tests/ralphy-client.test.ts tests/ralphy-session.test.ts &
 ```bash
 git add electron/ralphy tests/ralphy-client.test.ts tests/ralphy-session.test.ts
 git commit -m "feat(desktop): connect to the ralphy bridge"
+```
+
+### Task 2A: Secure startup, canonical root ownership, and migration recovery
+
+**Files:**
+- Modify: `electron/main.ts`
+- Modify: `electron/preload.ts`
+- Modify: `electron/agent/request.ts`
+- Modify: `electron/terminal/manager.ts`
+- Modify: `src/lib/ipc.ts`
+- Modify: `src/App.tsx`
+- Create: `src/screens/MigrationRecoveryScreen.tsx`
+- Modify: `index.html`
+- Test: `tests/ipc-security.test.ts`
+- Test: `tests/root-session.test.ts`
+- Test: `tests/migration-recovery.test.tsx`
+
+**Interfaces:**
+- Consumes: `RalphySession`, `system.hello`, and `E_MIGRATION_INCOMPLETE`
+- Produces: one main-owned canonical root/store identity, secured explicit IPC, root-switch cleanup, and a blocking interrupted-migration screen
+
+- [ ] **Step 1: Lock Electron's trust boundary**
+
+Enable `sandbox: true`, add restrictive CSP, deny permission requests, block `will-navigate` outside the exact local/dev origin, and call `assertTrustedSender` from every `ipcMain.handle/on`. Preload exposes an explicit allowlist of typed methods, never a generic `request(method)`. Every result is `IpcResult<T>` preserving safe core codes; unknown errors become `E_INTERNAL` without raw bridge stderr. Production mock behavior is impossible unless an explicit dev/test flag is set.
+
+- [ ] **Step 2: Make the bridge Session the only root owner**
+
+Move agent and terminal root binding from scanner state to the root/store identity confirmed by hello before Task 3 removes scanner session ownership. On a successful root switch, invalidate preview/drag tokens, stop old-root agent turns, close the old bridge, terminate old-root terminals, and resubscribe activity. On failure retain the prior bridge, turns, terminals, and saved root. Renderer sees only `storeId` plus a display label; the local root path remains main-only.
+
+- [ ] **Step 3: Block interrupted cutover at startup**
+
+When hello returns `E_MIGRATION_INCOMPLETE` or a non-terminal journal phase (`prepared`, `source-moved`, or `rollback-new-moved`, including installed-root-before-journal-update), show a blocking Recovery screen. Do not start scanner/fallback/mock, clear the saved root, or auto-recover/rollback. Show safe Run ID/phase, allow main to copy a sanitized recovery command, and allow selecting another library.
+
+- [ ] **Step 4: Verify and commit secure root ownership**
+
+Test trusted/untrusted senders, navigation/permission denial, explicit preload surface, root switch success/failure races, cleanup ordering, safe error mapping, and every interrupted journal phase.
+
+```bash
+bun run test -- tests/ipc-security.test.ts tests/root-session.test.ts tests/migration-recovery.test.tsx
+bun run typecheck
+git commit -m "feat(desktop): secure bridge root startup"
 ```
 
 ### Task 3: Replace path scanner IPC with stable domain DTOs and locators
@@ -140,11 +185,9 @@ git commit -m "feat(desktop): connect to the ralphy bridge"
 - Produces: renderer-safe `MediaCard`, `MediaReview`, and explicit IPC result envelopes
 
 ```ts
-export interface MediaCard {
+type MediaCard = ArtifactMediaCard | RunObjectMediaCard | ObjectMediaCard;
+interface MediaCardBase {
   id: string;
-  artifactId: string | null;
-  artifactRevisionId: string | null;
-  runObjectId: string | null;
   target: { type: "object" | "run-object"; id: string };
   name: string;
   kind: MediaKind;
@@ -153,18 +196,39 @@ export interface MediaCard {
   createdAt: string;
   lifecycle: string;
   usageRoles: string[];
-  storageClass: "durable" | "cache" | "temp";
   review: MediaReview | null;
+}
+interface ArtifactMediaCard extends MediaCardBase {
+  type: "artifact";
+  artifactId: string;
+  artifactRevisionId: string;
+  storageClass: "durable" | "working" | "diagnostic";
+}
+interface RunObjectMediaCard extends MediaCardBase {
+  type: "run-object";
+  runObjectId: string;
+  runId: string;
+  attemptId: string | null;
+  purpose: string;
+  state: string;
+  retention: string;
+  locationClass: "run" | "cache" | "temp";
+  promotedObjectId: string | null;
+}
+interface ObjectMediaCard extends MediaCardBase {
+  type: "object";
+  objectId: string;
+  storageClass: "durable" | "working" | "diagnostic";
 }
 ```
 
 - [ ] **Step 1: Write failing DTO and locator authorization tests**
 
-Assert renderer-visible cards contain no `absolutePath`/`projectRelativePath`; preview IPC accepts only `{ target, range? }`; main calls `locator.resolve(..., purpose: "preview")`; cross-root IDs return an explicit core error; valid byte ranges retain current streaming behavior.
+Assert renderer-visible cards contain no root, locator, `absolutePath`, or `projectRelativePath`; preview IPC accepts only `{ target, range? }`; main calls `locator.resolve(..., purpose: "preview")`; cross-root IDs return an explicit core error; valid byte ranges retain current streaming behavior.
 
 - [ ] **Step 2: Wire bridge requests into Electron main and preload**
 
-Replace `MediaWorkerClient`/`MediaSessionState` registration with one `RalphySession`. IPC methods return:
+Replace `MediaWorkerClient`/remaining scanner registration with the canonical `RalphySession` established in Task 2A. IPC methods return:
 
 ```ts
 type IpcResult<T> =
@@ -172,7 +236,9 @@ type IpcResult<T> =
   | { ok: false; error: { code: string; message: string; details?: unknown } };
 ```
 
-Main resolves locators immediately before Finder/open/drag/preview actions and never caches an absolute path across root changes.
+Main stores opaque preview tokens containing stable target plus root epoch. The `ralphy-media://` protocol resolves the locator again for each request, validates a regular file/session, and never caches an absolute path across root changes. Root switch invalidates all tokens.
+
+Native drag uses a two-stage flow because `dragstart` is synchronous: renderer calls `prepareDrag(target)` on pointer-down; main returns a short-lived one-shot root-epoch token; `startDrag(token)` consumes it synchronously. Finder/open follow the same trusted-main locator boundary.
 
 - [ ] **Step 3: Move reviews to core entities**
 
@@ -217,19 +283,19 @@ Render a fixture Workspace/Project and assert the six tabs, current Iteration, o
 
 - [ ] **Step 2: Implement Workspace and Project loaders**
 
-Workspace overview shows social accounts/public identity, current Documents, shared media/references, Projects, recent Units/publications, and aggregate metrics. Project overview shows current Iteration, purpose, feedback, prior-Iteration changes, exact Document bindings, Compositions/Builds, Units/distribution, working/RunObjects, and activity.
+Workspace overview shows social accounts/public identity, current Workspace Documents, shared media/references, Projects, recent Units/publications, and aggregate metrics. Project overview shows current Iteration, purpose, feedback, prior-Iteration changes, inherited and Project Documents, exact bound revisions with a `newer revision available` indicator, Compositions/Builds, Units/distribution, working/RunObjects, and activity.
 
 - [ ] **Step 3: Implement Document revision viewing and editing**
 
-List kind/title/current revision and binding context. Use the existing Markdown renderer for Markdown, `<pre>` for formatted JSON/text, a normal `<textarea>` for edits, and `document.revise` with `expectedRevisionId`. On conflict, keep the user's draft locally, reload current revision, and present both versions without overwriting.
+List kind/title/content format/current revision and binding context, with FTS-backed `document.search`. Use the existing Markdown renderer for Markdown, `<pre>` for formatted JSON/text, a normal `<textarea>` for edits, and `document.revise` with `expectedRevisionId`. On conflict, keep the user's draft locally, reload current revision, and present both versions without auto-retry or overwrite.
 
 - [ ] **Step 4: Implement Media filters without hiding evidence**
 
-Filters are References, Working, Candidate, Approved, Rejected, Superseded, Run diagnostics, Cache/temp, and Advanced Objects. A RunObject card shows Run/attempt, purpose, state, retention, and promotion target.
+Filters are References, Working, Candidate, Approved, Rejected, Superseded, Run diagnostics, Cache/temp RunObjects, and Advanced Objects. A RunObject card shows Run/attempt, purpose, state, retention, logical path, location class, and promotion target. Local `Move to Bin` is removed; future cleanup is an explicit core archive/compact operation.
 
 - [ ] **Step 5: Subscribe to monotonic activity**
 
-After hello call `activity.subscribe({ since: lastSequence })`. Detect a sequence gap, fetch `activity.list`, then update one app-level `activitySequence` used as a refresh token by active loaders. Do not install a query library.
+After hello call `activity.subscribe({ afterSequence: lastSequence })` and wait for its acknowledgment before accepting events. Detect a sequence gap, page `activity.list` until caught up, then update one app-level `activitySequence` used as a refresh token by active loaders. Unsubscribe on root/scope changes. Agent event ordinals are turn-local and never mixed with the global activity sequence. Do not install a query library.
 
 - [ ] **Step 6: Verify and commit core navigation**
 
@@ -266,7 +332,7 @@ Render HyperFrames v1 and Remotion v2 of one Composition, switch selected revisi
 
 - [ ] **Step 3: Implement the panel and optimistic mutations**
 
-Show kind, selected/head revision, parent, Iteration, engine/version, draft/sealed state, source/input summary, Builds with profile/status/error, evaluations, and output previews. `revise`, `build`, and `select` include expected IDs. `E_CONFLICT` reloads and shows a non-destructive conflict banner.
+Show kind, selected/head revision separately, parent/ancestry, Iteration, engine/version, draft/sealed state, ordered sources/inputs, Builds with profile/status/error, evaluations, and every ordered output/preview target. `revise` sends expected latest, `select` sends expected selected, and `build` sends expected revision/state; these guards are never substituted for one another. `E_CONFLICT` reloads and shows a non-destructive conflict banner.
 
 - [ ] **Step 4: Verify and commit Compositions**
 
@@ -299,7 +365,7 @@ Assert a 32-sticker Telegram pack and eight-image Instagram carousel retain orde
 
 - [ ] **Step 3: Implement Unit history and distribution state**
 
-Show Unit revisions, ordered item roles/types, presentation overrides, selected revision, Publication attempt history, Postiz state/URL/error/timestamps, and immutable Metric snapshots. Publish/refresh calls core only; Desktop never calls Postiz.
+Show Workspace- or Project-owned Unit revisions, ordered heterogeneous item roles/types with exact Artifact/Document revision IDs, presentation overrides, selected revision, Publication attempt history, Postiz state/URL/error/timestamps, and immutable Metric snapshots. Publish/refresh calls core only; Desktop never calls or mocks Postiz directly—tests mock typed bridge responses.
 
 - [ ] **Step 4: Verify and commit Units**
 
@@ -319,6 +385,9 @@ git commit -m "feat(desktop): add unit platform previews"
 - Modify: `src/screens/SettingsScreen.tsx`
 - Modify: `electron/terminal/manager.ts`
 - Delete: `electron/claude/credentials.ts`
+- Delete: `electron/claude/session.ts`
+- Delete: `electron/agent/codex-session.ts`
+- Delete: `electron/agent/models.ts`
 - Modify: `tests/agent-bridge.test.ts`
 - Modify: `tests/claude-credentials.test.ts`
 - Test: `tests/agent-core-session.test.ts`
@@ -329,19 +398,19 @@ git commit -m "feat(desktop): add unit platform previews"
 
 - [ ] **Step 1: Write failing secret-ownership tests**
 
-Assert Settings sends credential values once to `agent.credential.set`, never reads them back, and stores only `{ configured: true }`. Assert no `claude-api-key.bin`, `openrouter-api-key.bin`, or Electron `safeStorage` write occurs for new credentials.
+Assert Settings sends credential values once to `agent.credential.set`, clears the input after success, never reads values back, and stores only `{ configured: true }` from `agent.credential.status`. Assert no `claude-api-key.bin`, `openrouter-api-key.bin`, or Electron `safeStorage` write occurs for new credentials and no value appears in status/error/activity/log output.
 
 - [ ] **Step 2: Route agent turns through core**
 
-Preserve the existing normalized chat event DTO, but `useAgentChat` calls `agent.turn.start` with stable Workspace/Project/Agent Session IDs and listens for bridge `agent` events. Stop uses `agent.turn.stop`. Core launches the process and injects secrets; Electron does not.
+Preserve the existing normalized chat event DTO, but distinguish domain `agentSessionId`, provider resume/session ID, and `turnId`. `useAgentChat` calls `agent.turn.start` with stable Workspace/Project/Agent Session IDs and listens for bridge events carrying Session/turn/chat/scope. Stop calls scoped `agent.turn.stop({ turnId })`. Core launches the process and injects secrets; Electron does not.
 
 - [ ] **Step 3: Migrate existing Electron secrets and chat preferences**
 
-On first v2 bridge connection, Electron decrypts its own old safeStorage blobs in memory and sends each value once through `migration.secret.import`; after success it moves the exact old file to a migration recovery location instead of deleting it. Export non-secret localStorage chat/settings state as typed data for core import, then mark migration complete.
+Do not auto-import on first v2 connection. During the explicit pre-cutover migration handoff, under the maintenance lock and with exact migration Run/source-entry IDs, Electron decrypts its own old safeStorage blobs in main memory and sends each value once through `migration.secret.import`; after success the migration retains the exact old file below mode-0700 recovery rather than deleting it. Export non-secret localStorage chat/settings state through typed `migration.desktop.import`, then record completion. New secret input never enters renderer persistence.
 
 - [ ] **Step 4: Bind terminals to the canonical bridge root**
 
-Replace `validateLibraryRoot` scanner dependency with the root confirmed by `system.hello`. Terminal working directories may be resolved debug/export/checkouts from core but never define domain identity.
+Verify the Task 2A canonical root binding: terminal working directories may be resolved debug/export/checkouts from core but never define domain identity. Provider login is an explicit core operation or a documented terminal-only flow; Desktop does not resurrect provider-specific login ownership.
 
 - [ ] **Step 5: Verify and commit agent ownership**
 
@@ -349,7 +418,7 @@ Run: `bun run test -- tests/agent-bridge.test.ts tests/claude-credentials.test.t
 
 ```bash
 git add electron/main.ts electron/agent/request.ts src/chat/useAgentChat.ts src/screens/SettingsScreen.tsx electron/terminal/manager.ts tests/agent-bridge.test.ts tests/claude-credentials.test.ts tests/agent-core-session.test.ts
-git add -u electron/claude/credentials.ts
+git add -u electron/claude/credentials.ts electron/claude/session.ts electron/agent/codex-session.ts electron/agent/models.ts
 git commit -m "refactor(desktop): move agent secrets into core"
 ```
 
@@ -368,6 +437,7 @@ git commit -m "refactor(desktop): move agent secrets into core"
 - Delete: `tests/watcher.test.ts`
 - Delete: `tests/annotations.test.ts`
 - Modify: `scripts/build-electron.mjs`
+- Delete or rewrite: `scripts/benchmark-media.ts`
 - Modify: `tests/design-system.test.ts`
 - Modify: `tests/review-workflow.test.ts`
 
@@ -381,7 +451,7 @@ Use `rg` and TypeScript to identify every import/callsite of the five modules. M
 
 - [ ] **Step 2: Delete replaced modules and build entry**
 
-Remove worker bundling from `scripts/build-electron.mjs`, scanner session state, local `Move to Bin`, and scan-only tests. Raw Objects remain available through the Advanced Objects view, not filesystem traversal.
+Remove worker bundling from `scripts/build-electron.mjs`, scanner session state, local `Move to Bin`, production fallback mock, and scan-only/old agent-execution tests. Make the build script clean `dist-electron` before bundling so a stale `media/worker.cjs` cannot survive deletion. Delete `scripts/benchmark-media.ts` or rewrite it against bridge pagination. Raw Objects remain available through the Advanced Objects view, not filesystem traversal.
 
 - [ ] **Step 3: Lock the removal with static assertions**
 
@@ -430,11 +500,14 @@ bun run test
 bun run build
 bun run smoke
 bun run package:mac
+bun run smoke:packaged
 codesign --verify --deep --strict "release/Ralphy Media.app"
 gitleaks protect --staged --redact
 ```
 
 Expected: every command exits 0.
+
+The packaged smoke uses an absolute fake `RALPHY_BIN`, completes a real hello plus overview/Documents/media/Composition/Unit/activity requests, exercises preview/range and one real PTY create/close, proves scanner/worker files are absent, and proves production renderer never falls back to mock state. Before publishing, also run `gitleaks detect --source .`.
 
 - [ ] **Step 4: Exercise representative migrated projects**
 
