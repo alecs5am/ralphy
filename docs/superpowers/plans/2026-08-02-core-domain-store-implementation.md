@@ -207,7 +207,14 @@ git commit -m "feat(store): add central domain database"
 
 **Interfaces:**
 - Consumes: `openDomainDb()`, `withImmediateTransaction()`, and `newDomainId()` from Task 1
-- Produces: `createWorkspace`, `updateWorkspace`, `upsertSocialAccount`, `listSocialAccounts`, `createProject`, `transferProjectMetadata`, `createIteration`, `addFeedback`, `resolveFeedback`, `listActivity`, and their row/input types
+- Produces: `createWorkspace`, `updateWorkspace`, `listWorkspaces`, `upsertSocialAccount`, `listSocialAccounts`, `createProject`, `listProjects`, `transferProjectMetadata`, `createIteration`, `addFeedback`, `resolveFeedback`, `listActivity`, and their row/input types
+
+**Locked interface choices:**
+- `transferProjectMetadata(projectId, { workspaceId, slug? }, expectedRowVersion)` changes only the Project row after a journaled bucket move has already succeeded.
+- `resolveFeedback(feedbackId, { note?, links? })` accepts exact resolution targets of type `document_revision`, `artifact_revision`, `composition_revision`, `build`, `build_output`, `unit_item`, or `unit_presentation`; resolve the target's owning Workspace and reject cross-Workspace links before insert.
+- `addFeedback` validates an optional target through the same ownership resolver. Iteration `reason` remains free text so imported client vocabulary is not lost.
+- Workspace and Project list cursors are the last returned opaque ID, ordered by ID ascending. Limits default to 50 and must be integers from 1 through 100.
+- Social-account `config` is public/non-secret JSON only. Recursively reject credential-like keys (`apiKey`, `accessToken`, `refreshToken`, `token`, `secret`, `password`, or `credential`) instead of persisting or returning their values.
 
 - [ ] **Step 1: Write failing scope and optimistic-conflict tests**
 
