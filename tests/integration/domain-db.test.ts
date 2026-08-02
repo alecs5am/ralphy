@@ -214,6 +214,102 @@ describe("schema migration safety", () => {
     });
     backup.close();
   });
+
+  test("serializes concurrent migration decisions under the exclusive lock", async () => {
+    const tmp = makeRoot("ralphy-domain-db-concurrent");
+    const databasePath = domainDbPath();
+    const blocker = new Database(databasePath, { create: true });
+    blocker.exec("PRAGMA journal_mode = WAL");
+    blocker.exec("BEGIN EXCLUSIVE");
+
+    const workerSource = `
+      import fs from "node:fs";
+      import { Database } from "bun:sqlite";
+      import { applyMigrations } from ${JSON.stringify(
+        path.join(process.cwd(), "cli/lib/store/schema.ts"),
+      )};
+
+      const databasePath = process.env.RALPHY_TEST_DOMAIN_DB;
+      const readyPath = process.env.RALPHY_TEST_MIGRATION_READY;
+      if (!databasePath || !readyPath) throw new Error("missing test worker paths");
+
+      const db = new Database(databasePath, { create: true });
+      db.exec("PRAGMA journal_mode = WAL");
+      db.exec("PRAGMA busy_timeout = 5000");
+      const observed = new Proxy(db, {
+        get(target, property) {
+          if (property === "exec") {
+            return (sql) => {
+              if (sql === "BEGIN EXCLUSIVE") fs.writeFileSync(readyPath, "");
+              return target.exec(sql);
+            };
+          }
+          const value = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+
+      try {
+        applyMigrations(observed);
+      } finally {
+        db.close();
+      }
+    `;
+    const readyPaths = [
+      path.join(tmp.dir, "migrator-1.ready"),
+      path.join(tmp.dir, "migrator-2.ready"),
+    ];
+    const workers = readyPaths.map((readyPath) =>
+      Bun.spawn({
+        cmd: ["bun", "-e", workerSource],
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          RALPHY_TEST_DOMAIN_DB: databasePath,
+          RALPHY_TEST_MIGRATION_READY: readyPath,
+        },
+        stdout: "ignore",
+        stderr: "pipe",
+      }),
+    );
+    let released = false;
+
+    try {
+      const deadline = Date.now() + 2_000;
+      while (!readyPaths.every(fs.existsSync)) {
+        if (Date.now() >= deadline) {
+          throw new Error(
+            "concurrent migrators did not reach the lock barrier",
+          );
+        }
+        await Bun.sleep(5);
+      }
+
+      blocker.exec("COMMIT");
+      released = true;
+      const results = await Promise.all(
+        workers.map(async (worker) => {
+          const [exitCode, stderr] = await Promise.all([
+            worker.exited,
+            new Response(worker.stderr).text(),
+          ]);
+          return { exitCode, stderr };
+        }),
+      );
+
+      expect(results).toEqual([
+        { exitCode: 0, stderr: "" },
+        { exitCode: 0, stderr: "" },
+      ]);
+    } finally {
+      if (!released) blocker.exec("ROLLBACK");
+      blocker.close();
+      for (const worker of workers) {
+        if (worker.exitCode === null) worker.kill();
+      }
+      await Promise.all(workers.map((worker) => worker.exited));
+    }
+  });
 });
 
 describe("schema constraints", () => {

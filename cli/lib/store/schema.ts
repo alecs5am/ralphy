@@ -731,21 +731,25 @@ export function applyMigrations(
   db: Database,
   options: { beforeVersion?: (version: number) => void } = {},
 ): void {
-  const current = readUserVersion(db);
-  if (current > SCHEMA_VERSION) {
-    throw new Error(
-      `Database schema version ${current} is newer than supported version ${SCHEMA_VERSION}`,
-    );
+  const optimisticVersion = readUserVersion(db);
+  if (optimisticVersion < SCHEMA_VERSION && databaseHasUserTables(db)) {
+    backupDatabase(db, optimisticVersion);
   }
-
-  const pending = MIGRATIONS.filter((migration) => migration.version > current);
-  if (pending.length === 0) return;
-  assertOrderedMigrations(current, pending);
-
-  if (databaseHasUserTables(db)) backupDatabase(db, current);
 
   db.exec("BEGIN EXCLUSIVE");
   try {
+    const current = readUserVersion(db);
+    if (current > SCHEMA_VERSION) {
+      throw new Error(
+        `Database schema version ${current} is newer than supported version ${SCHEMA_VERSION}`,
+      );
+    }
+
+    const pending = MIGRATIONS.filter(
+      (migration) => migration.version > current,
+    );
+    assertOrderedMigrations(current, pending);
+
     for (const migration of pending) {
       options.beforeVersion?.(migration.version);
       db.exec(migration.sql);
