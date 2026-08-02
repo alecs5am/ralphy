@@ -14,12 +14,14 @@
 - Desktop and sibling repositories may invoke the installed CLI contract but may not import core source or open SQLite.
 - `--root` is the canonical data directory that directly contains `ralphy.db`, `buckets/`, and `tmp/`; `--cwd` is only a discovery starting point for the nearest ancestor `.ralphy/ralphy.db`. Never treat repository cwd and data root as the same concept.
 - Every command accepts either explicit Workspace/Project scope or one Agent Session ID as a discriminated union; no hidden Session or mutable active-Workspace pointer exists.
+- Farm mutations use an authenticated `consumer:farm` Agent Session and an external operation tuple whose derived external system is `ralphy-farm`; explicit Workspace/Project context remains read-only until that consumer Session is supplied.
 - Preserve existing public command names where their semantics remain valid; deprecated path-shaped commands become entity adapters, not parallel stores.
 - Machine stdout contains JSON or JSONL only; diagnostics go to stderr.
 - Bridge mutations use expected revision/head IDs and return `E_CONFLICT` instead of overwriting newer work.
-- External optimistic names are consistent: row mutations use `expectedRowVersion`, head/selection mutations use `expectedRevisionId`, and operational transitions use `expectedState`.
+- External optimistic names are consistent: row mutations use `expectedRowVersion`; Unit/Composition lineage uses `expectedLatestRevisionId`; manual pointers use `expectedSelectedRevisionId`; other heads use `expectedRevisionId`; operational transitions use `expectedState` plus a fence where provider work may be in flight.
 - Never return stored secret values through CLI JSON, bridge responses, logs, activity payloads, or errors.
 - Long provider, render, publish, and agent operations use Runs and never keep a database transaction open.
+- Generation, transform, transcription, repair, Build, Unit-revision, and Publication controllers are bridge-safe functions with no Commander dependency. Their consumer form starts or recovers one externally identified Run before doing work.
 - All ordinary CLI/bridge DTOs are ID-based safe projections. Only trusted-main `locator.resolve` may return a local path; activity, RunObject activity, overviews, media, errors, and structured agent event fields never add one. Agent text deltas remain opaque user-visible content, while tool events omit raw argv/args/output.
 - New compatibility readers live only under `cli/lib/migration/`; ordinary commands gain no legacy JSON/JSONL/Markdown fallback. Existing read-only registry/current-Workspace adapters may remain only for the measured staged callers removed by Task 9.
 - Keep read-only legacy registry/current-Workspace adapters during staged command conversion, then require zero normal callers and delete them in Task 9. No compatibility writer survives Task 2.
@@ -110,7 +112,7 @@ Store `{ version: 1, entries: Record<string, string>, files: Record<string, stri
 
 Invoke `/usr/bin/security` without a shell. For creation, put `-w` last and write the key only to child stdin; never put it in argv or env. Capture lookup output internally and never forward it. Validate typed secret refs and keep only refs in SQLite/activity.
 
-`readSecret` and file-secret reads are not exported from the public store barrel or any value-returning bridge method. Enumerate every provider/connector from the registry and give each an explicit credential descriptor; a registry test fails if one is omitted. Resolution precedence is scoped encrypted ref, then an allowlisted credential captured from the bridge startup environment, then supported provider subscription/login, then missing. `social_accounts` gains nullable `credential_ref` plus optimistic `row_version`; only the ref is persisted, while public DTOs expose configured/source status and never the ref or value. A Workspace/account ref cannot satisfy another scope.
+`readSecret` and file-secret reads are not exported from the public store barrel or any value-returning bridge method. Enumerate every provider/connector from the registry and give each an explicit credential descriptor; a registry test fails if one is omitted. Resolution precedence is scoped encrypted ref, then an allowlisted credential captured from the bridge startup environment, then supported provider subscription/login, then missing. `social_accounts` gains nullable `credential_ref`, required `relink_required DEFAULT 0`, plus optimistic `row_version`; only the ref is persisted, while public DTOs expose configured/source/relink-required status and never the ref or value. A portable import creates account descriptors with `credential_ref = NULL` and `relink_required = 1`; successful scoped auth setup clears that flag with the expected row version. A Workspace/account ref cannot satisfy another scope.
 
 `provider auth set <provider> --stdin` and Postiz import read values only from stdin/bridge memory, never argv or inherited env; `clear` deletes, `status` reports the selected source without a value, and `login` invokes only a provider-owned subscription flow. Secret descriptors may not target or override `HOME`, `PATH`, shell startup variables, or loader variables. Provider/agent code receives credentials through the explicit internal resolver and constructs child environments from a fixed safe base plus only the requested credential. The long-lived bridge skips project-env loading, privately captures allowlisted inherited credentials once at startup, removes known credential keys from its own `process.env`, and never spreads the full environment to a child. All resolver, activity, error, stdout, stderr, and child-capture tests redact credential values.
 
@@ -426,19 +428,67 @@ Create an eight-image Unit revision without copied media, then one video Unit wi
 
 - [ ] **Step 2: Replace Unit directories with DB revisions**
 
-`unit create`/`revise` resolve exact Artifact revisions and insert ordered items. `unit add` creates a new Unit revision rather than mutating a manifest. `unit caption` creates/revises platform presentations. Article body Markdown is a Document/Artifact revision item, not a mutable `unit.json` sibling. Remove media copying from `cli/lib/unit.ts` after migration fixtures cover its reader.
+`unit create`/`revise` resolve exact Artifact revisions and insert ordered items.
+Revision requires `expectedLatestRevisionId`; selection is independent and
+requires `expectedSelectedRevisionId`. `unit add` creates a new Unit revision
+rather than mutating a manifest. `unit caption` creates/revises platform
+presentations. Zero presentation items means inherit all base items; a nonempty
+list is the complete ordered unique subset and keeps override config separate.
+Article body Markdown is a Document revision item, not a mutable
+`unit.json` sibling. Text-only post/thread/article Units therefore remain valid
+without media; 40-item packs and repeated Artifact/Document targets at distinct
+positions retain exact order. Caption changes append immutable caption history,
+including canonical `humanized` and `auto-draft-archived` states, and update the
+effective caption only through a new sealed Unit revision. Remove media copying
+from `cli/lib/unit.ts` after migration fixtures cover its reader.
 
 - [ ] **Step 3: Persist publication attempts and metrics**
 
-Keep target-specific caption/settings mapping and Postiz HTTP code, but store every attempt in `publications`; replace `publish-ledger.jsonl` idempotency checks with a unique database key over Unit revision, presentation, target, and schedule slot. Refresh appends Metric snapshots and updates operational Publication state with activity.
+Keep target-specific caption/settings mapping and Postiz HTTP code, but store
+every attempt in `publications`; replace `publish-ledger.jsonl` idempotency
+checks with the core key/tuple contract. Each target creates one Publication
+with its own dedicated pending submission Run. `publication publish` takes the
+exclusive fenced claim, which starts that Run's single provider RunAttempt,
+calls Postiz once outside SQLite, and finishes through the same fence so
+Publication state, provider IDs/timestamps, RunAttempt, linked Run/result, and
+activity commit atomically. A crash/timeout after dispatch terminalizes the
+original RunAttempt/Run, invalidates the submission fence, and becomes
+`reconciliation_required` or `unknown`; replay returns that attempt and never
+POSTs again. Add `publication reconcile` for provider lookup/manual resolution;
+it uses a distinct reconciliation Run and fresh fence and cannot invoke
+submission. No uncertain path leaves a RunAttempt running.
+Bind every attempt to the exact Presentation, effective caption revision, and
+effective platform options. Preserve the `postiz`, `github-pages`, `devto`,
+`hashnode`, and `manual` rail rules, same-Workspace `revisedFrom` lineage, and
+nullable account only for validated pre-account failures or accountless rails.
+A Medium export creates a RunObject/approval artifact, never a Publication or
+invented URL; an idempotent skip is Activity, not another attempt.
+Refresh appends source/as-of/window Metric snapshots, records their IDs as Run
+results, and is idempotently replayable.
 
 - [ ] **Step 4: Query analytics instead of scanning Units**
 
-Rework ROI/postmortem aggregation over Runs, Publications, Metric snapshots, Unit revisions, and provenance IDs. Preserve existing output DTOs where possible so farm callers do not break.
+Rework ROI/postmortem aggregation over Runs, Publications, Metric snapshots,
+Unit revisions, and provenance IDs. Cumulative metrics take the latest snapshot
+per Publication across all sources at the requested as-of/window before
+summing. When a source filter is explicit, they instead take the latest
+snapshot per Publication within that source. They never add successive
+cumulative snapshots or count two providers for one Publication. Preserve
+nullable CTR, retention curve, average-view-duration, note, and unknown raw
+fields, and keep `NULL` distinct from zero. Preserve existing output DTOs where
+possible so Farm callers do not break.
 
 - [ ] **Step 5: Verify and commit delivery conversion**
 
 Run: `bun test tests/integration/cli-unit-domain.test.ts tests/unit/unit-*.test.ts tests/unit/publish-*.test.ts tests/unit/analytics.test.ts`
+
+Expected: PASS including independent latest/selected conflicts, inherit-all vs
+explicit presentation subsets, competing publish claims/stale fences,
+uncertain-result reconciliation without a second POST, provider/timestamp
+locks, rail/account/lineage validation, effective presentation binding, Medium
+export without a Publication, atomic Publication/RunAttempt/Run/result/activity
+rollback, source/as-of/window metrics, default newest-per-Publication totals, explicit
+source-filter totals, and refresh replay returning the original snapshot IDs.
 
 ```bash
 git commit -m "refactor(delivery): persist units publications and metrics"
@@ -462,7 +512,7 @@ git commit -m "refactor(delivery): persist units publications and metrics"
 
 **Interfaces:**
 - Consumes: domain DB, Documents, Artifacts, Runs, Units, Publications, and Project stages
-- Produces: schema migration 2 and typed SQL stores for existing non-media stateful verbs
+- Produces: schema migration 2, typed SQL stores for existing non-media stateful verbs, and bounded `listCampaigns`, `getCampaign`, `updateCampaign`, `listCalendarEntries`, and `updateCalendarEntry`
 
 - [ ] **Step 1: Write a failing round-trip matrix test**
 
@@ -470,7 +520,7 @@ The test creates and reads one row through each existing feature surface: non-se
 
 - [ ] **Step 2: Add schema migration 2**
 
-Create these exact tables with Workspace foreign keys and activity coverage: `settings`, `brands`, `personas`, `workspace_templates`, `memory_entries`, `memory_revisions`, `campaigns`, `campaign_cells`, and `calendar_entries`. Reuse `evaluations`, Documents, Runs, Artifacts, and Publications for evaluator/research/template bodies instead of duplicating them.
+Create these exact tables with Workspace foreign keys and activity coverage: `settings`, `brands`, `personas`, `workspace_templates`, `memory_entries`, `memory_revisions`, `campaigns`, `campaign_cells`, and `calendar_entries`. `campaigns` and `calendar_entries` carry optimistic `row_version`; their stable IDs never change. Reuse `evaluations`, Documents, Runs, Artifacts, and Publications for evaluator/research/template bodies instead of duplicating them.
 
 Common searchable fields are columns; each table may carry one validated `metadata_json` column for rare feature-specific fields. Secret values are forbidden in `settings`.
 
@@ -478,16 +528,141 @@ Common searchable fields are columns; each table may carry one validated `metada
 
 Replace file reads/writes in the listed modules with explicit SQL. Memory edits create `memory_revisions`; evaluator configurations are typed JSON Document revisions; research results are Documents/Artifacts bound to their Runs; campaign and calendar mutations append activity; project lifecycle reads `project_stages` and exact bindings only.
 
+Campaign list is creation-cursor paged and filters one exact Workspace plus
+optional state; show accepts only a campaign ID visible in that scope. Calendar
+list is creation-cursor paged and filters one exact Workspace plus optional
+inclusive UTC instant range. `updateCampaign(id, patch,
+expectedRowVersion)` and `updateCalendarEntry(id, patch,
+expectedRowVersion)` validate every referenced Unit revision, presentation,
+social account, and campaign in the same Workspace, use one conditional update,
+and append activity. They return safe DTOs without metadata blobs, credentials,
+paths, provider payloads, or publication errors. These five functions are the
+only source for the later `campaign.list|show|update` and
+`calendar.list|update` bridge methods.
+
 - [ ] **Step 4: Verify all structured surfaces**
 
 Run: `bun test tests/integration/domain-operations.test.ts tests/unit/campaign.test.ts tests/unit/calendar.test.ts tests/unit/workspace-evaluators.test.ts tests/unit/memory-*.test.ts`
 
-Expected: PASS and schema version 2.
+Expected: PASS and schema version 2, including cursor/limit boundaries,
+Workspace isolation, stale row-version conflicts, and cross-Workspace reference
+rejection for campaign and calendar mutations.
 
 - [ ] **Step 5: Commit operations conversion**
 
 ```bash
 git commit -m "refactor(core): move structured state into sqlite"
+```
+
+### Task 7A: Publish bridge-safe operation controllers and replay contracts
+
+**Files:**
+- Create: `cli/lib/controllers/operations.ts`
+- Modify: `cli/commands/generate.ts`
+- Modify: `cli/lib/composition-build.ts`
+- Modify: `cli/commands/unit.ts`
+- Modify: `cli/lib/publish/publish.ts`
+- Modify: `cli/lib/analytics/pull.ts`
+- Modify: `cli/commands/analytics.ts`
+- Modify: `cli/lib/repair.ts`
+- Modify: `cli/lib/transcribe.ts`
+- Test: `tests/integration/cli-operation-controllers.test.ts`
+
+**Interfaces:**
+- Consumes: authenticated consumer Sessions, external-operation Run APIs, the shared jobs queue, converted generation/Build/Unit/Publication code, and typed campaign/calendar stores
+- Produces: `startGenerationOperation`, `startTransformOperation`, `startTranscriptionOperation`, `startRepairOperation`, and replay-safe consumer forms of Composition Build, Unit revision, Publication submission/reconciliation, and Metric refresh
+
+```ts
+type ExternalOperation = {
+  runId: string;
+  nodeId: string;
+  attempt: number;
+  operation: string;
+  idempotencyKey: string;
+};
+
+type ConsumerOperationContext = {
+  sessionId: string;
+  external: ExternalOperation;
+};
+
+type OperationAccepted = {
+  runId: string;
+  state: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  resultRefs: Array<{ type: string; id: string }>;
+  replayed: boolean;
+};
+```
+
+- [ ] **Step 1: Write one controller-level crash/replay matrix**
+
+For generation, transform, transcription, repair, Composition Build, Unit
+revision, Publication, and Metric refresh, inject a crash after the core transaction commits
+but before a response is returned. Retry with the same authenticated consumer
+Session, tuple, key, and canonical request and require the original Run plus
+the same result IDs. Publication replay from an uncertain dispatch must return
+`reconciliation_required`/`unknown` without another POST, and Metric refresh
+must return the original source/as-of/window snapshot IDs. Reusing the key with
+changed scope/input/config or the tuple with another key conflicts before provider/engine work. An ordinary
+Agent Session and an authenticated Farm connection using another Session both
+reject. Assert every Publication target has a distinct submission Run, every
+claim has exactly one RunAttempt, an expired submission fence cannot finish or
+re-POST, reconciliation has a distinct Run/fresh fence, and injected failures
+cannot leave a running attempt or partially commit Publication/Run/result/
+Activity state.
+
+- [ ] **Step 2: Put the durable boundary before every long operation**
+
+`generation`, `transform`, `transcription`, `repair`, Build, Publication, and Metric refresh
+controllers call `startConsumerOperationRun`, create/link any initial domain
+row, and enqueue one existing job with that Run ID in one short mutation lane;
+they then return `OperationAccepted`. Provider, ffmpeg, render, transcription,
+and publish work happens only in the worker outside the transaction. Publication
+submission uses that operation Run as its dedicated pending submission Run;
+the claim atomically starts its sole provider RunAttempt. Stale workers cannot
+finish it. An expired/uncertain dispatch is atomically closed and fence-
+invalidated rather than re-enqueued or reclaimed for another POST. Publication
+reconciliation creates a distinct external operation Run, claims a fresh
+reconciliation fence, and only looks up/resolves the original outcome. A replay
+queries the existing Run/results and never enqueues again. Metric refresh
+records immutable snapshot IDs as ordered results. Unit revision is a
+short transaction: create/recover its external Run, write the sealed revision,
+record the Unit-revision result, and finish the Run atomically.
+
+The controller input is validated JSON and stable IDs only. Generation accepts
+the already-supported media kinds and exact Artifact identity/input revision
+IDs; transform is limited to the existing `remove-bg | reframe | crunch`
+operations; transcription uses the existing core transcription implementation;
+repair consumes an exact failed Evaluation/feedback target and creates a new
+revision rather than mutating it. No controller accepts a path, raw provider
+credential, Commander object, or callback from a sibling repository.
+
+- [ ] **Step 3: Make Commander and bridge share the controllers**
+
+Commands build validated controller inputs and render their DTOs; they do not
+own a second provider/render/publish path. `composition.build`, `unit.revise`,
+and `publication.publish|reconcile|refresh` gain optional internal
+`ConsumerOperationContext`; without it, ordinary CLI behavior uses a normal
+Session/Run and cannot populate external fields. Every successful output is
+recorded in ordered `run_results` before terminal Run state.
+
+- [ ] **Step 4: Verify the exact Farm-facing operation set**
+
+Run:
+
+```bash
+bun test tests/integration/cli-operation-controllers.test.ts tests/integration/cli-generation-domain.test.ts tests/integration/cli-composition-build.test.ts tests/integration/cli-unit-domain.test.ts
+```
+
+Expected: PASS with no Commander imports below `cli/lib/controllers/`, one
+provider/engine execution per idempotency identity, and stable replay through
+both external tuple and key.
+
+- [ ] **Step 5: Commit the controller boundary**
+
+```bash
+git add cli/lib/controllers/operations.ts cli/commands/generate.ts cli/lib/composition-build.ts cli/commands/unit.ts cli/lib/publish/publish.ts cli/lib/analytics/pull.ts cli/commands/analytics.ts cli/lib/repair.ts cli/lib/transcribe.ts tests/integration/cli-operation-controllers.test.ts
+git commit -m "feat(core): add replayable operation controllers"
 ```
 
 ### Task 8: Implement the versioned stdio JSONL bridge
@@ -546,20 +721,25 @@ Give every method explicit `read`, `mutation`, or `operation-start` metadata. Se
 
 ```text
 system.hello
+consumer.authenticate, consumer.session.start, consumer.session.end
 session.start, session.show, session.list, session.end
 workspace.list, workspace.show, workspace.update, workspace.overview, workspace.account.list, workspace.account.upsert
 workspace.export, workspace.import
 project.list, project.show, project.update, project.status, project.overview, project.iteration.list, project.iteration.create
 feedback.list, feedback.add, feedback.resolve
 document.create, document.list, document.show, document.revisions, document.search, document.revise, document.bind
-media.list, media.show, media.revisions, media.review
+media.list, media.show, media.revisions, media.select, media.review
 evaluation.list, evaluation.show, evaluation.create
 run.list, run.show, run.objects
 run.cancel
+operation.find
+generation.start, transform.start, transcription.start, repair.start
 composition.list, composition.show, composition.revise, composition.build, composition.select
 unit.list, unit.show, unit.revise, unit.select, unit.preview
-publication.list, publication.publish, publication.refresh
-metric.list
+publication.list, publication.publish, publication.reconcile, publication.refresh
+metric.list, metric.totals
+campaign.list, campaign.show, campaign.update
+calendar.list, calendar.update
 activity.list, activity.subscribe, activity.unsubscribe
 locator.resolve
 agent.providers, agent.credential.status, agent.credential.set, agent.credential.clear
@@ -577,7 +757,26 @@ path-shaped compatibility fields. `system.hello` is an ordinary response, not
 an unsolicited handshake, and returns protocol/core/schema versions, immutable
 `storeId`, opaque filesystem-bound `rootId`, exact capabilities, latest global
 activity sequence, migration/startup state, and all protocol limits.
-It also returns `consumerNamespaces: ["farm"]`. Farm startup requires an exact
+It also returns `consumerNamespaces: ["farm"]` and this exact safe field:
+
+```ts
+type FarmConsumerHello = null | {
+  namespace: "farm";
+  state: "pending" | "ready";
+  coreMigrationRunId: string;
+  migrationId: string;
+  stageDigest: string;
+  readyRecordDigest: string;
+  identityDigest: string | null;
+};
+
+type ConsumersHello = { farm: FarmConsumerHello };
+```
+
+`pending` requires `identityDigest: null`; `ready` requires the digest of the
+accepted bounded identity. No path, lock nonce, credential/token digest, or
+consumer file content appears in hello. A root with no configured Farm
+consumer returns `farm: null`. Farm startup requires an exact
 supported protocol/core/schema/contract tuple plus the declared namespace and
 the `workspace.export`, `workspace.import`, and `migration.consumer.map`
 capabilities; a missing or newer unsupported capability/version is a hard
@@ -585,32 +784,69 @@ startup error rather than a best-effort fallback.
 `media.review` delegates unchanged to the core atomic controller: Shortlist is
 `candidate`, Approved `approved`, Reject `rejected`, and Needs Work open
 feedback, with favorite/rating/tags/notes in immutable Evaluation metadata.
+`media.select` accepts only an Artifact ID, one exact same-Artifact revision,
+and `expectedSelectedRevisionId`; it exposes no locator and is the sole Studio
+replacement for legacy `board.json` scene choices.
 
 `workspace.export` creates a core-owned portable package and returns
 `{ runId, packageObjectId, manifest, entityIds }`; package bytes remain behind
 `locator.resolve`. The canonical manifest contains the selected Workspace,
 Projects, Documents, Objects, Artifacts, Compositions, Builds, Evaluations,
-Units, presentations, and their immutable relations, but excludes secrets,
+Units, presentations, campaigns, dated calendar entries, and non-secret social
+account descriptors (`platform`, `provider`, external ID, handle, and public
+config), but excludes credential refs/configured-source state, secrets,
 operational Runs/RunObjects, Publications, Metrics, and `.ralphy/farm` state.
 `workspace.import` accepts either that package Object ID or bytes first ingested
 through the CLI, requires an idempotency key, validates every hash and relation,
-and returns `{ workspaceId, entityIdMap }`. `entityIdMap` is a complete mapping
+and returns `{ workspaceId, entityIdMap, relinkRequired }`. `entityIdMap` is a complete mapping
 for every imported package entity, including identities that were deduplicated;
 replaying the same key and package returns the same map without duplicate rows.
+Imported social accounts have no credential ref, are marked relink-required,
+and each appears in `relinkRequired` as `{ oldId, newId, platform, provider,
+handle }`; campaign/calendar references are rewritten through the same complete
+map. A Publication through such an account refuses until explicit scoped auth
+relinks it.
 
 `migration.consumer.map` accepts `{ migrationRunId, lockNonce, namespace:
-"farm", sourceIdentity, afterSourceLocatorHash?, limit }` and returns bounded
+"farm", grantDigest, sourceIdentityId, sourceInventoryDigest,
+afterSourceLocatorHash?, limit }` and returns bounded
 rows `{ sourceLocatorHash, sourceKind, targetRefs }`. Each hash is SHA-256 over
 `source-kind + NUL + normalized-relative-POSIX-path`; `targetRefs` is a sorted
 list of stable core entity type/ID pairs. The method is available only while the
-matching import-through-ready migration Run owns the maintenance lock, rejects
-absolute or unresolved source paths and a wrong/stale lock nonce, and is
+matching import-through-ready migration Run owns the maintenance lock and the
+supplied values match its mode-0600 consumer maintenance grant. It rejects
+unknown source identities, changed inventory digests, absolute or unresolved
+source paths, and a wrong/stale lock nonce or grant digest, and is
 disabled after cutover. It never returns a raw path or consumer-owned state.
 
 `activity.subscribe` is only the store-wide sequence feed and accepts an
 exclusive numeric sequence, not Workspace/Project filters. The acknowledgment
 must drain before polling starts. Clients filter safe events locally; reconnect
 uses `activity.list` from the last drained sequence.
+
+`consumer.authenticate` is allowed only after `system.hello`. It receives the
+Farm token through bridge stdin, validates it against the bounded identity, and
+binds that principal to the connection without returning the token/digest.
+`consumer.session.start` creates an immutable scoped Agent Session owned by
+that authenticated principal and tracks it on this connection;
+`consumer.session.end` may end only one of that connection/principal's
+Sessions. Consumer mutations accept only a Session tracked by the same live
+connection. Disconnect immediately removes connection authority, ends idle
+Sessions, and leaves an active-Run Session usable only for terminal cleanup
+before ending it. Consumer mutations require this Session and
+the bridge derives `external_system = "ralphy-farm"`. Explicit scope remains
+valid for reads, but cannot author a mutation. `operation.find` accepts either
+the complete external tuple or one idempotency key, is implicitly restricted to
+the authenticated principal, and returns the safe Run plus bounded result refs.
+
+`generation.start`, `transform.start`, `transcription.start`, and
+`repair.start` call the Task 7A controllers. `composition.build`, `unit.revise`,
+and `publication.publish|reconcile|refresh` use their consumer operation form when external
+provenance is present. `campaign.list|show|update` and
+`calendar.list|update` call only the Task 7 SQL/controller APIs. All operation
+methods acknowledge the durable Run/result state; no bridge handler calls a
+Commander adapter, provider, filesystem-scanning compatibility reader, or
+ad-hoc SQL query.
 
 - [ ] **Step 4: Secure locators and agent execution**
 
@@ -678,9 +914,15 @@ tested as opaque content; structured tool events expose only tool name/call ID/
 state, not raw arguments or output.
 
 Also assert `system.hello` reports the exact Farm namespace and supported
-version/capability tuple; portable export/import produces a complete stable
-`entityIdMap` and is idempotent; and `migration.consumer.map` rejects the wrong
-Run/lock, absolute or unresolved locators, and every post-cutover call while
+version/capability tuple plus `consumers.farm` pending/ready DTO; consumer auth
+rejects wrong tokens without reflection and cannot claim another Session;
+generation/transform/transcription/repair/campaign/calendar methods exist and
+match their controller DTOs; tuple/key replay for generation, Build, Unit
+revision, Publication, and Metric refresh returns the original IDs after a simulated lost
+response. Portable export/import produces a complete stable `entityIdMap`,
+account relink list, and campaign/calendar mappings and is idempotent; and
+`migration.consumer.map` rejects the wrong Run/lock/grant/source identity or
+digest, absolute or unresolved locators, and every post-cutover call while
 returning only deterministic hashes and existing stable target refs.
 
 `tests/unit/bridge-boundaries.test.ts` prohibits bridge imports from `cli/commands/**`, Commander, `output.ts`, and `raiseError()`. Handlers call stores/controllers directly.
@@ -782,7 +1024,15 @@ git commit -m "refactor(cli): remove filesystem state access"
 
 - [ ] **Step 1: Add the full journey test**
 
-Create Workspace -> Project -> Iteration -> brief revision -> input Artifacts -> Composition revision -> failed Build -> fixed revision -> successful multi-output Build -> multi-platform Unit -> failed Publication -> successful Publication -> Metric snapshots. Read the result both through CLI JSON and bridge methods and assert stable IDs match.
+Create Workspace -> Project -> Iteration -> brief revision -> input Artifacts ->
+Composition revision -> failed Build -> fixed revision -> successful
+multi-output Build -> multi-platform Unit with independently changed latest and
+selected revisions -> failed Publication -> uncertain fenced Publication ->
+reconciliation -> successful revised Publication -> multi-source Metric
+snapshots. Include one text-only Document Unit and one repeated-item pack. Read
+the result through CLI JSON and bridge methods and assert stable IDs, effective
+presentation/caption/options, Publication lineage, and default versus explicit-
+source metric totals match.
 
 - [ ] **Step 2: Document agent and Desktop usage**
 
