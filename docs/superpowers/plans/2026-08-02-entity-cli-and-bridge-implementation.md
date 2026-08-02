@@ -14,22 +14,35 @@
 - Desktop and sibling repositories may invoke the installed CLI contract but may not import core source or open SQLite.
 - `--root` is the canonical data directory that directly contains `ralphy.db`, `buckets/`, and `tmp/`; `--cwd` is only a discovery starting point for the nearest ancestor `.ralphy/ralphy.db`. Never treat repository cwd and data root as the same concept.
 - Every command accepts either explicit Workspace/Project scope or one Agent Session ID as a discriminated union; no hidden Session or mutable active-Workspace pointer exists.
-- Farm mutations use an authenticated `consumer:farm` Agent Session and an external operation tuple whose derived external system is `ralphy-farm`; explicit Workspace/Project context remains read-only until that consumer Session is supplied.
+- Farm mutations use an authenticated `consumer:farm` Agent Session and an external operation tuple whose derived external system is `ralphy-farm`; core stores its own canonical request digest and principal with the Run. Replay follows the same authenticated principal across reconnect Sessions, never the historical Session ID; explicit Workspace/Project context remains read-only until that consumer Session is supplied.
 - Preserve existing public command names where their semantics remain valid; deprecated path-shaped commands become entity adapters, not parallel stores.
 - Machine stdout contains JSON or JSONL only; diagnostics go to stderr.
 - Bridge mutations use expected revision/head IDs and return `E_CONFLICT` instead of overwriting newer work.
 - External optimistic names are consistent: row mutations use `expectedRowVersion`; Unit/Composition lineage uses `expectedLatestRevisionId`; manual pointers use `expectedSelectedRevisionId`; other heads use `expectedRevisionId`; operational transitions use `expectedState` plus a fence where provider work may be in flight.
 - Never return stored secret values through CLI JSON, bridge responses, logs, activity payloads, or errors.
 - Long provider, render, publish, and agent operations use Runs and never keep a database transaction open.
-- Generation, transform, transcription, repair, Build, Unit-revision, and Publication controllers are bridge-safe functions with no Commander dependency. Their consumer form starts or recovers one externally identified Run before doing work.
-- All ordinary CLI/bridge DTOs are ID-based safe projections. Only trusted-main `locator.resolve` may return a local path; activity, RunObject activity, overviews, media, errors, and structured agent event fields never add one. Agent text deltas remain opaque user-visible content, while tool events omit raw argv/args/output.
+- Generation, transform, transcription, repair, Build, Unit-revision, and provider-backed Publication controllers are bridge-safe functions with no Commander dependency. Their consumer form starts or recovers one externally identified Run before doing work; optimistic local draft cancellation is the explicit non-operation exception.
+- All ordinary CLI/bridge DTOs are explicit ID-based safe projections. They never expose Activity payload, RunObject path/metadata/error, Object bucket/key/hash/original-name/metadata, or Document body. Only bounded scoped `document.content` may return body text and only trusted-main `locator.resolve` may return a local path; structured agent tool events omit raw argv/args/output while text deltas remain opaque user-visible content.
 - New compatibility readers live only under `cli/lib/migration/`; ordinary commands gain no legacy JSON/JSONL/Markdown fallback. Existing read-only registry/current-Workspace adapters may remain only for the measured staged callers removed by Task 9.
 - Keep read-only legacy registry/current-Workspace adapters during staged command conversion, then require zero normal callers and delete them in Task 9. No compatibility writer survives Task 2.
 - A separately planned Farm consumer milestone must remove every direct legacy-file/SQLite read and pass its own tests before end-to-end program completion or live migration cutover; this plan does not edit the sibling repository.
 - Reserve `.ralphy/farm/` for the installed Farm consumer. Core reports the namespace and may validate only the bounded `farm/identity.json` startup handshake; it never writes, inventories, verifies, or otherwise reads/classifies consumer contents as domain Objects, buckets, tmp, or cache.
-- Portable Workspace packages cross installations only through `workspace.export` and `workspace.import`; import returns a complete old-to-new `entityIdMap`, while secrets, operational Runs, Publications, Metrics, and consumer-owned state stay out of the package.
-- `migration.consumer.map` is a maintenance-only handoff surface for the exact migration Run and lock owner. It exposes hashed legacy locators plus stable target entity references without returning raw source paths.
+- Portable Workspace packages cross installations only through `workspace.export` and `workspace.import`; import persists a complete old-to-new mapping and returns it through bounded `entityMapPage` cursors, while secrets, operational Runs, Publications, Metrics, and consumer-owned state stay out of the package.
+- `migration.consumer.map` is a pre-cutover maintenance-only handoff surface for the exact migration Run and lock owner while `consumers.farm === null`. It exposes hashed legacy locators plus stable target entity references without returning raw source paths; `pending` is reserved for the installed core awaiting Farm namespace installation.
 - Keep files and commit messages English-only and regenerate `docs/cli-surface.generated.md` after command changes.
+
+## Cross-Plan Release Checkpoint
+
+Execution order is fixed. First complete the core domain plan, this plan, and
+Full Library Migration Tasks 1-8 in the core repository. Publish that exact
+commit as the stable `@alecs5am/ralphy` npm package/CLI, including its exported
+Farm identity golden, and record the package version, integrity, and commit.
+Only then execute Farm Tasks 0-8 against that installed published release;
+Farm must reject prerelease, local, sibling-checkout, workspace/link, or file-
+path substitutes, with no compatibility bypass. Jointly run Full Library Task
+9 with Farm Task 9 Steps 1-2 for rehearsal, then Full Library Task 10 with Farm
+Task 9 Steps 3-5 for the live freeze/cutover/install lifecycle. No Farm ready
+record, principal binding, or namespace installation may skip this order.
 
 ---
 
@@ -42,6 +55,7 @@
 - Modify: `cli/lib/store/schema.ts`
 - Modify: `cli/lib/store/types.ts`
 - Modify: `cli/lib/store/scopes.ts`
+- Modify: `cli/lib/store/overviews.ts`
 - Create: `cli/lib/store/secrets.ts`
 - Modify: `cli/commands/provider.ts`
 - Modify: `cli/commands/setup.ts`
@@ -64,6 +78,7 @@
 - Modify: `cli/lib/providers/youtube-analytics.ts`
 - Test: `tests/unit/secret-store.test.ts`
 - Modify: `tests/integration/domain-scopes.test.ts`
+- Modify: `tests/integration/domain-query-surfaces.test.ts`
 
 **Interfaces:**
 - Consumes: immutable `getStoreIdentity()`, `.ralphy/`, Node AES-256-GCM, and `/usr/bin/security` on macOS
@@ -114,6 +129,17 @@ Invoke `/usr/bin/security` without a shell. For creation, put `-w` last and writ
 
 `readSecret` and file-secret reads are not exported from the public store barrel or any value-returning bridge method. Enumerate every provider/connector from the registry and give each an explicit credential descriptor; a registry test fails if one is omitted. Resolution precedence is scoped encrypted ref, then an allowlisted credential captured from the bridge startup environment, then supported provider subscription/login, then missing. `social_accounts` gains nullable `credential_ref`, required `relink_required DEFAULT 0`, plus optimistic `row_version`; only the ref is persisted, while public DTOs expose configured/source/relink-required status and never the ref or value. A portable import creates account descriptors with `credential_ref = NULL` and `relink_required = 1`; successful scoped auth setup clears that flag with the expected row version. A Workspace/account ref cannot satisfy another scope.
 
+Preserve core Task 7's immutable account identity: `workspace_id`, canonical
+`platform`, and `external_id` can never be updated, rekeyed, deleted, or
+REPLACEd. Account upsert may change only display/public config and credential
+status for that exact identity with `expectedRowVersion`; a different identity
+inserts a new row.
+Now that the real columns exist, extend account list/detail/overview DTOs with
+exactly `credentialConfigured: boolean`, `credentialSource: "encrypted" |
+"environment" | "subscription" | "missing"`, `relinkRequired`, and
+`rowVersion`; before this task those fields do not exist. Never expose
+`credential_ref` or infer status from pre-column config.
+
 `provider auth set <provider> --stdin` and Postiz import read values only from stdin/bridge memory, never argv or inherited env; `clear` deletes, `status` reports the selected source without a value, and `login` invokes only a provider-owned subscription flow. Secret descriptors may not target or override `HOME`, `PATH`, shell startup variables, or loader variables. Provider/agent code receives credentials through the explicit internal resolver and constructs child environments from a fixed safe base plus only the requested credential. The long-lived bridge skips project-env loading, privately captures allowlisted inherited credentials once at startup, removes known credential keys from its own `process.env`, and never spreads the full environment to a child. All resolver, activity, error, stdout, stderr, and child-capture tests redact credential values.
 
 Test corrupted ciphertext, missing Keychain item, concurrent text/file writes, mode-0600 Run materialization plus normal/crash-recovery cleanup, root rename with unchanged store ID, provider-enumeration coverage, precedence, account row-version conflicts, forbidden env-name mappings, captured child argv/env/stdin, and zero secret occurrence in SQLite, Objects, output, errors, or activity.
@@ -121,7 +147,7 @@ Test corrupted ciphertext, missing Keychain item, concurrent text/file writes, m
 - [ ] **Step 5: Verify and commit security primitives**
 
 ```bash
-git add cli/lib/errors/catalog.ts cli/lib/errors/domain.ts tests/unit/errors-catalog.test.ts cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/scopes.ts cli/lib/store/secrets.ts cli/commands/provider.ts cli/commands/setup.ts cli/commands/init.ts cli/commands/voice.ts cli/commands/postiz.ts cli/lib/providers/apify.ts cli/lib/providers/config.ts cli/lib/providers/devto.ts cli/lib/providers/elevenlabs.ts cli/lib/providers/fal.ts cli/lib/providers/firecrawl.ts cli/lib/providers/hashnode.ts cli/lib/providers/llm.ts cli/lib/providers/openai-compatible.ts cli/lib/providers/openrouter.ts cli/lib/providers/postiz.ts cli/lib/providers/registry.ts cli/lib/providers/shared.ts cli/lib/providers/youtube-analytics.ts tests/unit/secret-store.test.ts tests/integration/domain-scopes.test.ts
+git add cli/lib/errors/catalog.ts cli/lib/errors/domain.ts tests/unit/errors-catalog.test.ts cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/scopes.ts cli/lib/store/overviews.ts cli/lib/store/secrets.ts cli/commands/provider.ts cli/commands/setup.ts cli/commands/init.ts cli/commands/voice.ts cli/commands/postiz.ts cli/lib/providers/apify.ts cli/lib/providers/config.ts cli/lib/providers/devto.ts cli/lib/providers/elevenlabs.ts cli/lib/providers/fal.ts cli/lib/providers/firecrawl.ts cli/lib/providers/hashnode.ts cli/lib/providers/llm.ts cli/lib/providers/openai-compatible.ts cli/lib/providers/openrouter.ts cli/lib/providers/postiz.ts cli/lib/providers/registry.ts cli/lib/providers/shared.ts cli/lib/providers/youtube-analytics.ts tests/unit/secret-store.test.ts tests/integration/domain-scopes.test.ts tests/integration/domain-query-surfaces.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat(core): add domain errors and encrypted secrets"
 ```
@@ -407,6 +433,7 @@ git commit -m "refactor(render): build sealed composition revisions"
 
 **Files:**
 - Modify: `cli/commands/unit.ts`
+- Modify: `cli/commands/publish.ts`
 - Create: `cli/commands/publication.ts`
 - Modify: `cli/commands/publish.ts`
 - Modify: `cli/commands/postiz.ts`
@@ -420,7 +447,7 @@ git commit -m "refactor(render): build sealed composition revisions"
 
 **Interfaces:**
 - Consumes: Unit store and current Postiz connector/mapping logic
-- Produces: `unit show|list|revise|select|preview`, `publication list|publish|refresh`, and query-backed analytics
+- Produces: `unit show|list|revise|select|preview`, `publication list|publish|lookup|cancel|reconcile|refresh`, and query-backed analytics
 
 - [ ] **Step 1: Write failing carousel and multi-platform tests**
 
@@ -457,6 +484,26 @@ original RunAttempt/Run, invalidates the submission fence, and becomes
 POSTs again. Add `publication reconcile` for provider lookup/manual resolution;
 it uses a distinct reconciliation Run and fresh fence and cannot invoke
 submission. No uncertain path leaves a RunAttempt running.
+Add `publication lookup` only for `scheduled | submitted`: it claims a fresh
+status-lookup fence and distinct Run/RunAttempt, calls only the provider status
+endpoint, and finishes that exact Run/result separately from the submission.
+Add local `publication cancel` for `draft` with no provider attempt and a
+separately fenced cancellation Run/RunAttempt for `scheduled | submitted`.
+Provider-confirmed cancellation becomes `cancelled`; an uncertain response
+closes the cancellation attempt and becomes `reconciliation_required |
+unknown`. Lookup, cancellation, and reconciliation can never call the submit
+endpoint or reuse the submission Run. Draft cancel is an ordinary optimistic
+local mutation requiring `expectedState: "draft"`; it has no external tuple,
+idempotency key, cancellation Run, or consumer replay promise. After a lost
+response the caller reads the Publication instead of retrying via
+`operation.find`.
+
+For every provider follow-up, the Run/RunAttempt outcome describes execution of
+the lookup/cancel/reconciliation operation, not the Publication outcome. A
+successful lookup that proves the Publication failed finishes the lookup Run as
+`succeeded`; a timeout/transport/provider-operation error finishes that
+follow-up Run as `failed` even if Publication state is retained or moved to
+`reconciliation_required | unknown`.
 Bind every attempt to the exact Presentation, effective caption revision, and
 effective platform options. Preserve the `postiz`, `github-pages`, `devto`,
 `hashnode`, and `manual` rail rules, same-Workspace `revisedFrom` lineage, and
@@ -469,11 +516,12 @@ results, and is idempotently replayable.
 - [ ] **Step 4: Query analytics instead of scanning Units**
 
 Rework ROI/postmortem aggregation over Runs, Publications, Metric snapshots,
-Unit revisions, and provenance IDs. Cumulative metrics take the latest snapshot
-per Publication across all sources at the requested as-of/window before
-summing. When a source filter is explicit, they instead take the latest
-snapshot per Publication within that source. They never add successive
-cumulative snapshots or count two providers for one Publication. Preserve
+Unit revisions, and provenance IDs. Apply requested as-of/window/source filters
+first, then choose one snapshot per Publication by the exact total order
+`(as_of DESC, created_at DESC, id DESC)`. The default candidate set spans all
+sources; an explicit source restricts candidates before applying the same
+order. They never add successive cumulative snapshots or count two providers
+for one Publication. Preserve
 nullable CTR, retention curve, average-view-duration, note, and unknown raw
 fields, and keep `NULL` distinct from zero. Preserve existing output DTOs where
 possible so Farm callers do not break.
@@ -487,8 +535,14 @@ explicit presentation subsets, competing publish claims/stale fences,
 uncertain-result reconciliation without a second POST, provider/timestamp
 locks, rail/account/lineage validation, effective presentation binding, Medium
 export without a Publication, atomic Publication/RunAttempt/Run/result/activity
-rollback, source/as-of/window metrics, default newest-per-Publication totals, explicit
-source-filter totals, and refresh replay returning the original snapshot IDs.
+rollback, fenced status lookup from both eligible states, local and provider-
+backed cancellation: local draft cancel has no cancellation Run, while provider
+cancel has a distinct RunAttempt/Run/result. Prove that none of
+those follow-up flows resubmits, independent operation/Publication outcomes,
+draft-cancel external-context rejection and read-after-lost-response behavior,
+source/as-of/window metrics, default newest-
+per-Publication totals, explicit source-filter totals, equal-`as_of` ordering by
+`created_at` then ID, and refresh replay returning the original snapshot IDs.
 
 ```bash
 git commit -m "refactor(delivery): persist units publications and metrics"
@@ -566,11 +620,13 @@ git commit -m "refactor(core): move structured state into sqlite"
 - Modify: `cli/commands/analytics.ts`
 - Modify: `cli/lib/repair.ts`
 - Modify: `cli/lib/transcribe.ts`
+- Modify: `cli/commands/queue.ts`
 - Test: `tests/integration/cli-operation-controllers.test.ts`
+- Modify: `tests/integration/jobs-db.test.ts`
 
 **Interfaces:**
 - Consumes: authenticated consumer Sessions, external-operation Run APIs, the shared jobs queue, converted generation/Build/Unit/Publication code, and typed campaign/calendar stores
-- Produces: `startGenerationOperation`, `startTransformOperation`, `startTranscriptionOperation`, `startRepairOperation`, and replay-safe consumer forms of Composition Build, Unit revision, Publication submission/reconciliation, and Metric refresh
+- Produces: `startGenerationOperation`, `startTransformOperation`, `startTranscriptionOperation`, `startRepairOperation`, and replay-safe consumer forms of Composition Build, Unit revision, Publication submission/status lookup/provider-backed cancellation/reconciliation, and Metric refresh; plus the short `recoverExpiredPublicationFollowUp` controller. Draft cancellation and expired-follow-up recovery remain local optimistic/fenced mutations outside the new external-operation set
 
 ```ts
 type ExternalOperation = {
@@ -589,7 +645,10 @@ type ConsumerOperationContext = {
 type OperationAccepted = {
   runId: string;
   state: "pending" | "running" | "succeeded" | "failed" | "cancelled";
-  resultRefs: Array<{ type: string; id: string }>;
+  results: {
+    items: Array<{ id: string; runId: string; position: number; entityType: string; entityId: string; createdAt: number }>;
+    nextCursor: string | null;
+  };
   replayed: boolean;
 };
 ```
@@ -598,25 +657,51 @@ type OperationAccepted = {
 
 For generation, transform, transcription, repair, Composition Build, Unit
 revision, Publication, and Metric refresh, inject a crash after the core transaction commits
-but before a response is returned. Retry with the same authenticated consumer
-Session, tuple, key, and canonical request and require the original Run plus
-the same result IDs. Publication replay from an uncertain dispatch must return
+but before a response is returned. Retry through a newly authenticated
+reconnect Session for the same consumer principal, tuple, key, and canonical
+request and require the original Run plus the same result IDs. Replay is
+authorized by the Run's `consumer_principal_id`, not equality with its
+historical `agent_session_id`. Publication replay from an uncertain dispatch must return
 `reconciliation_required`/`unknown` without another POST, and Metric refresh
 must return the original source/as-of/window snapshot IDs. Reusing the key with
 changed scope/input/config or the tuple with another key conflicts before provider/engine work. An ordinary
-Agent Session and an authenticated Farm connection using another Session both
-reject. Assert every Publication target has a distinct submission Run, every
+Agent Session and a differently authenticated consumer principal both reject;
+a consumer-owned Session also rejects when it tries to start an ordinary Run
+without external provenance. Assert every Publication target has a distinct submission Run, every
 claim has exactly one RunAttempt, an expired submission fence cannot finish or
 re-POST, reconciliation has a distinct Run/fresh fence, and injected failures
 cannot leave a running attempt or partially commit Publication/Run/result/
-Activity state.
+Activity state. Status lookup from `scheduled` and `submitted` and provider
+cancellation each use their own external Run/fresh fence/RunAttempt/result;
+draft cancellation has no provider attempt or external replay identity, and
+none may invoke submission. A successful follow-up operation that proves a
+failed/cancelled Publication has a succeeded operation Run; timeout/transport/
+provider-operation failure has a failed Run regardless of Publication state.
+For Jobs linked to external generation, Build, Publication, and Metric-refresh
+Runs, both single and mixed bulk generic queue retry reject with zero changes.
+The deliberate consumer retry passes only with an incremented external attempt,
+new tuple, and new idempotency key.
+Exercise expired status/cancellation/reconciliation through the exact recovery
+controller at `expiry - 1`, equality, and `expiry + 1`: only expired SQL rows
+close; status retains known state; cancellation/reconciliation stay uncertain;
+attempt/Run/result/activity and epoch change atomically with no token field.
+Globally reject every Publication submission Run—including another
+Publication's—as a follow-up Run. Also assert canonical Presentation-derived
+platform, insert/HTTPS URL/timeline rules, immutable account/empty Unit
+identity, and result-before-terminal ordering.
 
 - [ ] **Step 2: Put the durable boundary before every long operation**
 
 `generation`, `transform`, `transcription`, `repair`, Build, Publication, and Metric refresh
-controllers call `startConsumerOperationRun`, create/link any initial domain
-row, and enqueue one existing job with that Run ID in one short mutation lane;
-they then return `OperationAccepted`. Provider, ffmpeg, render, transcription,
+controllers canonicalize the validated semantic request and compute lowercase
+SHA-256 `requestDigest`, excluding Session/tuple/key/transport fields. In one
+`withImmediateTransaction` callback they first call
+`startConsumerOperationRunInTransaction(db, { ..., requestDigest })`. A replay
+returns the original result page and creates nothing; only a new Run inserts/
+links its initial domain row and calls `insertJobInTransaction(db, { ...job,
+run_id: run.id })`. They then return `OperationAccepted`. The store enforces that the six
+external columns, `request_digest`, and `consumer_principal_id` are all present
+together and immutable. Provider, ffmpeg, render, transcription,
 and publish work happens only in the worker outside the transaction. Publication
 submission uses that operation Run as its dedicated pending submission Run;
 the claim atomically starts its sole provider RunAttempt. Stale workers cannot
@@ -624,10 +709,29 @@ finish it. An expired/uncertain dispatch is atomically closed and fence-
 invalidated rather than re-enqueued or reclaimed for another POST. Publication
 reconciliation creates a distinct external operation Run, claims a fresh
 reconciliation fence, and only looks up/resolves the original outcome. A replay
-queries the existing Run/results and never enqueues again. Metric refresh
+queries the existing Run and pages its position-ordered results; it never
+creates another domain row or enqueues again. Metric refresh
 records immutable snapshot IDs as ordered results. Unit revision is a
 short transaction: create/recover its external Run, write the sealed revision,
-record the Unit-revision result, and finish the Run atomically.
+record the Unit-revision result, and finish the Run atomically. Fault injection
+after each initial domain/Run/Job insert must leave all three committed or none.
+
+Status lookup and provider cancellation follow the same controller boundary:
+each creates/replays a distinct external operation Run, enqueues once, claims
+its own fence, and records its own RunAttempt/result before terminal Run state.
+The controller rejects any globally registered Publication submission Run as a
+follow-up and passes one server-captured `now` to strict live/expired SQL predicates.
+`recoverExpiredPublicationFollowUp` accepts expected Publication state, claim
+kind/Run/epoch but no token/time override; it captures server time once,
+performs the core atomic recovery, and never starts provider work or a new
+external Run. Its `CommandContext` must see the Publication; an external
+follow-up additionally requires a current consumer Session for the same Run
+principal/scope, while an ordinary follow-up requires ordinary scoped
+authority. Local draft cancellation
+is one short atomic store/controller call with `expectedState: "draft"`, no
+provider Job, no external Run/context, and no tuple/key replay. Generic queue retry
+checks the linked Run before mutation and rejects every externally owned Job;
+Farm retry must re-enter the matching controller with a new tuple/key.
 
 The controller input is validated JSON and stable IDs only. Generation accepts
 the already-supported media kinds and exact Artifact identity/input revision
@@ -641,17 +745,36 @@ credential, Commander object, or callback from a sibling repository.
 
 Commands build validated controller inputs and render their DTOs; they do not
 own a second provider/render/publish path. `composition.build`, `unit.revise`,
-and `publication.publish|reconcile|refresh` gain optional internal
-`ConsumerOperationContext`; without it, ordinary CLI behavior uses a normal
-Session/Run and cannot populate external fields. Every successful output is
-recorded in ordered `run_results` before terminal Run state.
+and `publication.publish|lookup|reconcile|refresh` gain optional internal
+`ConsumerOperationContext`. No publication command accepts a second platform;
+it derives the canonical target from the Presentation and validates the core's
+canonical insert/HTTPS URL/timeline contract before provider work.
+`publication.cancel` is discriminated by expected
+state: `{ expectedState: "draft", consumerOperationContext?: never }` invokes
+only optimistic local cancel, while `{ expectedState: "scheduled" |
+"submitted", consumerOperationContext?: ConsumerOperationContext }` invokes
+provider cancellation with a normal Run for ordinary CLI or a replay-safe
+external Run when the consumer context is supplied. Without consumer context,
+other ordinary CLI behavior uses a normal Session/Run and cannot populate
+external fields. Every successful operation output is recorded
+in ordered `run_results` before terminal Run state. `OperationAccepted`
+contains only the first `1..100` position-ordered result page; clients follow
+its `nextCursor` through the Task 8 `run.results` method.
+`publication.recover` is the non-provider controller form
+`{ publicationId, expectedState, expectedClaimKind, expectedClaimRunId,
+expectedClaimEpoch }`; it rejects any token/external tuple/time override and returns the
+safe recovered Publication/Run state.
+Commander exposes the same input as `publication recover <publication-id>
+--expected-state <state> --claim-kind <status-lookup|cancellation|reconciliation>
+--claim-run <run-id> --claim-epoch <positive-int>`; there is no token, lease,
+time, retry, or external-provenance flag.
 
 - [ ] **Step 4: Verify the exact Farm-facing operation set**
 
 Run:
 
 ```bash
-bun test tests/integration/cli-operation-controllers.test.ts tests/integration/cli-generation-domain.test.ts tests/integration/cli-composition-build.test.ts tests/integration/cli-unit-domain.test.ts
+bun test tests/integration/cli-operation-controllers.test.ts tests/integration/cli-generation-domain.test.ts tests/integration/cli-composition-build.test.ts tests/integration/cli-unit-domain.test.ts tests/integration/jobs-db.test.ts
 ```
 
 Expected: PASS with no Commander imports below `cli/lib/controllers/`, one
@@ -661,7 +784,7 @@ both external tuple and key.
 - [ ] **Step 5: Commit the controller boundary**
 
 ```bash
-git add cli/lib/controllers/operations.ts cli/commands/generate.ts cli/lib/composition-build.ts cli/commands/unit.ts cli/lib/publish/publish.ts cli/lib/analytics/pull.ts cli/commands/analytics.ts cli/lib/repair.ts cli/lib/transcribe.ts tests/integration/cli-operation-controllers.test.ts
+git add cli/lib/controllers/operations.ts cli/commands/generate.ts cli/lib/composition-build.ts cli/commands/unit.ts cli/commands/publish.ts cli/lib/publish/publish.ts cli/lib/analytics/pull.ts cli/commands/analytics.ts cli/lib/repair.ts cli/lib/transcribe.ts cli/commands/queue.ts tests/integration/cli-operation-controllers.test.ts tests/integration/jobs-db.test.ts
 git commit -m "feat(core): add replayable operation controllers"
 ```
 
@@ -688,7 +811,7 @@ git commit -m "feat(core): add replayable operation controllers"
 - Test: `tests/integration/cli-bridge.test.ts`
 
 **Interfaces:**
-- Consumes: all converted domain operations, strict `CommandContext`, global activity sequence, object resolver, secret store, and existing agent/provider execution code
+- Consumes: all converted domain operations, strict `CommandContext`, global activity sequence, object resolver, secret store, existing agent/provider execution code, and the installed `@alecs5am/ralphy/contracts/farm-identity-v1.golden.json` package export
 - Produces: data-root-bound bridge envelopes, safe DTOs, durable Agent turns, and methods consumed by Desktop
 
 - [ ] **Step 1: Define and test exact envelopes**
@@ -697,8 +820,17 @@ git commit -m "feat(core): add replayable operation controllers"
 export type BridgeRequest = { v: 1; id: string; method: string; params?: unknown };
 export type BridgeSuccess = { v: 1; id: string; ok: true; result: unknown };
 export type BridgeFailure = { v: 1; id: string | null; ok: false; error: { code: string; message: string; details?: unknown } };
+export type ActivityDto = {
+  sequence: number;
+  workspaceId: string | null;
+  projectId: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  createdAt: number;
+};
 export type BridgeEvent =
-  | { v: 1; event: "activity"; subscriptionId: string; sequence: number; data: unknown }
+  | { v: 1; event: "activity"; subscriptionId: string; sequence: number; data: ActivityDto }
   | { v: 1; event: "agent"; agentSessionId: string; turnId: string; sequence: number; data: unknown };
 ```
 
@@ -727,16 +859,16 @@ workspace.list, workspace.show, workspace.update, workspace.overview, workspace.
 workspace.export, workspace.import
 project.list, project.show, project.update, project.status, project.overview, project.iteration.list, project.iteration.create
 feedback.list, feedback.add, feedback.resolve
-document.create, document.list, document.show, document.revisions, document.search, document.revise, document.bind
+document.create, document.list, document.show, document.revisions, document.content, document.search, document.revise, document.bind
 media.list, media.show, media.revisions, media.select, media.review
 evaluation.list, evaluation.show, evaluation.create
-run.list, run.show, run.objects
+run.list, run.show, run.objects, run.results
 run.cancel
 operation.find
 generation.start, transform.start, transcription.start, repair.start
 composition.list, composition.show, composition.revise, composition.build, composition.select
 unit.list, unit.show, unit.revise, unit.select, unit.preview
-publication.list, publication.publish, publication.reconcile, publication.refresh
+publication.list, publication.publish, publication.lookup, publication.cancel, publication.reconcile, publication.recover, publication.refresh
 metric.list, metric.totals
 campaign.list, campaign.show, campaign.update
 calendar.list, calendar.update
@@ -771,26 +903,78 @@ type FarmConsumerHello = null | {
 };
 
 type ConsumersHello = { farm: FarmConsumerHello };
+
+export type FarmIdentityV1 = {
+  version: 1;
+  namespace: "farm";
+  storeId: string;
+  consumerId: string;
+  migrationId: string;
+  stageDigest: string;
+  credentialDigest: string;
+};
 ```
 
-`pending` requires `identityDigest: null`; `ready` requires the digest of the
-accepted bounded identity. No path, lock nonce, credential/token digest, or
-consumer file content appears in hello. A root with no configured Farm
-consumer returns `farm: null`. Farm startup requires an exact
+Before cutover, including while Farm consumes the maintenance mapping and emits
+its ready record, `consumers.farm` is exactly `null`. `pending` is reserved
+strictly for a successfully cut-over core whose verification-bound Farm record
+exists but whose namespace is not installed; it requires
+`identityDigest: null`. `ready` requires the digest of the accepted bounded
+identity. No path, lock nonce, credential/token digest, or consumer file
+content appears in hello. If migration inventory has no Farm candidates, no
+consumer is bound and `farm: null` remains valid after freeze and cutover;
+`pending` is never synthesized.
+
+The identity file is UTF-8 canonical JSON for `FarmIdentityV1`: keys appear in
+the displayed order, with no insignificant whitespace or trailing newline.
+`storeId`, `consumerId`, and `migrationId` are 1..128 ASCII bytes matching
+`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; stage/credential digests are lowercase
+64-hex. Farm creates `consumerId` once during staging and it is immutable
+through ready/freeze/install/recovery. `auth.token` is exactly the 43-byte
+unpadded canonical base64url encoding of 32 random bytes, without newline;
+`credentialDigest` is lowercase SHA-256 hex over the 32 decoded bytes, while
+`identityDigest` is SHA-256 over the canonical identity-file bytes. Reject
+extra/missing/reordered fields, non-canonical bytes/base64url, changed bound
+facts, or invalid IDs/digests. The core Task 9 loader performs real-parent
+`lstat`/realpath containment, `O_NOFOLLOW` open, owner/mode/size `fstat`, and
+post-read file/parent identity checks before authentication. Farm startup
+requires an exact
 supported protocol/core/schema/contract tuple plus the declared namespace and
 the `workspace.export`, `workspace.import`, and `migration.consumer.map`
 capabilities; a missing or newer unsupported capability/version is a hard
 startup error rather than a best-effort fallback.
-`media.review` delegates unchanged to the core atomic controller: Shortlist is
-`candidate`, Approved `approved`, Reject `rejected`, and Needs Work open
-feedback, with favorite/rating/tags/notes in immutable Evaluation metadata.
-`media.select` accepts only an Artifact ID, one exact same-Artifact revision,
-and `expectedSelectedRevisionId`; it exposes no locator and is the sole Studio
-replacement for legacy `board.json` scene choices.
+Every media method uses `{ type: "artifact" | "run-object" | "object", id }`.
+Mixed-ref reads preserve caller order and enforce Workspace/Project/shared
+visibility atomically. `media.review` delegates unchanged to the core atomic
+controller: Shortlist is `candidate`, Approved `approved`, Reject `rejected`,
+and Needs Work is `candidate`, with favorite/rating/tags/notes in immutable
+Evaluation metadata. Project feedback is created only with an exact same-
+Project Iteration and is required for Project Needs Work; Workspace reviews
+forbid feedback/Iteration and create only the new state revision plus Workspace
+Evaluation. `media.select` accepts only an Artifact ref, one exact same-
+Artifact revision, and `expectedSelectedRevisionId`; it exposes no locator and
+is the sole Studio replacement for legacy `board.json` scene choices.
+
+`document.content` is the bounded text seam for consumers. In addition to the
+method's mandatory `{ sessionId } | { workspaceId, projectId? }` context, it
+accepts `{ revisionId, afterByte, limitBytes }`, requires `afterByte >= 0` and
+both values to be safe integers with `limitBytes` in `1..65_536`, checks exact immutable-revision visibility, and
+returns only `{ revisionId, format, text, nextByte }`. Reject a continuation-
+byte start; if the nominal limit splits one code point, extend that page by at
+most three bytes and set `nextByte` to the actual end. No other Document method
+returns a locator, bucket/key, path, or body.
+
+`document.bind` accepts exactly one owner branch `{ projectId, role } | {
+buildId, role }`, the new `revisionId`, and required `expectedRevisionId`
+(null only for an empty role). It returns `{ ownerType, ownerId, role,
+documentId, boundRevisionId, currentHeadRevisionId, hasNewerHead }`; a stale
+expectation conflicts and a newer Document head never rewrites the binding.
 
 `workspace.export` creates a core-owned portable package and returns
-`{ runId, packageObjectId, manifest, entityIds }`; package bytes remain behind
-`locator.resolve`. The canonical manifest contains the selected Workspace,
+only `{ runId, packageObjectId, manifestSummary: { version, workspaceId,
+entityCounts } }`; package bytes and the hash-bearing canonical manifest remain
+behind the explicit export/`locator.resolve` seam and never enter an ordinary
+DTO. The canonical package manifest contains the selected Workspace,
 Projects, Documents, Objects, Artifacts, Compositions, Builds, Evaluations,
 Units, presentations, campaigns, dated calendar entries, and non-secret social
 account descriptors (`platform`, `provider`, external ID, handle, and public
@@ -798,11 +982,13 @@ config), but excludes credential refs/configured-source state, secrets,
 operational Runs/RunObjects, Publications, Metrics, and `.ralphy/farm` state.
 `workspace.import` accepts either that package Object ID or bytes first ingested
 through the CLI, requires an idempotency key, validates every hash and relation,
-and returns `{ workspaceId, entityIdMap, relinkRequired }`. `entityIdMap` is a complete mapping
-for every imported package entity, including identities that were deduplicated;
-replaying the same key and package returns the same map without duplicate rows.
+and returns `{ workspaceId, entityMapPage, relinkPage }`; each page is caller-
+bounded `1..100` with its own ordinal cursor. The complete persisted mapping
+covers every imported package entity, including deduplicated identities;
+replaying the same key/package with later cursors returns stable pages without
+duplicate rows or another import.
 Imported social accounts have no credential ref, are marked relink-required,
-and each appears in `relinkRequired` as `{ oldId, newId, platform, provider,
+and each appears in `relinkPage` as `{ oldId, newId, platform, provider,
 handle }`; campaign/calendar references are rewritten through the same complete
 map. A Publication through such an account refuses until explicit scoped auth
 relinks it.
@@ -813,36 +999,60 @@ afterSourceLocatorHash?, limit }` and returns bounded
 rows `{ sourceLocatorHash, sourceKind, targetRefs }`. Each hash is SHA-256 over
 `source-kind + NUL + normalized-relative-POSIX-path`; `targetRefs` is a sorted
 list of stable core entity type/ID pairs. The method is available only while the
-matching import-through-ready migration Run owns the maintenance lock and the
-supplied values match its mode-0600 consumer maintenance grant. It rejects
+matching pre-freeze import Run owns the maintenance lock,
+inventory declares Farm required, `consumers.farm === null`, and the supplied
+values match its exact mode-0600 consumer maintenance grant. It neither
+requires nor accepts an installed Farm
+identity/token. It rejects
 unknown source identities, changed inventory digests, absolute or unresolved
 source paths, and a wrong/stale lock nonce or grant digest, and is
-disabled after cutover. It never returns a raw path or consumer-owned state.
+disabled after freeze/cutover and whenever Farm is `pending` or `ready`. It
+never returns a raw path or consumer-owned state.
 
 `activity.subscribe` is only the store-wide sequence feed and accepts an
 exclusive numeric sequence, not Workspace/Project filters. The acknowledgment
 must drain before polling starts. Clients filter safe events locally; reconnect
 uses `activity.list` from the last drained sequence.
 
-`consumer.authenticate` is allowed only after `system.hello`. It receives the
-Farm token through bridge stdin, validates it against the bounded identity, and
-binds that principal to the connection without returning the token/digest.
+`consumer.authenticate` is allowed only after `system.hello`. It accepts exact
+JSON `{ namespace: "farm", tokenBase64url }`; the token is canonical unpadded
+base64url for exactly 32 decoded bytes. Core validates the decoded-byte digest
+against the safely opened bounded identity using `timingSafeEqual`, zeroes the
+temporary bytes, and binds that principal to the connection without returning
+the token/digest.
 `consumer.session.start` creates an immutable scoped Agent Session owned by
 that authenticated principal and tracks it on this connection;
 `consumer.session.end` may end only one of that connection/principal's
-Sessions. Consumer mutations accept only a Session tracked by the same live
-connection. Disconnect immediately removes connection authority, ends idle
+Sessions. A new connection authenticated as the same principal creates a new
+Session; that Session may recover the principal's old operation but never
+becomes its historical author. Consumer mutations accept only a Session tracked
+by the current live connection. Disconnect immediately removes connection authority, ends idle
 Sessions, and leaves an active-Run Session usable only for terminal cleanup
 before ending it. Consumer mutations require this Session and
 the bridge derives `external_system = "ralphy-farm"`. Explicit scope remains
-valid for reads, but cannot author a mutation. `operation.find` accepts either
-the complete external tuple or one idempotency key, is implicitly restricted to
-the authenticated principal, and returns the safe Run plus bounded result refs.
+valid for reads, but cannot author a mutation. An ordinary Session cannot
+query/start external operations, a foreign principal cannot recover them, and
+a consumer Session cannot start an ordinary Run. `operation.find` accepts an
+active current-connection consumer Session, either the complete external tuple
+or one idempotency key, and optional `resultsAfter` plus `resultsLimit` in
+`1..100`. It compares the authenticated principal and scope with the Run and
+returns the safe Run plus one `p1.[position,id]` result page. `run.results`
+continues that page with `{ context, runId, after, limit }`: ordinary Runs use
+normal read visibility, but an external Run requires a current consumer Session
+for its exact principal/scope and rejects direct or ordinary context.
+Publication submission, lookup, reconciliation, and
+provider cancellation remain separate Runs/result streams; local draft cancel
+has no Run and cannot be found here.
 
 `generation.start`, `transform.start`, `transcription.start`, and
 `repair.start` call the Task 7A controllers. `composition.build`, `unit.revise`,
-and `publication.publish|reconcile|refresh` use their consumer operation form when external
-provenance is present. `campaign.list|show|update` and
+and `publication.publish|lookup|reconcile|refresh` use their consumer operation
+form when external provenance is present. `publication.cancel` rejects external
+provenance for `expectedState: "draft"`; for `scheduled | submitted`, it uses
+the consumer operation form when provenance is supplied and otherwise a normal
+Run. `publication.recover` is a serialized short mutation over an already
+expired follow-up; it accepts no external provenance or claim token and calls
+only the Task 7 recovery controller. `campaign.list|show|update` and
 `calendar.list|update` call only the Task 7 SQL/controller APIs. All operation
 methods acknowledge the durable Run/result state; no bridge handler calls a
 Commander adapter, provider, filesystem-scanning compatibility reader, or
@@ -851,8 +1061,10 @@ ad-hoc SQL query.
 - [ ] **Step 4: Secure locators and agent execution**
 
 All normal domain methods return explicit safe DTOs and recursively forbid
-`path|absolutePath|locator|bucket|key|originalName`, raw config/metadata/payload,
-and credentials. `locator.resolve` is the sole exception: it accepts only
+Activity payload, RunObject path/log/tag/metadata/error, Object
+`bucket|key|sha256|originalName|metadata`, Document body,
+`path|absolutePath|locator`, raw config/provider payload/report/error, and
+credentials. Internal raw rows are never bridge result types. `locator.resolve` is the sole path exception: it accepts only
 `{ target: { type: "object" | "run-object", id }, purpose: "preview" |
 "read-text" | "finder" | "open" | "drag", context }`, fetches the row
 internally, checks read visibility separately from authorship scope, and returns
@@ -860,6 +1072,10 @@ internally, checks read visibility separately from authorship scope, and returns
 see Workspace-shared Objects. Reject caller paths/keys/buckets, cross-scope IDs,
 missing/non-regular bytes, symlink escapes, and unsafe unpromoted RunObject
 locators. Renderer IPC never forwards or persists this raw result.
+
+Consumer operations, Farm runners, and executors have no locator capability;
+they read Document text only through bounded `document.content` and use stable
+entity refs plus core operations for all media work.
 
 Agent credentials are write-only bridge inputs. `agent.providers` enumerates the
 registry; credential status follows the scoped encrypted > captured-env >
@@ -877,7 +1093,13 @@ provider_resume_id, resumed_from_run_id, created_at)` with immutable identity an
 `(run_id, sequence)`. The opaque provider resume ID is distinct from UI
 `chatId` and never appears in a DTO/event. One Agent turn is exactly one Run, so `turnId === run.id`; `chatId` is
 optional UI grouping and never provenance. `agent.turn.start` requires an active
-Agent Session, creates the Run/attempt/turn plus durable started event, and
+Agent Session. An ordinary Session creates an ordinary Run; a consumer-owned
+Session is accepted only with the complete external tuple/key and uses
+`startConsumerOperationRunInTransaction` plus the canonical prompt/request
+digest, so it cannot start an ordinary Run. In the same transaction, a new
+operation creates its turn plus durable started event; same-principal reconnect
+replay returns the existing Run/turn while ordinary/foreign principals reject.
+The controller then
 flushes the acknowledgment before emitting any event. Persist each normalized
 `started|text-delta|tool-start|tool-end|completed|failed|cancelled` event before
 delivery, with turn-local monotonic sequence and a database guard for exactly
@@ -905,7 +1127,10 @@ only after its event drains; polling drains ordered pages without overlapping
 intervals and supports unsubscribe. Test strict direct-vs-Session context,
 causal mutation/read ordering, in-flight stdin pause/resume, live/completed ID
 duplicates, seen/outbound/delta bounds, concurrent out-of-order reads, stdout
-backpressure, safe-DTO recursive key bans, cross-root/shared locator rules,
+backpressure, exact overview requested-section/cursor shapes, ordered mixed
+media refs/visibility, safe-DTO recursive bans for Activity payload,
+RunObject path/metadata/error, Object storage/hash/name/metadata, and Document
+body, cross-root/shared locator rules,
 stale revision conflict, durable status reconnect plus resume-to-new-turn IDs, ack-before-event,
 exactly-one terminal event, expected-state cancellation, child/grandchild TERM/
 KILL, EOF/EPIPE cleanup, provider precedence/auth, and absence of fixture
@@ -914,18 +1139,49 @@ tested as opaque content; structured tool events expose only tool name/call ID/
 state, not raw arguments or output.
 
 Also assert `system.hello` reports the exact Farm namespace and supported
-version/capability tuple plus `consumers.farm` pending/ready DTO; consumer auth
-rejects wrong tokens without reflection and cannot claim another Session;
+version/capability tuple plus all three lifecycle values: pre-cutover `null`,
+post-cutover/pre-install `pending`, and installed `ready`; consumer auth
+rejects padded/non-canonical/wrong-length/wrong tokens without reflection,
+survives no identity leaf/parent symlink, owner/mode/size/read-race check, and
+cannot claim another principal; a reconnect authenticated as the same principal
+creates a new Session that may recover the old operation, while foreign and
+ordinary Sessions reject and a consumer Session cannot start an ordinary Run;
 generation/transform/transcription/repair/campaign/calendar methods exist and
 match their controller DTOs; tuple/key replay for generation, Build, Unit
-revision, Publication, and Metric refresh returns the original IDs after a simulated lost
-response. Portable export/import produces a complete stable `entityIdMap`,
-account relink list, and campaign/calendar mappings and is idempotent; and
+revision, Publication, Metric refresh, and consumer Agent turn returns the original IDs after a simulated lost
+response. Create more than 100 results and require `operation.find` plus
+`run.results` to page them once in `(position,id)` order with no leak or
+duplicate. Provider lookup/cancel/reconciliation replay returns its original
+operation Run/result even when the resulting Publication is failed/cancelled;
+operation errors produce failed Runs independently of Publication state. Draft
+cancel rejects consumer external fields, and a simulated lost response is
+resolved by bounded `publication.list` rather than `operation.find`. Portable
+Assert `publication.recover` rejects a live fence, token, external tuple, or
+any submission-Run reuse; exact expiry is treated as expired and closes
+the follow-up once with the Task 7 status-versus-uncertain semantics and no
+secret in response/event. Also require canonical Presentation-derived platform,
+URL/timeline DTOs, immutable account/empty Unit identity, and no result insert
+after terminal Run. Portable
+export/import produces complete stable paged entity/relink mappings with no
+manifest/Object hash in the response, preserves campaign/calendar rewrites,
+and is idempotent; and
 `migration.consumer.map` rejects the wrong Run/lock/grant/source identity or
 digest, absolute or unresolved locators, and every post-cutover call while
 returning only deterministic hashes and existing stable target refs.
+Use the fixed golden from the installed
+`@alecs5am/ralphy/contracts/farm-identity-v1.golden.json` export: core's
+serializer/parser must reproduce its literal sample bytes/digests and reject a
+reordered key, whitespace, trailing newline, or changed sample fact. This is a
+contract test only; runtime readiness compares that migration's ready record
+with its staged identity/decoded-token facts and never with the golden's fixed
+sample values. Test explicit-scope multi-byte `document.content`, continuation-
+byte rejection, and the one-code-point `limit + 3` rule; recursively prove that
+every other Document/consumer DTO remains locator- and body-free.
 
-`tests/unit/bridge-boundaries.test.ts` prohibits bridge imports from `cli/commands/**`, Commander, `output.ts`, and `raiseError()`. Handlers call stores/controllers directly.
+`tests/unit/bridge-boundaries.test.ts` prohibits bridge imports from
+`cli/commands/**`, Commander, `output.ts`, `raiseError()`, and
+`cli/lib/store/internal-types.ts`. Handlers call only public safe stores/
+controllers directly.
 
 Run: `bun test tests/unit/bridge-protocol.test.ts tests/unit/bridge-boundaries.test.ts tests/unit/agent-session.test.ts tests/integration/cli-bridge.test.ts`
 
@@ -1028,8 +1284,9 @@ Create Workspace -> Project -> Iteration -> brief revision -> input Artifacts ->
 Composition revision -> failed Build -> fixed revision -> successful
 multi-output Build -> multi-platform Unit with independently changed latest and
 selected revisions -> failed Publication -> uncertain fenced Publication ->
-reconciliation -> successful revised Publication -> multi-source Metric
-snapshots. Include one text-only Document Unit and one repeated-item pack. Read
+reconciliation -> successful revised Publication -> a second scheduled
+Publication -> status lookup -> provider cancellation -> multi-source Metric snapshots with an equal-
+`as_of` tie. Include one text-only Document Unit and one repeated-item pack. Read
 the result through CLI JSON and bridge methods and assert stable IDs, effective
 presentation/caption/options, Publication lineage, and default versus explicit-
 source metric totals match.

@@ -4,7 +4,7 @@
 
 **Goal:** Migrate `ralphy-farm` from its copied filesystem/core runtime to an independently buildable automation consumer of the released SQLite-backed Ralphy CLI/bridge, preserve Farm-owned automation history under an ID-based namespace, and install that migrated state safely during the coordinated core cutover.
 
-**Architecture:** The released `ralphy` binary is the only owner of Workspaces, Projects, Documents, Objects, Artifacts, Runs/provider attempts/cost, Compositions/Builds, evaluations, Units/presentations, Publications, Metrics, campaigns, and calendar entries. Farm keeps only workflow orchestration state as JSON/JSONL below `.ralphy/farm/workspaces/<workspace-id>/` and talks to core through one typed adapter in `src/ralphy-cli.ts`; Studio uses the same adapter, core activity feed, and scoped locator boundary. A resumable Farm migrator prepares and verifies an external staged `farm/` tree before core cutover, then installs it into the verified v2 root only after the live `storeId` matches.
+**Architecture:** The released `ralphy` binary is the only owner of Workspaces, Projects, Documents, Objects, Artifacts, Runs/provider attempts/cost, Compositions/Builds, evaluations, Units/presentations, Publications, Metrics, campaigns, and calendar entries. Farm keeps only workflow orchestration state as JSON/JSONL below `.ralphy/farm/workspaces/<workspace-id>/` and talks to core through one typed adapter in `src/ralphy-cli.ts`; Studio uses the same adapter, core activity feed, and its private media-only locator boundary. A resumable Farm migrator prepares and verifies an external staged `farm/` tree before core cutover, then installs it into the verified v2 root only after the live `storeId` matches.
 
 **Tech Stack:** Bun 1.3.11, TypeScript, Commander, Zod, Node/Bun filesystem and child-process APIs, released `@alecs5am/ralphy`, JSON/JSONL, Vite/React Studio, Docker Compose, `bun:test`
 
@@ -17,8 +17,8 @@
 - The canonical root argument is the data root that directly contains `ralphy.db`, `buckets/`, `tmp/`, and `farm/`. Repository cwd and data root are distinct.
 - Workspace, Project, Artifact revision, Composition revision, Build, Unit revision, Publication, Metric, and core Run identities are stable core IDs. Workspace/project slugs are display aliases only and never directory keys or persisted references.
 - Farm-generated IDs are opaque and immutable. New IDs use `crypto.randomUUID()` with a type prefix; legacy IDs are deterministically mapped once and recorded in the migration ledger.
-- Farm authenticates once per bridge connection with its mode-0600 consumer token, creates immutable consumer-owned Agent Sessions for mutation scopes, and never claims an arbitrary consumer/system identity. The token exists only at `.ralphy/farm/auth.token`; it is excluded from DTOs, events, bundles, reports, logs, and migration evidence.
-- Every operation-starting core mutation carries `{ system: "ralphy-farm", runId, nodeId, attempt, operation }` and a deterministic idempotency key. Core derives `system` from the authenticated consumer Session, indexes the complete tuple/key on the core Run, and exposes tuple lookup for crash replay. Short entity mutations carry that consumer Session plus their own optimistic contract but do not invent a Run. A Farm workflow run is not a core Run.
+- Farm authenticates once per bridge connection with its mode-0600 canonical base64url consumer token, creates immutable consumer-owned Agent Sessions for mutation scopes, and never claims an arbitrary consumer/system identity. The token exists only at `.ralphy/farm/auth.token`; it is excluded from DTOs, events, bundles, reports, logs, and migration evidence.
+- Every operation-starting core mutation carries exactly `{ runId, nodeId, attempt, operation, idempotencyKey }`. Farm never sends or selects `system`; core derives `external_system = "ralphy-farm"` and the principal from the authenticated consumer Session, stores its own immutable canonical request digest with the complete tuple/key, and exposes the derived system only in server Run/hello/result metadata. Principal-scoped tuple lookup plus paged results provide crash replay. A reconnect creates a new Session but the same authenticated principal may recover its Run; ordinary/foreign principals may not. Short entity mutations carry that consumer Session plus their own optimistic contract but do not invent a Run. A Farm workflow run is not a core Run.
 - Persist only stable entity refs and Farm-relative intermediate keys. Absolute paths, core bucket/key/original-name fields, secret refs/values, provider payloads, raw argv, and local locators are forbidden in Farm journals, caches, activity, API DTOs, and browser state.
 - `locator.resolve` is absent from the generic Farm method union. It is last-mile only behind a private capability inside `src/ralphy-cli.ts` and the authenticated Studio media streamer. Never return its absolute path to a browser, executor result, cache, event, error, or log.
 - Provider/model/render/transcription/publish/analytics operations and their credentials, attempts, costs, outputs, and errors are core-owned. Farm owns graph policy, schedules, retries/reroutes, approvals, inbox, dead letters, node cache, canvas layout, notifications, and automation trust/publish policy.
@@ -26,6 +26,20 @@
 - Workflow and subgraph definitions are immutable Farm revisions with a selected pointer. Every Farm Run binds an immutable expanded graph snapshot and digest, so edits, upgrades, and rollback cannot change an in-flight or historical run.
 - The legacy Farm-state source remains untouched. Audit is read-only; staging is external and resumable; installation occurs only after verified core cutover and exact `storeId`/contract matching. Recovery roots and journals are never deleted automatically.
 - Keep source, tests, docs, fixtures, and commits English-only. Use Bun, do not create npm lockfiles, and run `gitleaks protect --staged --redact` before each commit.
+
+## Cross-Plan Release Checkpoint
+
+Execution order is fixed. First complete the core domain and entity CLI/bridge
+plans plus Full Library Migration Tasks 1-8 in the core repository. Publish
+that exact commit as the stable `@alecs5am/ralphy` npm package/CLI, including
+its exported Farm identity golden, and record the package version, integrity,
+and commit. Only then execute this plan's Tasks 0-8 against that installed
+published release; reject prerelease, local, sibling-checkout, workspace/link,
+or file-path substitutes with no compatibility bypass. Jointly run Full
+Library Task 9 with this plan's Task 9 Steps 1-2 for rehearsal, then Full
+Library Task 10 with this plan's Task 9 Steps 3-5 for the live freeze/cutover/
+install lifecycle. No Farm ready record, principal binding, or namespace
+installation may skip this order.
 
 ## Ownership Split
 
@@ -47,7 +61,7 @@
 
 ## Target File Map
 
-- `src/ralphy-cli.ts`: one typed installed-core bridge/CLI adapter, handshake, cancellation, subscriptions, locator use, and safe error mapping.
+- `src/ralphy-cli.ts`: one typed installed-core bridge/CLI adapter, handshake, cancellation, subscriptions, bounded Document content, the private Studio-media locator implementation, and safe error mapping.
 - `core-contract.json`: exact released core/package/protocol/contract/schema capability pin captured after release.
 - `cli/lib/farm/{ids,paths,refs,store}.ts`: stable Farm identities, ID-only refs, namespace layout, atomic snapshots, append-only events, and locking.
 - `cli/lib/farm/{definitions,ingestion,selection,annotations}.ts`: immutable workflow/subgraph revisions, exact run snapshots, dedup/topic/weight/lifecycle state, and Farm-owned annotations/layout.
@@ -68,6 +82,7 @@
 - Create: `scripts/capture-core-contract.ts`
 - Replace: `tests/fixtures/fake-ralphy`
 - Create: `tests/fixtures/fake-core-contract.ts`
+- Create: `tests/fixtures/core/farm-identity-v1.golden.json`
 - Modify: `tests/ralphy-cli.test.ts`
 - Test: `tests/core-contract.test.ts`
 
@@ -116,16 +131,16 @@ export const FAKE_CORE_CONTRACT = {
     "consumer.session.end", "workspace.list", "workspace.show", "workspace.overview",
     "workspace.account.list", "workspace.account.upsert",
     "project.list", "project.show", "project.status", "project.overview",
-    "document.list", "document.show", "document.revisions", "document.revise",
+    "document.list", "document.show", "document.revisions", "document.content", "document.revise",
     "media.list", "media.show", "media.revisions", "media.select", "media.review",
     "generation.start", "transform.start", "transcription.start",
     "composition.show", "composition.build", "evaluation.list",
     "evaluation.create", "feedback.add", "repair.start", "unit.list",
     "unit.show", "unit.revise", "unit.preview",
-    "publication.list", "publication.publish", "publication.reconcile", "publication.refresh",
+    "publication.list", "publication.publish", "publication.lookup", "publication.cancel", "publication.reconcile", "publication.recover", "publication.refresh",
     "metric.list", "metric.totals", "campaign.list", "campaign.show", "campaign.update",
     "calendar.list", "calendar.update", "run.list", "run.show", "run.cancel",
-    "operation.find",
+    "run.results", "operation.find",
     "agent.providers", "agent.credential.status", "agent.turn.start",
     "agent.turn.status", "activity.list",
     "activity.subscribe", "activity.unsubscribe", "locator.resolve",
@@ -142,7 +157,7 @@ Expected: FAIL until the adapter in Task 1 exists; the old echo fixture cannot s
 
 - [ ] **Step 3: Capture the actual released contract, not a guessed version**
 
-`scripts/capture-core-contract.ts` launches the installed binary against a disposable v2 root, performs `system.hello`, verifies every required method above plus external-run/idempotency support, then writes canonical sorted JSON containing:
+`scripts/capture-core-contract.ts` launches the installed binary against a disposable v2 root, performs `system.hello`, verifies every required method above plus external-run/idempotency/request-digest, principal-reconnect replay, and position-result cursor support, then writes canonical sorted JSON containing:
 
 ```ts
 type CoreContractPin = {
@@ -154,21 +169,38 @@ type CoreContractPin = {
   methods: string[];
   consumerNamespaces: ["farm"];
   externalRunSystem: "ralphy-farm";
+  externalRequestDigest: "sha256-canonical-json-v1";
+  replayAuthority: "consumer-principal";
+  runResultCursor: "position-id-v1";
   farmConsumerStates: ["pending", "ready"];
+  farmIdentityGolden: {
+    packagePath: "@alecs5am/ralphy/contracts/farm-identity-v1.golden.json";
+    sha256: string;
+    credentialDigest: string;
+    identityDigest: string;
+  };
 };
 ```
 
 The script refuses prerelease/local/sibling binaries and refuses to write when a required capability is absent. `core-contract.json` must contain the actual release values produced by this script; no wildcard, range, `latest`, or development path is allowed.
+After resolving the released package, it resolves the declared npm subpath
+export (never the private core repository root), reads the core-published
+golden vector through that export, copies its bytes unchanged to
+`tests/fixtures/core/farm-identity-v1.golden.json`, and pins the file SHA-256 and
+two declared digests above. It never asks Farm to generate this vector. The
+Farm serializer/parser contract test consumes the captured core bytes and must
+round-trip the fixed identity string byte-for-byte. The golden is never used as
+runtime identity/readiness data.
 
 - [ ] **Step 4: Add one released-binary compatibility test**
 
-The test launches the configured installed binary, compares hello field-for-field with `core-contract.json`, authenticates the fixture Farm token, creates a consumer Session, performs a scoped Workspace list, starts/cancels a fixture operation using external provenance, and proves tuple lookup plus a duplicate idempotency key return the original operation. It separately validates exact pending and ready `consumers.farm` DTOs; nullable store-wide activity scope is accepted. It skips only when explicitly running the isolated fake-contract unit suite; CI and Docker validation must supply the pinned released binary.
+The test launches the configured installed binary, compares hello field-for-field with `core-contract.json`, authenticates the fixture Farm token, creates a consumer Session, performs a scoped Workspace list, starts/cancels a fixture operation using external provenance, disconnects, authenticates the same principal into a new Session, and proves tuple lookup plus a duplicate idempotency key return the original operation and every ordered result through `operation.find`/`run.results`. An ordinary Session and a different consumer principal reject. It separately validates the exact lifecycle: `null` before cutover, `pending` only after cutover and before Farm installation, and `ready` after identity installation; nullable store-wide activity scope is accepted. It skips only when explicitly running the isolated fake-contract unit suite; CI and Docker validation must supply the pinned released binary.
 
 - [ ] **Step 5: Commit only the contract harness after review**
 
 ```bash
 bun test tests/ralphy-cli.test.ts tests/core-contract.test.ts
-git add core-contract.json scripts/capture-core-contract.ts tests/fixtures/fake-ralphy tests/fixtures/fake-core-contract.ts tests/ralphy-cli.test.ts tests/core-contract.test.ts
+git add core-contract.json scripts/capture-core-contract.ts tests/fixtures/fake-ralphy tests/fixtures/fake-core-contract.ts tests/fixtures/core/farm-identity-v1.golden.json tests/ralphy-cli.test.ts tests/core-contract.test.ts
 gitleaks protect --staged --redact
 git commit -m "test(farm): pin the released core contract"
 ```
@@ -190,8 +222,7 @@ export type CoreContext =
   | { sessionId: string }
   | { workspaceId: string; projectId?: string };
 
-export type FarmExternalRun = {
-  system: "ralphy-farm";
+export type FarmOperationInput = {
   runId: string;
   nodeId: string;
   attempt: number;
@@ -233,11 +264,23 @@ export type CoreActivityEvent = {
   action: string;
   createdAt: number;
 };
+export type DocumentContentPage = {
+  revisionId: string;
+  format: string;
+  text: string;
+  nextByte: number | null;
+};
+export type CoreRunResultPage = {
+  items: Array<{ id: string; runId: string; position: number; entityType: string; entityId: string; createdAt: number }>;
+  nextCursor: string | null;
+};
 
 export interface RalphyClient {
   hello(): Promise<CoreHello>;
-  authenticateConsumer(token: Uint8Array): Promise<void>;
+  authenticateConsumer(tokenBase64url: string): Promise<void>;
   startConsumerSession(scope: { workspaceId: string; projectId?: string }): Promise<{ sessionId: string }>;
+  findOperation(input: { sessionId: string; external: FarmOperationInput; resultsAfter?: string; resultsLimit: number }): Promise<{ runId: string; state: string; results: CoreRunResultPage }>;
+  listRunResults(input: { sessionId: string; runId: string; after?: string; limit: number }): Promise<CoreRunResultPage>;
   request<T>(method: PublicCoreMethod, params: unknown, signal?: AbortSignal): Promise<T>;
   subscribeActivity(afterSequence: number, onEvent: (event: CoreActivityEvent) => void): Promise<() => Promise<void>>;
   close(): Promise<void>;
@@ -251,34 +294,66 @@ path. `scripts/lint-consumer-boundary.ts` permits that symbol at exactly
 `studio/server/media.ts`; no executor/control/library module can import or call
 it.
 
+All non-Studio text consumers page `document.content` with their explicit
+Session/direct scope plus `{ revisionId, afterByte, limitBytes }`, where the
+bound is `1..65_536`, and receive only `DocumentContentPage`. They reject a
+continuation-byte start and accept that one split UTF-8 code point may extend a
+page by at most three bytes. Runner/executor code has no locator method, path
+DTO, or adapter-backed locator helper.
+
+Method validators model only core's public DTOs, never raw SQL rows. Except for
+the private Studio media source, recursively reject Activity payload,
+RunObject path/log/tag/metadata/error, Object bucket/key/hash/original-name/
+metadata, Document body, and any path/locator/raw provider error before a value
+can enter Farm state. Activity uses the public `sequence` field only.
+
 - [ ] **Step 1: Make the adapter tests fail on the old one-shot wrapper**
 
-Assert one long-lived child serves multiple requests, request IDs correlate out-of-order replies, every pending request rejects on exit, abort sends the matching cancellation method, stdout accepts JSONL only, stderr is bounded/redacted, and `locator.resolve` is rejected by the generic typed/runtime request mapper. A source scan must prove that only `src/ralphy-cli.ts` contains the literal method and only `studio/server/media.ts` imports `createStudioMediaSource`.
+Assert one long-lived child serves multiple requests, request IDs correlate out-of-order replies, every pending request rejects on exit, abort sends the matching cancellation method, stdout accepts JSONL only, stderr is bounded/redacted, forbidden raw-row fields fail response validation, and `locator.resolve` is rejected by the generic typed/runtime request mapper. Cover token parent/leaf symlink, wrong owner/mode/size, replacement race, padding/alphabet/decoded length, and buffer zeroing. A source scan must prove that only `src/ralphy-cli.ts` contains the literal method and only `studio/server/media.ts` imports `createStudioMediaSource`.
 
 - [ ] **Step 2: Implement one bridge client with a bounded Buffer framer**
 
-Spawn `[RALPHY_BIN, "bridge", "--stdio", "--root", dataRoot]` without a shell. Parse bytes by newline, enforce the limits returned by hello, serialize writes with backpressure, and cap pending requests/events. Validate hello against `core-contract.json`, including the reserved `farm` consumer namespace and exact nullable/pending/ready DTO, before exposing the client. Normal startup requires `state: "ready"`, reads `.ralphy/farm/auth.token` only after checking regular-file/no-symlink ownership and mode 0600, sends its bytes through bridge stdin to `consumer.authenticate`, zeroes the Buffer, and deletes no file. A mismatch or failed auth returns one actionable redacted `CoreContractError` and terminates the child.
+Spawn `[RALPHY_BIN, "bridge", "--stdio", "--root", dataRoot]` without a shell.
+Parse bytes by newline, enforce the limits returned by hello, serialize writes
+with backpressure, and cap pending requests/events. Validate hello against
+`core-contract.json`, including the reserved `farm` consumer namespace and
+exact nullable/pending/ready DTO, before exposing the client. Normal startup
+requires `state: "ready"`. From the resolved data root, `lstat`/realpath the
+real owner-owned `farm` directory, reject a parent symlink/escape, and snapshot
+its device/inode. Open `auth.token` with `O_RDONLY | O_NOFOLLOW`; `fstat` must
+show an owner-owned regular mode-0600 file of exactly 43 bytes. Read and
+re-`fstat` it, recheck the parent identity, and require canonical unpadded
+base64url that decodes to exactly 32 bytes and re-encodes byte-identically.
+Send only the encoded string through bridge stdin as `{ namespace: "farm",
+tokenBase64url }`, then zero encoded/decoded Buffers. Never follow a leaf/parent
+symlink or delete/regenerate the file. A mismatch or failed auth returns one
+actionable redacted `CoreContractError` and terminates the child.
 
 For each mutation scope the adapter creates/caches one authenticated consumer
 Session in memory and supplies `{ sessionId }`; it never persists the Session
-ID as authority and a reconnect creates a new Session. Graceful `close()` ends
+ID as authority and a reconnect creates a new Session for the same principal.
+That Session may recover prior operations because core authorizes by principal/
+scope, while a different principal or ordinary Session rejects. Graceful `close()` ends
 idle cached Sessions; an abrupt disconnect revokes their connection authority,
 and terminal-operation cleanup ends them when no Run remains active. Read-only calls may use
-explicit scope. Every Farm operation request contains the full external tuple
-and key, while core derives the system from that Session. On a lost response,
-the adapter first calls `operation.find` by tuple/key and returns the recorded
-Run/results rather than starting work again.
+explicit scope. Every Farm operation request contains exactly the five
+`FarmOperationInput` keys and no caller-owned system or request digest. Core
+derives the system/principal and computes the canonical validated-request
+digest. On a lost response, the adapter first calls
+`operation.find` by tuple/key, follows `run.results` position cursors to the
+end, and returns the recorded Run/results rather than starting work again.
 
 The bridge process may inherit environment-owned core credential variables because core captures and clears its allowlist at startup; Farm must never inspect, copy into journal data, or forward that environment to any other child.
 
 `createMigrationRalphyClient(grantPath)` is a separate maintenance-only adapter
 used only from `cli/lib/migration/**`. It requires a regular, owner-readable
 mode-0600 grant, validates its canonical shape/digest and exact
-`consumers.farm.state: "pending"`, and may call only
+`consumers.farm === null`, and may call only
 `system.hello`/`migration.consumer.map`. It sends the Run ID, lock nonce, grant
 digest, source identity ID, and inventory digest from that grant; it never
 accepts those values from ordinary command flags, returns grant contents, or
-falls through to the normal authenticated client.
+falls through to the normal authenticated client. It rejects `pending` and
+`ready`: those states mean core cutover has already closed the mapping window.
 
 - [ ] **Step 3: Keep one-shot CLI invocation inside the same file**
 
@@ -394,6 +469,16 @@ export type FarmIntermediateRef = {
 export type JsonValue = null | boolean | number | string | JsonValue[] |
   { [key: string]: JsonValue };
 
+export type FarmIdentityV1 = {
+  version: 1;
+  namespace: "farm";
+  storeId: string;
+  consumerId: string;
+  migrationId: string;
+  stageDigest: string;
+  credentialDigest: string;
+};
+
 export type FarmActivityEvent = {
   sequence: number;
   id: string;
@@ -483,13 +568,33 @@ immutable-revision shape with typed entry/exit ports and a canonical digest.
 
 - [ ] **Step 3: Implement one locked Farm store**
 
-`identity.json` binds the namespace to core `storeId` and Farm schema version. JSON snapshots use sibling temp + fsync + atomic rename. JSONL uses one append write. A per-Workspace lock is an atomic `mkdir`; a lock is never silently reclaimed after a crash, and `farm doctor` reports the exact safe recovery command/nonce. Mutations append a path-free `FarmActivityEvent` with a monotonic per-Workspace sequence while holding the same lock.
+`identity.json` is a regular non-symlink mode-0600 file containing exactly
+`FarmIdentityV1`; `version: 1` is the namespace schema version. Its UTF-8 bytes use keys in the displayed order, no
+insignificant whitespace, and no trailing newline. `consumerId` is generated
+once during staging and is immutable through ready/freeze/install/recovery.
+`storeId`, `consumerId`, and `migrationId` are 1..128 ASCII bytes matching
+`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; both digest fields are lowercase 64-hex.
+Generate 32 random token bytes once, encode them as exactly 43 bytes of
+canonical unpadded base64url with no newline, and write that text to
+`auth.token` at mode 0600. `credentialDigest` is lowercase SHA-256 hex of the
+32 decoded bytes, not the encoded file text; preserve both token text and
+decoded value byte-for-byte across install/recovery. A changed/missing
+identity, token, consumer ID, or digest is blocking and never regenerated over
+existing state. `identityDigest` always means SHA-256 of the exact canonical
+identity-file bytes.
 
-`identity.json` additionally carries the installed Farm migration/stage and the
-SHA-256 digest of `auth.token`, never its value. The token is 32 random bytes,
-created once at mode 0600 with the staged namespace and preserved byte-for-byte
-on install/recovery. A changed/missing token or digest is blocking; it is never
-regenerated over an existing identity.
+All identity/token reads share the Task 1 hardened helper: resolved-root
+parent containment and device/inode snapshot, `O_NOFOLLOW`, owner/mode/size
+`fstat`, bounded read, and post-read file/parent recheck. Identity is `1..4096`
+bytes; token is exactly 43. Tests cover parent and leaf symlinks, wrong owner/
+mode, oversize, mid-read replacement, non-canonical base64url, and zero token
+reflection.
+
+Other JSON snapshots use sibling temp + fsync + atomic rename. JSONL uses one
+append write. A per-Workspace lock is an atomic `mkdir`; a lock is never
+silently reclaimed after a crash, and `farm doctor` reports the exact safe
+recovery command/nonce. Mutations append a path-free `FarmActivityEvent` with a
+monotonic per-Workspace sequence while holding the same lock.
 
 Workflow/subgraph identity files are optimistic selected pointers only.
 Revision files are create-once canonical JSON whose digest covers the complete
@@ -540,6 +645,11 @@ git commit -m "refactor(farm): store automation state by stable id"
 - Consumes: untouched legacy `.ralphy`, the exact mode-0600 core `MigrationConsumerGrant`, a queryable core migration stage, and core `migration.consumer.map`
 - Produces: `ralphy-farm migrate audit|run|resume|status|verify|install|recover`, a complete coverage ledger, a verified staged `farm/` tree, and the canonical core `ConsumerReadyRecord`
 
+This task runs only when core's immutable migration inventory declares Farm a
+required consumer. With zero Farm candidates, core issues no grant, Farm emits
+no ready record/identity/token, no Farm install is scheduled, and
+`consumers.farm` validly remains `null` through freeze and cutover.
+
 - [ ] **Step 1: Build a fixture and failing coverage test**
 
 The fixture includes two Workspace slugs, a renamed Workspace, workflows/subgraphs/schedules, active/completed/parked runs, events, node cache, dead letters, approvals, inbox packs, project board choice/layout, run canvas layout, project/run/workflow-node annotations, config patches, trust/publish/quota history, ingestion cursor/seen/topic index, selection-weight history, mixed lifecycle upgrade/rollback/pin/retire events, cadence/notifications, referenced prompt files, calendar schedule plus dated entries, campaign and social-account links, a plaintext webhook token, malformed JSONL, one absolute Artifact path, one symlink, an empty file, and a crash after every journal phase.
@@ -555,11 +665,11 @@ Assert audit changes no source file/listing/mtime, creates no stage/lock/journal
 <source-parent>/.ralphy-farm-ready-<migration-id>.json
 ```
 
-Journal phases are `audited -> inventoried -> mapped -> transformed -> verified -> ready -> installed`; errors leave the last resumable phase. Every transition is an atomic mode-0600 write plus fsync. Record source device/inode/mode/count/bytes/digest, core-stage Run ID/`storeId`/contract, maintenance-grant digest, mapping digest, staged digest, and target identity. At `ready`, atomically write the mode-0600 canonical `ConsumerReadyRecord` containing namespace `farm`, Farm/core migration IDs, target `storeId`, maintenance-grant/source-inventory/mapping/stage digests, and creation time; a retry returns the byte-identical record. Never infer a root from cwd or follow symlinks.
+Journal phases are `audited -> inventoried -> mapped -> transformed -> verified -> ready -> installed`; errors leave the last resumable phase. Every transition is an atomic mode-0600 write plus fsync. Record source device/inode/mode/count/bytes/digest, core-stage Run ID/`storeId`/contract, maintenance-grant digest, mapping digest, staged digest, immutable consumer ID, and target identity digest. At `ready`, atomically write the mode-0600 canonical `ConsumerReadyRecord` containing namespace `farm`, Farm/core migration IDs, target `storeId`, `consumerId`, maintenance-grant/source-inventory/mapping/stage digests, canonical `identityDigest`, and creation time; a retry returns the byte-identical record. Never infer a root from cwd or follow symlinks.
 
 - [ ] **Step 3: Map ownership and stable IDs without opening core SQLite**
 
-Require `--core-grant <path>` and query the core migration stage only through the maintenance client in `src/ralphy-cli.ts`. Validate the grant's mode/digest, Run/store/contract, source identity list and inventory/mapping digests before the first query. `migration.consumer.map` receives the matching grant digest/nonce/source identity ID and returns maintenance-only mappings from inventoried legacy Workspace/Project/control/media locators to stable IDs; Farm persists only source-path hashes and target IDs. A missing, extra, stale, or ambiguous mapping is blocking. No Farm code reads a core journal or SQLite file to obtain the nonce.
+Require `--core-grant <path>` and query the core migration stage only through the maintenance client in `src/ralphy-cli.ts`. Validate the grant's mode/digest, Run/store/contract, source identity list and inventory/mapping digests plus `consumers.farm === null` before the first query. `migration.consumer.map` receives the matching grant digest/nonce/source identity ID and returns maintenance-only mappings from inventoried legacy Workspace/Project/control/media locators to stable IDs; Farm persists only source-path hashes and target IDs. A missing, extra, stale, or ambiguous mapping is blocking. No Farm code reads a core journal or SQLite file to obtain the nonce, and `pending` is rejected as a post-cutover state.
 
 Use these terminal dispositions:
 
@@ -598,13 +708,43 @@ Verification requires 100% terminal coverage, exact source byte accounting, unch
 Require every persisted `social-account`, `campaign`, and `calendar-entry` ref
 to resolve through the map. The live migration keeps account identity but never
 copies a credential value/ref; configured status is verified through core.
-Generate `.ralphy/farm/auth.token` as 32 random bytes at mode 0600 in the stage,
-write only its digest to `identity.json`, and scan every staged report/event for
-zero token occurrence.
+During the first transformed stage, generate one immutable bounded `consumerId`
+and 32 random token bytes; persist `.ralphy/farm/auth.token` as their exact
+43-byte canonical unpadded base64url encoding at mode 0600. Compute
+`stageDigest` from the ordered Farm payload tree while excluding
+`identity.json`, `auth.token`, journal/temp files, then write the exact canonical
+`FarmIdentityV1` with that stage digest and SHA-256 of the 32 decoded token
+bytes. This
+exclusion removes any digest cycle and is shared with core verification. Resume
+must reuse the exact consumer ID/token/identity bytes. Scan every staged
+report/event for zero token occurrence.
+
+Verification safely opens/rechecks the real parent, identity, and token using
+the Task 1 `lstat`/realpath/`O_NOFOLLOW`/`fstat` helper, recomputes the payload
+stage digest, decoded-token credential digest, and identity digest, and rejects
+any byte/key-order/whitespace/trailing-newline change. Separately, Farm's serializer/parser consumes the fixed golden vector
+captured from the released core package in Task 0 and must reproduce that sample
+byte-for-byte. That golden test never supplies runtime IDs or token facts. For
+the actual migration, the ready record is built only from this stage's freshly
+generated identity/token facts and is checked back against those same staged
+bytes before emission. After 100% Farm coverage it emits the canonical ready
+record before the first core freeze; subsequent core verification and cutover
+use the bound record digest, never a replacement path.
 
 - [ ] **Step 5: Implement guarded post-core installation and recovery**
 
-`install` is unavailable until the prepared stage is `ready`, core cutover consumed the exact ready-record/grant digests, and the newly cut-over live core hello reports the exact `consumers.farm` pending DTO with the recorded migration/store/protocol/contract/schema/stage facts. `identity.json` carries that `storeId`, Farm migration ID, stage digest, and auth-token digest. With all Farm/Studio writers stopped, atomically rename the exact staged `farm/` directory to `<live-data-root>/farm`, fsync the parent, re-verify identity plus mode-0600 token, then mark installed and require hello to return the exact ready DTO and identity digest. A pre-existing destination, identity/token/grant mismatch, changed stage, or different pending consumer blocks. `recover` either completes the exact rename or leaves both generations; it never overwrites, merges, copies, or deletes.
+`install` is unavailable until the prepared stage is `ready`, the first core
+verification bound its exact ready/identity/grant facts, core cutover consumed
+that verification, and the newly cut-over live core hello reports the exact
+`consumers.farm` pending DTO with the recorded migration/store/protocol/
+contract/schema/stage facts. `pending` appears only in this post-cutover/pre-
+install window. With all Farm/Studio writers stopped, atomically rename the
+exact staged `farm/` directory to `<live-data-root>/farm`, fsync the parent,
+re-verify canonical identity plus mode-0600 token, then mark installed and
+require hello to return the exact ready DTO and identity digest. A pre-existing
+destination, consumer/identity/token/grant mismatch, changed stage, or
+different pending consumer blocks. `recover` either completes the exact rename
+or leaves both generations; it never overwrites, merges, copies, or deletes.
 
 Run:
 
@@ -639,7 +779,7 @@ git commit -m "feat(farm): add resumable automation-state migration"
 - Modify: `tests/integration/farm-e2e.test.ts`
 
 **Interfaces:**
-- Consumes: `RalphyClient`, `FarmStore`, stable input refs, and `FarmExternalRun`
+- Consumes: `RalphyClient`, `FarmStore`, stable input refs, and `FarmOperationInput`
 - Produces: path-free executor results and crash-safe idempotent core operations
 
 ```ts
@@ -675,7 +815,6 @@ Map generate/social-copy/captions to `generation.start`, render to `composition.
 
 ```ts
 const external = {
-  system: "ralphy-farm" as const,
   runId: farmRunId,
   nodeId: node.id,
   attempt,
@@ -687,12 +826,19 @@ const external = {
 ```
 
 The adapter supplies the authenticated consumer Session and core verifies that
-the request Session belongs to that principal/scope. The executor records
-returned core Run/entity IDs. Retrying the same attempt first calls
-`operation.find` and returns the same operation; a deliberate Farm retry
+the request Session belongs to that principal/scope. Core canonicalizes the
+validated semantic request and persists its immutable request digest; Farm
+does not supply or override that digest. The executor records returned core
+Run/entity IDs. Retrying the same attempt first calls `operation.find`, follows
+every `run.results` cursor in `(position,id)` order, and returns the same
+operation even when reconnect created a new Session for that principal; a
+deliberate Farm retry
 increments `attempt` and creates a new core attempt/revision according to the
-core contract. A caller-supplied `system` mismatch is rejected and never changes
-the server-derived external system.
+core contract with a new tuple and idempotency key. It never calls generic
+single/bulk queue retry, which core rejects for every Job linked to an external
+Run. Fixtures assert that the serialized input has exactly the five
+`FarmOperationInput` keys and matches the core/entity `ExternalOperation`
+contract; server-derived system metadata is validated only on responses.
 
 Delete the path-shaped `resolveProject`, `pathFromValue`, `updateManifestSlot`,
 and in-process `runMediaGeneration` seams. Replace them with ID validation,
@@ -702,12 +848,24 @@ Artifact revision from a filename.
 - [ ] **Step 3: Convert direct media/provider/agent execution**
 
 Route t2i/i2i/t2v/i2v/r2v/v2v/lipsync/tts/music/sfx through `generation.start`; remove-bg/reframe/crunch through `transform.start`; transcribe through the core transcription operation; LLM and coding-agent nodes through core generation/agent-turn methods. Registered provider/credential selection is an ID/config input to core, never a Farm connector object or secret.
+Every consumer `agent.turn.start` carries the same Farm external tuple/key
+contract as other long operations; a consumer Session never invokes its
+ordinary-Run form. Crash replay under a new Session for the same principal
+recovers that external turn and durable events.
 
 Keep generic allowlisted non-provider HTTP and pure graph transforms in Farm. Provider-host blocking remains mandatory for the generic HTTP node.
 
 - [ ] **Step 4: Rework runner resume/cache/budget semantics**
 
-`executeGraphRun` creates only the Farm run namespace and journals stable refs. It loads the immutable `definition.json` expanded graph/digest; it never reloads a selected Workflow/Subgraph revision during resume. It resolves Farm intermediates through `FarmStore`; core locators are requested only inside adapter-backed read helpers and immediately discarded. Node-cache entries store input hashes and stable refs; a cache hit first proves referenced core entities still exist. Cost and budget checks query core Runs by external Farm tuple instead of reading `generations.jsonl`.
+`executeGraphRun` creates only the Farm run namespace and journals stable refs.
+It loads the immutable `definition.json` expanded graph/digest; it never reloads
+a selected Workflow/Subgraph revision during resume. It resolves Farm
+intermediates through `FarmStore`, pages core Document text only through
+`document.content` (`limitBytes <= 65_536`), and passes all media as stable refs
+to core operations. Runner/executor/read-helper code never requests a core
+locator. Node-cache entries store input hashes and stable refs; a cache hit
+first proves referenced core entities still exist. Cost and budget checks query
+core Runs by external Farm tuple instead of reading `generations.jsonl`.
 
 Replace `createRun`, path artifacts, legacy workspace/project existence checks, `run.json` rewrites outside the Farm store, and direct generation-log writes. `resumeIncompleteRuns` derives exact completed attempts from Farm events and core idempotency, so a crash after core success but before Farm append recovers the original core result without duplication.
 
@@ -717,6 +875,12 @@ the Farm completion append after the core response, restart the runner, and
 require tuple/key lookup to restore the original Run and result IDs without a
 second provider call, Build, Unit revision, or Farm event. Task 5 applies the
 same matrix to Publication and Metric refresh after those executors are converted.
+Add a source lint fixture that hides a locator request in a runner helper and
+require failure; only the Studio media callsite is allowed.
+For generation, Build, Publication, and Metric-refresh fixtures, assert Farm
+never invokes generic queue single/bulk retry; a fake attempt to do so is
+rejected without changing the linked Job/Run, while a deliberate retry succeeds
+only after incrementing the Farm attempt and deriving a new tuple/key.
 
 - [ ] **Step 5: Verify and commit executor conversion**
 
@@ -786,6 +950,40 @@ failure/revision uses a new attempt/key and optional immutable `revisedFrom`
 Publication ID. Farm never
 calls Postiz/dev.to/Hashnode/X/YouTube APIs or reads their credentials.
 
+Scheduled/submitted polling invokes `publication.lookup` with a distinct
+external Run, fresh status fence, and its own RunAttempt/result; it cannot call
+submission. Draft cancellation invokes local `publication.cancel` without a
+provider attempt, external tuple, or idempotency key. It sends the consumer
+Session plus `expectedState: "draft"`; after a lost response Farm reads the
+Publication and a stale repeat conflicts rather than using `operation.find`.
+Scheduled/submitted cancellation invokes the provider form
+with a distinct external Run/fresh cancellation fence and becomes `cancelled`
+only on confirmation; uncertainty parks for separately fenced reconciliation.
+Farm never treats lookup/cancel as retry and never reuses the submission
+Run/key.
+
+Follow-up Run state records execution, independently of Publication state. A
+successful lookup/cancel/reconciliation that authoritatively returns a failed,
+published, or cancelled Publication has a succeeded operation Run; a timeout,
+transport error, or provider-operation failure has a failed operation Run even
+when Publication remains `scheduled | submitted` or moves to
+`unknown | reconciliation_required`.
+
+On resume, an expired follow-up is never retried or replaced. Farm calls
+`publication.recover` with the expected Publication state, claim kind/Run/
+epoch, but no token, external tuple, or time override. Core captures time once;
+its strict SQL
+boundary treats `expiry - 1` as live and exact expiry as expired, closes the
+attempt/Run/result/activity before returning, increments the epoch, retains
+known state for status, and makes/keeps cancellation or reconciliation
+uncertain. Farm then decides whether to start a new lookup/reconciliation with
+a new tuple/key. It never supplies a Publication submission Run as a follow-up;
+core rejects any such Run globally.
+
+Farm never supplies target platform separately from Presentation and validates
+only canonical returned Publication URL/timeline DTOs. It cannot rekey a social
+account or repurpose/delete an empty Unit; those changes create new identities.
+
 Use portable account descriptors and relink maps for provider rails. Preserve
 accountless `github-pages`/`manual` and validated historical account-resolution
 failures without inventing an account. Medium output is a core RunObject plus
@@ -801,10 +999,11 @@ Analytics refresh calls core with external provenance and stores only returned
 snapshot IDs in the Farm event; replay returns those IDs. Postmortem/ROI/report/
 selection/distribution/review-card query bounded core Metric/Publication/Run/
 Evaluation/Unit lists. Cumulative metrics request an as-of/window and use the
-core newest snapshot per Publication across all sources by default. With an
-explicit source filter, they use the newest snapshot per Publication within
-that source. They never sum historical snapshots or two provider sources for
-one Publication. Nullable CTR, retention curve, average-view-duration, note,
+core winner per Publication by `(as_of DESC, created_at DESC, id DESC)` after
+filtering. The default candidate set spans all sources; an explicit source
+restricts candidates before applying the same order. They never sum historical
+snapshots or two provider sources for one Publication. Nullable CTR, retention
+curve, average-view-duration, note,
 and raw provider extensions remain nullable DTO fields; Farm never turns
 unknown into zero. Campaign and dated calendar mutations go to core; Farm retains only
 workflow schedule/cadence policy and stable social-account/campaign/calendar
@@ -820,12 +1019,27 @@ finish, duplicate/uncertain idempotency never makes a second provider attempt,
 an expired submission attempt is terminalized and cannot be reclaimed,
 reconciliation uses its own Run/fresh fence and only looks up/resolves,
 reconciliation resolves or preserves unknown state, and failed publication
-retry uses a new Farm attempt/key. Metric refresh appends source/as-of/window
+retry uses a new Farm attempt/key. Status lookup from both scheduled/submitted
+states and provider cancellation use distinct external Runs/fences/attempts/
+results, draft cancellation has no attempt/external replay identity, and all
+three prove zero submit calls. Simulate a lost draft-cancel response and recover
+by reading Publication state; assert no `operation.find` lookup. Cover succeeded
+follow-up Runs with failed/cancelled Publication results and failed follow-up
+Runs on provider-operation errors. Force a follow-up fixture past 100 ordered
+results and recover it through `operation.find` plus all `run.results` cursors;
+no result from the distinct submission/reconciliation/cancel Run may mix into
+that page. Metric refresh appends source/as-of/window
 snapshots once, crash replay returns the same IDs, default newest-per-
 Publication and explicit-source totals do not double-count, and selection/ROI
-remain deterministic across pagination. Also cover selected-versus-latest Unit
+resolve equal `as_of` by `created_at` then ID and remain deterministic across
+pagination. Also cover selected-versus-latest Unit
 resolution, exact effective caption/options, rail/account validation,
 `revisedFrom`, and Medium export without a Publication.
+At `expiry - 1`, exact expiry, and `expiry + 1`, cover
+`publication.recover` for status/cancellation/reconciliation, one epoch bump,
+result-before-terminal ordering, no token/external fields, and new-operation-
+only retry. Reject every submission Run as a follow-up, noncanonical/mismatched
+platform or Publication URL/timeline, account rekey, and empty Unit repurpose.
 
 - [ ] **Step 5: Verify and commit delivery conversion**
 
@@ -868,10 +1082,12 @@ bundle.zip
 The fake core export supplies a portable core archive with Documents,
 Composition sources, reference Objects, non-secret social-account descriptors,
 campaigns, and calendar entries. Assert Farm never opens that archive or source
-bucket paths. Import must call core first, receive `{ workspaceId, entityIdMap,
-relinkRequired }`, rewrite every `social-account`, `campaign`, and
-`calendar-entry` Farm ref through that complete map, then atomically install the
-Farm definitions. Imported account refs remain present but publication is
+bucket paths. Import must call core first, receive `{ workspaceId,
+entityMapPage, relinkPage }`, follow both independent bounded cursors to build
+the complete map in migration memory, rewrite every `social-account`,
+`campaign`, and `calendar-entry` Farm ref, then atomically install the Farm
+definitions. No hash-bearing package manifest enters a Farm DTO/journal.
+Imported account refs remain present but publication is
 blocked until each required account is explicitly relinked through core. A
 crash after core import resumes by bundle ID and does not create a second
 Workspace.
@@ -1045,7 +1261,10 @@ root even when no banned filename literal is present. It separately permits
 only FarmStore paths below `.ralphy/farm`, Run intermediates, and explicit
 temporary/export inputs. `locator.resolve` may occur only inside
 `src/ralphy-cli.ts`; `createStudioMediaSource` may be imported only by
-`studio/server/media.ts`.
+`studio/server/media.ts`, which is the sole permitted callsite. The lint follows
+aliases/re-exports and rejects resolver calls from runners, executors, read
+helpers, tests compiled as production, or any other Studio module. All
+non-Studio text access must call bounded `document.content`.
 
 - [ ] **Step 2: Remove every reported normal caller by audited slice**
 
@@ -1119,7 +1338,7 @@ git commit -m "refactor(farm): enforce the released core boundary"
 
 - [ ] **Step 1: Rehearse from recoverable clones**
 
-Stop Farm daemon, Studio, Desktop, core workers, and source watchers. Run Farm audit against the exact legacy source and the queryable core migration rehearsal stage. Obtain the exact mode-0600 core maintenance grant, prepare/verify the Farm stage through its bounded mapping client, complete core rehearsal cutover, install Farm state into only the rehearsal v2 root, then exercise rollback/recovery. Record redacted counts, bytes, dispositions, issues, hashes, durations, and additional disk use; never record the grant nonce or Farm auth token.
+Stop Farm daemon, Studio, Desktop, core workers, and source watchers. Run Farm audit against the exact legacy source and the queryable core migration rehearsal stage while core hello reports `consumers.farm === null`. Obtain the exact mode-0600 core maintenance grant, prepare/verify the Farm stage through its bounded mapping client, emit its canonical ready record, pass that path to the first core verify/freeze, repeat core verify without a path, then complete core rehearsal cutover using only the verification ID. Install Farm state into only the rehearsal v2 root, then exercise rollback/recovery. Record redacted counts, bytes, dispositions, issues, hashes, durations, and additional disk use; never record the grant nonce or Farm auth token.
 
 - [ ] **Step 2: Prove representative historical state**
 
@@ -1133,15 +1352,31 @@ Under the shared maintenance window:
 2. run/resume core migration import to its pre-freeze stage;
 3. generate the exact Farm consumer maintenance grant and run/resume `ralphy-farm migrate --core-grant <path>` against that core stage;
 4. require 100% Farm coverage and stable-ref resolution;
-5. freeze and verify core;
-6. re-verify the Farm stage against the frozen core `storeId` and mapping digest;
-7. emit the canonical Farm ready record and pass its exact path/digest to core cutover.
+5. generate the immutable consumer ID/token, canonical `FarmIdentityV1`, and
+   canonical Farm ready record; recompute the runtime record against that
+   stage's identity bytes and decoded 32-byte token (the serializer/parser was separately verified
+   against the core-published golden in Task 0);
+6. run the first core `migrate verify --consumer-ready farm:<path>`, which binds
+   the ready digest and performs the one-shot freeze;
+7. re-verify Farm locally against those bound facts, then run a second core
+   read-only `migrate verify` with no consumer path.
 
 No Farm command writes the legacy source or frozen core stage.
 
 - [ ] **Step 4: Cut over core, then install Farm before restarting writers**
 
-Use the exact core Run/verification IDs and ready-record/grant digests. After core reports installed, the exact Farm pending DTO, and passes read-only smoke, run Farm `install` with the exact Farm migration ID and confirmation. Verify `.ralphy/farm/identity.json` matches the live core `storeId`, migration ID, stage/auth-token digests, `auth.token` is mode 0600, and core hello switches to the exact Farm ready DTO with the expected identity digest; authenticate and run Farm/Studio read-only smoke, then start only the pinned Farm daemon and Studio. Confirm migrated pending core jobs remain held and no schedule publishes merely because services restarted.
+Cut core over with the exact Run and second verification IDs only; do not pass a
+ready-record path again. After core reports installed, the exact Farm pending
+DTO, and passes read-only smoke, run Farm `install` with the exact Farm migration
+ID and confirmation. Verify `.ralphy/farm/identity.json` is byte-identical to
+the staged canonical `FarmIdentityV1`, matches the live core `storeId`, immutable
+consumer/migration IDs, stage/credential digests, and that hardened parent/
+`O_NOFOLLOW` reads find a mode-0600 exact 43-byte canonical base64url
+`auth.token` whose decoded-byte digest matches; then require
+core hello switches to the exact Farm ready DTO with the expected identity
+digest; authenticate and run Farm/Studio read-only smoke, then start only the
+pinned Farm daemon and Studio. Confirm migrated pending core jobs remain held
+and no schedule publishes merely because services restarted.
 
 If Farm install fails, keep core/Farm stages and journals and run `recover`; if the coordinated decision is core rollback, leave the v2 generation preserved and the restored legacy root supplies its untouched legacy Farm state. Never merge the two generations.
 

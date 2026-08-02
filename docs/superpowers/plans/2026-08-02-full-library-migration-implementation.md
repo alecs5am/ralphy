@@ -14,13 +14,13 @@
 - Every pre-freeze function that reads/writes staged state consumes `MigrationContext = { db, storeRoot, sourceRoots, runId }`; `storeRoot` is the staged data root containing `ralphy.db`. Read-only audit and post-freeze verify/cutover receive explicit immutable paths/identities instead. Migration modules never call ambient `openDomainDb()`, `ralphDir()`, `setRoot()`, or infer state from cwd.
 - The latest observed source contains 77,670 regular files and 3,685 directories totaling 70,386,992,506 logical bytes (about 65.6 GiB), including 26 zero-byte files and 399 `.DS_Store` files. It has 30 Workspaces, 160 physical Projects, 146 registry Projects, 21 physical-only Projects, and 7 registry-only Projects. Only about 17.6 GB is free, so an ordinary second copy is not viable.
 - The latest jobs snapshot contains 141 jobs (13 pending, 13 completed, 114 failed, and 1 cancelled), 1,605 log rows, and 128 absolute `log_path` values. Preserve pending jobs under an execution hold; never start them implicitly after cutover.
-- `migrate audit` is strictly read-only, `migrate run` never cuts over, and cutover requires the exact Run ID plus a fresh verification ID.
+- `migrate audit` is strictly read-only, `migrate run` never cuts over, and cutover requires only the exact Run ID plus a fresh verification ID whose frozen record already binds every required consumer-ready fact.
 - The packaged Desktop and a source watcher were running during audit. Apply one shared redacted quiescence gate before and after every mutating phase for Desktop/Electron helpers, daemon/workers/watchers, generation/render/ffmpeg/HyperFrames/Remotion, publishing, and other source-targeting agents.
 - Never follow symlinks during inventory. Every file, directory, empty entry, symlink, socket, and unknown entry receives exactly one ledger row and disposition.
 - Never mutate or delete the source before verified cutover.
 - Reserve `.ralphy/farm/` in the v2 root for Farm-owned automation state. Core migration inventories legacy Farm paths for coverage, raw evidence, recovery, and stable-ID handoff, but never installs consumer state there or later scans that namespace as domain buckets, tmp, or cache.
-- Before retiring legacy paths, produce a complete stable legacy-locator-to-entity mapping for every Farm-relevant Workspace, Project, control, and media source. Farm migration consumes only the maintenance bridge mapping and must reach its own verified ready state before core cutover.
-- Farm receives that mapping authority only through an external mode-0600 consumer maintenance grant bound to the exact migration Run, lock nonce, source identities/inventory digests, mapping digest, store ID, and core contract. Neither hello nor a normal bridge method exposes the nonce.
+- Before retiring legacy paths, produce a complete stable legacy-locator-to-entity mapping for every Farm-relevant Workspace, Project, control, and media source. If inventory declares Farm required, Farm migration consumes only the maintenance bridge mapping and must write its canonical ready record before the first core freeze/verification; that first verification binds it for later cutover. With no Farm candidates, no ready record is required and the frozen consumer slot stays null.
+- When Farm is required, it receives mapping authority only through an external mode-0600 consumer maintenance grant bound to the exact migration Run, lock nonce, source identities/inventory digests, mapping digest, store ID, and core contract. Neither hello nor a normal bridge method exposes the nonce; no-candidate migrations issue no grant.
 - For the live library require `COPYFILE_FICLONE_FORCE`. Unsupported clone, `EXDEV`, or any clone failure stops with the source untouched and performs no ordinary-copy/delete fallback. Copy mode is a separately selected mode only when space already covers all remaining logical bytes, derived bytes/DB overhead, and `max(2 GiB, 10%)` reserve.
 - Malformed JSONL creates an issue plus a raw diagnostic Object containing the exact bytes, byte offset, length, and hash; valid sibling lines remain importable. Preserve CRLF, missing final newline, and invalid UTF-8 evidence.
 - Import every ambiguous revision candidate but do not choose a head without manifest/index evidence.
@@ -32,12 +32,26 @@
 - Recovery is never deleted automatically.
 - Keep all repository edits and commit messages English-only.
 
+## Cross-Plan Release Checkpoint
+
+Execution order is fixed. First complete the core domain and entity CLI/bridge
+plans plus this plan's Tasks 1-8 in the core repository. Publish that exact
+commit as the stable `@alecs5am/ralphy` npm package/CLI, including its exported
+Farm identity golden, and record the package version, integrity, and commit.
+Only then execute Farm Tasks 0-8 against that installed published release;
+Farm must reject prerelease, local, sibling-checkout, workspace/link, or file-
+path substitutes, with no compatibility bypass. Jointly run this plan's Task 9
+with Farm Task 9 Steps 1-2 for rehearsal, then this plan's Task 10 with Farm
+Task 9 Steps 3-5 for the live freeze/cutover/install lifecycle. No Farm ready
+record, principal binding, or namespace installation may skip this order.
+
 ---
 
 ### Task 1: Add migration schema, types, errors, and the complete legacy fixture
 
 **Files:**
 - Modify: `cli/lib/store/schema.ts`
+- Modify: `cli/lib/store/media.ts`
 - Modify: `cli/lib/jobs/db.ts`
 - Create: `cli/lib/migration/types.ts`
 - Modify: `cli/lib/errors/catalog.ts`
@@ -45,6 +59,7 @@
 - Create: `tests/fixtures/migration/build-legacy-library.ts`
 - Test: `tests/unit/migration-schema.test.ts`
 - Modify: `tests/integration/jobs-db.test.ts`
+- Modify: `tests/integration/domain-query-surfaces.test.ts`
 
 **Interfaces:**
 - Consumes: the schema version produced by the completed core/entity plans, immutable `store_id`, and `newDomainId()`
@@ -137,6 +152,14 @@ migration_issues(
 )
 ```
 
+`migration_entries.raw_evidence_object_id` is an explicit nullable FK to
+`objects(id) ON DELETE RESTRICT`. In the same schema commit, extend core Task
+9's exhaustive `OBJECT_REFERENCE_SOURCES` registry and Object-media
+`referenceCount` query with that column. The `PRAGMA foreign_key_list`
+introspection test must again prove every direct Object FK—including existing
+artifact revision, Composition file, RunObject, job artifact, storage-transfer
+entry, and this migration evidence reference—is represented exactly once.
+
 Constrain phases to `audited|inventory|import|objects|relations|verify|ready|cutover|rolled-back|failed`, entry states to `inventoried|imported|staged|verified|excluded|issue`, issue severity to `info|review|block`, and dispositions to:
 
 | Disposition | Allowed terminal state | Meaning |
@@ -223,7 +246,7 @@ Return exact expected entry/file/byte counts and hashes from the builder; tests 
 Run: `bun test tests/unit/migration-schema.test.ts tests/unit/errors-catalog.test.ts`
 
 ```bash
-git add cli/lib/store/schema.ts cli/lib/jobs/db.ts cli/lib/migration/types.ts cli/lib/errors/catalog.ts tests/unit/errors-catalog.test.ts tests/fixtures/migration/build-legacy-library.ts tests/unit/migration-schema.test.ts tests/integration/jobs-db.test.ts
+git add cli/lib/store/schema.ts cli/lib/store/media.ts cli/lib/jobs/db.ts cli/lib/migration/types.ts cli/lib/errors/catalog.ts tests/unit/errors-catalog.test.ts tests/fixtures/migration/build-legacy-library.ts tests/unit/migration-schema.test.ts tests/integration/jobs-db.test.ts tests/integration/domain-query-surfaces.test.ts
 git commit -m "feat(migrate): add migration journal schema"
 ```
 
@@ -534,12 +557,22 @@ identifiers, URLs, schedule timestamps, and analytics snapshots. A text-only
 post/thread with `media: []` becomes a valid Unit revision with at least one
 Document item; it is never dropped or forced to invent media. Directories with
 the same manifest slug and a proven `.vN` suffix become immutable revisions of
-one Unit; latest and selected pointers are derived separately from explicit
-manifest/index evidence and otherwise remain unset/reviewable. An intentional
+one Unit. After all canonical revisions are imported, latest always points to
+the greatest canonical revision number; selected is independent and is set
+only from explicit manifest/index evidence, otherwise it remains null and
+reviewable. An intentional
 semantic slug such as `foo-v2` remains a separate Unit unless same-slug manifest
 evidence proves otherwise. Preserve up to 40 or more ordered items and repeated
 Artifact/Document targets at distinct positions; deduplication reuses Object
 bytes, never deletes an item occurrence. Article/text body is a Document item.
+
+Canonicalize every Presentation platform to lowercase kebab (`reels` ->
+`instagram`, `shorts` -> `youtube`) and derive Publication target only from
+that stored Presentation. Create Unit identities once—even when source evidence
+leaves them revisionless/unselected—and never rekey, repurpose, or delete an
+empty identity on resume. Likewise, map each social account once by immutable
+Workspace/platform/external ID; later display/config/credential facts cannot
+change that identity.
 
 Map raw caption states `humanized` and `auto_draft_archived` to the canonical
 Presentation caption-state vocabulary while retaining exact raw evidence.
@@ -573,17 +606,24 @@ Each imported Publication target receives its own dedicated historical Run;
 reconstruct a terminal RunAttempt only when source evidence proves provider
 execution, and never leave a migrated attempt running. Pre-account failures
 have a terminal failed Run without a fabricated provider RunAttempt; every
-dedicated Run records its Publication result atomically.
+dedicated Run records its Publication result before terminalizing. Import only
+the core Task 7 canonical normal/preflight Publication shapes: normalize and
+validate HTTPS URLs through parsed protocol, non-empty hostname, username,
+password, and fragment fields. Preserve `@` in valid paths such as TikTok's
+`/@creator/...`, reject parsed authority userinfo and empty-host URLs, enforce
+scheduled/submitted/published timeline constraints, and quarantine
+contradictory provider IDs, URLs, or timestamps rather than weakening triggers.
 Malformed publish/analytics JSONL rows remain quarantined/reported raw evidence
 while valid siblings import.
 
 Import Metric source plus as-of/window evidence and nullable `ctr`,
 `retentionCurve`, `avgViewDurationSec`, `note`, and raw unknown fields without
 turning missing values into zero. When legacy rows are cumulative, default
-verification chooses the newest snapshot per Publication across all sources;
-an explicit source filter chooses the newest per Publication within that
-source. It never sums historical snapshots or multiple sources for one
-Publication. Never copy Unit media into a new bucket key when hash/scope proves
+verification filters first and chooses one snapshot per Publication by
+`(as_of DESC, created_at DESC, id DESC)` across all sources; an explicit source
+filter restricts candidates before applying that same order. It never sums
+historical snapshots or multiple sources for one Publication. Never copy Unit
+media into a new bucket key when hash/scope proves
 an existing Object.
 
 - [ ] **Step 4: Mark exact ledger targets**
@@ -641,11 +681,14 @@ grant path/content never enters SQLite, activity, ordinary hello, or reports.
 Run: `bun test tests/unit/migration-production.test.ts`
 
 Expected: PASS for text-only Document Units, 40-item/repeated-target order,
-same-slug `.vN` revisions versus intentional `foo-v2`, independent latest and
-selected pointers, immutable caption history, every ledger/manifest merge
+same-slug `.vN` revisions versus intentional `foo-v2`, latest fixed to the
+greatest canonical revision and evidence-only selected pointers, immutable
+caption history, every ledger/manifest merge
 case, deterministic retry keys, idempotent-skip Activity, effective
 presentation/options binding, provider/account/Medium rules, `revisedFrom`
-resolution, nullable/raw Metrics with both aggregation modes, and malformed
+resolution, canonical platform/URL/timeline and immutable account/empty-Unit
+identity, result-before-terminal Run ordering, nullable/raw Metrics with both aggregation modes plus equal-
+timestamp `created_at`/ID tie breaks, and malformed
 JSONL quarantine with valid siblings preserved.
 
 ```bash
@@ -738,8 +781,8 @@ git commit -m "feat(migrate): import desktop reviews and secrets"
 - Modify: `tests/integration/domain-verify.test.ts`
 
 **Interfaces:**
-- Consumes: source inventory, staged DB/buckets, `verifyDomainStore`, secret dispositions, and full source fingerprints
-- Produces: one-shot `freezeMigration(ctx: MigrationContext): Promise<FrozenMigration>` and read-only `verifyMigration(input: { storeRoot: string; runId: string; verificationDir: string }): Promise<MigrationVerification>` plus a mode-0600 record outside all renamed roots
+- Consumes: source inventory, staged DB/buckets, `verifyDomainStore`, secret dispositions, full source fingerprints, the installed `@alecs5am/ralphy/contracts/farm-identity-v1.golden.json` package export, and a canonical Farm ready record on the first freeze iff inventory declares Farm required
+- Produces: one-shot `freezeMigration(ctx: MigrationContext, input: FreezeMigrationInput): Promise<FrozenMigration>` and read-only `verifyMigration(input: { storeRoot: string; runId: string; verificationDir: string }): Promise<MigrationVerification>` plus mode-0600 freeze/verification records outside all renamed roots
 
 ```ts
 export type FrozenFileFingerprint = {
@@ -748,12 +791,38 @@ export type FrozenFileFingerprint = {
   mtimeMs: number;
   sha256: string | null;
 };
+export type FreezeMigrationInput =
+  | { farmRequired: false; farmReadyPath?: never }
+  | { farmRequired: true; farmReadyPath: string };
+export type FarmIdentityV1 = {
+  version: 1;
+  namespace: "farm";
+  storeId: string;
+  consumerId: string;
+  migrationId: string;
+  stageDigest: string;
+  credentialDigest: string;
+};
+export type BoundFarmConsumerReady = {
+  namespace: "farm";
+  migrationId: string;
+  coreMigrationRunId: string;
+  storeId: string;
+  consumerId: string;
+  maintenanceGrantDigest: string;
+  sourceInventoryDigest: string;
+  mappingDigest: string;
+  stageDigest: string;
+  readyRecordDigest: string;
+  identityDigest: string;
+};
 export type FrozenMigration = {
   runId: string;
   frozenAt: number;
   database: FrozenFileFingerprint;
   wal: FrozenFileFingerprint;
   shm: FrozenFileFingerprint;
+  consumers: { farm: BoundFarmConsumerReady | null };
 };
 export type MigrationVerification = {
   id: string;
@@ -770,6 +839,7 @@ export type MigrationVerification = {
   coreVersion: string;
   schemaVersion: number;
   contractVersion: number;
+  consumers: { farm: BoundFarmConsumerReady | null };
 };
 
 export type ConsumerReadyRecord = {
@@ -777,10 +847,12 @@ export type ConsumerReadyRecord = {
   migrationId: string;
   coreMigrationRunId: string;
   storeId: string;
+  consumerId: string;
   maintenanceGrantDigest: string;
   sourceInventoryDigest: string;
   mappingDigest: string;
   stageDigest: string;
+  identityDigest: string;
   createdAt: number;
 };
 ```
@@ -789,8 +861,24 @@ Farm writes the canonical, mode-0600 `ConsumerReadyRecord` outside every
 renamed root after transforming and verifying its staged namespace. Core treats
 it as an opaque digest-bound cutover prerequisite: validate the namespace,
 exact core Run/store identities, mapping/source digests, mode, and canonical
-record digest plus the exact maintenance-grant digest, but never open the Farm
-stage or interpret Farm files.
+record digest plus the exact maintenance-grant digest, immutable `consumerId`,
+and `identityDigest`, but never open the Farm stage or interpret Farm files.
+The identity digest commits to the exact canonical UTF-8 `FarmIdentityV1`
+bytes: displayed key order, no insignificant whitespace or trailing newline,
+store/consumer/migration IDs matching
+`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`, lowercase 64-hex
+digests, and `credentialDigest = sha256(decoded auth.token bytes)` in lowercase
+hex. `auth.token` itself is exactly 43 ASCII bytes of canonical unpadded
+base64url for 32 random bytes, without a newline. The `consumerId` is generated
+once during Farm staging and cannot change through ready/freeze/install/
+recovery.
+
+Core's fixed published golden vector tests only the language-neutral
+`FarmIdentityV1` serializer/parser and declared digest algorithm. Runtime
+migration values are never compared to its static sample IDs/token. Instead,
+Farm recomputes the actual `ConsumerReadyRecord` from that migration's staged
+identity bytes and decoded token bytes, and core binds those supplied digests when Farm is
+required.
 
 - [ ] **Step 1: Write failing coverage and corruption tests**
 
@@ -810,12 +898,16 @@ Require:
 - valid Composition revision -> Build -> output and Unit revision -> item -> Artifact revision chains;
 - source-derived Unit accounting reconciles every manifest/directory exactly,
   including text-only, same-slug `.vN`, intentional `-v2`, 40-item/repeated-
-  target, caption-history, latest, and selected cases;
+  target, and caption-history cases; every non-empty Unit's latest pointer is
+  its greatest canonical revision while selected is nullable and only backed
+  by explicit source evidence;
 - source-derived publication accounting reconciles every manifest/ledger row,
   merge disposition, idempotent-skip Activity, effective presentation/options,
   provider/account rule, and `revisedFrom` edge without silent collapse;
 - source-derived Metric accounting preserves source/as-of/window, nullable
-  normalized fields, raw extensions, and default versus explicit-source totals;
+  normalized fields, raw extensions, and default versus explicit-source totals
+  whose per-Publication winner is exactly `(as_of DESC, created_at DESC, id
+  DESC)` after filtering;
 - no data URL, secret, or unresolved absolute path in SQLite;
 - no plaintext secret materialization remains under staged tmp;
 - every Desktop review and credential source resolved to imported encrypted state or an explicit recovery-only disposition;
@@ -823,7 +915,13 @@ Require:
 - source/clone/staged job, log, and artifact IDs/counts reconcile exactly;
 - every source path, including deduplicated paths, contributes its logical bytes exactly once.
 - every Farm-candidate inventory row has the canonical locator hash, an explicit consumer disposition, and complete resolvable target refs; `migration.consumer.map` pages reproduce the same sorted mapping without paths, gaps, or duplicates.
-- the external Farm maintenance grant is mode 0600, matches the active lock nonce/source identities/core contract, and its recomputed source/mapping digests equal both the ledger and the Farm ready record.
+- the external Farm maintenance grant is mode 0600, matches the active lock nonce/source identities/core contract, and its recomputed source/mapping digests equal both the ledger and the Farm ready record;
+- when Farm is required, the ready record is canonical/mode 0600 and its
+  immutable consumer/identity/credential facts match that migration's staged
+  canonical identity and decoded-token bytes; independently, the parser/serializer matches core's
+  fixed published golden vector. Core hello remains `consumers.farm === null`
+  throughout this pre-cutover handoff. With no Farm candidates, no grant/ready
+  record/principal exists and the same null hello is valid.
 
 Extend the domain verifier's Object-reference query for schema v3 so
 `migration_entries.raw_evidence_object_id` and non-terminal staged transfer
@@ -832,13 +930,34 @@ The base-schema test still runs without migration tables.
 
 - [ ] **Step 3: Freeze once, then verify without mutating the stage**
 
-`freezeMigration` is the last staged writer. It validates import completion,
-transitions the Run to `ready` with `frozen_at` exactly once, checkpoints WAL,
+Derive Farm-required from the immutable inventory; never trust the input
+discriminator by itself. If candidates exist, the first
+`migrate verify --consumer-ready farm:<path>` must supply
+`{ farmRequired: true, farmReadyPath }`, validates the exact mode-0600 canonical
+ready record/grant while `consumers.farm === null`, and passes the bound facts
+to `freezeMigration`. If no candidates exist, the first `migrate verify` must
+supply `{ farmRequired: false }`, rejects any ready path, creates no consumer
+principal, and freezes `consumers.farm: null`. Either discriminator that
+disagrees with inventory rejects before mutation; no identity/token
+authentication is involved.
+
+`freezeMigration` is the last staged writer and the sole production owner of
+consumer eligibility. It validates import completion and, only in the required
+branch, derives Farm-required from immutable migration inventory, validates the
+ready record against the Run/store/source/mapping/stage/consumer/identity facts,
+and invokes Task 9's low-level
+`bindConsumerPrincipal(ctx.db, { id: consumerId, namespace: "farm",
+identityDigest })` in this same final transaction. That primitive performs only
+exact insertion/replay and does not re-decide inventory or inspect files. A
+no-candidate branch never calls it. `freezeMigration` then transitions the Run to `ready`
+with `frozen_at` exactly once, checkpoints WAL,
 requires `PRAGMA wal_checkpoint(TRUNCATE)` to report no busy/uncheckpointed
 frames, and closes every staged connection. It then computes the closed DB/WAL/SHM
-fingerprint and writes it only to an external mode-0600 freeze record. A second
-freeze is idempotent only when that record and current closed fingerprint match
-exactly; it never rewrites timestamps/rows.
+fingerprint and writes it only to an external mode-0600 freeze record together
+with either the complete `BoundFarmConsumerReady` or exact null. The ready-
+record path is not stored. A later command never calls the mutating freeze path;
+it reads and checks the existing freeze record, and rejects any
+`--consumer-ready` argument.
 
 `verifyMigration` opens the frozen database read-only/query-only, performs no
 checkpoint or activity/write, and hashes the closed database plus sorted
@@ -851,8 +970,12 @@ schema versions, and verification ID computed from the canonical record digest.
 Compute the ID with the `id` field omitted to avoid a circular envelope. Never store the token inside the database
 it authenticates. Cutover recomputes every digest before the first rename; any
 stage mutation invalidates readiness and requires rebuilding a new Run, not a
-write during verify. Two consecutive verifications have identical DB/content/
-inventory digests while their external IDs/timestamps differ.
+write during verify. Every verification copies and revalidates the frozen
+consumer facts; it never accepts a consumer path. Two consecutive
+verifications have identical DB/content/inventory/consumer digests while their
+external IDs/timestamps differ. Tests include equal-`as_of` Metric rows whose
+winner is decided by `created_at`, then ID, and a Unit where latest is the
+greatest canonical revision while selected points to an older evidenced one.
 
 - [ ] **Step 4: Verify and commit migration validation**
 
@@ -890,13 +1013,18 @@ ralphy migrate run --source <fixture>/.ralphy --legacy-source <fixture>/workspac
 ralphy migrate status <run-id> --source <fixture>/.ralphy
 ralphy migrate resume <run-id> --source <fixture>/.ralphy
 ralphy migrate consumer-grant <run-id> --namespace farm --source <fixture>/.ralphy
+ralphy migrate verify <run-id> --consumer-ready farm:<consumer-ready-record> --source <fixture>/.ralphy
 ralphy migrate verify <run-id> --source <fixture>/.ralphy
-ralphy migrate cutover <run-id> --verification <verification-id> --consumer-ready farm:<consumer-ready-record> --confirm <run-id> --source <fixture>/.ralphy
+ralphy migrate cutover <run-id> --verification <verification-id> --confirm <run-id> --source <fixture>/.ralphy
 ralphy migrate recover <run-id> --confirm <run-id> --source <fixture>/.ralphy
 ralphy migrate rollback <run-id> --confirm <run-id> --source <fixture>/.ralphy
 ```
 
-Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, stale verification or missing/stale/mismatched Farm readiness refuses cutover, successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Exercise a table-driven crash matrix before/after each temp write, file fsync, journal rename, parent fsync, source rename, recovery mode change, install rename, restore rename, and installed smoke check; `recover` deterministically finishes installation or restores recovery without overwriting either generation. Also exercise crashes before and after Farm's separate namespace install: core recovery preserves the consumer record/stage, startup remains `consumer-pending`, and retrying the Farm install makes the exact identity handshake ready without replacing either generation.
+Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, missing/stale/mismatched Farm readiness refuses the first freeze, a later verify rejects any replacement ready path, and cutover rejects a stale verification or one without the frozen consumer digest. Successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Exercise a table-driven crash matrix before/after each temp write, file fsync, journal rename, parent fsync, source rename, recovery mode change, install rename, restore rename, and installed smoke check; `recover` deterministically finishes installation or restores recovery without overwriting either generation. Also exercise crashes before and after Farm's separate namespace install: core recovery preserves the consumer record/stage, startup remains `consumer-pending`, and retrying the Farm install makes the exact identity handshake ready without replacing either generation.
+Add a no-Farm-candidate fixture: its first verify succeeds without
+`--consumer-ready`, rejects that flag/discriminator if supplied, freezes and
+verifies `consumers.farm: null`, cuts over by verification only, and continues
+to report null rather than pending.
 
 `consumer-grant` is available only after complete Farm mapping and while the
 matching maintenance lock is live. It returns only `{ namespace, path,
@@ -904,6 +1032,9 @@ grantDigest }` through the maintenance CLI; its file contains the exact
 `MigrationConsumerGrant`, is mode 0600, and is byte-identical on retry. Wrong
 namespace/Run/source, stale lock PID/start identity/nonce, changed inventory or
 mapping digest, and post-cutover calls reject.
+Before freeze, maintenance mapping requires `consumers.farm === null` plus this
+exact grant; it never requires Farm identity/token authentication. `pending` is
+not a staging state and is invalid for `migration.consumer.map`.
 
 - [ ] **Step 2: Implement phase checkpoints and staged-root binding**
 
@@ -918,15 +1049,21 @@ CLI/Desktop startup checks the external journal before opening SQLite and
 refuses interrupted states.
 
 The Run records Farm as a required consumer once legacy Farm candidates are
-inventoried. `cutover` therefore requires exactly one
-`--consumer-ready farm:<path>` record matching that Run's `storeId`, source inventory digest, and
-mapping digest plus maintenance-grant digest. The external core journal copies only its namespace, migration
-ID, stage digest, target store ID, and canonical record digest; it never embeds
-Farm content or exposes the record path to ordinary clients.
+inventoried. In that branch, the first `migrate verify` requires exactly one
+`--consumer-ready farm:<path>` matching that Run's store/source/mapping/grant,
+immutable consumer ID, stage digest, and canonical identity digest. It binds
+those facts into the external freeze and verification records, performs the
+one-shot freeze, then verifies read-only. With no candidates, the first verify
+requires no flag and binds exact null instead. Later verify calls detect the
+freeze record, use only its bound facts/null, remain strictly read-only, and
+reject a consumer-ready argument. No separate hidden freeze command exists.
 
-The first `migrate verify` call performs the one-shot freeze and then read-only
-verification; later verify calls detect the external freeze record and remain
-strictly read-only. No separate hidden freeze command exists.
+`cutover` accepts only `--verification`; it has no consumer-ready option and
+never reopens a ready-record path. The external core journal copies the exact
+consumer value from that verification. A non-null value includes namespace,
+migration/consumer IDs, stage/ready-record/identity digests, target store ID,
+and grant/source/mapping digests; the other valid value is literal null. It
+never embeds Farm content or exposes a record path to ordinary clients.
 
 - [ ] **Step 3: Implement journaled two-rename cutover and recovery**
 
@@ -938,7 +1075,8 @@ mutating source/stage/recovery/rollback paths plus device/inode/mode identities,
 and kind/path-hash/device/inode/mode identities for every non-mutating source; immutable
 `storeId`, schema/contract/core versions, database digest, sorted content
 digest, every source inventory digest, verification ID, Run ID, nonce, and
-transition counter, plus the validated required-consumer readiness facts. A
+transition counter, plus the required-consumer facts copied only from the
+validated verification record. A
 fingerprint or version mismatch is never auto-repaired.
 
 After closing/checkpointing staged SQLite:
@@ -951,17 +1089,28 @@ After closing/checkpointing staged SQLite:
 6. open the installed DB read-only, require its database/content/store/schema fingerprints to equal the verification record, and run integrity/foreign-key/domain smoke checks; persist `installed` and retain recovery before any database write. Normal startup then idempotently reconciles that installed journal into `migration_runs.cutover_at` plus one cutover activity keyed by Run/journal nonce; a crash before reconciliation simply retries it and cannot make installation ambiguous.
 
 The core rename never moves, creates, or deletes the prepared Farm namespace.
-After core installation, startup and `system.hello` expose the required `farm`
-consumer as the exact safe DTO `{ namespace: "farm", state: "pending",
+When the verification binds a required Farm consumer, after core installation
+startup and `system.hello` expose it as the exact safe DTO
+`{ namespace: "farm", state: "pending",
 coreMigrationRunId, migrationId, stageDigest, readyRecordDigest,
 identityDigest: null }` and allow only read-only inspection plus migration/
 recovery operations until the exact bounded `.ralphy/farm/identity.json`
-matches the journaled `storeId`, Farm migration ID, and stage digest. Farm owns
+matches the journaled `storeId`, immutable consumer/Farm migration IDs, stage
+digest, and identity digest. Runtime validation uses the core Task 9 loader:
+from the resolved data root it `lstat`s/realpaths the real owner-owned Farm
+directory, rejects parent escape/replacement, opens identity with
+`O_NOFOLLOW`, requires owner-owned regular mode 0600 and `1..4096` bytes by
+`fstat`, performs a bounded read, then rechecks file and parent
+device/inode/owner/mode/size. Authentication accepts only the exact unpadded
+base64url JSON token, decodes 32 bytes, hashes decoded bytes, and uses
+`timingSafeEqual`; runtime never golden-compares. Farm owns
 the atomic staged-directory rename and parent fsync. Once the identity matches,
 startup reports the same DTO with `state: "ready"` and the canonical
-`identityDigest`; core recovery only preserves and points
-to the Farm ready record/journal and never traverses, repairs, merges, or removes
-Farm state.
+`identityDigest`; core recovery only preserves the verification-bound Farm
+facts and leaves the external Farm stage/journal untouched. It never traverses,
+repairs, merges, or removes Farm state.
+If the verified consumer fact is null, startup keeps `consumers.farm: null`
+after cutover and schedules no Farm install.
 
 Before `installed`, `recover` identifies actual roots by recorded device/inode/
 store ID plus the frozen digest rather than filename and handles every crash
@@ -987,7 +1136,13 @@ journal entries to ignores. Regenerate command docs and pretty shapes.
 Expose `queue resume <id> --migration-run <run-id>` as the explicit adapter over
 `resumeHeldJob`; it requires the matching hold and never resumes multiple jobs.
 `queue retry` and bulk retry leave held jobs unchanged; `queue cancel` may
-terminalize one. Cover all three command paths before regenerating docs.
+terminalize one. Independently, generic single/bulk retry rejects the whole
+request before mutation if any targeted Job's linked Run has
+`external_system IS NOT NULL`; a consumer retry must create the next external
+attempt with a new tuple/idempotency key and a freshly core-computed immutable
+request digest, under the same authenticated consumer principal. Cover held Jobs plus external
+generation, Build, Publication, and Metric-refresh Jobs before regenerating
+docs.
 
 - [ ] **Step 5: Verify and commit orchestration**
 
@@ -1040,7 +1195,9 @@ baseline, never a hard-coded silent waiver. Freeze once, run two
 read-only verifications, and prove DB/WAL/SHM bytes and metadata are unchanged.
 Before that freeze, run the released Farm migrator against the staged bridge
 mapping until its separate stage is verified and emits a matching
-`ConsumerReadyRecord`; pass that exact record to rehearsal cutover.
+`ConsumerReadyRecord`; pass that exact record to the first rehearsal
+`migrate verify --consumer-ready farm:<path>`. Run the second verification
+without a consumer path and cut over using only its verification ID.
 
 - [ ] **Step 4: Exercise rehearsal cutover and rollback**
 
@@ -1049,13 +1206,30 @@ the exact staged Farm namespace, then launch core CLI, Farm, Studio, and
 packaged Desktop against it. Inspect Denti.AI plus one
 carousel/sticker/article project, exercise Farm recovery across an interrupted
 namespace install, then test coordinated rollback. For delivery smoke checks,
-switch latest and selected Unit revisions independently; preview inherited and
-explicit presentation subsets; inspect a text-only Unit, repeated-item pack,
+prove migrated Unit latest is the greatest canonical revision and switch only
+its evidence-independent selected pointer; preview inherited and explicit
+presentation subsets; inspect a text-only Unit, repeated-item pack,
 caption history, failed/success and partial-target Publication attempts, a
-revised Publication, an accountless article rail, Medium approval export with
-no Publication, and default versus explicit-source Metric totals. Replay one
-migrated operation and prove deterministic IDs. Record elapsed time and maximum
+revised Publication, fenced scheduled/submitted lookup and cancellation with
+distinct RunAttempt/Run/results and no resubmit, an accountless article rail, Medium approval export with no
+Publication, and default versus explicit-source Metric totals including equal-
+time tie breaks. Replay one migrated operation after reconnecting into a new
+Session for the same consumer principal; require the immutable request digest,
+original Run, and every `(position,id)` result page, while an ordinary/foreign
+principal rejects and a changed semantic request conflicts. Record elapsed time and maximum
 additional disk use.
+Include a successful lookup whose Publication result is `failed` while the
+lookup Run succeeds, a provider-operation timeout whose follow-up Run fails,
+optimistic draft cancel with no external replay identity, and expired status/
+cancellation/reconciliation recovery at the exact SQL lease boundary. Require
+status retention versus uncertain cancellation/reconciliation, one epoch bump,
+result-before-terminal ordering, zero token exposure, and global rejection of
+every submission Run as a follow-up. Also verify canonical Presentation-derived
+platform, insert/HTTPS URL/timeline constraints, immutable social-account and
+empty Unit identities. Recursively
+assert rehearsal CLI/bridge output contains no Activity payload, RunObject
+path/metadata/error, Object bucket/key/hash/original-name/metadata, Document
+body outside `document.content`, or untrusted locator.
 
 - [ ] **Step 5: Commit the redacted rehearsal evidence**
 
@@ -1083,10 +1257,13 @@ Stop all writers, acquire the maintenance lock, re-audit current counts/jobs/Des
 - [ ] **Step 2: Migrate and verify the live library without cutover**
 
 Run audit, staged migration, resume as needed, one-shot Desktop secret handoff,
-prepare and verify the released Farm migration stage, freeze, and read-only verification. Require 100% core and Farm coverage and two consecutive
+prepare and verify the released Farm migration stage, emit its canonical ready
+record, pass it to the first core verify/freeze, then run a second read-only
+verify without a consumer path. Require 100% core and Farm coverage and two consecutive
 reports with identical database/content/inventory digests plus unchanged DB/
 WAL/SHM bytes/metadata before requesting cutover. Confirm all migrated pending
-jobs remain held and pass the exact Farm `ConsumerReadyRecord` to core cutover.
+jobs remain held. Core cutover receives only the second verification ID; the
+bound Farm facts come from that verification.
 
 - [ ] **Step 3: Cut over and perform representative smoke checks**
 
@@ -1096,10 +1273,15 @@ handshake before restarting any writer. Then exercise CLI reads/writes, pinned
 Farm/Studio, and packaged Desktop for Denti.AI Composition/Build switching,
 feedback rounds, a multi-item carousel/sticker Unit, three-platform preview,
 publications/metrics, Documents, working diagnostics, and both activity feeds.
-Confirm latest/selected Unit switching, effective caption/options, one text-only
+Confirm Unit latest equals the greatest canonical revision while selected can
+point to an older evidenced revision, effective caption/options, one text-only
 Unit, repeated items, publication reconciliation/lineage/accountless rails,
-Medium export without a Publication, and default versus source-filtered Metric
+status lookup/cancellation with distinct RunAttempt/Run/results and no
+resubmission, Medium export without a
+Publication, and default versus source-filtered Metric
 totals against the rehearsal evidence before declaring live cutover complete.
+Confirm follow-up Run outcomes describe operation execution independently of
+Publication state, and draft cancel remains local/read-after-loss only.
 
 - [ ] **Step 4: Remove migration-era normal fallbacks**
 
