@@ -15,6 +15,7 @@
 // AGENTS invariant #1 (no raw OR / OpenAI calls).
 
 import { callLLM } from "../providers/llm.js";
+import { connectorsFor } from "../providers/registry.js";
 
 export type Candidate = {
   slug: string;
@@ -273,6 +274,16 @@ export async function suggestTemplates(
     return {
       utterance,
       source: "keyword",
+      results: keywordResults.slice(0, limit),
+    };
+  }
+
+  // The provider resolver exits the process when no text connector is
+  // configured, so keep the optional default rerank on the fallback path.
+  if (!opts.llmFn && !connectorsFor("text").some((connector) => connector.available())) {
+    return {
+      utterance,
+      source: "keyword-fallback",
       results: keywordResults.slice(0, limit),
     };
   }

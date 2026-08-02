@@ -1343,7 +1343,7 @@ Layout:
 
 Append-only: re-noting an existing slug writes <slug>.v2.md (then v3...) and the
 index points at the newest version; pass --force-overwrite for in-place replace.
-Current dirs: /Users/maximovchinnikov/github/ralphy/ralphy/.ralphy/memory
+Current dirs: /Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/.ralphy/memory
 ```
 
 ### `ralphy lessons`

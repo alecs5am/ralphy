@@ -104,9 +104,30 @@ export function renderFrontmatter(article: UnitArticleMeta, canonicalUrl: string
   return lines.join("\n");
 }
 
+// `git rev-parse --local-env-vars`: these bind Git to the invoking repository.
+const LOCAL_GIT_ENV_VARS = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CONFIG",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_CONFIG_COUNT",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_GRAFT_FILE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_PREFIX",
+  "GIT_SHALLOW_FILE",
+  "GIT_COMMON_DIR",
+] as const;
+
 /** Run git in `repoDir`, throwing a TerminalProviderError on non-zero exit. */
 function git(repoDir: string, args: string[]): string {
-  const r = spawnSync("git", args, { cwd: repoDir, encoding: "utf8" });
+  const env = { ...process.env };
+  for (const key of LOCAL_GIT_ENV_VARS) delete env[key];
+  const r = spawnSync("git", args, { cwd: repoDir, encoding: "utf8", env });
   if (r.status !== 0) {
     throw new TerminalProviderError(`git ${args[0]} failed: ${(r.stderr || r.stdout || "").trim().slice(0, 300)}`);
   }
