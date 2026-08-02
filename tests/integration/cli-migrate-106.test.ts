@@ -126,6 +126,22 @@ describe("migration in-flight job detection", () => {
     });
   });
 
+  test("finds legacy work when the live pid and empty new queue are elsewhere", async () => {
+    write(".ralphy/daemon.pid", String(process.pid));
+    writeQueueDb(".ralphy", "ralphy.db", []);
+    writeQueueDb("workspace/.ralph", "jobs.db", [
+      "pending",
+      "running",
+      "completed",
+    ]);
+
+    expect(await detectInFlightJobs(tmpRoot)).toEqual({
+      pid: process.pid,
+      running: 1,
+      pending: 1,
+    });
+  });
+
   test("ignores missing, unreadable, and stale queue state without writes", async () => {
     const missingRoot = path.join(tmpRoot, "missing");
     fs.mkdirSync(path.join(missingRoot, ".ralphy"), { recursive: true });

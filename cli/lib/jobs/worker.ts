@@ -28,9 +28,12 @@ type SpendGate = (
 type Execution = {
   job: JobRow;
   child: ChildProcess | null;
+  processGroupId: number | null;
+  childClosed: boolean;
+  closeCode: number | null;
+  closeSignal: NodeJS.Signals | null;
   fileStream: fs.WriteStream | null;
   startedAt: number | null;
-  signaled: boolean;
   cancelRequested: boolean;
   done: boolean;
   killTimer: ReturnType<typeof setTimeout> | null;
@@ -82,6 +85,37 @@ export function createJobExecutor(
     execution.complete();
   };
 
+  const completeCancellationIfExited = (execution: Execution): void => {
+    if (
+      execution.done ||
+      !execution.cancelRequested ||
+      !execution.childClosed ||
+      executionTreeExists(execution)
+    ) {
+      return;
+    }
+    const signal = execution.closeSignal;
+    appendLog(
+      execution.job.id,
+      "system",
+      `[cancelled] ${signal ?? "requested"}`,
+    );
+    log(
+      `job ${execution.job.id} cancelled (${signal ?? "requested"})`,
+    );
+    complete(execution, "cancelled", {
+      exitCode: execution.closeCode,
+      errorMessage: signal ? `killed by ${signal}` : "cancelled",
+    });
+  };
+
+  const waitForProcessTreeExit = async (execution: Execution): Promise<void> => {
+    while (!execution.done && executionTreeExists(execution)) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+    }
+    completeCancellationIfExited(execution);
+  };
+
   const requestCancellation = (
     execution: Execution,
     source: "external" | "stop",
@@ -97,8 +131,7 @@ export function createJobExecutor(
       return;
     }
     try {
-      execution.child.kill("SIGTERM");
-      execution.signaled = true;
+      signalExecutionTree(execution, "SIGTERM");
       appendLog(
         execution.job.id,
         "system",
@@ -113,12 +146,13 @@ export function createJobExecutor(
     execution.killTimer = setTimeout(() => {
       if (execution.done || !execution.child) return;
       try {
-        execution.child.kill("SIGKILL");
+        signalExecutionTree(execution, "SIGKILL");
         appendLog(execution.job.id, "system", "[cancel] SIGKILL");
         log(`job ${execution.job.id} cancellation grace expired -> SIGKILL`);
       } catch {
         // The close/error event will settle an already-exited child.
       }
+      void waitForProcessTreeExit(execution);
     }, terminationGraceMs);
   };
 
@@ -134,6 +168,7 @@ export function createJobExecutor(
       child = spawn(program, args, {
         cwd: job.command.cwd ?? opts.cwd,
         env: { ...process.env, ...(job.command.env ?? {}) },
+        detached: process.platform !== "win32",
         stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (error) {
@@ -145,6 +180,8 @@ export function createJobExecutor(
     }
 
     execution.child = child;
+    execution.processGroupId =
+      process.platform === "win32" ? null : (child.pid ?? null);
     execution.startedAt = Date.now();
     dispatchedAt[job.kind] = execution.startedAt;
     appendLog(job.id, "system", `[spawn] ${program} ${args.join(" ")}`);
@@ -162,7 +199,9 @@ export function createJobExecutor(
     });
     child.once("close", (code, signal) => {
       if (execution.done) return;
-      const exitCode = code ?? null;
+      execution.childClosed = true;
+      execution.closeCode = code ?? null;
+      execution.closeSignal = signal;
       const fresh = getJob(job.id);
       if (
         execution.cancelRequested ||
@@ -171,19 +210,16 @@ export function createJobExecutor(
         signal === "SIGTERM" ||
         signal === "SIGKILL"
       ) {
-        const reason = signal ? `killed by ${signal}` : "cancelled";
-        appendLog(job.id, "system", `[cancelled] ${signal ?? "requested"}`);
-        log(`job ${job.id} cancelled (${signal ?? "requested"})`);
-        complete(execution, "cancelled", {
-          exitCode,
-          errorMessage: reason,
-        });
+        if (!execution.cancelRequested) {
+          requestCancellation(execution, stopping ? "stop" : "external");
+        }
+        completeCancellationIfExited(execution);
         return;
       }
-      if (exitCode === 0) {
+      if (execution.closeCode === 0) {
         appendLog(job.id, "system", "[completed] exit 0");
         log(`job ${job.id} completed`);
-        complete(execution, "completed", { exitCode });
+        complete(execution, "completed", { exitCode: execution.closeCode });
         return;
       }
       const hint = burstCapHint(execution.lastStderr);
@@ -192,10 +228,13 @@ export function createJobExecutor(
           ? `${execution.lastStderr} — ${hint}`
           : execution.lastStderr
         : null;
-      appendLog(job.id, "system", `[failed] exit ${exitCode}`);
+      appendLog(job.id, "system", `[failed] exit ${execution.closeCode}`);
       if (hint) appendLog(job.id, "system", `[hint] ${hint}`);
-      log(`job ${job.id} failed exit=${exitCode}`);
-      complete(execution, "failed", { exitCode, errorMessage });
+      log(`job ${job.id} failed exit=${execution.closeCode}`);
+      complete(execution, "failed", {
+        exitCode: execution.closeCode,
+        errorMessage,
+      });
     });
   };
 
@@ -265,9 +304,12 @@ export function createJobExecutor(
       const execution: Execution = {
         job,
         child: null,
+        processGroupId: null,
+        childClosed: false,
+        closeCode: null,
+        closeSignal: null,
         fileStream: null,
         startedAt: null,
-        signaled: false,
         cancelRequested: false,
         done: false,
         killTimer: null,
@@ -396,6 +438,33 @@ export function runWorkerLoop(opts: {
     pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
   };
   tick();
+}
+
+function signalExecutionTree(
+  execution: Execution,
+  signal: NodeJS.Signals,
+): void {
+  if (execution.processGroupId !== null) {
+    process.kill(-execution.processGroupId, signal);
+    return;
+  }
+  execution.child?.kill(signal);
+}
+
+function executionTreeExists(execution: Execution): boolean {
+  if (execution.processGroupId === null) {
+    return Boolean(
+      execution.child &&
+        execution.child.exitCode === null &&
+        execution.child.signalCode === null,
+    );
+  }
+  try {
+    process.kill(-execution.processGroupId, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
 }
 
 function commandFor(

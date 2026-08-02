@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
@@ -123,6 +123,32 @@ describe("domain database bootstrap", () => {
     expect(() => first.query("SELECT 1").get()).toThrow();
   });
 
+  test("does not reset WAL mode when opening a current database", () => {
+    makeRoot("ralphy-domain-db-writer");
+    openDomainDb();
+    closeDomainDb();
+    const exec = Database.prototype.exec;
+    const execSpy = spyOn(Database.prototype, "exec").mockImplementation(function (
+      this: Database,
+      sql: string,
+    ) {
+      if (/^PRAGMA journal_mode\s*=\s*WAL$/i.test(sql)) {
+        throw new Error("database is locked");
+      }
+      return exec.call(this, sql);
+    });
+
+    try {
+      expect(() => openDomainDb()).not.toThrow();
+      expect(openDomainDb().query("PRAGMA journal_mode").get()).toEqual({
+        journal_mode: "wal",
+      });
+    } finally {
+      closeDomainDb();
+      execSpy.mockRestore();
+    }
+  });
+
   test("runs immediate transactions atomically", () => {
     makeRoot();
     const db = openDomainDb();
@@ -183,6 +209,28 @@ describe("schema migration safety", () => {
       user_version: SCHEMA_VERSION + 1,
     });
     db.close();
+  });
+
+  test("does not take a writer lock when the schema is current", () => {
+    makeRoot("ralphy-domain-db-current");
+    const databasePath = domainDbPath();
+    const writer = new Database(databasePath, { create: true });
+    writer.exec("PRAGMA journal_mode = WAL");
+    applyMigrations(writer);
+    writer.exec("BEGIN IMMEDIATE");
+    const reader = new Database(databasePath, { create: true });
+    reader.exec("PRAGMA busy_timeout = 0");
+
+    try {
+      expect(() => applyMigrations(reader)).not.toThrow();
+      expect(reader.query("PRAGMA user_version").get()).toEqual({
+        user_version: SCHEMA_VERSION,
+      });
+    } finally {
+      reader.close();
+      writer.exec("ROLLBACK");
+      writer.close();
+    }
   });
 
   test("checkpoints and verifies a bound read-only backup before upgrading existing data", () => {

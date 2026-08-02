@@ -218,8 +218,7 @@ export async function ingestObject(
     return registered;
   });
   if (prepared.transfer === "move") {
-    await assertSourceUnchanged(prepared);
-    await fs.promises.unlink(prepared.sourceRealPath);
+    await removePreparedMoveSource(prepared);
   }
   return object;
 }
@@ -476,17 +475,53 @@ function assertNoSymlinkAncestorsSync(root: string, target: string): void {
   }
 }
 
-async function assertSourceUnchanged(prepared: PreparedObject): Promise<void> {
-  const realPath = await fs.promises.realpath(prepared.sourcePath);
-  const stat = await fs.promises.lstat(realPath);
-  if (
-    realPath !== prepared.sourceRealPath ||
-    !stat.isFile() ||
-    stat.dev !== prepared.sourceDevice ||
-    stat.ino !== prepared.sourceInode
-  ) {
-    throw new Error("Object move source changed after preparation");
+async function removePreparedMoveSource(
+  prepared: PreparedObject,
+): Promise<void> {
+  const claimDir = await fs.promises.mkdtemp(
+    path.join(path.dirname(prepared.sourceRealPath), ".ralphy-move-"),
+  );
+  const claimedPath = path.join(claimDir, path.basename(prepared.sourceRealPath));
+  let claimed = false;
+  try {
+    await fs.promises.rename(prepared.sourceRealPath, claimedPath);
+    claimed = true;
+    const stat = await fs.promises.lstat(claimedPath);
+    const facts = stat.isFile() ? await hashFile(claimedPath) : null;
+    if (
+      !facts ||
+      stat.dev !== prepared.sourceDevice ||
+      stat.ino !== prepared.sourceInode ||
+      facts.bytes !== prepared.bytes ||
+      facts.sha256 !== prepared.sha256
+    ) {
+      throw new Error("Object move source changed after preparation");
+    }
+    await fs.promises.unlink(claimedPath);
+    claimed = false;
+  } catch (error) {
+    if (claimed) await restoreClaimedSource(claimedPath, prepared.sourceRealPath);
+    throw error;
+  } finally {
+    try {
+      await fs.promises.rmdir(claimDir);
+    } catch {
+      // A preserved claim or concurrent entry keeps the private directory.
+    }
   }
+}
+
+async function restoreClaimedSource(
+  claimedPath: string,
+  sourcePath: string,
+): Promise<void> {
+  try {
+    await fs.promises.link(claimedPath, sourcePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") return;
+    throw error;
+  }
+  await fs.promises.unlink(claimedPath);
 }
 
 function checkedJson(

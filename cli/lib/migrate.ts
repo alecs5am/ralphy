@@ -86,6 +86,7 @@ export async function detectInFlightJobs(
   rootDir: string,
 ): Promise<{ pid: number; running: number; pending: number } | null> {
   const stateDirs = [path.join(rootDir, "workspace", ".ralph"), path.join(rootDir, ".ralphy")];
+  let livePid: number | null = null;
   for (const dir of stateDirs) {
     const pidFile = path.join(dir, "daemon.pid");
     if (!existsSync(pidFile)) continue;
@@ -101,14 +102,24 @@ export async function detectInFlightJobs(
     } catch {
       continue; // stale pidfile → not running
     }
-    let running = 0;
-    let pending = 0;
+    livePid = pid;
+    break;
+  }
+  if (livePid === null) return null;
+
+  let running = 0;
+  let pending = 0;
+  const seen = new Set<string>();
+  for (const dir of stateDirs) {
     for (const fileName of ["ralphy.db", "jobs.db"]) {
       const dbFile = path.join(dir, fileName);
       if (!existsSync(dbFile)) continue;
       try {
+        const canonicalFile = await fs.realpath(dbFile);
+        if (seen.has(canonicalFile)) continue;
+        seen.add(canonicalFile);
         const { Database } = await import("bun:sqlite");
-        const db = new Database(dbFile, { readonly: true });
+        const db = new Database(canonicalFile, { readonly: true });
         try {
           const row = db
             .query(
@@ -124,9 +135,8 @@ export async function detectInFlightJobs(
         /* unreadable db → count only the queue state we can prove */
       }
     }
-    if (running + pending > 0) return { pid, running, pending };
   }
-  return null;
+  return running + pending > 0 ? { pid: livePid, running, pending } : null;
 }
 
 // ─── fs primitives ───────────────────────────────────────────────────────────

@@ -18,9 +18,12 @@ export function openDomainDb(): Database {
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   const db = new Database(databasePath, { create: true });
   try {
-    db.exec("PRAGMA journal_mode = WAL");
-    db.exec("PRAGMA foreign_keys = ON");
     db.exec("PRAGMA busy_timeout = 5000");
+    const journalMode = db
+      .query<{ journal_mode: string }, []>("PRAGMA journal_mode")
+      .get()?.journal_mode;
+    if (journalMode?.toLowerCase() !== "wal") db.exec("PRAGMA journal_mode = WAL");
+    db.exec("PRAGMA foreign_keys = ON");
     applyMigrations(db);
     cached = { path: databasePath, db };
     return db;

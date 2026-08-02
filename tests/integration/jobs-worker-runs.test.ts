@@ -371,6 +371,53 @@ describe("job worker linked Run lifecycle", () => {
     });
   });
 
+  test("stop waits until a TERM-ignoring descendant process is gone", async () => {
+    if (process.platform === "win32") return;
+    const pidPath = path.join(root.dir, "process-tree-pids.json");
+    const grandchild = [
+      'process.on("SIGTERM", () => {});',
+      "setInterval(() => {}, 1_000);",
+    ].join("");
+    const parent = [
+      'const { spawn } = require("node:child_process");',
+      'const fs = require("node:fs");',
+      `const child = spawn(process.execPath, ["-e", ${JSON.stringify(grandchild)}], { stdio: "ignore" });`,
+      `fs.writeFileSync(${JSON.stringify(pidPath)}, JSON.stringify([process.pid, child.pid]));`,
+      'process.on("SIGTERM", () => process.exit(0));',
+      "setInterval(() => {}, 1_000);",
+    ].join("");
+    const linked = linkedJob([process.execPath, "-e", parent]);
+    const executor = createJobExecutor(
+      { ralphyBin: "ralphy", cwd: root.dir, log: () => {} },
+      {
+        spendGate: async () => ({ allowed: true, reason: null }),
+        terminationGraceMs: 20,
+      },
+    );
+    executors.push(executor);
+    const execution = executor.execute(claimSpecific(linked.jobId));
+    await waitFor(() => fs.existsSync(pidPath));
+    const pids = JSON.parse(fs.readFileSync(pidPath, "utf8")) as number[];
+
+    await executor.stop();
+    const survivors = pids.filter(processExists);
+    for (const pid of survivors) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // The process exited between the probe and cleanup.
+      }
+    }
+    await execution;
+
+    expect(survivors).toEqual([]);
+    expect(getJob(linked.jobId)).toMatchObject({ status: "cancelled" });
+    expect(getRun(linked.runId)).toMatchObject({
+      state: "cancelled",
+      attempts: [{ state: "cancelled" }],
+    });
+  });
+
   test("leaves a dependency-blocked Run pending until explicit cancellation", () => {
     const dependency = insertJob({
       kind: "shell",

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
@@ -122,6 +122,75 @@ describe("domain Object store", () => {
     expect(
       listActivity({ projectId: project.id }).map((event) => event.action),
     ).toEqual(["project.created", "object.registered"]);
+  });
+
+  test("preserves changed move bytes and a concurrent replacement", async () => {
+    const { root, workspace } = setupProject("move-race");
+    const source = writeSource(root, "move-race.bin", "prepared-bytes");
+    const canonicalSource = fs.realpathSync(source);
+    const copyFile = fs.promises.copyFile.bind(fs.promises);
+    const rename = fs.promises.rename.bind(fs.promises);
+    const copySpy = spyOn(fs.promises, "copyFile").mockImplementation(
+      async (from, to, mode) => {
+        await copyFile(from, to, mode);
+        fs.writeFileSync(source, "changed-bytes");
+      },
+    );
+    const renameSpy = spyOn(fs.promises, "rename").mockImplementation(
+      async (from, to) => {
+        await rename(from, to);
+        if (path.resolve(String(from)) === canonicalSource) {
+          fs.writeFileSync(source, "replacement-bytes");
+        }
+      },
+    );
+
+    try {
+      await expect(
+        ingestObject({
+          scope: { workspaceId: workspace.id },
+          sourcePath: source,
+          originalName: "move-race.bin",
+          mime: "application/octet-stream",
+          storageClass: "working",
+          transfer: "move",
+        }),
+      ).rejects.toThrow(/changed/i);
+    } finally {
+      copySpy.mockRestore();
+      renameSpy.mockRestore();
+    }
+
+    expect(fs.readFileSync(source, "utf8")).toBe("replacement-bytes");
+    const preserved = fs
+      .readdirSync(path.dirname(source))
+      .filter((name) => name !== path.basename(source))
+      .flatMap((name) => {
+        const candidate = path.join(path.dirname(source), name);
+        return fs.statSync(candidate).isDirectory()
+          ? fs
+              .readdirSync(candidate)
+              .map((child) => path.join(candidate, child))
+          : [candidate];
+      })
+      .filter((candidate) => fs.statSync(candidate).isFile());
+    expect(
+      preserved.some(
+        (candidate) => fs.readFileSync(candidate, "utf8") === "changed-bytes",
+      ),
+    ).toBe(true);
+    const object = openDomainDb()
+      .query<{ bucket: string; key: string }, []>(
+        "SELECT bucket, key FROM objects",
+      )
+      .get();
+    expect(object).not.toBeNull();
+    expect(
+      fs.readFileSync(
+        path.join(root.dir, ".ralphy", object!.bucket, object!.key),
+        "utf8",
+      ),
+    ).toBe("prepared-bytes");
   });
 
   test("rejects invalid scope, sources, names, MIME, and storage class before promotion", async () => {
