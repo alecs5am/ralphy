@@ -24,6 +24,82 @@
 
 ---
 
+### Task 0: Restore the clean implementation baseline
+
+**Files:**
+- Modify: `.husky/pre-commit`
+- Modify: `cli/lib/publish/article.ts`
+- Modify: `cli/lib/templater/suggest.ts`
+- Modify: `docs/cli-surface.generated.md`
+- Test: `tests/unit/article-publish.test.ts`
+- Test: `tests/integration/cli-user-journey-post-install.test.ts`
+
+**Interfaces:**
+- Consumes: `connectorsFor("text")` from `cli/lib/providers/registry.ts`
+- Preserves: `suggestTemplates()` offline fallback and the generated CLI contract
+
+- [ ] **Step 1: Confirm the existing offline fallback failure**
+
+Run:
+
+```bash
+bun test --timeout 45000 tests/integration/cli-user-journey-post-install.test.ts
+```
+
+Expected: the `doctor + template suggest` case fails with exit code 3 because
+`callLLM()` reaches the process-exiting provider resolver when no text provider
+is configured.
+
+- [ ] **Step 2: Guard the optional default LLM path at its shared caller**
+
+When no injected `llmFn` is supplied and no registered text connector is
+available, return the deterministic keyword fallback without calling the fatal
+provider resolver. Do not alter explicit `--no-llm`, injected test callers, or
+configured-provider behavior.
+
+- [ ] **Step 3: Verify the focused regression**
+
+Run:
+
+```bash
+bun test --timeout 45000 tests/integration/cli-user-journey-post-install.test.ts
+```
+
+Expected: PASS with pristine output.
+
+- [ ] **Step 4: Isolate Git commands that target an external repository**
+
+Add a regression test that initializes a disposable outer repository, exports
+its repository-local `GIT_*` variables, then publishes to a different disposable
+GitHub Pages repository. Before the fix the publish must fail or target the
+outer repository; after the fix only the intended site repository may receive
+the commit.
+
+The product Git helper must remove repository-local Git environment variables
+before spawning Git with `cwd: repoDir`. The pre-commit hook must likewise clear
+the invoking repository's local Git environment before running tests, so fixture
+repositories cannot mutate the checkout's config. Preserve credentials and
+non-local Git configuration.
+
+- [ ] **Step 5: Refresh the generated CLI contract and full baseline**
+
+Run:
+
+```bash
+bun run cli:surface:build
+bun run lint
+bun test --timeout 45000 tests/integration/
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit the baseline repair**
+
+```bash
+git add .husky/pre-commit cli/lib/publish/article.ts cli/lib/templater/suggest.ts docs/cli-surface.generated.md tests/unit/article-publish.test.ts tests/integration/cli-user-journey-post-install.test.ts docs/superpowers/plans/2026-08-02-core-domain-store-implementation.md
+git commit -m "fix(template): preserve offline suggest fallback"
+```
+
 ### Task 1: Open and migrate the central database
 
 **Files:**

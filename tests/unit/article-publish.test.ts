@@ -189,8 +189,8 @@ describe("hashnode mutation payload", () => {
 });
 
 describe("github-pages (git-backed, commit-only)", () => {
-  function initRepo(): string {
-    const repo = path.join(tmp.dir, "site-repo");
+  function initRepo(name = "site-repo"): string {
+    const repo = path.join(tmp.dir, name);
     fs.mkdirSync(repo, { recursive: true });
     const g = (args: string[]) => spawnSync("git", args, { cwd: repo, encoding: "utf8" });
     g(["init", "-q"]);
@@ -226,6 +226,42 @@ describe("github-pages (git-backed, commit-only)", () => {
     // No files deleted from the tree.
     const status = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout.trim();
     expect(status).toBe("");
+  });
+
+  test("commits only to the site repo when outer Git environment is inherited", async () => {
+    const unitDir = seedArticleUnit();
+    const outerRepo = initRepo("outer-repo");
+    const siteRepo = initRepo();
+    const localGitEnv = {
+      GIT_DIR: path.join(outerRepo, ".git"),
+      GIT_WORK_TREE: outerRepo,
+      GIT_INDEX_FILE: path.join(outerRepo, ".git", "index"),
+      GIT_OBJECT_DIRECTORY: path.join(outerRepo, ".git", "objects"),
+      GIT_COMMON_DIR: path.join(outerRepo, ".git"),
+      GIT_PREFIX: "",
+    };
+    const articleModule = path.join(process.cwd(), "cli/lib/publish/article.ts");
+    const script = `
+      import { commitToGithubPages } from ${JSON.stringify(articleModule)};
+      const result = await commitToGithubPages(
+        { repoDir: process.env.SITE_REPO, contentDir: "_posts" },
+        process.env.UNIT_DIR,
+        ${JSON.stringify(ARTICLE)},
+        "",
+      );
+      process.stdout.write(JSON.stringify(result));
+    `;
+    const child = spawnSync(process.execPath, ["-e", script], {
+      cwd: tmp.dir,
+      encoding: "utf8",
+      env: { ...process.env, ...localGitEnv, SITE_REPO: siteRepo, UNIT_DIR: unitDir },
+    });
+    expect(child.status).toBe(0);
+
+    const siteLog = spawnSync("git", ["log", "--oneline"], { cwd: siteRepo, encoding: "utf8" }).stdout.trim().split("\n");
+    const outerLog = spawnSync("git", ["log", "--oneline"], { cwd: outerRepo, encoding: "utf8" }).stdout.trim().split("\n");
+    expect(siteLog).toHaveLength(2);
+    expect(outerLog).toHaveLength(1);
   });
 
   test("dry-run prints the file(s) without committing", async () => {

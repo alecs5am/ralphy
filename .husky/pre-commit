@@ -9,4 +9,7 @@
 # studio/test/ is fast (~4s) + fixture-backed (no network) — gated so a Studio
 # server-contract regression is caught pre-commit (#494). The #061 cli-dryrun
 # flake lives under tests/integration/, not the studio lane.
+for key in $(git rev-parse --local-env-vars); do
+  unset "$key"
+done
 bun test --timeout 45000 tests/unit/ tests/integration/ studio/test/
