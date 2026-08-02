@@ -272,6 +272,7 @@ git commit -m "feat(store): add workspace project and iteration state"
 ### Task 3: Store immutable Documents and FTS search
 
 **Files:**
+- Modify: `cli/lib/store/types.ts`
 - Create: `cli/lib/store/documents.ts`
 - Test: `tests/integration/domain-documents.test.ts`
 
@@ -294,7 +295,7 @@ const v2 = reviseDocument({
 
 expect(v2.parentRevisionId).toBe(v1.id);
 expect(getDocument(brief.id).currentRevision?.id).toBe(v2.id);
-expect(searchDocuments({ workspaceId: workspace.id, query: "periodontal" })[0]?.revisionId).toBe(v2.id);
+expect(searchDocuments({ projectId: project.id, query: "periodontal" }).items[0]?.revisionId).toBe(v2.id);
 expect(() => reviseDocument({ documentId: brief.id, expectedHeadId: v1.id, format: "markdown", body: "stale" })).toThrow(/conflict/i);
 ```
 
@@ -306,13 +307,17 @@ Expected: FAIL because `documents.ts` does not exist.
 
 - [ ] **Step 3: Implement immutable revisions and exact bindings**
 
-Allow formats `markdown`, `text`, and `json`, and kinds `brief`, `style-guide`, `production-plan`, `scenario`, `storyboard`, `research`, `postmortem`, `memory`, `note`, and `custom`. Reject data URLs in text and recursively reject base64-like binary fields in JSON. Calculate a SHA-256 digest over the canonical stored content. In one transaction, insert the next revision, update `documents.current_revision_id` only when `expectedHeadId` matches, update the FTS row, and append `document.revised`.
+Allow formats `markdown`, `text`, and `json`, and kinds `brief`, `style-guide`, `production-plan`, `scenario`, `storyboard`, `research`, `postmortem`, `memory`, `note`, and `custom`. Accept JSON as a parsed value or JSON string, recursively sort object keys while preserving array order, and store the canonical JSON text. Reject non-finite numbers. Reject valid data URLs anywhere in text or JSON; reject strict base64 payloads in JSON only below explicitly binary-bearing keys (`base64`, `b64`, `binary`, `blob`, `bytes`, `dataUrl`, `fileData`, or `imageData`) so ordinary prose and identifiers are not false positives. Calculate SHA-256 over the exact canonical envelope `{ format, title: title ?? null, body }`.
+
+In one immediate transaction, insert the next revision, conditionally update `documents.current_revision_id` only when `expectedHeadId` matches, maintain FTS for the current head, and append `document.revised`. The first revision accepts only an omitted/null expected head; later revisions require the exact current head. Only current `markdown` and `text` heads are indexed; JSON is not. A Workspace-scoped Document may reference an Iteration only when the Iteration belongs to a Project in that Workspace.
 
 Bindings store exact revision IDs; changing a Document head never alters existing project/build bindings.
 
 - [ ] **Step 4: Cover Workspace inheritance and structured JSON**
 
-Test a Workspace style guide visible from its Project, Project override ordering, canonical JSON round-trip, exact Build binding, FTS pagination, and rejection of cross-Workspace bindings.
+`listDocuments` and `searchDocuments` return `Page<T>`. A Project sees its own Documents plus Workspace Documents; when both use the same slug, the Project Document shadows the Workspace Document. Bindings are unique by `(project_id, role)` or `(build_id, role)` and conflict rather than silently replacing an existing role. A Project may bind one of its own revisions or a Workspace revision from the same Workspace, but never another Project's revision. Build bindings follow the Build's Project ownership through its Composition and use a minimal raw-SQL Build fixture until Task 6 supplies the public Build store.
+
+Test a Workspace style guide visible from its Project, same-slug Project shadowing, canonical JSON round-trip, exact Project and Build bindings, FTS pagination/current-head-only indexing, data-URL and binary-key rejection, same-Workspace Iteration validation, binding conflicts, and rejection of cross-Workspace bindings.
 
 Run: `bun test tests/integration/domain-documents.test.ts`
 
@@ -321,7 +326,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit Documents**
 
 ```bash
-git add cli/lib/store/documents.ts tests/integration/domain-documents.test.ts
+git add cli/lib/store/types.ts cli/lib/store/documents.ts tests/integration/domain-documents.test.ts
 git commit -m "feat(store): add versioned searchable documents"
 ```
 

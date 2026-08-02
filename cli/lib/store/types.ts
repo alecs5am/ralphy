@@ -1,5 +1,8 @@
 export type JsonPrimitive = boolean | number | string | null;
-export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+  | JsonPrimitive
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 export type WorkspaceRow = {
   id: string;
@@ -100,6 +103,70 @@ export type ActivityEventRow = {
   createdAt: number;
 };
 
+export type DocumentKind =
+  | "brief"
+  | "style-guide"
+  | "production-plan"
+  | "scenario"
+  | "storyboard"
+  | "research"
+  | "postmortem"
+  | "memory"
+  | "note"
+  | "custom";
+
+export type DocumentFormat = "markdown" | "text" | "json";
+
+export type DocumentRow = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  kind: DocumentKind;
+  slug: string;
+  title: string;
+  currentRevisionId: string | null;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type DocumentRevisionRow = {
+  id: string;
+  documentId: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  format: DocumentFormat;
+  title: string | null;
+  body: string;
+  contentSha256: string;
+  authoredBySessionId: string | null;
+  createdAt: number;
+};
+
+export type DocumentWithCurrentRevision = DocumentRow & {
+  currentRevision: DocumentRevisionRow | null;
+};
+
+export type DocumentSearchRow = {
+  documentId: string;
+  revisionId: string;
+  workspaceId: string;
+  projectId: string | null;
+  kind: DocumentKind;
+  slug: string;
+  documentTitle: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  format: DocumentFormat;
+  title: string | null;
+  body: string;
+  contentSha256: string;
+  authoredBySessionId: string | null;
+  createdAt: number;
+};
+
 export type ObjectRow = {
   id: string;
   workspaceId: string;
@@ -135,7 +202,13 @@ export type ArtifactRevisionRow = {
   revisionNo: number;
   parentRevisionId: string | null;
   iterationId: string | null;
-  state: "working" | "candidate" | "approved" | "rejected" | "superseded" | "archived";
+  state:
+    | "working"
+    | "candidate"
+    | "approved"
+    | "rejected"
+    | "superseded"
+    | "archived";
   metadata: JsonValue | null;
   authoredBySessionId: string | null;
   createdAt: number;
@@ -145,7 +218,14 @@ export type CompositionRow = {
   id: string;
   projectId: string;
   slug: string;
-  kind: "video" | "carousel" | "sticker-pack" | "image" | "audio" | "document" | "custom";
+  kind:
+    | "video"
+    | "carousel"
+    | "sticker-pack"
+    | "image"
+    | "audio"
+    | "document"
+    | "custom";
   selectedRevisionId: string | null;
   rowVersion: number;
   createdAt: number;
