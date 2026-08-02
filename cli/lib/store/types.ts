@@ -1,3 +1,5 @@
+import type { MediaArtifactKind } from "../schemas/media-artifact.js";
+
 export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue =
   | JsonPrimitive
@@ -177,18 +179,30 @@ export type ObjectRow = {
   sha256: string;
   mime: string;
   bytes: number;
-  storageClass: string;
+  storageClass: ObjectStorageClass;
   originalName: string | null;
   metadata: JsonValue | null;
   createdAt: number;
 };
+
+export type ObjectStorageClass = "durable" | "working" | "diagnostic";
+
+export type ArtifactKind = Exclude<MediaArtifactKind, "ref">;
+
+export type ArtifactRevisionState =
+  | "working"
+  | "candidate"
+  | "approved"
+  | "rejected"
+  | "superseded"
+  | "archived";
 
 export type ArtifactRow = {
   id: string;
   workspaceId: string;
   projectId: string | null;
   slug: string;
-  kind: string;
+  kind: ArtifactKind;
   selectedRevisionId: string | null;
   rowVersion: number;
   createdAt: number;
@@ -202,15 +216,29 @@ export type ArtifactRevisionRow = {
   revisionNo: number;
   parentRevisionId: string | null;
   iterationId: string | null;
-  state:
-    | "working"
-    | "candidate"
-    | "approved"
-    | "rejected"
-    | "superseded"
-    | "archived";
+  state: ArtifactRevisionState;
   metadata: JsonValue | null;
   authoredBySessionId: string | null;
+  createdAt: number;
+};
+
+export type ArtifactRelationRow = {
+  id: string;
+  fromRevisionId: string;
+  toRevisionId: string;
+  relation: string;
+  metadata: JsonValue | null;
+  createdAt: number;
+};
+
+export type ArtifactUsageRow = {
+  id: string;
+  artifactRevisionId: string;
+  workspaceId: string | null;
+  projectId: string | null;
+  feedbackId: string | null;
+  role: string;
+  lifecycle: string | null;
   createdAt: number;
 };
 
