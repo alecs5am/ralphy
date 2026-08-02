@@ -28,8 +28,13 @@
   "files": [
     "bin/",
     "scripts/",
-    "README.md"
+    "README.md",
+    "contracts/"
   ],
+  "exports": {
+    "./contracts/farm-identity-v1.golden.json": "./contracts/farm-identity-v1.golden.json",
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=14"
   },

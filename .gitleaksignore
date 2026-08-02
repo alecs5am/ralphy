@@ -1,0 +1,4 @@
+# Fixed public test vector for the farm-identity-v1 serializer/parser contract.
+# `credentialDigest` is SHA-256 over the published all-zero-to-0x1f sample token
+# bytes, not a credential: runtime authentication never compares against it.
+npm/contracts/farm-identity-v1.golden.json:generic-api-key:5
