@@ -443,6 +443,137 @@ describe("schema constraints", () => {
     ).not.toThrow();
   });
 
+  test("rejects replacement of immutable rows with recursive triggers disabled", () => {
+    makeRoot();
+    const db = openDomainDb();
+    db.exec("PRAGMA recursive_triggers = OFF");
+    seedRevisionGraph(db);
+    db.prepare(
+      "INSERT INTO workspaces (id, slug, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    ).run("ws_2", "other-workspace", "Other workspace", 1, 1);
+    db.prepare(
+      "INSERT INTO agent_sessions (id, workspace_id, agent, metadata_json, started_at) VALUES (?, ?, ?, ?, ?)",
+    ).run("session_1", "ws_1", "codex", '{"mode":"review"}', 1);
+    db.prepare(
+      "INSERT INTO activity_events (id, workspace_id, project_id, entity_type, entity_id, action, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      41,
+      "ws_1",
+      "prj_1",
+      "document",
+      "doc_1",
+      "document.revised",
+      '{"revisionId":"drev_1"}',
+      1,
+    );
+
+    const originalStore = serializedSingleton(db, "store_metadata", "singleton", 1);
+    const immutableRows = [
+      ["agent_sessions", "session_1"],
+      ["document_revisions", "drev_1"],
+      ["artifact_revisions", "arev_1"],
+      ["composition_revisions", "crev_1"],
+      ["unit_revisions", "urev_1"],
+      ["activity_events", 41],
+    ] as const;
+    const originals = immutableRows.map(([table, id]) =>
+      serializedSingleton(db, table, "id", id),
+    );
+
+    expect(() => db.exec("DELETE FROM store_metadata")).toThrow(/immutable/i);
+    expect(() =>
+      db.exec(
+        `INSERT OR REPLACE INTO store_metadata (singleton, store_id)
+         VALUES (1, 'store_${"f".repeat(32)}')`,
+      ),
+    ).toThrow(/immutable/i);
+    expect(() =>
+      db.exec(
+        `INSERT OR REPLACE INTO store_metadata (singleton, store_id)
+         SELECT singleton, store_id FROM store_metadata`,
+      ),
+    ).toThrow(/immutable/i);
+
+    expect(() =>
+      db.exec("DELETE FROM agent_sessions WHERE id = 'session_1'"),
+    ).toThrow(/immutable/i);
+    expect(() =>
+      db.exec(
+        `INSERT OR REPLACE INTO agent_sessions
+           (id, workspace_id, agent, metadata_json, started_at)
+         VALUES ('session_1', 'ws_2', 'rewritten', '{}', 2)`,
+      ),
+    ).toThrow(/immutable/i);
+
+    const revisionReplacements = [
+      {
+        table: "document_revisions",
+        sameId: `INSERT OR REPLACE INTO document_revisions
+          (id, document_id, revision_no, format, body, content_sha256, created_at)
+          VALUES ('drev_1', 'doc_1', 1, 'text', 'Rewritten', '${"b".repeat(64)}', 2)`,
+        sameRevision: `INSERT OR REPLACE INTO document_revisions
+          (id, document_id, revision_no, format, body, content_sha256, created_at)
+          VALUES ('drev_other', 'doc_1', 1, 'text', 'Rewritten', '${"b".repeat(64)}', 2)`,
+      },
+      {
+        table: "artifact_revisions",
+        sameId: `INSERT OR REPLACE INTO artifact_revisions
+          (id, artifact_id, object_id, revision_no, state, created_at)
+          VALUES ('arev_1', 'art_1', 'obj_1', 1, 'approved', 2)`,
+        sameRevision: `INSERT OR REPLACE INTO artifact_revisions
+          (id, artifact_id, object_id, revision_no, state, created_at)
+          VALUES ('arev_other', 'art_1', 'obj_1', 1, 'approved', 2)`,
+      },
+      {
+        table: "composition_revisions",
+        sameId: `INSERT OR REPLACE INTO composition_revisions
+          (id, composition_id, revision_no, state, engine, engine_config_json, created_at)
+          VALUES ('crev_1', 'comp_1', 1, 'draft', 'remotion', '{}', 2)`,
+        sameRevision: `INSERT OR REPLACE INTO composition_revisions
+          (id, composition_id, revision_no, state, engine, engine_config_json, created_at)
+          VALUES ('crev_other', 'comp_1', 1, 'draft', 'remotion', '{}', 2)`,
+      },
+      {
+        table: "unit_revisions",
+        sameId: `INSERT OR REPLACE INTO unit_revisions
+          (id, unit_id, revision_no, note, created_at)
+          VALUES ('urev_1', 'unit_1', 1, 'Rewritten', 2)`,
+        sameRevision: `INSERT OR REPLACE INTO unit_revisions
+          (id, unit_id, revision_no, note, created_at)
+          VALUES ('urev_other', 'unit_1', 1, 'Rewritten', 2)`,
+      },
+    ] as const;
+    for (const replacement of revisionReplacements) {
+      expect(() => db.exec(replacement.sameId), replacement.table).toThrow(
+        /immutable/i,
+      );
+      expect(
+        () => db.exec(replacement.sameRevision),
+        replacement.table,
+      ).toThrow(/immutable/i);
+    }
+
+    expect(() =>
+      db.exec("DELETE FROM activity_events WHERE id = 41"),
+    ).toThrow(/append-only/i);
+    expect(() =>
+      db.exec(
+        `INSERT OR REPLACE INTO activity_events
+           (id, workspace_id, project_id, entity_type, entity_id, action, payload_json, created_at)
+         VALUES (41, 'ws_1', 'prj_1', 'project', 'prj_1', 'project.rewritten', '{}', 2)`,
+      ),
+    ).toThrow(/append-only/i);
+
+    expect(serializedSingleton(db, "store_metadata", "singleton", 1)).toBe(
+      originalStore,
+    );
+    expect(
+      immutableRows.map(([table, id]) =>
+        serializedSingleton(db, table, "id", id),
+      ),
+    ).toEqual(originals);
+  });
+
   test("accepts nullable JSON and rejects absolute or traversing Object keys", () => {
     makeRoot();
     const db = openDomainDb();
@@ -608,5 +739,16 @@ function insertUnitItem(
     "primary",
     input.id === "item_document" ? 1 : 0,
     1,
+  );
+}
+
+function serializedSingleton(
+  db: Database,
+  table: string,
+  key: string,
+  value: string | number,
+): string {
+  return JSON.stringify(
+    db.query(`SELECT * FROM ${table} WHERE ${key} = ?`).get(value),
   );
 }
