@@ -252,18 +252,20 @@ export type ArtifactUsageRow = {
   createdAt: number;
 };
 
+export type CompositionKind =
+  | "video"
+  | "carousel"
+  | "sticker-pack"
+  | "image"
+  | "audio"
+  | "document"
+  | "custom";
+
 export type CompositionRow = {
   id: string;
   projectId: string;
   slug: string;
-  kind:
-    | "video"
-    | "carousel"
-    | "sticker-pack"
-    | "image"
-    | "audio"
-    | "document"
-    | "custom";
+  kind: CompositionKind;
   selectedRevisionId: string | null;
   rowVersion: number;
   createdAt: number;
@@ -296,6 +298,57 @@ export type BuildRow = {
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
+};
+
+export type CompositionSourceRow = {
+  id: string;
+  compositionRevisionId: string;
+  logicalPath: string;
+  objectId: string;
+  position: number;
+  createdAt: number;
+};
+
+export type CompositionInputRow = {
+  id: string;
+  compositionRevisionId: string;
+  artifactRevisionId: string;
+  role: string;
+  position: number;
+  config: JsonValue | null;
+  createdAt: number;
+};
+
+export type BuildOutputRow = {
+  id: string;
+  buildId: string;
+  artifactRevisionId: string;
+  role: string | null;
+  position: number;
+  createdAt: number;
+};
+
+export type BuildDocumentBindingRow = {
+  id: string;
+  buildId: string;
+  documentRevisionId: string;
+  role: string;
+  createdAt: number;
+};
+
+export type BuildAggregate = BuildRow & {
+  outputs: BuildOutputRow[];
+  documentBindings: BuildDocumentBindingRow[];
+};
+
+export type CompositionRevisionAggregate = CompositionRevisionRow & {
+  sources: CompositionSourceRow[];
+  inputs: CompositionInputRow[];
+  builds: BuildAggregate[];
+};
+
+export type CompositionAggregate = CompositionRow & {
+  revisions: CompositionRevisionAggregate[];
 };
 
 export type UnitRow = {

@@ -844,8 +844,10 @@ function insertBuild(projectId: string, suffix: string): string {
     "INSERT INTO compositions (id, project_id, slug, kind, created_at, updated_at) VALUES (?, ?, ?, 'video', ?, ?)",
   ).run(compositionId, projectId, suffix, now, now);
   db.prepare(
-    "INSERT INTO composition_revisions (id, composition_id, revision_no, engine, created_at) VALUES (?, ?, 1, 'fixture', ?)",
-  ).run(revisionId, compositionId, now);
+    `INSERT INTO composition_revisions
+     (id, composition_id, revision_no, state, engine, manifest_sha256, created_at, sealed_at)
+     VALUES (?, ?, 1, 'sealed', 'fixture', ?, ?, ?)`,
+  ).run(revisionId, compositionId, "0".repeat(64), now, now);
   db.prepare(
     "INSERT INTO builds (id, composition_revision_id, state, profile_json, created_at) VALUES (?, ?, 'pending', '{}', ?)",
   ).run(buildId, revisionId, now);

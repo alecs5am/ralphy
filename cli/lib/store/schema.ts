@@ -817,6 +817,80 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
       END;
 
+      CREATE TRIGGER composition_selection_scope_insert
+      BEFORE INSERT ON compositions
+      WHEN NEW.selected_revision_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM composition_revisions r
+          WHERE r.id = NEW.selected_revision_id
+            AND r.composition_id = NEW.id
+            AND r.state = 'sealed'
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'selected revision must be sealed in the same Composition');
+      END;
+
+      CREATE TRIGGER composition_selection_scope_update
+      BEFORE UPDATE OF selected_revision_id ON compositions
+      WHEN NEW.selected_revision_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM composition_revisions r
+          WHERE r.id = NEW.selected_revision_id
+            AND r.composition_id = NEW.id
+            AND r.state = 'sealed'
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'selected revision must be sealed in the same Composition');
+      END;
+
+      CREATE TRIGGER composition_revision_scope_insert
+      BEFORE INSERT ON composition_revisions
+      WHEN (
+          NEW.parent_revision_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM composition_revisions parent
+            WHERE parent.id = NEW.parent_revision_id
+              AND parent.composition_id = NEW.composition_id
+          )
+        )
+        OR (
+          NEW.iteration_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM project_iterations i
+            JOIN compositions c ON c.id = NEW.composition_id
+            WHERE i.id = NEW.iteration_id
+              AND i.project_id = c.project_id
+          )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition revision parent or Iteration is outside its Project scope');
+      END;
+
+      CREATE TRIGGER composition_revision_scope_update
+      BEFORE UPDATE OF composition_id, parent_revision_id, iteration_id ON composition_revisions
+      WHEN (
+          NEW.parent_revision_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM composition_revisions parent
+            WHERE parent.id = NEW.parent_revision_id
+              AND parent.composition_id = NEW.composition_id
+          )
+        )
+        OR (
+          NEW.iteration_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM project_iterations i
+            JOIN compositions c ON c.id = NEW.composition_id
+            WHERE i.id = NEW.iteration_id
+              AND i.project_id = c.project_id
+          )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition revision parent or Iteration is outside its Project scope');
+      END;
+
       CREATE TRIGGER unit_revision_session_scope_insert
       BEFORE INSERT ON unit_revisions
       WHEN NEW.authored_by_session_id IS NOT NULL
@@ -987,6 +1061,56 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'composition revisions are immutable');
       END;
 
+      CREATE TRIGGER composition_files_no_conflicting_insert
+      BEFORE INSERT ON composition_revision_files
+      WHEN EXISTS (
+        SELECT 1 FROM composition_revision_files
+        WHERE id = NEW.id
+          OR (
+            composition_revision_id = NEW.composition_revision_id
+            AND logical_path = NEW.logical_path
+          )
+          OR (
+            composition_revision_id = NEW.composition_revision_id
+            AND position = NEW.position
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'composition source identity is immutable');
+      END;
+
+      CREATE TRIGGER composition_files_scope_insert
+      BEFORE INSERT ON composition_revision_files
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM composition_revisions r
+        JOIN compositions c ON c.id = r.composition_id
+        JOIN projects p ON p.id = c.project_id
+        JOIN objects o ON o.id = NEW.object_id
+        WHERE r.id = NEW.composition_revision_id
+          AND o.workspace_id = p.workspace_id
+          AND (o.project_id IS NULL OR o.project_id = p.id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition source Object is outside its Project scope');
+      END;
+
+      CREATE TRIGGER composition_files_scope_update
+      BEFORE UPDATE OF composition_revision_id, object_id ON composition_revision_files
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM composition_revisions r
+        JOIN compositions c ON c.id = r.composition_id
+        JOIN projects p ON p.id = c.project_id
+        JOIN objects o ON o.id = NEW.object_id
+        WHERE r.id = NEW.composition_revision_id
+          AND o.workspace_id = p.workspace_id
+          AND (o.project_id IS NULL OR o.project_id = p.id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition source Object is outside its Project scope');
+      END;
+
       CREATE TRIGGER composition_files_no_insert_when_sealed
       BEFORE INSERT ON composition_revision_files
       WHEN (SELECT state FROM composition_revisions WHERE id = NEW.composition_revision_id) = 'sealed'
@@ -1009,6 +1133,72 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'sealed composition children are immutable');
       END;
 
+      CREATE TRIGGER composition_inputs_no_conflicting_insert
+      BEFORE INSERT ON composition_inputs
+      WHEN EXISTS (
+        SELECT 1 FROM composition_inputs
+        WHERE id = NEW.id
+          OR (
+            composition_revision_id = NEW.composition_revision_id
+            AND position = NEW.position
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'composition input identity is immutable');
+      END;
+
+      CREATE TRIGGER composition_inputs_scope_insert
+      BEFORE INSERT ON composition_inputs
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM composition_revisions r
+        JOIN compositions c ON c.id = r.composition_id
+        JOIN projects p ON p.id = c.project_id
+        JOIN artifact_revisions ar ON ar.id = NEW.artifact_revision_id
+        JOIN artifacts a ON a.id = ar.artifact_id
+        JOIN objects o ON o.id = ar.object_id
+        WHERE r.id = NEW.composition_revision_id
+          AND a.workspace_id = p.workspace_id
+          AND (a.project_id IS NULL OR a.project_id = p.id)
+          AND o.workspace_id = a.workspace_id
+          AND (
+            (a.project_id IS NULL AND o.project_id IS NULL)
+            OR (
+              a.project_id IS NOT NULL
+              AND (o.project_id IS NULL OR o.project_id = a.project_id)
+            )
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition input Artifact is outside its Project scope');
+      END;
+
+      CREATE TRIGGER composition_inputs_scope_update
+      BEFORE UPDATE OF composition_revision_id, artifact_revision_id ON composition_inputs
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM composition_revisions r
+        JOIN compositions c ON c.id = r.composition_id
+        JOIN projects p ON p.id = c.project_id
+        JOIN artifact_revisions ar ON ar.id = NEW.artifact_revision_id
+        JOIN artifacts a ON a.id = ar.artifact_id
+        JOIN objects o ON o.id = ar.object_id
+        WHERE r.id = NEW.composition_revision_id
+          AND a.workspace_id = p.workspace_id
+          AND (a.project_id IS NULL OR a.project_id = p.id)
+          AND o.workspace_id = a.workspace_id
+          AND (
+            (a.project_id IS NULL AND o.project_id IS NULL)
+            OR (
+              a.project_id IS NOT NULL
+              AND (o.project_id IS NULL OR o.project_id = a.project_id)
+            )
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition input Artifact is outside its Project scope');
+      END;
+
       CREATE TRIGGER composition_inputs_no_insert_when_sealed
       BEFORE INSERT ON composition_inputs
       WHEN (SELECT state FROM composition_revisions WHERE id = NEW.composition_revision_id) = 'sealed'
@@ -1029,6 +1219,291 @@ export const MIGRATIONS: readonly Migration[] = [
       WHEN (SELECT state FROM composition_revisions WHERE id = OLD.composition_revision_id) = 'sealed'
       BEGIN
         SELECT RAISE(ABORT, 'sealed composition children are immutable');
+      END;
+
+      CREATE TRIGGER builds_no_conflicting_insert
+      BEFORE INSERT ON builds
+      WHEN EXISTS (SELECT 1 FROM builds WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Build identity is immutable');
+      END;
+
+      CREATE TRIGGER builds_scope_state_insert
+      BEFORE INSERT ON builds
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM composition_revisions revision
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        WHERE revision.id = NEW.composition_revision_id
+          AND revision.state = 'sealed'
+          AND (
+            NEW.run_id IS NULL
+            OR EXISTS (
+              SELECT 1 FROM runs run
+              WHERE run.id = NEW.run_id
+                AND run.workspace_id = project.workspace_id
+                AND run.project_id = project.id
+            )
+          )
+          AND (
+            (
+              NEW.state = 'pending'
+              AND NEW.started_at IS NULL
+              AND NEW.ended_at IS NULL
+              AND NEW.error IS NULL
+            )
+            OR (
+              NEW.state = 'running'
+              AND NEW.started_at IS NOT NULL
+              AND NEW.started_at >= NEW.created_at
+              AND NEW.ended_at IS NULL
+              AND NEW.error IS NULL
+            )
+            OR (
+              NEW.state = 'succeeded'
+              AND NEW.started_at IS NOT NULL
+              AND NEW.started_at >= NEW.created_at
+              AND NEW.ended_at IS NOT NULL
+              AND NEW.ended_at >= NEW.started_at
+              AND NEW.error IS NULL
+            )
+            OR (
+              NEW.state IN ('failed', 'cancelled')
+              AND NEW.started_at IS NOT NULL
+              AND NEW.started_at >= NEW.created_at
+              AND NEW.ended_at IS NOT NULL
+              AND NEW.ended_at >= NEW.started_at
+            )
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build requires a sealed revision, exact Project Run, and valid state timestamps');
+      END;
+
+      CREATE TRIGGER builds_scope_state_update
+      BEFORE UPDATE ON builds
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM composition_revisions revision
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        WHERE revision.id = NEW.composition_revision_id
+          AND revision.state = 'sealed'
+          AND (
+            NEW.run_id IS NULL
+            OR EXISTS (
+              SELECT 1 FROM runs run
+              WHERE run.id = NEW.run_id
+                AND run.workspace_id = project.workspace_id
+                AND run.project_id = project.id
+            )
+          )
+          AND (
+            (
+              NEW.state = 'pending'
+              AND NEW.started_at IS NULL
+              AND NEW.ended_at IS NULL
+              AND NEW.error IS NULL
+            )
+            OR (
+              NEW.state = 'running'
+              AND NEW.started_at IS NOT NULL
+              AND NEW.started_at >= NEW.created_at
+              AND NEW.ended_at IS NULL
+              AND NEW.error IS NULL
+            )
+            OR (
+              NEW.state = 'succeeded'
+              AND NEW.started_at IS NOT NULL
+              AND NEW.started_at >= NEW.created_at
+              AND NEW.ended_at IS NOT NULL
+              AND NEW.ended_at >= NEW.started_at
+              AND NEW.error IS NULL
+            )
+            OR (
+              NEW.state IN ('failed', 'cancelled')
+              AND NEW.started_at IS NOT NULL
+              AND NEW.started_at >= NEW.created_at
+              AND NEW.ended_at IS NOT NULL
+              AND NEW.ended_at >= NEW.started_at
+            )
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build requires a sealed revision, exact Project Run, and valid state timestamps');
+      END;
+
+      CREATE TRIGGER builds_update_guard
+      BEFORE UPDATE ON builds
+      WHEN NOT (
+        NEW.id IS OLD.id
+        AND NEW.composition_revision_id IS OLD.composition_revision_id
+        AND NEW.run_id IS OLD.run_id
+        AND NEW.profile_json IS OLD.profile_json
+        AND NEW.created_at IS OLD.created_at
+        AND (
+          (
+            OLD.state = 'pending'
+            AND NEW.state = 'running'
+            AND NEW.started_at IS NOT NULL
+            AND NEW.ended_at IS NULL
+            AND NEW.error IS NULL
+          )
+          OR (
+            OLD.state = 'running'
+            AND NEW.state IN ('succeeded', 'failed', 'cancelled')
+            AND NEW.started_at IS OLD.started_at
+            AND NEW.ended_at IS NOT NULL
+          )
+        )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build identity and terminal state are immutable');
+      END;
+
+      CREATE TRIGGER builds_no_delete
+      BEFORE DELETE ON builds
+      BEGIN
+        SELECT RAISE(ABORT, 'Build identity is immutable');
+      END;
+
+      CREATE TRIGGER build_outputs_running_insert
+      BEFORE INSERT ON build_outputs
+      WHEN COALESCE((SELECT state FROM builds WHERE id = NEW.build_id), '') <> 'running'
+      BEGIN
+        SELECT RAISE(ABORT, 'Build outputs require a running Build');
+      END;
+
+      CREATE TRIGGER build_outputs_scope_insert
+      BEFORE INSERT ON build_outputs
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM builds build
+        JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        JOIN artifact_revisions ar ON ar.id = NEW.artifact_revision_id
+        JOIN artifacts artifact ON artifact.id = ar.artifact_id
+        JOIN objects object ON object.id = ar.object_id
+        WHERE build.id = NEW.build_id
+          AND artifact.workspace_id = project.workspace_id
+          AND artifact.project_id = project.id
+          AND object.workspace_id = artifact.workspace_id
+          AND (object.project_id IS NULL OR object.project_id = artifact.project_id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build output requires an exact Project Artifact revision');
+      END;
+
+      CREATE TRIGGER build_outputs_scope_update
+      BEFORE UPDATE OF build_id, artifact_revision_id ON build_outputs
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM builds build
+        JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        JOIN artifact_revisions ar ON ar.id = NEW.artifact_revision_id
+        JOIN artifacts artifact ON artifact.id = ar.artifact_id
+        JOIN objects object ON object.id = ar.object_id
+        WHERE build.id = NEW.build_id
+          AND artifact.workspace_id = project.workspace_id
+          AND artifact.project_id = project.id
+          AND object.workspace_id = artifact.workspace_id
+          AND (object.project_id IS NULL OR object.project_id = artifact.project_id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build output requires an exact Project Artifact revision');
+      END;
+
+      CREATE TRIGGER build_outputs_no_conflicting_insert
+      BEFORE INSERT ON build_outputs
+      WHEN EXISTS (
+        SELECT 1 FROM build_outputs
+        WHERE id = NEW.id
+          OR (build_id = NEW.build_id AND position = NEW.position)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build output identity is immutable');
+      END;
+
+      CREATE TRIGGER build_outputs_no_update
+      BEFORE UPDATE ON build_outputs
+      BEGIN
+        SELECT RAISE(ABORT, 'Build outputs are immutable');
+      END;
+
+      CREATE TRIGGER build_outputs_no_delete
+      BEFORE DELETE ON build_outputs
+      BEGIN
+        SELECT RAISE(ABORT, 'Build outputs are immutable');
+      END;
+
+      CREATE TRIGGER build_document_bindings_active_insert
+      BEFORE INSERT ON build_document_bindings
+      WHEN COALESCE((SELECT state FROM builds WHERE id = NEW.build_id), '') NOT IN ('pending', 'running')
+      BEGIN
+        SELECT RAISE(ABORT, 'Build Document bindings require a pending or running Build');
+      END;
+
+      CREATE TRIGGER build_document_bindings_scope_insert
+      BEFORE INSERT ON build_document_bindings
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM builds build
+        JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        JOIN document_revisions dr ON dr.id = NEW.document_revision_id
+        JOIN documents document ON document.id = dr.document_id
+        WHERE build.id = NEW.build_id
+          AND document.workspace_id = project.workspace_id
+          AND (document.project_id IS NULL OR document.project_id = project.id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build Document binding is outside its Project scope');
+      END;
+
+      CREATE TRIGGER build_document_bindings_scope_update
+      BEFORE UPDATE OF build_id, document_revision_id ON build_document_bindings
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM builds build
+        JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        JOIN document_revisions dr ON dr.id = NEW.document_revision_id
+        JOIN documents document ON document.id = dr.document_id
+        WHERE build.id = NEW.build_id
+          AND document.workspace_id = project.workspace_id
+          AND (document.project_id IS NULL OR document.project_id = project.id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build Document binding is outside its Project scope');
+      END;
+
+      CREATE TRIGGER build_document_bindings_no_conflicting_insert
+      BEFORE INSERT ON build_document_bindings
+      WHEN EXISTS (
+        SELECT 1 FROM build_document_bindings
+        WHERE id = NEW.id
+          OR (build_id = NEW.build_id AND role = NEW.role)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Build Document binding identity is immutable');
+      END;
+
+      CREATE TRIGGER build_document_bindings_no_update
+      BEFORE UPDATE ON build_document_bindings
+      BEGIN
+        SELECT RAISE(ABORT, 'Build Document bindings are immutable');
+      END;
+
+      CREATE TRIGGER build_document_bindings_no_delete
+      BEFORE DELETE ON build_document_bindings
+      BEGIN
+        SELECT RAISE(ABORT, 'Build Document bindings are immutable');
       END;
 
       CREATE TRIGGER activity_events_no_update

@@ -461,6 +461,69 @@ describe("schema constraints", () => {
       db.prepare("DELETE FROM composition_inputs WHERE id = ?").run("input_1"),
     ).toThrow(/sealed/i);
 
+    db.prepare(
+      `INSERT INTO builds
+       (id, composition_revision_id, state, profile_json, created_at, started_at)
+       VALUES ('build_1', 'crev_1', 'running', '{}', 1, 1)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO build_outputs
+       (id, build_id, artifact_revision_id, role, position, created_at)
+       VALUES ('output_1', 'build_1', 'arev_1', 'master', 0, 1)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO build_document_bindings
+       (id, build_id, document_revision_id, role, created_at)
+       VALUES ('bind_build_1', 'build_1', 'drev_1', 'brief', 1)`,
+    ).run();
+    db.prepare(
+      "UPDATE builds SET state = 'succeeded', ended_at = 2 WHERE id = 'build_1'",
+    ).run();
+    expect(() =>
+      db.prepare("UPDATE builds SET profile_json = '{}' WHERE id = 'build_1'").run(),
+    ).toThrow(/immutable/i);
+    expect(() => db.prepare("DELETE FROM builds WHERE id = 'build_1'").run()).toThrow(
+      /immutable/i,
+    );
+    expect(() =>
+      db.prepare("UPDATE build_outputs SET role = 'changed' WHERE id = 'output_1'").run(),
+    ).toThrow(/immutable/i);
+    expect(() =>
+      db.prepare("DELETE FROM build_outputs WHERE id = 'output_1'").run(),
+    ).toThrow(/immutable/i);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO build_outputs
+           (id, build_id, artifact_revision_id, position, created_at)
+           VALUES ('output_late', 'build_1', 'arev_1', 1, 2)`,
+        )
+        .run(),
+    ).toThrow(/running/i);
+    expect(() =>
+      db
+        .prepare(
+          "UPDATE build_document_bindings SET role = 'changed' WHERE id = 'bind_build_1'",
+        )
+        .run(),
+    ).toThrow(/immutable/i);
+    expect(() =>
+      db
+        .prepare(
+          "DELETE FROM build_document_bindings WHERE id = 'bind_build_1'",
+        )
+        .run(),
+    ).toThrow(/immutable/i);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO build_document_bindings
+           (id, build_id, document_revision_id, role, created_at)
+           VALUES ('bind_late', 'build_1', 'drev_1', 'late', 2)`,
+        )
+        .run(),
+    ).toThrow(/pending|running/i);
+
     expect(() =>
       insertUnitItem(db, {
         id: "item_neither",
