@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { appendActivity, assertLimit } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
+import { assertActiveSessionScope } from "./sessions.js";
 import {
   type DocumentFormat,
   type DocumentKind,
@@ -150,6 +151,9 @@ export function reviseDocument(
     if (expectedHeadId !== document.currentRevisionId)
       throw new StoreConflictError("Document head conflict");
     assertIterationScope(db, document, input.iterationId ?? null);
+    if (input.authoredBySessionId != null) {
+      assertActiveSessionScope(db, input.authoredBySessionId, document);
+    }
 
     const body = canonicalBody(input.format, input.body);
     const title = input.title ?? null;

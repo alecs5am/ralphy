@@ -413,6 +413,45 @@ git add cli/lib/store/types.ts cli/lib/store/objects.ts cli/lib/store/artifacts.
 git commit -m "feat(store): add immutable objects and artifact revisions"
 ```
 
+### Task 4A: Harden store identity and Agent Session scope
+
+**Files:**
+- Modify: `cli/lib/store/schema.ts`
+- Modify: `cli/lib/store/types.ts`
+- Create: `cli/lib/store/sessions.ts`
+- Modify: `cli/lib/store/documents.ts`
+- Modify: `cli/lib/store/artifacts.ts`
+- Create: `tests/integration/domain-sessions.test.ts`
+- Modify: `tests/integration/domain-documents.test.ts`
+- Modify: `tests/integration/domain-artifacts.test.ts`
+
+**Interfaces:**
+- Consumes: Task 1 database, Task 3 Documents, Task 4 Artifacts, and activity transactions
+- Produces: `getStoreIdentity`, `startAgentSession`, `getAgentSession`, `listAgentSessions`, `endAgentSession`, and a shared session-scope assertion used by provenance-bearing stores
+
+- [ ] **Step 1: Lock stable store and Session identity in the pre-release schema**
+
+Store one generated `store_id` inside `ralphy.db`; it must survive close/reopen, directory moves, staging, and cutover because secret-service identity must never depend on the mutable `.ralphy` path. Require every Agent Session to belong to one Workspace and optionally one of that Workspace's Projects. Add database guards that prevent changing a Session's Workspace, Project, agent, metadata, or start time after insertion; only a one-way `ended_at: NULL -> timestamp` transition is legal.
+
+Add SQLite provenance guards for Documents, Artifacts, Compositions, Units, and Runs. A Workspace entity accepts only an active Workspace Session. A Project entity accepts an active Session from the same Workspace whose Project is either null or exactly that Project. An unscoped migration Run cannot reference a Session. Store APIs must perform the same checks before inserts so callers receive clear errors instead of raw constraint failures.
+
+- [ ] **Step 2: Add the minimal Session lifecycle**
+
+`startAgentSession` validates a non-empty agent label, canonical JSON metadata, and exact Workspace/Project ownership, then records `agent_session.started`. `endAgentSession` is idempotent only through an explicit expected-open transition: the first close records `agent_session.ended`; a second close conflicts. Session scope never changes. Listing is cursor-paginated and may filter a Workspace to all sessions or one exact Project.
+
+Apply the shared active-session scope assertion to `reviseDocument`, `addArtifactRevision`, and `setArtifactRevisionState`. A state transition records the author making the transition and never copies the source revision's author.
+
+- [ ] **Step 3: Prove cross-scope and stable-identity behavior**
+
+Test stable store identity across reopen, invalid cross-Workspace Session creation, immutable Session scope, one-way ending, pagination, and direct-SQL provenance guards. For both Documents and Artifacts, test rejection of foreign-Workspace, sibling-Project, ended, and Project-Session-to-Workspace authors; test that a Workspace Session can author a Project revision and an exact Project Session can author its own Project revision.
+
+- [ ] **Step 4: Commit the invariant before Runs**
+
+```bash
+git add cli/lib/store/schema.ts cli/lib/store/types.ts cli/lib/store/sessions.ts cli/lib/store/documents.ts cli/lib/store/artifacts.ts tests/integration/domain-sessions.test.ts tests/integration/domain-documents.test.ts tests/integration/domain-artifacts.test.ts docs/superpowers/plans/2026-08-02-core-domain-store-implementation.md
+git commit -m "feat(store): enforce agent session scope"
+```
+
 ### Task 5: Consolidate Runs and jobs into the domain database
 
 **Files:**

@@ -23,6 +23,10 @@ import {
   createWorkspace,
   listActivity,
 } from "../../cli/lib/store/scopes.js";
+import {
+  endAgentSession,
+  startAgentSession,
+} from "../../cli/lib/store/sessions.js";
 import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
@@ -501,10 +505,30 @@ describe("domain Artifact store", () => {
       project,
       "local-author.bin",
     );
-    insertSession("session_workspace", workspace.id, null);
-    insertSession("session_project", workspace.id, project.id);
-    insertSession("session_sibling", workspace.id, sibling.id);
-    insertSession("session_outside", outsideWorkspace.id, null);
+    const workspaceSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "workspace-agent",
+    });
+    const projectSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "project-agent",
+    });
+    const siblingSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: sibling.id,
+      agent: "sibling-agent",
+    });
+    const outsideSession = startAgentSession({
+      workspaceId: outsideWorkspace.id,
+      agent: "outside-agent",
+    });
+    const endedSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "ended-agent",
+    });
+    endAgentSession(endedSession.id);
     const projectArtifact = createArtifact({
       projectId: project.id,
       slug: "authored-project",
@@ -520,29 +544,30 @@ describe("domain Artifact store", () => {
       artifactId: projectArtifact.id,
       objectId: localObject.id,
       state: "working",
-      authoredBySessionId: "session_project",
+      authoredBySessionId: projectSession.id,
     });
-    expect(projectRevision.authoredBySessionId).toBe("session_project");
+    expect(projectRevision.authoredBySessionId).toBe(projectSession.id);
     expect(
       addArtifactRevision({
         artifactId: projectArtifact.id,
         objectId: sharedObject.id,
         state: "candidate",
-        authoredBySessionId: "session_workspace",
+        authoredBySessionId: workspaceSession.id,
       }).authoredBySessionId,
-    ).toBe("session_workspace");
+    ).toBe(workspaceSession.id);
     expect(
       addArtifactRevision({
         artifactId: workspaceArtifact.id,
         objectId: sharedObject.id,
         state: "working",
-        authoredBySessionId: "session_workspace",
+        authoredBySessionId: workspaceSession.id,
       }).authoredBySessionId,
-    ).toBe("session_workspace");
+    ).toBe(workspaceSession.id);
 
     for (const authoredBySessionId of [
-      "session_sibling",
-      "session_outside",
+      siblingSession.id,
+      outsideSession.id,
+      endedSession.id,
       "session_missing",
     ]) {
       expect(() =>
@@ -559,7 +584,7 @@ describe("domain Artifact store", () => {
         artifactId: workspaceArtifact.id,
         objectId: sharedObject.id,
         state: "working",
-        authoredBySessionId: "session_project",
+        authoredBySessionId: projectSession.id,
       }),
     ).toThrow(/session/i);
 
@@ -571,20 +596,30 @@ describe("domain Artifact store", () => {
     const transitioned = setArtifactRevisionState({
       revisionId: projectRevision.id,
       state: "approved",
-      authoredBySessionId: "session_workspace",
+      authoredBySessionId: workspaceSession.id,
     });
-    expect(transitioned.authoredBySessionId).toBe("session_workspace");
+    expect(transitioned.authoredBySessionId).toBe(workspaceSession.id);
+    expect(
+      setArtifactRevisionState({
+        revisionId: transitioned.id,
+        state: "candidate",
+      }).authoredBySessionId,
+    ).toBeNull();
     const beforeRejectedTransition = openDomainDb()
       .query<
         { count: number },
         [string]
       >("SELECT COUNT(*) AS count FROM artifact_revisions WHERE artifact_id = ?")
       .get(projectArtifact.id)!.count;
+    const activityBeforeRejectedTransition = listActivity({
+      workspaceId: workspace.id,
+      limit: 100,
+    }).length;
     expect(() =>
       setArtifactRevisionState({
         revisionId: transitioned.id,
         state: "rejected",
-        authoredBySessionId: "session_sibling",
+        authoredBySessionId: siblingSession.id,
       }),
     ).toThrow(/session/i);
     expect(
@@ -595,6 +630,9 @@ describe("domain Artifact store", () => {
         >("SELECT COUNT(*) AS count FROM artifact_revisions WHERE artifact_id = ?")
         .get(projectArtifact.id)!.count,
     ).toBe(beforeRejectedTransition);
+    expect(listActivity({ workspaceId: workspace.id, limit: 100 })).toHaveLength(
+      activityBeforeRejectedTransition,
+    );
   });
 
   test("links exact revisions only inside one Workspace and rejects duplicate relations", async () => {
@@ -850,16 +888,4 @@ async function revisionFixture(
     objectId: object.id,
     state: "working",
   });
-}
-
-function insertSession(
-  id: string,
-  workspaceId: string,
-  projectId: string | null,
-): void {
-  openDomainDb()
-    .prepare(
-      "INSERT INTO agent_sessions (id, workspace_id, project_id, agent, started_at) VALUES (?, ?, ?, 'fixture', ?)",
-    )
-    .run(id, workspaceId, projectId, Date.now());
 }

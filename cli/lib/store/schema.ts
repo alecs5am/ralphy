@@ -18,6 +18,16 @@ export const MIGRATIONS: readonly Migration[] = [
         applied_at INTEGER NOT NULL
       );
 
+      CREATE TABLE store_metadata (
+        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+        store_id TEXT NOT NULL UNIQUE CHECK (
+          length(store_id) = 38 AND substr(store_id, 1, 6) = 'store_'
+        )
+      );
+
+      INSERT INTO store_metadata (singleton, store_id)
+      VALUES (1, 'store_' || lower(hex(randomblob(16))));
+
       CREATE TABLE workspaces (
         id TEXT PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
@@ -103,12 +113,12 @@ export const MIGRATIONS: readonly Migration[] = [
 
       CREATE TABLE agent_sessions (
         id TEXT PRIMARY KEY,
-        workspace_id TEXT REFERENCES workspaces(id) ON DELETE RESTRICT,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
         project_id TEXT REFERENCES projects(id) ON DELETE RESTRICT,
-        agent TEXT NOT NULL,
+        agent TEXT NOT NULL CHECK (length(trim(agent)) > 0),
         metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
         started_at INTEGER NOT NULL,
-        ended_at INTEGER
+        ended_at INTEGER CHECK (ended_at IS NULL OR ended_at >= started_at)
       );
 
       CREATE TABLE documents (
@@ -574,6 +584,8 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_projects_workspace ON projects(workspace_id);
       CREATE INDEX idx_iterations_project ON project_iterations(project_id, number);
       CREATE INDEX idx_feedback_iteration ON feedback_items(iteration_id, status);
+      CREATE INDEX idx_agent_sessions_scope
+        ON agent_sessions(workspace_id, project_id, id);
       CREATE UNIQUE INDEX idx_documents_workspace_slug
         ON documents(workspace_id, slug) WHERE project_id IS NULL;
       CREATE INDEX idx_documents_scope ON documents(workspace_id, project_id, kind);
@@ -603,6 +615,166 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_activity_workspace_id ON activity_events(workspace_id, id);
       CREATE INDEX idx_activity_project_id ON activity_events(project_id, id);
       CREATE INDEX idx_storage_transfer_entries_transfer ON storage_transfer_entries(transfer_id);
+
+      CREATE TRIGGER store_metadata_no_update
+      BEFORE UPDATE ON store_metadata
+      BEGIN
+        SELECT RAISE(ABORT, 'store identity is immutable');
+      END;
+
+      CREATE TRIGGER store_metadata_no_delete
+      BEFORE DELETE ON store_metadata
+      BEGIN
+        SELECT RAISE(ABORT, 'store identity is immutable');
+      END;
+
+      CREATE TRIGGER agent_sessions_open_insert
+      BEFORE INSERT ON agent_sessions
+      WHEN NEW.ended_at IS NOT NULL
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent Session must start open');
+      END;
+
+      CREATE TRIGGER agent_sessions_project_scope_insert
+      BEFORE INSERT ON agent_sessions
+      WHEN NEW.project_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM projects p
+          WHERE p.id = NEW.project_id AND p.workspace_id = NEW.workspace_id
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent Session Project must belong to its Workspace');
+      END;
+
+      CREATE TRIGGER agent_sessions_update_guard
+      BEFORE UPDATE ON agent_sessions
+      WHEN NOT (
+        NEW.id IS OLD.id
+        AND NEW.workspace_id IS OLD.workspace_id
+        AND NEW.project_id IS OLD.project_id
+        AND NEW.agent IS OLD.agent
+        AND NEW.metadata_json IS OLD.metadata_json
+        AND NEW.started_at IS OLD.started_at
+        AND OLD.ended_at IS NULL
+        AND NEW.ended_at IS NOT NULL
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent Session scope and identity are immutable');
+      END;
+
+      CREATE TRIGGER document_revision_session_scope_insert
+      BEFORE INSERT ON document_revisions
+      WHEN NEW.authored_by_session_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_sessions s
+          JOIN documents d ON d.id = NEW.document_id
+          WHERE s.id = NEW.authored_by_session_id
+            AND s.ended_at IS NULL
+            AND s.workspace_id = d.workspace_id
+            AND (
+              (d.project_id IS NULL AND s.project_id IS NULL)
+              OR (
+                d.project_id IS NOT NULL
+                AND (s.project_id IS NULL OR s.project_id = d.project_id)
+              )
+            )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER artifact_revision_session_scope_insert
+      BEFORE INSERT ON artifact_revisions
+      WHEN NEW.authored_by_session_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_sessions s
+          JOIN artifacts a ON a.id = NEW.artifact_id
+          WHERE s.id = NEW.authored_by_session_id
+            AND s.ended_at IS NULL
+            AND s.workspace_id = a.workspace_id
+            AND (
+              (a.project_id IS NULL AND s.project_id IS NULL)
+              OR (
+                a.project_id IS NOT NULL
+                AND (s.project_id IS NULL OR s.project_id = a.project_id)
+              )
+            )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER composition_revision_session_scope_insert
+      BEFORE INSERT ON composition_revisions
+      WHEN NEW.authored_by_session_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_sessions s
+          JOIN compositions c ON c.id = NEW.composition_id
+          JOIN projects p ON p.id = c.project_id
+          WHERE s.id = NEW.authored_by_session_id
+            AND s.ended_at IS NULL
+            AND s.workspace_id = p.workspace_id
+            AND (s.project_id IS NULL OR s.project_id = p.id)
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER unit_revision_session_scope_insert
+      BEFORE INSERT ON unit_revisions
+      WHEN NEW.authored_by_session_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_sessions s
+          JOIN units u ON u.id = NEW.unit_id
+          JOIN projects p ON p.id = u.project_id
+          WHERE s.id = NEW.authored_by_session_id
+            AND s.ended_at IS NULL
+            AND s.workspace_id = p.workspace_id
+            AND (s.project_id IS NULL OR s.project_id = p.id)
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER run_session_scope_insert
+      BEFORE INSERT ON runs
+      WHEN NEW.agent_session_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_sessions s
+          WHERE s.id = NEW.agent_session_id
+            AND s.ended_at IS NULL
+            AND NEW.workspace_id IS NOT NULL
+            AND s.workspace_id = NEW.workspace_id
+            AND (
+              (NEW.project_id IS NULL AND s.project_id IS NULL)
+              OR (
+                NEW.project_id IS NOT NULL
+                AND (s.project_id IS NULL OR s.project_id = NEW.project_id)
+                AND EXISTS (
+                  SELECT 1 FROM projects p
+                  WHERE p.id = NEW.project_id
+                    AND p.workspace_id = NEW.workspace_id
+                )
+              )
+            )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER run_provenance_scope_update_guard
+      BEFORE UPDATE OF workspace_id, project_id, agent_session_id ON runs
+      WHEN NEW.workspace_id IS NOT OLD.workspace_id
+        OR NEW.project_id IS NOT OLD.project_id
+        OR NEW.agent_session_id IS NOT OLD.agent_session_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Run provenance scope is immutable');
+      END;
 
       CREATE TRIGGER document_revisions_no_update
       BEFORE UPDATE ON document_revisions
