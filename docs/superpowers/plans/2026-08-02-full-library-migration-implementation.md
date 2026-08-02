@@ -4,13 +4,14 @@
 
 **Goal:** Import, physically relocate, verify, and cut over the user's complete legacy `.ralphy` library and Desktop-owned state into the SQLite domain store with 100% source-path coverage and a recoverable rollback point.
 
-**Architecture:** Migration builds a sibling staged Ralphy root while the source remains untouched. Every staged operation receives an explicit database and store root; it must never resolve the live root through ambient process state. On APFS every source Object is copy-on-write cloned with a required-clone policy, promoted and journaled without a full-copy fallback. After semantic and byte-level verification, a durable journal outside all renamed roots coordinates the non-atomic two-rename cutover and crash recovery while retaining both the legacy recovery root and, on rollback, the new v2 root.
+**Architecture:** Migration builds a sibling staged Ralphy root while every source remains untouched. Every pre-freeze staged operation receives one `MigrationContext` carrying its explicit database/root, immutable source identities, and Run ID; ambient cwd/root helpers are forbidden. On APFS every source Object is copy-on-write cloned with a required-clone policy, promoted and journaled without a full-copy fallback. A one-time freeze closes the staged store; all later verification is read-only and external. A durable journal outside all renamed roots then coordinates the non-atomic two-rename cutover and crash recovery while retaining both the legacy recovery root and, on rollback, the new v2 root.
 
 **Tech Stack:** Bun, TypeScript, `bun:sqlite`, Node filesystem/crypto APIs, APFS clone via `COPYFILE_FICLONE_FORCE`, macOS Keychain, Zod, `bun:test`
 
 ## Global Constraints
 
 - Complete the core-domain-store and entity-CLI/bridge plans before running this plan.
+- Every pre-freeze function that reads/writes staged state consumes `MigrationContext = { db, storeRoot, sourceRoots, runId }`; `storeRoot` is the staged data root containing `ralphy.db`. Read-only audit and post-freeze verify/cutover receive explicit immutable paths/identities instead. Migration modules never call ambient `openDomainDb()`, `ralphDir()`, `setRoot()`, or infer state from cwd.
 - The latest observed source contains 77,670 regular files and 3,685 directories totaling 70,386,992,506 logical bytes (about 65.6 GiB), including 26 zero-byte files and 399 `.DS_Store` files. It has 30 Workspaces, 160 physical Projects, 146 registry Projects, 21 physical-only Projects, and 7 registry-only Projects. Only about 17.6 GB is free, so an ordinary second copy is not viable.
 - The latest jobs snapshot contains 141 jobs (13 pending, 13 completed, 114 failed, and 1 cancelled), 1,605 log rows, and 128 absolute `log_path` values. Preserve pending jobs under an execution hold; never start them implicitly after cutover.
 - `migrate audit` is strictly read-only, `migrate run` never cuts over, and cutover requires the exact Run ID plus a fresh verification ID.
@@ -20,9 +21,11 @@
 - For the live library require `COPYFILE_FICLONE_FORCE`. Unsupported clone, `EXDEV`, or any clone failure stops with the source untouched and performs no ordinary-copy/delete fallback. Copy mode is a separately selected mode only when space already covers all remaining logical bytes, derived bytes/DB overhead, and `max(2 GiB, 10%)` reserve.
 - Malformed JSONL creates an issue plus a raw diagnostic Object containing the exact bytes, byte offset, length, and hash; valid sibling lines remain importable. Preserve CRLF, missing final newline, and invalid UTF-8 evidence.
 - Import every ambiguous revision candidate but do not choose a head without manifest/index evidence.
-- Plaintext credentials and Electron `safeStorage` blobs never enter SQLite, Objects, reports, activity, stdout, stderr, or logs. Known candidates include two mode-0600 Postiz credential files and `.ralphy/tmp/ig-cookies.txt`; re-scan all roots and Desktop state under the cutover lock. Cutover blocks until each candidate has a core secret reference or an explicit sensitive recovery-only disposition.
+- Plaintext credentials and Electron `safeStorage` blobs never enter SQLite, Objects, reports, activity, stdout, stderr, or logs. Known schemas include X, Telegram, and Postiz plus the observed 667,395-byte Instagram cookie jar at `.ralphy/tmp/ig-cookies.txt`; re-scan all roots and Desktop state under the cutover lock before importing any raw control evidence. Cutover blocks until each candidate has an encrypted core text/file secret reference or an explicit sensitive recovery-only disposition.
 - `migrate audit` performs no filesystem write, clone probe, lock acquisition, DB creation/checkpoint, or source-WAL mutation. `run` creates the lock/stage and probes forced clone support.
 - Never invoke or reuse the current in-place `cli/lib/migrate.ts`; its rewrite/prune and `EXDEV -> copy -> remove` behavior is unsafe for this migration.
+- Migrated pending jobs carry a nullable migration hold that every claim path excludes. Only explicit post-cutover resume or cancel releases/resolves it.
+- Freeze the staged database exactly once after all imports. Repeated verification may write only external verification records and must leave the database/WAL/SHM bytes, size, mtime, and digest unchanged.
 - Recovery is never deleted automatically.
 - Keep all repository edits and commit messages English-only.
 
@@ -32,15 +35,33 @@
 
 **Files:**
 - Modify: `cli/lib/store/schema.ts`
+- Modify: `cli/lib/jobs/db.ts`
 - Create: `cli/lib/migration/types.ts`
 - Modify: `cli/lib/errors/catalog.ts`
 - Modify: `tests/unit/errors-catalog.test.ts`
 - Create: `tests/fixtures/migration/build-legacy-library.ts`
 - Test: `tests/unit/migration-schema.test.ts`
+- Modify: `tests/integration/jobs-db.test.ts`
 
 **Interfaces:**
 - Consumes: the schema version produced by the completed core/entity plans, immutable `store_id`, and `newDomainId()`
-- Produces: the next schema migration, migration row types, and `buildLegacyLibrary(root): LegacyFixture`
+- Produces: the next schema migration, `MigrationContext`, migration row types, and `buildLegacyLibrary(root): LegacyFixture`
+
+```ts
+export type MigrationSourceRoot = {
+  id: string;
+  kind: "ralphy" | "legacy-workspace" | "desktop";
+  path: string;
+  device: bigint;
+  inode: bigint;
+};
+export type MigrationContext = {
+  db: Database;
+  storeRoot: string;
+  sourceRoots: readonly MigrationSourceRoot[];
+  runId: string;
+};
+```
 
 - [ ] **Step 1: Write the failing migration-schema test**
 
@@ -58,20 +79,29 @@ Migration 3 creates:
 
 ```text
 migration_runs(
-  id PRIMARY KEY, source_root_kind, source_root_rel, stage_root_rel,
-  recovery_root_rel, phase, source_entry_count, source_file_count,
-  source_bytes, inventory_completed_at, verified_at, cutover_at,
+  id PRIMARY KEY, stage_root_rel, recovery_root_rel, phase,
+  source_entry_count, source_file_count,
+  source_bytes, inventory_completed_at, frozen_at, cutover_at,
   cutover_activity_id, last_error_code, last_error_detail,
   created_at, updated_at
 )
 
+migration_sources(
+  id PRIMARY KEY, migration_run_id REFERENCES migration_runs,
+  source_kind, source_label, canonical_path_hash,
+  source_device, source_inode, source_mode, inventory_digest,
+  created_at,
+  UNIQUE(migration_run_id, source_kind, source_device, source_inode)
+)
+
 migration_entries(
   id PRIMARY KEY, migration_run_id REFERENCES migration_runs,
-  source_root_kind, source_path, entry_kind, source_kind, disposition,
+  migration_source_id REFERENCES migration_sources,
+  source_path, entry_kind, source_kind, disposition,
   source_device, source_inode, source_mode, bytes, mtime_ms, sha256,
   target_path, target_refs_json, raw_evidence_object_id,
   state, error_code, terminal_at, created_at, updated_at,
-  UNIQUE(migration_run_id, source_root_kind, source_path)
+  UNIQUE(migration_run_id, migration_source_id, source_path)
 )
 
 migration_issues(
@@ -81,7 +111,55 @@ migration_issues(
 )
 ```
 
-Constrain phases to `audited|inventory|import|objects|relations|verify|ready|cutover|rolled-back|failed`, entry states to `inventoried|imported|staged|verified|excluded|issue`, and issue severity to `info|review|block`. A source entry has exactly one typed terminal disposition whose sorted target refs and terminal timestamp cannot be rewritten. Account bytes per source path even when several paths deduplicate to one Object. Represent zero-byte files and empty directories explicitly; decoded data-URL bytes are derived targets rather than additional source bytes.
+Constrain phases to `audited|inventory|import|objects|relations|verify|ready|cutover|rolled-back|failed`, entry states to `inventoried|imported|staged|verified|excluded|issue`, issue severity to `info|review|block`, and dispositions to:
+
+| Disposition | Allowed terminal state | Meaning |
+|---|---|---|
+| `domain` | `imported` | semantic rows plus exact raw control evidence |
+| `object` | `verified` | immutable Artifact/Composition/Document source bytes |
+| `run-object` | `verified` | working/diagnostic evidence |
+| `decoded-object` | `verified` | derived bytes decoded from one inventoried source |
+| `cache` | `excluded` | proven reproducible staged cache |
+| `system` | `excluded` | mode/hash-recorded system entry such as `.DS_Store` |
+| `recovery-only` | `excluded` | retained only in the untouched recovery tree |
+| `secret-imported` | `excluded` | imported into encrypted text/file secret storage |
+| `secret-recovery-only` | `excluded` | sensitive bytes retained only in recovery |
+| `issue` | `issue` | explicit terminal review/block decision linked to an issue row |
+
+An issue row itself is not a disposition: terminal `issue` requires one linked
+unresolved decision with severity/reason, and resolving it requires a forward
+transition to another allowed disposition/state. Account bytes per source path
+even when several paths deduplicate to one Object. Represent zero-byte files and
+empty directories explicitly; decoded data-URL bytes are derived targets rather
+than additional source bytes.
+
+`source_path` is relative to its `migration_source_id`; `target_path` is null or
+a staged-data-root-relative POSIX locator. Neither column may contain an
+absolute, drive, UNC, URL, data URL, or traversal locator. Source roots exist as
+in-memory context plus hashed/device/inode identities in SQLite, not plaintext
+absolute paths.
+
+Add persistent triggers that reject delete, ID/logical-key `INSERT OR REPLACE`,
+source fingerprint/identity edits, backward state/phase transitions, and changes
+to terminal disposition/targets/timestamps, including with
+`recursive_triggers=OFF`. The sole terminal exception is one guarded
+`issue -> allowed disposition/state` decision after all linked blocking issues
+are resolved; it cannot return to `issue`. `target_refs_json` is canonical
+sorted unique domain IDs or validated secret refs. Direct-SQL tests exercise every forbidden transition and
+multi-source same-path entries.
+
+Recoverable phase errors update redacted `last_error_*` while leaving the phase
+at its resumable checkpoint. `failed` is terminal and used only by an explicit
+abort/irrecoverable decision; `resume` never moves a failed Run backward.
+
+The same schema migration adds nullable `jobs.migration_hold_run_id` referencing
+the migration Run. Update every claim/reservation query in the shared jobs DB
+module to require it is null; no alternate claim API may omit the predicate.
+Expose `resumeHeldJob(id, expectedMigrationRunId)` as the only operation that
+clears a hold; ordinary single/bulk retry never does. Existing cancellation may
+terminalize a held job but cannot requeue it.
+Migration-schema/jobs tests prove held pending jobs cannot be claimed through
+single, bulk, dependency, scheduled, or retry paths.
 
 - [ ] **Step 3: Add migration error codes without repurposing existing codes**
 
@@ -92,11 +170,11 @@ Add `E_MIGRATION_LOCKED`, `E_MIGRATION_SPACE`, `E_MIGRATION_COVERAGE`, `E_MIGRAT
 `buildLegacyLibrary` creates both pre-#106 `workspace/.ralph` and current `.ralphy/workspaces` layouts containing:
 
 - one registered, one physical-only, and one registry-only Project;
-- Denti-like R2/R3 feedback, multiple HTML composition versions, two render profiles, and `render/work-*` diagnostics;
+- Denti-like R2/R3 feedback, branch-suffixed HTML composition families, master/social/`.vN` render profiles, loose Markdown/ZIP files, and `render/work-*` diagnostics;
 - an absolute-path asset manifest with one data URL;
 - JSONL with valid lines surrounding one malformed line;
 - an eight-image carousel, 32-item sticker pack, article, Workspace Unit, and duplicate Unit media;
-- publish ledger, analytics, evaluations, stage state, jobs DB/logs with a non-empty WAL and pending job, cache/temp, empty files/directories, `.DS_Store`, symlink/socket/FIFO blockers, one unknown file, plaintext credential and cookie fixtures, Desktop review fixture, crash-injection points, and ambiguous `.vN`/`-vN`/`rN`/`final*` names;
+- publish ledger, analytics, evaluations, stage state, jobs DB/logs with a non-empty WAL and pending job, cache/temp, semantic and unknown empty files/directories, `.DS_Store`, symlink/socket/FIFO blockers, one unknown file, X/Telegram/Postiz plaintext credentials, a 667,395-byte Instagram cookie jar, Desktop review/safeStorage fixtures, crash-injection points, and ambiguous `.vN`/`-vN`/`rN`/`final*` names;
 - observed unusual roots: `.scratch`, `scratch`, `tmp`, `tmp-scripts`, `farm`, `web-videos`, `media-library`, root `PROFILE.md`/text files, `_research`, `_fx-probe`, references, research, memory, old jobs/logs, and daemon files.
 
 Return exact expected entry/file/byte counts and hashes from the builder; tests must not hard-code host paths.
@@ -106,7 +184,7 @@ Return exact expected entry/file/byte counts and hashes from the builder; tests 
 Run: `bun test tests/unit/migration-schema.test.ts tests/unit/errors-catalog.test.ts`
 
 ```bash
-git add cli/lib/store/schema.ts cli/lib/migration/types.ts cli/lib/errors/catalog.ts tests/unit/errors-catalog.test.ts tests/fixtures/migration/build-legacy-library.ts tests/unit/migration-schema.test.ts
+git add cli/lib/store/schema.ts cli/lib/jobs/db.ts cli/lib/migration/types.ts cli/lib/errors/catalog.ts tests/unit/errors-catalog.test.ts tests/fixtures/migration/build-legacy-library.ts tests/unit/migration-schema.test.ts tests/integration/jobs-db.test.ts
 git commit -m "feat(migrate): add migration journal schema"
 ```
 
@@ -118,10 +196,12 @@ git commit -m "feat(migrate): add migration journal schema"
 - Test: `tests/unit/migration-inventory.test.ts`
 
 **Interfaces:**
-- Produces: `auditMigration`, `inventoryLegacySource`, `acquireMaintenanceLock`, `releaseMaintenanceLock`, and `readMigrationStatus`
+- Produces: read-only `auditMigration(input)`, `inventoryLegacySource(ctx: MigrationContext)`, explicit-identity `acquireMaintenanceLock`/`releaseMaintenanceLock`, and `readMigrationStatus`
 
 ```ts
-export type AuditMigrationInput = { sourceRoot: string; desktopDataRoot?: string };
+export type AuditMigrationInput = {
+  sourceRoots: readonly { kind: "ralphy" | "legacy-workspace" | "desktop"; path: string }[];
+};
 export type MigrationAudit = {
   sourceEntries: number;
   sourceFiles: number;
@@ -143,7 +223,7 @@ Assert the fixture's exact entry/file/byte totals equal the summary and ledger c
 
 - [ ] **Step 2: Implement `lstat` traversal without following links**
 
-After the maintenance lock is acquired, use `fs.promises.opendir`, sort child names for deterministic order, and insert one `migration_entries` row per relative path including directories into the explicit staged database. Use `lstat`, never follow links, record device/inode/mode/size/mtime, hash control files during inventory, and defer large media hashes until staging. Reject source paths that escape the exact resolved root. Audit itself only returns an in-memory report.
+After the maintenance lock is acquired, use `fs.promises.opendir`, sort child names for deterministic order, and insert one `migration_sources` identity plus one `migration_entries` row per relative path including directories into `ctx.db`. Use `lstat`, never follow links, record device/inode/full mode/size/mtime, hash control files during inventory, and defer large media hashes until staging. Reject source paths that escape their exact resolved source. A poison test sets cwd/ambient `setRoot()` to a writable live fixture and proves all migration bytes/rows go only through `ctx.storeRoot`/`ctx.db`. Audit itself returns an in-memory report and cannot construct a `MigrationContext`.
 
 - [ ] **Step 3: Implement preflight evidence**
 
@@ -153,16 +233,25 @@ Audit, without writing or probing clone support:
 - opens legacy jobs DB query-only without checkpointing and reports all status counts;
 - detects packaged Desktop, daemon PID, and known watcher processes;
 - computes required copy bytes plus a 10%/2 GiB safety margin;
-- inventories Desktop settings/review/secret candidates supplied through `desktopDataRoot`;
+- inventories Desktop settings/review/secret candidates from the explicit `desktop` source root;
 - records all blockers without changing source.
 
-After the lock is held, `run` probes `COPYFILE_FICLONE_FORCE`, verifies stage/source use the same device, and refuses insufficient copy-mode space before creating the first staged Object.
+The redacted process scan returns only category/PID/count; it never serializes,
+logs, or reports argv. After the lock is held, `run` rejects broad mutating
+targets (filesystem root, home, repository root, or any path other than the
+exact inventoried `.ralphy` source), pre-existing conflicting stage/recovery/
+rollback/journal state, and source identities already used by another active
+Run. Canonical source roots must be distinct and non-overlapping; duplicate,
+nested, or symlink-alias identities reject rather than double-account bytes. It
+probes `COPYFILE_FICLONE_FORCE`, verifies stage/source use the same
+device, and refuses insufficient copy-mode space before creating the first
+staged Object.
 
 - [ ] **Step 4: Add the exact maintenance lock**
 
 Create `<source-parent>/.ralphy-migration.lock` with `open("wx", 0o600)` containing Run ID, source realpath/device/inode, PID plus process-start identity, nonce, UID, and timestamp. Reject symlinked source, stage, journal, recovery, or ancestor paths. PID reuse cannot make a stale lock appear live; a stale lock is reclaimed only through the matching `resume`, `recover`, or `rollback`, never silent deletion.
 
-Use one shared process gate in `run`, `resume`, `verify`, `cutover`, `recover`, and `rollback`. Report only process category and PID, never full argv. Recheck source identity and quiescence before and after every mutating phase.
+Use one shared process gate in `run`, `resume`, `verify`, `cutover`, `recover`, and `rollback`. Inspect process categories plus open file descriptors and process cwd under both source and stage; report only category/PID, never full argv or FD target. Recheck every source/stage identity and quiescence before and after each mutating phase.
 
 - [ ] **Step 5: Verify and commit audit/inventory**
 
@@ -181,7 +270,7 @@ git commit -m "feat(migrate): inventory every legacy path"
 - Test: `tests/unit/migration-import.test.ts`
 
 **Interfaces:**
-- Consumes: explicit source paths, staged domain DB, scope/Document/operations stores, and migration ledger
+- Consumes: `MigrationContext`, scope/Document/operations stores, and migration ledger
 - Produces: `classifyLegacyPath`, `importScopesAndDocuments`, `importExecutionAndOperations`
 
 - [ ] **Step 1: Write failing malformed and drift import tests**
@@ -189,7 +278,7 @@ git commit -m "feat(migrate): inventory every legacy path"
 Assert:
 
 - all valid JSONL lines on both sides of a malformed line become rows;
-- the malformed line creates one issue and a diagnostic Object with exact raw bytes, byte offset, length, and hash;
+- the malformed line creates one issue plus a diagnostic-evidence allocation with exact raw bytes, byte offset, length, and hash for Task 4 staging;
 - 22-like physical-only Projects are imported as `needs_review` rather than dropped;
 - registry-only Projects become archived metadata-only `needsReview` Projects with `migrationSourceMissing`; physical-only Projects also receive `needsReview` evidence;
 - Markdown/JSON control content becomes typed immutable Document revisions;
@@ -199,17 +288,52 @@ Assert:
 
 `legacy.ts` may read registry/config/workspace manifests, asset manifests, Units, composition indexes, JSONL, old jobs SQLite, and known Markdown filenames. It returns typed records plus parse issues; it never writes source and never appears in normal command imports.
 
-Parse JSONL as bytes so invalid UTF-8, CRLF, missing final newline, and malformed line boundaries remain recoverable; catch per record, not per file. Keep a raw diagnostic Object for partially understood control files whose unknown fields are not fully normalized. Decode no data URLs in this task—emit a classified binary candidate consumed by Task 4.
+Run the secret-candidate classifier before parsing or allocating any control bytes;
+secret-tainted entries may flow only to encrypted secret import or untouched
+recovery. Parse JSONL as bytes so invalid UTF-8, CRLF, missing final newline,
+and malformed line boundaries remain recoverable; catch per record, not per
+file. Every non-empty non-secret JSON, JSONL, Markdown, and recognized control
+file gets an exact raw-evidence allocation in addition to normalized rows, even
+when parsing is complete. Preserve byte hash, mode, CRLF, invalid UTF-8, and
+missing final newline. A recognized zero-byte control file uses the semantic
+empty marker plus ledger zero hash/mode instead of an invalid empty Object. This
+task does not register evidence Objects or terminalize their entries; it emits
+deterministic preallocated candidates consumed by Task 4. Decode no data URLs
+here.
 
 - [ ] **Step 3: Import scope and text rows with ledger transitions**
 
-Create stable ID maps in migration target refs. Import Workspaces/Projects, Iterations inferred from feedback rounds, feedback, Documents/revisions/bindings, Workspace resources, memory, research, evaluator/stage state, settings, campaigns, and calendar state. Each semantic insert and its entry transition to `imported` share one SQLite transaction.
+Create stable ID maps in migration target refs. Import Workspaces/Projects,
+Iterations inferred only from explicit feedback-round evidence, feedback,
+Documents/revisions/bindings, Workspace resources, memory, research,
+evaluator/stage state, settings, campaigns, and calendar state. A recognized
+semantic zero-byte control file becomes an explicit empty Document/marker plus
+ledger hash/mode evidence; an unknown zero-byte file remains blocking `issue`,
+never a silent system exclusion. Semantic rows plus their deterministic target/
+evidence allocations (for non-empty controls) share one `ctx.db` transaction but leave the entry
+non-terminal; Task 4 atomically binds the verified raw Object and transitions it
+to `imported`. Resume treats existing matching IDs as idempotent and mismatches
+as blockers.
 
 - [ ] **Step 4: Import old jobs and logs**
 
-With all writers stopped, clone `jobs.db`, `jobs.db-wal`, and `jobs.db-shm` into stage; compare source triplet metadata before/after and checkpoint only the clone. Copy every job/log/artifact row into staged `ralphy.db`, import all 1,605 log rows, create Runs for historical jobs, preserve numeric job IDs, and normalize all absolute log paths to safe relative/Object locators. Missing Project links become review issues.
+With all writers stopped, allocate exact raw-evidence candidates for
+`jobs.db`, `jobs.db-wal`, and `jobs.db-shm`, then forced-clone the triplet into a
+separate staged working directory. Compare source triplet device/inode/mode/
+size/mtime/hash before and after, open/checkpoint only the working clone, and
+require clean SQLite integrity/foreign keys. Task 4 registers the untouched raw
+triplet candidates. Reconcile source snapshot versus working clone versus staged
+domain rows by counts and every job/log/artifact primary ID; missing, duplicate,
+or changed rows block. Copy every row into staged `ralphy.db`, import all 1,605
+log rows, create Runs for historical jobs, preserve numeric job IDs, and
+normalize all absolute log paths to safe relative/Object locators. Missing
+Project links become review issues.
 
-Preserve every pending job under a migration execution hold that worker claims exclude. Only explicit post-cutover `job resume` or `job cancel` clears or resolves that hold; first launch never executes migrated pending work.
+Populate nullable `jobs.migration_hold_run_id` from Task 1. Preserve every pending job with the current
+migration Run ID; completed/failed/cancelled jobs have null hold. Only explicit
+post-cutover `job resume` clears the hold or `job cancel` terminalizes the held
+job. Generic retry, daemon startup, dependency release, and first launch cannot
+release or execute it.
 
 - [ ] **Step 5: Verify and commit semantic import**
 
@@ -229,8 +353,8 @@ git commit -m "feat(migrate): import legacy semantic state"
 - Modify: `tests/integration/domain-objects.test.ts`
 
 **Interfaces:**
-- Consumes: explicit staged database/store root, `prepareObject`, `registerPreparedObject`, APFS clone, and migration ledger
-- Produces: `stageInventoryObjects(db, storeRoot, runId): Promise<StageSummary>`
+- Consumes: `MigrationContext`, `prepareObject`, `registerPreparedObject`, APFS clone, and migration ledger
+- Produces: `stageInventoryObjects(ctx: MigrationContext): Promise<StageSummary>`
 
 - [ ] **Step 1: Finalize the shared Object API before migration code**
 
@@ -260,13 +384,20 @@ export async function ingestObject(input: ObjectIngestInput & { transfer?: "copy
 
 `prepareObject` completes bytes before any DB transaction and resolves only through the supplied `db` and `storeRoot`. `registerPreparedObject` performs only the row insert. `ingestObject` remains the normal ambient convenience wrapper and defaults to `copy`; generated Run temp callers explicitly pass `move`. Add an ambient-live-root trap test proving staged migration cannot touch cwd's live store.
 
+Migration resume never relies on a process-local `WeakSet`, cache, or returned
+`PreparedObject`. Reconstruct it after restart only from the immutable ledger
+allocation plus final staged bytes, then re-stat/stream-hash/verify the final
+path before registration. Poison ambient cwd and `setRoot()` in every staging
+test.
+
 - [ ] **Step 2: Write failing APFS clone and resume tests**
 
 Assert source hashes/mtimes remain unchanged, staged files use forced cloning, decoded data URLs become ordinary Objects, a crash after final-byte promotion but before ledger commit resumes with the preallocated Object ID/key and no duplicate row, and insufficient copy-mode free space blocks before the first Object. Inject `ENOTSUP`, `EXDEV`, and clone failure under `clonePolicy: "require"` and prove zero fallback copy/remove calls.
 
 - [ ] **Step 3: Implement clone to staged temp, then normal promotion**
 
-For every durable/working/diagnostic candidate:
+For every durable/working/diagnostic candidate, including all preallocated raw
+control evidence:
 
 1. allocate and persist the target Object ID/key in the ledger;
 2. clone directly into an Object-specific staged temp path using `copyFile(..., COPYFILE_FICLONE_FORCE)` with `clonePolicy: "require"` for the live library;
@@ -274,13 +405,33 @@ For every durable/working/diagnostic candidate:
 4. inside one explicit staged-DB transaction, call `registerPreparedObject` and mark the ledger entry `staged` with sorted Object target refs;
 5. verify staged hash before marking `verified`.
 
-Resume handles bytes promoted before DB commit by verifying and registering the same preallocated Object. A matching DB row with an incomplete ledger is verified and completed; a mismatching path/hash blocks and is never overwritten. Ordinary copy is a separately preflight-selected mode, never an internal fallback from required clone.
+For a semantic control entry, the registration transaction instead binds
+`raw_evidence_object_id`, verifies all already-allocated semantic targets, and
+terminalizes the entry as `domain/imported`; its raw Object is still hash-
+verified and referenced. A malformed-line diagnostic allocation becomes a
+RunObject/Object target without swallowing valid sibling rows.
+
+Resume in a fresh process handles bytes promoted before DB commit by rebuilding
+the same `PreparedObject` from ledger facts, verifying final bytes, and
+registering the same preallocated Object. A matching DB row with an incomplete
+ledger is verified and completed; a mismatching path/hash blocks and is never
+overwritten. Ordinary copy is a separately preflight-selected mode, never an
+internal fallback from required clone.
 
 Decode data URLs directly into staged temp, record their manifest entry plus generated Object refs, and never materialize base64 in SQLite.
 
 - [ ] **Step 4: Classify RunObjects, cache, empty, and unknown entries**
 
-Render work frames/probes/logs and legacy `.scratch`, `scratch`, `tmp`, and `tmp-scripts` become durable evidence as working/diagnostic Migration RunObjects unless proven reproducible; their old path name does not make them disposable v2 temp. Reproducible cache stays below staged `.ralphy/cache/` with explicit ledger target. Empty directories, zero-byte files, and every `.DS_Store` receive explicit terminal recovery/system dispositions with size/hash evidence. Unknown files block verification until assigned Object/RunObject/system disposition by a reviewed rule.
+Render work frames/probes/logs and legacy `.scratch`, `scratch`, `tmp`, and
+`tmp-scripts` become durable evidence as working/diagnostic Migration RunObjects
+unless proven reproducible; their old path name does not make them disposable
+v2 temp. Reproducible cache stays below staged `.ralphy/cache/` with explicit
+ledger target. Preclassified secret candidates are never opened/staged here and
+remain non-terminal for Task 6. Recognized semantic zero-byte files were imported as empty
+Documents/markers; fixture-backed empty directories and `.DS_Store` receive
+explicit terminal recovery/system dispositions with mode/size/hash evidence.
+Unknown files or empty entries remain blocking `issue` until a reviewed rule
+assigns a valid disposition.
 
 - [ ] **Step 5: Verify and commit staged storage**
 
@@ -298,16 +449,30 @@ git commit -m "feat(migrate): stage legacy objects safely"
 - Test: `tests/unit/migration-production.test.ts`
 
 **Interfaces:**
-- Consumes: imported scope/Document IDs, staged Object hashes, legacy manifests/indexes/Units, and production/delivery stores
-- Produces: `importProductionAndDelivery(db, runId): Promise<ImportSummary>`
+- Consumes: `MigrationContext`, imported scope/Document IDs, staged Object hashes, legacy manifests/indexes/Units, and production/delivery stores
+- Produces: `importProductionAndDelivery(ctx: MigrationContext): Promise<ImportSummary>`
 
 - [ ] **Step 1: Write failing Denti-like provenance tests**
 
-Assert R2/R3 feedback links to Iterations, HTML versions become ordered Composition revisions, each render profile becomes a Build on the exact source revision, render outputs become Artifact revisions, render work files remain RunObjects, and ambiguous filename families are present with no selected head plus a review issue.
+Assert R2/R3 feedback links to Iterations only from explicit feedback records,
+HTML branch suffixes remain distinct Composition lineages, and only a proven
+revision token is stripped from identity. Master/social/`.vN` render variants
+become separate Builds on their exact source revision; outputs become Artifact
+revisions and work files remain RunObjects. `rN` in a filename alone never
+creates an Iteration. Ambiguous/empty families remain imported but unselected
+with a review issue. Loose Markdown/ZIP files become Documents/Artifacts, not
+synthetic Projects.
 
 - [ ] **Step 2: Reconstruct Artifact families using evidence precedence**
 
-Evidence order is manifest/index selection, explicit composition binding, exact Unit provenance, then filename-family heuristic. Hash-identical Unit copies link to the proven source Artifact revision. `.vN`, `-vN`, `rN`, and `final*` candidates without higher evidence remain unselected.
+Evidence order is manifest/index selection, explicit composition binding, exact
+Unit provenance, then filename-family heuristic. Preserve meaningful branch
+suffixes; remove `.vN`/`-vN` only when sibling/index evidence proves it is a
+revision token. Never strip `rN` as an Iteration or conflate master, social, and
+encoded `.vN` renders. Hash-identical Unit copies link to the proven source
+Artifact revision. `.vN`, `-vN`, `rN`, `final*`, and zero-byte candidates
+without higher evidence remain unselected with an issue; no filename alone
+selects a head.
 
 - [ ] **Step 3: Reconstruct flexible Units and distribution history**
 
@@ -317,7 +482,18 @@ Import carousel and sticker order, article body/cover/attachments, captions, per
 
 A source manifest may target dozens of domain rows and decoded Objects; store the sorted stable IDs in `target_refs_json`. Transition only after every referenced row exists in the same transaction.
 
-Apply deterministic observed-root rules: `farm` content becomes Migration RunObjects with parsed known dead-letter JSONL plus raw evidence; `web-videos/<slug>` becomes a default-Workspace physical-only Project; `media-library/library.json` becomes a custom catalog Document plus raw evidence while its cache is reproducible; root `PROFILE.md`/text becomes default-Workspace Documents; `_research` is a normal physical Project; `_fx-probe` is a diagnostic Project with Composition/Build/RunObjects; reference/research/memory roots become shared resources/Documents/Artifacts; old jobs/logs become execution evidence; daemon PID is recovery-only. Any unmatched root remains blocking until a fixture-backed rule exists.
+Apply deterministic observed-root rules: `farm` content becomes Migration
+RunObjects with parsed known dead-letter JSONL plus exact raw evidence;
+`web-videos/<slug>` becomes a default-Workspace physical-only Project;
+`media-library/library.json` becomes a custom catalog Document plus raw evidence
+while its cache is reproducible; root `PROFILE.md`/text and loose Markdown become
+default-Workspace Documents; loose ZIPs become Artifacts; `_research` is a
+normal physical Project; `_fx-probe` is a diagnostic Project with Composition/
+Build/RunObjects; reference/research/memory roots become shared resources/
+Documents/Artifacts; old jobs/logs become execution evidence; daemon PID is
+recovery-only. Directory shape alone never promotes loose files into Projects.
+Any unmatched root, including an unmatched empty entry, remains blocking until
+a fixture-backed rule exists.
 
 - [ ] **Step 5: Verify and commit production import**
 
@@ -336,8 +512,8 @@ git commit -m "feat(migrate): reconstruct production history"
 - Test: `tests/unit/migration-desktop-state.test.ts`
 
 **Interfaces:**
-- Consumes: Desktop review/settings export, core secret store, stable Artifact/RunObject IDs
-- Produces: review/evaluation/feedback rows and write-only `migration.secret.import` bridge operation
+- Consumes: `MigrationContext`, Desktop review/settings export, core secret store, stable Artifact/RunObject IDs
+- Produces: review/evaluation/feedback rows and write-only text/file `migration.secret.import` bridge operation
 
 - [ ] **Step 1: Write failing review matching tests**
 
@@ -345,17 +521,55 @@ Match a Desktop annotation first by normalized source-relative path and then by 
 
 - [ ] **Step 2: Import plaintext legacy credentials directly into the core secret store**
 
-Parse only known credential schemas from the two observed Workspace `credentials.json` files, write values to scoped secret refs keyed by the immutable database `store_id`, store only refs/non-secret account metadata in SQLite, redact issue detail, and classify the source entry as `secret-imported`. Discover secret candidates across every root, including `.ralphy/tmp/ig-cookies.txt`; an unknown candidate blocks until imported or explicitly classified sensitive recovery-only. Never open/read an unknown candidate merely to include its path in audit output.
+Run secret discovery/classification before any raw-evidence or Object staging.
+Parse only fixture-backed X, Telegram, and Postiz schemas, write values to scoped
+secret refs keyed by immutable `store_id`, store only refs/non-secret account
+metadata in SQLite, redact issue detail, and classify entries as
+`secret-imported`. Import the observed 667,395-byte Instagram cookie jar through
+`setSecretFile`; it is encrypted file-shaped data, never a text secret, Object,
+RunObject, or raw-evidence file. Consumers materialize it only to mode-0600
+`tmp/<run-id>/secrets/` and remove it at Run terminalization. An unknown secret
+candidate blocks until imported or explicitly classified
+`secret-recovery-only`; until that decision, inventory uses only lstat/name
+classification and never reads bytes merely for a report. Secret-tainted bytes
+never enter semantic parsers.
 
 - [ ] **Step 3: Add a write-only Electron safeStorage handoff**
 
-`migration.secret.import` accepts `{ runId, sourceEntryId, ref, value }` only through stdin/bridge memory, writes through `setSecret`, records only the ref and completion status, and never accepts the value through argv/env or echoes request input. Desktop re-audits and decrypts any current safeStorage blobs under the maintenance lock and calls this method before verification.
+`migration.secret.import` accepts either
+`{ runId, sourceEntryId, ref, kind: "text", value }` or
+`{ runId, sourceEntryId, ref, kind: "file", base64 }` only through bridge stdin
+memory, writes through the matching encrypted primitive, records only ref/kind/
+completion, and never accepts or echoes secret bytes through argv/env/output.
+
+Desktop safeStorage handoff is a one-shot allowlisted Electron helper launched
+under the maintenance lock. It may read only the audited safeStorage keys and
+call this method; it must not start media/root watchers, bridge auto-restart, or
+normal Desktop windows. It exits before the next quiescence gate/mutating phase,
+and any remaining helper process blocks. Re-audit Desktop state immediately
+before invocation so newly appeared blobs cannot be skipped.
+
+The process gate allowlist is exact PID plus migration nonce for this helper and
+its staged-root bridge only; it never permits Electron/bridge by name alone.
+
+This core task lands/tests the bridge contract with a fixture helper. The actual
+one-shot executable is a required Desktop-repository milestone after the core
+contract is released; live verification cannot complete until its packaged
+no-watcher/exit test passes.
 
 Chromium localStorage chat/settings data is exported by Desktop as typed JSON without credential bytes and imported as Agent Session preferences/history Documents where it belongs.
 
 - [ ] **Step 4: Verify redaction**
 
-Search staged SQLite/WAL/SHM, Objects, reports, activity, stdout, stderr, and logs for fixture secrets and assert zero matches. Verify `hasSecret(ref)` remains true after stage-to-live rename. Preserve unmatched Desktop annotations as unbound `needsReview` feedback rather than dropping them. After cutover verify recovery mode 0700 and legacy secret files mode 0600; the report discloses that recovery still contains plaintext credentials. Recovery/keychain cleanup is a separate explicit operation.
+Search staged SQLite/WAL/SHM, Objects, raw evidence, reports, activity, stdout,
+stderr, and logs for fixture text/cookie/safeStorage bytes and assert zero
+matches. Verify text and file refs survive stage-to-live rename and file
+materialization is mode 0600 and Run-contained. Prove the helper starts no
+watcher and exits. Preserve unmatched Desktop annotations as unbound
+`needsReview` feedback rather than dropping them. After cutover verify recovery
+mode 0700 and legacy secret files mode 0600; the report discloses that recovery
+still contains plaintext credentials. Recovery/keychain cleanup is a separate
+explicit operation.
 
 Run: `bun test tests/unit/migration-desktop-state.test.ts tests/unit/secret-store.test.ts`
 
@@ -366,17 +580,32 @@ git add cli/lib/migration/import.ts cli/lib/bridge/methods.ts tests/unit/migrati
 git commit -m "feat(migrate): import desktop reviews and secrets"
 ```
 
-### Task 7: Implement complete verification with a signed verification ID
+### Task 7: Implement complete verification with a digest-bound verification ID
 
 **Files:**
 - Create: `cli/lib/migration/verify.ts`
+- Modify: `cli/lib/store/verify.ts`
 - Test: `tests/unit/migration-verify.test.ts`
+- Modify: `tests/integration/domain-verify.test.ts`
 
 **Interfaces:**
 - Consumes: source inventory, staged DB/buckets, `verifyDomainStore`, secret dispositions, and full source fingerprints
-- Produces: `verifyMigration(db, storeRoot, runId): Promise<MigrationVerification>` plus a mode-0600 verification record outside all renamed roots
+- Produces: one-shot `freezeMigration(ctx: MigrationContext): Promise<FrozenMigration>` and read-only `verifyMigration(input: { storeRoot: string; runId: string; verificationDir: string }): Promise<MigrationVerification>` plus a mode-0600 record outside all renamed roots
 
 ```ts
+export type FrozenFileFingerprint = {
+  exists: boolean;
+  bytes: number;
+  mtimeMs: number;
+  sha256: string | null;
+};
+export type FrozenMigration = {
+  runId: string;
+  frozenAt: number;
+  database: FrozenFileFingerprint;
+  wal: FrozenFileFingerprint;
+  shm: FrozenFileFingerprint;
+};
 export type MigrationVerification = {
   id: string;
   runId: string;
@@ -386,7 +615,12 @@ export type MigrationVerification = {
   sourceBytes: number;
   accountedBytes: number;
   blockers: MigrationIssue[];
-  digest: string;
+  databaseDigest: string;
+  contentDigest: string;
+  inventoryDigests: Record<string, string>;
+  coreVersion: string;
+  schemaVersion: number;
+  contractVersion: number;
 };
 ```
 
@@ -400,26 +634,54 @@ Require:
 
 - exactly one terminal disposition for every inventory row;
 - every source byte accounted to a relocated Object/RunObject, recovery-only source, decoded payload source, cache/system exclusion, or explicit issue;
+- exact raw-evidence Object coverage for every non-empty non-secret JSON/JSONL/Markdown/control file, explicit semantic empty markers with zero hash/mode evidence, and no unknown empty entry silently excluded;
 - unchanged full source entry fingerprints/hashes since inventory;
 - hashes for every durable Object;
 - `PRAGMA integrity_check = ok` and empty `foreign_key_check`;
 - zero rows resolving to missing bytes;
 - valid Composition revision -> Build -> output and Unit revision -> item -> Artifact revision chains;
 - no data URL, secret, or unresolved absolute path in SQLite;
-- every Desktop review and credential source resolved or explicitly environment-owned;
-- the migrated pending-job hold count equals source inventory;
+- no plaintext secret materialization remains under staged tmp;
+- every Desktop review and credential source resolved to imported encrypted state or an explicit recovery-only disposition;
+- the migrated pending-job hold count equals the source pending-job count;
+- source/clone/staged job, log, and artifact IDs/counts reconcile exactly;
 - every source path, including deduplicated paths, contributes its logical bytes exactly once.
 
-- [ ] **Step 3: Bind cutover to a fresh digest**
+Extend the domain verifier's Object-reference query for schema v3 so
+`migration_entries.raw_evidence_object_id` and non-terminal staged transfer
+references count as uses; do not suppress genuinely orphaned migration Objects.
+The base-schema test still runs without migration tables.
 
-Finish all database writes, mark the Run ready, checkpoint WAL, and close every staged connection. Then hash the closed database plus sorted Object/RunObject content. Write an atomic, fsynced, mode-0600 verification record outside source, stage, and recovery containing Run ID, inventory digest, database digest, sorted content digest, timestamp, and verification ID. Never store the token inside the database it authenticates. Cutover recomputes every digest before the first rename; any mutation requires a new verify call. Two consecutive verifications must have identical content digests even though timestamped verification IDs differ.
+- [ ] **Step 3: Freeze once, then verify without mutating the stage**
+
+`freezeMigration` is the last staged writer. It validates import completion,
+transitions the Run to `ready` with `frozen_at` exactly once, checkpoints WAL,
+requires `PRAGMA wal_checkpoint(TRUNCATE)` to report no busy/uncheckpointed
+frames, and closes every staged connection. It then computes the closed DB/WAL/SHM
+fingerprint and writes it only to an external mode-0600 freeze record. A second
+freeze is idempotent only when that record and current closed fingerprint match
+exactly; it never rewrites timestamps/rows.
+
+`verifyMigration` opens the frozen database read-only/query-only, performs no
+checkpoint or activity/write, and hashes the closed database plus sorted
+Object/RunObject content and the opaque encrypted `secrets.enc` bytes/mode
+without decrypting them. Snapshot DB/WAL/SHM existence, size, mtime, and SHA-256
+before/after and require exact equality. Write only an atomic, fsynced,
+mode-0600 external verification record containing Run ID, all source inventory
+digests, database fingerprint, sorted content digest, timestamp, contract/core/
+schema versions, and verification ID computed from the canonical record digest.
+Compute the ID with the `id` field omitted to avoid a circular envelope. Never store the token inside the database
+it authenticates. Cutover recomputes every digest before the first rename; any
+stage mutation invalidates readiness and requires rebuilding a new Run, not a
+write during verify. Two consecutive verifications have identical DB/content/
+inventory digests while their external IDs/timestamps differ.
 
 - [ ] **Step 4: Verify and commit migration validation**
 
-Run: `bun test tests/unit/migration-verify.test.ts`
+Run: `bun test tests/unit/migration-verify.test.ts tests/integration/domain-verify.test.ts`
 
 ```bash
-git add cli/lib/migration/verify.ts tests/unit/migration-verify.test.ts
+git add cli/lib/migration/verify.ts cli/lib/store/verify.ts tests/unit/migration-verify.test.ts tests/integration/domain-verify.test.ts
 git commit -m "feat(migrate): verify complete library coverage"
 ```
 
@@ -429,6 +691,7 @@ git commit -m "feat(migrate): verify complete library coverage"
 - Modify: `cli/lib/migration/service.ts`
 - Create: `cli/lib/migration/cutover-journal.ts`
 - Modify: `cli/commands/migrate.ts`
+- Modify: `cli/commands/queue.ts`
 - Modify: `cli/index.ts`
 - Modify: `cli/lib/paths.ts`
 - Delete: `cli/lib/migrate.ts`
@@ -444,39 +707,80 @@ git commit -m "feat(migrate): verify complete library coverage"
 - [ ] **Step 1: Write the failing CLI resume/cutover test**
 
 ```text
-ralphy migrate audit --source <fixture>
-ralphy migrate run --source <fixture>
-ralphy migrate status <run-id> --source <fixture>
-ralphy migrate resume <run-id> --source <fixture>
-ralphy migrate verify <run-id> --source <fixture>
-ralphy migrate cutover <run-id> --verification <verification-id> --confirm <run-id> --source <fixture>
-ralphy migrate recover <run-id> --confirm <run-id> --source <fixture>
-ralphy migrate rollback <run-id> --confirm <run-id> --source <fixture>
+ralphy migrate audit --source <fixture>/.ralphy --legacy-source <fixture>/workspace/.ralph --desktop-source <desktop-data>
+ralphy migrate run --source <fixture>/.ralphy --legacy-source <fixture>/workspace/.ralph --desktop-source <desktop-data>
+ralphy migrate status <run-id> --source <fixture>/.ralphy
+ralphy migrate resume <run-id> --source <fixture>/.ralphy
+ralphy migrate verify <run-id> --source <fixture>/.ralphy
+ralphy migrate cutover <run-id> --verification <verification-id> --confirm <run-id> --source <fixture>/.ralphy
+ralphy migrate recover <run-id> --confirm <run-id> --source <fixture>/.ralphy
+ralphy migrate rollback <run-id> --confirm <run-id> --source <fixture>/.ralphy
 ```
 
-Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, stale verification refuses cutover, successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Inject crashes before/after every journal write and rename; `recover` must deterministically finish installation or restore recovery without overwriting either generation.
+Assert `run` leaves source untouched, resume continues from the first incomplete phase without duplicate rows, stale verification refuses cutover, successful cutover leaves `.ralphy-recovery-<run-id>`, and injected failure of the second rename restores the original `.ralphy` immediately. Exercise a table-driven crash matrix before/after each temp write, file fsync, journal rename, parent fsync, source rename, recovery mode change, install rename, restore rename, and installed smoke check; `recover` deterministically finishes installation or restores recovery without overwriting either generation.
 
 - [ ] **Step 2: Implement phase checkpoints and staged-root binding**
 
-Derive stage root as `<source-parent>/.ralphy-staging/<run-id>` and target database as `<stage-root>/.ralphy/ralphy.db`. Each command receives and opens only that explicit store root/database until cutover. Phase transitions are monotonic and idempotent; `resume` reruns the current phase using ledger state. Normal CLI/Desktop startup checks the external cutover journal before opening SQLite and refuses interrupted states.
+Derive stage root as `<source-parent>/.ralphy-staging/<run-id>` and staged
+data root/database as `<stage-root>/.ralphy` and
+`<stage-root>/.ralphy/ralphy.db`. Each command constructs one
+`MigrationContext` and opens only that database until freeze/cutover. Phase
+transitions are monotonic and idempotent; `resume` reruns the current phase from
+ledger facts and rejects any core/schema/contract version mismatch with the Run
+that created the stage. Poison tests make ambient live-root use fail. Normal
+CLI/Desktop startup checks the external journal before opening SQLite and
+refuses interrupted states.
+
+The first `migrate verify` call performs the one-shot freeze and then read-only
+verification; later verify calls detect the external freeze record and remain
+strictly read-only. No separate hidden freeze command exists.
 
 - [ ] **Step 3: Implement journaled two-rename cutover and recovery**
 
-Maintain `<source-parent>/.ralphy-migration-<run-id>.journal.json` outside all renamed roots with durable states `prepared`, `source-moved`, `installed`, `rollback-new-moved`, and `rolled-back`. Every transition uses atomic temp write, file fsync, rename, and parent-directory fsync. Record root device/inode identities, not only paths.
+Maintain `<source-parent>/.ralphy-migration-<run-id>.journal.json` outside all
+renamed roots with durable states `prepared`, `source-moved`, `installed`,
+`rollback-new-moved`, and `rolled-back`. Every transition uses atomic temp
+write at mode 0600, file fsync, rename, and parent-directory fsync. The journal records the exact
+mutating source/stage/recovery/rollback paths plus device/inode/mode identities,
+and kind/path-hash/device/inode/mode identities for every non-mutating source; immutable
+`storeId`, schema/contract/core versions, database digest, sorted content
+digest, every source inventory digest, verification ID, Run ID, nonce, and
+transition counter. A fingerprint or version mismatch is never auto-repaired.
 
 After closing/checkpointing staged SQLite:
 
-1. recheck maintenance lock, stopped processes, source identity/digest, and external verification record;
-2. persist `prepared`, rename source `.ralphy` to `.ralphy-recovery-<run-id>`, fsync parent, then persist `source-moved`;
-3. rename exact staged `.ralphy` to source `.ralphy` and fsync parent;
-4. if step 3 fails, immediately restore recovery; if restoration also fails, retain `source-moved` for explicit recovery and never copy/delete;
-5. open the new DB, run integrity/foreign-key/domain smoke checks, append cutover activity, checkpoint/close, persist `installed`, and retain recovery.
+1. require the mutating source to be exactly the inventoried basename `.ralphy` under its recorded parent—not `/`, home, repository root, an unresolved variable/glob, or a broader tree—and reject conflicting live/stage/recovery/rollback/journal generations;
+2. recheck maintenance lock, contract/core/schema versions, stopped writers plus FDs/cwd under both source and stage, all source/stage identities/digests, every imported secret ref via value-free status, and the external verification record;
+3. persist `prepared`, rename source `.ralphy` to `.ralphy-recovery-<run-id>`, set only the recovery root to mode 0700, fsync it and the parent, then persist `source-moved`; the journal retains the original root mode and any restore/rollback reapplies it;
+4. rename exact staged `.ralphy` to source `.ralphy` and fsync parent;
+5. if installation fails, immediately restore recovery; if restoration also fails, retain `source-moved` for explicit recovery and never copy/delete;
+6. open the installed DB read-only, require its database/content/store/schema fingerprints to equal the verification record, and run integrity/foreign-key/domain smoke checks; persist `installed` and retain recovery before any database write. Normal startup then idempotently reconciles that installed journal into `migration_runs.cutover_at` plus one cutover activity keyed by Run/journal nonce; a crash before reconciliation simply retries it and cannot make installation ambiguous.
 
-`recover` identifies actual roots by recorded device/inode and handles a crash after installation but before its journal update. Rollback first renames v2 live to `.ralphy-rollback-new-<run-id>`, then recovery to live; if the second rename fails, restore v2 live. Never overwrite or delete the new v2 generation.
+Before `installed`, `recover` identifies actual roots by recorded device/inode/
+store ID plus the frozen digest rather than filename and handles every crash
+state, including installation before its journal update. After `installed`,
+normal writes may change the database, so rollback uses journal state plus
+device/inode/store ID and never demands the stale frozen digest. Any unrecorded
+conflicting generation blocks for manual review.
+Rollback first renames v2 live to `.ralphy-rollback-new-<run-id>`, then recovery
+to live; if the second rename fails, restore the exact v2 identity. Never
+overwrite, merge, copy, or delete either generation.
 
 - [ ] **Step 4: Replace the old command surface**
 
-Expose `audit|run|resume|status|verify|cutover|recover|rollback`. Delete the old in-place migrator and its source-consumption test when this command replaces it; no dangerous legacy implementation may remain shipped until live cutover. Remove every `EXDEV` copy/delete path. Add stage/recovery/rollback-new/lock/journal entries to ignores. Regenerate command docs and pretty shapes.
+Expose `audit|run|resume|status|verify|cutover|recover|rollback`. `audit|run`
+accept one exact mutating `--source <.ralphy>` plus optional explicit
+`--legacy-source` and `--desktop-source`; the created Run freezes those source
+identities, and later commands reject attempts to substitute them. Delete the
+old in-place migrator and its source-consumption test when this command replaces
+it; no dangerous legacy implementation may remain shipped until live cutover.
+Remove every `EXDEV` copy/delete path. Add stage/recovery/rollback-new/lock/
+journal entries to ignores. Regenerate command docs and pretty shapes.
+
+Expose `queue resume <id> --migration-run <run-id>` as the explicit adapter over
+`resumeHeldJob`; it requires the matching hold and never resumes multiple jobs.
+`queue retry` and bulk retry leave held jobs unchanged; `queue cancel` may
+terminalize one. Cover all three command paths before regenerating docs.
 
 - [ ] **Step 5: Verify and commit orchestration**
 
@@ -489,7 +793,7 @@ bun run lint
 ```
 
 ```bash
-git add cli/lib/migration/service.ts cli/lib/migration/cutover-journal.ts cli/commands/migrate.ts cli/index.ts cli/lib/paths.ts .gitignore tests/fixtures/verb-shapes.ts docs/cli-surface.generated.md tests/integration/cli-migrate-sqlite.test.ts
+git add cli/lib/migration/service.ts cli/lib/migration/cutover-journal.ts cli/commands/migrate.ts cli/commands/queue.ts cli/index.ts cli/lib/paths.ts .gitignore tests/fixtures/verb-shapes.ts docs/cli-surface.generated.md tests/integration/cli-migrate-sqlite.test.ts
 git add -u cli/lib/migrate.ts tests/integration/cli-migrate-106.test.ts
 git commit -m "feat(migrate): add resumable verified cutover"
 ```
@@ -513,7 +817,12 @@ Clone the exact `.ralphy` tree per file using forced APFS clones on the same vol
 
 - [ ] **Step 3: Run audit, stage, import, and verify repeatedly**
 
-Resolve every blocking unknown/malformed/secret/revision issue by adding deterministic migration rules and fixture cases. Re-run from a fresh clone until one pass reaches 100% coverage, clean SQLite checks, zero missing bytes/absolute paths/data URLs, and representative Denti.AI chains.
+Resolve every blocking unknown/malformed/secret/revision issue by adding
+deterministic migration rules and fixture cases. Re-run from a fresh clone until
+one pass reaches 100% coverage, exact raw-control/empty/mode evidence, clean
+SQLite checks, zero missing bytes/absolute paths/data URLs/secrets, reconciled
+held jobs, and representative Denti.AI branches/Builds. Freeze once, run two
+read-only verifications, and prove DB/WAL/SHM bytes and metadata are unchanged.
 
 - [ ] **Step 4: Exercise rehearsal cutover and rollback**
 
@@ -540,11 +849,15 @@ git commit -m "test(migrate): rehearse the complete library"
 
 - [ ] **Step 1: Re-run live preflight and obtain a fresh source digest**
 
-Stop all writers, acquire the maintenance lock, re-audit current counts/jobs/Desktop state/secret candidates, confirm forced-clone support/free space, and refuse to reuse the rehearsal verification ID. Retain the previous CLI commit/package and previous Desktop package as part of operational rollback.
+Stop all writers, acquire the maintenance lock, re-audit current counts/jobs/Desktop state/secret candidates, confirm forced-clone support/free space, reject broad/conflicting roots and open FDs/cwd under source or stage, and refuse to reuse the rehearsal verification ID. Retain the previous CLI commit/package and previous Desktop package as part of operational rollback.
 
 - [ ] **Step 2: Migrate and verify the live library without cutover**
 
-Run audit, staged migration, resume as needed, secret handoff, and verification. Require 100% coverage and two consecutive reports with identical content digests before requesting cutover.
+Run audit, staged migration, resume as needed, one-shot Desktop secret handoff,
+freeze, and read-only verification. Require 100% coverage and two consecutive
+reports with identical database/content/inventory digests plus unchanged DB/
+WAL/SHM bytes/metadata before requesting cutover. Confirm all migrated pending
+jobs remain held.
 
 - [ ] **Step 3: Cut over and perform representative smoke checks**
 
