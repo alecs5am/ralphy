@@ -353,10 +353,12 @@ export type CompositionAggregate = CompositionRow & {
 
 export type UnitRow = {
   id: string;
-  projectId: string;
+  workspaceId: string;
+  projectId: string | null;
   slug: string;
   format: string;
-  currentRevisionId: string | null;
+  latestRevisionId: string | null;
+  selectedRevisionId: string | null;
   rowVersion: number;
   createdAt: number;
   updatedAt: number;
@@ -372,6 +374,169 @@ export type UnitRevisionRow = {
   metadata: JsonValue | null;
   authoredBySessionId: string | null;
   createdAt: number;
+  sealedAt: number | null;
+};
+
+export type UnitItemRow = {
+  id: string;
+  unitRevisionId: string;
+  artifactRevisionId: string | null;
+  documentRevisionId: string | null;
+  role: string;
+  position: number;
+  config: JsonValue | null;
+  createdAt: number;
+};
+
+export type PresentationCaptionState =
+  | "draft"
+  | "humanized"
+  | "auto-draft-archived"
+  | "final";
+
+export type PresentationCaptionRevisionRow = {
+  id: string;
+  presentationId: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  state: PresentationCaptionState;
+  text: string;
+  createdAt: number;
+};
+
+export type PresentationItemRow = {
+  id: string;
+  presentationId: string;
+  unitItemId: string;
+  position: number;
+  config: JsonValue | null;
+  createdAt: number;
+};
+
+export type UnitPresentationRow = {
+  id: string;
+  unitRevisionId: string;
+  platform: string;
+  position: number;
+  effectiveCaptionRevisionId: string | null;
+  coverArtifactRevisionId: string | null;
+  crop: JsonValue | null;
+  safeArea: JsonValue | null;
+  options: JsonValue;
+  createdAt: number;
+};
+
+export type UnitPresentationAggregate = UnitPresentationRow & {
+  captions: PresentationCaptionRevisionRow[];
+  items: PresentationItemRow[];
+  publications: PublicationRow[];
+};
+
+export type UnitRevisionAggregate = UnitRevisionRow & {
+  items: UnitItemRow[];
+  presentations: UnitPresentationAggregate[];
+};
+
+export type UnitAggregate = UnitRow & {
+  revisions: UnitRevisionAggregate[];
+};
+
+export type PublicationRail =
+  | "postiz"
+  | "github-pages"
+  | "devto"
+  | "hashnode"
+  | "manual";
+
+export type PublicationState =
+  | "draft"
+  | "submitting"
+  | "scheduled"
+  | "submitted"
+  | "published"
+  | "failed"
+  | "cancelled"
+  | "reconciliation_required"
+  | "unknown";
+
+export type PublicationClaimKind =
+  | "submission"
+  | "reconciliation"
+  | "status-lookup"
+  | "cancellation";
+
+export type PublicationRow = {
+  id: string;
+  presentationId: string;
+  effectiveCaptionRevisionId: string | null;
+  effectiveOptions: JsonValue;
+  socialAccountId: string | null;
+  submissionRunId: string;
+  activeClaimRunId: string | null;
+  revisedFromPublicationId: string | null;
+  rail: PublicationRail;
+  providerPublicationId: string | null;
+  state: PublicationState;
+  url: string | null;
+  scheduledAt: number | null;
+  submittedAt: number | null;
+  publishedAt: number | null;
+  error: string | null;
+  failureStage: string | null;
+  idempotencyKey: string;
+  claimKind: PublicationClaimKind | null;
+  claimEpoch: number;
+  claimExpiresAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type PublicationFence = {
+  kind: PublicationClaimKind;
+  runId: string;
+  epoch: number;
+  token: string;
+  expiresAt: number;
+};
+
+export type PublicationClaim = {
+  publication: PublicationRow;
+  fence: PublicationFence;
+};
+
+export type MetricRetentionPoint = {
+  pct?: number;
+  watchRatio?: number;
+  [key: string]: JsonValue | undefined;
+};
+
+export type MetricSnapshotRow = {
+  id: string;
+  publicationId: string;
+  source: string;
+  asOf: number;
+  windowStart: number | null;
+  windowEnd: number | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  watchTimeMs: number | null;
+  ctr: number | null;
+  retentionCurve: MetricRetentionPoint[] | null;
+  avgViewDurationSec: number | null;
+  note: string | null;
+  raw: JsonValue | null;
+  createdAt: number;
+};
+
+export type MetricTotals = {
+  publicationCount: number;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  watchTimeMs: number | null;
 };
 
 export type RunRow = {
@@ -415,6 +580,27 @@ export type RunObjectRow = {
   bytes: number | null;
   sha256: string | null;
   metadata: JsonValue | null;
+  createdAt: number;
+};
+
+export type RunResultEntityType =
+  | "document_revision"
+  | "artifact_revision"
+  | "composition_revision"
+  | "build"
+  | "build_output"
+  | "unit_revision"
+  | "unit_item"
+  | "unit_presentation"
+  | "publication"
+  | "metric_snapshot";
+
+export type RunResultRow = {
+  id: string;
+  runId: string;
+  position: number;
+  entityType: RunResultEntityType;
+  entityId: string;
   createdAt: number;
 };
 

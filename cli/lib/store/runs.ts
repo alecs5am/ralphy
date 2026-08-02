@@ -17,6 +17,8 @@ import type {
   RunAggregate,
   RunAttemptRow,
   RunObjectRow,
+  RunResultEntityType,
+  RunResultRow,
   RunRow,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
@@ -67,12 +69,35 @@ type RunObjectDbRow = {
   created_at: number;
 };
 
+type RunResultDbRow = {
+  id: string;
+  run_id: string;
+  position: number;
+  entity_type: RunResultEntityType;
+  entity_id: string;
+  created_at: number;
+};
+
 const RUN_COLUMNS =
   "id, workspace_id, project_id, agent_session_id, kind, label, state, metadata_json, created_at, started_at, ended_at, error";
 const ATTEMPT_COLUMNS =
   "id, run_id, attempt_no, provider, model, state, request_json, response_json, cost_usd, error, started_at, ended_at";
 const RUN_OBJECT_COLUMNS =
   "id, run_id, object_id, path, purpose, state, retention, bytes, sha256, metadata_json, created_at";
+const RUN_RESULT_COLUMNS =
+  "id, run_id, position, entity_type, entity_id, created_at";
+const RUN_RESULT_ENTITY_TYPES = new Set<RunResultEntityType>([
+  "document_revision",
+  "artifact_revision",
+  "composition_revision",
+  "build",
+  "build_output",
+  "unit_revision",
+  "unit_item",
+  "unit_presentation",
+  "publication",
+  "metric_snapshot",
+]);
 const TERMINAL_STATES = new Set<RunState>([
   "succeeded",
   "failed",
@@ -408,6 +433,248 @@ export function getRun(id: string): RunAggregate {
   };
 }
 
+/** @internal Stores one stable result identity inside the caller's transaction. */
+export function recordRunResult(
+  db: Database,
+  input: {
+    runId: string;
+    position: number;
+    entityType: RunResultEntityType;
+    entityId: string;
+  },
+): RunResultRow {
+  if (!RUN_RESULT_ENTITY_TYPES.has(input.entityType)) {
+    throw new Error(`Unsupported Run result entity type: ${input.entityType}`);
+  }
+  if (!Number.isSafeInteger(input.position) || input.position < 0) {
+    throw new Error("Run result position must be a non-negative integer");
+  }
+  const entityId = checkedText(input.entityId, "Run result entity ID");
+  const run = getRunRow(db, input.runId);
+  if (!run) throw new Error(`Run not found: ${input.runId}`);
+  if (run.state !== "pending" && run.state !== "running") {
+    throw new StoreConflictError("Run results require a pending or running Run");
+  }
+  const scope = resolveRunResultScope(db, input.entityType, entityId);
+  if (!scope) throw new Error(`Run result entity not found: ${entityId}`);
+  if (
+    scope.workspaceId !== run.workspaceId ||
+    scope.projectId !== run.projectId
+  ) {
+    throw new Error("Run result entity is outside the exact Run scope");
+  }
+  const id = newDomainId("result");
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO run_results
+     (id, run_id, position, entity_type, entity_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, run.id, input.position, input.entityType, entityId, createdAt);
+  return getRunResultRow(db, id)!;
+}
+
+/** @internal Validates a dedicated operation Run before its only attempt. */
+export function assertFreshPendingRun(
+  db: Database,
+  runId: string,
+  scope: { workspaceId: string; projectId: string | null },
+): RunRow {
+  const run = getRunRow(db, runId);
+  if (!run) throw new Error(`Run not found: ${runId}`);
+  if (run.workspaceId !== scope.workspaceId || run.projectId !== scope.projectId) {
+    throw new Error("Operation Run is outside the exact entity scope");
+  }
+  const used = db
+    .query<{ count: number }, [string, string]>(
+      `SELECT
+         (SELECT COUNT(*) FROM run_attempts WHERE run_id = ?) +
+         (SELECT COUNT(*) FROM run_results WHERE run_id = ?) AS count`,
+    )
+    .get(run.id, run.id)?.count ?? 0;
+  if (run.state !== "pending" || used !== 0) {
+    throw new StoreConflictError("Operation Run must be fresh and pending");
+  }
+  return run;
+}
+
+/** @internal Starts the only attempt inside an existing transaction. */
+export function startRunAttemptInTransaction(
+  db: Database,
+  input: {
+    runId: string;
+    provider?: string | null;
+    model?: string | null;
+    request?: JsonValue | null;
+  },
+): RunAttemptRow {
+  const run = getRunRow(db, input.runId);
+  if (!run) throw new Error(`Run not found: ${input.runId}`);
+  if (run.state !== "pending") {
+    throw new StoreConflictError("Operation Run is not pending");
+  }
+  const existing = db
+    .query<{ count: number }, [string]>(
+      "SELECT COUNT(*) AS count FROM run_attempts WHERE run_id = ?",
+    )
+    .get(run.id)?.count ?? 0;
+  if (existing !== 0) throw new StoreConflictError("Operation Run already has an attempt");
+  const id = newDomainId("attempt");
+  const startedAt = Date.now();
+  db.prepare(
+    `INSERT INTO run_attempts
+     (id, run_id, attempt_no, provider, model, state, request_json, started_at)
+     VALUES (?, ?, 1, ?, ?, 'running', ?, ?)`,
+  ).run(
+    id,
+    run.id,
+    optionalText(input.provider, "Run Attempt provider"),
+    optionalText(input.model, "Run Attempt model"),
+    serializeJson(checkedJson(input.request, "Run Attempt request")),
+    startedAt,
+  );
+  db.prepare(
+    "UPDATE runs SET state = 'running', started_at = ?, ended_at = NULL, error = NULL WHERE id = ? AND state = 'pending'",
+  ).run(startedAt, run.id);
+  appendActivity(db, {
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    entityType: "run_attempt",
+    entityId: id,
+    action: "run.attempt_started",
+    payload: { runId: run.id, attemptNo: 1 },
+    createdAt: startedAt,
+  });
+  return getRunAttemptRow(db, id)!;
+}
+
+/** @internal Finishes the dedicated attempt inside an existing transaction. */
+export function finishRunAttemptInTransaction(
+  db: Database,
+  id: string,
+  input: {
+    state: "succeeded" | "failed" | "cancelled";
+    response?: JsonValue | null;
+    error?: string | null;
+  },
+): RunAttemptRow {
+  const attempt = getRunAttemptRow(db, id);
+  if (!attempt) throw new Error(`Run Attempt not found: ${id}`);
+  if (attempt.state !== "running") {
+    throw new StoreConflictError("Run Attempt is not running");
+  }
+  const endedAt = Date.now();
+  db.prepare(
+    `UPDATE run_attempts SET state = ?, response_json = ?, error = ?, ended_at = ?
+     WHERE id = ? AND state = 'running'`,
+  ).run(
+    input.state,
+    serializeJson(checkedJson(input.response, "Run Attempt response")),
+    input.error ?? null,
+    endedAt,
+    id,
+  );
+  const run = requireRun(db, attempt.runId);
+  appendActivity(db, {
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    entityType: "run_attempt",
+    entityId: id,
+    action: "run.attempt_finished",
+    payload: { runId: run.id, state: input.state },
+    createdAt: endedAt,
+  });
+  return getRunAttemptRow(db, id)!;
+}
+
+/** @internal Finishes the dedicated Run inside an existing transaction. */
+export function finishRunInTransaction(
+  db: Database,
+  id: string,
+  input: {
+    state: "succeeded" | "failed" | "cancelled";
+    error?: string | null;
+  },
+): RunRow {
+  const run = requireRun(db, id);
+  if (run.state !== "pending" && run.state !== "running") {
+    throw new StoreConflictError("Run is already terminal");
+  }
+  const endedAt = Date.now();
+  db.prepare(
+    "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",
+  ).run(input.state, endedAt, input.error ?? null, id);
+  appendActivity(db, {
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    entityType: "run",
+    entityId: id,
+    action: "run.finished",
+    payload: { state: input.state },
+    createdAt: endedAt,
+  });
+  return getRunRow(db, id)!;
+}
+
+function resolveRunResultScope(
+  db: Database,
+  entityType: RunResultEntityType,
+  entityId: string,
+): { workspaceId: string; projectId: string | null } | null {
+  const select = {
+    document_revision: `SELECT document.workspace_id AS workspaceId, document.project_id AS projectId
+      FROM document_revisions revision JOIN documents document ON document.id = revision.document_id
+      WHERE revision.id = ?`,
+    artifact_revision: `SELECT artifact.workspace_id AS workspaceId, artifact.project_id AS projectId
+      FROM artifact_revisions revision JOIN artifacts artifact ON artifact.id = revision.artifact_id
+      WHERE revision.id = ?`,
+    composition_revision: `SELECT project.workspace_id AS workspaceId, project.id AS projectId
+      FROM composition_revisions revision
+      JOIN compositions composition ON composition.id = revision.composition_id
+      JOIN projects project ON project.id = composition.project_id
+      WHERE revision.id = ? AND revision.state = 'sealed'`,
+    build: `SELECT project.workspace_id AS workspaceId, project.id AS projectId
+      FROM builds build
+      JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+      JOIN compositions composition ON composition.id = revision.composition_id
+      JOIN projects project ON project.id = composition.project_id
+      WHERE build.id = ? AND build.state IN ('succeeded', 'failed', 'cancelled')`,
+    build_output: `SELECT project.workspace_id AS workspaceId, project.id AS projectId
+      FROM build_outputs output JOIN builds build ON build.id = output.build_id
+      JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+      JOIN compositions composition ON composition.id = revision.composition_id
+      JOIN projects project ON project.id = composition.project_id
+      WHERE output.id = ? AND build.state = 'succeeded'`,
+    unit_revision: `SELECT unit.workspace_id AS workspaceId, unit.project_id AS projectId
+      FROM unit_revisions revision JOIN units unit ON unit.id = revision.unit_id
+      WHERE revision.id = ? AND revision.sealed_at IS NOT NULL`,
+    unit_item: `SELECT unit.workspace_id AS workspaceId, unit.project_id AS projectId
+      FROM unit_items item JOIN unit_revisions revision ON revision.id = item.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE item.id = ? AND revision.sealed_at IS NOT NULL`,
+    unit_presentation: `SELECT unit.workspace_id AS workspaceId, unit.project_id AS projectId
+      FROM unit_presentations presentation
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE presentation.id = ? AND revision.sealed_at IS NOT NULL`,
+    publication: `SELECT unit.workspace_id AS workspaceId, unit.project_id AS projectId
+      FROM publications publication
+      JOIN unit_presentations presentation ON presentation.id = publication.presentation_id
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id WHERE publication.id = ?`,
+    metric_snapshot: `SELECT unit.workspace_id AS workspaceId, unit.project_id AS projectId
+      FROM metric_snapshots metric JOIN publications publication ON publication.id = metric.publication_id
+      JOIN unit_presentations presentation ON presentation.id = publication.presentation_id
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id WHERE metric.id = ?`,
+  } satisfies Record<RunResultEntityType, string>;
+  return db
+    .query<
+      { workspaceId: string; projectId: string | null },
+      [string]
+    >(select[entityType])
+    .get(entityId);
+}
+
 function resolveRunScope(
   db: Database,
   input: { workspaceId?: string | null; projectId?: string | null; kind: string },
@@ -522,6 +789,24 @@ function getRunObjectRow(db: Database, id: string): RunObjectRow | null {
     )
     .get(id);
   return row ? toRunObjectRow(row) : null;
+}
+
+function getRunResultRow(db: Database, id: string): RunResultRow | null {
+  const row = db
+    .query<RunResultDbRow, [string]>(
+      `SELECT ${RUN_RESULT_COLUMNS} FROM run_results WHERE id = ?`,
+    )
+    .get(id);
+  return row
+    ? {
+        id: row.id,
+        runId: row.run_id,
+        position: row.position,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        createdAt: row.created_at,
+      }
+    : null;
 }
 
 function toRunRow(row: RunDbRow): RunRow {

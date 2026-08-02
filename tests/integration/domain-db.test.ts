@@ -799,8 +799,8 @@ function seedRevisionGraph(db: Database): void {
   ).run("input_1", "crev_1", "arev_1", "scene", 0, 1);
 
   db.prepare(
-    "INSERT INTO units (id, project_id, slug, format, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run("unit_1", "prj_1", "unit", "video", 1, 1);
+    "INSERT INTO units (id, workspace_id, project_id, slug, format, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run("unit_1", "ws_1", "prj_1", "unit", "video", 1, 1);
   db.prepare(
     "INSERT INTO unit_revisions (id, unit_id, revision_no, note, created_at) VALUES (?, ?, ?, ?, ?)",
   ).run("urev_1", "unit_1", 1, null, 1);
