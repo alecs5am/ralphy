@@ -1,0 +1,53 @@
+import { randomUUID } from "node:crypto";
+
+export const DOMAIN_ID_PREFIXES = [
+  "ws",
+  "acct",
+  "prj",
+  "iter",
+  "fb",
+  "fblink",
+  "stage",
+  "doc",
+  "drev",
+  "bind",
+  "obj",
+  "art",
+  "arev",
+  "rel",
+  "usage",
+  "comp",
+  "crev",
+  "cfile",
+  "input",
+  "build",
+  "output",
+  "eval",
+  "unit",
+  "urev",
+  "item",
+  "pres",
+  "pitem",
+  "pub",
+  "metric",
+  "session",
+  "run",
+  "attempt",
+  "robj",
+  "mig",
+  "mentry",
+  "miss",
+  "brand",
+  "persona",
+  "tmpl",
+  "memory",
+  "mrev",
+  "campaign",
+  "cell",
+  "calendar",
+] as const;
+
+export type DomainIdPrefix = (typeof DOMAIN_ID_PREFIXES)[number];
+
+export const newDomainId = (prefix: DomainIdPrefix): string =>
+  `${prefix}_${randomUUID()}`;
