@@ -19,7 +19,6 @@ import type {
   MetricRetentionPoint,
   MetricSnapshotRow,
   MetricTotals,
-  ObjectRow,
   PresentationCaptionRevisionRow,
   PresentationCaptionState,
   PresentationItemRow,
@@ -29,15 +28,18 @@ import type {
   PublicationRail,
   PublicationRow,
   PublicationState,
-  UnitAggregate,
   UnitItemRow,
-  UnitPresentationAggregate,
   UnitPresentationRow,
-  UnitRevisionAggregate,
   UnitRevisionRow,
   UnitRow,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
+import type {
+  ObjectRow,
+  UnitAggregate,
+  UnitPresentationAggregate,
+  UnitRevisionAggregate,
+} from "./internal-types.js";
 
 type UnitScope =
   | { workspaceId: string; projectId?: never }

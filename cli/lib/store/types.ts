@@ -94,17 +94,6 @@ export type FeedbackResolutionLinkRow = EntityReference & {
   createdAt: number;
 };
 
-export type ActivityEventRow = {
-  id: number;
-  workspaceId: string | null;
-  projectId: string | null;
-  entityType: string;
-  entityId: string;
-  action: string;
-  payload: JsonValue;
-  createdAt: number;
-};
-
 export type AgentSessionRow = {
   id: string;
   workspaceId: string;
@@ -140,59 +129,6 @@ export type DocumentRow = {
   rowVersion: number;
   createdAt: number;
   updatedAt: number;
-};
-
-export type DocumentRevisionRow = {
-  id: string;
-  documentId: string;
-  revisionNo: number;
-  parentRevisionId: string | null;
-  iterationId: string | null;
-  format: DocumentFormat;
-  title: string | null;
-  body: string;
-  contentSha256: string;
-  authoredBySessionId: string | null;
-  createdAt: number;
-};
-
-export type DocumentWithCurrentRevision = DocumentRow & {
-  currentRevision: DocumentRevisionRow | null;
-};
-
-export type DocumentSearchRow = {
-  documentId: string;
-  revisionId: string;
-  workspaceId: string;
-  projectId: string | null;
-  kind: DocumentKind;
-  slug: string;
-  documentTitle: string;
-  revisionNo: number;
-  parentRevisionId: string | null;
-  iterationId: string | null;
-  format: DocumentFormat;
-  title: string | null;
-  body: string;
-  contentSha256: string;
-  authoredBySessionId: string | null;
-  createdAt: number;
-};
-
-export type ObjectRow = {
-  id: string;
-  workspaceId: string;
-  projectId: string | null;
-  backend: "local";
-  bucket: string;
-  key: string;
-  sha256: string;
-  mime: string;
-  bytes: number;
-  storageClass: ObjectStorageClass;
-  originalName: string | null;
-  metadata: JsonValue | null;
-  createdAt: number;
 };
 
 export type ObjectStorageClass = "durable" | "working" | "diagnostic";
@@ -336,21 +272,6 @@ export type BuildDocumentBindingRow = {
   createdAt: number;
 };
 
-export type BuildAggregate = BuildRow & {
-  outputs: BuildOutputRow[];
-  documentBindings: BuildDocumentBindingRow[];
-};
-
-export type CompositionRevisionAggregate = CompositionRevisionRow & {
-  sources: CompositionSourceRow[];
-  inputs: CompositionInputRow[];
-  builds: BuildAggregate[];
-};
-
-export type CompositionAggregate = CompositionRow & {
-  revisions: CompositionRevisionAggregate[];
-};
-
 export type UnitRow = {
   id: string;
   workspaceId: string;
@@ -424,21 +345,6 @@ export type UnitPresentationRow = {
   safeArea: JsonValue | null;
   options: JsonValue;
   createdAt: number;
-};
-
-export type UnitPresentationAggregate = UnitPresentationRow & {
-  captions: PresentationCaptionRevisionRow[];
-  items: PresentationItemRow[];
-  publications: PublicationRow[];
-};
-
-export type UnitRevisionAggregate = UnitRevisionRow & {
-  items: UnitItemRow[];
-  presentations: UnitPresentationAggregate[];
-};
-
-export type UnitAggregate = UnitRow & {
-  revisions: UnitRevisionAggregate[];
 };
 
 export type PublicationRail =
@@ -569,20 +475,6 @@ export type RunAttemptRow = {
   endedAt: number | null;
 };
 
-export type RunObjectRow = {
-  id: string;
-  runId: string;
-  objectId: string | null;
-  path: string;
-  purpose: string;
-  state: string;
-  retention: string;
-  bytes: number | null;
-  sha256: string | null;
-  metadata: JsonValue | null;
-  createdAt: number;
-};
-
 export type RunResultEntityType =
   | "document_revision"
   | "artifact_revision"
@@ -602,11 +494,6 @@ export type RunResultRow = {
   entityType: RunResultEntityType;
   entityId: string;
   createdAt: number;
-};
-
-export type RunAggregate = RunRow & {
-  attempts: RunAttemptRow[];
-  objects: RunObjectRow[];
 };
 
 export type Page<T, C = string> = { items: T[]; nextCursor: C | null };

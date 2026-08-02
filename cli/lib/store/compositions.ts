@@ -6,21 +6,23 @@ import { newDomainId } from "./ids.js";
 import { resolveObjectPath } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import type {
-  BuildAggregate,
   BuildDocumentBindingRow,
   BuildOutputRow,
   BuildRow,
-  CompositionAggregate,
   CompositionInputRow,
   CompositionKind,
-  CompositionRevisionAggregate,
   CompositionRevisionRow,
   CompositionRow,
   CompositionSourceRow,
   JsonValue,
-  ObjectRow,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
+import type {
+  BuildAggregate,
+  CompositionAggregate,
+  CompositionRevisionAggregate,
+  ObjectRow,
+} from "./internal-types.js";
 
 type CompositionDbRow = {
   id: string;
