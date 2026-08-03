@@ -7,8 +7,12 @@ import {
   addArtifactUsage,
   createArtifact,
   getArtifact,
+  getArtifactRelation,
   getArtifactRevision,
+  getArtifactUsage,
+  listArtifactRelations,
   listArtifactRevisions,
+  listArtifactUsages,
   listArtifacts,
   selectArtifactRevision,
   setArtifactRevisionState,
@@ -28,6 +32,7 @@ import {
   endAgentSession,
   startAgentSession,
 } from "../../cli/lib/store/sessions.js";
+import { decodeCursor } from "../../cli/lib/store/pagination.js";
 import type { QueryContext } from "../../cli/lib/store/scope-context.js";
 import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
@@ -1221,6 +1226,326 @@ describe("domain Artifact store", () => {
         .get(revision.id, project.id),
     ).toBeNull();
   });
+
+  test("reads and pages relations only when both exact revisions are visible", async () => {
+    const { root, workspace, project } = setupProject("relation-queries");
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const shared = await revisionFixture(root, workspace, null, "shared");
+    const own = await revisionFixture(root, workspace, project, "own");
+    const siblingRevision = await revisionFixture(
+      root,
+      workspace,
+      sibling,
+      "sibling",
+    );
+    const sharedSelf = addArtifactRelation({
+      fromRevisionId: shared.id,
+      toRevisionId: shared.id,
+      relation: "variant-of",
+      metadata: { privateLocator: "/private/shared.png" },
+    });
+    const sharedToOwn = addArtifactRelation({
+      fromRevisionId: shared.id,
+      toRevisionId: own.id,
+      relation: "source-for",
+      metadata: { providerResponse: "private" },
+    });
+    const ownToShared = addArtifactRelation({
+      fromRevisionId: own.id,
+      toRevisionId: shared.id,
+      relation: "derived-from",
+    });
+    const ownToSibling = addArtifactRelation({
+      fromRevisionId: own.id,
+      toRevisionId: siblingRevision.id,
+      relation: "derived-from",
+    });
+    const siblingToOwn = addArtifactRelation({
+      fromRevisionId: siblingRevision.id,
+      toRevisionId: own.id,
+      relation: "source-for",
+    });
+    const relationChronology = [sharedToOwn.id, ownToShared.id].sort().reverse();
+    const updateRelationTime = openDomainDb().prepare(
+      "UPDATE artifact_relations SET created_at = ? WHERE id = ?",
+    );
+    updateRelationTime.run(1000, relationChronology[0]!);
+    updateRelationTime.run(2000, relationChronology[1]!);
+
+    const workspaceContext = { workspaceId: workspace.id };
+    const projectContext = {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    };
+    const relationKeys = [
+      "createdAt",
+      "fromRevisionId",
+      "id",
+      "relation",
+      "toRevisionId",
+    ];
+    expect(
+      Object.keys(
+        getArtifactRelation({
+          context: projectContext,
+          relationId: sharedToOwn.id,
+        }),
+      ).sort(),
+    ).toEqual(relationKeys);
+    expect(
+      JSON.stringify(
+        getArtifactRelation({
+          context: projectContext,
+          relationId: sharedToOwn.id,
+        }),
+      ),
+    ).not.toMatch(/metadata|private|provider|locator/i);
+    expect(
+      getArtifactRelation({
+        context: workspaceContext,
+        relationId: sharedSelf.id,
+      }).id,
+    ).toBe(sharedSelf.id);
+    for (const relationId of [sharedToOwn.id, ownToSibling.id, "rel_missing"]) {
+      expect(() =>
+        getArtifactRelation({ context: workspaceContext, relationId }),
+      ).toThrow(`Artifact Relation not found: ${relationId}`);
+    }
+    for (const relationId of [ownToSibling.id, siblingToOwn.id]) {
+      expect(() =>
+        getArtifactRelation({ context: projectContext, relationId }),
+      ).toThrow(`Artifact Relation not found: ${relationId}`);
+    }
+
+    const seen: string[] = [];
+    const cursorOrdinals: number[] = [];
+    let after: string | null | undefined;
+    do {
+      const page = listArtifactRelations({
+        context: projectContext,
+        revisionId: own.id,
+        after,
+        limit: 1,
+      });
+      expect(page.items.every((item) => Object.keys(item).sort().join() === relationKeys.join())).toBeTrue();
+      seen.push(...page.items.map((item) => item.id));
+      if (page.nextCursor) {
+        expect(page.nextCursor).toStartWith("c1.");
+        cursorOrdinals.push(decodeCursor("c1", page.nextCursor).ordinal);
+      }
+      after = page.nextCursor;
+    } while (after);
+    expect(seen).toEqual(relationChronology);
+    expect(cursorOrdinals).toEqual([1000]);
+    expect(
+      listArtifactRelations({
+        context: workspaceContext,
+        revisionId: shared.id,
+        limit: 10,
+      }).items.map((item) => item.id),
+    ).toEqual([sharedSelf.id]);
+    expect(() =>
+      listArtifactRelations({
+        context: workspaceContext,
+        revisionId: own.id,
+        limit: 10,
+      }),
+    ).toThrow(`Artifact Revision not found: ${own.id}`);
+    expect(() =>
+      listArtifactRelations({
+        context: projectContext,
+        revisionId: own.id,
+        after: "v1.WzEsImFyZXYiXQ",
+        limit: 1,
+      }),
+    ).toThrow(/family/i);
+    expect(() =>
+      listArtifactRelations({
+        context: projectContext,
+        revisionId: own.id,
+        limit: 0,
+      }),
+    ).toThrow(/1 through 100/);
+  });
+
+  test("reads and pages usages only when both revision and target are visible", async () => {
+    const { root, workspace, project } = setupProject("usage-queries");
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const iteration = createIteration({ projectId: project.id, title: "Review" });
+    const feedback = addFeedback({ iterationId: iteration.id, body: "Revise it." });
+    const siblingIteration = createIteration({
+      projectId: sibling.id,
+      title: "Sibling review",
+    });
+    const siblingFeedback = addFeedback({
+      iterationId: siblingIteration.id,
+      body: "Sibling-only feedback.",
+    });
+    const shared = await revisionFixture(root, workspace, null, "shared");
+    const own = await revisionFixture(root, workspace, project, "own");
+    const workspaceUsage = addArtifactUsage({
+      artifactRevisionId: shared.id,
+      workspaceId: workspace.id,
+      role: "reference",
+      lifecycle: "working",
+    });
+    const projectUsage = addArtifactUsage({
+      artifactRevisionId: shared.id,
+      projectId: project.id,
+      role: "composition-input",
+    });
+    const feedbackUsage = addArtifactUsage({
+      artifactRevisionId: shared.id,
+      feedbackId: feedback.id,
+      role: "resolution",
+    });
+    const siblingUsage = addArtifactUsage({
+      artifactRevisionId: shared.id,
+      projectId: sibling.id,
+      role: "sibling-input",
+    });
+    const siblingFeedbackUsage = addArtifactUsage({
+      artifactRevisionId: shared.id,
+      feedbackId: siblingFeedback.id,
+      role: "sibling-resolution",
+    });
+    const ownWorkspaceUsage = addArtifactUsage({
+      artifactRevisionId: own.id,
+      workspaceId: workspace.id,
+      role: "deliverable",
+    });
+    const ownSiblingUsage = addArtifactUsage({
+      artifactRevisionId: own.id,
+      projectId: sibling.id,
+      role: "sibling-deliverable",
+    });
+    const usageChronology = [
+      workspaceUsage.id,
+      projectUsage.id,
+      feedbackUsage.id,
+    ].sort().reverse();
+    const updateUsageTime = openDomainDb().prepare(
+      "UPDATE artifact_usages SET created_at = ? WHERE id = ?",
+    );
+    usageChronology.forEach((id, index) =>
+      updateUsageTime.run(2000 + index * 1000, id),
+    );
+    openDomainDb().exec(`
+      INSERT INTO artifact_usages
+        (id, artifact_revision_id, context_type, context_id, role, created_at)
+      VALUES ('usage_internal', '${shared.id}', 'legacy', 'private', 'internal', 5000);
+    `);
+
+    const workspaceContext = { workspaceId: workspace.id };
+    const projectContext = {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    };
+    const usageKeys = [
+      "artifactRevisionId",
+      "createdAt",
+      "feedbackId",
+      "id",
+      "lifecycle",
+      "projectId",
+      "role",
+      "workspaceId",
+    ];
+    expect(Object.keys(workspaceUsage).sort()).toEqual(usageKeys);
+    expect(
+      Object.keys(
+        getArtifactUsage({
+          context: projectContext,
+          usageId: projectUsage.id,
+        }),
+      ).sort(),
+    ).toEqual(usageKeys);
+    expect(
+      listArtifactUsages({
+        context: workspaceContext,
+        revisionId: shared.id,
+        limit: 10,
+      }).items.map((item) => item.id),
+    ).toEqual([workspaceUsage.id]);
+
+    const seen: string[] = [];
+    const cursorOrdinals: number[] = [];
+    let after: string | null | undefined;
+    do {
+      const page = listArtifactUsages({
+        context: projectContext,
+        revisionId: shared.id,
+        after,
+        limit: 1,
+      });
+      for (const item of page.items) {
+        expect(Object.keys(item).sort()).toEqual(usageKeys);
+        expect(JSON.stringify(item)).not.toMatch(/context|internal|private/i);
+      }
+      seen.push(...page.items.map((item) => item.id));
+      if (page.nextCursor) {
+        expect(page.nextCursor).toStartWith("c1.");
+        cursorOrdinals.push(decodeCursor("c1", page.nextCursor).ordinal);
+      }
+      after = page.nextCursor;
+    } while (after);
+    expect(seen).toEqual(usageChronology);
+    expect(cursorOrdinals).toEqual([2000, 3000]);
+    expect(
+      listArtifactUsages({
+        context: projectContext,
+        revisionId: own.id,
+        limit: 10,
+      }).items.map((item) => item.id),
+    ).toEqual([ownWorkspaceUsage.id]);
+    for (const usageId of [
+      siblingUsage.id,
+      siblingFeedbackUsage.id,
+      ownSiblingUsage.id,
+      "usage_internal",
+      "usage_missing",
+    ]) {
+      expect(() =>
+        getArtifactUsage({ context: projectContext, usageId }),
+      ).toThrow(`Artifact Usage not found: ${usageId}`);
+    }
+    expect(() =>
+      getArtifactUsage({
+        context: workspaceContext,
+        usageId: projectUsage.id,
+      }),
+    ).toThrow(`Artifact Usage not found: ${projectUsage.id}`);
+    expect(() =>
+      listArtifactUsages({
+        context: workspaceContext,
+        revisionId: own.id,
+        limit: 10,
+      }),
+    ).toThrow(`Artifact Revision not found: ${own.id}`);
+    expect(() =>
+      listArtifactUsages({
+        context: projectContext,
+        revisionId: shared.id,
+        after: "v1.WzEsImFyZXYiXQ",
+        limit: 1,
+      }),
+    ).toThrow(/family/i);
+    expect(() =>
+      listArtifactUsages({
+        context: projectContext,
+        revisionId: shared.id,
+        limit: 101,
+      }),
+    ).toThrow(/1 through 100/);
+  });
 });
 
 function setupProject(label: string) {
@@ -1274,15 +1599,15 @@ async function storeBytes(
 async function revisionFixture(
   root: TmpRoot,
   workspace: WorkspaceRow,
-  project: ProjectRow,
+  project: ProjectRow | null,
   label: string,
 ) {
   const object = await storeBytes(root, workspace, project, `${label}.bin`);
-  const artifact = createArtifact({
-    projectId: project.id,
-    slug: label,
-    kind: "data",
-  });
+  const artifact = createArtifact(
+    project
+      ? { projectId: project.id, slug: label, kind: "data" }
+      : { workspaceId: workspace.id, slug: label, kind: "data" },
+  );
   return addArtifactRevision({
     artifactId: artifact.id,
     objectId: object.id,
