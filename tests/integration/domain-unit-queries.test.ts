@@ -43,6 +43,7 @@ import {
   selectUnitRevision,
 } from "../../cli/lib/store/units.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 
 const UNIT_KEYS = [
   "createdAt",
@@ -995,45 +996,13 @@ describe("bounded Publication and Metric queries", () => {
       items: listUnitItems({ context: value.context, revisionId: value.revision.id, limit: 100 }),
       presentations: listUnitPresentations({ context: value.context, revisionId: value.revision.id, limit: 10 }),
     };
-    const farm = path.join(value.root.dir, ".ralphy", "farm");
-    fs.mkdirSync(path.join(farm, "buckets", "poison"), { recursive: true });
-    fs.writeFileSync(path.join(farm, "identity.json"), "{}");
-    fs.writeFileSync(path.join(farm, "buckets", "poison", "object.bin"), "poison");
-    const mutable = fs as unknown as {
-      openSync: typeof fs.openSync;
-      readdirSync: typeof fs.readdirSync;
-      lstatSync: typeof fs.lstatSync;
-    };
-    const original = {
-      openSync: mutable.openSync,
-      readdirSync: mutable.readdirSync,
-      lstatSync: mutable.lstatSync,
-    };
-    const touched: string[] = [];
-    const trap = (name: keyof typeof original) => {
-      mutable[name] = ((...args: unknown[]) => {
-        const target = String(args[0]);
-        if (target.includes(`${path.sep}farm${path.sep}`)) touched.push(target);
-        return (original[name] as (...values: unknown[]) => unknown)(...args);
-      }) as never;
-    };
-    let after: typeof before;
-    try {
-      trap("openSync");
-      trap("readdirSync");
-      trap("lstatSync");
-      after = {
+    const trapped = withPoisonFarmReadTrap(value.root.dir, () => ({
         unit: getUnit({ context: value.context, unitId: value.unit.id }),
         revisions: listUnitRevisions({ context: value.context, unitId: value.unit.id, limit: 10 }),
         items: listUnitItems({ context: value.context, revisionId: value.revision.id, limit: 100 }),
         presentations: listUnitPresentations({ context: value.context, revisionId: value.revision.id, limit: 10 }),
-      };
-    } finally {
-      mutable.openSync = original.openSync;
-      mutable.readdirSync = original.readdirSync;
-      mutable.lstatSync = original.lstatSync;
-    }
-    expect(after).toEqual(before);
-    expect(touched).toEqual([]);
+      }));
+    expect(trapped.result).toEqual(before);
+    expect(trapped.touched).toEqual([]);
   });
 });

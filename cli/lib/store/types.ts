@@ -673,7 +673,7 @@ export type OverviewActivityRequest = { afterSequence: number; limit: number };
 export type WorkspaceOverviewRequest = {
   context: QueryContext;
   workspaceId: string;
-  sections?: {
+  sections: {
     documents?: OverviewPageRequest;
     units?: OverviewPageRequest;
     accounts?: OverviewPageRequest;
@@ -694,7 +694,7 @@ export type WorkspaceOverview = {
 export type ProjectOverviewRequest = {
   context: QueryContext;
   projectId: string;
-  sections?: {
+  sections: {
     documents?: OverviewPageRequest;
     iterations?: OverviewPageRequest;
     feedback?: OverviewPageRequest;

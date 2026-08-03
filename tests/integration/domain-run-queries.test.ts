@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import fs from "node:fs";
 import path from "node:path";
 import { requestDigest } from "../../cli/lib/store/canonical-json.js";
 import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
@@ -29,6 +28,7 @@ import {
   startConsumerSession,
 } from "../../cli/lib/store/sessions.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 import { installFarmConsumer } from "../helpers/consumer-auth.js";
 
 let root: TmpRoot | null = null;
@@ -424,46 +424,14 @@ describe("bounded Run queries", () => {
       attempt: getRunAttempt({ context, attemptId: attempt.id }),
       attempts: listRunAttempts({ context, runId: projectRun.id, limit: 10 }),
     };
-    const farm = path.join(root.dir, ".ralphy", "farm");
-    fs.mkdirSync(path.join(farm, "buckets", "poison"), { recursive: true });
-    fs.writeFileSync(path.join(farm, "identity.json"), "{}");
-    fs.writeFileSync(path.join(farm, "buckets", "poison", "object.bin"), "x");
-    const mutableFs = fs as unknown as {
-      openSync: typeof fs.openSync;
-      readdirSync: typeof fs.readdirSync;
-      lstatSync: typeof fs.lstatSync;
-    };
-    const original = {
-      openSync: mutableFs.openSync,
-      readdirSync: mutableFs.readdirSync,
-      lstatSync: mutableFs.lstatSync,
-    };
-    const touched: string[] = [];
-    const trap = (name: keyof typeof original) => {
-      mutableFs[name] = ((...args: unknown[]) => {
-        const value = String(args[0]);
-        if (value.includes(`${path.sep}farm${path.sep}`)) touched.push(value);
-        return (original[name] as (...values: unknown[]) => unknown)(...args);
-      }) as never;
-    };
-    let after: typeof before;
-    try {
-      trap("openSync");
-      trap("readdirSync");
-      trap("lstatSync");
-      after = {
+    const trapped = withPoisonFarmReadTrap(root.dir, () => ({
         run: getRun({ context, runId: projectRun.id }),
         runs: listRuns({ context, limit: 10 }),
         attempt: getRunAttempt({ context, attemptId: attempt.id }),
         attempts: listRunAttempts({ context, runId: projectRun.id, limit: 10 }),
-      };
-    } finally {
-      mutableFs.openSync = original.openSync;
-      mutableFs.readdirSync = original.readdirSync;
-      mutableFs.lstatSync = original.lstatSync;
-    }
-    expect(touched).toEqual([]);
-    expect(after).toEqual(before);
+      }));
+    expect(trapped.touched).toEqual([]);
+    expect(trapped.result).toEqual(before);
 
     endAgentSession(session.id);
     expect(() => listRuns({ context, limit: 10 })).toThrow(

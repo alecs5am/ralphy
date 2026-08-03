@@ -420,14 +420,53 @@ describe("media cards", () => {
       logicalPath: "project.png",
       objectId: f.projectObject.id,
     });
+    const db = openDomainDb();
+    db.prepare("UPDATE run_objects SET object_id = ? WHERE id = ?").run(
+      f.projectObject.id,
+      f.runObject.id,
+    );
+    const now = Date.now();
+    const job = db
+      .prepare(
+        `INSERT INTO jobs
+         (run_id, kind, status, command, depends_on, created_at, project_id)
+         VALUES (?, 'reference-audit', 'completed', '[]', '[]', ?, ?)`,
+      )
+      .run(f.run.id, now, f.project.id);
+    db.prepare(
+      `INSERT INTO job_artifacts (job_id, object_id, kind, path)
+       VALUES (?, ?, 'output', 'project.png')`,
+    ).run(job.lastInsertRowid, f.projectObject.id);
+    db.prepare(
+      `INSERT INTO storage_transfers
+       (id, workspace_id, project_id, kind, state, source_bucket,
+        destination_bucket, created_at, updated_at)
+       VALUES ('transfer_reference_audit', ?, ?, 'copy', 'completed',
+               'source-bucket', 'destination-bucket', ?, ?)`,
+    ).run(f.workspace.id, f.project.id, now, now);
+    db.prepare(
+      `INSERT INTO storage_transfer_entries
+       (id, transfer_id, object_id, source_key, destination_key, state,
+        created_at, updated_at)
+       VALUES ('transfer_entry_reference_audit', 'transfer_reference_audit', ?,
+               'source/project.png', 'destination/project.png', 'completed', ?, ?)`,
+    ).run(f.projectObject.id, now, now);
     const [card] = getMediaCards({
       context: { workspaceId: f.workspace.id, projectId: f.project.id },
       refs: [{ type: "object", id: f.projectObject.id }],
     });
-    // One artifact_revisions row plus one composition_revision_files row.
-    expect(card).toMatchObject({ referenceCount: 2 });
+    // One row in every registered Object reference source.
+    expect(card).toMatchObject({ referenceCount: 5 });
+    expect(
+      OBJECT_REFERENCE_SOURCES.map(({ table, column }) =>
+        db
+          .query<{ total: number }, [string]>(
+            `SELECT COUNT(*) AS total FROM ${table} WHERE ${column} = ?`,
+          )
+          .get(f.projectObject.id)!.total,
+      ),
+    ).toEqual([1, 1, 1, 1, 1]);
 
-    const db = openDomainDb();
     const actual = db
       .query<{ table: string; column: string }, []>(
         `SELECT m.name AS "table", fk."from" AS "column"

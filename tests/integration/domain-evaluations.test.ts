@@ -7,7 +7,10 @@ import {
 } from "../../cli/lib/store/artifacts.js";
 import {
   createComposition,
+  putCompositionSource,
   reviseComposition,
+  sealCompositionRevision,
+  startBuild,
 } from "../../cli/lib/store/compositions.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import {
@@ -175,23 +178,41 @@ describe("domain Evaluations", () => {
 
   test("supports every target family", async () => {
     const root = makeRoot();
-    const { project, revision, session } = await fixture(root, "targets");
+    const { project, object, revision, session } = await fixture(root, "targets");
     const composition = createComposition({
       projectId: project.id,
       slug: "cut",
       kind: "video",
     });
-    const compositionRevision = reviseComposition({
+    const draft = reviseComposition({
       compositionId: composition.id,
       expectedLatestRevisionId: null,
       engine: "remotion",
     });
-    const run = startRun({ projectId: project.id, kind: "evaluation" });
+    putCompositionSource({
+      revisionId: draft.id,
+      logicalPath: "source.png",
+      objectId: object.id,
+    });
+    const compositionRevision = sealCompositionRevision({ revisionId: draft.id });
+    const run = startRun({ projectId: project.id, kind: "build" });
+    const build = startBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: run.id,
+      profile: {},
+    });
     const targets = [
       { type: "artifact_revision", id: revision.id },
       { type: "composition_revision", id: compositionRevision.id },
+      { type: "build", id: build.id },
       { type: "run", id: run.id },
     ] as const;
+    expect(targets.map((target) => target.type)).toEqual([
+      "artifact_revision",
+      "composition_revision",
+      "build",
+      "run",
+    ]);
     for (const target of targets) {
       const evaluation = createEvaluation({
         target,

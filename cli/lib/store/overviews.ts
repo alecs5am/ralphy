@@ -36,6 +36,9 @@ const MAX_SECTION_LIMIT = 50;
 export function getWorkspaceOverview(
   request: WorkspaceOverviewRequest,
 ): WorkspaceOverview {
+  if (!request.sections) {
+    throw new Error("Workspace overview sections are required");
+  }
   const db = openDomainDb();
   return db.transaction(() => {
     const scope = resolveQueryContext(db, request.context);
@@ -51,7 +54,7 @@ export function getWorkspaceOverview(
       .get(request.workspaceId);
     if (!workspace) throw new Error(`Workspace not found: ${request.workspaceId}`);
 
-    const sections = request.sections ?? {};
+    const sections = request.sections;
     const overview: WorkspaceOverview = { workspace };
     if (sections.documents) {
       overview.documents = pageDocuments(db, sections.documents, {
@@ -83,6 +86,9 @@ export function getWorkspaceOverview(
 export function getProjectOverview(
   request: ProjectOverviewRequest,
 ): ProjectOverview {
+  if (!request.sections) {
+    throw new Error("Project overview sections are required");
+  }
   const db = openDomainDb();
   return db.transaction(() => {
     const scope = resolveQueryContext(db, request.context);
@@ -101,12 +107,19 @@ export function getProjectOverview(
       throw new Error(`Project not found: ${request.projectId}`);
     }
 
-    const sections = request.sections ?? {};
+    const sections = request.sections;
     const overview: ProjectOverview = { project };
     if (sections.documents) {
       const page = pageDocuments(db, sections.documents, {
-        sql: "project_id = ?",
-        values: [request.projectId],
+        sql: `(project_id = ? OR (
+          project_id IS NULL AND workspace_id = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM documents project_document
+            WHERE project_document.project_id = ?
+              AND project_document.slug = documents.slug
+          )
+        ))`,
+        values: [request.projectId, project.workspaceId, request.projectId],
       });
       overview.documents = {
         items: page.items.map((document) => ({
@@ -429,6 +442,9 @@ function pageActivity(
   request: { afterSequence: number; limit: number },
   visible: (event: ActivityDto) => boolean,
 ): Page<ActivityDto, number> {
+  if (!Number.isSafeInteger(request.afterSequence) || request.afterSequence < 0) {
+    throw new Error("Activity afterSequence must be a non-negative integer");
+  }
   assertLimit(request.limit, MAX_SECTION_LIMIT);
   // Activity is one global sequence; a scoped view is a local filter over it,
   // so the cursor stays the store-wide sequence the caller can resume from.

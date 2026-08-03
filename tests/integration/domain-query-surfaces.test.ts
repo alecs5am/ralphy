@@ -1,4 +1,43 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  addArtifactRelation,
+  addArtifactRevision,
+  addArtifactUsage,
+  createArtifact,
+  getArtifact,
+  getArtifactRelation,
+  getArtifactRevision,
+  getArtifactUsage,
+  listArtifactRelations,
+  listArtifactRevisions,
+  listArtifacts,
+  listArtifactUsages,
+  selectArtifactRevision,
+} from "../../cli/lib/store/artifacts.js";
+import {
+  bindCompositionInput,
+  completeBuild,
+  createComposition,
+  getBuild,
+  getBuildOutput,
+  getComposition,
+  getCompositionInput,
+  getCompositionRevision,
+  getCompositionSource,
+  listBuildOutputs,
+  listBuilds,
+  listCompositionInputs,
+  listCompositionRevisions,
+  listCompositionSources,
+  listCompositions,
+  putCompositionSource,
+  reviseComposition,
+  sealCompositionRevision,
+  selectCompositionRevision,
+  startBuild,
+} from "../../cli/lib/store/compositions.js";
 import {
   assertLimit,
   buildPage,
@@ -8,11 +47,113 @@ import {
 } from "../../cli/lib/store/pagination.js";
 import {
   appendActivity,
+  assertSafeActivityPayload,
   latestActivitySequence,
   listActivity,
 } from "../../cli/lib/store/activity.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
-import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
+import {
+  getDocumentContent,
+  getBuildDocumentBinding,
+  getProjectDocumentBinding,
+  listBuildDocumentBindings,
+  listProjectDocumentBindings,
+  replaceBuildDocumentBinding,
+  replaceProjectDocumentBinding,
+} from "../../cli/lib/store/document-content.js";
+import {
+  createDocument,
+  getDocument,
+  getDocumentRevision,
+  listDocuments,
+  listDocumentRevisions,
+  reviseDocument,
+  searchDocuments,
+} from "../../cli/lib/store/documents.js";
+import {
+  createEvaluation,
+  getEvaluation,
+  listEvaluations,
+} from "../../cli/lib/store/evaluations.js";
+import {
+  getMediaCard,
+  getMediaCards,
+  listMedia,
+  reviewMedia,
+} from "../../cli/lib/store/media.js";
+import { ingestObject } from "../../cli/lib/store/objects.js";
+import {
+  getProjectOverview,
+  getWorkspaceOverview,
+} from "../../cli/lib/store/overviews.js";
+import {
+  finishRun,
+  finishRunAttempt,
+  getRun,
+  getRunAttempt,
+  getRunObject,
+  listRunAttempts,
+  listRunObjects,
+  listRuns,
+  recordRunObject,
+  recordRunResult,
+  startRun,
+  startRunAttempt,
+} from "../../cli/lib/store/runs.js";
+import {
+  addFeedback,
+  createIteration,
+  createProject,
+  createWorkspace,
+  getFeedback,
+  getFeedbackResolutionLink,
+  getIteration,
+  getProject,
+  getProjectStage,
+  getWorkspace,
+  listFeedback,
+  listFeedbackResolutionLinks,
+  listIterations,
+  listProjectStages,
+  listProjects,
+  listSocialAccounts,
+  listWorkspaces,
+  resolveFeedback,
+  updateProject,
+  updateWorkspace,
+  upsertSocialAccount,
+} from "../../cli/lib/store/scopes.js";
+import {
+  endAgentSession,
+  getAgentSession,
+  listAgentSessions,
+  startAgentSession,
+} from "../../cli/lib/store/sessions.js";
+import {
+  appendMetricSnapshot,
+  createUnit,
+  getMetricSnapshot,
+  getMetricTotals,
+  getPresentationCaptionRevision,
+  getPresentationItem,
+  getPublication,
+  getUnit,
+  getUnitItem,
+  getUnitPresentation,
+  getUnitRevision,
+  listMetricSnapshots,
+  listPresentationCaptionRevisions,
+  listPresentationItems,
+  listPublications,
+  listUnitItems,
+  listUnitPresentations,
+  listUnitRevisions,
+  listUnits,
+  recordPublication,
+  reviseUnit,
+  selectUnitRevision,
+} from "../../cli/lib/store/units.js";
+import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 const FAMILIES: CursorFamily[] = ["c1", "v1", "p1"];
@@ -33,6 +174,663 @@ afterEach(() => {
 
 function raw(family: CursorFamily, json: string): string {
   return `${family}.${Buffer.from(json, "utf8").toString("base64url")}`;
+}
+
+async function makeSurfaceFixture(): Promise<{
+  ordinaryValues: unknown[];
+  readQueryBaseline: unknown[];
+  readQueryValues: () => unknown[];
+  rootDir: string;
+}> {
+  const root = makeRoot();
+  const createdWorkspace = createWorkspace({ slug: "surface", name: "Surface" });
+  const workspace = updateWorkspace(
+    createdWorkspace.id,
+    { name: "Surface updated" },
+    createdWorkspace.rowVersion,
+  );
+  const createdProject = createProject({
+    workspaceId: workspace.id,
+    slug: "surface",
+    name: "Surface",
+  });
+  const project = updateProject(
+    createdProject.id,
+    { name: "Surface updated" },
+    createdProject.rowVersion,
+  );
+  const context = { workspaceId: workspace.id, projectId: project.id } as const;
+  const account = upsertSocialAccount({
+    workspaceId: workspace.id,
+    platform: "tiktok",
+    externalId: "surface-account",
+    displayName: "Surface",
+    config: { profile: "surface" },
+  });
+  const session = startAgentSession({
+    workspaceId: workspace.id,
+    projectId: project.id,
+    agent: "surface-auditor",
+  });
+  const iteration = createIteration({
+    projectId: project.id,
+    title: "Surface iteration",
+  });
+  const document = createDocument({
+    projectId: project.id,
+    kind: "brief",
+    slug: "surface-brief",
+    title: "Surface brief",
+  });
+  const documentRevision = reviseDocument({
+    documentId: document.id,
+    expectedHeadId: null,
+    format: "text",
+    body: "private document body",
+    authoredBySessionId: session.id,
+  });
+  const projectBinding = replaceProjectDocumentBinding({
+    context,
+    projectId: project.id,
+    role: "brief",
+    revisionId: documentRevision.id,
+    expectedRevisionId: null,
+  });
+  const feedback = addFeedback({
+    iterationId: iteration.id,
+    target: { type: "document_revision", id: documentRevision.id },
+    body: "private feedback body",
+  });
+
+  const sourcePath = path.join(root.dir, "surface.bin");
+  fs.writeFileSync(sourcePath, "surface bytes");
+  const object = await ingestObject({
+    scope: { workspaceId: workspace.id, projectId: project.id },
+    sourcePath,
+    originalName: "private-original-name.bin",
+    mime: "application/octet-stream",
+    storageClass: "working",
+    metadata: { privateObjectFact: true },
+  });
+  const artifact = createArtifact({
+    projectId: project.id,
+    slug: "surface-artifact",
+    kind: "data",
+  });
+  const artifactRevision = addArtifactRevision({
+    artifactId: artifact.id,
+    objectId: object.id,
+    state: "approved",
+    metadata: { privateArtifactFact: true },
+    authoredBySessionId: session.id,
+  });
+  const selectedArtifact = selectArtifactRevision({
+    artifactId: artifact.id,
+    revisionId: artifactRevision.id,
+    expectedRevisionId: null,
+  });
+  const relatedArtifact = createArtifact({
+    projectId: project.id,
+    slug: "surface-related",
+    kind: "data",
+  });
+  const relatedRevision = addArtifactRevision({
+    artifactId: relatedArtifact.id,
+    objectId: object.id,
+    state: "candidate",
+    authoredBySessionId: session.id,
+  });
+  const relation = addArtifactRelation({
+    fromRevisionId: artifactRevision.id,
+    toRevisionId: relatedRevision.id,
+    relation: "derived-from",
+    metadata: { privateRelationFact: true },
+  });
+  const usage = addArtifactUsage({
+    artifactRevisionId: artifactRevision.id,
+    projectId: project.id,
+    role: "source",
+    lifecycle: "durable",
+  });
+  const resolvedFeedback = resolveFeedback(feedback.id, {
+    note: "private resolution note",
+    links: [{ type: "artifact_revision", id: artifactRevision.id }],
+  });
+  const resolutionLinks = listFeedbackResolutionLinks({
+    context,
+    feedbackId: feedback.id,
+    limit: 10,
+  });
+  const resolutionLink = resolutionLinks.items[0]!;
+
+  const composition = createComposition({
+    projectId: project.id,
+    slug: "surface-composition",
+    kind: "video",
+  });
+  const draft = reviseComposition({
+    compositionId: composition.id,
+    expectedLatestRevisionId: null,
+    iterationId: iteration.id,
+    engine: "remotion",
+    engineConfig: { privateEngineFact: true },
+    authoredBySessionId: session.id,
+  });
+  const compositionInput = bindCompositionInput({
+    revisionId: draft.id,
+    artifactRevisionId: artifactRevision.id,
+    role: "primary",
+    position: 0,
+    config: { fit: "cover" },
+  });
+  const compositionSource = putCompositionSource({
+    revisionId: draft.id,
+    logicalPath: "source/surface.bin",
+    objectId: object.id,
+    position: 0,
+  });
+  const compositionRevision = sealCompositionRevision({ revisionId: draft.id });
+  const selectedComposition = selectCompositionRevision({
+    compositionId: composition.id,
+    revisionId: compositionRevision.id,
+    expectedSelectedRevisionId: null,
+  });
+  const buildRun = startRun({
+    projectId: project.id,
+    agentSessionId: session.id,
+    kind: "build",
+  });
+  const runningBuild = startBuild({
+    compositionRevisionId: compositionRevision.id,
+    runId: buildRun.id,
+    profile: { privateProfileFact: true },
+  });
+  const buildBinding = replaceBuildDocumentBinding({
+    context,
+    buildId: runningBuild.id,
+    role: "brief",
+    revisionId: documentRevision.id,
+    expectedRevisionId: null,
+  });
+  const build = completeBuild({
+    buildId: runningBuild.id,
+    outputs: [
+      { artifactRevisionId: artifactRevision.id, role: "preview", position: 0 },
+    ],
+  });
+  const buildOutputs = listBuildOutputs({ context, buildId: build.id, limit: 10 });
+  const buildOutput = buildOutputs.items[0]!;
+  const stageId = "stage_surface_ready";
+  openDomainDb()
+    .prepare(
+      `INSERT INTO project_stages
+       (id, project_id, stage, state, entity_type, entity_id, metadata_json,
+        row_version, updated_at)
+       VALUES (?, ?, 'render', 'ready', 'build', ?, '{"private":true}', 1, 1)`,
+    )
+    .run(stageId, project.id, build.id);
+
+  const run = startRun({
+    projectId: project.id,
+    agentSessionId: session.id,
+    kind: "generation",
+    metadata: { privateRunFact: true },
+  });
+  const runResult = recordRunResult(openDomainDb(), {
+    runId: run.id,
+    position: 0,
+    entityType: "document_revision",
+    entityId: documentRevision.id,
+  });
+  const runObject = recordRunObject({
+    runId: run.id,
+    path: "tmp/private-worker-file.bin",
+    purpose: "intermediate",
+    state: "working",
+    retention: "working",
+    mime: "application/octet-stream",
+    bytes: 10,
+    sha256: "a".repeat(64),
+    metadata: { privateRunObjectFact: true },
+  });
+  const runningAttempt = startRunAttempt({
+    runId: run.id,
+    provider: "fixture-provider",
+    model: "fixture-model",
+    request: { privateRequestFact: true },
+  });
+  const attempt = finishRunAttempt(runningAttempt.id, {
+    state: "failed",
+    response: { privateResponseFact: true },
+    costUsd: 0,
+    error: "private attempt error",
+  });
+  const finishedRun = finishRun(run.id, {
+    state: "failed",
+    error: "private run error",
+  });
+
+  const unit = createUnit({
+    projectId: project.id,
+    slug: "surface-unit",
+    format: "video",
+  });
+  const unitRevision = reviseUnit({
+    unitId: unit.id,
+    expectedLatestRevisionId: null,
+    iterationId: iteration.id,
+    authoredBySessionId: session.id,
+    metadata: { privateUnitFact: true },
+    items: [
+      {
+        documentRevisionId: documentRevision.id,
+        role: "caption-source",
+        position: 0,
+        config: { layout: "center" },
+      },
+    ],
+    presentations: [
+      {
+        platform: "tiktok",
+        position: 0,
+        captions: [{ state: "final", text: "Public caption" }],
+        effectiveCaptionRevisionNo: 1,
+        options: { chrome: "tiktok" },
+        items: [{ unitItemPosition: 0, position: 0, config: { crop: "cover" } }],
+      },
+    ],
+  });
+  const selectedUnit = selectUnitRevision({
+    unitId: unit.id,
+    revisionId: unitRevision.id,
+    expectedSelectedRevisionId: null,
+  });
+  const unitItems = listUnitItems({ context, revisionId: unitRevision.id, limit: 10 });
+  const presentations = listUnitPresentations({
+    context,
+    revisionId: unitRevision.id,
+    limit: 10,
+  });
+  const presentation = presentations.items[0]!;
+  const captions = listPresentationCaptionRevisions({
+    context,
+    presentationId: presentation.id,
+    limit: 10,
+  });
+  const presentationItems = listPresentationItems({
+    context,
+    presentationId: presentation.id,
+    limit: 10,
+  });
+  const publicationRun = startRun({ projectId: project.id, kind: "publication" });
+  const publication = recordPublication({
+    presentationId: presentation.id,
+    socialAccountId: account.id,
+    submissionRunId: publicationRun.id,
+    rail: "postiz",
+    idempotencyKey: "surface-publication",
+  });
+  const metricRun = startRun({ projectId: project.id, kind: "metric-refresh" });
+  const metric = appendMetricSnapshot({
+    publicationId: publication.id,
+    runId: metricRun.id,
+    position: 0,
+    source: "postiz",
+    asOf: 1,
+    views: 1,
+    raw: { privateProviderFact: true },
+  });
+  const evaluation = createEvaluation({
+    target: { type: "build", id: build.id },
+    authoredBySessionId: session.id,
+    kind: "quality",
+    verdict: "approved",
+    report: { privateReportFact: true },
+  });
+  const review = reviewMedia({
+    ref: { type: "artifact", id: artifact.id },
+    expectedSelectedRevisionId: artifactRevision.id,
+    verdict: "approved",
+    authoredBySessionId: session.id,
+  });
+  const endedSession = endAgentSession(session.id);
+
+  const mutationValues: unknown[] = [
+    workspace,
+    project,
+    account,
+    session,
+    endedSession,
+    iteration,
+    resolvedFeedback,
+    resolutionLink,
+    projectBinding,
+    buildBinding,
+    object,
+    selectedArtifact,
+    artifactRevision,
+    relation,
+    usage,
+    finishedRun,
+    attempt,
+    runObject,
+    runResult,
+    selectedComposition,
+    compositionRevision,
+    compositionInput,
+    compositionSource,
+    build,
+    buildOutput,
+    selectedUnit,
+    unitRevision,
+    publication,
+    metric,
+    evaluation,
+    review,
+  ];
+
+  const readQueryValues = (): unknown[] => [
+    getWorkspace(workspace.id),
+    listWorkspaces({ limit: 10 }),
+    getProject({ workspaceId: workspace.id, projectId: project.id }),
+    listProjects({ workspaceId: workspace.id, limit: 10 }),
+    listSocialAccounts({ workspaceId: workspace.id, limit: 10 }),
+    getAgentSession(session.id),
+    listAgentSessions({ workspaceId: workspace.id, projectId: project.id, limit: 10 }),
+    getIteration({ context, iterationId: iteration.id }),
+    listIterations({ context, projectId: project.id, limit: 10 }),
+    getFeedback({ context, feedbackId: feedback.id }),
+    listFeedback({ context, projectId: project.id, limit: 10 }),
+    getFeedbackResolutionLink({ context, linkId: resolutionLink.id }),
+    listFeedbackResolutionLinks({ context, feedbackId: feedback.id, limit: 10 }),
+    getProjectStage({ context, stageId }),
+    listProjectStages({ context, projectId: project.id, limit: 10 }),
+    getDocument({ context, documentId: document.id }),
+    listDocuments({ context, limit: 10 }),
+    getDocumentRevision({ context, revisionId: documentRevision.id }),
+    listDocumentRevisions({ context, documentId: document.id, limit: 10 }),
+    getDocumentContent({
+      context,
+      revisionId: documentRevision.id,
+      afterByte: 0,
+      limitBytes: 64,
+    }),
+    searchDocuments({ context, query: "private", limit: 10 }),
+    getProjectDocumentBinding(context, { projectId: project.id, role: "brief" }),
+    listProjectDocumentBindings(context, { projectId: project.id, limit: 10 }),
+    getBuildDocumentBinding(context, { buildId: build.id, role: "brief" }),
+    listBuildDocumentBindings(context, { buildId: build.id, limit: 10 }),
+    getArtifact({ context, artifactId: artifact.id }),
+    listArtifacts({ context, limit: 10 }),
+    getArtifactRevision({ context, revisionId: artifactRevision.id }),
+    listArtifactRevisions({ context, artifactId: artifact.id, limit: 10 }),
+    getArtifactRelation({ context, relationId: relation.id }),
+    listArtifactRelations({ context, revisionId: artifactRevision.id, limit: 10 }),
+    getArtifactUsage({ context, usageId: usage.id }),
+    listArtifactUsages({ context, revisionId: artifactRevision.id, limit: 10 }),
+    getRun({ context, runId: run.id }),
+    listRuns({ context, limit: 10 }),
+    getRunAttempt({ context, attemptId: attempt.id }),
+    listRunAttempts({ context, runId: run.id, limit: 10 }),
+    getRunObject({ context, runObjectId: runObject.id }),
+    listRunObjects({ context, runId: run.id, limit: 10 }),
+    getComposition({ context, compositionId: composition.id }),
+    listCompositions({ context, projectId: project.id, limit: 10 }),
+    getCompositionRevision({ context, revisionId: compositionRevision.id }),
+    listCompositionRevisions({ context, compositionId: composition.id, limit: 10 }),
+    getCompositionInput({ context, inputId: compositionInput.id }),
+    listCompositionInputs({ context, revisionId: compositionRevision.id, limit: 10 }),
+    getCompositionSource({ context, sourceId: compositionSource.id }),
+    listCompositionSources({ context, revisionId: compositionRevision.id, limit: 10 }),
+    getBuild({ context, buildId: build.id }),
+    listBuilds({ context, compositionRevisionId: compositionRevision.id, limit: 10 }),
+    getBuildOutput({ context, outputId: buildOutput.id }),
+    listBuildOutputs({ context, buildId: build.id, limit: 10 }),
+    getUnit({ context, unitId: unit.id }),
+    listUnits({ context, limit: 10 }),
+    getUnitRevision({ context, revisionId: unitRevision.id }),
+    listUnitRevisions({ context, unitId: unit.id, limit: 10 }),
+    getUnitItem({ context, itemId: unitItems.items[0]!.id }),
+    listUnitItems({ context, revisionId: unitRevision.id, limit: 10 }),
+    getUnitPresentation({ context, presentationId: presentation.id }),
+    listUnitPresentations({ context, revisionId: unitRevision.id, limit: 10 }),
+    getPresentationCaptionRevision({
+      context,
+      captionRevisionId: captions.items[0]!.id,
+    }),
+    listPresentationCaptionRevisions({
+      context,
+      presentationId: presentation.id,
+      limit: 10,
+    }),
+    getPresentationItem({
+      context,
+      presentationItemId: presentationItems.items[0]!.id,
+    }),
+    listPresentationItems({ context, presentationId: presentation.id, limit: 10 }),
+    getPublication({ context, publicationId: publication.id }),
+    listPublications({ context, presentationId: presentation.id, limit: 10 }),
+    getMetricSnapshot({ context, metricSnapshotId: metric.id }),
+    listMetricSnapshots({ context, publicationId: publication.id, limit: 10 }),
+    getMetricTotals({ context, publicationIds: [publication.id] }),
+    getEvaluation(context, evaluation.id),
+    listEvaluations({ context, limit: 10 }),
+    getWorkspaceOverview({
+      context: { workspaceId: workspace.id },
+      workspaceId: workspace.id,
+      sections: {
+        documents: { limit: 10 },
+        units: { limit: 10 },
+        accounts: { limit: 10 },
+        projects: { limit: 10 },
+        activity: { afterSequence: 0, limit: 50 },
+      },
+    }),
+    getProjectOverview({
+      context,
+      projectId: project.id,
+      sections: {
+        documents: { limit: 10 },
+        iterations: { limit: 10 },
+        feedback: { limit: 10 },
+        stages: { limit: 10 },
+        compositions: { limit: 10 },
+        builds: { limit: 10 },
+        units: { limit: 10 },
+        runs: { limit: 10 },
+        activity: { afterSequence: 0, limit: 50 },
+        mediaCounts: true,
+      },
+    }),
+    getMediaCard({ context, ref: { type: "object", id: object.id } }),
+    getMediaCards({
+      context,
+      refs: [
+        { type: "artifact", id: artifact.id },
+        { type: "run-object", id: runObject.id },
+      ],
+    }),
+    listMedia({ context, limit: 10 }),
+    listActivity({ afterSequence: 0, limit: 100 }),
+    latestActivitySequence(),
+  ];
+
+  const readQueryBaseline = readQueryValues();
+  const ordinaryValues = [...mutationValues, ...readQueryBaseline];
+
+  return {
+    ordinaryValues,
+    readQueryBaseline,
+    readQueryValues,
+    rootDir: root.dir,
+  };
+}
+
+const FORBIDDEN_ORDINARY_KEY_PARTS = new Set([
+  "body",
+  "bucket",
+  "credential",
+  "digest",
+  "error",
+  "hash",
+  "key",
+  "locator",
+  "metadata",
+  "password",
+  "path",
+  "payload",
+  "raw",
+  "report",
+  "request",
+  "response",
+  "secret",
+  "sha256",
+  "token",
+]);
+
+function ordinaryKeyParts(key: string): string[] {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.toLowerCase());
+}
+
+function isSensitiveNormalizedCompound(normalized: string): boolean {
+  return (
+    /^(source|log)path$/.test(normalized) ||
+    /^(object|storage)key$/.test(normalized) ||
+    /^(content|manifest)hash$/.test(normalized) ||
+    /^(last|raw)error$/.test(normalized) ||
+    /^(provider)?(request|response)(digest|json|body|payload|raw|data|text)?$/.test(
+      normalized,
+    ) ||
+    /^(provider)?payload(json|body|data|text|raw)?$/.test(normalized) ||
+    /^(evaluation)?report(json|body|data|text|raw)?$/.test(normalized) ||
+    /^raw(json|body|data|text|error|request|response|payload|report)?$/.test(
+      normalized,
+    ) ||
+    /^secret(ref|value|token|key)?$/.test(normalized)
+  );
+}
+
+const FEEDBACK_DTO_KEYS = [
+  "body",
+  "createdAt",
+  "id",
+  "iterationId",
+  "projectId",
+  "resolutionNote",
+  "resolvedAt",
+  "status",
+  "targetId",
+  "targetType",
+  "timecodeMs",
+] as const;
+
+function isFeedbackBody(record: Record<string, unknown>, key: string): boolean {
+  return (
+    key === "body" &&
+    Object.keys(record).sort().join("\0") === [...FEEDBACK_DTO_KEYS].sort().join("\0")
+  );
+}
+
+function forbiddenOrdinaryFields(value: unknown): string[] {
+  const found: string[] = [];
+  const seen = new WeakSet<object>();
+  const visit = (current: unknown, location: string): void => {
+    if (current === null || typeof current !== "object") return;
+    if (seen.has(current)) return;
+    seen.add(current);
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, `${location}[${index}]`));
+      return;
+    }
+    for (const [key, nested] of Object.entries(current)) {
+      const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (
+        !isFeedbackBody(current, key) &&
+        (ordinaryKeyParts(key).some((part) =>
+          FORBIDDEN_ORDINARY_KEY_PARTS.has(part),
+        ) ||
+          isSensitiveNormalizedCompound(normalized) ||
+          /^(apikey|authorization|cookie|credentials|errormessage|idempotencykey|originalname|secretref)$/.test(
+            normalized,
+          ))
+      ) {
+        found.push(`${location}.${key}`);
+      }
+      visit(nested, `${location}.${key}`);
+    }
+  };
+  visit(value, "$root");
+  return found;
+}
+
+const EXPECTED_ACTIVITY_WRITERS = [
+  "cli/lib/jobs/db.ts",
+  "cli/lib/store/artifacts.ts",
+  "cli/lib/store/compositions.ts",
+  "cli/lib/store/consumer-runs.ts",
+  "cli/lib/store/document-content.ts",
+  "cli/lib/store/documents.ts",
+  "cli/lib/store/evaluations.ts",
+  "cli/lib/store/internal-objects.ts",
+  "cli/lib/store/internal-scope-mutations.ts",
+  "cli/lib/store/media.ts",
+  "cli/lib/store/runs.ts",
+  "cli/lib/store/scopes.ts",
+  "cli/lib/store/sessions.ts",
+  "cli/lib/store/units.ts",
+] as const;
+const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
+  "build.cancelled",
+  "build.failed",
+  "composition.input_removed",
+  "composition.source_removed",
+  "document.rebound",
+  "project.transferred",
+  "publication.cancelled",
+  "publication.claimed",
+  "publication.finished",
+  "publication.idempotent_skip",
+  "publication.operation_claim_expired",
+  "publication.reconciliation_requested",
+  "run.object_promoted",
+  "session.started",
+] as const;
+
+async function readActivitySourceInventory(): Promise<{
+  actions: string[];
+  directSqlFiles: string[];
+  writers: string[];
+}> {
+  const actions = new Set<string>();
+  const directSqlFiles: string[] = [];
+  const writers: string[] = [];
+  const glob = new Bun.Glob("cli/lib/**/*.ts");
+  for await (const file of glob.scan(".")) {
+    const source = await Bun.file(file).text();
+    if (/INSERT\s+INTO\s+activity_events/i.test(source)) directSqlFiles.push(file);
+    if (file === "cli/lib/store/activity.ts" || !/\bappendActivity\s*\(/.test(source)) {
+      continue;
+    }
+    expect(source).toMatch(
+      /import\s*\{[^}]*\bappendActivity\b[^}]*\}\s*from\s*["'][^"']*activity\.js["']/s,
+    );
+    writers.push(file);
+    for (const match of source.matchAll(
+      /["'`]([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_-]*)+)["'`]/g,
+    )) {
+      const action = match[1]!;
+      if (!action.endsWith("_id")) actions.add(action);
+    }
+  }
+  return {
+    actions: [...actions].sort(),
+    directSqlFiles: directSqlFiles.sort(),
+    writers: writers.sort(),
+  };
 }
 
 describe("domain cursor codecs", () => {
@@ -149,6 +947,49 @@ describe("bounded page building", () => {
         (row.createdAt === after.ordinal && row.id > after.id),
     );
     expect(remaining).toEqual([rows[1]!, rows[2]!]);
+  });
+});
+
+describe("stable-set traversal", () => {
+  test("excludes a matching row inserted behind the issued cursor", () => {
+    makeRoot();
+    const workspace = createWorkspace({ slug: "stable", name: "Stable" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "stable",
+      name: "Stable",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const original = ["one", "two", "three"].map((slug) =>
+      createDocument({ projectId: project.id, kind: "note", slug, title: slug }),
+    );
+    const db = openDomainDb();
+    for (const [index, document] of original.entries()) {
+      db.prepare("UPDATE documents SET created_at = ? WHERE id = ?").run(
+        (index + 1) * 100,
+        document.id,
+      );
+    }
+
+    const first = listDocuments({ context, limit: 1 });
+    const inserted = createDocument({
+      projectId: project.id,
+      kind: "note",
+      slug: "inserted",
+      title: "Inserted",
+    });
+    db.prepare("UPDATE documents SET created_at = 50 WHERE id = ?").run(inserted.id);
+
+    const seen = first.items.map((item) => item.id);
+    let after = first.nextCursor;
+    while (after !== null) {
+      const page = listDocuments({ context, after, limit: 1 });
+      seen.push(...page.items.map((item) => item.id));
+      after = page.nextCursor;
+    }
+    expect(seen).toEqual(original.map((document) => document.id));
+    expect(new Set(seen).size).toBe(original.length);
+    expect(seen).not.toContain(inserted.id);
   });
 });
 
@@ -336,25 +1177,145 @@ describe("activity payload safety", () => {
     }
   });
 
-  test("stores no forbidden raw payload anywhere in the domain suite writers", () => {
-    makeRoot();
+  test("stores no forbidden raw payload across every exercised domain writer", async () => {
+    const fixture = await makeSurfaceFixture();
+    const inventory = await readActivitySourceInventory();
+    expect(inventory.writers).toEqual([...EXPECTED_ACTIVITY_WRITERS].sort());
+    expect(inventory.directSqlFiles).toEqual(["cli/lib/store/activity.ts"]);
     const db = openDomainDb();
-    const workspace = createWorkspace({ slug: "writers", name: "Writers" });
-    createProject({
-      workspaceId: workspace.id,
-      slug: "writers",
-      name: "Writers",
-    });
     const stored = db
-      .query<{ payload_json: string }, []>(
-        "SELECT payload_json FROM activity_events",
+      .query<{ action: string; payloadJson: string }, []>(
+        "SELECT action, payload_json AS payloadJson FROM activity_events",
       )
-      .all()
-      .map((row) => row.payload_json);
-    expect(stored.length).toBeGreaterThan(0);
-    for (const payload of stored) {
-      expect(payload).not.toMatch(/"(path|sha256|locator|bucket|token)"/);
+      .all();
+    const actions = new Set(stored.map((row) => row.action));
+    expect(inventory.actions.filter((action) => !actions.has(action))).toEqual(
+      UNEXERCISED_LITERAL_ACTIVITY_ACTIONS,
+    );
+    expect([...actions].filter((action) => !inventory.actions.includes(action))).toEqual(
+      [],
+    );
+    expect(stored.length).toBeGreaterThan(
+      inventory.actions.length - UNEXERCISED_LITERAL_ACTIVITY_ACTIONS.length,
+    );
+    for (const row of stored) {
+      const payload = JSON.parse(row.payloadJson);
+      expect(() => assertSafeActivityPayload(payload)).not.toThrow();
+      expect(forbiddenOrdinaryFields(payload)).toEqual([]);
     }
+  });
+});
+
+describe("poison Farm read trap", () => {
+  test("covers sync, promise, callback, stream, and Bun.file reads", async () => {
+    const root = makeRoot();
+    const identityPath = path.join(root.dir, ".ralphy", "farm", "identity.json");
+    const trapped = withPoisonFarmReadTrap(root.dir, async () => {
+      fs.readFileSync(identityPath);
+      await fs.promises.readFile(identityPath);
+      await new Promise<void>((resolve, reject) => {
+        fs.readFile(identityPath, (error) => (error ? reject(error) : resolve()));
+      });
+      await new Promise<void>((resolve, reject) => {
+        const stream = fs.createReadStream(identityPath);
+        stream.on("error", reject);
+        stream.on("end", resolve);
+        stream.resume();
+      });
+      await Bun.file(identityPath).text();
+    });
+    await trapped.result;
+    const touchedMethods = trapped.touched.map((entry) => entry.split(":", 1)[0]);
+    for (const method of [
+      "readFileSync",
+      "promises.readFile",
+      "readFile",
+      "createReadStream",
+      "Bun.file",
+    ]) {
+      expect(touchedMethods).toContain(method);
+    }
+  });
+});
+
+describe("ordinary public DTO safety", () => {
+  test("recognizes explicit and compound sensitive field names without broad false positives", () => {
+    const sensitive = {
+      body: "private",
+      sourcePath: "private",
+      logPath: "private",
+      objectKey: "private",
+      storageKey: "private",
+      contentHash: "private",
+      manifestHash: "private",
+      sha256: "private",
+      lastError: "private",
+      rawError: "private",
+      request: "private",
+      response: "private",
+      requestDigest: "private",
+      providerPayload: "private",
+      evaluationReport: "private",
+      rawJson: "private",
+      secretRef: "private",
+      sourcepath: "private",
+      log_path: "private",
+      objectkey: "private",
+      storage_key: "private",
+      contenthash: "private",
+      manifest_hash: "private",
+      lasterror: "private",
+      raw_error: "private",
+      requestdigest: "private",
+      providerpayload: "private",
+      evaluationreport: "private",
+      rawjson: "private",
+      secretref: "private",
+    };
+    expect(forbiddenOrdinaryFields(sensitive).sort()).toEqual(
+      Object.keys(sensitive)
+        .map((key) => `$root.${key}`)
+        .sort(),
+    );
+    expect(
+      forbiddenOrdinaryFields({
+        source: "postiz",
+        storageClass: "working",
+        objectId: "obj_1",
+        contentType: "video",
+        manifestVersion: 1,
+        lastSeenAt: 1,
+        feedback: {
+          id: "fb_1",
+          projectId: "prj_1",
+          iterationId: "it_1",
+          targetType: null,
+          targetId: null,
+          timecodeMs: null,
+          body: "Visible feedback",
+          status: "open",
+          resolutionNote: null,
+          createdAt: 1,
+          resolvedAt: null,
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  test("recursively excludes storage, provider, error, and secret fields", async () => {
+    expect(
+      forbiddenOrdinaryFields({ safe: [{ nested: { metadata: true } }] }),
+    ).toEqual(["$root.safe[0].nested.metadata"]);
+    const fixture = await makeSurfaceFixture();
+    expect(forbiddenOrdinaryFields(fixture.ordinaryValues)).toEqual([]);
+  });
+
+  test("runs the comprehensive query surface without reading Farm", async () => {
+    const fixture = await makeSurfaceFixture();
+    const trapped = withPoisonFarmReadTrap(fixture.rootDir, fixture.readQueryValues);
+    expect(trapped.touched).toEqual([]);
+    expect(trapped.result).toEqual(fixture.readQueryBaseline);
+    expect(forbiddenOrdinaryFields(trapped.result)).toEqual([]);
   });
 });
 
