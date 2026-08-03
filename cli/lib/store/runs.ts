@@ -5,12 +5,17 @@ import path from "node:path";
 import { ralphDir } from "../paths.js";
 import { appendActivity } from "./activity.js";
 import { requireConsumerSession } from "./consumer-runs.js";
-import { openDomainDb, withImmediateTransaction } from "./db.js";
+import {
+  afterDomainCommit,
+  openDomainDb,
+  withImmediateTransaction,
+} from "./db.js";
 import { newDomainId } from "./ids.js";
 import { ingestObjectRow } from "./internal-objects.js";
 import type { ObjectScope } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import { cleanupRunSecretMaterialization } from "./secrets.js";
 import {
   resolveQueryContext,
   scopeVisibilityClause,
@@ -342,28 +347,7 @@ export function finishRun(
   },
 ): RunDto {
   assertTerminalState(input.state, "Run");
-  return withImmediateTransaction((db) => {
-    const run = requireRun(db, id);
-    if (run.state !== "pending" && run.state !== "running") {
-      throw new StoreConflictError("Run is already terminal");
-    }
-    assertNoRunningAttempt(db, id);
-    const endedAt = Date.now();
-    const result = db.prepare(
-      "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",
-    ).run(input.state, endedAt, input.error ?? null, id);
-    if (!result.changes) throw new StoreConflictError("Run is already terminal");
-    appendActivity(db, {
-      workspaceId: run.workspaceId,
-      projectId: run.projectId,
-      entityType: "run",
-      entityId: id,
-      action: "run.finished",
-      payload: { state: input.state },
-      createdAt: endedAt,
-    });
-    return toRunDtoFromRow(getRunRow(db, id)!);
-  });
+  return withImmediateTransaction((db) => finishRunInTransaction(db, id, input));
 }
 
 export function recordRunObject(input: {
@@ -803,6 +787,8 @@ export function finishRunInTransaction(
     throw new StoreConflictError("Run is already terminal");
   }
   assertNoRunningAttempt(db, id);
+  const dataRoot = path.dirname(db.filename);
+  afterDomainCommit(db, () => cleanupRunSecretMaterialization(dataRoot, id));
   const endedAt = Date.now();
   db.prepare(
     "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",

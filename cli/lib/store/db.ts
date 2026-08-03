@@ -5,6 +5,7 @@ import { ralphDir } from "../paths.js";
 import { applyMigrations } from "./schema.js";
 
 let cached: { path: string; db: Database } | null = null;
+const afterCommitFrames = new WeakMap<Database, Array<Array<() => void>>>();
 
 export function domainDbPath(): string {
   return path.resolve(ralphDir(), "ralphy.db");
@@ -44,5 +45,37 @@ export function closeDomainDb(): void {
 
 export function withImmediateTransaction<T>(fn: (db: Database) => T): T {
   const db = openDomainDb();
-  return db.transaction(() => fn(db)).immediate();
+  const frames = afterCommitFrames.get(db) ?? [];
+  const callbacks: Array<() => void> = [];
+  frames.push(callbacks);
+  afterCommitFrames.set(db, frames);
+  let result: T;
+  try {
+    result = db.transaction(() => fn(db)).immediate();
+  } catch (error) {
+    frames.pop();
+    if (frames.length === 0) afterCommitFrames.delete(db);
+    throw error;
+  }
+  frames.pop();
+  const parent = frames.at(-1);
+  if (parent) parent.push(...callbacks);
+  else {
+    afterCommitFrames.delete(db);
+    for (const callback of callbacks) {
+      try {
+        callback();
+      } catch {
+        // Durable state committed; startup cleanup retries post-commit housekeeping.
+      }
+    }
+  }
+  return result;
+}
+
+/** @internal Registers cleanup on the active domain transaction only. */
+export function afterDomainCommit(db: Database, callback: () => void): void {
+  const frame = afterCommitFrames.get(db)?.at(-1);
+  if (!frame) throw new Error("No active domain transaction");
+  frame.push(callback);
 }
