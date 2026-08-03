@@ -222,7 +222,7 @@ export type ArtifactRevisionState =
   | "superseded"
   | "archived";
 
-export type ArtifactRow = {
+export type ArtifactDto = {
   id: string;
   workspaceId: string;
   projectId: string | null;
@@ -234,7 +234,7 @@ export type ArtifactRow = {
   updatedAt: number;
 };
 
-export type ArtifactRevisionRow = {
+export type ArtifactRevisionDto = {
   id: string;
   artifactId: string;
   objectId: string;
@@ -242,17 +242,15 @@ export type ArtifactRevisionRow = {
   parentRevisionId: string | null;
   iterationId: string | null;
   state: ArtifactRevisionState;
-  metadata: JsonValue | null;
   authoredBySessionId: string | null;
   createdAt: number;
 };
 
-export type ArtifactRelationRow = {
+export type ArtifactRelationDto = {
   id: string;
   fromRevisionId: string;
   toRevisionId: string;
   relation: string;
-  metadata: JsonValue | null;
   createdAt: number;
 };
 

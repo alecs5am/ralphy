@@ -4,18 +4,31 @@ import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { resolveObjectPath } from "./objects.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import {
+  resolveQueryContext,
+  scopeVisibilityClause,
+  type QueryContext,
+  type ResolvedScope,
+} from "./scope-context.js";
+import {
+  type ArtifactDto,
   type ArtifactKind,
-  type ArtifactRelationRow,
-  type ArtifactRevisionRow,
+  type ArtifactRelationDto,
+  type ArtifactRevisionDto,
   type ArtifactRevisionState,
-  type ArtifactRow,
   type ArtifactUsageRow,
   type JsonValue,
+  type Page,
   StoreConflictError,
 } from "./types.js";
-import type { ObjectRow } from "./internal-types.js";
+import type {
+  ArtifactRelationRow,
+  ArtifactRevisionRow,
+  ArtifactRow,
+  ObjectRow,
+} from "./internal-types.js";
 
 type ArtifactScope =
   | { workspaceId: string; projectId?: never }
@@ -79,6 +92,16 @@ type ArtifactRevisionDbRow = {
   created_at: number;
 };
 
+type PublicArtifactRevisionDbRow = Omit<
+  ArtifactRevisionDbRow,
+  "metadata_json"
+>;
+
+type ScopedArtifactRevisionDbRow = PublicArtifactRevisionDbRow & {
+  workspace_id: string;
+  project_id: string | null;
+};
+
 type ObjectDbRow = {
   id: string;
   workspace_id: string;
@@ -119,6 +142,8 @@ const ARTIFACT_COLUMNS =
   "id, workspace_id, project_id, slug, kind, selected_revision_id, row_version, created_at, updated_at";
 const REVISION_COLUMNS =
   "id, artifact_id, object_id, revision_no, parent_revision_id, iteration_id, state, metadata_json, authored_by_session_id, created_at";
+const PUBLIC_REVISION_COLUMNS =
+  "r.id, r.artifact_id, r.object_id, r.revision_no, r.parent_revision_id, r.iteration_id, r.state, r.authored_by_session_id, r.created_at, a.workspace_id, a.project_id";
 const OBJECT_COLUMNS =
   "id, workspace_id, project_id, backend, bucket, key, sha256, mime, bytes, storage_class, original_name, metadata_json, created_at";
 const RELATION_COLUMNS =
@@ -149,7 +174,7 @@ const BINARY_KEYS = new Set([
 const DATA_URL =
   /data:(?:[a-z][a-z0-9!#$&^_.+-]*\/[a-z0-9!#$&^_.+-]+)?(?:;[a-z0-9!#$&^_.+-]+=[^;,\s]+)*(?:;base64)?,[^\s"'<>]*/i;
 
-export function createArtifact(input: CreateArtifactInput): ArtifactRow {
+export function createArtifact(input: CreateArtifactInput): ArtifactDto {
   assertArtifactKind(input.kind);
   const slug = checkedText(input.slug, "Artifact slug");
   return withImmediateTransaction((db) => {
@@ -168,23 +193,116 @@ export function createArtifact(input: CreateArtifactInput): ArtifactRow {
       payload: { kind: input.kind },
       createdAt: now,
     });
-    return getArtifactRow(db, id)!;
+    return toArtifactDto(getArtifactRow(db, id)!);
   });
 }
 
-export function getArtifact(id: string): ArtifactRow {
-  const artifact = getArtifactRow(openDomainDb(), id);
-  if (!artifact) throw new Error(`Artifact not found: ${id}`);
-  return artifact;
+export function getArtifact(input: {
+  context: QueryContext;
+  artifactId: string;
+}): ArtifactDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const artifact = getVisibleArtifactRow(db, scope, input.artifactId);
+  if (!artifact) {
+    throw new Error(`Artifact not found: ${input.artifactId}`);
+  }
+  return toArtifactDto(artifact);
 }
 
-export function getArtifactRevision(id: string): ArtifactRevisionRow | null {
-  return getArtifactRevisionRow(openDomainDb(), id);
+export function getArtifactRevision(input: {
+  context: QueryContext;
+  revisionId: string;
+}): ArtifactRevisionDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const revision = getVisibleArtifactRevision(db, scope, input.revisionId);
+  if (!revision) {
+    throw new Error(`Artifact Revision not found: ${input.revisionId}`);
+  }
+  return revision;
+}
+
+export function listArtifacts(input: {
+  context: QueryContext;
+  after?: string | null;
+  limit: number;
+}): Page<ArtifactDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const visibility = scopeVisibilityClause(
+    scope,
+    "workspace_id",
+    "project_id",
+  );
+  const rows = db
+    .query<ArtifactDbRow, (string | number)[]>(
+      `SELECT ${ARTIFACT_COLUMNS} FROM artifacts
+       WHERE ${visibility.sql}
+         AND (created_at > ? OR (created_at = ? AND id > ?))
+       ORDER BY created_at ASC, id ASC LIMIT ?`,
+    )
+    .all(
+      ...visibility.values,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  const page = buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.created_at,
+    id: row.id,
+  }));
+  return {
+    items: page.items.map((row) => toArtifactDto(toArtifactRow(row))),
+    nextCursor: page.nextCursor,
+  };
+}
+
+export function listArtifactRevisions(input: {
+  context: QueryContext;
+  artifactId: string;
+  after?: string | null;
+  limit: number;
+}): Page<ArtifactRevisionDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("v1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const artifact = getVisibleArtifactRow(db, scope, input.artifactId);
+  if (!artifact) {
+    throw new Error(`Artifact not found: ${input.artifactId}`);
+  }
+  const rows = db
+    .query<ScopedArtifactRevisionDbRow, [string, number, number, string, number]>(
+      `SELECT ${PUBLIC_REVISION_COLUMNS}
+       FROM artifact_revisions r JOIN artifacts a ON a.id = r.artifact_id
+       WHERE r.artifact_id = ?
+         AND (r.revision_no > ? OR (r.revision_no = ? AND r.id > ?))
+       ORDER BY r.revision_no ASC, r.id ASC LIMIT ?`,
+    )
+    .all(
+      artifact.id,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  const page = buildPage(rows, input.limit, "v1", (row) => ({
+    ordinal: row.revision_no,
+    id: row.id,
+  }));
+  return {
+    items: page.items.map(toPublicArtifactRevisionDto),
+    nextCursor: page.nextCursor,
+  };
 }
 
 export function addArtifactRevision(
   input: AddArtifactRevisionInput,
-): ArtifactRevisionRow {
+): ArtifactRevisionDto {
   assertRevisionState(input.state);
   const metadata = checkedJson(input.metadata);
   const initialDb = openDomainDb();
@@ -225,7 +343,7 @@ export function addArtifactRevision(
       },
       createdAt: revision.createdAt,
     });
-    return revision;
+    return toArtifactRevisionDto(revision);
   });
 }
 
@@ -233,7 +351,7 @@ export function selectArtifactRevision(input: {
   artifactId: string;
   revisionId: string;
   expectedRevisionId: string | null;
-}): ArtifactRow {
+}): ArtifactDto {
   return withImmediateTransaction((db) => {
     const artifact = getArtifactRow(db, input.artifactId);
     if (!artifact) throw new Error(`Artifact not found: ${input.artifactId}`);
@@ -263,7 +381,7 @@ export function selectArtifactRevision(input: {
       },
       createdAt: now,
     });
-    return getArtifactRow(db, artifact.id)!;
+    return toArtifactDto(getArtifactRow(db, artifact.id)!);
   });
 }
 
@@ -271,7 +389,7 @@ export function setArtifactRevisionState(input: {
   revisionId: string;
   state: ArtifactRevisionState;
   authoredBySessionId?: string | null;
-}): ArtifactRevisionRow {
+}): ArtifactRevisionDto {
   assertRevisionState(input.state);
   const initialDb = openDomainDb();
   const source = getArtifactRevisionRow(initialDb, input.revisionId);
@@ -300,7 +418,7 @@ export function setArtifactRevisionStateInTransaction(
     state: ArtifactRevisionState;
     authoredBySessionId?: string | null;
   },
-): ArtifactRevisionRow {
+): ArtifactRevisionDto {
   assertRevisionState(input.state);
   {
     const currentSource = getArtifactRevisionRow(db, input.revisionId);
@@ -339,13 +457,13 @@ export function setArtifactRevisionStateInTransaction(
       },
       createdAt: revision.createdAt,
     });
-    return revision;
+    return toArtifactRevisionDto(revision);
   }
 }
 
 export function addArtifactRelation(
   input: ArtifactRelationInput,
-): ArtifactRelationRow {
+): ArtifactRelationDto {
   const relation = checkedText(input.relation, "Artifact relation");
   const metadata = checkedJson(input.metadata);
   return withImmediateTransaction((db) => {
@@ -393,7 +511,7 @@ export function addArtifactRelation(
       },
       createdAt: now,
     });
-    return getArtifactRelationRow(db, id)!;
+    return toArtifactRelationDto(getArtifactRelationRow(db, id)!);
   });
 }
 
@@ -716,6 +834,25 @@ function getArtifactRow(db: Database, id: string): ArtifactRow | null {
   return row ? toArtifactRow(row) : null;
 }
 
+function getVisibleArtifactRow(
+  db: Database,
+  scope: ResolvedScope,
+  id: string,
+): ArtifactRow | null {
+  const visibility = scopeVisibilityClause(
+    scope,
+    "workspace_id",
+    "project_id",
+  );
+  const row = db
+    .query<ArtifactDbRow, string[]>(
+      `SELECT ${ARTIFACT_COLUMNS} FROM artifacts
+       WHERE id = ? AND ${visibility.sql}`,
+    )
+    .get(id, ...visibility.values);
+  return row ? toArtifactRow(row) : null;
+}
+
 function getArtifactRevisionRow(
   db: Database,
   id: string,
@@ -727,6 +864,28 @@ function getArtifactRevisionRow(
     >(`SELECT ${REVISION_COLUMNS} FROM artifact_revisions WHERE id = ?`)
     .get(id);
   return row ? toArtifactRevisionRow(row) : null;
+}
+
+function getVisibleArtifactRevision(
+  db: Database,
+  scope: ResolvedScope,
+  id: string,
+): ArtifactRevisionDto | null {
+  const visibility = scopeVisibilityClause(
+    scope,
+    "a.workspace_id",
+    "a.project_id",
+  );
+  const row = db
+    .query<ScopedArtifactRevisionDbRow, string[]>(
+      `SELECT ${PUBLIC_REVISION_COLUMNS}
+       FROM artifact_revisions r
+       JOIN artifacts a ON a.id = r.artifact_id
+       WHERE r.id = ? AND ${visibility.sql}`,
+    )
+    .get(id, ...visibility.values);
+  if (!row) return null;
+  return toPublicArtifactRevisionDto(row);
 }
 
 function getObjectRow(db: Database, id: string): ObjectRow | null {
@@ -814,6 +973,20 @@ function toArtifactRow(row: ArtifactDbRow): ArtifactRow {
   };
 }
 
+function toArtifactDto(row: ArtifactRow): ArtifactDto {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    projectId: row.projectId,
+    slug: row.slug,
+    kind: row.kind,
+    selectedRevisionId: row.selectedRevisionId,
+    rowVersion: row.rowVersion,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 function toArtifactRevisionRow(
   row: ArtifactRevisionDbRow,
 ): ArtifactRevisionRow {
@@ -828,6 +1001,46 @@ function toArtifactRevisionRow(
     metadata: parseJson(row.metadata_json),
     authoredBySessionId: row.authored_by_session_id,
     createdAt: row.created_at,
+  };
+}
+
+function toArtifactRevisionDto(row: ArtifactRevisionRow): ArtifactRevisionDto {
+  return {
+    id: row.id,
+    artifactId: row.artifactId,
+    objectId: row.objectId,
+    revisionNo: row.revisionNo,
+    parentRevisionId: row.parentRevisionId,
+    iterationId: row.iterationId,
+    state: row.state,
+    authoredBySessionId: row.authoredBySessionId,
+    createdAt: row.createdAt,
+  };
+}
+
+function toPublicArtifactRevisionDto(
+  row: PublicArtifactRevisionDbRow,
+): ArtifactRevisionDto {
+  return {
+    id: row.id,
+    artifactId: row.artifact_id,
+    objectId: row.object_id,
+    revisionNo: row.revision_no,
+    parentRevisionId: row.parent_revision_id,
+    iterationId: row.iteration_id,
+    state: row.state,
+    authoredBySessionId: row.authored_by_session_id,
+    createdAt: row.created_at,
+  };
+}
+
+function toArtifactRelationDto(row: ArtifactRelationRow): ArtifactRelationDto {
+  return {
+    id: row.id,
+    fromRevisionId: row.fromRevisionId,
+    toRevisionId: row.toRevisionId,
+    relation: row.relation,
+    createdAt: row.createdAt,
   };
 }
 
