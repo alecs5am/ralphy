@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ralphDir } from "../paths.js";
 import { appendActivity } from "./activity.js";
+import { requireConsumerSession } from "./consumer-runs.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import {
@@ -11,19 +12,25 @@ import {
   type ObjectScope,
 } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import {
+  resolveQueryContext,
+  scopeVisibilityClause,
+  type QueryContext,
+} from "./scope-context.js";
 import type {
   JsonValue,
   ObjectStorageClass,
+  Page,
+  RunAttemptDto,
+  RunDto,
   RunAttemptRow,
   RunResultEntityType,
   RunResultRow,
   RunRow,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
-import type {
-  RunAggregate,
-  RunObjectRow,
-} from "./internal-types.js";
+import type { RunObjectRow } from "./internal-types.js";
 
 type RunState = RunRow["state"];
 
@@ -42,6 +49,19 @@ type RunDbRow = {
   error: string | null;
 };
 
+type RunDtoDbRow = {
+  id: string;
+  workspace_id: string | null;
+  project_id: string | null;
+  agent_session_id: string | null;
+  kind: string;
+  label: string | null;
+  state: RunState;
+  created_at: number;
+  started_at: number | null;
+  ended_at: number | null;
+};
+
 type RunAttemptDbRow = {
   id: string;
   run_id: string;
@@ -53,6 +73,18 @@ type RunAttemptDbRow = {
   response_json: string | null;
   cost_usd: number | null;
   error: string | null;
+  started_at: number;
+  ended_at: number | null;
+};
+
+type RunAttemptDtoDbRow = {
+  id: string;
+  run_id: string;
+  attempt_no: number;
+  provider: string | null;
+  model: string | null;
+  state: RunState;
+  cost_usd: number | null;
   started_at: number;
   ended_at: number | null;
 };
@@ -82,8 +114,12 @@ type RunResultDbRow = {
 
 const RUN_COLUMNS =
   "id, workspace_id, project_id, agent_session_id, kind, label, state, metadata_json, created_at, started_at, ended_at, error";
+const RUN_DTO_COLUMNS =
+  "id, workspace_id, project_id, agent_session_id, kind, label, state, created_at, started_at, ended_at";
 const ATTEMPT_COLUMNS =
   "id, run_id, attempt_no, provider, model, state, request_json, response_json, cost_usd, error, started_at, ended_at";
+const ATTEMPT_DTO_COLUMNS =
+  "attempt.id, attempt.run_id, attempt.attempt_no, attempt.provider, attempt.model, attempt.state, attempt.cost_usd, attempt.started_at, attempt.ended_at";
 const RUN_OBJECT_COLUMNS =
   "id, run_id, object_id, path, purpose, state, retention, bytes, sha256, metadata_json, created_at";
 const RUN_RESULT_COLUMNS =
@@ -414,25 +450,99 @@ export async function promoteRunObject(input: {
   });
 }
 
-export function getRun(id: string): RunAggregate {
+export function getRun(input: {
+  context: QueryContext;
+  runId: string;
+}): RunDto {
   const db = openDomainDb();
-  const run = getRunRow(db, id);
-  if (!run) throw new Error(`Run not found: ${id}`);
-  return {
-    ...run,
-    attempts: db
-      .query<RunAttemptDbRow, [string]>(
-        `SELECT ${ATTEMPT_COLUMNS} FROM run_attempts WHERE run_id = ? ORDER BY attempt_no ASC, id ASC`,
-      )
-      .all(id)
-      .map(toRunAttemptRow),
-    objects: db
-      .query<RunObjectDbRow, [string]>(
-        `SELECT ${RUN_OBJECT_COLUMNS} FROM run_objects WHERE run_id = ? ORDER BY created_at ASC, id ASC`,
-      )
-      .all(id)
-      .map(toRunObjectRow),
-  };
+  const access = resolveRunQueryAccess(db, input.context);
+  const row = getVisibleRunDtoRow(db, access, input.runId);
+  if (!row) throw new Error(`Run not found: ${input.runId}`);
+  return toRunDto(row);
+}
+
+export function listRuns(input: {
+  context: QueryContext;
+  after?: string | null;
+  limit: number;
+}): Page<RunDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  const clauses = [access.sql];
+  const values = [...access.values];
+  if (input.after != null) {
+    const cursor = decodeCursor("c1", input.after);
+    clauses.push(
+      "(run.created_at > ? OR (run.created_at = ? AND run.id > ?))",
+    );
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(input.limit + 1);
+  const rows = db
+    .query<RunDtoDbRow, (string | number)[]>(
+      `SELECT ${RUN_DTO_COLUMNS} FROM runs AS run
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY run.created_at ASC, run.id ASC LIMIT ?`,
+    )
+    .all(...values);
+  return buildPage(rows.map(toRunDto), input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getRunAttempt(input: {
+  context: QueryContext;
+  attemptId: string;
+}): RunAttemptDto {
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  const row = db
+    .query<RunAttemptDtoDbRow, (string | number)[]>(
+      `SELECT ${ATTEMPT_DTO_COLUMNS}
+       FROM run_attempts AS attempt
+       JOIN runs AS run ON run.id = attempt.run_id
+       WHERE attempt.id = ? AND ${access.sql}`,
+    )
+    .get(input.attemptId, ...access.values);
+  if (!row) throw new Error(`Run Attempt not found: ${input.attemptId}`);
+  return toRunAttemptDto(row);
+}
+
+export function listRunAttempts(input: {
+  context: QueryContext;
+  runId: string;
+  after?: string | null;
+  limit: number;
+}): Page<RunAttemptDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  if (!getVisibleRunDtoRow(db, access, input.runId)) {
+    throw new Error(`Run not found: ${input.runId}`);
+  }
+  const clauses = ["attempt.run_id = ?"];
+  const values: (string | number)[] = [input.runId];
+  if (input.after != null) {
+    const cursor = decodeCursor("p1", input.after);
+    clauses.push(
+      "(attempt.attempt_no > ? OR (attempt.attempt_no = ? AND attempt.id > ?))",
+    );
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(input.limit + 1);
+  const rows = db
+    .query<RunAttemptDtoDbRow, (string | number)[]>(
+      `SELECT ${ATTEMPT_DTO_COLUMNS} FROM run_attempts AS attempt
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY attempt.attempt_no ASC, attempt.id ASC LIMIT ?`,
+    )
+    .all(...values);
+  return buildPage(rows.map(toRunAttemptDto), input.limit, "p1", (row) => ({
+    ordinal: row.attemptNo,
+    id: row.id,
+  }));
 }
 
 /** @internal Stores one stable result identity inside the caller's transaction. */
@@ -709,6 +819,57 @@ function resolveRunScope(
   return { workspaceId: null, projectId: null };
 }
 
+function resolveRunQueryAccess(
+  db: Database,
+  context: QueryContext,
+): { sql: string; values: (string | number)[] } {
+  const scope = resolveQueryContext(db, context);
+  if (context.sessionId !== undefined) {
+    const principalId = db
+      .query<{ principalId: string | null }, [string]>(
+        `SELECT consumer_principal_id AS principalId
+         FROM agent_sessions WHERE id = ?`,
+      )
+      .get(context.sessionId)?.principalId;
+    if (principalId != null) {
+      const consumer = requireConsumerSession(db, context.sessionId);
+      return consumer.projectId === null
+        ? {
+            sql: "run.external_system IS NOT NULL AND run.consumer_principal_id = ? AND run.workspace_id = ? AND run.project_id IS NULL",
+            values: [consumer.principalId, consumer.workspaceId],
+          }
+        : {
+            sql: "run.external_system IS NOT NULL AND run.consumer_principal_id = ? AND run.workspace_id = ? AND run.project_id = ?",
+            values: [
+              consumer.principalId,
+              consumer.workspaceId,
+              consumer.projectId,
+            ],
+          };
+    }
+  }
+  return scopeVisibilityClause(
+    scope,
+    "run.workspace_id",
+    "run.project_id",
+  );
+}
+
+function getVisibleRunDtoRow(
+  db: Database,
+  access: { sql: string; values: (string | number)[] },
+  runId: string,
+): RunDtoDbRow | null {
+  return (
+    db
+      .query<RunDtoDbRow, (string | number)[]>(
+        `SELECT ${RUN_DTO_COLUMNS} FROM runs AS run
+         WHERE run.id = ? AND ${access.sql}`,
+      )
+      .get(runId, ...access.values) ?? null
+  );
+}
+
 function promotionScope(run: RunRow, explicit?: ObjectScope): ObjectScope {
   if (run.workspaceId === null) {
     if (!explicit) {
@@ -825,6 +986,35 @@ function toRunRow(row: RunDbRow): RunRow {
     startedAt: row.started_at,
     endedAt: row.ended_at,
     error: row.error,
+  };
+}
+
+function toRunDto(row: RunDtoDbRow): RunDto {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    projectId: row.project_id,
+    agentSessionId: row.agent_session_id,
+    kind: row.kind,
+    label: row.label,
+    state: row.state,
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+  };
+}
+
+function toRunAttemptDto(row: RunAttemptDtoDbRow): RunAttemptDto {
+  return {
+    id: row.id,
+    runId: row.run_id,
+    attemptNo: row.attempt_no,
+    provider: row.provider,
+    model: row.model,
+    state: row.state,
+    costUsd: row.cost_usd,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
   };
 }
 

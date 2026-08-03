@@ -604,6 +604,18 @@ export type RunDto = {
   endedAt: number | null;
 };
 
+export type RunAttemptDto = {
+  id: string;
+  runId: string;
+  attemptNo: number;
+  provider: string | null;
+  model: string | null;
+  state: RunState;
+  costUsd: number | null;
+  startedAt: number;
+  endedAt: number | null;
+};
+
 export type RunResultDto = {
   id: string;
   runId: string;

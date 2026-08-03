@@ -302,7 +302,8 @@ function readRunResults(
   }));
 }
 
-type ConsumerSession = {
+/** @internal Authenticated consumer identity and its exact operation scope. */
+export type ConsumerSession = {
   id: string;
   principalId: string;
   namespace: string;
@@ -310,7 +311,8 @@ type ConsumerSession = {
   projectId: string | null;
 };
 
-function requireConsumerSession(
+/** @internal Shared guard for consumer-owned store operations. */
+export function requireConsumerSession(
   db: Database,
   sessionId: string,
 ): ConsumerSession {
