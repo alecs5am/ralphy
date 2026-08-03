@@ -3056,10 +3056,21 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'Build Document binding identity is immutable');
       END;
 
-      CREATE TRIGGER build_document_bindings_no_update
+      CREATE TRIGGER build_document_bindings_update_guard
       BEFORE UPDATE ON build_document_bindings
+      WHEN NOT (
+        NEW.id IS OLD.id
+        AND NEW.build_id IS OLD.build_id
+        AND NEW.role IS OLD.role
+        AND NEW.created_at IS OLD.created_at
+        AND EXISTS (
+          SELECT 1 FROM builds build
+          WHERE build.id = OLD.build_id
+            AND build.state IN ('pending', 'running')
+        )
+      )
       BEGIN
-        SELECT RAISE(ABORT, 'Build Document bindings are immutable');
+        SELECT RAISE(ABORT, 'Build Document binding identity is immutable');
       END;
 
       CREATE TRIGGER build_document_bindings_no_delete
