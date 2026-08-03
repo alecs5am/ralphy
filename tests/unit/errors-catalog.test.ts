@@ -20,12 +20,67 @@ describe("ERROR_CODES catalog", () => {
     expect(codes.length).toBeGreaterThan(0);
   });
 
-  test("has fewer than 40 entries (v1.0 budget per 01.06.01)", () => {
-    // Original budget was <30; bumped to <40 when category 02 landed
-    // E_TEMPLATE_INPUT_MISSING + E_TEMPLATE_SLUG_INVALID (02.05.02 + 02.06.02).
+  test("has fewer than 48 entries (v1.0 budget per 01.06.01)", () => {
+    // Original budget was <30; raised as new stable domain boundaries landed.
     // If this trips, audit the catalog before raising — every code is a
     // public surface, append-only after v1.0.
-    expect(codes.length).toBeLessThan(40);
+    expect(codes.length).toBeLessThan(48);
+  });
+
+  test("includes the six stable domain boundary codes", () => {
+    expect(ERROR_CODES.E_CONFLICT.httpAnalog).toBe(409);
+    expect(ERROR_CODES.E_OBJECT_MISSING.httpAnalog).toBe(424);
+    expect(ERROR_CODES.E_MIGRATION_INCOMPLETE.httpAnalog).toBe(409);
+    expect(ERROR_CODES.E_PROTOCOL_UNSUPPORTED.httpAnalog).toBe(426);
+    expect(ERROR_CODES.E_PROTOCOL_INVALID.httpAnalog).toBe(400);
+    expect(ERROR_CODES.E_SECRET_STORE.class).toBe("env");
+  });
+
+  test("gives each domain boundary its exact class and actionable hint", () => {
+    expect({
+      class: ERROR_CODES.E_CONFLICT.class,
+      hint: ERROR_CODES.E_CONFLICT.hint,
+    }).toEqual({
+      class: "user",
+      hint: "Reload the exact {kind} {id}, apply the change against its current version or state, and retry.",
+    });
+    expect({
+      class: ERROR_CODES.E_OBJECT_MISSING.class,
+      hint: ERROR_CODES.E_OBJECT_MISSING.hint,
+    }).toEqual({
+      class: "env",
+      hint: "Run `ralphy doctor --storage` to identify missing bucket objects before retrying.",
+    });
+    expect({
+      class: ERROR_CODES.E_MIGRATION_INCOMPLETE.class,
+      hint: ERROR_CODES.E_MIGRATION_INCOMPLETE.hint,
+    }).toEqual({
+      class: "user",
+      hint: "Run `ralphy migrate domain verify` and complete or recover the reported migration.",
+    });
+    expect({
+      class: ERROR_CODES.E_PROTOCOL_UNSUPPORTED.class,
+      hint: ERROR_CODES.E_PROTOCOL_UNSUPPORTED.hint,
+    }).toEqual({
+      class: "user",
+      hint: "Upgrade Ralphy Desktop and core to compatible versions, then reconnect.",
+    });
+    expect({
+      class: ERROR_CODES.E_PROTOCOL_INVALID.class,
+      hint: ERROR_CODES.E_PROTOCOL_INVALID.hint,
+    }).toEqual({
+      class: "user",
+      hint: "Upgrade Ralphy Desktop and core to compatible versions, then reconnect.",
+    });
+    expect({
+      class: ERROR_CODES.E_SECRET_STORE.class,
+      hint: ERROR_CODES.E_SECRET_STORE.hint,
+      hasHttpAnalog: "httpAnalog" in ERROR_CODES.E_SECRET_STORE,
+    }).toEqual({
+      class: "env",
+      hint: "Run `ralphy provider auth status` and repair the reported credential-store issue.",
+      hasHttpAnalog: false,
+    });
   });
 
   test("every code matches /^E_[A-Z][A-Z0-9_]+$/", () => {
